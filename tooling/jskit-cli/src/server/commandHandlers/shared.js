@@ -5,6 +5,10 @@ import {
   ensureObject,
   sortStrings
 } from "../shared/collectionUtils.js";
+import {
+  ensureLocalMainPlacementComponentProvisioning,
+  resolveProvisionableLocalPlacementComponentTokens
+} from "./packageCommands/tabLinkItemProvisioning.js";
 
 function createCommandHandlerShared(ctx = {}) {
   const {
@@ -268,9 +272,25 @@ function createCommandHandlerShared(ctx = {}) {
       dryRun: dryRun === true
     });
     const payload = ensureObject(result);
-    const touchedFiles = sortStrings(
+    const touchedFileSet = new Set(
       ensureArray(payload.touchedFiles).map((value) => String(value || "").trim()).filter(Boolean)
     );
+    const placementComponentTokens = await resolveProvisionableLocalPlacementComponentTokens({
+      appRoot,
+      componentTokens: ensureArray(payload.placementComponentTokens)
+        .map((value) => String(value || "").trim())
+        .filter(Boolean)
+    });
+    if (placementComponentTokens.length > 0) {
+      await ensureLocalMainPlacementComponentProvisioning({
+        appRoot,
+        createCliError,
+        dryRun: dryRun === true,
+        touchedFiles: touchedFileSet,
+        componentTokens: placementComponentTokens
+      });
+    }
+    const touchedFiles = sortStrings([...touchedFileSet]);
     const summary = String(payload.summary || "").trim();
 
     if (json) {

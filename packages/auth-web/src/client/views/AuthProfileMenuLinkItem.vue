@@ -1,10 +1,9 @@
 <script setup>
 import { computed } from "vue";
-import { mdiAccountCogOutline, mdiCogOutline, mdiLogin, mdiLogout } from "@mdi/js";
-import {
-  useWebPlacementContext,
-  resolveSurfaceNavigationTargetFromPlacementContext
-} from "@jskit-ai/shell-web/client/placement";
+import { useRoute } from "vue-router";
+import { useWebPlacementContext } from "@jskit-ai/shell-web/client/placement";
+import ShellMenuLinkItem from "@jskit-ai/shell-web/client/components/ShellMenuLinkItem";
+import { appendAccountReturnToIfNeeded } from "../lib/profileMenuLinkTarget.js";
 
 const props = defineProps({
   label: {
@@ -18,66 +17,37 @@ const props = defineProps({
   icon: {
     type: String,
     default: ""
+  },
+  disabled: {
+    type: Boolean,
+    default: false
   }
 });
+const route = useRoute();
 const { context: placementContext } = useWebPlacementContext();
 
-const resolvedNavigationTarget = computed(() => {
-  const target = String(props.to || "").trim();
-  if (!target) {
-    return {
-      href: "",
-      sameOrigin: true
-    };
+function resolveWindowHref() {
+  if (typeof window !== "object" || !window || !window.location) {
+    return "/";
   }
+  return String(window.location.href || "").trim() || "/";
+}
 
-  const navigationTarget = resolveSurfaceNavigationTargetFromPlacementContext(placementContext.value, {
-    path: target
-  });
-  return {
-    href: navigationTarget.href,
-    sameOrigin: navigationTarget.sameOrigin
-  };
-});
-
-const resolvedIcon = computed(() => {
-  const explicitIcon = String(props.icon || "").trim();
-  if (explicitIcon) {
-    return explicitIcon;
-  }
-
-  const normalizedLabel = String(props.label || "").trim().toLowerCase();
-  const normalizedTarget = String(props.to || "").trim().toLowerCase();
-  if (
-    normalizedLabel.includes("sign in") ||
-    normalizedTarget.includes("/auth/login")
-  ) {
-    return mdiLogin;
-  }
-
-  if (
-    normalizedLabel.includes("sign out") ||
-    normalizedTarget.includes("/auth/signout")
-  ) {
-    return mdiLogout;
-  }
-
-  if (normalizedLabel.includes("settings") || normalizedTarget.includes("/settings")) {
-    if (normalizedTarget.includes("/account")) {
-      return mdiAccountCogOutline;
-    }
-    return mdiCogOutline;
-  }
-
-  return "";
-});
+const resolvedTo = computed(() =>
+  appendAccountReturnToIfNeeded(props.to, {
+    placementContext: placementContext.value,
+    currentFullPath: route?.fullPath,
+    currentPath: route?.path,
+    currentHref: resolveWindowHref()
+  })
+);
 </script>
 
 <template>
-  <v-list-item
-    :title="props.label || undefined"
-    :to="resolvedNavigationTarget.sameOrigin ? resolvedNavigationTarget.href || undefined : undefined"
-    :href="resolvedNavigationTarget.sameOrigin ? undefined : resolvedNavigationTarget.href || undefined"
-    :prepend-icon="resolvedIcon || undefined"
+  <ShellMenuLinkItem
+    :label="props.label"
+    :to="resolvedTo"
+    :icon="props.icon"
+    :disabled="props.disabled"
   />
 </template>

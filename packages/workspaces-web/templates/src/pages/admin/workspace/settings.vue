@@ -15,7 +15,10 @@ import { RouterView } from "vue-router";
         <v-row no-gutters>
           <v-col cols="12" md="3" lg="2" class="pr-md-4 mb-4 mb-md-0">
             <v-list nav density="comfortable" rounded="lg" border>
-              <ShellOutlet host="admin-settings" position="primary-menu" />
+              <ShellOutlet
+                target="admin-settings:primary-menu"
+                default-link-component-token="local.main.ui.surface-aware-menu-link-item"
+              />
             </v-list>
           </v-col>
 

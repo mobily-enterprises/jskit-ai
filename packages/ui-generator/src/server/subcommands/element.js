@@ -135,8 +135,7 @@ async function runGeneratorSubcommand({
     "{\n" +
     "  addPlacement({\n" +
     `    id: "ui-generator.element.${elementNameKebab}",\n` +
-    `    host: "${placementTarget.host}",\n` +
-    `    position: "${placementTarget.position}",\n` +
+    `    target: "${placementTarget.id}",\n` +
     `    surfaces: ["${surface}"],\n` +
     "    order: 155,\n" +
     `    componentToken: "${componentToken}"\n` +

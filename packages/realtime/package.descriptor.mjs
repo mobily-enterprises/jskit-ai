@@ -81,8 +81,7 @@ export default Object.freeze({
         contributions: [
           {
             id: "realtime.connection.indicator",
-            host: "shell-layout",
-            position: "top-right",
+            target: "shell-layout:top-right",
             surfaces: ["*"],
             order: 950,
             componentToken: "realtime.web.connection.indicator",
@@ -134,7 +133,7 @@ export default Object.freeze({
         position: "bottom",
         skipIfContains: "id: \"realtime.connection.indicator\"",
         value:
-          "\naddPlacement({\n  id: \"realtime.connection.indicator\",\n  host: \"shell-layout\",\n  position: \"top-right\",\n  surfaces: [\"*\"],\n  order: 950,\n  componentToken: \"realtime.web.connection.indicator\"\n});\n",
+          "\naddPlacement({\n  id: \"realtime.connection.indicator\",\n  target: \"shell-layout:top-right\",\n  surfaces: [\"*\"],\n  order: 950,\n  componentToken: \"realtime.web.connection.indicator\"\n});\n",
         reason: "Append realtime connection indicator placement into app-owned placement registry.",
         category: "realtime-web",
         id: "realtime-placement-indicator"

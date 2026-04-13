@@ -36,8 +36,12 @@ async function writeShellLayout(appRoot, source = "") {
     source ||
       `<template>
   <div>
-    <ShellOutlet host="shell-layout" position="top-right" />
-    <ShellOutlet host="shell-layout" position="primary-menu" default />
+    <ShellOutlet target="shell-layout:top-right" />
+    <ShellOutlet
+      target="shell-layout:primary-menu"
+      default
+      default-link-component-token="local.main.ui.surface-aware-menu-link-item"
+    />
   </div>
 </template>
 `
@@ -208,10 +212,48 @@ test("resolvePageLinkTargetDetails falls back to the app default placement targe
     });
 
     assert.equal(details.pageTarget.surfaceId, "admin");
-    assert.equal(details.placementTarget.host, "shell-layout");
-    assert.equal(details.placementTarget.position, "primary-menu");
-    assert.equal(details.componentToken, "users.web.shell.surface-aware-menu-link-item");
+    assert.equal(details.placementTarget.id, "shell-layout:primary-menu");
+    assert.equal(details.componentToken, "local.main.ui.surface-aware-menu-link-item");
     assert.equal(details.linkTo, "");
+  });
+});
+
+test("resolvePageLinkTargetDetails prefers an outlet-declared default link token over subpage heuristics", async () => {
+  await withTempApp(async (appRoot) => {
+    await writeConfig(
+      appRoot,
+      `export const config = {
+  surfaceDefinitions: {
+    home: { id: "home", pagesRoot: "home", enabled: true }
+  }
+};
+`
+    );
+    await writeFileInApp(
+      appRoot,
+      "src/pages/home/settings.vue",
+      `<template>
+  <section>
+    <ShellOutlet
+      target="home-settings:primary-menu"
+      default-link-component-token="local.main.ui.surface-aware-menu-link-item"
+    />
+    <RouterView />
+  </section>
+</template>
+`
+    );
+
+    const details = await resolvePageLinkTargetDetails({
+      appRoot,
+      targetFile: "home/settings/pollen-types/index.vue",
+      context: "page target"
+    });
+
+    assert.equal(details.parentHost?.id, "home-settings:primary-menu");
+    assert.equal(details.placementTarget.id, "home-settings:primary-menu");
+    assert.equal(details.componentToken, "local.main.ui.surface-aware-menu-link-item");
+    assert.equal(details.linkTo, "./pollen-types");
   });
 });
 
@@ -233,7 +275,7 @@ test("resolvePageLinkTargetDetails inherits a file-route parent subpages host", 
       `<template>
   <SectionContainerShell>
     <template #tabs>
-      <ShellOutlet host="contact-view" position="sub-pages" />
+      <ShellOutlet target="contact-view:sub-pages" />
     </template>
     <RouterView />
   </SectionContainerShell>
@@ -248,8 +290,7 @@ test("resolvePageLinkTargetDetails inherits a file-route parent subpages host", 
     });
 
     assert.equal(details.parentHost?.id, "contact-view:sub-pages");
-    assert.equal(details.placementTarget.host, "contact-view");
-    assert.equal(details.placementTarget.position, "sub-pages");
+    assert.equal(details.placementTarget.id, "contact-view:sub-pages");
     assert.equal(details.componentToken, "local.main.ui.tab-link-item");
     assert.equal(details.linkTo, "./notes");
   });
@@ -277,8 +318,7 @@ test("resolvePageLinkTargetDetails honors explicit placement and link overrides"
       context: "page target"
     });
 
-    assert.equal(details.placementTarget.host, "shell-layout");
-    assert.equal(details.placementTarget.position, "top-right");
+    assert.equal(details.placementTarget.id, "shell-layout:top-right");
     assert.equal(details.componentToken, "custom.link-item");
     assert.equal(details.linkTo, "./assistant-notes");
   });
@@ -302,7 +342,7 @@ test("resolvePageLinkTargetDetails inherits an index-route parent subpages host 
       `<template>
   <SectionContainerShell>
     <template #tabs>
-      <ShellOutlet host="customer-view" position="sub-pages" />
+      <ShellOutlet target="customer-view:sub-pages" />
     </template>
     <RouterView />
   </SectionContainerShell>
@@ -318,8 +358,7 @@ test("resolvePageLinkTargetDetails inherits an index-route parent subpages host 
 
     assert.equal(details.parentHost?.id, "customer-view:sub-pages");
     assert.equal(details.parentHost?.pageFile, "src/pages/admin/customers/[customerId]/index.vue");
-    assert.equal(details.placementTarget.host, "customer-view");
-    assert.equal(details.placementTarget.position, "sub-pages");
+    assert.equal(details.placementTarget.id, "customer-view:sub-pages");
     assert.equal(details.componentToken, "local.main.ui.tab-link-item");
     assert.equal(details.linkTo, "./pets");
   });

@@ -97,7 +97,7 @@ This is intentionally separate from `placed-element`, which still uses `--placem
 It upgrades an existing page so the page itself owns:
 
 - `SectionContainerShell`
-- `ShellOutlet host="..." position="sub-pages"`
+- `ShellOutlet target="...:sub-pages"`
 - `RouterView`
 
 `--target` controls that outlet target:
@@ -118,7 +118,7 @@ If the page already contains a `RouterView`, `add-subpages` fails instead of try
 It also ensures the shared support scaffold exists:
 
 - `src/components/SectionContainerShell.vue`
-- `src/components/TabLinkItem.vue`
+- `src/components/menus/TabLinkItem.vue`
 - `packages/main/src/client/providers/MainClientProvider.js` registration for `local.main.ui.tab-link-item`
 
 ## Child Route Placement Rule
@@ -203,7 +203,7 @@ When `page` finds the nearest parent page upgraded with `add-subpages`, it reuse
 It only adds:
 
 - `import ShellOutlet from "@jskit-ai/shell-web/client/components/ShellOutlet";`
-- `<ShellOutlet host="..." position="..." />`
+- `<ShellOutlet target="host:position" />`
 
 It does not:
 

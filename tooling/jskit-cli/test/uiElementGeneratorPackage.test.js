@@ -3,6 +3,7 @@ import { access, constants as fsConstants, cp, mkdir, readFile, writeFile } from
 import path from "node:path";
 import test from "node:test";
 import { fileURLToPath } from "node:url";
+import { readLocalLinkItemComponentSource } from "@jskit-ai/shell-web/server/support/localLinkItemScaffolds";
 import { withTempDir } from "../../testUtils/tempDir.mjs";
 import { createCliRunner } from "../../testUtils/runCli.js";
 
@@ -10,6 +11,7 @@ const CLI_PATH = fileURLToPath(new URL("../bin/jskit.js", import.meta.url));
 const REPO_ROOT = fileURLToPath(new URL("../../../", import.meta.url));
 const UI_GENERATOR_SOURCE_ROOT = path.join(REPO_ROOT, "packages", "ui-generator");
 const KERNEL_SOURCE_ROOT = path.join(REPO_ROOT, "packages", "kernel");
+const SHELL_WEB_SOURCE_ROOT = path.join(REPO_ROOT, "packages", "shell-web");
 const runCli = createCliRunner(CLI_PATH);
 
 async function createMinimalApp(appRoot, { name = "tmp-app" } = {}) {
@@ -72,10 +74,17 @@ export default function getPlacements() {
     path.join(appRoot, "src", "components", "ShellLayout.vue"),
     `<template>
   <div>
-    <ShellOutlet host="shell-layout" position="top-left" />
-    <ShellOutlet host="shell-layout" position="top-right" />
-    <ShellOutlet host="shell-layout" position="primary-menu" default />
-    <ShellOutlet host="shell-layout" position="secondary-menu" />
+    <ShellOutlet target="shell-layout:top-left" />
+    <ShellOutlet target="shell-layout:top-right" />
+    <ShellOutlet
+      target="shell-layout:primary-menu"
+      default
+      default-link-component-token="local.main.ui.surface-aware-menu-link-item"
+    />
+    <ShellOutlet
+      target="shell-layout:secondary-menu"
+      default-link-component-token="local.main.ui.surface-aware-menu-link-item"
+    />
   </div>
 </template>
 `,
@@ -86,7 +95,7 @@ export default function getPlacements() {
     path.join(appRoot, "src", "pages", "admin", "workspace", "settings", "index.vue"),
     `<template>
   <section>
-    <ShellOutlet host="admin-settings" position="forms" />
+    <ShellOutlet target="admin-settings:forms" />
   </section>
 </template>
 `,
@@ -127,9 +136,11 @@ async function installUiGeneratorPackage(appRoot) {
   const scopedRoot = path.join(appRoot, "node_modules", "@jskit-ai");
   const packageRoot = path.join(scopedRoot, "ui-generator");
   const kernelRoot = path.join(scopedRoot, "kernel");
+  const shellWebRoot = path.join(scopedRoot, "shell-web");
   await mkdir(path.dirname(packageRoot), { recursive: true });
   await cp(UI_GENERATOR_SOURCE_ROOT, packageRoot, { recursive: true });
   await cp(KERNEL_SOURCE_ROOT, kernelRoot, { recursive: true });
+  await cp(SHELL_WEB_SOURCE_ROOT, shellWebRoot, { recursive: true });
 }
 
 async function fileExists(absolutePath) {
@@ -170,10 +181,21 @@ test("generate @jskit-ai/ui-generator page scaffolds page and menu placement", a
 
     const placementSource = await readFile(placementPath, "utf8");
     assert.match(placementSource, /id: "ui-generator\.page\.admin\.reports-dashboard\.link"/);
-    assert.match(placementSource, /position: "primary-menu"/);
-    assert.match(placementSource, /componentToken: "users\.web\.shell\.surface-aware-menu-link-item"/);
+    assert.match(placementSource, /target: "shell-layout:primary-menu"/);
+    assert.match(placementSource, /componentToken: "local\.main\.ui\.surface-aware-menu-link-item"/);
     assert.match(placementSource, /workspaceSuffix: "\/reports-dashboard"/);
     assert.match(placementSource, /label: "Reports Dashboard"/);
+
+    const localLinkComponentPath = path.join(appRoot, "src", "components", "menus", "SurfaceAwareMenuLinkItem.vue");
+    const providerPath = path.join(appRoot, "packages", "main", "src", "client", "providers", "MainClientProvider.js");
+    assert.equal(await fileExists(localLinkComponentPath), true);
+
+    const providerSource = await readFile(providerPath, "utf8");
+    assert.match(providerSource, /import SurfaceAwareMenuLinkItem from "\/src\/components\/menus\/SurfaceAwareMenuLinkItem\.vue";/);
+    assert.match(
+      providerSource,
+      /registerMainClientComponent\("local\.main\.ui\.surface-aware-menu-link-item", \(\) => SurfaceAwareMenuLinkItem\);/
+    );
   });
 });
 
@@ -414,7 +436,7 @@ test("generate @jskit-ai/ui-generator page infers subpage link placement from th
       `<template>
   <SectionContainerShell>
     <template #tabs>
-      <ShellOutlet host="contact-view" position="sub-pages" />
+      <ShellOutlet target="contact-view:sub-pages" />
     </template>
     <RouterView />
   </SectionContainerShell>
@@ -438,8 +460,7 @@ test("generate @jskit-ai/ui-generator page infers subpage link placement from th
 
     const placementPath = path.join(appRoot, "src", "placement.js");
     const placementSource = await readFile(placementPath, "utf8");
-    assert.match(placementSource, /host: "contact-view"/);
-    assert.match(placementSource, /position: "sub-pages"/);
+    assert.match(placementSource, /target: "contact-view:sub-pages"/);
     assert.match(placementSource, /componentToken: "local\.main\.ui\.tab-link-item"/);
     assert.match(placementSource, /to: "\.\/notes"/);
   });
@@ -535,8 +556,7 @@ test("generate @jskit-ai/ui-generator placed-element scaffolds component token r
 
     const placementSource = await readFile(placementPath, "utf8");
     assert.match(placementSource, /id: "ui-generator\.element\.ops-panel"/);
-    assert.match(placementSource, /host: "shell-layout"/);
-    assert.match(placementSource, /position: "top-right"/);
+    assert.match(placementSource, /target: "shell-layout:top-right"/);
     assert.match(placementSource, /componentToken: "local\.main\.ui\.element\.ops-panel"/);
   });
 });
@@ -565,7 +585,7 @@ test("generate @jskit-ai/ui-generator placed-element supports explicit placement
 
     const placementPath = path.join(appRoot, "src", "placement.js");
     const placementSource = await readFile(placementPath, "utf8");
-    assert.match(placementSource, /position: "primary-menu"/);
+    assert.match(placementSource, /target: "shell-layout:primary-menu"/);
   });
 });
 
@@ -708,7 +728,7 @@ test("generate @jskit-ai/ui-generator add-subpages derives the default target fo
     const pagePath = path.join(appRoot, "src", "pages", "admin", "contacts", "[contactId].vue");
     const providerPath = path.join(appRoot, "packages", "main", "src", "client", "providers", "MainClientProvider.js");
     const sectionShellPath = path.join(appRoot, "src", "components", "SectionContainerShell.vue");
-    const tabLinkPath = path.join(appRoot, "src", "components", "TabLinkItem.vue");
+    const tabLinkPath = path.join(appRoot, "src", "components", "menus", "TabLinkItem.vue");
 
     assert.equal(await fileExists(pagePath), true);
     assert.equal(await fileExists(sectionShellPath), true);
@@ -717,12 +737,19 @@ test("generate @jskit-ai/ui-generator add-subpages derives the default target fo
     const pageSource = await readFile(pagePath, "utf8");
     assert.match(pageSource, /<SectionContainerShell/);
     assert.match(pageSource, /<template #tabs>/);
-    assert.match(pageSource, /<ShellOutlet host="contacts-contact-id" position="sub-pages" \/>/);
+    assert.match(
+      pageSource,
+      /<ShellOutlet target="contacts-contact-id:sub-pages" default-link-component-token="local\.main\.ui\.tab-link-item" \/>/
+    );
     assert.match(pageSource, /<RouterView \/>/);
 
     const sectionShellSource = await readFile(sectionShellPath, "utf8");
     assert.match(sectionShellSource, /<slot name="tabs" \/>/);
     assert.doesNotMatch(sectionShellSource, /ShellOutlet/);
+    assert.equal(
+      await readFile(tabLinkPath, "utf8"),
+      await readLocalLinkItemComponentSource("local.main.ui.tab-link-item")
+    );
 
     const providerSource = await readFile(providerPath, "utf8");
     assert.match(providerSource, /registerMainClientComponent\("local\.main\.ui\.tab-link-item", \(\) => TabLinkItem\);/);

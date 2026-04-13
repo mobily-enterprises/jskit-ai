@@ -337,7 +337,7 @@ function formatOptionSummary(optionRow = {}, { color = null } = {}) {
     : "";
   const baseDescription = label || "No description provided.";
   const description = optionRow.name === "placement-component-token"
-    ? `${baseDescription} Use \`jskit list-link-items\` to discover link-item tokens.`
+    ? `${baseDescription} Use \`jskit list-component-tokens\` to discover link-item tokens.`
     : baseDescription;
   const optionName = `--${optionRow.name}`;
   const renderedOptionName = color ? color.item(optionName) : optionName;

@@ -30,9 +30,8 @@ function canDelegateAddInlineOptions(positional = []) {
 function canDelegateGenerateInlineOptions(positional = []) {
   const normalizedPositionals = Array.isArray(positional) ? positional : [];
   const first = String(normalizedPositionals[0] || "").trim();
-  const second = String(normalizedPositionals[1] || "").trim();
   const last = String(normalizedPositionals[normalizedPositionals.length - 1] || "").trim();
-  if (!first || !second || isHelpToken(first) || isHelpToken(second) || isHelpToken(last)) {
+  if (!first || isHelpToken(first) || isHelpToken(last)) {
     return false;
   }
   return true;
@@ -229,12 +228,12 @@ const COMMAND_DESCRIPTORS = Object.freeze({
     inlineOptionMode: "none",
     allowedValueOptionNames: Object.freeze([])
   }),
-  "list-link-items": Object.freeze({
-    command: "list-link-items",
-    aliases: Object.freeze(["lpct", "list-placement-component-tokens"]),
+  "list-component-tokens": Object.freeze({
+    command: "list-component-tokens",
+    aliases: Object.freeze(["lct", "list-link-items", "lpct", "list-placement-component-tokens"]),
     showInOverview: true,
-    summary: "List available placement link-item component tokens.",
-    minimalUse: "jskit list-link-items",
+    summary: "List available placement component tokens.",
+    minimalUse: "jskit list-component-tokens",
     parameters: Object.freeze([
       Object.freeze({
         name: "[--prefix <value>]",
@@ -252,7 +251,7 @@ const COMMAND_DESCRIPTORS = Object.freeze({
       "Use --all when you want the full discovered token set.",
       "Shows plain text by default; use --json for structured output."
     ]),
-    fullUse: "jskit list-link-items [--prefix <value>] [--all] [--json]",
+    fullUse: "jskit list-component-tokens [--prefix <value>] [--all] [--json]",
     showHelpOnBareInvocation: false,
     handlerName: "commandListLinkItems",
     allowedFlagKeys: Object.freeze(["json", "all"]),

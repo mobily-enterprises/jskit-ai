@@ -60,10 +60,10 @@ test("add rejects delegated inline options when no target contract is active", (
   assert.match(stderr, /Command: add/);
 });
 
-test("generate rejects delegated inline options when no subcommand is active", () => {
+test("generate rejects delegated inline options when no generator target is active", () => {
   const result = runCli({
     cwd: CLI_ROOT,
-    args: ["generate", "ui-generator", "--force"]
+    args: ["generate", "--force"]
   });
 
   assert.equal(result.status, 1);

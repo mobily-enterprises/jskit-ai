@@ -40,14 +40,14 @@ export default Object.freeze({
       inputType: "text",
       defaultValue: "",
       promptLabel: "Placement target",
-      promptHint: "Optional host:position target for placed-element placement (defaults to shell-layout:top-right)."
+      promptHint: "Optional target for placed-element placement (format: host:position, default: shell-layout:top-right)."
     },
     "link-placement": {
       required: false,
       inputType: "text",
       defaultValue: "",
       promptLabel: "Link placement",
-      promptHint: "Optional host:position target for the generated page link placement."
+      promptHint: "Optional target for the generated page link placement (format: host:position)."
     },
     "link-component-token": {
       required: false,
@@ -63,15 +63,14 @@ export default Object.freeze({
       defaultValue: "",
       promptLabel: "Link to",
       promptHint:
-        "Optional explicit props.to value for the generated page link placement (example: ./notes). If omitted for pages under a detected parent subpages host, it is inferred from the page path."
+        "Optional explicit props.to value for the generated page link placement (example: ./notes). If omitted for pages under a detected parent subpages target, it is inferred from the page path."
     },
     target: {
       required: false,
       inputType: "text",
       defaultValue: "",
       promptLabel: "Outlet target",
-      promptHint:
-        "Used by add-subpages and outlet. Accepts host or host:position. If only host is given, position defaults to sub-pages."
+      promptHint: "Used by add-subpages and outlet. Must be a target in host:position format."
     },
     title: {
       required: false,
@@ -110,8 +109,8 @@ export default Object.freeze({
         description: "Create a route page at an explicit target file and add a link placement entry for it.",
         longDescription: [
           "This command always creates one route page file. By default, its page link is placed from the page path itself.",
-          "If an ancestor page has already been enhanced with sub-pages, JSKIT treats that ancestor as the real host. In that case the new page is linked into the nearest parent sub-pages outlet instead of the shell menu.",
-          "That means the generated link normally becomes a tab or child-page link under that ancestor host, and `props.to` is inferred relative to that host. If the host page is `index.vue`, child pages belong under `index/...` so the router keeps the parent page visible while the child route renders underneath it."
+          "If an ancestor page has already been enhanced with sub-pages, JSKIT treats that ancestor outlet as the real placement target. In that case the new page is linked into the nearest parent sub-pages outlet instead of the shell menu.",
+          "That means the generated link normally becomes a tab or child-page link under that ancestor target, and `props.to` is inferred relative to that target. If the outlet page is `index.vue`, child pages belong under `index/...` so the router keeps the parent page visible while the child route renders underneath it."
         ],
         positionalArgs: [
           {
@@ -122,8 +121,8 @@ export default Object.freeze({
         ],
         optionNames: ["name", "link-placement", "link-component-token", "link-to", "force"],
         notes: [
-          "If a nearest parent subpages host is found, placement, link component token, and props.to are inferred automatically.",
-          "If the parent host page is index.vue, child pages belong under index/...",
+          "If a nearest parent subpages target is found, placement, link component token, and props.to are inferred automatically.",
+          "If the parent target page is index.vue, child pages belong under index/...",
           "If the target page file already exists, rerun with --force to overwrite it."
         ],
         examples: [
@@ -192,7 +191,7 @@ export default Object.freeze({
         optionNames: ["target", "path", "title", "subtitle"],
         notes: [
           "Use this when the page should render shared content plus child routes below it.",
-          "If the host page is index.vue, create child pages under index/..."
+          "If the outlet page is index.vue, create child pages under index/..."
         ],
         examples: [
           {
@@ -223,8 +222,8 @@ export default Object.freeze({
         description: "Inject a generic ShellOutlet block into an existing Vue page/component.",
         longDescription: [
           "A ShellOutlet creates a named placement target inside a Vue file. That target is what other parts of JSKIT render into later.",
-          "After an outlet exists, `jskit list-placements` will discover it and show it as `host:position`. That makes the target visible to humans and to generators that need a placement destination.",
-          "Commands that create placed UI, such as `ui-generator placed-element`, and commands that add page links can then target that outlet by writing placement entries that point at the same `host:position`."
+          "After an outlet exists, `jskit list-placements` will discover it and show its `target`. That makes the outlet visible to humans and to generators that need a placement destination.",
+          "Commands that create placed UI, such as `ui-generator placed-element`, and commands that add page links can then target that outlet by writing placement entries that point at the same target."
         ],
         positionalArgs: [
           {
@@ -236,7 +235,7 @@ export default Object.freeze({
         optionNames: ["target"],
         requiredOptionNames: ["target"],
         notes: [
-          "Use --target host or --target host:position. If only host is given, position defaults to sub-pages."
+          "Use --target host:position."
         ],
         examples: [
           {
@@ -244,7 +243,7 @@ export default Object.freeze({
             lines: [
               "npx jskit generate ui-generator outlet \\",
               "  src/components/ContactSummaryCard.vue \\",
-              "  --target contact-view"
+              "  --target contact-view:sub-pages"
             ]
           },
           {

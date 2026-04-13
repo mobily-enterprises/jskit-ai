@@ -14,7 +14,9 @@ test("shell-web outlet menu widget exposes a configurable nested outlet", async 
   );
 
   assert.match(source, /import \{ mdiCogOutline \} from "@mdi\/js";/);
-  assert.match(source, /<ShellOutlet :host="props\.host" :position="props\.position" \/>/);
+  assert.match(source, /defaultLinkComponentToken: \{/);
+  assert.match(source, /:target="props\.target"/);
+  assert.match(source, /:default-link-component-token="props\.defaultLinkComponentToken"/);
   assert.match(source, /default: mdiCogOutline/);
   assert.doesNotMatch(source, /mdi-[a-z0-9-]+/);
 });

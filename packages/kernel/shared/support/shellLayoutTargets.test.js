@@ -18,9 +18,13 @@ test("normalizeShellOutletTargetId validates host:position tokens", () => {
 test("discoverShellOutletTargetsFromVueSource resolves legal targets and one default", () => {
   const source = `
     <template>
-      <ShellOutlet host="shell-layout" position="top-left" />
-      <ShellOutlet host="shell-layout" position="primary-menu" default />
-      <ShellOutlet host="shell-layout" position="secondary-menu" />
+      <ShellOutlet target="shell-layout:top-left" />
+      <ShellOutlet
+        target="shell-layout:primary-menu"
+        default
+        default-link-component-token="local.main.ui.surface-aware-menu-link-item"
+      />
+      <ShellOutlet target="shell-layout:secondary-menu" />
     </template>
   `;
 
@@ -33,6 +37,7 @@ test("discoverShellOutletTargetsFromVueSource resolves legal targets and one def
     discovered.targets.map((entry) => entry.id),
     ["shell-layout:top-left", "shell-layout:primary-menu", "shell-layout:secondary-menu"]
   );
+  assert.equal(discovered.targets[1].defaultLinkComponentToken, "local.main.ui.surface-aware-menu-link-item");
   assert.equal(
     describeShellOutletTargets(discovered.targets),
     "shell-layout:top-left, shell-layout:primary-menu, shell-layout:secondary-menu"
@@ -46,8 +51,8 @@ test("discoverShellOutletTargetsFromVueSource resolves legal targets and one def
 test("discoverShellOutletTargetsFromVueSource throws for duplicate targets", () => {
   const source = `
     <template>
-      <ShellOutlet host="shell-layout" position="top-right" />
-      <ShellOutlet host="shell-layout" position="top-right" />
+      <ShellOutlet target="shell-layout:top-right" />
+      <ShellOutlet target="shell-layout:top-right" />
     </template>
   `;
 
@@ -60,8 +65,8 @@ test("discoverShellOutletTargetsFromVueSource throws for duplicate targets", () 
 test("discoverShellOutletTargetsFromVueSource throws for multiple defaults", () => {
   const source = `
     <template>
-      <ShellOutlet host="shell-layout" position="primary-menu" default />
-      <ShellOutlet host="shell-layout" position="secondary-menu" default />
+      <ShellOutlet target="shell-layout:primary-menu" default />
+      <ShellOutlet target="shell-layout:secondary-menu" default />
     </template>
   `;
 
@@ -74,11 +79,24 @@ test("discoverShellOutletTargetsFromVueSource throws for multiple defaults", () 
 test("discoverShellOutletTargetsFromVueSource ignores disabled default markers", () => {
   const source = `
     <template>
-      <ShellOutlet host="shell-layout" position="primary-menu" default="false" />
-      <ShellOutlet host="shell-layout" position="secondary-menu" />
+      <ShellOutlet target="shell-layout:primary-menu" default="false" />
+      <ShellOutlet target="shell-layout:secondary-menu" />
     </template>
   `;
 
   const discovered = discoverShellOutletTargetsFromVueSource(source, { context: "ShellLayout.vue" });
   assert.equal(discovered.defaultTargetId, "");
+});
+
+test("discoverShellOutletTargetsFromVueSource rejects legacy split outlet attributes", () => {
+  const source = `
+    <template>
+      <ShellOutlet target="shell-layout:primary-menu" host="other-host" position="primary-menu" />
+    </template>
+  `;
+
+  assert.throws(
+    () => discoverShellOutletTargetsFromVueSource(source, { context: "ShellLayout.vue" }),
+    /must declare ShellOutlet targets with "target" only/
+  );
 });

@@ -2,15 +2,17 @@ import {
   ensureArray,
   ensureObject
 } from "../../shared/collectionUtils.js";
+import {
+  normalizeShellOutletTargetId
+} from "@jskit-ai/kernel/shared/support/shellLayoutTargets";
 
 function normalizePlacementOutlets(value) {
   const outlets = [];
   const source = ensureArray(value);
   for (const entry of source) {
     const record = ensureObject(entry);
-    const host = String(record.host || "").trim();
-    const position = String(record.position || "").trim();
-    if (!host || !position) {
+    const target = normalizeShellOutletTargetId(record.target);
+    if (!target) {
       continue;
     }
 
@@ -19,8 +21,7 @@ function normalizePlacementOutlets(value) {
     const sourceLabel = String(record.source || "").trim();
     outlets.push(
       Object.freeze({
-        host,
-        position,
+        target,
         surfaces: Object.freeze(surfaces),
         description,
         source: sourceLabel
@@ -30,11 +31,7 @@ function normalizePlacementOutlets(value) {
 
   return Object.freeze(
     [...outlets].sort((left, right) => {
-      const hostCompare = left.host.localeCompare(right.host);
-      if (hostCompare !== 0) {
-        return hostCompare;
-      }
-      return left.position.localeCompare(right.position);
+      return left.target.localeCompare(right.target);
     })
   );
 }
@@ -44,9 +41,8 @@ function normalizePlacementContributions(value) {
   for (const entry of ensureArray(value)) {
     const record = ensureObject(entry);
     const id = String(record.id || "").trim();
-    const host = String(record.host || "").trim();
-    const position = String(record.position || "").trim();
-    if (!id || !host || !position) {
+    const target = normalizeShellOutletTargetId(record.target);
+    if (!id || !target) {
       continue;
     }
 
@@ -60,8 +56,7 @@ function normalizePlacementContributions(value) {
     contributions.push(
       Object.freeze({
         id,
-        host,
-        position,
+        target,
         surfaces: Object.freeze(surfaces),
         order,
         componentToken,
@@ -74,13 +69,9 @@ function normalizePlacementContributions(value) {
 
   return Object.freeze(
     [...contributions].sort((left, right) => {
-      const hostCompare = left.host.localeCompare(right.host);
-      if (hostCompare !== 0) {
-        return hostCompare;
-      }
-      const positionCompare = left.position.localeCompare(right.position);
-      if (positionCompare !== 0) {
-        return positionCompare;
+      const targetCompare = left.target.localeCompare(right.target);
+      if (targetCompare !== 0) {
+        return targetCompare;
       }
       const leftOrder = Number.isFinite(left.order) ? left.order : Number.POSITIVE_INFINITY;
       const rightOrder = Number.isFinite(right.order) ? right.order : Number.POSITIVE_INFINITY;

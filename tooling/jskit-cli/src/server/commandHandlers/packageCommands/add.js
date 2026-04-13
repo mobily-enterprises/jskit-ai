@@ -10,9 +10,30 @@ import {
   renderAddBundleHelp
 } from "./discoverabilityHelp.js";
 import {
-  TAB_LINK_COMPONENT_TOKEN,
-  ensureLocalMainTabLinkItemProvisioning
+  ensureLocalMainPlacementComponentProvisioning,
+  resolveProvisionableLocalPlacementComponentTokens
 } from "./tabLinkItemProvisioning.js";
+
+const COMPONENT_TOKEN_PATTERN = /\bcomponentToken\s*:\s*["']([^"']+)["']/g;
+
+function collectPlacementComponentTokensFromManagedRecords(installedPackageRecords = []) {
+  const collectedTokens = new Set();
+
+  for (const record of ensureArray(installedPackageRecords)) {
+    const managedTextMutations = ensureObject(ensureObject(ensureObject(record).managed).text);
+    for (const mutationRecord of Object.values(managedTextMutations)) {
+      const source = String(ensureObject(mutationRecord).value || "");
+      for (const match of source.matchAll(COMPONENT_TOKEN_PATTERN)) {
+        const componentToken = String(match[1] || "").trim();
+        if (componentToken) {
+          collectedTokens.add(componentToken);
+        }
+      }
+    }
+  }
+
+  return sortStrings([...collectedTokens]);
+}
 
 async function runPackageAddCommand(ctx = {}, { positional, options, cwd, io }) {
   const {
@@ -325,18 +346,17 @@ async function runPackageAddCommand(ctx = {}, { positional, options, cwd, io }) 
 
   const finalResolvedPackageIds = sortStrings([...resolvedPackageIds, ...adoptedPackageIds]);
 
-  const requestedPlacementComponentToken = String(options?.inlineOptions?.["placement-component-token"] || "").trim();
-  if (
-    invocationMode === "generate" &&
-    targetType === "package" &&
-    resolvedTargetPackageId === "@jskit-ai/crud-ui-generator" &&
-    requestedPlacementComponentToken === TAB_LINK_COMPONENT_TOKEN
-  ) {
-    await ensureLocalMainTabLinkItemProvisioning({
+  const generatedPlacementComponentTokens = await resolveProvisionableLocalPlacementComponentTokens({
+    appRoot,
+    componentTokens: collectPlacementComponentTokensFromManagedRecords(installedPackageRecords)
+  });
+  if (generatedPlacementComponentTokens.length > 0) {
+    await ensureLocalMainPlacementComponentProvisioning({
       appRoot,
       createCliError,
       dryRun: options.dryRun === true,
-      touchedFiles
+      touchedFiles,
+      componentTokens: generatedPlacementComponentTokens
     });
   }
 

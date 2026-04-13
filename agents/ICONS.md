@@ -130,12 +130,12 @@ Error: <path> attribute d: Expected number, "mdi-paw"
 
 ## The One Important Exception
 
-There is a framework compatibility layer for metadata-driven menu icons.
+There is a framework path for metadata-driven menu icons.
 
 See:
 
-- `packages/users-web/src/client/lib/menuIcons.js`
-- `packages/users-web/src/client/components/UsersShellMenuLinkItem.vue`
+- `packages/shell-web/src/client/lib/menuIcons.js`
+- `packages/shell-web/src/client/components/ShellMenuLinkItem.vue`
 
 This path is special:
 

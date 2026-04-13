@@ -91,8 +91,8 @@ onBeforeUnmount(() => {
 
     <v-list min-width="220" density="comfortable" class="py-1">
       <ShellOutlet
-        host="auth-profile-menu"
-        position="primary-menu"
+        target="auth-profile-menu:primary-menu"
+        default-link-component-token="auth.web.profile.menu.link-item"
         :context="placementContext"
       />
     </v-list>

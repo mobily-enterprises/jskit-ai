@@ -25,8 +25,7 @@ function renderPageLinkPlacementBlock({
     "{\n" +
     "  addPlacement({\n" +
     `    id: "${context.__JSKIT_UI_LINK_PLACEMENT_ID__}",\n` +
-    `    host: "${context.__JSKIT_UI_LINK_PLACEMENT_HOST__}",\n` +
-    `    position: "${context.__JSKIT_UI_LINK_PLACEMENT_POSITION__}",\n` +
+    `    target: "${context.__JSKIT_UI_LINK_PLACEMENT_TARGET__}",\n` +
     `    surfaces: ["${surface}"],\n` +
     "    order: 155,\n" +
     `    componentToken: "${context.__JSKIT_UI_LINK_COMPONENT_TOKEN__}",\n` +
@@ -124,6 +123,7 @@ async function runGeneratorSubcommand({
 
   const touchedFileList = [...touchedFiles].sort((left, right) => left.localeCompare(right));
   return {
+    placementComponentTokens: [String(placementContext.__JSKIT_UI_LINK_COMPONENT_TOKEN__ || "").trim()].filter(Boolean),
     touchedFiles: touchedFileList,
     summary: !pageAlreadyExisted
       ? `Generated UI page "${pageTarget.routeUrlSuffix}" at ${pageRelativePath}.`

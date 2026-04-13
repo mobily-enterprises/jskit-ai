@@ -37,6 +37,7 @@
     "./shared/support/crudLookup": "./shared/support/crudLookup.js",
     "./shared/support/deepFreeze": "./shared/support/deepFreeze.js",
     "./shared/support/listenerSet": "./shared/support/listenerSet.js",
+    "./shared/support/shellLayoutTargets": "./shared/support/shellLayoutTargets.js",
     "./shared/support/providerLogger": "./shared/support/providerLogger.js",
     "./shared/support/returnToPath": "./shared/support/returnToPath.js",
     "./shared/support/visibility": "./shared/support/visibility.js",

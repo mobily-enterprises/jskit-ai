@@ -180,7 +180,7 @@ function createListCommands(ctx = {}) {
     }
     if (mode === "placement-component-tokens") {
       throw createCliError(
-        'list mode "placement-component-tokens" moved to a dedicated command: jskit list-link-items.'
+        'list mode "placement-component-tokens" moved to a dedicated command: jskit list-component-tokens.'
       );
     }
 
@@ -385,9 +385,7 @@ function createListCommands(ctx = {}) {
     if (options.json) {
       const payload = {
         placements: placementTargets.map((placementTarget) => ({
-          id: String(placementTarget.id || "").trim(),
-          host: String(placementTarget.host || "").trim(),
-          position: String(placementTarget.position || "").trim(),
+          target: String(placementTarget.id || "").trim(),
           default: placementTarget.default === true,
           sourcePath: String(placementTarget.sourcePath || "").trim()
         }))

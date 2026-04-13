@@ -55,32 +55,30 @@ export default Object.freeze({
       placements: {
         outlets: [
           {
-            host: "shell-layout",
-            position: "top-left",
+            target: "shell-layout:top-left",
             surfaces: ["*"],
             source: "src/client/components/ShellLayout.vue"
           },
           {
-            host: "shell-layout",
-            position: "top-right",
+            target: "shell-layout:top-right",
             surfaces: ["*"],
             source: "src/client/components/ShellLayout.vue"
           },
           {
-            host: "shell-layout",
-            position: "primary-menu",
+            target: "shell-layout:primary-menu",
+            defaultLinkComponentToken: "local.main.ui.surface-aware-menu-link-item",
             surfaces: ["*"],
             source: "src/client/components/ShellLayout.vue"
           },
           {
-            host: "shell-layout",
-            position: "secondary-menu",
+            target: "shell-layout:secondary-menu",
+            defaultLinkComponentToken: "local.main.ui.surface-aware-menu-link-item",
             surfaces: ["*"],
             source: "src/client/components/ShellLayout.vue"
           },
           {
-            host: "home-settings",
-            position: "primary-menu",
+            target: "home-settings:primary-menu",
+            defaultLinkComponentToken: "local.main.ui.surface-aware-menu-link-item",
             surfaces: ["home"],
             source: "templates/src/pages/home/settings.vue"
           }
@@ -107,7 +105,68 @@ export default Object.freeze({
       }
     },
     procfile: {},
-    text: [],
+    text: [
+      {
+        op: "append-text",
+        file: "packages/main/src/client/providers/MainClientProvider.js",
+        position: "top",
+        skipIfContains: "import MenuLinkItem from \"/src/components/menus/MenuLinkItem.vue\";",
+        value: "import MenuLinkItem from \"/src/components/menus/MenuLinkItem.vue\";\n",
+        reason: "Bind app-owned shell menu link-item scaffold into local main client provider imports.",
+        category: "shell-web",
+        id: "shell-web-main-client-provider-menu-link-item-import"
+      },
+      {
+        op: "append-text",
+        file: "packages/main/src/client/providers/MainClientProvider.js",
+        position: "top",
+        skipIfContains: "import SurfaceAwareMenuLinkItem from \"/src/components/menus/SurfaceAwareMenuLinkItem.vue\";",
+        value: "import SurfaceAwareMenuLinkItem from \"/src/components/menus/SurfaceAwareMenuLinkItem.vue\";\n",
+        reason: "Bind app-owned shell surface-aware menu link-item scaffold into local main client provider imports.",
+        category: "shell-web",
+        id: "shell-web-main-client-provider-surface-aware-menu-link-item-import"
+      },
+      {
+        op: "append-text",
+        file: "packages/main/src/client/providers/MainClientProvider.js",
+        position: "top",
+        skipIfContains: "import TabLinkItem from \"/src/components/menus/TabLinkItem.vue\";",
+        value: "import TabLinkItem from \"/src/components/menus/TabLinkItem.vue\";\n",
+        reason: "Bind app-owned shell tab link-item scaffold into local main client provider imports.",
+        category: "shell-web",
+        id: "shell-web-main-client-provider-tab-link-item-import"
+      },
+      {
+        op: "append-text",
+        file: "packages/main/src/client/providers/MainClientProvider.js",
+        position: "bottom",
+        skipIfContains: "registerMainClientComponent(\"local.main.ui.menu-link-item\", () => MenuLinkItem);",
+        value: "\nregisterMainClientComponent(\"local.main.ui.menu-link-item\", () => MenuLinkItem);\n",
+        reason: "Bind app-owned shell menu link-item token into local main client provider registry.",
+        category: "shell-web",
+        id: "shell-web-main-client-provider-menu-link-item-register"
+      },
+      {
+        op: "append-text",
+        file: "packages/main/src/client/providers/MainClientProvider.js",
+        position: "bottom",
+        skipIfContains: "registerMainClientComponent(\"local.main.ui.surface-aware-menu-link-item\", () => SurfaceAwareMenuLinkItem);",
+        value: "\nregisterMainClientComponent(\"local.main.ui.surface-aware-menu-link-item\", () => SurfaceAwareMenuLinkItem);\n",
+        reason: "Bind app-owned shell surface-aware menu link-item token into local main client provider registry.",
+        category: "shell-web",
+        id: "shell-web-main-client-provider-surface-aware-menu-link-item-register"
+      },
+      {
+        op: "append-text",
+        file: "packages/main/src/client/providers/MainClientProvider.js",
+        position: "bottom",
+        skipIfContains: "registerMainClientComponent(\"local.main.ui.tab-link-item\", () => TabLinkItem);",
+        value: "\nregisterMainClientComponent(\"local.main.ui.tab-link-item\", () => TabLinkItem);\n",
+        reason: "Bind app-owned shell tab link-item token into local main client provider registry.",
+        category: "shell-web",
+        id: "shell-web-main-client-provider-tab-link-item-register"
+      }
+    ],
     files: [
       {
         from: "templates/src/App.vue",
@@ -122,6 +181,27 @@ export default Object.freeze({
         reason: "Install app-owned shell layout component so apps can customize structure and slots.",
         category: "shell-web",
         id: "shell-web-component-shell-layout"
+      },
+      {
+        from: "templates/src/components/menus/MenuLinkItem.vue",
+        to: "src/components/menus/MenuLinkItem.vue",
+        reason: "Install app-owned shell menu link-item scaffold for local placement customization.",
+        category: "shell-web",
+        id: "shell-web-component-menu-link-item"
+      },
+      {
+        from: "templates/src/components/menus/SurfaceAwareMenuLinkItem.vue",
+        to: "src/components/menus/SurfaceAwareMenuLinkItem.vue",
+        reason: "Install app-owned surface-aware shell menu link-item scaffold for local placement customization.",
+        category: "shell-web",
+        id: "shell-web-component-surface-aware-menu-link-item"
+      },
+      {
+        from: "templates/src/components/menus/TabLinkItem.vue",
+        to: "src/components/menus/TabLinkItem.vue",
+        reason: "Install app-owned shell tab link-item scaffold for local placement customization.",
+        category: "shell-web",
+        id: "shell-web-component-tab-link-item"
       },
       {
         from: "templates/src/error.js",

@@ -3,6 +3,7 @@ import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { tmpdir } from "node:os";
 import test from "node:test";
+import { readLocalLinkItemComponentSource } from "@jskit-ai/shell-web/server/support/localLinkItemScaffolds";
 import { runGeneratorSubcommand } from "../src/server/subcommands/addSubpages.js";
 
 async function withTempApp(run) {
@@ -105,14 +106,21 @@ test("ui-generator add-subpages derives the default target from an index-route p
 
     assert.deepEqual(result.touchedFiles, [
       "packages/main/src/client/providers/MainClientProvider.js",
+      "src/components/menus/TabLinkItem.vue",
       "src/components/SectionContainerShell.vue",
-      "src/components/TabLinkItem.vue",
       `src/pages/${targetFile}`
     ]);
 
     const pageSource = await readPageFile(appRoot, targetFile);
-    assert.match(pageSource, /<ShellOutlet host="practice" position="sub-pages" \/>/);
+    assert.match(
+      pageSource,
+      /<ShellOutlet target="practice:sub-pages" default-link-component-token="local\.main\.ui\.tab-link-item" \/>/
+    );
     assert.match(pageSource, /<RouterView \/>/);
+    assert.equal(
+      await readFile(path.join(appRoot, "src", "components", "menus", "TabLinkItem.vue"), "utf8"),
+      await readLocalLinkItemComponentSource("local.main.ui.tab-link-item")
+    );
   });
 });
 
@@ -131,7 +139,10 @@ test("ui-generator add-subpages derives the default target from a dynamic file-r
     });
 
     const pageSource = await readPageFile(appRoot, targetFile);
-    assert.match(pageSource, /<ShellOutlet host="contacts-contact-id" position="sub-pages" \/>/);
+    assert.match(
+      pageSource,
+      /<ShellOutlet target="contacts-contact-id:sub-pages" default-link-component-token="local\.main\.ui\.tab-link-item" \/>/
+    );
   });
 });
 
@@ -150,28 +161,31 @@ test("ui-generator add-subpages derives the default target from a nested route p
     });
 
     const pageSource = await readPageFile(appRoot, targetFile);
-    assert.match(pageSource, /<ShellOutlet host="catalog-products" position="sub-pages" \/>/);
+    assert.match(
+      pageSource,
+      /<ShellOutlet target="catalog-products:sub-pages" default-link-component-token="local\.main\.ui\.tab-link-item" \/>/
+    );
   });
 });
 
-test("ui-generator add-subpages supports explicit target host shorthand", async () => {
+test("ui-generator add-subpages rejects explicit target shorthand without a position", async () => {
   await withTempApp(async (appRoot) => {
     await writeAppFixture(appRoot);
 
     const targetFile = "w/[workspaceSlug]/admin/practice/index.vue";
     await writePageFile(appRoot, targetFile);
 
-    await runGeneratorSubcommand({
-      appRoot,
-      subcommand: "add-subpages",
-      args: [targetFile],
-      options: {
-        target: "practice-hub"
-      }
-    });
-
-    const pageSource = await readPageFile(appRoot, targetFile);
-    assert.match(pageSource, /<ShellOutlet host="practice-hub" position="sub-pages" \/>/);
+    await assert.rejects(
+      runGeneratorSubcommand({
+        appRoot,
+        subcommand: "add-subpages",
+        args: [targetFile],
+        options: {
+          target: "practice-hub"
+        }
+      }),
+      /option "target" must be a target in "host:position" format/
+    );
   });
 });
 
@@ -192,7 +206,10 @@ test("ui-generator add-subpages supports explicit target host:position", async (
     });
 
     const pageSource = await readPageFile(appRoot, targetFile);
-    assert.match(pageSource, /<ShellOutlet host="practice-hub" position="secondary-tabs" \/>/);
+    assert.match(
+      pageSource,
+      /<ShellOutlet target="practice-hub:secondary-tabs" default-link-component-token="local\.main\.ui\.tab-link-item" \/>/
+    );
   });
 });
 
@@ -209,8 +226,9 @@ test("ui-generator add-subpages does not rewrite existing scaffold support compo
       customSectionShellSource,
       "utf8"
     );
+    await mkdir(path.join(appRoot, "src", "components", "menus"), { recursive: true });
     await writeFile(
-      path.join(appRoot, "src", "components", "TabLinkItem.vue"),
+      path.join(appRoot, "src", "components", "menus", "TabLinkItem.vue"),
       customTabLinkSource,
       "utf8"
     );
@@ -233,7 +251,7 @@ test("ui-generator add-subpages does not rewrite existing scaffold support compo
       customSectionShellSource
     );
     assert.equal(
-      await readFile(path.join(appRoot, "src", "components", "TabLinkItem.vue"), "utf8"),
+      await readFile(path.join(appRoot, "src", "components", "menus", "TabLinkItem.vue"), "utf8"),
       customTabLinkSource
     );
   });
@@ -299,7 +317,7 @@ test("ui-generator add-subpages validates target format", async () => {
           target: "practice:"
         }
       }),
-      /option "target" must be "host" or "host:position"/
+      /option "target" must be a target in "host:position" format/
     );
   });
 });

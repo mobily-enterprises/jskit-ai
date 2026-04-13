@@ -1,5 +1,3 @@
-import UsersShellMenuLinkItem from "../components/UsersShellMenuLinkItem.vue";
-import UsersSurfaceAwareMenuLinkItem from "../components/UsersSurfaceAwareMenuLinkItem.vue";
 import UsersProfileSurfaceSwitchMenuItem from "../components/UsersProfileSurfaceSwitchMenuItem.vue";
 import UsersHomeToolsWidget from "../components/UsersHomeToolsWidget.vue";
 import ProfileClientElement from "../components/ProfileClientElement.vue";
@@ -16,8 +14,6 @@ class UsersWebClientProvider {
       throw new Error("UsersWebClientProvider requires application singleton().");
     }
 
-    app.singleton("users.web.shell.menu-link-item", () => UsersShellMenuLinkItem);
-    app.singleton("users.web.shell.surface-aware-menu-link-item", () => UsersSurfaceAwareMenuLinkItem);
     app.singleton("users.web.profile.menu.surface-switch-item", () => UsersProfileSurfaceSwitchMenuItem);
     app.singleton("users.web.home.tools.widget", () => UsersHomeToolsWidget);
     app.singleton("users.web.profile.element", () => ProfileClientElement);

@@ -71,10 +71,17 @@ export default function getPlacements() {
     path.join(appRoot, "src", "components", "ShellLayout.vue"),
     `<template>
   <div>
-    <ShellOutlet host="shell-layout" position="top-left" />
-    <ShellOutlet host="shell-layout" position="top-right" />
-    <ShellOutlet host="shell-layout" position="primary-menu" default />
-    <ShellOutlet host="shell-layout" position="secondary-menu" />
+    <ShellOutlet target="shell-layout:top-left" />
+    <ShellOutlet target="shell-layout:top-right" />
+    <ShellOutlet
+      target="shell-layout:primary-menu"
+      default
+      default-link-component-token="local.main.ui.surface-aware-menu-link-item"
+    />
+    <ShellOutlet
+      target="shell-layout:secondary-menu"
+      default-link-component-token="local.main.ui.surface-aware-menu-link-item"
+    />
   </div>
 </template>
 `,
@@ -290,9 +297,20 @@ test("generate @jskit-ai/crud-ui-generator crud scaffolds CRUD pages at an expli
     const placementSource = await readFile(path.join(appRoot, "src", "placement.js"), "utf8");
     assert.match(placementSource, /jskit:crud-ui-generator\.page\.link:admin:\/ops\/customers-ui/);
     assert.match(placementSource, /id: "ui-generator\.page\.admin\.ops\.customers-ui\.link"/);
-    assert.match(placementSource, /host: "shell-layout"/);
-    assert.match(placementSource, /position: "primary-menu"/);
+    assert.match(placementSource, /target: "shell-layout:primary-menu"/);
+    assert.match(placementSource, /componentToken: "local\.main\.ui\.surface-aware-menu-link-item"/);
     assert.match(placementSource, /workspaceSuffix: "\/ops\/customers-ui"/);
+
+    const localLinkComponentPath = path.join(appRoot, "src", "components", "menus", "SurfaceAwareMenuLinkItem.vue");
+    const providerPath = path.join(appRoot, "packages", "main", "src", "client", "providers", "MainClientProvider.js");
+    assert.equal(await fileExists(localLinkComponentPath), true);
+
+    const providerSource = await readFile(providerPath, "utf8");
+    assert.match(providerSource, /import SurfaceAwareMenuLinkItem from "\/src\/components\/menus\/SurfaceAwareMenuLinkItem\.vue";/);
+    assert.match(
+      providerSource,
+      /registerMainClientComponent\("local\.main\.ui\.surface-aware-menu-link-item", \(\) => SurfaceAwareMenuLinkItem\);/
+    );
   });
 });
 
@@ -361,6 +379,104 @@ test("generate @jskit-ai/crud-ui-generator applies display-fields filters to gen
   });
 });
 
+test("generate @jskit-ai/crud-ui-generator provisions a referenced local link-item token even when the placement already exists", async () => {
+  await withTempDir(async (cwd) => {
+    const appRoot = path.join(cwd, "crud-ui-existing-home-settings-placement");
+    await createMinimalApp(appRoot, { name: "crud-ui-existing-home-settings-placement" });
+    await writeCustomerResource(appRoot);
+
+    await writeFile(
+      path.join(appRoot, "config", "public.js"),
+      `const config = {
+  tenancyMode: "none",
+  surfaceDefaultId: "home",
+  surfaceDefinitions: {
+    home: {
+      id: "home",
+      pagesRoot: "home",
+      enabled: true,
+      requiresAuth: true,
+      requiresWorkspace: false
+    }
+  }
+};
+
+export default config;
+export { config };
+`,
+      "utf8"
+    );
+
+    await mkdir(path.join(appRoot, "src", "pages", "home", "settings"), { recursive: true });
+    await writeFile(
+      path.join(appRoot, "src", "pages", "home", "settings.vue"),
+      `<template>
+  <section>
+    <v-list>
+      <ShellOutlet
+        target="home-settings:primary-menu"
+        default-link-component-token="local.main.ui.surface-aware-menu-link-item"
+      />
+    </v-list>
+    <RouterView />
+  </section>
+</template>
+`,
+      "utf8"
+    );
+    await writeFile(
+      path.join(appRoot, "src", "pages", "home", "settings", "index.vue"),
+      "<template>\n  <div>Settings</div>\n</template>\n",
+      "utf8"
+    );
+
+    await writeFile(
+      path.join(appRoot, "src", "placement.js"),
+      `function addPlacement() {}
+
+// jskit:crud-ui-generator.page.link:home:/settings/pollen_types
+{
+  addPlacement({
+    id: "ui-generator.page.home.settings.pollen-types.link",
+    target: "home-settings:primary-menu",
+    surfaces: ["home"],
+    order: 155,
+    componentToken: "local.main.ui.surface-aware-menu-link-item",
+    props: {
+      label: "Pollen Types",
+      surface: "home",
+      workspaceSuffix: "/settings/pollen_types",
+      nonWorkspaceSuffix: "/settings/pollen_types",
+      to: "./pollen_types"
+    }
+  });
+}
+
+export { addPlacement };
+export default function getPlacements() {
+  return [];
+}
+`,
+      "utf8"
+    );
+
+    await generateCrudUiPackage(appRoot, {
+      targetRoot: "home/settings/pollen_types"
+    });
+
+    const localLinkComponentPath = path.join(appRoot, "src", "components", "menus", "SurfaceAwareMenuLinkItem.vue");
+    const providerPath = path.join(appRoot, "packages", "main", "src", "client", "providers", "MainClientProvider.js");
+    assert.equal(await fileExists(localLinkComponentPath), true);
+
+    const providerSource = await readFile(providerPath, "utf8");
+    assert.match(providerSource, /import SurfaceAwareMenuLinkItem from "\/src\/components\/menus\/SurfaceAwareMenuLinkItem\.vue";/);
+    assert.match(
+      providerSource,
+      /registerMainClientComponent\("local\.main\.ui\.surface-aware-menu-link-item", \(\) => SurfaceAwareMenuLinkItem\);/
+    );
+  });
+});
+
 test("generate @jskit-ai/crud-ui-generator infers tab placement and relative to from a parent subpages host", async () => {
   await withTempDir(async (cwd) => {
     const appRoot = path.join(cwd, "crud-ui-parent-host");
@@ -372,7 +488,7 @@ test("generate @jskit-ai/crud-ui-generator infers tab placement and relative to 
       `<template>
   <SectionContainerShell>
     <template #tabs>
-      <ShellOutlet host="catalog" position="sub-pages" />
+      <ShellOutlet target="catalog:sub-pages" />
     </template>
     <RouterView />
   </SectionContainerShell>
@@ -386,8 +502,7 @@ test("generate @jskit-ai/crud-ui-generator infers tab placement and relative to 
     });
 
     const placementSource = await readFile(path.join(appRoot, "src", "placement.js"), "utf8");
-    assert.match(placementSource, /host: "catalog"/);
-    assert.match(placementSource, /position: "sub-pages"/);
+    assert.match(placementSource, /target: "catalog:sub-pages"/);
     assert.match(placementSource, /componentToken: "local\.main\.ui\.tab-link-item"/);
     assert.match(placementSource, /to: "\.\/products"/);
   });
@@ -404,7 +519,7 @@ test("generate @jskit-ai/crud-ui-generator honors explicit link-placement overri
     });
 
     const placementSource = await readFile(path.join(appRoot, "src", "placement.js"), "utf8");
-    assert.match(placementSource, /position: "secondary-menu"/);
+    assert.match(placementSource, /target: "shell-layout:secondary-menu"/);
   });
 });
 

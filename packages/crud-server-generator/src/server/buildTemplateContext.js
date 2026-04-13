@@ -198,29 +198,25 @@ async function importModuleFromApp(appRequire, moduleId, contextLabel) {
   }
 }
 
-async function resolveCrudPermissionGenerationConfig({
+async function resolveCrudSurfaceRequiresWorkspace({
   appRoot,
-  options
+  options,
+  surface = ""
 } = {}) {
   const namespace = normalizeText(options?.namespace);
-  const surface = normalizeText(options?.surface);
+  const resolvedSurface = normalizeText(surface || options?.surface);
   if (!namespace) {
     throw new Error('crud template context requires option "namespace".');
   }
-  if (!surface) {
+  if (!resolvedSurface) {
     throw new Error('crud template context requires option "surface".');
   }
 
-  const resolvedAppRoot = resolveRequiredAppRoot(appRoot, {
-    context: "crud template context"
-  });
-  const appConfig = await loadAppConfigFromModuleUrl({
-    moduleUrl: pathToFileURL(path.join(resolvedAppRoot, "config", "public.js")).href
-  });
+  const appConfig = await loadCrudAppConfig(appRoot);
   const crudPolicy = resolveCrudSurfacePolicyFromAppConfig(
     {
       namespace,
-      surface,
+      surface: resolvedSurface,
       ownershipFilter: options?.["ownership-filter"]
     },
     appConfig,
@@ -230,6 +226,69 @@ async function resolveCrudPermissionGenerationConfig({
   );
 
   return crudPolicy?.surfaceDefinition?.requiresWorkspace === true;
+}
+
+async function loadCrudAppConfig(appRoot = "") {
+  const resolvedAppRoot = resolveRequiredAppRoot(appRoot, {
+    context: "crud template context"
+  });
+  return loadAppConfigFromModuleUrl({
+    moduleUrl: pathToFileURL(path.join(resolvedAppRoot, "config", "public.js")).href
+  });
+}
+
+function resolveSurfaceDefinitions(appConfig = {}) {
+  const definitions = asRecord(appConfig?.surfaceDefinitions);
+  const resolved = {};
+  for (const [key, rawValue] of Object.entries(definitions)) {
+    const definition = asRecord(rawValue);
+    const id = normalizeText(definition.id || key).toLowerCase();
+    if (!id) {
+      continue;
+    }
+    resolved[id] = Object.freeze({
+      id,
+      enabled: definition.enabled !== false,
+      requiresWorkspace: definition.requiresWorkspace === true
+    });
+  }
+  return Object.freeze(resolved);
+}
+
+function resolveDefaultCrudSurfaceIdFromAppConfig(appConfig = {}) {
+  const surfaceDefinitions = resolveSurfaceDefinitions(appConfig);
+  const enabledSurfaceDefinitions = Object.values(surfaceDefinitions).filter((entry) => entry.enabled === true);
+  const hasEnabledWorkspaceSurface = enabledSurfaceDefinitions.some((entry) => entry.requiresWorkspace === true);
+  if (hasEnabledWorkspaceSurface) {
+    return "";
+  }
+
+  const homeSurface = surfaceDefinitions.home;
+  if (homeSurface?.enabled === true && homeSurface.requiresWorkspace !== true) {
+    return "home";
+  }
+
+  return "";
+}
+
+async function resolveCrudGenerationSurfaceId({
+  appRoot,
+  options
+} = {}) {
+  const explicitSurface = normalizeText(options?.surface).toLowerCase();
+  if (explicitSurface) {
+    return explicitSurface;
+  }
+
+  const appConfig = await loadCrudAppConfig(appRoot);
+  const defaultSurface = resolveDefaultCrudSurfaceIdFromAppConfig(appConfig);
+  if (defaultSurface) {
+    return defaultSurface;
+  }
+
+  throw new Error(
+    'crud template context requires option "surface" when the app has any enabled workspace surface or no enabled non-workspace "home" surface.'
+  );
 }
 
 function resolveKnexFactory(moduleNamespace) {
@@ -1281,6 +1340,14 @@ function buildCrudPermissionIds(namespace = "") {
   );
 }
 
+function normalizeCrudOperation(operation = "", context = "CRUD operation") {
+  const normalizedOperation = normalizeText(operation).toLowerCase();
+  if (!CRUD_PERMISSION_OPERATIONS.includes(normalizedOperation)) {
+    throw new Error(`Unknown ${context} "${normalizedOperation || String(operation || "")}".`);
+  }
+  return normalizedOperation;
+}
+
 function renderRoleCatalogPermissionGrants(namespace = "", { requiresNamedPermissions = true } = {}) {
   const permissionIds = buildCrudPermissionIds(namespace);
   if (!requiresNamedPermissions || !permissionIds) {
@@ -1324,10 +1391,7 @@ function renderActionPermissionSupport(namespace = "", { requiresNamedPermission
 }
 
 function renderActionPermissionExpression(operation = "", { requiresNamedPermissions = true } = {}) {
-  const normalizedOperation = normalizeText(operation).toLowerCase();
-  if (!CRUD_PERMISSION_OPERATIONS.includes(normalizedOperation)) {
-    throw new Error(`Unknown CRUD permission operation "${normalizedOperation || String(operation || "")}".`);
-  }
+  const normalizedOperation = normalizeCrudOperation(operation, "CRUD permission operation");
 
   if (!requiresNamedPermissions) {
     return "authenticatedPermission";
@@ -1336,12 +1400,111 @@ function renderActionPermissionExpression(operation = "", { requiresNamedPermiss
   return `{ require: "all", permissions: [actionPermissions.${normalizedOperation}] }`;
 }
 
+function renderRouteWorkspaceSupportImports({ surfaceRequiresWorkspace = true } = {}) {
+  if (!surfaceRequiresWorkspace) {
+    return "";
+  }
+
+  return [
+    'import { routeParamsValidator } from "@jskit-ai/users-core/server/validators/routeParamsValidator";',
+    'import { buildWorkspaceInputFromRouteParams } from "@jskit-ai/users-core/server/support/workspaceRouteInput";'
+  ].join("\n");
+}
+
+function renderActionWorkspaceValidatorImport({ surfaceRequiresWorkspace = true } = {}) {
+  if (!surfaceRequiresWorkspace) {
+    return "";
+  }
+
+  return 'import { workspaceSlugParamsValidator } from "@jskit-ai/users-core/server/validators/routeParamsValidator";';
+}
+
+function renderRouteParamsValidatorLine(operation = "", { surfaceRequiresWorkspace = true } = {}) {
+  const normalizedOperation = normalizeCrudOperation(operation, "CRUD route params validator operation");
+  if (normalizedOperation === "list" || normalizedOperation === "create") {
+    if (!surfaceRequiresWorkspace) {
+      return "";
+    }
+    return "      paramsValidator: routeParamsValidator,";
+  }
+
+  if (!surfaceRequiresWorkspace) {
+    return "      paramsValidator: recordIdParamsValidator,";
+  }
+
+  return "      paramsValidator: [routeParamsValidator, recordIdParamsValidator],";
+}
+
+function renderRouteInputLines(operation = "", { surfaceRequiresWorkspace = true } = {}) {
+  const normalizedOperation = normalizeCrudOperation(operation, "CRUD route input operation");
+  const lines = [];
+
+  if (surfaceRequiresWorkspace) {
+    lines.push("          ...buildWorkspaceInputFromRouteParams(request.input.params),");
+  }
+
+  if (normalizedOperation === "list") {
+    lines.push("          ...(request.input.query || {})");
+    return lines.join("\n");
+  }
+
+  if (normalizedOperation === "view") {
+    lines.push("          recordId: request.input.params.recordId,");
+    lines.push("          ...(request.input.query || {})");
+    return lines.join("\n");
+  }
+
+  if (normalizedOperation === "create") {
+    lines.push("          payload: request.input.body");
+    return lines.join("\n");
+  }
+
+  if (normalizedOperation === "update") {
+    lines.push("          recordId: request.input.params.recordId,");
+    lines.push("          patch: request.input.body");
+    return lines.join("\n");
+  }
+
+  lines.push("          recordId: request.input.params.recordId");
+  return lines.join("\n");
+}
+
+function renderActionInputValidatorExpression(operation = "", { surfaceRequiresWorkspace = true } = {}) {
+  const normalizedOperation = normalizeCrudOperation(operation, "CRUD action input validator operation");
+  const validators = [];
+
+  if (surfaceRequiresWorkspace) {
+    validators.push("workspaceSlugParamsValidator");
+  }
+
+  if (normalizedOperation === "list") {
+    validators.push(
+      "listCursorPaginationQueryValidator",
+      "listSearchQueryValidator",
+      "listParentFilterQueryValidator",
+      "lookupIncludeQueryValidator"
+    );
+  } else if (normalizedOperation === "view") {
+    validators.push("recordIdParamsValidator", "lookupIncludeQueryValidator");
+  } else if (normalizedOperation === "create") {
+    validators.push("{ payload: resource.operations.create.bodyValidator }");
+  } else if (normalizedOperation === "update") {
+    validators.push("recordIdParamsValidator", "{ patch: resource.operations.patch.bodyValidator }");
+  } else {
+    validators.push("recordIdParamsValidator");
+  }
+
+  return validators.length === 1 ? validators[0] : `[${validators.join(", ")}]`;
+}
+
 function buildReplacementsFromSnapshot({
   namespace = "",
   snapshot,
   resolvedOwnershipFilter,
-  requiresNamedPermissions = true
+  surfaceRequiresWorkspace = true,
+  surfaceId = ""
 }) {
+  const requiresNamedPermissions = surfaceRequiresWorkspace === true;
   const scaffoldColumns = resolveScaffoldColumns(snapshot);
   const outputColumns = scaffoldColumns.filter((column) => !column.isOwnerColumn);
   const writableColumns = scaffoldColumns.filter((column) => column.writable);
@@ -1382,27 +1545,80 @@ function buildReplacementsFromSnapshot({
   const replacements = Object.freeze({
     __JSKIT_CRUD_TABLE_NAME__: JSON.stringify(snapshot.tableName),
     __JSKIT_CRUD_ID_COLUMN__: JSON.stringify(snapshot.idColumn || DEFAULT_ID_COLUMN),
+    __JSKIT_CRUD_SURFACE_ID__: JSON.stringify(normalizeText(surfaceId).toLowerCase()),
     __JSKIT_CRUD_RESOLVED_OWNERSHIP_FILTER__: resolvedOwnershipFilter,
     __JSKIT_CRUD_ACTION_PERMISSION_SUPPORT__: renderActionPermissionSupport(namespace, {
       requiresNamedPermissions
     }),
+    __JSKIT_CRUD_ACTION_WORKSPACE_VALIDATOR_IMPORT__: renderActionWorkspaceValidatorImport({
+      surfaceRequiresWorkspace
+    }),
     __JSKIT_CRUD_LIST_ACTION_PERMISSION__: renderActionPermissionExpression("list", {
       requiresNamedPermissions
+    }),
+    __JSKIT_CRUD_LIST_ACTION_INPUT_VALIDATOR__: renderActionInputValidatorExpression("list", {
+      surfaceRequiresWorkspace
     }),
     __JSKIT_CRUD_VIEW_ACTION_PERMISSION__: renderActionPermissionExpression("view", {
       requiresNamedPermissions
     }),
+    __JSKIT_CRUD_VIEW_ACTION_INPUT_VALIDATOR__: renderActionInputValidatorExpression("view", {
+      surfaceRequiresWorkspace
+    }),
     __JSKIT_CRUD_CREATE_ACTION_PERMISSION__: renderActionPermissionExpression("create", {
       requiresNamedPermissions
+    }),
+    __JSKIT_CRUD_CREATE_ACTION_INPUT_VALIDATOR__: renderActionInputValidatorExpression("create", {
+      surfaceRequiresWorkspace
     }),
     __JSKIT_CRUD_UPDATE_ACTION_PERMISSION__: renderActionPermissionExpression("update", {
       requiresNamedPermissions
     }),
+    __JSKIT_CRUD_UPDATE_ACTION_INPUT_VALIDATOR__: renderActionInputValidatorExpression("update", {
+      surfaceRequiresWorkspace
+    }),
     __JSKIT_CRUD_DELETE_ACTION_PERMISSION__: renderActionPermissionExpression("delete", {
       requiresNamedPermissions
     }),
+    __JSKIT_CRUD_DELETE_ACTION_INPUT_VALIDATOR__: renderActionInputValidatorExpression("delete", {
+      surfaceRequiresWorkspace
+    }),
     __JSKIT_CRUD_ROLE_CATALOG_PERMISSION_GRANTS__: renderRoleCatalogPermissionGrants(namespace, {
       requiresNamedPermissions
+    }),
+    __JSKIT_CRUD_ROUTE_SURFACE_REQUIRES_WORKSPACE__: String(surfaceRequiresWorkspace === true),
+    __JSKIT_CRUD_ROUTE_WORKSPACE_SUPPORT_IMPORTS__: renderRouteWorkspaceSupportImports({
+      surfaceRequiresWorkspace
+    }),
+    __JSKIT_CRUD_LIST_ROUTE_PARAMS_VALIDATOR_LINE__: renderRouteParamsValidatorLine("list", {
+      surfaceRequiresWorkspace
+    }),
+    __JSKIT_CRUD_VIEW_ROUTE_PARAMS_VALIDATOR_LINE__: renderRouteParamsValidatorLine("view", {
+      surfaceRequiresWorkspace
+    }),
+    __JSKIT_CRUD_CREATE_ROUTE_PARAMS_VALIDATOR_LINE__: renderRouteParamsValidatorLine("create", {
+      surfaceRequiresWorkspace
+    }),
+    __JSKIT_CRUD_UPDATE_ROUTE_PARAMS_VALIDATOR_LINE__: renderRouteParamsValidatorLine("update", {
+      surfaceRequiresWorkspace
+    }),
+    __JSKIT_CRUD_DELETE_ROUTE_PARAMS_VALIDATOR_LINE__: renderRouteParamsValidatorLine("delete", {
+      surfaceRequiresWorkspace
+    }),
+    __JSKIT_CRUD_LIST_ROUTE_INPUT_LINES__: renderRouteInputLines("list", {
+      surfaceRequiresWorkspace
+    }),
+    __JSKIT_CRUD_VIEW_ROUTE_INPUT_LINES__: renderRouteInputLines("view", {
+      surfaceRequiresWorkspace
+    }),
+    __JSKIT_CRUD_CREATE_ROUTE_INPUT_LINES__: renderRouteInputLines("create", {
+      surfaceRequiresWorkspace
+    }),
+    __JSKIT_CRUD_UPDATE_ROUTE_INPUT_LINES__: renderRouteInputLines("update", {
+      surfaceRequiresWorkspace
+    }),
+    __JSKIT_CRUD_DELETE_ROUTE_INPUT_LINES__: renderRouteInputLines("delete", {
+      surfaceRequiresWorkspace
     }),
     __JSKIT_CRUD_RESOURCE_VALIDATORS_IMPORT__: renderResourceValidatorsImport({
       needsHtmlTimeSchemas,
@@ -1462,6 +1678,10 @@ async function resolveGenerationSnapshot({
   });
 }
 
+function resolveCrudGenerationTableName(options = {}) {
+  return normalizeText(options?.["table-name"] || options?.namespace);
+}
+
 function createCacheKey({ appRoot, options }) {
   const payload = {
     appRoot: path.resolve(String(appRoot || "")),
@@ -1485,10 +1705,14 @@ async function buildCrudTemplateContext(input = {}) {
   if (!namespace) {
     throw new Error('crud template context requires option "namespace".');
   }
-  const tableName = normalizeText(options["table-name"]);
+  const tableName = resolveCrudGenerationTableName(options);
   if (!tableName) {
     throw new Error('crud template context requires option "table-name".');
   }
+  const resolvedSurface = await resolveCrudGenerationSurfaceId({
+    appRoot,
+    options
+  });
   const snapshot = await resolveGenerationSnapshot({
     appRoot,
     tableName,
@@ -1502,16 +1726,18 @@ async function buildCrudTemplateContext(input = {}) {
       enforceTableColumns: true
     }
   );
-  const requiresNamedPermissions = await resolveCrudPermissionGenerationConfig({
+  const surfaceRequiresWorkspace = await resolveCrudSurfaceRequiresWorkspace({
     appRoot,
-    options
+    options,
+    surface: resolvedSurface
   });
 
   return buildReplacementsFromSnapshot({
     namespace,
     snapshot,
     resolvedOwnershipFilter,
-    requiresNamedPermissions
+    surfaceRequiresWorkspace,
+    surfaceId: resolvedSurface
   });
 }
 
@@ -1543,13 +1769,19 @@ const __testables = Object.freeze({
   renderResourceFieldSchema,
   renderInputNormalizer,
   renderOutputNormalizerExpression,
+  resolveCrudGenerationTableName,
   resolveGenerationSnapshot,
   buildFieldMetaEntries,
-  resolveCrudPermissionGenerationConfig,
+  resolveDefaultCrudSurfaceIdFromAppConfig,
+  resolveCrudGenerationSurfaceId,
+  resolveCrudSurfaceRequiresWorkspace,
   buildCrudPermissionIds,
   renderRoleCatalogPermissionGrants,
   renderActionPermissionSupport,
-  renderActionPermissionExpression
+  renderActionPermissionExpression,
+  renderActionInputValidatorExpression,
+  renderRouteParamsValidatorLine,
+  renderRouteInputLines
 });
 
 export {
@@ -1561,5 +1793,6 @@ export {
   renderInputNormalizer,
   renderOutputNormalizerExpression,
   buildFieldMetaEntries,
+  resolveCrudGenerationSurfaceId,
   __testables
 };

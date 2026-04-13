@@ -55,8 +55,8 @@ async function writeAppFixture(appRoot) {
     "src/components/ShellLayout.vue",
     `<template>
   <div>
-    <ShellOutlet host="shell-layout" position="primary-menu" default />
-    <ShellOutlet host="shell-layout" position="top-right" />
+    <ShellOutlet target="shell-layout:primary-menu" default />
+    <ShellOutlet target="shell-layout:top-right" />
   </div>
 </template>
 `
@@ -95,8 +95,7 @@ test("assistant page subcommand creates a runtime page at an explicit target fil
     const placementSource = await readFile(path.join(appRoot, "src/placement.js"), "utf8");
     assert.match(placementSource, /jskit:assistant\.page\.link:admin:\/ops\/copilot/);
     assert.match(placementSource, /id: "ui-generator\.page\.admin\.ops\.copilot\.link"/);
-    assert.match(placementSource, /host: "shell-layout"/);
-    assert.match(placementSource, /position: "primary-menu"/);
+    assert.match(placementSource, /target: "shell-layout:primary-menu"/);
     assert.match(placementSource, /label: "Copilot"/);
     assert.match(placementSource, /workspaceSuffix: "\/ops\/copilot"/);
   });
@@ -111,7 +110,7 @@ test("assistant settings-page subcommand uses the target assistant surface and i
       `<template>
   <SectionContainerShell>
     <template #tabs>
-      <ShellOutlet host="admin-settings" position="sub-pages" />
+      <ShellOutlet target="admin-settings:sub-pages" />
     </template>
     <RouterView />
   </SectionContainerShell>
@@ -137,8 +136,7 @@ test("assistant settings-page subcommand uses the target assistant surface and i
 
     const placementSource = await readFile(path.join(appRoot, "src/placement.js"), "utf8");
     assert.match(placementSource, /jskit:assistant\.settings-page\.link:admin:\/settings\/assistant:console/);
-    assert.match(placementSource, /host: "admin-settings"/);
-    assert.match(placementSource, /position: "sub-pages"/);
+    assert.match(placementSource, /target: "admin-settings:sub-pages"/);
     assert.match(placementSource, /componentToken: "local\.main\.ui\.tab-link-item"/);
     assert.match(placementSource, /to: "\.\/assistant"/);
     assert.match(placementSource, /label: "Assistant"/);
@@ -213,7 +211,7 @@ test("assistant settings-page subcommand overwrites an existing page when --forc
       `<template>
   <SectionContainerShell>
     <template #tabs>
-      <ShellOutlet host="admin-settings" position="sub-pages" />
+      <ShellOutlet target="admin-settings:sub-pages" />
     </template>
     <RouterView />
   </SectionContainerShell>

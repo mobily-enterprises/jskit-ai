@@ -30,8 +30,8 @@ test("resolveShellOutletPlacementTargetFromApp reads outlets across app Vue file
       "src/components/ShellLayout.vue",
       `<template>
   <div>
-    <ShellOutlet host="shell-layout" position="primary-menu" />
-    <ShellOutlet host="shell-layout" position="top-right" />
+    <ShellOutlet target="shell-layout:primary-menu" />
+    <ShellOutlet target="shell-layout:top-right" />
   </div>
 </template>
 `
@@ -41,7 +41,7 @@ test("resolveShellOutletPlacementTargetFromApp reads outlets across app Vue file
       "src/pages/admin/workspace/settings/index.vue",
       `<template>
   <section>
-    <ShellOutlet host="admin-settings" position="forms" default />
+    <ShellOutlet target="admin-settings:forms" default />
   </section>
 </template>
 `
@@ -52,8 +52,7 @@ test("resolveShellOutletPlacementTargetFromApp reads outlets across app Vue file
       context: "ui-generator"
     });
 
-    assert.equal(target.host, "admin-settings");
-    assert.equal(target.position, "forms");
+    assert.equal(target.id, "admin-settings:forms");
   });
 });
 
@@ -64,7 +63,7 @@ test("discoverShellOutletTargetsFromApp includes installed package placement out
       "src/components/ShellLayout.vue",
       `<template>
   <div>
-    <ShellOutlet host="shell-layout" position="primary-menu" default />
+    <ShellOutlet target="shell-layout:primary-menu" default />
   </div>
 </template>
 `
@@ -98,7 +97,11 @@ test("discoverShellOutletTargetsFromApp includes installed package placement out
     ui: {
       placements: {
         outlets: [
-          { host: "workspace-tools", position: "primary-menu", source: "src/client/components/UsersWorkspaceToolsWidget.vue" }
+          {
+            target: "workspace-tools:primary-menu",
+            defaultLinkComponentToken: "local.main.ui.surface-aware-menu-link-item",
+            source: "src/client/components/UsersWorkspaceToolsWidget.vue"
+          }
         ]
       }
     }
@@ -114,9 +117,8 @@ test("discoverShellOutletTargetsFromApp includes installed package placement out
     );
     assert.deepEqual(discovered.targets[1], {
       id: "workspace-tools:primary-menu",
-      host: "workspace-tools",
-      position: "primary-menu",
       default: false,
+      defaultLinkComponentToken: "local.main.ui.surface-aware-menu-link-item",
       sourcePath: "package:@example/users-web:src/client/components/UsersWorkspaceToolsWidget.vue",
       sourcePackageId: "@example/users-web"
     });
@@ -130,6 +132,68 @@ test("discoverShellOutletTargetsFromApp includes installed package placement out
   });
 });
 
+test("discoverShellOutletTargetsFromApp applies app config default-link overrides by target id", async () => {
+  await withTempApp(async (appRoot) => {
+    await writeFileInApp(
+      appRoot,
+      "config/public.js",
+      `export const config = {
+  ui: {
+    outletDefaults: {
+      "workspace-tools:primary-menu": {
+        linkComponentToken: "local.main.ui.surface-aware-menu-link-item"
+      }
+    }
+  }
+};
+`
+    );
+    await writeFileInApp(
+      appRoot,
+      ".jskit/lock.json",
+      `${JSON.stringify(
+        {
+          lockVersion: 1,
+          installedPackages: {
+            "@example/users-web": {
+              packageId: "@example/users-web",
+              source: {
+                type: "npm-installed-package",
+                descriptorPath: "node_modules/@example/users-web/package.descriptor.mjs"
+              }
+            }
+          }
+        },
+        null,
+        2
+      )}\n`
+    );
+    await writeFileInApp(
+      appRoot,
+      "node_modules/@example/users-web/package.descriptor.mjs",
+      `export default {
+  packageId: "@example/users-web",
+  metadata: {
+    ui: {
+      placements: {
+        outlets: [
+          {
+            target: "workspace-tools:primary-menu",
+            defaultLinkComponentToken: "local.main.ui.surface-aware-menu-link-item"
+          }
+        ]
+      }
+    }
+  }
+};
+`
+    );
+
+    const discovered = await discoverShellOutletTargetsFromApp({ appRoot });
+    assert.equal(discovered.targets[0].defaultLinkComponentToken, "local.main.ui.surface-aware-menu-link-item");
+  });
+});
+
 test("discoverShellOutletTargetsFromApp returns targets with sourcePath and default marker", async () => {
   await withTempApp(async (appRoot) => {
     await writeFileInApp(
@@ -137,7 +201,7 @@ test("discoverShellOutletTargetsFromApp returns targets with sourcePath and defa
       "src/components/ShellLayout.vue",
       `<template>
   <div>
-    <ShellOutlet host="shell-layout" position="primary-menu" />
+    <ShellOutlet target="shell-layout:primary-menu" />
   </div>
 </template>
 `
@@ -147,7 +211,7 @@ test("discoverShellOutletTargetsFromApp returns targets with sourcePath and defa
       "src/pages/admin/toolbox/index.vue",
       `<template>
   <section>
-    <ShellOutlet host="admin-toolbox" position="widgets" default />
+    <ShellOutlet target="admin-toolbox:widgets" default />
   </section>
 </template>
 `
@@ -158,16 +222,14 @@ test("discoverShellOutletTargetsFromApp returns targets with sourcePath and defa
     assert.deepEqual(discovered.targets, [
       {
         id: "admin-toolbox:widgets",
-        host: "admin-toolbox",
-        position: "widgets",
         default: true,
+        defaultLinkComponentToken: "",
         sourcePath: "src/pages/admin/toolbox/index.vue"
       },
       {
         id: "shell-layout:primary-menu",
-        host: "shell-layout",
-        position: "primary-menu",
         default: false,
+        defaultLinkComponentToken: "",
         sourcePath: "src/components/ShellLayout.vue"
       }
     ]);
@@ -188,8 +250,7 @@ test("discoverShellOutletTargetsFromApp discovers route meta placement outlets",
       "placements": {
         "outlets": [
           {
-            "host": "contact-tools",
-            "position": "sub-pages"
+            "target": "contact-tools:sub-pages"
           }
         ]
       }
@@ -204,9 +265,8 @@ test("discoverShellOutletTargetsFromApp discovers route meta placement outlets",
     assert.deepEqual(discovered.targets, [
       {
         id: "contact-tools:sub-pages",
-        host: "contact-tools",
-        position: "sub-pages",
         default: false,
+        defaultLinkComponentToken: "",
         sourcePath: "src/pages/w/[workspaceSlug]/admin/contacts/[contactId]/contact-tools.vue"
       }
     ]);
@@ -227,8 +287,8 @@ test("resolveShellOutletPlacementTargetFromApp supports explicit placement overr
       "src/components/ShellLayout.vue",
       `<template>
   <div>
-    <ShellOutlet host="shell-layout" position="primary-menu" default />
-    <ShellOutlet host="shell-layout" position="top-right" />
+    <ShellOutlet target="shell-layout:primary-menu" default />
+    <ShellOutlet target="shell-layout:top-right" />
   </div>
 </template>
 `
@@ -240,8 +300,7 @@ test("resolveShellOutletPlacementTargetFromApp supports explicit placement overr
       placement: "shell-layout:top-right"
     });
 
-    assert.equal(target.host, "shell-layout");
-    assert.equal(target.position, "top-right");
+    assert.equal(target.id, "shell-layout:top-right");
   });
 });
 
@@ -252,7 +311,7 @@ test("resolveShellOutletPlacementTargetFromApp validates placement format", asyn
       "src/components/ShellLayout.vue",
       `<template>
   <div>
-    <ShellOutlet host="shell-layout" position="primary-menu" default />
+    <ShellOutlet target="shell-layout:primary-menu" default />
   </div>
 </template>
 `
@@ -265,7 +324,7 @@ test("resolveShellOutletPlacementTargetFromApp validates placement format", asyn
           context: "ui-generator",
           placement: "invalid-placement"
         }),
-      /option "placement" must be in "host:position" format/
+      /option "placement" must be a target in "host:position" format/
     );
   });
 });
@@ -277,7 +336,7 @@ test("resolveShellOutletPlacementTargetFromApp throws when multiple default outl
       "src/components/ShellLayout.vue",
       `<template>
   <div>
-    <ShellOutlet host="shell-layout" position="primary-menu" default />
+    <ShellOutlet target="shell-layout:primary-menu" default />
   </div>
 </template>
 `
@@ -287,7 +346,7 @@ test("resolveShellOutletPlacementTargetFromApp throws when multiple default outl
       "src/pages/admin/workspace/settings/index.vue",
       `<template>
   <section>
-    <ShellOutlet host="admin-settings" position="forms" default />
+    <ShellOutlet target="admin-settings:forms" default />
   </section>
 </template>
 `

@@ -14,11 +14,7 @@ import {
 } from "../placement/surfaceContext.js";
 
 const props = defineProps({
-  host: {
-    type: String,
-    default: ""
-  },
-  position: {
+  target: {
     type: String,
     default: ""
   },
@@ -29,6 +25,10 @@ const props = defineProps({
   context: {
     type: Object,
     default: () => ({})
+  },
+  defaultLinkComponentToken: {
+    type: String,
+    default: ""
   }
 });
 
@@ -78,12 +78,15 @@ const resolvedSurface = computed(() => {
   return "*";
 });
 
+const resolvedTargetId = computed(() => {
+  return String(props.target || "").trim();
+});
+
 const placements = computed(() => {
   void revision.value;
   return placementRuntime.getPlacements({
     surface: resolvedSurface.value,
-    host: props.host,
-    position: props.position,
+    target: resolvedTargetId.value,
     context: props.context
   });
 });

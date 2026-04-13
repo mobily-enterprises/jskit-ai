@@ -24,9 +24,16 @@ async function withTempApp(run) {
       path.join(appRoot, "src", "components", "ShellLayout.vue"),
       `<template>
   <div>
-    <ShellOutlet host="shell-layout" position="top-right" />
-    <ShellOutlet host="shell-layout" position="primary-menu" default />
-    <ShellOutlet host="shell-layout" position="secondary-menu" />
+    <ShellOutlet target="shell-layout:top-right" />
+    <ShellOutlet
+      target="shell-layout:primary-menu"
+      default
+      default-link-component-token="local.main.ui.surface-aware-menu-link-item"
+    />
+    <ShellOutlet
+      target="shell-layout:secondary-menu"
+      default-link-component-token="local.main.ui.surface-aware-menu-link-item"
+    />
   </div>
 </template>
 `,
@@ -325,9 +332,8 @@ test("buildUiTemplateContext resolves list placement from the app default shell 
     });
 
     assert.equal(context.__JSKIT_UI_MENU_PLACEMENT_ID__, "ui-generator.page.admin.customers.link");
-    assert.equal(context.__JSKIT_UI_MENU_PLACEMENT_HOST__, "shell-layout");
-    assert.equal(context.__JSKIT_UI_MENU_PLACEMENT_POSITION__, "primary-menu");
-    assert.equal(context.__JSKIT_UI_MENU_COMPONENT_TOKEN__, "users.web.shell.surface-aware-menu-link-item");
+    assert.equal(context.__JSKIT_UI_MENU_PLACEMENT_TARGET__, "shell-layout:primary-menu");
+    assert.equal(context.__JSKIT_UI_MENU_COMPONENT_TOKEN__, "local.main.ui.surface-aware-menu-link-item");
     assert.equal(context.__JSKIT_UI_MENU_WORKSPACE_SUFFIX__, "/customers");
     assert.equal(context.__JSKIT_UI_MENU_NON_WORKSPACE_SUFFIX__, "/customers");
     assert.equal(context.__JSKIT_UI_MENU_TO_PROP_LINE__, "");
@@ -345,7 +351,7 @@ test("buildUiTemplateContext infers tab placement and relative link-to from the 
       `<template>
   <SectionContainerShell>
     <template #tabs>
-      <ShellOutlet host="catalog" position="sub-pages" />
+      <ShellOutlet target="catalog:sub-pages" />
     </template>
     <RouterView />
   </SectionContainerShell>
@@ -360,11 +366,41 @@ test("buildUiTemplateContext infers tab placement and relative link-to from the 
       })
     });
 
-    assert.equal(context.__JSKIT_UI_MENU_PLACEMENT_HOST__, "catalog");
-    assert.equal(context.__JSKIT_UI_MENU_PLACEMENT_POSITION__, "sub-pages");
+    assert.equal(context.__JSKIT_UI_MENU_PLACEMENT_TARGET__, "catalog:sub-pages");
     assert.equal(context.__JSKIT_UI_MENU_COMPONENT_TOKEN__, "local.main.ui.tab-link-item");
     assert.equal(context.__JSKIT_UI_MENU_TO_PROP_LINE__, "      to: \"./products\",\n");
     assert.equal(context.__JSKIT_UI_MENU_WORKSPACE_SUFFIX__, "/catalog/products");
+  });
+});
+
+test("buildUiTemplateContext prefers an outlet-declared default link token over subpage heuristics", async () => {
+  await withTempApp(async (appRoot) => {
+    await writeResource(appRoot, RESOURCE_FILE, FULL_RESOURCE_SOURCE);
+    await writeFileInApp(
+      appRoot,
+      "src/pages/admin/settings.vue",
+      `<template>
+  <section>
+    <ShellOutlet
+      target="admin-settings:primary-menu"
+      default-link-component-token="local.main.ui.surface-aware-menu-link-item"
+    />
+    <RouterView />
+  </section>
+</template>
+`
+    );
+
+    const context = await buildUiTemplateContext({
+      appRoot,
+      options: createOptions({
+        "target-root": "admin/settings/customers"
+      })
+    });
+
+    assert.equal(context.__JSKIT_UI_MENU_PLACEMENT_TARGET__, "admin-settings:primary-menu");
+    assert.equal(context.__JSKIT_UI_MENU_COMPONENT_TOKEN__, "local.main.ui.surface-aware-menu-link-item");
+    assert.equal(context.__JSKIT_UI_MENU_TO_PROP_LINE__, "      to: \"./customers\",\n");
   });
 });
 
@@ -379,8 +415,8 @@ test("buildUiTemplateContext honors explicit link-placement override", async () 
       })
     });
 
-    assert.equal(context.__JSKIT_UI_MENU_PLACEMENT_POSITION__, "secondary-menu");
-    assert.equal(context.__JSKIT_UI_MENU_COMPONENT_TOKEN__, "users.web.shell.surface-aware-menu-link-item");
+    assert.equal(context.__JSKIT_UI_MENU_PLACEMENT_TARGET__, "shell-layout:secondary-menu");
+    assert.equal(context.__JSKIT_UI_MENU_COMPONENT_TOKEN__, "local.main.ui.surface-aware-menu-link-item");
   });
 });
 

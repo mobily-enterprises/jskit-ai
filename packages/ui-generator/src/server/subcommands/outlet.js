@@ -12,25 +12,21 @@ import {
   indentBlock
 } from "./support.js";
 
-const DEFAULT_OUTLET_POSITION = "sub-pages";
-
 const ROUTE_TAG_PATTERN = /<route\b[^>]*>[\s\S]*?<\/route>\s*/gi;
 const TEMPLATE_CLOSE_TAG_PATTERN = /<\/template>/gi;
 const SHELL_OUTLET_TAG_PATTERN = /<ShellOutlet\b([^>]*)\/?>/gi;
 
-function hasShellOutletTarget(source = "", { host = "", position = "" } = {}) {
-  const normalizedHost = normalizeText(host);
-  const normalizedPosition = normalizeText(position);
-  if (!normalizedHost || !normalizedPosition) {
+function hasShellOutletTarget(source = "", { target = "" } = {}) {
+  const normalizedTarget = normalizeText(target);
+  if (!normalizedTarget) {
     return false;
   }
 
   const sourceText = String(source || "");
   for (const match of sourceText.matchAll(SHELL_OUTLET_TAG_PATTERN)) {
     const attributes = parseTagAttributes(match[1]);
-    const outletHost = normalizeText(attributes.host);
-    const outletPosition = normalizeText(attributes.position);
-    if (outletHost === normalizedHost && outletPosition === normalizedPosition) {
+    const outletTarget = normalizeText(attributes.target);
+    if (outletTarget === normalizedTarget) {
       return true;
     }
   }
@@ -75,8 +71,8 @@ function applyScriptImports(source = "") {
   };
 }
 
-function createOutletBlock({ host = "", position = "" } = {}) {
-  return `<ShellOutlet host=\"${host}\" position=\"${position}\" />`;
+function createOutletBlock({ target = "" } = {}) {
+  return `<ShellOutlet target="${target}" />`;
 }
 
 function findLastTemplateCloseTag(source = "") {
@@ -88,9 +84,9 @@ function findLastTemplateCloseTag(source = "") {
   return lastMatch;
 }
 
-function applyOutletTemplateBlock(source = "", { host = "", position = "" } = {}) {
+function applyOutletTemplateBlock(source = "", { target = "" } = {}) {
   const sourceText = String(source || "");
-  const outletBlock = createOutletBlock({ host, position });
+  const outletBlock = createOutletBlock({ target });
 
   const templateTagMatch = findLastTemplateCloseTag(sourceText);
   if (!templateTagMatch) {
@@ -133,10 +129,9 @@ async function runGeneratorSubcommand({
 
   const outletTarget = resolveOutletTargetId(options?.target, {
     context: "ui-generator outlet",
-    optionName: "target",
-    defaultPosition: DEFAULT_OUTLET_POSITION
+    optionName: "target"
   });
-  const { host, position } = outletTarget;
+  const targetId = outletTarget.id;
 
   const targetFilePath = resolvePathWithinApp(appRoot, targetFile, {
     context: "ui-generator outlet"
@@ -154,12 +149,11 @@ async function runGeneratorSubcommand({
     throw new Error(`ui-generator outlet target file not found: ${targetFilePath.relativePath}.`);
   }
 
-  const hasTargetOutlet = hasShellOutletTarget(source, { host, position });
+  const hasTargetOutlet = hasShellOutletTarget(source, { target: targetId });
   const templateApplied = hasTargetOutlet
     ? { changed: false, content: source }
     : applyOutletTemplateBlock(source, {
-      host,
-      position
+      target: targetId
     });
   const scriptApplied = applyScriptImports(templateApplied.content);
 
@@ -171,8 +165,8 @@ async function runGeneratorSubcommand({
   return {
     touchedFiles: changed ? [targetFilePath.relativePath] : [],
     summary: changed
-      ? `Injected outlet \"${host}:${position}\" into ${targetFilePath.relativePath}.`
-      : `Outlet \"${host}:${position}\" is already present in ${targetFilePath.relativePath}.`
+      ? `Injected outlet "${targetId}" into ${targetFilePath.relativePath}.`
+      : `Outlet "${targetId}" is already present in ${targetFilePath.relativePath}.`
   };
 }
 

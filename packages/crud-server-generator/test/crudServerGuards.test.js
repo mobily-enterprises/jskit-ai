@@ -1,13 +1,20 @@
 import test, { after } from "node:test";
 import assert from "node:assert/strict";
+import { recordIdParamsValidator } from "@jskit-ai/kernel/shared/validators";
 import { createTemplateServerFixture } from "../test-support/templateServerFixture.js";
 
 const fixture = await createTemplateServerFixture();
+const nonWorkspaceFixture = await createTemplateServerFixture({
+  surfaceRequiresWorkspace: false,
+  requiresNamedPermissions: false
+});
 const { createActions } = await fixture.importServerModule("actions.js");
 const { createRepository } = await fixture.importServerModule("repository.js");
+const { createActions: createNonWorkspaceActions } = await nonWorkspaceFixture.importServerModule("actions.js");
 
 after(async () => {
   await fixture.cleanup();
+  await nonWorkspaceFixture.cleanup();
 });
 
 test("template createRepository defaults tableName from resource metadata", () => {
@@ -67,4 +74,20 @@ test("template createActions requires namespaced CRUD permissions by default", (
       { require: "all", permissions: ["crud.customers.delete"] }
     ]
   );
+});
+
+test("template createActions omits workspace validators for non-workspace generation", () => {
+  const actions = createNonWorkspaceActions({ surface: "home" });
+
+  assert.equal(Array.isArray(actions[0].inputValidator), true);
+  assert.equal(actions[0].inputValidator.length, 4);
+  assert.equal(Array.isArray(actions[1].inputValidator), true);
+  assert.equal(actions[1].inputValidator.length, 2);
+  assert.equal(actions[1].inputValidator[0], recordIdParamsValidator);
+  assert.deepEqual(Object.keys(actions[2].inputValidator), ["payload"]);
+  assert.equal(Array.isArray(actions[3].inputValidator), true);
+  assert.equal(actions[3].inputValidator.length, 2);
+  assert.equal(actions[3].inputValidator[0], recordIdParamsValidator);
+  assert.equal(actions[4].inputValidator, recordIdParamsValidator);
+  assert.equal(actions[0].permission.require, "authenticated");
 });

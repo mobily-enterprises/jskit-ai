@@ -14,7 +14,7 @@ import { createActions } from "./actions.js";
 import { registerRoutes } from "./registerRoutes.js";
 const CRUD_MODULE_CONFIG = Object.freeze({
   namespace: "${option:namespace|snake}",
-  surface: "${option:surface|lower}",
+  surface: __JSKIT_CRUD_SURFACE_ID__,
   ownershipFilter: "__JSKIT_CRUD_RESOLVED_OWNERSHIP_FILTER__",
   relativePath: "/${option:directory-prefix|pathprefix}${option:namespace|kebab}"
 });
@@ -82,7 +82,6 @@ class ${option:namespace|pascal}Provider {
     registerRoutes(app, {
       routeOwnershipFilter: crudPolicy.ownershipFilter,
       routeSurface: crudPolicy.surfaceId,
-      routeSurfaceRequiresWorkspace: crudPolicy.surfaceDefinition.requiresWorkspace === true,
       routeRelativePath: crudPolicy.relativePath
     });
   }

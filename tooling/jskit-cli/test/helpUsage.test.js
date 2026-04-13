@@ -33,7 +33,7 @@ test("jskit with no args prints top-level command overview", () => {
   assert.match(stdout, /Available commands:/);
   assert.match(stdout, /generate\s+Run a generator package/);
   assert.match(stdout, /list-placements\s+List discovered UI placement targets/);
-  assert.match(stdout, /list-link-items\s+List available placement link-item component tokens/);
+  assert.match(stdout, /list-component-tokens\s+List available placement component tokens/);
 });
 
 test("jskit generate with no params lists available generators", () => {
@@ -112,7 +112,7 @@ test("jskit generate ui-generator outlet help prints outlet-specific usage", () 
   assert.match(stdout, /Generator subcommand help: @jskit-ai\/ui-generator outlet/);
   assert.match(stdout, /Long:/);
   assert.match(stdout, /A ShellOutlet creates a named placement target inside a Vue file\./);
-  assert.match(stdout, /`jskit list-placements` will discover it and show it as `host:position`\./);
+  assert.match(stdout, /`jskit list-placements` will discover it and show its `target`\./);
   assert.match(stdout, /`ui-generator placed-element`/);
   assert.match(stdout, /Notes \(1\):/);
   assert.doesNotMatch(stdout, /RouterView or SectionContainerShell/);
@@ -136,7 +136,7 @@ test("jskit generate ui-generator page help includes link options", () => {
   assertMaxLineLength(stdout);
   assert.match(stdout, /Generator subcommand help: @jskit-ai\/ui-generator page/);
   assert.match(stdout, /Long:/);
-  assert.match(stdout, /If an ancestor page has already been enhanced with sub-pages, JSKIT treats that ancestor as the real\s+host\./);
+  assert.match(stdout, /If an ancestor page has already been enhanced with sub-pages, JSKIT treats that ancestor outlet as\s+the real placement target\./);
   assert.match(stdout, /child pages\s+belong under `index\/\.\.\.`/);
   assert.match(stdout, /target-file \[required\]: Vue page file relative to src\/pages\/\. It must\s+resolve to a configured\s+surface\./);
   assert.match(stdout, /--link-placement/);
@@ -151,7 +151,7 @@ test("jskit generate ui-generator page help includes link options", () => {
   assert.match(stdout, /target page file already exists, rerun with --force/);
 });
 
-test("jskit generate ui-generator add-subpages help prints subpage-host usage", () => {
+test("jskit generate ui-generator add-subpages help prints subpage target usage", () => {
   const result = runCli({ args: ["generate", "ui-generator", "add-subpages", "help"] });
   assert.equal(result.status, 0, String(result.stderr || ""));
   const stdout = String(result.stdout || "");
@@ -165,7 +165,7 @@ test("jskit generate ui-generator add-subpages help prints subpage-host usage", 
     /contact-view:summary-tabs/
   ]);
   assert.match(stdout, /Notes \(2\):/);
-  assert.match(stdout, /If the host page is index\.vue, create child pages under index\/\.\.\./);
+  assert.match(stdout, /If the outlet page is index\.vue, create child pages under index\/\.\.\./);
 });
 
 test("jskit generate ui-generator placed-element help includes common and advanced examples", () => {
@@ -234,12 +234,12 @@ test("jskit generate assistant help includes examples for setup, page, and setti
   }
 });
 
-test("jskit help list-link-items prints command help", () => {
-  const result = runCli({ args: ["help", "list-link-items"] });
+test("jskit help list-component-tokens prints command help", () => {
+  const result = runCli({ args: ["help", "list-component-tokens"] });
   assert.equal(result.status, 0, String(result.stderr || ""));
   const stdout = String(result.stdout || "");
-  assert.match(stdout, /Command: list-link-items/);
-  assert.match(stdout, /jskit list-link-items/);
+  assert.match(stdout, /Command: list-component-tokens/);
+  assert.match(stdout, /jskit list-component-tokens/);
   assert.match(stdout, /--prefix <value>/);
   assert.match(stdout, /--all/);
 });

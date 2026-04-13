@@ -432,7 +432,18 @@ async function runPackageGenerateCommand(
     });
   }
 
-  const { packageEntry } = await resolveGeneratorPackageEntry(targetId);
+  const resolvedGeneratorPackage = await resolveGeneratorPackageEntry(targetId);
+  const { packageEntry } = resolvedGeneratorPackage;
+  const primarySubcommand = resolveGeneratorPrimarySubcommand(packageEntry);
+  const hasInlineOptions = Object.keys(options?.inlineOptions || {}).length > 0;
+  if (primarySubcommand && hasInlineOptions) {
+    return runResolvedGeneratorSubcommand({
+      ...resolvedGeneratorPackage,
+      subcommandName: primarySubcommand,
+      subcommandArgs: []
+    });
+  }
+
   renderGeneratePackageHelp({
     io,
     packageEntry,

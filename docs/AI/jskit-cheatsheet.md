@@ -472,7 +472,7 @@ Touched files (2):
   - if no explicit `--link-placement`, uses inferred host if found.
   - if no explicit `--link-component-token`, uses:
     - subpage default for inferred host = `local.main.ui.tab-link-item`.
-    - general default if not inferred = `users.web.shell.surface-aware-menu-link-item`.
+    - general default if not inferred = `local.main.ui.surface-aware-menu-link-item`.
 
 #### exact runs I captured
 - `npx jskit generate ui-generator page "w/[workspaceSlug]/admin/contacts/[contactId]/index/activity/index.vue" --name "Activity"`
@@ -483,7 +483,7 @@ Touched files (2):
   - `npx ... page ".../index/task/index.vue"`
   - output scaffold heading is `Task` and placement label `Task`.
 - explicit link override:
-  - `npx ... page ".../index/letters/index.vue" --name "Letters" --link-placement shell-layout:primary-menu --link-component-token users.web.shell.surface-aware-menu-link-item --link-to "/contacts/letters"`.
+  - `npx ... page ".../index/letters/index.vue" --name "Letters" --link-placement shell-layout:primary-menu --link-component-token local.main.ui.surface-aware-menu-link-item --link-to "/contacts/letters"`.
   - placement ended on `host: "shell-layout", position: "primary-menu"`, token override, explicit to.
 - bad placement format:
   - `... --link-placement bad` -> `"must be in \"host:position\" format."`.
@@ -620,7 +620,7 @@ Observed:
   - `--link-placement` must be `host:position` and must exist.
 
 Observed:
-- `npx jskit generate ui-generator page "w/[workspaceSlug]/admin/customers/[customerId]/index/notes/index.vue" --name Notes --link-component-token users.web.shell.surface-aware-menu-link-item`
+- `npx jskit generate ui-generator page "w/[workspaceSlug]/admin/customers/[customerId]/index/notes/index.vue" --name Notes --link-component-token local.main.ui.surface-aware-menu-link-item`
   - writes placement with explicit token.
 - `npx jskit generate ui-generator page ".../index/finance/index.vue" --name Finance --link-placement shell-layout:sub-pages --force`
   - writes `host: "shell-layout", position: "sub-pages"`.
@@ -689,4 +689,3 @@ Observed:
 - Host inference can be brittle with non-unique child outlets and can force fallback/default placement; explicit `--link-placement` is the deterministic fix.
 - Placement IDs are canonicalized; dynamic route params collapse brackets: `[customerId]` => `customer-id`.
 - `to` defaults are inferred only for `page`; explicit override always wins.
-

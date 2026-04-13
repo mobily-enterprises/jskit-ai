@@ -11,7 +11,7 @@ const PACKAGE_DIR = path.resolve(TEST_DIRECTORY, "..");
 function readSettingsOutlets() {
   const outlets = descriptor?.metadata?.ui?.placements?.outlets;
   return Array.isArray(outlets)
-    ? outlets.filter((entry) => String(entry?.host || "").trim() === "home-settings")
+    ? outlets.filter((entry) => String(entry?.target || "").trim() === "home-settings:primary-menu")
     : [];
 }
 
@@ -25,7 +25,8 @@ function findFileMutation(id) {
 test("shell-web home settings template exposes surface-derived settings outlets", async () => {
   const source = await readFile(path.join(PACKAGE_DIR, "templates", "src", "pages", "home", "settings.vue"), "utf8");
 
-  assert.match(source, /<ShellOutlet host="home-settings" position="primary-menu" \/>/);
+  assert.match(source, /target="home-settings:primary-menu"/);
+  assert.match(source, /default-link-component-token="local\.main\.ui\.surface-aware-menu-link-item"/);
 });
 
 test("shell-web descriptor metadata advertises home settings outlets and installs the scaffold page", () => {
@@ -33,8 +34,8 @@ test("shell-web descriptor metadata advertises home settings outlets and install
     readSettingsOutlets(),
     [
       {
-        host: "home-settings",
-        position: "primary-menu",
+        target: "home-settings:primary-menu",
+        defaultLinkComponentToken: "local.main.ui.surface-aware-menu-link-item",
         surfaces: ["home"],
         source: "templates/src/pages/home/settings.vue"
       }

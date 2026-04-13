@@ -49,18 +49,6 @@ Exports
 Exports
 - None
 
-### `src/client/components/UsersShellMenuLinkItem.vue`
-Exports
-- None
-Local functions
-- `resolveFallbackReturnTo()`
-- `resolveFallbackReturnToHref()`
-- `resolvePathnameFromLinkTarget(target = "")`
-
-### `src/client/components/UsersSurfaceAwareMenuLinkItem.vue`
-Exports
-- None
-
 ### `src/client/components/UsersWorkspaceMembersMenuItem.vue`
 Exports
 - None

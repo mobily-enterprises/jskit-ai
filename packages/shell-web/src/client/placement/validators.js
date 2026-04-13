@@ -1,4 +1,5 @@
 import { isRecord, normalizeText } from "@jskit-ai/kernel/shared/support/normalize";
+import { normalizeShellOutletTargetId } from "@jskit-ai/kernel/shared/support/shellLayoutTargets";
 
 const WEB_PLACEMENT_SURFACE_ANY = "*";
 
@@ -21,10 +22,6 @@ function normalizeSurface(value) {
 }
 
 function isValidSurfaceIdToken(value = "") {
-  return /^[a-z0-9]+(?:[._-][a-z0-9]+)*$/.test(value);
-}
-
-function isValidPlacementHostOrPositionToken(value = "") {
   return /^[a-z0-9]+(?:[._-][a-z0-9]+)*$/.test(value);
 }
 
@@ -59,40 +56,16 @@ function toInteger(value, fallback = 1000) {
   return Math.trunc(numeric);
 }
 
-function normalizePlacementHost(value, { strict = false, source = "placement" } = {}) {
-  const normalized = normalizeText(value).toLowerCase();
-  if (!normalized) {
-    if (strict) {
-      throw new TypeError(`${source} requires host.`);
-    }
-    return "";
+function normalizePlacementTarget(value, { strict = false, source = "placement" } = {}) {
+  const normalized = normalizeShellOutletTargetId(String(value || "").toLowerCase());
+  if (normalized) {
+    return normalized;
   }
 
-  if (!isValidPlacementHostOrPositionToken(normalized)) {
-    if (strict) {
-      throw new TypeError(`${source} host "${normalized}" is invalid.`);
-    }
-    return "";
+  if (strict) {
+    throw new TypeError(`${source} requires target in "host:position" format.`);
   }
-  return normalized;
-}
-
-function normalizePlacementPosition(value, { strict = false, source = "placement" } = {}) {
-  const normalized = normalizeText(value).toLowerCase();
-  if (!normalized) {
-    if (strict) {
-      throw new TypeError(`${source} requires position.`);
-    }
-    return "";
-  }
-
-  if (!isValidPlacementHostOrPositionToken(normalized)) {
-    if (strict) {
-      throw new TypeError(`${source} position "${normalized}" is invalid.`);
-    }
-    return "";
-  }
-  return normalized;
+  return "";
 }
 
 function normalizePlacementSurfaces(value, { strict = false, source = "placement" } = {}) {
@@ -136,6 +109,13 @@ function normalizePlacementDefinition(value, { strict = false, source = "placeme
     return null;
   }
 
+  if (Object.hasOwn(value, "host") || Object.hasOwn(value, "position")) {
+    if (strict) {
+      throw new TypeError(`${source} must use "target" only. Legacy "host" and "position" fields are not supported.`);
+    }
+    return null;
+  }
+
   const id = normalizeText(value.id);
   if (!id) {
     if (strict) {
@@ -144,19 +124,11 @@ function normalizePlacementDefinition(value, { strict = false, source = "placeme
     return null;
   }
 
-  const host = normalizePlacementHost(value.host, {
+  const target = normalizePlacementTarget(value.target, {
     strict,
     source: `${source} "${id}"`
   });
-  if (!host) {
-    return null;
-  }
-
-  const position = normalizePlacementPosition(value.position, {
-    strict,
-    source: `${source} "${id}"`
-  });
-  if (!position) {
+  if (!target) {
     return null;
   }
 
@@ -177,8 +149,7 @@ function normalizePlacementDefinition(value, { strict = false, source = "placeme
 
   return Object.freeze({
     id,
-    host,
-    position,
+    target,
     surfaces,
     order: toInteger(value.order, 1000),
     componentToken,
@@ -200,8 +171,7 @@ export {
   isRenderableComponent,
   normalizeSurface,
   normalizePlacementSurface,
-  normalizePlacementHost,
-  normalizePlacementPosition,
+  normalizePlacementTarget,
   normalizePlacementSurfaces,
   normalizePlacementDefinition,
   definePlacement

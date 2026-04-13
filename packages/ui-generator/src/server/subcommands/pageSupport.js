@@ -7,6 +7,11 @@ import {
   resolveRequiredAppRoot,
   toPosixPath
 } from "@jskit-ai/kernel/server/support";
+import { normalizeShellOutletTargetId } from "@jskit-ai/kernel/shared/support/shellLayoutTargets";
+import {
+  findLocalLinkItemDefinition,
+  readLocalLinkItemComponentSource
+} from "@jskit-ai/shell-web/server/support/localLinkItemScaffolds";
 import { normalizeText } from "@jskit-ai/kernel/shared/support/normalize";
 import {
   DEFAULT_COMPONENT_DIRECTORY,
@@ -20,8 +25,15 @@ import {
 
 const DEFAULT_SUBPAGES_POSITION = "sub-pages";
 const SECTION_CONTAINER_SHELL_COMPONENT = "SectionContainerShell";
-const TAB_LINK_COMPONENT = "TabLinkItem";
 const TAB_LINK_COMPONENT_TOKEN = "local.main.ui.tab-link-item";
+const DEFAULT_MENU_COMPONENT_DIRECTORY = path.join(DEFAULT_COMPONENT_DIRECTORY, "menus");
+const TAB_LINK_COMPONENT_DEFINITION = findLocalLinkItemDefinition(TAB_LINK_COMPONENT_TOKEN);
+
+if (!TAB_LINK_COMPONENT_DEFINITION) {
+  throw new Error(`ui-generator add-subpages could not resolve ${TAB_LINK_COMPONENT_TOKEN} scaffold definition.`);
+}
+
+const TAB_LINK_COMPONENT = TAB_LINK_COMPONENT_DEFINITION.componentName;
 
 const ROUTE_TAG_PATTERN = /<route\b[^>]*>[\s\S]*?<\/route>\s*/gi;
 const TEMPLATE_TOKEN_PATTERN = /<\/?template\b[^>]*>/gi;
@@ -110,89 +122,6 @@ const hasTabs = computed(() => Boolean(slots.tabs));
 `;
 }
 
-function renderTabLinkItemSource() {
-  return `<script setup>
-import { computed } from "vue";
-import { useRoute } from "vue-router";
-import { usePaths } from "@jskit-ai/users-web/client/composables/usePaths";
-import {
-  normalizeMenuLinkPathname,
-  resolveMenuLinkTarget
-} from "@jskit-ai/users-web/client/support/menuLinkTarget";
-
-const props = defineProps({
-  label: {
-    type: String,
-    default: ""
-  },
-  to: {
-    type: String,
-    default: ""
-  },
-  surface: {
-    type: String,
-    default: ""
-  },
-  workspaceSuffix: {
-    type: String,
-    default: "/"
-  },
-  nonWorkspaceSuffix: {
-    type: String,
-    default: "/"
-  },
-  disabled: {
-    type: Boolean,
-    default: false
-  }
-});
-
-const route = useRoute();
-const paths = usePaths();
-
-const resolvedTo = computed(() => {
-  return resolveMenuLinkTarget({
-    to: props.to,
-    surface: props.surface,
-    currentSurfaceId: paths.currentSurfaceId.value,
-    placementContext: paths.placementContext.value,
-    workspaceSuffix: props.workspaceSuffix,
-    nonWorkspaceSuffix: props.nonWorkspaceSuffix,
-    routeParams: route.params || {},
-    resolvePagePath(relativePath, options = {}) {
-      return paths.page(relativePath, options);
-    }
-  });
-});
-
-const isActive = computed(() => {
-  const targetPathname = normalizeMenuLinkPathname(resolvedTo.value);
-  const currentPathname = normalizeMenuLinkPathname(route.fullPath || route.path);
-  if (!targetPathname || !currentPathname) {
-    return false;
-  }
-  return currentPathname === targetPathname || currentPathname.startsWith(\`\${targetPathname}/\`);
-});
-</script>
-
-<template>
-  <v-btn
-    v-if="resolvedTo"
-    class="tab-link-item text-none"
-    :to="resolvedTo"
-    rounded="pill"
-    size="small"
-    :variant="isActive ? 'flat' : 'tonal'"
-    :color="isActive ? 'primary' : undefined"
-    :disabled="props.disabled"
-    :aria-current="isActive ? 'page' : undefined"
-  >
-    {{ props.label }}
-  </v-btn>
-</template>
-`;
-}
-
 async function ensureSubpagesSupportScaffold({
   appRoot,
   componentDirectory = DEFAULT_COMPONENT_DIRECTORY,
@@ -202,6 +131,10 @@ async function ensureSubpagesSupportScaffold({
     context: "ui-generator add-subpages"
   });
   const normalizedComponentDirectory = normalizeText(componentDirectory) || DEFAULT_COMPONENT_DIRECTORY;
+  const normalizedTabLinkComponentDirectory =
+    normalizedComponentDirectory === DEFAULT_COMPONENT_DIRECTORY
+      ? DEFAULT_MENU_COMPONENT_DIRECTORY
+      : normalizedComponentDirectory;
   const providerPath = resolvePathWithinApp(resolvedAppRoot, MAIN_CLIENT_PROVIDER_FILE, {
     context: "ui-generator add-subpages"
   });
@@ -212,21 +145,34 @@ async function ensureSubpagesSupportScaffold({
   );
   const tabLinkPath = resolvePathWithinApp(
     resolvedAppRoot,
-    path.join(normalizedComponentDirectory, `${TAB_LINK_COMPONENT}.vue`),
+    path.join(normalizedTabLinkComponentDirectory, `${TAB_LINK_COMPONENT}.vue`),
     { context: "ui-generator add-subpages" }
   );
 
+  const providerSource = await readFile(providerPath.absolutePath, "utf8");
+  if (!/\bregisterMainClientComponent\s*\(/.test(providerSource)) {
+    throw new Error(
+      `ui-generator add-subpages could not find registerMainClientComponent() contract in ${MAIN_CLIENT_PROVIDER_FILE}.`
+    );
+  }
+
+  const providerRegisterLine = `registerMainClientComponent("${TAB_LINK_COMPONENT_TOKEN}", () => ${TAB_LINK_COMPONENT});`;
+  const providerHasTabLinkRegistration = providerSource.includes(providerRegisterLine);
   const touchedFiles = new Set();
-  for (const supportFile of [
+  const supportFiles = [
     {
       path: sectionContainerShellPath,
       desiredSource: renderSectionContainerShellSource()
-    },
-    {
-      path: tabLinkPath,
-      desiredSource: renderTabLinkItemSource()
     }
-  ]) {
+  ];
+  if (!providerHasTabLinkRegistration) {
+    supportFiles.push({
+      path: tabLinkPath,
+      desiredSource: await readLocalLinkItemComponentSource(TAB_LINK_COMPONENT_DEFINITION)
+    });
+  }
+
+  for (const supportFile of supportFiles) {
     let alreadyExists = true;
     try {
       await readFile(supportFile.path.absolutePath, "utf8");
@@ -245,15 +191,13 @@ async function ensureSubpagesSupportScaffold({
     touchedFiles.add(supportFile.path.relativePath);
   }
 
-  const providerSource = await readFile(providerPath.absolutePath, "utf8");
-  if (!/\bregisterMainClientComponent\s*\(/.test(providerSource)) {
-    throw new Error(
-      `ui-generator add-subpages could not find registerMainClientComponent() contract in ${MAIN_CLIENT_PROVIDER_FILE}.`
-    );
+  const providerImportLine = `import ${TAB_LINK_COMPONENT} from "/${toPosixPath(path.join(normalizedTabLinkComponentDirectory, `${TAB_LINK_COMPONENT}.vue`))}";`;
+  if (providerHasTabLinkRegistration) {
+    return Object.freeze({
+      touchedFiles: [...touchedFiles].sort((left, right) => left.localeCompare(right)),
+      sectionContainerComponentImportPath: `/${toPosixPath(path.join(normalizedComponentDirectory, `${SECTION_CONTAINER_SHELL_COMPONENT}.vue`))}`
+    });
   }
-
-  const providerImportLine = `import ${TAB_LINK_COMPONENT} from "/${toPosixPath(path.join(normalizedComponentDirectory, `${TAB_LINK_COMPONENT}.vue`))}";`;
-  const providerRegisterLine = `registerMainClientComponent("${TAB_LINK_COMPONENT_TOKEN}", () => ${TAB_LINK_COMPONENT});`;
   const providerImportApplied = insertImportIfMissing(providerSource, providerImportLine);
   const providerRegisterApplied = insertBeforeClassDeclaration(
     providerImportApplied.content,
@@ -358,14 +302,18 @@ function renderSubpagesTemplate({
   bodyContent = "",
   title = "",
   subtitle = "",
-  host = "",
-  position = DEFAULT_SUBPAGES_POSITION
+  target = ""
 } = {}) {
+  const normalizedTarget = normalizeShellOutletTargetId(target);
+  if (!normalizedTarget) {
+    throw new Error("ui-generator add-subpages requires target in \"host:position\" format.");
+  }
+
   const lines = [
     "<template>",
     renderSectionContainerOpenTag({ title, subtitle }),
     "    <template #tabs>",
-    `      <ShellOutlet host="${host}" position="${position}" />`,
+    `      <ShellOutlet target="${normalizedTarget}" default-link-component-token="${TAB_LINK_COMPONENT_TOKEN}" />`,
     "    </template>"
   ];
 
@@ -430,18 +378,16 @@ function applySubpagesScriptImports(source = "", { sectionContainerComponentImpo
 function applySubpagesUpgradeToPageSource(
   source = "",
   {
-    host = "",
-    position = DEFAULT_SUBPAGES_POSITION,
+    target = "",
     title = "",
     subtitle = "",
     sectionContainerComponentImportPath = "/src/components/SectionContainerShell.vue",
     preserveExistingContent = true
   } = {}
 ) {
-  const normalizedHost = normalizeText(host);
-  const normalizedPosition = normalizeText(position) || DEFAULT_SUBPAGES_POSITION;
-  if (!normalizedHost) {
-    throw new Error("ui-generator add-subpages requires a valid host.");
+  const normalizedTarget = normalizeShellOutletTargetId(target);
+  if (!normalizedTarget) {
+    throw new Error('ui-generator add-subpages requires target in "host:position" format.');
   }
 
   const sourceText = String(source || "");
@@ -454,8 +400,7 @@ function applySubpagesUpgradeToPageSource(
     bodyContent,
     title,
     subtitle,
-    host: normalizedHost,
-    position: normalizedPosition
+    target: normalizedTarget
   });
 
   const nextSource = templateBlock
@@ -478,8 +423,7 @@ function hasExistingSubpagesRouting(source = "") {
 async function upgradePageFileToSubpages({
   appRoot,
   targetFile,
-  host = "",
-  position = DEFAULT_SUBPAGES_POSITION,
+  target = "",
   title = "",
   subtitle = "",
   componentDirectory = DEFAULT_COMPONENT_DIRECTORY,
@@ -512,8 +456,7 @@ async function upgradePageFileToSubpages({
   });
 
   const upgradeApplied = applySubpagesUpgradeToPageSource(source, {
-    host,
-    position,
+    target,
     title,
     subtitle,
     sectionContainerComponentImportPath: supportScaffold.sectionContainerComponentImportPath,

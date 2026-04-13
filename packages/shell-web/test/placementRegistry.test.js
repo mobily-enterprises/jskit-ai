@@ -7,15 +7,13 @@ test("placement registry stores unique entries and builds immutable array", () =
 
   const firstAdded = registry.addPlacement({
     id: "example.profile",
-    host: "shell-layout",
-    position: "top-right",
+    target: "shell-layout:top-right",
     surfaces: ["*"],
     componentToken: "example.profile.component"
   });
   const duplicateAdded = registry.addPlacement({
     id: "example.profile",
-    host: "shell-layout",
-    position: "top-right",
+    target: "shell-layout:top-right",
     surfaces: ["*"],
     componentToken: "example.profile.component.duplicate"
   });
@@ -35,11 +33,24 @@ test("placement registry accepts explicit non-global surface ids", () => {
 
   const added = registry.addPlacement({
     id: "example.admin",
-    host: "shell-layout",
-    position: "top-right",
+    target: "shell-layout:top-right",
     surfaces: ["admin"],
     componentToken: "example.admin.component"
   });
 
   assert.equal(added, true);
+});
+
+test("placement registry rejects legacy split target fields", () => {
+  const registry = createPlacementRegistry();
+
+  assert.throws(
+    () => registry.addPlacement({
+      id: "example.legacy",
+      host: "shell-layout",
+      position: "top-right",
+      componentToken: "example.legacy.component"
+    }),
+    /must use "target" only/
+  );
 });
