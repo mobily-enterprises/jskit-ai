@@ -73,6 +73,7 @@ test("shell-web scaffolds app-owned local link-item wrappers under src/component
   assert.deepEqual(findFileMutation("shell-web-component-menu-link-item"), {
     from: "templates/src/components/menus/MenuLinkItem.vue",
     to: "src/components/menus/MenuLinkItem.vue",
+    ownership: "app",
     reason: "Install app-owned shell menu link-item scaffold for local placement customization.",
     category: "shell-web",
     id: "shell-web-component-menu-link-item"
@@ -80,6 +81,7 @@ test("shell-web scaffolds app-owned local link-item wrappers under src/component
   assert.deepEqual(findFileMutation("shell-web-component-surface-aware-menu-link-item"), {
     from: "templates/src/components/menus/SurfaceAwareMenuLinkItem.vue",
     to: "src/components/menus/SurfaceAwareMenuLinkItem.vue",
+    ownership: "app",
     reason: "Install app-owned surface-aware shell menu link-item scaffold for local placement customization.",
     category: "shell-web",
     id: "shell-web-component-surface-aware-menu-link-item"
@@ -87,6 +89,7 @@ test("shell-web scaffolds app-owned local link-item wrappers under src/component
   assert.deepEqual(findFileMutation("shell-web-component-tab-link-item"), {
     from: "templates/src/components/menus/TabLinkItem.vue",
     to: "src/components/menus/TabLinkItem.vue",
+    ownership: "app",
     reason: "Install app-owned shell tab link-item scaffold for local placement customization.",
     category: "shell-web",
     id: "shell-web-component-tab-link-item"

@@ -24,12 +24,27 @@ function normalizePackageKind(rawValue, descriptorPath) {
   return normalized;
 }
 
-function validateInstallMigrationMutationShape(descriptor, descriptorPath) {
+function validateFileMutationShape(descriptor, descriptorPath) {
   const packageId = String(ensureObject(descriptor).packageId || "").trim() || "unknown-package";
   const mutations = ensureObject(ensureObject(descriptor).mutations);
   const files = ensureArray(mutations.files);
   for (const fileMutation of files) {
     const normalized = normalizeFileMutationRecord(fileMutation);
+    if (normalized.ownership !== "package" && normalized.ownership !== "app") {
+      throw createCliError(
+        `Invalid package descriptor at ${descriptorPath}: files mutation in ${packageId} has unsupported ownership "${normalized.ownership}". Expected "package" or "app".`
+      );
+    }
+    if (normalized.expectedExistingFrom && normalized.op !== "copy-file") {
+      throw createCliError(
+        `Invalid package descriptor at ${descriptorPath}: files mutation in ${packageId} can only use "expectedExistingFrom" with copy-file.`
+      );
+    }
+    if (normalized.expectedExistingFrom && normalized.ownership !== "app") {
+      throw createCliError(
+        `Invalid package descriptor at ${descriptorPath}: files mutation in ${packageId} can only use "expectedExistingFrom" when ownership is "app".`
+      );
+    }
     if (normalized.op !== "install-migration") {
       continue;
     }
@@ -69,7 +84,7 @@ function validatePackageDescriptorShape(descriptor, descriptorPath) {
     );
   }
 
-  validateInstallMigrationMutationShape(normalized, descriptorPath);
+  validateFileMutationShape(normalized, descriptorPath);
 
   return {
     ...normalized,
@@ -99,7 +114,7 @@ function validateAppLocalPackageDescriptorShape(descriptor, descriptorPath, { ex
     throw createCliError(`Invalid app-local package descriptor at ${descriptorPath}: missing version.`);
   }
 
-  validateInstallMigrationMutationShape(normalized, descriptorPath);
+  validateFileMutationShape(normalized, descriptorPath);
 
   return {
     ...normalized,

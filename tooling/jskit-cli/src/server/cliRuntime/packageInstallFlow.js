@@ -32,7 +32,7 @@ import {
 import {
   applyFileMutations,
   applyTextMutations,
-  preflightFileMutationTemplateContexts,
+  prepareFileMutations,
   resolvePositioningMutations
 } from "./mutationApplication.js";
 function createManagedRecordBase(packageEntry, options) {
@@ -138,15 +138,23 @@ async function applyPackagePositioning({
   const positioningMutations = resolvePositioningMutations(mutations);
   const appliedManagedFiles = [];
   const appliedManagedText = {};
+  const preparedFileMutations = await prepareFileMutations(
+    packageEntryForMutations,
+    packageOptions,
+    appRoot,
+    positioningMutations.files,
+    nextManaged.files
+  );
   if (positioningMutations.files.length > 0) {
     await applyFileMutations(
       packageEntryForMutations,
-      packageOptions,
       appRoot,
-      positioningMutations.files,
+      preparedFileMutations,
       appliedManagedFiles,
       [],
-      touchedFiles
+      touchedFiles,
+      [],
+      nextManaged.files
     );
   }
   if (positioningMutations.text.length > 0) {
@@ -236,17 +244,24 @@ async function applyPackageMigrationsOnly({
     return operation === "install-migration";
   });
   const mutationWarnings = [];
+  const preparedFileMutations = await prepareFileMutations(
+    packageEntryForMutations,
+    packageOptions,
+    appRoot,
+    migrationFileMutations,
+    nextManaged.files
+  );
 
   if (migrationFileMutations.length > 0) {
     await applyFileMutations(
       packageEntryForMutations,
-      packageOptions,
       appRoot,
-      migrationFileMutations,
+      preparedFileMutations,
       [],
       nextManaged.migrations,
       touchedFiles,
-      mutationWarnings
+      mutationWarnings,
+      nextManaged.files
     );
   }
 
@@ -280,15 +295,6 @@ async function applyPackageInstall({
 }) {
   const existingInstall = ensureObject(lock.installedPackages[packageEntry.packageId]);
   const existingManaged = ensureObject(existingInstall.managed);
-  await removeManagedViteProxyEntries({
-    appRoot,
-    packageId: packageEntry.packageId,
-    managedViteChanges: ensureObject(existingManaged.vite),
-    touchedFiles
-  });
-
-  const managedRecord = createManagedRecordBase(packageEntry, packageOptions);
-  managedRecord.managed.migrations = cloneManagedArray(existingManaged.migrations);
   const generatorPackage = isGeneratorPackageEntry(packageEntry);
   const mutationWarnings = [];
   const mutations = ensureObject(packageEntry.descriptor.mutations);
@@ -306,12 +312,22 @@ async function applyPackageInstall({
           rootDir: templateRoot
         };
 
-  const precomputedTemplateContextByMutationIndex = await preflightFileMutationTemplateContexts(
+  const preparedFileMutations = await prepareFileMutations(
     packageEntryForMutations,
     packageOptions,
     appRoot,
-    fileMutations
+    fileMutations,
+    ensureArray(existingManaged.files)
   );
+  await removeManagedViteProxyEntries({
+    appRoot,
+    packageId: packageEntry.packageId,
+    managedViteChanges: ensureObject(existingManaged.vite),
+    touchedFiles
+  });
+
+  const managedRecord = createManagedRecordBase(packageEntry, packageOptions);
+  managedRecord.managed.migrations = cloneManagedArray(existingManaged.migrations);
 
   const mutationDependencies = ensureObject(mutations.dependencies);
   const runtimeDependencies = ensureObject(mutationDependencies.runtime);
@@ -416,14 +432,13 @@ async function applyPackageInstall({
 
   await applyFileMutations(
     packageEntryForMutations,
-    packageOptions,
     appRoot,
-    fileMutations,
+    preparedFileMutations,
     managedRecord.managed.files,
     managedRecord.managed.migrations,
     touchedFiles,
     mutationWarnings,
-    precomputedTemplateContextByMutationIndex
+    ensureArray(existingManaged.files)
   );
 
   await applyTextMutations(

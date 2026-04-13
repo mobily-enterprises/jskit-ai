@@ -35,5 +35,10 @@ App configuration files:
 ## Add Capabilities
 
 ```bash
-npx jskit add auth-base
+npx jskit add package auth-provider-supabase-core \
+  --auth-supabase-url "https://YOUR-PROJECT.supabase.co" \
+  --auth-supabase-publishable-key "sb_publishable_..." \
+  --app-public-url "http://localhost:5173"
+
+npx jskit add bundle auth-base
 ```

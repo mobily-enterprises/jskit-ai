@@ -171,6 +171,8 @@ export default Object.freeze({
       {
         from: "templates/src/App.vue",
         to: "src/App.vue",
+        ownership: "app",
+        expectedExistingFrom: "templates/expected-existing/src/App.vue",
         reason: "Install full-width shell app root with shell-web error host and edge-to-edge layout.",
         category: "shell-web",
         id: "shell-web-app-root"
@@ -178,6 +180,7 @@ export default Object.freeze({
       {
         from: "templates/src/components/ShellLayout.vue",
         to: "src/components/ShellLayout.vue",
+        ownership: "app",
         reason: "Install app-owned shell layout component so apps can customize structure and slots.",
         category: "shell-web",
         id: "shell-web-component-shell-layout"
@@ -185,6 +188,7 @@ export default Object.freeze({
       {
         from: "templates/src/components/menus/MenuLinkItem.vue",
         to: "src/components/menus/MenuLinkItem.vue",
+        ownership: "app",
         reason: "Install app-owned shell menu link-item scaffold for local placement customization.",
         category: "shell-web",
         id: "shell-web-component-menu-link-item"
@@ -192,6 +196,7 @@ export default Object.freeze({
       {
         from: "templates/src/components/menus/SurfaceAwareMenuLinkItem.vue",
         to: "src/components/menus/SurfaceAwareMenuLinkItem.vue",
+        ownership: "app",
         reason: "Install app-owned surface-aware shell menu link-item scaffold for local placement customization.",
         category: "shell-web",
         id: "shell-web-component-surface-aware-menu-link-item"
@@ -199,6 +204,7 @@ export default Object.freeze({
       {
         from: "templates/src/components/menus/TabLinkItem.vue",
         to: "src/components/menus/TabLinkItem.vue",
+        ownership: "app",
         reason: "Install app-owned shell tab link-item scaffold for local placement customization.",
         category: "shell-web",
         id: "shell-web-component-tab-link-item"
@@ -206,6 +212,7 @@ export default Object.freeze({
       {
         from: "templates/src/error.js",
         to: "src/error.js",
+        ownership: "app",
         reason: "Install app-owned error runtime policy and presenter config scaffold.",
         category: "shell-web",
         id: "shell-web-error-config"
@@ -213,6 +220,7 @@ export default Object.freeze({
       {
         from: "templates/src/placement.js",
         to: "src/placement.js",
+        ownership: "app",
         reason: "Install app-owned placement registry scaffold used by shell-web placement runtime.",
         category: "shell-web",
         id: "shell-web-placement-registry"
@@ -221,6 +229,8 @@ export default Object.freeze({
         from: "templates/src/pages/home.vue",
         toSurface: "home",
         toSurfaceRoot: true,
+        ownership: "app",
+        expectedExistingFrom: "templates/expected-existing/src/pages/home.vue",
         reason: "Install shell-driven home wrapper page.",
         category: "shell-web",
         id: "shell-web-page-home-wrapper"
@@ -229,6 +239,8 @@ export default Object.freeze({
         from: "templates/src/pages/home/index.vue",
         toSurface: "home",
         toSurfacePath: "index.vue",
+        ownership: "app",
+        expectedExistingFrom: "templates/expected-existing/src/pages/home/index.vue",
         reason: "Install shell-driven home surface starter page.",
         category: "shell-web",
         id: "shell-web-page-home"
@@ -237,6 +249,7 @@ export default Object.freeze({
         from: "templates/src/pages/home/settings.vue",
         toSurface: "home",
         toSurfacePath: "settings.vue",
+        ownership: "app",
         reason: "Install shell-driven home settings shell route with section navigation.",
         category: "shell-web",
         id: "shell-web-page-home-settings-shell"
@@ -245,6 +258,7 @@ export default Object.freeze({
         from: "templates/src/pages/home/settings/index.vue",
         toSurface: "home",
         toSurfacePath: "settings/index.vue",
+        ownership: "app",
         reason: "Install shell-driven home settings index stub scaffold for app-owned landing or redirect behavior.",
         category: "shell-web",
         id: "shell-web-page-home-settings"
@@ -253,6 +267,8 @@ export default Object.freeze({
         from: "templates/src/pages/console.vue",
         toSurface: "console",
         toSurfaceRoot: true,
+        ownership: "app",
+        expectedExistingFrom: "templates/expected-existing/src/pages/console.vue",
         reason: "Install shell-driven console wrapper page.",
         category: "shell-web",
         id: "shell-web-page-console-wrapper"
@@ -261,6 +277,8 @@ export default Object.freeze({
         from: "templates/src/pages/console/index.vue",
         toSurface: "console",
         toSurfacePath: "index.vue",
+        ownership: "app",
+        expectedExistingFrom: "templates/expected-existing/src/pages/console/index.vue",
         reason: "Install shell-driven console page starter.",
         category: "shell-web",
         id: "shell-web-page-console"
