@@ -885,6 +885,20 @@ function buildFormColumns(fields = []) {
     .join("\n");
 }
 
+function resolveRecordIdFieldKey(fields = []) {
+  const normalizedFields = Array.isArray(fields) ? fields : [];
+  const preferred =
+    normalizedFields.find((field) => normalizeText(field?.key).toLowerCase() === "id") ||
+    normalizedFields.find((field) => {
+      const key = normalizeText(field?.key).toLowerCase();
+      return key.endsWith("id") || key.endsWith("_id") || key.endsWith("-id");
+    }) ||
+    normalizedFields[0] ||
+    { key: "id" };
+
+  return normalizeText(preferred?.key) || "id";
+}
+
 function renderObjectPushLines(arrayName, entries = []) {
   const normalizedArrayName = normalizeText(arrayName);
   if (!normalizedArrayName) {
@@ -903,17 +917,7 @@ function renderObjectPushLines(arrayName, entries = []) {
 }
 
 function resolveRecordIdExpression(fields = []) {
-  const normalizedFields = Array.isArray(fields) ? fields : [];
-  const preferred =
-    normalizedFields.find((field) => normalizeText(field?.key).toLowerCase() === "id") ||
-    normalizedFields.find((field) => {
-      const key = normalizeText(field?.key).toLowerCase();
-      return key.endsWith("id") || key.endsWith("_id") || key.endsWith("-id");
-    }) ||
-    normalizedFields[0] ||
-    { key: "id" };
-
-  return toAccessorExpression("item", preferred.key);
+  return toAccessorExpression("item", resolveRecordIdFieldKey(fields));
 }
 
 export {
@@ -936,6 +940,7 @@ export {
   buildListRowColumns,
   buildViewColumns,
   buildFormColumns,
+  resolveRecordIdFieldKey,
   renderObjectPushLines,
   resolveCrudRecordChangedEvent as resolveRecordChangedEventName,
   resolveRecordIdExpression

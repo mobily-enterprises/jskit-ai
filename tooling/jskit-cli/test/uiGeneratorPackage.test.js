@@ -281,6 +281,8 @@ test("generate @jskit-ai/crud-ui-generator crud scaffolds CRUD pages at an expli
     assert.match(listPageSource, /const UI_LIST_API_URL = "\/customers";/);
     assert.match(listPageSource, /const UI_RECORD_ID_PARAM = "customerId";/);
     assert.match(listPageSource, /"ui-generator", "customers", "list"/);
+    assert.doesNotMatch(listPageSource, /<th>Id<\/th>/);
+    assert.doesNotMatch(listPageSource, /<td>\{\{ record\.id \}\}<\/td>/);
 
     const newPageSource = await readFile(paths.newPagePath, "utf8");
     assert.match(newPageSource, /import CrudAddEditForm from "\.\/_components\/CrudAddEditForm\.vue";/);
@@ -375,6 +377,7 @@ test("generate @jskit-ai/crud-ui-generator applies display-fields filters to gen
     const listPageSource = await readFile(path.join(appRoot, "src/pages/admin/ops/customers-ui/index.vue"), "utf8");
     assert.match(listPageSource, /<th>First Name<\/th>/);
     assert.match(listPageSource, /<th>Email<\/th>/);
+    assert.doesNotMatch(listPageSource, /<th>Id<\/th>/);
     assert.doesNotMatch(listPageSource, /<th>Vip<\/th>/);
   });
 });

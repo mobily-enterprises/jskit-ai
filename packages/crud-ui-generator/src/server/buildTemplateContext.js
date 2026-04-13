@@ -24,6 +24,7 @@ import {
   buildListRowColumns,
   buildViewColumns,
   buildFormColumns,
+  resolveRecordIdFieldKey,
   renderObjectPushLines,
   resolveRecordChangedEventName,
   resolveRecordIdExpression
@@ -233,14 +234,20 @@ function filterDisplayFields(selectedFieldKeys, fields) {
   });
 }
 
-function filterDefaultHiddenListFields(selectedFieldKeys, fields) {
+function filterDefaultHiddenListFields(selectedFieldKeys, fields, { recordIdFieldKey = "" } = {}) {
   const selectedFields = Array.isArray(selectedFieldKeys) ? selectedFieldKeys : [];
   const availableFields = Array.isArray(fields) ? fields : [];
   if (selectedFields.length > 0) {
     return availableFields;
   }
 
-  return availableFields.filter((field) => !DEFAULT_LIST_HIDDEN_FIELD_KEYS.has(normalizeText(field?.key)));
+  const hiddenFieldKeys = new Set(DEFAULT_LIST_HIDDEN_FIELD_KEYS);
+  const normalizedRecordIdFieldKey = normalizeText(recordIdFieldKey);
+  if (normalizedRecordIdFieldKey) {
+    hiddenFieldKeys.add(normalizedRecordIdFieldKey);
+  }
+
+  return availableFields.filter((field) => !hiddenFieldKeys.has(normalizeText(field?.key)));
 }
 
 function ensureFields(fields, fallbackFields = createFieldDefinitions({})) {
@@ -408,10 +415,16 @@ async function buildUiTemplateContext({ appRoot, options } = {}) {
     validateDisplayFieldsForOperation(selectedDisplayFields, editFieldsAll, "patch");
   }
 
+  const listRecordIdFieldKey = hasListOperation
+    ? resolveRecordIdFieldKey(listFieldsAll)
+    : "";
+
   const listFields = hasListOperation
     ? filterDisplayFields(
       selectedDisplayFields,
-      filterDefaultHiddenListFields(selectedDisplayFields, ensureFields(listFieldsAll))
+      filterDefaultHiddenListFields(selectedDisplayFields, ensureFields(listFieldsAll), {
+        recordIdFieldKey: listRecordIdFieldKey
+      })
     )
     : createFieldDefinitions({});
   const viewFields = hasViewOperation
