@@ -3,7 +3,6 @@ import UsersWorkspaceToolsWidget from "../components/UsersWorkspaceToolsWidget.v
 import UsersWorkspaceSettingsMenuItem from "../components/UsersWorkspaceSettingsMenuItem.vue";
 import UsersWorkspaceMembersMenuItem from "../components/UsersWorkspaceMembersMenuItem.vue";
 import MembersAdminClientElement from "../components/MembersAdminClientElement.vue";
-import WorkspaceSettingsClientElement from "../components/WorkspaceSettingsClientElement.vue";
 
 class UsersWorkspacesClientProvider {
   static id = "workspaces.web.client";
@@ -19,7 +18,6 @@ class UsersWorkspacesClientProvider {
     app.singleton("users.web.workspace-settings.menu-item", () => UsersWorkspaceSettingsMenuItem);
     app.singleton("users.web.workspace-members.menu-item", () => UsersWorkspaceMembersMenuItem);
     app.singleton("users.web.members-admin.element", () => MembersAdminClientElement);
-    app.singleton("users.web.workspace-settings.element", () => WorkspaceSettingsClientElement);
   }
 }
 

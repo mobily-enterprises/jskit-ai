@@ -8,8 +8,6 @@
   "exports": {
     "./client": "./src/client/index.js",
     "./client/providers/UsersWorkspacesClientProvider": "./src/client/providers/UsersWorkspacesClientProvider.js",
-    "./client/components/ConsoleSettingsClientElement": "./src/client/components/ConsoleSettingsClientElement.vue",
-    "./client/components/WorkspaceSettingsClientElement": "./src/client/components/WorkspaceSettingsClientElement.vue",
     "./client/components/WorkspaceMembersClientElement": "./src/client/components/WorkspaceMembersClientElement.vue",
     "./client/composables/useAddEdit": "./src/client/composables/records/useAddEdit.js",
     "./client/composables/useCrudAddEdit": "./src/client/composables/records/useCrudAddEdit.js",

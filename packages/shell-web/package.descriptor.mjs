@@ -245,7 +245,7 @@ export default Object.freeze({
         from: "templates/src/pages/home/settings/index.vue",
         toSurface: "home",
         toSurfacePath: "settings/index.vue",
-        reason: "Install shell-driven home settings landing page scaffold.",
+        reason: "Install shell-driven home settings index stub scaffold for app-owned landing or redirect behavior.",
         category: "shell-web",
         id: "shell-web-page-home-settings"
       },

@@ -54,14 +54,6 @@ export default Object.freeze({
           summary: "Exports profile settings client element scaffold component."
         },
         {
-          subpath: "./client/components/ConsoleSettingsClientElement",
-          summary: "Exports console settings landing-page client element."
-        },
-        {
-          subpath: "./client/components/WorkspaceSettingsClientElement",
-          summary: "Exports workspace settings client element."
-        },
-        {
           subpath: "./client/composables/useAddEdit",
           summary: "Exports add/edit operation composable."
         },
@@ -184,15 +176,6 @@ export default Object.freeze({
             componentToken: "local.main.ui.surface-aware-menu-link-item",
             when: "auth.authenticated === true",
             source: "mutations.text#users-web-home-tools-placement"
-          },
-          {
-            id: "users.home.settings.general",
-            target: "home-settings:primary-menu",
-            surfaces: ["home"],
-            order: 100,
-            componentToken: "local.main.ui.surface-aware-menu-link-item",
-            when: "auth.authenticated === true",
-            source: "mutations.text#users-web-home-settings-general-placement"
           }
         ]
       }
@@ -276,7 +259,7 @@ export default Object.freeze({
         from: "templates/src/pages/console/settings/index.vue",
         toSurface: "console",
         toSurfacePath: "settings/index.vue",
-        reason: "Install console settings landing page scaffold for users-web console UI.",
+        reason: "Install console settings index stub scaffold for app-owned landing or redirect behavior.",
         category: "users-web",
         id: "users-web-page-console-settings"
       }
@@ -347,17 +330,6 @@ export default Object.freeze({
         reason: "Append users-web home tools widget and settings menu placements into app-owned placement registry.",
         category: "users-web",
         id: "users-web-home-tools-placement"
-      },
-      {
-        op: "append-text",
-        file: "src/placement.js",
-        position: "bottom",
-        skipIfContains: "id: \"users.home.settings.general\"",
-        value:
-          "\naddPlacement({\n  id: \"users.home.settings.general\",\n  target: \"home-settings:primary-menu\",\n  surfaces: [\"home\"],\n  order: 100,\n  componentToken: \"local.main.ui.surface-aware-menu-link-item\",\n  props: {\n    label: \"General\",\n    surface: \"home\",\n    workspaceSuffix: \"/settings\",\n    nonWorkspaceSuffix: \"/settings\"\n  },\n  when: ({ auth }) => Boolean(auth?.authenticated)\n});\n",
-        reason: "Append users-web home settings general-page placement into app-owned placement registry.",
-        category: "users-web",
-        id: "users-web-home-settings-general-placement"
       }
     ]
   }
