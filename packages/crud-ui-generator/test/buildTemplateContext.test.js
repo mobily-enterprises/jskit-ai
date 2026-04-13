@@ -255,12 +255,15 @@ test("buildUiTemplateContext derives CRUD placeholders from the explicit target-
     assert.equal(context.__JSKIT_UI_HAS_VIEW_ROUTE__, "true");
     assert.equal(context.__JSKIT_UI_HAS_NEW_ROUTE__, "true");
     assert.equal(context.__JSKIT_UI_HAS_EDIT_ROUTE__, "true");
+    assert.doesNotMatch(context.__JSKIT_UI_LIST_HEADER_COLUMNS__, /Id/);
+    assert.doesNotMatch(context.__JSKIT_UI_LIST_ROW_COLUMNS__, /record\.id/);
     assert.match(context.__JSKIT_UI_LIST_HEADER_COLUMNS__, /First Name/);
     assert.match(context.__JSKIT_UI_LIST_ROW_COLUMNS__, /record\.firstName/);
     assert.match(context.__JSKIT_UI_VIEW_COLUMNS__, /view\.record\?\.firstName/);
     assert.match(context.__JSKIT_UI_CREATE_FORM_COLUMNS__, /formRuntime\.form\.firstName/);
     assert.match(context.__JSKIT_UI_EDIT_FORM_COLUMNS__, /formRuntime\.form\.email/);
     assert.equal(context.__JSKIT_UI_RECORD_CHANGED_EVENT__, "\"customers.record.changed\"");
+    assert.equal(context.__JSKIT_UI_LIST_RECORD_ID_EXPR__, "item.id");
     assert.equal(context.__JSKIT_UI_VIEW_TITLE_FALLBACK_FIELD_KEY__, "\"firstName\"");
   });
 });
@@ -303,6 +306,23 @@ test("buildUiTemplateContext filters rendered fields when display-fields is prov
     assert.match(context.__JSKIT_UI_VIEW_COLUMNS__, /view\.record\?\.firstName/);
     assert.match(context.__JSKIT_UI_VIEW_COLUMNS__, /view\.record\?\.email/);
     assert.doesNotMatch(context.__JSKIT_UI_VIEW_COLUMNS__, /view\.record\?\.vip/);
+  });
+});
+
+test("buildUiTemplateContext keeps an explicitly requested id display field", async () => {
+  await withTempApp(async (appRoot) => {
+    await writeResource(appRoot, RESOURCE_FILE, FULL_RESOURCE_SOURCE);
+
+    const context = await buildUiTemplateContext({
+      appRoot,
+      options: createOptions({
+        operations: "list,view",
+        "display-fields": "id,firstName"
+      })
+    });
+
+    assert.match(context.__JSKIT_UI_LIST_HEADER_COLUMNS__, /Id/);
+    assert.match(context.__JSKIT_UI_LIST_ROW_COLUMNS__, /record\.id/);
   });
 });
 
