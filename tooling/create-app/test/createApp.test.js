@@ -467,16 +467,29 @@ test("generated shell-only app passes jskit doctor and keeps minimal Procfile", 
     await assert.rejects(access(path.join(appRoot, "src/pages/admin.vue")), /ENOENT/);
     const homeWrapper = await readFile(path.join(appRoot, "src/pages/home.vue"), "utf8");
     const consoleWrapper = await readFile(path.join(appRoot, "src/pages/console.vue"), "utf8");
+    const mainClientProvider = await readFile(
+      path.join(appRoot, "packages/main/src/client/providers/MainClientProvider.js"),
+      "utf8"
+    );
     const packageJson = JSON.parse(await readFile(path.join(appRoot, "package.json"), "utf8"));
 
     assert.match(homeWrapper, /"surface":\s*"home"/);
     assert.match(consoleWrapper, /@\/components\/ShellLayout\.vue/);
     assert.match(consoleWrapper, /"surface":\s*"console"/);
+    assert.match(mainClientProvider, /import MenuLinkItem from "\/src\/components\/menus\/MenuLinkItem\.vue";/);
+    assert.match(mainClientProvider, /import SurfaceAwareMenuLinkItem from "\/src\/components\/menus\/SurfaceAwareMenuLinkItem\.vue";/);
+    assert.match(mainClientProvider, /import TabLinkItem from "\/src\/components\/menus\/TabLinkItem\.vue";/);
+    assert.match(mainClientProvider, /registerMainClientComponent\("local\.main\.ui\.menu-link-item", \(\) => MenuLinkItem\);/);
+    assert.match(mainClientProvider, /registerMainClientComponent\("local\.main\.ui\.surface-aware-menu-link-item", \(\) => SurfaceAwareMenuLinkItem\);/);
+    assert.match(mainClientProvider, /registerMainClientComponent\("local\.main\.ui\.tab-link-item", \(\) => TabLinkItem\);/);
     assert.equal(packageJson.scripts["dev:all"], "vite");
     assert.equal(packageJson.scripts["dev:home"], "VITE_SURFACE=home vite");
     assert.equal(packageJson.scripts["dev:console"], "VITE_SURFACE=console vite");
     assert.equal(packageJson.scripts["dev:app"], undefined);
     assert.equal(packageJson.scripts["dev:admin"], undefined);
+    await access(path.join(appRoot, "src/components/menus/MenuLinkItem.vue"));
+    await access(path.join(appRoot, "src/components/menus/SurfaceAwareMenuLinkItem.vue"));
+    await access(path.join(appRoot, "src/components/menus/TabLinkItem.vue"));
   });
 });
 

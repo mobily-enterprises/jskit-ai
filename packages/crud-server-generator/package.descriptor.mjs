@@ -13,11 +13,11 @@ export default Object.freeze({
       promptHint: "Required slug (example: customers, appointments, vendors)."
     },
     surface: {
-      required: true,
+      required: false,
       inputType: "text",
       validationType: "enabled-surface-id",
       promptLabel: "Target surface",
-      promptHint: "Must match an enabled surface id."
+      promptHint: "Optional for non-workspace apps; otherwise must match an enabled surface id."
     },
     "ownership-filter": {
       required: true,
@@ -34,11 +34,12 @@ export default Object.freeze({
       promptHint: "Optional subpath prepended to the CRUD route path (example: crm or ops/team-a)."
     },
     "table-name": {
-      required: true,
+      required: false,
       inputType: "text",
       defaultValue: "",
+      defaultFromOptionTemplate: "${option:namespace}",
       promptLabel: "Table name",
-      promptHint: "Required existing MySQL table to introspect for CRUD schema generation."
+      promptHint: "Existing MySQL table to introspect for CRUD schema generation (defaults to namespace)."
     },
     "id-column": {
       required: false,
@@ -237,7 +238,11 @@ export default Object.freeze({
         to: "packages/${option:namespace|kebab}/src/server/registerRoutes.js",
         reason: "Install app-local CRUD route registration.",
         category: "crud",
-        id: "crud-local-package-server-routes-${option:namespace|snake}"
+        id: "crud-local-package-server-routes-${option:namespace|snake}",
+        templateContext: {
+          entrypoint: "src/server/buildTemplateContext.js",
+          export: "buildTemplateContext"
+        }
       },
       {
         from: "templates/src/local-package/server/repository.js",

@@ -5,6 +5,12 @@ import descriptor from "../package.descriptor.mjs";
 test("crud-server-generator surface option validates against enabled surface ids", () => {
   assert.equal(descriptor.kind, "generator");
   assert.equal(descriptor.options?.surface?.validationType, "enabled-surface-id");
+  assert.equal(descriptor.options?.surface?.required, false);
+  assert.equal(descriptor.options?.["table-name"]?.required, false);
+  assert.equal(
+    descriptor.options?.["table-name"]?.defaultFromOptionTemplate,
+    "${option:namespace}"
+  );
   assert.equal(descriptor.metadata?.generatorSubcommands?.scaffold?.optionNames?.includes("surface"), true);
   assert.equal(descriptor.metadata?.generatorSubcommands?.scaffold?.optionNames?.includes("force"), true);
   assert.equal(descriptor.metadata?.generatorSubcommands?.scaffold?.createTarget?.pathTemplate, "packages/${option:namespace|kebab}");
@@ -28,10 +34,17 @@ test("crud-server-generator installs listConfig alongside server templates", () 
 test("crud-server-generator wires action and role mutations through template context", () => {
   const files = descriptor.mutations?.files || [];
   const actionsTemplate = files.find((entry) => entry.from === "templates/src/local-package/server/actions.js");
+  const routesTemplate = files.find((entry) => entry.from === "templates/src/local-package/server/registerRoutes.js");
   const roleGrantMutation = (descriptor.mutations?.text || []).find((entry) => entry.file === "config/roles.js");
 
   assert.ok(actionsTemplate);
   assert.deepEqual(actionsTemplate.templateContext, {
+    entrypoint: "src/server/buildTemplateContext.js",
+    export: "buildTemplateContext"
+  });
+
+  assert.ok(routesTemplate);
+  assert.deepEqual(routesTemplate.templateContext, {
     entrypoint: "src/server/buildTemplateContext.js",
     export: "buildTemplateContext"
   });

@@ -11,7 +11,7 @@ const PACKAGE_DIR = path.resolve(TEST_DIRECTORY, "..");
 function readSettingsOutlets() {
   const outlets = descriptor?.metadata?.ui?.placements?.outlets;
   return Array.isArray(outlets)
-    ? outlets.filter((entry) => String(entry?.host || "").trim() === "admin-settings")
+    ? outlets.filter((entry) => String(entry?.target || "").trim() === "admin-settings:primary-menu")
     : [];
 }
 
@@ -28,7 +28,8 @@ test("workspaces-web admin settings template exposes surface-derived settings ou
     "utf8"
   );
 
-  assert.match(source, /<ShellOutlet host="admin-settings" position="primary-menu" \/>/);
+  assert.match(source, /target="admin-settings:primary-menu"/);
+  assert.match(source, /default-link-component-token="local\.main\.ui\.surface-aware-menu-link-item"/);
 });
 
 test("workspaces-web descriptor metadata advertises admin settings outlets and general-page placement on the derived host", () => {
@@ -36,8 +37,8 @@ test("workspaces-web descriptor metadata advertises admin settings outlets and g
     readSettingsOutlets(),
     [
       {
-        host: "admin-settings",
-        position: "primary-menu",
+        target: "admin-settings:primary-menu",
+        defaultLinkComponentToken: "local.main.ui.surface-aware-menu-link-item",
         surfaces: ["admin"],
         source: "templates/src/pages/admin/workspace/settings.vue"
       }
@@ -46,11 +47,10 @@ test("workspaces-web descriptor metadata advertises admin settings outlets and g
 
   assert.deepEqual(findContribution("users.workspace.settings.general"), {
     id: "users.workspace.settings.general",
-    host: "admin-settings",
-    position: "primary-menu",
+    target: "admin-settings:primary-menu",
     surfaces: ["admin"],
     order: 100,
-    componentToken: "users.web.shell.surface-aware-menu-link-item",
+    componentToken: "local.main.ui.surface-aware-menu-link-item",
     source: "mutations.text#users-web-workspace-settings-general-placement"
   });
 });

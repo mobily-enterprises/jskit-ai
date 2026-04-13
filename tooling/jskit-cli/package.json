@@ -21,7 +21,8 @@
   },
   "dependencies": {
     "@jskit-ai/jskit-catalog": "0.1.41",
-    "@jskit-ai/kernel": "0.1.33"
+    "@jskit-ai/kernel": "0.1.33",
+    "@jskit-ai/shell-web": "0.1.32"
   },
   "engines": {
     "node": "20.x"

@@ -58,7 +58,7 @@
             "inputType": "text",
             "defaultValue": "",
             "promptLabel": "Link placement",
-            "promptHint": "Optional host:position target for the generated page link placement."
+            "promptHint": "Optional target for the generated page link placement (format: host:position)."
           },
           "link-component-token": {
             "required": false,
@@ -991,8 +991,8 @@
             "placements": {
               "outlets": [
                 {
-                  "host": "auth-profile-menu",
-                  "position": "primary-menu",
+                  "target": "auth-profile-menu:primary-menu",
+                  "defaultLinkComponentToken": "auth.web.profile.menu.link-item",
                   "surfaces": [
                     "*"
                   ],
@@ -1002,8 +1002,7 @@
               "contributions": [
                 {
                   "id": "auth.profile.widget",
-                  "host": "shell-layout",
-                  "position": "top-right",
+                  "target": "shell-layout:top-right",
                   "surfaces": [
                     "*"
                   ],
@@ -1013,8 +1012,7 @@
                 },
                 {
                   "id": "auth.profile.menu.sign-in",
-                  "host": "auth-profile-menu",
-                  "position": "primary-menu",
+                  "target": "auth-profile-menu:primary-menu",
                   "surfaces": [
                     "*"
                   ],
@@ -1025,8 +1023,7 @@
                 },
                 {
                   "id": "auth.profile.menu.sign-out",
-                  "host": "auth-profile-menu",
-                  "position": "primary-menu",
+                  "target": "auth-profile-menu:primary-menu",
                   "surfaces": [
                     "*"
                   ],
@@ -1107,7 +1104,7 @@
               "file": "src/placement.js",
               "position": "bottom",
               "skipIfContains": "id: \"auth.profile.widget\"",
-              "value": "\naddPlacement({\n  id: \"auth.profile.widget\",\n  host: \"shell-layout\",\n  position: \"top-right\",\n  surfaces: [\"*\"],\n  order: 1000,\n  componentToken: \"auth.web.profile.widget\"\n});\n\naddPlacement({\n  id: \"auth.profile.menu.sign-in\",\n  host: \"auth-profile-menu\",\n  position: \"primary-menu\",\n  surfaces: [\"*\"],\n  order: 200,\n  componentToken: \"auth.web.profile.menu.link-item\",\n  props: {\n    label: \"Sign in\",\n    to: \"/auth/login\"\n  },\n  when: ({ auth }) => !Boolean(auth?.authenticated)\n});\n\naddPlacement({\n  id: \"auth.profile.menu.sign-out\",\n  host: \"auth-profile-menu\",\n  position: \"primary-menu\",\n  surfaces: [\"*\"],\n  order: 1000,\n  componentToken: \"auth.web.profile.menu.link-item\",\n  props: {\n    label: \"Sign out\",\n    to: \"/auth/signout\"\n  },\n  when: ({ auth }) => Boolean(auth?.authenticated)\n});\n",
+              "value": "\naddPlacement({\n  id: \"auth.profile.widget\",\n  target: \"shell-layout:top-right\",\n  surfaces: [\"*\"],\n  order: 1000,\n  componentToken: \"auth.web.profile.widget\"\n});\n\naddPlacement({\n  id: \"auth.profile.menu.sign-in\",\n  target: \"auth-profile-menu:primary-menu\",\n  surfaces: [\"*\"],\n  order: 200,\n  componentToken: \"auth.web.profile.menu.link-item\",\n  props: {\n    label: \"Sign in\",\n    to: \"/auth/login\"\n  },\n  when: ({ auth }) => !Boolean(auth?.authenticated)\n});\n\naddPlacement({\n  id: \"auth.profile.menu.sign-out\",\n  target: \"auth-profile-menu:primary-menu\",\n  surfaces: [\"*\"],\n  order: 1000,\n  componentToken: \"auth.web.profile.menu.link-item\",\n  props: {\n    label: \"Sign out\",\n    to: \"/auth/signout\"\n  },\n  when: ({ auth }) => Boolean(auth?.authenticated)\n});\n",
               "reason": "Append auth profile placement entries into app-owned placement registry.",
               "category": "auth-web",
               "id": "auth-web-placement-block"
@@ -1179,11 +1176,11 @@
             "promptHint": "Required slug (example: customers, appointments, vendors)."
           },
           "surface": {
-            "required": true,
+            "required": false,
             "inputType": "text",
             "validationType": "enabled-surface-id",
             "promptLabel": "Target surface",
-            "promptHint": "Must match an enabled surface id."
+            "promptHint": "Optional for non-workspace apps; otherwise must match an enabled surface id."
           },
           "ownership-filter": {
             "required": true,
@@ -1200,11 +1197,12 @@
             "promptHint": "Optional subpath prepended to the CRUD route path (example: crm or ops/team-a)."
           },
           "table-name": {
-            "required": true,
+            "required": false,
             "inputType": "text",
             "defaultValue": "",
+            "defaultFromOptionTemplate": "${option:namespace}",
             "promptLabel": "Table name",
-            "promptHint": "Required existing MySQL table to introspect for CRUD schema generation."
+            "promptHint": "Existing MySQL table to introspect for CRUD schema generation (defaults to namespace)."
           },
           "id-column": {
             "required": false,
@@ -1405,7 +1403,11 @@
               "to": "packages/${option:namespace|kebab}/src/server/registerRoutes.js",
               "reason": "Install app-local CRUD route registration.",
               "category": "crud",
-              "id": "crud-local-package-server-routes-${option:namespace|snake}"
+              "id": "crud-local-package-server-routes-${option:namespace|snake}",
+              "templateContext": {
+                "entrypoint": "src/server/buildTemplateContext.js",
+                "export": "buildTemplateContext"
+              }
             },
             {
               "from": "templates/src/local-package/server/repository.js",
@@ -1521,7 +1523,14 @@
             "inputType": "text",
             "defaultValue": "",
             "promptLabel": "Link placement",
-            "promptHint": "Optional host:position override for the generated list-page link placement."
+            "promptHint": "Optional target override for the generated list-page link placement (format: host:position)."
+          },
+          "link-component-token": {
+            "required": false,
+            "inputType": "text",
+            "defaultValue": "",
+            "promptLabel": "Link component token",
+            "promptHint": "Optional component token override for the generated list-page link placement (example: local.main.ui.tab-link-item)."
           },
           "namespace": {
             "required": false,
@@ -1553,7 +1562,7 @@
               "description": "Create CRUD pages at an explicit route root relative to src/pages/.",
               "longDescription": [
                 "CRUD generation follows the same page-placement model as `ui-generator page`.",
-                "That means the generated list page link uses the same nearest-parent-host inference, tab-link inference, and relative `props.to` inference as a normal generated page. If you want the detailed host behavior, read `jskit generate ui-generator page help`."
+                "That means the generated list page link uses the same nearest-parent-target inference, tab-link inference, and relative `props.to` inference as a normal generated page. If you want the detailed target behavior, read `jskit generate ui-generator page help`."
               ],
               "positionalArgs": [
                 {
@@ -1568,6 +1577,7 @@
                 "display-fields",
                 "id-param",
                 "link-placement",
+                "link-component-token",
                 "namespace",
                 "force"
               ],
@@ -1839,7 +1849,7 @@
               "file": "src/placement.js",
               "position": "bottom",
               "skipIfContains": "__JSKIT_UI_MENU_MARKER__",
-              "value": "\n// __JSKIT_UI_MENU_MARKER__\n{\n  addPlacement({\n    id: \"__JSKIT_UI_MENU_PLACEMENT_ID__\",\n    host: \"__JSKIT_UI_MENU_PLACEMENT_HOST__\",\n    position: \"__JSKIT_UI_MENU_PLACEMENT_POSITION__\",\n    surfaces: [\"__JSKIT_UI_SURFACE_ID__\"],\n    order: 155,\n    componentToken: \"__JSKIT_UI_MENU_COMPONENT_TOKEN__\",\n    props: {\n      label: \"__JSKIT_UI_MENU_LABEL__\",\n      surface: \"__JSKIT_UI_SURFACE_ID__\",\n      workspaceSuffix: \"__JSKIT_UI_MENU_WORKSPACE_SUFFIX__\",\n      nonWorkspaceSuffix: \"__JSKIT_UI_MENU_NON_WORKSPACE_SUFFIX__\",\n__JSKIT_UI_MENU_TO_PROP_LINE__    },\n    when: ({ auth }) => Boolean(auth?.authenticated)\n  });\n}\n",
+              "value": "\n// __JSKIT_UI_MENU_MARKER__\n{\n  addPlacement({\n    id: \"__JSKIT_UI_MENU_PLACEMENT_ID__\",\n    target: \"__JSKIT_UI_MENU_PLACEMENT_TARGET__\",\n    surfaces: [\"__JSKIT_UI_SURFACE_ID__\"],\n    order: 155,\n    componentToken: \"__JSKIT_UI_MENU_COMPONENT_TOKEN__\",\n    props: {\n      label: \"__JSKIT_UI_MENU_LABEL__\",\n      surface: \"__JSKIT_UI_SURFACE_ID__\",\n      workspaceSuffix: \"__JSKIT_UI_MENU_WORKSPACE_SUFFIX__\",\n      nonWorkspaceSuffix: \"__JSKIT_UI_MENU_NON_WORKSPACE_SUFFIX__\",\n__JSKIT_UI_MENU_TO_PROP_LINE__    },\n    when: ({ auth }) => Boolean(auth?.authenticated)\n  });\n}\n",
               "reason": "Append generated CRUD list-page placement.",
               "category": "crud-ui-generator",
               "id": "crud-ui-placement-menu",
@@ -2456,8 +2466,7 @@
               "contributions": [
                 {
                   "id": "realtime.connection.indicator",
-                  "host": "shell-layout",
-                  "position": "top-right",
+                  "target": "shell-layout:top-right",
                   "surfaces": [
                     "*"
                   ],
@@ -2510,7 +2519,7 @@
               "file": "src/placement.js",
               "position": "bottom",
               "skipIfContains": "id: \"realtime.connection.indicator\"",
-              "value": "\naddPlacement({\n  id: \"realtime.connection.indicator\",\n  host: \"shell-layout\",\n  position: \"top-right\",\n  surfaces: [\"*\"],\n  order: 950,\n  componentToken: \"realtime.web.connection.indicator\"\n});\n",
+              "value": "\naddPlacement({\n  id: \"realtime.connection.indicator\",\n  target: \"shell-layout:top-right\",\n  surfaces: [\"*\"],\n  order: 950,\n  componentToken: \"realtime.web.connection.indicator\"\n});\n",
               "reason": "Append realtime connection indicator placement into app-owned placement registry.",
               "category": "realtime-web",
               "id": "realtime-placement-indicator"
@@ -2579,40 +2588,38 @@
             "placements": {
               "outlets": [
                 {
-                  "host": "shell-layout",
-                  "position": "top-left",
+                  "target": "shell-layout:top-left",
                   "surfaces": [
                     "*"
                   ],
                   "source": "src/client/components/ShellLayout.vue"
                 },
                 {
-                  "host": "shell-layout",
-                  "position": "top-right",
+                  "target": "shell-layout:top-right",
                   "surfaces": [
                     "*"
                   ],
                   "source": "src/client/components/ShellLayout.vue"
                 },
                 {
-                  "host": "shell-layout",
-                  "position": "primary-menu",
+                  "target": "shell-layout:primary-menu",
+                  "defaultLinkComponentToken": "local.main.ui.surface-aware-menu-link-item",
                   "surfaces": [
                     "*"
                   ],
                   "source": "src/client/components/ShellLayout.vue"
                 },
                 {
-                  "host": "shell-layout",
-                  "position": "secondary-menu",
+                  "target": "shell-layout:secondary-menu",
+                  "defaultLinkComponentToken": "local.main.ui.surface-aware-menu-link-item",
                   "surfaces": [
                     "*"
                   ],
                   "source": "src/client/components/ShellLayout.vue"
                 },
                 {
-                  "host": "home-settings",
-                  "position": "primary-menu",
+                  "target": "home-settings:primary-menu",
+                  "defaultLinkComponentToken": "local.main.ui.surface-aware-menu-link-item",
                   "surfaces": [
                     "home"
                   ],
@@ -2641,7 +2648,68 @@
             }
           },
           "procfile": {},
-          "text": [],
+          "text": [
+            {
+              "op": "append-text",
+              "file": "packages/main/src/client/providers/MainClientProvider.js",
+              "position": "top",
+              "skipIfContains": "import MenuLinkItem from \"/src/components/menus/MenuLinkItem.vue\";",
+              "value": "import MenuLinkItem from \"/src/components/menus/MenuLinkItem.vue\";\n",
+              "reason": "Bind app-owned shell menu link-item scaffold into local main client provider imports.",
+              "category": "shell-web",
+              "id": "shell-web-main-client-provider-menu-link-item-import"
+            },
+            {
+              "op": "append-text",
+              "file": "packages/main/src/client/providers/MainClientProvider.js",
+              "position": "top",
+              "skipIfContains": "import SurfaceAwareMenuLinkItem from \"/src/components/menus/SurfaceAwareMenuLinkItem.vue\";",
+              "value": "import SurfaceAwareMenuLinkItem from \"/src/components/menus/SurfaceAwareMenuLinkItem.vue\";\n",
+              "reason": "Bind app-owned shell surface-aware menu link-item scaffold into local main client provider imports.",
+              "category": "shell-web",
+              "id": "shell-web-main-client-provider-surface-aware-menu-link-item-import"
+            },
+            {
+              "op": "append-text",
+              "file": "packages/main/src/client/providers/MainClientProvider.js",
+              "position": "top",
+              "skipIfContains": "import TabLinkItem from \"/src/components/menus/TabLinkItem.vue\";",
+              "value": "import TabLinkItem from \"/src/components/menus/TabLinkItem.vue\";\n",
+              "reason": "Bind app-owned shell tab link-item scaffold into local main client provider imports.",
+              "category": "shell-web",
+              "id": "shell-web-main-client-provider-tab-link-item-import"
+            },
+            {
+              "op": "append-text",
+              "file": "packages/main/src/client/providers/MainClientProvider.js",
+              "position": "bottom",
+              "skipIfContains": "registerMainClientComponent(\"local.main.ui.menu-link-item\", () => MenuLinkItem);",
+              "value": "\nregisterMainClientComponent(\"local.main.ui.menu-link-item\", () => MenuLinkItem);\n",
+              "reason": "Bind app-owned shell menu link-item token into local main client provider registry.",
+              "category": "shell-web",
+              "id": "shell-web-main-client-provider-menu-link-item-register"
+            },
+            {
+              "op": "append-text",
+              "file": "packages/main/src/client/providers/MainClientProvider.js",
+              "position": "bottom",
+              "skipIfContains": "registerMainClientComponent(\"local.main.ui.surface-aware-menu-link-item\", () => SurfaceAwareMenuLinkItem);",
+              "value": "\nregisterMainClientComponent(\"local.main.ui.surface-aware-menu-link-item\", () => SurfaceAwareMenuLinkItem);\n",
+              "reason": "Bind app-owned shell surface-aware menu link-item token into local main client provider registry.",
+              "category": "shell-web",
+              "id": "shell-web-main-client-provider-surface-aware-menu-link-item-register"
+            },
+            {
+              "op": "append-text",
+              "file": "packages/main/src/client/providers/MainClientProvider.js",
+              "position": "bottom",
+              "skipIfContains": "registerMainClientComponent(\"local.main.ui.tab-link-item\", () => TabLinkItem);",
+              "value": "\nregisterMainClientComponent(\"local.main.ui.tab-link-item\", () => TabLinkItem);\n",
+              "reason": "Bind app-owned shell tab link-item token into local main client provider registry.",
+              "category": "shell-web",
+              "id": "shell-web-main-client-provider-tab-link-item-register"
+            }
+          ],
           "files": [
             {
               "from": "templates/src/App.vue",
@@ -2656,6 +2724,27 @@
               "reason": "Install app-owned shell layout component so apps can customize structure and slots.",
               "category": "shell-web",
               "id": "shell-web-component-shell-layout"
+            },
+            {
+              "from": "templates/src/components/menus/MenuLinkItem.vue",
+              "to": "src/components/menus/MenuLinkItem.vue",
+              "reason": "Install app-owned shell menu link-item scaffold for local placement customization.",
+              "category": "shell-web",
+              "id": "shell-web-component-menu-link-item"
+            },
+            {
+              "from": "templates/src/components/menus/SurfaceAwareMenuLinkItem.vue",
+              "to": "src/components/menus/SurfaceAwareMenuLinkItem.vue",
+              "reason": "Install app-owned surface-aware shell menu link-item scaffold for local placement customization.",
+              "category": "shell-web",
+              "id": "shell-web-component-surface-aware-menu-link-item"
+            },
+            {
+              "from": "templates/src/components/menus/TabLinkItem.vue",
+              "to": "src/components/menus/TabLinkItem.vue",
+              "reason": "Install app-owned shell tab link-item scaffold for local placement customization.",
+              "category": "shell-web",
+              "id": "shell-web-component-tab-link-item"
             },
             {
               "from": "templates/src/error.js",
@@ -2836,14 +2925,14 @@
             "inputType": "text",
             "defaultValue": "",
             "promptLabel": "Placement target",
-            "promptHint": "Optional host:position target for placed-element placement (defaults to shell-layout:top-right)."
+            "promptHint": "Optional target for placed-element placement (format: host:position, default: shell-layout:top-right)."
           },
           "link-placement": {
             "required": false,
             "inputType": "text",
             "defaultValue": "",
             "promptLabel": "Link placement",
-            "promptHint": "Optional host:position target for the generated page link placement."
+            "promptHint": "Optional target for the generated page link placement (format: host:position)."
           },
           "link-component-token": {
             "required": false,
@@ -2857,14 +2946,14 @@
             "inputType": "text",
             "defaultValue": "",
             "promptLabel": "Link to",
-            "promptHint": "Optional explicit props.to value for the generated page link placement (example: ./notes). If omitted for pages under a detected parent subpages host, it is inferred from the page path."
+            "promptHint": "Optional explicit props.to value for the generated page link placement (example: ./notes). If omitted for pages under a detected parent subpages target, it is inferred from the page path."
           },
           "target": {
             "required": false,
             "inputType": "text",
             "defaultValue": "",
             "promptLabel": "Outlet target",
-            "promptHint": "Used by add-subpages and outlet. Accepts host or host:position. If only host is given, position defaults to sub-pages."
+            "promptHint": "Used by add-subpages and outlet. Must be a target in host:position format."
           },
           "title": {
             "required": false,
@@ -2905,8 +2994,8 @@
               "description": "Create a route page at an explicit target file and add a link placement entry for it.",
               "longDescription": [
                 "This command always creates one route page file. By default, its page link is placed from the page path itself.",
-                "If an ancestor page has already been enhanced with sub-pages, JSKIT treats that ancestor as the real host. In that case the new page is linked into the nearest parent sub-pages outlet instead of the shell menu.",
-                "That means the generated link normally becomes a tab or child-page link under that ancestor host, and `props.to` is inferred relative to that host. If the host page is `index.vue`, child pages belong under `index/...` so the router keeps the parent page visible while the child route renders underneath it."
+                "If an ancestor page has already been enhanced with sub-pages, JSKIT treats that ancestor outlet as the real placement target. In that case the new page is linked into the nearest parent sub-pages outlet instead of the shell menu.",
+                "That means the generated link normally becomes a tab or child-page link under that ancestor target, and `props.to` is inferred relative to that target. If the outlet page is `index.vue`, child pages belong under `index/...` so the router keeps the parent page visible while the child route renders underneath it."
               ],
               "positionalArgs": [
                 {
@@ -2923,8 +3012,8 @@
                 "force"
               ],
               "notes": [
-                "If a nearest parent subpages host is found, placement, link component token, and props.to are inferred automatically.",
-                "If the parent host page is index.vue, child pages belong under index/...",
+                "If a nearest parent subpages target is found, placement, link component token, and props.to are inferred automatically.",
+                "If the parent target page is index.vue, child pages belong under index/...",
                 "If the target page file already exists, rerun with --force to overwrite it."
               ],
               "examples": [
@@ -3007,7 +3096,7 @@
               ],
               "notes": [
                 "Use this when the page should render shared content plus child routes below it.",
-                "If the host page is index.vue, create child pages under index/..."
+                "If the outlet page is index.vue, create child pages under index/..."
               ],
               "examples": [
                 {
@@ -3038,8 +3127,8 @@
               "description": "Inject a generic ShellOutlet block into an existing Vue page/component.",
               "longDescription": [
                 "A ShellOutlet creates a named placement target inside a Vue file. That target is what other parts of JSKIT render into later.",
-                "After an outlet exists, `jskit list-placements` will discover it and show it as `host:position`. That makes the target visible to humans and to generators that need a placement destination.",
-                "Commands that create placed UI, such as `ui-generator placed-element`, and commands that add page links can then target that outlet by writing placement entries that point at the same `host:position`."
+                "After an outlet exists, `jskit list-placements` will discover it and show its `target`. That makes the outlet visible to humans and to generators that need a placement destination.",
+                "Commands that create placed UI, such as `ui-generator placed-element`, and commands that add page links can then target that outlet by writing placement entries that point at the same target."
               ],
               "positionalArgs": [
                 {
@@ -3055,7 +3144,7 @@
                 "target"
               ],
               "notes": [
-                "Use --target host or --target host:position. If only host is given, position defaults to sub-pages."
+                "Use --target host:position."
               ],
               "examples": [
                 {
@@ -3063,7 +3152,7 @@
                   "lines": [
                     "npx jskit generate ui-generator outlet \\",
                     "  src/components/ContactSummaryCard.vue \\",
-                    "  --target contact-view"
+                    "  --target contact-view:sub-pages"
                   ]
                 },
                 {
@@ -3546,8 +3635,9 @@
         "packageId": "@jskit-ai/users-web",
         "version": "0.1.48",
         "kind": "runtime",
-        "description": "Users web module: account/profile UI plus shared shell link components.",
+        "description": "Users web module: account/profile UI plus shared users web widgets.",
         "dependsOn": [
+          "@jskit-ai/auth-web",
           "@jskit-ai/http-runtime",
           "@jskit-ai/shell-web",
           "@jskit-ai/uploads-image-web",
@@ -3638,8 +3728,6 @@
             "containerTokens": {
               "server": [],
               "client": [
-                "users.web.shell.menu-link-item",
-                "users.web.shell.surface-aware-menu-link-item",
                 "users.web.profile.menu.surface-switch-item",
                 "users.web.home.tools.widget",
                 "users.web.profile.element",
@@ -3651,16 +3739,24 @@
             "placements": {
               "outlets": [
                 {
-                  "host": "home-tools",
-                  "position": "primary-menu",
+                  "target": "home-tools:primary-menu",
+                  "defaultLinkComponentToken": "local.main.ui.surface-aware-menu-link-item",
                   "surfaces": [
                     "home"
                   ],
                   "source": "src/client/components/UsersHomeToolsWidget.vue"
                 },
                 {
-                  "host": "console-settings",
-                  "position": "primary-menu",
+                  "target": "workspace-tools:primary-menu",
+                  "defaultLinkComponentToken": "local.main.ui.surface-aware-menu-link-item",
+                  "surfaces": [
+                    "admin"
+                  ],
+                  "source": "src/client/components/UsersWorkspaceToolsWidget.vue"
+                },
+                {
+                  "target": "console-settings:primary-menu",
+                  "defaultLinkComponentToken": "local.main.ui.surface-aware-menu-link-item",
                   "surfaces": [
                     "console"
                   ],
@@ -3670,8 +3766,7 @@
               "contributions": [
                 {
                   "id": "users.profile.menu.surface-switch",
-                  "host": "auth-profile-menu",
-                  "position": "primary-menu",
+                  "target": "auth-profile-menu:primary-menu",
                   "surfaces": [
                     "*"
                   ],
@@ -3682,44 +3777,40 @@
                 },
                 {
                   "id": "users.profile.menu.settings",
-                  "host": "auth-profile-menu",
-                  "position": "primary-menu",
+                  "target": "auth-profile-menu:primary-menu",
                   "surfaces": [
                     "*"
                   ],
                   "order": 500,
-                  "componentToken": "users.web.shell.menu-link-item",
+                  "componentToken": "auth.web.profile.menu.link-item",
                   "when": "auth.authenticated === true",
                   "source": "mutations.text#users-web-profile-settings-placement"
                 },
                 {
                   "id": "users.home.menu.home",
-                  "host": "shell-layout",
-                  "position": "primary-menu",
+                  "target": "shell-layout:primary-menu",
                   "surfaces": [
                     "*"
                   ],
                   "order": 50,
-                  "componentToken": "users.web.shell.surface-aware-menu-link-item",
+                  "componentToken": "local.main.ui.surface-aware-menu-link-item",
                   "when": "auth.authenticated === true",
                   "source": "mutations.text#users-web-home-shell-menu-placement"
                 },
                 {
                   "id": "users.console.menu.settings",
-                  "host": "shell-layout",
-                  "position": "primary-menu",
+                  "target": "shell-layout:primary-menu",
                   "surfaces": [
                     "console"
                   ],
                   "order": 100,
-                  "componentToken": "users.web.shell.menu-link-item",
+                  "componentToken": "local.main.ui.menu-link-item",
                   "when": "auth.authenticated === true",
                   "source": "mutations.text#users-web-console-settings-placement"
                 },
                 {
                   "id": "users.home.tools.widget",
-                  "host": "shell-layout",
-                  "position": "top-right",
+                  "target": "shell-layout:top-right",
                   "surfaces": [
                     "home"
                   ],
@@ -3730,25 +3821,23 @@
                 },
                 {
                   "id": "users.home.menu.settings",
-                  "host": "home-tools",
-                  "position": "primary-menu",
+                  "target": "home-tools:primary-menu",
                   "surfaces": [
                     "home"
                   ],
                   "order": 100,
-                  "componentToken": "users.web.shell.surface-aware-menu-link-item",
+                  "componentToken": "local.main.ui.surface-aware-menu-link-item",
                   "when": "auth.authenticated === true",
                   "source": "mutations.text#users-web-home-tools-placement"
                 },
                 {
                   "id": "users.home.settings.general",
-                  "host": "home-settings",
-                  "position": "primary-menu",
+                  "target": "home-settings:primary-menu",
                   "surfaces": [
                     "home"
                   ],
                   "order": 100,
-                  "componentToken": "users.web.shell.surface-aware-menu-link-item",
+                  "componentToken": "local.main.ui.surface-aware-menu-link-item",
                   "when": "auth.authenticated === true",
                   "source": "mutations.text#users-web-home-settings-general-placement"
                 }
@@ -3855,7 +3944,7 @@
               "file": "src/placement.js",
               "position": "bottom",
               "skipIfContains": "id: \"users.profile.menu.surface-switch\"",
-              "value": "\naddPlacement({\n  id: \"users.profile.menu.surface-switch\",\n  host: \"auth-profile-menu\",\n  position: \"primary-menu\",\n  surfaces: [\"*\"],\n  order: 100,\n  componentToken: \"users.web.profile.menu.surface-switch-item\",\n  when: ({ auth }) => Boolean(auth?.authenticated)\n});\n",
+              "value": "\naddPlacement({\n  id: \"users.profile.menu.surface-switch\",\n  target: \"auth-profile-menu:primary-menu\",\n  surfaces: [\"*\"],\n  order: 100,\n  componentToken: \"users.web.profile.menu.surface-switch-item\",\n  when: ({ auth }) => Boolean(auth?.authenticated)\n});\n",
               "reason": "Append users-web profile surface switch placement into app-owned placement registry.",
               "category": "users-web",
               "id": "users-web-profile-surface-switch-placement"
@@ -3865,7 +3954,7 @@
               "file": "src/placement.js",
               "position": "bottom",
               "skipIfContains": "id: \"users.profile.menu.settings\"",
-              "value": "\naddPlacement({\n  id: \"users.profile.menu.settings\",\n  host: \"auth-profile-menu\",\n  position: \"primary-menu\",\n  surfaces: [\"*\"],\n  order: 500,\n  componentToken: \"users.web.shell.menu-link-item\",\n  props: {\n    label: \"Settings\",\n    to: \"/account\"\n  },\n  when: ({ auth }) => Boolean(auth?.authenticated)\n});\n",
+              "value": "\naddPlacement({\n  id: \"users.profile.menu.settings\",\n  target: \"auth-profile-menu:primary-menu\",\n  surfaces: [\"*\"],\n  order: 500,\n  componentToken: \"auth.web.profile.menu.link-item\",\n  props: {\n    label: \"Settings\",\n    to: \"/account\"\n  },\n  when: ({ auth }) => Boolean(auth?.authenticated)\n});\n",
               "reason": "Append users-web profile settings menu placement into app-owned placement registry.",
               "category": "users-web",
               "id": "users-web-profile-settings-placement"
@@ -3875,7 +3964,7 @@
               "file": "src/placement.js",
               "position": "bottom",
               "skipIfContains": "id: \"users.home.menu.home\"",
-              "value": "\naddPlacement({\n  id: \"users.home.menu.home\",\n  host: \"shell-layout\",\n  position: \"primary-menu\",\n  surfaces: [\"*\"],\n  order: 50,\n  componentToken: \"users.web.shell.surface-aware-menu-link-item\",\n  props: {\n    label: \"Home\",\n    surface: \"home\",\n    workspaceSuffix: \"/\",\n    nonWorkspaceSuffix: \"/\"\n  },\n  when: ({ auth }) => Boolean(auth?.authenticated)\n});\n",
+              "value": "\naddPlacement({\n  id: \"users.home.menu.home\",\n  target: \"shell-layout:primary-menu\",\n  surfaces: [\"*\"],\n  order: 50,\n  componentToken: \"local.main.ui.surface-aware-menu-link-item\",\n  props: {\n    label: \"Home\",\n    surface: \"home\",\n    workspaceSuffix: \"/\",\n    nonWorkspaceSuffix: \"/\"\n  },\n  when: ({ auth }) => Boolean(auth?.authenticated)\n});\n",
               "reason": "Append users-web home shell menu placement into app-owned placement registry.",
               "category": "users-web",
               "id": "users-web-home-shell-menu-placement"
@@ -3885,7 +3974,7 @@
               "file": "src/placement.js",
               "position": "bottom",
               "skipIfContains": "id: \"users.console.menu.settings\"",
-              "value": "\naddPlacement({\n  id: \"users.console.menu.settings\",\n  host: \"shell-layout\",\n  position: \"primary-menu\",\n  surfaces: [\"console\"],\n  order: 100,\n  componentToken: \"users.web.shell.menu-link-item\",\n  props: {\n    label: \"Settings\",\n    to: \"/console/settings\",\n    icon: \"mdi-cog-outline\"\n  },\n  when: ({ auth }) => Boolean(auth?.authenticated)\n});\n",
+              "value": "\naddPlacement({\n  id: \"users.console.menu.settings\",\n  target: \"shell-layout:primary-menu\",\n  surfaces: [\"console\"],\n  order: 100,\n  componentToken: \"local.main.ui.menu-link-item\",\n  props: {\n    label: \"Settings\",\n    to: \"/console/settings\",\n    icon: \"mdi-cog-outline\"\n  },\n  when: ({ auth }) => Boolean(auth?.authenticated)\n});\n",
               "reason": "Append users-web console settings menu placement into app-owned placement registry.",
               "category": "users-web",
               "id": "users-web-console-settings-placement"
@@ -3895,7 +3984,7 @@
               "file": "src/placement.js",
               "position": "bottom",
               "skipIfContains": "id: \"users.home.tools.widget\"",
-              "value": "\naddPlacement({\n  id: \"users.home.tools.widget\",\n  host: \"shell-layout\",\n  position: \"top-right\",\n  surfaces: [\"home\"],\n  order: 900,\n  componentToken: \"users.web.home.tools.widget\",\n  when: ({ auth }) => Boolean(auth?.authenticated)\n});\n\naddPlacement({\n  id: \"users.home.menu.settings\",\n  host: \"home-tools\",\n  position: \"primary-menu\",\n  surfaces: [\"home\"],\n  order: 100,\n  componentToken: \"users.web.shell.surface-aware-menu-link-item\",\n  props: {\n    label: \"Settings\",\n    surface: \"home\",\n    workspaceSuffix: \"/settings\",\n    nonWorkspaceSuffix: \"/settings\"\n  },\n  when: ({ auth }) => Boolean(auth?.authenticated)\n});\n",
+              "value": "\naddPlacement({\n  id: \"users.home.tools.widget\",\n  target: \"shell-layout:top-right\",\n  surfaces: [\"home\"],\n  order: 900,\n  componentToken: \"users.web.home.tools.widget\",\n  when: ({ auth }) => Boolean(auth?.authenticated)\n});\n\naddPlacement({\n  id: \"users.home.menu.settings\",\n  target: \"home-tools:primary-menu\",\n  surfaces: [\"home\"],\n  order: 100,\n  componentToken: \"local.main.ui.surface-aware-menu-link-item\",\n  props: {\n    label: \"Settings\",\n    surface: \"home\",\n    workspaceSuffix: \"/settings\",\n    nonWorkspaceSuffix: \"/settings\"\n  },\n  when: ({ auth }) => Boolean(auth?.authenticated)\n});\n",
               "reason": "Append users-web home tools widget and settings menu placements into app-owned placement registry.",
               "category": "users-web",
               "id": "users-web-home-tools-placement"
@@ -3905,7 +3994,7 @@
               "file": "src/placement.js",
               "position": "bottom",
               "skipIfContains": "id: \"users.home.settings.general\"",
-              "value": "\naddPlacement({\n  id: \"users.home.settings.general\",\n  host: \"home-settings\",\n  position: \"primary-menu\",\n  surfaces: [\"home\"],\n  order: 100,\n  componentToken: \"users.web.shell.surface-aware-menu-link-item\",\n  props: {\n    label: \"General\",\n    surface: \"home\",\n    workspaceSuffix: \"/settings\",\n    nonWorkspaceSuffix: \"/settings\"\n  },\n  when: ({ auth }) => Boolean(auth?.authenticated)\n});\n",
+              "value": "\naddPlacement({\n  id: \"users.home.settings.general\",\n  target: \"home-settings:primary-menu\",\n  surfaces: [\"home\"],\n  order: 100,\n  componentToken: \"local.main.ui.surface-aware-menu-link-item\",\n  props: {\n    label: \"General\",\n    surface: \"home\",\n    workspaceSuffix: \"/settings\",\n    nonWorkspaceSuffix: \"/settings\"\n  },\n  when: ({ auth }) => Boolean(auth?.authenticated)\n});\n",
               "reason": "Append users-web home settings general-page placement into app-owned placement registry.",
               "category": "users-web",
               "id": "users-web-home-settings-general-placement"
@@ -4276,8 +4365,8 @@
             "placements": {
               "outlets": [
                 {
-                  "host": "admin-settings",
-                  "position": "primary-menu",
+                  "target": "admin-settings:primary-menu",
+                  "defaultLinkComponentToken": "local.main.ui.surface-aware-menu-link-item",
                   "surfaces": [
                     "admin"
                   ],
@@ -4287,8 +4376,7 @@
               "contributions": [
                 {
                   "id": "users.workspace.selector",
-                  "host": "shell-layout",
-                  "position": "top-left",
+                  "target": "shell-layout:top-left",
                   "surfaces": [
                     "*"
                   ],
@@ -4299,8 +4387,7 @@
                 },
                 {
                   "id": "users.account.invites.cue",
-                  "host": "shell-layout",
-                  "position": "top-right",
+                  "target": "shell-layout:top-right",
                   "surfaces": [
                     "*"
                   ],
@@ -4311,8 +4398,7 @@
                 },
                 {
                   "id": "users.workspace.tools.widget",
-                  "host": "shell-layout",
-                  "position": "top-right",
+                  "target": "shell-layout:top-right",
                   "surfaces": [
                     "admin"
                   ],
@@ -4322,8 +4408,7 @@
                 },
                 {
                   "id": "users.workspace.menu.workspace-settings",
-                  "host": "workspace-tools",
-                  "position": "primary-menu",
+                  "target": "workspace-tools:primary-menu",
                   "surfaces": [
                     "admin"
                   ],
@@ -4333,8 +4418,7 @@
                 },
                 {
                   "id": "users.workspace.menu.members",
-                  "host": "workspace-tools",
-                  "position": "primary-menu",
+                  "target": "workspace-tools:primary-menu",
                   "surfaces": [
                     "admin"
                   ],
@@ -4344,13 +4428,12 @@
                 },
                 {
                   "id": "users.workspace.settings.general",
-                  "host": "admin-settings",
-                  "position": "primary-menu",
+                  "target": "admin-settings:primary-menu",
                   "surfaces": [
                     "admin"
                   ],
                   "order": 100,
-                  "componentToken": "users.web.shell.surface-aware-menu-link-item",
+                  "componentToken": "local.main.ui.surface-aware-menu-link-item",
                   "source": "mutations.text#users-web-workspace-settings-general-placement"
                 }
               ]
@@ -4522,7 +4605,7 @@
               "file": "src/placement.js",
               "position": "bottom",
               "skipIfContains": "id: \"users.workspace.selector\"",
-              "value": "\naddPlacement({\n  id: \"users.workspace.selector\",\n  host: \"shell-layout\",\n  position: \"top-left\",\n  surfaces: [\"*\"],\n  order: 200,\n  componentToken: \"users.web.workspace.selector\",\n  props: {\n    allowOnNonWorkspaceSurface: true,\n    targetSurfaceId: \"app\"\n  },\n  when: ({ auth }) => {\n    return Boolean(auth?.authenticated);\n  }\n});\n\naddPlacement({\n  id: \"users.account.invites.cue\",\n  host: \"shell-layout\",\n  position: \"top-right\",\n  surfaces: [\"*\"],\n  order: 850,\n  componentToken: \"local.main.account.pending-invites.cue\",\n  when: ({ auth }) => Boolean(auth?.authenticated)\n});\n\naddPlacement({\n  id: \"users.workspace.tools.widget\",\n  host: \"shell-layout\",\n  position: \"top-right\",\n  surfaces: [\"admin\"],\n  order: 900,\n  componentToken: \"users.web.workspace.tools.widget\"\n});\n\naddPlacement({\n  id: \"users.workspace.menu.workspace-settings\",\n  host: \"workspace-tools\",\n  position: \"primary-menu\",\n  surfaces: [\"admin\"],\n  order: 100,\n  componentToken: \"users.web.workspace-settings.menu-item\"\n});\n\naddPlacement({\n  id: \"users.workspace.menu.members\",\n  host: \"workspace-tools\",\n  position: \"primary-menu\",\n  surfaces: [\"admin\"],\n  order: 200,\n  componentToken: \"users.web.workspace-members.menu-item\"\n});\n",
+              "value": "\naddPlacement({\n  id: \"users.workspace.selector\",\n  target: \"shell-layout:top-left\",\n  surfaces: [\"*\"],\n  order: 200,\n  componentToken: \"users.web.workspace.selector\",\n  props: {\n    allowOnNonWorkspaceSurface: true,\n    targetSurfaceId: \"app\"\n  },\n  when: ({ auth }) => {\n    return Boolean(auth?.authenticated);\n  }\n});\n\naddPlacement({\n  id: \"users.account.invites.cue\",\n  target: \"shell-layout:top-right\",\n  surfaces: [\"*\"],\n  order: 850,\n  componentToken: \"local.main.account.pending-invites.cue\",\n  when: ({ auth }) => Boolean(auth?.authenticated)\n});\n\naddPlacement({\n  id: \"users.workspace.tools.widget\",\n  target: \"shell-layout:top-right\",\n  surfaces: [\"admin\"],\n  order: 900,\n  componentToken: \"users.web.workspace.tools.widget\"\n});\n\naddPlacement({\n  id: \"users.workspace.menu.workspace-settings\",\n  target: \"workspace-tools:primary-menu\",\n  surfaces: [\"admin\"],\n  order: 100,\n  componentToken: \"users.web.workspace-settings.menu-item\"\n});\n\naddPlacement({\n  id: \"users.workspace.menu.members\",\n  target: \"workspace-tools:primary-menu\",\n  surfaces: [\"admin\"],\n  order: 200,\n  componentToken: \"users.web.workspace-members.menu-item\"\n});\n",
               "reason": "Append workspace placement entries into app-owned placement registry.",
               "category": "workspaces-web",
               "id": "users-web-placement-block",
@@ -4559,7 +4642,7 @@
               "file": "src/placement.js",
               "position": "bottom",
               "skipIfContains": "id: \"users.workspace.settings.general\"",
-              "value": "\naddPlacement({\n  id: \"users.workspace.settings.general\",\n  host: \"admin-settings\",\n  position: \"primary-menu\",\n  surfaces: [\"admin\"],\n  order: 100,\n  componentToken: \"users.web.shell.surface-aware-menu-link-item\",\n  props: {\n    label: \"General\",\n    surface: \"admin\",\n    workspaceSuffix: \"/workspace/settings\",\n    nonWorkspaceSuffix: \"/workspace/settings\"\n  },\n  when: ({ auth }) => Boolean(auth?.authenticated)\n});\n",
+              "value": "\naddPlacement({\n  id: \"users.workspace.settings.general\",\n  target: \"admin-settings:primary-menu\",\n  surfaces: [\"admin\"],\n  order: 100,\n  componentToken: \"local.main.ui.surface-aware-menu-link-item\",\n  props: {\n    label: \"General\",\n    surface: \"admin\",\n    workspaceSuffix: \"/workspace/settings\",\n    nonWorkspaceSuffix: \"/workspace/settings\"\n  },\n  when: ({ auth }) => Boolean(auth?.authenticated)\n});\n",
               "reason": "Append workspace settings general-page placement into app-owned placement registry.",
               "category": "workspaces-web",
               "id": "users-web-workspace-settings-general-placement",

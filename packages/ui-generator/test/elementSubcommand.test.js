@@ -23,8 +23,12 @@ async function writeAppFixture(appRoot) {
     path.join(appRoot, "src", "components", "ShellLayout.vue"),
     `<template>
   <div>
-    <ShellOutlet host="shell-layout" position="primary-menu" default />
-    <ShellOutlet host="shell-layout" position="top-right" />
+    <ShellOutlet
+      target="shell-layout:primary-menu"
+      default
+      default-link-component-token="local.main.ui.surface-aware-menu-link-item"
+    />
+    <ShellOutlet target="shell-layout:top-right" />
   </div>
 </template>
 `,
@@ -34,7 +38,7 @@ async function writeAppFixture(appRoot) {
     path.join(appRoot, "src", "pages", "admin", "workspace", "settings", "index.vue"),
     `<template>
   <section>
-    <ShellOutlet host="admin-settings" position="forms" />
+    <ShellOutlet target="admin-settings:forms" />
   </section>
 </template>
 `,
@@ -104,8 +108,7 @@ test("ui-generator placed-element subcommand creates component and outlet placem
 
     const placementSource = await readFile(path.join(appRoot, "src", "placement.js"), "utf8");
     assert.match(placementSource, /id: "ui-generator\.element\.ops-panel"/);
-    assert.match(placementSource, /host: "shell-layout"/);
-    assert.match(placementSource, /position: "top-right"/);
+    assert.match(placementSource, /target: "shell-layout:top-right"/);
     assert.match(placementSource, /componentToken: "local\.main\.ui\.element\.ops-panel"/);
   });
 });
@@ -125,8 +128,7 @@ test("ui-generator placed-element subcommand supports explicit placement overrid
     });
 
     const placementSource = await readFile(path.join(appRoot, "src", "placement.js"), "utf8");
-    assert.match(placementSource, /host: "shell-layout"/);
-    assert.match(placementSource, /position: "primary-menu"/);
+    assert.match(placementSource, /target: "shell-layout:primary-menu"/);
   });
 });
 

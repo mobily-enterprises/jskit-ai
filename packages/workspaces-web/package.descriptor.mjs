@@ -54,8 +54,8 @@ export default Object.freeze({
       placements: {
         outlets: [
           {
-            host: "admin-settings",
-            position: "primary-menu",
+            target: "admin-settings:primary-menu",
+            defaultLinkComponentToken: "local.main.ui.surface-aware-menu-link-item",
             surfaces: ["admin"],
             source: "templates/src/pages/admin/workspace/settings.vue"
           }
@@ -63,8 +63,7 @@ export default Object.freeze({
         contributions: [
           {
             id: "users.workspace.selector",
-            host: "shell-layout",
-            position: "top-left",
+            target: "shell-layout:top-left",
             surfaces: ["*"],
             order: 200,
             componentToken: "users.web.workspace.selector",
@@ -73,8 +72,7 @@ export default Object.freeze({
           },
           {
             id: "users.account.invites.cue",
-            host: "shell-layout",
-            position: "top-right",
+            target: "shell-layout:top-right",
             surfaces: ["*"],
             order: 850,
             componentToken: "local.main.account.pending-invites.cue",
@@ -83,8 +81,7 @@ export default Object.freeze({
           },
           {
             id: "users.workspace.tools.widget",
-            host: "shell-layout",
-            position: "top-right",
+            target: "shell-layout:top-right",
             surfaces: ["admin"],
             order: 900,
             componentToken: "users.web.workspace.tools.widget",
@@ -92,8 +89,7 @@ export default Object.freeze({
           },
           {
             id: "users.workspace.menu.workspace-settings",
-            host: "workspace-tools",
-            position: "primary-menu",
+            target: "workspace-tools:primary-menu",
             surfaces: ["admin"],
             order: 100,
             componentToken: "users.web.workspace-settings.menu-item",
@@ -101,8 +97,7 @@ export default Object.freeze({
           },
           {
             id: "users.workspace.menu.members",
-            host: "workspace-tools",
-            position: "primary-menu",
+            target: "workspace-tools:primary-menu",
             surfaces: ["admin"],
             order: 200,
             componentToken: "users.web.workspace-members.menu-item",
@@ -110,11 +105,10 @@ export default Object.freeze({
           },
           {
             id: "users.workspace.settings.general",
-            host: "admin-settings",
-            position: "primary-menu",
+            target: "admin-settings:primary-menu",
             surfaces: ["admin"],
             order: 100,
-            componentToken: "users.web.shell.surface-aware-menu-link-item",
+            componentToken: "local.main.ui.surface-aware-menu-link-item",
             source: "mutations.text#users-web-workspace-settings-general-placement"
           }
         ]
@@ -259,7 +253,7 @@ export default Object.freeze({
         file: "src/placement.js",
         position: "bottom",
         skipIfContains: "id: \"users.workspace.selector\"",
-        value: "\naddPlacement({\n  id: \"users.workspace.selector\",\n  host: \"shell-layout\",\n  position: \"top-left\",\n  surfaces: [\"*\"],\n  order: 200,\n  componentToken: \"users.web.workspace.selector\",\n  props: {\n    allowOnNonWorkspaceSurface: true,\n    targetSurfaceId: \"app\"\n  },\n  when: ({ auth }) => {\n    return Boolean(auth?.authenticated);\n  }\n});\n\naddPlacement({\n  id: \"users.account.invites.cue\",\n  host: \"shell-layout\",\n  position: \"top-right\",\n  surfaces: [\"*\"],\n  order: 850,\n  componentToken: \"local.main.account.pending-invites.cue\",\n  when: ({ auth }) => Boolean(auth?.authenticated)\n});\n\naddPlacement({\n  id: \"users.workspace.tools.widget\",\n  host: \"shell-layout\",\n  position: \"top-right\",\n  surfaces: [\"admin\"],\n  order: 900,\n  componentToken: \"users.web.workspace.tools.widget\"\n});\n\naddPlacement({\n  id: \"users.workspace.menu.workspace-settings\",\n  host: \"workspace-tools\",\n  position: \"primary-menu\",\n  surfaces: [\"admin\"],\n  order: 100,\n  componentToken: \"users.web.workspace-settings.menu-item\"\n});\n\naddPlacement({\n  id: \"users.workspace.menu.members\",\n  host: \"workspace-tools\",\n  position: \"primary-menu\",\n  surfaces: [\"admin\"],\n  order: 200,\n  componentToken: \"users.web.workspace-members.menu-item\"\n});\n",
+        value: "\naddPlacement({\n  id: \"users.workspace.selector\",\n  target: \"shell-layout:top-left\",\n  surfaces: [\"*\"],\n  order: 200,\n  componentToken: \"users.web.workspace.selector\",\n  props: {\n    allowOnNonWorkspaceSurface: true,\n    targetSurfaceId: \"app\"\n  },\n  when: ({ auth }) => {\n    return Boolean(auth?.authenticated);\n  }\n});\n\naddPlacement({\n  id: \"users.account.invites.cue\",\n  target: \"shell-layout:top-right\",\n  surfaces: [\"*\"],\n  order: 850,\n  componentToken: \"local.main.account.pending-invites.cue\",\n  when: ({ auth }) => Boolean(auth?.authenticated)\n});\n\naddPlacement({\n  id: \"users.workspace.tools.widget\",\n  target: \"shell-layout:top-right\",\n  surfaces: [\"admin\"],\n  order: 900,\n  componentToken: \"users.web.workspace.tools.widget\"\n});\n\naddPlacement({\n  id: \"users.workspace.menu.workspace-settings\",\n  target: \"workspace-tools:primary-menu\",\n  surfaces: [\"admin\"],\n  order: 100,\n  componentToken: \"users.web.workspace-settings.menu-item\"\n});\n\naddPlacement({\n  id: \"users.workspace.menu.members\",\n  target: \"workspace-tools:primary-menu\",\n  surfaces: [\"admin\"],\n  order: 200,\n  componentToken: \"users.web.workspace-members.menu-item\"\n});\n",
         reason: "Append workspace placement entries into app-owned placement registry.",
         category: "workspaces-web",
         id: "users-web-placement-block",
@@ -295,7 +289,7 @@ export default Object.freeze({
         position: "bottom",
         skipIfContains: "id: \"users.workspace.settings.general\"",
         value:
-          "\naddPlacement({\n  id: \"users.workspace.settings.general\",\n  host: \"admin-settings\",\n  position: \"primary-menu\",\n  surfaces: [\"admin\"],\n  order: 100,\n  componentToken: \"users.web.shell.surface-aware-menu-link-item\",\n  props: {\n    label: \"General\",\n    surface: \"admin\",\n    workspaceSuffix: \"/workspace/settings\",\n    nonWorkspaceSuffix: \"/workspace/settings\"\n  },\n  when: ({ auth }) => Boolean(auth?.authenticated)\n});\n",
+          "\naddPlacement({\n  id: \"users.workspace.settings.general\",\n  target: \"admin-settings:primary-menu\",\n  surfaces: [\"admin\"],\n  order: 100,\n  componentToken: \"local.main.ui.surface-aware-menu-link-item\",\n  props: {\n    label: \"General\",\n    surface: \"admin\",\n    workspaceSuffix: \"/workspace/settings\",\n    nonWorkspaceSuffix: \"/workspace/settings\"\n  },\n  when: ({ auth }) => Boolean(auth?.authenticated)\n});\n",
         reason: "Append workspace settings general-page placement into app-owned placement registry.",
         category: "workspaces-web",
         id: "users-web-workspace-settings-general-placement",

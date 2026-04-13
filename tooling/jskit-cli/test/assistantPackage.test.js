@@ -15,6 +15,7 @@ const runCli = createCliRunner(CLI_PATH);
 async function createMinimalApp(appRoot, { name = "assistant-cli-app" } = {}) {
   await mkdir(path.join(appRoot, "config"), { recursive: true });
   await mkdir(path.join(appRoot, "src", "components"), { recursive: true });
+  await mkdir(path.join(appRoot, "packages", "main", "src", "client", "providers"), { recursive: true });
 
   await writeFile(
     path.join(appRoot, "package.json"),
@@ -78,10 +79,39 @@ export default function getPlacements() {
     path.join(appRoot, "src", "components", "ShellLayout.vue"),
     `<template>
   <div>
-    <ShellOutlet host="shell-layout" position="top-right" />
-    <ShellOutlet host="shell-layout" position="primary-menu" default />
+    <ShellOutlet target="shell-layout:top-right" />
+    <ShellOutlet
+      target="shell-layout:primary-menu"
+      default
+      default-link-component-token="local.main.ui.surface-aware-menu-link-item"
+    />
   </div>
 </template>
+`,
+    "utf8"
+  );
+
+  await writeFile(
+    path.join(appRoot, "packages", "main", "src", "client", "providers", "MainClientProvider.js"),
+    `const mainClientComponents = [];
+
+function registerMainClientComponent(componentToken, resolveComponent) {
+  const token = String(componentToken || "").trim();
+  if (!token || typeof resolveComponent !== "function") {
+    return;
+  }
+  mainClientComponents.push(
+    Object.freeze({
+      token,
+      resolveComponent
+    })
+  );
+}
+
+class MainClientProvider {}
+
+export { MainClientProvider, registerMainClientComponent };
+export default MainClientProvider;
 `,
     "utf8"
   );
@@ -187,7 +217,7 @@ test("generate @jskit-ai/assistant settings-page scaffolds a settings page at an
       `<template>
   <SectionContainerShell>
     <template #tabs>
-      <ShellOutlet host="admin-settings" position="sub-pages" />
+      <ShellOutlet target="admin-settings:sub-pages" />
     </template>
     <RouterView />
   </SectionContainerShell>
@@ -217,7 +247,7 @@ test("generate @jskit-ai/assistant settings-page scaffolds a settings page at an
 
     const placementSource = await readFile(path.join(appRoot, "src/placement.js"), "utf8");
     assert.match(placementSource, /jskit:assistant\.settings-page\.link:admin:\/settings\/assistant:console/);
-    assert.match(placementSource, /host: "admin-settings"/);
+    assert.match(placementSource, /target: "admin-settings:sub-pages"/);
     assert.match(placementSource, /to: "\.\/assistant"/);
   });
 });
@@ -233,7 +263,7 @@ test("generate @jskit-ai/assistant settings-page overwrites an existing page whe
       `<template>
   <SectionContainerShell>
     <template #tabs>
-      <ShellOutlet host="admin-settings" position="sub-pages" />
+      <ShellOutlet target="admin-settings:sub-pages" />
     </template>
     <RouterView />
   </SectionContainerShell>

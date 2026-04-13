@@ -32,8 +32,7 @@ async function buildUiPageTemplateContext({
 
   return {
     __JSKIT_UI_LINK_PLACEMENT_ID__: pageTarget.placementId,
-    __JSKIT_UI_LINK_PLACEMENT_HOST__: String(linkTarget.placementTarget?.host || ""),
-    __JSKIT_UI_LINK_PLACEMENT_POSITION__: String(linkTarget.placementTarget?.position || ""),
+    __JSKIT_UI_LINK_PLACEMENT_TARGET__: String(linkTarget.placementTarget?.id || ""),
     __JSKIT_UI_LINK_COMPONENT_TOKEN__: String(linkTarget.componentToken || ""),
     __JSKIT_UI_LINK_WORKSPACE_SUFFIX__: pageTarget.routeUrlSuffix,
     __JSKIT_UI_LINK_NON_WORKSPACE_SUFFIX__: pageTarget.routeUrlSuffix,

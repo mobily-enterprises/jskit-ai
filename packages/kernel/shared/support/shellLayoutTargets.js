@@ -1,4 +1,7 @@
-import { normalizeText } from "./normalize.js";
+import {
+  normalizeObject,
+  normalizeText
+} from "./normalize.js";
 
 const SHELL_OUTLET_TAG_PATTERN = /<ShellOutlet\b([^>]*)\/?>/g;
 const ATTRIBUTE_PATTERN = /([:@]?[A-Za-z_][A-Za-z0-9_-]*)(?:\s*=\s*(?:"([^"]*)"|'([^']*)'))?/g;
@@ -40,6 +43,21 @@ function normalizeShellOutletTargetId(value = "") {
   return `${host}:${position}`;
 }
 
+function resolveShellOutletTargetParts(
+  {
+    target = ""
+  } = {}
+) {
+  const normalizedTargetId = normalizeShellOutletTargetId(target);
+  if (!normalizedTargetId) {
+    return null;
+  }
+
+  return Object.freeze({
+    id: normalizedTargetId
+  });
+}
+
 function findShellOutletTargetById(targets = [], targetId = "") {
   const entries = Array.isArray(targets) ? targets : [];
   const normalizedTargetId = normalizeShellOutletTargetId(targetId);
@@ -70,6 +88,42 @@ function isDefaultAttributeEnabled(value) {
   return normalized !== "false" && normalized !== "0" && normalized !== "no" && normalized !== "off";
 }
 
+function normalizeShellOutletTargetRecord(
+  value = {},
+  {
+    context = "shell layout"
+  } = {}
+) {
+  const record = normalizeObject(value);
+  const resolvedContext = normalizeText(context) || "shell layout";
+  if (Object.hasOwn(record, "host") || Object.hasOwn(record, "position")) {
+    throw new Error(
+      `${resolvedContext} must declare ShellOutlet targets with "target" only. ` +
+      `Legacy "host" and "position" attributes are not supported.`
+    );
+  }
+
+  const targetParts = resolveShellOutletTargetParts(
+    {
+      target: record.target
+    },
+    { context: resolvedContext }
+  );
+  if (!targetParts) {
+    return null;
+  }
+
+  return Object.freeze({
+    ...targetParts,
+    default:
+      Object.hasOwn(record, "default") &&
+      isDefaultAttributeEnabled(record.default),
+    defaultLinkComponentToken:
+      normalizeText(record.defaultLinkComponentToken) ||
+      normalizeText(record["default-link-component-token"])
+  });
+}
+
 function discoverShellOutletTargetsFromVueSource(source = "", { context = "shell layout" } = {}) {
   const sourceText = String(source || "");
   const resolvedContext = normalizeText(context) || "shell layout";
@@ -78,39 +132,26 @@ function discoverShellOutletTargetsFromVueSource(source = "", { context = "shell
 
   for (const tagMatch of sourceText.matchAll(SHELL_OUTLET_TAG_PATTERN)) {
     const attributes = parseTagAttributes(tagMatch[1]);
-    const host = normalizeText(attributes.host);
-    const position = normalizeText(attributes.position);
-    if (!host || !position) {
+    const normalizedTarget = normalizeShellOutletTargetRecord(attributes, {
+      context: resolvedContext
+    });
+    if (!normalizedTarget) {
       continue;
     }
-
-    const id = normalizeShellOutletTargetId(`${host}:${position}`);
-    if (!id) {
-      continue;
-    }
-    if (targetById.has(id)) {
-      throw new Error(`${resolvedContext} contains duplicate ShellOutlet target "${id}".`);
+    if (targetById.has(normalizedTarget.id)) {
+      throw new Error(`${resolvedContext} contains duplicate ShellOutlet target "${normalizedTarget.id}".`);
     }
 
-    const hasDefaultAttribute = Object.hasOwn(attributes, "default") && isDefaultAttributeEnabled(attributes.default);
-    if (hasDefaultAttribute) {
+    if (normalizedTarget.default) {
       if (defaultTargetId) {
         throw new Error(
-          `${resolvedContext} defines multiple default ShellOutlet targets: "${defaultTargetId}" and "${id}".`
+          `${resolvedContext} defines multiple default ShellOutlet targets: "${defaultTargetId}" and "${normalizedTarget.id}".`
         );
       }
-      defaultTargetId = id;
+      defaultTargetId = normalizedTarget.id;
     }
 
-    targetById.set(
-      id,
-      Object.freeze({
-        id,
-        host,
-        position,
-        default: hasDefaultAttribute
-      })
-    );
+    targetById.set(normalizedTarget.id, normalizedTarget);
   }
 
   return Object.freeze({
@@ -123,5 +164,7 @@ export {
   describeShellOutletTargets,
   discoverShellOutletTargetsFromVueSource,
   findShellOutletTargetById,
-  normalizeShellOutletTargetId
+  normalizeShellOutletTargetId,
+  normalizeShellOutletTargetRecord,
+  resolveShellOutletTargetParts
 };

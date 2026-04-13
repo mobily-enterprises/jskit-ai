@@ -9,13 +9,12 @@ import {
 import {
   recordIdParamsValidator
 } from "@jskit-ai/kernel/shared/validators";
-import { routeParamsValidator } from "@jskit-ai/users-core/server/validators/routeParamsValidator";
 import { checkRouteVisibility } from "@jskit-ai/users-core/shared/support/usersVisibility";
-import { buildWorkspaceInputFromRouteParams } from "@jskit-ai/users-core/server/support/workspaceRouteInput";
 import { resolveApiBasePath } from "@jskit-ai/users-core/shared/support/usersApiPaths";
 import { actionIds } from "./actionIds.js";
 import { resource } from "../shared/${option:namespace|singular|camel}Resource.js";
 import { LIST_CONFIG } from "./listConfig.js";
+__JSKIT_CRUD_ROUTE_WORKSPACE_SUPPORT_IMPORTS__
 
 const listCursorPaginationQueryValidator = createCrudCursorPaginationQueryValidator(LIST_CONFIG);
 const listParentFilterQueryValidator = createCrudParentFilterQueryValidator(resource);
@@ -25,14 +24,13 @@ function registerRoutes(
   {
     routeOwnershipFilter = "public",
     routeSurface = "",
-    routeSurfaceRequiresWorkspace = false,
     routeRelativePath = ""
   } = {}
 ) {
   const router = app.make("jskit.http.router");
   const normalizedRouteSurface = normalizeSurfaceId(routeSurface);
   const routeBase = resolveApiBasePath({
-    surfaceRequiresWorkspace: routeSurfaceRequiresWorkspace === true,
+    surfaceRequiresWorkspace: __JSKIT_CRUD_ROUTE_SURFACE_REQUIRES_WORKSPACE__,
     relativePath: routeRelativePath
   });
 
@@ -47,7 +45,7 @@ function registerRoutes(
         tags: ["crud"],
         summary: "List records."
       },
-      paramsValidator: routeParamsValidator,
+__JSKIT_CRUD_LIST_ROUTE_PARAMS_VALIDATOR_LINE__
       queryValidator: [
         listCursorPaginationQueryValidator,
         listSearchQueryValidator,
@@ -60,8 +58,7 @@ function registerRoutes(
     },
     async function (request, reply) {
       const listInput = {
-        ...buildWorkspaceInputFromRouteParams(request.input.params),
-        ...(request.input.query || {})
+__JSKIT_CRUD_LIST_ROUTE_INPUT_LINES__
       };
       const response = await request.executeAction({
         actionId: actionIds.list,
@@ -82,7 +79,7 @@ function registerRoutes(
         tags: ["crud"],
         summary: "View a record."
       },
-      paramsValidator: [routeParamsValidator, recordIdParamsValidator],
+__JSKIT_CRUD_VIEW_ROUTE_PARAMS_VALIDATOR_LINE__
       queryValidator: [lookupIncludeQueryValidator],
       responseValidators: withStandardErrorResponses({
         200: resource.operations.view.outputValidator
@@ -92,9 +89,7 @@ function registerRoutes(
       const response = await request.executeAction({
         actionId: actionIds.view,
         input: {
-          ...buildWorkspaceInputFromRouteParams(request.input.params),
-          recordId: request.input.params.recordId,
-          ...(request.input.query || {})
+__JSKIT_CRUD_VIEW_ROUTE_INPUT_LINES__
         }
       });
       reply.code(200).send(response);
@@ -112,7 +107,7 @@ function registerRoutes(
         tags: ["crud"],
         summary: "Create a record."
       },
-      paramsValidator: routeParamsValidator,
+__JSKIT_CRUD_CREATE_ROUTE_PARAMS_VALIDATOR_LINE__
       bodyValidator: resource.operations.create.bodyValidator,
       responseValidators: withStandardErrorResponses(
         {
@@ -125,8 +120,7 @@ function registerRoutes(
       const response = await request.executeAction({
         actionId: actionIds.create,
         input: {
-          ...buildWorkspaceInputFromRouteParams(request.input.params),
-          payload: request.input.body
+__JSKIT_CRUD_CREATE_ROUTE_INPUT_LINES__
         }
       });
       reply.code(201).send(response);
@@ -144,7 +138,7 @@ function registerRoutes(
         tags: ["crud"],
         summary: "Update a record."
       },
-      paramsValidator: [routeParamsValidator, recordIdParamsValidator],
+__JSKIT_CRUD_UPDATE_ROUTE_PARAMS_VALIDATOR_LINE__
       bodyValidator: resource.operations.patch.bodyValidator,
       responseValidators: withStandardErrorResponses(
         {
@@ -157,9 +151,7 @@ function registerRoutes(
       const response = await request.executeAction({
         actionId: actionIds.update,
         input: {
-          ...buildWorkspaceInputFromRouteParams(request.input.params),
-          recordId: request.input.params.recordId,
-          patch: request.input.body
+__JSKIT_CRUD_UPDATE_ROUTE_INPUT_LINES__
         }
       });
       reply.code(200).send(response);
@@ -177,7 +169,7 @@ function registerRoutes(
         tags: ["crud"],
         summary: "Delete a record."
       },
-      paramsValidator: [routeParamsValidator, recordIdParamsValidator],
+__JSKIT_CRUD_DELETE_ROUTE_PARAMS_VALIDATOR_LINE__
       responseValidators: withStandardErrorResponses({
         200: resource.operations.delete.outputValidator
       })
@@ -186,8 +178,7 @@ function registerRoutes(
       const response = await request.executeAction({
         actionId: actionIds.delete,
         input: {
-          ...buildWorkspaceInputFromRouteParams(request.input.params),
-          recordId: request.input.params.recordId
+__JSKIT_CRUD_DELETE_ROUTE_INPUT_LINES__
         }
       });
       reply.code(200).send(response);

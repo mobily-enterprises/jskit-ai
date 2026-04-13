@@ -228,7 +228,7 @@ test("generate <generatorId> <subcommand> help prints subcommand contract", asyn
     assert.match(stdout, /<fieldKey> \[required\]/);
     assert.match(stdout, /<targetFile> \[required\]/);
     assert.match(stdout, /Options \(2\):/);
-    assert.match(stdout, /--table-name <text> \[required\]/);
+    assert.match(stdout, /--table-name <text> \[optional; default: <empty>\]/);
     assert.match(stdout, /--id-column <text> \[optional; default: id\]/);
     assert.doesNotMatch(stdout, /--namespace <text> \[required\]/);
   });

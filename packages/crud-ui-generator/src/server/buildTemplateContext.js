@@ -441,6 +441,7 @@ async function buildUiTemplateContext({ appRoot, options } = {}) {
       pageTarget,
       targetFile: listTargetFile,
       placement: options?.["link-placement"],
+      componentToken: options?.["link-component-token"],
       context: "crud-ui-generator"
     })
     : null;
@@ -478,8 +479,7 @@ async function buildUiTemplateContext({ appRoot, options } = {}) {
     __JSKIT_UI_EDIT_FORM_FIELD_PUSH_LINES__: renderObjectPushLines("UI_EDIT_FORM_FIELDS", editFields),
     __JSKIT_UI_MENU_MARKER__: menuMarker,
     __JSKIT_UI_MENU_PLACEMENT_ID__: String(pageLinkTarget?.pageTarget?.placementId || ""),
-    __JSKIT_UI_MENU_PLACEMENT_HOST__: String(pageLinkTarget?.placementTarget?.host || ""),
-    __JSKIT_UI_MENU_PLACEMENT_POSITION__: String(pageLinkTarget?.placementTarget?.position || ""),
+    __JSKIT_UI_MENU_PLACEMENT_TARGET__: String(pageLinkTarget?.placementTarget?.id || ""),
     __JSKIT_UI_MENU_COMPONENT_TOKEN__: String(pageLinkTarget?.componentToken || ""),
     __JSKIT_UI_MENU_WORKSPACE_SUFFIX__: String(pageLinkTarget?.pageTarget?.routeUrlSuffix || ""),
     __JSKIT_UI_MENU_NON_WORKSPACE_SUFFIX__: String(pageLinkTarget?.pageTarget?.routeUrlSuffix || ""),

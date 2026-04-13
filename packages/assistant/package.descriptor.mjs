@@ -49,7 +49,7 @@ export default Object.freeze({
       inputType: "text",
       defaultValue: "",
       promptLabel: "Link placement",
-      promptHint: "Optional host:position target for the generated page link placement."
+      promptHint: "Optional target for the generated page link placement (format: host:position)."
     },
     "link-component-token": {
       required: false,

@@ -5,7 +5,7 @@ import path from "node:path";
 import test from "node:test";
 import { fileURLToPath } from "node:url";
 
-import { buildTemplateContext, __testables } from "../src/server/buildTemplateContext.js";
+import { __testables } from "../src/server/buildTemplateContext.js";
 
 function createSnapshot({
   tableName = "contacts",
@@ -235,15 +235,19 @@ test("resolveOwnershipFilterForGeneration rejects explicit ownership filters whe
   );
 });
 
-test("buildTemplateContext requires table-name", async () => {
-  await assert.rejects(
-    buildTemplateContext({
-      appRoot: process.cwd(),
-      options: {
-        namespace: "contacts"
-      }
+test("resolveCrudGenerationTableName defaults table-name from namespace", () => {
+  assert.equal(
+    __testables.resolveCrudGenerationTableName({
+      namespace: "contacts"
     }),
-    /requires option "table-name"/
+    "contacts"
+  );
+  assert.equal(
+    __testables.resolveCrudGenerationTableName({
+      namespace: "contacts",
+      "table-name": "customer_contacts"
+    }),
+    "customer_contacts"
   );
 });
 
@@ -252,11 +256,13 @@ test("buildReplacementsFromSnapshot builds deterministic template replacement pa
   const replacements = __testables.buildReplacementsFromSnapshot({
     namespace: "contacts",
     snapshot,
-    resolvedOwnershipFilter: "workspace_user"
+    resolvedOwnershipFilter: "workspace_user",
+    surfaceRequiresWorkspace: true
   });
 
   assert.equal(replacements.__JSKIT_CRUD_TABLE_NAME__, "\"contacts\"");
   assert.equal(replacements.__JSKIT_CRUD_ID_COLUMN__, "\"id\"");
+  assert.equal(replacements.__JSKIT_CRUD_SURFACE_ID__, "\"\"");
   assert.equal(replacements.__JSKIT_CRUD_RESOLVED_OWNERSHIP_FILTER__, "workspace_user");
   assert.match(
     replacements.__JSKIT_CRUD_ACTION_PERMISSION_SUPPORT__,
@@ -269,6 +275,23 @@ test("buildReplacementsFromSnapshot builds deterministic template replacement pa
   assert.equal(
     replacements.__JSKIT_CRUD_LIST_ACTION_PERMISSION__,
     '{ require: "all", permissions: [actionPermissions.list] }'
+  );
+  assert.match(
+    replacements.__JSKIT_CRUD_ACTION_WORKSPACE_VALIDATOR_IMPORT__,
+    /workspaceSlugParamsValidator/
+  );
+  assert.match(
+    replacements.__JSKIT_CRUD_ROUTE_WORKSPACE_SUPPORT_IMPORTS__,
+    /buildWorkspaceInputFromRouteParams/
+  );
+  assert.equal(replacements.__JSKIT_CRUD_ROUTE_SURFACE_REQUIRES_WORKSPACE__, "true");
+  assert.equal(
+    replacements.__JSKIT_CRUD_LIST_ACTION_INPUT_VALIDATOR__,
+    "[workspaceSlugParamsValidator, listCursorPaginationQueryValidator, listSearchQueryValidator, listParentFilterQueryValidator, lookupIncludeQueryValidator]"
+  );
+  assert.equal(
+    replacements.__JSKIT_CRUD_VIEW_ROUTE_PARAMS_VALIDATOR_LINE__,
+    "      paramsValidator: [routeParamsValidator, recordIdParamsValidator],"
   );
   assert.match(
     replacements.__JSKIT_CRUD_ROLE_CATALOG_PERMISSION_GRANTS__,
@@ -327,23 +350,43 @@ test("buildReplacementsFromSnapshot omits named permissions and role grants when
       hasUserIdColumn: false
     }),
     resolvedOwnershipFilter: "public",
-    requiresNamedPermissions: false
+    surfaceRequiresWorkspace: false
   });
 
   assert.match(
     replacements.__JSKIT_CRUD_ACTION_PERMISSION_SUPPORT__,
     /const authenticatedPermission = Object\.freeze\(\{/
   );
+  assert.equal(replacements.__JSKIT_CRUD_SURFACE_ID__, "\"\"");
   assert.equal(replacements.__JSKIT_CRUD_LIST_ACTION_PERMISSION__, "authenticatedPermission");
   assert.equal(replacements.__JSKIT_CRUD_DELETE_ACTION_PERMISSION__, "authenticatedPermission");
   assert.equal(replacements.__JSKIT_CRUD_ROLE_CATALOG_PERMISSION_GRANTS__, "");
+  assert.equal(replacements.__JSKIT_CRUD_ACTION_WORKSPACE_VALIDATOR_IMPORT__, "");
+  assert.equal(replacements.__JSKIT_CRUD_ROUTE_WORKSPACE_SUPPORT_IMPORTS__, "");
+  assert.equal(replacements.__JSKIT_CRUD_ROUTE_SURFACE_REQUIRES_WORKSPACE__, "false");
+  assert.equal(
+    replacements.__JSKIT_CRUD_CREATE_ACTION_INPUT_VALIDATOR__,
+    "{ payload: resource.operations.create.bodyValidator }"
+  );
+  assert.equal(replacements.__JSKIT_CRUD_LIST_ROUTE_PARAMS_VALIDATOR_LINE__, "");
+  assert.equal(
+    replacements.__JSKIT_CRUD_VIEW_ROUTE_PARAMS_VALIDATOR_LINE__,
+    "      paramsValidator: recordIdParamsValidator,"
+  );
+  assert.equal(
+    replacements.__JSKIT_CRUD_VIEW_ROUTE_INPUT_LINES__,
+    [
+      "          recordId: request.input.params.recordId,",
+      "          ...(request.input.query || {})"
+    ].join("\n")
+  );
 });
 
-test("resolveCrudPermissionGenerationConfig follows surface workspace requirements from app config", async () => {
+test("resolveCrudSurfaceRequiresWorkspace follows surface workspace requirements from app config", async () => {
   await withTempApp(
     async (appRoot) => {
       assert.equal(
-        await __testables.resolveCrudPermissionGenerationConfig({
+        await __testables.resolveCrudSurfaceRequiresWorkspace({
           appRoot,
           options: {
             namespace: "contacts",
@@ -355,7 +398,7 @@ test("resolveCrudPermissionGenerationConfig follows surface workspace requiremen
       );
 
       assert.equal(
-        await __testables.resolveCrudPermissionGenerationConfig({
+        await __testables.resolveCrudSurfaceRequiresWorkspace({
           appRoot,
           options: {
             namespace: "contacts",
@@ -369,6 +412,52 @@ test("resolveCrudPermissionGenerationConfig follows surface workspace requiremen
     `export const config = {
   surfaceDefinitions: {
     home: { id: "home", enabled: true, requiresAuth: true, requiresWorkspace: false },
+    admin: { id: "admin", enabled: true, requiresAuth: true, requiresWorkspace: true }
+  }
+};
+`
+  );
+});
+
+test("resolveCrudGenerationSurfaceId defaults home for non-workspace apps", async () => {
+  await withTempApp(
+    async (appRoot) => {
+      assert.equal(
+        await __testables.resolveCrudGenerationSurfaceId({
+          appRoot,
+          options: {
+            namespace: "contacts"
+          }
+        }),
+        "home"
+      );
+    },
+    `export const config = {
+  surfaceDefinitions: {
+    home: { id: "home", enabled: true, requiresAuth: false, requiresWorkspace: false },
+    console: { id: "console", enabled: true, requiresAuth: true, requiresWorkspace: false }
+  }
+};
+`
+  );
+});
+
+test("resolveCrudGenerationSurfaceId requires explicit surface for workspace-capable apps", async () => {
+  await withTempApp(
+    async (appRoot) => {
+      await assert.rejects(
+        __testables.resolveCrudGenerationSurfaceId({
+          appRoot,
+          options: {
+            namespace: "contacts"
+          }
+        }),
+        /requires option "surface"/
+      );
+    },
+    `export const config = {
+  surfaceDefinitions: {
+    home: { id: "home", enabled: true, requiresAuth: false, requiresWorkspace: false },
     admin: { id: "admin", enabled: true, requiresAuth: true, requiresWorkspace: true }
   }
 };

@@ -14,10 +14,10 @@ import {
 
 function resolveSubpagesOutletTarget(options = {}, pageTarget = {}) {
   const rawTarget = normalizeText(options?.target);
-  return resolveOutletTargetId(rawTarget || deriveDefaultSubpagesHost(pageTarget), {
+  const defaultTarget = `${deriveDefaultSubpagesHost(pageTarget)}:${DEFAULT_SUBPAGES_POSITION}`;
+  return resolveOutletTargetId(rawTarget || defaultTarget, {
     context: "ui-generator add-subpages",
-    optionName: "target",
-    defaultPosition: DEFAULT_SUBPAGES_POSITION
+    optionName: "target"
   });
 }
 
@@ -52,8 +52,7 @@ async function runGeneratorSubcommand({
   const result = await upgradePageFileToSubpages({
     appRoot,
     targetFile,
-    host: outletTarget.host,
-    position: outletTarget.position,
+    target: outletTarget.id,
     title,
     subtitle,
     componentDirectory,

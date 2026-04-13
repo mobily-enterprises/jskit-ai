@@ -164,8 +164,8 @@ test("list-placements discovers shell outlets from app Vue files", async () => {
       "src/components/ShellLayout.vue",
       `<template>
   <div>
-    <ShellOutlet host="shell-layout" position="primary-menu" default />
-    <ShellOutlet host="shell-layout" position="top-right" />
+    <ShellOutlet target="shell-layout:primary-menu" default />
+    <ShellOutlet target="shell-layout:top-right" />
   </div>
 </template>
 `
@@ -175,7 +175,7 @@ test("list-placements discovers shell outlets from app Vue files", async () => {
       "src/pages/admin/toolbox/index.vue",
       `<template>
   <section>
-    <ShellOutlet host="admin-toolbox" position="widgets" />
+    <ShellOutlet target="admin-toolbox:widgets" />
   </section>
 </template>
 `
@@ -204,7 +204,7 @@ test("list-placements --json returns structured placement targets", async () => 
       "src/components/ShellLayout.vue",
       `<template>
   <div>
-    <ShellOutlet host="shell-layout" position="primary-menu" default />
+    <ShellOutlet target="shell-layout:primary-menu" default />
   </div>
 </template>
 `
@@ -219,9 +219,7 @@ test("list-placements --json returns structured placement targets", async () => 
     const payload = JSON.parse(String(result.stdout || "{}"));
     assert.deepEqual(payload.placements, [
       {
-        id: "shell-layout:primary-menu",
-        host: "shell-layout",
-        position: "primary-menu",
+        target: "shell-layout:primary-menu",
         default: true,
         sourcePath: "src/components/ShellLayout.vue"
       }
@@ -249,7 +247,7 @@ test("list-placements includes installed package metadata outlets", async () => 
       "src/components/ShellLayout.vue",
       `<template>
   <div>
-    <ShellOutlet host="shell-layout" position="primary-menu" default />
+    <ShellOutlet target="shell-layout:primary-menu" default />
   </div>
 </template>
 `
@@ -263,7 +261,7 @@ test("list-placements includes installed package metadata outlets", async () => 
     ui: {
       placements: {
         outlets: [
-          { host: "workspace-tools", position: "primary-menu", source: "src/client/components/UsersWorkspaceToolsWidget.vue" }
+          { target: "workspace-tools:primary-menu", source: "src/client/components/UsersWorkspaceToolsWidget.vue" }
         ]
       }
     }
@@ -302,8 +300,7 @@ test("list-placements discovers route meta placement outlets", async () => {
       "placements": {
         "outlets": [
           {
-            "host": "contact-tools",
-            "position": "sub-pages"
+            "target": "contact-tools:sub-pages"
           }
         ]
       }
@@ -346,7 +343,7 @@ test("list placements mode reports dedicated command migration", async () => {
   });
 });
 
-test("list-link-items discovers placement-linked tokens from app files and installed package metadata", async () => {
+test("list-component-tokens discovers placement-linked tokens from app files and installed package metadata", async () => {
   await withTempDir(async (cwd) => {
     const appRoot = path.join(cwd, "list-placement-component-tokens-app");
     await createMinimalApp(appRoot, {
@@ -368,8 +365,7 @@ test("list-link-items discovers placement-linked tokens from app files and insta
 
 addPlacement({
   id: "demo.notes",
-  host: "shell-layout",
-  position: "primary-menu",
+  target: "shell-layout:primary-menu",
   componentToken: "local.main.ui.tab-link-item"
 });
 `,
@@ -397,8 +393,7 @@ registerMainClientComponent("local.main.ui.custom-pill", () => null);
         contributions: [
           {
             id: "users.workspace.menu.demo",
-            host: "shell-layout",
-            position: "primary-menu",
+            target: "shell-layout:primary-menu",
             componentToken: "example.users.menu-link-item",
             source: "mutations.text#users-demo-placement"
           }
@@ -412,7 +407,7 @@ registerMainClientComponent("local.main.ui.custom-pill", () => null);
 
     const result = runCli({
       cwd: appRoot,
-      args: ["list-link-items"]
+      args: ["list-component-tokens"]
     });
 
     assert.equal(result.status, 0, String(result.stderr || ""));
@@ -426,7 +421,7 @@ registerMainClientComponent("local.main.ui.custom-pill", () => null);
   });
 });
 
-test("list-link-items --all includes declared client container tokens", async () => {
+test("list-component-tokens --all includes declared client container tokens", async () => {
   await withTempDir(async (cwd) => {
     const appRoot = path.join(cwd, "list-placement-component-tokens-all-app");
     await createMinimalApp(appRoot, {
@@ -464,7 +459,7 @@ test("list-link-items --all includes declared client container tokens", async ()
 
     const result = runCli({
       cwd: appRoot,
-      args: ["list-link-items", "--all"]
+      args: ["list-component-tokens", "--all"]
     });
 
     assert.equal(result.status, 0, String(result.stderr || ""));
@@ -474,7 +469,7 @@ test("list-link-items --all includes declared client container tokens", async ()
   });
 });
 
-test("list-link-items --json returns structured token payload", async () => {
+test("list-component-tokens --json returns structured token payload", async () => {
   await withTempDir(async (cwd) => {
     const appRoot = path.join(cwd, "list-placement-component-tokens-json-app");
     await createMinimalApp(appRoot, { name: "list-placement-component-tokens-json-app" });
@@ -488,7 +483,7 @@ addPlacement({ componentToken: "local.main.ui.tab-link-item" });
 
     const result = runCli({
       cwd: appRoot,
-      args: ["list-link-items", "--json"]
+      args: ["list-component-tokens", "--json"]
     });
 
     assert.equal(result.status, 0, String(result.stderr || ""));
@@ -501,7 +496,7 @@ addPlacement({ componentToken: "local.main.ui.tab-link-item" });
   });
 });
 
-test("list-link-items supports --prefix filtering", async () => {
+test("list-component-tokens supports --prefix filtering", async () => {
   await withTempDir(async (cwd) => {
     const appRoot = path.join(cwd, "list-placement-component-tokens-prefix-app");
     await createMinimalApp(appRoot, { name: "list-placement-component-tokens-prefix-app" });
@@ -510,19 +505,19 @@ test("list-link-items supports --prefix filtering", async () => {
       "src/placement.js",
       `function addPlacement() {}
 addPlacement({ componentToken: "local.main.ui.tab-link-item" });
-addPlacement({ componentToken: "users.web.shell.menu-link-item" });
+addPlacement({ componentToken: "auth.web.profile.menu.link-item" });
 `
     );
 
     const result = runCli({
       cwd: appRoot,
-      args: ["list-link-items", "--prefix", "local.main."]
+      args: ["list-component-tokens", "--prefix", "local.main."]
     });
 
     assert.equal(result.status, 0, String(result.stderr || ""));
     const stdout = String(result.stdout || "");
     assert.match(stdout, /local\.main\.ui\.tab-link-item/);
-    assert.doesNotMatch(stdout, /users\.web\.shell\.menu-link-item/);
+    assert.doesNotMatch(stdout, /auth\.web\.profile\.menu\.link-item/);
   });
 });
 
@@ -539,7 +534,7 @@ test("list placement-component-tokens mode reports dedicated command migration",
     assert.equal(result.status, 1);
     assert.match(
       String(result.stderr || ""),
-      /moved to a dedicated command: jskit list-link-items/i
+      /moved to a dedicated command: jskit list-component-tokens/i
     );
   });
 });

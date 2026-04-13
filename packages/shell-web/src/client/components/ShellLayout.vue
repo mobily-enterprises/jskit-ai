@@ -32,7 +32,7 @@ const { drawerOpen, toggleDrawer, resolvedSurface, resolvedSurfaceLabel } = useS
       <slot name="top-left" :surface="resolvedSurface">
         <div class="d-flex align-center ga-2">
           <v-chip color="primary" size="small" label>{{ resolvedSurfaceLabel }}</v-chip>
-          <ShellOutlet host="shell-layout" position="top-left" />
+          <ShellOutlet target="shell-layout:top-left" />
         </div>
       </slot>
 
@@ -40,7 +40,7 @@ const { drawerOpen, toggleDrawer, resolvedSurface, resolvedSurfaceLabel } = useS
 
       <slot name="top-right" :surface="resolvedSurface">
         <div class="d-flex align-center ga-2">
-          <ShellOutlet host="shell-layout" position="top-right" />
+          <ShellOutlet target="shell-layout:top-right" />
         </div>
       </slot>
     </v-app-bar>
@@ -49,9 +49,16 @@ const { drawerOpen, toggleDrawer, resolvedSurface, resolvedSurfaceLabel } = useS
       <slot name="menu" :surface="resolvedSurface">
         <v-list nav density="comfortable" class="pt-2">
           <v-list-subheader class="text-uppercase text-caption">{{ resolvedSurfaceLabel }}</v-list-subheader>
-          <ShellOutlet host="shell-layout" position="primary-menu" default />
+          <ShellOutlet
+            target="shell-layout:primary-menu"
+            default
+            default-link-component-token="local.main.ui.surface-aware-menu-link-item"
+          />
           <v-divider class="my-2" />
-          <ShellOutlet host="shell-layout" position="secondary-menu" />
+          <ShellOutlet
+            target="shell-layout:secondary-menu"
+            default-link-component-token="local.main.ui.surface-aware-menu-link-item"
+          />
         </v-list>
       </slot>
     </v-navigation-drawer>

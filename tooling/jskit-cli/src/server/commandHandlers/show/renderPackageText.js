@@ -99,13 +99,13 @@ function renderPackagePayloadText({
   }
 
   if (placementOutlets.length > 0) {
-    stdout.write(`${color.heading(`Placement outlets (accepted host/position pairs) (${placementOutlets.length}):`)}\n`);
+    stdout.write(`${color.heading(`Placement outlets (${placementOutlets.length}):`)}\n`);
     for (const outlet of placementOutlets) {
       const surfaces = ensureArray(outlet.surfaces).map((value) => String(value || "").trim()).filter(Boolean);
       const surfacesLabel = surfaces.length > 0 ? ` ${color.installed(`[surfaces:${surfaces.join(", ")}]`)}` : "";
       const description = String(outlet.description || "").trim();
       const descriptionSuffix = description ? `: ${description}` : "";
-      stdout.write(`- ${color.item(`${outlet.host}.${outlet.position}`)}${surfacesLabel}${descriptionSuffix}\n`);
+      stdout.write(`- ${color.item(outlet.target)}${surfacesLabel}${descriptionSuffix}\n`);
       if (options.details) {
         const sourceLabel = String(outlet.source || "").trim();
         if (sourceLabel) {
@@ -126,7 +126,7 @@ function renderPackagePayloadText({
       const description = String(contribution.description || "").trim();
       const descriptionSuffix = description ? `: ${description}` : "";
       stdout.write(
-        `- ${color.item(contribution.id)} ${color.dim("->")} ${color.item(`${contribution.host}.${contribution.position}`)} ${color.installed(`[surfaces:${surfacesLabel}]`)}${orderSuffix}${componentSuffix}${descriptionSuffix}\n`
+        `- ${color.item(contribution.id)} ${color.dim("->")} ${color.item(contribution.target)} ${color.installed(`[surfaces:${surfacesLabel}]`)}${orderSuffix}${componentSuffix}${descriptionSuffix}\n`
       );
       if (options.details) {
         const when = String(contribution.when || "").trim();

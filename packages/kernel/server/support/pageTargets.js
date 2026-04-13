@@ -16,8 +16,9 @@ import {
 } from "../../shared/support/shellLayoutTargets.js";
 import { resolveShellOutletPlacementTargetFromApp } from "./shellOutlets.js";
 import { resolveRequiredAppRoot, toPosixPath } from "./path.js";
+import { loadAppConfigFromModuleUrl } from "./appConfigFiles.js";
 
-const DEFAULT_PAGE_LINK_COMPONENT_TOKEN = "users.web.shell.surface-aware-menu-link-item";
+const DEFAULT_PAGE_LINK_COMPONENT_TOKEN = "local.main.ui.surface-aware-menu-link-item";
 const DEFAULT_SUBPAGE_LINK_COMPONENT_TOKEN = "local.main.ui.tab-link-item";
 const PAGE_ROOT_PREFIX = "src/pages/";
 const ROUTER_VIEW_TAG_PATTERN = /<RouterView\b/i;
@@ -174,33 +175,21 @@ function humanizePageSegment(value = "", fallback = "Page") {
 
 async function loadPublicConfig(appRoot = "", { context = "page target" } = {}) {
   const resolvedAppRoot = resolveRequiredAppRoot(appRoot, { context });
-  const configPath = path.join(resolvedAppRoot, "config", "public.js");
-
   try {
-    await readFile(configPath, "utf8");
-  } catch {
-    throw new Error(`${context} requires app config at config/public.js.`);
-  }
-
-  let moduleNamespace = null;
-  try {
-    moduleNamespace = await import(pathToFileURL(configPath).href);
+    const config = normalizeObject(
+      await loadAppConfigFromModuleUrl({
+        moduleUrl: pathToFileURL(path.join(resolvedAppRoot, "config", "public.js")).href
+      })
+    );
+    if (Object.keys(config).length < 1) {
+      throw new Error("requires exported config in config/public.js.");
+    }
+    return config;
   } catch (error) {
     throw new Error(
       `${context} could not load config/public.js: ${String(error?.message || error || "unknown error")}`
     );
   }
-
-  const config = normalizeObject(
-    moduleNamespace?.config ||
-    moduleNamespace?.default?.config ||
-    moduleNamespace?.default
-  );
-  if (Object.keys(config).length < 1) {
-    throw new Error(`${context} requires exported config in config/public.js.`);
-  }
-
-  return config;
 }
 
 async function listSurfacePageRoots(appRoot = "", { context = "page target" } = {}) {
@@ -433,9 +422,7 @@ function resolveSubpagesHostTargetFromPageSource(source = "") {
   }
 
   return Object.freeze({
-    id: target.id,
-    host: target.host,
-    position: target.position
+    id: target.id
   });
 }
 
@@ -530,12 +517,7 @@ async function resolveNearestParentSubpagesHost({
 }
 
 function normalizePlacementTargetId(target = {}) {
-  const host = normalizeText(target?.host);
-  const position = normalizeText(target?.position);
-  if (!host || !position) {
-    return "";
-  }
-  return normalizeShellOutletTargetId(`${host}:${position}`);
+  return normalizeShellOutletTargetId(target?.id || target?.target || target);
 }
 
 function resolveRelativeLinkToFromParent(pageTarget = {}, parentHost = null) {
@@ -614,6 +596,11 @@ function resolveInferredPageLinkComponentToken({
   const normalizedExplicitToken = normalizeText(explicitComponentToken);
   if (normalizedExplicitToken) {
     return normalizedExplicitToken;
+  }
+
+  const normalizedPlacementTargetDefaultToken = normalizeText(placementTarget?.defaultLinkComponentToken);
+  if (normalizedPlacementTargetDefaultToken) {
+    return normalizedPlacementTargetDefaultToken;
   }
 
   const parentTargetId = normalizePlacementTargetId(parentHost);

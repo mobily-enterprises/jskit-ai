@@ -3,13 +3,13 @@ import { mdiCogOutline } from "@mdi/js";
 import ShellOutlet from "./ShellOutlet.vue";
 
 const props = defineProps({
-  host: {
+  target: {
+    type: String,
+    required: true
+  },
+  defaultLinkComponentToken: {
     type: String,
     default: ""
-  },
-  position: {
-    type: String,
-    default: "primary-menu"
   },
   icon: {
     type: String,
@@ -48,7 +48,10 @@ const props = defineProps({
     </template>
 
     <v-list :min-width="props.minWidth" density="comfortable" class="py-1">
-      <ShellOutlet :host="props.host" :position="props.position" />
+      <ShellOutlet
+        :target="props.target"
+        :default-link-component-token="props.defaultLinkComponentToken"
+      />
     </v-list>
   </v-menu>
 </template>

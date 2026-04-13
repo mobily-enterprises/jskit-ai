@@ -7,10 +7,10 @@ import {
   lookupIncludeQueryValidator,
   createCrudParentFilterQueryValidator
 } from "@jskit-ai/crud-core/server/listQueryValidators";
-import { workspaceSlugParamsValidator } from "@jskit-ai/users-core/server/validators/routeParamsValidator";
 import { resource } from "../shared/${option:namespace|singular|camel}Resource.js";
 import { actionIds } from "./actionIds.js";
 import { LIST_CONFIG } from "./listConfig.js";
+__JSKIT_CRUD_ACTION_WORKSPACE_VALIDATOR_IMPORT__
 
 const listCursorPaginationQueryValidator = createCrudCursorPaginationQueryValidator(LIST_CONFIG);
 const listParentFilterQueryValidator = createCrudParentFilterQueryValidator(resource);
@@ -36,13 +36,7 @@ function createActions({ surface = "" } = {}) {
       channels: ["api", "automation", "internal"],
       surfaces: [actionSurface],
       permission: __JSKIT_CRUD_LIST_ACTION_PERMISSION__,
-      inputValidator: [
-        workspaceSlugParamsValidator,
-        listCursorPaginationQueryValidator,
-        listSearchQueryValidator,
-        listParentFilterQueryValidator,
-        lookupIncludeQueryValidator
-      ],
+      inputValidator: __JSKIT_CRUD_LIST_ACTION_INPUT_VALIDATOR__,
       outputValidator: resource.operations.list.outputValidator,
       idempotency: "none",
       audit: {
@@ -63,7 +57,7 @@ function createActions({ surface = "" } = {}) {
       channels: ["api", "automation", "internal"],
       surfaces: [actionSurface],
       permission: __JSKIT_CRUD_VIEW_ACTION_PERMISSION__,
-      inputValidator: [workspaceSlugParamsValidator, recordIdParamsValidator, lookupIncludeQueryValidator],
+      inputValidator: __JSKIT_CRUD_VIEW_ACTION_INPUT_VALIDATOR__,
       outputValidator: resource.operations.view.outputValidator,
       idempotency: "none",
       audit: {
@@ -85,12 +79,7 @@ function createActions({ surface = "" } = {}) {
       channels: ["api", "automation", "internal"],
       surfaces: [actionSurface],
       permission: __JSKIT_CRUD_CREATE_ACTION_PERMISSION__,
-      inputValidator: [
-        workspaceSlugParamsValidator,
-        {
-          payload: resource.operations.create.bodyValidator
-        }
-      ],
+      inputValidator: __JSKIT_CRUD_CREATE_ACTION_INPUT_VALIDATOR__,
       outputValidator: resource.operations.create.outputValidator,
       idempotency: "optional",
       audit: {
@@ -111,13 +100,7 @@ function createActions({ surface = "" } = {}) {
       channels: ["api", "automation", "internal"],
       surfaces: [actionSurface],
       permission: __JSKIT_CRUD_UPDATE_ACTION_PERMISSION__,
-      inputValidator: [
-        workspaceSlugParamsValidator,
-        recordIdParamsValidator,
-        {
-          patch: resource.operations.patch.bodyValidator
-        }
-      ],
+      inputValidator: __JSKIT_CRUD_UPDATE_ACTION_INPUT_VALIDATOR__,
       outputValidator: resource.operations.patch.outputValidator,
       idempotency: "optional",
       audit: {
@@ -138,7 +121,7 @@ function createActions({ surface = "" } = {}) {
       channels: ["api", "automation", "internal"],
       surfaces: [actionSurface],
       permission: __JSKIT_CRUD_DELETE_ACTION_PERMISSION__,
-      inputValidator: [workspaceSlugParamsValidator, recordIdParamsValidator],
+      inputValidator: __JSKIT_CRUD_DELETE_ACTION_INPUT_VALIDATOR__,
       outputValidator: resource.operations.delete.outputValidator,
       idempotency: "optional",
       audit: {

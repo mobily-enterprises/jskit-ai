@@ -1,10 +1,19 @@
 import path from "node:path";
 import { mkdir, readFile, writeFile } from "node:fs/promises";
+import {
+  LOCAL_LINK_ITEM_COMPONENT_DEFINITIONS,
+  findLocalLinkItemDefinition,
+  readLocalLinkItemComponentSource
+} from "@jskit-ai/shell-web/server/support/localLinkItemScaffolds";
 
 const MAIN_CLIENT_PROVIDER_FILE = "packages/main/src/client/providers/MainClientProvider.js";
-const TAB_LINK_COMPONENT_FILE = "src/components/TabLinkItem.vue";
-const TAB_LINK_COMPONENT_NAME = "TabLinkItem";
+const PLACEMENT_FILE = "src/placement.js";
+const PLACEMENT_COMPONENT_TOKEN_PATTERN = /\bcomponentToken\s*:\s*["']([^"']+)["']/g;
 const TAB_LINK_COMPONENT_TOKEN = "local.main.ui.tab-link-item";
+
+const LOCAL_LINK_ITEM_COMPONENT_TOKENS = Object.freeze(
+  LOCAL_LINK_ITEM_COMPONENT_DEFINITIONS.map((entry) => entry.token)
+);
 
 function toPosixPath(value = "") {
   return String(value || "").replaceAll("\\", "/");
@@ -58,7 +67,7 @@ function insertBeforeClassDeclaration(source = "", line = "", { className = "", 
   const classPattern = new RegExp(`^class\\s+${String(className || "").trim()}\\b`, "m");
   const classMatch = classPattern.exec(sourceText);
   if (!classMatch) {
-    throw new Error(`crud-ui-generator could not find ${className} class declaration in ${contextFile || "target file"}.`);
+    throw new Error(`placement component provisioning could not find ${className} class declaration in ${contextFile || "target file"}.`);
   }
 
   return {
@@ -67,143 +76,42 @@ function insertBeforeClassDeclaration(source = "", line = "", { className = "", 
   };
 }
 
-function renderTabLinkItemSource() {
-  return `<script setup>
-import { computed } from "vue";
-import { useRoute } from "vue-router";
-import { usePaths } from "@jskit-ai/users-web/client/composables/usePaths";
-import { useWorkspaceRouteContext } from "@jskit-ai/users-web/client/composables/useWorkspaceRouteContext";
-
-const props = defineProps({
-  label: {
-    type: String,
-    default: ""
-  },
-  to: {
-    type: String,
-    default: ""
-  },
-  surface: {
-    type: String,
-    default: ""
-  },
-  workspaceSuffix: {
-    type: String,
-    default: "/"
-  },
-  nonWorkspaceSuffix: {
-    type: String,
-    default: "/"
-  },
-  disabled: {
-    type: Boolean,
-    default: false
-  }
-});
-
-const route = useRoute();
-const paths = usePaths();
-const { currentSurfaceId, workspaceSlugFromRoute } = useWorkspaceRouteContext();
-
-function normalizePathname(pathname = "") {
-  const source = String(pathname || "").trim();
-  if (!source) {
-    return "";
+async function collectProvisionableLocalPlacementComponentTokensFromApp({
+  appRoot = ""
+} = {}) {
+  const placementAbsolutePath = path.join(appRoot, PLACEMENT_FILE);
+  const placementSource = await readUtf8FileIfExists(placementAbsolutePath);
+  if (!placementSource) {
+    return [];
   }
 
-  const queryIndex = source.indexOf("?");
-  const hashIndex = source.indexOf("#");
-  const cutoff =
-    queryIndex < 0
-      ? hashIndex
-      : hashIndex < 0
-        ? queryIndex
-        : Math.min(queryIndex, hashIndex);
-  return cutoff < 0 ? source : source.slice(0, cutoff);
-}
-
-function interpolateBracketParams(pathTemplate = "", params = {}) {
-  const source = String(pathTemplate || "").trim();
-  if (!source) {
-    return "";
-  }
-
-  return source.replace(/\\[([^\\]]+)\\]/g, (_match, rawKey) => {
-    const key = String(rawKey || "").trim();
-    if (!key) {
-      return "";
+  const collectedTokens = new Set();
+  for (const match of String(placementSource).matchAll(PLACEMENT_COMPONENT_TOKEN_PATTERN)) {
+    const componentToken = String(match[1] || "").trim();
+    if (!findLocalLinkItemDefinition(componentToken)) {
+      continue;
     }
-    const value = params?.[key];
-    return value == null ? "[" + key + "]" : encodeURIComponent(String(value));
-  });
+    collectedTokens.add(componentToken);
+  }
+
+  return Array.from(collectedTokens).sort((left, right) => left.localeCompare(right));
 }
 
-const targetSurfaceId = computed(() => {
-  const explicitSurface = String(props.surface || "").trim().toLowerCase();
-  if (explicitSurface && explicitSurface !== "*") {
-    return explicitSurface;
-  }
-  return String(currentSurfaceId.value || paths.currentSurfaceId.value || "").trim().toLowerCase();
-});
+async function resolveProvisionableLocalPlacementComponentTokens({
+  appRoot = "",
+  componentTokens = []
+} = {}) {
+  const collectedTokens = new Set(
+    (Array.isArray(componentTokens) ? componentTokens : [])
+      .map((value) => String(value || "").trim())
+      .filter((value) => Boolean(findLocalLinkItemDefinition(value)))
+  );
 
-const resolvedTo = computed(() => {
-  const explicitTo = String(props.to || "").trim();
-  if (explicitTo) {
-    if (explicitTo.startsWith("./")) {
-      const workspaceSlug = String(workspaceSlugFromRoute.value || "").trim();
-      const suffixTemplate = workspaceSlug ? props.workspaceSuffix : props.nonWorkspaceSuffix;
-      const interpolatedSuffix = interpolateBracketParams(suffixTemplate, route.params || {});
-      if (interpolatedSuffix && !interpolatedSuffix.includes("[")) {
-        return paths.page(interpolatedSuffix, {
-          surface: targetSurfaceId.value,
-          mode: "auto"
-        });
-      }
-    }
-    return explicitTo;
+  for (const componentToken of await collectProvisionableLocalPlacementComponentTokensFromApp({ appRoot })) {
+    collectedTokens.add(componentToken);
   }
 
-  const workspaceSlug = String(workspaceSlugFromRoute.value || "").trim();
-  const suffix = workspaceSlug ? props.workspaceSuffix : props.nonWorkspaceSuffix;
-  const normalizedSuffix = String(suffix || "/").trim() || "/";
-  return paths.page(normalizedSuffix, {
-    surface: targetSurfaceId.value,
-    mode: "auto"
-  });
-});
-
-const isActive = computed(() => {
-  const targetPath = normalizePathname(resolvedTo.value);
-  const currentPath = normalizePathname(route.fullPath || route.path || "");
-  if (!targetPath || !currentPath) {
-    return false;
-  }
-  return currentPath === targetPath || currentPath.startsWith(\`\${targetPath}/\`);
-});
-</script>
-
-<template>
-  <v-btn
-    class="tab-link-item"
-    variant="text"
-    size="small"
-    :to="resolvedTo"
-    :active="isActive"
-    :disabled="disabled"
-    color="primary"
-  >
-    {{ label || "Tab" }}
-  </v-btn>
-</template>
-
-<style scoped>
-.tab-link-item {
-  text-transform: none;
-  font-weight: 600;
-  border-radius: 999px;
-}
-</style>
-`;
+  return Array.from(collectedTokens).sort((left, right) => left.localeCompare(right));
 }
 
 async function readUtf8FileIfExists(absolutePath = "") {
@@ -217,28 +125,35 @@ async function readUtf8FileIfExists(absolutePath = "") {
   }
 }
 
-async function ensureTabLinkItemComponentFile({ appRoot = "", dryRun = false, touchedFiles = new Set() } = {}) {
-  const componentRelativePath = TAB_LINK_COMPONENT_FILE;
+async function ensureProvisionedComponentFile(
+  definition,
+  {
+    appRoot = "",
+    dryRun = false,
+    touchedFiles = new Set()
+  } = {}
+) {
+  const componentRelativePath = definition.componentFile;
   const componentAbsolutePath = path.join(appRoot, componentRelativePath);
   const existingComponentSource = await readUtf8FileIfExists(componentAbsolutePath);
   if (existingComponentSource) {
     return;
   }
 
-  if (dryRun !== true) {
-    await mkdir(path.dirname(componentAbsolutePath), { recursive: true });
-    await writeFile(componentAbsolutePath, renderTabLinkItemSource(), "utf8");
-  }
+    if (dryRun !== true) {
+      await mkdir(path.dirname(componentAbsolutePath), { recursive: true });
+      await writeFile(componentAbsolutePath, await readLocalLinkItemComponentSource(definition), "utf8");
+    }
   touchedFiles.add(toPosixPath(componentRelativePath));
 }
 
-function hasTabLinkItemTokenRegistration(providerSource = "") {
-  const tokenPattern = TAB_LINK_COMPONENT_TOKEN.replaceAll(".", "\\.");
+function hasProvisionedTokenRegistration(providerSource = "", componentToken = "") {
+  const tokenPattern = String(componentToken || "").replaceAll(".", "\\.");
   const pattern = new RegExp(`registerMainClientComponent\\(\\s*"${tokenPattern}"\\s*,`, "m");
   return pattern.test(String(providerSource || ""));
 }
 
-async function loadMainClientProviderSource({ appRoot = "", createCliError } = {}) {
+async function loadMainClientProviderSource({ appRoot = "", createCliError, componentToken = "" } = {}) {
   const providerAbsolutePath = path.join(appRoot, MAIN_CLIENT_PROVIDER_FILE);
   let providerSource = "";
   try {
@@ -246,7 +161,7 @@ async function loadMainClientProviderSource({ appRoot = "", createCliError } = {
   } catch (error) {
     if (error && error.code === "ENOENT") {
       throw createCliError(
-        `crud-ui-generator placement component token "${TAB_LINK_COMPONENT_TOKEN}" requires ${MAIN_CLIENT_PROVIDER_FILE}.`
+        `placement component token "${componentToken}" requires ${MAIN_CLIENT_PROVIDER_FILE}.`
       );
     }
     throw error;
@@ -254,31 +169,35 @@ async function loadMainClientProviderSource({ appRoot = "", createCliError } = {
 
   if (!/\bregisterMainClientComponent\s*\(/.test(providerSource)) {
     throw createCliError(
-      `crud-ui-generator placement component token "${TAB_LINK_COMPONENT_TOKEN}" could not find registerMainClientComponent() contract in ${MAIN_CLIENT_PROVIDER_FILE}.`
+      `placement component token "${componentToken}" could not find registerMainClientComponent() contract in ${MAIN_CLIENT_PROVIDER_FILE}.`
     );
   }
 
   return providerSource;
 }
 
-async function ensureTabLinkItemProviderRegistration({
-  appRoot = "",
-  createCliError,
-  dryRun = false,
-  touchedFiles = new Set()
-} = {}) {
+async function ensureProvisionedProviderRegistration(
+  definition,
+  {
+    appRoot = "",
+    createCliError,
+    dryRun = false,
+    touchedFiles = new Set()
+  } = {}
+) {
   const providerRelativePath = MAIN_CLIENT_PROVIDER_FILE;
   const providerAbsolutePath = path.join(appRoot, providerRelativePath);
   const providerSource = await loadMainClientProviderSource({
     appRoot,
-    createCliError
+    createCliError,
+    componentToken: definition.token
   });
-  if (hasTabLinkItemTokenRegistration(providerSource)) {
+  if (hasProvisionedTokenRegistration(providerSource, definition.token)) {
     return false;
   }
 
-  const importLine = `import ${TAB_LINK_COMPONENT_NAME} from "/${toPosixPath(TAB_LINK_COMPONENT_FILE)}";`;
-  const registerLine = `registerMainClientComponent("${TAB_LINK_COMPONENT_TOKEN}", () => ${TAB_LINK_COMPONENT_NAME});`;
+  const importLine = `import ${definition.componentName} from "/${toPosixPath(definition.componentFile)}";`;
+  const registerLine = `registerMainClientComponent("${definition.token}", () => ${definition.componentName});`;
 
   const importApplied = insertImportIfMissing(providerSource, importLine);
   const registerApplied = insertBeforeClassDeclaration(importApplied.content, registerLine, {
@@ -297,30 +216,70 @@ async function ensureTabLinkItemProviderRegistration({
   return true;
 }
 
+async function ensureLocalMainPlacementComponentProvisioning({
+  appRoot = "",
+  createCliError,
+  dryRun = false,
+  touchedFiles = new Set(),
+  componentTokens = []
+} = {}) {
+  const uniqueComponentTokens = Array.from(
+    new Set(
+      (Array.isArray(componentTokens) ? componentTokens : [])
+        .map((value) => String(value || "").trim())
+        .filter(Boolean)
+    )
+  );
+
+  for (const componentToken of uniqueComponentTokens) {
+    const definition = findLocalLinkItemDefinition(componentToken);
+    if (!definition) {
+      continue;
+    }
+
+    const providerSource = await loadMainClientProviderSource({
+      appRoot,
+      createCliError,
+      componentToken: definition.token
+    });
+    if (hasProvisionedTokenRegistration(providerSource, definition.token)) {
+      continue;
+    }
+
+    await ensureProvisionedComponentFile(definition, {
+      appRoot,
+      dryRun,
+      touchedFiles
+    });
+    await ensureProvisionedProviderRegistration(definition, {
+      appRoot,
+      createCliError,
+      dryRun,
+      touchedFiles
+    });
+  }
+}
+
 async function ensureLocalMainTabLinkItemProvisioning({
   appRoot = "",
   createCliError,
   dryRun = false,
   touchedFiles = new Set()
 } = {}) {
-  const providerSource = await loadMainClientProviderSource({
-    appRoot,
-    createCliError
-  });
-  if (hasTabLinkItemTokenRegistration(providerSource)) {
-    return;
-  }
-
-  await ensureTabLinkItemComponentFile({ appRoot, dryRun, touchedFiles });
-  await ensureTabLinkItemProviderRegistration({
+  return ensureLocalMainPlacementComponentProvisioning({
     appRoot,
     createCliError,
     dryRun,
-    touchedFiles
+    touchedFiles,
+    componentTokens: [TAB_LINK_COMPONENT_TOKEN]
   });
 }
 
 export {
+  LOCAL_LINK_ITEM_COMPONENT_TOKENS,
   TAB_LINK_COMPONENT_TOKEN,
+  collectProvisionableLocalPlacementComponentTokensFromApp,
+  resolveProvisionableLocalPlacementComponentTokens,
+  ensureLocalMainPlacementComponentProvisioning,
   ensureLocalMainTabLinkItemProvisioning
 };

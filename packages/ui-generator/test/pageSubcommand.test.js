@@ -38,8 +38,12 @@ async function writeAppFixture(appRoot, { configSource = "" } = {}) {
     path.join(appRoot, "src", "components", "ShellLayout.vue"),
     `<template>
   <div>
-    <ShellOutlet host="shell-layout" position="primary-menu" default />
-    <ShellOutlet host="shell-layout" position="top-right" />
+    <ShellOutlet
+      target="shell-layout:primary-menu"
+      default
+      default-link-component-token="local.main.ui.surface-aware-menu-link-item"
+    />
+    <ShellOutlet target="shell-layout:top-right" />
   </div>
 </template>
 `,
@@ -126,8 +130,7 @@ test("ui-generator page subcommand supports link placement options", async () =>
     });
 
     const placementSource = await readFile(path.join(appRoot, "src", "placement.js"), "utf8");
-    assert.match(placementSource, /host: "shell-layout"/);
-    assert.match(placementSource, /position: "top-right"/);
+    assert.match(placementSource, /target: "shell-layout:top-right"/);
     assert.match(placementSource, /componentToken: "local\.main\.ui\.tab-link-item"/);
     assert.match(placementSource, /to: "\.\/notes"/);
   });
@@ -144,7 +147,7 @@ test("ui-generator page subcommand infers subpage link placement, tab token, and
       `<template>
   <SectionContainerShell>
     <template #tabs>
-      <ShellOutlet host="contact-view" position="sub-pages" />
+      <ShellOutlet target="contact-view:sub-pages" />
     </template>
     <RouterView />
   </SectionContainerShell>
@@ -162,8 +165,7 @@ test("ui-generator page subcommand infers subpage link placement, tab token, and
     });
 
     const placementSource = await readFile(path.join(appRoot, "src", "placement.js"), "utf8");
-    assert.match(placementSource, /host: "contact-view"/);
-    assert.match(placementSource, /position: "sub-pages"/);
+    assert.match(placementSource, /target: "contact-view:sub-pages"/);
     assert.match(placementSource, /componentToken: "local\.main\.ui\.tab-link-item"/);
     assert.match(placementSource, /to: "\.\/notes"/);
   });
@@ -181,7 +183,7 @@ test("ui-generator page subcommand prefers the nearest index-route parent host",
       `<template>
   <SectionContainerShell>
     <template #tabs>
-      <ShellOutlet host="catalog" position="sub-pages" />
+      <ShellOutlet target="catalog:sub-pages" />
     </template>
     <RouterView />
   </SectionContainerShell>
@@ -194,7 +196,7 @@ test("ui-generator page subcommand prefers the nearest index-route parent host",
       `<template>
   <SectionContainerShell>
     <template #tabs>
-      <ShellOutlet host="catalog-products" position="sub-pages" />
+      <ShellOutlet target="catalog-products:sub-pages" />
     </template>
     <RouterView />
   </SectionContainerShell>
@@ -213,8 +215,7 @@ test("ui-generator page subcommand prefers the nearest index-route parent host",
     });
 
     const placementSource = await readFile(path.join(appRoot, "src", "placement.js"), "utf8");
-    assert.match(placementSource, /host: "catalog-products"/);
-    assert.match(placementSource, /position: "sub-pages"/);
+    assert.match(placementSource, /target: "catalog-products:sub-pages"/);
     assert.match(placementSource, /componentToken: "local\.main\.ui\.tab-link-item"/);
     assert.match(placementSource, /to: "\.\/variants"/);
   });

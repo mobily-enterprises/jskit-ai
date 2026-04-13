@@ -1,10 +1,16 @@
+import {
+  HOME_TOOLS_OUTLET,
+  WORKSPACE_TOOLS_OUTLET
+} from "./src/shared/toolsOutletContracts.js";
+
 export default Object.freeze({
   packageVersion: 1,
   packageId: "@jskit-ai/users-web",
   version: "0.1.48",
   kind: "runtime",
-  description: "Users web module: account/profile UI plus shared shell link components.",
+  description: "Users web module: account/profile UI plus shared users web widgets.",
   dependsOn: [
+    "@jskit-ai/auth-web",
     "@jskit-ai/http-runtime",
     "@jskit-ai/shell-web",
     "@jskit-ai/uploads-image-web",
@@ -95,8 +101,6 @@ export default Object.freeze({
       containerTokens: {
         server: [],
         client: [
-          "users.web.shell.menu-link-item",
-          "users.web.shell.surface-aware-menu-link-item",
           "users.web.profile.menu.surface-switch-item",
           "users.web.home.tools.widget",
           "users.web.profile.element",
@@ -108,14 +112,20 @@ export default Object.freeze({
       placements: {
         outlets: [
           {
-            host: "home-tools",
-            position: "primary-menu",
+            target: HOME_TOOLS_OUTLET.target,
+            defaultLinkComponentToken: HOME_TOOLS_OUTLET.defaultLinkComponentToken,
             surfaces: ["home"],
             source: "src/client/components/UsersHomeToolsWidget.vue"
           },
           {
-            host: "console-settings",
-            position: "primary-menu",
+            target: WORKSPACE_TOOLS_OUTLET.target,
+            defaultLinkComponentToken: WORKSPACE_TOOLS_OUTLET.defaultLinkComponentToken,
+            surfaces: ["admin"],
+            source: "src/client/components/UsersWorkspaceToolsWidget.vue"
+          },
+          {
+            target: "console-settings:primary-menu",
+            defaultLinkComponentToken: "local.main.ui.surface-aware-menu-link-item",
             surfaces: ["console"],
             source: "templates/src/pages/console/settings.vue"
           }
@@ -123,8 +133,7 @@ export default Object.freeze({
         contributions: [
           {
             id: "users.profile.menu.surface-switch",
-            host: "auth-profile-menu",
-            position: "primary-menu",
+            target: "auth-profile-menu:primary-menu",
             surfaces: ["*"],
             order: 100,
             componentToken: "users.web.profile.menu.surface-switch-item",
@@ -133,38 +142,34 @@ export default Object.freeze({
           },
           {
             id: "users.profile.menu.settings",
-            host: "auth-profile-menu",
-            position: "primary-menu",
+            target: "auth-profile-menu:primary-menu",
             surfaces: ["*"],
             order: 500,
-            componentToken: "users.web.shell.menu-link-item",
+            componentToken: "auth.web.profile.menu.link-item",
             when: "auth.authenticated === true",
             source: "mutations.text#users-web-profile-settings-placement"
           },
           {
             id: "users.home.menu.home",
-            host: "shell-layout",
-            position: "primary-menu",
+            target: "shell-layout:primary-menu",
             surfaces: ["*"],
             order: 50,
-            componentToken: "users.web.shell.surface-aware-menu-link-item",
+            componentToken: "local.main.ui.surface-aware-menu-link-item",
             when: "auth.authenticated === true",
             source: "mutations.text#users-web-home-shell-menu-placement"
           },
           {
             id: "users.console.menu.settings",
-            host: "shell-layout",
-            position: "primary-menu",
+            target: "shell-layout:primary-menu",
             surfaces: ["console"],
             order: 100,
-            componentToken: "users.web.shell.menu-link-item",
+            componentToken: "local.main.ui.menu-link-item",
             when: "auth.authenticated === true",
             source: "mutations.text#users-web-console-settings-placement"
           },
           {
             id: "users.home.tools.widget",
-            host: "shell-layout",
-            position: "top-right",
+            target: "shell-layout:top-right",
             surfaces: ["home"],
             order: 900,
             componentToken: "users.web.home.tools.widget",
@@ -173,21 +178,19 @@ export default Object.freeze({
           },
           {
             id: "users.home.menu.settings",
-            host: "home-tools",
-            position: "primary-menu",
+            target: "home-tools:primary-menu",
             surfaces: ["home"],
             order: 100,
-            componentToken: "users.web.shell.surface-aware-menu-link-item",
+            componentToken: "local.main.ui.surface-aware-menu-link-item",
             when: "auth.authenticated === true",
             source: "mutations.text#users-web-home-tools-placement"
           },
           {
             id: "users.home.settings.general",
-            host: "home-settings",
-            position: "primary-menu",
+            target: "home-settings:primary-menu",
             surfaces: ["home"],
             order: 100,
-            componentToken: "users.web.shell.surface-aware-menu-link-item",
+            componentToken: "local.main.ui.surface-aware-menu-link-item",
             when: "auth.authenticated === true",
             source: "mutations.text#users-web-home-settings-general-placement"
           }
@@ -296,7 +299,7 @@ export default Object.freeze({
         position: "bottom",
         skipIfContains: "id: \"users.profile.menu.surface-switch\"",
         value:
-          "\naddPlacement({\n  id: \"users.profile.menu.surface-switch\",\n  host: \"auth-profile-menu\",\n  position: \"primary-menu\",\n  surfaces: [\"*\"],\n  order: 100,\n  componentToken: \"users.web.profile.menu.surface-switch-item\",\n  when: ({ auth }) => Boolean(auth?.authenticated)\n});\n",
+          "\naddPlacement({\n  id: \"users.profile.menu.surface-switch\",\n  target: \"auth-profile-menu:primary-menu\",\n  surfaces: [\"*\"],\n  order: 100,\n  componentToken: \"users.web.profile.menu.surface-switch-item\",\n  when: ({ auth }) => Boolean(auth?.authenticated)\n});\n",
         reason: "Append users-web profile surface switch placement into app-owned placement registry.",
         category: "users-web",
         id: "users-web-profile-surface-switch-placement"
@@ -307,7 +310,7 @@ export default Object.freeze({
         position: "bottom",
         skipIfContains: "id: \"users.profile.menu.settings\"",
         value:
-          "\naddPlacement({\n  id: \"users.profile.menu.settings\",\n  host: \"auth-profile-menu\",\n  position: \"primary-menu\",\n  surfaces: [\"*\"],\n  order: 500,\n  componentToken: \"users.web.shell.menu-link-item\",\n  props: {\n    label: \"Settings\",\n    to: \"/account\"\n  },\n  when: ({ auth }) => Boolean(auth?.authenticated)\n});\n",
+          "\naddPlacement({\n  id: \"users.profile.menu.settings\",\n  target: \"auth-profile-menu:primary-menu\",\n  surfaces: [\"*\"],\n  order: 500,\n  componentToken: \"auth.web.profile.menu.link-item\",\n  props: {\n    label: \"Settings\",\n    to: \"/account\"\n  },\n  when: ({ auth }) => Boolean(auth?.authenticated)\n});\n",
         reason: "Append users-web profile settings menu placement into app-owned placement registry.",
         category: "users-web",
         id: "users-web-profile-settings-placement"
@@ -318,7 +321,7 @@ export default Object.freeze({
         position: "bottom",
         skipIfContains: "id: \"users.home.menu.home\"",
         value:
-          "\naddPlacement({\n  id: \"users.home.menu.home\",\n  host: \"shell-layout\",\n  position: \"primary-menu\",\n  surfaces: [\"*\"],\n  order: 50,\n  componentToken: \"users.web.shell.surface-aware-menu-link-item\",\n  props: {\n    label: \"Home\",\n    surface: \"home\",\n    workspaceSuffix: \"/\",\n    nonWorkspaceSuffix: \"/\"\n  },\n  when: ({ auth }) => Boolean(auth?.authenticated)\n});\n",
+          "\naddPlacement({\n  id: \"users.home.menu.home\",\n  target: \"shell-layout:primary-menu\",\n  surfaces: [\"*\"],\n  order: 50,\n  componentToken: \"local.main.ui.surface-aware-menu-link-item\",\n  props: {\n    label: \"Home\",\n    surface: \"home\",\n    workspaceSuffix: \"/\",\n    nonWorkspaceSuffix: \"/\"\n  },\n  when: ({ auth }) => Boolean(auth?.authenticated)\n});\n",
         reason: "Append users-web home shell menu placement into app-owned placement registry.",
         category: "users-web",
         id: "users-web-home-shell-menu-placement"
@@ -329,7 +332,7 @@ export default Object.freeze({
         position: "bottom",
         skipIfContains: "id: \"users.console.menu.settings\"",
         value:
-          "\naddPlacement({\n  id: \"users.console.menu.settings\",\n  host: \"shell-layout\",\n  position: \"primary-menu\",\n  surfaces: [\"console\"],\n  order: 100,\n  componentToken: \"users.web.shell.menu-link-item\",\n  props: {\n    label: \"Settings\",\n    to: \"/console/settings\",\n    icon: \"mdi-cog-outline\"\n  },\n  when: ({ auth }) => Boolean(auth?.authenticated)\n});\n",
+          "\naddPlacement({\n  id: \"users.console.menu.settings\",\n  target: \"shell-layout:primary-menu\",\n  surfaces: [\"console\"],\n  order: 100,\n  componentToken: \"local.main.ui.menu-link-item\",\n  props: {\n    label: \"Settings\",\n    to: \"/console/settings\",\n    icon: \"mdi-cog-outline\"\n  },\n  when: ({ auth }) => Boolean(auth?.authenticated)\n});\n",
         reason: "Append users-web console settings menu placement into app-owned placement registry.",
         category: "users-web",
         id: "users-web-console-settings-placement"
@@ -340,7 +343,7 @@ export default Object.freeze({
         position: "bottom",
         skipIfContains: "id: \"users.home.tools.widget\"",
         value:
-          "\naddPlacement({\n  id: \"users.home.tools.widget\",\n  host: \"shell-layout\",\n  position: \"top-right\",\n  surfaces: [\"home\"],\n  order: 900,\n  componentToken: \"users.web.home.tools.widget\",\n  when: ({ auth }) => Boolean(auth?.authenticated)\n});\n\naddPlacement({\n  id: \"users.home.menu.settings\",\n  host: \"home-tools\",\n  position: \"primary-menu\",\n  surfaces: [\"home\"],\n  order: 100,\n  componentToken: \"users.web.shell.surface-aware-menu-link-item\",\n  props: {\n    label: \"Settings\",\n    surface: \"home\",\n    workspaceSuffix: \"/settings\",\n    nonWorkspaceSuffix: \"/settings\"\n  },\n  when: ({ auth }) => Boolean(auth?.authenticated)\n});\n",
+          "\naddPlacement({\n  id: \"users.home.tools.widget\",\n  target: \"shell-layout:top-right\",\n  surfaces: [\"home\"],\n  order: 900,\n  componentToken: \"users.web.home.tools.widget\",\n  when: ({ auth }) => Boolean(auth?.authenticated)\n});\n\naddPlacement({\n  id: \"users.home.menu.settings\",\n  target: \"home-tools:primary-menu\",\n  surfaces: [\"home\"],\n  order: 100,\n  componentToken: \"local.main.ui.surface-aware-menu-link-item\",\n  props: {\n    label: \"Settings\",\n    surface: \"home\",\n    workspaceSuffix: \"/settings\",\n    nonWorkspaceSuffix: \"/settings\"\n  },\n  when: ({ auth }) => Boolean(auth?.authenticated)\n});\n",
         reason: "Append users-web home tools widget and settings menu placements into app-owned placement registry.",
         category: "users-web",
         id: "users-web-home-tools-placement"
@@ -351,7 +354,7 @@ export default Object.freeze({
         position: "bottom",
         skipIfContains: "id: \"users.home.settings.general\"",
         value:
-          "\naddPlacement({\n  id: \"users.home.settings.general\",\n  host: \"home-settings\",\n  position: \"primary-menu\",\n  surfaces: [\"home\"],\n  order: 100,\n  componentToken: \"users.web.shell.surface-aware-menu-link-item\",\n  props: {\n    label: \"General\",\n    surface: \"home\",\n    workspaceSuffix: \"/settings\",\n    nonWorkspaceSuffix: \"/settings\"\n  },\n  when: ({ auth }) => Boolean(auth?.authenticated)\n});\n",
+          "\naddPlacement({\n  id: \"users.home.settings.general\",\n  target: \"home-settings:primary-menu\",\n  surfaces: [\"home\"],\n  order: 100,\n  componentToken: \"local.main.ui.surface-aware-menu-link-item\",\n  props: {\n    label: \"General\",\n    surface: \"home\",\n    workspaceSuffix: \"/settings\",\n    nonWorkspaceSuffix: \"/settings\"\n  },\n  when: ({ auth }) => Boolean(auth?.authenticated)\n});\n",
         reason: "Append users-web home settings general-page placement into app-owned placement registry.",
         category: "users-web",
         id: "users-web-home-settings-general-placement"

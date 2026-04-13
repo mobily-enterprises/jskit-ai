@@ -1,5 +1,6 @@
 import path from "node:path";
 import { readdir, readFile } from "node:fs/promises";
+import { pathToFileURL } from "node:url";
 import { loadInstalledPackageDescriptor } from "../../internal/node/installedPackageDescriptor.js";
 import { normalizeObject, normalizeText } from "../../shared/support/normalize.js";
 import { resolveRequiredAppRoot, toPosixPath } from "./path.js";
@@ -7,8 +8,10 @@ import {
   describeShellOutletTargets,
   discoverShellOutletTargetsFromVueSource,
   findShellOutletTargetById,
-  normalizeShellOutletTargetId
+  normalizeShellOutletTargetId,
+  normalizeShellOutletTargetRecord
 } from "../../shared/support/shellLayoutTargets.js";
+import { loadAppConfigFromModuleUrl } from "./appConfigFiles.js";
 
 const VUE_DISCOVERY_IGNORED_ERROR_CODES = new Set(["ENOENT", "ENOTDIR", "EACCES", "EPERM"]);
 const LOCK_FILE_RELATIVE_PATH = ".jskit/lock.json";
@@ -52,22 +55,15 @@ function normalizeAppRouteOutletTarget({
   outlet = {},
   sourcePath = ""
 } = {}) {
-  const outletRecord = normalizeObject(outlet);
-  const outletTargetId = normalizeShellOutletTargetId(
-    `${normalizeText(outletRecord.host)}:${normalizeText(outletRecord.position)}`
-  );
-  if (!outletTargetId) {
+  const normalizedTarget = normalizeShellOutletTargetRecord(outlet, {
+    context: sourcePath || "route meta"
+  });
+  if (!normalizedTarget) {
     return null;
   }
-
-  const separatorIndex = outletTargetId.indexOf(":");
-  const host = outletTargetId.slice(0, separatorIndex);
-  const position = outletTargetId.slice(separatorIndex + 1);
   return Object.freeze({
-    id: outletTargetId,
-    host,
-    position,
-    default: isDefaultEnabled(outletRecord.default),
+    ...normalizedTarget,
+    default: isDefaultEnabled(normalizedTarget.default),
     sourcePath
   });
 }
@@ -201,29 +197,64 @@ function normalizePackageOutletTarget({
     return null;
   }
 
-  const outletRecord = normalizeObject(outlet);
-  const outletTargetId = normalizeShellOutletTargetId(
-    `${normalizeText(outletRecord.host)}:${normalizeText(outletRecord.position)}`
-  );
-  if (!outletTargetId) {
+  const normalizedTarget = normalizeShellOutletTargetRecord(outlet, {
+    context: `package:${normalizedPackageId}`
+  });
+  if (!normalizedTarget) {
     return null;
   }
 
-  const separatorIndex = outletTargetId.indexOf(":");
-  const host = outletTargetId.slice(0, separatorIndex);
-  const position = outletTargetId.slice(separatorIndex + 1);
+  const outletRecord = normalizeObject(outlet);
   const source = normalizeText(outletRecord.source);
   const sourcePath = source
     ? `package:${normalizedPackageId}:${toPosixPath(source)}`
     : `package:${normalizedPackageId}${descriptorPath ? `:${toPosixPath(descriptorPath)}` : ""}`;
 
   return Object.freeze({
-    id: outletTargetId,
-    host,
-    position,
+    ...normalizedTarget,
     default: false,
     sourcePath,
     sourcePackageId: normalizedPackageId
+  });
+}
+
+async function loadOutletDefaultOverrides(appRoot = "") {
+  const resolvedAppRoot = resolveRequiredAppRoot(appRoot, {
+    context: "discoverShellOutletTargetsFromApp"
+  });
+  let appConfig = {};
+  try {
+    appConfig = normalizeObject(
+      await loadAppConfigFromModuleUrl({
+        moduleUrl: pathToFileURL(path.join(resolvedAppRoot, "config", "public.js")).href
+      })
+    );
+  } catch {
+    return {};
+  }
+  return normalizeObject(normalizeObject(appConfig.ui).outletDefaults);
+}
+
+function applyOutletDefaultOverrides(target = {}, outletDefaultOverrides = {}) {
+  const targetRecord = normalizeObject(target);
+  const outletTargetId = normalizeShellOutletTargetId(targetRecord.id);
+  if (!outletTargetId) {
+    return targetRecord;
+  }
+
+  const overrideRecord = outletDefaultOverrides?.[outletTargetId];
+  const normalizedOverrideToken =
+    typeof overrideRecord === "string"
+      ? normalizeText(overrideRecord)
+      : normalizeText(normalizeObject(overrideRecord).linkComponentToken) ||
+        normalizeText(normalizeObject(overrideRecord)["link-component-token"]);
+  if (!normalizedOverrideToken) {
+    return targetRecord;
+  }
+
+  return Object.freeze({
+    ...targetRecord,
+    defaultLinkComponentToken: normalizedOverrideToken
   });
 }
 
@@ -263,6 +294,7 @@ async function discoverShellOutletTargetsFromApp({ appRoot, sourceRoot = "src" }
   const resolvedAppRoot = resolveRequiredAppRoot(appRoot, {
     context: "discoverShellOutletTargetsFromApp"
   });
+  const outletDefaultOverrides = await loadOutletDefaultOverrides(resolvedAppRoot);
 
   const sourceDirectory = path.resolve(resolvedAppRoot, String(sourceRoot || "src"));
   const targetById = new Map();
@@ -331,10 +363,10 @@ async function discoverShellOutletTargetsFromApp({ appRoot, sourceRoot = "src" }
 
   const targets = [...targetById.values()].sort((left, right) => left.id.localeCompare(right.id));
   const normalizedTargets = targets.map((target) =>
-    Object.freeze({
+    applyOutletDefaultOverrides({
       ...target,
       default: target.id === defaultTargetId
-    })
+    }, outletDefaultOverrides)
   );
 
   return Object.freeze({
@@ -348,7 +380,7 @@ async function resolveShellOutletPlacementTargetFromApp({ appRoot, placement = "
   const requestedPlacementOption = normalizeText(placement);
   const requestedPlacementTargetId = normalizeShellOutletTargetId(requestedPlacementOption);
   if (requestedPlacementOption && !requestedPlacementTargetId) {
-    throw new Error(`${resolvedContext} option "placement" must be in "host:position" format.`);
+    throw new Error(`${resolvedContext} option "placement" must be a target in "host:position" format.`);
   }
 
   const discovered = await discoverShellOutletTargetsFromApp({ appRoot, sourceRoot: "src" });
@@ -380,8 +412,8 @@ async function resolveShellOutletPlacementTargetFromApp({ appRoot, placement = "
   const availableTargets = describeShellOutletTargets(targets);
   throw new Error(
     `${resolvedContext} could not resolve a default ShellOutlet target from app Vue outlets. ` +
-    `Set one outlet as default (e.g. <ShellOutlet host="shell-layout" position="primary-menu" default />) ` +
-    `or pass "--placement host:position". Available targets: ${availableTargets || "<none>"}.`
+    `Set one outlet as default (e.g. <ShellOutlet target="shell-layout:primary-menu" default />) ` +
+    `or pass "--placement shell-layout:primary-menu". Available targets: ${availableTargets || "<none>"}.`
   );
 }
 

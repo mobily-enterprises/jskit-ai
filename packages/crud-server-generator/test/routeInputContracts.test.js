@@ -1,13 +1,20 @@
 import assert from "node:assert/strict";
 import test, { after } from "node:test";
 import { resolveApiBasePath } from "@jskit-ai/users-core/shared/support/usersApiPaths";
+import { recordIdParamsValidator } from "@jskit-ai/kernel/shared/validators";
 import { createTemplateServerFixture } from "../test-support/templateServerFixture.js";
 
-const fixture = await createTemplateServerFixture();
-const { registerRoutes } = await fixture.importServerModule("registerRoutes.js");
+const workspaceFixture = await createTemplateServerFixture();
+const nonWorkspaceFixture = await createTemplateServerFixture({
+  surfaceRequiresWorkspace: false,
+  requiresNamedPermissions: false
+});
+const { registerRoutes: registerWorkspaceRoutes } = await workspaceFixture.importServerModule("registerRoutes.js");
+const { registerRoutes: registerNonWorkspaceRoutes } = await nonWorkspaceFixture.importServerModule("registerRoutes.js");
 
 after(async () => {
-  await fixture.cleanup();
+  await workspaceFixture.cleanup();
+  await nonWorkspaceFixture.cleanup();
 });
 
 function createReplyDouble() {
@@ -50,9 +57,8 @@ test("crud routes build create/update action input with explicit payload and pat
     }
   };
 
-  registerRoutes(app, {
-    routeRelativePath: "/customers",
-    routeSurfaceRequiresWorkspace: true
+  registerWorkspaceRoutes(app, {
+    routeRelativePath: "/customers"
   });
 
   const workspaceRouteBase = resolveApiBasePath({
@@ -123,7 +129,7 @@ test("crud routes omit workspaceSlug for non-workspace calls and apply configure
     }
   };
 
-  registerRoutes(app, {
+  registerNonWorkspaceRoutes(app, {
     routeRelativePath: "/customers",
     routeSurface: "console"
   });
@@ -131,6 +137,7 @@ test("crud routes omit workspaceSlug for non-workspace calls and apply configure
   const createRoute = findRoute(registeredRoutes, "POST", "/api/customers");
   assert.ok(createRoute);
   assert.equal(createRoute.route.surface, "console");
+  assert.equal(createRoute.route.paramsValidator, undefined);
 
   const calls = [];
   const executeAction = async (payload) => {
@@ -154,6 +161,44 @@ test("crud routes omit workspaceSlug for non-workspace calls and apply configure
   });
 });
 
+test("crud non-workspace record routes validate only recordId params", () => {
+  const registeredRoutes = [];
+  const router = {
+    register(method, path, route, handler) {
+      registeredRoutes.push({
+        method,
+        path,
+        route,
+        handler
+      });
+    }
+  };
+  const app = {
+    make(token) {
+      if (token !== "jskit.http.router") {
+        throw new Error(`Unexpected token: ${String(token)}`);
+      }
+      return router;
+    }
+  };
+
+  registerNonWorkspaceRoutes(app, {
+    routeRelativePath: "/customers",
+    routeSurface: "console"
+  });
+
+  const viewRoute = findRoute(registeredRoutes, "GET", "/api/customers/:recordId");
+  const updateRoute = findRoute(registeredRoutes, "PATCH", "/api/customers/:recordId");
+  const deleteRoute = findRoute(registeredRoutes, "DELETE", "/api/customers/:recordId");
+
+  assert.ok(viewRoute);
+  assert.ok(updateRoute);
+  assert.ok(deleteRoute);
+  assert.equal(viewRoute.route.paramsValidator, recordIdParamsValidator);
+  assert.equal(updateRoute.route.paramsValidator, recordIdParamsValidator);
+  assert.equal(deleteRoute.route.paramsValidator, recordIdParamsValidator);
+});
+
 test("crud routes validate route ownership filter values before registering visibility", () => {
   const registeredRoutes = [];
   const router = {
@@ -175,20 +220,24 @@ test("crud routes validate route ownership filter values before registering visi
     }
   };
 
-  registerRoutes(app, {
+  registerWorkspaceRoutes(app, {
     routeRelativePath: "/customers",
     routeOwnershipFilter: " Workspace_User "
   });
   assert.throws(
     () =>
-      registerRoutes(app, {
+      registerWorkspaceRoutes(app, {
         routeRelativePath: "/customers-public",
         routeOwnershipFilter: "not-a-real-filter"
       }),
     /must be one of/
   );
 
-  const workspaceUserRoute = findRoute(registeredRoutes, "GET", "/api/customers");
+  const workspaceRouteBase = resolveApiBasePath({
+    surfaceRequiresWorkspace: true,
+    relativePath: "/customers"
+  });
+  const workspaceUserRoute = findRoute(registeredRoutes, "GET", workspaceRouteBase);
 
   assert.ok(workspaceUserRoute);
   assert.equal(workspaceUserRoute.route.visibility, "workspace_user");
@@ -215,9 +264,8 @@ test("crud list route forwards normalized query input from list query validators
     }
   };
 
-  registerRoutes(app, {
-    routeRelativePath: "/customers",
-    routeSurfaceRequiresWorkspace: true
+  registerWorkspaceRoutes(app, {
+    routeRelativePath: "/customers"
   });
 
   const workspaceRouteBase = resolveApiBasePath({
@@ -281,9 +329,8 @@ test("crud view route forwards include query input", async () => {
     }
   };
 
-  registerRoutes(app, {
-    routeRelativePath: "/customers",
-    routeSurfaceRequiresWorkspace: true
+  registerWorkspaceRoutes(app, {
+    routeRelativePath: "/customers"
   });
 
   const workspaceRouteBase = resolveApiBasePath({

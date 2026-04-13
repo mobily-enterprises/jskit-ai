@@ -31,8 +31,12 @@ async function writeShellLayout(appRoot, source = "") {
     source ||
       `<template>
   <div>
-    <ShellOutlet host="shell-layout" position="top-right" />
-    <ShellOutlet host="shell-layout" position="primary-menu" default />
+    <ShellOutlet target="shell-layout:top-right" />
+    <ShellOutlet
+      target="shell-layout:primary-menu"
+      default
+      default-link-component-token="local.main.ui.surface-aware-menu-link-item"
+    />
   </div>
 </template>
 `
@@ -57,9 +61,8 @@ test("buildUiPageTemplateContext resolves link placement from default app ShellO
       targetFile: "admin/reports/index.vue",
       options: {}
     });
-    assert.equal(context.__JSKIT_UI_LINK_PLACEMENT_HOST__, "shell-layout");
-    assert.equal(context.__JSKIT_UI_LINK_PLACEMENT_POSITION__, "primary-menu");
-    assert.equal(context.__JSKIT_UI_LINK_COMPONENT_TOKEN__, "users.web.shell.surface-aware-menu-link-item");
+    assert.equal(context.__JSKIT_UI_LINK_PLACEMENT_TARGET__, "shell-layout:primary-menu");
+    assert.equal(context.__JSKIT_UI_LINK_COMPONENT_TOKEN__, "local.main.ui.surface-aware-menu-link-item");
     assert.equal(context.__JSKIT_UI_LINK_WORKSPACE_SUFFIX__, "/reports");
     assert.equal(context.__JSKIT_UI_LINK_NON_WORKSPACE_SUFFIX__, "/reports");
     assert.equal(context.__JSKIT_UI_LINK_TO_PROP_LINE__, "");
@@ -87,8 +90,8 @@ test("buildUiPageTemplateContext supports explicit link placement override", asy
         "link-placement": "shell-layout:top-right"
       }
     });
-    assert.equal(context.__JSKIT_UI_LINK_PLACEMENT_POSITION__, "top-right");
-    assert.equal(context.__JSKIT_UI_LINK_COMPONENT_TOKEN__, "users.web.shell.surface-aware-menu-link-item");
+    assert.equal(context.__JSKIT_UI_LINK_PLACEMENT_TARGET__, "shell-layout:top-right");
+    assert.equal(context.__JSKIT_UI_LINK_COMPONENT_TOKEN__, "local.main.ui.surface-aware-menu-link-item");
   });
 });
 
@@ -133,7 +136,11 @@ test("buildUiPageTemplateContext supports explicit package outlet link placement
     ui: {
       placements: {
         outlets: [
-          { host: "workspace-tools", position: "primary-menu", source: "src/client/components/UsersWorkspaceToolsWidget.vue" }
+          {
+            target: "workspace-tools:primary-menu",
+            defaultLinkComponentToken: "local.main.ui.surface-aware-menu-link-item",
+            source: "src/client/components/UsersWorkspaceToolsWidget.vue"
+          }
         ]
       }
     }
@@ -149,8 +156,7 @@ test("buildUiPageTemplateContext supports explicit package outlet link placement
         "link-placement": "workspace-tools:primary-menu"
       }
     });
-    assert.equal(context.__JSKIT_UI_LINK_PLACEMENT_HOST__, "workspace-tools");
-    assert.equal(context.__JSKIT_UI_LINK_PLACEMENT_POSITION__, "primary-menu");
+    assert.equal(context.__JSKIT_UI_LINK_PLACEMENT_TARGET__, "workspace-tools:primary-menu");
   });
 });
 
@@ -226,7 +232,7 @@ test("buildUiPageTemplateContext infers subpage link placement, tab token, and l
       `<template>
   <SectionContainerShell>
     <template #tabs>
-      <ShellOutlet host="contact-view" position="sub-pages" />
+      <ShellOutlet target="contact-view:sub-pages" />
     </template>
     <RouterView />
   </SectionContainerShell>
@@ -240,8 +246,7 @@ test("buildUiPageTemplateContext infers subpage link placement, tab token, and l
       options: {}
     });
 
-    assert.equal(context.__JSKIT_UI_LINK_PLACEMENT_HOST__, "contact-view");
-    assert.equal(context.__JSKIT_UI_LINK_PLACEMENT_POSITION__, "sub-pages");
+    assert.equal(context.__JSKIT_UI_LINK_PLACEMENT_TARGET__, "contact-view:sub-pages");
     assert.equal(context.__JSKIT_UI_LINK_COMPONENT_TOKEN__, "local.main.ui.tab-link-item");
     assert.equal(context.__JSKIT_UI_LINK_TO_PROP_LINE__, "      to: \"./notes\",\n");
   });
@@ -265,7 +270,7 @@ test("buildUiPageTemplateContext inherits a file-route parent host for deeper de
       `<template>
   <SectionContainerShell>
     <template #tabs>
-      <ShellOutlet host="contact-view" position="sub-pages" />
+      <ShellOutlet target="contact-view:sub-pages" />
     </template>
     <RouterView />
   </SectionContainerShell>
@@ -279,8 +284,7 @@ test("buildUiPageTemplateContext inherits a file-route parent host for deeper de
       options: {}
     });
 
-    assert.equal(context.__JSKIT_UI_LINK_PLACEMENT_HOST__, "contact-view");
-    assert.equal(context.__JSKIT_UI_LINK_PLACEMENT_POSITION__, "sub-pages");
+    assert.equal(context.__JSKIT_UI_LINK_PLACEMENT_TARGET__, "contact-view:sub-pages");
     assert.equal(context.__JSKIT_UI_LINK_COMPONENT_TOKEN__, "local.main.ui.tab-link-item");
     assert.equal(context.__JSKIT_UI_LINK_TO_PROP_LINE__, "      to: \"./notes/history\",\n");
   });
@@ -304,7 +308,7 @@ test("buildUiPageTemplateContext infers subpage link placement from an index-rou
       `<template>
   <SectionContainerShell>
     <template #tabs>
-      <ShellOutlet host="catalog" position="sub-pages" />
+      <ShellOutlet target="catalog:sub-pages" />
     </template>
     <RouterView />
   </SectionContainerShell>
@@ -318,8 +322,7 @@ test("buildUiPageTemplateContext infers subpage link placement from an index-rou
       options: {}
     });
 
-    assert.equal(context.__JSKIT_UI_LINK_PLACEMENT_HOST__, "catalog");
-    assert.equal(context.__JSKIT_UI_LINK_PLACEMENT_POSITION__, "sub-pages");
+    assert.equal(context.__JSKIT_UI_LINK_PLACEMENT_TARGET__, "catalog:sub-pages");
     assert.equal(context.__JSKIT_UI_LINK_COMPONENT_TOKEN__, "local.main.ui.tab-link-item");
     assert.equal(context.__JSKIT_UI_LINK_TO_PROP_LINE__, "      to: \"./products\",\n");
   });
@@ -343,7 +346,7 @@ test("buildUiPageTemplateContext finds the nearest index-route parent host", asy
       `<template>
   <SectionContainerShell>
     <template #tabs>
-      <ShellOutlet host="catalog" position="sub-pages" />
+      <ShellOutlet target="catalog:sub-pages" />
     </template>
     <RouterView />
   </SectionContainerShell>
@@ -356,7 +359,7 @@ test("buildUiPageTemplateContext finds the nearest index-route parent host", asy
       `<template>
   <SectionContainerShell>
     <template #tabs>
-      <ShellOutlet host="catalog-products" position="sub-pages" />
+      <ShellOutlet target="catalog-products:sub-pages" />
     </template>
     <RouterView />
   </SectionContainerShell>
@@ -370,8 +373,7 @@ test("buildUiPageTemplateContext finds the nearest index-route parent host", asy
       options: {}
     });
 
-    assert.equal(context.__JSKIT_UI_LINK_PLACEMENT_HOST__, "catalog-products");
-    assert.equal(context.__JSKIT_UI_LINK_PLACEMENT_POSITION__, "sub-pages");
+    assert.equal(context.__JSKIT_UI_LINK_PLACEMENT_TARGET__, "catalog-products:sub-pages");
     assert.equal(context.__JSKIT_UI_LINK_COMPONENT_TOKEN__, "local.main.ui.tab-link-item");
     assert.equal(context.__JSKIT_UI_LINK_TO_PROP_LINE__, "      to: \"./variants\",\n");
   });
@@ -395,7 +397,7 @@ test("buildUiPageTemplateContext infers subpage link placement from an index rou
       `<template>
   <SectionContainerShell>
     <template #tabs>
-      <ShellOutlet host="customer-view" position="sub-pages" />
+      <ShellOutlet target="customer-view:sub-pages" />
     </template>
     <RouterView />
   </SectionContainerShell>
@@ -409,8 +411,7 @@ test("buildUiPageTemplateContext infers subpage link placement from an index rou
       options: {}
     });
 
-    assert.equal(context.__JSKIT_UI_LINK_PLACEMENT_HOST__, "customer-view");
-    assert.equal(context.__JSKIT_UI_LINK_PLACEMENT_POSITION__, "sub-pages");
+    assert.equal(context.__JSKIT_UI_LINK_PLACEMENT_TARGET__, "customer-view:sub-pages");
     assert.equal(context.__JSKIT_UI_LINK_COMPONENT_TOKEN__, "local.main.ui.tab-link-item");
     assert.equal(context.__JSKIT_UI_LINK_TO_PROP_LINE__, "      to: \"./pets\",\n");
     assert.equal(context.__JSKIT_UI_LINK_WORKSPACE_SUFFIX__, "/customers/[customerId]/pets");
@@ -546,7 +547,7 @@ test("buildUiPageTemplateContext validates link placement format", async () => {
             "link-placement": "invalid-placement"
           }
         }),
-      /option "placement" must be in "host:position" format/
+      /option "placement" must be a target in "host:position" format/
     );
   });
 });

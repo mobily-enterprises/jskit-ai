@@ -53,7 +53,15 @@ export default Object.freeze({
       inputType: "text",
       defaultValue: "",
       promptLabel: "Link placement",
-      promptHint: "Optional host:position override for the generated list-page link placement."
+      promptHint: "Optional target override for the generated list-page link placement (format: host:position)."
+    },
+    "link-component-token": {
+      required: false,
+      inputType: "text",
+      defaultValue: "",
+      promptLabel: "Link component token",
+      promptHint:
+        "Optional component token override for the generated list-page link placement (example: local.main.ui.tab-link-item)."
     },
     namespace: {
       required: false,
@@ -83,7 +91,7 @@ export default Object.freeze({
         description: "Create CRUD pages at an explicit route root relative to src/pages/.",
         longDescription: [
           "CRUD generation follows the same page-placement model as `ui-generator page`.",
-          "That means the generated list page link uses the same nearest-parent-host inference, tab-link inference, and relative `props.to` inference as a normal generated page. If you want the detailed host behavior, read `jskit generate ui-generator page help`."
+          "That means the generated list page link uses the same nearest-parent-target inference, tab-link inference, and relative `props.to` inference as a normal generated page. If you want the detailed target behavior, read `jskit generate ui-generator page help`."
         ],
         positionalArgs: [
           {
@@ -92,7 +100,16 @@ export default Object.freeze({
             descriptionKey: "crud-target-root"
           }
         ],
-        optionNames: ["resource-file", "operations", "display-fields", "id-param", "link-placement", "namespace", "force"],
+        optionNames: [
+          "resource-file",
+          "operations",
+          "display-fields",
+          "id-param",
+          "link-placement",
+          "link-component-token",
+          "namespace",
+          "force"
+        ],
         requiredOptionNames: ["resource-file"],
         createTarget: {
           pathTemplate: "src/pages/${option:target-root|trim}",
@@ -332,7 +349,7 @@ export default Object.freeze({
         position: "bottom",
         skipIfContains: "__JSKIT_UI_MENU_MARKER__",
         value:
-          "\n// __JSKIT_UI_MENU_MARKER__\n{\n  addPlacement({\n    id: \"__JSKIT_UI_MENU_PLACEMENT_ID__\",\n    host: \"__JSKIT_UI_MENU_PLACEMENT_HOST__\",\n    position: \"__JSKIT_UI_MENU_PLACEMENT_POSITION__\",\n    surfaces: [\"__JSKIT_UI_SURFACE_ID__\"],\n    order: 155,\n    componentToken: \"__JSKIT_UI_MENU_COMPONENT_TOKEN__\",\n    props: {\n      label: \"__JSKIT_UI_MENU_LABEL__\",\n      surface: \"__JSKIT_UI_SURFACE_ID__\",\n      workspaceSuffix: \"__JSKIT_UI_MENU_WORKSPACE_SUFFIX__\",\n      nonWorkspaceSuffix: \"__JSKIT_UI_MENU_NON_WORKSPACE_SUFFIX__\",\n__JSKIT_UI_MENU_TO_PROP_LINE__    },\n    when: ({ auth }) => Boolean(auth?.authenticated)\n  });\n}\n",
+          "\n// __JSKIT_UI_MENU_MARKER__\n{\n  addPlacement({\n    id: \"__JSKIT_UI_MENU_PLACEMENT_ID__\",\n    target: \"__JSKIT_UI_MENU_PLACEMENT_TARGET__\",\n    surfaces: [\"__JSKIT_UI_SURFACE_ID__\"],\n    order: 155,\n    componentToken: \"__JSKIT_UI_MENU_COMPONENT_TOKEN__\",\n    props: {\n      label: \"__JSKIT_UI_MENU_LABEL__\",\n      surface: \"__JSKIT_UI_SURFACE_ID__\",\n      workspaceSuffix: \"__JSKIT_UI_MENU_WORKSPACE_SUFFIX__\",\n      nonWorkspaceSuffix: \"__JSKIT_UI_MENU_NON_WORKSPACE_SUFFIX__\",\n__JSKIT_UI_MENU_TO_PROP_LINE__    },\n    when: ({ auth }) => Boolean(auth?.authenticated)\n  });\n}\n",
         reason: "Append generated CRUD list-page placement.",
         category: "crud-ui-generator",
         id: "crud-ui-placement-menu",

@@ -564,8 +564,7 @@ test("add package applies templateContext replacements to append-text mutations"
       path.join(packageRoot, "src", "server", "templateContext.js"),
       `function buildTemplateContext() {
   return {
-    "__HOST__": "shell-layout",
-    "__POSITION__": "primary-menu"
+    "__TARGET__": "shell-layout:primary-menu"
   };
 }
 
@@ -598,7 +597,7 @@ export { buildTemplateContext };
         op: "append-text",
         file: "src/placement.js",
         id: "template-context-append-text",
-        value: "addPlacement({ host: \\"__HOST__\\", position: \\"__POSITION__\\" });\\n",
+        value: "addPlacement({ target: \\"__TARGET__\\" });\\n",
         templateContext: {
           entrypoint: "src/server/templateContext.js",
           export: "buildTemplateContext"
@@ -618,6 +617,6 @@ export { buildTemplateContext };
     assert.equal(addResult.status, 0, String(addResult.stderr || ""));
 
     const placementSource = await readFile(path.join(appRoot, "src", "placement.js"), "utf8");
-    assert.match(placementSource, /addPlacement\(\{ host: "shell-layout", position: "primary-menu" \}\);/);
+    assert.match(placementSource, /addPlacement\(\{ target: "shell-layout:primary-menu" \}\);/);
   });
 });

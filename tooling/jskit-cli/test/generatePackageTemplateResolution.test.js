@@ -89,3 +89,87 @@ test("generate subcommands resolve package template root before invoking generat
   assert.match(stdout, /Fetching @jskit-ai\/demo-generator\.\.\./);
   assert.match(stdout, /Fetching @jskit-ai\/demo-generator\.\.\. done!/);
 });
+
+test("generate routes inline options without an explicit subcommand to the primary subcommand", async () => {
+  const packageEntry = {
+    packageId: "@jskit-ai/demo-generator",
+    rootDir: "",
+    descriptor: {
+      kind: "generator",
+      metadata: {
+        generatorPrimarySubcommand: "scaffold",
+        generatorSubcommands: {
+          scaffold: {
+            optionNames: ["namespace"]
+          }
+        }
+      }
+    }
+  };
+  const packageRegistry = new Map([[packageEntry.packageId, packageEntry]]);
+  const runCommandAddCalls = [];
+  const { createCatalogFetchStatusReporter } = createCommandHandlerShared({});
+
+  const exitCode = await runPackageGenerateCommand(
+    {
+      createCliError(message) {
+        return new Error(String(message || ""));
+      },
+      resolveAppRootFromCwd: async (cwd) => cwd,
+      loadPackageRegistry: async () => packageRegistry,
+      loadAppLocalPackageRegistry: async () => new Map(),
+      mergePackageRegistries: (...registries) => {
+        const merged = new Map();
+        for (const registry of registries) {
+          for (const [packageId, entry] of registry.entries()) {
+            merged.set(packageId, entry);
+          }
+        }
+        return merged;
+      },
+      resolvePackageIdFromRegistryOrNodeModules: async ({ packageIdInput }) => packageIdInput,
+      hydratePackageRegistryFromInstalledNodeModules: async () => {},
+      resolvePackageTemplateRoot: async ({ packageEntry }) => packageEntry.rootDir,
+      resolvePackageKind: () => "generator",
+      resolveGeneratorPrimarySubcommand: () => "scaffold",
+      hasGeneratorSubcommandDefinition: () => false,
+      validateInlineOptionValuesForPackage: async () => {},
+      createCatalogFetchStatusReporter,
+      runGeneratorSubcommand: async () => {
+        throw new Error("runGeneratorSubcommand should not be called for descriptor-backed primary subcommands");
+      },
+      readdir: async () => {
+        const error = new Error("missing");
+        error.code = "ENOENT";
+        throw error;
+      }
+    },
+    {
+      positional: ["@jskit-ai/demo-generator"],
+      options: {
+        inlineOptions: {
+          namespace: "contacts"
+        },
+        dryRun: false,
+        json: false
+      },
+      cwd: "/tmp/demo-app",
+      io: {
+        stdout: { write() {} },
+        stderr: { write() {} }
+      }
+    },
+    {
+      runCommandAdd: async (payload) => {
+        runCommandAddCalls.push(payload);
+        return 0;
+      }
+    }
+  );
+
+  assert.equal(exitCode, 0);
+  assert.equal(runCommandAddCalls.length, 1);
+  assert.deepEqual(runCommandAddCalls[0].positional, ["package", "@jskit-ai/demo-generator"]);
+  assert.equal(runCommandAddCalls[0].options.inlineOptions.namespace, "contacts");
+  assert.equal(runCommandAddCalls[0].options.commandMode, "generate");
+});

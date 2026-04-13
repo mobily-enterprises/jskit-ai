@@ -3,6 +3,7 @@ import {
   resolveRequiredAppRoot,
   toPosixPath
 } from "@jskit-ai/kernel/server/support";
+import { normalizeShellOutletTargetId } from "@jskit-ai/kernel/shared/support/shellLayoutTargets";
 import { normalizeText } from "@jskit-ai/kernel/shared/support/normalize";
 import { toCamelCase, toSnakeCase } from "@jskit-ai/kernel/shared/support/stringCase";
 
@@ -44,32 +45,11 @@ function requireSinglePositionalTargetFile(args = [], { context = "ui-generator"
   return positionalArgs[0];
 }
 
-function normalizeExplicitOutletTargetId(value = "") {
-  const normalizedValue = normalizeText(value);
-  if (!normalizedValue) {
-    return "";
-  }
-
-  const separatorIndex = normalizedValue.indexOf(":");
-  if (separatorIndex <= 0 || separatorIndex >= normalizedValue.length - 1) {
-    return "";
-  }
-
-  const host = normalizeText(normalizedValue.slice(0, separatorIndex));
-  const position = normalizeText(normalizedValue.slice(separatorIndex + 1));
-  if (!host || !position) {
-    return "";
-  }
-
-  return `${host}:${position}`;
-}
-
 function resolveOutletTargetId(
   rawTarget = "",
   {
     context = "ui-generator",
-    optionName = "target",
-    defaultPosition = ""
+    optionName = "target"
   } = {}
 ) {
   const normalizedTarget = normalizeText(rawTarget);
@@ -77,18 +57,13 @@ function resolveOutletTargetId(
     throw new Error(`${context} requires --${optionName}.`);
   }
 
-  const targetId = normalizedTarget.includes(":")
-    ? normalizeExplicitOutletTargetId(normalizedTarget)
-    : normalizeExplicitOutletTargetId(`${normalizedTarget}:${normalizeText(defaultPosition)}`);
+  const targetId = normalizeShellOutletTargetId(normalizedTarget);
   if (!targetId) {
-    throw new Error(`${context} option "${optionName}" must be "host" or "host:position".`);
+    throw new Error(`${context} option "${optionName}" must be a target in "host:position" format.`);
   }
 
-  const separatorIndex = targetId.indexOf(":");
   return Object.freeze({
-    id: targetId,
-    host: targetId.slice(0, separatorIndex),
-    position: targetId.slice(separatorIndex + 1)
+    id: targetId
   });
 }
 
@@ -295,7 +270,6 @@ export {
   toPascalCase,
   requireOption,
   requireSinglePositionalTargetFile,
-  normalizeExplicitOutletTargetId,
   resolveOutletTargetId,
   rejectUnexpectedOptions,
   resolvePathWithinApp,

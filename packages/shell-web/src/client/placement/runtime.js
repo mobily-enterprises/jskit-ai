@@ -4,8 +4,7 @@ import { isRecord } from "@jskit-ai/kernel/shared/support/normalize";
 import {
   isRenderableComponent,
   normalizePlacementDefinition,
-  normalizePlacementHost,
-  normalizePlacementPosition,
+  normalizePlacementTarget,
   normalizeSurface
 } from "./validators.js";
 
@@ -303,10 +302,9 @@ function createWebPlacementRuntime({ app, logger = null } = {}) {
     return revision;
   }
 
-  function getPlacements({ surface = WEB_PLACEMENT_SURFACE_ANY, host = "", position = "", context = {} } = {}) {
-    const normalizedHost = normalizePlacementHost(host, { strict: false });
-    const normalizedPosition = normalizePlacementPosition(position, { strict: false });
-    if (!normalizedHost || !normalizedPosition) {
+  function getPlacements({ surface = WEB_PLACEMENT_SURFACE_ANY, target = "", context = {} } = {}) {
+    const normalizedTarget = normalizePlacementTarget(target, { strict: false });
+    if (!normalizedTarget) {
       return Object.freeze([]);
     }
 
@@ -318,8 +316,7 @@ function createWebPlacementRuntime({ app, logger = null } = {}) {
       {
         app,
         surface: normalizedSurface,
-        host: normalizedHost,
-        position: normalizedPosition,
+        target: normalizedTarget,
         context: {
           ...contextFromRuntime,
           ...baseContext
@@ -333,14 +330,12 @@ function createWebPlacementRuntime({ app, logger = null } = {}) {
       ...baseContext,
       app,
       surface: normalizedSurface,
-      host: normalizedHost,
-      position: normalizedPosition
+      target: normalizedTarget
     };
 
     debugLog("getPlacements:start", {
       surface: normalizedSurface,
-      host: normalizedHost,
-      position: normalizedPosition,
+      target: normalizedTarget,
       contextKeys: Object.keys(baseContext),
       sharedContextKeys: Object.keys(contextFromRuntime),
       placementCount: placementDefinitions.length
@@ -348,7 +343,7 @@ function createWebPlacementRuntime({ app, logger = null } = {}) {
 
     const matches = [];
     for (const placement of placementDefinitions) {
-      if (placement.host !== normalizedHost || placement.position !== normalizedPosition) {
+      if (placement.target !== normalizedTarget) {
         continue;
       }
       const placementSurfaces = Array.isArray(placement.surfaces)
@@ -403,8 +398,7 @@ function createWebPlacementRuntime({ app, logger = null } = {}) {
 
     debugLog("getPlacements:done", {
       surface: normalizedSurface,
-      host: normalizedHost,
-      position: normalizedPosition,
+      target: normalizedTarget,
       resultIds: matches.map((entry) => entry.id)
     });
 

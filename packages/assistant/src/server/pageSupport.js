@@ -56,8 +56,7 @@ async function resolveAssistantPageGenerationContext({
   return Object.freeze({
     pageTarget,
     pageLabel: normalizeText(options?.name) || pageTarget.defaultName,
-    linkPlacementHost: String(linkTarget.placementTarget?.host || ""),
-    linkPlacementPosition: String(linkTarget.placementTarget?.position || ""),
+    linkPlacementTarget: String(linkTarget.placementTarget?.id || ""),
     linkComponentToken: String(linkTarget.componentToken || ""),
     linkWorkspaceSuffix: pageTarget.routeUrlSuffix,
     linkNonWorkspaceSuffix: pageTarget.routeUrlSuffix,
@@ -75,8 +74,7 @@ function renderAssistantPageLinkPlacementBlock({
     "{\n" +
     "  addPlacement({\n" +
     `    id: "${String(pageTarget?.placementId || "")}",\n` +
-    `    host: "${String(generationContext?.linkPlacementHost || "")}",\n` +
-    `    position: "${String(generationContext?.linkPlacementPosition || "")}",\n` +
+    `    target: "${String(generationContext?.linkPlacementTarget || "")}",\n` +
     `    surfaces: ["${String(pageTarget?.surfaceId || "")}"],\n` +
     "    order: 155,\n" +
     `    componentToken: "${String(generationContext?.linkComponentToken || "")}",\n` +
