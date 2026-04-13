@@ -27,6 +27,14 @@ test("shell-web home settings template exposes surface-derived settings outlets"
 
   assert.match(source, /target="home-settings:primary-menu"/);
   assert.match(source, /default-link-component-token="local\.main\.ui\.surface-aware-menu-link-item"/);
+  assert.match(source, /<RouterView \/>/);
+});
+
+test("shell-web home settings index template is a simple developer-owned stub", async () => {
+  const source = await readFile(path.join(PACKAGE_DIR, "templates", "src", "pages", "home", "settings", "index.vue"), "utf8");
+
+  assert.match(source, /definePage/);
+  assert.match(source, /your_child_segment/);
 });
 
 test("shell-web descriptor metadata advertises home settings outlets and installs the scaffold page", () => {
@@ -55,7 +63,7 @@ test("shell-web descriptor metadata advertises home settings outlets and install
     from: "templates/src/pages/home/settings/index.vue",
     toSurface: "home",
     toSurfacePath: "settings/index.vue",
-    reason: "Install shell-driven home settings landing page scaffold.",
+    reason: "Install shell-driven home settings index stub scaffold for app-owned landing or redirect behavior.",
     category: "shell-web",
     id: "shell-web-page-home-settings"
   });

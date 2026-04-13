@@ -30,6 +30,13 @@ function findTextMutation(id) {
     : null;
 }
 
+function findFileMutation(id) {
+  const fileMutations = descriptor?.mutations?.files;
+  return Array.isArray(fileMutations)
+    ? fileMutations.find((entry) => String(entry?.id || "").trim() === id) || null
+    : null;
+}
+
 function expectContribution(id, expected = {}) {
   const contribution = findContribution(id);
   assert.ok(contribution, `Expected contribution "${id}".`);
@@ -69,6 +76,14 @@ test("users-web console settings template exposes surface-derived settings outle
 
   assert.match(source, /target="console-settings:primary-menu"/);
   assert.match(source, /default-link-component-token="local\.main\.ui\.surface-aware-menu-link-item"/);
+  assert.match(source, /<RouterView \/>/);
+});
+
+test("users-web console settings index template is a simple developer-owned stub", async () => {
+  const source = await readFile(path.join(PACKAGE_DIR, "templates", "src", "pages", "console", "settings", "index.vue"), "utf8");
+
+  assert.match(source, /definePage/);
+  assert.match(source, /your_child_segment/);
 });
 
 test("users-web descriptor metadata advertises console settings outlets with standard positions", () => {
@@ -84,6 +99,14 @@ test("users-web descriptor metadata advertises console settings outlets with sta
       }
     ]
   );
+  assert.deepEqual(findFileMutation("users-web-page-console-settings"), {
+    from: "templates/src/pages/console/settings/index.vue",
+    toSurface: "console",
+    toSurfacePath: "settings/index.vue",
+    reason: "Install console settings index stub scaffold for app-owned landing or redirect behavior.",
+    category: "users-web",
+    id: "users-web-page-console-settings"
+  });
 });
 
 test("users-web home tools widget exposes home-tools outlet", async () => {
@@ -152,15 +175,7 @@ test("users-web descriptor metadata advertises home tools outlet and standard ho
     when: "auth.authenticated === true",
     source: "mutations.text#users-web-home-tools-placement"
   });
-
-  expectContribution("users.home.settings.general", {
-    target: "home-settings:primary-menu",
-    surfaces: ["home"],
-    order: 100,
-    componentToken: "local.main.ui.surface-aware-menu-link-item",
-    when: "auth.authenticated === true",
-    source: "mutations.text#users-web-home-settings-general-placement"
-  });
+  assert.equal(findContribution("users.home.settings.general"), null);
 
   expectTextMutation("users-web-home-tools-placement", {
     reason: "Append users-web home tools widget and settings menu placements into app-owned placement registry.",
@@ -205,17 +220,4 @@ test("users-web descriptor metadata advertises home tools outlet and standard ho
     ]
   });
 
-  expectTextMutation("users-web-home-settings-general-placement", {
-    reason: "Append users-web home settings general-page placement into app-owned placement registry.",
-    category: "users-web",
-    skipIfContains: 'id: "users.home.settings.general"',
-    snippets: [
-      'id: "users.home.settings.general"',
-      'target: "home-settings:primary-menu"',
-      'componentToken: "local.main.ui.surface-aware-menu-link-item"',
-      'label: "General"',
-      'workspaceSuffix: "/settings"',
-      'nonWorkspaceSuffix: "/settings"'
-    ]
-  });
 });

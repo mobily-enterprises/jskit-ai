@@ -45,8 +45,7 @@ export default Object.freeze({
           "users.web.workspace.tools.widget",
           "users.web.workspace-settings.menu-item",
           "users.web.workspace-members.menu-item",
-          "users.web.members-admin.element",
-          "users.web.workspace-settings.element"
+          "users.web.members-admin.element"
         ]
       }
     },
@@ -103,14 +102,6 @@ export default Object.freeze({
             componentToken: "users.web.workspace-members.menu-item",
             source: "mutations.text#users-web-placement-block"
           },
-          {
-            id: "users.workspace.settings.general",
-            target: "admin-settings:primary-menu",
-            surfaces: ["admin"],
-            order: 100,
-            componentToken: "local.main.ui.surface-aware-menu-link-item",
-            source: "mutations.text#users-web-workspace-settings-general-placement"
-          }
         ]
       }
     }
@@ -238,7 +229,7 @@ export default Object.freeze({
         from: "templates/src/pages/admin/workspace/settings/index.vue",
         toSurface: "admin",
         toSurfacePath: "workspace/settings/index.vue",
-        reason: "Install workspace settings landing page scaffold for workspaces-web workspace admin UI.",
+        reason: "Install workspace settings index stub scaffold for app-owned landing or redirect behavior.",
         category: "workspaces-web",
         id: "users-web-page-admin-workspace-settings",
         when: {
@@ -282,21 +273,6 @@ export default Object.freeze({
         reason: "Bind app-owned account pending invites cue component token into local main client provider registry.",
         category: "workspaces-web",
         id: "users-web-main-client-provider-account-invites-register"
-      },
-      {
-        op: "append-text",
-        file: "src/placement.js",
-        position: "bottom",
-        skipIfContains: "id: \"users.workspace.settings.general\"",
-        value:
-          "\naddPlacement({\n  id: \"users.workspace.settings.general\",\n  target: \"admin-settings:primary-menu\",\n  surfaces: [\"admin\"],\n  order: 100,\n  componentToken: \"local.main.ui.surface-aware-menu-link-item\",\n  props: {\n    label: \"General\",\n    surface: \"admin\",\n    workspaceSuffix: \"/workspace/settings\",\n    nonWorkspaceSuffix: \"/workspace/settings\"\n  },\n  when: ({ auth }) => Boolean(auth?.authenticated)\n});\n",
-        reason: "Append workspace settings general-page placement into app-owned placement registry.",
-        category: "workspaces-web",
-        id: "users-web-workspace-settings-general-placement",
-        when: {
-          config: "tenancyMode",
-          in: ["personal", "workspaces"]
-        }
       }
     ]
   }

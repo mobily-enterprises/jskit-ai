@@ -1,8 +1,8 @@
-<template>
-  <v-sheet rounded="lg" border class="pa-6">
-    <h2 class="text-h6 mb-2">Settings</h2>
-    <p class="text-body-2 text-medium-emphasis mb-0">
-      Select a settings section from the menu.
-    </p>
-  </v-sheet>
-</template>
+<script setup>
+// To redirect this settings shell to a child page, uncomment and edit the example below.
+// definePage({
+//   redirect: (to) => `${to.path}/your_child_segment`
+// });
+</script>
+
+<template />
