@@ -1,9 +1,4 @@
-import {
-  mkdir,
-  readFile,
-  writeFile
-} from "node:fs/promises";
-import path from "node:path";
+import { readFile } from "node:fs/promises";
 import { pathToFileURL } from "node:url";
 import { createCliError } from "../../shared/cliError.js";
 import {
@@ -31,6 +26,8 @@ function interpolateFileMutationRecord(mutation, options, packageId) {
     toSurfacePath: interpolate(mutation.toSurfacePath, "toSurfacePath"),
     toDir: interpolate(mutation.toDir, "toDir"),
     extension: interpolate(mutation.extension, "extension"),
+    ownership: interpolate(mutation.ownership, "ownership"),
+    expectedExistingFrom: interpolate(mutation.expectedExistingFrom, "expectedExistingFrom"),
     id: interpolate(mutation.id, "id"),
     category: interpolate(mutation.category, "category"),
     reason: interpolate(mutation.reason, "reason"),
@@ -55,9 +52,8 @@ function applyTemplateContextReplacements(sourceContent, replacements) {
   return output;
 }
 
-async function copyTemplateFile(
+async function renderTemplateFile(
   sourcePath,
-  targetPath,
   options,
   packageId,
   interpolationKey,
@@ -70,9 +66,7 @@ async function copyTemplateFile(
   if (templateContextReplacements) {
     renderedContent = applyTemplateContextReplacements(renderedContent, templateContextReplacements);
   }
-
-  await mkdir(path.dirname(targetPath), { recursive: true });
-  await writeFile(targetPath, renderedContent, "utf8");
+  return renderedContent;
 }
 
 async function resolveTemplateContextReplacementsForMutation({
@@ -165,7 +159,7 @@ async function resolveTemplateContextReplacementsForMutation({
 
 export {
   applyTemplateContextReplacements,
-  copyTemplateFile,
   interpolateFileMutationRecord,
+  renderTemplateFile,
   resolveTemplateContextReplacementsForMutation
 };

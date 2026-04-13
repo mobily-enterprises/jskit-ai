@@ -54,6 +54,7 @@ test("shell-web descriptor metadata advertises home settings outlets and install
     from: "templates/src/pages/home/settings.vue",
     toSurface: "home",
     toSurfacePath: "settings.vue",
+    ownership: "app",
     reason: "Install shell-driven home settings shell route with section navigation.",
     category: "shell-web",
     id: "shell-web-page-home-settings-shell"
@@ -63,6 +64,7 @@ test("shell-web descriptor metadata advertises home settings outlets and install
     from: "templates/src/pages/home/settings/index.vue",
     toSurface: "home",
     toSurfacePath: "settings/index.vue",
+    ownership: "app",
     reason: "Install shell-driven home settings index stub scaffold for app-owned landing or redirect behavior.",
     category: "shell-web",
     id: "shell-web-page-home-settings"

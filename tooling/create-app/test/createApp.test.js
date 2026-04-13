@@ -74,7 +74,9 @@ test("create-app scaffolds the base shell with placeholder replacements", async 
     const readme = await readFile(path.join(appRoot, "README.md"), "utf8");
     assert.match(readme, /^# Sample App$/m);
     assert.match(readme, /npm run dev/);
-    assert.match(readme, /npx jskit add auth-base/);
+    assert.match(readme, /npx jskit add package auth-provider-supabase-core/);
+    assert.match(readme, /--auth-supabase-url "https:\/\/YOUR-PROJECT\.supabase\.co"/);
+    assert.match(readme, /npx jskit add bundle auth-base/);
     assert.doesNotMatch(readme, /-w apps/);
 
     const appJson = JSON.parse(await readFile(path.join(appRoot, "app.json"), "utf8"));
@@ -240,7 +242,8 @@ test("create-app scaffolds the base shell with placeholder replacements", async 
     assert.doesNotMatch(viteConfig, /^\s*beforeWriteFiles:\s*reparentNestedChildrenToIndexOwners/m);
     assert.match(viteConfig, /nestedChildren deprecated/);
 
-    assert.match(result.stdout, /npx jskit add auth-base/);
+    assert.match(result.stdout, /npx jskit add package auth-provider-supabase-core/);
+    assert.match(result.stdout, /npx jskit add bundle auth-base/);
   });
 });
 
@@ -309,8 +312,9 @@ test("create-app interactive flow captures initial bundle selection in guidance"
     assert.equal(exitCode, 0, stderr);
     assert.deepEqual(answers, []);
     assert.ok(askedPrompts.length >= 7);
-    assert.match(stdout, /Initial framework bundle commands \(auth\):/);
-    assert.match(stdout, /npx jskit add auth-base/);
+    assert.match(stdout, /Initial framework setup commands \(auth\):/);
+    assert.match(stdout, /npx jskit add package auth-provider-supabase-core/);
+    assert.match(stdout, /npx jskit add bundle auth-base/);
 
     const publicConfig = await readFile(path.join(cwd, "interactive-app/config/public.js"), "utf8");
     assert.match(publicConfig, /config\.tenancyMode = "workspaces";/);

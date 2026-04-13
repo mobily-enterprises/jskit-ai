@@ -48,12 +48,15 @@ function normalizeTenancyMode(value, { showUsage = true } = {}) {
   );
 }
 
-function buildInitialBundleCommands(initialBundles) {
+function buildInitialSetupCommands(initialBundles) {
   const normalizedPreset = normalizeInitialBundlesPreset(initialBundles, { showUsage: false });
 
   const commands = [];
   if (normalizedPreset === "auth") {
-    commands.push("npx jskit add auth-base");
+    commands.push(
+      "npx jskit add package auth-provider-supabase-core --auth-supabase-url \"https://YOUR-PROJECT.supabase.co\" --auth-supabase-publishable-key \"sb_publishable_...\" --app-public-url \"http://localhost:5173\""
+    );
+    commands.push("npx jskit add bundle auth-base");
   }
 
   return commands;
@@ -555,7 +558,7 @@ export async function createApp({
     template: String(template),
     initialBundles: resolvedInitialBundles,
     tenancyMode: resolvedTenancyMode,
-    selectedBundleCommands: buildInitialBundleCommands(resolvedInitialBundles),
+    selectedSetupCommands: buildInitialSetupCommands(resolvedInitialBundles),
     targetDirectory,
     dryRun,
     touchedFiles
@@ -626,15 +629,16 @@ export async function runCli(
       stdout.write("- npm run dev\n");
 
       stdout.write("\n");
-      if (result.selectedBundleCommands.length > 0) {
-        stdout.write(`Initial framework bundle commands (${result.initialBundles}):\n`);
-        for (const command of result.selectedBundleCommands) {
+      if (result.selectedSetupCommands.length > 0) {
+        stdout.write(`Initial framework setup commands (${result.initialBundles}):\n`);
+        for (const command of result.selectedSetupCommands) {
           stdout.write(`- ${command}\n`);
         }
       } else {
         stdout.write("First of all run npm install.:\n");
         stdout.write("Then add framework capabilities:\n");
-        stdout.write("- npx jskit add auth-base\n");
+        stdout.write("- npx jskit add package auth-provider-supabase-core --auth-supabase-url \"https://YOUR-PROJECT.supabase.co\" --auth-supabase-publishable-key \"sb_publishable_...\" --app-public-url \"http://localhost:5173\"\n");
+        stdout.write("- npx jskit add bundle auth-base\n");
         stdout.write("- npx jskit list\n");
         stdout.write("Run server and client to see it in action:\n");
         stdout.write("- npm run dev\n");

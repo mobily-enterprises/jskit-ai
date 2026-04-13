@@ -6,7 +6,6 @@ import {
 import path from "node:path";
 import { createCliError } from "../../shared/cliError.js";
 import { ensureObject } from "../../shared/collectionUtils.js";
-import { interpolateOptionValue } from "../../shared/optionInterpolation.js";
 import {
   hashBuffer,
   normalizeMigrationExtension,
@@ -19,25 +18,18 @@ import {
   fileExists
 } from "../ioAndMigrations.js";
 import { normalizeRelativePosixPath } from "../localPackageSupport.js";
-import {
-  applyTemplateContextReplacements,
-  resolveTemplateContextReplacementsForMutation
-} from "./templateContext.js";
 
 async function applyInstallMigrationMutation({
   packageEntry,
-  mutation,
-  rawMutation,
-  mutationIndex,
-  options,
+  preparedMutation,
   appRoot,
   managedMigrations,
   managedMigrationById,
   touchedFiles,
-  warnings,
-  precomputedTemplateContextByMutationIndex
+  warnings
 } = {}) {
-  if (Object.hasOwn(ensureObject(rawMutation), "preserveOnRemove")) {
+  const mutation = ensureObject(preparedMutation?.mutation);
+  if (mutation.preserveOnRemove === true) {
     warnings.push(
       `${packageEntry.packageId}: install-migration ignores preserveOnRemove (migrations are always preserved on remove).`
     );
@@ -45,36 +37,17 @@ async function applyInstallMigrationMutation({
 
   const from = mutation.from;
   const toDir = mutation.toDir || "migrations";
+  const sourcePath = String(preparedMutation?.sourcePath || "").trim();
+  const renderedSourceContent = preparedMutation?.renderedSourceContent;
   if (!from) {
     throw createCliError(`Invalid install-migration mutation in ${packageEntry.packageId}: \"from\" is required.`);
   }
-  const migrationId = normalizeMigrationId(mutation.id, packageEntry.packageId);
-
-  const sourcePath = path.join(packageEntry.rootDir, from);
-  if (!(await fileExists(sourcePath))) {
-    throw createCliError(`Missing migration template source ${sourcePath} for ${packageEntry.packageId}.`);
+  if (!sourcePath) {
+    throw createCliError(`Invalid install-migration mutation in ${packageEntry.packageId}: missing prepared source path.`);
   }
-
-  const hasPrecomputedTemplateContext =
-    precomputedTemplateContextByMutationIndex instanceof Map &&
-    precomputedTemplateContextByMutationIndex.has(mutationIndex);
-  const templateContextReplacements = hasPrecomputedTemplateContext
-    ? precomputedTemplateContextByMutationIndex.get(mutationIndex)
-    : await resolveTemplateContextReplacementsForMutation({
-        packageEntry,
-        mutation,
-        options,
-        appRoot,
-        sourcePath,
-        targetPaths: [path.join(appRoot, toDir)]
-      });
-
-  const sourceContent = await readFile(sourcePath, "utf8");
-  let renderedSourceContent = sourceContent.includes("${")
-    ? interpolateOptionValue(sourceContent, options, packageEntry.packageId, `${mutation.id || from}.source`)
-    : sourceContent;
-  if (templateContextReplacements) {
-    renderedSourceContent = applyTemplateContextReplacements(renderedSourceContent, templateContextReplacements);
+  const migrationId = normalizeMigrationId(mutation.id, packageEntry.packageId);
+  if (typeof renderedSourceContent !== "string") {
+    throw createCliError(`Invalid install-migration mutation in ${packageEntry.packageId}: missing rendered migration source.`);
   }
   const sourceExtension = normalizeMigrationExtension(path.extname(from), ".cjs");
   const extension = normalizeMigrationExtension(mutation.extension, sourceExtension);

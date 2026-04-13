@@ -388,6 +388,83 @@ test("update package fails when an install-migration source changes for the same
   });
 });
 
+test("add package allows empty rendered install-migration files", async () => {
+  await withTempDir(async (cwd) => {
+    const appRoot = path.join(cwd, "empty-migration-app");
+    await createMinimalApp(appRoot, { name: "empty-migration-app" });
+
+    const packageRoot = path.join(appRoot, "packages", "empty-migration");
+    await mkdir(path.join(packageRoot, "src", "server"), { recursive: true });
+    await mkdir(path.join(packageRoot, "templates"), { recursive: true });
+
+    await writeFile(
+      path.join(packageRoot, "package.json"),
+      `${JSON.stringify(
+        {
+          name: "@demo/empty-migration",
+          version: "0.1.0",
+          type: "module"
+        },
+        null,
+        2
+      )}\n`,
+      "utf8"
+    );
+
+    await writeFile(
+      path.join(packageRoot, "src", "server", "Provider.js"),
+      "class Provider { static id = \"demo.empty.migration\"; register() {} boot() {} }\nexport { Provider };\n",
+      "utf8"
+    );
+    await writeFile(path.join(packageRoot, "templates", "migration.cjs"), "", "utf8");
+
+    await writeFile(
+      path.join(packageRoot, "package.descriptor.mjs"),
+      `export default Object.freeze({
+  packageId: "@demo/empty-migration",
+  version: "0.1.0",
+  kind: "runtime",
+  runtime: {
+    server: {
+      providers: [{ entrypoint: "src/server/Provider.js", export: "Provider" }]
+    },
+    client: {
+      providers: []
+    }
+  },
+  mutations: {
+    dependencies: {
+      runtime: {},
+      dev: {}
+    },
+    files: [
+      {
+        op: "install-migration",
+        from: "templates/migration.cjs",
+        toDir: "migrations",
+        extension: ".cjs",
+        id: "demo-empty-migration"
+      }
+    ]
+  }
+});\n`,
+      "utf8"
+    );
+
+    const addResult = runCli({
+      cwd: appRoot,
+      args: ["add", "package", "@demo/empty-migration"]
+    });
+    assert.equal(addResult.status, 0, String(addResult.stderr || ""));
+
+    const migrationFiles = (await readdir(path.join(appRoot, "migrations")))
+      .filter((entry) => /^\d{14}_demo-empty-migration\.cjs$/.test(entry))
+      .sort();
+    assert.equal(migrationFiles.length, 1);
+    assert.equal(await readFile(path.join(appRoot, "migrations", migrationFiles[0]), "utf8"), "");
+  });
+});
+
 test("remove then re-add package reuses existing timestamped migration by id", async () => {
   await withTempDir(async (cwd) => {
     const appRoot = path.join(cwd, "migration-readd-app");

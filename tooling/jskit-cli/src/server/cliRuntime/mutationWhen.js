@@ -41,6 +41,8 @@ function normalizeFileMutationRecord(value) {
     toSurfaceRoot: record.toSurfaceRoot === true,
     toDir: String(record.toDir || "").trim(),
     extension: normalizeMutationExtension(record.extension),
+    ownership: String(record.ownership || "").trim().toLowerCase() || "package",
+    expectedExistingFrom: String(record.expectedExistingFrom || "").trim(),
     preserveOnRemove: record.preserveOnRemove === true,
     id: String(record.id || "").trim(),
     category: String(record.category || "").trim(),
