@@ -5,6 +5,7 @@ import test from "node:test";
 import { fileURLToPath } from "node:url";
 import { withTempDir } from "../../testUtils/tempDir.mjs";
 import { createCliRunner } from "../../testUtils/runCli.js";
+import { writeInstalledPackagesLock } from "./testLock.js";
 
 const CLI_PATH = fileURLToPath(new URL("../bin/jskit.js", import.meta.url));
 const REPO_ROOT = fileURLToPath(new URL("../../../", import.meta.url));
@@ -115,6 +116,13 @@ export default MainClientProvider;
 `,
     "utf8"
   );
+
+  await writeInstalledPackagesLock(appRoot, {
+    "@jskit-ai/shell-web": {
+      packageId: "@jskit-ai/shell-web",
+      version: "0.1.0"
+    }
+  });
 }
 
 async function installAssistantGenerator(appRoot) {

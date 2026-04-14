@@ -88,6 +88,7 @@ export default Object.freeze({
     generatorPrimarySubcommand: "crud",
     generatorSubcommands: {
       crud: {
+        requiresShellWeb: true,
         description: "Create CRUD pages at an explicit route root relative to src/pages/.",
         longDescription: [
           "CRUD generation follows the same page-placement model as `ui-generator page`.",
@@ -144,6 +145,7 @@ export default Object.freeze({
         ]
       },
       field: {
+        requiresShellWeb: true,
         entrypoint: "src/server/subcommands/addField.js",
         export: "runGeneratorSubcommand"
       }

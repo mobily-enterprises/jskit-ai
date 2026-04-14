@@ -5,6 +5,7 @@ import test from "node:test";
 import { fileURLToPath } from "node:url";
 import { withTempDir } from "../../testUtils/tempDir.mjs";
 import { createCliRunner } from "../../testUtils/runCli.js";
+import { writeInstalledPackagesLock } from "./testLock.js";
 
 const CLI_PATH = fileURLToPath(new URL("../bin/jskit.js", import.meta.url));
 const REPO_ROOT = fileURLToPath(new URL("../../../", import.meta.url));
@@ -116,6 +117,13 @@ export {
 `,
     "utf8"
   );
+
+  await writeInstalledPackagesLock(appRoot, {
+    "@jskit-ai/shell-web": {
+      packageId: "@jskit-ai/shell-web",
+      version: "0.1.0"
+    }
+  });
 }
 
 async function installCrudUiGeneratorPackage(appRoot) {
@@ -561,6 +569,8 @@ test("generate @jskit-ai/crud-ui-generator refuses a non-empty existing target r
 `,
       "utf8"
     );
+    const lockPath = path.join(appRoot, ".jskit", "lock.json");
+    const lockBefore = await readFile(lockPath, "utf8");
 
     const result = runCli({
       cwd: appRoot,
@@ -581,7 +591,7 @@ test("generate @jskit-ai/crud-ui-generator refuses a non-empty existing target r
       String(result.stderr || ""),
       /crud-ui-generator crud will not overwrite existing target root src\/pages\/admin\/products\. Re-run with --force to overwrite it\./
     );
-    assert.equal(await fileExists(path.join(appRoot, ".jskit", "lock.json")), false);
+    assert.equal(await readFile(lockPath, "utf8"), lockBefore);
 
     const listPageSource = await readFile(path.join(appRoot, "src/pages/admin/products/index.vue"), "utf8");
     assert.match(listPageSource, /custom products page/);
