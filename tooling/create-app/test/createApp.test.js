@@ -236,8 +236,9 @@ test("create-app scaffolds the base shell with placeholder replacements", async 
     assert.doesNotMatch(viteConfig, /^\s*beforeWriteFiles:\s*reparentNestedChildrenToIndexOwners/m);
     assert.match(viteConfig, /nestedChildren deprecated/);
 
-    assert.match(result.stdout, /npx jskit add package auth-provider-supabase-core/);
-    assert.match(result.stdout, /npx jskit add bundle auth-base/);
+    assert.doesNotMatch(result.stdout, /Then add framework capabilities:/);
+    assert.doesNotMatch(result.stdout, /npx jskit add package auth-provider-supabase-core/);
+    assert.doesNotMatch(result.stdout, /npx jskit add bundle auth-base/);
   });
 });
 
