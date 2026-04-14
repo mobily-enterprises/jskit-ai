@@ -628,22 +628,12 @@ export async function runCli(
       stdout.write("- npm install\n");
       stdout.write("- npm run dev\n");
 
-      stdout.write("\n");
       if (result.selectedSetupCommands.length > 0) {
+        stdout.write("\n");
         stdout.write(`Initial framework setup commands (${result.initialBundles}):\n`);
         for (const command of result.selectedSetupCommands) {
           stdout.write(`- ${command}\n`);
         }
-      } else {
-        stdout.write("First of all run npm install.:\n");
-        stdout.write("Then add framework capabilities:\n");
-        stdout.write("- npx jskit add package auth-provider-supabase-core --auth-supabase-url \"https://YOUR-PROJECT.supabase.co\" --auth-supabase-publishable-key \"sb_publishable_...\" --app-public-url \"http://localhost:5173\"\n");
-        stdout.write("- npx jskit add bundle auth-base\n");
-        stdout.write("- npx jskit list\n");
-        stdout.write("Run server and client to see it in action:\n");
-        stdout.write("- npm run dev\n");
-        stdout.write("- npx run server\n");
-       
       }
     }
 
