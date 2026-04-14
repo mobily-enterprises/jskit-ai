@@ -1,6 +1,6 @@
 import path from "node:path";
 import { readdir, readFile } from "node:fs/promises";
-import { pathToFileURL } from "node:url";
+import { importFreshModuleFromAbsolutePath } from "@jskit-ai/kernel/server/support";
 import {
   ensureArray,
   ensureObject,
@@ -72,7 +72,7 @@ async function resolveDescriptorFromLockEntry({ appRoot = "", packageId = "", in
 
   let descriptorModule = null;
   try {
-    descriptorModule = await import(`${pathToFileURL(descriptorAbsolutePath).href}?t=${Date.now()}_${Math.random()}`);
+    descriptorModule = await importFreshModuleFromAbsolutePath(descriptorAbsolutePath);
   } catch {
     return null;
   }

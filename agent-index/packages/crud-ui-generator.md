@@ -31,7 +31,7 @@ Local functions
 - `parseDisplayFieldsOption(options)`
 - `validateDisplayFieldsForOperation(selectedFieldKeys, fields, operationName)`
 - `filterDisplayFields(selectedFieldKeys, fields)`
-- `filterDefaultHiddenListFields(selectedFieldKeys, fields)`
+- `filterDefaultHiddenListFields(selectedFieldKeys, fields, { recordIdFieldKey = "" } = {})`
 - `ensureFields(fields, fallbackFields = createFieldDefinitions({}))`
 - `resolveViewTitleFallbackFieldKey(fields = [])`
 - `resolveResourceNamespace(resource = {}, pageTarget = {}, options = {})`
@@ -61,6 +61,7 @@ Exports
 - `buildListRowColumns(fields = [])`
 - `buildViewColumns(fields = [])`
 - `buildFormColumns(fields = [])`
+- `resolveRecordIdFieldKey(fields = [])`
 - `renderObjectPushLines(arrayName, entries = [])`
 - `resolveRecordChangedEventName`
 - `resolveRecordIdExpression(fields = [])`

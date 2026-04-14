@@ -29,11 +29,23 @@ Local functions
 Exports
 - None
 
+### `src/client/components/ShellMenuLinkItem.vue`
+Exports
+- None
+
 ### `src/client/components/ShellOutlet.vue`
 Exports
 - None
 
 ### `src/client/components/ShellOutletMenuWidget.vue`
+Exports
+- None
+
+### `src/client/components/ShellSurfaceAwareMenuLinkItem.vue`
+Exports
+- None
+
+### `src/client/components/ShellTabLinkItem.vue`
 Exports
 - None
 
@@ -104,8 +116,20 @@ Exports
 - `ShellOutlet`
 - `ShellOutletMenuWidget`
 - `ShellErrorHost`
+- `ShellMenuLinkItem`
+- `ShellSurfaceAwareMenuLinkItem`
+- `ShellTabLinkItem`
 - `useShellLayoutState`
 - `clientProviders`
+
+### `src/client/lib/menuIcons.js`
+Exports
+- `resolveMenuLinkIcon({ icon = "", label = "", to = "" } = {})`
+- `resolveSurfaceSwitchIcon(surfaceId = "", explicitIcon = "")`
+Local functions
+- `resolveExplicitIconValue(explicitIcon = "")`
+- `normalizePathname(value = "")`
+- `resolveSurfaceSwitchIdFromLabel(label = "")`
 
 ### `src/client/navigation/linkResolver.js`
 Exports
@@ -192,14 +216,12 @@ Exports
 - `isRenderableComponent(value)`
 - `normalizeSurface(value)`
 - `normalizePlacementSurface(value, { strict = false, source = "placement" } = {})`
-- `normalizePlacementHost(value, { strict = false, source = "placement" } = {})`
-- `normalizePlacementPosition(value, { strict = false, source = "placement" } = {})`
+- `normalizePlacementTarget(value, { strict = false, source = "placement" } = {})`
 - `normalizePlacementSurfaces(value, { strict = false, source = "placement" } = {})`
 - `normalizePlacementDefinition(value, { strict = false, source = "placement" } = {})`
 - `definePlacement(value = {})`
 Local functions
 - `isValidSurfaceIdToken(value = "")`
-- `isValidPlacementHostOrPositionToken(value = "")`
 - `toInteger(value, fallback = 1000)`
 
 ### `src/client/providers/ShellWebClientProvider.js`
@@ -215,9 +237,62 @@ Local functions
 - `installVueErrorBridge(vueApp, errorRuntime, logger)`
 - `installRouterErrorBridge(app, errorRuntime, logger)`
 
+### `src/client/support/menuLinkTarget.js`
+Exports
+- `normalizeMenuLinkPathname(pathname = "")`
+- `resolveMenuLinkTarget({ to = "", surface = "", currentSurfaceId = "", placementContext = null, workspaceSuffix = "/", nonWorkspaceSuffix = "/", routeParams = {}, resolvePagePath = null } = {})`
+Local functions
+- `resolveMenuLinkSurfaceId(surface = "", fallbackSurfaceId = "")`
+- `interpolateBracketParams(pathTemplate = "", params = {})`
+- `isRelativeMenuLinkTarget(target = "")`
+- `surfaceRequiresWorkspaceFromPlacementContext(contextValue = null, surfaceId = "")`
+
+### `src/server/support/localLinkItemScaffolds.js`
+Exports
+- `LOCAL_LINK_ITEM_COMPONENT_DEFINITIONS`
+- `LOCAL_LINK_ITEM_COMPONENT_TOKENS`
+- `findLocalLinkItemDefinition(componentToken = "")`
+- `readLocalLinkItemComponentSource(componentTokenOrDefinition = "")`
+- `resolveLocalLinkItemTemplateAbsolutePath(componentTokenOrDefinition = "")`
+Local functions
+- `createLocalLinkItemDefinition({ token = "", componentFile = "", componentName = "", templateFile = "" } = {})`
+- `resolveLocalLinkItemDefinition(componentTokenOrDefinition = "")`
+
 ### templates
 
+### `templates/expected-existing/src/App.vue`
+Exports
+- None
+
+### `templates/expected-existing/src/pages/console.vue`
+Exports
+- None
+
+### `templates/expected-existing/src/pages/console/index.vue`
+Exports
+- None
+
+### `templates/expected-existing/src/pages/home.vue`
+Exports
+- None
+
+### `templates/expected-existing/src/pages/home/index.vue`
+Exports
+- None
+
 ### `templates/src/App.vue`
+Exports
+- None
+
+### `templates/src/components/menus/MenuLinkItem.vue`
+Exports
+- None
+
+### `templates/src/components/menus/SurfaceAwareMenuLinkItem.vue`
+Exports
+- None
+
+### `templates/src/components/menus/TabLinkItem.vue`
 Exports
 - None
 

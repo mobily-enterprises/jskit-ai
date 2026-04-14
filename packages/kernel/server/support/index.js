@@ -1,6 +1,7 @@
 export { symlinkSafeRequire } from "./symlinkSafeRequire.js";
 export { resolveAppConfig } from "./appConfig.js";
 export { loadAppConfigFromModuleUrl } from "./appConfigFiles.js";
+export { importFreshModuleFromAbsolutePath } from "./importFreshModuleFromAbsolutePath.js";
 export { resolveRequiredAppRoot, toPosixPath } from "./path.js";
 export {
   DEFAULT_PAGE_LINK_COMPONENT_TOKEN,

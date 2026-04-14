@@ -39,7 +39,7 @@ Local functions
 - `toAppTitle(appName)`
 - `normalizeInitialBundlesPreset(value, { showUsage = true } = {})`
 - `normalizeTenancyMode(value, { showUsage = true } = {})`
-- `buildInitialBundleCommands(initialBundles)`
+- `buildInitialSetupCommands(initialBundles)`
 - `validateAppName(appName, { showUsage = true } = {})`
 - `parseOptionWithValue(argv, index, optionName)`
 - `parseCliArgs(argv)`

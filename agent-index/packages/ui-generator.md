@@ -36,11 +36,11 @@ Local functions
 Exports
 - `runGeneratorSubcommand({ appRoot, subcommand = "", args = [], options = {}, dryRun = false } = {})`
 Local functions
-- `hasShellOutletTarget(source = "", { host = "", position = "" } = {})`
+- `hasShellOutletTarget(source = "", { target = "" } = {})`
 - `applyScriptImports(source = "")`
-- `createOutletBlock({ host = "", position = "" } = {})`
+- `createOutletBlock({ target = "" } = {})`
 - `findLastTemplateCloseTag(source = "")`
-- `applyOutletTemplateBlock(source = "", { host = "", position = "" } = {})`
+- `applyOutletTemplateBlock(source = "", { target = "" } = {})`
 
 ### `src/server/subcommands/page.js`
 Exports
@@ -60,17 +60,16 @@ Exports
 - `deriveDefaultSubpagesHost`
 - `renderPlainPageSource(pageTitle = "")`
 - `ensureSubpagesSupportScaffold({ appRoot, componentDirectory = DEFAULT_COMPONENT_DIRECTORY, dryRun = false } = {})`
-- `applySubpagesUpgradeToPageSource(source = "", { host = "", position = DEFAULT_SUBPAGES_POSITION, title = "", subtitle = "", sectionContainerComponentImportPath = "/src/components/SectionContainerShell.vue", preserveExistingContent = true } = {})`
-- `upgradePageFileToSubpages({ appRoot, targetFile, host = "", position = DEFAULT_SUBPAGES_POSITION, title = "", subtitle = "", componentDirectory = DEFAULT_COMPONENT_DIRECTORY, preserveExistingContent = true, dryRun = false } = {})`
+- `applySubpagesUpgradeToPageSource(source = "", { target = "", title = "", subtitle = "", sectionContainerComponentImportPath = "/src/components/SectionContainerShell.vue", preserveExistingContent = true } = {})`
+- `upgradePageFileToSubpages({ appRoot, targetFile, target = "", title = "", subtitle = "", componentDirectory = DEFAULT_COMPONENT_DIRECTORY, preserveExistingContent = true, dryRun = false } = {})`
 Local functions
 - `trimEdgeBlankLines(source = "")`
 - `renderSectionContainerShellSource()`
-- `renderTabLinkItemSource()`
 - `findTemplateBlock(source = "")`
 - `unwrapSectionContainerShell(source = "")`
 - `stripExistingSubpagesStructure(source = "")`
 - `renderSectionContainerOpenTag({ title = "", subtitle = "" } = {})`
-- `renderSubpagesTemplate({ bodyContent = "", title = "", subtitle = "", host = "", position = DEFAULT_SUBPAGES_POSITION } = {})`
+- `renderSubpagesTemplate({ bodyContent = "", title = "", subtitle = "", target = "" } = {})`
 - `applySubpagesScriptImports(source = "", { sectionContainerComponentImportPath = "" } = {})`
 - `hasExistingSubpagesRouting(source = "")`
 
@@ -83,8 +82,7 @@ Exports
 - `toPascalCase(value = "")`
 - `requireOption(options = {}, optionName = "", { context = "ui-generator" } = {})`
 - `requireSinglePositionalTargetFile(args = [], { context = "ui-generator" } = {})`
-- `normalizeExplicitOutletTargetId(value = "")`
-- `resolveOutletTargetId(rawTarget = "", { context = "ui-generator", optionName = "target", defaultPosition = "" } = {})`
+- `resolveOutletTargetId(rawTarget = "", { context = "ui-generator", optionName = "target" } = {})`
 - `rejectUnexpectedOptions(options = {}, allowedOptionNames = [], { context = "ui-generator" } = {})`
 - `resolvePathWithinApp(appRoot, targetPath, { context = "ui-generator" } = {})`
 - `ensureTrailingNewline(value = "")`

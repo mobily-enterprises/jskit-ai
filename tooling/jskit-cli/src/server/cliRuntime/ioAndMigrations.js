@@ -8,7 +8,7 @@ import {
   writeFile
 } from "node:fs/promises";
 import path from "node:path";
-import { pathToFileURL } from "node:url";
+import { importFreshModuleFromAbsolutePath } from "@jskit-ai/kernel/server/support";
 import { createCliError } from "../shared/cliError.js";
 import {
   ensureArray,
@@ -325,7 +325,7 @@ async function loadAppConfigModuleConfig(appRoot, relativePath) {
 
   let moduleNamespace = null;
   try {
-    moduleNamespace = await import(`${pathToFileURL(absolutePath).href}?t=${Date.now()}_${Math.random()}`);
+    moduleNamespace = await importFreshModuleFromAbsolutePath(absolutePath);
   } catch (error) {
     throw createCliError(
       `Unable to load ${relativePath}: ${String(error?.message || error || "unknown error")}`

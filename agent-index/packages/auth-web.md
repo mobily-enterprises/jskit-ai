@@ -85,6 +85,14 @@ Exports
 - `routeComponents`
 - `clientProviders`
 
+### `src/client/lib/profileMenuLinkTarget.js`
+Exports
+- `appendAccountReturnToIfNeeded(target = "", { placementContext = null, currentFullPath = "", currentPath = "", currentHref = "" } = {})`
+- `resolveAccountSettingsPathFromPlacementContext(contextValue = null)`
+Local functions
+- `resolvePathnameFromLinkTarget(target = "")`
+- `resolveFallbackReturnTo({ currentFullPath = "", currentPath = "", currentHref = "", absolute = false } = {})`
+
 ### `src/client/lib/returnToPath.js`
 Exports
 - `normalizeAuthReturnToPath(value, fallback = "/", { allowedOrigins = [] } = {})`
@@ -157,6 +165,8 @@ Local functions
 ### `src/client/views/AuthProfileMenuLinkItem.vue`
 Exports
 - None
+Local functions
+- `resolveWindowHref()`
 
 ### `src/client/views/AuthProfileWidget.vue`
 Exports
