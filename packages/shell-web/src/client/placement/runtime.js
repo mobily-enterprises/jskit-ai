@@ -85,13 +85,19 @@ function normalizePlacementList(placements, context = {}) {
     byId.set(placement.id, placement);
   }
 
-  return [...byId.values()].sort((left, right) => {
-    const orderCompare = left.order - right.order;
-    if (orderCompare !== 0) {
-      return orderCompare;
-    }
-    return left.id.localeCompare(right.id);
-  });
+  return [...byId.values()]
+    .map((placement, index) => ({
+      placement,
+      index
+    }))
+    .sort((left, right) => {
+      const orderCompare = left.placement.order - right.placement.order;
+      if (orderCompare !== 0) {
+        return orderCompare;
+      }
+      return left.index - right.index;
+    })
+    .map((entry) => entry.placement);
 }
 
 function matchesSurface(placementSurfaces, requestedSurface) {

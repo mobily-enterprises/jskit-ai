@@ -78,6 +78,37 @@ test("web placement runtime filters by surface/host/position, resolves component
   assert.deepEqual(adminTopRight.map((entry) => entry.id), ["test.profile"]);
 });
 
+test("web placement runtime preserves source order when placements share the same order", () => {
+  const app = createAppStub({
+    tokens: {
+      "component.beta": () => null,
+      "component.alpha": () => null
+    }
+  });
+
+  const runtime = createWebPlacementRuntime({ app });
+  runtime.replacePlacements([
+    definePlacement({
+      id: "test.beta",
+      target: "home-settings:primary-menu",
+      surfaces: ["app"],
+      order: 155,
+      componentToken: "component.beta"
+    }),
+    definePlacement({
+      id: "test.alpha",
+      target: "home-settings:primary-menu",
+      surfaces: ["app"],
+      order: 155,
+      componentToken: "component.alpha"
+    })
+  ]);
+  runtime.setContext(createPlacementContext());
+
+  const menu = runtime.getPlacements({ surface: "app", target: "home-settings:primary-menu" });
+  assert.deepEqual(menu.map((entry) => entry.id), ["test.beta", "test.alpha"]);
+});
+
 test("web placement runtime applies context contributors and placement when() predicates", () => {
   const app = createAppStub({
     tokens: {
