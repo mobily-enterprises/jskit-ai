@@ -654,7 +654,7 @@ test("generate @jskit-ai/crud-ui-generator overwrites existing generated files w
   });
 });
 
-test("generate @jskit-ai/crud-ui-generator rejects route roots with a src/pages prefix", async () => {
+test("generate @jskit-ai/crud-ui-generator accepts route roots with a src/pages prefix", async () => {
   await withTempDir(async (cwd) => {
     const appRoot = path.join(cwd, "crud-ui-invalid-target-root");
     await createMinimalApp(appRoot, { name: "crud-ui-invalid-target-root" });
@@ -675,8 +675,9 @@ test("generate @jskit-ai/crud-ui-generator rejects route roots with a src/pages 
       ]
     });
 
-    assert.equal(result.status, 1);
-    assert.match(String(result.stderr || ""), /must be relative to src\/pages\/, without the src\/pages\/ prefix/);
+    assert.equal(result.status, 0, String(result.stderr || ""));
+    const listPageSource = await readFile(path.join(appRoot, "src/pages/admin/products/index.vue"), "utf8");
+    assert.match(listPageSource, /Manage Customers\./);
   });
 });
 

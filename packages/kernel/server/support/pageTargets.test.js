@@ -192,7 +192,7 @@ test("resolvePageTargetDetails rejects duplicate matching surface pagesRoot defi
   });
 });
 
-test("resolvePageTargetDetails rejects target files with a src/pages prefix", async () => {
+test("resolvePageTargetDetails accepts target files with a src/pages prefix", async () => {
   await withTempApp(async (appRoot) => {
     await writeConfig(
       appRoot,
@@ -204,26 +204,25 @@ test("resolvePageTargetDetails rejects target files with a src/pages prefix", as
 `
     );
 
-    await assert.rejects(
-      () =>
-        resolvePageTargetDetails({
-          appRoot,
-          targetFile: "src/pages/admin/reports/index.vue",
-          context: "page target"
-        }),
-      /must be relative to src\/pages\/, without the src\/pages\/ prefix/
-    );
+    const details = await resolvePageTargetDetails({
+      appRoot,
+      targetFile: "src/pages/admin/reports/index.vue",
+      context: "page target"
+    });
+
+    assert.equal(details.targetFilePath.relativePath, "src/pages/admin/reports/index.vue");
+    assert.equal(details.surfaceId, "admin");
+    assert.equal(details.routeUrlSuffix, "/reports");
   });
 });
 
-test("normalizePagesRelativeTargetRoot rejects route roots with a src/pages prefix", () => {
-  assert.throws(
-    () =>
-      normalizePagesRelativeTargetRoot("src/pages/admin/customers", {
-        context: "crud-ui-generator",
-        label: 'option "target-root"'
-      }),
-    /must be relative to src\/pages\/, without the src\/pages\/ prefix/
+test("normalizePagesRelativeTargetRoot accepts route roots with a src/pages prefix", () => {
+  assert.equal(
+    normalizePagesRelativeTargetRoot("src/pages/admin/customers", {
+      context: "crud-ui-generator",
+      label: 'option "target-root"'
+    }),
+    "src/pages/admin/customers"
   );
 });
 

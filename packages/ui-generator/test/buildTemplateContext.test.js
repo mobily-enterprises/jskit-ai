@@ -498,8 +498,32 @@ test("buildUiPageTemplateContext rejects target files with a leading src segment
           targetFile: "src/components/ReportsPanel.vue",
           options: {}
         }),
-      /must be relative to src\/pages\/, without a leading src\/ segment/
+      /must be relative to src\/pages\/ or start with src\/pages\/:/
     );
+  });
+});
+
+test("buildUiPageTemplateContext accepts target files with a src/pages prefix", async () => {
+  await withTempApp(async (appRoot) => {
+    await writeConfig(
+      appRoot,
+      `export const config = {
+  surfaceDefinitions: {
+    admin: { id: "admin", pagesRoot: "admin", enabled: true }
+  }
+};
+`
+    );
+    await writeShellLayout(appRoot);
+
+    const context = await buildUiPageTemplateContext({
+      appRoot,
+      targetFile: "src/pages/admin/reports/index.vue",
+      options: {}
+    });
+
+    assert.equal(context.__JSKIT_UI_LINK_PLACEMENT_ID__, "ui-generator.page.admin.reports.link");
+    assert.equal(context.__JSKIT_UI_LINK_WORKSPACE_SUFFIX__, "/reports");
   });
 });
 
