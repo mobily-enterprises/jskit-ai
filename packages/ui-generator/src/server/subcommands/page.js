@@ -35,7 +35,7 @@ function renderPageLinkPlacementBlock({
     `      workspaceSuffix: "${context.__JSKIT_UI_LINK_WORKSPACE_SUFFIX__}",\n` +
     `      nonWorkspaceSuffix: "${context.__JSKIT_UI_LINK_NON_WORKSPACE_SUFFIX__}",\n` +
     `${context.__JSKIT_UI_LINK_TO_PROP_LINE__}    },\n` +
-    "    when: ({ auth }) => Boolean(auth?.authenticated)\n" +
+    `${String(context.__JSKIT_UI_LINK_WHEN_LINE__ || "")}` +
     "  });\n" +
     "}\n"
   );

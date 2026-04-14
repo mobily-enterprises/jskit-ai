@@ -255,6 +255,7 @@ test("buildUiTemplateContext derives CRUD placeholders from the explicit target-
     assert.equal(context.__JSKIT_UI_HAS_VIEW_ROUTE__, "true");
     assert.equal(context.__JSKIT_UI_HAS_NEW_ROUTE__, "true");
     assert.equal(context.__JSKIT_UI_HAS_EDIT_ROUTE__, "true");
+    assert.equal(context.__JSKIT_UI_MENU_WHEN_LINE__, "");
     assert.doesNotMatch(context.__JSKIT_UI_LIST_HEADER_COLUMNS__, /Id/);
     assert.doesNotMatch(context.__JSKIT_UI_LIST_ROW_COLUMNS__, /record\.id/);
     assert.match(context.__JSKIT_UI_LIST_HEADER_COLUMNS__, /First Name/);
@@ -265,6 +266,36 @@ test("buildUiTemplateContext derives CRUD placeholders from the explicit target-
     assert.equal(context.__JSKIT_UI_RECORD_CHANGED_EVENT__, "\"customers.record.changed\"");
     assert.equal(context.__JSKIT_UI_LIST_RECORD_ID_EXPR__, "item.id");
     assert.equal(context.__JSKIT_UI_VIEW_TITLE_FALLBACK_FIELD_KEY__, "\"firstName\"");
+  });
+});
+
+test("buildUiTemplateContext derives menu auth visibility from the target surface policy", async () => {
+  await withTempApp(async (appRoot) => {
+    await writeFile(
+      path.join(appRoot, "config", "public.js"),
+      `export const config = {
+  surfaceAccessPolicies: {
+    authenticated: {
+      requireAuth: true
+    }
+  },
+  surfaceDefinitions: {
+    app: { id: "app", pagesRoot: "app", enabled: true, accessPolicyId: "authenticated" }
+  }
+};
+`,
+      "utf8"
+    );
+    await writeResource(appRoot, RESOURCE_FILE, FULL_RESOURCE_SOURCE);
+
+    const context = await buildUiTemplateContext({
+      appRoot,
+      options: createOptions({
+        "target-root": "app/customers"
+      })
+    });
+
+    assert.equal(context.__JSKIT_UI_MENU_WHEN_LINE__, "    when: ({ auth }) => Boolean(auth?.authenticated)\n");
   });
 });
 

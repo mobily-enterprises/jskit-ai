@@ -60,6 +60,7 @@ async function resolveAssistantPageGenerationContext({
     linkComponentToken: String(linkTarget.componentToken || ""),
     linkWorkspaceSuffix: pageTarget.routeUrlSuffix,
     linkNonWorkspaceSuffix: pageTarget.routeUrlSuffix,
+    linkWhenLine: String(linkTarget.whenLine || ""),
     linkToPropLine: resolveLinkToPropLine(linkTarget.linkTo)
   });
 }
@@ -84,7 +85,7 @@ function renderAssistantPageLinkPlacementBlock({
     `      workspaceSuffix: "${String(generationContext?.linkWorkspaceSuffix || "")}",\n` +
     `      nonWorkspaceSuffix: "${String(generationContext?.linkNonWorkspaceSuffix || "")}",\n` +
     `${String(generationContext?.linkToPropLine || "")}    },\n` +
-    "    when: ({ auth }) => Boolean(auth?.authenticated)\n" +
+    `${String(generationContext?.linkWhenLine || "")}` +
     "  });\n" +
     "}\n"
   );

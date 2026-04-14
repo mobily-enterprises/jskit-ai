@@ -192,9 +192,29 @@ async function loadPublicConfig(appRoot = "", { context = "page target" } = {}) 
   }
 }
 
+function normalizeSurfaceAccessPolicyId(value = "") {
+  return normalizeText(value).toLowerCase();
+}
+
+function resolveSurfaceRequiresAuth(surfaceDefinition = {}, surfaceAccessPolicies = {}) {
+  const normalizedDefinition = normalizeObject(surfaceDefinition);
+  const normalizedPolicies = normalizeObject(surfaceAccessPolicies);
+  const accessPolicyId = normalizeSurfaceAccessPolicyId(normalizedDefinition.accessPolicyId);
+  const configuredPolicy = accessPolicyId
+    ? normalizeObject(normalizedPolicies[accessPolicyId])
+    : {};
+
+  if (Object.hasOwn(configuredPolicy, "requireAuth")) {
+    return configuredPolicy.requireAuth === true;
+  }
+
+  return normalizedDefinition.requiresAuth === true;
+}
+
 async function listSurfacePageRoots(appRoot = "", { context = "page target" } = {}) {
   const config = await loadPublicConfig(appRoot, { context });
   const surfaceDefinitions = normalizeObject(config.surfaceDefinitions);
+  const surfaceAccessPolicies = normalizeObject(config.surfaceAccessPolicies);
 
   return Object.freeze(
     Object.entries(surfaceDefinitions)
@@ -207,7 +227,8 @@ async function listSurfacePageRoots(appRoot = "", { context = "page target" } = 
 
         return Object.freeze({
           id: surfaceId,
-          pagesRoot: normalizeSurfacePagesRoot(definition.pagesRoot)
+          pagesRoot: normalizeSurfacePagesRoot(definition.pagesRoot),
+          requiresAuth: resolveSurfaceRequiresAuth(definition, surfaceAccessPolicies)
         });
       })
       .filter(Boolean)
@@ -228,6 +249,7 @@ function deriveSurfaceMatchesFromPageFile(relativePath = "", surfacePageRoots = 
         return Object.freeze({
           surfaceId: normalizeSurfaceId(surface?.id),
           pagesRoot,
+          requiresAuth: surface?.requiresAuth === true,
           surfaceRelativeFilePath: pagePathWithinPagesRoot
         });
       }
@@ -240,6 +262,7 @@ function deriveSurfaceMatchesFromPageFile(relativePath = "", surfacePageRoots = 
       return Object.freeze({
         surfaceId: normalizeSurfaceId(surface?.id),
         pagesRoot,
+        requiresAuth: surface?.requiresAuth === true,
         surfaceRelativeFilePath: pagePathWithinPagesRoot.slice(requiredPrefix.length)
       });
     })
@@ -455,6 +478,7 @@ async function resolvePageTargetDetails({
     }),
     surfaceId: surfaceMatch.surfaceId,
     surfacePagesRoot: surfaceMatch.pagesRoot,
+    surfaceRequiresAuth: surfaceMatch.requiresAuth === true,
     surfaceRelativeFilePath: surfaceMatch.surfaceRelativeFilePath,
     ...routeInfo
   });
@@ -612,6 +636,14 @@ function resolveInferredPageLinkComponentToken({
   return normalizeText(defaultComponentToken) || DEFAULT_PAGE_LINK_COMPONENT_TOKEN;
 }
 
+function renderPageLinkWhenLine(pageTarget = {}) {
+  if (pageTarget?.surfaceRequiresAuth !== true) {
+    return "";
+  }
+
+  return "    when: ({ auth }) => Boolean(auth?.authenticated)\n";
+}
+
 async function resolvePageLinkTargetDetails({
   appRoot,
   targetFile = "",
@@ -650,6 +682,7 @@ async function resolvePageLinkTargetDetails({
       defaultComponentToken,
       subpageComponentToken
     }),
+    whenLine: renderPageLinkWhenLine(resolvedPageTarget),
     linkTo: resolveInferredPageLinkTo({
       explicitLinkTo: linkTo,
       pageTarget: resolvedPageTarget,

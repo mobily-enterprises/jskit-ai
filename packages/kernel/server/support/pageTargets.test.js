@@ -132,6 +132,41 @@ test("resolvePageTargetDetails chooses the most specific matching surface pagesR
   });
 });
 
+test("resolvePageTargetDetails derives surface auth requirement from surface access policy", async () => {
+  await withTempApp(async (appRoot) => {
+    await writeConfig(
+      appRoot,
+      `export const config = {
+  surfaceAccessPolicies: {
+    public: {},
+    authenticated: {
+      requireAuth: true
+    }
+  },
+  surfaceDefinitions: {
+    home: { id: "home", pagesRoot: "home", enabled: true, accessPolicyId: "public" },
+    app: { id: "app", pagesRoot: "app", enabled: true, accessPolicyId: "authenticated" }
+  }
+};
+`
+    );
+
+    const publicPageTarget = await resolvePageTargetDetails({
+      appRoot,
+      targetFile: "home/index.vue",
+      context: "page target"
+    });
+    const authenticatedPageTarget = await resolvePageTargetDetails({
+      appRoot,
+      targetFile: "app/index.vue",
+      context: "page target"
+    });
+
+    assert.equal(publicPageTarget.surfaceRequiresAuth, false);
+    assert.equal(authenticatedPageTarget.surfaceRequiresAuth, true);
+  });
+});
+
 test("resolvePageTargetDetails rejects duplicate matching surface pagesRoot definitions", async () => {
   await withTempApp(async (appRoot) => {
     await writeConfig(
@@ -215,6 +250,35 @@ test("resolvePageLinkTargetDetails falls back to the app default placement targe
     assert.equal(details.placementTarget.id, "shell-layout:primary-menu");
     assert.equal(details.componentToken, "local.main.ui.surface-aware-menu-link-item");
     assert.equal(details.linkTo, "");
+    assert.equal(details.whenLine, "");
+  });
+});
+
+test("resolvePageLinkTargetDetails emits an auth guard when the surface policy requires auth", async () => {
+  await withTempApp(async (appRoot) => {
+    await writeConfig(
+      appRoot,
+      `export const config = {
+  surfaceAccessPolicies: {
+    authenticated: {
+      requireAuth: true
+    }
+  },
+  surfaceDefinitions: {
+    app: { id: "app", pagesRoot: "app", enabled: true, accessPolicyId: "authenticated" }
+  }
+};
+`
+    );
+    await writeShellLayout(appRoot);
+
+    const details = await resolvePageLinkTargetDetails({
+      appRoot,
+      targetFile: "app/reports/index.vue",
+      context: "page target"
+    });
+
+    assert.equal(details.whenLine, "    when: ({ auth }) => Boolean(auth?.authenticated)\n");
   });
 });
 

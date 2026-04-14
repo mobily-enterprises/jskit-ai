@@ -36,6 +36,7 @@ async function buildUiPageTemplateContext({
     __JSKIT_UI_LINK_COMPONENT_TOKEN__: String(linkTarget.componentToken || ""),
     __JSKIT_UI_LINK_WORKSPACE_SUFFIX__: pageTarget.routeUrlSuffix,
     __JSKIT_UI_LINK_NON_WORKSPACE_SUFFIX__: pageTarget.routeUrlSuffix,
+    __JSKIT_UI_LINK_WHEN_LINE__: String(linkTarget.whenLine || ""),
     __JSKIT_UI_LINK_TO_PROP_LINE__: resolveLinkToPropLine(linkTarget.linkTo)
   };
 }

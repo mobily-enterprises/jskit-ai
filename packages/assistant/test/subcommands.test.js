@@ -25,11 +25,12 @@ function toPagePath(targetFile = "") {
   return path.join("src/pages", targetFile);
 }
 
-async function writeAppFixture(appRoot) {
+async function writeAppFixture(appRoot, { configSource = "" } = {}) {
   await writeFileInApp(
     appRoot,
     "config/public.js",
-    `export const config = {
+    configSource ||
+      `export const config = {
   surfaceDefinitions: {
     admin: {
       id: "admin",
@@ -140,6 +141,41 @@ test("assistant settings-page subcommand uses the target assistant surface and i
     assert.match(placementSource, /componentToken: "local\.main\.ui\.tab-link-item"/);
     assert.match(placementSource, /to: "\.\/assistant"/);
     assert.match(placementSource, /label: "Assistant"/);
+  });
+});
+
+test("assistant page subcommand omits the auth guard for a public surface link", async () => {
+  await withTempApp(async (appRoot) => {
+    await writeAppFixture(appRoot, {
+      configSource: `export const config = {
+  surfaceAccessPolicies: {
+    public: {}
+  },
+  surfaceDefinitions: {
+    home: {
+      id: "home",
+      pagesRoot: "home",
+      enabled: true,
+      requiresWorkspace: false,
+      accessPolicyId: "public"
+    }
+  },
+  assistantSurfaces: {}
+};
+`
+    });
+
+    const targetFile = "home/assistant/index.vue";
+    await runPageSubcommand({
+      appRoot,
+      subcommand: "page",
+      args: [targetFile],
+      options: {}
+    });
+
+    const placementSource = await readFile(path.join(appRoot, "src", "placement.js"), "utf8");
+    assert.match(placementSource, /id: "ui-generator\.page\.home\.assistant\.link"/);
+    assert.doesNotMatch(placementSource, /when: \(\{ auth \}\) => Boolean\(auth\?\.authenticated\)/);
   });
 });
 

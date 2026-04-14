@@ -65,8 +65,37 @@ test("buildUiPageTemplateContext resolves link placement from default app ShellO
     assert.equal(context.__JSKIT_UI_LINK_COMPONENT_TOKEN__, "local.main.ui.surface-aware-menu-link-item");
     assert.equal(context.__JSKIT_UI_LINK_WORKSPACE_SUFFIX__, "/reports");
     assert.equal(context.__JSKIT_UI_LINK_NON_WORKSPACE_SUFFIX__, "/reports");
+    assert.equal(context.__JSKIT_UI_LINK_WHEN_LINE__, "");
     assert.equal(context.__JSKIT_UI_LINK_TO_PROP_LINE__, "");
     assert.equal(context.__JSKIT_UI_LINK_PLACEMENT_ID__, "ui-generator.page.admin.reports.link");
+  });
+});
+
+test("buildUiPageTemplateContext derives an auth guard from an authenticated surface policy", async () => {
+  await withTempApp(async (appRoot) => {
+    await writeConfig(
+      appRoot,
+      `export const config = {
+  surfaceAccessPolicies: {
+    authenticated: {
+      requireAuth: true
+    }
+  },
+  surfaceDefinitions: {
+    app: { id: "app", pagesRoot: "app", enabled: true, accessPolicyId: "authenticated" }
+  }
+};
+`
+    );
+    await writeShellLayout(appRoot);
+
+    const context = await buildUiPageTemplateContext({
+      appRoot,
+      targetFile: "app/reports/index.vue",
+      options: {}
+    });
+
+    assert.equal(context.__JSKIT_UI_LINK_WHEN_LINE__, "    when: ({ auth }) => Boolean(auth?.authenticated)\n");
   });
 });
 
