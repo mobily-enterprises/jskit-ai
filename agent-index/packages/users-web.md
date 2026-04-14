@@ -496,8 +496,6 @@ Local functions
 Exports
 - `UsersWebClientProvider`
 - `UsersWorkspacesClientProvider`
-- `ConsoleSettingsClientElement`
-- `WorkspaceSettingsClientElement`
 - `clientProviders`
 
 ### `src/client/lib/bootstrap.js`
@@ -693,6 +691,12 @@ Exports
 ### `src/client/support/workspaceQueryKeys.js`
 Exports
 - `buildWorkspaceQueryKey(kind = "", surfaceId = "", workspaceSlug = "")`
+
+### `src/shared/toolsOutletContracts.js`
+Exports
+- `DEFAULT_TOOLS_LINK_COMPONENT_TOKEN`
+- `HOME_TOOLS_OUTLET`
+- `WORKSPACE_TOOLS_OUTLET`
 
 ### templates
 

@@ -1,5 +1,5 @@
 import { readFile } from "node:fs/promises";
-import { pathToFileURL } from "node:url";
+import { importFreshModuleFromAbsolutePath } from "@jskit-ai/kernel/server/support";
 import { createCliError } from "../../shared/cliError.js";
 import {
   ensureArray,
@@ -105,7 +105,7 @@ async function resolveTemplateContextReplacementsForMutation({
 
   let moduleNamespace = null;
   try {
-    moduleNamespace = await import(`${pathToFileURL(absoluteEntrypointPath).href}?t=${Date.now()}_${Math.random()}`);
+    moduleNamespace = await importFreshModuleFromAbsolutePath(absoluteEntrypointPath);
   } catch (error) {
     throw createCliError(
       `Unable to load templateContext entrypoint ${entrypoint} for ${packageEntry.packageId}: ${String(error?.message || error || "unknown error")}`

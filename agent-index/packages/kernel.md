@@ -332,6 +332,8 @@ Exports
 - `discoverShellOutletTargetsFromVueSource(source = "", { context = "shell layout" } = {})`
 - `findShellOutletTargetById(targets = [], targetId = "")`
 - `normalizeShellOutletTargetId(value = "")`
+- `normalizeShellOutletTargetRecord(value = {}, { context = "shell layout" } = {})`
+- `resolveShellOutletTargetParts({ target = "" } = {})`
 Local functions
 - `parseTagAttributes(attributesSource = "")`
 - `isDefaultAttributeEnabled(value)`
@@ -1174,11 +1176,18 @@ Local functions
 Exports
 - `defaultMissingHandler(_request, reply)`
 
+### `server/support/importFreshModuleFromAbsolutePath.js`
+Exports
+- `importFreshModuleFromAbsolutePath(absolutePath)`
+Local functions
+- `nextFreshImportToken()`
+
 ### `server/support/index.js`
 Exports
 - `symlinkSafeRequire`
 - `resolveAppConfig`
 - `loadAppConfigFromModuleUrl`
+- `importFreshModuleFromAbsolutePath`
 - `resolveRequiredAppRoot`
 - `toPosixPath`
 - `DEFAULT_PAGE_LINK_COMPONENT_TOKEN`
@@ -1216,6 +1225,8 @@ Local functions
 - `normalizePlacementIdSegment(value = "")`
 - `humanizePageSegment(value = "", fallback = "Page")`
 - `loadPublicConfig(appRoot = "", { context = "page target" } = {})`
+- `normalizeSurfaceAccessPolicyId(value = "")`
+- `resolveSurfaceRequiresAuth(surfaceDefinition = {}, surfaceAccessPolicies = {})`
 - `listSurfacePageRoots(appRoot = "", { context = "page target" } = {})`
 - `deriveSurfaceMatchesFromPageFile(relativePath = "", surfacePageRoots = [])`
 - `compareSurfaceMatchSpecificity(leftMatch = {}, rightMatch = {})`
@@ -1230,6 +1241,7 @@ Local functions
 - `resolveRelativeLinkToFromNearestIndexOwner(pageTarget = {})`
 - `resolveInferredPageLinkTo({ explicitLinkTo = "", pageTarget = {}, parentHost = null, placementTarget = null } = {})`
 - `resolveInferredPageLinkComponentToken({ explicitComponentToken = "", parentHost = null, placementTarget = null, defaultComponentToken = DEFAULT_PAGE_LINK_COMPONENT_TOKEN, subpageComponentToken = DEFAULT_SUBPAGE_LINK_COMPONENT_TOKEN } = {})`
+- `renderPageLinkWhenLine(pageTarget = {})`
 
 ### `server/support/path.js`
 Exports
@@ -1253,6 +1265,8 @@ Local functions
 - `collectVueFilePaths(rootDirectoryPath)`
 - `readInstalledPackageStates(appRoot)`
 - `normalizePackageOutletTarget({ packageId = "", outlet = {}, descriptorPath = "" } = {})`
+- `loadOutletDefaultOverrides(appRoot = "")`
+- `applyOutletDefaultOverrides(target = {}, outletDefaultOverrides = {})`
 - `collectInstalledPackageOutletTargets(appRoot)`
 
 ### `server/support/SupportCoreServiceProvider.js`

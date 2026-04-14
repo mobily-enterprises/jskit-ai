@@ -1,6 +1,7 @@
 import { mkdtemp, mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
-import { fileURLToPath, pathToFileURL } from "node:url";
+import { fileURLToPath } from "node:url";
+import { importFreshModuleFromAbsolutePath } from "@jskit-ai/kernel/server/support";
 
 const testSupportDirectory = path.dirname(fileURLToPath(import.meta.url));
 const packageRoot = path.resolve(testSupportDirectory, "..");
@@ -270,8 +271,7 @@ async function createTemplateServerFixture(options = {}) {
 
   async function importServerModule(fileName) {
     const absolutePath = path.join(serverRoot, fileName);
-    const href = pathToFileURL(absolutePath).href;
-    return import(`${href}?t=${Date.now()}_${Math.random()}`);
+    return importFreshModuleFromAbsolutePath(absolutePath);
   }
 
   async function cleanup() {

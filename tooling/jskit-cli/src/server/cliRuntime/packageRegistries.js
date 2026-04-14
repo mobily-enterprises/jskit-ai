@@ -1,6 +1,7 @@
 import { readdir } from "node:fs/promises";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
+import { importFreshModuleFromAbsolutePath } from "@jskit-ai/kernel/server/support";
 import { createCliError } from "../shared/cliError.js";
 import {
   ensureArray,
@@ -92,7 +93,7 @@ async function loadAppLocalPackageRegistry(appRoot) {
       throw createCliError(`Invalid app-local package at ${normalizeRelativePath(appRoot, packageRoot)}: package.json missing name.`);
     }
 
-    const descriptorModule = await import(pathToFileURL(descriptorPath).href + `?t=${Date.now()}_${Math.random()}`);
+    const descriptorModule = await importFreshModuleFromAbsolutePath(descriptorPath);
     const descriptor = validateAppLocalPackageDescriptorShape(descriptorModule?.default, descriptorPath, {
       expectedPackageId: packageId,
       fallbackVersion: String(packageJson?.version || "").trim()
@@ -207,7 +208,7 @@ async function loadInstalledNodeModulePackageEntry({ appRoot, packageId }) {
     return null;
   }
 
-  const descriptorModule = await import(pathToFileURL(descriptorPath).href + `?t=${Date.now()}_${Math.random()}`);
+  const descriptorModule = await importFreshModuleFromAbsolutePath(descriptorPath);
   const descriptor = validateAppLocalPackageDescriptorShape(descriptorModule?.default, descriptorPath, {
     expectedPackageId: resolvedPackageId,
     fallbackVersion: String(packageJson?.version || "").trim()

@@ -10,7 +10,11 @@ import {
 } from "@jskit-ai/database-runtime/shared";
 import { resolveCrudSurfacePolicyFromAppConfig } from "@jskit-ai/crud-core/server/crudModuleConfig";
 import { checkCrudLookupFormControl } from "@jskit-ai/crud-core/shared/crudFieldMetaSupport";
-import { loadAppConfigFromModuleUrl, resolveRequiredAppRoot } from "@jskit-ai/kernel/server/support";
+import {
+  importFreshModuleFromAbsolutePath,
+  loadAppConfigFromModuleUrl,
+  resolveRequiredAppRoot
+} from "@jskit-ai/kernel/server/support";
 import { normalizeCrudLookupNamespace } from "@jskit-ai/kernel/shared/support/crudLookup";
 import { toCamelCase, toSnakeCase } from "@jskit-ai/kernel/shared/support/stringCase";
 
@@ -190,7 +194,7 @@ async function importModuleFromApp(appRequire, moduleId, contextLabel) {
   }
 
   try {
-    return await import(`${pathToFileURL(resolvedPath).href}?t=${Date.now()}_${Math.random()}`);
+    return await importFreshModuleFromAbsolutePath(resolvedPath);
   } catch (error) {
     throw new Error(
       `${contextLabel} failed loading "${moduleId}": ${String(error?.message || error || "unknown error")}`

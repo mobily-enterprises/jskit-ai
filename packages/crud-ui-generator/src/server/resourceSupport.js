@@ -1,10 +1,10 @@
 import path from "node:path";
-import { pathToFileURL } from "node:url";
 import { resolveCrudRecordChangedEvent } from "@jskit-ai/crud-core/shared/crudNamespaceSupport";
 import {
   checkCrudLookupFormControl,
   isCrudRuntimeOutputOnlyFieldKey
 } from "@jskit-ai/crud-core/shared/crudFieldMetaSupport";
+import { importFreshModuleFromAbsolutePath } from "@jskit-ai/kernel/server/support";
 import {
   normalizeCrudLookupApiPath,
   normalizeCrudLookupNamespace,
@@ -64,7 +64,7 @@ async function loadResourceDefinition({
 
   let moduleNamespace = null;
   try {
-    moduleNamespace = await import(`${pathToFileURL(resourceModulePath).href}?t=${Date.now()}_${Math.random()}`);
+    moduleNamespace = await importFreshModuleFromAbsolutePath(resourceModulePath);
   } catch (error) {
     throw new Error(
       `${context} could not load resource file "${resourceFile}": ${String(error?.message || error || "unknown error")}`

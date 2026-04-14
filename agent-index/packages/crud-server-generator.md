@@ -24,6 +24,7 @@ Exports
 - `renderInputNormalizer(column)`
 - `renderOutputNormalizerExpression(column)`
 - `buildFieldMetaEntries({ outputColumns = [], writableColumns = [], snapshot = {} } = {})`
+- `resolveCrudGenerationSurfaceId({ appRoot, options } = {})`
 - `__testables`
 Local functions
 - `resolveGlobalScaffoldCache()`
@@ -36,7 +37,10 @@ Local functions
 - `loadEnvFromApp(appRoot)`
 - `createAppRequire(appRoot)`
 - `importModuleFromApp(appRequire, moduleId, contextLabel)`
-- `resolveCrudPermissionGenerationConfig({ appRoot, options } = {})`
+- `resolveCrudSurfaceRequiresWorkspace({ appRoot, options, surface = "" } = {})`
+- `loadCrudAppConfig(appRoot = "")`
+- `resolveSurfaceDefinitions(appConfig = {})`
+- `resolveDefaultCrudSurfaceIdFromAppConfig(appConfig = {})`
 - `resolveKnexFactory(moduleNamespace)`
 - `resolveMysqlSnapshotFromDatabase({ appRoot, tableName, idColumn } = {})`
 - `resolveColumnKey(column, idColumn)`
@@ -73,10 +77,17 @@ Local functions
 - `renderResourceFieldMetaPushLines(entries = [])`
 - `renderRepositoryListConfigLines(snapshot = {})`
 - `buildCrudPermissionIds(namespace = "")`
+- `normalizeCrudOperation(operation = "", context = "CRUD operation")`
 - `renderRoleCatalogPermissionGrants(namespace = "", { requiresNamedPermissions = true } = {})`
 - `renderActionPermissionSupport(namespace = "", { requiresNamedPermissions = true } = {})`
 - `renderActionPermissionExpression(operation = "", { requiresNamedPermissions = true } = {})`
-- `buildReplacementsFromSnapshot({ namespace = "", snapshot, resolvedOwnershipFilter, requiresNamedPermissions = true })`
+- `renderRouteWorkspaceSupportImports({ surfaceRequiresWorkspace = true } = {})`
+- `renderActionWorkspaceValidatorImport({ surfaceRequiresWorkspace = true } = {})`
+- `renderRouteParamsValidatorLine(operation = "", { surfaceRequiresWorkspace = true } = {})`
+- `renderRouteInputLines(operation = "", { surfaceRequiresWorkspace = true } = {})`
+- `renderActionInputValidatorExpression(operation = "", { surfaceRequiresWorkspace = true } = {})`
+- `buildReplacementsFromSnapshot({ namespace = "", snapshot, resolvedOwnershipFilter, surfaceRequiresWorkspace = true, surfaceId = "" })`
+- `resolveCrudGenerationTableName(options = {})`
 - `createCacheKey({ appRoot, options })`
 - `buildCrudTemplateContext(input = {})`
 
@@ -170,7 +181,7 @@ Exports
 
 ### `templates/src/local-package/server/registerRoutes.js`
 Exports
-- `registerRoutes(app, { routeOwnershipFilter = "public", routeSurface = "", routeSurfaceRequiresWorkspace = false, routeRelativePath = "" } = {})`
+- `registerRoutes(app, { routeOwnershipFilter = "public", routeSurface = "", routeRelativePath = "" } = {})`
 
 ### `templates/src/local-package/server/repository.js`
 Exports
@@ -200,8 +211,9 @@ Exports
 ### `test-support/templateServerFixture.js`
 Exports
 - `resource`
-- `createTemplateServerFixture()`
+- `createTemplateServerFixture(options = {})`
 Local functions
-- `applyTemplateReplacements(sourceText = "")`
+- `buildTemplateReplacements({ surfaceRequiresWorkspace = true, requiresNamedPermissions = surfaceRequiresWorkspace === true, surfaceId = surfaceRequiresWorkspace ? "admin" : "home" } = {})`
+- `applyTemplateReplacements(sourceText = "", options = {})`
 - `buildResourceStubSource()`
-- `renderServerTemplateFile(targetServerDirectory, fileName)`
+- `renderServerTemplateFile(targetServerDirectory, fileName, options)`

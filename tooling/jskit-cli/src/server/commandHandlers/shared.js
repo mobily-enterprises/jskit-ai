@@ -1,5 +1,5 @@
 import { spawn } from "node:child_process";
-import { pathToFileURL } from "node:url";
+import { importFreshModuleFromAbsolutePath } from "@jskit-ai/kernel/server/support";
 import {
   ensureArray,
   ensureObject,
@@ -246,7 +246,7 @@ function createCommandHandlerShared(ctx = {}) {
 
     let moduleNamespace = null;
     try {
-      moduleNamespace = await import(`${pathToFileURL(entrypointPath).href}?t=${Date.now()}_${Math.random()}`);
+      moduleNamespace = await importFreshModuleFromAbsolutePath(entrypointPath);
     } catch (error) {
       throw createCliError(
         `Unable to load generator subcommand entrypoint ${normalizeRelativePath(appRoot, entrypointPath)}: ${String(error?.message || error || "unknown error")}`

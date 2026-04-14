@@ -158,6 +158,8 @@ Exports
 - `discoverShellOutletTargetsFromVueSource(source = "", { context = "shell layout" } = {})`
 - `findShellOutletTargetById(targets = [], targetId = "")`
 - `normalizeShellOutletTargetId(value = "")`
+- `normalizeShellOutletTargetRecord(value = {}, { context = "shell layout" } = {})`
+- `resolveShellOutletTargetParts({ target = "" } = {})`
 Local functions
 - `parseTagAttributes(attributesSource = "")`
 - `isDefaultAttributeEnabled(value)`

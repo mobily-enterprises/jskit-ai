@@ -60,7 +60,7 @@ Exports
 - `isGeneratorPackageEntry(packageEntry)`
 Local functions
 - `normalizePackageKind(rawValue, descriptorPath)`
-- `validateInstallMigrationMutationShape(descriptor, descriptorPath)`
+- `validateFileMutationShape(descriptor, descriptorPath)`
 
 ### `src/server/cliRuntime/ioAndMigrations.js`
 Exports
@@ -104,18 +104,18 @@ Local functions
 ### `src/server/cliRuntime/mutationApplication.js`
 Exports
 - `applyFileMutations`
-- `preflightFileMutationTemplateContexts`
+- `prepareFileMutations`
 - `applyTextMutations`
 - `resolvePositioningMutations`
 
 ### `src/server/cliRuntime/mutations/fileMutations.js`
 Exports
-- `applyFileMutations(packageEntry, options, appRoot, fileMutations, managedFiles, managedMigrations, touchedFiles, warnings = [], precomputedTemplateContextByMutationIndex = null)`
-- `preflightFileMutationTemplateContexts(packageEntry, options, appRoot, fileMutations)`
+- `applyFileMutations(packageEntry, appRoot, preparedMutations, managedFiles, managedMigrations, touchedFiles, warnings = [], existingManagedFiles = [])`
+- `prepareFileMutations(packageEntry, options, appRoot, fileMutations, existingManagedFiles = [])`
 
 ### `src/server/cliRuntime/mutations/installMigrationMutation.js`
 Exports
-- `applyInstallMigrationMutation({ packageEntry, mutation, rawMutation, mutationIndex, options, appRoot, managedMigrations, managedMigrationById, touchedFiles, warnings, precomputedTemplateContextByMutationIndex } = {})`
+- `applyInstallMigrationMutation({ packageEntry, preparedMutation, appRoot, managedMigrations, managedMigrationById, touchedFiles, warnings } = {})`
 
 ### `src/server/cliRuntime/mutations/mutationPathUtils.js`
 Exports
@@ -132,8 +132,8 @@ Local functions
 ### `src/server/cliRuntime/mutations/templateContext.js`
 Exports
 - `applyTemplateContextReplacements(sourceContent, replacements)`
-- `copyTemplateFile(sourcePath, targetPath, options, packageId, interpolationKey, templateContextReplacements = null)`
 - `interpolateFileMutationRecord(mutation, options, packageId)`
+- `renderTemplateFile(sourcePath, options, packageId, interpolationKey, templateContextReplacements = null)`
 - `resolveTemplateContextReplacementsForMutation({ packageEntry, mutation, options, appRoot, sourcePath, targetPaths, mutationContext = "files mutation" } = {})`
 
 ### `src/server/cliRuntime/mutations/textMutations.js`
@@ -302,6 +302,8 @@ Exports
 ### `src/server/commandHandlers/packageCommands/add.js`
 Exports
 - `runPackageAddCommand(ctx = {}, { positional, options, cwd, io })`
+Local functions
+- `collectPlacementComponentTokensFromManagedRecords(installedPackageRecords = [])`
 
 ### `src/server/commandHandlers/packageCommands/create.js`
 Exports
@@ -342,6 +344,7 @@ Exports
 - `runPackageGenerateCommand(ctx = {}, { positional, options, cwd, io }, { runCommandAdd })`
 Local functions
 - `resolveGeneratorSubcommandDefinitionMetadata(packageEntry = {}, subcommandName = "")`
+- `resolveSubcommandRequiresShellWeb(packageEntry = {}, subcommandName = "")`
 - `mapDescriptorBackedSubcommandArgsToInlineOptions(packageEntry = {}, subcommandName = "", subcommandArgs = [], inlineOptions = {}, createCliError)`
 - `resolveSubcommandRequiresInput(packageEntry = {}, subcommandName = "")`
 - `collectUnexpectedGeneratorSubcommandOptionNames(packageEntry = {}, subcommandName = "", inlineOptions = {})`
@@ -363,21 +366,22 @@ Exports
 
 ### `src/server/commandHandlers/packageCommands/tabLinkItemProvisioning.js`
 Exports
+- `LOCAL_LINK_ITEM_COMPONENT_TOKENS`
 - `TAB_LINK_COMPONENT_TOKEN`
+- `collectProvisionableLocalPlacementComponentTokensFromApp({ appRoot = "" } = {})`
+- `resolveProvisionableLocalPlacementComponentTokens({ appRoot = "", componentTokens = [] } = {})`
+- `ensureLocalMainPlacementComponentProvisioning({ appRoot = "", createCliError, dryRun = false, touchedFiles = new Set(), componentTokens = [] } = {})`
 - `ensureLocalMainTabLinkItemProvisioning({ appRoot = "", createCliError, dryRun = false, touchedFiles = new Set() } = {})`
 Local functions
 - `toPosixPath(value = "")`
 - `ensureTrailingNewline(value = "")`
 - `insertImportIfMissing(source = "", importLine = "")`
 - `insertBeforeClassDeclaration(source = "", line = "", { className = "", contextFile = "" } = {})`
-- `renderTabLinkItemSource()`
-- `normalizePathname(pathname = "")`
-- `interpolateBracketParams(pathTemplate = "", params = {})`
 - `readUtf8FileIfExists(absolutePath = "")`
-- `ensureTabLinkItemComponentFile({ appRoot = "", dryRun = false, touchedFiles = new Set() } = {})`
-- `hasTabLinkItemTokenRegistration(providerSource = "")`
-- `loadMainClientProviderSource({ appRoot = "", createCliError } = {})`
-- `ensureTabLinkItemProviderRegistration({ appRoot = "", createCliError, dryRun = false, touchedFiles = new Set() } = {})`
+- `ensureProvisionedComponentFile(definition, { appRoot = "", dryRun = false, touchedFiles = new Set() } = {})`
+- `hasProvisionedTokenRegistration(providerSource = "", componentToken = "")`
+- `loadMainClientProviderSource({ appRoot = "", createCliError, componentToken = "" } = {})`
+- `ensureProvisionedProviderRegistration(definition, { appRoot = "", createCliError, dryRun = false, touchedFiles = new Set() } = {})`
 
 ### `src/server/commandHandlers/packageCommands/update.js`
 Exports
