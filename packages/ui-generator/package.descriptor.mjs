@@ -104,6 +104,7 @@ export default Object.freeze({
     generatorPrimarySubcommand: "page",
     generatorSubcommands: {
       page: {
+        requiresShellWeb: true,
         entrypoint: "src/server/subcommands/page.js",
         export: "runGeneratorSubcommand",
         description: "Create a route page at an explicit target file and add a link placement entry for it.",
@@ -146,6 +147,7 @@ export default Object.freeze({
         ]
       },
       "placed-element": {
+        requiresShellWeb: true,
         entrypoint: "src/server/subcommands/element.js",
         export: "runGeneratorSubcommand",
         description: "Create a Vue component file under the chosen component directory (default: src/components) and add a placement entry that renders it.",
@@ -178,6 +180,7 @@ export default Object.freeze({
         ]
       },
       "add-subpages": {
+        requiresShellWeb: true,
         entrypoint: "src/server/subcommands/addSubpages.js",
         export: "runGeneratorSubcommand",
         description: "Upgrade an existing page into a routed subpage host with SectionContainerShell, ShellOutlet, and RouterView.",
@@ -217,6 +220,7 @@ export default Object.freeze({
         ]
       },
       outlet: {
+        requiresShellWeb: true,
         entrypoint: "src/server/subcommands/outlet.js",
         export: "runGeneratorSubcommand",
         description: "Inject a generic ShellOutlet block into an existing Vue page/component.",

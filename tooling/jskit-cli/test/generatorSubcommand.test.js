@@ -5,6 +5,7 @@ import path from "node:path";
 import test from "node:test";
 import { withTempDir } from "../../testUtils/tempDir.mjs";
 import { createCliRunner } from "../../testUtils/runCli.js";
+import { writeInstalledPackagesLock } from "./testLock.js";
 
 const CLI_PATH = fileURLToPath(new URL("../bin/jskit.js", import.meta.url));
 const runCli = createCliRunner(CLI_PATH);
@@ -36,7 +37,7 @@ async function createMinimalApp(appRoot, { name = "tmp-app" } = {}) {
   );
 }
 
-async function writeGeneratorPackage(appRoot) {
+async function writeGeneratorPackage(appRoot, { requiresShellWeb = false } = {}) {
   const packageRoot = path.join(appRoot, "packages", "demo-generator");
   await mkdir(path.join(packageRoot, "src", "server", "subcommands"), { recursive: true });
 
@@ -80,6 +81,7 @@ async function writeGeneratorPackage(appRoot) {
     generatorPrimarySubcommand: "ping",
     generatorSubcommands: {
       ping: {
+        requiresShellWeb: ${requiresShellWeb ? "true" : "false"},
         entrypoint: "src/server/subcommands/ping.js",
         export: "runGeneratorSubcommand"
       }
@@ -159,5 +161,46 @@ test("generate <packageId> with no subcommand shows generator help instead of ex
     assert.equal(result.status, 0, String(result.stderr || ""));
     assert.match(String(result.stdout || ""), /Generator help: @demo\/generator/);
     assert.equal(await fileExists(path.join(appRoot, "tmp", "generator-subcommand.txt")), false);
+  });
+});
+
+test("generate <packageId> <subcommand> fails when the subcommand requires shell-web and it is not installed", async () => {
+  await withTempDir(async (cwd) => {
+    const appRoot = path.join(cwd, "generator-subcommand-shell-gate-app");
+    await createMinimalApp(appRoot, { name: "generator-subcommand-shell-gate-app" });
+    await writeGeneratorPackage(appRoot, { requiresShellWeb: true });
+
+    const result = runCli({
+      cwd: appRoot,
+      args: ["generate", "@demo/generator", "ping", "a", "b"]
+    });
+
+    assert.equal(result.status, 1);
+    assert.match(String(result.stderr || ""), /requires @jskit-ai\/shell-web to be installed in this app/i);
+    assert.equal(await fileExists(path.join(appRoot, "tmp", "generator-subcommand.txt")), false);
+  });
+});
+
+test("generate <packageId> <subcommand> runs when the subcommand requires shell-web and shell-web is installed", async () => {
+  await withTempDir(async (cwd) => {
+    const appRoot = path.join(cwd, "generator-subcommand-shell-ready-app");
+    await createMinimalApp(appRoot, { name: "generator-subcommand-shell-ready-app" });
+    await writeGeneratorPackage(appRoot, { requiresShellWeb: true });
+    await writeInstalledPackagesLock(appRoot, {
+      "@jskit-ai/shell-web": {
+        packageId: "@jskit-ai/shell-web",
+        version: "0.1.0"
+      }
+    });
+
+    const result = runCli({
+      cwd: appRoot,
+      args: ["generate", "@demo/generator", "ping", "a", "b"]
+    });
+
+    assert.equal(result.status, 0, String(result.stderr || ""));
+    assert.match(String(result.stdout || ""), /Generated with @demo\/generator \(ping\)/);
+    const output = await readFile(path.join(appRoot, "tmp", "generator-subcommand.txt"), "utf8");
+    assert.equal(output, "ping:a,b");
   });
 });

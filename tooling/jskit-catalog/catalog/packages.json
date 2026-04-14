@@ -171,6 +171,7 @@
               ]
             },
             "page": {
+              "requiresShellWeb": true,
               "entrypoint": "src/server/subcommands/page.js",
               "export": "runGeneratorSubcommand",
               "description": "Create an assistant runtime page at an explicit target file relative to src/pages/.",
@@ -213,6 +214,7 @@
               ]
             },
             "settings-page": {
+              "requiresShellWeb": true,
               "entrypoint": "src/server/subcommands/settingsPage.js",
               "export": "runGeneratorSubcommand",
               "description": "Create an assistant settings page at an explicit target file relative to src/pages/.",
@@ -1559,6 +1561,7 @@
           "generatorPrimarySubcommand": "crud",
           "generatorSubcommands": {
             "crud": {
+              "requiresShellWeb": true,
               "description": "Create CRUD pages at an explicit route root relative to src/pages/.",
               "longDescription": [
                 "CRUD generation follows the same page-placement model as `ui-generator page`.",
@@ -1617,6 +1620,7 @@
               ]
             },
             "field": {
+              "requiresShellWeb": true,
               "entrypoint": "src/server/subcommands/addField.js",
               "export": "runGeneratorSubcommand"
             }
@@ -3007,6 +3011,7 @@
           "generatorPrimarySubcommand": "page",
           "generatorSubcommands": {
             "page": {
+              "requiresShellWeb": true,
               "entrypoint": "src/server/subcommands/page.js",
               "export": "runGeneratorSubcommand",
               "description": "Create a route page at an explicit target file and add a link placement entry for it.",
@@ -3055,6 +3060,7 @@
               ]
             },
             "placed-element": {
+              "requiresShellWeb": true,
               "entrypoint": "src/server/subcommands/element.js",
               "export": "runGeneratorSubcommand",
               "description": "Create a Vue component file under the chosen component directory (default: src/components) and add a placement entry that renders it.",
@@ -3096,6 +3102,7 @@
               ]
             },
             "add-subpages": {
+              "requiresShellWeb": true,
               "entrypoint": "src/server/subcommands/addSubpages.js",
               "export": "runGeneratorSubcommand",
               "description": "Upgrade an existing page into a routed subpage host with SectionContainerShell, ShellOutlet, and RouterView.",
@@ -3140,6 +3147,7 @@
               ]
             },
             "outlet": {
+              "requiresShellWeb": true,
               "entrypoint": "src/server/subcommands/outlet.js",
               "export": "runGeneratorSubcommand",
               "description": "Inject a generic ShellOutlet block into an existing Vue page/component.",

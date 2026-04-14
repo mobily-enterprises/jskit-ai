@@ -7,6 +7,8 @@ import {
 } from "./discoverabilityHelp.js";
 import { interpolateOptionValue } from "../../shared/optionInterpolation.js";
 
+const SHELL_WEB_PACKAGE_ID = "@jskit-ai/shell-web";
+
 function resolveGeneratorSubcommandDefinitionMetadata(packageEntry = {}, subcommandName = "") {
   const descriptor = packageEntry?.descriptor && typeof packageEntry.descriptor === "object"
     ? packageEntry.descriptor
@@ -25,6 +27,10 @@ function resolveGeneratorSubcommandDefinitionMetadata(packageEntry = {}, subcomm
   }
   const definition = subcommands[normalizedSubcommandName];
   return definition && typeof definition === "object" ? definition : {};
+}
+
+function resolveSubcommandRequiresShellWeb(packageEntry = {}, subcommandName = "") {
+  return resolveGeneratorSubcommandDefinitionMetadata(packageEntry, subcommandName)?.requiresShellWeb === true;
 }
 
 function mapDescriptorBackedSubcommandArgsToInlineOptions(
@@ -199,6 +205,7 @@ async function runPackageGenerateCommand(
     resolvePackageKind,
     resolveGeneratorPrimarySubcommand,
     hasGeneratorSubcommandDefinition,
+    loadLockFile,
     readdir,
     validateInlineOptionValuesForPackage,
     runGeneratorSubcommand,
@@ -360,6 +367,15 @@ async function runPackageGenerateCommand(
       appRoot,
       optionNames: validatedOptionNames
     });
+    if (resolveSubcommandRequiresShellWeb(packageEntry, normalizedSubcommandName)) {
+      const { lock } = await loadLockFile(appRoot);
+      if (!lock?.installedPackages?.[SHELL_WEB_PACKAGE_ID]) {
+        const commandLabel = `${String(targetId || resolvedPackageId || "").trim() || resolvedPackageId} ${normalizedSubcommandName}`.trim();
+        throw createCliError(
+          `Generator command ${commandLabel} requires ${SHELL_WEB_PACKAGE_ID} to be installed in this app. Run: npx jskit add package shell-web`
+        );
+      }
+    }
 
     const primarySubcommand = resolveGeneratorPrimarySubcommand(packageEntry);
     if (

@@ -158,6 +158,7 @@ export default Object.freeze({
         ]
       },
       page: {
+        requiresShellWeb: true,
         entrypoint: "src/server/subcommands/page.js",
         export: "runGeneratorSubcommand",
         description: "Create an assistant runtime page at an explicit target file relative to src/pages/.",
@@ -194,6 +195,7 @@ export default Object.freeze({
         ]
       },
       "settings-page": {
+        requiresShellWeb: true,
         entrypoint: "src/server/subcommands/settingsPage.js",
         export: "runGeneratorSubcommand",
         description: "Create an assistant settings page at an explicit target file relative to src/pages/.",

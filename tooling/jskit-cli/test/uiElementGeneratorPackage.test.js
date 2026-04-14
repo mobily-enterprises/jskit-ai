@@ -6,6 +6,7 @@ import { fileURLToPath } from "node:url";
 import { readLocalLinkItemComponentSource } from "@jskit-ai/shell-web/server/support/localLinkItemScaffolds";
 import { withTempDir } from "../../testUtils/tempDir.mjs";
 import { createCliRunner } from "../../testUtils/runCli.js";
+import { writeInstalledPackagesLock } from "./testLock.js";
 
 const CLI_PATH = fileURLToPath(new URL("../bin/jskit.js", import.meta.url));
 const REPO_ROOT = fileURLToPath(new URL("../../../", import.meta.url));
@@ -130,6 +131,13 @@ export {
 `,
     "utf8"
   );
+
+  await writeInstalledPackagesLock(appRoot, {
+    "@jskit-ai/shell-web": {
+      packageId: "@jskit-ai/shell-web",
+      version: "0.1.0"
+    }
+  });
 }
 
 async function installUiGeneratorPackage(appRoot) {
@@ -199,6 +207,31 @@ test("generate @jskit-ai/ui-generator page scaffolds page and menu placement", a
   });
 });
 
+test("generate @jskit-ai/ui-generator page requires shell-web to be installed in lock", async () => {
+  await withTempDir(async (cwd) => {
+    const appRoot = path.join(cwd, "ui-element-generator-shell-gate");
+    await createMinimalApp(appRoot, { name: "ui-element-generator-shell-gate" });
+    await writeInstalledPackagesLock(appRoot, {});
+    await installUiGeneratorPackage(appRoot);
+
+    const result = runCli({
+      cwd: appRoot,
+      args: [
+        "generate",
+        "@jskit-ai/ui-generator",
+        "page",
+        "admin/reports-dashboard/index.vue",
+        "--name",
+        "Reports Dashboard"
+      ]
+    });
+
+    assert.equal(result.status, 1);
+    assert.match(String(result.stderr || ""), /requires @jskit-ai\/shell-web to be installed in this app/i);
+    assert.equal(await fileExists(path.join(appRoot, "src", "pages", "admin", "reports-dashboard", "index.vue")), false);
+  });
+});
+
 test("generate @jskit-ai/ui-generator with no subcommand shows generator help without mutating app deps", async () => {
   await withTempDir(async (cwd) => {
     const appRoot = path.join(cwd, "ui-element-generator-primary-help");
@@ -224,6 +257,8 @@ test("generate @jskit-ai/ui-generator with no subcommand shows generator help wi
       "utf8"
     );
     const packageJsonBefore = await readFile(packageJsonPath, "utf8");
+    const lockPath = path.join(appRoot, ".jskit", "lock.json");
+    const lockBefore = await readFile(lockPath, "utf8");
 
     const result = runCli({
       cwd: appRoot,
@@ -236,7 +271,7 @@ test("generate @jskit-ai/ui-generator with no subcommand shows generator help wi
 
     const packageJsonAfter = await readFile(packageJsonPath, "utf8");
     assert.equal(packageJsonAfter, packageJsonBefore);
-    assert.equal(await fileExists(path.join(appRoot, ".jskit", "lock.json")), false);
+    assert.equal(await readFile(lockPath, "utf8"), lockBefore);
   });
 });
 
