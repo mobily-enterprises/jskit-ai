@@ -159,7 +159,7 @@ const COMMAND_DESCRIPTORS = Object.freeze({
   }),
   generate: Object.freeze({
     command: "generate",
-    aliases: Object.freeze(["gen"]),
+    aliases: Object.freeze([]),
     showInOverview: true,
     summary: "Run a generator package (or generator subcommand).",
     minimalUse: "jskit generate <generatorId>",
@@ -212,7 +212,7 @@ const COMMAND_DESCRIPTORS = Object.freeze({
   }),
   list: Object.freeze({
     command: "list",
-    aliases: Object.freeze(["ls"]),
+    aliases: Object.freeze([]),
     showInOverview: true,
     summary: "List bundles, runtime packages, or generator packages.",
     minimalUse: "jskit list",
@@ -236,7 +236,7 @@ const COMMAND_DESCRIPTORS = Object.freeze({
   }),
   "list-placements": Object.freeze({
     command: "list-placements",
-    aliases: Object.freeze(["lp"]),
+    aliases: Object.freeze([]),
     showInOverview: true,
     summary: "List discovered UI placement targets.",
     minimalUse: "jskit list-placements",
@@ -255,7 +255,7 @@ const COMMAND_DESCRIPTORS = Object.freeze({
   }),
   "list-component-tokens": Object.freeze({
     command: "list-component-tokens",
-    aliases: Object.freeze(["lct", "list-link-items", "lpct", "list-placement-component-tokens"]),
+    aliases: Object.freeze([]),
     showInOverview: true,
     summary: "List available placement component tokens.",
     minimalUse: "jskit list-component-tokens",
@@ -285,7 +285,7 @@ const COMMAND_DESCRIPTORS = Object.freeze({
   }),
   show: Object.freeze({
     command: "show",
-    aliases: Object.freeze(["view"]),
+    aliases: Object.freeze([]),
     showInOverview: true,
     summary: "Show detailed metadata for a bundle or package.",
     minimalUse: "jskit show <id>",
@@ -296,7 +296,6 @@ const COMMAND_DESCRIPTORS = Object.freeze({
       })
     ]),
     defaults: Object.freeze([
-      "view is an alias of show.",
       "Basic output is compact; --details expands capability and runtime sections.",
       "--debug-exports implies --details."
     ]),

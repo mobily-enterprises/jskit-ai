@@ -48,6 +48,23 @@ test("jskit help completion prints completion command help", () => {
   assert.match(stdout, /source <\(npx jskit completion bash\)/);
 });
 
+test("legacy alias commands are rejected as unknown commands", () => {
+  for (const alias of [
+    "gen",
+    "ls",
+    "lp",
+    "lct",
+    "lpct",
+    "list-link-items",
+    "list-placement-component-tokens",
+    "view"
+  ]) {
+    const result = runCli({ args: [alias] });
+    assert.equal(result.status, 1, `expected ${alias} to fail`);
+    assert.match(String(result.stderr || ""), new RegExp(`Unknown command: ${alias.replace(/[.*+?^${}()|[\\]\\\\]/g, "\\\\$&")}`));
+  }
+});
+
 test("jskit generate with no params lists available generators", () => {
   const result = runCli({ args: ["generate"] });
   assert.equal(result.status, 0, String(result.stderr || ""));
