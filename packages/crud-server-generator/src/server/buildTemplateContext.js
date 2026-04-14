@@ -17,18 +17,42 @@ import {
 } from "@jskit-ai/kernel/server/support";
 import { normalizeCrudLookupNamespace } from "@jskit-ai/kernel/shared/support/crudLookup";
 import { toCamelCase, toSnakeCase } from "@jskit-ai/kernel/shared/support/stringCase";
+import descriptor from "../../package.descriptor.mjs";
 
 const DEFAULT_ID_COLUMN = "id";
-const OWNERSHIP_FILTER_AUTO = "auto";
-const OWNERSHIP_FILTER_VALUES = new Set([
-  OWNERSHIP_FILTER_AUTO,
-  "public",
-  "user",
-  "workspace",
-  "workspace_user"
-]);
+const DEFAULT_OWNERSHIP_FILTER_VALUES = Object.freeze(["auto", "public", "user", "workspace", "workspace_user"]);
 const MYSQL_CLIENT_ID = "mysql2";
 const CRUD_PERMISSION_OPERATIONS = Object.freeze(["list", "view", "create", "update", "delete"]);
+
+function resolveAllowedValues(schema = {}, fallbackValues = []) {
+  const resolvedValues = [];
+  const seen = new Set();
+  for (const rawValue of Array.isArray(schema?.allowedValues) ? schema.allowedValues : []) {
+    const value = normalizeText(typeof rawValue === "string" ? rawValue : rawValue?.value).toLowerCase();
+    if (!value || seen.has(value)) {
+      continue;
+    }
+    seen.add(value);
+    resolvedValues.push(value);
+  }
+  if (resolvedValues.length > 0) {
+    return Object.freeze(resolvedValues);
+  }
+  return Object.freeze(
+    (Array.isArray(fallbackValues) ? fallbackValues : [])
+      .map((value) => normalizeText(value).toLowerCase())
+      .filter(Boolean)
+  );
+}
+
+const OWNERSHIP_FILTER_ALLOWED_VALUES = resolveAllowedValues(
+  descriptor?.options?.["ownership-filter"],
+  DEFAULT_OWNERSHIP_FILTER_VALUES
+);
+const OWNERSHIP_FILTER_AUTO = normalizeText(
+  descriptor?.options?.["ownership-filter"]?.defaultValue
+).toLowerCase() || "auto";
+const OWNERSHIP_FILTER_VALUES = new Set(OWNERSHIP_FILTER_ALLOWED_VALUES);
 
 function resolveGlobalScaffoldCache() {
   const globalObject = globalThis;
@@ -61,7 +85,7 @@ function normalizeRequestedOwnershipFilter(value, { strict = false } = {}) {
   }
   if (strict) {
     throw new Error(
-      `Invalid ownership filter "${normalized || String(value || "")}". Use: auto, public, user, workspace, workspace_user.`
+      `Invalid ownership filter "${normalized || String(value || "")}". Use: ${OWNERSHIP_FILTER_ALLOWED_VALUES.join(", ")}.`
     );
   }
   return OWNERSHIP_FILTER_AUTO;

@@ -56,6 +56,11 @@ function parseArgs(argv, { createCliError } = {}) {
   while (args.length > 0) {
     const token = String(args.shift() || "");
 
+    if (token === "--") {
+      positional.push(...args.map((value) => String(value || "")));
+      break;
+    }
+
     if (token === "--dry-run") {
       options.dryRun = true;
       continue;
@@ -102,6 +107,10 @@ function parseArgs(argv, { createCliError } = {}) {
     }
     if (token === "--force") {
       options.inlineOptions.force = "true";
+      continue;
+    }
+    if (token === "--install") {
+      options.inlineOptions.install = "true";
       continue;
     }
 

@@ -29,9 +29,33 @@ import {
   resolveRecordChangedEventName,
   resolveRecordIdExpression
 } from "./resourceSupport.js";
+import descriptor from "../../package.descriptor.mjs";
 
-const ALLOWED_OPERATIONS = new Set(["list", "view", "new", "edit"]);
-const DEFAULT_OPERATIONS = "list,view,new,edit";
+const DEFAULT_ALLOWED_OPERATIONS = Object.freeze(["list", "view", "new", "edit"]);
+function resolveAllowedValues(schema = {}, fallbackValues = []) {
+  const resolvedValues = [];
+  const seen = new Set();
+  for (const rawValue of Array.isArray(schema?.allowedValues) ? schema.allowedValues : []) {
+    const value = normalizeText(typeof rawValue === "string" ? rawValue : rawValue?.value).toLowerCase();
+    if (!value || seen.has(value)) {
+      continue;
+    }
+    seen.add(value);
+    resolvedValues.push(value);
+  }
+  if (resolvedValues.length > 0) {
+    return Object.freeze(resolvedValues);
+  }
+  return Object.freeze(
+    (Array.isArray(fallbackValues) ? fallbackValues : [])
+      .map((value) => normalizeText(value).toLowerCase())
+      .filter(Boolean)
+  );
+}
+
+const OPERATION_VALUES = resolveAllowedValues(descriptor?.options?.operations, DEFAULT_ALLOWED_OPERATIONS);
+const ALLOWED_OPERATIONS = new Set(OPERATION_VALUES);
+const DEFAULT_OPERATIONS = normalizeText(descriptor?.options?.operations?.defaultValue) || OPERATION_VALUES.join(",");
 const DEFAULT_LIST_HIDDEN_FIELD_KEYS = new Set(["createdAt", "updatedAt"]);
 const DEFAULT_FORM_COMPONENT_FILE = "CrudAddEditForm.vue";
 const DEFAULT_FORM_FIELDS_FILE = "CrudAddEditFormFields.js";
@@ -161,7 +185,7 @@ function parseOperationsOption(options) {
   const unique = new Set();
   for (const operation of operations) {
     if (!ALLOWED_OPERATIONS.has(operation)) {
-      throw new Error('crud-ui-generator option "operations" supports only: list, view, new, edit.');
+      throw new Error(`crud-ui-generator option "operations" supports only: ${OPERATION_VALUES.join(", ")}.`);
     }
     unique.add(operation);
   }

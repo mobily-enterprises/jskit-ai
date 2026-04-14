@@ -54,10 +54,15 @@ function buildPackageOptionRows(packageEntry = {}) {
 
   for (const optionName of sortStrings(Object.keys(optionSchemas))) {
     const schema = ensureObject(optionSchemas[optionName]);
+    const allowedValues = ensureArray(schema.allowedValues)
+      .map((value) => String(typeof value === "string" ? value : ensureObject(value).value || "").trim())
+      .filter(Boolean);
     rows.push(Object.freeze({
       name: optionName,
       required: schema.required === true,
       inputType: String(schema.inputType || "text").trim() || "text",
+      validationType: String(schema.validationType || "").trim(),
+      allowedValues,
       defaultValue: String(schema.defaultValue || "").trim(),
       allowEmpty: schema.allowEmpty === true,
       promptLabel: String(schema.promptLabel || "").trim(),
@@ -326,9 +331,12 @@ function formatOptionSummary(optionRow = {}, { color = null } = {}) {
     ? `; default: ${optionRow.defaultValue}`
     : optionalDefaultSuffix;
   const allowEmptySuffix = optionRow.allowEmpty ? "; allow-empty" : "";
+  const allowedValuesHint = Array.isArray(optionRow.allowedValues) && optionRow.allowedValues.length > 0
+    ? `Allowed values: ${optionRow.allowedValues.join(", ")}.`
+    : "";
   const labelParts = [
     String(optionRow.helpLabel || "").trim() || String(optionRow.promptLabel || "").trim(),
-    String(optionRow.helpHint || "").trim() || String(optionRow.promptHint || "").trim()
+    String(optionRow.helpHint || "").trim() || String(optionRow.promptHint || "").trim() || allowedValuesHint
   ].filter(Boolean);
   const label = labelParts.join(". ");
   const normalizedInputType = String(optionRow.inputType || "").trim().toLowerCase();

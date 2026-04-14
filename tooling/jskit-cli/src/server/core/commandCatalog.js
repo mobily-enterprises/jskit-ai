@@ -76,6 +76,31 @@ const COMMAND_DESCRIPTORS = Object.freeze({
     inlineOptionMode: "none",
     allowedValueOptionNames: Object.freeze([])
   }),
+  completion: Object.freeze({
+    command: "completion",
+    aliases: Object.freeze([]),
+    showInOverview: true,
+    summary: "Print shell completion script support.",
+    minimalUse: "jskit completion bash",
+    parameters: Object.freeze([
+      Object.freeze({
+        name: "<shell>",
+        description: "Shell name. Currently only bash is supported."
+      })
+    ]),
+    defaults: Object.freeze([
+      "Prints a shell completion script to stdout.",
+      "Use --install to write a small Bash loader file and wire ~/.bashrc automatically.",
+      "Use source <(npx jskit completion bash) to enable completion in the current shell.",
+      "The internal __complete__ mode is reserved for the generated shell function."
+    ]),
+    fullUse: "jskit completion bash [--install]",
+    showHelpOnBareInvocation: true,
+    handlerName: "commandCompletion",
+    allowedFlagKeys: Object.freeze([]),
+    inlineOptionMode: "enumerated",
+    allowedValueOptionNames: Object.freeze(["install"])
+  }),
   create: Object.freeze({
     command: "create",
     aliases: Object.freeze([]),

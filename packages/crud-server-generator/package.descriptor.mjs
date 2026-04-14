@@ -23,6 +23,8 @@ export default Object.freeze({
       required: true,
       inputType: "text",
       defaultValue: "auto",
+      validationType: "enum",
+      allowedValues: ["auto", "public", "user", "workspace", "workspace_user"],
       promptLabel: "Ownership filter",
       promptHint: "auto | public | user | workspace | workspace_user"
     },
