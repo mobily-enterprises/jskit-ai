@@ -304,7 +304,7 @@ export default Object.freeze({
         position: "bottom",
         skipIfContains: "id: \"users.home.menu.home\"",
         value:
-          "\naddPlacement({\n  id: \"users.home.menu.home\",\n  target: \"shell-layout:primary-menu\",\n  surfaces: [\"*\"],\n  order: 50,\n  componentToken: \"local.main.ui.surface-aware-menu-link-item\",\n  props: {\n    label: \"Home\",\n    surface: \"home\",\n    workspaceSuffix: \"/\",\n    nonWorkspaceSuffix: \"/\"\n  },\n  when: ({ auth }) => Boolean(auth?.authenticated)\n});\n",
+          "\naddPlacement({\n  id: \"users.home.menu.home\",\n  target: \"shell-layout:primary-menu\",\n  surfaces: [\"*\"],\n  order: 50,\n  componentToken: \"local.main.ui.surface-aware-menu-link-item\",\n  props: {\n    label: \"Home\",\n    surface: \"home\",\n    workspaceSuffix: \"/\",\n    nonWorkspaceSuffix: \"/\",\n    exact: true\n  },\n  when: ({ auth }) => Boolean(auth?.authenticated)\n});\n",
         reason: "Append users-web home shell menu placement into app-owned placement registry.",
         category: "users-web",
         id: "users-web-home-shell-menu-placement"

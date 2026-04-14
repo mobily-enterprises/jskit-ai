@@ -17,6 +17,10 @@ const props = defineProps({
   disabled: {
     type: Boolean,
     default: false
+  },
+  exact: {
+    type: Boolean,
+    default: false
   }
 });
 </script>

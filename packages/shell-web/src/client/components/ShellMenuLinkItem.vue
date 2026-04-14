@@ -22,6 +22,10 @@ const props = defineProps({
   disabled: {
     type: Boolean,
     default: false
+  },
+  exact: {
+    type: Boolean,
+    default: false
   }
 });
 
@@ -62,5 +66,6 @@ const resolvedIcon = computed(() =>
     :href="resolvedTarget.sameOrigin ? undefined : resolvedTarget.href"
     :prepend-icon="resolvedIcon || undefined"
     :disabled="props.disabled"
+    :exact="props.exact"
   />
 </template>
