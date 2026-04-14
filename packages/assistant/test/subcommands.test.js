@@ -301,19 +301,20 @@ test("assistant settings-page subcommand requires the target assistant surface o
   });
 });
 
-test("assistant page subcommand rejects target files with a src/pages prefix", async () => {
+test("assistant page subcommand accepts target files with a src/pages prefix", async () => {
   await withTempApp(async (appRoot) => {
     await writeAppFixture(appRoot);
 
-    await assert.rejects(
-      () =>
-        runPageSubcommand({
-          appRoot,
-          subcommand: "page",
-          args: ["src/pages/w/[workspaceSlug]/admin/assistant/index.vue"],
-          options: {}
-        }),
-      /must be relative to src\/pages\/, without the src\/pages\/ prefix/
-    );
+    const targetFile = "src/pages/w/[workspaceSlug]/admin/assistant/index.vue";
+    const result = await runPageSubcommand({
+      appRoot,
+      subcommand: "page",
+      args: [targetFile],
+      options: {}
+    });
+
+    assert.deepEqual(result.touchedFiles, [targetFile, "src/placement.js"]);
+    const pageSource = await readFile(path.join(appRoot, targetFile), "utf8");
+    assert.match(pageSource, /<AssistantSurfaceClientElement surface-id="admin" \/>/);
   });
 });

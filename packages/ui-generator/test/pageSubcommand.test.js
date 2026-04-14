@@ -297,7 +297,28 @@ test("ui-generator page subcommand rejects unsupported options", async () => {
   });
 });
 
-test("ui-generator page subcommand rejects target files with a src/pages prefix", async () => {
+test("ui-generator page subcommand accepts target files with a src/pages prefix", async () => {
+  await withTempApp(async (appRoot) => {
+    await writeAppFixture(appRoot);
+
+    const targetFile = "src/pages/w/[workspaceSlug]/admin/practice/index.vue";
+    const result = await runGeneratorSubcommand({
+      appRoot,
+      subcommand: "page",
+      args: [targetFile],
+      options: {}
+    });
+
+    assert.deepEqual(result.touchedFiles, [targetFile, "src/placement.js"]);
+    const pageSource = await readFile(path.join(appRoot, targetFile), "utf8");
+    assert.match(pageSource, /Practice/);
+    const placementSource = await readFile(path.join(appRoot, "src", "placement.js"), "utf8");
+    assert.match(placementSource, /id: "ui-generator\.page\.admin\.practice\.link"/);
+    assert.match(placementSource, /workspaceSuffix: "\/practice"/);
+  });
+});
+
+test("ui-generator page subcommand still rejects non-page src targets", async () => {
   await withTempApp(async (appRoot) => {
     await writeAppFixture(appRoot);
 
@@ -305,10 +326,10 @@ test("ui-generator page subcommand rejects target files with a src/pages prefix"
       runGeneratorSubcommand({
         appRoot,
         subcommand: "page",
-        args: ["src/pages/w/[workspaceSlug]/admin/practice/index.vue"],
+        args: ["src/components/PracticePanel.vue"],
         options: {}
       }),
-      /must be relative to src\/pages\/, without the src\/pages\/ prefix/
+      /must be relative to src\/pages\/ or start with src\/pages\/:/
     );
   });
 });

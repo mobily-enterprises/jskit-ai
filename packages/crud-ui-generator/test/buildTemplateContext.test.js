@@ -471,20 +471,19 @@ test("buildUiTemplateContext honors explicit link-placement override", async () 
   });
 });
 
-test("buildUiTemplateContext rejects target-roots with a src/pages prefix", async () => {
+test("buildUiTemplateContext accepts target-roots with a src/pages prefix", async () => {
   await withTempApp(async (appRoot) => {
     await writeResource(appRoot, RESOURCE_FILE, FULL_RESOURCE_SOURCE);
 
-    await assert.rejects(
-      () =>
-        buildUiTemplateContext({
-          appRoot,
-          options: createOptions({
-            "target-root": "src/pages/admin/customers"
-          })
-        }),
-      /must be relative to src\/pages\/, without the src\/pages\/ prefix/
-    );
+    const context = await buildUiTemplateContext({
+      appRoot,
+      options: createOptions({
+        "target-root": "src/pages/admin/customers"
+      })
+    });
+
+    assert.equal(context.__JSKIT_UI_SURFACE_ID__, "admin");
+    assert.equal(context.__JSKIT_UI_MENU_PLACEMENT_ID__, "ui-generator.page.admin.customers.link");
   });
 });
 

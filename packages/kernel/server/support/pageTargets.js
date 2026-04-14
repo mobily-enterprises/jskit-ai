@@ -65,17 +65,17 @@ function resolvePagesRelativeAppPath(
   if (isAbsolutePathInput(normalizedValue)) {
     throw new Error(`${context} ${label} must be relative to src/pages/: ${normalizedValue}.`);
   }
-  if (
-    normalizedValue === "src/pages" ||
-    normalizedValue.startsWith(PAGE_ROOT_PREFIX)
-  ) {
+  if (normalizedValue === "src/pages" || normalizedValue === PAGE_ROOT_PREFIX) {
     throw new Error(
-      `${context} ${label} must be relative to src/pages/, without the src/pages/ prefix: ${normalizedValue}.`
+      `${context} ${label} must include a path under src/pages/: ${normalizedValue}.`
     );
+  }
+  if (normalizedValue.startsWith(PAGE_ROOT_PREFIX)) {
+    return normalizedValue;
   }
   if (normalizedValue.startsWith("src/")) {
     throw new Error(
-      `${context} ${label} must be relative to src/pages/, without a leading src/ segment: ${normalizedValue}.`
+      `${context} ${label} must be relative to src/pages/ or start with src/pages/: ${normalizedValue}.`
     );
   }
 
