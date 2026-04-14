@@ -1,6 +1,6 @@
 {
   "name": "@jskit-ai/crud-server-generator",
-  "version": "0.1.41",
+  "version": "0.1.42",
   "type": "module",
   "scripts": {
     "test": "node --test"
@@ -13,11 +13,11 @@
   },
   "dependencies": {
     "@babel/parser": "^7.29.2",
-    "@jskit-ai/crud-core": "0.1.41",
-    "@jskit-ai/database-runtime": "0.1.33",
-    "@jskit-ai/http-runtime": "0.1.32",
-    "@jskit-ai/kernel": "0.1.33",
-    "@jskit-ai/users-core": "0.1.43",
+    "@jskit-ai/crud-core": "0.1.42",
+    "@jskit-ai/database-runtime": "0.1.34",
+    "@jskit-ai/http-runtime": "0.1.33",
+    "@jskit-ai/kernel": "0.1.34",
+    "@jskit-ai/users-core": "0.1.44",
     "recast": "^0.23.11",
     "typebox": "^1.0.81"
   }
