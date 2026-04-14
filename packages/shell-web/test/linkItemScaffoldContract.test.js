@@ -69,6 +69,8 @@ test("shell-web scaffolds app-owned local link-item wrappers under src/component
   assert.match(menuWrapperSource, /@jskit-ai\/shell-web\/client\/components\/ShellMenuLinkItem/);
   assert.match(surfaceAwareWrapperSource, /@jskit-ai\/shell-web\/client\/components\/ShellSurfaceAwareMenuLinkItem/);
   assert.match(tabWrapperSource, /@jskit-ai\/shell-web\/client\/components\/ShellTabLinkItem/);
+  assert.match(menuWrapperSource, /exact:\s*\{/);
+  assert.match(surfaceAwareWrapperSource, /exact:\s*\{/);
 
   assert.deepEqual(findFileMutation("shell-web-component-menu-link-item"), {
     from: "templates/src/components/menus/MenuLinkItem.vue",
@@ -125,6 +127,22 @@ test("shell-web scaffolds app-owned local link-item wrappers under src/component
   );
   assert.equal(findLocalLinkItemDefinition("local.main.ui.tab-link-item")?.componentName, "TabLinkItem");
   assert.equal(await readLocalLinkItemComponentSource("local.main.ui.tab-link-item"), tabWrapperSource);
+});
+
+test("shell-web generic menu link items support exact route matching", async () => {
+  const shellMenuSource = await readFile(
+    path.join(PACKAGE_DIR, "src", "client", "components", "ShellMenuLinkItem.vue"),
+    "utf8"
+  );
+  const shellSurfaceAwareSource = await readFile(
+    path.join(PACKAGE_DIR, "src", "client", "components", "ShellSurfaceAwareMenuLinkItem.vue"),
+    "utf8"
+  );
+
+  assert.match(shellMenuSource, /exact:\s*\{/);
+  assert.match(shellMenuSource, /:exact="props\.exact"/);
+  assert.match(shellSurfaceAwareSource, /exact:\s*\{/);
+  assert.match(shellSurfaceAwareSource, /:exact="props\.exact"/);
 });
 
 test("shell-web binds the local link-item wrapper tokens into MainClientProvider", () => {

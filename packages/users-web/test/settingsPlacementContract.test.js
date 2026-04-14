@@ -216,7 +216,8 @@ test("users-web descriptor metadata advertises home tools outlet and standard ho
       'label: "Home"',
       'surface: "home"',
       'workspaceSuffix: "/"',
-      'nonWorkspaceSuffix: "/"'
+      'nonWorkspaceSuffix: "/"',
+      'exact: true'
     ]
   });
 
