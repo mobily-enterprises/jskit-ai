@@ -6,7 +6,7 @@
     "app:create": "node ./tooling/create-app/bin/jskit-create-app.js",
     "app:create:interactive": "node ./tooling/create-app/bin/jskit-create-app.js --interactive",
     "lint": "eslint packages tooling scripts --max-warnings=0",
-    "verify": "npm run lint && npm run jskit -- lint-descriptors && npm run catalog:build && npm --workspaces --if-present test",
+    "verify": "npm run lint && npm run jskit -- lint-descriptors && npm run catalog:build && npm run ai-docs:build && npm run generated:check && npm --workspaces --if-present test",
     "check:di-labels": "npm run jskit -- lint-descriptors --check-di-labels",
     "jskit": "node ./tooling/jskit-cli/bin/jskit.js",
     "release": "node ./scripts/release-npm.mjs",
@@ -16,10 +16,11 @@
     "docs:dev": "vitepress dev docs",
     "docs:build": "vitepress build docs",
     "docs:preview": "vitepress preview docs",
+    "ai-docs:build": "node ./scripts/build-ai-docs.mjs",
+    "generated:check": "node ./scripts/check-generated-files.mjs",
     "files:checklist": "./scripts/files-checklist.sh",
     "release:npm": "node ./scripts/release-npm.mjs",
-    "release:npm:dry-run": "node ./scripts/release-npm.mjs --dry-run",
-    "agents:build-index": "node ./scripts/build-agent-index.mjs"
+    "release:npm:dry-run": "node ./scripts/release-npm.mjs --dry-run"
   },
   "workspaces": [
     "packages/*",

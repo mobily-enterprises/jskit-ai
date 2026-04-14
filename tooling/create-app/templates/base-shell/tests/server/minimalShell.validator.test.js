@@ -30,7 +30,6 @@ const EXPECTED_DEV_DEPENDENCIES = Object.freeze([
 
 const EXPECTED_TOP_LEVEL_ENTRIES = Object.freeze([
   "Procfile",
-  "README.md",
   "bin",
   "config",
   "eslint.config.mjs",

@@ -48,10 +48,6 @@ export default Object.freeze({
         "to": "base-shell/Procfile"
       },
       {
-        "from": "templates/base-shell/README.md",
-        "to": "base-shell/README.md"
-      },
-      {
         "from": "templates/base-shell/scripts/release.sh",
         "to": "base-shell/scripts/release.sh"
       },

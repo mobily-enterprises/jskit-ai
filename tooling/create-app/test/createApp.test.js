@@ -71,13 +71,7 @@ test("create-app scaffolds the base shell with placeholder replacements", async 
     await assert.rejects(access(path.join(appRoot, "scripts/verdaccio-reset-and-publish-packages.sh")), /ENOENT/);
     await assert.rejects(access(path.join(appRoot, "scripts/verdaccio/config.yaml")), /ENOENT/);
 
-    const readme = await readFile(path.join(appRoot, "README.md"), "utf8");
-    assert.match(readme, /^# Sample App$/m);
-    assert.match(readme, /npm run dev/);
-    assert.match(readme, /npx jskit add package auth-provider-supabase-core/);
-    assert.match(readme, /--auth-supabase-url "https:\/\/YOUR-PROJECT\.supabase\.co"/);
-    assert.match(readme, /npx jskit add bundle auth-base/);
-    assert.doesNotMatch(readme, /-w apps/);
+    await assert.rejects(access(path.join(appRoot, "README.md")), /ENOENT/);
 
     const appJson = JSON.parse(await readFile(path.join(appRoot, "app.json"), "utf8"));
     assert.equal(appJson.name, "sample-app");
@@ -431,8 +425,7 @@ test("create-app applies explicit app title when --title is provided", async () 
 
     const appRoot = path.join(cwd, "title-app");
 
-    const readme = await readFile(path.join(appRoot, "README.md"), "utf8");
-    assert.match(readme, /^# Acme Starter$/m);
+    await assert.rejects(access(path.join(appRoot, "README.md")), /ENOENT/);
 
     const indexHtml = await readFile(path.join(appRoot, "index.html"), "utf8");
     assert.match(indexHtml, /<title>Acme Starter<\/title>/);

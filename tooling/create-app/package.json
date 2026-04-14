@@ -6,8 +6,7 @@
   "files": [
     "bin",
     "src",
-    "templates",
-    "README.md"
+    "templates"
   ],
   "scripts": {
     "test": "node --test test/*.test.js"
