@@ -17,6 +17,8 @@ import { loadMutationWhenConfigContext } from "./ioAndMigrations.js";
 const WORKSPACE_VISIBILITY_LEVELS = Object.freeze(["workspace", "workspace_user"]);
 const WORKSPACE_VISIBILITY_SET = new Set(WORKSPACE_VISIBILITY_LEVELS);
 const OPTION_VALIDATION_ENABLED_SURFACE_ID = "enabled-surface-id";
+const OPTION_VALIDATION_ENUM = "enum";
+const OPTION_VALIDATION_CSV_ENUM = "csv-enum";
 const OPTION_NORMALIZATION_PAGES_RELATIVE_TARGET_ROOT = "pages-relative-target-root";
 
 function normalizeSurfaceIdForMutation(value = "") {
@@ -153,6 +155,114 @@ function resolveSchemaValidatedOptionNames(packageEntry = {}, validationType = "
   ];
 }
 
+function resolveAllowedValuesForSchema(schema = {}) {
+  const values = [];
+  const seen = new Set();
+  for (const rawValue of Array.isArray(schema?.allowedValues) ? schema.allowedValues : []) {
+    const value = String(
+      typeof rawValue === "string"
+        ? rawValue
+        : ensureObject(rawValue).value
+    ).trim();
+    if (!value || seen.has(value.toLowerCase())) {
+      continue;
+    }
+    seen.add(value.toLowerCase());
+    values.push(value);
+  }
+  return Object.freeze(values);
+}
+
+function parseCsvEnumOptionValues(value = "") {
+  return String(value || "")
+    .split(",")
+    .map((entry) => String(entry || "").trim())
+    .filter(Boolean);
+}
+
+function validateEnumOptionValues({
+  packageEntry,
+  resolvedOptions = {},
+  optionNames = null
+} = {}) {
+  const validatedOptionNames = resolveSchemaValidatedOptionNames(
+    packageEntry,
+    OPTION_VALIDATION_ENUM,
+    { optionNames }
+  );
+  if (validatedOptionNames.length < 1) {
+    return;
+  }
+
+  const packageId = String(packageEntry?.packageId || "").trim() || "unknown-package";
+  const optionSchemas = ensureObject(packageEntry?.descriptor?.options);
+  for (const optionName of validatedOptionNames) {
+    const schema = ensureObject(optionSchemas[optionName]);
+    const value = String(resolvedOptions?.[optionName] || "").trim();
+    if (!value) {
+      continue;
+    }
+
+    const allowedValues = resolveAllowedValuesForSchema(schema);
+    if (allowedValues.length < 1) {
+      continue;
+    }
+    const allowedValueSet = new Set(allowedValues.map((entry) => entry.toLowerCase()));
+    if (!allowedValueSet.has(value.toLowerCase())) {
+      throw createCliError(
+        `Invalid option for package ${packageId}: --${optionName} must be one of: ${allowedValues.join(", ")}.`
+      );
+    }
+  }
+}
+
+function validateCsvEnumOptionValues({
+  packageEntry,
+  resolvedOptions = {},
+  optionNames = null
+} = {}) {
+  const validatedOptionNames = resolveSchemaValidatedOptionNames(
+    packageEntry,
+    OPTION_VALIDATION_CSV_ENUM,
+    { optionNames }
+  );
+  if (validatedOptionNames.length < 1) {
+    return;
+  }
+
+  const packageId = String(packageEntry?.packageId || "").trim() || "unknown-package";
+  const optionSchemas = ensureObject(packageEntry?.descriptor?.options);
+  for (const optionName of validatedOptionNames) {
+    const schema = ensureObject(optionSchemas[optionName]);
+    const value = String(resolvedOptions?.[optionName] || "").trim();
+    if (!value) {
+      continue;
+    }
+
+    const allowedValues = resolveAllowedValuesForSchema(schema);
+    if (allowedValues.length < 1) {
+      continue;
+    }
+    const allowedValueSet = new Set(allowedValues.map((entry) => entry.toLowerCase()));
+    const providedValues = parseCsvEnumOptionValues(value);
+    if (providedValues.length < 1) {
+      throw createCliError(
+        `Invalid option for package ${packageId}: --${optionName} must include at least one value from: ${allowedValues.join(", ")}.`
+      );
+    }
+    const invalidValues = [
+      ...new Set(
+        providedValues.filter((entry) => !allowedValueSet.has(entry.toLowerCase()))
+      )
+    ];
+    if (invalidValues.length > 0) {
+      throw createCliError(
+        `Invalid option for package ${packageId}: --${optionName} includes unsupported value(s): ${invalidValues.join(", ")}. Allowed values: ${allowedValues.join(", ")}.`
+      );
+    }
+  }
+}
+
 function validateEnabledSurfaceOptionValues({
   packageEntry,
   resolvedOptions = {},
@@ -254,6 +364,12 @@ async function validateResolvedOptionPolicies({
 
 function resolvePromptChoicesForOption({ schema = {}, configContext = {} } = {}) {
   const validationType = normalizeResolvedOptionValue(schema.validationType);
+  if (validationType === OPTION_VALIDATION_ENUM) {
+    return resolveAllowedValuesForSchema(schema).map((value) => Object.freeze({
+      value,
+      label: value
+    }));
+  }
   if (validationType !== OPTION_VALIDATION_ENABLED_SURFACE_ID) {
     return [];
   }
@@ -275,9 +391,16 @@ async function validateOptionValuesForPackage({
   appRoot = "",
   optionNames = null
 } = {}) {
-  if (!appRoot) {
-    return;
-  }
+  validateEnumOptionValues({
+    packageEntry,
+    resolvedOptions,
+    optionNames
+  });
+  validateCsvEnumOptionValues({
+    packageEntry,
+    resolvedOptions,
+    optionNames
+  });
 
   const validatedOptionNames = resolveSchemaValidatedOptionNames(
     packageEntry,
@@ -285,6 +408,9 @@ async function validateOptionValuesForPackage({
     { optionNames }
   );
   if (validatedOptionNames.length < 1) {
+    return;
+  }
+  if (!appRoot) {
     return;
   }
 

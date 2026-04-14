@@ -6,6 +6,11 @@ test("crud-server-generator surface option validates against enabled surface ids
   assert.equal(descriptor.kind, "generator");
   assert.equal(descriptor.options?.surface?.validationType, "enabled-surface-id");
   assert.equal(descriptor.options?.surface?.required, false);
+  assert.equal(descriptor.options?.["ownership-filter"]?.validationType, "enum");
+  assert.deepEqual(
+    descriptor.options?.["ownership-filter"]?.allowedValues,
+    ["auto", "public", "user", "workspace", "workspace_user"]
+  );
   assert.equal(descriptor.options?.["table-name"]?.required, false);
   assert.equal(
     descriptor.options?.["table-name"]?.defaultFromOptionTemplate,

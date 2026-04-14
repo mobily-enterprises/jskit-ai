@@ -24,6 +24,8 @@ export default Object.freeze({
       required: false,
       inputType: "text",
       defaultValue: "list,view,new,edit",
+      validationType: "csv-enum",
+      allowedValues: ["list", "view", "new", "edit"],
       promptLabel: "Operations",
       promptHint: "Optional comma-separated values from: list, view, new, edit. Defaults to all four."
     },
