@@ -58,6 +58,27 @@ test("completion bash prints an installable bash completion script", () => {
   assert.match(stdout, /complete -o bashdefault -o default -F _jskit_completion jskit/);
 });
 
+test("completion bash __complete__ lists only canonical top-level commands", () => {
+  const result = runCli({
+    args: ["completion", "bash", "__complete__", "2", "--", "npx", "jskit", ""]
+  });
+
+  assert.equal(result.status, 0, String(result.stderr || ""));
+  const completions = String(result.stdout || "").trim().split(/\r?\n/u).filter(Boolean);
+  assert.ok(completions.includes("generate"));
+  assert.ok(completions.includes("list"));
+  assert.ok(completions.includes("list-component-tokens"));
+  assert.ok(completions.includes("show"));
+  assert.ok(!completions.includes("gen"));
+  assert.ok(!completions.includes("ls"));
+  assert.ok(!completions.includes("lp"));
+  assert.ok(!completions.includes("lct"));
+  assert.ok(!completions.includes("lpct"));
+  assert.ok(!completions.includes("list-link-items"));
+  assert.ok(!completions.includes("list-placement-component-tokens"));
+  assert.ok(!completions.includes("view"));
+});
+
 test("completion bash --install writes a short loader file and updates bashrc", async () => {
   await withTempDir(async (cwd) => {
     const homeRoot = path.join(cwd, "home");
