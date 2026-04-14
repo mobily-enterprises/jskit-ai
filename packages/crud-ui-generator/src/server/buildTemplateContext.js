@@ -496,6 +496,7 @@ async function buildUiTemplateContext({ appRoot, options } = {}) {
     __JSKIT_UI_MENU_COMPONENT_TOKEN__: String(pageLinkTarget?.componentToken || ""),
     __JSKIT_UI_MENU_WORKSPACE_SUFFIX__: String(pageLinkTarget?.pageTarget?.routeUrlSuffix || ""),
     __JSKIT_UI_MENU_NON_WORKSPACE_SUFFIX__: String(pageLinkTarget?.pageTarget?.routeUrlSuffix || ""),
+    __JSKIT_UI_MENU_WHEN_LINE__: String(pageLinkTarget?.whenLine || ""),
     __JSKIT_UI_MENU_TO_PROP_LINE__: resolveMenuToPropLine(pageLinkTarget?.linkTo || ""),
     __JSKIT_UI_MENU_LABEL__: pageTarget.defaultName
   };

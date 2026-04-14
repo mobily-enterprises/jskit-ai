@@ -113,6 +113,36 @@ test("ui-generator page subcommand creates a file route and derives label from t
   });
 });
 
+test("ui-generator page subcommand omits the auth guard for public surface links", async () => {
+  await withTempApp(async (appRoot) => {
+    await writeAppFixture(appRoot, {
+      configSource: `export const config = {
+  surfaceAccessPolicies: {
+    public: {}
+  },
+  surfaceDefinitions: {
+    home: { id: "home", pagesRoot: "home", enabled: true, accessPolicyId: "public" }
+  }
+};
+`
+    });
+
+    const targetFile = "home/reports/index.vue";
+    await runGeneratorSubcommand({
+      appRoot,
+      subcommand: "page",
+      args: [targetFile],
+      options: {
+        name: "Reports"
+      }
+    });
+
+    const placementSource = await readFile(path.join(appRoot, "src", "placement.js"), "utf8");
+    assert.match(placementSource, /id: "ui-generator\.page\.home\.reports\.link"/);
+    assert.doesNotMatch(placementSource, /when: \(\{ auth \}\) => Boolean\(auth\?\.authenticated\)/);
+  });
+});
+
 test("ui-generator page subcommand supports link placement options", async () => {
   await withTempApp(async (appRoot) => {
     await writeAppFixture(appRoot);
