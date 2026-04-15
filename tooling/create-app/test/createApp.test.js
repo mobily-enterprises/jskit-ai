@@ -218,6 +218,11 @@ test("create-app scaffolds the base shell with placeholder replacements", async 
     assert.match(localMainClientProvider, /class MainClientProvider/);
     assert.match(localMainClientProvider, /static id = "local\.main\.client";/);
     assert.match(localMainClientProvider, /function registerMainClientComponent/);
+    assert.match(localMainClientProvider, /mainClientComponents\.push\(\{ token, resolveComponent \}\);/);
+    assert.match(localMainClientProvider, /for \(const \{ token, resolveComponent \} of mainClientComponents\)/);
+    assert.doesNotMatch(localMainClientProvider, /String\(componentToken \|\| ""\)\.trim\(\)/);
+    assert.doesNotMatch(localMainClientProvider, /Object\.freeze\(\{\s*token,\s*resolveComponent\s*\}\)/);
+    assert.doesNotMatch(localMainClientProvider, /requires application singleton/);
 
     const lockfile = JSON.parse(await readFile(path.join(appRoot, ".jskit/lock.json"), "utf8"));
     assert.ok(lockfile.installedPackages["@local/main"]);
