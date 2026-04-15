@@ -12,8 +12,19 @@ export default defineConfig({
   themeConfig: {
     siteTitle: "JSKIT",
     nav: [
+      { text: "Guide", link: "/guide/initial-scaffolding" },
       { text: "GitHub", link: "https://github.com/mobily-enterprises/jskit-ai" }
     ],
+    sidebar: {
+      "/guide/": [
+        {
+          text: "Guide",
+          items: [
+            { text: "Initial Scaffolding", link: "/guide/initial-scaffolding" }
+          ]
+        }
+      ]
+    },
     search: {
       provider: "local"
     },
