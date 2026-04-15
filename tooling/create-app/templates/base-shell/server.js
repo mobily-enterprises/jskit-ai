@@ -104,8 +104,7 @@ async function createServer() {
     appRoot,
     profile: resolveRuntimeProfileFromSurface({
       surfaceRuntime,
-      serverSurface: runtimeEnv.SERVER_SURFACE,
-      defaultProfile: "app"
+      serverSurface: runtimeEnv.SERVER_SURFACE
     }),
     env: runtimeEnv,
     logger: app.log,

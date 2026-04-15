@@ -9,6 +9,7 @@ set -euo pipefail
 
 APP_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 SCOPE_DIR="$APP_ROOT/node_modules/@jskit-ai"
+VITE_CACHE_DIR="$APP_ROOT/node_modules/.vite"
 
 is_valid_jskit_repo_root() {
   local candidate_root="$1"
@@ -196,5 +197,10 @@ while IFS=$'\t' read -r package_dir_name source_dir; do
   link_package_bin_entries "$package_dir_name" "$source_dir"
   linked_count=$((linked_count + 1))
 done < <(discover_local_package_map)
+
+if [[ -d "$VITE_CACHE_DIR" ]]; then
+  rm -rf "$VITE_CACHE_DIR"
+  echo "[link-local] cleared Vite cache at $VITE_CACHE_DIR"
+fi
 
 echo "[link-local] done. linked=$linked_count"

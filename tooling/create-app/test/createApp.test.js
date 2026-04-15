@@ -68,6 +68,8 @@ test("create-app scaffolds the base shell with placeholder replacements", async 
     await assert.rejects(access(path.join(appRoot, "scripts/copy-local-packages.sh")), /ENOENT/);
     const linkLocalScript = await readFile(path.join(appRoot, "scripts/link-local-jskit-packages.sh"), "utf8");
     assert.doesNotMatch(linkLocalScript, /Development\/current\/jskit-ai/);
+    assert.match(linkLocalScript, /node_modules\/\.vite/);
+    assert.match(linkLocalScript, /cleared Vite cache/);
     await assert.rejects(access(path.join(appRoot, "scripts/dev-bootstrap-jskit.sh")), /ENOENT/);
     await assert.rejects(access(path.join(appRoot, "scripts/just_run_verde")), /ENOENT/);
     await assert.rejects(access(path.join(appRoot, "scripts/verdaccio-reset-and-publish-packages.sh")), /ENOENT/);
@@ -124,6 +126,12 @@ test("create-app scaffolds the base shell with placeholder replacements", async 
     assert.match(publicConfig, /requiresAuth:\s*false/);
     assert.match(publicConfig, /requiresWorkspace:\s*false/);
     assert.match(publicConfig, /origin:\s*""/);
+    const surfaceAccessPoliciesConfig = await readFile(
+      path.join(appRoot, "config/surfaceAccessPolicies.js"),
+      "utf8"
+    );
+    assert.match(surfaceAccessPoliciesConfig, /surfaceAccessPolicies\.public = \{\};/);
+    assert.doesNotMatch(surfaceAccessPoliciesConfig, /surfaceAccessPolicies\.authenticated/);
     const serverConfig = await readFile(path.join(appRoot, "config/server.js"), "utf8");
     assert.match(serverConfig, /export const config = \{\};/);
 
@@ -132,6 +140,7 @@ test("create-app scaffolds the base shell with placeholder replacements", async 
     assert.match(serverJs, /globalUiPaths:\s*resolveGlobalUiPaths\(runtime\?\.globalUiPaths\s*\|\|\s*\[\]\)/);
     assert.match(serverJs, /registerTypeBoxFormats\(\);/);
     assert.match(serverJs, /app\.setValidatorCompiler\(TypeBoxValidatorCompiler\);/);
+    assert.doesNotMatch(serverJs, /defaultProfile:\s*"app"/);
 
     const appVue = await readFile(path.join(appRoot, "src/App.vue"), "utf8");
     assert.match(appVue, /<RouterView \/>/);
