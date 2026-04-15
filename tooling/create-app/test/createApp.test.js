@@ -42,18 +42,20 @@ test("create-app scaffolds the base shell with placeholder replacements", async 
     assert.equal(packageJson.scripts.postinstall, undefined);
     assert.equal(packageJson.scripts["dev:all"], "vite");
     assert.equal(packageJson.scripts["dev:home"], "VITE_SURFACE=home vite");
-    assert.equal(packageJson.scripts["dev:console"], "VITE_SURFACE=console vite");
+    assert.equal(packageJson.scripts["dev:console"], undefined);
     assert.equal(packageJson.scripts["dev:account"], undefined);
     assert.equal(packageJson.scripts["dev:auth"], undefined);
     assert.equal(packageJson.scripts["dev:app"], undefined);
     assert.equal(packageJson.scripts["dev:admin"], undefined);
     assert.equal(packageJson.scripts["server:all"], "node ./bin/server.js");
     assert.equal(packageJson.scripts["server:home"], "SERVER_SURFACE=home node ./bin/server.js");
+    assert.equal(packageJson.scripts["server:console"], undefined);
     assert.equal(packageJson.scripts["server:account"], undefined);
     assert.equal(packageJson.scripts["server:auth"], undefined);
     assert.equal(packageJson.scripts["server:app"], undefined);
     assert.equal(packageJson.scripts["server:admin"], undefined);
     assert.equal(packageJson.scripts["build:all"], "vite build");
+    assert.equal(packageJson.scripts["build:console"], undefined);
     assert.equal(packageJson.scripts["build:account"], undefined);
     assert.equal(packageJson.scripts["build:auth"], undefined);
     assert.equal(packageJson.scripts["build:app"], undefined);
@@ -118,9 +120,7 @@ test("create-app scaffolds the base shell with placeholder replacements", async 
     assert.match(publicConfig, /config\.webRootAllowed = "no";/);
     assert.match(publicConfig, /config\.surfaceDefinitions = \{\};/);
     assert.match(publicConfig, /config\.surfaceDefinitions\.home = \{/);
-    assert.match(publicConfig, /config\.surfaceDefinitions\.console = \{/);
     assert.match(publicConfig, /pagesRoot:\s*"home"/);
-    assert.match(publicConfig, /pagesRoot:\s*"console"/);
     assert.match(publicConfig, /requiresAuth:\s*false/);
     assert.match(publicConfig, /requiresWorkspace:\s*false/);
     assert.match(publicConfig, /origin:\s*""/);
@@ -224,10 +224,8 @@ test("create-app scaffolds the base shell with placeholder replacements", async 
     assert.doesNotMatch(homeView, /@jskit-ai\/shell-web/);
     assert.match(homeView, /welcome/);
     assert.doesNotMatch(homeView, /const appTitle =/);
-    const consoleView = await readFile(path.join(appRoot, "src/pages/console.vue"), "utf8");
-    assert.match(consoleView, /RouterView/);
-    const consoleIndexView = await readFile(path.join(appRoot, "src/pages/console/index.vue"), "utf8");
-    assert.match(consoleIndexView, /operations surface/);
+    await assert.rejects(access(path.join(appRoot, "src/pages/console.vue")), /ENOENT/);
+    await assert.rejects(access(path.join(appRoot, "src/pages/console/index.vue")), /ENOENT/);
     await assert.rejects(access(path.join(appRoot, "src/pages/app.vue")), /ENOENT/);
     await assert.rejects(access(path.join(appRoot, "src/pages/admin.vue")), /ENOENT/);
 
@@ -329,9 +327,7 @@ test("create-app accepts tenancy-mode flag and writes it to config/public.js", a
     assert.match(publicConfig, /config\.tenancyMode = "personal";/);
     assert.match(publicConfig, /config\.surfaceDefinitions = \{\};/);
     assert.match(publicConfig, /config\.surfaceDefinitions\.home = \{/);
-    assert.match(publicConfig, /config\.surfaceDefinitions\.console = \{/);
     assert.match(publicConfig, /pagesRoot:\s*"home"/);
-    assert.match(publicConfig, /pagesRoot:\s*"console"/);
   });
 });
 
@@ -452,8 +448,7 @@ test("generated shell-only app passes jskit doctor and keeps minimal Procfile", 
     await assert.rejects(access(path.join(appRoot, "framework")), /ENOENT/);
     await assert.rejects(access(path.join(appRoot, "src/pages/app.vue")), /ENOENT/);
     await assert.rejects(access(path.join(appRoot, "src/pages/admin.vue")), /ENOENT/);
-    const scaffoldConsoleWrapper = await readFile(path.join(appRoot, "src/pages/console.vue"), "utf8");
-    assert.doesNotMatch(scaffoldConsoleWrapper, /@jskit-ai\/shell-web/);
+    await assert.rejects(access(path.join(appRoot, "src/pages/console.vue")), /ENOENT/);
 
     const addShellWebResult = runJskit({
       cwd: appRoot,
@@ -464,7 +459,6 @@ test("generated shell-only app passes jskit doctor and keeps minimal Procfile", 
     await assert.rejects(access(path.join(appRoot, "src/pages/app.vue")), /ENOENT/);
     await assert.rejects(access(path.join(appRoot, "src/pages/admin.vue")), /ENOENT/);
     const homeWrapper = await readFile(path.join(appRoot, "src/pages/home.vue"), "utf8");
-    const consoleWrapper = await readFile(path.join(appRoot, "src/pages/console.vue"), "utf8");
     const mainClientProvider = await readFile(
       path.join(appRoot, "packages/main/src/client/providers/MainClientProvider.js"),
       "utf8"
@@ -472,8 +466,7 @@ test("generated shell-only app passes jskit doctor and keeps minimal Procfile", 
     const packageJson = JSON.parse(await readFile(path.join(appRoot, "package.json"), "utf8"));
 
     assert.match(homeWrapper, /"surface":\s*"home"/);
-    assert.match(consoleWrapper, /@\/components\/ShellLayout\.vue/);
-    assert.match(consoleWrapper, /"surface":\s*"console"/);
+    await assert.rejects(access(path.join(appRoot, "src/pages/console.vue")), /ENOENT/);
     assert.match(mainClientProvider, /import MenuLinkItem from "\/src\/components\/menus\/MenuLinkItem\.vue";/);
     assert.match(mainClientProvider, /import SurfaceAwareMenuLinkItem from "\/src\/components\/menus\/SurfaceAwareMenuLinkItem\.vue";/);
     assert.match(mainClientProvider, /import TabLinkItem from "\/src\/components\/menus\/TabLinkItem\.vue";/);
@@ -482,7 +475,7 @@ test("generated shell-only app passes jskit doctor and keeps minimal Procfile", 
     assert.match(mainClientProvider, /registerMainClientComponent\("local\.main\.ui\.tab-link-item", \(\) => TabLinkItem\);/);
     assert.equal(packageJson.scripts["dev:all"], "vite");
     assert.equal(packageJson.scripts["dev:home"], "VITE_SURFACE=home vite");
-    assert.equal(packageJson.scripts["dev:console"], "VITE_SURFACE=console vite");
+    assert.equal(packageJson.scripts["dev:console"], undefined);
     assert.equal(packageJson.scripts["dev:app"], undefined);
     assert.equal(packageJson.scripts["dev:admin"], undefined);
     await access(path.join(appRoot, "src/components/menus/MenuLinkItem.vue"));
@@ -585,8 +578,12 @@ test("workspaces-web workspace tenancy mode installs workspace surfaces and wrap
       /registerMainClientComponent\("local\.main\.account\.pending-invites\.cue", \(\) => AccountPendingInvitesCue\);/
     );
     assert.match(accountPendingInvitesCue, /section:\s*"invites"/);
+    assert.match(packageJson.dependencies["@jskit-ai/console-web"], /^\d+\.x$/);
     assert.match(packageJson.dependencies["@jskit-ai/workspaces-core"], /^\d+\.x$/);
     assert.match(packageJson.dependencies["@jskit-ai/workspaces-web"], /^\d+\.x$/);
+    assert.equal(packageJson.scripts["server:console"], "SERVER_SURFACE=console node ./bin/server.js");
+    assert.equal(packageJson.scripts["dev:console"], "VITE_SURFACE=console vite");
+    assert.equal(packageJson.scripts["build:console"], "VITE_SURFACE=console vite build");
     assert.equal(packageJson.scripts["server:account"], "SERVER_SURFACE=account node ./bin/server.js");
     assert.equal(packageJson.scripts["server:app"], "SERVER_SURFACE=app node ./bin/server.js");
     assert.equal(packageJson.scripts["server:admin"], "SERVER_SURFACE=admin node ./bin/server.js");

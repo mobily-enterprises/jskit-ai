@@ -100,8 +100,7 @@ export default Object.freeze({
     packageJson: {
       scripts: {
         "dev:all": "vite",
-        "dev:home": "VITE_SURFACE=home vite",
-        "dev:console": "VITE_SURFACE=console vite"
+        "dev:home": "VITE_SURFACE=home vite"
       }
     },
     procfile: {},
@@ -262,26 +261,6 @@ export default Object.freeze({
         reason: "Install shell-driven home settings index stub scaffold for app-owned landing or redirect behavior.",
         category: "shell-web",
         id: "shell-web-page-home-settings"
-      },
-      {
-        from: "templates/src/pages/console.vue",
-        toSurface: "console",
-        toSurfaceRoot: true,
-        ownership: "app",
-        expectedExistingFrom: "templates/expected-existing/src/pages/console.vue",
-        reason: "Install shell-driven console wrapper page.",
-        category: "shell-web",
-        id: "shell-web-page-console-wrapper"
-      },
-      {
-        from: "templates/src/pages/console/index.vue",
-        toSurface: "console",
-        toSurfacePath: "index.vue",
-        ownership: "app",
-        expectedExistingFrom: "templates/expected-existing/src/pages/console/index.vue",
-        reason: "Install shell-driven console page starter.",
-        category: "shell-web",
-        id: "shell-web-page-console"
       }
     ]
   }

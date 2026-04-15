@@ -160,6 +160,7 @@ Exports
 - `applyFileMutations`
 - `prepareFileMutations`
 - `applyTextMutations`
+- `partitionPreFileConfigTextMutations`
 - `resolvePositioningMutations`
 
 ### `src/server/cliRuntime/mutations/fileMutations.js`
@@ -193,11 +194,13 @@ Exports
 ### `src/server/cliRuntime/mutations/textMutations.js`
 Exports
 - `applyTextMutations(packageEntry, appRoot, textMutations, options, managedText, touchedFiles)`
+- `partitionPreFileConfigTextMutations(textMutations = [])`
 - `resolvePositioningMutations(descriptorMutations = {})`
 Local functions
 - `resolveSettingsFieldsContractTarget(relativeFile = "")`
 - `validateSettingsFieldsContractMutationTarget({ appRoot, relativeFile, packageId } = {})`
 - `isPositioningTextMutation(value = {})`
+- `isPreFileConfigTextMutation(value = {})`
 
 ### `src/server/cliRuntime/mutationWhen.js`
 Exports

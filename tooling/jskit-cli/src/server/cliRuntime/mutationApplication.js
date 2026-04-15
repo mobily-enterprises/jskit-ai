@@ -5,5 +5,6 @@ export {
 
 export {
   applyTextMutations,
+  partitionPreFileConfigTextMutations,
   resolvePositioningMutations
 } from "./mutations/textMutations.js";

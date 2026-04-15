@@ -18,13 +18,3 @@ config.surfaceDefinitions.home = {
   accessPolicyId: "public",
   origin: ""
 };
-config.surfaceDefinitions.console = {
-  id: "console",
-  label: "Console",
-  pagesRoot: "console",
-  enabled: true,
-  requiresAuth: true,
-  requiresWorkspace: false,
-  accessPolicyId: "console_owner",
-  origin: ""
-};

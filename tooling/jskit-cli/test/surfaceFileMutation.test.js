@@ -190,6 +190,66 @@ test("files mutation supports comma-separated toSurface values", async () => {
   });
 });
 
+test("files mutation can target a surface defined by the same package install", async () => {
+  await withTempDir(async (cwd) => {
+    const appRoot = path.join(cwd, "surface-mutation-package-defined");
+    await createMinimalApp(appRoot);
+
+    await createSurfaceMutationPackage({
+      appRoot,
+      packageName: "surface-defined-by-package",
+      descriptorBody: `export default Object.freeze({
+  packageVersion: 1,
+  packageId: "@demo/surface-defined-by-package",
+  version: "0.1.0",
+  kind: "runtime",
+  description: "surface targeted files mutation after surface config append",
+  dependsOn: [],
+  capabilities: { provides: [], requires: [] },
+  runtime: {
+    server: { providers: [] },
+    client: { providers: [{ entrypoint: "src/client/providers/DemoProvider.js", export: "DemoProvider" }] }
+  },
+  mutations: {
+    dependencies: { runtime: {}, dev: {} },
+    packageJson: { scripts: {} },
+    procfile: {},
+    files: [
+      { from: "templates/ops-root.vue", toSurface: "ops", toSurfaceRoot: true },
+      { from: "templates/ops-index.vue", toSurface: "ops", toSurfacePath: "index.vue" }
+    ],
+    text: [
+      {
+        op: "append-text",
+        file: "config/public.js",
+        position: "bottom",
+        skipIfContains: "config.surfaceDefinitions.ops = {",
+        value: "\\nconfig.surfaceDefinitions.ops = {\\n  id: \\"ops\\",\\n  pagesRoot: \\"ops-panel\\",\\n  enabled: true,\\n  requiresAuth: true,\\n  requiresWorkspace: false\\n};\\n"
+      }
+    ]
+  }
+});
+`,
+      templates: {
+        "templates/ops-root.vue": "<template>ops wrapper</template>\n",
+        "templates/ops-index.vue": "<template>ops page</template>\n"
+      }
+    });
+
+    const addResult = runCli({
+      cwd: appRoot,
+      args: ["add", "package", "@demo/surface-defined-by-package"]
+    });
+    assert.equal(addResult.status, 0, String(addResult.stderr || ""));
+
+    const opsWrapper = await readFile(path.join(appRoot, "src/pages/ops-panel.vue"), "utf8");
+    const opsPage = await readFile(path.join(appRoot, "src/pages/ops-panel/index.vue"), "utf8");
+
+    assert.match(opsWrapper, /ops wrapper/);
+    assert.match(opsPage, /ops page/);
+  });
+});
+
 test("files mutation fails when toSurface references unknown surface id", async () => {
   await withTempDir(async (cwd) => {
     const appRoot = path.join(cwd, "surface-mutation-unknown");
