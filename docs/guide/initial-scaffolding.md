@@ -116,8 +116,14 @@ The most important parts look like this:
 {
   "scripts": {
     "server": "node ./bin/server.js",
+    "server:all": "node ./bin/server.js",
+    "server:home": "SERVER_SURFACE=home node ./bin/server.js",
     "dev": "vite",
+    "dev:all": "vite",
+    "dev:home": "VITE_SURFACE=home vite",
     "build": "vite build",
+    "build:all": "vite build",
+    "build:home": "VITE_SURFACE=home vite build",
     "test": "node --test",
     "test:client": "vitest run tests/client",
     "verify": "npm run lint && npm run test && npm run test:client && npm run build && npx jskit doctor"
@@ -139,6 +145,8 @@ The most important parts look like this:
 ```
 
 There are two details worth noticing immediately. The dependency on `@local/main` points at `file:packages/main`, which means your app already contains its own local JSKIT package. The `verify` script is also useful to notice early, because it shows the default quality gate the scaffold expects you to run later.
+
+The surface-specific script names are also worth noticing early, even in this tiny app. `dev:home`, `server:home`, and `build:home` are the first concrete places where surface selection shows up in the scaffold. They work by setting `VITE_SURFACE=home` on the client side and `SERVER_SURFACE=home` on the server side. In this first chapter, where `home` is the only surface, those variants behave almost the same as the default commands. Later, once more surfaces exist, those scripts become the simplest way to run or build just one surface at a time.
 
 
 ### App surfaces in JSKIT
@@ -292,7 +300,7 @@ surfaceRuntime.listEnabledSurfaceIds(); // ["home"]
 surfaceRuntime.resolveSurfaceFromPathname("/home"); // "home"
 ```
 
-`surfaceMode` is not another surface definition. It is the current viewing mode for the app. In a plain starter app, `VITE_SURFACE` is usually unset, so `surfaceMode` becomes `"all"`, meaning "do not restrict the router to one specific surface". Later, when you run surface-specific profiles, the same runtime can narrow the active routes to just one surface.
+`surfaceMode` is not another surface definition. It is the current viewing mode for the app. In a plain starter app, `VITE_SURFACE` is usually unset, so `surfaceMode` becomes `"all"`, meaning "do not restrict the router to one specific surface". Later, when you run surface-specific profiles, the same runtime can narrow the active routes to just one surface. In the scaffold scripts, `npm run dev:home` is simply setting `VITE_SURFACE=home`, while `npm run dev` and `npm run dev:all` leave the client in unrestricted `"all"` mode.
 
 `createShellRouter(...)` uses that `surfaceRuntime` object to assemble the actual router. Concretely, it does this:
 
@@ -426,16 +434,15 @@ export {
 };
 ```
 
-The important idea is that this provider is not rendering UI directly. It is registering token-addressable client components into the application container. A helper such as `registerMainClientComponent(...)` collects entries like:
+The important idea is that this provider is not rendering UI directly. It is registering token-addressable client components into the application container. In the base scaffold, that list starts empty. Later package installs and generators can extend this file by adding imports and `registerMainClientComponent(...)` calls for app-owned client components. In other words, this file is the app's local registration seam.
 
 ```js
-{
-  token: "local.main.ui.menu-link-item",
-  resolveComponent: () => import("../components/menus/TabLinkItem.vue")
-}
+import MenuLinkItem from "/src/components/menus/MenuLinkItem.vue";
+
+registerMainClientComponent("local.main.ui.menu-link-item", () => MenuLinkItem);
 ```
 
-Then `MainClientProvider.register(app)` publishes those into the client container with `app.singleton(...)`. Later packages and placements can ask for those components by token.
+Then `MainClientProvider.register(app)` publishes those into the client container with `app.singleton(...)`. Later packages and placement runtime code can ask for those components by token instead of importing app files directly.
 
 This code is intentionally small. `registerMainClientComponent(...)` is a private app-local registration hook, not a public validation API, so the scaffold keeps it minimal and lets obvious mistakes fail honestly when the provider is used.
 
@@ -513,12 +520,24 @@ const authUi = app.resolveTag("auth.ui");
 const requestScope = app.createScope("request:123");
 ```
 
+A scope is a real child container, not just a label. You can put request-local values into it and then resolve them from the scope itself:
+
+```js
+app.singleton("logger", () => createLogger());
+
+const requestScope = app.createScope("request:123");
+requestScope.instance("request.id", "request:123");
+
+const logger = requestScope.make("logger"); // inherited from the parent app container
+const requestId = requestScope.make("request.id"); // local to this scope
+```
+
 Here:
 
 - `make(...)` gets the thing behind a token.
 - `has(...)` lets you check before assuming a token exists.
 - `resolveTag(...)` gets every token in a named group.
-- `createScope(...)` gives you a child container when you need scoped values rather than app-wide ones.
+- `createScope(...)` gives you a child container when you need scoped values rather than app-wide ones, and that child container can then use `make(...)`, `has(...)`, `instance(...)`, and the other container methods too.
 
 </DocsTerminalTip>
 
@@ -569,7 +588,7 @@ The health route is built in, but the more important idea is that the server is 
 
 You will also notice `config/server.js`. In the base shell it is intentionally almost empty. It is there to reserve a clear place for server-side configuration as backend features are added, without pretending the starter app already has server behavior it does not yet need.
 
-The small `server/lib/` directory exists to keep that server boot code tidy. `runtimeEnv.js` reads environment variables such as port and host. `surfaceRuntime.js` builds the same surface runtime that the client uses, so the server and browser agree on what surfaces exist.
+The small `server/lib/` directory exists to keep that server boot code tidy. `runtimeEnv.js` reads environment variables such as port and host. `surfaceRuntime.js` builds the same surface runtime that the client uses, so the server and browser agree on what surfaces exist. In the scaffold scripts, `npm run server:home` is simply setting `SERVER_SURFACE=home`, while `npm run server` and `npm run server:all` leave the server unrestricted.
 
 #### The main package (server side)
 
@@ -635,6 +654,8 @@ It is deliberately small, but it already shows the pattern: register things with
 
 The `.jskit/lock.json` file is also important. Treat it like JSKIT's own lock and state file. It records which runtime packages JSKIT believes are installed and which managed changes they introduced. When you use `jskit add`, `jskit update`, or generators that depend on installed package state, this file is part of the source of truth. It belongs in version control, and you should not hand-edit it.
 
+This file is narrower than `package.json`. `package.json` lists every npm dependency the app needs, including plain libraries such as Vue, Fastify, and Vuetify. `.jskit/lock.json` only tracks JSKIT package-install state: which JSKIT runtime packages were installed into the app and which files, text mutations, and dependency entries JSKIT is managing on their behalf.
+
 On a brand-new app, the lock file is telling you that only the local app package is installed so far:
 
 ```json
@@ -664,6 +685,8 @@ On a brand-new app, the lock file is telling you that only the local app package
 ```
 
 That is a useful anchor point. Before you add anything else, JSKIT already knows about exactly one runtime package: the one that belongs to your app.
+
+That is why you saw `@jskit-ai/kernel` and `@jskit-ai/http-runtime` earlier in `package.json`, but you do not see them here. They are npm dependencies of the scaffold, but they are not separate JSKIT-installed app packages in this initial state.
 
 ### Other files and options
 
