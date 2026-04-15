@@ -1,5 +1,4 @@
-
-# INITIAL SCAFFOLDING
+# INITIAL SCAFFOLDING -- DONE
 
 npx @jskit-ai/create-app exampleapp --tenancy-mode none
 npm install

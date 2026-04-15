@@ -14,6 +14,8 @@ The first command creates a new folder called `exampleapp` and fills it with JSK
 
 After creating the scaffolding (which comes with a package.json file), you will need to run `npm install` to install dependencies.
 
+<DocsTerminalTip title="Try Bash Completion!">
+
 Once `npm install` has finished, you can enable Bash completion for the JSKIT CLI. If you only want it for the current shell session, run:
 
 ```bash
@@ -27,8 +29,6 @@ npx jskit completion bash --install
 ```
 
 That writes a small loader file into your home directory and updates `~/.bashrc` for you. To activate it in the current shell immediately, run `source ~/.bashrc`.
-
-<DocsTerminalTip title="Try Completion">
 
 Once completion is loaded, you can test it immediately.
 
@@ -47,6 +47,8 @@ npx jskit add p
 ```
 
 and press Tab, JSKIT will complete that subcommand argument to `package`.
+
+The `jskit` command is central in the use of JSKIT. The autocompletion will help speeding things up.
 
 </DocsTerminalTip>
 
@@ -141,13 +143,11 @@ There are two details worth noticing immediately. The dependency on `@local/main
 
 ### App surfaces in JSKIT
 
-A surface is JSKIT's name for a named slice of the application. They are a very important concept in JSKIT, since a surface can be built -- and deployed -- separately from the rest of the system. This is useful if for example you want the end-user interface _not_ to contain _any_ of the symbols/strings of the admin interface.
+A surface is JSKIT's name for a named slice of the application. They are a very important concept in JSKIT, since a surface can be built -- and deployed -- separately from each other. This is useful if for example you want the end-user interface _not_ to contain _any_ of the symbols/strings of the admin interface.
 
-Surfaces are defined in a very important file in JSKIT: `config/public.js`. This is the app's shared public configuration, used both by client and server. It's called "public" because it _will_ be read by the browser, and therefore it _will_ be available to the world. It defines the current tenancy mode, the default surface, and the list of surface definitions. In this first scaffold there is only one surface:
+Surfaces are defined in a very important file in JSKIT: `config/public.js`. This is the app's shared public configuration, used both by client and server. It's called "public" because it _will_ be read by the browser, and therefore it _will_ be available to the world. It defines the current tenancy mode, the default surface, and the list of surface definitions. In this first scaffold there is only one surface, `home`, which is the starter surface
 
-- `home`, which is the starter surface
-
-Even though we are using `--tenancy-mode none`, more surfaces still matter. "None" here means "no workspace routing", not "no surfaces at all". Every app starts with a single `home` surface, and later packages will expand that topology.
+Even though we are using `--tenancy-mode none`, it will still be possible to add more surfaces. Every app starts with a single `home` surface, and later packages will expand that topology.
 
 Here is the part of `config/public.js` that sets that up:
 
@@ -188,7 +188,9 @@ That tells you one thing immediately: `home` is open. More specific policies onl
 
 ### The client side
 
-The `src/` directory is the frontend application. `src/main.js` is the real boot file. It creates the Vue app, sets up the router, enables Vuetify, and builds a JSKIT surface runtime from `config/public.js`. That one file is worth reading carefully because it shows the main client-side contract of a JSKIT app: config goes in, the surface-aware router comes out.
+#### Client bootstrap
+
+The `src/` directory is the frontend application. `src/main.js` is the real boot file. It creates the Vue app, sets up the router, enables Vuetify, and builds a JSKIT surface runtime from `config/public.js`. That one file is worth reading carefully because it shows the main client-side contract of a JSKIT app: scaffold config is turned into a running client shell, with the surface runtime, router, installed client modules, and app boot all wired together.
 
 The important part looks like this:
 
@@ -256,10 +258,188 @@ void bootstrapClientShellApp({
   surfaceMode,
   env: import.meta.env,
   fallbackRoute
+}).catch((error) => {
+  console.error("Failed to bootstrap client app.", error);
 });
 ```
 
-The flow is simple once you read it in order. Load config, build the surface runtime, create a surface-aware router, create Vuetify, then bootstrap the app with that information. The last step also gives JSKIT a hook (`bootInstalledClientModules`) to activate client-side modules added later by installed packages.
+The flow is simple once you read it in order: config in, runtime in memory, router built from that runtime, UI plugin installed, app bootstrapped.
+
+<DocsInDepth title="In depth" preview-height="15rem">
+
+`createSurfaceRuntime(...)` turns the static surface config into a small runtime registry that both the router and later client modules can query. In the starter app, the input data is basically this:
+
+```js
+config.surfaceDefinitions = {
+  home: {
+    pagesRoot: "home", // this surface lives under src/pages/home
+    requiresAuth: false,
+    accessPolicyId: "public"
+  }
+};
+
+config.surfaceDefaultId = "home"; // default surface
+config.surfaceModeAll = "all"; // unrestricted surface mode
+```
+
+That means the `home` surface itself lives under `/home`. Because `home` is also the default surface and the starter scaffold sets `webRootAllowed = "no"`, visiting `/` redirects to `/home`.
+
+That gives the client a normalized surface runtime with answers to questions such as:
+
+```js
+surfaceRuntime.DEFAULT_SURFACE_ID; // "home"
+surfaceRuntime.listEnabledSurfaceIds(); // ["home"]
+surfaceRuntime.resolveSurfaceFromPathname("/home"); // "home"
+```
+
+`surfaceMode` is not another surface definition. It is the current viewing mode for the app. In a plain starter app, `VITE_SURFACE` is usually unset, so `surfaceMode` becomes `"all"`, meaning "do not restrict the router to one specific surface". Later, when you run surface-specific profiles, the same runtime can narrow the active routes to just one surface.
+
+`createShellRouter(...)` uses that `surfaceRuntime` object to assemble the actual router. Concretely, it does this:
+
+1. Takes the generated Vue routes.
+2. Adds a fallback not-found route.
+3. Filters those routes down to the ones that belong to the current surface mode.
+4. Calls Vue Router's real `createRouter(...)` with that filtered route list.
+5. Installs a `beforeEach` guard for surface-aware redirects and access behavior.
+
+So this is not a separate routing system. It is a thin JSKIT wrapper around normal Vue Router setup, using the surface runtime to decide which routes should be active and which guard behavior should be applied.
+
+In the starter app, with only `home`, this is almost boring. It mostly means:
+
+- build the router
+- add not-found
+- enforce the `/` to `/home` redirect behavior
+
+`createVuetify(...)` is the ordinary UI plugin setup. There is nothing especially JSKIT-specific there; it just makes Vuetify components, directives, theme settings, and icon aliases available to the app before the router is mounted.
+
+`bootInstalledClientModules` is the extension seam, meaning "this is the point where later-installed JSKIT packages get to join client startup". The confusing part is that it is not a normal file in your app. In `src/main.js` you import it from:
+
+```js
+import { bootInstalledClientModules } from "virtual:jskit-client-bootstrap";
+```
+
+That `virtual:` prefix is a Vite convention. It means there is no real file on disk with that name. Instead, JSKIT's Vite plugin generates that module for you during development and build.
+
+The startup path looks like this:
+
+1. `src/main.js` imports `virtual:jskit-client-bootstrap`.
+2. The JSKIT Vite plugin sees that import and generates a module on the fly.
+3. That generated module imports the `.../client` entrypoint of each installed JSKIT package that has client-side behavior.
+4. It wraps those imported modules into one function called `bootInstalledClientModules(...)`.
+5. `bootstrapClientShellApp(...)` calls that function before the router is installed and before the app is mounted.
+6. `bootClientModules(...)` then starts client providers and registers any client routes contributed by those installed packages.
+
+The generated module is roughly like this:
+
+```js
+import * as authClient from "@jskit-ai/auth-web/client";
+import * as usersClient from "@jskit-ai/users-web/client";
+import { bootClientModules } from "@jskit-ai/kernel/client/moduleBootstrap";
+
+const installedClientModules = [
+  { packageId: "@jskit-ai/auth-web", module: authClient },
+  { packageId: "@jskit-ai/users-web", module: usersClient }
+];
+
+async function bootInstalledClientModules(context = {}) {
+  return bootClientModules({
+    ...context,
+    clientModules: installedClientModules
+  });
+}
+```
+
+That is why Vite is involved. The browser cannot safely discover installed packages by itself at runtime. It cannot scan `.jskit/lock.json`, inspect `node_modules`, and turn that into bundler-visible imports. Vite needs a normal import graph up front. The plugin creates that graph for the app.
+
+If this were plain Vue without that plugin, you would have to maintain the list yourself:
+
+```js
+import { bootClientModules } from "@jskit-ai/kernel/client/moduleBootstrap";
+import * as authClient from "@jskit-ai/auth-web/client";
+import * as usersClient from "@jskit-ai/users-web/client";
+
+await bootClientModules({
+  app,
+  router,
+  surfaceRuntime,
+  surfaceMode,
+  clientModules: [
+    { packageId: "@jskit-ai/auth-web", module: authClient },
+    { packageId: "@jskit-ai/users-web", module: usersClient }
+  ]
+});
+```
+
+JSKIT automates that step so adding or removing packages does not require hand-editing `src/main.js`.
+
+In a brand-new shell app, there are no extra installed client modules yet, so the generated function is effectively empty. Later, when you install packages with client providers or extra UI routes, this same hook is what starts those providers and registers those routes.
+
+`bootstrapClientShellApp(...)` is the final assembly step. It creates the Vue app, installs plugins such as Vuetify, stores the client app config, runs `bootInstalledClientModules(...)`, attaches the fallback route if needed, installs the router, waits for the router to be ready, and only then mounts the app. That order matters because installed packages need a chance to extend the app before the first render happens.
+
+</DocsInDepth>
+
+#### The main package (client side)
+
+One more client-side piece is worth seeing before looking at page files: the starter app already has its own client provider. The app-local package declares it in `packages/main/package.descriptor.mjs` like this:
+
+```js
+client: {
+  providers: [
+    {
+      entrypoint: "src/client/providers/MainClientProvider.js",
+      export: "MainClientProvider"
+    }
+  ]
+}
+```
+
+That declaration is one of the things `bootClientModules(...)` uses. On the client, the lifecycle is:
+
+1. collect the installed client modules
+2. resolve the provider classes they declare
+3. create the client runtime application container
+4. run each provider's `register()` method
+5. run each provider's `boot()` method, if it has one
+
+So yes: client providers use the same `register()`/`boot()` lifecycle pattern as server providers. In the scaffold, the app-local client provider starts like this:
+
+```js
+const mainClientComponents = [];
+
+function registerMainClientComponent(token, resolveComponent) {
+  mainClientComponents.push({ token, resolveComponent });
+}
+
+class MainClientProvider {
+  static id = "local.main.client";
+
+  register(app) {
+    for (const { token, resolveComponent } of mainClientComponents) {
+      app.singleton(token, resolveComponent);
+    }
+  }
+}
+
+export {
+  MainClientProvider,
+  registerMainClientComponent
+};
+```
+
+The important idea is that this provider is not rendering UI directly. It is registering token-addressable client components into the application container. A helper such as `registerMainClientComponent(...)` collects entries like:
+
+```js
+{
+  token: "local.main.ui.menu-link-item",
+  resolveComponent: () => import("../components/menus/TabLinkItem.vue")
+}
+```
+
+Then `MainClientProvider.register(app)` publishes those into the client container with `app.singleton(...)`. Later packages and placements can ask for those components by token.
+
+This code is intentionally small. `registerMainClientComponent(...)` is a private app-local registration hook, not a public validation API, so the scaffold keeps it minimal and lets obvious mistakes fail honestly when the provider is used.
+
+`MainClientProvider` does not define a `boot()` method yet, so the boot phase is effectively empty for this provider right now. But the lifecycle still supports it. If you later add `boot()`, JSKIT will run it after all client providers have finished `register()`.
 
 Inside `src/pages/` you will find both route owners and actual page components. The easy file to notice is `src/pages/home/index.vue`, because that is the page with visible content. The easy file to miss is `src/pages/home.vue`. That wrapper file contains route metadata that attaches the page tree to a JSKIT surface. When you later add more pages, that surface information is one of the things JSKIT uses to decide where a page belongs.
 
@@ -285,6 +465,62 @@ This is why `src/pages/home/index.vue` becomes part of the `home` surface instea
 
 `src/App.vue` is deliberately small. It is only the outer Vuetify app shell and a `RouterView`. That is another pattern you should get used to in JSKIT: the base scaffold stays thin, and most behavior is pushed toward packages, page files, and runtime providers.
 
+<DocsTerminalTip label="Container" title="App Methods">
+
+The `app` object in `register(app)` and `boot(app)` is JSKIT's application container.
+
+Defining values:
+
+- `app.singleton(token, factory)`: register one lazily created shared value for the whole app.
+- `app.bind(token, factory)`: register a factory that creates a fresh value every time the token is resolved.
+- `app.scoped(token, factory)`: register one value per child scope.
+- `app.instance(token, value)`: register an already-created value directly.
+- `app.tag(token, tagName)`: add a token to a named group.
+
+Typical examples look like this:
+
+```js
+app.instance("appConfig", appConfig);
+app.singleton("local.main.ui.menu-link-item", () => TabLinkItem);
+app.bind("feature.clock", () => new Clock());
+app.tag("auth.login.component", "auth.ui");
+```
+
+That means:
+
+- `instance(...)` is good for something you already created, such as loaded config.
+- `singleton(...)` is good for one shared runtime object or component resolver.
+- `bind(...)` is for "make a fresh one each time someone asks".
+- `tag(...)` lets you group related tokens so another part of the app can ask for the whole set later.
+
+Using values:
+
+- `app.make(token)`: resolve a token from the container.
+- `app.has(token)`: check whether a token is registered.
+- `app.createScope(scopeId)`: create a child scope.
+- `app.resolveTag(tagName)`: resolve all tokens in that group.
+
+Then later code can consume those registrations like this:
+
+```js
+const authGuardRuntime = app.make("runtime.auth-guard.client");
+
+if (app.has("jskit.client.vue.app")) {
+  const vueApp = app.make("jskit.client.vue.app");
+}
+
+const authUi = app.resolveTag("auth.ui");
+const requestScope = app.createScope("request:123");
+```
+
+Here:
+
+- `make(...)` gets the thing behind a token.
+- `has(...)` lets you check before assuming a token exists.
+- `resolveTag(...)` gets every token in a named group.
+- `createScope(...)` gives you a child container when you need scoped values rather than app-wide ones.
+
+</DocsTerminalTip>
 
 ### The server side
 
@@ -335,13 +571,13 @@ You will also notice `config/server.js`. In the base shell it is intentionally a
 
 The small `server/lib/` directory exists to keep that server boot code tidy. `runtimeEnv.js` reads environment variables such as port and host. `surfaceRuntime.js` builds the same surface runtime that the client uses, so the server and browser agree on what surfaces exist.
 
-### The main package (client and server)
+#### The main package (server side)
 
 The most unusual part of the scaffold, if you are new to JSKIT, is `packages/main/`. This is the app-local runtime package. It is not there by accident, and it is not just a convenience folder. JSKIT treats your app itself as a local package with a descriptor, client provider hooks, and server provider hooks. That is why the folder contains `package.descriptor.mjs` and a small `src/` tree of its own.
 
-The file `packages/main/package.descriptor.mjs` tells JSKIT what this local package exposes and where its client and server providers live. In the initial scaffold it is intentionally minimal, but it is still a real descriptor, and later JSKIT package installs can safely target it.
+You already saw the client-side provider in the client bootstrap path. The server side uses the same model: the descriptor tells JSKIT which provider class belongs to the local package, and the runtime calls `register()` and then `boot()`.
 
-The important part of the descriptor looks like this:
+The server part of that descriptor looks like this:
 
 ```js
 export default Object.freeze({
@@ -360,24 +596,11 @@ export default Object.freeze({
           }
         }
       ]
-    },
-    client: {
-      providers: [
-        {
-          entrypoint: "src/client/providers/MainClientProvider.js",
-          export: "MainClientProvider"
-        }
-      ]
     }
   },
   metadata: {
     server: {
       routes: []
-    },
-    ui: {
-      routes: [],
-      elements: [],
-      overrides: []
     }
   }
 });
@@ -385,12 +608,7 @@ export default Object.freeze({
 
 This is the moment where the scaffold stops looking like "just a Vue app". The app is declaring itself as a runtime package that JSKIT can discover, load, and mutate safely.
 
-Two files inside `packages/main` are especially worth remembering:
-
-- `packages/main/src/server/providers/MainServiceProvider.js`, which is the first place to grow backend behavior
-- `packages/main/src/client/providers/MainClientProvider.js`, which is the matching client-side registration point
-
-At the beginning they are almost empty, but that emptiness is useful. It means you already have a stable place to put server and client runtime code as the app grows, instead of inventing ad hoc structure later.
+For the server side, the main file to remember is `packages/main/src/server/providers/MainServiceProvider.js`. At the beginning it is almost empty, but that emptiness is useful. It means you already have a stable place to put backend runtime code as the app grows, instead of inventing ad hoc structure later.
 
 The server-side provider starts like this:
 
@@ -413,7 +631,7 @@ class MainServiceProvider {
 export { MainServiceProvider };
 ```
 
-It is deliberately small, but it already shows the pattern: register things with the app container first, then grow real backend behavior from there.
+It is deliberately small, but it already shows the pattern: register things with the app container first, then grow real backend behavior from there. The client side uses the same provider lifecycle; you already saw the matching pattern earlier in the client boot path.
 
 The `.jskit/lock.json` file is also important. Treat it like JSKIT's own lock and state file. It records which runtime packages JSKIT believes are installed and which managed changes they introduced. When you use `jskit add`, `jskit update`, or generators that depend on installed package state, this file is part of the source of truth. It belongs in version control, and you should not hand-edit it.
 
