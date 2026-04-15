@@ -32,6 +32,7 @@ import {
 import {
   applyFileMutations,
   applyTextMutations,
+  partitionPreFileConfigTextMutations,
   prepareFileMutations,
   resolvePositioningMutations
 } from "./mutationApplication.js";
@@ -299,6 +300,19 @@ async function applyPackageInstall({
   const mutationWarnings = [];
   const mutations = ensureObject(packageEntry.descriptor.mutations);
   const fileMutations = ensureArray(mutations.files);
+  const textMutations = ensureArray(mutations.text);
+  const hasSurfaceTargetedFileMutations = fileMutations.some((mutationValue) =>
+    Boolean(normalizeFileMutationRecord(mutationValue).toSurface)
+  );
+  const {
+    preFileTextMutations,
+    postFileTextMutations
+  } = hasSurfaceTargetedFileMutations
+    ? partitionPreFileConfigTextMutations(textMutations)
+    : {
+        preFileTextMutations: [],
+        postFileTextMutations: textMutations
+      };
   const templateRoot = await resolvePackageTemplateRoot({
     packageEntry,
     appRoot,
@@ -311,6 +325,19 @@ async function applyPackageInstall({
           ...packageEntry,
           rootDir: templateRoot
         };
+  const managedRecord = createManagedRecordBase(packageEntry, packageOptions);
+  managedRecord.managed.migrations = cloneManagedArray(existingManaged.migrations);
+
+  if (preFileTextMutations.length > 0) {
+    await applyTextMutations(
+      packageEntryForMutations,
+      appRoot,
+      preFileTextMutations,
+      packageOptions,
+      managedRecord.managed.text,
+      touchedFiles
+    );
+  }
 
   const preparedFileMutations = await prepareFileMutations(
     packageEntryForMutations,
@@ -325,9 +352,6 @@ async function applyPackageInstall({
     managedViteChanges: ensureObject(existingManaged.vite),
     touchedFiles
   });
-
-  const managedRecord = createManagedRecordBase(packageEntry, packageOptions);
-  managedRecord.managed.migrations = cloneManagedArray(existingManaged.migrations);
 
   const mutationDependencies = ensureObject(mutations.dependencies);
   const runtimeDependencies = ensureObject(mutationDependencies.runtime);
@@ -444,7 +468,7 @@ async function applyPackageInstall({
   await applyTextMutations(
     packageEntryForMutations,
     appRoot,
-    ensureArray(mutations.text),
+    postFileTextMutations,
     packageOptions,
     managedRecord.managed.text,
     touchedFiles

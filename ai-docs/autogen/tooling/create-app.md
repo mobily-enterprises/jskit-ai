@@ -158,14 +158,6 @@ Exports
 Exports
 - None
 
-### `templates/base-shell/src/pages/console.vue`
-Exports
-- None
-
-### `templates/base-shell/src/pages/console/index.vue`
-Exports
-- None
-
 ### `templates/base-shell/src/pages/home.vue`
 Exports
 - None

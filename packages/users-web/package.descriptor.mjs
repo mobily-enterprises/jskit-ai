@@ -11,6 +11,7 @@ export default Object.freeze({
   description: "Users web module: account/profile UI plus shared users web widgets.",
   dependsOn: [
     "@jskit-ai/auth-web",
+    "@jskit-ai/console-web",
     "@jskit-ai/http-runtime",
     "@jskit-ai/shell-web",
     "@jskit-ai/uploads-image-web",
@@ -186,6 +187,7 @@ export default Object.freeze({
       runtime: {
         "@tanstack/vue-query": "5.92.12",
         "@mdi/js": "^7.4.47",
+        "@jskit-ai/console-web": "0.1.0",
         "@jskit-ai/http-runtime": "0.1.33",
         "@jskit-ai/realtime": "0.1.33",
         "@jskit-ai/kernel": "0.1.34",

@@ -48,6 +48,10 @@ const SETTINGS_FIELDS_CONTRACT_TARGETS = Object.freeze({
     ])
   })
 });
+const PRE_FILE_CONFIG_MUTATION_TARGETS = new Set([
+  "config/public.js",
+  "config/server.js"
+]);
 
 function resolveSettingsFieldsContractTarget(relativeFile = "") {
   const normalizedRelativeFile = normalizeMutationRelativeFilePath(relativeFile);
@@ -236,6 +240,33 @@ function isPositioningTextMutation(value = {}) {
   return normalizeMutationRelativeFilePath(mutation.file) === "src/placement.js";
 }
 
+function isPreFileConfigTextMutation(value = {}) {
+  const mutation = ensureObject(value);
+  const operation = String(mutation.op || "").trim();
+  if (operation !== "append-text") {
+    return false;
+  }
+  return PRE_FILE_CONFIG_MUTATION_TARGETS.has(normalizeMutationRelativeFilePath(mutation.file));
+}
+
+function partitionPreFileConfigTextMutations(textMutations = []) {
+  const preFileTextMutations = [];
+  const postFileTextMutations = [];
+
+  for (const mutation of ensureArray(textMutations)) {
+    if (isPreFileConfigTextMutation(mutation)) {
+      preFileTextMutations.push(mutation);
+      continue;
+    }
+    postFileTextMutations.push(mutation);
+  }
+
+  return {
+    preFileTextMutations,
+    postFileTextMutations
+  };
+}
+
 function resolvePositioningMutations(descriptorMutations = {}) {
   const mutations = ensureObject(descriptorMutations);
   const files = ensureArray(mutations.files).filter((mutationValue) => {
@@ -251,5 +282,6 @@ function resolvePositioningMutations(descriptorMutations = {}) {
 
 export {
   applyTextMutations,
+  partitionPreFileConfigTextMutations,
   resolvePositioningMutations
 };

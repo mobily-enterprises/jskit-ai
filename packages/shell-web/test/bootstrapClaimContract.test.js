@@ -46,35 +46,13 @@ test("shell-web claims starter shell files as app-owned scaffolds", () => {
     category: "shell-web",
     id: "shell-web-page-home"
   });
-  assert.deepEqual(findFileMutation("shell-web-page-console-wrapper"), {
-    from: "templates/src/pages/console.vue",
-    toSurface: "console",
-    toSurfaceRoot: true,
-    ownership: "app",
-    expectedExistingFrom: "templates/expected-existing/src/pages/console.vue",
-    reason: "Install shell-driven console wrapper page.",
-    category: "shell-web",
-    id: "shell-web-page-console-wrapper"
-  });
-  assert.deepEqual(findFileMutation("shell-web-page-console"), {
-    from: "templates/src/pages/console/index.vue",
-    toSurface: "console",
-    toSurfacePath: "index.vue",
-    ownership: "app",
-    expectedExistingFrom: "templates/expected-existing/src/pages/console/index.vue",
-    reason: "Install shell-driven console page starter.",
-    category: "shell-web",
-    id: "shell-web-page-console"
-  });
 });
 
 test("shell-web expected-existing starter files stay aligned with create-app base-shell", async () => {
   const comparedFiles = [
     "src/App.vue",
     "src/pages/home.vue",
-    "src/pages/home/index.vue",
-    "src/pages/console.vue",
-    "src/pages/console/index.vue"
+    "src/pages/home/index.vue"
   ];
 
   for (const relativeFile of comparedFiles) {
