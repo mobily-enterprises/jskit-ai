@@ -1192,8 +1192,10 @@ Exports
 - `toPosixPath`
 - `DEFAULT_PAGE_LINK_COMPONENT_TOKEN`
 - `DEFAULT_SUBPAGE_LINK_COMPONENT_TOKEN`
+- `listSurfacePageRoots`
 - `normalizePagesRelativeTargetFile`
 - `normalizePagesRelativeTargetRoot`
+- `resolveBestSurfaceMatchFromPageFile`
 - `resolvePageTargetDetails`
 - `deriveDefaultSubpagesHost`
 - `resolveNearestParentSubpagesHost`
@@ -1205,8 +1207,10 @@ Exports
 Exports
 - `DEFAULT_PAGE_LINK_COMPONENT_TOKEN`
 - `DEFAULT_SUBPAGE_LINK_COMPONENT_TOKEN`
+- `listSurfacePageRoots(appRoot = "", { context = "page target" } = {})`
 - `normalizePagesRelativeTargetFile(targetFile = "", { context = "page target", label = "target file" } = {})`
 - `normalizePagesRelativeTargetRoot(targetRoot = "", { context = "page target", label = "target root" } = {})`
+- `resolveBestSurfaceMatchFromPageFile(relativePath = "", surfacePageRoots = [], { context = "page target" } = {})`
 - `resolvePageTargetDetails({ appRoot, targetFile = "", context = "page target" } = {})`
 - `deriveDefaultSubpagesHost(pageTarget = {})`
 - `resolveNearestParentSubpagesHost({ appRoot, pageTarget = {}, context = "page target" } = {})`
@@ -1227,10 +1231,8 @@ Local functions
 - `loadPublicConfig(appRoot = "", { context = "page target" } = {})`
 - `normalizeSurfaceAccessPolicyId(value = "")`
 - `resolveSurfaceRequiresAuth(surfaceDefinition = {}, surfaceAccessPolicies = {})`
-- `listSurfacePageRoots(appRoot = "", { context = "page target" } = {})`
 - `deriveSurfaceMatchesFromPageFile(relativePath = "", surfacePageRoots = [])`
 - `compareSurfaceMatchSpecificity(leftMatch = {}, rightMatch = {})`
-- `resolveBestSurfaceMatchFromPageFile(relativePath = "", surfacePageRoots = [], { context = "page target" } = {})`
 - `deriveRouteInfoFromSurfaceRelativeFile(surfaceRelativeFilePath = "", surfaceId = "")`
 - `buildRouteUrlSuffixFromVisibleSegments(segments = [])`
 - `buildAncestorRouteContexts(pageTarget = {})`

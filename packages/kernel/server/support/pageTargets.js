@@ -695,8 +695,10 @@ async function resolvePageLinkTargetDetails({
 export {
   DEFAULT_PAGE_LINK_COMPONENT_TOKEN,
   DEFAULT_SUBPAGE_LINK_COMPONENT_TOKEN,
+  listSurfacePageRoots,
   normalizePagesRelativeTargetFile,
   normalizePagesRelativeTargetRoot,
+  resolveBestSurfaceMatchFromPageFile,
   resolvePageTargetDetails,
   deriveDefaultSubpagesHost,
   resolveNearestParentSubpagesHost,

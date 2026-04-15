@@ -19,7 +19,7 @@ export default Object.freeze({
       validationType: "enabled-surface-id",
       defaultFromConfig: "surfaceDefaultId",
       promptLabel: "Target surface",
-      promptHint: "Used by the placed-element subcommand. Must match an enabled surface id."
+      promptHint: "Optional. Used when JSKIT cannot infer the target surface from placement or app topology."
     },
     path: {
       required: false,
@@ -152,9 +152,11 @@ export default Object.freeze({
         export: "runGeneratorSubcommand",
         description: "Create a Vue component file under the chosen component directory (default: src/components) and add a placement entry that renders it.",
         optionNames: ["name", "surface", "path", "placement", "force"],
-        requiredOptionNames: ["name", "surface"],
+        requiredOptionNames: ["name"],
         notes: [
           "If --placement is omitted, the placed element is added at shell-layout:top-right.",
+          "If the placement target belongs to a page-owned outlet, JSKIT infers the surface automatically.",
+          "If the target is shared and the app has multiple enabled surfaces, pass --surface explicitly.",
           "If the component file already exists, rerun with --force to overwrite it."
         ],
         examples: [
@@ -162,8 +164,7 @@ export default Object.freeze({
             label: "Common usage",
             lines: [
               "npx jskit generate ui-generator placed-element \\",
-              "  --name \"Alerts Widget\" \\",
-              "  --surface admin"
+              "  --name \"Alerts Widget\""
             ]
           },
           {

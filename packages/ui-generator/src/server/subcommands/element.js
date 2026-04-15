@@ -1,9 +1,12 @@
 import path from "node:path";
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import {
+  listSurfacePageRoots,
+  resolveBestSurfaceMatchFromPageFile,
   resolveShellOutletPlacementTargetFromApp,
   toPosixPath
 } from "@jskit-ai/kernel/server/support";
+import { normalizeSurfaceId } from "@jskit-ai/kernel/shared/surface";
 import { normalizeBoolean, normalizeText } from "@jskit-ai/kernel/shared/support/normalize";
 import {
   DEFAULT_COMPONENT_DIRECTORY,
@@ -31,6 +34,47 @@ function renderElementComponentSource(elementName = "") {
 `;
 }
 
+async function resolvePlacedElementSurface({
+  appRoot,
+  placementTarget = {},
+  surface = "",
+  context = "ui-generator placed-element"
+} = {}) {
+  const explicitSurface = normalizeSurfaceId(surface);
+  const inferredSurfaceMatch = await resolveBestSurfaceMatchFromPageFile(
+    String(placementTarget?.sourcePath || ""),
+    await listSurfacePageRoots(appRoot, { context }),
+    { context }
+  );
+  const inferredSurface = normalizeSurfaceId(inferredSurfaceMatch?.surfaceId);
+
+  if (explicitSurface) {
+    if (inferredSurface && explicitSurface !== inferredSurface) {
+      throw new Error(
+        `${context} target "${normalizeText(placementTarget?.id) || "<unknown>"}" belongs to surface "${inferredSurface}", ` +
+        `so --surface ${explicitSurface} is invalid.`
+      );
+    }
+    return explicitSurface;
+  }
+
+  if (inferredSurface) {
+    return inferredSurface;
+  }
+
+  const surfacePageRoots = await listSurfacePageRoots(appRoot, { context });
+  if (surfacePageRoots.length === 1) {
+    return normalizeSurfaceId(surfacePageRoots[0]?.id);
+  }
+
+  const targetId = normalizeText(placementTarget?.id) || "<unknown>";
+  const enabledSurfaceIds = surfacePageRoots.map((entry) => normalizeSurfaceId(entry?.id)).filter(Boolean);
+  throw new Error(
+    `${context} could not infer a surface for placement target "${targetId}". ` +
+    `Pass --surface explicitly. Enabled surfaces: ${enabledSurfaceIds.join(", ") || "<none>"}.`
+  );
+}
+
 async function runGeneratorSubcommand({
   appRoot,
   subcommand = "",
@@ -50,7 +94,6 @@ async function runGeneratorSubcommand({
   });
 
   const name = requireOption(options, "name", { context: "ui-generator placed-element" });
-  const surface = requireOption(options, "surface", { context: "ui-generator placed-element" }).toLowerCase();
   const componentDirectory = normalizeText(options.path) || DEFAULT_COMPONENT_DIRECTORY;
   const forceOverwrite = Object.prototype.hasOwnProperty.call(options, "force")
     ? normalizeBoolean(options.force)
@@ -76,6 +119,12 @@ async function runGeneratorSubcommand({
     appRoot,
     context: "ui-generator",
     placement: options?.placement || DEFAULT_ELEMENT_PLACEMENT
+  });
+  const surface = await resolvePlacedElementSurface({
+    appRoot,
+    placementTarget,
+    surface: options?.surface,
+    context: "ui-generator placed-element"
   });
 
   const touchedFiles = new Set();
