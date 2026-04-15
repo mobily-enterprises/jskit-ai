@@ -31,6 +31,7 @@ Exports
 - `runGeneratorSubcommand({ appRoot, subcommand = "", args = [], options = {}, dryRun = false } = {})`
 Local functions
 - `renderElementComponentSource(elementName = "")`
+- `resolvePlacedElementSurface({ appRoot, placementTarget = {}, surface = "", context = "ui-generator placed-element" } = {})`
 
 ### `src/server/subcommands/outlet.js`
 Exports

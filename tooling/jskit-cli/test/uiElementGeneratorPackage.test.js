@@ -569,8 +569,6 @@ test("generate @jskit-ai/ui-generator placed-element scaffolds component token r
         "placed-element",
         "--name",
         "Ops Panel",
-        "--surface",
-        "admin",
         "--path",
         "src/widgets"
       ]
@@ -610,8 +608,6 @@ test("generate @jskit-ai/ui-generator placed-element supports explicit placement
         "placed-element",
         "--name",
         "Ops Panel",
-        "--surface",
-        "admin",
         "--placement",
         "shell-layout:primary-menu"
       ]
