@@ -3,11 +3,6 @@ LOCAL MACHINE
 
 git remote add dokku dokku@appgenius.biz:$APP
 
-
-
-
-
-
 LOCAL: Full app form template
 
 drop table  ai_conversations      ;
@@ -39,9 +34,9 @@ export __APP=beepollen
 
 npm install --verbose
 npm run devlinks
+npx jskit add package shell-web
 
 npx jskit add package auth-provider-supabase-core 
-npx jskit add package shell-web
 npx jskit add package auth-web
 npx jskit add package database-runtime-mysql
 npx jskit add package users-web
@@ -56,7 +51,6 @@ npm run db:migrate
 git init
 git add -A
 git commit -m "INIT"
-
 
 
 # SIMPLE APP
