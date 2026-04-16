@@ -1,7 +1,7 @@
 export default Object.freeze({
   packageVersion: 1,
   packageId: "@jskit-ai/shell-web",
-  version: "0.1.35",
+  version: "0.1.36",
   kind: "runtime",
   description: "Web shell layout runtime with outlet-based placement contributions.",
   dependsOn: [],
@@ -83,7 +83,24 @@ export default Object.freeze({
             source: "templates/src/pages/home/settings.vue"
           }
         ],
-        contributions: []
+        contributions: [
+          {
+            id: "shell-web.home.menu.home",
+            target: "shell-layout:primary-menu",
+            surfaces: ["*"],
+            order: 50,
+            componentToken: "local.main.ui.surface-aware-menu-link-item",
+            source: "templates/src/placement.js"
+          },
+          {
+            id: "shell-web.home.menu.settings",
+            target: "shell-layout:primary-menu",
+            surfaces: ["home"],
+            order: 100,
+            componentToken: "local.main.ui.surface-aware-menu-link-item",
+            source: "templates/src/placement.js"
+          }
+        ]
       }
     }
   },
@@ -92,7 +109,7 @@ export default Object.freeze({
       runtime: {
         "@mdi/js": "^7.4.47",
         "@tanstack/vue-query": "^5.90.5",
-        "@jskit-ai/kernel": "0.1.36",
+        "@jskit-ai/kernel": "0.1.37",
         "vuetify": "^4.0.0"
       },
       dev: {}
@@ -258,7 +275,7 @@ export default Object.freeze({
         toSurface: "home",
         toSurfacePath: "settings/index.vue",
         ownership: "app",
-        reason: "Install shell-driven home settings index stub scaffold for app-owned landing or redirect behavior.",
+        reason: "Install shell-driven home settings landing page with a tiny browser-local shell preference example.",
         category: "shell-web",
         id: "shell-web-page-home-settings"
       }
