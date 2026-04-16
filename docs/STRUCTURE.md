@@ -9,7 +9,6 @@ npm install
 # A MORE INTERESTING SHELL
 
 npx jskit add package shell-web
-npm run db:migrate
 npm install
 (show placements)
 
@@ -19,7 +18,6 @@ npm install
 
 npx jskit add package auth-provider-supabase-core
 npx jskit add package auth-web
-npx jskit add package users-web
 npm install
 
 (Explain that authentication will work without a DB but explaining limitations)
@@ -27,6 +25,7 @@ npm install
 # DATABASE LAYER
 
 npx jskit add package database-runtime-mysql
+npx jskit add package users-web
 npm install
 
 (Show what is added, and explain the consequences to authentication)
