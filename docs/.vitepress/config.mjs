@@ -21,7 +21,8 @@ export default defineConfig({
           text: "Guide",
           items: [
             { text: "Initial Scaffolding", link: "/guide/initial-scaffolding" },
-            { text: "A More Interesting Shell", link: "/guide/a-more-interesting-shell" }
+            { text: "A More Interesting Shell", link: "/guide/a-more-interesting-shell" },
+            { text: "Authentication", link: "/guide/authentication" }
           ]
         }
       ]
