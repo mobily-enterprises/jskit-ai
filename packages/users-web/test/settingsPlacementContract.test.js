@@ -140,15 +140,6 @@ test("users-web descriptor metadata advertises home tools outlet and standard ho
     ]
   );
 
-  expectContribution("users.home.menu.home", {
-    target: "shell-layout:primary-menu",
-    surfaces: ["*"],
-    order: 50,
-    componentToken: "local.main.ui.surface-aware-menu-link-item",
-    when: "auth.authenticated === true",
-    source: "mutations.text#users-web-home-shell-menu-placement"
-  });
-
   expectContribution("users.profile.menu.settings", {
     target: "auth-profile-menu:primary-menu",
     surfaces: ["*"],
@@ -202,22 +193,6 @@ test("users-web descriptor metadata advertises home tools outlet and standard ho
       'componentToken: "auth.web.profile.menu.link-item"',
       'label: "Settings"',
       'to: "/account"'
-    ]
-  });
-
-  expectTextMutation("users-web-home-shell-menu-placement", {
-    reason: "Append users-web home shell menu placement into app-owned placement registry.",
-    category: "users-web",
-    skipIfContains: 'id: "users.home.menu.home"',
-    snippets: [
-      'id: "users.home.menu.home"',
-      'target: "shell-layout:primary-menu"',
-      'componentToken: "local.main.ui.surface-aware-menu-link-item"',
-      'label: "Home"',
-      'surface: "home"',
-      'workspaceSuffix: "/"',
-      'nonWorkspaceSuffix: "/"',
-      'exact: true'
     ]
   });
 

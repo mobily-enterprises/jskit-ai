@@ -8,10 +8,19 @@ import descriptor from "../package.descriptor.mjs";
 const TEST_DIRECTORY = path.dirname(fileURLToPath(import.meta.url));
 const PACKAGE_DIR = path.resolve(TEST_DIRECTORY, "..");
 
-function readSettingsOutlets() {
+function readOutlets(target = "") {
   const outlets = descriptor?.metadata?.ui?.placements?.outlets;
+  const normalizedTarget = String(target || "").trim();
   return Array.isArray(outlets)
-    ? outlets.filter((entry) => String(entry?.target || "").trim() === "home-settings:primary-menu")
+    ? outlets.filter((entry) => String(entry?.target || "").trim() === normalizedTarget)
+    : [];
+}
+
+function readContributions(target = "") {
+  const contributions = descriptor?.metadata?.ui?.placements?.contributions;
+  const normalizedTarget = String(target || "").trim();
+  return Array.isArray(contributions)
+    ? contributions.filter((entry) => String(entry?.target || "").trim() === normalizedTarget)
     : [];
 }
 
@@ -30,22 +39,59 @@ test("shell-web home settings template exposes surface-derived settings outlets"
   assert.match(source, /<RouterView \/>/);
 });
 
-test("shell-web home settings index template is a simple developer-owned stub", async () => {
+test("shell-web settings landing page exposes a tiny browser-local drawer preference", async () => {
   const source = await readFile(path.join(PACKAGE_DIR, "templates", "src", "pages", "home", "settings", "index.vue"), "utf8");
 
-  assert.match(source, /definePage/);
-  assert.match(source, /your_child_segment/);
+  assert.match(source, /useShellLayoutState/);
+  assert.match(source, /drawerDefaultOpen/);
+  assert.match(source, /setDrawerDefaultOpen/);
+  assert.match(source, /Open navigation drawer by default/);
+  assert.match(source, /live in this browser only/);
 });
 
-test("shell-web descriptor metadata advertises home settings outlets and installs the scaffold page", () => {
+test("shell-web placement template seeds default Home and Settings drawer navigation", async () => {
+  const source = await readFile(path.join(PACKAGE_DIR, "templates", "src", "placement.js"), "utf8");
+
+  assert.match(source, /id: "shell-web\.home\.menu\.home"/);
+  assert.match(source, /target: "shell-layout:primary-menu"/);
+  assert.match(source, /label: "Home"/);
+  assert.match(source, /nonWorkspaceSuffix: "\/"/);
+  assert.match(source, /id: "shell-web\.home\.menu\.settings"/);
+  assert.match(source, /label: "Settings"/);
+  assert.match(source, /nonWorkspaceSuffix: "\/settings"/);
+});
+
+test("shell-web descriptor metadata advertises home settings outlets, default drawer links, and installs the scaffold page", () => {
   assert.deepEqual(
-    readSettingsOutlets(),
+    readOutlets("home-settings:primary-menu"),
     [
       {
         target: "home-settings:primary-menu",
         defaultLinkComponentToken: "local.main.ui.surface-aware-menu-link-item",
         surfaces: ["home"],
         source: "templates/src/pages/home/settings.vue"
+      }
+    ]
+  );
+
+  assert.deepEqual(
+    readContributions("shell-layout:primary-menu"),
+    [
+      {
+        id: "shell-web.home.menu.home",
+        target: "shell-layout:primary-menu",
+        surfaces: ["*"],
+        order: 50,
+        componentToken: "local.main.ui.surface-aware-menu-link-item",
+        source: "templates/src/placement.js"
+      },
+      {
+        id: "shell-web.home.menu.settings",
+        target: "shell-layout:primary-menu",
+        surfaces: ["home"],
+        order: 100,
+        componentToken: "local.main.ui.surface-aware-menu-link-item",
+        source: "templates/src/placement.js"
       }
     ]
   );
@@ -65,14 +111,17 @@ test("shell-web descriptor metadata advertises home settings outlets and install
     toSurface: "home",
     toSurfacePath: "settings/index.vue",
     ownership: "app",
-    reason: "Install shell-driven home settings index stub scaffold for app-owned landing or redirect behavior.",
+    reason: "Install shell-driven home settings landing page with a tiny browser-local shell preference example.",
     category: "shell-web",
     id: "shell-web-page-home-settings"
   });
 });
 
-test("shell-web home starter page links to the home settings scaffold", async () => {
+test("shell-web home starter page relies on drawer navigation instead of dead feature buttons", async () => {
   const source = await readFile(path.join(PACKAGE_DIR, "templates", "src", "pages", "home", "index.vue"), "utf8");
 
-  assert.match(source, /to="\/home\/settings"/);
+  assert.match(source, /Use the navigation drawer to move around the shell\./);
+  assert.doesNotMatch(source, /\/home\/settings/);
+  assert.doesNotMatch(source, /\/console/);
+  assert.doesNotMatch(source, /\/auth\/signout/);
 });

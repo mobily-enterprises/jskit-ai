@@ -7,6 +7,10 @@ import {
   resolveSurfaceDefinitionFromPlacementContext,
   resolveSurfaceIdFromPlacementPathname
 } from "../placement/surfaceContext.js";
+import {
+  readDrawerDefaultOpenPreference,
+  writeDrawerDefaultOpenPreference
+} from "./shellLayoutDrawerPreference.js";
 
 function toSurfaceLabel(surfaceId = "") {
   const normalizedSurfaceId = String(surfaceId || "").trim().toLowerCase();
@@ -21,6 +25,16 @@ function toSurfaceLabel(surfaceId = "") {
     .join(" ");
 }
 
+const drawerDefaultOpen = ref(readDrawerDefaultOpenPreference());
+const drawerOpen = ref(drawerDefaultOpen.value);
+
+function setDrawerDefaultOpen(open) {
+  const normalized = Boolean(open);
+  drawerDefaultOpen.value = normalized;
+  drawerOpen.value = normalized;
+  writeDrawerDefaultOpenPreference(normalized);
+}
+
 function useShellLayoutState(props = {}) {
   let route = null;
   try {
@@ -30,7 +44,6 @@ function useShellLayoutState(props = {}) {
   }
 
   const { context: placementContext } = useWebPlacementContext();
-  const drawerOpen = ref(true);
 
   function toggleDrawer() {
     drawerOpen.value = !drawerOpen.value;
@@ -78,7 +91,9 @@ function useShellLayoutState(props = {}) {
   });
 
   return Object.freeze({
+    drawerDefaultOpen,
     drawerOpen,
+    setDrawerDefaultOpen,
     toggleDrawer,
     resolvedSurface,
     resolvedSurfaceLabel
