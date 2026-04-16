@@ -48,7 +48,7 @@ const { drawerOpen, toggleDrawer, resolvedSurface, resolvedSurfaceLabel } = useS
     <v-navigation-drawer v-model="drawerOpen" border class="bg-surface" :width="248">
       <slot name="menu" :surface="resolvedSurface">
         <v-list nav density="comfortable" class="pt-2">
-          <v-list-subheader class="text-uppercase text-caption">{{ resolvedSurfaceLabel }}</v-list-subheader>
+          <v-list-subheader class="text-uppercase text-caption">Navigation</v-list-subheader>
           <ShellOutlet
             target="shell-layout:primary-menu"
             default

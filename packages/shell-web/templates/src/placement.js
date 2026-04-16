@@ -10,3 +10,32 @@ export { addPlacement };
 export default function getPlacements() {
   return registry.build();
 }
+
+addPlacement({
+  id: "shell-web.home.menu.home",
+  target: "shell-layout:primary-menu",
+  surfaces: ["*"],
+  order: 50,
+  componentToken: "local.main.ui.surface-aware-menu-link-item",
+  props: {
+    label: "Home",
+    surface: "home",
+    workspaceSuffix: "/",
+    nonWorkspaceSuffix: "/",
+    exact: true
+  }
+});
+
+addPlacement({
+  id: "shell-web.home.menu.settings",
+  target: "shell-layout:primary-menu",
+  surfaces: ["home"],
+  order: 100,
+  componentToken: "local.main.ui.surface-aware-menu-link-item",
+  props: {
+    label: "Settings",
+    surface: "home",
+    workspaceSuffix: "/settings",
+    nonWorkspaceSuffix: "/settings"
+  }
+});

@@ -49,11 +49,18 @@ Exports
 Exports
 - None
 
+### `src/client/composables/shellLayoutDrawerPreference.js`
+Exports
+- `SHELL_LAYOUT_DRAWER_DEFAULT_OPEN_STORAGE_KEY`
+- `readDrawerDefaultOpenPreference({ storage = typeof window === "object" ? window?.localStorage : null } = {})`
+- `writeDrawerDefaultOpenPreference(open, { storage = typeof window === "object" ? window?.localStorage : null } = {})`
+
 ### `src/client/composables/useShellLayoutState.js`
 Exports
 - `useShellLayoutState(props = {})`
 Local functions
 - `toSurfaceLabel(surfaceId = "")`
+- `setDrawerDefaultOpen(open)`
 
 ### `src/client/error/index.js`
 Exports
