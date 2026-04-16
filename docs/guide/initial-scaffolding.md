@@ -70,7 +70,7 @@ Then open `http://localhost:5173/` in the browser. The starter screen is intenti
     <div class="docs-browser-shot__address">http://localhost:5173/</div>
   </div>
   <img
-    src="/images/guide/initial-scaffolding-home.png"
+    src="/images/guide/initial-scaffolding/initial-scaffolding-home.png"
     alt="Freshly generated exampleapp starter screen in a browser window"
   />
 </figure>

@@ -14,6 +14,10 @@ npm install
 
 (show placements)
 
+- Improve look, maybe put a settings menu on the left in jskit
+- Read after src/placement.js becomes the placement registry
+- Explain that shell-web OVERWRITES things, and only if they are actually unchanged
+
 # AUTHENTICATION
 
 npx jskit add package auth-provider-supabase-core
@@ -21,18 +25,20 @@ npx jskit add package auth-web
 npx jskit add package users-web
 npm install
 
-(Show users.)
+(Explain that authentication will work without a DB but explaining limitations)
 
 # DATABASE LAYER
 
 npx jskit add package database-runtime-mysql
 npm install
 
-(Show what is added)
+(Show what is added, and explain the consequences to authentication)
+
+# CONSOLE
 
 # GENERATORS
 
-(Show cruds)
+(Show cruds, all best practices, etc.)
 
 # MULTI HOMING
 
@@ -54,6 +60,8 @@ npm run db:migrate
 npx jskit add package realtime
 npm install
 npm run db:migrate
+
+# ASSISTANT
 
 
 
