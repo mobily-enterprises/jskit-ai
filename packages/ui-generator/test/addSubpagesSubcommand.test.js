@@ -313,18 +313,27 @@ test("ui-generator add-subpages validates target format", async () => {
   });
 });
 
-test("ui-generator add-subpages rejects target files with a src/pages prefix", async () => {
+test("ui-generator add-subpages accepts target files with a src/pages prefix", async () => {
   await withTempApp(async (appRoot) => {
     await writeAppFixture(appRoot);
 
-    await assert.rejects(
-      runGeneratorSubcommand({
-        appRoot,
-        subcommand: "add-subpages",
-        args: ["src/pages/w/[workspaceSlug]/admin/practice/index.vue"],
-        options: {}
-      }),
-      /must be relative to src\/pages\/, without the src\/pages\/ prefix/
+    const bareTargetFile = "w/[workspaceSlug]/admin/practice/index.vue";
+    const targetFile = `src/pages/${bareTargetFile}`;
+    await writePageFile(appRoot, bareTargetFile);
+
+    const result = await runGeneratorSubcommand({
+      appRoot,
+      subcommand: "add-subpages",
+      args: [targetFile],
+      options: {}
+    });
+
+    assert.ok(result.touchedFiles.includes(targetFile));
+    const pageSource = await readFile(path.join(appRoot, targetFile), "utf8");
+    assert.match(
+      pageSource,
+      /<ShellOutlet target="practice:sub-pages" default-link-component-token="local\.main\.ui\.tab-link-item" \/>/
     );
+    assert.match(pageSource, /<RouterView \/>/);
   });
 });
