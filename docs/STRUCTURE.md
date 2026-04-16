@@ -11,11 +11,9 @@ npm install
 npx jskit add package shell-web
 npm run db:migrate
 npm install
-
 (show placements)
 
-- Explain that shell-web OVERWRITES things, and only if they are actually unchanged
-- Read after "src/placement.js becomes the placement registry"
+------------------------------------------
 
 # AUTHENTICATION
 

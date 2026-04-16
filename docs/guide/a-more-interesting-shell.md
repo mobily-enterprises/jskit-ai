@@ -25,6 +25,7 @@ npx jskit add package shell-web
 npm install
 ```
 
+
 `jskit add` rewrites part of the scaffold and records the installed runtime package in `.jskit/lock.json`. The following `npm install` is what actually downloads the new package and its supporting dependencies.
 
 To see the result, run:
@@ -35,6 +36,20 @@ npm run server
 ```
 
 This time you really want both processes running. The new home page fetches `/api/health`, so the browser-facing dev server on port `5173` expects the backend on port `3000` to be alive as well.
+
+<DocsTerminalTip label="Important" title="Install It Early">
+`shell-web` is not just adding new files. It also **claims and replaces part of the original scaffold** so the app can switch from the plain starter layout to the real shell layout.
+
+That replacement is intentionally strict: `shell-web` only takes over scaffold files if they are still **exactly** the same as the files that `create-app` originally wrote. If you have already edited those starter files, `shell-web` refuses to claim them instead of overwriting your work.
+
+That is why the intended flow is:
+
+1. scaffold the app
+2. install `shell-web`
+3. start personalizing the shell
+
+If you build directly on top of the plain scaffold first and only try to add `shell-web` later, the install may fail because those app-owned files no longer match the untouched scaffold baseline.
+</DocsTerminalTip>
 
 Open `http://localhost:5173/` in the browser. The app still lands in the `home` surface, but that surface is no longer just a card in the middle of the page. It is wrapped in a real shell with an app bar, a navigation drawer, and a settings route at `/home/settings`.
 
@@ -53,7 +68,27 @@ Open `http://localhost:5173/` in the browser. The app still lands in the `home` 
   />
 </figure>
 
-You will also notice that the starter content now includes a couple of forward-looking buttons. For this chapter, the important new working route is `/home/settings`. Some of the other links are placeholders for later chapters.
+Two important things have changed compared with the older starter shell.
+
+- Navigation now lives in the drawer itself. `Home` and `Settings` are real shell menu entries from the start.
+- `Settings` is already a real nested section. Opening `/home/settings` redirects to `/home/settings/general`, and the left-side menu already contains a starter `General` entry.
+
+Open `http://localhost:5173/home/settings` in the browser to see that nested settings shell immediately:
+
+<figure class="docs-browser-shot">
+  <div class="docs-browser-shot__bar">
+    <div class="docs-browser-shot__dots" aria-hidden="true">
+      <span></span>
+      <span></span>
+      <span></span>
+    </div>
+    <div class="docs-browser-shot__address">http://localhost:5173/home/settings/general</div>
+  </div>
+  <img
+    src="/images/guide/a-more-interesting-shell/a-more-interesting-shell-settings-general.png"
+    alt="Example app home settings page after installing shell-web, showing the seeded General child page and nested settings menu"
+  />
+</figure>
 
 ## Module features
 
@@ -109,6 +144,8 @@ And the settings page introduces its own nested outlet in `src/pages/home/settin
 
 That nested example matters. It shows that the shell is not the only place that can host placements. A page inside the shell can define its own insertion point too. That is how JSKIT can later build menus inside sections such as settings without rewriting the whole shell.
 
+Just as importantly, `shell-web` already uses that placement system itself. The starter app is not only exposing placement targets; it is also seeding real placement entries into them. The drawer gets `Home` and `Settings`, and the nested settings menu gets `General`. That is why the shell already feels real before you generate anything of your own.
+
 The shell also ships with a few app-owned component tokens that it can use as default link renderers. You can inspect those too:
 
 ```bash
@@ -127,7 +164,7 @@ Showing link-item tokens only (token must end with "link-item"). Tip: use --all 
 
 So before we add anything of our own, the shell already knows about three local link-item tokens. They are app-owned components registered by the local package, and the shell uses them when an outlet needs to render links or tabs.
 
-At this point the shell is visible, but placements are still abstract. The next step is to use them.
+At this point the shell is already using placements itself. The next step is to add one of our own.
 
 
 ### Adding generic elements directly
@@ -178,7 +215,7 @@ npx jskit generate ui-generator page home/settings/profile/index.vue --name "Pro
 
 This is a more interesting example than the widget case. JSKIT creates the page file, notices that `src/pages/home/settings.vue` owns the `home-settings:primary-menu` outlet, and adds the preferred menu entry there automatically. You do not have to write that placement entry by hand.
 
-Open `/home/settings/profile` in the browser. The settings shell now shows a real child page and a real menu entry created by the same page-generation command. This is the important part of the chapter: the exact same placement system works both at the top shell level and inside a page-owned nested outlet.
+Open `/home/settings/profile` in the browser. The settings shell now shows a second real child page and a second real menu entry created by the same page-generation command. `General` was already there from `shell-web`; `Profile` is the first additional settings page you add yourself. This is the important part of the chapter: the exact same placement system works both at the top shell level and inside a page-owned nested outlet.
 
 <figure class="docs-browser-shot">
   <div class="docs-browser-shot__bar">
@@ -201,9 +238,12 @@ Now add a second sibling page:
 npx jskit generate ui-generator page home/settings/notifications/index.vue --name "Notifications"
 ```
 
-Open `/home/settings/notifications` in the browser. You now get a second settings menu entry without touching `settings.vue`, without writing a second menu component, and without hand-editing `src/placement.js`. JSKIT appends another placement entry targeting the same `home-settings:primary-menu` outlet, so the links simply stack in the menu for free.
+Open `/home/settings/notifications` in the browser. You now get a third settings menu entry without touching `settings.vue`, without writing a second menu component, and without hand-editing `src/placement.js`. JSKIT appends another placement entry targeting the same `home-settings:primary-menu` outlet, so the links simply stack in the menu for free.
 
-Because both generated links use the same default order, they render in source order: first `Profile`, then `Notifications`.
+The order is also easy to reason about:
+
+- `General` comes first because `shell-web` seeds it with a lower order than generated child pages.
+- `Profile` and `Notifications` both use the generator's default order, so between those two the menu keeps source order.
 
 <figure class="docs-browser-shot">
   <div class="docs-browser-shot__bar">
@@ -224,7 +264,8 @@ Because both generated links use the same default order, they render in source o
 In JSKIT's file-based routing, a page file can act as a layout if it renders a `RouterView`.
 
 - `src/pages/home/settings.vue` owns the settings shell and wraps its child routes.
-- `src/pages/home/settings/index.vue` is the default child shown at `/home/settings`.
+- `src/pages/home/settings/index.vue` is now just a redirect, so `/home/settings` lands on `/home/settings/general`.
+- `src/pages/home/settings/general/index.vue` is the first real child page created by the starter shell.
 - `src/pages/home/settings/profile/index.vue` becomes `/home/settings/profile` and still renders inside the layout from `settings.vue`.
 
 This is why the `home-settings:primary-menu` outlet from `list-placements` is such a useful clue: it tells you which page is acting as the host.
@@ -256,6 +297,7 @@ So the shell story in this chapter is:
 
 - `ShellOutlet` defines named places where UI can appear
 - `jskit list-placements` shows those places
+- `shell-web` already uses those places for the starter `Home`, `Settings`, and `General` entries
 - `jskit generate ui-generator placed-element ...` creates app-owned UI and places it into one of them
 - `jskit generate ui-generator page ...` can also discover a parent outlet and add the right menu entry automatically
 - repeating that page command for the same host gives you a stacked menu, still without hand-editing the host page
@@ -285,7 +327,11 @@ src/
       settings.vue
       settings/
         index.vue
+        general/
+          index.vue
         profile/
+          index.vue
+        notifications/
           index.vue
 ```
 
@@ -363,9 +409,48 @@ export default function getPlacements() {
 
 That file is the app-owned seam for placements. `shell-web` owns the runtime that can render placements, but the app owns the registry source that lists what should appear in those targets.
 
-After the `placed-element` and `page` commands from this chapter, the bottom of the file now contains real placement entries:
+After the `shell-web` install plus the `placed-element` and `page` commands from this chapter, the bottom of the file now contains real placement entries:
 
 ```js
+addPlacement({
+  id: "shell-web.home.menu.home",
+  target: "shell-layout:primary-menu",
+  surfaces: ["*"],
+  order: 50,
+  componentToken: "local.main.ui.surface-aware-menu-link-item",
+  props: {
+    label: "Home",
+    surface: "home",
+    nonWorkspaceSuffix: "/"
+  }
+});
+
+addPlacement({
+  id: "shell-web.home.menu.settings",
+  target: "shell-layout:primary-menu",
+  surfaces: ["home"],
+  order: 100,
+  componentToken: "local.main.ui.surface-aware-menu-link-item",
+  props: {
+    label: "Settings",
+    surface: "home",
+    nonWorkspaceSuffix: "/settings"
+  }
+});
+
+addPlacement({
+  id: "shell-web.home.settings.general",
+  target: "home-settings:primary-menu",
+  surfaces: ["home"],
+  order: 100,
+  componentToken: "local.main.ui.surface-aware-menu-link-item",
+  props: {
+    label: "General",
+    surface: "home",
+    to: "./general"
+  }
+});
+
 addPlacement({
   id: "ui-generator.element.alerts-widget",
   target: "shell-layout:top-right",
@@ -407,7 +492,10 @@ That snippet shows the full placement contract clearly:
 - the component token says what should render that entry
 - `props.to` tells the generated menu link which child route to open
 - the surface list says where it is active
+- lower `order` values come first
 - when multiple entries target the same outlet with the same order, the shell keeps their source order
+
+That is why the settings menu now shows `General` first, followed by `Profile` and `Notifications`: `General` is seeded by `shell-web` with a lower order, while the two generated pages share the same later order and keep their source order.
 
 So the shell itself remains stable. What changes is the registry that feeds it.
 
@@ -494,9 +582,10 @@ This matters because it is the first tiny example of the frontend and backend pa
 ```text
 src/pages/home/settings.vue
 src/pages/home/settings/index.vue
+src/pages/home/settings/general/index.vue
 ```
 
-The important file is `src/pages/home/settings.vue`:
+The important host file is still `src/pages/home/settings.vue`:
 
 ```vue
 <v-list nav density="comfortable" rounded="lg" border>
@@ -511,7 +600,13 @@ The important file is `src/pages/home/settings.vue`:
 
 This file matters for the same reason as `ShellLayout.vue`: it creates another named extension point instead of hard-coding a finished settings UI. The difference is that this one lives inside a page, not at the top shell level.
 
-That is what makes the page-generation example in this chapter important. It proves that the exact same placement mechanism can fill a nested settings menu, not just the outer shell, and it shows how a page host can keep rendering while child pages appear inside its `RouterView`.
+The starter shell now uses a real child-page structure right away:
+
+- `src/pages/home/settings/index.vue` is only a redirect into the first child page
+- `src/pages/home/settings/general/index.vue` is the first real settings page
+- `src/placement.js` already seeds a `General` link into `home-settings:primary-menu`
+
+That is what makes the page-generation examples in this chapter important. They are not inventing a new pattern. They are extending the exact same host-and-child-page structure that `shell-web` already uses for its own starter `General` page.
 
 ### What did not change
 
@@ -526,6 +621,6 @@ The app is still structurally simple. `shell-web` just makes that simple app beh
 
 ## Summary
 
-After this chapter, the app is still small, but it is no longer flat. `shell-web` adds an app-owned shell layout, a placement registry, a shell error host, menu-link tokens in the local client provider, and the first settings shell under `home`.
+After this chapter, the app is still small, but it is no longer flat. `shell-web` adds an app-owned shell layout, a placement registry, a shell error host, menu-link tokens in the local client provider, real drawer navigation, and the first nested settings section under `home`.
 
-More importantly, this chapter is where placements stop being theory. You inspect the available targets, see where they come from in source, place real UI into the outer shell, and then generate child settings pages that automatically land in the nested settings menu. That is the first real example of JSKIT working as an extension system rather than just a scaffold generator.
+More importantly, this chapter is where placements stop being theory. The shell already uses them for `Home`, `Settings`, and the starter `General` settings page. Then you inspect the available targets, place real UI into the outer shell, and add more child settings pages that automatically land in the nested settings menu. That is the first real example of JSKIT working as an extension system rather than just a scaffold generator.

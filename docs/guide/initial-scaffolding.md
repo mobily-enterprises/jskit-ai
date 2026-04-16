@@ -694,6 +694,14 @@ The remaining files are easier to understand once you know the core pieces above
 
 The `create-app` command also accepts a few other flags that are useful without changing the basic meaning of this chapter's setup. `--title <text>` lets you replace the browser title and other template text with a friendlier app name. `--target <path>` lets you choose a different output directory instead of the default `./exampleapp`. `--tenancy-mode <mode>` can seed `none`, `personal`, or `workspaces`; for this chapter we intentionally use `none` so the first scaffold stays small and non-workspace. `--force` allows writing into a non-empty target directory when you know that is what you want. `--dry-run` prints the planned file writes without touching the filesystem, which is useful when you want to inspect what the generator would do. `-h` or `--help` prints the command help.
 
+<DocsTerminalTip label="Next step" title="Install shell-web before editing the scaffold">
+
+If the next thing you plan to do is install `shell-web`, do that **before** you start personalizing the starter shell files.
+
+`shell-web` upgrades the plain scaffold by claiming a few app-owned files such as `src/App.vue`, `src/pages/home.vue`, and `src/pages/home/index.vue`. It only does that when those files still match the untouched base scaffold exactly. If you edit them first, `shell-web` will refuse to overwrite your changes.
+
+</DocsTerminalTip>
+
 ## Summary
 
 At the end of this first step, you should have more than a generated folder. You should have a mental map. `src/` is the web app, `server.js` is the runtime server, `config/` defines surfaces and shared behavior, `packages/main/` is your app's own local JSKIT package, and `.jskit/lock.json` records what JSKIT has done to the project. That is the foundation the next chapters will build on.
