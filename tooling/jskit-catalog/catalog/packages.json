@@ -2771,6 +2771,16 @@
                   "order": 100,
                   "componentToken": "local.main.ui.surface-aware-menu-link-item",
                   "source": "templates/src/placement.js"
+                },
+                {
+                  "id": "shell-web.home.settings.general",
+                  "target": "home-settings:primary-menu",
+                  "surfaces": [
+                    "home"
+                  ],
+                  "order": 100,
+                  "componentToken": "local.main.ui.surface-aware-menu-link-item",
+                  "source": "templates/src/placement.js"
                 }
               ]
             }
@@ -2947,9 +2957,18 @@
               "toSurface": "home",
               "toSurfacePath": "settings/index.vue",
               "ownership": "app",
-              "reason": "Install shell-driven home settings landing page with a tiny browser-local shell preference example.",
+              "reason": "Install shell-driven home settings redirect so the starter settings shell lands on a real child page.",
               "category": "shell-web",
               "id": "shell-web-page-home-settings"
+            },
+            {
+              "from": "templates/src/pages/home/settings/general/index.vue",
+              "toSurface": "home",
+              "toSurfacePath": "settings/general/index.vue",
+              "ownership": "app",
+              "reason": "Install shell-driven general settings child page with a tiny browser-local shell preference example.",
+              "category": "shell-web",
+              "id": "shell-web-page-home-settings-general"
             }
           ]
         }

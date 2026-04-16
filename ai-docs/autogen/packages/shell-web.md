@@ -315,6 +315,10 @@ Exports
 Exports
 - None
 
+### `templates/src/pages/home/settings/general/index.vue`
+Exports
+- None
+
 ### `templates/src/pages/home/settings/index.vue`
 Exports
 - None
