@@ -93,7 +93,7 @@ Exports
 ### `templates/base-shell/packages/main/src/client/providers/MainClientProvider.js`
 Exports
 - `MainClientProvider`
-- `registerMainClientComponent(componentToken, resolveComponent)`
+- `registerMainClientComponent(token, resolveComponent)`
 
 ### `templates/base-shell/packages/main/src/server/controllers/index.js`
 Exports
