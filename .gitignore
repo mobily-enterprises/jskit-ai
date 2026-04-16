@@ -15,5 +15,6 @@ data/
 *.swp
 .jscpd/*
 !.jscpd/baseline.json
-.vitepress**
+docs/.vitepress/cache/
+docs/.vitepress/dist/
 .aider*
