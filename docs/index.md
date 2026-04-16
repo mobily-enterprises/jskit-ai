@@ -3,8 +3,8 @@ layout: home
 
 hero:
   name: JSKIT
-  text: Documentation Reset
-  tagline: Fresh documentation is being rebuilt from the current codebase.
+  text: A Full-Stack Framework for Real Apps
+  tagline: JSKIT generates the app, server, UI, CRUDs, and routing so you can focus on features.
   actions:
     - theme: brand
       text: GitHub Repository
