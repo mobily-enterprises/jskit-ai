@@ -39,8 +39,19 @@ test("shell-web home settings template exposes surface-derived settings outlets"
   assert.match(source, /<RouterView \/>/);
 });
 
-test("shell-web settings landing page exposes a tiny browser-local drawer preference", async () => {
+test("shell-web settings landing page redirects to the starter child page", async () => {
   const source = await readFile(path.join(PACKAGE_DIR, "templates", "src", "pages", "home", "settings", "index.vue"), "utf8");
+
+  assert.match(source, /definePage/);
+  assert.match(source, /redirect:/);
+  assert.match(source, /\/general/);
+});
+
+test("shell-web settings general child page exposes a tiny browser-local drawer preference", async () => {
+  const source = await readFile(
+    path.join(PACKAGE_DIR, "templates", "src", "pages", "home", "settings", "general", "index.vue"),
+    "utf8"
+  );
 
   assert.match(source, /useShellLayoutState/);
   assert.match(source, /drawerDefaultOpen/);
@@ -59,6 +70,11 @@ test("shell-web placement template seeds default Home and Settings drawer naviga
   assert.match(source, /id: "shell-web\.home\.menu\.settings"/);
   assert.match(source, /label: "Settings"/);
   assert.match(source, /nonWorkspaceSuffix: "\/settings"/);
+  assert.match(source, /id: "shell-web\.home\.settings\.general"/);
+  assert.match(source, /target: "home-settings:primary-menu"/);
+  assert.match(source, /label: "General"/);
+  assert.match(source, /nonWorkspaceSuffix: "\/settings\/general"/);
+  assert.match(source, /to: "\.\/general"/);
 });
 
 test("shell-web descriptor metadata advertises home settings outlets, default drawer links, and installs the scaffold page", () => {
@@ -96,6 +112,20 @@ test("shell-web descriptor metadata advertises home settings outlets, default dr
     ]
   );
 
+  assert.deepEqual(
+    readContributions("home-settings:primary-menu"),
+    [
+      {
+        id: "shell-web.home.settings.general",
+        target: "home-settings:primary-menu",
+        surfaces: ["home"],
+        order: 100,
+        componentToken: "local.main.ui.surface-aware-menu-link-item",
+        source: "templates/src/placement.js"
+      }
+    ]
+  );
+
   assert.deepEqual(findFileMutation("shell-web-page-home-settings-shell"), {
     from: "templates/src/pages/home/settings.vue",
     toSurface: "home",
@@ -111,9 +141,19 @@ test("shell-web descriptor metadata advertises home settings outlets, default dr
     toSurface: "home",
     toSurfacePath: "settings/index.vue",
     ownership: "app",
-    reason: "Install shell-driven home settings landing page with a tiny browser-local shell preference example.",
+    reason: "Install shell-driven home settings redirect so the starter settings shell lands on a real child page.",
     category: "shell-web",
     id: "shell-web-page-home-settings"
+  });
+
+  assert.deepEqual(findFileMutation("shell-web-page-home-settings-general"), {
+    from: "templates/src/pages/home/settings/general/index.vue",
+    toSurface: "home",
+    toSurfacePath: "settings/general/index.vue",
+    ownership: "app",
+    reason: "Install shell-driven general settings child page with a tiny browser-local shell preference example.",
+    category: "shell-web",
+    id: "shell-web-page-home-settings-general"
   });
 });
 

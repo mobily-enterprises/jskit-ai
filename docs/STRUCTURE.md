@@ -14,9 +14,8 @@ npm install
 
 (show placements)
 
-- Improve look, maybe put a settings menu on the left in jskit
-- Read after src/placement.js becomes the placement registry
 - Explain that shell-web OVERWRITES things, and only if they are actually unchanged
+- Read after "src/placement.js becomes the placement registry"
 
 # AUTHENTICATION
 
@@ -53,7 +52,7 @@ npm run db:migrate
 
 # MORE GENERATORS
 
-(Show cruds and multihoming config)
+(Show cruds and multihoming config, and different roles)
 
 # REALTIME
 

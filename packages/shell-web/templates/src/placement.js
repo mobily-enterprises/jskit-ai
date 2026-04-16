@@ -39,3 +39,18 @@ addPlacement({
     nonWorkspaceSuffix: "/settings"
   }
 });
+
+addPlacement({
+  id: "shell-web.home.settings.general",
+  target: "home-settings:primary-menu",
+  surfaces: ["home"],
+  order: 100,
+  componentToken: "local.main.ui.surface-aware-menu-link-item",
+  props: {
+    label: "General",
+    surface: "home",
+    workspaceSuffix: "/settings/general",
+    nonWorkspaceSuffix: "/settings/general",
+    to: "./general"
+  }
+});
