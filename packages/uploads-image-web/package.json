@@ -1,6 +1,6 @@
 {
   "name": "@jskit-ai/uploads-image-web",
-  "version": "0.1.14",
+  "version": "0.1.15",
   "type": "module",
   "scripts": {
     "test": "node --test"
@@ -13,7 +13,7 @@
     "./shared": "./src/shared/index.js"
   },
   "dependencies": {
-    "@jskit-ai/uploads-runtime": "0.1.14",
+    "@jskit-ai/uploads-runtime": "0.1.15",
     "@uppy/compressor": "^3.1.0",
     "@uppy/core": "^5.2.0",
     "@uppy/dashboard": "^5.1.1",

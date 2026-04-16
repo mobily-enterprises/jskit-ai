@@ -6,7 +6,7 @@ import {
 export default Object.freeze({
   packageVersion: 1,
   packageId: "@jskit-ai/users-web",
-  version: "0.1.51",
+  version: "0.1.52",
   kind: "runtime",
   description: "Users web module: account/profile UI plus shared users web widgets.",
   dependsOn: [
@@ -143,15 +143,6 @@ export default Object.freeze({
             source: "mutations.text#users-web-profile-settings-placement"
           },
           {
-            id: "users.home.menu.home",
-            target: "shell-layout:primary-menu",
-            surfaces: ["*"],
-            order: 50,
-            componentToken: "local.main.ui.surface-aware-menu-link-item",
-            when: "auth.authenticated === true",
-            source: "mutations.text#users-web-home-shell-menu-placement"
-          },
-          {
             id: "users.console.menu.settings",
             target: "shell-layout:primary-menu",
             surfaces: ["console"],
@@ -187,13 +178,13 @@ export default Object.freeze({
       runtime: {
         "@tanstack/vue-query": "5.92.12",
         "@mdi/js": "^7.4.47",
-        "@jskit-ai/console-web": "0.1.3",
-        "@jskit-ai/http-runtime": "0.1.35",
-        "@jskit-ai/realtime": "0.1.35",
-        "@jskit-ai/kernel": "0.1.36",
-        "@jskit-ai/shell-web": "0.1.35",
-        "@jskit-ai/uploads-image-web": "0.1.14",
-        "@jskit-ai/users-core": "0.1.46",
+        "@jskit-ai/console-web": "0.1.4",
+        "@jskit-ai/http-runtime": "0.1.36",
+        "@jskit-ai/realtime": "0.1.36",
+        "@jskit-ai/kernel": "0.1.37",
+        "@jskit-ai/shell-web": "0.1.36",
+        "@jskit-ai/uploads-image-web": "0.1.15",
+        "@jskit-ai/users-core": "0.1.47",
         vuetify: "^4.0.0"
       },
       dev: {}
@@ -299,17 +290,6 @@ export default Object.freeze({
         reason: "Append users-web profile settings menu placement into app-owned placement registry.",
         category: "users-web",
         id: "users-web-profile-settings-placement"
-      },
-      {
-        op: "append-text",
-        file: "src/placement.js",
-        position: "bottom",
-        skipIfContains: "id: \"users.home.menu.home\"",
-        value:
-          "\naddPlacement({\n  id: \"users.home.menu.home\",\n  target: \"shell-layout:primary-menu\",\n  surfaces: [\"*\"],\n  order: 50,\n  componentToken: \"local.main.ui.surface-aware-menu-link-item\",\n  props: {\n    label: \"Home\",\n    surface: \"home\",\n    workspaceSuffix: \"/\",\n    nonWorkspaceSuffix: \"/\",\n    exact: true\n  },\n  when: ({ auth }) => Boolean(auth?.authenticated)\n});\n",
-        reason: "Append users-web home shell menu placement into app-owned placement registry.",
-        category: "users-web",
-        id: "users-web-home-shell-menu-placement"
       },
       {
         op: "append-text",

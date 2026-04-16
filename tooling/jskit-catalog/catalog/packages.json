@@ -6,11 +6,11 @@
   "packages": [
     {
       "packageId": "@jskit-ai/assistant",
-      "version": "0.1.45",
+      "version": "0.1.46",
       "descriptor": {
         "packageVersion": 1,
         "packageId": "@jskit-ai/assistant",
-        "version": "0.1.45",
+        "version": "0.1.46",
         "kind": "generator",
         "description": "Install assistant runtime/config for one surface and scaffold assistant pages at explicit target files.",
         "options": {
@@ -356,11 +356,11 @@
     },
     {
       "packageId": "@jskit-ai/assistant-core",
-      "version": "0.1.12",
+      "version": "0.1.13",
       "descriptor": {
         "packageVersion": 1,
         "packageId": "@jskit-ai/assistant-core",
-        "version": "0.1.12",
+        "version": "0.1.13",
         "kind": "runtime",
         "description": "Reusable assistant client/server/shared primitives without surface-specific routes or settings ownership.",
         "dependsOn": [
@@ -406,9 +406,9 @@
         "mutations": {
           "dependencies": {
             "runtime": {
-              "@jskit-ai/http-runtime": "0.1.35",
-              "@jskit-ai/kernel": "0.1.36",
-              "@jskit-ai/users-core": "0.1.46",
+              "@jskit-ai/http-runtime": "0.1.36",
+              "@jskit-ai/kernel": "0.1.37",
+              "@jskit-ai/users-core": "0.1.47",
               "@tanstack/vue-query": "^5.90.5",
               "dompurify": "^3.3.3",
               "marked": "^17.0.4",
@@ -429,11 +429,11 @@
     },
     {
       "packageId": "@jskit-ai/assistant-runtime",
-      "version": "0.1.7",
+      "version": "0.1.8",
       "descriptor": {
         "packageVersion": 1,
         "packageId": "@jskit-ai/assistant-runtime",
-        "version": "0.1.7",
+        "version": "0.1.8",
         "kind": "runtime",
         "description": "Shared assistant runtime with per-surface assistant registration.",
         "dependsOn": [
@@ -508,13 +508,13 @@
         "mutations": {
           "dependencies": {
             "runtime": {
-              "@jskit-ai/assistant-core": "0.1.12",
-              "@jskit-ai/database-runtime": "0.1.36",
-              "@jskit-ai/http-runtime": "0.1.35",
-              "@jskit-ai/kernel": "0.1.36",
-              "@jskit-ai/shell-web": "0.1.35",
-              "@jskit-ai/users-core": "0.1.46",
-              "@jskit-ai/users-web": "0.1.51",
+              "@jskit-ai/assistant-core": "0.1.13",
+              "@jskit-ai/database-runtime": "0.1.37",
+              "@jskit-ai/http-runtime": "0.1.36",
+              "@jskit-ai/kernel": "0.1.37",
+              "@jskit-ai/shell-web": "0.1.36",
+              "@jskit-ai/users-core": "0.1.47",
+              "@jskit-ai/users-web": "0.1.52",
               "@tanstack/vue-query": "^5.90.5",
               "vuetify": "^4.0.0"
             },
@@ -571,11 +571,11 @@
     },
     {
       "packageId": "@jskit-ai/auth-core",
-      "version": "0.1.35",
+      "version": "0.1.36",
       "descriptor": {
         "packageVersion": 1,
         "packageId": "@jskit-ai/auth-core",
-        "version": "0.1.35",
+        "version": "0.1.36",
         "kind": "runtime",
         "dependsOn": [
           "@jskit-ai/value-app-config-shared"
@@ -643,7 +643,7 @@
         "mutations": {
           "dependencies": {
             "runtime": {
-              "@jskit-ai/kernel": "0.1.36",
+              "@jskit-ai/kernel": "0.1.37",
               "@fastify/cookie": "^11.0.2",
               "@fastify/csrf-protection": "^7.1.0",
               "@fastify/rate-limit": "^10.3.0"
@@ -661,11 +661,11 @@
     },
     {
       "packageId": "@jskit-ai/auth-provider-supabase-core",
-      "version": "0.1.35",
+      "version": "0.1.36",
       "descriptor": {
         "packageVersion": 1,
         "packageId": "@jskit-ai/auth-provider-supabase-core",
-        "version": "0.1.35",
+        "version": "0.1.36",
         "kind": "runtime",
         "options": {
           "auth-supabase-url": {
@@ -747,8 +747,8 @@
         "mutations": {
           "dependencies": {
             "runtime": {
-              "@jskit-ai/auth-core": "0.1.35",
-              "@jskit-ai/kernel": "0.1.36",
+              "@jskit-ai/auth-core": "0.1.36",
+              "@jskit-ai/kernel": "0.1.37",
               "dotenv": "^16.4.5",
               "@supabase/supabase-js": "^2.57.4",
               "jose": "^6.1.0"
@@ -813,11 +813,11 @@
     },
     {
       "packageId": "@jskit-ai/auth-web",
-      "version": "0.1.37",
+      "version": "0.1.38",
       "descriptor": {
         "packageVersion": 1,
         "packageId": "@jskit-ai/auth-web",
-        "version": "0.1.37",
+        "version": "0.1.38",
         "kind": "runtime",
         "description": "Auth web module: Fastify auth routes plus web login/sign-out scaffolds.",
         "dependsOn": [
@@ -1044,10 +1044,10 @@
               "@tanstack/vue-query": "5.92.12",
               "@mdi/js": "^7.4.47",
               "@fastify/type-provider-typebox": "^6.1.0",
-              "@jskit-ai/auth-core": "0.1.35",
-              "@jskit-ai/http-runtime": "0.1.35",
-              "@jskit-ai/kernel": "0.1.36",
-              "@jskit-ai/shell-web": "0.1.35",
+              "@jskit-ai/auth-core": "0.1.36",
+              "@jskit-ai/http-runtime": "0.1.36",
+              "@jskit-ai/kernel": "0.1.37",
+              "@jskit-ai/shell-web": "0.1.36",
               "vuetify": "^4.0.0"
             },
             "dev": {}
@@ -1117,11 +1117,11 @@
     },
     {
       "packageId": "@jskit-ai/console-web",
-      "version": "0.1.3",
+      "version": "0.1.4",
       "descriptor": {
         "packageVersion": 1,
         "packageId": "@jskit-ai/console-web",
-        "version": "0.1.3",
+        "version": "0.1.4",
         "kind": "runtime",
         "description": "Authenticated console surface scaffold and surface policy wiring.",
         "dependsOn": [
@@ -1162,9 +1162,9 @@
         "mutations": {
           "dependencies": {
             "runtime": {
-              "@jskit-ai/auth-web": "0.1.37",
-              "@jskit-ai/shell-web": "0.1.35",
-              "@jskit-ai/users-core": "0.1.46"
+              "@jskit-ai/auth-web": "0.1.38",
+              "@jskit-ai/shell-web": "0.1.36",
+              "@jskit-ai/users-core": "0.1.47"
             },
             "dev": {}
           },
@@ -1223,11 +1223,11 @@
     },
     {
       "packageId": "@jskit-ai/crud-core",
-      "version": "0.1.44",
+      "version": "0.1.45",
       "descriptor": {
         "packageVersion": 1,
         "packageId": "@jskit-ai/crud-core",
-        "version": "0.1.44",
+        "version": "0.1.45",
         "kind": "runtime",
         "description": "Shared CRUD helpers used by CRUD modules.",
         "dependsOn": [
@@ -1254,7 +1254,7 @@
         "mutations": {
           "dependencies": {
             "runtime": {
-              "@jskit-ai/crud-core": "0.1.44"
+              "@jskit-ai/crud-core": "0.1.45"
             },
             "dev": {}
           },
@@ -1268,11 +1268,11 @@
     },
     {
       "packageId": "@jskit-ai/crud-server-generator",
-      "version": "0.1.44",
+      "version": "0.1.45",
       "descriptor": {
         "packageVersion": 1,
         "packageId": "@jskit-ai/crud-server-generator",
-        "version": "0.1.44",
+        "version": "0.1.45",
         "kind": "generator",
         "description": "CRUD server generator with routes, actions, and persistence scaffolding.",
         "options": {
@@ -1430,13 +1430,13 @@
         "mutations": {
           "dependencies": {
             "runtime": {
-              "@jskit-ai/auth-core": "0.1.35",
-              "@jskit-ai/crud-core": "0.1.44",
-              "@jskit-ai/database-runtime": "0.1.36",
-              "@jskit-ai/http-runtime": "0.1.35",
-              "@jskit-ai/kernel": "0.1.36",
-              "@jskit-ai/realtime": "0.1.35",
-              "@jskit-ai/users-core": "0.1.46",
+              "@jskit-ai/auth-core": "0.1.36",
+              "@jskit-ai/crud-core": "0.1.45",
+              "@jskit-ai/database-runtime": "0.1.37",
+              "@jskit-ai/http-runtime": "0.1.36",
+              "@jskit-ai/kernel": "0.1.37",
+              "@jskit-ai/realtime": "0.1.36",
+              "@jskit-ai/users-core": "0.1.47",
               "@local/${option:namespace|kebab}": "file:packages/${option:namespace|kebab}",
               "typebox": "^1.0.81"
             },
@@ -1583,11 +1583,11 @@
     },
     {
       "packageId": "@jskit-ai/crud-ui-generator",
-      "version": "0.1.19",
+      "version": "0.1.20",
       "descriptor": {
         "packageVersion": 1,
         "packageId": "@jskit-ai/crud-ui-generator",
-        "version": "0.1.19",
+        "version": "0.1.20",
         "kind": "generator",
         "description": "Generate CRUD route trees from resource validators at an explicit route root relative to src/pages/.",
         "options": {
@@ -1762,7 +1762,7 @@
         "mutations": {
           "dependencies": {
             "runtime": {
-              "@jskit-ai/users-web": "0.1.51"
+              "@jskit-ai/users-web": "0.1.52"
             },
             "dev": {}
           },
@@ -1995,11 +1995,11 @@
     },
     {
       "packageId": "@jskit-ai/database-runtime",
-      "version": "0.1.36",
+      "version": "0.1.37",
       "descriptor": {
         "packageVersion": 1,
         "packageId": "@jskit-ai/database-runtime",
-        "version": "0.1.36",
+        "version": "0.1.37",
         "kind": "runtime",
         "dependsOn": [
           "@jskit-ai/kernel"
@@ -2056,7 +2056,7 @@
         "mutations": {
           "dependencies": {
             "runtime": {
-              "@jskit-ai/kernel": "0.1.36",
+              "@jskit-ai/kernel": "0.1.37",
               "dotenv": "^16.4.5",
               "knex": "^3.1.0"
             },
@@ -2091,11 +2091,11 @@
     },
     {
       "packageId": "@jskit-ai/database-runtime-mysql",
-      "version": "0.1.35",
+      "version": "0.1.36",
       "descriptor": {
         "packageVersion": 1,
         "packageId": "@jskit-ai/database-runtime-mysql",
-        "version": "0.1.35",
+        "version": "0.1.36",
         "kind": "runtime",
         "options": {
           "db-host": {
@@ -2185,7 +2185,7 @@
         "mutations": {
           "dependencies": {
             "runtime": {
-              "@jskit-ai/database-runtime": "0.1.36",
+              "@jskit-ai/database-runtime": "0.1.37",
               "mysql2": "^3.11.2"
             },
             "dev": {}
@@ -2256,11 +2256,11 @@
     },
     {
       "packageId": "@jskit-ai/database-runtime-postgres",
-      "version": "0.1.35",
+      "version": "0.1.36",
       "descriptor": {
         "packageVersion": 1,
         "packageId": "@jskit-ai/database-runtime-postgres",
-        "version": "0.1.35",
+        "version": "0.1.36",
         "kind": "runtime",
         "options": {
           "db-host": {
@@ -2350,7 +2350,7 @@
         "mutations": {
           "dependencies": {
             "runtime": {
-              "@jskit-ai/database-runtime": "0.1.36",
+              "@jskit-ai/database-runtime": "0.1.37",
               "pg": "^8.13.1"
             },
             "dev": {}
@@ -2421,11 +2421,11 @@
     },
     {
       "packageId": "@jskit-ai/http-runtime",
-      "version": "0.1.35",
+      "version": "0.1.36",
       "descriptor": {
         "packageVersion": 1,
         "packageId": "@jskit-ai/http-runtime",
-        "version": "0.1.35",
+        "version": "0.1.36",
         "kind": "runtime",
         "dependsOn": [],
         "capabilities": {
@@ -2491,7 +2491,7 @@
         "mutations": {
           "dependencies": {
             "runtime": {
-              "@jskit-ai/kernel": "0.1.36",
+              "@jskit-ai/kernel": "0.1.37",
               "@fastify/type-provider-typebox": "^6.1.0",
               "typebox": "^1.0.81"
             },
@@ -2507,11 +2507,11 @@
     },
     {
       "packageId": "@jskit-ai/realtime",
-      "version": "0.1.35",
+      "version": "0.1.36",
       "descriptor": {
         "packageVersion": 1,
         "packageId": "@jskit-ai/realtime",
-        "version": "0.1.35",
+        "version": "0.1.36",
         "kind": "runtime",
         "description": "Thin, generic realtime runtime wrappers for socket.io server and client.",
         "options": {
@@ -2606,7 +2606,7 @@
         "mutations": {
           "dependencies": {
             "runtime": {
-              "@jskit-ai/kernel": "0.1.36",
+              "@jskit-ai/kernel": "0.1.37",
               "@socket.io/redis-adapter": "^8.3.0",
               "redis": "^5.8.2",
               "socket.io": "^4.8.3",
@@ -2655,11 +2655,11 @@
     },
     {
       "packageId": "@jskit-ai/shell-web",
-      "version": "0.1.35",
+      "version": "0.1.36",
       "descriptor": {
         "packageVersion": 1,
         "packageId": "@jskit-ai/shell-web",
-        "version": "0.1.35",
+        "version": "0.1.36",
         "kind": "runtime",
         "description": "Web shell layout runtime with outlet-based placement contributions.",
         "dependsOn": [],
@@ -2751,7 +2751,28 @@
                   "source": "templates/src/pages/home/settings.vue"
                 }
               ],
-              "contributions": []
+              "contributions": [
+                {
+                  "id": "shell-web.home.menu.home",
+                  "target": "shell-layout:primary-menu",
+                  "surfaces": [
+                    "*"
+                  ],
+                  "order": 50,
+                  "componentToken": "local.main.ui.surface-aware-menu-link-item",
+                  "source": "templates/src/placement.js"
+                },
+                {
+                  "id": "shell-web.home.menu.settings",
+                  "target": "shell-layout:primary-menu",
+                  "surfaces": [
+                    "home"
+                  ],
+                  "order": 100,
+                  "componentToken": "local.main.ui.surface-aware-menu-link-item",
+                  "source": "templates/src/placement.js"
+                }
+              ]
             }
           }
         },
@@ -2760,7 +2781,7 @@
             "runtime": {
               "@mdi/js": "^7.4.47",
               "@tanstack/vue-query": "^5.90.5",
-              "@jskit-ai/kernel": "0.1.36",
+              "@jskit-ai/kernel": "0.1.37",
               "vuetify": "^4.0.0"
             },
             "dev": {}
@@ -2926,7 +2947,7 @@
               "toSurface": "home",
               "toSurfacePath": "settings/index.vue",
               "ownership": "app",
-              "reason": "Install shell-driven home settings index stub scaffold for app-owned landing or redirect behavior.",
+              "reason": "Install shell-driven home settings landing page with a tiny browser-local shell preference example.",
               "category": "shell-web",
               "id": "shell-web-page-home-settings"
             }
@@ -2936,11 +2957,11 @@
     },
     {
       "packageId": "@jskit-ai/storage-runtime",
-      "version": "0.1.35",
+      "version": "0.1.36",
       "descriptor": {
         "packageVersion": 1,
         "packageId": "@jskit-ai/storage-runtime",
-        "version": "0.1.35",
+        "version": "0.1.36",
         "kind": "runtime",
         "dependsOn": [
           "@jskit-ai/kernel"
@@ -2989,7 +3010,7 @@
         "mutations": {
           "dependencies": {
             "runtime": {
-              "@jskit-ai/kernel": "0.1.36",
+              "@jskit-ai/kernel": "0.1.37",
               "unstorage": "^1.17.3"
             },
             "dev": {}
@@ -3005,11 +3026,11 @@
     },
     {
       "packageId": "@jskit-ai/ui-generator",
-      "version": "0.1.19",
+      "version": "0.1.20",
       "descriptor": {
         "packageVersion": 1,
         "packageId": "@jskit-ai/ui-generator",
-        "version": "0.1.19",
+        "version": "0.1.20",
         "kind": "generator",
         "description": "Create non-CRUD pages, reusable UI elements, and subpage hosts.",
         "options": {
@@ -3308,7 +3329,7 @@
         "mutations": {
           "dependencies": {
             "runtime": {
-              "@jskit-ai/users-web": "0.1.51"
+              "@jskit-ai/users-web": "0.1.52"
             },
             "dev": {}
           },
@@ -3323,11 +3344,11 @@
     },
     {
       "packageId": "@jskit-ai/uploads-image-web",
-      "version": "0.1.14",
+      "version": "0.1.15",
       "descriptor": {
         "packageVersion": 1,
         "packageId": "@jskit-ai/uploads-image-web",
-        "version": "0.1.14",
+        "version": "0.1.15",
         "kind": "runtime",
         "description": "Reusable client-side image upload runtime with pre-upload image editing.",
         "dependsOn": [
@@ -3391,7 +3412,7 @@
         "mutations": {
           "dependencies": {
             "runtime": {
-              "@jskit-ai/uploads-runtime": "0.1.14",
+              "@jskit-ai/uploads-runtime": "0.1.15",
               "@uppy/compressor": "^3.1.0",
               "@uppy/core": "^5.2.0",
               "@uppy/dashboard": "^5.1.1",
@@ -3411,11 +3432,11 @@
     },
     {
       "packageId": "@jskit-ai/uploads-runtime",
-      "version": "0.1.14",
+      "version": "0.1.15",
       "descriptor": {
         "packageVersion": 1,
         "packageId": "@jskit-ai/uploads-runtime",
-        "version": "0.1.14",
+        "version": "0.1.15",
         "kind": "runtime",
         "description": "Reusable upload runtime primitives for multipart parsing, policy validation, and blob storage.",
         "dependsOn": [
@@ -3485,7 +3506,7 @@
           "dependencies": {
             "runtime": {
               "@fastify/multipart": "^9.4.0",
-              "@jskit-ai/kernel": "0.1.36"
+              "@jskit-ai/kernel": "0.1.37"
             },
             "dev": {}
           },
@@ -3500,11 +3521,11 @@
     },
     {
       "packageId": "@jskit-ai/users-core",
-      "version": "0.1.46",
+      "version": "0.1.47",
       "descriptor": {
         "packageVersion": 1,
         "packageId": "@jskit-ai/users-core",
-        "version": "0.1.46",
+        "version": "0.1.47",
         "kind": "runtime",
         "description": "Users/account runtime plus HTTP routes for account and console features.",
         "dependsOn": [
@@ -3640,11 +3661,11 @@
         "mutations": {
           "dependencies": {
             "runtime": {
-              "@jskit-ai/auth-core": "0.1.35",
-              "@jskit-ai/database-runtime": "0.1.36",
-              "@jskit-ai/http-runtime": "0.1.35",
-              "@jskit-ai/kernel": "0.1.36",
-              "@jskit-ai/uploads-runtime": "0.1.14",
+              "@jskit-ai/auth-core": "0.1.36",
+              "@jskit-ai/database-runtime": "0.1.37",
+              "@jskit-ai/http-runtime": "0.1.36",
+              "@jskit-ai/kernel": "0.1.37",
+              "@jskit-ai/uploads-runtime": "0.1.15",
               "@fastify/type-provider-typebox": "^6.1.0",
               "typebox": "^1.0.81"
             },
@@ -3755,11 +3776,11 @@
     },
     {
       "packageId": "@jskit-ai/users-web",
-      "version": "0.1.51",
+      "version": "0.1.52",
       "descriptor": {
         "packageVersion": 1,
         "packageId": "@jskit-ai/users-web",
-        "version": "0.1.51",
+        "version": "0.1.52",
         "kind": "runtime",
         "description": "Users web module: account/profile UI plus shared users web widgets.",
         "dependsOn": [
@@ -3906,17 +3927,6 @@
                   "source": "mutations.text#users-web-profile-settings-placement"
                 },
                 {
-                  "id": "users.home.menu.home",
-                  "target": "shell-layout:primary-menu",
-                  "surfaces": [
-                    "*"
-                  ],
-                  "order": 50,
-                  "componentToken": "local.main.ui.surface-aware-menu-link-item",
-                  "when": "auth.authenticated === true",
-                  "source": "mutations.text#users-web-home-shell-menu-placement"
-                },
-                {
                   "id": "users.console.menu.settings",
                   "target": "shell-layout:primary-menu",
                   "surfaces": [
@@ -3958,13 +3968,13 @@
             "runtime": {
               "@tanstack/vue-query": "5.92.12",
               "@mdi/js": "^7.4.47",
-              "@jskit-ai/console-web": "0.1.3",
-              "@jskit-ai/http-runtime": "0.1.35",
-              "@jskit-ai/realtime": "0.1.35",
-              "@jskit-ai/kernel": "0.1.36",
-              "@jskit-ai/shell-web": "0.1.35",
-              "@jskit-ai/uploads-image-web": "0.1.14",
-              "@jskit-ai/users-core": "0.1.46",
+              "@jskit-ai/console-web": "0.1.4",
+              "@jskit-ai/http-runtime": "0.1.36",
+              "@jskit-ai/realtime": "0.1.36",
+              "@jskit-ai/kernel": "0.1.37",
+              "@jskit-ai/shell-web": "0.1.36",
+              "@jskit-ai/uploads-image-web": "0.1.15",
+              "@jskit-ai/users-core": "0.1.47",
               "vuetify": "^4.0.0"
             },
             "dev": {}
@@ -4072,16 +4082,6 @@
               "op": "append-text",
               "file": "src/placement.js",
               "position": "bottom",
-              "skipIfContains": "id: \"users.home.menu.home\"",
-              "value": "\naddPlacement({\n  id: \"users.home.menu.home\",\n  target: \"shell-layout:primary-menu\",\n  surfaces: [\"*\"],\n  order: 50,\n  componentToken: \"local.main.ui.surface-aware-menu-link-item\",\n  props: {\n    label: \"Home\",\n    surface: \"home\",\n    workspaceSuffix: \"/\",\n    nonWorkspaceSuffix: \"/\",\n    exact: true\n  },\n  when: ({ auth }) => Boolean(auth?.authenticated)\n});\n",
-              "reason": "Append users-web home shell menu placement into app-owned placement registry.",
-              "category": "users-web",
-              "id": "users-web-home-shell-menu-placement"
-            },
-            {
-              "op": "append-text",
-              "file": "src/placement.js",
-              "position": "bottom",
               "skipIfContains": "id: \"users.console.menu.settings\"",
               "value": "\naddPlacement({\n  id: \"users.console.menu.settings\",\n  target: \"shell-layout:primary-menu\",\n  surfaces: [\"console\"],\n  order: 100,\n  componentToken: \"local.main.ui.menu-link-item\",\n  props: {\n    label: \"Settings\",\n    to: \"/console/settings\",\n    icon: \"mdi-cog-outline\"\n  },\n  when: ({ auth }) => Boolean(auth?.authenticated)\n});\n",
               "reason": "Append users-web console settings menu placement into app-owned placement registry.",
@@ -4104,11 +4104,11 @@
     },
     {
       "packageId": "@jskit-ai/workspaces-core",
-      "version": "0.1.12",
+      "version": "0.1.13",
       "descriptor": {
         "packageVersion": 1,
         "packageId": "@jskit-ai/workspaces-core",
-        "version": "0.1.12",
+        "version": "0.1.13",
         "kind": "runtime",
         "description": "Workspace tenancy runtime plus HTTP routes, role catalog, and workspace config scaffolding.",
         "dependsOn": [
@@ -4217,7 +4217,7 @@
         "mutations": {
           "dependencies": {
             "runtime": {
-              "@jskit-ai/users-core": "0.1.46"
+              "@jskit-ai/users-core": "0.1.47"
             },
             "dev": {}
           },
@@ -4407,11 +4407,11 @@
     },
     {
       "packageId": "@jskit-ai/workspaces-web",
-      "version": "0.1.12",
+      "version": "0.1.13",
       "descriptor": {
         "packageVersion": 1,
         "packageId": "@jskit-ai/workspaces-web",
-        "version": "0.1.12",
+        "version": "0.1.13",
         "kind": "runtime",
         "description": "Workspace web module: workspace selector, tools widget, workspace surfaces, and members/settings UI.",
         "dependsOn": [
@@ -4531,8 +4531,8 @@
         "mutations": {
           "dependencies": {
             "runtime": {
-              "@jskit-ai/workspaces-core": "0.1.12",
-              "@jskit-ai/users-web": "0.1.51"
+              "@jskit-ai/workspaces-core": "0.1.13",
+              "@jskit-ai/users-web": "0.1.52"
             },
             "dev": {}
           },
