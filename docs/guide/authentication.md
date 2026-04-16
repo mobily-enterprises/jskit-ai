@@ -362,6 +362,206 @@ So the auth story in this chapter is spread across clear responsibilities:
 
 That is a very JSKIT-style pattern. The installed package brings the runtime behavior, but the app still owns the important seams where routing and UI get attached.
 
+### Who actually talks to whom
+
+The most important thing to understand is that the browser usually talks to **your app**, and your app talks to **Supabase**.
+
+For the normal email-and-password flow, the browser does **not** call Supabase directly. It posts to the app's own API routes such as `/api/login`. The JSKIT server then calls Supabase, receives the Supabase session, and turns that into HTTP-only cookies.
+
+That means there are really three actors in play:
+
+- the browser, which renders the login screen and submits forms
+- the JSKIT app server, which owns `/api/login`, `/api/oauth/complete`, `/api/session`, and the cookie-writing step
+- Supabase, which owns the real authentication backend, password verification, OAuth exchange, and auth user records
+
+So the mental model should be:
+
+```text
+browser -> JSKIT app -> Supabase
+browser <- JSKIT app <- Supabase
+```
+
+For OAuth there is one extra bounce: the browser is redirected out to Supabase and then back again. But even there, the app still owns the start and completion steps.
+
+### Password login: the full round trip
+
+The simplest login flow is the normal `Email + Password` form.
+
+On the client side, `DefaultLoginView` eventually calls `useLoginViewActions.submitAuth()`. In sign-in mode that becomes a `POST` to:
+
+```text
+/api/login
+```
+
+with a body shaped roughly like this:
+
+```json
+{
+  "email": "alice@example.com",
+  "password": "correct horse battery staple"
+}
+```
+
+From there, the server-side flow is:
+
+1. `POST /api/login` hits the route registered by `auth-web`.
+2. `AuthController.login()` receives the request.
+3. `AuthWebService.login()` executes the internal action `auth.login.password`.
+4. The Supabase auth service calls `supabase.auth.signInWithPassword(...)`.
+5. Supabase returns a `user` object and a `session` object.
+6. JSKIT syncs the app-side profile mirror from that Supabase user.
+7. JSKIT writes the access and refresh tokens into HTTP-only cookies.
+8. The API response sent back to the browser is intentionally small.
+
+The important detail is step 7. The browser does **not** receive the raw Supabase session tokens as normal application state. The server writes them into cookies instead:
+
+- `sb_access_token`
+- `sb_refresh_token`
+
+Those cookies are HTTP-only and `sameSite: "lax"`, so the browser sends them back automatically on later requests, but normal client-side code cannot read them directly.
+
+The JSON response from `/api/login` is much smaller than the underlying Supabase session object:
+
+```json
+{
+  "ok": true,
+  "username": "alice"
+}
+```
+
+After that, the browser still is not done. The login view immediately calls `/api/session` to confirm the session and fetch the current auth state. If that session check comes back with `authenticated: true`, the client redirects to the requested `returnTo` path.
+
+So the real password-login round trip is:
+
+```text
+1. browser -> POST /api/login -> JSKIT app
+2. JSKIT app -> supabase.auth.signInWithPassword(...)
+3. Supabase -> JSKIT app: user + session
+4. JSKIT app -> browser: set HTTP-only cookies + { ok, username }
+5. browser -> GET /api/session
+6. JSKIT app -> browser: { authenticated, username, csrfToken, ... }
+7. browser redirects to the requested route
+```
+
+### OAuth login: the extra browser bounce
+
+OAuth is the case where the browser really does leave the app briefly, but the app still owns the edges of the flow.
+
+The first step is still browser -> app. If the login page shows a button such as `Continue with Google`, clicking it does **not** go straight to Supabase. It first goes to:
+
+```text
+/api/oauth/google/start?returnTo=/home
+```
+
+That server route does three jobs:
+
+- normalizes the provider id
+- normalizes the `returnTo` path
+- asks Supabase for the correct provider redirect URL
+
+JSKIT then redirects the browser to Supabase's OAuth flow. The redirect URL that JSKIT asks Supabase to use points back to your app, usually `/auth/login`, with some query parameters describing the provider and the intended return target.
+
+So the browser flow becomes:
+
+```text
+browser -> /api/oauth/google/start
+app -> Supabase OAuth redirect URL
+browser -> Supabase / provider login page
+Supabase -> browser back to /auth/login?...callback params...
+```
+
+When the browser lands back on `/auth/login`, the login page JavaScript inspects the URL. It looks for either:
+
+- an OAuth `code`, or
+- an access/refresh token pair
+
+If it finds them, it does **not** treat the browser as fully signed in yet. Instead, it posts a small completion payload back to the app at:
+
+```text
+/api/oauth/complete
+```
+
+That payload looks roughly like one of these:
+
+```json
+{
+  "provider": "google",
+  "code": "..."
+}
+```
+
+or
+
+```json
+{
+  "provider": "google",
+  "accessToken": "...",
+  "refreshToken": "..."
+}
+```
+
+Now the app server finishes the job:
+
+1. `AuthController.oauthComplete()` receives the payload.
+2. The Supabase auth service either:
+   - exchanges the code with `supabase.auth.exchangeCodeForSession(...)`, or
+   - restores the session with `supabase.auth.setSession(...)`
+3. Supabase returns `user` and `session`.
+4. JSKIT syncs the local profile mirror.
+5. JSKIT writes HTTP-only cookies.
+6. The browser strips the callback params out of the URL.
+7. The browser refreshes `/api/session`.
+8. The browser redirects to `returnTo`.
+
+So the full OAuth dance is:
+
+```text
+browser -> app start route
+app -> Supabase redirect
+browser -> Supabase/provider
+Supabase/provider -> browser back to /auth/login
+browser -> app completion route
+app -> Supabase session exchange
+Supabase -> app: user + session
+app -> browser: cookies + small success payload
+browser -> /api/session -> redirect
+```
+
+That is why the login page needs both browser-side logic and server-side routes. The browser owns the redirect dance, but the app still owns the final session establishment step.
+
+### What `/api/session` is really doing
+
+`/api/session` is more than a yes-or-no login check. It is the app's current auth truth endpoint.
+
+When the browser calls it, the server:
+
+- reads the auth cookies
+- checks whether the access token still looks valid
+- refreshes the session through Supabase if needed
+- clears invalid cookies if the session is no longer usable
+- returns the auth state the client actually needs
+
+The response is shaped roughly like this:
+
+```json
+{
+  "authenticated": true,
+  "username": "alice",
+  "csrfToken": "...",
+  "oauthProviders": [],
+  "oauthDefaultProvider": null
+}
+```
+
+That explains why the login screen and auth guard runtime both care about `/api/session`. It is how the browser learns:
+
+- whether the user is authenticated
+- which username to show
+- which OAuth buttons to render
+- which CSRF token to use for later writes
+
+It is also why the shell widget can react cleanly to auth state without storing raw session tokens in client state. The browser just asks the app for the current session view, and the app derives that from its cookies plus Supabase.
+
 ## What appears in Supabase
 
 It is important to separate **Supabase auth data** from **JSKIT app-owned data**.
