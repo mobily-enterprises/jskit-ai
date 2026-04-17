@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { registerUsersCore } from "../src/server/registerUsersCore.js";
 
-test("registerUsersCore registers console and workspace action surface aliases when action runtime is available", () => {
+test("registerUsersCore registers the workspace action surface alias when action runtime is available", () => {
   const calls = [];
   const app = {
     singleton() {
@@ -22,10 +22,6 @@ test("registerUsersCore registers console and workspace action surface aliases w
   assert.deepEqual(calls, [
     {
       sourceName: "workspace",
-      resolverType: "function"
-    },
-    {
-      sourceName: "console",
       resolverType: "function"
     }
   ]);

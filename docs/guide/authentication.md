@@ -121,7 +121,7 @@ The small links under the password field are not decoration.
 
 When the user presses `Register`, the form changes in three important ways.
 
-- The title changes from `Welcome back` to `Create your account`.
+- The title changes from `Welcome` to `Create your account`.
 - A `Confirm password` field appears.
 - The main submit button changes from `Sign in` to `Register`.
 
@@ -417,7 +417,7 @@ This is the most important pattern to understand: use the guard to protect the r
 
 Sometimes you do not want to redirect or hide a menu entry. You just want the page to react differently when a user is logged in.
 
-For that, use `useAuthStore()` from `auth-web`. It is the Pinia store facade over the underlying auth runtime, so normal Vue code can read the session state without manually wiring subscriptions.
+For that, use `useAuthStore()` from `auth-web`. By this point in the guide the scaffold already has Pinia installed from day 0, and `shell-web` has already shown the same store-facing pattern for shell UI state. `auth-web` adds the auth version of that pattern: a Pinia store facade over the underlying auth runtime, so normal Vue code can read the session state without manually wiring subscriptions.
 
 Here is a small example that changes `src/pages/home/index.vue` so it shows a success message when the session is authenticated:
 
@@ -489,6 +489,14 @@ By this point the surfaced auth API should be clearer:
   - use `useAuthStore()` when the page needs to react to auth state directly
 
 That is the real development payoff of this chapter. The login system is not just a screen. It gives the app a reusable auth state model that routing, shell placements, and component code can all use.
+
+At this point the guide has shown three distinct layers of client state:
+
+- the scaffold installs Pinia but does not expose any package stores yet
+- `shell-web` adds shell-facing stores such as `useShellLayoutStore()`
+- `auth-web` adds `useAuthStore()` for authentication state
+
+That progression is intentional. Packages keep their operational runtimes internally, but the app-facing shared state they surface to Vue code is now store-based.
 
 ## Under the hood
 

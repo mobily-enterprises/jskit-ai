@@ -27,8 +27,7 @@ function findRoute(routes, { method, path }) {
 }
 
 async function registerRoutes({
-  authService = {},
-  consoleService = null
+  authService = {}
 } = {}) {
   const registeredRoutes = [];
   const router = {
@@ -59,10 +58,6 @@ async function registerRoutes({
     ["actionExecutor", {}]
   ]);
 
-  if (consoleService) {
-    bindings.set("consoleService", consoleService);
-  }
-
   const app = {
     has(token) {
       return bindings.has(token);
@@ -92,13 +87,11 @@ function createActionRequest({ input = {}, executeAction, file = null }) {
   };
 }
 
-test("users-core boot mounts account and console routes without workspace routes", async () => {
+test("users-core boot mounts account routes without workspace routes", async () => {
   const routes = await registerRoutes();
 
   assert.equal(findRoute(routes, { method: "GET", path: "/api/settings" })?.path, "/api/settings");
   assert.equal(findRoute(routes, { method: "PATCH", path: "/api/settings/profile" })?.path, "/api/settings/profile");
-  assert.equal(findRoute(routes, { method: "GET", path: "/api/console/settings" })?.path, "/api/console/settings");
-  assert.equal(findRoute(routes, { method: "PATCH", path: "/api/console/settings" })?.path, "/api/console/settings");
   assert.equal(findRoute(routes, { method: "GET", path: "/api/workspaces" }), null);
   assert.equal(findRoute(routes, { method: "GET", path: "/api/w/:workspaceSlug/settings" }), null);
 });
@@ -205,38 +198,4 @@ test("account route handlers build action input from request.input", async () =>
   assert.equal(oauthReply.redirectedTo, "/oauth/link");
   assert.deepEqual(calls[6].input, { provider: "github" });
   assert.equal(calls[7].actionId, "settings.security.sessions.logout_others");
-});
-
-test("console settings route handlers use request.input payloads", async () => {
-  const routes = await registerRoutes();
-  const calls = [];
-  const executeAction = async (payload) => {
-    calls.push(payload);
-    return {
-      settings: {}
-    };
-  };
-
-  await findRoute(routes, { method: "GET", path: "/api/console/settings" }).handler(
-    createActionRequest({ executeAction }),
-    createReplyDouble()
-  );
-
-  await findRoute(routes, { method: "PATCH", path: "/api/console/settings" }).handler(
-    createActionRequest({
-      input: {
-        body: {}
-      },
-      executeAction
-    }),
-    createReplyDouble()
-  );
-
-  assert.equal(calls[0].actionId, "console.settings.read");
-  assert.deepEqual(calls[1], {
-    actionId: "console.settings.update",
-    input: {
-      payload: {}
-    }
-  });
 });

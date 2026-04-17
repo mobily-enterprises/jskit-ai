@@ -32,8 +32,8 @@ import { normalizeMutationRelativeFilePath } from "./mutationPathUtils.js";
 
 const SETTINGS_FIELDS_CONTRACT_TARGETS = Object.freeze({
   "packages/main/src/shared/resources/consoleSettingsFields.js": Object.freeze({
-    contractId: "users.settings-fields.console.v1",
-    marker: "@jskit-contract users.settings-fields.console.v1",
+    contractId: "console.settings-fields.v1",
+    marker: "@jskit-contract console.settings-fields.v1",
     requiredSnippets: Object.freeze([
       "defineField",
       "resetConsoleSettingsFields"
@@ -84,7 +84,7 @@ async function validateSettingsFieldsContractMutationTarget({
   if (!existing.exists) {
     throw createCliError(
       `Invalid append-text mutation in ${packageId}: ${normalizedRelativeFile} is missing. ` +
-      `Install @jskit-ai/users-core to scaffold ${target.contractId}.`
+      `Install @jskit-ai/console-core to scaffold ${target.contractId}.`
     );
   }
 

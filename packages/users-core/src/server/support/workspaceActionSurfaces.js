@@ -1,8 +1,6 @@
 import { normalizeSurfaceId } from "@jskit-ai/kernel/shared/surface/registry";
-import { isRecord, normalizeLowerText } from "@jskit-ai/kernel/shared/support/normalize";
+import { isRecord } from "@jskit-ai/kernel/shared/support/normalize";
 import { resolveDefaultWorkspaceSurfaceId } from "../../shared/support/workspacePathModel.js";
-
-const CONSOLE_OWNER_ACCESS_POLICY_ID = "console_owner";
 
 function normalizeSurfaceIds(surfaceIds = []) {
   const source = Array.isArray(surfaceIds) ? surfaceIds : [];
@@ -23,15 +21,6 @@ function normalizeSurfaceIds(surfaceIds = []) {
 
 function resolveWorkspaceSurfaceIdsFromAppConfig(appConfig = {}) {
   return resolveSurfaceIdsFromAppConfig(appConfig, (definition) => definition.requiresWorkspace === true);
-}
-
-function resolveConsoleSurfaceIdsFromAppConfig(appConfig = {}) {
-  return resolveSurfaceIdsFromAppConfig(appConfig, (definition) => {
-    return (
-      definition.requiresWorkspace !== true &&
-      normalizeLowerText(definition.accessPolicyId) === CONSOLE_OWNER_ACCESS_POLICY_ID
-    );
-  });
 }
 
 function resolveSurfaceIdsFromAppConfig(appConfig = {}, predicate) {
@@ -93,11 +82,6 @@ function registerUsersCoreActionSurfaceSources(app) {
     const appConfig = scope?.has?.("appConfig") ? scope.make("appConfig") : {};
     return resolveWorkspaceSurfaceIdsFromAppConfig(appConfig);
   });
-
-  app.actionSurfaceSource("console", ({ scope }) => {
-    const appConfig = scope?.has?.("appConfig") ? scope.make("appConfig") : {};
-    return resolveConsoleSurfaceIdsFromAppConfig(appConfig);
-  });
 }
 
 function materializeWorkspaceActionSurfacesFromAppConfig(actions = [], { appConfig = {} } = {}) {
@@ -127,7 +111,6 @@ function resolveDefaultWorkspaceRouteSurfaceIdFromAppConfig(appConfig = {}) {
 
 export {
   resolveWorkspaceSurfaceIdsFromAppConfig,
-  resolveConsoleSurfaceIdsFromAppConfig,
   resolveDefaultWorkspaceRouteSurfaceIdFromAppConfig,
   materializeWorkspaceActionSurfaces,
   materializeWorkspaceActionSurfacesFromAppConfig,

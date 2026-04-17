@@ -71,44 +71,6 @@ function expectTextMutation(id, { reason = "", category = "", skipIfContains = "
   }
 }
 
-test("users-web console settings template exposes surface-derived settings outlets", async () => {
-  const source = await readFile(path.join(PACKAGE_DIR, "templates", "src", "pages", "console", "settings.vue"), "utf8");
-
-  assert.match(source, /target="console-settings:primary-menu"/);
-  assert.match(source, /default-link-component-token="local\.main\.ui\.surface-aware-menu-link-item"/);
-  assert.match(source, /<RouterView \/>/);
-});
-
-test("users-web console settings index template is a simple developer-owned stub", async () => {
-  const source = await readFile(path.join(PACKAGE_DIR, "templates", "src", "pages", "console", "settings", "index.vue"), "utf8");
-
-  assert.match(source, /definePage/);
-  assert.match(source, /your_child_segment/);
-});
-
-test("users-web descriptor metadata advertises console settings outlets with standard positions", () => {
-  const outlets = readOutlets("console-settings:primary-menu");
-  assert.deepEqual(
-    outlets,
-    [
-      {
-        target: "console-settings:primary-menu",
-        defaultLinkComponentToken: "local.main.ui.surface-aware-menu-link-item",
-        surfaces: ["console"],
-        source: "templates/src/pages/console/settings.vue"
-      }
-    ]
-  );
-  assert.deepEqual(findFileMutation("users-web-page-console-settings"), {
-    from: "templates/src/pages/console/settings/index.vue",
-    toSurface: "console",
-    toSurfacePath: "settings/index.vue",
-    reason: "Install console settings index stub scaffold for app-owned landing or redirect behavior.",
-    category: "users-web",
-    id: "users-web-page-console-settings"
-  });
-});
-
 test("users-web home tools widget exposes home-tools outlet", async () => {
   const source = await readFile(path.join(PACKAGE_DIR, "src", "client", "components", "UsersHomeToolsWidget.vue"), "utf8");
 

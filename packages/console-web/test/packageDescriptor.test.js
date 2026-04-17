@@ -46,6 +46,24 @@ test("console-web installs console surface scripts and files", () => {
     category: "console-web",
     id: "console-web-page-console"
   });
+  assert.deepEqual(findFileMutation("console-web-page-console-settings-shell"), {
+    from: "templates/src/pages/console/settings.vue",
+    toSurface: "console",
+    toSurfacePath: "settings.vue",
+    ownership: "app",
+    reason: "Install console settings shell route scaffold for console-web.",
+    category: "console-web",
+    id: "console-web-page-console-settings-shell"
+  });
+  assert.deepEqual(findFileMutation("console-web-page-console-settings"), {
+    from: "templates/src/pages/console/settings/index.vue",
+    toSurface: "console",
+    toSurfacePath: "settings/index.vue",
+    ownership: "app",
+    reason: "Install console settings index stub scaffold for app-owned landing or redirect behavior.",
+    category: "console-web",
+    id: "console-web-page-console-settings"
+  });
 });
 
 test("console-web wires console surface policy into app config", () => {
@@ -55,13 +73,22 @@ test("console-web wires console surface policy into app config", () => {
   );
   assert.equal(findTextMutation("console-web-surface-config-console")?.file, "config/public.js");
   assert.match(findTextMutation("console-web-surface-config-console")?.value || "", /accessPolicyId: "console_owner"/);
+  assert.match(findTextMutation("console-web-surface-config-console")?.value || "", /icon: "mdi-console-network-outline"/);
+  assert.equal(findTextMutation("console-web-console-settings-placement")?.file, "src/placement.js");
 });
 
 test("console-web console templates stay shell-driven", async () => {
   const wrapperSource = await readFile(path.join(PACKAGE_DIR, "templates", "src", "pages", "console.vue"), "utf8");
   const indexSource = await readFile(path.join(PACKAGE_DIR, "templates", "src", "pages", "console", "index.vue"), "utf8");
+  const settingsSource = await readFile(path.join(PACKAGE_DIR, "templates", "src", "pages", "console", "settings.vue"), "utf8");
+  const settingsIndexSource = await readFile(path.join(PACKAGE_DIR, "templates", "src", "pages", "console", "settings", "index.vue"), "utf8");
 
   assert.match(wrapperSource, /ShellLayout/);
   assert.match(wrapperSource, /"surface": "console"/);
   assert.match(indexSource, /Operations Console/);
+  assert.match(settingsSource, /target="console-settings:primary-menu"/);
+  assert.match(settingsSource, /default-link-component-token="local\.main\.ui\.surface-aware-menu-link-item"/);
+  assert.match(settingsSource, /<RouterView \/>/);
+  assert.match(settingsIndexSource, /definePage/);
+  assert.match(settingsIndexSource, /your_child_segment/);
 });

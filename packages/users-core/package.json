@@ -20,8 +20,7 @@
     "./shared/resources/workspaceSettingsFields": "./src/shared/resources/workspaceSettingsFields.js",
     "./shared/resources/userProfileResource": "./src/shared/resources/userProfileResource.js",
     "./shared/resources/userSettingsFields": "./src/shared/resources/userSettingsFields.js",
-    "./shared/resources/userSettingsResource": "./src/shared/resources/userSettingsResource.js",
-    "./shared/resources/consoleSettingsFields": "./src/shared/resources/consoleSettingsFields.js"
+    "./shared/resources/userSettingsResource": "./src/shared/resources/userSettingsResource.js"
   },
   "dependencies": {
     "@jskit-ai/auth-core": "0.1.36",

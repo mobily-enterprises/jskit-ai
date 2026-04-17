@@ -1,6 +1,7 @@
 import { AppError } from "@jskit-ai/kernel/server/runtime";
 import { requireServiceMethod } from "@jskit-ai/kernel/shared/actions/actionContributorHelpers";
 import { normalizeLowerText, normalizeText } from "@jskit-ai/kernel/shared/actions/textNormalization";
+import { normalizeObject } from "@jskit-ai/kernel/shared/support/normalize";
 import {
   TENANCY_MODE_NONE,
   TENANCY_MODE_PERSONAL,
@@ -13,7 +14,6 @@ import {
 import { accountAvatarFormatter } from "./common/formatters/accountAvatarFormatter.js";
 import { authenticatedUserValidator } from "./common/validators/authenticatedUserValidator.js";
 import { userSettingsFields } from "../shared/resources/userSettingsFields.js";
-import { normalizeRecordId } from "@jskit-ai/kernel/shared/support/normalize";
 
 function getOAuthProviderCatalogPayload(authService) {
   if (!authService || typeof authService.getOAuthProviderCatalog !== "function") {
@@ -103,7 +103,7 @@ function resolveBootstrapTenancyProfile(tenancyProfile = null, appConfig = {}) {
   });
 }
 
-function createAnonymousBootstrapPayload({ appState, tenancyProfile }) {
+function createAnonymousBootstrapPayload({ appState, tenancyProfile, surfaceAccess = {} }) {
   return {
     session: {
       authenticated: false
@@ -117,9 +117,7 @@ function createAnonymousBootstrapPayload({ appState, tenancyProfile }) {
     membership: null,
     requestedWorkspace: null,
     permissions: [],
-    surfaceAccess: {
-      consoleowner: false
-    },
+    surfaceAccess: normalizeObject(surfaceAccess),
     workspaceSettings: null,
     userSettings: null,
     requestMeta: {
@@ -154,8 +152,7 @@ function createUsersBootstrapContributor({
   userSettingsRepository,
   appConfig = {},
   tenancyProfile = null,
-  authService,
-  consoleService = null
+  authService
 } = {}) {
   const contributorId = "users.bootstrap";
   const appState = resolveAppState(appConfig);
@@ -170,7 +167,8 @@ function createUsersBootstrapContributor({
 
   return Object.freeze({
     contributorId,
-    async contribute({ request = null, reply = null } = {}) {
+    order: 100,
+    async contribute({ request = null, reply = null, payload: existingPayload = {} } = {}) {
       const authResult = await request.executeAction({
         actionId: "auth.session.read"
       });
@@ -186,25 +184,16 @@ function createUsersBootstrapContributor({
       }
 
       const normalizedUser = authenticatedUserValidator.normalize(authResult?.authenticated ? authResult?.profile : null);
+      const inheritedSurfaceAccess = normalizeObject(existingPayload?.surfaceAccess);
       let payload = createAnonymousBootstrapPayload({
         appState,
-        tenancyProfile: resolvedTenancyProfile
+        tenancyProfile: resolvedTenancyProfile,
+        surfaceAccess: inheritedSurfaceAccess
       });
 
       if (normalizedUser) {
         const latestProfile = (await usersRepository.findById(normalizedUser.id)) || normalizedUser;
         const userSettings = await userSettingsRepository.ensureForUserId(latestProfile.id);
-
-        let seededConsoleOwnerUserId = null;
-        if (
-          consoleService &&
-          typeof consoleService.ensureInitialConsoleMember === "function"
-        ) {
-          seededConsoleOwnerUserId = normalizeRecordId(
-            await consoleService.ensureInitialConsoleMember(latestProfile.id),
-            { fallback: null }
-          );
-        }
 
         payload = {
           session: {
@@ -224,9 +213,7 @@ function createUsersBootstrapContributor({
           membership: null,
           requestedWorkspace: null,
           permissions: [],
-          surfaceAccess: {
-            consoleowner: Boolean(seededConsoleOwnerUserId) && seededConsoleOwnerUserId === String(latestProfile.id)
-          },
+          surfaceAccess: inheritedSurfaceAccess,
           workspaceSettings: null,
           userSettings: mapUserSettingsBootstrap(userSettings),
           requestMeta: {

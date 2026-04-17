@@ -22,6 +22,14 @@ Exports
 Exports
 - None
 
+### `templates/src/pages/console/settings.vue`
+Exports
+- None
+
+### `templates/src/pages/console/settings/index.vue`
+Exports
+- None
+
 ### root
 
 ### `package.descriptor.mjs`

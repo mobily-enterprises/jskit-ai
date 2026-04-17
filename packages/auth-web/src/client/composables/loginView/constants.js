@@ -5,7 +5,7 @@ const OTP_MODE = "otp";
 const EMAIL_CONFIRMATION_MODE = "confirm-email";
 
 const AUTH_TITLE_BY_MODE = Object.freeze({
-  [LOGIN_MODE]: "Welcome back",
+  [LOGIN_MODE]: "Welcome",
   [REGISTER_MODE]: "Create your account",
   [FORGOT_MODE]: "Reset your password",
   [OTP_MODE]: "Use one-time code",

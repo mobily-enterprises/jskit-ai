@@ -5,7 +5,6 @@ import { createRepository as createUserSettingsRepository } from "../src/server/
 import { createRepository as createWorkspaceInvitesRepository } from "../src/server/common/repositories/workspaceInvitesRepository.js";
 import { createRepository as createWorkspaceMembershipsRepository } from "../src/server/common/repositories/workspaceMembershipsRepository.js";
 import { createRepository as createWorkspacesRepository } from "../src/server/common/repositories/workspacesRepository.js";
-import { createRepository as createConsoleSettingsRepository } from "../src/server/consoleSettings/consoleSettingsRepository.js";
 import { createRepository as createWorkspaceSettingsRepository } from "../src/server/workspaceSettings/workspaceSettingsRepository.js";
 
 function createKnexStub() {
@@ -28,7 +27,6 @@ test("users-core repositories expose withTransaction", async () => {
     createWorkspaceInvitesRepository(knex),
     createWorkspaceMembershipsRepository(knex),
     createWorkspacesRepository(knex),
-    createConsoleSettingsRepository(knex),
     createWorkspaceSettingsRepository(knex)
   ];
 

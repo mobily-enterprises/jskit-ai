@@ -13,8 +13,7 @@ function registerUsersBootstrap(app) {
       userSettingsRepository: scope.make("userSettingsRepository"),
       appConfig: resolveAppConfig(scope),
       tenancyProfile: scope.make("users.tenancy.profile"),
-      authService: scope.make("authService"),
-      consoleService: scope.has("consoleService") ? scope.make("consoleService") : null
+      authService: scope.make("authService")
     });
   });
 }

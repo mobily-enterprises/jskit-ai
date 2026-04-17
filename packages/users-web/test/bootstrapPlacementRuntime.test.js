@@ -993,15 +993,15 @@ test("bootstrap placement runtime enforces surface access policies after bootstr
     },
     surfaceAccessPolicies: {
       public: {},
-      console_owner: {
+      ops_owner: {
         requireAuth: true,
-        requireFlagsAll: ["console_owner"]
+        requireFlagsAll: ["ops_owner"]
       }
     },
     surfaceConfig: {
       tenancyMode: "workspaces",
       defaultSurfaceId: "home",
-      enabledSurfaceIds: ["home", "console"],
+      enabledSurfaceIds: ["home", "ops"],
       surfacesById: {
         home: {
           id: "home",
@@ -1011,18 +1011,18 @@ test("bootstrap placement runtime enforces surface access policies after bootstr
           requiresWorkspace: false,
           accessPolicyId: "public"
         },
-        console: {
-          id: "console",
+        ops: {
+          id: "ops",
           enabled: true,
-          pagesRoot: "console",
-          routeBase: "/console",
+          pagesRoot: "ops",
+          routeBase: "/ops",
           requiresWorkspace: false,
-          accessPolicyId: "console_owner"
+          accessPolicyId: "ops_owner"
         }
       }
     }
   });
-  const router = createRouterStub("/console");
+  const router = createRouterStub("/ops");
   const runtime = createBootstrapPlacementRuntime({
     app: createAppStub({
       ["runtime.web-placement.client"]: placementRuntime,
@@ -1037,7 +1037,7 @@ test("bootstrap placement runtime enforces surface access policies after bootstr
         workspaces: [],
         permissions: [],
         surfaceAccess: {
-          consoleowner: false
+          opsowner: false
         }
       };
     }

@@ -259,35 +259,6 @@ Local functions
 - `normalizeRouteParams(input = {})`
 - `normalizeWorkspaceSlugParams(input = {})`
 
-### `src/server/consoleSettings/bootConsoleSettingsRoutes.js`
-Exports
-- `bootConsoleSettingsRoutes(app)`
-
-### `src/server/consoleSettings/consoleService.js`
-Exports
-- `createService({ consoleSettingsRepository } = {})`
-
-### `src/server/consoleSettings/consoleSettingsActions.js`
-Exports
-- `consoleSettingsActions`
-
-### `src/server/consoleSettings/consoleSettingsRepository.js`
-Exports
-- `createRepository(knex)`
-Local functions
-- `mapSettings(row = {})`
-- `mapSingletonRow(row)`
-
-### `src/server/consoleSettings/consoleSettingsService.js`
-Exports
-- `createService({ consoleSettingsRepository, consoleService } = {})`
-Local functions
-- `buildSettingsResponse(record = {})`
-
-### `src/server/consoleSettings/registerConsoleSettings.js`
-Exports
-- `registerConsoleSettings(app)`
-
 ### `src/server/registerUsersBootstrap.js`
 Exports
 - `registerUsersBootstrap(app)`
@@ -317,7 +288,6 @@ Local functions
 ### `src/server/support/workspaceActionSurfaces.js`
 Exports
 - `resolveWorkspaceSurfaceIdsFromAppConfig(appConfig = {})`
-- `resolveConsoleSurfaceIdsFromAppConfig(appConfig = {})`
 - `resolveDefaultWorkspaceRouteSurfaceIdFromAppConfig(appConfig = {})`
 - `materializeWorkspaceActionSurfaces(actions = [], { workspaceSurfaceIds = [] } = {})`
 - `materializeWorkspaceActionSurfacesFromAppConfig(actions = [], { appConfig = {} } = {})`
@@ -338,7 +308,7 @@ Exports
 
 ### `src/server/usersBootstrapContributor.js`
 Exports
-- `createUsersBootstrapContributor({ usersRepository, userSettingsRepository, appConfig = {}, tenancyProfile = null, authService, consoleService = null } = {})`
+- `createUsersBootstrapContributor({ usersRepository, userSettingsRepository, appConfig = {}, tenancyProfile = null, authService } = {})`
 Local functions
 - `getOAuthProviderCatalogPayload(authService)`
 - `normalizeBoolean(value, fallback)`
@@ -483,24 +453,6 @@ Exports
 ### `src/shared/operationMessages.js`
 Exports
 - `createOperationMessages({ validationMessage = "Validation failed.", apiValidationMessage = validationMessage } = {})`
-
-### `src/shared/resources/consoleSettingsFields.js`
-Exports
-- `defineField(field = {})`
-- `resetConsoleSettingsFields()`
-- `consoleSettingsFields`
-
-### `src/shared/resources/consoleSettingsResource.js`
-Exports
-- `consoleSettingsResource`
-Local functions
-- `buildCreateSchema()`
-- `buildOutputSchema()`
-- `buildConsoleSettingsRecordSchema()`
-- `buildConsoleSettingsCreateSchema()`
-- `buildConsoleSettingsReplaceSchema()`
-- `buildConsoleSettingsPatchSchema()`
-- `normalizeConsoleSettingsInput(payload = {})`
 
 ### `src/shared/resources/resolveGlobalArrayRegistry.js`
 Exports
@@ -675,10 +627,6 @@ Local functions
 
 ### templates
 
-### `templates/migrations/users_core_console_owner.cjs`
-Exports
-- None
-
 ### `templates/migrations/users_core_generic_initial.cjs`
 Exports
 - None
@@ -691,10 +639,6 @@ Local functions
 - `usernameBaseFromEmail(email)`
 - `buildUsernameCandidate(baseUsername, suffix)`
 - `resolveUniqueUsername(baseUsername, usedUsernames)`
-
-### `templates/packages/main/src/shared/resources/consoleSettingsFields.js`
-Exports
-- None
 
 ### `templates/packages/main/src/shared/resources/userSettingsFields.js`
 Exports

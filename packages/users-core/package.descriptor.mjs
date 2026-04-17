@@ -3,7 +3,7 @@ export default Object.freeze({
   packageId: "@jskit-ai/users-core",
   version: "0.1.47",
   kind: "runtime",
-  description: "Users/account runtime plus HTTP routes for account and console features.",
+  description: "Users/account runtime plus HTTP routes for account features.",
   dependsOn: [
     "@jskit-ai/auth-core",
     "@jskit-ai/database-runtime",
@@ -44,7 +44,7 @@ export default Object.freeze({
         {
           subpath: "./server",
           summary:
-            "Exports UsersCoreServiceProvider, users/console repositories and services, account feature route registration modules, and action definitions."
+            "Exports UsersCoreServiceProvider plus account feature route registration modules and action definitions."
         },
         {
           subpath: "./shared",
@@ -121,16 +121,6 @@ export default Object.freeze({
           method: "POST",
           path: "/api/settings/security/logout-others",
           summary: "Sign out from other active sessions."
-        },
-        {
-          method: "GET",
-          path: "/api/console/settings",
-          summary: "Get console settings."
-        },
-        {
-          method: "PATCH",
-          path: "/api/console/settings",
-          summary: "Update console settings."
         }
       ]
     }
@@ -172,23 +162,6 @@ export default Object.freeze({
         id: "users-core-profile-username-schema"
       },
       {
-        op: "install-migration",
-        from: "templates/migrations/users_core_console_owner.cjs",
-        toDir: "migrations",
-        extension: ".cjs",
-        reason: "Install console owner migration.",
-        category: "migration",
-        id: "users-core-console-owner-schema"
-      },
-      {
-        from: "templates/packages/main/src/shared/resources/consoleSettingsFields.js",
-        to: "packages/main/src/shared/resources/consoleSettingsFields.js",
-        preserveOnRemove: true,
-        reason: "Install app-owned console settings field definitions.",
-        category: "users-core",
-        id: "users-core-app-owned-console-settings-fields"
-      },
-      {
         from: "templates/packages/main/src/shared/resources/userSettingsFields.js",
         to: "packages/main/src/shared/resources/userSettingsFields.js",
         preserveOnRemove: true,
@@ -206,16 +179,6 @@ export default Object.freeze({
         reason: "Enable users-backed auth profile sync when users-core is installed.",
         category: "runtime-config",
         id: "users-core-auth-profile-mode"
-      },
-      {
-        op: "append-text",
-        file: "packages/main/src/shared/index.js",
-        position: "top",
-        skipIfContains: "import \"./resources/consoleSettingsFields.js\";",
-        value: "import \"./resources/consoleSettingsFields.js\";\n",
-        reason: "Load app-owned console settings field definitions inside the main shared module.",
-        category: "users-core",
-        id: "users-core-main-shared-console-settings-field-import"
       },
       {
         op: "append-text",

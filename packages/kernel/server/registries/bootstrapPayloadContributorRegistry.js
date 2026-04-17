@@ -9,8 +9,21 @@ function registerBootstrapPayloadContributor(app, token, factory) {
 
 function resolveBootstrapPayloadContributors(scope) {
   return resolveTaggedEntries(scope, "jskit.runtime.bootstrap.payloadContributors")
-    .map((entry) => normalizeContributorEntry(entry))
-    .filter(Boolean);
+    .map((entry, index) => ({
+      contributor: normalizeContributorEntry(entry),
+      index
+    }))
+    .filter((entry) => Boolean(entry.contributor))
+    .sort((left, right) => {
+      const leftOrder = Number.isFinite(left.contributor?.order) ? Number(left.contributor.order) : 0;
+      const rightOrder = Number.isFinite(right.contributor?.order) ? Number(right.contributor.order) : 0;
+      if (leftOrder !== rightOrder) {
+        return leftOrder - rightOrder;
+      }
+
+      return left.index - right.index;
+    })
+    .map((entry) => entry.contributor);
 }
 
 async function resolveBootstrapPayload(scope, context = {}) {

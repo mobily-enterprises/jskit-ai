@@ -548,7 +548,6 @@ test("workspaces-web workspace tenancy mode installs workspace surfaces and wrap
     assert.equal(addWorkspacesWebResult.status, 0, addWorkspacesWebResult.stderr);
 
     const homeWrapper = await readFile(path.join(appRoot, "src/pages/home.vue"), "utf8");
-    const consoleWrapper = await readFile(path.join(appRoot, "src/pages/console.vue"), "utf8");
     const appWrapper = await readFile(path.join(appRoot, "src/pages/w/[workspaceSlug].vue"), "utf8");
     const adminWrapper = await readFile(path.join(appRoot, "src/pages/w/[workspaceSlug]/admin.vue"), "utf8");
     const accountRootPage = await readFile(path.join(appRoot, "src/pages/account/index.vue"), "utf8");
@@ -574,12 +573,8 @@ test("workspaces-web workspace tenancy mode installs workspace surfaces and wrap
     assert.match(adminWrapper, /"surface":\s*"admin"/);
     assert.match(appWrapper, /@\/components\/ShellLayout\.vue/);
     assert.match(appWrapper, /"surface":\s*"app"/);
-    assert.match(consoleWrapper, /@\/components\/ShellLayout\.vue/);
-    assert.match(consoleWrapper, /"surface":\s*"console"/);
-
     const publicConfig = await readFile(path.join(appRoot, "config/public.js"), "utf8");
     assert.match(publicConfig, /config\.surfaceDefinitions\.home = \{/);
-    assert.match(publicConfig, /config\.surfaceDefinitions\.console = \{/);
     assert.match(publicConfig, /config\.surfaceDefinitions\.admin = \{/);
     assert.match(publicConfig, /config\.surfaceDefinitions\.app = \{/);
     assert.match(publicConfig, /pagesRoot:\s*"w\/\[workspaceSlug\]"/);
@@ -596,18 +591,15 @@ test("workspaces-web workspace tenancy mode installs workspace surfaces and wrap
       /registerMainClientComponent\("local\.main\.account\.pending-invites\.cue", \(\) => AccountPendingInvitesCue\);/
     );
     assert.match(accountPendingInvitesCue, /section:\s*"invites"/);
-    assert.match(packageJson.dependencies["@jskit-ai/console-web"], /^\d+\.x$/);
     assert.match(packageJson.dependencies["@jskit-ai/workspaces-core"], /^\d+\.x$/);
     assert.match(packageJson.dependencies["@jskit-ai/workspaces-web"], /^\d+\.x$/);
-    assert.equal(packageJson.scripts["server:console"], "SERVER_SURFACE=console node ./bin/server.js");
-    assert.equal(packageJson.scripts["dev:console"], "VITE_SURFACE=console vite");
-    assert.equal(packageJson.scripts["build:console"], "VITE_SURFACE=console vite build");
     assert.equal(packageJson.scripts["server:account"], "SERVER_SURFACE=account node ./bin/server.js");
     assert.equal(packageJson.scripts["server:app"], "SERVER_SURFACE=app node ./bin/server.js");
     assert.equal(packageJson.scripts["server:admin"], "SERVER_SURFACE=admin node ./bin/server.js");
     assert.equal(packageJson.scripts["dev:account"], "VITE_SURFACE=account vite");
     assert.equal(packageJson.scripts["dev:app"], "VITE_SURFACE=app vite");
     assert.equal(packageJson.scripts["dev:admin"], "VITE_SURFACE=admin vite");
+    await assert.rejects(access(path.join(appRoot, "src/pages/console.vue")), /ENOENT/);
   });
 });
 

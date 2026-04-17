@@ -3,7 +3,6 @@ import test from "node:test";
 import { registerAccountProfile } from "../src/server/accountProfile/registerAccountProfile.js";
 import { registerAccountPreferences } from "../src/server/accountPreferences/registerAccountPreferences.js";
 import { registerAccountNotifications } from "../src/server/accountNotifications/registerAccountNotifications.js";
-import { registerConsoleSettings } from "../src/server/consoleSettings/registerConsoleSettings.js";
 import { registerWorkspaceMembers } from "../src/server/workspaceMembers/registerWorkspaceMembers.js";
 import { registerWorkspacePendingInvitations } from "../src/server/workspacePendingInvitations/registerWorkspacePendingInvitations.js";
 
@@ -57,13 +56,6 @@ test("account register functions publish account.settings.changed for update ope
   const notifications = findServiceCall(notificationsApp.serviceCalls, "users.accountNotifications.service");
   assert.equal(notifications?.metadata?.events?.updateNotifications?.[0]?.realtime?.event, "account.settings.changed");
   assert.equal(notifications?.metadata?.events?.updateNotifications?.[1]?.realtime?.event, "users.bootstrap.changed");
-});
-
-test("console settings register publishes console.settings.changed", () => {
-  const payload = createAppDouble();
-  registerConsoleSettings(payload.app);
-  const consoleSettings = findServiceCall(payload.serviceCalls, "users.console.settings.service");
-  assert.equal(consoleSettings?.metadata?.events?.updateSettings?.[0]?.realtime?.event, "console.settings.changed");
 });
 
 test("workspace register functions publish members/invites/workspace-list realtime events", async () => {

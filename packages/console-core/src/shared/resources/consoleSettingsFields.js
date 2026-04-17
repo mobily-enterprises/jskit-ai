@@ -1,7 +1,7 @@
 import { normalizeText } from "@jskit-ai/kernel/shared/actions/textNormalization";
 import { resolveGlobalArrayRegistry } from "./resolveGlobalArrayRegistry.js";
 
-const consoleSettingsFields = resolveGlobalArrayRegistry("jskit.users-core.consoleSettingsFields");
+const consoleSettingsFields = resolveGlobalArrayRegistry("jskit.console-core.consoleSettingsFields");
 
 function defineField(field = {}) {
   const key = normalizeText(field.key);

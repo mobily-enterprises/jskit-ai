@@ -575,6 +575,55 @@ That is why this chapter is the point where running both `npm run dev` and `npm 
 
 This matters because it is the first tiny example of the frontend and backend participating in the same shell. The request itself is simple, but the behavior is more realistic than the empty starter card from the previous chapter.
 
+### The first client stores appear
+
+This is also the first chapter where an installed package starts exposing app-facing Pinia stores. `shell-web` exports these two:
+
+```js
+import {
+  useShellLayoutStore,
+  useShellErrorPresentationStore
+} from "@jskit-ai/shell-web/client";
+```
+
+`useShellLayoutStore()` owns the shell drawer state:
+
+- whether the drawer is open right now
+- whether the drawer should open by default on load
+
+`useShellErrorPresentationStore()` exposes the current banner, snackbar, and dialog presentation state behind `ShellErrorHost`.
+
+The simplest direct store usage looks like this:
+
+```vue
+<script setup>
+import { computed } from "vue";
+import { useShellLayoutStore } from "@jskit-ai/shell-web/client";
+
+const shellLayout = useShellLayoutStore();
+
+const drawerDefaultOpenModel = computed({
+  get() {
+    return shellLayout.drawerDefaultOpen;
+  },
+  set(value) {
+    shellLayout.setDrawerDefaultOpen(Boolean(value));
+  }
+});
+</script>
+```
+
+That is the raw shared store behind the starter `General` settings page. It is just normal Pinia state and actions: read `drawerDefaultOpen`, write it back through `setDrawerDefaultOpen(...)`, and the shell reacts.
+
+The same store also exposes the live drawer state through `drawerOpen`, plus `setDrawerOpen(...)` and `toggleDrawer()` for components that need to control the drawer directly instead of only changing its default preference.
+
+You do not need either store very often in this chapter, because `shell-web` already mounts the shell and error host for you. The starter `General` settings page uses the higher-level `useShellLayoutState()` helper instead of talking to `useShellLayoutStore()` directly, because that helper combines the store-backed drawer state with the current route and surface context that `ShellLayout` also needs.
+
+That distinction is worth noticing early:
+
+- runtime services still do the operational work
+- Pinia stores are now the normal Vue-facing shared-state surface
+
 ### The first settings route appears
 
 `shell-web` also creates a settings shell for the `home` surface:

@@ -60,21 +60,17 @@ Exports
 - `useShellLayoutState(props = {})`
 Local functions
 - `toSurfaceLabel(surfaceId = "")`
-- `setDrawerDefaultOpen(open)`
 
 ### `src/client/error/index.js`
 Exports
 - `createDefaultErrorPolicy`
 - `useShellWebErrorRuntime`
+- `useShellErrorPresentationStore`
 
 ### `src/client/error/inject.js`
 Exports
 - `EMPTY_ERROR_RUNTIME`
-- `EMPTY_PRESENTATION_STORE`
-- `EMPTY_PRESENTATION_STATE`
 - `useShellWebErrorRuntime({ required = false } = {})`
-- `useShellWebErrorPresentationStore({ required = false } = {})`
-- `useShellWebErrorPresentationState({ required = false } = {})`
 
 ### `src/client/error/normalize.js`
 Exports
@@ -90,6 +86,11 @@ Exports
 ### `src/client/error/policy.js`
 Exports
 - `createDefaultErrorPolicy({ defaultChannel = "snackbar", unauthorizedChannel = "banner", serverErrorChannel = "dialog", defaultSeverity = "error" } = {})`
+
+### `src/client/error/presentationDefaults.js`
+Exports
+- `EMPTY_PRESENTATION_STATE`
+- `EMPTY_PRESENTATION_STORE`
 
 ### `src/client/error/presenters.js`
 Exports
@@ -127,6 +128,8 @@ Exports
 - `ShellSurfaceAwareMenuLinkItem`
 - `ShellTabLinkItem`
 - `useShellLayoutState`
+- `useShellLayoutStore`
+- `useShellErrorPresentationStore`
 - `clientProviders`
 
 ### `src/client/lib/menuIcons.js`
@@ -243,6 +246,17 @@ Local functions
 - `applyAppErrorConfig(errorRuntime, errorConfig = {})`
 - `installVueErrorBridge(vueApp, errorRuntime, logger)`
 - `installRouterErrorBridge(app, errorRuntime, logger)`
+
+### `src/client/stores/useShellErrorPresentationStore.js`
+Exports
+- `useShellErrorPresentationStore`
+Local functions
+- `normalizePresentationState(nextState)`
+- `isPresentationRuntimeStore(value)`
+
+### `src/client/stores/useShellLayoutStore.js`
+Exports
+- `useShellLayoutStore`
 
 ### `src/client/support/menuLinkTarget.js`
 Exports
