@@ -1,8 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { createSSRApp } from "vue";
-import { createAuthStore, useAuth } from "../src/client/composables/useAuth.js";
-import { AUTH_GUARD_RUNTIME_INJECTION_KEY, useAuthGuardRuntime } from "../src/client/runtime/inject.js";
+import { createPinia } from "pinia";
+import { useAuthStore } from "../src/client/stores/useAuthStore.js";
 
 function createAuthRuntimeStub(initialState = {}) {
   let state = Object.freeze({
@@ -50,21 +49,21 @@ function createAuthRuntimeStub(initialState = {}) {
   };
 }
 
-test("createAuthStore exposes reactive auth refs and direct runtime methods", async () => {
+test("auth store exposes reactive state and direct runtime methods", async () => {
+  const pinia = createPinia();
   const runtime = createAuthRuntimeStub({
     authenticated: false,
     username: ""
   });
+  const auth = useAuthStore(pinia);
 
-  const auth = createAuthStore({
-    runtime
-  });
+  auth.attachRuntime(runtime);
 
   assert.equal(auth.runtime, runtime);
-  assert.equal(auth.authenticated.value, false);
-  assert.equal(auth.username.value, "");
-  assert.deepEqual(auth.oauthProviders.value, []);
-  assert.equal(auth.oauthDefaultProvider.value, "");
+  assert.equal(auth.authenticated, false);
+  assert.equal(auth.username, "");
+  assert.deepEqual(auth.oauthProviders, []);
+  assert.equal(auth.oauthDefaultProvider, "");
   assert.equal(auth.getState().authenticated, false);
   assert.equal(await auth.refresh(), runtime.getState());
 
@@ -75,10 +74,10 @@ test("createAuthStore exposes reactive auth refs and direct runtime methods", as
     oauthDefaultProvider: "google"
   });
 
-  assert.equal(auth.authenticated.value, true);
-  assert.equal(auth.username.value, "ada");
-  assert.deepEqual(auth.oauthProviders.value, [{ id: "google", label: "Google" }]);
-  assert.equal(auth.oauthDefaultProvider.value, "google");
+  assert.equal(auth.authenticated, true);
+  assert.equal(auth.username, "ada");
+  assert.deepEqual(auth.oauthProviders, [{ id: "google", label: "Google" }]);
+  assert.equal(auth.oauthDefaultProvider, "google");
   assert.equal(auth.getState().authenticated, true);
 
   let observedState = null;
@@ -93,23 +92,4 @@ test("createAuthStore exposes reactive auth refs and direct runtime methods", as
 
   assert.equal(observedState?.username, "grace");
   unsubscribe();
-});
-
-test("useAuth reuses the same shared store injected from the runtime", () => {
-  const runtime = createAuthRuntimeStub({
-    authenticated: true,
-    username: "ada"
-  });
-  const app = createSSRApp({});
-  app.provide(AUTH_GUARD_RUNTIME_INJECTION_KEY, runtime);
-
-  const runtimeFromInjection = app.runWithContext(() => useAuthGuardRuntime({ required: true }));
-  const authFromFirstCall = app.runWithContext(() => useAuth({ required: true }));
-  const authFromSecondCall = app.runWithContext(() => useAuth({ required: true }));
-
-  assert.equal(runtimeFromInjection, runtime);
-  assert.equal(authFromFirstCall, authFromSecondCall);
-  assert.equal(authFromFirstCall.runtime, runtime);
-  assert.equal(authFromFirstCall.authenticated.value, true);
-  assert.equal(authFromFirstCall.username.value, "ada");
 });

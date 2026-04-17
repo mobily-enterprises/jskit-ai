@@ -133,6 +133,7 @@ The most important parts look like this:
     "@jskit-ai/kernel": "0.x",
     "@jskit-ai/http-runtime": "0.x",
     "fastify": "^5.7.4",
+    "pinia": "^3.0.4",
     "vue": "^3.5.13",
     "vuetify": "^4.0.0"
   },
@@ -204,6 +205,7 @@ The important part looks like this:
 
 ```js
 import { createApp } from "vue";
+import { createPinia } from "pinia";
 import { createRouter, createWebHistory } from "vue-router/auto";
 import { routes } from "vue-router/auto-routes";
 import "vuetify/styles";
@@ -254,12 +256,14 @@ const vuetify = createVuetify({
     sets: { mdi }
   }
 });
+const pinia = createPinia();
 
 void bootstrapClientShellApp({
   createApp,
   rootComponent: App,
   appConfig: config,
-  appPlugins: [vuetify],
+  appPlugins: [pinia, vuetify],
+  pinia,
   router,
   bootClientModules: bootInstalledClientModules,
   surfaceRuntime,
@@ -317,6 +321,8 @@ In the starter app, with only `home`, this is almost boring. It mostly means:
 - build the router
 - add not-found
 - enforce the `/` to `/home` redirect behavior
+
+`createPinia()` is the standard shared-state layer for the client app. JSKIT installs it from day 0 so later packages can expose Vue-facing stores without each app having to bolt Pinia on afterward.
 
 `createVuetify(...)` is the ordinary UI plugin setup. There is nothing especially JSKIT-specific there; it just makes Vuetify components, directives, theme settings, and icon aliases available to the app before the router is mounted.
 
@@ -382,7 +388,7 @@ JSKIT automates that step so adding or removing packages does not require hand-e
 
 In a brand-new shell app, there are no extra installed client modules yet, so the generated function is effectively empty. Later, when you install packages with client providers or extra UI routes, this same hook is what starts those providers and registers those routes.
 
-`bootstrapClientShellApp(...)` is the final assembly step. It creates the Vue app, installs plugins such as Vuetify, stores the client app config, runs `bootInstalledClientModules(...)`, attaches the fallback route if needed, installs the router, waits for the router to be ready, and only then mounts the app. That order matters because installed packages need a chance to extend the app before the first render happens.
+`bootstrapClientShellApp(...)` is the final assembly step. It creates the Vue app, installs plugins such as Pinia and Vuetify, passes the Pinia instance explicitly into client-module boot, stores the client app config, runs `bootInstalledClientModules(...)`, attaches the fallback route if needed, installs the router, waits for the router to be ready, and only then mounts the app. That order matters because installed packages need a chance to extend the app before the first render happens.
 
 </DocsInDepth>
 

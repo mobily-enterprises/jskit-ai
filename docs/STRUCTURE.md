@@ -54,8 +54,6 @@ npx jskit add package users-web
 
 # CONSOLE
 
-# GENERATORS
-
 (Show cruds, all best practices, etc.)
 
 # MULTI HOMING
@@ -69,9 +67,8 @@ npm run db:migrate
 
 (Show multi homing crud, explain porting over)
 
-# MORE GENERATORS
 
-(Show cruds and multihoming config, and different roles)
+# GENERATORS
 
 # REALTIME
 

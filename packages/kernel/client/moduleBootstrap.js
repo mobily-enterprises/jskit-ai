@@ -482,6 +482,7 @@ function normalizeClientModuleEntries(clientModules) {
 function createClientRuntimeApp({
   profile = "client",
   app,
+  pinia = null,
   router,
   env,
   logger,
@@ -496,6 +497,7 @@ function createClientRuntimeApp({
   runtimeApp.instance("jskit.client.runtime.app", runtimeApp);
   runtimeApp.instance("jskit.client.router", router || null);
   runtimeApp.instance("jskit.client.vue.app", app || null);
+  runtimeApp.instance("jskit.client.pinia", pinia);
   runtimeApp.instance("jskit.client.env", isRecord(env) ? { ...env } : {});
   runtimeApp.instance("jskit.client.surface.runtime", surfaceRuntime || null);
   runtimeApp.instance("jskit.client.surface.mode", String(surfaceMode || "").trim());
@@ -507,6 +509,7 @@ function createClientRuntimeApp({
 async function bootClientModules({
   clientModules = [],
   app,
+  pinia = null,
   router,
   surfaceRuntime,
   surfaceMode,
@@ -525,6 +528,7 @@ async function bootClientModules({
   const runtimeApp = createClientRuntimeApp({
     profile: String(surfaceRuntime.normalizeSurfaceMode(surfaceMode) || "client"),
     app,
+    pinia,
     router,
     env,
     logger: log,

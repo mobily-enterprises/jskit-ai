@@ -1,19 +1,16 @@
 <script setup>
 import { computed } from "vue";
 import {
-  useShellWebErrorPresentationState,
   useShellWebErrorRuntime
 } from "../error/inject.js";
+import { useShellErrorPresentationStore } from "../stores/useShellErrorPresentationStore.js";
 
 const runtime = useShellWebErrorRuntime();
-const {
-  state,
-  store
-} = useShellWebErrorPresentationState();
+const store = useShellErrorPresentationStore();
 
-const snackbarEntry = computed(() => state.value.channels.snackbar[0] || null);
-const bannerEntries = computed(() => state.value.channels.banner || []);
-const dialogEntry = computed(() => state.value.channels.dialog[0] || null);
+const snackbarEntry = computed(() => store.channels.snackbar[0] || null);
+const bannerEntries = computed(() => store.channels.banner || []);
+const dialogEntry = computed(() => store.channels.dialog[0] || null);
 
 function resolveSeverityColor(severity = "error") {
   const normalized = String(severity || "error").trim().toLowerCase();

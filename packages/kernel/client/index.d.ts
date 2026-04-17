@@ -34,6 +34,7 @@ export function bootstrapClientShellApp(options?: {
   rootComponent: any;
   appConfig?: Record<string, any>;
   appPlugins?: any[];
+  pinia?: any;
   router: any;
   bootClientModules: (context: any) => Promise<any>;
   surfaceRuntime: any;

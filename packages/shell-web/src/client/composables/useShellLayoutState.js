@@ -1,16 +1,14 @@
-import { computed, ref } from "vue";
+import { computed } from "vue";
+import { storeToRefs } from "pinia";
 import { useRoute } from "vue-router";
 import { normalizeSurfaceId } from "@jskit-ai/kernel/shared/surface";
 import { useWebPlacementContext } from "../placement/inject.js";
+import { useShellLayoutStore } from "../stores/useShellLayoutStore.js";
 import {
   readPlacementSurfaceConfig,
   resolveSurfaceDefinitionFromPlacementContext,
   resolveSurfaceIdFromPlacementPathname
 } from "../placement/surfaceContext.js";
-import {
-  readDrawerDefaultOpenPreference,
-  writeDrawerDefaultOpenPreference
-} from "./shellLayoutDrawerPreference.js";
 
 function toSurfaceLabel(surfaceId = "") {
   const normalizedSurfaceId = String(surfaceId || "").trim().toLowerCase();
@@ -25,17 +23,9 @@ function toSurfaceLabel(surfaceId = "") {
     .join(" ");
 }
 
-const drawerDefaultOpen = ref(readDrawerDefaultOpenPreference());
-const drawerOpen = ref(drawerDefaultOpen.value);
-
-function setDrawerDefaultOpen(open) {
-  const normalized = Boolean(open);
-  drawerDefaultOpen.value = normalized;
-  drawerOpen.value = normalized;
-  writeDrawerDefaultOpenPreference(normalized);
-}
-
 function useShellLayoutState(props = {}) {
+  const shellLayoutStore = useShellLayoutStore();
+  const { drawerDefaultOpen, drawerOpen } = storeToRefs(shellLayoutStore);
   let route = null;
   try {
     route = useRoute();
@@ -46,7 +36,7 @@ function useShellLayoutState(props = {}) {
   const { context: placementContext } = useWebPlacementContext();
 
   function toggleDrawer() {
-    drawerOpen.value = !drawerOpen.value;
+    shellLayoutStore.toggleDrawer();
   }
 
   const resolvedSurface = computed(() => {
@@ -93,7 +83,7 @@ function useShellLayoutState(props = {}) {
   return Object.freeze({
     drawerDefaultOpen,
     drawerOpen,
-    setDrawerDefaultOpen,
+    setDrawerDefaultOpen: shellLayoutStore.setDrawerDefaultOpen,
     toggleDrawer,
     resolvedSurface,
     resolvedSurfaceLabel

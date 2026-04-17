@@ -1,6 +1,8 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+import { createPinia } from "pinia";
 import { createErrorPresentationStore } from "../src/client/error/store.js";
+import { useShellErrorPresentationStore } from "../src/client/stores/useShellErrorPresentationStore.js";
 
 test("error presentation store keeps banner channel singleton", () => {
   const store = createErrorPresentationStore({ now: () => 1000 });
@@ -23,4 +25,17 @@ test("error presentation store still queues snackbar channel entries", () => {
   assert.equal(state.channels.snackbar.length, 2);
   assert.equal(state.channels.snackbar[0].message, "One");
   assert.equal(state.channels.snackbar[1].message, "Two");
+});
+
+test("shell error presentation Pinia store mirrors runtime presentation state", () => {
+  const pinia = createPinia();
+  const runtimeStore = createErrorPresentationStore({ now: () => 1000 });
+  const store = useShellErrorPresentationStore(pinia);
+
+  store.attachRuntimeStore(runtimeStore);
+  runtimeStore.present("snackbar", { message: "Hello" });
+
+  assert.equal(store.channels.snackbar.length, 1);
+  assert.equal(store.channels.snackbar[0].message, "Hello");
+  assert.equal(store.getState().channels.snackbar[0].message, "Hello");
 });

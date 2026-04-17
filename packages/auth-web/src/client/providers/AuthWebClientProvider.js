@@ -2,9 +2,8 @@ import DefaultLoginView from "../views/DefaultLoginView.vue";
 import AuthProfileWidget from "../views/AuthProfileWidget.vue";
 import AuthProfileMenuLinkItem from "../views/AuthProfileMenuLinkItem.vue";
 import { createAuthGuardRuntime } from "../runtime/authGuardRuntime.js";
-import { AUTH_GUARD_RUNTIME_INJECTION_KEY } from "../runtime/inject.js";
 import { useLoginView } from "../runtime/useLoginView.js";
-import { AUTH_STATE_INJECTION_KEY, createAuthStore } from "../composables/useAuth.js";
+import { bootAuthClientProvider } from "./bootAuthClientProvider.js";
 import { resolveSurfaceNavigationTargetFromPlacementContext } from "@jskit-ai/shell-web/client/placement";
 
 class AuthWebClientProvider {
@@ -39,27 +38,7 @@ class AuthWebClientProvider {
   }
 
   async boot(app) {
-    if (!app || typeof app.make !== "function") {
-      throw new Error("AuthWebClientProvider requires application make().");
-    }
-
-    const authGuardRuntime = app.make("runtime.auth-guard.client");
-    await authGuardRuntime.initialize();
-    const authStore = createAuthStore({
-      runtime: authGuardRuntime
-    });
-
-    if (!app.has("jskit.client.vue.app")) {
-      return;
-    }
-
-    const vueApp = app.make("jskit.client.vue.app");
-    if (!vueApp || typeof vueApp.provide !== "function") {
-      return;
-    }
-
-    vueApp.provide(AUTH_GUARD_RUNTIME_INJECTION_KEY, authGuardRuntime);
-    vueApp.provide(AUTH_STATE_INJECTION_KEY, authStore);
+    await bootAuthClientProvider(app);
   }
 }
 

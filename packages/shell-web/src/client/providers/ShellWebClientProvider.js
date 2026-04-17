@@ -22,6 +22,7 @@ import {
   createErrorPresentationStore
 } from "../error/store.js";
 import { createWebPlacementRuntime } from "../placement/runtime.js";
+import { useShellErrorPresentationStore } from "../stores/useShellErrorPresentationStore.js";
 import { buildSurfaceConfigContext } from "../placement/surfaceContext.js";
 
 // Keep this constant for diagnostics, but keep import() below as a literal string so Vite can statically analyze it.
@@ -292,6 +293,12 @@ class ShellWebClientProvider {
     if (!vueApp || typeof vueApp.provide !== "function" || typeof vueApp.use !== "function") {
       return;
     }
+    const pinia = app.make("jskit.client.pinia");
+    if (!pinia) {
+      throw new Error("ShellWebClientProvider requires Pinia installed in the client app.");
+    }
+    const errorPresentationStore = app.make("runtime.web-error.presentation-store.client");
+    useShellErrorPresentationStore(pinia).attachRuntimeStore(errorPresentationStore);
 
     vueApp.use(VueQueryPlugin, {
       queryClient: app.make("shell.web.query-client")
@@ -300,7 +307,7 @@ class ShellWebClientProvider {
     vueApp.provide("jskit.shell-web.runtime.web-error.client", errorRuntime);
     vueApp.provide(
       "jskit.shell-web.runtime.web-error.presentation-store.client",
-      app.make("runtime.web-error.presentation-store.client")
+      errorPresentationStore
     );
 
     installVueErrorBridge(vueApp, errorRuntime, logger);
