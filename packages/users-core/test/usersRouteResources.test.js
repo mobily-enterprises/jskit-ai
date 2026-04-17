@@ -5,7 +5,6 @@ import { existsSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { deriveResourceRequiredMetadata } from "@jskit-ai/kernel/_testable";
 import "../test-support/registerDefaultSettingsFields.js";
-import { consoleSettingsResource } from "../src/shared/resources/consoleSettingsResource.js";
 import { userProfileResource } from "../src/shared/resources/userProfileResource.js";
 import { userSettingsResource } from "../src/shared/resources/userSettingsResource.js";
 import { workspaceMembersResource } from "../src/shared/resources/workspaceMembersResource.js";
@@ -47,13 +46,12 @@ function assertResourceShape(resource, label) {
   assert.ok(Array.isArray(requiredMetadata.patch), `${label}.derivedRequired.patch must be an array.`);
 }
 
-test("workspace/settings/console resources expose canonical validators", () => {
+test("workspace and account resources expose canonical validators", () => {
   const resourcesByLabel = {
     workspace: workspaceResource,
     workspaceSettings: workspaceSettingsResource,
     userProfile: userProfileResource,
-    userSettings: userSettingsResource,
-    consoleSettings: consoleSettingsResource
+    userSettings: userSettingsResource
   };
 
   for (const [label, resource] of Object.entries(resourcesByLabel)) {

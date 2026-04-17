@@ -3,7 +3,6 @@ import { bootAccountProfileRoutes } from "./accountProfile/bootAccountProfileRou
 import { bootAccountPreferencesRoutes } from "./accountPreferences/bootAccountPreferencesRoutes.js";
 import { bootAccountNotificationsRoutes } from "./accountNotifications/bootAccountNotificationsRoutes.js";
 import { bootAccountSecurityRoutes } from "./accountSecurity/bootAccountSecurityRoutes.js";
-import { bootConsoleSettingsRoutes } from "./consoleSettings/bootConsoleSettingsRoutes.js";
 import { registerSharedApi } from "./common/registerSharedApi.js";
 import { registerCommonRepositories } from "./common/registerCommonRepositories.js";
 import { registerUsersCore } from "./registerUsersCore.js";
@@ -12,7 +11,6 @@ import { registerAccountPreferences } from "./accountPreferences/registerAccount
 import { registerAccountNotifications } from "./accountNotifications/registerAccountNotifications.js";
 import { registerAccountProfile } from "./accountProfile/registerAccountProfile.js";
 import { registerAccountSecurity } from "./accountSecurity/registerAccountSecurity.js";
-import { registerConsoleSettings } from "./consoleSettings/registerConsoleSettings.js";
 
 class UsersCoreServiceProvider {
   static id = "users.core";
@@ -29,7 +27,6 @@ class UsersCoreServiceProvider {
     registerAccountPreferences(app);
     registerAccountNotifications(app);
     registerAccountSecurity(app);
-    registerConsoleSettings(app);
   }
 
   async boot(app) {
@@ -37,7 +34,6 @@ class UsersCoreServiceProvider {
     bootAccountPreferencesRoutes(app);
     bootAccountNotificationsRoutes(app);
     bootAccountSecurityRoutes(app);
-    bootConsoleSettingsRoutes(app);
   }
 }
 

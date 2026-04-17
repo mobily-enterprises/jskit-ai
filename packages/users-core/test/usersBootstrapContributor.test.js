@@ -33,9 +33,8 @@ function createUserSettings() {
   };
 }
 
-test("users bootstrap contributor seeds the initial console owner and exposes generic app payload", async () => {
+test("users bootstrap contributor exposes the generic authenticated bootstrap payload", async () => {
   const profile = createAuthenticatedProfile({ id: "12" });
-  const consoleOwnerSeeds = [];
   const writtenSessions = [];
   const contributor = createUsersBootstrapContributor({
     usersRepository: {
@@ -60,12 +59,6 @@ test("users bootstrap contributor seeds the initial console owner and exposes ge
           defaultProvider: "google"
         };
       }
-    },
-    consoleService: {
-      async ensureInitialConsoleMember(userId) {
-        consoleOwnerSeeds.push(Number(userId));
-        return String(userId || "");
-      }
     }
   });
 
@@ -82,10 +75,14 @@ test("users bootstrap contributor seeds the initial console owner and exposes ge
         };
       }
     },
+    payload: {
+      surfaceAccess: {
+        consoleowner: true
+      }
+    },
     reply
   });
-
-  assert.deepEqual(consoleOwnerSeeds, [12]);
+  assert.equal(contributor.order, 100);
   assert.equal(writtenSessions.length, 1);
   assert.equal(writtenSessions[0].reply, reply);
   assert.deepEqual(writtenSessions[0].session, {
@@ -93,7 +90,9 @@ test("users bootstrap contributor seeds the initial console owner and exposes ge
   });
   assert.equal(payload.session.authenticated, true);
   assert.equal(payload.session.userId, "12");
-  assert.equal(payload.surfaceAccess.consoleowner, true);
+  assert.deepEqual(payload.surfaceAccess, {
+    consoleowner: true
+  });
   assert.equal(payload.app.features.workspaceSwitching, false);
   assert.deepEqual(payload.session.oauthProviders, [
     {
@@ -149,6 +148,11 @@ test("users bootstrap contributor emits canonical tenancy profile for anonymous 
         };
       }
     },
+    payload: {
+      surfaceAccess: {
+        consoleowner: false
+      }
+    },
     reply: {}
   });
 
@@ -167,6 +171,8 @@ test("users bootstrap contributor emits canonical tenancy profile for anonymous 
     oauthDefaultProvider: null
   });
   assert.deepEqual(payload.workspaces, []);
-  assert.equal(payload.surfaceAccess.consoleowner, false);
+  assert.deepEqual(payload.surfaceAccess, {
+    consoleowner: false
+  });
   assert.equal(payload.userSettings, null);
 });

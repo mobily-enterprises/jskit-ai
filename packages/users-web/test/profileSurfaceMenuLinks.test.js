@@ -11,7 +11,7 @@ function createPlacementContext({
   workspace = null,
   workspaces = [],
   authenticated = true,
-  consoleOwner = false
+  opsOwner = false
 } = {}) {
   return {
     auth: {
@@ -21,7 +21,7 @@ function createPlacementContext({
     workspaces,
     permissions: [],
     surfaceAccess: {
-      consoleowner: consoleOwner
+      opsowner: opsOwner
     },
     surfaceAccessPolicies: {
       public: {},
@@ -29,15 +29,15 @@ function createPlacementContext({
         requireAuth: true,
         requireWorkspaceMembership: true
       },
-      console_owner: {
+      ops_owner: {
         requireAuth: true,
-        requireFlagsAll: ["console_owner"]
+        requireFlagsAll: ["ops_owner"]
       }
     },
     surfaceConfig: {
       tenancyMode: "workspaces",
       defaultSurfaceId: "app",
-      enabledSurfaceIds: ["home", "app", "admin", "console"],
+      enabledSurfaceIds: ["home", "app", "admin", "ops"],
       surfacesById: {
         home: {
           id: "home",
@@ -66,14 +66,15 @@ function createPlacementContext({
           requiresWorkspace: true,
           accessPolicyId: "workspace_member"
         },
-        console: {
-          id: "console",
+        ops: {
+          id: "ops",
           enabled: true,
-          pagesRoot: "console",
-          routeBase: "/console",
+          pagesRoot: "ops",
+          routeBase: "/ops",
           requiresAuth: true,
           requiresWorkspace: false,
-          accessPolicyId: "console_owner"
+          accessPolicyId: "ops_owner",
+          icon: "mdi-cog-outline"
         }
       }
     }
@@ -165,7 +166,7 @@ test("resolvePrimarySurfaceSwitchLink hides workspace switch when slug is only i
   assert.equal(link, null);
 });
 
-test("resolveProfileSurfaceMenuLinks includes console switch only for console owners", () => {
+test("resolveProfileSurfaceMenuLinks includes gated non-workspace switches only for matching access flags", () => {
   const nonOwnerContext = createPlacementContext({
     workspace: {
       id: 1,
@@ -177,7 +178,7 @@ test("resolveProfileSurfaceMenuLinks includes console switch only for console ow
         slug: "acme"
       }
     ],
-    consoleOwner: false
+    opsOwner: false
   });
   const ownerContext = createPlacementContext({
     workspace: {
@@ -190,7 +191,7 @@ test("resolveProfileSurfaceMenuLinks includes console switch only for console ow
         slug: "acme"
       }
     ],
-    consoleOwner: true
+    opsOwner: true
   });
 
   const nonOwnerLinks = resolveProfileSurfaceMenuLinks({
@@ -202,6 +203,6 @@ test("resolveProfileSurfaceMenuLinks includes console switch only for console ow
     surface: "app"
   });
 
-  assert.equal(nonOwnerLinks.some((entry) => entry.id === "surface-switch.console"), false);
-  assert.equal(ownerLinks.some((entry) => entry.id === "surface-switch.console"), true);
+  assert.equal(nonOwnerLinks.some((entry) => entry.id === "surface-switch.ops"), false);
+  assert.equal(ownerLinks.some((entry) => entry.id === "surface-switch.ops"), true);
 });

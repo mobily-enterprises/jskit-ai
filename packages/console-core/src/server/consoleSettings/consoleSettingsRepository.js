@@ -1,12 +1,16 @@
 import {
   normalizeDbRecordId,
-  normalizeRecordId,
-  nowDb,
   toIsoString,
   createWithTransaction
-} from "../common/repositories/repositoryUtils.js";
+} from "@jskit-ai/database-runtime/shared";
+import { toInsertDateTime } from "@jskit-ai/database-runtime/shared";
 import { normalizeObjectInput } from "@jskit-ai/kernel/shared/validators/inputNormalization";
+import { normalizeRecordId as normalizeKernelRecordId } from "@jskit-ai/kernel/shared/support/normalize";
 import { consoleSettingsFields } from "../../shared/resources/consoleSettingsFields.js";
+
+function nowDb() {
+  return toInsertDateTime();
+}
 
 function mapSettings(row = {}) {
   const settings = {};
@@ -55,7 +59,7 @@ function createRepository(knex) {
 
   async function ensureOwnerUserId(userId, options = {}) {
     const client = options?.trx || knex;
-    const candidateOwnerUserId = normalizeRecordId(userId, { fallback: null });
+    const candidateOwnerUserId = normalizeKernelRecordId(userId, { fallback: null });
     if (!candidateOwnerUserId) {
       throw new TypeError("consoleSettingsRepository.ensureOwnerUserId requires a positive user id.");
     }

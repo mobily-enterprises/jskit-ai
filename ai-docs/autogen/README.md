@@ -13,6 +13,7 @@ Startup navigation stays in `KERNEL_MAP.md`.
 - [auth-core](/ai-docs/autogen/packages/auth-core.md)
 - [auth-provider-supabase-core](/ai-docs/autogen/packages/auth-provider-supabase-core.md)
 - [auth-web](/ai-docs/autogen/packages/auth-web.md)
+- [console-core](/ai-docs/autogen/packages/console-core.md)
 - [console-web](/ai-docs/autogen/packages/console-web.md)
 - [crud-core](/ai-docs/autogen/packages/crud-core.md)
 - [crud-server-generator](/ai-docs/autogen/packages/crud-server-generator.md)

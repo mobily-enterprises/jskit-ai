@@ -14,10 +14,6 @@ Use this on demand; do not load the full index at startup.
 
 ### src
 
-### `src/client/components/ConsoleSettingsClientElement.vue`
-Exports
-- None
-
 ### `src/client/components/MembersAdminClientElement.vue`
 Exports
 - None
@@ -724,14 +720,6 @@ Exports
 - None
 
 ### `templates/src/pages/account/index.vue`
-Exports
-- None
-
-### `templates/src/pages/console/settings.vue`
-Exports
-- None
-
-### `templates/src/pages/console/settings/index.vue`
 Exports
 - None
 

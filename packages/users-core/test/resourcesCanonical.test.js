@@ -9,7 +9,6 @@ import { workspaceResource } from "../src/shared/resources/workspaceResource.js"
 import { workspaceSettingsResource } from "../src/shared/resources/workspaceSettingsResource.js";
 import { userProfileResource } from "../src/shared/resources/userProfileResource.js";
 import { userSettingsResource } from "../src/shared/resources/userSettingsResource.js";
-import { consoleSettingsResource } from "../src/shared/resources/consoleSettingsResource.js";
 
 function assertResourceOperationMessages(resource, operationName, label) {
   const operation = resource?.operations?.[operationName];
@@ -34,8 +33,7 @@ test("users-core resources expose messages for all operations", () => {
     workspace: workspaceResource,
     workspaceSettings: workspaceSettingsResource,
     userProfile: userProfileResource,
-    userSettings: userSettingsResource,
-    consoleSettings: consoleSettingsResource
+    userSettings: userSettingsResource
   };
 
   for (const [label, resource] of Object.entries(resources)) {

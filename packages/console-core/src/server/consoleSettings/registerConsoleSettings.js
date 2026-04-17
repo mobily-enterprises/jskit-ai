@@ -18,7 +18,7 @@ function registerConsoleSettings(app) {
   }
 
   app.service(
-    "users.console.settings.service",
+    "console.settings.service",
     (scope) =>
       createConsoleSettingsService({
         consoleSettingsRepository: scope.make("consoleSettingsRepository"),
@@ -47,7 +47,7 @@ function registerConsoleSettings(app) {
     withActionDefaults(consoleSettingsActions, {
       domain: "console",
       dependencies: {
-        consoleSettingsService: "users.console.settings.service"
+        consoleSettingsService: "console.settings.service"
       }
     })
   );

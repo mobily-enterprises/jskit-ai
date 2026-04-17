@@ -1116,6 +1116,129 @@
       }
     },
     {
+      "packageId": "@jskit-ai/console-core",
+      "version": "0.1.0",
+      "descriptor": {
+        "packageVersion": 1,
+        "packageId": "@jskit-ai/console-core",
+        "version": "0.1.0",
+        "kind": "runtime",
+        "description": "Console runtime: console settings schema, bootstrap flags, actions, and HTTP routes.",
+        "dependsOn": [
+          "@jskit-ai/database-runtime",
+          "@jskit-ai/http-runtime",
+          "@jskit-ai/users-core"
+        ],
+        "capabilities": {
+          "provides": [
+            "console.core",
+            "console.server-routes"
+          ],
+          "requires": [
+            "runtime.actions",
+            "runtime.database",
+            "users.core"
+          ]
+        },
+        "runtime": {
+          "server": {
+            "providers": [
+              {
+                "entrypoint": "src/server/ConsoleCoreServiceProvider.js",
+                "export": "ConsoleCoreServiceProvider"
+              }
+            ]
+          },
+          "client": {
+            "providers": []
+          }
+        },
+        "metadata": {
+          "apiSummary": {
+            "surfaces": [
+              {
+                "subpath": "./server",
+                "summary": "Exports ConsoleCoreServiceProvider plus console settings services, routes, and action definitions."
+              },
+              {
+                "subpath": "./shared",
+                "summary": "Exports shared console settings resource and field registration helpers."
+              },
+              {
+                "subpath": "./client",
+                "summary": "Exports no runtime API today (reserved client entrypoint)."
+              }
+            ],
+            "containerTokens": {
+              "server": [],
+              "client": []
+            }
+          },
+          "server": {
+            "routes": [
+              {
+                "method": "GET",
+                "path": "/api/console/settings",
+                "summary": "Get console settings."
+              },
+              {
+                "method": "PATCH",
+                "path": "/api/console/settings",
+                "summary": "Update console settings."
+              }
+            ]
+          }
+        },
+        "mutations": {
+          "dependencies": {
+            "runtime": {
+              "@jskit-ai/database-runtime": "0.1.37",
+              "@jskit-ai/http-runtime": "0.1.36",
+              "@jskit-ai/kernel": "0.1.37",
+              "@jskit-ai/users-core": "0.1.47",
+              "typebox": "^1.0.81"
+            },
+            "dev": {}
+          },
+          "packageJson": {
+            "scripts": {}
+          },
+          "procfile": {},
+          "files": [
+            {
+              "op": "install-migration",
+              "from": "templates/migrations/console_core_generic_initial.cjs",
+              "toDir": "migrations",
+              "extension": ".cjs",
+              "reason": "Install console settings schema migration.",
+              "category": "migration",
+              "id": "console-core-generic-initial-schema"
+            },
+            {
+              "from": "templates/packages/main/src/shared/resources/consoleSettingsFields.js",
+              "to": "packages/main/src/shared/resources/consoleSettingsFields.js",
+              "preserveOnRemove": true,
+              "reason": "Install app-owned console settings field definitions.",
+              "category": "console-core",
+              "id": "console-core-app-owned-console-settings-fields"
+            }
+          ],
+          "text": [
+            {
+              "op": "append-text",
+              "file": "packages/main/src/shared/index.js",
+              "position": "top",
+              "skipIfContains": "import \"./resources/consoleSettingsFields.js\";",
+              "value": "import \"./resources/consoleSettingsFields.js\";\n",
+              "reason": "Load app-owned console settings field definitions inside the main shared module.",
+              "category": "console-core",
+              "id": "console-core-main-shared-console-settings-field-import"
+            }
+          ]
+        }
+      }
+    },
+    {
       "packageId": "@jskit-ai/console-web",
       "version": "0.1.4",
       "descriptor": {
@@ -1126,15 +1249,15 @@
         "description": "Authenticated console surface scaffold and surface policy wiring.",
         "dependsOn": [
           "@jskit-ai/auth-web",
-          "@jskit-ai/shell-web",
-          "@jskit-ai/users-core"
+          "@jskit-ai/console-core",
+          "@jskit-ai/shell-web"
         ],
         "capabilities": {
           "provides": [
             "console.web"
           ],
           "requires": [
-            "users.core"
+            "console.core"
           ]
         },
         "runtime": {
@@ -1157,14 +1280,41 @@
               "server": [],
               "client": []
             }
+          },
+          "ui": {
+            "placements": {
+              "outlets": [
+                {
+                  "target": "console-settings:primary-menu",
+                  "defaultLinkComponentToken": "local.main.ui.surface-aware-menu-link-item",
+                  "surfaces": [
+                    "console"
+                  ],
+                  "source": "templates/src/pages/console/settings.vue"
+                }
+              ],
+              "contributions": [
+                {
+                  "id": "console.web.menu.settings",
+                  "target": "shell-layout:primary-menu",
+                  "surfaces": [
+                    "console"
+                  ],
+                  "order": 100,
+                  "componentToken": "local.main.ui.menu-link-item",
+                  "when": "auth.authenticated === true",
+                  "source": "mutations.text#console-web-console-settings-placement"
+                }
+              ]
+            }
           }
         },
         "mutations": {
           "dependencies": {
             "runtime": {
               "@jskit-ai/auth-web": "0.1.38",
-              "@jskit-ai/shell-web": "0.1.36",
-              "@jskit-ai/users-core": "0.1.47"
+              "@jskit-ai/console-core": "0.1.0",
+              "@jskit-ai/shell-web": "0.1.36"
             },
             "dev": {}
           },
@@ -1194,6 +1344,24 @@
               "reason": "Install shell-driven console page starter.",
               "category": "console-web",
               "id": "console-web-page-console"
+            },
+            {
+              "from": "templates/src/pages/console/settings.vue",
+              "toSurface": "console",
+              "toSurfacePath": "settings.vue",
+              "ownership": "app",
+              "reason": "Install console settings shell route scaffold for console-web.",
+              "category": "console-web",
+              "id": "console-web-page-console-settings-shell"
+            },
+            {
+              "from": "templates/src/pages/console/settings/index.vue",
+              "toSurface": "console",
+              "toSurfacePath": "settings/index.vue",
+              "ownership": "app",
+              "reason": "Install console settings index stub scaffold for app-owned landing or redirect behavior.",
+              "category": "console-web",
+              "id": "console-web-page-console-settings"
             }
           ],
           "text": [
@@ -1212,10 +1380,20 @@
               "file": "config/public.js",
               "position": "bottom",
               "skipIfContains": "config.surfaceDefinitions.console = {",
-              "value": "\nconfig.surfaceDefinitions.console = {\n  id: \"console\",\n  label: \"Console\",\n  pagesRoot: \"console\",\n  enabled: true,\n  requiresAuth: true,\n  requiresWorkspace: false,\n  accessPolicyId: \"console_owner\",\n  origin: \"\"\n};\n",
+              "value": "\nconfig.surfaceDefinitions.console = {\n  id: \"console\",\n  label: \"Console\",\n  pagesRoot: \"console\",\n  enabled: true,\n  requiresAuth: true,\n  requiresWorkspace: false,\n  accessPolicyId: \"console_owner\",\n  icon: \"mdi-console-network-outline\",\n  origin: \"\"\n};\n",
               "reason": "Register console surface definition once console-web is installed.",
               "category": "console-web",
               "id": "console-web-surface-config-console"
+            },
+            {
+              "op": "append-text",
+              "file": "src/placement.js",
+              "position": "bottom",
+              "skipIfContains": "id: \"console.web.menu.settings\"",
+              "value": "\naddPlacement({\n  id: \"console.web.menu.settings\",\n  target: \"shell-layout:primary-menu\",\n  surfaces: [\"console\"],\n  order: 100,\n  componentToken: \"local.main.ui.menu-link-item\",\n  props: {\n    label: \"Settings\",\n    to: \"/console/settings\",\n    icon: \"mdi-cog-outline\"\n  },\n  when: ({ auth }) => Boolean(auth?.authenticated)\n});\n",
+              "reason": "Append console-web settings menu placement into app-owned placement registry.",
+              "category": "console-web",
+              "id": "console-web-console-settings-placement"
             }
           ]
         }
@@ -3546,7 +3724,7 @@
         "packageId": "@jskit-ai/users-core",
         "version": "0.1.47",
         "kind": "runtime",
-        "description": "Users/account runtime plus HTTP routes for account and console features.",
+        "description": "Users/account runtime plus HTTP routes for account features.",
         "dependsOn": [
           "@jskit-ai/auth-core",
           "@jskit-ai/database-runtime",
@@ -3586,7 +3764,7 @@
             "surfaces": [
               {
                 "subpath": "./server",
-                "summary": "Exports UsersCoreServiceProvider, users/console repositories and services, account feature route registration modules, and action definitions."
+                "summary": "Exports UsersCoreServiceProvider plus account feature route registration modules and action definitions."
               },
               {
                 "subpath": "./shared",
@@ -3663,16 +3841,6 @@
                 "method": "POST",
                 "path": "/api/settings/security/logout-others",
                 "summary": "Sign out from other active sessions."
-              },
-              {
-                "method": "GET",
-                "path": "/api/console/settings",
-                "summary": "Get console settings."
-              },
-              {
-                "method": "PATCH",
-                "path": "/api/console/settings",
-                "summary": "Update console settings."
               }
             ]
           }
@@ -3714,23 +3882,6 @@
               "id": "users-core-profile-username-schema"
             },
             {
-              "op": "install-migration",
-              "from": "templates/migrations/users_core_console_owner.cjs",
-              "toDir": "migrations",
-              "extension": ".cjs",
-              "reason": "Install console owner migration.",
-              "category": "migration",
-              "id": "users-core-console-owner-schema"
-            },
-            {
-              "from": "templates/packages/main/src/shared/resources/consoleSettingsFields.js",
-              "to": "packages/main/src/shared/resources/consoleSettingsFields.js",
-              "preserveOnRemove": true,
-              "reason": "Install app-owned console settings field definitions.",
-              "category": "users-core",
-              "id": "users-core-app-owned-console-settings-fields"
-            },
-            {
               "from": "templates/packages/main/src/shared/resources/userSettingsFields.js",
               "to": "packages/main/src/shared/resources/userSettingsFields.js",
               "preserveOnRemove": true,
@@ -3748,16 +3899,6 @@
               "reason": "Enable users-backed auth profile sync when users-core is installed.",
               "category": "runtime-config",
               "id": "users-core-auth-profile-mode"
-            },
-            {
-              "op": "append-text",
-              "file": "packages/main/src/shared/index.js",
-              "position": "top",
-              "skipIfContains": "import \"./resources/consoleSettingsFields.js\";",
-              "value": "import \"./resources/consoleSettingsFields.js\";\n",
-              "reason": "Load app-owned console settings field definitions inside the main shared module.",
-              "category": "users-core",
-              "id": "users-core-main-shared-console-settings-field-import"
             },
             {
               "op": "append-text",
@@ -3804,7 +3945,6 @@
         "description": "Users web module: account/profile UI plus shared users web widgets.",
         "dependsOn": [
           "@jskit-ai/auth-web",
-          "@jskit-ai/console-web",
           "@jskit-ai/http-runtime",
           "@jskit-ai/shell-web",
           "@jskit-ai/uploads-image-web",
@@ -3912,14 +4052,6 @@
                     "admin"
                   ],
                   "source": "src/client/components/UsersWorkspaceToolsWidget.vue"
-                },
-                {
-                  "target": "console-settings:primary-menu",
-                  "defaultLinkComponentToken": "local.main.ui.surface-aware-menu-link-item",
-                  "surfaces": [
-                    "console"
-                  ],
-                  "source": "templates/src/pages/console/settings.vue"
                 }
               ],
               "contributions": [
@@ -3944,17 +4076,6 @@
                   "componentToken": "auth.web.profile.menu.link-item",
                   "when": "auth.authenticated === true",
                   "source": "mutations.text#users-web-profile-settings-placement"
-                },
-                {
-                  "id": "users.console.menu.settings",
-                  "target": "shell-layout:primary-menu",
-                  "surfaces": [
-                    "console"
-                  ],
-                  "order": 100,
-                  "componentToken": "local.main.ui.menu-link-item",
-                  "when": "auth.authenticated === true",
-                  "source": "mutations.text#users-web-console-settings-placement"
                 },
                 {
                   "id": "users.home.tools.widget",
@@ -3987,7 +4108,6 @@
             "runtime": {
               "@tanstack/vue-query": "5.92.12",
               "@mdi/js": "^7.4.47",
-              "@jskit-ai/console-web": "0.1.4",
               "@jskit-ai/http-runtime": "0.1.36",
               "@jskit-ai/realtime": "0.1.36",
               "@jskit-ai/kernel": "0.1.37",
@@ -4048,22 +4168,6 @@
               "reason": "Install app-owned account settings invites section scaffold.",
               "category": "users-web",
               "id": "users-web-component-account-settings-invites"
-            },
-            {
-              "from": "templates/src/pages/console/settings.vue",
-              "toSurface": "console",
-              "toSurfacePath": "settings.vue",
-              "reason": "Install console settings shell route scaffold for users-web console UI.",
-              "category": "users-web",
-              "id": "users-web-page-console-settings-shell"
-            },
-            {
-              "from": "templates/src/pages/console/settings/index.vue",
-              "toSurface": "console",
-              "toSurfacePath": "settings/index.vue",
-              "reason": "Install console settings index stub scaffold for app-owned landing or redirect behavior.",
-              "category": "users-web",
-              "id": "users-web-page-console-settings"
             }
           ],
           "text": [
@@ -4096,16 +4200,6 @@
               "reason": "Append users-web profile settings menu placement into app-owned placement registry.",
               "category": "users-web",
               "id": "users-web-profile-settings-placement"
-            },
-            {
-              "op": "append-text",
-              "file": "src/placement.js",
-              "position": "bottom",
-              "skipIfContains": "id: \"users.console.menu.settings\"",
-              "value": "\naddPlacement({\n  id: \"users.console.menu.settings\",\n  target: \"shell-layout:primary-menu\",\n  surfaces: [\"console\"],\n  order: 100,\n  componentToken: \"local.main.ui.menu-link-item\",\n  props: {\n    label: \"Settings\",\n    to: \"/console/settings\",\n    icon: \"mdi-cog-outline\"\n  },\n  when: ({ auth }) => Boolean(auth?.authenticated)\n});\n",
-              "reason": "Append users-web console settings menu placement into app-owned placement registry.",
-              "category": "users-web",
-              "id": "users-web-console-settings-placement"
             },
             {
               "op": "append-text",

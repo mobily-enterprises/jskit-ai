@@ -6,7 +6,6 @@ import {
   mdiArrowRightCircleOutline,
   mdiClipboardListOutline,
   mdiCogOutline,
-  mdiConsoleNetworkOutline,
   mdiFolderOutline,
   mdiHomeVariantOutline,
   mdiLogin,
@@ -23,8 +22,7 @@ import { normalizePathname as normalizeKernelPathname } from "@jskit-ai/kernel/s
 const SURFACE_SWITCH_ICON_BY_ID = Object.freeze({
   home: mdiHomeVariantOutline,
   app: mdiViewDashboardOutline,
-  admin: mdiShieldCrownOutline,
-  console: mdiConsoleNetworkOutline
+  admin: mdiShieldCrownOutline
 });
 
 function resolveExplicitIconValue(explicitIcon = "") {
@@ -155,13 +153,6 @@ function resolveMenuLinkIcon({ icon = "", label = "", to = "" } = {}) {
 
   if (normalizedLabel.includes("assistant") || normalizedPathname.includes("/assistant")) {
     return mdiRobotOutline;
-  }
-
-  if (
-    normalizedLabel.includes("console") ||
-    normalizedPathname.startsWith("/console")
-  ) {
-    return mdiConsoleNetworkOutline;
   }
 
   if (

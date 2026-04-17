@@ -10,12 +10,12 @@ test("resolveSurfaceWorkspacePathFromPlacementContext returns empty path without
   const context = {
     surfaceConfig: {
       defaultSurfaceId: "home",
-      enabledSurfaceIds: ["home", "app", "admin", "console"],
+      enabledSurfaceIds: ["home", "app", "admin", "ops"],
       surfacesById: {
         home: { id: "home", routeBase: "/home", requiresWorkspace: false },
         app: { id: "app", routeBase: "/w/:workspaceSlug", requiresWorkspace: true },
         admin: { id: "admin", routeBase: "/w/:workspaceSlug/admin", requiresWorkspace: true },
-        console: { id: "console", routeBase: "/console", requiresWorkspace: false }
+        ops: { id: "ops", routeBase: "/ops", requiresWorkspace: false }
       }
     }
   };

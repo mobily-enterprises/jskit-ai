@@ -2,7 +2,6 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import {
   mdiAccountCogOutline,
-  mdiConsoleNetworkOutline,
   mdiCogOutline,
   mdiFolderOutline,
   mdiLogin,
@@ -17,7 +16,7 @@ import {
 
 test("resolveSurfaceSwitchIcon prefers explicit icon and maps known surfaces", () => {
   assert.equal(resolveSurfaceSwitchIcon("admin"), mdiShieldCrownOutline);
-  assert.equal(resolveSurfaceSwitchIcon("console"), mdiConsoleNetworkOutline);
+  assert.equal(resolveSurfaceSwitchIcon("ops", "mdi-cog-outline"), mdiCogOutline);
   assert.equal(resolveSurfaceSwitchIcon("admin", "custom-icon"), "custom-icon");
   assert.equal(resolveSurfaceSwitchIcon("admin", "mdi-cog-outline"), mdiCogOutline);
 });

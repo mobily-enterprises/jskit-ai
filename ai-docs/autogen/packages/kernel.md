@@ -540,7 +540,7 @@ Exports
 
 ### `client/moduleBootstrap.js`
 Exports
-- `bootClientModules({ clientModules = [], app, router, surfaceRuntime, surfaceMode, env, logger = console } = {})`
+- `bootClientModules({ clientModules = [], app, pinia = null, router, surfaceRuntime, surfaceMode, env, logger = console } = {})`
 Local functions
 - `normalizePackageId(value)`
 - `toRouteSnapshot(route)`
@@ -557,14 +557,14 @@ Local functions
 - `assertRoutesDeclaredInDescriptor({ packageId, source, normalizedRoutes = [], descriptorRouteDeclarations = null } = {})`
 - `resolveDescriptorClientRoutes({ packageId, descriptorUiRoutes = [], routeComponents = {}, logger = null } = {})`
 - `normalizeClientModuleEntries(clientModules)`
-- `createClientRuntimeApp({ profile = "client", app, router, env, logger, surfaceRuntime, surfaceMode } = {})`
+- `createClientRuntimeApp({ profile = "client", app, pinia = null, router, env, logger, surfaceRuntime, surfaceMode } = {})`
 
 ### `client/shellBootstrap.js`
 Exports
 - `resolveClientBootstrapDebugEnabled({ env = {}, debugEnabled = undefined, debugEnvKey = "VITE_JSKIT_CLIENT_DEBUG" } = {})`
 - `createClientBootstrapLogger({ env = {}, logger = console, debugEnabled = undefined, debugEnvKey = "VITE_JSKIT_CLIENT_DEBUG" } = {})`
 - `createSurfaceShellRouter({ createRouter, history, routes = [], surfaceRuntime, surfaceMode, fallbackRoute = null, notFoundComponent = null, guard = false } = {})`
-- `bootstrapClientShellApp({ createApp, rootComponent, appConfig = {}, appPlugins = [], router, bootClientModules, surfaceRuntime, surfaceMode, env = {}, fallbackRoute = null, logger = console, createBootstrapLogger = null, debugEnabled = undefined, debugEnvKey = "VITE_JSKIT_CLIENT_DEBUG", debugMessage = "Client modules bootstrapped before router install.", onAfterModulesBootstrapped = null, mountSelector = "#app" } = {})`
+- `bootstrapClientShellApp({ createApp, rootComponent, appConfig = {}, appPlugins = [], pinia = null, router, bootClientModules, surfaceRuntime, surfaceMode, env = {}, fallbackRoute = null, logger = console, createBootstrapLogger = null, debugEnabled = undefined, debugEnvKey = "VITE_JSKIT_CLIENT_DEBUG", debugMessage = "Client modules bootstrapped before router install.", onAfterModulesBootstrapped = null, mountSelector = "#app" } = {})`
 Local functions
 - `installAppPlugins(app, appPlugins = [])`
 

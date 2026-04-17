@@ -324,6 +324,8 @@ In the starter app, with only `home`, this is almost boring. It mostly means:
 
 `createPinia()` is the standard shared-state layer for the client app. JSKIT installs it from day 0 so later packages can expose Vue-facing stores without each app having to bolt Pinia on afterward.
 
+In the plain starter scaffold there are still no package-defined client stores to use yet. Pinia is already there so later packages can add them without changing the app bootstrap. In the next chapters, `shell-web` adds shell stores such as `useShellLayoutStore()`, and `auth-web` later adds `useAuthStore()`.
+
 `createVuetify(...)` is the ordinary UI plugin setup. There is nothing especially JSKIT-specific there; it just makes Vuetify components, directives, theme settings, and icon aliases available to the app before the router is mounted.
 
 `bootInstalledClientModules` is the extension seam, meaning "this is the point where later-installed JSKIT packages get to join client startup". The confusing part is that it is not a normal file in your app. In `src/main.js` you import it from:

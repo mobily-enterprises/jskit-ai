@@ -48,11 +48,11 @@ test("resolveWorkspaceShellLinkPath returns empty path for unknown non-default w
   assert.equal(path, "");
 });
 
-test("resolveWorkspaceShellLinkPath returns empty path for unknown console-like surface ids", () => {
+test("resolveWorkspaceShellLinkPath returns empty path for unknown non-workspace surface ids", () => {
   const context = createContext();
   const path = resolveWorkspaceShellLinkPath({
     context,
-    surface: "console",
+    surface: "ops",
     mode: "workspace",
     workspaceSlug: "acme"
   });

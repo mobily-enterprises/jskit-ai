@@ -11,7 +11,6 @@ export default Object.freeze({
   description: "Users web module: account/profile UI plus shared users web widgets.",
   dependsOn: [
     "@jskit-ai/auth-web",
-    "@jskit-ai/console-web",
     "@jskit-ai/http-runtime",
     "@jskit-ai/shell-web",
     "@jskit-ai/uploads-image-web",
@@ -116,12 +115,6 @@ export default Object.freeze({
             surfaces: ["admin"],
             source: "src/client/components/UsersWorkspaceToolsWidget.vue"
           },
-          {
-            target: "console-settings:primary-menu",
-            defaultLinkComponentToken: "local.main.ui.surface-aware-menu-link-item",
-            surfaces: ["console"],
-            source: "templates/src/pages/console/settings.vue"
-          }
         ],
         contributions: [
           {
@@ -141,15 +134,6 @@ export default Object.freeze({
             componentToken: "auth.web.profile.menu.link-item",
             when: "auth.authenticated === true",
             source: "mutations.text#users-web-profile-settings-placement"
-          },
-          {
-            id: "users.console.menu.settings",
-            target: "shell-layout:primary-menu",
-            surfaces: ["console"],
-            order: 100,
-            componentToken: "local.main.ui.menu-link-item",
-            when: "auth.authenticated === true",
-            source: "mutations.text#users-web-console-settings-placement"
           },
           {
             id: "users.home.tools.widget",
@@ -178,7 +162,6 @@ export default Object.freeze({
       runtime: {
         "@tanstack/vue-query": "5.92.12",
         "@mdi/js": "^7.4.47",
-        "@jskit-ai/console-web": "0.1.4",
         "@jskit-ai/http-runtime": "0.1.36",
         "@jskit-ai/realtime": "0.1.36",
         "@jskit-ai/kernel": "0.1.37",
@@ -239,22 +222,6 @@ export default Object.freeze({
         reason: "Install app-owned account settings invites section scaffold.",
         category: "users-web",
         id: "users-web-component-account-settings-invites"
-      },
-      {
-        from: "templates/src/pages/console/settings.vue",
-        toSurface: "console",
-        toSurfacePath: "settings.vue",
-        reason: "Install console settings shell route scaffold for users-web console UI.",
-        category: "users-web",
-        id: "users-web-page-console-settings-shell"
-      },
-      {
-        from: "templates/src/pages/console/settings/index.vue",
-        toSurface: "console",
-        toSurfacePath: "settings/index.vue",
-        reason: "Install console settings index stub scaffold for app-owned landing or redirect behavior.",
-        category: "users-web",
-        id: "users-web-page-console-settings"
       }
     ],
     text: [
@@ -290,17 +257,6 @@ export default Object.freeze({
         reason: "Append users-web profile settings menu placement into app-owned placement registry.",
         category: "users-web",
         id: "users-web-profile-settings-placement"
-      },
-      {
-        op: "append-text",
-        file: "src/placement.js",
-        position: "bottom",
-        skipIfContains: "id: \"users.console.menu.settings\"",
-        value:
-          "\naddPlacement({\n  id: \"users.console.menu.settings\",\n  target: \"shell-layout:primary-menu\",\n  surfaces: [\"console\"],\n  order: 100,\n  componentToken: \"local.main.ui.menu-link-item\",\n  props: {\n    label: \"Settings\",\n    to: \"/console/settings\",\n    icon: \"mdi-cog-outline\"\n  },\n  when: ({ auth }) => Boolean(auth?.authenticated)\n});\n",
-        reason: "Append users-web console settings menu placement into app-owned placement registry.",
-        category: "users-web",
-        id: "users-web-console-settings-placement"
       },
       {
         op: "append-text",

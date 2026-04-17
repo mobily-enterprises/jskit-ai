@@ -22,7 +22,11 @@ export default defineConfig({
           items: [
             { text: "Initial Scaffolding", link: "/guide/initial-scaffolding" },
             { text: "A More Interesting Shell", link: "/guide/a-more-interesting-shell" },
-            { text: "Authentication", link: "/guide/authentication" }
+            { text: "Authentication", link: "/guide/authentication" },
+            { text: "Database Layer", link: "/guide/database-layer" },
+            { text: "Users", link: "/guide/users" },
+            { text: "Console", link: "/guide/console" },
+            { text: "Multi-homing", link: "/guide/multi-homing" }
           ]
         }
       ]

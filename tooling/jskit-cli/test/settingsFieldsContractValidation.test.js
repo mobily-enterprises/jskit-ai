@@ -92,11 +92,11 @@ async function writeConsoleSettingsContractFile(appRoot, { withMarker = true } =
   await writeFile(
     targetFile,
     [
-      ...(withMarker ? ["// @jskit-contract users.settings-fields.console.v1"] : []),
+      ...(withMarker ? ["// @jskit-contract console.settings-fields.v1"] : []),
       "import {",
       "  defineField,",
       "  resetConsoleSettingsFields",
-      "} from \"@jskit-ai/users-core/shared/resources/consoleSettingsFields\";",
+      "} from \"@jskit-ai/console-core/shared/resources/consoleSettingsFields\";",
       "",
       "resetConsoleSettingsFields();",
       "",

@@ -129,6 +129,7 @@ function createWorkspaceBootstrapContributor({
 
   return Object.freeze({
     contributorId,
+    order: 200,
     async contribute({ request = null, query = {}, payload = {} } = {}) {
       const normalizedUserId = normalizeRecordId(
         payload?.session?.authenticated === true ? payload?.session?.userId : null,

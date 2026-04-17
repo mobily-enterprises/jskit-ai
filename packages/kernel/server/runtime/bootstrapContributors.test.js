@@ -87,6 +87,58 @@ test("resolveBootstrapPayload applies contributors in deterministic token order"
   });
 });
 
+test("resolveBootstrapPayload honors explicit contributor order before token order", async () => {
+  const app = createContainer();
+  const calls = [];
+
+  registerBootstrapPayloadContributor(app, "test.bootstrap.alpha", () => ({
+    contributorId: "alpha",
+    order: 200,
+    contribute({ payload }) {
+      calls.push({
+        contributorId: "alpha",
+        payload
+      });
+      return {
+        alpha: true
+      };
+    }
+  }));
+
+  registerBootstrapPayloadContributor(app, "test.bootstrap.zeta", () => ({
+    contributorId: "zeta",
+    order: 100,
+    contribute({ payload }) {
+      calls.push({
+        contributorId: "zeta",
+        payload
+      });
+      return {
+        zeta: true
+      };
+    }
+  }));
+
+  const payload = await resolveBootstrapPayload(app);
+
+  assert.deepEqual(calls, [
+    {
+      contributorId: "zeta",
+      payload: {}
+    },
+    {
+      contributorId: "alpha",
+      payload: {
+        zeta: true
+      }
+    }
+  ]);
+  assert.deepEqual(payload, {
+    zeta: true,
+    alpha: true
+  });
+});
+
 test("resolveBootstrapPayload ignores non-object contributions", async () => {
   const app = createContainer();
 

@@ -82,6 +82,8 @@ Exports
 - `DefaultSignOutView`
 - `AuthProfileWidget`
 - `AuthProfileMenuLinkItem`
+- `useAuthStore`
+- `useAuthGuardRuntime`
 - `routeComponents`
 - `clientProviders`
 
@@ -105,6 +107,10 @@ Exports
 ### `src/client/providers/AuthWebClientProvider.js`
 Exports
 - `AuthWebClientProvider`
+
+### `src/client/providers/bootAuthClientProvider.js`
+Exports
+- `bootAuthClientProvider(app)`
 
 ### `src/client/runtime/authGuardRuntime.js`
 Exports
@@ -145,6 +151,8 @@ Exports
 
 ### `src/client/runtime/inject.js`
 Exports
+- `AUTH_GUARD_RUNTIME_INJECTION_KEY`
+- `EMPTY_AUTH_GUARD_STATE`
 - `EMPTY_AUTH_GUARD_RUNTIME`
 - `useAuthGuardRuntime({ required = false } = {})`
 
@@ -161,6 +169,12 @@ Local functions
 - `readSessionState()`
 - `waitForSignedOutState({ attempts = 4, delayMs = 120 } = {})`
 - `createHttpLogoutApi()`
+
+### `src/client/stores/useAuthStore.js`
+Exports
+- `useAuthStore`
+Local functions
+- `normalizeAuthStateValue(nextState)`
 
 ### `src/client/views/AuthProfileMenuLinkItem.vue`
 Exports

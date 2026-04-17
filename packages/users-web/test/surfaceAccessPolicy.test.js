@@ -15,7 +15,7 @@ function createContext(overrides = {}) {
     ],
     permissions: [],
     surfaceAccess: {
-      consoleowner: false
+      opsowner: false
     },
     surfaceAccessPolicies: {
       public: {},
@@ -23,14 +23,14 @@ function createContext(overrides = {}) {
         requireAuth: true,
         requireWorkspaceMembership: true
       },
-      console_owner: {
+      ops_owner: {
         requireAuth: true,
-        requireFlagsAll: ["console_owner"]
+        requireFlagsAll: ["ops_owner"]
       }
     },
     surfaceConfig: {
       defaultSurfaceId: "home",
-      enabledSurfaceIds: ["home", "app", "console"],
+      enabledSurfaceIds: ["home", "app", "ops"],
       surfacesById: {
         home: {
           id: "home",
@@ -46,12 +46,12 @@ function createContext(overrides = {}) {
           requiresWorkspace: true,
           accessPolicyId: "workspace_member"
         },
-        console: {
-          id: "console",
+        ops: {
+          id: "ops",
           enabled: true,
-          routeBase: "/console",
+          routeBase: "/ops",
           requiresWorkspace: false,
-          accessPolicyId: "console_owner"
+          accessPolicyId: "ops_owner"
         }
       }
     },
@@ -98,17 +98,17 @@ test("evaluateSurfaceAccess allows unknown workspace membership when allowOnUnkn
 test("evaluateSurfaceAccess enforces bootstrap surface access flags", () => {
   const deniedDecision = evaluateSurfaceAccess({
     context: createContext(),
-    surfaceId: "console"
+    surfaceId: "ops"
   });
   assert.equal(deniedDecision.allowed, false);
 
   const allowedDecision = evaluateSurfaceAccess({
     context: createContext({
       surfaceAccess: {
-        consoleowner: true
+        opsowner: true
       }
     }),
-    surfaceId: "console"
+    surfaceId: "ops"
   });
   assert.equal(allowedDecision.allowed, true);
 });
