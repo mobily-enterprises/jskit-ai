@@ -7,7 +7,7 @@ export { default as DefaultLoginView } from "./views/DefaultLoginView.vue";
 export { default as DefaultSignOutView } from "./views/DefaultSignOutView.vue";
 export { default as AuthProfileWidget } from "./views/AuthProfileWidget.vue";
 export { default as AuthProfileMenuLinkItem } from "./views/AuthProfileMenuLinkItem.vue";
-export { useAuth } from "./composables/useAuth.js";
+export { useAuthStore } from "./stores/useAuthStore.js";
 export { useAuthGuardRuntime } from "./runtime/inject.js";
 
 const routeComponents = Object.freeze({

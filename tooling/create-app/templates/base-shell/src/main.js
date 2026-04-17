@@ -1,4 +1,5 @@
 import { createApp } from "vue";
+import { createPinia } from "pinia";
 import { createRouter, createWebHistory } from "vue-router/auto";
 import { routes } from "vue-router/auto-routes";
 import "vuetify/styles";
@@ -49,12 +50,14 @@ const vuetify = createVuetify({
     sets: { mdi }
   }
 });
+const pinia = createPinia();
 
 void bootstrapClientShellApp({
   createApp,
   rootComponent: App,
   appConfig: config,
-  appPlugins: [vuetify],
+  appPlugins: [pinia, vuetify],
+  pinia,
   router,
   bootClientModules: bootInstalledClientModules,
   surfaceRuntime,

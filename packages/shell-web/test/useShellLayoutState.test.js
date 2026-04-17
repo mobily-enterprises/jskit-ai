@@ -1,10 +1,12 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+import { createPinia } from "pinia";
 import {
   SHELL_LAYOUT_DRAWER_DEFAULT_OPEN_STORAGE_KEY,
   readDrawerDefaultOpenPreference,
   writeDrawerDefaultOpenPreference
 } from "../src/client/composables/shellLayoutDrawerPreference.js";
+import { useShellLayoutStore } from "../src/client/stores/useShellLayoutStore.js";
 
 function createStorage(initial = {}) {
   const values = new Map(Object.entries(initial));
@@ -47,4 +49,19 @@ test("writeDrawerDefaultOpenPreference persists normalized boolean strings", () 
 
   writeDrawerDefaultOpenPreference(true, { storage });
   assert.equal(storage.getItem(SHELL_LAYOUT_DRAWER_DEFAULT_OPEN_STORAGE_KEY), "true");
+});
+
+test("shell layout store keeps drawer state and default preference in sync", () => {
+  const pinia = createPinia();
+  const store = useShellLayoutStore(pinia);
+
+  store.setDrawerDefaultOpen(false);
+  assert.equal(store.drawerDefaultOpen, false);
+  assert.equal(store.drawerOpen, false);
+
+  store.toggleDrawer();
+  assert.equal(store.drawerOpen, true);
+
+  store.setDrawerOpen(false);
+  assert.equal(store.drawerOpen, false);
 });

@@ -2,12 +2,9 @@
 import { computed } from "vue";
 import ShellOutlet from "@jskit-ai/shell-web/client/components/ShellOutlet";
 import { useWebPlacementContext } from "@jskit-ai/shell-web/client/placement";
-import { useAuth } from "../composables/useAuth.js";
+import { useAuthStore } from "../stores/useAuthStore.js";
 
-const auth = useAuth({
-  required: true
-});
-const authState = auth.state;
+const auth = useAuthStore();
 const { context: shellPlacementContext } = useWebPlacementContext();
 
 const shellUser = computed(() => {
@@ -24,7 +21,7 @@ const displayName = computed(() => {
     return fromContext;
   }
 
-  const username = String(authState.value?.username || "").trim();
+  const username = String(auth.username || "").trim();
   if (username) {
     return username;
   }
@@ -57,7 +54,7 @@ const initials = computed(() => {
 
 const placementContext = computed(() => {
   return {
-    auth: authState.value,
+    auth: auth.authState,
     user: shellUser.value
   };
 });

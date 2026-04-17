@@ -112,11 +112,14 @@ test("bootClientModules registers descriptor and clientRoutes with providers onl
   const surfaceRuntime = createSurfaceRuntimeFixture();
   const events = [];
   const loginComponent = {};
+  const pinia = { id: "pinia-instance" };
+  const implicitPinia = { id: "implicit-vue-global-pinia" };
   class ExampleClientProvider {
     static id = "example.client";
     register(app) {
       events.push("register");
       app.instance("example.value", 42);
+      app.instance("example.pinia", app.make("jskit.client.pinia"));
     }
     boot() {
       events.push("boot");
@@ -179,6 +182,14 @@ test("bootClientModules registers descriptor and clientRoutes with providers onl
         }
       }
     ],
+    app: {
+      config: {
+        globalProperties: {
+          $pinia: implicitPinia
+        }
+      }
+    },
+    pinia,
     router,
     surfaceRuntime,
     surfaceMode: "all",
@@ -194,6 +205,8 @@ test("bootClientModules registers descriptor and clientRoutes with providers onl
   assert.equal(router.routes[1].path, "/auth/login");
   assert.equal(router.routes[1].component, loginComponent);
   assert.equal(result.runtimeApp.make("example.value"), 42);
+  assert.equal(result.runtimeApp.make("example.pinia"), pinia);
+  assert.notEqual(result.runtimeApp.make("example.pinia"), implicitPinia);
 });
 
 test("bootClientModules does not auto-discover providers from module exports", async () => {

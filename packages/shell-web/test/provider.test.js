@@ -1,6 +1,8 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+import { createPinia } from "pinia";
 import { ShellWebClientProvider } from "../src/client/providers/ShellWebClientProvider.js";
+import { useShellErrorPresentationStore } from "../src/client/stores/useShellErrorPresentationStore.js";
 const CLIENT_APP_CONFIG_GLOBAL_KEY = "__JSKIT_CLIENT_APP_CONFIG__";
 
 function setClientAppConfig(source = {}) {
@@ -17,9 +19,14 @@ function createAppDouble({ surfaceRuntime = null } = {}) {
   const singletonInstances = new Map();
   const provided = [];
   const plugins = [];
+  const pinia = createPinia();
 
   const vueApp = {
-    config: {},
+    config: {
+      globalProperties: {
+        $pinia: pinia
+      }
+    },
     use(plugin, options) {
       plugins.push({ plugin, options });
       return this;
@@ -33,12 +40,16 @@ function createAppDouble({ surfaceRuntime = null } = {}) {
     singletons,
     provided,
     plugins,
+    pinia,
     vueApp,
     singleton(token, factory) {
       singletons.set(token, factory);
     },
     has(token) {
       if (token === "jskit.client.vue.app") {
+        return true;
+      }
+      if (token === "jskit.client.pinia") {
         return true;
       }
       if (token === "jskit.client.surface.runtime") {
@@ -49,6 +60,9 @@ function createAppDouble({ surfaceRuntime = null } = {}) {
     make(token) {
       if (token === "jskit.client.vue.app") {
         return vueApp;
+      }
+      if (token === "jskit.client.pinia") {
+        return pinia;
       }
       if (token === "jskit.client.surface.runtime" && surfaceRuntime) {
         return surfaceRuntime;
@@ -103,6 +117,12 @@ test("shell web client provider binds runtime and injects it into Vue app", asyn
   const errorStore = providedByKey.get("jskit.shell-web.runtime.web-error.presentation-store.client");
   assert.equal(typeof errorStore.getState, "function");
   assert.equal(typeof errorStore.present, "function");
+
+  const errorPresentationStore = useShellErrorPresentationStore(app.pinia);
+  assert.equal(errorPresentationStore.revision, 0);
+  assert.equal(typeof errorPresentationStore.present, "function");
+  errorStore.present("banner", { message: "Hello" });
+  assert.equal(errorPresentationStore.channels.banner[0].message, "Hello");
 });
 
 test("shell web client provider resolves surface config from client app config", async () => {

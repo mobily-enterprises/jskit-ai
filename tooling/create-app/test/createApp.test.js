@@ -65,6 +65,7 @@ test("create-app scaffolds the base shell with placeholder replacements", async 
     assert.equal(packageJson.dependencies["@local/main"], "file:packages/main");
     assert.match(packageJson.dependencies["@jskit-ai/http-runtime"], /^\d+\.x$/);
     assert.equal(packageJson.dependencies["@fastify/type-provider-typebox"], "^6.1.0");
+    assert.equal(packageJson.dependencies.pinia, "^3.0.4");
     await assert.rejects(access(path.join(appRoot, "scripts/copy-local-packages.sh")), /ENOENT/);
     const linkLocalScript = await readFile(path.join(appRoot, "scripts/link-local-jskit-packages.sh"), "utf8");
     assert.doesNotMatch(linkLocalScript, /Development\/current\/jskit-ai/);
@@ -100,6 +101,7 @@ test("create-app scaffolds the base shell with placeholder replacements", async 
 
     const mainJs = await readFile(path.join(appRoot, "src/main.js"), "utf8");
     assert.match(mainJs, /import App from "\.\/App\.vue";/);
+    assert.match(mainJs, /import \{ createPinia \} from "pinia";/);
     assert.match(mainJs, /import NotFoundView from "\.\/views\/NotFound\.vue";/);
     assert.match(mainJs, /import \{ bootInstalledClientModules \} from "virtual:jskit-client-bootstrap";/);
     assert.doesNotMatch(mainJs, /@\/modules\/client-modules\.js/);
@@ -111,7 +113,9 @@ test("create-app scaffolds the base shell with placeholder replacements", async 
     assert.match(mainJs, /bootstrapClientShellApp/);
     assert.match(mainJs, /createRouter, createWebHistory/);
     assert.match(mainJs, /bootClientModules:\s*bootInstalledClientModules/);
-    assert.match(mainJs, /appPlugins:\s*\[vuetify\]/);
+    assert.match(mainJs, /const pinia = createPinia\(\);/);
+    assert.match(mainJs, /appPlugins:\s*\[pinia,\s*vuetify\]/);
+    assert.match(mainJs, /appPlugins:\s*\[pinia,\s*vuetify\],[\s\S]*?\bpinia,\s*router,/);
     assert.match(mainJs, /fallbackRoute/);
 
     await assert.rejects(access(path.join(appRoot, "config/surfaces.js")), /ENOENT/);

@@ -14,6 +14,8 @@ export { default as ShellMenuLinkItem } from "./components/ShellMenuLinkItem.vue
 export { default as ShellSurfaceAwareMenuLinkItem } from "./components/ShellSurfaceAwareMenuLinkItem.vue";
 export { default as ShellTabLinkItem } from "./components/ShellTabLinkItem.vue";
 export { useShellLayoutState } from "./composables/useShellLayoutState.js";
+export { useShellLayoutStore } from "./stores/useShellLayoutStore.js";
+export { useShellErrorPresentationStore } from "./stores/useShellErrorPresentationStore.js";
 
 const clientProviders = Object.freeze([ShellWebClientProvider]);
 

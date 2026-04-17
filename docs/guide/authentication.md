@@ -417,20 +417,20 @@ This is the most important pattern to understand: use the guard to protect the r
 
 Sometimes you do not want to redirect or hide a menu entry. You just want the page to react differently when a user is logged in.
 
-For that, use `useAuth()` from `auth-web`. It gives your component a shared reactive auth object built on top of the underlying auth runtime, so normal Vue code can read the session state without manually wiring subscriptions.
+For that, use `useAuthStore()` from `auth-web`. It is the Pinia store facade over the underlying auth runtime, so normal Vue code can read the session state without manually wiring subscriptions.
 
 Here is a small example that changes `src/pages/home/index.vue` so it shows a success message when the session is authenticated:
 
 ```vue
 <script setup>
-import { useAuth } from "@jskit-ai/auth-web/client";
+import { useAuthStore } from "@jskit-ai/auth-web/client";
 
-const { authenticated } = useAuth();
+const auth = useAuthStore();
 </script>
 
 <template>
   <section class="pa-4">
-    <v-alert v-if="authenticated" type="success" variant="tonal" class="mb-4">
+    <v-alert v-if="auth.authenticated" type="success" variant="tonal" class="mb-4">
       You are logged in!
     </v-alert>
 
@@ -440,11 +440,11 @@ const { authenticated } = useAuth();
 </template>
 ```
 
-The important thing about that snippet is how little it needs to know. `authenticated` is already a reactive Vue ref, so the banner updates automatically when the session changes.
+The important thing about that snippet is how little it needs to know. `auth.authenticated` is already reactive through Pinia, so the banner updates automatically when the session changes.
 
-`useAuth()` also gives you the rest of the surfaced auth state and the lower-level runtime methods when you need them:
+`useAuthStore()` also gives you the rest of the surfaced auth state and the lower-level runtime methods when you need them:
 
-- `state`
+- `authState`
 - `authenticated`
 - `username`
 - `oauthProviders`
@@ -459,9 +459,9 @@ If you need one of those methods, keep the whole auth object instead of only des
 
 ```vue
 <script setup>
-import { useAuth } from "@jskit-ai/auth-web/client";
+import { useAuthStore } from "@jskit-ai/auth-web/client";
 
-const auth = useAuth();
+const auth = useAuthStore();
 
 async function refreshSession() {
   await auth.refresh();
@@ -486,7 +486,7 @@ By this point the surfaced auth API should be clearer:
 - placement entry:
   - use `when: ({ auth }) => Boolean(auth?.authenticated)` when shell UI should only appear for signed-in users
 - component code:
-  - use `useAuth()` when the page needs to react to auth state directly
+  - use `useAuthStore()` when the page needs to react to auth state directly
 
 That is the real development payoff of this chapter. The login system is not just a screen. It gives the app a reusable auth state model that routing, shell placements, and component code can all use.
 
@@ -636,9 +636,9 @@ So the auth story in this chapter is spread across clear responsibilities:
 
 That is a very JSKIT-style pattern. The installed package brings the runtime behavior, but the app still owns the important seams where routing and UI get attached.
 
-### The runtime behind `useAuth()`
+### The runtime behind `useAuthStore()`
 
-`useAuth()` is the app-facing Vue layer, but it is not inventing a second auth system. It is a thin reactive wrapper around the lower-level auth guard runtime that `auth-web` boots on startup.
+`useAuthStore()` is the app-facing Pinia layer, but it is not inventing a second auth system. It is a store facade over the lower-level auth guard runtime that `auth-web` boots on startup.
 
 That lower-level runtime already has a small, concrete contract:
 
@@ -647,7 +647,7 @@ That lower-level runtime already has a small, concrete contract:
 - `getState()`
 - `subscribe()`
 
-`auth-web` initializes that runtime once, injects it into Vue, and then exposes `useAuth()` as the normal component-facing API. That is why the main example earlier could stay so small.
+`auth-web` initializes that runtime once, binds it into the Pinia auth store, and then exposes `useAuthStore()` as the normal component-facing API. That is why the main example earlier could stay so small.
 
 If you strip the composable away and write the same `You are logged in!` example directly against the runtime, it looks like this:
 
@@ -689,13 +689,13 @@ onBeforeUnmount(() => {
 </template>
 ```
 
-That code works, and it shows exactly what `useAuth()` is wrapping:
+That code works, and it shows exactly what `useAuthStore()` is wrapping:
 
 - `getState()` gives the first auth snapshot immediately
 - `subscribe(...)` keeps that snapshot updated later
 - the component turns that imperative runtime into normal Vue refs and computeds
 
-For ordinary Vue component code there is usually no advantage to writing it this way. `useAuth()` already gives you the same surfaced information plus the same runtime methods when you need them. The direct runtime version is mainly worth knowing so you understand the lower-level contract that `auth-web` itself is building on.
+For ordinary Vue component code there is usually no advantage to writing it this way. `useAuthStore()` already gives you the same surfaced information plus the same runtime methods when you need them. The direct runtime version is mainly worth knowing so you understand the lower-level contract that `auth-web` itself is building on.
 
 ### Who actually talks to whom
 
