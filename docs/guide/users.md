@@ -8,7 +8,6 @@ This chapter is where that changes. We install `users-web`, run the new migratio
 
 - the persistent users/account data model from `users-core`
 - the account surface and account settings UI
-- the first console surface
 - the switch from standalone auth profile sync to users-backed auth profile sync
 
 ## Recap from previous chapters

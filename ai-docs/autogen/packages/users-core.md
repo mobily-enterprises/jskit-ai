@@ -316,7 +316,7 @@ Local functions
 - `normalizeSlugPolicy(value = "")`
 - `isSupportedTenancyMode(value = "")`
 - `resolveBootstrapTenancyProfile(tenancyProfile = null, appConfig = {})`
-- `createAnonymousBootstrapPayload({ appState, tenancyProfile })`
+- `createAnonymousBootstrapPayload({ appState, tenancyProfile, surfaceAccess = {} })`
 - `mapUserSettingsBootstrap(settings = {})`
 
 ### `src/server/UsersCoreServiceProvider.js`
