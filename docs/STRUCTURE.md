@@ -24,11 +24,33 @@ npm install
 
 # DATABASE LAYER
 
+    SUPABASE_URL=...
+    SUPABASE_KEY=...
+ 
+    npx @jskit-ai/create-app exampleapp --tenancy-mode none
+    cd exampleapp
+    npm install
+ 
+    npx jskit add package shell-web
+    npx jskit add package auth-provider-supabase-core \
+      --auth-supabase-url "$SUPABASE_URL" \
+      --auth-supabase-publishable-key "$SUPABASE_KEY" \
+      --app-public-url "http://localhost:5173"
+ 
+    npx jskit add bundle auth-base
+    npm install
+
+
+
 npx jskit add package database-runtime-mysql
-npx jskit add package users-web
 npm install
 
 (Show what is added, and explain the consequences to authentication)
+
+# USERS
+
+npx jskit add package users-web
+(What changes with logging in)
 
 # CONSOLE
 
@@ -58,11 +80,6 @@ npm install
 npm run db:migrate
 
 # ASSISTANT
-
-
-
-
-
 
 
 * Prep

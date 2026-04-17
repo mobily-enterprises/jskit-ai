@@ -2,7 +2,9 @@ import DefaultLoginView from "../views/DefaultLoginView.vue";
 import AuthProfileWidget from "../views/AuthProfileWidget.vue";
 import AuthProfileMenuLinkItem from "../views/AuthProfileMenuLinkItem.vue";
 import { createAuthGuardRuntime } from "../runtime/authGuardRuntime.js";
+import { AUTH_GUARD_RUNTIME_INJECTION_KEY } from "../runtime/inject.js";
 import { useLoginView } from "../runtime/useLoginView.js";
+import { AUTH_STATE_INJECTION_KEY, createAuthStore } from "../composables/useAuth.js";
 import { resolveSurfaceNavigationTargetFromPlacementContext } from "@jskit-ai/shell-web/client/placement";
 
 class AuthWebClientProvider {
@@ -43,6 +45,9 @@ class AuthWebClientProvider {
 
     const authGuardRuntime = app.make("runtime.auth-guard.client");
     await authGuardRuntime.initialize();
+    const authStore = createAuthStore({
+      runtime: authGuardRuntime
+    });
 
     if (!app.has("jskit.client.vue.app")) {
       return;
@@ -53,7 +58,8 @@ class AuthWebClientProvider {
       return;
     }
 
-    vueApp.provide("jskit.auth-web.runtime.auth-guard.client", authGuardRuntime);
+    vueApp.provide(AUTH_GUARD_RUNTIME_INJECTION_KEY, authGuardRuntime);
+    vueApp.provide(AUTH_STATE_INJECTION_KEY, authStore);
   }
 }
 
