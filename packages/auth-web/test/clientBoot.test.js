@@ -6,6 +6,8 @@ import test from "node:test";
 test("auth-web client index defines provider-based client routes surface", () => {
   const source = readFileSync(fileURLToPath(new URL("../src/client/index.js", import.meta.url)), "utf8");
 
+  assert.equal(source.includes('export { useAuth } from "./composables/useAuth.js";'), true);
+  assert.equal(source.includes('export { useAuthGuardRuntime } from "./runtime/inject.js";'), true);
   assert.equal(source.includes("const routeComponents = Object.freeze({"), true);
   assert.equal(source.includes('"auth-login": DefaultLoginView'), true);
   assert.equal(source.includes('"auth-signout": DefaultSignOutView'), true);

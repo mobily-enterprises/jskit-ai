@@ -200,21 +200,295 @@ config.auth = {
 };
 ```
 
-That is why the login card in this chapter does not show buttons like `Continue with Google`. If later you enable a provider in Supabase and list it in `config.auth.oauth.providers`, the same screen can render those buttons automatically.
+That is why the login card in this chapter does not show buttons like `Continue with Google`.
+
+To turn on Google later, there are two separate setup steps.
+
+First, configure Google and Supabase:
+
+1. In Google Auth Platform, create a **Web application** OAuth client.
+2. Add your browser URLs as **Authorized JavaScript origins**.
+3. In Supabase, open the Google provider settings and copy the provider callback URL shown there.
+4. Add that Supabase callback URL as an **Authorized redirect URI** on the Google OAuth client.
+5. Back in Supabase, paste the Google **Client ID** and **Client Secret** into the Google provider settings and enable the provider.
+6. Make sure Supabase's **Site URL** and **Redirect URLs** still match the real browser URL your app uses.
+
+Then tell JSKIT to expose the provider in the login UI:
+
+```js
+config.auth = {
+  oauth: {
+    providers: ["google"],
+    defaultProvider: "google"
+  }
+};
+```
+
+`providers` controls which OAuth buttons the stock login screen is allowed to render. `defaultProvider` tells JSKIT which provider to prefer when it needs a default choice. If the provider is configured in Supabase but missing from this list, the button still does not appear in the JSKIT login screen.
 
 <DocsTerminalTip label="Important" title="What Works Without A Database">
-Authentication works at this stage because Supabase stores the real identity data, passwords, and sessions.
+Authentication is already real in this chapter because Supabase is still the source of truth for the important auth data:
 
-What does **not** exist yet is JSKIT's database-backed users layer. Until later chapters install the database and users packages, the app-side profile mirror and user-settings storage use standalone in-memory fallbacks. That means:
+- the real auth user record
+- the password hash and password-reset state
+- the OTP and OAuth flows
+- the access and refresh tokens that JSKIT writes into cookies
 
-- auth itself is real
-- Supabase still stores the real auth user, password state, and session state
-- app-owned mirrored profile/settings data is not persistent yet
-- restarting the local server clears that JSKIT-side in-memory mirror
-- there is still no account surface, no user settings UI, and no workspace membership model
+What is missing is JSKIT's own database-backed users layer. In no-database mode, the auth provider switches to **standalone in-memory fallbacks** for the app-side data it normally mirrors into JSKIT tables.
 
-So this chapter gives you real authentication, but not yet the full app user model.
+Concretely, that means:
+
+- JSKIT still creates a local profile mirror for each authenticated Supabase user.
+- But that mirror lives only in the Node process, not in a database table.
+- That temporary mirror stores only a small app-side profile shape:
+  - `id`
+  - `authProvider`
+  - `authProviderUserSid`
+  - `email`
+  - `displayName`
+- JSKIT also keeps a tiny in-memory user-settings record for auth-related flags such as:
+  - `passwordSignInEnabled`
+  - `passwordSetupRequired`
+
+So the behavior is:
+
+- register a user -> the real user is created in Supabase
+- sign in -> Supabase still verifies credentials and returns the real session
+- JSKIT then mirrors just enough profile data into memory so the app can work
+- restart the local server -> that JSKIT-side mirror and those fallback settings are cleared
+
+The browser session is a different thing. In the normal case, a server restart does **not** log the browser out. The browser still has the auth cookies, so on the next request JSKIT can read those cookies, validate or refresh the Supabase session, and rebuild the temporary mirror.
+
+That last point is the important difference. A restart does **not** delete the Supabase user. It does **not** erase the real password. It does **not** erase the real auth session in Supabase itself. What it clears is only the app's temporary in-memory mirror. On the next authenticated request, JSKIT rebuilds that mirror from the Supabase user or token claims.
+
+So without a database, you still get:
+
+- real login
+- real logout
+- real registration
+- real password reset requests
+- real OTP and OAuth flows
+- real session cookies
+
+But you do **not** get:
+
+- persistent JSKIT-side user rows
+- persistent JSKIT-side user settings
+- account/profile persistence beyond what Supabase itself stores
+- workspace membership, user preferences, or the later users/workspaces data model
+
+So this chapter gives you real authentication, but only a temporary app-side user mirror. The full persistent JSKIT user model comes later with the database and users layers.
 </DocsTerminalTip>
+
+## Using auth in your own app
+
+The most important thing this chapter gives you is not just a login page. It gives you three real app-building tools:
+
+- a route-level auth guard
+- auth-aware placement predicates
+- a client-side auth composable you can read in your own components
+
+Those are different tools, and they do different jobs.
+
+- A route guard protects a URL.
+- A placement predicate controls whether a menu entry or widget is visible.
+- The auth composable lets your component react to the current session state.
+
+That separation matters. Protecting a route does **not** automatically hide a menu entry, and hiding a menu entry does **not** protect a route.
+
+### Start with a normal public page
+
+Generate a simple page under the public `home` surface:
+
+```bash
+npx jskit generate ui-generator page home/reports/index.vue --name "Reports"
+```
+
+At this point the page is still public, because `home` is a public surface. JSKIT creates:
+
+- `src/pages/home/reports/index.vue`
+- a new menu placement in `src/placement.js`
+
+The placement entry is just a normal shell link:
+
+```js
+addPlacement({
+  id: "ui-generator.page.home.reports.link",
+  target: "shell-layout:primary-menu",
+  surfaces: ["home"],
+  order: 155,
+  componentToken: "local.main.ui.surface-aware-menu-link-item",
+  props: {
+    label: "Reports",
+    surface: "home",
+    workspaceSuffix: "/reports",
+    nonWorkspaceSuffix: "/reports"
+  }
+});
+```
+
+And the page file itself is a normal page scaffold:
+
+```vue
+<template>
+  <section class="pa-4">
+    <h1 class="text-h5 mb-2">Reports</h1>
+    <p class="text-body-2 text-medium-emphasis">Replace this scaffold with your page implementation.</p>
+  </section>
+</template>
+```
+
+So immediately after generation:
+
+- the `Reports` menu entry is visible to everyone
+- `/home/reports` is reachable by everyone
+
+### Gate the page behind login
+
+To make the route require login, add a route guard block to `src/pages/home/reports/index.vue`:
+
+```vue
+<route lang="json">
+{
+  "meta": {
+    "guard": {
+      "policy": "authenticated"
+    }
+  }
+}
+</route>
+
+<template>
+  <section class="pa-4">
+    <h1 class="text-h5 mb-2">Reports</h1>
+    <p class="text-body-2 text-medium-emphasis">Replace this scaffold with your page implementation.</p>
+  </section>
+</template>
+```
+
+That one change protects the route itself. If a signed-out user tries to visit `/home/reports`, the auth guard runtime redirects them to the login route instead of letting the page render.
+
+The redirect also keeps the requested target. In practice the browser ends up on a login URL shaped like this:
+
+```text
+/auth/login?returnTo=%2Fhome%2Freports
+```
+
+So after login, JSKIT can send the user back to the page they originally asked for.
+
+### Hide the menu entry when signed out
+
+The route is now protected, but the drawer link is still visible. That is expected. Route protection and shell visibility are separate concerns.
+
+To hide the `Reports` menu entry until the user is logged in, update the placement entry in `src/placement.js`:
+
+```js
+addPlacement({
+  id: "ui-generator.page.home.reports.link",
+  target: "shell-layout:primary-menu",
+  surfaces: ["home"],
+  order: 155,
+  componentToken: "local.main.ui.surface-aware-menu-link-item",
+  props: {
+    label: "Reports",
+    surface: "home",
+    workspaceSuffix: "/reports",
+    nonWorkspaceSuffix: "/reports"
+  },
+  // Added: only show this menu entry when the current auth context is authenticated.
+  when: ({ auth }) => Boolean(auth?.authenticated)
+});
+```
+
+The only new part is the `when(...)` line. That predicate is evaluated by the shell placement runtime using the auth context that `auth-web` injects from `/api/session`.
+
+So the behavior now becomes:
+
+- signed out:
+  - the `Reports` drawer entry disappears
+  - visiting `/home/reports` manually still redirects to `/auth/login`
+- signed in:
+  - the `Reports` drawer entry appears
+  - `/home/reports` renders normally
+
+This is the most important pattern to understand: use the guard to protect the route, and use the placement `when(...)` function to control whether the shell exposes a link to it.
+
+### Read auth state in your own page code
+
+Sometimes you do not want to redirect or hide a menu entry. You just want the page to react differently when a user is logged in.
+
+For that, use `useAuth()` from `auth-web`. It gives your component a shared reactive auth object built on top of the underlying auth runtime, so normal Vue code can read the session state without manually wiring subscriptions.
+
+Here is a small example that changes `src/pages/home/index.vue` so it shows a success message when the session is authenticated:
+
+```vue
+<script setup>
+import { useAuth } from "@jskit-ai/auth-web/client";
+
+const { authenticated } = useAuth();
+</script>
+
+<template>
+  <section class="pa-4">
+    <v-alert v-if="authenticated" type="success" variant="tonal" class="mb-4">
+      You are logged in!
+    </v-alert>
+
+    <h1 class="text-h5 mb-2">Home</h1>
+    <p class="text-body-2 text-medium-emphasis">Replace this scaffold with your page implementation.</p>
+  </section>
+</template>
+```
+
+The important thing about that snippet is how little it needs to know. `authenticated` is already a reactive Vue ref, so the banner updates automatically when the session changes.
+
+`useAuth()` also gives you the rest of the surfaced auth state and the lower-level runtime methods when you need them:
+
+- `state`
+- `authenticated`
+- `username`
+- `oauthProviders`
+- `oauthDefaultProvider`
+- `initialize()`
+- `refresh()`
+- `getState()`
+- `subscribe()`
+- `runtime`
+
+If you need one of those methods, keep the whole auth object instead of only destructuring a single ref:
+
+```vue
+<script setup>
+import { useAuth } from "@jskit-ai/auth-web/client";
+
+const auth = useAuth();
+
+async function refreshSession() {
+  await auth.refresh();
+  console.log(auth.getState());
+}
+</script>
+```
+
+So this is not just useful for a demo banner. It is the same mechanism you would use for:
+
+- guest vs authenticated copy
+- showing a call-to-action only for signed-out users
+- enabling a tool panel only for authenticated users
+- rendering a user-specific welcome message
+
+### The three auth tools, side by side
+
+By this point the surfaced auth API should be clearer:
+
+- route file meta:
+  - use `"policy": "authenticated"` when the page itself must be protected
+- placement entry:
+  - use `when: ({ auth }) => Boolean(auth?.authenticated)` when shell UI should only appear for signed-in users
+- component code:
+  - use `useAuth()` when the page needs to react to auth state directly
+
+That is the real development payoff of this chapter. The login system is not just a screen. It gives the app a reusable auth state model that routing, shell placements, and component code can all use.
 
 ## Under the hood
 
@@ -361,6 +635,67 @@ So the auth story in this chapter is spread across clear responsibilities:
 - `src/placement.js` makes auth visible in the shell
 
 That is a very JSKIT-style pattern. The installed package brings the runtime behavior, but the app still owns the important seams where routing and UI get attached.
+
+### The runtime behind `useAuth()`
+
+`useAuth()` is the app-facing Vue layer, but it is not inventing a second auth system. It is a thin reactive wrapper around the lower-level auth guard runtime that `auth-web` boots on startup.
+
+That lower-level runtime already has a small, concrete contract:
+
+- `initialize()`
+- `refresh()`
+- `getState()`
+- `subscribe()`
+
+`auth-web` initializes that runtime once, injects it into Vue, and then exposes `useAuth()` as the normal component-facing API. That is why the main example earlier could stay so small.
+
+If you strip the composable away and write the same `You are logged in!` example directly against the runtime, it looks like this:
+
+```vue
+<script setup>
+import { computed, onBeforeUnmount, onMounted, ref } from "vue";
+import { useAuthGuardRuntime } from "@jskit-ai/auth-web/client";
+
+const authGuardRuntime = useAuthGuardRuntime({
+  required: true
+});
+const authState = ref(authGuardRuntime.getState());
+let unsubscribe = null;
+
+const isAuthenticated = computed(() => authState.value?.authenticated === true);
+
+onMounted(() => {
+  unsubscribe = authGuardRuntime.subscribe((nextState) => {
+    authState.value = nextState;
+  });
+});
+
+onBeforeUnmount(() => {
+  if (typeof unsubscribe === "function") {
+    unsubscribe();
+  }
+});
+</script>
+
+<template>
+  <section class="pa-4">
+    <v-alert v-if="isAuthenticated" type="success" variant="tonal" class="mb-4">
+      You are logged in!
+    </v-alert>
+
+    <h1 class="text-h5 mb-2">Home</h1>
+    <p class="text-body-2 text-medium-emphasis">Replace this scaffold with your page implementation.</p>
+  </section>
+</template>
+```
+
+That code works, and it shows exactly what `useAuth()` is wrapping:
+
+- `getState()` gives the first auth snapshot immediately
+- `subscribe(...)` keeps that snapshot updated later
+- the component turns that imperative runtime into normal Vue refs and computeds
+
+For ordinary Vue component code there is usually no advantage to writing it this way. `useAuth()` already gives you the same surfaced information plus the same runtime methods when you need them. The direct runtime version is mainly worth knowing so you understand the lower-level contract that `auth-web` itself is building on.
 
 ### Who actually talks to whom
 

@@ -1,15 +1,14 @@
 <script setup>
-import { computed, onBeforeUnmount, onMounted, ref } from "vue";
+import { computed } from "vue";
 import ShellOutlet from "@jskit-ai/shell-web/client/components/ShellOutlet";
 import { useWebPlacementContext } from "@jskit-ai/shell-web/client/placement";
-import { useAuthGuardRuntime } from "../runtime/inject.js";
+import { useAuth } from "../composables/useAuth.js";
 
-const authGuardRuntime = useAuthGuardRuntime({
+const auth = useAuth({
   required: true
 });
-const authState = ref(authGuardRuntime.getState());
+const authState = auth.state;
 const { context: shellPlacementContext } = useWebPlacementContext();
-let unsubscribe = null;
 
 const shellUser = computed(() => {
   const user = shellPlacementContext.value?.user;
@@ -61,19 +60,6 @@ const placementContext = computed(() => {
     auth: authState.value,
     user: shellUser.value
   };
-});
-
-onMounted(() => {
-  unsubscribe = authGuardRuntime.subscribe((nextState) => {
-    authState.value = nextState;
-  });
-});
-
-onBeforeUnmount(() => {
-  if (typeof unsubscribe === "function") {
-    unsubscribe();
-    unsubscribe = null;
-  }
 });
 </script>
 
