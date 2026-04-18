@@ -13,6 +13,7 @@
   - `packages/agent-docs/workflow/`
   - `packages/agent-docs/templates/`
   - `packages/agent-docs/guide/human/`
+  - `packages/agent-docs/skills/`
 
 When asked to create or refresh distributed agent docs:
 

@@ -2,6 +2,10 @@ import path from "node:path";
 import { pathToFileURL } from "node:url";
 import { access, readdir, readFile } from "node:fs/promises";
 import {
+  buildAppCommandOptionMeta,
+  listAppCommandDefinitions
+} from "../commandHandlers/appCommandCatalog.js";
+import {
   COMMAND_IDS,
   isKnownCommandName,
   resolveCommandAlias,
@@ -1027,6 +1031,35 @@ async function completeCommand({ appRoot, words, cword, catalogModule }) {
 
   if (command === "generate") {
     return completeGenerateCommand({ appRoot, words, cword, catalogModule });
+  }
+  if (command === "app") {
+    const appCommandNames = listAppCommandDefinitions().map((entry) => entry.name);
+    const currentTokenForApp = words[cword] ?? "";
+    const subcommandName = normalizeText(words[2]);
+    if (cword <= 2) {
+      return filterByPrefix(appCommandNames, currentTokenForApp);
+    }
+
+    if (!subcommandName || !appCommandNames.includes(subcommandName)) {
+      return filterByPrefix(appCommandNames, currentTokenForApp);
+    }
+
+    const previousTokenForApp = words[cword - 1] ?? "";
+    const optionMetaForApp = buildAppCommandOptionMeta(subcommandName);
+    return completeGenericContext({
+      appRoot,
+      currentToken: currentTokenForApp,
+      previousToken: previousTokenForApp,
+      optionMeta: optionMetaForApp,
+      tokensBeforeCurrent: words.slice(3, cword),
+      optionNames: uniqueSorted(Object.keys(optionMetaForApp)),
+      positionalCompleter: async ({ positionalIndex, currentToken: positionalCurrent }) => {
+        if (positionalIndex === 0) {
+          return filterByPrefix(["help"], positionalCurrent);
+        }
+        return [];
+      }
+    });
   }
 
   const optionMeta = buildCommandOptionMeta(command, catalogModule);

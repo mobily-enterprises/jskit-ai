@@ -41,6 +41,8 @@ Exports
 - `upsertEnvValue(content, key, value)`
 - `removeEnvValue(content, key, expectedValue, previous)`
 - `writeJsonFile`
+Local functions
+- `directoryLooksLikeJskitAppRoot(directoryPath)`
 
 ### `src/server/cliRuntime/capabilitySupport.js`
 Exports
@@ -340,6 +342,65 @@ Exports
 - `normalizeViteProxyMutationRecord(value = {})`
 - `applyViteMutations(packageEntry, appRoot, viteMutations, options, managedVite, touchedFiles)`
 - `removeManagedViteProxyEntries({ appRoot, packageId, managedViteChanges = {}, touchedFiles = null } = {})`
+
+### `src/server/commandHandlers/app.js`
+Exports
+- `createAppCommands(ctx = {})`
+Local functions
+- `renderAppHelp(stream, definition = null)`
+
+### `src/server/commandHandlers/appCommandCatalog.js`
+Exports
+- `APP_SCRIPT_WRAPPERS`
+- `LEGACY_APP_SCRIPT_VALUES`
+- `LEGACY_APP_SCRIPT_FILES`
+- `APP_COMMAND_DEFINITIONS`
+- `listAppCommandDefinitions()`
+- `resolveAppCommandDefinition(rawName = "")`
+- `buildAppCommandOptionMeta(subcommandName = "")`
+
+### `src/server/commandHandlers/appCommands/adoptManagedScripts.js`
+Exports
+- `runAppAdoptManagedScriptsCommand(ctx = {}, { appRoot = "", options = {}, stdout })`
+Local functions
+- `shouldRewriteScript(currentValue = "", scriptName = "", force = false)`
+
+### `src/server/commandHandlers/appCommands/linkLocalPackages.js`
+Exports
+- `runAppLinkLocalPackagesCommand(ctx = {}, { appRoot = "", options = {}, stdout })`
+
+### `src/server/commandHandlers/appCommands/release.js`
+Exports
+- `runAppReleaseCommand(ctx = {}, { appRoot = "", options = {}, stdout, stderr })`
+
+### `src/server/commandHandlers/appCommands/shared.js`
+Exports
+- `fileExists(filePath = "")`
+- `normalizeText(value = "")`
+- `isTruthyFlag(rawValue = "")`
+- `runExternalCommand(command, args = [], { cwd = "", env = {}, stdout, stderr, quiet = false, createCliError } = {})`
+- `formatUtcReleaseTimestamp(date = new Date())`
+- `resolveLocalJskitBin(appRoot = "")`
+- `runLocalJskit(appRoot, args = [], { stdout, stderr, createCliError, quiet = false } = {})`
+- `resolveLocalRepoRoot({ appRoot = "", explicitRepoRoot = "" } = {})`
+- `discoverLocalPackageMap(repoRoot = "")`
+- `linkPackageBinEntries({ appRoot, packageDirName, sourceDir, stdout } = {})`
+- `resolveSymlinkType()`
+Local functions
+- `ensureCommandSucceeded(result, label, { createCliError, cwd = "", stdout, stderr, quiet = false } = {})`
+
+### `src/server/commandHandlers/appCommands/updatePackages.js`
+Exports
+- `runAppUpdatePackagesCommand(ctx = {}, { appRoot = "", options = {}, stdout, stderr })`
+Local functions
+- `collectJskitPackageNames(packageMap = {})`
+- `resolveMajorRangeFromVersion(packageName = "", rawVersion = "", createCliError)`
+- `resolveRegistryArgs(registryUrl = "")`
+- `resolveInstallSpecs(packageNames = [], resolveMajorRange)`
+
+### `src/server/commandHandlers/appCommands/verify.js`
+Exports
+- `runAppVerifyCommand(ctx = {}, { appRoot = "", options = {}, stdout, stderr })`
 
 ### `src/server/commandHandlers/completion.js`
 Exports

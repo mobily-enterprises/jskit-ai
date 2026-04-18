@@ -28,6 +28,7 @@ State handling:
   - Explain which scaffold markers are missing.
   - Recover or finish the scaffold instead of re-initializing from scratch.
 - `jskit_app`
-  - Continue with scoping or feature delivery.
+  - If this is a fresh minimal scaffold and Stage 1 platform decisions are not settled yet, continue with the initialize workflow first.
+  - Otherwise continue with scoping or feature delivery.
 
 This state gate is intentionally strict. The agent must inspect first and only then choose initialize, recover, or extend.

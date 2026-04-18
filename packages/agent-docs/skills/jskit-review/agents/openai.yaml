@@ -1,0 +1,4 @@
+interface:
+  display_name: "JSKIT Review"
+  short_description: "Deslop, audit JSKIT fit, and verify a chunk or changeset"
+  default_prompt: "Use $jskit-review to run a deslop pass, JSKIT best-practices audit, and verification review on the current JSKIT chunk or whole changeset."

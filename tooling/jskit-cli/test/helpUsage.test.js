@@ -31,10 +31,32 @@ test("jskit with no args prints top-level command overview", () => {
   assertMaxLineLength(stdout);
   assert.match(stdout, /JSKit CLI/);
   assert.match(stdout, /Available commands:/);
+  assert.match(stdout, /app\s+Run JSKIT-managed app maintenance helpers/);
   assert.match(stdout, /completion\s+Print shell completion script support/);
   assert.match(stdout, /generate\s+Run a generator package/);
   assert.match(stdout, /list-placements\s+List discovered UI placement targets/);
   assert.match(stdout, /list-component-tokens\s+List available placement component tokens/);
+});
+
+test("jskit help app prints app maintenance command help", () => {
+  const result = runCli({ args: ["help", "app"] });
+  assert.equal(result.status, 0, String(result.stderr || ""));
+  const stdout = String(result.stdout || "");
+  assertMaxLineLength(stdout);
+  assert.match(stdout, /Command: app/);
+  assert.match(stdout, /jskit app verify/);
+  assert.match(stdout, /adopt-managed-scripts/);
+  assert.match(stdout, /jskit app <subcommand> \[help\]/);
+});
+
+test("jskit app help release prints release-specific options", () => {
+  const result = runCli({ args: ["app", "help", "release"] });
+  assert.equal(result.status, 0, String(result.stderr || ""));
+  const stdout = String(result.stdout || "");
+  assertMaxLineLength(stdout);
+  assert.match(stdout, /App subcommand: release/);
+  assert.match(stdout, /--registry <url>/);
+  assert.match(stdout, /--dry-run/);
 });
 
 test("jskit help completion prints completion command help", () => {

@@ -12,7 +12,7 @@
     "server:all": "node ./bin/server.js",
     "server:home": "SERVER_SURFACE=home node ./bin/server.js",
     "start": "node ./bin/server.js",
-    "devlinks": "bash ./scripts/link-local-jskit-packages.sh",
+    "devlinks": "jskit app link-local-packages",
     "dev": "vite",
     "dev:all": "vite",
     "dev:home": "VITE_SURFACE=home vite",
@@ -23,9 +23,9 @@
     "lint": "eslint .",
     "test": "node --test",
     "test:client": "vitest run tests/client",
-    "verify": "npm run lint && npm run test && npm run test:client && npm run build && npx jskit doctor",
-    "release": "bash ./scripts/release.sh",
-    "jskit:update": "bash ./scripts/update-jskit-packages.sh"
+    "verify": "jskit app verify && npm run --if-present verify:app",
+    "release": "jskit app release",
+    "jskit:update": "jskit app update-packages"
   },
   "dependencies": {
     "@local/main": "file:packages/main",

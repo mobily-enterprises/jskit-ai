@@ -12,6 +12,16 @@ npm install
 
 The first command creates a new folder called `exampleapp` and fills it with JSKIT's base shell template. The `exampleapp` name is used in a few template replacements, such as the package name and the browser title. The `--tenancy-mode none` flag tells JSKIT to start with the smallest routing model. In this mode, the app is not workspace-aware (more of this later in the guide, when multihoming is introduced). That keeps the first scaffold easier to read because there is no workspace slug handling yet.
 
+If you are working with an AI agent and want the agent to explain the platform options after the scaffold exists, there is also a safe guided path:
+
+```bash
+npx @jskit-ai/create-app exampleapp
+cd exampleapp
+npm install
+```
+
+That produces the same minimal scaffold shape, but without writing an explicit `config.tenancyMode` line yet. The important rule is that this does **not** mean tenancy is already decided. Before installing tenancy-sensitive packages such as `workspaces-core` or `workspaces-web`, the agent still needs to finish the Stage 1 platform conversation and then write the chosen tenancy into `config/public.js`. If workspace packages are installed while the app is still effectively on `none`, you fall into the recovery path described later in the multi-homing chapter.
+
 After creating the scaffolding (which comes with a package.json file), you will need to run `npm install` to install dependencies.
 
 <DocsTerminalTip title="Try Bash Completion!">
@@ -118,6 +128,7 @@ The most important parts look like this:
     "server": "node ./bin/server.js",
     "server:all": "node ./bin/server.js",
     "server:home": "SERVER_SURFACE=home node ./bin/server.js",
+    "devlinks": "jskit app link-local-packages",
     "dev": "vite",
     "dev:all": "vite",
     "dev:home": "VITE_SURFACE=home vite",
@@ -126,7 +137,9 @@ The most important parts look like this:
     "build:home": "VITE_SURFACE=home vite build",
     "test": "node --test",
     "test:client": "vitest run tests/client",
-    "verify": "npm run lint && npm run test && npm run test:client && npm run build && npx jskit doctor"
+    "verify": "jskit app verify && npm run --if-present verify:app",
+    "release": "jskit app release",
+    "jskit:update": "jskit app update-packages"
   },
   "dependencies": {
     "@local/main": "file:packages/main",
@@ -145,9 +158,13 @@ The most important parts look like this:
 }
 ```
 
-There are two details worth noticing immediately. The dependency on `@local/main` points at `file:packages/main`, which means your app already contains its own local JSKIT package. The `verify` script is also useful to notice early, because it shows the default quality gate the scaffold expects you to run later.
+There are two details worth noticing immediately. The dependency on `@local/main` points at `file:packages/main`, which means your app already contains its own local JSKIT package. The maintenance scripts are also useful to notice early, because they show an important ownership boundary in JSKIT.
 
-The last command in that script, `npx jskit doctor`, is worth noticing specifically. Linting, tests, and builds check your source code and runtime behavior. `doctor` checks JSKIT-managed app state: installed package visibility, lock-file-backed managed files, and other JSKIT-specific health rules. It is there because a JSKIT app is not only code. It is also a descriptor-driven managed project.
+`verify`, `jskit:update`, `devlinks`, and `release` are intentionally thin wrappers. They stay in `package.json` because they are convenient app-local shortcuts, but the real implementation now lives in `jskit app ...`, not in copied scaffold scripts.
+
+That matters because JSKIT maintenance policy changes over time. If the scaffold copied a large shell script into every app, existing apps would freeze the old behavior forever. By delegating to `jskit app verify`, `jskit app update-packages`, `jskit app link-local-packages`, and `jskit app release`, the app keeps the nice `npm run` shortcuts while the maintained behavior stays in the installed CLI package.
+
+`jskit app verify` is worth noticing specifically. Linting, tests, and builds check your source code and runtime behavior. The JSKIT part of that flow runs `doctor`, which checks JSKIT-managed app state: installed package visibility, lock-file-backed managed files, and other JSKIT-specific health rules. It is there because a JSKIT app is not only code. It is also a descriptor-driven managed project.
 
 The surface-specific script names are also worth noticing early, even in this tiny app. `dev:home`, `server:home`, and `build:home` are the first concrete places where surface selection shows up in the scaffold. They work by setting `VITE_SURFACE=home` on the client side and `SERVER_SURFACE=home` on the server side. In this first chapter, where `home` is the only surface, those variants behave almost the same as the default commands. Later, once more surfaces exist, those scripts become the simplest way to run or build just one surface at a time.
 
@@ -719,7 +736,7 @@ That is why you saw `@jskit-ai/kernel` and `@jskit-ai/http-runtime` earlier in `
 
 ### Other files and options
 
-The remaining files are easier to understand once you know the core pieces above. `vite.config.mjs` configures the frontend build and the `/api` proxy used during development. `index.html` is the HTML shell Vite uses to mount Vue. `tests/` contains basic smoke tests so the app has a verification path from day one. The `scripts/` directory collects helper scripts for release, updating JSKIT packages, and linking a local JSKIT checkout during framework development.
+The remaining files are easier to understand once you know the core pieces above. `vite.config.mjs` configures the frontend build and the `/api` proxy used during development. `index.html` is the HTML shell Vite uses to mount Vue. `tests/` contains basic smoke tests so the app has a verification path from day one. The `scripts/` directory is now much smaller than it used to be, because JSKIT maintenance helpers such as `verify`, `jskit:update`, `devlinks`, and `release` are package-owned CLI commands rather than copied app scripts.
 
 The `create-app` command also accepts a few other flags that are useful without changing the basic meaning of this chapter's setup. `--title <text>` lets you replace the browser title and other template text with a friendlier app name. `--target <path>` lets you choose a different output directory instead of the default `./exampleapp`. `--tenancy-mode <mode>` can seed `none`, `personal`, or `workspaces`; for this chapter we intentionally use `none` so the first scaffold stays small and non-workspace. `--force` allows writing into a non-empty target directory when you know that is what you want. `--dry-run` prints the planned file writes without touching the filesystem, which is useful when you want to inspect what the generator would do. `-h` or `--help` prints the command help.
 

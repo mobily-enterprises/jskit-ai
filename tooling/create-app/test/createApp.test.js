@@ -62,15 +62,18 @@ test("create-app scaffolds the base shell with placeholder replacements", async 
     assert.equal(packageJson.scripts["build:admin"], undefined);
     assert.equal(packageJson.scripts.server, "node ./bin/server.js");
     assert.equal(packageJson.scripts.start, "node ./bin/server.js");
+    assert.equal(packageJson.scripts.devlinks, "jskit app link-local-packages");
+    assert.equal(packageJson.scripts.verify, "jskit app verify && npm run --if-present verify:app");
+    assert.equal(packageJson.scripts.release, "jskit app release");
+    assert.equal(packageJson.scripts["jskit:update"], "jskit app update-packages");
     assert.equal(packageJson.dependencies["@local/main"], "file:packages/main");
     assert.match(packageJson.dependencies["@jskit-ai/http-runtime"], /^\d+\.x$/);
     assert.equal(packageJson.dependencies["@fastify/type-provider-typebox"], "^6.1.0");
     assert.equal(packageJson.dependencies.pinia, "^3.0.4");
     await assert.rejects(access(path.join(appRoot, "scripts/copy-local-packages.sh")), /ENOENT/);
-    const linkLocalScript = await readFile(path.join(appRoot, "scripts/link-local-jskit-packages.sh"), "utf8");
-    assert.doesNotMatch(linkLocalScript, /Development\/current\/jskit-ai/);
-    assert.match(linkLocalScript, /node_modules\/\.vite/);
-    assert.match(linkLocalScript, /cleared Vite cache/);
+    await assert.rejects(access(path.join(appRoot, "scripts/link-local-jskit-packages.sh")), /ENOENT/);
+    await assert.rejects(access(path.join(appRoot, "scripts/release.sh")), /ENOENT/);
+    await assert.rejects(access(path.join(appRoot, "scripts/update-jskit-packages.sh")), /ENOENT/);
     await assert.rejects(access(path.join(appRoot, "scripts/dev-bootstrap-jskit.sh")), /ENOENT/);
     await assert.rejects(access(path.join(appRoot, "scripts/just_run_verde")), /ENOENT/);
     await assert.rejects(access(path.join(appRoot, "scripts/verdaccio-reset-and-publish-packages.sh")), /ENOENT/);
@@ -270,19 +273,12 @@ test("create-app rejects template path traversal names", async () => {
   });
 });
 
-test("base-shell scripts do not hardcode machine-specific jskit paths", async () => {
+test("base-shell app agent wrapper does not hardcode machine-specific jskit paths", async () => {
   const packageRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
-  const baseScriptsDir = path.join(packageRoot, "templates/base-shell/scripts");
-  const scriptPaths = [
-    path.join(baseScriptsDir, "link-local-jskit-packages.sh"),
-    path.join(baseScriptsDir, "release.sh"),
-    path.join(baseScriptsDir, "update-jskit-packages.sh")
-  ];
-
-  for (const scriptPath of scriptPaths) {
-    const body = await readFile(scriptPath, "utf8");
-    assert.doesNotMatch(body, /Development\/current\/jskit-ai/);
-  }
+  const wrapperPath = path.join(packageRoot, "templates/base-shell/AGENTS.md");
+  const body = await readFile(wrapperPath, "utf8");
+  assert.doesNotMatch(body, /Development\/current\/jskit-ai/);
+  assert.match(body, /node_modules\/@jskit-ai\/agent-docs\/templates\/app\/AGENTS\.md/);
 });
 
 test("create-app interactive flow captures initial bundle selection in guidance", async () => {

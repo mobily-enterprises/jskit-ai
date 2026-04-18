@@ -11,19 +11,41 @@ import {
 
 const LOCK_RELATIVE_PATH = ".jskit/lock.json";
 const LOCK_VERSION = 1;
+const APP_ROOT_MARKER_RELATIVE_PATHS = Object.freeze([
+  LOCK_RELATIVE_PATH,
+  "app.json"
+]);
+
+async function directoryLooksLikeJskitAppRoot(directoryPath) {
+  for (const relativePath of APP_ROOT_MARKER_RELATIVE_PATHS) {
+    if (await fileExists(path.join(directoryPath, relativePath))) {
+      return true;
+    }
+  }
+  return false;
+}
 
 async function resolveAppRootFromCwd(cwd) {
   const startDirectory = path.resolve(String(cwd || process.cwd()));
   let currentDirectory = startDirectory;
+  let fallbackPackageRoot = "";
 
   while (true) {
     const packageJsonPath = path.join(currentDirectory, "package.json");
     if (await fileExists(packageJsonPath)) {
-      return currentDirectory;
+      if (!fallbackPackageRoot) {
+        fallbackPackageRoot = currentDirectory;
+      }
+      if (await directoryLooksLikeJskitAppRoot(currentDirectory)) {
+        return currentDirectory;
+      }
     }
 
     const parentDirectory = path.dirname(currentDirectory);
     if (parentDirectory === currentDirectory) {
+      if (fallbackPackageRoot) {
+        return fallbackPackageRoot;
+      }
       throw createCliError(
         `Could not locate package.json starting from ${startDirectory}. Run jskit from an app directory (or a child directory of one).`
       );
