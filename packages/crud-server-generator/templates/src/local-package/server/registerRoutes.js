@@ -9,8 +9,8 @@ import {
 import {
   recordIdParamsValidator
 } from "@jskit-ai/kernel/shared/validators";
-import { checkRouteVisibility } from "@jskit-ai/users-core/shared/support/usersVisibility";
-import { resolveApiBasePath } from "@jskit-ai/users-core/shared/support/usersApiPaths";
+import { checkRouteVisibility } from "@jskit-ai/kernel/shared/support/visibility";
+import { resolveScopedApiBasePath } from "@jskit-ai/kernel/shared/surface";
 import { actionIds } from "./actionIds.js";
 import { resource } from "../shared/${option:namespace|singular|camel}Resource.js";
 import { LIST_CONFIG } from "./listConfig.js";
@@ -29,9 +29,10 @@ function registerRoutes(
 ) {
   const router = app.make("jskit.http.router");
   const normalizedRouteSurface = normalizeSurfaceId(routeSurface);
-  const routeBase = resolveApiBasePath({
-    surfaceRequiresWorkspace: __JSKIT_CRUD_ROUTE_SURFACE_REQUIRES_WORKSPACE__,
-    relativePath: routeRelativePath
+  const routeBase = resolveScopedApiBasePath({
+    routeBase: __JSKIT_CRUD_ROUTE_SURFACE_REQUIRES_WORKSPACE__ ? "/w/:workspaceSlug" : "/",
+    relativePath: routeRelativePath,
+    strictParams: false
   });
 
   router.register(

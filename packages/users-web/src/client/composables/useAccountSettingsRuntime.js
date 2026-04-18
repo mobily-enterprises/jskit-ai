@@ -1,29 +1,25 @@
 import { computed, onBeforeUnmount, onMounted, reactive, ref, watch } from "vue";
 import { useQueryClient } from "@tanstack/vue-query";
 import { useTheme } from "vuetify";
-import { useRoute, useRouter } from "vue-router";
+import { useRoute } from "vue-router";
 import {
   useWebPlacementContext,
   resolveSurfaceNavigationTargetFromPlacementContext
 } from "@jskit-ai/shell-web/client/placement";
 import { useShellWebErrorRuntime } from "@jskit-ai/shell-web/client/error";
 import { validateOperationSection } from "@jskit-ai/http-runtime/shared/validators/operationValidation";
+import { ROUTE_VISIBILITY_PUBLIC } from "@jskit-ai/kernel/shared/support/visibility";
 import { userProfileResource } from "@jskit-ai/users-core/shared/resources/userProfileResource";
 import { userSettingsResource } from "@jskit-ai/users-core/shared/resources/userSettingsResource";
-import { USERS_ROUTE_VISIBILITY_PUBLIC } from "@jskit-ai/users-core/shared/support/usersVisibility";
 import {
   persistThemePreference,
   resolveThemeNameForPreference,
   setVuetifyThemeName
 } from "../lib/theme.js";
-import {
-  useWorkspaceSurfaceId
-} from "./useWorkspaceSurfaceId.js";
 import { useAddEdit } from "./records/useAddEdit.js";
 import { useCommand } from "./useCommand.js";
 import { useView } from "./records/useView.js";
-import { usePaths } from "./usePaths.js";
-import { resolveAccountSettingsPathFromPlacementContext } from "../lib/workspaceSurfacePaths.js";
+import { resolveSurfacePathFromPlacementContext } from "@jskit-ai/shell-web/client/placement";
 import {
   ACCOUNT_SETTINGS_DEFAULTS,
   AVATAR_DEFAULT_SIZE,
@@ -37,19 +33,15 @@ import {
 } from "./account-settings/accountSettingsRuntimeConstants.js";
 import {
   normalizeAvatarSize,
-  normalizePendingInvite,
   normalizeReturnToPath,
   normalizeSettingsPayload,
   resolveAllowedReturnToOrigins
 } from "./account-settings/accountSettingsRuntimeHelpers.js";
 import { createAccountSettingsAvatarUploadRuntime } from "./account-settings/accountSettingsAvatarUploadRuntime.js";
-import { createAccountSettingsInvitesRuntime } from "./account-settings/accountSettingsInvitesRuntime.js";
 
 function useAccountSettingsRuntime() {
   const route = useRoute();
-  const router = useRouter();
   const { context: placementContext } = useWebPlacementContext();
-  const paths = usePaths();
   const queryClient = useQueryClient();
   const errorRuntime = useShellWebErrorRuntime();
   const vuetifyTheme = useTheme();
@@ -58,11 +50,12 @@ function useAccountSettingsRuntime() {
   const accountProfileWriteQueryKey = ["users-web", "settings", "account-profile-write"];
   const accountPreferencesWriteQueryKey = ["users-web", "settings", "account-preferences-write"];
   const accountNotificationsWriteQueryKey = ["users-web", "settings", "account-notifications-write"];
-  const pendingInvitesQueryKey = ["users-web", "settings", "pending-invites"];
   const sessionQueryKey = Object.freeze(["users-web", "session", "csrf"]);
-  const OWNERSHIP_PUBLIC = USERS_ROUTE_VISIBILITY_PUBLIC;
+  const OWNERSHIP_PUBLIC = ROUTE_VISIBILITY_PUBLIC;
 
-  const accountSettingsPath = computed(() => resolveAccountSettingsPathFromPlacementContext(placementContext.value));
+  const accountSettingsPath = computed(() =>
+    resolveSurfacePathFromPlacementContext(placementContext.value, "account", "/")
+  );
   const allowedReturnToOrigins = computed(() => resolveAllowedReturnToOrigins(placementContext.value));
   const backTarget = computed(() =>
     normalizeReturnToPath(route?.query?.returnTo, {
@@ -107,20 +100,7 @@ function useAccountSettingsRuntime() {
     version: null
   });
 
-  const pendingInvitesModel = reactive({
-    pendingInvites: [],
-    workspaceInvitesEnabled: false
-  });
-
   const selectedAvatarFileName = ref("");
-  const inviteAction = ref({
-    token: "",
-    decision: ""
-  });
-  const redeemInviteModel = reactive({
-    token: "",
-    decision: ""
-  });
 
   const profileInitials = computed(() => {
     const source = String(profileForm.displayName || profileForm.email || "U").trim();
@@ -209,41 +189,6 @@ function useAccountSettingsRuntime() {
     },
     fallbackLoadError: "Unable to load settings.",
     mapLoadedToModel: mapAccountSettingsPayload
-  });
-
-  const pendingInvitesView = useView({
-    ownershipFilter: OWNERSHIP_PUBLIC,
-    apiSuffix: "/bootstrap",
-    queryKeyFactory: () => pendingInvitesQueryKey,
-    realtime: {
-      event: "workspace.invitations.pending.changed"
-    },
-    fallbackLoadError: "Unable to load invitations.",
-    model: pendingInvitesModel,
-    mapLoadedToModel: (model, payload = {}) => {
-      model.workspaceInvitesEnabled = payload?.app?.features?.workspaceInvites === true;
-      model.pendingInvites = model.workspaceInvitesEnabled
-        ? (Array.isArray(payload?.pendingInvites) ? payload.pendingInvites : [])
-          .map(normalizePendingInvite)
-          .filter(Boolean)
-        : [];
-    }
-  });
-
-  const redeemInviteCommand = useCommand({
-    ownershipFilter: OWNERSHIP_PUBLIC,
-    apiSuffix: "/workspace/invitations/redeem",
-    writeMethod: "POST",
-    fallbackRunError: "Unable to respond to invitation.",
-    suppressSuccessMessage: true,
-    model: redeemInviteModel,
-    buildRawPayload: (model) => ({
-      token: String(model.token || "").trim(),
-      decision: String(model.decision || "").trim().toLowerCase()
-    }),
-    messages: {
-      error: "Unable to respond to invitation."
-    }
   });
 
   const profileAddEdit = useAddEdit({
@@ -349,89 +294,8 @@ function useAccountSettingsRuntime() {
 
   const loadingSettings = computed(() => Boolean(settingsView.isLoading));
   const refreshingSettings = computed(() => Boolean(settingsView.isRefetching));
-  const invitesAvailable = computed(() => pendingInvitesModel.workspaceInvitesEnabled === true);
-  const loadingInvites = computed(() => Boolean(pendingInvitesView.isLoading));
-  const refreshingInvites = computed(() => Boolean(pendingInvitesView.isRefetching));
-  const pendingInvites = computed(() => {
-    return Array.isArray(pendingInvitesModel.pendingInvites) ? pendingInvitesModel.pendingInvites : [];
-  });
-  const isResolvingInvite = computed(() => Boolean(redeemInviteCommand.isRunning.value));
-
-  const { workspaceSurfaceId } = useWorkspaceSurfaceId({
-    route,
-    placementContext
-  });
-
-  function workspaceHomePath(workspaceSlug) {
-    const normalizedSlug = String(workspaceSlug || "").trim();
-    if (!normalizedSlug || !workspaceSurfaceId.value) {
-      return "";
-    }
-
-    return paths.page("/", {
-      surface: workspaceSurfaceId.value,
-      workspaceSlug: normalizedSlug,
-      mode: "workspace"
-    });
-  }
-
   async function submitProfile() {
     await profileAddEdit.submit();
-  }
-
-  async function openWorkspace(workspaceSlug) {
-    const targetPath = workspaceHomePath(workspaceSlug);
-    if (!targetPath) {
-      reportAccountFeedback({
-        message: "Workspace surface is not configured.",
-        severity: "error",
-        channel: "banner",
-        dedupeKey: "users-web.account-settings-runtime:workspace-surface-missing"
-      });
-      return;
-    }
-
-    try {
-      const navigationTarget = resolveSurfaceNavigationTargetFromPlacementContext(placementContext.value, {
-        path: targetPath,
-        surfaceId: workspaceSurfaceId.value
-      });
-      if (navigationTarget.sameOrigin) {
-        await router.push(navigationTarget.href);
-      } else if (typeof window === "object" && window?.location && typeof window.location.assign === "function") {
-        window.location.assign(navigationTarget.href);
-      } else {
-        throw new Error("Cross-origin navigation is unavailable in this environment.");
-      }
-    } catch (error) {
-      reportAccountFeedback({
-        message: String(error?.message || "Unable to open workspace."),
-        severity: "error",
-        channel: "banner",
-        dedupeKey: `users-web.account-settings-runtime:open-workspace:${String(workspaceSlug || "").trim()}`
-      });
-    }
-  }
-
-  const invitesRuntime = createAccountSettingsInvitesRuntime({
-    invitesAvailable,
-    isResolvingInvite,
-    inviteAction,
-    redeemInviteModel,
-    redeemInviteCommand,
-    pendingInvites,
-    pendingInvitesModel,
-    pendingInvitesView,
-    openWorkspace,
-    reportAccountFeedback
-  });
-
-  function acceptInvite(invite) {
-    return invitesRuntime.accept(invite);
-  }
-
-  function refuseInvite(invite) {
-    return invitesRuntime.refuse(invite);
   }
 
   function openAvatarEditor() {
@@ -508,17 +372,6 @@ function useAccountSettingsRuntime() {
     submit: submitNotifications
   });
 
-  const invites = Object.freeze({
-    isAvailable: invitesAvailable,
-    items: pendingInvites,
-    isLoading: loadingInvites,
-    isRefetching: refreshingInvites,
-    isResolving: isResolvingInvite,
-    action: inviteAction,
-    accept: acceptInvite,
-    refuse: refuseInvite
-  });
-
   return Object.freeze({
     backTarget,
     backNavigationTarget,
@@ -526,8 +379,7 @@ function useAccountSettingsRuntime() {
     refreshingSettings,
     profile,
     preferences,
-    notifications,
-    invites
+    notifications
   });
 }
 

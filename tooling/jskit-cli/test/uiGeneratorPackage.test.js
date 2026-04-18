@@ -309,7 +309,7 @@ test("generate @jskit-ai/crud-ui-generator crud scaffolds CRUD pages at an expli
     assert.match(placementSource, /id: "ui-generator\.page\.admin\.ops\.customers-ui\.link"/);
     assert.match(placementSource, /target: "shell-layout:primary-menu"/);
     assert.match(placementSource, /componentToken: "local\.main\.ui\.surface-aware-menu-link-item"/);
-    assert.match(placementSource, /workspaceSuffix: "\/ops\/customers-ui"/);
+    assert.match(placementSource, /scopedSuffix: "\/ops\/customers-ui"/);
 
     const localLinkComponentPath = path.join(appRoot, "src", "components", "menus", "SurfaceAwareMenuLinkItem.vue");
     const providerPath = path.join(appRoot, "packages", "main", "src", "client", "providers", "MainClientProvider.js");
@@ -456,8 +456,8 @@ export { config };
     props: {
       label: "Pollen Types",
       surface: "home",
-      workspaceSuffix: "/settings/pollen_types",
-      nonWorkspaceSuffix: "/settings/pollen_types",
+      scopedSuffix: "/settings/pollen_types",
+      unscopedSuffix: "/settings/pollen_types",
       to: "./pollen_types"
     }
   });

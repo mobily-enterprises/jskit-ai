@@ -1,6 +1,6 @@
 import { normalizePathname } from "@jskit-ai/kernel/shared/surface/paths";
 import { normalizeText } from "@jskit-ai/kernel/shared/support/normalize";
-import { resolveApiBasePath } from "@jskit-ai/users-core/shared/support/usersApiPaths";
+import { resolveScopedApiBasePath } from "@jskit-ai/kernel/shared/surface";
 
 const ASSISTANT_API_RELATIVE_PATH = "/assistant";
 const ASSISTANT_SETTINGS_API_RELATIVE_PATH = "/assistant/:surfaceId/settings";
@@ -38,16 +38,18 @@ function materializeAssistantPath(basePath = "", { workspaceSlug = "", surfaceId
 }
 
 function resolveAssistantApiBasePath({ requiresWorkspace = false } = {}) {
-  return resolveApiBasePath({
-    surfaceRequiresWorkspace: requiresWorkspace === true,
-    relativePath: ASSISTANT_API_RELATIVE_PATH
+  return resolveScopedApiBasePath({
+    routeBase: requiresWorkspace === true ? "/w/:workspaceSlug" : "/",
+    relativePath: ASSISTANT_API_RELATIVE_PATH,
+    strictParams: false
   });
 }
 
 function resolveAssistantSettingsApiPath({ requiresWorkspace = false } = {}) {
-  return resolveApiBasePath({
-    surfaceRequiresWorkspace: requiresWorkspace === true,
-    relativePath: ASSISTANT_SETTINGS_API_RELATIVE_PATH
+  return resolveScopedApiBasePath({
+    routeBase: requiresWorkspace === true ? "/w/:workspaceSlug" : "/",
+    relativePath: ASSISTANT_SETTINGS_API_RELATIVE_PATH,
+    strictParams: false
   });
 }
 

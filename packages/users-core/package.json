@@ -6,18 +6,8 @@
     "test": "node --test"
   },
   "exports": {
-    "./server/UsersWorkspacesServiceProvider": "./src/server/UsersWorkspacesServiceProvider.js",
-    "./server/support/workspaceRouteInput": "./src/server/support/workspaceRouteInput.js",
-    "./server/support/resolveWorkspace": "./src/server/support/resolveWorkspace.js",
-    "./server/validators/routeParamsValidator": "./src/server/common/validators/routeParamsValidator.js",
+    "./server/profileSyncLifecycleContributorRegistry": "./src/server/profileSyncLifecycleContributorRegistry.js",
     "./shared/settings": "./src/shared/settings.js",
-    "./shared/tenancyProfile": "./src/shared/tenancyProfile.js",
-    "./shared/support/usersVisibility": "./src/shared/support/usersVisibility.js",
-    "./shared/support/workspacePathModel": "./src/shared/support/workspacePathModel.js",
-    "./shared/support/usersApiPaths": "./src/shared/support/usersApiPaths.js",
-    "./shared/resources/workspaceResource": "./src/shared/resources/workspaceResource.js",
-    "./shared/resources/workspaceSettingsResource": "./src/shared/resources/workspaceSettingsResource.js",
-    "./shared/resources/workspaceSettingsFields": "./src/shared/resources/workspaceSettingsFields.js",
     "./shared/resources/userProfileResource": "./src/shared/resources/userProfileResource.js",
     "./shared/resources/userSettingsFields": "./src/shared/resources/userSettingsFields.js",
     "./shared/resources/userSettingsResource": "./src/shared/resources/userSettingsResource.js"

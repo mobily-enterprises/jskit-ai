@@ -62,7 +62,25 @@ test("workspaces-web descriptor metadata advertises admin settings outlets", () 
       }
     ]
   );
-  assert.equal(findContribution("users.workspace.settings.general"), null);
+  assert.equal(findContribution("workspaces.workspace.settings.general"), null);
+  assert.deepEqual(findContribution("workspaces.profile.menu.surface-switch"), {
+    id: "workspaces.profile.menu.surface-switch",
+    target: "auth-profile-menu:primary-menu",
+    surfaces: ["*"],
+    order: 100,
+    componentToken: "workspaces.web.profile.menu.surface-switch-item",
+    when: "auth.authenticated === true",
+    source: "mutations.text#workspaces-web-profile-surface-switch-placement"
+  });
+  assert.deepEqual(findContribution("workspaces.workspace.selector"), {
+    id: "workspaces.workspace.selector",
+    target: "shell-layout:top-left",
+    surfaces: ["*"],
+    order: 200,
+    componentToken: "workspaces.web.workspace.selector",
+    when: "auth.authenticated === true",
+    source: "mutations.text#workspaces-web-placement-block"
+  });
   assert.deepEqual(findFileMutation("users-web-page-admin-workspace-settings"), {
     from: "templates/src/pages/admin/workspace/settings/index.vue",
     toSurface: "admin",

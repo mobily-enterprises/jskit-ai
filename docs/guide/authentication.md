@@ -321,8 +321,8 @@ addPlacement({
   props: {
     label: "Reports",
     surface: "home",
-    workspaceSuffix: "/reports",
-    nonWorkspaceSuffix: "/reports"
+    scopedSuffix: "/reports",
+    unscopedSuffix: "/reports"
   }
 });
 ```
@@ -392,8 +392,8 @@ addPlacement({
   props: {
     label: "Reports",
     surface: "home",
-    workspaceSuffix: "/reports",
-    nonWorkspaceSuffix: "/reports"
+    scopedSuffix: "/reports",
+    unscopedSuffix: "/reports"
   },
   // Added: only show this menu entry when the current auth context is authenticated.
   when: ({ auth }) => Boolean(auth?.authenticated)

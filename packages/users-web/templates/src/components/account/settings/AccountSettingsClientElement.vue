@@ -3,27 +3,48 @@ import { computed } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import { normalizeOneOf } from "@jskit-ai/kernel/shared/support/normalize";
 import { useAccountSettingsRuntime } from "@jskit-ai/users-web/client/composables/useAccountSettingsRuntime";
+import { useAccountSettingsSections } from "@jskit-ai/users-web/client/account-settings/sections";
 import AccountSettingsProfileSection from "./AccountSettingsProfileSection.vue";
 import AccountSettingsPreferencesSection from "./AccountSettingsPreferencesSection.vue";
 import AccountSettingsNotificationsSection from "./AccountSettingsNotificationsSection.vue";
-import AccountSettingsInvitesSection from "./AccountSettingsInvitesSection.vue";
 
 const runtime = useAccountSettingsRuntime();
 const route = useRoute();
 const router = useRouter();
+const extensionSections = useAccountSettingsSections();
 
 const sections = computed(() => {
   const nextSections = [
-    { title: "Profile", value: "profile" },
-    { title: "Preferences", value: "preferences" },
-    { title: "Notifications", value: "notifications" }
+    { title: "Profile", value: "profile", component: AccountSettingsProfileSection, usesSharedRuntime: true, order: 100 },
+    {
+      title: "Preferences",
+      value: "preferences",
+      component: AccountSettingsPreferencesSection,
+      usesSharedRuntime: true,
+      order: 200
+    },
+    {
+      title: "Notifications",
+      value: "notifications",
+      component: AccountSettingsNotificationsSection,
+      usesSharedRuntime: true,
+      order: 300
+    }
   ];
 
-  if (runtime.invites.isAvailable.value) {
-    nextSections.push({ title: "Invites", value: "invites" });
+  for (const entry of extensionSections) {
+    nextSections.push(entry);
   }
 
-  return Object.freeze(nextSections);
+  return Object.freeze(
+    nextSections.sort((left, right) => {
+      const orderDelta = Number(left.order || 0) - Number(right.order || 0);
+      if (orderDelta !== 0) {
+        return orderDelta;
+      }
+      return String(left.value || "").localeCompare(String(right.value || ""));
+    })
+  );
 });
 const sectionValues = computed(() => Object.freeze(sections.value.map((section) => section.value)));
 
@@ -105,20 +126,11 @@ const activeTab = computed({
 
             <v-col cols="12" md="9" lg="10">
               <v-window v-model="activeTab" :touch="false" class="settings-sections-window">
-                <v-window-item value="profile">
-                  <AccountSettingsProfileSection :runtime="runtime" />
-                </v-window-item>
-
-                <v-window-item value="preferences">
-                  <AccountSettingsPreferencesSection :runtime="runtime" />
-                </v-window-item>
-
-                <v-window-item value="notifications">
-                  <AccountSettingsNotificationsSection :runtime="runtime" />
-                </v-window-item>
-
-                <v-window-item value="invites">
-                  <AccountSettingsInvitesSection :runtime="runtime" />
+                <v-window-item v-for="section in sections" :key="section.value" :value="section.value">
+                  <component
+                    :is="section.component"
+                    v-bind="section.usesSharedRuntime ? { runtime } : undefined"
+                  />
                 </v-window-item>
               </v-window>
             </v-col>

@@ -5,18 +5,18 @@ import {
   requireCrudNamespace
 } from "../shared/crudNamespaceSupport.js";
 import {
-  resolveApiBasePath
-} from "@jskit-ai/users-core/shared/support/usersApiPaths";
+  resolveScopedApiBasePath
+} from "@jskit-ai/kernel/shared/surface";
 import {
-  USERS_ROUTE_VISIBILITY_LEVELS,
+  ROUTE_VISIBILITY_TOKENS,
   checkRouteVisibility,
-  isWorkspaceVisibility
-} from "@jskit-ai/users-core/shared/support/usersVisibility";
+  isWorkspaceRouteVisibility
+} from "@jskit-ai/kernel/shared/support/visibility";
 
 const DEFAULT_OWNERSHIP_FILTER = "workspace";
 const CRUD_REQUESTED_OWNERSHIP_FILTER_AUTO = "auto";
 const CRUD_REQUESTED_OWNERSHIP_FILTER_SET = new Set([
-  ...USERS_ROUTE_VISIBILITY_LEVELS,
+  ...ROUTE_VISIBILITY_TOKENS,
   CRUD_REQUESTED_OWNERSHIP_FILTER_AUTO
 ]);
 const CRUD_MODULE_ID = "crud";
@@ -76,9 +76,10 @@ function normalizeCrudRelativePath(relativePath = "", { context = "resolveCrudSu
 
 function resolveCrudApiBasePath({ namespace = "", surfaceRequiresWorkspace = false } = {}) {
   const relativePath = resolveCrudRelativePath(namespace);
-  return resolveApiBasePath({
-    surfaceRequiresWorkspace: surfaceRequiresWorkspace === true,
-    relativePath
+  return resolveScopedApiBasePath({
+    routeBase: surfaceRequiresWorkspace === true ? "/w/:workspaceSlug" : "/",
+    relativePath,
+    strictParams: false
   });
 }
 
@@ -125,7 +126,7 @@ function resolveCrudConfig(source = {}) {
   return Object.freeze({
     namespace,
     ownershipFilter,
-    workspaceScoped: isWorkspaceVisibility(ownershipFilter),
+    workspaceScoped: isWorkspaceRouteVisibility(ownershipFilter),
     namespacePath: resolveCrudNamespacePath(namespace),
     relativePath: resolveCrudRelativePath(namespace),
     apiBasePath: resolveCrudApiBasePath({ namespace }),
@@ -204,7 +205,7 @@ function resolveCrudSurfacePolicy(
           context: `${context} ownershipFilter`
         });
 
-  if (isWorkspaceVisibility(ownershipFilter) && surfaceDefinition.requiresWorkspace !== true) {
+  if (isWorkspaceRouteVisibility(ownershipFilter) && surfaceDefinition.requiresWorkspace !== true) {
     throw new Error(
       `${context} ownershipFilter "${ownershipFilter}" requires a workspace-enabled surface.`
     );
@@ -218,7 +219,7 @@ function resolveCrudSurfacePolicy(
     surfaceId,
     ownershipFilter,
     requestedOwnershipFilter,
-    workspaceScoped: isWorkspaceVisibility(ownershipFilter),
+    workspaceScoped: isWorkspaceRouteVisibility(ownershipFilter),
     relativePath,
     surfaceDefinition
   });
@@ -284,7 +285,7 @@ export {
   normalizeCrudNamespace,
   normalizeCrudOwnershipFilter,
   normalizeCrudRequestedOwnershipFilter,
-  isWorkspaceVisibility,
+  isWorkspaceRouteVisibility,
   requireCrudNamespace,
   resolveCrudNamespacePath,
   resolveCrudRelativePath,

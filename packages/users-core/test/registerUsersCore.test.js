@@ -2,28 +2,19 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { registerUsersCore } from "../src/server/registerUsersCore.js";
 
-test("registerUsersCore registers the workspace action surface alias when action runtime is available", () => {
-  const calls = [];
+test("registerUsersCore only binds users-core singletons", () => {
+  const singletonTokens = [];
   const app = {
-    singleton() {
-      return this;
-    },
-    actionSurfaceSource(sourceName, resolver) {
-      calls.push({
-        sourceName: String(sourceName || ""),
-        resolverType: typeof resolver
-      });
+    singleton(token) {
+      singletonTokens.push(String(token || ""));
       return this;
     }
   };
 
   registerUsersCore(app);
 
-  assert.deepEqual(calls, [
-    {
-      sourceName: "workspace",
-      resolverType: "function"
-    }
+  assert.deepEqual(singletonTokens.sort(), [
+    "users.profile.sync.service"
   ]);
 });
 

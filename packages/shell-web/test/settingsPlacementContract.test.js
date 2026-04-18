@@ -66,14 +66,14 @@ test("shell-web placement template seeds default Home and Settings drawer naviga
   assert.match(source, /id: "shell-web\.home\.menu\.home"/);
   assert.match(source, /target: "shell-layout:primary-menu"/);
   assert.match(source, /label: "Home"/);
-  assert.match(source, /nonWorkspaceSuffix: "\/"/);
+  assert.match(source, /unscopedSuffix: "\/"/);
   assert.match(source, /id: "shell-web\.home\.menu\.settings"/);
   assert.match(source, /label: "Settings"/);
-  assert.match(source, /nonWorkspaceSuffix: "\/settings"/);
+  assert.match(source, /unscopedSuffix: "\/settings"/);
   assert.match(source, /id: "shell-web\.home\.settings\.general"/);
   assert.match(source, /target: "home-settings:primary-menu"/);
   assert.match(source, /label: "General"/);
-  assert.match(source, /nonWorkspaceSuffix: "\/settings\/general"/);
+  assert.match(source, /unscopedSuffix: "\/settings\/general"/);
   assert.match(source, /to: "\.\/general"/);
 });
 

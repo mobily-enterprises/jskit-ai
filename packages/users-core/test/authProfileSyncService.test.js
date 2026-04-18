@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { createService } from "../src/server/common/services/authProfileSyncService.js";
 
-test("authProfileSyncService.syncIdentityProfile uses shared transaction for profile upsert and provisioning", async () => {
+test("authProfileSyncService.syncIdentityProfile uses shared transaction for profile upsert and lifecycle contributors", async () => {
   const calls = [];
   const transaction = { trxId: "tx-1" };
 
@@ -33,11 +33,14 @@ test("authProfileSyncService.syncIdentityProfile uses shared transaction for pro
         return { userId: Number(userId) };
       }
     },
-    workspaceProvisioningService: {
-      async provisionWorkspaceForNewUser(_profile, options = {}) {
-        calls.push({ step: "provision", trx: options.trx || null });
+    lifecycleContributors: [
+      {
+        contributorId: "test.lifecycle",
+        async afterIdentityProfileSynced({ created, options = {} } = {}) {
+          calls.push({ step: "lifecycle", created, trx: options.trx || null });
+        }
       }
-    }
+    ]
   });
 
   const profile = await service.syncIdentityProfile({
@@ -52,7 +55,8 @@ test("authProfileSyncService.syncIdentityProfile uses shared transaction for pro
   assert.equal(calls[1].step, "find");
   assert.equal(calls[2].step, "upsert");
   assert.equal(calls[3].step, "ensureUserSettings");
-  assert.equal(calls[4].step, "provision");
+  assert.equal(calls[4].step, "lifecycle");
+  assert.equal(calls[4].created, true);
   assert.equal(calls[1].trx, transaction);
   assert.equal(calls[2].trx, transaction);
   assert.equal(calls[3].trx, transaction);
@@ -87,11 +91,16 @@ test("authProfileSyncService.syncIdentityProfile skips write path when profile i
         return { userId: "7" };
       }
     },
-    workspaceProvisioningService: {
-      async provisionWorkspaceForNewUser() {
-        provisionCalls += 1;
+    lifecycleContributors: [
+      {
+        contributorId: "test.lifecycle",
+        async afterIdentityProfileSynced({ created } = {}) {
+          if (created) {
+            provisionCalls += 1;
+          }
+        }
       }
-    }
+    ]
   });
 
   const profile = await service.syncIdentityProfile({

@@ -1,10 +1,9 @@
 import { ACCOUNT_SETTINGS_DEFAULTS } from "./accountSettingsRuntimeConstants.js";
 import {
+  isRecord,
   normalizeReturnToPath as normalizeSharedReturnToPath,
   resolveAllowedOriginsFromPlacementContext
 } from "@jskit-ai/kernel/shared/support";
-import { normalizeRecordId } from "@jskit-ai/kernel/shared/support/normalize";
-import { normalizeRecord } from "../../support/runtimeNormalization.js";
 
 function normalizeReturnToPath(value, { fallback = "/", accountSettingsPath = "/account", allowedOrigins = [] } = {}) {
   return normalizeSharedReturnToPath(value, {
@@ -20,41 +19,7 @@ function resolveAllowedReturnToOrigins(contextValue = null) {
 }
 
 function normalizeSettingsPayload(value) {
-  return normalizeRecord(value);
-}
-
-function normalizePendingInvite(entry) {
-  if (!entry || typeof entry !== "object") {
-    return null;
-  }
-
-  const id = normalizeRecordId(entry.id, { fallback: null });
-  const workspaceId = normalizeRecordId(entry.workspaceId, { fallback: null });
-  if (!id || !workspaceId) {
-    return null;
-  }
-
-  const workspaceSlug = String(entry.workspaceSlug || "").trim();
-  if (!workspaceSlug) {
-    return null;
-  }
-
-  const token = String(entry.token || "").trim();
-  if (!token) {
-    return null;
-  }
-
-  return {
-    id,
-    token,
-    workspaceId,
-    workspaceSlug,
-    workspaceName: String(entry.workspaceName || workspaceSlug).trim() || workspaceSlug,
-    workspaceAvatarUrl: String(entry.workspaceAvatarUrl || "").trim(),
-    roleSid: String(entry.roleSid || "member").trim().toLowerCase() || "member",
-    status: String(entry.status || "pending").trim().toLowerCase() || "pending",
-    expiresAt: String(entry.expiresAt || "").trim()
-  };
+  return isRecord(value) ? value : {};
 }
 
 function normalizeAvatarSize(value) {
@@ -70,7 +35,6 @@ function normalizeAvatarSize(value) {
 export {
   resolveAllowedReturnToOrigins,
   normalizeAvatarSize,
-  normalizePendingInvite,
   normalizeReturnToPath,
   normalizeSettingsPayload
 };

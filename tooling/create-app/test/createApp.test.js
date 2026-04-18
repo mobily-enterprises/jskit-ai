@@ -583,7 +583,7 @@ test("workspaces-web workspace tenancy mode installs workspace surfaces and wrap
     assert.match(accountRootPage, /<AccountSettingsClientElement \/>/);
     assert.match(accountSettingsClientElement, /useRoute, useRouter/);
     assert.match(accountSettingsClientElement, /route\?\.query\?\.section/);
-    assert.match(placement, /id:\s*"users\.account\.invites\.cue"/);
+    assert.match(placement, /id:\s*"workspaces\.account\.invites\.cue"/);
     assert.match(placement, /componentToken:\s*"local\.main\.account\.pending-invites\.cue"/);
     assert.match(mainClientProvider, /import AccountPendingInvitesCue from "\.\.\/components\/AccountPendingInvitesCue\.vue";/);
     assert.match(

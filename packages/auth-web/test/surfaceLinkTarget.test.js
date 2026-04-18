@@ -39,8 +39,8 @@ test("resolveSurfaceLinkTarget builds surface-scoped path for target surfaces", 
   const to = resolveSurfaceLinkTarget({
     context: createPlacementContext(),
     surface: "admin",
-    workspaceSuffix: "/projects",
-    nonWorkspaceSuffix: "/projects"
+    scopedSuffix: "/projects",
+    unscopedSuffix: "/projects"
   });
 
   assert.equal(to, "/admin/projects");
@@ -50,8 +50,8 @@ test("resolveSurfaceLinkTarget builds non-workspace path for non-workspace surfa
   const to = resolveSurfaceLinkTarget({
     context: createPlacementContext(),
     surface: "console",
-    workspaceSuffix: "/projects",
-    nonWorkspaceSuffix: "/projects"
+    scopedSuffix: "/projects",
+    unscopedSuffix: "/projects"
   });
 
   assert.equal(to, "/console/projects");
@@ -73,7 +73,7 @@ test("resolveSurfaceLinkTarget no longer requires workspace slug for surface lin
       surfaceConfig: createPlacementContext().surfaceConfig
     },
     surface: "admin",
-    workspaceSuffix: "/projects"
+    scopedSuffix: "/projects"
   });
 
   assert.equal(to, "/admin/projects");

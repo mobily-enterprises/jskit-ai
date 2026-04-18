@@ -1,10 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { createUsersBootstrapContributor } from "../src/server/usersBootstrapContributor.js";
-import {
-  TENANCY_MODE_PERSONAL,
-  WORKSPACE_SLUG_POLICY_IMMUTABLE_USERNAME
-} from "../src/shared/tenancyProfile.js";
 
 function createAuthenticatedProfile(overrides = {}) {
   return {
@@ -93,7 +89,7 @@ test("users bootstrap contributor exposes the generic authenticated bootstrap pa
   assert.deepEqual(payload.surfaceAccess, {
     consoleowner: true
   });
-  assert.equal(payload.app.features.workspaceSwitching, false);
+  assert.equal(payload.app.features.assistantEnabled, false);
   assert.deepEqual(payload.session.oauthProviders, [
     {
       id: "google",
@@ -101,12 +97,11 @@ test("users bootstrap contributor exposes the generic authenticated bootstrap pa
     }
   ]);
   assert.equal(payload.session.oauthDefaultProvider, "google");
-  assert.deepEqual(payload.workspaces, []);
   assert.deepEqual(payload.userSettings, {});
   assert.equal(payload.requestMeta.hasRequest, true);
 });
 
-test("users bootstrap contributor emits canonical tenancy profile for anonymous bootstrap", async () => {
+test("users bootstrap contributor emits anonymous bootstrap payload without workspace fields", async () => {
   const contributor = createUsersBootstrapContributor({
     usersRepository: {
       async findById() {
@@ -116,15 +111,6 @@ test("users bootstrap contributor emits canonical tenancy profile for anonymous 
     userSettingsRepository: {
       async ensureForUserId() {
         return createUserSettings();
-      }
-    },
-    tenancyProfile: {
-      mode: TENANCY_MODE_PERSONAL,
-      workspace: {
-        enabled: true,
-        autoProvision: true,
-        allowSelfCreate: false,
-        slugPolicy: WORKSPACE_SLUG_POLICY_IMMUTABLE_USERNAME
       }
     },
     appConfig: {
@@ -156,21 +142,11 @@ test("users bootstrap contributor emits canonical tenancy profile for anonymous 
     reply: {}
   });
 
-  assert.deepEqual(payload.tenancy, {
-    mode: TENANCY_MODE_PERSONAL,
-    workspace: {
-      enabled: true,
-      autoProvision: true,
-      allowSelfCreate: false,
-      slugPolicy: WORKSPACE_SLUG_POLICY_IMMUTABLE_USERNAME
-    }
-  });
   assert.deepEqual(payload.session, {
     authenticated: false,
     oauthProviders: [],
     oauthDefaultProvider: null
   });
-  assert.deepEqual(payload.workspaces, []);
   assert.deepEqual(payload.surfaceAccess, {
     consoleowner: false
   });

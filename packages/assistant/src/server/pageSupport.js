@@ -82,8 +82,8 @@ function renderAssistantPageLinkPlacementBlock({
     "    props: {\n" +
     `      label: "${String(generationContext?.pageLabel || "")}",\n` +
     `      surface: "${String(pageTarget?.surfaceId || "")}",\n` +
-    `      workspaceSuffix: "${String(generationContext?.linkWorkspaceSuffix || "")}",\n` +
-    `      nonWorkspaceSuffix: "${String(generationContext?.linkNonWorkspaceSuffix || "")}",\n` +
+    `      scopedSuffix: "${String(generationContext?.linkWorkspaceSuffix || "")}",\n` +
+    `      unscopedSuffix: "${String(generationContext?.linkNonWorkspaceSuffix || "")}",\n` +
     `${String(generationContext?.linkToPropLine || "")}    },\n` +
     `${String(generationContext?.linkWhenLine || "")}` +
     "  });\n" +

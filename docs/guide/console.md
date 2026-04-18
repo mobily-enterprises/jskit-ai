@@ -38,7 +38,6 @@ npx jskit add package database-runtime-mysql \
   --db-user "$DB_USER" \
   --db-password "$DB_PASSWORD"
 npx jskit add package users-web
-npx jskit add package console-web
 npm install
 npm run db:migrate
 ```
@@ -314,3 +313,23 @@ So the console chapter is really about a three-part contract:
 - a persistent owner slot in the database
 
 That is why the console feels like a real app feature already, even before later chapters add CRUDs and richer operator tools into it.
+
+## Summary
+
+This chapter introduced the first privileged operator surface in the guide.
+
+- `console-web` added the `console` surface and its starter UI scaffold
+- `console-core` added the console schema, services, bootstrap contributor, and ownership rules
+- the app gained a new surface that is stricter than `/account`
+
+That stricter access model is the key idea to keep:
+
+- `/account` is for any signed-in user
+- `/console` is only for the console owner
+
+So the app now has both:
+
+- a normal authenticated user area
+- a privileged operator area with its own server-side ownership check
+
+The next chapter changes the routing model again by adding workspace-aware surfaces instead of only global ones.

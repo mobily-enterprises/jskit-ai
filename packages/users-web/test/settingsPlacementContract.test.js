@@ -80,15 +80,6 @@ test("users-web home tools widget exposes home-tools outlet", async () => {
   assert.match(source, /:default-link-component-token="HOME_TOOLS_OUTLET\.defaultLinkComponentToken"/);
 });
 
-test("users-web workspace tools widget exposes workspace-tools outlet", async () => {
-  const source = await readFile(path.join(PACKAGE_DIR, "src", "client", "components", "UsersWorkspaceToolsWidget.vue"), "utf8");
-
-  assert.match(source, /import \{ WORKSPACE_TOOLS_OUTLET \} from "\.\.\/\.\.\/shared\/toolsOutletContracts\.js";/);
-  assert.match(source, /<ShellOutletMenuWidget/);
-  assert.match(source, /:target="WORKSPACE_TOOLS_OUTLET\.target"/);
-  assert.match(source, /:default-link-component-token="WORKSPACE_TOOLS_OUTLET\.defaultLinkComponentToken"/);
-});
-
 test("users-web descriptor metadata advertises home tools outlet and standard home settings placements", () => {
   assert.deepEqual(
     readOutlets("home-tools:primary-menu"),
@@ -140,8 +131,8 @@ test("users-web descriptor metadata advertises home tools outlet and standard ho
       'id: "users.home.menu.settings"',
       'target: "home-tools:primary-menu"',
       'componentToken: "local.main.ui.surface-aware-menu-link-item"',
-      'workspaceSuffix: "/settings"',
-      'nonWorkspaceSuffix: "/settings"'
+      'scopedSuffix: "/settings"',
+      'unscopedSuffix: "/settings"'
     ]
   });
 
@@ -157,5 +148,7 @@ test("users-web descriptor metadata advertises home tools outlet and standard ho
       'to: "/account"'
     ]
   });
+
+  assert.equal(findFileMutation("users-web-component-account-settings-invites"), null);
 
 });

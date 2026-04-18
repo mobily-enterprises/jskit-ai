@@ -10,7 +10,9 @@ export default Object.freeze({
     "@jskit-ai/http-runtime",
     "@jskit-ai/shell-web",
     "@jskit-ai/users-core",
-    "@jskit-ai/users-web"
+    "@jskit-ai/users-web",
+    "@jskit-ai/workspaces-core",
+    "@jskit-ai/workspaces-web"
   ],
   capabilities: {
     provides: ["assistant.runtime"],
@@ -20,7 +22,9 @@ export default Object.freeze({
       "auth.policy",
       "runtime.http-client",
       "users.core",
-      "users.web"
+      "users.web",
+      "workspaces.core",
+      "workspaces.web"
     ]
   },
   runtime: {
@@ -81,6 +85,8 @@ export default Object.freeze({
         "@jskit-ai/shell-web": "0.1.37",
         "@jskit-ai/users-core": "0.1.48",
         "@jskit-ai/users-web": "0.1.53",
+        "@jskit-ai/workspaces-core": "0.1.14",
+        "@jskit-ai/workspaces-web": "0.1.14",
         "@tanstack/vue-query": "^5.90.5",
         "vuetify": "^4.0.0"
       },

@@ -421,7 +421,7 @@ addPlacement({
   props: {
     label: "Home",
     surface: "home",
-    nonWorkspaceSuffix: "/"
+    unscopedSuffix: "/"
   }
 });
 
@@ -434,7 +434,7 @@ addPlacement({
   props: {
     label: "Settings",
     surface: "home",
-    nonWorkspaceSuffix: "/settings"
+    unscopedSuffix: "/settings"
   }
 });
 

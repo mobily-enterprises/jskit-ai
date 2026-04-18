@@ -48,7 +48,7 @@ export default Object.freeze({
         },
         {
           subpath: "./shared",
-          summary: "Exports shared users settings and tenancy utilities."
+          summary: "Exports shared users settings resources and defaults."
         },
         {
           subpath: "./client",

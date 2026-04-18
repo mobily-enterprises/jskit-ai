@@ -15,7 +15,8 @@ test("workspaces-web exports are explicit and aligned with production usage", ()
     packageId: "@jskit-ai/workspaces-web",
     requiredExports: [
       "./client",
-      "./client/providers/WorkspacesWebClientProvider"
+      "./client/providers/WorkspacesWebClientProvider",
+      "./client/composables/useWorkspaceRouteContext"
     ]
   });
 

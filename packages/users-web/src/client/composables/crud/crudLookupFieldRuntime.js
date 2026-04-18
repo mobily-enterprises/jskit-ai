@@ -119,11 +119,11 @@ function createCrudLookupFieldRuntime({
       adapter: adapter || undefined,
       ...(relationSurfaceId ? { surfaceId: relationSurfaceId } : {}),
       apiSuffix: apiPath,
-      queryKeyFactory: (surfaceId = "", workspaceSlug = "") => [
+      queryKeyFactory: (surfaceId = "", scopeParamValue = "") => [
         ...normalizedQueryKeyPrefix,
         key,
         String(surfaceId || ""),
-        String(workspaceSlug || "")
+        String(scopeParamValue || "")
       ],
       search: {
         enabled: true,

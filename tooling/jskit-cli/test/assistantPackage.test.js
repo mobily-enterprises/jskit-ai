@@ -150,7 +150,7 @@ test("generate @jskit-ai/assistant page scaffolds an assistant runtime page at a
     const placementSource = await readFile(path.join(appRoot, "src/placement.js"), "utf8");
     assert.match(placementSource, /jskit:assistant\.page\.link:admin:\/copilot/);
     assert.match(placementSource, /label: "Copilot"/);
-    assert.match(placementSource, /workspaceSuffix: "\/copilot"/);
+    assert.match(placementSource, /scopedSuffix: "\/copilot"/);
   });
 });
 

@@ -1,7 +1,4 @@
-import {
-  HOME_TOOLS_OUTLET,
-  WORKSPACE_TOOLS_OUTLET
-} from "./src/shared/toolsOutletContracts.js";
+import { HOME_TOOLS_OUTLET } from "./src/shared/toolsOutletContracts.js";
 
 export default Object.freeze({
   packageVersion: 1,
@@ -79,24 +76,22 @@ export default Object.freeze({
         },
         {
           subpath: "./client/composables/usePaths",
-          summary: "Exports surface/workspace path resolver composable."
+          summary: "Exports surface route path resolver composable."
         },
         {
           subpath: "./client/composables/useAccountSettingsRuntime",
           summary: "Exports account settings runtime composable for app-owned settings UI."
         },
         {
-          subpath: "./client/composables/useWorkspaceRouteContext",
-          summary: "Exports workspace route context composable."
-        },
+          subpath: "./client/account-settings/sections",
+          summary: "Exports account settings section extension seam helpers."
+        }
       ],
       containerTokens: {
         server: [],
         client: [
-          "users.web.profile.menu.surface-switch-item",
           "users.web.home.tools.widget",
-          "users.web.profile.element",
-          "users.web.bootstrap-placement.runtime"
+          "users.web.profile.element"
         ]
       }
     },
@@ -108,24 +103,9 @@ export default Object.freeze({
             defaultLinkComponentToken: HOME_TOOLS_OUTLET.defaultLinkComponentToken,
             surfaces: ["home"],
             source: "src/client/components/UsersHomeToolsWidget.vue"
-          },
-          {
-            target: WORKSPACE_TOOLS_OUTLET.target,
-            defaultLinkComponentToken: WORKSPACE_TOOLS_OUTLET.defaultLinkComponentToken,
-            surfaces: ["admin"],
-            source: "src/client/components/UsersWorkspaceToolsWidget.vue"
-          },
+          }
         ],
         contributions: [
-          {
-            id: "users.profile.menu.surface-switch",
-            target: "auth-profile-menu:primary-menu",
-            surfaces: ["*"],
-            order: 100,
-            componentToken: "users.web.profile.menu.surface-switch-item",
-            when: "auth.authenticated === true",
-            source: "mutations.text#users-web-profile-surface-switch-placement"
-          },
           {
             id: "users.profile.menu.settings",
             target: "auth-profile-menu:primary-menu",
@@ -215,13 +195,6 @@ export default Object.freeze({
         reason: "Install app-owned account settings notifications section scaffold.",
         category: "users-web",
         id: "users-web-component-account-settings-notifications"
-      },
-      {
-        from: "templates/src/components/account/settings/AccountSettingsInvitesSection.vue",
-        to: "src/components/account/settings/AccountSettingsInvitesSection.vue",
-        reason: "Install app-owned account settings invites section scaffold.",
-        category: "users-web",
-        id: "users-web-component-account-settings-invites"
       }
     ],
     text: [
@@ -240,17 +213,6 @@ export default Object.freeze({
         op: "append-text",
         file: "src/placement.js",
         position: "bottom",
-        skipIfContains: "id: \"users.profile.menu.surface-switch\"",
-        value:
-          "\naddPlacement({\n  id: \"users.profile.menu.surface-switch\",\n  target: \"auth-profile-menu:primary-menu\",\n  surfaces: [\"*\"],\n  order: 100,\n  componentToken: \"users.web.profile.menu.surface-switch-item\",\n  when: ({ auth }) => Boolean(auth?.authenticated)\n});\n",
-        reason: "Append users-web profile surface switch placement into app-owned placement registry.",
-        category: "users-web",
-        id: "users-web-profile-surface-switch-placement"
-      },
-      {
-        op: "append-text",
-        file: "src/placement.js",
-        position: "bottom",
         skipIfContains: "id: \"users.profile.menu.settings\"",
         value:
           "\naddPlacement({\n  id: \"users.profile.menu.settings\",\n  target: \"auth-profile-menu:primary-menu\",\n  surfaces: [\"*\"],\n  order: 500,\n  componentToken: \"auth.web.profile.menu.link-item\",\n  props: {\n    label: \"Settings\",\n    to: \"/account\"\n  },\n  when: ({ auth }) => Boolean(auth?.authenticated)\n});\n",
@@ -264,7 +226,7 @@ export default Object.freeze({
         position: "bottom",
         skipIfContains: "id: \"users.home.tools.widget\"",
         value:
-          "\naddPlacement({\n  id: \"users.home.tools.widget\",\n  target: \"shell-layout:top-right\",\n  surfaces: [\"home\"],\n  order: 900,\n  componentToken: \"users.web.home.tools.widget\",\n  when: ({ auth }) => Boolean(auth?.authenticated)\n});\n\naddPlacement({\n  id: \"users.home.menu.settings\",\n  target: \"home-tools:primary-menu\",\n  surfaces: [\"home\"],\n  order: 100,\n  componentToken: \"local.main.ui.surface-aware-menu-link-item\",\n  props: {\n    label: \"Settings\",\n    surface: \"home\",\n    workspaceSuffix: \"/settings\",\n    nonWorkspaceSuffix: \"/settings\"\n  },\n  when: ({ auth }) => Boolean(auth?.authenticated)\n});\n",
+          "\naddPlacement({\n  id: \"users.home.tools.widget\",\n  target: \"shell-layout:top-right\",\n  surfaces: [\"home\"],\n  order: 900,\n  componentToken: \"users.web.home.tools.widget\",\n  when: ({ auth }) => Boolean(auth?.authenticated)\n});\n\naddPlacement({\n  id: \"users.home.menu.settings\",\n  target: \"home-tools:primary-menu\",\n  surfaces: [\"home\"],\n  order: 100,\n  componentToken: \"local.main.ui.surface-aware-menu-link-item\",\n  props: {\n    label: \"Settings\",\n    surface: \"home\",\n    scopedSuffix: \"/settings\",\n    unscopedSuffix: \"/settings\"\n  },\n  when: ({ auth }) => Boolean(auth?.authenticated)\n});\n",
         reason: "Append users-web home tools widget and settings menu placements into app-owned placement registry.",
         category: "users-web",
         id: "users-web-home-tools-placement"

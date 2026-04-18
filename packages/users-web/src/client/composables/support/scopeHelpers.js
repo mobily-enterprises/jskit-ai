@@ -1,14 +1,14 @@
 import { resolveEnabledRef, resolveTextRef } from "./refValueHelpers.js";
 import {
-  USERS_ROUTE_VISIBILITY_LEVELS,
-  USERS_ROUTE_VISIBILITY_WORKSPACE,
-  USERS_ROUTE_VISIBILITY_WORKSPACE_USER
-} from "@jskit-ai/users-core/shared/support/usersVisibility";
+  ROUTE_VISIBILITY_TOKENS,
+  ROUTE_VISIBILITY_WORKSPACE,
+  ROUTE_VISIBILITY_WORKSPACE_USER
+} from "@jskit-ai/kernel/shared/support/visibility";
 
-const USERS_OWNERSHIP_FILTER_VALUES = USERS_ROUTE_VISIBILITY_LEVELS;
-const WORKSPACE_OWNERSHIP_FILTER_SET = new Set([
-  USERS_ROUTE_VISIBILITY_WORKSPACE,
-  USERS_ROUTE_VISIBILITY_WORKSPACE_USER
+const OWNERSHIP_FILTER_VALUES = ROUTE_VISIBILITY_TOKENS;
+const SCOPED_OWNERSHIP_FILTER_SET = new Set([
+  ROUTE_VISIBILITY_WORKSPACE,
+  ROUTE_VISIBILITY_WORKSPACE_USER
 ]);
 const ACCESS_MODE_VALUES = Object.freeze(["auto", "always", "never"]);
 
@@ -89,31 +89,31 @@ function resolveEnabled(value, context = {}) {
   return resolveEnabledRef(value);
 }
 
-function normalizeOwnershipFilter(value = USERS_ROUTE_VISIBILITY_WORKSPACE) {
-  const normalized = String(value || USERS_ROUTE_VISIBILITY_WORKSPACE).trim().toLowerCase();
-  if (USERS_OWNERSHIP_FILTER_VALUES.includes(normalized)) {
+function normalizeOwnershipFilter(value = ROUTE_VISIBILITY_WORKSPACE) {
+  const normalized = String(value || ROUTE_VISIBILITY_WORKSPACE).trim().toLowerCase();
+  if (OWNERSHIP_FILTER_VALUES.includes(normalized)) {
     return normalized;
   }
 
   throw new TypeError(
-    `ownershipFilter must be one of: ${USERS_OWNERSHIP_FILTER_VALUES.join(", ")}. Received: ${String(value || "") || "(empty)"}`
+    `ownershipFilter must be one of: ${OWNERSHIP_FILTER_VALUES.join(", ")}. Received: ${String(value || "") || "(empty)"}`
   );
 }
 
-function isWorkspaceOwnershipFilter(ownershipFilter) {
-  return WORKSPACE_OWNERSHIP_FILTER_SET.has(ownershipFilter);
+function isScopedOwnershipFilter(ownershipFilter) {
+  return SCOPED_OWNERSHIP_FILTER_SET.has(ownershipFilter);
 }
 
 function resolveQueryKey(
   queryKeyFactory,
-  { surfaceId = "", workspaceSlug = "", ownershipFilter = USERS_ROUTE_VISIBILITY_WORKSPACE } = {}
+  { surfaceId = "", scopeParamValue = "", ownershipFilter = ROUTE_VISIBILITY_WORKSPACE } = {}
 ) {
   if (typeof queryKeyFactory !== "function") {
     throw new TypeError("queryKeyFactory is required.");
   }
 
-  if (isWorkspaceOwnershipFilter(ownershipFilter)) {
-    return queryKeyFactory(surfaceId, workspaceSlug, ownershipFilter);
+  if (isScopedOwnershipFilter(ownershipFilter)) {
+    return queryKeyFactory(surfaceId, scopeParamValue, ownershipFilter);
   }
 
   return queryKeyFactory(surfaceId, ownershipFilter);
@@ -139,7 +139,7 @@ export {
   resolveApiSuffix,
   resolveEnabled,
   normalizeOwnershipFilter,
-  isWorkspaceOwnershipFilter,
+  isScopedOwnershipFilter,
   resolveQueryKey,
   resolveResourceMessages
 };

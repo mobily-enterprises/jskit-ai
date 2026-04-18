@@ -1,6 +1,6 @@
 import { computed, proxyRefs } from "vue";
 import { useRoute } from "vue-router";
-import { USERS_ROUTE_VISIBILITY_WORKSPACE } from "@jskit-ai/users-core/shared/support/usersVisibility";
+import { ROUTE_VISIBILITY_WORKSPACE } from "@jskit-ai/kernel/shared/support/visibility";
 import { useViewCore } from "../runtime/useViewCore.js";
 import { useEndpointResource } from "../runtime/useEndpointResource.js";
 import { resolveOperationAdapter } from "../runtime/operationAdapters.js";
@@ -9,7 +9,7 @@ import { createViewUiRuntime } from "../runtime/viewUiRuntime.js";
 import { resolveRouteParamNamesInOrder } from "../support/routeTemplateHelpers.js";
 
 function useView({
-  ownershipFilter = USERS_ROUTE_VISIBILITY_WORKSPACE,
+  ownershipFilter = ROUTE_VISIBILITY_WORKSPACE,
   surfaceId = "",
   access = "auto",
   apiSuffix = "",

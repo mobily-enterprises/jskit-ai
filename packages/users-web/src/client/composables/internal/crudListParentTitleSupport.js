@@ -83,7 +83,7 @@ function resolveCrudListParentDescriptor({ resource = {}, route = null, recordId
 
   const normalizedRecordIdParam = normalizeText(recordIdParam) || "recordId";
   for (const routeParamKey of [...orderedRouteParamNames].reverse()) {
-    if (routeParamKey === "workspaceSlug" || routeParamKey === normalizedRecordIdParam) {
+    if (routeParamKey === normalizedRecordIdParam) {
       continue;
     }
 

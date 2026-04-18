@@ -191,7 +191,7 @@ test("generate @jskit-ai/ui-generator page scaffolds page and menu placement", a
     assert.match(placementSource, /id: "ui-generator\.page\.admin\.reports-dashboard\.link"/);
     assert.match(placementSource, /target: "shell-layout:primary-menu"/);
     assert.match(placementSource, /componentToken: "local\.main\.ui\.surface-aware-menu-link-item"/);
-    assert.match(placementSource, /workspaceSuffix: "\/reports-dashboard"/);
+    assert.match(placementSource, /scopedSuffix: "\/reports-dashboard"/);
     assert.match(placementSource, /label: "Reports Dashboard"/);
 
     const localLinkComponentPath = path.join(appRoot, "src", "components", "menus", "SurfaceAwareMenuLinkItem.vue");
@@ -303,7 +303,7 @@ test("generate @jskit-ai/ui-generator page creates an explicit file-route target
     assert.match(pageSource, /Contact/);
 
     const placementSource = await readFile(placementPath, "utf8");
-    assert.match(placementSource, /workspaceSuffix: "\/contacts\/\[contactId\]"/);
+    assert.match(placementSource, /scopedSuffix: "\/contacts\/\[contactId\]"/);
     assert.match(placementSource, /id: "ui-generator\.page\.admin\.contacts\.contact-id\.link"/);
   });
 });
@@ -421,8 +421,8 @@ test("generate @jskit-ai/ui-generator page supports link-component-token for ind
 
     const placementSource = await readFile(placementPath, "utf8");
     assert.match(placementSource, /componentToken: "local\.main\.ui\.tab-link-item"/);
-    assert.match(placementSource, /workspaceSuffix: "\/contacts\/\[contactId\]\/notes"/);
-    assert.match(placementSource, /nonWorkspaceSuffix: "\/contacts\/\[contactId\]\/notes"/);
+    assert.match(placementSource, /scopedSuffix: "\/contacts\/\[contactId\]\/notes"/);
+    assert.match(placementSource, /unscopedSuffix: "\/contacts\/\[contactId\]\/notes"/);
     assert.match(placementSource, /to: "\.\/notes"/);
   });
 });

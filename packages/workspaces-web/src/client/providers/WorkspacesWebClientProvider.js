@@ -1,5 +1,62 @@
-import { UsersWorkspacesClientProvider } from "@jskit-ai/users-web/client/providers/UsersWorkspacesClientProvider";
+import { ACCOUNT_SETTINGS_SECTION_REGISTRY_TAG } from "@jskit-ai/users-web/client/account-settings/sections";
+import AccountSettingsInvitesSection from "../components/AccountSettingsInvitesSection.vue";
+import UsersProfileSurfaceSwitchMenuItem from "../components/UsersProfileSurfaceSwitchMenuItem.vue";
+import UsersWorkspaceSelector from "../components/UsersWorkspaceSelector.vue";
+import UsersWorkspaceToolsWidget from "../components/UsersWorkspaceToolsWidget.vue";
+import UsersWorkspaceSettingsMenuItem from "../components/UsersWorkspaceSettingsMenuItem.vue";
+import UsersWorkspaceMembersMenuItem from "../components/UsersWorkspaceMembersMenuItem.vue";
+import MembersAdminClientElement from "../components/MembersAdminClientElement.vue";
+import { createBootstrapPlacementRuntime } from "../runtime/bootstrapPlacementRuntime.js";
 
-const WorkspacesWebClientProvider = UsersWorkspacesClientProvider;
+class WorkspacesWebClientProvider {
+  static id = "workspaces.web.client";
+  static dependsOn = ["users.web.client"];
+
+  register(app) {
+    if (!app || typeof app.singleton !== "function") {
+      throw new Error("WorkspacesWebClientProvider requires application singleton().");
+    }
+
+    app.singleton("workspaces.web.profile.menu.surface-switch-item", () => UsersProfileSurfaceSwitchMenuItem);
+    app.singleton("workspaces.web.workspace.selector", () => UsersWorkspaceSelector);
+    app.singleton("workspaces.web.workspace.tools.widget", () => UsersWorkspaceToolsWidget);
+    app.singleton("workspaces.web.workspace-settings.menu-item", () => UsersWorkspaceSettingsMenuItem);
+    app.singleton("workspaces.web.workspace-members.menu-item", () => UsersWorkspaceMembersMenuItem);
+    app.singleton("workspaces.web.members-admin.element", () => MembersAdminClientElement);
+    app.singleton("workspaces.web.bootstrap-placement.runtime", (scope) => createBootstrapPlacementRuntime({ app: scope }));
+    app.singleton("workspaces.web.account-settings.section.invites", () =>
+      Object.freeze({
+        title: "Invites",
+        value: "invites",
+        order: 400,
+        component: AccountSettingsInvitesSection,
+        usesSharedRuntime: false
+      })
+    );
+    app.tag("workspaces.web.account-settings.section.invites", ACCOUNT_SETTINGS_SECTION_REGISTRY_TAG);
+  }
+
+  async boot(app) {
+    if (!app || typeof app.make !== "function") {
+      throw new Error("WorkspacesWebClientProvider boot requires application make().");
+    }
+
+    const runtime = app.make("workspaces.web.bootstrap-placement.runtime");
+    if (runtime && typeof runtime.initialize === "function") {
+      await runtime.initialize();
+    }
+  }
+
+  shutdown(app) {
+    if (!app || typeof app.make !== "function") {
+      return;
+    }
+
+    const runtime = app.make("workspaces.web.bootstrap-placement.runtime");
+    if (runtime && typeof runtime.shutdown === "function") {
+      runtime.shutdown();
+    }
+  }
+}
 
 export { WorkspacesWebClientProvider };

@@ -79,12 +79,12 @@ function useCrudListParentTitle({
     readEnabled: shouldLoadParentRecord,
     recordIdParam: normalizeText(initialParentDescriptor.routeParamKey) || "recordId",
     includeRecordIdInQueryKey: true,
-    queryKeyFactory: (surfaceId = "", workspaceSlug = "") => [
+    queryKeyFactory: (surfaceId = "", scopeParamValue = "") => [
       ...normalizedQueryKeyPrefix,
       normalizeText(initialParentDescriptor.relationNamespace),
       normalizeText(initialParentDescriptor.routeParamKey),
       String(surfaceId || ""),
-      String(workspaceSlug || "")
+      String(scopeParamValue || "")
     ],
     placementSource,
     fallbackLoadError,

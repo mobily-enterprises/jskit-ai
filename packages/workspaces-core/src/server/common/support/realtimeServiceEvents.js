@@ -1,0 +1,91 @@
+import { normalizeRecordId } from "@jskit-ai/kernel/shared/support/normalize";
+import { deepFreeze } from "./deepFreeze.js";
+
+function resolveActorScopedEntityId({ options } = {}) {
+  return normalizeRecordId(options?.context?.actor?.id, { fallback: "" });
+}
+
+function resolveWorkspaceSlugPayload({ args } = {}) {
+  return {
+    workspaceSlug: String(args?.[0]?.slug || "").trim()
+  };
+}
+
+const ACCOUNT_SETTINGS_AND_BOOTSTRAP_EVENTS = deepFreeze([
+  {
+    type: "entity.changed",
+    source: "account",
+    entity: "settings",
+    operation: "updated",
+    entityId: resolveActorScopedEntityId,
+    realtime: {
+      event: "account.settings.changed",
+      audience: "actor_user"
+    }
+  },
+  {
+    type: "entity.changed",
+    source: "users",
+    entity: "bootstrap",
+    operation: "updated",
+    entityId: resolveActorScopedEntityId,
+    realtime: {
+      event: "users.bootstrap.changed",
+      audience: "actor_user"
+    }
+  }
+]);
+
+function createWorkspaceEntityAndBootstrapEvents({
+  workspaceEntity,
+  workspaceOperation,
+  workspaceRealtimeEvent,
+  workspaceEntityId = ({ args }) => args?.[0]?.id,
+  bootstrapEntityId = ({ args }) => args?.[0]?.id,
+  bootstrapAudience = "event_scope"
+} = {}) {
+  const normalizedWorkspaceEntity = String(workspaceEntity || "").trim();
+  const normalizedWorkspaceOperation = String(workspaceOperation || "")
+    .trim()
+    .toLowerCase();
+  const normalizedWorkspaceRealtimeEvent = String(workspaceRealtimeEvent || "").trim();
+  if (!normalizedWorkspaceEntity || !normalizedWorkspaceOperation || !normalizedWorkspaceRealtimeEvent) {
+    throw new Error(
+      "createWorkspaceEntityAndBootstrapEvents requires workspaceEntity, workspaceOperation, and workspaceRealtimeEvent."
+    );
+  }
+  if (typeof workspaceEntityId !== "function") {
+    throw new Error("createWorkspaceEntityAndBootstrapEvents requires workspaceEntityId to be a function.");
+  }
+  if (typeof bootstrapEntityId !== "function") {
+    throw new Error("createWorkspaceEntityAndBootstrapEvents requires bootstrapEntityId to be a function.");
+  }
+
+  return deepFreeze([
+    {
+      type: "entity.changed",
+      source: "workspace",
+      entity: normalizedWorkspaceEntity,
+      operation: normalizedWorkspaceOperation,
+      entityId: (payload = {}) => normalizeRecordId(workspaceEntityId(payload), { fallback: "" }),
+      realtime: {
+        event: normalizedWorkspaceRealtimeEvent,
+        payload: resolveWorkspaceSlugPayload,
+        audience: "event_scope"
+      }
+    },
+    {
+      type: "entity.changed",
+      source: "users",
+      entity: "bootstrap",
+      operation: "updated",
+      entityId: (payload = {}) => normalizeRecordId(bootstrapEntityId(payload), { fallback: "" }),
+      realtime: {
+        event: "users.bootstrap.changed",
+        audience: bootstrapAudience
+      }
+    }
+  ]);
+}
+
+export { ACCOUNT_SETTINGS_AND_BOOTSTRAP_EVENTS, createWorkspaceEntityAndBootstrapEvents };

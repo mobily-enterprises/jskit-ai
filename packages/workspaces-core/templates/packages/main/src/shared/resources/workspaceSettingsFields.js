@@ -7,11 +7,11 @@ import {
   DEFAULT_WORKSPACE_DARK_PALETTE,
   DEFAULT_WORKSPACE_LIGHT_PALETTE,
   coerceWorkspaceThemeColor
-} from "@jskit-ai/users-core/shared/settings";
+} from "@jskit-ai/workspaces-core/shared/settings";
 import {
   defineField,
   resetWorkspaceSettingsFields
-} from "@jskit-ai/users-core/shared/resources/workspaceSettingsFields";
+} from "@jskit-ai/workspaces-core/shared/resources/workspaceSettingsFields";
 
 function normalizeHexColor(value) {
   const color = normalizeText(value);

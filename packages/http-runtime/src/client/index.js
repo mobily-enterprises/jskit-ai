@@ -1,4 +1,5 @@
 export { createHttpClient } from "../shared/clientRuntime/client.js";
+export { createTransientRetryHttpClient } from "./transientRetryHttpClient.js";
 export {
   normalizeFieldErrors,
   resolveFieldErrors,

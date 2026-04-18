@@ -21,12 +21,12 @@ function buildTemplateReplacements({
 } = {}) {
   const routeWorkspaceSupportImports = surfaceRequiresWorkspace
     ? [
-        'import { routeParamsValidator } from "@jskit-ai/users-core/server/validators/routeParamsValidator";',
-        'import { buildWorkspaceInputFromRouteParams } from "@jskit-ai/users-core/server/support/workspaceRouteInput";'
+        'import { routeParamsValidator } from "@jskit-ai/workspaces-core/server/validators/routeParamsValidator";',
+        'import { buildWorkspaceInputFromRouteParams } from "@jskit-ai/workspaces-core/server/support/workspaceRouteInput";'
       ].join("\n")
     : "";
   const actionWorkspaceValidatorImport = surfaceRequiresWorkspace
-    ? 'import { workspaceSlugParamsValidator } from "@jskit-ai/users-core/server/validators/routeParamsValidator";'
+    ? 'import { workspaceSlugParamsValidator } from "@jskit-ai/workspaces-core/server/validators/routeParamsValidator";'
     : "";
   const actionPermissionSupport = requiresNamedPermissions
     ? [

@@ -1,6 +1,12 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { normalizeRouteVisibilityToken, normalizeRouteVisibility, normalizeVisibilityContext } from "./visibility.js";
+import {
+  checkRouteVisibility,
+  isWorkspaceRouteVisibility,
+  normalizeRouteVisibilityToken,
+  normalizeRouteVisibility,
+  normalizeVisibilityContext
+} from "./visibility.js";
 
 test("normalizeRouteVisibility keeps kernel core visibility contract", () => {
   assert.equal(normalizeRouteVisibility("PUBLIC"), "public");
@@ -16,6 +22,18 @@ test("normalizeRouteVisibilityToken normalizes visibility tokens for module-leve
   assert.equal(normalizeRouteVisibilityToken("WORKSPACE_USER"), "workspace_user");
   assert.equal(normalizeRouteVisibilityToken(""), "public");
   assert.equal(normalizeRouteVisibilityToken("", { fallback: "workspace" }), "workspace");
+});
+
+test("checkRouteVisibility accepts workspace visibility tokens", () => {
+  assert.equal(checkRouteVisibility("workspace"), "workspace");
+  assert.equal(checkRouteVisibility("workspace_user"), "workspace_user");
+  assert.throws(() => checkRouteVisibility("invalid"), /must be one of/);
+});
+
+test("isWorkspaceRouteVisibility matches only workspace-scoped tokens", () => {
+  assert.equal(isWorkspaceRouteVisibility("workspace"), true);
+  assert.equal(isWorkspaceRouteVisibility("workspace_user"), true);
+  assert.equal(isWorkspaceRouteVisibility("public"), false);
 });
 
 test("normalizeVisibilityContext normalizes mode and owner identifiers", () => {

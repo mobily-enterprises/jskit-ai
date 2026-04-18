@@ -4,10 +4,10 @@ function resolveSurfaceLinkTarget({
   context = null,
   surface = "",
   explicitTo = "",
-  workspaceSuffix = "",
-  nonWorkspaceSuffix = ""
+  scopedSuffix = "",
+  unscopedSuffix = ""
 } = {}) {
-  const fallbackPath = String(nonWorkspaceSuffix || "").trim() || String(workspaceSuffix || "").trim() || "/";
+  const fallbackPath = String(unscopedSuffix || "").trim() || String(scopedSuffix || "").trim() || "/";
   return resolveShellLinkPath({
     context,
     surface,

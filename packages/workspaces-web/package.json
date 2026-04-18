@@ -7,9 +7,19 @@
   },
   "exports": {
     "./client": "./src/client/index.js",
-    "./client/providers/WorkspacesWebClientProvider": "./src/client/providers/WorkspacesWebClientProvider.js"
+    "./client/providers/WorkspacesWebClientProvider": "./src/client/providers/WorkspacesWebClientProvider.js",
+    "./client/components/WorkspaceMembersClientElement": "./src/client/components/WorkspaceMembersClientElement.vue",
+    "./client/composables/useWorkspaceRouteContext": "./src/client/composables/useWorkspaceRouteContext.js"
   },
   "dependencies": {
-    "@jskit-ai/users-web": "0.1.53"
+    "@tanstack/vue-query": "5.92.12",
+    "@mdi/js": "^7.4.47",
+    "@jskit-ai/http-runtime": "0.1.37",
+    "@jskit-ai/kernel": "0.1.38",
+    "@jskit-ai/shell-web": "0.1.37",
+    "@jskit-ai/users-core": "0.1.48",
+    "@jskit-ai/users-web": "0.1.53",
+    "@jskit-ai/workspaces-core": "0.1.14",
+    "vuetify": "^4.0.0"
   }
 }

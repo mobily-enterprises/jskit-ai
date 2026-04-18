@@ -14,11 +14,11 @@ const props = defineProps({
     type: String,
     default: ""
   },
-  workspaceSuffix: {
+  scopedSuffix: {
     type: String,
     default: "/"
   },
-  nonWorkspaceSuffix: {
+  unscopedSuffix: {
     type: String,
     default: "/"
   },

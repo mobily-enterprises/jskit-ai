@@ -1,10 +1,12 @@
 import { computed } from "vue";
-import { normalizeSurfaceId } from "@jskit-ai/kernel/shared/surface/registry";
-import { USERS_ROUTE_VISIBILITY_WORKSPACE } from "@jskit-ai/users-core/shared/support/usersVisibility";
+import { normalizeSurfaceId, resolveScopedRouteBase } from "@jskit-ai/kernel/shared/surface";
+import {
+  ROUTE_VISIBILITY_WORKSPACE
+} from "@jskit-ai/kernel/shared/support/visibility";
 import { useAccess } from "./useAccess.js";
-import { useWorkspaceRouteContext } from "./useWorkspaceRouteContext.js";
+import { useSurfaceRouteContext } from "./useSurfaceRouteContext.js";
 import { usePaths } from "./usePaths.js";
-import { surfaceRequiresWorkspaceFromPlacementContext } from "../lib/workspaceSurfaceContext.js";
+import { resolveSurfaceDefinitionFromPlacementContext } from "@jskit-ai/shell-web/client/placement";
 import {
   asPlainObject,
   ensureAccessModeCompatibility,
@@ -12,9 +14,15 @@ import {
   normalizeOwnershipFilter,
   resolveApiSuffix
 } from "./support/scopeHelpers.js";
+import { extractRouteParamNames, toRouteParamValue } from "./support/routeTemplateHelpers.js";
+
+function resolveScopedRouteParamNames(placementContext = null, surfaceId = "") {
+  const routeBase = resolveSurfaceDefinitionFromPlacementContext(placementContext, surfaceId)?.routeBase || "/";
+  return extractRouteParamNames(resolveScopedRouteBase(routeBase));
+}
 
 function useScopeRuntime({
-  ownershipFilter = USERS_ROUTE_VISIBILITY_WORKSPACE,
+  ownershipFilter = ROUTE_VISIBILITY_WORKSPACE,
   surfaceId = "",
   accessMode = "auto",
   hasPermissionRequirements = false,
@@ -29,12 +37,11 @@ function useScopeRuntime({
   const accessRequired = resolveAccessModeEnabled(normalizedAccessMode, {
     hasPermissionRequirements
   });
-  const routeContext = useWorkspaceRouteContext();
+  const routeContext = useSurfaceRouteContext();
   const paths = usePaths({
     routeContext
   });
 
-  const workspaceSlugFromRoute = routeContext.workspaceSlugFromRoute;
   const resolvedSurfaceId = computed(() => {
     const explicitSurfaceId = normalizeSurfaceId(surfaceId);
     if (explicitSurfaceId) {
@@ -43,64 +50,85 @@ function useScopeRuntime({
 
     return normalizeSurfaceId(routeContext.currentSurfaceId.value);
   });
-  const workspaceScoped = computed(() =>
-    surfaceRequiresWorkspaceFromPlacementContext(routeContext.placementContext.value, resolvedSurfaceId.value)
+  const scopedRouteParamNames = computed(() =>
+    resolveScopedRouteParamNames(routeContext.placementContext.value, resolvedSurfaceId.value)
   );
-  const hasRouteWorkspaceSlug = computed(() => (workspaceScoped.value ? Boolean(workspaceSlugFromRoute.value) : true));
-  const workspaceRouteError = computed(() => {
-    if (!workspaceScoped.value || hasRouteWorkspaceSlug.value) {
+  const routeScopeParams = computed(() => {
+    const source = paths.routeParams.value;
+    const next = {};
+    for (const paramName of scopedRouteParamNames.value) {
+      const paramValue = toRouteParamValue(source[paramName]);
+      if (paramValue) {
+        next[paramName] = paramValue;
+      }
+    }
+    return Object.freeze(next);
+  });
+  const missingScopedRouteParamNames = computed(() =>
+    scopedRouteParamNames.value.filter((paramName) => !routeScopeParams.value[paramName])
+  );
+  const requiresScopedRouteParams = computed(() => scopedRouteParamNames.value.length > 0);
+  const hasRequiredRouteScope = computed(() => missingScopedRouteParamNames.value.length < 1);
+  const scopeParamValue = computed(() => {
+    const [primaryScopeParamName = ""] = scopedRouteParamNames.value;
+    return primaryScopeParamName ? routeScopeParams.value[primaryScopeParamName] || "" : "";
+  });
+  const routeScopeError = computed(() => {
+    if (!requiresScopedRouteParams.value || hasRequiredRouteScope.value) {
       return "";
     }
 
-    return `Route parameter workspaceSlug is required for surface "${resolvedSurfaceId.value || "<unknown>"}".`;
+    const missingParams = missingScopedRouteParamNames.value.join(", ");
+    return `Route parameters ${missingParams} are required for surface "${resolvedSurfaceId.value || "<unknown>"}".`;
   });
 
   const accessRuntime = useAccess({
-    workspaceSlug: computed(() => (workspaceScoped.value ? workspaceSlugFromRoute.value : "")),
-    enabled: computed(() => accessRequired && hasRouteWorkspaceSlug.value),
+    scopeParamValue,
+    enabled: computed(() => accessRequired && hasRequiredRouteScope.value),
     access: normalizedAccessMode,
     hasPermissionRequirements,
-    mergePlacementContext: accessRequired ? routeContext.mergePlacementContext : null,
     placementSource: String(placementSource || "users-web.scope-runtime")
   });
 
   function resolveApiPath(apiSuffix = "", context = {}) {
-    if (workspaceRouteError.value) {
+    if (routeScopeError.value) {
       return "";
     }
 
     const suffix = resolveApiSuffix(apiSuffix, {
       surfaceId: routeContext.currentSurfaceId.value,
-      workspaceSlug: workspaceSlugFromRoute.value,
+      scopeParamValue: scopeParamValue.value,
       ownershipFilter: normalizedOwnershipFilter,
       ...asPlainObject(context)
     });
 
     return paths.api(suffix, {
       surface: resolvedSurfaceId.value,
-      workspaceSlug: workspaceSlugFromRoute.value
+      params: routeScopeParams.value
     });
   }
 
-  function requireWorkspaceRouteParam(caller = "useScopeRuntime") {
-    if (workspaceRouteError.value) {
-      throw new Error(`${caller}: ${workspaceRouteError.value}`);
+  function requireRouteScope(caller = "useScopeRuntime") {
+    if (routeScopeError.value) {
+      throw new Error(`${caller}: ${routeScopeError.value}`);
     }
   }
 
   return Object.freeze({
     normalizedOwnershipFilter,
-    workspaceScoped: workspaceScoped.value,
+    requiresScopedRouteParams: requiresScopedRouteParams.value,
     resolvedSurfaceId,
     accessMode: normalizedAccessMode,
     accessRequired,
     routeContext,
-    workspaceSlugFromRoute,
-    hasRouteWorkspaceSlug,
-    workspaceRouteError,
+    scopedRouteParamNames,
+    routeScopeParams,
+    scopeParamValue,
+    hasRequiredRouteScope,
+    routeScopeError,
     access: accessRuntime,
     resolveApiPath,
-    requireWorkspaceRouteParam
+    requireRouteScope
   });
 }
 

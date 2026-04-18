@@ -98,7 +98,7 @@ test("assistant page subcommand creates a runtime page at an explicit target fil
     assert.match(placementSource, /id: "ui-generator\.page\.admin\.ops\.copilot\.link"/);
     assert.match(placementSource, /target: "shell-layout:primary-menu"/);
     assert.match(placementSource, /label: "Copilot"/);
-    assert.match(placementSource, /workspaceSuffix: "\/ops\/copilot"/);
+    assert.match(placementSource, /scopedSuffix: "\/ops\/copilot"/);
   });
 });
 

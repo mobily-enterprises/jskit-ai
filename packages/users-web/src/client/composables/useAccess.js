@@ -20,7 +20,7 @@ function asPermissionList(value) {
 }
 
 function useAccess({
-  workspaceSlug = "",
+  scopeParamValue = "",
   enabled = true,
   access = "always",
   hasPermissionRequirements = false
@@ -30,7 +30,7 @@ function useAccess({
     hasPermissionRequirements: hasPermissionRequirements === true
   });
   const { context: placementContext } = useWebPlacementContext();
-  const normalizedWorkspaceSlug = computed(() => resolveTextRef(workspaceSlug));
+  const normalizedScopeParamValue = computed(() => resolveTextRef(scopeParamValue));
   const queryEnabled = computed(() => resolveEnabledRef(enabled) && accessRequired);
   const hasPlacementBootstrapPermissions = computed(() => {
     const source = placementContext.value;
@@ -95,7 +95,7 @@ function useAccess({
   return Object.freeze({
     accessMode: normalizedAccessMode,
     accessRequired,
-    workspaceSlug: normalizedWorkspaceSlug,
+    scopeParamValue: normalizedScopeParamValue,
     permissions,
     bootstrapError,
     isBootstrapping,

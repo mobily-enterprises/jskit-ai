@@ -19,6 +19,7 @@
     "./server/actions": "./server/actions/index.js",
     "./server/http": "./server/http/index.js",
     "./server/platform": "./server/platform/index.js",
+    "./server/registries": "./server/registries/index.js",
     "./server/runtime": "./server/runtime/index.js",
     "./server/runtime/errors": "./server/runtime/errors.js",
     "./server/runtime/requestUrl": "./server/runtime/requestUrl.js",
