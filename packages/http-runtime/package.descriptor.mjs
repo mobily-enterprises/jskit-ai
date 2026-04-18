@@ -1,7 +1,7 @@
 export default Object.freeze({
   "packageVersion": 1,
   "packageId": "@jskit-ai/http-runtime",
-  "version": "0.1.38",
+  "version": "0.1.39",
   "kind": "runtime",
   "dependsOn": [],
   "capabilities": {
@@ -67,7 +67,7 @@ export default Object.freeze({
   "mutations": {
     "dependencies": {
       "runtime": {
-        "@jskit-ai/kernel": "0.1.39",
+        "@jskit-ai/kernel": "0.1.40",
         "@fastify/type-provider-typebox": "^6.1.0",
         "typebox": "^1.0.81"
       },
