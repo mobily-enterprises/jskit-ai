@@ -1,6 +1,6 @@
 {
   "name": "@jskit-ai/console-core",
-  "version": "0.1.3",
+  "version": "0.1.4",
   "type": "module",
   "scripts": {
     "test": "node --test"
@@ -9,10 +9,10 @@
     "./shared/resources/consoleSettingsFields": "./src/shared/resources/consoleSettingsFields.js"
   },
   "dependencies": {
-    "@jskit-ai/database-runtime": "0.1.40",
-    "@jskit-ai/http-runtime": "0.1.39",
-    "@jskit-ai/kernel": "0.1.40",
-    "@jskit-ai/users-core": "0.1.50",
+    "@jskit-ai/database-runtime": "0.1.41",
+    "@jskit-ai/http-runtime": "0.1.40",
+    "@jskit-ai/kernel": "0.1.41",
+    "@jskit-ai/users-core": "0.1.51",
     "typebox": "^1.0.81"
   }
 }
