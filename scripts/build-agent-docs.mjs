@@ -14,8 +14,8 @@ const AGENT_DOCS_ROOT = path.join(REPO_ROOT, "packages", "agent-docs");
 const REFERENCE_AUTOGEN_ROOT = path.join(AGENT_DOCS_ROOT, "reference", "autogen");
 const STARTUP_KERNEL_MAP_PATH = path.join(REFERENCE_AUTOGEN_ROOT, "KERNEL_MAP.md");
 const REFERENCE_README_PATH = path.join(REFERENCE_AUTOGEN_ROOT, "README.md");
-const GUIDE_SOURCE_ROOT = path.join(REPO_ROOT, "docs", "guide");
 const GUIDE_HUMAN_ROOT = path.join(AGENT_DOCS_ROOT, "guide", "human");
+const GUIDE_SOURCE_ROOT = GUIDE_HUMAN_ROOT;
 const GUIDE_AGENT_ROOT = path.join(AGENT_DOCS_ROOT, "guide", "agent");
 const LEGACY_AI_DOCS_ROOT = path.join(REPO_ROOT, "ai-docs");
 const KERNEL_SHARED_ROOT = path.join(REPO_ROOT, "packages", "kernel", "shared");
@@ -549,7 +549,6 @@ function compressGuideMarkdown(sourceText = "") {
 
 async function clearAgentDocsOutputs() {
   await rm(REFERENCE_AUTOGEN_ROOT, { recursive: true, force: true });
-  await rm(GUIDE_HUMAN_ROOT, { recursive: true, force: true });
   await rm(GUIDE_AGENT_ROOT, { recursive: true, force: true });
   await rm(LEGACY_AI_DOCS_ROOT, { recursive: true, force: true });
 }
@@ -661,14 +660,6 @@ async function buildGuideOutputs(commandName) {
     const sourceText = await readFile(sourceFilePath, "utf8");
 
     await writeTextFile(
-      path.join(GUIDE_HUMAN_ROOT, relativePath),
-      toGeneratedGuideText(sourceText, {
-        commandName,
-        sourcePath: sourceMarkdownPath
-      })
-    );
-
-    await writeTextFile(
       path.join(GUIDE_AGENT_ROOT, relativePath),
       toGeneratedGuideText(compressGuideMarkdown(sourceText), {
         commandName,
@@ -690,7 +681,6 @@ async function main() {
   await buildGuideOutputs(commandName);
   process.stdout.write(`Wrote ${normalizeMarkdownPath(path.relative(REPO_ROOT, STARTUP_KERNEL_MAP_PATH))}\n`);
   process.stdout.write(`Wrote ${normalizeMarkdownPath(path.relative(REPO_ROOT, REFERENCE_README_PATH))}\n`);
-  process.stdout.write(`Wrote ${normalizeMarkdownPath(path.relative(REPO_ROOT, GUIDE_HUMAN_ROOT))}\n`);
   process.stdout.write(`Wrote ${normalizeMarkdownPath(path.relative(REPO_ROOT, GUIDE_AGENT_ROOT))}\n`);
 }
 

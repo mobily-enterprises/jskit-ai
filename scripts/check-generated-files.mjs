@@ -2,7 +2,6 @@ import { spawnSync } from "node:child_process";
 
 const GENERATED_PATHS = Object.freeze([
   "packages/agent-docs/reference/autogen",
-  "packages/agent-docs/guide/human",
   "packages/agent-docs/guide/agent",
   "tooling/jskit-catalog/catalog/packages.json"
 ]);
