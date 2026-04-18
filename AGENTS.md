@@ -15,6 +15,17 @@
   - `packages/agent-docs/guide/human/`
   - `packages/agent-docs/skills/`
 
+## Visible Change Checkpoint
+
+Before non-trivial edits, print a short visible checkpoint for the user in this format:
+
+- `Problem: ...`
+- `Fix: ...`
+- `Why this sticks: ...`
+- `Not doing: ...`
+
+Keep it compact. Do not expand this into a long multi-paragraph preamble unless the user asks for detail.
+
 When asked to create or refresh distributed agent docs:
 
 1. Preserve exact package ids, commands, APIs, tokens, env vars, filenames, route shapes, and architectural meaning.

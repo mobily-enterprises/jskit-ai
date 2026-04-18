@@ -6,7 +6,7 @@ Preferred review mode:
 - Have that fresh review agent use the packaged `jskit-review` skill when it is available.
 - If delegation or skills are unavailable, follow this file manually in the current agent.
 
-Before calling a chunk or a whole changeset done, review it in three passes:
+Before calling a chunk or a whole changeset done, review it in four passes:
 
 1. Deslop review
    - repeated functions or duplicated local helpers
@@ -22,7 +22,13 @@ Before calling a chunk or a whole changeset done, review it in three passes:
    - should this have been a package install, generator step, or scaffold extension instead of hand code?
    - are surface, route, ownership, and migration choices aligned with JSKIT conventions?
    - package metadata and actual behavior still aligned?
-3. Verification review
+3. UI standards review
+   - every user-facing screen follows Material Design and Vuetify best practices
+   - list screens use clear hierarchy, actions, density, empty states, and table/list patterns
+   - view and edit/new screens use clear form grouping, labels, helper text, validation, spacing, and action placement
+   - responsive layout, loading, disabled, success, and error states are coherent
+   - improve weak screens before sign-off; do not just note the problem and move on
+4. Verification review
    - run the smallest relevant verification commands for a chunk
    - run the widest relevant verification commands for a whole changeset
    - include Playwright for meaningful user-facing flows
@@ -38,4 +44,4 @@ Minimum expectation:
 
 Whole-changeset rule:
 
-- If the work was split into more than one chunk, repeat all three passes over the whole changeset after the final chunk is complete.
+- If the work was split into more than one chunk, repeat all four passes over the whole changeset after the final chunk is complete.

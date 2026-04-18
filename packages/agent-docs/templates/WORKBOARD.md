@@ -14,9 +14,9 @@
 
 ## Chunk Tracker
 
-| Chunk | Goal | Status | Deslop | JSKIT Review | Verification | Notes |
-| --- | --- | --- | --- | --- | --- | --- |
-| | | | | | | |
+| Chunk | Goal | Status | Deslop | JSKIT Review | UI Review | Verification | Notes |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| | | | | | | | |
 
 Status guide:
 

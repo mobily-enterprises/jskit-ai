@@ -31,6 +31,8 @@ This chapter teaches `personal`, not `workspaces`.
 
 That is deliberate. `personal` gives the guide a much better first-run experience because the first workspace is auto-provisioned for the user. The app still becomes multi-homing-capable, because invitations and memberships can still put one user in several workspaces at once. The `personal` part only changes how the first workspace is provisioned and how its slug policy works.
 
+Once `workspaces-core` and `workspaces-web` are installed, the baseline workspace invitation flow is already part of the package stack. Treat that as the default behavior unless the app explicitly needs custom invite rules or custom UI beyond what the packages already provide.
+
 ## Recap from previous chapters
 
 To recreate the previous chapter's package set in a fresh app that is already ready for workspace routing, run:

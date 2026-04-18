@@ -43,7 +43,8 @@ Use `.jskit/WORKBOARD.md` to determine the active chunk when available.
 
 1. Deslop review
 2. JSKIT best-practices review
-3. Verification review
+3. Material Design and Vuetify review
+4. Verification review
 
 ## Deslop review
 
@@ -64,6 +65,15 @@ Check for:
 - hand code that should have been a package, generator, or scaffold step
 - surface, route, ownership, and migration choices that violate JSKIT conventions
 - metadata that no longer matches actual behavior
+
+## Material Design and Vuetify review
+
+Check that user-facing screens:
+
+- follow Material Design and Vuetify best practices
+- use clear layout hierarchy, spacing, actions, and empty/error states
+- use coherent list, table, and form patterns
+- improve weak screens before sign-off rather than only recording the problem
 
 ## Verification review
 
