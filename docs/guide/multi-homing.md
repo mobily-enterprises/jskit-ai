@@ -13,7 +13,7 @@ To get back to the same starting point as the end of the previous chapter, run:
 ```bash
 SUPABASE_URL=...
 SUPABASE_KEY=...
-DB_HOST=localhost
+DB_HOST=127.0.0.1
 DB_PORT=3306
 DB_NAME=exampleapp
 DB_USER=exampleapp
@@ -72,9 +72,11 @@ The workspace package descriptors gate important file mutations on the app's ten
 So the correct order is:
 
 1. change `config.tenancyMode` to `"workspaces"`
-2. install the workspace packages
+2. add `workspaces-core`
 3. run `npm install`
-4. run `npm run db:migrate`
+4. add `workspaces-web`
+5. run `npm install`
+6. run `npm run db:migrate`
 </DocsTerminalTip>
 
 ## Installing the workspace packages
@@ -83,6 +85,7 @@ After changing `config.tenancyMode`, run:
 
 ```bash
 npx jskit add package workspaces-core
+npm install
 npx jskit add package workspaces-web
 npm install
 npm run db:migrate
@@ -108,13 +111,14 @@ These are real surfaces, not only pages.
 
 That is why this chapter feels larger than the previous ones. It is not just adding another route. It is adding a new routing topology.
 
-### The shell gains workspace-aware controls
+### The shell and account surface gain workspace-aware controls
 
-The placement registry now grows a workspace selector in the top-left of the shell and workspace tools in the admin shell.
+The placement registry now grows a workspace selector in the top-left of the shell, a pending-invites cue in the top-right area, and workspace tools in the admin shell. The workspaces package also plugs an `Invites` section into the existing `/account` settings screen through the account-settings extension seam that `users-web` exposes.
 
 That means the shell itself starts adapting to workspace context.
 
 - on any authenticated surface, the shell can now expose a workspace selector
+- signed-in users can now see a pending-invites cue without `users-web` owning that workspace feature
 - on admin workspace surfaces, the shell can also expose workspace-specific tools and settings
 
 This is the first time the guide shows the shell reacting not just to authentication state, but to workspace state as well.
@@ -306,6 +310,15 @@ The workspace packages append a new block of placements:
 
 ```js
 addPlacement({
+  id: "workspaces.profile.menu.surface-switch",
+  target: "auth-profile-menu:primary-menu",
+  surfaces: ["*"],
+  order: 100,
+  componentToken: "workspaces.web.profile.menu.surface-switch-item",
+  when: ({ auth }) => Boolean(auth?.authenticated)
+});
+
+addPlacement({
   id: "workspaces.workspace.selector",
   target: "shell-layout:top-left",
   surfaces: ["*"],
@@ -318,6 +331,15 @@ addPlacement({
   when: ({ auth }) => {
     return Boolean(auth?.authenticated);
   }
+});
+
+addPlacement({
+  id: "workspaces.account.invites.cue",
+  target: "shell-layout:top-right",
+  surfaces: ["*"],
+  order: 850,
+  componentToken: "local.main.account.pending-invites.cue",
+  when: ({ auth }) => Boolean(auth?.authenticated)
 });
 
 addPlacement({
@@ -335,13 +357,23 @@ addPlacement({
   order: 100,
   componentToken: "workspaces.web.workspace-settings.menu-item"
 });
+
+addPlacement({
+  id: "workspaces.workspace.menu.members",
+  target: "workspace-tools:primary-menu",
+  surfaces: ["admin"],
+  order: 200,
+  componentToken: "workspaces.web.workspace-members.menu-item"
+});
 ```
 
 That one block explains a lot of the new shell behavior.
 
+- the authenticated profile menu can now switch into workspace surfaces
 - the top-left area now has a workspace selector
+- the top-right area can show a pending-invites cue
 - the admin surface gets workspace tools in the top-right area
-- the admin workspace settings menu is now another nested placement host
+- the admin workspace settings menu is now another nested placement host with both `Settings` and `Members`
 
 So the placement system from the shell chapter is still doing the same job as before. The app just has a richer routing and tenancy context now.
 
@@ -388,7 +420,7 @@ This chapter is the real routing and tenancy pivot in the guide.
 
 - the app switched from `tenancyMode = "none"` to `tenancyMode = "workspaces"`
 - `workspaces-core` added the persistent schema and server runtime for workspaces
-- `workspaces-web` added the first workspace-scoped surfaces and shell controls
+- `workspaces-web` added the first workspace-scoped surfaces, shell controls, and the workspace-owned account invites extension
 
 At the end of this chapter, the app now has both:
 
