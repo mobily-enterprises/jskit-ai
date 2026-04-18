@@ -8,7 +8,7 @@ hero:
   actions:
     - theme: brand
       text: Read the guide
-      link: /guide/initial-scaffolding
+      link: /guide/
     - theme: brand
       text: GitHub Repository
       link: https://github.com/mobily-enterprises/jskit-ai

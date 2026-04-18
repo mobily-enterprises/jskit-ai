@@ -12,21 +12,42 @@ export default defineConfig({
   themeConfig: {
     siteTitle: "JSKIT",
     nav: [
-      { text: "Guide", link: "/guide/initial-scaffolding" },
+      { text: "Guide", link: "/guide/" },
       { text: "GitHub", link: "https://github.com/mobily-enterprises/jskit-ai" }
     ],
     sidebar: {
       "/guide/": [
         {
-          text: "Guide",
+          text: "Overview",
+          items: [{ text: "Guide Index", link: "/guide/" }]
+        },
+        {
+          text: "App Setup",
           items: [
-            { text: "Initial Scaffolding", link: "/guide/initial-scaffolding" },
-            { text: "A More Interesting Shell", link: "/guide/a-more-interesting-shell" },
-            { text: "Authentication", link: "/guide/authentication" },
-            { text: "Database Layer", link: "/guide/database-layer" },
-            { text: "Users", link: "/guide/users" },
-            { text: "Console", link: "/guide/console" },
-            { text: "Multi-homing", link: "/guide/multi-homing" }
+            { text: "Initial Scaffolding", link: "/guide/app-setup/initial-scaffolding" },
+            { text: "Working With The JSKIT CLI", link: "/guide/app-setup/working-with-the-jskit-cli" },
+            { text: "A More Interesting Shell", link: "/guide/app-setup/a-more-interesting-shell" },
+            { text: "Authentication", link: "/guide/app-setup/authentication" },
+            { text: "Database Layer", link: "/guide/app-setup/database-layer" },
+            { text: "Users", link: "/guide/app-setup/users" },
+            { text: "Console", link: "/guide/app-setup/console" },
+            { text: "Multi-homing", link: "/guide/app-setup/multi-homing" }
+          ]
+        },
+        {
+          text: "App Extras",
+          items: [
+            { text: "Realtime", link: "/guide/app-extras/realtime" },
+            { text: "Assistant", link: "/guide/app-extras/assistant" }
+          ]
+        },
+        {
+          text: "Generators",
+          items: [
+            { text: "Intro", link: "/guide/generators/intro" },
+            { text: "UI Generators", link: "/guide/generators/ui-generators" },
+            { text: "CRUD Generators", link: "/guide/generators/crud-generators" },
+            { text: "Advanced CRUDs", link: "/guide/generators/advanced-cruds" }
           ]
         }
       ]

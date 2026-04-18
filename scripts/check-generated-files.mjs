@@ -1,7 +1,9 @@
 import { spawnSync } from "node:child_process";
 
 const GENERATED_PATHS = Object.freeze([
-  "ai-docs/autogen",
+  "packages/agent-docs/reference/autogen",
+  "packages/agent-docs/guide/human",
+  "packages/agent-docs/guide/agent",
   "tooling/jskit-catalog/catalog/packages.json"
 ]);
 
@@ -32,7 +34,7 @@ function main() {
 
   process.stderr.write("Generated files are out of date or uncommitted:\n");
   process.stderr.write(`${output}\n`);
-  process.stderr.write("Run `npm run catalog:build` and `npm run ai-docs:build`, then commit the results.\n");
+  process.stderr.write("Run `npm run catalog:build` and `npm run agent-docs:build`, then commit the results.\n");
   process.exit(1);
 }
 

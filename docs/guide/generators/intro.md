@@ -1,0 +1,107 @@
+# Generators
+
+By the end of the app-setup chapters, the guide app already has the main structural pieces in place:
+
+- a real shell
+- authenticated users
+- a database layer
+- operator tooling
+- workspace-aware routing
+
+This section changes focus.
+
+Generators are the part of JSKIT that write app-owned files on top of installed runtime packages.
+
+That is different from `npx jskit add package ...`:
+
+- `add package` installs reusable runtime capability into the app
+- `generate ...` creates local pages, components, placements, and support files that your app owns directly
+
+So the normal flow is:
+
+1. install the runtime packages that make the feature possible
+2. decide the exact app-owned route, component, or package you want
+3. run `npx jskit generate ...`
+4. review and keep editing the generated files
+
+One important detail: generator packages such as `ui-generator`, `crud-server-generator`, and `crud-ui-generator` are tooling surfaces. You normally do **not** add them to your app with `jskit add package ...`. You use them through the CLI, and they mutate your app-owned files.
+
+This intro is also the shared starting point for the rest of the generators section.
+
+## Recap From Previous Chapters
+
+To get back to the same starting point used in the later generator chapters, run:
+
+```bash
+SUPABASE_URL=...
+SUPABASE_KEY=...
+DB_HOST=127.0.0.1
+DB_PORT=3306
+DB_NAME=exampleapp
+DB_USER=exampleapp
+DB_PASSWORD=secret
+
+npx @jskit-ai/create-app exampleapp --tenancy-mode personal
+cd exampleapp
+npm install
+
+npx jskit add package shell-web
+npx jskit add package auth-provider-supabase-core \
+  --auth-supabase-url "$SUPABASE_URL" \
+  --auth-supabase-publishable-key "$SUPABASE_KEY" \
+  --app-public-url "http://localhost:5173"
+npx jskit add bundle auth-base
+npx jskit add package database-runtime-mysql \
+  --db-host "$DB_HOST" \
+  --db-port "$DB_PORT" \
+  --db-name "$DB_NAME" \
+  --db-user "$DB_USER" \
+  --db-password "$DB_PASSWORD"
+npx jskit add package users-web
+npx jskit add package console-web
+npx jskit add package workspaces-core
+npx jskit add package workspaces-web
+npm install
+npm run db:migrate
+```
+
+If you are already continuing from the earlier guide chapters, you are already in the right place and can skip that setup.
+
+That baseline matters because the later generator examples assume:
+
+- a shell with placements and routed pages
+- authenticated users and user-owned routes
+- database-backed runtime packages
+- console and workspace surfaces that real generated pages can target
+
+## Current generator families
+
+Right now the guide splits generators into two practical groups:
+
+- `@jskit-ai/ui-generator` for non-CRUD pages, placed UI, subpage hosts, and generic outlets
+- `@jskit-ai/crud-server-generator` plus `@jskit-ai/crud-ui-generator` for end-to-end CRUD scaffolding
+
+For CRUD work, there are also two guide layers on purpose:
+
+- [CRUD Generators](/guide/generators/crud-generators) teaches the end-to-end workflow for generating a working CRUD
+- [Advanced CRUDs](/guide/generators/advanced-cruds) explains the generated package anatomy, ownership structure, and the safest places to customize it
+
+The intended reading order is:
+
+1. `CRUD Generators`
+2. `Advanced CRUDs`
+
+## Why generators matter
+
+This is one of the main JSKIT ideas:
+
+- packages own reusable framework/runtime behavior
+- generators write the app-local files that make that behavior concrete in your app
+
+That keeps the runtime reusable without hiding your real app UI behind opaque framework internals.
+
+## Next sections
+
+- [UI Generators](/guide/generators/ui-generators) covers the non-CRUD workflow built around `ui-generator`
+- [CRUD Generators](/guide/generators/crud-generators) covers the combined server-and-UI CRUD workflow using `contacts`, nested `addresses`, and in-page `comments`
+- [Advanced CRUDs](/guide/generators/advanced-cruds) is the follow-on chapter after `CRUD Generators`, and goes deeper into the generated CRUD structure, ownership boundaries, and search/filter customization

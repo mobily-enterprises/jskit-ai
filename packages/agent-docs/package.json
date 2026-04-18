@@ -1,0 +1,28 @@
+{
+  "name": "@jskit-ai/agent-docs",
+  "version": "0.1.0",
+  "description": "Distributed JSKIT agent workflows, guides, and generated reference maps.",
+  "type": "module",
+  "files": [
+    "DISTR_AGENT.md",
+    "guide",
+    "reference",
+    "templates",
+    "workflow"
+  ],
+  "scripts": {
+    "test": "node --test"
+  },
+  "engines": {
+    "node": "20.x"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "keywords": [
+    "jskit",
+    "agent",
+    "docs",
+    "workflow"
+  ]
+}
