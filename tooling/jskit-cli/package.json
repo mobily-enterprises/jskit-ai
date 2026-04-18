@@ -1,6 +1,6 @@
 {
   "name": "@jskit-ai/jskit-cli",
-  "version": "0.2.50",
+  "version": "0.2.51",
   "description": "Bundle and package orchestration CLI for JSKIT apps.",
   "type": "module",
   "files": [
@@ -20,9 +20,9 @@
     "test": "node --test"
   },
   "dependencies": {
-    "@jskit-ai/jskit-catalog": "0.1.49",
-    "@jskit-ai/kernel": "0.1.41",
-    "@jskit-ai/shell-web": "0.1.40"
+    "@jskit-ai/jskit-catalog": "0.1.50",
+    "@jskit-ai/kernel": "0.1.42",
+    "@jskit-ai/shell-web": "0.1.41"
   },
   "engines": {
     "node": "20.x"

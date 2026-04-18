@@ -1,7 +1,7 @@
 export default Object.freeze({
   packageVersion: 1,
   packageId: "@jskit-ai/assistant-core",
-  version: "0.1.17",
+  version: "0.1.18",
   kind: "runtime",
   description: "Reusable assistant client/server/shared primitives without surface-specific routes or settings ownership.",
   dependsOn: [
@@ -45,9 +45,9 @@ export default Object.freeze({
   mutations: {
     dependencies: {
       runtime: {
-        "@jskit-ai/http-runtime": "0.1.40",
-        "@jskit-ai/kernel": "0.1.41",
-        "@jskit-ai/users-core": "0.1.51",
+        "@jskit-ai/http-runtime": "0.1.41",
+        "@jskit-ai/kernel": "0.1.42",
+        "@jskit-ai/users-core": "0.1.52",
         "@tanstack/vue-query": "^5.90.5",
         "dompurify": "^3.3.3",
         "marked": "^17.0.4",
