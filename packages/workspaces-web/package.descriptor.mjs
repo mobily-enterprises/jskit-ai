@@ -1,7 +1,7 @@
 export default Object.freeze({
   packageVersion: 1,
   packageId: "@jskit-ai/workspaces-web",
-  version: "0.1.18",
+  version: "0.1.19",
   kind: "runtime",
   description: "Workspace web module: workspace selector, tools widget, workspace surfaces, and members/settings UI.",
   dependsOn: [
@@ -147,8 +147,8 @@ export default Object.freeze({
   mutations: {
     dependencies: {
       runtime: {
-        "@jskit-ai/workspaces-core": "0.1.18",
-        "@jskit-ai/users-web": "0.1.57",
+        "@jskit-ai/workspaces-core": "0.1.19",
+        "@jskit-ai/users-web": "0.1.58",
         "vuetify": "^4.0.0"
       },
       dev: {}

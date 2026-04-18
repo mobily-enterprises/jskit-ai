@@ -1,6 +1,6 @@
 {
   "name": "@jskit-ai/database-runtime",
-  "version": "0.1.42",
+  "version": "0.1.43",
   "type": "module",
   "scripts": {
     "test": "node --test"
@@ -25,6 +25,6 @@
     "./shared/transactions": "./src/shared/transactions.js"
   },
   "dependencies": {
-    "@jskit-ai/kernel": "0.1.42"
+    "@jskit-ai/kernel": "0.1.43"
   }
 }
