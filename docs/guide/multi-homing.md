@@ -36,6 +36,7 @@ npx jskit add package database-runtime-mysql \
   --db-user "$DB_USER" \
   --db-password "$DB_PASSWORD"
 npx jskit add package users-web
+npx jskit add package console-web
 npm install
 npm run db:migrate
 ```
@@ -305,11 +306,11 @@ The workspace packages append a new block of placements:
 
 ```js
 addPlacement({
-  id: "users.workspace.selector",
+  id: "workspaces.workspace.selector",
   target: "shell-layout:top-left",
   surfaces: ["*"],
   order: 200,
-  componentToken: "users.web.workspace.selector",
+  componentToken: "workspaces.web.workspace.selector",
   props: {
     allowOnNonWorkspaceSurface: true,
     targetSurfaceId: "app"
@@ -320,19 +321,19 @@ addPlacement({
 });
 
 addPlacement({
-  id: "users.workspace.tools.widget",
+  id: "workspaces.workspace.tools.widget",
   target: "shell-layout:top-right",
   surfaces: ["admin"],
   order: 900,
-  componentToken: "users.web.workspace.tools.widget"
+  componentToken: "workspaces.web.workspace.tools.widget"
 });
 
 addPlacement({
-  id: "users.workspace.menu.workspace-settings",
+  id: "workspaces.workspace.menu.workspace-settings",
   target: "workspace-tools:primary-menu",
   surfaces: ["admin"],
   order: 100,
-  componentToken: "users.web.workspace-settings.menu-item"
+  componentToken: "workspaces.web.workspace-settings.menu-item"
 });
 ```
 
@@ -380,3 +381,26 @@ After:
 - access to some surfaces now depends on workspace membership
 
 That is why multi-homing deserves its own chapter. It is not just another feature package. It is the moment the app becomes tenancy-aware.
+
+## Summary
+
+This chapter is the real routing and tenancy pivot in the guide.
+
+- the app switched from `tenancyMode = "none"` to `tenancyMode = "workspaces"`
+- `workspaces-core` added the persistent schema and server runtime for workspaces
+- `workspaces-web` added the first workspace-scoped surfaces and shell controls
+
+At the end of this chapter, the app now has both:
+
+- global surfaces such as `home`, `auth`, `account`, and `console`
+- workspace-scoped surfaces such as `/w/[workspaceSlug]` and `/w/[workspaceSlug]/admin`
+
+That is the most important mental shift to keep:
+
+- earlier chapters added features inside one global app shell
+- this chapter changed the topology of the app itself
+
+From here on, later modules are no longer only adding pages or widgets. They can add features inside either:
+
+- the global surfaces
+- the workspace-specific surfaces

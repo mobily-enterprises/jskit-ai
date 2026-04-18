@@ -17,6 +17,7 @@ Use this on demand; do not load the full index at startup.
 ### `src/client/index.js`
 Exports
 - `createHttpClient`
+- `createTransientRetryHttpClient`
 - `normalizeFieldErrors`
 - `resolveFieldErrors`
 - `createValidationFailure`
@@ -37,6 +38,14 @@ Exports
 ### `src/client/providers/HttpValidatorsClientProvider.js`
 Exports
 - `HttpValidatorsClientProvider`
+
+### `src/client/transientRetryHttpClient.js`
+Exports
+- `createTransientRetryHttpClient(options = {})`
+Local functions
+- `sleep(delayMs)`
+- `shouldRetryTransientHttpFailure(error, method, attemptIndex)`
+- `requestWithTransientRetry(executor, method)`
 
 ### `src/client/validationErrors.js`
 Exports

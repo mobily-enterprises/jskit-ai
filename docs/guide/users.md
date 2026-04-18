@@ -8,7 +8,6 @@ This chapter is where that changes. We install `users-web`, run the new migratio
 
 - the persistent users/account data model from `users-core`
 - the account surface and account settings UI
-- the first console surface
 - the switch from standalone auth profile sync to users-backed auth profile sync
 
 ## Recap from previous chapters
@@ -105,7 +104,7 @@ This is where the starter account settings UI lives. It already has real section
 - preferences
 - notifications
 
-The app can also show an `Invites` section later, but that only appears when the runtime says invites are actually available for the current tenancy/setup.
+Later chapters can extend this account screen with more sections. For example, the multi-homing chapter adds workspace invitation UI through `workspaces-web`, not through `users-web` itself.
 
 The important point is that this is no longer just a placeholder route. It is the first app-owned screen that assumes there is a real persistent user model behind it.
 
@@ -254,7 +253,6 @@ src/components/account/settings/
   AccountSettingsProfileSection.vue
   AccountSettingsPreferencesSection.vue
   AccountSettingsNotificationsSection.vue
-  AccountSettingsInvitesSection.vue
 ```
 
 The top-level `AccountSettingsClientElement.vue` uses `useAccountSettingsRuntime()` from `users-web` and wires those sections into a tabbed settings experience.
@@ -293,3 +291,21 @@ After `users-web`:
 So auth now has everything it needs to stop using the fallback mirror and start using the persistent users-backed one.
 
 That is the true point of this chapter. The app is no longer just authenticated. It now has a real users layer.
+
+## Summary
+
+This chapter is where the app stopped treating signed-in people as only Supabase identities and started treating them as real JSKIT users.
+
+- `users-core` installed the persistent users/account schema and server layer
+- `users-web` installed the first real account surface and account settings UI
+- auth switched from the standalone fallback mirror to the users-backed sync flow
+
+That is why this chapter feels bigger than a normal page install. It changes both the browser experience and the server-side meaning of "a signed-in user."
+
+At the end of this chapter, the app now has:
+
+- real JSKIT-side `users` and `user_settings` tables
+- a real authenticated `/account` surface
+- a shell that can expose user settings and account tools
+
+The next chapter adds a different kind of surface: not a personal account area, but a privileged operator console.

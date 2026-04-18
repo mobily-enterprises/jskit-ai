@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test, { after } from "node:test";
-import { resolveApiBasePath } from "@jskit-ai/users-core/shared/support/usersApiPaths";
+import { resolveScopedApiBasePath } from "@jskit-ai/kernel/shared/surface";
 import { recordIdParamsValidator } from "@jskit-ai/kernel/shared/validators";
 import { createTemplateServerFixture } from "../test-support/templateServerFixture.js";
 
@@ -61,9 +61,10 @@ test("crud routes build create/update action input with explicit payload and pat
     routeRelativePath: "/customers"
   });
 
-  const workspaceRouteBase = resolveApiBasePath({
-    surfaceRequiresWorkspace: true,
-    relativePath: "/customers"
+  const workspaceRouteBase = resolveScopedApiBasePath({
+    routeBase: "/w/:workspaceSlug",
+    relativePath: "/customers",
+    strictParams: false
   });
   const createRoute = findRoute(registeredRoutes, "POST", workspaceRouteBase);
   const updateRoute = findRoute(registeredRoutes, "PATCH", `${workspaceRouteBase}/:recordId`);
@@ -233,9 +234,10 @@ test("crud routes validate route ownership filter values before registering visi
     /must be one of/
   );
 
-  const workspaceRouteBase = resolveApiBasePath({
-    surfaceRequiresWorkspace: true,
-    relativePath: "/customers"
+  const workspaceRouteBase = resolveScopedApiBasePath({
+    routeBase: "/w/:workspaceSlug",
+    relativePath: "/customers",
+    strictParams: false
   });
   const workspaceUserRoute = findRoute(registeredRoutes, "GET", workspaceRouteBase);
 
@@ -268,9 +270,10 @@ test("crud list route forwards normalized query input from list query validators
     routeRelativePath: "/customers"
   });
 
-  const workspaceRouteBase = resolveApiBasePath({
-    surfaceRequiresWorkspace: true,
-    relativePath: "/customers"
+  const workspaceRouteBase = resolveScopedApiBasePath({
+    routeBase: "/w/:workspaceSlug",
+    relativePath: "/customers",
+    strictParams: false
   });
   const listRoute = findRoute(registeredRoutes, "GET", workspaceRouteBase);
   assert.ok(listRoute);
@@ -333,9 +336,10 @@ test("crud view route forwards include query input", async () => {
     routeRelativePath: "/customers"
   });
 
-  const workspaceRouteBase = resolveApiBasePath({
-    surfaceRequiresWorkspace: true,
-    relativePath: "/customers"
+  const workspaceRouteBase = resolveScopedApiBasePath({
+    routeBase: "/w/:workspaceSlug",
+    relativePath: "/customers",
+    strictParams: false
   });
   const viewRoute = findRoute(registeredRoutes, "GET", `${workspaceRouteBase}/:recordId`);
   assert.ok(viewRoute);

@@ -14,8 +14,9 @@ test("package exports include explicit shared entrypoint and no server barrel", 
   assert.equal(exportsMap["./shared"], "./src/shared/index.js");
 });
 
-test("client entrypoint exports client runtime and client providers only", () => {
+test("client entrypoint exports client runtime helpers and client providers only", () => {
   assert.equal(typeof clientApi.createHttpClient, "function");
+  assert.equal(typeof clientApi.createTransientRetryHttpClient, "function");
   assert.equal(typeof clientApi.HttpValidatorsClientProvider, "function");
   assert.equal(typeof clientApi.HttpClientRuntimeClientProvider, "function");
   assert.equal(typeof clientApi.withStandardErrorResponses, "undefined");

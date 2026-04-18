@@ -1,6 +1,6 @@
 import { AppError } from "@jskit-ai/kernel/server/runtime";
 import { normalizeObject, normalizeRecordId, normalizeText } from "@jskit-ai/kernel/shared/support/normalize";
-import { resolveWorkspace } from "@jskit-ai/users-core/server/support/resolveWorkspace";
+import { resolveWorkspace } from "@jskit-ai/workspaces-core/server/support/resolveWorkspace";
 import { resolveWorkspaceSlug } from "@jskit-ai/assistant-core/server";
 import {
   ASSISTANT_STREAM_EVENT_TYPES

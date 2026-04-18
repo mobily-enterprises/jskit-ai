@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { UsersCoreServiceProvider } from "../../users-core/src/server/UsersCoreServiceProvider.js";
-import { resolveTenancyProfile } from "../../users-core/src/shared/tenancyProfile.js";
+import { resolveTenancyProfile } from "../src/shared/tenancyProfile.js";
 import { WorkspacesCoreServiceProvider } from "../src/server/WorkspacesCoreServiceProvider.js";
 
 function createReplyDouble() {
@@ -63,10 +63,10 @@ async function registerRoutes({
       }
     ],
     ["actionExecutor", {}],
-    ["users.workspace.enabled", workspaceEnabled],
-    ["users.workspace.tenancy.enabled", workspaceTenancyEnabled],
-    ["users.workspace.invitations.enabled", workspaceInvitationsEnabled],
-    ["users.workspace.self-create.enabled", workspaceSelfCreateEnabled]
+    ["workspaces.enabled", workspaceEnabled],
+    ["workspaces.tenancy.enabled", workspaceTenancyEnabled],
+    ["workspaces.invitations.enabled", workspaceInvitationsEnabled],
+    ["workspaces.self-create.enabled", workspaceSelfCreateEnabled]
   ]);
 
   if (consoleService) {

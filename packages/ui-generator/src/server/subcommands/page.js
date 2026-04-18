@@ -32,8 +32,8 @@ function renderPageLinkPlacementBlock({
     "    props: {\n" +
     `      label: "${label}",\n` +
     `      surface: "${surface}",\n` +
-    `      workspaceSuffix: "${context.__JSKIT_UI_LINK_WORKSPACE_SUFFIX__}",\n` +
-    `      nonWorkspaceSuffix: "${context.__JSKIT_UI_LINK_NON_WORKSPACE_SUFFIX__}",\n` +
+    `      scopedSuffix: "${context.__JSKIT_UI_LINK_WORKSPACE_SUFFIX__}",\n` +
+    `      unscopedSuffix: "${context.__JSKIT_UI_LINK_NON_WORKSPACE_SUFFIX__}",\n` +
     `${context.__JSKIT_UI_LINK_TO_PROP_LINE__}    },\n` +
     `${String(context.__JSKIT_UI_LINK_WHEN_LINE__ || "")}` +
     "  });\n" +

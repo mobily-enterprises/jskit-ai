@@ -2,15 +2,6 @@ import { AppError } from "@jskit-ai/kernel/server/runtime";
 import { requireServiceMethod } from "@jskit-ai/kernel/shared/actions/actionContributorHelpers";
 import { normalizeLowerText, normalizeText } from "@jskit-ai/kernel/shared/actions/textNormalization";
 import { normalizeObject } from "@jskit-ai/kernel/shared/support/normalize";
-import {
-  TENANCY_MODE_NONE,
-  TENANCY_MODE_PERSONAL,
-  TENANCY_MODE_WORKSPACES,
-  WORKSPACE_SLUG_POLICY_NONE,
-  WORKSPACE_SLUG_POLICY_IMMUTABLE_USERNAME,
-  WORKSPACE_SLUG_POLICY_USER_SELECTED,
-  resolveTenancyProfile
-} from "../shared/tenancyProfile.js";
 import { accountAvatarFormatter } from "./common/formatters/accountAvatarFormatter.js";
 import { authenticatedUserValidator } from "./common/validators/authenticatedUserValidator.js";
 import { userSettingsFields } from "../shared/resources/userSettingsFields.js";
@@ -56,10 +47,8 @@ function normalizeBoolean(value, fallback) {
   return fallback;
 }
 
-function resolveAppState(appConfig = {}, { workspaceInvitationsEnabled = false } = {}) {
+function resolveAppState(appConfig = {}) {
   const features = {
-    workspaceSwitching: normalizeBoolean(appConfig.workspaceSwitching, false),
-    workspaceInvites: workspaceInvitationsEnabled === true,
     assistantEnabled: normalizeBoolean(appConfig.assistantEnabled, false),
     assistantRequiredPermission: normalizeText(appConfig.assistantRequiredPermission),
     socialEnabled: normalizeBoolean(appConfig.socialEnabled, false),
@@ -71,54 +60,14 @@ function resolveAppState(appConfig = {}, { workspaceInvitationsEnabled = false }
   };
 }
 
-function normalizeSlugPolicy(value = "") {
-  const normalizedValue = normalizeLowerText(value);
-  if (
-    normalizedValue === WORKSPACE_SLUG_POLICY_IMMUTABLE_USERNAME ||
-    normalizedValue === WORKSPACE_SLUG_POLICY_USER_SELECTED
-  ) {
-    return normalizedValue;
-  }
-  return WORKSPACE_SLUG_POLICY_NONE;
-}
-
-function isSupportedTenancyMode(value = "") {
-  return value === TENANCY_MODE_NONE || value === TENANCY_MODE_PERSONAL || value === TENANCY_MODE_WORKSPACES;
-}
-
-function resolveBootstrapTenancyProfile(tenancyProfile = null, appConfig = {}) {
-  const fallback = resolveTenancyProfile(appConfig);
-  const source = tenancyProfile && typeof tenancyProfile === "object" ? tenancyProfile : fallback;
-  const mode = isSupportedTenancyMode(source?.mode) ? source.mode : fallback.mode;
-  const workspace = source?.workspace && typeof source.workspace === "object" ? source.workspace : fallback.workspace;
-
-  return Object.freeze({
-    mode,
-    workspace: Object.freeze({
-      enabled: workspace.enabled === true,
-      autoProvision: workspace.autoProvision === true,
-      allowSelfCreate: workspace.allowSelfCreate === true,
-      slugPolicy: normalizeSlugPolicy(workspace.slugPolicy)
-    })
-  });
-}
-
-function createAnonymousBootstrapPayload({ appState, tenancyProfile, surfaceAccess = {} }) {
+function createAnonymousBootstrapPayload({ appState, surfaceAccess = {} }) {
   return {
     session: {
       authenticated: false
     },
     profile: null,
-    tenancy: tenancyProfile,
     app: appState,
-    workspaces: [],
-    pendingInvites: [],
-    activeWorkspace: null,
-    membership: null,
-    requestedWorkspace: null,
-    permissions: [],
     surfaceAccess: normalizeObject(surfaceAccess),
-    workspaceSettings: null,
     userSettings: null,
     requestMeta: {
       hasRequest: false
@@ -151,12 +100,10 @@ function createUsersBootstrapContributor({
   usersRepository,
   userSettingsRepository,
   appConfig = {},
-  tenancyProfile = null,
   authService
 } = {}) {
   const contributorId = "users.bootstrap";
   const appState = resolveAppState(appConfig);
-  const resolvedTenancyProfile = resolveBootstrapTenancyProfile(tenancyProfile, appConfig);
 
   requireServiceMethod(usersRepository, "findById", contributorId, {
     serviceLabel: "usersRepository"
@@ -187,7 +134,6 @@ function createUsersBootstrapContributor({
       const inheritedSurfaceAccess = normalizeObject(existingPayload?.surfaceAccess);
       let payload = createAnonymousBootstrapPayload({
         appState,
-        tenancyProfile: resolvedTenancyProfile,
         surfaceAccess: inheritedSurfaceAccess
       });
 
@@ -205,16 +151,8 @@ function createUsersBootstrapContributor({
             email: latestProfile.email,
             avatar: accountAvatarFormatter(latestProfile, userSettings)
           },
-          tenancy: resolvedTenancyProfile,
           app: appState,
-          workspaces: [],
-          pendingInvites: [],
-          activeWorkspace: null,
-          membership: null,
-          requestedWorkspace: null,
-          permissions: [],
           surfaceAccess: inheritedSurfaceAccess,
-          workspaceSettings: null,
           userSettings: mapUserSettingsBootstrap(userSettings),
           requestMeta: {
             hasRequest: Boolean(request)

@@ -1,6 +1,6 @@
 import { computed, proxyRefs } from "vue";
 import { useRoute } from "vue-router";
-import { USERS_ROUTE_VISIBILITY_WORKSPACE } from "@jskit-ai/users-core/shared/support/usersVisibility";
+import { ROUTE_VISIBILITY_WORKSPACE } from "@jskit-ai/kernel/shared/support/visibility";
 import { useAddEditCore } from "../runtime/useAddEditCore.js";
 import { useEndpointResource } from "../runtime/useEndpointResource.js";
 import { resolveOperationAdapter } from "../runtime/operationAdapters.js";
@@ -17,7 +17,7 @@ import {
 import { resolveRouteParamNamesInOrder } from "../support/routeTemplateHelpers.js";
 
 function useAddEdit({
-  ownershipFilter = USERS_ROUTE_VISIBILITY_WORKSPACE,
+  ownershipFilter = ROUTE_VISIBILITY_WORKSPACE,
   surfaceId = "",
   access = "auto",
   resource = null,

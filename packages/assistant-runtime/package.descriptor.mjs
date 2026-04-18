@@ -1,7 +1,7 @@
 export default Object.freeze({
   packageVersion: 1,
   packageId: "@jskit-ai/assistant-runtime",
-  version: "0.1.8",
+  version: "0.1.9",
   kind: "runtime",
   description: "Shared assistant runtime with per-surface assistant registration.",
   dependsOn: [
@@ -10,7 +10,9 @@ export default Object.freeze({
     "@jskit-ai/http-runtime",
     "@jskit-ai/shell-web",
     "@jskit-ai/users-core",
-    "@jskit-ai/users-web"
+    "@jskit-ai/users-web",
+    "@jskit-ai/workspaces-core",
+    "@jskit-ai/workspaces-web"
   ],
   capabilities: {
     provides: ["assistant.runtime"],
@@ -20,7 +22,9 @@ export default Object.freeze({
       "auth.policy",
       "runtime.http-client",
       "users.core",
-      "users.web"
+      "users.web",
+      "workspaces.core",
+      "workspaces.web"
     ]
   },
   runtime: {
@@ -74,13 +78,15 @@ export default Object.freeze({
   mutations: {
     dependencies: {
       runtime: {
-        "@jskit-ai/assistant-core": "0.1.13",
-        "@jskit-ai/database-runtime": "0.1.37",
-        "@jskit-ai/http-runtime": "0.1.36",
-        "@jskit-ai/kernel": "0.1.37",
-        "@jskit-ai/shell-web": "0.1.36",
-        "@jskit-ai/users-core": "0.1.47",
-        "@jskit-ai/users-web": "0.1.52",
+        "@jskit-ai/assistant-core": "0.1.14",
+        "@jskit-ai/database-runtime": "0.1.38",
+        "@jskit-ai/http-runtime": "0.1.37",
+        "@jskit-ai/kernel": "0.1.38",
+        "@jskit-ai/shell-web": "0.1.37",
+        "@jskit-ai/users-core": "0.1.48",
+        "@jskit-ai/users-web": "0.1.53",
+        "@jskit-ai/workspaces-core": "0.1.14",
+        "@jskit-ai/workspaces-web": "0.1.14",
         "@tanstack/vue-query": "^5.90.5",
         "vuetify": "^4.0.0"
       },

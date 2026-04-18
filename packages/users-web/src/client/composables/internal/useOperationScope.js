@@ -1,5 +1,5 @@
 import { computed, unref } from "vue";
-import { USERS_ROUTE_VISIBILITY_WORKSPACE } from "@jskit-ai/users-core/shared/support/usersVisibility";
+import { ROUTE_VISIBILITY_WORKSPACE } from "@jskit-ai/kernel/shared/support/visibility";
 import { useScopeRuntime } from "../useScopeRuntime.js";
 import { useOperationRealtime } from "../useRealtimeQueryInvalidation.js";
 import {
@@ -33,7 +33,7 @@ function hasAnyPermissions(permissionSets = {}) {
 }
 
 function useOperationScope({
-  ownershipFilter = USERS_ROUTE_VISIBILITY_WORKSPACE,
+  ownershipFilter = ROUTE_VISIBILITY_WORKSPACE,
   surfaceId = "",
   access = "auto",
   placementSource = "users-web.operation",
@@ -54,8 +54,8 @@ function useOperationScope({
   });
   const normalizedOwnershipFilter = scopeRuntime.normalizedOwnershipFilter;
   const routeContext = scopeRuntime.routeContext;
-  const workspaceSlugFromRoute = scopeRuntime.workspaceSlugFromRoute;
-  const hasRouteWorkspaceSlug = scopeRuntime.hasRouteWorkspaceSlug;
+  const scopeParamValue = scopeRuntime.scopeParamValue;
+  const hasRequiredRouteScope = scopeRuntime.hasRequiredRouteScope;
   const accessRuntime = scopeRuntime.access;
 
   const apiPath = computed(() =>
@@ -67,7 +67,7 @@ function useOperationScope({
   const queryEnabled = computed(() =>
     resolveEnabled(readEnabled, {
       surfaceId: routeContext.currentSurfaceId.value,
-      workspaceSlug: workspaceSlugFromRoute.value,
+      scopeParamValue: scopeParamValue.value,
       ownershipFilter: normalizedOwnershipFilter,
       model
     })
@@ -76,20 +76,20 @@ function useOperationScope({
   const queryKey = computed(() =>
     resolveQueryKey(queryKeyFactory, {
       surfaceId: routeContext.currentSurfaceId.value,
-      workspaceSlug: workspaceSlugFromRoute.value,
+      scopeParamValue: scopeParamValue.value,
       ownershipFilter: normalizedOwnershipFilter
     })
   );
   const realtimeBinding = useOperationRealtime({
     realtime,
     queryKey: typeof queryKeyFactory === "function" ? queryKey : null,
-    enabled: computed(() => hasRouteWorkspaceSlug.value && Boolean(apiPath.value))
+    enabled: computed(() => hasRequiredRouteScope.value && Boolean(apiPath.value))
   });
 
   function queryCanRun(accessGate = true) {
     return computed(() =>
       queryEnabled.value &&
-      hasRouteWorkspaceSlug.value &&
+      hasRequiredRouteScope.value &&
       Boolean(apiPath.value) &&
       Boolean(unref(accessGate))
     );
@@ -102,8 +102,8 @@ function useOperationScope({
 
   function loadError(baseError = "") {
     return computed(() => {
-      if (scopeRuntime.workspaceRouteError.value) {
-        return scopeRuntime.workspaceRouteError.value;
+      if (scopeRuntime.routeScopeError.value) {
+        return scopeRuntime.routeScopeError.value;
       }
 
       const bootstrapError = String(accessRuntime.bootstrapError.value || "").trim();
@@ -127,8 +127,8 @@ function useOperationScope({
     scopeRuntime,
     routeContext,
     normalizedOwnershipFilter,
-    workspaceSlugFromRoute,
-    hasRouteWorkspaceSlug,
+    scopeParamValue,
+    hasRequiredRouteScope,
     access: accessRuntime,
     apiPath,
     queryEnabled,

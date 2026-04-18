@@ -355,8 +355,15 @@ Exports
 ### `shared/support/visibility.js`
 Exports
 - `ROUTE_VISIBILITY_LEVELS`
+- `ROUTE_VISIBILITY_PUBLIC`
+- `ROUTE_VISIBILITY_USER`
+- `ROUTE_VISIBILITY_WORKSPACE`
+- `ROUTE_VISIBILITY_WORKSPACE_USER`
+- `ROUTE_VISIBILITY_TOKENS`
 - `normalizeRouteVisibilityToken(value, { fallback = ROUTE_VISIBILITY_PUBLIC } = {})`
 - `normalizeRouteVisibility(value, { fallback = ROUTE_VISIBILITY_PUBLIC } = {})`
+- `checkRouteVisibility(value, { context = "checkRouteVisibility" } = {})`
+- `isWorkspaceRouteVisibility(value = "")`
 - `normalizeVisibilityContext(value = {})`
 Local functions
 - `normalizeVisibilityScopeKind(value)`
@@ -368,6 +375,7 @@ Exports
 - `API_PREFIX_SLASH`
 - `API_DOCS_PATH`
 - `API_REALTIME_PATH`
+- `materializeRouteTemplate(routeTemplate = "/", { params = {}, strictParams = true, context = "materializeRouteTemplate" } = {})`
 - `normalizePathname`
 - `isApiPath(pathname)`
 - `isVersionedApiPath(pathname)`
@@ -375,6 +383,10 @@ Exports
 - `toVersionedApiPrefix(pathnameOrPrefix)`
 - `buildVersionedApiPath(suffix)`
 - `isVersionedApiPrefixMatch(pathname)`
+- `resolveScopedRouteBase(routeBase = "/")`
+- `resolveScopedApiBasePath({ routeBase = "/", relativePath = "/", params = {}, strictParams = true } = {})`
+Local functions
+- `normalizeRouteTemplateParams(params = null)`
 
 ### `shared/surface/escapeRegExp.js`
 Exports
@@ -386,6 +398,8 @@ Exports
 - `normalizeSurfacePagesRoot`
 - `deriveSurfaceRouteBaseFromPagesRoot`
 - `createSurfacePathHelpers`
+- `resolveScopedRouteBase`
+- `resolveScopedApiBasePath`
 
 ### `shared/surface/paths.js`
 Exports

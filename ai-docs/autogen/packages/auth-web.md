@@ -102,7 +102,7 @@ Exports
 
 ### `src/client/lib/surfaceLinkTarget.js`
 Exports
-- `resolveSurfaceLinkTarget({ context = null, surface = "", explicitTo = "", workspaceSuffix = "", nonWorkspaceSuffix = "" } = {})`
+- `resolveSurfaceLinkTarget({ context = null, surface = "", explicitTo = "", scopedSuffix = "", unscopedSuffix = "" } = {})`
 
 ### `src/client/providers/AuthWebClientProvider.js`
 Exports

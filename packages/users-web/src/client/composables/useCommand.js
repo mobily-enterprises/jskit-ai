@@ -1,5 +1,5 @@
 import { proxyRefs } from "vue";
-import { USERS_ROUTE_VISIBILITY_WORKSPACE } from "@jskit-ai/users-core/shared/support/usersVisibility";
+import { ROUTE_VISIBILITY_WORKSPACE } from "@jskit-ai/kernel/shared/support/visibility";
 import { useCommandCore } from "./runtime/useCommandCore.js";
 import { useEndpointResource } from "./runtime/useEndpointResource.js";
 import { useOperationScope } from "./internal/useOperationScope.js";
@@ -11,7 +11,7 @@ import {
 } from "./runtime/operationUiHelpers.js";
 
 function useCommand({
-  ownershipFilter = USERS_ROUTE_VISIBILITY_WORKSPACE,
+  ownershipFilter = ROUTE_VISIBILITY_WORKSPACE,
   surfaceId = "",
   access = "auto",
   apiSuffix = "",

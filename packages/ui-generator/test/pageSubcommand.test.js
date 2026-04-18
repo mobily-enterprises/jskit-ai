@@ -84,7 +84,7 @@ test("ui-generator page subcommand creates an index page from an explicit target
 
     const placementSource = await readFile(path.join(appRoot, "src", "placement.js"), "utf8");
     assert.match(placementSource, /id: "ui-generator\.page\.admin\.practice\.link"/);
-    assert.match(placementSource, /workspaceSuffix: "\/practice"/);
+    assert.match(placementSource, /scopedSuffix: "\/practice"/);
     assert.match(placementSource, /label: "Practice"/);
   });
 });
@@ -107,7 +107,7 @@ test("ui-generator page subcommand creates a file route and derives label from t
     assert.match(pageSource, /<h1 class="text-h5 mb-2">Contact Id<\/h1>/);
 
     const placementSource = await readFile(path.join(appRoot, "src", "placement.js"), "utf8");
-    assert.match(placementSource, /workspaceSuffix: "\/contacts\/\[contactId\]"/);
+    assert.match(placementSource, /scopedSuffix: "\/contacts\/\[contactId\]"/);
     assert.match(placementSource, /id: "ui-generator\.page\.admin\.contacts\.contact-id\.link"/);
     assert.match(placementSource, /label: "Contact Id"/);
   });
@@ -275,7 +275,7 @@ test("ui-generator page subcommand chooses the most specific matching surface pa
 
     const placementSource = await readFile(path.join(appRoot, "src", "placement.js"), "utf8");
     assert.match(placementSource, /id: "ui-generator\.page\.admin\.practice\.link"/);
-    assert.match(placementSource, /workspaceSuffix: "\/practice"/);
+    assert.match(placementSource, /scopedSuffix: "\/practice"/);
   });
 });
 
@@ -314,7 +314,7 @@ test("ui-generator page subcommand accepts target files with a src/pages prefix"
     assert.match(pageSource, /Practice/);
     const placementSource = await readFile(path.join(appRoot, "src", "placement.js"), "utf8");
     assert.match(placementSource, /id: "ui-generator\.page\.admin\.practice\.link"/);
-    assert.match(placementSource, /workspaceSuffix: "\/practice"/);
+    assert.match(placementSource, /scopedSuffix: "\/practice"/);
   });
 });
 

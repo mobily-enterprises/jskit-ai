@@ -2,8 +2,8 @@ import { AppError } from "@jskit-ai/kernel/server/runtime";
 import { resolveAppConfig } from "@jskit-ai/kernel/server/support";
 import { normalizeSurfaceId } from "@jskit-ai/kernel/shared/surface/registry";
 import { withStandardErrorResponses } from "@jskit-ai/http-runtime/shared/validators/errorResponses";
-import { buildWorkspaceInputFromRouteParams } from "@jskit-ai/users-core/server/support/workspaceRouteInput";
-import { workspaceSlugParamsValidator } from "@jskit-ai/users-core/server/validators/routeParamsValidator";
+import { buildWorkspaceInputFromRouteParams } from "@jskit-ai/workspaces-core/server/support/workspaceRouteInput";
+import { workspaceSlugParamsValidator } from "@jskit-ai/workspaces-core/server/validators/routeParamsValidator";
 import {
   assistantConfigResource,
   assistantResource,

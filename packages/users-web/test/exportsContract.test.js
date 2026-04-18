@@ -15,13 +15,13 @@ test("users-web exports are explicit and aligned with production/template usage"
     packageId: "@jskit-ai/users-web",
     requiredExports: [
       "./client",
+      "./client/account-settings/sections",
       "./client/composables/useAddEdit",
       "./client/composables/useList",
       "./client/composables/useView",
       "./client/composables/useCrudAddEdit",
       "./client/composables/useCrudList",
-      "./client/composables/useCrudView",
-      "./client/support/menuLinkTarget"
+      "./client/composables/useCrudView"
     ]
   });
 

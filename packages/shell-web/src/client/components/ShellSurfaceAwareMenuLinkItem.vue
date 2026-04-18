@@ -27,11 +27,11 @@ const props = defineProps({
     type: String,
     default: ""
   },
-  workspaceSuffix: {
+  scopedSuffix: {
     type: String,
     default: "/"
   },
-  nonWorkspaceSuffix: {
+  unscopedSuffix: {
     type: String,
     default: "/"
   },
@@ -61,8 +61,8 @@ const resolvedTo = computed(() => {
     surface: props.surface,
     currentSurfaceId: currentSurfaceId.value,
     placementContext: placementContext.value,
-    workspaceSuffix: props.workspaceSuffix,
-    nonWorkspaceSuffix: props.nonWorkspaceSuffix,
+    scopedSuffix: props.scopedSuffix,
+    unscopedSuffix: props.unscopedSuffix,
     routeParams: route.params || {},
     resolvePagePath(relativePath, options = {}) {
       return resolveShellLinkPath({

@@ -407,3 +407,23 @@ It means:
 That is exactly the right state at this stage of the guide.
 
 The database runtime chapter should give the app a database foundation first. The next data-heavy chapters can then install actual schema migrations on top of that foundation.
+
+## Summary
+
+This chapter did not make the app feel dramatically different in the browser, but it changed the server foundation in an important way.
+
+- the app now has a real JSKIT database runtime
+- the app now has a standard Knex migration workflow
+- the app now has a place for future schema files
+
+But just as importantly, this chapter also defined what has **not** changed yet:
+
+- auth still uses the standalone JSKIT-side mirror
+- JSKIT still has no persistent users layer of its own
+- no feature package has started storing real app data yet
+
+So the right mental model at the end of this chapter is:
+
+- Supabase already handles real authentication
+- MySQL is now wired up and ready
+- the persistent JSKIT-side user model arrives in the next chapter

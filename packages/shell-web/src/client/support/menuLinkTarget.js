@@ -59,15 +59,15 @@ function resolveMenuLinkTarget({
   surface = "",
   currentSurfaceId = "",
   placementContext = null,
-  workspaceSuffix = "/",
-  nonWorkspaceSuffix = "/",
+  scopedSuffix = "/",
+  unscopedSuffix = "/",
   routeParams = {},
   resolvePagePath = null
 } = {}) {
   const explicitTarget = normalizeText(to);
   const targetSurfaceId = resolveMenuLinkSurfaceId(surface, currentSurfaceId);
-  const workspaceRequired = surfaceRequiresWorkspaceFromPlacementContext(placementContext, targetSurfaceId);
-  const suffixTemplate = normalizeText(workspaceRequired ? workspaceSuffix : nonWorkspaceSuffix) || "/";
+  const scopedRouteRequired = surfaceRequiresWorkspaceFromPlacementContext(placementContext, targetSurfaceId);
+  const suffixTemplate = normalizeText(scopedRouteRequired ? scopedSuffix : unscopedSuffix) || "/";
   const interpolatedSuffix = interpolateBracketParams(suffixTemplate, routeParams);
   const resolvedSuffixTarget =
     typeof resolvePagePath === "function" &&

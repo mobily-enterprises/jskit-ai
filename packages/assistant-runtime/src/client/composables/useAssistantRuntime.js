@@ -21,7 +21,7 @@ import {
 } from "@jskit-ai/assistant-core/client";
 import { useShellWebErrorRuntime } from "@jskit-ai/shell-web/client/error";
 import { usePagedCollection } from "@jskit-ai/users-web/client/composables/usePagedCollection";
-import { useWorkspaceRouteContext } from "@jskit-ai/users-web/client/composables/useWorkspaceRouteContext";
+import { useWorkspaceRouteContext } from "@jskit-ai/workspaces-web/client/composables/useWorkspaceRouteContext";
 import { resolveAssistantSurfaceConfig } from "../../shared/assistantSurfaces.js";
 
 const DEFAULT_STREAM_TIMEOUT_MS = 120_000;

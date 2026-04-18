@@ -32,15 +32,6 @@ test("bootstrap payload preserves consoleowner for authenticated users after use
       return {};
     }
   });
-  app.instance("users.tenancy.profile", {
-    mode: "none",
-    workspace: {
-      enabled: false,
-      autoProvision: false,
-      allowSelfCreate: false,
-      slugPolicy: "none"
-    }
-  });
   app.instance("authService", {
     getOAuthProviderCatalog() {
       return {

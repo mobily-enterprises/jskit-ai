@@ -20,8 +20,8 @@ addPlacement({
   props: {
     label: "Home",
     surface: "home",
-    workspaceSuffix: "/",
-    nonWorkspaceSuffix: "/",
+    scopedSuffix: "/",
+    unscopedSuffix: "/",
     exact: true
   }
 });
@@ -35,8 +35,8 @@ addPlacement({
   props: {
     label: "Settings",
     surface: "home",
-    workspaceSuffix: "/settings",
-    nonWorkspaceSuffix: "/settings"
+    scopedSuffix: "/settings",
+    unscopedSuffix: "/settings"
   }
 });
 
@@ -49,8 +49,8 @@ addPlacement({
   props: {
     label: "General",
     surface: "home",
-    workspaceSuffix: "/settings/general",
-    nonWorkspaceSuffix: "/settings/general",
+    scopedSuffix: "/settings/general",
+    unscopedSuffix: "/settings/general",
     to: "./general"
   }
 });

@@ -2,7 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { computed } from "vue";
 import {
-  isWorkspaceOwnershipFilter,
+  isScopedOwnershipFilter,
   normalizeOwnershipFilter,
   resolveApiSuffix,
   resolveResourceMessages
@@ -49,9 +49,9 @@ test("normalizeOwnershipFilter accepts users visibility levels", () => {
   assert.equal(normalizeOwnershipFilter("workspace_user"), "workspace_user");
 });
 
-test("isWorkspaceOwnershipFilter only matches workspace-scoped ownership levels", () => {
-  assert.equal(isWorkspaceOwnershipFilter("workspace"), true);
-  assert.equal(isWorkspaceOwnershipFilter("workspace_user"), true);
-  assert.equal(isWorkspaceOwnershipFilter("public"), false);
-  assert.equal(isWorkspaceOwnershipFilter("user"), false);
+test("isScopedOwnershipFilter only matches scoped ownership levels", () => {
+  assert.equal(isScopedOwnershipFilter("workspace"), true);
+  assert.equal(isScopedOwnershipFilter("workspace_user"), true);
+  assert.equal(isScopedOwnershipFilter("public"), false);
+  assert.equal(isScopedOwnershipFilter("user"), false);
 });

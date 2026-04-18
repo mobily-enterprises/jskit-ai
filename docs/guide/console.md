@@ -38,7 +38,6 @@ npx jskit add package database-runtime-mysql \
   --db-user "$DB_USER" \
   --db-password "$DB_PASSWORD"
 npx jskit add package users-web
-npx jskit add package console-web
 npm install
 npm run db:migrate
 ```
@@ -126,11 +125,12 @@ This is a very useful distinction for junior developers to see early, because ma
 
 ## The first console owner
 
-In a fresh app, the console owner is not configured by hand in a seed file. Instead, JSKIT assigns the first console owner lazily through the console service.
+In a fresh app, the console owner is not configured by hand in a seed file. Instead, JSKIT assigns the first console owner lazily during authenticated bootstrap.
 
 The rule is simple:
 
-- when authenticated bootstrap runs for a signed-in user
+- when the users bootstrap contributor has already identified a signed-in user
+- and the later console bootstrap contributor runs for that same request
 - and the singleton console settings record has no owner yet
 - that user becomes the initial console owner
 
@@ -286,17 +286,25 @@ That explains the whole startup story.
 
 So the console is seeded lazily, not through a hard-coded seed user.
 
-### The bootstrap payload exposes the access flag
+### `console-core` adds the console access flag to the bootstrap payload
 
-The users bootstrap contributor also exposes that ownership state back into the client bootstrap payload:
+After the users bootstrap contributor has already built the authenticated session payload, the later `console-core` bootstrap contributor extends it with the console flag:
 
 ```js
 surfaceAccess: {
-  consoleowner: Boolean(seededConsoleOwnerUserId) && seededConsoleOwnerUserId === String(latestProfile.id)
+  ...surfaceAccess,
+  consoleowner: consoleOwner
 }
 ```
 
-That is how JSKIT can reason about console access at surface level.
+This detail is easy to miss, but it matters:
+
+- `users-core` identifies the authenticated user and writes `session.userId`
+- `console-core` reads that authenticated user id
+- `console-core` seeds or checks the singleton console owner record
+- then `console-core` writes `surfaceAccess.consoleowner` into the bootstrap payload
+
+That is how JSKIT can reason about console access at surface level without making the users packages know anything about the console.
 
 So the console chapter is really about a three-part contract:
 
@@ -305,3 +313,23 @@ So the console chapter is really about a three-part contract:
 - a persistent owner slot in the database
 
 That is why the console feels like a real app feature already, even before later chapters add CRUDs and richer operator tools into it.
+
+## Summary
+
+This chapter introduced the first privileged operator surface in the guide.
+
+- `console-web` added the `console` surface and its starter UI scaffold
+- `console-core` added the console schema, services, bootstrap contributor, and ownership rules
+- the app gained a new surface that is stricter than `/account`
+
+That stricter access model is the key idea to keep:
+
+- `/account` is for any signed-in user
+- `/console` is only for the console owner
+
+So the app now has both:
+
+- a normal authenticated user area
+- a privileged operator area with its own server-side ownership check
+
+The next chapter changes the routing model again by adding workspace-aware surfaces instead of only global ones.

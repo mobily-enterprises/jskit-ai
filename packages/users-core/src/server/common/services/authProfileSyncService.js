@@ -54,7 +54,17 @@ function requireSynchronizedProfile(profile) {
   throw new Error("Profile synchronization failed.");
 }
 
-function createService({ usersRepository, workspaceProvisioningService = null, userSettingsRepository = null } = {}) {
+function normalizeLifecycleContributors(entries = []) {
+  if (!Array.isArray(entries)) {
+    return [];
+  }
+
+  return entries.filter(
+    (entry) => entry && typeof entry === "object" && typeof entry.afterIdentityProfileSynced === "function"
+  );
+}
+
+function createService({ usersRepository, lifecycleContributors = [], userSettingsRepository = null } = {}) {
   if (!usersRepository || typeof usersRepository.findByIdentity !== "function") {
     throw new Error("authProfileSyncService requires usersRepository.findByIdentity().");
   }
@@ -67,6 +77,8 @@ function createService({ usersRepository, workspaceProvisioningService = null, u
   if (!userSettingsRepository || typeof userSettingsRepository.ensureForUserId !== "function") {
     throw new Error("authProfileSyncService requires userSettingsRepository.ensureForUserId().");
   }
+
+  const normalizedLifecycleContributors = normalizeLifecycleContributors(lifecycleContributors);
 
   async function findByIdentity(identityLike, options = {}) {
     const normalized = buildNormalizedIdentityKey(identityLike);
@@ -99,21 +111,30 @@ function createService({ usersRepository, workspaceProvisioningService = null, u
     const runSync = async (trx = null) => {
       const operationOptions = trx ? { ...options, trx } : options;
       const existing = await findByIdentity(normalized, operationOptions);
+      let created = false;
       if (!profileNeedsUpdate(existing, normalized)) {
         const synchronizedProfile = requireSynchronizedProfile(existing);
         await userSettingsRepository.ensureForUserId(synchronizedProfile.id, operationOptions);
+        for (const contributor of normalizedLifecycleContributors) {
+          await contributor.afterIdentityProfileSynced({
+            profile: synchronizedProfile,
+            created,
+            options: operationOptions
+          });
+        }
         return synchronizedProfile;
       }
 
       const upserted = await upsertByIdentity(normalized, operationOptions);
       const synchronizedProfile = requireSynchronizedProfile(upserted);
       await userSettingsRepository.ensureForUserId(synchronizedProfile.id, operationOptions);
-      if (
-        !existing &&
-        workspaceProvisioningService &&
-        typeof workspaceProvisioningService.provisionWorkspaceForNewUser === "function"
-      ) {
-        await workspaceProvisioningService.provisionWorkspaceForNewUser(synchronizedProfile, operationOptions);
+      created = !existing;
+      for (const contributor of normalizedLifecycleContributors) {
+        await contributor.afterIdentityProfileSynced({
+          profile: synchronizedProfile,
+          created,
+          options: operationOptions
+        });
       }
 
       return synchronizedProfile;

@@ -2,7 +2,7 @@ import { computed, onScopeDispose, proxyRefs, ref, watch } from "vue";
 import { useRouter } from "vue-router";
 import { appendQueryString } from "@jskit-ai/kernel/shared/support";
 import { normalizeText } from "@jskit-ai/kernel/shared/support/normalize";
-import { USERS_ROUTE_VISIBILITY_WORKSPACE } from "@jskit-ai/users-core/shared/support/usersVisibility";
+import { ROUTE_VISIBILITY_WORKSPACE } from "@jskit-ai/kernel/shared/support/visibility";
 import { useListCore } from "../runtime/useListCore.js";
 import { resolveOperationAdapter } from "../runtime/operationAdapters.js";
 import { setupOperationErrorReporting } from "../runtime/operationUiHelpers.js";
@@ -31,7 +31,7 @@ import {
 const EMPTY_ROUTE_SYNC_QUERY_PARAM_BLACKLIST = Object.freeze([]);
 
 function useList({
-  ownershipFilter = USERS_ROUTE_VISIBILITY_WORKSPACE,
+  ownershipFilter = ROUTE_VISIBILITY_WORKSPACE,
   surfaceId = "",
   access = "auto",
   apiSuffix = "",
@@ -131,7 +131,7 @@ function useList({
   const queryParamsContext = computed(() => {
     return Object.freeze({
       surfaceId: operationScope.routeContext.currentSurfaceId.value,
-      workspaceSlug: operationScope.workspaceSlugFromRoute.value,
+      scopeParamValue: operationScope.scopeParamValue.value,
       ownershipFilter: operationScope.normalizedOwnershipFilter
     });
   });

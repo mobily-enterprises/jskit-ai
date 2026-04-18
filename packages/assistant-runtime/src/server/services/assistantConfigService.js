@@ -1,6 +1,6 @@
 import { AppError, requireAuth } from "@jskit-ai/kernel/server/runtime";
 import { normalizeObject, normalizeRecordId } from "@jskit-ai/kernel/shared/support/normalize";
-import { resolveWorkspace } from "@jskit-ai/users-core/server/support/resolveWorkspace";
+import { resolveWorkspace } from "@jskit-ai/workspaces-core/server/support/resolveWorkspace";
 import { resolveAssistantSurfaceConfig } from "../../shared/assistantSurfaces.js";
 
 function createService({ assistantConfigRepository, consoleService = null, appConfig = {}, resolveAppConfig = null } = {}) {

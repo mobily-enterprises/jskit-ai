@@ -1434,8 +1434,8 @@ function renderRouteWorkspaceSupportImports({ surfaceRequiresWorkspace = true } 
   }
 
   return [
-    'import { routeParamsValidator } from "@jskit-ai/users-core/server/validators/routeParamsValidator";',
-    'import { buildWorkspaceInputFromRouteParams } from "@jskit-ai/users-core/server/support/workspaceRouteInput";'
+    'import { routeParamsValidator } from "@jskit-ai/workspaces-core/server/validators/routeParamsValidator";',
+    'import { buildWorkspaceInputFromRouteParams } from "@jskit-ai/workspaces-core/server/support/workspaceRouteInput";'
   ].join("\n");
 }
 
@@ -1444,7 +1444,7 @@ function renderActionWorkspaceValidatorImport({ surfaceRequiresWorkspace = true 
     return "";
   }
 
-  return 'import { workspaceSlugParamsValidator } from "@jskit-ai/users-core/server/validators/routeParamsValidator";';
+  return 'import { workspaceSlugParamsValidator } from "@jskit-ai/workspaces-core/server/validators/routeParamsValidator";';
 }
 
 function renderRouteParamsValidatorLine(operation = "", { surfaceRequiresWorkspace = true } = {}) {
