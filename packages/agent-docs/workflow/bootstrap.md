@@ -15,6 +15,7 @@ Safe bootstrap paths:
    - If the app was just created with `npx @jskit-ai/create-app <app-name>` and `npm install`, treat that scaffold as provisional.
    - Ask the Stage 1 platform questions before adding tenancy-sensitive packages.
    - If the chosen tenancy is `personal` or `workspaces`, write it into `config/public.js` before installing workspace packages.
+   - Once a baseline package stack is chosen, assume its standard package-owned workflows unless the developer asks for overrides.
 
 Important constraint:
 
@@ -31,7 +32,20 @@ Version 0 sketch:
    - database engine: MySQL or Postgres
    - auth provider, with Supabase as the default documented path
    - whether the first baseline should include workspaces, realtime, or assistant
-3. Once those high-level choices are clear, continue into deeper scoping questions later.
+3. Treat Stage 1 as a package-stack decision, not a blank-slate workflow design exercise.
+4. Once those high-level choices are clear, continue into deeper scoping questions later.
+
+Ask setup values plainly:
+
+- Only ask for setup values that correspond to the modules or packages already chosen for the baseline.
+- When the next package install needs concrete local development values, ask for them directly using the exact env var names or option names.
+- Do not hide behind vague requests for "credentials" or "values after that boundary".
+- In this workflow, these are routine setup inputs:
+  - If the MySQL runtime is selected: `DB_NAME`, `DB_USER`, `DB_PASSWORD`
+  - If the MySQL host or port differs from the local default `127.0.0.1:3306`: `DB_HOST`, `DB_PORT`
+  - If Supabase auth is selected: `AUTH_SUPABASE_URL`, `AUTH_SUPABASE_PUBLISHABLE_KEY`
+  - If browser-facing auth callbacks are relevant: confirm whether `APP_PUBLIC_URL` should stay `http://localhost:5173`
+- Ask in plain language and continue once the developer provides the values.
 
 Baseline expectations after initialization:
 
@@ -39,6 +53,7 @@ Baseline expectations after initialization:
 - install the baseline runtime packages in the documented order
 - install dependencies
 - run database migrations when the chosen package set requires them
+- use the standard packaged workflows that come with those packages unless the blueprint records an override
 - leave the app in a reproducible, verified baseline state
 
 Do not improvise package order. Use the distributed guide chapters under `guide/agent/app-setup/` or `guide/human/app-setup/`.

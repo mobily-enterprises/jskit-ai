@@ -49,6 +49,16 @@ If you are working locally, a very typical starting point is:
 - user: `exampleapp`
 
 Using a normal app database user is usually a better guide setup than using the MySQL root account directly. It matches how production apps are normally configured, and it avoids local root-auth setups that work in the terminal but not through the Node driver.
+
+If you are guiding someone interactively, ask plainly for these exact values:
+
+- `DB_NAME`
+- `DB_USER`
+- `DB_PASSWORD`
+- `DB_HOST` only if it is not the usual local default `127.0.0.1`
+- `DB_PORT` only if it is not the usual local default `3306`
+
+Do not hide behind vague language like "send the DB credentials later." In this local guide flow, these are routine setup values for the MySQL runtime install step.
 </DocsTerminalTip>
 
 ## Installing the database runtime

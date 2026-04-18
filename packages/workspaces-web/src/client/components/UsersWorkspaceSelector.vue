@@ -117,8 +117,9 @@ async function navigateToWorkspace(slug) {
 
   const targetPath = paths.page("/", {
     surface: workspaceSwitchSurfaceId.value,
-    workspaceSlug: normalizedSlug,
-    mode: "workspace"
+    params: {
+      workspaceSlug: normalizedSlug
+    }
   });
   if (!targetPath) {
     errorMessage.value = "Workspace selector target surface is not configured.";

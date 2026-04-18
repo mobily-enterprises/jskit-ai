@@ -238,6 +238,7 @@ The exact fields will vary by app. What matters for the generator is:
 - the table already exists
 - the ownership columns match the ownership filter you are going to choose
 - the column names are stable enough to become part of your app's resource contract
+- if you are using `crud-server-generator`, do **not** hand-write a separate CRUD migration for this table; the server generator installs the CRUD migration scaffold itself
 
 In this table, `workspace_id` is the important ownership clue. That is why the next step uses:
 
@@ -260,6 +261,13 @@ npx jskit generate crud-server-generator scaffold \
 ```
 
 This creates an app-local package under `packages/contacts/`.
+
+Before generating anything, decide these with the developer:
+
+- which operations are allowed for this CRUD
+- which fields belong in the list view if a list exists
+- what the view form should look like
+- what the edit/new form should look like
 
 The most important file from the UI point of view is:
 

@@ -40,6 +40,14 @@ http://localhost:5173/auth/login
 JSKIT uses the project URL as `AUTH_SUPABASE_URL`, the publishable key as `AUTH_SUPABASE_PUBLISHABLE_KEY`, and the browser address as `APP_PUBLIC_URL`.
 
 Use the **publishable** key here, not the secret key and not a service-role key. If you later run the app on a different host or port, update both Supabase's URL settings and `APP_PUBLIC_URL` to match the real browser URL exactly.
+
+If you are guiding someone interactively, ask plainly for these exact values:
+
+- `AUTH_SUPABASE_URL`
+- `AUTH_SUPABASE_PUBLISHABLE_KEY`
+- whether `APP_PUBLIC_URL` should stay `http://localhost:5173`
+
+Do not hide behind vague language like "send the auth credentials later." In this local guide flow, those are routine setup values for the Supabase auth install step.
 </DocsTerminalTip>
 
 ## Installing the auth layer

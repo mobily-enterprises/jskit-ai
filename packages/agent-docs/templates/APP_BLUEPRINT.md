@@ -44,12 +44,20 @@
 - Baseline runtime packages:
 - Optional runtime packages:
 - Generator packages to use:
+- Package-owned workflows to accept as baseline:
+- Package-owned workflows to override or extend:
 
 ## Implementation Notes
 
 - CRUDs to scaffold:
 - Non-CRUD pages to scaffold:
 - Custom code areas:
+
+## CRUD Planning
+
+| CRUD | Operations | List Fields | View Form Shape | Edit/New Form Shape | Notes |
+| --- | --- | --- | --- | --- | --- |
+| | | | | | |
 
 ## Delivery Plan
 
@@ -68,4 +76,5 @@ Chunk notes:
 - Commands to run:
 - Playwright coverage plan:
 - Test auth strategy:
+- UI review expectations:
 - Known open questions:

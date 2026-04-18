@@ -14,7 +14,7 @@ function registerWorkspaceBootstrap(app) {
     return createWorkspaceBootstrapContributor({
       workspaceService: scope.make("workspaces.service"),
       workspacePendingInvitationsService: workspaceInvitationsEnabled
-        ? scope.make("users.workspace.pending-invitations.service")
+        ? scope.make("workspaces.pending-invitations.service")
         : null,
       workspaceInvitationsEnabled,
       usersRepository: scope.make("usersRepository"),

@@ -449,6 +449,64 @@ They usually:
 
 These files are mostly containers. That is deliberate.
 
+### CRUD link resolution
+
+This deserves an explicit warning, because it was implemented incorrectly in a real app.
+
+When you customize generated CRUD pages, use the CRUD runtime that owns the current route scope to resolve CRUD-bound links.
+
+Use `paths.page()` for **surface-aware** navigation:
+
+- `/account`
+- `/assistant`
+- `/lists`
+- other links that only need normal surface params such as `workspaceSlug`
+
+Do **not** use `paths.page()` with CRUD record placeholders inside the relative path or URL template, such as:
+
+- `:contactId`
+- `:addressId`
+- `:todoListId`
+- `:todoItemId`
+
+For CRUD-bound links, use the runtime-provided resolvers instead:
+
+- list pages:
+  - `records.resolveViewUrl(record)`
+  - `records.resolveEditUrl(record)`
+  - `records.resolveParams(template, extraParams)`
+- view pages:
+  - `view.listUrl`
+  - `view.editUrl`
+  - `view.resolveParams(template, extraParams)`
+- add/edit pages:
+  - `formRuntime.addEdit.resolveParams(template, extraParams)`
+
+Why this matters:
+
+- `paths.page()` only knows about the current surface route params
+- CRUD runtimes also know about the current CRUD route shape, current record id, parent record ids, and nested child route context
+- once a page is CRUD-bound, those runtime resolvers are the safe way to build record-scoped links
+
+Scope rule:
+
+- use the runtime anchored to the record that owns the action
+- on a parent record view page with nested child routes, parent actions should still resolve from the parent `view` runtime even while a child route like `/items/new` is active
+- child-item actions should resolve from the child/item runtime only when the current route is actually child-scoped
+
+Examples:
+
+- good: `view.resolveParams("./items/new")`
+- good: `view.resolveParams("./items/:todoItemId/edit", { todoItemId: item.id })`
+- good: `formRuntime.addEdit.resolveParams("../../..")`
+- bad: `paths.page("/lists/:todoListId/items/new")`
+- bad: `paths.page("/lists/:todoListId/edit")`
+
+The safe mental model is:
+
+- use `paths.page()` to get to the right surface
+- use CRUD runtime resolvers to move around inside the CRUD
+
 ### `_components/CrudAddEditForm.vue`
 
 This is the shared rendering shell for the add/edit form.

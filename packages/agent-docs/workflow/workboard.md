@@ -17,7 +17,7 @@ Purpose:
 
 - track the current request
 - record the current stage and current chunk
-- track chunk status across implementation, deslop, JSKIT review, and verification
+- track chunk status across implementation, deslop, JSKIT review, UI review, and verification
 - record blockers, open questions, and remaining gaps
 
 Workboard rules:
