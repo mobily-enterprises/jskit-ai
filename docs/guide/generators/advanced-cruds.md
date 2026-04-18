@@ -1,0 +1,921 @@
+# Advanced CRUDs
+
+The earlier CRUD chapter shows the workflow. This chapter shows the anatomy.
+
+If you have not read [CRUD Generators](/guide/generators/crud-generators) yet, start there first. This chapter assumes you already understand the basic generation flow and want to inspect or customize what it produced.
+
+Once you generate `contacts`, you do **not** get one magical black-box CRUD object. You get:
+
+- an app-local server package under `packages/contacts/`
+- an app-local route tree under `src/pages/.../contacts/`
+- a shared resource contract that sits between the two
+
+That distinction matters, because it tells you where to change things safely.
+
+This chapter stays grounded in the exact resources from the previous chapter:
+
+- `contacts`
+- `addresses`
+- `comments`
+
+The point here is not to introduce a different app. It is to explain the code you just generated and show how those same CRUDs evolve once you start customizing them.
+
+## Starting point
+
+This chapter starts from the end of the baseline `contacts` example in [CRUD Generators](/guide/generators/crud-generators):
+
+```bash
+npx jskit generate crud-server-generator scaffold \
+  --namespace contacts \
+  --surface admin \
+  --ownership-filter workspace \
+  --table-name contacts
+
+npx jskit generate crud-ui-generator crud \
+  w/[workspaceSlug]/admin/contacts \
+  --resource-file packages/contacts/src/shared/contactResource.js \
+  --id-param contactId \
+  --display-fields fullName,email,phone
+```
+
+Later sections pull `addresses` and `comments` back in when we talk about child CRUDs, parent scoping, and embedded lists.
+
+After those two commands, the important thing to understand is ownership:
+
+- `crud-server-generator` creates a runtime package that your app owns locally
+- `crud-ui-generator` creates route files that your app owns locally
+- `crud-core`, `users-web`, and the other runtime packages provide the machinery underneath those files
+
+The generated pages are intentionally thin. Most of the heavy lifting lives uphill in shared runtime composables, action execution, validation, lookup hydration, and repository helpers.
+
+## How ownership shapes the generated CRUD
+
+The earlier chapter explains how to choose an ownership filter. This chapter explains what that choice **does** structurally.
+
+The key idea is:
+
+The generated CRUD does not treat ownership as a UI hint. It turns ownership into the visibility model for the whole resource.
+
+That affects:
+
+- route visibility
+- repository filtering
+- create-time owner stamping
+- lookup hydration for related CRUDs
+
+### The generated package stores a concrete ownership filter
+
+Even if you scaffold with:
+
+```bash
+--ownership-filter auto
+```
+
+the generated package does **not** keep `auto` forever.
+
+During generation, JSKIT resolves it to a concrete value:
+
+- `public`
+- `user`
+- `workspace`
+- or `workspace_user`
+
+That resolved value is then written into the generated CRUD package and used as the real route visibility / repository ownership model.
+
+So `auto` is only a scaffold-time convenience. Once generation is done, the CRUD has a concrete ownership shape.
+
+### Ownership becomes route visibility
+
+The generated `registerRoutes.js` uses the resolved ownership filter as the route visibility token for every CRUD route:
+
+- list
+- view
+- create
+- update
+- delete
+
+So if the CRUD resolves to:
+
+- `public`
+  - the routes run with public visibility
+- `user`
+  - the routes run with actor/user visibility
+- `workspace`
+  - the routes run with workspace visibility
+- `workspace_user`
+  - the routes run with workspace-plus-actor visibility
+
+This is why ownership is such a foundational choice. It becomes part of the generated server contract, not just the database shape.
+
+### Ownership controls which owner columns are expected
+
+The repository layer ultimately applies visibility through the standard owner columns:
+
+- `workspace_id`
+- `user_id`
+
+That means the generated CRUD behaves like this:
+
+- `public`
+  - no owner filter is applied
+  - rows are not expected to be scoped by `workspace_id` or `user_id`
+- `user`
+  - the repository filters by `user_id`
+- `workspace`
+  - the repository filters by `workspace_id`
+- `workspace_user`
+  - the repository filters by both `workspace_id` and `user_id`
+
+This is also why explicit ownership filters are validated against the real table shape during generation:
+
+- `workspace` requires `workspace_id`
+- `user` requires `user_id`
+- `workspace_user` requires both
+
+If the table does not match, generation fails instead of silently creating a broken CRUD.
+
+### Ownership also affects create behavior
+
+The ownership model is not only used for reads.
+
+When the generated repository creates a row, it applies visibility owners into the insert payload too.
+
+In practice that means:
+
+- a `workspace` CRUD stamps `workspace_id`
+- a `user` CRUD stamps `user_id`
+- a `workspace_user` CRUD stamps both
+
+So the ownership choice shapes both:
+
+- which rows are visible later
+- how new rows are stamped when they are created
+
+That is another reason ownership needs to match the real intent of the table.
+
+### Lookup hydration uses ownership too
+
+This is easy to miss at first.
+
+Generated CRUDs often hydrate related records through lookup providers. Those child lookups also need to know what ownership model they run under.
+
+For example:
+
+- a `workspace_user` parent may need to hydrate a relation from a `workspace` child provider
+- a `workspace` parent may hydrate a `public` lookup
+
+The lookup runtime uses each provider's ownership filter to remap visibility correctly. So ownership is not only about the top-level resource. It also affects how related CRUD-backed records are fetched safely.
+
+That is why ownership mistakes often surface later as "weird relation visibility" bugs rather than as immediate scaffold failures.
+
+### How to reason about changing it later
+
+Changing ownership later is possible, but it is not a tiny edit.
+
+If you change a CRUD from one ownership shape to another, you may need to change:
+
+- the table schema
+- existing row data
+- the generated ownership filter in the CRUD package
+- route expectations
+- relation lookup ownership
+- sometimes the target surface itself
+
+For example:
+
+- changing `workspace` to `workspace_user`
+  - usually means adding `user_id`
+  - backfilling existing rows
+  - changing how records are expected to be visible
+- changing `public` to `workspace`
+  - usually means adding `workspace_id`
+  - deciding how old rows should be assigned to workspaces
+
+So the safe mental model is:
+
+- ownership is part of the CRUD's structural design
+- choose it early and deliberately
+- do not treat it like a cosmetic generator option
+
+## The full generated shape
+
+For a normal top-level CRUD like `contacts`, the generator output looks like this:
+
+```text
+migrations/
+  *_crud_initial_contacts.cjs
+
+packages/contacts/
+  package.json
+  package.descriptor.mjs
+  src/server/ContactsProvider.js
+  src/server/actionIds.js
+  src/server/actions.js
+  src/server/listConfig.js
+  src/server/registerRoutes.js
+  src/server/repository.js
+  src/server/service.js
+  src/shared/index.js
+  src/shared/contactResource.js
+
+src/pages/w/[workspaceSlug]/admin/contacts/
+  index.vue
+  new.vue
+  [contactId]/index.vue
+  [contactId]/edit.vue
+  _components/CrudAddEditForm.vue
+  _components/CrudAddEditFormFields.js
+
+config/roles.js
+src/placement.js
+```
+
+Two important notes:
+
+1. `config/roles.js` and `src/placement.js` are app mutations, not part of the `packages/contacts/` package itself.
+2. If you generate only some CRUD operations, the route tree changes. For example, no `list` means no `index.vue`, and no `edit` means the add/edit shared files may be generated differently.
+
+## What each server file owns
+
+### `package.json` and `package.descriptor.mjs`
+
+These make the CRUD a real local package.
+
+They own:
+
+- package identity
+- runtime dependencies
+- provider registration metadata
+- descriptor-driven install/runtime metadata
+
+They do **not** own CRUD behavior directly. They describe how the package plugs into the app.
+
+### `src/shared/contactResource.js`
+
+This is the shared CRUD contract, and it is the closest thing JSKIT has to a generated "model" file.
+
+If you come from an ORM stack, this is the key adjustment:
+
+- there is no generated `ContactModel.js`
+- there is no ActiveRecord-style class
+- the "model layer" is split between the resource contract and the repository/service layers
+
+The resource file owns:
+
+- the resource name and table name
+- the id column
+- input and output validators
+- operation metadata for `list`, `view`, `create`, `patch`, and `delete`
+- lookup contract configuration
+- messages and realtime event declarations
+- field metadata when column overrides or richer metadata are needed
+
+This file is the bridge between the server and the client. The UI generator reads it, and the server runtime also depends on it.
+
+### `src/shared/index.js`
+
+This is just the shared package barrel. It re-exports the resource contract and shared symbols.
+
+### `src/server/ContactsProvider.js`
+
+This is the package entrypoint. It wires the CRUD into the container.
+
+It owns:
+
+- singleton registration for repositories
+- service registration such as `crud.contacts`
+- action registration
+- lookup provider registration
+- route registration during boot
+
+It is wiring, not business logic. If you need to change how contacts are validated or saved, this is usually **not** the file to edit first.
+
+### `src/server/actionIds.js`
+
+This is the stable list of action ids:
+
+```js
+const actionIds = Object.freeze({
+  list: "crud.contacts.list",
+  view: "crud.contacts.view",
+  create: "crud.contacts.create",
+  update: "crud.contacts.update",
+  delete: "crud.contacts.delete"
+});
+```
+
+Keep this file boring. It is identity, not behavior.
+
+### `src/server/actions.js`
+
+This is the action contract boundary.
+
+It owns:
+
+- action ids
+- channels
+- surfaces
+- permission requirements
+- input validator composition
+- output validators
+- execution handoff into the service
+
+This is where "what is allowed, and what shape must the input/output have?" is decided.
+
+It does **not** own SQL and it should not become a business-rules dumping ground.
+
+### `src/server/registerRoutes.js`
+
+This is the HTTP transport layer.
+
+It owns:
+
+- the real routes and HTTP methods
+- route params/query/body validators
+- API response validators
+- mapping HTTP requests to action execution
+
+In other words:
+
+- `registerRoutes.js` is about HTTP
+- `actions.js` is about action contracts and permissions
+
+Those are related, but not the same concern.
+
+### `src/server/listConfig.js`
+
+This is the baseline list behavior for the repository.
+
+It owns things like:
+
+- `defaultLimit`
+- `maxLimit`
+- `orderBy`
+- `searchColumns`
+
+One subtle but important detail: `searchColumns` are **database column names**, not camelCase resource field keys.
+
+Example:
+
+```js
+const LIST_CONFIG = Object.freeze({
+  searchColumns: ["full_name", "email", "phone"],
+  orderBy: [
+    {
+      column: "created_at",
+      direction: "desc"
+    }
+  ]
+});
+```
+
+### `src/server/repository.js`
+
+This is the data-access layer.
+
+It owns:
+
+- SQL-level list/find/create/update/delete behavior
+- joins and subqueries
+- custom query filters
+- custom search behavior when the generic defaults are not enough
+
+If you need to change how records are selected from the database, this is usually the right file.
+
+### `src/server/service.js`
+
+This is the business-logic/orchestration layer.
+
+It owns:
+
+- cross-repository rules
+- create/update/delete rules
+- validation that depends on other records or services
+- orchestration before or after persistence
+
+If a rule is domain-specific rather than transport-specific or SQL-specific, it usually belongs here.
+
+## What the client files own
+
+The generated route tree is intentionally thin.
+
+For the baseline `contacts` example, the UI generator writes:
+
+```text
+src/pages/w/[workspaceSlug]/admin/contacts/
+  index.vue
+  new.vue
+  [contactId]/index.vue
+  [contactId]/edit.vue
+  _components/CrudAddEditForm.vue
+  _components/CrudAddEditFormFields.js
+```
+
+### `index.vue`
+
+This is the list-page container.
+
+Its job is usually to:
+
+- call `useCrudList()`
+- bind `records.searchQuery`
+- render list rows
+- resolve list/view/edit/new URLs
+- pass route query state through when navigating deeper
+
+The actual list machinery lives uphill in `users-web` composables and the shared resource contract.
+
+### `[contactId]/index.vue`
+
+This is the view-page container.
+
+Its job is usually to:
+
+- call `useCrudView()`
+- render the selected record
+- resolve "back" and "edit" navigation
+
+Again, the runtime behavior is mostly uphill. The page is a route-level composition layer.
+
+### `new.vue` and `[contactId]/edit.vue`
+
+These are add/edit route wrappers.
+
+They usually:
+
+- call `useCrudAddEdit()`
+- wire lookup runtime for lookup-backed fields
+- hand the form runtime into the shared form component
+
+These files are mostly containers. That is deliberate.
+
+### `_components/CrudAddEditForm.vue`
+
+This is the shared rendering shell for the add/edit form.
+
+It owns:
+
+- the card/surface layout
+- save/cancel buttons
+- which set of generated form fields is rendered in `new` vs `edit`
+
+It does **not** own persistence logic.
+
+### `_components/CrudAddEditFormFields.js`
+
+This is the generated field-definition module used by `useCrudAddEdit()`.
+
+It owns the field list for:
+
+- create
+- edit
+
+This is often one of the first places you customize after generation, because it is where the form field definitions live.
+
+### `src/placement.js`
+
+When a list page is generated, the generator also appends a placement entry so the app can link to that page from the shell.
+
+That is navigation wiring, not CRUD logic.
+
+## Where the real machinery lives
+
+A generated CRUD works because several layers cooperate:
+
+1. the route page calls `useCrudList()`, `useCrudView()`, or `useCrudAddEdit()`
+2. those composables use the shared resource contract and runtime helpers from `users-web`
+3. the request hits the HTTP route from `registerRoutes.js`
+4. the route executes an action from `actions.js`
+5. the action delegates to the service in `service.js`
+6. the service calls the repository in `repository.js`
+7. the repository uses `crud-core` helpers and the resource contract to talk to the database
+8. the response comes back through validators and is rendered by the page
+
+That is why the generated route files are mostly containers: they are the outermost layer of a larger pipeline.
+
+## A good mental model for ownership
+
+Use this rule of thumb when deciding where to edit:
+
+| Need | Primary owner | Why |
+| --- | --- | --- |
+| Change API/input/output contract | `contactResource.js` and `actions.js` | This is where operation shape and validators live |
+| Change route path or HTTP transport | `registerRoutes.js` | This is the HTTP layer |
+| Change permissions or channels | `actions.js` | This is the action contract boundary |
+| Change default ordering, limits, or searchable DB columns | `listConfig.js` | This is list runtime configuration |
+| Change SQL, joins, parent filters, or advanced search | `repository.js` | This is the data-access layer |
+| Add cross-record or domain rules on save/delete | `service.js` | This is business logic |
+| Change page layout and display behavior | the route pages and app-owned composables | This is presentation |
+| Change form field layout and inputs | `_components/CrudAddEditForm.vue` and `CrudAddEditFormFields.js` | This is the generated form layer |
+
+## How mature CRUDs grow
+
+The baseline generator output is only the start. As the tutorial's `contacts`, `addresses`, and `comments` CRUDs become real app features, it is normal to add files such as:
+
+- `src/server/listQueryValidators.js` when a list needs extra query filters beyond `q`
+- `src/server/service.test.js` once save/delete rules stop being trivial
+- `src/composables/contacts/useContactsListFilters.js` when the contacts page gains route-backed filter state
+- `src/composables/addresses/useAddressDisplay.js` when addresses need app-specific display formatting
+- `src/composables/comments/useCommentsListRuntime.js` when an embedded comments list needs local UI state
+
+That is the right direction of growth:
+
+- server customizations stay in the CRUD package
+- presentation and page-specific UI state stay in app-owned client files
+
+## Search and filters: the deep dive
+
+Search is where ownership mistakes happen most often, so it deserves its own section.
+
+The first important rule is this:
+
+- free-text search is not the same thing as structured filters
+
+Use `q` for free-text. Use separate query params for flags, ids, and other structured filters.
+
+### Pattern 1: basic free-text search on `contacts`
+
+This is the default generated list-page pattern for the `contacts` resource from the previous chapter.
+
+#### Client side
+
+Enable query search in the list page:
+
+```js
+const records = useCrudList({
+  resource: uiResource,
+  apiSuffix: "/contacts",
+  search: {
+    enabled: true,
+    mode: "query"
+  },
+  syncToRoute: {
+    enabled: true,
+    search: true
+  }
+});
+```
+
+Then bind the input:
+
+```vue
+<v-text-field
+  v-model="records.searchQuery"
+  :loading="records.isSearchDebouncing"
+/>
+```
+
+The client runtime debounces the search input, writes the query string to `q`, and trims the list back to the first page when search changes.
+
+#### Server side
+
+The generic CRUD stack already understands `q`.
+
+- `listSearchQueryValidator` reads and normalizes the `q` query param
+- the repository applies search to `list.searchColumns`
+- if `searchColumns` is not configured, CRUD falls back to a derived set of searchable string columns from the resource output schema
+
+For the tutorial `contacts` table, that usually means the columns behind:
+
+- `fullName`
+- `email`
+- `phone`
+- `notes`
+
+#### Best practices
+
+- Once the UX is stable, set explicit `searchColumns` instead of relying on the fallback.
+- Keep search focused on the columns users actually expect.
+- Remember that `searchColumns` are database columns.
+
+### Pattern 2: explicit `contacts` search columns
+
+This is the first thing to do when the fallback search becomes too broad or too accidental.
+
+#### Server side
+
+Set the searchable columns explicitly in `listConfig.js`:
+
+```js
+const LIST_CONFIG = Object.freeze({
+  searchColumns: ["full_name", "email", "phone"],
+  orderBy: [
+    {
+      column: "created_at",
+      direction: "desc"
+    }
+  ]
+});
+```
+
+#### Client side
+
+Usually nothing changes. The client can keep sending `q`.
+
+#### Best practices
+
+- Prefer explicit search columns for long-lived CRUDs.
+- Do not dump every text column into search just because you can.
+- In this tutorial CRUD, `notes` is a good example of a field you might leave out if you want fast, predictable list search.
+
+### Pattern 3: structured `contacts` filters such as `hasEmail`, `hasPhone`, and `hasNotes`
+
+This is the first extension that still fits the `contacts` table from the previous chapter with no schema changes.
+
+#### Client side
+
+Keep filter state in a small app-owned composable, then pass it into `useCrudList()` as `queryParams`.
+
+Example shape:
+
+```js
+const listFilters = useContactsListFilters();
+
+const records = useCrudList({
+  resource: uiResource,
+  apiSuffix: "/contacts?include=pets",
+  search: {
+    enabled: true,
+    mode: "query"
+  },
+  queryParams: computed(() => ({
+    ...listFilters.filters
+  })),
+  syncToRoute: {
+    enabled: true,
+    search: true,
+    queryParams: true,
+    queryParamBlacklist: ["include", "cursor", "limit"]
+  }
+});
+```
+
+This keeps the filters:
+
+- visible in the URL
+- restorable on refresh
+- preserved when opening a record and coming back
+
+#### Server side
+
+Add a dedicated query validator:
+
+```js
+const contactsListFiltersQueryValidator = Object.freeze({
+  schema: Type.Object(
+    {
+      hasEmail: Type.Optional(...),
+      hasPhone: Type.Optional(...),
+      hasNotes: Type.Optional(...)
+    },
+    { additionalProperties: false }
+  ),
+  normalize(payload = {}) {
+    const normalized = {};
+    if (Object.hasOwn(payload, "hasEmail")) normalized.hasEmail = 1;
+    if (Object.hasOwn(payload, "hasPhone")) normalized.hasPhone = 1;
+    if (Object.hasOwn(payload, "hasNotes")) normalized.hasNotes = 1;
+    return normalized;
+  }
+});
+```
+
+Wire it into the route and action validators for the list operation, then apply the filter in `repository.js`:
+
+```js
+async function list(query = {}, callOptions = {}) {
+  return crudRepositoryList(repositoryRuntime, knex, query, options, callOptions, {
+    modifyQuery(dbQuery, context = {}) {
+      const sourceQuery = context.query || {};
+
+      if (sourceQuery.hasEmail !== undefined) {
+        dbQuery.whereNotNull("email").where("email", "<>", "");
+      }
+      if (sourceQuery.hasPhone !== undefined) {
+        dbQuery.whereNotNull("phone").where("phone", "<>", "");
+      }
+      if (sourceQuery.hasNotes !== undefined) {
+        dbQuery.whereNotNull("notes").where("notes", "<>", "");
+      }
+    }
+  });
+}
+```
+
+#### Best practices
+
+- Keep the client keys, validator keys, and repository keys identical.
+- Use dedicated query params for booleans and facets. Do not overload `q`.
+- Put SQL in the repository, not in the page.
+
+### Pattern 4: free-text search plus structured `contacts` filters together
+
+This is the most common real-world CRUD list.
+
+#### Client side
+
+Use both:
+
+- `records.searchQuery` for free-text
+- `queryParams` for structured filters
+
+The runtime already handles both together.
+
+#### Server side
+
+Let the generic list search handle `q`, and let your custom validator/repository code handle the structured filters.
+
+#### Best practices
+
+- Keep free-text and structure separate.
+- Preserve the current route query when linking to view/edit pages so users can return to the same filtered list state.
+- Let list changes reset pagination; `useCrudList()` already does this for search and query-param changes.
+
+### Pattern 5: parent-scoped child CRUD search for `addresses`
+
+For nested CRUDs such as the `addresses` resource from the previous chapter, parent scoping and search usually work together.
+
+#### Client side
+
+Keep the parent id in the route:
+
+```text
+w/[workspaceSlug]/admin/contacts/[contactId]/addresses
+```
+
+Then use the normal list runtime. For empty child lists, use `useCrudListParentTitle()` so the page can still resolve the parent identity.
+
+#### Server side
+
+The CRUD stack can derive parent filter keys from the resource contract via `createCrudParentFilterQueryValidator(resource)`.
+
+For the tutorial `addresses` table, the list search itself can stay very simple:
+
+```js
+const LIST_CONFIG = Object.freeze({
+  searchColumns: ["label", "line_1", "line_2", "suburb", "state", "postcode"],
+  orderBy: [
+    {
+      column: "created_at",
+      direction: "desc"
+    }
+  ]
+});
+```
+
+That keeps child-list filtering grounded in the actual resource definition instead of ad-hoc route parsing.
+
+#### Best practices
+
+- Keep parent identity in the route, not hidden component state.
+- Let the resource contract define parent filter shape.
+- Treat parent-scoped filtering as repository/query behavior, not as presentation logic.
+
+### Pattern 6: local-only search for embedded `comments`
+
+Sometimes server search is unnecessary.
+
+This is useful for:
+
+- small already-loaded lists
+- embedded child collections
+- temporary local filtering inside a view page
+
+This matches the `comments` shape from the previous chapter especially well, because comments were intentionally described as an embedded child collection rather than a full-screen destination.
+
+#### Client side
+
+Use local search mode:
+
+```js
+const records = useCrudList({
+  resource: commentsResource,
+  apiSuffix: "/comments",
+  search: {
+    enabled: true,
+    mode: "local",
+    fields: ["body"]
+  }
+});
+```
+
+#### Server side
+
+No server change is needed.
+
+#### Best practices
+
+- Use this only for small datasets or already-loaded pages.
+- Local search only filters the items currently in memory.
+- Do not treat local search as a replacement for real server-side search on a large paginated CRUD.
+
+### Pattern 7: relation-aware search across the tutorial tables
+
+This is where people most often put code in the wrong place.
+
+Examples that still fit the tutorial's tables are:
+
+- "Search `addresses` by the parent contact's `full_name`"
+- "Search `comments` by the parent contact's `full_name`"
+
+The important limitation is:
+
+- generic CRUD search happens in the repository query
+- parent lookups or hydrated records happen later
+
+So a parent record being visible in the UI does **not** automatically make it searchable.
+
+#### Client side
+
+The client can still keep sending `q`, or it can expose a dedicated filter control.
+
+The difficult part is not the page. It is the repository query.
+
+#### Server side
+
+If you need parent-aware search, you have two main options:
+
+1. Prefer a denormalized/searchable base-table column when the search is core to the feature.
+2. If denormalization is not appropriate, extend the repository query with joins, `whereExists(...)`, or other SQL in `modifyQuery(...)`.
+
+#### Best practices
+
+- Keep relation-aware search in `repository.js`, because it is a SQL concern.
+- Do not try to fake relation search in the client when the dataset is paginated.
+- Do not assume parent titles or hydrated child/parent records automatically become searchable.
+- Prefer denormalized columns for core search paths that must stay fast and stable.
+
+## The safest way to add new search behavior
+
+If you want to add a new search/filter use case, the safest sequence is:
+
+1. Decide whether it is free-text, structured, local-only, or relation-aware.
+2. Put client state in the page or an app-owned composable.
+3. Put transport validation in `actions.js` or `registerRoutes.js`.
+4. Put SQL behavior in `repository.js`.
+5. Put cross-record business rules in `service.js` only if they are truly domain rules rather than query rules.
+
+That separation is what keeps CRUDs from turning into slop.
+
+## A practical checklist for common changes
+
+### "I added a new DB column and want it editable."
+
+Touch:
+
+- the table/migration
+- `contactResource.js`
+- `CrudAddEditFormFields.js`
+- the relevant page/table display
+
+Use `scaffold-field` when it fits, then review the generated result.
+
+### "I want a new boolean or enum list filter."
+
+Touch:
+
+- a client filter composable or page state
+- `useCrudList({ queryParams: ... })`
+- a dedicated server query validator
+- `repository.js`
+
+### "I want a new save rule."
+
+Touch:
+
+- `service.js`
+- tests for the service rule
+
+Do **not** start in the page unless the rule is purely visual.
+
+### "I want a different permission rule."
+
+Touch:
+
+- `actions.js`
+- possibly `config/roles.js`
+
+Do not hide permission rules inside client components.
+
+## Final mental model
+
+A generated CRUD is not a monolith.
+
+It is a composition of:
+
+- a shared contract
+- a repository
+- a service
+- actions
+- routes
+- thin page containers
+- runtime composables and helpers underneath
+
+Once you see that structure clearly, CRUD customization becomes much easier:
+
+- SQL changes go in the repository
+- domain rules go in the service
+- transport and permission changes go in actions/routes
+- presentation changes stay in the app-owned client files
+
+That is the line to protect as the CRUD grows.

@@ -81,14 +81,17 @@
             "id": "auth-app-public-url"
           }
         },
-        "files": []
+        "vite": {},
+        "files": [],
+        "migrations": []
       },
       "options": {
-        "app-public-url": "http://localhost:5173",
+        "auth-supabase-url": "https://example.supabase.co",
         "auth-supabase-publishable-key": "sb_publishable_example",
-        "auth-supabase-url": "https://example.supabase.co"
+        "app-public-url": "http://localhost:5173"
       },
-      "installedAt": "2026-03-03T04:55:22.231Z"
+      "installedAt": "2026-03-03T04:55:22.231Z",
+      "migrationSyncVersion": "0.1.38"
     },
     "@jskit-ai/auth-web": {
       "packageId": "@jskit-ai/auth-web",
@@ -125,6 +128,7 @@
           "scripts": {}
         },
         "text": {},
+        "vite": {},
         "files": [
           {
             "path": "src/views/auth/LoginView.vue",
@@ -144,10 +148,12 @@
             "category": "auth-web",
             "id": "auth-view-signout"
           }
-        ]
+        ],
+        "migrations": []
       },
       "options": {},
-      "installedAt": "2026-03-03T04:55:22.300Z"
+      "installedAt": "2026-03-03T04:55:22.300Z",
+      "migrationSyncVersion": "0.1.40"
     },
     "@jskit-ai/http-runtime": {
       "packageId": "@jskit-ai/http-runtime",
@@ -179,10 +185,13 @@
           "scripts": {}
         },
         "text": {},
-        "files": []
+        "vite": {},
+        "files": [],
+        "migrations": []
       },
       "options": {},
-      "installedAt": "2026-03-03T04:55:22.299Z"
+      "installedAt": "2026-03-03T04:55:22.299Z",
+      "migrationSyncVersion": "0.1.38"
     },
     "@jskit-ai/auth-core": {
       "packageId": "@jskit-ai/auth-core",
@@ -224,10 +233,13 @@
           "scripts": {}
         },
         "text": {},
-        "files": []
+        "vite": {},
+        "files": [],
+        "migrations": []
       },
       "options": {},
-      "installedAt": "2026-03-03T04:55:22.299Z"
+      "installedAt": "2026-03-03T04:55:22.299Z",
+      "migrationSyncVersion": "0.1.38"
     }
   }
 }
