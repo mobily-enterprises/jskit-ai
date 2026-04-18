@@ -158,7 +158,7 @@ The starter result looks like this:
 Available placement component tokens:
 Showing link-item tokens only (token must end with "link-item"). Tip: use --all for full token list.
 - local.main.ui.menu-link-item [app:packages/main/src/client/providers/MainClientProvider.js]
-- local.main.ui.surface-aware-menu-link-item [app:packages/main/src/client/providers/MainClientProvider.js]
+- local.main.ui.surface-aware-menu-link-item [app:packages/main/src/client/providers/MainClientProvider.js, app:src/placement.js, package:@jskit-ai/shell-web:templates/src/placement.js]
 - local.main.ui.tab-link-item [app:packages/main/src/client/providers/MainClientProvider.js]
 ```
 
@@ -421,7 +421,9 @@ addPlacement({
   props: {
     label: "Home",
     surface: "home",
-    unscopedSuffix: "/"
+    scopedSuffix: "/",
+    unscopedSuffix: "/",
+    exact: true
   }
 });
 
@@ -434,6 +436,7 @@ addPlacement({
   props: {
     label: "Settings",
     surface: "home",
+    scopedSuffix: "/settings",
     unscopedSuffix: "/settings"
   }
 });
@@ -447,6 +450,8 @@ addPlacement({
   props: {
     label: "General",
     surface: "home",
+    scopedSuffix: "/settings/general",
+    unscopedSuffix: "/settings/general",
     to: "./general"
   }
 });
@@ -468,6 +473,8 @@ addPlacement({
   props: {
     label: "Profile",
     surface: "home",
+    scopedSuffix: "/settings/profile",
+    unscopedSuffix: "/settings/profile",
     to: "./profile"
   }
 });
@@ -481,6 +488,8 @@ addPlacement({
   props: {
     label: "Notifications",
     surface: "home",
+    scopedSuffix: "/settings/notifications",
+    unscopedSuffix: "/settings/notifications",
     to: "./notifications"
   }
 });

@@ -17,7 +17,7 @@ To get back to the same starting point as the end of the previous chapter, run:
 ```bash
 SUPABASE_URL=...
 SUPABASE_KEY=...
-DB_HOST=localhost
+DB_HOST=127.0.0.1
 DB_PORT=3306
 DB_NAME=exampleapp
 DB_USER=exampleapp

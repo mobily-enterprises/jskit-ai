@@ -43,10 +43,12 @@ JSKIT installs the database runtime and writes those values into `.env`, but it 
 
 If you are working locally, a very typical starting point is:
 
-- host: `localhost`
+- host: `127.0.0.1`
 - port: `3306`
 - database name: `exampleapp`
 - user: `exampleapp`
+
+Using a normal app database user is usually a better guide setup than using the MySQL root account directly. It matches how production apps are normally configured, and it avoids local root-auth setups that work in the terminal but not through the Node driver.
 </DocsTerminalTip>
 
 ## Installing the database runtime
@@ -54,7 +56,7 @@ If you are working locally, a very typical starting point is:
 From inside `exampleapp`, run:
 
 ```bash
-DB_HOST=localhost
+DB_HOST=127.0.0.1
 DB_PORT=3306
 DB_NAME=exampleapp
 DB_USER=exampleapp
@@ -109,6 +111,14 @@ The app now gets three new scripts in `package.json`:
 ```
 
 That is the first time the scaffold can talk about schema migrations in a standard way.
+
+If you run the status command immediately after this chapter:
+
+```bash
+npm run db:migrate:status
+```
+
+you should still see that there are no completed migrations and no pending migration files yet. The runtime and the Knex wiring exist now, but no package has added real schema files until the next chapter.
 
 ### A place for future schema files
 
@@ -221,7 +231,7 @@ The package install also writes the database settings into `.env`:
 
 ```dotenv
 DB_CLIENT=mysql2
-DB_HOST=localhost
+DB_HOST=127.0.0.1
 DB_PORT=3306
 DB_NAME=exampleapp
 DB_USER=exampleapp
