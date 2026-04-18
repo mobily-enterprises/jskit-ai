@@ -43,10 +43,6 @@ Exports
 Exports
 - `nodeConfig`
 
-### `package.descriptor.mjs`
-Exports
-- None
-
 ### `vue.js`
 Exports
 - `vueConfig`
