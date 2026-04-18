@@ -23,7 +23,7 @@ Read these on demand:
 - `../../reference/autogen/KERNEL_MAP.md`
 - `../../reference/autogen/README.md`
 - `../../guide/agent/index.md`
-- `../../guide/human/index.md` when compressed guidance is ambiguous
+- `../../site/guide/index.md` when compressed guidance is ambiguous
 
 Inspect app-local files when they exist:
 

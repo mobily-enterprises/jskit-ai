@@ -2,8 +2,8 @@
 
 ## Distributed Agent Docs
 
-- The human guide under `packages/agent-docs/guide/human/` is the source of truth.
-- `docs/guide` is a symlink to that directory so the VitePress site reads the same files.
+- The human guide under `packages/agent-docs/site/guide/` is the source of truth.
+- The VitePress site root lives under `packages/agent-docs/site/`.
 - The distributed agent-docs package lives under `packages/agent-docs/`.
 - Generated package outputs under these paths are build artifacts:
   - `packages/agent-docs/reference/autogen/`
@@ -12,7 +12,7 @@
   - `packages/agent-docs/DISTR_AGENT.md`
   - `packages/agent-docs/workflow/`
   - `packages/agent-docs/templates/`
-  - `packages/agent-docs/guide/human/`
+  - `packages/agent-docs/site/guide/`
   - `packages/agent-docs/skills/`
 
 ## Visible Change Checkpoint

@@ -56,4 +56,4 @@ Baseline expectations after initialization:
 - use the standard packaged workflows that come with those packages unless the blueprint records an override
 - leave the app in a reproducible, verified baseline state
 
-Do not improvise package order. Use the distributed guide chapters under `guide/agent/app-setup/` or `guide/human/app-setup/`.
+Do not improvise package order. Use the distributed guide chapters under `guide/agent/app-setup/` or `site/guide/app-setup/`.

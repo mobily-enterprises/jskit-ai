@@ -11,3 +11,21 @@ Use this on demand; do not load the full index at startup.
 - Excludes: `test/`, `tests/`, `__tests__/`, `*.test.*`, `*.spec.*`, `*.vitest.*`, `node_modules/`, `dist/`, `coverage/`, `docs/`, `LEGACY/`
 
 ## Sections
+
+### site
+
+### `site/.vitepress/config.mjs`
+Exports
+- None
+
+### `site/.vitepress/theme/components/DocsInDepth.vue`
+Exports
+- None
+
+### `site/.vitepress/theme/components/DocsTerminalTip.vue`
+Exports
+- None
+
+### `site/.vitepress/theme/index.js`
+Exports
+- `default`
