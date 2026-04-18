@@ -28,7 +28,7 @@ The blueprint must capture at least:
 
 Scoping rules:
 
-- Use `guide/agent/index.md` for fast navigation and `guide/human/index.md` for exact details.
+- Use `guide/agent/index.md` for fast navigation and `site/guide/index.md` for exact details.
 - Inspect packages and generators before choosing them.
 - Decide ownership early; do not treat it as a UI-only detail.
 - If Stage 1 platform choices are still provisional, finish them before installing tenancy-sensitive runtime packages.

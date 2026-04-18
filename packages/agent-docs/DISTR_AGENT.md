@@ -14,7 +14,7 @@ Use these references on demand:
 - `reference/autogen/KERNEL_MAP.md`
 - `reference/autogen/README.md`
 - `guide/agent/index.md`
-- `guide/human/index.md` when compressed guidance is ambiguous or missing nuance
+- `site/guide/index.md` when compressed guidance is ambiguous or missing nuance
 - `templates/APP_BLUEPRINT.md`
 - `templates/WORKBOARD.md`
 - `skills/jskit-review/SKILL.md` for review passes when your Codex environment supports packaged skills

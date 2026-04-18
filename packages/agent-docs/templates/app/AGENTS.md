@@ -16,7 +16,7 @@ Use these references on demand:
 - `node_modules/@jskit-ai/agent-docs/reference/autogen/KERNEL_MAP.md`
 - `node_modules/@jskit-ai/agent-docs/reference/autogen/README.md`
 - `node_modules/@jskit-ai/agent-docs/guide/agent/index.md`
-- `node_modules/@jskit-ai/agent-docs/guide/human/index.md` when compressed guidance is ambiguous or missing nuance
+- `node_modules/@jskit-ai/agent-docs/site/guide/index.md` when compressed guidance is ambiguous or missing nuance
 - `node_modules/@jskit-ai/agent-docs/templates/APP_BLUEPRINT.md`
 - `node_modules/@jskit-ai/agent-docs/templates/WORKBOARD.md`
 - `node_modules/@jskit-ai/agent-docs/skills/jskit-review/SKILL.md` for review passes when your Codex environment supports packaged skills
