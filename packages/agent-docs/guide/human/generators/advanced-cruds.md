@@ -507,6 +507,110 @@ The safe mental model is:
 - use `paths.page()` to get to the right surface
 - use CRUD runtime resolvers to move around inside the CRUD
 
+### Live actions and `useCommand()`
+
+There is one more client-side pattern worth naming explicitly:
+
+Use `useCommand()` for live actions such as:
+
+- checkboxes that toggle a record field
+- archive / publish / reopen buttons
+- delete buttons
+- small one-click PATCH / POST / DELETE actions that are not full forms
+
+This is the pattern the `todo` app uses for "mark item done".
+
+The page renders a checkbox like this:
+
+```vue
+<v-checkbox-btn
+  :model-value="item.done"
+  :disabled="!canUpdateItem || isItemBusy(item.id)"
+  @update:model-value="toggleItem(item, $event)"
+/>
+```
+
+Then the page wires a command:
+
+```js
+const itemPatchModel = reactive({
+  id: "",
+  patch: {}
+});
+
+const updateItemCommand = useCommand({
+  model: itemPatchModel,
+  apiSuffix: ({ model }) => `/todo-items/${model?.id || ""}`,
+  writeMethod: "PATCH",
+  runPermissions: ["crud.todo_items.update"],
+  suppressSuccessMessage: true,
+  fallbackRunError: "Unable to update item.",
+  buildRawPayload(model) {
+    return model.patch;
+  },
+  async onRunSuccess(_payload, context = {}) {
+    if (context.queryClient) {
+      await context.queryClient.invalidateQueries({
+        queryKey: ["ui-generator", "todo_items"]
+      });
+    }
+  }
+});
+
+async function toggleItem(item = {}, nextValue = false) {
+  itemPatchModel.id = String(item.id || "");
+  itemPatchModel.patch = {
+    done: Boolean(nextValue)
+  };
+
+  await updateItemCommand.run();
+}
+```
+
+That gives you a clean action pipeline:
+
+1. the UI captures the click
+2. the page writes a tiny action model
+3. `useCommand()` resolves the correct scoped API path for the current route/surface
+4. it sends the request through the standard HTTP runtime
+5. on success, it invalidates the relevant query keys so the list/view refreshes
+
+So yes: for this class of interaction, `useCommand()` is the right helper.
+
+Use this rule of thumb:
+
+- `useCommand()`
+  - for live actions
+  - button clicks
+  - toggles
+  - small PATCH/POST/DELETE interactions
+- `useAddEdit()` / `useCrudAddEdit()`
+  - for real forms
+  - create/edit screens
+  - save/cancel flows
+- `useCrudList()` / `useCrudView()`
+  - for routed list/view loading and CRUD URL resolution
+
+Best practices for live CRUD actions:
+
+- keep the payload narrow
+  - send the field change you mean, not a whole copied record
+- disable the control while the command for that record is running
+  - `todo` does this with `isItemBusy(item.id)`
+- invalidate the relevant list/view query keys on success
+  - do not hand-maintain parallel local record copies unless you really need optimistic UI
+- suppress success toasts for high-frequency actions when they would become noisy
+  - a checkbox toggle usually does not need "Saved." every time
+- keep business rules on the server
+  - in `todo`, the client sends `{ done: true|false }`
+  - the server service decides how `completedAt` should be set or cleared
+
+The safe mental model is:
+
+- use form runtimes for forms
+- use command runtimes for actions
+- keep the server as the source of truth for derived state
+
 ### `_components/CrudAddEditForm.vue`
 
 This is the shared rendering shell for the add/edit form.

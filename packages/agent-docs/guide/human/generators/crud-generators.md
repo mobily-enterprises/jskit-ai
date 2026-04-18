@@ -511,6 +511,27 @@ The host page then renders the comment list directly, usually with lower-level C
 - `useCrudAddEdit()`
 - `useCrudView()` when needed
 
+There is one more runtime worth knowing about early:
+
+- `useCommand()`
+
+Use it for live actions that are **not** full forms, such as:
+
+- checkbox toggles
+- archive / reopen buttons
+- quick PATCH / POST / DELETE actions on one record
+
+So the practical split is:
+
+- `useCrudList()` / `useCrudView()`
+  - routed list/view loading
+- `useCrudAddEdit()`
+  - real create/edit forms
+- `useCommand()`
+  - live actions inside the page
+
+The `todo` app uses that last pattern for "mark item done" checkboxes. The deeper best-practices explanation is in [Advanced CRUDs](/guide/generators/advanced-cruds).
+
 That is the same general pattern already used in the real app for embedded child records like pet notes: the record list lives inside the main view page, while routed child pages handle the operations that still deserve their own URLs.
 
 This pattern is useful when the child records are supporting detail rather than a destination in their own right.

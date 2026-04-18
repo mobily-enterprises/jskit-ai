@@ -87,7 +87,7 @@ export default Object.freeze({
           {
             id: "shell-web.home.menu.home",
             target: "shell-layout:primary-menu",
-            surfaces: ["*"],
+            surfaces: ["home"],
             order: 50,
             componentToken: "local.main.ui.surface-aware-menu-link-item",
             source: "templates/src/placement.js"
