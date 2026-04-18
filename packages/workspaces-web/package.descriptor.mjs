@@ -72,6 +72,24 @@ export default Object.freeze({
         ],
         contributions: [
           {
+            id: "workspaces.workspace.menu.app",
+            target: "shell-layout:primary-menu",
+            surfaces: ["app"],
+            order: 50,
+            componentToken: "local.main.ui.surface-aware-menu-link-item",
+            when: "auth.authenticated === true",
+            source: "mutations.text#workspaces-web-placement-block"
+          },
+          {
+            id: "workspaces.workspace.menu.admin",
+            target: "shell-layout:primary-menu",
+            surfaces: ["admin"],
+            order: 60,
+            componentToken: "local.main.ui.surface-aware-menu-link-item",
+            when: "auth.authenticated === true",
+            source: "mutations.text#workspaces-web-placement-block"
+          },
+          {
             id: "workspaces.profile.menu.surface-switch",
             target: "auth-profile-menu:primary-menu",
             surfaces: ["*"],
@@ -280,7 +298,7 @@ export default Object.freeze({
         file: "src/placement.js",
         position: "bottom",
         skipIfContains: "id: \"workspaces.workspace.selector\"",
-        value: "\naddPlacement({\n  id: \"workspaces.workspace.selector\",\n  target: \"shell-layout:top-left\",\n  surfaces: [\"*\"],\n  order: 200,\n  componentToken: \"workspaces.web.workspace.selector\",\n  props: {\n    allowOnNonWorkspaceSurface: true,\n    targetSurfaceId: \"app\"\n  },\n  when: ({ auth }) => {\n    return Boolean(auth?.authenticated);\n  }\n});\n\naddPlacement({\n  id: \"workspaces.account.invites.cue\",\n  target: \"shell-layout:top-right\",\n  surfaces: [\"*\"],\n  order: 850,\n  componentToken: \"local.main.account.pending-invites.cue\",\n  when: ({ auth }) => Boolean(auth?.authenticated)\n});\n\naddPlacement({\n  id: \"workspaces.workspace.tools.widget\",\n  target: \"shell-layout:top-right\",\n  surfaces: [\"admin\"],\n  order: 900,\n  componentToken: \"workspaces.web.workspace.tools.widget\"\n});\n\naddPlacement({\n  id: \"workspaces.workspace.menu.workspace-settings\",\n  target: \"workspace-tools:primary-menu\",\n  surfaces: [\"admin\"],\n  order: 100,\n  componentToken: \"workspaces.web.workspace-settings.menu-item\"\n});\n\naddPlacement({\n  id: \"workspaces.workspace.menu.members\",\n  target: \"workspace-tools:primary-menu\",\n  surfaces: [\"admin\"],\n  order: 200,\n  componentToken: \"workspaces.web.workspace-members.menu-item\"\n});\n",
+        value: "\naddPlacement({\n  id: \"workspaces.workspace.menu.app\",\n  target: \"shell-layout:primary-menu\",\n  surfaces: [\"app\"],\n  order: 50,\n  componentToken: \"local.main.ui.surface-aware-menu-link-item\",\n  props: {\n    label: \"Home\",\n    surface: \"app\",\n    scopedSuffix: \"/\",\n    unscopedSuffix: \"/\",\n    exact: true\n  },\n  when: ({ auth }) => Boolean(auth?.authenticated)\n});\n\naddPlacement({\n  id: \"workspaces.workspace.menu.admin\",\n  target: \"shell-layout:primary-menu\",\n  surfaces: [\"admin\"],\n  order: 60,\n  componentToken: \"local.main.ui.surface-aware-menu-link-item\",\n  props: {\n    label: \"Home\",\n    surface: \"admin\",\n    scopedSuffix: \"/\",\n    unscopedSuffix: \"/\",\n    exact: true\n  },\n  when: ({ auth }) => Boolean(auth?.authenticated)\n});\n\naddPlacement({\n  id: \"workspaces.workspace.selector\",\n  target: \"shell-layout:top-left\",\n  surfaces: [\"*\"],\n  order: 200,\n  componentToken: \"workspaces.web.workspace.selector\",\n  props: {\n    allowOnNonWorkspaceSurface: true,\n    targetSurfaceId: \"app\"\n  },\n  when: ({ auth }) => {\n    return Boolean(auth?.authenticated);\n  }\n});\n\naddPlacement({\n  id: \"workspaces.account.invites.cue\",\n  target: \"shell-layout:top-right\",\n  surfaces: [\"*\"],\n  order: 850,\n  componentToken: \"local.main.account.pending-invites.cue\",\n  when: ({ auth }) => Boolean(auth?.authenticated)\n});\n\naddPlacement({\n  id: \"workspaces.workspace.tools.widget\",\n  target: \"shell-layout:top-right\",\n  surfaces: [\"admin\"],\n  order: 900,\n  componentToken: \"workspaces.web.workspace.tools.widget\"\n});\n\naddPlacement({\n  id: \"workspaces.workspace.menu.workspace-settings\",\n  target: \"workspace-tools:primary-menu\",\n  surfaces: [\"admin\"],\n  order: 100,\n  componentToken: \"workspaces.web.workspace-settings.menu-item\"\n});\n\naddPlacement({\n  id: \"workspaces.workspace.menu.members\",\n  target: \"workspace-tools:primary-menu\",\n  surfaces: [\"admin\"],\n  order: 200,\n  componentToken: \"workspaces.web.workspace-members.menu-item\"\n});\n",
         reason: "Append workspace placement entries into app-owned placement registry.",
         category: "workspaces-web",
         id: "workspaces-web-placement-block",

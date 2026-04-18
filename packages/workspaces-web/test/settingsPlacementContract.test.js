@@ -22,6 +22,13 @@ function findContribution(id) {
     : null;
 }
 
+function findTextMutation(id) {
+  const textMutations = descriptor?.mutations?.text;
+  return Array.isArray(textMutations)
+    ? textMutations.find((entry) => String(entry?.id || "").trim() === id) || null
+    : null;
+}
+
 function findFileMutation(id) {
   const fileMutations = descriptor?.mutations?.files;
   return Array.isArray(fileMutations)
@@ -63,6 +70,26 @@ test("workspaces-web descriptor metadata advertises admin settings outlets", () 
     ]
   );
   assert.equal(findContribution("workspaces.workspace.settings.general"), null);
+  assert.deepEqual(findContribution("workspaces.workspace.menu.app"), {
+    id: "workspaces.workspace.menu.app",
+    target: "shell-layout:primary-menu",
+    surfaces: ["app"],
+    order: 50,
+    componentToken: "local.main.ui.surface-aware-menu-link-item",
+    when: "auth.authenticated === true",
+    source: "mutations.text#workspaces-web-placement-block"
+  });
+  assert.deepEqual(findContribution("workspaces.workspace.menu.admin"), {
+    id: "workspaces.workspace.menu.admin",
+    target: "shell-layout:primary-menu",
+    surfaces: ["admin"],
+    order: 60,
+    componentToken: "local.main.ui.surface-aware-menu-link-item",
+    when: "auth.authenticated === true",
+    source: "mutations.text#workspaces-web-placement-block"
+  });
+  assert.match(findTextMutation("workspaces-web-placement-block")?.value || "", /id: "workspaces\.workspace\.menu\.app"[\s\S]*surfaces: \["app"\][\s\S]*label: "Home"/);
+  assert.match(findTextMutation("workspaces-web-placement-block")?.value || "", /id: "workspaces\.workspace\.menu\.admin"[\s\S]*surfaces: \["admin"\][\s\S]*label: "Home"/);
   assert.deepEqual(findContribution("workspaces.profile.menu.surface-switch"), {
     id: "workspaces.profile.menu.surface-switch",
     target: "auth-profile-menu:primary-menu",

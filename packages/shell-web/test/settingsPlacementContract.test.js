@@ -65,6 +65,7 @@ test("shell-web placement template seeds default Home and Settings drawer naviga
 
   assert.match(source, /id: "shell-web\.home\.menu\.home"/);
   assert.match(source, /target: "shell-layout:primary-menu"/);
+  assert.match(source, /surfaces: \["home"\]/);
   assert.match(source, /label: "Home"/);
   assert.match(source, /unscopedSuffix: "\/"/);
   assert.match(source, /id: "shell-web\.home\.menu\.settings"/);
@@ -96,7 +97,7 @@ test("shell-web descriptor metadata advertises home settings outlets, default dr
       {
         id: "shell-web.home.menu.home",
         target: "shell-layout:primary-menu",
-        surfaces: ["*"],
+        surfaces: ["home"],
         order: 50,
         componentToken: "local.main.ui.surface-aware-menu-link-item",
         source: "templates/src/placement.js"
