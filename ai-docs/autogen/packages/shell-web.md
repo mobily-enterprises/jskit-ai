@@ -261,7 +261,7 @@ Exports
 ### `src/client/support/menuLinkTarget.js`
 Exports
 - `normalizeMenuLinkPathname(pathname = "")`
-- `resolveMenuLinkTarget({ to = "", surface = "", currentSurfaceId = "", placementContext = null, workspaceSuffix = "/", nonWorkspaceSuffix = "/", routeParams = {}, resolvePagePath = null } = {})`
+- `resolveMenuLinkTarget({ to = "", surface = "", currentSurfaceId = "", placementContext = null, scopedSuffix = "/", unscopedSuffix = "/", routeParams = {}, resolvePagePath = null } = {})`
 Local functions
 - `resolveMenuLinkSurfaceId(surface = "", fallbackSurfaceId = "")`
 - `interpolateBracketParams(pathTemplate = "", params = {})`

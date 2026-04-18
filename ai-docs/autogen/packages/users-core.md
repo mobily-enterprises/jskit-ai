@@ -93,22 +93,6 @@ Exports
 Exports
 - `registerAccountSecurity(app)`
 
-### `src/server/common/contributors/workspaceActionContextContributor.js`
-Exports
-- `createWorkspaceActionContextContributor({ workspaceService, workspaceSurfaceIds = [] } = {})`
-Local functions
-- `normalizeWorkspaceSurfaceIds(surfaceIds = [])`
-
-### `src/server/common/contributors/workspaceAuthPolicyContextResolver.js`
-Exports
-- `createWorkspaceAuthPolicyContextResolver({ workspaceService } = {})`
-
-### `src/server/common/contributors/workspaceRouteVisibilityResolver.js`
-Exports
-- `createWorkspaceRouteVisibilityResolver({ workspaceService } = {})`
-Local functions
-- `buildVisibilityContribution({ visibility, scopeOwnerId = null, userId = null } = {})`
-
 ### `src/server/common/formatters/accountAvatarFormatter.js`
 Exports
 - `accountAvatarFormatter(profile, settings)`
@@ -129,12 +113,6 @@ Exports
 Local functions
 - `resolveAuthProfileSettings(authService)`
 - `formatUserSettingsSection(section, settings = {})`
-
-### `src/server/common/formatters/workspaceFormatter.js`
-Exports
-- `mapMembershipSummary(membership, workspace)`
-- `mapWorkspaceSettingsPublic(workspaceSettings, { workspaceInvitationsEnabled = true } = {})`
-- `mapWorkspaceSummary(workspace, membership)`
 
 ### `src/server/common/registerCommonRepositories.js`
 Exports
@@ -182,23 +160,6 @@ Local functions
 - `createDuplicateEmailConflictError()`
 - `resolveUniqueUsername(client, baseUsername, { excludeUserId = null } = {})`
 
-### `src/server/common/repositories/workspaceInvitesRepository.js`
-Exports
-- `createRepository(knex)`
-- `mapRow(row)`
-
-### `src/server/common/repositories/workspaceMembershipsRepository.js`
-Exports
-- `createRepository(knex)`
-- `mapRow(row)`
-- `mapMemberSummaryRow(row)`
-
-### `src/server/common/repositories/workspacesRepository.js`
-Exports
-- `createRepository(knex)`
-- `mapRow(row)`
-- `mapMembershipWorkspaceRow(row)`
-
 ### `src/server/common/services/accountContextService.js`
 Exports
 - `resolveUserProfile(usersRepository, user)`
@@ -206,23 +167,13 @@ Exports
 
 ### `src/server/common/services/authProfileSyncService.js`
 Exports
-- `createService({ usersRepository, workspaceProvisioningService = null, userSettingsRepository = null } = {})`
+- `createService({ usersRepository, lifecycleContributors = [], userSettingsRepository = null } = {})`
 Local functions
 - `buildNormalizedIdentityKey(identityLike)`
 - `buildNormalizedIdentityProfile(profileLike)`
 - `profileNeedsUpdate(existing, nextProfile)`
 - `requireSynchronizedProfile(profile)`
-
-### `src/server/common/services/workspaceContextService.js`
-Exports
-- `createService({ appConfig = {}, workspacesRepository, workspaceMembershipsRepository, workspaceSettingsRepository } = {})`
-Local functions
-- `toSlugPart(value)`
-- `buildWorkspaceBaseSlug(user = {})`
-- `buildWorkspaceName(user = {})`
-- `buildPermissionsFromMembership(membership, appConfig = {})`
-- `hashInviteToken(token)`
-- `normalizeWorkspaceCreationInput(payload = {})`
+- `normalizeLifecycleContributors(entries = [])`
 
 ### `src/server/common/support/deepFreeze.js`
 Exports
@@ -231,19 +182,12 @@ Exports
 ### `src/server/common/support/realtimeServiceEvents.js`
 Exports
 - `ACCOUNT_SETTINGS_AND_BOOTSTRAP_EVENTS`
-- `createWorkspaceEntityAndBootstrapEvents({ workspaceEntity, workspaceOperation, workspaceRealtimeEvent, workspaceEntityId = ({ args }) => args?.[0]?.id, bootstrapEntityId = ({ args }) => args?.[0]?.id, bootstrapAudience = "event_scope" } = {})`
 Local functions
 - `resolveActorScopedEntityId({ options } = {})`
-- `resolveWorkspaceSlugPayload({ args } = {})`
 
 ### `src/server/common/support/resolveActionUser.js`
 Exports
 - `resolveActionUser(context, input)`
-
-### `src/server/common/support/workspaceRoutePaths.js`
-Exports
-- `USERS_WORKSPACE_ROUTE_BASE_PATH`
-- `resolveWorkspaceRoutePath(relativePath = "/")`
 
 ### `src/server/common/validators/authenticatedUserValidator.js`
 Exports
@@ -251,13 +195,13 @@ Exports
 Local functions
 - `normalizeAuthenticatedUser(input = {})`
 
-### `src/server/common/validators/routeParamsValidator.js`
+### `src/server/profileSyncLifecycleContributorRegistry.js`
 Exports
-- `routeParamsValidator`
-- `workspaceSlugParamsValidator`
+- `PROFILE_SYNC_LIFECYCLE_CONTRIBUTOR_TAG`
+- `registerProfileSyncLifecycleContributor(app, token, factory)`
+- `resolveProfileSyncLifecycleContributors(scope)`
 Local functions
-- `normalizeRouteParams(input = {})`
-- `normalizeWorkspaceSlugParams(input = {})`
+- `normalizeProfileSyncLifecycleContributor(entry)`
 
 ### `src/server/registerUsersBootstrap.js`
 Exports
@@ -267,187 +211,23 @@ Exports
 Exports
 - `registerUsersCore(app)`
 
-### `src/server/registerWorkspaceBootstrap.js`
-Exports
-- `registerWorkspaceBootstrap(app)`
-
-### `src/server/registerWorkspaceCore.js`
-Exports
-- `registerWorkspaceCore(app)`
-
-### `src/server/registerWorkspaceRepositories.js`
-Exports
-- `registerWorkspaceRepositories(app)`
-
-### `src/server/support/resolveWorkspace.js`
-Exports
-- `resolveWorkspace(context = {}, input = {})`
-Local functions
-- `resolveRequest(context = {})`
-
-### `src/server/support/workspaceActionSurfaces.js`
-Exports
-- `resolveWorkspaceSurfaceIdsFromAppConfig(appConfig = {})`
-- `resolveDefaultWorkspaceRouteSurfaceIdFromAppConfig(appConfig = {})`
-- `materializeWorkspaceActionSurfaces(actions = [], { workspaceSurfaceIds = [] } = {})`
-- `materializeWorkspaceActionSurfacesFromAppConfig(actions = [], { appConfig = {} } = {})`
-- `registerUsersCoreActionSurfaceSources(app)`
-Local functions
-- `normalizeSurfaceIds(surfaceIds = [])`
-- `resolveSurfaceIdsFromAppConfig(appConfig = {}, predicate)`
-
-### `src/server/support/workspaceInvitationsPolicy.js`
-Exports
-- `normalizeWorkspaceInvitationsConfig(appConfig = {})`
-- `resolveWorkspaceInvitationsPolicy({ appConfig = {}, tenancyProfile = null } = {})`
-
-### `src/server/support/workspaceRouteInput.js`
-Exports
-- `readWorkspaceSlugFromRouteParams(params = {})`
-- `buildWorkspaceInputFromRouteParams(params = {})`
-
 ### `src/server/usersBootstrapContributor.js`
 Exports
-- `createUsersBootstrapContributor({ usersRepository, userSettingsRepository, appConfig = {}, tenancyProfile = null, authService } = {})`
+- `createUsersBootstrapContributor({ usersRepository, userSettingsRepository, appConfig = {}, authService } = {})`
 Local functions
 - `getOAuthProviderCatalogPayload(authService)`
 - `normalizeBoolean(value, fallback)`
-- `resolveAppState(appConfig = {}, { workspaceInvitationsEnabled = false } = {})`
-- `normalizeSlugPolicy(value = "")`
-- `isSupportedTenancyMode(value = "")`
-- `resolveBootstrapTenancyProfile(tenancyProfile = null, appConfig = {})`
-- `createAnonymousBootstrapPayload({ appState, tenancyProfile, surfaceAccess = {} })`
+- `resolveAppState(appConfig = {})`
+- `createAnonymousBootstrapPayload({ appState, surfaceAccess = {} })`
 - `mapUserSettingsBootstrap(settings = {})`
 
 ### `src/server/UsersCoreServiceProvider.js`
 Exports
 - `UsersCoreServiceProvider`
 
-### `src/server/UsersWorkspacesServiceProvider.js`
-Exports
-- `UsersWorkspacesServiceProvider`
-
-### `src/server/workspaceBootstrapContributor.js`
-Exports
-- `createWorkspaceBootstrapContributor({ workspaceService, workspacePendingInvitationsService, usersRepository, workspaceInvitationsEnabled = false, appConfig = {}, tenancyProfile = null } = {})`
-Local functions
-- `normalizePendingInvites(invites)`
-- `normalizeQueryPayload(value = {})`
-- `resolveBootstrapWorkspaceSlug({ query = {}, request = null } = {})`
-- `normalizeRequestedWorkspaceStatus(value = "")`
-- `createRequestedWorkspacePayload(workspaceSlug = "", status = "")`
-- `resolveRequestedWorkspaceStatusFromError(error)`
-- `resolveBootstrapTenancyProfile(tenancyProfile = null, appConfig = {})`
-
-### `src/server/workspaceDirectory/bootWorkspaceDirectoryRoutes.js`
-Exports
-- `bootWorkspaceDirectoryRoutes(app)`
-
-### `src/server/workspaceDirectory/registerWorkspaceDirectory.js`
-Exports
-- `registerWorkspaceDirectory(app)`
-
-### `src/server/workspaceDirectory/workspaceDirectoryActions.js`
-Exports
-- `workspaceDirectoryActions`
-
-### `src/server/workspaceMembers/bootWorkspaceMembers.js`
-Exports
-- `bootWorkspaceMembers(app)`
-
-### `src/server/workspaceMembers/registerWorkspaceMembers.js`
-Exports
-- `registerWorkspaceMembers(app)`
-Local functions
-- `resolveWorkspaceMembersInviteExpiresInMs(appConfig = {})`
-
-### `src/server/workspaceMembers/workspaceMembersActions.js`
-Exports
-- `workspaceMembersActions`
-
-### `src/server/workspaceMembers/workspaceMembersService.js`
-Exports
-- `createService({ workspaceMembershipsRepository, workspaceInvitesRepository, inviteExpiresInMs, roleCatalog = null, workspaceInvitationsEnabled = true } = {})`
-
-### `src/server/workspacePendingInvitations/bootWorkspacePendingInvitations.js`
-Exports
-- `bootWorkspacePendingInvitations(app)`
-
-### `src/server/workspacePendingInvitations/registerWorkspacePendingInvitations.js`
-Exports
-- `registerWorkspacePendingInvitations(app)`
-Local functions
-- `workspaceAudienceFromEntityId({ event } = {})`
-- `actorUserEntityId({ options } = {})`
-- `createActorUserEvent({ source, entity, realtimeEvent })`
-- `createWorkspaceAudienceEvent({ entity, realtimeEvent })`
-- `createInviteDecisionEvents({ includeDirectoryAndMembers = false } = {})`
-
-### `src/server/workspacePendingInvitations/workspacePendingInvitationsActions.js`
-Exports
-- `workspacePendingInvitationsActions`
-
-### `src/server/workspacePendingInvitations/workspacePendingInvitationsService.js`
-Exports
-- `createService({ workspaceInvitesRepository, workspaceMembershipsRepository } = {})`
-
-### `src/server/workspaceSettings/bootWorkspaceSettings.js`
-Exports
-- `bootWorkspaceSettings(app)`
-
-### `src/server/workspaceSettings/registerWorkspaceSettings.js`
-Exports
-- `registerWorkspaceSettings(app)`
-Local functions
-- `resolveWorkspaceSettingsDefaultInvitesEnabled(appConfig = {})`
-
-### `src/server/workspaceSettings/workspaceSettingsActions.js`
-Exports
-- `workspaceSettingsActions`
-
-### `src/server/workspaceSettings/workspaceSettingsRepository.js`
-Exports
-- `createRepository(knex, { defaultInvitesEnabled } = {})`
-Local functions
-- `resolveWorkspaceSettingsSeed(workspace = {}, { defaultInvitesEnabled = true } = {})`
-
-### `src/server/workspaceSettings/workspaceSettingsService.js`
-Exports
-- `createService({ workspaceSettingsRepository, workspaceInvitationsEnabled = true, roleCatalog = null } = {})`
-
 ### `src/shared/index.js`
 Exports
-- `OWNER_ROLE_ID`
-- `ADMIN_ROLE_ID`
-- `MEMBER_ROLE_ID`
-- `resolveRolePermissions`
-- `listRoleDescriptors`
-- `hasPermission`
-- `DEFAULT_WORKSPACE_LIGHT_PALETTE`
-- `DEFAULT_WORKSPACE_DARK_PALETTE`
-- `DEFAULT_WORKSPACE_COLOR`
 - `DEFAULT_USER_SETTINGS`
-- `coerceWorkspaceColor`
-- `coerceWorkspaceThemeColor`
-- `coerceWorkspaceSecondaryColor`
-- `coerceWorkspaceSurfaceColor`
-- `coerceWorkspaceSurfaceVariantColor`
-- `WORKSPACE_THEME_MODE_LIGHT`
-- `WORKSPACE_THEME_MODE_DARK`
-- `normalizeWorkspaceThemeMode`
-- `resolveWorkspaceThemeDefaultPalette`
-- `resolveWorkspaceThemePalettes`
-- `normalizeWorkspaceHexColor`
-- `resolveWorkspaceThemePalette`
-- `TENANCY_MODE_NONE`
-- `TENANCY_MODE_PERSONAL`
-- `TENANCY_MODE_WORKSPACES`
-- `normalizeTenancyMode`
-- `WORKSPACE_SLUG_POLICY_NONE`
-- `WORKSPACE_SLUG_POLICY_IMMUTABLE_USERNAME`
-- `WORKSPACE_SLUG_POLICY_USER_SELECTED`
-- `resolveTenancyProfile`
-- `isWorkspacesTenancyMode`
 - `USERS_SHARED_API`
 
 ### `src/shared/operationMessages.js`
@@ -489,141 +269,9 @@ Local functions
 - `normalizeOAuthProviderParams(payload = {})`
 - `normalizeOAuthProviderQuery(payload = {})`
 
-### `src/shared/resources/workspaceMembersResource.js`
-Exports
-- `workspaceMembersResource`
-Local functions
-- `normalizeWorkspaceAdminSummary(workspace)`
-- `normalizeMemberSummary(member, workspace)`
-- `normalizeInviteSummary(invite)`
-- `normalizeWorkspaceOutputEnvelope(payload = {}, { itemsKey, normalizeItem, includeInviteTokenPreview = false } = {})`
-- `normalizeWorkspaceMembersOutput(payload = {})`
-- `normalizeWorkspaceInvitesOutput(payload = {})`
-
-### `src/shared/resources/workspacePendingInvitationsResource.js`
-Exports
-- `workspacePendingInvitationsResource`
-Local functions
-- `normalizePendingInvite(invite)`
-- `normalizePendingInviteList(invites)`
-
-### `src/shared/resources/workspaceResource.js`
-Exports
-- `workspaceResource`
-Local functions
-- `normalizeWorkspaceAvatarUrl(value)`
-- `normalizeWorkspaceInput(payload = {})`
-- `normalizeWorkspaceOutput(payload = {})`
-- `normalizeWorkspaceListItemOutput(payload = {})`
-
-### `src/shared/resources/workspaceSettingsFields.js`
-Exports
-- `defineField(field = {})`
-- `resetWorkspaceSettingsFields()`
-- `resolveWorkspaceSettingsFieldKeys()`
-- `workspaceSettingsFields`
-
-### `src/shared/resources/workspaceSettingsResource.js`
-Exports
-- `workspaceSettingsResource`
-Local functions
-- `buildCreateBodySchema()`
-- `buildSettingsOutputSchema()`
-- `buildResponseRecordSchema()`
-- `normalizeInput(payload = {})`
-- `normalizeOutput(payload = {})`
-
-### `src/shared/roles.js`
-Exports
-- `OWNER_ROLE_ID`
-- `ADMIN_ROLE_ID`
-- `MEMBER_ROLE_ID`
-- `resolveRolePermissions(roleSid, appConfig = {})`
-- `listRoleDescriptors(appConfig = {})`
-- `createWorkspaceRoleCatalog(appConfig = {})`
-- `cloneWorkspaceRoleCatalog(roleCatalog = null)`
-- `hasPermission`
-Local functions
-- `asRecord(value)`
-- `normalizeRoleId(value)`
-- `resolveInheritedRolePermissions(roleSid, configuredRoles = {}, seenRoleIds = new Set())`
-- `createRoleDescriptor(roleSid, configuredDefinition, configuredRoles = {})`
-- `listConfiguredRoleIds(appConfig = {})`
-- `resolveConfiguredDefaultInviteRole(appConfig = {})`
-- `normalizeConfiguredRoles(appConfig = {})`
-
 ### `src/shared/settings.js`
 Exports
-- `DEFAULT_WORKSPACE_DARK_PALETTE`
-- `DEFAULT_WORKSPACE_LIGHT_PALETTE`
-- `DEFAULT_WORKSPACE_COLOR`
 - `DEFAULT_USER_SETTINGS`
-- `coerceWorkspaceColor(value)`
-- `coerceWorkspaceThemeColor(value, fallbackColor = DEFAULT_WORKSPACE_COLOR)`
-- `coerceWorkspaceSecondaryColor(value, { mode = WORKSPACE_THEME_MODE_LIGHT } = {})`
-- `coerceWorkspaceSurfaceColor(value, { mode = WORKSPACE_THEME_MODE_LIGHT } = {})`
-- `coerceWorkspaceSurfaceVariantColor(value, { mode = WORKSPACE_THEME_MODE_LIGHT } = {})`
-- `normalizeWorkspaceHexColor(value)`
-- `normalizeWorkspaceThemeMode(value = "")`
-- `resolveWorkspaceThemeDefaultPalette(mode = WORKSPACE_THEME_MODE_LIGHT)`
-- `resolveWorkspaceThemePalettes(input = {})`
-- `WORKSPACE_THEME_MODE_DARK`
-- `WORKSPACE_THEME_MODE_LIGHT`
-- `resolveWorkspaceThemePalette(input = {}, { mode = WORKSPACE_THEME_MODE_LIGHT } = {})`
-
-### `src/shared/support/usersApiPaths.js`
-Exports
-- `USERS_PUBLIC_API_BASE_PATH`
-- `USERS_WORKSPACE_API_BASE_PATH`
-- `normalizeApiRelativePath(relativePath = "/")`
-- `normalizeSurfaceWorkspaceRequirement(value = false)`
-- `resolveApiBasePath({ surfaceRequiresWorkspace = false, relativePath = "/" } = {})`
-
-### `src/shared/support/usersVisibility.js`
-Exports
-- `USERS_ROUTE_VISIBILITY_PUBLIC`
-- `USERS_ROUTE_VISIBILITY_USER`
-- `USERS_ROUTE_VISIBILITY_WORKSPACE`
-- `USERS_ROUTE_VISIBILITY_WORKSPACE_USER`
-- `USERS_ROUTE_VISIBILITY_LEVELS`
-- `checkRouteVisibility(value, { context = "checkRouteVisibility" } = {})`
-- `isWorkspaceVisibility(visibility = "")`
-
-### `src/shared/support/workspacePathModel.js`
-Exports
-- `normalizePathname`
-- `normalizeSurfaceSegmentFromRouteBase(routeBase, { workspaceBasePath = "/w" } = {})`
-- `parseWorkspacePathname(pathname = "", { workspaceBasePath = "/w" } = {})`
-- `resolveDefaultWorkspaceSurfaceId({ defaultSurfaceId = "", workspaceSurfaceIds = [], surfaceRequiresWorkspace = null } = {})`
-- `resolveWorkspaceSurfaceIdFromSuffixSegments({ suffixSegments = [], defaultWorkspaceSurfaceId = "", workspaceSurfaces = [] } = {})`
-Local functions
-- `normalizeWorkspaceBasePath(workspaceBasePath = "/w")`
-- `normalizeSurfaceSegment(segmentLike = "")`
-- `normalizeSurfaceRouteBase(routeBaseLike = "")`
-
-### `src/shared/tenancyMode.js`
-Exports
-- `TENANCY_MODE_NONE`
-- `TENANCY_MODE_PERSONAL`
-- `TENANCY_MODE_WORKSPACES`
-- `TENANCY_MODES`
-- `normalizeTenancyMode(value = "")`
-- `isTenancyMode(value = "")`
-
-### `src/shared/tenancyProfile.js`
-Exports
-- `TENANCY_MODE_NONE`
-- `TENANCY_MODE_PERSONAL`
-- `TENANCY_MODE_WORKSPACES`
-- `normalizeTenancyMode`
-- `WORKSPACE_SLUG_POLICY_NONE`
-- `WORKSPACE_SLUG_POLICY_IMMUTABLE_USERNAME`
-- `WORKSPACE_SLUG_POLICY_USER_SELECTED`
-- `resolveTenancyProfile(appConfig = {})`
-- `isWorkspacesTenancyMode(value = "")`
-Local functions
-- `resolveWorkspacePolicyOverrides(appConfig = {})`
-- `resolveWorkspacePolicy(mode, overrides = {})`
 
 ### templates
 

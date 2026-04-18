@@ -14,20 +14,16 @@ Use this on demand; do not load the full index at startup.
 
 ### src
 
-### `src/client/components/MembersAdminClientElement.vue`
+### `src/client/account-settings/sections.js`
 Exports
-- None
-Local functions
-- `formatDateTime(value)`
-- `showOwnerChip(member)`
-- `isMemberRoleLocked(member)`
-- `isMemberRemoveLocked(member)`
-- `isRevokeInviteLoading(inviteId)`
-- `isRemoveMemberLoading(memberUserId)`
-- `onSubmitInvite()`
-- `onRevokeInvite(inviteId)`
-- `onMemberRoleUpdate(member, roleSid)`
-- `onRemoveMember(member)`
+- `ACCOUNT_SETTINGS_SECTIONS_INJECTION_KEY`
+- `ACCOUNT_SETTINGS_SECTION_REGISTRY_TAG`
+- `EMPTY_ACCOUNT_SETTINGS_SECTIONS`
+- `RESERVED_ACCOUNT_SETTINGS_SECTION_VALUES`
+- `normalizeAccountSettingsSectionEntry(entry = null)`
+- `resolveAccountSettingsSections(entries = [])`
+- `sortAccountSettingsSections(entries = [])`
+- `useAccountSettingsSections()`
 
 ### `src/client/components/ProfileClientElement.vue`
 Exports
@@ -41,96 +37,9 @@ Local functions
 Exports
 - None
 
-### `src/client/components/UsersProfileSurfaceSwitchMenuItem.vue`
-Exports
-- None
-
-### `src/client/components/UsersWorkspaceMembersMenuItem.vue`
-Exports
-- None
-
-### `src/client/components/UsersWorkspacePermissionMenuItem.vue`
-Exports
-- None
-Local functions
-- `normalizeRequiredPermissions(value)`
-
-### `src/client/components/UsersWorkspaceSelector.vue`
-Exports
-- None
-Local functions
-- `resolveBrowserPath()`
-- `navigateToWorkspace(slug)`
-- `workspaceAvatarStyle(workspace)`
-
-### `src/client/components/UsersWorkspaceSettingsMenuItem.vue`
-Exports
-- None
-
-### `src/client/components/UsersWorkspaceToolsWidget.vue`
-Exports
-- None
-
-### `src/client/components/WorkspaceMembersClientElement.vue`
-Exports
-- None
-Local functions
-- `workspaceMembersPath(memberId)`
-- `workspaceInvitePath(inviteId)`
-- `resetMessages()`
-- `clearRoleOptions()`
-- `resetViewState()`
-- `toRoleTitle(roleSid)`
-- `normalizeRoleCatalog(payload = {})`
-- `applyRoleCatalog(payload = {})`
-- `normalizeMembers(entries)`
-- `normalizeInvites(entries)`
-- `latestPage(pages)`
-- `applyWorkspaceSettingsPolicy(payload = {})`
-- `submitInvite()`
-- `submitRevokeInvite(inviteId)`
-- `submitMemberRoleUpdate(member, roleSid)`
-- `submitRemoveMember(member)`
-
-### `src/client/components/WorkspaceProfileClientElement.vue`
-Exports
-- None
-
-### `src/client/components/WorkspacesClientElement.vue`
-Exports
-- None
-Local functions
-- `reportFeedback({ message, severity = "error", channel = "banner", dedupeKey = "" } = {})`
-- `workspaceInitials(workspace)`
-- `workspaceAvatarStyle(workspace)`
-- `workspaceHomePath(workspaceSlug)`
-- `openWorkspace(workspaceSlug)`
-- `respondToInvite(invite, decision)`
-- `acceptInvite(invite)`
-- `refuseInvite(invite)`
-- `createWorkspace()`
-
-### `src/client/components/WorkspaceSettingsClientElement.vue`
-Exports
-- None
-Local functions
-- `toWorkspaceEntrySnapshot(entry = null)`
-- `toWorkspaceListSnapshot(list = [])`
-- `toWorkspaceSettingsSnapshot(settings = null)`
-- `applyShellWorkspaceContext(payload = {})`
-- `handleFormSaved()`
-
-### `src/client/components/WorkspaceSettingsFieldsClientElement.vue`
-Exports
-- None
-
 ### `src/client/composables/account-settings/accountSettingsAvatarUploadRuntime.js`
 Exports
 - `createAccountSettingsAvatarUploadRuntime({ queryClient, sessionQueryKey, accountSettingsQueryKey, selectedAvatarFileName, applySettingsData, reportAccountFeedback } = {})`
-
-### `src/client/composables/account-settings/accountSettingsInvitesRuntime.js`
-Exports
-- `createAccountSettingsInvitesRuntime({ invitesAvailable, isResolvingInvite, inviteAction, redeemInviteModel, redeemInviteCommand, pendingInvites, pendingInvitesModel, pendingInvitesView, openWorkspace, reportAccountFeedback } = {})`
 
 ### `src/client/composables/account-settings/accountSettingsRuntimeConstants.js`
 Exports
@@ -148,7 +57,6 @@ Exports
 Exports
 - `resolveAllowedReturnToOrigins(contextValue = null)`
 - `normalizeAvatarSize(value)`
-- `normalizePendingInvite(entry)`
 - `normalizeReturnToPath(value, { fallback = "/", accountSettingsPath = "/account", allowedOrigins = [] } = {})`
 - `normalizeSettingsPayload(value)`
 
@@ -217,14 +125,14 @@ Local functions
 
 ### `src/client/composables/internal/useOperationScope.js`
 Exports
-- `useOperationScope({ ownershipFilter = USERS_ROUTE_VISIBILITY_WORKSPACE, surfaceId = "", access = "auto", placementSource = "users-web.operation", apiSuffix = "", model, readEnabled = true, queryKeyFactory = null, permissionSets = {}, realtime = null } = {})`
+- `useOperationScope({ ownershipFilter = ROUTE_VISIBILITY_WORKSPACE, surfaceId = "", access = "auto", placementSource = "users-web.operation", apiSuffix = "", model, readEnabled = true, queryKeyFactory = null, permissionSets = {}, realtime = null } = {})`
 Local functions
 - `normalizePermissionSets(permissionSets = {})`
 - `hasAnyPermissions(permissionSets = {})`
 
 ### `src/client/composables/records/useAddEdit.js`
 Exports
-- `useAddEdit({ ownershipFilter = USERS_ROUTE_VISIBILITY_WORKSPACE, surfaceId = "", access = "auto", resource = null, apiSuffix = "", queryKeyFactory = null, viewPermissions = [], savePermissions = [], readMethod = "GET", readEnabled = true, writeMethod = "PATCH", placementSource = "users-web.add-edit", fallbackLoadError = "Unable to load resource.", fallbackSaveError = "Unable to save resource.", fieldErrorKeys = [], clearOnRouteChange = true, model, parseInput, mapLoadedToModel, buildRawPayload, buildSavePayload, onSaveSuccess, recordIdParam = "recordId", routeParams = null, routeRecordId = null, apiUrlTemplate = "", viewUrlTemplate = "", listUrlTemplate = "", saveRecordIdSelector = null, messages = {}, realtime = null, adapter = null } = {})`
+- `useAddEdit({ ownershipFilter = ROUTE_VISIBILITY_WORKSPACE, surfaceId = "", access = "auto", resource = null, apiSuffix = "", queryKeyFactory = null, viewPermissions = [], savePermissions = [], readMethod = "GET", readEnabled = true, writeMethod = "PATCH", placementSource = "users-web.add-edit", fallbackLoadError = "Unable to load resource.", fallbackSaveError = "Unable to save resource.", fieldErrorKeys = [], clearOnRouteChange = true, model, parseInput, mapLoadedToModel, buildRawPayload, buildSavePayload, onSaveSuccess, recordIdParam = "recordId", routeParams = null, routeRecordId = null, apiUrlTemplate = "", viewUrlTemplate = "", listUrlTemplate = "", saveRecordIdSelector = null, messages = {}, realtime = null, adapter = null } = {})`
 
 ### `src/client/composables/records/useCrudAddEdit.js`
 Exports
@@ -246,11 +154,11 @@ Exports
 
 ### `src/client/composables/records/useList.js`
 Exports
-- `useList({ ownershipFilter = USERS_ROUTE_VISIBILITY_WORKSPACE, surfaceId = "", access = "auto", apiSuffix = "", queryKeyFactory = null, viewPermissions = [], readEnabled = true, placementSource = "users-web.list", fallbackLoadError = "Unable to load list.", initialPageParam = null, getNextPageParam, selectItems, requestOptions, queryOptions, realtime = null, adapter = null, recordIdParam = "recordId", recordIdSelector = null, viewUrlTemplate = "", editUrlTemplate = "", search = null, queryParams = null, requestQueryParams = null, syncToRoute = false } = {})`
+- `useList({ ownershipFilter = ROUTE_VISIBILITY_WORKSPACE, surfaceId = "", access = "auto", apiSuffix = "", queryKeyFactory = null, viewPermissions = [], readEnabled = true, placementSource = "users-web.list", fallbackLoadError = "Unable to load list.", initialPageParam = null, getNextPageParam, selectItems, requestOptions, queryOptions, realtime = null, adapter = null, recordIdParam = "recordId", recordIdSelector = null, viewUrlTemplate = "", editUrlTemplate = "", search = null, queryParams = null, requestQueryParams = null, syncToRoute = false } = {})`
 
 ### `src/client/composables/records/useView.js`
 Exports
-- `useView({ ownershipFilter = USERS_ROUTE_VISIBILITY_WORKSPACE, surfaceId = "", access = "auto", apiSuffix = "", queryKeyFactory = null, viewPermissions = [], readMethod = "GET", readEnabled = true, placementSource = "users-web.view", fallbackLoadError = "Unable to load resource.", notFoundStatuses = [404], notFoundMessage = "Record not found.", model, mapLoadedToModel, recordIdParam = "recordId", routeParams = null, routeRecordId = null, apiUrlTemplate = "", listUrlTemplate = "", editUrlTemplate = "", includeRecordIdInQueryKey = false, realtime = null, adapter = null } = {})`
+- `useView({ ownershipFilter = ROUTE_VISIBILITY_WORKSPACE, surfaceId = "", access = "auto", apiSuffix = "", queryKeyFactory = null, viewPermissions = [], readMethod = "GET", readEnabled = true, placementSource = "users-web.view", fallbackLoadError = "Unable to load resource.", notFoundStatuses = [404], notFoundMessage = "Record not found.", model, mapLoadedToModel, recordIdParam = "recordId", routeParams = null, routeRecordId = null, apiUrlTemplate = "", listUrlTemplate = "", editUrlTemplate = "", includeRecordIdInQueryKey = false, realtime = null, adapter = null } = {})`
 
 ### `src/client/composables/runtime/addEditUiRuntime.js`
 Exports
@@ -412,14 +320,14 @@ Exports
 - `ensureAccessModeCompatibility({ accessMode = "auto", hasPermissionRequirements = false, caller = "users-web" } = {})`
 - `resolveApiSuffix(apiSuffix, context = {})`
 - `resolveEnabled(value, context = {})`
-- `normalizeOwnershipFilter(value = USERS_ROUTE_VISIBILITY_WORKSPACE)`
-- `isWorkspaceOwnershipFilter(ownershipFilter)`
-- `resolveQueryKey(queryKeyFactory, { surfaceId = "", workspaceSlug = "", ownershipFilter = USERS_ROUTE_VISIBILITY_WORKSPACE } = {})`
+- `normalizeOwnershipFilter(value = ROUTE_VISIBILITY_WORKSPACE)`
+- `isScopedOwnershipFilter(ownershipFilter)`
+- `resolveQueryKey(queryKeyFactory, { surfaceId = "", scopeParamValue = "", ownershipFilter = ROUTE_VISIBILITY_WORKSPACE } = {})`
 - `resolveResourceMessages(resource, defaults = {})`
 
 ### `src/client/composables/useAccess.js`
 Exports
-- `useAccess({ workspaceSlug = "", enabled = true, access = "always", hasPermissionRequirements = false } = {})`
+- `useAccess({ scopeParamValue = "", enabled = true, access = "always", hasPermissionRequirements = false } = {})`
 Local functions
 - `asPermissionList(value)`
 
@@ -427,15 +335,9 @@ Local functions
 Exports
 - `useAccountSettingsRuntime()`
 
-### `src/client/composables/useBootstrapQuery.js`
-Exports
-- `useBootstrapQuery({ workspaceSlug = "", enabled = true, staleTime = DEFAULT_BOOTSTRAP_STALE_TIME_MS, refetchOnMount = false, refetchOnWindowFocus = false } = {})`
-Local functions
-- `normalizeStaleTime(value, fallback = DEFAULT_BOOTSTRAP_STALE_TIME_MS)`
-
 ### `src/client/composables/useCommand.js`
 Exports
-- `useCommand({ ownershipFilter = USERS_ROUTE_VISIBILITY_WORKSPACE, surfaceId = "", access = "auto", apiSuffix = "", runPermissions = [], writeMethod = "POST", placementSource = "users-web.command", fallbackRunError = "Unable to complete action.", fieldErrorKeys = [], clearOnRouteChange = true, model, parseInput, buildRawPayload, buildCommandPayload, buildCommandOptions, onRunSuccess, onRunError, suppressSuccessMessage = false, messages = {}, realtime = null } = {})`
+- `useCommand({ ownershipFilter = ROUTE_VISIBILITY_WORKSPACE, surfaceId = "", access = "auto", apiSuffix = "", runPermissions = [], writeMethod = "POST", placementSource = "users-web.command", fallbackRunError = "Unable to complete action.", fieldErrorKeys = [], clearOnRouteChange = true, model, parseInput, buildRawPayload, buildCommandPayload, buildCommandOptions, onRunSuccess, onRunError, suppressSuccessMessage = false, messages = {}, realtime = null } = {})`
 
 ### `src/client/composables/useCrudListParentTitle.js`
 Exports
@@ -458,8 +360,9 @@ Exports
 Local functions
 - `normalizePathSuffix(value = "")`
 - `resolveSurfaceId(value, fallback = "")`
-- `resolveWorkspaceSlug(value, fallback = "")`
 - `resolveDefaultSurfaceIdFromPlacementContext(placementContext = null)`
+- `normalizeRouteParams(params = null)`
+- `resolveRouteParams(baseParams = {}, overrideParams = null)`
 
 ### `src/client/composables/useRealtimeQueryInvalidation.js`
 Exports
@@ -472,52 +375,26 @@ Local functions
 
 ### `src/client/composables/useScopeRuntime.js`
 Exports
-- `useScopeRuntime({ ownershipFilter = USERS_ROUTE_VISIBILITY_WORKSPACE, surfaceId = "", accessMode = "auto", hasPermissionRequirements = false, placementSource = "users-web.scope-runtime" } = {})`
+- `useScopeRuntime({ ownershipFilter = ROUTE_VISIBILITY_WORKSPACE, surfaceId = "", accessMode = "auto", hasPermissionRequirements = false, placementSource = "users-web.scope-runtime" } = {})`
+Local functions
+- `resolveScopedRouteParamNames(placementContext = null, surfaceId = "")`
 
 ### `src/client/composables/useSurfaceRouteContext.js`
 Exports
 - `useSurfaceRouteContext()`
 
-### `src/client/composables/useWorkspaceRouteContext.js`
-Exports
-- `useWorkspaceRouteContext()`
-
-### `src/client/composables/useWorkspaceSurfaceId.js`
-Exports
-- `useWorkspaceSurfaceId({ route = null, placementContext = null } = {})`
-Local functions
-- `resolveCurrentPathname(route = null)`
-
 ### `src/client/index.js`
 Exports
 - `UsersWebClientProvider`
-- `UsersWorkspacesClientProvider`
 - `clientProviders`
 
 ### `src/client/lib/bootstrap.js`
 Exports
-- `buildBootstrapApiPath(workspaceSlug = "")`
-- `normalizeWorkspaceEntry(entry)`
-- `normalizeWorkspaceList(list)`
-- `findWorkspaceBySlug(list, workspaceSlug)`
 - `resolvePlacementUserFromBootstrapPayload(payload = {}, currentUser = null)`
 
 ### `src/client/lib/httpClient.js`
 Exports
 - `usersWebHttpClient`
-Local functions
-- `sleep(delayMs)`
-- `shouldRetryTransientHttpFailure(error, method, attemptIndex)`
-- `requestWithTransientRetry(executor, method)`
-
-### `src/client/lib/menuIcons.js`
-Exports
-- `resolveMenuLinkIcon({ icon = "", label = "", to = "" } = {})`
-- `resolveSurfaceSwitchIcon(surfaceId = "", explicitIcon = "")`
-Local functions
-- `resolveExplicitIconValue(explicitIcon = "")`
-- `normalizePathname(value)`
-- `resolveSurfaceSwitchIdFromLabel(label = "")`
 
 ### `src/client/lib/permissions.js`
 Exports
@@ -527,40 +404,11 @@ Exports
 Local functions
 - `toPermissionSet(values)`
 
-### `src/client/lib/profileSurfaceMenuLinks.js`
-Exports
-- `resolveProfileSurfaceMenuLinks({ context, surface } = {})`
-- `resolvePrimarySurfaceSwitchLink({ context, surface } = {})`
-- `resolveSurfaceSwitchLinks({ context, surface } = {})`
-- `hasWorkspaceMembership`
-Local functions
-- `resolveCurrentWorkspaceSlug(contextValue, surfaceId)`
-- `shouldIncludeSurfaceSwitchTarget(surfaceDefinition = null)`
-- `resolveSurfaceSwitchLinkLabel(surfaceDefinition = null, surfaceId = "")`
-
-### `src/client/lib/surfaceAccessPolicy.js`
-Exports
-- `hasWorkspaceMembership(contextValue = null, workspaceSlug = "")`
-- `resolveSurfaceAccessPolicy(contextValue = null, surfaceDefinition = null)`
-- `evaluateSurfaceAccess({ context = null, surfaceId = "", workspaceSlug = "", allowOnUnknown = false } = {})`
-Local functions
-- `normalizeSurfaceAccessPolicyId(value = "")`
-- `normalizeWorkspaceSlug(value = "")`
-- `normalizeAccessFlagName(value = "")`
-- `normalizeStringList(value)`
-- `normalizeSurfaceAccessFlags(value = null)`
-- `hasPlacementValue(source, key)`
-- `hasKnownWorkspaceMembershipContext(contextValue = null)`
-- `hasKnownPermissionsContext(contextValue = null)`
-- `hasKnownSurfaceAccessContext(contextValue = null)`
-- `resolveSurfaceAccessPolicies(contextValue = null)`
-- `toAccessDecision({ allowed = false, pending = false, reason = "" } = {})`
-- `evaluatePermissionRequirements(policy, permissions = [])`
-- `evaluateFlagRequirements(policy, flags = {})`
-
 ### `src/client/lib/theme.js`
 Exports
-- `hexColorToRgb(value = "")`
+- `THEME_PREFERENCE_DARK`
+- `THEME_PREFERENCE_LIGHT`
+- `THEME_PREFERENCE_SYSTEM`
 - `normalizeThemePreference(value)`
 - `persistBootstrapThemePreference(payload = {}, options = {})`
 - `persistThemePreference(themePreference, options = {})`
@@ -569,94 +417,18 @@ Exports
 - `resolveThemeNameForPreference(themePreference, options = {})`
 - `resolveBootstrapThemeName(payload = {}, options = {})`
 - `resolveVuetifyThemeController(vueApp)`
-- `setVuetifyPrimaryColorOverride(themeController, themeInput = null)`
 - `setVuetifyThemeName(themeController, themeName)`
 Local functions
 - `resolveSystemThemeName({ prefersDark } = {})`
 - `resolveThemePreferenceStorage(options = {})`
-- `normalizeHexColor(value = "")`
-- `resolveVuetifyThemeDefinitions(themeController)`
-- `normalizeThemeColors(colors)`
-- `normalizeWorkspaceBaseThemeName(themeName = "")`
-- `areThemeColorsEqual(leftColors = {}, rightColors = {})`
-- `composeWorkspaceThemeDefinition(baseThemeDefinition, palette)`
-- `upsertThemeDefinition(themeDefinitions, themeName, nextDefinition)`
 
-### `src/client/lib/workspaceLinkResolver.js`
+### `src/client/providers/bootUsersWebClientProvider.js`
 Exports
-- `resolveWorkspaceSlugFromContextOrPath({ context = null, surface = "", workspaceSlug = "", pathname = "" } = {})`
-- `resolveWorkspaceShellLinkPath({ context = null, surface = "", mode = "auto", explicitTo = "", relativePath = "/", workspaceRelativePath = "", surfaceRelativePath = "", workspaceSlug = "", pathname = "" } = {})`
-- `useWorkspaceLinkResolver({ surface = "", workspaceSlug = "", pathname = "" } = {})`
-Local functions
-- `resolveSurfaceBasePath(context = null, surface = "")`
-- `resolveWorkspaceBasePath(context = null, surface = "", workspaceSlug = "")`
-
-### `src/client/lib/workspaceSurfaceContext.js`
-Exports
-- `listWorkspaceSurfaceIdsFromSurfaceConfig(surfaceConfig = null)`
-- `surfaceRequiresWorkspaceFromPlacementContext(contextValue = null, surfaceId = "")`
-- `resolveSurfaceSwitchTargetsFromPlacementContext(contextValue = null, surfaceId = "")`
-Local functions
-- `listNonWorkspaceSurfaceIdsFromSurfaceConfig(surfaceConfig = null)`
-- `listSurfaceIdsFromSurfaceConfig(surfaceConfig = null, { requiresWorkspace = null } = {})`
-- `firstAlternativeSurfaceId(surfaceIds = [], excludeSurfaceId = "")`
-
-### `src/client/lib/workspaceSurfacePaths.js`
-Exports
-- `resolveAccountSettingsPathFromPlacementContext(contextValue = null)`
-- `resolveWorkspaceSurfaceIdFromPlacementPathname(contextValue = null, pathname = "")`
-- `resolveSurfaceWorkspacePathFromPlacementContext(contextValue = null, surfaceId = "", workspaceSlug = "", suffix = "/")`
-- `extractWorkspaceSlugFromSurfacePathname(contextValue = null, surfaceId = "", pathname = "")`
-Local functions
-- `normalizeWorkspaceSuffix(suffix)`
-- `resolveWorkspaceSurfaceIdFromSurfaceConfig(surfaceConfig, pathname = "")`
+- `bootUsersWebClientProvider(app)`
 
 ### `src/client/providers/UsersWebClientProvider.js`
 Exports
 - `UsersWebClientProvider`
-
-### `src/client/providers/UsersWorkspacesClientProvider.js`
-Exports
-- `UsersWorkspacesClientProvider`
-
-### `src/client/runtime/bootstrapPlacementRouteGuards.js`
-Exports
-- `createBootstrapPlacementRouteGuards({ placementRuntime, router = null, root = null, getWorkspaceBootstrapStatus = () => "" } = {})`
-
-### `src/client/runtime/bootstrapPlacementRuntime.js`
-Exports
-- `WORKSPACE_BOOTSTRAP_STATUS_RESOLVED`
-- `WORKSPACE_BOOTSTRAP_STATUS_NOT_FOUND`
-- `WORKSPACE_BOOTSTRAP_STATUS_FORBIDDEN`
-- `WORKSPACE_BOOTSTRAP_STATUS_UNAUTHENTICATED`
-- `WORKSPACE_BOOTSTRAP_STATUS_ERROR`
-- `createBootstrapPlacementRuntime({ app, logger = null, fetchBootstrap = fetchBootstrapPayload } = {})`
-
-### `src/client/runtime/bootstrapPlacementRuntimeConstants.js`
-Exports
-- `SHELL_GUARD_EVALUATOR_KEY`
-- `WORKSPACE_BOOTSTRAP_STATUSES`
-- `WORKSPACE_BOOTSTRAP_STATUS_ERROR`
-- `WORKSPACE_BOOTSTRAP_STATUS_FORBIDDEN`
-- `WORKSPACE_BOOTSTRAP_STATUS_NOT_FOUND`
-- `WORKSPACE_BOOTSTRAP_STATUS_RESOLVED`
-- `WORKSPACE_BOOTSTRAP_STATUS_UNAUTHENTICATED`
-- `WORKSPACE_FORBIDDEN_GUARD_REASON`
-- `WORKSPACE_NOT_FOUND_GUARD_REASON`
-
-### `src/client/runtime/bootstrapPlacementRuntimeHelpers.js`
-Exports
-- `countPendingInvites(entries = [])`
-- `createProviderLogger(app)`
-- `fetchBootstrapPayload(workspaceSlug = "")`
-- `isGuardDenied(outcome)`
-- `normalizeSearch(search = "")`
-- `normalizeWorkspaceBootstrapStatus(status = "")`
-- `normalizeWorkspaceSlugKey(workspaceSlug = "")`
-- `resolveAuthSignature(context = {})`
-- `resolveRequestedWorkspaceBootstrapStatus(payload = {}, workspaceSlug = "")`
-- `resolveRouteState(placementRuntime, router)`
-- `resolveSearchFromFullPath(fullPath = "")`
 
 ### `src/client/support/contractGuards.js`
 Exports
@@ -664,35 +436,10 @@ Exports
 - `requireBoolean(value, label = "value", owner = "Contract")`
 - `requireFunction(value, label = "value", owner = "Contract")`
 
-### `src/client/support/menuLinkTarget.js`
-Exports
-- `normalizeMenuLinkPathname(pathname = "")`
-- `resolveMenuLinkTarget({ to = "", surface = "", currentSurfaceId = "", placementContext = null, workspaceSuffix = "/", nonWorkspaceSuffix = "/", routeParams = {}, resolvePagePath = null } = {})`
-Local functions
-- `resolveMenuLinkSurfaceId(surface = "", fallbackSurfaceId = "")`
-- `interpolateBracketParams(pathTemplate = "", params = {})`
-- `isRelativeMenuLinkTarget(target = "")`
-
-### `src/client/support/realtimeWorkspace.js`
-Exports
-- `matchesCurrentWorkspaceEvent(payload = {}, workspaceSlug = "")`
-- `createWorkspaceRealtimeMatcher(workspaceSlugRef)`
-
-### `src/client/support/runtimeNormalization.js`
-Exports
-- `normalizeRecord(value)`
-- `normalizeWorkspaceBootstrapStatusValue(status = "", allowedStatuses = null)`
-- `resolveErrorStatusCode(error)`
-
-### `src/client/support/workspaceQueryKeys.js`
-Exports
-- `buildWorkspaceQueryKey(kind = "", surfaceId = "", workspaceSlug = "")`
-
 ### `src/shared/toolsOutletContracts.js`
 Exports
 - `DEFAULT_TOOLS_LINK_COMPONENT_TOKEN`
 - `HOME_TOOLS_OUTLET`
-- `WORKSPACE_TOOLS_OUTLET`
 
 ### templates
 
@@ -702,10 +449,6 @@ Exports
 Local functions
 - `normalizeSection(value)`
 - `readRouteSection()`
-
-### `templates/src/components/account/settings/AccountSettingsInvitesSection.vue`
-Exports
-- None
 
 ### `templates/src/components/account/settings/AccountSettingsNotificationsSection.vue`
 Exports

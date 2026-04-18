@@ -94,7 +94,7 @@ Exports
 - `normalizeCrudNamespace`
 - `normalizeCrudOwnershipFilter(value, { fallback = DEFAULT_OWNERSHIP_FILTER } = {})`
 - `normalizeCrudRequestedOwnershipFilter(value, { fallback = CRUD_REQUESTED_OWNERSHIP_FILTER_AUTO } = {})`
-- `isWorkspaceVisibility`
+- `isWorkspaceRouteVisibility`
 - `requireCrudNamespace`
 - `resolveCrudNamespacePath(namespace = "")`
 - `resolveCrudRelativePath(namespace = "")`
