@@ -1,18 +1,32 @@
 # Review Workflow
 
-Before calling a feature done, review it in three passes:
+Preferred review mode:
 
-1. Implementation gap review
-   - missing states
-   - broken flows
-   - incomplete ownership handling
-   - missing migrations or route wiring
+- Prefer a fresh review agent for chunk and whole-changeset review when the runtime supports delegation.
+- Have that fresh review agent use the packaged `jskit-review` skill when it is available.
+- If delegation or skills are unavailable, follow this file manually in the current agent.
+
+Before calling a chunk or a whole changeset done, review it in three passes:
+
+1. Deslop review
+   - repeated functions or duplicated local helpers
+   - helpers reimplemented locally when a kernel/runtime seam already exists
+   - placeholder, fake-complete, or vague UI/copy/code structure
+   - dead code, unused props/imports, TODO-shaped gaps, or accidental abstractions
+   - missing loading, empty, error, permission, or ownership states
+   - broken flows, missing route wiring, or missing migrations
+   - surface or entity ownership mistakes: `public`, `user`, `workspace`, `workspace_user`
 2. JSKIT review
    - existing helper/runtime seam available?
    - duplicate local code that should reuse kernel/runtime support?
+   - should this have been a package install, generator step, or scaffold extension instead of hand code?
+   - are surface, route, ownership, and migration choices aligned with JSKIT conventions?
    - package metadata and actual behavior still aligned?
 3. Verification review
-   - run the smallest relevant verification commands
+   - run the smallest relevant verification commands for a chunk
+   - run the widest relevant verification commands for a whole changeset
+   - include Playwright for meaningful user-facing flows
+   - if login is required, verify the chosen test-auth path or explicitly record that the lack of one is an open gap
    - note anything left unverified
 
 Minimum expectation:
@@ -20,3 +34,8 @@ Minimum expectation:
 - list the files changed
 - list the commands run
 - list anything still unverified
+- update `.jskit/WORKBOARD.md` with the review outcome
+
+Whole-changeset rule:
+
+- If the work was split into more than one chunk, repeat all three passes over the whole changeset after the final chunk is complete.

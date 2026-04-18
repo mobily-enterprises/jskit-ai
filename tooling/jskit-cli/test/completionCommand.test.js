@@ -65,6 +65,7 @@ test("completion bash __complete__ lists only canonical top-level commands", () 
 
   assert.equal(result.status, 0, String(result.stderr || ""));
   const completions = String(result.stdout || "").trim().split(/\r?\n/u).filter(Boolean);
+  assert.ok(completions.includes("app"));
   assert.ok(completions.includes("generate"));
   assert.ok(completions.includes("list"));
   assert.ok(completions.includes("list-component-tokens"));
@@ -77,6 +78,38 @@ test("completion bash __complete__ lists only canonical top-level commands", () 
   assert.ok(!completions.includes("list-link-items"));
   assert.ok(!completions.includes("list-placement-component-tokens"));
   assert.ok(!completions.includes("view"));
+});
+
+test("completion bash __complete__ lists app subcommands and app-specific options", () => {
+  const subcommandResult = runCli({
+    args: ["completion", "bash", "__complete__", "3", "--", "npx", "jskit", "app", ""]
+  });
+
+  assert.equal(subcommandResult.status, 0, String(subcommandResult.stderr || ""));
+  assert.deepEqual(
+    String(subcommandResult.stdout || "").trim().split(/\r?\n/u).filter(Boolean),
+    ["adopt-managed-scripts", "link-local-packages", "release", "update-packages", "verify"]
+  );
+
+  const optionResult = runCli({
+    args: ["completion", "bash", "__complete__", "4", "--", "npx", "jskit", "app", "update-packages", "--"]
+  });
+
+  assert.equal(optionResult.status, 0, String(optionResult.stderr || ""));
+  assert.deepEqual(
+    String(optionResult.stdout || "").trim().split(/\r?\n/u).filter(Boolean),
+    ["--dry-run", "--help", "--registry"]
+  );
+
+  const releaseOptionResult = runCli({
+    args: ["completion", "bash", "__complete__", "4", "--", "npx", "jskit", "app", "release", "--"]
+  });
+
+  assert.equal(releaseOptionResult.status, 0, String(releaseOptionResult.stderr || ""));
+  assert.deepEqual(
+    String(releaseOptionResult.stdout || "").trim().split(/\r?\n/u).filter(Boolean),
+    ["--dry-run", "--help", "--registry"]
+  );
 });
 
 test("completion bash --install writes a short loader file and updates bashrc", async () => {

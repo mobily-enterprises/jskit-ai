@@ -45,6 +45,56 @@ That lock file is the source of truth for installed JSKIT-managed package state.
 
 That is why commands such as `update`, `remove`, `position`, `migrations`, and `doctor` all care about `.jskit/lock.json`.
 
+## JSKIT-managed app maintenance scripts
+
+The scaffolded app also has a small set of `npm run` shortcuts that are really wrappers around JSKIT-owned maintenance behavior.
+
+The important examples are:
+
+- `npm run verify`
+- `npm run jskit:update`
+- `npm run devlinks`
+- `npm run release`
+
+In the current scaffold, those scripts are intentionally thin:
+
+```json
+{
+  "scripts": {
+    "verify": "jskit app verify && npm run --if-present verify:app",
+    "jskit:update": "jskit app update-packages",
+    "devlinks": "jskit app link-local-packages",
+    "release": "jskit app release"
+  }
+}
+```
+
+That is a deliberate design choice.
+
+The app keeps the handy `npm run` names, but the real maintenance policy now lives in the installed CLI package instead of copied shell scripts inside the app. That means if JSKIT later changes how package updates, local linking, or baseline verification should work, apps can pick up the new behavior by updating `@jskit-ai/jskit-cli` instead of hand-editing frozen scaffold files.
+
+This gives you a clean ownership split:
+
+- app-owned scripts still describe how *this app* runs, builds, and tests
+- JSKIT-owned wrapper scripts delegate framework maintenance to `jskit app ...`
+
+That split is worth keeping in mind through the rest of the guide. When you see `npm run verify`, that is now shorthand for "run the app's JSKIT baseline verification policy, then any app-specific extra verification hook".
+
+If your app uses a non-default npm registry for JSKIT packages, pass it to the maintained CLI command rather than hard-coding it in the scaffold. For example:
+
+```bash
+npm run jskit:update -- --registry https://registry.example.com
+npm run release -- --registry https://registry.example.com
+```
+
+For older apps that still carry copied maintenance scripts, the migration path is:
+
+```bash
+npx jskit app adopt-managed-scripts
+```
+
+That command rewrites known old scaffold values to the thin wrapper form above.
+
 ## Discover first, change second
 
 One of the best habits in JSKIT is to inspect the catalog before mutating the app.
@@ -59,6 +109,7 @@ npx jskit help
 
 That shows the available commands such as:
 
+- `app`
 - `list`
 - `show`
 - `add`
@@ -72,6 +123,7 @@ That shows the available commands such as:
 Every command in the CLI also has its own help page. For example:
 
 ```bash
+npx jskit help app
 npx jskit help add
 npx jskit help migrations
 ```
@@ -642,7 +694,7 @@ That is a different job from:
 
 Those commands can all pass while JSKIT-managed state is still inconsistent. `doctor` is the command that checks that JSKIT's own view of the app still makes sense.
 
-That is exactly why the starter scaffold already includes `npx jskit doctor` in `npm run verify`.
+That is exactly why the starter scaffold now routes `npm run verify` through `jskit app verify`.
 
 It belongs there because JSKIT apps are not only source trees. They also have:
 

@@ -2,6 +2,7 @@ node_modules/
 dist/
 coverage/
 test-results/
+.jskit/WORKBOARD.md
 .env
 .env.*
 !.env.example

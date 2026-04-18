@@ -51,7 +51,21 @@
 - Non-CRUD pages to scaffold:
 - Custom code areas:
 
+## Delivery Plan
+
+| Chunk | Goal | Type | Depends on | Done when |
+| --- | --- | --- | --- | --- |
+| | | | | |
+
+Chunk notes:
+
+- One CRUD is usually one chunk.
+- Platform/auth/shell work may be its own chunk.
+- Each chunk must be independently reviewable and testable.
+
 ## Verification
 
 - Commands to run:
+- Playwright coverage plan:
+- Test auth strategy:
 - Known open questions:

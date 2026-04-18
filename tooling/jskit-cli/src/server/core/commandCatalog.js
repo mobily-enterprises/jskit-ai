@@ -126,6 +126,47 @@ const COMMAND_DESCRIPTORS = Object.freeze({
     inlineOptionMode: "enumerated",
     allowedValueOptionNames: Object.freeze(["scope", "package-id", "description"])
   }),
+  app: Object.freeze({
+    command: "app",
+    aliases: Object.freeze([]),
+    showInOverview: true,
+    summary: "Run JSKIT-managed app maintenance helpers.",
+    minimalUse: "jskit app verify",
+    parameters: Object.freeze([
+      Object.freeze({
+        name: "<subcommand>",
+        description: "verify | update-packages | link-local-packages | release | adopt-managed-scripts."
+      })
+    ]),
+    defaults: Object.freeze([
+      "The scaffold keeps npm run shortcuts such as verify and jskit:update, but their maintained behavior lives under jskit app.",
+      "Use jskit app <subcommand> help for subcommand-specific usage.",
+      "--dry-run is accepted by update-packages, adopt-managed-scripts, and release."
+    ]),
+    examples: Object.freeze([
+      Object.freeze({
+        label: "Scaffolded maintenance shortcuts",
+        lines: Object.freeze([
+          "jskit app verify",
+          "jskit app update-packages"
+        ])
+      }),
+      Object.freeze({
+        label: "Existing app migration",
+        lines: Object.freeze([
+          "jskit app adopt-managed-scripts --dry-run",
+          "jskit app adopt-managed-scripts --force"
+        ])
+      })
+    ]),
+    fullUse: "jskit app <subcommand> [help] [--dry-run] [--<option> <value>...]",
+    showHelpOnBareInvocation: true,
+    handlerName: "commandApp",
+    allowedFlagKeys: Object.freeze(["dryRun"]),
+    inlineOptionMode: "delegate",
+    allowedValueOptionNames: Object.freeze([]),
+    canDelegateInlineOptions: (positional = []) => Array.isArray(positional) && positional.length > 0
+  }),
   add: Object.freeze({
     command: "add",
     aliases: Object.freeze([]),
