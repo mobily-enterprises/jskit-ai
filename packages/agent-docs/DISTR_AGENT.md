@@ -13,6 +13,7 @@ Use these references on demand:
 
 - `reference/autogen/KERNEL_MAP.md`
 - `reference/autogen/README.md`
+- `patterns/INDEX.md`
 - `guide/agent/index.md`
 - `site/guide/index.md` when compressed guidance is ambiguous or missing nuance
 - `templates/APP_BLUEPRINT.md`
@@ -28,6 +29,7 @@ Core rules:
   - `Why this sticks: ...`
   - `Not doing: ...`
 - Keep that checkpoint compact. Do not expand it into a long preamble unless the developer asks for detail.
+- When a request involves JSKIT UI, routing, surfaces, CRUDs, placements, live actions, or similar implementation details, scan `patterns/INDEX.md` for matching keywords and read only the relevant pattern files.
 - Reuse existing JSKIT helpers and runtime seams before adding new local helpers.
 - A freshly scaffolded JSKIT app can still be in Stage 1. If platform decisions are not settled yet, continue with the initialize workflow before adding runtime packages.
 - Do not treat a missing `config.tenancyMode` line or an untouched minimal scaffold as a final tenancy decision.
