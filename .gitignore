@@ -18,4 +18,6 @@ data/
 .jskit/WORKBOARD.md
 docs/.vitepress/cache/
 docs/.vitepress/dist/
+packages/agent-docs/site/.vitepress/cache/
+packages/agent-docs/site/.vitepress/dist/
 .aider*
