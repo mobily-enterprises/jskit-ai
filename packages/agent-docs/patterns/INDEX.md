@@ -20,6 +20,8 @@ How to use it:
   - `crud-links.md`
 - live actions, checkbox, toggle, patch button, inline action, `useCommand()`
   - `live-actions.md`
+- filter, filters, search facets, chips, date range, enum filter, lookup filter, `useCrudListFilters`, `createCrudListFilters`
+  - `filters.md`
 
 ## Current Patterns
 
@@ -28,3 +30,4 @@ How to use it:
 - [child-cruds.md](./child-cruds.md)
 - [crud-links.md](./crud-links.md)
 - [live-actions.md](./live-actions.md)
+- [filters.md](./filters.md)

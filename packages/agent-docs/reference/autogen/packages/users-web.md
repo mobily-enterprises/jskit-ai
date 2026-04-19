@@ -113,6 +113,18 @@ Local functions
 - `resolveFormFieldInitialValue(field = {})`
 - `shouldSerializeClearedFieldAsNull(field = {})`
 
+### `src/client/composables/internal/crudListFilterLookupSupport.js`
+Exports
+- `normalizeLookupQueryKeyPrefix(value = [])`
+- `normalizeLookupLabelResolverMap(value = {})`
+- `normalizeLookupRequestQueryParamsMap(value = {})`
+- `resolveLookupSelectedValues(filter = {}, rawValue = undefined)`
+- `createLookupOptionsFromItems(items = [], filter = {}, labelResolver = null)`
+- `mergeSelectedLookupOptions(options = [], selectedValues = [], cachedOptions = new Map())`
+- `resolveLookupOptionLabel(options = [], cachedOptions = new Map(), value = "", fallback = "Option")`
+Local functions
+- `createLookupOptionFromItem(item = {}, filter = {}, labelResolver = null)`
+
 ### `src/client/composables/internal/crudListParentTitleSupport.js`
 Exports
 - `resolveCrudListParentDescriptor({ resource = {}, route = null, recordIdParam = "recordId" } = {})`
@@ -339,6 +351,24 @@ Exports
 ### `src/client/composables/useCommand.js`
 Exports
 - `useCommand({ ownershipFilter = ROUTE_VISIBILITY_WORKSPACE, surfaceId = "", access = "auto", apiSuffix = "", runPermissions = [], writeMethod = "POST", placementSource = "users-web.command", fallbackRunError = "Unable to complete action.", fieldErrorKeys = [], clearOnRouteChange = true, model, parseInput, buildRawPayload, buildCommandPayload, buildCommandOptions, onRunSuccess, onRunError, suppressSuccessMessage = false, messages = {}, realtime = null } = {})`
+
+### `src/client/composables/useCrudListFilterLookups.js`
+Exports
+- `useCrudListFilterLookups(definitions = {}, { values = {}, adapter = null, recordIdParam = "recordId", queryKeyPrefix = [], placementSourcePrefix = "", requestQueryParams = {}, labelResolvers = {} } = {})`
+
+### `src/client/composables/useCrudListFilters.js`
+Exports
+- `useCrudListFilters(definitions = {}, { labelResolvers = {}, chipLabels = {}, presets = [] } = {})`
+Local functions
+- `normalizeFunctionMap(value = {})`
+- `createInitialFilterValue(filter = {})`
+- `normalizePresetEntries(presets = [])`
+- `normalizePresetFilterValue(filter = {}, rawValue)`
+- `resetFilterValue(values, filter = {})`
+- `applyPresetFilterValue(values, filter = {}, rawValue)`
+- `createQueryParams(values, filterEntries = [])`
+- `resolveAtomicValueLabel(filter = {}, value = "", labelResolvers = {})`
+- `defaultChipLabel(filter = {}, value, labelResolvers = {})`
 
 ### `src/client/composables/useCrudListParentTitle.js`
 Exports

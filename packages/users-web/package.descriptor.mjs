@@ -67,6 +67,10 @@ export default Object.freeze({
           summary: "Exports command operation composable."
         },
         {
+          subpath: "./client/composables/useCrudListFilterLookups",
+          summary: "Exports lookup-backed CRUD list filter helper for remote autocomplete filters."
+        },
+        {
           subpath: "./client/composables/useView",
           summary: "Exports read/view operation composable."
         },

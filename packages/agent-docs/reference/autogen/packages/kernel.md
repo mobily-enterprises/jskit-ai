@@ -199,6 +199,33 @@ Exports
 Exports
 - `isContainerToken(value)`
 
+### `shared/support/crudListFilters.js`
+Exports
+- `CRUD_LIST_FILTER_TYPE_FLAG`
+- `CRUD_LIST_FILTER_TYPE_ENUM`
+- `CRUD_LIST_FILTER_TYPE_ENUM_MANY`
+- `CRUD_LIST_FILTER_TYPE_RECORD_ID`
+- `CRUD_LIST_FILTER_TYPE_RECORD_ID_MANY`
+- `CRUD_LIST_FILTER_TYPE_DATE`
+- `CRUD_LIST_FILTER_TYPE_DATE_RANGE`
+- `CRUD_LIST_FILTER_TYPE_NUMBER_RANGE`
+- `CRUD_LIST_FILTER_TYPE_PRESENCE`
+- `CRUD_LIST_FILTER_TYPES`
+- `CRUD_LIST_FILTER_PRESENCE_PRESENT`
+- `CRUD_LIST_FILTER_PRESENCE_MISSING`
+- `CRUD_LIST_FILTER_PRESENCE_OPTIONS`
+- `defineCrudListFilters(definitions = {})`
+- `resolveCrudListFilterQueryKeys(definition = {})`
+- `resolveCrudListFilterOptionLabel(definition = {}, value = "", { fallback = "" } = {})`
+Local functions
+- `normalizeCrudListFilterType(value = "")`
+- `normalizeCrudListFilterOption(rawOption = null, { context = "filter option" } = {})`
+- `normalizeCrudListFilterOptions(rawOptions = [], { context = "filter options" } = {})`
+- `normalizeCrudListFilterPresenceOptions(rawOptions = [])`
+- `normalizeCrudListFilterLookup(rawLookup = null)`
+- `resolveCrudListFilterOptionSet(rawDefinition = {}, type = "")`
+- `normalizeCrudListFilterDefinition(rawKey = "", rawDefinition = null)`
+
 ### `shared/support/crudLookup.js`
 Exports
 - `DEFAULT_CRUD_LOOKUP_CONTAINER_KEY`
