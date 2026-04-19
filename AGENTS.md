@@ -10,6 +10,7 @@
   - `packages/agent-docs/guide/agent/`
 - Authored workflow files under these paths are edited directly:
   - `packages/agent-docs/DISTR_AGENT.md`
+  - `packages/agent-docs/patterns/`
   - `packages/agent-docs/workflow/`
   - `packages/agent-docs/templates/`
   - `packages/agent-docs/site/guide/`
@@ -33,3 +34,9 @@ When asked to create or refresh distributed agent docs:
 3. Do not invent behavior or resolve ambiguity by guessing. If the human guide is unclear, keep the uncertainty explicit.
 4. Run `npm run agent-docs:build`.
 5. Review generated outputs in `packages/agent-docs/` like any other tracked artifact.
+
+## JSKIT Patterns
+
+- `packages/agent-docs/patterns/INDEX.md` is the keyword index for recurring JSKIT implementation heuristics and workflow traps.
+- When a request involves JSKIT UI, routing, surfaces, CRUDs, placements, live actions, or similar implementation details, scan the pattern index for matching keywords and read only the relevant pattern files.
+- Keep `AGENTS.md` short. Add recurring JSKIT heuristics to `packages/agent-docs/patterns/`, not as one-off bullets here.
