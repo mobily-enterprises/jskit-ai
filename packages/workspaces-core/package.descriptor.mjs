@@ -38,7 +38,9 @@ export default Object.freeze({
         }
       ],
       containerTokens: {
-        server: [],
+        server: [
+          "workspaces.server.scope-support"
+        ],
         client: []
       }
     },

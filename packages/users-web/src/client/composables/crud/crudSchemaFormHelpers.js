@@ -48,6 +48,10 @@ function resolveFormFieldFormat(field = {}) {
   return String(field.format || "").trim().toLowerCase();
 }
 
+function isNullableFormField(field = {}) {
+  return field?.nullable === true;
+}
+
 function padDateTimePart(value) {
   return String(value).padStart(2, "0");
 }
@@ -132,7 +136,7 @@ function resolveFormFieldInitialValue(field = {}) {
 
   const fieldType = resolveFormFieldType(field);
   if (fieldType === "boolean") {
-    return false;
+    return isNullableFormField(field) ? null : false;
   }
 
   return "";
@@ -176,7 +180,9 @@ function buildCrudFormPayload(fields = [], model = {}) {
     const rawValue = sourceModel[fieldKey];
 
     if (fieldType === "boolean") {
-      payload[fieldKey] = Boolean(rawValue);
+      payload[fieldKey] = rawValue == null && isNullableFormField(field)
+        ? null
+        : Boolean(rawValue);
       continue;
     }
 
@@ -258,7 +264,9 @@ function applyCrudPayloadToForm(fields = [], model = {}, payload = {}) {
     const rawValue = sourcePayload[fieldKey];
 
     if (fieldType === "boolean") {
-      targetModel[fieldKey] = Boolean(rawValue);
+      targetModel[fieldKey] = rawValue == null && isNullableFormField(field)
+        ? null
+        : Boolean(rawValue);
       continue;
     }
 

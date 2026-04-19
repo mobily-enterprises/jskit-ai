@@ -21,8 +21,9 @@ import {
 } from "@jskit-ai/assistant-core/client";
 import { useShellWebErrorRuntime } from "@jskit-ai/shell-web/client/error";
 import { usePagedCollection } from "@jskit-ai/users-web/client/composables/usePagedCollection";
-import { useWorkspaceRouteContext } from "@jskit-ai/workspaces-web/client/composables/useWorkspaceRouteContext";
+import { useSurfaceRouteContext } from "@jskit-ai/users-web/client/composables/useSurfaceRouteContext";
 import { resolveAssistantSurfaceConfig } from "../../shared/assistantSurfaces.js";
+import { useWorkspaceWebScopeSupport } from "../support/workspaceScopeSupport.js";
 
 const DEFAULT_STREAM_TIMEOUT_MS = 120_000;
 const DEFAULT_HISTORY_PAGE_SIZE = 20;
@@ -234,7 +235,9 @@ function useAssistantRuntime({ api = null, surfaceId = "" } = {}) {
   const runtimePolicy = resolveRuntimePolicy();
   const queryClient = useQueryClient();
   const errorRuntime = useShellWebErrorRuntime();
-  const { placementContext, currentSurfaceId, workspaceSlugFromRoute } = useWorkspaceRouteContext();
+  const routeContext = useSurfaceRouteContext();
+  const workspaceScopeSupport = useWorkspaceWebScopeSupport();
+  const { placementContext, currentSurfaceId } = routeContext;
   const appConfig = getClientAppConfig();
 
   const messages = ref([]);
@@ -250,9 +253,10 @@ function useAssistantRuntime({ api = null, surfaceId = "" } = {}) {
   const assistantSurface = computed(() =>
     resolveAssistantSurfaceConfig(appConfig, surfaceId)
   );
+  const routeScope = computed(() => workspaceScopeSupport.readRouteScope(routeContext));
   const runtimeScope = computed(() => {
     const workspaceSlug = assistantSurface.value?.runtimeSurfaceRequiresWorkspace
-      ? normalizeText(workspaceSlugFromRoute.value).toLowerCase()
+      ? normalizeText(routeScope.value.workspaceSlug).toLowerCase()
       : "";
 
     return {

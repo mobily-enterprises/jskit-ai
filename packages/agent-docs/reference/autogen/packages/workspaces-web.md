@@ -313,6 +313,14 @@ Exports
 Exports
 - `buildWorkspaceQueryKey(kind = "", surfaceId = "", workspaceSlug = "")`
 
+### `src/client/support/workspaceScopeSupport.js`
+Exports
+- `WORKSPACES_WEB_SCOPE_SUPPORT_INJECTION_KEY`
+- `createWorkspaceScopeSupport()`
+- `readWorkspaceRouteScope(routeContext = {})`
+Local functions
+- `unwrapRefValue(value)`
+
 ### `src/shared/toolsOutletContracts.js`
 Exports
 - `DEFAULT_TOOLS_LINK_COMPONENT_TOKEN`

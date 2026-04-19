@@ -30,8 +30,9 @@ import { validateOperationSection } from "@jskit-ai/http-runtime/shared/validato
 import { assistantHttpClient, createAssistantApi, AssistantSettingsFormCard } from "@jskit-ai/assistant-core/client";
 import { assistantConfigResource, assistantSettingsQueryKey, buildAssistantApiPath } from "@jskit-ai/assistant-core/shared";
 import { useShellWebErrorRuntime } from "@jskit-ai/shell-web/client/error";
-import { useWorkspaceRouteContext } from "@jskit-ai/workspaces-web/client/composables/useWorkspaceRouteContext";
+import { useSurfaceRouteContext } from "@jskit-ai/users-web/client/composables/useSurfaceRouteContext";
 import { resolveAssistantSurfaceConfig } from "../../shared/assistantSurfaces.js";
+import { useWorkspaceWebScopeSupport } from "../support/workspaceScopeSupport.js";
 
 const props = defineProps({
   targetSurfaceId: {
@@ -51,14 +52,17 @@ const fieldErrors = reactive({
 const errorRuntime = useShellWebErrorRuntime();
 const queryClient = useQueryClient();
 const appConfig = getClientAppConfig();
-const { placementContext, currentSurfaceId, workspaceSlugFromRoute } = useWorkspaceRouteContext();
+const routeContext = useSurfaceRouteContext();
+const workspaceScopeSupport = useWorkspaceWebScopeSupport();
+const { placementContext, currentSurfaceId } = routeContext;
 
 const assistantSurface = computed(() => resolveAssistantSurfaceConfig(appConfig, props.targetSurfaceId));
 const placementSnapshot = computed(() => normalizeObject(placementContext.value));
+const routeScope = computed(() => workspaceScopeSupport.readRouteScope(routeContext));
 const scope = computed(() => {
   const settingsRequiresWorkspace = assistantSurface.value?.settingsSurfaceRequiresWorkspace === true;
   const workspaceSlug = settingsRequiresWorkspace
-    ? normalizeText(workspaceSlugFromRoute.value).toLowerCase()
+    ? normalizeText(routeScope.value.workspaceSlug).toLowerCase()
     : "";
 
   return {
@@ -154,6 +158,10 @@ const loadError = computed(() => {
   }
 
   if (assistantSurface.value?.settingsSurfaceRequiresWorkspace) {
+    if (workspaceScopeSupport.available !== true) {
+      return "Workspace support is not available for this assistant surface.";
+    }
+
     return "Select a workspace to configure assistant settings.";
   }
 

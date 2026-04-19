@@ -7,6 +7,10 @@ import UsersWorkspaceSettingsMenuItem from "../components/UsersWorkspaceSettings
 import UsersWorkspaceMembersMenuItem from "../components/UsersWorkspaceMembersMenuItem.vue";
 import MembersAdminClientElement from "../components/MembersAdminClientElement.vue";
 import { createBootstrapPlacementRuntime } from "../runtime/bootstrapPlacementRuntime.js";
+import {
+  WORKSPACES_WEB_SCOPE_SUPPORT_INJECTION_KEY,
+  createWorkspaceScopeSupport
+} from "../support/workspaceScopeSupport.js";
 
 class WorkspacesWebClientProvider {
   static id = "workspaces.web.client";
@@ -24,6 +28,7 @@ class WorkspacesWebClientProvider {
     app.singleton("workspaces.web.workspace-members.menu-item", () => UsersWorkspaceMembersMenuItem);
     app.singleton("workspaces.web.members-admin.element", () => MembersAdminClientElement);
     app.singleton("workspaces.web.bootstrap-placement.runtime", (scope) => createBootstrapPlacementRuntime({ app: scope }));
+    app.singleton("workspaces.web.scope-support", () => createWorkspaceScopeSupport());
     app.singleton("workspaces.web.account-settings.section.invites", () =>
       Object.freeze({
         title: "Invites",
@@ -45,6 +50,20 @@ class WorkspacesWebClientProvider {
     if (runtime && typeof runtime.initialize === "function") {
       await runtime.initialize();
     }
+
+    if (!app.has("jskit.client.vue.app")) {
+      return;
+    }
+
+    const vueApp = app.make("jskit.client.vue.app");
+    if (!vueApp || typeof vueApp.provide !== "function") {
+      return;
+    }
+
+    vueApp.provide(
+      WORKSPACES_WEB_SCOPE_SUPPORT_INJECTION_KEY,
+      app.make("workspaces.web.scope-support")
+    );
   }
 
   shutdown(app) {

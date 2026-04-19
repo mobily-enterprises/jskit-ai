@@ -29,13 +29,27 @@ test("createCrudFormModel resolves defaults and supports explicit initial values
   const model = createCrudFormModel([
     { key: "name", type: "string" },
     { key: "active", type: "boolean" },
+    { key: "reviewed", type: "boolean", nullable: true },
     { key: "role", type: "string", initialValue: "member" }
   ]);
 
   assert.deepEqual(model, {
     name: "",
     active: false,
+    reviewed: null,
     role: "member"
+  });
+});
+
+test("createCrudFormModel preserves explicit boolean defaults for nullable fields", () => {
+  const model = createCrudFormModel([
+    { key: "reviewed", type: "boolean", nullable: true, initialValue: false },
+    { key: "approved", type: "boolean", nullable: true, defaultValue: true }
+  ]);
+
+  assert.deepEqual(model, {
+    reviewed: false,
+    approved: true
   });
 });
 
@@ -100,12 +114,14 @@ test("buildCrudFormPayload normalizes time fields to canonical HH:MM", () => {
 test("buildCrudFormPayload serializes cleared nullable typed fields as null", () => {
   const payload = buildCrudFormPayload(
     [
+      { key: "reviewed", type: "boolean", nullable: true },
       { key: "serviceId", type: "integer", nullable: true },
       { key: "fromDate", type: "string", format: "date", nullable: true },
       { key: "scheduledAt", type: "string", format: "date-time", nullable: true },
       { key: "fromTime", type: "string", format: "time", nullable: true }
     ],
     {
+      reviewed: null,
       serviceId: null,
       fromDate: "",
       scheduledAt: "",
@@ -114,11 +130,46 @@ test("buildCrudFormPayload serializes cleared nullable typed fields as null", ()
   );
 
   assert.deepEqual(payload, {
+    reviewed: null,
     serviceId: null,
     fromDate: null,
     scheduledAt: null,
     fromTime: null
   });
+});
+
+test("buildCrudFormPayload preserves nullable booleans while keeping non-nullable booleans binary", () => {
+  const fields = [
+    { key: "active", type: "boolean" },
+    { key: "reviewed", type: "boolean", nullable: true },
+    { key: "approved", type: "boolean", nullable: true }
+  ];
+
+  assert.deepEqual(
+    buildCrudFormPayload(fields, {
+      active: null,
+      reviewed: null,
+      approved: true
+    }),
+    {
+      active: false,
+      reviewed: null,
+      approved: true
+    }
+  );
+
+  assert.deepEqual(
+    buildCrudFormPayload(fields, {
+      active: 1,
+      reviewed: 0,
+      approved: false
+    }),
+    {
+      active: true,
+      reviewed: false,
+      approved: false
+    }
+  );
 });
 
 test("applyCrudPayloadToForm normalizes time fields for form inputs", () => {
@@ -146,18 +197,21 @@ test("applyCrudPayloadToForm maps payload values into reactive form model", () =
   const form = reactive({
     name: "",
     active: false,
+    reviewed: null,
     age: ""
   });
   applyCrudPayloadToForm(
     [
       { key: "name", type: "string" },
       { key: "active", type: "boolean" },
+      { key: "reviewed", type: "boolean", nullable: true },
       { key: "age", type: "integer" }
     ],
     form,
     {
       name: "Grace",
       active: 1,
+      reviewed: null,
       age: 33
     }
   );
@@ -165,7 +219,33 @@ test("applyCrudPayloadToForm maps payload values into reactive form model", () =
   assert.deepEqual(form, {
     name: "Grace",
     active: true,
+    reviewed: null,
     age: "33"
+  });
+});
+
+test("applyCrudPayloadToForm preserves nullable boolean payload values", () => {
+  const fields = [
+    { key: "active", type: "boolean" },
+    { key: "reviewed", type: "boolean", nullable: true },
+    { key: "approved", type: "boolean", nullable: true }
+  ];
+  const form = reactive({
+    active: false,
+    reviewed: null,
+    approved: null
+  });
+
+  applyCrudPayloadToForm(fields, form, {
+    active: null,
+    reviewed: null,
+    approved: true
+  });
+
+  assert.deepEqual(form, {
+    active: false,
+    reviewed: null,
+    approved: true
   });
 });
 

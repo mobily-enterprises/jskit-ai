@@ -442,9 +442,7 @@
           "@jskit-ai/http-runtime",
           "@jskit-ai/shell-web",
           "@jskit-ai/users-core",
-          "@jskit-ai/users-web",
-          "@jskit-ai/workspaces-core",
-          "@jskit-ai/workspaces-web"
+          "@jskit-ai/users-web"
         ],
         "capabilities": {
           "provides": [
@@ -456,9 +454,7 @@
             "auth.policy",
             "runtime.http-client",
             "users.core",
-            "users.web",
-            "workspaces.core",
-            "workspaces.web"
+            "users.web"
           ]
         },
         "runtime": {
@@ -519,8 +515,6 @@
               "@jskit-ai/shell-web": "0.1.42",
               "@jskit-ai/users-core": "0.1.53",
               "@jskit-ai/users-web": "0.1.58",
-              "@jskit-ai/workspaces-core": "0.1.19",
-              "@jskit-ai/workspaces-web": "0.1.19",
               "@tanstack/vue-query": "^5.90.5",
               "vuetify": "^4.0.0"
             },
@@ -4226,7 +4220,9 @@
               }
             ],
             "containerTokens": {
-              "server": [],
+              "server": [
+                "workspaces.server.scope-support"
+              ],
               "client": []
             }
           },
@@ -4547,6 +4543,7 @@
                 "workspaces.web.workspace-members.menu-item",
                 "workspaces.web.members-admin.element",
                 "workspaces.web.bootstrap-placement.runtime",
+                "workspaces.web.scope-support",
                 "workspaces.web.account-settings.section.invites"
               ]
             }

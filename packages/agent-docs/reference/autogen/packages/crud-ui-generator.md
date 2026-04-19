@@ -82,6 +82,7 @@ Local functions
 - `toLookupRelation(fieldMetaMap = {}, fieldKey = "", { lookupContainerKey = "lookups" } = {})`
 - `resolveFormInputType(fieldType, fieldFormat)`
 - `resolveFormFieldComponent(fieldType, relation = null)`
+- `buildDefaultNullableBooleanOptions()`
 - `toPositiveInteger(value)`
 - `toAccessorExpression(baseName, fieldKey)`
 - `toOptionalAccessorExpression(baseName, fieldKey)`

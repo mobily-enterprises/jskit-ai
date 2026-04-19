@@ -1,9 +1,14 @@
 import { AppError, requireAuth } from "@jskit-ai/kernel/server/runtime";
 import { normalizeObject, normalizeRecordId } from "@jskit-ai/kernel/shared/support/normalize";
-import { resolveWorkspace } from "@jskit-ai/workspaces-core/server/support/resolveWorkspace";
 import { resolveAssistantSurfaceConfig } from "../../shared/assistantSurfaces.js";
 
-function createService({ assistantConfigRepository, consoleService = null, appConfig = {}, resolveAppConfig = null } = {}) {
+function createService({
+  assistantConfigRepository,
+  consoleService = null,
+  appConfig = {},
+  resolveAppConfig = null,
+  workspaceScopeSupport = null
+} = {}) {
   if (!assistantConfigRepository || typeof assistantConfigRepository.findByScope !== "function") {
     throw new Error("assistantConfigService requires assistantConfigRepository.findByScope().");
   }
@@ -63,7 +68,11 @@ function createService({ assistantConfigRepository, consoleService = null, appCo
       return null;
     }
 
-    const resolvedWorkspace = workspace || resolveWorkspace(context, input);
+    if (!workspaceScopeSupport || typeof workspaceScopeSupport.resolveWorkspace !== "function") {
+      throw new Error("assistant.config.service requires workspace server scope support for workspace-scoped settings.");
+    }
+
+    const resolvedWorkspace = workspace || workspaceScopeSupport.resolveWorkspace(context, input);
     const workspaceId = normalizeRecordId(resolvedWorkspace?.id, { fallback: null });
     if (!workspaceId) {
       throw new AppError(409, "Workspace selection required.");
