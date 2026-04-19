@@ -1,6 +1,6 @@
 {
   "name": "@jskit-ai/assistant-core",
-  "version": "0.1.21",
+  "version": "0.1.22",
   "type": "module",
   "scripts": {
     "test": "node --test"
@@ -11,10 +11,10 @@
     "./shared": "./src/shared/index.js"
   },
   "dependencies": {
-    "@jskit-ai/database-runtime": "0.1.45",
-    "@jskit-ai/http-runtime": "0.1.44",
-    "@jskit-ai/kernel": "0.1.45",
-    "@jskit-ai/users-core": "0.1.55",
+    "@jskit-ai/database-runtime": "0.1.46",
+    "@jskit-ai/http-runtime": "0.1.45",
+    "@jskit-ai/kernel": "0.1.46",
+    "@jskit-ai/users-core": "0.1.56",
     "@tanstack/vue-query": "^5.90.5",
     "dompurify": "^3.3.3",
     "marked": "^17.0.4",

@@ -20,6 +20,8 @@ How to use it:
   - `crud-links.md`
 - live actions, checkbox, toggle, patch button, inline action, `useCommand()`
   - `live-actions.md`
+- ajax, fetch, API call, request, endpoint, HTTP client, `useList()`, `useView()`, `useAddEdit()`, `useEndpointResource()`, `usersWebHttpClient`
+  - `client-requests.md`
 - filter, filters, search facets, chips, date range, enum filter, lookup filter, `useCrudListFilters`, `createCrudListFilters`
   - `filters.md`
 
@@ -30,4 +32,5 @@ How to use it:
 - [child-cruds.md](./child-cruds.md)
 - [crud-links.md](./crud-links.md)
 - [live-actions.md](./live-actions.md)
+- [client-requests.md](./client-requests.md)
 - [filters.md](./filters.md)

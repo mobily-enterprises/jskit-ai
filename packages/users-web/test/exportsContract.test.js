@@ -17,13 +17,17 @@ test("users-web exports are explicit and aligned with production/template usage"
       "./client",
       "./client/account-settings/sections",
       "./client/composables/useAddEdit",
+      "./client/composables/useCommand",
+      "./client/composables/useEndpointResource",
       "./client/composables/useList",
+      "./client/composables/usePaths",
       "./client/composables/useView",
       "./client/composables/useCrudAddEdit",
       "./client/composables/useCrudListFilterLookups",
       "./client/composables/useCrudListFilters",
       "./client/composables/useCrudList",
-      "./client/composables/useCrudView"
+      "./client/composables/useCrudView",
+      "./client/lib/httpClient"
     ]
   });
 
