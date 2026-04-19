@@ -35,6 +35,7 @@ Validation mode is part of the contract:
 - use `invalidValues: "discard"` when malformed filter values should be ignored and normalization should drop them
 - route query validation runs before auth, so this choice affects whether malformed unauthenticated requests fail at validation or fall through to auth
 - for normal HTTP CRUD handlers, route-level `discard` means the action layer receives already-normalized query input; do not assume route `discard` plus action `reject` will still reject malformed HTTP query strings later
+- `jskit doctor` flags `createQueryValidator(...)` calls that do not spell out `invalidValues` directly at the call site
 
 Keep separate:
 - free-text search uses `records.searchQuery` and `q`
@@ -69,6 +70,7 @@ Avoid:
 - per-screen `useList()` wrappers for lookup-backed filters when `useCrudListFilterLookups(...)` fits
 - a second page-local filter-definition file when `packages/<crud>/src/shared/<crud>ListFilters.js` should be the source of truth
 - overloading `q` with structured filter meaning
+- local or inline filter-definition objects passed into `useCrudListFilters(...)` or `createCrudListFilters(...)`; `jskit doctor` expects those runtimes to import from a CRUD shared `*ListFilters` module
 
 Good shape:
 - `packages/receivals/src/shared/receivalListFilters.js`
@@ -87,3 +89,4 @@ Review checks:
 - server validator/repository logic derived from that source
 - client query params/chips/reset logic derived from that source
 - lookup-backed filters use the shared lookup helper, not a page-local mini-framework
+- `jskit doctor` stays clean for filter ownership and explicit validator policy
