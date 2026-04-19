@@ -57,6 +57,10 @@ const SKIP_DIRECTORY_NAMES = new Set([
   "tests",
   "__tests__"
 ]);
+const SKIP_RELATIVE_DIRECTORIES = new Set([
+  ".vitepress/cache",
+  ".vitepress/dist"
+]);
 const SKIP_FILE_PATTERNS = [
   /\.test\.[^.]+$/i,
   /\.spec\.[^.]+$/i,
@@ -85,6 +89,17 @@ function createDeclarationPattern(sourcePattern) {
 
 function shouldSkipFile(fileName) {
   return SKIP_FILE_PATTERNS.some((pattern) => pattern.test(fileName));
+}
+
+function shouldSkipDirectory(rootDir, entryPath, entryName) {
+  if (SKIP_DIRECTORY_NAMES.has(entryName)) {
+    return true;
+  }
+
+  const relativePath = normalizeMarkdownPath(path.relative(rootDir, entryPath));
+  return [...SKIP_RELATIVE_DIRECTORIES].some((skipPath) => (
+    relativePath === skipPath || relativePath.endsWith(`/${skipPath}`)
+  ));
 }
 
 async function collectWorkspaceDirectories() {
@@ -119,7 +134,7 @@ async function collectSourceFilePaths(rootDir) {
     for (const entry of entries) {
       const entryPath = path.join(currentDir, entry.name);
       if (entry.isDirectory()) {
-        if (!SKIP_DIRECTORY_NAMES.has(entry.name)) {
+        if (!shouldSkipDirectory(rootDir, entryPath, entry.name)) {
           await walk(entryPath);
         }
         continue;
@@ -151,7 +166,9 @@ async function collectMarkdownFilePaths(rootDir) {
     for (const entry of entries) {
       const entryPath = path.join(currentDir, entry.name);
       if (entry.isDirectory()) {
-        await walk(entryPath);
+        if (!shouldSkipDirectory(rootDir, entryPath, entry.name)) {
+          await walk(entryPath);
+        }
         continue;
       }
       if (entry.isFile() && path.extname(entry.name) === ".md") {
@@ -626,7 +643,7 @@ async function buildReferenceMaps(commandName) {
       ],
       scopeLines: [
         `- Source: \`${normalizeMarkdownPath(path.relative(REPO_ROOT, workspace.workspaceDir))}/**/*{.js,.mjs,.cjs,.vue}\``,
-        "- Excludes: `test/`, `tests/`, `__tests__/`, `*.test.*`, `*.spec.*`, `*.vitest.*`, `node_modules/`, `dist/`, `coverage/`, `docs/`, `LEGACY/`"
+        "- Excludes: `test/`, `tests/`, `__tests__/`, `*.test.*`, `*.spec.*`, `*.vitest.*`, `node_modules/`, `dist/`, `coverage/`, `docs/`, `LEGACY/`, `.vitepress/cache/`, `.vitepress/dist/`"
       ],
       fileEntries
     });
