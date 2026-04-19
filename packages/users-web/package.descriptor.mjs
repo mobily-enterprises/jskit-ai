@@ -3,7 +3,7 @@ import { HOME_TOOLS_OUTLET } from "./src/shared/toolsOutletContracts.js";
 export default Object.freeze({
   packageVersion: 1,
   packageId: "@jskit-ai/users-web",
-  version: "0.1.60",
+  version: "0.1.61",
   kind: "runtime",
   description: "Users web module: account/profile UI plus shared users web widgets.",
   dependsOn: [
@@ -67,6 +67,10 @@ export default Object.freeze({
           summary: "Exports command operation composable."
         },
         {
+          subpath: "./client/composables/useEndpointResource",
+          summary: "Exports low-level endpoint resource composable for custom client requests."
+        },
+        {
           subpath: "./client/composables/useCrudListFilterLookups",
           summary: "Exports lookup-backed CRUD list filter helper for remote autocomplete filters."
         },
@@ -81,6 +85,10 @@ export default Object.freeze({
         {
           subpath: "./client/composables/usePaths",
           summary: "Exports surface route path resolver composable."
+        },
+        {
+          subpath: "./client/lib/httpClient",
+          summary: "Exports the shared users-web HTTP client with credentials and CSRF behavior."
         },
         {
           subpath: "./client/composables/useAccountSettingsRuntime",
@@ -146,12 +154,12 @@ export default Object.freeze({
       runtime: {
         "@tanstack/vue-query": "5.92.12",
         "@mdi/js": "^7.4.47",
-        "@jskit-ai/http-runtime": "0.1.44",
-        "@jskit-ai/realtime": "0.1.44",
-        "@jskit-ai/kernel": "0.1.45",
-        "@jskit-ai/shell-web": "0.1.44",
-        "@jskit-ai/uploads-image-web": "0.1.23",
-        "@jskit-ai/users-core": "0.1.55",
+        "@jskit-ai/http-runtime": "0.1.45",
+        "@jskit-ai/realtime": "0.1.45",
+        "@jskit-ai/kernel": "0.1.46",
+        "@jskit-ai/shell-web": "0.1.45",
+        "@jskit-ai/uploads-image-web": "0.1.24",
+        "@jskit-ai/users-core": "0.1.56",
         vuetify: "^4.0.0"
       },
       dev: {}

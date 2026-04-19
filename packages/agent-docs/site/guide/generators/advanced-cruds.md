@@ -611,6 +611,57 @@ The safe mental model is:
 - use command runtimes for actions
 - keep the server as the source of truth for derived state
 
+### Choosing the right client request seam
+
+When you need client-side HTTP work in JSKIT, do not start with raw `fetch(...)`.
+
+Choose the highest-level runtime that matches the interaction:
+
+```js
+// 1. Button/toggle/small mutation
+const command = useCommand({ ... });
+
+// 2. List endpoint
+const list = useList({ ... });
+
+// 3. Single-record endpoint
+const view = useView({ ... });
+
+// 4. Form save flow
+const form = useAddEdit({ ... });
+
+// 5. Truly custom endpoint
+const resource = useEndpointResource({ ... });
+```
+
+Use the CRUD wrappers when they fit:
+
+- `useCrudList()` for routed CRUD lists
+- `useCrudView()` for routed CRUD record loading
+- `useCrudAddEdit()` for routed CRUD forms
+
+Why this is the standard JSKIT shape:
+
+- `useCommand()` resolves the correct scoped API path for the current route and surface.
+- The higher-level list, view, add/edit, and command runtimes send requests through the standard HTTP runtime instead of ad hoc request code.
+- The default client runtime uses `usersWebHttpClient`, which already handles credentials and CSRF token behavior.
+- `useEndpointResource()` gives the shared endpoint primitive for loading, saving, and standard load/save error handling. Higher-level runtimes like `useCommand()` and `useAddEdit()` layer UI feedback and field-error behavior on top of that primitive.
+
+If you need a custom scoped endpoint path outside the higher-level runtimes, prefer `usePaths().api(...)` rather than hand-building scoped URLs:
+
+```js
+const paths = usePaths();
+const reportsApiPath = computed(() => paths.api("/reports"));
+```
+
+The safe mental model is:
+
+- do not raw `fetch(...)` for normal app work
+- do not invent ad hoc local AJAX helpers
+- use the operation/runtime composable that matches the UI interaction
+- drop to `usersWebHttpClient.request(...)` only for exceptional low-level cases
+- use `usePaths().api(...)` when you need a custom scoped API path and the higher-level runtime does not already resolve it for you
+
 ### `_components/CrudAddEditForm.vue`
 
 This is the shared rendering shell for the add/edit form.
