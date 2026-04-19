@@ -55,6 +55,13 @@ Exports
 Exports
 - `AssistantClientProvider`
 
+### `src/client/support/workspaceScopeSupport.js`
+Exports
+- `EMPTY_WORKSPACE_WEB_SCOPE_SUPPORT`
+- `WORKSPACES_WEB_SCOPE_SUPPORT_INJECTION_KEY`
+- `isWorkspaceWebScopeSupport(value)`
+- `useWorkspaceWebScopeSupport({ required = false } = {})`
+
 ### `src/server/actionIds.js`
 Exports
 - `actionIds`
@@ -79,16 +86,16 @@ Exports
 Exports
 - `registerRoutes(app)`
 Local functions
-- `buildRouteParamsValidator(requiresWorkspace)`
-- `buildConversationMessagesRouteParamsValidator(requiresWorkspace)`
-- `readWorkspaceInput(request, requiresWorkspace)`
+- `buildRouteParamsValidator(requiresWorkspace, workspaceScopeSupport = null)`
+- `buildConversationMessagesRouteParamsValidator(requiresWorkspace, workspaceScopeSupport = null)`
+- `readWorkspaceInput(request, requiresWorkspace, workspaceScopeSupport = null)`
 - `requireAssistantSurface(appConfig = {}, targetSurfaceId = "")`
 - `requireHostSurfaceId(request)`
 - `shouldExposeAppErrorDetails(errorCode = "")`
 - `sendPreStreamErrorResponse(reply, error)`
-- `resolveRouteRequestState(request, { resolveCurrentAppConfig = () => ({}), kind = "runtime", requiresWorkspace = false } = {})`
-- `registerSettingsRoutes(router, resolveCurrentAppConfig, { requiresWorkspace = false } = {})`
-- `registerRuntimeRoutes(router, resolveCurrentAppConfig, { requiresWorkspace = false } = {})`
+- `resolveRouteRequestState(request, { resolveCurrentAppConfig = () => ({}), kind = "runtime", requiresWorkspace = false, workspaceScopeSupport = null } = {})`
+- `registerSettingsRoutes(router, resolveCurrentAppConfig, { requiresWorkspace = false, workspaceScopeSupport = null } = {})`
+- `registerRuntimeRoutes(router, resolveCurrentAppConfig, { requiresWorkspace = false, workspaceScopeSupport = null } = {})`
 
 ### `src/server/repositories/assistantConfigRepository.js`
 Exports
@@ -128,11 +135,11 @@ Local functions
 
 ### `src/server/services/assistantConfigService.js`
 Exports
-- `createService({ assistantConfigRepository, consoleService = null, appConfig = {}, resolveAppConfig = null } = {})`
+- `createService({ assistantConfigRepository, consoleService = null, appConfig = {}, resolveAppConfig = null, workspaceScopeSupport = null } = {})`
 
 ### `src/server/services/chatService.js`
 Exports
-- `createChatService({ aiClientFactory, transcriptService, serviceToolCatalog, assistantConfigService, appConfig = {}, resolveAppConfig = null } = {})`
+- `createChatService({ aiClientFactory, transcriptService, serviceToolCatalog, assistantConfigService, appConfig = {}, resolveAppConfig = null, workspaceScopeSupport = null } = {})`
 Local functions
 - `normalizeConversationId(value)`
 - `normalizeHistory(history = [])`
@@ -182,6 +189,12 @@ Exports
 Local functions
 - `buildCatalogOptions(appConfig = {}, surfaceId = "")`
 - `requireContextSurfaceId(context = {})`
+
+### `src/server/support/workspaceScopeSupport.js`
+Exports
+- `WORKSPACES_SERVER_SCOPE_SUPPORT_TOKEN`
+- `isWorkspaceServerScopeSupport(value)`
+- `resolveWorkspaceServerScopeSupport(scope = null, { required = false, caller = "assistant-runtime" } = {})`
 
 ### `src/shared/assistantRuntimeConfig.js`
 Exports

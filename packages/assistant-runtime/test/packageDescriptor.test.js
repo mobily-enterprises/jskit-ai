@@ -15,6 +15,10 @@ function findFileMutation(id) {
 test("assistant-runtime descriptor registers runtime providers and initializes assistant config roots", () => {
   assert.equal(descriptor.kind, "runtime");
   assert.equal(descriptor.packageId, "@jskit-ai/assistant-runtime");
+  assert.equal(descriptor.dependsOn.includes("@jskit-ai/workspaces-core"), false);
+  assert.equal(descriptor.dependsOn.includes("@jskit-ai/workspaces-web"), false);
+  assert.equal(descriptor.capabilities?.requires?.includes("workspaces.core"), false);
+  assert.equal(descriptor.capabilities?.requires?.includes("workspaces.web"), false);
   assert.equal(descriptor.runtime?.server?.providers?.[0]?.entrypoint, "src/server/AssistantProvider.js");
   assert.equal(descriptor.runtime?.client?.providers?.[0]?.entrypoint, "src/client/providers/AssistantClientProvider.js");
 

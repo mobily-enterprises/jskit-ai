@@ -14,6 +14,7 @@ import {
   registerWorkspaceActionSurfaceSources,
   resolveWorkspaceSurfaceIdsFromAppConfig
 } from "./support/workspaceActionSurfaces.js";
+import { createWorkspaceServerScopeSupport } from "./support/workspaceServerScopeSupport.js";
 
 
 function registerWorkspaceCore(app) {
@@ -57,6 +58,7 @@ function registerWorkspaceCore(app) {
       tenancyProfile
     }).enabled;
   });
+  app.singleton("workspaces.server.scope-support", () => createWorkspaceServerScopeSupport());
 
   registerProfileSyncLifecycleContributor(app, "workspaces.core.profileSyncLifecycleContributor", (scope) => {
     const workspaceService = scope.make("workspaces.service");

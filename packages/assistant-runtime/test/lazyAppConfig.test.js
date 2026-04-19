@@ -23,6 +23,26 @@ function createAssistantAppConfig() {
   };
 }
 
+function createWorkspaceServerScopeSupport() {
+  return Object.freeze({
+    available: true,
+    paramsValidator: Object.freeze({
+      normalize(value = {}) {
+        return {
+          workspaceSlug: String(value?.workspaceSlug || "").trim().toLowerCase()
+        };
+      }
+    }),
+    buildInputFromRouteParams(params = {}) {
+      const workspaceSlug = String(params?.workspaceSlug || "").trim().toLowerCase();
+      return workspaceSlug ? { workspaceSlug } : {};
+    },
+    resolveWorkspace(context = {}, input = {}) {
+      return input.workspace || context.workspace || null;
+    }
+  });
+}
+
 test("registerRoutes resolves appConfig lazily when handlers run", async () => {
   const routes = [];
   let currentAppConfig = null;
@@ -41,10 +61,16 @@ test("registerRoutes resolves appConfig lazily when handlers run", async () => {
       if (token === "appConfig") {
         return currentAppConfig;
       }
+      if (token === "workspaces.server.scope-support") {
+        return createWorkspaceServerScopeSupport();
+      }
       throw new Error(`Unexpected token: ${token}`);
     },
     has(token) {
-      return token === "appConfig" ? Boolean(currentAppConfig) : token === "jskit.http.router";
+      return (
+        (token === "appConfig" ? Boolean(currentAppConfig) : token === "jskit.http.router") ||
+        token === "workspaces.server.scope-support"
+      );
     }
   };
 
@@ -126,10 +152,16 @@ test("registerRoutes returns clear AppError payload for pre-stream assistant fai
       if (token === "appConfig") {
         return currentAppConfig;
       }
+      if (token === "workspaces.server.scope-support") {
+        return createWorkspaceServerScopeSupport();
+      }
       throw new Error(`Unexpected token: ${token}`);
     },
     has(token) {
-      return token === "appConfig" ? Boolean(currentAppConfig) : token === "jskit.http.router";
+      return (
+        (token === "appConfig" ? Boolean(currentAppConfig) : token === "jskit.http.router") ||
+        token === "workspaces.server.scope-support"
+      );
     }
   };
 
@@ -216,7 +248,8 @@ test("chat service resolves appConfig lazily when conversations are listed", asy
     },
     serviceToolCatalog: {},
     assistantConfigService: {},
-    resolveAppConfig: () => currentAppConfig
+    resolveAppConfig: () => currentAppConfig,
+    workspaceScopeSupport: createWorkspaceServerScopeSupport()
   });
 
   currentAppConfig = createAssistantAppConfig();
@@ -245,4 +278,77 @@ test("chat service resolves appConfig lazily when conversations are listed", asy
 
   assert.equal(response.assistantSurface.targetSurfaceId, "admin");
   assert.equal(response.workspace.slug, "dogandgroom");
+});
+
+test("chat service rejects workspace-scoped assistant surfaces when workspace support is unavailable", async () => {
+  const chatService = createChatService({
+    aiClientFactory: {
+      resolveClient() {
+        throw new Error("resolveClient should not be called when listing conversations.");
+      }
+    },
+    transcriptService: {
+      async listConversationsForUser() {
+        throw new Error("listConversationsForUser should not be called without workspace support.");
+      }
+    },
+    serviceToolCatalog: {},
+    assistantConfigService: {},
+    resolveAppConfig: () => createAssistantAppConfig()
+  });
+
+  await assert.rejects(
+    () =>
+      chatService.listConversations(
+        {
+          limit: 20
+        },
+        {
+          input: {
+            targetSurfaceId: "admin",
+            workspaceSlug: "dogandgroom"
+          },
+          context: {
+            actor: {
+              authenticated: true,
+              userId: 42
+            }
+          }
+        }
+      ),
+    /workspace server scope support/
+  );
+});
+
+test("registerRoutes omits workspace assistant routes when workspace scope support is unavailable", () => {
+  const routes = [];
+  const app = {
+    make(token) {
+      if (token === "jskit.http.router") {
+        return {
+          register(method, path, options, handler) {
+            routes.push({ method, path, options, handler });
+          }
+        };
+      }
+      if (token === "appConfig") {
+        return createAssistantAppConfig();
+      }
+      throw new Error(`Unexpected token: ${token}`);
+    },
+    has(token) {
+      return token === "jskit.http.router" || token === "appConfig";
+    }
+  };
+
+  registerRoutes(app);
+
+  assert.equal(
+    routes.some((entry) => entry.path.startsWith("/api/w/:workspaceSlug/assistant/")),
+    false
+  );
+  assert.equal(
+    routes.some((entry) => entry.path.startsWith("/api/assistant/")),
+    true
+  );
 });

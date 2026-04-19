@@ -1,6 +1,5 @@
 import { AppError } from "@jskit-ai/kernel/server/runtime";
 import { normalizeObject, normalizeRecordId, normalizeText } from "@jskit-ai/kernel/shared/support/normalize";
-import { resolveWorkspace } from "@jskit-ai/workspaces-core/server/support/resolveWorkspace";
 import { resolveWorkspaceSlug } from "@jskit-ai/assistant-core/server";
 import {
   ASSISTANT_STREAM_EVENT_TYPES
@@ -553,7 +552,8 @@ function createChatService({
   serviceToolCatalog,
   assistantConfigService,
   appConfig = {},
-  resolveAppConfig = null
+  resolveAppConfig = null,
+  workspaceScopeSupport = null
 } = {}) {
   if (!aiClientFactory || typeof aiClientFactory.resolveClient !== "function" || !transcriptService || !serviceToolCatalog || !assistantConfigService) {
     throw new Error(
@@ -564,6 +564,18 @@ function createChatService({
   const resolveCurrentAppConfig =
     typeof resolveAppConfig === "function" ? resolveAppConfig : () => appConfig;
 
+  function resolveRuntimeWorkspace(assistantSurface, context = {}, input = {}) {
+    if (assistantSurface?.runtimeSurfaceRequiresWorkspace !== true) {
+      return null;
+    }
+
+    if (!workspaceScopeSupport || typeof workspaceScopeSupport.resolveWorkspace !== "function") {
+      throw new Error("assistant.chat.service requires workspace server scope support for workspace-scoped assistant surfaces.");
+    }
+
+    return workspaceScopeSupport.resolveWorkspace(context, input);
+  }
+
   async function streamChat(payload = {}, options = {}) {
     const assistantSurface = requireAssistantSurface(resolveCurrentAppConfig(), payload?.targetSurfaceId);
     const aiClient = aiClientFactory.resolveClient(assistantSurface.targetSurfaceId);
@@ -573,9 +585,7 @@ function createChatService({
 
     const context = normalizeObject(options.context);
     const assistantContext = buildAssistantActionContext(context, assistantSurface);
-    const workspace = assistantSurface.runtimeSurfaceRequiresWorkspace
-      ? resolveWorkspace(assistantContext, payload)
-      : null;
+    const workspace = resolveRuntimeWorkspace(assistantSurface, assistantContext, payload);
     const source = normalizeStreamInput(payload);
     const streamWriter = options.streamWriter;
     if (!hasStreamWriter(streamWriter)) {
@@ -1010,9 +1020,7 @@ function createChatService({
     const assistantSurface = requireAssistantSurface(resolveCurrentAppConfig(), options?.input?.targetSurfaceId);
     const context = normalizeObject(options.context);
     const assistantContext = buildAssistantActionContext(context, assistantSurface);
-    const workspace = assistantSurface.runtimeSurfaceRequiresWorkspace
-      ? resolveWorkspace(assistantContext, options.input || {})
-      : null;
+    const workspace = resolveRuntimeWorkspace(assistantSurface, assistantContext, options.input || {});
     return transcriptService.listConversationsForUser(assistantSurface, workspace, assistantContext.actor, query, {
       context: assistantContext
     });
@@ -1022,9 +1030,7 @@ function createChatService({
     const assistantSurface = requireAssistantSurface(resolveCurrentAppConfig(), options?.input?.targetSurfaceId);
     const context = normalizeObject(options.context);
     const assistantContext = buildAssistantActionContext(context, assistantSurface);
-    const workspace = assistantSurface.runtimeSurfaceRequiresWorkspace
-      ? resolveWorkspace(assistantContext, options.input || {})
-      : null;
+    const workspace = resolveRuntimeWorkspace(assistantSurface, assistantContext, options.input || {});
     return transcriptService.getConversationMessagesForUser(
       assistantSurface,
       workspace,

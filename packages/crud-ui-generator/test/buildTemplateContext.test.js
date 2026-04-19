@@ -126,6 +126,70 @@ const resource = {
 export { resource };
 `;
 
+const NULLABLE_BOOLEAN_RESOURCE_SOURCE = `const customerRecordSchema = {
+  type: "object",
+  properties: {
+    id: { type: "integer" },
+    firstName: { type: "string" },
+    reviewPassed: { type: ["boolean", "null"] }
+  },
+  additionalProperties: false
+};
+
+const customerBodySchema = {
+  type: "object",
+  properties: {
+    firstName: { type: "string", maxLength: 120 },
+    reviewPassed: { type: ["boolean", "null"] }
+  },
+  additionalProperties: false
+};
+
+const resource = {
+  resource: "customers",
+  operations: {
+    list: {
+      outputValidator: {
+        schema: {
+          type: "object",
+          properties: {
+            items: {
+              type: "array",
+              items: customerRecordSchema
+            },
+            nextCursor: { type: ["string", "null"] }
+          },
+          additionalProperties: false
+        }
+      }
+    },
+    view: {
+      outputValidator: {
+        schema: customerRecordSchema
+      }
+    },
+    create: {
+      bodyValidator: {
+        schema: customerBodySchema
+      },
+      outputValidator: {
+        schema: customerRecordSchema
+      }
+    },
+    patch: {
+      bodyValidator: {
+        schema: customerBodySchema
+      },
+      outputValidator: {
+        schema: customerRecordSchema
+      }
+    }
+  }
+};
+
+export { resource };
+`;
+
 const LOOKUP_RESOURCE_SOURCE = `const recordSchema = {
   type: "object",
   properties: {
@@ -266,6 +330,38 @@ test("buildUiTemplateContext derives CRUD placeholders from the explicit target-
     assert.equal(context.__JSKIT_UI_RECORD_CHANGED_EVENT__, "\"customers.record.changed\"");
     assert.equal(context.__JSKIT_UI_LIST_RECORD_ID_EXPR__, "item.id");
     assert.equal(context.__JSKIT_UI_VIEW_TITLE_FALLBACK_FIELD_KEY__, "\"firstName\"");
+  });
+});
+
+test("buildUiTemplateContext keeps non-nullable booleans as switches", async () => {
+  await withTempApp(async (appRoot) => {
+    await writeResource(appRoot, RESOURCE_FILE, FULL_RESOURCE_SOURCE);
+
+    const context = await buildUiTemplateContext({
+      appRoot,
+      options: createOptions()
+    });
+
+    assert.match(context.__JSKIT_UI_CREATE_FORM_COLUMNS__, /<v-switch/);
+    assert.match(context.__JSKIT_UI_CREATE_FORM_COLUMNS__, /formRuntime\.form\.vip/);
+  });
+});
+
+test("buildUiTemplateContext renders nullable booleans as tri-state selects by default", async () => {
+  await withTempApp(async (appRoot) => {
+    await writeResource(appRoot, RESOURCE_FILE, NULLABLE_BOOLEAN_RESOURCE_SOURCE);
+
+    const context = await buildUiTemplateContext({
+      appRoot,
+      options: createOptions()
+    });
+
+    assert.match(context.__JSKIT_UI_CREATE_FORM_FIELDS__, /"key":"reviewPassed"/);
+    assert.match(context.__JSKIT_UI_CREATE_FORM_FIELDS__, /"component":"select"/);
+    assert.match(context.__JSKIT_UI_CREATE_FORM_FIELDS__, /"nullable":true/);
+    assert.match(context.__JSKIT_UI_CREATE_FORM_FIELDS__, /"options":\[\{"label":"Unset","value":null\},\{"label":"Yes","value":true\},\{"label":"No","value":false\}\]/);
+    assert.match(context.__JSKIT_UI_CREATE_FORM_COLUMNS__, /<v-select/);
+    assert.doesNotMatch(context.__JSKIT_UI_CREATE_FORM_COLUMNS__, /<v-switch/);
   });
 });
 

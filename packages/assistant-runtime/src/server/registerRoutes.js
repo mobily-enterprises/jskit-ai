@@ -2,8 +2,6 @@ import { AppError } from "@jskit-ai/kernel/server/runtime";
 import { resolveAppConfig } from "@jskit-ai/kernel/server/support";
 import { normalizeSurfaceId } from "@jskit-ai/kernel/shared/surface/registry";
 import { withStandardErrorResponses } from "@jskit-ai/http-runtime/shared/validators/errorResponses";
-import { buildWorkspaceInputFromRouteParams } from "@jskit-ai/workspaces-core/server/support/workspaceRouteInput";
-import { workspaceSlugParamsValidator } from "@jskit-ai/workspaces-core/server/validators/routeParamsValidator";
 import {
   assistantConfigResource,
   assistantResource,
@@ -18,17 +16,22 @@ import {
 import { resolveAssistantSurfaceConfig } from "../shared/assistantSurfaces.js";
 import { actionIds } from "./actionIds.js";
 import { assistantSurfaceRouteParamsValidator } from "./inputValidators.js";
+import { resolveWorkspaceServerScopeSupport } from "./support/workspaceScopeSupport.js";
 
-function buildRouteParamsValidator(requiresWorkspace) {
+function buildRouteParamsValidator(requiresWorkspace, workspaceScopeSupport = null) {
   if (requiresWorkspace === true) {
-    return [workspaceSlugParamsValidator, assistantSurfaceRouteParamsValidator];
+    if (!workspaceScopeSupport) {
+      throw new Error("Assistant workspace routes require workspace server scope support.");
+    }
+
+    return [workspaceScopeSupport.paramsValidator, assistantSurfaceRouteParamsValidator];
   }
 
   return assistantSurfaceRouteParamsValidator;
 }
 
-function buildConversationMessagesRouteParamsValidator(requiresWorkspace) {
-  const validators = buildRouteParamsValidator(requiresWorkspace);
+function buildConversationMessagesRouteParamsValidator(requiresWorkspace, workspaceScopeSupport = null) {
+  const validators = buildRouteParamsValidator(requiresWorkspace, workspaceScopeSupport);
   if (Array.isArray(validators)) {
     return validators.concat(assistantResource.operations.conversationMessagesList.paramsValidator);
   }
@@ -36,12 +39,16 @@ function buildConversationMessagesRouteParamsValidator(requiresWorkspace) {
   return [validators, assistantResource.operations.conversationMessagesList.paramsValidator];
 }
 
-function readWorkspaceInput(request, requiresWorkspace) {
+function readWorkspaceInput(request, requiresWorkspace, workspaceScopeSupport = null) {
   if (requiresWorkspace !== true) {
     return {};
   }
 
-  return buildWorkspaceInputFromRouteParams(request?.input?.params);
+  if (!workspaceScopeSupport) {
+    throw new Error("Assistant workspace routes require workspace server scope support.");
+  }
+
+  return workspaceScopeSupport.buildInputFromRouteParams(request?.input?.params);
 }
 
 function requireAssistantSurface(appConfig = {}, targetSurfaceId = "") {
@@ -102,7 +109,15 @@ function sendPreStreamErrorResponse(reply, error) {
   });
 }
 
-function resolveRouteRequestState(request, { resolveCurrentAppConfig = () => ({}), kind = "runtime", requiresWorkspace = false } = {}) {
+function resolveRouteRequestState(
+  request,
+  {
+    resolveCurrentAppConfig = () => ({}),
+    kind = "runtime",
+    requiresWorkspace = false,
+    workspaceScopeSupport = null
+  } = {}
+) {
   const appConfig = resolveCurrentAppConfig();
   const targetSurfaceId = normalizeSurfaceId(request?.input?.params?.surfaceId);
   const assistantSurface = requireAssistantSurface(appConfig, targetSurfaceId);
@@ -126,18 +141,22 @@ function resolveRouteRequestState(request, { resolveCurrentAppConfig = () => ({}
     hostSurfaceId,
     actionInput: Object.freeze({
       targetSurfaceId: assistantSurface.targetSurfaceId,
-      ...readWorkspaceInput(request, requiresWorkspace)
+      ...readWorkspaceInput(request, requiresWorkspace, workspaceScopeSupport)
     })
   });
 }
 
-function registerSettingsRoutes(router, resolveCurrentAppConfig, { requiresWorkspace = false } = {}) {
+function registerSettingsRoutes(
+  router,
+  resolveCurrentAppConfig,
+  { requiresWorkspace = false, workspaceScopeSupport = null } = {}
+) {
   const routeBase = resolveAssistantApiBasePath({
     requiresWorkspace
   });
   const visibility = requiresWorkspace ? "workspace" : "public";
   const routePath = `${routeBase}/:surfaceId/settings`;
-  const paramsValidator = buildRouteParamsValidator(requiresWorkspace);
+  const paramsValidator = buildRouteParamsValidator(requiresWorkspace, workspaceScopeSupport);
 
   router.register(
     "GET",
@@ -158,7 +177,8 @@ function registerSettingsRoutes(router, resolveCurrentAppConfig, { requiresWorks
       const routeState = resolveRouteRequestState(request, {
         resolveCurrentAppConfig,
         kind: "settings",
-        requiresWorkspace
+        requiresWorkspace,
+        workspaceScopeSupport
       });
 
       const response = await request.executeAction({
@@ -198,7 +218,8 @@ function registerSettingsRoutes(router, resolveCurrentAppConfig, { requiresWorks
       const routeState = resolveRouteRequestState(request, {
         resolveCurrentAppConfig,
         kind: "settings",
-        requiresWorkspace
+        requiresWorkspace,
+        workspaceScopeSupport
       });
 
       const response = await request.executeAction({
@@ -217,13 +238,17 @@ function registerSettingsRoutes(router, resolveCurrentAppConfig, { requiresWorks
   );
 }
 
-function registerRuntimeRoutes(router, resolveCurrentAppConfig, { requiresWorkspace = false } = {}) {
+function registerRuntimeRoutes(
+  router,
+  resolveCurrentAppConfig,
+  { requiresWorkspace = false, workspaceScopeSupport = null } = {}
+) {
   const routeBase = resolveAssistantApiBasePath({
     requiresWorkspace
   });
   const visibility = requiresWorkspace ? "workspace" : "public";
   const surfaceRouteBase = `${routeBase}/:surfaceId`;
-  const paramsValidator = buildRouteParamsValidator(requiresWorkspace);
+  const paramsValidator = buildRouteParamsValidator(requiresWorkspace, workspaceScopeSupport);
 
   router.register(
     "POST",
@@ -242,7 +267,8 @@ function registerRuntimeRoutes(router, resolveCurrentAppConfig, { requiresWorksp
       const routeState = resolveRouteRequestState(request, {
         resolveCurrentAppConfig,
         kind: "runtime",
-        requiresWorkspace
+        requiresWorkspace,
+        workspaceScopeSupport
       });
       const abortController = new AbortController();
       const requestBody = request?.input?.body && typeof request.input.body === "object" ? request.input.body : {};
@@ -367,7 +393,8 @@ function registerRuntimeRoutes(router, resolveCurrentAppConfig, { requiresWorksp
       const routeState = resolveRouteRequestState(request, {
         resolveCurrentAppConfig,
         kind: "runtime",
-        requiresWorkspace
+        requiresWorkspace,
+        workspaceScopeSupport
       });
 
       const response = await request.executeAction({
@@ -391,7 +418,7 @@ function registerRuntimeRoutes(router, resolveCurrentAppConfig, { requiresWorksp
     {
       auth: "required",
       visibility,
-      paramsValidator: buildConversationMessagesRouteParamsValidator(requiresWorkspace),
+      paramsValidator: buildConversationMessagesRouteParamsValidator(requiresWorkspace, workspaceScopeSupport),
       meta: {
         tags: ["assistant"],
         summary: "List assistant conversation messages."
@@ -405,7 +432,8 @@ function registerRuntimeRoutes(router, resolveCurrentAppConfig, { requiresWorksp
       const routeState = resolveRouteRequestState(request, {
         resolveCurrentAppConfig,
         kind: "runtime",
-        requiresWorkspace
+        requiresWorkspace,
+        workspaceScopeSupport
       });
 
       const response = await request.executeAction({
@@ -432,19 +460,25 @@ function registerRoutes(app) {
 
   const router = app.make("jskit.http.router");
   const resolveCurrentAppConfig = () => resolveAppConfig(app);
+  const workspaceScopeSupport = resolveWorkspaceServerScopeSupport(app);
 
   registerSettingsRoutes(router, resolveCurrentAppConfig, {
     requiresWorkspace: false
   });
-  registerSettingsRoutes(router, resolveCurrentAppConfig, {
-    requiresWorkspace: true
-  });
   registerRuntimeRoutes(router, resolveCurrentAppConfig, {
     requiresWorkspace: false
   });
-  registerRuntimeRoutes(router, resolveCurrentAppConfig, {
-    requiresWorkspace: true
-  });
+
+  if (workspaceScopeSupport) {
+    registerSettingsRoutes(router, resolveCurrentAppConfig, {
+      requiresWorkspace: true,
+      workspaceScopeSupport
+    });
+    registerRuntimeRoutes(router, resolveCurrentAppConfig, {
+      requiresWorkspace: true,
+      workspaceScopeSupport
+    });
+  }
 }
 
 export { registerRoutes };

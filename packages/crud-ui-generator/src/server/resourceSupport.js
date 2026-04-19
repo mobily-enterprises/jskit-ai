@@ -570,6 +570,14 @@ function resolveFormFieldComponent(fieldType, relation = null) {
   return "text";
 }
 
+function buildDefaultNullableBooleanOptions() {
+  return [
+    { label: "Unset", value: null },
+    { label: "Yes", value: true },
+    { label: "No", value: false }
+  ];
+}
+
 function toPositiveInteger(value) {
   const parsed = Number(value);
   return Number.isInteger(parsed) && parsed > 0 ? parsed : null;
@@ -638,7 +646,17 @@ function createFormFieldDefinitions(
         `resource form field "${key}" defines schema enum values but is missing resource.fieldMeta["${key}"].ui.options.`
       );
     }
-    const selectOptions = relation ? [] : fieldUiOptions;
+    const selectOptions = relation
+      ? []
+      : (
+          fieldUiOptions.length > 0
+            ? fieldUiOptions
+            : (
+                schemaType.type === "boolean" && schemaType.nullable === true
+                  ? buildDefaultNullableBooleanOptions()
+                  : []
+              )
+        );
     const lookupFormControl = relation
       ? checkCrudLookupFormControl(fieldMetaMap?.[key]?.ui?.formControl, {
           context: `resource.fieldMeta["${key}"].ui.formControl`,

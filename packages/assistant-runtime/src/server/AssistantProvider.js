@@ -12,6 +12,7 @@ import { createChatService } from "./services/chatService.js";
 import { createTranscriptService } from "./services/transcriptService.js";
 import { resolveAssistantAiConfig } from "./support/assistantServerConfig.js";
 import { createSurfaceAwareToolCatalog } from "./support/createSurfaceAwareToolCatalog.js";
+import { resolveWorkspaceServerScopeSupport } from "./support/workspaceScopeSupport.js";
 
 function resolveGlobalAssistantConfig(scope) {
   const appConfig = resolveAppConfig(scope);
@@ -108,7 +109,8 @@ class AssistantProvider {
         createAssistantConfigService({
           assistantConfigRepository: scope.make("assistant.config.repository"),
           consoleService: scope.has("consoleService") ? scope.make("consoleService") : null,
-          resolveAppConfig: resolveCurrentAppConfig
+          resolveAppConfig: resolveCurrentAppConfig,
+          workspaceScopeSupport: resolveWorkspaceServerScopeSupport(scope)
         })
     );
 
@@ -129,7 +131,8 @@ class AssistantProvider {
           transcriptService: scope.make("assistant.transcript.service"),
           serviceToolCatalog: scope.make("assistant.service.tool-catalog"),
           assistantConfigService: scope.make("assistant.config.service"),
-          resolveAppConfig: resolveCurrentAppConfig
+          resolveAppConfig: resolveCurrentAppConfig,
+          workspaceScopeSupport: resolveWorkspaceServerScopeSupport(scope)
         })
     );
 

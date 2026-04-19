@@ -56,6 +56,7 @@ export default Object.freeze({
           "workspaces.web.workspace-members.menu-item",
           "workspaces.web.members-admin.element",
           "workspaces.web.bootstrap-placement.runtime",
+          "workspaces.web.scope-support",
           "workspaces.web.account-settings.section.invites"
         ]
       }
