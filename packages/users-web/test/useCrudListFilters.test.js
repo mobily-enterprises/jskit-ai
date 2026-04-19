@@ -78,3 +78,105 @@ test("useCrudListFilters manages values, query params, chips, and presets", asyn
   assert.deepEqual(filters.values.status, []);
   assert.equal(filters.hasActiveFilters.value, false);
 });
+
+test("useCrudListFilters supports dynamic presets and preset matching", async () => {
+  const { useCrudListFilters } = await import("@jskit-ai/users-web/client/composables/useCrudListFilters");
+  let today = "2026-04-18";
+
+  const filters = useCrudListFilters(
+    {
+      status: {
+        type: "enumMany",
+        label: "Status",
+        options: [
+          { value: "active", label: "Active" },
+          { value: "archived", label: "Archived" }
+        ]
+      },
+      arrivalDate: {
+        type: "dateRange",
+        label: "Arrival Date"
+      }
+    },
+    {
+      presets: [
+        {
+          key: "today",
+          label: "Today",
+          resolveValues() {
+            return {
+              arrivalDate: {
+                from: today,
+                to: today
+              }
+            };
+          }
+        },
+        {
+          key: "all-dates",
+          label: "All Dates",
+          values: {
+            arrivalDate: {
+              from: "",
+              to: ""
+            }
+          }
+        }
+      ]
+    }
+  );
+
+  filters.values.status = ["archived"];
+  filters.applyPreset("today", { mode: "merge" });
+
+  assert.equal(filters.values.arrivalDate.from, "2026-04-18");
+  assert.equal(filters.values.arrivalDate.to, "2026-04-18");
+  assert.deepEqual(filters.values.status, ["archived"]);
+  assert.equal(filters.matchesPreset("today"), true);
+  assert.equal(filters.matchesPreset("all-dates"), false);
+
+  today = "2026-04-19";
+  assert.equal(filters.matchesPreset("today"), false);
+
+  filters.applyPreset("all-dates", { mode: "merge" });
+  assert.equal(filters.values.arrivalDate.from, "");
+  assert.equal(filters.values.arrivalDate.to, "");
+  assert.deepEqual(filters.values.status, ["archived"]);
+  assert.equal(filters.matchesPreset("all-dates"), true);
+});
+
+test("useCrudListFilters preset matching rejects extra enumMany values present in current state", async () => {
+  const { useCrudListFilters } = await import("@jskit-ai/users-web/client/composables/useCrudListFilters");
+
+  const filters = useCrudListFilters(
+    {
+      status: {
+        type: "enumMany",
+        label: "Status",
+        options: [
+          { value: "active", label: "Active" },
+          { value: "archived", label: "Archived" }
+        ]
+      }
+    },
+    {
+      presets: [
+        {
+          key: "archived-only",
+          label: "Archived Only",
+          values: {
+            status: ["archived"]
+          }
+        }
+      ]
+    }
+  );
+
+  filters.values.status = ["archived", "bogus"];
+
+  assert.equal(filters.matchesPreset("archived-only"), false);
+  assert.deepEqual(
+    filters.activeChips.value.map((chip) => chip.label),
+    ["Status: Archived", "Status: bogus"]
+  );
+});

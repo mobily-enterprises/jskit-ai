@@ -72,16 +72,37 @@ function normalizePresetEntries(presets = []) {
     }
     seenKeys.add(key);
 
+    const values = rawPreset.values && typeof rawPreset.values === "object" && !Array.isArray(rawPreset.values)
+      ? rawPreset.values
+      : {};
+    const resolveValues = typeof rawPreset.resolveValues === "function"
+      ? rawPreset.resolveValues
+      : null;
+
     normalized.push(Object.freeze({
       key,
       label,
-      values: rawPreset.values && typeof rawPreset.values === "object" && !Array.isArray(rawPreset.values)
-        ? rawPreset.values
-        : {}
+      values,
+      resolveValues
     }));
   }
 
   return Object.freeze(normalized);
+}
+
+function resolvePresetValues(preset = {}, { values = {}, filters = {} } = {}) {
+  const rawValues = typeof preset.resolveValues === "function"
+    ? preset.resolveValues({
+        values,
+        filters,
+        presetKey: preset.key,
+        preset
+      })
+    : preset.values;
+
+  return rawValues && typeof rawValues === "object" && !Array.isArray(rawValues)
+    ? rawValues
+    : {};
 }
 
 function normalizePresetFilterValue(filter = {}, rawValue) {
@@ -90,7 +111,7 @@ function normalizePresetFilterValue(filter = {}, rawValue) {
   }
 
   if (filter.type === CRUD_LIST_FILTER_TYPE_ENUM_MANY || filter.type === CRUD_LIST_FILTER_TYPE_RECORD_ID_MANY) {
-    const allowedValues = filter.type === CRUD_LIST_FILTER_TYPE_ENUM_MANY || filter.type === CRUD_LIST_FILTER_TYPE_PRESENCE
+    const allowedValues = filter.type === CRUD_LIST_FILTER_TYPE_ENUM_MANY
       ? new Set((filter.options || []).map((entry) => entry.value))
       : null;
     const normalizedList = normalizeUniqueTextList(rawValue, {
@@ -130,6 +151,49 @@ function normalizePresetFilterValue(filter = {}, rawValue) {
   }
 
   return normalized;
+}
+
+function normalizeCurrentManyFilterValues(value) {
+  const source = Array.isArray(value) ? value : [value];
+  return source
+    .map((entry) => normalizeText(entry))
+    .filter(Boolean);
+}
+
+function matchArrayValues(currentValue = [], expectedValue = []) {
+  const currentList = Array.isArray(currentValue) ? [...currentValue].sort() : [];
+  const expectedList = Array.isArray(expectedValue) ? [...expectedValue].sort() : [];
+  if (currentList.length !== expectedList.length) {
+    return false;
+  }
+
+  return currentList.every((entry, index) => entry === expectedList[index]);
+}
+
+function matchesPresetFilterValue(filter = {}, currentValue, rawExpectedValue) {
+  const expectedValue = normalizePresetFilterValue(filter, rawExpectedValue);
+
+  if (filter.type === CRUD_LIST_FILTER_TYPE_ENUM_MANY || filter.type === CRUD_LIST_FILTER_TYPE_RECORD_ID_MANY) {
+    return matchArrayValues(normalizeCurrentManyFilterValues(currentValue), expectedValue);
+  }
+
+  const normalizedCurrentValue = normalizePresetFilterValue(filter, currentValue);
+
+  if (filter.type === CRUD_LIST_FILTER_TYPE_DATE_RANGE) {
+    return (
+      normalizeText(normalizedCurrentValue?.from) === normalizeText(expectedValue?.from) &&
+      normalizeText(normalizedCurrentValue?.to) === normalizeText(expectedValue?.to)
+    );
+  }
+
+  if (filter.type === CRUD_LIST_FILTER_TYPE_NUMBER_RANGE) {
+    return (
+      normalizeText(normalizedCurrentValue?.min) === normalizeText(expectedValue?.min) &&
+      normalizeText(normalizedCurrentValue?.max) === normalizeText(expectedValue?.max)
+    );
+  }
+
+  return normalizedCurrentValue === expectedValue;
 }
 
 function resetFilterValue(values, filter = {}) {
@@ -375,17 +439,48 @@ function useCrudListFilters(definitions = {}, { labelResolvers = {}, chipLabels 
       return;
     }
 
+    const presetValues = resolvePresetValues(preset, {
+      values,
+      filters
+    });
+
     if (mode !== "merge") {
       clearFilters();
     }
 
     for (const filter of filterEntries) {
-      if (!Object.hasOwn(preset.values, filter.key)) {
+      if (!Object.hasOwn(presetValues, filter.key)) {
         continue;
       }
 
-      applyPresetFilterValue(values, filter, preset.values[filter.key]);
+      applyPresetFilterValue(values, filter, presetValues[filter.key]);
     }
+  }
+
+  function matchesPreset(presetKey = "") {
+    const preset = normalizedPresets.find((entry) => entry.key === normalizeText(presetKey));
+    if (!preset) {
+      return false;
+    }
+
+    const presetValues = resolvePresetValues(preset, {
+      values,
+      filters
+    });
+    let matchedFilter = false;
+
+    for (const filter of filterEntries) {
+      if (!Object.hasOwn(presetValues, filter.key)) {
+        continue;
+      }
+
+      matchedFilter = true;
+      if (!matchesPresetFilterValue(filter, values[filter.key], presetValues[filter.key])) {
+        return false;
+      }
+    }
+
+    return matchedFilter;
   }
 
   return Object.freeze({
@@ -400,7 +495,8 @@ function useCrudListFilters(definitions = {}, { labelResolvers = {}, chipLabels 
     clearFilters,
     clearChip,
     toggle,
-    applyPreset
+    applyPreset,
+    matchesPreset
   });
 }
 

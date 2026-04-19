@@ -134,8 +134,11 @@ Local functions
 
 ### `src/server/listFilters.js`
 Exports
+- `CRUD_LIST_FILTER_INVALID_VALUES_REJECT`
+- `CRUD_LIST_FILTER_INVALID_VALUES_DISCARD`
 - `createCrudListFilters(definitions = {}, { columns = {}, apply = {} } = {})`
 Local functions
+- `normalizeCrudListFilterInvalidValues(value = "")`
 - `createSingleOrMultiValueSchema(itemSchema)`
 - `firstValue(value)`
 - `normalizeDateFilterValue(value)`
@@ -146,7 +149,7 @@ Local functions
 - `normalizeAllowedTextValue(value, allowedValues = new Set())`
 - `normalizeAllowedTextValues(value, allowedValues = new Set())`
 - `addDaysToDateFilterValue(value = "", days = 0)`
-- `createFilterQuerySchema(filter = {})`
+- `createFilterQuerySchema(filter = {}, { invalidValues = CRUD_LIST_FILTER_INVALID_VALUES_REJECT } = {})`
 - `normalizeFilterValue(filter = {}, source = {})`
 - `normalizeColumnsMap(columns = {})`
 - `applyDefaultFilterQuery(queryBuilder, filter = {}, value, column = "")`

@@ -795,7 +795,8 @@ Instead:
 
 1. define the filters once in a shared CRUD-package module
 2. build the server runtime from that definition with `createCrudListFilters(...)`
-3. build the client runtime from that same definition with `useCrudListFilters(...)`
+3. choose the route/action invalid-value contract explicitly with `createQueryValidator({ invalidValues: "reject" | "discard" })`
+4. build the client runtime from that same definition with `useCrudListFilters(...)`
 
 For example, a shared filter-definition module can look like this:
 
@@ -815,6 +816,22 @@ export const CONTACTS_LIST_FILTER_DEFINITIONS = Object.freeze({
   }
 });
 ```
+
+#### Exact file checklist
+
+For a generated CRUD, treat this as the concrete file plan:
+
+- create `packages/contacts/src/shared/contactListFilters.js`
+- update `packages/contacts/src/server/registerRoutes.js` so the list route query validator includes an explicit `createQueryValidator({ invalidValues: ... })` choice, unless you already extracted list-query composition into `packages/contacts/src/server/listQueryValidators.js`
+- update `packages/contacts/src/server/actions.js` so the list action input validator includes that same explicit contract choice
+- update `packages/contacts/src/server/repository.js` so the list query path builds the `createCrudListFilters(...)` runtime and calls `applyQuery(...)`
+- update the app-owned list page or list-runtime composable, usually under `src/pages/.../contacts/` or `src/composables/...`, so it builds `useCrudListFilters(...)`, passes `queryParams` into `useCrudList(...)`, and renders chips / reset behavior from that runtime
+
+The only file in that list that is normally **new** is the shared module:
+
+- `packages/contacts/src/shared/contactListFilters.js`
+
+The others are normally edits to the generated CRUD package and the app-owned page layer that already exist.
 
 #### Client side
 
@@ -844,11 +861,14 @@ That gives you, from one place:
 
 - `listFilters.values`
 - `listFilters.queryParams`
+- `listFilters.presets`
 - `listFilters.activeChips`
 - `listFilters.hasActiveFilters`
 - `listFilters.clearChip(...)`
 - `listFilters.clearFilters()`
 - `listFilters.toggle(...)` for flag filters
+- `listFilters.applyPreset(...)`
+- `listFilters.matchesPreset(...)`
 
 So the same runtime owns:
 
@@ -856,7 +876,61 @@ So the same runtime owns:
 - filter chips
 - reset logic
 - preset application
+- preset active-state matching
 - small flag toggles
+
+For relative-date quick filters, keep the date math in runtime presets instead of page-local helper state. `resolveValues(...)` runs at preset-apply time and receives `{ values, filters, presetKey, preset }`, so the preset can derive values from the current filter state and the normalized preset metadata:
+
+```js
+const listFilters = useCrudListFilters(
+  RECEIVAL_LIST_FILTER_DEFINITIONS,
+  {
+    presets: [
+      {
+        key: "today",
+        label: "Today",
+        resolveValues({ presetKey }) {
+          const today = formatDateInputValue(new Date());
+          return {
+            arrivalDate: {
+              from: today,
+              to: today
+            }
+          };
+        }
+      },
+      {
+        key: "last7",
+        label: "Last 7 Days",
+        resolveValues({ values }) {
+          const today = formatDateInputValue(new Date());
+          return {
+            arrivalDate: {
+              from: shiftDateInputValue(today, -6),
+              to: today
+            }
+          };
+        }
+      }
+    ]
+  }
+);
+```
+
+```vue
+<v-chip
+  v-for="preset in listFilters.presets"
+  :key="preset.key"
+  :variant="listFilters.matchesPreset(preset.key) ? 'flat' : 'outlined'"
+  @click="listFilters.applyPreset(preset.key, { mode: 'merge' })"
+>
+  {{ preset.label }}
+</v-chip>
+```
+
+Use `mode: "merge"` when a preset should only change one filter group, such as the arrival date range, and should not clear the rest of the page's active filters.
+
+`matchesPreset(...)` is strict by design. It compares the preset against the full current filter state after basic normalization, and it does **not** silently drop extra `enumMany` or `recordIdMany` values that were hydrated from the route and still appear as chips. If the URL contains `status=archived&status=bogus`, a preset for only `archived` should render as inactive until the extra `bogus` value is cleared.
 
 #### Server side
 
@@ -873,11 +947,47 @@ const contactsListFiltersRuntime = createCrudListFilters(
     }
   }
 );
+```
 
-const contactsListFiltersQueryValidator = contactsListFiltersRuntime.queryValidator;
+There is no default query-validator mode and no `runtime.queryValidator` alias. Create the validator that matches the contract you want at that route or action boundary.
+
+Strict contract example:
+
+```js
+const contactsListFiltersQueryValidator = contactsListFiltersRuntime.createQueryValidator({
+  invalidValues: "reject" // malformed filter values should fail validation and return 400
+});
+```
+
+Lenient contract example:
+
+```js
+const contactsListFiltersQueryValidator = contactsListFiltersRuntime.createQueryValidator({
+  invalidValues: "discard" // malformed filter values should be ignored and dropped by normalize()
+});
 ```
 
 Wire the runtime into the list validator and the repository:
+
+```js
+queryValidator: [
+  listCursorPaginationQueryValidator,
+  listSearchQueryValidator,
+  contactsListFiltersQueryValidator,
+  listParentFilterQueryValidator,
+  lookupIncludeQueryValidator
+]
+```
+
+Use that same `contactsListFiltersQueryValidator` anywhere else the list query is validated, such as the list action input validator if your CRUD package validates query shape at both the route and action boundaries.
+
+Choose the invalid-value contract deliberately:
+
+- there is no default mode and no fallback alias, so every route or action that validates structured filters must call `createQueryValidator({ invalidValues: ... })` explicitly
+- use `invalidValues: "reject"` when malformed filter values should fail validation and produce a 400-style contract error
+- use `invalidValues: "discard"` when malformed filter values should be ignored and normalization should drop them
+- route query validation runs before auth, so this choice changes whether malformed unauthenticated requests fail at validation or fall through to auth
+- for normal HTTP CRUD handlers, route-level `discard` means the handler receives already-normalized query input, so the action layer will not see those discarded bad values again later
 
 ```js
 async function list(query = {}, callOptions = {}) {
@@ -893,6 +1003,8 @@ async function list(query = {}, callOptions = {}) {
 
 - Put the filter definitions in the CRUD package, not the page. Both server and client need them.
 - Keep the filter keys identical all the way through: definition key, query param key, and repository meaning.
+- Do not expect a default `runtime.queryValidator` to exist. Every structured-filter validator must be created explicitly with `createQueryValidator({ invalidValues: ... })`.
+- Use `type: "presence"` for null/not-null filters such as assigned vs unassigned storage. Do not model those as custom enums plus `applyQuery(...)` overrides unless the SQL semantics are genuinely different from `whereNotNull(...)` / `whereNull(...)`.
 - Use `createCrudListFilters(...)` unless the list semantics are truly unusual.
 - Use `q` for free-text and explicit query params for structured filters.
 
@@ -931,6 +1043,17 @@ export const RECEIVAL_LIST_FILTER_DEFINITIONS = Object.freeze({
   }
 });
 ```
+
+#### Exact file checklist
+
+Lookup-backed filters do **not** change the ownership model from Pattern 3. The file plan is still:
+
+- keep the shared definition in `packages/receivals/src/shared/receivalListFilters.js`
+- update the same server validator and repository files from Pattern 3
+- update the app-owned list page or list-runtime composable so it creates both `useCrudListFilters(...)` and `useCrudListFilterLookups(...)`
+- bind the lookup UI, such as `v-autocomplete`, from `filterLookups.resolveLookup(...)`
+
+Do **not** create a second page-local filter schema just because the UI needs remote autocomplete. The shared definition file stays the source of truth.
 
 #### Client side
 
@@ -1165,10 +1288,12 @@ Use `scaffold-field` when it fits, then review the generated result.
 
 Touch:
 
-- a client filter composable or page state
-- `useCrudList({ queryParams: ... })`
-- a dedicated server query validator
-- `repository.js`
+- `packages/<crud>/src/shared/<crud>ListFilters.js` and make it the only authored filter-definition module
+- `packages/<crud>/src/server/registerRoutes.js` and `packages/<crud>/src/server/actions.js` so the list validator includes an explicit `createQueryValidator({ invalidValues: ... })` choice, or `packages/<crud>/src/server/listQueryValidators.js` if you extracted list-query composition there
+- `packages/<crud>/src/server/repository.js` so the list query applies the runtime
+- the app-owned list page or list-runtime composable that calls `useCrudList(...)`
+
+If the filter is lookup-backed, touch that same client file again to wire `useCrudListFilterLookups(...)`.
 
 ### "I want a new save rule."
 

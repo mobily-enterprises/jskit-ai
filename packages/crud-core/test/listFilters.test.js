@@ -1,13 +1,20 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import { Check } from "typebox/value";
 import { compileRouteValidator } from "@jskit-ai/kernel/_testable";
 import { cursorPaginationQueryValidator } from "@jskit-ai/kernel/shared/validators";
 import { listSearchQueryValidator } from "../src/server/listQueryValidators.js";
-import { createCrudListFilters } from "../src/server/listFilters.js";
+import {
+  CRUD_LIST_FILTER_INVALID_VALUES_REJECT,
+  CRUD_LIST_FILTER_INVALID_VALUES_DISCARD,
+  createCrudListFilters
+} from "../src/server/listFilters.js";
 
 test("crud-core exposes createCrudListFilters through the public package export", async () => {
   const module = await import("@jskit-ai/crud-core/server/listFilters");
   assert.equal(typeof module.createCrudListFilters, "function");
+  assert.equal(module.CRUD_LIST_FILTER_INVALID_VALUES_REJECT, CRUD_LIST_FILTER_INVALID_VALUES_REJECT);
+  assert.equal(module.CRUD_LIST_FILTER_INVALID_VALUES_DISCARD, CRUD_LIST_FILTER_INVALID_VALUES_DISCARD);
 });
 
 function createQueryDouble() {
@@ -244,9 +251,129 @@ test("createCrudListFilters query validator stays mergeable with search and curs
     queryValidator: [
       cursorPaginationQueryValidator,
       listSearchQueryValidator,
-      runtime.queryValidator
+      runtime.createQueryValidator({
+        invalidValues: CRUD_LIST_FILTER_INVALID_VALUES_REJECT
+      })
     ]
   });
 
   assert.deepEqual(compiled.schema.querystring.required || [], []);
+});
+
+test("createCrudListFilters requires explicit invalid-value mode for new query validators", () => {
+  const runtime = createCrudListFilters({});
+
+  assert.throws(
+    () => runtime.createQueryValidator(),
+    /invalidValues mode/
+  );
+});
+
+test("createCrudListFilters reject validator keeps strict filter schemas", () => {
+  const runtime = createCrudListFilters({
+    arrivalDate: {
+      type: "dateRange",
+      label: "Arrival Date"
+    },
+    status: {
+      type: "enumMany",
+      label: "Status",
+      options: [
+        { value: "active", label: "Active" },
+        { value: "archived", label: "Archived" }
+      ]
+    },
+    supplierContactId: {
+      type: "recordIdMany",
+      label: "Supplier"
+    },
+    weight: {
+      type: "numberRange",
+      label: "Weight"
+    }
+  });
+
+  const validator = runtime.createQueryValidator({
+    invalidValues: CRUD_LIST_FILTER_INVALID_VALUES_REJECT
+  });
+
+  assert.equal(Check(validator.schema, {
+    arrivalDateFrom: "2026-04-01",
+    status: ["active"],
+    supplierContactId: ["7"],
+    weightMin: "12.5"
+  }), true);
+  assert.equal(Check(validator.schema, {
+    arrivalDateFrom: "bad-date"
+  }), false);
+  assert.equal(Check(validator.schema, {
+    status: ["active", "unexpected"]
+  }), false);
+  assert.equal(Check(validator.schema, {
+    supplierContactId: ["7", "bad"]
+  }), false);
+  assert.equal(Check(validator.schema, {
+    weightMin: "bad"
+  }), false);
+});
+
+test("createCrudListFilters discard validator accepts malformed values and lets normalize drop them", () => {
+  const runtime = createCrudListFilters({
+    arrivalDate: {
+      type: "dateRange",
+      label: "Arrival Date"
+    },
+    status: {
+      type: "enumMany",
+      label: "Status",
+      options: [
+        { value: "active", label: "Active" },
+        { value: "archived", label: "Archived" }
+      ]
+    },
+    supplierContactId: {
+      type: "recordIdMany",
+      label: "Supplier"
+    },
+    weight: {
+      type: "numberRange",
+      label: "Weight"
+    }
+  });
+
+  const validator = runtime.createQueryValidator({
+    invalidValues: CRUD_LIST_FILTER_INVALID_VALUES_DISCARD
+  });
+
+  assert.equal(Check(validator.schema, {
+    arrivalDateFrom: "bad-date",
+    status: ["active", "unexpected"],
+    supplierContactId: ["7", "bad"],
+    weightMin: "bad"
+  }), true);
+  assert.deepEqual(validator.normalize({
+    arrivalDateFrom: "bad-date",
+    arrivalDateTo: "2026-04-30",
+    status: ["active", "unexpected"],
+    supplierContactId: ["7", "bad"],
+    weightMin: "bad"
+  }), {
+    arrivalDate: {
+      to: "2026-04-30"
+    },
+    status: ["active"],
+    supplierContactId: ["7"]
+  });
+});
+
+test("createCrudListFilters exposes no default query validator alias", () => {
+  const runtime = createCrudListFilters({
+    arrivalDate: {
+      type: "dateRange",
+      label: "Arrival Date"
+    }
+  });
+
+  assert.equal(Object.hasOwn(runtime, "queryValidator"), false);
+  assert.equal(runtime.queryValidator, undefined);
 });
