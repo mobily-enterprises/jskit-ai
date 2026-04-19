@@ -990,6 +990,7 @@ Choose the invalid-value contract deliberately:
 - use `invalidValues: "discard"` when malformed filter values should be ignored and normalization should drop them
 - route query validation runs before auth, so this choice changes whether malformed unauthenticated requests fail at validation or fall through to auth
 - for normal HTTP CRUD handlers, route-level `discard` means the handler receives already-normalized query input, so the action layer will not see those discarded bad values again later
+- `jskit doctor` flags `createQueryValidator(...)` calls that do not spell out `invalidValues` directly at the call site
 
 ```js
 async function list(query = {}, callOptions = {}) {
@@ -1009,6 +1010,7 @@ async function list(query = {}, callOptions = {}) {
 - Use `type: "presence"` for null/not-null filters such as assigned vs unassigned storage. Do not model those as custom enums plus `applyQuery(...)` overrides unless the SQL semantics are genuinely different from `whereNotNull(...)` / `whereNull(...)`.
 - Use `createCrudListFilters(...)` unless the list semantics are truly unusual.
 - Use `q` for free-text and explicit query params for structured filters.
+- Run `jskit doctor` after wiring filters. It flags inline/local filter-definition objects passed into `useCrudListFilters(...)` or `createCrudListFilters(...)`, and it flags `createQueryValidator(...)` calls that hide the invalid-value policy.
 
 ### Pattern 4: lookup-backed structured filters
 

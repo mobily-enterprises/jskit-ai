@@ -1,7 +1,7 @@
 export default Object.freeze({
   packageVersion: 1,
   packageId: "@jskit-ai/assistant",
-  version: "0.1.52",
+  version: "0.1.54",
   kind: "generator",
   description: "Install assistant runtime/config for one surface and scaffold assistant pages at explicit target files.",
   options: {

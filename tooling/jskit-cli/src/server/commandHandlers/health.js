@@ -23,16 +23,11 @@ function createHealthCommands(ctx = {}) {
     path
   } = ctx;
 
-  const MDI_SVG_MAIN_ENTRY_CANDIDATES = Object.freeze([
-    "src/main.js",
-    "src/main.mjs",
-    "src/main.ts"
-  ]);
-  const MDI_SVG_SCAN_ROOTS = Object.freeze([
+  const APP_SOURCE_SCAN_ROOTS = Object.freeze([
     "src",
     "packages"
   ]);
-  const MDI_SVG_IGNORED_DIRECTORY_NAMES = new Set([
+  const APP_SOURCE_IGNORED_DIRECTORY_NAMES = new Set([
     ".git",
     ".jskit",
     ".build",
@@ -45,15 +40,34 @@ function createHealthCommands(ctx = {}) {
     "tests",
     "__tests__"
   ]);
-  const MDI_SVG_IGNORED_FILE_PATTERNS = Object.freeze([
+  const APP_SOURCE_IGNORED_FILE_PATTERNS = Object.freeze([
     /\.spec\./i,
     /\.test\./i,
     /\.vitest\./i
+  ]);
+  const APP_SOURCE_CODE_EXTENSIONS = new Set([
+    ".cjs",
+    ".js",
+    ".jsx",
+    ".mjs",
+    ".ts",
+    ".tsx",
+    ".vue"
+  ]);
+  const VUE_SOURCE_EXTENSIONS = new Set([".vue"]);
+  const MDI_SVG_MAIN_ENTRY_CANDIDATES = Object.freeze([
+    "src/main.js",
+    "src/main.mjs",
+    "src/main.ts"
   ]);
   const DIRECT_MDI_LITERAL_ICON_PATTERN =
     /<(v-[a-z0-9-]+)[^>]*?\b(icon|prepend-icon|append-icon)\s*=\s*(['"])(mdi-[^'"]+)\3/gi;
   const DIRECT_MDI_BOUND_LITERAL_ICON_PATTERN =
     /<(v-[a-z0-9-]+)[^>]*?(?::|v-bind:)(icon|prepend-icon|append-icon)\s*=\s*(['"])(['"])(mdi-[^'"]+)\4\3/gi;
+  const FILTER_RUNTIME_CALLEES = Object.freeze([
+    "createCrudListFilters",
+    "useCrudListFilters"
+  ]);
 
   function collectDescriptorContainerTokens({ packageId, side, values, issues }) {
     const declaredTokens = new Set();
@@ -152,6 +166,70 @@ function createHealthCommands(ctx = {}) {
     }
   }
 
+  function shouldSkipAppSourceDirectory(directoryName = "") {
+    return APP_SOURCE_IGNORED_DIRECTORY_NAMES.has(String(directoryName || "").trim());
+  }
+
+  function shouldSkipAppSourceFile(
+    fileName = "",
+    {
+      extensions = APP_SOURCE_CODE_EXTENSIONS,
+      ignoredFilePatterns = APP_SOURCE_IGNORED_FILE_PATTERNS
+    } = {}
+  ) {
+    const normalizedFileName = String(fileName || "").trim();
+    const extension = path.extname(normalizedFileName).toLowerCase();
+    if (!extensions.has(extension)) {
+      return true;
+    }
+    return ignoredFilePatterns.some((pattern) => pattern.test(normalizedFileName));
+  }
+
+  async function collectAppSourceFiles(
+    rootDirectory,
+    {
+      extensions = APP_SOURCE_CODE_EXTENSIONS,
+      ignoredFilePatterns = APP_SOURCE_IGNORED_FILE_PATTERNS
+    } = {},
+    collected = []
+  ) {
+    if (!(await fileExists(rootDirectory))) {
+      return collected;
+    }
+
+    const entries = await readdir(rootDirectory, { withFileTypes: true });
+    entries.sort((left, right) => left.name.localeCompare(right.name));
+
+    for (const entry of entries) {
+      const entryPath = path.join(rootDirectory, entry.name);
+      if (entry.isDirectory()) {
+        if (shouldSkipAppSourceDirectory(entry.name)) {
+          continue;
+        }
+        await collectAppSourceFiles(
+          entryPath,
+          {
+            extensions,
+            ignoredFilePatterns
+          },
+          collected
+        );
+        continue;
+      }
+      if (
+        entry.isFile() &&
+        !shouldSkipAppSourceFile(entry.name, {
+          extensions,
+          ignoredFilePatterns
+        })
+      ) {
+        collected.push(entryPath);
+      }
+    }
+
+    return collected;
+  }
+
   async function appUsesVuetifyMdiSvg(appRoot) {
     for (const relativePath of MDI_SVG_MAIN_ENTRY_CANDIDATES) {
       const absolutePath = path.join(appRoot, relativePath);
@@ -165,43 +243,6 @@ function createHealthCommands(ctx = {}) {
     }
 
     return false;
-  }
-
-  function shouldSkipMdiSvgDoctorDirectory(directoryName = "") {
-    return MDI_SVG_IGNORED_DIRECTORY_NAMES.has(String(directoryName || "").trim());
-  }
-
-  function shouldSkipMdiSvgDoctorFile(fileName = "") {
-    const normalizedFileName = String(fileName || "").trim();
-    if (!normalizedFileName.endsWith(".vue")) {
-      return true;
-    }
-    return MDI_SVG_IGNORED_FILE_PATTERNS.some((pattern) => pattern.test(normalizedFileName));
-  }
-
-  async function collectVueSourceFiles(rootDirectory, collected = []) {
-    if (!(await fileExists(rootDirectory))) {
-      return collected;
-    }
-
-    const entries = await readdir(rootDirectory, { withFileTypes: true });
-    entries.sort((left, right) => left.name.localeCompare(right.name));
-
-    for (const entry of entries) {
-      const entryPath = path.join(rootDirectory, entry.name);
-      if (entry.isDirectory()) {
-        if (shouldSkipMdiSvgDoctorDirectory(entry.name)) {
-          continue;
-        }
-        await collectVueSourceFiles(entryPath, collected);
-        continue;
-      }
-      if (entry.isFile() && !shouldSkipMdiSvgDoctorFile(entry.name)) {
-        collected.push(entryPath);
-      }
-    }
-
-    return collected;
   }
 
   function resolveLineNumberFromIndex(sourceText = "", index = 0) {
@@ -228,14 +269,312 @@ function createHealthCommands(ctx = {}) {
     }
   }
 
+  function isEscapedCharacter(sourceText = "", index = 0) {
+    let backslashCount = 0;
+    for (let position = index - 1; position >= 0 && sourceText[position] === "\\"; position -= 1) {
+      backslashCount += 1;
+    }
+    return backslashCount % 2 === 1;
+  }
+
+  function findClosingParenIndex(sourceText = "", openParenIndex = -1) {
+    if (openParenIndex < 0 || sourceText[openParenIndex] !== "(") {
+      return -1;
+    }
+
+    let parenDepth = 0;
+    let quote = "";
+    let inLineComment = false;
+    let inBlockComment = false;
+
+    for (let index = openParenIndex; index < sourceText.length; index += 1) {
+      const character = sourceText[index];
+      const nextCharacter = sourceText[index + 1] || "";
+
+      if (inLineComment) {
+        if (character === "\n") {
+          inLineComment = false;
+        }
+        continue;
+      }
+
+      if (inBlockComment) {
+        if (character === "*" && nextCharacter === "/") {
+          inBlockComment = false;
+          index += 1;
+        }
+        continue;
+      }
+
+      if (quote) {
+        if (character === quote && !isEscapedCharacter(sourceText, index)) {
+          quote = "";
+        }
+        continue;
+      }
+
+      if (character === "/" && nextCharacter === "/") {
+        inLineComment = true;
+        index += 1;
+        continue;
+      }
+
+      if (character === "/" && nextCharacter === "*") {
+        inBlockComment = true;
+        index += 1;
+        continue;
+      }
+
+      if (character === "'" || character === "\"" || character === "`") {
+        quote = character;
+        continue;
+      }
+
+      if (character === "(") {
+        parenDepth += 1;
+        continue;
+      }
+
+      if (character === ")") {
+        parenDepth -= 1;
+        if (parenDepth === 0) {
+          return index;
+        }
+      }
+    }
+
+    return -1;
+  }
+
+  function extractFirstArgumentText(argsText = "") {
+    let parenDepth = 0;
+    let braceDepth = 0;
+    let bracketDepth = 0;
+    let quote = "";
+    let inLineComment = false;
+    let inBlockComment = false;
+
+    for (let index = 0; index < argsText.length; index += 1) {
+      const character = argsText[index];
+      const nextCharacter = argsText[index + 1] || "";
+
+      if (inLineComment) {
+        if (character === "\n") {
+          inLineComment = false;
+        }
+        continue;
+      }
+
+      if (inBlockComment) {
+        if (character === "*" && nextCharacter === "/") {
+          inBlockComment = false;
+          index += 1;
+        }
+        continue;
+      }
+
+      if (quote) {
+        if (character === quote && !isEscapedCharacter(argsText, index)) {
+          quote = "";
+        }
+        continue;
+      }
+
+      if (character === "/" && nextCharacter === "/") {
+        inLineComment = true;
+        index += 1;
+        continue;
+      }
+
+      if (character === "/" && nextCharacter === "*") {
+        inBlockComment = true;
+        index += 1;
+        continue;
+      }
+
+      if (character === "'" || character === "\"" || character === "`") {
+        quote = character;
+        continue;
+      }
+
+      if (character === "(") {
+        parenDepth += 1;
+        continue;
+      }
+      if (character === ")") {
+        parenDepth -= 1;
+        continue;
+      }
+      if (character === "{") {
+        braceDepth += 1;
+        continue;
+      }
+      if (character === "}") {
+        braceDepth -= 1;
+        continue;
+      }
+      if (character === "[") {
+        bracketDepth += 1;
+        continue;
+      }
+      if (character === "]") {
+        bracketDepth -= 1;
+        continue;
+      }
+
+      if (character === "," && parenDepth === 0 && braceDepth === 0 && bracketDepth === 0) {
+        return argsText.slice(0, index);
+      }
+    }
+
+    return argsText;
+  }
+
+  function collectStaticImportBindings(sourceText = "") {
+    const bindings = new Map();
+    const importPattern = /^\s*import\s+([\s\S]*?)\s+from\s+["']([^"']+)["'];?/gmu;
+
+    for (const match of sourceText.matchAll(importPattern)) {
+      const specifierText = String(match[1] || "").trim();
+      const sourcePath = String(match[2] || "").trim();
+      if (!specifierText || !sourcePath) {
+        continue;
+      }
+
+      const namedMatch = specifierText.match(/\{([\s\S]*)\}/u);
+      if (namedMatch) {
+        const namedContent = String(namedMatch[1] || "");
+        for (const rawSpecifier of namedContent.split(",")) {
+          const specifier = String(rawSpecifier || "").trim();
+          if (!specifier) {
+            continue;
+          }
+          const aliasMatch = specifier.match(/^([A-Za-z_$][\w$]*)\s+as\s+([A-Za-z_$][\w$]*)$/u);
+          const localName = aliasMatch ? aliasMatch[2] : specifier;
+          if (/^[A-Za-z_$][\w$]*$/u.test(localName)) {
+            bindings.set(localName, sourcePath);
+          }
+        }
+      }
+
+      const leadingSpecifier = namedMatch
+        ? specifierText.slice(0, namedMatch.index).replace(/,$/u, "").trim()
+        : specifierText;
+      if (!leadingSpecifier) {
+        continue;
+      }
+
+      const namespaceMatch = leadingSpecifier.match(/^\*\s+as\s+([A-Za-z_$][\w$]*)$/u);
+      if (namespaceMatch) {
+        bindings.set(namespaceMatch[1], sourcePath);
+        continue;
+      }
+
+      if (/^[A-Za-z_$][\w$]*$/u.test(leadingSpecifier)) {
+        bindings.set(leadingSpecifier, sourcePath);
+      }
+    }
+
+    return bindings;
+  }
+
+  function isSharedListFiltersImportSource(sourcePath = "") {
+    return /(^|\/)shared\/[^/'"]*ListFilters(?:\.[A-Za-z0-9]+)?$/u.test(String(sourcePath || "").trim());
+  }
+
+  function findCallSites(sourceText = "", calleeName = "") {
+    const normalizedCalleeName = String(calleeName || "").trim();
+    if (!normalizedCalleeName) {
+      return [];
+    }
+
+    const callPattern = new RegExp(`\\b${normalizedCalleeName}\\s*\\(`, "gu");
+    const calls = [];
+
+    for (const match of sourceText.matchAll(callPattern)) {
+      const matchedText = String(match[0] || "");
+      const openParenIndex = (match.index || 0) + matchedText.lastIndexOf("(");
+      const closeParenIndex = findClosingParenIndex(sourceText, openParenIndex);
+      if (closeParenIndex < 0) {
+        continue;
+      }
+
+      calls.push({
+        calleeName: normalizedCalleeName,
+        index: match.index || 0,
+        openParenIndex,
+        closeParenIndex,
+        argsText: sourceText.slice(openParenIndex + 1, closeParenIndex)
+      });
+    }
+
+    return calls;
+  }
+
+  function collectFilterDefinitionOwnershipIssues({
+    sourceText = "",
+    relativePath = "",
+    issues = []
+  }) {
+    const importBindings = collectStaticImportBindings(sourceText);
+
+    for (const calleeName of FILTER_RUNTIME_CALLEES) {
+      for (const callSite of findCallSites(sourceText, calleeName)) {
+        const lineNumber = resolveLineNumberFromIndex(sourceText, callSite.index);
+        const firstArgument = extractFirstArgumentText(callSite.argsText).trim();
+
+        if (!firstArgument || firstArgument.startsWith("{")) {
+          issues.push(
+            `${relativePath}:${lineNumber}: [filters:shared-definition] do not inline structured filter definitions in ${calleeName}(...). Put them in packages/<crud>/src/shared/<crud>ListFilters.js and import that shared module.`
+          );
+          continue;
+        }
+
+        if (!/^[A-Za-z_$][\w$]*$/u.test(firstArgument)) {
+          issues.push(
+            `${relativePath}:${lineNumber}: [filters:shared-definition] ${calleeName}(...) must receive a definitions symbol imported from a CRUD shared *ListFilters module, not an ad-hoc expression.`
+          );
+          continue;
+        }
+
+        const importSource = importBindings.get(firstArgument) || "";
+        if (!isSharedListFiltersImportSource(importSource)) {
+          issues.push(
+            `${relativePath}:${lineNumber}: [filters:shared-definition] ${calleeName}(${firstArgument}, ...) must use definitions imported from a CRUD shared *ListFilters module. Found ${importSource ? `import source "${importSource}"` : "a local symbol"} instead.`
+          );
+        }
+      }
+    }
+  }
+
+  function collectFilterValidatorModeIssues({
+    sourceText = "",
+    relativePath = "",
+    issues = []
+  }) {
+    for (const callSite of findCallSites(sourceText, "createQueryValidator")) {
+      const lineNumber = resolveLineNumberFromIndex(sourceText, callSite.index);
+      const argsText = String(callSite.argsText || "").trim();
+      if (!argsText.startsWith("{") || !/\binvalidValues\s*:/u.test(argsText)) {
+        issues.push(
+          `${relativePath}:${lineNumber}: [filters:validator-mode] createQueryValidator(...) must be written explicitly as createQueryValidator({ invalidValues: "reject" | "discard" }). Do not rely on hidden defaults, aliases, or indirect option objects.`
+        );
+      }
+    }
+  }
+
   async function collectMdiSvgDoctorIssues({ appRoot, issues }) {
     if (!(await appUsesVuetifyMdiSvg(appRoot))) {
       return;
     }
 
     const vueFilePaths = [];
-    for (const relativeRoot of MDI_SVG_SCAN_ROOTS) {
-      await collectVueSourceFiles(path.join(appRoot, relativeRoot), vueFilePaths);
+    for (const relativeRoot of APP_SOURCE_SCAN_ROOTS) {
+      await collectAppSourceFiles(
+        path.join(appRoot, relativeRoot),
+        { extensions: VUE_SOURCE_EXTENSIONS },
+        vueFilePaths
+      );
     }
 
     vueFilePaths.sort((left, right) => left.localeCompare(right));
@@ -245,6 +584,38 @@ function createHealthCommands(ctx = {}) {
       collectDirectMdiSvgTemplateIconIssues({
         sourceText,
         relativePath: normalizeRelativePath(appRoot, absolutePath),
+        issues
+      });
+    }
+  }
+
+  async function collectCrudFilterDoctorIssues({ appRoot, issues }) {
+    const sourceFilePaths = [];
+    for (const relativeRoot of APP_SOURCE_SCAN_ROOTS) {
+      await collectAppSourceFiles(path.join(appRoot, relativeRoot), undefined, sourceFilePaths);
+    }
+
+    sourceFilePaths.sort((left, right) => left.localeCompare(right));
+
+    for (const absolutePath of sourceFilePaths) {
+      const sourceText = await readFile(absolutePath, "utf8");
+      if (
+        !sourceText.includes("useCrudListFilters") &&
+        !sourceText.includes("createCrudListFilters") &&
+        !sourceText.includes("createQueryValidator")
+      ) {
+        continue;
+      }
+
+      const relativePath = normalizeRelativePath(appRoot, absolutePath);
+      collectFilterDefinitionOwnershipIssues({
+        sourceText,
+        relativePath,
+        issues
+      });
+      collectFilterValidatorModeIssues({
+        sourceText,
+        relativePath,
         issues
       });
     }
@@ -335,6 +706,10 @@ function createHealthCommands(ctx = {}) {
     }
 
     await collectMdiSvgDoctorIssues({
+      appRoot,
+      issues
+    });
+    await collectCrudFilterDoctorIssues({
       appRoot,
       issues
     });

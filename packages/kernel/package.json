@@ -1,6 +1,6 @@
 {
   "name": "@jskit-ai/kernel",
-  "version": "0.1.43",
+  "version": "0.1.45",
   "type": "module",
   "dependencies": {
     "typebox": "^1.0.81"
