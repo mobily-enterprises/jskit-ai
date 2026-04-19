@@ -22,6 +22,36 @@ Use these references on demand:
 - `node_modules/@jskit-ai/agent-docs/templates/WORKBOARD.md`
 - `node_modules/@jskit-ai/agent-docs/skills/jskit-review/SKILL.md` for review passes when your Codex environment supports packaged skills
 
+## Mandatory Start Gate
+
+Before any non-trivial change:
+
+1. Read this file and the workflow files above in the current turn. Do not rely on memory alone.
+2. If the task involves JSKIT UI, routing, surfaces, CRUDs, filters, placements, live actions, or similar implementation details, scan `node_modules/@jskit-ai/agent-docs/patterns/INDEX.md` and read the relevant pattern files before editing.
+3. For substantial or multi-chunk work, create or update `.jskit/WORKBOARD.md` before editing.
+4. Before editing, print a compact read receipt with:
+   - `Read receipt: ...`
+   - `Active chunk: ...`
+   - `Generator decision: ...`
+   - `Relevant patterns: ...`
+   - `Active rules from docs: ...`
+5. When files need to be created, prefer `jskit generate ...` over creating them from scratch, even if the generated output will need follow-up adaptation. If not using a generator, say why.
+6. Do not edit code until the read receipt is printed and the workboard step is complete when it applies.
+
+## Mandatory Done Gate
+
+Before calling a chunk done, report:
+
+- `Deslop review: ...`
+- `JSKIT review: ...`
+- `Material/Vuetify review: ...`
+- `Verification: ...`
+- `Files changed: ...`
+- `Commands run: ...`
+- `Remaining unverified: ...`
+
+If a feature spans more than one chunk, repeat those passes on the whole changeset after the final chunk.
+
 Core rules:
 
 - Inspect the workspace before assuming a JSKIT app exists.
@@ -31,7 +61,6 @@ Core rules:
   - `Why this sticks: ...`
   - `Not doing: ...`
 - Keep that checkpoint compact. Do not expand it into a long preamble unless the developer asks for detail.
-- When a request involves JSKIT UI, routing, surfaces, CRUDs, filters, placements, live actions, or similar implementation details, scan `node_modules/@jskit-ai/agent-docs/patterns/INDEX.md` for matching keywords and read only the relevant pattern files.
 - Reuse existing JSKIT helpers and runtime seams before adding new local helpers.
 - A freshly scaffolded JSKIT app can still be in Stage 1. If the app was just created and platform decisions are not settled yet, continue with the initialize workflow before adding runtime packages.
 - Do not treat a missing `config.tenancyMode` line or an untouched minimal scaffold as a final tenancy decision.
@@ -43,7 +72,6 @@ Core rules:
 - For CRUD chunks, ask the developer which operations are allowed, which fields belong in the list view if one exists, and the intended look of the view and edit/new forms before generating code.
 - Every user-facing screen must pass a Material Design and Vuetify quality review before the chunk is considered done.
 - Do not implement app features before the blueprint has the database, surfaces, ownership model, and route/screen plan written down.
-- For substantial or multi-chunk work, create or update `.jskit/WORKBOARD.md` as the per-request execution tracker.
 - Break planned work into reviewable chunks before implementing. One CRUD is usually one chunk, but auth/platform setup, shell work, and cross-cutting integrations can be their own chunks.
 - Do not move to the next chunk until the current chunk has passed implementation, deslop review, JSKIT best-practices review, Material Design/Vuetify review, and verification.
 - If a feature spans more than one chunk, run a final whole-changeset deslop pass, JSKIT pass, Material Design/Vuetify pass, and verification pass after the last chunk.
