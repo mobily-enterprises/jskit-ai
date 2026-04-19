@@ -12,6 +12,8 @@ export default defineConfig({
   themeConfig: {
     siteTitle: "JSKIT",
     nav: [
+      { text: "AI Ready", link: "/ai-ready" },
+      { text: "Vibe Guide", link: "/vibe-guide" },
       { text: "Guide", link: "/guide/" },
       { text: "GitHub", link: "https://github.com/mobily-enterprises/jskit-ai" }
     ],
