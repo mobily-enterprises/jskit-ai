@@ -363,7 +363,11 @@ Local functions
 - `normalizeFunctionMap(value = {})`
 - `createInitialFilterValue(filter = {})`
 - `normalizePresetEntries(presets = [])`
+- `resolvePresetValues(preset = {}, { values = {}, filters = {} } = {})`
 - `normalizePresetFilterValue(filter = {}, rawValue)`
+- `normalizeCurrentManyFilterValues(value)`
+- `matchArrayValues(currentValue = [], expectedValue = [])`
+- `matchesPresetFilterValue(filter = {}, currentValue, rawExpectedValue)`
 - `resetFilterValue(values, filter = {})`
 - `applyPresetFilterValue(values, filter = {}, rawValue)`
 - `createQueryParams(values, filterEntries = [])`

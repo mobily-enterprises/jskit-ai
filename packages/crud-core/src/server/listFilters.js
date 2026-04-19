@@ -24,9 +24,22 @@ import {
   CRUD_LIST_FILTER_TYPE_PRESENCE
 } from "@jskit-ai/kernel/shared/support/crudListFilters";
 
+const DATE_FILTER_PATTERN_SOURCE = "^\\d{4}-\\d{2}-\\d{2}$";
 const DATE_FILTER_PATTERN = /^\d{4}-\d{2}-\d{2}$/u;
-const stringOrNumberSchema = Type.Union([
-  Type.String({ minLength: 1 }),
+const NUMBER_FILTER_PATTERN_SOURCE = "^[+-]?(?:\\d+(?:\\.\\d*)?|\\.\\d+)(?:[eE][+-]?\\d+)?$";
+const CRUD_LIST_FILTER_INVALID_VALUES_REJECT = "reject";
+const CRUD_LIST_FILTER_INVALID_VALUES_DISCARD = "discard";
+const CRUD_LIST_FILTER_INVALID_VALUES_MODES = Object.freeze([
+  CRUD_LIST_FILTER_INVALID_VALUES_REJECT,
+  CRUD_LIST_FILTER_INVALID_VALUES_DISCARD
+]);
+const looseTextInputSchema = Type.String({ minLength: 0 });
+const strictNumberInputSchema = Type.Union([
+  Type.String({ pattern: NUMBER_FILTER_PATTERN_SOURCE }),
+  Type.Number()
+]);
+const looseStringOrNumberSchema = Type.Union([
+  looseTextInputSchema,
   Type.Number()
 ]);
 const recordIdInputSchema = Type.Union([
@@ -38,6 +51,17 @@ const flagInputSchema = Type.Union([
   Type.Boolean(),
   Type.Number()
 ]);
+
+function normalizeCrudListFilterInvalidValues(value = "") {
+  const normalized = normalizeText(value).toLowerCase();
+  if (CRUD_LIST_FILTER_INVALID_VALUES_MODES.includes(normalized)) {
+    return normalized;
+  }
+
+  throw new TypeError(
+    `Unsupported CRUD list filter invalidValues mode "${value}". Expected one of: ${CRUD_LIST_FILTER_INVALID_VALUES_MODES.join(", ")}.`
+  );
+}
 
 function createSingleOrMultiValueSchema(itemSchema) {
   return Type.Optional(
@@ -133,7 +157,9 @@ function addDaysToDateFilterValue(value = "", days = 0) {
   return `${year}-${month}-${day}`;
 }
 
-function createFilterQuerySchema(filter = {}) {
+function createFilterQuerySchema(filter = {}, { invalidValues = CRUD_LIST_FILTER_INVALID_VALUES_REJECT } = {}) {
+  const invalidValueMode = normalizeCrudListFilterInvalidValues(invalidValues);
+  const discardInvalidValues = invalidValueMode === CRUD_LIST_FILTER_INVALID_VALUES_DISCARD;
   const allowedValues = (Array.isArray(filter.options) ? filter.options : []).map((entry) => entry.value);
 
   if (filter.type === CRUD_LIST_FILTER_TYPE_FLAG) {
@@ -148,7 +174,11 @@ function createFilterQuerySchema(filter = {}) {
   if (filter.type === CRUD_LIST_FILTER_TYPE_ENUM || filter.type === CRUD_LIST_FILTER_TYPE_PRESENCE) {
     return Type.Object(
       {
-        [filter.queryKey]: Type.Optional(Type.String({ enum: allowedValues }))
+        [filter.queryKey]: Type.Optional(
+          discardInvalidValues
+            ? looseTextInputSchema
+            : Type.String({ enum: allowedValues })
+        )
       },
       { additionalProperties: false }
     );
@@ -158,7 +188,9 @@ function createFilterQuerySchema(filter = {}) {
     return Type.Object(
       {
         [filter.queryKey]: createSingleOrMultiValueSchema(
-          Type.String({ enum: allowedValues })
+          discardInvalidValues
+            ? looseTextInputSchema
+            : Type.String({ enum: allowedValues })
         )
       },
       { additionalProperties: false }
@@ -168,7 +200,11 @@ function createFilterQuerySchema(filter = {}) {
   if (filter.type === CRUD_LIST_FILTER_TYPE_RECORD_ID) {
     return Type.Object(
       {
-        [filter.queryKey]: Type.Optional(recordIdInputSchema)
+        [filter.queryKey]: Type.Optional(
+          discardInvalidValues
+            ? looseStringOrNumberSchema
+            : recordIdInputSchema
+        )
       },
       { additionalProperties: false }
     );
@@ -177,7 +213,11 @@ function createFilterQuerySchema(filter = {}) {
   if (filter.type === CRUD_LIST_FILTER_TYPE_RECORD_ID_MANY) {
     return Type.Object(
       {
-        [filter.queryKey]: createSingleOrMultiValueSchema(recordIdInputSchema)
+        [filter.queryKey]: createSingleOrMultiValueSchema(
+          discardInvalidValues
+            ? looseStringOrNumberSchema
+            : recordIdInputSchema
+        )
       },
       { additionalProperties: false }
     );
@@ -186,7 +226,11 @@ function createFilterQuerySchema(filter = {}) {
   if (filter.type === CRUD_LIST_FILTER_TYPE_DATE) {
     return Type.Object(
       {
-        [filter.queryKey]: Type.Optional(Type.String({ pattern: "^\\d{4}-\\d{2}-\\d{2}$" }))
+        [filter.queryKey]: Type.Optional(
+          discardInvalidValues
+            ? looseTextInputSchema
+            : Type.String({ pattern: DATE_FILTER_PATTERN_SOURCE })
+        )
       },
       { additionalProperties: false }
     );
@@ -195,8 +239,16 @@ function createFilterQuerySchema(filter = {}) {
   if (filter.type === CRUD_LIST_FILTER_TYPE_DATE_RANGE) {
     return Type.Object(
       {
-        [filter.fromKey]: Type.Optional(Type.String({ pattern: "^\\d{4}-\\d{2}-\\d{2}$" })),
-        [filter.toKey]: Type.Optional(Type.String({ pattern: "^\\d{4}-\\d{2}-\\d{2}$" }))
+        [filter.fromKey]: Type.Optional(
+          discardInvalidValues
+            ? looseTextInputSchema
+            : Type.String({ pattern: DATE_FILTER_PATTERN_SOURCE })
+        ),
+        [filter.toKey]: Type.Optional(
+          discardInvalidValues
+            ? looseTextInputSchema
+            : Type.String({ pattern: DATE_FILTER_PATTERN_SOURCE })
+        )
       },
       { additionalProperties: false }
     );
@@ -205,8 +257,16 @@ function createFilterQuerySchema(filter = {}) {
   if (filter.type === CRUD_LIST_FILTER_TYPE_NUMBER_RANGE) {
     return Type.Object(
       {
-        [filter.minKey]: Type.Optional(stringOrNumberSchema),
-        [filter.maxKey]: Type.Optional(stringOrNumberSchema)
+        [filter.minKey]: Type.Optional(
+          discardInvalidValues
+            ? looseStringOrNumberSchema
+            : strictNumberInputSchema
+        ),
+        [filter.maxKey]: Type.Optional(
+          discardInvalidValues
+            ? looseStringOrNumberSchema
+            : strictNumberInputSchema
+        )
       },
       { additionalProperties: false }
     );
@@ -402,7 +462,6 @@ function createCrudListFilters(definitions = {}, { columns = {}, apply = {} } = 
   const normalizedFilters = defineCrudListFilters(definitions);
   const normalizedColumns = normalizeColumnsMap(columns);
   const filterEntries = Object.values(normalizedFilters);
-  const schema = mergeObjectSchemas(filterEntries.map((filter) => createFilterQuerySchema(filter)));
 
   function normalize(payload = {}) {
     const source = normalizeObjectInput(payload);
@@ -419,6 +478,25 @@ function createCrudListFilters(definitions = {}, { columns = {}, apply = {} } = 
 
     return Object.freeze(normalized);
   }
+
+  const queryValidators = Object.freeze({
+    [CRUD_LIST_FILTER_INVALID_VALUES_REJECT]: Object.freeze({
+      schema: mergeObjectSchemas(
+        filterEntries.map((filter) => createFilterQuerySchema(filter, {
+          invalidValues: CRUD_LIST_FILTER_INVALID_VALUES_REJECT
+        }))
+      ),
+      normalize
+    }),
+    [CRUD_LIST_FILTER_INVALID_VALUES_DISCARD]: Object.freeze({
+      schema: mergeObjectSchemas(
+        filterEntries.map((filter) => createFilterQuerySchema(filter, {
+          invalidValues: CRUD_LIST_FILTER_INVALID_VALUES_DISCARD
+        }))
+      ),
+      normalize
+    })
+  });
 
   function applyQuery(queryBuilder, payload = {}) {
     if (!queryBuilder || typeof queryBuilder.where !== "function") {
@@ -449,15 +527,21 @@ function createCrudListFilters(definitions = {}, { columns = {}, apply = {} } = 
     return queryBuilder;
   }
 
+  function createQueryValidator({ invalidValues } = {}) {
+    const invalidValueMode = normalizeCrudListFilterInvalidValues(invalidValues);
+    return queryValidators[invalidValueMode];
+  }
+
   return Object.freeze({
     filters: normalizedFilters,
-    queryValidator: Object.freeze({
-      schema,
-      normalize
-    }),
+    createQueryValidator,
     normalize,
     applyQuery
   });
 }
 
-export { createCrudListFilters };
+export {
+  CRUD_LIST_FILTER_INVALID_VALUES_REJECT,
+  CRUD_LIST_FILTER_INVALID_VALUES_DISCARD,
+  createCrudListFilters
+};
