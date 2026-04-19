@@ -13,6 +13,8 @@
     "./client/composables/useCommand": "./src/client/composables/useCommand.js",
     "./client/composables/useCrudAddEdit": "./src/client/composables/records/useCrudAddEdit.js",
     "./client/composables/crudLookupFieldRuntime": "./src/client/composables/crud/crudLookupFieldRuntime.js",
+    "./client/composables/useCrudListFilterLookups": "./src/client/composables/useCrudListFilterLookups.js",
+    "./client/composables/useCrudListFilters": "./src/client/composables/useCrudListFilters.js",
     "./client/composables/useList": "./src/client/composables/records/useList.js",
     "./client/composables/useCrudList": "./src/client/composables/records/useCrudList.js",
     "./client/composables/useCrudListParentTitle": "./src/client/composables/useCrudListParentTitle.js",

@@ -25,7 +25,7 @@ Before non-trivial edits, print a short visible checkpoint for the user in this 
 - `Why this sticks: ...`
 - `Not doing: ...`
 
-Keep it compact. Do not expand this into a long multi-paragraph preamble unless the user asks for detail.
+Keep it compact. Do not expand this into a long multi-paragraph preamble unless the user asks for detail. Have all of them in one line.
 
 When asked to create or refresh distributed agent docs:
 
@@ -38,5 +38,5 @@ When asked to create or refresh distributed agent docs:
 ## JSKIT Patterns
 
 - `packages/agent-docs/patterns/INDEX.md` is the keyword index for recurring JSKIT implementation heuristics and workflow traps.
-- When a request involves JSKIT UI, routing, surfaces, CRUDs, placements, live actions, or similar implementation details, scan the pattern index for matching keywords and read only the relevant pattern files.
+- When a request involves JSKIT UI, routing, surfaces, CRUDs, filters, placements, live actions, or similar implementation details, scan the pattern index for matching keywords and read only the relevant pattern files.
 - Keep `AGENTS.md` short. Add recurring JSKIT heuristics to `packages/agent-docs/patterns/`, not as one-off bullets here.

@@ -678,7 +678,7 @@ The baseline generator output is only the start. As the tutorial's `contacts`, `
 
 - `src/server/listQueryValidators.js` when a list needs extra query filters beyond `q`
 - `src/server/service.test.js` once save/delete rules stop being trivial
-- `src/composables/contacts/useContactsListFilters.js` when the contacts page gains route-backed filter state
+- `packages/contacts/src/shared/contactListFilters.js` when the contacts CRUD gains structured list filters that both server and client should share
 - `src/composables/addresses/useAddressDisplay.js` when addresses need app-specific display formatting
 - `src/composables/comments/useCommentsListRuntime.js` when an embedded comments list needs local UI state
 
@@ -686,6 +686,7 @@ That is the right direction of growth:
 
 - server customizations stay in the CRUD package
 - presentation and page-specific UI state stay in app-owned client files
+- shared structured list filters live best in a CRUD-package shared module that both server and client can import
 
 ## Search and filters: the deep dive
 
@@ -782,18 +783,47 @@ Usually nothing changes. The client can keep sending `q`.
 - Do not dump every text column into search just because you can.
 - In this tutorial CRUD, `notes` is a good example of a field you might leave out if you want fast, predictable list search.
 
-### Pattern 3: structured `contacts` filters such as `hasEmail`, `hasPhone`, and `hasNotes`
+### Pattern 3: structured list filters from one shared definition
 
-This is the first extension that still fits the `contacts` table from the previous chapter with no schema changes.
+This is the default pattern once a CRUD list needs real filters.
+
+Do not hand-build:
+
+- one filter shape in the page
+- a second filter shape in `listQueryValidators.js`
+- and a third filter shape in `repository.js`
+
+Instead:
+
+1. define the filters once in a shared CRUD-package module
+2. build the server runtime from that definition with `createCrudListFilters(...)`
+3. build the client runtime from that same definition with `useCrudListFilters(...)`
+
+For example, a shared filter-definition module can look like this:
+
+```js
+export const CONTACTS_LIST_FILTER_DEFINITIONS = Object.freeze({
+  onlyStaff: {
+    type: "flag",
+    label: "Staff"
+  },
+  onlyVip: {
+    type: "flag",
+    label: "VIP"
+  },
+  onlyArchived: {
+    type: "flag",
+    label: "Archived"
+  }
+});
+```
 
 #### Client side
 
-Keep filter state in a small app-owned composable, then pass it into `useCrudList()` as `queryParams`.
-
-Example shape:
+Build the filter runtime directly from the shared definitions:
 
 ```js
-const listFilters = useContactsListFilters();
+const listFilters = useCrudListFilters(CONTACTS_LIST_FILTER_DEFINITIONS);
 
 const records = useCrudList({
   resource: uiResource,
@@ -802,9 +832,7 @@ const records = useCrudList({
     enabled: true,
     mode: "query"
   },
-  queryParams: computed(() => ({
-    ...listFilters.filters
-  })),
+  queryParams: listFilters.queryParams,
   syncToRoute: {
     enabled: true,
     search: true,
@@ -814,53 +842,50 @@ const records = useCrudList({
 });
 ```
 
-This keeps the filters:
+That gives you, from one place:
 
-- visible in the URL
-- restorable on refresh
-- preserved when opening a record and coming back
+- `listFilters.values`
+- `listFilters.queryParams`
+- `listFilters.activeChips`
+- `listFilters.hasActiveFilters`
+- `listFilters.clearChip(...)`
+- `listFilters.clearFilters()`
+- `listFilters.toggle(...)` for flag filters
+
+So the same runtime owns:
+
+- URL-synced query params
+- filter chips
+- reset logic
+- preset application
+- small flag toggles
 
 #### Server side
 
-Add a dedicated query validator:
+Build the server runtime from the same shared definitions:
 
 ```js
-const contactsListFiltersQueryValidator = Object.freeze({
-  schema: Type.Object(
-    {
-      hasEmail: Type.Optional(...),
-      hasPhone: Type.Optional(...),
-      hasNotes: Type.Optional(...)
-    },
-    { additionalProperties: false }
-  ),
-  normalize(payload = {}) {
-    const normalized = {};
-    if (Object.hasOwn(payload, "hasEmail")) normalized.hasEmail = 1;
-    if (Object.hasOwn(payload, "hasPhone")) normalized.hasPhone = 1;
-    if (Object.hasOwn(payload, "hasNotes")) normalized.hasNotes = 1;
-    return normalized;
+const contactsListFiltersRuntime = createCrudListFilters(
+  CONTACTS_LIST_FILTER_DEFINITIONS,
+  {
+    columns: {
+      onlyStaff: "is_staff",
+      onlyVip: "vip",
+      onlyArchived: "archived"
+    }
   }
-});
+);
+
+const contactsListFiltersQueryValidator = contactsListFiltersRuntime.queryValidator;
 ```
 
-Wire it into the route and action validators for the list operation, then apply the filter in `repository.js`:
+Wire the runtime into the list validator and the repository:
 
 ```js
 async function list(query = {}, callOptions = {}) {
   return crudRepositoryList(repositoryRuntime, knex, query, options, callOptions, {
     modifyQuery(dbQuery, context = {}) {
-      const sourceQuery = context.query || {};
-
-      if (sourceQuery.hasEmail !== undefined) {
-        dbQuery.whereNotNull("email").where("email", "<>", "");
-      }
-      if (sourceQuery.hasPhone !== undefined) {
-        dbQuery.whereNotNull("phone").where("phone", "<>", "");
-      }
-      if (sourceQuery.hasNotes !== undefined) {
-        dbQuery.whereNotNull("notes").where("notes", "<>", "");
-      }
+      return contactsListFiltersRuntime.applyQuery(dbQuery, context.query || {});
     }
   });
 }
@@ -868,11 +893,115 @@ async function list(query = {}, callOptions = {}) {
 
 #### Best practices
 
-- Keep the client keys, validator keys, and repository keys identical.
-- Use dedicated query params for booleans and facets. Do not overload `q`.
-- Put SQL in the repository, not in the page.
+- Put the filter definitions in the CRUD package, not the page. Both server and client need them.
+- Keep the filter keys identical all the way through: definition key, query param key, and repository meaning.
+- Use `createCrudListFilters(...)` unless the list semantics are truly unusual.
+- Use `q` for free-text and explicit query params for structured filters.
 
-### Pattern 4: free-text search plus structured `contacts` filters together
+### Pattern 4: lookup-backed structured filters
+
+This is the next real-world step: filters like `supplierContactId`, `locationId`, or `contactId` where the user needs:
+
+- remote autocomplete search
+- URL-synced selected ids
+- readable chip labels instead of raw ids
+
+The right pattern is:
+
+1. keep the lookup filter in the shared definitions
+2. use `useCrudListFilters(...)` for state, chips, and query params
+3. use `useCrudListFilterLookups(...)` for option loading and label resolution
+
+Example shared definition:
+
+```js
+export const RECEIVAL_LIST_FILTER_DEFINITIONS = Object.freeze({
+  supplierContactId: {
+    type: "recordIdMany",
+    label: "Supplier",
+    lookup: {
+      namespace: "contacts"
+    }
+  },
+  pollenTypeId: {
+    type: "recordIdMany",
+    label: "Pollen Type",
+    lookup: {
+      namespace: "pollen-types",
+      labelKey: "name"
+    }
+  }
+});
+```
+
+#### Client side
+
+```js
+let filterLookups = null;
+
+const listFilters = useCrudListFilters(
+  RECEIVAL_LIST_FILTER_DEFINITIONS,
+  {
+    labelResolvers: {
+      supplierContactId(value) {
+        return filterLookups?.resolveLookupLabel("supplierContactId", value, "Supplier") || "";
+      }
+    }
+  }
+);
+
+filterLookups = useCrudListFilterLookups(
+  RECEIVAL_LIST_FILTER_DEFINITIONS,
+  {
+    values: listFilters.values,
+    queryKeyPrefix: ["ui-generator", "receivals", "filters"],
+    placementSourcePrefix: "ui-generator.receivals.list.filters",
+    requestQueryParams: {
+      supplierContactId: { limit: 25 }
+    },
+    labelResolvers: {
+      supplierContactId(item = {}) {
+        return `${item.firstName} ${item.lastName}`.trim();
+      }
+    }
+  }
+);
+
+const supplierFilterLookup = filterLookups.resolveLookup("supplierContactId");
+```
+
+Then bind the autocomplete:
+
+```vue
+<v-autocomplete
+  v-model="listFilters.values.supplierContactId"
+  :items="supplierFilterLookup.options"
+  :search="supplierFilterLookup.searchQuery"
+  :loading="supplierFilterLookup.isLoading"
+  item-title="label"
+  item-value="value"
+  multiple
+  chips
+  no-filter
+  @update:search="supplierFilterLookup.setSearch"
+/>
+```
+
+#### Why this is better than a page-local `useList()` wrapper
+
+- the CRUD filter state still lives in `useCrudListFilters(...)`
+- the autocomplete loading logic lives in one reusable helper
+- the label resolution used by filter chips and the autocomplete stays consistent
+- a second screen can reuse the same pattern instead of rewriting it
+
+#### Best practices
+
+- Put lookup metadata in the shared filter definitions.
+- Use `useCrudListFilterLookups(...)` for remote filter autocompletes instead of building a custom `useList()` wrapper per screen.
+- Keep lookup label formatting on the client side. It is UI presentation, not repository logic.
+- Keep unusual SQL semantics, such as `pending = whereNull(...)`, in the server runtime `apply` override.
+
+### Pattern 5: free-text search plus structured filters together
 
 This is the most common real-world CRUD list.
 
@@ -895,7 +1024,7 @@ Let the generic list search handle `q`, and let your custom validator/repository
 - Preserve the current route query when linking to view/edit pages so users can return to the same filtered list state.
 - Let list changes reset pagination; `useCrudList()` already does this for search and query-param changes.
 
-### Pattern 5: parent-scoped child CRUD search for `addresses`
+### Pattern 6: parent-scoped child CRUD search for `addresses`
 
 For nested CRUDs such as the `addresses` resource from the previous chapter, parent scoping and search usually work together.
 
@@ -935,7 +1064,7 @@ That keeps child-list filtering grounded in the actual resource definition inste
 - Let the resource contract define parent filter shape.
 - Treat parent-scoped filtering as repository/query behavior, not as presentation logic.
 
-### Pattern 6: local-only search for embedded `comments`
+### Pattern 7: local-only search for embedded `comments`
 
 Sometimes server search is unnecessary.
 
