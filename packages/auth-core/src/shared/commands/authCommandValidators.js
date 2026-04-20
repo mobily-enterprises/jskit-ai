@@ -162,6 +162,20 @@ const oauthCompleteResponseValidator = Object.freeze({
   )
 });
 
+const devLoginAsResponseValidator = Object.freeze({
+  schema: Type.Object(
+    {
+      ok: Type.Boolean(),
+      userId: Type.String({ minLength: 1 }),
+      username: Type.String({ minLength: 1, maxLength: 120 }),
+      email: authEmailValidator.schema
+    },
+    {
+      additionalProperties: false
+    }
+  )
+});
+
 const logoutResponseValidator = Object.freeze({
   schema: Type.Object(
     {
@@ -247,6 +261,7 @@ export {
   loginResponseValidator,
   otpVerifyResponseValidator,
   oauthCompleteResponseValidator,
+  devLoginAsResponseValidator,
   logoutResponseValidator,
   oauthProviderCatalogEntryValidator,
   sessionResponseValidator,

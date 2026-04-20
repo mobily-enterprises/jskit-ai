@@ -4,7 +4,7 @@ import { normalizeRecordId } from "@jskit-ai/kernel/shared/support/normalize";
 import { createService } from "../lib/service.js";
 import { createStandaloneProfileSyncService } from "../lib/standaloneProfileSyncService.js";
 import { createAuthSessionEventsService } from "../lib/authSessionEventsService.js";
-import { authActions } from "../lib/actions/auth.contributor.js";
+import { buildAuthActions } from "../lib/actions/auth.contributor.js";
 const AUTH_PROFILE_MODE_STANDALONE = "standalone";
 const AUTH_PROFILE_MODE_USERS = "users";
 const SUPPORTED_AUTH_PROFILE_MODES = Object.freeze([AUTH_PROFILE_MODE_STANDALONE, AUTH_PROFILE_MODE_USERS]);
@@ -14,6 +14,20 @@ function splitCsv(value) {
     .split(",")
     .map((entry) => entry.trim())
     .filter(Boolean);
+}
+
+function parseBoolean(value, fallback = false) {
+  const raw = String(value || "").trim().toLowerCase();
+  if (!raw) {
+    return fallback;
+  }
+  if (["1", "true", "yes", "on"].includes(raw)) {
+    return true;
+  }
+  if (["0", "false", "no", "off"].includes(raw)) {
+    return false;
+  }
+  return fallback;
 }
 
 function normalizeRecord(value) {
@@ -88,6 +102,18 @@ function resolveAuthProfileMode(env) {
   );
 }
 
+function isDevAuthBypassEnabledForRegistration(env) {
+  if (!isDevAuthBypassRequested(env)) {
+    return false;
+  }
+
+  return String(env?.NODE_ENV || "development").trim().toLowerCase() !== "production";
+}
+
+function isDevAuthBypassRequested(env) {
+  return parseBoolean(env?.AUTH_DEV_BYPASS_ENABLED, false);
+}
+
 function createInMemoryUserSettingsRepository() {
   const settingsByUserId = new Map();
 
@@ -137,10 +163,24 @@ function resolveCommonDependencies(scope) {
   return dependencies;
 }
 
+function resolveRuntimeEnv(scope) {
+  const dependencies = resolveCommonDependencies(scope);
+  const envFromDependencies =
+    dependencies?.env && typeof dependencies.env === "object" ? dependencies.env : {};
+
+  return {
+    ...process.env,
+    ...envFromDependencies
+  };
+}
+
 function resolveOptionalRepositories(scope) {
   const repositories = {};
   if (scope.has("userSettingsRepository")) {
     repositories.userSettingsRepository = scope.make("userSettingsRepository");
+  }
+  if (scope.has("usersRepository")) {
+    repositories.usersRepository = scope.make("usersRepository");
   }
   return repositories;
 }
@@ -163,19 +203,16 @@ class AuthSupabaseServiceProvider {
 
     if (!app.has("authService")) {
       app.singleton("authService", (scope) => {
-        const dependencies = resolveCommonDependencies(scope);
-        const envFromDependencies =
-          dependencies?.env && typeof dependencies.env === "object" ? dependencies.env : {};
-        const env = {
-          ...process.env,
-          ...envFromDependencies
-        };
+        const env = resolveRuntimeEnv(scope);
         const appConfig = scope.has("appConfig") ? scope.make("appConfig") : {};
         const authProvider = resolveAuthProviderConfig(env, appConfig);
         const repositories = resolveOptionalRepositories(scope);
         const userSettingsRepository = repositories.userSettingsRepository || fallbackUserSettingsRepository;
+        const devAuthBypassEnabled = parseBoolean(env.AUTH_DEV_BYPASS_ENABLED, false);
         if (!authProvider.supabaseUrl || !authProvider.supabasePublishableKey) {
-          return null;
+          if (!devAuthBypassEnabled) {
+            return null;
+          }
         }
         const authProfileMode = resolveAuthProfileMode(env);
         let userProfileSyncService = fallbackStandaloneProfileSyncService;
@@ -197,7 +234,12 @@ class AuthSupabaseServiceProvider {
           }),
           nodeEnv: String(env.NODE_ENV || "development").trim() || "development",
           userSettingsRepository,
-          userProfileSyncService
+          userProfileSyncService,
+          usersRepository: repositories.usersRepository || null,
+          devAuthBypassEnabled,
+          devAuthBypassSecret: String(env.AUTH_DEV_BYPASS_SECRET || "").trim(),
+          devAuthAccessTtlSeconds: env.AUTH_DEV_ACCESS_TTL_SECONDS,
+          devAuthRefreshTtlSeconds: env.AUTH_DEV_REFRESH_TTL_SECONDS
         });
       });
     }
@@ -236,7 +278,9 @@ class AuthSupabaseServiceProvider {
     );
 
     app.actions(
-      withActionDefaults(authActions, {
+      withActionDefaults(buildAuthActions({
+        includeDevLoginAs: isDevAuthBypassEnabledForRegistration(resolveRuntimeEnv(app))
+      }), {
         domain: "auth",
         dependencies: {
           authService: "authService",
@@ -244,6 +288,18 @@ class AuthSupabaseServiceProvider {
         }
       })
     );
+  }
+
+  boot(app) {
+    if (!app || typeof app.make !== "function") {
+      throw new Error("AuthSupabaseServiceProvider requires application make().");
+    }
+
+    if (!isDevAuthBypassRequested(resolveRuntimeEnv(app))) {
+      return;
+    }
+
+    app.make("authService");
   }
 }
 

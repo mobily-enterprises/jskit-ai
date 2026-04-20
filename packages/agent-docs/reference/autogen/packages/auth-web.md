@@ -217,7 +217,7 @@ Exports
 
 ### `src/server/routes/authRoutes.js`
 Exports
-- `buildRoutes(controller)`
+- `buildRoutes(controller, { includeDevLoginAs = false } = {})`
 
 ### `src/server/services/AuthWebService.js`
 Exports

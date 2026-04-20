@@ -927,6 +927,118 @@ That explains why the login screen and auth guard runtime both care about `/api/
 
 It is also why the shell widget can react cleanly to auth state without storing raw session tokens in client state. The browser just asks the app for the current session view, and the app derives that from its cookies plus Supabase.
 
+### Authenticated Playwright testing with the dev auth bypass
+
+JSKIT now ships a development-only auth bootstrap path specifically so authenticated UI can be verified in Playwright without depending on a real live login flow through Supabase.
+
+This is the standard path the agent should use for authenticated browser tests:
+
+- enable the dev auth bypass in development
+- create a session for an existing user through the local app
+- let the browser keep the resulting HTTP-only cookies
+- navigate to the protected page and verify the feature
+
+The feature is intentionally narrow.
+
+- It is development-only.
+- It must never be enabled in production.
+- JSKIT rejects boot if `AUTH_DEV_BYPASS_ENABLED=true` while `NODE_ENV=production`.
+- The route only looks up an existing user. It does not create one.
+
+The environment variables are:
+
+```bash
+AUTH_DEV_BYPASS_ENABLED=true
+AUTH_DEV_BYPASS_SECRET=replace-this-with-a-local-dev-secret
+```
+
+When enabled outside production, the app exposes:
+
+```text
+POST /api/dev-auth/login-as
+```
+
+The request body must contain either:
+
+```json
+{ "userId": "7" }
+```
+
+or:
+
+```json
+{ "email": "ada@example.com" }
+```
+
+The response is intentionally small:
+
+```json
+{
+  "ok": true,
+  "userId": "7",
+  "username": "Ada Example",
+  "email": "ada@example.com"
+}
+```
+
+Behind the scenes, JSKIT creates the same HTTP-only auth cookies that the normal login flow would create. That means Playwright should not try to read raw tokens. It should bootstrap the session in the browser context, then navigate normally.
+
+One subtle point matters here:
+
+- `/api/dev-auth/login-as` is still an unsafe `POST`
+- JSKIT still expects a CSRF token
+- the browser can get that token from `/api/session`
+
+So the normal Playwright shape is:
+
+1. open a same-origin page first
+2. call `/api/session` to read `csrfToken`
+3. call `/api/dev-auth/login-as` with `credentials: "include"` and the `csrf-token` header
+4. navigate to the protected route and run the assertions
+
+For example:
+
+```ts
+await page.goto("/");
+
+await page.evaluate(async ({ email }) => {
+  const sessionResponse = await fetch("/api/session", {
+    credentials: "include"
+  });
+  if (!sessionResponse.ok) {
+    throw new Error(`Session bootstrap failed: ${sessionResponse.status}`);
+  }
+
+  const sessionPayload = await sessionResponse.json();
+  const csrfToken = String(sessionPayload?.csrfToken || "");
+  if (!csrfToken) {
+    throw new Error("Missing csrfToken from /api/session.");
+  }
+
+  const loginResponse = await fetch("/api/dev-auth/login-as", {
+    method: "POST",
+    credentials: "include",
+    headers: {
+      "content-type": "application/json",
+      "csrf-token": csrfToken
+    },
+    body: JSON.stringify({ email })
+  });
+
+  if (!loginResponse.ok) {
+    throw new Error(`Dev login failed: ${loginResponse.status} ${await loginResponse.text()}`);
+  }
+}, { email: "ada@example.com" });
+
+await page.goto("/w/acme/admin/contacts");
+```
+
+That flow is preferable to driving the real sign-in form in feature tests because it keeps the test focused on the UI feature being added, not on an external auth dependency. If a chunk changes user-facing UI and the flow requires login, the expected JSKIT review standard is:
+
+- use Playwright
+- use the local dev auth bypass or another local session bootstrap path
+- exercise the actual changed behavior, not only page load
+
 ## What appears in Supabase
 
 It is important to separate **Supabase auth data** from **JSKIT app-owned data**.

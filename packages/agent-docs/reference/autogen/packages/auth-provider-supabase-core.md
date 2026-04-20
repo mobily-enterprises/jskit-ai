@@ -26,7 +26,9 @@ Local functions
 
 ### `src/server/lib/actions/auth.contributor.js`
 Exports
-- `authActions`
+- `baseAuthActions`
+- `buildAuthActions({ includeDevLoginAs = false } = {})`
+- `devLoginAsAction`
 Local functions
 - `requireRequestContext(context, actionId)`
 
@@ -106,6 +108,30 @@ Exports
 Exports
 - `createAuthSessionEventsService()`
 
+### `src/server/lib/devAuthBootstrap.js`
+Exports
+- `assertDevAuthBootstrapConfig(config, { usersRepository = null } = {})`
+- `authenticateDevAuthRequest({ request, accessToken = "", refreshToken = "" }, { config, usersRepository = null } = {})`
+- `createDevAuthSession(profile, config)`
+- `ensureDevAuthBootstrapAvailable(config, request)`
+- `isDevAuthToken(token)`
+- `resolveDevAuthConfig({ enabled = false, secret = "", nodeEnv = "development", jwtAudience = "authenticated", accessTtlSeconds = DEFAULT_DEV_AUTH_ACCESS_TTL_SECONDS, refreshTtlSeconds = DEFAULT_DEV_AUTH_REFRESH_TTL_SECONDS } = {})`
+- `resolveDevAuthProfile(input = {}, { usersRepository = null, validationError } = {})`
+Local functions
+- `parseBoolean(value, fallback = false)`
+- `normalizePositiveInteger(value, fallback)`
+- `normalizeRequestHostname(request)`
+- `resolveDirectRemoteAddress(request)`
+- `normalizeLoopbackIp(value)`
+- `isLoopbackIp(value)`
+- `isLoopbackHostname(value)`
+- `isLocalDevAuthRequest(request)`
+- `stripDevAuthTokenPrefix(token)`
+- `buildProfileFromTokenClaims(payload)`
+- `resolveProfileFromTokenClaims(payload, { usersRepository = null } = {})`
+- `signDevAuthToken(kind, profile, config)`
+- `verifyDevAuthToken(token, kind, config)`
+
 ### `src/server/lib/flowGuards.js`
 Exports
 - `requireNoFieldErrors(parsed, validationError)`
@@ -117,7 +143,9 @@ Exports
 Exports
 - `createService`
 - `__testables`
-- `authActions`
+- `baseAuthActions`
+- `buildAuthActions`
+- `devLoginAsAction`
 
 ### `src/server/lib/oauthFlows.js`
 Exports
@@ -206,14 +234,18 @@ Exports
 - `AuthSupabaseServiceProvider`
 Local functions
 - `splitCsv(value)`
+- `parseBoolean(value, fallback = false)`
 - `normalizeRecord(value)`
 - `normalizeOAuthProviderConfigList(value)`
 - `resolveOAuthConfigFromAppConfig(appConfig)`
 - `resolveAllowedReturnToOrigins({ appConfig = {}, appPublicUrl = "" } = {})`
 - `resolveAuthProviderConfig(env, appConfig = {})`
 - `resolveAuthProfileMode(env)`
+- `isDevAuthBypassEnabledForRegistration(env)`
+- `isDevAuthBypassRequested(env)`
 - `createInMemoryUserSettingsRepository()`
 - `resolveCommonDependencies(scope)`
+- `resolveRuntimeEnv(scope)`
 - `resolveOptionalRepositories(scope)`
 
 ### root

@@ -124,6 +124,17 @@ function createRepository(knex) {
     return mapProfileRow(row);
   }
 
+  async function findByEmail(email, options = {}) {
+    const normalizedEmail = normalizeLowerText(email);
+    if (!normalizedEmail) {
+      return null;
+    }
+
+    const client = options?.trx || knex;
+    const row = await client("users").where({ email: normalizedEmail }).first();
+    return mapProfileRow(row);
+  }
+
   async function findByIdentity(identityLike, options = {}) {
     const client = options?.trx || knex;
     const identity = normalizeIdentity(identityLike);
@@ -257,6 +268,7 @@ function createRepository(knex) {
   return Object.freeze({
     withTransaction,
     findById,
+    findByEmail,
     findByIdentity,
     updateDisplayNameById,
     updateAvatarById,

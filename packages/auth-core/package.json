@@ -36,6 +36,7 @@
     "./shared/commands/authLoginOtpVerifyCommand": "./src/shared/commands/authLoginOtpVerifyCommand.js",
     "./shared/commands/authLoginOAuthStartCommand": "./src/shared/commands/authLoginOAuthStartCommand.js",
     "./shared/commands/authLoginOAuthCompleteCommand": "./src/shared/commands/authLoginOAuthCompleteCommand.js",
+    "./shared/commands/authDevLoginAsCommand": "./src/shared/commands/authDevLoginAsCommand.js",
     "./shared/commands/authPasswordResetRequestCommand": "./src/shared/commands/authPasswordResetRequestCommand.js",
     "./shared/commands/authPasswordRecoveryCompleteCommand": "./src/shared/commands/authPasswordRecoveryCompleteCommand.js",
     "./shared/commands/authPasswordResetCommand": "./src/shared/commands/authPasswordResetCommand.js",

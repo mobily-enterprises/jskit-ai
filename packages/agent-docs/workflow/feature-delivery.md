@@ -22,7 +22,7 @@ For each chunk, follow this order:
 5. Deslop the chunk.
 6. Review the chunk against JSKIT reuse and best practices.
 7. Review user-facing screens against Material Design and Vuetify best practices, and improve any screens that do not meet that bar.
-8. Verify the chunk with the relevant commands, including Playwright for meaningful UI flows.
+8. Verify the chunk with the relevant commands. Any chunk that adds or changes user-facing UI must include a Playwright flow that exercises the changed behavior.
 9. Update `.jskit/WORKBOARD.md` with status, commands run, and anything still unverified.
 10. Only then move to the next chunk.
 
@@ -59,5 +59,8 @@ After the last chunk:
 
 Playwright note:
 
-- When login is required, prefer a test-only impersonation or session bootstrap path over dependence on a live external auth provider.
+- When login is required, use a test-only auth bypass or session bootstrap path instead of dependence on a live external auth provider.
+- In the standard JSKIT auth stack, the default development path is `POST /api/dev-auth/login-as`, guarded by `AUTH_DEV_BYPASS_ENABLED=true` and `AUTH_DEV_BYPASS_SECRET=...`.
+- That route is development-only and must not be enabled in production.
+- Because it is still an unsafe POST, fetch `csrfToken` from `/api/session`, send it as the `csrf-token` header, and make the request in the same browser context that will run the Playwright assertions so the session cookies land in the page session.
 - If such a path does not exist yet, treat that as a testability gap and decide whether the chunk must add it before the feature is considered complete.

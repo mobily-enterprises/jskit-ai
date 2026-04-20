@@ -68,6 +68,12 @@ test("auth route provider registers routes and executes login/logout handlers", 
           profile: { displayName: "Ada" }
         };
       }
+      if (actionId === "auth.dev.loginAs") {
+        return {
+          session: { access_token: "dev-a", refresh_token: "dev-r" },
+          profile: { id: "7", displayName: "Dev Ada", email: "ada@example.com" }
+        };
+      }
       if (actionId === "auth.logout") {
         return {
           ok: true,
@@ -103,6 +109,9 @@ test("auth route provider registers routes and executes login/logout handlers", 
   assert.equal(resendConfirmationReply.statusCode, 200);
   assert.equal(resendConfirmationReply.payload.ok, true);
 
+  const devLoginRoute = fastify.routes.find((route) => route.method === "POST" && route.url === "/api/dev-auth/login-as");
+  assert.equal(devLoginRoute, undefined);
+
   const logoutRoute = fastify.routes.find((route) => route.method === "POST" && route.url === "/api/logout");
   assert.ok(logoutRoute);
   const logoutReply = createReplyStub();
@@ -112,4 +121,51 @@ test("auth route provider registers routes and executes login/logout handlers", 
 
   assert.equal(events.some((entry) => entry.type === "writeSession"), true);
   assert.equal(events.some((entry) => entry.type === "clearSession"), true);
+});
+
+test("auth route provider registers dev login route only when auth service enables it", async () => {
+  const fastify = createFastifyStub();
+  const app = createApplication();
+  const httpRuntime = createHttpRuntime({ app, fastify });
+
+  const authService = {
+    isDevAuthBootstrapEnabled() {
+      return true;
+    },
+    writeSessionCookies() {},
+    clearSessionCookies() {},
+    getOAuthProviderCatalog() {
+      return { providers: [], defaultProvider: "" };
+    }
+  };
+
+  app.instance("authService", authService);
+  app.instance("actionExecutor", {
+    async execute({ actionId }) {
+      if (actionId === "auth.dev.loginAs") {
+        return {
+          session: { access_token: "dev-a", refresh_token: "dev-r" },
+          profile: { id: "7", displayName: "Dev Ada", email: "ada@example.com" }
+        };
+      }
+      return {};
+    }
+  });
+
+  class MockAuthProvider {
+    static id = "auth.provider";
+  }
+
+  await app.start({ providers: [MockAuthProvider, AuthWebServiceProvider, AuthRouteServiceProvider] });
+
+  const registration = httpRuntime.registerRoutes();
+  assert.equal(registration.routeCount > 0, true);
+
+  const devLoginRoute = fastify.routes.find((route) => route.method === "POST" && route.url === "/api/dev-auth/login-as");
+  assert.ok(devLoginRoute);
+  const devLoginReply = createReplyStub();
+  await devLoginRoute.handler({ body: { userId: "7" } }, devLoginReply);
+  assert.equal(devLoginReply.statusCode, 200);
+  assert.equal(devLoginReply.payload.userId, "7");
+  assert.equal(devLoginReply.payload.username, "Dev Ada");
 });

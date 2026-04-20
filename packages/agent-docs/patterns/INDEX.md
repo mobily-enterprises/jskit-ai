@@ -22,6 +22,8 @@ How to use it:
   - `live-actions.md`
 - ajax, fetch, API call, request, endpoint, HTTP client, `useList()`, `useView()`, `useAddEdit()`, `useEndpointResource()`, `usersWebHttpClient`
   - `client-requests.md`
+- playwright, browser test, e2e, ui verification, authenticated ui test, test auth, dev login as, dev auth bypass
+  - `ui-testing.md`
 - filter, filters, search facets, chips, date range, enum filter, lookup filter, `useCrudListFilters`, `createCrudListFilters`
   - `filters.md`
 
@@ -33,4 +35,5 @@ How to use it:
 - [crud-links.md](./crud-links.md)
 - [live-actions.md](./live-actions.md)
 - [client-requests.md](./client-requests.md)
+- [ui-testing.md](./ui-testing.md)
 - [filters.md](./filters.md)

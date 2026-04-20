@@ -6,6 +6,7 @@ const AUTH_ACTION_IDS = Object.freeze({
   LOGIN_OTP_VERIFY: "auth.login.otp.verify",
   LOGIN_OAUTH_START: "auth.login.oauth.start",
   LOGIN_OAUTH_COMPLETE: "auth.login.oauth.complete",
+  DEV_LOGIN_AS: "auth.dev.loginAs",
   LOGOUT: "auth.logout",
   SESSION_READ: "auth.session.read",
   PASSWORD_RESET_REQUEST: "auth.password.reset.request",

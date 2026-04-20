@@ -35,6 +35,9 @@ function createApi({ request }) {
     oauthComplete(payload) {
       return request(AUTH_PATHS.OAUTH_COMPLETE, { method: "POST", body: payload });
     },
+    devLoginAs(payload) {
+      return request(AUTH_PATHS.DEV_LOGIN_AS, { method: "POST", body: payload });
+    },
     requestPasswordReset(payload) {
       return request(AUTH_PATHS.PASSWORD_FORGOT, { method: "POST", body: payload });
     },

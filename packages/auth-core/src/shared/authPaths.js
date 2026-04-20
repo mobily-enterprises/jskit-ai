@@ -9,6 +9,7 @@ const AUTH_PATHS = Object.freeze({
   PASSWORD_FORGOT: "/api/password/forgot",
   PASSWORD_RECOVERY: "/api/password/recovery",
   PASSWORD_RESET: "/api/password/reset",
+  DEV_LOGIN_AS: "/api/dev-auth/login-as",
   LOGOUT: "/api/logout",
   SESSION: "/api/session"
 });

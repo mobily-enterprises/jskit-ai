@@ -31,8 +31,10 @@ Before calling a chunk or a whole changeset done, review it in four passes:
 4. Verification review
    - run the smallest relevant verification commands for a chunk
    - run the widest relevant verification commands for a whole changeset
-   - include Playwright for meaningful user-facing flows
-   - if login is required, verify the chosen test-auth path or explicitly record that the lack of one is an open gap
+   - any added or changed user-facing UI must be exercised with Playwright
+   - if login is required, use the chosen local test-auth path instead of live external auth
+   - in the standard JSKIT auth stack, prefer the development-only `POST /api/dev-auth/login-as` path
+   - if there is no usable local auth bootstrap path, explicitly record that as a blocking testability gap
    - note anything left unverified
 
 Minimum expectation:
