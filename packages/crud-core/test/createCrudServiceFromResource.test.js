@@ -4,7 +4,7 @@ import { createCrudServiceFromResource } from "../src/server/createCrudServiceFr
 
 function createResourceWithOutputSchema(overrides = {}) {
   return {
-    resource: "contacts",
+    namespace: "contacts",
     operations: {
       view: {
         outputValidator: {
@@ -60,7 +60,7 @@ function createRepositoryDouble(overrides = {}) {
 
 test("createCrudServiceFromResource builds default service events", () => {
   const { baseServiceEvents } = createCrudServiceFromResource({
-    resource: "contacts"
+    namespace: "contacts"
   });
 
   assert.equal(baseServiceEvents.createRecord[0].realtime.event, "contacts.record.changed");
@@ -70,7 +70,7 @@ test("createCrudServiceFromResource builds default service events", () => {
 
 test("createCrudServiceFromResource normalizes namespace for realtime event names", () => {
   const { baseServiceEvents } = createCrudServiceFromResource({
-    resource: "customer-orders"
+    namespace: "customer-orders"
   });
 
   assert.equal(baseServiceEvents.createRecord[0].realtime.event, "customer_orders.record.changed");
@@ -78,7 +78,7 @@ test("createCrudServiceFromResource normalizes namespace for realtime event name
 
 test("createCrudServiceFromResource delegates service methods and applies 404 semantics", async () => {
   const { createBaseService } = createCrudServiceFromResource({
-    resource: "contacts"
+    namespace: "contacts"
   });
   const service = createBaseService({
     repository: createRepositoryDouble()
@@ -107,11 +107,53 @@ test("createCrudServiceFromResource delegates service methods and applies 404 se
   );
 });
 
+test("createCrudServiceFromResource forwards list include as repository call option", async () => {
+  const listCalls = [];
+  const { createBaseService } = createCrudServiceFromResource({
+    namespace: "contacts"
+  });
+  const service = createBaseService({
+    repository: createRepositoryDouble({
+      async list(query = {}, options = {}) {
+        listCalls.push({
+          query,
+          options
+        });
+        return {
+          items: [],
+          nextCursor: null
+        };
+      }
+    })
+  });
+
+  await service.listRecords({
+    q: "tony",
+    include: "primaryVetId"
+  }, {
+    visibilityContext: {
+      visibility: "workspace"
+    }
+  });
+
+  assert.deepEqual(listCalls[0], {
+    query: {
+      q: "tony"
+    },
+    options: {
+      visibilityContext: {
+        visibility: "workspace"
+      },
+      include: "primaryVetId"
+    }
+  });
+});
+
 test("createCrudServiceFromResource passes existing records to patch normalization", async () => {
   const normalizeCalls = [];
   const updateCalls = [];
   const { createBaseService } = createCrudServiceFromResource({
-    resource: "contacts",
+    namespace: "contacts",
     operations: {
       patch: {
         bodyValidator: {
@@ -163,7 +205,7 @@ test("createCrudServiceFromResource passes existing records to patch normalizati
 
 test("createCrudServiceFromResource maps patch field errors to validation errors", async () => {
   const { createBaseService } = createCrudServiceFromResource({
-    resource: "contacts",
+    namespace: "contacts",
     operations: {
       patch: {
         bodyValidator: {
@@ -202,11 +244,11 @@ test("createCrudServiceFromResource maps patch field errors to validation errors
 test("createCrudServiceFromResource validates required inputs", async () => {
   assert.throws(
     () => createCrudServiceFromResource({}),
-    /resource\.resource/
+    /resource\.namespace/
   );
 
   const { createBaseService } = createCrudServiceFromResource({
-    resource: "contacts"
+    namespace: "contacts"
   });
 
   assert.throws(
@@ -229,7 +271,7 @@ test("createCrudServiceFromResource validates required inputs", async () => {
 
 test("createCrudServiceFromResource readable field hooks require view output schema", async () => {
   const { createBaseService } = createCrudServiceFromResource({
-    resource: "contacts"
+    namespace: "contacts"
   });
 
   const service = createBaseService({
@@ -320,7 +362,7 @@ test("createCrudServiceFromResource applies readable field access hooks with dro
 
 test("createCrudServiceFromResource readable filtering fails fast for required non-nullable fields without defaults", async () => {
   const { createBaseService } = createCrudServiceFromResource({
-    resource: "contacts",
+    namespace: "contacts",
     operations: {
       view: {
         outputValidator: {

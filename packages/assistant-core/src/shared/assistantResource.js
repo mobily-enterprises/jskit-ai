@@ -232,7 +232,7 @@ const paginationProperties = Object.freeze({
 });
 
 const assistantResource = Object.freeze({
-  resource: "assistant",
+  namespace: "assistant",
   operations: {
     chatStream: {
       method: "POST",

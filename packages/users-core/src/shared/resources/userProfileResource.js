@@ -91,7 +91,7 @@ const avatarOperationOutputValidator = Object.freeze({
 const USER_PROFILE_OPERATION_MESSAGES = createOperationMessages();
 
 const userProfileResource = Object.freeze({
-  resource: "userProfile",
+  namespace: "userProfile",
   operations: Object.freeze({
     view: Object.freeze({
       method: "GET",

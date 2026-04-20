@@ -185,7 +185,7 @@ const patchBodyValidator = Object.freeze({
 });
 
 const resource = Object.freeze({
-  resource: "customers",
+  namespace: "customers",
   tableName: "customers",
   idColumn: "id",
   operations: {

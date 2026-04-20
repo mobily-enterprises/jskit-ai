@@ -311,7 +311,7 @@ const emptyBodyValidator = Object.freeze({
 const USER_SETTINGS_OPERATION_MESSAGES = createOperationMessages();
 
 const userSettingsResource = Object.freeze({
-  resource: "userSettings",
+  namespace: "userSettings",
   operations: Object.freeze({
     view: Object.freeze({
       method: "GET",

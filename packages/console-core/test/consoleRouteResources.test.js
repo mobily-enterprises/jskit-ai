@@ -10,7 +10,7 @@ import { consoleSettingsResource } from "../src/shared/resources/consoleSettings
 function assertResourceShape(resource, label) {
   assert.ok(resource, `${label} resource must exist.`);
   assert.equal(typeof resource, "object", `${label} resource must be an object.`);
-  assert.equal(typeof resource.resource, "string", `${label}.resource must be a string.`);
+  assert.equal(typeof resource.namespace, "string", `.namespace must be a string.`);
 
   for (const operationName of ["view", "list", "create", "replace", "patch"]) {
     const operation = resource.operations?.[operationName];

@@ -130,7 +130,7 @@ const workspaceSummaryOutputValidator = Object.freeze({
 });
 
 const resource = {
-  resource: "workspace",
+  namespace: "workspace",
   messages: {
     validation: "Fix invalid workspace values and try again.",
     saveSuccess: "Workspace updated.",

@@ -164,7 +164,7 @@ const customerBodySchema = {
 };
 
 const resource = {
-${includeResourceNamespace ? '  resource: "customers",\n' : ""}  operations: {
+${includeResourceNamespace ? '  namespace: "customers",\n' : ""}  operations: {
     list: {
       outputValidator: {
         schema: {
@@ -344,7 +344,7 @@ test("generate @jskit-ai/crud-ui-generator defaults operations to the full CRUD 
   });
 });
 
-test("generate @jskit-ai/crud-ui-generator derives the CRUD api path from resource.resource", async () => {
+test("generate @jskit-ai/crud-ui-generator derives the CRUD api path from resource.namespace", async () => {
   await withTempDir(async (cwd) => {
     const appRoot = path.join(cwd, "crud-ui-resource-namespace");
     await createMinimalApp(appRoot, { name: "crud-ui-resource-namespace" });
@@ -358,7 +358,7 @@ test("generate @jskit-ai/crud-ui-generator derives the CRUD api path from resour
   });
 });
 
-test("generate @jskit-ai/crud-ui-generator falls back to the target-root leaf when resource.resource is missing", async () => {
+test("generate @jskit-ai/crud-ui-generator falls back to the target-root leaf when resource.namespace is missing", async () => {
   await withTempDir(async (cwd) => {
     const appRoot = path.join(cwd, "crud-ui-leaf-namespace");
     await createMinimalApp(appRoot, { name: "crud-ui-leaf-namespace" });

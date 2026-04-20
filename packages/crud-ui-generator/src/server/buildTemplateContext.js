@@ -305,7 +305,7 @@ function resolveResourceNamespace(resource = {}, pageTarget = {}, options = {}) 
     return explicitNamespace;
   }
 
-  const resourceNamespace = normalizeText(resource?.resource).toLowerCase();
+  const resourceNamespace = normalizeText(resource?.namespace).toLowerCase();
   if (resourceNamespace) {
     return resourceNamespace;
   }

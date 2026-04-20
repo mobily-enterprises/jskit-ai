@@ -4,7 +4,7 @@ import { createCrudServiceEvents } from "../src/server/serviceEvents.js";
 
 test("createCrudServiceEvents builds CRUD realtime events from resource namespace", () => {
   const events = createCrudServiceEvents({
-    resource: "contacts"
+    namespace: "contacts"
   });
 
   assert.equal(events.createRecord[0].realtime.event, "contacts.record.changed");
@@ -14,7 +14,7 @@ test("createCrudServiceEvents builds CRUD realtime events from resource namespac
 
 test("createCrudServiceEvents normalizes namespace into realtime event format", () => {
   const events = createCrudServiceEvents({
-    resource: "customer-orders"
+    namespace: "customer-orders"
   });
 
   assert.equal(events.createRecord[0].realtime.event, "customer_orders.record.changed");
@@ -23,6 +23,6 @@ test("createCrudServiceEvents normalizes namespace into realtime event format", 
 test("createCrudServiceEvents validates required resource namespace", () => {
   assert.throws(
     () => createCrudServiceEvents({}),
-    /resource\.resource/
+    /resource\.namespace/
   );
 });

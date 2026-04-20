@@ -70,7 +70,7 @@ const patchBodyValidator = Object.freeze({
 const RESOURCE_FIELD_META = [];
 
 const resource = {
-  resource: "contacts",
+  namespace: "contacts",
   tableName: "contacts",
   idColumn: "id",
   operations: {

@@ -136,7 +136,7 @@ const deleteOutputValidator = Object.freeze({
 const CRUD_RESOURCE_FIELD_META = [];
 
 const crudResource = {
-  resource: "crud",
+  namespace: "crud",
   tableName: "crud",
   idColumn: "id",
   messages: {
