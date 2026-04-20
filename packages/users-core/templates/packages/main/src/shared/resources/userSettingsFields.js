@@ -20,7 +20,7 @@ resetUserSettingsFields();
 defineField({
   key: "theme",
   section: USER_SETTINGS_SECTIONS.PREFERENCES,
-  dbColumn: "theme",
+  repository: { column: "theme" },
   required: true,
   inputSchema: Type.String({ minLength: 1, maxLength: 32 }),
   outputSchema: Type.String({ minLength: 1, maxLength: 32 }),
@@ -32,7 +32,7 @@ defineField({
 defineField({
   key: "locale",
   section: USER_SETTINGS_SECTIONS.PREFERENCES,
-  dbColumn: "locale",
+  repository: { column: "locale" },
   required: true,
   inputSchema: Type.String({ minLength: 1, maxLength: 24 }),
   outputSchema: Type.String({ minLength: 1, maxLength: 24 }),
@@ -44,7 +44,7 @@ defineField({
 defineField({
   key: "timeZone",
   section: USER_SETTINGS_SECTIONS.PREFERENCES,
-  dbColumn: "time_zone",
+  repository: { column: "time_zone" },
   required: true,
   inputSchema: Type.String({ minLength: 1, maxLength: 64 }),
   outputSchema: Type.String({ minLength: 1, maxLength: 64 }),
@@ -56,7 +56,7 @@ defineField({
 defineField({
   key: "dateFormat",
   section: USER_SETTINGS_SECTIONS.PREFERENCES,
-  dbColumn: "date_format",
+  repository: { column: "date_format" },
   required: true,
   inputSchema: Type.String({ minLength: 1, maxLength: 32 }),
   outputSchema: Type.String({ minLength: 1, maxLength: 32 }),
@@ -68,7 +68,7 @@ defineField({
 defineField({
   key: "numberFormat",
   section: USER_SETTINGS_SECTIONS.PREFERENCES,
-  dbColumn: "number_format",
+  repository: { column: "number_format" },
   required: true,
   inputSchema: Type.String({ minLength: 1, maxLength: 32 }),
   outputSchema: Type.String({ minLength: 1, maxLength: 32 }),
@@ -80,7 +80,7 @@ defineField({
 defineField({
   key: "currencyCode",
   section: USER_SETTINGS_SECTIONS.PREFERENCES,
-  dbColumn: "currency_code",
+  repository: { column: "currency_code" },
   required: true,
   inputSchema: Type.String({ minLength: 3, maxLength: 3, pattern: "^[A-Za-z]{3}$" }),
   outputSchema: Type.String({ minLength: 3, maxLength: 3, pattern: "^[A-Z]{3}$" }),
@@ -92,7 +92,7 @@ defineField({
 defineField({
   key: "avatarSize",
   section: USER_SETTINGS_SECTIONS.PREFERENCES,
-  dbColumn: "avatar_size",
+  repository: { column: "avatar_size" },
   required: true,
   inputSchema: Type.Integer({ minimum: 1 }),
   outputSchema: Type.Integer({ minimum: 1 }),
@@ -104,7 +104,7 @@ defineField({
 defineField({
   key: "productUpdates",
   section: USER_SETTINGS_SECTIONS.NOTIFICATIONS,
-  dbColumn: "notify_product_updates",
+  repository: { column: "notify_product_updates" },
   required: true,
   inputSchema: Type.Boolean(),
   outputSchema: Type.Boolean(),
@@ -116,7 +116,7 @@ defineField({
 defineField({
   key: "accountActivity",
   section: USER_SETTINGS_SECTIONS.NOTIFICATIONS,
-  dbColumn: "notify_account_activity",
+  repository: { column: "notify_account_activity" },
   required: true,
   inputSchema: Type.Boolean(),
   outputSchema: Type.Boolean(),
@@ -128,7 +128,7 @@ defineField({
 defineField({
   key: "securityAlerts",
   section: USER_SETTINGS_SECTIONS.NOTIFICATIONS,
-  dbColumn: "notify_security_alerts",
+  repository: { column: "notify_security_alerts" },
   required: true,
   inputSchema: Type.Boolean(),
   outputSchema: Type.Boolean(),

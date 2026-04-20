@@ -28,6 +28,7 @@ Exports
 
 ### `src/server/cliRuntime/appState.js`
 Exports
+- `directoryLooksLikeJskitAppRoot(directoryPath)`
 - `resolveAppRootFromCwd(cwd)`
 - `loadAppPackageJson(appRoot)`
 - `createDefaultLock()`
@@ -41,8 +42,6 @@ Exports
 - `upsertEnvValue(content, key, value)`
 - `removeEnvValue(content, key, expectedValue, previous)`
 - `writeJsonFile`
-Local functions
-- `directoryLooksLikeJskitAppRoot(directoryPath)`
 
 ### `src/server/cliRuntime/capabilitySupport.js`
 Exports

@@ -10,10 +10,11 @@ import {
 } from "./repositoryMethods.js";
 import { createWithTransaction } from "@jskit-ai/database-runtime/shared";
 
-function createCrudRepositoryFromResource(resource = {}, { context = "crudRepository", list = {} } = {}) {
+function createCrudRepositoryFromResource(resource = {}, { context = "crudRepository", list = {}, virtualFields = {} } = {}) {
   const runtime = createCrudRepositoryRuntime(resource, {
     context,
-    list
+    list,
+    virtualFields
   });
 
   return function createRepository(knex, options = {}) {

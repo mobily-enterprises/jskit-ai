@@ -484,9 +484,11 @@ function renderResourceFieldMetaPushStatement(entry = {}) {
   const lines = ["RESOURCE_FIELD_META.push({"];
   lines.push(`  key: ${JSON.stringify(key)},`);
 
-  const dbColumn = normalizeText(entry?.dbColumn);
-  if (dbColumn) {
-    lines.push(`  dbColumn: ${JSON.stringify(dbColumn)},`);
+  const repositoryColumn = normalizeText(entry?.repository?.column);
+  if (repositoryColumn) {
+    lines.push("  repository: {");
+    lines.push(`    column: ${JSON.stringify(repositoryColumn)}`);
+    lines.push("  },");
   }
 
   const relation = entry?.relation && typeof entry.relation === "object" ? entry.relation : null;

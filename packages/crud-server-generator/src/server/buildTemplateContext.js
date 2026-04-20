@@ -1157,7 +1157,7 @@ function buildFieldMetaEntries({ outputColumns = [], writableColumns = [], snaps
     }
   }
 
-  const dbColumnEntries = [];
+  const repositoryEntries = [];
   for (const column of fieldColumnsByKey.values()) {
     const key = normalizeText(column?.key);
     const name = normalizeText(column?.name);
@@ -1167,9 +1167,11 @@ function buildFieldMetaEntries({ outputColumns = [], writableColumns = [], snaps
     if (toSnakeCase(key) === name) {
       continue;
     }
-    dbColumnEntries.push({
+    repositoryEntries.push({
       key,
-      dbColumn: name
+      repository: {
+        column: name
+      }
     });
   }
 
@@ -1235,15 +1237,19 @@ function buildFieldMetaEntries({ outputColumns = [], writableColumns = [], snaps
     });
   }
 
-  return mergeFieldMetaEntries(dbColumnEntries, relationEntries, enumEntries);
+  return mergeFieldMetaEntries(repositoryEntries, relationEntries, enumEntries);
 }
 
 function renderFieldMetaEntryLines(entry = {}) {
   const lines = ["RESOURCE_FIELD_META.push({"];
   const topLevelProperties = [`key: ${JSON.stringify(entry.key)}`];
-  const dbColumn = normalizeText(entry.dbColumn);
-  if (dbColumn) {
-    topLevelProperties.push(`dbColumn: ${JSON.stringify(dbColumn)}`);
+  const repositoryColumn = normalizeText(entry?.repository?.column);
+  if (repositoryColumn) {
+    topLevelProperties.push([
+      "repository: {",
+      `  column: ${JSON.stringify(repositoryColumn)}`,
+      "}"
+    ].join("\n"));
   }
 
   const relation = entry.relation && typeof entry.relation === "object" ? entry.relation : null;

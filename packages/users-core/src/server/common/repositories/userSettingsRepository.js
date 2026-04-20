@@ -25,8 +25,9 @@ function mapRow(row) {
   };
 
   for (const field of userSettingsFields) {
-    const value = Object.hasOwn(row, field.dbColumn)
-      ? row[field.dbColumn]
+    const column = field.repository.column;
+    const value = Object.hasOwn(row, column)
+      ? row[column]
       : field.resolveDefault({
           settings: mapped,
           row
@@ -66,7 +67,7 @@ function createInsertPayload(userId) {
     const defaultValue = field.resolveDefault({
       settings: resolvedDefaults
     });
-    payload[field.dbColumn] = field.normalizeInput(defaultValue, {
+    payload[field.repository.column] = field.normalizeInput(defaultValue, {
       payload: resolvedDefaults,
       settings: resolvedDefaults
     });
@@ -132,14 +133,14 @@ function createRepository(knex) {
       updated_at: nowDb()
     };
 
-    for (const field of userSettingsFields) {
-      if (!Object.hasOwn(source, field.key)) {
-        continue;
-      }
-      dbPatch[field.dbColumn] = field.normalizeInput(source[field.key], {
-        payload: source,
-        settings: ensured
-      });
+  for (const field of userSettingsFields) {
+    if (!Object.hasOwn(source, field.key)) {
+      continue;
+    }
+    dbPatch[field.repository.column] = field.normalizeInput(source[field.key], {
+      payload: source,
+      settings: ensured
+    });
     }
 
     if (Object.hasOwn(source, "passwordSignInEnabled")) {

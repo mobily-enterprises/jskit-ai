@@ -7,6 +7,8 @@ import {
 const CRUD_RUNTIME_LOOKUPS_FIELD_KEY = DEFAULT_CRUD_LOOKUP_CONTAINER_KEY;
 const CRUD_LOOKUP_FORM_CONTROL_AUTOCOMPLETE = "autocomplete";
 const CRUD_LOOKUP_FORM_CONTROL_SELECT = "select";
+const CRUD_FIELD_REPOSITORY_STORAGE_COLUMN = "column";
+const CRUD_FIELD_REPOSITORY_STORAGE_VIRTUAL = "virtual";
 
 function checkCrudLookupFormControl(
   value,
@@ -45,10 +47,71 @@ function isCrudRuntimeOutputOnlyFieldKey(
   return normalizeText(value) === resolvedLookupContainerKey;
 }
 
+function normalizeCrudFieldRepositoryConfig(
+  fieldMetaEntry = {},
+  {
+    context = "crud fieldMeta repository",
+    fieldKey = ""
+  } = {}
+) {
+  const normalizedFieldKey = normalizeText(fieldKey || fieldMetaEntry?.key);
+  const repository = fieldMetaEntry?.repository;
+  if (repository === undefined || repository === null) {
+    return Object.freeze({
+      storage: CRUD_FIELD_REPOSITORY_STORAGE_COLUMN,
+      column: ""
+    });
+  }
+  if (!repository || typeof repository !== "object" || Array.isArray(repository)) {
+    throw new TypeError(
+      `${context}${normalizedFieldKey ? `["${normalizedFieldKey}"]` : ""} must be an object when provided.`
+    );
+  }
+
+  const repositoryKeys = Object.keys(repository);
+  for (const repositoryKey of repositoryKeys) {
+    if (repositoryKey !== "column" && repositoryKey !== "storage") {
+      throw new Error(
+        `${context}${normalizedFieldKey ? `["${normalizedFieldKey}"]` : ""} does not support repository.${repositoryKey}.`
+      );
+    }
+  }
+
+  const column = normalizeText(repository.column);
+  const storage = normalizeText(repository.storage).toLowerCase();
+
+  if (!column && !storage) {
+    throw new Error(
+      `${context}${normalizedFieldKey ? `["${normalizedFieldKey}"]` : ""} requires repository.column or repository.storage.`
+    );
+  }
+
+  if (storage && storage !== CRUD_FIELD_REPOSITORY_STORAGE_VIRTUAL) {
+    throw new Error(
+      `${context}${normalizedFieldKey ? `["${normalizedFieldKey}"]` : ""} repository.storage must be "virtual" when provided.`
+    );
+  }
+  if (storage === CRUD_FIELD_REPOSITORY_STORAGE_VIRTUAL && column) {
+    throw new Error(
+      `${context}${normalizedFieldKey ? `["${normalizedFieldKey}"]` : ""} repository.storage "virtual" cannot define repository.column.`
+    );
+  }
+
+  return Object.freeze({
+    storage: storage === CRUD_FIELD_REPOSITORY_STORAGE_VIRTUAL
+      ? CRUD_FIELD_REPOSITORY_STORAGE_VIRTUAL
+      : CRUD_FIELD_REPOSITORY_STORAGE_COLUMN,
+    column
+  });
+}
+
 export {
+  CRUD_FIELD_REPOSITORY_STORAGE_COLUMN,
+  CRUD_FIELD_REPOSITORY_STORAGE_VIRTUAL,
   CRUD_LOOKUP_FORM_CONTROL_AUTOCOMPLETE,
   CRUD_LOOKUP_FORM_CONTROL_SELECT,
   CRUD_RUNTIME_LOOKUPS_FIELD_KEY,
   checkCrudLookupFormControl,
-  isCrudRuntimeOutputOnlyFieldKey
+  isCrudRuntimeOutputOnlyFieldKey,
+  normalizeCrudFieldRepositoryConfig
 };

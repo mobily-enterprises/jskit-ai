@@ -15,8 +15,9 @@ function nowDb() {
 function mapSettings(row = {}) {
   const settings = {};
   for (const field of consoleSettingsFields) {
-    const rawValue = Object.hasOwn(row, field.dbColumn)
-      ? row[field.dbColumn]
+    const repositoryColumn = field?.repository?.column;
+    const rawValue = Object.hasOwn(row, repositoryColumn)
+      ? row[repositoryColumn]
       : field.resolveDefault({
           settings: row
         });
@@ -96,7 +97,7 @@ function createRepository(knex) {
       if (!Object.hasOwn(source, field.key)) {
         continue;
       }
-      dbPatch[field.dbColumn] = field.normalizeInput(source[field.key], {
+      dbPatch[field.repository.column] = field.normalizeInput(source[field.key], {
         payload: source
       });
     }

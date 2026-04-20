@@ -46,8 +46,9 @@ function createRepository(knex, { defaultInvitesEnabled } = {}) {
       workspaceId: normalizeDbRecordId(row.workspace_id, { fallback: "" })
     };
     for (const field of workspaceSettingsFields) {
-      const rawValue = Object.hasOwn(row, field.dbColumn)
-        ? row[field.dbColumn]
+      const column = field.repository.column;
+      const rawValue = Object.hasOwn(row, column)
+        ? row[column]
         : field.resolveDefault({
             defaultInvitesEnabled
           });
@@ -94,7 +95,7 @@ function createRepository(knex, { defaultInvitesEnabled } = {}) {
         updated_at: nowDb()
       };
       for (const field of workspaceSettingsFields) {
-        insertPayload[field.dbColumn] = seed[field.key];
+        insertPayload[field.repository.column] = seed[field.key];
       }
       await client("workspace_settings").insert(insertPayload);
     } catch (error) {
@@ -132,7 +133,7 @@ function createRepository(knex, { defaultInvitesEnabled } = {}) {
       if (!Object.hasOwn(settingsPatch, field.key)) {
         continue;
       }
-      dbPatch[field.dbColumn] = field.normalizeInput(settingsPatch[field.key], {
+      dbPatch[field.repository.column] = field.normalizeInput(settingsPatch[field.key], {
         payload: source
       });
     }

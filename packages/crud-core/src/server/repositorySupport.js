@@ -8,7 +8,12 @@ import {
   resolveCrudLookupContainerKey,
   resolveCrudLookupFieldKeys
 } from "@jskit-ai/kernel/shared/support/crudLookup";
-import { isCrudRuntimeOutputOnlyFieldKey } from "../shared/crudFieldMetaSupport.js";
+import {
+  CRUD_FIELD_REPOSITORY_STORAGE_COLUMN,
+  CRUD_FIELD_REPOSITORY_STORAGE_VIRTUAL,
+  isCrudRuntimeOutputOnlyFieldKey,
+  normalizeCrudFieldRepositoryConfig
+} from "../shared/crudFieldMetaSupport.js";
 
 const DEFAULT_LIST_LIMIT = 20;
 const MAX_LIST_LIMIT = 100;
@@ -70,7 +75,8 @@ function resolveColumnName(fieldKey, overrides = {}) {
 function buildRepositoryColumnMetadata({
   outputKeys = [],
   writeKeys = [],
-  columnOverrides = {}
+  columnOverrides = {},
+  fieldStorageByKey = {}
 } = {}) {
   const normalizedOutputKeys = (Array.isArray(outputKeys) ? outputKeys : [])
     .map((key) => String(key || "").trim())
@@ -80,6 +86,9 @@ function buildRepositoryColumnMetadata({
     .filter(Boolean);
 
   const deriveMapping = (key) => {
+    if (fieldStorageByKey?.[key] !== CRUD_FIELD_REPOSITORY_STORAGE_COLUMN) {
+      return null;
+    }
     const column = resolveColumnName(key, columnOverrides);
     if (!column) {
       return null;
@@ -98,6 +107,13 @@ function buildRepositoryColumnMetadata({
     outputMappings: Object.freeze(outputMappings),
     writeMappings: Object.freeze(writeMappings)
   });
+}
+
+function resolveOptionalObjectSchemaProperties(schema, options = {}) {
+  if (!schema) {
+    return {};
+  }
+  return requireObjectSchemaProperties(schema, options);
 }
 
 function requireObjectSchemaProperties(schema, { context = "crudRepository", schemaLabel = "schema" } = {}) {
@@ -189,6 +205,7 @@ function deriveRepositoryMappingFromResource(resource = {}, { context = "crudRep
 
   const outputSchema = operations?.view?.outputValidator?.schema;
   const writeSchema = operations?.create?.bodyValidator?.schema;
+  const patchSchema = operations?.patch?.bodyValidator?.schema;
   const outputProperties = requireObjectSchemaProperties(outputSchema, {
     context,
     schemaLabel: "operations.view.outputValidator.schema"
@@ -196,6 +213,10 @@ function deriveRepositoryMappingFromResource(resource = {}, { context = "crudRep
   const writeProperties = requireObjectSchemaProperties(writeSchema, {
     context,
     schemaLabel: "operations.create.bodyValidator.schema"
+  });
+  const patchProperties = resolveOptionalObjectSchemaProperties(patchSchema, {
+    context,
+    schemaLabel: "operations.patch.bodyValidator.schema"
   });
   const lookupContainerKey = resolveCrudLookupContainerKey(resource, {
     context: `${context} resource.contract.lookup.containerKey`
@@ -207,18 +228,58 @@ function deriveRepositoryMappingFromResource(resource = {}, { context = "crudRep
   );
   const writeKeys = Object.freeze(Object.keys(writeProperties));
 
+  const fieldStorageByKey = {};
   const columnOverrides = {};
   for (const entry of normalizeResourceFieldMetaEntries(resource.fieldMeta)) {
     const key = normalizeText(entry.key);
-    const dbColumn = normalizeText(entry.dbColumn);
-    if (!key || !dbColumn) {
+    if (!key) {
       continue;
     }
-    columnOverrides[key] = dbColumn;
+    const repositoryConfig = normalizeCrudFieldRepositoryConfig(entry, {
+      context: `${context} resource.fieldMeta`,
+      fieldKey: key
+    });
+    fieldStorageByKey[key] = repositoryConfig.storage;
+    if (repositoryConfig.column) {
+      columnOverrides[key] = repositoryConfig.column;
+    }
+  }
+
+  for (const key of [...outputKeys, ...writeKeys]) {
+    if (!fieldStorageByKey[key]) {
+      fieldStorageByKey[key] = CRUD_FIELD_REPOSITORY_STORAGE_COLUMN;
+    }
+  }
+
+  const virtualOutputKeys = [];
+  const columnBackedOutputKeys = [];
+  for (const key of outputKeys) {
+    const storage = fieldStorageByKey[key] || CRUD_FIELD_REPOSITORY_STORAGE_COLUMN;
+    if (storage === CRUD_FIELD_REPOSITORY_STORAGE_VIRTUAL) {
+      virtualOutputKeys.push(key);
+      continue;
+    }
+    columnBackedOutputKeys.push(key);
+  }
+
+  for (const key of virtualOutputKeys) {
+    if (Object.hasOwn(writeProperties, key)) {
+      throw new Error(
+        `${context} resource create schema field "${key}" cannot use repository.storage "virtual".`
+      );
+    }
+    if (Object.hasOwn(patchProperties, key)) {
+      throw new Error(
+        `${context} resource patch schema field "${key}" cannot use repository.storage "virtual".`
+      );
+    }
   }
 
   const listSearchColumns = [];
   for (const [key, schema] of Object.entries(outputProperties)) {
+    if ((fieldStorageByKey[key] || CRUD_FIELD_REPOSITORY_STORAGE_COLUMN) !== CRUD_FIELD_REPOSITORY_STORAGE_COLUMN) {
+      continue;
+    }
     if (!schemaIncludesStringType(schema)) {
       continue;
     }
@@ -232,6 +293,9 @@ function deriveRepositoryMappingFromResource(resource = {}, { context = "crudRep
 
   const parentFilterColumns = {};
   for (const key of resolveCrudLookupFieldKeys(resource, { allowKeys: writeKeys })) {
+    if ((fieldStorageByKey[key] || CRUD_FIELD_REPOSITORY_STORAGE_COLUMN) !== CRUD_FIELD_REPOSITORY_STORAGE_COLUMN) {
+      continue;
+    }
     const columnName = resolveColumnName(key, columnOverrides);
     if (!columnName) {
       continue;
@@ -249,7 +313,10 @@ function deriveRepositoryMappingFromResource(resource = {}, { context = "crudRep
   return Object.freeze({
     outputKeys,
     writeKeys,
+    fieldStorageByKey: Object.freeze(fieldStorageByKey),
     columnOverrides: Object.freeze(columnOverrides),
+    columnBackedOutputKeys: Object.freeze(columnBackedOutputKeys),
+    virtualOutputKeys: Object.freeze(virtualOutputKeys),
     listSearchColumns: Object.freeze(listSearchColumns),
     parentFilterColumns: Object.freeze(parentFilterColumns),
     outputRecordIdKeys: Object.freeze(outputRecordIdKeys)

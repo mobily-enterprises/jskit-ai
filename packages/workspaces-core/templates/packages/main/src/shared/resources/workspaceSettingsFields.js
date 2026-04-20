@@ -22,7 +22,7 @@ resetWorkspaceSettingsFields();
 
 defineField({
   key: "lightPrimaryColor",
-  dbColumn: "light_primary_color",
+  repository: { column: "light_primary_color" },
   required: true,
   inputSchema: Type.String({
     minLength: 7,
@@ -42,7 +42,7 @@ defineField({
 
 defineField({
   key: "lightSecondaryColor",
-  dbColumn: "light_secondary_color",
+  repository: { column: "light_secondary_color" },
   required: true,
   inputSchema: Type.String({
     minLength: 7,
@@ -62,7 +62,7 @@ defineField({
 
 defineField({
   key: "lightSurfaceColor",
-  dbColumn: "light_surface_color",
+  repository: { column: "light_surface_color" },
   required: true,
   inputSchema: Type.String({
     minLength: 7,
@@ -82,7 +82,7 @@ defineField({
 
 defineField({
   key: "lightSurfaceVariantColor",
-  dbColumn: "light_surface_variant_color",
+  repository: { column: "light_surface_variant_color" },
   required: true,
   inputSchema: Type.String({
     minLength: 7,
@@ -102,7 +102,7 @@ defineField({
 
 defineField({
   key: "darkPrimaryColor",
-  dbColumn: "dark_primary_color",
+  repository: { column: "dark_primary_color" },
   required: true,
   inputSchema: Type.String({
     minLength: 7,
@@ -122,7 +122,7 @@ defineField({
 
 defineField({
   key: "darkSecondaryColor",
-  dbColumn: "dark_secondary_color",
+  repository: { column: "dark_secondary_color" },
   required: true,
   inputSchema: Type.String({
     minLength: 7,
@@ -142,7 +142,7 @@ defineField({
 
 defineField({
   key: "darkSurfaceColor",
-  dbColumn: "dark_surface_color",
+  repository: { column: "dark_surface_color" },
   required: true,
   inputSchema: Type.String({
     minLength: 7,
@@ -162,7 +162,7 @@ defineField({
 
 defineField({
   key: "darkSurfaceVariantColor",
-  dbColumn: "dark_surface_variant_color",
+  repository: { column: "dark_surface_variant_color" },
   required: true,
   inputSchema: Type.String({
     minLength: 7,
@@ -182,7 +182,7 @@ defineField({
 
 defineField({
   key: "invitesEnabled",
-  dbColumn: "invites_enabled",
+  repository: { column: "invites_enabled" },
   required: true,
   inputSchema: Type.Boolean({
     messages: {

@@ -17,9 +17,13 @@ function defineField(field = {}) {
   if (!field.outputSchema || typeof field.outputSchema !== "object") {
     throw new TypeError(`workspaceSettingsFields.defineField("${key}") requires outputSchema.`);
   }
-  const dbColumn = normalizeText(field.dbColumn);
-  if (!dbColumn) {
-    throw new TypeError(`workspaceSettingsFields.defineField("${key}") requires dbColumn.`);
+  const repository = field?.repository;
+  if (!repository || typeof repository !== "object" || Array.isArray(repository)) {
+    throw new TypeError(`workspaceSettingsFields.defineField("${key}") requires repository.column.`);
+  }
+  const repositoryColumn = normalizeText(repository.column);
+  if (!repositoryColumn) {
+    throw new TypeError(`workspaceSettingsFields.defineField("${key}") requires repository.column.`);
   }
   if (typeof field.normalizeInput !== "function") {
     throw new TypeError(`workspaceSettingsFields.defineField("${key}") requires normalizeInput.`);
@@ -33,7 +37,9 @@ function defineField(field = {}) {
 
   workspaceSettingsFields.push({
     key,
-    dbColumn,
+    repository: Object.freeze({
+      column: repositoryColumn
+    }),
     required: field.required !== false,
     inputSchema: field.inputSchema,
     outputSchema: field.outputSchema,

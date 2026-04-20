@@ -24,9 +24,13 @@ function defineField(field = {}) {
   if (!field.outputSchema || typeof field.outputSchema !== "object") {
     throw new TypeError(`userSettingsFields.defineField("${key}") requires outputSchema.`);
   }
-  const dbColumn = normalizeText(field.dbColumn);
-  if (!dbColumn) {
-    throw new TypeError(`userSettingsFields.defineField("${key}") requires dbColumn.`);
+  const repository = field?.repository;
+  if (!repository || typeof repository !== "object" || Array.isArray(repository)) {
+    throw new TypeError(`userSettingsFields.defineField("${key}") requires repository.column.`);
+  }
+  const repositoryColumn = normalizeText(repository.column);
+  if (!repositoryColumn) {
+    throw new TypeError(`userSettingsFields.defineField("${key}") requires repository.column.`);
   }
   const section = normalizeLowerText(field.section);
   if (!USER_SETTINGS_SECTION_VALUES.includes(section)) {
@@ -47,7 +51,9 @@ function defineField(field = {}) {
   userSettingsFields.push({
     key,
     section,
-    dbColumn,
+    repository: Object.freeze({
+      column: repositoryColumn
+    }),
     required: field.required !== false,
     includeInBootstrap: field.includeInBootstrap !== false,
     inputSchema: field.inputSchema,

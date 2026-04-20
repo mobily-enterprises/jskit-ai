@@ -218,7 +218,7 @@ function createResourceFixture() {
     fieldMeta: [
       {
         key: "id",
-        dbColumn: "contact_id"
+        repository: { column: "contact_id" }
       }
     ]
   };
@@ -262,11 +262,11 @@ function createLookupResourceFixture() {
     fieldMeta: [
       {
         key: "id",
-        dbColumn: "contact_id"
+        repository: { column: "contact_id" }
       },
       {
         key: "primaryVetId",
-        dbColumn: "primary_vet_id",
+        repository: { column: "primary_vet_id" },
         relation: {
           kind: "lookup",
           namespace: "vets",
@@ -275,7 +275,7 @@ function createLookupResourceFixture() {
       },
       {
         key: "secondaryVetId",
-        dbColumn: "secondary_vet_id",
+        repository: { column: "secondary_vet_id" },
         relation: {
           kind: "lookup",
           namespace: "vets",
@@ -329,11 +329,11 @@ function createLookupResourceWithCustomContainerKeyFixture() {
     fieldMeta: [
       {
         key: "id",
-        dbColumn: "contact_id"
+        repository: { column: "contact_id" }
       },
       {
         key: "primaryVetId",
-        dbColumn: "primary_vet_id",
+        repository: { column: "primary_vet_id" },
         relation: {
           kind: "lookup",
           namespace: "vets",
@@ -342,7 +342,7 @@ function createLookupResourceWithCustomContainerKeyFixture() {
       },
       {
         key: "secondaryVetId",
-        dbColumn: "secondary_vet_id",
+        repository: { column: "secondary_vet_id" },
         relation: {
           kind: "lookup",
           namespace: "vets",
@@ -387,7 +387,7 @@ function createCollectionLookupResourceFixture() {
     fieldMeta: [
       {
         key: "id",
-        dbColumn: "contact_id"
+        repository: { column: "contact_id" }
       },
       {
         key: "pets",
@@ -437,11 +437,11 @@ function createPetsLookupBackToContactsResourceFixture() {
     fieldMeta: [
       {
         key: "id",
-        dbColumn: "pet_id"
+        repository: { column: "pet_id" }
       },
       {
         key: "customerId",
-        dbColumn: "customer_id",
+        repository: { column: "customer_id" },
         relation: {
           kind: "lookup",
           namespace: "contacts",
@@ -490,7 +490,7 @@ function createNormalizedResourceFixture() {
     fieldMeta: [
       {
         key: "id",
-        dbColumn: "contact_id"
+        repository: { column: "contact_id" }
       }
     ]
   };
@@ -530,19 +530,63 @@ function createWritableHookResourceFixture() {
     fieldMeta: [
       {
         key: "id",
-        dbColumn: "contact_id"
+        repository: { column: "contact_id" }
       },
       {
         key: "firstName",
-        dbColumn: "first_name"
+        repository: { column: "first_name" }
       },
       {
         key: "createdAt",
-        dbColumn: "created_at"
+        repository: { column: "created_at" }
       },
       {
         key: "updatedAt",
-        dbColumn: "updated_at"
+        repository: { column: "updated_at" }
+      }
+    ]
+  };
+}
+
+function createVirtualProjectionResourceFixture() {
+  return {
+    resource: "receivals",
+    tableName: "receivals_table",
+    idColumn: "receival_id",
+    operations: {
+      view: {
+        outputValidator: {
+          schema: {
+            type: "object",
+            properties: {
+              id: recordIdSchema,
+              firstName: { type: "string" },
+              remainingBatchWeight: { type: "number" }
+            }
+          }
+        }
+      },
+      create: {
+        bodyValidator: {
+          schema: {
+            type: "object",
+            properties: {
+              firstName: { type: "string" }
+            }
+          }
+        }
+      }
+    },
+    fieldMeta: [
+      {
+        key: "id",
+        repository: { column: "receival_id" }
+      },
+      {
+        key: "remainingBatchWeight",
+        repository: {
+          storage: "virtual"
+        }
       }
     ]
   };
@@ -652,6 +696,82 @@ test("createCrudRepositoryFromResource allows list tuning through list config", 
 
   assert.ok(calls.some((call) => call[0] === "where" && call[1] === "first_name" && call[2] === "like" && call[3] === "%to%"));
   assert.ok(calls.some((call) => call[0] === "limit" && call[1] === 3));
+});
+
+test("createCrudRepositoryFromResource requires virtual projection handlers for virtual output fields", () => {
+  assert.throws(
+    () => createCrudRepositoryFromResource(createVirtualProjectionResourceFixture()),
+    /resource output field "remainingBatchWeight" is virtual but no repository runtime projection was registered/
+  );
+});
+
+test("createCrudRepositoryFromResource rejects unknown virtual projection registrations", () => {
+  assert.throws(
+    () => createCrudRepositoryFromResource(createVirtualProjectionResourceFixture(), {
+      virtualFields: {
+        bogusField: {
+          applyProjection() {}
+        }
+      }
+    }),
+    /virtualFields\["bogusField"\] is unknown/
+  );
+});
+
+test("createCrudRepositoryFromResource applies virtual projections across generic read paths", async () => {
+  const createRepository = createCrudRepositoryFromResource(createVirtualProjectionResourceFixture(), {
+    virtualFields: {
+      remainingBatchWeight: {
+        applyProjection(dbQuery, { alias }) {
+          dbQuery.select(alias);
+        }
+      }
+    }
+  });
+  const { knex, calls } = createListKnexDouble([
+    {
+      receival_id: 3,
+      first_name: "Tony",
+      remaining_batch_weight: 42.5
+    }
+  ]);
+  const repository = createRepository(knex);
+
+  const listResult = await repository.list({});
+  const findResult = await repository.findById("3");
+  const listByIdsResult = await repository.listByIds(["3"]);
+
+  assert.deepEqual(listResult.items, [
+    {
+      id: "3",
+      firstName: "Tony",
+      remainingBatchWeight: 42.5
+    }
+  ]);
+  assert.deepEqual(findResult, {
+    id: "3",
+    firstName: "Tony",
+    remainingBatchWeight: 42.5
+  });
+  assert.deepEqual(listByIdsResult, [
+    {
+      id: "3",
+      firstName: "Tony",
+      remainingBatchWeight: 42.5
+    }
+  ]);
+  const projectionSelectCalls = calls.filter((call) => (
+    call[0] === "select" &&
+    call.length === 2 &&
+    call[1] === "remaining_batch_weight"
+  ));
+  const baseSelectCalls = calls.filter((call) => (
+    call[0] === "select" &&
+    call.length > 2
+  ));
+  assert.equal(projectionSelectCalls.length, 3);
+  assert.ok(baseSelectCalls.length >= 3);
+  assert.ok(baseSelectCalls.every((call) => call.includes("remaining_batch_weight") === false));
 });
 
 test("createCrudRepositoryFromResource supports declarative ordered list pagination", async () => {
@@ -946,6 +1066,34 @@ test("createCrudRepositoryFromResource listByIds fails fast when valueKey is not
         valueKey: "externalCustomerId"
       }),
     /valueKey "externalCustomerId" to exist in output schema/
+  );
+});
+
+test("createCrudRepositoryFromResource listByIds fails fast when valueKey is virtual", async () => {
+  const createRepository = createCrudRepositoryFromResource(createVirtualProjectionResourceFixture(), {
+    virtualFields: {
+      remainingBatchWeight: {
+        applyProjection(dbQuery, { alias }) {
+          dbQuery.select(alias);
+        }
+      }
+    }
+  });
+  const { knex } = createListKnexDouble([
+    {
+      receival_id: 3,
+      first_name: "Tony",
+      remaining_batch_weight: 42.5
+    }
+  ]);
+  const repository = createRepository(knex);
+
+  await assert.rejects(
+    () =>
+      repository.listByIds(["42.5"], {
+        valueKey: "remainingBatchWeight"
+      }),
+    /valueKey "remainingBatchWeight" to be column-backed/
   );
 });
 
