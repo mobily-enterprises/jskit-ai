@@ -217,7 +217,11 @@ test("buildRepositoryColumnMetadata normalizes columns and applies overrides", (
   const metadata = buildRepositoryColumnMetadata({
     outputKeys: ["firstName", "lastName"],
     writeKeys: ["firstName"],
-    columnOverrides: { lastName: "surname" }
+    columnOverrides: { lastName: "surname" },
+    fieldStorageByKey: {
+      firstName: "column",
+      lastName: "column"
+    }
   });
 
   assert.deepEqual(metadata.selectColumns, Object.freeze(["first_name", "surname"]));
@@ -226,7 +230,7 @@ test("buildRepositoryColumnMetadata normalizes columns and applies overrides", (
   assert.equal(metadata.outputMappings[1].column, "surname");
 });
 
-test("deriveRepositoryMappingFromResource reads schema keys and fieldMeta dbColumn overrides", () => {
+test("deriveRepositoryMappingFromResource reads schema keys and repository column overrides", () => {
   const resource = {
     operations: {
       view: {
@@ -256,11 +260,11 @@ test("deriveRepositoryMappingFromResource reads schema keys and fieldMeta dbColu
     fieldMeta: [
       {
         key: "createdAt",
-        dbColumn: "created_at"
+        repository: { column: "created_at" }
       },
       {
         key: "vetId",
-        dbColumn: "vet_id",
+        repository: { column: "vet_id" },
         relation: {
           kind: "lookup",
           namespace: "vets",
@@ -281,6 +285,140 @@ test("deriveRepositoryMappingFromResource reads schema keys and fieldMeta dbColu
   assert.deepEqual(mapping.parentFilterColumns, {
     vetId: "vet_id"
   });
+});
+
+test("deriveRepositoryMappingFromResource treats virtual output fields as non-column projections", () => {
+  const resource = {
+    operations: {
+      view: {
+        outputValidator: {
+          schema: {
+            type: "object",
+            properties: {
+              id: { type: "integer" },
+              firstName: { type: "string" },
+              remainingBatchWeight: { type: "number" }
+            }
+          }
+        }
+      },
+      create: {
+        bodyValidator: {
+          schema: {
+            type: "object",
+            properties: {
+              firstName: { type: "string" }
+            }
+          }
+        }
+      }
+    },
+    fieldMeta: [
+      {
+        key: "remainingBatchWeight",
+        repository: {
+          storage: "virtual"
+        }
+      }
+    ]
+  };
+
+  const mapping = deriveRepositoryMappingFromResource(resource);
+  assert.deepEqual(mapping.outputKeys, ["id", "firstName", "remainingBatchWeight"]);
+  assert.deepEqual(mapping.columnBackedOutputKeys, ["id", "firstName"]);
+  assert.deepEqual(mapping.virtualOutputKeys, ["remainingBatchWeight"]);
+  assert.equal(mapping.fieldStorageByKey.remainingBatchWeight, "virtual");
+  assert.deepEqual(mapping.listSearchColumns, ["first_name"]);
+});
+
+test("deriveRepositoryMappingFromResource rejects virtual fields in create schema", () => {
+  const resource = {
+    operations: {
+      view: {
+        outputValidator: {
+          schema: {
+            type: "object",
+            properties: {
+              id: { type: "integer" },
+              remainingBatchWeight: { type: "number" }
+            }
+          }
+        }
+      },
+      create: {
+        bodyValidator: {
+          schema: {
+            type: "object",
+            properties: {
+              remainingBatchWeight: { type: "number" }
+            }
+          }
+        }
+      }
+    },
+    fieldMeta: [
+      {
+        key: "remainingBatchWeight",
+        repository: {
+          storage: "virtual"
+        }
+      }
+    ]
+  };
+
+  assert.throws(
+    () => deriveRepositoryMappingFromResource(resource),
+    /resource create schema field "remainingBatchWeight" cannot use repository\.storage "virtual"/
+  );
+});
+
+test("deriveRepositoryMappingFromResource rejects virtual fields in patch schema", () => {
+  const resource = {
+    operations: {
+      view: {
+        outputValidator: {
+          schema: {
+            type: "object",
+            properties: {
+              id: { type: "integer" },
+              remainingBatchWeight: { type: "number" }
+            }
+          }
+        }
+      },
+      create: {
+        bodyValidator: {
+          schema: {
+            type: "object",
+            properties: {}
+          }
+        }
+      },
+      patch: {
+        bodyValidator: {
+          schema: {
+            type: "object",
+            properties: {
+              remainingBatchWeight: { type: "number" }
+            }
+          }
+        }
+      }
+    },
+    fieldMeta: [
+      {
+        key: "remainingBatchWeight",
+        repository: {
+          storage: "virtual"
+        }
+      }
+    ]
+  };
+
+  assert.throws(
+    () => deriveRepositoryMappingFromResource(resource),
+    /resource patch schema field "remainingBatchWeight" cannot use repository\.storage "virtual"/
+  );
 });
 
 test("deriveRepositoryMappingFromResource excludes runtime-only lookups output key from db mapping", () => {

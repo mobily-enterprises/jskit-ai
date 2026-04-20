@@ -20,6 +20,7 @@ import {
   createCrudLookupRuntime,
   hydrateCrudLookupRecords
 } from "./lookupHydration.js";
+import { CRUD_FIELD_REPOSITORY_STORAGE_COLUMN } from "../shared/crudFieldMetaSupport.js";
 
 const LIST_ORDER_DIRECTION_ASC = "asc";
 const LIST_ORDER_DIRECTION_DESC = "desc";
@@ -45,10 +46,12 @@ function resolveRepositoryDefaults(resource = {}, repositoryMapping = {}) {
   }
 
   const idColumn = normalizeText(resource.idColumn) || resolveColumnName("id", repositoryMapping.columnOverrides) || "id";
-  const createdAtColumn = repositoryMapping.outputKeys.includes("createdAt")
+  const createdAtColumn = repositoryMapping.outputKeys.includes("createdAt") &&
+    repositoryMapping.fieldStorageByKey?.createdAt === CRUD_FIELD_REPOSITORY_STORAGE_COLUMN
     ? resolveColumnName("createdAt", repositoryMapping.columnOverrides)
     : "";
-  const updatedAtColumn = repositoryMapping.outputKeys.includes("updatedAt")
+  const updatedAtColumn = repositoryMapping.outputKeys.includes("updatedAt") &&
+    repositoryMapping.fieldStorageByKey?.updatedAt === CRUD_FIELD_REPOSITORY_STORAGE_COLUMN
     ? resolveColumnName("updatedAt", repositoryMapping.columnOverrides)
     : "";
 
@@ -58,6 +61,95 @@ function resolveRepositoryDefaults(resource = {}, repositoryMapping = {}) {
     createdAtColumn,
     updatedAtColumn
   });
+}
+
+function normalizeCrudVirtualFieldHandlers(
+  virtualFields = {},
+  repositoryMapping = {},
+  { context = "crudRepository" } = {}
+) {
+  const expectedKeys = new Set(
+    (Array.isArray(repositoryMapping?.virtualOutputKeys) ? repositoryMapping.virtualOutputKeys : [])
+      .map((key) => normalizeText(key))
+      .filter(Boolean)
+  );
+  if (expectedKeys.size < 1) {
+    if (virtualFields === null || virtualFields === undefined) {
+      return Object.freeze([]);
+    }
+    if (!virtualFields || typeof virtualFields !== "object" || Array.isArray(virtualFields)) {
+      throw new TypeError(`${context} virtualFields must be an object when provided.`);
+    }
+    if (Object.keys(virtualFields).length > 0) {
+      throw new Error(
+        `${context} virtualFields contains registrations, but the resource does not declare any repository.storage "virtual" fields.`
+      );
+    }
+    return Object.freeze([]);
+  }
+
+  if (!virtualFields || typeof virtualFields !== "object" || Array.isArray(virtualFields)) {
+    throw new TypeError(`${context} virtualFields must be an object.`);
+  }
+
+  const normalizedHandlers = [];
+  const seenKeys = new Set();
+  for (const [rawKey, handlerConfig] of Object.entries(virtualFields)) {
+    const key = normalizeText(rawKey);
+    if (!key || seenKeys.has(key)) {
+      continue;
+    }
+    if (!expectedKeys.has(key)) {
+      throw new Error(
+        `${context} virtualFields["${key}"] is unknown; declare the field in resource.fieldMeta with repository.storage "virtual".`
+      );
+    }
+    if (!handlerConfig || typeof handlerConfig !== "object" || Array.isArray(handlerConfig)) {
+      throw new TypeError(`${context} virtualFields["${key}"] must be an object.`);
+    }
+    if (typeof handlerConfig.applyProjection !== "function") {
+      throw new TypeError(`${context} virtualFields["${key}"].applyProjection must be a function.`);
+    }
+
+    seenKeys.add(key);
+    normalizedHandlers.push(Object.freeze({
+      key,
+      alias: resolveColumnName(key, repositoryMapping.columnOverrides),
+      applyProjection: handlerConfig.applyProjection
+    }));
+  }
+
+  for (const key of expectedKeys) {
+    if (!seenKeys.has(key)) {
+      throw new Error(
+        `${context} resource output field "${key}" is virtual but no repository runtime projection was registered.`
+      );
+    }
+  }
+
+  return Object.freeze(normalizedHandlers);
+}
+
+function applyCrudRepositoryVirtualProjections(
+  dbQuery,
+  runtime = {},
+  { knex, tableName } = {}
+) {
+  const virtualFields = Array.isArray(runtime?.virtualFields) ? runtime.virtualFields : [];
+  if (virtualFields.length < 1) {
+    return dbQuery;
+  }
+
+  for (const virtualField of virtualFields) {
+    virtualField.applyProjection(dbQuery, {
+      knex,
+      tableName,
+      alias: virtualField.alias,
+      fieldKey: virtualField.key
+    });
+  }
+
+  return dbQuery;
 }
 
 function normalizeSearchColumns(searchColumns = [], fallbackColumns = []) {
@@ -376,7 +468,7 @@ async function normalizeRepositoryOutputRecord(runtime, record = {}, { operation
   );
 }
 
-function createCrudRepositoryRuntime(resource = {}, { context = "crudRepository", list = {} } = {}) {
+function createCrudRepositoryRuntime(resource = {}, { context = "crudRepository", list = {}, virtualFields = {} } = {}) {
   const repositoryMapping = deriveRepositoryMappingFromResource(resource, { context });
   const defaults = resolveRepositoryDefaults(resource, repositoryMapping);
   const output = resolveRecordOutputValidator(resource, { context });
@@ -387,9 +479,10 @@ function createCrudRepositoryRuntime(resource = {}, { context = "crudRepository"
     idColumn: defaults.idColumn
   });
   const { selectColumns } = buildRepositoryColumnMetadata({
-    outputKeys: repositoryMapping.outputKeys,
+    outputKeys: repositoryMapping.columnBackedOutputKeys,
     writeKeys: repositoryMapping.writeKeys,
-    columnOverrides: repositoryMapping.columnOverrides
+    columnOverrides: repositoryMapping.columnOverrides,
+    fieldStorageByKey: repositoryMapping.fieldStorageByKey
   });
   const normalizedSelectColumns = Object.freeze(
     [...new Set([
@@ -405,7 +498,8 @@ function createCrudRepositoryRuntime(resource = {}, { context = "crudRepository"
     output,
     list: listRuntime,
     lookup: lookupRuntime,
-    mapping: repositoryMapping
+    mapping: repositoryMapping,
+    virtualFields: normalizeCrudVirtualFieldHandlers(virtualFields, repositoryMapping, { context })
   });
 }
 
@@ -722,6 +816,10 @@ async function crudRepositoryList(runtime, knex, query = {}, repositoryOptions =
   const usesOrderedListCursor = runtime.list.orderBy.length > 0;
   let dbQuery = client(tableName)
     .select(...runtime.selectColumns);
+  dbQuery = applyCrudRepositoryVirtualProjections(dbQuery, runtime, {
+    knex: client,
+    tableName
+  });
 
   dbQuery = applyCrudListQueryFilters(dbQuery, {
     idColumn,
@@ -891,6 +989,10 @@ async function crudRepositoryFindById(runtime, knex, recordId, repositoryOptions
   const hookContextBase = createCrudRepositoryHookContextBase(runtime, repositoryOptions, callOptions);
   let dbQuery = client(tableName)
     .select(...runtime.selectColumns);
+  dbQuery = applyCrudRepositoryVirtualProjections(dbQuery, runtime, {
+    knex: client,
+    tableName
+  });
 
   const findByIdHookResult = await applyCrudRepositoryQueryHook(
     dbQuery,
@@ -1014,6 +1116,11 @@ async function crudRepositoryListByIds(runtime, knex, ids = [], repositoryOption
       `${runtime.context || "crudRepository"} listByIds requires valueKey "${lookupValueKey}" to exist in output schema.`
     );
   }
+  if (runtime.mapping.fieldStorageByKey?.[lookupValueKey] !== CRUD_FIELD_REPOSITORY_STORAGE_COLUMN) {
+    throw new TypeError(
+      `${runtime.context || "crudRepository"} listByIds requires valueKey "${lookupValueKey}" to be column-backed.`
+    );
+  }
   const lookupColumn = resolveColumnName(lookupValueKey, runtime.mapping.columnOverrides);
   if (!lookupColumn) {
     throw new TypeError(`${runtime.context || "crudRepository"} listByIds requires a valid valueKey.`);
@@ -1026,6 +1133,10 @@ async function crudRepositoryListByIds(runtime, knex, ids = [], repositoryOption
 
   let dbQuery = client(tableName)
     .select(...runtime.selectColumns);
+  dbQuery = applyCrudRepositoryVirtualProjections(dbQuery, runtime, {
+    knex: client,
+    tableName
+  });
 
   const listByIdsHookResult = await applyCrudRepositoryQueryHook(
     dbQuery,

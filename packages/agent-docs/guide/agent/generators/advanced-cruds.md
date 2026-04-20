@@ -834,6 +834,75 @@ Usually nothing changes. The client can keep sending `q`.
 - Do not dump every text column into search just because you can.
 - In this tutorial CRUD, `notes` is a good example of a field you might leave out if you want fast, predictable list search.
 
+### Pattern 2B: repository mapping and computed output fields
+
+Do not treat the output schema as if it also defined database storage.
+
+In JSKIT CRUD:
+
+- the schema defines the API contract
+- `resource.fieldMeta` defines storage mapping
+- the repository runtime owns computed SQL projections
+
+Use these rules:
+
+- for explicit DB column overrides, use `repository.column`
+- for computed output fields, use `repository.storage: "virtual"`
+- do not put computed fields in create/patch write schemas
+
+Example field metadata:
+
+```js
+RESOURCE_FIELD_META.push({
+  key: "createdAt",
+  repository: {
+    column: "created_at"
+  }
+});
+
+RESOURCE_FIELD_META.push({
+  key: "remainingBatchWeight",
+  repository: {
+    storage: "virtual"
+  }
+});
+```
+
+Register the computed projection once in the repository runtime:
+
+```js
+const repositoryRuntime = createCrudRepositoryRuntime(resource, {
+  context: "receivals repository",
+  list: LIST_CONFIG,
+  virtualFields: {
+    remainingBatchWeight: {
+      applyProjection(dbQuery, { knex, tableName, alias }) {
+        const { sql, bindings } = getRemainingBatchWeightSqlParts({ tableName });
+        dbQuery.select(knex.raw(`${sql} as ??`, [...bindings, alias]));
+      }
+    }
+  }
+});
+```
+
+Once registered there:
+
+- generic CRUD `list`
+- generic CRUD `findById`
+- generic CRUD `listByIds`
+- generic CRUD `listByForeignIds`
+
+all pick up the projection automatically, so you should not hand-patch `clearSelect()` / re-select logic into each method.
+
+Important limits:
+
+- `virtual` fields are output-only in v1
+- fallback search derivation only uses column-backed fields
+- parent-filter fallback derivation only uses column-backed fields
+- `listByIds(..., { valueKey })` requires a column-backed `valueKey`
+
+For the agent-facing quick rule, see `patterns/crud-repository-mapping.md`.
+
 ### Pattern 3: structured list filters from one shared definition
 
 This is the default pattern once a CRUD list needs real filters.

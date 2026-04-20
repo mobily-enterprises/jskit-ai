@@ -17,9 +17,9 @@ function defineField(field = {}) {
   if (!field.outputSchema || typeof field.outputSchema !== "object") {
     throw new TypeError(`consoleSettingsFields.defineField("${key}") requires outputSchema.`);
   }
-  const dbColumn = normalizeText(field.dbColumn);
-  if (!dbColumn) {
-    throw new TypeError(`consoleSettingsFields.defineField("${key}") requires dbColumn.`);
+  const repositoryColumn = normalizeText(field?.repository?.column);
+  if (!repositoryColumn) {
+    throw new TypeError(`consoleSettingsFields.defineField("${key}") requires repository.column.`);
   }
   if (typeof field.normalizeInput !== "function") {
     throw new TypeError(`consoleSettingsFields.defineField("${key}") requires normalizeInput.`);
@@ -33,7 +33,9 @@ function defineField(field = {}) {
 
   consoleSettingsFields.push({
     key,
-    dbColumn,
+    repository: Object.freeze({
+      column: repositoryColumn
+    }),
     required: field.required !== false,
     inputSchema: field.inputSchema,
     outputSchema: field.outputSchema,

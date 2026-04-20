@@ -70,7 +70,7 @@ Exports
 
 ### `src/server/createCrudRepositoryFromResource.js`
 Exports
-- `createCrudRepositoryFromResource(resource = {}, { context = "crudRepository", list = {} } = {})`
+- `createCrudRepositoryFromResource(resource = {}, { context = "crudRepository", list = {}, virtualFields = {} } = {})`
 
 ### `src/server/createCrudServiceFromResource.js`
 Exports
@@ -207,7 +207,7 @@ Local functions
 
 ### `src/server/repositoryMethods.js`
 Exports
-- `createCrudRepositoryRuntime(resource = {}, { context = "crudRepository", list = {} } = {})`
+- `createCrudRepositoryRuntime(resource = {}, { context = "crudRepository", list = {}, virtualFields = {} } = {})`
 - `crudRepositoryList(runtime, knex, query = {}, repositoryOptions = {}, callOptions = {}, hooks = null)`
 - `crudRepositoryFindById(runtime, knex, recordId, repositoryOptions = {}, callOptions = {}, hooks = null)`
 - `crudRepositoryListByIds(runtime, knex, ids = [], repositoryOptions = {}, callOptions = {}, hooks = null)`
@@ -218,6 +218,8 @@ Exports
 Local functions
 - `requireCrudRecordId(value, { context = "crudRepository" } = {})`
 - `resolveRepositoryDefaults(resource = {}, repositoryMapping = {})`
+- `normalizeCrudVirtualFieldHandlers(virtualFields = {}, repositoryMapping = {}, { context = "crudRepository" } = {})`
+- `applyCrudRepositoryVirtualProjections(dbQuery, runtime = {}, { knex, tableName } = {})`
 - `normalizeSearchColumns(searchColumns = [], fallbackColumns = [])`
 - `normalizeListOrderDirection(value = LIST_ORDER_DIRECTION_ASC)`
 - `normalizeListOrderNulls(value = LIST_ORDER_NULLS_LAST)`
@@ -262,8 +264,9 @@ Exports
 - `buildWritePayload(sourcePayload = {}, fieldKeys = [], overrides = {})`
 - `resolveColumnName(fieldKey, overrides = {})`
 - `resolveCrudIdColumn(idColumn, { fallback = "id" } = {})`
-- `buildRepositoryColumnMetadata({ outputKeys = [], writeKeys = [], columnOverrides = {} } = {})`
+- `buildRepositoryColumnMetadata({ outputKeys = [], writeKeys = [], columnOverrides = {}, fieldStorageByKey = {} } = {})`
 Local functions
+- `resolveOptionalObjectSchemaProperties(schema, options = {})`
 - `requireObjectSchemaProperties(schema, { context = "crudRepository", schemaLabel = "schema" } = {})`
 - `normalizeResourceFieldMetaEntries(fieldMeta = [])`
 - `schemaIncludesStringType(schema = {})`
@@ -286,11 +289,14 @@ Local functions
 
 ### `src/shared/crudFieldMetaSupport.js`
 Exports
+- `CRUD_FIELD_REPOSITORY_STORAGE_COLUMN`
+- `CRUD_FIELD_REPOSITORY_STORAGE_VIRTUAL`
 - `CRUD_LOOKUP_FORM_CONTROL_AUTOCOMPLETE`
 - `CRUD_LOOKUP_FORM_CONTROL_SELECT`
 - `CRUD_RUNTIME_LOOKUPS_FIELD_KEY`
 - `checkCrudLookupFormControl(value, { context = "crud fieldMeta ui.formControl", defaultValue = CRUD_LOOKUP_FORM_CONTROL_AUTOCOMPLETE } = {})`
 - `isCrudRuntimeOutputOnlyFieldKey(value = "", { lookupContainerKey = CRUD_RUNTIME_LOOKUPS_FIELD_KEY } = {})`
+- `normalizeCrudFieldRepositoryConfig(fieldMetaEntry = {}, { context = "crud fieldMeta repository", fieldKey = "" } = {})`
 
 ### `src/shared/crudNamespaceSupport.js`
 Exports

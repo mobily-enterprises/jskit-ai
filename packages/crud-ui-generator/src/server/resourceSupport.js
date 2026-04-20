@@ -480,9 +480,11 @@ function buildResourceFieldMetaMap(resource = {}) {
     const nextEntry = {
       key
     };
-    const dbColumn = normalizeText(rawEntry.dbColumn);
-    if (dbColumn) {
-      nextEntry.dbColumn = dbColumn;
+    const repositoryColumn = normalizeText(rawEntry?.repository?.column);
+    if (repositoryColumn) {
+      nextEntry.repository = {
+        column: repositoryColumn
+      };
     }
 
     const relation = normalizeLookupRelation(rawEntry.relation);
