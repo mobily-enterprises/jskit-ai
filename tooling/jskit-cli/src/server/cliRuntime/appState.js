@@ -232,6 +232,7 @@ function removeEnvValue(content, key, expectedValue, previous) {
 }
 
 export {
+  directoryLooksLikeJskitAppRoot,
   resolveAppRootFromCwd,
   loadAppPackageJson,
   createDefaultLock,

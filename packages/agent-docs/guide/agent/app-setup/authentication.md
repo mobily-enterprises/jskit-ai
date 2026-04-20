@@ -924,6 +924,7 @@ This is the standard path the agent should use for authenticated browser tests:
 - create a session for an existing user through the local app
 - let the browser keep the resulting HTTP-only cookies
 - navigate to the protected page and verify the feature
+- record the Playwright run through `jskit app verify-ui` so `jskit doctor` can verify the receipt later
 
 The feature is intentionally narrow.
 
@@ -1020,9 +1021,19 @@ await page.evaluate(async ({ email }) => {
 await page.goto("/w/acme/admin/contacts");
 ```
 
+In practice, the preferred wrapper is:
+
+```bash
+npx jskit app verify-ui \
+  --command "npx playwright test tests/e2e/contacts.spec.ts -g filters" \
+  --feature "contacts filters" \
+  --auth-mode dev-auth-login-as
+```
+
 That flow is preferable to driving the real sign-in form in feature tests because it keeps the test focused on the UI feature being added, not on an external auth dependency. If a chunk changes user-facing UI and the flow requires login, the expected JSKIT review standard is:
 
 - use Playwright
+- record the run with `jskit app verify-ui`
 - use the local dev auth bypass or another local session bootstrap path
 - exercise the actual changed behavior, not only page load
 

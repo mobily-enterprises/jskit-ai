@@ -10,6 +10,8 @@ Use when:
 Rules:
 
 - Any chunk that adds or changes user-facing UI must include a Playwright flow that exercises the changed behavior before the chunk is done.
+- Record that Playwright run with `jskit app verify-ui --command "<playwright command>" --feature "<label>" --auth-mode <mode>`.
+- `jskit doctor` expects `.jskit/verification/ui.json` to match the current dirty UI file set when UI files are changed.
 - Do not rely on a live external auth provider for Playwright verification of normal app features.
 - For authenticated UI in the standard JSKIT auth stack, use the development-only dev auth bypass route instead.
 - The standard route is `POST /api/dev-auth/login-as`.
@@ -20,7 +22,16 @@ Rules:
 - Make the bootstrap request from the same browser context that will run the assertions so the auth cookies land in the page session.
 - Use stable seeded users or fixtures for Playwright. Do not depend on whatever account happens to exist in a developer's browser or external auth provider.
 
-Playwright setup shape:
+Recommended flow:
+
+```bash
+npx jskit app verify-ui \
+  --command "npx playwright test tests/e2e/contacts.spec.ts -g filters" \
+  --feature "contacts filters" \
+  --auth-mode dev-auth-login-as
+```
+
+The Playwright command itself should follow this setup shape when login is needed:
 
 ```ts
 await page.goto("/");

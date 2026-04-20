@@ -7,9 +7,16 @@ import {
   ensureObject,
   sortStrings
 } from "../shared/collectionUtils.js";
+import {
+  UI_VERIFICATION_RECEIPT_RELATIVE_PATH,
+  isValidUiVerificationReceipt,
+  normalizeUiVerificationReceipt,
+  resolveChangedUiFilesFromGit
+} from "../shared/uiVerification.js";
 
 function createHealthCommands(ctx = {}) {
   const {
+    directoryLooksLikeJskitAppRoot,
     resolveAppRootFromCwd,
     loadLockFile,
     loadPackageRegistry,
@@ -621,6 +628,49 @@ function createHealthCommands(ctx = {}) {
     }
   }
 
+  async function collectUiVerificationDoctorIssues({ appRoot, issues }) {
+    if (!(await directoryLooksLikeJskitAppRoot(appRoot))) {
+      return;
+    }
+
+    const changedUiState = resolveChangedUiFilesFromGit(appRoot);
+    if (!changedUiState.available || changedUiState.paths.length < 1) {
+      return;
+    }
+
+    const receiptPath = path.join(appRoot, UI_VERIFICATION_RECEIPT_RELATIVE_PATH);
+    if (!(await fileExists(receiptPath))) {
+      issues.push(
+        `[ui:verification] changed UI files require a matching ${UI_VERIFICATION_RECEIPT_RELATIVE_PATH} receipt. Run jskit app verify-ui --command "<playwright command>" --feature "<label>" --auth-mode <mode>. Current files: ${changedUiState.paths.join(", ")}`
+      );
+      return;
+    }
+
+    let parsedReceipt = null;
+    try {
+      parsedReceipt = JSON.parse(await readFile(receiptPath, "utf8"));
+    } catch (error) {
+      issues.push(
+        `[ui:verification] ${UI_VERIFICATION_RECEIPT_RELATIVE_PATH} is not valid JSON: ${error instanceof Error ? error.message : String(error)}`
+      );
+      return;
+    }
+
+    const receipt = normalizeUiVerificationReceipt(parsedReceipt);
+    if (!isValidUiVerificationReceipt(receipt)) {
+      issues.push(
+        `[ui:verification] ${UI_VERIFICATION_RECEIPT_RELATIVE_PATH} is incomplete. It must include version, runner, recordedAt, feature, command, authMode, and changedUiFiles from jskit app verify-ui.`
+      );
+      return;
+    }
+
+    if (JSON.stringify(receipt.changedUiFiles) !== JSON.stringify(changedUiState.paths)) {
+      issues.push(
+        `[ui:verification] ${UI_VERIFICATION_RECEIPT_RELATIVE_PATH} does not match the current changed UI file set. Re-run jskit app verify-ui after the latest UI edits. Current files: ${changedUiState.paths.join(", ")}`
+      );
+    }
+  }
+
   function collectDiLabelParityIssuesForPackage({ packageEntry, packageInsights }) {
     const packageId = String(packageEntry?.packageId || "").trim();
     const descriptor = ensureObject(packageEntry?.descriptor);
@@ -710,6 +760,10 @@ function createHealthCommands(ctx = {}) {
       issues
     });
     await collectCrudFilterDoctorIssues({
+      appRoot,
+      issues
+    });
+    await collectUiVerificationDoctorIssues({
       appRoot,
       issues
     });

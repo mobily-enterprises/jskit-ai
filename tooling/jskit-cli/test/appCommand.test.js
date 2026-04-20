@@ -1,12 +1,13 @@
 import assert from "node:assert/strict";
 import {
   chmod,
-  lstat,
   mkdir,
+  lstat,
   readFile,
   readlink,
   writeFile
 } from "node:fs/promises";
+import { spawnSync } from "node:child_process";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import test from "node:test";
@@ -25,7 +26,8 @@ async function writeExecutable(filePath, source) {
 async function createMinimalApp(appRoot, {
   dependencies = {},
   devDependencies = {},
-  scripts = {}
+  scripts = {},
+  jskitApp = false
 } = {}) {
   await mkdir(appRoot, { recursive: true });
   await writeFile(
@@ -45,6 +47,13 @@ async function createMinimalApp(appRoot, {
     )}\n`,
     "utf8"
   );
+  if (jskitApp) {
+    await writeFile(
+      path.join(appRoot, "app.json"),
+      `${JSON.stringify({ name: "tmp-app" }, null, 2)}\n`,
+      "utf8"
+    );
+  }
   await mkdir(path.join(appRoot, "node_modules", ".bin"), { recursive: true });
 }
 
@@ -80,6 +89,22 @@ async function readLogLines(logPath) {
   return content.split(/\r?\n/u).filter(Boolean);
 }
 
+function runGit(appRoot, args = []) {
+  const result = spawnSync("git", Array.isArray(args) ? args : [], {
+    cwd: appRoot,
+    encoding: "utf8"
+  });
+  assert.equal(result.status, 0, String(result.stderr || ""));
+}
+
+async function initializeGitApp(appRoot) {
+  runGit(appRoot, ["init"]);
+  runGit(appRoot, ["config", "user.name", "JSKIT Test"]);
+  runGit(appRoot, ["config", "user.email", "test@example.com"]);
+  runGit(appRoot, ["add", "package.json"]);
+  runGit(appRoot, ["commit", "-m", "Initial scaffold"]);
+}
+
 test("jskit app verify runs the baseline npm scripts and doctor in order", async () => {
   await withTempDir(async (cwd) => {
     const appRoot = path.join(cwd, "app");
@@ -111,6 +136,89 @@ fs.appendFileSync(process.env.TEST_LOG_PATH, ["npm", ...process.argv.slice(2)].j
       "npm run --if-present build",
       "local-jskit doctor"
     ]);
+  });
+});
+
+test("jskit app verify-ui runs the provided command and writes a matching UI verification receipt", async () => {
+  await withTempDir(async (cwd) => {
+    const appRoot = path.join(cwd, "app");
+    const binDir = path.join(cwd, "bin");
+    const logPath = path.join(cwd, "commands.log");
+
+    await createMinimalApp(appRoot, { jskitApp: true });
+    await initializeGitApp(appRoot);
+
+    await mkdir(path.join(appRoot, "src", "pages", "home", "contacts"), { recursive: true });
+    await writeFile(
+      path.join(appRoot, "src", "pages", "home", "contacts", "index.vue"),
+      "<template><div>Contacts</div></template>\n",
+      "utf8"
+    );
+
+    await installFakeCommand(
+      binDir,
+      "npm",
+      `#!/usr/bin/env node
+const fs = require("node:fs");
+fs.appendFileSync(process.env.TEST_LOG_PATH, ["npm", ...process.argv.slice(2)].join(" ") + "\\n");
+`
+    );
+
+    const result = runCli({
+      cwd: appRoot,
+      args: [
+        "app",
+        "verify-ui",
+        "--command",
+        "npm run e2e -- tests/e2e/contacts.spec.ts -g filters",
+        "--feature",
+        "contacts filters",
+        "--auth-mode",
+        "dev-auth-login-as"
+      ],
+      env: buildTestEnv(binDir, logPath)
+    });
+
+    assert.equal(result.status, 0, String(result.stderr || ""));
+    assert.deepEqual(await readLogLines(logPath), [
+      "npm run e2e -- tests/e2e/contacts.spec.ts -g filters"
+    ]);
+
+    const receipt = JSON.parse(await readFile(path.join(appRoot, ".jskit", "verification", "ui.json"), "utf8"));
+    assert.equal(receipt.version, 1);
+    assert.equal(receipt.runner, "playwright");
+    assert.equal(receipt.feature, "contacts filters");
+    assert.equal(receipt.command, "npm run e2e -- tests/e2e/contacts.spec.ts -g filters");
+    assert.equal(receipt.authMode, "dev-auth-login-as");
+    assert.deepEqual(receipt.changedUiFiles, ["src/pages/home/contacts/index.vue"]);
+  });
+});
+
+test("jskit app verify-ui rejects generic package roots that are not JSKIT apps", async () => {
+  await withTempDir(async (cwd) => {
+    const appRoot = path.join(cwd, "package-only-root");
+
+    await createMinimalApp(appRoot);
+    await initializeGitApp(appRoot);
+    await mkdir(path.join(appRoot, "src", "pages"), { recursive: true });
+    await writeFile(path.join(appRoot, "src", "pages", "index.vue"), "<template />\n", "utf8");
+
+    const result = runCli({
+      cwd: appRoot,
+      args: [
+        "app",
+        "verify-ui",
+        "--command",
+        "npm run e2e -- tests/e2e/example.spec.ts",
+        "--feature",
+        "example",
+        "--auth-mode",
+        "none"
+      ]
+    });
+
+    assert.equal(result.status, 1, String(result.stdout || ""));
+    assert.match(String(result.stderr || ""), /jskit app verify-ui only works in a JSKIT app root/);
   });
 });
 

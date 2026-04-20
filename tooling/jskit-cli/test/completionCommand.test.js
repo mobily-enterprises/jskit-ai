@@ -88,7 +88,7 @@ test("completion bash __complete__ lists app subcommands and app-specific option
   assert.equal(subcommandResult.status, 0, String(subcommandResult.stderr || ""));
   assert.deepEqual(
     String(subcommandResult.stdout || "").trim().split(/\r?\n/u).filter(Boolean),
-    ["adopt-managed-scripts", "link-local-packages", "release", "update-packages", "verify"]
+    ["adopt-managed-scripts", "link-local-packages", "release", "update-packages", "verify", "verify-ui"]
   );
 
   const optionResult = runCli({
@@ -109,6 +109,16 @@ test("completion bash __complete__ lists app subcommands and app-specific option
   assert.deepEqual(
     String(releaseOptionResult.stdout || "").trim().split(/\r?\n/u).filter(Boolean),
     ["--dry-run", "--help", "--registry"]
+  );
+
+  const verifyUiOptionResult = runCli({
+    args: ["completion", "bash", "__complete__", "4", "--", "npx", "jskit", "app", "verify-ui", "--"]
+  });
+
+  assert.equal(verifyUiOptionResult.status, 0, String(verifyUiOptionResult.stderr || ""));
+  assert.deepEqual(
+    String(verifyUiOptionResult.stdout || "").trim().split(/\r?\n/u).filter(Boolean),
+    ["--auth-mode", "--command", "--feature", "--help"]
   );
 });
 

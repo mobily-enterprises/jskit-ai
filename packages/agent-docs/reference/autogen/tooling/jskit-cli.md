@@ -379,6 +379,7 @@ Exports
 - `normalizeText(value = "")`
 - `isTruthyFlag(rawValue = "")`
 - `runExternalCommand(command, args = [], { cwd = "", env = {}, stdout, stderr, quiet = false, createCliError } = {})`
+- `runExternalShellCommand(commandText, { cwd = "", env = {}, stdout, stderr, quiet = false, createCliError } = {})`
 - `formatUtcReleaseTimestamp(date = new Date())`
 - `resolveLocalJskitBin(appRoot = "")`
 - `runLocalJskit(appRoot, args = [], { stdout, stderr, createCliError, quiet = false } = {})`
@@ -401,6 +402,10 @@ Local functions
 ### `src/server/commandHandlers/appCommands/verify.js`
 Exports
 - `runAppVerifyCommand(ctx = {}, { appRoot = "", options = {}, stdout, stderr })`
+
+### `src/server/commandHandlers/appCommands/verifyUi.js`
+Exports
+- `runAppVerifyUiCommand(ctx = {}, { appRoot = "", options = {}, stdout, stderr })`
 
 ### `src/server/commandHandlers/completion.js`
 Exports
@@ -671,6 +676,22 @@ Exports
 - `CATALOG_PACKAGES_PATH`
 Local functions
 - `resolveCatalogPackagesPath()`
+
+### `src/server/shared/uiVerification.js`
+Exports
+- `UI_VERIFICATION_AUTH_MODES`
+- `UI_VERIFICATION_RECEIPT_RELATIVE_PATH`
+- `UI_VERIFICATION_RECEIPT_VERSION`
+- `UI_VERIFICATION_RUNNER`
+- `isUiVerificationAuthMode(value = "")`
+- `isUiVerificationPath(relativePath = "")`
+- `isValidUiVerificationReceipt(receipt)`
+- `normalizeUiVerificationReceipt(rawReceipt = {})`
+- `resolveChangedUiFilesFromGit(appRoot = "")`
+- `sortUniqueStrings(values = [])`
+Local functions
+- `normalizeText(value = "")`
+- `readGitPathList(appRoot = "", args = [])`
 
 ### bin
 

@@ -6,6 +6,7 @@ function createCommandHandlerDeps(deps = {}) {
     writeWrappedItems: deps.writeWrappedItems,
     normalizeRelativePath: deps.normalizeRelativePath,
     normalizeRelativePosixPath: deps.normalizeRelativePosixPath,
+    directoryLooksLikeJskitAppRoot: deps.directoryLooksLikeJskitAppRoot,
     resolveAppRootFromCwd: deps.resolveAppRootFromCwd,
     loadLockFile: deps.loadLockFile,
     loadPackageRegistry: deps.loadPackageRegistry,

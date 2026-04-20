@@ -678,6 +678,7 @@ In the current CLI, that includes checks such as:
 - whether managed files recorded in the lock still exist
 - whether installed packages are still visible in the package registry
 - certain JSKIT-specific app checks, such as invalid raw `mdi-*` icon literals in Vue templates when the app uses Vuetify's `mdi-svg` iconset
+- UI verification receipts for current dirty UI files in git, via `.jskit/verification/ui.json`
 
 That last check is narrower than it sounds. `doctor` is looking for the broken case in direct Vue templates, such as:
 
@@ -737,6 +738,24 @@ Good times to run it manually include:
 - when you want a fast JSKIT-specific health check without waiting for a full test suite
 
 One important nuance: `doctor` is checking for broken JSKIT ownership and visibility, not trying to stop you from editing app-owned files. For example, a managed file that still exists but whose contents changed is normally fine. The problem is when JSKIT expects a managed file to exist and it is gone, or when the installed package state no longer resolves cleanly.
+
+There is one intentional exception now for user-facing UI work.
+
+If the current git working tree has changed UI files under the app's normal UI paths, `doctor` expects a matching `.jskit/verification/ui.json` receipt. The intended way to create that receipt is:
+
+```bash
+npx jskit app verify-ui \
+  --command "npx playwright test tests/e2e/contacts.spec.ts -g filters" \
+  --feature "contacts filters" \
+  --auth-mode dev-auth-login-as
+```
+
+That command does two things:
+
+- runs the targeted Playwright command you give it
+- writes a receipt describing the verified feature, auth mode, and current dirty UI file set
+
+`doctor` then compares the current changed UI files to that receipt. If you edit the UI again afterwards, the receipt is stale and `doctor` tells you to rerun `jskit app verify-ui`.
 
 ### Why `--json` exists
 

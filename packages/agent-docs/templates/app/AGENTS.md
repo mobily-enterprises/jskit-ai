@@ -73,6 +73,7 @@ Core rules:
 - For CRUD chunks, ask the developer which operations are allowed, which fields belong in the list view if one exists, and the intended look of the view and edit/new forms before generating code.
 - Every user-facing screen must pass a Material Design and Vuetify quality review before the chunk is considered done.
 - Any chunk that adds or changes user-facing UI must include a Playwright check that exercises the changed behavior before the chunk is considered done.
+- Record that Playwright run with `jskit app verify-ui --command "<playwright command>" --feature "<label>" --auth-mode <mode>` so `jskit doctor` can verify the receipt.
 - If the UI flow requires login, use the app's development-only auth bypass or session bootstrap path instead of a live external auth login flow.
 - In JSKIT apps using the standard auth stack, that means enabling the dev auth bypass in development and using `POST /api/dev-auth/login-as` during Playwright setup.
 - If authenticated UI work has no usable local auth bootstrap path yet, treat that as a testability gap and call it out before the chunk can be considered complete.
