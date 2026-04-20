@@ -20,7 +20,10 @@ class AuthRouteServiceProvider {
     const router = app.make("jskit.http.router");
     const authWebService = app.make("auth.web.service");
     const controller = new AuthController({ service: authWebService });
-    const routes = buildRoutes(controller);
+    const routes = buildRoutes(controller, {
+      includeDevLoginAs:
+        typeof authWebService?.isDevLoginAsAvailable === "function" ? authWebService.isDevLoginAsAvailable() : false
+    });
     for (const route of routes) {
       router.register(route.method, route.path, route, route.handler);
     }

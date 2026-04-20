@@ -61,6 +61,19 @@ class AuthWebService {
     });
   }
 
+  async devLoginAs(request, payload) {
+    return request.executeAction({
+      actionId: AUTH_ACTION_IDS.DEV_LOGIN_AS,
+      input: payload
+    });
+  }
+
+  isDevLoginAsAvailable() {
+    return typeof this.authService?.isDevAuthBootstrapEnabled === "function"
+      ? this.authService.isDevAuthBootstrapEnabled()
+      : false;
+  }
+
   async logout(request) {
     return request.executeAction({
       actionId: AUTH_ACTION_IDS.LOGOUT

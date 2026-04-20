@@ -91,6 +91,18 @@ class AuthController {
     });
   }
 
+  async devLoginAs(request, reply) {
+    const payload = request.body || {};
+    const result = await this.service.devLoginAs(request, payload);
+    this.service.writeSessionCookies(reply, result.session);
+    reply.code(200).send({
+      ok: true,
+      userId: result.profile.id,
+      username: result.profile.displayName,
+      email: result.profile.email
+    });
+  }
+
   async logout(request, reply) {
     let clearSession = true;
     try {

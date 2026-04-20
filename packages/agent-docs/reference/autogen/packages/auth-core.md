@@ -202,11 +202,18 @@ Exports
 - `loginResponseValidator`
 - `otpVerifyResponseValidator`
 - `oauthCompleteResponseValidator`
+- `devLoginAsResponseValidator`
 - `logoutResponseValidator`
 - `oauthProviderCatalogEntryValidator`
 - `sessionResponseValidator`
 - `sessionUnavailableResponseValidator`
 - `createCommandMessages({ fields = {}, defaultMessage = "Invalid value." } = {})`
+
+### `src/shared/commands/authDevLoginAsCommand.js`
+Exports
+- `AUTH_DEV_LOGIN_AS_MESSAGES`
+- `authDevLoginAsBodyValidator`
+- `authDevLoginAsCommand`
 
 ### `src/shared/commands/authLoginOAuthCompleteCommand.js`
 Exports
@@ -300,6 +307,7 @@ Exports
 - `authLoginOtpVerifyCommand`
 - `authLoginOAuthStartCommand`
 - `authLoginOAuthCompleteCommand`
+- `authDevLoginAsCommand`
 - `authPasswordResetRequestCommand`
 - `authPasswordRecoveryCompleteCommand`
 - `authPasswordResetCommand`

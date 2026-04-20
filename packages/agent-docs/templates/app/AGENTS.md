@@ -45,6 +45,7 @@ Before calling a chunk done, report:
 - `Deslop review: ...`
 - `JSKIT review: ...`
 - `Material/Vuetify review: ...`
+- `Playwright: ...` for any chunk that adds or changes user-facing UI
 - `Verification: ...`
 - `Files changed: ...`
 - `Commands run: ...`
@@ -71,6 +72,10 @@ Core rules:
 - Use the real env var names or option names instead of vague requests for "credentials". Values such as `DB_NAME`, `DB_USER`, `DB_PASSWORD`, `AUTH_SUPABASE_URL`, `AUTH_SUPABASE_PUBLISHABLE_KEY`, and `APP_PUBLIC_URL` are routine setup inputs when the relevant package stack needs them.
 - For CRUD chunks, ask the developer which operations are allowed, which fields belong in the list view if one exists, and the intended look of the view and edit/new forms before generating code.
 - Every user-facing screen must pass a Material Design and Vuetify quality review before the chunk is considered done.
+- Any chunk that adds or changes user-facing UI must include a Playwright check that exercises the changed behavior before the chunk is considered done.
+- If the UI flow requires login, use the app's development-only auth bypass or session bootstrap path instead of a live external auth login flow.
+- In JSKIT apps using the standard auth stack, that means enabling the dev auth bypass in development and using `POST /api/dev-auth/login-as` during Playwright setup.
+- If authenticated UI work has no usable local auth bootstrap path yet, treat that as a testability gap and call it out before the chunk can be considered complete.
 - Do not implement app features before the blueprint has the database, surfaces, ownership model, and route/screen plan written down.
 - Break planned work into reviewable chunks before implementing. One CRUD is usually one chunk, but auth/platform setup, shell work, and cross-cutting integrations can be their own chunks.
 - Do not move to the next chunk until the current chunk has passed implementation, deslop review, JSKIT best-practices review, Material Design/Vuetify review, and verification.

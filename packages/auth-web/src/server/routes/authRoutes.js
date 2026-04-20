@@ -7,6 +7,7 @@ import {
   authLoginOtpVerifyCommand,
   authLoginOAuthStartCommand,
   authLoginOAuthCompleteCommand,
+  authDevLoginAsCommand,
   authPasswordResetRequestCommand,
   authPasswordRecoveryCompleteCommand,
   authPasswordResetCommand,
@@ -15,7 +16,7 @@ import {
 } from "@jskit-ai/auth-core/shared/commands";
 import { AUTH_PATHS } from "@jskit-ai/auth-core/shared/authPaths";
 
-function buildRoutes(controller) {
+function buildRoutes(controller, { includeDevLoginAs = false } = {}) {
   if (!controller) {
     throw new Error("Auth routes require a controller instance.");
   }
@@ -172,6 +173,27 @@ function buildRoutes(controller) {
       },
       handler: handler("oauthComplete")
     },
+    ...(includeDevLoginAs ? [{
+      path: AUTH_PATHS.DEV_LOGIN_AS,
+      method: "POST",
+      auth: "public",
+      meta: {
+        tags: ["auth"],
+        summary: "Dev-only: create a local session for an existing user"
+      },
+      bodyValidator: authDevLoginAsCommand.operation.bodyValidator,
+      responseValidators: withStandardErrorResponses(
+        {
+          200: authDevLoginAsCommand.operation.responseValidator
+        },
+        { includeValidation400: true }
+      ),
+      rateLimit: {
+        max: 30,
+        timeWindow: "1 minute"
+      },
+      handler: handler("devLoginAs")
+    }] : []),
     {
       path: AUTH_PATHS.PASSWORD_FORGOT,
       method: "POST",

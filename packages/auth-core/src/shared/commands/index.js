@@ -5,6 +5,7 @@ export { authLoginOtpRequestCommand } from "./authLoginOtpRequestCommand.js";
 export { authLoginOtpVerifyCommand } from "./authLoginOtpVerifyCommand.js";
 export { authLoginOAuthStartCommand } from "./authLoginOAuthStartCommand.js";
 export { authLoginOAuthCompleteCommand } from "./authLoginOAuthCompleteCommand.js";
+export { authDevLoginAsCommand } from "./authDevLoginAsCommand.js";
 export { authPasswordResetRequestCommand } from "./authPasswordResetRequestCommand.js";
 export { authPasswordRecoveryCompleteCommand } from "./authPasswordRecoveryCompleteCommand.js";
 export { authPasswordResetCommand } from "./authPasswordResetCommand.js";

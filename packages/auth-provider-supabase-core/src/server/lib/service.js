@@ -55,6 +55,14 @@ import { createOauthFlows } from "./oauthFlows.js";
 import { createPasswordSecurityFlows } from "./passwordSecurityFlows.js";
 import { USER_PROFILE_EMAIL_CONFLICT_CODE } from "./standaloneProfileSyncService.js";
 import {
+  assertDevAuthBootstrapConfig,
+  authenticateDevAuthRequest,
+  createDevAuthSession,
+  ensureDevAuthBootstrapAvailable,
+  resolveDevAuthConfig,
+  resolveDevAuthProfile
+} from "./devAuthBootstrap.js";
+import {
   buildOAuthProviderCatalogResponse,
   resolveOAuthProviderQueryParams,
   resolveSupabaseOAuthProviderCatalog
@@ -103,6 +111,7 @@ function createService(options) {
   const supabaseUrl = String(authProvider.supabaseUrl || "").trim();
   const supabasePublishableKey = String(authProvider.supabasePublishableKey || "").trim();
   const userSettingsRepository = options.userSettingsRepository || null;
+  const usersRepository = options.usersRepository || null;
   const userProfileSyncService = options.userProfileSyncService;
   if (
     !userProfileSyncService ||
@@ -113,6 +122,17 @@ function createService(options) {
   }
   const isProduction = options.nodeEnv === "production";
   const jwtAudience = String(authProvider.jwtAudience || DEFAULT_AUDIENCE).trim();
+  const devAuthConfig = resolveDevAuthConfig({
+    enabled: options.devAuthBypassEnabled,
+    secret: options.devAuthBypassSecret,
+    nodeEnv: options.nodeEnv,
+    jwtAudience,
+    accessTtlSeconds: options.devAuthAccessTtlSeconds,
+    refreshTtlSeconds: options.devAuthRefreshTtlSeconds
+  });
+  assertDevAuthBootstrapConfig(devAuthConfig, {
+    usersRepository
+  });
   const settingsProfileAuthInfo = Object.freeze({
     emailManagedBy: normalizeAuthProviderId(authProvider.emailManagedBy || authProviderId, { fallback: authProviderId }),
     emailChangeFlow: normalizeAuthProviderId(authProvider.emailChangeFlow || authProviderId, { fallback: authProviderId })
@@ -651,11 +671,24 @@ function createService(options) {
   });
 
   async function authenticateRequest(request) {
-    ensureConfigured();
-
     const cookies = safeRequestCookies(request);
     const accessToken = String(cookies[ACCESS_TOKEN_COOKIE] || "");
     const refreshToken = String(cookies[REFRESH_TOKEN_COOKIE] || "");
+
+    const devAuthResult = await authenticateDevAuthRequest(
+      {
+        request,
+        accessToken,
+        refreshToken
+      },
+      {
+        config: devAuthConfig,
+        usersRepository
+      }
+    );
+    if (devAuthResult) {
+      return devAuthResult;
+    }
 
     if (!accessToken && !refreshToken) {
       return {
@@ -665,6 +698,8 @@ function createService(options) {
         transientFailure: false
       };
     }
+
+    ensureConfigured();
 
     if (accessToken) {
       const verification = await verifyAccessToken(accessToken);
@@ -796,6 +831,22 @@ function createService(options) {
     return authOAuthCatalogResponse;
   }
 
+  function isDevAuthBootstrapEnabled() {
+    return devAuthConfig.enabled === true;
+  }
+
+  async function devLoginAs(request, input = {}) {
+    ensureDevAuthBootstrapAvailable(devAuthConfig, request);
+    const profile = await resolveDevAuthProfile(input, {
+      usersRepository,
+      validationError
+    });
+    return {
+      profile,
+      session: await createDevAuthSession(profile, devAuthConfig)
+    };
+  }
+
   return {
     register,
     resendRegisterConfirmation,
@@ -816,6 +867,8 @@ function createService(options) {
     getSecurityStatus,
     getSettingsProfileAuthInfo,
     getOAuthProviderCatalog,
+    isDevAuthBootstrapEnabled,
+    devLoginAs,
     authenticateRequest,
     hasAccessTokenCookie,
     hasSessionCookie,

@@ -21,6 +21,14 @@ function createAppConfigFixture() {
   };
 }
 
+function isBootFailureWithCause(error, pattern) {
+  return (
+    error instanceof Error &&
+    /failed during boot\(\)/.test(String(error.message || "")) &&
+    pattern.test(String(error.details?.cause?.message || ""))
+  );
+}
+
 test("auth supabase provider registers authService and contributes auth actions in users mode", async () => {
   const app = createApplication();
   app.instance("appConfig", createAppConfigFixture());
@@ -69,6 +77,7 @@ test("auth supabase provider registers authService and contributes auth actions 
   assert.equal(Array.isArray(definitions), true);
   assert.equal(definitions.some((definition) => definition.id === "auth.login.password"), true);
   assert.equal(definitions.some((definition) => definition.id === "auth.register.confirmation.resend"), true);
+  assert.equal(definitions.some((definition) => definition.id === "auth.dev.loginAs"), false);
   const sessionRead = definitions.find((definition) => definition.id === "auth.session.read");
   assert.deepEqual(sessionRead?.surfaces, ["home", "console"]);
 });
@@ -153,6 +162,206 @@ test("auth supabase provider rejects unsupported AUTH_PROFILE_MODE values", asyn
   });
 
   assert.throws(() => app.make("authService"), /Unsupported AUTH_PROFILE_MODE/);
+});
+
+test("auth supabase provider can boot dev auth without Supabase credentials", async () => {
+  const app = createApplication();
+  app.instance("appConfig", createAppConfigFixture());
+  app.instance("jskit.env", {
+    AUTH_DEV_BYPASS_ENABLED: "true",
+    AUTH_DEV_BYPASS_SECRET: "dev-bootstrap-secret",
+    AUTH_PROFILE_MODE: "users",
+    APP_PUBLIC_URL: "http://localhost:5173",
+    NODE_ENV: "development"
+  });
+  app.instance("jskit.logger", {
+    info() {},
+    warn() {},
+    error() {},
+    debug() {}
+  });
+  app.instance("domainEvents", {
+    async publish() {}
+  });
+  app.instance("users.profile.sync.service", {
+    async findByIdentity() {
+      return null;
+    },
+    async syncIdentityProfile(profile) {
+      return {
+        id: 1,
+        authProvider: String(profile?.authProvider || "supabase"),
+        authProviderUserSid: String(profile?.authProviderUserSid || "user-1"),
+        email: String(profile?.email || "test@example.com"),
+        displayName: String(profile?.displayName || "Test User")
+      };
+    }
+  });
+  app.instance("usersRepository", {
+    async findById() {
+      return null;
+    },
+    async findByEmail() {
+      return null;
+    }
+  });
+
+  await app.start({
+    providers: [ActionRuntimeServiceProvider, AuthSupabaseServiceProvider]
+  });
+
+  const authService = app.make("authService");
+  assert.equal(typeof authService?.devLoginAs, "function");
+  assert.equal(typeof authService?.isDevAuthBootstrapEnabled, "function");
+  assert.equal(authService.isDevAuthBootstrapEnabled(), true);
+
+  const actionExecutor = app.make("actionExecutor");
+  const definitions = actionExecutor.listDefinitions();
+  assert.equal(definitions.some((definition) => definition.id === "auth.dev.loginAs"), true);
+});
+
+test("auth supabase provider rejects dev auth bypass in production", async () => {
+  const app = createApplication();
+  app.instance("appConfig", createAppConfigFixture());
+  app.instance("jskit.env", {
+    AUTH_DEV_BYPASS_ENABLED: "true",
+    AUTH_DEV_BYPASS_SECRET: "dev-bootstrap-secret",
+    AUTH_PROFILE_MODE: "users",
+    APP_PUBLIC_URL: "https://example.com",
+    NODE_ENV: "production"
+  });
+  app.instance("jskit.logger", {
+    info() {},
+    warn() {},
+    error() {},
+    debug() {}
+  });
+  app.instance("domainEvents", {
+    async publish() {}
+  });
+  app.instance("users.profile.sync.service", {
+    async findByIdentity() {
+      return null;
+    },
+    async syncIdentityProfile(profile) {
+      return {
+        id: 1,
+        authProvider: String(profile?.authProvider || "supabase"),
+        authProviderUserSid: String(profile?.authProviderUserSid || "user-1"),
+        email: String(profile?.email || "test@example.com"),
+        displayName: String(profile?.displayName || "Test User")
+      };
+    }
+  });
+  app.instance("usersRepository", {
+    async findById() {
+      return null;
+    },
+    async findByEmail() {
+      return null;
+    }
+  });
+
+  await assert.rejects(
+    () =>
+      app.start({
+        providers: [ActionRuntimeServiceProvider, AuthSupabaseServiceProvider]
+      }),
+    (error) => isBootFailureWithCause(error, /must not be enabled in production/)
+  );
+});
+
+test("auth supabase provider rejects dev auth bypass without a secret during boot", async () => {
+  const app = createApplication();
+  app.instance("appConfig", createAppConfigFixture());
+  app.instance("jskit.env", {
+    AUTH_DEV_BYPASS_ENABLED: "true",
+    AUTH_PROFILE_MODE: "users",
+    APP_PUBLIC_URL: "http://localhost:5173",
+    NODE_ENV: "development"
+  });
+  app.instance("jskit.logger", {
+    info() {},
+    warn() {},
+    error() {},
+    debug() {}
+  });
+  app.instance("domainEvents", {
+    async publish() {}
+  });
+  app.instance("users.profile.sync.service", {
+    async findByIdentity() {
+      return null;
+    },
+    async syncIdentityProfile(profile) {
+      return {
+        id: 1,
+        authProvider: String(profile?.authProvider || "supabase"),
+        authProviderUserSid: String(profile?.authProviderUserSid || "user-1"),
+        email: String(profile?.email || "test@example.com"),
+        displayName: String(profile?.displayName || "Test User")
+      };
+    }
+  });
+  app.instance("usersRepository", {
+    async findById() {
+      return null;
+    },
+    async findByEmail() {
+      return null;
+    }
+  });
+
+  await assert.rejects(
+    () =>
+      app.start({
+        providers: [ActionRuntimeServiceProvider, AuthSupabaseServiceProvider]
+      }),
+    (error) => isBootFailureWithCause(error, /AUTH_DEV_BYPASS_SECRET is required/)
+  );
+});
+
+test("auth supabase provider rejects dev auth bypass without usersRepository during boot", async () => {
+  const app = createApplication();
+  app.instance("appConfig", createAppConfigFixture());
+  app.instance("jskit.env", {
+    AUTH_DEV_BYPASS_ENABLED: "true",
+    AUTH_DEV_BYPASS_SECRET: "dev-bootstrap-secret",
+    AUTH_PROFILE_MODE: "users",
+    APP_PUBLIC_URL: "http://localhost:5173",
+    NODE_ENV: "development"
+  });
+  app.instance("jskit.logger", {
+    info() {},
+    warn() {},
+    error() {},
+    debug() {}
+  });
+  app.instance("domainEvents", {
+    async publish() {}
+  });
+  app.instance("users.profile.sync.service", {
+    async findByIdentity() {
+      return null;
+    },
+    async syncIdentityProfile(profile) {
+      return {
+        id: 1,
+        authProvider: String(profile?.authProvider || "supabase"),
+        authProviderUserSid: String(profile?.authProviderUserSid || "user-1"),
+        email: String(profile?.email || "test@example.com"),
+        displayName: String(profile?.displayName || "Test User")
+      };
+    }
+  });
+
+  await assert.rejects(
+    () =>
+      app.start({
+        providers: [ActionRuntimeServiceProvider, AuthSupabaseServiceProvider]
+      }),
+    (error) => isBootFailureWithCause(error, /requires usersRepository with findById\(\) and findByEmail\(\)/)
+  );
 });
 
 test("auth supabase provider reads oauth providers from appConfig.auth.oauth", async () => {

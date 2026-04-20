@@ -9,6 +9,7 @@ import {
   authLoginOtpVerifyCommand,
   authLoginOAuthStartCommand,
   authLoginOAuthCompleteCommand,
+  authDevLoginAsCommand,
   authPasswordResetRequestCommand,
   authPasswordRecoveryCompleteCommand,
   authPasswordResetCommand
@@ -23,7 +24,24 @@ function requireRequestContext(context, actionId) {
   throw new Error(`${actionId} requires request context.`);
 }
 
-const authActions = Object.freeze([
+const devLoginAsAction = Object.freeze({
+  id: "auth.dev.loginAs",
+  version: 1,
+  kind: "command",
+  channels: ["api", "internal"],
+  surfacesFrom: "enabled",
+  inputValidator: authDevLoginAsCommand.operation.bodyValidator,
+  idempotency: "none",
+  audit: {
+    actionName: "auth.dev.loginAs"
+  },
+  observability: {},
+  async execute(input, context, deps) {
+    return deps.authService.devLoginAs(requireRequestContext(context, "auth.dev.loginAs"), input);
+  }
+});
+
+const authActionsBeforeDevLogin = Object.freeze([
   {
     id: "auth.register",
     version: 1,
@@ -135,7 +153,10 @@ const authActions = Object.freeze([
     async execute(input, _context, deps) {
       return deps.authService.oauthComplete(input);
     }
-  },
+  }
+]);
+
+const authActionsAfterDevLogin = Object.freeze([
   {
     id: "auth.password.reset.request",
     version: 1,
@@ -241,4 +262,21 @@ const authActions = Object.freeze([
   }
 ]);
 
-export { authActions };
+const baseAuthActions = Object.freeze([
+  ...authActionsBeforeDevLogin,
+  ...authActionsAfterDevLogin
+]);
+
+function buildAuthActions({ includeDevLoginAs = false } = {}) {
+  if (!includeDevLoginAs) {
+    return baseAuthActions;
+  }
+
+  return Object.freeze([
+    ...authActionsBeforeDevLogin,
+    devLoginAsAction,
+    ...authActionsAfterDevLogin
+  ]);
+}
+
+export { baseAuthActions, buildAuthActions, devLoginAsAction };
