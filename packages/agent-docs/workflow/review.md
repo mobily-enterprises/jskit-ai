@@ -32,6 +32,7 @@ Before calling a chunk or a whole changeset done, review it in four passes:
    - run the smallest relevant verification commands for a chunk
    - run the widest relevant verification commands for a whole changeset
    - any added or changed user-facing UI must be exercised with Playwright
+   - that Playwright run should normally be recorded through `jskit app verify-ui`
    - if login is required, use the chosen local test-auth path instead of live external auth
    - in the standard JSKIT auth stack, prefer the development-only `POST /api/dev-auth/login-as` path
    - if there is no usable local auth bootstrap path, explicitly record that as a blocking testability gap

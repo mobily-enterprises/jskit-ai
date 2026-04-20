@@ -33,6 +33,7 @@ import {
   readFileBufferIfExists
 } from "../cliRuntime/ioAndMigrations.js";
 import {
+  directoryLooksLikeJskitAppRoot,
   resolveAppRootFromCwd,
   loadAppPackageJson,
   loadLockFile,
@@ -97,6 +98,7 @@ const commandHandlers = createCommandHandlers(
     writeWrappedItems,
     normalizeRelativePath,
     normalizeRelativePosixPath,
+    directoryLooksLikeJskitAppRoot,
     resolveAppRootFromCwd,
     loadLockFile,
     loadPackageRegistry,

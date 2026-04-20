@@ -80,6 +80,36 @@ function runExternalCommand(
   });
 }
 
+function runExternalShellCommand(
+  commandText,
+  {
+    cwd = "",
+    env = {},
+    stdout,
+    stderr,
+    quiet = false,
+    createCliError
+  } = {}
+) {
+  const result = spawnSync(String(commandText || ""), {
+    cwd: cwd || process.cwd(),
+    encoding: "utf8",
+    shell: true,
+    env: {
+      ...process.env,
+      ...env
+    }
+  });
+
+  return ensureCommandSucceeded(result, String(commandText || "").trim() || "shell command", {
+    createCliError,
+    cwd,
+    stdout,
+    stderr,
+    quiet
+  });
+}
+
 function formatUtcReleaseTimestamp(date = new Date()) {
   const year = date.getUTCFullYear();
   const month = String(date.getUTCMonth() + 1).padStart(2, "0");
@@ -265,6 +295,7 @@ export {
   normalizeText,
   isTruthyFlag,
   runExternalCommand,
+  runExternalShellCommand,
   formatUtcReleaseTimestamp,
   resolveLocalJskitBin,
   runLocalJskit,

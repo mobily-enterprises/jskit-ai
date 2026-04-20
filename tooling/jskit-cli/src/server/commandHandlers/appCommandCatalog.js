@@ -38,6 +38,30 @@ const APP_COMMAND_DEFINITIONS = Object.freeze({
       "The scaffolded npm run verify wrapper can append npm run --if-present verify:app afterwards."
     ])
   }),
+  "verify-ui": Object.freeze({
+    name: "verify-ui",
+    summary: "Run a targeted Playwright command and write a UI verification receipt for jskit doctor.",
+    usage: "jskit app verify-ui --command <shell-command> --feature <label> --auth-mode <mode>",
+    options: Object.freeze([
+      Object.freeze({
+        label: "--command <shell-command>",
+        description: "Targeted Playwright command to run, for example: npx playwright test tests/e2e/contacts.spec.ts -g filters."
+      }),
+      Object.freeze({
+        label: "--feature <label>",
+        description: "Short human label for the UI feature or flow that was verified."
+      }),
+      Object.freeze({
+        label: "--auth-mode <mode>",
+        description: "Auth path used by the Playwright flow: none | dev-auth-login-as | session-bootstrap | custom-local."
+      })
+    ]),
+    defaults: Object.freeze([
+      "Requires a git working tree so the receipt can record the currently changed UI files.",
+      "Writes .jskit/verification/ui.json after the command succeeds.",
+      "Doctor expects the receipt to match the current dirty UI file set."
+    ])
+  }),
   "update-packages": Object.freeze({
     name: "update-packages",
     summary: "Update installed @jskit-ai dependencies and refresh managed migrations.",
@@ -151,6 +175,11 @@ function buildAppCommandOptionMeta(subcommandName = "") {
   }
   if (definition.name === "update-packages" || definition.name === "release") {
     optionMeta.registry = { inputType: "text" };
+  }
+  if (definition.name === "verify-ui") {
+    optionMeta.command = { inputType: "text" };
+    optionMeta.feature = { inputType: "text" };
+    optionMeta["auth-mode"] = { inputType: "text" };
   }
   if (definition.name === "link-local-packages") {
     optionMeta["repo-root"] = { inputType: "text" };

@@ -28,6 +28,7 @@ test("app agent template includes mandatory JSKIT start and done gates", async (
   assert.match(body, /Commands run:/);
   assert.match(body, /Remaining unverified:/);
   assert.match(body, /Any chunk that adds or changes user-facing UI must include a Playwright check/);
+  assert.match(body, /jskit app verify-ui/);
   assert.match(body, /use the app's development-only auth bypass or session bootstrap path/);
   assert.match(body, /POST \/api\/dev-auth\/login-as/);
 });

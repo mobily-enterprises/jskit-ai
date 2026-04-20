@@ -13,6 +13,7 @@ import { runAppLinkLocalPackagesCommand } from "./appCommands/linkLocalPackages.
 import { runAppReleaseCommand } from "./appCommands/release.js";
 import { runAppUpdatePackagesCommand } from "./appCommands/updatePackages.js";
 import { runAppVerifyCommand } from "./appCommands/verify.js";
+import { runAppVerifyUiCommand } from "./appCommands/verifyUi.js";
 
 function renderAppHelp(stream, definition = null) {
   const color = createColorFormatter(stream);
@@ -134,6 +135,9 @@ function createAppCommands(ctx = {}) {
 
     if (definition.name === "verify") {
       return runAppVerifyCommand(ctx, { appRoot, options, stdout, stderr });
+    }
+    if (definition.name === "verify-ui") {
+      return runAppVerifyUiCommand(ctx, { appRoot, options, stdout, stderr });
     }
     if (definition.name === "update-packages") {
       return runAppUpdatePackagesCommand(ctx, { appRoot, options, stdout, stderr });
