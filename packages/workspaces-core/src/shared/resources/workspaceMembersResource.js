@@ -299,7 +299,7 @@ const redeemInviteOutputValidator = Object.freeze({
 const WORKSPACE_MEMBERS_MESSAGES = createOperationMessages();
 
 const workspaceMembersResource = Object.freeze({
-  resource: "workspaceMembers",
+  namespace: "workspaceMembers",
   messages: WORKSPACE_MEMBERS_MESSAGES,
   operations: Object.freeze({
     rolesList: Object.freeze({

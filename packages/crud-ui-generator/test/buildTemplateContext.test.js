@@ -82,7 +82,7 @@ const customerBodySchema = {
 };
 
 const resource = {
-  resource: "customers",
+  namespace: "customers",
   operations: {
     list: {
       outputValidator: {
@@ -146,7 +146,7 @@ const customerBodySchema = {
 };
 
 const resource = {
-  resource: "customers",
+  namespace: "customers",
   operations: {
     list: {
       outputValidator: {
@@ -210,7 +210,7 @@ const bodySchema = {
 };
 
 const resource = {
-  resource: "customers",
+  namespace: "customers",
   operations: {
     list: {
       outputValidator: {
@@ -395,12 +395,12 @@ test("buildUiTemplateContext derives menu auth visibility from the target surfac
   });
 });
 
-test("buildUiTemplateContext falls back to target-root leaf for namespace when resource.resource is missing", async () => {
+test("buildUiTemplateContext falls back to target-root leaf for namespace when resource.namespace is missing", async () => {
   await withTempApp(async (appRoot) => {
     await writeResource(
       appRoot,
       RESOURCE_FILE,
-      FULL_RESOURCE_SOURCE.replace('  resource: "customers",\n', "")
+      FULL_RESOURCE_SOURCE.replace('  namespace: "customers",\n', "")
     );
 
     const context = await buildUiTemplateContext({

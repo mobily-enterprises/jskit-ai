@@ -11,7 +11,7 @@ import {
 
 function createResourceWithOutputSchema(overrides = {}) {
   return {
-    resource: "contacts",
+    namespace: "contacts",
     operations: {
       view: {
         outputValidator: {
@@ -59,7 +59,7 @@ function createRepositoryDouble(overrides = {}) {
 
 test("serviceMethods expose CRUD service behavior without the factory wrapper", async () => {
   const runtime = createCrudServiceRuntime({
-    resource: "contacts"
+    namespace: "contacts"
   });
   const repository = createRepositoryDouble();
 
@@ -75,7 +75,7 @@ test("serviceMethods expose CRUD service behavior without the factory wrapper", 
 
 test("serviceMethods apply patch normalization using the existing record and map field errors", async () => {
   const runtime = createCrudServiceRuntime({
-    resource: "contacts",
+    namespace: "contacts",
     operations: {
       patch: {
         bodyValidator: {

@@ -63,7 +63,7 @@ function normalizeConfigRecord(payload = {}) {
 }
 
 const assistantConfigResource = Object.freeze({
-  resource: "assistantConfig",
+  namespace: "assistantConfig",
   operations: Object.freeze({
     view: Object.freeze({
       method: "GET",

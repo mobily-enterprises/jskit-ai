@@ -1,53 +1,52 @@
-import {
-  createCrudRepositoryRuntime,
-  crudRepositoryList,
-  crudRepositoryFindById,
-  crudRepositoryListByIds,
-  crudRepositoryCreate,
-  crudRepositoryUpdateById,
-  crudRepositoryDeleteById
-} from "@jskit-ai/crud-core/server/repositoryMethods";
-import { createWithTransaction } from "@jskit-ai/database-runtime/shared";
+import { createCrudRepositoryRuntime } from "@jskit-ai/crud-core/server/repositoryOrm";
 import { resource } from "../shared/${option:namespace|singular|camel}Resource.js";
 import { LIST_CONFIG } from "./listConfig.js";
 
-const repositoryRuntime = createCrudRepositoryRuntime(resource, {
+const REPOSITORY_CONFIG = Object.freeze({
   context: "${option:namespace|snake} repository",
   list: LIST_CONFIG
 });
 
 function createRepository(knex, options = {}) {
-  const withTransaction = createWithTransaction(knex);
+  const repositoryOrm = createCrudRepositoryRuntime(resource, knex, {
+    ...options,
+    ...REPOSITORY_CONFIG
+  });
 
   async function list(query = {}, callOptions = {}) {
-    return crudRepositoryList(repositoryRuntime, knex, query, options, callOptions);
+    return repositoryOrm.list(query, callOptions);
   }
 
   async function findById(recordId, callOptions = {}) {
-    return crudRepositoryFindById(repositoryRuntime, knex, recordId, options, callOptions);
+    return repositoryOrm.findById(recordId, callOptions);
   }
 
   async function listByIds(ids = [], callOptions = {}) {
-    return crudRepositoryListByIds(repositoryRuntime, knex, ids, options, callOptions);
+    return repositoryOrm.listByIds(ids, callOptions);
+  }
+
+  async function listByForeignIds(ids = [], foreignKey = "", callOptions = {}) {
+    return repositoryOrm.listByForeignIds(ids, foreignKey, callOptions);
   }
 
   async function create(payload = {}, callOptions = {}) {
-    return crudRepositoryCreate(repositoryRuntime, knex, payload, options, callOptions);
+    return repositoryOrm.create(payload, callOptions);
   }
 
   async function updateById(recordId, patch = {}, callOptions = {}) {
-    return crudRepositoryUpdateById(repositoryRuntime, knex, recordId, patch, options, callOptions);
+    return repositoryOrm.updateById(recordId, patch, callOptions);
   }
 
   async function deleteById(recordId, callOptions = {}) {
-    return crudRepositoryDeleteById(repositoryRuntime, knex, recordId, options, callOptions);
+    return repositoryOrm.deleteById(recordId, callOptions);
   }
 
   return Object.freeze({
-    withTransaction,
+    withTransaction: repositoryOrm.withTransaction,
     list,
     findById,
     listByIds,
+    listByForeignIds,
     create,
     updateById,
     deleteById

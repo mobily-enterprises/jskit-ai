@@ -6,7 +6,7 @@ import {
   normalizeCrudLookupContainerKey,
   resolveCrudLookupContainerKey
 } from "@jskit-ai/kernel/shared/support/crudLookup";
-import { normalizeCrudLookupApiPath } from "./lookupPathSupport.js";
+import { normalizeCrudLookupApiPath } from "../lookupPathSupport.js";
 
 const DEFAULT_LOOKUP_INCLUDE = "*";
 const DEFAULT_LOOKUP_MAX_DEPTH = 3;
@@ -238,7 +238,11 @@ function resolveChildIncludeFromPaths(paths = []) {
       includesAll = true;
       continue;
     }
-    pathKeys.add(normalizedPath.join("."));
+
+    const childPath = normalizedPath.join(".");
+    if (childPath) {
+      pathKeys.add(childPath);
+    }
   }
 
   if (includesAll) {
@@ -248,6 +252,14 @@ function resolveChildIncludeFromPaths(paths = []) {
     return "none";
   }
   return [...pathKeys].join(",");
+}
+
+function shouldHydrateByMode(entry = {}, mode = "list") {
+  const relation = entry?.relation || {};
+  if (mode === "view") {
+    return relation.hydrateOnView !== false;
+  }
+  return relation.hydrateOnList !== false;
 }
 
 function buildLookupHydrationPlan(
@@ -260,14 +272,6 @@ function buildLookupHydrationPlan(
     skippedNamespaces = new Set()
   } = {}
 ) {
-  const entries = Array.isArray(runtime?.entries) ? runtime.entries : [];
-  if (entries.length < 1) {
-    return {
-      entries: [],
-      childIncludeByKey: {}
-    };
-  }
-
   const includePaths = normalizeIncludePaths(include, {
     defaultInclude: runtime?.defaultInclude
   });
@@ -278,94 +282,68 @@ function buildLookupHydrationPlan(
     };
   }
 
-  const shouldHydrateByMode = mode === "view"
-    ? (entry) => entry?.relation?.hydrateOnView !== false
-    : (entry) => entry?.relation?.hydrateOnList !== false;
-
-  const selectedByKey = new Map();
-  function ensureSelection(entry = null) {
-    if (!entry) {
-      return null;
+  const entries = Array.isArray(runtime?.entries) ? runtime.entries : [];
+  if (entries.length < 1) {
+    if (includeWasExplicit === true) {
+      throw new Error(`${context} include requires lookups, but the resource declares no lookup relations.`);
     }
-    if (skippedNamespaces instanceof Set && skippedNamespaces.has(entry?.relation?.namespace)) {
-      return null;
-    }
-
-    if (!includeWasExplicit && !shouldHydrateByMode(entry)) {
-      return null;
-    }
-
-    if (!selectedByKey.has(entry.key)) {
-      selectedByKey.set(entry.key, {
-        entry,
-        childPaths: [],
-        childPathSet: new Set()
-      });
-    }
-
-    return selectedByKey.get(entry.key);
-  }
-
-  function appendChildPath(selection, segments = []) {
-    const sourceSegments = Array.isArray(segments) ? segments : [];
-    if (sourceSegments.length < 1) {
-      return;
-    }
-
-    const normalizedSegments = sourceSegments
-      .map((entry) => normalizeText(entry))
-      .filter(Boolean);
-    if (normalizedSegments.length < 1) {
-      return;
-    }
-
-    const pathKey = normalizedSegments.join(".");
-    if (selection.childPathSet.has(pathKey)) {
-      return;
-    }
-
-    selection.childPathSet.add(pathKey);
-    selection.childPaths.push(normalizedSegments);
-  }
-
-  for (const pathSegments of includePaths) {
-    const [head, ...tail] = pathSegments;
-    if (!head) {
-      continue;
-    }
-
-    if (head === "*") {
-      const wildcardTail = tail.length > 0 ? tail : ["*"];
-      for (const entry of entries) {
-        const selection = ensureSelection(entry);
-        if (!selection) {
-          continue;
-        }
-        appendChildPath(selection, wildcardTail);
-      }
-      continue;
-    }
-
-    const entry = runtime?.byKey?.[head] || null;
-    if (!entry) {
-      throw new Error(`${context} include references unknown lookup key "${head}".`);
-    }
-
-    const selection = ensureSelection(entry);
-    if (!selection) {
-      continue;
-    }
-
-    if (tail.length > 0) {
-      appendChildPath(selection, tail);
-    }
+    return {
+      entries: [],
+      childIncludeByKey: {}
+    };
   }
 
   const selectedEntries = [];
   const childIncludeByKey = {};
-  for (const selection of selectedByKey.values()) {
-    selectedEntries.push(selection.entry);
-    childIncludeByKey[selection.entry.key] = resolveChildIncludeFromPaths(selection.childPaths);
+  const seenKeys = new Set();
+
+  function appendEntry(entry = {}, childPaths = []) {
+    if (!entry || seenKeys.has(entry.key)) {
+      return;
+    }
+
+    if (!includeWasExplicit && !shouldHydrateByMode(entry, mode)) {
+      return;
+    }
+
+    const relationNamespace = normalizeCrudLookupNamespace(entry?.relation?.namespace);
+    if (relationNamespace && skippedNamespaces instanceof Set && skippedNamespaces.has(relationNamespace)) {
+      return;
+    }
+
+    seenKeys.add(entry.key);
+    selectedEntries.push(entry);
+    childIncludeByKey[entry.key] = resolveChildIncludeFromPaths(childPaths);
+  }
+
+  const includeAll = includePaths.some((segments) => segments[0] === "*");
+  if (includeAll) {
+    for (const entry of entries) {
+      appendEntry(entry, [["*"]]);
+    }
+  }
+
+  const entryByKey = runtime?.byKey && typeof runtime.byKey === "object" ? runtime.byKey : {};
+  for (const pathSegments of includePaths) {
+    if (!Array.isArray(pathSegments) || pathSegments.length < 1) {
+      continue;
+    }
+    const [head, ...tail] = pathSegments;
+    if (head === "*") {
+      continue;
+    }
+
+    const entry = entryByKey[head];
+    if (!entry) {
+      throw new Error(`${context} include references unknown lookup key "${head}".`);
+    }
+
+    appendEntry(
+      entry,
+      tail.length > 0
+        ? [tail]
+        : []
+    );
   }
 
   return {

@@ -4,7 +4,7 @@ import {
 } from "../shared/crudNamespaceSupport.js";
 
 function createCrudServiceEvents(resource = {}, { context = "crudService" } = {}) {
-  const namespace = requireCrudNamespace(resource?.resource, { context: `${context} resource.resource` });
+  const namespace = requireCrudNamespace(resource?.namespace, { context: `${context} resource.namespace` });
   const recordChangedEventName = resolveCrudRecordChangedEvent(namespace);
 
   return Object.freeze({

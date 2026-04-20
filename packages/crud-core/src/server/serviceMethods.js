@@ -1,10 +1,11 @@
 import { AppError, createValidationError } from "@jskit-ai/kernel/server/runtime/errors";
-import { isRecord } from "@jskit-ai/kernel/shared/support/normalize";
+import { isRecord, normalizeText } from "@jskit-ai/kernel/shared/support/normalize";
+import { normalizeObjectInput } from "@jskit-ai/kernel/shared/validators";
 import { requireCrudNamespace } from "../shared/crudNamespaceSupport.js";
 import { createCrudFieldAccessRuntime } from "./fieldAccess.js";
 
 function createCrudServiceRuntime(resource = {}, { context = "crudService" } = {}) {
-  const namespace = requireCrudNamespace(resource?.resource, { context: `${context} resource.resource` });
+  const namespace = requireCrudNamespace(resource?.namespace, { context: `${context} resource.namespace` });
   const fieldAccessRuntime = createCrudFieldAccessRuntime(resource, { context });
 
   return Object.freeze({
@@ -22,9 +23,32 @@ function requireCrudServiceRepository(runtime = {}, repository = null) {
   return repository;
 }
 
+function splitCrudListRepositoryCall(query = {}, options = {}) {
+  const normalizedQuery = normalizeObjectInput(query);
+  const repositoryQuery = {
+    ...normalizedQuery
+  };
+  delete repositoryQuery.include;
+
+  const normalizedInclude = Object.hasOwn(normalizedQuery, "include")
+    ? normalizeText(normalizedQuery.include)
+    : undefined;
+
+  return {
+    query: repositoryQuery,
+    options: normalizedInclude === undefined
+      ? options
+      : {
+          ...options,
+          include: options?.include === undefined ? normalizedInclude : options.include
+        }
+  };
+}
+
 async function crudServiceListRecords(runtime, repository, fieldAccess = {}, query = {}, options = {}) {
   const resolvedRepository = requireCrudServiceRepository(runtime, repository);
-  const result = await resolvedRepository.list(query, options);
+  const repositoryCall = splitCrudListRepositoryCall(query, options);
+  const result = await resolvedRepository.list(repositoryCall.query, repositoryCall.options);
   return runtime.fieldAccessRuntime.filterReadableListResult(result, fieldAccess, {
     action: "list",
     query,

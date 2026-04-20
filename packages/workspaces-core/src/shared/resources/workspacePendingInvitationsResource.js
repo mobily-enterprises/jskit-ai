@@ -68,7 +68,7 @@ const pendingInvitationsListOutputValidator = Object.freeze({
 const WORKSPACE_PENDING_INVITATIONS_MESSAGES = createOperationMessages();
 
 const workspacePendingInvitationsResource = Object.freeze({
-  resource: "workspacePendingInvitations",
+  namespace: "workspacePendingInvitations",
   messages: WORKSPACE_PENDING_INVITATIONS_MESSAGES,
   operations: Object.freeze({
     list: Object.freeze({

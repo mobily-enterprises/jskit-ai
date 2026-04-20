@@ -68,7 +68,7 @@ const consoleSettingsOutputValidator = Object.freeze({
 const CONSOLE_SETTINGS_OPERATION_MESSAGES = createOperationMessages();
 
 const consoleSettingsResource = Object.freeze({
-  resource: "consoleSettings",
+  namespace: "consoleSettings",
   operations: Object.freeze({
     view: Object.freeze({
       method: "GET",

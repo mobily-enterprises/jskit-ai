@@ -83,7 +83,7 @@ const deleteOutputValidator = Object.freeze({
 const RESOURCE_FIELD_META = [];
 
 const resource = {
-  resource: "${option:namespace|snake}",
+  namespace: "${option:namespace|snake}",
   tableName: __JSKIT_CRUD_TABLE_NAME__,
   idColumn: __JSKIT_CRUD_ID_COLUMN__,
   messages: {

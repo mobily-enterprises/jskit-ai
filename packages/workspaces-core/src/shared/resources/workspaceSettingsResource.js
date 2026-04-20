@@ -117,7 +117,7 @@ const responseRecordValidator = Object.freeze({
 });
 
 const resource = {
-  resource: "workspaceSettings",
+  namespace: "workspaceSettings",
   messages: {
     validation: "Fix invalid workspace settings values and try again.",
     saveSuccess: "Workspace settings updated.",

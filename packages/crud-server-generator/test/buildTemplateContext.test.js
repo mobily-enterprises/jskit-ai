@@ -827,18 +827,24 @@ test("crud repository template defines explicit one-line CRUD methods over repos
   const templateSource = await readFile(templatePath, "utf8");
   assert.match(
     templateSource,
-    /from "@jskit-ai\/crud-core\/server\/repositoryMethods";/
+    /from "@jskit-ai\/crud-core\/server\/repositoryOrm";/
   );
   assert.match(templateSource, /import \{ LIST_CONFIG \} from "\.\/listConfig\.js";/);
-  assert.match(templateSource, /const repositoryRuntime = createCrudRepositoryRuntime\(/);
-  assert.match(templateSource, /return crudRepositoryList\(repositoryRuntime, knex, query, options, callOptions\);/);
-  assert.match(templateSource, /return crudRepositoryFindById\(repositoryRuntime, knex, recordId, options, callOptions\);/);
-  assert.match(templateSource, /return crudRepositoryListByIds\(repositoryRuntime, knex, ids, options, callOptions\);/);
-  assert.match(templateSource, /return crudRepositoryCreate\(repositoryRuntime, knex, payload, options, callOptions\);/);
-  assert.match(templateSource, /return crudRepositoryUpdateById\(repositoryRuntime, knex, recordId, patch, options, callOptions\);/);
-  assert.match(templateSource, /return crudRepositoryDeleteById\(repositoryRuntime, knex, recordId, options, callOptions\);/);
-  assert.doesNotMatch(templateSource, /listByForeignIds/);
-  assert.doesNotMatch(templateSource, /crudRepository requires knex/);
+  assert.match(templateSource, /const REPOSITORY_CONFIG = Object\.freeze\(\{/);
+  assert.match(templateSource, /const repositoryOrm = createCrudRepositoryRuntime\(resource, knex, \{/);
+  assert.match(templateSource, /\.\.\.options,/);
+  assert.match(templateSource, /\.\.\.REPOSITORY_CONFIG/);
+  assert.match(templateSource, /return repositoryOrm\.list\(query, callOptions\);/);
+  assert.match(templateSource, /return repositoryOrm\.findById\(recordId, callOptions\);/);
+  assert.match(templateSource, /return repositoryOrm\.listByIds\(ids, callOptions\);/);
+  assert.match(templateSource, /return repositoryOrm\.listByForeignIds\(ids, foreignKey, callOptions\);/);
+  assert.match(templateSource, /return repositoryOrm\.create\(payload, callOptions\);/);
+  assert.match(templateSource, /return repositoryOrm\.updateById\(recordId, patch, callOptions\);/);
+  assert.match(templateSource, /return repositoryOrm\.deleteById\(recordId, callOptions\);/);
+  assert.match(templateSource, /async function listByForeignIds\(ids = \[\], foreignKey = "", callOptions = \{\}\) \{/);
+  assert.match(templateSource, /withTransaction: repositoryOrm\.withTransaction/);
+  assert.match(templateSource, /return Object\.freeze\(\{/);
+  assert.doesNotMatch(templateSource, /crudRepositoryList/);
 });
 
 test("crud actions and routes templates share LIST_CONFIG for cursor validation", async () => {

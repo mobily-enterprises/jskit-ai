@@ -70,7 +70,7 @@ export default Object.freeze({
       inputType: "text",
       defaultValue: "",
       promptLabel: "Namespace override",
-      promptHint: "Optional CRUD namespace override when the resource export does not expose resource.resource."
+      promptHint: "Optional CRUD namespace override when the resource export does not expose resource.namespace."
     }
   },
   dependsOn: [],
