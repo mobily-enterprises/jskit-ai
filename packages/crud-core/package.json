@@ -1,6 +1,6 @@
 {
   "name": "@jskit-ai/crud-core",
-  "version": "0.1.57",
+  "version": "0.1.59",
   "type": "module",
   "scripts": {
     "test": "node --test"
@@ -26,12 +26,12 @@
   },
   "dependencies": {
     "@tanstack/vue-query": "^5.90.5",
-    "@jskit-ai/database-runtime": "0.1.49",
-    "@jskit-ai/kernel": "0.1.49",
-    "@jskit-ai/realtime": "0.1.48",
-    "@jskit-ai/shell-web": "0.1.48",
-    "@jskit-ai/users-core": "0.1.59",
-    "@jskit-ai/users-web": "0.1.64",
+    "@jskit-ai/database-runtime": "0.1.51",
+    "@jskit-ai/kernel": "0.1.51",
+    "@jskit-ai/realtime": "0.1.50",
+    "@jskit-ai/shell-web": "0.1.50",
+    "@jskit-ai/users-core": "0.1.61",
+    "@jskit-ai/users-web": "0.1.66",
     "typebox": "^1.0.81"
   }
 }
