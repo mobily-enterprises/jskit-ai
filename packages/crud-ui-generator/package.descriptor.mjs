@@ -1,7 +1,7 @@
 export default Object.freeze({
   packageVersion: 1,
   packageId: "@jskit-ai/crud-ui-generator",
-  version: "0.1.30",
+  version: "0.1.31",
   kind: "generator",
   description: "Generate CRUD route trees from resource validators at an explicit route root relative to src/pages/.",
   options: {
@@ -168,7 +168,7 @@ export default Object.freeze({
   mutations: {
     dependencies: {
       runtime: {
-        "@jskit-ai/users-web": "0.1.62"
+        "@jskit-ai/users-web": "0.1.63"
       },
       dev: {}
     },
