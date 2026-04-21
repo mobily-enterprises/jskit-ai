@@ -1,7 +1,7 @@
 export default Object.freeze({
   packageVersion: 1,
   packageId: "@jskit-ai/uploads-runtime",
-  version: "0.1.26",
+  version: "0.1.27",
   kind: "runtime",
   description: "Reusable upload runtime primitives for multipart parsing, policy validation, and blob storage.",
   dependsOn: [
@@ -71,7 +71,7 @@ export default Object.freeze({
     dependencies: {
       runtime: {
         "@fastify/multipart": "^9.4.0",
-        "@jskit-ai/kernel": "0.1.48"
+        "@jskit-ai/kernel": "0.1.49"
       },
       dev: {}
     },
