@@ -36,8 +36,10 @@
         <v-form v-else @submit.prevent="formRuntime.addEdit.submit" novalidate>
           <v-progress-linear v-if="formRuntime.addEdit.isRefetching" indeterminate class="mb-4" />
           <v-row>
-            <!-- jskit:crud-ui-fields:edit -->
+            <template>
+              <!-- jskit:crud-ui-fields:edit -->
 __JSKIT_UI_EDIT_FORM_COLUMNS__
+            </template>
           </v-row>
         </v-form>
       </v-card-text>
