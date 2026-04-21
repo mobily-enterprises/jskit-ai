@@ -26,10 +26,8 @@
         </p>
         <v-form v-else @submit.prevent="formRuntime.addEdit.submit" novalidate>
           <v-row>
-            <template>
-              <!-- jskit:crud-ui-fields:new -->
-__JSKIT_UI_CREATE_FORM_COLUMNS__
-            </template>
+            <!-- jskit:crud-ui-fields:new -->
+__JSKIT_UI_CREATE_FORM_COLUMNS_DIRECT__
           </v-row>
         </v-form>
       </v-card-text>

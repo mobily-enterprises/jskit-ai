@@ -468,6 +468,22 @@ test("buildUiTemplateContext omits lookup runtime placeholders when form fields 
   });
 });
 
+test("buildUiTemplateContext indents direct-page form columns without changing shared form columns", async () => {
+  await withTempApp(async (appRoot) => {
+    await writeResource(appRoot, RESOURCE_FILE, FULL_RESOURCE_SOURCE);
+
+    const context = await buildUiTemplateContext({
+      appRoot,
+      options: createOptions()
+    });
+
+    assert.match(context.__JSKIT_UI_CREATE_FORM_COLUMNS__, /^ {14}<v-col/m);
+    assert.match(context.__JSKIT_UI_EDIT_FORM_COLUMNS__, /^ {14}<v-col/m);
+    assert.match(context.__JSKIT_UI_CREATE_FORM_COLUMNS_DIRECT__, /^ {16}<v-col/m);
+    assert.match(context.__JSKIT_UI_EDIT_FORM_COLUMNS_DIRECT__, /^ {16}<v-col/m);
+  });
+});
+
 test("buildUiTemplateContext includes lookup runtime placeholders when form fields include lookups", async () => {
   await withTempApp(async (appRoot) => {
     await writeResource(appRoot, RESOURCE_FILE, LOOKUP_RESOURCE_SOURCE);

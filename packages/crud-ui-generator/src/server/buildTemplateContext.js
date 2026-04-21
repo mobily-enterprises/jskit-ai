@@ -258,6 +258,19 @@ function filterDisplayFields(selectedFieldKeys, fields) {
   });
 }
 
+function indentGeneratedBlock(source = "", prefix = "") {
+  const text = String(source || "");
+  const indent = String(prefix || "");
+  if (!text) {
+    return "";
+  }
+
+  return text
+    .split("\n")
+    .map((line) => `${indent}${line}`)
+    .join("\n");
+}
+
 function hasLookupFormFields(fields = []) {
   return (Array.isArray(fields) ? fields : []).some((field) => normalizeText(field?.component).toLowerCase() === "lookup");
 }
@@ -536,6 +549,8 @@ async function buildUiTemplateContext({ appRoot, options } = {}) {
   const menuMarker = hasListOperation
     ? `jskit:crud-ui-generator.page.link:${pageTarget.surfaceId}:${pageTarget.routeUrlSuffix}`
     : "";
+  const createFormColumns = buildFormColumns(createFields);
+  const editFormColumns = buildFormColumns(editFields);
 
   return {
     __JSKIT_UI_RESOURCE_IMPORT_PATH__: `/${normalizeRelativeAppPath(options?.["resource-file"])}`,
@@ -568,8 +583,10 @@ async function buildUiTemplateContext({ appRoot, options } = {}) {
     __JSKIT_UI_EDIT_PAGE_VIEW_URL__: JSON.stringify(hasViewOperation ? ".." : ""),
     __JSKIT_UI_VIEW_PAGE_LIST_URL__: JSON.stringify(hasListOperation ? ".." : ""),
     __JSKIT_UI_VIEW_PAGE_EDIT_URL__: JSON.stringify(hasEditOperation ? "./edit" : ""),
-    __JSKIT_UI_CREATE_FORM_COLUMNS__: buildFormColumns(createFields),
-    __JSKIT_UI_EDIT_FORM_COLUMNS__: buildFormColumns(editFields),
+    __JSKIT_UI_CREATE_FORM_COLUMNS__: createFormColumns,
+    __JSKIT_UI_EDIT_FORM_COLUMNS__: editFormColumns,
+    __JSKIT_UI_CREATE_FORM_COLUMNS_DIRECT__: indentGeneratedBlock(createFormColumns, "  "),
+    __JSKIT_UI_EDIT_FORM_COLUMNS_DIRECT__: indentGeneratedBlock(editFormColumns, "  "),
     __JSKIT_UI_CREATE_FORM_FIELDS__: JSON.stringify(createFields),
     __JSKIT_UI_EDIT_FORM_FIELDS__: JSON.stringify(editFields),
     __JSKIT_UI_CREATE_FORM_FIELD_PUSH_LINES__: renderObjectPushLines("UI_CREATE_FORM_FIELDS", createFields),
