@@ -391,9 +391,194 @@ function resolveColumnKey(column, idColumn) {
   return String(column.key || "");
 }
 
+const NUMERIC_CHECK_CONSTRAINT_PATTERN = /(?:`([^`]+)`|([A-Za-z_][A-Za-z0-9_]*))\s*(>=|>|<=|<)\s*(-?\d+(?:\.\d+)?)/g;
+
+function normalizeNumericBoundValue(value, scale = null) {
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed)) {
+    return null;
+  }
+  if (!Number.isInteger(scale) || scale < 0) {
+    return parsed;
+  }
+  return Number(parsed.toFixed(scale));
+}
+
+function resolveNumericExclusiveStep(column) {
+  if (column?.typeKind === "integer") {
+    return 1;
+  }
+  if (column?.typeKind === "number" && Number.isInteger(column?.numericScale) && column.numericScale > 0) {
+    return 1 / (10 ** column.numericScale);
+  }
+  return null;
+}
+
+function applyLowerBound(current = null, candidate = null) {
+  if (!candidate) {
+    return current;
+  }
+  if (!current) {
+    return candidate;
+  }
+  if (candidate.value > current.value) {
+    return candidate;
+  }
+  if (candidate.value < current.value) {
+    return current;
+  }
+  if (candidate.exclusive === true && current.exclusive !== true) {
+    return candidate;
+  }
+  return current;
+}
+
+function applyUpperBound(current = null, candidate = null) {
+  if (!candidate) {
+    return current;
+  }
+  if (!current) {
+    return candidate;
+  }
+  if (candidate.value < current.value) {
+    return candidate;
+  }
+  if (candidate.value > current.value) {
+    return current;
+  }
+  if (candidate.exclusive === true && current.exclusive !== true) {
+    return candidate;
+  }
+  return current;
+}
+
+function resolveColumnNumericBounds(snapshot = {}) {
+  const byColumnName = new Map();
+  const columns = Array.isArray(snapshot.columns) ? snapshot.columns : [];
+  const checkConstraints = Array.isArray(snapshot.checkConstraints) ? snapshot.checkConstraints : [];
+  const numericColumnsByName = new Map(
+    columns
+      .filter((column) => column?.typeKind === "integer" || column?.typeKind === "number")
+      .map((column) => [String(column.name || ""), column])
+  );
+
+  function getColumnBounds(columnName) {
+    if (!byColumnName.has(columnName)) {
+      byColumnName.set(columnName, {
+        minimum: null,
+        exclusiveMinimum: null,
+        maximum: null,
+        exclusiveMaximum: null
+      });
+    }
+    return byColumnName.get(columnName);
+  }
+
+  for (const column of numericColumnsByName.values()) {
+    if (column.unsigned === true) {
+      const target = getColumnBounds(column.name);
+      target.minimum = 0;
+    }
+  }
+
+  for (const constraint of checkConstraints) {
+    const clause = String(constraint?.clause || "");
+    if (!clause) {
+      continue;
+    }
+
+    let match = null;
+    while ((match = NUMERIC_CHECK_CONSTRAINT_PATTERN.exec(clause)) != null) {
+      const columnName = String(match[1] || match[2] || "");
+      const operator = String(match[3] || "");
+      const rawValue = Number(match[4]);
+      const column = numericColumnsByName.get(columnName) || null;
+      if (!column || !Number.isFinite(rawValue)) {
+        continue;
+      }
+
+      const target = getColumnBounds(columnName);
+      if (operator === ">=" || operator === ">") {
+        let candidate = null;
+        if (operator === ">=") {
+          candidate = {
+            value: normalizeNumericBoundValue(rawValue, column.numericScale),
+            exclusive: false
+          };
+        } else {
+          const exclusiveStep = resolveNumericExclusiveStep(column);
+          if (exclusiveStep != null) {
+            candidate = {
+              value: normalizeNumericBoundValue(rawValue + exclusiveStep, column.numericScale),
+              exclusive: false
+            };
+          } else {
+            candidate = {
+              value: normalizeNumericBoundValue(rawValue, column.numericScale),
+              exclusive: true
+            };
+          }
+        }
+
+        const nextBound = applyLowerBound(
+          target.minimum != null || target.exclusiveMinimum != null
+            ? {
+                value: target.minimum ?? target.exclusiveMinimum,
+                exclusive: target.exclusiveMinimum != null
+              }
+            : null,
+          candidate
+        );
+        target.minimum = nextBound?.exclusive === true ? null : nextBound?.value ?? null;
+        target.exclusiveMinimum = nextBound?.exclusive === true ? nextBound?.value ?? null : null;
+        continue;
+      }
+
+      if (operator === "<=" || operator === "<") {
+        let candidate = null;
+        if (operator === "<=") {
+          candidate = {
+            value: normalizeNumericBoundValue(rawValue, column.numericScale),
+            exclusive: false
+          };
+        } else {
+          const exclusiveStep = resolveNumericExclusiveStep(column);
+          if (exclusiveStep != null) {
+            candidate = {
+              value: normalizeNumericBoundValue(rawValue - exclusiveStep, column.numericScale),
+              exclusive: false
+            };
+          } else {
+            candidate = {
+              value: normalizeNumericBoundValue(rawValue, column.numericScale),
+              exclusive: true
+            };
+          }
+        }
+
+        const nextBound = applyUpperBound(
+          target.maximum != null || target.exclusiveMaximum != null
+            ? {
+                value: target.maximum ?? target.exclusiveMaximum,
+                exclusive: target.exclusiveMaximum != null
+              }
+            : null,
+          candidate
+        );
+        target.maximum = nextBound?.exclusive === true ? null : nextBound?.value ?? null;
+        target.exclusiveMaximum = nextBound?.exclusive === true ? nextBound?.value ?? null : null;
+      }
+    }
+    NUMERIC_CHECK_CONSTRAINT_PATTERN.lastIndex = 0;
+  }
+
+  return byColumnName;
+}
+
 function resolveScaffoldColumns(snapshot) {
   const idColumn = String(snapshot.idColumn || DEFAULT_ID_COLUMN);
   const sourceColumns = Array.isArray(snapshot.columns) ? snapshot.columns : [];
+  const numericBoundsByColumnName = resolveColumnNumericBounds(snapshot);
   const foreignKeyColumnNames = new Set(
     (Array.isArray(snapshot.foreignKeys) ? snapshot.foreignKeys : [])
       .flatMap((foreignKey) => Array.isArray(foreignKey?.columns) ? foreignKey.columns : [])
@@ -427,6 +612,7 @@ function resolveScaffoldColumns(snapshot) {
 
     return Object.freeze({
       ...column,
+      ...(numericBoundsByColumnName.get(column.name) || {}),
       key,
       isOwnerColumn,
       isIdColumn,
@@ -462,8 +648,18 @@ function renderPropertyAccess(sourceName, key) {
 
 function renderIntegerSchema(column) {
   const options = [];
-  if (column.unsigned === true) {
+  if (Number.isFinite(column?.minimum)) {
+    options.push(`minimum: ${column.minimum}`);
+  } else if (Number.isFinite(column?.exclusiveMinimum)) {
+    options.push(`exclusiveMinimum: ${column.exclusiveMinimum}`);
+  } else if (column.unsigned === true) {
     options.push("minimum: 0");
+  }
+  if (Number.isFinite(column?.maximum)) {
+    options.push(`maximum: ${column.maximum}`);
+  }
+  if (Number.isFinite(column?.exclusiveMaximum)) {
+    options.push(`exclusiveMaximum: ${column.exclusiveMaximum}`);
   }
   if (options.length > 0) {
     return `Type.Integer({ ${options.join(", ")} })`;
@@ -499,7 +695,22 @@ function renderResourceFieldSchema(column, { forOutput = false } = {}) {
     }
     schemaExpression = renderIntegerSchema(column);
   } else if (typeKind === "number") {
-    schemaExpression = "Type.Number()";
+    const options = [];
+    if (Number.isFinite(column?.minimum)) {
+      options.push(`minimum: ${column.minimum}`);
+    }
+    if (Number.isFinite(column?.exclusiveMinimum)) {
+      options.push(`exclusiveMinimum: ${column.exclusiveMinimum}`);
+    }
+    if (Number.isFinite(column?.maximum)) {
+      options.push(`maximum: ${column.maximum}`);
+    }
+    if (Number.isFinite(column?.exclusiveMaximum)) {
+      options.push(`exclusiveMaximum: ${column.exclusiveMaximum}`);
+    }
+    schemaExpression = options.length > 0
+      ? `Type.Number({ ${options.join(", ")} })`
+      : "Type.Number()";
   } else if (typeKind === "boolean") {
     schemaExpression = "Type.Boolean()";
   } else if (typeKind === "datetime") {

@@ -6,16 +6,13 @@
     subtitle="Create a new __JSKIT_UI_RESOURCE_SINGULAR_TITLE__."
     save-label="Save __JSKIT_UI_RESOURCE_SINGULAR_TITLE__"
     :cancel-to="UI_CANCEL_URL"
-    :resolve-lookup-items="resolveLookupItems"
-    :resolve-lookup-loading="resolveLookupLoading"
-    :resolve-lookup-search="resolveLookupSearch"
-    :set-lookup-search="setLookupSearch"
+__JSKIT_UI_CREATE_LOOKUP_FORM_PROPS__
   />
 </template>
 
 <script setup>
 import { useCrudAddEdit } from "@jskit-ai/users-web/client/composables/useCrudAddEdit";
-import { createCrudLookupFieldRuntime } from "@jskit-ai/users-web/client/composables/crudLookupFieldRuntime";
+__JSKIT_UI_CREATE_LOOKUP_IMPORT_LINE__
 import { resource as uiResource } from "__JSKIT_UI_RESOURCE_IMPORT_PATH__";
 import CrudAddEditForm from "./_components/__JSKIT_UI_FORM_COMPONENT_FILE__";
 import { UI_CREATE_FORM_FIELDS } from "./_components/__JSKIT_UI_FORM_FIELDS_FILE__";
@@ -31,20 +28,7 @@ const UI_RECORD_CHANGED_EVENT = __JSKIT_UI_RECORD_CHANGED_EVENT__;
 // jskit:crud-ui-fields-target ./_components/__JSKIT_UI_FORM_COMPONENT_FILE__
 // jskit:crud-ui-form-fields-target ./_components/__JSKIT_UI_FORM_FIELDS_FILE__
 
-const lookupFieldRuntime = createCrudLookupFieldRuntime({
-  formFields: UI_CREATE_FORM_FIELDS,
-  adapter: UI_OPERATION_ADAPTER || undefined,
-  recordIdParam: UI_RECORD_ID_PARAM,
-  lookupContainerKey: uiResource?.contract?.lookup?.containerKey,
-  queryKeyPrefix: ["ui-generator", "__JSKIT_UI_RESOURCE_NAMESPACE__", "lookup", "new"],
-  placementSourcePrefix: "ui-generator.__JSKIT_UI_RESOURCE_NAMESPACE__.new.lookup"
-});
-const {
-  resolveLookupItems,
-  resolveLookupLoading,
-  resolveLookupSearch,
-  setLookupSearch
-} = lookupFieldRuntime;
+__JSKIT_UI_CREATE_LOOKUP_RUNTIME_SETUP__
 
 const formRuntime = useCrudAddEdit({
   resource: uiResource,

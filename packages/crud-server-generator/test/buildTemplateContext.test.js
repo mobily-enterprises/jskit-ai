@@ -738,6 +738,118 @@ test("buildReplacementsFromSnapshot preserves custom collations, hash unique ind
   );
 });
 
+test("resolveScaffoldColumns derives resource numeric bounds from check constraints", () => {
+  const snapshot = createSnapshot({
+    tableName: "batch_receivals",
+    hasWorkspaceIdColumn: false,
+    hasUserIdColumn: false
+  });
+
+  const inputWeightColumn = Object.freeze({
+    name: "input_weight",
+    key: "inputWeight",
+    dataType: "decimal",
+    columnType: "decimal(10,3)",
+    typeKind: "number",
+    nullable: false,
+    hasDefault: false,
+    defaultValue: null,
+    autoIncrement: false,
+    unsigned: false,
+    extra: "",
+    maxLength: null,
+    numericPrecision: 10,
+    numericScale: 3,
+    datetimePrecision: null,
+    characterSetName: "",
+    collationName: "",
+    enumValues: Object.freeze([])
+  });
+
+  const batchedDailySequenceColumn = Object.freeze({
+    name: "batched_daily_sequence",
+    key: "batchedDailySequence",
+    dataType: "int",
+    columnType: "int unsigned",
+    typeKind: "integer",
+    nullable: false,
+    hasDefault: false,
+    defaultValue: null,
+    autoIncrement: false,
+    unsigned: true,
+    extra: "",
+    maxLength: null,
+    numericPrecision: 10,
+    numericScale: 0,
+    datetimePrecision: null,
+    characterSetName: "",
+    collationName: "",
+    enumValues: Object.freeze([])
+  });
+
+  const moistureLevelColumn = Object.freeze({
+    name: "moisture_level",
+    key: "moistureLevel",
+    dataType: "decimal",
+    columnType: "decimal(5,2)",
+    typeKind: "number",
+    nullable: true,
+    hasDefault: false,
+    defaultValue: null,
+    autoIncrement: false,
+    unsigned: false,
+    extra: "",
+    maxLength: null,
+    numericPrecision: 5,
+    numericScale: 2,
+    datetimePrecision: null,
+    characterSetName: "",
+    collationName: "",
+    enumValues: Object.freeze([])
+  });
+
+  const scaffoldColumns = __testables.resolveScaffoldColumns({
+    ...snapshot,
+    columns: Object.freeze([
+      snapshot.columns[0],
+      inputWeightColumn,
+      batchedDailySequenceColumn,
+      moistureLevelColumn
+    ]),
+    checkConstraints: Object.freeze([
+      Object.freeze({
+        name: "chk_batch_receivals_input_weight",
+        clause: "`input_weight` > 0"
+      }),
+      Object.freeze({
+        name: "chk_batches_batched_daily_sequence",
+        clause: "`batched_daily_sequence` >= 1"
+      }),
+      Object.freeze({
+        name: "chk_batches_moisture_level",
+        clause: "`moisture_level` is null or `moisture_level` >= 0 and `moisture_level` <= 100"
+      })
+    ])
+  });
+
+  const inputWeight = scaffoldColumns.find((column) => column.name === "input_weight");
+  const batchedDailySequence = scaffoldColumns.find((column) => column.name === "batched_daily_sequence");
+  const moistureLevel = scaffoldColumns.find((column) => column.name === "moisture_level");
+
+  assert.equal(
+    __testables.renderResourceFieldSchema(inputWeight),
+    "Type.Number({ minimum: 0.001 })"
+  );
+  assert.equal(
+    __testables.renderResourceFieldSchema(batchedDailySequence),
+    "Type.Integer({ minimum: 1 })"
+  );
+  assert.equal(
+    __testables.renderResourceFieldSchema(moistureLevel),
+    "Type.Union([Type.Number({ minimum: 0, maximum: 100 }), Type.Null()])"
+  );
+});
+
 test("buildReplacementsFromSnapshot normalizes nullable temporal inputs without invalid date errors", () => {
   const snapshot = createSnapshot({
     hasWorkspaceIdColumn: false,

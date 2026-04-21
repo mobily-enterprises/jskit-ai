@@ -37,7 +37,7 @@
           <v-progress-linear v-if="formRuntime.addEdit.isRefetching" indeterminate class="mb-4" />
           <v-row>
             <!-- jskit:crud-ui-fields:edit -->
-__JSKIT_UI_EDIT_FORM_COLUMNS__
+__JSKIT_UI_EDIT_FORM_COLUMNS_DIRECT__
           </v-row>
         </v-form>
       </v-card-text>
@@ -49,7 +49,7 @@ __JSKIT_UI_EDIT_FORM_COLUMNS__
 import { computed } from "vue";
 import { useRoute } from "vue-router";
 import { useCrudAddEdit } from "@jskit-ai/users-web/client/composables/useCrudAddEdit";
-import { createCrudLookupFieldRuntime } from "@jskit-ai/users-web/client/composables/crudLookupFieldRuntime";
+__JSKIT_UI_EDIT_LOOKUP_IMPORT_LINE__
 import { resource as uiResource } from "__JSKIT_UI_RESOURCE_IMPORT_PATH__";
 
 const UI_OPERATION_ADAPTER = null;
@@ -79,20 +79,7 @@ const routeRecordId = computed(() => {
   return String(source ?? "").trim();
 });
 
-const lookupFieldRuntime = createCrudLookupFieldRuntime({
-  formFields: UI_EDIT_FORM_FIELDS,
-  adapter: UI_OPERATION_ADAPTER || undefined,
-  recordIdParam: UI_RECORD_ID_PARAM,
-  lookupContainerKey: uiResource?.contract?.lookup?.containerKey,
-  queryKeyPrefix: ["ui-generator", "__JSKIT_UI_RESOURCE_NAMESPACE__", "lookup", "edit"],
-  placementSourcePrefix: "ui-generator.__JSKIT_UI_RESOURCE_NAMESPACE__.edit.lookup"
-});
-const {
-  resolveLookupItems,
-  resolveLookupLoading,
-  resolveLookupSearch,
-  setLookupSearch
-} = lookupFieldRuntime;
+__JSKIT_UI_EDIT_LOOKUP_RUNTIME_SETUP__
 
 const formRuntime = useCrudAddEdit({
   resource: uiResource,
