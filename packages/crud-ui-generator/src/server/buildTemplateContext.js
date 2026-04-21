@@ -258,16 +258,23 @@ function filterDisplayFields(selectedFieldKeys, fields) {
   });
 }
 
-function indentGeneratedBlock(source = "", prefix = "") {
+function rewriteGeneratedBlockIndent(source = "", { trimPrefix = "", addPrefix = "" } = {}) {
   const text = String(source || "");
-  const indent = String(prefix || "");
+  const trimmedPrefix = String(trimPrefix || "");
+  const extraPrefix = String(addPrefix || "");
   if (!text) {
     return "";
   }
 
   return text
     .split("\n")
-    .map((line) => `${indent}${line}`)
+    .map((line) => {
+      let nextLine = line;
+      if (trimmedPrefix && nextLine.startsWith(trimmedPrefix)) {
+        nextLine = nextLine.slice(trimmedPrefix.length);
+      }
+      return `${extraPrefix}${nextLine}`;
+    })
     .join("\n");
 }
 
@@ -585,8 +592,8 @@ async function buildUiTemplateContext({ appRoot, options } = {}) {
     __JSKIT_UI_VIEW_PAGE_EDIT_URL__: JSON.stringify(hasEditOperation ? "./edit" : ""),
     __JSKIT_UI_CREATE_FORM_COLUMNS__: createFormColumns,
     __JSKIT_UI_EDIT_FORM_COLUMNS__: editFormColumns,
-    __JSKIT_UI_CREATE_FORM_COLUMNS_DIRECT__: indentGeneratedBlock(createFormColumns, "  "),
-    __JSKIT_UI_EDIT_FORM_COLUMNS_DIRECT__: indentGeneratedBlock(editFormColumns, "  "),
+    __JSKIT_UI_CREATE_FORM_COLUMNS_DIRECT__: rewriteGeneratedBlockIndent(createFormColumns, { trimPrefix: "  " }),
+    __JSKIT_UI_EDIT_FORM_COLUMNS_DIRECT__: rewriteGeneratedBlockIndent(editFormColumns, { trimPrefix: "  " }),
     __JSKIT_UI_CREATE_FORM_FIELDS__: JSON.stringify(createFields),
     __JSKIT_UI_EDIT_FORM_FIELDS__: JSON.stringify(editFields),
     __JSKIT_UI_CREATE_FORM_FIELD_PUSH_LINES__: renderObjectPushLines("UI_CREATE_FORM_FIELDS", createFields),

@@ -479,8 +479,8 @@ test("buildUiTemplateContext indents direct-page form columns without changing s
 
     assert.match(context.__JSKIT_UI_CREATE_FORM_COLUMNS__, /^ {14}<v-col/m);
     assert.match(context.__JSKIT_UI_EDIT_FORM_COLUMNS__, /^ {14}<v-col/m);
-    assert.match(context.__JSKIT_UI_CREATE_FORM_COLUMNS_DIRECT__, /^ {16}<v-col/m);
-    assert.match(context.__JSKIT_UI_EDIT_FORM_COLUMNS_DIRECT__, /^ {16}<v-col/m);
+    assert.match(context.__JSKIT_UI_CREATE_FORM_COLUMNS_DIRECT__, /^ {12}<v-col/m);
+    assert.match(context.__JSKIT_UI_EDIT_FORM_COLUMNS_DIRECT__, /^ {12}<v-col/m);
   });
 });
 
