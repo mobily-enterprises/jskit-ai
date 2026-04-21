@@ -223,7 +223,7 @@ test("RealtimeServiceProvider bridges service event metadata to socket emissions
       };
     }
   }));
-  app.singleton("workspaceMembershipsRepository", () => ({
+  app.singleton("internal.repository.workspace-memberships", () => ({
     async listActiveWorkspaceIdsByUserId() {
       return [];
     }
@@ -303,7 +303,7 @@ test("RealtimeServiceProvider resolves custom audience callback", async () => {
       };
     }
   }));
-  app.singleton("workspaceMembershipsRepository", () => ({
+  app.singleton("internal.repository.workspace-memberships", () => ({
     async listActiveWorkspaceIdsByUserId() {
       return [];
     }
@@ -389,7 +389,7 @@ test("RealtimeServiceProvider merges custom realtime payload with canonical doma
       };
     }
   }));
-  app.singleton("workspaceMembershipsRepository", () => ({
+  app.singleton("internal.repository.workspace-memberships", () => ({
     async listActiveWorkspaceIdsByUserId() {
       return [];
     }
@@ -486,7 +486,7 @@ test("RealtimeServiceProvider emits only the matching dispatcher event for each 
       };
     }
   }));
-  app.singleton("workspaceMembershipsRepository", () => ({
+  app.singleton("internal.repository.workspace-memberships", () => ({
     async listActiveWorkspaceIdsByUserId() {
       return [];
     }

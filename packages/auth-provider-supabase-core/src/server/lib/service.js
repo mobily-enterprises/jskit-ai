@@ -111,7 +111,7 @@ function createService(options) {
   const supabaseUrl = String(authProvider.supabaseUrl || "").trim();
   const supabasePublishableKey = String(authProvider.supabasePublishableKey || "").trim();
   const userSettingsRepository = options.userSettingsRepository || null;
-  const usersRepository = options.usersRepository || null;
+  const userProfilesRepository = options.userProfilesRepository || null;
   const userProfileSyncService = options.userProfileSyncService;
   if (
     !userProfileSyncService ||
@@ -131,7 +131,7 @@ function createService(options) {
     refreshTtlSeconds: options.devAuthRefreshTtlSeconds
   });
   assertDevAuthBootstrapConfig(devAuthConfig, {
-    usersRepository
+    userProfilesRepository
   });
   const settingsProfileAuthInfo = Object.freeze({
     emailManagedBy: normalizeAuthProviderId(authProvider.emailManagedBy || authProviderId, { fallback: authProviderId }),
@@ -683,7 +683,7 @@ function createService(options) {
       },
       {
         config: devAuthConfig,
-        usersRepository
+        userProfilesRepository
       }
     );
     if (devAuthResult) {
@@ -838,7 +838,7 @@ function createService(options) {
   async function devLoginAs(request, input = {}) {
     ensureDevAuthBootstrapAvailable(devAuthConfig, request);
     const profile = await resolveDevAuthProfile(input, {
-      usersRepository,
+      userProfilesRepository,
       validationError
     });
     return {

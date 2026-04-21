@@ -1,10 +1,10 @@
 import { normalizeRecordId } from "@jskit-ai/kernel/shared/support/normalize";
-import { normalizeIdentity } from "../repositories/usersRepository.js";
+import { normalizeIdentity } from "../support/identity.js";
 
-async function resolveUserProfile(usersRepository, user) {
+async function resolveUserProfile(userProfilesRepository, user) {
   const identity = normalizeIdentity(user);
   if (identity) {
-    const profile = await usersRepository.findByIdentity(identity);
+    const profile = await userProfilesRepository.findByIdentity(identity);
     if (profile) {
       return profile;
     }
@@ -12,7 +12,7 @@ async function resolveUserProfile(usersRepository, user) {
 
   const userId = normalizeRecordId(user?.id, { fallback: null });
   if (userId) {
-    const profileById = await usersRepository.findById(userId);
+    const profileById = await userProfilesRepository.findById(userId);
     if (profileById) {
       return profileById;
     }

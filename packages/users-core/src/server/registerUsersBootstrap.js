@@ -9,8 +9,8 @@ function registerUsersBootstrap(app) {
 
   registerBootstrapPayloadContributor(app, "users.core.bootstrap.payloadContributor", (scope) => {
     return createUsersBootstrapContributor({
-      usersRepository: scope.make("usersRepository"),
-      userSettingsRepository: scope.make("userSettingsRepository"),
+      userProfilesRepository: scope.make("internal.repository.user-profiles"),
+      userSettingsRepository: scope.make("internal.repository.user-settings"),
       appConfig: resolveAppConfig(scope),
       authService: scope.make("authService")
     });

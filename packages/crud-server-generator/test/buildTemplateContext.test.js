@@ -827,22 +827,22 @@ test("crud repository template defines explicit one-line CRUD methods over repos
   const templateSource = await readFile(templatePath, "utf8");
   assert.match(
     templateSource,
-    /from "@jskit-ai\/crud-core\/server\/repositoryOrm";/
+    /from "@jskit-ai\/crud-core\/server\/resourceRuntime";/
   );
   assert.match(templateSource, /import \{ LIST_CONFIG \} from "\.\/listConfig\.js";/);
   assert.match(templateSource, /const REPOSITORY_CONFIG = Object\.freeze\(\{/);
-  assert.match(templateSource, /const repositoryOrm = createCrudRepositoryRuntime\(resource, knex, \{/);
+  assert.match(templateSource, /const resourceRuntime = createCrudResourceRuntime\(resource, knex, \{/);
   assert.match(templateSource, /\.\.\.options,/);
   assert.match(templateSource, /\.\.\.REPOSITORY_CONFIG/);
-  assert.match(templateSource, /return repositoryOrm\.list\(query, callOptions\);/);
-  assert.match(templateSource, /return repositoryOrm\.findById\(recordId, callOptions\);/);
-  assert.match(templateSource, /return repositoryOrm\.listByIds\(ids, callOptions\);/);
-  assert.match(templateSource, /return repositoryOrm\.listByForeignIds\(ids, foreignKey, callOptions\);/);
-  assert.match(templateSource, /return repositoryOrm\.create\(payload, callOptions\);/);
-  assert.match(templateSource, /return repositoryOrm\.updateById\(recordId, patch, callOptions\);/);
-  assert.match(templateSource, /return repositoryOrm\.deleteById\(recordId, callOptions\);/);
+  assert.match(templateSource, /return resourceRuntime\.list\(query, callOptions\);/);
+  assert.match(templateSource, /return resourceRuntime\.findById\(recordId, callOptions\);/);
+  assert.match(templateSource, /return resourceRuntime\.listByIds\(ids, callOptions\);/);
+  assert.match(templateSource, /return resourceRuntime\.listByForeignIds\(ids, foreignKey, callOptions\);/);
+  assert.match(templateSource, /return resourceRuntime\.create\(payload, callOptions\);/);
+  assert.match(templateSource, /return resourceRuntime\.updateById\(recordId, patch, callOptions\);/);
+  assert.match(templateSource, /return resourceRuntime\.deleteById\(recordId, callOptions\);/);
   assert.match(templateSource, /async function listByForeignIds\(ids = \[\], foreignKey = "", callOptions = \{\}\) \{/);
-  assert.match(templateSource, /withTransaction: repositoryOrm\.withTransaction/);
+  assert.match(templateSource, /withTransaction: resourceRuntime\.withTransaction/);
   assert.match(templateSource, /return Object\.freeze\(\{/);
   assert.doesNotMatch(templateSource, /crudRepositoryList/);
 });
@@ -967,12 +967,12 @@ test("crud provider template uses shared lookup provider helpers instead of inli
 
   assert.match(
     templateSource,
-    /from "@jskit-ai\/crud-core\/server\/lookupProviders";/
+    /from "@jskit-ai\/crud-core\/server\/lookups";/
   );
-  assert.match(templateSource, /resolveLookupProvider: createCrudLookupProviderResolver\(scope\)/);
+  assert.match(templateSource, /resolveLookup: createCrudLookupResolver\(scope\)/);
   assert.match(
     templateSource,
-    /return createCrudLookupProvider\(scope\.make\("repository\.\$\{option:namespace\|snake\}"\), \{\s*ownershipFilter: crudPolicy\.ownershipFilter\s*\}\);/
+    /return createCrudLookup\(scope\.make\("repository\.\$\{option:namespace\|snake\}"\), \{\s*ownershipFilter: crudPolicy\.ownershipFilter\s*\}\);/
   );
   assert.doesNotMatch(templateSource, /normalizePathname\(relation\.apiPath\)/);
 });

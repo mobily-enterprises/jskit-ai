@@ -479,8 +479,8 @@ function registerRealtimeSocketAudienceBootstrap(scope, io, logger) {
   const authService =
     scope && typeof scope.has === "function" && scope.has("authService") ? scope.make("authService") : null;
   const workspaceMembershipsRepository =
-    scope && typeof scope.has === "function" && scope.has("workspaceMembershipsRepository")
-      ? scope.make("workspaceMembershipsRepository")
+    scope && typeof scope.has === "function" && scope.has("internal.repository.workspace-memberships")
+      ? scope.make("internal.repository.workspace-memberships")
       : null;
 
   io.on("connection", async (socket) => {

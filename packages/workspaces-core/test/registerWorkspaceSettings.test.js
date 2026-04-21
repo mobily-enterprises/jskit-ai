@@ -28,7 +28,7 @@ test("registerWorkspaceSettings registers workspace settings service realtime ev
 
   registerWorkspaceSettings(app);
 
-  assert.equal(singletonBindings.has("workspaceSettingsRepository"), true);
+  assert.equal(singletonBindings.has("internal.repository.workspace-settings"), true);
   assert.equal(serviceCalls.length, 1);
   assert.equal(serviceCalls[0].token, "workspaces.settings.service");
   assert.equal(typeof serviceCalls[0].factory, "function");

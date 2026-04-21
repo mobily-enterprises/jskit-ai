@@ -13,8 +13,8 @@ function registerAccountNotifications(app) {
     "users.accountNotifications.service",
     (scope) =>
       createAccountNotificationsService({
-        userSettingsRepository: scope.make("userSettingsRepository"),
-        usersRepository: scope.make("usersRepository"),
+        userSettingsRepository: scope.make("internal.repository.user-settings"),
+        userProfilesRepository: scope.make("internal.repository.user-profiles"),
         authService: scope.make("authService")
       }),
     {

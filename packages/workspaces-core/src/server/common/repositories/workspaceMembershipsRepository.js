@@ -1,32 +1,30 @@
+import { createCrudResourceRuntime } from "@jskit-ai/crud-core/server/resourceRuntime";
 import {
   normalizeLowerText,
   normalizeRecordId,
   normalizeDbRecordId,
   normalizeText,
-  toIsoString,
-  nowDb,
-  isDuplicateEntryError,
-  createWithTransaction
+  isDuplicateEntryError
 } from "./repositoryUtils.js";
 import { OWNER_ROLE_ID } from "../../../shared/roles.js";
+import { workspaceMembershipsResource } from "../resources/workspaceMembershipsResource.js";
 
-function mapRow(row) {
-  if (!row) {
+const REPOSITORY_CONFIG = Object.freeze({
+  context: "internal.repository.workspace-memberships"
+});
+
+function normalizeMembershipRecord(payload = {}) {
+  if (!payload) {
     return null;
   }
-
-  return {
-    id: normalizeDbRecordId(row.id, { fallback: "" }),
-    workspaceId: normalizeDbRecordId(row.workspace_id, { fallback: "" }),
-    userId: normalizeDbRecordId(row.user_id, { fallback: "" }),
-    roleSid: normalizeLowerText(row.role_sid || "member") || "member",
-    status: normalizeLowerText(row.status || "active") || "active",
-    createdAt: toIsoString(row.created_at),
-    updatedAt: toIsoString(row.updated_at)
-  };
+  return workspaceMembershipsResource.operations.view.outputValidator.normalize(payload);
 }
 
-function mapMemberSummaryRow(row) {
+function normalizeMembershipPatchPayload(payload = {}) {
+  return workspaceMembershipsResource.operations.patch.bodyValidator.normalize(payload);
+}
+
+function normalizeMemberSummaryRow(row) {
   if (!row) {
     return null;
   }
@@ -44,7 +42,8 @@ function createRepository(knex) {
   if (typeof knex !== "function") {
     throw new TypeError("workspaceMembershipsRepository requires knex.");
   }
-  const withTransaction = createWithTransaction(knex);
+  const resourceRuntime = createCrudResourceRuntime(workspaceMembershipsResource, knex, REPOSITORY_CONFIG);
+  const withTransaction = resourceRuntime.withTransaction;
 
   async function findByWorkspaceIdAndUserId(workspaceId, userId, options = {}) {
     const normalizedWorkspaceId = normalizeRecordId(workspaceId, { fallback: null });
@@ -57,7 +56,7 @@ function createRepository(knex) {
     const row = await client("workspace_memberships")
       .where({ workspace_id: normalizedWorkspaceId, user_id: normalizedUserId })
       .first();
-    return mapRow(row);
+    return normalizeMembershipRecord(row);
   }
 
   async function ensureOwnerMembership(workspaceId, userId, options = {}) {
@@ -71,26 +70,37 @@ function createRepository(knex) {
     const existing = await findByWorkspaceIdAndUserId(normalizedWorkspaceId, normalizedUserId, { trx: client });
     if (existing) {
       if (existing.roleSid !== OWNER_ROLE_ID || existing.status !== "active") {
-        await client("workspace_memberships")
-          .where({ workspace_id: normalizedWorkspaceId, user_id: normalizedUserId })
-          .update({
-            role_sid: OWNER_ROLE_ID,
-            status: "active",
-            updated_at: nowDb()
-          });
+        await resourceRuntime.updateById(
+          existing.id,
+          {
+            roleSid: OWNER_ROLE_ID,
+            status: "active"
+          },
+          {
+            ...options,
+            trx: client,
+            include: "none",
+            existingRecord: existing
+          }
+        );
       }
       return findByWorkspaceIdAndUserId(normalizedWorkspaceId, normalizedUserId, { trx: client });
     }
 
     try {
-      await client("workspace_memberships").insert({
-        workspace_id: normalizedWorkspaceId,
-        user_id: normalizedUserId,
-        role_sid: OWNER_ROLE_ID,
-        status: "active",
-        created_at: nowDb(),
-        updated_at: nowDb()
-      });
+      await resourceRuntime.create(
+        {
+          workspaceId: normalizedWorkspaceId,
+          userId: normalizedUserId,
+          roleSid: OWNER_ROLE_ID,
+          status: "active"
+        },
+        {
+          ...options,
+          trx: client,
+          include: "none"
+        }
+      );
     } catch (error) {
       if (!isDuplicateEntryError(error)) {
         throw error;
@@ -109,28 +119,49 @@ function createRepository(knex) {
 
     const client = options?.trx || knex;
     const existing = await findByWorkspaceIdAndUserId(normalizedWorkspaceId, normalizedUserId, { trx: client });
-    const roleSid = normalizeLowerText(patch.roleSid || existing?.roleSid || "member") || "member";
-    const status = normalizeLowerText(patch.status || existing?.status || "active") || "active";
+    const normalizedPatch = normalizeMembershipPatchPayload({
+      roleSid: patch?.roleSid ?? existing?.roleSid ?? "member",
+      status: patch?.status ?? existing?.status ?? "active"
+    });
+    const roleSid = normalizeLowerText(normalizedPatch.roleSid || "member") || "member";
+    const status = normalizeLowerText(normalizedPatch.status || "active") || "active";
 
     if (!existing) {
-      await client("workspace_memberships").insert({
-        workspace_id: normalizedWorkspaceId,
-        user_id: normalizedUserId,
-        role_sid: roleSid,
-        status,
-        created_at: nowDb(),
-        updated_at: nowDb()
-      });
+      try {
+        await resourceRuntime.create(
+          {
+            workspaceId: normalizedWorkspaceId,
+            userId: normalizedUserId,
+            roleSid,
+            status
+          },
+          {
+            ...options,
+            trx: client,
+            include: "none"
+          }
+        );
+      } catch (error) {
+        if (!isDuplicateEntryError(error)) {
+          throw error;
+        }
+      }
       return findByWorkspaceIdAndUserId(normalizedWorkspaceId, normalizedUserId, { trx: client });
     }
 
-    await client("workspace_memberships")
-      .where({ workspace_id: normalizedWorkspaceId, user_id: normalizedUserId })
-      .update({
-        role_sid: roleSid,
-        status,
-        updated_at: nowDb()
-      });
+    await resourceRuntime.updateById(
+      existing.id,
+      {
+        roleSid,
+        status
+      },
+      {
+        ...options,
+        trx: client,
+        include: "none",
+        existingRecord: existing
+      }
+    );
 
     return findByWorkspaceIdAndUserId(normalizedWorkspaceId, normalizedUserId, { trx: client });
   }
@@ -154,7 +185,7 @@ function createRepository(knex) {
         "up.email"
       ]);
 
-    return rows.map(mapMemberSummaryRow).filter(Boolean);
+    return rows.map(normalizeMemberSummaryRow).filter(Boolean);
   }
 
   async function listActiveWorkspaceIdsByUserId(userId, options = {}) {
@@ -187,4 +218,4 @@ function createRepository(knex) {
   });
 }
 
-export { createRepository, mapRow, mapMemberSummaryRow };
+export { createRepository, normalizeMembershipRecord, normalizeMemberSummaryRow };

@@ -226,7 +226,10 @@ function deriveRepositoryMappingFromResource(resource = {}, { context = "crudRep
       (key) => !isCrudRuntimeOutputOnlyFieldKey(key, { lookupContainerKey })
     )
   );
-  const writeKeys = Object.freeze(Object.keys(writeProperties));
+  const writeKeys = Object.freeze([
+    ...Object.keys(writeProperties),
+    ...Object.keys(patchProperties).filter((key) => !Object.hasOwn(writeProperties, key))
+  ]);
 
   const fieldStorageByKey = {};
   const columnOverrides = {};

@@ -16,7 +16,7 @@ function createProfile(overrides = {}) {
   };
 }
 
-function createUsersRepository(profile = createProfile()) {
+function createUserProfilesRepository(profile = createProfile()) {
   return {
     async findById(userId) {
       return String(userId || "") === String(profile.id) ? profile : null;
@@ -76,7 +76,7 @@ function createServiceFixture(overrides = {}) {
     nodeEnv: "development",
     devAuthBypassEnabled: true,
     devAuthBypassSecret: "dev-bootstrap-secret",
-    usersRepository: createUsersRepository(),
+    userProfilesRepository: createUserProfilesRepository(),
     userProfileSyncService: createUserProfileSyncService(),
     ...overrides
   });

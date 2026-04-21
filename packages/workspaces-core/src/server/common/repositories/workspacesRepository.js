@@ -1,41 +1,34 @@
-import { resolveInsertedRecordId } from "@jskit-ai/database-runtime/shared";
+import { createCrudResourceRuntime } from "@jskit-ai/crud-core/server/resourceRuntime";
 import {
-  normalizeDbRecordId,
   normalizeRecordId,
   normalizeText,
   normalizeLowerText,
-  toIsoString,
-  toNullableIso,
-  nowDb,
-  isDuplicateEntryError,
-  createWithTransaction
+  isDuplicateEntryError
 } from "./repositoryUtils.js";
+import { workspacesResource } from "../resources/workspacesResource.js";
 
-function mapRow(row) {
-  if (!row) {
+const REPOSITORY_CONFIG = Object.freeze({
+  context: "internal.repository.workspaces"
+});
+
+function normalizeWorkspaceRecord(payload = {}) {
+  if (!payload) {
     return null;
   }
-
-  return {
-    id: normalizeDbRecordId(row.id, { fallback: "" }),
-    slug: normalizeText(row.slug),
-    name: normalizeText(row.name),
-    ownerUserId: normalizeDbRecordId(row.owner_user_id, { fallback: "" }),
-    isPersonal: Boolean(row.is_personal),
-    avatarUrl: row.avatar_url ? normalizeText(row.avatar_url) : "",
-    createdAt: toIsoString(row.created_at),
-    updatedAt: toIsoString(row.updated_at),
-    deletedAt: toNullableIso(row.deleted_at)
-  };
+  return workspacesResource.operations.view.outputValidator.normalize(payload);
 }
 
-function mapMembershipWorkspaceRow(row) {
+function normalizeCreatePayload(payload = {}) {
+  return workspacesResource.operations.create.bodyValidator.normalize(payload);
+}
+
+function normalizeMembershipWorkspaceRow(row) {
   if (!row) {
     return null;
   }
 
   return {
-    ...mapRow(row),
+    ...normalizeWorkspaceRecord(row),
     roleSid: normalizeLowerText(row.role_sid || "member"),
     membershipStatus: normalizeLowerText(row.membership_status || "active") || "active"
   };
@@ -45,7 +38,8 @@ function createRepository(knex) {
   if (typeof knex !== "function") {
     throw new TypeError("workspacesRepository requires knex.");
   }
-  const withTransaction = createWithTransaction(knex);
+  const resourceRuntime = createCrudResourceRuntime(workspacesResource, knex, REPOSITORY_CONFIG);
+  const withTransaction = resourceRuntime.withTransaction;
 
   function workspaceSelectColumns({ includeMembership = false } = {}) {
     const columns = [
@@ -71,12 +65,10 @@ function createRepository(knex) {
       return null;
     }
 
-    const client = options?.trx || knex;
-    const row = await client("workspaces as w")
-      .where({ "w.id": normalizedWorkspaceId })
-      .select(workspaceSelectColumns())
-      .first();
-    return mapRow(row);
+    return resourceRuntime.findById(normalizedWorkspaceId, {
+      ...options,
+      include: "none"
+    });
   }
 
   async function findBySlug(slug, options = {}) {
@@ -90,7 +82,7 @@ function createRepository(knex) {
       .where({ "w.slug": normalizedSlug })
       .select(workspaceSelectColumns())
       .first();
-    return mapRow(row);
+    return normalizeWorkspaceRecord(row);
   }
 
   async function findPersonalByOwnerUserId(userId, options = {}) {
@@ -105,41 +97,35 @@ function createRepository(knex) {
       .orderBy("w.id", "asc")
       .select(workspaceSelectColumns())
       .first();
-    return mapRow(row);
+    return normalizeWorkspaceRecord(row);
   }
 
   async function insert(payload = {}, options = {}) {
     const client = options?.trx || knex;
-    const source = payload && typeof payload === "object" ? payload : {};
-    const ownerUserId = normalizeRecordId(source.ownerUserId, { fallback: null });
+    const normalizedPayload = normalizeCreatePayload(payload);
+    const ownerUserId = normalizeRecordId(normalizedPayload.ownerUserId, { fallback: null });
     if (!ownerUserId) {
       throw new TypeError("workspacesRepository.insert requires ownerUserId.");
     }
 
-    const insertPayload = {
-      slug: normalizeLowerText(source.slug),
-      name: normalizeText(source.name),
-      owner_user_id: ownerUserId,
-      is_personal: source.isPersonal ? 1 : 0,
-      avatar_url: normalizeText(source.avatarUrl),
-      created_at: nowDb(),
-      updated_at: nowDb(),
-      deleted_at: null
+    const createPayload = {
+      ...normalizedPayload,
+      ownerUserId,
+      isPersonal: normalizedPayload.isPersonal === true,
+      avatarUrl: normalizeText(normalizedPayload.avatarUrl)
     };
 
     try {
-      const result = await client("workspaces").insert(insertPayload);
-      const insertedId = resolveInsertedRecordId(result, { fallback: null });
-      if (insertedId) {
-        return findById(insertedId, { trx: client });
-      }
-      const bySlug = await findBySlug(insertPayload.slug, { trx: client });
-      return bySlug;
+      return await resourceRuntime.create(createPayload, {
+        ...options,
+        trx: client,
+        include: "none"
+      });
     } catch (error) {
       if (!isDuplicateEntryError(error)) {
         throw error;
       }
-      const bySlug = await findBySlug(insertPayload.slug, { trx: client });
+      const bySlug = await findBySlug(createPayload.slug, { trx: client });
       if (bySlug) {
         return bySlug;
       }
@@ -153,21 +139,10 @@ function createRepository(knex) {
       return null;
     }
 
-    const client = options?.trx || knex;
-    const source = patch && typeof patch === "object" ? patch : {};
-    const dbPatch = {
-      updated_at: nowDb()
-    };
-
-    if (Object.hasOwn(source, "name")) {
-      dbPatch.name = normalizeText(source.name);
-    }
-    if (Object.hasOwn(source, "avatarUrl")) {
-      dbPatch.avatar_url = normalizeText(source.avatarUrl);
-    }
-
-    await client("workspaces").where({ id: normalizedWorkspaceId }).update(dbPatch);
-    return findById(normalizedWorkspaceId, { trx: client });
+    return resourceRuntime.updateById(normalizedWorkspaceId, patch, {
+      ...options,
+      include: "none"
+    });
   }
 
   async function listForUserId(userId, options = {}) {
@@ -185,7 +160,7 @@ function createRepository(knex) {
       .orderBy("w.id", "asc")
       .select(workspaceSelectColumns({ includeMembership: true }));
 
-    return rows.map(mapMembershipWorkspaceRow).filter(Boolean);
+    return rows.map(normalizeMembershipWorkspaceRow).filter(Boolean);
   }
 
   return Object.freeze({
@@ -199,4 +174,4 @@ function createRepository(knex) {
   });
 }
 
-export { createRepository, mapRow, mapMembershipWorkspaceRow };
+export { createRepository, normalizeWorkspaceRecord, normalizeMembershipWorkspaceRow };

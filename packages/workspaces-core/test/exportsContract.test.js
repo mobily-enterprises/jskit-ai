@@ -14,7 +14,9 @@ test("workspaces-core exports are explicit and aligned with production usage", (
     packageDir: PACKAGE_DIR,
     packageId: "@jskit-ai/workspaces-core",
     requiredExports: [
-      "./server/WorkspacesCoreServiceProvider"
+      "./server/WorkspacesCoreServiceProvider",
+      "./server/validators/routeParamsValidator",
+      "./server/support/workspaceRouteInput"
     ]
   });
 

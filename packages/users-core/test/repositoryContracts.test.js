@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { createRepository as createUsersRepository } from "../src/server/common/repositories/usersRepository.js";
+import { createRepository as createUserProfilesRepository } from "../src/server/common/repositories/userProfilesRepository.js";
 import { createRepository as createUserSettingsRepository } from "../src/server/common/repositories/userSettingsRepository.js";
 
 function createKnexStub() {
@@ -14,6 +14,17 @@ function createKnexStub() {
 
   return knex;
 }
+
+test("users-core repositories expose withTransaction", async () => {
+  const knex = createKnexStub();
+  const repositories = [createUserProfilesRepository(knex), createUserSettingsRepository(knex)];
+
+  for (const repository of repositories) {
+    assert.equal(typeof repository.withTransaction, "function");
+    const result = await repository.withTransaction(async (trx) => ({ id: trx.trxId }));
+    assert.deepEqual(result, { id: "trx-1" });
+  }
+});
 
 function createFindByEmailKnexStub(expectedRow) {
   const calls = [];
@@ -38,21 +49,7 @@ function createFindByEmailKnexStub(expectedRow) {
   return { knex, calls };
 }
 
-test("users-core repositories expose withTransaction", async () => {
-  const knex = createKnexStub();
-  const repositories = [
-    createUsersRepository(knex),
-    createUserSettingsRepository(knex)
-  ];
-
-  for (const repository of repositories) {
-    assert.equal(typeof repository.withTransaction, "function");
-    const result = await repository.withTransaction(async (trx) => ({ id: trx.trxId }));
-    assert.deepEqual(result, { id: "trx-1" });
-  }
-});
-
-test("usersRepository.findByEmail normalizes email lookup", async () => {
+test("userProfilesRepository.findByEmail normalizes email lookup", async () => {
   const { knex, calls } = createFindByEmailKnexStub({
     id: 7,
     auth_provider: "supabase",
@@ -65,7 +62,7 @@ test("usersRepository.findByEmail normalizes email lookup", async () => {
     avatar_updated_at: null,
     created_at: "2026-04-20T00:00:00.000Z"
   });
-  const repository = createUsersRepository(knex);
+  const repository = createUserProfilesRepository(knex);
 
   const profile = await repository.findByEmail(" ADA@EXAMPLE.COM ");
 

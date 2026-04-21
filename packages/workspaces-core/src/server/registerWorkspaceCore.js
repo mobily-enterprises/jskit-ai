@@ -33,9 +33,9 @@ function registerWorkspaceCore(app) {
     const appConfig = resolveAppConfig(scope);
     return createWorkspaceService({
       appConfig,
-      workspacesRepository: scope.make("workspacesRepository"),
-      workspaceMembershipsRepository: scope.make("workspaceMembershipsRepository"),
-      workspaceSettingsRepository: scope.make("workspaceSettingsRepository")
+      workspacesRepository: scope.make("internal.repository.workspaces"),
+      workspaceMembershipsRepository: scope.make("internal.repository.workspace-memberships"),
+      workspaceSettingsRepository: scope.make("internal.repository.workspace-settings")
     });
   });
   app.singleton("workspaces.enabled", (scope) => {

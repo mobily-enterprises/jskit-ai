@@ -96,7 +96,7 @@ test("crudService exports default realtime events for create/update/delete", () 
   assert.equal(serviceEvents.deleteRecord[0].realtime.event, "customers.record.changed");
 });
 
-test("crudService passes existing records into patch normalization via the shared CRUD service", async () => {
+test("crudService passes existing records into repository update options via the shared CRUD service", async () => {
   const calls = [];
   const service = createService({
     customersRepository: {
@@ -115,8 +115,8 @@ test("crudService passes existing records into patch normalization via the share
       async create(payload) {
         return { id: 1, ...payload };
       },
-      async updateById(recordId, payload) {
-        calls.push(["updateById", recordId, payload]);
+      async updateById(recordId, payload, options = {}) {
+        calls.push(["updateById", recordId, payload, options]);
         return {
           id: recordId,
           textField: payload.textField || "",
@@ -134,7 +134,14 @@ test("crudService passes existing records into patch normalization via the share
 
   assert.deepEqual(calls, [
     ["findById", 4],
-    ["updateById", 4, { textField: "Changed" }]
+    ["updateById", 4, { textField: "Changed" }, {
+      existingRecord: {
+        id: 4,
+        textField: "Existing",
+        dateField: "2026-03-11T00:00:00.000Z",
+        numberField: 3
+      }
+    }]
   ]);
 });
 

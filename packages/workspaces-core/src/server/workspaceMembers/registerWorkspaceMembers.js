@@ -58,8 +58,8 @@ function registerWorkspaceMembers(app) {
     (scope) => {
       const appConfig = resolveAppConfig(scope);
       return createWorkspaceMembersService({
-        workspaceMembershipsRepository: scope.make("workspaceMembershipsRepository"),
-        workspaceInvitesRepository: scope.make("workspaceInvitesRepository"),
+        workspaceMembershipsRepository: scope.make("internal.repository.workspace-memberships"),
+        workspaceInvitesRepository: scope.make("internal.repository.workspace-invites"),
         inviteExpiresInMs: resolveWorkspaceMembersInviteExpiresInMs(appConfig),
         roleCatalog: createWorkspaceRoleCatalog(appConfig),
         workspaceInvitationsEnabled: scope.make("workspaces.invitations.enabled") === true

@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { RECORD_ID_PATTERN } from "@jskit-ai/kernel/shared/validators";
-import { createCrudRepositoryRuntime } from "../src/server/repositoryOrm/index.js";
+import { createCrudResourceRuntime } from "../src/server/resourceRuntime/index.js";
 
 const recordIdSchema = Object.freeze({
   type: "string",
@@ -292,6 +292,99 @@ function createLookupResourceFixture() {
   };
 }
 
+function createNormalizedWriteResourceFixture() {
+  return {
+    namespace: "contacts",
+    tableName: "contacts_table",
+    idColumn: "contact_id",
+    operations: {
+      view: {
+        outputValidator: {
+          schema: {
+            type: "object",
+            properties: {
+              id: recordIdSchema,
+              firstName: { type: "string" },
+              lastSeenAt: {
+                anyOf: [
+                  { type: "string" },
+                  { type: "null" }
+                ]
+              }
+            }
+          }
+        }
+      },
+      create: {
+        bodyValidator: {
+          schema: {
+            type: "object",
+            properties: {
+              firstName: { type: "string" }
+            }
+          },
+          normalize(payload = {}) {
+            if (payload.firstName === "bad-create") {
+              const error = new Error("Validation failed.");
+              error.details = {
+                fieldErrors: {
+                  firstName: "Invalid create value."
+                }
+              };
+              throw error;
+            }
+
+            return {
+              ...payload,
+              firstName: String(payload.firstName || "").trim()
+            };
+          }
+        }
+      },
+      patch: {
+        bodyValidator: {
+          schema: {
+            type: "object",
+            properties: {
+              firstName: { type: "string" },
+              lastSeenAt: {
+                anyOf: [
+                  { type: "string" },
+                  { type: "null" }
+                ]
+              }
+            }
+          },
+          normalize(payload = {}, context = {}) {
+            if (payload.firstName === "bad-update") {
+              const error = new Error("Validation failed.");
+              error.details = {
+                fieldErrors: {
+                  firstName: "Invalid update value."
+                }
+              };
+              throw error;
+            }
+
+            return {
+              ...payload,
+              firstName: `${String(payload.firstName || "").trim()}-${context.existingRecord?.firstName || ""}`,
+              ...(Object.hasOwn(payload, "lastSeenAt")
+                ? { lastSeenAt: String(payload.lastSeenAt ?? "").trim() || null }
+                : {})
+            };
+          }
+        }
+      }
+    },
+    fieldMeta: [
+      { key: "id", repository: { column: "contact_id" } },
+      { key: "firstName", repository: { column: "first_name" } },
+      { key: "lastSeenAt", repository: { column: "last_seen_at" } }
+    ]
+  };
+}
+
 function createVirtualProjectionResourceFixture() {
   return {
     namespace: "receivals",
@@ -336,11 +429,11 @@ function createVirtualProjectionResourceFixture() {
   };
 }
 
-test("createCrudRepositoryRuntime requires table metadata from resource", () => {
+test("createCrudResourceRuntime requires table metadata from resource", () => {
   const { knex } = createKnexDouble();
   assert.throws(
     () =>
-      createCrudRepositoryRuntime({
+      createCrudResourceRuntime({
         operations: {
           view: {
             outputValidator: {
@@ -367,14 +460,14 @@ test("createCrudRepositoryRuntime requires table metadata from resource", () => 
   );
 });
 
-test("createCrudRepositoryRuntime binds methods directly and exposes withTransaction", async () => {
+test("createCrudResourceRuntime binds methods directly and exposes withTransaction", async () => {
   const { knex } = createKnexDouble([
     {
       contact_id: 3,
       first_name: "Tony"
     }
   ]);
-  const repository = createCrudRepositoryRuntime(createResourceFixture(), knex);
+  const repository = createCrudResourceRuntime(createResourceFixture(), knex);
 
   assert.equal(typeof repository.list, "function");
   assert.equal(typeof repository.findById, "function");
@@ -396,7 +489,7 @@ test("list uses resource table and id defaults", async () => {
       first_name: "Tony"
     }
   ]);
-  const repository = createCrudRepositoryRuntime(createResourceFixture(), knex);
+  const repository = createCrudResourceRuntime(createResourceFixture(), knex);
 
   const result = await repository.list({
     cursor: "2",
@@ -422,7 +515,7 @@ test("list respects bound list config", async () => {
     { contact_id: 4, first_name: "Tom" },
     { contact_id: 5, first_name: "Toby" }
   ]);
-  const repository = createCrudRepositoryRuntime(createResourceFixture(), knex, {
+  const repository = createCrudResourceRuntime(createResourceFixture(), knex, {
     list: {
       defaultLimit: 1,
       maxLimit: 2,
@@ -447,7 +540,7 @@ test("list supports configured virtual projections", async () => {
       remaining_batch_weight: 12
     }
   ]);
-  const repository = createCrudRepositoryRuntime(createVirtualProjectionResourceFixture(), knex, {
+  const repository = createCrudResourceRuntime(createVirtualProjectionResourceFixture(), knex, {
     virtualFields: {
       remainingBatchWeight: {
         applyProjection(dbQuery) {
@@ -473,8 +566,8 @@ test("list hydrates lookups from callOptions.include", async () => {
   ]);
 
   const lookupCalls = [];
-  const repository = createCrudRepositoryRuntime(createLookupResourceFixture(), knex, {
-    resolveLookupProvider() {
+  const repository = createCrudResourceRuntime(createLookupResourceFixture(), knex, {
+    resolveLookup() {
       return {
         async listByIds(ids = [], options = {}) {
           lookupCalls.push({
@@ -514,8 +607,8 @@ test("list forwards nested include paths to child lookup repositories", async ()
   ]);
 
   const lookupCalls = [];
-  const repository = createCrudRepositoryRuntime(createLookupResourceFixture(), knex, {
-    resolveLookupProvider() {
+  const repository = createCrudResourceRuntime(createLookupResourceFixture(), knex, {
+    resolveLookup() {
       return {
         async listByIds(ids = [], options = {}) {
           lookupCalls.push({
@@ -543,7 +636,7 @@ test("operations.read.applyQuery and operations.list.applyQuery run before canon
       first_name: "Tony"
     }
   ]);
-  const repository = createCrudRepositoryRuntime(createResourceFixture(), knex, {
+  const repository = createCrudResourceRuntime(createResourceFixture(), knex, {
     operations: {
       read: {
         applyQuery(dbQuery) {
@@ -583,7 +676,7 @@ test("findById supports forUpdate via callOptions", async () => {
       first_name: "Tony"
     }
   ]);
-  const repository = createCrudRepositoryRuntime(createResourceFixture(), knex);
+  const repository = createCrudResourceRuntime(createResourceFixture(), knex);
 
   await repository.findById("7", {
     trx: knex,
@@ -629,7 +722,7 @@ test("listByIds supports alternate valueKey and listByForeignIds delegates to it
       first_name: "Tony"
     }
   ]);
-  const repository = createCrudRepositoryRuntime(resource, knex);
+  const repository = createCrudResourceRuntime(resource, knex);
 
   const direct = await repository.listByIds(["12"], {
     valueKey: "foreignId"
@@ -688,7 +781,7 @@ test("create uses operations.create.prepareInsertPayload before insert", async (
       { key: "updatedAt", repository: { column: "updated_at" } }
     ]
   };
-  const repository = createCrudRepositoryRuntime(resource, knex, {
+  const repository = createCrudResourceRuntime(resource, knex, {
     operations: {
       create: {
         prepareInsertPayload(insertPayload = {}, context = {}) {
@@ -708,6 +801,25 @@ test("create uses operations.create.prepareInsertPayload before insert", async (
   assert.equal(state.insertPayloads[0].first_name, "TONY");
 });
 
+test("create normalizes resource body payloads before insert", async () => {
+  const rows = [
+    {
+      contact_id: 11,
+      first_name: "Tony"
+    }
+  ];
+  const { knex, state } = createKnexDouble(rows, {
+    insertResult: [11]
+  });
+  const repository = createCrudResourceRuntime(createNormalizedWriteResourceFixture(), knex);
+
+  await repository.create({
+    firstName: "  Tony  "
+  });
+
+  assert.equal(state.insertPayloads[0].first_name, "Tony");
+});
+
 test("update and delete keep canonical by-id behavior", async () => {
   const rows = [
     {
@@ -718,7 +830,7 @@ test("update and delete keep canonical by-id behavior", async () => {
   const { knex, state } = createKnexDouble(rows, {
     insertResult: [11]
   });
-  const repository = createCrudRepositoryRuntime(createResourceFixture(), knex);
+  const repository = createCrudResourceRuntime(createResourceFixture(), knex);
 
   const updated = await repository.updateById("11", {
     firstName: "Tom"
@@ -732,4 +844,73 @@ test("update and delete keep canonical by-id behavior", async () => {
     id: "11",
     deleted: true
   });
+});
+
+test("update normalizes resource patch payloads using the existing record", async () => {
+  const rows = [
+    {
+      contact_id: 11,
+      first_name: "Tony",
+      last_seen_at: null
+    }
+  ];
+  const { knex, state } = createKnexDouble(rows, {
+    insertResult: [11]
+  });
+  const repository = createCrudResourceRuntime(createNormalizedWriteResourceFixture(), knex);
+
+  await repository.updateById("11", {
+    firstName: " Tom "
+  });
+
+  assert.equal(state.updatePayloads[0].first_name, "Tom-Tony");
+});
+
+test("update maps patch-only resource fields into the DB payload", async () => {
+  const rows = [
+    {
+      contact_id: 11,
+      first_name: "Tony",
+      last_seen_at: null
+    }
+  ];
+  const { knex, state } = createKnexDouble(rows, {
+    insertResult: [11]
+  });
+  const repository = createCrudResourceRuntime(createNormalizedWriteResourceFixture(), knex);
+
+  await repository.updateById("11", {
+    lastSeenAt: " 2026-01-01T00:00:00.000Z "
+  });
+
+  assert.equal(state.updatePayloads[0].last_seen_at, "2026-01-01T00:00:00.000Z");
+});
+
+test("resourceRuntime maps body normalization field errors for create and update", async () => {
+  const rows = [
+    {
+      contact_id: 11,
+      first_name: "Tony"
+    }
+  ];
+  const { knex } = createKnexDouble(rows, {
+    insertResult: [11]
+  });
+  const repository = createCrudResourceRuntime(createNormalizedWriteResourceFixture(), knex);
+
+  await assert.rejects(
+    () => repository.create({ firstName: "bad-create" }),
+    (error) => (
+      error?.status === 400 &&
+      error?.details?.fieldErrors?.firstName === "Invalid create value."
+    )
+  );
+
+  await assert.rejects(
+    () => repository.updateById("11", { firstName: "bad-update" }),
+    (error) => (
+      error?.status === 400 &&
+      error?.details?.fieldErrors?.firstName === "Invalid update value."
+    )
+  );
 });

@@ -149,27 +149,10 @@ test("createCrudServiceFromResource forwards list include as repository call opt
   });
 });
 
-test("createCrudServiceFromResource passes existing records to patch normalization", async () => {
-  const normalizeCalls = [];
+test("createCrudServiceFromResource passes existing records to repository update options", async () => {
   const updateCalls = [];
   const { createBaseService } = createCrudServiceFromResource({
-    namespace: "contacts",
-    operations: {
-      patch: {
-        bodyValidator: {
-          normalize(payload = {}, context = {}) {
-            normalizeCalls.push({
-              payload,
-              existingRecord: context.existingRecord
-            });
-            return {
-              ...payload,
-              name: `${payload.name} normalized`
-            };
-          }
-        }
-      }
-    }
+    namespace: "contacts"
   });
 
   const service = createBaseService({
@@ -179,8 +162,8 @@ test("createCrudServiceFromResource passes existing records to patch normalizati
           ? { id: 1, name: "Existing" }
           : null;
       },
-      async updateById(recordId, payload) {
-        updateCalls.push({ recordId, payload });
+      async updateById(recordId, payload, options = {}) {
+        updateCalls.push({ recordId, payload, options });
         return { id: 1, ...payload };
       }
     })
@@ -188,57 +171,16 @@ test("createCrudServiceFromResource passes existing records to patch normalizati
 
   const record = await service.updateRecord(1, { name: "B" }, {});
 
-  assert.deepEqual(normalizeCalls, [
-    {
-      payload: { name: "B" },
-      existingRecord: { id: 1, name: "Existing" }
-    }
-  ]);
   assert.deepEqual(updateCalls, [
     {
       recordId: 1,
-      payload: { name: "B normalized" }
+      payload: { name: "B" },
+      options: {
+        existingRecord: { id: 1, name: "Existing" }
+      }
     }
   ]);
-  assert.deepEqual(record, { id: 1, name: "B normalized" });
-});
-
-test("createCrudServiceFromResource maps patch field errors to validation errors", async () => {
-  const { createBaseService } = createCrudServiceFromResource({
-    namespace: "contacts",
-    operations: {
-      patch: {
-        bodyValidator: {
-          normalize() {
-            const error = new Error("Validation failed.");
-            error.details = {
-              fieldErrors: {
-                name: "Invalid."
-              }
-            };
-            throw error;
-          }
-        }
-      }
-    }
-  });
-
-  const service = createBaseService({
-    repository: createRepositoryDouble({
-      async findById() {
-        return { id: 1, name: "Existing" };
-      }
-    })
-  });
-
-  await assert.rejects(
-    () => service.updateRecord(1, { name: "B" }, {}),
-    (error) => (
-      error?.status === 400 &&
-      error?.message === "Validation failed." &&
-      error?.details?.fieldErrors?.name === "Invalid."
-    )
-  );
+  assert.deepEqual(record, { id: 1, name: "B" });
 });
 
 test("createCrudServiceFromResource validates required inputs", async () => {

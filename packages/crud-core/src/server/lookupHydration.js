@@ -11,13 +11,13 @@ import { normalizeCrudLookupApiPath } from "./lookupPathSupport.js";
 const DEFAULT_LOOKUP_INCLUDE = "*";
 const DEFAULT_LOOKUP_MAX_DEPTH = 3;
 const MAX_LOOKUP_MAX_DEPTH = 10;
-const LOOKUP_PROVIDER_OWNERSHIP_FILTER_VALUES = Object.freeze([
+const LOOKUP_OWNERSHIP_FILTER_VALUES = Object.freeze([
   "public",
   "user",
   "workspace",
   "workspace_user"
 ]);
-const LOOKUP_PROVIDER_OWNERSHIP_FILTER_SET = new Set(LOOKUP_PROVIDER_OWNERSHIP_FILTER_VALUES);
+const LOOKUP_OWNERSHIP_FILTER_SET = new Set(LOOKUP_OWNERSHIP_FILTER_VALUES);
 
 function normalizeLookupRelationEntry(entry = {}, outputKeys = new Set()) {
   if (!entry || typeof entry !== "object" || Array.isArray(entry)) {
@@ -374,10 +374,10 @@ function buildLookupHydrationPlan(
   };
 }
 
-function resolveLookupProviderResolver(repositoryOptions = {}, callOptions = {}, { context = "crudRepository" } = {}) {
-  const resolver = callOptions?.resolveLookupProvider || repositoryOptions?.resolveLookupProvider;
+function resolveLookupResolver(repositoryOptions = {}, callOptions = {}, { context = "crudRepository" } = {}) {
+  const resolver = callOptions?.resolveLookup || repositoryOptions?.resolveLookup;
   if (typeof resolver !== "function") {
-    throw new TypeError(`${context} requires resolveLookupProvider(relation) to hydrate lookups.`);
+    throw new TypeError(`${context} requires resolveLookup(relation) to hydrate lookups.`);
   }
   return resolver;
 }
@@ -477,28 +477,28 @@ function resolveGroupChildInclude(group = {}) {
   return [...includeSet].join(",");
 }
 
-function normalizeLookupProvider(provider, relation = {}, { context = "crudRepository" } = {}) {
+function normalizeLookup(provider, relation = {}, { context = "crudRepository" } = {}) {
   if (!provider || typeof provider !== "object" || Array.isArray(provider)) {
-    throw new Error(`${context} could not resolve lookup provider for namespace "${relation.namespace}".`);
+    throw new Error(`${context} could not resolve lookup "${relation.namespace}".`);
   }
   if (typeof provider.listByIds !== "function") {
-    throw new Error(`${context} lookup provider for namespace "${relation.namespace}" must expose listByIds(ids, options).`);
+    throw new Error(`${context} lookup "${relation.namespace}" must expose listByIds(ids, options).`);
   }
   return provider;
 }
 
-function resolveLookupProviderOwnershipFilter(provider = {}, { context = "crudRepository" } = {}) {
+function resolveLookupOwnershipFilter(provider = {}, { context = "crudRepository" } = {}) {
   const normalizedOwnershipFilter = normalizeText(provider?.ownershipFilter).toLowerCase();
   if (!normalizedOwnershipFilter) {
     return "";
   }
 
-  if (LOOKUP_PROVIDER_OWNERSHIP_FILTER_SET.has(normalizedOwnershipFilter)) {
+  if (LOOKUP_OWNERSHIP_FILTER_SET.has(normalizedOwnershipFilter)) {
     return normalizedOwnershipFilter;
   }
 
   throw new TypeError(
-    `${context} lookup provider ownershipFilter must be one of: ${LOOKUP_PROVIDER_OWNERSHIP_FILTER_VALUES.join(", ")}.`
+    `${context} lookup ownershipFilter must be one of: ${LOOKUP_OWNERSHIP_FILTER_VALUES.join(", ")}.`
   );
 }
 
@@ -509,26 +509,26 @@ function resolveLookupVisibilityContext(
   { context = "crudRepository" } = {}
 ) {
   const parentVisibilityContext = normalizeVisibilityContext(callOptions?.visibilityContext);
-  const providerOwnershipFilter = resolveLookupProviderOwnershipFilter(provider, {
+  const lookupOwnershipFilter = resolveLookupOwnershipFilter(provider, {
     context
   });
 
-  if (!providerOwnershipFilter) {
+  if (!lookupOwnershipFilter) {
     if (parentVisibilityContext.visibility !== "public") {
       throw new Error(
-        `${context} lookup provider for namespace "${relation.namespace}" must declare ownershipFilter when parent visibility is "${parentVisibilityContext.visibility}".`
+        `${context} lookup "${relation.namespace}" must declare ownershipFilter when parent visibility is "${parentVisibilityContext.visibility}".`
       );
     }
     return callOptions?.visibilityContext;
   }
 
   const nextVisibilityContext = {
-    visibility: providerOwnershipFilter
+    visibility: lookupOwnershipFilter
   };
-  if (providerOwnershipFilter === "workspace" || providerOwnershipFilter === "workspace_user") {
+  if (lookupOwnershipFilter === "workspace" || lookupOwnershipFilter === "workspace_user") {
     nextVisibilityContext.scopeOwnerId = parentVisibilityContext.scopeOwnerId;
   }
-  if (providerOwnershipFilter === "user" || providerOwnershipFilter === "workspace_user") {
+  if (lookupOwnershipFilter === "user" || lookupOwnershipFilter === "workspace_user") {
     nextVisibilityContext.userId = parentVisibilityContext.userId;
   }
 
@@ -624,7 +624,7 @@ async function hydrateCrudLookupRecords(
     return sourceRecords;
   }
 
-  const resolveLookupProvider = resolveLookupProviderResolver(repositoryOptions, callOptions, {
+  const resolveLookup = resolveLookupResolver(repositoryOptions, callOptions, {
     context: runtime?.context || "crudRepository"
   });
 
@@ -636,7 +636,7 @@ async function hydrateCrudLookupRecords(
       continue;
     }
 
-    const provider = normalizeLookupProvider(resolveLookupProvider(group.relation), group.relation, {
+    const provider = normalizeLookup(resolveLookup(group.relation), group.relation, {
       context: runtime?.context || "crudRepository"
     });
     const childVisibilityContext = resolveLookupVisibilityContext(

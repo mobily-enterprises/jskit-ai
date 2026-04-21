@@ -8,8 +8,8 @@ function registerUsersCore(app) {
 
   app.singleton("users.profile.sync.service", (scope) => {
     return createAuthProfileSyncService({
-      usersRepository: scope.make("usersRepository"),
-      userSettingsRepository: scope.make("userSettingsRepository"),
+      userProfilesRepository: scope.make("internal.repository.user-profiles"),
+      userSettingsRepository: scope.make("internal.repository.user-settings"),
       lifecycleContributors: resolveProfileSyncLifecycleContributors(scope)
     });
   });

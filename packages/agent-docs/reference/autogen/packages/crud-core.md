@@ -177,13 +177,13 @@ Local functions
 - `normalizeIncludePaths(include, { defaultInclude = DEFAULT_LOOKUP_INCLUDE } = {})`
 - `resolveChildIncludeFromPaths(paths = [])`
 - `buildLookupHydrationPlan(runtime = {}, include, { mode = "list", context = "crudRepository", includeWasExplicit = false, skippedNamespaces = new Set() } = {})`
-- `resolveLookupProviderResolver(repositoryOptions = {}, callOptions = {}, { context = "crudRepository" } = {})`
+- `resolveLookupResolver(repositoryOptions = {}, callOptions = {}, { context = "crudRepository" } = {})`
 - `resolveLookupDepthRuntime(runtime = {}, repositoryOptions = {}, callOptions = {})`
 - `buildLookupGroupKey(relation = {})`
 - `normalizeLookupRelationValues(records = [], entries = [], childIncludeByKey = {})`
 - `resolveGroupChildInclude(group = {})`
-- `normalizeLookupProvider(provider, relation = {}, { context = "crudRepository" } = {})`
-- `resolveLookupProviderOwnershipFilter(provider = {}, { context = "crudRepository" } = {})`
+- `normalizeLookup(provider, relation = {}, { context = "crudRepository" } = {})`
+- `resolveLookupOwnershipFilter(provider = {}, { context = "crudRepository" } = {})`
 - `resolveLookupVisibilityContext(provider = {}, relation = {}, callOptions = {}, { context = "crudRepository" } = {})`
 - `buildLookupRecordMap(records = [], valueKey = "")`
 - `buildLookupCollectionMap(records = [], foreignKey = "")`
@@ -193,21 +193,21 @@ Local functions
 Exports
 - `normalizeCrudLookupApiPath`
 - `normalizeCrudLookupNamespace`
-- `requireCrudLookupNamespace(value = "", { context = "crudLookupProvider" } = {})`
-- `resolveCrudLookupNamespaceFromRelation(relation = {}, { context = "crudLookupProvider" } = {})`
-- `resolveCrudLookupProviderToken(namespace = "", { context = "crudLookupProvider" } = {})`
+- `requireCrudLookupNamespace(value = "", { context = "crudLookup" } = {})`
+- `resolveCrudLookupNamespaceFromRelation(relation = {}, { context = "crudLookup" } = {})`
+- `resolveCrudLookupToken(namespace = "", { context = "crudLookup" } = {})`
 
-### `src/server/lookupProviders.js`
+### `src/server/lookups.js`
 Exports
-- `resolveCrudLookupProviderToken`
-- `createCrudLookupProviderResolver(scope, { context = "crudLookupProvider" } = {})`
-- `createCrudLookupProvider(repository, { context = "crudLookupProvider", ownershipFilter = "" } = {})`
+- `resolveCrudLookupToken`
+- `createCrudLookupResolver(scope, { context = "crudLookup" } = {})`
+- `createCrudLookup(repository, { context = "crudLookup", ownershipFilter = "" } = {})`
 Local functions
-- `normalizeLookupProviderOwnershipFilter(value, { context = "crudLookupProvider ownershipFilter" } = {})`
+- `normalizeLookupOwnershipFilter(value, { context = "crudLookup ownershipFilter" } = {})`
 
 ### `src/server/repositoryMethods.js`
 Exports
-- `createCrudRepositoryRuntime(resource = {}, { context = "crudRepository", list = {}, virtualFields = {} } = {})`
+- `createCrudResourceRuntime(resource = {}, { context = "crudRepository", list = {}, virtualFields = {} } = {})`
 - `crudRepositoryList(runtime, knex, query = {}, repositoryOptions = {}, callOptions = {}, hooks = null)`
 - `crudRepositoryFindById(runtime, knex, recordId, repositoryOptions = {}, callOptions = {}, hooks = null)`
 - `crudRepositoryListByIds(runtime, knex, ids = [], repositoryOptions = {}, callOptions = {}, hooks = null)`

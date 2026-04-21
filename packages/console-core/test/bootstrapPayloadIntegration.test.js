@@ -22,12 +22,12 @@ test("bootstrap payload preserves consoleowner for authenticated users after use
   const ownerSeeds = [];
   const app = createContainer();
 
-  app.instance("usersRepository", {
+  app.instance("internal.repository.user-profiles", {
     async findById(userId) {
       return String(userId || "") === profile.id ? profile : null;
     }
   });
-  app.instance("userSettingsRepository", {
+  app.instance("internal.repository.user-settings", {
     async ensureForUserId() {
       return {};
     }

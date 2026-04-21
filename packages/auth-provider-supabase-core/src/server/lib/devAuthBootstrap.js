@@ -117,7 +117,7 @@ function resolveDevAuthConfig({
   });
 }
 
-function assertDevAuthBootstrapConfig(config, { usersRepository = null } = {}) {
+function assertDevAuthBootstrapConfig(config, { userProfilesRepository = null } = {}) {
   if (!config?.enabled) {
     return;
   }
@@ -128,9 +128,13 @@ function assertDevAuthBootstrapConfig(config, { usersRepository = null } = {}) {
   if (!config.secret) {
     throw new Error("AUTH_DEV_BYPASS_SECRET is required when AUTH_DEV_BYPASS_ENABLED=true.");
   }
-  if (!usersRepository || typeof usersRepository.findById !== "function" || typeof usersRepository.findByEmail !== "function") {
+  if (
+    !userProfilesRepository ||
+    typeof userProfilesRepository.findById !== "function" ||
+    typeof userProfilesRepository.findByEmail !== "function"
+  ) {
     throw new Error(
-      "Dev auth bootstrap requires usersRepository with findById() and findByEmail() when AUTH_DEV_BYPASS_ENABLED=true."
+      "Dev auth bootstrap requires internal.repository.user-profiles with findById() and findByEmail() when AUTH_DEV_BYPASS_ENABLED=true."
     );
   }
 }
@@ -175,10 +179,10 @@ function buildProfileFromTokenClaims(payload) {
   };
 }
 
-async function resolveProfileFromTokenClaims(payload, { usersRepository = null } = {}) {
+async function resolveProfileFromTokenClaims(payload, { userProfilesRepository = null } = {}) {
   const userId = normalizeRecordId(payload?.sub, { fallback: null });
-  if (userId && usersRepository && typeof usersRepository.findById === "function") {
-    const latest = await usersRepository.findById(userId);
+  if (userId && userProfilesRepository && typeof userProfilesRepository.findById === "function") {
+    const latest = await userProfilesRepository.findById(userId);
     if (latest?.id) {
       return latest;
     }
@@ -269,9 +273,9 @@ async function createDevAuthSession(profile, config) {
   };
 }
 
-async function resolveDevAuthProfile(input = {}, { usersRepository = null, validationError } = {}) {
-  if (!usersRepository || typeof usersRepository.findById !== "function") {
-    throw new AppError(500, "Dev auth bootstrap requires usersRepository.findById().");
+async function resolveDevAuthProfile(input = {}, { userProfilesRepository = null, validationError } = {}) {
+  if (!userProfilesRepository || typeof userProfilesRepository.findById !== "function") {
+    throw new AppError(500, "Dev auth bootstrap requires internal.repository.user-profiles.findById().");
   }
 
   const normalizedUserId = normalizeRecordId(input?.userId, { fallback: null });
@@ -286,7 +290,7 @@ async function resolveDevAuthProfile(input = {}, { usersRepository = null, valid
   const fieldErrors = {};
 
   if (normalizedUserId) {
-    const byId = await usersRepository.findById(normalizedUserId);
+    const byId = await userProfilesRepository.findById(normalizedUserId);
     if (byId?.id) {
       return byId;
     }
@@ -294,11 +298,11 @@ async function resolveDevAuthProfile(input = {}, { usersRepository = null, valid
   }
 
   if (normalizedEmail) {
-    if (typeof usersRepository.findByEmail !== "function") {
-      throw new AppError(500, "Dev auth bootstrap requires usersRepository.findByEmail() for email lookup.");
+    if (typeof userProfilesRepository.findByEmail !== "function") {
+      throw new AppError(500, "Dev auth bootstrap requires internal.repository.user-profiles.findByEmail() for email lookup.");
     }
 
-    const byEmail = await usersRepository.findByEmail(normalizedEmail);
+    const byEmail = await userProfilesRepository.findByEmail(normalizedEmail);
     if (byEmail?.id) {
       return byEmail;
     }
@@ -310,7 +314,7 @@ async function resolveDevAuthProfile(input = {}, { usersRepository = null, valid
 
 async function authenticateDevAuthRequest(
   { request, accessToken = "", refreshToken = "" },
-  { config, usersRepository = null } = {}
+  { config, userProfilesRepository = null } = {}
 ) {
   const hasDevAccessToken = isDevAuthToken(accessToken);
   const hasDevRefreshToken = isDevAuthToken(refreshToken);
@@ -331,7 +335,7 @@ async function authenticateDevAuthRequest(
     const accessVerification = await verifyDevAuthToken(accessToken, "access", config);
     if (accessVerification.status === "valid") {
       const profile = await resolveProfileFromTokenClaims(accessVerification.payload, {
-        usersRepository
+        userProfilesRepository
       });
       return {
         authenticated: true,
@@ -372,7 +376,7 @@ async function authenticateDevAuthRequest(
   }
 
   const profile = await resolveProfileFromTokenClaims(refreshVerification.payload, {
-    usersRepository
+    userProfilesRepository
   });
   return {
     authenticated: true,

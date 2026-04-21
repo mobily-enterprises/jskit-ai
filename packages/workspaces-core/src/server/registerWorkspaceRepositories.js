@@ -7,17 +7,17 @@ function registerWorkspaceRepositories(app) {
     throw new Error("registerWorkspaceRepositories requires application singleton().");
   }
 
-  app.singleton("workspacesRepository", (scope) => {
+  app.singleton("internal.repository.workspaces", (scope) => {
     const knex = scope.make("jskit.database.knex");
     return createWorkspacesRepository(knex);
   });
 
-  app.singleton("workspaceMembershipsRepository", (scope) => {
+  app.singleton("internal.repository.workspace-memberships", (scope) => {
     const knex = scope.make("jskit.database.knex");
     return createWorkspaceMembershipsRepository(knex);
   });
 
-  app.singleton("workspaceInvitesRepository", (scope) => {
+  app.singleton("internal.repository.workspace-invites", (scope) => {
     const knex = scope.make("jskit.database.knex");
     return createWorkspaceInvitesRepository(knex);
   });

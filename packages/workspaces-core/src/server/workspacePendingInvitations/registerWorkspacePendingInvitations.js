@@ -93,8 +93,8 @@ function registerWorkspacePendingInvitations(app) {
     "workspaces.pending-invitations.service",
     (scope) =>
       createService({
-        workspaceInvitesRepository: scope.make("workspaceInvitesRepository"),
-        workspaceMembershipsRepository: scope.make("workspaceMembershipsRepository")
+        workspaceInvitesRepository: scope.make("internal.repository.workspace-invites"),
+        workspaceMembershipsRepository: scope.make("internal.repository.workspace-memberships")
       }),
     {
       events: deepFreeze({
