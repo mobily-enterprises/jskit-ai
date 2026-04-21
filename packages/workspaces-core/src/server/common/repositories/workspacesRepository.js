@@ -11,7 +11,7 @@ const REPOSITORY_CONFIG = Object.freeze({
   context: "internal.repository.workspaces"
 });
 
-function normalizeWorkspaceRecord(payload = {}) {
+function normalizeWorkspaceRecord(payload) {
   if (!payload) {
     return null;
   }
