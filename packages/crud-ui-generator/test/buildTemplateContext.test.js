@@ -190,6 +190,82 @@ const resource = {
 export { resource };
 `;
 
+const SELECT_RESOURCE_SOURCE = `const recordSchema = {
+  type: "object",
+  properties: {
+    id: { type: "integer" },
+    type: { type: "string" }
+  },
+  additionalProperties: false
+};
+
+const bodySchema = {
+  type: "object",
+  properties: {
+    type: { type: "string", enum: ["dryer", "pallet racking", "freezer", "coolroom"] }
+  },
+  additionalProperties: false
+};
+
+const resource = {
+  namespace: "locations",
+  operations: {
+    list: {
+      outputValidator: {
+        schema: {
+          type: "object",
+          properties: {
+            items: {
+              type: "array",
+              items: recordSchema
+            },
+            nextCursor: { type: ["string", "null"] }
+          },
+          additionalProperties: false
+        }
+      }
+    },
+    view: {
+      outputValidator: {
+        schema: recordSchema
+      }
+    },
+    create: {
+      bodyValidator: {
+        schema: bodySchema
+      },
+      outputValidator: {
+        schema: recordSchema
+      }
+    },
+    patch: {
+      bodyValidator: {
+        schema: bodySchema
+      },
+      outputValidator: {
+        schema: recordSchema
+      }
+    }
+  },
+  fieldMeta: [
+    {
+      key: "type",
+      ui: {
+        formControl: "select",
+        options: [
+          { value: "dryer", label: "Dryer" },
+          { value: "pallet racking", label: "Pallet Racking" },
+          { value: "freezer", label: "Freezer" },
+          { value: "coolroom", label: "Coolroom" }
+        ]
+      }
+    }
+  ]
+};
+
+export { resource };
+`;
+
 const LOOKUP_RESOURCE_SOURCE = `const recordSchema = {
   type: "object",
   properties: {
@@ -371,6 +447,22 @@ test("buildUiTemplateContext renders nullable booleans as tri-state selects by d
     assert.match(context.__JSKIT_UI_CREATE_FORM_FIELDS__, /"options":\[\{"label":"Unset","value":null\},\{"label":"Yes","value":true\},\{"label":"No","value":false\}\]/);
     assert.match(context.__JSKIT_UI_CREATE_FORM_COLUMNS__, /<v-select/);
     assert.doesNotMatch(context.__JSKIT_UI_CREATE_FORM_COLUMNS__, /<v-switch/);
+  });
+});
+
+test("buildUiTemplateContext escapes select option bindings safely for Vue attributes", async () => {
+  await withTempApp(async (appRoot) => {
+    await writeResource(appRoot, RESOURCE_FILE, SELECT_RESOURCE_SOURCE);
+
+    const context = await buildUiTemplateContext({
+      appRoot,
+      options: createOptions()
+    });
+
+    assert.match(
+      context.__JSKIT_UI_CREATE_FORM_COLUMNS__,
+      /:items='\[\{"value":"dryer","label":"Dryer"\},\{"value":"pallet racking","label":"Pallet Racking"\},\{"value":"freezer","label":"Freezer"\},\{"value":"coolroom","label":"Coolroom"\}\]'/
+    );
   });
 });
 
