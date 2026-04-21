@@ -329,6 +329,30 @@ function buildLookupFormProps(fields = []) {
     :set-lookup-search="setLookupSearch"`;
 }
 
+function buildLookupFormPropDefinitions({ createFields = [], editFields = [] } = {}) {
+  if (!hasLookupFormFields(createFields) && !hasLookupFormFields(editFields)) {
+    return "";
+  }
+
+  return `,
+  resolveLookupItems: {
+    type: Function,
+    required: true
+  },
+  resolveLookupLoading: {
+    type: Function,
+    required: true
+  },
+  resolveLookupSearch: {
+    type: Function,
+    required: true
+  },
+  setLookupSearch: {
+    type: Function,
+    required: true
+  }`;
+}
+
 function filterDefaultHiddenListFields(selectedFieldKeys, fields, { recordIdFieldKey = "" } = {}) {
   const selectedFields = Array.isArray(selectedFieldKeys) ? selectedFieldKeys : [];
   const availableFields = Array.isArray(fields) ? fields : [];
@@ -612,6 +636,10 @@ async function buildUiTemplateContext({ appRoot, options } = {}) {
     }),
     __JSKIT_UI_CREATE_LOOKUP_FORM_PROPS__: buildLookupFormProps(createFields),
     __JSKIT_UI_EDIT_LOOKUP_FORM_PROPS__: buildLookupFormProps(editFields),
+    __JSKIT_UI_FORM_LOOKUP_PROP_DEFS__: buildLookupFormPropDefinitions({
+      createFields,
+      editFields
+    }),
     __JSKIT_UI_MENU_MARKER__: menuMarker,
     __JSKIT_UI_MENU_PLACEMENT_ID__: String(pageLinkTarget?.pageTarget?.placementId || ""),
     __JSKIT_UI_MENU_PLACEMENT_TARGET__: String(pageLinkTarget?.placementTarget?.id || ""),

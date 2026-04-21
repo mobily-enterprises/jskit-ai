@@ -44,3 +44,20 @@ The goal is to give the maintainer a clean review trail separate from app-local 
   - `packages/crud-server-generator/test/buildTemplateContext.test.js`
 - Verification:
   - `npm test --workspace @jskit-ai/crud-server-generator`
+
+### CRUD add/edit forms kept dead lookup prop contracts
+
+- Problem:
+  - no-lookup CRUD pages now correctly skip the lookup runtime setup in the page script
+  - but the shared add/edit form template still declared `resolveLookupItems`/`resolveLookupLoading`/`resolveLookupSearch`/`setLookupSearch` as required props even when neither mode used lookup fields
+- Root cause:
+  - the page template context already knew when lookup form props were empty, but the shared form template had unconditional prop definitions
+- Fix:
+  - make the shared form’s lookup prop definitions conditional on whether the create or edit mode actually includes lookup fields
+  - add template-context assertions for both the no-lookup and lookup-enabled cases
+- Files:
+  - `packages/crud-ui-generator/templates/src/pages/admin/ui-generator/AddEditForm.vue`
+  - `packages/crud-ui-generator/src/server/buildTemplateContext.js`
+  - `packages/crud-ui-generator/test/buildTemplateContext.test.js`
+- Verification:
+  - `npm test --workspace @jskit-ai/crud-ui-generator`
