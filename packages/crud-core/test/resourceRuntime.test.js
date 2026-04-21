@@ -292,6 +292,45 @@ function createLookupResourceFixture() {
   };
 }
 
+function createLeafLookupResourceFixture() {
+  return {
+    namespace: "users",
+    tableName: "users_table",
+    idColumn: "user_id",
+    operations: {
+      view: {
+        outputValidator: {
+          schema: {
+            type: "object",
+            properties: {
+              id: recordIdSchema,
+              name: { type: "string" }
+            }
+          }
+        }
+      },
+      create: {
+        bodyValidator: {
+          schema: {
+            type: "object",
+            properties: {}
+          }
+        }
+      }
+    },
+    fieldMeta: [
+      {
+        key: "id",
+        repository: { column: "user_id" }
+      },
+      {
+        key: "name",
+        repository: { column: "display_name" }
+      }
+    ]
+  };
+}
+
 function createNormalizedWriteResourceFixture() {
   return {
     namespace: "contacts",
@@ -627,6 +666,49 @@ test("list forwards nested include paths to child lookup repositories", async ()
 
   assert.equal(lookupCalls.length, 1);
   assert.equal(lookupCalls[0].options.include, "vetTypeId");
+});
+
+test("list wildcard hydration does not fail when child lookup resources declare no nested lookups", async () => {
+  const { knex } = createKnexDouble([
+    {
+      contact_id: 3,
+      first_name: "Tony",
+      primary_vet_id: 10,
+      secondary_vet_id: 12
+    }
+  ]);
+  const { knex: childKnex } = createKnexDouble([
+    {
+      user_id: 10,
+      display_name: "Vet A"
+    },
+    {
+      user_id: 12,
+      display_name: "Vet B"
+    }
+  ]);
+
+  const childRepository = createCrudResourceRuntime(createLeafLookupResourceFixture(), childKnex, {
+    context: "users repository"
+  });
+  const repository = createCrudResourceRuntime(createLookupResourceFixture(), knex, {
+    resolveLookup() {
+      return {
+        async listByIds(ids = [], options = {}) {
+          return childRepository.listByIds(ids, options);
+        }
+      };
+    }
+  });
+
+  const result = await repository.list({}, {
+    include: "*"
+  });
+
+  assert.deepEqual(result.items[0].lookups, {
+    primaryVetId: { id: "10", name: "Vet A" },
+    secondaryVetId: { id: "12", name: "Vet B" }
+  });
 });
 
 test("operations.read.applyQuery and operations.list.applyQuery run before canonical filters", async () => {
