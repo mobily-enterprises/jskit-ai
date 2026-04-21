@@ -461,7 +461,7 @@ test("buildUiTemplateContext escapes select option bindings safely for Vue attri
 
     assert.match(
       context.__JSKIT_UI_CREATE_FORM_COLUMNS__,
-      /:items='\[\{"value":"dryer","label":"Dryer"\},\{"value":"pallet racking","label":"Pallet Racking"\},\{"value":"freezer","label":"Freezer"\},\{"value":"coolroom","label":"Coolroom"\}\]'/
+      /:items="\[\{&quot;value&quot;:&quot;dryer&quot;,&quot;label&quot;:&quot;Dryer&quot;\},\{&quot;value&quot;:&quot;pallet racking&quot;,&quot;label&quot;:&quot;Pallet Racking&quot;\},\{&quot;value&quot;:&quot;freezer&quot;,&quot;label&quot;:&quot;Freezer&quot;\},\{&quot;value&quot;:&quot;coolroom&quot;,&quot;label&quot;:&quot;Coolroom&quot;\}\]"/
     );
   });
 });

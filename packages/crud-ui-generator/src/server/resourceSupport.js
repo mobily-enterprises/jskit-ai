@@ -728,7 +728,12 @@ function escapeHtml(value) {
 }
 
 function serializeTemplateBindingValue(value) {
-  return JSON.stringify(value).replaceAll("'", "\\u0027");
+  return JSON.stringify(value)
+    .replaceAll("&", "&amp;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll("'", "\\u0027");
 }
 
 function renderTemplateJsStringLiteral(value) {
@@ -853,7 +858,7 @@ function buildFormColumns(fields = []) {
                   label="${label}"
                   variant="outlined"
                   density="comfortable"
-                  :items='${serializeTemplateBindingValue(selectOptions)}'
+                  :items="${serializeTemplateBindingValue(selectOptions)}"
                   item-title="label"
                   item-value="value"
                   :disabled="addEdit.isFieldLocked"
