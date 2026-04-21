@@ -520,18 +520,33 @@ function renderResourceFieldSchema(column, { forOutput = false } = {}) {
   return schemaExpression;
 }
 
-function renderResourceValidatorsImport({ needsHtmlTimeSchemas = false, needsRecordIdSchemas = false } = {}) {
+function renderResourceValidatorsImport({ needsHtmlTimeSchemas = false, recordIdValidatorImports = [] } = {}) {
   const imports = [
     "normalizeObjectInput",
     "createCursorListValidator"
   ];
-  if (needsRecordIdSchemas) {
-    imports.push("recordIdSchema", "recordIdInputSchema", "nullableRecordIdSchema", "nullableRecordIdInputSchema");
+  for (const importName of Array.isArray(recordIdValidatorImports) ? recordIdValidatorImports : []) {
+    if (!imports.includes(importName)) {
+      imports.push(importName);
+    }
   }
   if (needsHtmlTimeSchemas) {
     imports.push("HTML_TIME_STRING_SCHEMA", "NULLABLE_HTML_TIME_STRING_SCHEMA");
   }
   return `import {\n  ${imports.join(",\n  ")}\n} from "@jskit-ai/kernel/shared/validators";`;
+}
+
+function resolveRecordIdValidatorImports(...sources) {
+  const imports = ["recordIdSchema"];
+  const joinedSource = sources
+    .map((source) => String(source || ""))
+    .join("\n");
+  for (const importName of ["recordIdInputSchema", "nullableRecordIdSchema", "nullableRecordIdInputSchema"]) {
+    if (joinedSource.includes(importName)) {
+      imports.push(importName);
+    }
+  }
+  return imports;
 }
 
 function renderInputNormalizer(column) {
@@ -1621,6 +1636,7 @@ function buildReplacementsFromSnapshot({
       requiresNamedPermissions
     }),
     __JSKIT_CRUD_ROUTE_SURFACE_REQUIRES_WORKSPACE__: String(surfaceRequiresWorkspace === true),
+    __JSKIT_CRUD_ROUTE_BASE__: JSON.stringify(surfaceRequiresWorkspace === true ? "/w/:workspaceSlug" : "/"),
     __JSKIT_CRUD_ROUTE_WORKSPACE_SUPPORT_IMPORTS__: renderRouteWorkspaceSupportImports({
       surfaceRequiresWorkspace
     }),
@@ -1656,7 +1672,14 @@ function buildReplacementsFromSnapshot({
     }),
     __JSKIT_CRUD_RESOURCE_VALIDATORS_IMPORT__: renderResourceValidatorsImport({
       needsHtmlTimeSchemas,
-      needsRecordIdSchemas
+      recordIdValidatorImports: resolveRecordIdValidatorImports(
+        renderResourceSchemaPropertyLines(outputColumns, {
+          forOutput: true
+        }),
+        renderResourceSchemaPropertyLines(writableColumns, {
+          forOutput: false
+        })
+      )
     }),
     __JSKIT_CRUD_RESOURCE_DATABASE_RUNTIME_IMPORT__: renderResourceDatabaseRuntimeImport({
       needsToIsoString: needsDateTimeOutput || needsDate,

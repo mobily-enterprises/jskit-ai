@@ -89,6 +89,7 @@ function buildTemplateReplacements({
       ? "[workspaceSlugParamsValidator, recordIdParamsValidator]"
       : "recordIdParamsValidator"],
     ["__JSKIT_CRUD_ROUTE_SURFACE_REQUIRES_WORKSPACE__", String(surfaceRequiresWorkspace === true)],
+    ["__JSKIT_CRUD_ROUTE_BASE__", JSON.stringify(surfaceRequiresWorkspace ? "/w/:workspaceSlug" : "/")],
     ["__JSKIT_CRUD_ROUTE_WORKSPACE_SUPPORT_IMPORTS__", routeWorkspaceSupportImports],
     ["__JSKIT_CRUD_LIST_ROUTE_PARAMS_VALIDATOR_LINE__", surfaceRequiresWorkspace ? "      paramsValidator: routeParamsValidator," : ""],
     ["__JSKIT_CRUD_VIEW_ROUTE_PARAMS_VALIDATOR_LINE__", surfaceRequiresWorkspace ? "      paramsValidator: [routeParamsValidator, recordIdParamsValidator]," : "      paramsValidator: recordIdParamsValidator,"],

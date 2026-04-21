@@ -325,11 +325,20 @@ test("buildUiTemplateContext derives CRUD placeholders from the explicit target-
     assert.match(context.__JSKIT_UI_LIST_HEADER_COLUMNS__, /First Name/);
     assert.match(context.__JSKIT_UI_LIST_ROW_COLUMNS__, /record\.firstName/);
     assert.match(context.__JSKIT_UI_VIEW_COLUMNS__, /view\.record\?\.firstName/);
-    assert.match(context.__JSKIT_UI_CREATE_FORM_COLUMNS__, /formRuntime\.form\.firstName/);
-    assert.match(context.__JSKIT_UI_EDIT_FORM_COLUMNS__, /formRuntime\.form\.email/);
+    assert.match(context.__JSKIT_UI_CREATE_FORM_COLUMNS__, /formState\.firstName/);
+    assert.match(context.__JSKIT_UI_EDIT_FORM_COLUMNS__, /formState\.email/);
     assert.equal(context.__JSKIT_UI_RECORD_CHANGED_EVENT__, "\"customers.record.changed\"");
     assert.equal(context.__JSKIT_UI_LIST_RECORD_ID_EXPR__, "item.id");
     assert.equal(context.__JSKIT_UI_VIEW_TITLE_FALLBACK_FIELD_KEY__, "\"firstName\"");
+    assert.equal(context.__JSKIT_UI_LIST_PAGE_VIEW_URL__, "\"./:customerId\"");
+    assert.equal(context.__JSKIT_UI_LIST_PAGE_EDIT_URL__, "\"./:customerId/edit\"");
+    assert.equal(context.__JSKIT_UI_LIST_PAGE_NEW_URL__, "\"./new\"");
+    assert.equal(context.__JSKIT_UI_NEW_PAGE_LIST_URL__, "\"..\"");
+    assert.equal(context.__JSKIT_UI_NEW_PAGE_VIEW_URL__, "\"../:customerId\"");
+    assert.equal(context.__JSKIT_UI_EDIT_PAGE_LIST_URL__, "\"../..\"");
+    assert.equal(context.__JSKIT_UI_EDIT_PAGE_VIEW_URL__, "\"..\"");
+    assert.equal(context.__JSKIT_UI_VIEW_PAGE_LIST_URL__, "\"..\"");
+    assert.equal(context.__JSKIT_UI_VIEW_PAGE_EDIT_URL__, "\"./edit\"");
   });
 });
 
@@ -343,7 +352,7 @@ test("buildUiTemplateContext keeps non-nullable booleans as switches", async () 
     });
 
     assert.match(context.__JSKIT_UI_CREATE_FORM_COLUMNS__, /<v-switch/);
-    assert.match(context.__JSKIT_UI_CREATE_FORM_COLUMNS__, /formRuntime\.form\.vip/);
+    assert.match(context.__JSKIT_UI_CREATE_FORM_COLUMNS__, /formState\.vip/);
   });
 });
 

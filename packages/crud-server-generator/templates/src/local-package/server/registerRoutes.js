@@ -30,7 +30,7 @@ function registerRoutes(
   const router = app.make("jskit.http.router");
   const normalizedRouteSurface = normalizeSurfaceId(routeSurface);
   const routeBase = resolveScopedApiBasePath({
-    routeBase: __JSKIT_CRUD_ROUTE_SURFACE_REQUIRES_WORKSPACE__ ? "/w/:workspaceSlug" : "/",
+    routeBase: __JSKIT_CRUD_ROUTE_BASE__,
     relativePath: routeRelativePath,
     strictParams: false
   });
