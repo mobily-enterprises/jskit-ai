@@ -834,21 +834,21 @@ function buildFormColumns(fields = []) {
       const component = normalizeText(field?.component).toLowerCase();
       if (component === "switch") {
         return `              <v-col cols="12" md="6">
-              <v-switch
+                <v-switch
                 v-model="${formAccessor}"
                 label="${label}"
                 color="primary"
                 hide-details="auto"
                 :disabled="addEdit.isFieldLocked"
                 :error-messages="${fieldErrorExpression}"
-              />
+                />
             </v-col>`;
       }
 
       if (component === "select") {
         const selectOptions = Array.isArray(field?.options) ? field.options : [];
         return `              <v-col cols="12" md="6">
-              <v-select
+                <v-select
                 v-model="${formAccessor}"
                 label="${label}"
                 variant="outlined"
@@ -859,7 +859,7 @@ function buildFormColumns(fields = []) {
                 :disabled="addEdit.isFieldLocked"
                 :clearable="${field.nullable === true ? "true" : "false"}"
                 :error-messages="${fieldErrorExpression}"
-              />
+                />
             </v-col>`;
       }
 
@@ -872,7 +872,7 @@ function buildFormColumns(fields = []) {
           : "";
         const lookupNoFilterLine = useAutocomplete ? "\n                no-filter" : "";
         return `              <v-col cols="12" md="6">
-              <${lookupComponentTag}
+                <${lookupComponentTag}
                 v-model="${formAccessor}"
                 label="${label}"
                 variant="outlined"
@@ -887,7 +887,7 @@ function buildFormColumns(fields = []) {
                 :disabled="addEdit.isFieldLocked"
                 :clearable="${field.nullable === true ? "true" : "false"}"
                 :error-messages="${fieldErrorExpression}"
-              />
+                />
             </v-col>`;
       }
 
@@ -896,7 +896,7 @@ function buildFormColumns(fields = []) {
         ? String(field.maxLength)
         : "undefined";
       return `              <v-col cols="12" md="6">
-              <v-text-field
+                <v-text-field
                 v-model="${formAccessor}"
                 label="${label}"
                 type="${escapeHtml(inputType)}"
@@ -905,7 +905,7 @@ function buildFormColumns(fields = []) {
                 :maxlength="${maxLength}"
                 :readonly="addEdit.isFieldLocked"
                 :error-messages="${fieldErrorExpression}"
-              />
+                />
             </v-col>`;
     })
     .filter(Boolean)
