@@ -5,4 +5,6 @@
 // });
 </script>
 
-<template />
+<template>
+  <div />
+</template>

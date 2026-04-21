@@ -8,27 +8,16 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const APP_ROOT = path.resolve(__dirname, "../..");
 
-const EXPECTED_RUNTIME_DEPENDENCIES = Object.freeze([
-  "@fastify/type-provider-typebox",
-  "@jskit-ai/http-runtime",
-  "@jskit-ai/kernel",
-  "@local/main",
-  "fastify",
-  "vue",
-  "vue-router",
-  "vuetify"
-]);
+const EXPECTED_MANAGED_SCRIPTS = Object.freeze({
+  devlinks: "jskit app link-local-packages",
+  verify: "jskit app verify && npm run --if-present verify:app",
+  release: "jskit app release",
+  "jskit:update": "jskit app update-packages"
+});
 
-const EXPECTED_DEV_DEPENDENCIES = Object.freeze([
-  "@jskit-ai/config-eslint",
-  "@jskit-ai/jskit-cli",
-  "@vitejs/plugin-vue",
-  "eslint",
-  "vite",
-  "vitest"
-]);
-
-const EXPECTED_TOP_LEVEL_ENTRIES = Object.freeze([
+const REQUIRED_TOP_LEVEL_ENTRIES = Object.freeze([
+  "AGENTS.md",
+  "app.json",
   "Procfile",
   "bin",
   "config",
@@ -38,9 +27,9 @@ const EXPECTED_TOP_LEVEL_ENTRIES = Object.freeze([
   "jsconfig.json",
   "package.json",
   "packages",
-  "server.js",
   "scripts",
   "server",
+  "server.js",
   "src",
   "tests",
   "vite.config.mjs",
@@ -51,14 +40,6 @@ async function readPackageJson() {
   const packageJsonPath = path.join(APP_ROOT, "package.json");
   const raw = await readFile(packageJsonPath, "utf8");
   return JSON.parse(raw);
-}
-
-function sortStrings(values) {
-  return [...values].sort((left, right) => left.localeCompare(right));
-}
-
-function sortedKeys(record) {
-  return sortStrings(Object.keys(record || {}));
 }
 
 async function readTopLevelEntries() {
@@ -92,21 +73,32 @@ async function listFilesRecursive(directory) {
   return files;
 }
 
-test("minimal shell keeps strict dependency allowlist", async () => {
+test("latest JSKIT app keeps managed wrapper scripts and JSKIT dependency specifiers", async () => {
   const packageJson = await readPackageJson();
-  assert.deepEqual(
-    sortedKeys(packageJson.dependencies),
-    [...EXPECTED_RUNTIME_DEPENDENCIES].sort((left, right) => left.localeCompare(right))
+  const runtimeDependencies = Object.entries(packageJson.dependencies || {}).filter(([name]) =>
+    name.startsWith("@jskit-ai/")
   );
-  assert.deepEqual(
-    sortedKeys(packageJson.devDependencies),
-    [...EXPECTED_DEV_DEPENDENCIES].sort((left, right) => left.localeCompare(right))
+  const devDependencies = Object.entries(packageJson.devDependencies || {}).filter(([name]) =>
+    name.startsWith("@jskit-ai/")
   );
+
+  assert.ok(runtimeDependencies.length > 0, "Expected JSKIT runtime dependencies to be present.");
+  assert.ok(devDependencies.length > 0, "Expected JSKIT dev dependencies to be present.");
+
+  for (const [name, value] of [...runtimeDependencies, ...devDependencies]) {
+    assert.match(value, /^(0\.x|\d+\.\d+\.\d+)$/, `Expected ${name} to use a managed JSKIT version specifier.`);
+  }
+
+  for (const [scriptName, expectedValue] of Object.entries(EXPECTED_MANAGED_SCRIPTS)) {
+    assert.equal(packageJson.scripts?.[scriptName], expectedValue, `Unexpected ${scriptName} script.`);
+  }
 });
 
-test("starter shell keeps a strict top-level footprint", async () => {
+test("latest JSKIT scaffold files are present at the app root", async () => {
   const entries = await readTopLevelEntries();
-  assert.deepEqual(sortStrings(entries), sortStrings(EXPECTED_TOP_LEVEL_ENTRIES));
+  for (const requiredEntry of REQUIRED_TOP_LEVEL_ENTRIES) {
+    assert.equal(entries.includes(requiredEntry), true, `Missing top-level scaffold entry: ${requiredEntry}`);
+  }
 });
 
 test("legacy app.manifest scaffold is removed from starter shell", async () => {

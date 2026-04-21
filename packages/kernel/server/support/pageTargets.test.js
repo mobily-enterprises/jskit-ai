@@ -277,7 +277,7 @@ test("resolvePageLinkTargetDetails emits an auth guard when the surface policy r
       context: "page target"
     });
 
-    assert.equal(details.whenLine, "    when: ({ auth }) => Boolean(auth?.authenticated)\n");
+    assert.equal(details.whenLine, "    when: ({ auth }) => auth?.authenticated === true\n");
   });
 });
 
