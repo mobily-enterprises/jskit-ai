@@ -731,7 +731,7 @@ function renderResourceFieldSchema(column, { forOutput = false } = {}) {
   return schemaExpression;
 }
 
-function renderResourceValidatorsImport({ needsHtmlTimeSchemas = false, recordIdValidatorImports = [] } = {}) {
+function renderResourceValidatorsImport({ htmlTimeSchemaImports = [], recordIdValidatorImports = [] } = {}) {
   const imports = [
     "normalizeObjectInput",
     "createCursorListValidator"
@@ -741,10 +741,28 @@ function renderResourceValidatorsImport({ needsHtmlTimeSchemas = false, recordId
       imports.push(importName);
     }
   }
-  if (needsHtmlTimeSchemas) {
-    imports.push("HTML_TIME_STRING_SCHEMA", "NULLABLE_HTML_TIME_STRING_SCHEMA");
+  for (const importName of Array.isArray(htmlTimeSchemaImports) ? htmlTimeSchemaImports : []) {
+    if (!imports.includes(importName)) {
+      imports.push(importName);
+    }
   }
   return `import {\n  ${imports.join(",\n  ")}\n} from "@jskit-ai/kernel/shared/validators";`;
+}
+
+function resolveHtmlTimeSchemaImports(columns = []) {
+  const imports = [];
+  for (const column of Array.isArray(columns) ? columns : []) {
+    if (column?.typeKind !== "time") {
+      continue;
+    }
+    const importName = column.nullable === true
+      ? "NULLABLE_HTML_TIME_STRING_SCHEMA"
+      : "HTML_TIME_STRING_SCHEMA";
+    if (!imports.includes(importName)) {
+      imports.push(importName);
+    }
+  }
+  return imports;
 }
 
 function resolveRecordIdValidatorImports(...sources) {
@@ -1788,7 +1806,7 @@ function buildReplacementsFromSnapshot({
   const needsNullableDateInput = writableColumns.some(
     (column) => column.typeKind === "date" && column.nullable === true
   );
-  const needsHtmlTimeSchemas = resourceColumns.some((column) => column.typeKind === "time");
+  const htmlTimeSchemaImports = resolveHtmlTimeSchemaImports(resourceColumns);
   const needsDate = resourceColumns.some((column) => column.typeKind === "date");
   const needsJson = resourceColumns.some((column) => column.typeKind === "json");
   const needsNormalizeText = resourceColumns.some((column) =>
@@ -1882,7 +1900,7 @@ function buildReplacementsFromSnapshot({
       surfaceRequiresWorkspace
     }),
     __JSKIT_CRUD_RESOURCE_VALIDATORS_IMPORT__: renderResourceValidatorsImport({
-      needsHtmlTimeSchemas,
+      htmlTimeSchemaImports,
       recordIdValidatorImports: resolveRecordIdValidatorImports(
         renderResourceSchemaPropertyLines(outputColumns, {
           forOutput: true

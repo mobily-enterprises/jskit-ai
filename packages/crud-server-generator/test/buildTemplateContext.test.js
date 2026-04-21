@@ -1056,7 +1056,11 @@ test("buildReplacementsFromSnapshot uses shared framework time schemas in genera
 
   assert.match(
     replacements.__JSKIT_CRUD_RESOURCE_VALIDATORS_IMPORT__,
-    /NULLABLE_HTML_TIME_STRING_SCHEMA/
+    /(^|\n)\s*NULLABLE_HTML_TIME_STRING_SCHEMA(,|\n)/m
+  );
+  assert.doesNotMatch(
+    replacements.__JSKIT_CRUD_RESOURCE_VALIDATORS_IMPORT__,
+    /(^|\n)\s*HTML_TIME_STRING_SCHEMA(,|\n)/m
   );
   assert.match(
     replacements.__JSKIT_CRUD_RESOURCE_OUTPUT_SCHEMA_PROPERTIES__,
@@ -1069,6 +1073,54 @@ test("buildReplacementsFromSnapshot uses shared framework time schemas in genera
   assert.doesNotMatch(
     replacements.__JSKIT_CRUD_RESOURCE_OUTPUT_SCHEMA_PROPERTIES__,
     /Type\.String\(\{ pattern:/
+  );
+});
+
+test("buildReplacementsFromSnapshot imports only the non-nullable time schema when nullable time fields are absent", () => {
+  const snapshot = createSnapshot({
+    tableName: "opening_hours"
+  });
+  const timeColumn = Object.freeze({
+    name: "from_time",
+    key: "fromTime",
+    dataType: "time",
+    columnType: "time",
+    typeKind: "time",
+    nullable: false,
+    hasDefault: false,
+    defaultValue: null,
+    autoIncrement: false,
+    unsigned: false,
+    extra: "",
+    maxLength: null,
+    numericPrecision: null,
+    numericScale: null,
+    enumValues: Object.freeze([])
+  });
+  const replacements = __testables.buildReplacementsFromSnapshot({
+    namespace: "opening-hours",
+    snapshot: {
+      ...snapshot,
+      columns: Object.freeze([...snapshot.columns, timeColumn])
+    },
+    resolvedOwnershipFilter: "workspace_user"
+  });
+
+  assert.match(
+    replacements.__JSKIT_CRUD_RESOURCE_VALIDATORS_IMPORT__,
+    /(^|\n)\s*HTML_TIME_STRING_SCHEMA(,|\n)/m
+  );
+  assert.doesNotMatch(
+    replacements.__JSKIT_CRUD_RESOURCE_VALIDATORS_IMPORT__,
+    /(^|\n)\s*NULLABLE_HTML_TIME_STRING_SCHEMA(,|\n)/m
+  );
+  assert.match(
+    replacements.__JSKIT_CRUD_RESOURCE_OUTPUT_SCHEMA_PROPERTIES__,
+    /fromTime: HTML_TIME_STRING_SCHEMA/
+  );
+  assert.match(
+    replacements.__JSKIT_CRUD_RESOURCE_CREATE_SCHEMA_PROPERTIES__,
+    /fromTime: HTML_TIME_STRING_SCHEMA/
   );
 });
 

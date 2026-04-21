@@ -61,3 +61,21 @@ The goal is to give the maintainer a clean review trail separate from app-local 
   - `packages/crud-ui-generator/test/buildTemplateContext.test.js`
 - Verification:
   - `npm test --workspace @jskit-ai/crud-ui-generator`
+
+### CRUD server generator imported unused non-nullable time schemas
+
+- Problem:
+  - a fresh `services` scaffold in `dogandgroom2` failed lint before any app-local patching
+  - the generated `serviceResource.js` imported both `HTML_TIME_STRING_SCHEMA` and `NULLABLE_HTML_TIME_STRING_SCHEMA` even though every time column in that table was nullable
+- Root cause:
+  - `packages/crud-server-generator/src/server/buildTemplateContext.js` used a coarse `needsHtmlTimeSchemas` boolean based on “any time column exists”
+  - the validator import builder therefore pulled in both time schema helpers instead of the exact subset the generated schemas referenced
+- Fix:
+  - derive the actual set of referenced time-schema imports from the generated columns
+  - import only the nullable and/or non-nullable time schema helpers that the resource will really use
+  - add regression coverage for both nullable-only and non-nullable-only time columns
+- Files:
+  - `packages/crud-server-generator/src/server/buildTemplateContext.js`
+  - `packages/crud-server-generator/test/buildTemplateContext.test.js`
+- Verification:
+  - `npm test --workspace @jskit-ai/crud-server-generator`
