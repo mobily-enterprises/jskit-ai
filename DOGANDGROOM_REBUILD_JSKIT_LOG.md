@@ -29,3 +29,18 @@ The goal is to give the maintainer a clean review trail separate from app-local 
   - `npm test --workspace @jskit-ai/workspaces-core`
   - `npm test --workspace @jskit-ai/users-core` ran, but it still contains an unrelated pre-existing scaffold-version contract failure outside this fix
 
+### Workspace CRUD providers omitted routeSurfaceRequiresWorkspace
+
+- Problem:
+  - the current CRUD server scaffold generated providers that only passed `routeSurface` and `routeRelativePath` into `registerRoutes()`
+  - workspace-aware CRUDs therefore booted with an incomplete route contract even though the generated `registerRoutes.js` already supports `routeSurfaceRequiresWorkspace`
+- Root cause:
+  - `packages/crud-server-generator/templates/src/local-package/server/CrudProvider.js` never forwarded `crudPolicy.surfaceDefinition.requiresWorkspace`
+- Fix:
+  - add `routeSurfaceRequiresWorkspace: crudPolicy.surfaceDefinition.requiresWorkspace === true` to the provider template
+  - lock the template contract with a focused test assertion
+- Files:
+  - `packages/crud-server-generator/templates/src/local-package/server/CrudProvider.js`
+  - `packages/crud-server-generator/test/buildTemplateContext.test.js`
+- Verification:
+  - `npm test --workspace @jskit-ai/crud-server-generator`

@@ -1120,5 +1120,9 @@ test("crud provider template uses shared lookup provider helpers instead of inli
     templateSource,
     /return createCrudLookup\(scope\.make\("repository\.\$\{option:namespace\|snake\}"\), \{\s*ownershipFilter: crudPolicy\.ownershipFilter\s*\}\);/
   );
+  assert.match(
+    templateSource,
+    /routeSurfaceRequiresWorkspace: crudPolicy\.surfaceDefinition\.requiresWorkspace === true,/
+  );
   assert.doesNotMatch(templateSource, /normalizePathname\(relation\.apiPath\)/);
 });
