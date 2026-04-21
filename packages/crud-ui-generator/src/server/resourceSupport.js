@@ -872,10 +872,22 @@ function buildFormColumns(fields = []) {
         const lookupFormControl = field?.lookupFormControl === "select" ? "select" : "autocomplete";
         const useAutocomplete = lookupFormControl !== "select";
         const lookupComponentTag = useAutocomplete ? "v-autocomplete" : "v-select";
-        const lookupSearchBindings = useAutocomplete
-          ? `\n                :search="resolveLookupSearch(${fieldKeyLiteral})"\n                @update:search="setLookupSearch(${fieldKeyLiteral}, $event)"`
-          : "";
-        const lookupNoFilterLine = useAutocomplete ? "\n                no-filter" : "";
+        const lookupAttributeLines = [
+          `                  :items="resolveLookupItems(${fieldKeyLiteral}, { selectedValue: ${formAccessor}, selectedRecord: addEdit.resource.data })"`
+        ];
+        if (useAutocomplete) {
+          lookupAttributeLines.push(
+            `                  :search="resolveLookupSearch(${fieldKeyLiteral})"`,
+            `                  @update:search="setLookupSearch(${fieldKeyLiteral}, $event)"`
+          );
+        }
+        lookupAttributeLines.push(
+          `                  item-title="label"`,
+          `                  item-value="value"`
+        );
+        if (useAutocomplete) {
+          lookupAttributeLines.push("                  no-filter");
+        }
         return `              <v-col cols="12" md="6">
                 <${lookupComponentTag}
                   v-model="${formAccessor}"
@@ -883,11 +895,7 @@ function buildFormColumns(fields = []) {
                   variant="outlined"
                   density="comfortable"
                   autocomplete="off"
-                  :items="resolveLookupItems(${fieldKeyLiteral}, { selectedValue: ${formAccessor}, selectedRecord: addEdit.resource.data })"
-                ${lookupSearchBindings}
-                  item-title="label"
-                  item-value="value"
-                ${lookupNoFilterLine}
+${lookupAttributeLines.join("\n")}
                   :loading="resolveLookupLoading(${fieldKeyLiteral})"
                   :disabled="addEdit.isFieldLocked"
                   :clearable="${field.nullable === true ? "true" : "false"}"
