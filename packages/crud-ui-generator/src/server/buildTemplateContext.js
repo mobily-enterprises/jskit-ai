@@ -258,6 +258,57 @@ function filterDisplayFields(selectedFieldKeys, fields) {
   });
 }
 
+function hasLookupFormFields(fields = []) {
+  return (Array.isArray(fields) ? fields : []).some((field) => normalizeText(field?.component).toLowerCase() === "lookup");
+}
+
+function buildLookupImportLine(fields = []) {
+  return hasLookupFormFields(fields)
+    ? 'import { createCrudLookupFieldRuntime } from "@jskit-ai/users-web/client/composables/crudLookupFieldRuntime";'
+    : "";
+}
+
+function buildLookupRuntimeSetup(fields = [], {
+  formFieldsVariable = "",
+  resourceNamespace = "",
+  mode = ""
+} = {}) {
+  if (!hasLookupFormFields(fields)) {
+    return "";
+  }
+
+  const normalizedFormFieldsVariable = normalizeText(formFieldsVariable) || "UI_FORM_FIELDS";
+  const normalizedResourceNamespace = normalizeText(resourceNamespace) || "resource";
+  const normalizedMode = normalizeText(mode) || "new";
+
+  return `const lookupFieldRuntime = createCrudLookupFieldRuntime({
+  formFields: ${normalizedFormFieldsVariable},
+  adapter: UI_OPERATION_ADAPTER || undefined,
+  recordIdParam: UI_RECORD_ID_PARAM,
+  lookupContainerKey: uiResource?.contract?.lookup?.containerKey,
+  queryKeyPrefix: ["ui-generator", "${normalizedResourceNamespace}", "lookup", "${normalizedMode}"],
+  placementSourcePrefix: "ui-generator.${normalizedResourceNamespace}.${normalizedMode}.lookup"
+});
+const {
+  resolveLookupItems,
+  resolveLookupLoading,
+  resolveLookupSearch,
+  setLookupSearch
+} = lookupFieldRuntime;
+`;
+}
+
+function buildLookupFormProps(fields = []) {
+  if (!hasLookupFormFields(fields)) {
+    return "";
+  }
+
+  return `    :resolve-lookup-items="resolveLookupItems"
+    :resolve-lookup-loading="resolveLookupLoading"
+    :resolve-lookup-search="resolveLookupSearch"
+    :set-lookup-search="setLookupSearch"`;
+}
+
 function filterDefaultHiddenListFields(selectedFieldKeys, fields, { recordIdFieldKey = "" } = {}) {
   const selectedFields = Array.isArray(selectedFieldKeys) ? selectedFieldKeys : [];
   const availableFields = Array.isArray(fields) ? fields : [];
@@ -523,6 +574,20 @@ async function buildUiTemplateContext({ appRoot, options } = {}) {
     __JSKIT_UI_EDIT_FORM_FIELDS__: JSON.stringify(editFields),
     __JSKIT_UI_CREATE_FORM_FIELD_PUSH_LINES__: renderObjectPushLines("UI_CREATE_FORM_FIELDS", createFields),
     __JSKIT_UI_EDIT_FORM_FIELD_PUSH_LINES__: renderObjectPushLines("UI_EDIT_FORM_FIELDS", editFields),
+    __JSKIT_UI_CREATE_LOOKUP_IMPORT_LINE__: buildLookupImportLine(createFields),
+    __JSKIT_UI_EDIT_LOOKUP_IMPORT_LINE__: buildLookupImportLine(editFields),
+    __JSKIT_UI_CREATE_LOOKUP_RUNTIME_SETUP__: buildLookupRuntimeSetup(createFields, {
+      formFieldsVariable: "UI_CREATE_FORM_FIELDS",
+      resourceNamespace,
+      mode: "new"
+    }),
+    __JSKIT_UI_EDIT_LOOKUP_RUNTIME_SETUP__: buildLookupRuntimeSetup(editFields, {
+      formFieldsVariable: "UI_EDIT_FORM_FIELDS",
+      resourceNamespace,
+      mode: "edit"
+    }),
+    __JSKIT_UI_CREATE_LOOKUP_FORM_PROPS__: buildLookupFormProps(createFields),
+    __JSKIT_UI_EDIT_LOOKUP_FORM_PROPS__: buildLookupFormProps(editFields),
     __JSKIT_UI_MENU_MARKER__: menuMarker,
     __JSKIT_UI_MENU_PLACEMENT_ID__: String(pageLinkTarget?.pageTarget?.placementId || ""),
     __JSKIT_UI_MENU_PLACEMENT_TARGET__: String(pageLinkTarget?.placementTarget?.id || ""),

@@ -450,6 +450,44 @@ test("buildUiTemplateContext renders nullable booleans as tri-state selects by d
   });
 });
 
+test("buildUiTemplateContext omits lookup runtime placeholders when form fields do not include lookups", async () => {
+  await withTempApp(async (appRoot) => {
+    await writeResource(appRoot, RESOURCE_FILE, FULL_RESOURCE_SOURCE);
+
+    const context = await buildUiTemplateContext({
+      appRoot,
+      options: createOptions()
+    });
+
+    assert.equal(context.__JSKIT_UI_CREATE_LOOKUP_IMPORT_LINE__, "");
+    assert.equal(context.__JSKIT_UI_EDIT_LOOKUP_IMPORT_LINE__, "");
+    assert.equal(context.__JSKIT_UI_CREATE_LOOKUP_RUNTIME_SETUP__, "");
+    assert.equal(context.__JSKIT_UI_EDIT_LOOKUP_RUNTIME_SETUP__, "");
+    assert.equal(context.__JSKIT_UI_CREATE_LOOKUP_FORM_PROPS__, "");
+    assert.equal(context.__JSKIT_UI_EDIT_LOOKUP_FORM_PROPS__, "");
+  });
+});
+
+test("buildUiTemplateContext includes lookup runtime placeholders when form fields include lookups", async () => {
+  await withTempApp(async (appRoot) => {
+    await writeResource(appRoot, RESOURCE_FILE, LOOKUP_RESOURCE_SOURCE);
+
+    const context = await buildUiTemplateContext({
+      appRoot,
+      options: createOptions({
+        "display-fields": "serviceId"
+      })
+    });
+
+    assert.match(context.__JSKIT_UI_CREATE_LOOKUP_IMPORT_LINE__, /createCrudLookupFieldRuntime/);
+    assert.match(context.__JSKIT_UI_EDIT_LOOKUP_IMPORT_LINE__, /createCrudLookupFieldRuntime/);
+    assert.match(context.__JSKIT_UI_CREATE_LOOKUP_RUNTIME_SETUP__, /resolveLookupItems/);
+    assert.match(context.__JSKIT_UI_EDIT_LOOKUP_RUNTIME_SETUP__, /resolveLookupItems/);
+    assert.match(context.__JSKIT_UI_CREATE_LOOKUP_FORM_PROPS__, /resolve-lookup-items/);
+    assert.match(context.__JSKIT_UI_EDIT_LOOKUP_FORM_PROPS__, /resolve-lookup-items/);
+  });
+});
+
 test("buildUiTemplateContext escapes select option bindings safely for Vue attributes", async () => {
   await withTempApp(async (appRoot) => {
     await writeResource(appRoot, RESOURCE_FILE, SELECT_RESOURCE_SOURCE);

@@ -37,7 +37,7 @@ __JSKIT_UI_CREATE_FORM_COLUMNS__
 
 <script setup>
 import { useCrudAddEdit } from "@jskit-ai/users-web/client/composables/useCrudAddEdit";
-import { createCrudLookupFieldRuntime } from "@jskit-ai/users-web/client/composables/crudLookupFieldRuntime";
+__JSKIT_UI_CREATE_LOOKUP_IMPORT_LINE__
 import { resource as uiResource } from "__JSKIT_UI_RESOURCE_IMPORT_PATH__";
 
 const UI_OPERATION_ADAPTER = null;
@@ -54,20 +54,7 @@ void UI_CREATE_FORM_FIELDS;
 __JSKIT_UI_CREATE_FORM_FIELD_PUSH_LINES__
 Object.freeze(UI_CREATE_FORM_FIELDS);
 
-const lookupFieldRuntime = createCrudLookupFieldRuntime({
-  formFields: UI_CREATE_FORM_FIELDS,
-  adapter: UI_OPERATION_ADAPTER || undefined,
-  recordIdParam: UI_RECORD_ID_PARAM,
-  lookupContainerKey: uiResource?.contract?.lookup?.containerKey,
-  queryKeyPrefix: ["ui-generator", "__JSKIT_UI_RESOURCE_NAMESPACE__", "lookup", "new"],
-  placementSourcePrefix: "ui-generator.__JSKIT_UI_RESOURCE_NAMESPACE__.new.lookup"
-});
-const {
-  resolveLookupItems,
-  resolveLookupLoading,
-  resolveLookupSearch,
-  setLookupSearch
-} = lookupFieldRuntime;
+__JSKIT_UI_CREATE_LOOKUP_RUNTIME_SETUP__
 
 const formRuntime = useCrudAddEdit({
   resource: uiResource,

@@ -6,10 +6,7 @@
     subtitle="Update the selected __JSKIT_UI_RESOURCE_SINGULAR_TITLE__."
     save-label="Save changes"
     :cancel-to="cancelTo"
-    :resolve-lookup-items="resolveLookupItems"
-    :resolve-lookup-loading="resolveLookupLoading"
-    :resolve-lookup-search="resolveLookupSearch"
-    :set-lookup-search="setLookupSearch"
+__JSKIT_UI_EDIT_LOOKUP_FORM_PROPS__
   />
 </template>
 
@@ -17,7 +14,7 @@
 import { computed } from "vue";
 import { useRoute } from "vue-router";
 import { useCrudAddEdit } from "@jskit-ai/users-web/client/composables/useCrudAddEdit";
-import { createCrudLookupFieldRuntime } from "@jskit-ai/users-web/client/composables/crudLookupFieldRuntime";
+__JSKIT_UI_EDIT_LOOKUP_IMPORT_LINE__
 import { resource as uiResource } from "__JSKIT_UI_RESOURCE_IMPORT_PATH__";
 import CrudAddEditForm from "../_components/__JSKIT_UI_FORM_COMPONENT_FILE__";
 import { UI_EDIT_FORM_FIELDS } from "../_components/__JSKIT_UI_FORM_FIELDS_FILE__";
@@ -44,20 +41,7 @@ const routeRecordId = computed(() => {
   return String(source ?? "").trim();
 });
 
-const lookupFieldRuntime = createCrudLookupFieldRuntime({
-  formFields: UI_EDIT_FORM_FIELDS,
-  adapter: UI_OPERATION_ADAPTER || undefined,
-  recordIdParam: UI_RECORD_ID_PARAM,
-  lookupContainerKey: uiResource?.contract?.lookup?.containerKey,
-  queryKeyPrefix: ["ui-generator", "__JSKIT_UI_RESOURCE_NAMESPACE__", "lookup", "edit"],
-  placementSourcePrefix: "ui-generator.__JSKIT_UI_RESOURCE_NAMESPACE__.edit.lookup"
-});
-const {
-  resolveLookupItems,
-  resolveLookupLoading,
-  resolveLookupSearch,
-  setLookupSearch
-} = lookupFieldRuntime;
+__JSKIT_UI_EDIT_LOOKUP_RUNTIME_SETUP__
 
 const formRuntime = useCrudAddEdit({
   resource: uiResource,
