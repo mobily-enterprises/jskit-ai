@@ -835,32 +835,32 @@ function buildFormColumns(fields = []) {
       if (component === "switch") {
         return `              <v-col cols="12" md="6">
                 <v-switch
-                v-model="${formAccessor}"
-                label="${label}"
-                color="primary"
-                hide-details="auto"
-                :disabled="addEdit.isFieldLocked"
-                :error-messages="${fieldErrorExpression}"
+                  v-model="${formAccessor}"
+                  label="${label}"
+                  color="primary"
+                  hide-details="auto"
+                  :disabled="addEdit.isFieldLocked"
+                  :error-messages="${fieldErrorExpression}"
                 />
-            </v-col>`;
+              </v-col>`;
       }
 
       if (component === "select") {
         const selectOptions = Array.isArray(field?.options) ? field.options : [];
         return `              <v-col cols="12" md="6">
                 <v-select
-                v-model="${formAccessor}"
-                label="${label}"
-                variant="outlined"
-                density="comfortable"
-                :items="${serializeTemplateBindingValue(selectOptions)}"
-                item-title="label"
-                item-value="value"
-                :disabled="addEdit.isFieldLocked"
-                :clearable="${field.nullable === true ? "true" : "false"}"
-                :error-messages="${fieldErrorExpression}"
+                  v-model="${formAccessor}"
+                  label="${label}"
+                  variant="outlined"
+                  density="comfortable"
+                  :items="${serializeTemplateBindingValue(selectOptions)}"
+                  item-title="label"
+                  item-value="value"
+                  :disabled="addEdit.isFieldLocked"
+                  :clearable="${field.nullable === true ? "true" : "false"}"
+                  :error-messages="${fieldErrorExpression}"
                 />
-            </v-col>`;
+              </v-col>`;
       }
 
       if (component === "lookup") {
@@ -873,22 +873,22 @@ function buildFormColumns(fields = []) {
         const lookupNoFilterLine = useAutocomplete ? "\n                no-filter" : "";
         return `              <v-col cols="12" md="6">
                 <${lookupComponentTag}
-                v-model="${formAccessor}"
-                label="${label}"
-                variant="outlined"
-                density="comfortable"
-                autocomplete="off"
-                :items="resolveLookupItems(${fieldKeyLiteral}, { selectedValue: ${formAccessor}, selectedRecord: addEdit.resource.data })"
+                  v-model="${formAccessor}"
+                  label="${label}"
+                  variant="outlined"
+                  density="comfortable"
+                  autocomplete="off"
+                  :items="resolveLookupItems(${fieldKeyLiteral}, { selectedValue: ${formAccessor}, selectedRecord: addEdit.resource.data })"
                 ${lookupSearchBindings}
-                item-title="label"
-                item-value="value"
+                  item-title="label"
+                  item-value="value"
                 ${lookupNoFilterLine}
-                :loading="resolveLookupLoading(${fieldKeyLiteral})"
-                :disabled="addEdit.isFieldLocked"
-                :clearable="${field.nullable === true ? "true" : "false"}"
-                :error-messages="${fieldErrorExpression}"
+                  :loading="resolveLookupLoading(${fieldKeyLiteral})"
+                  :disabled="addEdit.isFieldLocked"
+                  :clearable="${field.nullable === true ? "true" : "false"}"
+                  :error-messages="${fieldErrorExpression}"
                 />
-            </v-col>`;
+              </v-col>`;
       }
 
       const inputType = normalizeText(field?.inputType) || "text";
@@ -897,16 +897,16 @@ function buildFormColumns(fields = []) {
         : "undefined";
       return `              <v-col cols="12" md="6">
                 <v-text-field
-                v-model="${formAccessor}"
-                label="${label}"
-                type="${escapeHtml(inputType)}"
-                variant="outlined"
-                density="comfortable"
-                :maxlength="${maxLength}"
-                :readonly="addEdit.isFieldLocked"
-                :error-messages="${fieldErrorExpression}"
+                  v-model="${formAccessor}"
+                  label="${label}"
+                  type="${escapeHtml(inputType)}"
+                  variant="outlined"
+                  density="comfortable"
+                  :maxlength="${maxLength}"
+                  :readonly="addEdit.isFieldLocked"
+                  :error-messages="${fieldErrorExpression}"
                 />
-            </v-col>`;
+              </v-col>`;
     })
     .filter(Boolean)
     .join("\n");
