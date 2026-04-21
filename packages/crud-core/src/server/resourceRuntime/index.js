@@ -4,8 +4,8 @@ import {
   toInsertDateTime
 } from "@jskit-ai/database-runtime/shared";
 import { applyVisibility, applyVisibilityOwners } from "@jskit-ai/database-runtime/shared/visibility";
-import { AppError } from "@jskit-ai/kernel/server/runtime/errors";
-import { normalizeRecordId, normalizeText } from "@jskit-ai/kernel/shared/support/normalize";
+import { AppError, createValidationError } from "@jskit-ai/kernel/server/runtime/errors";
+import { isRecord, normalizeRecordId, normalizeText } from "@jskit-ai/kernel/shared/support/normalize";
 import { Check, Errors } from "typebox/value";
 import {
   DEFAULT_LIST_LIMIT,
@@ -315,6 +315,83 @@ function resolveRecordOutputValidator(resource = {}, { context = "crudRepository
     schema: outputValidator.schema,
     normalize: typeof outputValidator.normalize === "function" ? outputValidator.normalize : null
   });
+}
+
+function resolveOperationBodyValidator(resource = {}, operationKey = "", { context = "crudRepository" } = {}) {
+  const bodyValidator = resource?.operations?.[operationKey]?.bodyValidator;
+  if (bodyValidator == null) {
+    return Object.freeze({
+      normalize: null
+    });
+  }
+  if (!bodyValidator || typeof bodyValidator !== "object" || Array.isArray(bodyValidator)) {
+    throw new TypeError(`${context} operations.${operationKey}.bodyValidator must be an object when provided.`);
+  }
+
+  return Object.freeze({
+    normalize: typeof bodyValidator.normalize === "function" ? bodyValidator.normalize : null
+  });
+}
+
+function extractExplicitFieldErrors(error) {
+  if (isRecord(error?.fieldErrors)) {
+    return error.fieldErrors;
+  }
+
+  if (isRecord(error?.details?.fieldErrors)) {
+    return error.details.fieldErrors;
+  }
+
+  return null;
+}
+
+async function normalizeRepositoryInputPayload(
+  runtime = {},
+  payload = {},
+  {
+    operationKey = "create",
+    phase = "crudCreate",
+    action = "create",
+    recordId = null,
+    existingRecord = null,
+    actionContextBase = {}
+  } = {}
+) {
+  const inputValidator = operationKey === "patch"
+    ? runtime.input?.patch
+    : runtime.input?.create;
+  const normalizedPayload = normalizeCrudRepositoryObjectInput(payload);
+
+  if (typeof inputValidator?.normalize !== "function") {
+    return normalizedPayload;
+  }
+
+  try {
+    const nextPayload = await inputValidator.normalize(normalizedPayload, {
+      phase,
+      action,
+      recordId,
+      existingRecord,
+      context: actionContextBase?.callOptions?.context,
+      callOptions: actionContextBase?.callOptions,
+      repositoryOptions: actionContextBase?.repositoryOptions
+    });
+    if (nextPayload === undefined) {
+      return normalizedPayload;
+    }
+    if (!nextPayload || typeof nextPayload !== "object" || Array.isArray(nextPayload)) {
+      throw new TypeError(
+        `${runtime?.context || "crudRepository"} operations.${operationKey}.bodyValidator.normalize must return an object when it returns a value.`
+      );
+    }
+    return nextPayload;
+  } catch (error) {
+    const explicitFieldErrors = extractExplicitFieldErrors(error);
+    if (explicitFieldErrors) {
+      throw createValidationError(explicitFieldErrors);
+    }
+    throw error;
+  }
 }
 
 async function normalizeRepositoryOutputRecord(runtime = {}, record = {}, { operation = "list" } = {}) {
@@ -726,7 +803,7 @@ function createCrudRepositoryActionContextBase(runtime, callOptions = {}) {
 
 function createCompiledCrudRepositoryRuntime(resource = {}, repositoryOptions = {}) {
   const sourceOptions = requireCrudRepositoryOptions(repositoryOptions, {
-    context: "createCrudRepositoryRuntime"
+    context: "createCrudResourceRuntime"
   });
   const context = normalizeText(sourceOptions.context) || "crudRepository";
   const repositoryMapping = deriveRepositoryMappingFromResource(resource, { context });
@@ -756,6 +833,10 @@ function createCompiledCrudRepositoryRuntime(resource = {}, repositoryOptions = 
     resource,
     repositoryOptions: sourceOptions,
     defaults,
+    input: Object.freeze({
+      create: resolveOperationBodyValidator(resource, "create", { context }),
+      patch: resolveOperationBodyValidator(resource, "patch", { context })
+    }),
     selectColumns: normalizedSelectColumns,
     output,
     list: listRuntime,
@@ -1085,7 +1166,12 @@ async function listRecordsByIds(runtime, knex, ids = [], callOptions = {}) {
 async function createRecord(runtime, knex, payload = {}, callOptions = {}) {
   const { client, tableName } = resolveCrudRepositoryCall(runtime, knex, callOptions);
   const actionContextBase = createCrudRepositoryActionContextBase(runtime, callOptions);
-  let sourcePayload = normalizeCrudRepositoryObjectInput(payload);
+  let sourcePayload = await normalizeRepositoryInputPayload(runtime, payload, {
+    operationKey: "create",
+    phase: "crudCreate",
+    action: "create",
+    actionContextBase
+  });
   sourcePayload = await applyConfiguredObjectStage(
     sourcePayload,
     runtime.operations?.create?.preparePayload,
@@ -1161,7 +1247,21 @@ async function updateRecordById(runtime, knex, recordId, patch = {}, callOptions
   const { client, tableName, idColumn, visible } = resolveCrudRepositoryCall(runtime, knex, callOptions);
   const normalizedRecordId = requireCrudRecordId(recordId, { context: "crudRepository.updateById" });
   const actionContextBase = createCrudRepositoryActionContextBase(runtime, callOptions);
-  let sourcePatch = normalizeCrudRepositoryObjectInput(patch);
+  const existingRecord = Object.hasOwn(callOptions, "existingRecord")
+    ? callOptions.existingRecord
+    : await findRecordById(runtime, knex, normalizedRecordId, {
+        ...callOptions,
+        trx: client,
+        sourceOperation: "update"
+      });
+  let sourcePatch = await normalizeRepositoryInputPayload(runtime, patch, {
+    operationKey: "patch",
+    phase: "crudPatch",
+    action: "update",
+    recordId: normalizedRecordId,
+    existingRecord,
+    actionContextBase
+  });
   sourcePatch = await applyConfiguredObjectStage(
     sourcePatch,
     runtime.operations?.updateById?.preparePatch,
@@ -1268,9 +1368,9 @@ async function deleteRecordById(runtime, knex, recordId, callOptions = {}) {
   };
 }
 
-function createCrudRepositoryRuntime(resource = {}, knex, repositoryOptions = {}) {
+function createCrudResourceRuntime(resource = {}, knex, repositoryOptions = {}) {
   if (typeof knex !== "function") {
-    throw new TypeError("createCrudRepositoryRuntime requires knex.");
+    throw new TypeError("createCrudResourceRuntime requires knex.");
   }
 
   const runtime = createCompiledCrudRepositoryRuntime(resource, repositoryOptions);
@@ -1310,4 +1410,4 @@ function createCrudRepositoryRuntime(resource = {}, knex, repositoryOptions = {}
   });
 }
 
-export { createCrudRepositoryRuntime };
+export { createCrudResourceRuntime };

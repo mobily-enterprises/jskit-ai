@@ -33,7 +33,7 @@ test("users bootstrap contributor exposes the generic authenticated bootstrap pa
   const profile = createAuthenticatedProfile({ id: "12" });
   const writtenSessions = [];
   const contributor = createUsersBootstrapContributor({
-    usersRepository: {
+    userProfilesRepository: {
       async findById() {
         return profile;
       }
@@ -103,7 +103,7 @@ test("users bootstrap contributor exposes the generic authenticated bootstrap pa
 
 test("users bootstrap contributor emits anonymous bootstrap payload without workspace fields", async () => {
   const contributor = createUsersBootstrapContributor({
-    usersRepository: {
+    userProfilesRepository: {
       async findById() {
         return null;
       }

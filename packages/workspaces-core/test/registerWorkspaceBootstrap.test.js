@@ -55,7 +55,7 @@ test("registerWorkspaceBootstrap resolves the canonical pending invitations serv
           listPendingInvitesForUser() {}
         };
       }
-      if (token === "usersRepository") {
+      if (token === "internal.repository.user-profiles") {
         return {
           findById() {}
         };

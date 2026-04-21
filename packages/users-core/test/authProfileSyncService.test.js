@@ -7,7 +7,7 @@ test("authProfileSyncService.syncIdentityProfile uses shared transaction for pro
   const transaction = { trxId: "tx-1" };
 
   const service = createService({
-    usersRepository: {
+    userProfilesRepository: {
       async findByIdentity(_identity, options = {}) {
         calls.push({ step: "find", trx: options.trx || null });
         return null;
@@ -68,7 +68,7 @@ test("authProfileSyncService.syncIdentityProfile skips write path when profile i
   let provisionCalls = 0;
 
   const service = createService({
-    usersRepository: {
+    userProfilesRepository: {
       async findByIdentity() {
         return {
           id: "7",
@@ -118,7 +118,7 @@ test("authProfileSyncService.syncIdentityProfile skips write path when profile i
 test("authProfileSyncService.findByIdentity normalizes provider identity input", async () => {
   let capturedIdentity = null;
   const service = createService({
-    usersRepository: {
+    userProfilesRepository: {
       async findByIdentity(identity) {
         capturedIdentity = identity;
         return null;

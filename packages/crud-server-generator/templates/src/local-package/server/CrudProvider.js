@@ -1,9 +1,9 @@
 import { resolveAppConfig } from "@jskit-ai/kernel/server/support";
 import { resolveCrudSurfacePolicyFromAppConfig } from "@jskit-ai/crud-core/server/crudModuleConfig";
 import {
-  createCrudLookupProviderResolver,
-  createCrudLookupProvider
-} from "@jskit-ai/crud-core/server/lookupProviders";
+  createCrudLookupResolver,
+  createCrudLookup
+} from "@jskit-ai/crud-core/server/lookups";
 import { withActionDefaults } from "@jskit-ai/kernel/shared/actions";
 import { createRepository } from "./repository.js";
 import {
@@ -40,12 +40,12 @@ class ${option:namespace|pascal}Provider {
     app.singleton("repository.${option:namespace|snake}", (scope) => {
       const knex = scope.make("jskit.database.knex");
       return createRepository(knex, {
-        resolveLookupProvider: createCrudLookupProviderResolver(scope)
+        resolveLookup: createCrudLookupResolver(scope)
       });
     });
 
-    app.singleton("crud.lookup.${option:namespace|snake}", (scope) => {
-      return createCrudLookupProvider(scope.make("repository.${option:namespace|snake}"), {
+    app.singleton("lookup.${option:namespace|snake}", (scope) => {
+      return createCrudLookup(scope.make("repository.${option:namespace|snake}"), {
         ownershipFilter: crudPolicy.ownershipFilter
       });
     });

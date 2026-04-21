@@ -1,6 +1,6 @@
 {
   "name": "@jskit-ai/crud-core",
-  "version": "0.1.54",
+  "version": "0.1.55",
   "type": "module",
   "scripts": {
     "test": "node --test"
@@ -13,9 +13,9 @@
     "./shared/crudFieldMetaSupport": "./src/shared/crudFieldMetaSupport.js",
     "./shared/crudNamespaceSupport": "./src/shared/crudNamespaceSupport.js",
     "./server/repositorySupport": "./src/server/repositorySupport.js",
-    "./server/repositoryOrm": "./src/server/repositoryOrm/index.js",
+    "./server/resourceRuntime": "./src/server/resourceRuntime/index.js",
     "./server/createHooksToCollectChildren": "./src/server/createHooksToCollectChildren.js",
-    "./server/lookupProviders": "./src/server/lookupProviders.js",
+    "./server/lookups": "./src/server/lookups.js",
     "./server/serviceEvents": "./src/server/serviceEvents.js",
     "./server/serviceMethods": "./src/server/serviceMethods.js",
     "./server/fieldAccess": "./src/server/fieldAccess.js",
@@ -26,12 +26,12 @@
   },
   "dependencies": {
     "@tanstack/vue-query": "^5.90.5",
-    "@jskit-ai/database-runtime": "0.1.46",
-    "@jskit-ai/kernel": "0.1.46",
-    "@jskit-ai/realtime": "0.1.45",
-    "@jskit-ai/shell-web": "0.1.45",
-    "@jskit-ai/users-core": "0.1.56",
-    "@jskit-ai/users-web": "0.1.61",
+    "@jskit-ai/database-runtime": "0.1.47",
+    "@jskit-ai/kernel": "0.1.47",
+    "@jskit-ai/realtime": "0.1.46",
+    "@jskit-ai/shell-web": "0.1.46",
+    "@jskit-ai/users-core": "0.1.57",
+    "@jskit-ai/users-web": "0.1.62",
     "typebox": "^1.0.81"
   }
 }

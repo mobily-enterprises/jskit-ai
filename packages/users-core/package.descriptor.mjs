@@ -1,7 +1,7 @@
 export default Object.freeze({
   packageVersion: 1,
   packageId: "@jskit-ai/users-core",
-  version: "0.1.56",
+  version: "0.1.57",
   kind: "runtime",
   description: "Users/account runtime plus HTTP routes for account features.",
   dependsOn: [
@@ -128,11 +128,13 @@ export default Object.freeze({
   mutations: {
     dependencies: {
       runtime: {
-        "@jskit-ai/auth-core": "0.1.45",
-        "@jskit-ai/database-runtime": "0.1.46",
-        "@jskit-ai/http-runtime": "0.1.45",
-        "@jskit-ai/kernel": "0.1.46",
-        "@jskit-ai/uploads-runtime": "0.1.24",
+        "@jskit-ai/auth-core": "0.1.46",
+        "@jskit-ai/crud-core": "0.1.55",
+        "@jskit-ai/database-runtime": "0.1.47",
+        "@jskit-ai/http-runtime": "0.1.46",
+        "@jskit-ai/kernel": "0.1.47",
+        "@local/users": "file:packages/users",
+        "@jskit-ai/uploads-runtime": "0.1.25",
         "@fastify/type-provider-typebox": "^6.1.0",
         typebox: "^1.0.81"
       },
@@ -168,6 +170,173 @@ export default Object.freeze({
         reason: "Install app-owned user settings field definitions.",
         category: "users-core",
         id: "users-core-app-owned-user-settings-fields"
+      },
+      {
+        from: "templates/packages/users/package.json",
+        to: "packages/users/package.json",
+        ownership: "app",
+        preserveOnRemove: true,
+        reason: "Install app-owned users package manifest.",
+        category: "users-core",
+        id: "users-core-users-package-json"
+      },
+      {
+        from: "templates/packages/users/package.descriptor.mjs",
+        to: "packages/users/package.descriptor.mjs",
+        ownership: "app",
+        preserveOnRemove: true,
+        reason: "Install app-owned users package descriptor for non-workspace tenancy.",
+        category: "users-core",
+        id: "users-core-users-package-descriptor-base",
+        when: {
+          config: "tenancyMode",
+          notIn: ["personal", "workspaces"]
+        }
+      },
+      {
+        from: "templates/packages/users-workspace/package.descriptor.mjs",
+        to: "packages/users/package.descriptor.mjs",
+        ownership: "app",
+        preserveOnRemove: true,
+        reason: "Install app-owned users package descriptor for workspace tenancy.",
+        category: "users-core",
+        id: "users-core-users-package-descriptor-workspace",
+        when: {
+          config: "tenancyMode",
+          in: ["personal", "workspaces"]
+        }
+      },
+      {
+        from: "templates/packages/users/src/server/UsersProvider.js",
+        to: "packages/users/src/server/UsersProvider.js",
+        ownership: "app",
+        preserveOnRemove: true,
+        reason: "Install app-owned users CRUD provider for non-workspace tenancy.",
+        category: "users-core",
+        id: "users-core-users-provider-base",
+        when: {
+          config: "tenancyMode",
+          notIn: ["personal", "workspaces"]
+        }
+      },
+      {
+        from: "templates/packages/users-workspace/src/server/UsersProvider.js",
+        to: "packages/users/src/server/UsersProvider.js",
+        ownership: "app",
+        preserveOnRemove: true,
+        reason: "Install app-owned users CRUD provider for workspace tenancy.",
+        category: "users-core",
+        id: "users-core-users-provider-workspace",
+        when: {
+          config: "tenancyMode",
+          in: ["personal", "workspaces"]
+        }
+      },
+      {
+        from: "templates/packages/users/src/server/actionIds.js",
+        to: "packages/users/src/server/actionIds.js",
+        ownership: "app",
+        preserveOnRemove: true,
+        reason: "Install app-owned users CRUD action IDs.",
+        category: "users-core",
+        id: "users-core-users-action-ids"
+      },
+      {
+        from: "templates/packages/users/src/server/actions.js",
+        to: "packages/users/src/server/actions.js",
+        ownership: "app",
+        preserveOnRemove: true,
+        reason: "Install app-owned users CRUD actions for non-workspace tenancy.",
+        category: "users-core",
+        id: "users-core-users-actions-base",
+        when: {
+          config: "tenancyMode",
+          notIn: ["personal", "workspaces"]
+        }
+      },
+      {
+        from: "templates/packages/users-workspace/src/server/actions.js",
+        to: "packages/users/src/server/actions.js",
+        ownership: "app",
+        preserveOnRemove: true,
+        reason: "Install app-owned users CRUD actions for workspace tenancy.",
+        category: "users-core",
+        id: "users-core-users-actions-workspace",
+        when: {
+          config: "tenancyMode",
+          in: ["personal", "workspaces"]
+        }
+      },
+      {
+        from: "templates/packages/users/src/server/listConfig.js",
+        to: "packages/users/src/server/listConfig.js",
+        ownership: "app",
+        preserveOnRemove: true,
+        reason: "Install app-owned users CRUD list configuration.",
+        category: "users-core",
+        id: "users-core-users-list-config"
+      },
+      {
+        from: "templates/packages/users/src/server/registerRoutes.js",
+        to: "packages/users/src/server/registerRoutes.js",
+        ownership: "app",
+        preserveOnRemove: true,
+        reason: "Install app-owned users CRUD routes for non-workspace tenancy.",
+        category: "users-core",
+        id: "users-core-users-routes-base",
+        when: {
+          config: "tenancyMode",
+          notIn: ["personal", "workspaces"]
+        }
+      },
+      {
+        from: "templates/packages/users-workspace/src/server/registerRoutes.js",
+        to: "packages/users/src/server/registerRoutes.js",
+        ownership: "app",
+        preserveOnRemove: true,
+        reason: "Install app-owned users CRUD routes for workspace tenancy.",
+        category: "users-core",
+        id: "users-core-users-routes-workspace",
+        when: {
+          config: "tenancyMode",
+          in: ["personal", "workspaces"]
+        }
+      },
+      {
+        from: "templates/packages/users/src/server/repository.js",
+        to: "packages/users/src/server/repository.js",
+        ownership: "app",
+        preserveOnRemove: true,
+        reason: "Install app-owned users CRUD repository.",
+        category: "users-core",
+        id: "users-core-users-repository"
+      },
+      {
+        from: "templates/packages/users/src/server/service.js",
+        to: "packages/users/src/server/service.js",
+        ownership: "app",
+        preserveOnRemove: true,
+        reason: "Install app-owned users CRUD service.",
+        category: "users-core",
+        id: "users-core-users-service"
+      },
+      {
+        from: "templates/packages/users/src/shared/index.js",
+        to: "packages/users/src/shared/index.js",
+        ownership: "app",
+        preserveOnRemove: true,
+        reason: "Install app-owned users shared entrypoint.",
+        category: "users-core",
+        id: "users-core-users-shared-index"
+      },
+      {
+        from: "templates/packages/users/src/shared/userResource.js",
+        to: "packages/users/src/shared/userResource.js",
+        ownership: "app",
+        preserveOnRemove: true,
+        reason: "Install app-owned users shared resource.",
+        category: "users-core",
+        id: "users-core-users-resource"
       }
     ],
     text: [

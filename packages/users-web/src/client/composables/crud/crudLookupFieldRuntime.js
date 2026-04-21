@@ -132,7 +132,7 @@ function createCrudLookupFieldRuntime({
       },
       placementSource: normalizedPlacementSourcePrefix
         ? `${normalizedPlacementSourcePrefix}.${key}`
-        : `crud.lookup.${key}`,
+        : `lookup.${key}`,
       fallbackLoadError: `Unable to load lookup options (${apiPath}).`,
       recordIdParam: normalizedRecordIdParam,
       recordIdSelector: (item = {}) => item[valueKey],

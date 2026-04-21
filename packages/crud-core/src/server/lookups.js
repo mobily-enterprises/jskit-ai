@@ -1,55 +1,55 @@
 import { normalizeText } from "@jskit-ai/kernel/shared/support/normalize";
 import {
-  resolveCrudLookupProviderToken,
+  resolveCrudLookupToken,
   resolveCrudLookupNamespaceFromRelation
 } from "./lookupPathSupport.js";
 
-const LOOKUP_PROVIDER_OWNERSHIP_FILTER_VALUES = Object.freeze([
+const LOOKUP_OWNERSHIP_FILTER_VALUES = Object.freeze([
   "public",
   "user",
   "workspace",
   "workspace_user"
 ]);
-const LOOKUP_PROVIDER_OWNERSHIP_FILTER_SET = new Set(LOOKUP_PROVIDER_OWNERSHIP_FILTER_VALUES);
+const LOOKUP_OWNERSHIP_FILTER_SET = new Set(LOOKUP_OWNERSHIP_FILTER_VALUES);
 
-function normalizeLookupProviderOwnershipFilter(value, { context = "crudLookupProvider ownershipFilter" } = {}) {
+function normalizeLookupOwnershipFilter(value, { context = "crudLookup ownershipFilter" } = {}) {
   const normalized = normalizeText(value).toLowerCase();
   if (!normalized) {
     return "";
   }
 
-  if (LOOKUP_PROVIDER_OWNERSHIP_FILTER_SET.has(normalized)) {
+  if (LOOKUP_OWNERSHIP_FILTER_SET.has(normalized)) {
     return normalized;
   }
 
   throw new TypeError(
-    `${context} must be one of: ${LOOKUP_PROVIDER_OWNERSHIP_FILTER_VALUES.join(", ")}.`
+    `${context} must be one of: ${LOOKUP_OWNERSHIP_FILTER_VALUES.join(", ")}.`
   );
 }
 
-function createCrudLookupProviderResolver(scope, { context = "crudLookupProvider" } = {}) {
+function createCrudLookupResolver(scope, { context = "crudLookup" } = {}) {
   if (!scope || typeof scope.make !== "function") {
     throw new Error(`${context} requires scope.make().`);
   }
 
-  return function resolveLookupProvider(relation = {}) {
+  return function resolveLookup(relation = {}) {
     const namespace = resolveCrudLookupNamespaceFromRelation(relation, {
       context
     });
     return scope.make(
-      resolveCrudLookupProviderToken(namespace, {
+      resolveCrudLookupToken(namespace, {
         context
       })
     );
   };
 }
 
-function createCrudLookupProvider(repository, { context = "crudLookupProvider", ownershipFilter = "" } = {}) {
+function createCrudLookup(repository, { context = "crudLookup", ownershipFilter = "" } = {}) {
   if (!repository || typeof repository.listByIds !== "function") {
     throw new Error(`${context} requires repository.listByIds(ids, options).`);
   }
 
-  const normalizedOwnershipFilter = normalizeLookupProviderOwnershipFilter(
+  const normalizedOwnershipFilter = normalizeLookupOwnershipFilter(
     ownershipFilter || repository?.ownershipFilter,
     {
       context: `${context} ownershipFilter`
@@ -69,7 +69,7 @@ function createCrudLookupProvider(repository, { context = "crudLookupProvider", 
 }
 
 export {
-  resolveCrudLookupProviderToken,
-  createCrudLookupProviderResolver,
-  createCrudLookupProvider
+  resolveCrudLookupToken,
+  createCrudLookupResolver,
+  createCrudLookup
 };

@@ -1,6 +1,6 @@
 {
   "name": "@jskit-ai/workspaces-core",
-  "version": "0.1.22",
+  "version": "0.1.23",
   "type": "module",
   "scripts": {
     "test": "node --test"
@@ -18,11 +18,11 @@
   },
   "dependencies": {
     "@fastify/type-provider-typebox": "^6.1.0",
-    "@jskit-ai/auth-core": "0.1.45",
-    "@jskit-ai/database-runtime": "0.1.46",
-    "@jskit-ai/http-runtime": "0.1.45",
-    "@jskit-ai/kernel": "0.1.46",
-    "@jskit-ai/users-core": "0.1.56",
+    "@jskit-ai/auth-core": "0.1.46",
+    "@jskit-ai/database-runtime": "0.1.47",
+    "@jskit-ai/http-runtime": "0.1.46",
+    "@jskit-ai/kernel": "0.1.47",
+    "@jskit-ai/users-core": "0.1.57",
     "typebox": "^1.0.81"
   }
 }

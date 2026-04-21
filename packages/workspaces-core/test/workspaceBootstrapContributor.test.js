@@ -35,7 +35,7 @@ test("workspace bootstrap contributor passes actor context to pending invites se
         return [];
       }
     },
-    usersRepository: {
+    userProfilesRepository: {
       async findById() {
         return profile;
       }
@@ -78,7 +78,7 @@ test("workspace bootstrap contributor resolves workspace slug from bootstrap que
         return [];
       }
     },
-    usersRepository: {
+    userProfilesRepository: {
       async findById() {
         return profile;
       }
@@ -123,7 +123,7 @@ test("workspace bootstrap contributor reports unauthenticated requested workspac
         assert.fail("listPendingInvitesForUser should not run for unauthenticated payloads");
       }
     },
-    usersRepository: {
+    userProfilesRepository: {
       async findById() {
         assert.fail("findById should not run for unauthenticated payloads");
       }

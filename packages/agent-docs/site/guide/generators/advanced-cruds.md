@@ -869,7 +869,7 @@ RESOURCE_FIELD_META.push({
 Register the computed projection once in the repository runtime:
 
 ```js
-const repositoryRuntime = createCrudRepositoryRuntime(resource, {
+const repositoryRuntime = createCrudResourceRuntime(resource, {
   context: "receivals repository",
   list: LIST_CONFIG,
   virtualFields: {

@@ -197,7 +197,7 @@ test("auth supabase provider can boot dev auth without Supabase credentials", as
       };
     }
   });
-  app.instance("usersRepository", {
+  app.instance("internal.repository.user-profiles", {
     async findById() {
       return null;
     },
@@ -253,7 +253,7 @@ test("auth supabase provider rejects dev auth bypass in production", async () =>
       };
     }
   });
-  app.instance("usersRepository", {
+  app.instance("internal.repository.user-profiles", {
     async findById() {
       return null;
     },
@@ -303,7 +303,7 @@ test("auth supabase provider rejects dev auth bypass without a secret during boo
       };
     }
   });
-  app.instance("usersRepository", {
+  app.instance("internal.repository.user-profiles", {
     async findById() {
       return null;
     },
@@ -321,7 +321,7 @@ test("auth supabase provider rejects dev auth bypass without a secret during boo
   );
 });
 
-test("auth supabase provider rejects dev auth bypass without usersRepository during boot", async () => {
+test("auth supabase provider rejects dev auth bypass without internal.repository.user-profiles during boot", async () => {
   const app = createApplication();
   app.instance("appConfig", createAppConfigFixture());
   app.instance("jskit.env", {
@@ -360,7 +360,7 @@ test("auth supabase provider rejects dev auth bypass without usersRepository dur
       app.start({
         providers: [ActionRuntimeServiceProvider, AuthSupabaseServiceProvider]
       }),
-    (error) => isBootFailureWithCause(error, /requires usersRepository with findById\(\) and findByEmail\(\)/)
+    (error) => isBootFailureWithCause(error, /requires internal\.repository\.user-profiles with findById\(\) and findByEmail\(\)/)
   );
 });
 

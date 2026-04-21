@@ -176,11 +176,11 @@ function resolveRuntimeEnv(scope) {
 
 function resolveOptionalRepositories(scope) {
   const repositories = {};
-  if (scope.has("userSettingsRepository")) {
-    repositories.userSettingsRepository = scope.make("userSettingsRepository");
+  if (scope.has("internal.repository.user-settings")) {
+    repositories.userSettingsRepository = scope.make("internal.repository.user-settings");
   }
-  if (scope.has("usersRepository")) {
-    repositories.usersRepository = scope.make("usersRepository");
+  if (scope.has("internal.repository.user-profiles")) {
+    repositories.userProfilesRepository = scope.make("internal.repository.user-profiles");
   }
   return repositories;
 }
@@ -235,7 +235,7 @@ class AuthSupabaseServiceProvider {
           nodeEnv: String(env.NODE_ENV || "development").trim() || "development",
           userSettingsRepository,
           userProfileSyncService,
-          usersRepository: repositories.usersRepository || null,
+          userProfilesRepository: repositories.userProfilesRepository || null,
           devAuthBypassEnabled,
           devAuthBypassSecret: String(env.AUTH_DEV_BYPASS_SECRET || "").trim(),
           devAuthAccessTtlSeconds: env.AUTH_DEV_ACCESS_TTL_SECONDS,

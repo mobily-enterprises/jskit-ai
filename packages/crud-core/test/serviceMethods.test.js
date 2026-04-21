@@ -73,37 +73,17 @@ test("serviceMethods expose CRUD service behavior without the factory wrapper", 
   assert.deepEqual(await crudServiceDeleteRecord(runtime, repository, {}, 1, {}), { id: 1, deleted: true });
 });
 
-test("serviceMethods apply patch normalization using the existing record and map field errors", async () => {
+test("serviceMethods pass existing record through update options and leave payload shaping to the repository/runtime", async () => {
   const runtime = createCrudServiceRuntime({
     namespace: "contacts",
     operations: {
-      patch: {
-        bodyValidator: {
-          normalize(payload = {}, context = {}) {
-            if (payload.name === "bad") {
-              const error = new Error("Validation failed.");
-              error.details = {
-                fieldErrors: {
-                  name: "Invalid."
-                }
-              };
-              throw error;
-            }
-            return {
-              ...payload,
-              name: `${payload.name} normalized`,
-              existingName: context.existingRecord?.name || ""
-            };
-          }
-        }
-      },
       view: createResourceWithOutputSchema().operations.view
     }
   });
   const updateCalls = [];
   const repository = createRepositoryDouble({
-    async updateById(recordId, payload) {
-      updateCalls.push({ recordId, payload });
+    async updateById(recordId, payload, options = {}) {
+      updateCalls.push({ recordId, payload, options });
       return { id: recordId, ...payload };
     }
   });
@@ -114,24 +94,20 @@ test("serviceMethods apply patch normalization using the existing record and map
     {
       recordId: 1,
       payload: {
-        name: "good normalized",
-        existingName: "Existing"
+        name: "good"
+      },
+      options: {
+        existingRecord: {
+          id: 1,
+          name: "Existing"
+        }
       }
     }
   ]);
   assert.deepEqual(updated, {
     id: 1,
-    name: "good normalized",
-    existingName: "Existing"
+    name: "good"
   });
-
-  await assert.rejects(
-    () => crudServiceUpdateRecord(runtime, repository, {}, 1, { name: "bad" }, {}),
-    (error) => (
-      error?.status === 400 &&
-      error?.details?.fieldErrors?.name === "Invalid."
-    )
-  );
 });
 
 test("serviceMethods enforce writable field access policies and allow readable filtering", async () => {

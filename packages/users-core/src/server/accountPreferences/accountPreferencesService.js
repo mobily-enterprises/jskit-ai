@@ -9,15 +9,15 @@ import {
 
 function createService({
   userSettingsRepository,
-  usersRepository,
+  userProfilesRepository,
   authService
 } = {}) {
-  if (!userSettingsRepository || !usersRepository) {
+  if (!userSettingsRepository || !userProfilesRepository) {
     throw new Error("accountPreferencesService requires repositories.");
   }
 
   async function updatePreferences(request, user, payload = {}, options = {}) {
-    const profile = await resolveUserProfile(usersRepository, user);
+    const profile = await resolveUserProfile(userProfilesRepository, user);
     if (!profile) {
       throw new AppError(404, "User profile was not found.");
     }

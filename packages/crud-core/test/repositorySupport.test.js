@@ -255,6 +255,17 @@ test("deriveRepositoryMappingFromResource reads schema keys and repository colum
             }
           }
         }
+      },
+      patch: {
+        bodyValidator: {
+          schema: {
+            type: "object",
+            properties: {
+              archivedAt: { type: "string" },
+              vetId: { type: "integer" }
+            }
+          }
+        }
       }
     },
     fieldMeta: [
@@ -270,16 +281,21 @@ test("deriveRepositoryMappingFromResource reads schema keys and repository colum
           namespace: "vets",
           valueKey: "id"
         }
+      },
+      {
+        key: "archivedAt",
+        repository: { column: "archived_at" }
       }
     ]
   };
 
   const mapping = deriveRepositoryMappingFromResource(resource);
   assert.deepEqual(mapping.outputKeys, ["id", "firstName", "createdAt"]);
-  assert.deepEqual(mapping.writeKeys, ["firstName", "vetId"]);
+  assert.deepEqual(mapping.writeKeys, ["firstName", "vetId", "archivedAt"]);
   assert.deepEqual(mapping.columnOverrides, {
     createdAt: "created_at",
-    vetId: "vet_id"
+    vetId: "vet_id",
+    archivedAt: "archived_at"
   });
   assert.deepEqual(mapping.listSearchColumns, ["first_name", "created_at"]);
   assert.deepEqual(mapping.parentFilterColumns, {

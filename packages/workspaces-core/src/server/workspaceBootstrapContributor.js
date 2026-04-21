@@ -104,7 +104,7 @@ function resolveBootstrapTenancyProfile(tenancyProfile = null, appConfig = {}) {
 function createWorkspaceBootstrapContributor({
   workspaceService,
   workspacePendingInvitationsService,
-  usersRepository,
+  userProfilesRepository,
   workspaceInvitationsEnabled = false,
   appConfig = {},
   tenancyProfile = null
@@ -123,8 +123,8 @@ function createWorkspaceBootstrapContributor({
       serviceLabel: "workspacePendingInvitationsService"
     });
   }
-  requireServiceMethod(usersRepository, "findById", contributorId, {
-    serviceLabel: "usersRepository"
+  requireServiceMethod(userProfilesRepository, "findById", contributorId, {
+    serviceLabel: "internal.repository.user-profiles"
   });
 
   return Object.freeze({
@@ -161,7 +161,7 @@ function createWorkspaceBootstrapContributor({
         };
       }
 
-      const latestProfile = await usersRepository.findById(normalizedUserId);
+      const latestProfile = await userProfilesRepository.findById(normalizedUserId);
       if (!latestProfile) {
         return {};
       }

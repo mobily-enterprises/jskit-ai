@@ -1,6 +1,6 @@
 import { normalizeRecordId } from "@jskit-ai/kernel/shared/support/normalize";
 import { normalizeLowerText, normalizeText } from "@jskit-ai/kernel/shared/actions/textNormalization";
-import { normalizeIdentity } from "../repositories/usersRepository.js";
+import { normalizeIdentity } from "../support/identity.js";
 
 function buildNormalizedIdentityKey(identityLike) {
   const identity = normalizeIdentity(identityLike);
@@ -64,15 +64,15 @@ function normalizeLifecycleContributors(entries = []) {
   );
 }
 
-function createService({ usersRepository, lifecycleContributors = [], userSettingsRepository = null } = {}) {
-  if (!usersRepository || typeof usersRepository.findByIdentity !== "function") {
-    throw new Error("authProfileSyncService requires usersRepository.findByIdentity().");
+function createService({ userProfilesRepository, lifecycleContributors = [], userSettingsRepository = null } = {}) {
+  if (!userProfilesRepository || typeof userProfilesRepository.findByIdentity !== "function") {
+    throw new Error("authProfileSyncService requires userProfilesRepository.findByIdentity().");
   }
-  if (typeof usersRepository.upsert !== "function") {
-    throw new Error("authProfileSyncService requires usersRepository.upsert().");
+  if (typeof userProfilesRepository.upsert !== "function") {
+    throw new Error("authProfileSyncService requires userProfilesRepository.upsert().");
   }
-  if (typeof usersRepository.withTransaction !== "function") {
-    throw new Error("authProfileSyncService requires usersRepository.withTransaction().");
+  if (typeof userProfilesRepository.withTransaction !== "function") {
+    throw new Error("authProfileSyncService requires userProfilesRepository.withTransaction().");
   }
   if (!userSettingsRepository || typeof userSettingsRepository.ensureForUserId !== "function") {
     throw new Error("authProfileSyncService requires userSettingsRepository.ensureForUserId().");
@@ -82,7 +82,7 @@ function createService({ usersRepository, lifecycleContributors = [], userSettin
 
   async function findByIdentity(identityLike, options = {}) {
     const normalized = buildNormalizedIdentityKey(identityLike);
-    return usersRepository.findByIdentity(
+    return userProfilesRepository.findByIdentity(
       {
         provider: normalized.authProvider,
         providerUserId: normalized.authProviderUserSid
@@ -93,7 +93,7 @@ function createService({ usersRepository, lifecycleContributors = [], userSettin
 
   async function upsertByIdentity(profileLike, options = {}) {
     const normalized = buildNormalizedIdentityProfile(profileLike);
-    return usersRepository.upsert(
+    return userProfilesRepository.upsert(
       {
         authProvider: normalized.authProvider,
         authProviderUserSid: normalized.authProviderUserSid,
@@ -144,7 +144,7 @@ function createService({ usersRepository, lifecycleContributors = [], userSettin
       return runSync(options.trx);
     }
 
-    return usersRepository.withTransaction((trx) => runSync(trx));
+    return userProfilesRepository.withTransaction((trx) => runSync(trx));
   }
 
   return Object.freeze({

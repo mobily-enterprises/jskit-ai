@@ -41,14 +41,14 @@ RESOURCE_FIELD_META.push({
 - `repository.storage: "virtual"` fields must not appear in create/patch write schemas
 
 Repository pattern:
-- build the runtime with `createCrudRepositoryRuntime(resource, { ... })`
+- build the runtime with `createCrudResourceRuntime(resource, { ... })`
 - register computed projections in `virtualFields`
 - keep SQL in the repository, not in shared metadata
 
 Example:
 
 ```js
-const repositoryRuntime = createCrudRepositoryRuntime(resource, {
+const repositoryRuntime = createCrudResourceRuntime(resource, {
   context: "receivals repository",
   list: LIST_CONFIG,
   virtualFields: {

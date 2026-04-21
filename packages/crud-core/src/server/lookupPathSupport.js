@@ -4,7 +4,7 @@ import {
 } from "@jskit-ai/kernel/shared/support/crudLookup";
 import { toSnakeCase } from "@jskit-ai/kernel/shared/support/stringCase";
 
-function requireCrudLookupNamespace(value = "", { context = "crudLookupProvider" } = {}) {
+function requireCrudLookupNamespace(value = "", { context = "crudLookup" } = {}) {
   const normalizedNamespace = normalizeCrudLookupNamespace(value);
   if (!normalizedNamespace) {
     throw new Error(`${context} requires relation.namespace.`);
@@ -13,7 +13,7 @@ function requireCrudLookupNamespace(value = "", { context = "crudLookupProvider"
   return normalizedNamespace;
 }
 
-function resolveCrudLookupProviderToken(namespace = "", { context = "crudLookupProvider" } = {}) {
+function resolveCrudLookupToken(namespace = "", { context = "crudLookup" } = {}) {
   const normalizedNamespace = requireCrudLookupNamespace(namespace, {
     context
   });
@@ -22,10 +22,10 @@ function resolveCrudLookupProviderToken(namespace = "", { context = "crudLookupP
     .map((segment) => toSnakeCase(segment))
     .filter(Boolean)
     .join(".");
-  return `crud.lookup.${tokenPart}`;
+  return `lookup.${tokenPart}`;
 }
 
-function resolveCrudLookupNamespaceFromRelation(relation = {}, { context = "crudLookupProvider" } = {}) {
+function resolveCrudLookupNamespaceFromRelation(relation = {}, { context = "crudLookup" } = {}) {
   const normalizedNamespace =
     normalizeCrudLookupNamespace(relation?.namespace) ||
     normalizeCrudLookupNamespace(relation?.apiPath);
@@ -41,5 +41,5 @@ export {
   normalizeCrudLookupNamespace,
   requireCrudLookupNamespace,
   resolveCrudLookupNamespaceFromRelation,
-  resolveCrudLookupProviderToken
+  resolveCrudLookupToken
 };

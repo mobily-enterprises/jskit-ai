@@ -22,7 +22,7 @@ function registerWorkspaceSettings(app) {
     throw new Error("registerWorkspaceSettings requires application singleton()/service()/actions().");
   }
 
-  app.singleton("workspaceSettingsRepository", (scope) => {
+  app.singleton("internal.repository.workspace-settings", (scope) => {
     const knex = scope.make("jskit.database.knex");
     const appConfig = resolveAppConfig(scope);
     return createWorkspaceSettingsRepository(knex, {
@@ -34,7 +34,7 @@ function registerWorkspaceSettings(app) {
     "workspaces.settings.service",
     (scope) =>
       createWorkspaceSettingsService({
-        workspaceSettingsRepository: scope.make("workspaceSettingsRepository"),
+        workspaceSettingsRepository: scope.make("internal.repository.workspace-settings"),
         workspaceInvitationsEnabled: scope.make("workspaces.invitations.enabled"),
         roleCatalog: createWorkspaceRoleCatalog(resolveAppConfig(scope))
       }),

@@ -59,7 +59,7 @@ test("avatarService uploadForUser stores bytes and updates profile avatar fields
   };
 
   const avatarService = createService({
-    usersRepository: repository,
+    userProfilesRepository: repository,
     avatarStorageService
   });
 
@@ -99,7 +99,7 @@ test("avatarService clearForUser removes stored avatar and clears profile fields
   };
 
   const avatarService = createService({
-    usersRepository: repository,
+    userProfilesRepository: repository,
     avatarStorageService
   });
 

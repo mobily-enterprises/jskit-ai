@@ -97,7 +97,7 @@ function mapUserSettingsBootstrap(settings = {}) {
 }
 
 function createUsersBootstrapContributor({
-  usersRepository,
+  userProfilesRepository,
   userSettingsRepository,
   appConfig = {},
   authService
@@ -105,11 +105,11 @@ function createUsersBootstrapContributor({
   const contributorId = "users.bootstrap";
   const appState = resolveAppState(appConfig);
 
-  requireServiceMethod(usersRepository, "findById", contributorId, {
-    serviceLabel: "usersRepository"
+  requireServiceMethod(userProfilesRepository, "findById", contributorId, {
+    serviceLabel: "internal.repository.user-profiles"
   });
   requireServiceMethod(userSettingsRepository, "ensureForUserId", contributorId, {
-    serviceLabel: "userSettingsRepository"
+    serviceLabel: "internal.repository.user-settings"
   });
 
   return Object.freeze({
@@ -138,7 +138,7 @@ function createUsersBootstrapContributor({
       });
 
       if (normalizedUser) {
-        const latestProfile = (await usersRepository.findById(normalizedUser.id)) || normalizedUser;
+        const latestProfile = (await userProfilesRepository.findById(normalizedUser.id)) || normalizedUser;
         const userSettings = await userSettingsRepository.ensureForUserId(latestProfile.id);
 
         payload = {

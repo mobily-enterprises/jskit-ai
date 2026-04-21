@@ -1,5 +1,5 @@
-import { AppError, createValidationError } from "@jskit-ai/kernel/server/runtime/errors";
-import { isRecord, normalizeText } from "@jskit-ai/kernel/shared/support/normalize";
+import { AppError } from "@jskit-ai/kernel/server/runtime/errors";
+import { normalizeText } from "@jskit-ai/kernel/shared/support/normalize";
 import { normalizeObjectInput } from "@jskit-ai/kernel/shared/validators";
 import { requireCrudNamespace } from "../shared/crudNamespaceSupport.js";
 import { createCrudFieldAccessRuntime } from "./fieldAccess.js";
@@ -107,33 +107,10 @@ async function crudServiceUpdateRecord(runtime, repository, fieldAccess = {}, re
     existingRecord
   });
 
-  const patchBodyValidator = runtime.resource?.operations?.patch?.bodyValidator;
-  let normalizedPatch = writablePayload;
-  if (patchBodyValidator && typeof patchBodyValidator.normalize === "function") {
-    try {
-      normalizedPatch = await patchBodyValidator.normalize(writablePayload, {
-        phase: "crudPatch",
-        action: "update",
-        recordId,
-        existingRecord,
-        context: options?.context
-      });
-    } catch (error) {
-      const explicitFieldErrors = isRecord(error?.fieldErrors)
-        ? error.fieldErrors
-        : (
-            isRecord(error?.details?.fieldErrors)
-              ? error.details.fieldErrors
-              : null
-          );
-      if (explicitFieldErrors) {
-        throw createValidationError(explicitFieldErrors);
-      }
-      throw error;
-    }
-  }
-
-  const record = await resolvedRepository.updateById(recordId, normalizedPatch, options);
+  const record = await resolvedRepository.updateById(recordId, writablePayload, {
+    ...options,
+    existingRecord
+  });
   if (!record) {
     throw new AppError(404, "Record not found.");
   }

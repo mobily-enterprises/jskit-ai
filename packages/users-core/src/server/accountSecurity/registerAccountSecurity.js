@@ -10,8 +10,8 @@ function registerAccountSecurity(app) {
   app.singleton("users.accountSecurity.service", (scope) => {
     const authService = scope.has("authService") ? scope.make("authService") : null;
     return createAccountSecurityService({
-      userSettingsRepository: scope.make("userSettingsRepository"),
-      usersRepository: scope.make("usersRepository"),
+      userSettingsRepository: scope.make("internal.repository.user-settings"),
+      userProfilesRepository: scope.make("internal.repository.user-profiles"),
       authService
     });
   });
