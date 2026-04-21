@@ -145,7 +145,7 @@ export default Object.freeze({
         position: "bottom",
         skipIfContains: "id: \"console.web.menu.settings\"",
         value:
-          "\naddPlacement({\n  id: \"console.web.menu.settings\",\n  target: \"shell-layout:primary-menu\",\n  surfaces: [\"console\"],\n  order: 100,\n  componentToken: \"local.main.ui.menu-link-item\",\n  props: {\n    label: \"Settings\",\n    to: \"/console/settings\",\n    icon: \"mdi-cog-outline\"\n  },\n  when: ({ auth }) => Boolean(auth?.authenticated)\n});\n",
+          "\naddPlacement({\n  id: \"console.web.menu.settings\",\n  target: \"shell-layout:primary-menu\",\n  surfaces: [\"console\"],\n  order: 100,\n  componentToken: \"local.main.ui.menu-link-item\",\n  props: {\n    label: \"Settings\",\n    to: \"/console/settings\",\n    icon: \"mdi-cog-outline\"\n  },\n  when: ({ auth }) => auth?.authenticated === true\n});\n",
         reason: "Append console-web settings menu placement into app-owned placement registry.",
         category: "console-web",
         id: "console-web-console-settings-placement"

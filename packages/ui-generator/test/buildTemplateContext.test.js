@@ -95,7 +95,7 @@ test("buildUiPageTemplateContext derives an auth guard from an authenticated sur
       options: {}
     });
 
-    assert.equal(context.__JSKIT_UI_LINK_WHEN_LINE__, "    when: ({ auth }) => Boolean(auth?.authenticated)\n");
+    assert.equal(context.__JSKIT_UI_LINK_WHEN_LINE__, "    when: ({ auth }) => auth?.authenticated === true\n");
   });
 });
 

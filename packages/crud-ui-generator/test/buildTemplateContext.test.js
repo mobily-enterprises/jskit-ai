@@ -391,7 +391,7 @@ test("buildUiTemplateContext derives menu auth visibility from the target surfac
       })
     });
 
-    assert.equal(context.__JSKIT_UI_MENU_WHEN_LINE__, "    when: ({ auth }) => Boolean(auth?.authenticated)\n");
+    assert.equal(context.__JSKIT_UI_MENU_WHEN_LINE__, "    when: ({ auth }) => auth?.authenticated === true\n");
   });
 });
 

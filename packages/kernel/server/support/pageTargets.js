@@ -641,7 +641,7 @@ function renderPageLinkWhenLine(pageTarget = {}) {
     return "";
   }
 
-  return "    when: ({ auth }) => Boolean(auth?.authenticated)\n";
+  return "    when: ({ auth }) => auth?.authenticated === true\n";
 }
 
 async function resolvePageLinkTargetDetails({
