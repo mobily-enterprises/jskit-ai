@@ -133,6 +133,10 @@ UI_EDIT_FORM_FIELDS.push({ key: "firstName", component: "text" });
       /<v-autocomplete[\s\S]*resolveLookupItems\('vetId', \{ selectedValue: formState\.vetId, selectedRecord: addEdit\.resource\.data \}\)/
     );
     assert.match(editSource, /:items="resolveLookupItems\('vetId', \{ selectedValue: formState\.vetId, selectedRecord: addEdit\.resource\.data \}\)"/);
+    assert.match(
+      editSource,
+      /\n {18}:items="resolveLookupItems\('vetId', \{ selectedValue: formState\.vetId, selectedRecord: addEdit\.resource\.data \}\)"\n {18}:search="resolveLookupSearch\('vetId'\)"\n {18}@update:search="setLookupSearch\('vetId', \$event\)"\n {18}item-title="label"\n {18}item-value="value"\n {18}no-filter/
+    );
     assert.match(editSource, /:search="resolveLookupSearch\('vetId'\)"/);
     assert.match(editSource, /@update:search="setLookupSearch\('vetId', \$event\)"/);
     assert.match(editSource, /:loading="resolveLookupLoading\('vetId'\)"/);

@@ -284,7 +284,10 @@ function buildLookupHydrationPlan(
 
   const entries = Array.isArray(runtime?.entries) ? runtime.entries : [];
   if (entries.length < 1) {
-    if (includeWasExplicit === true) {
+    const wildcardOnlyInclude =
+      includePaths.length > 0 &&
+      includePaths.every((pathSegments) => Array.isArray(pathSegments) && pathSegments[0] === "*");
+    if (includeWasExplicit === true && wildcardOnlyInclude !== true) {
       throw new Error(`${context} include requires lookups, but the resource declares no lookup relations.`);
     }
     return {
