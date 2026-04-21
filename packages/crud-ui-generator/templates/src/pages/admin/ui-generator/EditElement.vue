@@ -56,8 +56,8 @@ const UI_OPERATION_ADAPTER = null;
 const UI_RECORD_ID_PARAM = "__JSKIT_UI_RECORD_ID_PARAM__";
 const UI_API_BASE_URL = "__JSKIT_UI_API_BASE_URL__";
 const UI_EDIT_API_URL = `${UI_API_BASE_URL}/:${UI_RECORD_ID_PARAM}`;
-const UI_LIST_URL = __JSKIT_UI_HAS_LIST_ROUTE__ ? "../.." : "";
-const UI_VIEW_URL = __JSKIT_UI_HAS_VIEW_ROUTE__ ? ".." : "";
+const UI_LIST_URL = __JSKIT_UI_EDIT_PAGE_LIST_URL__;
+const UI_VIEW_URL = __JSKIT_UI_EDIT_PAGE_VIEW_URL__;
 const UI_CANCEL_URL = UI_VIEW_URL || UI_LIST_URL;
 const UI_RECORD_CHANGED_EVENT = __JSKIT_UI_RECORD_CHANGED_EVENT__;
 const UI_EDIT_FORM_FIELDS = [];
@@ -128,4 +128,10 @@ const formRuntime = useCrudAddEdit({
     listUrlTemplate: UI_LIST_URL
   }
 });
+const addEdit = formRuntime.addEdit;
+const formState = formRuntime.form;
+
+function resolveFieldErrors(fieldKey) {
+  return formRuntime.resolveFieldErrors(fieldKey);
+}
 </script>

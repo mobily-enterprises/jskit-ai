@@ -12,9 +12,9 @@
             <v-btn v-if="cancelTo" variant="tonal" :to="resolveCancelTo(cancelTo)">Cancel</v-btn>
             <v-btn
               color="primary"
-              :loading="formRuntime.addEdit.isSaving"
-              :disabled="formRuntime.addEdit.isSubmitDisabled"
-              @click="formRuntime.addEdit.submit"
+              :loading="addEdit.isSaving"
+              :disabled="addEdit.isSubmitDisabled"
+              @click="addEdit.submit"
             >
               {{ saveLabel }}
             </v-btn>
@@ -23,14 +23,14 @@
       </v-card-item>
 
       <v-card-text class="pt-0">
-        <p v-if="formRuntime.addEdit.loadError" class="text-body-2 text-medium-emphasis mb-0">
-          {{ formRuntime.addEdit.loadError }}
+        <p v-if="addEdit.loadError" class="text-body-2 text-medium-emphasis mb-0">
+          {{ addEdit.loadError }}
         </p>
         <template v-else-if="formRuntime.showFormSkeleton">
           <v-skeleton-loader type="heading, text@2, article" />
         </template>
-        <v-form v-else @submit.prevent="formRuntime.addEdit.submit" novalidate>
-          <v-progress-linear v-if="formRuntime.addEdit.isRefetching" indeterminate class="mb-4" />
+        <v-form v-else @submit.prevent="addEdit.submit" novalidate>
+          <v-progress-linear v-if="addEdit.isRefetching" indeterminate class="mb-4" />
           <v-row>
             <template v-if="mode === 'new'">
               <!-- jskit:crud-ui-fields:new -->
@@ -90,6 +90,14 @@ const props = defineProps({
     required: true
   }
 });
+
+const formRuntime = props.formRuntime;
+const addEdit = formRuntime.addEdit;
+const formState = formRuntime.form;
+
+function resolveFieldErrors(fieldKey) {
+  return formRuntime.resolveFieldErrors(fieldKey);
+}
 
 function resolveCancelTo(target) {
   if (!target) {

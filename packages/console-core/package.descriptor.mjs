@@ -1,7 +1,7 @@
 export default Object.freeze({
   packageVersion: 1,
   packageId: "@jskit-ai/console-core",
-  version: "0.1.10",
+  version: "0.1.11",
   kind: "runtime",
   description: "Console runtime: console settings schema, bootstrap flags, actions, and HTTP routes.",
   dependsOn: [
@@ -72,10 +72,10 @@ export default Object.freeze({
   mutations: {
     dependencies: {
       runtime: {
-        "@jskit-ai/database-runtime": "0.1.47",
-        "@jskit-ai/http-runtime": "0.1.46",
-        "@jskit-ai/kernel": "0.1.47",
-        "@jskit-ai/users-core": "0.1.57",
+        "@jskit-ai/database-runtime": "0.1.48",
+        "@jskit-ai/http-runtime": "0.1.47",
+        "@jskit-ai/kernel": "0.1.48",
+        "@jskit-ai/users-core": "0.1.58",
         "typebox": "^1.0.81"
       },
       dev: {}

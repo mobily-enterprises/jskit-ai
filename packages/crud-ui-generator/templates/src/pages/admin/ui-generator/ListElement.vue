@@ -40,8 +40,8 @@
               <tr>
 __JSKIT_UI_LIST_HEADER_COLUMNS__
                 <!-- jskit:crud-ui-fields:list-header -->
-                <th v-if="UI_VIEW_URL" class="text-right"></th>
-                <th v-if="UI_EDIT_URL" class="text-right"></th>
+                <th v-if="UI_VIEW_URL" class="text-right" />
+                <th v-if="UI_EDIT_URL" class="text-right" />
               </tr>
             </thead>
             <tbody>
@@ -90,9 +90,9 @@ import { resource as uiResource } from "__JSKIT_UI_RESOURCE_IMPORT_PATH__";
 const UI_OPERATION_ADAPTER = null;
 const UI_RECORD_ID_PARAM = "__JSKIT_UI_RECORD_ID_PARAM__";
 const UI_LIST_API_URL = "__JSKIT_UI_API_BASE_URL__";
-const UI_VIEW_URL = __JSKIT_UI_HAS_VIEW_ROUTE__ ? `./:${UI_RECORD_ID_PARAM}` : "";
-const UI_EDIT_URL = __JSKIT_UI_HAS_EDIT_ROUTE__ ? `./:${UI_RECORD_ID_PARAM}/edit` : "";
-const UI_NEW_URL = __JSKIT_UI_HAS_NEW_ROUTE__ ? "./new" : "";
+const UI_VIEW_URL = __JSKIT_UI_LIST_PAGE_VIEW_URL__;
+const UI_EDIT_URL = __JSKIT_UI_LIST_PAGE_EDIT_URL__;
+const UI_NEW_URL = __JSKIT_UI_LIST_PAGE_NEW_URL__;
 const UI_RECORD_CHANGED_EVENTS = __JSKIT_UI_LIST_REALTIME_EVENTS__;
 const UI_ROUTE_QUERY_BLACKLIST = Object.freeze(["include", "cursor", "limit"]);
 

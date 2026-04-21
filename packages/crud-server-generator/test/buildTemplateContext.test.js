@@ -960,6 +960,40 @@ test("buildReplacementsFromSnapshot uses shared framework time schemas in genera
   );
 });
 
+test("buildReplacementsFromSnapshot only imports record-id validator helpers that the resource actually uses", () => {
+  const snapshot = createSnapshot({
+    tableName: "pollen_types",
+    columns: [
+      {
+        name: "id",
+        dataType: "bigint",
+        columnType: "bigint unsigned",
+        nullable: false,
+        key: "id"
+      },
+      {
+        name: "name",
+        dataType: "varchar",
+        columnType: "varchar(32)",
+        nullable: false,
+        maxLength: 32,
+        key: "name"
+      }
+    ]
+  });
+
+  const replacements = __testables.buildReplacementsFromSnapshot({
+    namespace: "pollen-types",
+    snapshot,
+    resolvedOwnershipFilter: "public"
+  });
+
+  assert.match(replacements.__JSKIT_CRUD_RESOURCE_VALIDATORS_IMPORT__, /recordIdSchema/);
+  assert.doesNotMatch(replacements.__JSKIT_CRUD_RESOURCE_VALIDATORS_IMPORT__, /recordIdInputSchema/);
+  assert.doesNotMatch(replacements.__JSKIT_CRUD_RESOURCE_VALIDATORS_IMPORT__, /nullableRecordIdSchema/);
+  assert.doesNotMatch(replacements.__JSKIT_CRUD_RESOURCE_VALIDATORS_IMPORT__, /nullableRecordIdInputSchema/);
+});
+
 test("crud provider template uses shared lookup provider helpers instead of inline wiring", async () => {
   const testDirectory = path.dirname(fileURLToPath(import.meta.url));
   const templatePath = path.resolve(testDirectory, "..", "templates", "src", "local-package", "server", "CrudProvider.js");
