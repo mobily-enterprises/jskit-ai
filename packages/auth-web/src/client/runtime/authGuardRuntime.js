@@ -3,6 +3,7 @@ import { AUTH_PATHS } from "@jskit-ai/auth-core/shared/authPaths";
 import { isExternalLinkTarget } from "@jskit-ai/kernel/shared/support/linkPath";
 import { normalizePathname as normalizeSurfacePathname } from "@jskit-ai/kernel/shared/surface/paths";
 import { createListenerSubscription } from "@jskit-ai/kernel/shared/support/listenerSet";
+import { normalizePermissionList } from "@jskit-ai/kernel/shared/support/permissions";
 
 const GLOBAL_GUARD_EVALUATOR_KEY = "__JSKIT_WEB_SHELL_GUARD_EVALUATOR__";
 const AUTH_POLICY_AUTHENTICATED = "authenticated";
@@ -34,6 +35,8 @@ const KEEP_PREVIOUS_AUTH_STATE = Symbol("keepPreviousAuthState");
 const DEFAULT_AUTH_STATE = Object.freeze({
   authenticated: false,
   username: "",
+  email: "",
+  permissions: Object.freeze([]),
   oauthDefaultProvider: "",
   oauthProviders: Object.freeze([])
 });
@@ -102,10 +105,14 @@ function normalizeAuthState(payload = {}) {
     .toLowerCase();
   const authenticated = Boolean(payload.authenticated);
   const username = authenticated ? String(payload.username || "").trim() : "";
+  const email = authenticated ? String(payload.email || "").trim().toLowerCase() : "";
+  const permissions = authenticated ? Object.freeze(normalizePermissionList(payload.permissions)) : Object.freeze([]);
 
   return Object.freeze({
     authenticated,
     username,
+    email,
+    permissions,
     oauthDefaultProvider,
     oauthProviders
   });
@@ -129,6 +136,8 @@ function applyAuthContext(nextState, placementRuntime) {
     {
       auth: {
         authenticated: nextState.authenticated,
+        email: nextState.email,
+        permissions: nextState.permissions,
         oauthDefaultProvider: nextState.oauthDefaultProvider,
         oauthProviders: nextState.oauthProviders
       }

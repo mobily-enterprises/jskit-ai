@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { FastifyAuthPolicyServiceProvider } from "../src/server/providers/FastifyAuthPolicyServiceProvider.js";
+import { AUTH_POLICY_CONTEXT_RESOLVER_TAG } from "../src/server/authPolicyContextResolverRegistry.js";
 import { createFakeFastifyPolicyRuntime } from "../../../tooling/testUtils/fakeFastify.mjs";
 
 test("FastifyAuthPolicyServiceProvider registers auth policy plugin through provider boot", async () => {
@@ -84,6 +85,17 @@ test("FastifyAuthPolicyServiceProvider wires optional auth policy context resolv
         throw new Error(`Missing token ${String(token)}`);
       }
       return bag.get(token);
+    },
+    resolveTag(tag) {
+      if (tag !== AUTH_POLICY_CONTEXT_RESOLVER_TAG) {
+        return [];
+      }
+
+      return [
+        async () => ({
+          permissions: ["settings.manage"]
+        })
+      ];
     }
   };
 
@@ -108,5 +120,5 @@ test("FastifyAuthPolicyServiceProvider wires optional auth policy context resolv
   assert.equal(request.workspace?.id, 11);
   assert.equal(request.workspace?.slug, "acme");
   assert.equal(request.membership?.roleSid, "member");
-  assert.deepEqual(request.permissions, ["projects.read"]);
+  assert.deepEqual(request.permissions, ["settings.manage", "projects.read"]);
 });

@@ -1,6 +1,7 @@
 import { resolveAllowedOriginsFromSurfaceDefinitions } from "@jskit-ai/kernel/shared/support/returnToPath";
 import { withActionDefaults } from "@jskit-ai/kernel/shared/actions";
 import { normalizeRecordId } from "@jskit-ai/kernel/shared/support/normalize";
+import { resolveAuthServiceDecorators } from "@jskit-ai/auth-core/server/authServiceDecoratorRegistry";
 import { createService } from "../lib/service.js";
 import { createStandaloneProfileSyncService } from "../lib/standaloneProfileSyncService.js";
 import { createAuthSessionEventsService } from "../lib/authSessionEventsService.js";
@@ -185,6 +186,19 @@ function resolveOptionalRepositories(scope) {
   return repositories;
 }
 
+function applyAuthServiceDecorators(scope, authService) {
+  let decoratedAuthService = authService;
+
+  for (const decorator of resolveAuthServiceDecorators(scope)) {
+    decoratedAuthService = decorator.decorateAuthService(decoratedAuthService);
+    if (!decoratedAuthService || typeof decoratedAuthService !== "object") {
+      throw new Error(`Auth service decorator "${decorator.decoratorId}" must return an auth service object.`);
+    }
+  }
+
+  return decoratedAuthService;
+}
+
 class AuthSupabaseServiceProvider {
   static id = "auth.provider.supabase";
 
@@ -225,7 +239,7 @@ class AuthSupabaseServiceProvider {
           userProfileSyncService = scope.make("users.profile.sync.service");
         }
 
-        return createService({
+        const authService = createService({
           authProvider,
           appPublicUrl: String(env.APP_PUBLIC_URL || "").trim(),
           authAllowedReturnToOrigins: resolveAllowedReturnToOrigins({
@@ -241,6 +255,8 @@ class AuthSupabaseServiceProvider {
           devAuthAccessTtlSeconds: env.AUTH_DEV_ACCESS_TTL_SECONDS,
           devAuthRefreshTtlSeconds: env.AUTH_DEV_REFRESH_TTL_SECONDS
         });
+
+        return applyAuthServiceDecorators(scope, authService);
       });
     }
 

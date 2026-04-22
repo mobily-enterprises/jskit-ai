@@ -157,6 +157,8 @@ class AuthController {
     reply.code(200).send({
       authenticated: true,
       username: authResult.profile.displayName,
+      email: authResult.profile.email,
+      permissions: Array.isArray(authResult.permissions) ? authResult.permissions : [],
       csrfToken,
       ...oauthCatalogPayload
     });

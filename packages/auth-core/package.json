@@ -8,6 +8,8 @@
   "exports": {
     "./server/providers/AccessCoreServiceProvider": "./src/server/providers/AccessCoreServiceProvider.js",
     "./server/providers/FastifyAuthPolicyServiceProvider": "./src/server/providers/FastifyAuthPolicyServiceProvider.js",
+    "./server/authPolicyContextResolverRegistry": "./src/server/authPolicyContextResolverRegistry.js",
+    "./server/authServiceDecoratorRegistry": "./src/server/authServiceDecoratorRegistry.js",
     "./server/utils": "./src/server/utils.js",
     "./server/validators": "./src/server/validators.js",
     "./server/inviteTokens": "./src/server/inviteTokens.js",
