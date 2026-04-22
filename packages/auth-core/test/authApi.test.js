@@ -21,6 +21,7 @@ test("authApi exposes the expected methods and request routes", async () => {
     "verifyOtp",
     "oauthStartUrl",
     "oauthComplete",
+    "devLoginAs",
     "requestPasswordReset",
     "completePasswordRecovery",
     "resetPassword",
@@ -30,6 +31,7 @@ test("authApi exposes the expected methods and request routes", async () => {
   await api.session();
   await api.resendRegisterConfirmation({ email: "x@example.com" });
   await api.login({ email: "x@example.com" });
+  await api.devLoginAs({ userId: "42" });
   await api.logout();
 
   assert.equal(calls[0].url, "/api/session");
@@ -37,8 +39,10 @@ test("authApi exposes the expected methods and request routes", async () => {
   assert.equal(calls[1].options.method, "POST");
   assert.equal(calls[2].url, "/api/login");
   assert.equal(calls[2].options.method, "POST");
-  assert.equal(calls[3].url, "/api/logout");
+  assert.equal(calls[3].url, "/api/dev-auth/login-as");
   assert.equal(calls[3].options.method, "POST");
+  assert.equal(calls[4].url, "/api/logout");
+  assert.equal(calls[4].options.method, "POST");
 });
 
 test("authApi oauthStartUrl builds provider path with optional returnTo", () => {
