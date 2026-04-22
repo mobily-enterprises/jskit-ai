@@ -1,4 +1,4 @@
-import { HOME_TOOLS_OUTLET } from "./src/shared/toolsOutletContracts.js";
+import { HOME_COG_OUTLET } from "./src/shared/toolsOutletContracts.js";
 
 export default Object.freeze({
   packageVersion: 1,
@@ -111,8 +111,8 @@ export default Object.freeze({
       placements: {
         outlets: [
           {
-            target: HOME_TOOLS_OUTLET.target,
-            defaultLinkComponentToken: HOME_TOOLS_OUTLET.defaultLinkComponentToken,
+            target: HOME_COG_OUTLET.target,
+            defaultLinkComponentToken: HOME_COG_OUTLET.defaultLinkComponentToken,
             surfaces: ["home"],
             source: "src/client/components/UsersHomeToolsWidget.vue"
           },
@@ -143,7 +143,7 @@ export default Object.freeze({
           },
           {
             id: "users.home.menu.settings",
-            target: "home-tools:primary-menu",
+            target: "home-cog:primary-menu",
             surfaces: ["home"],
             order: 100,
             componentToken: "local.main.ui.surface-aware-menu-link-item",
@@ -243,7 +243,7 @@ export default Object.freeze({
         position: "bottom",
         skipIfContains: "id: \"users.home.tools.widget\"",
         value:
-          "\naddPlacement({\n  id: \"users.home.tools.widget\",\n  target: \"shell-layout:top-right\",\n  surfaces: [\"home\"],\n  order: 900,\n  componentToken: \"users.web.home.tools.widget\",\n  when: ({ auth }) => auth?.authenticated === true\n});\n\naddPlacement({\n  id: \"users.home.menu.settings\",\n  target: \"home-tools:primary-menu\",\n  surfaces: [\"home\"],\n  order: 100,\n  componentToken: \"local.main.ui.surface-aware-menu-link-item\",\n  props: {\n    label: \"Settings\",\n    surface: \"home\",\n    scopedSuffix: \"/settings\",\n    unscopedSuffix: \"/settings\"\n  },\n  when: ({ auth }) => auth?.authenticated === true\n});\n",
+          "\naddPlacement({\n  id: \"users.home.tools.widget\",\n  target: \"shell-layout:top-right\",\n  surfaces: [\"home\"],\n  order: 900,\n  componentToken: \"users.web.home.tools.widget\",\n  when: ({ auth }) => auth?.authenticated === true\n});\n\naddPlacement({\n  id: \"users.home.menu.settings\",\n  target: \"home-cog:primary-menu\",\n  surfaces: [\"home\"],\n  order: 100,\n  componentToken: \"local.main.ui.surface-aware-menu-link-item\",\n  props: {\n    label: \"Settings\",\n    surface: \"home\",\n    scopedSuffix: \"/settings\",\n    unscopedSuffix: \"/settings\"\n  },\n  when: ({ auth }) => auth?.authenticated === true\n});\n",
         reason: "Append users-web home tools widget and settings menu placements into app-owned placement registry.",
         category: "users-web",
         id: "users-web-home-tools-placement"

@@ -71,21 +71,21 @@ function expectTextMutation(id, { reason = "", category = "", skipIfContains = "
   }
 }
 
-test("users-web home tools widget exposes home-tools outlet", async () => {
+test("users-web home tools widget exposes home-cog outlet", async () => {
   const source = await readFile(path.join(PACKAGE_DIR, "src", "client", "components", "UsersHomeToolsWidget.vue"), "utf8");
 
-  assert.match(source, /import \{ HOME_TOOLS_OUTLET \} from "\.\.\/\.\.\/shared\/toolsOutletContracts\.js";/);
+  assert.match(source, /import \{ HOME_COG_OUTLET \} from "\.\.\/\.\.\/shared\/toolsOutletContracts\.js";/);
   assert.match(source, /<ShellOutletMenuWidget/);
-  assert.match(source, /:target="HOME_TOOLS_OUTLET\.target"/);
-  assert.match(source, /:default-link-component-token="HOME_TOOLS_OUTLET\.defaultLinkComponentToken"/);
+  assert.match(source, /:target="HOME_COG_OUTLET\.target"/);
+  assert.match(source, /:default-link-component-token="HOME_COG_OUTLET\.defaultLinkComponentToken"/);
 });
 
-test("users-web descriptor metadata advertises home tools outlet and standard home settings placements", () => {
+test("users-web descriptor metadata advertises home cog outlet and standard home settings placements", () => {
   assert.deepEqual(
-    readOutlets("home-tools:primary-menu"),
+    readOutlets("home-cog:primary-menu"),
     [
       {
-        target: "home-tools:primary-menu",
+        target: "home-cog:primary-menu",
         defaultLinkComponentToken: "local.main.ui.surface-aware-menu-link-item",
         surfaces: ["home"],
         source: "src/client/components/UsersHomeToolsWidget.vue"
@@ -122,7 +122,7 @@ test("users-web descriptor metadata advertises home tools outlet and standard ho
   });
 
   expectContribution("users.home.menu.settings", {
-    target: "home-tools:primary-menu",
+    target: "home-cog:primary-menu",
     surfaces: ["home"],
     order: 100,
     componentToken: "local.main.ui.surface-aware-menu-link-item",
@@ -139,7 +139,7 @@ test("users-web descriptor metadata advertises home tools outlet and standard ho
       'id: "users.home.tools.widget"',
       'componentToken: "users.web.home.tools.widget"',
       'id: "users.home.menu.settings"',
-      'target: "home-tools:primary-menu"',
+      'target: "home-cog:primary-menu"',
       'componentToken: "local.main.ui.surface-aware-menu-link-item"',
       'scopedSuffix: "/settings"',
       'unscopedSuffix: "/settings"'

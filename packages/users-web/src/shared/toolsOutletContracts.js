@@ -1,12 +1,12 @@
-const DEFAULT_TOOLS_LINK_COMPONENT_TOKEN = "local.main.ui.surface-aware-menu-link-item";
+const DEFAULT_COG_LINK_COMPONENT_TOKEN = "local.main.ui.surface-aware-menu-link-item";
 
-const HOME_TOOLS_OUTLET = Object.freeze({
-  target: "home-tools:primary-menu",
-  defaultLinkComponentToken: DEFAULT_TOOLS_LINK_COMPONENT_TOKEN,
-  ariaLabel: "Home tools"
+const HOME_COG_OUTLET = Object.freeze({
+  target: "home-cog:primary-menu",
+  defaultLinkComponentToken: DEFAULT_COG_LINK_COMPONENT_TOKEN,
+  ariaLabel: "Home cog"
 });
 
 export {
-  DEFAULT_TOOLS_LINK_COMPONENT_TOKEN,
-  HOME_TOOLS_OUTLET
+  DEFAULT_COG_LINK_COMPONENT_TOKEN,
+  HOME_COG_OUTLET
 };

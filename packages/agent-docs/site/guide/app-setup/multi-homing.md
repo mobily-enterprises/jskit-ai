@@ -673,7 +673,7 @@ addPlacement({
 
 addPlacement({
   id: "workspaces.workspace.menu.workspace-settings",
-  target: "workspace-tools:primary-menu",
+  target: "admin-cog:primary-menu",
   surfaces: ["admin"],
   order: 100,
   componentToken: "workspaces.web.workspace-settings.menu-item"
@@ -681,7 +681,7 @@ addPlacement({
 
 addPlacement({
   id: "workspaces.workspace.menu.members",
-  target: "workspace-tools:primary-menu",
+  target: "admin-cog:primary-menu",
   surfaces: ["admin"],
   order: 200,
   componentToken: "workspaces.web.workspace-members.menu-item"

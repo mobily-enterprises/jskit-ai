@@ -166,7 +166,7 @@ test("buildUiPageTemplateContext supports explicit package outlet link placement
       placements: {
         outlets: [
           {
-            target: "workspace-tools:primary-menu",
+            target: "admin-cog:primary-menu",
             defaultLinkComponentToken: "local.main.ui.surface-aware-menu-link-item",
             source: "src/client/components/UsersWorkspaceToolsWidget.vue"
           }
@@ -182,10 +182,10 @@ test("buildUiPageTemplateContext supports explicit package outlet link placement
       appRoot,
       targetFile: "admin/reports/index.vue",
       options: {
-        "link-placement": "workspace-tools:primary-menu"
+        "link-placement": "admin-cog:primary-menu"
       }
     });
-    assert.equal(context.__JSKIT_UI_LINK_PLACEMENT_TARGET__, "workspace-tools:primary-menu");
+    assert.equal(context.__JSKIT_UI_LINK_PLACEMENT_TARGET__, "admin-cog:primary-menu");
   });
 });
 
