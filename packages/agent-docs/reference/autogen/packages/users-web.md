@@ -16,8 +16,7 @@ Use this on demand; do not load the full index at startup.
 
 ### `src/client/account-settings/sections.js`
 Exports
-- `ACCOUNT_SETTINGS_SECTIONS_INJECTION_KEY`
-- `ACCOUNT_SETTINGS_SECTION_REGISTRY_TAG`
+- `ACCOUNT_SETTINGS_SECTION_TARGET`
 - `EMPTY_ACCOUNT_SETTINGS_SECTIONS`
 - `RESERVED_ACCOUNT_SETTINGS_SECTION_VALUES`
 - `normalizeAccountSettingsSectionEntry(entry = null)`
@@ -171,7 +170,7 @@ Exports
 
 ### `src/client/composables/records/useView.js`
 Exports
-- `useView({ ownershipFilter = ROUTE_VISIBILITY_WORKSPACE, surfaceId = "", access = "auto", apiSuffix = "", queryKeyFactory = null, viewPermissions = [], readMethod = "GET", readEnabled = true, placementSource = "users-web.view", fallbackLoadError = "Unable to load resource.", notFoundStatuses = [404], notFoundMessage = "Record not found.", model, mapLoadedToModel, recordIdParam = "recordId", routeParams = null, routeRecordId = null, apiUrlTemplate = "", listUrlTemplate = "", editUrlTemplate = "", includeRecordIdInQueryKey = false, realtime = null, adapter = null } = {})`
+- `useView({ ownershipFilter = ROUTE_VISIBILITY_WORKSPACE, surfaceId = "", access = "auto", apiSuffix = "", queryKeyFactory = null, viewPermissions = [], readMethod = "GET", readEnabled = true, placementSource = "users-web.view", fallbackLoadError = "Unable to load resource.", notFoundStatuses = [404], notFoundMessage = "Record not found.", model, mapLoadedToModel, requestQueryParams = null, recordIdParam = "recordId", routeParams = null, routeRecordId = null, apiUrlTemplate = "", listUrlTemplate = "", editUrlTemplate = "", includeRecordIdInQueryKey = false, realtime = null, adapter = null } = {})`
 
 ### `src/client/composables/runtime/addEditUiRuntime.js`
 Exports
@@ -297,6 +296,10 @@ Local functions
 Exports
 - `resolveEnabledRef(value)`
 - `resolveTextRef(value)`
+
+### `src/client/composables/support/requestQueryPathSupport.js`
+Exports
+- `appendRequestQueryEntriesToPath(path = "", entries = [])`
 
 ### `src/client/composables/support/resourceLoadStateHelpers.js`
 Exports
@@ -456,10 +459,6 @@ Exports
 Local functions
 - `resolveSystemThemeName({ prefersDark } = {})`
 - `resolveThemePreferenceStorage(options = {})`
-
-### `src/client/providers/bootUsersWebClientProvider.js`
-Exports
-- `bootUsersWebClientProvider(app)`
 
 ### `src/client/providers/UsersWebClientProvider.js`
 Exports

@@ -42,9 +42,9 @@ test("shell-web home settings template exposes surface-derived settings outlets"
 test("shell-web settings landing page redirects to the starter child page", async () => {
   const source = await readFile(path.join(PACKAGE_DIR, "templates", "src", "pages", "home", "settings", "index.vue"), "utf8");
 
+  assert.match(source, /@jskit-ai\/kernel\/client\/pageRedirects/);
   assert.match(source, /definePage/);
-  assert.match(source, /redirect:/);
-  assert.match(source, /\/general/);
+  assert.match(source, /redirectToChild\("general"\)/);
 });
 
 test("shell-web settings general child page exposes a tiny browser-local drawer preference", async () => {

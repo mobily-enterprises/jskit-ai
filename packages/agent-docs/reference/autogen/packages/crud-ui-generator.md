@@ -32,6 +32,12 @@ Local functions
 - `parseDisplayFieldsOption(options)`
 - `validateDisplayFieldsForOperation(selectedFieldKeys, fields, operationName)`
 - `filterDisplayFields(selectedFieldKeys, fields)`
+- `rewriteGeneratedBlockIndent(source = "", { trimPrefix = "", addPrefix = "" } = {})`
+- `hasLookupFormFields(fields = [])`
+- `buildLookupImportLine(fields = [])`
+- `buildLookupRuntimeSetup(fields = [], { formFieldsVariable = "", resourceNamespace = "", mode = "" } = {})`
+- `buildLookupFormProps(fields = [])`
+- `buildLookupFormPropDefinitions({ createFields = [], editFields = [] } = {})`
 - `filterDefaultHiddenListFields(selectedFieldKeys, fields, { recordIdFieldKey = "" } = {})`
 - `ensureFields(fields, fallbackFields = createFieldDefinitions({}))`
 - `resolveViewTitleFallbackFieldKey(fields = [])`
@@ -88,6 +94,7 @@ Local functions
 - `toOptionalAccessorExpression(baseName, fieldKey)`
 - `escapeHtml(value)`
 - `serializeTemplateBindingValue(value)`
+- `renderTemplateJsStringLiteral(value)`
 - `isLookupField(field = {})`
 - `toLookupDisplayFieldDescriptor(field = {})`
 - `toLookupDisplayFieldExpression(field = {})`
@@ -117,6 +124,7 @@ Local functions
 Exports
 - None
 Local functions
+- `resolveFieldErrors(fieldKey)`
 - `resolveCancelTo(target)`
 
 ### `templates/src/pages/admin/ui-generator/AddEditFormFields.js`
@@ -127,6 +135,8 @@ Exports
 ### `templates/src/pages/admin/ui-generator/EditElement.vue`
 Exports
 - None
+Local functions
+- `resolveFieldErrors(fieldKey)`
 
 ### `templates/src/pages/admin/ui-generator/EditWrapperElement.vue`
 Exports
@@ -139,6 +149,8 @@ Exports
 ### `templates/src/pages/admin/ui-generator/NewElement.vue`
 Exports
 - None
+Local functions
+- `resolveFieldErrors(fieldKey)`
 
 ### `templates/src/pages/admin/ui-generator/NewWrapperElement.vue`
 Exports

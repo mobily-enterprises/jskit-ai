@@ -1,5 +1,7 @@
 <script setup>
+import { redirectToChild } from "@jskit-ai/kernel/client/pageRedirects";
+
 definePage({
-  redirect: (to) => `${String(to.path || "").replace(/\/$/, "")}/general`
+  redirect: redirectToChild("general")
 });
 </script>

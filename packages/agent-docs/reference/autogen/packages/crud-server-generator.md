@@ -45,11 +45,19 @@ Local functions
 - `resolveKnexFactory(moduleNamespace)`
 - `resolveMysqlSnapshotFromDatabase({ appRoot, tableName, idColumn } = {})`
 - `resolveColumnKey(column, idColumn)`
+- `normalizeNumericBoundValue(value, scale = null)`
+- `resolveNumericExclusiveStep(column)`
+- `applyLowerBound(current = null, candidate = null)`
+- `applyUpperBound(current = null, candidate = null)`
+- `applyNumericConstraintBound(target = {}, column = null, operator = "", rawValue = null)`
+- `resolveColumnNumericBounds(snapshot = {})`
 - `isIdentifier(value)`
 - `renderObjectPropertyKey(value)`
 - `renderIntegerSchema(column)`
 - `renderStringSchema(column, { forOutput = false } = {})`
-- `renderResourceValidatorsImport({ needsHtmlTimeSchemas = false, needsRecordIdSchemas = false } = {})`
+- `renderResourceValidatorsImport({ htmlTimeSchemaImports = [], recordIdValidatorImports = [] } = {})`
+- `resolveHtmlTimeSchemaImports(columns = [])`
+- `resolveRecordIdValidatorImports(...sources)`
 - `renderResourceSchemaPropertyLines(columns, { forOutput = false } = {})`
 - `renderResourceInputNormalizationLines(columns)`
 - `renderResourceOutputNormalizationLines(columns)`

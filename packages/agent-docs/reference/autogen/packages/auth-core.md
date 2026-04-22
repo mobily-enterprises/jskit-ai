@@ -35,6 +35,24 @@ Exports
 Exports
 - `runAuthSignOutFlow`
 
+### `src/server/authPolicyContextResolverRegistry.js`
+Exports
+- `AUTH_POLICY_CONTEXT_RESOLVER_TAG`
+- `registerAuthPolicyContextResolver(app, token, factory)`
+- `resolveAuthPolicyContextResolvers(scope)`
+- `mergeAuthPolicyContexts(contexts = [])`
+- `composeAuthPolicyContextResolvers(resolvers = [])`
+Local functions
+- `normalizeAuthPolicyContextResolver(entry)`
+
+### `src/server/authServiceDecoratorRegistry.js`
+Exports
+- `AUTH_SERVICE_DECORATOR_TAG`
+- `registerAuthServiceDecorator(app, token, factory)`
+- `resolveAuthServiceDecorators(scope)`
+Local functions
+- `normalizeAuthServiceDecorator(entry)`
+
 ### `src/server/inviteTokens.js`
 Exports
 - `OPAQUE_INVITE_TOKEN_HASH_PREFIX`

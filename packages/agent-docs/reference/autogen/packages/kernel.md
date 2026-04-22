@@ -600,6 +600,12 @@ Local functions
 - `normalizeClientModuleEntries(clientModules)`
 - `createClientRuntimeApp({ profile = "client", app, pinia = null, router, env, logger, surfaceRuntime, surfaceMode } = {})`
 
+### `client/pageRedirects.js`
+Exports
+- `redirectToChild(childTarget = "")`
+Local functions
+- `queryStringToObject(queryString = "")`
+
 ### `client/shellBootstrap.js`
 Exports
 - `resolveClientBootstrapDebugEnabled({ env = {}, debugEnabled = undefined, debugEnvKey = "VITE_JSKIT_CLIENT_DEBUG" } = {})`

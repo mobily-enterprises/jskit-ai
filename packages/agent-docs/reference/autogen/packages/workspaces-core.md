@@ -55,19 +55,47 @@ Exports
 ### `src/server/common/repositories/workspaceInvitesRepository.js`
 Exports
 - `createRepository(knex)`
-- `mapRow(row)`
+- `normalizeInviteRecord(payload)`
+- `normalizeInviteWithWorkspace(payload = {})`
+Local functions
+- `normalizeInvitePatchPayload(payload = {})`
 
 ### `src/server/common/repositories/workspaceMembershipsRepository.js`
 Exports
 - `createRepository(knex)`
-- `mapRow(row)`
-- `mapMemberSummaryRow(row)`
+- `normalizeMembershipRecord(payload)`
+- `normalizeMemberSummaryRow(row)`
+Local functions
+- `normalizeMembershipPatchPayload(payload = {})`
 
 ### `src/server/common/repositories/workspacesRepository.js`
 Exports
 - `createRepository(knex)`
-- `mapRow(row)`
-- `mapMembershipWorkspaceRow(row)`
+- `normalizeWorkspaceRecord(payload)`
+- `normalizeMembershipWorkspaceRow(row)`
+Local functions
+- `normalizeCreatePayload(payload = {})`
+
+### `src/server/common/resources/workspaceInvitesResource.js`
+Exports
+- `workspaceInvitesResource`
+Local functions
+- `normalizeInviteRecord(payload = {})`
+- `normalizeInviteInput(payload = {})`
+
+### `src/server/common/resources/workspaceMembershipsResource.js`
+Exports
+- `workspaceMembershipsResource`
+Local functions
+- `normalizeMembershipRecord(payload = {})`
+- `normalizeMembershipInput(payload = {})`
+
+### `src/server/common/resources/workspacesResource.js`
+Exports
+- `workspacesResource`
+Local functions
+- `normalizeWorkspaceRecord(payload = {})`
+- `normalizeWorkspaceInput(payload = {})`
 
 ### `src/server/common/services/workspaceContextService.js`
 Exports
@@ -160,7 +188,7 @@ Exports
 
 ### `src/server/workspaceBootstrapContributor.js`
 Exports
-- `createWorkspaceBootstrapContributor({ workspaceService, workspacePendingInvitationsService, usersRepository, workspaceInvitationsEnabled = false, appConfig = {}, tenancyProfile = null } = {})`
+- `createWorkspaceBootstrapContributor({ workspaceService, workspacePendingInvitationsService, userProfilesRepository, workspaceInvitationsEnabled = false, appConfig = {}, tenancyProfile = null } = {})`
 Local functions
 - `normalizePendingInvites(invites)`
 - `normalizeQueryPayload(value = {})`

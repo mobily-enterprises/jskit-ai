@@ -18,6 +18,8 @@ How to use it:
   - `child-cruds.md`
 - CRUD links, record placeholders, `paths.page()`, `resolveViewUrl`, `resolveEditUrl`, `resolveParams`
   - `crud-links.md`
+- `definePage`, redirect, child redirect, settings landing, `redirectToChild`
+  - `page-redirects.md`
 - live actions, checkbox, toggle, patch button, inline action, `useCommand()`
   - `live-actions.md`
 - ajax, fetch, API call, request, endpoint, HTTP client, `useList()`, `useView()`, `useAddEdit()`, `useEndpointResource()`, `usersWebHttpClient`
@@ -35,6 +37,7 @@ How to use it:
 - [surfaces.md](./surfaces.md)
 - [child-cruds.md](./child-cruds.md)
 - [crud-links.md](./crud-links.md)
+- [page-redirects.md](./page-redirects.md)
 - [live-actions.md](./live-actions.md)
 - [client-requests.md](./client-requests.md)
 - [ui-testing.md](./ui-testing.md)

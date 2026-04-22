@@ -72,6 +72,12 @@ export default Object.freeze({
             defaultLinkComponentToken: "local.main.ui.surface-aware-menu-link-item",
             surfaces: ["admin"],
             source: "templates/src/pages/admin/workspace/settings.vue"
+          },
+          {
+            target: "workspace-tools:primary-menu",
+            defaultLinkComponentToken: "local.main.ui.surface-aware-menu-link-item",
+            surfaces: ["admin"],
+            source: "src/client/components/UsersWorkspaceToolsWidget.vue"
           }
         ],
         contributions: [
