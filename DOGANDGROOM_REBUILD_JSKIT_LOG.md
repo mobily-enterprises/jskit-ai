@@ -79,3 +79,25 @@ The goal is to give the maintainer a clean review trail separate from app-local 
   - `packages/crud-server-generator/test/buildTemplateContext.test.js`
 - Verification:
   - `npm test --workspace @jskit-ai/crud-server-generator`
+
+## 2026-04-22
+
+### `useView()` dropped request query params for lookup-heavy view pages
+
+- Problem:
+  - while finishing the `pets` stage in `dogandgroom2`, the rebuilt `contacts` view needed `include=vetId,linkedUserId,pets,pets.breedId`
+  - the old source app expressed that include string by embedding `?include=...` in `apiUrlTemplate`
+  - on latest JSKIT, `useCrudView()` / `useView()` normalized the API path as a pathname, so embedded query strings were silently stripped and the view never hydrated pets
+- Root cause:
+  - `useList()` already supports `requestQueryParams`, but `useView()` had no equivalent
+  - `useScopeRuntime.resolveApiPath()` intentionally produces pathnames, so the old “put query in the URL template” trick is not a supported contract anymore
+- Fix:
+  - add `requestQueryParams` support to `useView()`
+  - reuse the existing query-param descriptor/token helpers so request params affect both the actual request path and the query key
+  - keep the request-path appending logic in a pure support helper with direct unit coverage
+- Files:
+  - `packages/users-web/src/client/composables/records/useView.js`
+  - `packages/users-web/src/client/composables/support/requestQueryPathSupport.js`
+  - `packages/users-web/test/useViewRequestQueryParams.test.js`
+- Verification:
+  - `npm test --workspace @jskit-ai/users-web`

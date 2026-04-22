@@ -6,6 +6,12 @@ import { useEndpointResource } from "../runtime/useEndpointResource.js";
 import { resolveOperationAdapter } from "../runtime/operationAdapters.js";
 import { setupOperationErrorReporting } from "../runtime/operationUiHelpers.js";
 import { createViewUiRuntime } from "../runtime/viewUiRuntime.js";
+import {
+  resolveQueryParamDescriptors,
+  resolveActiveQueryParamEntries,
+  buildQueryParamEntriesToken
+} from "../support/listQueryParamSupport.js";
+import { appendRequestQueryEntriesToPath } from "../support/requestQueryPathSupport.js";
 import { resolveRouteParamNamesInOrder } from "../support/routeTemplateHelpers.js";
 
 function useView({
@@ -23,6 +29,7 @@ function useView({
   notFoundMessage = "Record not found.",
   model,
   mapLoadedToModel,
+  requestQueryParams = null,
   recordIdParam = "recordId",
   routeParams = null,
   routeRecordId = null,
@@ -62,20 +69,46 @@ function useView({
     },
     realtime
   });
+  const queryParamsContext = computed(() => {
+    return Object.freeze({
+      surfaceId: operationScope.routeContext.currentSurfaceId.value,
+      scopeParamValue: operationScope.scopeParamValue.value,
+      ownershipFilter: operationScope.normalizedOwnershipFilter
+    });
+  });
+  const requestQueryParamDescriptors = computed(() => {
+    return resolveQueryParamDescriptors(requestQueryParams, queryParamsContext.value);
+  });
+  const activeRequestQueryParamEntries = computed(() => {
+    return resolveActiveQueryParamEntries(requestQueryParamDescriptors.value);
+  });
+  const activeRequestQueryParamsToken = computed(() => {
+    return buildQueryParamEntriesToken(activeRequestQueryParamEntries.value);
+  });
   const queryKey = computed(() => {
     const source = Array.isArray(operationScope.queryKey.value) ? operationScope.queryKey.value : [];
+    const next = [...source];
+    if (activeRequestQueryParamsToken.value) {
+      next.push("__request_query__", activeRequestQueryParamsToken.value);
+    }
     if (!includeRecordIdInQueryKey) {
-      return source;
+      return next;
     }
 
     const recordIdToken = String(viewUiRuntime.recordId.value || "").trim();
-    return [...source, recordIdToken];
+    return [...next, recordIdToken];
+  });
+  const requestPath = computed(() => {
+    return appendRequestQueryEntriesToPath(
+      operationScope.apiPath.value,
+      activeRequestQueryParamEntries.value
+    );
   });
   const canView = operationScope.permissionGate("view");
 
   const resource = useEndpointResource({
     queryKey,
-    path: operationScope.apiPath,
+    path: requestPath,
     enabled: operationScope.queryCanRun(canView),
     readMethod,
     fallbackLoadError
