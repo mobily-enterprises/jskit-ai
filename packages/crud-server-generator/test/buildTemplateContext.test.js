@@ -808,13 +808,35 @@ test("resolveScaffoldColumns derives resource numeric bounds from check constrai
     enumValues: Object.freeze([])
   });
 
+  const severityColumn = Object.freeze({
+    name: "severity",
+    key: "severity",
+    dataType: "tinyint",
+    columnType: "tinyint unsigned",
+    typeKind: "integer",
+    nullable: true,
+    hasDefault: false,
+    defaultValue: null,
+    autoIncrement: false,
+    unsigned: true,
+    extra: "",
+    maxLength: null,
+    numericPrecision: 3,
+    numericScale: 0,
+    datetimePrecision: null,
+    characterSetName: "",
+    collationName: "",
+    enumValues: Object.freeze([])
+  });
+
   const scaffoldColumns = __testables.resolveScaffoldColumns({
     ...snapshot,
     columns: Object.freeze([
       snapshot.columns[0],
       inputWeightColumn,
       batchedDailySequenceColumn,
-      moistureLevelColumn
+      moistureLevelColumn,
+      severityColumn
     ]),
     checkConstraints: Object.freeze([
       Object.freeze({
@@ -828,6 +850,10 @@ test("resolveScaffoldColumns derives resource numeric bounds from check constrai
       Object.freeze({
         name: "chk_batches_moisture_level",
         clause: "`moisture_level` is null or `moisture_level` >= 0 and `moisture_level` <= 100"
+      }),
+      Object.freeze({
+        name: "chk_pet_notes_severity",
+        clause: "`severity` is null or `severity` between 1 and 10"
       })
     ])
   });
@@ -835,6 +861,7 @@ test("resolveScaffoldColumns derives resource numeric bounds from check constrai
   const inputWeight = scaffoldColumns.find((column) => column.name === "input_weight");
   const batchedDailySequence = scaffoldColumns.find((column) => column.name === "batched_daily_sequence");
   const moistureLevel = scaffoldColumns.find((column) => column.name === "moisture_level");
+  const severity = scaffoldColumns.find((column) => column.name === "severity");
 
   assert.equal(
     __testables.renderResourceFieldSchema(inputWeight),
@@ -847,6 +874,10 @@ test("resolveScaffoldColumns derives resource numeric bounds from check constrai
   assert.equal(
     __testables.renderResourceFieldSchema(moistureLevel),
     "Type.Union([Type.Number({ minimum: 0, maximum: 100 }), Type.Null()])"
+  );
+  assert.equal(
+    __testables.renderResourceFieldSchema(severity),
+    "Type.Union([Type.Integer({ minimum: 1, maximum: 10 }), Type.Null()])"
   );
 });
 

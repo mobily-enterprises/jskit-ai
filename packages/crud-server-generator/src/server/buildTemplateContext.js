@@ -392,6 +392,7 @@ function resolveColumnKey(column, idColumn) {
 }
 
 const NUMERIC_CHECK_CONSTRAINT_PATTERN = /(?:`([^`]+)`|([A-Za-z_][A-Za-z0-9_]*))\s*(>=|>|<=|<)\s*(-?\d+(?:\.\d+)?)/g;
+const NUMERIC_CHECK_CONSTRAINT_BETWEEN_PATTERN = /(?:`([^`]+)`|([A-Za-z_][A-Za-z0-9_]*))\s+between\s+(-?\d+(?:\.\d+)?)\s+and\s+(-?\d+(?:\.\d+)?)/gi;
 
 function normalizeNumericBoundValue(value, scale = null) {
   const parsed = Number(value);
@@ -452,6 +453,83 @@ function applyUpperBound(current = null, candidate = null) {
   return current;
 }
 
+function applyNumericConstraintBound(target = {}, column = null, operator = "", rawValue = null) {
+  if (!column || !Number.isFinite(rawValue)) {
+    return;
+  }
+
+  if (operator === ">=" || operator === ">") {
+    let candidate = null;
+    if (operator === ">=") {
+      candidate = {
+        value: normalizeNumericBoundValue(rawValue, column.numericScale),
+        exclusive: false
+      };
+    } else {
+      const exclusiveStep = resolveNumericExclusiveStep(column);
+      if (exclusiveStep != null) {
+        candidate = {
+          value: normalizeNumericBoundValue(rawValue + exclusiveStep, column.numericScale),
+          exclusive: false
+        };
+      } else {
+        candidate = {
+          value: normalizeNumericBoundValue(rawValue, column.numericScale),
+          exclusive: true
+        };
+      }
+    }
+
+    const nextBound = applyLowerBound(
+      target.minimum != null || target.exclusiveMinimum != null
+        ? {
+            value: target.minimum ?? target.exclusiveMinimum,
+            exclusive: target.exclusiveMinimum != null
+          }
+        : null,
+      candidate
+    );
+    target.minimum = nextBound?.exclusive === true ? null : nextBound?.value ?? null;
+    target.exclusiveMinimum = nextBound?.exclusive === true ? nextBound?.value ?? null : null;
+    return;
+  }
+
+  if (operator === "<=" || operator === "<") {
+    let candidate = null;
+    if (operator === "<=") {
+      candidate = {
+        value: normalizeNumericBoundValue(rawValue, column.numericScale),
+        exclusive: false
+      };
+    } else {
+      const exclusiveStep = resolveNumericExclusiveStep(column);
+      if (exclusiveStep != null) {
+        candidate = {
+          value: normalizeNumericBoundValue(rawValue - exclusiveStep, column.numericScale),
+          exclusive: false
+        };
+      } else {
+        candidate = {
+          value: normalizeNumericBoundValue(rawValue, column.numericScale),
+          exclusive: true
+        };
+      }
+    }
+
+    const nextBound = applyUpperBound(
+      target.maximum != null || target.exclusiveMaximum != null
+        ? {
+            value: target.maximum ?? target.exclusiveMaximum,
+            exclusive: target.exclusiveMaximum != null
+          }
+        : null,
+      candidate
+    );
+    target.maximum = nextBound?.exclusive === true ? null : nextBound?.value ?? null;
+    target.exclusiveMaximum = nextBound?.exclusive === true ? nextBound?.value ?? null : null;
+  }
+}
+
 function resolveColumnNumericBounds(snapshot = {}) {
   const byColumnName = new Map();
   const columns = Array.isArray(snapshot.columns) ? snapshot.columns : [];
@@ -487,6 +565,22 @@ function resolveColumnNumericBounds(snapshot = {}) {
       continue;
     }
 
+    let betweenMatch = null;
+    while ((betweenMatch = NUMERIC_CHECK_CONSTRAINT_BETWEEN_PATTERN.exec(clause)) != null) {
+      const columnName = String(betweenMatch[1] || betweenMatch[2] || "");
+      const lowerValue = Number(betweenMatch[3]);
+      const upperValue = Number(betweenMatch[4]);
+      const column = numericColumnsByName.get(columnName) || null;
+      if (!column || !Number.isFinite(lowerValue) || !Number.isFinite(upperValue)) {
+        continue;
+      }
+
+      const target = getColumnBounds(columnName);
+      applyNumericConstraintBound(target, column, ">=", lowerValue);
+      applyNumericConstraintBound(target, column, "<=", upperValue);
+    }
+    NUMERIC_CHECK_CONSTRAINT_BETWEEN_PATTERN.lastIndex = 0;
+
     let match = null;
     while ((match = NUMERIC_CHECK_CONSTRAINT_PATTERN.exec(clause)) != null) {
       const columnName = String(match[1] || match[2] || "");
@@ -498,76 +592,7 @@ function resolveColumnNumericBounds(snapshot = {}) {
       }
 
       const target = getColumnBounds(columnName);
-      if (operator === ">=" || operator === ">") {
-        let candidate = null;
-        if (operator === ">=") {
-          candidate = {
-            value: normalizeNumericBoundValue(rawValue, column.numericScale),
-            exclusive: false
-          };
-        } else {
-          const exclusiveStep = resolveNumericExclusiveStep(column);
-          if (exclusiveStep != null) {
-            candidate = {
-              value: normalizeNumericBoundValue(rawValue + exclusiveStep, column.numericScale),
-              exclusive: false
-            };
-          } else {
-            candidate = {
-              value: normalizeNumericBoundValue(rawValue, column.numericScale),
-              exclusive: true
-            };
-          }
-        }
-
-        const nextBound = applyLowerBound(
-          target.minimum != null || target.exclusiveMinimum != null
-            ? {
-                value: target.minimum ?? target.exclusiveMinimum,
-                exclusive: target.exclusiveMinimum != null
-              }
-            : null,
-          candidate
-        );
-        target.minimum = nextBound?.exclusive === true ? null : nextBound?.value ?? null;
-        target.exclusiveMinimum = nextBound?.exclusive === true ? nextBound?.value ?? null : null;
-        continue;
-      }
-
-      if (operator === "<=" || operator === "<") {
-        let candidate = null;
-        if (operator === "<=") {
-          candidate = {
-            value: normalizeNumericBoundValue(rawValue, column.numericScale),
-            exclusive: false
-          };
-        } else {
-          const exclusiveStep = resolveNumericExclusiveStep(column);
-          if (exclusiveStep != null) {
-            candidate = {
-              value: normalizeNumericBoundValue(rawValue - exclusiveStep, column.numericScale),
-              exclusive: false
-            };
-          } else {
-            candidate = {
-              value: normalizeNumericBoundValue(rawValue, column.numericScale),
-              exclusive: true
-            };
-          }
-        }
-
-        const nextBound = applyUpperBound(
-          target.maximum != null || target.exclusiveMaximum != null
-            ? {
-                value: target.maximum ?? target.exclusiveMaximum,
-                exclusive: target.exclusiveMaximum != null
-              }
-            : null,
-          candidate
-        );
-        target.maximum = nextBound?.exclusive === true ? null : nextBound?.value ?? null;
-        target.exclusiveMaximum = nextBound?.exclusive === true ? nextBound?.value ?? null : null;
-      }
+      applyNumericConstraintBound(target, column, operator, rawValue);
     }
     NUMERIC_CHECK_CONSTRAINT_PATTERN.lastIndex = 0;
   }

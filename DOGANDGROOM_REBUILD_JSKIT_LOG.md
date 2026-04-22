@@ -82,6 +82,24 @@ The goal is to give the maintainer a clean review trail separate from app-local 
 
 ## 2026-04-22
 
+### CRUD numeric-bound inference skipped `BETWEEN ... AND ...` checks
+
+- Problem:
+  - the fresh `pet-notes` scaffold in `dogandgroom2` still generated `severity` as `minimum: 0`
+  - but the real table contract is `CHECK (severity is null or severity between 1 and 10)`
+- Root cause:
+  - the numeric-bound inference added during the `beepollen2` rebuild only parsed simple `>`, `>=`, `<`, `<=` comparisons
+  - it ignored `BETWEEN ... AND ...`, so unsigned integers fell back to `minimum: 0`
+- Fix:
+  - extend the CRUD generator’s numeric-check inference to parse `BETWEEN ... AND ...`
+  - keep using the same lower/upper bound merge logic so `BETWEEN` and comparison constraints compose cleanly
+  - add regression coverage for a nullable unsigned integer constrained to `1..10`
+- Files:
+  - `packages/crud-server-generator/src/server/buildTemplateContext.js`
+  - `packages/crud-server-generator/test/buildTemplateContext.test.js`
+- Verification:
+  - `npm test --workspace @jskit-ai/crud-server-generator`
+
 ### `useView()` dropped request query params for lookup-heavy view pages
 
 - Problem:
