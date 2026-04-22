@@ -20,7 +20,7 @@ Exports
 
 ### `src/server/accountNotifications/accountNotificationsService.js`
 Exports
-- `createService({ userSettingsRepository, usersRepository, authService } = {})`
+- `createService({ userSettingsRepository, userProfilesRepository, authService } = {})`
 
 ### `src/server/accountNotifications/bootAccountNotificationsRoutes.js`
 Exports
@@ -36,7 +36,7 @@ Exports
 
 ### `src/server/accountPreferences/accountPreferencesService.js`
 Exports
-- `createService({ userSettingsRepository, usersRepository, authService } = {})`
+- `createService({ userSettingsRepository, userProfilesRepository, authService } = {})`
 
 ### `src/server/accountPreferences/bootAccountPreferencesRoutes.js`
 Exports
@@ -52,11 +52,11 @@ Exports
 
 ### `src/server/accountProfile/accountProfileService.js`
 Exports
-- `createService({ userSettingsRepository, usersRepository, authService, avatarService } = {})`
+- `createService({ userSettingsRepository, userProfilesRepository, authService, avatarService } = {})`
 
 ### `src/server/accountProfile/avatarService.js`
 Exports
-- `createService({ usersRepository, avatarStorageService, avatarPolicy } = {})`
+- `createService({ userProfilesRepository, avatarStorageService, avatarPolicy } = {})`
 - `__testables`
 Local functions
 - `resolveAvatarPolicy(policy = {})`
@@ -83,7 +83,7 @@ Exports
 
 ### `src/server/accountSecurity/accountSecurityService.js`
 Exports
-- `createService({ userSettingsRepository, usersRepository, authService } = {})`
+- `createService({ userSettingsRepository, userProfilesRepository, authService } = {})`
 
 ### `src/server/accountSecurity/bootAccountSecurityRoutes.js`
 Exports
@@ -138,20 +138,12 @@ Exports
 - `toDbJson(value, fallback = {})`
 - `createWithTransaction`
 
-### `src/server/common/repositories/userSettingsRepository.js`
+### `src/server/common/repositories/userProfilesRepository.js`
 Exports
 - `createRepository(knex)`
-- `mapRow(row)`
 Local functions
-- `normalizeBoolean(value, fallback = false)`
-- `createInsertPayload(userId)`
-
-### `src/server/common/repositories/usersRepository.js`
-Exports
-- `createRepository(knex)`
-- `mapProfileRow(row)`
-- `normalizeIdentity(identityLike)`
-Local functions
+- `normalizeProfileRecord(payload)`
+- `normalizeCreatePayload(payload = {})`
 - `normalizeUsername(value)`
 - `usernameBaseFromEmail(email)`
 - `buildUsernameCandidate(baseUsername, suffix)`
@@ -160,14 +152,32 @@ Local functions
 - `createDuplicateEmailConflictError()`
 - `resolveUniqueUsername(client, baseUsername, { excludeUserId = null } = {})`
 
+### `src/server/common/repositories/userSettingsRepository.js`
+Exports
+- `createRepository(knex)`
+- `mapRow(row)`
+Local functions
+- `normalizeBoolean(value, fallback = false)`
+- `createInsertPayload(userId)`
+
+### `src/server/common/resources/userProfilesResource.js`
+Exports
+- `resource`
+Local functions
+- `normalizeUsername(value)`
+- `normalizeNullableString(value)`
+- `normalizeNullableVersion(value)`
+- `normalizeProfileRecord(payload = {})`
+- `normalizeCreatePayload(payload = {})`
+
 ### `src/server/common/services/accountContextService.js`
 Exports
-- `resolveUserProfile(usersRepository, user)`
+- `resolveUserProfile(userProfilesRepository, user)`
 - `resolveSecurityStatus(authService, request)`
 
 ### `src/server/common/services/authProfileSyncService.js`
 Exports
-- `createService({ usersRepository, lifecycleContributors = [], userSettingsRepository = null } = {})`
+- `createService({ userProfilesRepository, lifecycleContributors = [], userSettingsRepository = null } = {})`
 Local functions
 - `buildNormalizedIdentityKey(identityLike)`
 - `buildNormalizedIdentityProfile(profileLike)`
@@ -178,6 +188,10 @@ Local functions
 ### `src/server/common/support/deepFreeze.js`
 Exports
 - `deepFreeze`
+
+### `src/server/common/support/identity.js`
+Exports
+- `normalizeIdentity(identityLike)`
 
 ### `src/server/common/support/realtimeServiceEvents.js`
 Exports
@@ -213,7 +227,7 @@ Exports
 
 ### `src/server/usersBootstrapContributor.js`
 Exports
-- `createUsersBootstrapContributor({ usersRepository, userSettingsRepository, appConfig = {}, authService } = {})`
+- `createUsersBootstrapContributor({ userProfilesRepository, userSettingsRepository, appConfig = {}, authService } = {})`
 Local functions
 - `getOAuthProviderCatalogPayload(authService)`
 - `normalizeBoolean(value, fallback)`
@@ -293,6 +307,71 @@ Exports
 - None
 Local functions
 - `normalizePositiveInteger(value, fallback)`
+
+### `templates/packages/users-workspace/package.descriptor.mjs`
+Exports
+- None
+
+### `templates/packages/users-workspace/src/server/actions.js`
+Exports
+- `createActions({ surface = "" } = {})`
+Local functions
+- `requireActionSurface(surface = "")`
+
+### `templates/packages/users-workspace/src/server/registerRoutes.js`
+Exports
+- `registerRoutes(app, { routeOwnershipFilter = "public", routeSurface = "", routeSurfaceRequiresWorkspace = false, routeRelativePath = "" } = {})`
+
+### `templates/packages/users-workspace/src/server/UsersProvider.js`
+Exports
+- `UsersProvider`
+Local functions
+- `resolveCrudPolicyFromApp(app)`
+
+### `templates/packages/users/package.descriptor.mjs`
+Exports
+- None
+
+### `templates/packages/users/src/server/actionIds.js`
+Exports
+- `actionIds`
+
+### `templates/packages/users/src/server/actions.js`
+Exports
+- `createActions({ surface = "" } = {})`
+Local functions
+- `requireActionSurface(surface = "")`
+
+### `templates/packages/users/src/server/listConfig.js`
+Exports
+- `LIST_CONFIG`
+
+### `templates/packages/users/src/server/registerRoutes.js`
+Exports
+- `registerRoutes(app, { routeOwnershipFilter = "public", routeSurface = "", routeRelativePath = "" } = {})`
+
+### `templates/packages/users/src/server/repository.js`
+Exports
+- `createRepository(knex, options = {})`
+
+### `templates/packages/users/src/server/service.js`
+Exports
+- `createService({ usersRepository } = {})`
+- `serviceEvents`
+
+### `templates/packages/users/src/server/UsersProvider.js`
+Exports
+- `UsersProvider`
+Local functions
+- `resolveCrudPolicyFromApp(app)`
+
+### `templates/packages/users/src/shared/index.js`
+Exports
+- `resource`
+
+### `templates/packages/users/src/shared/userResource.js`
+Exports
+- `resource`
 
 ### root
 

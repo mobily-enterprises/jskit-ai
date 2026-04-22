@@ -8,10 +8,11 @@ import descriptor from "../package.descriptor.mjs";
 const TEST_DIRECTORY = path.dirname(fileURLToPath(import.meta.url));
 const PACKAGE_DIR = path.resolve(TEST_DIRECTORY, "..");
 
-function readSettingsOutlets() {
+function readOutlets(target = "") {
   const outlets = descriptor?.metadata?.ui?.placements?.outlets;
+  const normalizedTarget = String(target || "").trim();
   return Array.isArray(outlets)
-    ? outlets.filter((entry) => String(entry?.target || "").trim() === "admin-settings:primary-menu")
+    ? outlets.filter((entry) => String(entry?.target || "").trim() === normalizedTarget)
     : [];
 }
 
@@ -78,13 +79,24 @@ test("workspaces-web admin settings index template is a simple developer-owned s
 
 test("workspaces-web descriptor metadata advertises admin settings outlets", () => {
   assert.deepEqual(
-    readSettingsOutlets(),
+    readOutlets("admin-settings:primary-menu"),
     [
       {
         target: "admin-settings:primary-menu",
         defaultLinkComponentToken: "local.main.ui.surface-aware-menu-link-item",
         surfaces: ["admin"],
         source: "templates/src/pages/admin/workspace/settings.vue"
+      }
+    ]
+  );
+  assert.deepEqual(
+    readOutlets("workspace-tools:primary-menu"),
+    [
+      {
+        target: "workspace-tools:primary-menu",
+        defaultLinkComponentToken: "local.main.ui.surface-aware-menu-link-item",
+        surfaces: ["admin"],
+        source: "src/client/components/UsersWorkspaceToolsWidget.vue"
       }
     ]
   );

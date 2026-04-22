@@ -14,6 +14,10 @@
       "types": "./client/index.d.ts",
       "default": "./client/index.js"
     },
+    "./client/pageRedirects": {
+      "types": "./client/pageRedirects.d.ts",
+      "default": "./client/pageRedirects.js"
+    },
     "./client/moduleBootstrap": "./client/moduleBootstrap.js",
     "./client/vite": "./client/vite/index.js",
     "./server/actions": "./server/actions/index.js",

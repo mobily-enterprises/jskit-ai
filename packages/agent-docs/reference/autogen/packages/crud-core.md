@@ -68,10 +68,6 @@ Exports
 - `createCrudClientSupport`
 - `useCrudRealtimeInvalidation`
 
-### `src/server/createCrudRepositoryFromResource.js`
-Exports
-- `createCrudRepositoryFromResource(resource = {}, { context = "crudRepository", list = {}, virtualFields = {} } = {})`
-
 ### `src/server/createCrudServiceFromResource.js`
 Exports
 - `createCrudServiceFromResource(resource = {}, { context = "crudService" } = {})`
@@ -205,52 +201,6 @@ Exports
 Local functions
 - `normalizeLookupOwnershipFilter(value, { context = "crudLookup ownershipFilter" } = {})`
 
-### `src/server/repositoryMethods.js`
-Exports
-- `createCrudResourceRuntime(resource = {}, { context = "crudRepository", list = {}, virtualFields = {} } = {})`
-- `crudRepositoryList(runtime, knex, query = {}, repositoryOptions = {}, callOptions = {}, hooks = null)`
-- `crudRepositoryFindById(runtime, knex, recordId, repositoryOptions = {}, callOptions = {}, hooks = null)`
-- `crudRepositoryListByIds(runtime, knex, ids = [], repositoryOptions = {}, callOptions = {}, hooks = null)`
-- `crudRepositoryListByForeignIds(runtime, knex, ids = [], foreignKey = "", repositoryOptions = {}, callOptions = {}, hooks = null)`
-- `crudRepositoryCreate(runtime, knex, payload = {}, repositoryOptions = {}, callOptions = {}, hooks = null)`
-- `crudRepositoryUpdateById(runtime, knex, recordId, patch = {}, repositoryOptions = {}, callOptions = {}, hooks = null)`
-- `crudRepositoryDeleteById(runtime, knex, recordId, repositoryOptions = {}, callOptions = {}, hooks = null)`
-Local functions
-- `requireCrudRecordId(value, { context = "crudRepository" } = {})`
-- `resolveRepositoryDefaults(resource = {}, repositoryMapping = {})`
-- `normalizeCrudVirtualFieldHandlers(virtualFields = {}, repositoryMapping = {}, { context = "crudRepository" } = {})`
-- `applyCrudRepositoryVirtualProjections(dbQuery, runtime = {}, { knex, tableName } = {})`
-- `normalizeSearchColumns(searchColumns = [], fallbackColumns = [])`
-- `normalizeListOrderDirection(value = LIST_ORDER_DIRECTION_ASC)`
-- `normalizeListOrderNulls(value = LIST_ORDER_NULLS_LAST)`
-- `normalizeListOrderBy(orderBy = [], { idColumn = "id" } = {})`
-- `resolveListRuntimeConfig(list = {}, fallbackSearchColumns = [], { idColumn = "id" } = {})`
-- `encodeOrderedListCursorValue(value = null)`
-- `decodeOrderedListCursorValue(value = null)`
-- `encodeOrderedListCursor(row = null, orderBy = [])`
-- `decodeOrderedListCursor(cursor = "", orderBy = [])`
-- `applyOrderedListCursorEquality(query, descriptor = {}, value = null)`
-- `applyOrderedListCursorAfterBranch(query, descriptor = {}, value = null)`
-- `canApplyOrderedListCursorAfterBranch(descriptor = {}, value = null)`
-- `appendOrderedListCursorBranches(query, orderBy = [], cursorValues = [], index = 0, { useOr = false } = {})`
-- `applyOrderedListCursorFilter(query, { orderBy = [], cursor = "" } = {})`
-- `resolveRecordOutputValidator(resource = {}, { context = "crudRepository" } = {})`
-- `formatOutputValidationError(error = {})`
-- `normalizeRepositoryOutputRecord(runtime, record = {}, { operation = "read" } = {})`
-- `resolveCrudRepositoryCall(runtime, knex, repositoryOptions = {}, callOptions = {})`
-- `normalizeCrudRepositoryHooks(hooks = null, allowedHookKeys = [], { context = "crudRepository" } = {})`
-- `resolveOptionalCrudRepositoryHook(hooks = {}, hookKey = "", { context = "crudRepository" } = {})`
-- `applyCrudRepositoryQueryHook(dbQuery, hook = null, hookContext = {}, { context = "crudRepository", hookKey = "modifyQuery" } = {})`
-- `normalizeCrudRepositoryObjectInput(value = {})`
-- `applyCrudRepositoryPayloadHook(payload = {}, hook = null, hookContext = {}, { context = "crudRepository", hookKey = "modifyPayload" } = {})`
-- `applyCrudRepositoryRecordsHook(items = [], hook = null, hookContext = {}, { context = "crudRepository", hookKey = "afterQuery" } = {})`
-- `applyCrudRepositoryRecordHook(record = null, hook = null, hookContext = {}, { context = "crudRepository", hookKey = "transformReturnedRecord" } = {})`
-- `applyCrudRepositoryOutputHook(output, hook = null, hookContext = {}, { context = "crudRepository", hookKey = "finalizeOutput", validateOutput = null } = {})`
-- `applyCrudRepositoryAfterWriteHook(meta = {}, hook = null, hookContext = {}, { context = "crudRepository", hookKey = "afterWrite" } = {})`
-- `applyOrderedListControls(dbQuery, orderBy = [])`
-- `enforceCrudRepositoryListControls(dbQuery, { idColumn = "id", limit = DEFAULT_LIST_LIMIT + 1, orderBy = [] } = {})`
-- `createCrudRepositoryHookContextBase(runtime, repositoryOptions = {}, callOptions = {})`
-
 ### `src/server/repositorySupport.js`
 Exports
 - `DEFAULT_LIST_LIMIT`
@@ -272,6 +222,81 @@ Local functions
 - `schemaIncludesStringType(schema = {})`
 - `schemaIncludesRecordIdType(schema = {})`
 
+### `src/server/resourceRuntime/index.js`
+Exports
+- `createCrudResourceRuntime(resource = {}, knex, repositoryOptions = {})`
+Local functions
+- `requireCrudRecordId(value, { context = "crudRepository" } = {})`
+- `requireCrudRepositoryOptions(value = {}, { context = "crudRepository" } = {})`
+- `resolveRepositoryDefaults(resource = {}, repositoryMapping = {}, { context = "crudRepository" } = {})`
+- `normalizeCrudVirtualFieldHandlers(virtualFields = {}, repositoryMapping = {}, { context = "crudRepository" } = {})`
+- `applyCrudRepositoryVirtualProjections(dbQuery, runtime = {}, { knex, tableName } = {})`
+- `normalizeSearchColumns(searchColumns = [], fallbackColumns = [])`
+- `normalizeListOrderDirection(value = LIST_ORDER_DIRECTION_ASC)`
+- `normalizeListOrderNulls(value = LIST_ORDER_NULLS_LAST)`
+- `normalizeListOrderBy(orderBy = [], { idColumn = "id" } = {})`
+- `resolveListRuntimeConfig(list = {}, fallbackSearchColumns = [], { idColumn = "id" } = {})`
+- `formatOutputValidationError(issue = {})`
+- `resolveRecordOutputValidator(resource = {}, { context = "crudRepository" } = {})`
+- `resolveOperationBodyValidator(resource = {}, operationKey = "", { context = "crudRepository" } = {})`
+- `extractExplicitFieldErrors(error)`
+- `normalizeRepositoryInputPayload(runtime = {}, payload = {}, { operationKey = "create", phase = "crudCreate", action = "create", recordId = null, existingRecord = null, actionContextBase = {} } = {})`
+- `normalizeRepositoryOutputRecord(runtime = {}, record = {}, { operation = "list" } = {})`
+- `encodeOrderedListCursorValue(value = null)`
+- `decodeOrderedListCursorValue(value = null)`
+- `encodeOrderedListCursor(row = null, orderBy = [])`
+- `decodeOrderedListCursor(cursor = "", orderBy = [])`
+- `applyOrderedListCursorEquality(query, descriptor = {}, value = null)`
+- `applyOrderedListCursorAfterBranch(query, descriptor = {}, value = null)`
+- `canApplyOrderedListCursorAfterBranch(descriptor = {}, value = null)`
+- `appendOrderedListCursorBranches(query, orderBy = [], cursorValues = [], index = 0, { useOr = false } = {})`
+- `applyOrderedListCursorFilter(query, { orderBy = [], cursor = "" } = {})`
+- `normalizeCrudRepositoryOperationStage(stage = null, stageLabel = "", { context = "crudRepository" } = {})`
+- `normalizeCrudRepositoryOperationConfig(config = {}, operationKey = "", { context = "crudRepository" } = {})`
+- `normalizeCrudRepositoryOperations(sourceOperations = {}, { context = "crudRepository" } = {})`
+- `applyConfiguredQueryStage(dbQuery, stage = null, stageContext = {}, { context = "crudRepository", stageKey = "applyQuery" } = {})`
+- `isCrudRepositoryQueryBuilder(value)`
+- `normalizeCrudRepositoryObjectInput(value = {})`
+- `applyConfiguredObjectStage(payload = {}, stage = null, stageContext = {}, { context = "crudRepository", stageKey = "preparePayload" } = {})`
+- `applyOrderedListControls(dbQuery, orderBy = [])`
+- `enforceCrudRepositoryListControls(dbQuery, { idColumn = "id", limit = DEFAULT_LIST_LIMIT + 1, orderBy = [] } = {})`
+- `createCrudRepositoryActionContextBase(runtime, callOptions = {})`
+- `createCompiledCrudRepositoryRuntime(resource = {}, repositoryOptions = {})`
+- `resolveCrudRepositoryCall(runtime, knex, callOptions = {})`
+- `applyCrudRepositoryReadLock(dbQuery, callOptions = {})`
+- `listRecords(runtime, knex, query = {}, callOptions = {})`
+- `findRecordById(runtime, knex, recordId, callOptions = {})`
+- `listRecordsByIds(runtime, knex, ids = [], callOptions = {})`
+- `createRecord(runtime, knex, payload = {}, callOptions = {})`
+- `updateRecordById(runtime, knex, recordId, patch = {}, callOptions = {})`
+- `deleteRecordById(runtime, knex, recordId, callOptions = {})`
+
+### `src/server/resourceRuntime/lookupHydration.js`
+Exports
+- `createCrudLookupRuntime(resource = {}, { outputKeys = [] } = {})`
+- `hydrateCrudLookupRecords(records = [], runtime = {}, { include, mode = "list", repositoryOptions = {}, callOptions = {} } = {})`
+Local functions
+- `normalizeLookupRelationEntry(entry = {}, outputKeys = new Set())`
+- `normalizeLookupDefaultInclude(value)`
+- `normalizeLookupMaxDepth(value)`
+- `resolveLookupRuntimeDefaults(resource = {})`
+- `normalizeLookupIdentifier(value)`
+- `normalizeIncludePaths(include, { defaultInclude = DEFAULT_LOOKUP_INCLUDE } = {})`
+- `resolveChildIncludeFromPaths(paths = [])`
+- `shouldHydrateByMode(entry = {}, mode = "list")`
+- `buildLookupHydrationPlan(runtime = {}, include, { mode = "list", context = "crudRepository", includeWasExplicit = false, skippedNamespaces = new Set() } = {})`
+- `resolveLookupResolver(repositoryOptions = {}, callOptions = {}, { context = "crudRepository" } = {})`
+- `resolveLookupDepthRuntime(runtime = {}, repositoryOptions = {}, callOptions = {})`
+- `buildLookupGroupKey(relation = {})`
+- `normalizeLookupRelationValues(records = [], entries = [], childIncludeByKey = {})`
+- `resolveGroupChildInclude(group = {})`
+- `normalizeLookup(provider, relation = {}, { context = "crudRepository" } = {})`
+- `resolveLookupOwnershipFilter(provider = {}, { context = "crudRepository" } = {})`
+- `resolveLookupVisibilityContext(provider = {}, relation = {}, callOptions = {}, { context = "crudRepository" } = {})`
+- `buildLookupRecordMap(records = [], valueKey = "")`
+- `buildLookupCollectionMap(records = [], foreignKey = "")`
+- `resolveLookupVisitedNamespaces(runtime = {}, callOptions = {})`
+
 ### `src/server/serviceEvents.js`
 Exports
 - `createCrudServiceEvents(resource = {}, { context = "crudService" } = {})`
@@ -286,6 +311,7 @@ Exports
 - `crudServiceDeleteRecord(runtime, repository, fieldAccess = {}, recordId, options = {})`
 Local functions
 - `requireCrudServiceRepository(runtime = {}, repository = null)`
+- `splitCrudListRepositoryCall(query = {}, options = {})`
 
 ### `src/shared/crudFieldMetaSupport.js`
 Exports

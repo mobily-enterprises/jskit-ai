@@ -181,6 +181,16 @@ In JSKIT's file-based routing, a page file can act as a layout if it renders a `
 - `src/pages/home/settings/general/index.vue` is the first real child page created by the starter shell.
 - `src/pages/home/settings/profile/index.vue` becomes `/home/settings/profile` and still renders inside the layout from `settings.vue`.
 
+JSKIT uses a small helper for that redirect instead of hand-building the child path:
+
+```js
+import { redirectToChild } from "@jskit-ai/kernel/client/pageRedirects";
+
+definePage({
+  redirect: redirectToChild("general")
+});
+```
+
 This is why the `home-settings:primary-menu` outlet from `list-placements` is such a useful clue: it tells you which page is acting as the host.
 
 Even an `index.vue` page can have children. If you want an index page to stay visible while child routes render underneath it, put those children under an `index/` directory such as `src/pages/home/settings/profile/index/details.vue`.
@@ -622,6 +632,16 @@ The starter shell now uses a real child-page structure right away:
 - `src/pages/home/settings/index.vue` is only a redirect into the first child page
 - `src/pages/home/settings/general/index.vue` is the first real settings page
 - `src/placement.js` already seeds a `General` link into `home-settings:primary-menu`
+
+When you need that landing redirect yourself, use the same helper pattern:
+
+```js
+import { redirectToChild } from "@jskit-ai/kernel/client/pageRedirects";
+
+definePage({
+  redirect: redirectToChild("general")
+});
+```
 
 That is what makes the page-generation examples in this chapter important. They are not inventing a new pattern. They are extending the exact same host-and-child-page structure that `shell-web` already uses for its own starter `General` page.
 

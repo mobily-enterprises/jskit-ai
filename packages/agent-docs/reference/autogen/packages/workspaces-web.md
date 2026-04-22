@@ -337,6 +337,10 @@ Local functions
 - `resolveReturnToHref()`
 - `countPendingInvites(entries = [])`
 
+### `templates/packages/main/src/client/components/AccountSettingsInvitesSection.vue`
+Exports
+- None
+
 ### `templates/src/components/WorkspaceNotFoundCard.vue`
 Exports
 - None

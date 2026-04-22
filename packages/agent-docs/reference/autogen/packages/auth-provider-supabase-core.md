@@ -110,13 +110,13 @@ Exports
 
 ### `src/server/lib/devAuthBootstrap.js`
 Exports
-- `assertDevAuthBootstrapConfig(config, { usersRepository = null } = {})`
-- `authenticateDevAuthRequest({ request, accessToken = "", refreshToken = "" }, { config, usersRepository = null } = {})`
+- `assertDevAuthBootstrapConfig(config, { userProfilesRepository = null } = {})`
+- `authenticateDevAuthRequest({ request, accessToken = "", refreshToken = "" }, { config, userProfilesRepository = null } = {})`
 - `createDevAuthSession(profile, config)`
 - `ensureDevAuthBootstrapAvailable(config, request)`
 - `isDevAuthToken(token)`
 - `resolveDevAuthConfig({ enabled = false, secret = "", nodeEnv = "development", jwtAudience = "authenticated", accessTtlSeconds = DEFAULT_DEV_AUTH_ACCESS_TTL_SECONDS, refreshTtlSeconds = DEFAULT_DEV_AUTH_REFRESH_TTL_SECONDS } = {})`
-- `resolveDevAuthProfile(input = {}, { usersRepository = null, validationError } = {})`
+- `resolveDevAuthProfile(input = {}, { userProfilesRepository = null, validationError } = {})`
 Local functions
 - `parseBoolean(value, fallback = false)`
 - `normalizePositiveInteger(value, fallback)`
@@ -128,7 +128,7 @@ Local functions
 - `isLocalDevAuthRequest(request)`
 - `stripDevAuthTokenPrefix(token)`
 - `buildProfileFromTokenClaims(payload)`
-- `resolveProfileFromTokenClaims(payload, { usersRepository = null } = {})`
+- `resolveProfileFromTokenClaims(payload, { userProfilesRepository = null } = {})`
 - `signDevAuthToken(kind, profile, config)`
 - `verifyDevAuthToken(token, kind, config)`
 
@@ -247,6 +247,7 @@ Local functions
 - `resolveCommonDependencies(scope)`
 - `resolveRuntimeEnv(scope)`
 - `resolveOptionalRepositories(scope)`
+- `applyAuthServiceDecorators(scope, authService)`
 
 ### root
 
