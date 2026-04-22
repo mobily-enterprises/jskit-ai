@@ -47,6 +47,25 @@ test("workspaces-web admin settings template exposes surface-derived settings ou
   assert.match(source, /<RouterView \/>/);
 });
 
+test("workspaces-web installs an app-owned account invites section wrapper", async () => {
+  const source = await readFile(
+    path.join(PACKAGE_DIR, "templates", "packages", "main", "src", "client", "components", "AccountSettingsInvitesSection.vue"),
+    "utf8"
+  );
+
+  assert.match(
+    source,
+    /@jskit-ai\/workspaces-web\/client\/components\/AccountSettingsInvitesSection/
+  );
+  assert.deepEqual(findFileMutation("users-web-main-component-account-settings-invites-section"), {
+    from: "templates/packages/main/src/client/components/AccountSettingsInvitesSection.vue",
+    to: "packages/main/src/client/components/AccountSettingsInvitesSection.vue",
+    reason: "Install app-owned account invites section scaffold for multihoming account settings.",
+    category: "workspaces-web",
+    id: "users-web-main-component-account-settings-invites-section"
+  });
+});
+
 test("workspaces-web admin settings index template is a simple developer-owned stub", async () => {
   const source = await readFile(
     path.join(PACKAGE_DIR, "templates", "src", "pages", "admin", "workspace", "settings", "index.vue"),
@@ -108,6 +127,18 @@ test("workspaces-web descriptor metadata advertises admin settings outlets", () 
     when: "auth.authenticated === true",
     source: "mutations.text#workspaces-web-placement-block"
   });
+  assert.deepEqual(findContribution("workspaces.account.settings.invites"), {
+    id: "workspaces.account.settings.invites",
+    target: "account-settings:sections",
+    surfaces: ["account"],
+    order: 400,
+    componentToken: "local.main.account-settings.section.invites",
+    when: "auth.authenticated === true && workspaceInvitesEnabled === true",
+    source: "mutations.text#workspaces-web-account-settings-placement"
+  });
+  assert.match(findTextMutation("workspaces-web-account-settings-placement")?.value || "", /id: "workspaces\.account\.settings\.invites"/);
+  assert.match(findTextMutation("workspaces-web-account-settings-placement")?.value || "", /target: "account-settings:sections"/);
+  assert.match(findTextMutation("workspaces-web-account-settings-placement")?.value || "", /componentToken: "local\.main\.account-settings\.section\.invites"/);
   assert.deepEqual(findFileMutation("users-web-page-admin-workspace-settings"), {
     from: "templates/src/pages/admin/workspace/settings/index.vue",
     toSurface: "admin",
@@ -120,4 +151,12 @@ test("workspaces-web descriptor metadata advertises admin settings outlets", () 
       in: ["personal", "workspaces"]
     }
   });
+  assert.match(
+    findTextMutation("users-web-main-client-provider-account-settings-section-import")?.value || "",
+    /import AccountSettingsInvitesSection from "\.\.\/components\/AccountSettingsInvitesSection\.vue";/
+  );
+  assert.match(
+    findTextMutation("users-web-main-client-provider-account-settings-section-register")?.value || "",
+    /registerMainClientComponent\("local\.main\.account-settings\.section\.invites", \(\) => AccountSettingsInvitesSection\);/
+  );
 });

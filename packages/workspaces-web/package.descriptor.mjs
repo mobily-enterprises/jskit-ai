@@ -38,6 +38,10 @@ export default Object.freeze({
           summary: "Exports workspaces-web client provider registration surface."
         },
         {
+          subpath: "./client/components/AccountSettingsInvitesSection",
+          summary: "Exports the default account invites section component used by multihoming installs."
+        },
+        {
           subpath: "./client/providers/WorkspacesWebClientProvider",
           summary: "Exports workspaces-web client provider class."
         },
@@ -56,8 +60,7 @@ export default Object.freeze({
           "workspaces.web.workspace-members.menu-item",
           "workspaces.web.members-admin.element",
           "workspaces.web.bootstrap-placement.runtime",
-          "workspaces.web.scope-support",
-          "workspaces.web.account-settings.section.invites"
+          "workspaces.web.scope-support"
         ]
       }
     },
@@ -118,6 +121,15 @@ export default Object.freeze({
             source: "mutations.text#workspaces-web-placement-block"
           },
           {
+            id: "workspaces.account.settings.invites",
+            target: "account-settings:sections",
+            surfaces: ["account"],
+            order: 400,
+            componentToken: "local.main.account-settings.section.invites",
+            when: "auth.authenticated === true && workspaceInvitesEnabled === true",
+            source: "mutations.text#workspaces-web-account-settings-placement"
+          },
+          {
             id: "workspaces.workspace.tools.widget",
             target: "shell-layout:top-right",
             surfaces: ["admin"],
@@ -170,6 +182,13 @@ export default Object.freeze({
         reason: "Install app-owned account pending invites cue component scaffold.",
         category: "workspaces-web",
         id: "users-web-main-component-account-pending-invites-cue"
+      },
+      {
+        from: "templates/packages/main/src/client/components/AccountSettingsInvitesSection.vue",
+        to: "packages/main/src/client/components/AccountSettingsInvitesSection.vue",
+        reason: "Install app-owned account invites section scaffold for multihoming account settings.",
+        category: "workspaces-web",
+        id: "users-web-main-component-account-settings-invites-section"
       },
       {
         from: "templates/src/components/WorkspaceNotFoundCard.vue",
@@ -310,6 +329,21 @@ export default Object.freeze({
       },
       {
         op: "append-text",
+        file: "src/placement.js",
+        position: "bottom",
+        skipIfContains: "id: \"workspaces.account.settings.invites\"",
+        value:
+          "\naddPlacement({\n  id: \"workspaces.account.settings.invites\",\n  target: \"account-settings:sections\",\n  surfaces: [\"account\"],\n  order: 400,\n  componentToken: \"local.main.account-settings.section.invites\",\n  props: {\n    title: \"Invites\",\n    value: \"invites\",\n    usesSharedRuntime: false\n  },\n  when: ({ auth, workspaceInvitesEnabled }) => auth?.authenticated === true && workspaceInvitesEnabled === true\n});\n",
+        reason: "Append workspaces-web account settings invites section placement into app-owned placement registry.",
+        category: "workspaces-web",
+        id: "workspaces-web-account-settings-placement",
+        when: {
+          config: "tenancyMode",
+          in: ["personal", "workspaces"]
+        }
+      },
+      {
+        op: "append-text",
         file: "packages/main/src/client/providers/MainClientProvider.js",
         position: "top",
         skipIfContains: "import AccountPendingInvitesCue from \"../components/AccountPendingInvitesCue.vue\";",
@@ -321,6 +355,17 @@ export default Object.freeze({
       {
         op: "append-text",
         file: "packages/main/src/client/providers/MainClientProvider.js",
+        position: "top",
+        skipIfContains: "import AccountSettingsInvitesSection from \"../components/AccountSettingsInvitesSection.vue\";",
+        value:
+          "import AccountSettingsInvitesSection from \"../components/AccountSettingsInvitesSection.vue\";\n",
+        reason: "Bind app-owned account invites section component into local main client provider imports.",
+        category: "workspaces-web",
+        id: "users-web-main-client-provider-account-settings-section-import"
+      },
+      {
+        op: "append-text",
+        file: "packages/main/src/client/providers/MainClientProvider.js",
         position: "bottom",
         skipIfContains: "registerMainClientComponent(\"local.main.account.pending-invites.cue\", () => AccountPendingInvitesCue);",
         value:
@@ -328,6 +373,18 @@ export default Object.freeze({
         reason: "Bind app-owned account pending invites cue component token into local main client provider registry.",
         category: "workspaces-web",
         id: "users-web-main-client-provider-account-invites-register"
+      },
+      {
+        op: "append-text",
+        file: "packages/main/src/client/providers/MainClientProvider.js",
+        position: "bottom",
+        skipIfContains:
+          "registerMainClientComponent(\"local.main.account-settings.section.invites\", () => AccountSettingsInvitesSection);",
+        value:
+          "\nregisterMainClientComponent(\"local.main.account-settings.section.invites\", () => AccountSettingsInvitesSection);\n",
+        reason: "Bind app-owned account invites section component token into local main client provider registry.",
+        category: "workspaces-web",
+        id: "users-web-main-client-provider-account-settings-section-register"
       }
     ]
   }

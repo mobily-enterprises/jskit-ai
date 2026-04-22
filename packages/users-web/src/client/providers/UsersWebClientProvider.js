@@ -1,6 +1,5 @@
 import UsersHomeToolsWidget from "../components/UsersHomeToolsWidget.vue";
 import ProfileClientElement from "../components/ProfileClientElement.vue";
-import { bootUsersWebClientProvider } from "./bootUsersWebClientProvider.js";
 
 class UsersWebClientProvider {
   static id = "users.web.client";
@@ -13,10 +12,6 @@ class UsersWebClientProvider {
 
     app.singleton("users.web.home.tools.widget", () => UsersHomeToolsWidget);
     app.singleton("users.web.profile.element", () => ProfileClientElement);
-  }
-
-  async boot(app) {
-    await bootUsersWebClientProvider(app);
   }
 }
 

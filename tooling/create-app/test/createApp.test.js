@@ -559,6 +559,10 @@ test("workspaces-web workspace tenancy mode installs workspace surfaces and wrap
       path.join(appRoot, "packages/main/src/client/providers/MainClientProvider.js"),
       "utf8"
     );
+    const accountSettingsInvitesSection = await readFile(
+      path.join(appRoot, "packages/main/src/client/components/AccountSettingsInvitesSection.vue"),
+      "utf8"
+    );
     const packageJson = JSON.parse(await readFile(path.join(appRoot, "package.json"), "utf8"));
     const accountPendingInvitesCue = await readFile(
       path.join(appRoot, "packages/main/src/client/components/AccountPendingInvitesCue.vue"),
@@ -583,12 +587,27 @@ test("workspaces-web workspace tenancy mode installs workspace surfaces and wrap
     assert.match(accountSettingsClientElement, /route\?\.query\?\.section/);
     assert.match(placement, /id:\s*"workspaces\.account\.invites\.cue"/);
     assert.match(placement, /componentToken:\s*"local\.main\.account\.pending-invites\.cue"/);
+    assert.match(placement, /id:\s*"workspaces\.account\.settings\.invites"/);
+    assert.match(placement, /target:\s*"account-settings:sections"/);
+    assert.match(placement, /componentToken:\s*"local\.main\.account-settings\.section\.invites"/);
     assert.match(mainClientProvider, /import AccountPendingInvitesCue from "\.\.\/components\/AccountPendingInvitesCue\.vue";/);
+    assert.match(
+      mainClientProvider,
+      /import AccountSettingsInvitesSection from "\.\.\/components\/AccountSettingsInvitesSection\.vue";/
+    );
     assert.match(
       mainClientProvider,
       /registerMainClientComponent\("local\.main\.account\.pending-invites\.cue", \(\) => AccountPendingInvitesCue\);/
     );
+    assert.match(
+      mainClientProvider,
+      /registerMainClientComponent\("local\.main\.account-settings\.section\.invites", \(\) => AccountSettingsInvitesSection\);/
+    );
     assert.match(accountPendingInvitesCue, /section:\s*"invites"/);
+    assert.match(
+      accountSettingsInvitesSection,
+      /@jskit-ai\/workspaces-web\/client\/components\/AccountSettingsInvitesSection/
+    );
     assert.match(packageJson.dependencies["@jskit-ai/workspaces-core"], /^\d+\.x$/);
     assert.match(packageJson.dependencies["@jskit-ai/workspaces-web"], /^\d+\.x$/);
     assert.equal(packageJson.scripts["server:account"], "SERVER_SURFACE=account node ./bin/server.js");

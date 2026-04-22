@@ -7,6 +7,7 @@
   },
   "exports": {
     "./client": "./src/client/index.js",
+    "./client/components/AccountSettingsInvitesSection": "./src/client/components/AccountSettingsInvitesSection.vue",
     "./client/providers/WorkspacesWebClientProvider": "./src/client/providers/WorkspacesWebClientProvider.js",
     "./client/components/WorkspaceMembersClientElement": "./src/client/components/WorkspaceMembersClientElement.vue",
     "./client/composables/useWorkspaceRouteContext": "./src/client/composables/useWorkspaceRouteContext.js"

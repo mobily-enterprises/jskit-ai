@@ -96,7 +96,7 @@ export default Object.freeze({
         },
         {
           subpath: "./client/account-settings/sections",
-          summary: "Exports account settings section extension seam helpers."
+          summary: "Exports placement-backed account settings section helpers."
         }
       ],
       containerTokens: {
@@ -115,6 +115,11 @@ export default Object.freeze({
             defaultLinkComponentToken: HOME_TOOLS_OUTLET.defaultLinkComponentToken,
             surfaces: ["home"],
             source: "src/client/components/UsersHomeToolsWidget.vue"
+          },
+          {
+            target: "account-settings:sections",
+            surfaces: ["account"],
+            source: "templates/src/components/account/settings/AccountSettingsClientElement.vue"
           }
         ],
         contributions: [
