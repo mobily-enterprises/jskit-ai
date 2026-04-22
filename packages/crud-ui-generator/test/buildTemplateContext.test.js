@@ -465,6 +465,7 @@ test("buildUiTemplateContext omits lookup runtime placeholders when form fields 
     assert.equal(context.__JSKIT_UI_EDIT_LOOKUP_RUNTIME_SETUP__, "");
     assert.equal(context.__JSKIT_UI_CREATE_LOOKUP_FORM_PROPS__, "");
     assert.equal(context.__JSKIT_UI_EDIT_LOOKUP_FORM_PROPS__, "");
+    assert.equal(context.__JSKIT_UI_FORM_LOOKUP_PROP_DEFS__, "");
   });
 });
 
@@ -497,10 +498,13 @@ test("buildUiTemplateContext includes lookup runtime placeholders when form fiel
 
     assert.match(context.__JSKIT_UI_CREATE_LOOKUP_IMPORT_LINE__, /createCrudLookupFieldRuntime/);
     assert.match(context.__JSKIT_UI_EDIT_LOOKUP_IMPORT_LINE__, /createCrudLookupFieldRuntime/);
+    assert.match(context.__JSKIT_UI_CREATE_LOOKUP_FORM_PROPS__, /^\n    :resolve-lookup-items=/);
+    assert.match(context.__JSKIT_UI_EDIT_LOOKUP_FORM_PROPS__, /^\n    :resolve-lookup-items=/);
     assert.match(context.__JSKIT_UI_CREATE_LOOKUP_RUNTIME_SETUP__, /resolveLookupItems/);
     assert.match(context.__JSKIT_UI_EDIT_LOOKUP_RUNTIME_SETUP__, /resolveLookupItems/);
     assert.match(context.__JSKIT_UI_CREATE_LOOKUP_FORM_PROPS__, /resolve-lookup-items/);
     assert.match(context.__JSKIT_UI_EDIT_LOOKUP_FORM_PROPS__, /resolve-lookup-items/);
+    assert.match(context.__JSKIT_UI_FORM_LOOKUP_PROP_DEFS__, /resolveLookupItems/);
   });
 });
 

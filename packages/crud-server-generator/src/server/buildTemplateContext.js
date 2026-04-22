@@ -392,6 +392,7 @@ function resolveColumnKey(column, idColumn) {
 }
 
 const NUMERIC_CHECK_CONSTRAINT_PATTERN = /(?:`([^`]+)`|([A-Za-z_][A-Za-z0-9_]*))\s*(>=|>|<=|<)\s*(-?\d+(?:\.\d+)?)/g;
+const NUMERIC_CHECK_CONSTRAINT_BETWEEN_PATTERN = /(?:`([^`]+)`|([A-Za-z_][A-Za-z0-9_]*))\s+between\s+(-?\d+(?:\.\d+)?)\s+and\s+(-?\d+(?:\.\d+)?)/gi;
 
 function normalizeNumericBoundValue(value, scale = null) {
   const parsed = Number(value);
@@ -452,6 +453,83 @@ function applyUpperBound(current = null, candidate = null) {
   return current;
 }
 
+function applyNumericConstraintBound(target = {}, column = null, operator = "", rawValue = null) {
+  if (!column || !Number.isFinite(rawValue)) {
+    return;
+  }
+
+  if (operator === ">=" || operator === ">") {
+    let candidate = null;
+    if (operator === ">=") {
+      candidate = {
+        value: normalizeNumericBoundValue(rawValue, column.numericScale),
+        exclusive: false
+      };
+    } else {
+      const exclusiveStep = resolveNumericExclusiveStep(column);
+      if (exclusiveStep != null) {
+        candidate = {
+          value: normalizeNumericBoundValue(rawValue + exclusiveStep, column.numericScale),
+          exclusive: false
+        };
+      } else {
+        candidate = {
+          value: normalizeNumericBoundValue(rawValue, column.numericScale),
+          exclusive: true
+        };
+      }
+    }
+
+    const nextBound = applyLowerBound(
+      target.minimum != null || target.exclusiveMinimum != null
+        ? {
+            value: target.minimum ?? target.exclusiveMinimum,
+            exclusive: target.exclusiveMinimum != null
+          }
+        : null,
+      candidate
+    );
+    target.minimum = nextBound?.exclusive === true ? null : nextBound?.value ?? null;
+    target.exclusiveMinimum = nextBound?.exclusive === true ? nextBound?.value ?? null : null;
+    return;
+  }
+
+  if (operator === "<=" || operator === "<") {
+    let candidate = null;
+    if (operator === "<=") {
+      candidate = {
+        value: normalizeNumericBoundValue(rawValue, column.numericScale),
+        exclusive: false
+      };
+    } else {
+      const exclusiveStep = resolveNumericExclusiveStep(column);
+      if (exclusiveStep != null) {
+        candidate = {
+          value: normalizeNumericBoundValue(rawValue - exclusiveStep, column.numericScale),
+          exclusive: false
+        };
+      } else {
+        candidate = {
+          value: normalizeNumericBoundValue(rawValue, column.numericScale),
+          exclusive: true
+        };
+      }
+    }
+
+    const nextBound = applyUpperBound(
+      target.maximum != null || target.exclusiveMaximum != null
+        ? {
+            value: target.maximum ?? target.exclusiveMaximum,
+            exclusive: target.exclusiveMaximum != null
+          }
+        : null,
+      candidate
+    );
+    target.maximum = nextBound?.exclusive === true ? null : nextBound?.value ?? null;
+    target.exclusiveMaximum = nextBound?.exclusive === true ? nextBound?.value ?? null : null;
+  }
+}
+
 function resolveColumnNumericBounds(snapshot = {}) {
   const byColumnName = new Map();
   const columns = Array.isArray(snapshot.columns) ? snapshot.columns : [];
@@ -487,6 +565,22 @@ function resolveColumnNumericBounds(snapshot = {}) {
       continue;
     }
 
+    let betweenMatch = null;
+    while ((betweenMatch = NUMERIC_CHECK_CONSTRAINT_BETWEEN_PATTERN.exec(clause)) != null) {
+      const columnName = String(betweenMatch[1] || betweenMatch[2] || "");
+      const lowerValue = Number(betweenMatch[3]);
+      const upperValue = Number(betweenMatch[4]);
+      const column = numericColumnsByName.get(columnName) || null;
+      if (!column || !Number.isFinite(lowerValue) || !Number.isFinite(upperValue)) {
+        continue;
+      }
+
+      const target = getColumnBounds(columnName);
+      applyNumericConstraintBound(target, column, ">=", lowerValue);
+      applyNumericConstraintBound(target, column, "<=", upperValue);
+    }
+    NUMERIC_CHECK_CONSTRAINT_BETWEEN_PATTERN.lastIndex = 0;
+
     let match = null;
     while ((match = NUMERIC_CHECK_CONSTRAINT_PATTERN.exec(clause)) != null) {
       const columnName = String(match[1] || match[2] || "");
@@ -498,76 +592,7 @@ function resolveColumnNumericBounds(snapshot = {}) {
       }
 
       const target = getColumnBounds(columnName);
-      if (operator === ">=" || operator === ">") {
-        let candidate = null;
-        if (operator === ">=") {
-          candidate = {
-            value: normalizeNumericBoundValue(rawValue, column.numericScale),
-            exclusive: false
-          };
-        } else {
-          const exclusiveStep = resolveNumericExclusiveStep(column);
-          if (exclusiveStep != null) {
-            candidate = {
-              value: normalizeNumericBoundValue(rawValue + exclusiveStep, column.numericScale),
-              exclusive: false
-            };
-          } else {
-            candidate = {
-              value: normalizeNumericBoundValue(rawValue, column.numericScale),
-              exclusive: true
-            };
-          }
-        }
-
-        const nextBound = applyLowerBound(
-          target.minimum != null || target.exclusiveMinimum != null
-            ? {
-                value: target.minimum ?? target.exclusiveMinimum,
-                exclusive: target.exclusiveMinimum != null
-              }
-            : null,
-          candidate
-        );
-        target.minimum = nextBound?.exclusive === true ? null : nextBound?.value ?? null;
-        target.exclusiveMinimum = nextBound?.exclusive === true ? nextBound?.value ?? null : null;
-        continue;
-      }
-
-      if (operator === "<=" || operator === "<") {
-        let candidate = null;
-        if (operator === "<=") {
-          candidate = {
-            value: normalizeNumericBoundValue(rawValue, column.numericScale),
-            exclusive: false
-          };
-        } else {
-          const exclusiveStep = resolveNumericExclusiveStep(column);
-          if (exclusiveStep != null) {
-            candidate = {
-              value: normalizeNumericBoundValue(rawValue - exclusiveStep, column.numericScale),
-              exclusive: false
-            };
-          } else {
-            candidate = {
-              value: normalizeNumericBoundValue(rawValue, column.numericScale),
-              exclusive: true
-            };
-          }
-        }
-
-        const nextBound = applyUpperBound(
-          target.maximum != null || target.exclusiveMaximum != null
-            ? {
-                value: target.maximum ?? target.exclusiveMaximum,
-                exclusive: target.exclusiveMaximum != null
-              }
-            : null,
-          candidate
-        );
-        target.maximum = nextBound?.exclusive === true ? null : nextBound?.value ?? null;
-        target.exclusiveMaximum = nextBound?.exclusive === true ? nextBound?.value ?? null : null;
-      }
+      applyNumericConstraintBound(target, column, operator, rawValue);
     }
     NUMERIC_CHECK_CONSTRAINT_PATTERN.lastIndex = 0;
   }
@@ -731,7 +756,7 @@ function renderResourceFieldSchema(column, { forOutput = false } = {}) {
   return schemaExpression;
 }
 
-function renderResourceValidatorsImport({ needsHtmlTimeSchemas = false, recordIdValidatorImports = [] } = {}) {
+function renderResourceValidatorsImport({ htmlTimeSchemaImports = [], recordIdValidatorImports = [] } = {}) {
   const imports = [
     "normalizeObjectInput",
     "createCursorListValidator"
@@ -741,10 +766,28 @@ function renderResourceValidatorsImport({ needsHtmlTimeSchemas = false, recordId
       imports.push(importName);
     }
   }
-  if (needsHtmlTimeSchemas) {
-    imports.push("HTML_TIME_STRING_SCHEMA", "NULLABLE_HTML_TIME_STRING_SCHEMA");
+  for (const importName of Array.isArray(htmlTimeSchemaImports) ? htmlTimeSchemaImports : []) {
+    if (!imports.includes(importName)) {
+      imports.push(importName);
+    }
   }
   return `import {\n  ${imports.join(",\n  ")}\n} from "@jskit-ai/kernel/shared/validators";`;
+}
+
+function resolveHtmlTimeSchemaImports(columns = []) {
+  const imports = [];
+  for (const column of Array.isArray(columns) ? columns : []) {
+    if (column?.typeKind !== "time") {
+      continue;
+    }
+    const importName = column.nullable === true
+      ? "NULLABLE_HTML_TIME_STRING_SCHEMA"
+      : "HTML_TIME_STRING_SCHEMA";
+    if (!imports.includes(importName)) {
+      imports.push(importName);
+    }
+  }
+  return imports;
 }
 
 function resolveRecordIdValidatorImports(...sources) {
@@ -1788,7 +1831,7 @@ function buildReplacementsFromSnapshot({
   const needsNullableDateInput = writableColumns.some(
     (column) => column.typeKind === "date" && column.nullable === true
   );
-  const needsHtmlTimeSchemas = resourceColumns.some((column) => column.typeKind === "time");
+  const htmlTimeSchemaImports = resolveHtmlTimeSchemaImports(resourceColumns);
   const needsDate = resourceColumns.some((column) => column.typeKind === "date");
   const needsJson = resourceColumns.some((column) => column.typeKind === "json");
   const needsNormalizeText = resourceColumns.some((column) =>
@@ -1882,7 +1925,7 @@ function buildReplacementsFromSnapshot({
       surfaceRequiresWorkspace
     }),
     __JSKIT_CRUD_RESOURCE_VALIDATORS_IMPORT__: renderResourceValidatorsImport({
-      needsHtmlTimeSchemas,
+      htmlTimeSchemaImports,
       recordIdValidatorImports: resolveRecordIdValidatorImports(
         renderResourceSchemaPropertyLines(outputColumns, {
           forOutput: true

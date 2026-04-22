@@ -5,8 +5,7 @@
     title="Edit __JSKIT_UI_RESOURCE_SINGULAR_TITLE__"
     subtitle="Update the selected __JSKIT_UI_RESOURCE_SINGULAR_TITLE__."
     save-label="Save changes"
-    :cancel-to="cancelTo"
-__JSKIT_UI_EDIT_LOOKUP_FORM_PROPS__
+    :cancel-to="cancelTo"__JSKIT_UI_EDIT_LOOKUP_FORM_PROPS__
   />
 </template>
 

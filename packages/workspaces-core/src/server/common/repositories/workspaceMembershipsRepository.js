@@ -13,7 +13,7 @@ const REPOSITORY_CONFIG = Object.freeze({
   context: "internal.repository.workspace-memberships"
 });
 
-function normalizeMembershipRecord(payload = {}) {
+function normalizeMembershipRecord(payload) {
   if (!payload) {
     return null;
   }

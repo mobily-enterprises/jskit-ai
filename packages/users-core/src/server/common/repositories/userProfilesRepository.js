@@ -14,8 +14,8 @@ const REPOSITORY_CONFIG = Object.freeze({
   context: "internal.repository.user-profiles"
 });
 
-function normalizeProfileRecord(payload = {}) {
-  return resource.operations.view.outputValidator.normalize(payload);
+function normalizeProfileRecord(payload) {
+  return payload ? resource.operations.view.outputValidator.normalize(payload) : null;
 }
 
 function normalizeCreatePayload(payload = {}) {

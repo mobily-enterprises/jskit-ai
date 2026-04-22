@@ -12,7 +12,7 @@ const REPOSITORY_CONFIG = Object.freeze({
   context: "internal.repository.workspace-invites"
 });
 
-function normalizeInviteRecord(payload = {}) {
+function normalizeInviteRecord(payload) {
   if (!payload) {
     return null;
   }

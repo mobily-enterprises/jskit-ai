@@ -71,3 +71,12 @@ test("userProfilesRepository.findByEmail normalizes email lookup", async () => {
   assert.equal(profile?.email, "ada@example.com");
   assert.equal(profile?.displayName, "Ada Example");
 });
+
+test("userProfilesRepository.findByEmail returns null when the row is missing", async () => {
+  const { knex } = createFindByEmailKnexStub(undefined);
+  const repository = createUserProfilesRepository(knex);
+
+  const profile = await repository.findByEmail("missing@example.com");
+
+  assert.equal(profile, null);
+});

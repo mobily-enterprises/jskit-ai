@@ -142,6 +142,15 @@ test("workspacesRepository.findById normalizes internal workspace fields via the
   });
 });
 
+test("workspacesRepository.findPersonalByOwnerUserId returns null when no personal workspace exists", async () => {
+  const { knex } = createWorkspacesKnexStub();
+  const repository = createRepository(knex);
+
+  const workspace = await repository.findPersonalByOwnerUserId("999");
+
+  assert.equal(workspace, null);
+});
+
 test("workspacesRepository.insert uses runtime normalization and timestamp columns", async () => {
   const insertedRow = {
     id: 1,

@@ -82,6 +82,7 @@ class ${option:namespace|pascal}Provider {
     registerRoutes(app, {
       routeOwnershipFilter: crudPolicy.ownershipFilter,
       routeSurface: crudPolicy.surfaceId,
+      routeSurfaceRequiresWorkspace: crudPolicy.surfaceDefinition.requiresWorkspace === true,
       routeRelativePath: crudPolicy.relativePath
     });
   }

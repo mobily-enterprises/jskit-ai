@@ -5,8 +5,7 @@
     title="New __JSKIT_UI_RESOURCE_SINGULAR_TITLE__"
     subtitle="Create a new __JSKIT_UI_RESOURCE_SINGULAR_TITLE__."
     save-label="Save __JSKIT_UI_RESOURCE_SINGULAR_TITLE__"
-    :cancel-to="UI_CANCEL_URL"
-__JSKIT_UI_CREATE_LOOKUP_FORM_PROPS__
+    :cancel-to="UI_CANCEL_URL"__JSKIT_UI_CREATE_LOOKUP_FORM_PROPS__
   />
 </template>
 

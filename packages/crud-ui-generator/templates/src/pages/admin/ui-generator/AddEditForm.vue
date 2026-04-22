@@ -72,23 +72,8 @@ const props = defineProps({
   cancelTo: {
     type: [String, Object],
     default: ""
-  },
-  resolveLookupItems: {
-    type: Function,
-    required: true
-  },
-  resolveLookupLoading: {
-    type: Function,
-    required: true
-  },
-  resolveLookupSearch: {
-    type: Function,
-    required: true
-  },
-  setLookupSearch: {
-    type: Function,
-    required: true
   }
+__JSKIT_UI_FORM_LOOKUP_PROP_DEFS__
 });
 
 const formRuntime = props.formRuntime;
