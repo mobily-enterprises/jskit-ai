@@ -39,4 +39,5 @@ When asked to create or refresh distributed agent docs:
 
 - `packages/agent-docs/patterns/INDEX.md` is the keyword index for recurring JSKIT implementation heuristics and workflow traps.
 - When a request involves JSKIT UI, routing, surfaces, CRUDs, filters, placements, live actions, or similar implementation details, scan the pattern index for matching keywords and read only the relevant pattern files.
+- Page and surface extension goes through placements. Do not invent alternate page-extension seams (custom registries, tags, injection-only hooks, provider-owned section systems) unless the user explicitly asks for a new pattern.
 - Keep `AGENTS.md` short. Add recurring JSKIT heuristics to `packages/agent-docs/patterns/`, not as one-off bullets here.

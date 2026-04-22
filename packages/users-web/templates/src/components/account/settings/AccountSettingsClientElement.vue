@@ -32,7 +32,7 @@ const sections = computed(() => {
     }
   ];
 
-  for (const entry of extensionSections) {
+  for (const entry of extensionSections.value) {
     nextSections.push(entry);
   }
 

@@ -1,5 +1,3 @@
-import { ACCOUNT_SETTINGS_SECTION_REGISTRY_TAG } from "@jskit-ai/users-web/client/account-settings/sections";
-import AccountSettingsInvitesSection from "../components/AccountSettingsInvitesSection.vue";
 import UsersProfileSurfaceSwitchMenuItem from "../components/UsersProfileSurfaceSwitchMenuItem.vue";
 import UsersWorkspaceSelector from "../components/UsersWorkspaceSelector.vue";
 import UsersWorkspaceToolsWidget from "../components/UsersWorkspaceToolsWidget.vue";
@@ -29,16 +27,6 @@ class WorkspacesWebClientProvider {
     app.singleton("workspaces.web.members-admin.element", () => MembersAdminClientElement);
     app.singleton("workspaces.web.bootstrap-placement.runtime", (scope) => createBootstrapPlacementRuntime({ app: scope }));
     app.singleton("workspaces.web.scope-support", () => createWorkspaceScopeSupport());
-    app.singleton("workspaces.web.account-settings.section.invites", () =>
-      Object.freeze({
-        title: "Invites",
-        value: "invites",
-        order: 400,
-        component: AccountSettingsInvitesSection,
-        usesSharedRuntime: false
-      })
-    );
-    app.tag("workspaces.web.account-settings.section.invites", ACCOUNT_SETTINGS_SECTION_REGISTRY_TAG);
   }
 
   async boot(app) {

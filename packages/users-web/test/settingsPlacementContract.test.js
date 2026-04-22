@@ -92,6 +92,16 @@ test("users-web descriptor metadata advertises home tools outlet and standard ho
       }
     ]
   );
+  assert.deepEqual(
+    readOutlets("account-settings:sections"),
+    [
+      {
+        target: "account-settings:sections",
+        surfaces: ["account"],
+        source: "templates/src/components/account/settings/AccountSettingsClientElement.vue"
+      }
+    ]
+  );
 
   expectContribution("users.profile.menu.settings", {
     target: "auth-profile-menu:primary-menu",
