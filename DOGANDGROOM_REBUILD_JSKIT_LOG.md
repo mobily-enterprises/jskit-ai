@@ -119,3 +119,23 @@ The goal is to give the maintainer a clean review trail separate from app-local 
   - `packages/users-web/test/useViewRequestQueryParams.test.js`
 - Verification:
   - `npm test --workspace @jskit-ai/users-web`
+
+### CRUD UI wrappers emitted lint-warn blank lines when no lookup fields existed
+
+- Problem:
+  - the freshly generated `practice/roles` pages in `dogandgroom2` linted with `vue/html-closing-bracket-newline` warnings before any app-local changes
+  - both generated wrapper pages (`new.vue` and `edit.vue`) left a double blank line before the self-closing `CrudAddEditForm` tag when the resource had no lookup fields
+- Root cause:
+  - the shared CRUD UI wrapper templates always reserved a separate line for `__JSKIT_UI_*_LOOKUP_FORM_PROPS__`
+  - when the template context correctly returned an empty string for non-lookup resources, that placeholder line became an extra blank line in the rendered Vue file
+- Fix:
+  - change the wrapper templates so lookup form props append inline after `:cancel-to=...`
+  - make the lookup-form-props context string include its own leading newline only when lookup props are actually present
+  - extend the template-context test to assert that the non-empty lookup prop block now starts with that newline
+- Files:
+  - `packages/crud-ui-generator/templates/src/pages/admin/ui-generator/NewWrapperElement.vue`
+  - `packages/crud-ui-generator/templates/src/pages/admin/ui-generator/EditWrapperElement.vue`
+  - `packages/crud-ui-generator/src/server/buildTemplateContext.js`
+  - `packages/crud-ui-generator/test/buildTemplateContext.test.js`
+- Verification:
+  - `npm test --workspace @jskit-ai/crud-ui-generator`

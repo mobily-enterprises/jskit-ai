@@ -323,7 +323,8 @@ function buildLookupFormProps(fields = []) {
     return "";
   }
 
-  return `    :resolve-lookup-items="resolveLookupItems"
+  return `
+    :resolve-lookup-items="resolveLookupItems"
     :resolve-lookup-loading="resolveLookupLoading"
     :resolve-lookup-search="resolveLookupSearch"
     :set-lookup-search="setLookupSearch"`;
