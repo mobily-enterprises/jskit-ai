@@ -74,7 +74,7 @@ export default Object.freeze({
             source: "templates/src/pages/admin/workspace/settings.vue"
           },
           {
-            target: "workspace-tools:primary-menu",
+            target: "admin-cog:primary-menu",
             defaultLinkComponentToken: "local.main.ui.surface-aware-menu-link-item",
             surfaces: ["admin"],
             source: "src/client/components/UsersWorkspaceToolsWidget.vue"
@@ -145,7 +145,7 @@ export default Object.freeze({
           },
           {
             id: "workspaces.workspace.menu.workspace-settings",
-            target: "workspace-tools:primary-menu",
+            target: "admin-cog:primary-menu",
             surfaces: ["admin"],
             order: 100,
             componentToken: "workspaces.web.workspace-settings.menu-item",
@@ -153,7 +153,7 @@ export default Object.freeze({
           },
           {
             id: "workspaces.workspace.menu.members",
-            target: "workspace-tools:primary-menu",
+            target: "admin-cog:primary-menu",
             surfaces: ["admin"],
             order: 200,
             componentToken: "workspaces.web.workspace-members.menu-item",
@@ -324,7 +324,7 @@ export default Object.freeze({
         file: "src/placement.js",
         position: "bottom",
         skipIfContains: "id: \"workspaces.workspace.selector\"",
-        value: "\naddPlacement({\n  id: \"workspaces.workspace.menu.app\",\n  target: \"shell-layout:primary-menu\",\n  surfaces: [\"app\"],\n  order: 50,\n  componentToken: \"local.main.ui.surface-aware-menu-link-item\",\n  props: {\n    label: \"Home\",\n    surface: \"app\",\n    scopedSuffix: \"/\",\n    unscopedSuffix: \"/\",\n    exact: true\n  },\n  when: ({ auth }) => auth?.authenticated === true\n});\n\naddPlacement({\n  id: \"workspaces.workspace.menu.admin\",\n  target: \"shell-layout:primary-menu\",\n  surfaces: [\"admin\"],\n  order: 60,\n  componentToken: \"local.main.ui.surface-aware-menu-link-item\",\n  props: {\n    label: \"Home\",\n    surface: \"admin\",\n    scopedSuffix: \"/\",\n    unscopedSuffix: \"/\",\n    exact: true\n  },\n  when: ({ auth }) => auth?.authenticated === true\n});\n\naddPlacement({\n  id: \"workspaces.workspace.selector\",\n  target: \"shell-layout:top-left\",\n  surfaces: [\"*\"],\n  order: 200,\n  componentToken: \"workspaces.web.workspace.selector\",\n  props: {\n    allowOnNonWorkspaceSurface: true,\n    targetSurfaceId: \"app\"\n  },\n  when: ({ auth }) => auth?.authenticated === true\n});\n\naddPlacement({\n  id: \"workspaces.account.invites.cue\",\n  target: \"shell-layout:top-right\",\n  surfaces: [\"*\"],\n  order: 850,\n  componentToken: \"local.main.account.pending-invites.cue\",\n  when: ({ auth }) => auth?.authenticated === true\n});\n\naddPlacement({\n  id: \"workspaces.workspace.tools.widget\",\n  target: \"shell-layout:top-right\",\n  surfaces: [\"admin\"],\n  order: 900,\n  componentToken: \"workspaces.web.workspace.tools.widget\"\n});\n\naddPlacement({\n  id: \"workspaces.workspace.menu.workspace-settings\",\n  target: \"workspace-tools:primary-menu\",\n  surfaces: [\"admin\"],\n  order: 100,\n  componentToken: \"workspaces.web.workspace-settings.menu-item\"\n});\n\naddPlacement({\n  id: \"workspaces.workspace.menu.members\",\n  target: \"workspace-tools:primary-menu\",\n  surfaces: [\"admin\"],\n  order: 200,\n  componentToken: \"workspaces.web.workspace-members.menu-item\"\n});\n",
+        value: "\naddPlacement({\n  id: \"workspaces.workspace.menu.app\",\n  target: \"shell-layout:primary-menu\",\n  surfaces: [\"app\"],\n  order: 50,\n  componentToken: \"local.main.ui.surface-aware-menu-link-item\",\n  props: {\n    label: \"Home\",\n    surface: \"app\",\n    scopedSuffix: \"/\",\n    unscopedSuffix: \"/\",\n    exact: true\n  },\n  when: ({ auth }) => auth?.authenticated === true\n});\n\naddPlacement({\n  id: \"workspaces.workspace.menu.admin\",\n  target: \"shell-layout:primary-menu\",\n  surfaces: [\"admin\"],\n  order: 60,\n  componentToken: \"local.main.ui.surface-aware-menu-link-item\",\n  props: {\n    label: \"Home\",\n    surface: \"admin\",\n    scopedSuffix: \"/\",\n    unscopedSuffix: \"/\",\n    exact: true\n  },\n  when: ({ auth }) => auth?.authenticated === true\n});\n\naddPlacement({\n  id: \"workspaces.workspace.selector\",\n  target: \"shell-layout:top-left\",\n  surfaces: [\"*\"],\n  order: 200,\n  componentToken: \"workspaces.web.workspace.selector\",\n  props: {\n    allowOnNonWorkspaceSurface: true,\n    targetSurfaceId: \"app\"\n  },\n  when: ({ auth }) => auth?.authenticated === true\n});\n\naddPlacement({\n  id: \"workspaces.account.invites.cue\",\n  target: \"shell-layout:top-right\",\n  surfaces: [\"*\"],\n  order: 850,\n  componentToken: \"local.main.account.pending-invites.cue\",\n  when: ({ auth }) => auth?.authenticated === true\n});\n\naddPlacement({\n  id: \"workspaces.workspace.tools.widget\",\n  target: \"shell-layout:top-right\",\n  surfaces: [\"admin\"],\n  order: 900,\n  componentToken: \"workspaces.web.workspace.tools.widget\"\n});\n\naddPlacement({\n  id: \"workspaces.workspace.menu.workspace-settings\",\n  target: \"admin-cog:primary-menu\",\n  surfaces: [\"admin\"],\n  order: 100,\n  componentToken: \"workspaces.web.workspace-settings.menu-item\"\n});\n\naddPlacement({\n  id: \"workspaces.workspace.menu.members\",\n  target: \"admin-cog:primary-menu\",\n  surfaces: [\"admin\"],\n  order: 200,\n  componentToken: \"workspaces.web.workspace-members.menu-item\"\n});\n",
         reason: "Append workspace placement entries into app-owned placement registry.",
         category: "workspaces-web",
         id: "workspaces-web-placement-block",

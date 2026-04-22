@@ -472,8 +472,8 @@ Exports
 
 ### `src/shared/toolsOutletContracts.js`
 Exports
-- `DEFAULT_TOOLS_LINK_COMPONENT_TOKEN`
-- `HOME_TOOLS_OUTLET`
+- `DEFAULT_COG_LINK_COMPONENT_TOKEN`
+- `HOME_COG_OUTLET`
 
 ### templates
 

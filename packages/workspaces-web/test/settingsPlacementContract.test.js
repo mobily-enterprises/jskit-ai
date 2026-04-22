@@ -90,10 +90,10 @@ test("workspaces-web descriptor metadata advertises admin settings outlets", () 
     ]
   );
   assert.deepEqual(
-    readOutlets("workspace-tools:primary-menu"),
+    readOutlets("admin-cog:primary-menu"),
     [
       {
-        target: "workspace-tools:primary-menu",
+        target: "admin-cog:primary-menu",
         defaultLinkComponentToken: "local.main.ui.surface-aware-menu-link-item",
         surfaces: ["admin"],
         source: "src/client/components/UsersWorkspaceToolsWidget.vue"

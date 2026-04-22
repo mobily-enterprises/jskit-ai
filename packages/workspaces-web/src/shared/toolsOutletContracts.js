@@ -1,9 +1,9 @@
-const DEFAULT_TOOLS_LINK_COMPONENT_TOKEN = "local.main.ui.surface-aware-menu-link-item";
+const DEFAULT_COG_LINK_COMPONENT_TOKEN = "local.main.ui.surface-aware-menu-link-item";
 
-const WORKSPACE_TOOLS_OUTLET = Object.freeze({
-  target: "workspace-tools:primary-menu",
-  defaultLinkComponentToken: DEFAULT_TOOLS_LINK_COMPONENT_TOKEN,
-  ariaLabel: "Workspace tools"
+const ADMIN_COG_OUTLET = Object.freeze({
+  target: "admin-cog:primary-menu",
+  defaultLinkComponentToken: DEFAULT_COG_LINK_COMPONENT_TOKEN,
+  ariaLabel: "Admin cog"
 });
 
-export { DEFAULT_TOOLS_LINK_COMPONENT_TOKEN, WORKSPACE_TOOLS_OUTLET };
+export { DEFAULT_COG_LINK_COMPONENT_TOKEN, ADMIN_COG_OUTLET };

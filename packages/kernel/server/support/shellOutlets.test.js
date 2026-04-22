@@ -98,7 +98,7 @@ test("discoverShellOutletTargetsFromApp includes installed package placement out
       placements: {
         outlets: [
           {
-            target: "workspace-tools:primary-menu",
+            target: "admin-cog:primary-menu",
             defaultLinkComponentToken: "local.main.ui.surface-aware-menu-link-item",
             source: "src/client/components/UsersWorkspaceToolsWidget.vue"
           }
@@ -113,10 +113,10 @@ test("discoverShellOutletTargetsFromApp includes installed package placement out
     const discovered = await discoverShellOutletTargetsFromApp({ appRoot });
     assert.deepEqual(
       discovered.targets.map((entry) => entry.id),
-      ["shell-layout:primary-menu", "workspace-tools:primary-menu"]
+      ["admin-cog:primary-menu", "shell-layout:primary-menu"]
     );
-    assert.deepEqual(discovered.targets[1], {
-      id: "workspace-tools:primary-menu",
+    assert.deepEqual(discovered.targets[0], {
+      id: "admin-cog:primary-menu",
       default: false,
       defaultLinkComponentToken: "local.main.ui.surface-aware-menu-link-item",
       sourcePath: "package:@example/users-web:src/client/components/UsersWorkspaceToolsWidget.vue",
@@ -125,10 +125,10 @@ test("discoverShellOutletTargetsFromApp includes installed package placement out
 
     const target = await resolveShellOutletPlacementTargetFromApp({
       appRoot,
-      placement: "workspace-tools:primary-menu",
+      placement: "admin-cog:primary-menu",
       context: "ui-generator"
     });
-    assert.equal(target.id, "workspace-tools:primary-menu");
+    assert.equal(target.id, "admin-cog:primary-menu");
   });
 });
 
@@ -140,7 +140,7 @@ test("discoverShellOutletTargetsFromApp applies app config default-link override
       `export const config = {
   ui: {
     outletDefaults: {
-      "workspace-tools:primary-menu": {
+      "admin-cog:primary-menu": {
         linkComponentToken: "local.main.ui.surface-aware-menu-link-item"
       }
     }
@@ -178,7 +178,7 @@ test("discoverShellOutletTargetsFromApp applies app config default-link override
       placements: {
         outlets: [
           {
-            target: "workspace-tools:primary-menu",
+            target: "admin-cog:primary-menu",
             defaultLinkComponentToken: "local.main.ui.surface-aware-menu-link-item"
           }
         ]
