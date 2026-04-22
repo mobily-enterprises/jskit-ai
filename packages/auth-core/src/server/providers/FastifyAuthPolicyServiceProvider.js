@@ -1,5 +1,9 @@
 import { registerActionContextContributor } from "@jskit-ai/kernel/server/actions";
 import { registerRouteVisibilityResolver } from "@jskit-ai/kernel/server/http";
+import {
+  composeAuthPolicyContextResolvers,
+  resolveAuthPolicyContextResolvers
+} from "../authPolicyContextResolverRegistry.js";
 import { authPolicyPlugin } from "../lib/plugin.js";
 import { createAuthActionContextContributor } from "../lib/actionContextContributor.js";
 import { createAuthRouteVisibilityResolver } from "../lib/routeVisibilityResolver.js";
@@ -74,16 +78,29 @@ class FastifyAuthPolicyServiceProvider {
     const env = app.has("jskit.env") ? app.make("jskit.env") : {};
     const fastify = app.make("jskit.fastify");
     const authService = app.make("authService");
-    const resolveContext =
+    const legacyResolveContext =
       typeof app.has === "function" && app.has("auth.policy.contextResolver")
         ? app.make("auth.policy.contextResolver")
         : null;
 
-    if (resolveContext != null && typeof resolveContext !== "function") {
+    if (legacyResolveContext != null && typeof legacyResolveContext !== "function") {
       throw new Error(
         "FastifyAuthPolicyServiceProvider requires auth.policy.contextResolver to be a function when provided."
       );
     }
+
+    const resolveContext = composeAuthPolicyContextResolvers([
+      ...resolveAuthPolicyContextResolvers(app),
+      ...(legacyResolveContext
+        ? [
+            {
+              resolverId: "legacy.auth.policy.contextResolver",
+              order: 1000,
+              resolveAuthPolicyContext: legacyResolveContext
+            }
+          ]
+        : [])
+    ]);
 
     const pluginDeps = {
       resolveActor: async (request) => {

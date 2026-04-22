@@ -170,6 +170,8 @@ test("auth guard runtime only updates placement auth context", async () => {
           return {
             authenticated: true,
             username: "ada",
+            email: "ada@example.com",
+            permissions: ["settings.allowed"],
             oauthProviders: [{ id: "github", label: "GitHub" }],
             oauthDefaultProvider: "github"
           };
@@ -191,6 +193,8 @@ test("auth guard runtime only updates placement auth context", async () => {
   });
   assert.deepEqual(context.auth, {
     authenticated: true,
+    email: "ada@example.com",
+    permissions: ["settings.allowed"],
     oauthDefaultProvider: "github",
     oauthProviders: [{ id: "github", label: "GitHub" }]
   });

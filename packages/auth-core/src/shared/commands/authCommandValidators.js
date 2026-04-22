@@ -204,6 +204,8 @@ const sessionResponseValidator = Object.freeze({
     {
       authenticated: Type.Boolean(),
       username: Type.Optional(Type.String({ minLength: 1, maxLength: 120 })),
+      email: Type.Optional(authEmailValidator.schema),
+      permissions: Type.Optional(Type.Array(Type.String({ minLength: 1, maxLength: 200 }))),
       csrfToken: Type.String({ minLength: 1 }),
       oauthProviders: Type.Array(oauthProviderCatalogEntryValidator.schema),
       oauthDefaultProvider: Type.Union([oauthProviderValidator.schema, Type.Null()])

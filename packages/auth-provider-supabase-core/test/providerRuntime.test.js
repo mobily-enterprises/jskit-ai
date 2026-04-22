@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { createApplication } from "@jskit-ai/kernel/_testable";
+import { registerAuthServiceDecorator } from "@jskit-ai/auth-core/server/authServiceDecoratorRegistry";
 import { ActionRuntimeServiceProvider } from "@jskit-ai/kernel/server/actions";
 import { AuthSupabaseServiceProvider } from "../src/server/providers/AuthSupabaseServiceProvider.js";
 
@@ -218,6 +219,46 @@ test("auth supabase provider can boot dev auth without Supabase credentials", as
   const actionExecutor = app.make("actionExecutor");
   const definitions = actionExecutor.listDefinitions();
   assert.equal(definitions.some((definition) => definition.id === "auth.dev.loginAs"), true);
+});
+
+test("auth supabase provider applies registered auth service decorators", async () => {
+  const app = createApplication();
+  app.instance("appConfig", createAppConfigFixture());
+  app.instance("jskit.env", {
+    AUTH_SUPABASE_URL: "https://example.supabase.co",
+    AUTH_SUPABASE_PUBLISHABLE_KEY: "sb_publishable_test_key",
+    AUTH_PROFILE_MODE: "standalone",
+    APP_PUBLIC_URL: "http://localhost:5173",
+    NODE_ENV: "test"
+  });
+  app.instance("jskit.logger", {
+    info() {},
+    warn() {},
+    error() {},
+    debug() {}
+  });
+  app.instance("domainEvents", {
+    async publish() {}
+  });
+
+  registerAuthServiceDecorator(app, "test.auth.decorator.marker", () => ({
+    decoratorId: "marker",
+    order: 10,
+    decorateAuthService(authService) {
+      return {
+        ...authService,
+        marker: "decorated"
+      };
+    }
+  }));
+
+  await app.start({
+    providers: [ActionRuntimeServiceProvider, AuthSupabaseServiceProvider]
+  });
+
+  const authService = app.make("authService");
+  assert.equal(authService.marker, "decorated");
+  assert.equal(typeof authService.login, "function");
 });
 
 test("auth supabase provider rejects dev auth bypass in production", async () => {
