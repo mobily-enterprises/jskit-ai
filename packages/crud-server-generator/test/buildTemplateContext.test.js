@@ -952,7 +952,7 @@ test("buildReplacementsFromSnapshot normalizes nullable temporal inputs without 
 
   assert.match(
     replacements.__JSKIT_CRUD_RESOURCE_INPUT_NORMALIZATION_LINES__,
-    /normalizeIfInSource\(source, normalized, "scheduledAt", \(value\) => \{ const normalized = normalizeText\(value\); return normalized \? toDatabaseDateTimeUtc\(normalized\) : null; \}\);/
+    /normalizeIfInSource\(source, normalized, "scheduledAt", \(value\) => \{ const normalized = normalizeText\(value\); return normalized \? toIsoString\(normalized\) : null; \}\);/
   );
   assert.match(
     replacements.__JSKIT_CRUD_RESOURCE_INPUT_NORMALIZATION_LINES__,
@@ -961,6 +961,10 @@ test("buildReplacementsFromSnapshot normalizes nullable temporal inputs without 
   assert.match(
     replacements.__JSKIT_CRUD_RESOURCE_INPUT_NORMALIZATION_LINES__,
     /normalizeIfInSource\(source, normalized, "preferredTime", \(value\) => \{ const normalized = normalizeText\(value\); return normalized \|\| null; \}\);/
+  );
+  assert.doesNotMatch(
+    replacements.__JSKIT_CRUD_RESOURCE_FIELD_META_PUSH_LINES__,
+    /writeSerializer: "datetime-utc"/
   );
 });
 

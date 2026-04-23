@@ -1,4 +1,7 @@
-import { normalizeDbRecordId } from "@jskit-ai/database-runtime/shared";
+import {
+  normalizeDbRecordId,
+  toDatabaseDateTimeUtc
+} from "@jskit-ai/database-runtime/shared";
 import { AppError } from "@jskit-ai/kernel/server/runtime/errors";
 import { RECORD_ID_PATTERN } from "@jskit-ai/kernel/shared/validators";
 import { normalizeRecordId, normalizeText } from "@jskit-ai/kernel/shared/support/normalize";
@@ -10,6 +13,7 @@ import {
 } from "@jskit-ai/kernel/shared/support/crudLookup";
 import {
   CRUD_FIELD_REPOSITORY_STORAGE_COLUMN,
+  CRUD_FIELD_REPOSITORY_WRITE_SERIALIZER_DATETIME_UTC,
   CRUD_FIELD_REPOSITORY_STORAGE_VIRTUAL,
   isCrudRuntimeOutputOnlyFieldKey,
   normalizeCrudFieldRepositoryConfig
@@ -17,6 +21,9 @@ import {
 
 const DEFAULT_LIST_LIMIT = 20;
 const MAX_LIST_LIMIT = 100;
+const CRUD_WRITE_SERIALIZERS = Object.freeze({
+  [CRUD_FIELD_REPOSITORY_WRITE_SERIALIZER_DATETIME_UTC]: (value) => toDatabaseDateTimeUtc(value)
+});
 
 function normalizeCrudListCursor(cursor = null, { allowEmpty = true } = {}) {
   if (cursor === undefined || cursor === null) {
@@ -170,6 +177,23 @@ function schemaIncludesStringType(schema = {}) {
   return variants.some((entry) => schemaIncludesStringType(entry));
 }
 
+function schemaIncludesDateTimeFormat(schema = {}) {
+  if (!schema || typeof schema !== "object" || Array.isArray(schema)) {
+    return false;
+  }
+
+  if (normalizeText(schema.format).toLowerCase() === "date-time") {
+    return true;
+  }
+
+  const variants = Array.isArray(schema.anyOf)
+    ? schema.anyOf
+    : Array.isArray(schema.oneOf)
+      ? schema.oneOf
+      : [];
+  return variants.some((entry) => schemaIncludesDateTimeFormat(entry));
+}
+
 function schemaIncludesRecordIdType(schema = {}) {
   if (!schema || typeof schema !== "object" || Array.isArray(schema)) {
     return false;
@@ -233,6 +257,7 @@ function deriveRepositoryMappingFromResource(resource = {}, { context = "crudRep
 
   const fieldStorageByKey = {};
   const columnOverrides = {};
+  const writeSerializerByKey = {};
   for (const entry of normalizeResourceFieldMetaEntries(resource.fieldMeta)) {
     const key = normalizeText(entry.key);
     if (!key) {
@@ -245,6 +270,9 @@ function deriveRepositoryMappingFromResource(resource = {}, { context = "crudRep
     fieldStorageByKey[key] = repositoryConfig.storage;
     if (repositoryConfig.column) {
       columnOverrides[key] = repositoryConfig.column;
+    }
+    if (repositoryConfig.writeSerializer) {
+      writeSerializerByKey[key] = repositoryConfig.writeSerializer;
     }
   }
 
@@ -313,9 +341,27 @@ function deriveRepositoryMappingFromResource(resource = {}, { context = "crudRep
     }
   }
 
+  for (const key of writeKeys) {
+    if ((fieldStorageByKey[key] || CRUD_FIELD_REPOSITORY_STORAGE_COLUMN) !== CRUD_FIELD_REPOSITORY_STORAGE_COLUMN) {
+      continue;
+    }
+
+    if (writeSerializerByKey[key]) {
+      continue;
+    }
+
+    const schema = writeProperties[key] || patchProperties[key];
+    if (!schemaIncludesDateTimeFormat(schema)) {
+      continue;
+    }
+
+    writeSerializerByKey[key] = CRUD_FIELD_REPOSITORY_WRITE_SERIALIZER_DATETIME_UTC;
+  }
+
   return Object.freeze({
     outputKeys,
     writeKeys,
+    writeSerializerByKey: Object.freeze(writeSerializerByKey),
     fieldStorageByKey: Object.freeze(fieldStorageByKey),
     columnOverrides: Object.freeze(columnOverrides),
     columnBackedOutputKeys: Object.freeze(columnBackedOutputKeys),
@@ -431,8 +477,11 @@ function applyCrudListQueryFilters(
   return nextQuery;
 }
 
-function buildWritePayload(sourcePayload = {}, fieldKeys = [], overrides = {}) {
+function buildWritePayload(sourcePayload = {}, fieldKeys = [], overrides = {}, { serializerByKey = {} } = {}) {
   const source = normalizeObjectInput(sourcePayload);
+  const normalizedSerializerByKey = serializerByKey && typeof serializerByKey === "object" && !Array.isArray(serializerByKey)
+    ? serializerByKey
+    : {};
   const payload = {};
   for (const key of fieldKeys) {
     const normalizedKey = String(key || "").trim();
@@ -443,7 +492,19 @@ function buildWritePayload(sourcePayload = {}, fieldKeys = [], overrides = {}) {
     if (!Object.hasOwn(source, normalizedKey)) {
       continue;
     }
-    payload[columnName] = source[normalizedKey];
+    const value = source[normalizedKey];
+    const serializerId = normalizeText(normalizedSerializerByKey[normalizedKey]).toLowerCase();
+    if (value === null || value === undefined || !serializerId) {
+      payload[columnName] = value;
+      continue;
+    }
+
+    const serializer = CRUD_WRITE_SERIALIZERS[serializerId];
+    if (typeof serializer !== "function") {
+      throw new Error(`crudRepository write serializer "${serializerId}" is not supported.`);
+    }
+
+    payload[columnName] = serializer(value);
   }
   return payload;
 }

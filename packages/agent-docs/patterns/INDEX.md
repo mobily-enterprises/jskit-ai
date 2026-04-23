@@ -28,7 +28,7 @@ How to use it:
   - `ui-testing.md`
 - filter, filters, search facets, chips, date range, enum filter, lookup filter, `useCrudListFilters`, `createCrudListFilters`
   - `filters.md`
-- fieldMeta, `repository.column`, computed field, virtual field, projection, `createCrudResourceRuntime`, `remainingBatchWeight`
+- fieldMeta, `repository.column`, `repository.writeSerializer`, computed field, virtual field, projection, `createCrudResourceRuntime`, `remainingBatchWeight`, datetime write serialization
   - `crud-repository-mapping.md`
 
 ## Current Patterns

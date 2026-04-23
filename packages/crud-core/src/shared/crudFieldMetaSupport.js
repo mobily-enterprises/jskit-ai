@@ -9,6 +9,30 @@ const CRUD_LOOKUP_FORM_CONTROL_AUTOCOMPLETE = "autocomplete";
 const CRUD_LOOKUP_FORM_CONTROL_SELECT = "select";
 const CRUD_FIELD_REPOSITORY_STORAGE_COLUMN = "column";
 const CRUD_FIELD_REPOSITORY_STORAGE_VIRTUAL = "virtual";
+const CRUD_FIELD_REPOSITORY_WRITE_SERIALIZER_DATETIME_UTC = "datetime-utc";
+
+function normalizeCrudFieldRepositoryWriteSerializer(
+  value,
+  {
+    context = "crud fieldMeta repository",
+    fieldKey = ""
+  } = {}
+) {
+  const normalizedFieldKey = normalizeText(fieldKey);
+  const normalizedValue = normalizeText(value).toLowerCase();
+  if (!normalizedValue) {
+    return "";
+  }
+
+  if (normalizedValue === CRUD_FIELD_REPOSITORY_WRITE_SERIALIZER_DATETIME_UTC) {
+    return normalizedValue;
+  }
+
+  throw new Error(
+    `${context}${normalizedFieldKey ? `["${normalizedFieldKey}"]` : ""} repository.writeSerializer must be ` +
+      `"${CRUD_FIELD_REPOSITORY_WRITE_SERIALIZER_DATETIME_UTC}" when provided.`
+  );
+}
 
 function checkCrudLookupFormControl(
   value,
@@ -70,7 +94,7 @@ function normalizeCrudFieldRepositoryConfig(
 
   const repositoryKeys = Object.keys(repository);
   for (const repositoryKey of repositoryKeys) {
-    if (repositoryKey !== "column" && repositoryKey !== "storage") {
+    if (repositoryKey !== "column" && repositoryKey !== "storage" && repositoryKey !== "writeSerializer") {
       throw new Error(
         `${context}${normalizedFieldKey ? `["${normalizedFieldKey}"]` : ""} does not support repository.${repositoryKey}.`
       );
@@ -79,10 +103,14 @@ function normalizeCrudFieldRepositoryConfig(
 
   const column = normalizeText(repository.column);
   const storage = normalizeText(repository.storage).toLowerCase();
+  const writeSerializer = normalizeCrudFieldRepositoryWriteSerializer(repository.writeSerializer, {
+    context,
+    fieldKey: normalizedFieldKey
+  });
 
-  if (!column && !storage) {
+  if (!column && !storage && !writeSerializer) {
     throw new Error(
-      `${context}${normalizedFieldKey ? `["${normalizedFieldKey}"]` : ""} requires repository.column or repository.storage.`
+      `${context}${normalizedFieldKey ? `["${normalizedFieldKey}"]` : ""} requires repository.column, repository.storage, or repository.writeSerializer.`
     );
   }
 
@@ -96,22 +124,30 @@ function normalizeCrudFieldRepositoryConfig(
       `${context}${normalizedFieldKey ? `["${normalizedFieldKey}"]` : ""} repository.storage "virtual" cannot define repository.column.`
     );
   }
+  if (storage === CRUD_FIELD_REPOSITORY_STORAGE_VIRTUAL && writeSerializer) {
+    throw new Error(
+      `${context}${normalizedFieldKey ? `["${normalizedFieldKey}"]` : ""} repository.storage "virtual" cannot define repository.writeSerializer.`
+    );
+  }
 
   return Object.freeze({
     storage: storage === CRUD_FIELD_REPOSITORY_STORAGE_VIRTUAL
       ? CRUD_FIELD_REPOSITORY_STORAGE_VIRTUAL
       : CRUD_FIELD_REPOSITORY_STORAGE_COLUMN,
-    column
+    column,
+    writeSerializer
   });
 }
 
 export {
   CRUD_FIELD_REPOSITORY_STORAGE_COLUMN,
   CRUD_FIELD_REPOSITORY_STORAGE_VIRTUAL,
+  CRUD_FIELD_REPOSITORY_WRITE_SERIALIZER_DATETIME_UTC,
   CRUD_LOOKUP_FORM_CONTROL_AUTOCOMPLETE,
   CRUD_LOOKUP_FORM_CONTROL_SELECT,
   CRUD_RUNTIME_LOOKUPS_FIELD_KEY,
   checkCrudLookupFormControl,
   isCrudRuntimeOutputOnlyFieldKey,
-  normalizeCrudFieldRepositoryConfig
+  normalizeCrudFieldRepositoryConfig,
+  normalizeCrudFieldRepositoryWriteSerializer
 };

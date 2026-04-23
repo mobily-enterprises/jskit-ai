@@ -1186,7 +1186,14 @@ async function createRecord(runtime, knex, payload = {}, callOptions = {}) {
     }
   );
 
-  let insertPayload = buildWritePayload(sourcePayload, runtime.mapping.writeKeys, runtime.mapping.columnOverrides);
+  let insertPayload = buildWritePayload(
+    sourcePayload,
+    runtime.mapping.writeKeys,
+    runtime.mapping.columnOverrides,
+    {
+      serializerByKey: runtime.mapping.writeSerializerByKey
+    }
+  );
   const timestamp = toInsertDateTime();
   if (runtime.defaults.createdAtColumn && !Object.hasOwn(insertPayload, runtime.defaults.createdAtColumn)) {
     insertPayload[runtime.defaults.createdAtColumn] = timestamp;
@@ -1276,7 +1283,14 @@ async function updateRecordById(runtime, knex, recordId, patch = {}, callOptions
       stageKey: "operations.updateById.preparePatch"
     }
   );
-  const dbPatch = buildWritePayload(sourcePatch, runtime.mapping.writeKeys, runtime.mapping.columnOverrides);
+  const dbPatch = buildWritePayload(
+    sourcePatch,
+    runtime.mapping.writeKeys,
+    runtime.mapping.columnOverrides,
+    {
+      serializerByKey: runtime.mapping.writeSerializerByKey
+    }
+  );
 
   if (runtime.defaults.updatedAtColumn) {
     dbPatch[runtime.defaults.updatedAtColumn] = toInsertDateTime();

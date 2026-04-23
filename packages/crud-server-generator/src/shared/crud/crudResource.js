@@ -1,7 +1,6 @@
 import { Type } from "typebox";
 import {
-  toIsoString,
-  toDatabaseDateTimeUtc
+  toIsoString
 } from "@jskit-ai/database-runtime/shared";
 import {
   normalizeObjectInput,
@@ -100,7 +99,7 @@ const createBodyValidator = Object.freeze({
       normalized.textField = normalizeText(source.textField);
     }
     if (Object.hasOwn(source, "dateField")) {
-      normalized.dateField = toDatabaseDateTimeUtc(source.dateField);
+      normalized.dateField = toIsoString(source.dateField);
     }
     if (Object.hasOwn(source, "numberField")) {
       normalized.numberField = normalizeFiniteNumber(source.numberField);

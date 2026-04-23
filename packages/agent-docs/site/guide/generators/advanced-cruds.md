@@ -845,6 +845,8 @@ In JSKIT CRUD:
 Use these rules:
 
 - for explicit DB column overrides, use `repository.column`
+- standard writable `date-time` fields are serialized automatically during CRUD writes
+- use `repository.writeSerializer` only for non-default DB write serialization
 - for computed output fields, use `repository.storage: "virtual"`
 - do not put computed fields in create/patch write schemas
 
@@ -889,6 +891,8 @@ Once registered there:
 - generic CRUD `findById`
 - generic CRUD `listByIds`
 - generic CRUD `listByForeignIds`
+
+and generic CRUD writes automatically serialize standard writable `date-time` fields during create/update payload mapping, so normal datetime DB formatting does not need per-field metadata or repository-specific `preparePayload` hooks. Keep `repository.writeSerializer` for non-default cases only.
 
 all pick up the projection automatically, so you should not hand-patch `clearSelect()` / re-select logic into each method.
 

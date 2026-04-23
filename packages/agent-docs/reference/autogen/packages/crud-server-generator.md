@@ -215,6 +215,39 @@ Exports
 Exports
 - None
 
+### .tmp-crud-server-template-fixture-FNbPfi
+
+### `.tmp-crud-server-template-fixture-FNbPfi/src/server/actionIds.js`
+Exports
+- `actionIds`
+
+### `.tmp-crud-server-template-fixture-FNbPfi/src/server/actions.js`
+Exports
+- `createActions({ surface = "" } = {})`
+Local functions
+- `requireActionSurface(surface = "")`
+
+### `.tmp-crud-server-template-fixture-FNbPfi/src/server/listConfig.js`
+Exports
+- `LIST_CONFIG`
+
+### `.tmp-crud-server-template-fixture-FNbPfi/src/server/registerRoutes.js`
+Exports
+- `registerRoutes(app, { routeOwnershipFilter = "public", routeSurface = "", routeRelativePath = "" } = {})`
+
+### `.tmp-crud-server-template-fixture-FNbPfi/src/server/repository.js`
+Exports
+- `createRepository(knex, options = {})`
+
+### `.tmp-crud-server-template-fixture-FNbPfi/src/server/service.js`
+Exports
+- `createService({ customersRepository, fieldAccess = DEFAULT_FIELD_ACCESS } = {})`
+- `serviceEvents`
+
+### `.tmp-crud-server-template-fixture-FNbPfi/src/shared/customerResource.js`
+Exports
+- `resource`
+
 ### test-support
 
 ### `test-support/templateServerFixture.js`
