@@ -10,13 +10,15 @@
           <v-spacer />
           <v-btn
             v-if="UI_CANCEL_URL"
-            variant="text"
+            color="primary"
+            variant="outlined"
             :to="{ path: formRuntime.addEdit.resolveParams(UI_CANCEL_URL), query: $route.query }"
           >
             Cancel
           </v-btn>
           <v-btn
             color="primary"
+            variant="flat"
             :loading="formRuntime.addEdit.isSaving"
             :disabled="formRuntime.addEdit.isSubmitDisabled"
             @click="formRuntime.addEdit.submit"

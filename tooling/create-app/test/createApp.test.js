@@ -28,6 +28,80 @@ function createCaptureWritable() {
   };
 }
 
+async function writeCrudCustomerResource(appRoot) {
+  const resourcePath = path.join(appRoot, "packages", "customers", "src", "shared", "customerResource.js");
+  await mkdir(path.dirname(resourcePath), { recursive: true });
+  await writeFile(
+    resourcePath,
+    `const customerRecordSchema = {
+  type: "object",
+  properties: {
+    id: { type: "integer" },
+    firstName: { type: "string" },
+    email: { type: "string" },
+    vip: { type: "boolean" }
+  },
+  additionalProperties: false
+};
+
+const customerBodySchema = {
+  type: "object",
+  properties: {
+    firstName: { type: "string", maxLength: 120 },
+    email: { type: "string", maxLength: 160 },
+    vip: { type: "boolean" }
+  },
+  additionalProperties: false
+};
+
+const resource = {
+  namespace: "customers",
+  operations: {
+    list: {
+      outputValidator: {
+        schema: {
+          type: "object",
+          properties: {
+            items: {
+              type: "array",
+              items: customerRecordSchema
+            },
+            nextCursor: { type: ["string", "null"] }
+          },
+          additionalProperties: false
+        }
+      }
+    },
+    view: {
+      outputValidator: {
+        schema: customerRecordSchema
+      }
+    },
+    create: {
+      bodyValidator: {
+        schema: customerBodySchema
+      },
+      outputValidator: {
+        schema: customerRecordSchema
+      }
+    },
+    patch: {
+      bodyValidator: {
+        schema: customerBodySchema
+      },
+      outputValidator: {
+        schema: customerRecordSchema
+      }
+    }
+  }
+};
+
+export { resource };
+`,
+    "utf8"
+  );
+}
+
 test("create-app scaffolds the base shell with placeholder replacements", async () => {
   await withCreateAppTempDir(async (cwd) => {
     const result = runCli({ cwd, args: ["sample-app"] });
@@ -497,6 +571,72 @@ test("generated shell-only app passes jskit doctor and keeps minimal Procfile", 
     await access(path.join(appRoot, "src/components/menus/MenuLinkItem.vue"));
     await access(path.join(appRoot, "src/components/menus/SurfaceAwareMenuLinkItem.vue"));
     await access(path.join(appRoot, "src/components/menus/TabLinkItem.vue"));
+  });
+});
+
+test("fresh app CRUD scaffolds encode explicit M3 action hierarchy and stable settings links", async () => {
+  await withCreateAppTempDir(async (cwd) => {
+    const createResult = runCli({ cwd, args: ["crud-ui-hierarchy-app"] });
+    assert.equal(createResult.status, 0, createResult.stderr);
+
+    const appRoot = path.join(cwd, "crud-ui-hierarchy-app");
+
+    const addShellWebResult = runJskit({
+      cwd: appRoot,
+      args: ["add", "package", "shell-web"]
+    });
+    assert.equal(addShellWebResult.status, 0, addShellWebResult.stderr);
+
+    await writeCrudCustomerResource(appRoot);
+
+    const generateCrudResult = runJskit({
+      cwd: appRoot,
+      args: [
+        "generate",
+        "@jskit-ai/crud-ui-generator",
+        "crud",
+        "home/settings/customers",
+        "--resource-file",
+        "packages/customers/src/shared/customerResource.js",
+        "--id-param",
+        "customerId"
+      ]
+    });
+    assert.equal(generateCrudResult.status, 0, generateCrudResult.stderr);
+
+    const placementSource = await readFile(path.join(appRoot, "src", "placement.js"), "utf8");
+    const listPageSource = await readFile(path.join(appRoot, "src/pages/home/settings/customers/index.vue"), "utf8");
+    const viewPageSource = await readFile(path.join(appRoot, "src/pages/home/settings/customers/[customerId]/index.vue"), "utf8");
+    const newPageSource = await readFile(path.join(appRoot, "src/pages/home/settings/customers/new.vue"), "utf8");
+    const editPageSource = await readFile(path.join(appRoot, "src/pages/home/settings/customers/[customerId]/edit.vue"), "utf8");
+    const addEditFormSource = await readFile(
+      path.join(appRoot, "src/pages/home/settings/customers/_components/CrudAddEditForm.vue"),
+      "utf8"
+    );
+
+    assert.match(placementSource, /target: "home-settings:primary-menu"/);
+    assert.match(placementSource, /componentToken: "local\.main\.ui\.surface-aware-menu-link-item"/);
+    assert.match(placementSource, /scopedSuffix: "\/settings\/customers"/);
+    assert.doesNotMatch(placementSource, /to: "\.\/customers"/);
+    assert.doesNotMatch(placementSource, /to: "\.\/general"/);
+
+    assert.match(listPageSource, /<v-btn color="primary" variant="tonal" :loading="records\.isFetching"/);
+    assert.match(listPageSource, /<v-btn v-if="UI_NEW_URL" color="primary" variant="flat"/);
+    assert.match(listPageSource, /size="small"[\s\S]*color="primary"[\s\S]*variant="outlined"[\s\S]*>\s*Open/);
+    assert.match(listPageSource, /size="small"[\s\S]*color="primary"[\s\S]*variant="tonal"[\s\S]*>\s*Edit/);
+    assert.match(listPageSource, /<v-btn color="primary" variant="outlined" :loading="records\.isLoadingMore"/);
+
+    assert.match(viewPageSource, /v-if="UI_LIST_URL"[\s\S]*color="primary"[\s\S]*variant="outlined"/);
+    assert.match(viewPageSource, /v-if="UI_EDIT_URL"[\s\S]*color="primary"[\s\S]*variant="flat"/);
+
+    assert.match(newPageSource, /<CrudAddEditForm/);
+    assert.match(newPageSource, /:cancel-to="UI_CANCEL_URL"/);
+
+    assert.match(editPageSource, /<CrudAddEditForm/);
+    assert.match(editPageSource, /:cancel-to="cancelTo"/);
+
+    assert.match(addEditFormSource, /<v-btn v-if="cancelTo" color="primary" variant="outlined"/);
+    assert.match(addEditFormSource, /color="primary"[\s\S]*variant="flat"[\s\S]*:loading="addEdit\.isSaving"/);
   });
 });
 

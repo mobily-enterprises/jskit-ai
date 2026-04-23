@@ -9,9 +9,10 @@
           </div>
           <v-spacer />
           <div class="d-flex ga-2 flex-wrap">
-            <v-btn v-if="cancelTo" variant="tonal" :to="resolveCancelTo(cancelTo)">Cancel</v-btn>
+            <v-btn v-if="cancelTo" color="primary" variant="outlined" :to="resolveCancelTo(cancelTo)">Cancel</v-btn>
             <v-btn
               color="primary"
+              variant="flat"
               :loading="addEdit.isSaving"
               :disabled="addEdit.isSubmitDisabled"
               @click="addEdit.submit"

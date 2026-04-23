@@ -194,6 +194,75 @@ fs.appendFileSync(process.env.TEST_LOG_PATH, ["npm", ...process.argv.slice(2)].j
   });
 });
 
+test("jskit app verify-ui records representative generated CRUD list, detail, and settings UI files", async () => {
+  await withTempDir(async (cwd) => {
+    const appRoot = path.join(cwd, "app");
+    const binDir = path.join(cwd, "bin");
+    const logPath = path.join(cwd, "commands.log");
+
+    await createMinimalApp(appRoot, { jskitApp: true });
+    await initializeGitApp(appRoot);
+
+    await mkdir(path.join(appRoot, "src", "pages", "home", "settings", "customers", "[customerId]"), {
+      recursive: true
+    });
+    await writeFile(
+      path.join(appRoot, "src", "pages", "home", "settings", "customers", "index.vue"),
+      "<template><div>Generated customers list with filters</div></template>\n",
+      "utf8"
+    );
+    await writeFile(
+      path.join(appRoot, "src", "pages", "home", "settings", "customers", "[customerId]", "index.vue"),
+      "<template><div>Generated customer detail</div></template>\n",
+      "utf8"
+    );
+    await writeFile(
+      path.join(appRoot, "src", "pages", "home", "settings", "customers", "new.vue"),
+      "<template><div>Generated customer create</div></template>\n",
+      "utf8"
+    );
+
+    await installFakeCommand(
+      binDir,
+      "npx",
+      `#!/usr/bin/env node
+const fs = require("node:fs");
+fs.appendFileSync(process.env.TEST_LOG_PATH, ["npx", ...process.argv.slice(2)].join(" ") + "\\n");
+`
+    );
+
+    const result = runCli({
+      cwd: appRoot,
+      args: [
+        "app",
+        "verify-ui",
+        "--command",
+        "npx playwright test tests/e2e/generated-crud-ui.spec.ts -g hierarchy",
+        "--feature",
+        "generated crud hierarchy",
+        "--auth-mode",
+        "none"
+      ],
+      env: buildTestEnv(binDir, logPath)
+    });
+
+    assert.equal(result.status, 0, String(result.stderr || ""));
+    assert.deepEqual(await readLogLines(logPath), [
+      "npx playwright test tests/e2e/generated-crud-ui.spec.ts -g hierarchy"
+    ]);
+
+    const receipt = JSON.parse(await readFile(path.join(appRoot, ".jskit", "verification", "ui.json"), "utf8"));
+    assert.equal(receipt.runner, "playwright");
+    assert.equal(receipt.feature, "generated crud hierarchy");
+    assert.equal(receipt.command, "npx playwright test tests/e2e/generated-crud-ui.spec.ts -g hierarchy");
+    assert.deepEqual(receipt.changedUiFiles, [
+      "src/pages/home/settings/customers/[customerId]/index.vue",
+      "src/pages/home/settings/customers/index.vue",
+      "src/pages/home/settings/customers/new.vue"
+    ]);
+  });
+});
+
 test("jskit app verify-ui rejects generic package roots that are not JSKIT apps", async () => {
   await withTempDir(async (cwd) => {
     const appRoot = path.join(cwd, "package-only-root");

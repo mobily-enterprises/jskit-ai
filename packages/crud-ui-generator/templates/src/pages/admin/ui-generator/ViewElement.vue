@@ -17,7 +17,8 @@
           <v-spacer />
           <v-btn
             v-if="UI_LIST_URL"
-            variant="text"
+            color="primary"
+            variant="outlined"
             :to="{ path: view.resolveParams(UI_LIST_URL), query: $route.query }"
           >
             Back to __JSKIT_UI_RESOURCE_PLURAL_TITLE__
@@ -25,7 +26,7 @@
           <v-btn
             v-if="UI_EDIT_URL"
             color="primary"
-            variant="outlined"
+            variant="flat"
             :to="{ path: view.resolveParams(UI_EDIT_URL), query: $route.query }"
           >
             Edit
