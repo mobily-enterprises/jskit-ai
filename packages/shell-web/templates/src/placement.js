@@ -50,7 +50,6 @@ addPlacement({
     label: "General",
     surface: "home",
     scopedSuffix: "/settings/general",
-    unscopedSuffix: "/settings/general",
-    to: "./general"
+    unscopedSuffix: "/settings/general"
   }
 });

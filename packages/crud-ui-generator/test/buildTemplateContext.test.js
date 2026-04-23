@@ -679,7 +679,7 @@ test("buildUiTemplateContext infers tab placement and relative link-to from the 
   });
 });
 
-test("buildUiTemplateContext prefers an outlet-declared default link token over subpage heuristics", async () => {
+test("buildUiTemplateContext prefers an outlet-declared default link token and omits fragile relative to output", async () => {
   await withTempApp(async (appRoot) => {
     await writeResource(appRoot, RESOURCE_FILE, FULL_RESOURCE_SOURCE);
     await writeFileInApp(
@@ -706,7 +706,7 @@ test("buildUiTemplateContext prefers an outlet-declared default link token over 
 
     assert.equal(context.__JSKIT_UI_MENU_PLACEMENT_TARGET__, "admin-settings:primary-menu");
     assert.equal(context.__JSKIT_UI_MENU_COMPONENT_TOKEN__, "local.main.ui.surface-aware-menu-link-item");
-    assert.equal(context.__JSKIT_UI_MENU_TO_PROP_LINE__, "      to: \"./customers\",\n");
+    assert.equal(context.__JSKIT_UI_MENU_TO_PROP_LINE__, "");
   });
 });
 

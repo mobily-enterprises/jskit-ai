@@ -580,11 +580,15 @@ function resolveInferredPageLinkTo({
   explicitLinkTo = "",
   pageTarget = {},
   parentHost = null,
-  placementTarget = null
+  placementTarget = null,
+  suppressImplicitRelativeLinks = false
 } = {}) {
   const normalizedExplicitLinkTo = normalizeText(explicitLinkTo);
   if (normalizedExplicitLinkTo) {
     return normalizedExplicitLinkTo;
+  }
+  if (suppressImplicitRelativeLinks === true) {
+    return "";
   }
 
   const parentTargetId = normalizePlacementTargetId(parentHost);
@@ -670,24 +674,26 @@ async function resolvePageLinkTargetDetails({
     context,
     placement: normalizeText(placement) || parentHost?.id || ""
   });
+  const resolvedComponentToken = resolveInferredPageLinkComponentToken({
+    explicitComponentToken: componentToken,
+    parentHost,
+    placementTarget,
+    defaultComponentToken,
+    subpageComponentToken
+  });
 
   return Object.freeze({
     pageTarget: resolvedPageTarget,
     parentHost,
     placementTarget,
-    componentToken: resolveInferredPageLinkComponentToken({
-      explicitComponentToken: componentToken,
-      parentHost,
-      placementTarget,
-      defaultComponentToken,
-      subpageComponentToken
-    }),
+    componentToken: resolvedComponentToken,
     whenLine: renderPageLinkWhenLine(resolvedPageTarget),
     linkTo: resolveInferredPageLinkTo({
       explicitLinkTo: linkTo,
       pageTarget: resolvedPageTarget,
       parentHost,
-      placementTarget
+      placementTarget,
+      suppressImplicitRelativeLinks: resolvedComponentToken === (normalizeText(defaultComponentToken) || DEFAULT_PAGE_LINK_COMPONENT_TOKEN)
     })
   });
 }

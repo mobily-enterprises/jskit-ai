@@ -75,7 +75,7 @@ test("shell-web placement template seeds default Home and Settings drawer naviga
   assert.match(source, /target: "home-settings:primary-menu"/);
   assert.match(source, /label: "General"/);
   assert.match(source, /unscopedSuffix: "\/settings\/general"/);
-  assert.match(source, /to: "\.\/general"/);
+  assert.doesNotMatch(source, /to: "\.\/general"/);
 });
 
 test("shell-web descriptor metadata advertises home settings outlets, default drawer links, and installs the scaffold page", () => {

@@ -8,8 +8,10 @@
             <v-card-subtitle class="px-0">Manage __JSKIT_UI_RESOURCE_PLURAL_TITLE__.</v-card-subtitle>
           </div>
           <v-spacer />
-          <v-btn variant="outlined" :loading="records.isFetching" @click="records.reload">Refresh</v-btn>
-          <v-btn v-if="UI_NEW_URL" color="primary" :to="records.resolveParams(UI_NEW_URL)">New __JSKIT_UI_RESOURCE_SINGULAR_TITLE__</v-btn>
+          <v-btn color="primary" variant="tonal" :loading="records.isFetching" @click="records.reload">Refresh</v-btn>
+          <v-btn v-if="UI_NEW_URL" color="primary" variant="flat" :to="records.resolveParams(UI_NEW_URL)">
+            New __JSKIT_UI_RESOURCE_SINGULAR_TITLE__
+          </v-btn>
         </div>
       </v-card-item>
       <v-divider />
@@ -51,7 +53,8 @@ __JSKIT_UI_LIST_ROW_COLUMNS__
                 <td v-if="UI_VIEW_URL" class="text-right">
                   <v-btn
                     size="small"
-                    variant="text"
+                    color="primary"
+                    variant="outlined"
                     :to="{ path: records.resolveViewUrl(record), query: $route.query }"
                     :disabled="!records.resolveViewUrl(record)"
                   >
@@ -61,7 +64,8 @@ __JSKIT_UI_LIST_ROW_COLUMNS__
                 <td v-if="UI_EDIT_URL" class="text-right">
                   <v-btn
                     size="small"
-                    variant="text"
+                    color="primary"
+                    variant="tonal"
                     :to="{ path: records.resolveEditUrl(record), query: $route.query }"
                     :disabled="!records.resolveEditUrl(record)"
                   >
@@ -73,7 +77,9 @@ __JSKIT_UI_LIST_ROW_COLUMNS__
           </v-table>
 
           <div v-if="records.hasMore" class="d-flex justify-center pt-4">
-            <v-btn variant="text" :loading="records.isLoadingMore" @click="records.loadMore">Load more</v-btn>
+            <v-btn color="primary" variant="outlined" :loading="records.isLoadingMore" @click="records.loadMore">
+              Load more
+            </v-btn>
           </div>
         </template>
       </v-card-text>

@@ -316,7 +316,7 @@ test("resolvePageLinkTargetDetails prefers an outlet-declared default link token
     assert.equal(details.parentHost?.id, "home-settings:primary-menu");
     assert.equal(details.placementTarget.id, "home-settings:primary-menu");
     assert.equal(details.componentToken, "local.main.ui.surface-aware-menu-link-item");
-    assert.equal(details.linkTo, "./pollen-types");
+    assert.equal(details.linkTo, "");
   });
 });
 

@@ -8,9 +8,12 @@
             <v-card-subtitle class="px-0">Create a new __JSKIT_UI_RESOURCE_SINGULAR_TITLE__.</v-card-subtitle>
           </div>
           <v-spacer />
-          <v-btn v-if="UI_LIST_URL" variant="text" :to="formRuntime.addEdit.resolveParams(UI_LIST_URL)">Cancel</v-btn>
+          <v-btn v-if="UI_LIST_URL" color="primary" variant="outlined" :to="formRuntime.addEdit.resolveParams(UI_LIST_URL)">
+            Cancel
+          </v-btn>
           <v-btn
             color="primary"
+            variant="flat"
             :loading="formRuntime.addEdit.isSaving"
             :disabled="formRuntime.addEdit.isSubmitDisabled"
             @click="formRuntime.addEdit.submit"

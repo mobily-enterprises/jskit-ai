@@ -189,6 +189,44 @@ test("buildUiPageTemplateContext supports explicit package outlet link placement
   });
 });
 
+test("buildUiPageTemplateContext suppresses inferred relative link-to for surface-aware settings menu links", async () => {
+  await withTempApp(async (appRoot) => {
+    await writeConfig(
+      appRoot,
+      `export const config = {
+  surfaceDefinitions: {
+    home: { id: "home", pagesRoot: "home", enabled: true }
+  }
+};
+`
+    );
+    await writeFileInApp(
+      appRoot,
+      "src/pages/home/settings.vue",
+      `<template>
+  <section>
+    <ShellOutlet
+      target="home-settings:primary-menu"
+      default-link-component-token="local.main.ui.surface-aware-menu-link-item"
+    />
+    <RouterView />
+  </section>
+</template>
+`
+    );
+
+    const context = await buildUiPageTemplateContext({
+      appRoot,
+      targetFile: "home/settings/pollen-types/index.vue",
+      options: {}
+    });
+
+    assert.equal(context.__JSKIT_UI_LINK_PLACEMENT_TARGET__, "home-settings:primary-menu");
+    assert.equal(context.__JSKIT_UI_LINK_COMPONENT_TOKEN__, "local.main.ui.surface-aware-menu-link-item");
+    assert.equal(context.__JSKIT_UI_LINK_TO_PROP_LINE__, "");
+  });
+});
+
 test("buildUiPageTemplateContext supports explicit link component token and link-to", async () => {
   await withTempApp(async (appRoot) => {
     await writeConfig(
