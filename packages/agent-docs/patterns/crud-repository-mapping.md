@@ -9,9 +9,11 @@ Default JSKIT pattern:
 1. Treat the schema as the API contract only.
 2. Put persistence mapping in `resource.fieldMeta`.
 3. Use `repository.column` for explicit DB column overrides.
-4. Use `repository.storage: "virtual"` for computed output fields.
-5. Register computed SQL projections once in the repository runtime with `virtualFields`.
-6. Let generic CRUD read paths apply those projections automatically.
+4. Let generic CRUD runtime handle standard writable `date-time` fields automatically at the DB write seam.
+5. Use `repository.writeSerializer` only for non-default write serialization.
+6. Use `repository.storage: "virtual"` for computed output fields.
+7. Register computed SQL projections once in the repository runtime with `virtualFields`.
+8. Let generic CRUD read paths apply those projections automatically.
 
 Field meta rules:
 - for a normal override, write:
@@ -36,14 +38,29 @@ RESOURCE_FIELD_META.push({
 });
 ```
 
+- for a non-default write serializer override, write:
+
+```js
+RESOURCE_FIELD_META.push({
+  key: "arrivalDatetime",
+  repository: {
+    writeSerializer: "datetime-utc"
+  }
+});
+```
+
 - omit `repository` entirely when the field is column-backed and the default snake_case mapping is correct
+- standard writable `format: "date-time"` fields do not need explicit `repository.writeSerializer`
+- use `repository.writeSerializer` only for non-default DB write behavior; keep `bodyValidator.normalize(...)` in API shape
 - `repository.storage: "virtual"` cannot also define `repository.column`
+- `repository.storage: "virtual"` cannot also define `repository.writeSerializer`
 - `repository.storage: "virtual"` fields must not appear in create/patch write schemas
 
 Repository pattern:
 - build the runtime with `createCrudResourceRuntime(resource, { ... })`
 - register computed projections in `virtualFields`
 - keep SQL in the repository, not in shared metadata
+- let generic CRUD runtime apply `repository.writeSerializer` during create/update writes
 
 Example:
 
@@ -64,6 +81,8 @@ const repositoryRuntime = createCrudResourceRuntime(resource, {
 
 What CRUD core now does for you:
 - default select columns include only column-backed output fields
+- create/update write payloads serialize standard writable `date-time` fields centrally
+- create/update write payloads also apply any explicit field write serializers centrally
 - `list`, `findById`, `listByIds`, and `listByForeignIds` apply registered virtual projections automatically
 - search and parent-filter fallback derivation only use column-backed fields
 - `listByIds(..., { valueKey })` requires that `valueKey` be column-backed
@@ -76,6 +95,8 @@ Avoid:
 Review checks:
 - schema defines contract, not storage
 - `fieldMeta.repository` owns mapping
+- standard datetime DB write serialization stays automatic and runtime-owned
+- any non-default DB write serialization lives in `repository.writeSerializer`, not in per-repository hooks
 - computed fields use `repository.storage: "virtual"`
 - repository runtime registers matching `virtualFields`
 - no per-method projection duplication when generic CRUD reads already cover the field

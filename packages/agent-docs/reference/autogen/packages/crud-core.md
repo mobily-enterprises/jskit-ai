@@ -211,7 +211,7 @@ Exports
 - `deriveRepositoryMappingFromResource(resource = {}, { context = "crudRepository" } = {})`
 - `applyCrudListQueryFilters(query, { idColumn = "id", cursor = "", applyCursor = true, q = "", searchColumns = [], parentFilters = {}, parentFilterColumns = {} } = {})`
 - `mapRecordRow(row, fieldKeys = [], overrides = {}, { recordIdKeys = [] } = {})`
-- `buildWritePayload(sourcePayload = {}, fieldKeys = [], overrides = {})`
+- `buildWritePayload(sourcePayload = {}, fieldKeys = [], overrides = {}, { serializerByKey = {} } = {})`
 - `resolveColumnName(fieldKey, overrides = {})`
 - `resolveCrudIdColumn(idColumn, { fallback = "id" } = {})`
 - `buildRepositoryColumnMetadata({ outputKeys = [], writeKeys = [], columnOverrides = {}, fieldStorageByKey = {} } = {})`
@@ -220,6 +220,7 @@ Local functions
 - `requireObjectSchemaProperties(schema, { context = "crudRepository", schemaLabel = "schema" } = {})`
 - `normalizeResourceFieldMetaEntries(fieldMeta = [])`
 - `schemaIncludesStringType(schema = {})`
+- `schemaIncludesDateTimeFormat(schema = {})`
 - `schemaIncludesRecordIdType(schema = {})`
 
 ### `src/server/resourceRuntime/index.js`
@@ -317,12 +318,14 @@ Local functions
 Exports
 - `CRUD_FIELD_REPOSITORY_STORAGE_COLUMN`
 - `CRUD_FIELD_REPOSITORY_STORAGE_VIRTUAL`
+- `CRUD_FIELD_REPOSITORY_WRITE_SERIALIZER_DATETIME_UTC`
 - `CRUD_LOOKUP_FORM_CONTROL_AUTOCOMPLETE`
 - `CRUD_LOOKUP_FORM_CONTROL_SELECT`
 - `CRUD_RUNTIME_LOOKUPS_FIELD_KEY`
 - `checkCrudLookupFormControl(value, { context = "crud fieldMeta ui.formControl", defaultValue = CRUD_LOOKUP_FORM_CONTROL_AUTOCOMPLETE } = {})`
 - `isCrudRuntimeOutputOnlyFieldKey(value = "", { lookupContainerKey = CRUD_RUNTIME_LOOKUPS_FIELD_KEY } = {})`
 - `normalizeCrudFieldRepositoryConfig(fieldMetaEntry = {}, { context = "crud fieldMeta repository", fieldKey = "" } = {})`
+- `normalizeCrudFieldRepositoryWriteSerializer(value, { context = "crud fieldMeta repository", fieldKey = "" } = {})`
 
 ### `src/shared/crudNamespaceSupport.js`
 Exports

@@ -2,8 +2,10 @@ import { createCrudResourceRuntime } from "@jskit-ai/crud-core/server/resourceRu
 import { resource } from "../shared/${option:namespace|singular|camel}Resource.js";
 import { LIST_CONFIG } from "./listConfig.js";
 
+const REPOSITORY_CONTEXT = "${option:namespace|snake} repository";
+
 const REPOSITORY_CONFIG = Object.freeze({
-  context: "${option:namespace|snake} repository",
+  context: REPOSITORY_CONTEXT,
   list: LIST_CONFIG
 });
 

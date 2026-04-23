@@ -132,6 +132,34 @@ test("buildWritePayload respects defined keys", () => {
   });
 });
 
+test("buildWritePayload serializes configured date-time keys to database shape", () => {
+  const payload = buildWritePayload(
+    {
+      scheduledAt: "2026-04-23T10:11:12.000Z",
+      archivedAt: null,
+      title: "Example"
+    },
+    ["scheduledAt", "archivedAt", "title"],
+    {
+      scheduledAt: "scheduled_at",
+      archivedAt: "archived_at",
+      title: "title"
+    },
+    {
+      serializerByKey: {
+        scheduledAt: "datetime-utc",
+        archivedAt: "datetime-utc"
+      }
+    }
+  );
+
+  assert.deepEqual(payload, {
+    scheduled_at: "2026-04-23 10:11:12.000",
+    archived_at: null,
+    title: "Example"
+  });
+});
+
 test("applyCrudListQueryFilters applies search and cursor filters", () => {
   const { query, calls } = createQueryDouble();
   const result = applyCrudListQueryFilters(query, {
@@ -564,4 +592,104 @@ test("deriveRepositoryMappingFromResource throws when create schema properties a
     () => deriveRepositoryMappingFromResource(resource),
     /operations\.create\.bodyValidator\.schema\.properties/
   );
+});
+
+test("deriveRepositoryMappingFromResource tracks writable column-backed write serializers", () => {
+  const resource = {
+    operations: {
+      view: {
+        outputValidator: {
+          schema: {
+            type: "object",
+            properties: {
+              id: { type: "integer" },
+              scheduledAt: { type: "string", format: "date-time" },
+              archivedAt: { type: "string", format: "date-time" },
+              remainingBatchWeight: { type: "number" }
+            }
+          }
+        }
+      },
+      create: {
+        bodyValidator: {
+          schema: {
+            type: "object",
+            properties: {
+              scheduledAt: { type: "string", format: "date-time" }
+            }
+          }
+        }
+      },
+      patch: {
+        bodyValidator: {
+          schema: {
+            type: "object",
+            properties: {
+              archivedAt: {
+                anyOf: [
+                  { type: "string", format: "date-time" },
+                  { type: "null" }
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    fieldMeta: [
+      {
+        key: "remainingBatchWeight",
+        repository: {
+          storage: "virtual"
+        }
+      }
+    ]
+  };
+
+  const mapping = deriveRepositoryMappingFromResource(resource);
+  assert.deepEqual(mapping.writeSerializerByKey, {
+    scheduledAt: "datetime-utc",
+    archivedAt: "datetime-utc"
+  });
+});
+
+test("deriveRepositoryMappingFromResource keeps explicit repository.writeSerializer metadata", () => {
+  const resource = {
+    operations: {
+      view: {
+        outputValidator: {
+          schema: {
+            type: "object",
+            properties: {
+              id: { type: "integer" },
+              arrivalDatetime: { type: "string", format: "date-time" }
+            }
+          }
+        }
+      },
+      create: {
+        bodyValidator: {
+          schema: {
+            type: "object",
+            properties: {
+              arrivalDatetime: { type: "string", format: "date-time" }
+            }
+          }
+        }
+      }
+    },
+    fieldMeta: [
+      {
+        key: "arrivalDatetime",
+        repository: {
+          writeSerializer: "datetime-utc"
+        }
+      }
+    ]
+  };
+
+  const mapping = deriveRepositoryMappingFromResource(resource);
+  assert.deepEqual(mapping.writeSerializerByKey, {
+    arrivalDatetime: "datetime-utc"
+  });
 });

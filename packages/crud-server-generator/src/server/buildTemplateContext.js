@@ -832,9 +832,9 @@ function renderInputNormalizer(column) {
   }
   if (typeKind === "datetime") {
     if (nullable) {
-      return "(value) => { const normalized = normalizeText(value); return normalized ? toDatabaseDateTimeUtc(normalized) : null; }";
+      return "(value) => { const normalized = normalizeText(value); return normalized ? toIsoString(normalized) : null; }";
     }
-    return "toDatabaseDateTimeUtc";
+    return "toIsoString";
   }
   if (typeKind === "date") {
     if (nullable) {
@@ -1513,12 +1513,23 @@ function renderFieldMetaEntryLines(entry = {}) {
   const lines = ["RESOURCE_FIELD_META.push({"];
   const topLevelProperties = [`key: ${JSON.stringify(entry.key)}`];
   const repositoryColumn = normalizeText(entry?.repository?.column);
-  if (repositoryColumn) {
-    topLevelProperties.push([
+  const repositoryWriteSerializer = normalizeText(entry?.repository?.writeSerializer);
+  if (repositoryColumn || repositoryWriteSerializer) {
+    const repositoryLines = [
       "repository: {",
-      `  column: ${JSON.stringify(repositoryColumn)}`,
-      "}"
-    ].join("\n"));
+      ...(repositoryColumn ? [`  column: ${JSON.stringify(repositoryColumn)}`] : []),
+      ...(repositoryWriteSerializer ? [`  writeSerializer: ${JSON.stringify(repositoryWriteSerializer)}`] : [])
+    ];
+    if (repositoryLines.length > 2) {
+      repositoryLines[repositoryLines.length - 1] = repositoryLines[repositoryLines.length - 1].replace(/,$/, "");
+    }
+    repositoryLines.push("}");
+    for (let index = 1; index < repositoryLines.length - 1; index += 1) {
+      if (index < repositoryLines.length - 2) {
+        repositoryLines[index] = `${repositoryLines[index]},`;
+      }
+    }
+    topLevelProperties.push(repositoryLines.join("\n"));
   }
 
   const relation = entry.relation && typeof entry.relation === "object" ? entry.relation : null;
@@ -1824,7 +1835,6 @@ function buildReplacementsFromSnapshot({
   const needsRecordIdSchemas = resourceColumns.some((column) => column.typeKind === "integer" && column.isRecordIdColumn === true);
   const needsFiniteNumber = resourceColumns.some((column) => column.typeKind === "number");
   const needsDateTimeOutput = outputColumns.some((column) => column.typeKind === "datetime");
-  const needsDateTimeInput = writableColumns.some((column) => column.typeKind === "datetime");
   const needsNullableDateTimeInput = writableColumns.some(
     (column) => column.typeKind === "datetime" && column.nullable === true
   );
@@ -1936,8 +1946,8 @@ function buildReplacementsFromSnapshot({
       )
     }),
     __JSKIT_CRUD_RESOURCE_DATABASE_RUNTIME_IMPORT__: renderResourceDatabaseRuntimeImport({
-      needsToIsoString: needsDateTimeOutput || needsDate,
-      needsToDatabaseDateTimeUtc: needsDateTimeInput
+      needsToIsoString: needsDateTimeOutput || needsDate || writableColumns.some((column) => column.typeKind === "datetime"),
+      needsToDatabaseDateTimeUtc: false
     }),
     __JSKIT_CRUD_RESOURCE_NORMALIZE_SUPPORT_IMPORT__: renderResourceNormalizeSupportImport({
       needsNormalizeText,
