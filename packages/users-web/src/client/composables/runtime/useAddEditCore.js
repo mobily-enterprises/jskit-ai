@@ -73,6 +73,7 @@ function useAddEditCore({
       : parsedInput;
 
     try {
+      const queryKeySnapshot = queryKey?.value;
       const payload = await resource.save(savePayload);
 
       if (typeof mapLoadedToModel === "function") {
@@ -82,8 +83,8 @@ function useAddEditCore({
         });
       }
 
-      if (queryKey?.value !== undefined) {
-        queryClient.setQueryData(queryKey.value, payload);
+      if (queryKeySnapshot !== undefined) {
+        queryClient.setQueryData(queryKeySnapshot, payload);
       }
 
       if (typeof onSaveSuccess === "function") {

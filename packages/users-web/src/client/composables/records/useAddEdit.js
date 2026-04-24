@@ -14,6 +14,7 @@ import {
 import {
   resolveResourceMessages
 } from "../support/scopeHelpers.js";
+import { createRequestQueryRuntime } from "../support/requestQueryRuntimeSupport.js";
 import { resolveRouteParamNamesInOrder } from "../support/routeTemplateHelpers.js";
 
 function useAddEdit({
@@ -39,6 +40,7 @@ function useAddEdit({
   buildRawPayload,
   buildSavePayload,
   onSaveSuccess,
+  requestQueryParams = null,
   recordIdParam = "recordId",
   routeParams = null,
   routeRecordId = null,
@@ -95,10 +97,25 @@ function useAddEdit({
   const canView = operationScope.permissionGate("view");
   const canSave = operationScope.permissionGate("save");
   const queryCanRun = operationScope.queryCanRun(canView);
+  const queryParamsContext = computed(() => {
+    return Object.freeze({
+      surfaceId: operationScope.routeContext.currentSurfaceId.value,
+      scopeParamValue: operationScope.scopeParamValue.value,
+      ownershipFilter: operationScope.normalizedOwnershipFilter,
+      recordId: addEditUiRuntime.recordId.value,
+      model
+    });
+  });
+  const requestQueryRuntime = createRequestQueryRuntime({
+    requestQueryParams,
+    context: queryParamsContext,
+    sourceQueryKey: operationScope.queryKey,
+    sourcePath: operationScope.apiPath
+  });
 
   const endpointResource = useEndpointResource({
-    queryKey: operationScope.queryKey,
-    path: operationScope.apiPath,
+    queryKey: requestQueryRuntime.queryKey,
+    path: requestQueryRuntime.requestPath,
     enabled: queryCanRun,
     readMethod,
     writeMethod,
@@ -114,7 +131,7 @@ function useAddEdit({
   const addEdit = useAddEditCore({
     model,
     resource: endpointResource,
-    queryKey: operationScope.queryKey,
+    queryKey: requestQueryRuntime.queryKey,
     canSave,
     fieldBag,
     feedback,

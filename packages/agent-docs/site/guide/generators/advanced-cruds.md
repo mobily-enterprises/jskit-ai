@@ -654,6 +654,44 @@ const paths = usePaths();
 const reportsApiPath = computed(() => paths.api("/reports"));
 ```
 
+Use `requestQueryParams` when a runtime needs endpoint query parameters. Do not put query strings into `apiUrlTemplate`; URL templates are for path shape only.
+
+For routed CRUD edit forms, pass request query params through `addEditOptions`:
+
+```js
+const formRuntime = useCrudAddEdit({
+  resource: uiResource,
+  operationName: "patch",
+  formFields: UI_EDIT_FORM_FIELDS,
+  addEditOptions: {
+    apiUrlTemplate: "/products/:productId",
+    requestQueryParams: {
+      include: "serviceId,bookingSteps,bookingSteps.requiredRoleId"
+    }
+  }
+});
+```
+
+`requestQueryParams` may also be a callback. The add/edit callback receives the same scoped request context used by view/list, plus the current record id and model:
+
+```js
+const formRuntime = useCrudAddEdit({
+  resource: uiResource,
+  operationName: "patch",
+  formFields: UI_EDIT_FORM_FIELDS,
+  addEditOptions: {
+    apiUrlTemplate: "/products/:productId",
+    requestQueryParams({ recordId, model }) {
+      return {
+        include: "serviceId,bookingSteps,bookingSteps.requiredRoleId"
+      };
+    }
+  }
+});
+```
+
+For add/edit runtimes, these request query params apply to both the initial load and the save request path. That keeps the saved response shape aligned with the loaded form shape when an endpoint supports response includes.
+
 The safe mental model is:
 
 - do not raw `fetch(...)` for normal app work
@@ -661,6 +699,7 @@ The safe mental model is:
 - use the operation/runtime composable that matches the UI interaction
 - drop to `usersWebHttpClient.request(...)` only for exceptional low-level cases
 - use `usePaths().api(...)` when you need a custom scoped API path and the higher-level runtime does not already resolve it for you
+- keep `apiUrlTemplate` path-only and put endpoint query strings in `requestQueryParams`
 
 ### `_components/CrudAddEditForm.vue`
 
