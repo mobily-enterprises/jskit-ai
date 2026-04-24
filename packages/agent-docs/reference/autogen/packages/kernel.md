@@ -1288,7 +1288,7 @@ Local functions
 - `normalizePlacementTargetId(target = {})`
 - `resolveRelativeLinkToFromParent(pageTarget = {}, parentHost = null)`
 - `resolveRelativeLinkToFromNearestIndexOwner(pageTarget = {})`
-- `resolveInferredPageLinkTo({ explicitLinkTo = "", pageTarget = {}, parentHost = null, placementTarget = null } = {})`
+- `resolveInferredPageLinkTo({ explicitLinkTo = "", pageTarget = {}, parentHost = null, placementTarget = null, suppressImplicitRelativeLinks = false } = {})`
 - `resolveInferredPageLinkComponentToken({ explicitComponentToken = "", parentHost = null, placementTarget = null, defaultComponentToken = DEFAULT_PAGE_LINK_COMPONENT_TOKEN, subpageComponentToken = DEFAULT_SUBPAGE_LINK_COMPONENT_TOKEN } = {})`
 - `renderPageLinkWhenLine(pageTarget = {})`
 

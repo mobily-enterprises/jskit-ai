@@ -144,7 +144,7 @@ Local functions
 
 ### `src/client/composables/records/useAddEdit.js`
 Exports
-- `useAddEdit({ ownershipFilter = ROUTE_VISIBILITY_WORKSPACE, surfaceId = "", access = "auto", resource = null, apiSuffix = "", queryKeyFactory = null, viewPermissions = [], savePermissions = [], readMethod = "GET", readEnabled = true, writeMethod = "PATCH", placementSource = "users-web.add-edit", fallbackLoadError = "Unable to load resource.", fallbackSaveError = "Unable to save resource.", fieldErrorKeys = [], clearOnRouteChange = true, model, parseInput, mapLoadedToModel, buildRawPayload, buildSavePayload, onSaveSuccess, recordIdParam = "recordId", routeParams = null, routeRecordId = null, apiUrlTemplate = "", viewUrlTemplate = "", listUrlTemplate = "", saveRecordIdSelector = null, messages = {}, realtime = null, adapter = null } = {})`
+- `useAddEdit({ ownershipFilter = ROUTE_VISIBILITY_WORKSPACE, surfaceId = "", access = "auto", resource = null, apiSuffix = "", queryKeyFactory = null, viewPermissions = [], savePermissions = [], readMethod = "GET", readEnabled = true, writeMethod = "PATCH", placementSource = "users-web.add-edit", fallbackLoadError = "Unable to load resource.", fallbackSaveError = "Unable to save resource.", fieldErrorKeys = [], clearOnRouteChange = true, model, parseInput, mapLoadedToModel, buildRawPayload, buildSavePayload, onSaveSuccess, requestQueryParams = null, recordIdParam = "recordId", routeParams = null, routeRecordId = null, apiUrlTemplate = "", viewUrlTemplate = "", listUrlTemplate = "", saveRecordIdSelector = null, messages = {}, realtime = null, adapter = null } = {})`
 
 ### `src/client/composables/records/useCrudAddEdit.js`
 Exports
@@ -300,6 +300,12 @@ Exports
 ### `src/client/composables/support/requestQueryPathSupport.js`
 Exports
 - `appendRequestQueryEntriesToPath(path = "", entries = [])`
+
+### `src/client/composables/support/requestQueryRuntimeSupport.js`
+Exports
+- `createRequestQueryRuntime({ requestQueryParams = null, context = null, sourceQueryKey = null, sourcePath = "" } = {})`
+- `resolveRequestQueryBaseKey(sourceQueryKey = null)`
+- `resolveRequestQueryContext(context = null)`
 
 ### `src/client/composables/support/resourceLoadStateHelpers.js`
 Exports

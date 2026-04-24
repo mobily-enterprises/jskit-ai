@@ -47,6 +47,8 @@ Why this is the standard JSKIT shape:
 - The higher-level list, view, add/edit, and command runtimes send requests through the shared HTTP runtime.
 - `usersWebHttpClient` already handles credentials and CSRF behavior.
 - `useEndpointResource()` is the shared endpoint primitive for loading, saving, and standard load/save error handling. Higher-level runtimes add UI feedback and field-error handling on top.
+- Use `requestQueryParams` for endpoint query strings on list, view, and add/edit runtimes.
+- Keep `apiUrlTemplate` path-only. Do not put `?include=...` or other query strings in URL templates.
 
 Avoid:
 
@@ -54,3 +56,4 @@ Avoid:
 - page-local HTTP helpers that duplicate JSKIT runtime seams
 - manually concatenating scoped route params into API URLs
 - using a lower-level seam when a higher-level routed CRUD or command runtime already fits
+- smuggling query params into `apiUrlTemplate`
