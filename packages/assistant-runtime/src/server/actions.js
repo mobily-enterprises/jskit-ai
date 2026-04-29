@@ -10,9 +10,9 @@ import {
   assistantResource
 } from "@jskit-ai/assistant-core/shared";
 import { actionIds } from "./actionIds.js";
-import { assistantTargetSurfaceInput } from "./inputSchemas.js";
+import { assistantTargetSurfaceInputValidator } from "./inputSchemas.js";
 
-const runtimeConversationsListQueryInput = deepFreeze({
+const runtimeConversationsListQueryInputValidator = deepFreeze({
   schema: createSchema({
     query: {
       type: "object",
@@ -23,15 +23,15 @@ const runtimeConversationsListQueryInput = deepFreeze({
   mode: "patch"
 });
 
-const runtimeConversationsListInput = composeSchemaDefinitions(
-  [assistantTargetSurfaceInput, runtimeConversationsListQueryInput],
+const runtimeConversationsListInputValidator = composeSchemaDefinitions(
+  [assistantTargetSurfaceInputValidator, runtimeConversationsListQueryInputValidator],
   {
     mode: "patch",
     context: "assistant-runtime conversations list action input"
   }
 );
 
-const runtimeConversationMessagesListQueryInput = deepFreeze({
+const runtimeConversationMessagesListQueryInputValidator = deepFreeze({
   schema: createSchema({
     query: {
       type: "object",
@@ -42,11 +42,11 @@ const runtimeConversationMessagesListQueryInput = deepFreeze({
   mode: "patch"
 });
 
-const runtimeConversationMessagesListInput = composeSchemaDefinitions(
+const runtimeConversationMessagesListInputValidator = composeSchemaDefinitions(
   [
-    assistantTargetSurfaceInput,
+    assistantTargetSurfaceInputValidator,
     assistantResource.operations.conversationMessagesList.params,
-    runtimeConversationMessagesListQueryInput
+    runtimeConversationMessagesListQueryInputValidator
   ],
   {
     mode: "patch",
@@ -54,9 +54,9 @@ const runtimeConversationMessagesListInput = composeSchemaDefinitions(
   }
 );
 
-const runtimeChatStreamInput = composeSchemaDefinitions(
+const runtimeChatStreamInputValidator = composeSchemaDefinitions(
   [
-    assistantTargetSurfaceInput,
+    assistantTargetSurfaceInputValidator,
     assistantResource.operations.chatStream.body
   ],
   {
@@ -65,9 +65,9 @@ const runtimeChatStreamInput = composeSchemaDefinitions(
   }
 );
 
-const settingsReadInput = assistantTargetSurfaceInput;
+const settingsReadInputValidator = assistantTargetSurfaceInputValidator;
 
-const settingsUpdatePatchInput = deepFreeze({
+const settingsUpdatePatchInputValidator = deepFreeze({
   schema: createSchema({
     patch: {
       type: "object",
@@ -78,8 +78,8 @@ const settingsUpdatePatchInput = deepFreeze({
   mode: "patch"
 });
 
-const settingsUpdateInput = composeSchemaDefinitions(
-  [assistantTargetSurfaceInput, settingsUpdatePatchInput],
+const settingsUpdateInputValidator = composeSchemaDefinitions(
+  [assistantTargetSurfaceInputValidator, settingsUpdatePatchInputValidator],
   {
     mode: "patch",
     context: "assistant-runtime settings update action input"
@@ -96,7 +96,7 @@ const assistantActions = Object.freeze([
     permission: {
       require: "authenticated"
     },
-    input: runtimeChatStreamInput,
+    input: runtimeChatStreamInputValidator,
     idempotency: "optional",
     audit: {
       actionName: actionIds.chatStream
@@ -119,7 +119,7 @@ const assistantActions = Object.freeze([
     permission: {
       require: "authenticated"
     },
-    input: runtimeConversationsListInput,
+    input: runtimeConversationsListInputValidator,
     output: assistantResource.operations.conversationsList.output,
     idempotency: "none",
     audit: {
@@ -142,7 +142,7 @@ const assistantActions = Object.freeze([
     permission: {
       require: "authenticated"
     },
-    input: runtimeConversationMessagesListInput,
+    input: runtimeConversationMessagesListInputValidator,
     output: assistantResource.operations.conversationMessagesList.output,
     idempotency: "none",
     audit: {
@@ -165,7 +165,7 @@ const assistantActions = Object.freeze([
     permission: {
       require: "authenticated"
     },
-    input: settingsReadInput,
+    input: settingsReadInputValidator,
     output: assistantConfigResource.operations.view.output,
     idempotency: "none",
     audit: {
@@ -187,7 +187,7 @@ const assistantActions = Object.freeze([
     permission: {
       require: "authenticated"
     },
-    input: settingsUpdateInput,
+    input: settingsUpdateInputValidator,
     output: assistantConfigResource.operations.patch.output,
     idempotency: "optional",
     audit: {

@@ -1,5 +1,5 @@
 import {
-  EMPTY_INPUT_VALIDATOR,
+  emptyInputValidator,
   resolveRequest
 } from "@jskit-ai/kernel/shared/actions/actionContributorHelpers";
 import { composeSchemaDefinitions } from "@jskit-ai/kernel/shared/validators";
@@ -53,7 +53,7 @@ const workspaceDirectoryActions = Object.freeze([
     permission: {
       require: "authenticated"
     },
-    input: EMPTY_INPUT_VALIDATOR,
+    input: emptyInputValidator,
     output: workspaceResource.operations.list.output,
     idempotency: "none",
     audit: {

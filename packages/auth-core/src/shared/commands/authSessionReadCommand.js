@@ -1,7 +1,7 @@
 import {
   createCommandMessages,
-  sessionResponseValidator,
-  sessionUnavailableResponseValidator
+  sessionOutputValidator,
+  sessionUnavailableOutputValidator
 } from "./authCommandValidators.js";
 import { deepFreeze } from "@jskit-ai/kernel/shared/support/deepFreeze";
 
@@ -11,8 +11,8 @@ const authSessionReadCommand = deepFreeze({
   command: "auth.session.read",
   operation: {
     method: "GET",
-    response: sessionResponseValidator,
-    unavailableResponse: sessionUnavailableResponseValidator,
+    response: sessionOutputValidator,
+    unavailableResponse: sessionUnavailableOutputValidator,
     messages: AUTH_SESSION_READ_MESSAGES,
     idempotent: true,
     invalidates: []
@@ -20,8 +20,8 @@ const authSessionReadCommand = deepFreeze({
 });
 
 export {
-  sessionResponseValidator,
-  sessionUnavailableResponseValidator,
+  sessionOutputValidator,
+  sessionUnavailableOutputValidator,
   AUTH_SESSION_READ_MESSAGES,
   authSessionReadCommand
 };

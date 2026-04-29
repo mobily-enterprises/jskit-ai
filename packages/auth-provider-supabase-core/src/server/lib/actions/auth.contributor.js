@@ -1,6 +1,6 @@
 import { createSchema } from "json-rest-schema";
 import {
-  EMPTY_INPUT_VALIDATOR
+  emptyInputValidator
 } from "@jskit-ai/kernel/shared/actions/actionContributorHelpers";
 import {
   composeSchemaDefinitions
@@ -232,7 +232,7 @@ const authActionsAfterDevLogin = Object.freeze([
     kind: "command",
     channels: ["api", "automation", "internal"],
     surfacesFrom: "enabled",
-    input: EMPTY_INPUT_VALIDATOR,
+    input: emptyInputValidator,
     output: authLogoutOutput,
     idempotency: "none",
     audit: {
@@ -257,7 +257,7 @@ const authActionsAfterDevLogin = Object.freeze([
     kind: "query",
     channels: ["api", "internal"],
     surfacesFrom: "enabled",
-    input: EMPTY_INPUT_VALIDATOR,
+    input: emptyInputValidator,
     idempotency: "none",
     audit: {
       actionName: "auth.session.read"

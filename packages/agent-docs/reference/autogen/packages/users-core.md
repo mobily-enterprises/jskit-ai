@@ -277,7 +277,7 @@ Exports
 - `USER_SETTINGS_NOTIFICATION_KEYS`
 - `USER_SETTINGS_PREFERENCE_KEYS`
 - `userSettingsOutputSchema`
-- `userSettingsOutputDefinition`
+- `userSettingsOutputValidator`
 - `userSettingsResource`
 
 ### `src/shared/settings.js`

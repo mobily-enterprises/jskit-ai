@@ -5,7 +5,7 @@ import {
   authRecoveryTokenValidator,
   authRefreshTokenValidator,
   createCommandMessages,
-  okResponseValidator
+  okOutputValidator
 } from "./authCommandValidators.js";
 
 const AUTH_PASSWORD_RECOVERY_COMPLETE_MESSAGES = createCommandMessages({
@@ -62,7 +62,7 @@ const authPasswordRecoveryCompleteCommand = deepFreeze({
   operation: {
     method: "POST",
     body: authPasswordRecoveryCompleteBodyValidator,
-    response: okResponseValidator,
+    response: okOutputValidator,
     messages: AUTH_PASSWORD_RECOVERY_COMPLETE_MESSAGES,
     idempotent: false,
     invalidates: ["auth.session.read"]
@@ -71,7 +71,7 @@ const authPasswordRecoveryCompleteCommand = deepFreeze({
 
 export {
   authPasswordRecoveryCompleteBodyValidator,
-  okResponseValidator,
+  okOutputValidator,
   AUTH_PASSWORD_RECOVERY_COMPLETE_MESSAGES,
   authPasswordRecoveryCompleteCommand
 };

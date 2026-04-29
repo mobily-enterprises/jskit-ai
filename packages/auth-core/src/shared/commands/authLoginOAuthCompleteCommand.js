@@ -5,7 +5,7 @@ import {
   authRecoveryTokenFieldDefinition,
   authRefreshTokenFieldDefinition,
   createCommandMessages,
-  oauthCompleteResponseValidator,
+  oauthCompleteOutputValidator,
   oauthProviderFieldDefinition
 } from "./authCommandValidators.js";
 
@@ -47,7 +47,7 @@ const authLoginOAuthCompleteCommand = deepFreeze({
   operation: {
     method: "POST",
     body: authLoginOAuthCompleteBodyValidator,
-    response: oauthCompleteResponseValidator,
+    response: oauthCompleteOutputValidator,
     messages: AUTH_LOGIN_OAUTH_COMPLETE_MESSAGES,
     idempotent: false,
     invalidates: ["auth.session.read"]
@@ -56,7 +56,7 @@ const authLoginOAuthCompleteCommand = deepFreeze({
 
 export {
   authLoginOAuthCompleteBodyValidator,
-  oauthCompleteResponseValidator,
+  oauthCompleteOutputValidator,
   AUTH_LOGIN_OAUTH_COMPLETE_MESSAGES,
   authLoginOAuthCompleteCommand
 };

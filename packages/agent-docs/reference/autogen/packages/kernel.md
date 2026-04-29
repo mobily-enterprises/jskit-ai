@@ -21,7 +21,7 @@ Exports
 - `requireServiceMethod(service, methodName, contributorId, { serviceLabel } = {})`
 - `resolveRequest(context)`
 - `hasPermission`
-- `EMPTY_INPUT_VALIDATOR`
+- `emptyInputValidator`
 
 ### `shared/actions/actionDefinitions.js`
 Exports

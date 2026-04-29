@@ -79,8 +79,8 @@ Local functions
 
 ### `src/server/inputSchemas.js`
 Exports
-- `assistantSurfaceRouteParams`
-- `assistantTargetSurfaceInput`
+- `assistantSurfaceRouteParamsValidator`
+- `assistantTargetSurfaceInputValidator`
 
 ### `src/server/registerRoutes.js`
 Exports

@@ -164,9 +164,24 @@ const workspaceSettingsOutputSchema = createSchema({
   }
 });
 
-const workspaceSettingsOutputDefinition = deepFreeze({
+const workspaceSettingsOutputValidator = deepFreeze({
   schema: workspaceSettingsOutputSchema,
   mode: "replace"
+});
+
+const workspaceSettingsCreateBodyValidator = deepFreeze({
+  schema: workspaceSettingsBodySchema,
+  mode: "create"
+});
+
+const workspaceSettingsReplaceBodyValidator = deepFreeze({
+  schema: workspaceSettingsBodySchema,
+  mode: "replace"
+});
+
+const workspaceSettingsPatchBodyValidator = deepFreeze({
+  schema: workspaceSettingsBodySchema,
+  mode: "patch"
 });
 
 const workspaceSettingsResource = deepFreeze({
@@ -180,35 +195,26 @@ const workspaceSettingsResource = deepFreeze({
   operations: {
     view: {
       method: "GET",
-      output: workspaceSettingsOutputDefinition
+      output: workspaceSettingsOutputValidator
     },
     list: {
       method: "GET",
-      output: createCursorListValidator(workspaceSettingsOutputDefinition)
+      output: createCursorListValidator(workspaceSettingsOutputValidator)
     },
     create: {
       method: "POST",
-      body: {
-        schema: workspaceSettingsBodySchema,
-        mode: "create"
-      },
-      output: workspaceSettingsOutputDefinition
+      body: workspaceSettingsCreateBodyValidator,
+      output: workspaceSettingsOutputValidator
     },
     replace: {
       method: "PUT",
-      body: {
-        schema: workspaceSettingsBodySchema,
-        mode: "replace"
-      },
-      output: workspaceSettingsOutputDefinition
+      body: workspaceSettingsReplaceBodyValidator,
+      output: workspaceSettingsOutputValidator
     },
     patch: {
       method: "PATCH",
-      body: {
-        schema: workspaceSettingsBodySchema,
-        mode: "patch"
-      },
-      output: workspaceSettingsOutputDefinition
+      body: workspaceSettingsPatchBodyValidator,
+      output: workspaceSettingsOutputValidator
     }
   }
 });

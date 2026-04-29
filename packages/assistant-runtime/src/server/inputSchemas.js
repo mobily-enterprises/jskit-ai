@@ -28,17 +28,17 @@ const assistantTargetSurfaceInputSchema = createSchema({
   }
 });
 
-const assistantSurfaceRouteParams = deepFreeze({
+const assistantSurfaceRouteParamsValidator = deepFreeze({
   schema: assistantSurfaceRouteParamsSchema,
   mode: "patch"
 });
 
-const assistantTargetSurfaceInput = deepFreeze({
+const assistantTargetSurfaceInputValidator = deepFreeze({
   schema: assistantTargetSurfaceInputSchema,
   mode: "patch"
 });
 
 export {
-  assistantSurfaceRouteParams,
-  assistantTargetSurfaceInput
+  assistantSurfaceRouteParamsValidator,
+  assistantTargetSurfaceInputValidator
 };

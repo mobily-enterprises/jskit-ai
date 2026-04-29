@@ -41,12 +41,12 @@ const workspacePatchBodySchema = createSchema({
   }
 });
 
-const responseRecord = deepFreeze({
+const workspaceOutputValidator = deepFreeze({
   schema: workspaceOutputSchema,
   mode: "replace"
 });
 
-const workspaceSummaryOutput = deepFreeze({
+const workspaceListItemOutputValidator = deepFreeze({
   schema: workspaceListItemSchema,
   mode: "replace"
 });
@@ -62,11 +62,11 @@ const resource = deepFreeze({
   operations: {
     view: {
       method: "GET",
-      output: responseRecord
+      output: workspaceOutputValidator
     },
     list: {
       method: "GET",
-      output: createCursorListValidator(workspaceSummaryOutput)
+      output: createCursorListValidator(workspaceListItemOutputValidator)
     },
     create: {
       method: "POST",
@@ -74,7 +74,7 @@ const resource = deepFreeze({
         schema: workspaceCreateBodySchema,
         mode: "create"
       },
-      output: responseRecord
+      output: workspaceOutputValidator
     },
     replace: {
       method: "PUT",
@@ -82,7 +82,7 @@ const resource = deepFreeze({
         schema: workspaceCreateBodySchema,
         mode: "replace"
       },
-      output: responseRecord
+      output: workspaceOutputValidator
     },
     patch: {
       method: "PATCH",
@@ -90,7 +90,7 @@ const resource = deepFreeze({
         schema: workspacePatchBodySchema,
         mode: "patch"
       },
-      output: responseRecord
+      output: workspaceOutputValidator
     }
   }
 });

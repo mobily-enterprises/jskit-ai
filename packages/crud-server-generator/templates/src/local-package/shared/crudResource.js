@@ -23,24 +23,24 @@ const patchBodySchema = createSchema({
 __JSKIT_CRUD_RESOURCE_PATCH_SCHEMA_PROPERTIES__
 });
 
-const recordOutput = deepFreeze({
+const recordOutputValidator = deepFreeze({
   schema: recordOutputSchema,
   mode: "replace"
 });
 
-const listOutput = createCursorListValidator(recordOutput);
+const listOutputValidator = createCursorListValidator(recordOutputValidator);
 
-const createBody = deepFreeze({
+const createBodyValidator = deepFreeze({
   schema: createBodySchema,
   mode: "create"
 });
 
-const patchBody = deepFreeze({
+const patchBodyValidator = deepFreeze({
   schema: patchBodySchema,
   mode: "patch"
 });
 
-const deleteOutput = deepFreeze({
+const deleteOutputValidator = deepFreeze({
   schema: createSchema({
     id: {
       type: "string",
@@ -80,25 +80,25 @@ const resource = deepFreeze({
         events: ["${option:namespace|snake}.record.changed"]
       },
       method: "GET",
-      output: listOutput
+      output: listOutputValidator
     },
     view: {
       method: "GET",
-      output: recordOutput
+      output: recordOutputValidator
     },
     create: {
       method: "POST",
-      body: createBody,
-      output: recordOutput
+      body: createBodyValidator,
+      output: recordOutputValidator
     },
     patch: {
       method: "PATCH",
-      body: patchBody,
-      output: recordOutput
+      body: patchBodyValidator,
+      output: recordOutputValidator
     },
     delete: {
       method: "DELETE",
-      output: deleteOutput
+      output: deleteOutputValidator
     }
   }
 });

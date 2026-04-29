@@ -162,7 +162,7 @@ const conversationRecordSchema = createSchema({
   }
 });
 
-const conversationRecordOutputDefinition = deepFreeze({
+const conversationRecordOutputValidator = deepFreeze({
   schema: conversationRecordSchema,
   mode: "replace"
 });
@@ -251,7 +251,27 @@ const conversationMessagesQuerySchema = createSchema({
   }
 });
 
-const conversationMessagesOutputDefinition = deepFreeze({
+const assistantChatStreamBodyValidator = deepFreeze({
+  schema: chatStreamBodySchema,
+  mode: "create"
+});
+
+const assistantConversationsListQueryValidator = deepFreeze({
+  schema: conversationsListQuerySchema,
+  mode: "patch"
+});
+
+const assistantConversationMessagesParamsValidator = deepFreeze({
+  schema: conversationMessagesParamsSchema,
+  mode: "patch"
+});
+
+const assistantConversationMessagesQueryValidator = deepFreeze({
+  schema: conversationMessagesQuerySchema,
+  mode: "patch"
+});
+
+const conversationMessagesListOutputValidator = deepFreeze({
   schema: createSchema({
     page: {
       type: "integer",
@@ -292,30 +312,18 @@ const assistantResource = deepFreeze({
   operations: {
     chatStream: {
       method: "POST",
-      body: {
-        schema: chatStreamBodySchema,
-        mode: "create"
-      }
+      body: assistantChatStreamBodyValidator
     },
     conversationsList: {
       method: "GET",
-      query: {
-        schema: conversationsListQuerySchema,
-        mode: "patch"
-      },
-      output: createCursorListValidator(conversationRecordOutputDefinition)
+      query: assistantConversationsListQueryValidator,
+      output: createCursorListValidator(conversationRecordOutputValidator)
     },
     conversationMessagesList: {
       method: "GET",
-      params: {
-        schema: conversationMessagesParamsSchema,
-        mode: "patch"
-      },
-      query: {
-        schema: conversationMessagesQuerySchema,
-        mode: "patch"
-      },
-      output: conversationMessagesOutputDefinition
+      params: assistantConversationMessagesParamsValidator,
+      query: assistantConversationMessagesQueryValidator,
+      output: conversationMessagesListOutputValidator
     }
   }
 });

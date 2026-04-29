@@ -4,7 +4,7 @@ import {
   authEmailValidator,
   authRecoveryTokenValidator,
   createCommandMessages,
-  otpVerifyResponseValidator
+  otpVerifyOutputValidator
 } from "./authCommandValidators.js";
 
 const AUTH_LOGIN_OTP_VERIFY_MESSAGES = createCommandMessages({
@@ -56,7 +56,7 @@ const authLoginOtpVerifyCommand = deepFreeze({
   operation: {
     method: "POST",
     body: authLoginOtpVerifyBodyValidator,
-    response: otpVerifyResponseValidator,
+    response: otpVerifyOutputValidator,
     messages: AUTH_LOGIN_OTP_VERIFY_MESSAGES,
     idempotent: false,
     invalidates: ["auth.session.read"]
@@ -65,7 +65,7 @@ const authLoginOtpVerifyCommand = deepFreeze({
 
 export {
   authLoginOtpVerifyBodyValidator,
-  otpVerifyResponseValidator,
+  otpVerifyOutputValidator,
   AUTH_LOGIN_OTP_VERIFY_MESSAGES,
   authLoginOtpVerifyCommand
 };

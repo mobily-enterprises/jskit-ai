@@ -138,12 +138,12 @@ const userSettingsOutputSchema = createSchema({
   }
 });
 
-const userSettingsOutputDefinition = deepFreeze({
+const userSettingsOutputValidator = deepFreeze({
   schema: userSettingsOutputSchema,
   mode: "replace"
 });
 
-const passwordMethodToggleOutputDefinition = deepFreeze({
+const passwordMethodToggleOutputValidator = deepFreeze({
   schema: createSchema({
     securityStatus: {
       type: "object",
@@ -159,7 +159,7 @@ const passwordMethodToggleOutputDefinition = deepFreeze({
   mode: "replace"
 });
 
-const oauthUnlinkOutputDefinition = deepFreeze({
+const oauthUnlinkOutputValidator = deepFreeze({
   schema: createSchema({
     securityStatus: {
       type: "object",
@@ -170,7 +170,7 @@ const oauthUnlinkOutputDefinition = deepFreeze({
   mode: "replace"
 });
 
-const passwordChangeBodyDefinition = deepFreeze({
+const passwordChangeBodyValidator = deepFreeze({
   schema: createSchema({
     currentPassword: {
       type: "string",
@@ -204,7 +204,7 @@ const passwordChangeBodyDefinition = deepFreeze({
   mode: "create"
 });
 
-const passwordChangeOutputDefinition = deepFreeze({
+const passwordChangeOutputValidator = deepFreeze({
   schema: createSchema({
     ok: { type: "boolean", required: true },
     message: { type: "string", required: true, minLength: 1 }
@@ -212,7 +212,7 @@ const passwordChangeOutputDefinition = deepFreeze({
   mode: "replace"
 });
 
-const passwordMethodToggleBodyDefinition = deepFreeze({
+const passwordMethodToggleBodyValidator = deepFreeze({
   schema: createSchema({
     enabled: {
       type: "boolean",
@@ -227,7 +227,7 @@ const passwordMethodToggleBodyDefinition = deepFreeze({
   mode: "patch"
 });
 
-const oauthProviderParamsDefinition = deepFreeze({
+const oauthProviderParamsValidator = deepFreeze({
   schema: createSchema({
     provider: {
       type: "string",
@@ -243,7 +243,7 @@ const oauthProviderParamsDefinition = deepFreeze({
   mode: "patch"
 });
 
-const oauthProviderQueryDefinition = deepFreeze({
+const oauthProviderQueryValidator = deepFreeze({
   schema: createSchema({
     returnTo: {
       type: "string",
@@ -257,7 +257,7 @@ const oauthProviderQueryDefinition = deepFreeze({
   mode: "patch"
 });
 
-const oauthLinkStartOutputDefinition = deepFreeze({
+const oauthLinkStartOutputValidator = deepFreeze({
   schema: createSchema({
     provider: { type: "string", required: true, minLength: 2, maxLength: 64 },
     returnTo: { type: "string", required: true, minLength: 1 },
@@ -266,14 +266,14 @@ const oauthLinkStartOutputDefinition = deepFreeze({
   mode: "replace"
 });
 
-const logoutOtherSessionsOutputDefinition = deepFreeze({
+const logoutOtherSessionsOutputValidator = deepFreeze({
   schema: createSchema({
     ok: { type: "boolean", required: true }
   }),
   mode: "replace"
 });
 
-const emptyBodyDefinition = deepFreeze({
+const emptyBodyValidator = deepFreeze({
   schema: createSchema({}),
   mode: "patch"
 });
@@ -286,12 +286,12 @@ const userSettingsResource = deepFreeze({
     view: {
       method: "GET",
       messages: USER_SETTINGS_OPERATION_MESSAGES,
-      output: userSettingsOutputDefinition
+      output: userSettingsOutputValidator
     },
     list: {
       method: "GET",
       messages: USER_SETTINGS_OPERATION_MESSAGES,
-      output: createCursorListValidator(userSettingsOutputDefinition)
+      output: createCursorListValidator(userSettingsOutputValidator)
     },
     create: {
       method: "POST",
@@ -300,7 +300,7 @@ const userSettingsResource = deepFreeze({
         schema: userSettingsBodySchema,
         mode: "create"
       },
-      output: userSettingsOutputDefinition
+      output: userSettingsOutputValidator
     },
     replace: {
       method: "PUT",
@@ -309,7 +309,7 @@ const userSettingsResource = deepFreeze({
         schema: userSettingsBodySchema,
         mode: "replace"
       },
-      output: userSettingsOutputDefinition
+      output: userSettingsOutputValidator
     },
     patch: {
       method: "PATCH",
@@ -318,7 +318,7 @@ const userSettingsResource = deepFreeze({
         schema: userSettingsBodySchema,
         mode: "patch"
       },
-      output: userSettingsOutputDefinition
+      output: userSettingsOutputValidator
     },
     preferencesUpdate: {
       method: "PATCH",
@@ -327,7 +327,7 @@ const userSettingsResource = deepFreeze({
         schema: userSettingsPreferencesSchema,
         mode: "patch"
       },
-      output: userSettingsOutputDefinition
+      output: userSettingsOutputValidator
     },
     notificationsUpdate: {
       method: "PATCH",
@@ -336,38 +336,38 @@ const userSettingsResource = deepFreeze({
         schema: userSettingsNotificationsSchema,
         mode: "patch"
       },
-      output: userSettingsOutputDefinition
+      output: userSettingsOutputValidator
     },
     passwordChange: {
       method: "POST",
       messages: USER_SETTINGS_OPERATION_MESSAGES,
-      body: passwordChangeBodyDefinition,
-      output: passwordChangeOutputDefinition
+      body: passwordChangeBodyValidator,
+      output: passwordChangeOutputValidator
     },
     passwordMethodToggle: {
       method: "PATCH",
       messages: USER_SETTINGS_OPERATION_MESSAGES,
-      body: passwordMethodToggleBodyDefinition,
-      output: passwordMethodToggleOutputDefinition
+      body: passwordMethodToggleBodyValidator,
+      output: passwordMethodToggleOutputValidator
     },
     oauthLinkStart: {
       method: "GET",
       messages: USER_SETTINGS_OPERATION_MESSAGES,
-      params: oauthProviderParamsDefinition,
-      query: oauthProviderQueryDefinition,
-      output: oauthLinkStartOutputDefinition
+      params: oauthProviderParamsValidator,
+      query: oauthProviderQueryValidator,
+      output: oauthLinkStartOutputValidator
     },
     oauthUnlink: {
       method: "DELETE",
       messages: USER_SETTINGS_OPERATION_MESSAGES,
-      params: oauthProviderParamsDefinition,
-      output: oauthUnlinkOutputDefinition
+      params: oauthProviderParamsValidator,
+      output: oauthUnlinkOutputValidator
     },
     logoutOtherSessions: {
       method: "POST",
       messages: USER_SETTINGS_OPERATION_MESSAGES,
-      body: emptyBodyDefinition,
-      output: logoutOtherSessionsOutputDefinition
+      body: emptyBodyValidator,
+      output: logoutOtherSessionsOutputValidator
     }
   }
 });
@@ -378,6 +378,6 @@ export {
   USER_SETTINGS_NOTIFICATION_KEYS,
   USER_SETTINGS_PREFERENCE_KEYS,
   userSettingsOutputSchema,
-  userSettingsOutputDefinition,
+  userSettingsOutputValidator,
   userSettingsResource
 };

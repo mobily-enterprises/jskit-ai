@@ -224,17 +224,17 @@ Exports
 - `authMethodIdValidator`
 - `authMethodKindValidator`
 - `oauthReturnToValidator`
-- `okResponseValidator`
-- `okMessageResponseValidator`
-- `registerResponseValidator`
-- `loginResponseValidator`
-- `otpVerifyResponseValidator`
-- `oauthCompleteResponseValidator`
-- `devLoginAsResponseValidator`
-- `logoutResponseValidator`
-- `oauthProviderCatalogEntryValidator`
-- `sessionResponseValidator`
-- `sessionUnavailableResponseValidator`
+- `okOutputValidator`
+- `okMessageOutputValidator`
+- `registerOutputValidator`
+- `loginOutputValidator`
+- `otpVerifyOutputValidator`
+- `oauthCompleteOutputValidator`
+- `devLoginAsOutputValidator`
+- `logoutOutputValidator`
+- `oauthProviderCatalogEntryOutputValidator`
+- `sessionOutputValidator`
+- `sessionUnavailableOutputValidator`
 - `createCommandMessages({ fields = {}, defaultMessage = "Invalid value." } = {})`
 
 ### `src/shared/commands/authDevLoginAsCommand.js`
@@ -246,7 +246,7 @@ Exports
 ### `src/shared/commands/authLoginOAuthCompleteCommand.js`
 Exports
 - `authLoginOAuthCompleteBodyValidator`
-- `oauthCompleteResponseValidator`
+- `oauthCompleteOutputValidator`
 - `AUTH_LOGIN_OAUTH_COMPLETE_MESSAGES`
 - `authLoginOAuthCompleteCommand`
 
@@ -254,62 +254,62 @@ Exports
 Exports
 - `authLoginOAuthStartParamsValidator`
 - `authLoginOAuthStartQueryValidator`
-- `authLoginOAuthStartResponseValidator`
+- `authLoginOAuthStartOutputValidator`
 - `AUTH_LOGIN_OAUTH_START_MESSAGES`
 - `authLoginOAuthStartCommand`
 
 ### `src/shared/commands/authLoginOtpRequestCommand.js`
 Exports
 - `authLoginOtpRequestBodyValidator`
-- `okMessageResponseValidator`
+- `okMessageOutputValidator`
 - `AUTH_LOGIN_OTP_REQUEST_MESSAGES`
 - `authLoginOtpRequestCommand`
 
 ### `src/shared/commands/authLoginOtpVerifyCommand.js`
 Exports
 - `authLoginOtpVerifyBodyValidator`
-- `otpVerifyResponseValidator`
+- `otpVerifyOutputValidator`
 - `AUTH_LOGIN_OTP_VERIFY_MESSAGES`
 - `authLoginOtpVerifyCommand`
 
 ### `src/shared/commands/authLoginPasswordCommand.js`
 Exports
 - `authLoginPasswordBodyValidator`
-- `loginResponseValidator`
+- `loginOutputValidator`
 - `AUTH_LOGIN_PASSWORD_MESSAGES`
 - `authLoginPasswordCommand`
 
 ### `src/shared/commands/authLogoutCommand.js`
 Exports
-- `logoutResponseValidator`
+- `logoutOutputValidator`
 - `AUTH_LOGOUT_MESSAGES`
 - `authLogoutCommand`
 
 ### `src/shared/commands/authPasswordRecoveryCompleteCommand.js`
 Exports
 - `authPasswordRecoveryCompleteBodyValidator`
-- `okResponseValidator`
+- `okOutputValidator`
 - `AUTH_PASSWORD_RECOVERY_COMPLETE_MESSAGES`
 - `authPasswordRecoveryCompleteCommand`
 
 ### `src/shared/commands/authPasswordResetCommand.js`
 Exports
 - `authPasswordResetBodyValidator`
-- `okMessageResponseValidator`
+- `okMessageOutputValidator`
 - `AUTH_PASSWORD_RESET_MESSAGES`
 - `authPasswordResetCommand`
 
 ### `src/shared/commands/authPasswordResetRequestCommand.js`
 Exports
 - `authPasswordResetRequestBodyValidator`
-- `okMessageResponseValidator`
+- `okMessageOutputValidator`
 - `AUTH_PASSWORD_RESET_REQUEST_MESSAGES`
 - `authPasswordResetRequestCommand`
 
 ### `src/shared/commands/authRegisterCommand.js`
 Exports
 - `authRegisterBodyValidator`
-- `registerResponseValidator`
+- `registerOutputValidator`
 - `AUTH_REGISTER_MESSAGES`
 - `authRegisterCommand`
 
@@ -321,8 +321,8 @@ Exports
 
 ### `src/shared/commands/authSessionReadCommand.js`
 Exports
-- `sessionResponseValidator`
-- `sessionUnavailableResponseValidator`
+- `sessionOutputValidator`
+- `sessionUnavailableOutputValidator`
 - `AUTH_SESSION_READ_MESSAGES`
 - `authSessionReadCommand`
 

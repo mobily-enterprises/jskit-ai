@@ -1,5 +1,5 @@
 import {
-  EMPTY_INPUT_VALIDATOR
+  emptyInputValidator
 } from "@jskit-ai/kernel/shared/actions/actionContributorHelpers";
 import { consoleSettingsResource } from "../../shared/resources/consoleSettingsResource.js";
 
@@ -13,7 +13,7 @@ const consoleSettingsActions = Object.freeze([
     permission: {
       require: "authenticated"
     },
-    input: EMPTY_INPUT_VALIDATOR,
+    input: emptyInputValidator,
     output: consoleSettingsResource.operations.view.output,
     idempotency: "none",
     audit: {

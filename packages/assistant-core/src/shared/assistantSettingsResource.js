@@ -51,26 +51,32 @@ const assistantConfigPatchSchema = createSchema({
   }
 });
 
+const assistantConfigViewOutputValidator = deepFreeze({
+  schema: assistantConfigRecordSchema,
+  mode: "replace"
+});
+
+const assistantConfigPatchBodyValidator = deepFreeze({
+  schema: assistantConfigPatchSchema,
+  mode: "patch"
+});
+
+const assistantConfigPatchOutputValidator = deepFreeze({
+  schema: assistantConfigRecordSchema,
+  mode: "replace"
+});
+
 const assistantConfigResource = deepFreeze({
   namespace: "assistantConfig",
   operations: {
     view: {
       method: "GET",
-      output: {
-        schema: assistantConfigRecordSchema,
-        mode: "replace"
-      }
+      output: assistantConfigViewOutputValidator
     },
     patch: {
       method: "PATCH",
-      body: {
-        schema: assistantConfigPatchSchema,
-        mode: "patch"
-      },
-      output: {
-        schema: assistantConfigRecordSchema,
-        mode: "replace"
-      }
+      body: assistantConfigPatchBodyValidator,
+      output: assistantConfigPatchOutputValidator
     }
   }
 });

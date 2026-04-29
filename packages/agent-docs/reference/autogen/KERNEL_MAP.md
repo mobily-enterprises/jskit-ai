@@ -446,7 +446,7 @@ Exports
 - `requireServiceMethod(service, methodName, contributorId, { serviceLabel } = {})`
 - `resolveRequest(context)`
 - `hasPermission`
-- `EMPTY_INPUT_VALIDATOR`
+- `emptyInputValidator`
 
 ### `actions/actionDefinitions.js`
 Exports

@@ -1,6 +1,6 @@
 import {
   createCommandMessages,
-  logoutResponseValidator
+  logoutOutputValidator
 } from "./authCommandValidators.js";
 import { deepFreeze } from "@jskit-ai/kernel/shared/support/deepFreeze";
 
@@ -10,7 +10,7 @@ const authLogoutCommand = deepFreeze({
   command: "auth.logout",
   operation: {
     method: "POST",
-    response: logoutResponseValidator,
+    response: logoutOutputValidator,
     messages: AUTH_LOGOUT_MESSAGES,
     idempotent: false,
     invalidates: ["auth.session.read"]
@@ -18,7 +18,7 @@ const authLogoutCommand = deepFreeze({
 });
 
 export {
-  logoutResponseValidator,
+  logoutOutputValidator,
   AUTH_LOGOUT_MESSAGES,
   authLogoutCommand
 };

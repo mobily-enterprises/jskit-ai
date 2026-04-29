@@ -3,7 +3,7 @@ import { deepFreeze } from "@jskit-ai/kernel/shared/support/deepFreeze";
 import {
   authEmailFieldDefinition,
   createCommandMessages,
-  okMessageResponseValidator
+  okMessageOutputValidator
 } from "./authCommandValidators.js";
 
 const AUTH_REGISTER_CONFIRMATION_RESEND_MESSAGES = createCommandMessages({
@@ -30,7 +30,7 @@ const authRegisterConfirmationResendCommand = deepFreeze({
   operation: {
     method: "POST",
     body: authRegisterConfirmationResendBodyValidator,
-    response: okMessageResponseValidator,
+    response: okMessageOutputValidator,
     messages: AUTH_REGISTER_CONFIRMATION_RESEND_MESSAGES,
     idempotent: false,
     invalidates: []

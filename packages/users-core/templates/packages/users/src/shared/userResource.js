@@ -34,12 +34,12 @@ const recordOutputSchema = createSchema({
 
 const createBodySchema = createSchema({});
 
-const recordOutput = deepFreeze({
+const recordOutputValidator = deepFreeze({
   schema: recordOutputSchema,
   mode: "replace"
 });
 
-const createBody = deepFreeze({
+const createBodyValidator = deepFreeze({
   schema: createBodySchema,
   mode: "create"
 });
@@ -51,16 +51,16 @@ const resource = deepFreeze({
   operations: {
     list: {
       method: "GET",
-      output: createCursorListValidator(recordOutput)
+      output: createCursorListValidator(recordOutputValidator)
     },
     view: {
       method: "GET",
-      output: recordOutput
+      output: recordOutputValidator
     },
     create: {
       method: "POST",
-      body: createBody,
-      output: recordOutput
+      body: createBodyValidator,
+      output: recordOutputValidator
     }
   }
 });
