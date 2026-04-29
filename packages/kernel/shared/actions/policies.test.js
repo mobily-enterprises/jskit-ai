@@ -4,11 +4,47 @@ import { Type } from "typebox";
 
 import { ensureActionPermissionAllowed, normalizeActionInput, normalizeActionOutput } from "./policies.js";
 
+function createMockJsonRestSchema() {
+  return {
+    async create(payload = {}) {
+      const name = String(payload?.name || "").trim();
+      const errors = {};
+      if (!name) {
+        errors.name = {
+          message: "Name is required."
+        };
+      }
+
+      return {
+        validatedObject: Object.keys(errors).length < 1 ? { name } : {},
+        errors
+      };
+    },
+    async replace(payload = {}) {
+      return this.create(payload);
+    },
+    async patch(payload = {}) {
+      if (!Object.hasOwn(payload || {}, "name")) {
+        return {
+          validatedObject: {},
+          errors: {}
+        };
+      }
+      return this.create(payload);
+    },
+    toJsonSchema() {
+      return {
+        type: "object"
+      };
+    }
+  };
+}
+
 test("function schema returns normalized value when ok", async () => {
   const definition = {
     id: "tests.ok",
     version: 1,
-    inputValidator: {
+    input: {
       schema: () => ({
         ok: true,
         value: {
@@ -26,7 +62,7 @@ test("function schema rejects non-validator results", async () => {
   const definition = {
     id: "tests.invalid",
     version: 1,
-    inputValidator: {
+    input: {
       schema: () => false
     }
   };
@@ -45,7 +81,7 @@ test("function schema propagates validation errors", async () => {
   const definition = {
     id: "tests.errors",
     version: 2,
-    inputValidator: {
+    input: {
       schema: () => ({
         ok: false,
         errors: {
@@ -67,34 +103,29 @@ test("function schema propagates validation errors", async () => {
   );
 });
 
-test("raw TypeBox action schemas validate normalized action input", async () => {
+test("raw TypeBox action schemas validate input without reshaping it", async () => {
   const definition = {
     id: "tests.typebox",
     version: 1,
-    inputValidator: {
+    input: {
       schema: Type.Object(
         {
           workspaceSlug: Type.String({ minLength: 1 })
         },
         { additionalProperties: false }
-      ),
-      normalize(value = {}) {
-        return {
-          workspaceSlug: String(value.workspaceSlug || "").trim().toLowerCase()
-        };
-      }
+      )
     }
   };
 
   const result = await normalizeActionInput(definition, { workspaceSlug: "  ACME  " }, {});
-  assert.deepEqual(result, { workspaceSlug: "acme" });
+  assert.deepEqual(result, { workspaceSlug: "  ACME  " });
 });
 
 test("typebox input validation normalizes pointer field errors to plain keys", async () => {
   const definition = {
     id: "tests.typebox.errors",
     version: 1,
-    inputValidator: {
+    input: {
       schema: Type.Object(
         {
           name: Type.String({ maxLength: 1 })
@@ -115,27 +146,61 @@ test("typebox input validation normalizes pointer field errors to plain keys", a
   );
 });
 
-test("action output normalization runs before output validation", async () => {
+test("action output validation does not reshape raw typebox output", async () => {
   const definition = {
     id: "tests.output",
     version: 1,
-    outputValidator: {
+    output: {
       schema: Type.Object(
         {
           ok: Type.Boolean()
         },
         { additionalProperties: false }
-      ),
-      normalize(payload = {}) {
-        return {
-          ok: Boolean(payload.ok)
-        };
-      }
+      )
     }
   };
 
-  const result = await normalizeActionOutput(definition, { ok: 1 }, {});
+  await assert.rejects(
+    () => normalizeActionOutput(definition, { ok: 1 }, {}),
+    (error) => error?.code === "ACTION_OUTPUT_VALIDATION_FAILED"
+  );
+
+  const result = await normalizeActionOutput(definition, { ok: true }, {});
   assert.deepEqual(result, { ok: true });
+});
+
+test("json-rest-schema action validators normalize action input", async () => {
+  const definition = {
+    id: "tests.json-rest-schema",
+    version: 1,
+    input: {
+      schema: createMockJsonRestSchema(),
+      mode: "patch"
+    }
+  };
+
+  const result = await normalizeActionInput(definition, { name: "  Acme  " }, {});
+  assert.deepEqual(result, { name: "Acme" });
+});
+
+test("json-rest-schema action validators surface field errors", async () => {
+  const definition = {
+    id: "tests.json-rest-schema.errors",
+    version: 1,
+    input: {
+      schema: createMockJsonRestSchema(),
+      mode: "patch"
+    }
+  };
+
+  await assert.rejects(
+    () => normalizeActionInput(definition, { name: "   " }, {}),
+    (error) => {
+      assert.equal(error.code, "ACTION_VALIDATION_FAILED");
+      assert.equal(error.details?.fieldErrors?.name, "Name is required.");
+      return true;
+    }
+  );
 });
 
 test("action permission denies unauthenticated access when required", () => {

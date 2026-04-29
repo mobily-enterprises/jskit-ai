@@ -1,6 +1,5 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import "../test-support/registerDefaultSettingsFields.js";
 import { resolveWorkspaceThemePalettes } from "@jskit-ai/workspaces-core/shared/settings";
 import { createService } from "../src/server/workspaceSettings/workspaceSettingsService.js";
 

@@ -47,14 +47,14 @@ function registerRoutes(
         summary: "List records."
       },
 __JSKIT_CRUD_LIST_ROUTE_PARAMS_VALIDATOR_LINE__
-      queryValidator: [
+      query: [
         listCursorPaginationQueryValidator,
         listSearchQueryValidator,
         listParentFilterQueryValidator,
         lookupIncludeQueryValidator
       ],
-      responseValidators: withStandardErrorResponses({
-        200: resource.operations.list.outputValidator
+      responses: withStandardErrorResponses({
+        200: resource.operations.list.output
       })
     },
     async function (request, reply) {
@@ -81,9 +81,9 @@ __JSKIT_CRUD_LIST_ROUTE_INPUT_LINES__
         summary: "View a record."
       },
 __JSKIT_CRUD_VIEW_ROUTE_PARAMS_VALIDATOR_LINE__
-      queryValidator: [lookupIncludeQueryValidator],
-      responseValidators: withStandardErrorResponses({
-        200: resource.operations.view.outputValidator
+      query: [lookupIncludeQueryValidator],
+      responses: withStandardErrorResponses({
+        200: resource.operations.view.output
       })
     },
     async function (request, reply) {
@@ -109,10 +109,10 @@ __JSKIT_CRUD_VIEW_ROUTE_INPUT_LINES__
         summary: "Create a record."
       },
 __JSKIT_CRUD_CREATE_ROUTE_PARAMS_VALIDATOR_LINE__
-      bodyValidator: resource.operations.create.bodyValidator,
-      responseValidators: withStandardErrorResponses(
+      body: resource.operations.create.body,
+      responses: withStandardErrorResponses(
         {
-          201: resource.operations.create.outputValidator
+          201: resource.operations.create.output
         },
         { includeValidation400: true }
       )
@@ -140,10 +140,10 @@ __JSKIT_CRUD_CREATE_ROUTE_INPUT_LINES__
         summary: "Update a record."
       },
 __JSKIT_CRUD_UPDATE_ROUTE_PARAMS_VALIDATOR_LINE__
-      bodyValidator: resource.operations.patch.bodyValidator,
-      responseValidators: withStandardErrorResponses(
+      body: resource.operations.patch.body,
+      responses: withStandardErrorResponses(
         {
-          200: resource.operations.patch.outputValidator
+          200: resource.operations.patch.output
         },
         { includeValidation400: true }
       )
@@ -171,8 +171,8 @@ __JSKIT_CRUD_UPDATE_ROUTE_INPUT_LINES__
         summary: "Delete a record."
       },
 __JSKIT_CRUD_DELETE_ROUTE_PARAMS_VALIDATOR_LINE__
-      responseValidators: withStandardErrorResponses({
-        200: resource.operations.delete.outputValidator
+      responses: withStandardErrorResponses({
+        200: resource.operations.delete.output
       })
     },
     async function (request, reply) {

@@ -479,7 +479,7 @@ function createCrudListFilters(definitions = {}, { columns = {}, apply = {} } = 
     return Object.freeze(normalized);
   }
 
-  const queryValidators = Object.freeze({
+  const validatorsByInvalidValueMode = Object.freeze({
     [CRUD_LIST_FILTER_INVALID_VALUES_REJECT]: Object.freeze({
       schema: mergeObjectSchemas(
         filterEntries.map((filter) => createFilterQuerySchema(filter, {
@@ -529,7 +529,7 @@ function createCrudListFilters(definitions = {}, { columns = {}, apply = {} } = 
 
   function createQueryValidator({ invalidValues } = {}) {
     const invalidValueMode = normalizeCrudListFilterInvalidValues(invalidValues);
-    return queryValidators[invalidValueMode];
+    return validatorsByInvalidValueMode[invalidValueMode];
   }
 
   return Object.freeze({

@@ -152,14 +152,6 @@ export default Object.freeze({
         id: "users-core-workspaces-drop-color"
       },
       {
-        from: "templates/packages/main/src/shared/resources/workspaceSettingsFields.js",
-        to: "packages/main/src/shared/resources/workspaceSettingsFields.js",
-        preserveOnRemove: true,
-        reason: "Install app-owned workspace settings field definitions.",
-        category: "workspaces-core",
-        id: "users-core-app-owned-workspace-settings-fields"
-      },
-      {
         from: "templates/config/roles.js",
         to: "config/roles.js",
         preserveOnRemove: true,
@@ -169,16 +161,6 @@ export default Object.freeze({
       }
     ],
     text: [
-      {
-        op: "append-text",
-        file: "packages/main/src/shared/index.js",
-        position: "top",
-        skipIfContains: "import \"./resources/workspaceSettingsFields.js\";",
-        value: "import \"./resources/workspaceSettingsFields.js\";\n",
-        reason: "Load app-owned workspace settings field definitions inside the main shared module.",
-        category: "workspaces-core",
-        id: "users-core-main-shared-workspace-settings-field-import"
-      },
       {
         op: "append-text",
         file: "config/public.js",

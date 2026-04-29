@@ -48,7 +48,7 @@ function useAddEditCore({
       resource
     }) : {};
 
-    const validationResult = validateOperationInput({
+    const validationResult = await validateOperationInput({
       parseInput,
       rawPayload,
       context: {

@@ -4,12 +4,12 @@ import { Type } from "@fastify/type-provider-typebox";
 import { compileRouteValidator } from "@jskit-ai/kernel/_testable";
 import { routeParamsValidator } from "../src/server/common/validators/routeParamsValidator.js";
 
-test("routeParamsValidator exposes a shared workspace route params validator", () => {
+test("routeParamsValidator exposes a shared workspace route params schema definition", () => {
   assert.equal(typeof routeParamsValidator.schema, "object");
-  assert.equal(typeof routeParamsValidator.normalize, "function");
+  assert.equal(routeParamsValidator.mode, "patch");
 });
 
-test("workspace route validator pipeline uses the shared params validator and merges query arrays automatically", () => {
+test("workspace route validator pipeline uses the shared params validator and merges query arrays automatically", async () => {
   const paginationQueryValidator = Object.freeze({
     schema: Type.Object(
       {
@@ -29,8 +29,8 @@ test("workspace route validator pipeline uses the shared params validator and me
   });
 
   const compiled = compileRouteValidator({
-    paramsValidator: routeParamsValidator,
-    queryValidator: [paginationQueryValidator, searchQueryValidator]
+    params: routeParamsValidator,
+    query: [paginationQueryValidator, searchQueryValidator]
   });
 
   assert.equal(compiled.schema.params.type, "object");
@@ -39,7 +39,8 @@ test("workspace route validator pipeline uses the shared params validator and me
   assert.equal(typeof compiled.schema.params.properties.memberUserId, "object");
   assert.equal(typeof compiled.schema.params.properties.inviteId, "object");
   assert.equal(typeof compiled.schema.params.properties.provider, "object");
-  assert.equal(compiled.input.params({ workspaceSlug: "  ACME  " }).workspaceSlug, "acme");
+  const normalizedParams = await compiled.input.params({ workspaceSlug: "ACME" });
+  assert.equal(normalizedParams.workspaceSlug, "acme");
 
   assert.equal(compiled.schema.querystring.type, "object");
   assert.equal(compiled.schema.querystring.additionalProperties, false);

@@ -26,10 +26,10 @@ function bootWorkspaceDirectoryRoutes(app) {
           tags: ["workspace"],
           summary: "Create a workspace for the authenticated user"
         },
-        bodyValidator: workspaceResource.operations.create.bodyValidator,
-        responseValidators: withStandardErrorResponses(
+        body: workspaceResource.operations.create.body,
+        responses: withStandardErrorResponses(
           {
-            200: workspaceResource.operations.create.outputValidator
+            200: workspaceResource.operations.create.output
           },
           { includeValidation400: true }
         )
@@ -57,8 +57,8 @@ function bootWorkspaceDirectoryRoutes(app) {
         tags: ["workspace"],
         summary: "List workspaces visible to authenticated user"
       },
-      responseValidators: withStandardErrorResponses({
-        200: workspaceResource.operations.list.outputValidator
+      responses: withStandardErrorResponses({
+        200: workspaceResource.operations.list.output
       })
     },
     async function (request, reply) {
@@ -81,9 +81,9 @@ function bootWorkspaceDirectoryRoutes(app) {
         tags: ["workspace"],
         summary: "Get workspace profile by workspace slug"
       },
-      paramsValidator: workspaceSlugParamsValidator,
-      responseValidators: withStandardErrorResponses({
-        200: workspaceResource.operations.view.outputValidator
+      params: workspaceSlugParamsValidator,
+      responses: withStandardErrorResponses({
+        200: workspaceResource.operations.view.output
       })
     },
     async function (request, reply) {
@@ -108,11 +108,11 @@ function bootWorkspaceDirectoryRoutes(app) {
         tags: ["workspace"],
         summary: "Update workspace profile by workspace slug"
       },
-      paramsValidator: workspaceSlugParamsValidator,
-      bodyValidator: workspaceResource.operations.patch.bodyValidator,
-      responseValidators: withStandardErrorResponses(
+      params: workspaceSlugParamsValidator,
+      body: workspaceResource.operations.patch.body,
+      responses: withStandardErrorResponses(
         {
-          200: workspaceResource.operations.patch.outputValidator
+          200: workspaceResource.operations.patch.output
         },
         { includeValidation400: true }
       )

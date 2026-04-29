@@ -1,88 +1,62 @@
-import { Type } from "typebox";
-__JSKIT_CRUD_RESOURCE_DATABASE_RUNTIME_IMPORT__
-__JSKIT_CRUD_RESOURCE_VALIDATORS_IMPORT__
-__JSKIT_CRUD_RESOURCE_NORMALIZE_SUPPORT_IMPORT__
-__JSKIT_CRUD_RESOURCE_JSON_IMPORT__
+import { createSchema } from "json-rest-schema";
+import {
+  createCursorListValidator,
+  RECORD_ID_PATTERN
+} from "@jskit-ai/kernel/shared/validators";
+import { deepFreeze } from "@jskit-ai/kernel/shared/support/deepFreeze";
 
 const RESOURCE_LOOKUP_CONTAINER_KEY = "lookups";
 
-const recordOutputSchema = Type.Object(
-  {
+const recordOutputSchema = createSchema({
 __JSKIT_CRUD_RESOURCE_OUTPUT_SCHEMA_PROPERTIES__
-    [RESOURCE_LOOKUP_CONTAINER_KEY]: Type.Optional(Type.Record(Type.String(), Type.Unknown()))
-  },
-  { additionalProperties: false }
-);
+  [RESOURCE_LOOKUP_CONTAINER_KEY]: {
+    type: "object",
+    required: false
+  }
+});
 
-const createBodySchema = Type.Object(
-  {
+const createBodySchema = createSchema({
 __JSKIT_CRUD_RESOURCE_CREATE_SCHEMA_PROPERTIES__
-  },
-  {
-    additionalProperties: false,
-    required: __JSKIT_CRUD_RESOURCE_CREATE_REQUIRED_FIELDS__
-  }
-);
-
-const patchBodySchema = Type.Partial(createBodySchema, {
-  additionalProperties: false
 });
 
-const recordOutputValidator = Object.freeze({
+const patchBodySchema = createSchema({
+__JSKIT_CRUD_RESOURCE_PATCH_SCHEMA_PROPERTIES__
+});
+
+const recordOutput = deepFreeze({
   schema: recordOutputSchema,
-  normalize(payload = {}) {
-    const source = normalizeObjectInput(payload);
-    const normalized = {
-__JSKIT_CRUD_RESOURCE_OUTPUT_NORMALIZATION_LINES__
-    };
-    if (Object.hasOwn(source, RESOURCE_LOOKUP_CONTAINER_KEY)) {
-      normalized[RESOURCE_LOOKUP_CONTAINER_KEY] = source[RESOURCE_LOOKUP_CONTAINER_KEY];
-    }
-
-    return normalized;
-  }
+  mode: "replace"
 });
 
-const listOutputValidator = createCursorListValidator(recordOutputValidator);
+const listOutput = createCursorListValidator(recordOutput);
 
-const createBodyValidator = Object.freeze({
+const createBody = deepFreeze({
   schema: createBodySchema,
-  normalize(payload = {}) {
-    const source = normalizeObjectInput(payload);
-    const normalized = {};
-
-__JSKIT_CRUD_RESOURCE_INPUT_NORMALIZATION_LINES__
-
-    return normalized;
-  }
+  mode: "create"
 });
 
-const patchBodyValidator = Object.freeze({
+const patchBody = deepFreeze({
   schema: patchBodySchema,
-  normalize: createBodyValidator.normalize
+  mode: "patch"
 });
 
-const deleteOutputValidator = Object.freeze({
-  schema: Type.Object(
-    {
-      id: recordIdSchema,
-      deleted: Type.Literal(true)
+const deleteOutput = deepFreeze({
+  schema: createSchema({
+    id: {
+      type: "string",
+      required: true,
+      minLength: 1,
+      pattern: RECORD_ID_PATTERN
     },
-    { additionalProperties: false }
-  ),
-  normalize(payload = {}) {
-    const source = normalizeObjectInput(payload);
-
-    return {
-      id: normalizeRecordId(source.id, { fallback: "" }),
-      deleted: true
-    };
-  }
+    deleted: {
+      type: "boolean",
+      required: true
+    }
+  }),
+  mode: "replace"
 });
 
-const RESOURCE_FIELD_META = [];
-
-const resource = {
+const resource = deepFreeze({
   namespace: "${option:namespace|snake}",
   tableName: __JSKIT_CRUD_TABLE_NAME__,
   idColumn: __JSKIT_CRUD_ID_COLUMN__,
@@ -96,60 +70,37 @@ const resource = {
   contract: {
     lookup: {
       containerKey: RESOURCE_LOOKUP_CONTAINER_KEY,
-      defaultInclude: "*", // Set "none" to disable lookup hydration unless include=... is passed.
-      maxDepth: 3 // Lower this to limit nested lookup hydration depth.
+      defaultInclude: "*",
+      maxDepth: 3
     }
   },
   operations: {
     list: {
       realtime: {
-        events: ["${option:namespace|snake}.record.changed"] // Add more events e.g. for lookup records
+        events: ["${option:namespace|snake}.record.changed"]
       },
       method: "GET",
-      outputValidator: listOutputValidator
+      output: listOutput
     },
     view: {
       method: "GET",
-      outputValidator: recordOutputValidator
+      output: recordOutput
     },
     create: {
       method: "POST",
-      bodyValidator: createBodyValidator,
-      outputValidator: recordOutputValidator
+      body: createBody,
+      output: recordOutput
     },
     patch: {
       method: "PATCH",
-      bodyValidator: patchBodyValidator,
-      outputValidator: recordOutputValidator
+      body: patchBody,
+      output: recordOutput
     },
     delete: {
       method: "DELETE",
-      outputValidator: deleteOutputValidator
+      output: deleteOutput
     }
-  },
-  fieldMeta: RESOURCE_FIELD_META
-};
+  }
+});
 
 export { resource };
-
-// @jskit-contract crud.resource.field-meta.${option:namespace|snake}.v1
-void RESOURCE_FIELD_META;
-
-// Example 1:n collection hydration:
-// RESOURCE_FIELD_META.push({
-//   key: "pets",
-//   relation: {
-//     kind: "collection",
-//     namespace: "pets",
-//     foreignKey: "customerId",
-//     parentValueKey: "id",
-//     hydrateOnList: false, // list: opt-in with include=pets
-//     hydrateOnView: true // view: hydrated by default
-//   }
-// });
-//
-// To hydrate child lookups too, request nested include paths:
-// - include=pets
-// - include=pets,pets.breedId
-
-__JSKIT_CRUD_RESOURCE_FIELD_META_PUSH_LINES__

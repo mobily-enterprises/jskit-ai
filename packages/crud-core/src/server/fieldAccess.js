@@ -73,7 +73,7 @@ function resolveWriteMode(fieldAccess = {}, { context = "crudFieldAccess" } = {}
 }
 
 function buildOutputFieldRules(resource = {}) {
-  const viewOutputSchema = resource?.operations?.view?.outputValidator?.schema;
+  const viewOutputSchema = resource?.operations?.view?.output?.schema;
   if (!viewOutputSchema || typeof viewOutputSchema !== "object" || Array.isArray(viewOutputSchema)) {
     return null;
   }
@@ -233,7 +233,7 @@ function createCrudFieldAccessRuntime(resource = {}, { context = "crudFieldAcces
       return null;
     }
     if (!outputRules) {
-      throw new TypeError(`${context} requires resource.operations.view.outputValidator.schema for fieldAccess.readable.`);
+      throw new TypeError(`${context} requires resource.operations.view.output.schema for fieldAccess.readable.`);
     }
 
     return allowedFields;

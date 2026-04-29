@@ -2,27 +2,24 @@ import {
   EMPTY_INPUT_VALIDATOR,
   resolveRequest
 } from "@jskit-ai/kernel/shared/actions/actionContributorHelpers";
-import { Type } from "typebox";
-import { normalizeObjectInput } from "@jskit-ai/kernel/shared/validators/inputNormalization";
 import { userSettingsResource } from "../../shared/resources/userSettingsResource.js";
 import { userProfileResource } from "../../shared/resources/userProfileResource.js";
 import { resolveActionUser } from "../common/support/resolveActionUser.js";
 
 const settingsProfileUpdateOutputValidator = Object.freeze({
-  schema: Type.Object(
-    {
-      settings: userSettingsResource.operations.view.outputValidator.schema,
-      session: Type.Union([Type.Object({}, { additionalProperties: true }), Type.Null()])
-    },
-    { additionalProperties: false }
-  ),
-  normalize(payload = {}) {
-    const source = normalizeObjectInput(payload);
-
-    return {
-      settings: userSettingsResource.operations.view.outputValidator.normalize(source.settings),
-      session: source.session && typeof source.session === "object" ? source.session : null
-    };
+  settings: userSettingsResource.operations.view.output,
+  session: {
+    schema: {
+      anyOf: [
+        {
+          type: "object",
+          additionalProperties: true
+        },
+        {
+          type: "null"
+        }
+      ]
+    }
   }
 });
 
@@ -36,8 +33,8 @@ const accountProfileActions = Object.freeze([
     permission: {
       require: "authenticated"
     },
-    inputValidator: EMPTY_INPUT_VALIDATOR,
-    outputValidator: userSettingsResource.operations.view.outputValidator,
+    input: EMPTY_INPUT_VALIDATOR,
+    output: userSettingsResource.operations.view.output,
     idempotency: "none",
     audit: {
       actionName: "settings.read"
@@ -58,10 +55,10 @@ const accountProfileActions = Object.freeze([
     permission: {
       require: "authenticated"
     },
-    inputValidator: {
-      payload: userProfileResource.operations.patch.bodyValidator
+    input: {
+      payload: userProfileResource.operations.patch.body
     },
-    outputValidator: settingsProfileUpdateOutputValidator,
+    output: settingsProfileUpdateOutputValidator,
     idempotency: "optional",
     audit: {
       actionName: "settings.profile.update"
@@ -87,8 +84,8 @@ const accountProfileActions = Object.freeze([
     permission: {
       require: "authenticated"
     },
-    inputValidator: userProfileResource.operations.avatarUpload.bodyValidator,
-    outputValidator: userProfileResource.operations.avatarUpload.outputValidator,
+    input: userProfileResource.operations.avatarUpload.body,
+    output: userProfileResource.operations.avatarUpload.output,
     idempotency: "none",
     audit: {
       actionName: "settings.profile.avatar.upload"
@@ -121,8 +118,8 @@ const accountProfileActions = Object.freeze([
     permission: {
       require: "authenticated"
     },
-    inputValidator: userProfileResource.operations.avatarDelete.bodyValidator,
-    outputValidator: userProfileResource.operations.avatarDelete.outputValidator,
+    input: userProfileResource.operations.avatarDelete.body,
+    output: userProfileResource.operations.avatarDelete.output,
     idempotency: "none",
     audit: {
       actionName: "settings.profile.avatar.delete"

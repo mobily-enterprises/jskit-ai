@@ -22,8 +22,8 @@ function bootAccountProfileRoutes(app) {
         tags: ["settings"],
         summary: "Get authenticated user's settings"
       },
-      responseValidators: withStandardErrorResponses({
-        200: userSettingsResource.operations.view.outputValidator
+      responses: withStandardErrorResponses({
+        200: userSettingsResource.operations.view.output
       })
     },
     async function (request, reply) {
@@ -43,10 +43,10 @@ function bootAccountProfileRoutes(app) {
         tags: ["settings"],
         summary: "Update profile settings"
       },
-      bodyValidator: userProfileResource.operations.patch.bodyValidator,
-      responseValidators: withStandardErrorResponses(
+      body: userProfileResource.operations.patch.body,
+      responses: withStandardErrorResponses(
         {
-          200: userSettingsResource.operations.view.outputValidator
+          200: userSettingsResource.operations.view.output
         },
         { includeValidation400: true }
       )
@@ -106,9 +106,9 @@ function bootAccountProfileRoutes(app) {
           consumes: ["multipart/form-data"]
         }
       },
-      responseValidators: withStandardErrorResponses(
+      responses: withStandardErrorResponses(
         {
-          200: userProfileResource.operations.avatarUpload.outputValidator
+          200: userProfileResource.operations.avatarUpload.output
         },
         { includeValidation400: true }
       )
@@ -146,8 +146,8 @@ function bootAccountProfileRoutes(app) {
         tags: ["settings"],
         summary: "Delete profile avatar and fallback to gravatar"
       },
-      responseValidators: withStandardErrorResponses({
-        200: userProfileResource.operations.avatarDelete.outputValidator
+      responses: withStandardErrorResponses({
+        200: userProfileResource.operations.avatarDelete.output
       })
     },
     async function (request, reply) {

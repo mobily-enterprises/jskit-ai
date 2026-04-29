@@ -7,6 +7,33 @@ export {
 } from "./htmlTimeSchemas.js";
 export { mergeObjectSchemas } from "./mergeObjectSchemas.js";
 export { mergeValidators } from "./mergeValidators.js";
+export {
+  hasJsonRestSchemaDefinition,
+  isSchemaDefinitionSectionMap,
+  listSchemaDefinitions,
+  normalizeSingleSchemaDefinition,
+  normalizeSchemaDefinition,
+  selectPayloadForSchemaDefinition,
+  resolveSchemaTransportSchemaDefinition,
+  resolveStructuredSchemaTransportSchema,
+  executeJsonRestSchemaDefinition
+} from "./schemaDefinitions.js";
+export {
+  isJsonRestSchemaInstance,
+  hasJsonRestSchemaValidator,
+  resolveValidatorSchemaSource,
+  resolveValidatorSchemaMode,
+  resolveValidatorTransportSchema,
+  executeJsonRestSchemaValidator,
+  normalizeJsonRestSchemaFieldErrors
+} from "./jsonRestSchemaSupport.js";
+export {
+  buildSchemaValidationError,
+  normalizeSchemaValidationErrors,
+  normalizeTypeBoxValidationErrors,
+  validateSingleSchemaPayload,
+  validateSchemaPayload
+} from "./schemaPayloadValidation.js";
 export { nestValidator } from "./nestValidator.js";
 export {
   RECORD_ID_PATTERN,
@@ -19,7 +46,6 @@ export {
   recordIdParamsValidator,
   positiveIntegerValidator
 } from "./recordIdParamsValidator.js";
-export { normalizeSettingsFieldInput, normalizeSettingsFieldOutput } from "./settingsFieldNormalization.js";
 export {
   normalizeRequiredFieldList,
   deriveRequiredFieldsFromSchema,

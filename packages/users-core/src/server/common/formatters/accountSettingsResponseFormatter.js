@@ -1,8 +1,8 @@
 import { normalizeLowerText, normalizeText } from "@jskit-ai/kernel/shared/actions/textNormalization";
 import {
-  USER_SETTINGS_SECTIONS,
-  userSettingsFields
-} from "../../../shared/resources/userSettingsFields.js";
+  USER_SETTINGS_NOTIFICATION_KEYS,
+  USER_SETTINGS_PREFERENCE_KEYS
+} from "../../../shared/resources/userSettingsResource.js";
 import { accountAvatarFormatter } from "./accountAvatarFormatter.js";
 import { accountSecurityStatusFormatter } from "./accountSecurityStatusFormatter.js";
 
@@ -21,22 +21,12 @@ function resolveAuthProfileSettings(authService) {
   };
 }
 
-function formatUserSettingsSection(section, settings = {}) {
+function formatUserSettingsSection(fieldKeys, settings = {}) {
   const source = settings && typeof settings === "object" ? settings : {};
   const formatted = {};
 
-  for (const field of userSettingsFields) {
-    if (field.section !== section) {
-      continue;
-    }
-    const rawValue = Object.hasOwn(source, field.key)
-      ? source[field.key]
-      : field.resolveDefault({
-          settings: source
-        });
-    formatted[field.key] = field.normalizeOutput(rawValue, {
-      settings: source
-    });
+  for (const fieldKey of fieldKeys) {
+    formatted[fieldKey] = source[fieldKey];
   }
 
   return formatted;
@@ -54,8 +44,8 @@ function accountSettingsResponseFormatter({ profile, settings, securityStatus, a
       avatar: accountAvatarFormatter(profile, settings)
     },
     security: accountSecurityStatusFormatter(securityStatus),
-    preferences: formatUserSettingsSection(USER_SETTINGS_SECTIONS.PREFERENCES, settings),
-    notifications: formatUserSettingsSection(USER_SETTINGS_SECTIONS.NOTIFICATIONS, settings)
+    preferences: formatUserSettingsSection(USER_SETTINGS_PREFERENCE_KEYS, settings),
+    notifications: formatUserSettingsSection(USER_SETTINGS_NOTIFICATION_KEYS, settings)
   };
 }
 

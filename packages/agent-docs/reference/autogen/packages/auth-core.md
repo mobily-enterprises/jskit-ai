@@ -204,6 +204,16 @@ Exports
 
 ### `src/shared/commands/authCommandValidators.js`
 Exports
+- `authEmailFieldDefinition`
+- `authPasswordFieldDefinition`
+- `authLoginPasswordFieldDefinition`
+- `authRecoveryTokenFieldDefinition`
+- `authAccessTokenFieldDefinition`
+- `authRefreshTokenFieldDefinition`
+- `oauthProviderFieldDefinition`
+- `authMethodIdFieldDefinition`
+- `authMethodKindFieldDefinition`
+- `oauthReturnToFieldDefinition`
 - `authEmailValidator`
 - `authPasswordValidator`
 - `authLoginPasswordValidator`

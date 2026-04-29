@@ -1,6 +1,5 @@
-import { Type } from "typebox";
 import { recordIdInputSchema } from "@jskit-ai/kernel/shared/validators";
-import { normalizeObjectInput } from "../inputNormalization.js";
+import { deepFreeze } from "@jskit-ai/kernel/shared/support/deepFreeze";
 import {
   authEmailValidator,
   createCommandMessages,
@@ -21,18 +20,16 @@ const AUTH_DEV_LOGIN_AS_MESSAGES = createCommandMessages({
   defaultMessage: "Provide a valid user id or email."
 });
 
-const authDevLoginAsBodyValidator = Object.freeze({
-  schema: Type.Object(
-    {
-      userId: Type.Optional(recordIdInputSchema),
-      email: Type.Optional(authEmailValidator.schema)
-    },
-    {
-      additionalProperties: false,
-      anyOf: [{ required: ["userId"] }, { required: ["email"] }]
+const authDevLoginAsBodyValidator = deepFreeze({
+  schema: {
+    type: "object",
+    additionalProperties: false,
+    anyOf: [{ required: ["userId"] }, { required: ["email"] }],
+    properties: {
+      userId: recordIdInputSchema,
+      email: authEmailValidator.schema
     }
-  ),
-  normalize: normalizeObjectInput,
+  },
   messages: {
     ...AUTH_DEV_LOGIN_AS_MESSAGES,
     keywords: {
@@ -42,16 +39,16 @@ const authDevLoginAsBodyValidator = Object.freeze({
   }
 });
 
-const authDevLoginAsCommand = Object.freeze({
+const authDevLoginAsCommand = deepFreeze({
   command: "auth.dev.loginAs",
-  operation: Object.freeze({
+  operation: {
     method: "POST",
-    bodyValidator: authDevLoginAsBodyValidator,
-    responseValidator: devLoginAsResponseValidator,
+    body: authDevLoginAsBodyValidator,
+    response: devLoginAsResponseValidator,
     messages: AUTH_DEV_LOGIN_AS_MESSAGES,
     idempotent: false,
-    invalidates: Object.freeze(["auth.session.read"])
-  })
+    invalidates: ["auth.session.read"]
+  }
 });
 
 export { AUTH_DEV_LOGIN_AS_MESSAGES, authDevLoginAsBodyValidator, authDevLoginAsCommand };

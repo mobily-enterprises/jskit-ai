@@ -36,8 +36,8 @@ function createActions({ surface = "" } = {}) {
       channels: ["api", "automation", "internal"],
       surfaces: [actionSurface],
       permission: __JSKIT_CRUD_LIST_ACTION_PERMISSION__,
-      inputValidator: __JSKIT_CRUD_LIST_ACTION_INPUT_VALIDATOR__,
-      outputValidator: resource.operations.list.outputValidator,
+      input: __JSKIT_CRUD_LIST_ACTION_INPUT_VALIDATOR__,
+      output: resource.operations.list.output,
       idempotency: "none",
       audit: {
         actionName: actionIds.list
@@ -57,8 +57,8 @@ function createActions({ surface = "" } = {}) {
       channels: ["api", "automation", "internal"],
       surfaces: [actionSurface],
       permission: __JSKIT_CRUD_VIEW_ACTION_PERMISSION__,
-      inputValidator: __JSKIT_CRUD_VIEW_ACTION_INPUT_VALIDATOR__,
-      outputValidator: resource.operations.view.outputValidator,
+      input: __JSKIT_CRUD_VIEW_ACTION_INPUT_VALIDATOR__,
+      output: resource.operations.view.output,
       idempotency: "none",
       audit: {
         actionName: actionIds.view
@@ -79,8 +79,8 @@ function createActions({ surface = "" } = {}) {
       channels: ["api", "automation", "internal"],
       surfaces: [actionSurface],
       permission: __JSKIT_CRUD_CREATE_ACTION_PERMISSION__,
-      inputValidator: __JSKIT_CRUD_CREATE_ACTION_INPUT_VALIDATOR__,
-      outputValidator: resource.operations.create.outputValidator,
+      input: __JSKIT_CRUD_CREATE_ACTION_INPUT_VALIDATOR__,
+      output: resource.operations.create.output,
       idempotency: "optional",
       audit: {
         actionName: actionIds.create
@@ -100,8 +100,8 @@ function createActions({ surface = "" } = {}) {
       channels: ["api", "automation", "internal"],
       surfaces: [actionSurface],
       permission: __JSKIT_CRUD_UPDATE_ACTION_PERMISSION__,
-      inputValidator: __JSKIT_CRUD_UPDATE_ACTION_INPUT_VALIDATOR__,
-      outputValidator: resource.operations.patch.outputValidator,
+      input: __JSKIT_CRUD_UPDATE_ACTION_INPUT_VALIDATOR__,
+      output: resource.operations.patch.output,
       idempotency: "optional",
       audit: {
         actionName: actionIds.update
@@ -121,8 +121,8 @@ function createActions({ surface = "" } = {}) {
       channels: ["api", "automation", "internal"],
       surfaces: [actionSurface],
       permission: __JSKIT_CRUD_DELETE_ACTION_PERMISSION__,
-      inputValidator: __JSKIT_CRUD_DELETE_ACTION_INPUT_VALIDATOR__,
-      outputValidator: resource.operations.delete.outputValidator,
+      input: __JSKIT_CRUD_DELETE_ACTION_INPUT_VALIDATOR__,
+      output: resource.operations.delete.output,
       idempotency: "optional",
       audit: {
         actionName: actionIds.delete

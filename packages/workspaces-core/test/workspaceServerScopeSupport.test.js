@@ -1,13 +1,24 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+import { validateSchemaPayload } from "@jskit-ai/kernel/shared/validators";
 import { createWorkspaceServerScopeSupport } from "../src/server/support/workspaceServerScopeSupport.js";
 import { registerWorkspaceCore } from "../src/server/registerWorkspaceCore.js";
 
-test("workspace server scope support exposes the canonical workspace helper surface", () => {
+test("workspace server scope support exposes the canonical workspace helper surface", async () => {
   const support = createWorkspaceServerScopeSupport();
 
   assert.equal(support.available, true);
-  assert.equal(typeof support.paramsValidator?.normalize, "function");
+  assert.equal(typeof support.params?.schema, "object");
+  assert.equal(support.params?.mode, "patch");
+  assert.deepEqual(
+    await validateSchemaPayload(support.params, { workspaceSlug: "  ACME  " }, {
+      phase: "input",
+      context: "workspaceServerScopeSupport.params"
+    }),
+    {
+      workspaceSlug: "acme"
+    }
+  );
   assert.deepEqual(support.buildInputFromRouteParams({ workspaceSlug: "  ACME  " }), {
     workspaceSlug: "acme"
   });

@@ -3,32 +3,32 @@ import {
   assistantResource
 } from "@jskit-ai/assistant-core/shared";
 import { actionIds } from "./actionIds.js";
-import { assistantTargetSurfaceInputValidator } from "./inputValidators.js";
+import { assistantTargetSurfaceInput } from "./inputSchemas.js";
 
 const runtimeQueryInputValidator = [
-  assistantTargetSurfaceInputValidator,
-  { query: assistantResource.operations.conversationsList.queryValidator }
+  assistantTargetSurfaceInput,
+  { query: assistantResource.operations.conversationsList.query }
 ];
 
 const runtimeMessagesInputValidator = [
-  assistantTargetSurfaceInputValidator,
-  assistantResource.operations.conversationMessagesList.paramsValidator,
+  assistantTargetSurfaceInput,
+  assistantResource.operations.conversationMessagesList.params,
   {
-    query: assistantResource.operations.conversationMessagesList.queryValidator
+    query: assistantResource.operations.conversationMessagesList.query
   }
 ];
 
 const runtimeChatInputValidator = [
-  assistantTargetSurfaceInputValidator,
-  assistantResource.operations.chatStream.bodyValidator
+  assistantTargetSurfaceInput,
+  assistantResource.operations.chatStream.body
 ];
 
-const settingsReadInputValidator = assistantTargetSurfaceInputValidator;
+const settingsReadInputValidator = assistantTargetSurfaceInput;
 
 const settingsUpdateInputValidator = [
-  assistantTargetSurfaceInputValidator,
+  assistantTargetSurfaceInput,
   {
-    patch: assistantConfigResource.operations.patch.bodyValidator
+    patch: assistantConfigResource.operations.patch.body
   }
 ];
 
@@ -42,7 +42,7 @@ const assistantActions = Object.freeze([
     permission: {
       require: "authenticated"
     },
-    inputValidator: runtimeChatInputValidator,
+    input: runtimeChatInputValidator,
     idempotency: "optional",
     audit: {
       actionName: actionIds.chatStream
@@ -65,8 +65,8 @@ const assistantActions = Object.freeze([
     permission: {
       require: "authenticated"
     },
-    inputValidator: runtimeQueryInputValidator,
-    outputValidator: assistantResource.operations.conversationsList.outputValidator,
+    input: runtimeQueryInputValidator,
+    output: assistantResource.operations.conversationsList.output,
     idempotency: "none",
     audit: {
       actionName: actionIds.conversationsList
@@ -88,8 +88,8 @@ const assistantActions = Object.freeze([
     permission: {
       require: "authenticated"
     },
-    inputValidator: runtimeMessagesInputValidator,
-    outputValidator: assistantResource.operations.conversationMessagesList.outputValidator,
+    input: runtimeMessagesInputValidator,
+    output: assistantResource.operations.conversationMessagesList.output,
     idempotency: "none",
     audit: {
       actionName: actionIds.conversationMessagesList
@@ -111,8 +111,8 @@ const assistantActions = Object.freeze([
     permission: {
       require: "authenticated"
     },
-    inputValidator: settingsReadInputValidator,
-    outputValidator: assistantConfigResource.operations.view.outputValidator,
+    input: settingsReadInputValidator,
+    output: assistantConfigResource.operations.view.output,
     idempotency: "none",
     audit: {
       actionName: actionIds.settingsRead
@@ -133,8 +133,8 @@ const assistantActions = Object.freeze([
     permission: {
       require: "authenticated"
     },
-    inputValidator: settingsUpdateInputValidator,
-    outputValidator: assistantConfigResource.operations.patch.outputValidator,
+    input: settingsUpdateInputValidator,
+    output: assistantConfigResource.operations.patch.output,
     idempotency: "optional",
     audit: {
       actionName: actionIds.settingsUpdate

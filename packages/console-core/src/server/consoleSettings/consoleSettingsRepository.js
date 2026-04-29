@@ -4,28 +4,10 @@ import {
   createWithTransaction
 } from "@jskit-ai/database-runtime/shared";
 import { toInsertDateTime } from "@jskit-ai/database-runtime/shared";
-import { normalizeObjectInput } from "@jskit-ai/kernel/shared/validators/inputNormalization";
 import { normalizeRecordId as normalizeKernelRecordId } from "@jskit-ai/kernel/shared/support/normalize";
-import { consoleSettingsFields } from "../../shared/resources/consoleSettingsFields.js";
 
 function nowDb() {
   return toInsertDateTime();
-}
-
-function mapSettings(row = {}) {
-  const settings = {};
-  for (const field of consoleSettingsFields) {
-    const repositoryColumn = field?.repository?.column;
-    const rawValue = Object.hasOwn(row, repositoryColumn)
-      ? row[repositoryColumn]
-      : field.resolveDefault({
-          settings: row
-        });
-    settings[field.key] = field.normalizeOutput(rawValue, {
-      settings: row
-    });
-  }
-  return settings;
 }
 
 function mapSingletonRow(row) {
@@ -37,7 +19,7 @@ function mapSingletonRow(row) {
   return {
     id: normalizeDbRecordId(row.id, { fallback: "1" }),
     ownerUserId,
-    settings: mapSettings(row),
+    settings: {},
     createdAt: toIsoString(row.created_at),
     updatedAt: toIsoString(row.updated_at)
   };
@@ -88,19 +70,9 @@ function createRepository(knex) {
 
   async function updateSingleton(patch, options = {}) {
     const client = options?.trx || knex;
-    const source = normalizeObjectInput(patch);
     const dbPatch = {
       updated_at: nowDb()
     };
-
-    for (const field of consoleSettingsFields) {
-      if (!Object.hasOwn(source, field.key)) {
-        continue;
-      }
-      dbPatch[field.repository.column] = field.normalizeInput(source[field.key], {
-        payload: source
-      });
-    }
 
     await client("console_settings")
       .where({ id: 1 })

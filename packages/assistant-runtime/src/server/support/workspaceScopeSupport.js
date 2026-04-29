@@ -4,8 +4,8 @@ function isWorkspaceServerScopeSupport(value) {
   return Boolean(
     value &&
       value.available === true &&
-      value.paramsValidator &&
-      typeof value.paramsValidator.normalize === "function" &&
+      value.params &&
+      typeof value.params.normalize === "function" &&
       typeof value.buildInputFromRouteParams === "function" &&
       typeof value.resolveWorkspace === "function"
   );

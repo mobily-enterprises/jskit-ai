@@ -1,354 +1,222 @@
-import { Type } from "@fastify/type-provider-typebox";
-import { normalizeLowerText, normalizeText } from "@jskit-ai/kernel/shared/actions/textNormalization";
 import {
-  normalizeObjectInput,
-  recordIdSchema,
-  recordIdInputSchema,
-  nullableRecordIdSchema
+  RECORD_ID_PATTERN
 } from "@jskit-ai/kernel/shared/validators";
-import { normalizeRecordId } from "@jskit-ai/kernel/shared/support/normalize";
+import { deepFreeze } from "@jskit-ai/kernel/shared/support/deepFreeze";
 import { createOperationMessages } from "../operationMessages.js";
-import { createWorkspaceRoleCatalog, OWNER_ROLE_ID } from "../roles.js";
+import { createSchema } from "json-rest-schema";
 
-const workspaceSummaryOutputSchema = Type.Object(
-  {
-    id: recordIdSchema,
-    slug: Type.String({ minLength: 1 }),
-    name: Type.String({ minLength: 1 }),
-    ownerUserId: recordIdSchema,
-    avatarUrl: Type.String()
-  },
-  { additionalProperties: false }
-);
+const workspaceSummaryOutputSchema = createSchema({
+  id: { type: "string", required: true, minLength: 1, pattern: RECORD_ID_PATTERN },
+  slug: { type: "string", required: true, minLength: 1, maxLength: 120 },
+  name: { type: "string", required: true, minLength: 1, maxLength: 160 },
+  ownerUserId: { type: "string", required: true, minLength: 1, pattern: RECORD_ID_PATTERN },
+  avatarUrl: { type: "string", required: true }
+});
 
-const memberSummaryOutputSchema = Type.Object(
-  {
-    userId: recordIdSchema,
-    roleSid: Type.String({ minLength: 1 }),
-    status: Type.String({ minLength: 1 }),
-    displayName: Type.String(),
-    email: Type.String({ minLength: 1 }),
-    isOwner: Type.Boolean()
-  },
-  { additionalProperties: false }
-);
+const memberSummaryOutputSchema = createSchema({
+  userId: { type: "string", required: true, minLength: 1, pattern: RECORD_ID_PATTERN },
+  roleSid: { type: "string", required: true, minLength: 1, maxLength: 64 },
+  status: { type: "string", required: true, minLength: 1, maxLength: 64 },
+  displayName: { type: "string", required: true },
+  email: { type: "string", required: true, minLength: 1, maxLength: 255 },
+  isOwner: { type: "boolean", required: true }
+});
 
-const inviteSummaryOutputSchema = Type.Object(
-  {
-    id: recordIdSchema,
-    email: Type.String({ minLength: 3, format: "email" }),
-    roleSid: Type.String({ minLength: 1 }),
-    status: Type.String({ minLength: 1 }),
-    expiresAt: Type.String({ minLength: 1 }),
-    invitedByUserId: nullableRecordIdSchema
-  },
-  { additionalProperties: false }
-);
+const inviteSummaryOutputSchema = createSchema({
+  id: { type: "string", required: true, minLength: 1, pattern: RECORD_ID_PATTERN },
+  email: { type: "string", required: true, minLength: 3, maxLength: 255 },
+  roleSid: { type: "string", required: true, minLength: 1, maxLength: 64 },
+  status: { type: "string", required: true, minLength: 1, maxLength: 64 },
+  expiresAt: { type: "string", required: true, minLength: 1 },
+  invitedByUserId: { type: "string", required: false, nullable: true, minLength: 1, pattern: RECORD_ID_PATTERN }
+});
 
-function normalizeWorkspaceAdminSummary(workspace) {
-  const source = normalizeObjectInput(workspace);
-
-  return {
-    id: normalizeRecordId(source.id, { fallback: "" }),
-    slug: normalizeText(source.slug),
-    name: normalizeText(source.name),
-    ownerUserId: normalizeRecordId(source.ownerUserId, { fallback: "" }),
-    avatarUrl: normalizeText(source.avatarUrl)
-  };
-}
-
-function normalizeMemberSummary(member, workspace) {
-  const source = normalizeObjectInput(member);
-  const userId = normalizeRecordId(source.userId, { fallback: "" });
-
-  return {
-    userId,
-    roleSid: normalizeLowerText(source.roleSid || "member") || "member",
-    status: normalizeLowerText(source.status || "active") || "active",
-    displayName: normalizeText(source.displayName),
-    email: normalizeLowerText(source.email),
-    isOwner: userId === workspace.ownerUserId || normalizeLowerText(source.roleSid) === OWNER_ROLE_ID
-  };
-}
-
-function normalizeInviteSummary(invite) {
-  const source = normalizeObjectInput(invite);
-
-  return {
-    id: normalizeRecordId(source.id, { fallback: "" }),
-    email: normalizeLowerText(source.email),
-    roleSid: normalizeLowerText(source.roleSid || "member") || "member",
-    status: normalizeLowerText(source.status || "pending") || "pending",
-    expiresAt: source.expiresAt,
-    invitedByUserId: source.invitedByUserId == null ? null : normalizeRecordId(source.invitedByUserId, { fallback: null })
-  };
-}
-
-function normalizeWorkspaceOutputEnvelope(
-  payload = {},
-  { itemsKey, normalizeItem, includeInviteTokenPreview = false } = {}
-) {
-  const source = normalizeObjectInput(payload);
-  const workspace = normalizeWorkspaceAdminSummary(source.workspace);
-  const items = Array.isArray(source[itemsKey]) ? source[itemsKey] : [];
-  const roleCatalog = normalizeObjectInput(source.roleCatalog);
-  const hasRoleCatalog =
-    Array.isArray(roleCatalog.roles) &&
-    roleCatalog.roles.length > 0 &&
-    Array.isArray(roleCatalog.assignableRoleIds);
-  const normalized = {
-    workspace,
-    [itemsKey]: items.map((item) => normalizeItem(item, workspace)),
-    roleCatalog: hasRoleCatalog ? roleCatalog : createWorkspaceRoleCatalog()
-  };
-
-  if (includeInviteTokenPreview && Object.hasOwn(source, "inviteTokenPreview")) {
-    normalized.inviteTokenPreview = normalizeText(source.inviteTokenPreview);
+const workspaceRoleCatalogOutputValidator = deepFreeze({
+  schema: {
+    type: "object",
+    additionalProperties: true,
+    properties: {
+      collaborationEnabled: { type: "boolean" },
+      defaultInviteRole: { type: "string" },
+      roles: {
+        type: "array",
+        items: {
+          type: "object",
+          additionalProperties: true
+        }
+      },
+      assignableRoleIds: {
+        type: "array",
+        items: {
+          type: "string",
+          minLength: 1
+        }
+      }
+    },
+    required: ["collaborationEnabled", "defaultInviteRole", "roles", "assignableRoleIds"]
   }
-
-  return normalized;
-}
-
-function normalizeWorkspaceMembersOutput(payload = {}) {
-  return normalizeWorkspaceOutputEnvelope(payload, {
-    itemsKey: "members",
-    normalizeItem: normalizeMemberSummary
-  });
-}
-
-function normalizeWorkspaceInvitesOutput(payload = {}) {
-  return normalizeWorkspaceOutputEnvelope(payload, {
-    itemsKey: "invites",
-    normalizeItem: normalizeInviteSummary,
-    includeInviteTokenPreview: true
-  });
-}
-
-const workspaceRoleCatalogOutputValidator = Object.freeze({
-  schema: Type.Object(
-    {
-      collaborationEnabled: Type.Boolean(),
-      defaultInviteRole: Type.String(),
-      roles: Type.Array(Type.Object({}, { additionalProperties: true })),
-      assignableRoleIds: Type.Array(Type.String({ minLength: 1 }))
-    },
-    { additionalProperties: true }
-  )
 });
 
-const workspaceMembersOutputValidator = Object.freeze({
-  schema: Type.Object(
-    {
-      workspace: workspaceSummaryOutputSchema,
-      members: Type.Array(memberSummaryOutputSchema),
-      roleCatalog: workspaceRoleCatalogOutputValidator.schema
-    },
-    { additionalProperties: false }
-  ),
-  normalize: normalizeWorkspaceMembersOutput
+const workspaceMembersOutputValidator = deepFreeze({
+  workspace: {
+    schema: workspaceSummaryOutputSchema,
+    mode: "replace"
+  },
+  members: {
+    schema: {
+      type: "array",
+      items: memberSummaryOutputSchema.toJsonSchema({ mode: "replace" })
+    }
+  },
+  roleCatalog: workspaceRoleCatalogOutputValidator
 });
 
-const workspaceInvitesOutputValidator = Object.freeze({
-  schema: Type.Object(
-    {
-      workspace: workspaceSummaryOutputSchema,
-      invites: Type.Array(inviteSummaryOutputSchema),
+const workspaceInvitesOutputValidator = deepFreeze({
+  schema: {
+    type: "object",
+    additionalProperties: false,
+    properties: {
+      workspace: workspaceSummaryOutputSchema.toJsonSchema({ mode: "replace" }),
+      invites: {
+        type: "array",
+        items: inviteSummaryOutputSchema.toJsonSchema({ mode: "replace" })
+      },
       roleCatalog: workspaceRoleCatalogOutputValidator.schema,
-      inviteTokenPreview: Type.Optional(Type.String({ minLength: 1 }))
+      inviteTokenPreview: {
+        type: "string",
+        minLength: 1
+      }
     },
-    { additionalProperties: false }
-  ),
-  normalize: normalizeWorkspaceInvitesOutput
-});
-
-const updateMemberRoleBodyValidator = Object.freeze({
-  schema: Type.Object(
-    {
-      roleSid: Type.String({ minLength: 1 })
-    },
-    { additionalProperties: false }
-  ),
-  normalize(payload = {}) {
-    const source = normalizeObjectInput(payload);
-
-    return {
-      roleSid: normalizeLowerText(source.roleSid)
-    };
+    required: ["workspace", "invites", "roleCatalog"]
   }
 });
 
-const updateMemberRoleInputValidator = Object.freeze({
-  schema: Type.Object(
-    {
-      memberUserId: recordIdInputSchema,
-      roleSid: Type.String({ minLength: 1 })
-    },
-    { additionalProperties: false }
-  ),
-  normalize(payload = {}) {
-    const source = normalizeObjectInput(payload);
-
-    return {
-      memberUserId: normalizeRecordId(source.memberUserId, { fallback: "" }),
-      roleSid: normalizeLowerText(source.roleSid)
-    };
-  }
+const updateMemberRoleBodyValidator = deepFreeze({
+  schema: createSchema({
+    roleSid: { type: "string", required: true, minLength: 1, lowercase: true }
+  }),
+  mode: "patch"
 });
 
-const removeMemberInputValidator = Object.freeze({
-  schema: Type.Object(
-    {
-      memberUserId: recordIdInputSchema
-    },
-    { additionalProperties: false }
-  ),
-  normalize(payload = {}) {
-    const source = normalizeObjectInput(payload);
-
-    return {
-      memberUserId: normalizeRecordId(source.memberUserId, { fallback: "" })
-    };
-  }
+const updateMemberRoleInputValidator = deepFreeze({
+  schema: createSchema({
+    memberUserId: { type: "id", required: true },
+    roleSid: { type: "string", required: true, minLength: 1, lowercase: true }
+  }),
+  mode: "patch"
 });
 
-const createInviteBodyValidator = Object.freeze({
-  schema: Type.Object(
-    {
-      email: Type.String({ minLength: 3, format: "email" }),
-      roleSid: Type.String({ minLength: 1 })
-    },
-    { additionalProperties: false }
-  ),
-  normalize(payload = {}) {
-    const source = normalizeObjectInput(payload);
-
-    return {
-      email: normalizeLowerText(source.email),
-      roleSid: normalizeLowerText(source.roleSid || "member") || "member"
-    };
-  }
+const removeMemberInputValidator = deepFreeze({
+  schema: createSchema({
+    memberUserId: { type: "id", required: true }
+  }),
+  mode: "patch"
 });
 
-const revokeInviteInputValidator = Object.freeze({
-  schema: Type.Object(
-    {
-      inviteId: recordIdInputSchema
-    },
-    { additionalProperties: false }
-  ),
-  normalize(payload = {}) {
-    const source = normalizeObjectInput(payload);
-
-    return {
-      inviteId: normalizeRecordId(source.inviteId, { fallback: "" })
-    };
-  }
+const createInviteBodyValidator = deepFreeze({
+  schema: createSchema({
+    email: { type: "string", required: true, minLength: 3, lowercase: true },
+    roleSid: { type: "string", required: true, minLength: 1, lowercase: true }
+  }),
+  mode: "create"
 });
 
-const redeemInviteBodyValidator = Object.freeze({
-  schema: Type.Object(
-    {
-      token: Type.String({
-        minLength: 1,
-        messages: {
-          required: "Invite token is required.",
-          minLength: "Invite token is required.",
-          default: "Invite token is invalid."
-        }
-      }),
-      decision: Type.Union([Type.Literal("accept"), Type.Literal("refuse")], {
-        messages: {
-          required: "Decision is required.",
-          default: "Decision must be accept or refuse."
-        }
-      })
-    },
-    {
-      additionalProperties: false,
+const revokeInviteInputValidator = deepFreeze({
+  schema: createSchema({
+    inviteId: { type: "id", required: true }
+  }),
+  mode: "patch"
+});
+
+const redeemInviteBodyValidator = deepFreeze({
+  schema: createSchema({
+    token: {
+      type: "string",
+      required: true,
+      minLength: 1,
       messages: {
-        additionalProperties: "Unexpected field."
+        required: "Invite token is required.",
+        minLength: "Invite token is required.",
+        default: "Invite token is invalid."
+      }
+    },
+    decision: {
+      type: "string",
+      required: true,
+      enum: ["accept", "refuse"],
+      messages: {
+        required: "Decision is required.",
+        default: "Decision must be accept or refuse."
       }
     }
-  ),
-  normalize(payload = {}) {
-    const source = normalizeObjectInput(payload);
-
-    return {
-      token: normalizeText(source.token),
-      decision: normalizeLowerText(source.decision)
-    };
-  }
+  }),
+  mode: "create"
 });
 
-const redeemInviteOutputValidator = Object.freeze({
-  schema: Type.Object(
-    {
-      decision: Type.Union([Type.Literal("accepted"), Type.Literal("refused")])
-    },
-    { additionalProperties: false }
-  ),
-  normalize(payload = {}) {
-    const source = normalizeObjectInput(payload);
-
-    return {
-      decision: normalizeLowerText(source.decision)
-    };
-  }
+const redeemInviteOutputValidator = deepFreeze({
+  schema: createSchema({
+    decision: {
+      type: "string",
+      required: true,
+      enum: ["accepted", "refused"]
+    }
+  }),
+  mode: "replace"
 });
 
 const WORKSPACE_MEMBERS_MESSAGES = createOperationMessages();
 
-const workspaceMembersResource = Object.freeze({
+const workspaceMembersResource = deepFreeze({
   namespace: "workspaceMembers",
   messages: WORKSPACE_MEMBERS_MESSAGES,
-  operations: Object.freeze({
-    rolesList: Object.freeze({
+  operations: {
+    rolesList: {
       method: "GET",
       messages: WORKSPACE_MEMBERS_MESSAGES,
-      outputValidator: workspaceRoleCatalogOutputValidator
-    }),
-    membersList: Object.freeze({
+      output: workspaceRoleCatalogOutputValidator
+    },
+    membersList: {
       method: "GET",
       messages: WORKSPACE_MEMBERS_MESSAGES,
-      outputValidator: workspaceMembersOutputValidator
-    }),
-    updateMemberRole: Object.freeze({
+      output: workspaceMembersOutputValidator
+    },
+    updateMemberRole: {
       method: "PATCH",
       messages: WORKSPACE_MEMBERS_MESSAGES,
-      bodyValidator: updateMemberRoleBodyValidator,
-      inputValidator: updateMemberRoleInputValidator,
-      outputValidator: workspaceMembersOutputValidator
-    }),
-    removeMember: Object.freeze({
+      body: updateMemberRoleBodyValidator,
+      input: updateMemberRoleInputValidator,
+      output: workspaceMembersOutputValidator
+    },
+    removeMember: {
       method: "DELETE",
       messages: WORKSPACE_MEMBERS_MESSAGES,
-      inputValidator: removeMemberInputValidator,
-      outputValidator: workspaceMembersOutputValidator
-    }),
-    invitesList: Object.freeze({
+      input: removeMemberInputValidator,
+      output: workspaceMembersOutputValidator
+    },
+    invitesList: {
       method: "GET",
       messages: WORKSPACE_MEMBERS_MESSAGES,
-      outputValidator: workspaceInvitesOutputValidator
-    }),
-    createInvite: Object.freeze({
+      output: workspaceInvitesOutputValidator
+    },
+    createInvite: {
       method: "POST",
       messages: WORKSPACE_MEMBERS_MESSAGES,
-      bodyValidator: createInviteBodyValidator,
-      outputValidator: workspaceInvitesOutputValidator
-    }),
-    revokeInvite: Object.freeze({
+      body: createInviteBodyValidator,
+      output: workspaceInvitesOutputValidator
+    },
+    revokeInvite: {
       method: "DELETE",
       messages: WORKSPACE_MEMBERS_MESSAGES,
-      inputValidator: revokeInviteInputValidator,
-      outputValidator: workspaceInvitesOutputValidator
-    }),
-    redeemInvite: Object.freeze({
+      input: revokeInviteInputValidator,
+      output: workspaceInvitesOutputValidator
+    },
+    redeemInvite: {
       method: "POST",
       messages: WORKSPACE_MEMBERS_MESSAGES,
-      bodyValidator: redeemInviteBodyValidator,
-      outputValidator: redeemInviteOutputValidator
-    })
-  })
+      body: redeemInviteBodyValidator,
+      output: redeemInviteOutputValidator
+    }
+  }
 });
 
 export { workspaceMembersResource };

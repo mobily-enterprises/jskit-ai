@@ -15,11 +15,11 @@ test("actions template uses resource symbol for view output validator", async ()
 
   assert.match(
     actionsTemplate,
-    /outputValidator:\s*resource\.operations\.view\.outputValidator,/
+    /output:\s*resource\.operations\.view\.output,/
   );
   assert.doesNotMatch(
     actionsTemplate,
-    /\$\{option:namespace\|singular\|camel\}Resource\.operations\.view\.outputValidator/
+    /\$\{option:namespace\|singular\|camel\}Resource\.operations\.view\.output/
   );
 });
 

@@ -60,9 +60,9 @@ Exports
 - `requireObjectProperties(schema, contextLabel, { context = "ui-generator" } = {})`
 - `resolveListItemProperties(listOutputSchema, { context = "ui-generator" } = {})`
 - `resolveLookupContainerKey(resource = {}, { context = "ui-generator" } = {})`
-- `buildResourceFieldMetaMap(resource = {})`
-- `createFieldDefinitions(properties = {}, { fieldMetaMap = {}, lookupContainerKey = "lookups" } = {})`
-- `createFormFieldDefinitions(properties = {}, { fieldMetaMap = {}, lookupContainerKey = "lookups", parentRouteParamKey = "" } = {})`
+- `buildResourceFieldContractMap(resource = {})`
+- `createFieldDefinitions(properties = {}, { fieldContractMap = {}, lookupContainerKey = "lookups" } = {})`
+- `createFormFieldDefinitions(properties = {}, { fieldContractMap = {}, lookupContainerKey = "lookups", parentRouteParamKey = "" } = {})`
 - `resolveNearestParentRouteParamKey(routePath = "", { recordIdParam = "recordId" } = {})`
 - `buildListHeaderColumns(fields = [])`
 - `buildListRowColumns(fields = [])`
@@ -80,12 +80,12 @@ Local functions
 - `isSupportedSelectOptionValue(value)`
 - `toSelectOptionLabel(value)`
 - `toSelectOptionIdentity(value)`
-- `normalizeFieldUiOptions(rawOptions, { context = "resource fieldMeta ui.options" } = {})`
+- `normalizeFieldUiOptions(rawOptions, { context = "resource field ui.options" } = {})`
 - `stripLookupIdSuffix(key = "")`
 - `resolveFieldLabel(key = "", relation = null)`
 - `extractDynamicRouteParamKeys(routePath = "")`
 - `normalizeLookupRelation(relation = {})`
-- `toLookupRelation(fieldMetaMap = {}, fieldKey = "", { lookupContainerKey = "lookups" } = {})`
+- `toLookupRelation(fieldContractMap = {}, fieldKey = "", { lookupContainerKey = "lookups" } = {})`
 - `resolveFormInputType(fieldType, fieldFormat)`
 - `resolveFormFieldComponent(fieldType, relation = null)`
 - `buildDefaultNullableBooleanOptions()`

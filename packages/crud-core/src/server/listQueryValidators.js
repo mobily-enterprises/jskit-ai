@@ -1,48 +1,28 @@
-import { Type } from "typebox";
+import { createSchema } from "json-rest-schema";
 import {
-  normalizeObjectInput,
-  positiveIntegerValidator,
   cursorPaginationQueryValidator
 } from "@jskit-ai/kernel/shared/validators";
 import { normalizeText } from "@jskit-ai/kernel/shared/support/normalize";
 import { resolveCrudParentFilterKeys as resolveSharedCrudParentFilterKeys } from "@jskit-ai/kernel/shared/support/crudLookup";
 
 const listSearchQueryValidator = Object.freeze({
-  schema: Type.Object(
-    {
-      q: Type.Optional(Type.String({ minLength: 0 }))
-    },
-    { additionalProperties: false }
-  ),
-  normalize(payload = {}) {
-    const source = normalizeObjectInput(payload);
-    if (!Object.hasOwn(source, "q")) {
-      return {};
+  schema: createSchema({
+    q: {
+      type: "string",
+      required: false
     }
-
-    return {
-      q: normalizeText(source.q)
-    };
-  }
+  }),
+  mode: "patch"
 });
 
 const lookupIncludeQueryValidator = Object.freeze({
-  schema: Type.Object(
-    {
-      include: Type.Optional(Type.String({ minLength: 0 }))
-    },
-    { additionalProperties: false }
-  ),
-  normalize(payload = {}) {
-    const source = normalizeObjectInput(payload);
-    if (!Object.hasOwn(source, "include")) {
-      return {};
+  schema: createSchema({
+    include: {
+      type: "string",
+      required: false
     }
-
-    return {
-      include: normalizeText(source.include)
-    };
-  }
+  }),
+  mode: "patch"
 });
 
 function resolveCrudListUsesOrderedCursor(list = {}) {
@@ -65,32 +45,20 @@ function createCrudCursorPaginationQueryValidator(list = {}) {
   }
 
   return Object.freeze({
-    schema: Type.Object(
-      {
-        cursor: Type.Optional(
-          Type.Union([
-            positiveIntegerValidator.schema,
-            Type.String({ minLength: 1 })
-          ])
-        ),
-        limit: Type.Optional(positiveIntegerValidator.schema)
+    schema: createSchema({
+      cursor: {
+        type: "string",
+        required: false,
+        minLength: 1
       },
-      { additionalProperties: false }
-    ),
-    normalize(payload = {}) {
-      const source = normalizeObjectInput(payload);
-      const normalized = {};
-
-      if (Object.hasOwn(source, "cursor")) {
-        normalized.cursor = normalizeText(source.cursor);
+      limit: {
+        type: "number",
+        required: false,
+        min: 1,
+        unsigned: true
       }
-
-      if (Object.hasOwn(source, "limit")) {
-        normalized.limit = positiveIntegerValidator.normalize(source.limit);
-      }
-
-      return normalized;
-    }
+    }),
+    mode: "patch"
   });
 }
 
@@ -102,27 +70,16 @@ function createCrudParentFilterQueryValidator(resource = {}) {
   const keys = resolveCrudParentFilterKeys(resource);
   const schemaProperties = {};
   for (const key of keys) {
-    schemaProperties[key] = Type.Optional(Type.String({ minLength: 1 }));
+    schemaProperties[key] = {
+      type: "string",
+      required: false,
+      minLength: 1
+    };
   }
 
   return Object.freeze({
-    schema: Type.Object(schemaProperties, { additionalProperties: false }),
-    normalize(payload = {}) {
-      const source = normalizeObjectInput(payload);
-      const normalized = {};
-      for (const key of keys) {
-        if (!Object.hasOwn(source, key)) {
-          continue;
-        }
-
-        const value = normalizeText(source[key]);
-        if (value) {
-          normalized[key] = value;
-        }
-      }
-
-      return normalized;
-    }
+    schema: createSchema(schemaProperties),
+    mode: "patch"
   });
 }
 

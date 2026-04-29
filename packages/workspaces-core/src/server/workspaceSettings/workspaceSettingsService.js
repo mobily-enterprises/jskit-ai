@@ -2,9 +2,8 @@ import { normalizeRecordId } from "@jskit-ai/kernel/shared/support/normalize";
 import { normalizeObjectInput } from "@jskit-ai/kernel/shared/validators/inputNormalization";
 import { pickOwnProperties } from "@jskit-ai/kernel/shared/support";
 import {
-  workspaceSettingsFields,
-  resolveWorkspaceSettingsFieldKeys
-} from "../../shared/resources/workspaceSettingsFields.js";
+  WORKSPACE_SETTINGS_FIELD_KEYS
+} from "../../shared/resources/workspaceSettingsResource.js";
 import { createWorkspaceRoleCatalog, cloneWorkspaceRoleCatalog } from "../../shared/roles.js";
 
 function createService({
@@ -24,8 +23,8 @@ function createService({
       workspace
     });
     const settings = {};
-    for (const field of workspaceSettingsFields) {
-      settings[field.key] = settingsRecord[field.key];
+    for (const fieldKey of WORKSPACE_SETTINGS_FIELD_KEYS) {
+      settings[fieldKey] = settingsRecord[fieldKey];
     }
     const invitesEnabled = invitesAvailable && settings.invitesEnabled !== false;
     settings.invitesEnabled = invitesEnabled;
@@ -45,7 +44,7 @@ function createService({
 
   async function updateWorkspaceSettings(workspace, payload = {}, options = {}) {
     const source = normalizeObjectInput(payload);
-    const settingsPatch = pickOwnProperties(source, resolveWorkspaceSettingsFieldKeys());
+    const settingsPatch = pickOwnProperties(source, WORKSPACE_SETTINGS_FIELD_KEYS);
 
     if (Object.keys(settingsPatch).length > 0) {
       await workspaceSettingsRepository.updateSettingsByWorkspaceId(workspace.id, settingsPatch, {

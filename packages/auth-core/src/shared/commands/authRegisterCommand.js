@@ -1,8 +1,8 @@
-import { Type } from "typebox";
-import { normalizeObjectInput } from "../inputNormalization.js";
+import { createSchema } from "json-rest-schema";
+import { deepFreeze } from "@jskit-ai/kernel/shared/support/deepFreeze";
 import {
-  authEmailValidator,
-  authPasswordValidator,
+  authEmailFieldDefinition,
+  authPasswordFieldDefinition,
   createCommandMessages,
   registerResponseValidator
 } from "./authCommandValidators.js";
@@ -23,30 +23,25 @@ const AUTH_REGISTER_MESSAGES = createCommandMessages({
   }
 });
 
-const authRegisterBodyValidator = Object.freeze({
-  schema: Type.Object(
-    {
-      email: authEmailValidator.schema,
-      password: authPasswordValidator.schema
-    },
-    {
-      additionalProperties: false
-    }
-  ),
-  normalize: normalizeObjectInput,
+const authRegisterBodyValidator = deepFreeze({
+  schema: createSchema({
+    email: { ...authEmailFieldDefinition, required: true },
+    password: { ...authPasswordFieldDefinition, required: true }
+  }),
+  mode: "create",
   messages: AUTH_REGISTER_MESSAGES
 });
 
-const authRegisterCommand = Object.freeze({
+const authRegisterCommand = deepFreeze({
   command: "auth.register",
-  operation: Object.freeze({
+  operation: {
     method: "POST",
-    bodyValidator: authRegisterBodyValidator,
-    responseValidator: registerResponseValidator,
+    body: authRegisterBodyValidator,
+    response: registerResponseValidator,
     messages: AUTH_REGISTER_MESSAGES,
     idempotent: false,
-    invalidates: Object.freeze(["auth.session.read"])
-  })
+    invalidates: ["auth.session.read"]
+  }
 });
 
 export {

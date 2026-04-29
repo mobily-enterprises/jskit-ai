@@ -1,26 +1,62 @@
-import { createCrudResourceRuntime } from "@jskit-ai/crud-core/server/resourceRuntime";
 import {
+  createWithTransaction,
   normalizeLowerText,
   normalizeRecordId,
+  normalizeDbRecordId,
   normalizeText,
   nowDb,
-  isDuplicateEntryError
+  isDuplicateEntryError,
+  toIsoString
 } from "./repositoryUtils.js";
-import { workspaceInvitesResource } from "../resources/workspaceInvitesResource.js";
-
-const REPOSITORY_CONFIG = Object.freeze({
-  context: "internal.repository.workspace-invites"
-});
 
 function normalizeInviteRecord(payload) {
   if (!payload) {
     return null;
   }
-  return workspaceInvitesResource.operations.view.outputValidator.normalize(payload);
+
+  return {
+    id: normalizeDbRecordId(payload.id, { fallback: null }),
+    workspaceId: normalizeDbRecordId(payload?.workspace?.id, { fallback: null }),
+    email: normalizeLowerText(payload.email),
+    roleSid: normalizeLowerText(payload.roleSid || "member") || "member",
+    status: normalizeLowerText(payload.status || "pending") || "pending",
+    tokenHash: normalizeText(payload.tokenHash),
+    invitedByUserId: normalizeDbRecordId(payload?.invitedByUser?.id, { fallback: null }),
+    expiresAt: payload.expiresAt ? toIsoString(payload.expiresAt) : null,
+    acceptedAt: payload.acceptedAt ? toIsoString(payload.acceptedAt) : null,
+    revokedAt: payload.revokedAt ? toIsoString(payload.revokedAt) : null,
+    createdAt: payload.createdAt ? toIsoString(payload.createdAt) : null,
+    updatedAt: payload.updatedAt ? toIsoString(payload.updatedAt) : null
+  };
 }
 
 function normalizeInvitePatchPayload(payload = {}) {
-  return workspaceInvitesResource.operations.patch.bodyValidator.normalize(payload);
+  const source = payload && typeof payload === "object" && !Array.isArray(payload) ? payload : {};
+  const normalized = {};
+
+  if (Object.hasOwn(source, "roleSid")) {
+    normalized.roleSid = normalizeLowerText(source.roleSid);
+  }
+  if (Object.hasOwn(source, "status")) {
+    normalized.status = normalizeLowerText(source.status);
+  }
+  if (Object.hasOwn(source, "invitedByUserId")) {
+    normalized.invitedByUserId =
+      source.invitedByUserId == null
+        ? null
+        : normalizeRecordId(source.invitedByUserId, { fallback: null });
+  }
+  if (Object.hasOwn(source, "expiresAt")) {
+    normalized.expiresAt = source.expiresAt == null ? null : new Date(source.expiresAt);
+  }
+  if (Object.hasOwn(source, "acceptedAt")) {
+    normalized.acceptedAt = source.acceptedAt == null ? null : new Date(source.acceptedAt);
+  }
+  if (Object.hasOwn(source, "revokedAt")) {
+    normalized.revokedAt = source.revokedAt == null ? null : new Date(source.revokedAt);
+  }
+
+  return normalized;
 }
 
 function normalizeInviteWithWorkspace(payload = {}) {
@@ -31,48 +67,66 @@ function normalizeInviteWithWorkspace(payload = {}) {
 
   return {
     ...invite,
-    workspaceSlug: payload?.workspace_slug ? normalizeText(payload.workspace_slug) : undefined,
-    workspaceName: payload?.workspace_name ? normalizeText(payload.workspace_name) : undefined,
-    workspaceAvatarUrl: payload?.workspace_avatar_url ? normalizeText(payload.workspace_avatar_url) : undefined
+    workspaceSlug: payload?.workspace?.slug ? normalizeText(payload.workspace.slug) : undefined,
+    workspaceName: payload?.workspace?.name ? normalizeText(payload.workspace.name) : undefined,
+    workspaceAvatarUrl: payload?.workspace?.avatarUrl ? normalizeText(payload.workspace.avatarUrl) : undefined
   };
 }
 
-const WORKSPACE_INVITE_WITH_WORKSPACE_SELECT = Object.freeze([
-  "wi.*",
-  "w.slug as workspace_slug",
-  "w.name as workspace_name",
-  "w.avatar_url as workspace_avatar_url"
-]);
-
-function createRepository(knex) {
+function createRepository({ api, knex } = {}) {
+  if (!api?.resources?.workspaceInvites) {
+    throw new TypeError("workspaceInvitesRepository requires json-rest-api workspaceInvites resource.");
+  }
   if (typeof knex !== "function") {
     throw new TypeError("workspaceInvitesRepository requires knex.");
   }
-  const resourceRuntime = createCrudResourceRuntime(workspaceInvitesResource, knex, REPOSITORY_CONFIG);
-  const withTransaction = resourceRuntime.withTransaction;
+
+  const withTransaction = createWithTransaction(knex);
+
+  async function queryInvites(filters = {}, options = {}, { includeWorkspace = false } = {}) {
+    const result = await api.resources.workspaceInvites.query({
+      queryParams: {
+        filters,
+        ...(includeWorkspace ? { include: ["workspace"] } : {})
+      },
+      transaction: options?.trx,
+      simplified: true
+    });
+
+    return Array.isArray(result?.data) ? result.data : [];
+  }
 
   async function findPendingByTokenHash(tokenHash, options = {}) {
-    const client = options?.trx || knex;
-    const row = await client("workspace_invites")
-      .where({ token_hash: normalizeText(tokenHash), status: "pending" })
-      .first();
-    return normalizeInviteRecord(row);
+    const rows = await queryInvites(
+      {
+        tokenHash: normalizeText(tokenHash),
+        status: "pending"
+      },
+      options
+    );
+
+    return normalizeInviteRecord(rows[0] || null);
   }
 
   async function listPendingByEmail(email, options = {}) {
-    const client = options?.trx || knex;
     const normalizedEmail = normalizeLowerText(email);
     if (!normalizedEmail) {
       return [];
     }
 
-    const rows = await client("workspace_invites as wi")
-      .join("workspaces as w", "w.id", "wi.workspace_id")
-      .where({ "wi.email": normalizedEmail, "wi.status": "pending" })
-      .orderBy("wi.created_at", "desc")
-      .select(WORKSPACE_INVITE_WITH_WORKSPACE_SELECT);
+    const rows = await queryInvites(
+      {
+        email: normalizedEmail,
+        status: "pending"
+      },
+      options,
+      { includeWorkspace: true }
+    );
 
-    return rows.map(normalizeInviteWithWorkspace).filter(Boolean);
+    return rows
+      .map(normalizeInviteWithWorkspace)
+      .filter(Boolean)
+      .sort((left, right) => String(right.createdAt || "").localeCompare(String(left.createdAt || "")));
   }
 
   async function listPendingByWorkspaceIdWithWorkspace(workspaceId, options = {}) {
@@ -81,18 +135,22 @@ function createRepository(knex) {
       return [];
     }
 
-    const client = options?.trx || knex;
-    const rows = await client("workspace_invites as wi")
-      .join("workspaces as w", "w.id", "wi.workspace_id")
-      .where({ "wi.workspace_id": normalizedWorkspaceId, "wi.status": "pending" })
-      .orderBy("wi.created_at", "desc")
-      .select(WORKSPACE_INVITE_WITH_WORKSPACE_SELECT);
+    const rows = await queryInvites(
+      {
+        workspace: normalizedWorkspaceId,
+        status: "pending"
+      },
+      options,
+      { includeWorkspace: true }
+    );
 
-    return rows.map(normalizeInviteWithWorkspace).filter(Boolean);
+    return rows
+      .map(normalizeInviteWithWorkspace)
+      .filter(Boolean)
+      .sort((left, right) => String(right.createdAt || "").localeCompare(String(left.createdAt || "")));
   }
 
   async function insert(payload = {}, options = {}) {
-    const client = options?.trx || knex;
     const source = payload && typeof payload === "object" && !Array.isArray(payload) ? payload : {};
     const workspaceId = normalizeRecordId(source.workspaceId, { fallback: null });
     if (!workspaceId) {
@@ -109,22 +167,39 @@ function createRepository(knex) {
     };
 
     try {
-      return await resourceRuntime.create(createPayload, {
-        ...options,
-        trx: client,
-        include: "none"
+      const created = await api.resources.workspaceInvites.post({
+        workspace: createPayload.workspaceId,
+        email: createPayload.email,
+        roleSid: createPayload.roleSid,
+        status: createPayload.status,
+        tokenHash: createPayload.tokenHash,
+        invitedByUser: createPayload.invitedByUserId ?? null,
+        expiresAt: createPayload.expiresAt ?? null,
+        acceptedAt: null,
+        revokedAt: null,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+        transaction: options?.trx
       });
+
+      return normalizeInviteRecord(created);
     } catch (error) {
       if (!isDuplicateEntryError(error)) {
         throw error;
       }
     }
 
-    const row = await client("workspace_invites")
-      .where({ workspace_id: createPayload.workspaceId, email: createPayload.email, status: "pending" })
-      .orderBy("id", "desc")
-      .first();
-    return normalizeInviteRecord(row);
+    const rows = await queryInvites(
+      {
+        workspace: createPayload.workspaceId,
+        email: createPayload.email,
+        status: "pending"
+      },
+      options
+    );
+
+    rows.sort((left, right) => String(right.id || "").localeCompare(String(left.id || "")));
+    return normalizeInviteRecord(rows[0] || null);
   }
 
   async function expirePendingByWorkspaceIdAndEmail(workspaceId, email, options = {}) {
@@ -133,14 +208,27 @@ function createRepository(knex) {
       return;
     }
 
-    const client = options?.trx || knex;
     const patch = normalizeInvitePatchPayload({ status: "expired" });
-    await client("workspace_invites")
-      .where({ workspace_id: normalizedWorkspaceId, email: normalizeLowerText(email), status: "pending" })
-      .update({
+    const rows = await queryInvites(
+      {
+        workspace: normalizedWorkspaceId,
+        email: normalizeLowerText(email),
+        status: "pending"
+      },
+      options
+    );
+
+    for (const row of rows) {
+      if (!row?.id) {
+        continue;
+      }
+      await api.resources.workspaceInvites.patch({
+        id: row.id,
         status: patch.status,
-        updated_at: nowDb()
+        updatedAt: nowDb(),
+        transaction: options?.trx
       });
+    }
   }
 
   async function markAcceptedById(inviteId, options = {}) {
@@ -149,17 +237,13 @@ function createRepository(knex) {
       return;
     }
 
-    await resourceRuntime.updateById(
-      normalizedInviteId,
-      {
-        status: "accepted",
-        acceptedAt: new Date()
-      },
-      {
-        ...options,
-        include: "none"
-      }
-    );
+    await api.resources.workspaceInvites.patch({
+      id: normalizedInviteId,
+      status: "accepted",
+      acceptedAt: new Date(),
+      updatedAt: new Date(),
+      transaction: options?.trx
+    });
   }
 
   async function revokeById(inviteId, options = {}) {
@@ -168,17 +252,13 @@ function createRepository(knex) {
       return;
     }
 
-    await resourceRuntime.updateById(
-      normalizedInviteId,
-      {
-        status: "revoked",
-        revokedAt: new Date()
-      },
-      {
-        ...options,
-        include: "none"
-      }
-    );
+    await api.resources.workspaceInvites.patch({
+      id: normalizedInviteId,
+      status: "revoked",
+      revokedAt: new Date(),
+      updatedAt: new Date(),
+      transaction: options?.trx
+    });
   }
 
   async function findPendingByIdForWorkspace(inviteId, workspaceId, options = {}) {
@@ -188,11 +268,16 @@ function createRepository(knex) {
       return null;
     }
 
-    const client = options?.trx || knex;
-    const row = await client("workspace_invites")
-      .where({ id: normalizedInviteId, workspace_id: normalizedWorkspaceId, status: "pending" })
-      .first();
-    return normalizeInviteRecord(row);
+    const rows = await queryInvites(
+      {
+        id: normalizedInviteId,
+        workspace: normalizedWorkspaceId,
+        status: "pending"
+      },
+      options
+    );
+
+    return normalizeInviteRecord(rows[0] || null);
   }
 
   return Object.freeze({

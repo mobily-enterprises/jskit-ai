@@ -33,8 +33,8 @@ function createActions({ surface = "" } = {}) {
       channels: ["api", "automation", "internal"],
       surfaces: [actionSurface],
       permission: authenticatedPermission,
-      inputValidator: [workspaceSlugParamsValidator, listCursorPaginationQueryValidator, listSearchQueryValidator],
-      outputValidator: resource.operations.list.outputValidator,
+      input: [workspaceSlugParamsValidator, listCursorPaginationQueryValidator, listSearchQueryValidator],
+      output: resource.operations.list.output,
       idempotency: "none",
       audit: {
         actionName: actionIds.list
@@ -54,8 +54,8 @@ function createActions({ surface = "" } = {}) {
       channels: ["api", "automation", "internal"],
       surfaces: [actionSurface],
       permission: authenticatedPermission,
-      inputValidator: [workspaceSlugParamsValidator, recordIdParamsValidator],
-      outputValidator: resource.operations.view.outputValidator,
+      input: [workspaceSlugParamsValidator, recordIdParamsValidator],
+      output: resource.operations.view.output,
       idempotency: "none",
       audit: {
         actionName: actionIds.view

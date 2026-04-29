@@ -3,108 +3,104 @@ import test from "node:test";
 import { toIsoString } from "@jskit-ai/database-runtime/shared";
 import { createRepository } from "../src/server/common/repositories/workspaceMembershipsRepository.js";
 
-function createKnexStub({
-  rowById = new Map(),
+function createKnexStub() {
+  const knex = Object.assign(() => {
+    throw new Error("query execution not expected");
+  }, {
+    async transaction(work) {
+      return work({ trxId: "trx-1" });
+    }
+  });
+
+  return knex;
+}
+
+function createWorkspaceMembershipsApiStub({
   rowByComposite = new Map(),
-  memberSummaryRows = []
+  memberSummaryRows = [],
+  rowById = new Map()
 } = {}) {
   const state = {
-    insertPayload: null,
-    updatePayload: null
+    postPayload: null,
+    patchPayload: null
   };
 
-  function buildMembershipsQuery(tableName) {
-    if (tableName === "workspace_memberships as wm") {
-      return {
-        join() {
-          return this;
-        },
-        where() {
-          return this;
-        },
-        orderBy() {
-          return this;
-        },
-        select() {
-          return Promise.resolve([...memberSummaryRows]);
-        }
-      };
-    }
+  const api = {
+    resources: {
+      workspaceMemberships: {
+        async query({ queryParams }) {
+          const filters = queryParams?.filters || {};
+          const includeUser = Array.isArray(queryParams?.include) && queryParams.include.includes("user");
 
-    const query = {
-      criteriaList: [],
-      select() {
-        return this;
-      },
-      insert(payload) {
-        state.insertPayload = payload;
-        const insertedRow = rowById.get("1");
-        if (insertedRow) {
-          rowByComposite.set(`${payload.workspace_id}:${payload.user_id}`, insertedRow);
-        }
-        return Promise.resolve([1]);
-      },
-      where(criteria) {
-        this.criteriaList.push(criteria);
-        return this;
-      },
-      update(payload) {
-        state.updatePayload = payload;
-        const criteria = Object.assign({}, ...this.criteriaList);
-        const existingRow = rowById.get(String(criteria.id));
-        if (existingRow) {
-          const updatedRow = {
-            ...existingRow,
-            ...payload
+          if (Object.hasOwn(filters, "workspace") && Object.hasOwn(filters, "user")) {
+            const row = rowByComposite.get(`${filters.workspace}:${filters.user}`) || null;
+            return { data: row ? [{ ...row }] : [] };
+          }
+
+          if (Object.hasOwn(filters, "workspace") && Object.hasOwn(filters, "status") && includeUser) {
+            return { data: memberSummaryRows.map((row) => ({ ...row })) };
+          }
+
+          if (Object.hasOwn(filters, "user") && Object.hasOwn(filters, "status")) {
+            const rows = [...rowByComposite.values()].filter((row) => (
+              String(row?.user?.id || "") === String(filters.user) &&
+              String(row?.status || "") === String(filters.status)
+            ));
+            return { data: rows.map((row) => ({ ...row })) };
+          }
+
+          return { data: [] };
+        },
+        async post(payload) {
+          state.postPayload = { ...payload };
+          const row = rowById.get("1") || {
+            id: "1",
+            workspace: { id: String(payload.workspace) },
+            user: { id: String(payload.user) },
+            roleSid: String(payload.roleSid || ""),
+            status: String(payload.status || ""),
+            createdAt: "2026-03-09 00:26:35.710",
+            updatedAt: "2026-03-09 00:26:35.710"
           };
-          rowById.set(String(criteria.id), updatedRow);
-          rowByComposite.set(`${updatedRow.workspace_id}:${updatedRow.user_id}`, updatedRow);
+          rowByComposite.set(`${payload.workspace}:${payload.user}`, row);
+          rowById.set(String(row.id), row);
+          return { ...row };
+        },
+        async patch(payload) {
+          state.patchPayload = { ...payload };
+          const existing = rowById.get(String(payload.id));
+          const updated = {
+            ...(existing || {}),
+            ...payload,
+            id: String(payload.id),
+            workspace: existing?.workspace || { id: "" },
+            user: existing?.user || { id: "" }
+          };
+          rowById.set(String(updated.id), updated);
+          rowByComposite.set(`${updated.workspace.id}:${updated.user.id}`, updated);
+          return { ...updated };
         }
-        return Promise.resolve(1);
-      },
-      first() {
-        const criteria = Object.assign({}, ...this.criteriaList);
-        if (Object.hasOwn(criteria, "id")) {
-          return Promise.resolve(rowById.get(String(criteria.id)) || null);
-        }
-        if (Object.hasOwn(criteria, "workspace_id") && Object.hasOwn(criteria, "user_id")) {
-          return Promise.resolve(
-            rowByComposite.get(`${criteria.workspace_id}:${criteria.user_id}`) || null
-          );
-        }
-        return Promise.resolve(null);
       }
-    };
-
-    return query;
-  }
-
-  function knex(tableName) {
-    if (tableName === "workspace_memberships" || tableName === "workspace_memberships as wm") {
-      return buildMembershipsQuery(tableName);
     }
-    throw new Error(`Unexpected table ${tableName}`);
-  }
+  };
 
-  knex.transaction = async (work) => work(knex);
-
-  return { knex, state };
+  return { api, state };
 }
 
 test("workspaceMembershipsRepository.findByWorkspaceIdAndUserId normalizes canonical membership rows via the internal resource", async () => {
   const membershipRow = {
-    id: 11,
-    workspace_id: 7,
-    user_id: 9,
-    role_sid: "owner",
+    id: "11",
+    workspace: { id: "7" },
+    user: { id: "9" },
+    roleSid: "owner",
     status: "active",
-    created_at: "2026-03-09 00:26:35.710",
-    updated_at: "2026-03-10 00:26:35.710"
+    createdAt: "2026-03-09 00:26:35.710",
+    updatedAt: "2026-03-10 00:26:35.710"
   };
-  const { knex } = createKnexStub({
+  const { api } = createWorkspaceMembershipsApiStub({
     rowByComposite: new Map([["7:9", membershipRow]])
   });
-  const repository = createRepository(knex);
+  const repository = createRepository({ api, knex: createKnexStub() });
 
   const membership = await repository.findByWorkspaceIdAndUserId("7", "9");
 
@@ -121,31 +117,31 @@ test("workspaceMembershipsRepository.findByWorkspaceIdAndUserId normalizes canon
 
 test("workspaceMembershipsRepository.ensureOwnerMembership upgrades an existing membership through the runtime update path", async () => {
   const existingRow = {
-    id: 11,
-    workspace_id: 7,
-    user_id: 9,
-    role_sid: "member",
+    id: "11",
+    workspace: { id: "7" },
+    user: { id: "9" },
+    roleSid: "member",
     status: "pending",
-    created_at: "2026-03-09 00:26:35.710",
-    updated_at: "2026-03-09 00:26:35.710"
+    createdAt: "2026-03-09 00:26:35.710",
+    updatedAt: "2026-03-09 00:26:35.710"
   };
   const refreshedRow = {
     ...existingRow,
-    role_sid: "owner",
+    roleSid: "owner",
     status: "active",
-    updated_at: "2026-03-10 00:26:35.710"
+    updatedAt: "2026-03-10 00:26:35.710"
   };
-  const { knex, state } = createKnexStub({
+  const { api, state } = createWorkspaceMembershipsApiStub({
     rowById: new Map([["11", refreshedRow]]),
     rowByComposite: new Map([["7:9", existingRow]])
   });
-  const repository = createRepository(knex);
+  const repository = createRepository({ api, knex: createKnexStub() });
 
   const membership = await repository.ensureOwnerMembership("7", "9");
 
-  assert.equal(state.updatePayload.role_sid, "owner");
-  assert.equal(state.updatePayload.status, "active");
-  assert.equal(typeof state.updatePayload.updated_at, "string");
+  assert.equal(state.patchPayload.roleSid, "owner");
+  assert.equal(state.patchPayload.status, "active");
+  assert.equal(typeof state.patchPayload.updatedAt, "object");
   assert.deepEqual(membership, {
     id: "11",
     workspaceId: "7",
@@ -153,50 +149,52 @@ test("workspaceMembershipsRepository.ensureOwnerMembership upgrades an existing 
     roleSid: "owner",
     status: "active",
     createdAt: toIsoString("2026-03-09 00:26:35.710"),
-    updatedAt: toIsoString(state.updatePayload.updated_at)
+    updatedAt: toIsoString(state.patchPayload.updatedAt)
   });
 });
 
 test("workspaceMembershipsRepository.upsertMembership creates normalized memberships through the runtime create path", async () => {
   const createdRow = {
-    id: 1,
-    workspace_id: 7,
-    user_id: 9,
-    role_sid: "admin",
+    id: "1",
+    workspace: { id: "7" },
+    user: { id: "9" },
+    roleSid: "admin",
     status: "active",
-    created_at: "2026-03-09 00:26:35.710",
-    updated_at: "2026-03-09 00:26:35.710"
+    createdAt: "2026-03-09 00:26:35.710",
+    updatedAt: "2026-03-09 00:26:35.710"
   };
-  const { knex, state } = createKnexStub({
+  const { api, state } = createWorkspaceMembershipsApiStub({
     rowById: new Map([["1", createdRow]]),
     rowByComposite: new Map()
   });
-  const repository = createRepository(knex);
+  const repository = createRepository({ api, knex: createKnexStub() });
 
   await repository.upsertMembership("7", "9", {
     roleSid: "ADMIN",
     status: "ACTIVE"
   });
 
-  assert.equal(state.insertPayload.workspace_id, "7");
-  assert.equal(state.insertPayload.user_id, "9");
-  assert.equal(state.insertPayload.role_sid, "admin");
-  assert.equal(state.insertPayload.status, "active");
+  assert.equal(state.postPayload.workspace, "7");
+  assert.equal(state.postPayload.user, "9");
+  assert.equal(state.postPayload.roleSid, "admin");
+  assert.equal(state.postPayload.status, "active");
 });
 
 test("workspaceMembershipsRepository.listActiveByWorkspaceId keeps summary rows separate from the canonical membership resource", async () => {
-  const { knex } = createKnexStub({
+  const { api } = createWorkspaceMembershipsApiStub({
     memberSummaryRows: [
       {
-        user_id: 9,
-        role_sid: "owner",
-        status: "active",
-        display_name: "Chiara",
-        email: "CHIARA@example.com"
+        user: {
+          id: "9",
+          displayName: "Chiara",
+          email: "CHIARA@example.com"
+        },
+        roleSid: "owner",
+        status: "active"
       }
     ]
   });
-  const repository = createRepository(knex);
+  const repository = createRepository({ api, knex: createKnexStub() });
 
   const members = await repository.listActiveByWorkspaceId("7");
 

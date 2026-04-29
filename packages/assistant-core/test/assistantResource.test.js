@@ -1,11 +1,25 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { Check } from "typebox/value";
+import { validateOperationSectionAsync } from "@jskit-ai/http-runtime/shared/validators/operationValidation";
+import { resolveStructuredSchemaTransportSchema } from "@jskit-ai/kernel/shared/validators";
 import { assistantResource } from "../src/shared/assistantResource.js";
 
 test("assistant output schemas accept normalized paginated payloads", () => {
-  const conversationsListSchema = assistantResource.operations.conversationsList.outputValidator.schema;
-  const conversationMessagesSchema = assistantResource.operations.conversationMessagesList.outputValidator.schema;
+  const conversationsListSchema = resolveStructuredSchemaTransportSchema(
+    assistantResource.operations.conversationsList.output,
+    {
+      context: "assistant conversations list output",
+      defaultMode: "replace"
+    }
+  );
+  const conversationMessagesSchema = resolveStructuredSchemaTransportSchema(
+    assistantResource.operations.conversationMessagesList.output,
+    {
+      context: "assistant conversation messages output",
+      defaultMode: "replace"
+    }
+  );
 
   const conversationsPayload = {
     items: [],
@@ -40,10 +54,21 @@ test("assistant output schemas accept normalized paginated payloads", () => {
   assert.equal(Check(conversationMessagesSchema, messagesPayload), true);
 });
 
-test("assistant conversation message params accept numeric path strings and normalize to record-id strings", () => {
-  const paramsValidator = assistantResource.operations.conversationMessagesList.paramsValidator;
-  assert.equal(Check(paramsValidator.schema, { conversationId: "2" }), true);
-  assert.deepEqual(paramsValidator.normalize({ conversationId: "2" }), {
-    conversationId: "2"
+test("assistant conversation message params accept numeric path strings", async () => {
+  const params = resolveStructuredSchemaTransportSchema(
+    assistantResource.operations.conversationMessagesList.params,
+    {
+      context: "assistant conversation message params",
+      defaultMode: "patch"
+    }
+  );
+  const parsed = await validateOperationSectionAsync({
+    operation: assistantResource.operations.conversationMessagesList,
+    section: "params",
+    value: { conversationId: "2" }
   });
+
+  assert.equal(Check(params, { conversationId: "2" }), true);
+  assert.equal(parsed.ok, true);
+  assert.deepEqual(parsed.value, { conversationId: 2 });
 });

@@ -1,6 +1,7 @@
-import { Type } from "typebox";
-import { mergeValidators } from "../validators/mergeValidators.js";
-import { normalizeObjectInput } from "../validators/inputNormalization.js";
+import {
+  isJsonRestSchemaInstance,
+  normalizeSingleSchemaDefinition
+} from "../validators/index.js";
 import { isRecord as isPlainObject, normalizePositiveInteger } from "../support/normalize.js";
 import { normalizePermissionList } from "../support/permissions.js";
 import { normalizeText } from "./textNormalization.js";
@@ -76,7 +77,7 @@ function normalizeStringArray(value, { fieldName, allowedSet, allowEmpty = false
   return normalized;
 }
 
-function normalizeSingleActionValidator(value, fieldName, { required = false } = {}) {
+function normalizeSingleActionSchema(value, fieldName, { required = false, defaultMode = "" } = {}) {
   if (value == null) {
     if (!required) {
       return null;
@@ -87,119 +88,104 @@ function normalizeSingleActionValidator(value, fieldName, { required = false } =
     });
   }
 
-  if (!isPlainObject(value)) {
-    throw createActionRuntimeError(500, `Action definition ${fieldName} must be an object.`, {
+  if (!isPlainObject(value) && !isJsonRestSchemaInstance(value) && typeof value !== "function") {
+    throw createActionRuntimeError(500, `Action definition ${fieldName} must be a function or object.`, {
       code: "ACTION_DEFINITION_INVALID"
     });
   }
 
-  if (!Object.prototype.hasOwnProperty.call(value, "schema")) {
-    throw createActionRuntimeError(500, `Action definition ${fieldName}.schema is required.`, {
+  try {
+    return normalizeSingleSchemaDefinition(value, {
+      context: `Action definition ${fieldName}`,
+      defaultMode
+    });
+  } catch (error) {
+    throw createActionRuntimeError(500, error?.message || `Action definition ${fieldName} is invalid.`, {
       code: "ACTION_DEFINITION_INVALID"
     });
   }
+}
 
-  if (
-    value.schema == null ||
-    (typeof value.schema !== "function" && (typeof value.schema !== "object" || Array.isArray(value.schema)))
-  ) {
-    throw createActionRuntimeError(500, `Action definition ${fieldName}.schema must be a function or object.`, {
-      code: "ACTION_DEFINITION_INVALID"
-    });
+function isActionSchemaSectionMap(value) {
+  if (!isPlainObject(value) || Array.isArray(value) || isJsonRestSchemaInstance(value)) {
+    return false;
   }
 
-  if (Object.prototype.hasOwnProperty.call(value, "normalize")) {
-    if (value.normalize != null && typeof value.normalize !== "function") {
-      throw createActionRuntimeError(500, `Action definition ${fieldName}.normalize must be a function.`, {
-        code: "ACTION_DEFINITION_INVALID"
-      });
+  const reservedSchemaKeys = new Set([
+    "schema",
+    "mode",
+    "type",
+    "properties",
+    "required",
+    "additionalProperties",
+    "anyOf",
+    "oneOf",
+    "allOf",
+    "$schema"
+  ]);
+
+  for (const key of Object.keys(value)) {
+    if (reservedSchemaKeys.has(key)) {
+      return false;
     }
   }
 
-  return Object.freeze({
-    schema: value.schema,
-    ...(typeof value.normalize === "function" ? { normalize: value.normalize } : {})
-  });
+  return Object.keys(value).length > 0;
 }
 
-function isActionValidatorShape(value) {
-  return (
-    isPlainObject(value) &&
-    (Object.prototype.hasOwnProperty.call(value, "schema") || Object.prototype.hasOwnProperty.call(value, "normalize"))
-  );
-}
+function normalizeActionInputDefinition(value, fieldName, { required = false } = {}) {
+  if (value == null) {
+    if (!required) {
+      return null;
+    }
 
-function normalizeSectionActionValidatorMap(value, fieldName) {
-  if (!isPlainObject(value) || isActionValidatorShape(value)) {
-    return null;
-  }
-
-  const entries = Object.entries(value);
-  if (entries.length < 1) {
-    throw createActionRuntimeError(500, `Action definition ${fieldName} must define at least one section validator.`, {
+    throw createActionRuntimeError(500, `Action definition ${fieldName} is required.`, {
       code: "ACTION_DEFINITION_INVALID"
     });
   }
 
-  const schemaProperties = {};
-  const sectionNormalizers = [];
+  if (isActionSchemaSectionMap(value)) {
+    const normalized = {};
 
-  for (const [rawKey, rawValidator] of entries) {
-    const sectionKey = normalizeText(rawKey);
-    if (!sectionKey) {
-      throw createActionRuntimeError(500, `Action definition ${fieldName} section keys must be non-empty strings.`, {
-        code: "ACTION_DEFINITION_INVALID"
-      });
-    }
-
-    const sectionValidator = normalizeSingleActionValidator(rawValidator, `${fieldName}.${sectionKey}`, {
-      required: true
-    });
-
-    schemaProperties[sectionKey] = sectionValidator.schema;
-    sectionNormalizers.push({
-      key: sectionKey,
-      normalize: typeof sectionValidator.normalize === "function" ? sectionValidator.normalize : null
-    });
-  }
-
-  return Object.freeze({
-    schema: Type.Object(schemaProperties, {
-      additionalProperties: false
-    }),
-    async normalize(payload, meta) {
-      const source = normalizeObjectInput(payload);
-      const normalized = {};
-
-      for (const section of sectionNormalizers) {
-        if (!Object.hasOwn(source, section.key)) {
-          continue;
-        }
-
-        const sectionPayload = source[section.key];
-        normalized[section.key] = section.normalize ? await section.normalize(sectionPayload, meta) : sectionPayload;
+    for (const [rawKey, rawDefinition] of Object.entries(value)) {
+      const sectionKey = normalizeText(rawKey);
+      if (!sectionKey) {
+        throw createActionRuntimeError(500, `Action definition ${fieldName} section keys must be non-empty strings.`, {
+          code: "ACTION_DEFINITION_INVALID"
+        });
       }
 
-      return normalized;
+      normalized[sectionKey] = normalizeActionInputDefinition(rawDefinition, `${fieldName}.${sectionKey}`, {
+        required: true
+      });
     }
-  });
-}
 
-function mergeNormalizedActionValidators(validators, fieldName) {
-  return mergeValidators(validators, {
-    context: `Action definition ${fieldName}`,
-    requireSchema: true,
-    requiredSchemaMessage: `Action definition ${fieldName}.schema is required.`,
-    normalizeResultMessage: `Action definition ${fieldName}.normalize must return an object.`,
-    createError(message) {
-      return createActionRuntimeError(500, message, {
+    return Object.freeze(normalized);
+  }
+
+  if (Array.isArray(value)) {
+    if (value.length < 1) {
+      throw createActionRuntimeError(500, `Action definition ${fieldName} is required.`, {
         code: "ACTION_DEFINITION_INVALID"
       });
     }
+
+    return Object.freeze(
+      value.map((entry, index) =>
+        normalizeActionInputDefinition(entry, `${fieldName}[${index}]`, {
+          required: true
+        })
+      )
+    );
+  }
+
+  return normalizeSingleActionSchema(value, fieldName, {
+    required,
+    defaultMode: "patch"
   });
 }
 
-function normalizeActionValidators(value, fieldName, { required = false } = {}) {
+function normalizeActionOutputDefinition(value, fieldName, { required = false } = {}) {
   if (value == null) {
     if (!required) {
       return null;
@@ -210,40 +196,44 @@ function normalizeActionValidators(value, fieldName, { required = false } = {}) 
     });
   }
 
-  const validatorsSource = Array.isArray(value) ? value : [value];
+  if (isActionSchemaSectionMap(value)) {
+    const normalized = {};
 
-  if (validatorsSource.length < 1) {
-    throw createActionRuntimeError(500, `Action definition ${fieldName} is required.`, {
-      code: "ACTION_DEFINITION_INVALID"
-    });
-  }
+    for (const [rawKey, rawDefinition] of Object.entries(value)) {
+      const sectionKey = normalizeText(rawKey);
+      if (!sectionKey) {
+        throw createActionRuntimeError(500, `Action definition ${fieldName} section keys must be non-empty strings.`, {
+          code: "ACTION_DEFINITION_INVALID"
+        });
+      }
 
-  const validators = validatorsSource.map((entry, index) => {
-    const contextFieldName = `${fieldName}[${index}]`;
-    const sectionMapValidator = normalizeSectionActionValidatorMap(entry, contextFieldName);
-    if (sectionMapValidator) {
-      return sectionMapValidator;
+      normalized[sectionKey] = normalizeActionOutputDefinition(rawDefinition, `${fieldName}.${sectionKey}`, {
+        required: true
+      });
     }
 
-    const validator = normalizeSingleActionValidator(entry, contextFieldName, {
-      required: true
-    });
+    return Object.freeze(normalized);
+  }
 
-    if (!validator) {
-      throw createActionRuntimeError(500, `Action definition ${contextFieldName} is required.`, {
+  if (Array.isArray(value)) {
+    if (value.length < 1) {
+      throw createActionRuntimeError(500, `Action definition ${fieldName} is required.`, {
         code: "ACTION_DEFINITION_INVALID"
       });
     }
 
-    return validator;
-  });
+    return Object.freeze(
+      value.map((entry, index) =>
+        normalizeActionOutputDefinition(entry, `${fieldName}[${index}]`, {
+          required: true
+        })
+      )
+    );
+  }
 
-  return mergeNormalizedActionValidators(validators, fieldName);
-}
-
-function normalizeActionOutputValidator(value, fieldName, { required = false } = {}) {
-  return normalizeActionValidators(value, fieldName, {
-    required
+  return normalizeSingleActionSchema(value, fieldName, {
+    required,
+    defaultMode: "replace"
   });
 }
 
@@ -333,7 +323,9 @@ function normalizeActionExtensions(value) {
     });
   }
 
-  return Object.freeze(normalizeObjectInput(value));
+  return Object.freeze({
+    ...value
+  });
 }
 
 function normalizeActionDefinition(definition, { contributorId = "", contributorDomain = "" } = {}) {
@@ -369,12 +361,6 @@ function normalizeActionDefinition(definition, { contributorId = "", contributor
     fieldName: "surfaces"
   });
 
-  if (Object.prototype.hasOwnProperty.call(source, "visibility")) {
-    throw createActionRuntimeError(500, `Action definition \"${id}\" visibility is not supported.`, {
-      code: "ACTION_DEFINITION_INVALID"
-    });
-  }
-
   const idempotency = normalizeText(source.idempotency || "none").toLowerCase();
   if (!ACTION_IDEMPOTENCY_SET.has(idempotency)) {
     throw createActionRuntimeError(
@@ -392,18 +378,6 @@ function normalizeActionDefinition(definition, { contributorId = "", contributor
     });
   }
 
-  if (Object.prototype.hasOwnProperty.call(source, "input")) {
-    throw createActionRuntimeError(500, `Action definition \"${id}\" must use inputValidator instead of input.`, {
-      code: "ACTION_DEFINITION_INVALID"
-    });
-  }
-
-  if (Object.prototype.hasOwnProperty.call(source, "output")) {
-    throw createActionRuntimeError(500, `Action definition \"${id}\" must use outputValidator instead of output.`, {
-      code: "ACTION_DEFINITION_INVALID"
-    });
-  }
-
   return Object.freeze({
     id,
     version,
@@ -411,10 +385,10 @@ function normalizeActionDefinition(definition, { contributorId = "", contributor
     kind,
     channels,
     surfaces,
-    inputValidator: normalizeActionValidators(source.inputValidator, "inputValidator", {
+    input: normalizeActionInputDefinition(source.input, "input", {
       required: true
     }),
-    outputValidator: normalizeActionOutputValidator(source.outputValidator, "outputValidator", {
+    output: normalizeActionOutputDefinition(source.output, "output", {
       required: false
     }),
     idempotency,
@@ -466,10 +440,10 @@ const __testables = {
   normalizeText,
   isPlainObject,
   normalizeStringArray,
-  normalizeSingleActionValidator,
-  normalizeSectionActionValidatorMap,
-  normalizeActionValidators,
-  normalizeActionOutputValidator,
+  normalizeSingleActionSchema,
+  isActionSchemaSectionMap,
+  normalizeActionInputDefinition,
+  normalizeActionOutputDefinition,
   normalizeActionPermission,
   normalizeAuditConfig,
   normalizeObservabilityConfig,

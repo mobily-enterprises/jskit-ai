@@ -39,7 +39,6 @@ Exports
 - `createRepository(knex)`
 Local functions
 - `nowDb()`
-- `mapSettings(row = {})`
 - `mapSingletonRow(row)`
 
 ### `src/server/consoleSettings/consoleSettingsService.js`
@@ -71,23 +70,9 @@ Local functions
 Exports
 - `createOperationMessages({ validationMessage = "Validation failed.", apiValidationMessage = validationMessage } = {})`
 
-### `src/shared/resources/consoleSettingsFields.js`
-Exports
-- `defineField(field = {})`
-- `resetConsoleSettingsFields()`
-- `consoleSettingsFields`
-
 ### `src/shared/resources/consoleSettingsResource.js`
 Exports
 - `consoleSettingsResource`
-Local functions
-- `buildCreateSchema()`
-- `buildOutputSchema()`
-- `buildConsoleSettingsRecordSchema()`
-- `buildConsoleSettingsCreateSchema()`
-- `buildConsoleSettingsReplaceSchema()`
-- `buildConsoleSettingsPatchSchema()`
-- `normalizeConsoleSettingsInput(payload = {})`
 
 ### `src/shared/resources/resolveGlobalArrayRegistry.js`
 Exports
@@ -99,18 +84,8 @@ Exports
 Exports
 - None
 
-### `templates/packages/main/src/shared/resources/consoleSettingsFields.js`
-Exports
-- None
-
 ### root
 
 ### `package.descriptor.mjs`
-Exports
-- None
-
-### test-support
-
-### `test-support/registerDefaultSettingsFields.js`
 Exports
 - None

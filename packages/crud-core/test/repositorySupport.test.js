@@ -262,59 +262,62 @@ test("deriveRepositoryMappingFromResource reads schema keys and repository colum
   const resource = {
     operations: {
       view: {
-        outputValidator: {
+        output: {
           schema: {
             type: "object",
             properties: {
               id: { type: "integer" },
               firstName: { type: "string" },
-              createdAt: { type: "string" }
+              createdAt: {
+                type: "string",
+                actualField: "created_at"
+              }
             }
           }
         }
       },
       create: {
-        bodyValidator: {
+        body: {
           schema: {
             type: "object",
             properties: {
               firstName: { type: "string" },
-              vetId: { type: "integer" }
+              vetId: {
+                type: "integer",
+                actualField: "vet_id",
+                relation: {
+                  kind: "lookup",
+                  namespace: "vets",
+                  valueKey: "id"
+                }
+              }
             }
           }
         }
       },
       patch: {
-        bodyValidator: {
+        body: {
           schema: {
             type: "object",
             properties: {
-              archivedAt: { type: "string" },
-              vetId: { type: "integer" }
+              archivedAt: {
+                type: "string",
+                actualField: "archived_at"
+              },
+              vetId: {
+                type: "integer",
+                actualField: "vet_id",
+                relation: {
+                  kind: "lookup",
+                  namespace: "vets",
+                  valueKey: "id"
+                }
+              }
             }
           }
         }
       }
-    },
-    fieldMeta: [
-      {
-        key: "createdAt",
-        repository: { column: "created_at" }
-      },
-      {
-        key: "vetId",
-        repository: { column: "vet_id" },
-        relation: {
-          kind: "lookup",
-          namespace: "vets",
-          valueKey: "id"
-        }
-      },
-      {
-        key: "archivedAt",
-        repository: { column: "archived_at" }
-      }
-    ]
+    }
   };
 
   const mapping = deriveRepositoryMappingFromResource(resource);
@@ -335,19 +338,24 @@ test("deriveRepositoryMappingFromResource treats virtual output fields as non-co
   const resource = {
     operations: {
       view: {
-        outputValidator: {
+        output: {
           schema: {
             type: "object",
             properties: {
               id: { type: "integer" },
               firstName: { type: "string" },
-              remainingBatchWeight: { type: "number" }
+              remainingBatchWeight: {
+                type: "number",
+                storage: {
+                  virtual: true
+                }
+              }
             }
           }
         }
       },
       create: {
-        bodyValidator: {
+        body: {
           schema: {
             type: "object",
             properties: {
@@ -356,15 +364,7 @@ test("deriveRepositoryMappingFromResource treats virtual output fields as non-co
           }
         }
       }
-    },
-    fieldMeta: [
-      {
-        key: "remainingBatchWeight",
-        repository: {
-          storage: "virtual"
-        }
-      }
-    ]
+    }
   };
 
   const mapping = deriveRepositoryMappingFromResource(resource);
@@ -379,40 +379,42 @@ test("deriveRepositoryMappingFromResource rejects virtual fields in create schem
   const resource = {
     operations: {
       view: {
-        outputValidator: {
+        output: {
           schema: {
             type: "object",
             properties: {
               id: { type: "integer" },
-              remainingBatchWeight: { type: "number" }
+              remainingBatchWeight: {
+                type: "number",
+                storage: {
+                  virtual: true
+                }
+              }
             }
           }
         }
       },
       create: {
-        bodyValidator: {
+        body: {
           schema: {
             type: "object",
             properties: {
-              remainingBatchWeight: { type: "number" }
+              remainingBatchWeight: {
+                type: "number",
+                storage: {
+                  virtual: true
+                }
+              }
             }
           }
         }
       }
-    },
-    fieldMeta: [
-      {
-        key: "remainingBatchWeight",
-        repository: {
-          storage: "virtual"
-        }
-      }
-    ]
+    }
   };
 
   assert.throws(
     () => deriveRepositoryMappingFromResource(resource),
-    /resource create schema field "remainingBatchWeight" cannot use repository\.storage "virtual"/
+    /resource create schema field "remainingBatchWeight" cannot use storage\.virtual/
   );
 });
 
@@ -420,18 +422,23 @@ test("deriveRepositoryMappingFromResource rejects virtual fields in patch schema
   const resource = {
     operations: {
       view: {
-        outputValidator: {
+        output: {
           schema: {
             type: "object",
             properties: {
               id: { type: "integer" },
-              remainingBatchWeight: { type: "number" }
+              remainingBatchWeight: {
+                type: "number",
+                storage: {
+                  virtual: true
+                }
+              }
             }
           }
         }
       },
       create: {
-        bodyValidator: {
+        body: {
           schema: {
             type: "object",
             properties: {}
@@ -439,29 +446,26 @@ test("deriveRepositoryMappingFromResource rejects virtual fields in patch schema
         }
       },
       patch: {
-        bodyValidator: {
+        body: {
           schema: {
             type: "object",
             properties: {
-              remainingBatchWeight: { type: "number" }
+              remainingBatchWeight: {
+                type: "number",
+                storage: {
+                  virtual: true
+                }
+              }
             }
           }
         }
       }
-    },
-    fieldMeta: [
-      {
-        key: "remainingBatchWeight",
-        repository: {
-          storage: "virtual"
-        }
-      }
-    ]
+    }
   };
 
   assert.throws(
     () => deriveRepositoryMappingFromResource(resource),
-    /resource patch schema field "remainingBatchWeight" cannot use repository\.storage "virtual"/
+    /resource patch schema field "remainingBatchWeight" cannot use storage\.virtual/
   );
 });
 
@@ -469,7 +473,7 @@ test("deriveRepositoryMappingFromResource excludes runtime-only lookups output k
   const resource = {
     operations: {
       view: {
-        outputValidator: {
+        output: {
           schema: {
             type: "object",
             properties: {
@@ -481,7 +485,7 @@ test("deriveRepositoryMappingFromResource excludes runtime-only lookups output k
         }
       },
       create: {
-        bodyValidator: {
+        body: {
           schema: {
             type: "object",
             properties: {
@@ -490,8 +494,7 @@ test("deriveRepositoryMappingFromResource excludes runtime-only lookups output k
           }
         }
       }
-    },
-    fieldMeta: []
+    }
   };
 
   const mapping = deriveRepositoryMappingFromResource(resource);
@@ -507,7 +510,7 @@ test("deriveRepositoryMappingFromResource excludes custom lookup output containe
     },
     operations: {
       view: {
-        outputValidator: {
+        output: {
           schema: {
             type: "object",
             properties: {
@@ -519,7 +522,7 @@ test("deriveRepositoryMappingFromResource excludes custom lookup output containe
         }
       },
       create: {
-        bodyValidator: {
+        body: {
           schema: {
             type: "object",
             properties: {
@@ -528,8 +531,7 @@ test("deriveRepositoryMappingFromResource excludes custom lookup output containe
           }
         }
       }
-    },
-    fieldMeta: []
+    }
   };
 
   const mapping = deriveRepositoryMappingFromResource(resource);
@@ -540,14 +542,14 @@ test("deriveRepositoryMappingFromResource throws when view schema properties are
   const resource = {
     operations: {
       view: {
-        outputValidator: {
+        output: {
           schema: {
             type: "object"
           }
         }
       },
       create: {
-        bodyValidator: {
+        body: {
           schema: {
             type: "object",
             properties: {
@@ -561,7 +563,7 @@ test("deriveRepositoryMappingFromResource throws when view schema properties are
 
   assert.throws(
     () => deriveRepositoryMappingFromResource(resource),
-    /operations\.view\.outputValidator\.schema\.properties/
+    /operations\.view\.output\.schema\.properties/
   );
 });
 
@@ -569,7 +571,7 @@ test("deriveRepositoryMappingFromResource throws when create schema properties a
   const resource = {
     operations: {
       view: {
-        outputValidator: {
+        output: {
           schema: {
             type: "object",
             properties: {
@@ -579,7 +581,7 @@ test("deriveRepositoryMappingFromResource throws when create schema properties a
         }
       },
       create: {
-        bodyValidator: {
+        body: {
           schema: {
             type: "object"
           }
@@ -590,7 +592,7 @@ test("deriveRepositoryMappingFromResource throws when create schema properties a
 
   assert.throws(
     () => deriveRepositoryMappingFromResource(resource),
-    /operations\.create\.bodyValidator\.schema\.properties/
+    /operations\.create\.body\.schema\.properties/
   );
 });
 
@@ -598,20 +600,25 @@ test("deriveRepositoryMappingFromResource tracks writable column-backed write se
   const resource = {
     operations: {
       view: {
-        outputValidator: {
+        output: {
           schema: {
             type: "object",
             properties: {
               id: { type: "integer" },
               scheduledAt: { type: "string", format: "date-time" },
               archivedAt: { type: "string", format: "date-time" },
-              remainingBatchWeight: { type: "number" }
+              remainingBatchWeight: {
+                type: "number",
+                storage: {
+                  virtual: true
+                }
+              }
             }
           }
         }
       },
       create: {
-        bodyValidator: {
+        body: {
           schema: {
             type: "object",
             properties: {
@@ -621,7 +628,7 @@ test("deriveRepositoryMappingFromResource tracks writable column-backed write se
         }
       },
       patch: {
-        bodyValidator: {
+        body: {
           schema: {
             type: "object",
             properties: {
@@ -635,15 +642,7 @@ test("deriveRepositoryMappingFromResource tracks writable column-backed write se
           }
         }
       }
-    },
-    fieldMeta: [
-      {
-        key: "remainingBatchWeight",
-        repository: {
-          storage: "virtual"
-        }
-      }
-    ]
+    }
   };
 
   const mapping = deriveRepositoryMappingFromResource(resource);
@@ -653,39 +652,43 @@ test("deriveRepositoryMappingFromResource tracks writable column-backed write se
   });
 });
 
-test("deriveRepositoryMappingFromResource keeps explicit repository.writeSerializer metadata", () => {
+test("deriveRepositoryMappingFromResource keeps explicit storage.writeSerializer metadata", () => {
   const resource = {
     operations: {
       view: {
-        outputValidator: {
+        output: {
           schema: {
             type: "object",
             properties: {
               id: { type: "integer" },
-              arrivalDatetime: { type: "string", format: "date-time" }
+              arrivalDatetime: {
+                type: "string",
+                format: "date-time",
+                storage: {
+                  writeSerializer: "datetime-utc"
+                }
+              }
             }
           }
         }
       },
       create: {
-        bodyValidator: {
+        body: {
           schema: {
             type: "object",
             properties: {
-              arrivalDatetime: { type: "string", format: "date-time" }
+              arrivalDatetime: {
+                type: "string",
+                format: "date-time",
+                storage: {
+                  writeSerializer: "datetime-utc"
+                }
+              }
             }
           }
         }
       }
-    },
-    fieldMeta: [
-      {
-        key: "arrivalDatetime",
-        repository: {
-          writeSerializer: "datetime-utc"
-        }
-      }
-    ]
+    }
   };
 
   const mapping = deriveRepositoryMappingFromResource(resource);

@@ -14,10 +14,10 @@ const accountPreferencesActions = Object.freeze([
     permission: {
       require: "authenticated"
     },
-    inputValidator: {
-      payload: userSettingsResource.operations.preferencesUpdate.bodyValidator
+    input: {
+      payload: userSettingsResource.operations.preferencesUpdate.body
     },
-    outputValidator: userSettingsResource.operations.view.outputValidator,
+    output: userSettingsResource.operations.view.output,
     idempotency: "optional",
     audit: {
       actionName: "settings.preferences.update"

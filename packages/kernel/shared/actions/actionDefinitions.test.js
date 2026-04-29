@@ -4,119 +4,97 @@ import { Type } from "typebox";
 
 import { __testables, normalizeActionDefinition } from "./actionDefinitions.js";
 
-function createWorkspaceSlugValidator() {
+function createMockJsonRestSchema() {
+  return {
+    async create(payload = {}) {
+      return {
+        validatedObject: payload,
+        errors: {}
+      };
+    },
+    async replace(payload = {}) {
+      return this.create(payload);
+    },
+    async patch(payload = {}) {
+      return this.create(payload);
+    },
+    toJsonSchema() {
+      return {
+        type: "object"
+      };
+    }
+  };
+}
+
+function createWorkspaceSlugSchema() {
   return {
     schema: Type.Object(
       {
         workspaceSlug: Type.Optional(Type.String({ minLength: 1 }))
       },
       { additionalProperties: false }
-    ),
-    normalize(input = {}) {
-      const source = input && typeof input === "object" ? input : {};
-      if (!Object.hasOwn(source, "workspaceSlug")) {
-        return {};
-      }
-
-      return {
-        workspaceSlug: String(source.workspaceSlug || "").trim().toLowerCase()
-      };
-    }
+    )
   };
 }
 
-function createPatchValidator() {
+function createPatchSchema() {
   return {
     schema: Type.Object(
       {
         name: Type.Optional(Type.String({ minLength: 1 }))
       },
       { additionalProperties: false }
-    ),
-    normalize(input = {}) {
-      const source = input && typeof input === "object" ? input : {};
-      if (!Object.hasOwn(source, "name")) {
-        return {};
-      }
-
-      return {
-        name: String(source.name || "").trim().toLowerCase()
-      };
-    }
+    )
   };
 }
 
-test("normalizeActionValidators accepts section-map validator syntax", async () => {
-  const validator = __testables.normalizeActionValidators(
+test("normalizeActionInputDefinition accepts section-map schema syntax", () => {
+  const definition = __testables.normalizeActionInputDefinition(
     {
-      payload: createPatchValidator()
+      payload: createPatchSchema()
     },
-    "inputValidator",
+    "input",
     { required: true }
   );
 
-  assert.equal(typeof validator?.normalize, "function");
-  assert.equal(validator?.schema?.type, "object");
-  assert.ok(Object.hasOwn(validator.schema?.properties || {}, "payload"));
-
-  const normalized = await validator.normalize({
-    payload: {
-      name: "  Acme  "
-    }
-  });
-
-  assert.deepEqual(normalized, {
-    payload: {
-      name: "acme"
-    }
-  });
+  assert.equal(typeof definition, "object");
+  assert.equal(Array.isArray(definition), false);
+  assert.deepEqual(Object.keys(definition), ["payload"]);
+  assert.equal(definition.payload?.schema?.type, "object");
 });
 
-test("normalizeActionValidators composes root validators with section-map validators", async () => {
-  const validator = __testables.normalizeActionValidators(
+test("normalizeActionInputDefinition preserves arrays that combine root and section schemas", () => {
+  const definition = __testables.normalizeActionInputDefinition(
     [
-      createWorkspaceSlugValidator(),
+      createWorkspaceSlugSchema(),
       {
-        patch: createPatchValidator()
+        patch: createPatchSchema()
       }
     ],
-    "inputValidator",
+    "input",
     { required: true }
   );
 
-  const properties = Object.keys(validator.schema?.properties || {}).sort();
-  assert.deepEqual(properties, ["patch", "workspaceSlug"]);
-
-  const normalized = await validator.normalize({
-    workspaceSlug: "  TEAM-ALPHA  ",
-    patch: {
-      name: "  Project X  "
-    }
-  });
-
-  assert.deepEqual(normalized, {
-    workspaceSlug: "team-alpha",
-    patch: {
-      name: "project x"
-    }
-  });
+  assert.equal(Array.isArray(definition), true);
+  assert.equal(definition.length, 2);
+  assert.equal(definition[0]?.schema?.type, "object");
+  assert.deepEqual(Object.keys(definition[1]), ["patch"]);
+  assert.equal(definition[1].patch?.schema?.type, "object");
 });
 
-test("normalizeActionValidators rejects invalid section-map entries", () => {
+test("normalizeActionInputDefinition rejects invalid section-map entries", () => {
   assert.throws(
     () =>
-      __testables.normalizeActionValidators(
+      __testables.normalizeActionInputDefinition(
         {
           payload: {
-            normalize() {
-              return {};
-            }
+            schema: null
           }
         },
-        "inputValidator",
+        "input",
         { required: true }
       ),
-    /inputValidator\[0\]\.payload\.schema is required/
+    /input\.payload\.schema must be a function or object/
   );
 });
 
@@ -139,10 +117,10 @@ test("normalizeActionDefinition stays channel-agnostic and ignores unknown legac
     kind: "command",
     channels: ["automation"],
     surfaces: ["admin"],
-    inputValidator: {
+    input: {
       schema: Type.Object({}, { additionalProperties: false })
     },
-    outputValidator: {
+    output: {
       schema: Type.Object({}, { additionalProperties: false })
     },
     idempotency: "none",
@@ -156,57 +134,46 @@ test("normalizeActionDefinition stays channel-agnostic and ignores unknown legac
   assert.equal(Object.prototype.hasOwnProperty.call(definition, "assistantTool"), false);
 });
 
-test("normalizeActionOutputValidator accepts section-map syntax", async () => {
-  const outputValidator = __testables.normalizeActionOutputValidator(
+test("normalizeActionOutputDefinition accepts section-map syntax", () => {
+  const output = __testables.normalizeActionOutputDefinition(
     {
-      payload: createPatchValidator()
+      payload: createPatchSchema()
     },
-    "outputValidator",
+    "output",
     { required: false }
   );
 
-  assert.equal(outputValidator?.schema?.type, "object");
-  assert.ok(Object.hasOwn(outputValidator?.schema?.properties || {}, "payload"));
-
-  const normalized = await outputValidator.normalize({
-    payload: {
-      name: "  Acme  "
-    }
-  });
-
-  assert.deepEqual(normalized, {
-    payload: {
-      name: "acme"
-    }
-  });
+  assert.equal(typeof output, "object");
+  assert.deepEqual(Object.keys(output), ["payload"]);
+  assert.equal(output.payload?.schema?.type, "object");
 });
 
-test("normalizeActionOutputValidator composes array validators", async () => {
-  const outputValidator = __testables.normalizeActionOutputValidator(
-    [
-      createWorkspaceSlugValidator(),
-      {
-        payload: createPatchValidator()
-      }
-    ],
-    "outputValidator",
+test("normalizeActionOutputDefinition accepts single schema definitions", () => {
+  const output = __testables.normalizeActionOutputDefinition(
+    {
+      schema: Type.Object(
+        {
+          ok: Type.Boolean()
+        },
+        { additionalProperties: false }
+      )
+    },
+    "output",
     { required: false }
   );
 
-  const properties = Object.keys(outputValidator.schema?.properties || {}).sort();
-  assert.deepEqual(properties, ["payload", "workspaceSlug"]);
+  assert.equal(output?.schema?.type, "object");
+});
 
-  const normalized = await outputValidator.normalize({
-    workspaceSlug: "  TEAM-ALPHA  ",
-    payload: {
-      name: "  Project X  "
-    }
-  });
+test("normalizeActionInputDefinition preserves mode for json-rest-schema definitions", () => {
+  const definition = __testables.normalizeActionInputDefinition(
+    {
+      schema: createMockJsonRestSchema(),
+      mode: "patch"
+    },
+    "input",
+    { required: true }
+  );
 
-  assert.deepEqual(normalized, {
-    workspaceSlug: "team-alpha",
-    payload: {
-      name: "project x"
-    }
-  });
+  assert.equal(definition.mode, "patch");
 });

@@ -1,7 +1,7 @@
-import { Type } from "typebox";
-import { normalizeObjectInput } from "../inputNormalization.js";
+import { createSchema } from "json-rest-schema";
+import { deepFreeze } from "@jskit-ai/kernel/shared/support/deepFreeze";
 import {
-  authEmailValidator,
+  authEmailFieldDefinition,
   createCommandMessages,
   okMessageResponseValidator
 } from "./authCommandValidators.js";
@@ -17,29 +17,24 @@ const AUTH_REGISTER_CONFIRMATION_RESEND_MESSAGES = createCommandMessages({
   }
 });
 
-const authRegisterConfirmationResendBodyValidator = Object.freeze({
-  schema: Type.Object(
-    {
-      email: authEmailValidator.schema
-    },
-    {
-      additionalProperties: false
-    }
-  ),
-  normalize: normalizeObjectInput,
+const authRegisterConfirmationResendBodyValidator = deepFreeze({
+  schema: createSchema({
+    email: { ...authEmailFieldDefinition, required: true }
+  }),
+  mode: "create",
   messages: AUTH_REGISTER_CONFIRMATION_RESEND_MESSAGES
 });
 
-const authRegisterConfirmationResendCommand = Object.freeze({
+const authRegisterConfirmationResendCommand = deepFreeze({
   command: "auth.register.confirmation.resend",
-  operation: Object.freeze({
+  operation: {
     method: "POST",
-    bodyValidator: authRegisterConfirmationResendBodyValidator,
-    responseValidator: okMessageResponseValidator,
+    body: authRegisterConfirmationResendBodyValidator,
+    response: okMessageResponseValidator,
     messages: AUTH_REGISTER_CONFIRMATION_RESEND_MESSAGES,
     idempotent: false,
-    invalidates: Object.freeze([])
-  })
+    invalidates: []
+  }
 });
 
 export {

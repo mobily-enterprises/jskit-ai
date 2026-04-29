@@ -1,82 +1,41 @@
-import { Type } from "@fastify/type-provider-typebox";
-import { encodeInviteTokenHash } from "@jskit-ai/auth-core/shared/inviteTokens";
-import { normalizeLowerText, normalizeText } from "@jskit-ai/kernel/shared/actions/textNormalization";
 import { createOperationMessages } from "../operationMessages.js";
-import { normalizeObjectInput, recordIdSchema } from "@jskit-ai/kernel/shared/validators";
-import { normalizeRecordId } from "@jskit-ai/kernel/shared/support/normalize";
+import { RECORD_ID_PATTERN } from "@jskit-ai/kernel/shared/validators";
+import { deepFreeze } from "@jskit-ai/kernel/shared/support/deepFreeze";
+import { createSchema } from "json-rest-schema";
 
-function normalizePendingInvite(invite) {
-  const id = normalizeRecordId(invite?.id, { fallback: null });
-  const workspaceId = normalizeRecordId(invite?.workspaceId, { fallback: null });
-  const tokenHash = normalizeText(invite?.tokenHash);
-
-  if (!id || !workspaceId || !tokenHash) {
-    return null;
-  }
-
-  return {
-    id,
-    workspaceId,
-    workspaceSlug: normalizeText(invite?.workspaceSlug),
-    workspaceName: normalizeText(invite?.workspaceName || invite?.workspaceSlug),
-    workspaceAvatarUrl: normalizeText(invite?.workspaceAvatarUrl),
-    roleSid: normalizeLowerText(invite?.roleSid || "member") || "member",
-    status: normalizeLowerText(invite?.status || "pending") || "pending",
-    expiresAt: invite?.expiresAt || null,
-    token: encodeInviteTokenHash(tokenHash)
-  };
-}
-
-function normalizePendingInviteList(invites) {
-  return (Array.isArray(invites) ? invites : []).map((invite) => normalizePendingInvite(invite)).filter(Boolean);
-}
-
-const pendingInviteRecordValidator = Object.freeze({
-  schema: Type.Object(
-    {
-      id: recordIdSchema,
-      workspaceId: recordIdSchema,
-      workspaceSlug: Type.String({ minLength: 1 }),
-      workspaceName: Type.String({ minLength: 1 }),
-      workspaceAvatarUrl: Type.String(),
-      roleSid: Type.String({ minLength: 1 }),
-      status: Type.String({ minLength: 1 }),
-      expiresAt: Type.Union([Type.String({ minLength: 1 }), Type.Null()]),
-      token: Type.String({ minLength: 1 })
-    },
-    { additionalProperties: false }
-  ),
-  normalize: normalizePendingInvite
+const pendingInviteRecordSchema = createSchema({
+  id: { type: "string", required: true, minLength: 1, pattern: RECORD_ID_PATTERN },
+  workspaceId: { type: "string", required: true, minLength: 1, pattern: RECORD_ID_PATTERN },
+  workspaceSlug: { type: "string", required: true, minLength: 1, maxLength: 120 },
+  workspaceName: { type: "string", required: true, minLength: 1, maxLength: 160 },
+  workspaceAvatarUrl: { type: "string", required: true },
+  roleSid: { type: "string", required: true, minLength: 1, maxLength: 64 },
+  status: { type: "string", required: true, minLength: 1, maxLength: 64 },
+  expiresAt: { type: "string", required: false, nullable: true, minLength: 1 },
+  token: { type: "string", required: true, minLength: 1 }
 });
 
-const pendingInvitationsListOutputValidator = Object.freeze({
-  schema: Type.Object(
-    {
-      pendingInvites: Type.Array(pendingInviteRecordValidator.schema)
-    },
-    { additionalProperties: false }
-  ),
-  normalize(payload = {}) {
-    const source = normalizeObjectInput(payload);
-
-    return {
-      pendingInvites: normalizePendingInviteList(source.pendingInvites)
-    };
+const pendingInvitationsListOutputDefinition = deepFreeze({
+  pendingInvites: {
+    schema: {
+      type: "array",
+      items: pendingInviteRecordSchema.toJsonSchema({ mode: "replace" })
+    }
   }
 });
 
 const WORKSPACE_PENDING_INVITATIONS_MESSAGES = createOperationMessages();
 
-const workspacePendingInvitationsResource = Object.freeze({
+const workspacePendingInvitationsResource = deepFreeze({
   namespace: "workspacePendingInvitations",
   messages: WORKSPACE_PENDING_INVITATIONS_MESSAGES,
-  operations: Object.freeze({
-    list: Object.freeze({
+  operations: {
+    list: {
       method: "GET",
       messages: WORKSPACE_PENDING_INVITATIONS_MESSAGES,
-      outputValidator: pendingInvitationsListOutputValidator
-    })
-  })
+      output: pendingInvitationsListOutputDefinition
+    }
+  }
 });
 
 export { workspacePendingInvitationsResource };

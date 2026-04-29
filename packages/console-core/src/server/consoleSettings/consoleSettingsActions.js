@@ -13,8 +13,8 @@ const consoleSettingsActions = Object.freeze([
     permission: {
       require: "authenticated"
     },
-    inputValidator: EMPTY_INPUT_VALIDATOR,
-    outputValidator: consoleSettingsResource.operations.view.outputValidator,
+    input: EMPTY_INPUT_VALIDATOR,
+    output: consoleSettingsResource.operations.view.output,
     idempotency: "none",
     audit: {
       actionName: "console.settings.read"
@@ -35,10 +35,10 @@ const consoleSettingsActions = Object.freeze([
     permission: {
       require: "authenticated"
     },
-    inputValidator: {
-      payload: consoleSettingsResource.operations.replace.bodyValidator
+    input: {
+      payload: consoleSettingsResource.operations.replace.body
     },
-    outputValidator: consoleSettingsResource.operations.replace.outputValidator,
+    output: consoleSettingsResource.operations.replace.output,
     idempotency: "optional",
     audit: {
       actionName: "console.settings.update"

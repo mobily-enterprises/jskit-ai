@@ -18,8 +18,8 @@ function bootConsoleSettingsRoutes(app) {
         tags: ["console", "settings"],
         summary: "Get console settings"
       },
-      responseValidators: withStandardErrorResponses({
-        200: consoleSettingsResource.operations.view.outputValidator
+      responses: withStandardErrorResponses({
+        200: consoleSettingsResource.operations.view.output
       })
     },
     async function (request, reply) {
@@ -40,10 +40,10 @@ function bootConsoleSettingsRoutes(app) {
         tags: ["console", "settings"],
         summary: "Update console settings"
       },
-      bodyValidator: consoleSettingsResource.operations.replace.bodyValidator,
-      responseValidators: withStandardErrorResponses(
+      body: consoleSettingsResource.operations.replace.body,
+      responses: withStandardErrorResponses(
         {
-          200: consoleSettingsResource.operations.view.outputValidator
+          200: consoleSettingsResource.operations.view.output
         },
         { includeValidation400: true }
       )

@@ -4,6 +4,7 @@ import path from "node:path";
 import test from "node:test";
 import { fileURLToPath } from "node:url";
 import descriptor from "../package.descriptor.mjs";
+import crudCorePackage from "../../crud-core/package.json" with { type: "json" };
 
 const TEST_DIRECTORY = path.dirname(fileURLToPath(import.meta.url));
 const PACKAGE_ROOT = path.resolve(TEST_DIRECTORY, "..");
@@ -14,7 +15,7 @@ function readFileMutationById(id) {
 
 test("users-core installs the app-local users package scaffold", () => {
   assert.equal(descriptor.mutations.dependencies.runtime["@local/users"], "file:packages/users");
-  assert.equal(descriptor.mutations.dependencies.runtime["@jskit-ai/crud-core"], "0.1.54");
+  assert.equal(descriptor.mutations.dependencies.runtime["@jskit-ai/crud-core"], crudCorePackage.version);
 
   const expectedFileIds = [
     "users-core-users-package-json",

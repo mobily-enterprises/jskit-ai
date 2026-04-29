@@ -112,7 +112,14 @@ Exports
 - `accountSettingsResponseFormatter({ profile, settings, securityStatus, authService })`
 Local functions
 - `resolveAuthProfileSettings(authService)`
-- `formatUserSettingsSection(section, settings = {})`
+- `formatUserSettingsSection(fieldKeys, settings = {})`
+
+### `src/server/common/jsonRestApiHost.js`
+Exports
+- `INTERNAL_JSON_REST_API`
+- `addResourceIfMissing(api, scopeName, resourceConfig)`
+- `createJsonRestApiHost({ knex })`
+- `registerJsonRestApiHost(app)`
 
 ### `src/server/common/registerCommonRepositories.js`
 Exports
@@ -140,25 +147,25 @@ Exports
 
 ### `src/server/common/repositories/userProfilesRepository.js`
 Exports
-- `createRepository(knex)`
+- `createRepository({ api, knex } = {})`
 Local functions
-- `normalizeProfileRecord(payload)`
-- `normalizeCreatePayload(payload = {})`
 - `normalizeUsername(value)`
+- `normalizeNullableString(value)`
+- `normalizeNullableVersion(value)`
+- `normalizeProfileRecord(payload = null)`
+- `normalizeCreatePayload(payload = {})`
 - `usernameBaseFromEmail(email)`
 - `buildUsernameCandidate(baseUsername, suffix)`
 - `duplicateTargetsEmail(error)`
 - `duplicateTargetsUsername(error)`
 - `createDuplicateEmailConflictError()`
-- `resolveUniqueUsername(client, baseUsername, { excludeUserId = null } = {})`
+- `resolveUniqueUsername(api, baseUsername, { excludeUserId = null, transaction = null } = {})`
 
 ### `src/server/common/repositories/userSettingsRepository.js`
 Exports
-- `createRepository(knex)`
-- `mapRow(row)`
+- `createRepository({ api, knex } = {})`
 Local functions
-- `normalizeBoolean(value, fallback = false)`
-- `createInsertPayload(userId)`
+- `pickPatchFields(source = {})`
 
 ### `src/server/common/resources/userProfilesResource.js`
 Exports
@@ -167,8 +174,14 @@ Local functions
 - `normalizeUsername(value)`
 - `normalizeNullableString(value)`
 - `normalizeNullableVersion(value)`
-- `normalizeProfileRecord(payload = {})`
-- `normalizeCreatePayload(payload = {})`
+- `serializeNullableDateTime(value)`
+
+### `src/server/common/resources/userSettingsResource.js`
+Exports
+- `userSettingsResource`
+Local functions
+- `serializeNullableDateTime(value)`
+- `normalizePositiveInteger(value)`
 
 ### `src/server/common/services/accountContextService.js`
 Exports
@@ -255,33 +268,15 @@ Exports
 ### `src/shared/resources/userProfileResource.js`
 Exports
 - `userProfileResource`
-Local functions
-- `normalizeProfileInput(payload = {})`
-
-### `src/shared/resources/userSettingsFields.js`
-Exports
-- `USER_SETTINGS_SECTIONS`
-- `defineField(field = {})`
-- `resetUserSettingsFields()`
-- `userSettingsFields`
+- `userProfileOutputSchema`
 
 ### `src/shared/resources/userSettingsResource.js`
 Exports
+- `USER_SETTINGS_ALL_KEYS`
+- `USER_SETTINGS_BOOTSTRAP_KEYS`
+- `USER_SETTINGS_NOTIFICATION_KEYS`
+- `USER_SETTINGS_PREFERENCE_KEYS`
 - `userSettingsResource`
-Local functions
-- `pickPatchBody(schema, keys = [])`
-- `listFieldsBySection(section)`
-- `buildCreateBodySchema()`
-- `buildSectionOutputSchema(section)`
-- `normalizeInput(payload = {})`
-- `normalizeSectionOutput(section, sectionSource = {}, settings = {})`
-- `buildUserSettingsOutputSchema()`
-- `buildUserSettingsCreateBodySchema()`
-- `buildUserSettingsPatchBodySchema()`
-- `buildPreferencesUpdateBodySchema()`
-- `buildNotificationsUpdateBodySchema()`
-- `normalizeOAuthProviderParams(payload = {})`
-- `normalizeOAuthProviderQuery(payload = {})`
 
 ### `src/shared/settings.js`
 Exports
@@ -301,12 +296,6 @@ Local functions
 - `usernameBaseFromEmail(email)`
 - `buildUsernameCandidate(baseUsername, suffix)`
 - `resolveUniqueUsername(baseUsername, usedUsernames)`
-
-### `templates/packages/main/src/shared/resources/userSettingsFields.js`
-Exports
-- None
-Local functions
-- `normalizePositiveInteger(value, fallback)`
 
 ### `templates/packages/users-workspace/package.descriptor.mjs`
 Exports
@@ -376,11 +365,5 @@ Exports
 ### root
 
 ### `package.descriptor.mjs`
-Exports
-- None
-
-### test-support
-
-### `test-support/registerDefaultSettingsFields.js`
 Exports
 - None

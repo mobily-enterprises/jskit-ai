@@ -1,12 +1,12 @@
-import { Type } from "typebox";
-import { normalizeObjectInput } from "../inputNormalization.js";
+import { createSchema } from "json-rest-schema";
+import { deepFreeze } from "@jskit-ai/kernel/shared/support/deepFreeze";
 import {
-  authAccessTokenValidator,
-  authRecoveryTokenValidator,
-  authRefreshTokenValidator,
+  authAccessTokenFieldDefinition,
+  authRecoveryTokenFieldDefinition,
+  authRefreshTokenFieldDefinition,
   createCommandMessages,
   oauthCompleteResponseValidator,
-  oauthProviderValidator
+  oauthProviderFieldDefinition
 } from "./authCommandValidators.js";
 
 const AUTH_LOGIN_OAUTH_COMPLETE_MESSAGES = createCommandMessages({
@@ -27,36 +27,31 @@ const AUTH_LOGIN_OAUTH_COMPLETE_MESSAGES = createCommandMessages({
   }
 });
 
-const authLoginOAuthCompleteBodyValidator = Object.freeze({
-  schema: Type.Object(
-    {
-      provider: Type.Optional(oauthProviderValidator.schema),
-      code: Type.Optional(authRecoveryTokenValidator.schema),
-      accessToken: Type.Optional(authAccessTokenValidator.schema),
-      refreshToken: Type.Optional(authRefreshTokenValidator.schema),
-      error: Type.Optional(Type.String({ minLength: 1, maxLength: 128 })),
-      errorDescription: Type.Optional(Type.String({ minLength: 1, maxLength: 1024 })),
-      error_code: Type.Optional(Type.String({ minLength: 1, maxLength: 128 })),
-      error_description: Type.Optional(Type.String({ minLength: 1, maxLength: 1024 }))
-    },
-    {
-      additionalProperties: false
-    }
-  ),
-  normalize: normalizeObjectInput,
+const authLoginOAuthCompleteBodyValidator = deepFreeze({
+  schema: createSchema({
+    provider: { ...oauthProviderFieldDefinition, required: false },
+    code: { ...authRecoveryTokenFieldDefinition, required: false },
+    accessToken: { ...authAccessTokenFieldDefinition, required: false },
+    refreshToken: { ...authRefreshTokenFieldDefinition, required: false },
+    error: { type: "string", required: false, minLength: 1, maxLength: 128 },
+    errorDescription: { type: "string", required: false, minLength: 1, maxLength: 1024 },
+    error_code: { type: "string", required: false, minLength: 1, maxLength: 128 },
+    error_description: { type: "string", required: false, minLength: 1, maxLength: 1024 }
+  }),
+  mode: "patch",
   messages: AUTH_LOGIN_OAUTH_COMPLETE_MESSAGES
 });
 
-const authLoginOAuthCompleteCommand = Object.freeze({
+const authLoginOAuthCompleteCommand = deepFreeze({
   command: "auth.login.oauth.complete",
-  operation: Object.freeze({
+  operation: {
     method: "POST",
-    bodyValidator: authLoginOAuthCompleteBodyValidator,
-    responseValidator: oauthCompleteResponseValidator,
+    body: authLoginOAuthCompleteBodyValidator,
+    response: oauthCompleteResponseValidator,
     messages: AUTH_LOGIN_OAUTH_COMPLETE_MESSAGES,
     idempotent: false,
-    invalidates: Object.freeze(["auth.session.read"])
-  })
+    invalidates: ["auth.session.read"]
+  }
 });
 
 export {

@@ -17,13 +17,25 @@ function createKnexStub() {
   return knex;
 }
 
+function createApiStub() {
+  return {
+    resources: {
+      workspaceInvites: {},
+      workspaceMemberships: {},
+      workspaces: {},
+      workspaceSettings: {}
+    }
+  };
+}
+
 test("workspaces-core repositories expose withTransaction", async () => {
   const knex = createKnexStub();
+  const api = createApiStub();
   const repositories = [
-    createWorkspaceInvitesRepository(knex),
-    createWorkspaceMembershipsRepository(knex),
-    createWorkspacesRepository(knex),
-    createWorkspaceSettingsRepository(knex)
+    createWorkspaceInvitesRepository({ api, knex }),
+    createWorkspaceMembershipsRepository({ api, knex }),
+    createWorkspacesRepository({ api, knex }),
+    createWorkspaceSettingsRepository({ api, knex })
   ];
 
   for (const repository of repositories) {

@@ -6,23 +6,24 @@ import { AppError } from "@jskit-ai/kernel/server/runtime/errors";
 import { RECORD_ID_PATTERN } from "@jskit-ai/kernel/shared/validators";
 import { normalizeRecordId, normalizeText } from "@jskit-ai/kernel/shared/support/normalize";
 import { normalizeObjectInput } from "@jskit-ai/kernel/shared/validators/inputNormalization";
+import { resolveStructuredSchemaTransportSchema } from "@jskit-ai/kernel/shared/validators";
+import {
+  buildCrudFieldContractMap,
+  CRUD_FIELD_STORAGE_COLUMN,
+  CRUD_FIELD_STORAGE_VIRTUAL,
+  CRUD_FIELD_WRITE_SERIALIZER_DATETIME_UTC
+} from "@jskit-ai/kernel/shared/support/crudFieldContract";
 import { toSnakeCase } from "@jskit-ai/kernel/shared/support/stringCase";
 import {
   resolveCrudLookupContainerKey,
   resolveCrudLookupFieldKeys
 } from "@jskit-ai/kernel/shared/support/crudLookup";
-import {
-  CRUD_FIELD_REPOSITORY_STORAGE_COLUMN,
-  CRUD_FIELD_REPOSITORY_WRITE_SERIALIZER_DATETIME_UTC,
-  CRUD_FIELD_REPOSITORY_STORAGE_VIRTUAL,
-  isCrudRuntimeOutputOnlyFieldKey,
-  normalizeCrudFieldRepositoryConfig
-} from "../shared/crudFieldMetaSupport.js";
+import { isCrudRuntimeOutputOnlyFieldKey } from "../shared/crudFieldSupport.js";
 
 const DEFAULT_LIST_LIMIT = 20;
 const MAX_LIST_LIMIT = 100;
 const CRUD_WRITE_SERIALIZERS = Object.freeze({
-  [CRUD_FIELD_REPOSITORY_WRITE_SERIALIZER_DATETIME_UTC]: (value) => toDatabaseDateTimeUtc(value)
+  [CRUD_FIELD_WRITE_SERIALIZER_DATETIME_UTC]: (value) => toDatabaseDateTimeUtc(value)
 });
 
 function normalizeCrudListCursor(cursor = null, { allowEmpty = true } = {}) {
@@ -93,7 +94,7 @@ function buildRepositoryColumnMetadata({
     .filter(Boolean);
 
   const deriveMapping = (key) => {
-    if (fieldStorageByKey?.[key] !== CRUD_FIELD_REPOSITORY_STORAGE_COLUMN) {
+    if (fieldStorageByKey?.[key] !== CRUD_FIELD_STORAGE_COLUMN) {
       return null;
     }
     const column = resolveColumnName(key, columnOverrides);
@@ -134,29 +135,6 @@ function requireObjectSchemaProperties(schema, { context = "crudRepository", sch
   }
 
   return properties;
-}
-
-function normalizeResourceFieldMetaEntries(fieldMeta = []) {
-  if (!Array.isArray(fieldMeta)) {
-    return [];
-  }
-
-  const normalized = [];
-  const seenKeys = new Set();
-  for (const rawEntry of fieldMeta) {
-    if (!rawEntry || typeof rawEntry !== "object" || Array.isArray(rawEntry)) {
-      continue;
-    }
-
-    const key = normalizeText(rawEntry.key);
-    if (!key || seenKeys.has(key)) {
-      continue;
-    }
-    seenKeys.add(key);
-    normalized.push(rawEntry);
-  }
-
-  return normalized;
 }
 
 function schemaIncludesStringType(schema = {}) {
@@ -227,20 +205,29 @@ function deriveRepositoryMappingFromResource(resource = {}, { context = "crudRep
     throw new TypeError(`${context} requires resource.operations.`);
   }
 
-  const outputSchema = operations?.view?.outputValidator?.schema;
-  const writeSchema = operations?.create?.bodyValidator?.schema;
-  const patchSchema = operations?.patch?.bodyValidator?.schema;
+  const outputSchema = resolveStructuredSchemaTransportSchema(operations?.view?.output, {
+    context: `${context} operations.view.output`,
+    defaultMode: "replace"
+  });
+  const writeSchema = resolveStructuredSchemaTransportSchema(operations?.create?.body, {
+    context: `${context} operations.create.body`,
+    defaultMode: "create"
+  });
+  const patchSchema = resolveStructuredSchemaTransportSchema(operations?.patch?.body, {
+    context: `${context} operations.patch.body`,
+    defaultMode: "patch"
+  });
   const outputProperties = requireObjectSchemaProperties(outputSchema, {
     context,
-    schemaLabel: "operations.view.outputValidator.schema"
+    schemaLabel: "operations.view.output.schema"
   });
   const writeProperties = requireObjectSchemaProperties(writeSchema, {
     context,
-    schemaLabel: "operations.create.bodyValidator.schema"
+    schemaLabel: "operations.create.body.schema"
   });
   const patchProperties = resolveOptionalObjectSchemaProperties(patchSchema, {
     context,
-    schemaLabel: "operations.patch.bodyValidator.schema"
+    schemaLabel: "operations.patch.body.schema"
   });
   const lookupContainerKey = resolveCrudLookupContainerKey(resource, {
     context: `${context} resource.contract.lookup.containerKey`
@@ -258,35 +245,33 @@ function deriveRepositoryMappingFromResource(resource = {}, { context = "crudRep
   const fieldStorageByKey = {};
   const columnOverrides = {};
   const writeSerializerByKey = {};
-  for (const entry of normalizeResourceFieldMetaEntries(resource.fieldMeta)) {
+  for (const entry of Object.values(buildCrudFieldContractMap(resource, {
+    context: `${context} resource field contract`
+  }))) {
     const key = normalizeText(entry.key);
     if (!key) {
       continue;
     }
-    const repositoryConfig = normalizeCrudFieldRepositoryConfig(entry, {
-      context: `${context} resource.fieldMeta`,
-      fieldKey: key
-    });
-    fieldStorageByKey[key] = repositoryConfig.storage;
-    if (repositoryConfig.column) {
-      columnOverrides[key] = repositoryConfig.column;
+    fieldStorageByKey[key] = entry?.storage?.mode || CRUD_FIELD_STORAGE_COLUMN;
+    if (entry?.storage?.column) {
+      columnOverrides[key] = entry.storage.column;
     }
-    if (repositoryConfig.writeSerializer) {
-      writeSerializerByKey[key] = repositoryConfig.writeSerializer;
+    if (entry?.storage?.writeSerializer) {
+      writeSerializerByKey[key] = entry.storage.writeSerializer;
     }
   }
 
   for (const key of [...outputKeys, ...writeKeys]) {
     if (!fieldStorageByKey[key]) {
-      fieldStorageByKey[key] = CRUD_FIELD_REPOSITORY_STORAGE_COLUMN;
+      fieldStorageByKey[key] = CRUD_FIELD_STORAGE_COLUMN;
     }
   }
 
   const virtualOutputKeys = [];
   const columnBackedOutputKeys = [];
   for (const key of outputKeys) {
-    const storage = fieldStorageByKey[key] || CRUD_FIELD_REPOSITORY_STORAGE_COLUMN;
-    if (storage === CRUD_FIELD_REPOSITORY_STORAGE_VIRTUAL) {
+    const storage = fieldStorageByKey[key] || CRUD_FIELD_STORAGE_COLUMN;
+    if (storage === CRUD_FIELD_STORAGE_VIRTUAL) {
       virtualOutputKeys.push(key);
       continue;
     }
@@ -296,19 +281,19 @@ function deriveRepositoryMappingFromResource(resource = {}, { context = "crudRep
   for (const key of virtualOutputKeys) {
     if (Object.hasOwn(writeProperties, key)) {
       throw new Error(
-        `${context} resource create schema field "${key}" cannot use repository.storage "virtual".`
+        `${context} resource create schema field "${key}" cannot use storage.virtual.`
       );
     }
     if (Object.hasOwn(patchProperties, key)) {
       throw new Error(
-        `${context} resource patch schema field "${key}" cannot use repository.storage "virtual".`
+        `${context} resource patch schema field "${key}" cannot use storage.virtual.`
       );
     }
   }
 
   const listSearchColumns = [];
   for (const [key, schema] of Object.entries(outputProperties)) {
-    if ((fieldStorageByKey[key] || CRUD_FIELD_REPOSITORY_STORAGE_COLUMN) !== CRUD_FIELD_REPOSITORY_STORAGE_COLUMN) {
+    if ((fieldStorageByKey[key] || CRUD_FIELD_STORAGE_COLUMN) !== CRUD_FIELD_STORAGE_COLUMN) {
       continue;
     }
     if (!schemaIncludesStringType(schema)) {
@@ -324,7 +309,7 @@ function deriveRepositoryMappingFromResource(resource = {}, { context = "crudRep
 
   const parentFilterColumns = {};
   for (const key of resolveCrudLookupFieldKeys(resource, { allowKeys: writeKeys })) {
-    if ((fieldStorageByKey[key] || CRUD_FIELD_REPOSITORY_STORAGE_COLUMN) !== CRUD_FIELD_REPOSITORY_STORAGE_COLUMN) {
+    if ((fieldStorageByKey[key] || CRUD_FIELD_STORAGE_COLUMN) !== CRUD_FIELD_STORAGE_COLUMN) {
       continue;
     }
     const columnName = resolveColumnName(key, columnOverrides);
@@ -342,7 +327,7 @@ function deriveRepositoryMappingFromResource(resource = {}, { context = "crudRep
   }
 
   for (const key of writeKeys) {
-    if ((fieldStorageByKey[key] || CRUD_FIELD_REPOSITORY_STORAGE_COLUMN) !== CRUD_FIELD_REPOSITORY_STORAGE_COLUMN) {
+    if ((fieldStorageByKey[key] || CRUD_FIELD_STORAGE_COLUMN) !== CRUD_FIELD_STORAGE_COLUMN) {
       continue;
     }
 
@@ -355,7 +340,7 @@ function deriveRepositoryMappingFromResource(resource = {}, { context = "crudRep
       continue;
     }
 
-    writeSerializerByKey[key] = CRUD_FIELD_REPOSITORY_WRITE_SERIALIZER_DATETIME_UTC;
+    writeSerializerByKey[key] = CRUD_FIELD_WRITE_SERIALIZER_DATETIME_UTC;
   }
 
   return Object.freeze({

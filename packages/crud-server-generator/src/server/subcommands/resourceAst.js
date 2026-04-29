@@ -1,7 +1,6 @@
 import * as recast from "recast";
 import { parse as parseBabel } from "@babel/parser";
 import { normalizeText } from "@jskit-ai/database-runtime/shared";
-import { normalizeCrudLookupNamespace } from "@jskit-ai/kernel/shared/support/crudLookup";
 
 const { namedTypes: n, builders: b } = recast.types;
 
@@ -61,15 +60,6 @@ function parseExpression(source = "", context = "crud-server-generator scaffold-
   return declaration.init;
 }
 
-function parseStatement(source = "", context = "crud-server-generator scaffold-field") {
-  const ast = parseModule(String(source || ""), context);
-  const statement = ast?.program?.body?.[0];
-  if (!statement) {
-    throw new Error(`${context} could not parse statement.`);
-  }
-  return statement;
-}
-
 function resolveNodeKeyName(keyNode, { computed = false } = {}) {
   if (!keyNode) {
     return "";
@@ -122,58 +112,53 @@ function requireVariableDeclarator(programNode, variableName = "", context = "cr
   throw new Error(`${context} could not find const ${variableName}.`);
 }
 
-function requireSchemaPropertiesObject(programNode, variableName = "", context = "crud-server-generator scaffold-field") {
+function requireCreateSchemaFieldsObject(programNode, variableName = "", context = "crud-server-generator scaffold-field") {
   const declaration = requireVariableDeclarator(programNode, variableName, context);
   const initExpression = declaration.init;
   if (!n.CallExpression.check(initExpression)) {
-    throw new Error(`${context} expected ${variableName} to be initialized with Type.Object(...).`);
+    throw new Error(`${context} expected ${variableName} to be initialized with createSchema(...).`);
   }
-
-  const callee = initExpression.callee;
-  const isTypeObjectCall =
-    n.MemberExpression.check(callee) &&
-    !callee.computed &&
-    n.Identifier.check(callee.object) &&
-    callee.object.name === "Type" &&
-    n.Identifier.check(callee.property) &&
-    callee.property.name === "Object";
-  if (!isTypeObjectCall) {
-    throw new Error(`${context} expected ${variableName} to call Type.Object(...).`);
+  if (!n.Identifier.check(initExpression.callee) || initExpression.callee.name !== "createSchema") {
+    throw new Error(`${context} expected ${variableName} to call createSchema(...).`);
   }
 
   const firstArgument = initExpression.arguments?.[0];
   if (!n.ObjectExpression.check(firstArgument)) {
-    throw new Error(`${context} expected ${variableName} Type.Object first argument to be an object literal.`);
+    throw new Error(`${context} expected ${variableName} createSchema first argument to be an object literal.`);
   }
 
   return firstArgument;
 }
 
-function requireObjectFreezePayloadObject(programNode, variableName = "", context = "crud-server-generator scaffold-field") {
+function unwrapObjectExpression(expressionNode, context = "crud-server-generator scaffold-field") {
+  if (n.ObjectExpression.check(expressionNode)) {
+    return expressionNode;
+  }
+
+  if (n.CallExpression.check(expressionNode)) {
+    const callee = expressionNode.callee;
+    const isFreezeCall =
+      (n.Identifier.check(callee) && callee.name === "deepFreeze") ||
+      (
+        n.MemberExpression.check(callee) &&
+        !callee.computed &&
+        n.Identifier.check(callee.object) &&
+        callee.object.name === "Object" &&
+        n.Identifier.check(callee.property) &&
+        callee.property.name === "freeze"
+      );
+
+    if (isFreezeCall && n.ObjectExpression.check(expressionNode.arguments?.[0])) {
+      return expressionNode.arguments[0];
+    }
+  }
+
+  throw new Error(`${context} expected object literal or freeze-wrapped object literal.`);
+}
+
+function requireResourceObject(programNode, variableName = "resource", context = "crud-server-generator scaffold-field") {
   const declaration = requireVariableDeclarator(programNode, variableName, context);
-  const initExpression = declaration.init;
-  if (!n.CallExpression.check(initExpression)) {
-    throw new Error(`${context} expected ${variableName} to be initialized with Object.freeze(...).`);
-  }
-
-  const callee = initExpression.callee;
-  const isObjectFreezeCall =
-    n.MemberExpression.check(callee) &&
-    !callee.computed &&
-    n.Identifier.check(callee.object) &&
-    callee.object.name === "Object" &&
-    n.Identifier.check(callee.property) &&
-    callee.property.name === "freeze";
-  if (!isObjectFreezeCall) {
-    throw new Error(`${context} expected ${variableName} to call Object.freeze(...).`);
-  }
-
-  const payload = initExpression.arguments?.[0];
-  if (!n.ObjectExpression.check(payload)) {
-    throw new Error(`${context} expected ${variableName} Object.freeze payload to be an object literal.`);
-  }
-
-  return payload;
+  return unwrapObjectExpression(declaration.init, context);
 }
 
 function findObjectPropertyByName(objectNode, propertyName = "") {
@@ -195,48 +180,6 @@ function findObjectPropertyByName(objectNode, propertyName = "") {
   }
 
   return null;
-}
-
-function requireNormalizeFunctionBody(programNode, variableName = "", context = "crud-server-generator scaffold-field") {
-  const validatorObject = requireObjectFreezePayloadObject(programNode, variableName, context);
-  const normalizeProperty = findObjectPropertyByName(validatorObject, "normalize");
-  if (!normalizeProperty) {
-    throw new Error(`${context} expected ${variableName}.normalize(...) to exist.`);
-  }
-
-  if (n.ObjectMethod.check(normalizeProperty)) {
-    return normalizeProperty.body;
-  }
-
-  const propertyValue = normalizeProperty.value;
-  if (n.FunctionExpression.check(propertyValue) || n.ArrowFunctionExpression.check(propertyValue)) {
-    if (n.BlockStatement.check(propertyValue.body)) {
-      return propertyValue.body;
-    }
-  }
-
-  throw new Error(`${context} expected ${variableName}.normalize to be a function with a block body.`);
-}
-
-function requireNormalizedObjectLiteral(functionBody, context = "crud-server-generator scaffold-field") {
-  for (const statement of functionBody.body || []) {
-    if (!n.VariableDeclaration.check(statement)) {
-      continue;
-    }
-    for (const declaration of statement.declarations || []) {
-      if (!n.VariableDeclarator.check(declaration) || !n.Identifier.check(declaration.id)) {
-        continue;
-      }
-      if (declaration.id.name !== "normalized") {
-        continue;
-      }
-      if (!n.ObjectExpression.check(declaration.init)) {
-        throw new Error(`${context} expected normalized to be initialized as an object literal.`);
-      }
-      return declaration.init;
-    }
-  }
-  throw new Error(`${context} could not find "const normalized = { ... }".`);
 }
 
 function hasObjectProperty(objectNode, propertyName = "") {
@@ -284,155 +227,6 @@ function insertObjectProperty(
   return true;
 }
 
-function hasNormalizeIfInSourceCall(functionBody, fieldKey = "") {
-  const targetFieldKey = normalizeText(fieldKey);
-  if (!targetFieldKey) {
-    return false;
-  }
-
-  for (const statement of functionBody.body || []) {
-    if (!n.ExpressionStatement.check(statement) || !n.CallExpression.check(statement.expression)) {
-      continue;
-    }
-    const callExpression = statement.expression;
-    if (!n.Identifier.check(callExpression.callee) || callExpression.callee.name !== "normalizeIfInSource") {
-      continue;
-    }
-    const keyArgument = callExpression.arguments?.[2];
-    if (n.StringLiteral.check(keyArgument) && normalizeText(keyArgument.value) === targetFieldKey) {
-      return true;
-    }
-    if (n.Literal.check(keyArgument) && typeof keyArgument.value === "string" && normalizeText(keyArgument.value) === targetFieldKey) {
-      return true;
-    }
-  }
-
-  return false;
-}
-
-function resolveReturnNormalizedIndex(functionBody) {
-  const statements = Array.isArray(functionBody?.body) ? functionBody.body : [];
-  for (const [index, statement] of statements.entries()) {
-    if (!n.ReturnStatement.check(statement)) {
-      continue;
-    }
-    if (n.Identifier.check(statement.argument) && statement.argument.name === "normalized") {
-      return index;
-    }
-  }
-  return statements.length;
-}
-
-function hasResourceFieldMetaEntry(programNode, fieldKey = "") {
-  const targetKey = normalizeText(fieldKey);
-  if (!targetKey || !programNode || !Array.isArray(programNode.body)) {
-    return false;
-  }
-
-  for (const statement of programNode.body) {
-    if (!n.ExpressionStatement.check(statement) || !n.CallExpression.check(statement.expression)) {
-      continue;
-    }
-    const callExpression = statement.expression;
-    if (!n.MemberExpression.check(callExpression.callee) || callExpression.callee.computed) {
-      continue;
-    }
-    if (!n.Identifier.check(callExpression.callee.object) || callExpression.callee.object.name !== "RESOURCE_FIELD_META") {
-      continue;
-    }
-    if (!n.Identifier.check(callExpression.callee.property) || callExpression.callee.property.name !== "push") {
-      continue;
-    }
-
-    const firstArgument = callExpression.arguments?.[0];
-    if (!n.ObjectExpression.check(firstArgument)) {
-      continue;
-    }
-    const keyProperty = findObjectPropertyByName(firstArgument, "key");
-    if (!keyProperty) {
-      continue;
-    }
-    const keyValue = keyProperty.value;
-    if (n.StringLiteral.check(keyValue) && normalizeText(keyValue.value) === targetKey) {
-      return true;
-    }
-    if (n.Literal.check(keyValue) && typeof keyValue.value === "string" && normalizeText(keyValue.value) === targetKey) {
-      return true;
-    }
-  }
-
-  return false;
-}
-
-function sortImportSpecifiers(importDeclaration) {
-  const sourceSpecifiers = Array.isArray(importDeclaration?.specifiers) ? importDeclaration.specifiers : [];
-  const named = sourceSpecifiers
-    .filter((specifier) => n.ImportSpecifier.check(specifier))
-    .sort((left, right) => {
-      const leftName = String(left?.imported?.name || left?.imported?.value || "");
-      const rightName = String(right?.imported?.name || right?.imported?.value || "");
-      return leftName.localeCompare(rightName);
-    });
-  const nonNamed = sourceSpecifiers.filter((specifier) => !n.ImportSpecifier.check(specifier));
-  importDeclaration.specifiers = [...nonNamed, ...named];
-}
-
-function ensureNamedImport(programNode, modulePath = "", importName = "") {
-  const normalizedModulePath = normalizeText(modulePath);
-  const normalizedImportName = normalizeText(importName);
-  if (!normalizedModulePath || !normalizedImportName) {
-    return false;
-  }
-
-  const importDeclarations = (programNode.body || []).filter((statement) => n.ImportDeclaration.check(statement));
-  let declaration = importDeclarations.find((statement) => {
-    const source = statement.source;
-    if (n.StringLiteral.check(source)) {
-      return source.value === normalizedModulePath;
-    }
-    if (n.Literal.check(source)) {
-      return source.value === normalizedModulePath;
-    }
-    return false;
-  });
-
-  if (!declaration) {
-    declaration = b.importDeclaration(
-      [b.importSpecifier(b.identifier(normalizedImportName), b.identifier(normalizedImportName))],
-      b.stringLiteral(normalizedModulePath)
-    );
-    const insertionIndex = (() => {
-      const body = Array.isArray(programNode.body) ? programNode.body : [];
-      let index = 0;
-      while (index < body.length && n.ImportDeclaration.check(body[index])) {
-        index += 1;
-      }
-      return index;
-    })();
-    programNode.body.splice(insertionIndex, 0, declaration);
-    return true;
-  }
-
-  const hasSpecifier = (declaration.specifiers || []).some((specifier) => {
-    if (!n.ImportSpecifier.check(specifier)) {
-      return false;
-    }
-    const importedName = String(specifier.imported?.name || specifier.imported?.value || "");
-    const localName = String(specifier.local?.name || "");
-    return importedName === normalizedImportName || localName === normalizedImportName;
-  });
-  if (hasSpecifier) {
-    return false;
-  }
-
-  declaration.specifiers = [
-    ...(declaration.specifiers || []),
-    b.importSpecifier(b.identifier(normalizedImportName), b.identifier(normalizedImportName))
-  ];
-  sortImportSpecifiers(declaration);
-  return true;
-}
-
 function resolveObjectPropertyStringValue(objectNode, propertyName = "") {
   const propertyNode = findObjectPropertyByName(objectNode, propertyName);
   if (!propertyNode) {
@@ -450,74 +244,16 @@ function resolveObjectPropertyStringValue(objectNode, propertyName = "") {
 
 function resolveCrudResourceDefaults(source = "", context = "crud-server-generator scaffold-field") {
   const ast = parseModule(source, context);
-  const statements = Array.isArray(ast?.program?.body) ? ast.program.body : [];
-
-  for (const statement of statements) {
-    if (!n.VariableDeclaration.check(statement)) {
-      continue;
-    }
-    for (const declaration of statement.declarations || []) {
-      if (!n.VariableDeclarator.check(declaration) || !n.ObjectExpression.check(declaration.init)) {
-        continue;
-      }
-      const tableName = resolveObjectPropertyStringValue(declaration.init, "tableName");
-      if (!tableName) {
-        continue;
-      }
-      const idColumn = resolveObjectPropertyStringValue(declaration.init, "idColumn");
-      return Object.freeze({
-        tableName,
-        idColumn: idColumn || "id"
-      });
-    }
+  const resourceObject = requireResourceObject(ast.program, "resource", context);
+  const tableName = resolveObjectPropertyStringValue(resourceObject, "tableName");
+  if (!tableName) {
+    throw new Error(`${context} could not resolve resource tableName from resource object literal.`);
   }
-
-  throw new Error(`${context} could not resolve resource tableName/idColumn from resource object literal.`);
-}
-
-function renderResourceFieldMetaPushStatement(entry = {}) {
-  const key = normalizeText(entry?.key);
-  if (!key) {
-    throw new Error("crud-server-generator scaffold-field fieldMeta entry requires key.");
-  }
-
-  const lines = ["RESOURCE_FIELD_META.push({"];
-  lines.push(`  key: ${JSON.stringify(key)},`);
-
-  const repositoryColumn = normalizeText(entry?.repository?.column);
-  if (repositoryColumn) {
-    lines.push("  repository: {");
-    lines.push(`    column: ${JSON.stringify(repositoryColumn)}`);
-    lines.push("  },");
-  }
-
-  const relation = entry?.relation && typeof entry.relation === "object" ? entry.relation : null;
-  if (relation) {
-    const relationNamespace =
-      normalizeCrudLookupNamespace(relation.namespace) ||
-      normalizeCrudLookupNamespace(relation.apiPath);
-    if (!relationNamespace) {
-      throw new Error("crud-server-generator scaffold-field fieldMeta relation requires namespace.");
-    }
-    lines.push("  relation: {");
-    lines.push(`    kind: ${JSON.stringify(normalizeText(relation.kind) || "lookup")},`);
-    lines.push(`    namespace: ${JSON.stringify(relationNamespace)},`);
-    lines.push(`    valueKey: ${JSON.stringify(normalizeText(relation.valueKey) || "id")}`);
-    lines.push("  },");
-  }
-
-  const formControl = normalizeText(entry?.ui?.formControl);
-  if (formControl) {
-    lines.push("  ui: {");
-    lines.push(`    formControl: ${JSON.stringify(formControl)} // or "select"`);
-    lines.push("  }");
-  } else {
-    const lastIndex = lines.length - 1;
-    lines[lastIndex] = lines[lastIndex].replace(/,$/, "");
-  }
-
-  lines.push("});");
-  return lines.join("\n");
+  const idColumn = resolveObjectPropertyStringValue(resourceObject, "idColumn") || "id";
+  return Object.freeze({
+    tableName,
+    idColumn
+  });
 }
 
 function applyCrudResourceFieldPatch(
@@ -526,12 +262,7 @@ function applyCrudResourceFieldPatch(
     fieldKey = "",
     outputSchemaExpression = "",
     createSchemaExpression = "",
-    outputNormalizationExpression = "",
-    inputNormalizationExpression = "",
-    fieldMetaEntry = null,
-    normalizeImportNames = [],
-    databaseRuntimeImportNames = [],
-    databaseRuntimeRepositoryOptionsImportNames = [],
+    patchSchemaExpression = "",
     context = "crud-server-generator scaffold-field"
   } = {}
 ) {
@@ -545,82 +276,32 @@ function applyCrudResourceFieldPatch(
   if (!normalizeText(createSchemaExpression)) {
     throw new Error(`${context} apply patch requires createSchemaExpression.`);
   }
-  if (!normalizeText(outputNormalizationExpression)) {
-    throw new Error(`${context} apply patch requires outputNormalizationExpression.`);
-  }
-  if (!normalizeText(inputNormalizationExpression)) {
-    throw new Error(`${context} apply patch requires inputNormalizationExpression.`);
+  if (!normalizeText(patchSchemaExpression)) {
+    throw new Error(`${context} apply patch requires patchSchemaExpression.`);
   }
 
   const ast = parseModule(source, context);
   const programNode = ast.program;
   let changed = false;
 
-  const recordOutputSchemaObject = requireSchemaPropertiesObject(programNode, "recordOutputSchema", context);
+  const recordOutputSchemaObject = requireCreateSchemaFieldsObject(programNode, "recordOutputSchema", context);
   changed =
     insertObjectProperty(recordOutputSchemaObject, normalizedFieldKey, outputSchemaExpression, {
       context,
       insertBeforeComputed: true
     }) || changed;
 
-  const createBodySchemaObject = requireSchemaPropertiesObject(programNode, "createBodySchema", context);
+  const createBodySchemaObject = requireCreateSchemaFieldsObject(programNode, "createBodySchema", context);
   changed =
     insertObjectProperty(createBodySchemaObject, normalizedFieldKey, createSchemaExpression, {
       context
     }) || changed;
 
-  const recordNormalizeFunctionBody = requireNormalizeFunctionBody(programNode, "recordOutputValidator", context);
-  const recordNormalizedObject = requireNormalizedObjectLiteral(recordNormalizeFunctionBody, context);
+  const patchBodySchemaObject = requireCreateSchemaFieldsObject(programNode, "patchBodySchema", context);
   changed =
-    insertObjectProperty(recordNormalizedObject, normalizedFieldKey, outputNormalizationExpression, {
+    insertObjectProperty(patchBodySchemaObject, normalizedFieldKey, patchSchemaExpression, {
       context
     }) || changed;
-
-  const createNormalizeFunctionBody = requireNormalizeFunctionBody(programNode, "createBodyValidator", context);
-  if (!hasNormalizeIfInSourceCall(createNormalizeFunctionBody, normalizedFieldKey)) {
-    const insertionStatement = parseStatement(
-      `normalizeIfInSource(source, normalized, ${JSON.stringify(normalizedFieldKey)}, ${inputNormalizationExpression});`,
-      context
-    );
-    const insertionIndex = resolveReturnNormalizedIndex(createNormalizeFunctionBody);
-    createNormalizeFunctionBody.body.splice(insertionIndex, 0, insertionStatement);
-    changed = true;
-  }
-
-  const validFieldMetaEntry =
-    fieldMetaEntry &&
-    typeof fieldMetaEntry === "object" &&
-    normalizeText(fieldMetaEntry.key) === normalizedFieldKey
-      ? fieldMetaEntry
-      : null;
-  if (validFieldMetaEntry && !hasResourceFieldMetaEntry(programNode, normalizedFieldKey)) {
-    const fieldMetaStatement = parseStatement(renderResourceFieldMetaPushStatement(validFieldMetaEntry), context);
-    programNode.body.push(fieldMetaStatement);
-    changed = true;
-  }
-
-  const normalizeImports = Array.isArray(normalizeImportNames) ? normalizeImportNames : [];
-  for (const importName of normalizeImports) {
-    changed =
-      ensureNamedImport(programNode, "@jskit-ai/kernel/shared/support/normalize", importName) || changed;
-  }
-
-  const databaseRuntimeImports = Array.isArray(databaseRuntimeImportNames) ? databaseRuntimeImportNames : [];
-  for (const importName of databaseRuntimeImports) {
-    changed = ensureNamedImport(programNode, "@jskit-ai/database-runtime/shared", importName) || changed;
-  }
-
-  const databaseRuntimeRepositoryOptionsImports = Array.isArray(databaseRuntimeRepositoryOptionsImportNames)
-    ? databaseRuntimeRepositoryOptionsImportNames
-    : [];
-  for (const importName of databaseRuntimeRepositoryOptionsImports) {
-    changed =
-      ensureNamedImport(
-        programNode,
-        "@jskit-ai/database-runtime/shared/repositoryOptions",
-        importName
-      ) || changed;
-  }
 
   return {
     changed,

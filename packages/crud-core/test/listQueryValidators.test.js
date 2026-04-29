@@ -1,7 +1,8 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import {
-  cursorPaginationQueryValidator
+  cursorPaginationQueryValidator,
+  validateSchemaPayload
 } from "@jskit-ai/kernel/shared/validators";
 import { compileRouteValidator } from "@jskit-ai/kernel/_testable";
 import {
@@ -12,10 +13,45 @@ import {
   resolveCrudParentFilterKeys
 } from "../src/server/listQueryValidators.js";
 
-test("listSearchQueryValidator normalizes q", () => {
-  const normalized = listSearchQueryValidator.normalize({
+function createCrudResource({
+  viewFields = {},
+  createFields = {},
+  patchFields = {}
+} = {}) {
+  return {
+    operations: {
+      view: {
+        output: {
+          schema: {
+            type: "object",
+            properties: viewFields
+          }
+        }
+      },
+      create: {
+        body: {
+          schema: {
+            type: "object",
+            properties: createFields
+          }
+        }
+      },
+      patch: {
+        body: {
+          schema: {
+            type: "object",
+            properties: patchFields
+          }
+        }
+      }
+    }
+  };
+}
+
+test("listSearchQueryValidator normalizes q", async () => {
+  const normalized = await validateSchemaPayload(listSearchQueryValidator, {
     q: "  ani  "
-  });
+  }, { phase: "input" });
 
   assert.deepEqual(normalized, {
     q: "ani"
@@ -24,16 +60,16 @@ test("listSearchQueryValidator normalizes q", () => {
 
 test("listSearchQueryValidator keeps q optional when merged with pagination query validator", () => {
   const compiled = compileRouteValidator({
-    queryValidator: [cursorPaginationQueryValidator, listSearchQueryValidator]
+    query: [cursorPaginationQueryValidator, listSearchQueryValidator]
   });
 
   assert.deepEqual(compiled.schema.querystring.required || [], []);
 });
 
-test("lookupIncludeQueryValidator normalizes include", () => {
-  const normalized = lookupIncludeQueryValidator.normalize({
+test("lookupIncludeQueryValidator normalizes include", async () => {
+  const normalized = await validateSchemaPayload(lookupIncludeQueryValidator, {
     include: "  vetId,ownerId  "
-  });
+  }, { phase: "input" });
 
   assert.deepEqual(normalized, {
     include: "vetId,ownerId"
@@ -42,7 +78,7 @@ test("lookupIncludeQueryValidator normalizes include", () => {
 
 test("lookupIncludeQueryValidator keeps include optional when merged with pagination and search", () => {
   const compiled = compileRouteValidator({
-    queryValidator: [cursorPaginationQueryValidator, listSearchQueryValidator, lookupIncludeQueryValidator]
+    query: [cursorPaginationQueryValidator, listSearchQueryValidator, lookupIncludeQueryValidator]
   });
 
   assert.deepEqual(compiled.schema.querystring.required || [], []);
@@ -65,111 +101,104 @@ test("createCrudCursorPaginationQueryValidator allows opaque cursor strings for 
   });
 
   assert.notEqual(validator, cursorPaginationQueryValidator);
-  assert.deepEqual(validator.normalize({ cursor: "  offset:3  ", limit: "25" }), {
-    cursor: "offset:3",
-    limit: 25
-  });
+  return validateSchemaPayload(validator, { cursor: "  offset:3  ", limit: "25" }, { phase: "input" })
+    .then((normalized) => {
+      assert.deepEqual(normalized, {
+        cursor: "offset:3",
+        limit: 25
+      });
+    });
 });
 
 test("resolveCrudParentFilterKeys returns lookup keys that exist in create schema", () => {
-  const resource = {
-    operations: {
-      create: {
-        bodyValidator: {
-          schema: {
-            type: "object",
-            properties: {
-              contactId: { type: "integer" },
-              name: { type: "string" },
-              vetId: { type: "integer" }
-            }
-          }
-        }
-      }
-    },
-    fieldMeta: [
-      {
-        key: "contactId",
+  const resource = createCrudResource({
+    viewFields: {
+      contactId: {
+        type: "integer",
         relation: {
           kind: "lookup",
           apiPath: "/contacts",
           valueKey: "id"
         }
       },
-      {
-        key: "vetId",
+      vetId: {
+        type: "integer",
         relation: {
           kind: "lookup",
           apiPath: "/vets",
           valueKey: "id"
         }
       },
-      {
-        key: "ignoredLookup",
+      ignoredLookup: {
+        type: "integer",
         relation: {
           kind: "lookup",
           apiPath: "/ignored",
           valueKey: "id"
         }
       }
-    ]
-  };
+    },
+    createFields: {
+      contactId: {
+        type: "integer",
+        relation: {
+          kind: "lookup",
+          apiPath: "/contacts",
+          valueKey: "id"
+        }
+      },
+      name: { type: "string" },
+      vetId: {
+        type: "integer",
+        relation: {
+          kind: "lookup",
+          apiPath: "/vets",
+          valueKey: "id"
+        }
+      }
+    }
+  });
 
   assert.deepEqual(resolveCrudParentFilterKeys(resource), ["contactId", "vetId"]);
 });
 
-test("createCrudParentFilterQueryValidator normalizes configured parent filters", () => {
-  const validator = createCrudParentFilterQueryValidator({
-    operations: {
-      create: {
-        bodyValidator: {
-          schema: {
-            type: "object",
-            properties: {
-              contactId: { type: "integer" }
-            }
-          }
-        }
-      }
-    },
-    fieldMeta: [
-      {
-        key: "contactId",
+test("createCrudParentFilterQueryValidator normalizes configured parent filters", async () => {
+  const validator = createCrudParentFilterQueryValidator(createCrudResource({
+    viewFields: {
+      contactId: {
+        type: "integer",
         relation: {
           kind: "lookup",
           apiPath: "/contacts",
           valueKey: "id"
         }
       }
-    ]
-  });
+    },
+    createFields: {
+      contactId: {
+        type: "integer",
+        relation: {
+          kind: "lookup",
+          apiPath: "/contacts",
+          valueKey: "id"
+        }
+      }
+    }
+  }));
 
-  const normalized = validator.normalize({
-    contactId: "  42  ",
-    unknown: "x"
-  });
+  const normalized = await validateSchemaPayload(validator, {
+    contactId: "  42  "
+  }, { phase: "input" });
   assert.deepEqual(normalized, {
     contactId: "42"
   });
 });
 
-test("createCrudParentFilterQueryValidator keeps canonical field keys when fieldMeta declares parent route aliases", () => {
-  const validator = createCrudParentFilterQueryValidator({
-    operations: {
-      create: {
-        bodyValidator: {
-          schema: {
-            type: "object",
-            properties: {
-              staffContactId: { type: "integer" }
-            }
-          }
-        }
-      }
-    },
-    fieldMeta: [
-      {
-        key: "staffContactId",
+test("createCrudParentFilterQueryValidator keeps canonical field keys when schema declares parent route aliases", async () => {
+  const validator = createCrudParentFilterQueryValidator(createCrudResource({
+    viewFields: {
+      staffContactId: {
+        type: "integer",
         parentRouteParamKey: "contactId",
         relation: {
           kind: "lookup",
@@ -177,46 +206,54 @@ test("createCrudParentFilterQueryValidator keeps canonical field keys when field
           valueKey: "id"
         }
       }
-    ]
-  });
-
-  assert.deepEqual(Object.keys(validator.schema.properties), ["staffContactId"]);
-  assert.deepEqual(validator.normalize({
-    staffContactId: " 42 ",
-    contactId: " 99 "
-  }), {
-    staffContactId: "42"
-  });
-});
-
-test("createCrudParentFilterQueryValidator keeps parent filters optional when merged", () => {
-  const parentValidator = createCrudParentFilterQueryValidator({
-    operations: {
-      create: {
-        bodyValidator: {
-          schema: {
-            type: "object",
-            properties: {
-              contactId: { type: "integer" }
-            }
-          }
-        }
-      }
     },
-    fieldMeta: [
-      {
-        key: "contactId",
+    createFields: {
+      staffContactId: {
+        type: "integer",
+        parentRouteParamKey: "contactId",
         relation: {
           kind: "lookup",
           apiPath: "/contacts",
           valueKey: "id"
         }
       }
-    ]
+    }
+  }));
+
+  assert.deepEqual(Object.keys(validator.schema.structure), ["staffContactId"]);
+  assert.deepEqual(await validateSchemaPayload(validator, {
+    staffContactId: " 42 "
+  }, { phase: "input" }), {
+    staffContactId: "42"
   });
+});
+
+test("createCrudParentFilterQueryValidator keeps parent filters optional when merged", () => {
+  const parentValidator = createCrudParentFilterQueryValidator(createCrudResource({
+    viewFields: {
+      contactId: {
+        type: "integer",
+        relation: {
+          kind: "lookup",
+          apiPath: "/contacts",
+          valueKey: "id"
+        }
+      }
+    },
+    createFields: {
+      contactId: {
+        type: "integer",
+        relation: {
+          kind: "lookup",
+          apiPath: "/contacts",
+          valueKey: "id"
+        }
+      }
+    }
+  }));
 
   const compiled = compileRouteValidator({
-    queryValidator: [cursorPaginationQueryValidator, listSearchQueryValidator, parentValidator]
+    query: [cursorPaginationQueryValidator, listSearchQueryValidator, parentValidator]
   });
   assert.deepEqual(compiled.schema.querystring.required || [], []);
 });

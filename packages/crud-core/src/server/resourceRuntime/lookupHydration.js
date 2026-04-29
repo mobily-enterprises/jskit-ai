@@ -6,6 +6,7 @@ import {
   normalizeCrudLookupContainerKey,
   resolveCrudLookupContainerKey
 } from "@jskit-ai/kernel/shared/support/crudLookup";
+import { buildCrudFieldContractMap } from "@jskit-ai/kernel/shared/support/crudFieldContract";
 import { normalizeCrudLookupApiPath } from "../lookupPathSupport.js";
 
 const DEFAULT_LOOKUP_INCLUDE = "*";
@@ -136,7 +137,9 @@ function createCrudLookupRuntime(resource = {}, { outputKeys = [] } = {}) {
       .filter(Boolean)
   );
 
-  const sourceEntries = Array.isArray(resource?.fieldMeta) ? resource.fieldMeta : [];
+  const sourceEntries = Object.values(buildCrudFieldContractMap(resource, {
+    context: "crud lookup runtime field contract"
+  }));
   const lookupEntries = [];
   const seenKeys = new Set();
 

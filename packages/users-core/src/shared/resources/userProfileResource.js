@@ -1,148 +1,127 @@
-import { Type } from "typebox";
-import {
-  createCursorListValidator,
-  normalizeObjectInput
-} from "@jskit-ai/kernel/shared/validators";
-import { normalizeText } from "@jskit-ai/kernel/shared/actions/textNormalization";
+import { createSchema } from "json-rest-schema";
+import { createCursorListValidator } from "@jskit-ai/kernel/shared/validators";
+import { deepFreeze } from "@jskit-ai/kernel/shared/support/deepFreeze";
 import { createOperationMessages } from "../operationMessages.js";
 
-function normalizeProfileInput(payload = {}) {
-  const source = normalizeObjectInput(payload);
-  const normalized = {};
+const userProfileOutputSchema = createSchema({
+  displayName: { type: "string", required: true, minLength: 1, maxLength: 160 },
+  email: { type: "string", required: true, minLength: 1, maxLength: 255 },
+  emailManagedBy: { type: "string", required: false, minLength: 1, maxLength: 64 },
+  emailChangeFlow: { type: "string", required: false, minLength: 1, maxLength: 64 }
+});
 
-  if (Object.hasOwn(source, "displayName")) {
-    normalized.displayName = normalizeText(source.displayName);
-  }
-
-  return normalized;
-}
-
-const userProfileOutputSchema = Type.Object(
-  {
-    displayName: Type.String(),
-    email: Type.String(),
-    emailManagedBy: Type.Optional(Type.String()),
-    emailChangeFlow: Type.Optional(Type.String()),
-    avatar: Type.Optional(Type.Object({}, { additionalProperties: true }))
-  },
-  { additionalProperties: true }
-);
-
-const userProfileOutputValidator = Object.freeze({
+const userProfileOutput = deepFreeze({
   schema: userProfileOutputSchema,
-  normalize: normalizeObjectInput
+  mode: "replace"
 });
 
-const userProfileCreateBodySchema = Type.Object(
-  {
-    displayName: Type.String({ minLength: 1, maxLength: 120 })
-  },
-  { additionalProperties: false }
-);
-
-const userProfilePatchBodySchema = Type.Partial(userProfileCreateBodySchema, {
-  additionalProperties: false,
-  minProperties: 1
+const userProfileBodySchema = createSchema({
+  displayName: {
+    type: "string",
+    required: true,
+    minLength: 1,
+    maxLength: 120
+  }
 });
 
-const avatarUploadBodyValidator = Object.freeze({
-  schema: Type.Object(
-    {
-      mimeType: Type.Optional(
-        Type.String({
-          minLength: 1,
-          messages: {
-            default: "Avatar mimeType is invalid."
-          }
-        })
-      ),
-      fileName: Type.Optional(
-        Type.String({
-          minLength: 1,
-          messages: {
-            default: "Avatar fileName is invalid."
-          }
-        })
-      ),
-      uploadDimension: Type.Optional(
-        Type.String({
-          minLength: 1,
-          messages: {
-            default: "Avatar uploadDimension is invalid."
-          }
-        })
-      )
+const avatarUploadBody = deepFreeze({
+  schema: createSchema({
+    mimeType: {
+      type: "string",
+      required: false,
+      minLength: 1,
+      messages: {
+        default: "Avatar mimeType is invalid."
+      }
     },
-    { additionalProperties: true }
-  ),
-  normalize: normalizeObjectInput
+    fileName: {
+      type: "string",
+      required: false,
+      minLength: 1,
+      messages: {
+        default: "Avatar fileName is invalid."
+      }
+    },
+    uploadDimension: {
+      type: "string",
+      required: false,
+      minLength: 1,
+      messages: {
+        default: "Avatar uploadDimension is invalid."
+      }
+    }
+  }),
+  mode: "patch"
 });
 
-const avatarDeleteBodyValidator = Object.freeze({
-  schema: Type.Object({}, { additionalProperties: false }),
-  normalize: normalizeObjectInput
+const avatarDeleteBody = deepFreeze({
+  schema: createSchema({}),
+  mode: "patch"
 });
 
-const avatarOperationOutputValidator = Object.freeze({
-  schema: Type.Object({}, { additionalProperties: true }),
-  normalize: normalizeObjectInput
+const avatarOperationOutput = deepFreeze({
+  schema: {
+    type: "object",
+    additionalProperties: true
+  }
 });
 
 const USER_PROFILE_OPERATION_MESSAGES = createOperationMessages();
 
-const userProfileResource = Object.freeze({
+const userProfileResource = deepFreeze({
   namespace: "userProfile",
-  operations: Object.freeze({
-    view: Object.freeze({
+  operations: {
+    view: {
       method: "GET",
       messages: USER_PROFILE_OPERATION_MESSAGES,
-      outputValidator: userProfileOutputValidator
-    }),
-    list: Object.freeze({
+      output: userProfileOutput
+    },
+    list: {
       method: "GET",
       messages: USER_PROFILE_OPERATION_MESSAGES,
-      outputValidator: createCursorListValidator(userProfileOutputValidator)
-    }),
-    create: Object.freeze({
+      output: createCursorListValidator(userProfileOutput)
+    },
+    create: {
       method: "POST",
       messages: USER_PROFILE_OPERATION_MESSAGES,
-      bodyValidator: Object.freeze({
-        schema: userProfileCreateBodySchema,
-        normalize: normalizeProfileInput
-      }),
-      outputValidator: userProfileOutputValidator
-    }),
-    replace: Object.freeze({
+      body: {
+        schema: userProfileBodySchema,
+        mode: "create"
+      },
+      output: userProfileOutput
+    },
+    replace: {
       method: "PUT",
       messages: USER_PROFILE_OPERATION_MESSAGES,
-      bodyValidator: Object.freeze({
-        schema: userProfileCreateBodySchema,
-        normalize: normalizeProfileInput
-      }),
-      outputValidator: userProfileOutputValidator
-    }),
-    patch: Object.freeze({
+      body: {
+        schema: userProfileBodySchema,
+        mode: "replace"
+      },
+      output: userProfileOutput
+    },
+    patch: {
       method: "PATCH",
       messages: USER_PROFILE_OPERATION_MESSAGES,
-      bodyValidator: Object.freeze({
-        schema: userProfilePatchBodySchema,
-        normalize: normalizeProfileInput
-      }),
-      outputValidator: userProfileOutputValidator
-    }),
-    avatarUpload: Object.freeze({
+      body: {
+        schema: userProfileBodySchema,
+        mode: "patch"
+      },
+      output: userProfileOutput
+    },
+    avatarUpload: {
       method: "POST",
       messages: USER_PROFILE_OPERATION_MESSAGES,
-      bodyValidator: avatarUploadBodyValidator,
-      outputValidator: avatarOperationOutputValidator
-    }),
-    avatarDelete: Object.freeze({
+      body: avatarUploadBody,
+      output: avatarOperationOutput
+    },
+    avatarDelete: {
       method: "DELETE",
       messages: USER_PROFILE_OPERATION_MESSAGES,
-      bodyValidator: avatarDeleteBodyValidator,
-      outputValidator: avatarOperationOutputValidator
-    })
-  })
+      body: avatarDeleteBody,
+      output: avatarOperationOutput
+    }
+  }
 });
 
 export { userProfileResource };
+export { userProfileOutputSchema };

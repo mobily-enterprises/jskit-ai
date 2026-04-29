@@ -26,5 +26,10 @@ export {
 } from "./validators/operationMessages.js";
 export {
   validateOperationSection,
-  validateOperationInput
+  validateOperationSectionAsync,
+  validateOperationInput,
+  validateOperationInputAsync
 } from "./validators/operationValidation.js";
+export {
+  simplifyJsonApiDocument
+} from "./validators/jsonApiResponses.js";

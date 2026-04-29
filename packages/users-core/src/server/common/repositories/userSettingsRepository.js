@@ -1,156 +1,109 @@
-import {
-  normalizeDbRecordId,
-  normalizeRecordId,
-  toIsoString,
-  nowDb,
-  isDuplicateEntryError,
-  createWithTransaction
-} from "./repositoryUtils.js";
-import { DEFAULT_USER_SETTINGS } from "../../../shared/settings.js";
-import {
-  userSettingsFields
-} from "../../../shared/resources/userSettingsFields.js";
+import { normalizeRecordId, nowDb, isDuplicateEntryError, createWithTransaction } from "./repositoryUtils.js";
 
-function mapRow(row) {
-  if (!row) {
-    return null;
+const USER_SETTINGS_PATCH_FIELDS = Object.freeze([
+  "theme",
+  "locale",
+  "timeZone",
+  "dateFormat",
+  "numberFormat",
+  "currencyCode",
+  "avatarSize",
+  "productUpdates",
+  "accountActivity",
+  "securityAlerts",
+  "passwordSignInEnabled",
+  "passwordSetupRequired"
+]);
+
+function pickPatchFields(source = {}) {
+  const patch = {};
+
+  for (const fieldName of USER_SETTINGS_PATCH_FIELDS) {
+    if (Object.hasOwn(source, fieldName)) {
+      patch[fieldName] = source[fieldName];
+    }
   }
 
-  const mapped = {
-    userId: normalizeDbRecordId(row.user_id, { fallback: "" }),
-    passwordSignInEnabled: row.password_sign_in_enabled == null ? true : Boolean(row.password_sign_in_enabled),
-    passwordSetupRequired: row.password_setup_required == null ? false : Boolean(row.password_setup_required),
-    createdAt: toIsoString(row.created_at),
-    updatedAt: toIsoString(row.updated_at)
-  };
-
-  for (const field of userSettingsFields) {
-    const column = field.repository.column;
-    const value = Object.hasOwn(row, column)
-      ? row[column]
-      : field.resolveDefault({
-          settings: mapped,
-          row
-        });
-    mapped[field.key] = field.normalizeOutput(value, {
-      settings: mapped,
-      row
-    });
-  }
-
-  return mapped;
+  return patch;
 }
 
-function normalizeBoolean(value, fallback = false) {
-  if (value === undefined) {
-    return fallback;
+function createRepository({ api, knex } = {}) {
+  if (!api?.resources?.userSettings) {
+    throw new TypeError("userSettingsRepository requires json-rest-api userSettings resource.");
   }
-  return value === true;
-}
-
-function createInsertPayload(userId) {
-  const normalizedUserId = normalizeRecordId(userId, { fallback: null });
-  if (!normalizedUserId) {
-    throw new TypeError("userSettingsRepository requires a valid user id.");
-  }
-
-  const payload = {
-    user_id: normalizedUserId,
-    password_sign_in_enabled: DEFAULT_USER_SETTINGS.passwordSignInEnabled,
-    password_setup_required: DEFAULT_USER_SETTINGS.passwordSetupRequired,
-    created_at: nowDb(),
-    updated_at: nowDb()
-  };
-
-  const resolvedDefaults = {};
-  for (const field of userSettingsFields) {
-    const defaultValue = field.resolveDefault({
-      settings: resolvedDefaults
-    });
-    payload[field.repository.column] = field.normalizeInput(defaultValue, {
-      payload: resolvedDefaults,
-      settings: resolvedDefaults
-    });
-    resolvedDefaults[field.key] = field.normalizeOutput(defaultValue, {
-      settings: resolvedDefaults
-    });
-  }
-
-  return payload;
-}
-
-function createRepository(knex) {
   if (typeof knex !== "function") {
     throw new TypeError("userSettingsRepository requires knex.");
   }
   const withTransaction = createWithTransaction(knex);
 
+  async function queryFirst(filters = {}, options = {}) {
+    const result = await api.resources.userSettings.query({
+      queryParams: {
+        filters
+      },
+      transaction: options?.trx,
+      simplified: true
+    });
+
+    return Array.isArray(result?.data) ? result.data[0] || null : null;
+  }
+
   async function findByUserId(userId, options = {}) {
-    const client = options?.trx || knex;
     const normalizedUserId = normalizeRecordId(userId, { fallback: null });
     if (!normalizedUserId) {
       return null;
     }
 
-    const row = await client("user_settings").where({ user_id: normalizedUserId }).first();
-    return mapRow(row);
+    return queryFirst({ id: normalizedUserId }, options);
   }
 
   async function ensureForUserId(userId, options = {}) {
-    const client = options?.trx || knex;
     const normalizedUserId = normalizeRecordId(userId, { fallback: null });
     if (!normalizedUserId) {
       throw new TypeError("userSettingsRepository.ensureForUserId requires a valid user id.");
     }
 
-    const existing = await findByUserId(normalizedUserId, { trx: client });
+    const existing = await findByUserId(normalizedUserId, { trx: options?.trx });
     if (existing) {
       return existing;
     }
 
     try {
-      await client("user_settings").insert(createInsertPayload(normalizedUserId));
+      await api.resources.userSettings.post({
+        id: normalizedUserId,
+        transaction: options?.trx
+      });
     } catch (error) {
       if (!isDuplicateEntryError(error)) {
         throw error;
       }
     }
 
-    return findByUserId(normalizedUserId, { trx: client });
+    return findByUserId(normalizedUserId, { trx: options?.trx });
   }
 
   async function patchUserSettings(userId, patch = {}, options = {}) {
-    const client = options?.trx || knex;
     const normalizedUserId = normalizeRecordId(userId, { fallback: null });
     if (!normalizedUserId) {
       throw new TypeError("userSettingsRepository.patchUserSettings requires a valid user id.");
     }
 
-    const ensured = await ensureForUserId(normalizedUserId, { trx: client });
+    await ensureForUserId(normalizedUserId, { trx: options?.trx });
     const source = patch && typeof patch === "object" ? patch : {};
+    const updatePayload = pickPatchFields(source);
 
-    const dbPatch = {
-      updated_at: nowDb()
-    };
-
-  for (const field of userSettingsFields) {
-    if (!Object.hasOwn(source, field.key)) {
-      continue;
+    if (Object.keys(updatePayload).length < 1) {
+      return findByUserId(normalizedUserId, { trx: options?.trx });
     }
-    dbPatch[field.repository.column] = field.normalizeInput(source[field.key], {
-      payload: source,
-      settings: ensured
+
+    await api.resources.userSettings.patch({
+      id: normalizedUserId,
+      ...updatePayload,
+      updatedAt: nowDb(),
+      transaction: options?.trx
     });
-    }
 
-    if (Object.hasOwn(source, "passwordSignInEnabled")) {
-      dbPatch.password_sign_in_enabled = normalizeBoolean(source.passwordSignInEnabled, ensured.passwordSignInEnabled);
-    }
-    if (Object.hasOwn(source, "passwordSetupRequired")) {
-      dbPatch.password_setup_required = normalizeBoolean(source.passwordSetupRequired, ensured.passwordSetupRequired);
-    }
-    await client("user_settings").where({ user_id: normalizedUserId }).update(dbPatch);
-    return findByUserId(normalizedUserId, { trx: client });
+    return findByUserId(normalizedUserId, { trx: options?.trx });
   }
 
   async function updatePreferences(userId, patch = {}, options = {}) {
@@ -166,9 +119,9 @@ function createRepository(knex) {
       userId,
       {
         passwordSignInEnabled: enabled,
-        passwordSetupRequired: Object.hasOwn(options, "passwordSetupRequired")
-          ? options.passwordSetupRequired
-          : undefined
+        ...(Object.hasOwn(options, "passwordSetupRequired")
+          ? { passwordSetupRequired: options.passwordSetupRequired }
+          : {})
       },
       options
     );
@@ -190,4 +143,4 @@ function createRepository(knex) {
   });
 }
 
-export { createRepository, mapRow };
+export { createRepository };

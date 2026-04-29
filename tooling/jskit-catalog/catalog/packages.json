@@ -1162,7 +1162,7 @@
               },
               {
                 "subpath": "./shared",
-                "summary": "Exports shared console settings resource and field registration helpers."
+                "summary": "Exports the shared console settings resource contract."
               },
               {
                 "subpath": "./client",
@@ -1213,28 +1213,9 @@
               "reason": "Install console settings schema migration.",
               "category": "migration",
               "id": "console-core-generic-initial-schema"
-            },
-            {
-              "from": "templates/packages/main/src/shared/resources/consoleSettingsFields.js",
-              "to": "packages/main/src/shared/resources/consoleSettingsFields.js",
-              "preserveOnRemove": true,
-              "reason": "Install app-owned console settings field definitions.",
-              "category": "console-core",
-              "id": "console-core-app-owned-console-settings-fields"
             }
           ],
-          "text": [
-            {
-              "op": "append-text",
-              "file": "packages/main/src/shared/index.js",
-              "position": "top",
-              "skipIfContains": "import \"./resources/consoleSettingsFields.js\";",
-              "value": "import \"./resources/consoleSettingsFields.js\";\n",
-              "reason": "Load app-owned console settings field definitions inside the main shared module.",
-              "category": "console-core",
-              "id": "console-core-main-shared-console-settings-field-import"
-            }
-          ]
+          "text": []
         }
       }
     },
@@ -3884,14 +3865,6 @@
               "id": "users-core-profile-username-schema"
             },
             {
-              "from": "templates/packages/main/src/shared/resources/userSettingsFields.js",
-              "to": "packages/main/src/shared/resources/userSettingsFields.js",
-              "preserveOnRemove": true,
-              "reason": "Install app-owned user settings field definitions.",
-              "category": "users-core",
-              "id": "users-core-app-owned-user-settings-fields"
-            },
-            {
               "from": "templates/packages/users/package.json",
               "to": "packages/users/package.json",
               "ownership": "app",
@@ -4092,36 +4065,6 @@
               "reason": "Enable users-backed auth profile sync when users-core is installed.",
               "category": "runtime-config",
               "id": "users-core-auth-profile-mode"
-            },
-            {
-              "op": "append-text",
-              "file": "packages/main/src/shared/index.js",
-              "position": "top",
-              "skipIfContains": "import \"./resources/userSettingsFields.js\";",
-              "value": "import \"./resources/userSettingsFields.js\";\n",
-              "reason": "Load app-owned user settings field definitions inside the main shared module.",
-              "category": "users-core",
-              "id": "users-core-main-shared-user-settings-field-import"
-            },
-            {
-              "op": "append-text",
-              "file": "src/main.js",
-              "position": "top",
-              "skipIfContains": "import \"@local/main/shared\";",
-              "value": "import \"@local/main/shared\";\n",
-              "reason": "Ensure client runtime loads app-owned shared settings field registration.",
-              "category": "users-core",
-              "id": "users-core-client-import-main-shared"
-            },
-            {
-              "op": "append-text",
-              "file": "server.js",
-              "position": "top",
-              "skipIfContains": "import \"@local/main/shared\";",
-              "value": "import \"@local/main/shared\";\n",
-              "reason": "Ensure server runtime loads app-owned shared settings field registration.",
-              "category": "users-core",
-              "id": "users-core-server-import-main-shared"
             }
           ]
         }
@@ -4546,14 +4489,6 @@
               "id": "users-core-workspaces-drop-color"
             },
             {
-              "from": "templates/packages/main/src/shared/resources/workspaceSettingsFields.js",
-              "to": "packages/main/src/shared/resources/workspaceSettingsFields.js",
-              "preserveOnRemove": true,
-              "reason": "Install app-owned workspace settings field definitions.",
-              "category": "workspaces-core",
-              "id": "users-core-app-owned-workspace-settings-fields"
-            },
-            {
               "from": "templates/config/roles.js",
               "to": "config/roles.js",
               "preserveOnRemove": true,
@@ -4563,16 +4498,6 @@
             }
           ],
           "text": [
-            {
-              "op": "append-text",
-              "file": "packages/main/src/shared/index.js",
-              "position": "top",
-              "skipIfContains": "import \"./resources/workspaceSettingsFields.js\";",
-              "value": "import \"./resources/workspaceSettingsFields.js\";\n",
-              "reason": "Load app-owned workspace settings field definitions inside the main shared module.",
-              "category": "workspaces-core",
-              "id": "users-core-main-shared-workspace-settings-field-import"
-            },
             {
               "op": "append-text",
               "file": "config/public.js",

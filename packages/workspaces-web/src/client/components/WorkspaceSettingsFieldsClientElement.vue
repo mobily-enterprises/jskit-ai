@@ -168,7 +168,7 @@
 
 <script setup>
 import { computed, reactive } from "vue";
-import { validateOperationSection } from "@jskit-ai/http-runtime/shared/validators/operationValidation";
+import { validateOperationSectionAsync } from "@jskit-ai/http-runtime/shared/validators/operationValidation";
 import { ROUTE_VISIBILITY_WORKSPACE } from "@jskit-ai/kernel/shared/support/visibility";
 import { workspaceSettingsResource } from "@jskit-ai/workspaces-core/shared/resources/workspaceSettingsResource";
 import {
@@ -225,9 +225,9 @@ const addEdit = useAddEdit({
   },
   model: workspaceSettingsForm,
   parseInput: (rawPayload) =>
-    validateOperationSection({
+    validateOperationSectionAsync({
       operation: workspaceSettingsResource.operations.patch,
-      section: "bodyValidator",
+      section: "body",
       value: rawPayload
     }),
   mapLoadedToModel: (model, payload = {}) => {

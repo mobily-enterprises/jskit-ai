@@ -173,7 +173,7 @@ async function submit() {
 
   const validation = validateOperationSection({
     operation: assistantConfigResource.operations.patch,
-    section: "bodyValidator",
+    section: "body",
     value: {
       systemPrompt: form.systemPrompt
     }

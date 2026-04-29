@@ -1,122 +1,187 @@
-import { Type } from "typebox";
-import { normalizeText } from "@jskit-ai/kernel/shared/actions/textNormalization";
+import { createSchema } from "json-rest-schema";
 import {
-  normalizeObjectInput,
   createCursorListValidator,
-  normalizeSettingsFieldInput,
-  recordIdSchema
+  RECORD_ID_PATTERN
 } from "@jskit-ai/kernel/shared/validators";
-import { normalizeRecordId } from "@jskit-ai/kernel/shared/support/normalize";
-import { workspaceSettingsFields } from "./workspaceSettingsFields.js";
-import { createWorkspaceRoleCatalog } from "../roles.js";
+import { deepFreeze } from "@jskit-ai/kernel/shared/support/deepFreeze";
 
-function buildCreateBodySchema() {
-  const properties = {};
-  for (const field of workspaceSettingsFields) {
-    properties[field.key] = field.required === false ? Type.Optional(field.inputSchema) : field.inputSchema;
-  }
+const WORKSPACE_SETTINGS_FIELD_KEYS = deepFreeze([
+  "lightPrimaryColor",
+  "lightSecondaryColor",
+  "lightSurfaceColor",
+  "lightSurfaceVariantColor",
+  "darkPrimaryColor",
+  "darkSecondaryColor",
+  "darkSurfaceColor",
+  "darkSurfaceVariantColor",
+  "invitesEnabled"
+]);
 
-  return Type.Object(properties, {
-    additionalProperties: false,
+const workspaceSettingsBodySchema = createSchema({
+  lightPrimaryColor: {
+    type: "string",
+    required: true,
+    minLength: 7,
+    maxLength: 7,
+    pattern: "^#[0-9A-Fa-f]{6}$",
     messages: {
-      additionalProperties: "Unexpected field.",
-      default: "Invalid value."
+      required: "Light primary color is required.",
+      pattern: "Light primary color must be a hex color like #1867C0.",
+      default: "Light primary color must be a hex color like #1867C0."
     }
-  });
-}
-
-function buildSettingsOutputSchema() {
-  const properties = {};
-  for (const field of workspaceSettingsFields) {
-    properties[field.key] = field.outputSchema;
-  }
-  properties.invitesAvailable = Type.Boolean();
-  properties.invitesEffective = Type.Boolean();
-
-  return Type.Object(properties, { additionalProperties: false });
-}
-
-function buildResponseRecordSchema() {
-  return Type.Object(
-    {
-      workspace: Type.Object(
-        {
-          id: recordIdSchema,
-          slug: Type.String({ minLength: 1 }),
-          ownerUserId: recordIdSchema
-        },
-        { additionalProperties: false }
-      ),
-      settings: buildSettingsOutputSchema(),
-      roleCatalog: Type.Object(
-        {
-          collaborationEnabled: Type.Boolean(),
-          defaultInviteRole: Type.String(),
-          roles: Type.Array(Type.Object({}, { additionalProperties: true })),
-          assignableRoleIds: Type.Array(Type.String({ minLength: 1 }))
-        },
-        { additionalProperties: true }
-      )
-    },
-    { additionalProperties: false }
-  );
-}
-
-function normalizeInput(payload = {}) {
-  return normalizeSettingsFieldInput(payload, workspaceSettingsFields);
-}
-
-function normalizeOutput(payload = {}) {
-  const source = normalizeObjectInput(payload);
-  const workspace = normalizeObjectInput(source.workspace);
-  const settings = normalizeObjectInput(source.settings);
-  const normalizedSettings = {};
-
-  for (const field of workspaceSettingsFields) {
-    const rawValue = Object.hasOwn(settings, field.key)
-      ? settings[field.key]
-      : field.resolveDefault({
-          workspace,
-          settings
-        });
-    normalizedSettings[field.key] = field.normalizeOutput(rawValue, {
-      workspace,
-      settings
-    });
-  }
-
-  const invitesEnabled = normalizedSettings.invitesEnabled !== false;
-  const invitesAvailable = settings.invitesAvailable !== false;
-  const invitesEffective =
-    typeof settings.invitesEffective === "boolean" ? settings.invitesEffective : invitesEnabled;
-  normalizedSettings.invitesEnabled = invitesEnabled;
-  normalizedSettings.invitesAvailable = invitesAvailable;
-  normalizedSettings.invitesEffective = invitesEffective;
-  const roleCatalog = normalizeObjectInput(source.roleCatalog);
-  const hasRoleCatalog =
-    Array.isArray(roleCatalog.roles) &&
-    roleCatalog.roles.length > 0 &&
-    Array.isArray(roleCatalog.assignableRoleIds);
-
-  return {
-    workspace: {
-      id: normalizeRecordId(workspace.id, { fallback: "" }),
-      slug: normalizeText(workspace.slug),
-      ownerUserId: normalizeRecordId(workspace.ownerUserId, { fallback: "" })
-    },
-    settings: normalizedSettings,
-    roleCatalog: hasRoleCatalog ? roleCatalog : createWorkspaceRoleCatalog()
-  };
-}
-
-const responseRecordValidator = Object.freeze({
-  get schema() {
-    return buildResponseRecordSchema();
   },
-  normalize: normalizeOutput
+  lightSecondaryColor: {
+    type: "string",
+    required: true,
+    minLength: 7,
+    maxLength: 7,
+    pattern: "^#[0-9A-Fa-f]{6}$",
+    messages: {
+      required: "Light secondary color is required.",
+      pattern: "Light secondary color must be a hex color like #48A9A6.",
+      default: "Light secondary color must be a hex color like #48A9A6."
+    }
+  },
+  lightSurfaceColor: {
+    type: "string",
+    required: true,
+    minLength: 7,
+    maxLength: 7,
+    pattern: "^#[0-9A-Fa-f]{6}$",
+    messages: {
+      required: "Light surface color is required.",
+      pattern: "Light surface color must be a hex color like #FFFFFF.",
+      default: "Light surface color must be a hex color like #FFFFFF."
+    }
+  },
+  lightSurfaceVariantColor: {
+    type: "string",
+    required: true,
+    minLength: 7,
+    maxLength: 7,
+    pattern: "^#[0-9A-Fa-f]{6}$",
+    messages: {
+      required: "Light surface variant color is required.",
+      pattern: "Light surface variant color must be a hex color like #424242.",
+      default: "Light surface variant color must be a hex color like #424242."
+    }
+  },
+  darkPrimaryColor: {
+    type: "string",
+    required: true,
+    minLength: 7,
+    maxLength: 7,
+    pattern: "^#[0-9A-Fa-f]{6}$",
+    messages: {
+      required: "Dark primary color is required.",
+      pattern: "Dark primary color must be a hex color like #2196F3.",
+      default: "Dark primary color must be a hex color like #2196F3."
+    }
+  },
+  darkSecondaryColor: {
+    type: "string",
+    required: true,
+    minLength: 7,
+    maxLength: 7,
+    pattern: "^#[0-9A-Fa-f]{6}$",
+    messages: {
+      required: "Dark secondary color is required.",
+      pattern: "Dark secondary color must be a hex color like #54B6B2.",
+      default: "Dark secondary color must be a hex color like #54B6B2."
+    }
+  },
+  darkSurfaceColor: {
+    type: "string",
+    required: true,
+    minLength: 7,
+    maxLength: 7,
+    pattern: "^#[0-9A-Fa-f]{6}$",
+    messages: {
+      required: "Dark surface color is required.",
+      pattern: "Dark surface color must be a hex color like #212121.",
+      default: "Dark surface color must be a hex color like #212121."
+    }
+  },
+  darkSurfaceVariantColor: {
+    type: "string",
+    required: true,
+    minLength: 7,
+    maxLength: 7,
+    pattern: "^#[0-9A-Fa-f]{6}$",
+    messages: {
+      required: "Dark surface variant color is required.",
+      pattern: "Dark surface variant color must be a hex color like #C8C8C8.",
+      default: "Dark surface variant color must be a hex color like #C8C8C8."
+    }
+  },
+  invitesEnabled: {
+    type: "boolean",
+    required: true,
+    strictBoolean: true,
+    messages: {
+      required: "invitesEnabled is required.",
+      default: "invitesEnabled must be a boolean."
+    }
+  }
 });
 
-const resource = {
+const workspaceSettingsWorkspaceOutputSchema = createSchema({
+  id: { type: "string", required: true, minLength: 1, pattern: RECORD_ID_PATTERN },
+  slug: { type: "string", required: true, minLength: 1, maxLength: 120 },
+  ownerUserId: { type: "string", required: true, minLength: 1, pattern: RECORD_ID_PATTERN }
+});
+
+const workspaceSettingsViewSchema = createSchema({
+  lightPrimaryColor: { type: "string", required: true, minLength: 7, maxLength: 7, pattern: "^#[0-9A-Fa-f]{6}$" },
+  lightSecondaryColor: { type: "string", required: true, minLength: 7, maxLength: 7, pattern: "^#[0-9A-Fa-f]{6}$" },
+  lightSurfaceColor: { type: "string", required: true, minLength: 7, maxLength: 7, pattern: "^#[0-9A-Fa-f]{6}$" },
+  lightSurfaceVariantColor: { type: "string", required: true, minLength: 7, maxLength: 7, pattern: "^#[0-9A-Fa-f]{6}$" },
+  darkPrimaryColor: { type: "string", required: true, minLength: 7, maxLength: 7, pattern: "^#[0-9A-Fa-f]{6}$" },
+  darkSecondaryColor: { type: "string", required: true, minLength: 7, maxLength: 7, pattern: "^#[0-9A-Fa-f]{6}$" },
+  darkSurfaceColor: { type: "string", required: true, minLength: 7, maxLength: 7, pattern: "^#[0-9A-Fa-f]{6}$" },
+  darkSurfaceVariantColor: { type: "string", required: true, minLength: 7, maxLength: 7, pattern: "^#[0-9A-Fa-f]{6}$" },
+  invitesEnabled: { type: "boolean", required: true },
+  invitesAvailable: { type: "boolean", required: true },
+  invitesEffective: { type: "boolean", required: true }
+});
+
+const workspaceSettingsOutputDefinition = deepFreeze({
+  workspace: {
+    schema: workspaceSettingsWorkspaceOutputSchema,
+    mode: "replace"
+  },
+  settings: {
+    schema: workspaceSettingsViewSchema,
+    mode: "replace"
+  },
+  roleCatalog: {
+    schema: {
+      type: "object",
+      additionalProperties: true,
+      properties: {
+        collaborationEnabled: { type: "boolean" },
+        defaultInviteRole: { type: "string" },
+        roles: {
+          type: "array",
+          items: {
+            type: "object",
+            additionalProperties: true
+          }
+        },
+        assignableRoleIds: {
+          type: "array",
+          items: {
+            type: "string",
+            minLength: 1
+          }
+        }
+      },
+      required: ["collaborationEnabled", "defaultInviteRole", "roles", "assignableRoleIds"]
+    }
+  }
+});
+
+const workspaceSettingsResource = deepFreeze({
   namespace: "workspaceSettings",
   messages: {
     validation: "Fix invalid workspace settings values and try again.",
@@ -127,43 +192,40 @@ const resource = {
   operations: {
     view: {
       method: "GET",
-      outputValidator: responseRecordValidator
+      output: workspaceSettingsOutputDefinition
     },
     list: {
       method: "GET",
-      outputValidator: createCursorListValidator(responseRecordValidator)
+      output: createCursorListValidator(workspaceSettingsOutputDefinition)
     },
     create: {
       method: "POST",
-      bodyValidator: {
-        get schema() {
-          return buildCreateBodySchema();
-        },
-        normalize: normalizeInput
+      body: {
+        schema: workspaceSettingsBodySchema,
+        mode: "create"
       },
-      outputValidator: responseRecordValidator
+      output: workspaceSettingsOutputDefinition
     },
     replace: {
       method: "PUT",
-      bodyValidator: {
-        get schema() {
-          return buildCreateBodySchema();
-        },
-        normalize: normalizeInput
+      body: {
+        schema: workspaceSettingsBodySchema,
+        mode: "replace"
       },
-      outputValidator: responseRecordValidator
+      output: workspaceSettingsOutputDefinition
     },
     patch: {
       method: "PATCH",
-      bodyValidator: {
-        get schema() {
-          return Type.Partial(buildCreateBodySchema(), { additionalProperties: false });
-        },
-        normalize: normalizeInput
+      body: {
+        schema: workspaceSettingsBodySchema,
+        mode: "patch"
       },
-      outputValidator: responseRecordValidator
+      output: workspaceSettingsOutputDefinition
     }
   }
-};
+});
 
-export { resource as workspaceSettingsResource };
+export {
+  WORKSPACE_SETTINGS_FIELD_KEYS,
+  workspaceSettingsResource
+};

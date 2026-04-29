@@ -10,7 +10,7 @@ import { authLoginPasswordCommand } from "@jskit-ai/auth-core/shared/commands/au
 test("auth fastify adapter exports controller/routes backed by shared command validators", () => {
   assert.equal(typeof AuthController, "function");
   assert.equal(typeof buildRoutes, "function");
-  assert.ok(authLoginPasswordCommand.operation.bodyValidator.schema);
+  assert.ok(authLoginPasswordCommand.operation.body.schema);
 });
 
 test("auth-web no longer contains legacy server/schema directory", () => {

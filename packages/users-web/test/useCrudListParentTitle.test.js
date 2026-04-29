@@ -8,24 +8,33 @@ const contactChildResource = Object.freeze({
       containerKey: "lookups"
     }
   },
-  fieldMeta: Object.freeze([
-    Object.freeze({
-      key: "contactId",
-      relation: Object.freeze({
-        kind: "lookup",
-        namespace: "contacts",
-        valueKey: "id"
-      })
-    }),
-    Object.freeze({
-      key: "serviceId",
-      relation: Object.freeze({
-        kind: "lookup",
-        namespace: "services",
-        valueKey: "id"
-      })
-    })
-  ])
+  operations: {
+    view: {
+      output: {
+        schema: {
+          type: "object",
+          properties: {
+            contactId: {
+              type: "integer",
+              relation: {
+                kind: "lookup",
+                namespace: "contacts",
+                valueKey: "id"
+              }
+            },
+            serviceId: {
+              type: "integer",
+              relation: {
+                kind: "lookup",
+                namespace: "services",
+                valueKey: "id"
+              }
+            }
+          }
+        }
+      }
+    }
+  }
 });
 
 test("resolveCrudListParentDescriptor selects the nearest lookup route parent", () => {
@@ -116,17 +125,26 @@ test("resolveCrudListParentRecordTitle falls back to entity label plus id", () =
 test("resolveCrudListParentDescriptor supports parentRouteParamKey aliases", () => {
   const descriptor = resolveCrudListParentDescriptor({
     resource: {
-      fieldMeta: [
-        {
-          key: "staffContactId",
-          parentRouteParamKey: "contactId",
-          relation: {
-            kind: "lookup",
-            namespace: "contacts",
-            valueKey: "id"
+      operations: {
+        view: {
+          output: {
+            schema: {
+              type: "object",
+              properties: {
+                staffContactId: {
+                  type: "integer",
+                  parentRouteParamKey: "contactId",
+                  relation: {
+                    kind: "lookup",
+                    namespace: "contacts",
+                    valueKey: "id"
+                  }
+                }
+              }
+            }
           }
         }
-      ]
+      }
     },
     route: {
       matched: [{ path: "/w/:workspaceSlug/admin/contacts/:contactId/availabilities" }],

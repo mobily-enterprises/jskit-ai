@@ -3,7 +3,7 @@ import { resolveCrudRecordChangedEvent } from "@jskit-ai/crud-core/shared/crudNa
 import {
   checkCrudLookupFormControl,
   isCrudRuntimeOutputOnlyFieldKey
-} from "@jskit-ai/crud-core/shared/crudFieldMetaSupport";
+} from "@jskit-ai/crud-core/shared/crudFieldSupport";
 import { importFreshModuleFromAbsolutePath } from "@jskit-ai/kernel/server/support";
 import {
   normalizeCrudLookupApiPath,
@@ -12,6 +12,7 @@ import {
   resolveCrudLookupApiPathFromNamespace,
   resolveCrudLookupContainerKey
 } from "@jskit-ai/kernel/shared/support/crudLookup";
+import { buildCrudFieldContractMap } from "@jskit-ai/kernel/shared/support/crudFieldContract";
 import { normalizeSurfaceId } from "@jskit-ai/kernel/shared/surface/registry";
 import { normalizeText } from "@jskit-ai/kernel/shared/support/normalize";
 
@@ -152,28 +153,28 @@ function resolveOperationRealtimeEvents(
 }
 
 function requireOutputSchema(operation, operationName, { context = "ui-generator" } = {}) {
-  const outputValidator = operation?.outputValidator;
-  if (!outputValidator || typeof outputValidator !== "object" || Array.isArray(outputValidator)) {
-    throw new Error(`${context} resource operations.${operationName} is missing outputValidator.`);
+  const output = operation?.output;
+  if (!output || typeof output !== "object" || Array.isArray(output)) {
+    throw new Error(`${context} resource operations.${operationName} is missing output.`);
   }
 
-  const schema = outputValidator.schema;
+  const schema = output.schema;
   if (!schema || typeof schema !== "object" || Array.isArray(schema)) {
-    throw new Error(`${context} resource operations.${operationName}.outputValidator is missing schema.`);
+    throw new Error(`${context} resource operations.${operationName}.output is missing schema.`);
   }
 
   return schema;
 }
 
 function requireBodySchema(operation, operationName, { context = "ui-generator" } = {}) {
-  const bodyValidator = operation?.bodyValidator;
-  if (!bodyValidator || typeof bodyValidator !== "object" || Array.isArray(bodyValidator)) {
-    throw new Error(`${context} resource operations.${operationName} is missing bodyValidator.`);
+  const body = operation?.body;
+  if (!body || typeof body !== "object" || Array.isArray(body)) {
+    throw new Error(`${context} resource operations.${operationName} is missing body.`);
   }
 
-  const schema = bodyValidator.schema;
+  const schema = body.schema;
   if (!schema || typeof schema !== "object" || Array.isArray(schema)) {
-    throw new Error(`${context} resource operations.${operationName}.bodyValidator is missing schema.`);
+    throw new Error(`${context} resource operations.${operationName}.body is missing schema.`);
   }
 
   return schema;
@@ -301,7 +302,7 @@ function toSelectOptionIdentity(value) {
   return `${typeof value}:${String(value)}`;
 }
 
-function normalizeFieldUiOptions(rawOptions, { context = "resource fieldMeta ui.options" } = {}) {
+function normalizeFieldUiOptions(rawOptions, { context = "resource field ui.options" } = {}) {
   if (rawOptions === undefined || rawOptions === null) {
     return [];
   }
@@ -464,37 +465,26 @@ function normalizeLookupRelation(relation = {}) {
   return normalized;
 }
 
-function buildResourceFieldMetaMap(resource = {}) {
+function buildResourceFieldContractMap(resource = {}) {
   const map = {};
-  const entries = Array.isArray(resource?.fieldMeta) ? resource.fieldMeta : [];
+  const entries = Object.values(buildCrudFieldContractMap(resource, {
+    context: "crud ui resource field contract"
+  }));
   for (const rawEntry of entries) {
-    if (!rawEntry || typeof rawEntry !== "object" || Array.isArray(rawEntry)) {
-      continue;
-    }
-
-    const key = normalizeText(rawEntry.key);
+    const key = normalizeText(rawEntry?.key);
     if (!key) {
       continue;
     }
 
-    const nextEntry = {
-      key
-    };
-    const repositoryColumn = normalizeText(rawEntry?.repository?.column);
-    if (repositoryColumn) {
-      nextEntry.repository = {
-        column: repositoryColumn
-      };
-    }
-
+    const nextEntry = { key };
     const relation = normalizeLookupRelation(rawEntry.relation);
     const fieldUiOptions = normalizeFieldUiOptions(rawEntry?.ui?.options, {
-      context: `resource.fieldMeta["${key}"].ui.options`
+      context: `resource schema field "${key}" ui.options`
     });
     if (relation) {
       nextEntry.relation = relation;
       const formControl = checkCrudLookupFormControl(rawEntry?.ui?.formControl, {
-        context: `resource.fieldMeta["${key}"].ui.formControl`,
+        context: `resource schema field "${key}" ui.formControl`,
         defaultValue: "autocomplete"
       });
       if (formControl) {
@@ -522,13 +512,13 @@ function resolveLookupContainerKey(resource = {}, { context = "ui-generator" } =
   });
 }
 
-function toLookupRelation(fieldMetaMap = {}, fieldKey = "", { lookupContainerKey = "lookups" } = {}) {
+function toLookupRelation(fieldContractMap = {}, fieldKey = "", { lookupContainerKey = "lookups" } = {}) {
   const key = normalizeText(fieldKey);
   if (!key) {
     return null;
   }
 
-  const relation = normalizeLookupRelation(fieldMetaMap?.[key]?.relation);
+  const relation = normalizeLookupRelation(fieldContractMap?.[key]?.relation);
   if (!relation) {
     return null;
   }
@@ -585,7 +575,7 @@ function toPositiveInteger(value) {
   return Number.isInteger(parsed) && parsed > 0 ? parsed : null;
 }
 
-function createFieldDefinitions(properties = {}, { fieldMetaMap = {}, lookupContainerKey = "lookups" } = {}) {
+function createFieldDefinitions(properties = {}, { fieldContractMap = {}, lookupContainerKey = "lookups" } = {}) {
   const fields = [];
 
   for (const [rawKey, schema] of Object.entries(properties)) {
@@ -595,7 +585,7 @@ function createFieldDefinitions(properties = {}, { fieldMetaMap = {}, lookupCont
     }
 
     const schemaType = resolveSchemaType(schema);
-    const relation = toLookupRelation(fieldMetaMap, key, { lookupContainerKey });
+    const relation = toLookupRelation(fieldContractMap, key, { lookupContainerKey });
     fields.push({
       key,
       label: resolveFieldLabel(key, relation),
@@ -623,7 +613,7 @@ function createFieldDefinitions(properties = {}, { fieldMetaMap = {}, lookupCont
 function createFormFieldDefinitions(
   properties = {},
   {
-    fieldMetaMap = {},
+    fieldContractMap = {},
     lookupContainerKey = "lookups",
     parentRouteParamKey = ""
   } = {}
@@ -638,14 +628,14 @@ function createFormFieldDefinitions(
     }
 
     const schemaType = resolveSchemaType(schema);
-    const relation = toLookupRelation(fieldMetaMap, key, { lookupContainerKey });
-    const fieldUiOptions = Array.isArray(fieldMetaMap?.[key]?.ui?.options)
-      ? fieldMetaMap[key].ui.options
+    const relation = toLookupRelation(fieldContractMap, key, { lookupContainerKey });
+    const fieldUiOptions = Array.isArray(fieldContractMap?.[key]?.ui?.options)
+      ? fieldContractMap[key].ui.options
       : [];
     const schemaEnumValues = Array.isArray(schemaType.schema?.enum) ? schemaType.schema.enum : [];
     if (!relation && schemaEnumValues.length > 0 && fieldUiOptions.length < 1) {
       throw new Error(
-        `resource form field "${key}" defines schema enum values but is missing resource.fieldMeta["${key}"].ui.options.`
+        `resource form field "${key}" defines schema enum values but is missing schema ui.options metadata.`
       );
     }
     const selectOptions = relation
@@ -660,8 +650,8 @@ function createFormFieldDefinitions(
               )
         );
     const lookupFormControl = relation
-      ? checkCrudLookupFormControl(fieldMetaMap?.[key]?.ui?.formControl, {
-          context: `resource.fieldMeta["${key}"].ui.formControl`,
+      ? checkCrudLookupFormControl(fieldContractMap?.[key]?.ui?.formControl, {
+          context: `resource schema field "${key}" ui.formControl`,
           defaultValue: "autocomplete"
         })
       : "";
@@ -972,7 +962,7 @@ export {
   requireObjectProperties,
   resolveListItemProperties,
   resolveLookupContainerKey,
-  buildResourceFieldMetaMap,
+  buildResourceFieldContractMap,
   createFieldDefinitions,
   createFormFieldDefinitions,
   resolveNearestParentRouteParamKey,

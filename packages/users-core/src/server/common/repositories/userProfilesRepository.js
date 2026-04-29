@@ -1,29 +1,91 @@
-import { createCrudResourceRuntime } from "@jskit-ai/crud-core/server/resourceRuntime";
 import {
+  createWithTransaction,
   isDuplicateEntryError,
   normalizeDbRecordId,
   normalizeLowerText,
   normalizeRecordId,
-  nowDb
+  normalizeText,
+  nowDb,
+  toIsoString
 } from "./repositoryUtils.js";
 import { normalizeIdentity } from "../support/identity.js";
-import { resource } from "../resources/userProfilesResource.js";
 
 const USERNAME_MAX_LENGTH = 120;
-const REPOSITORY_CONFIG = Object.freeze({
-  context: "internal.repository.user-profiles"
-});
 
-function normalizeProfileRecord(payload) {
-  return payload ? resource.operations.view.outputValidator.normalize(payload) : null;
+function normalizeUsername(value) {
+  const normalized = normalizeLowerText(value)
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .slice(0, USERNAME_MAX_LENGTH);
+
+  return normalized || "";
+}
+
+function normalizeNullableString(value) {
+  if (value === null || value === undefined) {
+    return null;
+  }
+
+  return normalizeText(value);
+}
+
+function normalizeNullableVersion(value) {
+  if (value === null || value === undefined || value === "") {
+    return null;
+  }
+
+  return String(value);
+}
+
+function normalizeProfileRecord(payload = null) {
+  if (!payload || typeof payload !== "object") {
+    return null;
+  }
+
+  return {
+    id: normalizeDbRecordId(payload.id, { fallback: null }),
+    authProvider: normalizeLowerText(payload.authProvider),
+    authProviderUserSid: normalizeText(payload.authProviderUserSid),
+    email: normalizeLowerText(payload.email),
+    username: normalizeUsername(payload.username),
+    displayName: normalizeText(payload.displayName),
+    avatarStorageKey: normalizeNullableString(payload.avatarStorageKey),
+    avatarVersion: normalizeNullableVersion(payload.avatarVersion),
+    avatarUpdatedAt: payload.avatarUpdatedAt ? toIsoString(payload.avatarUpdatedAt) : null,
+    createdAt: payload.createdAt ? toIsoString(payload.createdAt) : null
+  };
 }
 
 function normalizeCreatePayload(payload = {}) {
-  return resource.operations.create.bodyValidator.normalize(payload);
-}
+  const source = payload && typeof payload === "object" && !Array.isArray(payload) ? payload : {};
+  const normalized = {};
 
-function normalizeUsername(value) {
-  return normalizeCreatePayload({ username: value }).username || "";
+  if (Object.hasOwn(source, "authProvider") || Object.hasOwn(source, "provider")) {
+    normalized.authProvider = normalizeLowerText(source.authProvider ?? source.provider);
+  }
+  if (Object.hasOwn(source, "authProviderUserSid") || Object.hasOwn(source, "providerUserId")) {
+    normalized.authProviderUserSid = normalizeText(source.authProviderUserSid ?? source.providerUserId);
+  }
+  if (Object.hasOwn(source, "email")) {
+    normalized.email = normalizeLowerText(source.email);
+  }
+  if (Object.hasOwn(source, "username")) {
+    normalized.username = normalizeUsername(source.username);
+  }
+  if (Object.hasOwn(source, "displayName")) {
+    normalized.displayName = normalizeText(source.displayName);
+  }
+  if (Object.hasOwn(source, "avatarStorageKey")) {
+    normalized.avatarStorageKey = normalizeNullableString(source.avatarStorageKey);
+  }
+  if (Object.hasOwn(source, "avatarVersion")) {
+    normalized.avatarVersion = normalizeNullableVersion(source.avatarVersion);
+  }
+  if (Object.hasOwn(source, "avatarUpdatedAt")) {
+    normalized.avatarUpdatedAt = source.avatarUpdatedAt == null ? null : new Date(source.avatarUpdatedAt);
+  }
+
+  return normalized;
 }
 
 function usernameBaseFromEmail(email) {
@@ -69,11 +131,22 @@ function createDuplicateEmailConflictError() {
   return error;
 }
 
-async function resolveUniqueUsername(client, baseUsername, { excludeUserId = null } = {}) {
+async function resolveUniqueUsername(api, baseUsername, { excludeUserId = null, transaction = null } = {}) {
   const normalizedExcludeUserId = normalizeDbRecordId(excludeUserId, { fallback: null });
+
   for (let suffix = 0; suffix < 1000; suffix += 1) {
     const candidate = buildUsernameCandidate(baseUsername, suffix);
-    const existing = await client("users").where({ username: candidate }).first();
+    const result = await api.resources.userProfiles.query({
+      queryParams: {
+        filters: {
+          username: candidate
+        }
+      },
+      transaction,
+      simplified: true
+    });
+
+    const existing = Array.isArray(result?.data) ? result.data[0] || null : null;
     const existingId = normalizeDbRecordId(existing?.id, { fallback: null });
     if (!existing || existingId === normalizedExcludeUserId) {
       return candidate;
@@ -83,13 +156,27 @@ async function resolveUniqueUsername(client, baseUsername, { excludeUserId = nul
   throw new Error("Unable to generate unique username.");
 }
 
-function createRepository(knex) {
+function createRepository({ api, knex } = {}) {
+  if (!api?.resources?.userProfiles) {
+    throw new TypeError("internal.repository.user-profiles requires json-rest-api userProfiles resource.");
+  }
   if (typeof knex !== "function") {
     throw new TypeError("internal.repository.user-profiles requires knex.");
   }
 
-  const resourceRuntime = createCrudResourceRuntime(resource, knex, REPOSITORY_CONFIG);
-  const withTransaction = resourceRuntime.withTransaction;
+  const withTransaction = createWithTransaction(knex);
+
+  async function queryFirst(filters = {}, options = {}) {
+    const result = await api.resources.userProfiles.query({
+      queryParams: {
+        filters
+      },
+      transaction: options?.trx,
+      simplified: true
+    });
+
+    return Array.isArray(result?.data) ? result.data[0] || null : null;
+  }
 
   async function findById(userId, options = {}) {
     const normalizedUserId = normalizeRecordId(userId, { fallback: null });
@@ -97,10 +184,7 @@ function createRepository(knex) {
       return null;
     }
 
-    return resourceRuntime.findById(normalizedUserId, {
-      ...options,
-      include: "none"
-    });
+    return normalizeProfileRecord(await queryFirst({ id: normalizedUserId }, options));
   }
 
   async function findByEmail(email, options = {}) {
@@ -109,9 +193,7 @@ function createRepository(knex) {
       return null;
     }
 
-    const client = options?.trx || knex;
-    const row = await client("users").where({ email: normalizedEmail }).first();
-    return row ? normalizeProfileRecord(row) : null;
+    return normalizeProfileRecord(await queryFirst({ email: normalizedEmail }, options));
   }
 
   async function findByIdentity(identityLike, options = {}) {
@@ -120,15 +202,15 @@ function createRepository(knex) {
       return null;
     }
 
-    const client = options?.trx || knex;
-    const row = await client("users")
-      .where({
-        auth_provider: identity.provider,
-        auth_provider_user_sid: identity.providerUserId
-      })
-      .first();
-
-    return row ? normalizeProfileRecord(row) : null;
+    return normalizeProfileRecord(
+      await queryFirst(
+        {
+          authProvider: identity.provider,
+          authProviderUserSid: identity.providerUserId
+        },
+        options
+      )
+    );
   }
 
   async function updateDisplayNameById(userId, displayName, options = {}) {
@@ -137,14 +219,14 @@ function createRepository(knex) {
       return null;
     }
 
-    return resourceRuntime.updateById(
-      normalizedUserId,
-      { displayName },
-      {
-        ...options,
-        include: "none"
-      }
-    );
+    const updated = await api.resources.userProfiles.patch({
+      id: normalizedUserId,
+      displayName,
+      updatedAt: new Date(),
+      transaction: options?.trx
+    });
+
+    return normalizeProfileRecord(updated);
   }
 
   async function updateAvatarById(userId, avatar = {}, options = {}) {
@@ -153,18 +235,16 @@ function createRepository(knex) {
       return null;
     }
 
-    return resourceRuntime.updateById(
-      normalizedUserId,
-      {
-        avatarStorageKey: avatar.avatarStorageKey ?? null,
-        avatarVersion: avatar.avatarVersion ?? null,
-        avatarUpdatedAt: avatar.avatarUpdatedAt ?? nowDb()
-      },
-      {
-        ...options,
-        include: "none"
-      }
-    );
+    const updated = await api.resources.userProfiles.patch({
+      id: normalizedUserId,
+      avatarStorageKey: avatar.avatarStorageKey ?? null,
+      avatarVersion: avatar.avatarVersion ?? null,
+      avatarUpdatedAt: avatar.avatarUpdatedAt ?? nowDb(),
+      updatedAt: new Date(),
+      transaction: options?.trx
+    });
+
+    return normalizeProfileRecord(updated);
   }
 
   async function clearAvatarById(userId, options = {}) {
@@ -173,18 +253,16 @@ function createRepository(knex) {
       return null;
     }
 
-    return resourceRuntime.updateById(
-      normalizedUserId,
-      {
-        avatarStorageKey: null,
-        avatarVersion: null,
-        avatarUpdatedAt: null
-      },
-      {
-        ...options,
-        include: "none"
-      }
-    );
+    const updated = await api.resources.userProfiles.patch({
+      id: normalizedUserId,
+      avatarStorageKey: null,
+      avatarVersion: null,
+      avatarUpdatedAt: null,
+      updatedAt: new Date(),
+      transaction: options?.trx
+    });
+
+    return normalizeProfileRecord(updated);
   }
 
   async function upsert(profileLike = {}, options = {}) {
@@ -205,53 +283,48 @@ function createRepository(knex) {
     }
 
     const executeUpsert = async (trx) => {
-      const where = {
-        auth_provider: identity.provider,
-        auth_provider_user_sid: identity.providerUserId
-      };
-      const existing = await trx("users").where(where).first();
+      const existing = await findByIdentity(identity, { trx });
 
       try {
         if (existing) {
           const existingUsername = normalizeUsername(existing.username);
           const username = existingUsername || (
             await resolveUniqueUsername(
-              trx,
+              api,
               requestedUsername || usernameBaseFromEmail(email),
-              { excludeUserId: existing.id }
+              { excludeUserId: existing.id, transaction: trx }
             )
           );
-          return resourceRuntime.updateById(
-            normalizeDbRecordId(existing.id, { fallback: null }),
-            {
-              email,
-              displayName,
-              username
-            },
-            {
-              trx,
-              include: "none"
-            }
-          );
+
+          const updated = await api.resources.userProfiles.patch({
+            id: normalizeDbRecordId(existing.id, { fallback: null }),
+            email,
+            displayName,
+            username,
+            updatedAt: new Date(),
+            transaction: trx
+          });
+
+          return normalizeProfileRecord(updated);
         }
 
         const username = await resolveUniqueUsername(
-          trx,
-          requestedUsername || usernameBaseFromEmail(email)
+          api,
+          requestedUsername || usernameBaseFromEmail(email),
+          { transaction: trx }
         );
-        return resourceRuntime.create(
-          {
-            authProvider: identity.provider,
-            authProviderUserSid: identity.providerUserId,
-            email,
-            displayName,
-            username
-          },
-          {
-            trx,
-            include: "none"
-          }
-        );
+
+        const created = await api.resources.userProfiles.post({
+          authProvider: identity.provider,
+          authProviderUserSid: identity.providerUserId,
+          email,
+          displayName,
+          username,
+          createdAt: new Date(),
+          transaction: trx
+        });
+
+        return normalizeProfileRecord(created);
       } catch (error) {
         if (duplicateTargetsEmail(error)) {
           throw createDuplicateEmailConflictError();
@@ -264,15 +337,14 @@ function createRepository(knex) {
         }
       }
 
-      const resolved = await trx("users").where(where).first();
-      return resolved ? normalizeProfileRecord(resolved) : null;
+      return findByIdentity(identity, { trx });
     };
 
     if (options?.trx) {
       return executeUpsert(options.trx);
     }
 
-    return knex.transaction(executeUpsert);
+    return withTransaction(executeUpsert);
   }
 
   return Object.freeze({

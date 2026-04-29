@@ -16,7 +16,7 @@ import {
   requireObjectProperties,
   resolveListItemProperties,
   resolveLookupContainerKey,
-  buildResourceFieldMetaMap,
+  buildResourceFieldContractMap,
   createFieldDefinitions,
   createFormFieldDefinitions,
   resolveNearestParentRouteParamKey,
@@ -468,7 +468,7 @@ async function buildUiTemplateContext({ appRoot, options } = {}) {
   const lookupContainerKey = resolveLookupContainerKey(resource, {
     context: "crud-ui-generator"
   });
-  const fieldMetaMap = buildResourceFieldMetaMap(resource);
+  const fieldContractMap = buildResourceFieldContractMap(resource);
 
   const hasListOperation = selectedOperations.has("list");
   const hasViewOperation = selectedOperations.has("view");
@@ -485,7 +485,7 @@ async function buildUiTemplateContext({ appRoot, options } = {}) {
       context: "crud-ui-generator operations.list.realtime"
     });
     listFieldsAll = createFieldDefinitions(resolveListItemProperties(listOutputSchema, { context: "crud-ui-generator" }), {
-      fieldMetaMap,
+      fieldContractMap,
       lookupContainerKey
     });
     validateDisplayFieldsForOperation(selectedDisplayFields, listFieldsAll, "list");
@@ -498,7 +498,7 @@ async function buildUiTemplateContext({ appRoot, options } = {}) {
     viewFieldsAll = createFieldDefinitions(
       requireObjectProperties(viewOutputSchema, "operations.view output", { context: "crud-ui-generator" }),
       {
-        fieldMetaMap,
+        fieldContractMap,
         lookupContainerKey
       }
     );
@@ -512,7 +512,7 @@ async function buildUiTemplateContext({ appRoot, options } = {}) {
     createFieldsAll = createFormFieldDefinitions(
       requireObjectProperties(createBodySchema, "operations.create body", { context: "crud-ui-generator" }),
       {
-        fieldMetaMap,
+        fieldContractMap,
         lookupContainerKey,
         parentRouteParamKey
       }
@@ -527,7 +527,7 @@ async function buildUiTemplateContext({ appRoot, options } = {}) {
     editFieldsAll = createFormFieldDefinitions(
       requireObjectProperties(patchBodySchema, "operations.patch body", { context: "crud-ui-generator" }),
       {
-        fieldMetaMap,
+        fieldContractMap,
         lookupContainerKey,
         parentRouteParamKey
       }

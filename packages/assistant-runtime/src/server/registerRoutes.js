@@ -15,7 +15,7 @@ import {
 } from "@jskit-ai/assistant-core/server";
 import { resolveAssistantSurfaceConfig } from "../shared/assistantSurfaces.js";
 import { actionIds } from "./actionIds.js";
-import { assistantSurfaceRouteParamsValidator } from "./inputValidators.js";
+import { assistantSurfaceRouteParams } from "./inputSchemas.js";
 import { resolveWorkspaceServerScopeSupport } from "./support/workspaceScopeSupport.js";
 
 function buildRouteParamsValidator(requiresWorkspace, workspaceScopeSupport = null) {
@@ -24,19 +24,19 @@ function buildRouteParamsValidator(requiresWorkspace, workspaceScopeSupport = nu
       throw new Error("Assistant workspace routes require workspace server scope support.");
     }
 
-    return [workspaceScopeSupport.paramsValidator, assistantSurfaceRouteParamsValidator];
+    return [workspaceScopeSupport.params, assistantSurfaceRouteParams];
   }
 
-  return assistantSurfaceRouteParamsValidator;
+  return assistantSurfaceRouteParams;
 }
 
 function buildConversationMessagesRouteParamsValidator(requiresWorkspace, workspaceScopeSupport = null) {
   const validators = buildRouteParamsValidator(requiresWorkspace, workspaceScopeSupport);
   if (Array.isArray(validators)) {
-    return validators.concat(assistantResource.operations.conversationMessagesList.paramsValidator);
+    return validators.concat(assistantResource.operations.conversationMessagesList.params);
   }
 
-  return [validators, assistantResource.operations.conversationMessagesList.paramsValidator];
+  return [validators, assistantResource.operations.conversationMessagesList.params];
 }
 
 function readWorkspaceInput(request, requiresWorkspace, workspaceScopeSupport = null) {
@@ -156,7 +156,7 @@ function registerSettingsRoutes(
   });
   const visibility = requiresWorkspace ? "workspace" : "public";
   const routePath = `${routeBase}/:surfaceId/settings`;
-  const paramsValidator = buildRouteParamsValidator(requiresWorkspace, workspaceScopeSupport);
+  const params = buildRouteParamsValidator(requiresWorkspace, workspaceScopeSupport);
 
   router.register(
     "GET",
@@ -164,13 +164,13 @@ function registerSettingsRoutes(
     {
       auth: "required",
       visibility,
-      paramsValidator,
+      params,
       meta: {
         tags: ["assistant", "settings"],
         summary: "Get assistant settings."
       },
-      responseValidators: withStandardErrorResponses({
-        200: assistantConfigResource.operations.view.outputValidator
+      responses: withStandardErrorResponses({
+        200: assistantConfigResource.operations.view.output
       })
     },
     async function assistantSettingsReadRoute(request, reply) {
@@ -199,15 +199,15 @@ function registerSettingsRoutes(
     {
       auth: "required",
       visibility,
-      paramsValidator,
+      params,
       meta: {
         tags: ["assistant", "settings"],
         summary: "Update assistant settings."
       },
-      bodyValidator: assistantConfigResource.operations.patch.bodyValidator,
-      responseValidators: withStandardErrorResponses(
+      body: assistantConfigResource.operations.patch.body,
+      responses: withStandardErrorResponses(
         {
-          200: assistantConfigResource.operations.patch.outputValidator
+          200: assistantConfigResource.operations.patch.output
         },
         {
           includeValidation400: true
@@ -248,7 +248,7 @@ function registerRuntimeRoutes(
   });
   const visibility = requiresWorkspace ? "workspace" : "public";
   const surfaceRouteBase = `${routeBase}/:surfaceId`;
-  const paramsValidator = buildRouteParamsValidator(requiresWorkspace, workspaceScopeSupport);
+  const params = buildRouteParamsValidator(requiresWorkspace, workspaceScopeSupport);
 
   router.register(
     "POST",
@@ -256,12 +256,12 @@ function registerRuntimeRoutes(
     {
       auth: "required",
       visibility,
-      paramsValidator,
+      params,
       meta: {
         tags: ["assistant"],
         summary: "Stream assistant response."
       },
-      bodyValidator: assistantResource.operations.chatStream.bodyValidator
+      body: assistantResource.operations.chatStream.body
     },
     async function assistantChatStreamRoute(request, reply) {
       const routeState = resolveRouteRequestState(request, {
@@ -379,14 +379,14 @@ function registerRuntimeRoutes(
     {
       auth: "required",
       visibility,
-      paramsValidator,
+      params,
       meta: {
         tags: ["assistant"],
         summary: "List assistant conversations."
       },
-      queryValidator: assistantResource.operations.conversationsList.queryValidator,
-      responseValidators: withStandardErrorResponses({
-        200: assistantResource.operations.conversationsList.outputValidator
+      query: assistantResource.operations.conversationsList.query,
+      responses: withStandardErrorResponses({
+        200: assistantResource.operations.conversationsList.output
       })
     },
     async function assistantConversationsRoute(request, reply) {
@@ -418,14 +418,14 @@ function registerRuntimeRoutes(
     {
       auth: "required",
       visibility,
-      paramsValidator: buildConversationMessagesRouteParamsValidator(requiresWorkspace, workspaceScopeSupport),
+      params: buildConversationMessagesRouteParamsValidator(requiresWorkspace, workspaceScopeSupport),
       meta: {
         tags: ["assistant"],
         summary: "List assistant conversation messages."
       },
-      queryValidator: assistantResource.operations.conversationMessagesList.queryValidator,
-      responseValidators: withStandardErrorResponses({
-        200: assistantResource.operations.conversationMessagesList.outputValidator
+      query: assistantResource.operations.conversationMessagesList.query,
+      responses: withStandardErrorResponses({
+        200: assistantResource.operations.conversationMessagesList.output
       })
     },
     async function assistantConversationMessagesRoute(request, reply) {

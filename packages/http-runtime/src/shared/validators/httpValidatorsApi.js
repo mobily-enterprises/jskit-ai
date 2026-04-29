@@ -26,8 +26,13 @@ import {
 } from "./operationMessages.js";
 import {
   validateOperationSection,
-  validateOperationInput
+  validateOperationSectionAsync,
+  validateOperationInput,
+  validateOperationInputAsync
 } from "./operationValidation.js";
+import {
+  simplifyJsonApiDocument
+} from "./jsonApiResponses.js";
 
 const HTTP_VALIDATORS_API = Object.freeze({
   createPaginationQuerySchema,
@@ -52,7 +57,10 @@ const HTTP_VALIDATORS_API = Object.freeze({
   resolveIssueMessageFromSchema,
   mapOperationIssues,
   validateOperationSection,
-  validateOperationInput
+  validateOperationSectionAsync,
+  validateOperationInput,
+  validateOperationInputAsync,
+  simplifyJsonApiDocument
 });
 
 export { HTTP_VALIDATORS_API };

@@ -163,10 +163,10 @@ const customerBodySchema = {
   additionalProperties: false
 };
 
-const resource = {
+const resource = Object.freeze({
 ${includeResourceNamespace ? '  namespace: "customers",\n' : ""}  operations: {
     list: {
-      outputValidator: {
+      output: {
         schema: {
           type: "object",
           properties: {
@@ -181,28 +181,28 @@ ${includeResourceNamespace ? '  namespace: "customers",\n' : ""}  operations: {
       }
     },
     view: {
-      outputValidator: {
+      output: {
         schema: customerRecordSchema
       }
     },
     create: {
-      bodyValidator: {
+      body: {
         schema: customerBodySchema
       },
-      outputValidator: {
+      output: {
         schema: customerRecordSchema
       }
     },
     patch: {
-      bodyValidator: {
+      body: {
         schema: customerBodySchema
       },
-      outputValidator: {
+      output: {
         schema: customerRecordSchema
       }
     }
   }
-};
+});
 
 export { resource };
 `,

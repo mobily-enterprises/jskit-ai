@@ -5,82 +5,75 @@ import { mkdtemp, mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { runGeneratorSubcommand } from "../src/server/subcommands/addField.js";
 
-const RESOURCE_SOURCE = `import { Type } from "typebox";
-import { normalizeObjectInput, createCursorListValidator } from "@jskit-ai/kernel/shared/validators";
-import { normalizeText, normalizeIfInSource, normalizeIfPresent, normalizeOrNull } from "@jskit-ai/kernel/shared/support/normalize";
+const RESOURCE_SOURCE = `import { createSchema } from "json-rest-schema";
+import { createCursorListValidator, RECORD_ID_PATTERN } from "@jskit-ai/kernel/shared/validators";
+import { deepFreeze } from "@jskit-ai/kernel/shared/support/deepFreeze";
 
 const RESOURCE_LOOKUP_CONTAINER_KEY = "lookups";
 
-const recordOutputSchema = Type.Object(
-  {
-    id: Type.Integer({ minimum: 1 }),
-    firstName: Type.Union([Type.String(), Type.Null()]),
-    [RESOURCE_LOOKUP_CONTAINER_KEY]: Type.Optional(Type.Record(Type.String(), Type.Unknown()))
+const recordOutputSchema = createSchema({
+  id: {
+    type: "string",
+    required: true,
+    minLength: 1,
+    pattern: RECORD_ID_PATTERN
   },
-  { additionalProperties: false }
-);
-
-const createBodySchema = Type.Object(
-  {
-    firstName: Type.Union([Type.String({ maxLength: 160 }), Type.Null()])
+  firstName: {
+    type: "string",
+    required: true,
+    nullable: true,
+    maxLength: 160
   },
-  {
-    additionalProperties: false,
-    required: []
+  [RESOURCE_LOOKUP_CONTAINER_KEY]: {
+    type: "object",
+    required: false
   }
-);
+});
 
-const patchBodySchema = Type.Partial(createBodySchema, { additionalProperties: false });
+const createBodySchema = createSchema({
+  firstName: {
+    type: "string",
+    required: false,
+    nullable: true,
+    maxLength: 160
+  }
+});
 
-const recordOutputValidator = Object.freeze({
+const patchBodySchema = createSchema({
+  firstName: {
+    type: "string",
+    required: false,
+    nullable: true,
+    maxLength: 160
+  }
+});
+
+const recordOutput = deepFreeze({
   schema: recordOutputSchema,
-  normalize(payload = {}) {
-    const source = normalizeObjectInput(payload);
-    const normalized = {
-      id: normalizeIfPresent(source.id, Number),
-      firstName: normalizeOrNull(source.firstName, normalizeText)
-    };
-    const sourceLookupContainer = source[RESOURCE_LOOKUP_CONTAINER_KEY];
-    if (sourceLookupContainer && typeof sourceLookupContainer === "object" && !Array.isArray(sourceLookupContainer)) {
-      normalized[RESOURCE_LOOKUP_CONTAINER_KEY] = sourceLookupContainer;
-    }
-    return normalized;
-  }
+  mode: "replace"
 });
 
-const listOutputValidator = createCursorListValidator(recordOutputValidator);
-
-const createBodyValidator = Object.freeze({
+const createBody = deepFreeze({
   schema: createBodySchema,
-  normalize(payload = {}) {
-    const source = normalizeObjectInput(payload);
-    const normalized = {};
-
-    normalizeIfInSource(source, normalized, "firstName", normalizeText);
-
-    return normalized;
-  }
+  mode: "create"
 });
 
-const patchBodyValidator = Object.freeze({
+const patchBody = deepFreeze({
   schema: patchBodySchema,
-  normalize: createBodyValidator.normalize
+  mode: "patch"
 });
 
-const RESOURCE_FIELD_META = [];
-
-const resource = {
+const resource = deepFreeze({
   namespace: "contacts",
   tableName: "contacts",
   idColumn: "id",
   operations: {
-    list: { method: "GET", outputValidator: listOutputValidator },
-    view: { method: "GET", outputValidator: recordOutputValidator },
-    create: { method: "POST", bodyValidator: createBodyValidator, outputValidator: recordOutputValidator },
-    patch: { method: "PATCH", bodyValidator: patchBodyValidator, outputValidator: recordOutputValidator }
-  },
-  fieldMeta: RESOURCE_FIELD_META
-};
+    list: { method: "GET", output: createCursorListValidator(recordOutput) },
+    view: { method: "GET", output: recordOutput },
+    create: { method: "POST", body: createBody, output: recordOutput },
+    patch: { method: "PATCH", body: patchBody, output: recordOutput }
+  }
+});
 
 export { resource };
 `;
@@ -145,21 +138,14 @@ test("scaffold-field patches CRUD resource file using DB snapshot metadata", asy
     assert.deepEqual(result.touchedFiles, [resourceFile]);
 
     const content = await readFile(path.join(appRoot, resourceFile), "utf8");
-    assert.match(content, /categoryId: nullableRecordIdSchema/);
-    assert.match(
-      content,
-      /normalizeIfInSource\(source, normalized, "categoryId", \(value\) => normalizeRecordId\(value, \{ fallback: null \}\)\);/
-    );
-    assert.match(
-      content,
-      /categoryId: normalizeOrNull\(source\.categoryId, \(value\) => normalizeRecordId\(value, \{ fallback: null \}\)\)/
-    );
-    assert.match(content, /RESOURCE_FIELD_META\.push\(\{/);
-    assert.match(content, /key: "categoryId"/);
-    assert.match(content, /namespace: "customer-categories"/);
-    assert.match(content, /valueKey: "id"/);
-    assert.match(content, /formControl: "autocomplete" \/\/ or "select"/);
-    assert.match(content, /normalizeRecordId/);
+    assert.match(content, /categoryId: \{/);
+    assert.match(content, /type: "string"/);
+    assert.match(content, /pattern: RECORD_ID_PATTERN/);
+    assert.match(content, /type: "id"/);
+    assert.match(content, /nullable: true/);
+    assert.match(content, /relation: \{ kind: "lookup", namespace: "customer-categories", valueKey: "id" \}/);
+    assert.match(content, /ui: \{ formControl: "autocomplete" \}/);
+    assert.doesNotMatch(content, /normalizeIfInSource|normalizeIfPresent|normalizeOrNull|normalizeRecordId/);
 
     const secondRun = await runGeneratorSubcommand({
       appRoot,

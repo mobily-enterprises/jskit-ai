@@ -5,28 +5,13 @@ import { toCamelCase } from "@jskit-ai/kernel/shared/support/stringCase";
 import {
   resolveGenerationSnapshot,
   resolveScaffoldColumns,
-  renderPropertyAccess,
   renderResourceFieldSchema,
-  renderInputNormalizer,
-  renderOutputNormalizerExpression,
-  buildFieldMetaEntries
+  buildFieldContractEntries
 } from "../buildTemplateContext.js";
 import {
   resolveCrudResourceDefaults,
   applyCrudResourceFieldPatch
 } from "./resourceAst.js";
-
-const NORMALIZE_SUPPORT_IMPORTS = new Set([
-  "normalizeText",
-  "normalizeBoolean",
-  "normalizeFiniteNumber",
-  "normalizeFiniteInteger",
-  "normalizeIfInSource",
-  "normalizeIfPresent",
-  "normalizeOrNull"
-]);
-const DATABASE_RUNTIME_IMPORTS = new Set(["toIsoString", "toDatabaseDateTimeUtc"]);
-const DATABASE_RUNTIME_REPOSITORY_IMPORTS = new Set(["parseJsonValue"]);
 
 function toPosixPath(value = "") {
   return String(value || "").replaceAll(path.sep, "/");
@@ -114,59 +99,14 @@ function resolveColumnForField(snapshot = {}, fieldKey = "", { idColumn = "id" }
   );
 }
 
-function buildFieldMetaEntry(snapshot = {}, column = {}) {
-  const entries = buildFieldMetaEntries({
+function buildFieldContractEntry(snapshot = {}, column = {}) {
+  const entries = buildFieldContractEntries({
     outputColumns: [column],
     writableColumns: [column],
     snapshot
   });
   const key = normalizeText(column?.key);
   return entries.find((entry) => normalizeText(entry?.key) === key) || null;
-}
-
-function collectKnownIdentifiers(expression = "") {
-  return new Set(String(expression || "").match(/[A-Za-z_$][A-Za-z0-9_$]*/g) || []);
-}
-
-function resolveImportsForField({ inputNormalizationExpression = "", outputNormalizationExpression = "" } = {}) {
-  const normalizeImports = new Set(["normalizeIfInSource"]);
-  const databaseRuntimeImports = new Set();
-  const databaseRuntimeRepositoryImports = new Set();
-
-  const identifiers = new Set([
-    ...collectKnownIdentifiers(inputNormalizationExpression),
-    ...collectKnownIdentifiers(outputNormalizationExpression)
-  ]);
-
-  for (const identifier of identifiers) {
-    if (NORMALIZE_SUPPORT_IMPORTS.has(identifier)) {
-      normalizeImports.add(identifier);
-      continue;
-    }
-    if (DATABASE_RUNTIME_IMPORTS.has(identifier)) {
-      databaseRuntimeImports.add(identifier);
-      continue;
-    }
-    if (DATABASE_RUNTIME_REPOSITORY_IMPORTS.has(identifier)) {
-      databaseRuntimeRepositoryImports.add(identifier);
-    }
-  }
-
-  return {
-    normalizeImports: [...normalizeImports],
-    databaseRuntimeImports: [...databaseRuntimeImports],
-    databaseRuntimeRepositoryImports: [...databaseRuntimeRepositoryImports]
-  };
-}
-
-function resolveOutputNormalizationExpression(column = {}) {
-  const outputNormalizer = renderOutputNormalizerExpression(column);
-  const sourceAccess = renderPropertyAccess("source", column.key);
-  if (!outputNormalizer) {
-    return sourceAccess;
-  }
-  const wrapper = column?.nullable === true ? "normalizeOrNull" : "normalizeIfPresent";
-  return `${wrapper}(${sourceAccess}, ${outputNormalizer})`;
 }
 
 async function runGeneratorSubcommand({
@@ -201,26 +141,26 @@ async function runGeneratorSubcommand({
     );
   }
 
-  const createSchemaExpression = renderResourceFieldSchema(column, { forOutput: false });
-  const outputSchemaExpression = renderResourceFieldSchema(column, { forOutput: true });
-  const inputNormalizationExpression = renderInputNormalizer(column);
-  const outputNormalizationExpression = resolveOutputNormalizationExpression(column);
-  const fieldMetaEntry = buildFieldMetaEntry(snapshot, column);
-  const imports = resolveImportsForField({
-    inputNormalizationExpression,
-    outputNormalizationExpression
+  const fieldContractEntry = buildFieldContractEntry(snapshot, column);
+  const outputSchemaExpression = renderResourceFieldSchema(column, {
+    forOutput: true,
+    fieldContractEntry
+  });
+  const patchSchemaExpression = renderResourceFieldSchema(column, {
+    forOutput: false,
+    mode: "patch",
+    fieldContractEntry
+  });
+  const createSchemaExpressionWithMetadata = renderResourceFieldSchema(column, {
+    forOutput: false,
+    fieldContractEntry
   });
 
   const applied = applyCrudResourceFieldPatch(originalSource, {
     fieldKey,
-    createSchemaExpression,
+    createSchemaExpression: createSchemaExpressionWithMetadata,
     outputSchemaExpression,
-    inputNormalizationExpression,
-    outputNormalizationExpression,
-    fieldMetaEntry,
-    normalizeImportNames: imports.normalizeImports,
-    databaseRuntimeImportNames: imports.databaseRuntimeImports,
-    databaseRuntimeRepositoryOptionsImportNames: imports.databaseRuntimeRepositoryImports
+    patchSchemaExpression,
   });
 
   if (applied.changed && dryRun !== true) {

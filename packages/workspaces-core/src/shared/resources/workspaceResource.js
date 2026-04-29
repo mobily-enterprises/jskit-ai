@@ -1,135 +1,57 @@
-import { Type } from "typebox";
-import { normalizeLowerText, normalizeText } from "@jskit-ai/kernel/shared/actions/textNormalization";
+import { createSchema } from "json-rest-schema";
 import {
-  normalizeObjectInput,
   createCursorListValidator,
-  recordIdSchema,
-  recordIdInputSchema
+  RECORD_ID_PATTERN
 } from "@jskit-ai/kernel/shared/validators";
-import { normalizeRecordId } from "@jskit-ai/kernel/shared/support/normalize";
+import { deepFreeze } from "@jskit-ai/kernel/shared/support/deepFreeze";
 
-function normalizeWorkspaceAvatarUrl(value) {
-  const avatarUrl = normalizeText(value);
-  if (!avatarUrl) {
-    return "";
-  }
-  if (!avatarUrl.startsWith("http://") && !avatarUrl.startsWith("https://")) {
-    return null;
-  }
-  try {
-    return new URL(avatarUrl).toString();
-  } catch {
-    return null;
-  }
-}
-
-function normalizeWorkspaceInput(payload = {}) {
-  const source = normalizeObjectInput(payload);
-  const normalized = {};
-
-  if (Object.hasOwn(source, "slug")) {
-    normalized.slug = normalizeLowerText(source.slug);
-  }
-  if (Object.hasOwn(source, "name")) {
-    normalized.name = normalizeText(source.name);
-  }
-  if (Object.hasOwn(source, "ownerUserId")) {
-    normalized.ownerUserId = normalizeRecordId(source.ownerUserId, { fallback: "" });
-  }
-  if (Object.hasOwn(source, "avatarUrl")) {
-    normalized.avatarUrl = normalizeWorkspaceAvatarUrl(source.avatarUrl);
-  }
-  if (Object.hasOwn(source, "isPersonal")) {
-    normalized.isPersonal = source.isPersonal === true;
-  }
-
-  return normalized;
-}
-
-function normalizeWorkspaceOutput(payload = {}) {
-  const source = normalizeObjectInput(payload);
-
-  return {
-    id: normalizeRecordId(source.id, { fallback: "" }),
-    slug: normalizeLowerText(source.slug),
-    name: normalizeText(source.name),
-    ownerUserId: normalizeRecordId(source.ownerUserId, { fallback: "" }),
-    avatarUrl: normalizeText(source.avatarUrl)
-  };
-}
-
-function normalizeWorkspaceListItemOutput(payload = {}) {
-  const source = normalizeObjectInput(payload);
-
-  return {
-    id: normalizeRecordId(source.id, { fallback: "" }),
-    slug: normalizeLowerText(source.slug),
-    name: normalizeText(source.name),
-    avatarUrl: normalizeText(source.avatarUrl),
-    roleSid: normalizeLowerText(source.roleSid || "member") || "member",
-    isAccessible: source.isAccessible !== false
-  };
-}
-
-const responseRecordSchema = Type.Object(
-  {
-    id: recordIdSchema,
-    slug: Type.String({ minLength: 1 }),
-    name: Type.String({ minLength: 1, maxLength: 160 }),
-    ownerUserId: recordIdSchema,
-    avatarUrl: Type.String()
-  },
-  { additionalProperties: false }
-);
-
-const listItemSchema = Type.Object(
-  {
-    id: recordIdSchema,
-    slug: Type.String({ minLength: 1 }),
-    name: Type.String({ minLength: 1, maxLength: 160 }),
-    avatarUrl: Type.String(),
-    roleSid: Type.String({ minLength: 1 }),
-    isAccessible: Type.Boolean()
-  },
-  { additionalProperties: false }
-);
-
-const createRequestBodySchema = Type.Object(
-  {
-    name: Type.String({ minLength: 1, maxLength: 160 }),
-    slug: Type.Optional(Type.String({ minLength: 1, maxLength: 120 })),
-    ownerUserId: Type.Optional(recordIdInputSchema)
-  },
-  { additionalProperties: false }
-);
-
-const patchRequestBodySchema = Type.Object(
-  {
-    name: Type.Optional(Type.String({ minLength: 1, maxLength: 160 })),
-    avatarUrl: Type.Optional(
-      Type.String({
-        pattern: "^(https?://.+)?$",
-        messages: {
-          pattern: "Workspace avatar URL must be a valid absolute URL (http:// or https://).",
-          default: "Workspace avatar URL must be a valid absolute URL (http:// or https://)."
-        }
-      })
-    )
-  },
-  { additionalProperties: false }
-);
-
-const responseRecordValidator = Object.freeze({
-  schema: responseRecordSchema,
-  normalize: normalizeWorkspaceOutput
+const workspaceOutputSchema = createSchema({
+  id: { type: "string", required: true, minLength: 1, pattern: RECORD_ID_PATTERN },
+  slug: { type: "string", required: true, minLength: 1, maxLength: 120 },
+  name: { type: "string", required: true, minLength: 1, maxLength: 160 },
+  ownerUserId: { type: "string", required: true, minLength: 1, pattern: RECORD_ID_PATTERN },
+  avatarUrl: { type: "string", required: true }
 });
 
-const workspaceSummaryOutputValidator = Object.freeze({
-  schema: listItemSchema,
-  normalize: normalizeWorkspaceListItemOutput
+const workspaceListItemSchema = createSchema({
+  id: { type: "string", required: true, minLength: 1, pattern: RECORD_ID_PATTERN },
+  slug: { type: "string", required: true, minLength: 1, maxLength: 120 },
+  name: { type: "string", required: true, minLength: 1, maxLength: 160 },
+  avatarUrl: { type: "string", required: true },
+  roleSid: { type: "string", required: true, minLength: 1, maxLength: 64 },
+  isAccessible: { type: "boolean", required: true }
 });
 
-const resource = {
+const workspaceCreateBodySchema = createSchema({
+  name: { type: "string", required: true, minLength: 1, maxLength: 160 },
+  slug: { type: "string", required: false, lowercase: true, minLength: 1, maxLength: 120 },
+  ownerUserId: { type: "id", required: false }
+});
+
+const workspacePatchBodySchema = createSchema({
+  name: { type: "string", required: false, minLength: 1, maxLength: 160 },
+  avatarUrl: {
+    type: "string",
+    required: false,
+    pattern: "^(https?://.+)?$",
+    messages: {
+      pattern: "Workspace avatar URL must be a valid absolute URL (http:// or https://).",
+      default: "Workspace avatar URL must be a valid absolute URL (http:// or https://)."
+    }
+  }
+});
+
+const responseRecord = deepFreeze({
+  schema: workspaceOutputSchema,
+  mode: "replace"
+});
+
+const workspaceSummaryOutput = deepFreeze({
+  schema: workspaceListItemSchema,
+  mode: "replace"
+});
+
+const resource = deepFreeze({
   namespace: "workspace",
   messages: {
     validation: "Fix invalid workspace values and try again.",
@@ -140,37 +62,37 @@ const resource = {
   operations: {
     view: {
       method: "GET",
-      outputValidator: responseRecordValidator
+      output: responseRecord
     },
     list: {
       method: "GET",
-      outputValidator: createCursorListValidator(workspaceSummaryOutputValidator)
+      output: createCursorListValidator(workspaceSummaryOutput)
     },
     create: {
       method: "POST",
-      bodyValidator: {
-        schema: createRequestBodySchema,
-        normalize: normalizeWorkspaceInput
+      body: {
+        schema: workspaceCreateBodySchema,
+        mode: "create"
       },
-      outputValidator: responseRecordValidator
+      output: responseRecord
     },
     replace: {
       method: "PUT",
-      bodyValidator: {
-        schema: createRequestBodySchema,
-        normalize: normalizeWorkspaceInput
+      body: {
+        schema: workspaceCreateBodySchema,
+        mode: "replace"
       },
-      outputValidator: responseRecordValidator
+      output: responseRecord
     },
     patch: {
       method: "PATCH",
-      bodyValidator: {
-        schema: patchRequestBodySchema,
-        normalize: normalizeWorkspaceInput
+      body: {
+        schema: workspacePatchBodySchema,
+        mode: "patch"
       },
-      outputValidator: responseRecordValidator
+      output: responseRecord
     }
   }
-};
+});
 
 export { resource as workspaceResource };

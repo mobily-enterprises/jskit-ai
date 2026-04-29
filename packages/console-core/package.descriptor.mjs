@@ -42,7 +42,7 @@ export default Object.freeze({
         },
         {
           subpath: "./shared",
-          summary: "Exports shared console settings resource and field registration helpers."
+          summary: "Exports the shared console settings resource contract."
         },
         {
           subpath: "./client",
@@ -93,27 +93,9 @@ export default Object.freeze({
         reason: "Install console settings schema migration.",
         category: "migration",
         id: "console-core-generic-initial-schema"
-      },
-      {
-        from: "templates/packages/main/src/shared/resources/consoleSettingsFields.js",
-        to: "packages/main/src/shared/resources/consoleSettingsFields.js",
-        preserveOnRemove: true,
-        reason: "Install app-owned console settings field definitions.",
-        category: "console-core",
-        id: "console-core-app-owned-console-settings-fields"
       }
     ],
     text: [
-      {
-        op: "append-text",
-        file: "packages/main/src/shared/index.js",
-        position: "top",
-        skipIfContains: "import \"./resources/consoleSettingsFields.js\";",
-        value: "import \"./resources/consoleSettingsFields.js\";\n",
-        reason: "Load app-owned console settings field definitions inside the main shared module.",
-        category: "console-core",
-        id: "console-core-main-shared-console-settings-field-import"
-      }
     ]
   }
 });

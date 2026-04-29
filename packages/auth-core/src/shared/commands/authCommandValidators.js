@@ -1,4 +1,5 @@
-import { Type } from "typebox";
+import { createSchema } from "json-rest-schema";
+import { deepFreeze } from "@jskit-ai/kernel/shared/support/deepFreeze";
 import {
   AUTH_ACCESS_TOKEN_MAX_LENGTH,
   AUTH_EMAIL_MAX_LENGTH,
@@ -13,240 +14,301 @@ import {
 import { AUTH_METHOD_IDS, AUTH_METHOD_KINDS } from "../authMethods.js";
 import { OAUTH_PROVIDER_ID_PATTERN } from "../oauthProviders.js";
 
-const oauthProviderValidator = Object.freeze({
-  schema: Type.String({
-    minLength: 2,
-    maxLength: 32,
-    pattern: OAUTH_PROVIDER_ID_PATTERN
-  })
+const oauthProviderFieldDefinition = deepFreeze({
+  type: "string",
+  minLength: 2,
+  maxLength: 32,
+  pattern: OAUTH_PROVIDER_ID_PATTERN
 });
 
-const authMethodIdValidator = Object.freeze({
-  schema: Type.String({
-    minLength: 3,
-    maxLength: 38,
-    pattern: `^(?:${AUTH_METHOD_IDS.join("|")}|oauth:${OAUTH_PROVIDER_ID_PATTERN.slice(1, -1)})$`
-  })
+const authMethodIdFieldDefinition = deepFreeze({
+  type: "string",
+  minLength: 3,
+  maxLength: 38,
+  pattern: `^(?:${AUTH_METHOD_IDS.join("|")}|oauth:${OAUTH_PROVIDER_ID_PATTERN.slice(1, -1)})$`
 });
 
-const authMethodKindValidator = Object.freeze({
-  schema: Type.Union(AUTH_METHOD_KINDS.map((kind) => Type.Literal(kind)))
+const authMethodKindFieldDefinition = deepFreeze({
+  type: "string",
+  enum: AUTH_METHOD_KINDS
 });
 
 const OAUTH_RETURN_TO_PATTERN = "^(?:/(?!/).*$|https?://[^\\s]+)$";
 
-const oauthReturnToValidator = Object.freeze({
-  schema: Type.String({
-    minLength: 1,
-    maxLength: 1024,
-    pattern: OAUTH_RETURN_TO_PATTERN
-  })
+const oauthReturnToFieldDefinition = deepFreeze({
+  type: "string",
+  minLength: 1,
+  maxLength: 1024,
+  pattern: OAUTH_RETURN_TO_PATTERN
 });
 
-const authEmailValidator = Object.freeze({
-  schema: Type.String({
-    minLength: AUTH_EMAIL_MIN_LENGTH,
-    maxLength: AUTH_EMAIL_MAX_LENGTH,
-    pattern: AUTH_EMAIL_PATTERN
-  })
+const authEmailFieldDefinition = deepFreeze({
+  type: "string",
+  minLength: AUTH_EMAIL_MIN_LENGTH,
+  maxLength: AUTH_EMAIL_MAX_LENGTH,
+  pattern: AUTH_EMAIL_PATTERN
 });
 
-const authPasswordValidator = Object.freeze({
-  schema: Type.String({
-    minLength: AUTH_PASSWORD_MIN_LENGTH,
-    maxLength: AUTH_PASSWORD_MAX_LENGTH
-  })
+const authPasswordFieldDefinition = deepFreeze({
+  type: "string",
+  minLength: AUTH_PASSWORD_MIN_LENGTH,
+  maxLength: AUTH_PASSWORD_MAX_LENGTH
 });
 
-const authLoginPasswordValidator = Object.freeze({
-  schema: Type.String({
-    minLength: 1,
-    maxLength: AUTH_LOGIN_PASSWORD_MAX_LENGTH
-  })
+const authLoginPasswordFieldDefinition = deepFreeze({
+  type: "string",
+  minLength: 1,
+  maxLength: AUTH_LOGIN_PASSWORD_MAX_LENGTH
 });
 
-const authRecoveryTokenValidator = Object.freeze({
-  schema: Type.String({
-    minLength: 1,
-    maxLength: AUTH_RECOVERY_TOKEN_MAX_LENGTH
-  })
+const authRecoveryTokenFieldDefinition = deepFreeze({
+  type: "string",
+  minLength: 1,
+  maxLength: AUTH_RECOVERY_TOKEN_MAX_LENGTH
 });
 
-const authAccessTokenValidator = Object.freeze({
-  schema: Type.String({
-    minLength: 1,
-    maxLength: AUTH_ACCESS_TOKEN_MAX_LENGTH
-  })
+const authAccessTokenFieldDefinition = deepFreeze({
+  type: "string",
+  minLength: 1,
+  maxLength: AUTH_ACCESS_TOKEN_MAX_LENGTH
 });
 
-const authRefreshTokenValidator = Object.freeze({
-  schema: Type.String({
-    minLength: 1,
-    maxLength: AUTH_REFRESH_TOKEN_MAX_LENGTH
-  })
+const authRefreshTokenFieldDefinition = deepFreeze({
+  type: "string",
+  minLength: 1,
+  maxLength: AUTH_REFRESH_TOKEN_MAX_LENGTH
 });
 
-const okResponseValidator = Object.freeze({
-  schema: Type.Object(
-    {
-      ok: Type.Boolean()
-    },
-    {
-      additionalProperties: false
+const oauthProviderValidator = deepFreeze({
+  schema: {
+    type: "string",
+    ...oauthProviderFieldDefinition
+  }
+});
+
+const authMethodIdValidator = deepFreeze({
+  schema: {
+    type: "string",
+    ...authMethodIdFieldDefinition
+  }
+});
+
+const authMethodKindValidator = deepFreeze({
+  schema: {
+    type: "string",
+    enum: AUTH_METHOD_KINDS
+  }
+});
+
+const oauthReturnToValidator = deepFreeze({
+  schema: {
+    type: "string",
+    ...oauthReturnToFieldDefinition
+  }
+});
+
+const authEmailValidator = deepFreeze({
+  schema: {
+    type: "string",
+    ...authEmailFieldDefinition
+  }
+});
+
+const authPasswordValidator = deepFreeze({
+  schema: {
+    type: "string",
+    ...authPasswordFieldDefinition
+  }
+});
+
+const authLoginPasswordValidator = deepFreeze({
+  schema: {
+    type: "string",
+    ...authLoginPasswordFieldDefinition
+  }
+});
+
+const authRecoveryTokenValidator = deepFreeze({
+  schema: {
+    type: "string",
+    ...authRecoveryTokenFieldDefinition
+  }
+});
+
+const authAccessTokenValidator = deepFreeze({
+  schema: {
+    type: "string",
+    ...authAccessTokenFieldDefinition
+  }
+});
+
+const authRefreshTokenValidator = deepFreeze({
+  schema: {
+    type: "string",
+    ...authRefreshTokenFieldDefinition
+  }
+});
+
+const okResponseValidator = deepFreeze({
+  schema: createSchema({
+    ok: { type: "boolean", required: true }
+  }),
+  mode: "replace"
+});
+
+const okMessageResponseValidator = deepFreeze({
+  schema: createSchema({
+    ok: { type: "boolean", required: true },
+    message: { type: "string", required: true, minLength: 1 }
+  }),
+  mode: "replace"
+});
+
+const registerResponseValidator = deepFreeze({
+  schema: createSchema({
+    ok: { type: "boolean", required: true },
+    requiresEmailConfirmation: { type: "boolean", required: true },
+    username: { type: "string", required: false, minLength: 1, maxLength: 120 },
+    message: { type: "string", required: false, minLength: 1 }
+  }),
+  mode: "replace"
+});
+
+const loginResponseValidator = deepFreeze({
+  schema: createSchema({
+    ok: { type: "boolean", required: true },
+    username: { type: "string", required: true, minLength: 1, maxLength: 120 }
+  }),
+  mode: "replace"
+});
+
+const otpVerifyResponseValidator = deepFreeze({
+  schema: createSchema({
+    ok: { type: "boolean", required: true },
+    username: { type: "string", required: true, minLength: 1, maxLength: 120 },
+    email: { ...authEmailFieldDefinition, required: true }
+  }),
+  mode: "replace"
+});
+
+const oauthCompleteResponseValidator = deepFreeze({
+  schema: createSchema({
+    ok: { type: "boolean", required: true },
+    provider: { ...oauthProviderFieldDefinition, required: false },
+    username: { type: "string", required: true, minLength: 1, maxLength: 120 },
+    email: { ...authEmailFieldDefinition, required: true }
+  }),
+  mode: "replace"
+});
+
+const devLoginAsResponseValidator = deepFreeze({
+  schema: createSchema({
+    ok: { type: "boolean", required: true },
+    userId: { type: "string", required: true, minLength: 1 },
+    username: { type: "string", required: true, minLength: 1, maxLength: 120 },
+    email: { ...authEmailFieldDefinition, required: true }
+  }),
+  mode: "replace"
+});
+
+const logoutResponseValidator = deepFreeze({
+  schema: createSchema({
+    ok: { type: "boolean", required: true }
+  }),
+  mode: "replace"
+});
+
+const oauthProviderCatalogEntrySchema = createSchema({
+  id: { ...oauthProviderFieldDefinition, required: true },
+  label: { type: "string", required: true, minLength: 1, maxLength: 120 }
+});
+
+const oauthProviderCatalogEntryValidator = deepFreeze({
+  schema: oauthProviderCatalogEntrySchema,
+  mode: "replace"
+});
+
+const sessionResponseValidator = deepFreeze({
+  schema: {
+    type: "object",
+    additionalProperties: false,
+    required: ["authenticated", "csrfToken", "oauthProviders", "oauthDefaultProvider"],
+    properties: {
+      authenticated: { type: "boolean" },
+      username: { type: "string", minLength: 1, maxLength: 120 },
+      email: authEmailValidator.schema,
+      permissions: {
+        type: "array",
+        items: {
+          type: "string",
+          minLength: 1,
+          maxLength: 200
+        }
+      },
+      csrfToken: { type: "string", minLength: 1 },
+      oauthProviders: {
+        type: "array",
+        items: oauthProviderCatalogEntrySchema.toJsonSchema({ mode: "replace" })
+      },
+      oauthDefaultProvider: {
+        anyOf: [
+          oauthProviderValidator.schema,
+          { type: "null" }
+        ]
+      }
     }
-  )
+  }
 });
 
-const okMessageResponseValidator = Object.freeze({
-  schema: Type.Object(
-    {
-      ok: Type.Boolean(),
-      message: Type.String({ minLength: 1 })
-    },
-    {
-      additionalProperties: false
+const sessionUnavailableResponseValidator = deepFreeze({
+  schema: {
+    type: "object",
+    additionalProperties: false,
+    required: ["error", "csrfToken", "oauthProviders", "oauthDefaultProvider"],
+    properties: {
+      error: { type: "string", minLength: 1 },
+      csrfToken: { type: "string", minLength: 1 },
+      oauthProviders: {
+        type: "array",
+        items: oauthProviderCatalogEntrySchema.toJsonSchema({ mode: "replace" })
+      },
+      oauthDefaultProvider: {
+        anyOf: [
+          oauthProviderValidator.schema,
+          { type: "null" }
+        ]
+      }
     }
-  )
-});
-
-const registerResponseValidator = Object.freeze({
-  schema: Type.Object(
-    {
-      ok: Type.Boolean(),
-      requiresEmailConfirmation: Type.Boolean(),
-      username: Type.Optional(Type.String({ minLength: 1, maxLength: 120 })),
-      message: Type.Optional(Type.String({ minLength: 1 }))
-    },
-    {
-      additionalProperties: false
-    }
-  )
-});
-
-const loginResponseValidator = Object.freeze({
-  schema: Type.Object(
-    {
-      ok: Type.Boolean(),
-      username: Type.String({ minLength: 1, maxLength: 120 })
-    },
-    {
-      additionalProperties: false
-    }
-  )
-});
-
-const otpVerifyResponseValidator = Object.freeze({
-  schema: Type.Object(
-    {
-      ok: Type.Boolean(),
-      username: Type.String({ minLength: 1, maxLength: 120 }),
-      email: authEmailValidator.schema
-    },
-    {
-      additionalProperties: false
-    }
-  )
-});
-
-const oauthCompleteResponseValidator = Object.freeze({
-  schema: Type.Object(
-    {
-      ok: Type.Boolean(),
-      provider: Type.Optional(oauthProviderValidator.schema),
-      username: Type.String({ minLength: 1, maxLength: 120 }),
-      email: authEmailValidator.schema
-    },
-    {
-      additionalProperties: false
-    }
-  )
-});
-
-const devLoginAsResponseValidator = Object.freeze({
-  schema: Type.Object(
-    {
-      ok: Type.Boolean(),
-      userId: Type.String({ minLength: 1 }),
-      username: Type.String({ minLength: 1, maxLength: 120 }),
-      email: authEmailValidator.schema
-    },
-    {
-      additionalProperties: false
-    }
-  )
-});
-
-const logoutResponseValidator = Object.freeze({
-  schema: Type.Object(
-    {
-      ok: Type.Boolean()
-    },
-    {
-      additionalProperties: false
-    }
-  )
-});
-
-const oauthProviderCatalogEntryValidator = Object.freeze({
-  schema: Type.Object(
-    {
-      id: oauthProviderValidator.schema,
-      label: Type.String({ minLength: 1, maxLength: 120 })
-    },
-    {
-      additionalProperties: false
-    }
-  )
-});
-
-const sessionResponseValidator = Object.freeze({
-  schema: Type.Object(
-    {
-      authenticated: Type.Boolean(),
-      username: Type.Optional(Type.String({ minLength: 1, maxLength: 120 })),
-      email: Type.Optional(authEmailValidator.schema),
-      permissions: Type.Optional(Type.Array(Type.String({ minLength: 1, maxLength: 200 }))),
-      csrfToken: Type.String({ minLength: 1 }),
-      oauthProviders: Type.Array(oauthProviderCatalogEntryValidator.schema),
-      oauthDefaultProvider: Type.Union([oauthProviderValidator.schema, Type.Null()])
-    },
-    {
-      additionalProperties: false
-    }
-  )
-});
-
-const sessionUnavailableResponseValidator = Object.freeze({
-  schema: Type.Object(
-    {
-      error: Type.String({ minLength: 1 }),
-      csrfToken: Type.String({ minLength: 1 }),
-      oauthProviders: Type.Array(oauthProviderCatalogEntryValidator.schema),
-      oauthDefaultProvider: Type.Union([oauthProviderValidator.schema, Type.Null()])
-    },
-    {
-      additionalProperties: false
-    }
-  )
+  }
 });
 
 function createCommandMessages({
   fields = {},
   defaultMessage = "Invalid value."
 } = {}) {
-  return Object.freeze({
+  return deepFreeze({
     apiValidation: "Validation failed.",
-    fields: Object.freeze({
+    fields: {
       ...(fields && typeof fields === "object" ? fields : {})
-    }),
-    keywords: Object.freeze({
+    },
+    keywords: {
       additionalProperties: "Unexpected field."
-    }),
+    },
     default: String(defaultMessage || "Invalid value.")
   });
 }
 
 export {
+  authEmailFieldDefinition,
+  authPasswordFieldDefinition,
+  authLoginPasswordFieldDefinition,
+  authRecoveryTokenFieldDefinition,
+  authAccessTokenFieldDefinition,
+  authRefreshTokenFieldDefinition,
+  oauthProviderFieldDefinition,
+  authMethodIdFieldDefinition,
+  authMethodKindFieldDefinition,
+  oauthReturnToFieldDefinition,
   authEmailValidator,
   authPasswordValidator,
   authLoginPasswordValidator,

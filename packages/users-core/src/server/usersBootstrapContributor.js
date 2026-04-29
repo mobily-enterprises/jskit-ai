@@ -4,7 +4,7 @@ import { normalizeLowerText, normalizeText } from "@jskit-ai/kernel/shared/actio
 import { normalizeObject } from "@jskit-ai/kernel/shared/support/normalize";
 import { accountAvatarFormatter } from "./common/formatters/accountAvatarFormatter.js";
 import { authenticatedUserValidator } from "./common/validators/authenticatedUserValidator.js";
-import { userSettingsFields } from "../shared/resources/userSettingsFields.js";
+import { USER_SETTINGS_BOOTSTRAP_KEYS } from "../shared/resources/userSettingsResource.js";
 
 function getOAuthProviderCatalogPayload(authService) {
   if (!authService || typeof authService.getOAuthProviderCatalog !== "function") {
@@ -79,18 +79,8 @@ function mapUserSettingsBootstrap(settings = {}) {
   const source = settings && typeof settings === "object" ? settings : {};
   const mapped = {};
 
-  for (const field of userSettingsFields) {
-    if (field.includeInBootstrap === false) {
-      continue;
-    }
-    const rawValue = Object.hasOwn(source, field.key)
-      ? source[field.key]
-      : field.resolveDefault({
-          settings: source
-        });
-    mapped[field.key] = field.normalizeOutput(rawValue, {
-      settings: source
-    });
+  for (const fieldKey of USER_SETTINGS_BOOTSTRAP_KEYS) {
+    mapped[fieldKey] = source[fieldKey];
   }
 
   return mapped;

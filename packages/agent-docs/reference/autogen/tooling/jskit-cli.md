@@ -198,8 +198,6 @@ Exports
 - `partitionPreFileConfigTextMutations(textMutations = [])`
 - `resolvePositioningMutations(descriptorMutations = {})`
 Local functions
-- `resolveSettingsFieldsContractTarget(relativeFile = "")`
-- `validateSettingsFieldsContractMutationTarget({ appRoot, relativeFile, packageId } = {})`
 - `isPositioningTextMutation(value = {})`
 - `isPreFileConfigTextMutation(value = {})`
 

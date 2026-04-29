@@ -17,7 +17,7 @@ Default JSKIT pattern:
 1. Put shared filter definitions in the CRUD package.
    Example path: `packages/<crud>/src/shared/<crud>ListFilters.js`
 2. Build the server runtime from that module with `createCrudListFilters(...)`.
-3. Build route/action validators explicitly with `createQueryValidator({ invalidValues: "reject" | "discard" })`, and use `applyQuery(...)` in the repository. There is no default validator mode and no `runtime.queryValidator` alias.
+3. Build route/action validators explicitly with `createQueryValidator({ invalidValues: "reject" | "discard" })`, and use `applyQuery(...)` in the repository. There is no default validator mode or legacy route-runtime alias.
 4. Build the client runtime from the same shared definitions with `useCrudListFilters(...)`. Presets can use static `values` or dynamic `resolveValues({ values, filters, presetKey, preset })`.
 5. Pass `listFilters.queryParams` into `useCrudList(...)`.
 6. For lookup-backed filters, use `useCrudListFilterLookups(...)` instead of hand-rolling `useList()` in each page.
@@ -65,7 +65,7 @@ Put unusual SQL semantics on the server:
 Avoid:
 - local filter composables that duplicate the same keys the server already knows about
 - a custom validator shape that does not match the page state
-- assuming a default `runtime.queryValidator` exists; always create the validator explicitly with `createQueryValidator({ invalidValues: ... })`
+- assuming a default route-runtime query-validator alias exists; always create the validator explicitly with `createQueryValidator({ invalidValues: ... })`
 - hand-rolled preset apply/reset/active-state helpers when `useCrudListFilters(..., { presets })`, `applyPreset(...)`, and `matchesPreset(...)` fit
 - per-screen `useList()` wrappers for lookup-backed filters when `useCrudListFilterLookups(...)` fits
 - a second page-local filter-definition file when `packages/<crud>/src/shared/<crud>ListFilters.js` should be the source of truth

@@ -3,6 +3,7 @@ import { resolveActionContributors } from "@jskit-ai/kernel/server/actions";
 import { normalizeActionDefinition } from "@jskit-ai/kernel/shared/actions";
 import { normalizeSurfaceId } from "@jskit-ai/kernel/shared/surface/registry";
 import { normalizeText } from "@jskit-ai/kernel/shared/support/normalize";
+import { resolveStructuredSchemaTransportSchema } from "@jskit-ai/kernel/shared/validators";
 import { resolveWorkspaceSlug } from "./resolveWorkspaceSlug.js";
 
 const AUTOMATION_CHANNEL = "automation";
@@ -275,8 +276,14 @@ function resolveActionBackedToolEntries(scope) {
         continue;
       }
 
-      const inputSchema = normalizedAction.inputValidator?.schema || null;
-      const outputSchema = normalizedAction.outputValidator?.schema || null;
+      const inputSchema = resolveStructuredSchemaTransportSchema(normalizedAction.input, {
+        context: `Action definition "${actionId}" input`,
+        defaultMode: "patch"
+      }) || null;
+      const outputSchema = resolveStructuredSchemaTransportSchema(normalizedAction.output, {
+        context: `Action definition "${actionId}" output`,
+        defaultMode: "replace"
+      }) || null;
       if (!inputSchema || !outputSchema) {
         continue;
       }
