@@ -2,6 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { createSchema } from "json-rest-schema";
 import { compileRouteValidator } from "@jskit-ai/kernel/_testable";
+import { defineCrudListFilters } from "@jskit-ai/kernel/shared/support/crudListFilters";
 import {
   composeSchemaDefinitions,
   cursorPaginationQueryValidator
@@ -10,6 +11,8 @@ import { listSearchQueryValidator } from "../src/server/listQueryValidators.js";
 import {
   CRUD_LIST_FILTER_INVALID_VALUES_REJECT,
   CRUD_LIST_FILTER_INVALID_VALUES_DISCARD,
+  createCrudListFilterQueryField,
+  createCrudListFilterQuerySchema,
   createCrudListFilters
 } from "../src/server/listFilters.js";
 
@@ -23,6 +26,8 @@ function composeSchemaDefinition(...definitions) {
 test("crud-core exposes createCrudListFilters through the public package export", async () => {
   const module = await import("@jskit-ai/crud-core/server/listFilters");
   assert.equal(typeof module.createCrudListFilters, "function");
+  assert.equal(typeof module.createCrudListFilterQueryField, "function");
+  assert.equal(typeof module.createCrudListFilterQuerySchema, "function");
   assert.equal(module.CRUD_LIST_FILTER_INVALID_VALUES_REJECT, CRUD_LIST_FILTER_INVALID_VALUES_REJECT);
   assert.equal(module.CRUD_LIST_FILTER_INVALID_VALUES_DISCARD, CRUD_LIST_FILTER_INVALID_VALUES_DISCARD);
 });
@@ -285,6 +290,77 @@ test("createCrudListFilters query validator stays mergeable with search and curs
   });
 
   assert.deepEqual(compiled.schema.querystring.required || [], []);
+});
+
+test("createCrudListFilterQueryField keeps route query params explicit while reusing filter semantics", () => {
+  const filters = defineCrudListFilters({
+    status: {
+      type: "enum",
+      label: "Status",
+      options: [
+        { value: "active", label: "Active" },
+        { value: "archived", label: "Archived" }
+      ]
+    },
+    arrivalDate: {
+      type: "dateRange",
+      label: "Arrival Date"
+    }
+  });
+
+  const explicitFilterQueryValidator = Object.freeze({
+    schema: createCrudListFilterQuerySchema({
+      status: createCrudListFilterQueryField(filters.status, {
+        invalidValues: CRUD_LIST_FILTER_INVALID_VALUES_REJECT
+      }),
+      arrivalDate: createCrudListFilterQueryField(filters.arrivalDate, {
+        invalidValues: CRUD_LIST_FILTER_INVALID_VALUES_REJECT
+      })
+    }),
+    mode: "patch"
+  });
+
+  const compiled = compileRouteValidator({
+    query: composeSchemaDefinition(
+      cursorPaginationQueryValidator,
+      listSearchQueryValidator,
+      explicitFilterQueryValidator
+    )
+  });
+  const transportSchema = explicitFilterQueryValidator.schema.toJsonSchema({
+    mode: explicitFilterQueryValidator.mode
+  });
+
+  assert.deepEqual(compiled.schema.querystring.required || [], []);
+  assert.equal(transportSchema.type, "object");
+  assert.equal(transportSchema.properties.status.enum[0], "active");
+  assert.equal(
+    transportSchema.properties.arrivalDate.pattern,
+    "^(?:\\d{4}-\\d{2}-\\d{2}(?:\\.\\.(?:\\d{4}-\\d{2}-\\d{2})?)?|\\.\\.\\d{4}-\\d{2}-\\d{2})$"
+  );
+  assert.deepEqual(explicitFilterQueryValidator.schema.patch({
+    status: "active",
+    arrivalDate: "2026-04-01..2026-04-30"
+  }), {
+    validatedObject: {
+      status: "active",
+      arrivalDate: {
+        from: "2026-04-01",
+        to: "2026-04-30"
+      }
+    },
+    errors: {}
+  });
+});
+
+test("createCrudListFilterQueryField requires normalized filter definitions", () => {
+  assert.throws(
+    () => createCrudListFilterQueryField({
+      type: "enum",
+      label: "Status"
+    }),
+    /normalized filter definition/
+  );
 });
 
 test("createCrudListFilters requires explicit invalid-value mode for new query validators", () => {

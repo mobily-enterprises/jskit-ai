@@ -7,7 +7,6 @@ import {
 } from "@jskit-ai/auth-core/shared/authMethods";
 import { normalizeEmail } from "@jskit-ai/auth-core/server/utils";
 import { normalizeRecordId } from "@jskit-ai/kernel/shared/support/normalize";
-import { validators } from "@jskit-ai/auth-core/server/validators";
 import {
   isTransientAuthMessage,
   isTransientSupabaseError,
@@ -23,9 +22,6 @@ import {
 import { displayNameFromEmail, resolveDisplayName, resolveDisplayNameFromClaims } from "./authProfileNames.js";
 import {
   normalizeOAuthProviderInput as normalizeOAuthProviderInputFromCatalog,
-  validatePasswordRecoveryPayload,
-  parseOAuthCompletePayload as parseOAuthCompletePayloadFromCatalog,
-  parseOtpLoginVerifyPayload,
   mapOAuthCallbackError
 } from "./authInputParsers.js";
 import {
@@ -162,13 +158,6 @@ function createService(options) {
 
   function normalizeOAuthProviderInput(value) {
     return normalizeOAuthProviderInputFromCatalog(value, {
-      providerIds: authOAuthProviderIds,
-      defaultProvider: authOAuthDefaultProvider
-    });
-  }
-
-  function parseOAuthCompletePayload(payload) {
-    return parseOAuthCompletePayloadFromCatalog(payload, {
       providerIds: authOAuthProviderIds,
       defaultProvider: authOAuthDefaultProvider
     });
@@ -589,7 +578,6 @@ function createService(options) {
 
   const { register, resendRegisterConfirmation, login, requestOtpLogin, verifyOtpLogin, updateDisplayName } = createAccountFlows({
     ensureConfigured,
-    validators,
     validationError,
     getSupabaseClient,
     displayNameFromEmail,
@@ -601,7 +589,6 @@ function createService(options) {
     appPublicUrl,
     isTransientSupabaseError,
     isUserNotFoundLikeAuthError,
-    parseOtpLoginVerifyPayload,
     mapOtpVerifyError,
     setSessionFromRequestCookies,
     mapProfileUpdateError,
@@ -620,7 +607,6 @@ function createService(options) {
     mapAuthError,
     setSessionFromRequestCookies,
     buildOAuthLinkRedirectUrl: buildOAuthLinkRedirectUrlWithCatalog,
-    parseOAuthCompletePayload,
     validationError,
     mapOAuthCallbackError,
     mapRecoveryError,
@@ -642,12 +628,10 @@ function createService(options) {
     getSecurityStatus
   } = createPasswordSecurityFlows({
     ensureConfigured,
-    validators,
     validationError,
     getSupabaseClient,
     passwordResetRedirectUrl,
     mapAuthError,
-    validatePasswordRecoveryPayload,
     mapRecoveryError,
     syncProfileFromSupabaseUser,
     setSessionFromRequestCookies,
@@ -895,7 +879,6 @@ function createService(options) {
 }
 
 const __testables = {
-  validatePasswordRecoveryPayload,
   displayNameFromEmail,
   resolveDisplayName,
   resolveDisplayNameFromClaims,
@@ -918,8 +901,6 @@ const __testables = {
   buildOAuthLoginRedirectUrl,
   buildOAuthLinkRedirectUrl,
   normalizeOAuthProviderInput: normalizeOAuthProviderInputFromCatalog,
-  parseOAuthCompletePayload: parseOAuthCompletePayloadFromCatalog,
-  parseOtpLoginVerifyPayload,
   mapOAuthCallbackError,
   resolveSupabaseOAuthProviderCatalog,
   resolveOAuthProviderQueryParams,

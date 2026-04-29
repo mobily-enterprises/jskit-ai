@@ -305,20 +305,48 @@ const FILTER_TYPE_SERVER_HANDLERS = Object.freeze({
   })
 });
 
-function buildFilterQueryFieldDefinition(filter = {}, { invalidValues = CRUD_LIST_FILTER_INVALID_VALUES_REJECT } = {}) {
+function normalizeCrudListFilterQueryFieldInput(filterDefinition = null) {
+  if (!filterDefinition || typeof filterDefinition !== "object" || Array.isArray(filterDefinition)) {
+    throw new TypeError("createCrudListFilterQueryField requires a normalized filter definition object.");
+  }
+
+  const key = normalizeText(filterDefinition.key);
+  const type = normalizeText(filterDefinition.type);
+  const queryKey = normalizeText(filterDefinition.queryKey);
+  if (!key || !type || !queryKey) {
+    throw new TypeError(
+      "createCrudListFilterQueryField requires a normalized filter definition from defineCrudListFilters(...)."
+    );
+  }
+  if (!FILTER_TYPE_SERVER_HANDLERS[type]) {
+    throw new TypeError(`Unsupported CRUD list filter type "${type}".`);
+  }
+
+  return filterDefinition;
+}
+
+function createCrudListFilterQueryField(filterDefinition = {}, {
+  invalidValues = CRUD_LIST_FILTER_INVALID_VALUES_REJECT
+} = {}) {
   const invalidValueMode = normalizeCrudListFilterInvalidValues(invalidValues);
+  const filter = normalizeCrudListFilterQueryFieldInput(filterDefinition);
   const filterContract = Object.freeze({
     filter,
     invalidValues: invalidValueMode
   });
 
-  const queryFieldDefinition = {
+  return Object.freeze({
     type: CRUD_LIST_FILTER_QUERY_TYPE,
     filterContract
-  };
+  });
+}
 
+function buildFilterQueryFieldDefinition(filterDefinition = {}, { invalidValues = CRUD_LIST_FILTER_INVALID_VALUES_REJECT } = {}) {
+  const filter = normalizeCrudListFilterQueryFieldInput(filterDefinition);
   return {
-    [filter.queryKey]: queryFieldDefinition
+    [filter.queryKey]: createCrudListFilterQueryField(filter, {
+      invalidValues
+    })
   };
 }
 
@@ -373,6 +401,10 @@ crudListFilterSchemaFactory.addType(CRUD_LIST_FILTER_QUERY_TYPE, Object.assign(
   }
 ));
 
+function createCrudListFilterQuerySchema(structure = {}) {
+  return crudListFilterSchemaFactory(structure);
+}
+
 function buildFilterQuerySchemaDefinition(filterEntries = [], {
   invalidValues = CRUD_LIST_FILTER_INVALID_VALUES_REJECT
 } = {}) {
@@ -385,7 +417,7 @@ function buildFilterQuerySchemaDefinition(filterEntries = [], {
   }
 
   return Object.freeze({
-    schema: crudListFilterSchemaFactory(structure),
+    schema: createCrudListFilterQuerySchema(structure),
     mode: "patch"
   });
 }
@@ -504,5 +536,7 @@ function createCrudListFilters(definitions = {}, { columns = {}, apply = {} } = 
 export {
   CRUD_LIST_FILTER_INVALID_VALUES_REJECT,
   CRUD_LIST_FILTER_INVALID_VALUES_DISCARD,
+  createCrudListFilterQueryField,
+  createCrudListFilterQuerySchema,
   createCrudListFilters
 };

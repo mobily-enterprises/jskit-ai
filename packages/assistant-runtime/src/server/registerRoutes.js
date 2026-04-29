@@ -1,5 +1,6 @@
 import { AppError } from "@jskit-ai/kernel/server/runtime";
 import { resolveAppConfig } from "@jskit-ai/kernel/server/support";
+import { composeSchemaDefinitions } from "@jskit-ai/kernel/shared/validators";
 import { normalizeSurfaceId } from "@jskit-ai/kernel/shared/surface/registry";
 import { withStandardErrorResponses } from "@jskit-ai/http-runtime/shared/validators/errorResponses";
 import {
@@ -18,25 +19,18 @@ import { actionIds } from "./actionIds.js";
 import { assistantSurfaceRouteParams } from "./inputSchemas.js";
 import { resolveWorkspaceServerScopeSupport } from "./support/workspaceScopeSupport.js";
 
-function buildRouteParamsValidator(requiresWorkspace, workspaceScopeSupport = null) {
-  if (requiresWorkspace === true) {
-    if (!workspaceScopeSupport) {
-      throw new Error("Assistant workspace routes require workspace server scope support.");
+function requireWorkspaceAssistantRouteParams(workspaceScopeSupport = null) {
+  if (!workspaceScopeSupport) {
+    throw new Error("Assistant workspace routes require workspace server scope support.");
+  }
+
+  return composeSchemaDefinitions(
+    [workspaceScopeSupport.params, assistantSurfaceRouteParams],
+    {
+      mode: "patch",
+      context: "assistant-runtime workspace surface route params"
     }
-
-    return [workspaceScopeSupport.params, assistantSurfaceRouteParams];
-  }
-
-  return assistantSurfaceRouteParams;
-}
-
-function buildConversationMessagesRouteParamsValidator(requiresWorkspace, workspaceScopeSupport = null) {
-  const validators = buildRouteParamsValidator(requiresWorkspace, workspaceScopeSupport);
-  if (Array.isArray(validators)) {
-    return validators.concat(assistantResource.operations.conversationMessagesList.params);
-  }
-
-  return [validators, assistantResource.operations.conversationMessagesList.params];
+  );
 }
 
 function readWorkspaceInput(request, requiresWorkspace, workspaceScopeSupport = null) {
@@ -156,7 +150,9 @@ function registerSettingsRoutes(
   });
   const visibility = requiresWorkspace ? "workspace" : "public";
   const routePath = `${routeBase}/:surfaceId/settings`;
-  const params = buildRouteParamsValidator(requiresWorkspace, workspaceScopeSupport);
+  const params = requiresWorkspace === true
+    ? requireWorkspaceAssistantRouteParams(workspaceScopeSupport)
+    : assistantSurfaceRouteParams;
 
   router.register(
     "GET",
@@ -248,7 +244,18 @@ function registerRuntimeRoutes(
   });
   const visibility = requiresWorkspace ? "workspace" : "public";
   const surfaceRouteBase = `${routeBase}/:surfaceId`;
-  const params = buildRouteParamsValidator(requiresWorkspace, workspaceScopeSupport);
+  const params = requiresWorkspace === true
+    ? requireWorkspaceAssistantRouteParams(workspaceScopeSupport)
+    : assistantSurfaceRouteParams;
+  const conversationMessagesParams = composeSchemaDefinitions(
+    [params, assistantResource.operations.conversationMessagesList.params],
+    {
+      mode: "patch",
+      context: requiresWorkspace === true
+        ? "assistant-runtime workspace conversation messages route params"
+        : "assistant-runtime conversation messages route params"
+    }
+  );
 
   router.register(
     "POST",
@@ -418,7 +425,7 @@ function registerRuntimeRoutes(
     {
       auth: "required",
       visibility,
-      params: buildConversationMessagesRouteParamsValidator(requiresWorkspace, workspaceScopeSupport),
+      params: conversationMessagesParams,
       meta: {
         tags: ["assistant"],
         summary: "List assistant conversation messages."

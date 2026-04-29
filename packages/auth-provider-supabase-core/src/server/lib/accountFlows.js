@@ -1,8 +1,12 @@
 import { AppError } from "@jskit-ai/kernel/server/runtime/errors";
+import { authRegisterBodyValidator } from "@jskit-ai/auth-core/shared/commands/authRegisterCommand";
+import { authRegisterConfirmationResendBodyValidator } from "@jskit-ai/auth-core/shared/commands/authRegisterConfirmationResendCommand";
+import { authLoginPasswordBodyValidator } from "@jskit-ai/auth-core/shared/commands/authLoginPasswordCommand";
+import { authLoginOtpRequestBodyValidator } from "@jskit-ai/auth-core/shared/commands/authLoginOtpRequestCommand";
+import { authLoginOtpVerifyBodyValidator } from "@jskit-ai/auth-core/shared/commands/authLoginOtpVerifyCommand";
 import {
   requireAuthUser,
-  requireAuthUserSession,
-  requireNoFieldErrors
+  requireAuthUserSession
 } from "./flowGuards.js";
 
 function normalizeLocalReturnToPath(value, { fallback = "" } = {}) {
@@ -21,7 +25,6 @@ function normalizeLocalReturnToPath(value, { fallback = "" } = {}) {
 function createAccountFlows(deps) {
   const {
     ensureConfigured,
-    validators,
     validationError,
     getSupabaseClient,
     displayNameFromEmail,
@@ -33,7 +36,6 @@ function createAccountFlows(deps) {
     appPublicUrl,
     isTransientSupabaseError,
     isUserNotFoundLikeAuthError,
-    parseOtpLoginVerifyPayload,
     mapOtpVerifyError,
     setSessionFromRequestCookies,
     mapProfileUpdateError,
@@ -82,8 +84,11 @@ function createAccountFlows(deps) {
   async function register(payload) {
     ensureConfigured();
 
-    const parsed = validators.registerInput(payload);
-    requireNoFieldErrors(parsed, validationError);
+    const result = authRegisterBodyValidator.schema.create(payload);
+    if (Object.keys(result.errors).length > 0) {
+      throw validationError(result.errors);
+    }
+    const parsed = result.validatedObject;
 
     const supabase = getSupabaseClient();
     const response = await supabase.auth.signUp({
@@ -126,8 +131,11 @@ function createAccountFlows(deps) {
   async function resendRegisterConfirmation(payload) {
     ensureConfigured();
 
-    const parsed = validators.forgotPasswordInput(payload);
-    requireNoFieldErrors(parsed, validationError);
+    const result = authRegisterConfirmationResendBodyValidator.schema.create(payload);
+    if (Object.keys(result.errors).length > 0) {
+      throw validationError(result.errors);
+    }
+    const parsed = result.validatedObject;
 
     const supabase = getSupabaseClient();
     const emailRedirectTo = resolveRegisterEmailRedirectTo();
@@ -175,8 +183,11 @@ function createAccountFlows(deps) {
   async function login(payload) {
     ensureConfigured();
 
-    const parsed = validators.loginInput(payload);
-    requireNoFieldErrors(parsed, validationError);
+    const result = authLoginPasswordBodyValidator.schema.create(payload);
+    if (Object.keys(result.errors).length > 0) {
+      throw validationError(result.errors);
+    }
+    const parsed = result.validatedObject;
 
     const supabase = getSupabaseClient();
     const response = await supabase.auth.signInWithPassword({
@@ -201,10 +212,13 @@ function createAccountFlows(deps) {
   async function requestOtpLogin(payload) {
     ensureConfigured();
 
-    const parsed = validators.forgotPasswordInput(payload);
-    requireNoFieldErrors(parsed, validationError);
+    const result = authLoginOtpRequestBodyValidator.schema.create(payload);
+    if (Object.keys(result.errors).length > 0) {
+      throw validationError(result.errors);
+    }
+    const parsed = result.validatedObject;
 
-    const emailRedirectTo = resolveOtpEmailRedirectTo(payload?.returnTo);
+    const emailRedirectTo = resolveOtpEmailRedirectTo(parsed.returnTo);
     const supabase = getSupabaseClient();
     let response;
     try {
@@ -250,22 +264,41 @@ function createAccountFlows(deps) {
   async function verifyOtpLogin(payload) {
     ensureConfigured();
 
-    const parsed = parseOtpLoginVerifyPayload(payload);
-    requireNoFieldErrors(parsed, validationError);
+    const result = authLoginOtpVerifyBodyValidator.schema.patch(payload);
+    if (Object.keys(result.errors).length > 0) {
+      throw validationError(result.errors);
+    }
+    const parsed = result.validatedObject;
+    const fieldErrors = {};
+    const token = String(parsed.token || "").trim();
+    const tokenHash = String(parsed.tokenHash || "").trim();
+    const type = String(parsed.type || "email").trim().toLowerCase();
+
+    if (!token && !tokenHash) {
+      fieldErrors.token = "One-time code is required.";
+    }
+
+    if (!tokenHash && !parsed.email) {
+      fieldErrors.email = "Email is required.";
+    }
+
+    if (Object.keys(fieldErrors).length > 0) {
+      throw validationError(fieldErrors);
+    }
 
     const supabase = getSupabaseClient();
     let response;
     try {
-      if (parsed.tokenHash) {
+      if (tokenHash) {
         response = await supabase.auth.verifyOtp({
-          token_hash: parsed.tokenHash,
-          type: parsed.type
+          token_hash: tokenHash,
+          type
         });
       } else {
         response = await supabase.auth.verifyOtp({
           email: parsed.email,
-          token: parsed.token,
-          type: parsed.type
+          token,
+          type
         });
       }
     } catch (error) {

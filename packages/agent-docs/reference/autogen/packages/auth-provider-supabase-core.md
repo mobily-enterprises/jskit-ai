@@ -58,12 +58,8 @@ Exports
 ### `src/server/lib/authInputParsers.js`
 Exports
 - `normalizeOAuthProviderInput(value, options = {})`
-- `validatePasswordRecoveryPayload(payload)`
-- `parseOAuthCompletePayload(payload = {}, options = {})`
-- `parseOtpLoginVerifyPayload(payload = {})`
 - `mapOAuthCallbackError(errorCode)`
 Local functions
-- `applySessionPairValidation(accessToken, refreshToken, fieldErrors)`
 - `resolveConfiguredOAuthProviders(options = {})`
 
 ### `src/server/lib/authJwt.js`
@@ -216,10 +212,7 @@ Exports
 - `buildOAuthLoginRedirectUrl`
 - `buildOAuthLinkRedirectUrl`
 - `normalizeOAuthProviderInput`
-- `parseOAuthCompletePayload`
-- `parseOtpLoginVerifyPayload`
 - `mapOAuthCallbackError`
-- `validatePasswordRecoveryPayload`
 - `resolveSupabaseOAuthProviderCatalog`
 - `resolveOAuthProviderQueryParams`
 - `buildOAuthProviderCatalogResponse`

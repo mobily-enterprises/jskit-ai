@@ -86,8 +86,7 @@ Exports
 Exports
 - `registerRoutes(app)`
 Local functions
-- `buildRouteParamsValidator(requiresWorkspace, workspaceScopeSupport = null)`
-- `buildConversationMessagesRouteParamsValidator(requiresWorkspace, workspaceScopeSupport = null)`
+- `requireWorkspaceAssistantRouteParams(workspaceScopeSupport = null)`
 - `readWorkspaceInput(request, requiresWorkspace, workspaceScopeSupport = null)`
 - `requireAssistantSurface(appConfig = {}, targetSurfaceId = "")`
 - `requireHostSurfaceId(request)`
@@ -195,6 +194,8 @@ Exports
 - `WORKSPACES_SERVER_SCOPE_SUPPORT_TOKEN`
 - `isWorkspaceServerScopeSupport(value)`
 - `resolveWorkspaceServerScopeSupport(scope = null, { required = false, caller = "assistant-runtime" } = {})`
+Local functions
+- `hasWorkspaceRouteParamsDefinition(value)`
 
 ### `src/shared/assistantRuntimeConfig.js`
 Exports

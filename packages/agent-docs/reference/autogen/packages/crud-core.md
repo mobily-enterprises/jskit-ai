@@ -131,12 +131,15 @@ Local functions
 Exports
 - `CRUD_LIST_FILTER_INVALID_VALUES_REJECT`
 - `CRUD_LIST_FILTER_INVALID_VALUES_DISCARD`
+- `createCrudListFilterQueryField(filterDefinition = {}, { invalidValues = CRUD_LIST_FILTER_INVALID_VALUES_REJECT } = {})`
+- `createCrudListFilterQuerySchema(structure = {})`
 - `createCrudListFilters(definitions = {}, { columns = {}, apply = {} } = {})`
 Local functions
 - `cloneTransportSchema(value)`
 - `buildSingleOrMultiTransportSchema(itemSchema)`
 - `addDaysToDateFilterValue(value = "", days = 0)`
-- `buildFilterQueryFieldDefinition(filter = {}, { invalidValues = CRUD_LIST_FILTER_INVALID_VALUES_REJECT } = {})`
+- `normalizeCrudListFilterQueryFieldInput(filterDefinition = null)`
+- `buildFilterQueryFieldDefinition(filterDefinition = {}, { invalidValues = CRUD_LIST_FILTER_INVALID_VALUES_REJECT } = {})`
 - `buildFilterQueryTransportSchema(filter = {}, { invalidValues = CRUD_LIST_FILTER_INVALID_VALUES_REJECT } = {})`
 - `buildFilterQuerySchemaDefinition(filterEntries = [], { invalidValues = CRUD_LIST_FILTER_INVALID_VALUES_REJECT } = {})`
 - `projectNormalizedFilterValues(filterEntries = [], source = {}, errors = {})`

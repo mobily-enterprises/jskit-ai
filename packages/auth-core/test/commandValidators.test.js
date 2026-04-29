@@ -57,6 +57,26 @@ test("oauth complete command allows provider-less session-pair callbacks", () =>
   assert.equal(responseRequired.includes("provider"), false);
 });
 
+test("auth command body validators lowercase email inputs", () => {
+  const commands = [
+    authRegisterCommand,
+    authRegisterConfirmationResendCommand,
+    authLoginPasswordCommand,
+    authLoginOtpRequestCommand,
+    authLoginOtpVerifyCommand,
+    authPasswordResetRequestCommand
+  ];
+
+  for (const command of commands) {
+    const result = command.operation.body.schema.patch({
+      email: "  ADA@EXAMPLE.COM  "
+    });
+    if (Object.hasOwn(result.validatedObject, "email")) {
+      assert.equal(result.validatedObject.email, "ada@example.com");
+    }
+  }
+});
+
 test("auth session and oauth start commands expose explicit nested response schemas", () => {
   const sessionResponseSchema = resolveStructuredSchemaTransportSchema(
     authSessionReadCommand.operation.response,

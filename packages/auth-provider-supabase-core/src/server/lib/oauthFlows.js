@@ -1,4 +1,6 @@
 import { AppError } from "@jskit-ai/kernel/server/runtime/errors";
+import { authLoginOAuthStartParamsValidator, authLoginOAuthStartQueryValidator } from "@jskit-ai/auth-core/shared/commands/authLoginOAuthStartCommand";
+import { authLoginOAuthCompleteBodyValidator } from "@jskit-ai/auth-core/shared/commands/authLoginOAuthCompleteCommand";
 
 function createOauthFlows(deps) {
   const {
@@ -13,7 +15,6 @@ function createOauthFlows(deps) {
     mapAuthError,
     setSessionFromRequestCookies,
     buildOAuthLinkRedirectUrl,
-    parseOAuthCompletePayload,
     validationError,
     mapOAuthCallbackError,
     mapRecoveryError,
@@ -50,8 +51,22 @@ function createOauthFlows(deps) {
   async function oauthStart(payload = {}) {
     ensureConfigured();
 
-    const provider = normalizeOAuthProviderInput(payload.provider || authOAuthDefaultProvider);
-    const returnTo = normalizeReturnToPath(payload.returnTo, { fallback: "/" });
+    const paramsResult = authLoginOAuthStartParamsValidator.schema.patch({
+      provider: payload.provider || authOAuthDefaultProvider
+    });
+    if (Object.keys(paramsResult.errors).length > 0) {
+      throw validationError(paramsResult.errors);
+    }
+
+    const queryResult = authLoginOAuthStartQueryValidator.schema.patch({
+      returnTo: payload.returnTo
+    });
+    if (Object.keys(queryResult.errors).length > 0) {
+      throw validationError(queryResult.errors);
+    }
+
+    const provider = normalizeOAuthProviderInput(paramsResult.validatedObject.provider);
+    const returnTo = normalizeReturnToPath(queryResult.validatedObject.returnTo, { fallback: "/" });
     const redirectTo = buildOAuthLoginRedirectUrl({
       appPublicUrl,
       provider,
@@ -72,9 +87,23 @@ function createOauthFlows(deps) {
   async function startProviderLink(request, payload = {}) {
     ensureConfigured();
 
+    const paramsResult = authLoginOAuthStartParamsValidator.schema.patch({
+      provider: payload.provider || authOAuthDefaultProvider
+    });
+    if (Object.keys(paramsResult.errors).length > 0) {
+      throw validationError(paramsResult.errors);
+    }
+
+    const queryResult = authLoginOAuthStartQueryValidator.schema.patch({
+      returnTo: payload.returnTo
+    });
+    if (Object.keys(queryResult.errors).length > 0) {
+      throw validationError(queryResult.errors);
+    }
+
+    const provider = normalizeOAuthProviderInput(paramsResult.validatedObject.provider);
+    const returnTo = normalizeReturnToPath(queryResult.validatedObject.returnTo, { fallback: "/" });
     const supabase = getSupabaseClient();
-    const provider = normalizeOAuthProviderInput(payload.provider || authOAuthDefaultProvider);
-    const returnTo = normalizeReturnToPath(payload.returnTo, { fallback: "/" });
     await setSessionFromRequestCookies(request, {
       supabaseClient: supabase
     });
@@ -102,25 +131,55 @@ function createOauthFlows(deps) {
   async function oauthComplete(payload = {}) {
     ensureConfigured();
 
-    const parsed = parseOAuthCompletePayload(payload);
-    if (Object.keys(parsed.fieldErrors).length > 0) {
-      throw validationError(parsed.fieldErrors);
+    const result = authLoginOAuthCompleteBodyValidator.schema.patch(payload);
+    if (Object.keys(result.errors).length > 0) {
+      throw validationError(result.errors);
+    }
+    const parsed = result.validatedObject;
+    const code = String(parsed.code || "").trim();
+    const accessToken = String(parsed.accessToken || "").trim();
+    const refreshToken = String(parsed.refreshToken || "").trim();
+    const errorCode = String(parsed.error || parsed.error_code || "").trim();
+    const errorDescription = String(parsed.errorDescription || parsed.error_description || "").trim();
+    const hasSessionPair = Boolean(accessToken && refreshToken);
+    const fieldErrors = {};
+
+    if ((accessToken && !refreshToken) || (!accessToken && refreshToken)) {
+      if (!accessToken) {
+        fieldErrors.accessToken = "Access token is required when a refresh token is provided.";
+      }
+      if (!refreshToken) {
+        fieldErrors.refreshToken = "Refresh token is required when an access token is provided.";
+      }
     }
 
-    if (parsed.errorCode) {
-      throw mapOAuthCallbackError(parsed.errorCode, parsed.errorDescription);
+    if (!code && !errorCode && !hasSessionPair) {
+      fieldErrors.code = "OAuth code is required when access/refresh tokens are not provided.";
+    }
+
+    if (Object.keys(fieldErrors).length > 0) {
+      throw validationError(fieldErrors);
+    }
+
+    const provider =
+      !hasSessionPair || code || errorCode
+        ? normalizeOAuthProviderInput(parsed.provider || authOAuthDefaultProvider)
+        : null;
+
+    if (errorCode) {
+      throw mapOAuthCallbackError(errorCode, errorDescription);
     }
 
     const supabase = getSupabaseClient();
     let response;
     try {
-      if (parsed.hasSessionPair) {
+      if (hasSessionPair) {
         response = await supabase.auth.setSession({
-          access_token: parsed.accessToken,
-          refresh_token: parsed.refreshToken
+          access_token: accessToken,
+          refresh_token: refreshToken
         });
       } else {
-        response = await supabase.auth.exchangeCodeForSession(parsed.code);
+        response = await supabase.auth.exchangeCodeForSession(code);
       }
     } catch (error) {
       throw mapRecoveryError(error);
@@ -133,7 +192,7 @@ function createOauthFlows(deps) {
     const profile = await syncProfileFromSupabaseUser(response.data.user, response.data.user.email);
 
     return {
-      provider: parsed.provider,
+      provider,
       profile,
       session: response.data.session
     };
