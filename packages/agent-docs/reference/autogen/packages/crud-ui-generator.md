@@ -74,6 +74,7 @@ Exports
 - `resolveRecordIdExpression(fields = [])`
 Local functions
 - `normalizeRealtimeEventList(events = [])`
+- `resolveOperationTransportSchema(definition, { context = "ui-generator", defaultMode = "replace", label = "schema definition" } = {})`
 - `resolveUnionSchemaVariant(schema = {})`
 - `resolveSchemaType(schema)`
 - `toFieldLabel(key)`

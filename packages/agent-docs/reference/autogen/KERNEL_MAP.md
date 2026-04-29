@@ -56,12 +56,41 @@ Exports
 - `CRUD_LIST_FILTER_PRESENCE_PRESENT`
 - `CRUD_LIST_FILTER_PRESENCE_MISSING`
 - `CRUD_LIST_FILTER_PRESENCE_OPTIONS`
+- `CRUD_LIST_FILTER_INVALID_VALUES_REJECT`
+- `CRUD_LIST_FILTER_INVALID_VALUES_DISCARD`
+- `INVALID_CRUD_LIST_FILTER_QUERY_VALUE`
+- `normalizeCrudListFilterInvalidValues(value = "")`
 - `parseCrudListRangeQueryExpression(value = null)`
 - `formatCrudListRangeQueryExpression(startValue = "", endValue = "", { collapseExact = false } = {})`
 - `defineCrudListFilters(definitions = {})`
+- `createCrudListFilterInitialValue(filter = {})`
+- `isCrudListFilterMultiValue(filter = {})`
+- `isCrudListFilterStructuredValue(filter = {})`
+- `normalizeCrudListFilterUiValue(filter = {}, rawValue)`
+- `areCrudListFilterUiValuesEqual(filter = {}, currentValue, expectedValue)`
+- `hasCrudListFilterUiValue(filter = {}, rawValue)`
+- `listCrudListFilterChipValues(filter = {}, rawValue)`
+- `formatCrudListFilterDefaultChipLabel(filter = {}, rawValue, { resolveAtomicValue = null } = {})`
+- `formatCrudListFilterQueryValue(filter = {}, value)`
+- `parseCrudListFilterQueryValue(filter = {}, value, { invalidValues = CRUD_LIST_FILTER_INVALID_VALUES_REJECT } = {})`
 - `resolveCrudListFilterQueryKeys(definition = {})`
 - `resolveCrudListFilterOptionLabel(definition = {}, value = "", { fallback = "" } = {})`
 Local functions
+- `firstCrudListFilterValue(value)`
+- `isPrimitiveCrudListFilterInput(value)`
+- `isPrimitiveOrPrimitiveArrayCrudListFilterInput(value)`
+- `normalizeDateFilterText(value)`
+- `normalizeCanonicalRecordIdList(value)`
+- `normalizeFiniteFilterNumber(value)`
+- `normalizeAllowedFilterTextValue(value, allowedValues = new Set())`
+- `normalizeAllowedFilterTextValues(value, allowedValues = new Set())`
+- `resolveCrudListFilterAllowedValues(filter = {})`
+- `normalizeCrudListDateRangeUiValue(rawValue)`
+- `normalizeCrudListNumberRangeUiValue(rawValue)`
+- `matchCrudListFilterValues(currentValue, expectedValue)`
+- `rejectInvalidCrudListFilterValue({ invalidValues = CRUD_LIST_FILTER_INVALID_VALUES_REJECT } = {})`
+- `normalizeCrudListDateRangeQueryValue(value)`
+- `normalizeCrudListNumberRangeQueryValue(value)`
 - `normalizeCrudListFilterType(value = "")`
 - `normalizeCrudListFilterOption(rawOption = null, { context = "filter option" } = {})`
 - `normalizeCrudListFilterOptions(rawOptions = [], { context = "filter options" } = {})`
@@ -341,13 +370,6 @@ Exports
 - `resolveSchemaTransportSchemaDefinition`
 - `resolveStructuredSchemaTransportSchema`
 - `executeJsonRestSchemaDefinition`
-- `isJsonRestSchemaInstance`
-- `hasJsonRestSchemaValidator`
-- `resolveValidatorSchemaSource`
-- `resolveValidatorSchemaMode`
-- `resolveValidatorTransportSchema`
-- `executeJsonRestSchemaValidator`
-- `normalizeJsonRestSchemaFieldErrors`
 - `buildSchemaValidationError`
 - `validateSchemaPayload`
 - `RECORD_ID_PATTERN`
@@ -367,15 +389,14 @@ Exports
 ### `validators/jsonRestSchemaSupport.js`
 Exports
 - `isJsonRestSchemaInstance(value)`
-- `hasJsonRestSchemaValidator(validator = null)`
-- `resolveValidatorSchemaSource(validator = null)`
-- `resolveValidatorSchemaMode(validator = null, { defaultMode = "create", context = "validator.mode" } = {})`
-- `resolveValidatorTransportSchema(validator = null, options = {})`
-- `executeJsonRestSchemaValidator(validator = null, payload, options = {})`
-- `normalizeJsonRestSchemaFieldErrors(errors = {}, validator = null)`
+- `resolveSchemaDefinitionMode(schemaDefinition = null, { defaultMode = "create", context = "schema definition.mode" } = {})`
+- `resolveSchemaDefinitionTransportSchema(schemaDefinition = null, options = {})`
+- `executeSchemaDefinition(schemaDefinition = null, payload, options = {})`
+- `normalizeJsonRestSchemaFieldErrors(errors = {}, schemaDefinition = null)`
 Local functions
-- `resolveJsonRestSchemaFieldMessages(validator = null, fieldName = "")`
-- `resolveJsonRestSchemaFieldErrorMessage(fieldName, entry, validator = null)`
+- `requireJsonRestSchemaInstance(schemaDefinition = null, { context = "schema definition.schema" } = {})`
+- `resolveJsonRestSchemaFieldMessages(schemaDefinition = null, fieldName = "")`
+- `resolveJsonRestSchemaFieldErrorMessage(fieldName, entry, schemaDefinition = null)`
 
 ### `validators/mergeObjectSchemas.js`
 Exports

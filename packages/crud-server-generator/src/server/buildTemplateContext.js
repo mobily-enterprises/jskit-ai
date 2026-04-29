@@ -1522,9 +1522,22 @@ function renderRouteInputLines(operation = "", { surfaceRequiresWorkspace = true
 }
 
 function renderObjectSchemaDefinition(lines = [], { mode = "patch" } = {}) {
+  const entries = (Array.isArray(lines) ? lines : [])
+    .map((line) => String(line || "").trim())
+    .filter(Boolean)
+    .map((line) => line.endsWith(",") ? line.slice(0, -1) : line);
+
+  if (entries.length < 1) {
+    throw new TypeError("renderObjectSchemaDefinition requires at least one schema definition.");
+  }
+
+  if (entries.length === 1) {
+    return entries[0];
+  }
+
   return [
     "composeSchemaDefinitions([",
-    ...lines.map((line) => `  ${line}`),
+    ...entries.map((line) => `  ${line},`),
     "], {",
     `  mode: ${JSON.stringify(mode)}`,
     "})"

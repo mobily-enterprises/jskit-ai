@@ -1,7 +1,7 @@
 import { AppError } from "@jskit-ai/kernel/server/runtime";
 import { requireServiceMethod } from "@jskit-ai/kernel/shared/actions/actionContributorHelpers";
 import { normalizeLowerText, normalizeText } from "@jskit-ai/kernel/shared/actions/textNormalization";
-import { normalizeObject } from "@jskit-ai/kernel/shared/support/normalize";
+import { normalizeBoolean, normalizeObject } from "@jskit-ai/kernel/shared/support/normalize";
 import { accountAvatarFormatter } from "./common/formatters/accountAvatarFormatter.js";
 import { USER_SETTINGS_BOOTSTRAP_KEYS } from "../shared/resources/userSettingsResource.js";
 
@@ -30,28 +30,20 @@ function getOAuthProviderCatalogPayload(authService) {
   };
 }
 
-function normalizeBoolean(value, fallback) {
-  if (typeof value === "boolean") {
-    return value;
+function resolveBooleanConfigValue(value, fallback) {
+  if (value === undefined || value === null || value === "") {
+    return fallback;
   }
-  if (typeof value === "string") {
-    const normalized = normalizeLowerText(value);
-    if (normalized === "true") {
-      return true;
-    }
-    if (normalized === "false") {
-      return false;
-    }
-  }
-  return fallback;
+
+  return normalizeBoolean(value);
 }
 
 function resolveAppState(appConfig = {}) {
   const features = {
-    assistantEnabled: normalizeBoolean(appConfig.assistantEnabled, false),
+    assistantEnabled: resolveBooleanConfigValue(appConfig.assistantEnabled, false),
     assistantRequiredPermission: normalizeText(appConfig.assistantRequiredPermission),
-    socialEnabled: normalizeBoolean(appConfig.socialEnabled, false),
-    socialFederationEnabled: normalizeBoolean(appConfig.socialFederationEnabled, false)
+    socialEnabled: resolveBooleanConfigValue(appConfig.socialEnabled, false),
+    socialFederationEnabled: resolveBooleanConfigValue(appConfig.socialFederationEnabled, false)
   };
 
   return {

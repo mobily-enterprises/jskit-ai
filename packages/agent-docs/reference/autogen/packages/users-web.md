@@ -369,18 +369,14 @@ Exports
 - `useCrudListFilters(definitions = {}, { labelResolvers = {}, chipLabels = {}, presets = [] } = {})`
 Local functions
 - `normalizeFunctionMap(value = {})`
-- `createInitialFilterValue(filter = {})`
 - `normalizePresetEntries(presets = [])`
 - `resolvePresetValues(preset = {}, { values = {}, filters = {} } = {})`
-- `normalizePresetFilterValue(filter = {}, rawValue)`
-- `normalizeCurrentManyFilterValues(value)`
-- `matchArrayValues(currentValue = [], expectedValue = [])`
-- `matchesPresetFilterValue(filter = {}, currentValue, rawExpectedValue)`
+- `createRuntimeFilterValue(filter = {})`
+- `assignFilterValue(values, filter = {}, rawValue)`
 - `resetFilterValue(values, filter = {})`
 - `applyPresetFilterValue(values, filter = {}, rawValue)`
 - `createQueryParams(values, filterEntries = [])`
 - `resolveAtomicValueLabel(filter = {}, value = "", labelResolvers = {})`
-- `defaultChipLabel(filter = {}, value, labelResolvers = {})`
 
 ### `src/client/composables/useCrudListParentTitle.js`
 Exports

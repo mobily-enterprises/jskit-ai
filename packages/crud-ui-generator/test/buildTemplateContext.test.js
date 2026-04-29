@@ -1,13 +1,25 @@
 import assert from "node:assert/strict";
-import { mkdtemp, mkdir, rm, writeFile } from "node:fs/promises";
+import { mkdtemp, mkdir, rm, symlink, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import test from "node:test";
+import { fileURLToPath } from "node:url";
 import { buildUiTemplateContext } from "../src/server/buildTemplateContext.js";
+
+const JSON_REST_SCHEMA_PACKAGE_DIR = path.dirname(
+  fileURLToPath(new URL("../../../node_modules/json-rest-schema/package.json", import.meta.url))
+);
+
+async function linkTestPackage(appRoot, packageName, packageDir) {
+  const nodeModulesDir = path.join(appRoot, "node_modules");
+  await mkdir(nodeModulesDir, { recursive: true });
+  await symlink(packageDir, path.join(nodeModulesDir, packageName), "dir");
+}
 
 async function withTempApp(run) {
   const appRoot = await mkdtemp(path.join(tmpdir(), "crud-ui-generator-"));
   try {
+    await linkTestPackage(appRoot, "json-rest-schema", JSON_REST_SCHEMA_PACKAGE_DIR);
     await mkdir(path.join(appRoot, "config"), { recursive: true });
     await mkdir(path.join(appRoot, "src", "components"), { recursive: true });
     await writeFile(
@@ -59,65 +71,64 @@ async function writeFileInApp(appRoot, relativeFile, source) {
 
 const RESOURCE_FILE = "packages/customers/src/shared/customerResource.js";
 
-const FULL_RESOURCE_SOURCE = `const customerRecordSchema = {
-  type: "object",
-  properties: {
-    id: { type: "integer" },
-    firstName: { type: "string" },
-    email: { type: "string" },
-    vip: { type: "boolean" },
-    updatedAt: { type: "string", format: "date-time" }
-  },
-  additionalProperties: false
-};
+const FULL_RESOURCE_SOURCE = `import { createSchema } from "json-rest-schema";
 
-const customerBodySchema = {
-  type: "object",
-  properties: {
-    firstName: { type: "string", maxLength: 120 },
-    email: { type: "string", maxLength: 160 },
-    vip: { type: "boolean" }
+const customerRecordSchema = createSchema({
+  id: { type: "integer", required: true },
+  firstName: { type: "string", required: true },
+  email: { type: "string", required: true },
+  vip: { type: "boolean", required: true },
+  updatedAt: { type: "dateTime", required: true }
+});
+
+const customerBodySchema = createSchema({
+  firstName: { type: "string", maxLength: 120 },
+  email: { type: "string", maxLength: 160 },
+  vip: { type: "boolean" }
+});
+
+const customerListSchema = createSchema({
+  items: {
+    type: "array",
+    required: true,
+    items: customerRecordSchema
   },
-  additionalProperties: false
-};
+  nextCursor: { type: "string", nullable: true }
+});
 
 const resource = {
   namespace: "customers",
   operations: {
     list: {
       output: {
-        schema: {
-          type: "object",
-          properties: {
-            items: {
-              type: "array",
-              items: customerRecordSchema
-            },
-            nextCursor: { type: ["string", "null"] }
-          },
-          additionalProperties: false
-        }
+        schema: customerListSchema,
+        mode: "replace"
       }
     },
     view: {
       output: {
-        schema: customerRecordSchema
+        schema: customerRecordSchema,
+        mode: "replace"
       }
     },
     create: {
       body: {
-        schema: customerBodySchema
+        schema: customerBodySchema,
+        mode: "create"
       },
       output: {
-        schema: customerRecordSchema
+        schema: customerRecordSchema,
+        mode: "replace"
       }
     },
     patch: {
       body: {
-        schema: customerBodySchema
+        schema: customerBodySchema,
+        mode: "patch"
       },
       output: {
-        schema: customerRecordSchema
+        schema: customerRecordSchema,
+        mode: "replace"
       }
     }
   }
@@ -126,62 +137,61 @@ const resource = {
 export { resource };
 `;
 
-const NULLABLE_BOOLEAN_RESOURCE_SOURCE = `const customerRecordSchema = {
-  type: "object",
-  properties: {
-    id: { type: "integer" },
-    firstName: { type: "string" },
-    reviewPassed: { type: ["boolean", "null"] }
-  },
-  additionalProperties: false
-};
+const NULLABLE_BOOLEAN_RESOURCE_SOURCE = `import { createSchema } from "json-rest-schema";
 
-const customerBodySchema = {
-  type: "object",
-  properties: {
-    firstName: { type: "string", maxLength: 120 },
-    reviewPassed: { type: ["boolean", "null"] }
+const customerRecordSchema = createSchema({
+  id: { type: "integer", required: true },
+  firstName: { type: "string", required: true },
+  reviewPassed: { type: "boolean", required: true, nullable: true }
+});
+
+const customerBodySchema = createSchema({
+  firstName: { type: "string", maxLength: 120 },
+  reviewPassed: { type: "boolean", nullable: true }
+});
+
+const customerListSchema = createSchema({
+  items: {
+    type: "array",
+    required: true,
+    items: customerRecordSchema
   },
-  additionalProperties: false
-};
+  nextCursor: { type: "string", nullable: true }
+});
 
 const resource = {
   namespace: "customers",
   operations: {
     list: {
       output: {
-        schema: {
-          type: "object",
-          properties: {
-            items: {
-              type: "array",
-              items: customerRecordSchema
-            },
-            nextCursor: { type: ["string", "null"] }
-          },
-          additionalProperties: false
-        }
+        schema: customerListSchema,
+        mode: "replace"
       }
     },
     view: {
       output: {
-        schema: customerRecordSchema
+        schema: customerRecordSchema,
+        mode: "replace"
       }
     },
     create: {
       body: {
-        schema: customerBodySchema
+        schema: customerBodySchema,
+        mode: "create"
       },
       output: {
-        schema: customerRecordSchema
+        schema: customerRecordSchema,
+        mode: "replace"
       }
     },
     patch: {
       body: {
-        schema: customerBodySchema
+        schema: customerBodySchema,
+        mode: "patch"
       },
       output: {
-        schema: customerRecordSchema
+        schema: customerRecordSchema,
+        mode: "replace"
       }
     }
   }
@@ -190,72 +200,71 @@ const resource = {
 export { resource };
 `;
 
-const SELECT_RESOURCE_SOURCE = `const recordSchema = {
-  type: "object",
-  properties: {
-    id: { type: "integer" },
-    type: { type: "string" }
-  },
-  additionalProperties: false
-};
+const SELECT_RESOURCE_SOURCE = `import { createSchema } from "json-rest-schema";
 
-const bodySchema = {
-  type: "object",
-  properties: {
-    type: {
-      type: "string",
-      enum: ["dryer", "pallet racking", "freezer", "coolroom"],
-      ui: {
-        formControl: "select",
-        options: [
-          { value: "dryer", label: "Dryer" },
-          { value: "pallet racking", label: "Pallet Racking" },
-          { value: "freezer", label: "Freezer" },
-          { value: "coolroom", label: "Coolroom" }
-        ]
-      }
+const recordSchema = createSchema({
+  id: { type: "integer", required: true },
+  type: { type: "string", required: true }
+});
+
+const bodySchema = createSchema({
+  type: {
+    type: "string",
+    enum: ["dryer", "pallet racking", "freezer", "coolroom"],
+    ui: {
+      formControl: "select",
+      options: [
+        { value: "dryer", label: "Dryer" },
+        { value: "pallet racking", label: "Pallet Racking" },
+        { value: "freezer", label: "Freezer" },
+        { value: "coolroom", label: "Coolroom" }
+      ]
     }
+  }
+});
+
+const recordListSchema = createSchema({
+  items: {
+    type: "array",
+    required: true,
+    items: recordSchema
   },
-  additionalProperties: false
-};
+  nextCursor: { type: "string", nullable: true }
+});
 
 const resource = {
   namespace: "locations",
   operations: {
     list: {
       output: {
-        schema: {
-          type: "object",
-          properties: {
-            items: {
-              type: "array",
-              items: recordSchema
-            },
-            nextCursor: { type: ["string", "null"] }
-          },
-          additionalProperties: false
-        }
+        schema: recordListSchema,
+        mode: "replace"
       }
     },
     view: {
       output: {
-        schema: recordSchema
+        schema: recordSchema,
+        mode: "replace"
       }
     },
     create: {
       body: {
-        schema: bodySchema
+        schema: bodySchema,
+        mode: "create"
       },
       output: {
-        schema: recordSchema
+        schema: recordSchema,
+        mode: "replace"
       }
     },
     patch: {
       body: {
-        schema: bodySchema
+        schema: bodySchema,
+        mode: "patch"
       },
       output: {
-        schema: recordSchema
+        schema: recordSchema,
+        mode: "replace"
       }
     }
   }
@@ -264,73 +273,73 @@ const resource = {
 export { resource };
 `;
 
-const LOOKUP_RESOURCE_SOURCE = `const recordSchema = {
-  type: "object",
-  properties: {
-    id: { type: "integer" },
-    serviceId: { type: ["integer", "null"] },
-    name: { type: "string" }
-  },
-  additionalProperties: false
-};
+const LOOKUP_RESOURCE_SOURCE = `import { createSchema } from "json-rest-schema";
 
-const bodySchema = {
-  type: "object",
-  properties: {
-    serviceId: {
-      type: ["integer", "null"],
-      relation: {
-        kind: "lookup",
-        namespace: "services",
-        valueKey: "id",
-        surfaceId: "console"
-      },
-      ui: {
-        formControl: "autocomplete"
-      }
+const recordSchema = createSchema({
+  id: { type: "integer", required: true },
+  serviceId: { type: "integer", nullable: true },
+  name: { type: "string", required: true }
+});
+
+const bodySchema = createSchema({
+  serviceId: {
+    type: "integer",
+    nullable: true,
+    relation: {
+      kind: "lookup",
+      namespace: "services",
+      valueKey: "id",
+      surfaceId: "console"
     },
-    name: { type: "string", maxLength: 255 }
+    ui: {
+      formControl: "autocomplete"
+    }
   },
-  additionalProperties: false
-};
+  name: { type: "string", maxLength: 255 }
+});
+
+const recordListSchema = createSchema({
+  items: {
+    type: "array",
+    required: true,
+    items: recordSchema
+  },
+  nextCursor: { type: "string", nullable: true }
+});
 
 const resource = {
   namespace: "customers",
   operations: {
     list: {
       output: {
-        schema: {
-          type: "object",
-          properties: {
-            items: {
-              type: "array",
-              items: recordSchema
-            },
-            nextCursor: { type: ["string", "null"] }
-          },
-          additionalProperties: false
-        }
+        schema: recordListSchema,
+        mode: "replace"
       }
     },
     view: {
       output: {
-        schema: recordSchema
+        schema: recordSchema,
+        mode: "replace"
       }
     },
     create: {
       body: {
-        schema: bodySchema
+        schema: bodySchema,
+        mode: "create"
       },
       output: {
-        schema: recordSchema
+        schema: recordSchema,
+        mode: "replace"
       }
     },
     patch: {
       body: {
-        schema: bodySchema
+        schema: bodySchema,
+        mode: "patch"
       },
       output: {
-        schema: recordSchema
+        schema: recordSchema,
+        mode: "replace"
       }
     }
   }

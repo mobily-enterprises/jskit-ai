@@ -1,30 +1,35 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import { createSchema } from "json-rest-schema";
 import { createCrudServiceFromResource } from "../src/server/createCrudServiceFromResource.js";
+
+function createOperationSchemaDefinition(structure = {}, mode = "replace") {
+  return {
+    schema: createSchema(structure),
+    mode
+  };
+}
 
 function createResourceWithOutputSchema(overrides = {}) {
   return {
     namespace: "contacts",
     operations: {
       view: {
-        output: {
-          schema: {
-            type: "object",
-            properties: {
-              id: { type: "integer" },
-              name: { type: "string" },
-              optionalSecret: { type: "string" },
-              nullableSecret: {
-                anyOf: [{ type: "string" }, { type: "null" }]
-              },
-              defaultedSecret: {
-                type: "string",
-                default: ""
-              }
-            },
-            required: ["id", "name", "nullableSecret", "defaultedSecret"]
+        output: createOperationSchemaDefinition({
+          id: { type: "integer", required: true },
+          name: { type: "string", required: true },
+          optionalSecret: { type: "string", required: false },
+          nullableSecret: {
+            type: "string",
+            required: true,
+            nullable: true
+          },
+          defaultedSecret: {
+            type: "string",
+            required: true,
+            default: ""
           }
-        }
+        })
       }
     },
     ...overrides
@@ -225,7 +230,7 @@ test("createCrudServiceFromResource readable field hooks require view output sch
 
   await assert.rejects(
     () => service.getRecord(1, {}),
-    /requires resource\.operations\.view\.output\.schema for fieldAccess\.readable/
+    /requires resource\.operations\.view\.output for fieldAccess\.readable/
   );
 });
 
@@ -308,14 +313,11 @@ test("createCrudServiceFromResource readable filtering fails fast for required n
     operations: {
       view: {
         output: {
-          schema: {
-            type: "object",
-            properties: {
-              id: { type: "integer" },
-              strictSecret: { type: "string" }
-            },
-            required: ["id", "strictSecret"]
-          }
+          schema: createSchema({
+            id: { type: "integer", required: true },
+            strictSecret: { type: "string", required: true }
+          }),
+          mode: "replace"
         }
       }
     }
@@ -334,6 +336,6 @@ test("createCrudServiceFromResource readable filtering fails fast for required n
 
   await assert.rejects(
     () => service.getRecord(1, {}),
-    /cannot redact required non-nullable field "strictSecret" without schema\.default/
+    /cannot redact required non-nullable field "strictSecret" without a default value/
   );
 });

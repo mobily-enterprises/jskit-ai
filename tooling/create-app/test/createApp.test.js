@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { access, mkdir, readFile, writeFile } from "node:fs/promises";
+import { access, mkdir, readFile, symlink, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { Writable } from "node:stream";
 import test from "node:test";
@@ -10,6 +10,9 @@ import { runJskit } from "../../testUtils/runJskit.mjs";
 import { withTempDir } from "../../testUtils/tempDir.mjs";
 
 const CLI_PATH = fileURLToPath(new URL("../bin/jskit-create-app.js", import.meta.url));
+const JSON_REST_SCHEMA_PACKAGE_DIR = path.dirname(
+  fileURLToPath(new URL("../../../node_modules/json-rest-schema/package.json", import.meta.url))
+);
 const runCli = createCliRunner(CLI_PATH);
 const withCreateAppTempDir = (run) => withTempDir(run, { prefix: "jskit-create-app-" });
 
@@ -30,67 +33,73 @@ function createCaptureWritable() {
 
 async function writeCrudCustomerResource(appRoot) {
   const resourcePath = path.join(appRoot, "packages", "customers", "src", "shared", "customerResource.js");
+  const nodeModulesDir = path.join(appRoot, "node_modules");
   await mkdir(path.dirname(resourcePath), { recursive: true });
+  await mkdir(nodeModulesDir, { recursive: true });
+  await symlink(
+    JSON_REST_SCHEMA_PACKAGE_DIR,
+    path.join(nodeModulesDir, "json-rest-schema"),
+    "dir"
+  );
   await writeFile(
     resourcePath,
-    `const customerRecordSchema = {
-  type: "object",
-  properties: {
-    id: { type: "integer" },
-    firstName: { type: "string" },
-    email: { type: "string" },
-    vip: { type: "boolean" }
-  },
-  additionalProperties: false
-};
+    `import { createSchema } from "json-rest-schema";
 
-const customerBodySchema = {
-  type: "object",
-  properties: {
-    firstName: { type: "string", maxLength: 120 },
-    email: { type: "string", maxLength: 160 },
-    vip: { type: "boolean" }
+const customerRecordSchema = createSchema({
+  id: { type: "integer", required: true },
+  firstName: { type: "string", required: true },
+  email: { type: "string", required: true },
+  vip: { type: "boolean", required: true }
+});
+
+const customerBodySchema = createSchema({
+  firstName: { type: "string", maxLength: 120 },
+  email: { type: "string", maxLength: 160 },
+  vip: { type: "boolean" }
+});
+
+const customerListOutputSchema = createSchema({
+  items: {
+    type: "array",
+    required: true,
+    items: customerRecordSchema
   },
-  additionalProperties: false
-};
+  nextCursor: { type: "string", nullable: true }
+});
 
 const resource = Object.freeze({
   namespace: "customers",
   operations: {
     list: {
       output: {
-        schema: {
-          type: "object",
-          properties: {
-            items: {
-              type: "array",
-              items: customerRecordSchema
-            },
-            nextCursor: { type: ["string", "null"] }
-          },
-          additionalProperties: false
-        }
+        schema: customerListOutputSchema,
+        mode: "replace"
       }
     },
     view: {
       output: {
-        schema: customerRecordSchema
+        schema: customerRecordSchema,
+        mode: "replace"
       }
     },
     create: {
       body: {
-        schema: customerBodySchema
+        schema: customerBodySchema,
+        mode: "create"
       },
       output: {
-        schema: customerRecordSchema
+        schema: customerRecordSchema,
+        mode: "replace"
       }
     },
     patch: {
       body: {
-        schema: customerBodySchema
+        schema: customerBodySchema,
+        mode: "patch"
       },
       output: {
-        schema: customerRecordSchema
+        schema: customerRecordSchema,
+        mode: "replace"
       }
     }
   }

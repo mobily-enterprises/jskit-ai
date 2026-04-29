@@ -93,7 +93,7 @@ function createQueryDouble() {
   };
 }
 
-test("createCrudListFilters normalizes filters into semantic values", () => {
+test("createCrudListFilters parses filters into semantic values", () => {
   const runtime = createCrudListFilters({
     onlyStaff: {
       type: "flag",
@@ -121,7 +121,11 @@ test("createCrudListFilters normalizes filters into semantic values", () => {
     }
   });
 
-  const normalized = runtime.normalize({
+  const validator = runtime.createQueryValidator({
+    invalidValues: CRUD_LIST_FILTER_INVALID_VALUES_DISCARD
+  });
+
+  const result = validator.schema.patch({
     onlyStaff: "",
     status: ["active", "ignored", "archived"],
     arrivalDate: "2026-04-01..2026-04-30",
@@ -129,18 +133,21 @@ test("createCrudListFilters normalizes filters into semantic values", () => {
     weight: "12.5..18"
   });
 
-  assert.deepEqual(normalized, {
-    onlyStaff: true,
-    status: ["active", "archived"],
-    arrivalDate: {
-      from: "2026-04-01",
-      to: "2026-04-30"
+  assert.deepEqual(result, {
+    validatedObject: {
+      onlyStaff: true,
+      status: ["active", "archived"],
+      arrivalDate: {
+        from: "2026-04-01",
+        to: "2026-04-30"
+      },
+      supplierContactId: ["7", "4"],
+      weight: {
+        min: 12.5,
+        max: 18
+      }
     },
-    supplierContactId: ["7", "4"],
-    weight: {
-      min: 12.5,
-      max: 18
-    }
+    errors: {}
   });
 });
 
@@ -407,21 +414,6 @@ test("createCrudListFilters discard validator returns canonical partial values d
     },
     errors: {}
   });
-  assert.deepEqual(runtime.normalize({
-    arrivalDate: "bad-date..2026-04-30",
-    status: ["active", "unexpected"],
-    supplierContactId: ["7", "bad"],
-    weight: "bad..18"
-  }), {
-    arrivalDate: {
-      to: "2026-04-30"
-    },
-    status: ["active"],
-    supplierContactId: ["7"],
-    weight: {
-      max: 18
-    }
-  });
 });
 
 test("createCrudListFilters treats exact range filter values as exact bounds", () => {
@@ -436,18 +428,25 @@ test("createCrudListFilters treats exact range filter values as exact bounds", (
     }
   });
 
-  assert.deepEqual(runtime.normalize({
+  const validator = runtime.createQueryValidator({
+    invalidValues: CRUD_LIST_FILTER_INVALID_VALUES_DISCARD
+  });
+
+  assert.deepEqual(validator.schema.patch({
     arrivalDate: "2026-04-18",
     weight: 12.5
   }), {
-    arrivalDate: {
-      from: "2026-04-18",
-      to: "2026-04-18"
+    validatedObject: {
+      arrivalDate: {
+        from: "2026-04-18",
+        to: "2026-04-18"
+      },
+      weight: {
+        min: 12.5,
+        max: 12.5
+      }
     },
-    weight: {
-      min: 12.5,
-      max: 12.5
-    }
+    errors: {}
   });
 });
 
@@ -461,4 +460,6 @@ test("createCrudListFilters exposes no default query validator alias", () => {
 
   assert.equal(Object.hasOwn(runtime, "query"), false);
   assert.equal(runtime.query, undefined);
+  assert.equal(Object.hasOwn(runtime, "normalize"), false);
+  assert.equal(runtime.normalize, undefined);
 });

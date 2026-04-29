@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+import { createSchema } from "json-rest-schema";
 import { resolveCrudListParentDescriptor, resolveCrudListParentRecordTitle, resolveCrudListParentTitleFromItems } from "../src/client/composables/internal/crudListParentTitleSupport.js";
 
 const contactChildResource = Object.freeze({
@@ -11,27 +12,24 @@ const contactChildResource = Object.freeze({
   operations: {
     view: {
       output: {
-        schema: {
-          type: "object",
-          properties: {
-            contactId: {
-              type: "integer",
-              relation: {
-                kind: "lookup",
-                namespace: "contacts",
-                valueKey: "id"
-              }
-            },
-            serviceId: {
-              type: "integer",
-              relation: {
-                kind: "lookup",
-                namespace: "services",
-                valueKey: "id"
-              }
+        schema: createSchema({
+          contactId: {
+            type: "integer",
+            relation: {
+              kind: "lookup",
+              namespace: "contacts",
+              valueKey: "id"
+            }
+          },
+          serviceId: {
+            type: "integer",
+            relation: {
+              kind: "lookup",
+              namespace: "services",
+              valueKey: "id"
             }
           }
-        }
+        })
       }
     }
   }
@@ -128,20 +126,17 @@ test("resolveCrudListParentDescriptor supports parentRouteParamKey aliases", () 
       operations: {
         view: {
           output: {
-            schema: {
-              type: "object",
-              properties: {
-                staffContactId: {
-                  type: "integer",
-                  parentRouteParamKey: "contactId",
-                  relation: {
-                    kind: "lookup",
-                    namespace: "contacts",
-                    valueKey: "id"
-                  }
+            schema: createSchema({
+              staffContactId: {
+                type: "integer",
+                parentRouteParamKey: "contactId",
+                relation: {
+                  kind: "lookup",
+                  namespace: "contacts",
+                  valueKey: "id"
                 }
               }
-            }
+            })
           }
         }
       }

@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { access, constants as fsConstants, cp, mkdir, readFile, writeFile } from "node:fs/promises";
+import { access, constants as fsConstants, cp, mkdir, readFile, symlink, writeFile } from "node:fs/promises";
 import path from "node:path";
 import test from "node:test";
 import { fileURLToPath } from "node:url";
@@ -12,6 +12,9 @@ const REPO_ROOT = fileURLToPath(new URL("../../../", import.meta.url));
 const CRUD_UI_GENERATOR_SOURCE_ROOT = path.join(REPO_ROOT, "packages", "crud-ui-generator");
 const CRUD_CORE_SOURCE_ROOT = path.join(REPO_ROOT, "packages", "crud-core");
 const KERNEL_SOURCE_ROOT = path.join(REPO_ROOT, "packages", "kernel");
+const JSON_REST_SCHEMA_PACKAGE_DIR = path.dirname(
+  fileURLToPath(new URL("../../../node_modules/json-rest-schema/package.json", import.meta.url))
+);
 const runCli = createCliRunner(CLI_PATH);
 
 async function createMinimalApp(appRoot, { name = "tmp-app" } = {}) {
@@ -127,7 +130,8 @@ export {
 }
 
 async function installCrudUiGeneratorPackage(appRoot) {
-  const scopedRoot = path.join(appRoot, "node_modules", "@jskit-ai");
+  const nodeModulesRoot = path.join(appRoot, "node_modules");
+  const scopedRoot = path.join(nodeModulesRoot, "@jskit-ai");
   const packageRoot = path.join(scopedRoot, "crud-ui-generator");
   const crudCoreRoot = path.join(scopedRoot, "crud-core");
   const kernelRoot = path.join(scopedRoot, "kernel");
@@ -135,6 +139,11 @@ async function installCrudUiGeneratorPackage(appRoot) {
   await cp(CRUD_UI_GENERATOR_SOURCE_ROOT, packageRoot, { recursive: true });
   await cp(CRUD_CORE_SOURCE_ROOT, crudCoreRoot, { recursive: true });
   await cp(KERNEL_SOURCE_ROOT, kernelRoot, { recursive: true });
+  await symlink(
+    JSON_REST_SCHEMA_PACKAGE_DIR,
+    path.join(nodeModulesRoot, "json-rest-schema"),
+    "dir"
+  );
 }
 
 async function writeCustomerResource(appRoot, { includeResourceNamespace = true } = {}) {
@@ -142,63 +151,62 @@ async function writeCustomerResource(appRoot, { includeResourceNamespace = true 
   await mkdir(path.dirname(resourceFile), { recursive: true });
   await writeFile(
     resourceFile,
-    `const customerRecordSchema = {
-  type: "object",
-  properties: {
-    id: { type: "integer" },
-    firstName: { type: "string" },
-    email: { type: "string" },
-    vip: { type: "boolean" }
-  },
-  additionalProperties: false
-};
+    `import { createSchema } from "json-rest-schema";
 
-const customerBodySchema = {
-  type: "object",
-  properties: {
-    firstName: { type: "string", maxLength: 120 },
-    email: { type: "string", maxLength: 160 },
-    vip: { type: "boolean" }
+const customerRecordSchema = createSchema({
+  id: { type: "integer", required: true },
+  firstName: { type: "string", required: true },
+  email: { type: "string", required: true },
+  vip: { type: "boolean", required: true }
+});
+
+const customerBodySchema = createSchema({
+  firstName: { type: "string", maxLength: 120 },
+  email: { type: "string", maxLength: 160 },
+  vip: { type: "boolean" }
+});
+
+const customerListOutputSchema = createSchema({
+  items: {
+    type: "array",
+    required: true,
+    items: customerRecordSchema
   },
-  additionalProperties: false
-};
+  nextCursor: { type: "string", nullable: true }
+});
 
 const resource = Object.freeze({
 ${includeResourceNamespace ? '  namespace: "customers",\n' : ""}  operations: {
     list: {
       output: {
-        schema: {
-          type: "object",
-          properties: {
-            items: {
-              type: "array",
-              items: customerRecordSchema
-            },
-            nextCursor: { type: ["string", "null"] }
-          },
-          additionalProperties: false
-        }
+        schema: customerListOutputSchema,
+        mode: "replace"
       }
     },
     view: {
       output: {
-        schema: customerRecordSchema
+        schema: customerRecordSchema,
+        mode: "replace"
       }
     },
     create: {
       body: {
-        schema: customerBodySchema
+        schema: customerBodySchema,
+        mode: "create"
       },
       output: {
-        schema: customerRecordSchema
+        schema: customerRecordSchema,
+        mode: "replace"
       }
     },
     patch: {
       body: {
-        schema: customerBodySchema
+        schema: customerBodySchema,
+        mode: "patch"
       },
       output: {
-        schema: customerRecordSchema
+        schema: customerRecordSchema,
+        mode: "replace"
       }
     }
   }

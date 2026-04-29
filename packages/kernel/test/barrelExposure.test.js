@@ -48,6 +48,35 @@ const BARREL_EXPECTATIONS = Object.freeze([
     ])
   }),
   Object.freeze({
+    filePath: path.join(REPO_ROOT, "packages", "kernel", "shared", "validators", "index.js"),
+    expectedExports: Object.freeze([
+      "HTML_TIME_STRING_SCHEMA",
+      "NULLABLE_HTML_TIME_STRING_SCHEMA",
+      "RECORD_ID_PATTERN",
+      "buildSchemaValidationError",
+      "composeSchemaDefinitions",
+      "createCursorListValidator",
+      "cursorPaginationQueryValidator",
+      "deriveRequiredFieldsFromSchema",
+      "deriveResourceRequiredMetadata",
+      "executeJsonRestSchemaDefinition",
+      "hasJsonRestSchemaDefinition",
+      "mergeObjectSchemas",
+      "normalizeObjectInput",
+      "normalizeRequiredFieldList",
+      "normalizeSchemaDefinition",
+      "normalizeSingleSchemaDefinition",
+      "nullableRecordIdInputSchema",
+      "nullableRecordIdSchema",
+      "recordIdInputSchema",
+      "recordIdParamsValidator",
+      "recordIdSchema",
+      "resolveSchemaTransportSchemaDefinition",
+      "resolveStructuredSchemaTransportSchema",
+      "validateSchemaPayload"
+    ])
+  }),
+  Object.freeze({
     filePath: path.join(REPO_ROOT, "packages", "kernel", "client", "index.js"),
     expectedExports: Object.freeze([
       "bootstrapClientShellApp",

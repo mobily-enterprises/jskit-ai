@@ -1,5 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import { createSchema } from "json-rest-schema";
 import {
   DEFAULT_CRUD_LOOKUP_CONTAINER_KEY,
   normalizeCrudLookupApiPath,
@@ -24,26 +25,17 @@ function createCrudResource({
     operations: {
       view: {
         output: {
-          schema: {
-            type: "object",
-            properties: viewFields
-          }
+          schema: createSchema(viewFields)
         }
       },
       create: {
         body: {
-          schema: {
-            type: "object",
-            properties: createFields
-          }
+          schema: createSchema(createFields)
         }
       },
       patch: {
         body: {
-          schema: {
-            type: "object",
-            properties: patchFields
-          }
+          schema: createSchema(patchFields)
         }
       }
     }

@@ -1,10 +1,10 @@
 import { normalizeObject, normalizeText } from "../support/normalize.js";
 import {
-  executeJsonRestSchemaValidator,
-  hasJsonRestSchemaValidator,
+  executeSchemaDefinition,
+  isJsonRestSchemaInstance,
   normalizeJsonRestSchemaFieldErrors,
-  resolveValidatorSchemaMode,
-  resolveValidatorTransportSchema
+  resolveSchemaDefinitionMode,
+  resolveSchemaDefinitionTransportSchema
 } from "./jsonRestSchemaSupport.js";
 
 function isSchemaDefinitionObject(value) {
@@ -32,7 +32,7 @@ function normalizeSingleSchemaDefinition(value, { context = "schema definition",
     throw new TypeError(`${context}.schema is required.`);
   }
 
-  if (!hasJsonRestSchemaValidator(source)) {
+  if (!isJsonRestSchemaInstance(source.schema)) {
     throw new TypeError(`${context}.schema must be a json-rest-schema schema instance.`);
   }
 
@@ -41,7 +41,7 @@ function normalizeSingleSchemaDefinition(value, { context = "schema definition",
   };
 
   const resolvedDefaultMode = normalizeText(defaultMode).toLowerCase();
-  normalized.mode = resolveValidatorSchemaMode(source, {
+  normalized.mode = resolveSchemaDefinitionMode(source, {
     defaultMode: resolvedDefaultMode || "patch",
     context: `${context}.mode`
   });
@@ -72,7 +72,7 @@ function resolveSchemaTransportSchemaDefinition(value, {
     return undefined;
   }
 
-  return resolveValidatorTransportSchema(normalized, {
+  return resolveSchemaDefinitionTransportSchema(normalized, {
     defaultMode: defaultMode || "patch",
     context: `${context}.mode`
   });
@@ -89,12 +89,8 @@ function resolveStructuredSchemaTransportSchema(value, {
 }
 
 function hasJsonRestSchemaDefinition(value) {
-  if (!isSchemaDefinitionObject(value)) {
-    return false;
-  }
-
   try {
-    return hasJsonRestSchemaValidator(normalizeSchemaDefinition(value));
+    return Boolean(normalizeSchemaDefinition(value));
   } catch {
     return false;
   }
@@ -113,7 +109,7 @@ function executeJsonRestSchemaDefinition(value, payload, {
     return null;
   }
 
-  return executeJsonRestSchemaValidator(normalized, payload, {
+  return executeSchemaDefinition(normalized, payload, {
     defaultMode: defaultMode || "patch",
     context: `${context}.mode`
   });
