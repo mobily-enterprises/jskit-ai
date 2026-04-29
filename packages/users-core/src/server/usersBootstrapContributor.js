@@ -3,7 +3,6 @@ import { requireServiceMethod } from "@jskit-ai/kernel/shared/actions/actionCont
 import { normalizeLowerText, normalizeText } from "@jskit-ai/kernel/shared/actions/textNormalization";
 import { normalizeObject } from "@jskit-ai/kernel/shared/support/normalize";
 import { accountAvatarFormatter } from "./common/formatters/accountAvatarFormatter.js";
-import { authenticatedUserValidator } from "./common/validators/authenticatedUserValidator.js";
 import { USER_SETTINGS_BOOTSTRAP_KEYS } from "../shared/resources/userSettingsResource.js";
 
 function getOAuthProviderCatalogPayload(authService) {
@@ -120,7 +119,7 @@ function createUsersBootstrapContributor({
         throw new AppError(503, "Authentication service temporarily unavailable. Please retry.");
       }
 
-      const normalizedUser = authenticatedUserValidator.normalize(authResult?.authenticated ? authResult?.profile : null);
+      const normalizedUser = authResult?.authenticated === true ? authResult?.profile || null : null;
       const inheritedSurfaceAccess = normalizeObject(existingPayload?.surfaceAccess);
       let payload = createAnonymousBootstrapPayload({
         appState,

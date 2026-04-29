@@ -37,6 +37,10 @@ Exports
 - `safeRequestCookies(request)`
 - `cookieOptions(isProduction, maxAge)`
 
+### `src/server/lib/authenticatedProfile.js`
+Exports
+- `requireAuthenticatedProfile(profileLike, { context = "authenticated profile" } = {})`
+
 ### `src/server/lib/authErrorMappers.js`
 Exports
 - `isTransientAuthMessage(message)`

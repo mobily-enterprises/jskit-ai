@@ -220,6 +220,8 @@ Exports
 - `CRUD_LIST_FILTER_PRESENCE_PRESENT`
 - `CRUD_LIST_FILTER_PRESENCE_MISSING`
 - `CRUD_LIST_FILTER_PRESENCE_OPTIONS`
+- `parseCrudListRangeQueryExpression(value = null)`
+- `formatCrudListRangeQueryExpression(startValue = "", endValue = "", { collapseExact = false } = {})`
 - `defineCrudListFilters(definitions = {})`
 - `resolveCrudListFilterQueryKeys(definition = {})`
 - `resolveCrudListFilterOptionLabel(definition = {}, value = "", { fallback = "" } = {})`

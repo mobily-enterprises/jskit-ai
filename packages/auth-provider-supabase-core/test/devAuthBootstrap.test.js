@@ -120,6 +120,38 @@ test("dev auth bootstrap supports email lookup", async () => {
   assert.equal(result.profile.email, "ada@example.com");
 });
 
+test("dev auth bootstrap canonicalizes producer profiles before returning them", async () => {
+  const rawProfile = createProfile({
+    email: " ADA@EXAMPLE.COM ",
+    username: " Ada ",
+    displayName: " Ada Example ",
+    authProvider: " SUPABASE ",
+    authProviderUserSid: " supabase-user-7 ",
+    avatarStorageKey: " avatars/7.png ",
+    avatarVersion: 7,
+    avatarUpdatedAt: "2026-01-01T00:00:00.000Z",
+    createdAt: "2026-01-01T00:00:00.000Z"
+  });
+  const authService = createServiceFixture({
+    userProfilesRepository: createUserProfilesRepository(rawProfile)
+  });
+
+  const loginResult = await authService.devLoginAs(createLocalRequest(), {
+    userId: "7"
+  });
+
+  assert.deepEqual(loginResult.profile, {
+    id: "7",
+    email: "ada@example.com",
+    username: "ada",
+    displayName: "Ada Example",
+    authProvider: "supabase",
+    authProviderUserSid: "supabase-user-7",
+    avatarStorageKey: "avatars/7.png",
+    avatarVersion: "7"
+  });
+});
+
 test("dev auth bootstrap rejects non-local requests and clears leaked dev sessions", async () => {
   const authService = createServiceFixture();
   const issued = await authService.devLoginAs(createLocalRequest(), {

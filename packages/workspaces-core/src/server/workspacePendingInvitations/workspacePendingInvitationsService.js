@@ -3,7 +3,6 @@ import { encodeInviteTokenHash } from "@jskit-ai/auth-core/shared/inviteTokens";
 import { AppError } from "@jskit-ai/kernel/server/runtime/errors";
 import { normalizeLowerText, normalizeText } from "@jskit-ai/kernel/shared/actions/textNormalization";
 import { normalizeRecordId } from "@jskit-ai/kernel/shared/support/normalize";
-import { authenticatedUserValidator } from "../common/validators/authenticatedUserValidator.js";
 
 function createService({
   workspaceInvitesRepository,
@@ -14,12 +13,11 @@ function createService({
   }
 
   function requireAuthenticatedInviteUser(user) {
-    const normalizedUser = authenticatedUserValidator.normalize(user);
-    if (!normalizedUser) {
+    if (!normalizeRecordId(user?.id, { fallback: null })) {
       throw new AppError(401, "Authentication required.");
     }
 
-    return normalizedUser;
+    return user;
   }
 
   function requireInviteTokenHash(token) {
@@ -59,7 +57,7 @@ function createService({
   }
 
   async function requirePendingInviteForUserByToken(user, token, options = {}) {
-    const normalizedUser = requireAuthenticatedInviteUser(user);
+    const actor = requireAuthenticatedInviteUser(user);
     const tokenHash = requireInviteTokenHash(token);
 
     const invite = await workspaceInvitesRepository.findPendingByTokenHash(tokenHash, options);
@@ -67,12 +65,12 @@ function createService({
       throw new AppError(404, "Invitation not found or already handled.");
     }
 
-    if (normalizeLowerText(invite.email) !== normalizedUser.email) {
+    if (normalizeLowerText(invite.email) !== normalizeLowerText(actor?.email)) {
       throw new AppError(403, "Invitation email does not match authenticated user.");
     }
 
     return {
-      user: normalizedUser,
+      user: actor,
       invite
     };
   }
@@ -85,12 +83,13 @@ function createService({
   }
 
   async function listPendingInvitesForUser(user, options = {}) {
-    const normalizedUser = requireAuthenticatedInviteUser(user);
-    if (!normalizedUser.email) {
+    const actor = requireAuthenticatedInviteUser(user);
+    const actorEmail = normalizeLowerText(actor?.email);
+    if (!actorEmail) {
       return [];
     }
 
-    const invites = await workspaceInvitesRepository.listPendingByEmail(normalizedUser.email, options);
+    const invites = await workspaceInvitesRepository.listPendingByEmail(actorEmail, options);
     return invites.map((invite) => mapPendingInvite(invite)).filter(Boolean);
   }
 

@@ -216,12 +216,6 @@ Local functions
 Exports
 - `resolveActionUser(context, input)`
 
-### `src/server/common/validators/authenticatedUserValidator.js`
-Exports
-- `authenticatedUserValidator`
-Local functions
-- `normalizeAuthenticatedUser(input = {})`
-
 ### `src/server/profileSyncLifecycleContributorRegistry.js`
 Exports
 - `PROFILE_SYNC_LIFECYCLE_CONTRIBUTOR_TAG`

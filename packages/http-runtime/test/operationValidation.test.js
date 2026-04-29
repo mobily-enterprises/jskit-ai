@@ -141,6 +141,23 @@ test("validateOperationSection returns field errors for invalid enum values", ()
   assert.equal(typeof parsed.fieldErrors.temperament, "string");
 });
 
+test("validateOperationSection rethrows malformed operation contracts", () => {
+  assert.throws(
+    () =>
+      validateOperationSection({
+        operation: {
+          body: {
+            schema: null,
+            mode: "patch"
+          }
+        },
+        section: "body",
+        value: {}
+      }),
+    /must be a json-rest-schema schema instance/
+  );
+});
+
 test("validateOperationSection surfaces custom validator failures as field errors", () => {
   const operationWithConditionalConstraint = Object.freeze({
     method: "PATCH",

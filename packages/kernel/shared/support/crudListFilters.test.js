@@ -2,6 +2,8 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import {
   defineCrudListFilters,
+  parseCrudListRangeQueryExpression,
+  formatCrudListRangeQueryExpression,
   resolveCrudListFilterQueryKeys,
   resolveCrudListFilterOptionLabel
 } from "./crudListFilters.js";
@@ -52,8 +54,7 @@ test("defineCrudListFilters normalizes common filter shapes", () => {
     key: "arrivalDate",
     type: "dateRange",
     label: "Arrival Date",
-    fromKey: "arrivalDateFrom",
-    toKey: "arrivalDateTo",
+    queryKey: "arrivalDate",
     options: [],
     lookup: null,
     chipLabel: null,
@@ -64,8 +65,7 @@ test("defineCrudListFilters normalizes common filter shapes", () => {
     key: "weight",
     type: "numberRange",
     label: "Weight",
-    minKey: "weightMin",
-    maxKey: "weightMax",
+    queryKey: "weight",
     options: [],
     lookup: null,
     chipLabel: null,
@@ -104,12 +104,37 @@ test("defineCrudListFilters rejects duplicate query keys", () => {
         type: "dateRange",
         label: "Arrival Date"
       },
-      arrivalDateFrom: {
+      arrivalDateExact: {
         type: "date",
-        label: "Arrival Date From"
+        label: "Arrival Date From",
+        queryKey: "arrivalDate"
       }
     }),
-    /both use query key "arrivalDateFrom"/
+    /both use query key "arrivalDate"/
+  );
+});
+
+test("defineCrudListFilters rejects legacy split range keys", () => {
+  assert.throws(
+    () => defineCrudListFilters({
+      arrivalDate: {
+        type: "dateRange",
+        label: "Arrival Date",
+        fromKey: "arrivalDateFrom"
+      }
+    }),
+    /unsupported legacy range keys/
+  );
+
+  assert.throws(
+    () => defineCrudListFilters({
+      weight: {
+        type: "numberRange",
+        label: "Weight",
+        minKey: "weightMin"
+      }
+    }),
+    /unsupported legacy range keys/
   );
 });
 
@@ -129,7 +154,32 @@ test("resolveCrudListFilter helpers expose query keys and option labels", () => 
   });
 
   assert.deepEqual(resolveCrudListFilterQueryKeys(filters.status), ["status"]);
-  assert.deepEqual(resolveCrudListFilterQueryKeys(filters.arrivalDate), ["arrivalDateFrom", "arrivalDateTo"]);
+  assert.deepEqual(resolveCrudListFilterQueryKeys(filters.arrivalDate), ["arrivalDate"]);
   assert.equal(resolveCrudListFilterOptionLabel(filters.status, "active"), "Active");
   assert.equal(resolveCrudListFilterOptionLabel(filters.status, "missing", { fallback: "Unknown" }), "Unknown");
+});
+
+test("crud list range helpers parse and format single-key range expressions", () => {
+  assert.deepEqual(parseCrudListRangeQueryExpression("2026-04-01"), {
+    exact: true,
+    start: "2026-04-01",
+    end: "2026-04-01"
+  });
+  assert.deepEqual(parseCrudListRangeQueryExpression("2026-04-01..2026-04-30"), {
+    exact: false,
+    start: "2026-04-01",
+    end: "2026-04-30"
+  });
+  assert.deepEqual(parseCrudListRangeQueryExpression("..2026-04-30"), {
+    exact: false,
+    start: "",
+    end: "2026-04-30"
+  });
+  assert.equal(parseCrudListRangeQueryExpression(".."), null);
+
+  assert.equal(formatCrudListRangeQueryExpression("2026-04-01", ""), "2026-04-01..");
+  assert.equal(
+    formatCrudListRangeQueryExpression("2026-04-01", "2026-04-01", { collapseExact: true }),
+    "2026-04-01"
+  );
 });

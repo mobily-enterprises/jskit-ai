@@ -3,6 +3,7 @@ import {
   executeJsonRestSchemaValidator,
   hasJsonRestSchemaValidator,
   normalizeJsonRestSchemaFieldErrors,
+  resolveValidatorSchemaMode,
   resolveValidatorTransportSchema
 } from "./jsonRestSchemaSupport.js";
 
@@ -40,9 +41,10 @@ function normalizeSingleSchemaDefinition(value, { context = "schema definition",
   };
 
   const resolvedDefaultMode = normalizeText(defaultMode).toLowerCase();
-  normalized.mode = source.mode == null
-    ? (resolvedDefaultMode || "patch")
-    : String(source.mode || "").trim().toLowerCase();
+  normalized.mode = resolveValidatorSchemaMode(source, {
+    defaultMode: resolvedDefaultMode || "patch",
+    context: `${context}.mode`
+  });
 
   return Object.freeze(normalized);
 }

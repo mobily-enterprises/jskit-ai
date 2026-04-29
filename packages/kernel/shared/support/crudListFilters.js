@@ -44,6 +44,55 @@ const CRUD_LIST_FILTER_PRESENCE_OPTIONS = Object.freeze([
   })
 ]);
 
+function parseCrudListRangeQueryExpression(value = null) {
+  const sourceValue = Array.isArray(value) ? value[0] : value;
+  if (sourceValue == null) {
+    return null;
+  }
+
+  const normalized = typeof sourceValue === "number"
+    ? String(sourceValue)
+    : normalizeText(sourceValue);
+  if (!normalized) {
+    return null;
+  }
+
+  const separatorIndex = normalized.indexOf("..");
+  if (separatorIndex < 0) {
+    return deepFreeze({
+      exact: true,
+      start: normalized,
+      end: normalized
+    });
+  }
+
+  const start = normalizeText(normalized.slice(0, separatorIndex));
+  const end = normalizeText(normalized.slice(separatorIndex + 2));
+  if (!start && !end) {
+    return null;
+  }
+
+  return deepFreeze({
+    exact: false,
+    start,
+    end
+  });
+}
+
+function formatCrudListRangeQueryExpression(startValue = "", endValue = "", { collapseExact = false } = {}) {
+  const start = normalizeText(startValue);
+  const end = normalizeText(endValue);
+  if (!start && !end) {
+    return "";
+  }
+
+  if (collapseExact === true && start && end && start === end) {
+    return start;
+  }
+
+  return `${start}..${end}`;
+}
+
 function normalizeCrudListFilterType(value = "") {
   const normalized = normalizeText(value);
   if (CRUD_LIST_FILTER_TYPES.includes(normalized)) {
@@ -149,20 +198,6 @@ function resolveCrudListFilterOptionSet(rawDefinition = {}, type = "") {
 }
 
 function resolveCrudListFilterQueryKeys(definition = {}) {
-  const type = normalizeCrudListFilterType(definition.type);
-  if (type === CRUD_LIST_FILTER_TYPE_DATE_RANGE) {
-    return Object.freeze([
-      normalizeText(definition.fromKey),
-      normalizeText(definition.toKey)
-    ].filter(Boolean));
-  }
-  if (type === CRUD_LIST_FILTER_TYPE_NUMBER_RANGE) {
-    return Object.freeze([
-      normalizeText(definition.minKey),
-      normalizeText(definition.maxKey)
-    ].filter(Boolean));
-  }
-
   return Object.freeze([normalizeText(definition.queryKey)].filter(Boolean));
 }
 
@@ -201,33 +236,15 @@ function normalizeCrudListFilterDefinition(rawKey = "", rawDefinition = null) {
     : null;
 
   if (type === CRUD_LIST_FILTER_TYPE_DATE_RANGE) {
-    return Object.freeze({
-      key,
-      type,
-      label,
-      fromKey: normalizeText(source.fromKey) || `${key}From`,
-      toKey: normalizeText(source.toKey) || `${key}To`,
-      options,
-      lookup,
-      chipLabel,
-      ui,
-      meta
-    });
+    if (normalizeText(source.fromKey) || normalizeText(source.toKey)) {
+      throw new TypeError(`CRUD list filter "${key}" uses unsupported legacy range keys. Use queryKey.`);
+    }
   }
 
   if (type === CRUD_LIST_FILTER_TYPE_NUMBER_RANGE) {
-    return Object.freeze({
-      key,
-      type,
-      label,
-      minKey: normalizeText(source.minKey) || `${key}Min`,
-      maxKey: normalizeText(source.maxKey) || `${key}Max`,
-      options,
-      lookup,
-      chipLabel,
-      ui,
-      meta
-    });
+    if (normalizeText(source.minKey) || normalizeText(source.maxKey)) {
+      throw new TypeError(`CRUD list filter "${key}" uses unsupported legacy range keys. Use queryKey.`);
+    }
   }
 
   return Object.freeze({
@@ -288,6 +305,8 @@ export {
   CRUD_LIST_FILTER_PRESENCE_PRESENT,
   CRUD_LIST_FILTER_PRESENCE_MISSING,
   CRUD_LIST_FILTER_PRESENCE_OPTIONS,
+  parseCrudListRangeQueryExpression,
+  formatCrudListRangeQueryExpression,
   defineCrudListFilters,
   resolveCrudListFilterQueryKeys,
   resolveCrudListFilterOptionLabel

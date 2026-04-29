@@ -134,12 +134,6 @@ Exports
 - `WORKSPACE_ROUTE_BASE_PATH`
 - `resolveWorkspaceRoutePath(relativePath = "/")`
 
-### `src/server/common/validators/authenticatedUserValidator.js`
-Exports
-- `authenticatedUserValidator`
-Local functions
-- `normalizeAuthenticatedUser(input = {})`
-
 ### `src/server/common/validators/routeParamsValidator.js`
 Exports
 - `routeParamsValidator`

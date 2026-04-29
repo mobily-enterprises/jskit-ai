@@ -92,7 +92,7 @@ function bootAccountSecurityRoutes(app) {
       query: userSettingsResource.operations.oauthLinkStart.query,
       responses: withStandardErrorResponses(
         {
-          302: { schema: {} }
+          302: userSettingsResource.operations.oauthLinkStart.output
         },
         { includeValidation400: true }
       ),

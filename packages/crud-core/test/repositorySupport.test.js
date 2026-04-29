@@ -597,3 +597,99 @@ test("deriveRepositoryMappingFromResource keeps explicit storage.writeSerializer
     arrivalDatetime: "datetime-utc"
   });
 });
+
+test("deriveRepositoryMappingFromResource ignores transport export shape and uses authored field definitions", () => {
+  const viewSchema = createSchema({
+    recordId: {
+      type: "id",
+      required: true,
+      actualField: "record_id"
+    },
+    title: {
+      type: "string",
+      required: true
+    },
+    scheduledAt: {
+      type: "dateTime",
+      required: true,
+      actualField: "scheduled_at"
+    }
+  });
+  const createBodySchema = createSchema({
+    title: {
+      type: "string",
+      required: true
+    },
+    scheduledAt: {
+      type: "dateTime",
+      required: true,
+      actualField: "scheduled_at"
+    }
+  });
+  const patchBodySchema = createSchema({
+    scheduledAt: {
+      type: "dateTime",
+      required: false,
+      actualField: "scheduled_at"
+    }
+  });
+
+  viewSchema.toJsonSchema = () => ({
+    type: "object",
+    properties: {
+      title: {
+        type: "number"
+      },
+      scheduledAt: {
+        type: "string"
+      }
+    }
+  });
+  createBodySchema.toJsonSchema = () => ({
+    type: "object",
+    properties: {
+      scheduledAt: {
+        type: "string"
+      }
+    }
+  });
+  patchBodySchema.toJsonSchema = () => ({
+    type: "object",
+    properties: {}
+  });
+
+  const resource = {
+    operations: {
+      view: {
+        output: {
+          schema: viewSchema,
+          mode: "replace"
+        }
+      },
+      create: {
+        body: {
+          schema: createBodySchema,
+          mode: "create"
+        }
+      },
+      patch: {
+        body: {
+          schema: patchBodySchema,
+          mode: "patch"
+        }
+      }
+    }
+  };
+
+  const mapping = deriveRepositoryMappingFromResource(resource);
+  assert.deepEqual(mapping.outputKeys, ["recordId", "title", "scheduledAt"]);
+  assert.deepEqual(mapping.outputRecordIdKeys, ["recordId"]);
+  assert.deepEqual(mapping.listSearchColumns, ["title"]);
+  assert.deepEqual(mapping.writeSerializerByKey, {
+    scheduledAt: "datetime-utc"
+  });
+  assert.deepEqual(mapping.columnOverrides, {
+    recordId: "record_id",
+    scheduledAt: "scheduled_at"
+  });
+});

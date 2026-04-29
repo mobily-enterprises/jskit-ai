@@ -146,14 +146,18 @@ Local functions
 - `normalizeAllowedTextValue(value, allowedValues = new Set())`
 - `normalizeAllowedTextValues(value, allowedValues = new Set())`
 - `addDaysToDateFilterValue(value = "", days = 0)`
+- `validateDateRangeFilterValue(value)`
+- `normalizeDateRangeFilterValue(value)`
+- `validateNumberRangeFilterValue(value)`
+- `normalizeNumberRangeFilterValue(value)`
 - `isPrimitiveFilterInput(value)`
 - `isPrimitiveOrPrimitiveArrayInput(value)`
-- `validateRejectingFilterInput(filter = {}, value)`
-- `validateDiscardingFilterInput(filter = {}, value)`
+- `rejectInvalidFilterValue({ invalidValues = CRUD_LIST_FILTER_INVALID_VALUES_REJECT } = {})`
+- `parseFilterQueryValue(filter = {}, value, { invalidValues = CRUD_LIST_FILTER_INVALID_VALUES_REJECT } = {})`
 - `buildFilterQueryFieldDefinition(filter = {}, { invalidValues = CRUD_LIST_FILTER_INVALID_VALUES_REJECT } = {})`
 - `buildFilterQueryTransportSchema(filter = {}, { invalidValues = CRUD_LIST_FILTER_INVALID_VALUES_REJECT } = {})`
 - `buildFilterQuerySchemaDefinition(filterEntries = [], { invalidValues = CRUD_LIST_FILTER_INVALID_VALUES_REJECT } = {})`
-- `normalizeFilterValue(filter = {}, source = {})`
+- `projectNormalizedFilterValues(filterEntries = [], source = {}, errors = {})`
 - `normalizeColumnsMap(columns = {})`
 - `applyDefaultFilterQuery(queryBuilder, filter = {}, value, column = "")`
 
@@ -223,11 +227,12 @@ Exports
 - `resolveCrudIdColumn(idColumn, { fallback = "id" } = {})`
 - `buildRepositoryColumnMetadata({ outputKeys = [], writeKeys = [], columnOverrides = {}, fieldStorageByKey = {} } = {})`
 Local functions
-- `resolveOptionalObjectSchemaProperties(schema, options = {})`
-- `requireObjectSchemaProperties(schema, { context = "crudRepository", schemaLabel = "schema" } = {})`
-- `schemaIncludesStringType(schema = {})`
-- `schemaIncludesDateTimeFormat(schema = {})`
-- `schemaIncludesRecordIdType(schema = {})`
+- `resolveOptionalFieldDefinitions(definition, options = {})`
+- `requireFieldDefinitions(definition, { context = "crudRepository", schemaLabel = "schema definition", defaultMode = "patch" } = {})`
+- `resolveFieldDefinitionType(definition = {})`
+- `definitionIncludesStringType(definition = {})`
+- `definitionIncludesDateTimeType(definition = {})`
+- `definitionIncludesRecordIdType(definition = {})`
 
 ### `src/server/resourceRuntime/index.js`
 Exports

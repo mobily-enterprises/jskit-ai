@@ -192,6 +192,7 @@ Exports
 Local functions
 - `resolveOperationSection(operation = {}, section = "body")`
 - `buildValidationSuccessResult(value)`
+- `isFieldValidationError(error)`
 - `buildValidationFailureResult(error, normalized)`
 
 ### `src/shared/validators/paginationQuery.js`
