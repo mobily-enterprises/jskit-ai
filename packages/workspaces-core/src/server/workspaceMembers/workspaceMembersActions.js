@@ -1,7 +1,40 @@
+import { composeSchemaDefinitions } from "@jskit-ai/kernel/shared/validators";
 import { resolveWorkspace } from "../support/resolveWorkspace.js";
 import { resolveActionUser } from "../common/support/resolveActionUser.js";
 import { workspaceMembersResource } from "../../shared/resources/workspaceMembersResource.js";
 import { workspaceSlugParamsValidator } from "../common/validators/routeParamsValidator.js";
+
+const updateMemberRoleActionInput = composeSchemaDefinitions([
+  workspaceSlugParamsValidator,
+  workspaceMembersResource.operations.updateMemberRole.input
+], {
+  mode: workspaceMembersResource.operations.updateMemberRole.input.mode,
+  context: "workspaceMembersActions.updateMemberRoleActionInput"
+});
+
+const removeMemberActionInput = composeSchemaDefinitions([
+  workspaceSlugParamsValidator,
+  workspaceMembersResource.operations.removeMember.input
+], {
+  mode: workspaceMembersResource.operations.removeMember.input.mode,
+  context: "workspaceMembersActions.removeMemberActionInput"
+});
+
+const createInviteActionInput = composeSchemaDefinitions([
+  workspaceSlugParamsValidator,
+  workspaceMembersResource.operations.createInvite.body
+], {
+  mode: workspaceMembersResource.operations.createInvite.body.mode,
+  context: "workspaceMembersActions.createInviteActionInput"
+});
+
+const revokeInviteActionInput = composeSchemaDefinitions([
+  workspaceSlugParamsValidator,
+  workspaceMembersResource.operations.revokeInvite.input
+], {
+  mode: workspaceMembersResource.operations.revokeInvite.input.mode,
+  context: "workspaceMembersActions.revokeInviteActionInput"
+});
 
 const workspaceMembersActions = Object.freeze([
   {
@@ -58,7 +91,7 @@ const workspaceMembersActions = Object.freeze([
       require: "all",
       permissions: ["workspace.members.manage"]
     },
-    input: [workspaceSlugParamsValidator, workspaceMembersResource.operations.updateMemberRole.input],
+    input: updateMemberRoleActionInput,
     output: workspaceMembersResource.operations.updateMemberRole.output,
     idempotency: "optional",
     audit: {
@@ -84,7 +117,7 @@ const workspaceMembersActions = Object.freeze([
       require: "all",
       permissions: ["workspace.members.manage"]
     },
-    input: [workspaceSlugParamsValidator, workspaceMembersResource.operations.removeMember.input],
+    input: removeMemberActionInput,
     output: workspaceMembersResource.operations.removeMember.output,
     idempotency: "optional",
     audit: {
@@ -132,7 +165,7 @@ const workspaceMembersActions = Object.freeze([
       require: "all",
       permissions: ["workspace.members.invite"]
     },
-    input: [workspaceSlugParamsValidator, workspaceMembersResource.operations.createInvite.body],
+    input: createInviteActionInput,
     output: workspaceMembersResource.operations.createInvite.output,
     idempotency: "optional",
     audit: {
@@ -168,7 +201,7 @@ const workspaceMembersActions = Object.freeze([
       require: "all",
       permissions: ["workspace.invites.revoke"]
     },
-    input: [workspaceSlugParamsValidator, workspaceMembersResource.operations.revokeInvite.input],
+    input: revokeInviteActionInput,
     output: workspaceMembersResource.operations.revokeInvite.output,
     idempotency: "optional",
     audit: {

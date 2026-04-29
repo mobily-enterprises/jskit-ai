@@ -1,9 +1,9 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+import { createSchema } from "json-rest-schema";
 
 import {
-  EMPTY_INPUT_VALIDATOR,
-  OBJECT_INPUT_VALIDATOR
+  EMPTY_INPUT_VALIDATOR
 } from "../../shared/actions/actionContributorHelpers.js";
 import {
   ActionRuntimeServiceProvider,
@@ -109,7 +109,15 @@ test("ActionRuntimeServiceProvider materializes dependencies and surfaces for ap
       dependencies: {
         echoService: "test.echo.service"
       },
-      input: { schema: OBJECT_INPUT_VALIDATOR },
+      input: {
+        schema: createSchema({
+          value: {
+            type: "string",
+            required: false
+          }
+        }),
+        mode: "patch"
+      },
       idempotency: "none",
       audit: { actionName: "test.echo" },
       observability: {},

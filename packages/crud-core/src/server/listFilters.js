@@ -1,12 +1,12 @@
-import { Type } from "typebox";
 import {
   normalizeObjectInput,
-  mergeObjectSchemas,
   RECORD_ID_PATTERN
 } from "@jskit-ai/kernel/shared/validators";
+import { createSchema } from "json-rest-schema";
 import {
   normalizeBoolean,
   normalizeCanonicalRecordIdText,
+  isRecord as isPlainObject,
   normalizeObject,
   normalizeText,
   normalizeUniqueTextList
@@ -33,24 +33,83 @@ const CRUD_LIST_FILTER_INVALID_VALUES_MODES = Object.freeze([
   CRUD_LIST_FILTER_INVALID_VALUES_REJECT,
   CRUD_LIST_FILTER_INVALID_VALUES_DISCARD
 ]);
-const looseTextInputSchema = Type.String({ minLength: 0 });
-const strictNumberInputSchema = Type.Union([
-  Type.String({ pattern: NUMBER_FILTER_PATTERN_SOURCE }),
-  Type.Number()
-]);
-const looseStringOrNumberSchema = Type.Union([
-  looseTextInputSchema,
-  Type.Number()
-]);
-const recordIdInputSchema = Type.Union([
-  Type.String({ pattern: RECORD_ID_PATTERN }),
-  Type.Number({ minimum: 1 })
-]);
-const flagInputSchema = Type.Union([
-  Type.String({ minLength: 0 }),
-  Type.Boolean(),
-  Type.Number()
-]);
+const CRUD_LIST_FILTER_QUERY_TYPE = "crudListFilterQuery";
+const looseTextTransportSchema = Object.freeze({
+  type: "string",
+  minLength: 0
+});
+const strictNumberTransportSchema = Object.freeze({
+  anyOf: [
+    {
+      type: "string",
+      pattern: NUMBER_FILTER_PATTERN_SOURCE
+    },
+    {
+      type: "number"
+    }
+  ]
+});
+const looseStringOrNumberTransportSchema = Object.freeze({
+  anyOf: [
+    looseTextTransportSchema,
+    {
+      type: "number"
+    }
+  ]
+});
+const recordIdTransportSchema = Object.freeze({
+  anyOf: [
+    {
+      type: "string",
+      pattern: RECORD_ID_PATTERN
+    },
+    {
+      type: "number",
+      minimum: 1
+    }
+  ]
+});
+const flagTransportSchema = Object.freeze({
+  anyOf: [
+    {
+      type: "string",
+      minLength: 0
+    },
+    {
+      type: "boolean"
+    },
+    {
+      type: "number"
+    }
+  ]
+});
+
+function cloneTransportSchema(value) {
+  if (Array.isArray(value)) {
+    return value.map((entry) => cloneTransportSchema(entry));
+  }
+
+  if (!value || typeof value !== "object") {
+    return value;
+  }
+
+  return Object.fromEntries(
+    Object.entries(value).map(([key, entry]) => [key, cloneTransportSchema(entry)])
+  );
+}
+
+function buildSingleOrMultiTransportSchema(itemSchema) {
+  return {
+    anyOf: [
+      cloneTransportSchema(itemSchema),
+      {
+        type: "array",
+        items: cloneTransportSchema(itemSchema),
+        minItems: 1
+      }
+    ]
+  };
+}
 
 function normalizeCrudListFilterInvalidValues(value = "") {
   const normalized = normalizeText(value).toLowerCase();
@@ -60,17 +119,6 @@ function normalizeCrudListFilterInvalidValues(value = "") {
 
   throw new TypeError(
     `Unsupported CRUD list filter invalidValues mode "${value}". Expected one of: ${CRUD_LIST_FILTER_INVALID_VALUES_MODES.join(", ")}.`
-  );
-}
-
-function createSingleOrMultiValueSchema(itemSchema) {
-  return Type.Optional(
-    Type.Union([
-      itemSchema,
-      Type.Array(itemSchema, {
-        minItems: 1
-      })
-    ])
   );
 }
 
@@ -157,122 +205,235 @@ function addDaysToDateFilterValue(value = "", days = 0) {
   return `${year}-${month}-${day}`;
 }
 
-function createFilterQuerySchema(filter = {}, { invalidValues = CRUD_LIST_FILTER_INVALID_VALUES_REJECT } = {}) {
+function isPrimitiveFilterInput(value) {
+  const valueType = typeof value;
+  return valueType === "string" || valueType === "number" || valueType === "boolean";
+}
+
+function isPrimitiveOrPrimitiveArrayInput(value) {
+  if (Array.isArray(value)) {
+    return value.every((entry) => isPrimitiveFilterInput(entry));
+  }
+
+  return isPrimitiveFilterInput(value);
+}
+
+function validateRejectingFilterInput(filter = {}, value) {
+  const allowedValues = resolveAllowedOptionValues(filter);
+
+  if (filter.type === CRUD_LIST_FILTER_TYPE_FLAG) {
+    if (!isPrimitiveFilterInput(value)) {
+      return false;
+    }
+    if (value === "") {
+      return true;
+    }
+
+    try {
+      normalizeBoolean(firstValue(value));
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
+  if (filter.type === CRUD_LIST_FILTER_TYPE_ENUM || filter.type === CRUD_LIST_FILTER_TYPE_PRESENCE) {
+    return Boolean(isPrimitiveFilterInput(value) && normalizeAllowedTextValue(value, allowedValues));
+  }
+
+  if (filter.type === CRUD_LIST_FILTER_TYPE_ENUM_MANY) {
+    if (!isPrimitiveOrPrimitiveArrayInput(value)) {
+      return false;
+    }
+
+    const values = Array.isArray(value) ? value : [value];
+    return values.length > 0 && values.every((entry) => Boolean(normalizeAllowedTextValue(entry, allowedValues)));
+  }
+
+  if (filter.type === CRUD_LIST_FILTER_TYPE_RECORD_ID) {
+    return Boolean(isPrimitiveFilterInput(value) && normalizeRecordIdFilterValue(value));
+  }
+
+  if (filter.type === CRUD_LIST_FILTER_TYPE_RECORD_ID_MANY) {
+    if (!isPrimitiveOrPrimitiveArrayInput(value)) {
+      return false;
+    }
+
+    const values = Array.isArray(value) ? value : [value];
+    return values.length > 0 && values.every((entry) => Boolean(normalizeRecordIdFilterValue(entry)));
+  }
+
+  if (filter.type === CRUD_LIST_FILTER_TYPE_DATE) {
+    return Boolean(isPrimitiveFilterInput(value) && normalizeDateFilterValue(value));
+  }
+
+  if (filter.type === CRUD_LIST_FILTER_TYPE_DATE_RANGE) {
+    return Boolean(isPrimitiveFilterInput(value) && normalizeDateFilterValue(value));
+  }
+
+  if (filter.type === CRUD_LIST_FILTER_TYPE_NUMBER_RANGE) {
+    return Boolean(isPrimitiveFilterInput(value) && normalizeNumberFilterValue(value) != null);
+  }
+
+  return true;
+}
+
+function validateDiscardingFilterInput(filter = {}, value) {
+  if (filter.type === CRUD_LIST_FILTER_TYPE_ENUM_MANY || filter.type === CRUD_LIST_FILTER_TYPE_RECORD_ID_MANY) {
+    return isPrimitiveOrPrimitiveArrayInput(value);
+  }
+
+  return isPrimitiveFilterInput(value);
+}
+
+function buildFilterQueryFieldDefinition(filter = {}, { invalidValues = CRUD_LIST_FILTER_INVALID_VALUES_REJECT } = {}) {
+  const invalidValueMode = normalizeCrudListFilterInvalidValues(invalidValues);
+  const filterContract = Object.freeze({
+    filter,
+    invalidValues: invalidValueMode
+  });
+
+  const queryFieldDefinition = {
+    type: CRUD_LIST_FILTER_QUERY_TYPE,
+    filterContract
+  };
+
+  if (filter.type === CRUD_LIST_FILTER_TYPE_DATE_RANGE) {
+    return {
+      [filter.fromKey]: queryFieldDefinition,
+      [filter.toKey]: queryFieldDefinition
+    };
+  }
+
+  if (filter.type === CRUD_LIST_FILTER_TYPE_NUMBER_RANGE) {
+    return {
+      [filter.minKey]: queryFieldDefinition,
+      [filter.maxKey]: queryFieldDefinition
+    };
+  }
+
+  return {
+    [filter.queryKey]: queryFieldDefinition
+  };
+}
+
+function buildFilterQueryTransportSchema(filter = {}, { invalidValues = CRUD_LIST_FILTER_INVALID_VALUES_REJECT } = {}) {
   const invalidValueMode = normalizeCrudListFilterInvalidValues(invalidValues);
   const discardInvalidValues = invalidValueMode === CRUD_LIST_FILTER_INVALID_VALUES_DISCARD;
   const allowedValues = (Array.isArray(filter.options) ? filter.options : []).map((entry) => entry.value);
 
   if (filter.type === CRUD_LIST_FILTER_TYPE_FLAG) {
-    return Type.Object(
-      {
-        [filter.queryKey]: Type.Optional(flagInputSchema)
-      },
-      { additionalProperties: false }
-    );
+    return cloneTransportSchema(flagTransportSchema);
   }
 
   if (filter.type === CRUD_LIST_FILTER_TYPE_ENUM || filter.type === CRUD_LIST_FILTER_TYPE_PRESENCE) {
-    return Type.Object(
-      {
-        [filter.queryKey]: Type.Optional(
-          discardInvalidValues
-            ? looseTextInputSchema
-            : Type.String({ enum: allowedValues })
-        )
-      },
-      { additionalProperties: false }
-    );
+    return discardInvalidValues
+      ? cloneTransportSchema(looseTextTransportSchema)
+      : {
+          type: "string",
+          enum: allowedValues
+        };
   }
 
   if (filter.type === CRUD_LIST_FILTER_TYPE_ENUM_MANY) {
-    return Type.Object(
-      {
-        [filter.queryKey]: createSingleOrMultiValueSchema(
-          discardInvalidValues
-            ? looseTextInputSchema
-            : Type.String({ enum: allowedValues })
-        )
-      },
-      { additionalProperties: false }
+    return buildSingleOrMultiTransportSchema(
+      discardInvalidValues
+        ? looseTextTransportSchema
+        : {
+            type: "string",
+            enum: allowedValues
+          }
     );
   }
 
   if (filter.type === CRUD_LIST_FILTER_TYPE_RECORD_ID) {
-    return Type.Object(
-      {
-        [filter.queryKey]: Type.Optional(
-          discardInvalidValues
-            ? looseStringOrNumberSchema
-            : recordIdInputSchema
-        )
-      },
-      { additionalProperties: false }
-    );
+    return discardInvalidValues
+      ? cloneTransportSchema(looseStringOrNumberTransportSchema)
+      : cloneTransportSchema(recordIdTransportSchema);
   }
 
   if (filter.type === CRUD_LIST_FILTER_TYPE_RECORD_ID_MANY) {
-    return Type.Object(
-      {
-        [filter.queryKey]: createSingleOrMultiValueSchema(
-          discardInvalidValues
-            ? looseStringOrNumberSchema
-            : recordIdInputSchema
-        )
-      },
-      { additionalProperties: false }
+    return buildSingleOrMultiTransportSchema(
+      discardInvalidValues
+        ? looseStringOrNumberTransportSchema
+        : recordIdTransportSchema
     );
   }
 
-  if (filter.type === CRUD_LIST_FILTER_TYPE_DATE) {
-    return Type.Object(
-      {
-        [filter.queryKey]: Type.Optional(
-          discardInvalidValues
-            ? looseTextInputSchema
-            : Type.String({ pattern: DATE_FILTER_PATTERN_SOURCE })
-        )
-      },
-      { additionalProperties: false }
-    );
-  }
-
-  if (filter.type === CRUD_LIST_FILTER_TYPE_DATE_RANGE) {
-    return Type.Object(
-      {
-        [filter.fromKey]: Type.Optional(
-          discardInvalidValues
-            ? looseTextInputSchema
-            : Type.String({ pattern: DATE_FILTER_PATTERN_SOURCE })
-        ),
-        [filter.toKey]: Type.Optional(
-          discardInvalidValues
-            ? looseTextInputSchema
-            : Type.String({ pattern: DATE_FILTER_PATTERN_SOURCE })
-        )
-      },
-      { additionalProperties: false }
-    );
+  if (filter.type === CRUD_LIST_FILTER_TYPE_DATE || filter.type === CRUD_LIST_FILTER_TYPE_DATE_RANGE) {
+    return discardInvalidValues
+      ? cloneTransportSchema(looseTextTransportSchema)
+      : {
+          type: "string",
+          pattern: DATE_FILTER_PATTERN_SOURCE
+        };
   }
 
   if (filter.type === CRUD_LIST_FILTER_TYPE_NUMBER_RANGE) {
-    return Type.Object(
-      {
-        [filter.minKey]: Type.Optional(
-          discardInvalidValues
-            ? looseStringOrNumberSchema
-            : strictNumberInputSchema
-        ),
-        [filter.maxKey]: Type.Optional(
-          discardInvalidValues
-            ? looseStringOrNumberSchema
-            : strictNumberInputSchema
-        )
-      },
-      { additionalProperties: false }
-    );
+    return discardInvalidValues
+      ? cloneTransportSchema(looseStringOrNumberTransportSchema)
+      : cloneTransportSchema(strictNumberTransportSchema);
   }
 
-  return Type.Object({}, { additionalProperties: false });
+  return {};
+}
+
+createSchema.addType(CRUD_LIST_FILTER_QUERY_TYPE, Object.assign(
+  (context) => {
+    const contract = isPlainObject(context.definition.filterContract)
+      ? context.definition.filterContract
+      : null;
+    const filter = contract?.filter;
+    const invalidValues = contract?.invalidValues;
+
+    if (!filter || !invalidValues) {
+      context.throwTypeError();
+    }
+
+    const isValid = invalidValues === CRUD_LIST_FILTER_INVALID_VALUES_DISCARD
+      ? validateDiscardingFilterInput(filter, context.value)
+      : validateRejectingFilterInput(filter, context.value);
+
+    if (!isValid) {
+      context.throwTypeError();
+    }
+
+    return context.value;
+  },
+  {
+    toJsonSchema({ definition }) {
+      const contract = isPlainObject(definition?.filterContract)
+        ? definition.filterContract
+        : null;
+      const filter = contract?.filter;
+      const invalidValues = contract?.invalidValues;
+
+      if (!filter || !invalidValues) {
+        throw new Error(`Type "${CRUD_LIST_FILTER_QUERY_TYPE}" requires definition.filterContract for transport export.`);
+      }
+
+      return buildFilterQueryTransportSchema(filter, {
+        invalidValues
+      });
+    }
+  }
+));
+
+function buildFilterQuerySchemaDefinition(filterEntries = [], {
+  invalidValues = CRUD_LIST_FILTER_INVALID_VALUES_REJECT
+} = {}) {
+  const structure = {};
+
+  for (const filter of filterEntries) {
+    Object.assign(structure, buildFilterQueryFieldDefinition(filter, {
+      invalidValues
+    }));
+  }
+
+  return Object.freeze({
+    schema: createSchema(structure),
+    mode: "patch"
+  });
 }
 
 function normalizeFilterValue(filter = {}, source = {}) {
@@ -479,22 +640,16 @@ function createCrudListFilters(definitions = {}, { columns = {}, apply = {} } = 
     return Object.freeze(normalized);
   }
 
-  const validatorsByInvalidValueMode = Object.freeze({
+  const queryValidatorsByInvalidValueMode = Object.freeze({
     [CRUD_LIST_FILTER_INVALID_VALUES_REJECT]: Object.freeze({
-      schema: mergeObjectSchemas(
-        filterEntries.map((filter) => createFilterQuerySchema(filter, {
-          invalidValues: CRUD_LIST_FILTER_INVALID_VALUES_REJECT
-        }))
-      ),
-      normalize
+      ...buildFilterQuerySchemaDefinition(filterEntries, {
+        invalidValues: CRUD_LIST_FILTER_INVALID_VALUES_REJECT
+      })
     }),
     [CRUD_LIST_FILTER_INVALID_VALUES_DISCARD]: Object.freeze({
-      schema: mergeObjectSchemas(
-        filterEntries.map((filter) => createFilterQuerySchema(filter, {
-          invalidValues: CRUD_LIST_FILTER_INVALID_VALUES_DISCARD
-        }))
-      ),
-      normalize
+      ...buildFilterQuerySchemaDefinition(filterEntries, {
+        invalidValues: CRUD_LIST_FILTER_INVALID_VALUES_DISCARD
+      })
     })
   });
 
@@ -529,7 +684,7 @@ function createCrudListFilters(definitions = {}, { columns = {}, apply = {} } = 
 
   function createQueryValidator({ invalidValues } = {}) {
     const invalidValueMode = normalizeCrudListFilterInvalidValues(invalidValues);
-    return validatorsByInvalidValueMode[invalidValueMode];
+    return queryValidatorsByInvalidValueMode[invalidValueMode];
   }
 
   return Object.freeze({

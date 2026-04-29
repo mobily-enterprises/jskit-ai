@@ -7,6 +7,7 @@ import {
   apiValidationErrorResponseSchema,
   fastifyDefaultErrorResponseSchema,
   enumSchema,
+  transportResponseSchema,
   withStandardErrorResponses
 } from "../src/shared/validators/errorResponses.js";
 
@@ -25,7 +26,7 @@ test("withStandardErrorResponses includes standard statuses", () => {
   for (const statusCode of STANDARD_ERROR_STATUS_CODES) {
     assert.ok(responses[statusCode], `missing status ${statusCode}`);
   }
-  assert.equal(responses[400].schema.anyOf.length, 2);
+  assert.equal(responses[400].transportSchema.anyOf.length, 2);
 });
 
 test("withStandardErrorResponses uses validation union for 400 when enabled", () => {
@@ -40,9 +41,9 @@ test("withStandardErrorResponses uses validation union for 400 when enabled", ()
     { includeValidation400: true }
   );
 
-  assert.equal(responses[400].schema.anyOf.length, 3);
+  assert.equal(responses[400].transportSchema.anyOf.length, 3);
   assert.deepEqual(
-    responses[400].schema.anyOf.map((schema) => schema.type),
+    responses[400].transportSchema.anyOf.map((schema) => schema.type),
     [apiValidationErrorResponseSchema.type, apiErrorResponseSchema.type, fastifyDefaultErrorResponseSchema.type]
   );
 });
@@ -63,14 +64,12 @@ test("withStandardErrorResponses does not override existing error schemas", () =
           type: "string"
         }
       },
-      400: {
-        schema: custom400
-      }
+      400: transportResponseSchema(custom400)
     },
     { includeValidation400: true }
   );
 
-  assert.equal(responses[400].schema, custom400);
+  assert.equal(responses[400].transportSchema, custom400);
 });
 
 test("enumSchema creates a literal union", () => {

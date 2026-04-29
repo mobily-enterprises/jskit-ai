@@ -1484,7 +1484,7 @@ function renderRouteParamsValidatorLine(operation = "", { surfaceRequiresWorkspa
     return "      params: recordIdParamsValidator,";
   }
 
-  return "      params: [routeParamsValidator, recordIdParamsValidator],";
+  return "      params: recordRouteParamsValidator,";
 }
 
 function renderRouteInputLines(operation = "", { surfaceRequiresWorkspace = true } = {}) {
@@ -1507,13 +1507,13 @@ function renderRouteInputLines(operation = "", { surfaceRequiresWorkspace = true
   }
 
   if (normalizedOperation === "create") {
-    lines.push("          payload: request.input.body");
+    lines.push("          ...(request.input.body || {})");
     return lines.join("\n");
   }
 
   if (normalizedOperation === "update") {
     lines.push("          recordId: request.input.params.recordId,");
-    lines.push("          patch: request.input.body");
+    lines.push("          ...(request.input.body || {})");
     return lines.join("\n");
   }
 
@@ -1521,32 +1521,70 @@ function renderRouteInputLines(operation = "", { surfaceRequiresWorkspace = true
   return lines.join("\n");
 }
 
-function renderActionInputValidatorExpression(operation = "", { surfaceRequiresWorkspace = true } = {}) {
-  const normalizedOperation = normalizeCrudOperation(operation, "CRUD action input validator operation");
-  const validators = [];
+function renderObjectSchemaDefinition(lines = [], { mode = "patch" } = {}) {
+  return [
+    "composeSchemaDefinitions([",
+    ...lines.map((line) => `  ${line}`),
+    "], {",
+    `  mode: ${JSON.stringify(mode)}`,
+    "})"
+  ].join("\n");
+}
+
+function renderActionInputValidatorConstants({ surfaceRequiresWorkspace = true } = {}) {
+  const listLines = [];
+  const viewLines = [];
+  const createLines = [];
+  const updateLines = [];
+  const deleteLines = [];
 
   if (surfaceRequiresWorkspace) {
-    validators.push("workspaceSlugParamsValidator");
+    listLines.push("workspaceSlugParamsValidator,");
+    viewLines.push("workspaceSlugParamsValidator,");
+    createLines.push("workspaceSlugParamsValidator,");
+    updateLines.push("workspaceSlugParamsValidator,");
+    deleteLines.push("workspaceSlugParamsValidator,");
   }
 
-  if (normalizedOperation === "list") {
-    validators.push(
-      "listCursorPaginationQueryValidator",
-      "listSearchQueryValidator",
-      "listParentFilterQueryValidator",
-      "lookupIncludeQueryValidator"
-    );
-  } else if (normalizedOperation === "view") {
-    validators.push("recordIdParamsValidator", "lookupIncludeQueryValidator");
-  } else if (normalizedOperation === "create") {
-    validators.push("{ payload: resource.operations.create.body }");
-  } else if (normalizedOperation === "update") {
-    validators.push("recordIdParamsValidator", "{ patch: resource.operations.patch.body }");
-  } else {
-    validators.push("recordIdParamsValidator");
+  listLines.push(
+    "listCursorPaginationQueryValidator,",
+    "listSearchQueryValidator,",
+    "listParentFilterQueryValidator,",
+    "lookupIncludeQueryValidator,"
+  );
+  viewLines.push(
+    "recordIdParamsValidator,",
+    "lookupIncludeQueryValidator,"
+  );
+  createLines.push("resource.operations.create.body,");
+  updateLines.push(
+    "recordIdParamsValidator,",
+    "resource.operations.patch.body,"
+  );
+  deleteLines.push("recordIdParamsValidator,");
+
+  return [
+    `const listActionInputValidator = ${renderObjectSchemaDefinition(listLines)};`,
+    `const viewActionInputValidator = ${renderObjectSchemaDefinition(viewLines)};`,
+    `const createActionInputValidator = ${renderObjectSchemaDefinition(createLines, { mode: "create" })};`,
+    `const updateActionInputValidator = ${renderObjectSchemaDefinition(updateLines)};`,
+    `const deleteActionInputValidator = ${renderObjectSchemaDefinition(deleteLines)};`
+  ].join("\n");
+}
+
+function renderRouteValidatorConstants({ surfaceRequiresWorkspace = true } = {}) {
+  if (!surfaceRequiresWorkspace) {
+    return "";
   }
 
-  return validators.length === 1 ? validators[0] : `[${validators.join(", ")}]`;
+  return [
+    "const recordRouteParamsValidator = composeSchemaDefinitions([",
+    "  routeParamsValidator,",
+    "  recordIdParamsValidator",
+    '], {',
+    '  mode: "patch"',
+    "});"
+  ].join("\n");
 }
 
 function buildReplacementsFromSnapshot({
@@ -1577,35 +1615,23 @@ function buildReplacementsFromSnapshot({
     __JSKIT_CRUD_ACTION_WORKSPACE_VALIDATOR_IMPORT__: renderActionWorkspaceValidatorImport({
       surfaceRequiresWorkspace
     }),
+    __JSKIT_CRUD_ACTION_INPUT_VALIDATOR_CONSTANTS__: renderActionInputValidatorConstants({
+      surfaceRequiresWorkspace
+    }),
     __JSKIT_CRUD_LIST_ACTION_PERMISSION__: renderActionPermissionExpression("list", {
       requiresNamedPermissions
-    }),
-    __JSKIT_CRUD_LIST_ACTION_INPUT_VALIDATOR__: renderActionInputValidatorExpression("list", {
-      surfaceRequiresWorkspace
     }),
     __JSKIT_CRUD_VIEW_ACTION_PERMISSION__: renderActionPermissionExpression("view", {
       requiresNamedPermissions
     }),
-    __JSKIT_CRUD_VIEW_ACTION_INPUT_VALIDATOR__: renderActionInputValidatorExpression("view", {
-      surfaceRequiresWorkspace
-    }),
     __JSKIT_CRUD_CREATE_ACTION_PERMISSION__: renderActionPermissionExpression("create", {
       requiresNamedPermissions
-    }),
-    __JSKIT_CRUD_CREATE_ACTION_INPUT_VALIDATOR__: renderActionInputValidatorExpression("create", {
-      surfaceRequiresWorkspace
     }),
     __JSKIT_CRUD_UPDATE_ACTION_PERMISSION__: renderActionPermissionExpression("update", {
       requiresNamedPermissions
     }),
-    __JSKIT_CRUD_UPDATE_ACTION_INPUT_VALIDATOR__: renderActionInputValidatorExpression("update", {
-      surfaceRequiresWorkspace
-    }),
     __JSKIT_CRUD_DELETE_ACTION_PERMISSION__: renderActionPermissionExpression("delete", {
       requiresNamedPermissions
-    }),
-    __JSKIT_CRUD_DELETE_ACTION_INPUT_VALIDATOR__: renderActionInputValidatorExpression("delete", {
-      surfaceRequiresWorkspace
     }),
     __JSKIT_CRUD_ROLE_CATALOG_PERMISSION_GRANTS__: renderRoleCatalogPermissionGrants(namespace, {
       requiresNamedPermissions
@@ -1613,6 +1639,9 @@ function buildReplacementsFromSnapshot({
     __JSKIT_CRUD_ROUTE_SURFACE_REQUIRES_WORKSPACE__: String(surfaceRequiresWorkspace === true),
     __JSKIT_CRUD_ROUTE_BASE__: JSON.stringify(surfaceRequiresWorkspace === true ? "/w/:workspaceSlug" : "/"),
     __JSKIT_CRUD_ROUTE_WORKSPACE_SUPPORT_IMPORTS__: renderRouteWorkspaceSupportImports({
+      surfaceRequiresWorkspace
+    }),
+    __JSKIT_CRUD_ROUTE_VALIDATOR_CONSTANTS__: renderRouteValidatorConstants({
       surfaceRequiresWorkspace
     }),
     __JSKIT_CRUD_LIST_ROUTE_PARAMS_VALIDATOR_LINE__: renderRouteParamsValidatorLine("list", {
@@ -1785,7 +1814,8 @@ const __testables = Object.freeze({
   renderRoleCatalogPermissionGrants,
   renderActionPermissionSupport,
   renderActionPermissionExpression,
-  renderActionInputValidatorExpression,
+  renderActionInputValidatorConstants,
+  renderRouteValidatorConstants,
   renderRouteParamsValidatorLine,
   renderRouteInputLines
 });

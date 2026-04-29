@@ -14,9 +14,7 @@ const accountPreferencesActions = Object.freeze([
     permission: {
       require: "authenticated"
     },
-    input: {
-      payload: userSettingsResource.operations.preferencesUpdate.body
-    },
+    input: userSettingsResource.operations.preferencesUpdate.body,
     output: userSettingsResource.operations.view.output,
     idempotency: "optional",
     audit: {
@@ -27,7 +25,7 @@ const accountPreferencesActions = Object.freeze([
       return deps.accountPreferencesService.updatePreferences(
         resolveRequest(context),
         resolveActionUser(context, input),
-        input.payload,
+        input,
         {
           context
         }

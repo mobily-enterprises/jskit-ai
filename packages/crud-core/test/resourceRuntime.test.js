@@ -6,14 +6,13 @@ import { createCrudResourceRuntime } from "../src/server/resourceRuntime/index.j
 
 const recordIdSchema = Object.freeze({
   type: "string",
+  minLength: 1,
   pattern: RECORD_ID_PATTERN
 });
 
 const nullableRecordIdSchema = Object.freeze({
-  anyOf: [
-    recordIdSchema,
-    { type: "null" }
-  ]
+  ...recordIdSchema,
+  nullable: true
 });
 
 function createKnexDouble(
@@ -204,26 +203,28 @@ function createResourceFixture() {
     operations: {
       view: {
         output: {
-          schema: {
-            type: "object",
-            properties: {
-              id: {
-                ...recordIdSchema,
-                actualField: "contact_id"
-              },
-              firstName: { type: "string" }
+          schema: createSchema({
+            id: {
+              ...recordIdSchema,
+              required: true,
+              actualField: "contact_id"
+            },
+            firstName: {
+              type: "string",
+              required: true
             }
-          }
+          }),
+          mode: "replace"
         }
       },
       create: {
         body: {
-          schema: {
-            type: "object",
-            properties: {
-              firstName: { type: "string" }
+          schema: createSchema({
+            firstName: {
+              type: "string"
             }
-          }
+          }),
+          mode: "create"
         }
       }
     }
@@ -238,47 +239,49 @@ function createLookupResourceFixture() {
     operations: {
       view: {
         output: {
-          schema: {
-            type: "object",
-            properties: {
-              id: {
-                ...recordIdSchema,
-                actualField: "contact_id"
-              },
-              firstName: { type: "string" },
-              primaryVetId: {
-                ...recordIdSchema,
-                actualField: "primary_vet_id",
-                relation: {
-                  kind: "lookup",
-                  namespace: "vets",
-                  valueKey: "id"
-                }
-              },
-              secondaryVetId: {
-                ...nullableRecordIdSchema,
-                actualField: "secondary_vet_id",
-                relation: {
-                  kind: "lookup",
-                  namespace: "vets",
-                  valueKey: "id"
-                }
-              },
-              lookups: {
-                type: "object"
+          schema: createSchema({
+            id: {
+              ...recordIdSchema,
+              required: true,
+              actualField: "contact_id"
+            },
+            firstName: {
+              type: "string",
+              required: true
+            },
+            primaryVetId: {
+              ...recordIdSchema,
+              actualField: "primary_vet_id",
+              relation: {
+                kind: "lookup",
+                namespace: "vets",
+                valueKey: "id"
               }
+            },
+            secondaryVetId: {
+              ...nullableRecordIdSchema,
+              actualField: "secondary_vet_id",
+              relation: {
+                kind: "lookup",
+                namespace: "vets",
+                valueKey: "id"
+              }
+            },
+            lookups: {
+              type: "object"
             }
-          }
+          }),
+          mode: "replace"
         }
       },
       create: {
         body: {
-          schema: {
-            type: "object",
-            properties: {
-              firstName: { type: "string" }
+          schema: createSchema({
+            firstName: {
+              type: "string"
             }
-          }
+          }),
+          mode: "create"
         }
       }
     }
@@ -293,27 +296,25 @@ function createLeafLookupResourceFixture() {
     operations: {
       view: {
         output: {
-          schema: {
-            type: "object",
-            properties: {
-              id: {
-                ...recordIdSchema,
-                actualField: "user_id"
-              },
-              name: {
-                type: "string",
-                actualField: "display_name"
-              }
+          schema: createSchema({
+            id: {
+              ...recordIdSchema,
+              required: true,
+              actualField: "user_id"
+            },
+            name: {
+              type: "string",
+              required: true,
+              actualField: "display_name"
             }
-          }
+          }),
+          mode: "replace"
         }
       },
       create: {
         body: {
-          schema: {
-            type: "object",
-            properties: {}
-          }
+          schema: createSchema({}),
+          mode: "create"
         }
       }
     }
@@ -328,26 +329,19 @@ function createNormalizedWriteResourceFixture() {
     operations: {
       view: {
         output: {
-          schema: {
-            type: "object",
-            properties: {
-              id: {
-                ...recordIdSchema,
-                actualField: "contact_id"
-              },
-              firstName: {
-                type: "string",
-                actualField: "first_name"
-              },
-              lastSeenAt: {
-                actualField: "last_seen_at",
-                anyOf: [
-                  { type: "string" },
-                  { type: "null" }
-                ]
-              }
+          schema: createSchema({
+            id: {
+              ...recordIdSchema,
+              required: true,
+              actualField: "contact_id"
+            },
+            firstName: {
+              type: "string",
+              required: true,
+              actualField: "first_name"
             }
-          }
+          }),
+          mode: "replace"
         }
       },
       create: {
@@ -393,32 +387,34 @@ function createVirtualProjectionResourceFixture() {
     operations: {
       view: {
         output: {
-          schema: {
-            type: "object",
-            properties: {
-              id: {
-                ...recordIdSchema,
-                actualField: "receival_id"
-              },
-              firstName: { type: "string" },
-              remainingBatchWeight: {
-                type: "number",
-                storage: {
-                  virtual: true
-                }
+          schema: createSchema({
+            id: {
+              ...recordIdSchema,
+              required: true,
+              actualField: "receival_id"
+            },
+            firstName: {
+              type: "string",
+              required: true
+            },
+            remainingBatchWeight: {
+              type: "number",
+              storage: {
+                virtual: true
               }
             }
-          }
+          }),
+          mode: "replace"
         }
       },
       create: {
         body: {
-          schema: {
-            type: "object",
-            properties: {
-              firstName: { type: "string" }
+          schema: createSchema({
+            firstName: {
+              type: "string"
             }
-          }
+          }),
+          mode: "create"
         }
       }
     }
@@ -433,20 +429,19 @@ test("createCrudResourceRuntime requires table metadata from resource", () => {
         operations: {
           view: {
             output: {
-              schema: {
-                type: "object",
-                properties: {
-                  id: recordIdSchema
+              schema: createSchema({
+                id: {
+                  ...recordIdSchema,
+                  required: true
                 }
-              }
+              }),
+              mode: "replace"
             }
           },
           create: {
             body: {
-              schema: {
-                type: "object",
-                properties: {}
-              }
+              schema: createSchema({}),
+              mode: "create"
             }
           }
         }
@@ -731,17 +726,22 @@ test("listByIds supports alternate valueKey and listByForeignIds delegates to it
       ...createResourceFixture().operations,
       view: {
         output: {
-          schema: {
-            type: "object",
-            properties: {
-              id: recordIdSchema,
-              foreignId: {
-                ...recordIdSchema,
-                actualField: "foreign_id"
-              },
-              firstName: { type: "string" }
+          schema: createSchema({
+            id: {
+              ...recordIdSchema,
+              required: true,
+              actualField: "contact_id"
+            },
+            foreignId: {
+              ...recordIdSchema,
+              actualField: "foreign_id"
+            },
+            firstName: {
+              type: "string",
+              required: true
             }
-          }
+          }),
+          mode: "replace"
         }
       }
       }
@@ -783,34 +783,38 @@ test("create uses operations.create.prepareInsertPayload before insert", async (
     operations: {
       view: {
         output: {
-          schema: {
-            type: "object",
-            properties: {
-              id: {
-                ...recordIdSchema,
-                actualField: "contact_id"
-              },
-              firstName: { type: "string" },
-              createdAt: {
-                type: "string",
-                actualField: "created_at"
-              },
-              updatedAt: {
-                type: "string",
-                actualField: "updated_at"
-              }
+          schema: createSchema({
+            id: {
+              ...recordIdSchema,
+              required: true,
+              actualField: "contact_id"
+            },
+            firstName: {
+              type: "string",
+              required: true
+            },
+            createdAt: {
+              type: "string",
+              required: true,
+              actualField: "created_at"
+            },
+            updatedAt: {
+              type: "string",
+              required: true,
+              actualField: "updated_at"
             }
-          }
+          }),
+          mode: "replace"
         }
       },
       create: {
         body: {
-          schema: {
-            type: "object",
-            properties: {
-              firstName: { type: "string" }
+          schema: createSchema({
+            firstName: {
+              type: "string"
             }
-          }
+          }),
+          mode: "create"
         }
       }
     }

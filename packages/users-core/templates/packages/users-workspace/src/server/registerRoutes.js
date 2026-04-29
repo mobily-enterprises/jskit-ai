@@ -6,7 +6,10 @@ import {
 } from "@jskit-ai/crud-core/server/listQueryValidators";
 import { resolveScopedApiBasePath } from "@jskit-ai/kernel/shared/surface";
 import { checkRouteVisibility } from "@jskit-ai/kernel/shared/support/visibility";
-import { recordIdParamsValidator } from "@jskit-ai/kernel/shared/validators";
+import {
+  composeSchemaDefinitions,
+  recordIdParamsValidator
+} from "@jskit-ai/kernel/shared/validators";
 import { routeParamsValidator } from "@jskit-ai/workspaces-core/server/validators/routeParamsValidator";
 import { buildWorkspaceInputFromRouteParams } from "@jskit-ai/workspaces-core/server/support/workspaceRouteInput";
 import { actionIds } from "./actionIds.js";
@@ -14,6 +17,20 @@ import { LIST_CONFIG } from "./listConfig.js";
 import { resource } from "../shared/userResource.js";
 
 const listCursorPaginationQueryValidator = createCrudCursorPaginationQueryValidator(LIST_CONFIG);
+const listRouteQueryValidator = composeSchemaDefinitions([
+  listCursorPaginationQueryValidator,
+  listSearchQueryValidator
+], {
+  mode: "patch",
+  context: "workspaceUsersTemplate.listRouteQueryValidator"
+});
+const viewRouteParamsValidator = composeSchemaDefinitions([
+  routeParamsValidator,
+  recordIdParamsValidator
+], {
+  mode: "patch",
+  context: "workspaceUsersTemplate.viewRouteParamsValidator"
+});
 
 function registerRoutes(
   app,
@@ -44,7 +61,7 @@ function registerRoutes(
         summary: "List users."
       },
       params: routeParamsValidator,
-      query: [listCursorPaginationQueryValidator, listSearchQueryValidator],
+      query: listRouteQueryValidator,
       responses: withStandardErrorResponses({
         200: resource.operations.list.output
       })
@@ -72,7 +89,7 @@ function registerRoutes(
         tags: ["crud"],
         summary: "View a user."
       },
-      params: [routeParamsValidator, recordIdParamsValidator],
+      params: viewRouteParamsValidator,
       responses: withStandardErrorResponses({
         200: resource.operations.view.output
       })

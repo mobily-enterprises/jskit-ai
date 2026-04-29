@@ -3,9 +3,6 @@ import { normalizeLowerText, normalizeText } from "./textNormalization.js";
 import { hasPermission, normalizePermissionList } from "../support/permissions.js";
 import { isRecord, normalizeOpaqueId } from "../support/normalize.js";
 import {
-  normalizeSchemaValidationErrors,
-  normalizeTypeBoxValidationErrors,
-  validateSingleSchemaPayload,
   validateSchemaPayload
 } from "../validators/schemaPayloadValidation.js";
 
@@ -113,7 +110,7 @@ function ensureActionPermissionAllowed(definition, context) {
 
 async function normalizeActionInput(definition, input, context) {
   try {
-    return await validateSchemaPayload(definition?.input, input, {
+    return validateSchemaPayload(definition?.input, input, {
       phase: "input",
       definition,
       context
@@ -146,7 +143,7 @@ async function normalizeActionOutput(definition, output, context) {
   }
 
   try {
-    return await validateSchemaPayload(definition.output, output, {
+    return validateSchemaPayload(definition.output, output, {
       phase: "output",
       definition,
       context
@@ -188,9 +185,6 @@ async function normalizeActionOutput(definition, output, context) {
 const __testables = {
   normalizeText,
   normalizeLowerText,
-  normalizeSchemaValidationErrors,
-  normalizeTypeBoxValidationErrors,
-  validateSingleSchemaPayload,
   validateSchemaPayload
 };
 

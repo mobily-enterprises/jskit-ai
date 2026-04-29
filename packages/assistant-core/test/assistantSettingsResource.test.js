@@ -1,8 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { Check } from "typebox/value";
 import { resolveStructuredSchemaTransportSchema } from "@jskit-ai/kernel/shared/validators";
-import { validateOperationSectionAsync } from "@jskit-ai/http-runtime/shared/validators/operationValidation";
+import { validateOperationSection } from "@jskit-ai/http-runtime/shared/validators/operationValidation";
 import { assistantConfigResource } from "../src/shared/assistantSettingsResource.js";
 
 test("assistant config resource exposes valid output schema", () => {
@@ -14,21 +13,14 @@ test("assistant config resource exposes valid output schema", () => {
     }
   );
 
-  assert.equal(
-    Check(viewSchema, {
-      targetSurfaceId: "app",
-      scopeKey: "app:global",
-      workspaceId: null,
-      settings: {
-        systemPrompt: ""
-      }
-    }),
-    true
-  );
+  assert.equal(viewSchema.type, "object");
+  assert.equal(viewSchema.additionalProperties, false);
+  assert.equal(viewSchema.properties.targetSurfaceId.type, "string");
+  assert.equal(viewSchema.properties.settings.type, "object");
 });
 
 test("assistant settings patch validation preserves omitted fields", async () => {
-  const patch = await validateOperationSectionAsync({
+  const patch = await validateOperationSection({
     operation: assistantConfigResource.operations.patch,
     section: "body",
     value: {}

@@ -37,7 +37,6 @@
     "@fastify/cookie": "^11.0.2",
     "@fastify/csrf-protection": "^7.1.0",
     "@fastify/rate-limit": "^10.3.0",
-    "@fastify/type-provider-typebox": "^6.1.0",
     "@jskit-ai/auth-core": "0.1.0",
     "@jskit-ai/auth-provider-supabase-core": "0.1.0",
     "@jskit-ai/auth-web": "0.1.0",
@@ -47,7 +46,6 @@
     "@supabase/supabase-js": "^2.57.4",
     "dotenv": "^17.3.1",
     "jose": "^6.1.0",
-    "typebox": "^1.0.81",
     "vuetify": "^4.0.0"
   }
 }

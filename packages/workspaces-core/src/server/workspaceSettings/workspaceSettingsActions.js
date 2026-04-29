@@ -1,6 +1,15 @@
+import { composeSchemaDefinitions } from "@jskit-ai/kernel/shared/validators";
 import { workspaceSettingsResource } from "../../shared/resources/workspaceSettingsResource.js";
 import { workspaceSlugParamsValidator } from "../common/validators/routeParamsValidator.js";
 import { resolveWorkspace } from "../support/resolveWorkspace.js";
+
+const workspaceSettingsUpdateInputValidator = composeSchemaDefinitions([
+  workspaceSlugParamsValidator,
+  workspaceSettingsResource.operations.patch.body
+], {
+  mode: "patch",
+  context: "workspaceSettingsActions.workspaceSettingsUpdateInputValidator"
+});
 
 const workspaceSettingsActions = Object.freeze([
   {
@@ -38,12 +47,7 @@ const workspaceSettingsActions = Object.freeze([
       require: "all",
       permissions: ["workspace.settings.update"]
     },
-    input: [
-      workspaceSlugParamsValidator,
-      {
-        patch: workspaceSettingsResource.operations.patch.body
-      }
-    ],
+    input: workspaceSettingsUpdateInputValidator,
     output: workspaceSettingsResource.operations.patch.output,
     idempotency: "optional",
     audit: {
@@ -56,9 +60,10 @@ const workspaceSettingsActions = Object.freeze([
       }
     },
     async execute(input, context, deps) {
+      const { workspaceSlug, ...patch } = input;
       const response = await deps.workspaceSettingsService.updateWorkspaceSettings(
         resolveWorkspace(context, input),
-        input.patch,
+        patch,
         {
           context
         }

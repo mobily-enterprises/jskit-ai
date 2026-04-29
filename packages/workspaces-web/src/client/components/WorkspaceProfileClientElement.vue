@@ -68,7 +68,6 @@
 
 <script setup>
 import { computed, reactive } from "vue";
-import { validateOperationSectionAsync } from "@jskit-ai/http-runtime/shared/validators/operationValidation";
 import { ROUTE_VISIBILITY_WORKSPACE } from "@jskit-ai/kernel/shared/support/visibility";
 import { workspaceResource } from "@jskit-ai/workspaces-core/shared/resources/workspaceResource";
 import { useAddEdit } from "@jskit-ai/users-web/client/composables/useAddEdit";
@@ -93,12 +92,7 @@ const addEdit = useAddEdit({
   fallbackLoadError: "Unable to load workspace profile.",
   fieldErrorKeys: ["name", "avatarUrl"],
   model: workspaceProfileForm,
-    parseInput: (rawPayload) =>
-      validateOperationSectionAsync({
-        operation: workspaceResource.operations.patch,
-        section: "body",
-        value: rawPayload
-    }),
+  input: workspaceResource.operations.patch.body,
   mapLoadedToModel: (model, payload = {}) => {
     model.name = String(payload?.name || "");
     model.avatarUrl = String(payload?.avatarUrl || "");

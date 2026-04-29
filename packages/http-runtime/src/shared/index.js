@@ -1,5 +1,4 @@
 export { createPaginationQuerySchema } from "./validators/paginationQuery.js";
-export { registerTypeBoxFormats, __testables } from "./validators/typeboxFormats.js";
 export {
   fieldErrorsSchema,
   apiErrorDetailsSchema,
@@ -7,6 +6,7 @@ export {
   apiValidationErrorResponseSchema,
   fastifyDefaultErrorResponseSchema,
   STANDARD_ERROR_STATUS_CODES,
+  transportResponseSchema,
   passthroughErrorResponses,
   withStandardErrorResponses,
   enumSchema
@@ -26,9 +26,7 @@ export {
 } from "./validators/operationMessages.js";
 export {
   validateOperationSection,
-  validateOperationSectionAsync,
-  validateOperationInput,
-  validateOperationInputAsync
+  validateOperationInput
 } from "./validators/operationValidation.js";
 export {
   simplifyJsonApiDocument

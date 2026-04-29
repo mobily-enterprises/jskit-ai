@@ -1,62 +1,70 @@
-import { Type } from "@fastify/type-provider-typebox";
-
-const fieldErrorsSchema = Type.Record(Type.String(), Type.String());
-
-const apiErrorDetailsSchema = Type.Object(
-  {
-    fieldErrors: Type.Optional(fieldErrorsSchema)
-  },
-  {
-    additionalProperties: true
+const fieldErrorsSchema = {
+  type: "object",
+  additionalProperties: {
+    type: "string"
   }
-);
+};
 
-const apiErrorResponseSchema = Type.Object(
-  {
-    error: Type.String({ minLength: 1 }),
-    code: Type.Optional(Type.String({ minLength: 1 })),
-    details: Type.Optional(apiErrorDetailsSchema),
-    fieldErrors: Type.Optional(fieldErrorsSchema)
-  },
-  {
-    additionalProperties: false
+const apiErrorDetailsSchema = {
+  type: "object",
+  additionalProperties: true,
+  properties: {
+    fieldErrors: fieldErrorsSchema
   }
-);
+};
 
-const apiValidationErrorResponseSchema = Type.Object(
-  {
-    error: Type.String({ minLength: 1 }),
-    code: Type.Optional(Type.String({ minLength: 1 })),
+const apiErrorResponseSchema = {
+  type: "object",
+  additionalProperties: false,
+  required: ["error"],
+  properties: {
+    error: { type: "string", minLength: 1 },
+    code: { type: "string", minLength: 1 },
+    details: apiErrorDetailsSchema,
+    fieldErrors: fieldErrorsSchema
+  }
+};
+
+const apiValidationErrorResponseSchema = {
+  type: "object",
+  additionalProperties: false,
+  required: ["error", "fieldErrors", "details"],
+  properties: {
+    error: { type: "string", minLength: 1 },
+    code: { type: "string", minLength: 1 },
     fieldErrors: fieldErrorsSchema,
-    details: Type.Object(
-      {
+    details: {
+      type: "object",
+      additionalProperties: true,
+      required: ["fieldErrors"],
+      properties: {
         fieldErrors: fieldErrorsSchema
-      },
-      {
-        additionalProperties: true
       }
-    )
-  },
-  {
-    additionalProperties: false
+    }
   }
-);
+};
 
-const fastifyDefaultErrorResponseSchema = Type.Object(
-  {
-    statusCode: Type.Integer({ minimum: 400, maximum: 599 }),
-    error: Type.String({ minLength: 1 }),
-    message: Type.String({ minLength: 1 }),
-    code: Type.Optional(Type.String({ minLength: 1 })),
-    details: Type.Optional(Type.Unknown()),
-    fieldErrors: Type.Optional(fieldErrorsSchema)
-  },
-  {
-    additionalProperties: true
+const fastifyDefaultErrorResponseSchema = {
+  type: "object",
+  additionalProperties: true,
+  required: ["statusCode", "error", "message"],
+  properties: {
+    statusCode: { type: "integer", minimum: 400, maximum: 599 },
+    error: { type: "string", minLength: 1 },
+    message: { type: "string", minLength: 1 },
+    code: { type: "string", minLength: 1 },
+    details: {},
+    fieldErrors: fieldErrorsSchema
   }
-);
+};
 
 const STANDARD_ERROR_STATUS_CODES = [400, 401, 403, 404, 409, 422, 429, 500, 503];
+
+function transportResponseSchema(schema = {}) {
+  return {
+    transportSchema: schema
+  };
+}
 
 function passthroughErrorResponses(successResponses) {
   return successResponses;
@@ -73,26 +81,28 @@ function withStandardErrorResponses(successResponses, { includeValidation400 = f
     }
 
     if (statusCode === 400 && includeValidation400) {
-      responses[statusCode] = {
-        schema: Type.Union([
-          apiValidationErrorResponseSchema,
-          apiErrorResponseSchema,
-          fastifyDefaultErrorResponseSchema
-        ])
-      };
+      responses[statusCode] = transportResponseSchema({
+          anyOf: [
+            apiValidationErrorResponseSchema,
+            apiErrorResponseSchema,
+            fastifyDefaultErrorResponseSchema
+          ]
+        });
       continue;
     }
 
-    responses[statusCode] = {
-      schema: Type.Union([apiErrorResponseSchema, fastifyDefaultErrorResponseSchema])
-    };
+    responses[statusCode] = transportResponseSchema({
+      anyOf: [apiErrorResponseSchema, fastifyDefaultErrorResponseSchema]
+    });
   }
 
   return responses;
 }
 
 function enumSchema(values) {
-  return Type.Union(values.map((value) => Type.Literal(value)));
+  return {
+    anyOf: values.map((value) => ({ const: value }))
+  };
 }
 
 export {
@@ -102,6 +112,7 @@ export {
   apiValidationErrorResponseSchema,
   fastifyDefaultErrorResponseSchema,
   STANDARD_ERROR_STATUS_CODES,
+  transportResponseSchema,
   passthroughErrorResponses,
   withStandardErrorResponses,
   enumSchema

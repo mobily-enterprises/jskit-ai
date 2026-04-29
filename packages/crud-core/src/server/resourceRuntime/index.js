@@ -354,7 +354,7 @@ async function normalizeRepositoryInputPayload(
   }
 
   try {
-    const nextPayload = await validateSchemaPayload(input, normalizedPayload, {
+    const nextPayload = validateSchemaPayload(input, normalizedPayload, {
       phase: "input",
       context: `${runtime?.context || "crudRepository"} operations.${operationKey}.body`
     });
@@ -370,7 +370,7 @@ async function normalizeRepositoryInputPayload(
 
 async function normalizeRepositoryOutputRecord(runtime = {}, record = {}, { operation = "list" } = {}) {
   try {
-    return await validateSchemaPayload(runtime.output, record, {
+    return validateSchemaPayload(runtime.output, record, {
       phase: "output",
       context: `${runtime?.context || "crudRepository"} operations.view.output`
     });

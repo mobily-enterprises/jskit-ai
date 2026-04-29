@@ -6,65 +6,55 @@ import { createRouter } from "./router.js";
 import { compileRouteValidator, defineRouteValidator, resolveRouteValidatorOptions } from "./routeValidator.js";
 
 function createMockJsonRestSchema() {
-  return {
-    async create(payload = {}) {
-      const name = String(payload?.name || "").trim();
-      const errors = {};
-      if (!name) {
-        errors.name = {
-          message: "Name is required."
-        };
+  return createSchema({
+    name: {
+      type: "string",
+      required: true,
+      minLength: 1,
+      maxLength: 160,
+      messages: {
+        minLength: "Name is required."
       }
-
-      return {
-        validatedObject: Object.keys(errors).length < 1 ? { name } : {},
-        errors
-      };
-    },
-    async replace(payload = {}) {
-      return this.create(payload);
-    },
-    async patch(payload = {}) {
-      return this.create(payload);
-    },
-    toJsonSchema() {
-      return {
-        type: "object",
-        properties: {
-          name: {
-            type: "string"
-          }
-        },
-        additionalProperties: false
-      };
     }
-  };
+  });
 }
 
 test("defineRouteValidator compiles body/query/params and maps query schema to querystring", () => {
-  const bodySchema = {
-    type: "object"
-  };
-  const querySchema = {
-    type: "object"
-  };
-  const paramsSchema = {
-    type: "object"
-  };
+  const bodySchema = createSchema({
+    name: {
+      type: "string",
+      required: true,
+      minLength: 1
+    }
+  });
+  const querySchema = createSchema({
+    search: {
+      type: "string",
+      required: false,
+      minLength: 1
+    }
+  });
+  const paramsSchema = createSchema({
+    contactId: {
+      type: "string",
+      required: true,
+      minLength: 1
+    }
+  });
+  const responseBodySchema = createSchema({
+    ok: {
+      type: "boolean",
+      required: true
+    }
+  });
   const responseSchema = {
     200: {
-      schema: {
-        type: "object"
-      }
+      schema: responseBodySchema
     }
   };
   const headersSchema = {
     type: "object"
   };
-
-  const normalizeBody = (body) => body;
-  const normalizeQuery = (query) => query;
-  const normalizeParams = (params) => params;
 
   const validator = defineRouteValidator({
     meta: {
@@ -84,11 +74,6 @@ test("defineRouteValidator compiles body/query/params and maps query schema to q
     advanced: {
       fastifySchema: {
         headers: headersSchema
-      },
-      jskitInput: {
-        body: normalizeBody,
-        query: normalizeQuery,
-        params: normalizeParams
       }
     }
   });
@@ -98,25 +83,32 @@ test("defineRouteValidator compiles body/query/params and maps query schema to q
   assert.deepEqual(compiled.schema, {
     tags: ["contacts", "intake"],
     summary: "Create contact intake",
-    body: bodySchema,
-    querystring: querySchema,
-    params: paramsSchema,
+    body: bodySchema.toJsonSchema({ mode: "patch" }),
+    querystring: querySchema.toJsonSchema({ mode: "patch" }),
+    params: paramsSchema.toJsonSchema({ mode: "patch" }),
     response: {
-      200: {
-        type: "object"
-      }
+      200: responseBodySchema.toJsonSchema({ mode: "replace" })
     },
     headers: headersSchema
   });
-  assert.equal(compiled.input.body, normalizeBody);
-  assert.equal(compiled.input.query, normalizeQuery);
-  assert.equal(compiled.input.params, normalizeParams);
+  assert.equal(typeof compiled.input.body, "function");
+  assert.equal(typeof compiled.input.query, "function");
+  assert.equal(typeof compiled.input.params, "function");
+  assert.deepEqual(compiled.input.body({
+    name: "  Acme  "
+  }), {
+    name: "Acme"
+  });
 });
 
-test("compileRouteValidator accepts plain validator objects", () => {
-  const querySchema = {
-    type: "object"
-  };
+test("compileRouteValidator accepts json-rest-schema definitions", () => {
+  const querySchema = createSchema({
+    search: {
+      type: "string",
+      required: false,
+      minLength: 1
+    }
+  });
 
   const compiled = compileRouteValidator({
     query: {
@@ -125,18 +117,26 @@ test("compileRouteValidator accepts plain validator objects", () => {
   });
 
   assert.deepEqual(compiled.schema, {
-    querystring: querySchema
+    querystring: querySchema.toJsonSchema({ mode: "patch" })
   });
   assert.equal(typeof compiled.input.query, "function");
 });
 
-test("compileRouteValidator creates async pass-through request.input transforms for schema-only params and query", async () => {
-  const querySchema = {
-    type: "object"
-  };
-  const paramsSchema = {
-    type: "object"
-  };
+test("compileRouteValidator creates request.input transforms for schema-only params and query", () => {
+  const querySchema = createSchema({
+    workspaceSlug: {
+      type: "string",
+      required: false,
+      minLength: 1
+    }
+  });
+  const paramsSchema = createSchema({
+    workspaceSlug: {
+      type: "string",
+      required: true,
+      minLength: 1
+    }
+  });
 
   const compiled = compileRouteValidator({
     query: {
@@ -148,19 +148,22 @@ test("compileRouteValidator creates async pass-through request.input transforms 
   });
 
   assert.deepEqual(compiled.schema, {
-    querystring: querySchema,
-    params: paramsSchema
+    querystring: querySchema.toJsonSchema({ mode: "patch" }),
+    params: paramsSchema.toJsonSchema({ mode: "patch" })
   });
   assert.equal(typeof compiled.input.query, "function");
   assert.equal(typeof compiled.input.params, "function");
-  assert.deepEqual(await compiled.input.query({ workspaceSlug: "acme" }), { workspaceSlug: "acme" });
-  assert.deepEqual(await compiled.input.params({ workspaceSlug: "acme" }), { workspaceSlug: "acme" });
+  assert.deepEqual(compiled.input.query({ workspaceSlug: "acme" }), { workspaceSlug: "acme" });
+  assert.deepEqual(compiled.input.params({ workspaceSlug: "acme" }), { workspaceSlug: "acme" });
 });
 
 test("compileRouteValidator accepts response schema definitions and extracts only response schemas", () => {
-  const responseBodySchema = {
-    type: "object"
-  };
+  const responseBodySchema = createSchema({
+    ok: {
+      type: "boolean",
+      required: true
+    }
+  });
 
   const compiled = compileRouteValidator({
     responses: {
@@ -168,169 +171,44 @@ test("compileRouteValidator accepts response schema definitions and extracts onl
         schema: responseBodySchema
       },
       400: {
-        schema: {
-          type: "object"
-        }
+        schema: createSchema({
+          ok: {
+            type: "boolean",
+            required: true
+          }
+        })
       }
     }
   });
 
   assert.deepEqual(compiled.schema, {
     response: {
-      200: responseBodySchema,
-      400: {
-        type: "object"
-      }
+      200: responseBodySchema.toJsonSchema({ mode: "replace" }),
+      400: createSchema({
+        ok: {
+          type: "boolean",
+          required: true
+        }
+      }).toJsonSchema({ mode: "replace" })
     }
   });
   assert.equal(Object.prototype.hasOwnProperty.call(compiled, "output"), false);
 });
 
-test("compileRouteValidator merges query validator arrays automatically", () => {
-  const paginationQuery = {
-    schema: {
-      type: "object",
-      properties: {
-        cursor: {
-          type: "string"
-        }
-      },
-      additionalProperties: false
-    }
-  };
-  const searchQuery = {
-    schema: {
-      type: "object",
-      properties: {
-        search: {
-          type: "string"
-        }
-      },
-      additionalProperties: false
-    }
-  };
-
-  const compiled = compileRouteValidator({
-    query: [paginationQuery, searchQuery]
-  });
-
-  assert.deepEqual(compiled.schema, {
-    querystring: {
-      type: "object",
-      properties: {
-        cursor: {
-          type: "string"
-        },
-        search: {
-          type: "string"
-        }
-      },
-      additionalProperties: false
-    }
-  });
-});
-
-test("compileRouteValidator merges params validator arrays automatically", () => {
-  const workspaceSlugParams = {
-    schema: {
-      type: "object",
-      properties: {
-        workspaceSlug: {
-          type: "string"
-        }
-      },
-      required: ["workspaceSlug"],
-      additionalProperties: false
-    }
-  };
-  const inviteIdParams = {
-    schema: {
-      type: "object",
-      properties: {
-        inviteId: {
-          type: "string"
-        }
-      },
-      required: ["inviteId"],
-      additionalProperties: false
-    }
-  };
-
-  const compiled = compileRouteValidator({
-    params: [workspaceSlugParams, inviteIdParams]
-  });
-
-  assert.deepEqual(compiled.schema, {
-    params: {
-      type: "object",
-      properties: {
-        workspaceSlug: {
-          type: "string"
-        },
-        inviteId: {
-          type: "string"
-        }
-      },
-      required: ["workspaceSlug", "inviteId"],
-      additionalProperties: false
-    }
-  });
-});
-
-test("compileRouteValidator composes json-rest-schema query arrays into one async transform", async () => {
-  const compiled = compileRouteValidator({
-    query: [
-      {
-        schema: createSchema({
-          cursor: {
-            type: "string",
-            required: false,
-            minLength: 1
-          }
-        }),
-        mode: "patch"
-      },
-      {
-        schema: createSchema({
-          search: {
-            type: "string",
-            required: false,
-            lowercase: true,
-            minLength: 1
-          }
-        }),
-        mode: "patch"
-      }
-    ]
-  });
-
-  assert.deepEqual(await compiled.input.query({ cursor: "100", search: "ACME" }), {
-    cursor: "100",
-    search: "acme"
-  });
-});
-
-test("compileRouteValidator turns json-rest-schema validators into transport schema plus async input normalization", async () => {
+test("compileRouteValidator turns json-rest-schema validators into transport schema plus input normalization", () => {
+  const bodySchema = createMockJsonRestSchema();
   const compiled = compileRouteValidator({
     body: {
-      schema: createMockJsonRestSchema(),
+      schema: bodySchema,
       mode: "patch"
     }
   });
 
   assert.deepEqual(compiled.schema, {
-    body: {
-      type: "object",
-      properties: {
-        name: {
-          type: "string"
-        }
-      },
-      additionalProperties: false
-    }
+    body: bodySchema.toJsonSchema({ mode: "patch" })
   });
 
-  const normalized = await compiled.input.body({
+  const normalized = compiled.input.body({
     name: "  Acme  "
   });
   assert.deepEqual(normalized, {
@@ -338,32 +216,52 @@ test("compileRouteValidator turns json-rest-schema validators into transport sch
   });
 });
 
-test("resolveRouteValidatorOptions ignores legacy schema/input definitions", () => {
-  const resolved = resolveRouteValidatorOptions({
-    method: "POST",
-    path: "/contacts",
-    options: {
-      schema: {
-        body: {}
-      },
-      input: {
-        body: () => ({})
-      },
-      middleware: ["api"]
+test("compileRouteValidator surfaces shared schema validation errors with HTTP 400 metadata", () => {
+  const bodySchema = createMockJsonRestSchema();
+  const compiled = compileRouteValidator({
+    body: {
+      schema: bodySchema,
+      mode: "patch"
     }
   });
 
-  assert.equal(Object.prototype.hasOwnProperty.call(resolved, "schema"), false);
-  assert.equal(Object.prototype.hasOwnProperty.call(resolved, "input"), false);
-  assert.deepEqual(resolved.middleware, ["api"]);
+  assert.throws(
+    () => compiled.input.body({ name: "" }),
+    (error) => {
+      assert.equal(error?.statusCode, 400);
+      assert.deepEqual(error?.details?.fieldErrors, {
+        name: "Name is required."
+      });
+      return true;
+    }
+  );
+});
+
+test("compileRouteValidator rejects validator arrays", () => {
+  assert.throws(
+    () => compileRouteValidator({
+      query: [
+        {
+          schema: createSchema({
+            cursor: {
+              type: "string",
+              required: false
+            }
+          })
+        }
+      ]
+    }),
+    /route validator\.query must be a schema definition object/
+  );
 });
 
 test("resolveRouteValidatorOptions supports inline validator shape without wrapper", () => {
-  const bodySchema = {
-    type: "object"
-  };
-  const normalizeBody = (body) => ({
-    name: String(body?.name || "").trim()
+  const bodySchema = createSchema({
+    name: {
+      type: "string",
+      required: true,
+      minLength: 1
+    }
   });
 
   const resolved = resolveRouteValidatorOptions({
@@ -377,11 +275,6 @@ test("resolveRouteValidatorOptions supports inline validator shape without wrapp
       body: {
         schema: bodySchema
       },
-      advanced: {
-        jskitInput: {
-          body: normalizeBody
-        }
-      },
       middleware: ["api"]
     }
   });
@@ -389,37 +282,59 @@ test("resolveRouteValidatorOptions supports inline validator shape without wrapp
   assert.deepEqual(resolved.schema, {
     tags: ["contacts"],
     summary: "Create contact",
-    body: bodySchema
+    body: bodySchema.toJsonSchema({ mode: "patch" })
   });
-  assert.equal(resolved.input.body, normalizeBody);
+  assert.equal(typeof resolved.input.body, "function");
+  assert.deepEqual(resolved.input.body({
+    name: "  Ada  "
+  }), {
+    name: "Ada"
+  });
   assert.deepEqual(resolved.middleware, ["api"]);
 });
 
-test("resolveRouteValidatorOptions ignores validator wrapper", () => {
-  const resolved = resolveRouteValidatorOptions({
-    method: "POST",
-    path: "/contacts",
-    options: {
-      validator: defineRouteValidator({}),
-      middleware: ["api"]
-    }
-  });
-
-  assert.equal(Object.prototype.hasOwnProperty.call(resolved, "validator"), false);
-  assert.deepEqual(resolved.middleware, ["api"]);
+test("resolveRouteValidatorOptions rejects legacy schema/input definitions", () => {
+  assert.throws(
+    () => resolveRouteValidatorOptions({
+      method: "POST",
+      path: "/contacts",
+      options: {
+        schema: {
+          body: {}
+        },
+        input: {
+          body: () => ({})
+        },
+        middleware: ["api"]
+      }
+    }),
+    /uses unsupported legacy validator options: schema, input/
+  );
 });
 
-test("defineRouteValidator rejects unsupported advanced.jskitInput keys", () => {
+test("resolveRouteValidatorOptions rejects validator wrapper", () => {
+  assert.throws(
+    () => resolveRouteValidatorOptions({
+      method: "POST",
+      path: "/contacts",
+      options: {
+        validator: defineRouteValidator({}),
+        middleware: ["api"]
+      }
+    }),
+    /uses unsupported legacy validator options: validator/
+  );
+});
+
+test("defineRouteValidator rejects unsupported advanced.jskitInput", () => {
   assert.throws(
     () =>
       defineRouteValidator({
         advanced: {
-          jskitInput: {
-            headers: () => ({})
-          }
+          jskitInput: {}
         }
       }),
-    /advanced\.jskitInput\.headers is not supported/
+    /advanced\.jskitInput is not supported/
   );
 });
 
@@ -459,56 +374,55 @@ test("defineRouteValidator validates meta fields", () => {
   );
 });
 
-test("HttpRouter.register ignores validator wrapper options", () => {
+test("HttpRouter.register rejects validator wrapper options", () => {
   const router = createRouter();
-  router.register(
-    "POST",
-    "/contacts",
-    {
-      validator: defineRouteValidator({})
-    },
-    async () => {}
+  assert.throws(
+    () => router.register(
+      "POST",
+      "/contacts",
+      {
+        validator: defineRouteValidator({})
+      },
+      async () => {}
+    ),
+    /uses unsupported legacy validator options: validator/
   );
-
-  const [route] = router.list();
-  assert.equal(route.schema, undefined);
-  assert.equal(route.input, null);
 });
 
-test("HttpRouter.register ignores compiled legacy-style route options", () => {
+test("HttpRouter.register rejects compiled route option payloads", () => {
   const router = createRouter();
-  const querySchema = {
-    type: "object"
-  };
-  const normalizeQuery = (query) => ({
-    dryRun: query?.dryRun === true
+  const querySchema = createSchema({
+    dryRun: {
+      type: "boolean",
+      required: false,
+      strictBoolean: true
+    }
   });
 
   const validator = defineRouteValidator({
     query: {
-      schema: querySchema,
-      normalize: normalizeQuery
+      schema: querySchema
     }
   });
 
-  router.get(
-    "/contacts",
-    validator.toRouteOptions(),
-    async () => {}
+  assert.throws(
+    () => router.get(
+      "/contacts",
+      validator.toRouteOptions(),
+      async () => {}
+    ),
+    /uses unsupported legacy validator options: schema, input/
   );
-
-  const [route] = router.list();
-  assert.equal(route.schema, undefined);
-  assert.equal(route.input, null);
 });
 
 test("HttpRouter.register accepts inline validator shape directly", () => {
   const router = createRouter();
-  const querySchema = {
-    type: "object"
-  };
-  const normalizeQuery = (query) => ({
-    dryRun: query?.dryRun === true
+  const querySchema = createSchema({
+    dryRun: {
+      type: "boolean",
+      required: false,
+      strictBoolean: true
+    }
   });
 
   router.get(
@@ -520,11 +434,6 @@ test("HttpRouter.register accepts inline validator shape directly", () => {
       },
       query: {
         schema: querySchema
-      },
-      advanced: {
-        jskitInput: {
-          query: normalizeQuery
-        }
       }
     },
     async () => {}
@@ -534,7 +443,12 @@ test("HttpRouter.register accepts inline validator shape directly", () => {
   assert.deepEqual(route.schema, {
     tags: ["contacts"],
     summary: "List contacts",
-    querystring: querySchema
+    querystring: querySchema.toJsonSchema({ mode: "patch" })
   });
-  assert.equal(route.input.query, normalizeQuery);
+  assert.equal(typeof route.input.query, "function");
+  assert.deepEqual(route.input.query({
+    dryRun: true
+  }), {
+    dryRun: true
+  });
 });

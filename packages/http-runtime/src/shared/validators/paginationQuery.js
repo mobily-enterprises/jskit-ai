@@ -1,4 +1,4 @@
-import { Type } from "@fastify/type-provider-typebox";
+import { createSchema } from "json-rest-schema";
 
 function createPaginationQuerySchema({
   defaultPage = 1,
@@ -7,26 +7,21 @@ function createPaginationQuerySchema({
   minPageSize = 1,
   maxPageSize = 100
 } = {}) {
-  return Type.Object(
-    {
-      page: Type.Optional(
-        Type.Integer({
-          minimum: minPage,
-          default: defaultPage
-        })
-      ),
-      pageSize: Type.Optional(
-        Type.Integer({
-          minimum: minPageSize,
-          maximum: maxPageSize,
-          default: defaultPageSize
-        })
-      )
+  return createSchema({
+    page: {
+      type: "integer",
+      required: false,
+      min: minPage,
+      default: defaultPage
     },
-    {
-      additionalProperties: false
+    pageSize: {
+      type: "integer",
+      required: false,
+      min: minPageSize,
+      max: maxPageSize,
+      default: defaultPageSize
     }
-  );
+  });
 }
 
 export { createPaginationQuerySchema };

@@ -4,6 +4,7 @@ import {
 import { deepFreeze } from "@jskit-ai/kernel/shared/support/deepFreeze";
 import { createOperationMessages } from "../operationMessages.js";
 import { createSchema } from "json-rest-schema";
+import { workspaceRoleCatalogSchema } from "./workspaceRoleCatalogSchema.js";
 
 const workspaceSummaryOutputSchema = createSchema({
   id: { type: "string", required: true, minLength: 1, pattern: RECORD_ID_PATTERN },
@@ -32,63 +33,113 @@ const inviteSummaryOutputSchema = createSchema({
 });
 
 const workspaceRoleCatalogOutputValidator = deepFreeze({
-  schema: {
+  schema: workspaceRoleCatalogSchema,
+  mode: "replace"
+});
+
+const workspaceMembersOutputSchema = createSchema({
+  workspace: {
     type: "object",
-    additionalProperties: true,
-    properties: {
-      collaborationEnabled: { type: "boolean" },
-      defaultInviteRole: { type: "string" },
-      roles: {
-        type: "array",
-        items: {
-          type: "object",
-          additionalProperties: true
-        }
-      },
-      assignableRoleIds: {
-        type: "array",
-        items: {
-          type: "string",
-          minLength: 1
-        }
-      }
-    },
-    required: ["collaborationEnabled", "defaultInviteRole", "roles", "assignableRoleIds"]
+    required: true,
+    schema: workspaceSummaryOutputSchema
+  },
+  members: {
+    type: "array",
+    required: true,
+    items: memberSummaryOutputSchema
+  },
+  roleCatalog: {
+    type: "object",
+    required: true,
+    schema: workspaceRoleCatalogSchema
   }
 });
 
 const workspaceMembersOutputValidator = deepFreeze({
+  schema: workspaceMembersOutputSchema,
+  mode: "replace"
+});
+
+const workspaceInvitesListOutputSchema = createSchema({
   workspace: {
-    schema: workspaceSummaryOutputSchema,
-    mode: "replace"
+    type: "object",
+    required: true,
+    schema: workspaceSummaryOutputSchema
   },
-  members: {
-    schema: {
-      type: "array",
-      items: memberSummaryOutputSchema.toJsonSchema({ mode: "replace" })
-    }
+  invites: {
+    type: "array",
+    required: true,
+    items: inviteSummaryOutputSchema
   },
-  roleCatalog: workspaceRoleCatalogOutputValidator
+  roleCatalog: {
+    type: "object",
+    required: true,
+    schema: workspaceRoleCatalogSchema
+  }
 });
 
 const workspaceInvitesOutputValidator = deepFreeze({
-  schema: {
-    type: "object",
-    additionalProperties: false,
-    properties: {
-      workspace: workspaceSummaryOutputSchema.toJsonSchema({ mode: "replace" }),
-      invites: {
-        type: "array",
-        items: inviteSummaryOutputSchema.toJsonSchema({ mode: "replace" })
-      },
-      roleCatalog: workspaceRoleCatalogOutputValidator.schema,
-      inviteTokenPreview: {
-        type: "string",
-        minLength: 1
-      }
+  schema: workspaceInvitesListOutputSchema,
+  mode: "replace"
+});
+
+const workspaceInviteCreateOutputValidator = deepFreeze({
+  schema: createSchema({
+    workspace: {
+      type: "object",
+      required: true,
+      schema: workspaceSummaryOutputSchema
     },
-    required: ["workspace", "invites", "roleCatalog"]
-  }
+    invites: {
+      type: "array",
+      required: true,
+      items: inviteSummaryOutputSchema
+    },
+    roleCatalog: {
+      type: "object",
+      required: true,
+      schema: workspaceRoleCatalogSchema
+    },
+    inviteTokenPreview: {
+      type: "string",
+      required: true,
+      minLength: 1
+    },
+    createdInviteId: {
+      type: "string",
+      required: true,
+      minLength: 1,
+      pattern: RECORD_ID_PATTERN
+    }
+  }),
+  mode: "replace"
+});
+
+const workspaceInviteRevokeOutputValidator = deepFreeze({
+  schema: createSchema({
+    workspace: {
+      type: "object",
+      required: true,
+      schema: workspaceSummaryOutputSchema
+    },
+    invites: {
+      type: "array",
+      required: true,
+      items: inviteSummaryOutputSchema
+    },
+    roleCatalog: {
+      type: "object",
+      required: true,
+      schema: workspaceRoleCatalogSchema
+    },
+    revokedInviteId: {
+      type: "string",
+      required: true,
+      minLength: 1,
+      pattern: RECORD_ID_PATTERN
+    }
+  }),
+  mode: "replace"
 });
 
 const updateMemberRoleBodyValidator = deepFreeze({
@@ -202,13 +253,13 @@ const workspaceMembersResource = deepFreeze({
       method: "POST",
       messages: WORKSPACE_MEMBERS_MESSAGES,
       body: createInviteBodyValidator,
-      output: workspaceInvitesOutputValidator
+      output: workspaceInviteCreateOutputValidator
     },
     revokeInvite: {
       method: "DELETE",
       messages: WORKSPACE_MEMBERS_MESSAGES,
       input: revokeInviteInputValidator,
-      output: workspaceInvitesOutputValidator
+      output: workspaceInviteRevokeOutputValidator
     },
     redeemInvite: {
       method: "POST",

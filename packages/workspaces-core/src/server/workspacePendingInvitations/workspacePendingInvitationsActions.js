@@ -39,9 +39,7 @@ const workspacePendingInvitationsActions = Object.freeze([
     permission: {
       require: "authenticated"
     },
-    input: {
-      payload: workspaceMembersResource.operations.redeemInvite.body
-    },
+    input: workspaceMembersResource.operations.redeemInvite.body,
     output: workspaceMembersResource.operations.redeemInvite.output,
     idempotency: "optional",
     audit: {
@@ -49,7 +47,7 @@ const workspacePendingInvitationsActions = Object.freeze([
     },
     observability: {},
     async execute(input, context, deps) {
-      const payload = input.payload || {};
+      const payload = input || {};
       const user = resolveActionUser(context, input);
 
       if (payload.decision === "accept") {

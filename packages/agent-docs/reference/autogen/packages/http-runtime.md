@@ -105,14 +105,13 @@ Local functions
 ### `src/shared/index.js`
 Exports
 - `createPaginationQuerySchema`
-- `registerTypeBoxFormats`
-- `__testables`
 - `fieldErrorsSchema`
 - `apiErrorDetailsSchema`
 - `apiErrorResponseSchema`
 - `apiValidationErrorResponseSchema`
 - `fastifyDefaultErrorResponseSchema`
 - `STANDARD_ERROR_STATUS_CODES`
+- `transportResponseSchema`
 - `passthroughErrorResponses`
 - `withStandardErrorResponses`
 - `enumSchema`
@@ -126,9 +125,7 @@ Exports
 - `resolveIssueMessageFromSchema`
 - `mapOperationIssues`
 - `validateOperationSection`
-- `validateOperationSectionAsync`
 - `validateOperationInput`
-- `validateOperationInputAsync`
 - `simplifyJsonApiDocument`
 
 ### `src/shared/providers/singletonApiProvider.js`
@@ -153,6 +150,7 @@ Exports
 - `apiValidationErrorResponseSchema`
 - `fastifyDefaultErrorResponseSchema`
 - `STANDARD_ERROR_STATUS_CODES`
+- `transportResponseSchema(schema = {})`
 - `passthroughErrorResponses(successResponses)`
 - `withStandardErrorResponses(successResponses, { includeValidation400 = false } = {})`
 - `enumSchema(values)`
@@ -190,12 +188,11 @@ Local functions
 ### `src/shared/validators/operationValidation.js`
 Exports
 - `validateOperationSection({ operation = {}, section = "body", value, context = {} } = {})`
-- `validateOperationSectionAsync({ operation = {}, section = "body", value, context = {} } = {})`
 - `validateOperationInput({ operation = {}, input = {}, context = {} } = {})`
-- `validateOperationInputAsync({ operation = {}, input = {}, context = {} } = {})`
 Local functions
 - `resolveOperationSection(operation = {}, section = "body")`
-- `resolvePlainSchema(definition)`
+- `buildValidationSuccessResult(value)`
+- `buildValidationFailureResult(error, normalized)`
 
 ### `src/shared/validators/paginationQuery.js`
 Exports
@@ -208,16 +205,7 @@ Exports
 
 ### `src/shared/validators/schemaUtils.js`
 Exports
-- `asSchema(value, label)`
-
-### `src/shared/validators/typeboxFormats.js`
-Exports
-- `registerTypeBoxFormats()`
-- `__testables`
-Local functions
-- `isStrictUuid(value)`
-- `isStrictIsoUtcDateTime(value)`
-- `registerTypeBoxFormatsWith(formatRegistry)`
+- `asSchemaDefinition(value, label, defaultMode, { required = true } = {})`
 
 ### root
 

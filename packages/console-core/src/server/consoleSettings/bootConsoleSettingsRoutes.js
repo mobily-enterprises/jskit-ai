@@ -51,9 +51,7 @@ function bootConsoleSettingsRoutes(app) {
     async function (request, reply) {
       const response = await request.executeAction({
         actionId: "console.settings.update",
-        input: {
-          payload: request.input.body
-        }
+        input: request.input.body
       });
       reply.code(200).send(response);
     }

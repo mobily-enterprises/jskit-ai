@@ -70,8 +70,7 @@ function resolveCrudFieldSchemaProperties(value, { context = "crud resource fiel
 
   const source = resolveValidatorSchemaSource(value);
   if (isJsonRestSchemaInstance(source)) {
-    const structure = normalizeObject(source.structure);
-    return structure;
+    return normalizeObject(source.getFieldDefinitions());
   }
 
   if (!source || typeof source !== "object" || Array.isArray(source)) {

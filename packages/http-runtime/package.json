@@ -12,13 +12,10 @@
     "./shared/validators/paginationQuery": "./src/shared/validators/paginationQuery.js",
     "./shared/validators/command": "./src/shared/validators/command.js",
     "./shared/validators/resource": "./src/shared/validators/resource.js",
-    "./shared/validators/typeboxFormats": "./src/shared/validators/typeboxFormats.js",
     "./shared/validators/operationMessages": "./src/shared/validators/operationMessages.js",
     "./shared/validators/operationValidation": "./src/shared/validators/operationValidation.js"
   },
   "dependencies": {
-    "@jskit-ai/kernel": "0.1.55",
-    "@fastify/type-provider-typebox": "^6.1.0",
-    "typebox": "^1.0.81"
+    "@jskit-ai/kernel": "0.1.55"
   }
 }

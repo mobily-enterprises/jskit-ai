@@ -1,5 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import { createSchema } from "json-rest-schema";
 import {
   cursorPaginationQueryValidator,
   validateSchemaPayload
@@ -12,6 +13,15 @@ import {
   createCrudParentFilterQueryValidator,
   resolveCrudParentFilterKeys
 } from "../src/server/listQueryValidators.js";
+
+function composeSchemaDefinition(...definitions) {
+  return Object.freeze({
+    schema: createSchema(
+      Object.assign({}, ...definitions.map((definition) => definition.schema.getFieldDefinitions()))
+    ),
+    mode: "patch"
+  });
+}
 
 function createCrudResource({
   viewFields = {},
@@ -60,7 +70,7 @@ test("listSearchQueryValidator normalizes q", async () => {
 
 test("listSearchQueryValidator keeps q optional when merged with pagination query validator", () => {
   const compiled = compileRouteValidator({
-    query: [cursorPaginationQueryValidator, listSearchQueryValidator]
+    query: composeSchemaDefinition(cursorPaginationQueryValidator, listSearchQueryValidator)
   });
 
   assert.deepEqual(compiled.schema.querystring.required || [], []);
@@ -78,7 +88,7 @@ test("lookupIncludeQueryValidator normalizes include", async () => {
 
 test("lookupIncludeQueryValidator keeps include optional when merged with pagination and search", () => {
   const compiled = compileRouteValidator({
-    query: [cursorPaginationQueryValidator, listSearchQueryValidator, lookupIncludeQueryValidator]
+    query: composeSchemaDefinition(cursorPaginationQueryValidator, listSearchQueryValidator, lookupIncludeQueryValidator)
   });
 
   assert.deepEqual(compiled.schema.querystring.required || [], []);
@@ -101,13 +111,11 @@ test("createCrudCursorPaginationQueryValidator allows opaque cursor strings for 
   });
 
   assert.notEqual(validator, cursorPaginationQueryValidator);
-  return validateSchemaPayload(validator, { cursor: "  offset:3  ", limit: "25" }, { phase: "input" })
-    .then((normalized) => {
-      assert.deepEqual(normalized, {
-        cursor: "offset:3",
-        limit: 25
-      });
-    });
+  const normalized = validateSchemaPayload(validator, { cursor: "  offset:3  ", limit: "25" }, { phase: "input" });
+  assert.deepEqual(normalized, {
+    cursor: "offset:3",
+    limit: 25
+  });
 });
 
 test("resolveCrudParentFilterKeys returns lookup keys that exist in create schema", () => {
@@ -220,7 +228,7 @@ test("createCrudParentFilterQueryValidator keeps canonical field keys when schem
     }
   }));
 
-  assert.deepEqual(Object.keys(validator.schema.structure), ["staffContactId"]);
+  assert.deepEqual(Object.keys(validator.schema.getFieldDefinitions()), ["staffContactId"]);
   assert.deepEqual(await validateSchemaPayload(validator, {
     staffContactId: " 42 "
   }, { phase: "input" }), {
@@ -253,7 +261,7 @@ test("createCrudParentFilterQueryValidator keeps parent filters optional when me
   }));
 
   const compiled = compileRouteValidator({
-    query: [cursorPaginationQueryValidator, listSearchQueryValidator, parentValidator]
+    query: composeSchemaDefinition(cursorPaginationQueryValidator, listSearchQueryValidator, parentValidator)
   });
   assert.deepEqual(compiled.schema.querystring.required || [], []);
 });

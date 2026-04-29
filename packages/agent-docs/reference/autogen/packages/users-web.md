@@ -98,7 +98,6 @@ Exports
 - `resolveCrudRouteBoundFieldValues(fields = [], routeParams = {})`
 - `applyCrudRouteBoundFieldValues(fields = [], target = {}, routeParams = {})`
 - `resolveCrudFieldErrors(fieldErrors = {}, fieldKey = "")`
-- `parseCrudResourceOperationInput({ resource = null, operationName = "", rawPayload = {}, context = {} } = {})`
 Local functions
 - `resolveStableFieldErrorList(fieldKey, message)`
 - `resolveFormFieldType(field = {})`
@@ -144,11 +143,11 @@ Local functions
 
 ### `src/client/composables/records/useAddEdit.js`
 Exports
-- `useAddEdit({ ownershipFilter = ROUTE_VISIBILITY_WORKSPACE, surfaceId = "", access = "auto", resource = null, apiSuffix = "", queryKeyFactory = null, viewPermissions = [], savePermissions = [], readMethod = "GET", readEnabled = true, writeMethod = "PATCH", placementSource = "users-web.add-edit", fallbackLoadError = "Unable to load resource.", fallbackSaveError = "Unable to save resource.", fieldErrorKeys = [], clearOnRouteChange = true, model, parseInput, mapLoadedToModel, buildRawPayload, buildSavePayload, onSaveSuccess, requestQueryParams = null, recordIdParam = "recordId", routeParams = null, routeRecordId = null, apiUrlTemplate = "", viewUrlTemplate = "", listUrlTemplate = "", saveRecordIdSelector = null, messages = {}, realtime = null, adapter = null } = {})`
+- `useAddEdit({ ownershipFilter = ROUTE_VISIBILITY_WORKSPACE, surfaceId = "", access = "auto", resource = null, apiSuffix = "", queryKeyFactory = null, viewPermissions = [], savePermissions = [], readMethod = "GET", readEnabled = true, writeMethod = "PATCH", placementSource = "users-web.add-edit", fallbackLoadError = "Unable to load resource.", fallbackSaveError = "Unable to save resource.", fieldErrorKeys = [], clearOnRouteChange = true, model, input, mapLoadedToModel, buildRawPayload, buildSavePayload, onSaveSuccess, requestQueryParams = null, recordIdParam = "recordId", routeParams = null, routeRecordId = null, apiUrlTemplate = "", viewUrlTemplate = "", listUrlTemplate = "", saveRecordIdSelector = null, messages = {}, realtime = null, adapter = null } = {})`
 
 ### `src/client/composables/records/useCrudAddEdit.js`
 Exports
-- `useCrudAddEdit({ resource = null, operationName = "", formFields = [], addEditOptions = {}, saveSuccess = {}, fieldBinding = null, createModel = null, buildPayload = null, mapPayloadToModel = null, parseInput = null } = {})`
+- `useCrudAddEdit({ resource = null, operationName = "", formFields = [], addEditOptions = {}, saveSuccess = {}, fieldBinding = null, createModel = null, buildPayload = null, mapPayloadToModel = null, input = null } = {})`
 Local functions
 - `normalizeFieldErrorKeys(keys = [])`
 - `normalizeSaveSuccessOptions(options = {})`
@@ -208,15 +207,15 @@ Local functions
 
 ### `src/client/composables/runtime/operationValidationHelpers.js`
 Exports
-- `validateOperationInput({ parseInput, rawPayload = {}, context = {}, fieldBag = null, feedback = null, validationMessage = "Validation failed." } = {})`
+- `validateOperationInput({ input, rawPayload = {}, fieldBag = null, feedback = null, validationMessage = "Validation failed." } = {})`
 
 ### `src/client/composables/runtime/useAddEditCore.js`
 Exports
-- `useAddEditCore({ model, resource, queryKey, canSave, fieldBag, feedback, parseInput, mapLoadedToModel, buildRawPayload, buildSavePayload, onSaveSuccess, messages = {} } = {})`
+- `useAddEditCore({ model, resource, queryKey, canSave, fieldBag, feedback, input, mapLoadedToModel, buildRawPayload, buildSavePayload, onSaveSuccess, messages = {} } = {})`
 
 ### `src/client/composables/runtime/useCommandCore.js`
 Exports
-- `useCommandCore({ model, resource, writeMethod = "POST", canRun, fieldBag, feedback, parseInput, buildRawPayload, buildCommandPayload, buildCommandOptions, onRunSuccess, onRunError, suppressSuccessMessage = false, messages = {} } = {})`
+- `useCommandCore({ model, resource, writeMethod = "POST", canRun, fieldBag, feedback, input, buildRawPayload, buildCommandPayload, buildCommandOptions, onRunSuccess, onRunError, suppressSuccessMessage = false, messages = {} } = {})`
 
 ### `src/client/composables/runtime/useEndpointResource.js`
 Exports
@@ -359,7 +358,7 @@ Exports
 
 ### `src/client/composables/useCommand.js`
 Exports
-- `useCommand({ ownershipFilter = ROUTE_VISIBILITY_WORKSPACE, surfaceId = "", access = "auto", apiSuffix = "", runPermissions = [], writeMethod = "POST", placementSource = "users-web.command", fallbackRunError = "Unable to complete action.", fieldErrorKeys = [], clearOnRouteChange = true, model, parseInput, buildRawPayload, buildCommandPayload, buildCommandOptions, onRunSuccess, onRunError, suppressSuccessMessage = false, messages = {}, realtime = null } = {})`
+- `useCommand({ ownershipFilter = ROUTE_VISIBILITY_WORKSPACE, surfaceId = "", access = "auto", apiSuffix = "", runPermissions = [], writeMethod = "POST", placementSource = "users-web.command", fallbackRunError = "Unable to complete action.", fieldErrorKeys = [], clearOnRouteChange = true, model, input, buildRawPayload, buildCommandPayload, buildCommandOptions, onRunSuccess, onRunError, suppressSuccessMessage = false, messages = {}, realtime = null } = {})`
 
 ### `src/client/composables/useCrudListFilterLookups.js`
 Exports

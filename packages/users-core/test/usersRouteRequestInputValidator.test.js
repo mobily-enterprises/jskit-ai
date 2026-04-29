@@ -183,17 +183,15 @@ test("account route handlers build action input from request.input", async () =>
     createReplyDouble()
   );
 
-  assert.deepEqual(calls[0].input, { payload: { displayName: "Merc" } });
-  assert.deepEqual(calls[1].input, { payload: { locale: "en-US" } });
-  assert.deepEqual(calls[2].input, { payload: { email: true } });
+  assert.deepEqual(calls[0].input, { displayName: "Merc" });
+  assert.deepEqual(calls[1].input, { locale: "en-US" });
+  assert.deepEqual(calls[2].input, { email: true });
   assert.deepEqual(calls[3].input, {
-    payload: {
-      currentPassword: "old-password",
-      newPassword: "new-password-123",
-      confirmPassword: "new-password-123"
-    }
+    currentPassword: "old-password",
+    newPassword: "new-password-123",
+    confirmPassword: "new-password-123"
   });
-  assert.deepEqual(calls[4].input, { payload: { enabled: true } });
+  assert.deepEqual(calls[4].input, { enabled: true });
   assert.deepEqual(calls[5].input, { provider: "github", returnTo: "/app/settings" });
   assert.equal(oauthReply.redirectedTo, "/oauth/link");
   assert.deepEqual(calls[6].input, { provider: "github" });

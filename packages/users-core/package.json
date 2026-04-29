@@ -17,10 +17,8 @@
     "@jskit-ai/http-runtime": "0.1.54",
     "@jskit-ai/kernel": "0.1.55",
     "@jskit-ai/uploads-runtime": "0.1.33",
-    "@fastify/type-provider-typebox": "^6.1.0",
     "hooked-api": "file:../../../hooked-api",
     "json-rest-api": "file:../../../json-rest-api",
-    "json-rest-schema": "file:../../../json-rest-schema",
-    "typebox": "^1.0.81"
+    "json-rest-schema": "file:../../../json-rest-schema"
   }
 }

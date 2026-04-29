@@ -1,5 +1,6 @@
-import { asSchema } from "./schemaUtils.js";
+import { asSchemaDefinition } from "./schemaUtils.js";
 import { normalizeUniqueTextList } from "@jskit-ai/kernel/shared/support/normalize";
+import { deepFreeze } from "@jskit-ai/kernel/shared/support/deepFreeze";
 
 function createCommand({
   input,
@@ -8,8 +9,8 @@ function createCommand({
   invalidates = []
 } = {}) {
   const command = {
-    input: asSchema(input, "input"),
-    output: asSchema(output, "output"),
+    input: asSchemaDefinition(input, "input", "patch"),
+    output: asSchemaDefinition(output, "output", "replace"),
     invalidates: Object.freeze(normalizeUniqueTextList(invalidates))
   };
 
@@ -17,7 +18,7 @@ function createCommand({
     command.idempotent = idempotent;
   }
 
-  return Object.freeze(command);
+  return deepFreeze(command);
 }
 
 export { createCommand };

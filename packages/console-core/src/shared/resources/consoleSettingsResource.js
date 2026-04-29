@@ -4,15 +4,20 @@ import {
   createCursorListValidator
 } from "@jskit-ai/kernel/shared/validators";
 import { deepFreeze } from "@jskit-ai/kernel/shared/support/deepFreeze";
-const consoleSettingsBodySchema = createSchema({});
 
+const consoleSettingsBodySchema = createSchema({});
 const consoleSettingsPatchBodySchema = createSchema({});
+const consoleSettingsOutputSchema = createSchema({
+  settings: {
+    type: "object",
+    required: true,
+    schema: createSchema({})
+  }
+});
 
 const consoleSettingsOutputDefinition = deepFreeze({
-  settings: {
-    schema: createSchema({}),
-    mode: "replace"
-  }
+  schema: consoleSettingsOutputSchema,
+  mode: "replace"
 });
 
 const CONSOLE_SETTINGS_OPERATION_MESSAGES = createOperationMessages();

@@ -88,7 +88,11 @@ function createService({
       throw new AppError(501, "Logout other sessions is not available.");
     }
 
-    return authService.signOutOtherSessions(request);
+    await authService.signOutOtherSessions(request);
+
+    return {
+      ok: true
+    };
   }
 
   return Object.freeze({

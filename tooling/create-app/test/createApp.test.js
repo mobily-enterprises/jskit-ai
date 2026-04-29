@@ -143,7 +143,10 @@ test("create-app scaffolds the base shell with placeholder replacements", async 
     assert.equal(packageJson.dependencies["@local/main"], "file:packages/main");
     assert.equal(packageJson.dependencies["@fastify/static"], "^9.1.1");
     assert.match(packageJson.dependencies["@jskit-ai/http-runtime"], /^\d+\.x$/);
-    assert.equal(packageJson.dependencies["@fastify/type-provider-typebox"], "^6.1.0");
+    assert.equal(
+      Object.keys(packageJson.dependencies).some((entry) => entry.includes("type-provider") && entry.includes("fastify")),
+      false
+    );
     assert.equal(packageJson.dependencies.pinia, "^3.0.4");
     await assert.rejects(access(path.join(appRoot, "scripts/copy-local-packages.sh")), /ENOENT/);
     await assert.rejects(access(path.join(appRoot, "scripts/link-local-jskit-packages.sh")), /ENOENT/);
@@ -221,8 +224,8 @@ test("create-app scaffolds the base shell with placeholder replacements", async 
     const serverJs = await readFile(path.join(appRoot, "server.js"), "utf8");
     assert.match(serverJs, /function resolveGlobalUiPaths\(runtimeGlobalUiPaths = \[\]\)/);
     assert.match(serverJs, /globalUiPaths:\s*resolveGlobalUiPaths\(runtime\?\.globalUiPaths\s*\|\|\s*\[\]\)/);
-    assert.match(serverJs, /registerTypeBoxFormats\(\);/);
-    assert.match(serverJs, /app\.setValidatorCompiler\(TypeBoxValidatorCompiler\);/);
+    assert.doesNotMatch(serverJs, /register[A-Za-z]+Formats\(\);/);
+    assert.doesNotMatch(serverJs, /ValidatorCompiler/);
     assert.doesNotMatch(serverJs, /defaultProfile:\s*"app"/);
 
     const appVue = await readFile(path.join(appRoot, "src/App.vue"), "utf8");

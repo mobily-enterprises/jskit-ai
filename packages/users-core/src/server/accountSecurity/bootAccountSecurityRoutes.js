@@ -1,4 +1,3 @@
-import { Type } from "@fastify/type-provider-typebox";
 import { withStandardErrorResponses } from "@jskit-ai/http-runtime/shared/validators/errorResponses";
 import { userSettingsResource } from "../../shared/resources/userSettingsResource.js";
 
@@ -34,9 +33,7 @@ function bootAccountSecurityRoutes(app) {
     async function (request, reply) {
       const result = await request.executeAction({
         actionId: "settings.security.password.change",
-        input: {
-          payload: request.input.body
-        }
+        input: request.input.body
       });
 
       if (result?.session && typeof authService.writeSessionCookies === "function") {
@@ -74,9 +71,7 @@ function bootAccountSecurityRoutes(app) {
     async function (request, reply) {
       const response = await request.executeAction({
         actionId: "settings.security.password_method.toggle",
-        input: {
-          payload: request.input.body
-        }
+        input: request.input.body
       });
 
       reply.code(200).send(response);
@@ -97,7 +92,7 @@ function bootAccountSecurityRoutes(app) {
       query: userSettingsResource.operations.oauthLinkStart.query,
       responses: withStandardErrorResponses(
         {
-          302: { schema: Type.Unknown() }
+          302: { schema: {} }
         },
         { includeValidation400: true }
       ),

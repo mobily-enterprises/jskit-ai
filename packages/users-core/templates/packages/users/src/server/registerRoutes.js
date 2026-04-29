@@ -6,12 +6,22 @@ import {
 } from "@jskit-ai/crud-core/server/listQueryValidators";
 import { resolveScopedApiBasePath } from "@jskit-ai/kernel/shared/surface";
 import { checkRouteVisibility } from "@jskit-ai/kernel/shared/support/visibility";
-import { recordIdParamsValidator } from "@jskit-ai/kernel/shared/validators";
+import {
+  composeSchemaDefinitions,
+  recordIdParamsValidator
+} from "@jskit-ai/kernel/shared/validators";
 import { actionIds } from "./actionIds.js";
 import { LIST_CONFIG } from "./listConfig.js";
 import { resource } from "../shared/userResource.js";
 
 const listCursorPaginationQueryValidator = createCrudCursorPaginationQueryValidator(LIST_CONFIG);
+const listRouteQueryValidator = composeSchemaDefinitions([
+  listCursorPaginationQueryValidator,
+  listSearchQueryValidator
+], {
+  mode: "patch",
+  context: "usersTemplate.listRouteQueryValidator"
+});
 
 function registerRoutes(
   app,
@@ -40,7 +50,7 @@ function registerRoutes(
         tags: ["crud"],
         summary: "List users."
       },
-      query: [listCursorPaginationQueryValidator, listSearchQueryValidator],
+      query: listRouteQueryValidator,
       responses: withStandardErrorResponses({
         200: resource.operations.list.output
       })

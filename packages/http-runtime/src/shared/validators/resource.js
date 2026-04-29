@@ -1,15 +1,9 @@
-import { Type } from "@fastify/type-provider-typebox";
-import { asSchema } from "./schemaUtils.js";
+import { asSchemaDefinition } from "./schemaUtils.js";
+import { createCursorListValidator } from "@jskit-ai/kernel/shared/validators";
+import { deepFreeze } from "@jskit-ai/kernel/shared/support/deepFreeze";
 
 function createCursorPagedListResponseSchema(itemSchema) {
-  const normalizedItemSchema = asSchema(itemSchema, "itemSchema");
-  return Type.Object(
-    {
-      items: Type.Array(normalizedItemSchema),
-      nextCursor: Type.Union([Type.String({ minLength: 1 }), Type.Null()])
-    },
-    { additionalProperties: false }
-  );
+  return createCursorListValidator(itemSchema);
 }
 
 function createResource({
@@ -20,14 +14,18 @@ function createResource({
   list = null,
   listItem = null
 } = {}) {
-  const normalizedRecordSchema = asSchema(record, "record");
-  const normalizedCreateSchema = asSchema(create, "create");
-  const normalizedReplaceSchema = asSchema(replace, "replace");
-  const normalizedPatchSchema = asSchema(patch, "patch");
-  const normalizedListItemSchema = listItem ? asSchema(listItem, "listItem") : normalizedRecordSchema;
-  const normalizedListSchema = list ? asSchema(list, "list") : createCursorPagedListResponseSchema(normalizedListItemSchema);
+  const normalizedRecordSchema = asSchemaDefinition(record, "record", "replace");
+  const normalizedCreateSchema = asSchemaDefinition(create, "create", "create");
+  const normalizedReplaceSchema = asSchemaDefinition(replace, "replace", "replace");
+  const normalizedPatchSchema = asSchemaDefinition(patch, "patch", "patch");
+  const normalizedListItemSchema = listItem
+    ? asSchemaDefinition(listItem, "listItem", "replace")
+    : normalizedRecordSchema;
+  const normalizedListSchema = list
+    ? asSchemaDefinition(list, "list", "replace")
+    : createCursorPagedListResponseSchema(normalizedListItemSchema);
 
-  return Object.freeze({
+  return deepFreeze({
     record: normalizedRecordSchema,
     create: normalizedCreateSchema,
     replace: normalizedReplaceSchema,

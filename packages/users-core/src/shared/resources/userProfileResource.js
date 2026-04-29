@@ -2,13 +2,12 @@ import { createSchema } from "json-rest-schema";
 import { createCursorListValidator } from "@jskit-ai/kernel/shared/validators";
 import { deepFreeze } from "@jskit-ai/kernel/shared/support/deepFreeze";
 import { createOperationMessages } from "../operationMessages.js";
-
-const userProfileOutputSchema = createSchema({
-  displayName: { type: "string", required: true, minLength: 1, maxLength: 160 },
-  email: { type: "string", required: true, minLength: 1, maxLength: 255 },
-  emailManagedBy: { type: "string", required: false, minLength: 1, maxLength: 64 },
-  emailChangeFlow: { type: "string", required: false, minLength: 1, maxLength: 64 }
-});
+import {
+  userProfileOutputSchema
+} from "./accountSettingsSchemas.js";
+import {
+  userSettingsOutputDefinition
+} from "./userSettingsResource.js";
 
 const userProfileOutput = deepFreeze({
   schema: userProfileOutputSchema,
@@ -59,13 +58,6 @@ const avatarDeleteBody = deepFreeze({
   mode: "patch"
 });
 
-const avatarOperationOutput = deepFreeze({
-  schema: {
-    type: "object",
-    additionalProperties: true
-  }
-});
-
 const USER_PROFILE_OPERATION_MESSAGES = createOperationMessages();
 
 const userProfileResource = deepFreeze({
@@ -112,13 +104,13 @@ const userProfileResource = deepFreeze({
       method: "POST",
       messages: USER_PROFILE_OPERATION_MESSAGES,
       body: avatarUploadBody,
-      output: avatarOperationOutput
+      output: userSettingsOutputDefinition
     },
     avatarDelete: {
       method: "DELETE",
       messages: USER_PROFILE_OPERATION_MESSAGES,
       body: avatarDeleteBody,
-      output: avatarOperationOutput
+      output: userSettingsOutputDefinition
     }
   }
 });

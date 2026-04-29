@@ -1,8 +1,17 @@
 import {
   resolveRequest
 } from "@jskit-ai/kernel/shared/actions/actionContributorHelpers";
+import { composeSchemaDefinitions } from "@jskit-ai/kernel/shared/validators";
 import { userSettingsResource } from "../../shared/resources/userSettingsResource.js";
 import { resolveActionUser } from "../common/support/resolveActionUser.js";
+
+const oauthLinkStartInputValidator = composeSchemaDefinitions([
+  userSettingsResource.operations.oauthLinkStart.params,
+  userSettingsResource.operations.oauthLinkStart.query
+], {
+  mode: "patch",
+  context: "accountSecurityActions.oauthLinkStartInputValidator"
+});
 
 const accountSecurityActions = Object.freeze([
   {
@@ -14,9 +23,7 @@ const accountSecurityActions = Object.freeze([
     permission: {
       require: "authenticated"
     },
-    input: {
-      payload: userSettingsResource.operations.passwordChange.body
-    },
+    input: userSettingsResource.operations.passwordChange.body,
     output: userSettingsResource.operations.passwordChange.output,
     idempotency: "none",
     audit: {
@@ -27,7 +34,7 @@ const accountSecurityActions = Object.freeze([
       return deps.accountSecurityService.changePassword(
         resolveRequest(context),
         resolveActionUser(context, input),
-        input.payload,
+        input,
         {
           context
         }
@@ -43,9 +50,7 @@ const accountSecurityActions = Object.freeze([
     permission: {
       require: "authenticated"
     },
-    input: {
-      payload: userSettingsResource.operations.passwordMethodToggle.body
-    },
+    input: userSettingsResource.operations.passwordMethodToggle.body,
     output: userSettingsResource.operations.passwordMethodToggle.output,
     idempotency: "none",
     audit: {
@@ -56,7 +61,7 @@ const accountSecurityActions = Object.freeze([
       return deps.accountSecurityService.setPasswordMethodEnabled(
         resolveRequest(context),
         resolveActionUser(context, input),
-        input.payload,
+        input,
         {
           context
         }
@@ -72,7 +77,7 @@ const accountSecurityActions = Object.freeze([
     permission: {
       require: "authenticated"
     },
-    input: [userSettingsResource.operations.oauthLinkStart.params, userSettingsResource.operations.oauthLinkStart.query],
+    input: oauthLinkStartInputValidator,
     output: userSettingsResource.operations.oauthLinkStart.output,
     idempotency: "none",
     audit: {

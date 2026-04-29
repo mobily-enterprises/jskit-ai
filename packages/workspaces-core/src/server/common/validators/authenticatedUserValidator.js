@@ -1,4 +1,3 @@
-import { Type } from "@fastify/type-provider-typebox";
 import { normalizeObjectInput, recordIdInputSchema } from "@jskit-ai/kernel/shared/validators";
 import { normalizeLowerText, normalizeText } from "@jskit-ai/kernel/shared/actions/textNormalization";
 import { normalizeRecordId } from "@jskit-ai/kernel/shared/support/normalize";
@@ -24,19 +23,43 @@ function normalizeAuthenticatedUser(input = {}) {
 }
 
 const authenticatedUserValidator = Object.freeze({
-  schema: Type.Object(
-    {
+  schema: {
+    type: "object",
+    additionalProperties: true,
+    required: ["id", "email"],
+    properties: {
       id: recordIdInputSchema,
-      email: Type.String({ minLength: 1 }),
-      username: Type.Optional(Type.String()),
-      displayName: Type.Optional(Type.String()),
-      authProvider: Type.Optional(Type.String()),
-      authProviderUserSid: Type.Optional(Type.String()),
-      avatarStorageKey: Type.Optional(Type.Union([Type.String(), Type.Null()])),
-      avatarVersion: Type.Optional(Type.Union([Type.String(), Type.Number(), Type.Null()]))
-    },
-    { additionalProperties: true }
-  ),
+      email: {
+        type: "string",
+        minLength: 1
+      },
+      username: {
+        type: "string"
+      },
+      displayName: {
+        type: "string"
+      },
+      authProvider: {
+        type: "string"
+      },
+      authProviderUserSid: {
+        type: "string"
+      },
+      avatarStorageKey: {
+        anyOf: [
+          { type: "string" },
+          { type: "null" }
+        ]
+      },
+      avatarVersion: {
+        anyOf: [
+          { type: "string" },
+          { type: "number" },
+          { type: "null" }
+        ]
+      }
+    }
+  },
   normalize: normalizeAuthenticatedUser
 });
 

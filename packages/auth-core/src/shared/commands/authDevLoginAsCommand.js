@@ -1,3 +1,4 @@
+import { createSchema } from "json-rest-schema";
 import { recordIdInputSchema } from "@jskit-ai/kernel/shared/validators";
 import { deepFreeze } from "@jskit-ai/kernel/shared/support/deepFreeze";
 import {
@@ -21,15 +22,17 @@ const AUTH_DEV_LOGIN_AS_MESSAGES = createCommandMessages({
 });
 
 const authDevLoginAsBodyValidator = deepFreeze({
-  schema: {
-    type: "object",
-    additionalProperties: false,
-    anyOf: [{ required: ["userId"] }, { required: ["email"] }],
-    properties: {
-      userId: recordIdInputSchema,
-      email: authEmailValidator.schema
+  schema: createSchema({
+    userId: {
+      ...recordIdInputSchema,
+      required: false
+    },
+    email: {
+      ...authEmailValidator,
+      required: false
     }
-  },
+  }),
+  mode: "patch",
   messages: {
     ...AUTH_DEV_LOGIN_AS_MESSAGES,
     keywords: {

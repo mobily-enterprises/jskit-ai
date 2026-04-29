@@ -576,8 +576,6 @@ The core of that startup path looks like this:
 ```js
 async function createServer() {
   const app = Fastify({ logger: true });
-  registerTypeBoxFormats();
-  app.setValidatorCompiler(TypeBoxValidatorCompiler);
 
   app.get("/api/health", async () => {
     return {
@@ -610,7 +608,7 @@ async function createServer() {
 }
 ```
 
-The health route is built in, but the more important idea is that the server is already prepared to validate HTTP input, load the JSKIT provider runtime from the app itself, and constrain requests by surface.
+The health route is built in, but the more important idea is that the server is already prepared to validate HTTP input with Fastify's normal JSON Schema path, load the JSKIT provider runtime from the app itself, and constrain requests by surface.
 
 You will also notice `config/server.js`. In the base shell it is intentionally almost empty. It is there to reserve a clear place for server-side configuration as backend features are added, without pretending the starter app already has server behavior it does not yet need.
 

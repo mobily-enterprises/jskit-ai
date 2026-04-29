@@ -1,4 +1,4 @@
-import { Type } from "typebox";
+import { createSchema } from "json-rest-schema";
 import { normalizeObject, normalizePositiveInteger as toPositiveInteger } from "../support/normalize.js";
 import { hasPermission } from "../support/permissions.js";
 
@@ -13,14 +13,9 @@ function resolveRequest(context) {
   return context?.requestMeta?.request || null;
 }
 
-const OBJECT_INPUT_VALIDATOR = Object.freeze({
-  parse(value) {
-    return normalizeObject(value);
-  }
-});
-
 const EMPTY_INPUT_VALIDATOR = Object.freeze({
-  schema: Type.Object({}, { additionalProperties: false })
+  schema: createSchema({}),
+  mode: "replace"
 });
 
 export {
@@ -29,6 +24,5 @@ export {
   requireServiceMethod,
   resolveRequest,
   hasPermission,
-  EMPTY_INPUT_VALIDATOR,
-  OBJECT_INPUT_VALIDATOR
+  EMPTY_INPUT_VALIDATOR
 };

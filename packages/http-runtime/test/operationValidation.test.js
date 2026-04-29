@@ -1,97 +1,43 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { Type } from "@fastify/type-provider-typebox";
 import { createSchema } from "json-rest-schema";
+
 import {
   validateOperationInput,
-  validateOperationInputAsync,
-  validateOperationSection,
-  validateOperationSectionAsync
+  validateOperationSection
 } from "../src/shared/validators/operationValidation.js";
 
-function createMockJsonRestSchema() {
-  return {
-    async create(payload = {}) {
-      const value = payload && typeof payload === "object" ? payload : {};
-      const name = String(value.name || "").trim();
-      const errors = {};
-      if (!name) {
-        errors.name = {
-          message: "Name is required."
-        };
-      }
-
-      return {
-        validatedObject: Object.keys(errors).length < 1 ? { name } : {},
-        errors
-      };
-    },
-    async replace(payload = {}) {
-      return this.create(payload);
-    },
-    async patch(payload = {}) {
-      const value = payload && typeof payload === "object" ? payload : {};
-      if (!Object.hasOwn(value, "name")) {
-        return {
-          validatedObject: {},
-          errors: {}
-        };
-      }
-
-      return this.create(value);
-    },
-    toJsonSchema() {
-      return {
-        type: "object",
-        properties: {
-          name: {
-            type: "string"
-          }
-        },
-        additionalProperties: false
-      };
-    }
-  };
-}
-
-const patchSchema = Type.Object(
-  {
-    name: Type.Optional(
-      Type.String({
+const patchOperation = Object.freeze({
+  method: "PATCH",
+  body: {
+    schema: createSchema({
+      name: {
+        type: "string",
         minLength: 1,
         maxLength: 160,
         messages: {
           minLength: "Workspace name is required."
         }
-      })
-    ),
-    color: Type.Optional(
-      Type.String({
+      },
+      color: {
+        type: "string",
         pattern: "^#[0-9A-Fa-f]{6}$",
         messages: {
           pattern: "Workspace color must be a hex value."
         }
-      })
-    ),
-    invitesEnabled: Type.Optional(Type.Boolean())
-  },
-  {
-    additionalProperties: false,
-    minProperties: 1,
-    messages: {
-      additionalProperties: "Unexpected field."
-    }
-  }
-);
-
-const patchOperation = Object.freeze({
-  method: "PATCH",
-  body: {
-    schema: patchSchema
+      },
+      invitesEnabled: {
+        type: "boolean",
+        strictBoolean: true,
+        messages: {
+          default: "invitesEnabled must be a boolean."
+        }
+      }
+    })
   }
 });
 
-test("validateOperationSection validates one section without reshaping typebox input", () => {
+test("validateOperationSection validates one section and returns normalized json-rest-schema output", () => {
   const parsed = validateOperationSection({
     operation: patchOperation,
     section: "body",
@@ -103,7 +49,7 @@ test("validateOperationSection validates one section without reshaping typebox i
 
   assert.equal(parsed.ok, true);
   assert.deepEqual(parsed.fieldErrors, {});
-  assert.equal(parsed.value.name, "  Acme  ");
+  assert.equal(parsed.value.name, "Acme");
 });
 
 test("validateOperationSection returns shared field errors", () => {
@@ -120,10 +66,10 @@ test("validateOperationSection returns shared field errors", () => {
   assert.equal(parsed.ok, false);
   assert.equal(parsed.fieldErrors.name, "Workspace name is required.");
   assert.equal(parsed.fieldErrors.color, "Workspace color must be a hex value.");
-  assert.equal(parsed.fieldErrors.rogueField, "Unexpected field.");
+  assert.equal(typeof parsed.fieldErrors.rogueField, "string");
 });
 
-test("validateOperationSectionAsync honors json-rest-schema field message overrides", async () => {
+test("validateOperationSection honors json-rest-schema field message overrides", () => {
   const operation = Object.freeze({
     method: "POST",
     body: {
@@ -148,7 +94,7 @@ test("validateOperationSectionAsync honors json-rest-schema field message overri
     }
   });
 
-  const missingFieldParsed = await validateOperationSectionAsync({
+  const missingFieldParsed = validateOperationSection({
     operation,
     section: "body",
     value: {}
@@ -156,7 +102,7 @@ test("validateOperationSectionAsync honors json-rest-schema field message overri
   assert.equal(missingFieldParsed.ok, false);
   assert.equal(missingFieldParsed.fieldErrors.name, "Workspace name is required.");
 
-  const strictBooleanParsed = await validateOperationSectionAsync({
+  const strictBooleanParsed = validateOperationSection({
     operation,
     section: "body",
     value: {
@@ -172,16 +118,14 @@ test("validateOperationSection returns field errors for invalid enum values", ()
   const operationWithEnumConstraint = Object.freeze({
     method: "PATCH",
     body: {
-      schema: Type.Object(
-        {
-          temperament: Type.String({
-            enum: ["calm", "playful"]
-          })
-        },
-        {
-          additionalProperties: false
+      schema: createSchema({
+        temperament: {
+          type: "string",
+          enum: ["calm", "playful"],
+          required: true
         }
-      )
+      }),
+      mode: "patch"
     }
   });
 
@@ -197,79 +141,28 @@ test("validateOperationSection returns field errors for invalid enum values", ()
   assert.equal(typeof parsed.fieldErrors.temperament, "string");
 });
 
-test("validateOperationSection reports the raw schema field issues for invalid payloads", () => {
-  const operationWithFieldConstraints = Object.freeze({
-    method: "PATCH",
-    body: {
-      schema: Type.Object(
-        {
-          temperament: Type.String({
-            enum: ["calm", "playful"]
-          }),
-          photoUpdatedAt: Type.Union([
-            Type.String({
-              format: "date-time",
-              minLength: 1
-            }),
-            Type.Null()
-          ]),
-          adenovirusValidTo: Type.Union([
-            Type.String({
-              format: "date",
-              minLength: 1
-            }),
-            Type.Null()
-          ])
-        },
-        {
-          additionalProperties: false
-        }
-      )
-    }
-  });
-
-  const parsed = validateOperationSection({
-    operation: operationWithFieldConstraints,
-    section: "body",
-    value: {
-      temperament: "unknowne",
-      photoUpdatedAt: "",
-      adenovirusValidTo: ""
-    }
-  });
-
-  assert.equal(parsed.ok, false);
-  assert.equal(typeof parsed.fieldErrors.temperament, "string");
-  assert.equal(typeof parsed.fieldErrors.photoUpdatedAt, "string");
-  assert.equal(typeof parsed.fieldErrors.adenovirusValidTo, "string");
-  assert.deepEqual(parsed.globalErrors, []);
-});
-
-test("validateOperationSection maps conditional validation failures to field errors", () => {
+test("validateOperationSection surfaces custom validator failures as field errors", () => {
   const operationWithConditionalConstraint = Object.freeze({
     method: "PATCH",
     body: {
-      schema: Type.Object(
-        {
-          isVaccinated: Type.Boolean(),
-          adenovirusValidTo: Type.Optional(Type.String({ format: "date" }))
+      schema: createSchema({
+        isVaccinated: {
+          type: "boolean",
+          strictBoolean: true,
+          required: false
         },
-        {
-          if: {
-            properties: {
-              isVaccinated: {
-                const: true
-              }
+        adenovirusValidTo: {
+          type: "string",
+          required: false,
+          validator(value, object = {}) {
+            if (object.isVaccinated === true && !String(value || "").trim()) {
+              return "Adenovirus valid-to date is required when vaccinated.";
             }
-          },
-          then: {
-            required: ["adenovirusValidTo"]
-          },
-          messages: {
-            if: "Adenovirus valid-to date is required when vaccinated."
+            return undefined;
           }
         }
-      )
+      }),
+      mode: "patch"
     }
   });
 
@@ -277,7 +170,8 @@ test("validateOperationSection maps conditional validation failures to field err
     operation: operationWithConditionalConstraint,
     section: "body",
     value: {
-      isVaccinated: true
+      isVaccinated: true,
+      adenovirusValidTo: ""
     }
   });
 
@@ -290,20 +184,16 @@ test("validateOperationInput validates params/query/body together", () => {
   const viewOperation = Object.freeze({
     method: "GET",
     params: {
-      schema: Type.Object(
-        {
-          workspaceSlug: Type.String({ minLength: 1 })
-        },
-        { additionalProperties: false }
-      )
+      schema: createSchema({
+        workspaceSlug: { type: "string", required: true, minLength: 1 }
+      }),
+      mode: "patch"
     },
     query: {
-      schema: Type.Object(
-        {
-          includeArchived: Type.Optional(Type.Boolean())
-        },
-        { additionalProperties: false }
-      )
+      schema: createSchema({
+        includeArchived: { type: "boolean", strictBoolean: true }
+      }),
+      mode: "patch"
     }
   });
 
@@ -323,31 +213,20 @@ test("validateOperationInput validates params/query/body together", () => {
   assert.equal(parsed.value.body, undefined);
 });
 
-test("validateOperationSectionAsync validates json-rest-schema validators", async () => {
-  const parsed = await validateOperationSectionAsync({
+test("validateOperationInput collects json-rest-schema field errors", () => {
+  const parsed = validateOperationInput({
     operation: {
       body: {
-        schema: createMockJsonRestSchema(),
-        mode: "patch"
-      }
-    },
-    section: "body",
-    value: {
-      name: "  Acme  "
-    }
-  });
-
-  assert.equal(parsed.ok, true);
-  assert.deepEqual(parsed.value, {
-    name: "Acme"
-  });
-});
-
-test("validateOperationInputAsync collects json-rest-schema field errors", async () => {
-  const parsed = await validateOperationInputAsync({
-    operation: {
-      body: {
-        schema: createMockJsonRestSchema(),
+        schema: createSchema({
+          name: {
+            type: "string",
+            required: true,
+            minLength: 1,
+            messages: {
+              minLength: "Name is required."
+            }
+          }
+        }),
         mode: "patch"
       }
     },

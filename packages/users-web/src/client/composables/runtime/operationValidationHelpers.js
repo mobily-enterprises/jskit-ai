@@ -2,51 +2,50 @@ import {
   createValidationFailure,
   resolveFieldErrors
 } from "@jskit-ai/http-runtime/client";
+import { validateSchemaPayload } from "@jskit-ai/kernel/shared/validators";
 
-async function validateOperationInput({
-  parseInput,
+function validateOperationInput({
+  input,
   rawPayload = {},
-  context = {},
   fieldBag = null,
   feedback = null,
   validationMessage = "Validation failed."
 } = {}) {
-  if (typeof parseInput !== "function") {
+  if (!input) {
     return {
       ok: true,
-      parseResult: null,
       parsedInput: rawPayload
     };
   }
 
-  const parseResult = await parseInput(rawPayload, context);
-  if (!parseResult || typeof parseResult !== "object" || typeof parseResult.ok !== "boolean") {
-    throw new TypeError(
-      "parseInput(rawPayload, context) must return validateOperationSection-compatible result with boolean ok."
-    );
-  }
+  try {
+    const parsedInput = validateSchemaPayload(input, rawPayload, {
+      phase: "input",
+      context: "operation input"
+    });
 
-  if (!parseResult.ok) {
+    return {
+      ok: true,
+      parsedInput
+    };
+  } catch (error) {
+    if (!error?.fieldErrors || typeof error.fieldErrors !== "object") {
+      throw error;
+    }
+
     const failure = createValidationFailure({
       error: String(validationMessage || "Validation failed."),
       code: "validation_failed",
-      fieldErrors: parseResult.fieldErrors
+      fieldErrors: error?.fieldErrors
     });
     fieldBag?.apply?.(resolveFieldErrors(failure));
     feedback?.error?.(failure, failure.error);
     return {
       ok: false,
       failure,
-      parseResult,
       parsedInput: null
     };
   }
-
-  return {
-    ok: true,
-    parseResult,
-    parsedInput: parseResult.value
-  };
 }
 
 export { validateOperationInput };

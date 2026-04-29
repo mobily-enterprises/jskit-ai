@@ -1,7 +1,5 @@
 import Fastify from "fastify";
 import fastifyStatic from "@fastify/static";
-import { TypeBoxValidatorCompiler } from "@fastify/type-provider-typebox";
-import { registerTypeBoxFormats } from "@jskit-ai/http-runtime/shared/validators/typeboxFormats";
 import { resolveRuntimeEnv } from "./server/lib/runtimeEnv.js";
 import { existsSync, readFileSync } from "node:fs";
 import path from "node:path";
@@ -86,8 +84,6 @@ function canServeStaticFile(distRoot, relativePath) {
 
 async function createServer() {
   const app = Fastify({ logger: true });
-  registerTypeBoxFormats();
-  app.setValidatorCompiler(TypeBoxValidatorCompiler);
 
   app.get("/api/health", async () => {
     return {

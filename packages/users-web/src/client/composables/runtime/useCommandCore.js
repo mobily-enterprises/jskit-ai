@@ -9,7 +9,7 @@ function useCommandCore({
   canRun,
   fieldBag,
   feedback,
-  parseInput,
+  input,
   buildRawPayload,
   buildCommandPayload,
   buildCommandOptions,
@@ -42,14 +42,9 @@ function useCommandCore({
         })
       : {};
 
-    const validationResult = await validateOperationInput({
-      parseInput,
+    const validationResult = validateOperationInput({
+      input,
       rawPayload,
-      context: {
-        queryClient,
-        resource,
-        context
-      },
       fieldBag,
       feedback,
       validationMessage: String(messages.validation || "Validation failed.")
@@ -58,7 +53,7 @@ function useCommandCore({
       return null;
     }
 
-    const { parseResult, parsedInput } = validationResult;
+    const { parsedInput } = validationResult;
     const payload = typeof buildCommandPayload === "function"
       ? buildCommandPayload(parsedInput, {
           rawPayload,
@@ -83,7 +78,6 @@ function useCommandCore({
       if (typeof onRunSuccess === "function") {
         await onRunSuccess(response, {
           parsed: parsedInput,
-          parseResult,
           rawPayload,
           payload,
           options,
@@ -103,7 +97,6 @@ function useCommandCore({
       if (typeof onRunError === "function") {
         await onRunError(error, {
           parsed: parsedInput,
-          parseResult,
           rawPayload,
           payload,
           options,

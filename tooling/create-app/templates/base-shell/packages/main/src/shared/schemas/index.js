@@ -2,18 +2,19 @@
  * Shared transport validators/resources live here.
  *
  * Example:
- * import { Type } from "@fastify/type-provider-typebox";
+ * import { createSchema } from "json-rest-schema";
  *
- * export const helloSchema = {
- *   query: Type.Object(
- *     { name: Type.Optional(Type.String({ minLength: 1, maxLength: 80 })) },
- *     { additionalProperties: false }
- *   ),
- *   response: {
- *     200: Type.Object(
- *       { ok: Type.Boolean(), message: Type.String({ minLength: 1 }) },
- *       { additionalProperties: false }
- *     )
+ * export const helloQuerySchema = createSchema({
+ *   name: { type: "string", minLength: 1, maxLength: 80 }
+ * });
+ *
+ * export const helloResponseSchema = {
+ *   type: "object",
+ *   additionalProperties: false,
+ *   required: ["ok", "message"],
+ *   properties: {
+ *     ok: { type: "boolean" },
+ *     message: { type: "string", minLength: 1 }
  *   }
  * };
  */

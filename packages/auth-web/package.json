@@ -20,7 +20,6 @@
     "@tanstack/vue-query": "^5.90.5",
     "@jskit-ai/auth-core": "0.1.54",
     "@mdi/js": "^7.4.47",
-    "@fastify/type-provider-typebox": "^6.1.0",
     "@jskit-ai/kernel": "0.1.55",
     "@jskit-ai/shell-web": "0.1.54",
     "pinia": "^3.0.4",

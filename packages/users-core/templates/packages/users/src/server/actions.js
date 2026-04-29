@@ -1,4 +1,7 @@
-import { recordIdParamsValidator } from "@jskit-ai/kernel/shared/validators";
+import {
+  composeSchemaDefinitions,
+  recordIdParamsValidator
+} from "@jskit-ai/kernel/shared/validators";
 import {
   createCrudCursorPaginationQueryValidator,
   listSearchQueryValidator
@@ -8,6 +11,13 @@ import { actionIds } from "./actionIds.js";
 import { LIST_CONFIG } from "./listConfig.js";
 
 const listCursorPaginationQueryValidator = createCrudCursorPaginationQueryValidator(LIST_CONFIG);
+const listActionInputValidator = composeSchemaDefinitions([
+  listCursorPaginationQueryValidator,
+  listSearchQueryValidator
+], {
+  mode: "patch",
+  context: "usersTemplate.listActionInputValidator"
+});
 const authenticatedPermission = Object.freeze({
   require: "authenticated"
 });
@@ -32,7 +42,7 @@ function createActions({ surface = "" } = {}) {
       channels: ["api", "automation", "internal"],
       surfaces: [actionSurface],
       permission: authenticatedPermission,
-      input: [listCursorPaginationQueryValidator, listSearchQueryValidator],
+      input: listActionInputValidator,
       output: resource.operations.list.output,
       idempotency: "none",
       audit: {

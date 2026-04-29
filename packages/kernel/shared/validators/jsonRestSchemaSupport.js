@@ -9,6 +9,7 @@ const JSON_REST_SCHEMA_ERROR_MESSAGE_KEYS = Object.freeze({
   MAX_LENGTH: "maxLength",
   MIN_VALUE: "min",
   MAX_VALUE: "max",
+  PATTERN: "pattern",
   ENUM_VALUE: "enum",
   FIELD_NOT_ALLOWED: "additionalProperties",
   CUSTOM_VALIDATOR_FAILED: "default"
@@ -64,7 +65,7 @@ function resolveValidatorTransportSchema(validator = null, options = {}) {
   return schema.toJsonSchema({ mode });
 }
 
-async function executeJsonRestSchemaValidator(validator = null, payload, options = {}) {
+function executeJsonRestSchemaValidator(validator = null, payload, options = {}) {
   const schema = resolveValidatorSchemaSource(validator);
   if (!isJsonRestSchemaInstance(schema)) {
     return null;
@@ -85,7 +86,7 @@ function resolveJsonRestSchemaFieldMessages(validator = null, fieldName = "") {
     return {};
   }
 
-  return normalizeObject(schema?.structure?.[normalizedFieldName]?.messages);
+  return normalizeObject(schema.getFieldMessages(normalizedFieldName));
 }
 
 function resolveJsonRestSchemaFieldErrorMessage(fieldName, entry, validator = null) {

@@ -1,14 +1,5 @@
-import { Type } from "typebox";
 import { AUTH_POLICY_PUBLIC } from "../../shared/support/policies.js";
 import { resolveBootstrapPayload } from "../registries/bootstrapPayloadContributorRegistry.js";
-
-const bootstrapQueryValidator = Object.freeze({
-  schema: Type.Object({}, { additionalProperties: true })
-});
-
-const bootstrapOutputValidator = Object.freeze({
-  schema: Type.Object({}, { additionalProperties: true })
-});
 
 function bootBootstrapRoutes(app) {
   const router = app.make("jskit.http.router");
@@ -21,17 +12,13 @@ function bootBootstrapRoutes(app) {
       meta: {
         tags: ["bootstrap"],
         summary: "Resolve app bootstrap payload from registered contributors"
-      },
-      query: bootstrapQueryValidator,
-      responses: {
-        200: bootstrapOutputValidator
       }
     },
     async function (request, reply) {
       const payload = await resolveBootstrapPayload(app, {
         request,
         reply,
-        query: request.input?.query || {}
+        query: request.query || {}
       });
 
       reply.code(200).send(payload);
@@ -39,4 +26,4 @@ function bootBootstrapRoutes(app) {
   );
 }
 
-export { bootBootstrapRoutes, bootstrapQueryValidator, bootstrapOutputValidator };
+export { bootBootstrapRoutes };

@@ -1,22 +1,29 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { Type } from "typebox";
 import { mergeObjectSchemas } from "./mergeObjectSchemas.js";
 
 test("mergeObjectSchemas merges disjoint object schemas", () => {
   const mergedSchema = mergeObjectSchemas([
-    Type.Object(
-      {
-        cursor: Type.Optional(Type.String({ minLength: 1 }))
-      },
-      { additionalProperties: false }
-    ),
-    Type.Object(
-      {
-        search: Type.Optional(Type.String({ minLength: 1 }))
-      },
-      { additionalProperties: false }
-    )
+    {
+      type: "object",
+      additionalProperties: false,
+      properties: {
+        cursor: {
+          type: "string",
+          minLength: 1
+        }
+      }
+    },
+    {
+      type: "object",
+      additionalProperties: false,
+      properties: {
+        search: {
+          type: "string",
+          minLength: 1
+        }
+      }
+    }
   ]);
 
   assert.equal(mergedSchema.type, "object");
@@ -28,18 +35,28 @@ test("mergeObjectSchemas merges disjoint object schemas", () => {
 
 test("mergeObjectSchemas preserves required fields through merged property definitions", () => {
   const mergedSchema = mergeObjectSchemas([
-    Type.Object(
-      {
-        workspaceSlug: Type.String({ minLength: 1 })
+    {
+      type: "object",
+      additionalProperties: false,
+      properties: {
+        workspaceSlug: {
+          type: "string",
+          minLength: 1
+        }
       },
-      { additionalProperties: false }
-    ),
-    Type.Object(
-      {
-        inviteId: Type.String({ minLength: 1 })
+      required: ["workspaceSlug"]
+    },
+    {
+      type: "object",
+      additionalProperties: false,
+      properties: {
+        inviteId: {
+          type: "string",
+          minLength: 1
+        }
       },
-      { additionalProperties: false }
-    )
+      required: ["inviteId"]
+    }
   ]);
 
   assert.deepEqual(mergedSchema.required, ["workspaceSlug", "inviteId"]);
@@ -49,18 +66,26 @@ test("mergeObjectSchemas rejects duplicate properties with different schema obje
   assert.throws(
     () =>
       mergeObjectSchemas([
-        Type.Object(
-          {
-            workspaceSlug: Type.Optional(Type.String({ minLength: 1 }))
-          },
-          { additionalProperties: false }
-        ),
-        Type.Object(
-          {
-            workspaceSlug: Type.Optional(Type.String({ minLength: 2 }))
-          },
-          { additionalProperties: false }
-        )
+        {
+          type: "object",
+          additionalProperties: false,
+          properties: {
+            workspaceSlug: {
+              type: "string",
+              minLength: 1
+            }
+          }
+        },
+        {
+          type: "object",
+          additionalProperties: false,
+          properties: {
+            workspaceSlug: {
+              type: "string",
+              minLength: 2
+            }
+          }
+        }
       ]),
     /duplicate property "workspaceSlug"/
   );

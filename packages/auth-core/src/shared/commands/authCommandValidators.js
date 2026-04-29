@@ -80,73 +80,53 @@ const authRefreshTokenFieldDefinition = deepFreeze({
 });
 
 const oauthProviderValidator = deepFreeze({
-  schema: {
-    type: "string",
-    ...oauthProviderFieldDefinition
-  }
+  type: "string",
+  ...oauthProviderFieldDefinition
 });
 
 const authMethodIdValidator = deepFreeze({
-  schema: {
-    type: "string",
-    ...authMethodIdFieldDefinition
-  }
+  type: "string",
+  ...authMethodIdFieldDefinition
 });
 
 const authMethodKindValidator = deepFreeze({
-  schema: {
-    type: "string",
-    enum: AUTH_METHOD_KINDS
-  }
+  type: "string",
+  enum: AUTH_METHOD_KINDS
 });
 
 const oauthReturnToValidator = deepFreeze({
-  schema: {
-    type: "string",
-    ...oauthReturnToFieldDefinition
-  }
+  type: "string",
+  ...oauthReturnToFieldDefinition
 });
 
 const authEmailValidator = deepFreeze({
-  schema: {
-    type: "string",
-    ...authEmailFieldDefinition
-  }
+  type: "string",
+  ...authEmailFieldDefinition
 });
 
 const authPasswordValidator = deepFreeze({
-  schema: {
-    type: "string",
-    ...authPasswordFieldDefinition
-  }
+  type: "string",
+  ...authPasswordFieldDefinition
 });
 
 const authLoginPasswordValidator = deepFreeze({
-  schema: {
-    type: "string",
-    ...authLoginPasswordFieldDefinition
-  }
+  type: "string",
+  ...authLoginPasswordFieldDefinition
 });
 
 const authRecoveryTokenValidator = deepFreeze({
-  schema: {
-    type: "string",
-    ...authRecoveryTokenFieldDefinition
-  }
+  type: "string",
+  ...authRecoveryTokenFieldDefinition
 });
 
 const authAccessTokenValidator = deepFreeze({
-  schema: {
-    type: "string",
-    ...authAccessTokenFieldDefinition
-  }
+  type: "string",
+  ...authAccessTokenFieldDefinition
 });
 
 const authRefreshTokenValidator = deepFreeze({
-  schema: {
-    type: "string",
-    ...authRefreshTokenFieldDefinition
-  }
+  type: "string",
+  ...authRefreshTokenFieldDefinition
 });
 
 const okResponseValidator = deepFreeze({
@@ -228,58 +208,55 @@ const oauthProviderCatalogEntryValidator = deepFreeze({
   mode: "replace"
 });
 
-const sessionResponseValidator = deepFreeze({
-  schema: {
-    type: "object",
-    additionalProperties: false,
-    required: ["authenticated", "csrfToken", "oauthProviders", "oauthDefaultProvider"],
-    properties: {
-      authenticated: { type: "boolean" },
-      username: { type: "string", minLength: 1, maxLength: 120 },
-      email: authEmailValidator.schema,
-      permissions: {
-        type: "array",
-        items: {
-          type: "string",
-          minLength: 1,
-          maxLength: 200
-        }
-      },
-      csrfToken: { type: "string", minLength: 1 },
-      oauthProviders: {
-        type: "array",
-        items: oauthProviderCatalogEntrySchema.toJsonSchema({ mode: "replace" })
-      },
-      oauthDefaultProvider: {
-        anyOf: [
-          oauthProviderValidator.schema,
-          { type: "null" }
-        ]
-      }
+const sessionResponseSchema = createSchema({
+  authenticated: { type: "boolean", required: true },
+  username: { type: "string", required: false, minLength: 1, maxLength: 120 },
+  email: { ...authEmailFieldDefinition, required: false },
+  permissions: {
+    type: "array",
+    required: false,
+    items: {
+      type: "string",
+      minLength: 1,
+      maxLength: 200
     }
+  },
+  csrfToken: { type: "string", required: true, minLength: 1 },
+  oauthProviders: {
+    type: "array",
+    required: true,
+    items: oauthProviderCatalogEntrySchema
+  },
+  oauthDefaultProvider: {
+    ...oauthProviderFieldDefinition,
+    required: true,
+    nullable: true
+  }
+});
+
+const sessionResponseValidator = deepFreeze({
+  schema: sessionResponseSchema,
+  mode: "replace"
+});
+
+const sessionUnavailableResponseSchema = createSchema({
+  error: { type: "string", required: true, minLength: 1 },
+  csrfToken: { type: "string", required: true, minLength: 1 },
+  oauthProviders: {
+    type: "array",
+    required: true,
+    items: oauthProviderCatalogEntrySchema
+  },
+  oauthDefaultProvider: {
+    ...oauthProviderFieldDefinition,
+    required: true,
+    nullable: true
   }
 });
 
 const sessionUnavailableResponseValidator = deepFreeze({
-  schema: {
-    type: "object",
-    additionalProperties: false,
-    required: ["error", "csrfToken", "oauthProviders", "oauthDefaultProvider"],
-    properties: {
-      error: { type: "string", minLength: 1 },
-      csrfToken: { type: "string", minLength: 1 },
-      oauthProviders: {
-        type: "array",
-        items: oauthProviderCatalogEntrySchema.toJsonSchema({ mode: "replace" })
-      },
-      oauthDefaultProvider: {
-        anyOf: [
-          oauthProviderValidator.schema,
-          { type: "null" }
-        ]
-      }
-    }
-  }
+  schema: sessionUnavailableResponseSchema,
+  mode: "replace"
 });
 
 function createCommandMessages({

@@ -1,0 +1,146 @@
+[typebox eradication]
+
+Goal: remove TypeBox as a live schema/validation/compiler path from jskit-ai.
+
+Rules:
+- no dual-schema bridge
+- no "TypeBox plus json-rest-schema" public contract
+- no generated app scaffolding that installs or configures TypeBox
+- mark items done only after code, tests, and grep proof are updated
+
+[status]
+
+- [x] chunk 1: remove TypeBox from shared runtime/kernel validation infrastructure
+  - `packages/http-runtime/src/shared/validators/typeboxFormats.js` removed
+  - `packages/http-runtime/src/shared/validators/httpValidatorsApi.js` converted
+  - `packages/http-runtime/src/shared/index.js` converted
+  - `packages/http-runtime/src/shared/validators/operationValidation.js` converted
+  - `packages/http-runtime/src/shared/validators/schemaUtils.js` converted
+  - `packages/http-runtime/src/shared/validators/errorResponses.js` converted
+  - `packages/http-runtime/src/shared/validators/resource.js` converted
+  - `packages/http-runtime/src/shared/validators/paginationQuery.js` converted
+  - `packages/kernel/shared/validators/schemaPayloadValidation.js` converted
+  - `packages/kernel/shared/validators/index.js` converted
+  - `packages/kernel/shared/actions/policies.js` converted
+
+- [x] chunk 2: remove TypeBox-only generic helpers and validators
+  - `packages/kernel/shared/validators/recordIdParamsValidator.js` converted
+  - `packages/kernel/shared/validators/nestValidator.js` converted
+  - `packages/kernel/shared/validators/htmlTimeSchemas.js` converted
+  - `packages/kernel/shared/validators/createCursorListValidator.js` converted
+  - `packages/kernel/shared/actions/actionContributorHelpers.js` converted
+  - `packages/crud-core/src/server/listFilters.js` converted
+  - `packages/kernel/server/runtime/moduleConfig.js` converted
+  - `packages/kernel/server/runtime/bootBootstrapRoutes.js` converted
+
+- [x] chunk 3: convert remaining direct route/helper validators to json-rest-schema or plain JSON schema
+  - `packages/users-core/src/server/common/validators/authenticatedUserValidator.js` converted
+  - `packages/workspaces-core/src/server/common/validators/authenticatedUserValidator.js` converted
+  - `packages/users-core/src/server/accountSecurity/bootAccountSecurityRoutes.js` converted
+
+- [x] chunk 4: remove TypeBox from create-app scaffolding and generated app docs
+  - `tooling/create-app/templates/base-shell/server.js` converted
+  - `tooling/create-app/templates/base-shell/package.json` converted
+  - `tooling/create-app/templates/base-shell/packages/main/src/shared/schemas/index.js` converted
+  - `packages/agent-docs/guide/agent/app-setup/initial-scaffolding.md` rebuilt
+  - `packages/agent-docs/site/guide/app-setup/initial-scaffolding.md` updated
+
+- [x] chunk 5: remove TypeBox dependencies and descriptor/catalog entries
+  - package manifests under `packages/` and `tooling/` no longer declare `typebox` or `@fastify/type-provider-typebox`
+  - package descriptors updated
+  - `tooling/jskit-catalog/catalog/packages.json` rebuilt
+  - `package-lock.json` regenerated from current workspaces
+
+- [x] chunk 6: update tests and generated docs to the no-TypeBox contract
+  - `packages/http-runtime/test/*` updated
+  - `packages/kernel/shared/actions/*.test.js` updated
+  - `packages/kernel/shared/validators/*.test.js` updated
+  - package-level tests using `typebox` / `typebox/value` updated or removed
+  - `packages/agent-docs/reference/autogen/*` rebuilt
+
+- [x] chunk 7: final proof and verification
+  - `rg -n "TypeBox|typebox|registerTypeBoxFormats|TypeBoxValidatorCompiler|normalizeTypeBoxValidationErrors" . -g '!node_modules/**'` returns only this tracker file
+  - `npm run agent-docs:build` passes
+  - `npm --workspaces --if-present test` reports green package test output after the workspace install refresh
+  - `npm ls typebox @fastify/type-provider-typebox --all` reports no remaining installed dependency graph entries
+
+[residuals]
+
+- `ERADICATE_TYPEBOX_TODO.txt` intentionally retains the historical keyword for auditability.
+- `json-rest-schema` resolves from the local unpublished checkout via `file:` links and the workspace symlink.
+
+[shared contract cleanup]
+
+Goal: remove the remaining mixed shared-contract schema styles now that `json-rest-schema` supports nested child schemas, array item schemas, and narrow opaque object bags.
+
+Rules:
+- shared `resources/` and `commands/` should use `json-rest-schema` contracts only
+- raw JSON Schema stays in transport/infrastructure code only
+- opaque bags are acceptable only for truly external or metadata-like payloads
+- no role catalogs or other app-owned structured payloads as opaque object bags
+
+[shared contract cleanup status]
+
+- [x] chunk 1: users shared contracts
+  - `packages/users-core/src/shared/resources/userProfileResource.js`
+  - `packages/users-core/src/shared/resources/userSettingsResource.js`
+  - `packages/users-core/src/server/accountProfile/accountProfileActions.js`
+
+- [x] chunk 2: workspace shared contracts
+  - `packages/workspaces-core/src/shared/resources/workspacePendingInvitationsResource.js`
+  - `packages/workspaces-core/src/shared/resources/workspaceSettingsResource.js`
+  - `packages/workspaces-core/src/shared/resources/workspaceMembersResource.js`
+
+- [x] chunk 3: assistant and auth shared contracts
+  - `packages/assistant-core/src/shared/assistantResource.js`
+  - `packages/assistant-core/src/shared/assistantSettingsResource.js`
+  - `packages/auth-core/src/shared/commands/authCommandValidators.js`
+
+- [x] chunk 4: proof
+  - shared `resources/` and `commands/` no longer use raw nested JSON Schema blobs for app-owned structured payloads
+  - `roleCatalog` and similar shapes are modeled as composed child schemas
+  - targeted package tests pass
+
+[shared contract cleanup residuals]
+
+- intentional opaque bags remain only for genuinely external/unstructured payloads:
+  - `packages/assistant-core/src/shared/assistantResource.js`
+    - `conversationRecordSchema.metadata`
+    - `messageRecordSchema.metadata`
+
+[infra validation cleanup]
+
+Goal: keep `json-rest-schema` as the authored validation system in infra too, while leaving pure transport/error envelope JSON Schema in place where it is genuinely transport-native.
+
+Rules:
+- authored query/body/params helpers should use `json-rest-schema`
+- fake open-object validators should be removed instead of preserved
+- transport-only JSON Schema is acceptable in envelope/error/merge utilities
+
+[infra validation cleanup status]
+
+- [x] chunk 1: convert authored infra helpers
+  - `packages/http-runtime/src/shared/validators/paginationQuery.js`
+  - `packages/kernel/shared/validators/htmlTimeSchemas.js`
+  - `packages/kernel/shared/validators/recordIdParamsValidator.js` (field defs moved off raw `anyOf` for nullable record ids)
+
+- [x] chunk 2: remove fake bootstrap validation
+  - `packages/kernel/server/runtime/bootBootstrapRoutes.js`
+  - `packages/kernel/server/runtime/bootBootstrapRoutes.test.js`
+  - bootstrap now reads `request.query` directly instead of relying on an open-object validator just to populate `request.input.query`
+
+- [x] chunk 3: proof
+  - focused infra tests pass
+  - no raw authored schema remains in the touched helpers except the explicit primitive parser residual below
+
+[infra validation cleanup residuals]
+
+- `packages/kernel/shared/validators/recordIdParamsValidator.js`
+  - `positiveIntegerValidator` still exposes a primitive `schema.anyOf` transport shape plus `parse(...)`
+  - this is intentionally left for now because changing it cleanly would require changing the public primitive-parser contract rather than just swapping implementations
+
+- transport-native JSON Schema remains acceptable in infra-only modules such as:
+  - `packages/http-runtime/src/shared/validators/errorResponses.js`
+  - `packages/http-runtime/src/shared/validators/resource.js`
+  - `packages/kernel/shared/validators/mergeObjectSchemas.js`
+  - `packages/kernel/shared/validators/createCursorListValidator.js`

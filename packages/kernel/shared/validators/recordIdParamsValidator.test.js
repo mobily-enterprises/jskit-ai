@@ -4,20 +4,25 @@ import assert from "node:assert/strict";
 import { recordIdParamsValidator } from "./recordIdParamsValidator.js";
 
 test("recordIdParamsValidator normalizes canonical string ids", () => {
-  assert.deepEqual(recordIdParamsValidator.normalize({ recordId: "42" }), {
+  const { validatedObject, errors } = recordIdParamsValidator.schema.patch({ recordId: "42" });
+  assert.deepEqual(errors, {});
+  assert.deepEqual(validatedObject, {
     recordId: "42"
   });
 });
 
 test("recordIdParamsValidator rejects invalid ids", () => {
-  assert.deepEqual(recordIdParamsValidator.normalize({ recordId: "nope" }), {
-    recordId: ""
-  });
-  assert.deepEqual(recordIdParamsValidator.normalize({ recordId: 42 }), {
-    recordId: ""
-  });
+  const invalidString = recordIdParamsValidator.schema.patch({ recordId: "nope" });
+  assert.equal(invalidString.validatedObject.recordId, "nope");
+  assert.equal(invalidString.errors.recordId?.code, "PATTERN");
+
+  const numericId = recordIdParamsValidator.schema.patch({ recordId: 42 });
+  assert.equal(numericId.validatedObject.recordId, "42");
+  assert.deepEqual(numericId.errors, {});
 });
 
 test("recordIdParamsValidator keeps absent key absent", () => {
-  assert.deepEqual(recordIdParamsValidator.normalize({}), {});
+  const { validatedObject, errors } = recordIdParamsValidator.schema.patch({});
+  assert.deepEqual(errors, {});
+  assert.deepEqual(validatedObject, {});
 });

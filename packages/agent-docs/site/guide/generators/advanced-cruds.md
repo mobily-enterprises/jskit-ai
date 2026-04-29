@@ -1147,16 +1147,18 @@ const contactsListFiltersQueryValidator = contactsListFiltersRuntime.createQuery
 Wire the runtime into the list validator and the repository:
 
 ```js
-query: [
+const listRouteQueryValidator = composeSchemaDefinitions([
   listCursorPaginationQueryValidator,
   listSearchQueryValidator,
   contactsListFiltersQueryValidator,
   listParentFilterQueryValidator,
   lookupIncludeQueryValidator
-]
+], {
+  mode: "patch"
+});
 ```
 
-Use that same `contactsListFiltersQueryValidator` anywhere else the list query is validated, such as the list action input validator if your CRUD package validates query shape at both the route and action boundaries.
+Use that same `contactsListFiltersQueryValidator` anywhere else the list query is validated, such as the composed list action input validator if your CRUD package validates query shape at both the route and action boundaries.
 
 Choose the invalid-value contract deliberately:
 

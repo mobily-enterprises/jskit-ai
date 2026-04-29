@@ -1,29 +1,37 @@
+import { createSchema } from "json-rest-schema";
 import {
   EMPTY_INPUT_VALIDATOR,
   resolveRequest
 } from "@jskit-ai/kernel/shared/actions/actionContributorHelpers";
+import { deepFreeze } from "@jskit-ai/kernel/shared/support/deepFreeze";
 import { userSettingsResource } from "../../shared/resources/userSettingsResource.js";
 import { userProfileResource } from "../../shared/resources/userProfileResource.js";
+import { userSettingsOutputSchema } from "../../shared/resources/userSettingsResource.js";
 import { resolveActionUser } from "../common/support/resolveActionUser.js";
 
-const settingsProfileUpdateOutputValidator = Object.freeze({
-  settings: userSettingsResource.operations.view.output,
-  session: {
-    schema: {
-      anyOf: [
-        {
-          type: "object",
-          additionalProperties: true
-        },
-        {
-          type: "null"
-        }
-      ]
+const settingsProfileUpdateOutputValidator = deepFreeze({
+  schema: createSchema({
+    settings: {
+      type: "object",
+      required: true,
+      schema: userSettingsOutputSchema
+    },
+    session: {
+      type: "object",
+      required: true,
+      nullable: true,
+      additionalProperties: true
     }
-  }
+  }),
+  mode: "replace"
 });
 
-const accountProfileActions = Object.freeze([
+const settingsProfileUpdateInputValidator = deepFreeze({
+  schema: userProfileResource.operations.patch.body.schema,
+  mode: userProfileResource.operations.patch.body.mode
+});
+
+const accountProfileActions = deepFreeze([
   {
     id: "settings.read",
     version: 1,
@@ -55,9 +63,7 @@ const accountProfileActions = Object.freeze([
     permission: {
       require: "authenticated"
     },
-    input: {
-      payload: userProfileResource.operations.patch.body
-    },
+    input: settingsProfileUpdateInputValidator,
     output: settingsProfileUpdateOutputValidator,
     idempotency: "optional",
     audit: {
@@ -68,7 +74,7 @@ const accountProfileActions = Object.freeze([
       return deps.accountProfileService.updateProfile(
         resolveRequest(context),
         resolveActionUser(context, input),
-        input.payload,
+        input,
         {
           context
         }

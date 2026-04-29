@@ -1,29 +1,28 @@
-import { Type } from "typebox";
-import { resolveStructuredSchemaTransportSchema } from "./schemaDefinitions.js";
+import { createSchema } from "json-rest-schema";
+import { deepFreeze } from "../support/deepFreeze.js";
+import { normalizeSingleSchemaDefinition } from "./schemaDefinitions.js";
 
 function createCursorListValidator(itemValidator) {
-  if (!itemValidator || typeof itemValidator !== "object" || Array.isArray(itemValidator)) {
-    throw new TypeError("createCursorListValidator requires an item validator object.");
-  }
-
-  const itemSchema = resolveStructuredSchemaTransportSchema(itemValidator, {
+  const itemDefinition = normalizeSingleSchemaDefinition(itemValidator, {
     context: "cursor list item",
     defaultMode: "replace"
   });
-  if (!itemSchema || typeof itemSchema !== "object" || Array.isArray(itemSchema)) {
-    throw new TypeError("createCursorListValidator requires a resolvable item schema definition.");
-  }
 
-  return Object.freeze({
-    get schema() {
-      return Type.Object(
-        {
-          items: Type.Array(itemSchema),
-          nextCursor: Type.Union([Type.String({ minLength: 1 }), Type.Null()])
-        },
-        { additionalProperties: false }
-      );
-    }
+  return deepFreeze({
+    schema: createSchema({
+      items: {
+        type: "array",
+        required: true,
+        items: itemDefinition.schema
+      },
+      nextCursor: {
+        type: "string",
+        required: false,
+        nullable: true,
+        minLength: 1
+      }
+    }),
+    mode: "replace"
   });
 }
 

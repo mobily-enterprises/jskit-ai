@@ -1,22 +1,38 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { Type } from "typebox";
+import { createSchema } from "json-rest-schema";
 
 import { ModuleConfigError, defineModuleConfig } from "./moduleConfig.js";
 
 test("defineModuleConfig resolves valid config and freezes nested objects", () => {
   const moduleConfig = defineModuleConfig({
     moduleId: "contacts",
-    schema: Type.Object(
-      {
-        mode: Type.Union([Type.Literal("standard"), Type.Literal("strict")]),
-        maxContacts: Type.Integer({ minimum: 1 }),
-        limits: Type.Object({
-          inviteExpiryHours: Type.Integer({ minimum: 1, maximum: 168 })
-        })
+    schema: createSchema({
+      mode: {
+        type: "string",
+        required: true,
+        enum: ["standard", "strict"]
       },
-      { additionalProperties: false }
-    ),
+      maxContacts: {
+        type: "integer",
+        required: true,
+        min: 1
+      },
+      limits: {
+        type: "object",
+        required: true,
+        validator(value) {
+          if (!value || typeof value !== "object" || Array.isArray(value)) {
+            return "limits must be an object";
+          }
+          const inviteExpiryHours = Number(value.inviteExpiryHours);
+          if (!Number.isInteger(inviteExpiryHours) || inviteExpiryHours < 1 || inviteExpiryHours > 168) {
+            return "inviteExpiryHours must be an integer between 1 and 168";
+          }
+          return undefined;
+        }
+      }
+    }),
     load({ env }) {
       return {
         mode: String(env.CONTACTS_MODE || "standard"),
@@ -46,12 +62,13 @@ test("defineModuleConfig resolves valid config and freezes nested objects", () =
 test("defineModuleConfig reports schema validation issues with module-scoped details", () => {
   const moduleConfig = defineModuleConfig({
     moduleId: "contacts",
-    schema: Type.Object(
-      {
-        maxContacts: Type.Integer({ minimum: 1 })
-      },
-      { additionalProperties: false }
-    )
+    schema: createSchema({
+      maxContacts: {
+        type: "integer",
+        required: true,
+        min: 1
+      }
+    })
   });
 
   assert.throws(
@@ -66,13 +83,13 @@ test("defineModuleConfig reports schema validation issues with module-scoped det
   );
 });
 
-test("defineModuleConfig supports coercion via TypeBox Parse", () => {
+test("defineModuleConfig supports coercion via json-rest-schema casts", () => {
   const moduleConfig = defineModuleConfig({
     moduleId: "contacts",
     coerce: true,
-    schema: Type.Object({
-      maxContacts: Type.Integer({ minimum: 1 }),
-      enabled: Type.Boolean()
+    schema: createSchema({
+      maxContacts: { type: "integer", required: true, min: 1 },
+      enabled: { type: "boolean", required: true }
     })
   });
 
@@ -90,9 +107,16 @@ test("defineModuleConfig supports coercion via TypeBox Parse", () => {
 test("defineModuleConfig supports custom cross-field validate hook", () => {
   const moduleConfig = defineModuleConfig({
     moduleId: "contacts",
-    schema: Type.Object({
-      mode: Type.Union([Type.Literal("standard"), Type.Literal("strict")]),
-      requireAuditTrail: Type.Boolean()
+    schema: createSchema({
+      mode: {
+        type: "string",
+        required: true,
+        enum: ["standard", "strict"]
+      },
+      requireAuditTrail: {
+        type: "boolean",
+        required: true
+      }
     }),
     validate(value) {
       if (value.mode === "strict" && value.requireAuditTrail !== true) {
@@ -133,7 +157,7 @@ test("defineModuleConfig rejects invalid module config definitions", () => {
     () =>
       defineModuleConfig({
         moduleId: "contacts",
-        schema: Type.Object({}),
+        schema: createSchema({}),
         load: "not-a-function"
       }),
     /load/

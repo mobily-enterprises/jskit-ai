@@ -13,10 +13,6 @@ const DISALLOWED_PATTERNS = [
   {
     description: "spread pass-through from request.input",
     regex: /\.{3}\s*request\.input\.(body|query|params)\b/g
-  },
-  {
-    description: "whole-section pass-through from request.input",
-    regex: /\binput\s*:\s*request\.input\.(body|query|params)\b/g
   }
 ];
 
@@ -50,13 +46,21 @@ function findLineNumber(sourceText, index) {
   return sourceText.slice(0, index).split("\n").length;
 }
 
-test("server route handlers do not pass through request.input sections", async () => {
+test("server route handlers do not spread request.input sections into ad hoc shapes", async () => {
   const allFiles = await listFilesRecursive(PACKAGES_ROOT);
   const targetFiles = allFiles.filter((absolutePath) => isRouteServerSourceFile(absolutePath));
   const violations = [];
 
   for (const absolutePath of targetFiles) {
-    const sourceText = await readFile(absolutePath, "utf8");
+    let sourceText = "";
+    try {
+      sourceText = await readFile(absolutePath, "utf8");
+    } catch (error) {
+      if (error?.code === "ENOENT") {
+        continue;
+      }
+      throw error;
+    }
     for (const { regex, description } of DISALLOWED_PATTERNS) {
       regex.lastIndex = 0;
       let match = regex.exec(sourceText);

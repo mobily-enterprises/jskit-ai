@@ -3,7 +3,7 @@
   "version": "0.1.55",
   "type": "module",
   "dependencies": {
-    "typebox": "^1.0.81"
+    "json-rest-schema": "file:../../../json-rest-schema"
   },
   "scripts": {
     "test": "node --test"
