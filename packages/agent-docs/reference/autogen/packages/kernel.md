@@ -571,8 +571,8 @@ Local functions
 
 ### `shared/validators/schemaPayloadValidation.js`
 Exports
-- `buildSchemaValidationError({ message = "Schema validation failed.", fieldErrors = null, errors = null, cause } = {})`
-- `validateSchemaPayload(schemaDefinition, payload, { phase = "input", context = "schema definition" } = {})`
+- `buildSchemaValidationError({ message = "Schema validation failed.", fieldErrors = null, errors = null, cause, statusCode = null } = {})`
+- `validateSchemaPayload(schemaDefinition, payload, { phase = "input", context = "schema definition", statusCode = null } = {})`
 
 ### client
 
