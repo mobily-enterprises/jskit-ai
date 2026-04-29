@@ -1,20 +1,20 @@
 import { AppError } from "@jskit-ai/kernel/server/runtime/errors";
+import { authPasswordResetRequestBodyValidator } from "@jskit-ai/auth-core/shared/commands/authPasswordResetRequestCommand";
+import { authPasswordRecoveryCompleteBodyValidator } from "@jskit-ai/auth-core/shared/commands/authPasswordRecoveryCompleteCommand";
+import { authPasswordResetBodyValidator } from "@jskit-ai/auth-core/shared/commands/authPasswordResetCommand";
 import {
   requireAuthUser,
   requireAuthSession,
-  requireAuthUserSession,
-  requireNoFieldErrors
+  requireAuthUserSession
 } from "./flowGuards.js";
 
 function createPasswordSecurityFlows(deps) {
   const {
     ensureConfigured,
-    validators,
     validationError,
     getSupabaseClient,
     passwordResetRedirectUrl,
     mapAuthError,
-    validatePasswordRecoveryPayload,
     mapRecoveryError,
     syncProfileFromSupabaseUser,
     setSessionFromRequestCookies,
@@ -38,8 +38,11 @@ function createPasswordSecurityFlows(deps) {
   async function requestPasswordReset(payload) {
     ensureConfigured();
 
-    const parsed = validators.forgotPasswordInput(payload);
-    requireNoFieldErrors(parsed, validationError);
+    const result = authPasswordResetRequestBodyValidator.schema.create(payload);
+    if (Object.keys(result.errors).length > 0) {
+      throw validationError(result.errors);
+    }
+    const parsed = result.validatedObject;
 
     const supabase = getSupabaseClient();
     const options = { redirectTo: passwordResetRedirectUrl };
@@ -65,23 +68,51 @@ function createPasswordSecurityFlows(deps) {
   async function completePasswordRecovery(payload) {
     ensureConfigured();
 
-    const parsed = validatePasswordRecoveryPayload(payload);
-    requireNoFieldErrors(parsed, validationError);
+    const result = authPasswordRecoveryCompleteBodyValidator.schema.patch(payload);
+    if (Object.keys(result.errors).length > 0) {
+      throw validationError(result.errors);
+    }
+    const parsed = result.validatedObject;
+    const code = String(parsed.code || "").trim();
+    const tokenHash = String(parsed.tokenHash || "").trim();
+    const accessToken = String(parsed.accessToken || "").trim();
+    const refreshToken = String(parsed.refreshToken || "").trim();
+    const hasCode = Boolean(code);
+    const hasTokenHash = Boolean(tokenHash);
+    const hasSessionPair = Boolean(accessToken && refreshToken);
+    const fieldErrors = {};
+
+    if ((accessToken && !refreshToken) || (!accessToken && refreshToken)) {
+      if (!accessToken) {
+        fieldErrors.accessToken = "Access token is required when a refresh token is provided.";
+      }
+      if (!refreshToken) {
+        fieldErrors.refreshToken = "Refresh token is required when an access token is provided.";
+      }
+    }
+
+    if (!hasCode && !hasTokenHash && !hasSessionPair) {
+      fieldErrors.recovery = "Recovery token is required.";
+    }
+
+    if (Object.keys(fieldErrors).length > 0) {
+      throw validationError(fieldErrors);
+    }
 
     const supabase = getSupabaseClient();
     let response;
     try {
-      if (parsed.hasCode) {
-        response = await supabase.auth.exchangeCodeForSession(parsed.code);
-      } else if (parsed.hasTokenHash) {
+      if (hasCode) {
+        response = await supabase.auth.exchangeCodeForSession(code);
+      } else if (hasTokenHash) {
         response = await supabase.auth.verifyOtp({
           type: "recovery",
-          token_hash: parsed.tokenHash
+          token_hash: tokenHash
         });
       } else {
         response = await supabase.auth.setSession({
-          access_token: parsed.accessToken,
-          refresh_token: parsed.refreshToken
+          access_token: accessToken,
+          refresh_token: refreshToken
         });
       }
       /* c8 ignore next 3 -- defensive: supabase-js usually surfaces failures via response.error. */
@@ -105,8 +136,11 @@ function createPasswordSecurityFlows(deps) {
   async function resetPassword(request, payload) {
     ensureConfigured();
 
-    const parsed = validators.resetPasswordInput(payload);
-    requireNoFieldErrors(parsed, validationError);
+    const result = authPasswordResetBodyValidator.schema.create(payload);
+    if (Object.keys(result.errors).length > 0) {
+      throw validationError(result.errors);
+    }
+    const parsed = result.validatedObject;
 
     const supabase = getSupabaseClient();
     const sessionResponse = await setSessionFromRequestCookies(request, {

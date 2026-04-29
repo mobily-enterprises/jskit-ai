@@ -972,7 +972,7 @@ Instead:
 
 1. define the filters once in a shared CRUD-package module
 2. build the server runtime from that definition with `createCrudListFilters(...)`
-3. choose the route/action invalid-value contract explicitly with `createQueryValidator({ invalidValues: "reject" | "discard" })`
+3. choose the route/action invalid-value contract explicitly on each structured filter field with `createCrudListFilterQueryField(...)`
 4. build the client runtime from that same definition with `useCrudListFilters(...)`
 
 For example, a shared filter-definition module can look like this:
@@ -999,7 +999,7 @@ export const CONTACTS_LIST_FILTER_DEFINITIONS = Object.freeze({
 For a generated CRUD, treat this as the concrete file plan:
 
 - create `packages/contacts/src/shared/contactListFilters.js`
-- update `packages/contacts/src/server/registerRoutes.js` so the list route query validator includes an explicit `createQueryValidator({ invalidValues: ... })` choice, unless you already extracted list-query composition into `packages/contacts/src/server/listQueryValidators.js`
+- update `packages/contacts/src/server/registerRoutes.js` so the list route query validator lists structured filter params explicitly with `createCrudListFilterQueryField(...)`, unless you already extracted list-query composition into `packages/contacts/src/server/listQueryValidators.js`
 - update `packages/contacts/src/server/actions.js` so the list action input validator includes that same explicit contract choice
 - update `packages/contacts/src/server/repository.js` so the list query path builds the `createCrudListFilters(...)` runtime and calls `applyQuery(...)`
 - update the app-owned list page or list-runtime composable, usually under `src/pages/.../contacts/` or `src/composables/...`, so it builds `useCrudListFilters(...)`, passes `queryParams` into `useCrudList(...)`, and renders chips / reset behavior from that runtime
@@ -1126,25 +1126,43 @@ const contactsListFiltersRuntime = createCrudListFilters(
 );
 ```
 
-There is no default query-validator mode or legacy route-runtime alias. Create the validator that matches the contract you want at that route or action boundary.
+There is no default query-validator mode or legacy route-runtime alias. Keep the filter runtime for repository semantics, but author route/action query params explicitly.
 
 Strict contract example:
 
 ```js
-const contactsListFiltersQueryValidator = contactsListFiltersRuntime.createQueryValidator({
-  invalidValues: "reject" // malformed filter values should fail validation and return 400
-});
+const contactsListFilters = CONTACTS_LIST_FILTER_DEFINITIONS;
+
+const contactsListFiltersQueryValidator = {
+  schema: createCrudListFilterQuerySchema({
+    status: createCrudListFilterQueryField(contactsListFilters.status, {
+      invalidValues: "reject"
+    }),
+    arrivalDate: createCrudListFilterQueryField(contactsListFilters.arrivalDate, {
+      invalidValues: "reject"
+    })
+  }),
+  mode: "patch"
+};
 ```
 
 Lenient contract example:
 
 ```js
-const contactsListFiltersQueryValidator = contactsListFiltersRuntime.createQueryValidator({
-  invalidValues: "discard" // malformed filter values should be ignored and dropped by normalize()
-});
+const contactsListFiltersQueryValidator = {
+  schema: createCrudListFilterQuerySchema({
+    status: createCrudListFilterQueryField(CONTACTS_LIST_FILTER_DEFINITIONS.status, {
+      invalidValues: "discard"
+    }),
+    arrivalDate: createCrudListFilterQueryField(CONTACTS_LIST_FILTER_DEFINITIONS.arrivalDate, {
+      invalidValues: "discard"
+    })
+  }),
+  mode: "patch"
+};
 ```
 
-Wire the runtime into the list validator and the repository:
+Wire the explicit query contract into the list validator and the repository:
 
 ```js
 const listRouteQueryValidator = composeSchemaDefinitions([
@@ -1158,16 +1176,16 @@ const listRouteQueryValidator = composeSchemaDefinitions([
 });
 ```
 
-Use that same `contactsListFiltersQueryValidator` anywhere else the list query is validated, such as the composed list action input validator if your CRUD package validates query shape at both the route and action boundaries.
+Use that same explicit `contactsListFiltersQueryValidator` anywhere else the list query is validated, such as the composed list action input validator if your CRUD package validates query shape at both the route and action boundaries.
 
 Choose the invalid-value contract deliberately:
 
-- there is no default mode and no fallback alias, so every route or action that validates structured filters must call `createQueryValidator({ invalidValues: ... })` explicitly
+- there is no default mode and no fallback alias, so every structured filter field must choose `invalidValues: "reject"` or `invalidValues: "discard"` explicitly
 - use `invalidValues: "reject"` when malformed filter values should fail validation and produce a 400-style contract error
 - use `invalidValues: "discard"` when malformed filter values should be ignored and normalization should drop them
 - route query validation runs before auth, so this choice changes whether malformed unauthenticated requests fail at validation or fall through to auth
-- for normal HTTP CRUD handlers, route-level `discard` means the handler receives already-normalized query input, so the action layer will not see those discarded bad values again later
-- `jskit doctor` flags `createQueryValidator(...)` calls that do not spell out `invalidValues` directly at the call site
+- for normal HTTP CRUD handlers, route-level `discard` means the handler receives already-parsed filter values for the explicit fields you listed, so the action layer will not see those discarded bad values again later
+- the filter runtime is still a deliberate two-phase exception: schema parsing owns query-field values, then `applyQuery(...)` maps those parsed values back through filter keys and SQL semantics
 
 ```js
 async function list(query = {}, callOptions = {}) {
@@ -1183,11 +1201,11 @@ async function list(query = {}, callOptions = {}) {
 
 - Put the filter definitions in the CRUD package, not the page. Both server and client need them.
 - Keep the filter keys identical all the way through: definition key, query param key, and repository meaning.
-- Do not expect a default route-runtime query-validator alias. Every structured-filter validator must be created explicitly with `createQueryValidator({ invalidValues: ... })`.
+- Prefer `createCrudListFilterQueryField(...)` plus `createCrudListFilterQuerySchema(...)` at route/action boundaries so accepted structured-filter params stay visible in app code.
 - Use `type: "presence"` for null/not-null filters such as assigned vs unassigned storage. Do not model those as custom enums plus `applyQuery(...)` overrides unless the SQL semantics are genuinely different from `whereNotNull(...)` / `whereNull(...)`.
 - Use `createCrudListFilters(...)` unless the list semantics are truly unusual.
 - Use `q` for free-text and explicit query params for structured filters.
-- Run `jskit doctor` after wiring filters. It flags inline/local filter-definition objects passed into `useCrudListFilters(...)` or `createCrudListFilters(...)`, and it flags `createQueryValidator(...)` calls that hide the invalid-value policy.
+- Run `jskit doctor` after wiring filters. It flags inline/local filter-definition objects passed into `useCrudListFilters(...)` or `createCrudListFilters(...)`.
 
 ### Pattern 4: lookup-backed structured filters
 
@@ -1470,7 +1488,7 @@ Use `scaffold-field` when it fits, then review the generated result.
 Touch:
 
 - `packages/<crud>/src/shared/<crud>ListFilters.js` and make it the only authored filter-definition module
-- `packages/<crud>/src/server/registerRoutes.js` and `packages/<crud>/src/server/actions.js` so the list validator includes an explicit `createQueryValidator({ invalidValues: ... })` choice, or `packages/<crud>/src/server/listQueryValidators.js` if you extracted list-query composition there
+- `packages/<crud>/src/server/registerRoutes.js` and `packages/<crud>/src/server/actions.js` so the list validator lists structured filter params explicitly with `createCrudListFilterQueryField(...)`, or `packages/<crud>/src/server/listQueryValidators.js` if you extracted list-query composition there
 - `packages/<crud>/src/server/repository.js` so the list query applies the runtime
 - the app-owned list page or list-runtime composable that calls `useCrudList(...)`
 

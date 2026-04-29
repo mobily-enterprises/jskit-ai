@@ -4,7 +4,7 @@
   - Current problem: `packages/assistant-runtime/src/server/registerRoutes.js` still builds `params` as validator arrays like `[workspaceScopeSupport.params, assistantSurfaceRouteParams]`.
   - Why it matters: the route layer now expects a single schema definition object, and the real router path throws on this shape.
 
-- [ ] 2. Convert `assistant-runtime` action input composition to real schema definitions.
+- [x] 2. Convert `assistant-runtime` action input composition to real schema definitions.
   - Current problem: `packages/assistant-runtime/src/server/actions.js` still uses legacy input arrays for `query`, `params`, `body`, and `patch` composition.
   - Why it matters: this keeps one package on the old contract model after the rest of the repo moved to single schema definitions.
 
@@ -16,10 +16,10 @@
   - Current problem: shared auth commands now define `json-rest-schema` contracts, but server flows still use manual parsers like `validators.registerInput(...)`, `validators.loginInput(...)`, `validators.forgotPasswordInput(...)`, `validatePasswordRecoveryPayload(...)`, and other handwritten payload parsers.
   - Why it matters: the shared schema is no longer the one owner of auth input semantics, and some flows still validate one subset of fields while reading other values directly from raw `payload`.
 
-- [ ] 5. Decide whether CRUD list filters should remain a deliberate two-phase exception or be pulled fully under the schema contract.
-  - Current problem: `packages/crud-core/src/server/listFilters.js` still splits query validation from final normalized filter projection.
-  - Why it matters: it is one of the few remaining places where “schema validates and normalizes” is not fully true.
+- [x] 5. Decide whether CRUD list filters should remain a deliberate two-phase exception or be pulled fully under the schema contract.
+  - Decision: keep the two-phase server runtime, but make route/action query params explicit with `createCrudListFilterQueryField(...)` and `createCrudListFilterQuerySchema(...)`.
+  - Why it matters: accepted filter params now stay visible in app code instead of hiding behind whole-query validator generation.
 
-- [ ] 6. If CRUD list filters stay two-phase, document that exception explicitly in the architecture docs.
-  - Current problem: the codebase otherwise presents a single-contract validation model.
-  - Why it matters: if the two-phase list-filter model remains intentional after the decision above, it should be called out instead of looking like accidental drift.
+- [x] 6. If CRUD list filters stay two-phase, document that exception explicitly in the architecture docs.
+  - Decision: documented in `FLOW.md` and CRUD filter guidance so the remaining exception is explicit instead of accidental drift.
+  - Why it matters: the codebase otherwise presents a single-contract validation model.

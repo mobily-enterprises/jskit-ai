@@ -26,10 +26,7 @@ export {
 
 export {
   normalizeOAuthProviderInput,
-  parseOAuthCompletePayload,
-  parseOtpLoginVerifyPayload,
-  mapOAuthCallbackError,
-  validatePasswordRecoveryPayload
+  mapOAuthCallbackError
 } from "./authInputParsers.js";
 
 export {

@@ -905,26 +905,42 @@ Owner:
 
 - `packages/crud-core/src/server/listFilters.js`
 
-The custom schema type validates raw query shapes:
+At route/action boundaries, structured filter params should now still be authored explicitly:
 
 ```js
-createSchema.addType(CRUD_LIST_FILTER_QUERY_TYPE, Object.assign(
-  (context) => {
-    ...
-    return context.value;
-  },
-  {
-    toJsonSchema(...) {
-      ...
-    }
-  }
-));
+const listRouteQueryValidator = {
+  schema: createCrudListFilterQuerySchema({
+    status: createCrudListFilterQueryField(CONTACTS_LIST_FILTER_DEFINITIONS.status, {
+      invalidValues: "reject"
+    }),
+    arrivalDate: createCrudListFilterQueryField(CONTACTS_LIST_FILTER_DEFINITIONS.arrivalDate, {
+      invalidValues: "reject"
+    })
+  }),
+  mode: "patch"
+};
 ```
 
-But semantic normalization still happens later in a separate runtime:
+The custom schema type does own parsing of each filter field:
 
 ```js
-function normalize(payload = {}) {
+const parsedValue = parseCrudListFilterQueryValue(filter, context.value, {
+  invalidValues
+});
+
+return parsedValue;
+```
+
+But the server runtime still reprojects those parsed query-field values through filter keys and repository semantics:
+
+```js
+function parseFilterPayload(payload = {}) {
+  const result = discardValidator.schema.patch(normalizeObjectInput(payload));
+  return projectNormalizedFilterValues(filterEntries, result.validatedObject, result.errors);
+}
+
+function applyQuery(queryBuilder, payload = {}) {
+  const normalized = parseFilterPayload(payload);
   ...
 }
 ```
@@ -932,9 +948,15 @@ function normalize(payload = {}) {
 So list filters are still the main place where:
 
 - schema validation
-- semantic normalization
+- repository-facing semantic normalization / query application
 
-are split instead of being fully unified.
+are split instead of being fully unified in one schema pass.
+
+That split is intentional for now:
+
+- route/action query params stay explicit in app code
+- shared filter definitions still own filter metadata and parsing rules
+- repository runtime still owns the last step that maps parsed filter values to filter keys and SQL semantics
 
 ## 22. Bottom Line
 

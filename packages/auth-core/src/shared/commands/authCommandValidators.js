@@ -44,6 +44,7 @@ const oauthReturnToFieldDefinition = deepFreeze({
 
 const authEmailFieldDefinition = deepFreeze({
   type: "string",
+  lowercase: true,
   minLength: AUTH_EMAIL_MIN_LENGTH,
   maxLength: AUTH_EMAIL_MAX_LENGTH,
   pattern: AUTH_EMAIL_PATTERN
