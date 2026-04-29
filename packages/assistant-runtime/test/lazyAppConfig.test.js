@@ -1,6 +1,8 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+import { createSchema } from "json-rest-schema";
 import { AppError } from "@jskit-ai/kernel/server/runtime";
+import { createRouter } from "../../kernel/server/http/lib/router.js";
 import { registerRoutes } from "../src/server/registerRoutes.js";
 import { createChatService } from "../src/server/services/chatService.js";
 
@@ -27,11 +29,16 @@ function createWorkspaceServerScopeSupport() {
   return Object.freeze({
     available: true,
     params: Object.freeze({
-      normalize(value = {}) {
-        return {
-          workspaceSlug: String(value?.workspaceSlug || "").trim().toLowerCase()
-        };
-      }
+      schema: createSchema({
+        workspaceSlug: {
+          type: "string",
+          required: true,
+          lowercase: true,
+          minLength: 1,
+          maxLength: 160
+        }
+      }),
+      mode: "patch"
     }),
     buildInputFromRouteParams(params = {}) {
       const workspaceSlug = String(params?.workspaceSlug || "").trim().toLowerCase();
@@ -43,39 +50,52 @@ function createWorkspaceServerScopeSupport() {
   });
 }
 
+function createAssistantTestApp({
+  resolveCurrentAppConfig = () => null,
+  workspaceScopeSupport = null,
+  router = null
+} = {}) {
+  const resolvedRouter = router || createRouter();
+
+  return {
+    router: resolvedRouter,
+    app: {
+      make(token) {
+        if (token === "jskit.http.router") {
+          return resolvedRouter;
+        }
+        if (token === "appConfig") {
+          return resolveCurrentAppConfig();
+        }
+        if (token === "workspaces.server.scope-support" && workspaceScopeSupport) {
+          return workspaceScopeSupport;
+        }
+        throw new Error(`Unexpected token: ${token}`);
+      },
+      has(token) {
+        if (token === "jskit.http.router") {
+          return true;
+        }
+        if (token === "appConfig") {
+          return Boolean(resolveCurrentAppConfig());
+        }
+        return token === "workspaces.server.scope-support" && Boolean(workspaceScopeSupport);
+      }
+    }
+  };
+}
+
 test("registerRoutes resolves appConfig lazily when handlers run", async () => {
-  const routes = [];
   let currentAppConfig = null;
+  const workspaceScopeSupport = createWorkspaceServerScopeSupport();
+  const testApp = createAssistantTestApp({
+    workspaceScopeSupport,
+    resolveCurrentAppConfig: () => currentAppConfig
+  });
 
-  const router = {
-    register(method, path, options, handler) {
-      routes.push({ method, path, options, handler });
-    }
-  };
-
-  const app = {
-    make(token) {
-      if (token === "jskit.http.router") {
-        return router;
-      }
-      if (token === "appConfig") {
-        return currentAppConfig;
-      }
-      if (token === "workspaces.server.scope-support") {
-        return createWorkspaceServerScopeSupport();
-      }
-      throw new Error(`Unexpected token: ${token}`);
-    },
-    has(token) {
-      return (
-        (token === "appConfig" ? Boolean(currentAppConfig) : token === "jskit.http.router") ||
-        token === "workspaces.server.scope-support"
-      );
-    }
-  };
-
-  registerRoutes(app);
+  registerRoutes(testApp.app);
   currentAppConfig = createAssistantAppConfig();
+  const routes = testApp.router.list();
 
   const route = routes.find(
     (entry) =>
@@ -135,38 +155,16 @@ test("registerRoutes resolves appConfig lazily when handlers run", async () => {
 });
 
 test("registerRoutes returns clear AppError payload for pre-stream assistant failures", async () => {
-  const routes = [];
   let currentAppConfig = null;
+  const workspaceScopeSupport = createWorkspaceServerScopeSupport();
+  const testApp = createAssistantTestApp({
+    workspaceScopeSupport,
+    resolveCurrentAppConfig: () => currentAppConfig
+  });
 
-  const router = {
-    register(method, path, options, handler) {
-      routes.push({ method, path, options, handler });
-    }
-  };
-
-  const app = {
-    make(token) {
-      if (token === "jskit.http.router") {
-        return router;
-      }
-      if (token === "appConfig") {
-        return currentAppConfig;
-      }
-      if (token === "workspaces.server.scope-support") {
-        return createWorkspaceServerScopeSupport();
-      }
-      throw new Error(`Unexpected token: ${token}`);
-    },
-    has(token) {
-      return (
-        (token === "appConfig" ? Boolean(currentAppConfig) : token === "jskit.http.router") ||
-        token === "workspaces.server.scope-support"
-      );
-    }
-  };
-
-  registerRoutes(app);
+  registerRoutes(testApp.app);
   currentAppConfig = createAssistantAppConfig();
+  const routes = testApp.router.list();
 
   const route = routes.find(
     (entry) =>
@@ -321,27 +319,12 @@ test("chat service rejects workspace-scoped assistant surfaces when workspace su
 });
 
 test("registerRoutes omits workspace assistant routes when workspace scope support is unavailable", () => {
-  const routes = [];
-  const app = {
-    make(token) {
-      if (token === "jskit.http.router") {
-        return {
-          register(method, path, options, handler) {
-            routes.push({ method, path, options, handler });
-          }
-        };
-      }
-      if (token === "appConfig") {
-        return createAssistantAppConfig();
-      }
-      throw new Error(`Unexpected token: ${token}`);
-    },
-    has(token) {
-      return token === "jskit.http.router" || token === "appConfig";
-    }
-  };
+  const testApp = createAssistantTestApp({
+    resolveCurrentAppConfig: () => createAssistantAppConfig()
+  });
 
-  registerRoutes(app);
+  registerRoutes(testApp.app);
+  const routes = testApp.router.list();
 
   assert.equal(
     routes.some((entry) => entry.path.startsWith("/api/w/:workspaceSlug/assistant/")),

@@ -1,11 +1,23 @@
+import { normalizeSchemaDefinition } from "@jskit-ai/kernel/shared/validators";
+
 const WORKSPACES_SERVER_SCOPE_SUPPORT_TOKEN = "workspaces.server.scope-support";
+
+function hasWorkspaceRouteParamsDefinition(value) {
+  try {
+    return Boolean(normalizeSchemaDefinition(value, {
+      context: "assistant-runtime workspace scope support.params",
+      defaultMode: "patch"
+    }));
+  } catch {
+    return false;
+  }
+}
 
 function isWorkspaceServerScopeSupport(value) {
   return Boolean(
     value &&
       value.available === true &&
-      value.params &&
-      typeof value.params.normalize === "function" &&
+      hasWorkspaceRouteParamsDefinition(value.params) &&
       typeof value.buildInputFromRouteParams === "function" &&
       typeof value.resolveWorkspace === "function"
   );
