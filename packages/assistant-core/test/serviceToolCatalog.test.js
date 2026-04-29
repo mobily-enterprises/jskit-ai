@@ -17,6 +17,32 @@ function createApp() {
   return app;
 }
 
+function createEmptyInputSchema() {
+  return createSchema({});
+}
+
+function createListOutputSchema() {
+  return createSchema({
+    items: {
+      type: "array",
+      required: true,
+      items: {
+        type: "object",
+        additionalProperties: true
+      }
+    }
+  });
+}
+
+function createOkOutputSchema() {
+  return createSchema({
+    ok: {
+      type: "boolean",
+      required: true
+    }
+  });
+}
+
 test("service tool catalog hides methods user cannot execute", () => {
   const app = createApp();
   const actionRuntimeProvider = new ActionRuntimeServiceProvider();
@@ -49,16 +75,10 @@ test("service tool catalog hides methods user cannot execute", () => {
         customersService: "demo.customers.service"
       },
       input: {
-        schema: { type: "object", additionalProperties: true }
+        schema: createEmptyInputSchema()
       },
       output: {
-        schema: {
-          type: "array",
-          items: {
-            type: "object",
-            additionalProperties: true
-          }
-        }
+        schema: createListOutputSchema()
       },
       idempotency: "none",
       audit: {
@@ -84,13 +104,10 @@ test("service tool catalog hides methods user cannot execute", () => {
         customersService: "demo.customers.service"
       },
       input: {
-        schema: { type: "object", additionalProperties: true }
+        schema: createEmptyInputSchema()
       },
       output: {
-        schema: {
-          type: "object",
-          additionalProperties: true
-        }
+        schema: createOkOutputSchema()
       },
       idempotency: "optional",
       audit: {
@@ -214,13 +231,7 @@ test("service tool catalog hides actions that are not automation-enabled", () =>
         schema: createSchema({})
       },
       output: {
-        schema: {
-          type: "array",
-          items: {
-            type: "object",
-            additionalProperties: true
-          }
-        }
+        schema: createListOutputSchema()
       },
       idempotency: "none",
       audit: {
@@ -275,20 +286,10 @@ test("service tool catalog honors barred action ids", () => {
         auditService: "demo.audit.service"
       },
       input: {
-        schema: {
-          type: "object",
-          additionalProperties: false,
-          properties: {}
-        }
+        schema: createEmptyInputSchema()
       },
       output: {
-        schema: {
-          type: "array",
-          items: {
-            type: "object",
-            additionalProperties: true
-          }
-        }
+        schema: createListOutputSchema()
       },
       idempotency: "none",
       audit: {
@@ -343,7 +344,7 @@ test("service tool catalog materializes action tools once and filters per reques
         cachedService: "demo.cached.service"
       },
       input: {
-        schema: { type: "object", additionalProperties: true }
+        schema: createEmptyInputSchema()
       },
       idempotency: "none",
       audit: {
@@ -390,43 +391,26 @@ test("service tool catalog uses action-backed schemas for tool contracts", () =>
   const actionRuntimeProvider = new ActionRuntimeServiceProvider();
   actionRuntimeProvider.register(app);
 
-  const inputSchema = Object.freeze({
-    type: "object",
-    properties: {
-      args: {
-        type: "array",
-        prefixItems: [
-          {
-            type: "object",
-            properties: {
-              displayName: {
-                type: "string"
-              }
-            },
-            required: ["displayName"],
-            additionalProperties: false
-          }
-        ],
-        minItems: 1,
-        maxItems: 1
-      },
-      options: {
-        type: "object",
-        additionalProperties: true
-      }
+  const inputSchema = createSchema({
+    args: {
+      type: "array",
+      required: true,
+      minItems: 1,
+      maxItems: 1,
+      items: createSchema({
+        displayName: {
+          type: "string",
+          required: true
+        }
+      })
     },
-    additionalProperties: false
+    options: {
+      type: "object",
+      required: false,
+      additionalProperties: true
+    }
   });
-  const outputSchema = Object.freeze({
-    type: "object",
-    properties: {
-      ok: {
-        type: "boolean"
-      }
-    },
-    required: ["ok"],
-    additionalProperties: false
-  });
+  const outputSchema = createOkOutputSchema();
 
   app.service(
     "demo.schemas.service",
@@ -485,8 +469,8 @@ test("service tool catalog uses action-backed schemas for tool contracts", () =>
 
   assert.equal(toolSet.tools.length, 1);
   assert.equal(toolSet.tools[0].description, "Update profile display name.");
-  assert.equal(toolSet.tools[0].parameters, inputSchema);
-  assert.equal(toolSet.tools[0].outputSchema, outputSchema);
+  assert.deepEqual(toolSet.tools[0].parameters, inputSchema.toJsonSchema({ mode: "patch" }));
+  assert.deepEqual(toolSet.tools[0].outputSchema, outputSchema.toJsonSchema({ mode: "replace" }));
 });
 
 test("service tool catalog rejects legacy assistantTool field at assistant layer", () => {
@@ -510,20 +494,8 @@ test("service tool catalog rejects legacy assistantTool field at assistant layer
     })
   );
 
-  const schema = Object.freeze({
-    type: "object",
-    additionalProperties: false
-  });
-  const outputSchema = Object.freeze({
-    type: "object",
-    properties: {
-      ok: {
-        type: "boolean"
-      }
-    },
-    required: ["ok"],
-    additionalProperties: false
-  });
+  const schema = createEmptyInputSchema();
+  const outputSchema = createOkOutputSchema();
 
   app.actions([
     {
@@ -640,22 +612,10 @@ test("service tool catalog can require input/output schemas for tool exposure", 
         strictService: "demo.strict.service"
       },
       input: {
-        schema: {
-          type: "object",
-          additionalProperties: false
-        }
+        schema: createEmptyInputSchema()
       },
       output: {
-        schema: {
-          type: "object",
-          properties: {
-            ok: {
-              type: "boolean"
-            }
-          },
-          required: ["ok"],
-          additionalProperties: false
-        }
+        schema: createOkOutputSchema()
       },
       idempotency: "none",
       audit: {
@@ -685,30 +645,25 @@ test("service tool catalog derives tool schemas from action contributors", () =>
   const actionRuntimeProvider = new ActionRuntimeServiceProvider();
   actionRuntimeProvider.register(app);
 
-  const inputSchema = Object.freeze({
-    type: "object",
-    properties: {
-      workspaceSlug: {
-        type: "string"
-      },
-      name: {
-        type: "string"
-      },
-      surname: {
-        type: "string"
-      }
+  const inputSchema = createSchema({
+    workspaceSlug: {
+      type: "string",
+      required: false
     },
-    additionalProperties: false
+    name: {
+      type: "string",
+      required: false
+    },
+    surname: {
+      type: "string",
+      required: false
+    }
   });
-  const outputSchema = Object.freeze({
-    type: "object",
-    properties: {
-      id: {
-        type: "integer"
-      }
-    },
-    required: ["id"],
-    additionalProperties: false
+  const outputSchema = createSchema({
+    id: {
+      type: "integer",
+      required: true
+    }
   });
 
   app.service(
@@ -766,11 +721,11 @@ test("service tool catalog derives tool schemas from action contributors", () =>
   const createTool = toolSet.tools.find((tool) => tool.actionId === "demo.customers.create");
 
   assert.ok(createTool);
-  assert.equal(createTool.parameters, inputSchema);
-  assert.equal(createTool.outputSchema, outputSchema);
+  assert.deepEqual(createTool.parameters, inputSchema.toJsonSchema({ mode: "patch" }));
+  assert.deepEqual(createTool.outputSchema, outputSchema.toJsonSchema({ mode: "replace" }));
 });
 
-test("service tool catalog derives input schema from array action validators", () => {
+test("service tool catalog derives input schema from a composed action schema", () => {
   const app = createApp();
   const actionRuntimeProvider = new ActionRuntimeServiceProvider();
   actionRuntimeProvider.register(app);
@@ -801,31 +756,25 @@ test("service tool catalog derives input schema from array action validators", (
       dependencies: {
         arraySchemaService: "demo.array_schema.service"
       },
-      input: [
-        {
-          schema: createSchema({
-            workspaceSlug: {
-              type: "string",
-              required: true,
-              minLength: 1
-            }
-          })
-        },
-        {
-          schema: createSchema({
-            name: {
-              type: "string",
-              required: true,
-              minLength: 1
-            },
-            surname: {
-              type: "string",
-              required: true,
-              minLength: 1
-            }
-          })
-        }
-      ],
+      input: {
+        schema: createSchema({
+          workspaceSlug: {
+            type: "string",
+            required: true,
+            minLength: 1
+          },
+          name: {
+            type: "string",
+            required: true,
+            minLength: 1
+          },
+          surname: {
+            type: "string",
+            required: true,
+            minLength: 1
+          }
+        })
+      },
       output: {
         schema: createSchema({
           id: {
@@ -869,7 +818,7 @@ test("service tool catalog derives input schema from array action validators", (
   assert.equal(typeof createTool.parameters?.properties?.surname, "object");
 });
 
-test("service tool catalog preserves section-map validators in tool schemas", () => {
+test("service tool catalog derives direct tool schemas from composed action inputs", () => {
   const app = createApp();
   const actionRuntimeProvider = new ActionRuntimeServiceProvider();
   actionRuntimeProvider.register(app);
@@ -882,16 +831,6 @@ test("service tool catalog preserves section-map validators in tool schemas", ()
       }
     })
   );
-
-  const patchValidator = Object.freeze({
-    schema: createSchema({
-      name: {
-        type: "string",
-        required: true,
-        minLength: 1
-      }
-    })
-  });
 
   app.actions([
     {
@@ -907,20 +846,20 @@ test("service tool catalog preserves section-map validators in tool schemas", ()
       dependencies: {
         workspaceSettingsService: "demo.workspace_settings.service"
       },
-      input: [
-        {
-          schema: createSchema({
-            workspaceSlug: {
-              type: "string",
-              required: true,
-              minLength: 1
-            }
-          })
-        },
-        {
-          patch: patchValidator
-        }
-      ],
+      input: {
+        schema: createSchema({
+          workspaceSlug: {
+            type: "string",
+            required: true,
+            minLength: 1
+          },
+          name: {
+            type: "string",
+            required: true,
+            minLength: 1
+          }
+        })
+      },
       output: {
         schema: createSchema({
           ok: {
@@ -967,9 +906,7 @@ test("service tool catalog preserves section-map validators in tool schemas", ()
   assert.ok(updateTool);
   assert.equal(updateTool.parameters?.type, "object");
   assert.equal(Object.hasOwn(updateTool.parameters?.properties || {}, "workspaceSlug"), false);
-  assert.equal(typeof updateTool.parameters?.properties?.patch, "object");
-  assert.equal(updateTool.parameters?.properties?.patch.type, "object");
-  assert.equal(typeof updateTool.parameters?.properties?.patch.properties?.name, "object");
+  assert.equal(typeof updateTool.parameters?.properties?.name, "object");
 });
 
 test("service tool catalog hides workspaceSlug parameter when workspace context is already resolved", () => {
@@ -1298,13 +1235,7 @@ test("service tool catalog hides automation actions from other surfaces", () => 
         schema: createSchema({})
       },
       output: {
-        schema: {
-          type: "array",
-          items: {
-            type: "object",
-            additionalProperties: true
-          }
-        }
+        schema: createListOutputSchema()
       },
       idempotency: "none",
       audit: {
@@ -1329,13 +1260,7 @@ test("service tool catalog hides automation actions from other surfaces", () => 
         schema: createSchema({})
       },
       output: {
-        schema: {
-          type: "array",
-          items: {
-            type: "object",
-            additionalProperties: true
-          }
-        }
+        schema: createListOutputSchema()
       },
       idempotency: "none",
       audit: {

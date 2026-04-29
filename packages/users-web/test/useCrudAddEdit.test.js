@@ -1,7 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { reactive } from "vue";
-import { createSchema } from "json-rest-schema";
 import {
   normalizeCrudFormFields,
   createCrudFormModel,
@@ -9,8 +8,7 @@ import {
   applyCrudPayloadToForm,
   resolveCrudRouteBoundFieldValues,
   applyCrudRouteBoundFieldValues,
-  resolveCrudFieldErrors,
-  parseCrudResourceOperationInput
+  resolveCrudFieldErrors
 } from "../src/client/composables/crud/crudSchemaFormHelpers.js";
 
 test("normalizeCrudFormFields trims keys, removes invalid entries, and deduplicates", () => {
@@ -289,44 +287,4 @@ test("applyCrudRouteBoundFieldValues enforces route-bound field values onto targ
 test("resolveCrudFieldErrors returns Vuetify-compatible error arrays", () => {
   assert.deepEqual(resolveCrudFieldErrors({ name: "Name is required." }, "name"), ["Name is required."]);
   assert.deepEqual(resolveCrudFieldErrors({ name: "Name is required." }, "email"), []);
-});
-
-test("parseCrudResourceOperationInput validates and normalizes operation body payloads", async () => {
-  const resource = {
-    operations: {
-      create: {
-        body: {
-          schema: createSchema({
-            name: { type: "string", required: true, minLength: 1 },
-            age: { type: "integer", required: true, min: 1 }
-          }),
-          mode: "create"
-        }
-      }
-    }
-  };
-
-  const validResult = await parseCrudResourceOperationInput({
-    resource,
-    operationName: "create",
-    rawPayload: {
-      name: "  Ada  ",
-      age: "2"
-    }
-  });
-  assert.equal(validResult.ok, true);
-  assert.deepEqual(validResult.value, {
-    name: "Ada",
-    age: 2
-  });
-
-  const invalidResult = await parseCrudResourceOperationInput({
-    resource,
-    operationName: "create",
-    rawPayload: {
-      name: "   ",
-      age: "0"
-    }
-  });
-  assert.equal(invalidResult.ok, false);
 });

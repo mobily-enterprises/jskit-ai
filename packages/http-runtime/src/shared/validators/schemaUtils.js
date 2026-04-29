@@ -1,15 +1,22 @@
-import { isJsonRestSchemaInstance } from "@jskit-ai/kernel/shared/validators";
+import { normalizeSingleSchemaDefinition } from "@jskit-ai/kernel/shared/validators";
 
-function asSchema(value, label) {
-  if (isJsonRestSchemaInstance(value)) {
-    return value;
+function asSchemaDefinition(value, label, defaultMode, { required = true } = {}) {
+  if (value == null) {
+    if (!required) {
+      return null;
+    }
+
+    throw new TypeError(`${label} is required.`);
   }
 
-  if (!value || typeof value !== "object" || Array.isArray(value)) {
-    throw new TypeError(`${label} must be a schema object.`);
+  try {
+    return normalizeSingleSchemaDefinition(value, {
+      context: label,
+      defaultMode
+    });
+  } catch (error) {
+    throw new TypeError(error?.message || `${label} must be a schema definition object.`);
   }
-
-  return value;
 }
 
-export { asSchema };
+export { asSchemaDefinition };

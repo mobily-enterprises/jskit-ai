@@ -1,5 +1,4 @@
 import {
-  isJsonRestSchemaInstance,
   normalizeSingleSchemaDefinition
 } from "../validators/index.js";
 import { isRecord as isPlainObject, normalizePositiveInteger } from "../support/normalize.js";
@@ -88,8 +87,8 @@ function normalizeSingleActionSchema(value, fieldName, { required = false, defau
     });
   }
 
-  if (!isPlainObject(value) && !isJsonRestSchemaInstance(value) && typeof value !== "function") {
-    throw createActionRuntimeError(500, `Action definition ${fieldName} must be a function or object.`, {
+  if (!isPlainObject(value)) {
+    throw createActionRuntimeError(500, `Action definition ${fieldName} must be a json-rest-schema schema definition.`, {
       code: "ACTION_DEFINITION_INVALID"
     });
   }
@@ -106,33 +105,6 @@ function normalizeSingleActionSchema(value, fieldName, { required = false, defau
   }
 }
 
-function isActionSchemaSectionMap(value) {
-  if (!isPlainObject(value) || Array.isArray(value) || isJsonRestSchemaInstance(value)) {
-    return false;
-  }
-
-  const reservedSchemaKeys = new Set([
-    "schema",
-    "mode",
-    "type",
-    "properties",
-    "required",
-    "additionalProperties",
-    "anyOf",
-    "oneOf",
-    "allOf",
-    "$schema"
-  ]);
-
-  for (const key of Object.keys(value)) {
-    if (reservedSchemaKeys.has(key)) {
-      return false;
-    }
-  }
-
-  return Object.keys(value).length > 0;
-}
-
 function normalizeActionInputDefinition(value, fieldName, { required = false } = {}) {
   if (value == null) {
     if (!required) {
@@ -144,39 +116,10 @@ function normalizeActionInputDefinition(value, fieldName, { required = false } =
     });
   }
 
-  if (isActionSchemaSectionMap(value)) {
-    const normalized = {};
-
-    for (const [rawKey, rawDefinition] of Object.entries(value)) {
-      const sectionKey = normalizeText(rawKey);
-      if (!sectionKey) {
-        throw createActionRuntimeError(500, `Action definition ${fieldName} section keys must be non-empty strings.`, {
-          code: "ACTION_DEFINITION_INVALID"
-        });
-      }
-
-      normalized[sectionKey] = normalizeActionInputDefinition(rawDefinition, `${fieldName}.${sectionKey}`, {
-        required: true
-      });
-    }
-
-    return Object.freeze(normalized);
-  }
-
   if (Array.isArray(value)) {
-    if (value.length < 1) {
-      throw createActionRuntimeError(500, `Action definition ${fieldName} is required.`, {
-        code: "ACTION_DEFINITION_INVALID"
-      });
-    }
-
-    return Object.freeze(
-      value.map((entry, index) =>
-        normalizeActionInputDefinition(entry, `${fieldName}[${index}]`, {
-          required: true
-        })
-      )
-    );
+    throw createActionRuntimeError(500, `Action definition ${fieldName} must be a single schema definition.`, {
+      code: "ACTION_DEFINITION_INVALID"
+    });
   }
 
   return normalizeSingleActionSchema(value, fieldName, {
@@ -196,39 +139,10 @@ function normalizeActionOutputDefinition(value, fieldName, { required = false } 
     });
   }
 
-  if (isActionSchemaSectionMap(value)) {
-    const normalized = {};
-
-    for (const [rawKey, rawDefinition] of Object.entries(value)) {
-      const sectionKey = normalizeText(rawKey);
-      if (!sectionKey) {
-        throw createActionRuntimeError(500, `Action definition ${fieldName} section keys must be non-empty strings.`, {
-          code: "ACTION_DEFINITION_INVALID"
-        });
-      }
-
-      normalized[sectionKey] = normalizeActionOutputDefinition(rawDefinition, `${fieldName}.${sectionKey}`, {
-        required: true
-      });
-    }
-
-    return Object.freeze(normalized);
-  }
-
   if (Array.isArray(value)) {
-    if (value.length < 1) {
-      throw createActionRuntimeError(500, `Action definition ${fieldName} is required.`, {
-        code: "ACTION_DEFINITION_INVALID"
-      });
-    }
-
-    return Object.freeze(
-      value.map((entry, index) =>
-        normalizeActionOutputDefinition(entry, `${fieldName}[${index}]`, {
-          required: true
-        })
-      )
-    );
+    throw createActionRuntimeError(500, `Action definition ${fieldName} must be a single schema definition.`, {
+      code: "ACTION_DEFINITION_INVALID"
+    });
   }
 
   return normalizeSingleActionSchema(value, fieldName, {
@@ -441,7 +355,6 @@ const __testables = {
   isPlainObject,
   normalizeStringArray,
   normalizeSingleActionSchema,
-  isActionSchemaSectionMap,
   normalizeActionInputDefinition,
   normalizeActionOutputDefinition,
   normalizeActionPermission,

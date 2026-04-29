@@ -35,9 +35,7 @@ const consoleSettingsActions = Object.freeze([
     permission: {
       require: "authenticated"
     },
-    input: {
-      payload: consoleSettingsResource.operations.replace.body
-    },
+    input: consoleSettingsResource.operations.replace.body,
     output: consoleSettingsResource.operations.replace.output,
     idempotency: "optional",
     audit: {
@@ -45,7 +43,7 @@ const consoleSettingsActions = Object.freeze([
     },
     observability: {},
     async execute(input, context, deps) {
-      return deps.consoleSettingsService.updateSettings(input.payload, {
+      return deps.consoleSettingsService.updateSettings(input, {
         context
       });
     }

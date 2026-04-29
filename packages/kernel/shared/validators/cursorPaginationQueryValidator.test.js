@@ -3,8 +3,8 @@ import assert from "node:assert/strict";
 import { cursorPaginationQueryValidator } from "./cursorPaginationQueryValidator.js";
 import { validateSchemaPayload } from "./schemaPayloadValidation.js";
 
-test("cursorPaginationQueryValidator normalizes numeric strings through schema casting", async () => {
-  assert.deepEqual(await validateSchemaPayload(cursorPaginationQueryValidator, { cursor: "12", limit: "25" }), {
+test("cursorPaginationQueryValidator normalizes numeric strings through schema casting", () => {
+  assert.deepEqual(validateSchemaPayload(cursorPaginationQueryValidator, { cursor: "12", limit: "25" }), {
     cursor: 12,
     limit: 25
   });
@@ -19,12 +19,12 @@ test("cursorPaginationQueryValidator schema rejects opaque cursor strings", () =
   );
 });
 
-test("cursorPaginationQueryValidator keeps absent keys absent", async () => {
-  assert.deepEqual(await validateSchemaPayload(cursorPaginationQueryValidator, {}), {});
+test("cursorPaginationQueryValidator keeps absent keys absent", () => {
+  assert.deepEqual(validateSchemaPayload(cursorPaginationQueryValidator, {}), {});
 });
 
-test("cursorPaginationQueryValidator rejects unsupported query fields", async () => {
-  await assert.rejects(
+test("cursorPaginationQueryValidator rejects unsupported query fields", () => {
+  assert.throws(
     () => validateSchemaPayload(cursorPaginationQueryValidator, { q: "  to  " }),
     (error) => {
       assert.deepEqual(error.fieldErrors, {

@@ -56,53 +56,59 @@ function createPatchSchema() {
   };
 }
 
-test("normalizeActionInputDefinition accepts section-map schema syntax", () => {
+test("normalizeActionInputDefinition accepts a single schema definition", () => {
   const definition = __testables.normalizeActionInputDefinition(
-    {
-      payload: createPatchSchema()
-    },
+    createPatchSchema(),
     "input",
     { required: true }
   );
 
-  assert.equal(typeof definition, "object");
-  assert.equal(Array.isArray(definition), false);
-  assert.deepEqual(Object.keys(definition), ["payload"]);
-  assertJsonRestSchemaDefinition(definition.payload);
+  assertJsonRestSchemaDefinition(definition);
 });
 
-test("normalizeActionInputDefinition preserves arrays that combine root and section schemas", () => {
-  const definition = __testables.normalizeActionInputDefinition(
-    [
-      createWorkspaceSlugSchema(),
-      {
-        patch: createPatchSchema()
-      }
-    ],
-    "input",
-    { required: true }
-  );
-
-  assert.equal(Array.isArray(definition), true);
-  assert.equal(definition.length, 2);
-  assertJsonRestSchemaDefinition(definition[0]);
-  assert.deepEqual(Object.keys(definition[1]), ["patch"]);
-  assertJsonRestSchemaDefinition(definition[1].patch);
-});
-
-test("normalizeActionInputDefinition rejects invalid section-map entries", () => {
+test("normalizeActionInputDefinition rejects section-map syntax", () => {
   assert.throws(
     () =>
       __testables.normalizeActionInputDefinition(
         {
-          payload: {
-            schema: null
-          }
+          payload: createPatchSchema()
         },
         "input",
         { required: true }
       ),
-    /input\.payload\.schema must be a function or object/
+    /Action definition input must be a schema definition object/
+  );
+});
+
+test("normalizeActionInputDefinition rejects bare schema instances", () => {
+  assert.throws(
+    () =>
+      __testables.normalizeActionInputDefinition(
+        createSchema({
+          name: {
+            type: "string",
+            minLength: 1
+          }
+        }),
+        "input",
+        { required: true }
+      ),
+    /Action definition input must be a schema definition object/
+  );
+});
+
+test("normalizeActionInputDefinition rejects validator arrays", () => {
+  assert.throws(
+    () =>
+      __testables.normalizeActionInputDefinition(
+        [
+          createWorkspaceSlugSchema(),
+          createPatchSchema()
+        ],
+        "input",
+        { required: true }
+      ),
+    /input must be a single schema definition/
   );
 });
 
@@ -142,20 +148,6 @@ test("normalizeActionDefinition stays channel-agnostic and ignores unknown legac
   assert.equal(Object.prototype.hasOwnProperty.call(definition, "assistantTool"), false);
 });
 
-test("normalizeActionOutputDefinition accepts section-map syntax", () => {
-  const output = __testables.normalizeActionOutputDefinition(
-    {
-      payload: createPatchSchema()
-    },
-    "output",
-    { required: false }
-  );
-
-  assert.equal(typeof output, "object");
-  assert.deepEqual(Object.keys(output), ["payload"]);
-  assertJsonRestSchemaDefinition(output.payload);
-});
-
 test("normalizeActionOutputDefinition accepts single schema definitions", () => {
   const output = __testables.normalizeActionOutputDefinition(
     {
@@ -171,6 +163,20 @@ test("normalizeActionOutputDefinition accepts single schema definitions", () => 
   );
 
   assertJsonRestSchemaDefinition(output);
+});
+
+test("normalizeActionOutputDefinition rejects section-map syntax", () => {
+  assert.throws(
+    () =>
+      __testables.normalizeActionOutputDefinition(
+        {
+          payload: createPatchSchema()
+        },
+        "output",
+        { required: false }
+      ),
+    /Action definition output must be a schema definition object/
+  );
 });
 
 test("normalizeActionInputDefinition preserves mode for json-rest-schema definitions", () => {

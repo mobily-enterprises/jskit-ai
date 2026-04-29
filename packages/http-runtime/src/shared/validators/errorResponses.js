@@ -60,6 +60,12 @@ const fastifyDefaultErrorResponseSchema = {
 
 const STANDARD_ERROR_STATUS_CODES = [400, 401, 403, 404, 409, 422, 429, 500, 503];
 
+function transportResponseSchema(schema = {}) {
+  return {
+    transportSchema: schema
+  };
+}
+
 function passthroughErrorResponses(successResponses) {
   return successResponses;
 }
@@ -75,23 +81,19 @@ function withStandardErrorResponses(successResponses, { includeValidation400 = f
     }
 
     if (statusCode === 400 && includeValidation400) {
-      responses[statusCode] = {
-        schema: {
+      responses[statusCode] = transportResponseSchema({
           anyOf: [
             apiValidationErrorResponseSchema,
             apiErrorResponseSchema,
             fastifyDefaultErrorResponseSchema
           ]
-        }
-      };
+        });
       continue;
     }
 
-    responses[statusCode] = {
-      schema: {
-        anyOf: [apiErrorResponseSchema, fastifyDefaultErrorResponseSchema]
-      }
-    };
+    responses[statusCode] = transportResponseSchema({
+      anyOf: [apiErrorResponseSchema, fastifyDefaultErrorResponseSchema]
+    });
   }
 
   return responses;
@@ -110,6 +112,7 @@ export {
   apiValidationErrorResponseSchema,
   fastifyDefaultErrorResponseSchema,
   STANDARD_ERROR_STATUS_CODES,
+  transportResponseSchema,
   passthroughErrorResponses,
   withStandardErrorResponses,
   enumSchema

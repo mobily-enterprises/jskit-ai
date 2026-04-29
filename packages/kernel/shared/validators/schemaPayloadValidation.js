@@ -1,40 +1,19 @@
-import { normalizeObject, normalizeText } from "../support/normalize.js";
 import {
   executeJsonRestSchemaDefinition,
-  executeJsonRestSchemaDefinitionSync,
-  hasJsonRestSchemaDefinition,
-  isSchemaDefinitionSectionMap,
-  listSchemaDefinitions,
-  normalizeJsonRestSchemaFieldErrors,
-  selectPayloadForSchemaDefinition
+  normalizeJsonRestSchemaFieldErrors
 } from "./schemaDefinitions.js";
-
-function normalizeSchemaValidationErrors(schema) {
-  const errors = Array.isArray(schema?.errors) ? schema.errors : [];
-  if (errors.length < 1) {
-    return null;
-  }
-
-  const fieldErrors = {};
-  for (const entry of errors) {
-    const rawFieldPath = normalizeText(entry?.path || entry?.instancePath || entry?.field || "");
-    const fieldPath = rawFieldPath
-      ? rawFieldPath.replace(/^\//, "").replace(/\//g, ".")
-      : "input";
-    const message = normalizeText(entry?.message || "Invalid value.") || "Invalid value.";
-    fieldErrors[fieldPath] = message;
-  }
-
-  return Object.keys(fieldErrors).length > 0 ? fieldErrors : null;
-}
 
 function buildSchemaValidationError({
   message = "Schema validation failed.",
   fieldErrors = null,
   errors = null,
-  cause
+  cause,
+  statusCode = null
 } = {}) {
   const error = new Error(message, cause ? { cause } : undefined);
+  if (Number.isInteger(statusCode) && statusCode >= 400 && statusCode <= 599) {
+    error.statusCode = statusCode;
+  }
   if (fieldErrors && typeof fieldErrors === "object") {
     error.fieldErrors = fieldErrors;
     error.details = {
@@ -51,236 +30,36 @@ function buildSchemaValidationError({
   return error;
 }
 
-function normalizeFunctionSchemaResult(result, payload, { context = "schema definition" } = {}) {
-  const contextLabel = typeof context === "string" && context.trim()
-    ? context.trim()
-    : "schema definition";
-  if (!result || typeof result !== "object" || typeof result.ok !== "boolean") {
-    throw new TypeError(`${contextLabel}: Schema validator must return { ok, value, errors } or throw.`);
-  }
-
-  if (result.ok) {
-    if (Object.prototype.hasOwnProperty.call(result, "value")) {
-      return result.value;
-    }
-    return payload;
-  }
-
-  if (Array.isArray(result.errors)) {
-    const fieldErrors = normalizeSchemaValidationErrors({ errors: result.errors });
-    if (fieldErrors) {
-      throw buildSchemaValidationError({ fieldErrors });
-    }
-    throw buildSchemaValidationError({ errors: result.errors });
-  }
-
-  if (result.errors && typeof result.errors === "object") {
-    throw buildSchemaValidationError({ fieldErrors: result.errors });
-  }
-
-  if (result.errors != null) {
-    throw buildSchemaValidationError({ message: String(result.errors) });
-  }
-
-  throw buildSchemaValidationError();
-}
-
-function assertSyncResult(result, { context = "schema definition" } = {}) {
-  if (result && typeof result.then === "function") {
-    throw new TypeError(`${context}: Async schema validators are not supported in sync validation.`);
-  }
-
-  return result;
-}
-
-function validateSingleSchemaPayloadSync(schemaDefinition, payload, {
+function validateSchemaPayload(schemaDefinition, payload, {
   phase = "input",
-  context = "schema definition"
+  context = "schema definition",
+  statusCode = null
 } = {}) {
   if (schemaDefinition == null) {
     return payload;
   }
 
-  const schema = schemaDefinition && typeof schemaDefinition === "object" && !Array.isArray(schemaDefinition) &&
-    Object.prototype.hasOwnProperty.call(schemaDefinition, "schema")
-    ? schemaDefinition.schema
-    : schemaDefinition;
-
-  if (typeof schema === "function") {
-    const result = assertSyncResult(schema(payload, { phase }), { context });
-    return normalizeFunctionSchemaResult(result, payload, { context });
-  }
-
-  if (!schema || typeof schema !== "object" || Array.isArray(schema)) {
-    throw new TypeError(`${context}.schema must be a function or object.`);
-  }
-
-  if (hasJsonRestSchemaDefinition(schemaDefinition)) {
-    const result = executeJsonRestSchemaDefinitionSync(schemaDefinition, payload, {
-      defaultMode: phase === "output" ? "replace" : "patch",
-      context: `${context}.mode`
-    });
-    const fieldErrors = normalizeJsonRestSchemaFieldErrors(result?.errors, schemaDefinition);
-    if (Object.keys(fieldErrors).length > 0) {
-      throw buildSchemaValidationError({ fieldErrors });
-    }
-
-    return result?.validatedObject ?? payload;
-  }
-
-  if (typeof schema.parse === "function") {
-    return assertSyncResult(schema.parse(payload), { context });
-  }
-
-  if (typeof schema.assert === "function") {
-    const assertionResult = assertSyncResult(schema.assert(payload), { context });
-    return assertionResult == null ? payload : assertionResult;
-  }
-
-  if (typeof schema.check === "function") {
-    const valid = assertSyncResult(schema.check(payload), { context });
-    if (!valid) {
-      throw buildSchemaValidationError();
-    }
-    return payload;
-  }
-
-  if (typeof schema.validate === "function") {
-    const valid = assertSyncResult(schema.validate(payload), { context });
-    if (!valid) {
-      throw buildSchemaValidationError({
-        fieldErrors: normalizeSchemaValidationErrors(schema)
-      });
-    }
-    return payload;
-  }
-
-  throw new TypeError(`${context}.schema must expose parse, assert, check, validate, or be a json-rest-schema schema.`);
-}
-
-async function validateSingleSchemaPayload(schemaDefinition, payload, {
-  phase = "input",
-  context = "schema definition"
-} = {}) {
-  if (schemaDefinition == null) {
-    return payload;
-  }
-
-  const schema = schemaDefinition && typeof schemaDefinition === "object" && !Array.isArray(schemaDefinition) &&
-    Object.prototype.hasOwnProperty.call(schemaDefinition, "schema")
-    ? schemaDefinition.schema
-    : schemaDefinition;
-
-  if (typeof schema === "function") {
-    const result = await schema(payload, { phase });
-    return normalizeFunctionSchemaResult(result, payload, { context });
-  }
-
-  if (!schema || typeof schema !== "object" || Array.isArray(schema)) {
-    throw new TypeError(`${context}.schema must be a function or object.`);
-  }
-
-  if (hasJsonRestSchemaDefinition(schemaDefinition)) {
-    const result = await executeJsonRestSchemaDefinition(schemaDefinition, payload, {
-      defaultMode: phase === "output" ? "replace" : "patch",
-      context: `${context}.mode`
-    });
-    const fieldErrors = normalizeJsonRestSchemaFieldErrors(result?.errors, schemaDefinition);
-    if (Object.keys(fieldErrors).length > 0) {
-      throw buildSchemaValidationError({ fieldErrors });
-    }
-
-    return result?.validatedObject ?? payload;
-  }
-
-  if (typeof schema.parse === "function") {
-    return schema.parse(payload);
-  }
-
-  if (typeof schema.assert === "function") {
-    const assertionResult = await schema.assert(payload);
-    return assertionResult == null ? payload : assertionResult;
-  }
-
-  if (typeof schema.check === "function") {
-    const valid = await schema.check(payload);
-    if (!valid) {
-      throw buildSchemaValidationError();
-    }
-    return payload;
-  }
-
-  if (typeof schema.validate === "function") {
-    const valid = await schema.validate(payload);
-    if (!valid) {
-      throw buildSchemaValidationError({
-        fieldErrors: normalizeSchemaValidationErrors(schema)
-      });
-    }
-    return payload;
-  }
-
-  throw new TypeError(`${context}.schema must expose parse, assert, check, validate, or be a json-rest-schema schema.`);
-}
-
-async function validateSchemaPayload(schemaDefinition, payload, {
-  phase = "input",
-  context = "schema definition"
-} = {}) {
-  if (schemaDefinition == null) {
-    return payload;
-  }
-
-  if (isSchemaDefinitionSectionMap(schemaDefinition)) {
-    const source = normalizeObject(payload);
-    const normalized = {};
-
-    for (const [key, sectionDefinition] of Object.entries(schemaDefinition)) {
-      normalized[key] = await validateSchemaPayload(sectionDefinition, source[key], {
-        phase,
-        context: `${context}.${key}`
-      });
-    }
-
-    return normalized;
-  }
-
-  const definitions = listSchemaDefinitions(schemaDefinition);
-  if (definitions.length > 1) {
-    const source = normalizeObject(payload);
-    let normalized = {};
-
-    for (const [index, entry] of definitions.entries()) {
-      const validated = await validateSchemaPayload(
-        entry,
-        selectPayloadForSchemaDefinition(entry, source, {
-          context: `${context}[${index}]`,
-          defaultMode: phase === "output" ? "replace" : "patch"
-        }),
-        {
-          phase,
-          context: `${context}[${index}]`
-        }
-      );
-      normalized = {
-        ...normalized,
-        ...normalizeObject(validated)
-      };
-    }
-
-    return normalized;
-  }
-
-  return validateSingleSchemaPayload(definitions[0] || schemaDefinition, payload, {
-    phase,
+  const result = executeJsonRestSchemaDefinition(schemaDefinition, payload, {
+    defaultMode: phase === "output" ? "replace" : "patch",
     context
   });
+
+  if (!result) {
+    throw new TypeError(`${context}.schema must be a json-rest-schema schema instance.`);
+  }
+
+  const fieldErrors = normalizeJsonRestSchemaFieldErrors(result?.errors, schemaDefinition);
+  if (Object.keys(fieldErrors).length > 0) {
+    throw buildSchemaValidationError({
+      fieldErrors,
+      statusCode
+    });
+  }
+
+  return result?.validatedObject ?? payload;
 }
 
 export {
   buildSchemaValidationError,
-  normalizeSchemaValidationErrors,
-  validateSingleSchemaPayloadSync,
-  validateSingleSchemaPayload,
   validateSchemaPayload
 };

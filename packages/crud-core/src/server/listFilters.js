@@ -1,11 +1,12 @@
 import {
   normalizeObjectInput,
-  mergeObjectSchemas,
   RECORD_ID_PATTERN
 } from "@jskit-ai/kernel/shared/validators";
+import { createSchema } from "json-rest-schema";
 import {
   normalizeBoolean,
   normalizeCanonicalRecordIdText,
+  isRecord as isPlainObject,
   normalizeObject,
   normalizeText,
   normalizeUniqueTextList
@@ -32,11 +33,12 @@ const CRUD_LIST_FILTER_INVALID_VALUES_MODES = Object.freeze([
   CRUD_LIST_FILTER_INVALID_VALUES_REJECT,
   CRUD_LIST_FILTER_INVALID_VALUES_DISCARD
 ]);
-const looseTextInputSchema = Object.freeze({
+const CRUD_LIST_FILTER_QUERY_TYPE = "crudListFilterQuery";
+const looseTextTransportSchema = Object.freeze({
   type: "string",
   minLength: 0
 });
-const strictNumberInputSchema = Object.freeze({
+const strictNumberTransportSchema = Object.freeze({
   anyOf: [
     {
       type: "string",
@@ -47,15 +49,15 @@ const strictNumberInputSchema = Object.freeze({
     }
   ]
 });
-const looseStringOrNumberSchema = Object.freeze({
+const looseStringOrNumberTransportSchema = Object.freeze({
   anyOf: [
-    looseTextInputSchema,
+    looseTextTransportSchema,
     {
       type: "number"
     }
   ]
 });
-const recordIdInputSchema = Object.freeze({
+const recordIdTransportSchema = Object.freeze({
   anyOf: [
     {
       type: "string",
@@ -67,7 +69,7 @@ const recordIdInputSchema = Object.freeze({
     }
   ]
 });
-const flagInputSchema = Object.freeze({
+const flagTransportSchema = Object.freeze({
   anyOf: [
     {
       type: "string",
@@ -82,11 +84,30 @@ const flagInputSchema = Object.freeze({
   ]
 });
 
-function createObjectSchema(properties = {}) {
+function cloneTransportSchema(value) {
+  if (Array.isArray(value)) {
+    return value.map((entry) => cloneTransportSchema(entry));
+  }
+
+  if (!value || typeof value !== "object") {
+    return value;
+  }
+
+  return Object.fromEntries(
+    Object.entries(value).map(([key, entry]) => [key, cloneTransportSchema(entry)])
+  );
+}
+
+function buildSingleOrMultiTransportSchema(itemSchema) {
   return {
-    type: "object",
-    additionalProperties: false,
-    properties
+    anyOf: [
+      cloneTransportSchema(itemSchema),
+      {
+        type: "array",
+        items: cloneTransportSchema(itemSchema),
+        minItems: 1
+      }
+    ]
   };
 }
 
@@ -99,19 +120,6 @@ function normalizeCrudListFilterInvalidValues(value = "") {
   throw new TypeError(
     `Unsupported CRUD list filter invalidValues mode "${value}". Expected one of: ${CRUD_LIST_FILTER_INVALID_VALUES_MODES.join(", ")}.`
   );
-}
-
-function createSingleOrMultiValueSchema(itemSchema) {
-  return {
-    anyOf: [
-      itemSchema,
-      {
-        type: "array",
-        items: itemSchema,
-        minItems: 1
-      }
-    ]
-  };
 }
 
 function firstValue(value) {
@@ -197,99 +205,235 @@ function addDaysToDateFilterValue(value = "", days = 0) {
   return `${year}-${month}-${day}`;
 }
 
-function createFilterQuerySchema(filter = {}, { invalidValues = CRUD_LIST_FILTER_INVALID_VALUES_REJECT } = {}) {
+function isPrimitiveFilterInput(value) {
+  const valueType = typeof value;
+  return valueType === "string" || valueType === "number" || valueType === "boolean";
+}
+
+function isPrimitiveOrPrimitiveArrayInput(value) {
+  if (Array.isArray(value)) {
+    return value.every((entry) => isPrimitiveFilterInput(entry));
+  }
+
+  return isPrimitiveFilterInput(value);
+}
+
+function validateRejectingFilterInput(filter = {}, value) {
+  const allowedValues = resolveAllowedOptionValues(filter);
+
+  if (filter.type === CRUD_LIST_FILTER_TYPE_FLAG) {
+    if (!isPrimitiveFilterInput(value)) {
+      return false;
+    }
+    if (value === "") {
+      return true;
+    }
+
+    try {
+      normalizeBoolean(firstValue(value));
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
+  if (filter.type === CRUD_LIST_FILTER_TYPE_ENUM || filter.type === CRUD_LIST_FILTER_TYPE_PRESENCE) {
+    return Boolean(isPrimitiveFilterInput(value) && normalizeAllowedTextValue(value, allowedValues));
+  }
+
+  if (filter.type === CRUD_LIST_FILTER_TYPE_ENUM_MANY) {
+    if (!isPrimitiveOrPrimitiveArrayInput(value)) {
+      return false;
+    }
+
+    const values = Array.isArray(value) ? value : [value];
+    return values.length > 0 && values.every((entry) => Boolean(normalizeAllowedTextValue(entry, allowedValues)));
+  }
+
+  if (filter.type === CRUD_LIST_FILTER_TYPE_RECORD_ID) {
+    return Boolean(isPrimitiveFilterInput(value) && normalizeRecordIdFilterValue(value));
+  }
+
+  if (filter.type === CRUD_LIST_FILTER_TYPE_RECORD_ID_MANY) {
+    if (!isPrimitiveOrPrimitiveArrayInput(value)) {
+      return false;
+    }
+
+    const values = Array.isArray(value) ? value : [value];
+    return values.length > 0 && values.every((entry) => Boolean(normalizeRecordIdFilterValue(entry)));
+  }
+
+  if (filter.type === CRUD_LIST_FILTER_TYPE_DATE) {
+    return Boolean(isPrimitiveFilterInput(value) && normalizeDateFilterValue(value));
+  }
+
+  if (filter.type === CRUD_LIST_FILTER_TYPE_DATE_RANGE) {
+    return Boolean(isPrimitiveFilterInput(value) && normalizeDateFilterValue(value));
+  }
+
+  if (filter.type === CRUD_LIST_FILTER_TYPE_NUMBER_RANGE) {
+    return Boolean(isPrimitiveFilterInput(value) && normalizeNumberFilterValue(value) != null);
+  }
+
+  return true;
+}
+
+function validateDiscardingFilterInput(filter = {}, value) {
+  if (filter.type === CRUD_LIST_FILTER_TYPE_ENUM_MANY || filter.type === CRUD_LIST_FILTER_TYPE_RECORD_ID_MANY) {
+    return isPrimitiveOrPrimitiveArrayInput(value);
+  }
+
+  return isPrimitiveFilterInput(value);
+}
+
+function buildFilterQueryFieldDefinition(filter = {}, { invalidValues = CRUD_LIST_FILTER_INVALID_VALUES_REJECT } = {}) {
+  const invalidValueMode = normalizeCrudListFilterInvalidValues(invalidValues);
+  const filterContract = Object.freeze({
+    filter,
+    invalidValues: invalidValueMode
+  });
+
+  const queryFieldDefinition = {
+    type: CRUD_LIST_FILTER_QUERY_TYPE,
+    filterContract
+  };
+
+  if (filter.type === CRUD_LIST_FILTER_TYPE_DATE_RANGE) {
+    return {
+      [filter.fromKey]: queryFieldDefinition,
+      [filter.toKey]: queryFieldDefinition
+    };
+  }
+
+  if (filter.type === CRUD_LIST_FILTER_TYPE_NUMBER_RANGE) {
+    return {
+      [filter.minKey]: queryFieldDefinition,
+      [filter.maxKey]: queryFieldDefinition
+    };
+  }
+
+  return {
+    [filter.queryKey]: queryFieldDefinition
+  };
+}
+
+function buildFilterQueryTransportSchema(filter = {}, { invalidValues = CRUD_LIST_FILTER_INVALID_VALUES_REJECT } = {}) {
   const invalidValueMode = normalizeCrudListFilterInvalidValues(invalidValues);
   const discardInvalidValues = invalidValueMode === CRUD_LIST_FILTER_INVALID_VALUES_DISCARD;
   const allowedValues = (Array.isArray(filter.options) ? filter.options : []).map((entry) => entry.value);
 
   if (filter.type === CRUD_LIST_FILTER_TYPE_FLAG) {
-    return createObjectSchema({
-      [filter.queryKey]: flagInputSchema
-    });
+    return cloneTransportSchema(flagTransportSchema);
   }
 
   if (filter.type === CRUD_LIST_FILTER_TYPE_ENUM || filter.type === CRUD_LIST_FILTER_TYPE_PRESENCE) {
-    return createObjectSchema({
-      [filter.queryKey]: discardInvalidValues
-        ? looseTextInputSchema
+    return discardInvalidValues
+      ? cloneTransportSchema(looseTextTransportSchema)
+      : {
+          type: "string",
+          enum: allowedValues
+        };
+  }
+
+  if (filter.type === CRUD_LIST_FILTER_TYPE_ENUM_MANY) {
+    return buildSingleOrMultiTransportSchema(
+      discardInvalidValues
+        ? looseTextTransportSchema
         : {
             type: "string",
             enum: allowedValues
           }
-    });
-  }
-
-  if (filter.type === CRUD_LIST_FILTER_TYPE_ENUM_MANY) {
-    return createObjectSchema({
-      [filter.queryKey]: createSingleOrMultiValueSchema(
-        discardInvalidValues
-          ? looseTextInputSchema
-          : {
-              type: "string",
-              enum: allowedValues
-            }
-      )
-    });
+    );
   }
 
   if (filter.type === CRUD_LIST_FILTER_TYPE_RECORD_ID) {
-    return createObjectSchema({
-      [filter.queryKey]: discardInvalidValues
-        ? looseStringOrNumberSchema
-        : recordIdInputSchema
-    });
+    return discardInvalidValues
+      ? cloneTransportSchema(looseStringOrNumberTransportSchema)
+      : cloneTransportSchema(recordIdTransportSchema);
   }
 
   if (filter.type === CRUD_LIST_FILTER_TYPE_RECORD_ID_MANY) {
-    return createObjectSchema({
-      [filter.queryKey]: createSingleOrMultiValueSchema(
-        discardInvalidValues
-          ? looseStringOrNumberSchema
-          : recordIdInputSchema
-      )
-    });
+    return buildSingleOrMultiTransportSchema(
+      discardInvalidValues
+        ? looseStringOrNumberTransportSchema
+        : recordIdTransportSchema
+    );
   }
 
-  if (filter.type === CRUD_LIST_FILTER_TYPE_DATE) {
-    return createObjectSchema({
-      [filter.queryKey]: discardInvalidValues
-        ? looseTextInputSchema
-        : {
-            type: "string",
-            pattern: DATE_FILTER_PATTERN_SOURCE
-          }
-    });
-  }
-
-  if (filter.type === CRUD_LIST_FILTER_TYPE_DATE_RANGE) {
-    return createObjectSchema({
-      [filter.fromKey]: discardInvalidValues
-        ? looseTextInputSchema
-        : {
-            type: "string",
-            pattern: DATE_FILTER_PATTERN_SOURCE
-          },
-      [filter.toKey]: discardInvalidValues
-        ? looseTextInputSchema
-        : {
-            type: "string",
-            pattern: DATE_FILTER_PATTERN_SOURCE
-          }
-    });
+  if (filter.type === CRUD_LIST_FILTER_TYPE_DATE || filter.type === CRUD_LIST_FILTER_TYPE_DATE_RANGE) {
+    return discardInvalidValues
+      ? cloneTransportSchema(looseTextTransportSchema)
+      : {
+          type: "string",
+          pattern: DATE_FILTER_PATTERN_SOURCE
+        };
   }
 
   if (filter.type === CRUD_LIST_FILTER_TYPE_NUMBER_RANGE) {
-    return createObjectSchema({
-      [filter.minKey]: discardInvalidValues
-        ? looseStringOrNumberSchema
-        : strictNumberInputSchema,
-      [filter.maxKey]: discardInvalidValues
-        ? looseStringOrNumberSchema
-        : strictNumberInputSchema
-    });
+    return discardInvalidValues
+      ? cloneTransportSchema(looseStringOrNumberTransportSchema)
+      : cloneTransportSchema(strictNumberTransportSchema);
   }
 
-  return createObjectSchema({});
+  return {};
+}
+
+createSchema.addType(CRUD_LIST_FILTER_QUERY_TYPE, Object.assign(
+  (context) => {
+    const contract = isPlainObject(context.definition.filterContract)
+      ? context.definition.filterContract
+      : null;
+    const filter = contract?.filter;
+    const invalidValues = contract?.invalidValues;
+
+    if (!filter || !invalidValues) {
+      context.throwTypeError();
+    }
+
+    const isValid = invalidValues === CRUD_LIST_FILTER_INVALID_VALUES_DISCARD
+      ? validateDiscardingFilterInput(filter, context.value)
+      : validateRejectingFilterInput(filter, context.value);
+
+    if (!isValid) {
+      context.throwTypeError();
+    }
+
+    return context.value;
+  },
+  {
+    toJsonSchema({ definition }) {
+      const contract = isPlainObject(definition?.filterContract)
+        ? definition.filterContract
+        : null;
+      const filter = contract?.filter;
+      const invalidValues = contract?.invalidValues;
+
+      if (!filter || !invalidValues) {
+        throw new Error(`Type "${CRUD_LIST_FILTER_QUERY_TYPE}" requires definition.filterContract for transport export.`);
+      }
+
+      return buildFilterQueryTransportSchema(filter, {
+        invalidValues
+      });
+    }
+  }
+));
+
+function buildFilterQuerySchemaDefinition(filterEntries = [], {
+  invalidValues = CRUD_LIST_FILTER_INVALID_VALUES_REJECT
+} = {}) {
+  const structure = {};
+
+  for (const filter of filterEntries) {
+    Object.assign(structure, buildFilterQueryFieldDefinition(filter, {
+      invalidValues
+    }));
+  }
+
+  return Object.freeze({
+    schema: createSchema(structure),
+    mode: "patch"
+  });
 }
 
 function normalizeFilterValue(filter = {}, source = {}) {
@@ -496,22 +640,16 @@ function createCrudListFilters(definitions = {}, { columns = {}, apply = {} } = 
     return Object.freeze(normalized);
   }
 
-  const validatorsByInvalidValueMode = Object.freeze({
+  const queryValidatorsByInvalidValueMode = Object.freeze({
     [CRUD_LIST_FILTER_INVALID_VALUES_REJECT]: Object.freeze({
-      schema: mergeObjectSchemas(
-        filterEntries.map((filter) => createFilterQuerySchema(filter, {
-          invalidValues: CRUD_LIST_FILTER_INVALID_VALUES_REJECT
-        }))
-      ),
-      normalize
+      ...buildFilterQuerySchemaDefinition(filterEntries, {
+        invalidValues: CRUD_LIST_FILTER_INVALID_VALUES_REJECT
+      })
     }),
     [CRUD_LIST_FILTER_INVALID_VALUES_DISCARD]: Object.freeze({
-      schema: mergeObjectSchemas(
-        filterEntries.map((filter) => createFilterQuerySchema(filter, {
-          invalidValues: CRUD_LIST_FILTER_INVALID_VALUES_DISCARD
-        }))
-      ),
-      normalize
+      ...buildFilterQuerySchemaDefinition(filterEntries, {
+        invalidValues: CRUD_LIST_FILTER_INVALID_VALUES_DISCARD
+      })
     })
   });
 
@@ -546,7 +684,7 @@ function createCrudListFilters(definitions = {}, { columns = {}, apply = {} } = 
 
   function createQueryValidator({ invalidValues } = {}) {
     const invalidValueMode = normalizeCrudListFilterInvalidValues(invalidValues);
-    return validatorsByInvalidValueMode[invalidValueMode];
+    return queryValidatorsByInvalidValueMode[invalidValueMode];
   }
 
   return Object.freeze({

@@ -1,4 +1,5 @@
 export { normalizeObjectInput } from "./inputNormalization.js";
+export { composeSchemaDefinitions } from "./composeSchemaDefinitions.js";
 export { createCursorListValidator } from "./createCursorListValidator.js";
 export { cursorPaginationQueryValidator } from "./cursorPaginationQueryValidator.js";
 export {
@@ -6,14 +7,10 @@ export {
   NULLABLE_HTML_TIME_STRING_SCHEMA
 } from "./htmlTimeSchemas.js";
 export { mergeObjectSchemas } from "./mergeObjectSchemas.js";
-export { mergeValidators } from "./mergeValidators.js";
 export {
   hasJsonRestSchemaDefinition,
-  isSchemaDefinitionSectionMap,
-  listSchemaDefinitions,
   normalizeSingleSchemaDefinition,
   normalizeSchemaDefinition,
-  selectPayloadForSchemaDefinition,
   resolveSchemaTransportSchemaDefinition,
   resolveStructuredSchemaTransportSchema,
   executeJsonRestSchemaDefinition
@@ -29,22 +26,15 @@ export {
 } from "./jsonRestSchemaSupport.js";
 export {
   buildSchemaValidationError,
-  normalizeSchemaValidationErrors,
-  validateSingleSchemaPayloadSync,
-  validateSingleSchemaPayload,
   validateSchemaPayload
 } from "./schemaPayloadValidation.js";
-export { nestValidator } from "./nestValidator.js";
 export {
   RECORD_ID_PATTERN,
   recordIdSchema,
   recordIdInputSchema,
   nullableRecordIdSchema,
   nullableRecordIdInputSchema,
-  recordIdValidator,
-  nullableRecordIdValidator,
-  recordIdParamsValidator,
-  positiveIntegerValidator
+  recordIdParamsValidator
 } from "./recordIdParamsValidator.js";
 export {
   normalizeRequiredFieldList,

@@ -168,7 +168,6 @@
 
 <script setup>
 import { computed, reactive } from "vue";
-import { validateOperationSectionAsync } from "@jskit-ai/http-runtime/shared/validators/operationValidation";
 import { ROUTE_VISIBILITY_WORKSPACE } from "@jskit-ai/kernel/shared/support/visibility";
 import { workspaceSettingsResource } from "@jskit-ai/workspaces-core/shared/resources/workspaceSettingsResource";
 import {
@@ -224,12 +223,7 @@ const addEdit = useAddEdit({
     matches: matchesWorkspaceRealtime
   },
   model: workspaceSettingsForm,
-  parseInput: (rawPayload) =>
-    validateOperationSectionAsync({
-      operation: workspaceSettingsResource.operations.patch,
-      section: "body",
-      value: rawPayload
-    }),
+  input: workspaceSettingsResource.operations.patch.body,
   mapLoadedToModel: (model, payload = {}) => {
     const settings = payload?.settings && typeof payload.settings === "object" ? payload.settings : {};
     const normalizedTheme = resolveWorkspaceThemePalettes(settings);

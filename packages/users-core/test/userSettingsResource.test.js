@@ -1,13 +1,13 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { validateOperationSectionAsync } from "@jskit-ai/http-runtime/shared/validators/operationValidation";
+import { validateOperationSection } from "@jskit-ai/http-runtime/shared/validators/operationValidation";
 import {
   USER_SETTINGS_ALL_KEYS,
   userSettingsResource
 } from "../src/shared/resources/userSettingsResource.js";
 
 function parseBody(operation, payload = {}) {
-  return validateOperationSectionAsync({
+  return validateOperationSection({
     operation,
     section: "body",
     value: payload

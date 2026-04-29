@@ -111,6 +111,7 @@ Exports
 - `apiValidationErrorResponseSchema`
 - `fastifyDefaultErrorResponseSchema`
 - `STANDARD_ERROR_STATUS_CODES`
+- `transportResponseSchema`
 - `passthroughErrorResponses`
 - `withStandardErrorResponses`
 - `enumSchema`
@@ -124,9 +125,7 @@ Exports
 - `resolveIssueMessageFromSchema`
 - `mapOperationIssues`
 - `validateOperationSection`
-- `validateOperationSectionAsync`
 - `validateOperationInput`
-- `validateOperationInputAsync`
 - `simplifyJsonApiDocument`
 
 ### `src/shared/providers/singletonApiProvider.js`
@@ -151,6 +150,7 @@ Exports
 - `apiValidationErrorResponseSchema`
 - `fastifyDefaultErrorResponseSchema`
 - `STANDARD_ERROR_STATUS_CODES`
+- `transportResponseSchema(schema = {})`
 - `passthroughErrorResponses(successResponses)`
 - `withStandardErrorResponses(successResponses, { includeValidation400 = false } = {})`
 - `enumSchema(values)`
@@ -188,11 +188,10 @@ Local functions
 ### `src/shared/validators/operationValidation.js`
 Exports
 - `validateOperationSection({ operation = {}, section = "body", value, context = {} } = {})`
-- `validateOperationSectionAsync({ operation = {}, section = "body", value, context = {} } = {})`
 - `validateOperationInput({ operation = {}, input = {}, context = {} } = {})`
-- `validateOperationInputAsync({ operation = {}, input = {}, context = {} } = {})`
 Local functions
 - `resolveOperationSection(operation = {}, section = "body")`
+- `buildValidationSuccessResult(value)`
 - `buildValidationFailureResult(error, normalized)`
 
 ### `src/shared/validators/paginationQuery.js`
@@ -203,12 +202,10 @@ Exports
 Exports
 - `createCursorPagedListResponseSchema(itemSchema)`
 - `createResource({ record, create, replace, patch, list = null, listItem = null } = {})`
-Local functions
-- `resolveTransportSchema(schema, { label = "schema", defaultMode = "replace" } = {})`
 
 ### `src/shared/validators/schemaUtils.js`
 Exports
-- `asSchema(value, label)`
+- `asSchemaDefinition(value, label, defaultMode, { required = true } = {})`
 
 ### root
 

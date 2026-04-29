@@ -112,8 +112,6 @@ test("console settings route handlers use request.input payloads", async () => {
   assert.equal(calls[0].actionId, "console.settings.read");
   assert.deepEqual(calls[1], {
     actionId: "console.settings.update",
-    input: {
-      payload: {}
-    }
+    input: {}
   });
 });

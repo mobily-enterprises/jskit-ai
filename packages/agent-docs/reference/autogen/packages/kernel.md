@@ -22,7 +22,6 @@ Exports
 - `resolveRequest(context)`
 - `hasPermission`
 - `EMPTY_INPUT_VALIDATOR`
-- `OBJECT_INPUT_VALIDATOR`
 
 ### `shared/actions/actionDefinitions.js`
 Exports
@@ -37,7 +36,6 @@ Exports
 Local functions
 - `normalizeStringArray(value, { fieldName, allowedSet, allowEmpty = false } = {})`
 - `normalizeSingleActionSchema(value, fieldName, { required = false, defaultMode = "" } = {})`
-- `isActionSchemaSectionMap(value)`
 - `normalizeActionInputDefinition(value, fieldName, { required = false } = {})`
 - `normalizeActionOutputDefinition(value, fieldName, { required = false } = {})`
 - `normalizeActionPermission(permission, actionId)`
@@ -469,6 +467,10 @@ Local functions
 - `resolveRouteSurface(route, inheritedSurfaceId = "", { surfaceRuntime, absolutePath = "/" } = {})`
 - `normalizeRoutesBySurfaceBoundaries(routeList = [], { surfaceRuntime } = {})`
 
+### `shared/validators/composeSchemaDefinitions.js`
+Exports
+- `composeSchemaDefinitions(definitions, { mode, context = "schema definitions" } = {})`
+
 ### `shared/validators/createCursorListValidator.js`
 Exports
 - `createCursorListValidator(itemValidator)`
@@ -485,18 +487,15 @@ Exports
 ### `shared/validators/index.js`
 Exports
 - `normalizeObjectInput`
+- `composeSchemaDefinitions`
 - `createCursorListValidator`
 - `cursorPaginationQueryValidator`
 - `HTML_TIME_STRING_SCHEMA`
 - `NULLABLE_HTML_TIME_STRING_SCHEMA`
 - `mergeObjectSchemas`
-- `mergeValidators`
 - `hasJsonRestSchemaDefinition`
-- `isSchemaDefinitionSectionMap`
-- `listSchemaDefinitions`
 - `normalizeSingleSchemaDefinition`
 - `normalizeSchemaDefinition`
-- `selectPayloadForSchemaDefinition`
 - `resolveSchemaTransportSchemaDefinition`
 - `resolveStructuredSchemaTransportSchema`
 - `executeJsonRestSchemaDefinition`
@@ -508,20 +507,13 @@ Exports
 - `executeJsonRestSchemaValidator`
 - `normalizeJsonRestSchemaFieldErrors`
 - `buildSchemaValidationError`
-- `normalizeSchemaValidationErrors`
-- `validateSingleSchemaPayloadSync`
-- `validateSingleSchemaPayload`
 - `validateSchemaPayload`
-- `nestValidator`
 - `RECORD_ID_PATTERN`
 - `recordIdSchema`
 - `recordIdInputSchema`
 - `nullableRecordIdSchema`
 - `nullableRecordIdInputSchema`
-- `recordIdValidator`
-- `nullableRecordIdValidator`
 - `recordIdParamsValidator`
-- `positiveIntegerValidator`
 - `normalizeRequiredFieldList`
 - `deriveRequiredFieldsFromSchema`
 - `deriveResourceRequiredMetadata`
@@ -538,7 +530,6 @@ Exports
 - `resolveValidatorSchemaMode(validator = null, { defaultMode = "create", context = "validator.mode" } = {})`
 - `resolveValidatorTransportSchema(validator = null, options = {})`
 - `executeJsonRestSchemaValidator(validator = null, payload, options = {})`
-- `executeJsonRestSchemaValidatorSync(validator = null, payload, options = {})`
 - `normalizeJsonRestSchemaFieldErrors(errors = {}, validator = null)`
 Local functions
 - `resolveJsonRestSchemaFieldMessages(validator = null, fieldName = "")`
@@ -551,19 +542,6 @@ Local functions
 - `cloneSchemaValue(value)`
 - `assertMergeableObjectSchema(schema)`
 
-### `shared/validators/mergeValidators.js`
-Exports
-- `mergeValidators(validators = [], options = {})`
-Local functions
-- `isPromiseLike(value)`
-- `createErrorFactory(createError)`
-
-### `shared/validators/nestValidator.js`
-Exports
-- `nestValidator(key, validator, { required = true } = {})`
-Local functions
-- `normalizeValidator(validator)`
-
 ### `shared/validators/recordIdParamsValidator.js`
 Exports
 - `RECORD_ID_PATTERN`
@@ -571,12 +549,7 @@ Exports
 - `recordIdInputSchema`
 - `nullableRecordIdSchema`
 - `nullableRecordIdInputSchema`
-- `recordIdValidator`
-- `nullableRecordIdValidator`
 - `recordIdParamsValidator`
-- `positiveIntegerValidator`
-Local functions
-- `validateCanonicalRecordId(value)`
 
 ### `shared/validators/resourceRequiredMetadata.js`
 Exports
@@ -587,30 +560,19 @@ Exports
 ### `shared/validators/schemaDefinitions.js`
 Exports
 - `hasJsonRestSchemaDefinition(value)`
-- `isSchemaDefinitionSectionMap(value)`
-- `listSchemaDefinitions(value)`
 - `normalizeSingleSchemaDefinition(value, { context = "schema definition", defaultMode = "" } = {})`
-- `normalizeSchemaDefinition(value, { context = "schema definition", allowArray = false, defaultMode = "" } = {})`
-- `selectPayloadForSchemaDefinition(value, payload, { context = "schema definition", defaultMode = "", passthroughSectionMaps = true } = {})`
+- `normalizeSchemaDefinition(value, { context = "schema definition", defaultMode = "" } = {})`
 - `resolveSchemaTransportSchemaDefinition(value, { context = "schema definition", defaultMode = "" } = {})`
 - `resolveStructuredSchemaTransportSchema(value, { context = "schema definition", defaultMode = "" } = {})`
 - `executeJsonRestSchemaDefinition(value, payload, { context = "schema definition", defaultMode = "" } = {})`
-- `executeJsonRestSchemaDefinitionSync(value, payload, { context = "schema definition", defaultMode = "" } = {})`
 - `normalizeJsonRestSchemaFieldErrors`
 Local functions
-- `isSchemaLike(value)`
 - `isSchemaDefinitionObject(value)`
 
 ### `shared/validators/schemaPayloadValidation.js`
 Exports
 - `buildSchemaValidationError({ message = "Schema validation failed.", fieldErrors = null, errors = null, cause } = {})`
-- `normalizeSchemaValidationErrors(schema)`
-- `validateSingleSchemaPayloadSync(schemaDefinition, payload, { phase = "input", context = "schema definition" } = {})`
-- `validateSingleSchemaPayload(schemaDefinition, payload, { phase = "input", context = "schema definition" } = {})`
 - `validateSchemaPayload(schemaDefinition, payload, { phase = "input", context = "schema definition" } = {})`
-Local functions
-- `normalizeFunctionSchemaResult(result, payload, { context = "schema definition" } = {})`
-- `assertSyncResult(result, { context = "schema definition" } = {})`
 
 ### client
 
@@ -906,10 +868,9 @@ Exports
 - `compileRouteValidator(validator, { context = "route validator" } = {})`
 - `resolveRouteValidatorOptions({ method = "", path = "", options = {} } = {})`
 Local functions
-- `normalizeRouteSchemaSection(value, { context = "route section", allowArray = false, defaultMode = "patch" } = {})`
+- `normalizeRouteSchemaSection(value, { context = "route section", defaultMode = "patch" } = {})`
 - `normalizeResponseDefinition(value, { context = "route responses" } = {})`
 - `normalizeAdvancedFastifySchema(value, { context = "route validator" } = {})`
-- `normalizeAdvancedJskitInput(value, { context = "route validator" } = {})`
 - `normalizeRouteValidatorMeta(value, { context = "route validator" } = {})`
 - `normalizeRouteValidatorDefinition(sourceDefinition, { context = "route validator" } = {})`
 - `compileNormalizedRouteValidator(normalizedValidator)`

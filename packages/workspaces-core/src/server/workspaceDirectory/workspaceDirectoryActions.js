@@ -2,9 +2,18 @@ import {
   EMPTY_INPUT_VALIDATOR,
   resolveRequest
 } from "@jskit-ai/kernel/shared/actions/actionContributorHelpers";
+import { composeSchemaDefinitions } from "@jskit-ai/kernel/shared/validators";
 import { workspaceResource } from "../../shared/resources/workspaceResource.js";
 import { workspaceSlugParamsValidator } from "../common/validators/routeParamsValidator.js";
 import { resolveActionUser } from "../common/support/resolveActionUser.js";
+
+const workspaceUpdateInputValidator = composeSchemaDefinitions([
+  workspaceSlugParamsValidator,
+  workspaceResource.operations.patch.body
+], {
+  mode: "patch",
+  context: "workspaceDirectoryActions.workspaceUpdateInputValidator"
+});
 
 const workspaceDirectoryActions = Object.freeze([
   {
@@ -99,12 +108,7 @@ const workspaceDirectoryActions = Object.freeze([
       require: "all",
       permissions: ["workspace.settings.update"]
     },
-    input: [
-      workspaceSlugParamsValidator,
-      {
-        patch: workspaceResource.operations.patch.body
-      }
-    ],
+    input: workspaceUpdateInputValidator,
     output: workspaceResource.operations.patch.output,
     idempotency: "optional",
     audit: {
@@ -117,10 +121,11 @@ const workspaceDirectoryActions = Object.freeze([
       }
     },
     async execute(input, context, deps) {
+      const { workspaceSlug, ...patch } = input;
       return deps.workspaceService.updateWorkspaceForAuthenticatedUser(
         resolveActionUser(context, input),
-        input.workspaceSlug,
-        input.patch,
+        workspaceSlug,
+        patch,
         {
           request: resolveRequest(context),
           context

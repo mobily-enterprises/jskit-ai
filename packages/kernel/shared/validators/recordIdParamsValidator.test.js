@@ -14,7 +14,7 @@ test("recordIdParamsValidator normalizes canonical string ids", () => {
 test("recordIdParamsValidator rejects invalid ids", () => {
   const invalidString = recordIdParamsValidator.schema.patch({ recordId: "nope" });
   assert.equal(invalidString.validatedObject.recordId, "nope");
-  assert.equal(invalidString.errors.recordId?.code, "CUSTOM_VALIDATOR_FAILED");
+  assert.equal(invalidString.errors.recordId?.code, "PATTERN");
 
   const numericId = recordIdParamsValidator.schema.patch({ recordId: 42 });
   assert.equal(numericId.validatedObject.recordId, "42");

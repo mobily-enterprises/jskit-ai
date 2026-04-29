@@ -13,12 +13,6 @@ function resolveRequest(context) {
   return context?.requestMeta?.request || null;
 }
 
-const OBJECT_INPUT_VALIDATOR = Object.freeze({
-  parse(value) {
-    return normalizeObject(value);
-  }
-});
-
 const EMPTY_INPUT_VALIDATOR = Object.freeze({
   schema: createSchema({}),
   mode: "replace"
@@ -30,6 +24,5 @@ export {
   requireServiceMethod,
   resolveRequest,
   hasPermission,
-  EMPTY_INPUT_VALIDATOR,
-  OBJECT_INPUT_VALIDATOR
+  EMPTY_INPUT_VALIDATOR
 };

@@ -1,3 +1,4 @@
+import { createSchema } from "json-rest-schema";
 import { deepFreeze } from "@jskit-ai/kernel/shared/support/deepFreeze";
 import {
   authEmailValidator,
@@ -27,20 +28,26 @@ const AUTH_LOGIN_OTP_VERIFY_MESSAGES = createCommandMessages({
 });
 
 const authLoginOtpVerifyBodyValidator = deepFreeze({
-  schema: {
-    type: "object",
-    additionalProperties: false,
-    minProperties: 1,
-    properties: {
-      email: authEmailValidator.schema,
-      token: authRecoveryTokenValidator.schema,
-      tokenHash: authRecoveryTokenValidator.schema,
-      type: {
-        type: "string",
-        enum: ["email"]
-      }
+  schema: createSchema({
+    email: {
+      ...authEmailValidator,
+      required: false
+    },
+    token: {
+      ...authRecoveryTokenValidator,
+      required: false
+    },
+    tokenHash: {
+      ...authRecoveryTokenValidator,
+      required: false
+    },
+    type: {
+      type: "string",
+      required: false,
+      enum: ["email"]
     }
-  },
+  }),
+  mode: "patch",
   messages: AUTH_LOGIN_OTP_VERIFY_MESSAGES
 });
 

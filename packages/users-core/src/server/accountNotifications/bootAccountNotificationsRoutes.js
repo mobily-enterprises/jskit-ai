@@ -28,9 +28,7 @@ function bootAccountNotificationsRoutes(app) {
     async function (request, reply) {
       const response = await request.executeAction({
         actionId: "settings.notifications.update",
-        input: {
-          payload: request.input.body
-        }
+        input: request.input.body
       });
       reply.code(200).send(response);
     }

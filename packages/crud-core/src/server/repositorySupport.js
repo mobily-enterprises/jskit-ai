@@ -160,6 +160,12 @@ function schemaIncludesDateTimeFormat(schema = {}) {
     return false;
   }
 
+  const jsonRestSchemaMeta = schema["x-json-rest-schema"];
+  const castType = normalizeText(jsonRestSchemaMeta?.castType).toLowerCase();
+  if (castType === "datetime") {
+    return true;
+  }
+
   if (normalizeText(schema.format).toLowerCase() === "date-time") {
     return true;
   }

@@ -1,5 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import { createSchema } from "json-rest-schema";
 import {
   DEFAULT_LIST_LIMIT,
   normalizeCrudListLimit,
@@ -77,6 +78,13 @@ function createQueryDouble() {
   return {
     query,
     calls
+  };
+}
+
+function createOperationSchemaDefinition(structure = {}, mode = "replace") {
+  return {
+    schema: createSchema(structure),
+    mode
   };
 }
 
@@ -262,60 +270,46 @@ test("deriveRepositoryMappingFromResource reads schema keys and repository colum
   const resource = {
     operations: {
       view: {
-        output: {
-          schema: {
-            type: "object",
-            properties: {
-              id: { type: "integer" },
-              firstName: { type: "string" },
-              createdAt: {
-                type: "string",
-                actualField: "created_at"
-              }
-            }
+        output: createOperationSchemaDefinition({
+          id: { type: "integer", required: true },
+          firstName: { type: "string", required: true },
+          createdAt: {
+            type: "string",
+            required: true,
+            actualField: "created_at"
           }
-        }
+        })
       },
       create: {
-        body: {
-          schema: {
-            type: "object",
-            properties: {
-              firstName: { type: "string" },
-              vetId: {
-                type: "integer",
-                actualField: "vet_id",
-                relation: {
-                  kind: "lookup",
-                  namespace: "vets",
-                  valueKey: "id"
-                }
-              }
+        body: createOperationSchemaDefinition({
+          firstName: { type: "string" },
+          vetId: {
+            type: "integer",
+            actualField: "vet_id",
+            relation: {
+              kind: "lookup",
+              namespace: "vets",
+              valueKey: "id"
             }
           }
-        }
+        }, "create")
       },
       patch: {
-        body: {
-          schema: {
-            type: "object",
-            properties: {
-              archivedAt: {
-                type: "string",
-                actualField: "archived_at"
-              },
-              vetId: {
-                type: "integer",
-                actualField: "vet_id",
-                relation: {
-                  kind: "lookup",
-                  namespace: "vets",
-                  valueKey: "id"
-                }
-              }
+        body: createOperationSchemaDefinition({
+          archivedAt: {
+            type: "string",
+            actualField: "archived_at"
+          },
+          vetId: {
+            type: "integer",
+            actualField: "vet_id",
+            relation: {
+              kind: "lookup",
+              namespace: "vets",
+              valueKey: "id"
             }
           }
-        }
+        }, "patch")
       }
     }
   };
@@ -338,31 +332,21 @@ test("deriveRepositoryMappingFromResource treats virtual output fields as non-co
   const resource = {
     operations: {
       view: {
-        output: {
-          schema: {
-            type: "object",
-            properties: {
-              id: { type: "integer" },
-              firstName: { type: "string" },
-              remainingBatchWeight: {
-                type: "number",
-                storage: {
-                  virtual: true
-                }
-              }
+        output: createOperationSchemaDefinition({
+          id: { type: "integer", required: true },
+          firstName: { type: "string", required: true },
+          remainingBatchWeight: {
+            type: "number",
+            storage: {
+              virtual: true
             }
           }
-        }
+        })
       },
       create: {
-        body: {
-          schema: {
-            type: "object",
-            properties: {
-              firstName: { type: "string" }
-            }
-          }
-        }
+        body: createOperationSchemaDefinition({
+          firstName: { type: "string" }
+        }, "create")
       }
     }
   };
@@ -379,35 +363,25 @@ test("deriveRepositoryMappingFromResource rejects virtual fields in create schem
   const resource = {
     operations: {
       view: {
-        output: {
-          schema: {
-            type: "object",
-            properties: {
-              id: { type: "integer" },
-              remainingBatchWeight: {
-                type: "number",
-                storage: {
-                  virtual: true
-                }
-              }
+        output: createOperationSchemaDefinition({
+          id: { type: "integer", required: true },
+          remainingBatchWeight: {
+            type: "number",
+            storage: {
+              virtual: true
             }
           }
-        }
+        })
       },
       create: {
-        body: {
-          schema: {
-            type: "object",
-            properties: {
-              remainingBatchWeight: {
-                type: "number",
-                storage: {
-                  virtual: true
-                }
-              }
+        body: createOperationSchemaDefinition({
+          remainingBatchWeight: {
+            type: "number",
+            storage: {
+              virtual: true
             }
           }
-        }
+        }, "create")
       }
     }
   };
@@ -422,43 +396,28 @@ test("deriveRepositoryMappingFromResource rejects virtual fields in patch schema
   const resource = {
     operations: {
       view: {
-        output: {
-          schema: {
-            type: "object",
-            properties: {
-              id: { type: "integer" },
-              remainingBatchWeight: {
-                type: "number",
-                storage: {
-                  virtual: true
-                }
-              }
+        output: createOperationSchemaDefinition({
+          id: { type: "integer", required: true },
+          remainingBatchWeight: {
+            type: "number",
+            storage: {
+              virtual: true
             }
           }
-        }
+        })
       },
       create: {
-        body: {
-          schema: {
-            type: "object",
-            properties: {}
-          }
-        }
+        body: createOperationSchemaDefinition({}, "create")
       },
       patch: {
-        body: {
-          schema: {
-            type: "object",
-            properties: {
-              remainingBatchWeight: {
-                type: "number",
-                storage: {
-                  virtual: true
-                }
-              }
+        body: createOperationSchemaDefinition({
+          remainingBatchWeight: {
+            type: "number",
+            storage: {
+              virtual: true
             }
           }
-        }
+        }, "patch")
       }
     }
   };
@@ -473,26 +432,16 @@ test("deriveRepositoryMappingFromResource excludes runtime-only lookups output k
   const resource = {
     operations: {
       view: {
-        output: {
-          schema: {
-            type: "object",
-            properties: {
-              id: { type: "integer" },
-              firstName: { type: "string" },
-              lookups: { type: "object" }
-            }
-          }
-        }
+        output: createOperationSchemaDefinition({
+          id: { type: "integer", required: true },
+          firstName: { type: "string", required: true },
+          lookups: { type: "object", opaque: true }
+        })
       },
       create: {
-        body: {
-          schema: {
-            type: "object",
-            properties: {
-              firstName: { type: "string" }
-            }
-          }
-        }
+        body: createOperationSchemaDefinition({
+          firstName: { type: "string" }
+        }, "create")
       }
     }
   };
@@ -510,26 +459,16 @@ test("deriveRepositoryMappingFromResource excludes custom lookup output containe
     },
     operations: {
       view: {
-        output: {
-          schema: {
-            type: "object",
-            properties: {
-              id: { type: "integer" },
-              firstName: { type: "string" },
-              lookupData: { type: "object" }
-            }
-          }
-        }
+        output: createOperationSchemaDefinition({
+          id: { type: "integer", required: true },
+          firstName: { type: "string", required: true },
+          lookupData: { type: "object", opaque: true }
+        })
       },
       create: {
-        body: {
-          schema: {
-            type: "object",
-            properties: {
-              firstName: { type: "string" }
-            }
-          }
-        }
+        body: createOperationSchemaDefinition({
+          firstName: { type: "string" }
+        }, "create")
       }
     }
   };
@@ -538,7 +477,7 @@ test("deriveRepositoryMappingFromResource excludes custom lookup output containe
   assert.deepEqual(mapping.outputKeys, ["id", "firstName"]);
 });
 
-test("deriveRepositoryMappingFromResource throws when view schema properties are missing", () => {
+test("deriveRepositoryMappingFromResource rejects legacy non-schema view output definitions", () => {
   const resource = {
     operations: {
       view: {
@@ -549,36 +488,26 @@ test("deriveRepositoryMappingFromResource throws when view schema properties are
         }
       },
       create: {
-        body: {
-          schema: {
-            type: "object",
-            properties: {
-              firstName: { type: "string" }
-            }
-          }
-        }
+        body: createOperationSchemaDefinition({
+          firstName: { type: "string" }
+        }, "create")
       }
     }
   };
 
   assert.throws(
     () => deriveRepositoryMappingFromResource(resource),
-    /operations\.view\.output\.schema\.properties/
+    /operations\.view\.output\.schema must be a json-rest-schema schema instance/
   );
 });
 
-test("deriveRepositoryMappingFromResource throws when create schema properties are missing", () => {
+test("deriveRepositoryMappingFromResource rejects legacy non-schema create body definitions", () => {
   const resource = {
     operations: {
       view: {
-        output: {
-          schema: {
-            type: "object",
-            properties: {
-              id: { type: "integer" }
-            }
-          }
-        }
+        output: createOperationSchemaDefinition({
+          id: { type: "integer", required: true }
+        })
       },
       create: {
         body: {
@@ -592,7 +521,7 @@ test("deriveRepositoryMappingFromResource throws when create schema properties a
 
   assert.throws(
     () => deriveRepositoryMappingFromResource(resource),
-    /operations\.create\.body\.schema\.properties/
+    /operations\.create\.body\.schema must be a json-rest-schema schema instance/
   );
 });
 
@@ -600,47 +529,30 @@ test("deriveRepositoryMappingFromResource tracks writable column-backed write se
   const resource = {
     operations: {
       view: {
-        output: {
-          schema: {
-            type: "object",
-            properties: {
-              id: { type: "integer" },
-              scheduledAt: { type: "string", format: "date-time" },
-              archivedAt: { type: "string", format: "date-time" },
-              remainingBatchWeight: {
-                type: "number",
-                storage: {
-                  virtual: true
-                }
-              }
+        output: createOperationSchemaDefinition({
+          id: { type: "integer", required: true },
+          scheduledAt: { type: "dateTime", required: true },
+          archivedAt: { type: "dateTime", required: true },
+          remainingBatchWeight: {
+            type: "number",
+            storage: {
+              virtual: true
             }
           }
-        }
+        })
       },
       create: {
-        body: {
-          schema: {
-            type: "object",
-            properties: {
-              scheduledAt: { type: "string", format: "date-time" }
-            }
-          }
-        }
+        body: createOperationSchemaDefinition({
+          scheduledAt: { type: "dateTime" }
+        }, "create")
       },
       patch: {
-        body: {
-          schema: {
-            type: "object",
-            properties: {
-              archivedAt: {
-                anyOf: [
-                  { type: "string", format: "date-time" },
-                  { type: "null" }
-                ]
-              }
-            }
+        body: createOperationSchemaDefinition({
+          archivedAt: {
+            type: "dateTime",
+            nullable: true
           }
-        }
+        }, "patch")
       }
     }
   };
@@ -656,37 +568,26 @@ test("deriveRepositoryMappingFromResource keeps explicit storage.writeSerializer
   const resource = {
     operations: {
       view: {
-        output: {
-          schema: {
-            type: "object",
-            properties: {
-              id: { type: "integer" },
-              arrivalDatetime: {
-                type: "string",
-                format: "date-time",
-                storage: {
-                  writeSerializer: "datetime-utc"
-                }
-              }
+        output: createOperationSchemaDefinition({
+          id: { type: "integer", required: true },
+          arrivalDatetime: {
+            type: "dateTime",
+            required: true,
+            storage: {
+              writeSerializer: "datetime-utc"
             }
           }
-        }
+        })
       },
       create: {
-        body: {
-          schema: {
-            type: "object",
-            properties: {
-              arrivalDatetime: {
-                type: "string",
-                format: "date-time",
-                storage: {
-                  writeSerializer: "datetime-utc"
-                }
-              }
+        body: createOperationSchemaDefinition({
+          arrivalDatetime: {
+            type: "dateTime",
+            storage: {
+              writeSerializer: "datetime-utc"
             }
           }
-        }
+        }, "create")
       }
     }
   };

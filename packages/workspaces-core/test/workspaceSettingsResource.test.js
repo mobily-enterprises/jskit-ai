@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { validateOperationSectionAsync } from "@jskit-ai/http-runtime/shared/validators/operationValidation";
+import { validateOperationSection } from "@jskit-ai/http-runtime/shared/validators/operationValidation";
 import { resolveStructuredSchemaTransportSchema } from "@jskit-ai/kernel/shared/validators";
 import { resolveWorkspaceThemePalettes } from "@jskit-ai/workspaces-core/shared/settings";
 import {
@@ -42,7 +42,7 @@ function createRoleCatalog() {
 }
 
 function parseBody(operation, payload = {}) {
-  return validateOperationSectionAsync({
+  return validateOperationSection({
     operation,
     section: "body",
     value: payload

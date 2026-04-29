@@ -1,6 +1,11 @@
+import { createSchema } from "json-rest-schema";
 import {
   EMPTY_INPUT_VALIDATOR
 } from "@jskit-ai/kernel/shared/actions/actionContributorHelpers";
+import {
+  composeSchemaDefinitions
+} from "@jskit-ai/kernel/shared/validators";
+import { deepFreeze } from "@jskit-ai/kernel/shared/support/deepFreeze";
 import {
   authRegisterCommand,
   authRegisterConfirmationResendCommand,
@@ -14,6 +19,22 @@ import {
   authPasswordRecoveryCompleteCommand,
   authPasswordResetCommand
 } from "@jskit-ai/auth-core/shared/commands";
+
+const authLoginOAuthStartInput = composeSchemaDefinitions([
+  authLoginOAuthStartCommand.operation.params,
+  authLoginOAuthStartCommand.operation.query
+], {
+  mode: "patch",
+  context: "authContributor.authLoginOAuthStartInput"
+});
+
+const authLogoutOutput = deepFreeze({
+  schema: createSchema({
+    ok: { type: "boolean", required: true },
+    clearSession: { type: "boolean", required: true }
+  }),
+  mode: "replace"
+});
 
 function requireRequestContext(context, actionId) {
   const request = context?.requestMeta?.request || null;
@@ -128,7 +149,7 @@ const authActionsBeforeDevLogin = Object.freeze([
     kind: "command",
     channels: ["api", "internal"],
     surfacesFrom: "enabled",
-    input: [authLoginOAuthStartCommand.operation.params, authLoginOAuthStartCommand.operation.query],
+    input: authLoginOAuthStartInput,
     idempotency: "none",
     audit: {
       actionName: "auth.login.oauth.start"
@@ -212,21 +233,7 @@ const authActionsAfterDevLogin = Object.freeze([
     channels: ["api", "automation", "internal"],
     surfacesFrom: "enabled",
     input: EMPTY_INPUT_VALIDATOR,
-    output: {
-      schema: {
-        type: "object",
-        properties: {
-          ok: {
-            type: "boolean"
-          },
-          clearSession: {
-            type: "boolean"
-          }
-        },
-        required: ["ok", "clearSession"],
-        additionalProperties: false
-      }
-    },
+    output: authLogoutOutput,
     idempotency: "none",
     audit: {
       actionName: "auth.logout"

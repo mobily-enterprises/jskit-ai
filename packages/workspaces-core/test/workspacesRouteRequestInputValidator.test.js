@@ -405,7 +405,7 @@ test("workspace invite and member handlers build action input from request.input
     actionId: "workspace.workspaces.create",
     input: { name: "Operations", slug: "operations" }
   });
-  assert.deepEqual(calls[1].input, { payload: { token: "token-1", decision: "accept" } });
+  assert.deepEqual(calls[1].input, { token: "token-1", decision: "accept" });
   assert.deepEqual(calls[2].input, { workspaceSlug: "acme", memberUserId: "12", roleSid: "admin" });
   assert.deepEqual(calls[3].input, { workspaceSlug: "acme", email: "user@example.com", roleSid: "member" });
   assert.deepEqual(calls[4].input, { workspaceSlug: "acme", memberUserId: "44" });
@@ -437,7 +437,7 @@ test("workspace settings route handlers build action input from request.input", 
 
   assert.deepEqual(calls[0], {
     actionId: "workspace.settings.update",
-    input: { workspaceSlug: "acme", patch: { lightPrimaryColor: "#0F6B54" } }
+    input: { workspaceSlug: "acme", lightPrimaryColor: "#0F6B54" }
   });
 });
 
@@ -468,7 +468,8 @@ test("workspace route handlers build action input from request.input", async () 
     actionId: "workspace.workspaces.update",
     input: {
       workspaceSlug: "acme",
-      patch: { name: "Acme", avatarUrl: "https://example.com/acme.png" }
+      name: "Acme",
+      avatarUrl: "https://example.com/acme.png"
     }
   });
 });

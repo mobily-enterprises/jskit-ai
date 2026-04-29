@@ -1,3 +1,4 @@
+import { createSchema } from "json-rest-schema";
 import { deepFreeze } from "@jskit-ai/kernel/shared/support/deepFreeze";
 import {
   authAccessTokenValidator,
@@ -29,21 +30,30 @@ const AUTH_PASSWORD_RECOVERY_COMPLETE_MESSAGES = createCommandMessages({
 });
 
 const authPasswordRecoveryCompleteBodyValidator = deepFreeze({
-  schema: {
-    type: "object",
-    additionalProperties: false,
-    minProperties: 1,
-    properties: {
-      code: authRecoveryTokenValidator.schema,
-      tokenHash: authRecoveryTokenValidator.schema,
-      accessToken: authAccessTokenValidator.schema,
-      refreshToken: authRefreshTokenValidator.schema,
-      type: {
-        type: "string",
-        enum: ["recovery"]
-      }
+  schema: createSchema({
+    code: {
+      ...authRecoveryTokenValidator,
+      required: false
+    },
+    tokenHash: {
+      ...authRecoveryTokenValidator,
+      required: false
+    },
+    accessToken: {
+      ...authAccessTokenValidator,
+      required: false
+    },
+    refreshToken: {
+      ...authRefreshTokenValidator,
+      required: false
+    },
+    type: {
+      type: "string",
+      required: false,
+      enum: ["recovery"]
     }
-  },
+  }),
+  mode: "patch",
   messages: AUTH_PASSWORD_RECOVERY_COMPLETE_MESSAGES
 });
 

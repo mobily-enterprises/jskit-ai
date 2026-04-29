@@ -134,9 +134,9 @@ Exports
 - `CRUD_LIST_FILTER_INVALID_VALUES_DISCARD`
 - `createCrudListFilters(definitions = {}, { columns = {}, apply = {} } = {})`
 Local functions
-- `createObjectSchema(properties = {})`
+- `cloneTransportSchema(value)`
+- `buildSingleOrMultiTransportSchema(itemSchema)`
 - `normalizeCrudListFilterInvalidValues(value = "")`
-- `createSingleOrMultiValueSchema(itemSchema)`
 - `firstValue(value)`
 - `normalizeDateFilterValue(value)`
 - `normalizeNumberFilterValue(value)`
@@ -146,7 +146,13 @@ Local functions
 - `normalizeAllowedTextValue(value, allowedValues = new Set())`
 - `normalizeAllowedTextValues(value, allowedValues = new Set())`
 - `addDaysToDateFilterValue(value = "", days = 0)`
-- `createFilterQuerySchema(filter = {}, { invalidValues = CRUD_LIST_FILTER_INVALID_VALUES_REJECT } = {})`
+- `isPrimitiveFilterInput(value)`
+- `isPrimitiveOrPrimitiveArrayInput(value)`
+- `validateRejectingFilterInput(filter = {}, value)`
+- `validateDiscardingFilterInput(filter = {}, value)`
+- `buildFilterQueryFieldDefinition(filter = {}, { invalidValues = CRUD_LIST_FILTER_INVALID_VALUES_REJECT } = {})`
+- `buildFilterQueryTransportSchema(filter = {}, { invalidValues = CRUD_LIST_FILTER_INVALID_VALUES_REJECT } = {})`
+- `buildFilterQuerySchemaDefinition(filterEntries = [], { invalidValues = CRUD_LIST_FILTER_INVALID_VALUES_REJECT } = {})`
 - `normalizeFilterValue(filter = {}, source = {})`
 - `normalizeColumnsMap(columns = {})`
 - `applyDefaultFilterQuery(queryBuilder, filter = {}, value, column = "")`

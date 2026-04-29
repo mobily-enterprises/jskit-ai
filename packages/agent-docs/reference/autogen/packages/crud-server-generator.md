@@ -81,7 +81,9 @@ Local functions
 - `renderActionWorkspaceValidatorImport({ surfaceRequiresWorkspace = true } = {})`
 - `renderRouteParamsValidatorLine(operation = "", { surfaceRequiresWorkspace = true } = {})`
 - `renderRouteInputLines(operation = "", { surfaceRequiresWorkspace = true } = {})`
-- `renderActionInputValidatorExpression(operation = "", { surfaceRequiresWorkspace = true } = {})`
+- `renderObjectSchemaDefinition(lines = [], { mode = "patch" } = {})`
+- `renderActionInputValidatorConstants({ surfaceRequiresWorkspace = true } = {})`
+- `renderRouteValidatorConstants({ surfaceRequiresWorkspace = true } = {})`
 - `buildReplacementsFromSnapshot({ namespace = "", snapshot, resolvedOwnershipFilter, surfaceRequiresWorkspace = true, surfaceId = "" })`
 - `resolveCrudGenerationTableName(options = {})`
 - `createCacheKey({ appRoot, options })`

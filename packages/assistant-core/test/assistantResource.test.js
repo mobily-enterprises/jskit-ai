@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { validateOperationSectionAsync } from "@jskit-ai/http-runtime/shared/validators/operationValidation";
+import { validateOperationSection } from "@jskit-ai/http-runtime/shared/validators/operationValidation";
 import { resolveStructuredSchemaTransportSchema } from "@jskit-ai/kernel/shared/validators";
 import { assistantResource } from "../src/shared/assistantResource.js";
 
@@ -64,7 +64,7 @@ test("assistant conversation message params accept numeric path strings", async 
       defaultMode: "patch"
     }
   );
-  const parsed = await validateOperationSectionAsync({
+  const parsed = await validateOperationSection({
     operation: assistantResource.operations.conversationMessagesList,
     section: "params",
     value: { conversationId: "2" }

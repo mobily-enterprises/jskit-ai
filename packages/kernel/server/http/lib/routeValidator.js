@@ -1,11 +1,8 @@
 import { normalizeObject, normalizeText } from "../../../shared/support/normalize.js";
 import {
-  executeJsonRestSchemaDefinition,
-  hasJsonRestSchemaDefinition,
-  normalizeJsonRestSchemaFieldErrors,
   normalizeSchemaDefinition,
   resolveSchemaTransportSchemaDefinition,
-  selectPayloadForSchemaDefinition
+  validateSchemaPayload
 } from "../../../shared/validators/index.js";
 import { RouteDefinitionError } from "./errors.js";
 import { resolveRouteLabel } from "./routeSupport.js";
@@ -19,12 +16,19 @@ const VALIDATOR_OPTION_KEYS = Object.freeze([
   "responses",
   "advanced"
 ]);
+const ADVANCED_VALIDATOR_OPTION_KEYS = Object.freeze([
+  "fastifySchema"
+]);
+const LEGACY_ROUTE_VALIDATOR_KEYS = Object.freeze([
+  "schema",
+  "input",
+  "validator"
+]);
 
-function normalizeRouteSchemaSection(value, { context = "route section", allowArray = false, defaultMode = "patch" } = {}) {
+function normalizeRouteSchemaSection(value, { context = "route section", defaultMode = "patch" } = {}) {
   try {
     return normalizeSchemaDefinition(value, {
       context,
-      allowArray,
       defaultMode
     });
   } catch (error) {
@@ -45,8 +49,23 @@ function normalizeResponseDefinition(value, { context = "route responses" } = {}
   const normalized = {};
 
   for (const [statusCode, entry] of Object.entries(source)) {
+    const entryContext = `${context}.${statusCode}`;
+    if (
+      entry &&
+      typeof entry === "object" &&
+      !Array.isArray(entry) &&
+      Object.prototype.hasOwnProperty.call(entry, "transportSchema")
+    ) {
+      normalized[statusCode] = Object.freeze({
+        transportSchema: normalizeObject(entry.transportSchema, {
+          fallback: {}
+        })
+      });
+      continue;
+    }
+
     normalized[statusCode] = normalizeRouteSchemaSection(entry, {
-      context: `${context}.${statusCode}`,
+      context: entryContext,
       defaultMode: "replace"
     });
   }
@@ -67,46 +86,6 @@ function normalizeAdvancedFastifySchema(value, { context = "route validator" } =
   return Object.freeze({
     ...normalizeObject(fastifySchema)
   });
-}
-
-function normalizeAdvancedJskitInput(value, { context = "route validator" } = {}) {
-  if (!Object.prototype.hasOwnProperty.call(value, "jskitInput")) {
-    return undefined;
-  }
-
-  const jskitInput = value.jskitInput;
-  if (!jskitInput || typeof jskitInput !== "object" || Array.isArray(jskitInput)) {
-    throw new RouteDefinitionError(`${context}.advanced.jskitInput must be an object.`);
-  }
-
-  const supportedKeys = new Set(["body", "query", "params"]);
-  for (const key of Object.keys(jskitInput)) {
-    if (!supportedKeys.has(key)) {
-      throw new RouteDefinitionError(
-        `${context}.advanced.jskitInput.${key} is not supported. Use body, query, or params.`
-      );
-    }
-  }
-
-  const normalized = {};
-  for (const key of ["body", "query", "params"]) {
-    if (!Object.prototype.hasOwnProperty.call(jskitInput, key)) {
-      continue;
-    }
-
-    const transform = jskitInput[key];
-    if (transform == null) {
-      continue;
-    }
-
-    if (typeof transform !== "function") {
-      throw new RouteDefinitionError(`${context}.advanced.jskitInput.${key} must be a function.`);
-    }
-
-    normalized[key] = transform;
-  }
-
-  return Object.freeze(normalized);
 }
 
 function normalizeRouteValidatorMeta(value, { context = "route validator" } = {}) {
@@ -170,12 +149,10 @@ function normalizeRouteValidatorDefinition(sourceDefinition, { context = "route 
     defaultMode: "patch"
   });
   const query = normalizeRouteSchemaSection(definition.query, {
-    context: `${context}.query`,
-    allowArray: true
+    context: `${context}.query`
   });
   const params = normalizeRouteSchemaSection(definition.params, {
-    context: `${context}.params`,
-    allowArray: true
+    context: `${context}.params`
   });
 
   const advancedSource =
@@ -187,6 +164,13 @@ function normalizeRouteValidatorDefinition(sourceDefinition, { context = "route 
 
   if (advancedSource == null) {
     throw new RouteDefinitionError(`${context}.advanced must be an object.`);
+  }
+
+  const unsupportedAdvancedKeys = Object.keys(advancedSource).filter(
+    (key) => !ADVANCED_VALIDATOR_OPTION_KEYS.includes(key)
+  );
+  if (unsupportedAdvancedKeys.length > 0) {
+    throw new RouteDefinitionError(`${context}.advanced.${unsupportedAdvancedKeys[0]} is not supported.`);
   }
 
   const normalized = {
@@ -209,13 +193,6 @@ function normalizeRouteValidatorDefinition(sourceDefinition, { context = "route 
     normalized.fastifySchema = fastifySchema;
   }
 
-  const jskitInput = normalizeAdvancedJskitInput(advancedSource, {
-    context
-  });
-  if (jskitInput) {
-    normalized.jskitInput = jskitInput;
-  }
-
   return Object.freeze(normalized);
 }
 
@@ -224,47 +201,11 @@ function compileNormalizedRouteValidator(normalizedValidator) {
   const input = {};
 
   function createJsonRestSchemaInputTransform(definition, { defaultMode = "patch", context = "route validator" } = {}) {
-    return async (payload) => {
-      const definitions = Array.isArray(definition) ? definition : [definition];
-      let nextValue = payload;
-
-      for (const [index, entry] of definitions.entries()) {
-        const selectedPayload = selectPayloadForSchemaDefinition(entry, nextValue, {
-          context: `${context}${definitions.length > 1 ? `[${index}]` : ""}`,
-          defaultMode
-        });
-        const result = await executeJsonRestSchemaDefinition(entry, selectedPayload, {
-          defaultMode,
-          context: `${context}${definitions.length > 1 ? `[${index}]` : ""}`
-        });
-
-        if (!result) {
-          continue;
-        }
-
-        const fieldErrors = normalizeJsonRestSchemaFieldErrors(result?.errors, entry);
-        if (Object.keys(fieldErrors).length > 0) {
-          const error = new RouteDefinitionError("Validation failed.");
-          error.statusCode = 400;
-          error.details = {
-            fieldErrors
-          };
-          throw error;
-        }
-
-        const validatedValue = result?.validatedObject ?? selectedPayload;
-        if (validatedValue && typeof validatedValue === "object" && !Array.isArray(validatedValue)) {
-          nextValue = {
-            ...(nextValue && typeof nextValue === "object" && !Array.isArray(nextValue) ? nextValue : {}),
-            ...validatedValue
-          };
-        } else {
-          nextValue = validatedValue;
-        }
-      }
-
-      return nextValue;
-    };
+    return (payload) => validateSchemaPayload(definition, payload, {
+      phase: defaultMode === "replace" ? "output" : "input",
+      context,
+      statusCode: 400
+    });
   }
 
   if (Array.isArray(normalizedValidator.meta?.tags) && normalizedValidator.meta.tags.length > 0) {
@@ -279,12 +220,10 @@ function compileNormalizedRouteValidator(normalizedValidator) {
       defaultMode: "patch",
       context: "route validator.body"
     });
-    input.body = hasJsonRestSchemaDefinition(normalizedValidator.body)
-      ? createJsonRestSchemaInputTransform(normalizedValidator.body, {
-          defaultMode: "patch",
-          context: "route validator.body"
-        })
-      : async (payload) => payload;
+    input.body = createJsonRestSchemaInputTransform(normalizedValidator.body, {
+      defaultMode: "patch",
+      context: "route validator.body"
+    });
   }
 
   if (normalizedValidator.query) {
@@ -292,12 +231,10 @@ function compileNormalizedRouteValidator(normalizedValidator) {
       defaultMode: "patch",
       context: "route validator.query"
     });
-    input.query = hasJsonRestSchemaDefinition(normalizedValidator.query)
-      ? createJsonRestSchemaInputTransform(normalizedValidator.query, {
-          defaultMode: "patch",
-          context: "route validator.query"
-        })
-      : async (payload) => payload;
+    input.query = createJsonRestSchemaInputTransform(normalizedValidator.query, {
+      defaultMode: "patch",
+      context: "route validator.query"
+    });
   }
 
   if (normalizedValidator.params) {
@@ -305,22 +242,23 @@ function compileNormalizedRouteValidator(normalizedValidator) {
       defaultMode: "patch",
       context: "route validator.params"
     });
-    input.params = hasJsonRestSchemaDefinition(normalizedValidator.params)
-      ? createJsonRestSchemaInputTransform(normalizedValidator.params, {
-          defaultMode: "patch",
-          context: "route validator.params"
-        })
-      : async (payload) => payload;
+    input.params = createJsonRestSchemaInputTransform(normalizedValidator.params, {
+      defaultMode: "patch",
+      context: "route validator.params"
+    });
   }
 
   if (Object.prototype.hasOwnProperty.call(normalizedValidator, "responses")) {
     const responseSchema = {};
 
     for (const [statusCode, entry] of Object.entries(normalizedValidator.responses || {})) {
-      responseSchema[statusCode] = resolveSchemaTransportSchemaDefinition(entry, {
-        defaultMode: "replace",
-        context: `route validator.responses.${statusCode}`
-      });
+      responseSchema[statusCode] =
+        entry && typeof entry === "object" && !Array.isArray(entry) && Object.prototype.hasOwnProperty.call(entry, "transportSchema")
+          ? entry.transportSchema
+          : resolveSchemaTransportSchemaDefinition(entry, {
+              defaultMode: "replace",
+              context: `route validator.responses.${statusCode}`
+            });
     }
 
     schema.response = responseSchema;
@@ -328,10 +266,6 @@ function compileNormalizedRouteValidator(normalizedValidator) {
 
   if (normalizedValidator.fastifySchema) {
     Object.assign(schema, normalizedValidator.fastifySchema);
-  }
-
-  if (normalizedValidator.jskitInput) {
-    Object.assign(input, normalizedValidator.jskitInput);
   }
 
   const compiled = {};
@@ -405,14 +339,20 @@ function resolveRouteValidatorOptions({
     path
   });
 
+  const legacyRouteKeys = LEGACY_ROUTE_VALIDATOR_KEYS.filter((key) =>
+    Object.prototype.hasOwnProperty.call(normalizedOptions, key)
+  );
+  if (legacyRouteKeys.length > 0) {
+    throw new RouteDefinitionError(
+      `Route ${routeLabel} uses unsupported legacy validator options: ${legacyRouteKeys.join(", ")}.`
+    );
+  }
+
   const hasInlineValidatorShape = VALIDATOR_OPTION_KEYS.some((key) => Object.prototype.hasOwnProperty.call(normalizedOptions, key));
 
   const remainingOptions = {
     ...normalizedOptions
   };
-  delete remainingOptions.schema;
-  delete remainingOptions.input;
-  delete remainingOptions.validator;
 
   if (!hasInlineValidatorShape) {
     return remainingOptions;

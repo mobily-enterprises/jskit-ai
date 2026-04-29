@@ -65,17 +65,7 @@ function resolveValidatorTransportSchema(validator = null, options = {}) {
   return schema.toJsonSchema({ mode });
 }
 
-async function executeJsonRestSchemaValidator(validator = null, payload, options = {}) {
-  const schema = resolveValidatorSchemaSource(validator);
-  if (!isJsonRestSchemaInstance(schema)) {
-    return null;
-  }
-
-  const mode = resolveValidatorSchemaMode(validator, options);
-  return schema[mode](payload);
-}
-
-function executeJsonRestSchemaValidatorSync(validator = null, payload, options = {}) {
+function executeJsonRestSchemaValidator(validator = null, payload, options = {}) {
   const schema = resolveValidatorSchemaSource(validator);
   if (!isJsonRestSchemaInstance(schema)) {
     return null;
@@ -96,7 +86,7 @@ function resolveJsonRestSchemaFieldMessages(validator = null, fieldName = "") {
     return {};
   }
 
-  return normalizeObject(schema?.structure?.[normalizedFieldName]?.messages);
+  return normalizeObject(schema.getFieldMessages(normalizedFieldName));
 }
 
 function resolveJsonRestSchemaFieldErrorMessage(fieldName, entry, validator = null) {
@@ -150,6 +140,5 @@ export {
   resolveValidatorSchemaMode,
   resolveValidatorTransportSchema,
   executeJsonRestSchemaValidator,
-  executeJsonRestSchemaValidatorSync,
   normalizeJsonRestSchemaFieldErrors
 };

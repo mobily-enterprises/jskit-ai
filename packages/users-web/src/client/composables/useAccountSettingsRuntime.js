@@ -7,7 +7,6 @@ import {
   resolveSurfaceNavigationTargetFromPlacementContext
 } from "@jskit-ai/shell-web/client/placement";
 import { useShellWebErrorRuntime } from "@jskit-ai/shell-web/client/error";
-import { validateOperationSectionAsync } from "@jskit-ai/http-runtime/shared/validators/operationValidation";
 import { ROUTE_VISIBILITY_PUBLIC } from "@jskit-ai/kernel/shared/support/visibility";
 import { userProfileResource } from "@jskit-ai/users-core/shared/resources/userProfileResource";
 import { userSettingsResource } from "@jskit-ai/users-core/shared/resources/userSettingsResource";
@@ -180,7 +179,7 @@ function useAccountSettingsRuntime() {
     applySettingsData(payload);
   };
 
-  const settingsView = useView({
+const settingsView = useView({
     ownershipFilter: OWNERSHIP_PUBLIC,
     apiSuffix: "/settings",
     queryKeyFactory: () => accountSettingsQueryKey,
@@ -202,12 +201,7 @@ function useAccountSettingsRuntime() {
     fieldErrorKeys: ["displayName"],
     model: profileForm,
     mapLoadedToModel: mapAccountSettingsPayload,
-    parseInput: (rawPayload) =>
-      validateOperationSectionAsync({
-        operation: userProfileResource.operations.patch,
-        section: "body",
-        value: rawPayload
-      }),
+    input: userProfileResource.operations.patch.body,
     buildRawPayload: (model) => ({
       displayName: String(model.displayName || "").trim()
     }),
@@ -244,12 +238,7 @@ function useAccountSettingsRuntime() {
     fieldErrorKeys: ["theme", "locale", "timeZone", "dateFormat", "numberFormat", "currencyCode", "avatarSize"],
     model: preferencesForm,
     mapLoadedToModel: mapAccountSettingsPayload,
-    parseInput: (rawPayload) =>
-      validateOperationSectionAsync({
-        operation: userSettingsResource.operations.preferencesUpdate,
-        section: "body",
-        value: rawPayload
-      }),
+    input: userSettingsResource.operations.preferencesUpdate.body,
     buildRawPayload: (model) => ({
       theme: model.theme,
       locale: model.locale,
@@ -275,12 +264,7 @@ function useAccountSettingsRuntime() {
     fallbackSaveError: "Unable to update notifications.",
     model: notificationsForm,
     mapLoadedToModel: mapAccountSettingsPayload,
-    parseInput: (rawPayload) =>
-      validateOperationSectionAsync({
-        operation: userSettingsResource.operations.notificationsUpdate,
-        section: "body",
-        value: rawPayload
-      }),
+    input: userSettingsResource.operations.notificationsUpdate.body,
     buildRawPayload: (model) => ({
       productUpdates: Boolean(model.productUpdates),
       accountActivity: Boolean(model.accountActivity),

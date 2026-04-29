@@ -1,6 +1,6 @@
 import { deepFreeze } from "../../shared/support/deepFreeze.js";
 import { normalizeObject, normalizeText } from "../../shared/support/normalize.js";
-import { validateSingleSchemaPayloadSync } from "../../shared/validators/schemaPayloadValidation.js";
+import { validateSchemaPayload } from "../../shared/validators/schemaPayloadValidation.js";
 
 function normalizeModuleId(value) {
   const moduleId = normalizeText(value);
@@ -148,7 +148,7 @@ function validateSchemaOrThrow({ moduleId, schema, value, coerce = false }) {
   };
 
   try {
-    return validateSingleSchemaPayloadSync(schemaDefinition, value, {
+    return validateSchemaPayload(schemaDefinition, value, {
       phase: "input",
       context: `module config "${moduleId}"`
     });

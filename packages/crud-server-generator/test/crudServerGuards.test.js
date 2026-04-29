@@ -1,6 +1,5 @@
 import test, { after } from "node:test";
 import assert from "node:assert/strict";
-import { recordIdParamsValidator } from "@jskit-ai/kernel/shared/validators";
 import { createTemplateServerFixture } from "../test-support/templateServerFixture.js";
 
 const fixture = await createTemplateServerFixture();
@@ -79,15 +78,16 @@ test("template createActions requires namespaced CRUD permissions by default", (
 test("template createActions omits workspace validators for non-workspace generation", () => {
   const actions = createNonWorkspaceActions({ surface: "home" });
 
-  assert.equal(Array.isArray(actions[0].input), true);
-  assert.equal(actions[0].input.length, 4);
-  assert.equal(Array.isArray(actions[1].input), true);
-  assert.equal(actions[1].input.length, 2);
-  assert.equal(actions[1].input[0], recordIdParamsValidator);
-  assert.deepEqual(Object.keys(actions[2].input), ["payload"]);
-  assert.equal(Array.isArray(actions[3].input), true);
-  assert.equal(actions[3].input.length, 2);
-  assert.equal(actions[3].input[0], recordIdParamsValidator);
-  assert.equal(actions[4].input, recordIdParamsValidator);
+  assert.equal(Array.isArray(actions[0].input), false);
+  assert.deepEqual(Object.keys(actions[0].input.schema.getFieldDefinitions()).sort(), ["contactId", "cursor", "include", "limit", "q"]);
+  assert.equal(Array.isArray(actions[1].input), false);
+  assert.deepEqual(Object.keys(actions[1].input.schema.getFieldDefinitions()).sort(), ["include", "recordId"]);
+  assert.equal(Array.isArray(actions[2].input), false);
+  assert.deepEqual(Object.keys(actions[2].input.schema.getFieldDefinitions()).sort(), ["contactId", "name"]);
+  assert.equal(actions[2].input.mode, "create");
+  assert.equal(Array.isArray(actions[3].input), false);
+  assert.deepEqual(Object.keys(actions[3].input.schema.getFieldDefinitions()).sort(), ["contactId", "name", "recordId"]);
+  assert.equal(Array.isArray(actions[4].input), false);
+  assert.deepEqual(Object.keys(actions[4].input.schema.getFieldDefinitions()), ["recordId"]);
   assert.equal(actions[0].permission.require, "authenticated");
 });

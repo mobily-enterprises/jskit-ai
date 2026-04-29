@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { resolveStructuredSchemaTransportSchema } from "@jskit-ai/kernel/shared/validators";
-import { validateOperationSectionAsync } from "@jskit-ai/http-runtime/shared/validators/operationValidation";
+import { validateOperationSection } from "@jskit-ai/http-runtime/shared/validators/operationValidation";
 import { assistantConfigResource } from "../src/shared/assistantSettingsResource.js";
 
 test("assistant config resource exposes valid output schema", () => {
@@ -20,7 +20,7 @@ test("assistant config resource exposes valid output schema", () => {
 });
 
 test("assistant settings patch validation preserves omitted fields", async () => {
-  const patch = await validateOperationSectionAsync({
+  const patch = await validateOperationSection({
     operation: assistantConfigResource.operations.patch,
     section: "body",
     value: {}

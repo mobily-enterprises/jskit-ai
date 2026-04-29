@@ -6,6 +6,7 @@ import {
   apiValidationErrorResponseSchema,
   fastifyDefaultErrorResponseSchema,
   STANDARD_ERROR_STATUS_CODES,
+  transportResponseSchema,
   passthroughErrorResponses,
   withStandardErrorResponses,
   enumSchema
@@ -25,9 +26,7 @@ import {
 } from "./operationMessages.js";
 import {
   validateOperationSection,
-  validateOperationSectionAsync,
-  validateOperationInput,
-  validateOperationInputAsync
+  validateOperationInput
 } from "./operationValidation.js";
 import {
   simplifyJsonApiDocument
@@ -41,6 +40,7 @@ const HTTP_VALIDATORS_API = Object.freeze({
   apiValidationErrorResponseSchema,
   fastifyDefaultErrorResponseSchema,
   STANDARD_ERROR_STATUS_CODES,
+  transportResponseSchema,
   passthroughErrorResponses,
   withStandardErrorResponses,
   enumSchema,
@@ -54,9 +54,7 @@ const HTTP_VALIDATORS_API = Object.freeze({
   resolveIssueMessageFromSchema,
   mapOperationIssues,
   validateOperationSection,
-  validateOperationSectionAsync,
   validateOperationInput,
-  validateOperationInputAsync,
   simplifyJsonApiDocument
 });
 

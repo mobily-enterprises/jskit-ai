@@ -28,9 +28,7 @@ function bootAccountPreferencesRoutes(app) {
     async function (request, reply) {
       const response = await request.executeAction({
         actionId: "settings.preferences.update",
-        input: {
-          payload: request.input.body
-        }
+        input: request.input.body
       });
       reply.code(200).send(response);
     }

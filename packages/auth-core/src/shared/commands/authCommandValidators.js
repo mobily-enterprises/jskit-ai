@@ -80,73 +80,53 @@ const authRefreshTokenFieldDefinition = deepFreeze({
 });
 
 const oauthProviderValidator = deepFreeze({
-  schema: {
-    type: "string",
-    ...oauthProviderFieldDefinition
-  }
+  type: "string",
+  ...oauthProviderFieldDefinition
 });
 
 const authMethodIdValidator = deepFreeze({
-  schema: {
-    type: "string",
-    ...authMethodIdFieldDefinition
-  }
+  type: "string",
+  ...authMethodIdFieldDefinition
 });
 
 const authMethodKindValidator = deepFreeze({
-  schema: {
-    type: "string",
-    enum: AUTH_METHOD_KINDS
-  }
+  type: "string",
+  enum: AUTH_METHOD_KINDS
 });
 
 const oauthReturnToValidator = deepFreeze({
-  schema: {
-    type: "string",
-    ...oauthReturnToFieldDefinition
-  }
+  type: "string",
+  ...oauthReturnToFieldDefinition
 });
 
 const authEmailValidator = deepFreeze({
-  schema: {
-    type: "string",
-    ...authEmailFieldDefinition
-  }
+  type: "string",
+  ...authEmailFieldDefinition
 });
 
 const authPasswordValidator = deepFreeze({
-  schema: {
-    type: "string",
-    ...authPasswordFieldDefinition
-  }
+  type: "string",
+  ...authPasswordFieldDefinition
 });
 
 const authLoginPasswordValidator = deepFreeze({
-  schema: {
-    type: "string",
-    ...authLoginPasswordFieldDefinition
-  }
+  type: "string",
+  ...authLoginPasswordFieldDefinition
 });
 
 const authRecoveryTokenValidator = deepFreeze({
-  schema: {
-    type: "string",
-    ...authRecoveryTokenFieldDefinition
-  }
+  type: "string",
+  ...authRecoveryTokenFieldDefinition
 });
 
 const authAccessTokenValidator = deepFreeze({
-  schema: {
-    type: "string",
-    ...authAccessTokenFieldDefinition
-  }
+  type: "string",
+  ...authAccessTokenFieldDefinition
 });
 
 const authRefreshTokenValidator = deepFreeze({
-  schema: {
-    type: "string",
-    ...authRefreshTokenFieldDefinition
-  }
+  type: "string",
+  ...authRefreshTokenFieldDefinition
 });
 
 const okResponseValidator = deepFreeze({

@@ -5,11 +5,7 @@ import { createSchema } from "json-rest-schema";
 import { createActionRegistry } from "./registry.js";
 
 function createPassThroughSchema() {
-  return {
-    parse(value) {
-      return value;
-    }
-  };
+  return createSchema({});
 }
 
 test("action registry executes latest version by default", async () => {
@@ -82,7 +78,7 @@ test("action registry executes latest version by default", async () => {
   assert.deepEqual(calls, ["v2"]);
 });
 
-test("action registry merges action input validators", async () => {
+test("action registry validates action input with a single schema contract", async () => {
   const registry = createActionRegistry({
     contributors: [
       {
@@ -96,26 +92,20 @@ test("action registry merges action input validators", async () => {
             kind: "command",
             channels: ["api"],
             surfaces: ["app"],
-            input: [
-              {
-                schema: createSchema({
-                  workspaceSlug: {
-                    type: "string",
-                    required: false,
-                    minLength: 1,
-                    lowercase: true
-                  }
-                })
-              },
-              {
-                schema: createSchema({
-                  invitesEnabled: {
-                    type: "boolean",
-                    required: false
-                  }
-                })
-              }
-            ],
+            input: {
+              schema: createSchema({
+                workspaceSlug: {
+                  type: "string",
+                  required: false,
+                  minLength: 1,
+                  lowercase: true
+                },
+                invitesEnabled: {
+                  type: "boolean",
+                  required: false
+                }
+              })
+            },
             idempotency: "optional",
             audit: {
               actionName: "workspace.settings.update"

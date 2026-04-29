@@ -10,7 +10,7 @@ function useAddEditCore({
   canSave,
   fieldBag,
   feedback,
-  parseInput,
+  input,
   mapLoadedToModel,
   buildRawPayload,
   buildSavePayload,
@@ -48,13 +48,9 @@ function useAddEditCore({
       resource
     }) : {};
 
-    const validationResult = await validateOperationInput({
-      parseInput,
+    const validationResult = validateOperationInput({
+      input,
       rawPayload,
-      context: {
-        queryClient,
-        resource
-      },
       fieldBag,
       feedback,
       validationMessage: String(messages.validation || "Validation failed.")
@@ -63,7 +59,7 @@ function useAddEditCore({
       return;
     }
 
-    const { parseResult, parsedInput } = validationResult;
+    const { parsedInput } = validationResult;
     const savePayload = typeof buildSavePayload === "function"
       ? buildSavePayload(parsedInput, {
           rawPayload,
@@ -91,7 +87,6 @@ function useAddEditCore({
         await onSaveSuccess(payload, {
           queryClient,
           parsed: parsedInput,
-          parseResult,
           rawPayload,
           savePayload,
           resource

@@ -1,9 +1,9 @@
 import { createSchema } from "json-rest-schema";
-import { normalizePositiveInteger, normalizeRecordId } from "../support/normalize.js";
+import { deepFreeze } from "../support/deepFreeze.js";
 
 const RECORD_ID_PATTERN = "^[1-9][0-9]*$";
 
-const recordIdSchema = Object.freeze({
+const recordIdSchema = deepFreeze({
   type: "string",
   minLength: 1,
   pattern: RECORD_ID_PATTERN
@@ -11,66 +11,23 @@ const recordIdSchema = Object.freeze({
 
 const recordIdInputSchema = recordIdSchema;
 
-const nullableRecordIdSchema = Object.freeze({
+const nullableRecordIdSchema = deepFreeze({
   ...recordIdSchema,
   nullable: true
 });
+
 const nullableRecordIdInputSchema = nullableRecordIdSchema;
 
-const positiveIntegerValidator = Object.freeze({
-  schema: {
-    anyOf: [
-      {
-        type: "integer",
-        minimum: 1
-      },
-      {
-        type: "string",
-        minLength: 1,
-        pattern: RECORD_ID_PATTERN
+const recordIdParamsValidator = deepFreeze({
+  schema: createSchema({
+    recordId: {
+      ...recordIdSchema,
+      required: true,
+      messages: {
+        pattern: "Record id must be a canonical positive integer string."
       }
-    ]
-  },
-  parse(value) {
-    return normalizePositiveInteger(value);
-  }
-});
-
-function validateCanonicalRecordId(value) {
-  return new RegExp(RECORD_ID_PATTERN).test(value)
-    ? undefined
-    : "Record id must be a canonical positive integer string.";
-}
-
-const recordIdParamSchema = createSchema({
-  recordId: {
-    type: "string",
-    validator: validateCanonicalRecordId
-  }
-});
-
-const recordIdValidator = Object.freeze({
-  parse(value) {
-    const normalized = normalizeRecordId(value, {
-      fallback: ""
-    });
-    if (!normalized) {
-      throw new Error("Record id must be a canonical positive integer string.");
     }
-    return normalized;
-  }
-});
-
-const nullableRecordIdValidator = Object.freeze({
-  parse(value) {
-    return normalizeRecordId(value, {
-      fallback: null
-    });
-  }
-});
-
-const recordIdParamsValidator = Object.freeze({
-  schema: recordIdParamSchema,
+  }),
   mode: "patch"
 });
 
@@ -80,8 +37,5 @@ export {
   recordIdInputSchema,
   nullableRecordIdSchema,
   nullableRecordIdInputSchema,
-  recordIdValidator,
-  nullableRecordIdValidator,
-  recordIdParamsValidator,
-  positiveIntegerValidator
+  recordIdParamsValidator
 };

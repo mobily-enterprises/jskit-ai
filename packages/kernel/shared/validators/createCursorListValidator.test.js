@@ -1,31 +1,30 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import { createSchema } from "json-rest-schema";
 import { createCursorListValidator } from "./createCursorListValidator.js";
 
-test("createCursorListValidator builds a list validator from an item validator", () => {
+test("createCursorListValidator builds a list validator from a schema definition", () => {
   const itemValidator = {
-    schema: {
-      type: "object",
-      additionalProperties: false,
-      properties: {
-        id: {
-          type: "integer",
-          minimum: 1
-        },
-        label: {
-          type: "string",
-          minLength: 1
-        }
+    schema: createSchema({
+      id: {
+        type: "integer",
+        required: true,
+        min: 1
       },
-      required: ["id", "label"]
-    }
+      label: {
+        type: "string",
+        required: true,
+        minLength: 1
+      }
+    }),
+    mode: "replace"
   };
 
   const listValidator = createCursorListValidator(itemValidator);
-  assert.equal(listValidator.normalize, undefined);
-  assert.equal(listValidator.schema.properties.items.type, "array");
-  assert.deepEqual(listValidator.schema.properties.items.items.properties.label, {
-    type: "string",
-    minLength: 1
-  });
+  const transportSchema = listValidator.schema.toJsonSchema({ mode: listValidator.mode });
+
+  assert.equal(listValidator.mode, "replace");
+  assert.equal(transportSchema.properties.items.type, "array");
+  assert.equal(transportSchema.properties.items.items.properties.label.type, "string");
+  assert.equal(transportSchema.properties.items.items.properties.label.minLength, 1);
 });

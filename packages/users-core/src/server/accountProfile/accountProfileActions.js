@@ -26,6 +26,11 @@ const settingsProfileUpdateOutputValidator = deepFreeze({
   mode: "replace"
 });
 
+const settingsProfileUpdateInputValidator = deepFreeze({
+  schema: userProfileResource.operations.patch.body.schema,
+  mode: userProfileResource.operations.patch.body.mode
+});
+
 const accountProfileActions = deepFreeze([
   {
     id: "settings.read",
@@ -58,9 +63,7 @@ const accountProfileActions = deepFreeze([
     permission: {
       require: "authenticated"
     },
-    input: {
-      payload: userProfileResource.operations.patch.body
-    },
+    input: settingsProfileUpdateInputValidator,
     output: settingsProfileUpdateOutputValidator,
     idempotency: "optional",
     audit: {
@@ -71,7 +74,7 @@ const accountProfileActions = deepFreeze([
       return deps.accountProfileService.updateProfile(
         resolveRequest(context),
         resolveActionUser(context, input),
-        input.payload,
+        input,
         {
           context
         }

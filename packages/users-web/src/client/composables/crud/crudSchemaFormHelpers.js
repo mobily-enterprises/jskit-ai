@@ -1,4 +1,3 @@
-import { validateOperationSectionAsync } from "@jskit-ai/http-runtime/shared/validators/operationValidation";
 import { asPlainObject } from "../support/scopeHelpers.js";
 import { toRouteParamValue } from "../support/routeTemplateHelpers.js";
 
@@ -337,25 +336,6 @@ function resolveCrudFieldErrors(fieldErrors = {}, fieldKey = "") {
   return resolveStableFieldErrorList(key, message);
 }
 
-async function parseCrudResourceOperationInput({
-  resource = null,
-  operationName = "",
-  rawPayload = {},
-  context = {}
-} = {}) {
-  const normalizedOperationName = String(operationName || "").trim();
-  const operations = asPlainObject(asPlainObject(resource).operations);
-  const operation = asPlainObject(operations[normalizedOperationName]);
-
-  const parsed = await validateOperationSectionAsync({
-    operation,
-    section: "body",
-    value: rawPayload,
-    context
-  });
-  return parsed;
-}
-
 export {
   normalizeCrudFormFields,
   createCrudFormModel,
@@ -363,6 +343,5 @@ export {
   applyCrudPayloadToForm,
   resolveCrudRouteBoundFieldValues,
   applyCrudRouteBoundFieldValues,
-  resolveCrudFieldErrors,
-  parseCrudResourceOperationInput
+  resolveCrudFieldErrors
 };

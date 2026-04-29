@@ -36,7 +36,7 @@ function findRoute(routes, method, path) {
   return routes.find((route) => route.method === method && route.path === path) || null;
 }
 
-test("crud routes build create/update action input with explicit payload and patch keys", async () => {
+test("crud routes build flattened create/update action input", async () => {
   const registeredRoutes = [];
   const router = {
     register(method, path, route, handler) {
@@ -100,12 +100,14 @@ test("crud routes build create/update action input with explicit payload and pat
 
   assert.deepEqual(calls[0].input, {
     workspaceSlug: "acme",
-    payload: { textField: "A", dateField: "2026-03-11", numberField: 2 }
+    textField: "A",
+    dateField: "2026-03-11",
+    numberField: 2
   });
   assert.deepEqual(calls[1].input, {
     workspaceSlug: "acme",
     recordId: 12,
-    patch: { textField: "Renamed" }
+    textField: "Renamed"
   });
 });
 
@@ -158,7 +160,9 @@ test("crud routes omit workspaceSlug for non-workspace calls and apply configure
   );
 
   assert.deepEqual(calls[0].input, {
-    payload: { textField: "A", dateField: "2026-03-11", numberField: 2 }
+    textField: "A",
+    dateField: "2026-03-11",
+    numberField: 2
   });
 });
 

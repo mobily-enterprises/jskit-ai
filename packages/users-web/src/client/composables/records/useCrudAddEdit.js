@@ -11,8 +11,7 @@ import {
   buildCrudFormPayload,
   applyCrudPayloadToForm,
   resolveCrudRouteBoundFieldValues,
-  resolveCrudFieldErrors,
-  parseCrudResourceOperationInput
+  resolveCrudFieldErrors
 } from "../crud/crudSchemaFormHelpers.js";
 import { hasResolvedQueryData } from "../support/resourceLoadStateHelpers.js";
 
@@ -49,7 +48,7 @@ function useCrudAddEdit({
   createModel = null,
   buildPayload = null,
   mapPayloadToModel = null,
-  parseInput = null
+  input = null
 } = {}) {
   const router = useRouter();
   const route = useRoute();
@@ -91,9 +90,7 @@ function useCrudAddEdit({
       deep: true
     }
   );
-  const parseInputOverride = typeof parseInput === "function"
-    ? parseInput
-    : (typeof normalizedAddEditOptions.parseInput === "function" ? normalizedAddEditOptions.parseInput : null);
+  const inputOverride = input || normalizedAddEditOptions.input || null;
   const buildPayloadOverride = typeof buildPayload === "function"
     ? buildPayload
     : (typeof normalizedAddEditOptions.buildRawPayload === "function" ? normalizedAddEditOptions.buildRawPayload : null);
@@ -105,19 +102,7 @@ function useCrudAddEdit({
     : null;
   const shouldApplyDefaultMapPayload = normalizedAddEditOptions.readEnabled !== false;
   const resolvedResource = normalizedAddEditOptions.resource || resource;
-
-  function resolveParseInput(rawPayload = {}, context = {}) {
-    if (parseInputOverride) {
-      return parseInputOverride(rawPayload, context);
-    }
-
-    return parseCrudResourceOperationInput({
-      resource: resolvedResource,
-      operationName,
-      rawPayload,
-      context
-    });
-  }
+  const resolvedInput = inputOverride || resolvedResource?.operations?.[operationName]?.body || null;
 
   function resolveBuildRawPayload(model = {}, context = {}) {
     const payload = buildPayloadOverride
@@ -187,7 +172,7 @@ function useCrudAddEdit({
     resource: resolvedResource,
     model: form,
     fieldErrorKeys,
-    parseInput: resolveParseInput,
+    input: resolvedInput,
     buildRawPayload: resolveBuildRawPayload,
     mapLoadedToModel: effectiveMapLoadedToModel,
     onSaveSuccess: handleSaveSuccess

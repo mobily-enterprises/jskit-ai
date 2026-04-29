@@ -1,5 +1,6 @@
 import { withStandardErrorResponses } from "@jskit-ai/http-runtime/shared/validators/errorResponses";
 import { normalizeSurfaceId } from "@jskit-ai/kernel/shared/surface/registry";
+import { composeSchemaDefinitions } from "@jskit-ai/kernel/shared/validators";
 import {
   createCrudCursorPaginationQueryValidator,
   listSearchQueryValidator,
@@ -18,6 +19,16 @@ __JSKIT_CRUD_ROUTE_WORKSPACE_SUPPORT_IMPORTS__
 
 const listCursorPaginationQueryValidator = createCrudCursorPaginationQueryValidator(LIST_CONFIG);
 const listParentFilterQueryValidator = createCrudParentFilterQueryValidator(resource);
+const listRouteQueryValidator = composeSchemaDefinitions([
+  listCursorPaginationQueryValidator,
+  listSearchQueryValidator,
+  listParentFilterQueryValidator,
+  lookupIncludeQueryValidator
+], {
+  mode: "patch",
+  context: "${option:namespace|camel}.registerRoutes.listRouteQueryValidator"
+});
+__JSKIT_CRUD_ROUTE_VALIDATOR_CONSTANTS__
 
 function registerRoutes(
   app,
@@ -47,12 +58,7 @@ function registerRoutes(
         summary: "List records."
       },
 __JSKIT_CRUD_LIST_ROUTE_PARAMS_VALIDATOR_LINE__
-      query: [
-        listCursorPaginationQueryValidator,
-        listSearchQueryValidator,
-        listParentFilterQueryValidator,
-        lookupIncludeQueryValidator
-      ],
+      query: listRouteQueryValidator,
       responses: withStandardErrorResponses({
         200: resource.operations.list.output
       })
@@ -81,7 +87,7 @@ __JSKIT_CRUD_LIST_ROUTE_INPUT_LINES__
         summary: "View a record."
       },
 __JSKIT_CRUD_VIEW_ROUTE_PARAMS_VALIDATOR_LINE__
-      query: [lookupIncludeQueryValidator],
+      query: lookupIncludeQueryValidator,
       responses: withStandardErrorResponses({
         200: resource.operations.view.output
       })

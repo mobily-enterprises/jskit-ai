@@ -1,5 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import { createSchema } from "json-rest-schema";
 import { compileRouteValidator } from "@jskit-ai/kernel/_testable";
 import { cursorPaginationQueryValidator } from "@jskit-ai/kernel/shared/validators";
 import { listSearchQueryValidator } from "../src/server/listQueryValidators.js";
@@ -8,6 +9,15 @@ import {
   CRUD_LIST_FILTER_INVALID_VALUES_DISCARD,
   createCrudListFilters
 } from "../src/server/listFilters.js";
+
+function composeSchemaDefinition(...definitions) {
+  return Object.freeze({
+    schema: createSchema(
+      Object.assign({}, ...definitions.map((definition) => definition.schema.getFieldDefinitions()))
+    ),
+    mode: "patch"
+  });
+}
 
 test("crud-core exposes createCrudListFilters through the public package export", async () => {
   const module = await import("@jskit-ai/crud-core/server/listFilters");
@@ -247,13 +257,13 @@ test("createCrudListFilters query validator stays mergeable with search and curs
   });
 
   const compiled = compileRouteValidator({
-    query: [
+    query: composeSchemaDefinition(
       cursorPaginationQueryValidator,
       listSearchQueryValidator,
       runtime.createQueryValidator({
         invalidValues: CRUD_LIST_FILTER_INVALID_VALUES_REJECT
       })
-    ]
+    )
   });
 
   assert.deepEqual(compiled.schema.querystring.required || [], []);
@@ -295,13 +305,16 @@ test("createCrudListFilters reject validator keeps strict filter schemas", () =>
   const validator = runtime.createQueryValidator({
     invalidValues: CRUD_LIST_FILTER_INVALID_VALUES_REJECT
   });
+  const transportSchema = validator.schema.toJsonSchema({
+    mode: validator.mode
+  });
 
-  assert.equal(validator.schema.type, "object");
-  assert.equal(validator.schema.additionalProperties, false);
-  assert.equal(validator.schema.properties.arrivalDateFrom.pattern, "^\\d{4}-\\d{2}-\\d{2}$");
-  assert.deepEqual(validator.schema.properties.status.anyOf[1].items.enum, ["active", "archived"]);
-  assert.equal(validator.schema.properties.supplierContactId.anyOf[1].items.anyOf[0].pattern, "^[1-9][0-9]*$");
-  assert.equal(validator.schema.properties.weightMin.anyOf[0].pattern, "^[+-]?(?:\\d+(?:\\.\\d*)?|\\.\\d+)(?:[eE][+-]?\\d+)?$");
+  assert.equal(transportSchema.type, "object");
+  assert.equal(transportSchema.additionalProperties, false);
+  assert.equal(transportSchema.properties.arrivalDateFrom.pattern, "^\\d{4}-\\d{2}-\\d{2}$");
+  assert.deepEqual(transportSchema.properties.status.anyOf[1].items.enum, ["active", "archived"]);
+  assert.equal(transportSchema.properties.supplierContactId.anyOf[1].items.anyOf[0].pattern, "^[1-9][0-9]*$");
+  assert.equal(transportSchema.properties.weightMin.anyOf[0].pattern, "^[+-]?(?:\\d+(?:\\.\\d*)?|\\.\\d+)(?:[eE][+-]?\\d+)?$");
 });
 
 test("createCrudListFilters discard validator accepts malformed values and lets normalize drop them", () => {
@@ -331,12 +344,15 @@ test("createCrudListFilters discard validator accepts malformed values and lets 
   const validator = runtime.createQueryValidator({
     invalidValues: CRUD_LIST_FILTER_INVALID_VALUES_DISCARD
   });
+  const transportSchema = validator.schema.toJsonSchema({
+    mode: validator.mode
+  });
 
-  assert.equal(validator.schema.type, "object");
-  assert.equal(validator.schema.properties.arrivalDateFrom.minLength, 0);
-  assert.equal(validator.schema.properties.status.anyOf[0].minLength, 0);
-  assert.equal(validator.schema.properties.supplierContactId.anyOf[0].anyOf[0].minLength, 0);
-  assert.deepEqual(validator.normalize({
+  assert.equal(transportSchema.type, "object");
+  assert.equal(transportSchema.properties.arrivalDateFrom.minLength, 0);
+  assert.equal(transportSchema.properties.status.anyOf[0].minLength, 0);
+  assert.equal(transportSchema.properties.supplierContactId.anyOf[0].anyOf[0].minLength, 0);
+  assert.deepEqual(runtime.normalize({
     arrivalDateFrom: "bad-date",
     arrivalDateTo: "2026-04-30",
     status: ["active", "unexpected"],
