@@ -9,6 +9,7 @@ const JSON_REST_SCHEMA_ERROR_MESSAGE_KEYS = Object.freeze({
   MAX_LENGTH: "maxLength",
   MIN_VALUE: "min",
   MAX_VALUE: "max",
+  PATTERN: "pattern",
   ENUM_VALUE: "enum",
   FIELD_NOT_ALLOWED: "additionalProperties",
   CUSTOM_VALIDATOR_FAILED: "default"

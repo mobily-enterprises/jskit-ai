@@ -82,7 +82,7 @@ const patchOperation = Object.freeze({
   }
 });
 
-test("validateOperationSection validates one section without reshaping json-rest-schema input", () => {
+test("validateOperationSection validates one section and returns normalized json-rest-schema output", () => {
   const parsed = validateOperationSection({
     operation: patchOperation,
     section: "body",
@@ -94,7 +94,7 @@ test("validateOperationSection validates one section without reshaping json-rest
 
   assert.equal(parsed.ok, true);
   assert.deepEqual(parsed.fieldErrors, {});
-  assert.equal(parsed.value.name, "  Acme  ");
+  assert.equal(parsed.value.name, "Acme");
 });
 
 test("validateOperationSection returns shared field errors", () => {
