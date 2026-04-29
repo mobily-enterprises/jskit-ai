@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import path from "node:path";
 import { existsSync } from "node:fs";
 import { fileURLToPath } from "node:url";
-import "../test-support/registerDefaultSettingsFields.js";
+import { resolveStructuredSchemaTransportSchema } from "@jskit-ai/kernel/shared/validators";
 import { userProfileResource } from "../src/shared/resources/userProfileResource.js";
 import { userSettingsResource } from "../src/shared/resources/userSettingsResource.js";
 
@@ -51,15 +51,22 @@ test("users-core specialized resource operations expose messages and validators"
 
   for (const { label, operation } of operationSpecs) {
     assert.equal(typeof operation?.messages, "object", `${label}.messages must be an object.`);
-    assert.equal(typeof operation?.outputValidator?.schema, "object", `${label}.outputValidator.schema must exist.`);
-    if (operation?.bodyValidator) {
-      assert.equal(typeof operation.bodyValidator.schema, "object", `${label}.bodyValidator.schema must exist.`);
+    assert.equal(
+      typeof resolveStructuredSchemaTransportSchema(operation?.output, {
+        context: `${label}.output`,
+        defaultMode: "replace"
+      }),
+      "object",
+      `${label}.output transport schema must exist.`
+    );
+    if (operation?.body) {
+      assert.equal(typeof operation.body.schema, "object", `${label}.body.schema must exist.`);
     }
-    if (operation?.paramsValidator) {
-      assert.equal(typeof operation.paramsValidator.schema, "object", `${label}.paramsValidator.schema must exist.`);
+    if (operation?.params) {
+      assert.equal(typeof operation.params.schema, "object", `${label}.params.schema must exist.`);
     }
-    if (operation?.queryValidator) {
-      assert.equal(typeof operation.queryValidator.schema, "object", `${label}.queryValidator.schema must exist.`);
+    if (operation?.query) {
+      assert.equal(typeof operation.query.schema, "object", `${label}.query.schema must exist.`);
     }
   }
 });

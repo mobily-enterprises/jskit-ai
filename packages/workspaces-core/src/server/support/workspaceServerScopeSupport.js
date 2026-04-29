@@ -5,7 +5,7 @@ import { resolveWorkspace } from "./resolveWorkspace.js";
 function createWorkspaceServerScopeSupport() {
   return Object.freeze({
     available: true,
-    paramsValidator: workspaceSlugParamsValidator,
+    params: workspaceSlugParamsValidator,
     buildInputFromRouteParams(params = {}) {
       return buildWorkspaceInputFromRouteParams(params);
     },

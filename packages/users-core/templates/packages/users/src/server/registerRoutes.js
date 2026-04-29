@@ -40,9 +40,9 @@ function registerRoutes(
         tags: ["crud"],
         summary: "List users."
       },
-      queryValidator: [listCursorPaginationQueryValidator, listSearchQueryValidator],
-      responseValidators: withStandardErrorResponses({
-        200: resource.operations.list.outputValidator
+      query: [listCursorPaginationQueryValidator, listSearchQueryValidator],
+      responses: withStandardErrorResponses({
+        200: resource.operations.list.output
       })
     },
     async function (request, reply) {
@@ -67,9 +67,9 @@ function registerRoutes(
         tags: ["crud"],
         summary: "View a user."
       },
-      paramsValidator: recordIdParamsValidator,
-      responseValidators: withStandardErrorResponses({
-        200: resource.operations.view.outputValidator
+      params: recordIdParamsValidator,
+      responses: withStandardErrorResponses({
+        200: resource.operations.view.output
       })
     },
     async function (request, reply) {

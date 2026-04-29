@@ -1,6 +1,7 @@
 import path from "node:path";
 import { pathToFileURL } from "node:url";
 import { access, readdir, readFile } from "node:fs/promises";
+import { buildCrudFieldContractMap } from "@jskit-ai/kernel/shared/support/crudFieldContract";
 import {
   buildAppCommandOptionMeta,
   listAppCommandDefinitions
@@ -659,26 +660,7 @@ async function discoverResourceDisplayFields(appRoot, resourceFile = "") {
     if (!resource || typeof resource !== "object") {
       return [];
     }
-    const fieldKeys = new Set();
-
-    const outputSchemaProperties = resource?.operations?.view?.outputValidator?.schema?.properties;
-    if (outputSchemaProperties && typeof outputSchemaProperties === "object") {
-      for (const key of Object.keys(outputSchemaProperties)) {
-        if (key === resource?.contract?.lookup?.containerKey) {
-          continue;
-        }
-        fieldKeys.add(key);
-      }
-    }
-
-    for (const fieldMeta of Array.isArray(resource?.fieldMeta) ? resource.fieldMeta : []) {
-      const key = normalizeText(fieldMeta?.key);
-      if (key) {
-        fieldKeys.add(key);
-      }
-    }
-
-    return uniqueSorted([...fieldKeys]);
+    return uniqueSorted(Object.keys(buildCrudFieldContractMap(resource)));
   } catch {
     return [];
   }

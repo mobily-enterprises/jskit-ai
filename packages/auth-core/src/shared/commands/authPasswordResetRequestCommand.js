@@ -1,7 +1,7 @@
-import { Type } from "typebox";
-import { normalizeObjectInput } from "../inputNormalization.js";
+import { createSchema } from "json-rest-schema";
+import { deepFreeze } from "@jskit-ai/kernel/shared/support/deepFreeze";
 import {
-  authEmailValidator,
+  authEmailFieldDefinition,
   createCommandMessages,
   okMessageResponseValidator
 } from "./authCommandValidators.js";
@@ -17,29 +17,24 @@ const AUTH_PASSWORD_RESET_REQUEST_MESSAGES = createCommandMessages({
   }
 });
 
-const authPasswordResetRequestBodyValidator = Object.freeze({
-  schema: Type.Object(
-    {
-      email: authEmailValidator.schema
-    },
-    {
-      additionalProperties: false
-    }
-  ),
-  normalize: normalizeObjectInput,
+const authPasswordResetRequestBodyValidator = deepFreeze({
+  schema: createSchema({
+    email: { ...authEmailFieldDefinition, required: true }
+  }),
+  mode: "create",
   messages: AUTH_PASSWORD_RESET_REQUEST_MESSAGES
 });
 
-const authPasswordResetRequestCommand = Object.freeze({
+const authPasswordResetRequestCommand = deepFreeze({
   command: "auth.password.reset.request",
-  operation: Object.freeze({
+  operation: {
     method: "POST",
-    bodyValidator: authPasswordResetRequestBodyValidator,
-    responseValidator: okMessageResponseValidator,
+    body: authPasswordResetRequestBodyValidator,
+    response: okMessageResponseValidator,
     messages: AUTH_PASSWORD_RESET_REQUEST_MESSAGES,
     idempotent: false,
-    invalidates: Object.freeze([])
-  })
+    invalidates: []
+  }
 });
 
 export {

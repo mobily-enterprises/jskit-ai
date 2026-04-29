@@ -216,23 +216,11 @@ Exports
 - `MAX_INPUT_CHARS`
 - `MAX_HISTORY_MESSAGES`
 - `assistantResource`
-Local functions
-- `normalizePaginationValue(value, fallback, max)`
-- `normalizeChatStreamBody(payload = {})`
-- `normalizeConversationsListQuery(payload = {})`
-- `normalizeConversationMessagesQuery(payload = {})`
-- `normalizeConversationMessagesParams(payload = {})`
-- `createOptionalPositiveIntegerQuerySchema(max = null)`
-- `normalizeConversationRecord(payload = {})`
-- `normalizeConversationMessageRecord(payload = {})`
 
 ### `src/shared/assistantSettingsResource.js`
 Exports
 - `MAX_SYSTEM_PROMPT_CHARS`
 - `assistantConfigResource`
-Local functions
-- `normalizeConfigPatch(payload = {})`
-- `normalizeConfigRecord(payload = {})`
 
 ### `src/shared/index.js`
 Exports

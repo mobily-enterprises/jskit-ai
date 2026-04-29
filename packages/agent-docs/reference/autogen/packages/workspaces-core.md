@@ -36,6 +36,10 @@ Exports
 - `mapWorkspaceSettingsPublic(workspaceSettings, { workspaceInvitationsEnabled = true } = {})`
 - `mapWorkspaceSummary(workspace, membership)`
 
+### `src/server/common/registerJsonRestResources.js`
+Exports
+- `registerWorkspaceJsonRestResources(app)`
+
 ### `src/server/common/repositories/repositoryUtils.js`
 Exports
 - `toNullableDateTime`
@@ -54,7 +58,7 @@ Exports
 
 ### `src/server/common/repositories/workspaceInvitesRepository.js`
 Exports
-- `createRepository(knex)`
+- `createRepository({ api, knex } = {})`
 - `normalizeInviteRecord(payload)`
 - `normalizeInviteWithWorkspace(payload = {})`
 Local functions
@@ -62,7 +66,7 @@ Local functions
 
 ### `src/server/common/repositories/workspaceMembershipsRepository.js`
 Exports
-- `createRepository(knex)`
+- `createRepository({ api, knex } = {})`
 - `normalizeMembershipRecord(payload)`
 - `normalizeMemberSummaryRow(row)`
 Local functions
@@ -70,32 +74,33 @@ Local functions
 
 ### `src/server/common/repositories/workspacesRepository.js`
 Exports
-- `createRepository(knex)`
-- `normalizeWorkspaceRecord(payload)`
-- `normalizeMembershipWorkspaceRow(row)`
-Local functions
-- `normalizeCreatePayload(payload = {})`
+- `createRepository({ api, knex } = {})`
 
 ### `src/server/common/resources/workspaceInvitesResource.js`
 Exports
 - `workspaceInvitesResource`
 Local functions
-- `normalizeInviteRecord(payload = {})`
-- `normalizeInviteInput(payload = {})`
+- `serializeNullableDateTime(value)`
 
 ### `src/server/common/resources/workspaceMembershipsResource.js`
 Exports
 - `workspaceMembershipsResource`
 Local functions
-- `normalizeMembershipRecord(payload = {})`
-- `normalizeMembershipInput(payload = {})`
+- `serializeNullableDateTime(value)`
+
+### `src/server/common/resources/workspaceSettingsResource.js`
+Exports
+- `workspaceSettingsResource`
+Local functions
+- `serializeNullableDateTime(value)`
+- `normalizeWorkspaceColorInput(value)`
 
 ### `src/server/common/resources/workspacesResource.js`
 Exports
 - `workspacesResource`
 Local functions
-- `normalizeWorkspaceRecord(payload = {})`
-- `normalizeWorkspaceInput(payload = {})`
+- `normalizeWorkspaceAvatarUrl(value)`
+- `serializeNullableDateTime(value)`
 
 ### `src/server/common/services/workspaceContextService.js`
 Exports
@@ -139,9 +144,6 @@ Local functions
 Exports
 - `routeParamsValidator`
 - `workspaceSlugParamsValidator`
-Local functions
-- `normalizeRouteParams(input = {})`
-- `normalizeWorkspaceSlugParams(input = {})`
 
 ### `src/server/registerWorkspaceBootstrap.js`
 Exports
@@ -190,7 +192,6 @@ Exports
 Exports
 - `createWorkspaceBootstrapContributor({ workspaceService, workspacePendingInvitationsService, userProfilesRepository, workspaceInvitationsEnabled = false, appConfig = {}, tenancyProfile = null } = {})`
 Local functions
-- `normalizePendingInvites(invites)`
 - `normalizeQueryPayload(value = {})`
 - `resolveBootstrapWorkspaceSlug({ query = {}, request = null } = {})`
 - `normalizeRequestedWorkspaceStatus(value = "")`
@@ -270,9 +271,9 @@ Exports
 
 ### `src/server/workspaceSettings/workspaceSettingsRepository.js`
 Exports
-- `createRepository(knex, { defaultInvitesEnabled } = {})`
+- `createRepository({ api, knex } = {})`
 Local functions
-- `resolveWorkspaceSettingsSeed(workspace = {}, { defaultInvitesEnabled = true } = {})`
+- `pickPatchFields(source = {})`
 
 ### `src/server/workspaceSettings/workspaceSettingsService.js`
 Exports
@@ -289,46 +290,19 @@ Exports
 ### `src/shared/resources/workspaceMembersResource.js`
 Exports
 - `workspaceMembersResource`
-Local functions
-- `normalizeWorkspaceAdminSummary(workspace)`
-- `normalizeMemberSummary(member, workspace)`
-- `normalizeInviteSummary(invite)`
-- `normalizeWorkspaceOutputEnvelope(payload = {}, { itemsKey, normalizeItem, includeInviteTokenPreview = false } = {})`
-- `normalizeWorkspaceMembersOutput(payload = {})`
-- `normalizeWorkspaceInvitesOutput(payload = {})`
 
 ### `src/shared/resources/workspacePendingInvitationsResource.js`
 Exports
 - `workspacePendingInvitationsResource`
-Local functions
-- `normalizePendingInvite(invite)`
-- `normalizePendingInviteList(invites)`
 
 ### `src/shared/resources/workspaceResource.js`
 Exports
 - `workspaceResource`
-Local functions
-- `normalizeWorkspaceAvatarUrl(value)`
-- `normalizeWorkspaceInput(payload = {})`
-- `normalizeWorkspaceOutput(payload = {})`
-- `normalizeWorkspaceListItemOutput(payload = {})`
-
-### `src/shared/resources/workspaceSettingsFields.js`
-Exports
-- `defineField(field = {})`
-- `resetWorkspaceSettingsFields()`
-- `resolveWorkspaceSettingsFieldKeys()`
-- `workspaceSettingsFields`
 
 ### `src/shared/resources/workspaceSettingsResource.js`
 Exports
+- `WORKSPACE_SETTINGS_FIELD_KEYS`
 - `workspaceSettingsResource`
-Local functions
-- `buildCreateBodySchema()`
-- `buildSettingsOutputSchema()`
-- `buildResponseRecordSchema()`
-- `normalizeInput(payload = {})`
-- `normalizeOutput(payload = {})`
 
 ### `src/shared/roles.js`
 Exports
@@ -428,20 +402,8 @@ Local functions
 - `hasColumn(knex, tableName, columnName)`
 - `normalizeHexColor(value)`
 
-### `templates/packages/main/src/shared/resources/workspaceSettingsFields.js`
-Exports
-- None
-Local functions
-- `normalizeHexColor(value)`
-
 ### root
 
 ### `package.descriptor.mjs`
-Exports
-- None
-
-### test-support
-
-### `test-support/registerDefaultSettingsFields.js`
 Exports
 - None

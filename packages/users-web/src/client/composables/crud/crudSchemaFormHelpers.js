@@ -1,4 +1,4 @@
-import { validateOperationSection } from "@jskit-ai/http-runtime/shared/validators/operationValidation";
+import { validateOperationSectionAsync } from "@jskit-ai/http-runtime/shared/validators/operationValidation";
 import { asPlainObject } from "../support/scopeHelpers.js";
 import { toRouteParamValue } from "../support/routeTemplateHelpers.js";
 
@@ -337,7 +337,7 @@ function resolveCrudFieldErrors(fieldErrors = {}, fieldKey = "") {
   return resolveStableFieldErrorList(key, message);
 }
 
-function parseCrudResourceOperationInput({
+async function parseCrudResourceOperationInput({
   resource = null,
   operationName = "",
   rawPayload = {},
@@ -347,9 +347,9 @@ function parseCrudResourceOperationInput({
   const operations = asPlainObject(asPlainObject(resource).operations);
   const operation = asPlainObject(operations[normalizedOperationName]);
 
-  const parsed = validateOperationSection({
+  const parsed = await validateOperationSectionAsync({
     operation,
-    section: "bodyValidator",
+    section: "body",
     value: rawPayload,
     context
   });

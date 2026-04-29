@@ -19,10 +19,10 @@ function bootAccountSecurityRoutes(app) {
         tags: ["settings"],
         summary: "Set or change authenticated user's password"
       },
-      bodyValidator: userSettingsResource.operations.passwordChange.bodyValidator,
-      responseValidators: withStandardErrorResponses(
+      body: userSettingsResource.operations.passwordChange.body,
+      responses: withStandardErrorResponses(
         {
-          200: userSettingsResource.operations.passwordChange.outputValidator
+          200: userSettingsResource.operations.passwordChange.output
         },
         { includeValidation400: true }
       ),
@@ -59,10 +59,10 @@ function bootAccountSecurityRoutes(app) {
         tags: ["settings"],
         summary: "Enable or disable password sign-in method"
       },
-      bodyValidator: userSettingsResource.operations.passwordMethodToggle.bodyValidator,
-      responseValidators: withStandardErrorResponses(
+      body: userSettingsResource.operations.passwordMethodToggle.body,
+      responses: withStandardErrorResponses(
         {
-          200: userSettingsResource.operations.passwordMethodToggle.outputValidator
+          200: userSettingsResource.operations.passwordMethodToggle.output
         },
         { includeValidation400: true }
       ),
@@ -93,9 +93,9 @@ function bootAccountSecurityRoutes(app) {
         tags: ["settings"],
         summary: "Start linking an OAuth provider for authenticated user"
       },
-      paramsValidator: userSettingsResource.operations.oauthLinkStart.paramsValidator,
-      queryValidator: userSettingsResource.operations.oauthLinkStart.queryValidator,
-      responseValidators: withStandardErrorResponses(
+      params: userSettingsResource.operations.oauthLinkStart.params,
+      query: userSettingsResource.operations.oauthLinkStart.query,
+      responses: withStandardErrorResponses(
         {
           302: { schema: Type.Unknown() }
         },
@@ -128,10 +128,10 @@ function bootAccountSecurityRoutes(app) {
         tags: ["settings"],
         summary: "Unlink an OAuth provider from authenticated account"
       },
-      paramsValidator: userSettingsResource.operations.oauthUnlink.paramsValidator,
-      responseValidators: withStandardErrorResponses(
+      params: userSettingsResource.operations.oauthUnlink.params,
+      responses: withStandardErrorResponses(
         {
-          200: userSettingsResource.operations.oauthUnlink.outputValidator
+          200: userSettingsResource.operations.oauthUnlink.output
         },
         { includeValidation400: true }
       ),
@@ -161,8 +161,8 @@ function bootAccountSecurityRoutes(app) {
         tags: ["settings"],
         summary: "Sign out from other active sessions"
       },
-      responseValidators: withStandardErrorResponses({
-        200: userSettingsResource.operations.logoutOtherSessions.outputValidator
+      responses: withStandardErrorResponses({
+        200: userSettingsResource.operations.logoutOtherSessions.output
       }),
       rateLimit: {
         max: 20,

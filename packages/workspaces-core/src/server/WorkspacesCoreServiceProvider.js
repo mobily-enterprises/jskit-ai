@@ -8,6 +8,7 @@ import { registerWorkspaceMembers } from "./workspaceMembers/registerWorkspaceMe
 import { bootWorkspaceMembers } from "./workspaceMembers/bootWorkspaceMembers.js";
 import { registerWorkspaceSettings } from "./workspaceSettings/registerWorkspaceSettings.js";
 import { bootWorkspaceSettings } from "./workspaceSettings/bootWorkspaceSettings.js";
+import { registerWorkspaceJsonRestResources } from "./common/registerJsonRestResources.js";
 import { registerWorkspaceRepositories } from "./registerWorkspaceRepositories.js";
 import { registerWorkspaceCore } from "./registerWorkspaceCore.js";
 import { registerWorkspaceBootstrap } from "./registerWorkspaceBootstrap.js";
@@ -17,7 +18,8 @@ class WorkspacesCoreServiceProvider {
 
   static dependsOn = ["users.core"];
 
-  register(app) {
+  async register(app) {
+    await registerWorkspaceJsonRestResources(app);
     registerWorkspaceRepositories(app);
     registerWorkspaceCore(app);
     registerWorkspaceBootstrap(app);

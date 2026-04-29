@@ -13,7 +13,7 @@ export function useLoginViewValidation({ state } = {}) {
   function resolveFieldErrorMessages({
     shouldValidate,
     commandResource,
-    section = "bodyValidator",
+    section = "body",
     payload,
     fieldName
   } = {}) {

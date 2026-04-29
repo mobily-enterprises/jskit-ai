@@ -14,7 +14,7 @@ function createResourceWithOutputSchema(overrides = {}) {
     namespace: "contacts",
     operations: {
       view: {
-        outputValidator: {
+        output: {
           schema: {
             type: "object",
             properties: {

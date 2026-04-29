@@ -1,147 +1,111 @@
 import {
-  normalizeDbRecordId,
   normalizeRecordId,
-  toIsoString,
   nowDb,
   isDuplicateEntryError,
   createWithTransaction
 } from "../common/repositories/repositoryUtils.js";
-import { normalizeObjectInput } from "@jskit-ai/kernel/shared/validators/inputNormalization";
-import { pickOwnProperties } from "@jskit-ai/kernel/shared/support";
-import {
-  workspaceSettingsFields,
-  resolveWorkspaceSettingsFieldKeys
-} from "../../shared/resources/workspaceSettingsFields.js";
 
-function resolveWorkspaceSettingsSeed(workspace = {}, { defaultInvitesEnabled = true } = {}) {
-  const source = normalizeObjectInput(workspace);
-  const seed = {};
-  for (const field of workspaceSettingsFields) {
-    const rawValue = Object.hasOwn(source, field.key)
-      ? source[field.key]
-      : field.resolveDefault({
-          workspace: source,
-          defaultInvitesEnabled
-        });
-    seed[field.key] = field.normalizeOutput(rawValue, {
-      workspace: source,
-      defaultInvitesEnabled
-    });
+const WORKSPACE_SETTINGS_PATCH_FIELDS = Object.freeze([
+  "lightPrimaryColor",
+  "lightSecondaryColor",
+  "lightSurfaceColor",
+  "lightSurfaceVariantColor",
+  "darkPrimaryColor",
+  "darkSecondaryColor",
+  "darkSurfaceColor",
+  "darkSurfaceVariantColor",
+  "invitesEnabled"
+]);
+
+function pickPatchFields(source = {}) {
+  const patch = {};
+
+  for (const fieldName of WORKSPACE_SETTINGS_PATCH_FIELDS) {
+    if (Object.hasOwn(source, fieldName)) {
+      patch[fieldName] = source[fieldName];
+    }
   }
-  return seed;
+
+  return patch;
 }
 
-function createRepository(knex, { defaultInvitesEnabled } = {}) {
+function createRepository({ api, knex } = {}) {
+  if (!api?.resources?.workspaceSettings) {
+    throw new TypeError("workspaceSettingsRepository requires json-rest-api workspaceSettings resource.");
+  }
   if (typeof knex !== "function") {
     throw new TypeError("workspaceSettingsRepository requires knex.");
   }
   const withTransaction = createWithTransaction(knex);
 
-  function mapRow(row) {
-    if (!row) {
-      return null;
-    }
+  async function queryFirst(filters = {}, options = {}) {
+    const result = await api.resources.workspaceSettings.query({
+      queryParams: {
+        filters
+      },
+      transaction: options?.trx,
+      simplified: true
+    });
 
-    const settings = {
-      workspaceId: normalizeDbRecordId(row.workspace_id, { fallback: "" })
-    };
-    for (const field of workspaceSettingsFields) {
-      const column = field.repository.column;
-      const rawValue = Object.hasOwn(row, column)
-        ? row[column]
-        : field.resolveDefault({
-            defaultInvitesEnabled
-          });
-      settings[field.key] = field.normalizeOutput(rawValue, {
-        defaultInvitesEnabled
-      });
-    }
-
-    settings.createdAt = toIsoString(row.created_at);
-    settings.updatedAt = toIsoString(row.updated_at);
-    return settings;
+    return Array.isArray(result?.data) ? result.data[0] || null : null;
   }
 
   async function findByWorkspaceId(workspaceId, options = {}) {
-    const client = options?.trx || knex;
     const normalizedWorkspaceId = normalizeRecordId(workspaceId, { fallback: null });
     if (!normalizedWorkspaceId) {
       return null;
     }
 
-    const row = await client("workspace_settings").where({ workspace_id: normalizedWorkspaceId }).first();
-    return mapRow(row);
+    return queryFirst({ id: normalizedWorkspaceId }, options);
   }
 
   async function ensureForWorkspaceId(workspaceId, options = {}) {
-    const client = options?.trx || knex;
     const normalizedWorkspaceId = normalizeRecordId(workspaceId, { fallback: null });
     if (!normalizedWorkspaceId) {
       throw new TypeError("workspaceSettingsRepository.ensureForWorkspaceId requires a valid workspace id.");
     }
 
-    const seed = resolveWorkspaceSettingsSeed(options?.workspace, {
-      defaultInvitesEnabled
-    });
-    const existing = await findByWorkspaceId(normalizedWorkspaceId, { trx: client });
+    const existing = await findByWorkspaceId(normalizedWorkspaceId, { trx: options?.trx });
     if (existing) {
       return existing;
     }
 
     try {
-      const insertPayload = {
-        workspace_id: normalizedWorkspaceId,
-        created_at: nowDb(),
-        updated_at: nowDb()
-      };
-      for (const field of workspaceSettingsFields) {
-        insertPayload[field.repository.column] = seed[field.key];
-      }
-      await client("workspace_settings").insert(insertPayload);
+      await api.resources.workspaceSettings.post({
+        id: normalizedWorkspaceId,
+        transaction: options?.trx
+      });
     } catch (error) {
       if (!isDuplicateEntryError(error)) {
         throw error;
       }
     }
 
-    return findByWorkspaceId(normalizedWorkspaceId, { trx: client });
+    return findByWorkspaceId(normalizedWorkspaceId, { trx: options?.trx });
   }
 
   async function updateSettingsByWorkspaceId(workspaceId, patch = {}, options = {}) {
-    const client = options?.trx || knex;
     const normalizedWorkspaceId = normalizeRecordId(workspaceId, { fallback: null });
     if (!normalizedWorkspaceId) {
       throw new TypeError("workspaceSettingsRepository.updateSettingsByWorkspaceId requires a valid workspace id.");
     }
 
-    const ensured = await ensureForWorkspaceId(normalizedWorkspaceId, {
-      trx: client,
-      workspace: options?.workspace
-    });
-    const source = normalizeObjectInput(patch);
-    const settingsPatch = pickOwnProperties(source, resolveWorkspaceSettingsFieldKeys());
+    await ensureForWorkspaceId(normalizedWorkspaceId, { trx: options?.trx });
+    const source = patch && typeof patch === "object" && !Array.isArray(patch) ? patch : {};
+    const updatePayload = pickPatchFields(source);
 
-    if (Object.keys(settingsPatch).length === 0) {
-      return ensured;
+    if (Object.keys(updatePayload).length < 1) {
+      return findByWorkspaceId(normalizedWorkspaceId, { trx: options?.trx });
     }
 
-    const dbPatch = {
-      updated_at: nowDb()
-    };
-
-    for (const field of workspaceSettingsFields) {
-      if (!Object.hasOwn(settingsPatch, field.key)) {
-        continue;
-      }
-      dbPatch[field.repository.column] = field.normalizeInput(settingsPatch[field.key], {
-        payload: source
-      });
-    }
-
-    await client("workspace_settings").where({ workspace_id: normalizedWorkspaceId }).update({
-      ...dbPatch
+    await api.resources.workspaceSettings.patch({
+      id: normalizedWorkspaceId,
+      ...updatePayload,
+      updatedAt: nowDb(),
+      transaction: options?.trx
     });
-    return findByWorkspaceId(normalizedWorkspaceId, { trx: client });
+
+    return findByWorkspaceId(normalizedWorkspaceId, { trx: options?.trx });
   }
 
   return Object.freeze({

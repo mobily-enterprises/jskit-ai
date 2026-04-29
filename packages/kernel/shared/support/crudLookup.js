@@ -1,5 +1,9 @@
 import { normalizeText } from "./normalize.js";
 import { normalizePathname } from "../surface/paths.js";
+import {
+  buildCrudFieldContractMap,
+  resolveCrudFieldSchemaProperties
+} from "./crudFieldContract.js";
 
 const DEFAULT_CRUD_LOOKUP_CONTAINER_KEY = "lookups";
 
@@ -66,7 +70,9 @@ function resolveCrudLookupContainerKey(resource = {}, options = {}) {
 
 function resolveCrudLookupFieldEntries(resource = {}, { allowKeys = [] } = {}) {
   const source = resource && typeof resource === "object" && !Array.isArray(resource) ? resource : {};
-  const entries = Array.isArray(source.fieldMeta) ? source.fieldMeta : [];
+  const entries = Object.values(buildCrudFieldContractMap(source, {
+    context: "crud lookup field entries"
+  }));
   const allowedKeySet = new Set(
     (Array.isArray(allowKeys) ? allowKeys : [])
       .map((entry) => normalizeText(entry))
@@ -109,12 +115,13 @@ function resolveCrudLookupFieldEntries(resource = {}, { allowKeys = [] } = {}) {
 }
 
 function resolveCrudLookupCreateSchemaKeys(resource = {}) {
-  const createSchemaProperties = resource?.operations?.create?.bodyValidator?.schema?.properties;
-  if (!createSchemaProperties || typeof createSchemaProperties !== "object" || Array.isArray(createSchemaProperties)) {
-    return Object.freeze([]);
-  }
-
-  return Object.freeze(Object.keys(createSchemaProperties));
+  return Object.freeze(
+    Object.keys(
+      resolveCrudFieldSchemaProperties(resource?.operations?.create?.body, {
+        context: "crud lookup create schema"
+      })
+    )
+  );
 }
 
 function resolveCrudLookupFieldKeys(resource = {}, { allowKeys = [] } = {}) {

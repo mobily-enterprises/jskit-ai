@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import {
   checkCrudLookupFormControl,
   isCrudRuntimeOutputOnlyFieldKey
-} from "../src/shared/crudFieldMetaSupport.js";
+} from "../src/shared/crudFieldSupport.js";
 
 test("checkCrudLookupFormControl defaults to autocomplete", () => {
   assert.equal(checkCrudLookupFormControl(undefined), "autocomplete");

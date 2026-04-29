@@ -1,74 +1,68 @@
-import { Type } from "typebox";
-import { toIsoString } from "@jskit-ai/database-runtime/shared";
+import { createSchema } from "json-rest-schema";
 import {
   createCursorListValidator,
-  normalizeObjectInput,
-  recordIdSchema
+  RECORD_ID_PATTERN
 } from "@jskit-ai/kernel/shared/validators";
-import {
-  normalizeIfPresent,
-  normalizeRecordId,
-  normalizeText
-} from "@jskit-ai/kernel/shared/support/normalize";
+import { deepFreeze } from "@jskit-ai/kernel/shared/support/deepFreeze";
 
-const recordOutputSchema = Type.Object(
-  {
-    id: recordIdSchema,
-    name: Type.String({ minLength: 1 }),
-    email: Type.String(),
-    username: Type.String(),
-    createdAt: Type.String({ format: "date-time", minLength: 1 })
+const recordOutputSchema = createSchema({
+  id: {
+    type: "string",
+    required: true,
+    minLength: 1,
+    pattern: RECORD_ID_PATTERN
   },
-  { additionalProperties: false }
-);
-
-const createBodySchema = Type.Object({}, { additionalProperties: false });
-
-const recordOutputValidator = Object.freeze({
-  schema: recordOutputSchema,
-  normalize(payload = {}) {
-    const source = normalizeObjectInput(payload);
-
-    return {
-      id: normalizeIfPresent(source.id, normalizeRecordId),
-      name: normalizeText(source.name || source.email || source.username || source.id),
-      email: normalizeText(source.email),
-      username: normalizeText(source.username),
-      createdAt: normalizeIfPresent(source.createdAt, toIsoString)
-    };
+  name: {
+    type: "string",
+    required: false,
+    minLength: 1,
+    actualField: "display_name"
+  },
+  email: {
+    type: "string",
+    required: false
+  },
+  username: {
+    type: "string",
+    required: false
+  },
+  createdAt: {
+    type: "dateTime",
+    required: true
   }
 });
 
-const createBodyValidator = Object.freeze({
-  schema: createBodySchema,
-  normalize: normalizeObjectInput
+const createBodySchema = createSchema({});
+
+const recordOutput = deepFreeze({
+  schema: recordOutputSchema,
+  mode: "replace"
 });
 
-const resource = Object.freeze({
+const createBody = deepFreeze({
+  schema: createBodySchema,
+  mode: "create"
+});
+
+const resource = deepFreeze({
   namespace: "users",
   tableName: "users",
   idColumn: "id",
-  operations: Object.freeze({
-    list: Object.freeze({
+  operations: {
+    list: {
       method: "GET",
-      outputValidator: createCursorListValidator(recordOutputValidator)
-    }),
-    view: Object.freeze({
+      output: createCursorListValidator(recordOutput)
+    },
+    view: {
       method: "GET",
-      outputValidator: recordOutputValidator
-    }),
-    create: Object.freeze({
+      output: recordOutput
+    },
+    create: {
       method: "POST",
-      bodyValidator: createBodyValidator,
-      outputValidator: recordOutputValidator
-    })
-  }),
-  fieldMeta: Object.freeze([
-    Object.freeze({
-      key: "name",
-      repository: { column: "display_name" }
-    })
-  ])
+      body: createBody,
+      output: recordOutput
+    }
+  }
 });
 
 export { resource };

@@ -13,8 +13,8 @@ const workspaceSettingsActions = Object.freeze([
       require: "any",
       permissions: ["workspace.settings.view", "workspace.settings.update"]
     },
-    inputValidator: workspaceSlugParamsValidator,
-    outputValidator: workspaceSettingsResource.operations.view.outputValidator,
+    input: workspaceSlugParamsValidator,
+    output: workspaceSettingsResource.operations.view.output,
     idempotency: "none",
     audit: {
       actionName: "workspace.settings.read"
@@ -38,13 +38,13 @@ const workspaceSettingsActions = Object.freeze([
       require: "all",
       permissions: ["workspace.settings.update"]
     },
-    inputValidator: [
+    input: [
       workspaceSlugParamsValidator,
       {
-        patch: workspaceSettingsResource.operations.patch.bodyValidator
+        patch: workspaceSettingsResource.operations.patch.body
       }
     ],
-    outputValidator: workspaceSettingsResource.operations.patch.outputValidator,
+    output: workspaceSettingsResource.operations.patch.output,
     idempotency: "optional",
     audit: {
       actionName: "workspace.settings.update"

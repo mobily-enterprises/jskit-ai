@@ -1,31 +1,34 @@
 import { Check, Errors } from "typebox/value";
 import { mapOperationIssues } from "./operationMessages.js";
-import { resolveFieldErrors } from "../support/fieldErrors.js";
 import { isRecord } from "@jskit-ai/kernel/shared/support/normalize";
+import {
+  executeJsonRestSchemaDefinition,
+  hasJsonRestSchemaDefinition,
+  isSchemaDefinitionSectionMap,
+  listSchemaDefinitions,
+  normalizeJsonRestSchemaFieldErrors,
+  selectPayloadForSchemaDefinition
+} from "@jskit-ai/kernel/shared/validators";
 
-function defaultNormalize(value) {
-  if (!isRecord(value)) {
-    return {};
-  }
-
-  return {
-    ...value
-  };
-}
-
-function resolveOperationSection(operation = {}, section = "bodyValidator") {
+function resolveOperationSection(operation = {}, section = "body") {
   const source = isRecord(operation) ? operation : {};
   const value = source[section];
-  if (!isRecord(value)) {
+  if (value == null) {
     return null;
   }
 
   return value;
 }
 
+function resolvePlainSchema(definition) {
+  return isRecord(definition) && Object.prototype.hasOwnProperty.call(definition, "schema")
+    ? definition.schema
+    : definition;
+}
+
 function validateOperationSection({
   operation = {},
-  section = "bodyValidator",
+  section = "body",
   value,
   context = {}
 } = {}) {
@@ -41,56 +44,99 @@ function validateOperationSection({
     };
   }
 
-  const schema = sectionDefinition.schema;
+  if (isSchemaDefinitionSectionMap(sectionDefinition)) {
+    const source = isRecord(value) ? value : {};
+    const valueResult = {};
+    const normalizedResult = {};
+    let ok = true;
+    const fieldErrors = {};
+    const globalErrors = [];
+    const issues = [];
+
+    for (const [key, entry] of Object.entries(sectionDefinition)) {
+      const result = validateOperationSection({
+        operation: {
+          [section]: entry
+        },
+        section,
+        value: source[key],
+        context
+      });
+
+      normalizedResult[key] = result.normalized;
+      valueResult[key] = result.value;
+      Object.assign(fieldErrors, result.fieldErrors);
+      globalErrors.push(...result.globalErrors);
+      issues.push(...result.issues);
+      ok = ok && result.ok;
+    }
+
+    return {
+      ok,
+      value: ok ? valueResult : null,
+      normalized: normalizedResult,
+      fieldErrors,
+      globalErrors,
+      issues
+    };
+  }
+
+  const definitions = listSchemaDefinitions(sectionDefinition);
+  if (definitions.length > 1) {
+    const source = isRecord(value) ? value : {};
+    let ok = true;
+    let mergedValue = {};
+    let mergedNormalized = {};
+    const fieldErrors = {};
+    const globalErrors = [];
+    const issues = [];
+
+    for (const entry of definitions) {
+      const result = validateOperationSection({
+        operation: {
+          [section]: entry
+        },
+        section,
+        value: selectPayloadForSchemaDefinition(entry, source, {
+          context: "operation section",
+          defaultMode: "patch"
+        }),
+        context
+      });
+
+      if (result.value && isRecord(result.value)) {
+        mergedValue = { ...mergedValue, ...result.value };
+      }
+      if (result.normalized && isRecord(result.normalized)) {
+        mergedNormalized = { ...mergedNormalized, ...result.normalized };
+      }
+
+      Object.assign(fieldErrors, result.fieldErrors);
+      globalErrors.push(...result.globalErrors);
+      issues.push(...result.issues);
+      ok = ok && result.ok;
+    }
+
+    return {
+      ok,
+      value: ok ? mergedValue : null,
+      normalized: mergedNormalized,
+      fieldErrors,
+      globalErrors,
+      issues
+    };
+  }
+
+  if (hasJsonRestSchemaDefinition(sectionDefinition)) {
+    throw new TypeError(`Operation section "${section}" uses json-rest-schema and must be validated asynchronously.`);
+  }
+
+  const schema = resolvePlainSchema(sectionDefinition);
   if (!isRecord(schema)) {
     throw new TypeError(`Operation section \"${section}\" requires a schema object.`);
   }
 
-  const normalize = typeof sectionDefinition.normalize === "function"
-    ? sectionDefinition.normalize
-    : defaultNormalize;
-
-  let normalized = null;
-  try {
-    normalized = normalize(value, context);
-  } catch (error) {
-    const explicitFieldErrors = resolveFieldErrors(error);
-    if (Object.keys(explicitFieldErrors).length > 0) {
-      return {
-        ok: false,
-        value: null,
-        normalized: value,
-        fieldErrors: explicitFieldErrors,
-        globalErrors: [],
-        issues: []
-      };
-    }
-
-    // If normalization throws, still surface field-level schema issues when possible.
-    const fallbackIssues = Check(schema, value) ? [] : [...Errors(schema, value)];
-    if (fallbackIssues.length > 0) {
-      const mapped = mapOperationIssues(fallbackIssues, schema);
-      return {
-        ok: false,
-        value: null,
-        normalized: value,
-        fieldErrors: mapped.fieldErrors,
-        globalErrors: mapped.globalErrors,
-        issues: fallbackIssues
-      };
-    }
-
-    const fallbackMessage = String(error?.message || "Invalid value.").trim() || "Invalid value.";
-    return {
-      ok: false,
-      value: null,
-      normalized: value,
-      fieldErrors: {},
-      globalErrors: [fallbackMessage],
-      issues: []
-    };
-  }
-
+  const normalized = value;
   const issues = Check(schema, normalized) ? [] : [...Errors(schema, normalized)];
   const mapped = mapOperationIssues(issues, schema);
 
@@ -104,6 +150,128 @@ function validateOperationSection({
   };
 }
 
+async function validateOperationSectionAsync({
+  operation = {},
+  section = "body",
+  value,
+  context = {}
+} = {}) {
+  const sectionDefinition = resolveOperationSection(operation, section);
+  if (!sectionDefinition) {
+    return {
+      ok: true,
+      value,
+      normalized: value,
+      fieldErrors: {},
+      globalErrors: [],
+      issues: []
+    };
+  }
+
+  if (isSchemaDefinitionSectionMap(sectionDefinition)) {
+    const source = isRecord(value) ? value : {};
+    const valueResult = {};
+    const normalizedResult = {};
+    let ok = true;
+    const fieldErrors = {};
+    const globalErrors = [];
+
+    for (const [key, entry] of Object.entries(sectionDefinition)) {
+      const result = await validateOperationSectionAsync({
+        operation: {
+          [section]: entry
+        },
+        section,
+        value: source[key],
+        context
+      });
+
+      normalizedResult[key] = result.normalized;
+      valueResult[key] = result.value;
+      Object.assign(fieldErrors, result.fieldErrors);
+      globalErrors.push(...result.globalErrors);
+      ok = ok && result.ok;
+    }
+
+    return {
+      ok,
+      value: ok ? valueResult : null,
+      normalized: normalizedResult,
+      fieldErrors,
+      globalErrors,
+      issues: []
+    };
+  }
+
+  const definitions = listSchemaDefinitions(sectionDefinition);
+  if (definitions.length > 1) {
+    const source = isRecord(value) ? value : {};
+    let ok = true;
+    let mergedValue = {};
+    let mergedNormalized = {};
+    const fieldErrors = {};
+    const globalErrors = [];
+
+    for (const entry of definitions) {
+      const result = await validateOperationSectionAsync({
+        operation: {
+          [section]: entry
+        },
+        section,
+        value: selectPayloadForSchemaDefinition(entry, source, {
+          context: "operation section",
+          defaultMode: "patch"
+        }),
+        context
+      });
+
+      if (result.value && isRecord(result.value)) {
+        mergedValue = { ...mergedValue, ...result.value };
+      }
+      if (result.normalized && isRecord(result.normalized)) {
+        mergedNormalized = { ...mergedNormalized, ...result.normalized };
+      }
+
+      Object.assign(fieldErrors, result.fieldErrors);
+      globalErrors.push(...result.globalErrors);
+      ok = ok && result.ok;
+    }
+
+    return {
+      ok,
+      value: ok ? mergedValue : null,
+      normalized: mergedNormalized,
+      fieldErrors,
+      globalErrors,
+      issues: []
+    };
+  }
+
+  if (!hasJsonRestSchemaDefinition(sectionDefinition)) {
+    return validateOperationSection({
+      operation,
+      section,
+      value,
+      context
+    });
+  }
+
+  const result = await executeJsonRestSchemaDefinition(sectionDefinition, value, {
+    defaultMode: "patch",
+    context: `${section}`
+  });
+  const fieldErrors = normalizeJsonRestSchemaFieldErrors(result?.errors, sectionDefinition);
+
+  return {
+    ok: Object.keys(fieldErrors).length < 1,
+    value: Object.keys(fieldErrors).length < 1 ? (result?.validatedObject ?? value) : null,
+    normalized: result?.validatedObject ?? value,
+    fieldErrors,
+    globalErrors: [],
+    issues: []
+  };
+}
+
 function validateOperationInput({
   operation = {},
   input = {},
@@ -111,49 +279,106 @@ function validateOperationInput({
 } = {}) {
   const source = isRecord(input) ? input : {};
   const sectionResults = {
-    paramsValidator: validateOperationSection({
+    params: validateOperationSection({
       operation,
-      section: "paramsValidator",
+      section: "params",
       value: source.params,
       context
     }),
-    queryValidator: validateOperationSection({
+    query: validateOperationSection({
       operation,
-      section: "queryValidator",
+      section: "query",
       value: source.query,
       context
     }),
-    bodyValidator: validateOperationSection({
+    body: validateOperationSection({
       operation,
-      section: "bodyValidator",
+      section: "body",
       value: source.body,
       context
     })
   };
 
   const fieldErrors = {
-    ...sectionResults.paramsValidator.fieldErrors,
-    ...sectionResults.queryValidator.fieldErrors,
-    ...sectionResults.bodyValidator.fieldErrors
+    ...sectionResults.params.fieldErrors,
+    ...sectionResults.query.fieldErrors,
+    ...sectionResults.body.fieldErrors
   };
 
   const globalErrors = [
-    ...sectionResults.paramsValidator.globalErrors,
-    ...sectionResults.queryValidator.globalErrors,
-    ...sectionResults.bodyValidator.globalErrors
+    ...sectionResults.params.globalErrors,
+    ...sectionResults.query.globalErrors,
+    ...sectionResults.body.globalErrors
   ];
 
   return {
-    ok: sectionResults.paramsValidator.ok && sectionResults.queryValidator.ok && sectionResults.bodyValidator.ok,
+    ok: sectionResults.params.ok && sectionResults.query.ok && sectionResults.body.ok,
     value: {
-      params: sectionResults.paramsValidator.value,
-      query: sectionResults.queryValidator.value,
-      body: sectionResults.bodyValidator.value
+      params: sectionResults.params.value,
+      query: sectionResults.query.value,
+      body: sectionResults.body.value
     },
     normalized: {
-      params: sectionResults.paramsValidator.normalized,
-      query: sectionResults.queryValidator.normalized,
-      body: sectionResults.bodyValidator.normalized
+      params: sectionResults.params.normalized,
+      query: sectionResults.query.normalized,
+      body: sectionResults.body.normalized
+    },
+    fieldErrors,
+    globalErrors,
+    sections: sectionResults
+  };
+}
+
+async function validateOperationInputAsync({
+  operation = {},
+  input = {},
+  context = {}
+} = {}) {
+  const source = isRecord(input) ? input : {};
+  const sectionResults = {
+    params: await validateOperationSectionAsync({
+      operation,
+      section: "params",
+      value: source.params,
+      context
+    }),
+    query: await validateOperationSectionAsync({
+      operation,
+      section: "query",
+      value: source.query,
+      context
+    }),
+    body: await validateOperationSectionAsync({
+      operation,
+      section: "body",
+      value: source.body,
+      context
+    })
+  };
+
+  const fieldErrors = {
+    ...sectionResults.params.fieldErrors,
+    ...sectionResults.query.fieldErrors,
+    ...sectionResults.body.fieldErrors
+  };
+
+  const globalErrors = [
+    ...sectionResults.params.globalErrors,
+    ...sectionResults.query.globalErrors,
+    ...sectionResults.body.globalErrors
+  ];
+
+  return {
+    ok: sectionResults.params.ok && sectionResults.query.ok && sectionResults.body.ok,
+    value: {
+      params: sectionResults.params.value,
+      query: sectionResults.query.value,
+      body: sectionResults.body.value
+    },
+    normalized: {
+      params: sectionResults.params.normalized,
+      query: sectionResults.query.normalized,
+      body: sectionResults.body.normalized
     },
     fieldErrors,
     globalErrors,
@@ -163,5 +388,7 @@ function validateOperationInput({
 
 export {
   validateOperationSection,
-  validateOperationInput
+  validateOperationSectionAsync,
+  validateOperationInput,
+  validateOperationInputAsync
 };

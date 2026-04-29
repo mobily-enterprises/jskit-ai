@@ -5,9 +5,6 @@
   "scripts": {
     "test": "node --test"
   },
-  "exports": {
-    "./shared/resources/consoleSettingsFields": "./src/shared/resources/consoleSettingsFields.js"
-  },
   "dependencies": {
     "@jskit-ai/database-runtime": "0.1.55",
     "@jskit-ai/http-runtime": "0.1.54",

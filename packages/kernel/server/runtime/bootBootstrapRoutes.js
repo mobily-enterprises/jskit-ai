@@ -1,16 +1,13 @@
 import { Type } from "typebox";
-import { normalizeObjectInput } from "../../shared/validators/inputNormalization.js";
 import { AUTH_POLICY_PUBLIC } from "../../shared/support/policies.js";
 import { resolveBootstrapPayload } from "../registries/bootstrapPayloadContributorRegistry.js";
 
 const bootstrapQueryValidator = Object.freeze({
-  schema: Type.Object({}, { additionalProperties: true }),
-  normalize: normalizeObjectInput
+  schema: Type.Object({}, { additionalProperties: true })
 });
 
 const bootstrapOutputValidator = Object.freeze({
-  schema: Type.Object({}, { additionalProperties: true }),
-  normalize: normalizeObjectInput
+  schema: Type.Object({}, { additionalProperties: true })
 });
 
 function bootBootstrapRoutes(app) {
@@ -25,8 +22,8 @@ function bootBootstrapRoutes(app) {
         tags: ["bootstrap"],
         summary: "Resolve app bootstrap payload from registered contributors"
       },
-      queryValidator: bootstrapQueryValidator,
-      responseValidators: {
+      query: bootstrapQueryValidator,
+      responses: {
         200: bootstrapOutputValidator
       }
     },

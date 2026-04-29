@@ -32,10 +32,10 @@ function buildRoutes(controller, { includeDevLoginAs = false } = {}) {
         tags: ["auth"],
         summary: "Register a new user"
       },
-      bodyValidator: authRegisterCommand.operation.bodyValidator,
-      responseValidators: withStandardErrorResponses(
+      body: authRegisterCommand.operation.body,
+      responses: withStandardErrorResponses(
         {
-          201: authRegisterCommand.operation.responseValidator
+          201: authRegisterCommand.operation.response
         },
         { includeValidation400: true }
       ),
@@ -53,10 +53,10 @@ function buildRoutes(controller, { includeDevLoginAs = false } = {}) {
         tags: ["auth"],
         summary: "Resend sign-up email confirmation"
       },
-      bodyValidator: authRegisterConfirmationResendCommand.operation.bodyValidator,
-      responseValidators: withStandardErrorResponses(
+      body: authRegisterConfirmationResendCommand.operation.body,
+      responses: withStandardErrorResponses(
         {
-          200: authRegisterConfirmationResendCommand.operation.responseValidator
+          200: authRegisterConfirmationResendCommand.operation.response
         },
         { includeValidation400: true }
       ),
@@ -74,10 +74,10 @@ function buildRoutes(controller, { includeDevLoginAs = false } = {}) {
         tags: ["auth"],
         summary: "Log in with configured credentials"
       },
-      bodyValidator: authLoginPasswordCommand.operation.bodyValidator,
-      responseValidators: withStandardErrorResponses(
+      body: authLoginPasswordCommand.operation.body,
+      responses: withStandardErrorResponses(
         {
-          200: authLoginPasswordCommand.operation.responseValidator
+          200: authLoginPasswordCommand.operation.response
         },
         { includeValidation400: true }
       ),
@@ -95,10 +95,10 @@ function buildRoutes(controller, { includeDevLoginAs = false } = {}) {
         tags: ["auth"],
         summary: "Request one-time email login code"
       },
-      bodyValidator: authLoginOtpRequestCommand.operation.bodyValidator,
-      responseValidators: withStandardErrorResponses(
+      body: authLoginOtpRequestCommand.operation.body,
+      responses: withStandardErrorResponses(
         {
-          200: authLoginOtpRequestCommand.operation.responseValidator
+          200: authLoginOtpRequestCommand.operation.response
         },
         { includeValidation400: true }
       ),
@@ -116,10 +116,10 @@ function buildRoutes(controller, { includeDevLoginAs = false } = {}) {
         tags: ["auth"],
         summary: "Verify one-time email login code and create session"
       },
-      bodyValidator: authLoginOtpVerifyCommand.operation.bodyValidator,
-      responseValidators: withStandardErrorResponses(
+      body: authLoginOtpVerifyCommand.operation.body,
+      responses: withStandardErrorResponses(
         {
-          200: authLoginOtpVerifyCommand.operation.responseValidator
+          200: authLoginOtpVerifyCommand.operation.response
         },
         { includeValidation400: true }
       ),
@@ -138,11 +138,11 @@ function buildRoutes(controller, { includeDevLoginAs = false } = {}) {
         tags: ["auth"],
         summary: "Start OAuth login with configured provider"
       },
-      paramsValidator: authLoginOAuthStartCommand.operation.paramsValidator,
-      queryValidator: authLoginOAuthStartCommand.operation.queryValidator,
-      responseValidators: withStandardErrorResponses(
+      params: authLoginOAuthStartCommand.operation.params,
+      query: authLoginOAuthStartCommand.operation.query,
+      responses: withStandardErrorResponses(
         {
-          302: authLoginOAuthStartCommand.operation.responseValidator
+          302: authLoginOAuthStartCommand.operation.response
         },
         { includeValidation400: true }
       ),
@@ -160,10 +160,10 @@ function buildRoutes(controller, { includeDevLoginAs = false } = {}) {
         tags: ["auth"],
         summary: "Complete OAuth code exchange and set session cookies"
       },
-      bodyValidator: authLoginOAuthCompleteCommand.operation.bodyValidator,
-      responseValidators: withStandardErrorResponses(
+      body: authLoginOAuthCompleteCommand.operation.body,
+      responses: withStandardErrorResponses(
         {
-          200: authLoginOAuthCompleteCommand.operation.responseValidator
+          200: authLoginOAuthCompleteCommand.operation.response
         },
         { includeValidation400: true }
       ),
@@ -181,10 +181,10 @@ function buildRoutes(controller, { includeDevLoginAs = false } = {}) {
         tags: ["auth"],
         summary: "Dev-only: create a local session for an existing user"
       },
-      bodyValidator: authDevLoginAsCommand.operation.bodyValidator,
-      responseValidators: withStandardErrorResponses(
+      body: authDevLoginAsCommand.operation.body,
+      responses: withStandardErrorResponses(
         {
-          200: authDevLoginAsCommand.operation.responseValidator
+          200: authDevLoginAsCommand.operation.response
         },
         { includeValidation400: true }
       ),
@@ -202,10 +202,10 @@ function buildRoutes(controller, { includeDevLoginAs = false } = {}) {
         tags: ["auth"],
         summary: "Request a password reset email"
       },
-      bodyValidator: authPasswordResetRequestCommand.operation.bodyValidator,
-      responseValidators: withStandardErrorResponses(
+      body: authPasswordResetRequestCommand.operation.body,
+      responses: withStandardErrorResponses(
         {
-          200: authPasswordResetRequestCommand.operation.responseValidator
+          200: authPasswordResetRequestCommand.operation.response
         },
         { includeValidation400: true }
       ),
@@ -223,10 +223,10 @@ function buildRoutes(controller, { includeDevLoginAs = false } = {}) {
         tags: ["auth"],
         summary: "Complete password recovery link exchange"
       },
-      bodyValidator: authPasswordRecoveryCompleteCommand.operation.bodyValidator,
-      responseValidators: withStandardErrorResponses(
+      body: authPasswordRecoveryCompleteCommand.operation.body,
+      responses: withStandardErrorResponses(
         {
-          200: authPasswordRecoveryCompleteCommand.operation.responseValidator
+          200: authPasswordRecoveryCompleteCommand.operation.response
         },
         { includeValidation400: true }
       ),
@@ -244,10 +244,10 @@ function buildRoutes(controller, { includeDevLoginAs = false } = {}) {
         tags: ["auth"],
         summary: "Set a new password for authenticated recovery session"
       },
-      bodyValidator: authPasswordResetCommand.operation.bodyValidator,
-      responseValidators: withStandardErrorResponses(
+      body: authPasswordResetCommand.operation.body,
+      responses: withStandardErrorResponses(
         {
-          200: authPasswordResetCommand.operation.responseValidator
+          200: authPasswordResetCommand.operation.response
         },
         { includeValidation400: true }
       ),
@@ -265,8 +265,8 @@ function buildRoutes(controller, { includeDevLoginAs = false } = {}) {
         tags: ["auth"],
         summary: "Log out and clear session cookies"
       },
-      responseValidators: withStandardErrorResponses({
-        200: authLogoutCommand.operation.responseValidator
+      responses: withStandardErrorResponses({
+        200: authLogoutCommand.operation.response
       }),
       handler: handler("logout")
     },
@@ -278,9 +278,9 @@ function buildRoutes(controller, { includeDevLoginAs = false } = {}) {
         tags: ["auth"],
         summary: "Get current session status and CSRF token"
       },
-      responseValidators: withStandardErrorResponses({
-        200: authSessionReadCommand.operation.responseValidator,
-        503: authSessionReadCommand.operation.unavailableResponseValidator
+      responses: withStandardErrorResponses({
+        200: authSessionReadCommand.operation.response,
+        503: authSessionReadCommand.operation.unavailableResponse
       }),
       handler: handler("session")
     }

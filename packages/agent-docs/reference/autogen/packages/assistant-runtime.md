@@ -77,10 +77,10 @@ Local functions
 - `resolveGlobalAssistantConfig(scope)`
 - `createAssistantAiClientFactory(config = {})`
 
-### `src/server/inputValidators.js`
+### `src/server/inputSchemas.js`
 Exports
-- `assistantSurfaceRouteParamsValidator`
-- `assistantTargetSurfaceInputValidator`
+- `assistantSurfaceRouteParams`
+- `assistantTargetSurfaceInput`
 
 ### `src/server/registerRoutes.js`
 Exports

@@ -1,5 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import { resolveStructuredSchemaTransportSchema } from "@jskit-ai/kernel/shared/validators";
 import { authRegisterCommand } from "../src/shared/commands/authRegisterCommand.js";
 import { authRegisterConfirmationResendCommand } from "../src/shared/commands/authRegisterConfirmationResendCommand.js";
 import { authLoginPasswordCommand } from "../src/shared/commands/authLoginPasswordCommand.js";
@@ -35,11 +36,23 @@ test("auth commands expose canonical operation validator messages", () => {
 });
 
 test("oauth complete command allows provider-less session-pair callbacks", () => {
-  const bodySchema = authLoginOAuthCompleteCommand.operation.bodyValidator.schema;
+  const bodySchema = resolveStructuredSchemaTransportSchema(
+    authLoginOAuthCompleteCommand.operation.body,
+    {
+      context: "auth login oauth complete body",
+      defaultMode: "patch"
+    }
+  );
   const bodyRequired = Array.isArray(bodySchema?.required) ? bodySchema.required : [];
   assert.equal(bodyRequired.includes("provider"), false);
 
-  const responseSchema = authLoginOAuthCompleteCommand.operation.responseValidator.schema;
+  const responseSchema = resolveStructuredSchemaTransportSchema(
+    authLoginOAuthCompleteCommand.operation.response,
+    {
+      context: "auth login oauth complete response",
+      defaultMode: "replace"
+    }
+  );
   const responseRequired = Array.isArray(responseSchema?.required) ? responseSchema.required : [];
   assert.equal(responseRequired.includes("provider"), false);
 });

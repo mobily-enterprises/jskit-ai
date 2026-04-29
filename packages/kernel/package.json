@@ -40,6 +40,7 @@
     "./shared/support/normalize": "./shared/support/normalize.js",
     "./shared/support/permissions": "./shared/support/permissions.js",
     "./shared/support/crudListFilters": "./shared/support/crudListFilters.js",
+    "./shared/support/crudFieldContract": "./shared/support/crudFieldContract.js",
     "./shared/support/crudLookup": "./shared/support/crudLookup.js",
     "./shared/support/deepFreeze": "./shared/support/deepFreeze.js",
     "./shared/support/listenerSet": "./shared/support/listenerSet.js",

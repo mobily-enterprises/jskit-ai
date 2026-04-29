@@ -42,7 +42,7 @@ function useCommandCore({
         })
       : {};
 
-    const validationResult = validateOperationInput({
+    const validationResult = await validateOperationInput({
       parseInput,
       rawPayload,
       context: {

@@ -150,7 +150,7 @@ export function useLoginViewActions({
       email: normalizedEmail,
       password: String(state.password.value || "")
     };
-    ensureCommandSectionValid(authRegisterCommand, "bodyValidator", registerPayload, "Unable to register.");
+    ensureCommandSectionValid(authRegisterCommand, "body", registerPayload, "Unable to register.");
 
     const registerResult = await request(AUTH_PATHS.REGISTER, {
       method: "POST",
@@ -178,7 +178,7 @@ export function useLoginViewActions({
     const forgotPayload = { email: normalizedEmail };
     ensureCommandSectionValid(
       authPasswordResetRequestCommand,
-      "bodyValidator",
+      "body",
       forgotPayload,
       "Unable to request password reset."
     );
@@ -196,7 +196,7 @@ export function useLoginViewActions({
       token: String(state.otpCode.value || "").trim(),
       type: "email"
     };
-    ensureCommandSectionValid(authLoginOtpVerifyCommand, "bodyValidator", otpPayload, "Unable to verify one-time code.");
+    ensureCommandSectionValid(authLoginOtpVerifyCommand, "body", otpPayload, "Unable to verify one-time code.");
 
     const otpResult = await request(AUTH_PATHS.LOGIN_OTP_VERIFY, {
       method: "POST",
@@ -215,7 +215,7 @@ export function useLoginViewActions({
       email: normalizedEmail,
       password: String(state.password.value || "")
     };
-    ensureCommandSectionValid(authLoginPasswordCommand, "bodyValidator", loginPayload, "Unable to sign in.");
+    ensureCommandSectionValid(authLoginPasswordCommand, "body", loginPayload, "Unable to sign in.");
 
     const loginResult = await request(AUTH_PATHS.LOGIN, {
       method: "POST",
@@ -284,7 +284,7 @@ export function useLoginViewActions({
       });
       ensureCommandSectionValid(
         authLoginOAuthCompleteCommand,
-        "bodyValidator",
+        "body",
         payload,
         "Invalid OAuth callback payload."
       );
@@ -358,7 +358,7 @@ export function useLoginViewActions({
       };
       ensureCommandSectionValid(
         authLoginOtpRequestCommand,
-        "bodyValidator",
+        "body",
         otpRequestPayload,
         "Unable to request one-time code."
       );
@@ -389,7 +389,7 @@ export function useLoginViewActions({
       };
       ensureCommandSectionValid(
         authRegisterConfirmationResendCommand,
-        "bodyValidator",
+        "body",
         resendPayload,
         "Unable to resend confirmation email."
       );
@@ -441,13 +441,13 @@ export function useLoginViewActions({
     try {
       ensureCommandSectionValid(
         authLoginOAuthStartCommand,
-        "paramsValidator",
+        "params",
         paramsPayload,
         "OAuth provider id is invalid."
       );
       ensureCommandSectionValid(
         authLoginOAuthStartCommand,
-        "queryValidator",
+        "query",
         queryPayload,
         "OAuth return path is invalid."
       );

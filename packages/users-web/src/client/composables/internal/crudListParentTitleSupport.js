@@ -3,6 +3,7 @@ import {
   resolveCrudLookupApiPathFromNamespace,
   resolveCrudLookupFieldKeyFromRouteParam
 } from "@jskit-ai/kernel/shared/support/crudLookup";
+import { buildCrudFieldContractMap } from "@jskit-ai/kernel/shared/support/crudFieldContract";
 import { normalizeText } from "@jskit-ai/kernel/shared/support/normalize";
 import { resolveLookupFieldDisplayValue, resolveRecordTitle } from "../crud/crudLookupFieldLabelSupport.js";
 import { resolveRouteParamNamesInOrder, toRouteParamValue } from "../support/routeTemplateHelpers.js";
@@ -58,21 +59,19 @@ function resolveLookupFieldMeta(resource = {}, fieldKey = "") {
     return null;
   }
 
-  const entries = Array.isArray(resource?.fieldMeta) ? resource.fieldMeta : [];
-  for (const entry of entries) {
-    if (normalizeText(entry?.key) !== normalizedFieldKey) {
-      continue;
-    }
-
-    const relation = entry?.relation;
-    if (!relation || normalizeText(relation.kind).toLowerCase() !== "lookup") {
-      return null;
-    }
-
-    return entry;
+  const entry = buildCrudFieldContractMap(resource, {
+    context: "crud list parent title resource field contract"
+  })[normalizedFieldKey];
+  if (!entry) {
+    return null;
   }
 
-  return null;
+  const relation = entry?.relation;
+  if (!relation || normalizeText(relation.kind).toLowerCase() !== "lookup") {
+    return null;
+  }
+
+  return entry;
 }
 
 function resolveCrudListParentDescriptor({ resource = {}, route = null, recordIdParam = "recordId" } = {}) {
@@ -92,12 +91,12 @@ function resolveCrudListParentDescriptor({ resource = {}, route = null, recordId
       continue;
     }
 
-    const fieldMeta = resolveLookupFieldMeta(resource, fieldKey);
-    if (!fieldMeta) {
+    const fieldContractEntry = resolveLookupFieldMeta(resource, fieldKey);
+    if (!fieldContractEntry) {
       continue;
     }
 
-    const relation = fieldMeta.relation || {};
+    const relation = fieldContractEntry.relation || {};
     const relationNamespace = normalizeText(relation.namespace);
     const containerKey = normalizeCrudLookupContainerKey(relation.containerKey, {
       defaultValue: resource?.contract?.lookup?.containerKey || "lookups"

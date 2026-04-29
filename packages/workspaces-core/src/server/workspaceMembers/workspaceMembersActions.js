@@ -14,8 +14,8 @@ const workspaceMembersActions = Object.freeze([
       require: "all",
       permissions: ["workspace.roles.view"]
     },
-    inputValidator: workspaceSlugParamsValidator,
-    outputValidator: workspaceMembersResource.operations.rolesList.outputValidator,
+    input: workspaceSlugParamsValidator,
+    output: workspaceMembersResource.operations.rolesList.output,
     idempotency: "none",
     audit: {
       actionName: "workspace.roles.list"
@@ -35,8 +35,8 @@ const workspaceMembersActions = Object.freeze([
       require: "all",
       permissions: ["workspace.members.view"]
     },
-    inputValidator: workspaceSlugParamsValidator,
-    outputValidator: workspaceMembersResource.operations.membersList.outputValidator,
+    input: workspaceSlugParamsValidator,
+    output: workspaceMembersResource.operations.membersList.output,
     idempotency: "none",
     audit: {
       actionName: "workspace.members.list"
@@ -58,8 +58,8 @@ const workspaceMembersActions = Object.freeze([
       require: "all",
       permissions: ["workspace.members.manage"]
     },
-    inputValidator: [workspaceSlugParamsValidator, workspaceMembersResource.operations.updateMemberRole.inputValidator],
-    outputValidator: workspaceMembersResource.operations.updateMemberRole.outputValidator,
+    input: [workspaceSlugParamsValidator, workspaceMembersResource.operations.updateMemberRole.input],
+    output: workspaceMembersResource.operations.updateMemberRole.output,
     idempotency: "optional",
     audit: {
       actionName: "workspace.member.role.update"
@@ -84,8 +84,8 @@ const workspaceMembersActions = Object.freeze([
       require: "all",
       permissions: ["workspace.members.manage"]
     },
-    inputValidator: [workspaceSlugParamsValidator, workspaceMembersResource.operations.removeMember.inputValidator],
-    outputValidator: workspaceMembersResource.operations.removeMember.outputValidator,
+    input: [workspaceSlugParamsValidator, workspaceMembersResource.operations.removeMember.input],
+    output: workspaceMembersResource.operations.removeMember.output,
     idempotency: "optional",
     audit: {
       actionName: "workspace.member.remove"
@@ -109,8 +109,8 @@ const workspaceMembersActions = Object.freeze([
       require: "all",
       permissions: ["workspace.members.view"]
     },
-    inputValidator: workspaceSlugParamsValidator,
-    outputValidator: workspaceMembersResource.operations.invitesList.outputValidator,
+    input: workspaceSlugParamsValidator,
+    output: workspaceMembersResource.operations.invitesList.output,
     idempotency: "none",
     audit: {
       actionName: "workspace.invites.list"
@@ -132,8 +132,8 @@ const workspaceMembersActions = Object.freeze([
       require: "all",
       permissions: ["workspace.members.invite"]
     },
-    inputValidator: [workspaceSlugParamsValidator, workspaceMembersResource.operations.createInvite.bodyValidator],
-    outputValidator: workspaceMembersResource.operations.createInvite.outputValidator,
+    input: [workspaceSlugParamsValidator, workspaceMembersResource.operations.createInvite.body],
+    output: workspaceMembersResource.operations.createInvite.output,
     idempotency: "optional",
     audit: {
       actionName: "workspace.invite.create"
@@ -168,8 +168,8 @@ const workspaceMembersActions = Object.freeze([
       require: "all",
       permissions: ["workspace.invites.revoke"]
     },
-    inputValidator: [workspaceSlugParamsValidator, workspaceMembersResource.operations.revokeInvite.inputValidator],
-    outputValidator: workspaceMembersResource.operations.revokeInvite.outputValidator,
+    input: [workspaceSlugParamsValidator, workspaceMembersResource.operations.revokeInvite.input],
+    output: workspaceMembersResource.operations.revokeInvite.output,
     idempotency: "optional",
     audit: {
       actionName: "workspace.invite.revoke"

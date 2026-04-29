@@ -7,7 +7,7 @@ function createResourceWithOutputSchema(overrides = {}) {
     namespace: "contacts",
     operations: {
       view: {
-        outputValidator: {
+        output: {
           schema: {
             type: "object",
             properties: {
@@ -225,7 +225,7 @@ test("createCrudServiceFromResource readable field hooks require view output sch
 
   await assert.rejects(
     () => service.getRecord(1, {}),
-    /requires resource\.operations\.view\.outputValidator\.schema for fieldAccess\.readable/
+    /requires resource\.operations\.view\.output\.schema for fieldAccess\.readable/
   );
 });
 
@@ -307,7 +307,7 @@ test("createCrudServiceFromResource readable filtering fails fast for required n
     namespace: "contacts",
     operations: {
       view: {
-        outputValidator: {
+        output: {
           schema: {
             type: "object",
             properties: {

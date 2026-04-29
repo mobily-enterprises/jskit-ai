@@ -25,6 +25,22 @@ For the full repo inventory, read `reference/autogen/README.md` and the package 
 Exports
 - `isContainerToken(value)`
 
+### `support/crudFieldContract.js`
+Exports
+- `CRUD_FIELD_STORAGE_COLUMN`
+- `CRUD_FIELD_STORAGE_VIRTUAL`
+- `CRUD_FIELD_WRITE_SERIALIZER_DATETIME_UTC`
+- `CRUD_LOOKUP_FORM_CONTROL_AUTOCOMPLETE`
+- `CRUD_LOOKUP_FORM_CONTROL_SELECT`
+- `checkCrudLookupFormControl(value, { context = "crud field ui.formControl", defaultValue = CRUD_LOOKUP_FORM_CONTROL_AUTOCOMPLETE } = {})`
+- `resolveCrudFieldSchemaProperties(value, { context = "crud resource field definitions" } = {})`
+- `normalizeCrudFieldStorageConfig(fieldDefinition = {}, { context = "crud field storage", fieldKey = "" } = {})`
+- `buildCrudFieldContractMap(resource = {}, { context = "crud resource field contract" } = {})`
+- `resolveCrudFieldContractEntry(resource = {}, fieldKey = "", options = {})`
+Local functions
+- `cloneStructuredFieldMetadata(value = {})`
+- `mergeFieldContractEntry(target, source, { context = "crud field contract", fieldKey = "" } = {})`
+
 ### `support/crudListFilters.js`
 Exports
 - `CRUD_LIST_FILTER_TYPE_FLAG`
@@ -298,8 +314,6 @@ Exports
 ### `validators/cursorPaginationQueryValidator.js`
 Exports
 - `cursorPaginationQueryValidator`
-Local functions
-- `normalizeCursorPaginationQuery(input = {})`
 
 ### `validators/htmlTimeSchemas.js`
 Exports
@@ -315,6 +329,27 @@ Exports
 - `NULLABLE_HTML_TIME_STRING_SCHEMA`
 - `mergeObjectSchemas`
 - `mergeValidators`
+- `hasJsonRestSchemaDefinition`
+- `isSchemaDefinitionSectionMap`
+- `listSchemaDefinitions`
+- `normalizeSingleSchemaDefinition`
+- `normalizeSchemaDefinition`
+- `selectPayloadForSchemaDefinition`
+- `resolveSchemaTransportSchemaDefinition`
+- `resolveStructuredSchemaTransportSchema`
+- `executeJsonRestSchemaDefinition`
+- `isJsonRestSchemaInstance`
+- `hasJsonRestSchemaValidator`
+- `resolveValidatorSchemaSource`
+- `resolveValidatorSchemaMode`
+- `resolveValidatorTransportSchema`
+- `executeJsonRestSchemaValidator`
+- `normalizeJsonRestSchemaFieldErrors`
+- `buildSchemaValidationError`
+- `normalizeSchemaValidationErrors`
+- `normalizeTypeBoxValidationErrors`
+- `validateSingleSchemaPayload`
+- `validateSchemaPayload`
 - `nestValidator`
 - `RECORD_ID_PATTERN`
 - `recordIdSchema`
@@ -325,8 +360,6 @@ Exports
 - `nullableRecordIdValidator`
 - `recordIdParamsValidator`
 - `positiveIntegerValidator`
-- `normalizeSettingsFieldInput`
-- `normalizeSettingsFieldOutput`
 - `normalizeRequiredFieldList`
 - `deriveRequiredFieldsFromSchema`
 - `deriveResourceRequiredMetadata`
@@ -335,9 +368,25 @@ Exports
 Exports
 - `normalizeObjectInput(value)`
 
+### `validators/jsonRestSchemaSupport.js`
+Exports
+- `isJsonRestSchemaInstance(value)`
+- `hasJsonRestSchemaValidator(validator = null)`
+- `resolveValidatorSchemaSource(validator = null)`
+- `resolveValidatorSchemaMode(validator = null, { defaultMode = "create", context = "validator.mode" } = {})`
+- `resolveValidatorTransportSchema(validator = null, options = {})`
+- `executeJsonRestSchemaValidator(validator = null, payload, options = {})`
+- `normalizeJsonRestSchemaFieldErrors(errors = {}, validator = null)`
+Local functions
+- `resolveJsonRestSchemaFieldMessages(validator = null, fieldName = "")`
+- `resolveJsonRestSchemaFieldErrorMessage(fieldName, entry, validator = null)`
+
 ### `validators/mergeObjectSchemas.js`
 Exports
 - `mergeObjectSchemas(schemas)`
+Local functions
+- `cloneSchemaValue(value)`
+- `assertMergeableObjectSchema(schema)`
 
 ### `validators/mergeValidators.js`
 Exports
@@ -370,10 +419,31 @@ Exports
 - `deriveRequiredFieldsFromSchema(schema)`
 - `deriveResourceRequiredMetadata(resourceSchema)`
 
-### `validators/settingsFieldNormalization.js`
+### `validators/schemaDefinitions.js`
 Exports
-- `normalizeSettingsFieldInput(payload = {}, fields = [])`
-- `normalizeSettingsFieldOutput(payload = {}, fields = [])`
+- `hasJsonRestSchemaDefinition(value)`
+- `isSchemaDefinitionSectionMap(value)`
+- `listSchemaDefinitions(value)`
+- `normalizeSingleSchemaDefinition(value, { context = "schema definition", defaultMode = "" } = {})`
+- `normalizeSchemaDefinition(value, { context = "schema definition", allowArray = false, defaultMode = "" } = {})`
+- `selectPayloadForSchemaDefinition(value, payload, { context = "schema definition", defaultMode = "", passthroughSectionMaps = true } = {})`
+- `resolveSchemaTransportSchemaDefinition(value, { context = "schema definition", defaultMode = "" } = {})`
+- `resolveStructuredSchemaTransportSchema(value, { context = "schema definition", defaultMode = "" } = {})`
+- `executeJsonRestSchemaDefinition(value, payload, { context = "schema definition", defaultMode = "" } = {})`
+- `normalizeJsonRestSchemaFieldErrors`
+Local functions
+- `isSchemaLike(value)`
+- `isSchemaDefinitionObject(value)`
+
+### `validators/schemaPayloadValidation.js`
+Exports
+- `buildSchemaValidationError({ message = "Schema validation failed.", fieldErrors = null, errors = null, cause } = {})`
+- `normalizeSchemaValidationErrors(schema)`
+- `normalizeTypeBoxValidationErrors(schema, payload)`
+- `validateSingleSchemaPayload(schemaDefinition, payload, { phase = "input", context = "schema definition" } = {})`
+- `validateSchemaPayload(schemaDefinition, payload, { phase = "input", context = "schema definition" } = {})`
+Local functions
+- `normalizeFunctionSchemaResult(result, payload, { context = "schema definition" } = {})`
 
 ### actions
 
@@ -399,12 +469,10 @@ Exports
 - `__testables`
 Local functions
 - `normalizeStringArray(value, { fieldName, allowedSet, allowEmpty = false } = {})`
-- `normalizeSingleActionValidator(value, fieldName, { required = false } = {})`
-- `isActionValidatorShape(value)`
-- `normalizeSectionActionValidatorMap(value, fieldName)`
-- `mergeNormalizedActionValidators(validators, fieldName)`
-- `normalizeActionValidators(value, fieldName, { required = false } = {})`
-- `normalizeActionOutputValidator(value, fieldName, { required = false } = {})`
+- `normalizeSingleActionSchema(value, fieldName, { required = false, defaultMode = "" } = {})`
+- `isActionSchemaSectionMap(value)`
+- `normalizeActionInputDefinition(value, fieldName, { required = false } = {})`
+- `normalizeActionOutputDefinition(value, fieldName, { required = false } = {})`
 - `normalizeActionPermission(permission, actionId)`
 - `normalizeAuditConfig(audit, { actionId })`
 - `normalizeObservabilityConfig(observability)`
@@ -461,12 +529,6 @@ Exports
 - `__testables`
 Local functions
 - `createActionValidationError({ status = 400, message = "Validation failed.", code = "ACTION_VALIDATION_FAILED", details, cause } = {})`
-- `normalizeSchemaValidationErrors(schema)`
-- `buildSchemaValidatorError({ phase, definition } = {})`
-- `normalizeTypeBoxValidationErrors(schema, payload)`
-- `normalizeFunctionSchemaResult(result, payload, { phase, definition } = {})`
-- `normalizeValidatorPayload(validator, payload, { phase, definition, context })`
-- `validateSchemaPayload(schema, payload, { phase, definition })`
 
 ### `actions/registry.js`
 Exports

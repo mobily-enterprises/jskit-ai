@@ -14,10 +14,10 @@ const accountSecurityActions = Object.freeze([
     permission: {
       require: "authenticated"
     },
-    inputValidator: {
-      payload: userSettingsResource.operations.passwordChange.bodyValidator
+    input: {
+      payload: userSettingsResource.operations.passwordChange.body
     },
-    outputValidator: userSettingsResource.operations.passwordChange.outputValidator,
+    output: userSettingsResource.operations.passwordChange.output,
     idempotency: "none",
     audit: {
       actionName: "settings.security.password.change"
@@ -43,10 +43,10 @@ const accountSecurityActions = Object.freeze([
     permission: {
       require: "authenticated"
     },
-    inputValidator: {
-      payload: userSettingsResource.operations.passwordMethodToggle.bodyValidator
+    input: {
+      payload: userSettingsResource.operations.passwordMethodToggle.body
     },
-    outputValidator: userSettingsResource.operations.passwordMethodToggle.outputValidator,
+    output: userSettingsResource.operations.passwordMethodToggle.output,
     idempotency: "none",
     audit: {
       actionName: "settings.security.password_method.toggle"
@@ -72,8 +72,8 @@ const accountSecurityActions = Object.freeze([
     permission: {
       require: "authenticated"
     },
-    inputValidator: [userSettingsResource.operations.oauthLinkStart.paramsValidator, userSettingsResource.operations.oauthLinkStart.queryValidator],
-    outputValidator: userSettingsResource.operations.oauthLinkStart.outputValidator,
+    input: [userSettingsResource.operations.oauthLinkStart.params, userSettingsResource.operations.oauthLinkStart.query],
+    output: userSettingsResource.operations.oauthLinkStart.output,
     idempotency: "none",
     audit: {
       actionName: "settings.security.oauth.link.start"
@@ -99,8 +99,8 @@ const accountSecurityActions = Object.freeze([
     permission: {
       require: "authenticated"
     },
-    inputValidator: userSettingsResource.operations.oauthUnlink.paramsValidator,
-    outputValidator: userSettingsResource.operations.oauthUnlink.outputValidator,
+    input: userSettingsResource.operations.oauthUnlink.params,
+    output: userSettingsResource.operations.oauthUnlink.output,
     idempotency: "none",
     audit: {
       actionName: "settings.security.oauth.unlink"
@@ -126,8 +126,8 @@ const accountSecurityActions = Object.freeze([
     permission: {
       require: "authenticated"
     },
-    inputValidator: userSettingsResource.operations.logoutOtherSessions.bodyValidator,
-    outputValidator: userSettingsResource.operations.logoutOtherSessions.outputValidator,
+    input: userSettingsResource.operations.logoutOtherSessions.body,
+    output: userSettingsResource.operations.logoutOtherSessions.output,
     idempotency: "none",
     audit: {
       actionName: "settings.security.sessions.logout_others"

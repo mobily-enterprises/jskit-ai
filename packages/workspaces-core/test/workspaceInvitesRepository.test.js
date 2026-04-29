@@ -1,90 +1,100 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { toIsoString, toNullableDateTime } from "@jskit-ai/database-runtime/shared";
+import { toIsoString } from "@jskit-ai/database-runtime/shared";
 import { createRepository } from "../src/server/common/repositories/workspaceInvitesRepository.js";
 
-function createKnexStub({
-  rowById = new Map(),
-  pendingRow = null,
-  joinedRows = []
-} = {}) {
-  const state = {
-    insertPayload: null,
-    updatePayload: null
-  };
-
-  const defaultRow = pendingRow || {
-    id: 1,
-    workspace_id: 1,
-    email: "invitee@example.com",
-    role_sid: "member",
-    status: "pending",
-    token_hash: "hash",
-    invited_by_user_id: 1,
-    expires_at: "2026-03-16 00:26:35.709",
-    accepted_at: null,
-    revoked_at: null,
-    created_at: "2026-03-09 00:26:35.710",
-    updated_at: "2026-03-09 00:26:35.710"
-  };
-
-  function tableBuilder(tableName) {
-    if (tableName === "workspace_invites as wi") {
-      return {
-        join() {
-          return this;
-        },
-        where() {
-          return this;
-        },
-        orderBy() {
-          return this;
-        },
-        select() {
-          return Promise.resolve([...joinedRows]);
-        }
-      };
+function createKnexStub() {
+  const knex = Object.assign(() => {
+    throw new Error("query execution not expected");
+  }, {
+    async transaction(work) {
+      return work({ trxId: "trx-1" });
     }
+  });
 
-    assert.equal(tableName, "workspace_invites");
-    const query = {
-      criteriaList: [],
-      select() {
-        return this;
-      },
-      insert(payload) {
-        state.insertPayload = payload;
-        return Promise.resolve([1]);
-      },
-      where(criteria) {
-        this.criteriaList.push(criteria);
-        return this;
-      },
-      orderBy() {
-        return this;
-      },
-      update(payload) {
-        state.updatePayload = payload;
-        return Promise.resolve(1);
-      },
-      first() {
-        const criteria = Object.assign({}, ...this.criteriaList);
-        if (Object.hasOwn(criteria, "id")) {
-          return Promise.resolve(rowById.get(String(criteria.id)) || null);
-        }
-        return Promise.resolve({ ...defaultRow });
-      }
-    };
-
-    return query;
-  }
-
-  return { knexStub: tableBuilder, state };
+  return knex;
 }
 
-test("workspaceInvitesRepository.insert normalizes expiresAt ISO input to database datetime", async () => {
-  const { knexStub, state } = createKnexStub();
-  const repository = createRepository(knexStub);
+function createWorkspaceInvitesApiStub({
+  rows = [],
+  rowById = new Map()
+} = {}) {
+  const state = {
+    postPayload: null,
+    patchPayloads: []
+  };
+
+  const api = {
+    resources: {
+      workspaceInvites: {
+        async query({ queryParams }) {
+          const filters = queryParams?.filters || {};
+          const includeWorkspace = Array.isArray(queryParams?.include) && queryParams.include.includes("workspace");
+          const matching = rows.filter((row) => {
+            if (Object.hasOwn(filters, "id") && String(row.id) !== String(filters.id)) {
+              return false;
+            }
+            if (Object.hasOwn(filters, "workspace") && String(row?.workspace?.id || "") !== String(filters.workspace)) {
+              return false;
+            }
+            if (Object.hasOwn(filters, "email") && String(row.email || "") !== String(filters.email)) {
+              return false;
+            }
+            if (Object.hasOwn(filters, "status") && String(row.status || "") !== String(filters.status)) {
+              return false;
+            }
+            if (Object.hasOwn(filters, "tokenHash") && String(row.tokenHash || "") !== String(filters.tokenHash)) {
+              return false;
+            }
+            return true;
+          });
+
+          return {
+            data: matching.map((row) => includeWorkspace ? { ...row } : { ...row, workspace: row.workspace })
+          };
+        },
+        async post(payload) {
+          state.postPayload = { ...payload };
+          const row = {
+            id: "1",
+            workspace: { id: String(payload.workspace) },
+            email: payload.email,
+            roleSid: payload.roleSid,
+            status: payload.status,
+            tokenHash: payload.tokenHash,
+            invitedByUser: payload.invitedByUser ? { id: String(payload.invitedByUser) } : null,
+            expiresAt: payload.expiresAt,
+            acceptedAt: payload.acceptedAt,
+            revokedAt: payload.revokedAt,
+            createdAt: "2026-03-09 00:26:35.710",
+            updatedAt: "2026-03-09 00:26:35.710"
+          };
+          rows.push(row);
+          rowById.set("1", row);
+          return { ...row };
+        },
+        async patch(payload) {
+          state.patchPayloads.push({ ...payload });
+          const existing = rowById.get(String(payload.id));
+          if (existing) {
+            const updated = {
+              ...existing,
+              ...payload
+            };
+            rowById.set(String(payload.id), updated);
+          }
+          return rowById.get(String(payload.id)) || null;
+        }
+      }
+    }
+  };
+
+  return { api, state };
+}
+
+test("workspaceInvitesRepository.insert preserves expiresAt and relationship fields through the resource write path", async () => {
+  const { api, state } = createWorkspaceInvitesApiStub();
+  const repository = createRepository({ api, knex: createKnexStub() });
 
   await repository.insert({
     workspaceId: "1",
@@ -96,107 +106,94 @@ test("workspaceInvitesRepository.insert normalizes expiresAt ISO input to databa
     expiresAt: "2026-03-16T00:26:35.709Z"
   });
 
-  assert.equal(state.insertPayload.expires_at, toNullableDateTime("2026-03-16T00:26:35.709Z"));
+  assert.equal(state.postPayload.workspace, "1");
+  assert.equal(state.postPayload.email, "invitee@example.com");
+  assert.equal(state.postPayload.invitedByUser, "1");
+  assert.equal(state.postPayload.tokenHash, "hash");
+  assert.equal(typeof state.postPayload.expiresAt, "string");
 });
 
-test("workspaceInvitesRepository.findPendingByTokenHash reads from invites table without workspace join", async () => {
-  const calls = {
-    tableName: "",
-    whereCriteria: null
-  };
-  const row = {
-    id: 44,
-    workspace_id: 9,
-    email: "invitee@example.com",
-    role_sid: "member",
-    status: "pending",
-    token_hash: "hash-token",
-    invited_by_user_id: 1,
-    expires_at: "2030-01-01 00:00:00.000",
-    accepted_at: null,
-    revoked_at: null,
-    created_at: "2026-03-09 00:26:35.710",
-    updated_at: "2026-03-09 00:26:35.710"
-  };
-
-  const repository = createRepository((tableName) => {
-    calls.tableName = String(tableName || "");
-    return {
-      select() {
-        return this;
-      },
-      where(criteria) {
-        calls.whereCriteria = criteria;
-        return this;
-      },
-      first() {
-        return Promise.resolve({ ...row });
+test("workspaceInvitesRepository.findPendingByTokenHash reads from the canonical invite resource without workspace data", async () => {
+  const { api } = createWorkspaceInvitesApiStub({
+    rows: [
+      {
+        id: "44",
+        workspace: { id: "9" },
+        email: "invitee@example.com",
+        roleSid: "member",
+        status: "pending",
+        tokenHash: "hash-token",
+        invitedByUser: { id: "1" },
+        expiresAt: "2030-01-01 00:00:00.000",
+        acceptedAt: null,
+        revokedAt: null,
+        createdAt: "2026-03-09 00:26:35.710",
+        updatedAt: "2026-03-09 00:26:35.710"
       }
-    };
+    ]
   });
+  const repository = createRepository({ api, knex: createKnexStub() });
 
   const invite = await repository.findPendingByTokenHash("hash-token");
-  assert.equal(calls.tableName, "workspace_invites");
-  assert.deepEqual(calls.whereCriteria, {
-    token_hash: "hash-token",
-    status: "pending"
-  });
+
   assert.equal(invite?.workspaceId, "9");
   assert.equal(invite?.workspaceSlug, undefined);
 });
 
 test("workspaceInvitesRepository.markAcceptedById uses the internal invite resource for normalized patch writes", async () => {
-  const acceptedRow = {
-    id: 1,
-    workspace_id: 1,
-    email: "invitee@example.com",
-    role_sid: "member",
-    status: "accepted",
-    token_hash: "hash",
-    invited_by_user_id: 1,
-    expires_at: "2026-03-16 00:26:35.709",
-    accepted_at: "2026-03-10 00:26:35.710",
-    revoked_at: null,
-    created_at: "2026-03-09 00:26:35.710",
-    updated_at: "2026-03-10 00:26:35.710"
-  };
-  const { knexStub, state } = createKnexStub({
-    rowById: new Map([["1", acceptedRow]])
+  const { api, state } = createWorkspaceInvitesApiStub({
+    rowById: new Map([
+      ["1", {
+        id: "1",
+        workspace: { id: "1" },
+        email: "invitee@example.com",
+        roleSid: "member",
+        status: "accepted",
+        tokenHash: "hash",
+        invitedByUser: { id: "1" },
+        expiresAt: "2026-03-16 00:26:35.709",
+        acceptedAt: "2026-03-10 00:26:35.710",
+        revokedAt: null,
+        createdAt: "2026-03-09 00:26:35.710",
+        updatedAt: "2026-03-10 00:26:35.710"
+      }]
+    ])
   });
-  const repository = createRepository(knexStub);
+  const repository = createRepository({ api, knex: createKnexStub() });
 
   await repository.markAcceptedById("1");
 
-  assert.equal(state.updatePayload.status, "accepted");
-  assert.equal(typeof state.updatePayload.accepted_at, "string");
-  assert.match(state.updatePayload.accepted_at, /^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}\.\d{3}$/);
-  assert.equal(typeof state.updatePayload.updated_at, "string");
-  assert.match(state.updatePayload.updated_at, /^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}\.\d{3}$/);
+  const payload = state.patchPayloads[0];
+  assert.equal(payload.status, "accepted");
+  assert.equal(typeof payload.acceptedAt, "object");
+  assert.equal(typeof payload.updatedAt, "object");
 });
 
 test("workspaceInvitesRepository.listPendingByWorkspaceIdWithWorkspace keeps workspace join fields outside the base resource contract", async () => {
-  const { knexStub } = createKnexStub({
-    joinedRows: [
+  const { api } = createWorkspaceInvitesApiStub({
+    rows: [
       {
-        id: 1,
-        workspace_id: 9,
+        id: "1",
+        workspace: {
+          id: "9",
+          slug: "tonymobily3",
+          name: "TonyMobily3",
+          avatarUrl: "https://example.com/avatar.png"
+        },
         email: "invitee@example.com",
-        role_sid: "member",
+        roleSid: "member",
         status: "pending",
-        token_hash: "hash-token",
-        invited_by_user_id: 1,
-        expires_at: "2030-01-01 00:00:00.000",
-        accepted_at: null,
-        revoked_at: null,
-        created_at: "2026-03-09 00:26:35.710",
-        updated_at: "2026-03-09 00:26:35.710",
-        workspace_slug: "tonymobily3",
-        workspace_name: "TonyMobily3",
-        workspace_avatar_url: "https://example.com/avatar.png"
+        tokenHash: "hash-token",
+        invitedByUser: { id: "1" },
+        expiresAt: "2030-01-01 00:00:00.000",
+        acceptedAt: null,
+        revokedAt: null,
+        createdAt: "2026-03-09 00:26:35.710",
+        updatedAt: "2026-03-09 00:26:35.710"
       }
     ]
   });
-  const repository = createRepository(knexStub);
+  const repository = createRepository({ api, knex: createKnexStub() });
 
   const invites = await repository.listPendingByWorkspaceIdWithWorkspace("9");
 

@@ -58,12 +58,12 @@ function normalizeRouteInputTransforms(route) {
   return Object.freeze(normalized);
 }
 
-function buildRequestInput({ request = null, inputTransforms = null } = {}) {
+async function buildRequestInput({ request = null, inputTransforms = null } = {}) {
   const transforms = inputTransforms && typeof inputTransforms === "object" ? inputTransforms : {};
 
-  const body = typeof transforms.body === "function" ? transforms.body(request?.body, request) : request?.body;
-  const query = typeof transforms.query === "function" ? transforms.query(request?.query, request) : request?.query;
-  const params = typeof transforms.params === "function" ? transforms.params(request?.params, request) : request?.params;
+  const body = typeof transforms.body === "function" ? await transforms.body(request?.body, request) : request?.body;
+  const query = typeof transforms.query === "function" ? await transforms.query(request?.query, request) : request?.query;
+  const params = typeof transforms.params === "function" ? await transforms.params(request?.params, request) : request?.params;
 
   return Object.freeze({
     body,
@@ -142,7 +142,7 @@ function registerRoutes(
         });
 
         if (routeInputTransforms) {
-          request.input = buildRequestInput({
+          request.input = await buildRequestInput({
             request,
             inputTransforms: routeInputTransforms
           });

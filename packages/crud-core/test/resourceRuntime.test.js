@@ -1,5 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import { createSchema } from "json-rest-schema";
 import { RECORD_ID_PATTERN } from "@jskit-ai/kernel/shared/validators";
 import { createCrudResourceRuntime } from "../src/server/resourceRuntime/index.js";
 
@@ -202,18 +203,21 @@ function createResourceFixture() {
     idColumn: "contact_id",
     operations: {
       view: {
-        outputValidator: {
+        output: {
           schema: {
             type: "object",
             properties: {
-              id: recordIdSchema,
+              id: {
+                ...recordIdSchema,
+                actualField: "contact_id"
+              },
               firstName: { type: "string" }
             }
           }
         }
       },
       create: {
-        bodyValidator: {
+        body: {
           schema: {
             type: "object",
             properties: {
@@ -222,13 +226,7 @@ function createResourceFixture() {
           }
         }
       }
-    },
-    fieldMeta: [
-      {
-        key: "id",
-        repository: { column: "contact_id" }
-      }
-    ]
+    }
   };
 }
 
@@ -239,14 +237,33 @@ function createLookupResourceFixture() {
     idColumn: "contact_id",
     operations: {
       view: {
-        outputValidator: {
+        output: {
           schema: {
             type: "object",
             properties: {
-              id: recordIdSchema,
+              id: {
+                ...recordIdSchema,
+                actualField: "contact_id"
+              },
               firstName: { type: "string" },
-              primaryVetId: recordIdSchema,
-              secondaryVetId: nullableRecordIdSchema,
+              primaryVetId: {
+                ...recordIdSchema,
+                actualField: "primary_vet_id",
+                relation: {
+                  kind: "lookup",
+                  namespace: "vets",
+                  valueKey: "id"
+                }
+              },
+              secondaryVetId: {
+                ...nullableRecordIdSchema,
+                actualField: "secondary_vet_id",
+                relation: {
+                  kind: "lookup",
+                  namespace: "vets",
+                  valueKey: "id"
+                }
+              },
               lookups: {
                 type: "object"
               }
@@ -255,7 +272,7 @@ function createLookupResourceFixture() {
         }
       },
       create: {
-        bodyValidator: {
+        body: {
           schema: {
             type: "object",
             properties: {
@@ -264,31 +281,7 @@ function createLookupResourceFixture() {
           }
         }
       }
-    },
-    fieldMeta: [
-      {
-        key: "id",
-        repository: { column: "contact_id" }
-      },
-      {
-        key: "primaryVetId",
-        repository: { column: "primary_vet_id" },
-        relation: {
-          kind: "lookup",
-          namespace: "vets",
-          valueKey: "id"
-        }
-      },
-      {
-        key: "secondaryVetId",
-        repository: { column: "secondary_vet_id" },
-        relation: {
-          kind: "lookup",
-          namespace: "vets",
-          valueKey: "id"
-        }
-      }
-    ]
+    }
   };
 }
 
@@ -299,35 +292,31 @@ function createLeafLookupResourceFixture() {
     idColumn: "user_id",
     operations: {
       view: {
-        outputValidator: {
+        output: {
           schema: {
             type: "object",
             properties: {
-              id: recordIdSchema,
-              name: { type: "string" }
+              id: {
+                ...recordIdSchema,
+                actualField: "user_id"
+              },
+              name: {
+                type: "string",
+                actualField: "display_name"
+              }
             }
           }
         }
       },
       create: {
-        bodyValidator: {
+        body: {
           schema: {
             type: "object",
             properties: {}
           }
         }
       }
-    },
-    fieldMeta: [
-      {
-        key: "id",
-        repository: { column: "user_id" }
-      },
-      {
-        key: "name",
-        repository: { column: "display_name" }
-      }
-    ]
+    }
   };
 }
 
@@ -338,13 +327,20 @@ function createNormalizedWriteResourceFixture() {
     idColumn: "contact_id",
     operations: {
       view: {
-        outputValidator: {
+        output: {
           schema: {
             type: "object",
             properties: {
-              id: recordIdSchema,
-              firstName: { type: "string" },
+              id: {
+                ...recordIdSchema,
+                actualField: "contact_id"
+              },
+              firstName: {
+                type: "string",
+                actualField: "first_name"
+              },
               lastSeenAt: {
+                actualField: "last_seen_at",
                 anyOf: [
                   { type: "string" },
                   { type: "null" }
@@ -355,72 +351,37 @@ function createNormalizedWriteResourceFixture() {
         }
       },
       create: {
-        bodyValidator: {
-          schema: {
-            type: "object",
-            properties: {
-              firstName: { type: "string" }
+        body: {
+          schema: createSchema({
+            firstName: {
+              type: "string",
+              required: true,
+              minLength: 1,
+              actualField: "first_name"
             }
-          },
-          normalize(payload = {}) {
-            if (payload.firstName === "bad-create") {
-              const error = new Error("Validation failed.");
-              error.details = {
-                fieldErrors: {
-                  firstName: "Invalid create value."
-                }
-              };
-              throw error;
-            }
-
-            return {
-              ...payload,
-              firstName: String(payload.firstName || "").trim()
-            };
-          }
+          }),
+          mode: "create"
         }
       },
       patch: {
-        bodyValidator: {
-          schema: {
-            type: "object",
-            properties: {
-              firstName: { type: "string" },
-              lastSeenAt: {
-                anyOf: [
-                  { type: "string" },
-                  { type: "null" }
-                ]
-              }
+        body: {
+          schema: createSchema({
+            firstName: {
+              type: "string",
+              required: false,
+              minLength: 1,
+              actualField: "first_name"
+            },
+            lastSeenAt: {
+              type: "string",
+              required: false,
+              actualField: "last_seen_at"
             }
-          },
-          normalize(payload = {}, context = {}) {
-            if (payload.firstName === "bad-update") {
-              const error = new Error("Validation failed.");
-              error.details = {
-                fieldErrors: {
-                  firstName: "Invalid update value."
-                }
-              };
-              throw error;
-            }
-
-            return {
-              ...payload,
-              firstName: `${String(payload.firstName || "").trim()}-${context.existingRecord?.firstName || ""}`,
-              ...(Object.hasOwn(payload, "lastSeenAt")
-                ? { lastSeenAt: String(payload.lastSeenAt ?? "").trim() || null }
-                : {})
-            };
-          }
+          }),
+          mode: "patch"
         }
       }
-    },
-    fieldMeta: [
-      { key: "id", repository: { column: "contact_id" } },
-      { key: "firstName", repository: { column: "first_name" } },
-      { key: "lastSeenAt", repository: { column: "last_seen_at" } }
-    ]
+    }
   };
 }
 
@@ -431,19 +392,27 @@ function createVirtualProjectionResourceFixture() {
     idColumn: "receival_id",
     operations: {
       view: {
-        outputValidator: {
+        output: {
           schema: {
             type: "object",
             properties: {
-              id: recordIdSchema,
+              id: {
+                ...recordIdSchema,
+                actualField: "receival_id"
+              },
               firstName: { type: "string" },
-              remainingBatchWeight: { type: "number" }
+              remainingBatchWeight: {
+                type: "number",
+                storage: {
+                  virtual: true
+                }
+              }
             }
           }
         }
       },
       create: {
-        bodyValidator: {
+        body: {
           schema: {
             type: "object",
             properties: {
@@ -452,19 +421,7 @@ function createVirtualProjectionResourceFixture() {
           }
         }
       }
-    },
-    fieldMeta: [
-      {
-        key: "id",
-        repository: { column: "receival_id" }
-      },
-      {
-        key: "remainingBatchWeight",
-        repository: {
-          storage: "virtual"
-        }
-      }
-    ]
+    }
   };
 }
 
@@ -475,7 +432,7 @@ test("createCrudResourceRuntime requires table metadata from resource", () => {
       createCrudResourceRuntime({
         operations: {
           view: {
-            outputValidator: {
+            output: {
               schema: {
                 type: "object",
                 properties: {
@@ -485,15 +442,14 @@ test("createCrudResourceRuntime requires table metadata from resource", () => {
             }
           },
           create: {
-            bodyValidator: {
+            body: {
               schema: {
                 type: "object",
                 properties: {}
               }
             }
           }
-        },
-        fieldMeta: []
+        }
       }, knex),
     /requires resource\.tableName or resource\.namespace/
   );
@@ -774,28 +730,21 @@ test("listByIds supports alternate valueKey and listByForeignIds delegates to it
     operations: {
       ...createResourceFixture().operations,
       view: {
-        outputValidator: {
+        output: {
           schema: {
             type: "object",
             properties: {
               id: recordIdSchema,
-              foreignId: recordIdSchema,
+              foreignId: {
+                ...recordIdSchema,
+                actualField: "foreign_id"
+              },
               firstName: { type: "string" }
             }
           }
         }
       }
-    },
-    fieldMeta: [
-      {
-        key: "id",
-        repository: { column: "contact_id" }
-      },
-      {
-        key: "foreignId",
-        repository: { column: "foreign_id" }
       }
-    ]
   };
   const { knex, calls } = createKnexDouble([
     {
@@ -833,20 +782,29 @@ test("create uses operations.create.prepareInsertPayload before insert", async (
     idColumn: "contact_id",
     operations: {
       view: {
-        outputValidator: {
+        output: {
           schema: {
             type: "object",
             properties: {
-              id: recordIdSchema,
+              id: {
+                ...recordIdSchema,
+                actualField: "contact_id"
+              },
               firstName: { type: "string" },
-              createdAt: { type: "string" },
-              updatedAt: { type: "string" }
+              createdAt: {
+                type: "string",
+                actualField: "created_at"
+              },
+              updatedAt: {
+                type: "string",
+                actualField: "updated_at"
+              }
             }
           }
         }
       },
       create: {
-        bodyValidator: {
+        body: {
           schema: {
             type: "object",
             properties: {
@@ -855,13 +813,7 @@ test("create uses operations.create.prepareInsertPayload before insert", async (
           }
         }
       }
-    },
-    fieldMeta: [
-      { key: "id", repository: { column: "contact_id" } },
-      { key: "firstName", repository: { column: "first_name" } },
-      { key: "createdAt", repository: { column: "created_at" } },
-      { key: "updatedAt", repository: { column: "updated_at" } }
-    ]
+    }
   };
   const repository = createCrudResourceRuntime(resource, knex, {
     operations: {
@@ -928,7 +880,7 @@ test("update and delete keep canonical by-id behavior", async () => {
   });
 });
 
-test("update normalizes resource patch payloads using the existing record", async () => {
+test("update normalizes resource patch payloads before persistence", async () => {
   const rows = [
     {
       contact_id: 11,
@@ -945,7 +897,7 @@ test("update normalizes resource patch payloads using the existing record", asyn
     firstName: " Tom "
   });
 
-  assert.equal(state.updatePayloads[0].first_name, "Tom-Tony");
+  assert.equal(state.updatePayloads[0].first_name, "Tom");
 });
 
 test("update maps patch-only resource fields into the DB payload", async () => {
@@ -968,7 +920,7 @@ test("update maps patch-only resource fields into the DB payload", async () => {
   assert.equal(state.updatePayloads[0].last_seen_at, "2026-01-01T00:00:00.000Z");
 });
 
-test("resourceRuntime maps body normalization field errors for create and update", async () => {
+test("resourceRuntime maps schema field errors for create and update", async () => {
   const rows = [
     {
       contact_id: 11,
@@ -981,18 +933,18 @@ test("resourceRuntime maps body normalization field errors for create and update
   const repository = createCrudResourceRuntime(createNormalizedWriteResourceFixture(), knex);
 
   await assert.rejects(
-    () => repository.create({ firstName: "bad-create" }),
+    () => repository.create({ firstName: "   " }),
     (error) => (
       error?.status === 400 &&
-      error?.details?.fieldErrors?.firstName === "Invalid create value."
+      typeof error?.details?.fieldErrors?.firstName === "string"
     )
   );
 
   await assert.rejects(
-    () => repository.updateById("11", { firstName: "bad-update" }),
+    () => repository.updateById("11", { firstName: "   " }),
     (error) => (
       error?.status === 400 &&
-      error?.details?.fieldErrors?.firstName === "Invalid update value."
+      typeof error?.details?.fieldErrors?.firstName === "string"
     )
   );
 });

@@ -291,7 +291,7 @@ test("buildReplacementsFromSnapshot builds deterministic template replacement pa
   );
   assert.equal(
     replacements.__JSKIT_CRUD_VIEW_ROUTE_PARAMS_VALIDATOR_LINE__,
-    "      paramsValidator: [routeParamsValidator, recordIdParamsValidator],"
+    "      params: [routeParamsValidator, recordIdParamsValidator],"
   );
   assert.match(
     replacements.__JSKIT_CRUD_ROLE_CATALOG_PERMISSION_GRANTS__,
@@ -303,28 +303,16 @@ test("buildReplacementsFromSnapshot builds deterministic template replacement pa
   );
   assert.match(replacements.__JSKIT_CRUD_MIGRATION_COLUMN_LINES__, /table\.bigIncrements\("id"\)/);
   assert.match(replacements.__JSKIT_CRUD_MIGRATION_COLUMN_LINES__, /table\.string\("first_name", 160\)/);
-  assert.equal(replacements.__JSKIT_CRUD_RESOURCE_FIELD_META_PUSH_LINES__, "");
-  assert.match(replacements.__JSKIT_CRUD_RESOURCE_OUTPUT_SCHEMA_PROPERTIES__, /updatedAt: Type\.String/);
+  assert.match(replacements.__JSKIT_CRUD_RESOURCE_OUTPUT_SCHEMA_PROPERTIES__, /updatedAt: \{/);
   assert.match(
     replacements.__JSKIT_CRUD_RESOURCE_OUTPUT_SCHEMA_PROPERTIES__,
-    /id: recordIdSchema,/
+    /id: \{\s+type: "string",\s+minLength: 1,\s+pattern: RECORD_ID_PATTERN,\s+required: true\s+\},/s
   );
-  assert.match(replacements.__JSKIT_CRUD_RESOURCE_CREATE_SCHEMA_PROPERTIES__, /firstName: Type\.String/);
+  assert.match(replacements.__JSKIT_CRUD_RESOURCE_CREATE_SCHEMA_PROPERTIES__, /firstName: \{/);
+  assert.match(replacements.__JSKIT_CRUD_RESOURCE_PATCH_SCHEMA_PROPERTIES__, /firstName: \{/);
   assert.match(
-    replacements.__JSKIT_CRUD_RESOURCE_INPUT_NORMALIZATION_LINES__,
-    /normalizeIfInSource\(source, normalized, "firstName", normalizeText\);/
-  );
-  assert.doesNotMatch(
-    replacements.__JSKIT_CRUD_RESOURCE_INPUT_NORMALIZATION_LINES__,
-    /\(value\) =>/
-  );
-  assert.doesNotMatch(
-    replacements.__JSKIT_CRUD_RESOURCE_INPUT_NORMALIZATION_LINES__,
-    /value == null/
-  );
-  assert.match(
-    replacements.__JSKIT_CRUD_RESOURCE_OUTPUT_NORMALIZATION_LINES__,
-    /firstName: normalizeIfPresent\(source\.firstName, normalizeText\),/
+    replacements.__JSKIT_CRUD_RESOURCE_CREATE_SCHEMA_PROPERTIES__,
+    /firstName: \{\s+type: "string",\s+maxLength: 160,\s+required: true\s+\},/s
   );
   assert.match(
     replacements.__JSKIT_CRUD_LIST_CONFIG_LINES__,
@@ -334,11 +322,6 @@ test("buildReplacementsFromSnapshot builds deterministic template replacement pa
     replacements.__JSKIT_CRUD_LIST_CONFIG_LINES__,
     /\/\/ searchColumns: \["name"\],\s+orderBy:/s
   );
-  assert.doesNotMatch(
-    replacements.__JSKIT_CRUD_RESOURCE_OUTPUT_NORMALIZATION_LINES__,
-    /== null \?/
-  );
-  assert.equal(replacements.__JSKIT_CRUD_RESOURCE_CREATE_REQUIRED_FIELDS__, "[\"firstName\"]");
   assert.equal(replacements.__JSKIT_CRUD_MIGRATION_FOREIGN_KEY_LINES__, "");
 });
 
@@ -366,12 +349,12 @@ test("buildReplacementsFromSnapshot omits named permissions and role grants when
   assert.equal(replacements.__JSKIT_CRUD_ROUTE_SURFACE_REQUIRES_WORKSPACE__, "false");
   assert.equal(
     replacements.__JSKIT_CRUD_CREATE_ACTION_INPUT_VALIDATOR__,
-    "{ payload: resource.operations.create.bodyValidator }"
+    "{ payload: resource.operations.create.body }"
   );
   assert.equal(replacements.__JSKIT_CRUD_LIST_ROUTE_PARAMS_VALIDATOR_LINE__, "");
   assert.equal(
     replacements.__JSKIT_CRUD_VIEW_ROUTE_PARAMS_VALIDATOR_LINE__,
-    "      paramsValidator: recordIdParamsValidator,"
+    "      params: recordIdParamsValidator,"
   );
   assert.equal(
     replacements.__JSKIT_CRUD_VIEW_ROUTE_INPUT_LINES__,
@@ -479,7 +462,7 @@ test("buildReplacementsFromSnapshot omits default list ordering when created_at 
   assert.match(replacements.__JSKIT_CRUD_LIST_CONFIG_LINES__, /searchColumns/);
 });
 
-test("buildReplacementsFromSnapshot renders append-only field meta entries from foreign keys", () => {
+test("buildReplacementsFromSnapshot renders inline field relation metadata from foreign keys", () => {
   const snapshot = {
     ...createSnapshot(),
     columns: Object.freeze([
@@ -524,17 +507,15 @@ test("buildReplacementsFromSnapshot renders append-only field meta entries from 
     resolvedOwnershipFilter: "workspace_user"
   });
 
-  assert.match(replacements.__JSKIT_CRUD_RESOURCE_FIELD_META_PUSH_LINES__, /RESOURCE_FIELD_META\.push\(\{/);
-  assert.match(replacements.__JSKIT_CRUD_RESOURCE_FIELD_META_PUSH_LINES__, /key: "vetId"/);
-  assert.match(replacements.__JSKIT_CRUD_RESOURCE_FIELD_META_PUSH_LINES__, /namespace: "customer-categories"/);
+  assert.match(replacements.__JSKIT_CRUD_RESOURCE_OUTPUT_SCHEMA_PROPERTIES__, /vetId: \{/);
   assert.match(
-    replacements.__JSKIT_CRUD_RESOURCE_FIELD_META_PUSH_LINES__,
-    /formControl: "autocomplete" \/\/ or "select"/
+    replacements.__JSKIT_CRUD_RESOURCE_OUTPUT_SCHEMA_PROPERTIES__,
+    /relation: \{ kind: "lookup", namespace: "customer-categories", valueKey: "id" \}.*ui: \{ formControl: "autocomplete" \}/s
   );
   assert.match(replacements.__JSKIT_CRUD_MIGRATION_FOREIGN_KEY_LINES__, /table\.foreign\(\["vet_id"\]/);
 });
 
-test("buildReplacementsFromSnapshot renders enum field meta options as select controls", () => {
+test("buildReplacementsFromSnapshot renders inline enum field ui options as select controls", () => {
   const baseSnapshot = createSnapshot({
     hasWorkspaceIdColumn: false,
     hasUserIdColumn: false
@@ -569,11 +550,11 @@ test("buildReplacementsFromSnapshot renders enum field meta options as select co
     resolvedOwnershipFilter: "public"
   });
 
-  assert.match(replacements.__JSKIT_CRUD_RESOURCE_FIELD_META_PUSH_LINES__, /key: "temperament"/);
-  assert.match(replacements.__JSKIT_CRUD_RESOURCE_FIELD_META_PUSH_LINES__, /formControl: "select"/);
-  assert.match(replacements.__JSKIT_CRUD_RESOURCE_FIELD_META_PUSH_LINES__, /options: \[/);
-  assert.match(replacements.__JSKIT_CRUD_RESOURCE_FIELD_META_PUSH_LINES__, /"value": "friendly_excitable"/);
-  assert.match(replacements.__JSKIT_CRUD_RESOURCE_FIELD_META_PUSH_LINES__, /"label": "Friendly Excitable"/);
+  assert.match(replacements.__JSKIT_CRUD_RESOURCE_CREATE_SCHEMA_PROPERTIES__, /temperament: \{/);
+  assert.match(replacements.__JSKIT_CRUD_RESOURCE_CREATE_SCHEMA_PROPERTIES__, /ui: \{ formControl: "select"/);
+  assert.match(replacements.__JSKIT_CRUD_RESOURCE_CREATE_SCHEMA_PROPERTIES__, /options: \[/);
+  assert.match(replacements.__JSKIT_CRUD_RESOURCE_CREATE_SCHEMA_PROPERTIES__, /"value":"friendly_excitable"/);
+  assert.match(replacements.__JSKIT_CRUD_RESOURCE_CREATE_SCHEMA_PROPERTIES__, /"label":"Friendly Excitable"/);
 });
 
 test("renderMigrationColumnLine ignores SQL NULL string defaults", () => {
@@ -865,19 +846,19 @@ test("resolveScaffoldColumns derives resource numeric bounds from check constrai
 
   assert.equal(
     __testables.renderResourceFieldSchema(inputWeight),
-    "Type.Number({ minimum: 0.001 })"
+    "{\n  type: \"number\",\n  min: 0.001,\n  required: true\n}"
   );
   assert.equal(
     __testables.renderResourceFieldSchema(batchedDailySequence),
-    "Type.Integer({ minimum: 1 })"
+    "{\n  type: \"integer\",\n  min: 1,\n  required: true\n}"
   );
   assert.equal(
     __testables.renderResourceFieldSchema(moistureLevel),
-    "Type.Union([Type.Number({ minimum: 0, maximum: 100 }), Type.Null()])"
+    "{\n  type: \"number\",\n  min: 0,\n  max: 100,\n  required: false,\n  nullable: true\n}"
   );
   assert.equal(
     __testables.renderResourceFieldSchema(severity),
-    "Type.Union([Type.Integer({ minimum: 1, maximum: 10 }), Type.Null()])"
+    "{\n  type: \"integer\",\n  min: 1,\n  max: 10,\n  required: false,\n  nullable: true\n}"
   );
 });
 
@@ -951,20 +932,16 @@ test("buildReplacementsFromSnapshot normalizes nullable temporal inputs without 
   });
 
   assert.match(
-    replacements.__JSKIT_CRUD_RESOURCE_INPUT_NORMALIZATION_LINES__,
-    /normalizeIfInSource\(source, normalized, "scheduledAt", \(value\) => \{ const normalized = normalizeText\(value\); return normalized \? toIsoString\(normalized\) : null; \}\);/
+    replacements.__JSKIT_CRUD_RESOURCE_CREATE_SCHEMA_PROPERTIES__,
+    /scheduledAt: \{\s+type: "dateTime",\s+required: false,\s+nullable: true\s+\},/s
   );
   assert.match(
-    replacements.__JSKIT_CRUD_RESOURCE_INPUT_NORMALIZATION_LINES__,
-    /normalizeIfInSource\(source, normalized, "birthDate", \(value\) => \{ const normalized = normalizeText\(value\); return normalized \? toIsoString\(normalized\)\.slice\(0, 10\) : null; \}\);/
+    replacements.__JSKIT_CRUD_RESOURCE_CREATE_SCHEMA_PROPERTIES__,
+    /birthDate: \{\s+type: "date",\s+required: false,\s+nullable: true\s+\},/s
   );
   assert.match(
-    replacements.__JSKIT_CRUD_RESOURCE_INPUT_NORMALIZATION_LINES__,
-    /normalizeIfInSource\(source, normalized, "preferredTime", \(value\) => \{ const normalized = normalizeText\(value\); return normalized \|\| null; \}\);/
-  );
-  assert.doesNotMatch(
-    replacements.__JSKIT_CRUD_RESOURCE_FIELD_META_PUSH_LINES__,
-    /writeSerializer: "datetime-utc"/
+    replacements.__JSKIT_CRUD_RESOURCE_CREATE_SCHEMA_PROPERTIES__,
+    /preferredTime: \{\s+type: "time",\s+required: false,\s+nullable: true\s+\},/s
   );
 });
 
@@ -1050,13 +1027,9 @@ test("crud generator renders time columns with html-time-compatible schemas", as
 
   assert.match(
     templateSource,
-    /NULLABLE_HTML_TIME_STRING_SCHEMA/
+    /type: "time"/
   );
-  assert.match(
-    templateSource,
-    /HTML_TIME_STRING_SCHEMA/
-  );
-  assert.doesNotMatch(templateSource, /format: "time"/);
+  assert.doesNotMatch(templateSource, /HTML_TIME_STRING_SCHEMA|NULLABLE_HTML_TIME_STRING_SCHEMA/);
 });
 
 test("buildReplacementsFromSnapshot uses shared framework time schemas in generated resources", () => {
@@ -1090,24 +1063,12 @@ test("buildReplacementsFromSnapshot uses shared framework time schemas in genera
   });
 
   assert.match(
-    replacements.__JSKIT_CRUD_RESOURCE_VALIDATORS_IMPORT__,
-    /(^|\n)\s*NULLABLE_HTML_TIME_STRING_SCHEMA(,|\n)/m
-  );
-  assert.doesNotMatch(
-    replacements.__JSKIT_CRUD_RESOURCE_VALIDATORS_IMPORT__,
-    /(^|\n)\s*HTML_TIME_STRING_SCHEMA(,|\n)/m
-  );
-  assert.match(
     replacements.__JSKIT_CRUD_RESOURCE_OUTPUT_SCHEMA_PROPERTIES__,
-    /fromTime: NULLABLE_HTML_TIME_STRING_SCHEMA/
+    /fromTime: \{\s+type: "time",\s+required: true,\s+nullable: true\s+\},/s
   );
   assert.match(
     replacements.__JSKIT_CRUD_RESOURCE_CREATE_SCHEMA_PROPERTIES__,
-    /fromTime: NULLABLE_HTML_TIME_STRING_SCHEMA/
-  );
-  assert.doesNotMatch(
-    replacements.__JSKIT_CRUD_RESOURCE_OUTPUT_SCHEMA_PROPERTIES__,
-    /Type\.String\(\{ pattern:/
+    /fromTime: \{\s+type: "time",\s+required: false,\s+nullable: true\s+\},/s
   );
 });
 
@@ -1142,20 +1103,12 @@ test("buildReplacementsFromSnapshot imports only the non-nullable time schema wh
   });
 
   assert.match(
-    replacements.__JSKIT_CRUD_RESOURCE_VALIDATORS_IMPORT__,
-    /(^|\n)\s*HTML_TIME_STRING_SCHEMA(,|\n)/m
-  );
-  assert.doesNotMatch(
-    replacements.__JSKIT_CRUD_RESOURCE_VALIDATORS_IMPORT__,
-    /(^|\n)\s*NULLABLE_HTML_TIME_STRING_SCHEMA(,|\n)/m
-  );
-  assert.match(
     replacements.__JSKIT_CRUD_RESOURCE_OUTPUT_SCHEMA_PROPERTIES__,
-    /fromTime: HTML_TIME_STRING_SCHEMA/
+    /fromTime: \{\s+type: "time",\s+required: true\s+\},/s
   );
   assert.match(
     replacements.__JSKIT_CRUD_RESOURCE_CREATE_SCHEMA_PROPERTIES__,
-    /fromTime: HTML_TIME_STRING_SCHEMA/
+    /fromTime: \{\s+type: "time",\s+required: true\s+\},/s
   );
 });
 
@@ -1187,10 +1140,14 @@ test("buildReplacementsFromSnapshot only imports record-id validator helpers tha
     resolvedOwnershipFilter: "public"
   });
 
-  assert.match(replacements.__JSKIT_CRUD_RESOURCE_VALIDATORS_IMPORT__, /recordIdSchema/);
-  assert.doesNotMatch(replacements.__JSKIT_CRUD_RESOURCE_VALIDATORS_IMPORT__, /recordIdInputSchema/);
-  assert.doesNotMatch(replacements.__JSKIT_CRUD_RESOURCE_VALIDATORS_IMPORT__, /nullableRecordIdSchema/);
-  assert.doesNotMatch(replacements.__JSKIT_CRUD_RESOURCE_VALIDATORS_IMPORT__, /nullableRecordIdInputSchema/);
+  assert.match(
+    replacements.__JSKIT_CRUD_RESOURCE_OUTPUT_SCHEMA_PROPERTIES__,
+    /id: \{\s+type: "string",\s+minLength: 1,\s+pattern: RECORD_ID_PATTERN,\s+required: true\s+\},/s
+  );
+  assert.doesNotMatch(
+    replacements.__JSKIT_CRUD_RESOURCE_CREATE_SCHEMA_PROPERTIES__,
+    /pattern: RECORD_ID_PATTERN/
+  );
 });
 
 test("crud provider template uses shared lookup provider helpers instead of inline wiring", async () => {

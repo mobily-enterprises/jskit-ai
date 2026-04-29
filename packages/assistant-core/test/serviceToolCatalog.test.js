@@ -48,10 +48,10 @@ test("service tool catalog hides methods user cannot execute", () => {
       dependencies: {
         customersService: "demo.customers.service"
       },
-      inputValidator: {
+      input: {
         schema: { type: "object", additionalProperties: true }
       },
-      outputValidator: {
+      output: {
         schema: {
           type: "array",
           items: {
@@ -83,10 +83,10 @@ test("service tool catalog hides methods user cannot execute", () => {
       dependencies: {
         customersService: "demo.customers.service"
       },
-      inputValidator: {
+      input: {
         schema: { type: "object", additionalProperties: true }
       },
-      outputValidator: {
+      output: {
         schema: {
           type: "object",
           additionalProperties: true
@@ -210,10 +210,10 @@ test("service tool catalog hides actions that are not automation-enabled", () =>
       dependencies: {
         nonAutomationService: "demo.non_automation.service"
       },
-      inputValidator: {
+      input: {
         schema: Type.Object({}, { additionalProperties: false })
       },
-      outputValidator: {
+      output: {
         schema: Type.Array(Type.Object({}, { additionalProperties: true }))
       },
       idempotency: "none",
@@ -268,10 +268,10 @@ test("service tool catalog honors barred action ids", () => {
       dependencies: {
         auditService: "demo.audit.service"
       },
-      inputValidator: {
+      input: {
         schema: Type.Object({}, { additionalProperties: false })
       },
-      outputValidator: {
+      output: {
         schema: Type.Array(Type.Object({}, { additionalProperties: true }))
       },
       idempotency: "none",
@@ -326,7 +326,7 @@ test("service tool catalog materializes action tools once and filters per reques
       dependencies: {
         cachedService: "demo.cached.service"
       },
-      inputValidator: {
+      input: {
         schema: { type: "object", additionalProperties: true }
       },
       idempotency: "none",
@@ -437,10 +437,10 @@ test("service tool catalog uses action-backed schemas for tool contracts", () =>
       dependencies: {
         schemasService: "demo.schemas.service"
       },
-      inputValidator: {
+      input: {
         schema: inputSchema
       },
-      outputValidator: {
+      output: {
         schema: outputSchema
       },
       idempotency: "optional",
@@ -523,10 +523,10 @@ test("service tool catalog rejects legacy assistantTool field at assistant layer
       dependencies: {
         legacyAssistantService: "demo.legacy_assistant.service"
       },
-      inputValidator: {
+      input: {
         schema
       },
-      outputValidator: {
+      output: {
         schema: outputSchema
       },
       idempotency: "optional",
@@ -554,10 +554,10 @@ test("service tool catalog rejects legacy assistantTool field at assistant layer
       dependencies: {
         legacyAssistantService: "demo.legacy_assistant.service"
       },
-      inputValidator: {
+      input: {
         schema
       },
-      outputValidator: {
+      output: {
         schema: outputSchema
       },
       idempotency: "optional",
@@ -623,13 +623,13 @@ test("service tool catalog can require input/output schemas for tool exposure", 
       dependencies: {
         strictService: "demo.strict.service"
       },
-      inputValidator: {
+      input: {
         schema: {
           type: "object",
           additionalProperties: false
         }
       },
-      outputValidator: {
+      output: {
         schema: {
           type: "object",
           properties: {
@@ -721,10 +721,10 @@ test("service tool catalog derives tool schemas from action contributors", () =>
       dependencies: {
         customersService: "demo.customers.service"
       },
-      inputValidator: {
+      input: {
         schema: inputSchema
       },
-      outputValidator: {
+      output: {
         schema: outputSchema
       },
       idempotency: "optional",
@@ -785,7 +785,7 @@ test("service tool catalog derives input schema from array action validators", (
       dependencies: {
         arraySchemaService: "demo.array_schema.service"
       },
-      inputValidator: [
+      input: [
         {
           schema: Type.Object(
             {
@@ -804,7 +804,7 @@ test("service tool catalog derives input schema from array action validators", (
           )
         }
       ],
-      outputValidator: {
+      output: {
         schema: Type.Object(
           {
             id: Type.Integer()
@@ -880,7 +880,7 @@ test("service tool catalog preserves section-map validators in tool schemas", ()
       dependencies: {
         workspaceSettingsService: "demo.workspace_settings.service"
       },
-      inputValidator: [
+      input: [
         {
           schema: Type.Object(
             {
@@ -893,7 +893,7 @@ test("service tool catalog preserves section-map validators in tool schemas", ()
           patch: patchValidator
         }
       ],
-      outputValidator: {
+      output: {
         schema: Type.Object(
           {
             ok: Type.Boolean()
@@ -972,7 +972,7 @@ test("service tool catalog hides workspaceSlug parameter when workspace context 
       dependencies: {
         workspaceScopeService: "demo.workspace_scope.service"
       },
-      inputValidator: {
+      input: {
         schema: Type.Object(
           {
             workspaceSlug: Type.String({ minLength: 1 }),
@@ -981,7 +981,7 @@ test("service tool catalog hides workspaceSlug parameter when workspace context 
           { additionalProperties: false }
         )
       },
-      outputValidator: {
+      output: {
         schema: Type.Object(
           {
             workspaceSlug: Type.String({ minLength: 1 }),
@@ -1056,7 +1056,7 @@ test("service tool catalog injects workspaceSlug from requestMeta request params
       dependencies: {
         workspaceInjectionService: "demo.workspace_injection.service"
       },
-      inputValidator: {
+      input: {
         schema: Type.Object(
           {
             workspaceSlug: Type.String({ minLength: 1 }),
@@ -1065,7 +1065,7 @@ test("service tool catalog injects workspaceSlug from requestMeta request params
           { additionalProperties: false }
         )
       },
-      outputValidator: {
+      output: {
         schema: Type.Object(
           {
             workspaceSlug: Type.String({ minLength: 1 }),
@@ -1158,7 +1158,7 @@ test("service tool catalog executes action-backed tools with object payloads", a
       dependencies: {
         customersService: "demo.customers.service"
       },
-      inputValidator: {
+      input: {
         schema: {
           type: "object",
           properties: {
@@ -1174,7 +1174,7 @@ test("service tool catalog executes action-backed tools with object payloads", a
           additionalProperties: false
         }
       },
-      outputValidator: {
+      output: {
         schema: {
           type: "object",
           properties: {
@@ -1250,10 +1250,10 @@ test("service tool catalog hides automation actions from other surfaces", () => 
       permission: {
         require: "authenticated"
       },
-      inputValidator: {
+      input: {
         schema: Type.Object({}, { additionalProperties: false })
       },
-      outputValidator: {
+      output: {
         schema: Type.Array(Type.Object({}, { additionalProperties: true }))
       },
       idempotency: "none",
@@ -1275,10 +1275,10 @@ test("service tool catalog hides automation actions from other surfaces", () => 
       permission: {
         require: "authenticated"
       },
-      inputValidator: {
+      input: {
         schema: Type.Object({}, { additionalProperties: false })
       },
-      outputValidator: {
+      output: {
         schema: Type.Array(Type.Object({}, { additionalProperties: true }))
       },
       idempotency: "none",

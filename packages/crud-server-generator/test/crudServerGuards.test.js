@@ -79,15 +79,15 @@ test("template createActions requires namespaced CRUD permissions by default", (
 test("template createActions omits workspace validators for non-workspace generation", () => {
   const actions = createNonWorkspaceActions({ surface: "home" });
 
-  assert.equal(Array.isArray(actions[0].inputValidator), true);
-  assert.equal(actions[0].inputValidator.length, 4);
-  assert.equal(Array.isArray(actions[1].inputValidator), true);
-  assert.equal(actions[1].inputValidator.length, 2);
-  assert.equal(actions[1].inputValidator[0], recordIdParamsValidator);
-  assert.deepEqual(Object.keys(actions[2].inputValidator), ["payload"]);
-  assert.equal(Array.isArray(actions[3].inputValidator), true);
-  assert.equal(actions[3].inputValidator.length, 2);
-  assert.equal(actions[3].inputValidator[0], recordIdParamsValidator);
-  assert.equal(actions[4].inputValidator, recordIdParamsValidator);
+  assert.equal(Array.isArray(actions[0].input), true);
+  assert.equal(actions[0].input.length, 4);
+  assert.equal(Array.isArray(actions[1].input), true);
+  assert.equal(actions[1].input.length, 2);
+  assert.equal(actions[1].input[0], recordIdParamsValidator);
+  assert.deepEqual(Object.keys(actions[2].input), ["payload"]);
+  assert.equal(Array.isArray(actions[3].input), true);
+  assert.equal(actions[3].input.length, 2);
+  assert.equal(actions[3].input[0], recordIdParamsValidator);
+  assert.equal(actions[4].input, recordIdParamsValidator);
   assert.equal(actions[0].permission.require, "authenticated");
 });

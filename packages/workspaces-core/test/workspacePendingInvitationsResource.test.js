@@ -1,38 +1,29 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { encodeInviteTokenHash } from "@jskit-ai/auth-core/shared/inviteTokens";
+import { Check } from "typebox/value";
+import { resolveStructuredSchemaTransportSchema } from "@jskit-ai/kernel/shared/validators";
 import { workspacePendingInvitationsResource } from "../src/shared/resources/workspacePendingInvitationsResource.js";
 
-test("workspacePendingInvitationsResource output normalizer shapes raw invite rows", () => {
-  const tokenHash = "a".repeat(64);
-
-  const result = workspacePendingInvitationsResource.operations.list.outputValidator.normalize({
+test("workspacePendingInvitationsResource output schema accepts already-shaped invite payloads", () => {
+  const outputSchema = resolveStructuredSchemaTransportSchema(workspacePendingInvitationsResource.operations.list.output, {
+    context: "workspacePendingInvitations.list.output",
+    defaultMode: "replace"
+  });
+  const result = {
     pendingInvites: [
       {
         id: "10",
         workspaceId: "3",
         workspaceSlug: "tonymobily3",
-        workspaceName: "",
+        workspaceName: "TonyMobily3",
         workspaceAvatarUrl: "",
-        roleSid: "Member",
-        status: "Pending",
+        roleSid: "member",
+        status: "pending",
         expiresAt: "2030-01-01T00:00:00.000Z",
-        tokenHash
+        token: "opaque-token"
       }
     ]
-  }).pendingInvites;
+  };
 
-  assert.deepEqual(result, [
-    {
-      id: "10",
-      workspaceId: "3",
-      workspaceSlug: "tonymobily3",
-      workspaceName: "tonymobily3",
-      workspaceAvatarUrl: "",
-      roleSid: "member",
-      status: "pending",
-      expiresAt: "2030-01-01T00:00:00.000Z",
-      token: encodeInviteTokenHash(tokenHash)
-    }
-  ]);
+  assert.equal(Check(outputSchema, result), true);
 });

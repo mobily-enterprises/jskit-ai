@@ -3,7 +3,7 @@ import {
   resolveFieldErrors
 } from "@jskit-ai/http-runtime/client";
 
-function validateOperationInput({
+async function validateOperationInput({
   parseInput,
   rawPayload = {},
   context = {},
@@ -19,7 +19,7 @@ function validateOperationInput({
     };
   }
 
-  const parseResult = parseInput(rawPayload, context);
+  const parseResult = await parseInput(rawPayload, context);
   if (!parseResult || typeof parseResult !== "object" || typeof parseResult.ok !== "boolean") {
     throw new TypeError(
       "parseInput(rawPayload, context) must return validateOperationSection-compatible result with boolean ok."

@@ -218,7 +218,6 @@ Exports
 Local functions
 - `resolveOptionalObjectSchemaProperties(schema, options = {})`
 - `requireObjectSchemaProperties(schema, { context = "crudRepository", schemaLabel = "schema" } = {})`
-- `normalizeResourceFieldMetaEntries(fieldMeta = [])`
 - `schemaIncludesStringType(schema = {})`
 - `schemaIncludesDateTimeFormat(schema = {})`
 - `schemaIncludesRecordIdType(schema = {})`
@@ -237,7 +236,6 @@ Local functions
 - `normalizeListOrderNulls(value = LIST_ORDER_NULLS_LAST)`
 - `normalizeListOrderBy(orderBy = [], { idColumn = "id" } = {})`
 - `resolveListRuntimeConfig(list = {}, fallbackSearchColumns = [], { idColumn = "id" } = {})`
-- `formatOutputValidationError(issue = {})`
 - `resolveRecordOutputValidator(resource = {}, { context = "crudRepository" } = {})`
 - `resolveOperationBodyValidator(resource = {}, operationKey = "", { context = "crudRepository" } = {})`
 - `extractExplicitFieldErrors(error)`
@@ -314,18 +312,13 @@ Local functions
 - `requireCrudServiceRepository(runtime = {}, repository = null)`
 - `splitCrudListRepositoryCall(query = {}, options = {})`
 
-### `src/shared/crudFieldMetaSupport.js`
+### `src/shared/crudFieldSupport.js`
 Exports
-- `CRUD_FIELD_REPOSITORY_STORAGE_COLUMN`
-- `CRUD_FIELD_REPOSITORY_STORAGE_VIRTUAL`
-- `CRUD_FIELD_REPOSITORY_WRITE_SERIALIZER_DATETIME_UTC`
 - `CRUD_LOOKUP_FORM_CONTROL_AUTOCOMPLETE`
 - `CRUD_LOOKUP_FORM_CONTROL_SELECT`
 - `CRUD_RUNTIME_LOOKUPS_FIELD_KEY`
-- `checkCrudLookupFormControl(value, { context = "crud fieldMeta ui.formControl", defaultValue = CRUD_LOOKUP_FORM_CONTROL_AUTOCOMPLETE } = {})`
+- `checkCrudLookupFormControl(value, { context = "crud field ui.formControl", defaultValue = CRUD_LOOKUP_FORM_CONTROL_AUTOCOMPLETE } = {})`
 - `isCrudRuntimeOutputOnlyFieldKey(value = "", { lookupContainerKey = CRUD_RUNTIME_LOOKUPS_FIELD_KEY } = {})`
-- `normalizeCrudFieldRepositoryConfig(fieldMetaEntry = {}, { context = "crud fieldMeta repository", fieldKey = "" } = {})`
-- `normalizeCrudFieldRepositoryWriteSerializer(value, { context = "crud fieldMeta repository", fieldKey = "" } = {})`
 
 ### `src/shared/crudNamespaceSupport.js`
 Exports

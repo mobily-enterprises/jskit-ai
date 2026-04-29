@@ -1,9 +1,9 @@
-import { Type } from "typebox";
-import { normalizeObjectInput } from "../inputNormalization.js";
+import { createSchema } from "json-rest-schema";
+import { deepFreeze } from "@jskit-ai/kernel/shared/support/deepFreeze";
 import {
   createCommandMessages,
-  oauthProviderValidator,
-  oauthReturnToValidator
+  oauthProviderFieldDefinition,
+  oauthReturnToFieldDefinition
 } from "./authCommandValidators.js";
 
 const AUTH_LOGIN_OAUTH_START_MESSAGES = createCommandMessages({
@@ -20,47 +20,37 @@ const AUTH_LOGIN_OAUTH_START_MESSAGES = createCommandMessages({
   }
 });
 
-const authLoginOAuthStartParamsValidator = Object.freeze({
-  schema: Type.Object(
-    {
-      provider: oauthProviderValidator.schema
-    },
-    {
-      additionalProperties: false
-    }
-  ),
-  normalize: normalizeObjectInput,
+const authLoginOAuthStartParamsValidator = deepFreeze({
+  schema: createSchema({
+    provider: { ...oauthProviderFieldDefinition, required: true }
+  }),
+  mode: "patch",
   messages: AUTH_LOGIN_OAUTH_START_MESSAGES
 });
 
-const authLoginOAuthStartQueryValidator = Object.freeze({
-  schema: Type.Object(
-    {
-      returnTo: Type.Optional(oauthReturnToValidator.schema)
-    },
-    {
-      additionalProperties: false
-    }
-  ),
-  normalize: normalizeObjectInput,
+const authLoginOAuthStartQueryValidator = deepFreeze({
+  schema: createSchema({
+    returnTo: { ...oauthReturnToFieldDefinition, required: false }
+  }),
+  mode: "patch",
   messages: AUTH_LOGIN_OAUTH_START_MESSAGES
 });
 
-const authLoginOAuthStartResponseValidator = Object.freeze({
-  schema: Type.Unknown()
+const authLoginOAuthStartResponseValidator = deepFreeze({
+  schema: {}
 });
 
-const authLoginOAuthStartCommand = Object.freeze({
+const authLoginOAuthStartCommand = deepFreeze({
   command: "auth.login.oauth.start",
-  operation: Object.freeze({
+  operation: {
     method: "GET",
-    paramsValidator: authLoginOAuthStartParamsValidator,
-    queryValidator: authLoginOAuthStartQueryValidator,
-    responseValidator: authLoginOAuthStartResponseValidator,
+    params: authLoginOAuthStartParamsValidator,
+    query: authLoginOAuthStartQueryValidator,
+    response: authLoginOAuthStartResponseValidator,
     messages: AUTH_LOGIN_OAUTH_START_MESSAGES,
     idempotent: true,
-    invalidates: Object.freeze([])
-  })
+    invalidates: []
+  }
 });
 
 export {

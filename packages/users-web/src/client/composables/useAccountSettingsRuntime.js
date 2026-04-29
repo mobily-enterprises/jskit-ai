@@ -7,7 +7,7 @@ import {
   resolveSurfaceNavigationTargetFromPlacementContext
 } from "@jskit-ai/shell-web/client/placement";
 import { useShellWebErrorRuntime } from "@jskit-ai/shell-web/client/error";
-import { validateOperationSection } from "@jskit-ai/http-runtime/shared/validators/operationValidation";
+import { validateOperationSectionAsync } from "@jskit-ai/http-runtime/shared/validators/operationValidation";
 import { ROUTE_VISIBILITY_PUBLIC } from "@jskit-ai/kernel/shared/support/visibility";
 import { userProfileResource } from "@jskit-ai/users-core/shared/resources/userProfileResource";
 import { userSettingsResource } from "@jskit-ai/users-core/shared/resources/userSettingsResource";
@@ -203,9 +203,9 @@ function useAccountSettingsRuntime() {
     model: profileForm,
     mapLoadedToModel: mapAccountSettingsPayload,
     parseInput: (rawPayload) =>
-      validateOperationSection({
+      validateOperationSectionAsync({
         operation: userProfileResource.operations.patch,
-        section: "bodyValidator",
+        section: "body",
         value: rawPayload
       }),
     buildRawPayload: (model) => ({
@@ -245,9 +245,9 @@ function useAccountSettingsRuntime() {
     model: preferencesForm,
     mapLoadedToModel: mapAccountSettingsPayload,
     parseInput: (rawPayload) =>
-      validateOperationSection({
+      validateOperationSectionAsync({
         operation: userSettingsResource.operations.preferencesUpdate,
-        section: "bodyValidator",
+        section: "body",
         value: rawPayload
       }),
     buildRawPayload: (model) => ({
@@ -276,9 +276,9 @@ function useAccountSettingsRuntime() {
     model: notificationsForm,
     mapLoadedToModel: mapAccountSettingsPayload,
     parseInput: (rawPayload) =>
-      validateOperationSection({
+      validateOperationSectionAsync({
         operation: userSettingsResource.operations.notificationsUpdate,
-        section: "bodyValidator",
+        section: "body",
         value: rawPayload
       }),
     buildRawPayload: (model) => ({

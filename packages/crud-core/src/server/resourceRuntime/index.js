@@ -6,7 +6,6 @@ import {
 import { applyVisibility, applyVisibilityOwners } from "@jskit-ai/database-runtime/shared/visibility";
 import { AppError, createValidationError } from "@jskit-ai/kernel/server/runtime/errors";
 import { isRecord, normalizeRecordId, normalizeText } from "@jskit-ai/kernel/shared/support/normalize";
-import { Check, Errors } from "typebox/value";
 import {
   DEFAULT_LIST_LIMIT,
   MAX_LIST_LIMIT,
@@ -21,10 +20,14 @@ import {
   resolveCrudIdColumn
 } from "../repositorySupport.js";
 import {
+  resolveStructuredSchemaTransportSchema,
+  validateSchemaPayload
+} from "@jskit-ai/kernel/shared/validators";
+import {
   createCrudLookupRuntime,
   hydrateCrudLookupRecords
 } from "./lookupHydration.js";
-import { CRUD_FIELD_REPOSITORY_STORAGE_COLUMN } from "../../shared/crudFieldMetaSupport.js";
+import { CRUD_FIELD_STORAGE_COLUMN } from "@jskit-ai/kernel/shared/support/crudFieldContract";
 
 const LIST_ORDER_DIRECTION_ASC = "asc";
 const LIST_ORDER_DIRECTION_DESC = "desc";
@@ -77,11 +80,11 @@ function resolveRepositoryDefaults(resource = {}, repositoryMapping = {}, { cont
 
   const idColumn = normalizeText(resource.idColumn) || resolveColumnName("id", repositoryMapping.columnOverrides) || "id";
   const createdAtColumn = repositoryMapping.outputKeys.includes("createdAt") &&
-    repositoryMapping.fieldStorageByKey?.createdAt === CRUD_FIELD_REPOSITORY_STORAGE_COLUMN
+    repositoryMapping.fieldStorageByKey?.createdAt === CRUD_FIELD_STORAGE_COLUMN
     ? resolveColumnName("createdAt", repositoryMapping.columnOverrides)
     : "";
   const updatedAtColumn = repositoryMapping.outputKeys.includes("updatedAt") &&
-    repositoryMapping.fieldStorageByKey?.updatedAt === CRUD_FIELD_REPOSITORY_STORAGE_COLUMN
+    repositoryMapping.fieldStorageByKey?.updatedAt === CRUD_FIELD_STORAGE_COLUMN
     ? resolveColumnName("updatedAt", repositoryMapping.columnOverrides)
     : "";
 
@@ -112,7 +115,7 @@ function normalizeCrudVirtualFieldHandlers(
     }
     if (Object.keys(virtualFields).length > 0) {
       throw new Error(
-        `${context} virtualFields contains registrations, but the resource does not declare any repository.storage "virtual" fields.`
+        `${context} virtualFields contains registrations, but the resource does not declare any storage.virtual fields.`
       );
     }
     return Object.freeze([]);
@@ -131,7 +134,7 @@ function normalizeCrudVirtualFieldHandlers(
     }
     if (!expectedKeys.has(key)) {
       throw new Error(
-        `${context} virtualFields["${key}"] is unknown; declare the field in resource.fieldMeta with repository.storage "virtual".`
+        `${context} virtualFields["${key}"] is unknown; declare the field in the resource schema with storage.virtual true.`
       );
     }
     if (!handlerConfig || typeof handlerConfig !== "object" || Array.isArray(handlerConfig)) {
@@ -289,48 +292,32 @@ function resolveListRuntimeConfig(list = {}, fallbackSearchColumns = [], { idCol
   });
 }
 
-function formatOutputValidationError(issue = {}) {
-  const path = Array.isArray(issue.path) ? issue.path.join(".") : "";
-  const value = issue.value;
-  const message = normalizeText(issue.message) || "Invalid value";
-  if (path) {
-    return `${path}: ${message}`;
-  }
-  if (value !== undefined) {
-    return `${message} (${JSON.stringify(value)})`;
-  }
-  return message;
-}
-
 function resolveRecordOutputValidator(resource = {}, { context = "crudRepository" } = {}) {
-  const outputValidator = resource?.operations?.view?.outputValidator;
-  if (!outputValidator || typeof outputValidator !== "object" || Array.isArray(outputValidator)) {
-    throw new TypeError(`${context} requires operations.view.outputValidator.`);
+  const output = resource?.operations?.view?.output;
+  if (!output || typeof output !== "object" || Array.isArray(output)) {
+    throw new TypeError(`${context} requires operations.view.output.`);
   }
-  if (!outputValidator.schema || typeof outputValidator.schema !== "object" || Array.isArray(outputValidator.schema)) {
-    throw new TypeError(`${context} requires operations.view.outputValidator.schema.`);
+  const schema = resolveStructuredSchemaTransportSchema(output, {
+    context: `${context} operations.view.output`,
+    defaultMode: "replace"
+  });
+  if (!schema || typeof schema !== "object" || Array.isArray(schema)) {
+    throw new TypeError(`${context} requires operations.view.output to resolve to an object schema.`);
   }
 
-  return Object.freeze({
-    schema: outputValidator.schema,
-    normalize: typeof outputValidator.normalize === "function" ? outputValidator.normalize : null
-  });
+  return output;
 }
 
 function resolveOperationBodyValidator(resource = {}, operationKey = "", { context = "crudRepository" } = {}) {
-  const bodyValidator = resource?.operations?.[operationKey]?.bodyValidator;
-  if (bodyValidator == null) {
-    return Object.freeze({
-      normalize: null
-    });
+  const body = resource?.operations?.[operationKey]?.body;
+  if (body == null) {
+    return null;
   }
-  if (!bodyValidator || typeof bodyValidator !== "object" || Array.isArray(bodyValidator)) {
-    throw new TypeError(`${context} operations.${operationKey}.bodyValidator must be an object when provided.`);
+  if (!body || typeof body !== "object" || Array.isArray(body)) {
+    throw new TypeError(`${context} operations.${operationKey}.body must be an object when provided.`);
   }
 
-  return Object.freeze({
-    normalize: typeof bodyValidator.normalize === "function" ? bodyValidator.normalize : null
-  });
+  return body;
 }
 
 function extractExplicitFieldErrors(error) {
@@ -357,34 +344,21 @@ async function normalizeRepositoryInputPayload(
     actionContextBase = {}
   } = {}
 ) {
-  const inputValidator = operationKey === "patch"
+  const input = operationKey === "patch"
     ? runtime.input?.patch
     : runtime.input?.create;
   const normalizedPayload = normalizeCrudRepositoryObjectInput(payload);
 
-  if (typeof inputValidator?.normalize !== "function") {
+  if (!input) {
     return normalizedPayload;
   }
 
   try {
-    const nextPayload = await inputValidator.normalize(normalizedPayload, {
-      phase,
-      action,
-      recordId,
-      existingRecord,
-      context: actionContextBase?.callOptions?.context,
-      callOptions: actionContextBase?.callOptions,
-      repositoryOptions: actionContextBase?.repositoryOptions
+    const nextPayload = await validateSchemaPayload(input, normalizedPayload, {
+      phase: "input",
+      context: `${runtime?.context || "crudRepository"} operations.${operationKey}.body`
     });
-    if (nextPayload === undefined) {
-      return normalizedPayload;
-    }
-    if (!nextPayload || typeof nextPayload !== "object" || Array.isArray(nextPayload)) {
-      throw new TypeError(
-        `${runtime?.context || "crudRepository"} operations.${operationKey}.bodyValidator.normalize must return an object when it returns a value.`
-      );
-    }
-    return nextPayload;
+    return normalizeCrudRepositoryObjectInput(nextPayload);
   } catch (error) {
     const explicitFieldErrors = extractExplicitFieldErrors(error);
     if (explicitFieldErrors) {
@@ -395,24 +369,25 @@ async function normalizeRepositoryInputPayload(
 }
 
 async function normalizeRepositoryOutputRecord(runtime = {}, record = {}, { operation = "list" } = {}) {
-  const outputRuntime = runtime.output;
-  let normalizedRecord = record;
-  if (typeof outputRuntime.normalize === "function") {
-    normalizedRecord = await outputRuntime.normalize(record, {
-      phase: "crudRepositoryOutput",
-      operation
+  try {
+    return await validateSchemaPayload(runtime.output, record, {
+      phase: "output",
+      context: `${runtime?.context || "crudRepository"} operations.view.output`
     });
+  } catch (error) {
+    const explicitFieldErrors = extractExplicitFieldErrors(error);
+    if (explicitFieldErrors) {
+      const detailMessage = Object.entries(explicitFieldErrors)
+        .map(([field, message]) => `${field}: ${message}`)
+        .join(", ");
+      throw new TypeError(
+        `${runtime?.context || "crudRepository"} ${operation} output validation failed: ${detailMessage}.`
+      );
+    }
+    throw new TypeError(
+      `${runtime?.context || "crudRepository"} ${operation} output validation failed: ${String(error?.message || "Invalid value.")}.`
+    );
   }
-
-  if (Check(outputRuntime.schema, normalizedRecord)) {
-    return normalizedRecord;
-  }
-
-  const issues = [...Errors(outputRuntime.schema, normalizedRecord)];
-  const formattedIssue = formatOutputValidationError(issues[0]);
-  throw new TypeError(
-    `${runtime?.context || "crudRepository"} ${operation} output validation failed: ${formattedIssue}.`
-  );
 }
 
 function encodeOrderedListCursorValue(value = null) {
@@ -1070,7 +1045,7 @@ async function listRecordsByIds(runtime, knex, ids = [], callOptions = {}) {
       `${runtime.context || "crudRepository"} listByIds requires valueKey "${lookupValueKey}" to exist in output schema.`
     );
   }
-  if (runtime.mapping.fieldStorageByKey?.[lookupValueKey] !== CRUD_FIELD_REPOSITORY_STORAGE_COLUMN) {
+  if (runtime.mapping.fieldStorageByKey?.[lookupValueKey] !== CRUD_FIELD_STORAGE_COLUMN) {
     throw new TypeError(
       `${runtime.context || "crudRepository"} listByIds requires valueKey "${lookupValueKey}" to be column-backed.`
     );

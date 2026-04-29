@@ -26,7 +26,7 @@ function createAssistantAppConfig() {
 function createWorkspaceServerScopeSupport() {
   return Object.freeze({
     available: true,
-    paramsValidator: Object.freeze({
+    params: Object.freeze({
       normalize(value = {}) {
         return {
           workspaceSlug: String(value?.workspaceSlug || "").trim().toLowerCase()

@@ -30,7 +30,7 @@ const devLoginAsAction = Object.freeze({
   kind: "command",
   channels: ["api", "internal"],
   surfacesFrom: "enabled",
-  inputValidator: authDevLoginAsCommand.operation.bodyValidator,
+  input: authDevLoginAsCommand.operation.body,
   idempotency: "none",
   audit: {
     actionName: "auth.dev.loginAs"
@@ -48,7 +48,7 @@ const authActionsBeforeDevLogin = Object.freeze([
     kind: "command",
     channels: ["api", "internal"],
     surfacesFrom: "enabled",
-    inputValidator: authRegisterCommand.operation.bodyValidator,
+    input: authRegisterCommand.operation.body,
     idempotency: "none",
     audit: {
       actionName: "auth.register"
@@ -64,7 +64,7 @@ const authActionsBeforeDevLogin = Object.freeze([
     kind: "command",
     channels: ["api", "internal"],
     surfacesFrom: "enabled",
-    inputValidator: authRegisterConfirmationResendCommand.operation.bodyValidator,
+    input: authRegisterConfirmationResendCommand.operation.body,
     idempotency: "none",
     audit: {
       actionName: "auth.register.confirmation.resend"
@@ -80,7 +80,7 @@ const authActionsBeforeDevLogin = Object.freeze([
     kind: "command",
     channels: ["api", "internal"],
     surfacesFrom: "enabled",
-    inputValidator: authLoginPasswordCommand.operation.bodyValidator,
+    input: authLoginPasswordCommand.operation.body,
     idempotency: "none",
     audit: {
       actionName: "auth.login.password"
@@ -96,7 +96,7 @@ const authActionsBeforeDevLogin = Object.freeze([
     kind: "command",
     channels: ["api", "internal"],
     surfacesFrom: "enabled",
-    inputValidator: authLoginOtpRequestCommand.operation.bodyValidator,
+    input: authLoginOtpRequestCommand.operation.body,
     idempotency: "none",
     audit: {
       actionName: "auth.login.otp.request"
@@ -112,7 +112,7 @@ const authActionsBeforeDevLogin = Object.freeze([
     kind: "command",
     channels: ["api", "internal"],
     surfacesFrom: "enabled",
-    inputValidator: authLoginOtpVerifyCommand.operation.bodyValidator,
+    input: authLoginOtpVerifyCommand.operation.body,
     idempotency: "none",
     audit: {
       actionName: "auth.login.otp.verify"
@@ -128,7 +128,7 @@ const authActionsBeforeDevLogin = Object.freeze([
     kind: "command",
     channels: ["api", "internal"],
     surfacesFrom: "enabled",
-    inputValidator: [authLoginOAuthStartCommand.operation.paramsValidator, authLoginOAuthStartCommand.operation.queryValidator],
+    input: [authLoginOAuthStartCommand.operation.params, authLoginOAuthStartCommand.operation.query],
     idempotency: "none",
     audit: {
       actionName: "auth.login.oauth.start"
@@ -144,7 +144,7 @@ const authActionsBeforeDevLogin = Object.freeze([
     kind: "command",
     channels: ["api", "internal"],
     surfacesFrom: "enabled",
-    inputValidator: authLoginOAuthCompleteCommand.operation.bodyValidator,
+    input: authLoginOAuthCompleteCommand.operation.body,
     idempotency: "none",
     audit: {
       actionName: "auth.login.oauth.complete"
@@ -163,7 +163,7 @@ const authActionsAfterDevLogin = Object.freeze([
     kind: "command",
     channels: ["api", "internal"],
     surfacesFrom: "enabled",
-    inputValidator: authPasswordResetRequestCommand.operation.bodyValidator,
+    input: authPasswordResetRequestCommand.operation.body,
     idempotency: "none",
     audit: {
       actionName: "auth.password.reset.request"
@@ -179,7 +179,7 @@ const authActionsAfterDevLogin = Object.freeze([
     kind: "command",
     channels: ["api", "internal"],
     surfacesFrom: "enabled",
-    inputValidator: authPasswordRecoveryCompleteCommand.operation.bodyValidator,
+    input: authPasswordRecoveryCompleteCommand.operation.body,
     idempotency: "none",
     audit: {
       actionName: "auth.password.recovery.complete"
@@ -195,7 +195,7 @@ const authActionsAfterDevLogin = Object.freeze([
     kind: "command",
     channels: ["api", "internal"],
     surfacesFrom: "enabled",
-    inputValidator: authPasswordResetCommand.operation.bodyValidator,
+    input: authPasswordResetCommand.operation.body,
     idempotency: "none",
     audit: {
       actionName: "auth.password.reset"
@@ -211,8 +211,8 @@ const authActionsAfterDevLogin = Object.freeze([
     kind: "command",
     channels: ["api", "automation", "internal"],
     surfacesFrom: "enabled",
-    inputValidator: EMPTY_INPUT_VALIDATOR,
-    outputValidator: {
+    input: EMPTY_INPUT_VALIDATOR,
+    output: {
       schema: {
         type: "object",
         properties: {
@@ -250,7 +250,7 @@ const authActionsAfterDevLogin = Object.freeze([
     kind: "query",
     channels: ["api", "internal"],
     surfacesFrom: "enabled",
-    inputValidator: EMPTY_INPUT_VALIDATOR,
+    input: EMPTY_INPUT_VALIDATOR,
     idempotency: "none",
     audit: {
       actionName: "auth.session.read"

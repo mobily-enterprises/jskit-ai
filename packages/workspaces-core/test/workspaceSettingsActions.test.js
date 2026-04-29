@@ -1,6 +1,5 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import "../test-support/registerDefaultSettingsFields.js";
 import { workspaceDirectoryActions } from "../src/server/workspaceDirectory/workspaceDirectoryActions.js";
 import { workspacePendingInvitationsActions } from "../src/server/workspacePendingInvitations/workspacePendingInvitationsActions.js";
 import { workspaceMembersActions } from "../src/server/workspaceMembers/workspaceMembersActions.js";
@@ -38,7 +37,7 @@ test("workspace actions array no longer owns workspace settings actions", () => 
 test("workspace directory actions use the canonical workspace list resource output", () => {
   const listAction = workspaceDirectoryActions.find((action) => action.id === "workspace.workspaces.list");
   assert.ok(listAction);
-  assert.equal(listAction.outputValidator, workspaceResource.operations.list.outputValidator);
+  assert.equal(listAction.output, workspaceResource.operations.list.output);
 });
 
 test("workspace directory read/update actions use canonical workspace resource validators", () => {
@@ -47,6 +46,6 @@ test("workspace directory read/update actions use canonical workspace resource v
 
   assert.ok(readAction);
   assert.ok(updateAction);
-  assert.equal(readAction.outputValidator, workspaceResource.operations.view.outputValidator);
-  assert.equal(updateAction.outputValidator, workspaceResource.operations.patch.outputValidator);
+  assert.equal(readAction.output, workspaceResource.operations.view.output);
+  assert.equal(updateAction.output, workspaceResource.operations.patch.output);
 });

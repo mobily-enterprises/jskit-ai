@@ -18,14 +18,34 @@ test("registerCommonRepositories exposes the shared users-core repositories", as
 
   const scope = {
     make(token) {
-      assert.equal(token, "jskit.database.knex");
-      return Object.assign(() => {
-        throw new Error("query execution not expected");
-      }, {
-        async transaction(work) {
-          return work({ trxId: "trx-1" });
-        }
-      });
+      if (token === "internal.json-rest-api") {
+        return {
+          resources: {
+            userSettings: {
+              query() {},
+              post() {},
+              patch() {}
+            },
+            userProfiles: {
+              query() {},
+              post() {},
+              patch() {}
+            }
+          }
+        };
+      }
+
+      if (token === "jskit.database.knex") {
+        return Object.assign(() => {
+          throw new Error("query execution not expected");
+        }, {
+          async transaction(work) {
+            return work({ trxId: "trx-1" });
+          }
+        });
+      }
+
+      throw new Error(`Unexpected token: ${token}`);
     }
   };
 

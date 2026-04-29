@@ -17,7 +17,24 @@ function createKnexStub() {
 
 test("users-core repositories expose withTransaction", async () => {
   const knex = createKnexStub();
-  const repositories = [createUserProfilesRepository(knex), createUserSettingsRepository(knex)];
+  const api = {
+    resources: {
+      userProfiles: {
+        async query() {
+          return { data: [] };
+        }
+      },
+      userSettings: {
+        async query() {
+          return { data: [] };
+        }
+      }
+    }
+  };
+  const repositories = [
+    createUserProfilesRepository({ api, knex }),
+    createUserSettingsRepository({ api, knex })
+  ];
 
   for (const repository of repositories) {
     assert.equal(typeof repository.withTransaction, "function");
@@ -26,43 +43,43 @@ test("users-core repositories expose withTransaction", async () => {
   }
 });
 
-function createFindByEmailKnexStub(expectedRow) {
+function createUserProfilesApiStub(expectedRecord) {
   const calls = [];
-  const knex = Object.assign((tableName) => {
-    assert.equal(tableName, "users");
-    return {
-      where(criteria) {
-        calls.push(criteria);
-        return {
-          async first() {
-            return expectedRow;
-          }
-        };
-      }
-    };
-  }, {
-    async transaction(work) {
-      return work({ trxId: "trx-1" });
-    }
-  });
 
-  return { knex, calls };
+  return {
+    calls,
+    api: {
+      resources: {
+        userProfiles: {
+          async query({ queryParams }) {
+            calls.push(queryParams?.filters || {});
+            return {
+              data: expectedRecord ? [expectedRecord] : []
+            };
+          }
+        }
+      }
+    }
+  };
 }
 
 test("userProfilesRepository.findByEmail normalizes email lookup", async () => {
-  const { knex, calls } = createFindByEmailKnexStub({
+  const { api, calls } = createUserProfilesApiStub({
     id: 7,
-    auth_provider: "supabase",
-    auth_provider_user_sid: "supabase-user-7",
+    authProvider: "supabase",
+    authProviderUserSid: "supabase-user-7",
     email: "ada@example.com",
     username: "ada",
-    display_name: "Ada Example",
-    avatar_storage_key: null,
-    avatar_version: null,
-    avatar_updated_at: null,
-    created_at: "2026-04-20T00:00:00.000Z"
+    displayName: "Ada Example",
+    avatarStorageKey: null,
+    avatarVersion: null,
+    avatarUpdatedAt: null,
+    createdAt: "2026-04-20T00:00:00.000Z"
   });
-  const repository = createUserProfilesRepository(knex);
+  const repository = createUserProfilesRepository({
+    api,
+    knex: createKnexStub()
+  });
 
   const profile = await repository.findByEmail(" ADA@EXAMPLE.COM ");
 
@@ -73,8 +90,11 @@ test("userProfilesRepository.findByEmail normalizes email lookup", async () => {
 });
 
 test("userProfilesRepository.findByEmail returns null when the row is missing", async () => {
-  const { knex } = createFindByEmailKnexStub(undefined);
-  const repository = createUserProfilesRepository(knex);
+  const { api } = createUserProfilesApiStub(undefined);
+  const repository = createUserProfilesRepository({
+    api,
+    knex: createKnexStub()
+  });
 
   const profile = await repository.findByEmail("missing@example.com");
 

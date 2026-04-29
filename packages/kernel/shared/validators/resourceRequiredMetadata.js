@@ -23,9 +23,9 @@ function deriveResourceRequiredMetadata(resourceSchema) {
     ? resourceSchema.operations
     : null;
 
-  const createSchema = operations?.create?.bodyValidator?.schema;
-  const replaceSchema = operations?.replace?.bodyValidator?.schema;
-  const patchSchema = operations?.patch?.bodyValidator?.schema;
+  const createSchema = operations?.create?.body?.schema;
+  const replaceSchema = operations?.replace?.body?.schema;
+  const patchSchema = operations?.patch?.body?.schema;
 
   return Object.freeze({
     create: deriveRequiredFieldsFromSchema(createSchema),

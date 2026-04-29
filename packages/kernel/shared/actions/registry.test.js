@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { Type } from "typebox";
+import { createSchema } from "json-rest-schema";
 
 import { createActionRegistry } from "./registry.js";
 
@@ -28,7 +28,7 @@ test("action registry executes latest version by default", async () => {
             kind: "query",
             channels: ["api"],
             surfaces: ["app", "admin", "console"],
-            inputValidator: { schema: createPassThroughSchema() },
+            input: { schema: createPassThroughSchema() },
             idempotency: "none",
             audit: {
               actionName: "settings.read"
@@ -48,7 +48,7 @@ test("action registry executes latest version by default", async () => {
             kind: "query",
             channels: ["api"],
             surfaces: ["app", "admin", "console"],
-            inputValidator: { schema: createPassThroughSchema() },
+            input: { schema: createPassThroughSchema() },
             idempotency: "none",
             audit: {
               actionName: "settings.read"
@@ -96,40 +96,24 @@ test("action registry merges action input validators", async () => {
             kind: "command",
             channels: ["api"],
             surfaces: ["app"],
-            inputValidator: [
+            input: [
               {
-                schema: Type.Object(
-                  {
-                    workspaceSlug: Type.Optional(Type.String({ minLength: 1 }))
-                  },
-                  { additionalProperties: false }
-                ),
-                normalize(input = {}) {
-                  if (!Object.hasOwn(input, "workspaceSlug")) {
-                    return {};
+                schema: createSchema({
+                  workspaceSlug: {
+                    type: "string",
+                    required: false,
+                    minLength: 1,
+                    lowercase: true
                   }
-
-                  return {
-                    workspaceSlug: String(input.workspaceSlug || "").trim().toLowerCase()
-                  };
-                }
+                })
               },
               {
-                schema: Type.Object(
-                  {
-                    invitesEnabled: Type.Optional(Type.Boolean())
-                  },
-                  { additionalProperties: false }
-                ),
-                normalize(input = {}) {
-                  if (!Object.hasOwn(input, "invitesEnabled")) {
-                    return {};
+                schema: createSchema({
+                  invitesEnabled: {
+                    type: "boolean",
+                    required: false
                   }
-
-                  return {
-                    invitesEnabled: input.invitesEnabled === true
-                  };
-                }
+                })
               }
             ],
             idempotency: "optional",
@@ -181,7 +165,7 @@ test("action registry fails startup on duplicate action id + version", () => {
                 kind: "command",
                 channels: ["api"],
                 surfaces: ["app"],
-                inputValidator: { schema: createPassThroughSchema() },
+                input: { schema: createPassThroughSchema() },
                 idempotency: "optional",
                 audit: {
                   actionName: "settings.profile.update"
@@ -206,7 +190,7 @@ test("action registry fails startup on duplicate action id + version", () => {
                 kind: "command",
                 channels: ["api"],
                 surfaces: ["app"],
-                inputValidator: { schema: createPassThroughSchema() },
+                input: { schema: createPassThroughSchema() },
                 idempotency: "optional",
                 audit: {
                   actionName: "settings.profile.update"
@@ -240,7 +224,7 @@ test("action registry rejects invalid version requests", async () => {
             kind: "query",
             channels: ["api"],
             surfaces: ["app"],
-            inputValidator: { schema: createPassThroughSchema() },
+            input: { schema: createPassThroughSchema() },
             idempotency: "none",
             audit: {
               actionName: "settings.read"
@@ -292,7 +276,7 @@ test("action registry ignores unknown legacy fields", async () => {
             channels: ["api", "internal"],
             surfaces: ["app"],
             consoleUsersOnly: true,
-            inputValidator: { schema: createPassThroughSchema() },
+            input: { schema: createPassThroughSchema() },
             idempotency: "none",
             audit: {
               actionName: "settings.internal.ping"
@@ -335,7 +319,7 @@ test("action registry enforces action-level permissions", async () => {
               require: "all",
               permissions: ["workspace.settings.update"]
             },
-            inputValidator: { schema: createPassThroughSchema() },
+            input: { schema: createPassThroughSchema() },
             idempotency: "optional",
             audit: {
               actionName: "workspace.settings.update"

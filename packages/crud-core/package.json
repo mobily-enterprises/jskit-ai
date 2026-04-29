@@ -10,7 +10,7 @@
     "./client/composables/createCrudClientSupport": "./src/client/composables/createCrudClientSupport.js",
     "./client/composables/crudClientSupportHelpers": "./src/client/composables/crudClientSupportHelpers.js",
     "./client/composables/useCrudRealtimeInvalidation": "./src/client/composables/useCrudRealtimeInvalidation.js",
-    "./shared/crudFieldMetaSupport": "./src/shared/crudFieldMetaSupport.js",
+    "./shared/crudFieldSupport": "./src/shared/crudFieldSupport.js",
     "./shared/crudNamespaceSupport": "./src/shared/crudNamespaceSupport.js",
     "./server/repositorySupport": "./src/server/repositorySupport.js",
     "./server/resourceRuntime": "./src/server/resourceRuntime/index.js",

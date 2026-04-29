@@ -248,7 +248,7 @@ test("createCrudListFilters query validator stays mergeable with search and curs
   });
 
   const compiled = compileRouteValidator({
-    queryValidator: [
+    query: [
       cursorPaginationQueryValidator,
       listSearchQueryValidator,
       runtime.createQueryValidator({
@@ -374,6 +374,6 @@ test("createCrudListFilters exposes no default query validator alias", () => {
     }
   });
 
-  assert.equal(Object.hasOwn(runtime, "queryValidator"), false);
-  assert.equal(runtime.queryValidator, undefined);
+  assert.equal(Object.hasOwn(runtime, "query"), false);
+  assert.equal(runtime.query, undefined);
 });

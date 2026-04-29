@@ -13,7 +13,6 @@
     "./shared/tenancyProfile": "./src/shared/tenancyProfile.js",
     "./shared/support/workspacePathModel": "./src/shared/support/workspacePathModel.js",
     "./shared/resources/workspaceResource": "./src/shared/resources/workspaceResource.js",
-    "./shared/resources/workspaceSettingsFields": "./src/shared/resources/workspaceSettingsFields.js",
     "./shared/resources/workspaceSettingsResource": "./src/shared/resources/workspaceSettingsResource.js"
   },
   "dependencies": {
@@ -23,6 +22,9 @@
     "@jskit-ai/http-runtime": "0.1.54",
     "@jskit-ai/kernel": "0.1.55",
     "@jskit-ai/users-core": "0.1.65",
+    "hooked-api": "file:../../../hooked-api",
+    "json-rest-api": "file:../../../json-rest-api",
+    "json-rest-schema": "file:../../../json-rest-schema",
     "typebox": "^1.0.81"
   }
 }

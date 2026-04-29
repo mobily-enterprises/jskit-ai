@@ -32,9 +32,9 @@ function bootWorkspaceMembers(app) {
         tags: ["workspace"],
         summary: "Get workspace role catalog by workspace slug"
       },
-      paramsValidator: workspaceSlugParamsValidator,
-      responseValidators: withStandardErrorResponses({
-        200: workspaceMembersResource.operations.rolesList.outputValidator
+      params: workspaceSlugParamsValidator,
+      responses: withStandardErrorResponses({
+        200: workspaceMembersResource.operations.rolesList.output
       })
     },
     async function (request, reply) {
@@ -60,9 +60,9 @@ function bootWorkspaceMembers(app) {
         tags: ["workspace"],
         summary: "List members by workspace slug"
       },
-      paramsValidator: workspaceSlugParamsValidator,
-      responseValidators: withStandardErrorResponses({
-        200: workspaceMembersResource.operations.membersList.outputValidator
+      params: workspaceSlugParamsValidator,
+      responses: withStandardErrorResponses({
+        200: workspaceMembersResource.operations.membersList.output
       })
     },
     async function (request, reply) {
@@ -88,11 +88,11 @@ function bootWorkspaceMembers(app) {
         tags: ["workspace"],
         summary: "Update workspace member role by workspace slug"
       },
-      paramsValidator: routeParamsValidator,
-      bodyValidator: workspaceMembersResource.operations.updateMemberRole.bodyValidator,
-      responseValidators: withStandardErrorResponses(
+      params: routeParamsValidator,
+      body: workspaceMembersResource.operations.updateMemberRole.body,
+      responses: withStandardErrorResponses(
         {
-          200: workspaceMembersResource.operations.updateMemberRole.outputValidator
+          200: workspaceMembersResource.operations.updateMemberRole.output
         },
         { includeValidation400: true }
       )
@@ -122,9 +122,9 @@ function bootWorkspaceMembers(app) {
         tags: ["workspace"],
         summary: "Remove workspace member by workspace slug"
       },
-      paramsValidator: routeParamsValidator,
-      responseValidators: withStandardErrorResponses({
-        200: workspaceMembersResource.operations.removeMember.outputValidator
+      params: routeParamsValidator,
+      responses: withStandardErrorResponses({
+        200: workspaceMembersResource.operations.removeMember.output
       })
     },
     async function (request, reply) {
@@ -152,9 +152,9 @@ function bootWorkspaceMembers(app) {
           tags: ["workspace"],
           summary: "List workspace invites by workspace slug"
         },
-        paramsValidator: workspaceSlugParamsValidator,
-        responseValidators: withStandardErrorResponses({
-          200: workspaceMembersResource.operations.invitesList.outputValidator
+        params: workspaceSlugParamsValidator,
+        responses: withStandardErrorResponses({
+          200: workspaceMembersResource.operations.invitesList.output
         })
       },
       async function (request, reply) {
@@ -180,11 +180,11 @@ function bootWorkspaceMembers(app) {
           tags: ["workspace"],
           summary: "Create workspace invite by workspace slug"
         },
-        paramsValidator: workspaceSlugParamsValidator,
-        bodyValidator: workspaceMembersResource.operations.createInvite.bodyValidator,
-        responseValidators: withStandardErrorResponses(
+        params: workspaceSlugParamsValidator,
+        body: workspaceMembersResource.operations.createInvite.body,
+        responses: withStandardErrorResponses(
           {
-            200: workspaceMembersResource.operations.createInvite.outputValidator
+            200: workspaceMembersResource.operations.createInvite.output
           },
           { includeValidation400: true }
         )
@@ -214,9 +214,9 @@ function bootWorkspaceMembers(app) {
           tags: ["workspace"],
           summary: "Revoke workspace invite by workspace slug"
         },
-        paramsValidator: routeParamsValidator,
-        responseValidators: withStandardErrorResponses({
-          200: workspaceMembersResource.operations.revokeInvite.outputValidator
+        params: routeParamsValidator,
+        responses: withStandardErrorResponses({
+          200: workspaceMembersResource.operations.revokeInvite.output
         })
       },
       async function (request, reply) {

@@ -121,7 +121,7 @@ function createActionRequest({ input = {}, executeAction, file = null }) {
   };
 }
 
-test("workspace and settings routes attach only the shared transport normalizers they actually use", async () => {
+test("workspace and settings routes attach only shared schema definitions on raw route contracts", async () => {
   const routes = await registerRoutes();
 
   const workspaceSettings = findRoute(routes, {
@@ -149,13 +149,13 @@ test("workspace and settings routes attach only the shared transport normalizers
     path: "/api/w/:workspaceSlug/invites/:inviteId"
   });
 
-  assert.equal(typeof workspaceSettings?.paramsValidator?.normalize, "function");
-  assert.equal(typeof workspacePatch?.bodyValidator?.normalize, "function");
-  assert.equal(typeof workspaceSettingsPatch?.bodyValidator?.normalize, "function");
-  assert.equal(typeof workspaceMemberRole?.paramsValidator?.normalize, "function");
-  assert.equal(typeof workspaceMemberRole?.bodyValidator?.normalize, "function");
-  assert.equal(typeof workspaceMemberDelete?.paramsValidator?.normalize, "function");
-  assert.equal(typeof workspaceInviteDelete?.paramsValidator?.normalize, "function");
+  assert.equal(typeof workspaceSettings?.params?.schema, "object");
+  assert.equal(typeof workspacePatch?.body?.schema, "object");
+  assert.equal(typeof workspaceSettingsPatch?.body?.schema, "object");
+  assert.equal(typeof workspaceMemberRole?.params?.schema, "object");
+  assert.equal(typeof workspaceMemberRole?.body?.schema, "object");
+  assert.equal(typeof workspaceMemberDelete?.params?.schema, "object");
+  assert.equal(typeof workspaceInviteDelete?.params?.schema, "object");
 });
 
 test("workspace core/settings routes mount one canonical workspace endpoint", async () => {

@@ -1,4 +1,5 @@
 import { resolveInviteTokenHash } from "@jskit-ai/auth-core/server/inviteTokens";
+import { encodeInviteTokenHash } from "@jskit-ai/auth-core/shared/inviteTokens";
 import { AppError } from "@jskit-ai/kernel/server/runtime/errors";
 import { normalizeLowerText, normalizeText } from "@jskit-ai/kernel/shared/actions/textNormalization";
 import { normalizeRecordId } from "@jskit-ai/kernel/shared/support/normalize";
@@ -35,6 +36,28 @@ function createService({
     return tokenHash;
   }
 
+  function mapPendingInvite(invite = {}) {
+    const id = normalizeRecordId(invite.id, { fallback: null });
+    const workspaceId = normalizeRecordId(invite.workspaceId, { fallback: null });
+    const tokenHash = normalizeText(invite.tokenHash);
+
+    if (!id || !workspaceId || !tokenHash) {
+      return null;
+    }
+
+    return {
+      id,
+      workspaceId,
+      workspaceSlug: normalizeText(invite.workspaceSlug),
+      workspaceName: normalizeText(invite.workspaceName || invite.workspaceSlug),
+      workspaceAvatarUrl: normalizeText(invite.workspaceAvatarUrl),
+      roleSid: normalizeLowerText(invite.roleSid || "member") || "member",
+      status: normalizeLowerText(invite.status || "pending") || "pending",
+      expiresAt: invite.expiresAt || null,
+      token: encodeInviteTokenHash(tokenHash)
+    };
+  }
+
   async function requirePendingInviteForUserByToken(user, token, options = {}) {
     const normalizedUser = requireAuthenticatedInviteUser(user);
     const tokenHash = requireInviteTokenHash(token);
@@ -67,7 +90,8 @@ function createService({
       return [];
     }
 
-    return workspaceInvitesRepository.listPendingByEmail(normalizedUser.email, options);
+    const invites = await workspaceInvitesRepository.listPendingByEmail(normalizedUser.email, options);
+    return invites.map((invite) => mapPendingInvite(invite)).filter(Boolean);
   }
 
   function requireWorkspaceIdFromInvite(invite, methodName = "workspacePendingInvitationsService") {

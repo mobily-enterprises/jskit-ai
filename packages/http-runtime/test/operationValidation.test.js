@@ -1,10 +1,58 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { Type } from "@fastify/type-provider-typebox";
+import { createSchema } from "json-rest-schema";
 import {
   validateOperationInput,
-  validateOperationSection
+  validateOperationInputAsync,
+  validateOperationSection,
+  validateOperationSectionAsync
 } from "../src/shared/validators/operationValidation.js";
+
+function createMockJsonRestSchema() {
+  return {
+    async create(payload = {}) {
+      const value = payload && typeof payload === "object" ? payload : {};
+      const name = String(value.name || "").trim();
+      const errors = {};
+      if (!name) {
+        errors.name = {
+          message: "Name is required."
+        };
+      }
+
+      return {
+        validatedObject: Object.keys(errors).length < 1 ? { name } : {},
+        errors
+      };
+    },
+    async replace(payload = {}) {
+      return this.create(payload);
+    },
+    async patch(payload = {}) {
+      const value = payload && typeof payload === "object" ? payload : {};
+      if (!Object.hasOwn(value, "name")) {
+        return {
+          validatedObject: {},
+          errors: {}
+        };
+      }
+
+      return this.create(value);
+    },
+    toJsonSchema() {
+      return {
+        type: "object",
+        properties: {
+          name: {
+            type: "string"
+          }
+        },
+        additionalProperties: false
+      };
+    }
+  };
+}
 
 const patchSchema = Type.Object(
   {
@@ -38,30 +86,15 @@ const patchSchema = Type.Object(
 
 const patchOperation = Object.freeze({
   method: "PATCH",
-  bodyValidator: {
-    schema: patchSchema,
-    normalize: (value) => {
-      if (!value || typeof value !== "object" || Array.isArray(value)) {
-        return {};
-      }
-
-      const normalized = {
-        ...value
-      };
-
-      if (Object.hasOwn(normalized, "name")) {
-        normalized.name = String(normalized.name || "").trim();
-      }
-
-      return normalized;
-    }
+  body: {
+    schema: patchSchema
   }
 });
 
-test("validateOperationSection normalizes and validates one section", () => {
+test("validateOperationSection validates one section without reshaping typebox input", () => {
   const parsed = validateOperationSection({
     operation: patchOperation,
-    section: "bodyValidator",
+    section: "body",
     value: {
       name: "  Acme  ",
       color: "#0F6B54"
@@ -70,13 +103,13 @@ test("validateOperationSection normalizes and validates one section", () => {
 
   assert.equal(parsed.ok, true);
   assert.deepEqual(parsed.fieldErrors, {});
-  assert.equal(parsed.value.name, "Acme");
+  assert.equal(parsed.value.name, "  Acme  ");
 });
 
 test("validateOperationSection returns shared field errors", () => {
   const parsed = validateOperationSection({
     operation: patchOperation,
-    section: "bodyValidator",
+    section: "body",
     value: {
       name: "",
       color: "bad",
@@ -90,10 +123,55 @@ test("validateOperationSection returns shared field errors", () => {
   assert.equal(parsed.fieldErrors.rogueField, "Unexpected field.");
 });
 
-test("validateOperationSection converts normalizer throws into validation result", () => {
-  const operationWithThrowingNormalizer = Object.freeze({
+test("validateOperationSectionAsync honors json-rest-schema field message overrides", async () => {
+  const operation = Object.freeze({
+    method: "POST",
+    body: {
+      schema: createSchema({
+        name: {
+          type: "string",
+          required: true,
+          messages: {
+            required: "Workspace name is required."
+          }
+        },
+        invitesEnabled: {
+          type: "boolean",
+          required: true,
+          strictBoolean: true,
+          messages: {
+            default: "invitesEnabled must be a boolean."
+          }
+        }
+      }),
+      mode: "create"
+    }
+  });
+
+  const missingFieldParsed = await validateOperationSectionAsync({
+    operation,
+    section: "body",
+    value: {}
+  });
+  assert.equal(missingFieldParsed.ok, false);
+  assert.equal(missingFieldParsed.fieldErrors.name, "Workspace name is required.");
+
+  const strictBooleanParsed = await validateOperationSectionAsync({
+    operation,
+    section: "body",
+    value: {
+      name: "Acme",
+      invitesEnabled: "yes"
+    }
+  });
+  assert.equal(strictBooleanParsed.ok, false);
+  assert.equal(strictBooleanParsed.fieldErrors.invitesEnabled, "invitesEnabled must be a boolean.");
+});
+
+test("validateOperationSection returns field errors for invalid enum values", () => {
+  const operationWithEnumConstraint = Object.freeze({
     method: "PATCH",
-    bodyValidator: {
+    body: {
       schema: Type.Object(
         {
           temperament: Type.String({
@@ -103,20 +181,13 @@ test("validateOperationSection converts normalizer throws into validation result
         {
           additionalProperties: false
         }
-      ),
-      normalize(value) {
-        if (value?.temperament === "unknowne") {
-          throw new Error("Invalid pet temperament \"unknowne\".");
-        }
-
-        return value;
-      }
+      )
     }
   });
 
   const parsed = validateOperationSection({
-    operation: operationWithThrowingNormalizer,
-    section: "bodyValidator",
+    operation: operationWithEnumConstraint,
+    section: "body",
     value: {
       temperament: "unknowne"
     }
@@ -126,10 +197,10 @@ test("validateOperationSection converts normalizer throws into validation result
   assert.equal(typeof parsed.fieldErrors.temperament, "string");
 });
 
-test("validateOperationSection prefers explicit thrown fieldErrors over raw fallback issues", () => {
-  const operationWithFieldScopedThrow = Object.freeze({
+test("validateOperationSection reports the raw schema field issues for invalid payloads", () => {
+  const operationWithFieldConstraints = Object.freeze({
     method: "PATCH",
-    bodyValidator: {
+    body: {
       schema: Type.Object(
         {
           temperament: Type.String({
@@ -153,22 +224,13 @@ test("validateOperationSection prefers explicit thrown fieldErrors over raw fall
         {
           additionalProperties: false
         }
-      ),
-      normalize() {
-        const error = new Error("Invalid pet temperament \"unknowne\".");
-        error.details = {
-          fieldErrors: {
-            temperament: "Invalid pet temperament \"unknowne\"."
-          }
-        };
-        throw error;
-      }
+      )
     }
   });
 
   const parsed = validateOperationSection({
-    operation: operationWithFieldScopedThrow,
-    section: "bodyValidator",
+    operation: operationWithFieldConstraints,
+    section: "body",
     value: {
       temperament: "unknowne",
       photoUpdatedAt: "",
@@ -177,16 +239,16 @@ test("validateOperationSection prefers explicit thrown fieldErrors over raw fall
   });
 
   assert.equal(parsed.ok, false);
-  assert.deepEqual(parsed.fieldErrors, {
-    temperament: "Invalid pet temperament \"unknowne\"."
-  });
+  assert.equal(typeof parsed.fieldErrors.temperament, "string");
+  assert.equal(typeof parsed.fieldErrors.photoUpdatedAt, "string");
+  assert.equal(typeof parsed.fieldErrors.adenovirusValidTo, "string");
   assert.deepEqual(parsed.globalErrors, []);
 });
 
 test("validateOperationSection maps conditional validation failures to field errors", () => {
   const operationWithConditionalConstraint = Object.freeze({
     method: "PATCH",
-    bodyValidator: {
+    body: {
       schema: Type.Object(
         {
           isVaccinated: Type.Boolean(),
@@ -213,7 +275,7 @@ test("validateOperationSection maps conditional validation failures to field err
 
   const parsed = validateOperationSection({
     operation: operationWithConditionalConstraint,
-    section: "bodyValidator",
+    section: "body",
     value: {
       isVaccinated: true
     }
@@ -227,7 +289,7 @@ test("validateOperationSection maps conditional validation failures to field err
 test("validateOperationInput validates params/query/body together", () => {
   const viewOperation = Object.freeze({
     method: "GET",
-    paramsValidator: {
+    params: {
       schema: Type.Object(
         {
           workspaceSlug: Type.String({ minLength: 1 })
@@ -235,22 +297,13 @@ test("validateOperationInput validates params/query/body together", () => {
         { additionalProperties: false }
       )
     },
-    queryValidator: {
+    query: {
       schema: Type.Object(
         {
           includeArchived: Type.Optional(Type.Boolean())
         },
         { additionalProperties: false }
-      ),
-      normalize: (value) => {
-        if (!value || typeof value !== "object") {
-          return {};
-        }
-
-        return {
-          includeArchived: value.includeArchived === true
-        };
-      }
+      )
     }
   });
 
@@ -266,6 +319,45 @@ test("validateOperationInput validates params/query/body together", () => {
 
   assert.equal(parsed.ok, true);
   assert.equal(parsed.value.params.workspaceSlug, "acme");
-  assert.equal(parsed.value.query.includeArchived, false);
+  assert.deepEqual(parsed.value.query, {});
   assert.equal(parsed.value.body, undefined);
+});
+
+test("validateOperationSectionAsync validates json-rest-schema validators", async () => {
+  const parsed = await validateOperationSectionAsync({
+    operation: {
+      body: {
+        schema: createMockJsonRestSchema(),
+        mode: "patch"
+      }
+    },
+    section: "body",
+    value: {
+      name: "  Acme  "
+    }
+  });
+
+  assert.equal(parsed.ok, true);
+  assert.deepEqual(parsed.value, {
+    name: "Acme"
+  });
+});
+
+test("validateOperationInputAsync collects json-rest-schema field errors", async () => {
+  const parsed = await validateOperationInputAsync({
+    operation: {
+      body: {
+        schema: createMockJsonRestSchema(),
+        mode: "patch"
+      }
+    },
+    input: {
+      body: {
+        name: "   "
+      }
+    }
+  });
+
+  assert.equal(parsed.ok, false);
+  assert.equal(parsed.fieldErrors.name, "Name is required.");
 });

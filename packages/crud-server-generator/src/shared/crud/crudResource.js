@@ -1,140 +1,140 @@
-import { Type } from "typebox";
+import { createSchema } from "json-rest-schema";
 import {
-  toIsoString
-} from "@jskit-ai/database-runtime/shared";
-import {
-  normalizeObjectInput,
   createCursorListValidator,
-  recordIdSchema
+  RECORD_ID_PATTERN
 } from "@jskit-ai/kernel/shared/validators";
-import {
-  normalizeText,
-  normalizeRecordId,
-  normalizeFiniteNumber,
-  normalizeIfPresent
-} from "@jskit-ai/kernel/shared/support/normalize";
+import { deepFreeze } from "@jskit-ai/kernel/shared/support/deepFreeze";
 
 const RESOURCE_LOOKUP_CONTAINER_KEY = "lookups";
 
-const recordOutputSchema = Type.Object(
-  {
-    id: recordIdSchema,
-    textField: Type.String({ minLength: 1, maxLength: 160 }),
-    dateField: Type.String({ minLength: 1 }),
-    numberField: Type.Number(),
-    createdAt: Type.String({ minLength: 1 }),
-    updatedAt: Type.String({ minLength: 1 }),
-    [RESOURCE_LOOKUP_CONTAINER_KEY]: Type.Optional(Type.Record(Type.String(), Type.Unknown()))
+const recordOutputSchema = createSchema({
+  id: {
+    type: "string",
+    required: true,
+    minLength: 1,
+    pattern: RECORD_ID_PATTERN
   },
-  { additionalProperties: false }
-);
+  textField: {
+    type: "string",
+    required: true,
+    minLength: 1,
+    maxLength: 160
+  },
+  dateField: {
+    type: "dateTime",
+    required: true
+  },
+  numberField: {
+    type: "number",
+    required: true
+  },
+  createdAt: {
+    type: "dateTime",
+    required: true
+  },
+  updatedAt: {
+    type: "dateTime",
+    required: true
+  },
+  [RESOURCE_LOOKUP_CONTAINER_KEY]: {
+    type: "object",
+    required: false
+  }
+});
 
-const recordBodySchema = Type.Object(
-  {
-    textField: Type.String({
-      minLength: 1,
-      maxLength: 160,
-      messages: {
-        required: "Text field is required.",
-        minLength: "Text field is required.",
-        maxLength: "Text field must be at most 160 characters.",
-        default: "Text field is required."
-      }
-    }),
-    dateField: Type.String({
-      minLength: 1,
-      messages: {
-        required: "Date field is required.",
-        minLength: "Date field is required.",
-        default: "Date field is required."
-      }
-    }),
-    numberField: Type.Number({
-      messages: {
-        required: "Number field is required.",
-        default: "Number field must be a valid number."
-      }
-    })
-  },
-  {
-    additionalProperties: false,
+const createBodySchema = createSchema({
+  textField: {
+    type: "string",
+    required: true,
+    minLength: 1,
+    maxLength: 160,
     messages: {
-      additionalProperties: "Unexpected field.",
-      default: "Invalid value."
+      required: "Text field is required.",
+      minLength: "Text field is required.",
+      maxLength: "Text field must be at most 160 characters.",
+      default: "Text field is required."
+    }
+  },
+  dateField: {
+    type: "dateTime",
+    required: true,
+    messages: {
+      required: "Date field is required.",
+      default: "Date field is required."
+    }
+  },
+  numberField: {
+    type: "number",
+    required: true,
+    messages: {
+      required: "Number field is required.",
+      default: "Number field must be a valid number."
     }
   }
-);
+});
 
-const patchBodySchema = Type.Partial(recordBodySchema, { additionalProperties: false });
+const patchBodySchema = createSchema({
+  textField: {
+    type: "string",
+    required: false,
+    minLength: 1,
+    maxLength: 160,
+    messages: {
+      minLength: "Text field is required.",
+      maxLength: "Text field must be at most 160 characters.",
+      default: "Text field is required."
+    }
+  },
+  dateField: {
+    type: "dateTime",
+    required: false,
+    messages: {
+      default: "Date field is required."
+    }
+  },
+  numberField: {
+    type: "number",
+    required: false,
+    messages: {
+      default: "Number field must be a valid number."
+    }
+  }
+});
 
-const recordOutputValidator = Object.freeze({
+const recordOutput = deepFreeze({
   schema: recordOutputSchema,
-  normalize(payload = {}) {
-    const source = normalizeObjectInput(payload);
-    const normalized = {
-      id: normalizeRecordId(source.id, { fallback: "" }),
-      textField: normalizeText(source.textField),
-      dateField: toIsoString(source.dateField),
-      numberField: normalizeFiniteNumber(source.numberField),
-      createdAt: normalizeIfPresent(source.createdAt, toIsoString),
-      updatedAt: normalizeIfPresent(source.updatedAt, toIsoString)
-    };
-    if (Object.hasOwn(source, RESOURCE_LOOKUP_CONTAINER_KEY)) {
-      normalized[RESOURCE_LOOKUP_CONTAINER_KEY] = source[RESOURCE_LOOKUP_CONTAINER_KEY];
-    }
-
-    return normalized;
-  }
+  mode: "replace"
 });
 
-const listOutputValidator = createCursorListValidator(recordOutputValidator);
+const listOutput = createCursorListValidator(recordOutput);
 
-const createBodyValidator = Object.freeze({
-  schema: recordBodySchema,
-  normalize(payload = {}) {
-    const source = normalizeObjectInput(payload);
-    const normalized = {};
-
-    if (Object.hasOwn(source, "textField")) {
-      normalized.textField = normalizeText(source.textField);
-    }
-    if (Object.hasOwn(source, "dateField")) {
-      normalized.dateField = toIsoString(source.dateField);
-    }
-    if (Object.hasOwn(source, "numberField")) {
-      normalized.numberField = normalizeFiniteNumber(source.numberField);
-    }
-
-    return normalized;
-  }
+const createBody = deepFreeze({
+  schema: createBodySchema,
+  mode: "create"
 });
 
-const patchBodyValidator = Object.freeze({
+const patchBody = deepFreeze({
   schema: patchBodySchema,
-  normalize: createBodyValidator.normalize
+  mode: "patch"
 });
 
-const deleteOutputValidator = Object.freeze({
-  schema: Type.Object(
-    {
-      id: recordIdSchema,
-      deleted: Type.Literal(true)
+const deleteOutput = deepFreeze({
+  schema: createSchema({
+    id: {
+      type: "string",
+      required: true,
+      minLength: 1,
+      pattern: RECORD_ID_PATTERN
     },
-    { additionalProperties: false }
-  ),
-  normalize(payload = {}) {
-    const source = normalizeObjectInput(payload);
-
-    return {
-      id: normalizeRecordId(source.id, { fallback: "" }),
-      deleted: true
-    };
-  }
+    deleted: {
+      type: "boolean",
+      required: true
+    }
+  }),
+  mode: "replace"
 });
 
-const CRUD_RESOURCE_FIELD_META = [];
-
-const crudResource = {
+const crudResource = deepFreeze({
   namespace: "crud",
   tableName: "crud",
   idColumn: "id",
@@ -148,57 +148,37 @@ const crudResource = {
   contract: {
     lookup: {
       containerKey: RESOURCE_LOOKUP_CONTAINER_KEY,
-      defaultInclude: "*", // Set "none" to disable lookup hydration unless include=... is passed.
-      maxDepth: 3 // Lower this to limit nested lookup hydration depth.
+      defaultInclude: "*",
+      maxDepth: 3
     }
   },
   operations: {
     list: {
       realtime: {
-        events: ["crud.record.changed"] // Add more events e.g. for lookup records
+        events: ["crud.record.changed"]
       },
       method: "GET",
-      outputValidator: listOutputValidator
+      output: listOutput
     },
     view: {
       method: "GET",
-      outputValidator: recordOutputValidator
+      output: recordOutput
     },
     create: {
       method: "POST",
-      bodyValidator: createBodyValidator,
-      outputValidator: recordOutputValidator
+      body: createBody,
+      output: recordOutput
     },
     patch: {
       method: "PATCH",
-      bodyValidator: patchBodyValidator,
-      outputValidator: recordOutputValidator
+      body: patchBody,
+      output: recordOutput
     },
     delete: {
       method: "DELETE",
-      outputValidator: deleteOutputValidator
+      output: deleteOutput
     }
-  },
-  fieldMeta: CRUD_RESOURCE_FIELD_META
-};
-
-void CRUD_RESOURCE_FIELD_META;
-
-// Example 1:n collection hydration:
-// CRUD_RESOURCE_FIELD_META.push({
-//   key: "pets",
-//   relation: {
-//     kind: "collection",
-//     namespace: "pets",
-//     foreignKey: "customerId",
-//     parentValueKey: "id",
-//     hydrateOnList: false, // list: opt-in with include=pets
-//     hydrateOnView: true // view: hydrated by default
-//   }
-// });
-//
-// To hydrate child lookups too, request nested include paths:
-// - include=pets
-// - include=pets,pets.breedId
+  }
+});
 
 export { crudResource };

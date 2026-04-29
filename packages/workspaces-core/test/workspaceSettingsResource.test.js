@@ -1,9 +1,13 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { validateOperationSection } from "@jskit-ai/http-runtime/shared/validators/operationValidation";
-import "../test-support/registerDefaultSettingsFields.js";
+import { Check } from "typebox/value";
+import { validateOperationSectionAsync } from "@jskit-ai/http-runtime/shared/validators/operationValidation";
+import { resolveStructuredSchemaTransportSchema } from "@jskit-ai/kernel/shared/validators";
 import { resolveWorkspaceThemePalettes } from "@jskit-ai/workspaces-core/shared/settings";
-import { workspaceSettingsResource } from "../src/shared/resources/workspaceSettingsResource.js";
+import {
+  WORKSPACE_SETTINGS_FIELD_KEYS,
+  workspaceSettingsResource
+} from "../src/shared/resources/workspaceSettingsResource.js";
 import { createWorkspaceRoleCatalog } from "../src/shared/roles.js";
 
 function createRoleCatalog() {
@@ -39,15 +43,15 @@ function createRoleCatalog() {
 }
 
 function parseBody(operation, payload = {}) {
-  return validateOperationSection({
+  return validateOperationSectionAsync({
     operation,
-    section: "bodyValidator",
+    section: "body",
     value: payload
   });
 }
 
-test("workspace settings patch body normalizes valid payload before validation", () => {
-  const parsed = parseBody(workspaceSettingsResource.operations.patch, {
+test("workspace settings patch body validates valid payload without reshaping it", async () => {
+  const parsed = await parseBody(workspaceSettingsResource.operations.patch, {
     lightPrimaryColor: "#0f6b54",
     lightSecondaryColor: "#0b4d3c",
     lightSurfaceColor: "#eef5f3",
@@ -62,10 +66,10 @@ test("workspace settings patch body normalizes valid payload before validation",
   assert.equal(parsed.ok, true);
   assert.deepEqual(parsed.fieldErrors, {});
   assert.deepEqual(parsed.value, {
-    lightPrimaryColor: "#0F6B54",
-    lightSecondaryColor: "#0B4D3C",
-    lightSurfaceColor: "#EEF5F3",
-    lightSurfaceVariantColor: "#DDEAE7",
+    lightPrimaryColor: "#0f6b54",
+    lightSecondaryColor: "#0b4d3c",
+    lightSurfaceColor: "#eef5f3",
+    lightSurfaceVariantColor: "#ddeae7",
     darkPrimaryColor: "#123456",
     darkSecondaryColor: "#234567",
     darkSurfaceColor: "#345678",
@@ -74,18 +78,17 @@ test("workspace settings patch body normalizes valid payload before validation",
   });
 });
 
-test("workspace settings patch body ignores unknown fields after normalization", () => {
-  const parsed = parseBody(workspaceSettingsResource.operations.patch, {
+test("workspace settings patch body rejects unknown fields", async () => {
+  const parsed = await parseBody(workspaceSettingsResource.operations.patch, {
     avatarUrl: "https://example.com/avatar.png"
   });
 
-  assert.equal(parsed.ok, true);
-  assert.deepEqual(parsed.fieldErrors, {});
-  assert.deepEqual(parsed.value, {});
+  assert.equal(parsed.ok, false);
+  assert.equal(typeof parsed.fieldErrors.avatarUrl, "string");
 });
 
-test("workspace settings create body requires full-write fields", () => {
-  const parsed = parseBody(workspaceSettingsResource.operations.create, {});
+test("workspace settings create body requires full-write fields", async () => {
+  const parsed = await parseBody(workspaceSettingsResource.operations.create, {});
 
   assert.equal(parsed.ok, false);
   assert.equal(parsed.fieldErrors.lightPrimaryColor, "Light primary color is required.");
@@ -99,24 +102,15 @@ test("workspace settings create body requires full-write fields", () => {
   assert.equal(parsed.fieldErrors.invitesEnabled, "invitesEnabled is required.");
 });
 
-test("workspace settings output normalizes raw service payloads", () => {
+test("workspace settings output schema accepts already-shaped service payloads", () => {
+  const outputSchema = resolveStructuredSchemaTransportSchema(workspaceSettingsResource.operations.view.output, {
+    context: "workspaceSettings.view.output",
+    defaultMode: "replace"
+  });
   const expectedTheme = resolveWorkspaceThemePalettes({
     lightPrimaryColor: "#0F6B54"
   });
-  const normalized = workspaceSettingsResource.operations.view.outputValidator.normalize({
-    workspace: {
-      id: "7",
-      slug: "  mercury  ",
-      ownerUserId: "9"
-    },
-    settings: {
-      lightPrimaryColor: "#0f6b54",
-      invitesEnabled: false
-    },
-    roleCatalog: createRoleCatalog()
-  });
-
-  assert.deepEqual(normalized, {
+  const payload = {
     workspace: {
       id: "7",
       slug: "mercury",
@@ -135,35 +129,23 @@ test("workspace settings output normalizes raw service payloads", () => {
       invitesAvailable: true,
       invitesEffective: false
     },
-    roleCatalog: {
-      collaborationEnabled: true,
-      defaultInviteRole: "member",
-      roles: [
-        {
-          id: "owner",
-          assignable: false,
-          permissions: ["*"]
-        },
-        {
-          id: "admin",
-          assignable: true,
-          permissions: [
-            "workspace.roles.view",
-            "workspace.settings.view",
-            "workspace.settings.update",
-            "workspace.members.view",
-            "workspace.members.invite",
-            "workspace.members.manage",
-            "workspace.invites.revoke"
-          ]
-        },
-        {
-          id: "member",
-          assignable: true,
-          permissions: ["workspace.settings.view"]
-        }
-      ],
-      assignableRoleIds: ["admin", "member"]
-    }
-  });
+    roleCatalog: createRoleCatalog()
+  };
+
+  assert.equal(Check(outputSchema, payload), true);
+});
+
+async function importWithIdentity(url, identity) {
+  return import(`${url.href}?identity=${identity}`);
+}
+
+test("workspace settings key exports stay stable across module identities", async () => {
+  const workspaceModuleUrl = new URL("../src/shared/resources/workspaceSettingsResource.js", import.meta.url);
+
+  const workspaceA = await importWithIdentity(workspaceModuleUrl, "workspace-a");
+  const workspaceB = await importWithIdentity(workspaceModuleUrl, "workspace-b");
+
+  assert.deepEqual(workspaceA.WORKSPACE_SETTINGS_FIELD_KEYS, workspaceB.WORKSPACE_SETTINGS_FIELD_KEYS);
+  assert.deepEqual(workspaceA.WORKSPACE_SETTINGS_FIELD_KEYS, WORKSPACE_SETTINGS_FIELD_KEYS);
+  assert.ok(Object.isFrozen(workspaceA.WORKSPACE_SETTINGS_FIELD_KEYS));
 });

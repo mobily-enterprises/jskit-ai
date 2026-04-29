@@ -1,62 +1,29 @@
-import { createCrudResourceRuntime } from "@jskit-ai/crud-core/server/resourceRuntime";
 import {
+  createWithTransaction,
   normalizeRecordId,
-  normalizeText,
-  normalizeLowerText,
   isDuplicateEntryError
 } from "./repositoryUtils.js";
-import { workspacesResource } from "../resources/workspacesResource.js";
 
-const REPOSITORY_CONFIG = Object.freeze({
-  context: "internal.repository.workspaces"
-});
-
-function normalizeWorkspaceRecord(payload) {
-  if (!payload) {
-    return null;
+function createRepository({ api, knex } = {}) {
+  if (!api?.resources?.workspaces || !api?.resources?.workspaceMemberships) {
+    throw new TypeError("workspacesRepository requires json-rest-api workspaces and workspaceMemberships resources.");
   }
-  return workspacesResource.operations.view.outputValidator.normalize(payload);
-}
-
-function normalizeCreatePayload(payload = {}) {
-  return workspacesResource.operations.create.bodyValidator.normalize(payload);
-}
-
-function normalizeMembershipWorkspaceRow(row) {
-  if (!row) {
-    return null;
-  }
-
-  return {
-    ...normalizeWorkspaceRecord(row),
-    roleSid: normalizeLowerText(row.role_sid || "member"),
-    membershipStatus: normalizeLowerText(row.membership_status || "active") || "active"
-  };
-}
-
-function createRepository(knex) {
   if (typeof knex !== "function") {
     throw new TypeError("workspacesRepository requires knex.");
   }
-  const resourceRuntime = createCrudResourceRuntime(workspacesResource, knex, REPOSITORY_CONFIG);
-  const withTransaction = resourceRuntime.withTransaction;
 
-  function workspaceSelectColumns({ includeMembership = false } = {}) {
-    const columns = [
-      "w.id",
-      "w.slug",
-      "w.name",
-      "w.owner_user_id",
-      "w.is_personal",
-      "w.avatar_url",
-      "w.created_at",
-      "w.updated_at",
-      "w.deleted_at"
-    ];
-    if (includeMembership) {
-      columns.push("wm.role_sid", "wm.status as membership_status");
-    }
-    return columns;
+  const withTransaction = createWithTransaction(knex);
+
+  async function queryFirst(filters = {}, options = {}) {
+    const result = await api.resources.workspaces.query({
+      queryParams: {
+        filters
+      },
+      transaction: options?.trx,
+      simplified: true
+    });
+
+    return Array.isArray(result?.data) ? result.data[0] || null : null;
   }
 
   async function findById(workspaceId, options = {}) {
@@ -65,24 +32,16 @@ function createRepository(knex) {
       return null;
     }
 
-    return resourceRuntime.findById(normalizedWorkspaceId, {
-      ...options,
-      include: "none"
-    });
+    return queryFirst({ id: normalizedWorkspaceId }, options);
   }
 
   async function findBySlug(slug, options = {}) {
-    const client = options?.trx || knex;
-    const normalizedSlug = normalizeLowerText(slug);
+    const normalizedSlug = typeof slug === "string" ? slug.trim().toLowerCase() : "";
     if (!normalizedSlug) {
       return null;
     }
 
-    const row = await client("workspaces as w")
-      .where({ "w.slug": normalizedSlug })
-      .select(workspaceSelectColumns())
-      .first();
-    return normalizeWorkspaceRecord(row);
+    return queryFirst({ slug: normalizedSlug }, options);
   }
 
   async function findPersonalByOwnerUserId(userId, options = {}) {
@@ -91,41 +50,60 @@ function createRepository(knex) {
       return null;
     }
 
-    const client = options?.trx || knex;
-    const row = await client("workspaces as w")
-      .where({ "w.owner_user_id": normalizedUserId, "w.is_personal": 1 })
-      .orderBy("w.id", "asc")
-      .select(workspaceSelectColumns())
-      .first();
-    return normalizeWorkspaceRecord(row);
+    const result = await api.resources.workspaces.query({
+      queryParams: {
+        filters: {
+          owner: normalizedUserId,
+          isPersonal: true
+        }
+      },
+      transaction: options?.trx,
+      simplified: true
+    });
+
+    const rows = Array.isArray(result?.data) ? [...result.data] : [];
+    rows.sort((left, right) => {
+      const leftId = Number(left?.id);
+      const rightId = Number(right?.id);
+      if (Number.isFinite(leftId) && Number.isFinite(rightId)) {
+        return leftId - rightId;
+      }
+      return String(left?.id || "").localeCompare(String(right?.id || ""));
+    });
+    return rows[0] || null;
   }
 
   async function insert(payload = {}, options = {}) {
-    const client = options?.trx || knex;
-    const normalizedPayload = normalizeCreatePayload(payload);
-    const ownerUserId = normalizeRecordId(normalizedPayload.ownerUserId, { fallback: null });
+    const source = payload && typeof payload === "object" && !Array.isArray(payload) ? payload : {};
+    const ownerUserId = normalizeRecordId(source.ownerUserId, { fallback: null });
     if (!ownerUserId) {
       throw new TypeError("workspacesRepository.insert requires ownerUserId.");
     }
 
     const createPayload = {
-      ...normalizedPayload,
       ownerUserId,
-      isPersonal: normalizedPayload.isPersonal === true,
-      avatarUrl: normalizeText(normalizedPayload.avatarUrl)
+      ...(Object.hasOwn(source, "slug") ? { slug: source.slug } : {}),
+      ...(Object.hasOwn(source, "name") ? { name: source.name } : {}),
+      ...(Object.hasOwn(source, "isPersonal") ? { isPersonal: source.isPersonal } : {}),
+      ...(Object.hasOwn(source, "avatarUrl") ? { avatarUrl: source.avatarUrl } : {})
     };
 
     try {
-      return await resourceRuntime.create(createPayload, {
-        ...options,
-        trx: client,
-        include: "none"
+      return await api.resources.workspaces.post({
+        ...createPayload,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+        transaction: options?.trx
       });
     } catch (error) {
       if (!isDuplicateEntryError(error)) {
         throw error;
       }
-      const bySlug = await findBySlug(createPayload.slug, { trx: client });
+      if (!Object.hasOwn(createPayload, "slug")) {
+        throw error;
+      }
+
+      const bySlug = await findBySlug(createPayload.slug, { trx: options?.trx });
       if (bySlug) {
         return bySlug;
       }
@@ -139,9 +117,11 @@ function createRepository(knex) {
       return null;
     }
 
-    return resourceRuntime.updateById(normalizedWorkspaceId, patch, {
-      ...options,
-      include: "none"
+    return api.resources.workspaces.patch({
+      id: normalizedWorkspaceId,
+      ...(patch && typeof patch === "object" && !Array.isArray(patch) ? patch : {}),
+      updatedAt: new Date(),
+      transaction: options?.trx
     });
   }
 
@@ -151,16 +131,46 @@ function createRepository(knex) {
       return [];
     }
 
-    const client = options?.trx || knex;
-    const rows = await client("workspace_memberships as wm")
-      .join("workspaces as w", "w.id", "wm.workspace_id")
-      .where({ "wm.user_id": normalizedUserId })
-      .whereNull("w.deleted_at")
-      .orderBy("w.is_personal", "desc")
-      .orderBy("w.id", "asc")
-      .select(workspaceSelectColumns({ includeMembership: true }));
+    const result = await api.resources.workspaceMemberships.query({
+      queryParams: {
+        filters: {
+          user: normalizedUserId,
+          status: "active"
+        },
+        include: ["workspace"]
+      },
+      transaction: options?.trx,
+      simplified: true
+    });
 
-    return rows.map(normalizeMembershipWorkspaceRow).filter(Boolean);
+    const rows = Array.isArray(result?.data) ? result.data : [];
+    const workspaces = rows
+      .map((row) => {
+        if (!row?.workspace || row.workspace.deletedAt != null) {
+          return null;
+        }
+
+        return {
+          ...row.workspace,
+          roleSid: row.roleSid,
+          membershipStatus: row.status
+        };
+      })
+      .filter(Boolean);
+
+    workspaces.sort((left, right) => {
+      if (left.isPersonal !== right.isPersonal) {
+        return left.isPersonal ? -1 : 1;
+      }
+      const leftId = Number(left?.id);
+      const rightId = Number(right?.id);
+      if (Number.isFinite(leftId) && Number.isFinite(rightId)) {
+        return leftId - rightId;
+      }
+      return String(left?.id || "").localeCompare(String(right?.id || ""));
+    });
+
+    return workspaces;
   }
 
   return Object.freeze({
@@ -174,4 +184,4 @@ function createRepository(knex) {
   });
 }
 
-export { createRepository, normalizeWorkspaceRecord, normalizeMembershipWorkspaceRow };
+export { createRepository };

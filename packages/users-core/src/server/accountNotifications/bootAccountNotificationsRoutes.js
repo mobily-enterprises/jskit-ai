@@ -17,10 +17,10 @@ function bootAccountNotificationsRoutes(app) {
         tags: ["settings"],
         summary: "Update notification settings"
       },
-      bodyValidator: userSettingsResource.operations.notificationsUpdate.bodyValidator,
-      responseValidators: withStandardErrorResponses(
+      body: userSettingsResource.operations.notificationsUpdate.body,
+      responses: withStandardErrorResponses(
         {
-          200: userSettingsResource.operations.view.outputValidator
+          200: userSettingsResource.operations.view.output
         },
         { includeValidation400: true }
       )

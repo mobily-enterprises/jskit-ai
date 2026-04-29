@@ -4,7 +4,7 @@ import path from "node:path";
 import { existsSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { deriveResourceRequiredMetadata } from "@jskit-ai/kernel/_testable";
-import "../test-support/registerDefaultSettingsFields.js";
+import { resolveStructuredSchemaTransportSchema } from "@jskit-ai/kernel/shared/validators";
 import { consoleSettingsResource } from "../src/shared/resources/consoleSettingsResource.js";
 
 function assertResourceShape(resource, label) {
@@ -26,15 +26,27 @@ function assertResourceShape(resource, label) {
       `${label}.operations.${operationName} must resolve messages from operation.messages or resource.messages.`
     );
     assert.equal(
-      typeof operation.outputValidator?.schema,
+      typeof resolveStructuredSchemaTransportSchema(operation.output, {
+        context: `${label}.operations.${operationName}.output`,
+        defaultMode: "replace"
+      }),
       "object",
       `${label}.operations.${operationName} payload schema is required.`
     );
   }
 
-  assert.equal(typeof resource.operations.create.bodyValidator?.schema, "object", `${label}.operations.create.bodyValidator.schema is required.`);
-  assert.equal(typeof resource.operations.replace.bodyValidator?.schema, "object", `${label}.operations.replace.bodyValidator.schema is required.`);
-  assert.equal(typeof resource.operations.patch.bodyValidator?.schema, "object", `${label}.operations.patch.bodyValidator.schema is required.`);
+  assert.equal(typeof resolveStructuredSchemaTransportSchema(resource.operations.create.body, {
+    context: `${label}.operations.create.body`,
+    defaultMode: "create"
+  }), "object", `${label}.operations.create.body.schema is required.`);
+  assert.equal(typeof resolveStructuredSchemaTransportSchema(resource.operations.replace.body, {
+    context: `${label}.operations.replace.body`,
+    defaultMode: "replace"
+  }), "object", `${label}.operations.replace.body.schema is required.`);
+  assert.equal(typeof resolveStructuredSchemaTransportSchema(resource.operations.patch.body, {
+    context: `${label}.operations.patch.body`,
+    defaultMode: "patch"
+  }), "object", `${label}.operations.patch.body.schema is required.`);
 
   const requiredMetadata = deriveResourceRequiredMetadata(resource);
   assert.ok(Array.isArray(requiredMetadata.create), `${label}.derivedRequired.create must be an array.`);
@@ -50,9 +62,15 @@ test("console settings operations expose canonical validators", () => {
   for (const operationName of ["view", "list", "create", "replace", "patch"]) {
     const operation = consoleSettingsResource.operations?.[operationName];
     assert.equal(typeof operation?.method, "string", `${operationName}.method must exist.`);
-    assert.equal(typeof operation?.outputValidator?.schema, "object", `${operationName}.outputValidator.schema must exist.`);
-    if (operation?.bodyValidator) {
-      assert.equal(typeof operation.bodyValidator.schema, "object", `${operationName}.bodyValidator.schema must exist.`);
+    assert.equal(typeof resolveStructuredSchemaTransportSchema(operation?.output, {
+      context: `${operationName}.output`,
+      defaultMode: "replace"
+    }), "object", `${operationName}.output.schema must exist.`);
+    if (operation?.body) {
+      assert.equal(typeof resolveStructuredSchemaTransportSchema(operation.body, {
+        context: `${operationName}.body`,
+        defaultMode: operationName === "create" ? "create" : operationName === "replace" ? "replace" : "patch"
+      }), "object", `${operationName}.body.schema must exist.`);
     }
   }
 });

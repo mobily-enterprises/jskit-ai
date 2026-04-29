@@ -3,6 +3,7 @@ import { bootAccountProfileRoutes } from "./accountProfile/bootAccountProfileRou
 import { bootAccountPreferencesRoutes } from "./accountPreferences/bootAccountPreferencesRoutes.js";
 import { bootAccountNotificationsRoutes } from "./accountNotifications/bootAccountNotificationsRoutes.js";
 import { bootAccountSecurityRoutes } from "./accountSecurity/bootAccountSecurityRoutes.js";
+import { registerJsonRestApiHost } from "./common/jsonRestApiHost.js";
 import { registerSharedApi } from "./common/registerSharedApi.js";
 import { registerCommonRepositories } from "./common/registerCommonRepositories.js";
 import { registerUsersCore } from "./registerUsersCore.js";
@@ -17,8 +18,9 @@ class UsersCoreServiceProvider {
 
   static dependsOn = ["runtime.server", "runtime.actions", "runtime.database", "runtime.storage", "auth.provider", "runtime.uploads"];
 
-  register(app) {
+  async register(app) {
     registerSharedApi(app, USERS_SHARED_API);
+    await registerJsonRestApiHost(app);
     registerCommonRepositories(app);
     registerUsersCore(app);
     registerUsersBootstrap(app);

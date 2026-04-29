@@ -1,9 +1,9 @@
-import { Type } from "typebox";
-import { normalizeObjectInput } from "../inputNormalization.js";
+import { createSchema } from "json-rest-schema";
+import { deepFreeze } from "@jskit-ai/kernel/shared/support/deepFreeze";
 import {
-  authEmailValidator,
+  authEmailFieldDefinition,
   createCommandMessages,
-  oauthReturnToValidator,
+  oauthReturnToFieldDefinition,
   okMessageResponseValidator
 } from "./authCommandValidators.js";
 
@@ -22,30 +22,25 @@ const AUTH_LOGIN_OTP_REQUEST_MESSAGES = createCommandMessages({
   }
 });
 
-const authLoginOtpRequestBodyValidator = Object.freeze({
-  schema: Type.Object(
-    {
-      email: authEmailValidator.schema,
-      returnTo: Type.Optional(oauthReturnToValidator.schema)
-    },
-    {
-      additionalProperties: false
-    }
-  ),
-  normalize: normalizeObjectInput,
+const authLoginOtpRequestBodyValidator = deepFreeze({
+  schema: createSchema({
+    email: { ...authEmailFieldDefinition, required: true },
+    returnTo: { ...oauthReturnToFieldDefinition, required: false }
+  }),
+  mode: "create",
   messages: AUTH_LOGIN_OTP_REQUEST_MESSAGES
 });
 
-const authLoginOtpRequestCommand = Object.freeze({
+const authLoginOtpRequestCommand = deepFreeze({
   command: "auth.login.otp.request",
-  operation: Object.freeze({
+  operation: {
     method: "POST",
-    bodyValidator: authLoginOtpRequestBodyValidator,
-    responseValidator: okMessageResponseValidator,
+    body: authLoginOtpRequestBodyValidator,
+    response: okMessageResponseValidator,
     messages: AUTH_LOGIN_OTP_REQUEST_MESSAGES,
     idempotent: false,
-    invalidates: Object.freeze([])
-  })
+    invalidates: []
+  }
 });
 
 export {

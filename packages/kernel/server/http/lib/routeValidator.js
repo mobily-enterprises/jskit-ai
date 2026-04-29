@@ -1,125 +1,38 @@
 import { normalizeObject, normalizeText } from "../../../shared/support/normalize.js";
-import { mergeValidators } from "../../../shared/validators/mergeValidators.js";
+import {
+  executeJsonRestSchemaDefinition,
+  hasJsonRestSchemaDefinition,
+  normalizeJsonRestSchemaFieldErrors,
+  normalizeSchemaDefinition,
+  resolveSchemaTransportSchemaDefinition,
+  selectPayloadForSchemaDefinition
+} from "../../../shared/validators/index.js";
 import { RouteDefinitionError } from "./errors.js";
 import { resolveRouteLabel } from "./routeSupport.js";
 
 const ROUTE_VALIDATOR_SYMBOL = "@jskit-ai/kernel/http/routeValidator";
 const VALIDATOR_OPTION_KEYS = Object.freeze([
   "meta",
-  "bodyValidator",
-  "queryValidator",
-  "paramsValidator",
-  "responseValidators",
+  "body",
+  "query",
+  "params",
+  "responses",
   "advanced"
 ]);
 
-function passThroughInputSection(value) {
-  return value;
-}
-
-function normalizeOptionalValidatorTransformer(source, normalized, { context = "route validator" } = {}) {
-  if (!Object.prototype.hasOwnProperty.call(source, "normalize")) {
-    return;
-  }
-
-  const normalize = source.normalize;
-  if (normalize != null && typeof normalize !== "function") {
-    throw new RouteDefinitionError(`${context}.normalize must be a function.`);
-  }
-  if (typeof normalize === "function") {
-    normalized.normalize = normalize;
-  }
-}
-
-function normalizeSingleRouteValidator(value, { context = "route validator" } = {}) {
-  if (value == null) {
-    return Object.freeze({});
-  }
-
-  if (!value || typeof value !== "object" || Array.isArray(value)) {
-    throw new RouteDefinitionError(`${context} must be an object.`);
-  }
-
-  const source = normalizeObject(value);
-  const normalized = {};
-
-  if (Object.prototype.hasOwnProperty.call(source, "schema")) {
-    normalized.schema = source.schema;
-  }
-
-  normalizeOptionalValidatorTransformer(source, normalized, { context });
-
-  return Object.freeze(normalized);
-}
-
-function mergeNormalizedRouteValidators(validators, { context = "route validator" } = {}) {
-  return mergeValidators(validators, {
-    context,
-    allowAsyncNormalize: false,
-    createError(message) {
-      return new RouteDefinitionError(message);
-    }
-  });
-}
-
-function normalizeRouteValidator(value, { context = "route validator", allowArray = false } = {}) {
-  if (value == null) {
-    return Object.freeze({});
-  }
-
-  if (Array.isArray(value)) {
-    if (!allowArray) {
-      throw new RouteDefinitionError(`${context} does not support arrays.`);
-    }
-
-    if (value.length === 0) {
-      return Object.freeze({});
-    }
-
-    const validators = value.map((entry, index) => {
-      const validator = normalizeSingleRouteValidator(entry, {
-        context: `${context}[${index}]`
-      });
-
-      if (
-        !Object.prototype.hasOwnProperty.call(validator, "schema") &&
-        !Object.prototype.hasOwnProperty.call(validator, "normalize")
-      ) {
-        throw new RouteDefinitionError(`${context}[${index}] must define schema and/or normalize.`);
-      }
-
-      return validator;
+function normalizeRouteSchemaSection(value, { context = "route section", allowArray = false, defaultMode = "patch" } = {}) {
+  try {
+    return normalizeSchemaDefinition(value, {
+      context,
+      allowArray,
+      defaultMode
     });
-
-    return mergeNormalizedRouteValidators(validators, {
-      context
-    });
+  } catch (error) {
+    throw new RouteDefinitionError(error?.message || `${context} is invalid.`);
   }
-
-  return normalizeSingleRouteValidator(value, {
-    context
-  });
 }
 
-function normalizeResponseValidatorEntry(value, { context = "route validator response entry" } = {}) {
-  if (!value || typeof value !== "object" || Array.isArray(value)) {
-    throw new RouteDefinitionError(`${context} must be an object.`);
-  }
-
-  const source = normalizeObject(value);
-  const normalized = {};
-
-  if (!Object.prototype.hasOwnProperty.call(source, "schema")) {
-    throw new RouteDefinitionError(`${context}.schema is required when using a response validator object.`);
-  }
-  normalized.schema = source.schema;
-
-  normalizeOptionalValidatorTransformer(source, normalized, { context });
-
-  return Object.freeze(normalized);
-}
-
-function normalizeResponseValidatorDefinition(value, { context = "route validator.response" } = {}) {
+function normalizeResponseDefinition(value, { context = "route responses" } = {}) {
   if (value == null) {
     return undefined;
   }
@@ -132,8 +45,9 @@ function normalizeResponseValidatorDefinition(value, { context = "route validato
   const normalized = {};
 
   for (const [statusCode, entry] of Object.entries(source)) {
-    normalized[statusCode] = normalizeResponseValidatorEntry(entry, {
-      context: `${context}.${statusCode}`
+    normalized[statusCode] = normalizeRouteSchemaSection(entry, {
+      context: `${context}.${statusCode}`,
+      defaultMode: "replace"
     });
   }
 
@@ -243,31 +157,24 @@ function normalizeRouteValidatorDefinition(sourceDefinition, { context = "route 
     throw new RouteDefinitionError(`${context} must be an object.`);
   }
 
-  if (Object.prototype.hasOwnProperty.call(definition, "body")) {
-    throw new RouteDefinitionError(`${context}.body is not supported. Use ${context}.bodyValidator.`);
-  }
-  if (Object.prototype.hasOwnProperty.call(definition, "query")) {
-    throw new RouteDefinitionError(`${context}.query is not supported. Use ${context}.queryValidator.`);
-  }
-  if (Object.prototype.hasOwnProperty.call(definition, "params")) {
-    throw new RouteDefinitionError(`${context}.params is not supported. Use ${context}.paramsValidator.`);
-  }
-  if (Object.prototype.hasOwnProperty.call(definition, "response")) {
-    throw new RouteDefinitionError(`${context}.response is not supported. Use ${context}.responseValidators.`);
+  const unsupportedKeys = Object.keys(definition).filter((key) => !VALIDATOR_OPTION_KEYS.includes(key));
+  if (unsupportedKeys.length > 0) {
+    throw new RouteDefinitionError(`${context}.${unsupportedKeys[0]} is not supported.`);
   }
 
   const meta = normalizeRouteValidatorMeta(definition.meta, {
     context
   });
-  const bodyValidator = normalizeRouteValidator(definition.bodyValidator, {
-    context: `${context}.bodyValidator`
+  const body = normalizeRouteSchemaSection(definition.body, {
+    context: `${context}.body`,
+    defaultMode: "patch"
   });
-  const queryValidator = normalizeRouteValidator(definition.queryValidator, {
-    context: `${context}.queryValidator`,
+  const query = normalizeRouteSchemaSection(definition.query, {
+    context: `${context}.query`,
     allowArray: true
   });
-  const paramsValidator = normalizeRouteValidator(definition.paramsValidator, {
-    context: `${context}.paramsValidator`,
+  const params = normalizeRouteSchemaSection(definition.params, {
+    context: `${context}.params`,
     allowArray: true
   });
 
@@ -284,14 +191,14 @@ function normalizeRouteValidatorDefinition(sourceDefinition, { context = "route 
 
   const normalized = {
     meta,
-    bodyValidator,
-    queryValidator,
-    paramsValidator
+    body,
+    query,
+    params
   };
 
-  if (Object.prototype.hasOwnProperty.call(definition, "responseValidators")) {
-    normalized.responseValidators = normalizeResponseValidatorDefinition(definition.responseValidators, {
-      context: `${context}.responseValidators`
+  if (Object.prototype.hasOwnProperty.call(definition, "responses")) {
+    normalized.responses = normalizeResponseDefinition(definition.responses, {
+      context: `${context}.responses`
     });
   }
 
@@ -316,6 +223,50 @@ function compileNormalizedRouteValidator(normalizedValidator) {
   const schema = {};
   const input = {};
 
+  function createJsonRestSchemaInputTransform(definition, { defaultMode = "patch", context = "route validator" } = {}) {
+    return async (payload) => {
+      const definitions = Array.isArray(definition) ? definition : [definition];
+      let nextValue = payload;
+
+      for (const [index, entry] of definitions.entries()) {
+        const selectedPayload = selectPayloadForSchemaDefinition(entry, nextValue, {
+          context: `${context}${definitions.length > 1 ? `[${index}]` : ""}`,
+          defaultMode
+        });
+        const result = await executeJsonRestSchemaDefinition(entry, selectedPayload, {
+          defaultMode,
+          context: `${context}${definitions.length > 1 ? `[${index}]` : ""}`
+        });
+
+        if (!result) {
+          continue;
+        }
+
+        const fieldErrors = normalizeJsonRestSchemaFieldErrors(result?.errors, entry);
+        if (Object.keys(fieldErrors).length > 0) {
+          const error = new RouteDefinitionError("Validation failed.");
+          error.statusCode = 400;
+          error.details = {
+            fieldErrors
+          };
+          throw error;
+        }
+
+        const validatedValue = result?.validatedObject ?? selectedPayload;
+        if (validatedValue && typeof validatedValue === "object" && !Array.isArray(validatedValue)) {
+          nextValue = {
+            ...(nextValue && typeof nextValue === "object" && !Array.isArray(nextValue) ? nextValue : {}),
+            ...validatedValue
+          };
+        } else {
+          nextValue = validatedValue;
+        }
+      }
+
+      return nextValue;
+    };
+  }
+
   if (Array.isArray(normalizedValidator.meta?.tags) && normalizedValidator.meta.tags.length > 0) {
     schema.tags = [...normalizedValidator.meta.tags];
   }
@@ -323,32 +274,53 @@ function compileNormalizedRouteValidator(normalizedValidator) {
     schema.summary = normalizedValidator.meta.summary;
   }
 
-  if (Object.prototype.hasOwnProperty.call(normalizedValidator.bodyValidator, "schema")) {
-    schema.body = normalizedValidator.bodyValidator.schema;
-    input.body = typeof normalizedValidator.bodyValidator.normalize === "function"
-      ? normalizedValidator.bodyValidator.normalize
-      : passThroughInputSection;
+  if (normalizedValidator.body) {
+    schema.body = resolveSchemaTransportSchemaDefinition(normalizedValidator.body, {
+      defaultMode: "patch",
+      context: "route validator.body"
+    });
+    input.body = hasJsonRestSchemaDefinition(normalizedValidator.body)
+      ? createJsonRestSchemaInputTransform(normalizedValidator.body, {
+          defaultMode: "patch",
+          context: "route validator.body"
+        })
+      : async (payload) => payload;
   }
 
-  if (Object.prototype.hasOwnProperty.call(normalizedValidator.queryValidator, "schema")) {
-    schema.querystring = normalizedValidator.queryValidator.schema;
-    input.query = typeof normalizedValidator.queryValidator.normalize === "function"
-      ? normalizedValidator.queryValidator.normalize
-      : passThroughInputSection;
+  if (normalizedValidator.query) {
+    schema.querystring = resolveSchemaTransportSchemaDefinition(normalizedValidator.query, {
+      defaultMode: "patch",
+      context: "route validator.query"
+    });
+    input.query = hasJsonRestSchemaDefinition(normalizedValidator.query)
+      ? createJsonRestSchemaInputTransform(normalizedValidator.query, {
+          defaultMode: "patch",
+          context: "route validator.query"
+        })
+      : async (payload) => payload;
   }
 
-  if (Object.prototype.hasOwnProperty.call(normalizedValidator.paramsValidator, "schema")) {
-    schema.params = normalizedValidator.paramsValidator.schema;
-    input.params = typeof normalizedValidator.paramsValidator.normalize === "function"
-      ? normalizedValidator.paramsValidator.normalize
-      : passThroughInputSection;
+  if (normalizedValidator.params) {
+    schema.params = resolveSchemaTransportSchemaDefinition(normalizedValidator.params, {
+      defaultMode: "patch",
+      context: "route validator.params"
+    });
+    input.params = hasJsonRestSchemaDefinition(normalizedValidator.params)
+      ? createJsonRestSchemaInputTransform(normalizedValidator.params, {
+          defaultMode: "patch",
+          context: "route validator.params"
+        })
+      : async (payload) => payload;
   }
 
-  if (Object.prototype.hasOwnProperty.call(normalizedValidator, "responseValidators")) {
+  if (Object.prototype.hasOwnProperty.call(normalizedValidator, "responses")) {
     const responseSchema = {};
 
-    for (const [statusCode, entry] of Object.entries(normalizedValidator.responseValidators || {})) {
-      responseSchema[statusCode] = entry.schema;
+    for (const [statusCode, entry] of Object.entries(normalizedValidator.responses || {})) {
+      responseSchema[statusCode] = resolveSchemaTransportSchemaDefinition(entry, {
+        defaultMode: "replace",
+        context: `route validator.responses.${statusCode}`
+      });
     }
 
     schema.response = responseSchema;

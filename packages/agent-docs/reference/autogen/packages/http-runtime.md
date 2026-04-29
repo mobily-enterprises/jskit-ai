@@ -126,7 +126,10 @@ Exports
 - `resolveIssueMessageFromSchema`
 - `mapOperationIssues`
 - `validateOperationSection`
+- `validateOperationSectionAsync`
 - `validateOperationInput`
+- `validateOperationInputAsync`
+- `simplifyJsonApiDocument`
 
 ### `src/shared/providers/singletonApiProvider.js`
 Exports
@@ -158,6 +161,14 @@ Exports
 Exports
 - `HTTP_VALIDATORS_API`
 
+### `src/shared/validators/jsonApiResponses.js`
+Exports
+- `simplifyJsonApiDocument(payload = {})`
+Local functions
+- `isRecord(value)`
+- `isJsonApiResourceDocument(payload = {})`
+- `isJsonApiCollectionDocument(payload = {})`
+
 ### `src/shared/validators/operationMessages.js`
 Exports
 - `resolveSchemaMessages(schema = {})`
@@ -178,11 +189,13 @@ Local functions
 
 ### `src/shared/validators/operationValidation.js`
 Exports
-- `validateOperationSection({ operation = {}, section = "bodyValidator", value, context = {} } = {})`
+- `validateOperationSection({ operation = {}, section = "body", value, context = {} } = {})`
+- `validateOperationSectionAsync({ operation = {}, section = "body", value, context = {} } = {})`
 - `validateOperationInput({ operation = {}, input = {}, context = {} } = {})`
+- `validateOperationInputAsync({ operation = {}, input = {}, context = {} } = {})`
 Local functions
-- `defaultNormalize(value)`
-- `resolveOperationSection(operation = {}, section = "bodyValidator")`
+- `resolveOperationSection(operation = {}, section = "body")`
+- `resolvePlainSchema(definition)`
 
 ### `src/shared/validators/paginationQuery.js`
 Exports

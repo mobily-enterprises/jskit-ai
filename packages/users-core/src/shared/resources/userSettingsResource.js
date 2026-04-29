@@ -1,405 +1,344 @@
-import { Type } from "typebox";
-import {
-  createCursorListValidator,
-  normalizeObjectInput,
-  normalizeSettingsFieldInput
-} from "@jskit-ai/kernel/shared/validators";
-import { normalizeText } from "@jskit-ai/kernel/shared/support/normalize";
+import { createSchema } from "json-rest-schema";
+import { createCursorListValidator } from "@jskit-ai/kernel/shared/validators";
+import { deepFreeze } from "@jskit-ai/kernel/shared/support/deepFreeze";
 import { createOperationMessages } from "../operationMessages.js";
-import { userProfileResource } from "./userProfileResource.js";
-import {
-  USER_SETTINGS_SECTIONS,
-  userSettingsFields
-} from "./userSettingsFields.js";
+import { userProfileOutputSchema } from "./userProfileResource.js";
 
-function pickPatchBody(schema, keys = []) {
-  const properties = {};
-  for (const key of keys) {
-    if (!Object.hasOwn(schema.properties, key)) {
-      throw new Error(`pickPatchBody requires patch field "${key}".`);
-    }
+const USER_SETTINGS_PREFERENCE_KEYS = deepFreeze([
+  "theme",
+  "locale",
+  "timeZone",
+  "dateFormat",
+  "numberFormat",
+  "currencyCode",
+  "avatarSize"
+]);
 
-    properties[key] = schema.properties[key];
-  }
+const USER_SETTINGS_NOTIFICATION_KEYS = deepFreeze([
+  "productUpdates",
+  "accountActivity",
+  "securityAlerts"
+]);
 
-  return Type.Object(properties, {
-    additionalProperties: false,
-    minProperties: 1
-  });
-}
+const USER_SETTINGS_ALL_KEYS = deepFreeze([
+  ...USER_SETTINGS_PREFERENCE_KEYS,
+  ...USER_SETTINGS_NOTIFICATION_KEYS
+]);
 
-function listFieldsBySection(section) {
-  return userSettingsFields.filter((field) => field.section === section);
-}
+const USER_SETTINGS_BOOTSTRAP_KEYS = USER_SETTINGS_ALL_KEYS;
 
-function buildCreateBodySchema() {
-  const properties = {};
-  for (const field of userSettingsFields) {
-    properties[field.key] = field.required === false ? Type.Optional(field.inputSchema) : field.inputSchema;
-  }
-
-  return Type.Object(properties, { additionalProperties: false });
-}
-
-function buildSectionOutputSchema(section) {
-  const properties = {};
-  for (const field of listFieldsBySection(section)) {
-    properties[field.key] = field.outputSchema;
-  }
-
-  return Type.Object(properties, { additionalProperties: false });
-}
-
-function normalizeInput(payload = {}) {
-  return normalizeSettingsFieldInput(payload, userSettingsFields);
-}
-
-function normalizeSectionOutput(section, sectionSource = {}, settings = {}) {
-  const normalized = {};
-  for (const field of listFieldsBySection(section)) {
-    const rawValue = Object.hasOwn(sectionSource, field.key)
-      ? sectionSource[field.key]
-      : field.resolveDefault({
-          settings
-        });
-    normalized[field.key] = field.normalizeOutput(rawValue, {
-      settings
-    });
-  }
-  return normalized;
-}
-
-function buildUserSettingsOutputSchema() {
-  return Type.Object(
-    {
-      profile: userProfileResource.operations.view.outputValidator.schema,
-      security: Type.Object({}, { additionalProperties: true }),
-      preferences: buildSectionOutputSchema(USER_SETTINGS_SECTIONS.PREFERENCES),
-      notifications: buildSectionOutputSchema(USER_SETTINGS_SECTIONS.NOTIFICATIONS)
-    },
-    { additionalProperties: true }
-  );
-}
-
-const userSettingsOutputValidator = Object.freeze({
-  get schema() {
-    return buildUserSettingsOutputSchema();
+const userSettingsBodySchema = createSchema({
+  theme: { type: "string", required: true, minLength: 1, maxLength: 32 },
+  locale: { type: "string", required: true, minLength: 1, maxLength: 24, lowercase: true },
+  timeZone: { type: "string", required: true, minLength: 1, maxLength: 64 },
+  dateFormat: { type: "string", required: true, minLength: 1, maxLength: 32 },
+  numberFormat: { type: "string", required: true, minLength: 1, maxLength: 32 },
+  currencyCode: {
+    type: "string",
+    required: true,
+    minLength: 3,
+    maxLength: 3,
+    uppercase: true,
+    pattern: "^[A-Z]{3}$"
   },
-  normalize(payload = {}) {
-    const source = normalizeObjectInput(payload);
-    const preferencesSource = normalizeObjectInput(source.preferences);
-    const notificationsSource = normalizeObjectInput(source.notifications);
-
-    return {
-      profile: normalizeObjectInput(source.profile),
-      security: normalizeObjectInput(source.security),
-      preferences: normalizeSectionOutput(
-        USER_SETTINGS_SECTIONS.PREFERENCES,
-        preferencesSource,
-        preferencesSource
-      ),
-      notifications: normalizeSectionOutput(
-        USER_SETTINGS_SECTIONS.NOTIFICATIONS,
-        notificationsSource,
-        notificationsSource
-      )
-    };
-  }
-});
-
-function buildUserSettingsCreateBodySchema() {
-  return buildCreateBodySchema();
-}
-
-function buildUserSettingsPatchBodySchema() {
-  return Type.Partial(buildUserSettingsCreateBodySchema(), {
-    additionalProperties: false,
-    minProperties: 1
-  });
-}
-
-function buildPreferencesUpdateBodySchema() {
-  return pickPatchBody(
-    buildUserSettingsPatchBodySchema(),
-    listFieldsBySection(USER_SETTINGS_SECTIONS.PREFERENCES).map((field) => field.key)
-  );
-}
-
-function buildNotificationsUpdateBodySchema() {
-  return pickPatchBody(
-    buildUserSettingsPatchBodySchema(),
-    listFieldsBySection(USER_SETTINGS_SECTIONS.NOTIFICATIONS).map((field) => field.key)
-  );
-}
-
-const preferencesUpdateBodyValidator = Object.freeze({
-  get schema() {
-    return buildPreferencesUpdateBodySchema();
+  avatarSize: { type: "number", required: true, min: 1 },
+  productUpdates: {
+    type: "boolean",
+    required: true,
+    strictBoolean: true,
+    messages: {
+      default: "productUpdates must be a boolean."
+    }
   },
-  normalize: normalizeInput
-});
-
-const notificationsUpdateBodyValidator = Object.freeze({
-  get schema() {
-    return buildNotificationsUpdateBodySchema();
+  accountActivity: {
+    type: "boolean",
+    required: true,
+    strictBoolean: true,
+    messages: {
+      default: "accountActivity must be a boolean."
+    }
   },
-  normalize: normalizeInput
-});
-
-function normalizeOAuthProviderParams(payload = {}) {
-  const source = normalizeObjectInput(payload);
-  if (!Object.hasOwn(source, "provider")) {
-    return {};
+  securityAlerts: {
+    type: "boolean",
+    required: true,
+    strictBoolean: true,
+    messages: {
+      default: "securityAlerts must be a boolean."
+    }
   }
+});
 
-  return {
-    provider: normalizeText(source.provider)
-  };
-}
+const userSettingsPreferencesSchema = createSchema({
+  theme: { type: "string", required: true, minLength: 1, maxLength: 32 },
+  locale: { type: "string", required: true, minLength: 1, maxLength: 24, lowercase: true },
+  timeZone: { type: "string", required: true, minLength: 1, maxLength: 64 },
+  dateFormat: { type: "string", required: true, minLength: 1, maxLength: 32 },
+  numberFormat: { type: "string", required: true, minLength: 1, maxLength: 32 },
+  currencyCode: {
+    type: "string",
+    required: true,
+    minLength: 3,
+    maxLength: 3,
+    uppercase: true,
+    pattern: "^[A-Z]{3}$"
+  },
+  avatarSize: { type: "number", required: true, min: 1 }
+});
 
-function normalizeOAuthProviderQuery(payload = {}) {
-  const source = normalizeObjectInput(payload);
-  if (!Object.hasOwn(source, "returnTo")) {
-    return {};
+const userSettingsNotificationsSchema = createSchema({
+  productUpdates: {
+    type: "boolean",
+    required: true,
+    strictBoolean: true,
+    messages: {
+      default: "productUpdates must be a boolean."
+    }
+  },
+  accountActivity: {
+    type: "boolean",
+    required: true,
+    strictBoolean: true,
+    messages: {
+      default: "accountActivity must be a boolean."
+    }
+  },
+  securityAlerts: {
+    type: "boolean",
+    required: true,
+    strictBoolean: true,
+    messages: {
+      default: "securityAlerts must be a boolean."
+    }
   }
+});
 
-  const returnTo = normalizeText(source.returnTo);
-  if (!returnTo) {
-    return {};
+const userSettingsOutputDefinition = deepFreeze({
+  profile: {
+    schema: userProfileOutputSchema,
+    mode: "replace"
+  },
+  security: {
+    schema: {
+      type: "object",
+      additionalProperties: true
+    }
+  },
+  preferences: {
+    schema: userSettingsPreferencesSchema,
+    mode: "replace"
+  },
+  notifications: {
+    schema: userSettingsNotificationsSchema,
+    mode: "replace"
   }
-
-  return {
-    returnTo
-  };
-}
-
-const settingsActionOutputValidator = Object.freeze({
-  schema: Type.Object({}, { additionalProperties: true }),
-  normalize: normalizeObjectInput
 });
 
-const passwordChangeOutputValidator = Object.freeze({
-  schema: Type.Object(
-    {
-      ok: Type.Boolean(),
-      message: Type.String()
-    },
-    { additionalProperties: false }
-  ),
-  normalize: normalizeObjectInput
+const settingsActionOutputDefinition = deepFreeze({
+  schema: {
+    type: "object",
+    additionalProperties: true
+  }
 });
 
-const passwordChangeBodyValidator = Object.freeze({
-  schema: Type.Object(
-    {
-      currentPassword: Type.Optional(
-        Type.String({
-          minLength: 1,
-          messages: {
-            default: "Current password is invalid."
-          }
-        })
-      ),
-      newPassword: Type.String({
-        minLength: 8,
-        messages: {
-          required: "New password is required.",
-          minLength: "New password must be at least 8 characters.",
-          default: "New password must be at least 8 characters."
-        }
-      }),
-      confirmPassword: Type.String({
-        minLength: 1,
-        messages: {
-          required: "Confirm password is required.",
-          minLength: "Confirm password is required.",
-          default: "Confirm password is required."
-        }
-      })
-    },
-    {
-      additionalProperties: false,
+const passwordChangeBodyDefinition = deepFreeze({
+  schema: createSchema({
+    currentPassword: {
+      type: "string",
+      required: false,
+      minLength: 1,
       messages: {
-        additionalProperties: "Unexpected field."
+        default: "Current password is invalid."
+      }
+    },
+    newPassword: {
+      type: "string",
+      required: true,
+      minLength: 8,
+      messages: {
+        required: "New password is required.",
+        minLength: "New password must be at least 8 characters.",
+        default: "New password must be at least 8 characters."
+      }
+    },
+    confirmPassword: {
+      type: "string",
+      required: true,
+      minLength: 1,
+      messages: {
+        required: "Confirm password is required.",
+        minLength: "Confirm password is required.",
+        default: "Confirm password is required."
       }
     }
-  ),
-  normalize: normalizeObjectInput
+  }),
+  mode: "create"
 });
 
-const passwordMethodToggleBodyValidator = Object.freeze({
-  schema: Type.Object(
-    {
-      enabled: Type.Boolean({
-        messages: {
-          required: "enabled is required.",
-          default: "enabled must be a boolean."
-        }
-      })
-    },
-    {
-      additionalProperties: false,
+const passwordChangeOutputDefinition = deepFreeze({
+  schema: createSchema({
+    ok: { type: "boolean", required: true },
+    message: { type: "string", required: true, minLength: 1 }
+  }),
+  mode: "replace"
+});
+
+const passwordMethodToggleBodyDefinition = deepFreeze({
+  schema: createSchema({
+    enabled: {
+      type: "boolean",
+      required: true,
+      strictBoolean: true,
       messages: {
-        additionalProperties: "Unexpected field."
+        required: "enabled is required.",
+        default: "enabled must be a boolean."
       }
     }
-  ),
-  normalize: normalizeObjectInput
+  }),
+  mode: "patch"
 });
 
-const oauthProviderParamsValidator = Object.freeze({
-  schema: Type.Object(
-    {
-      provider: Type.String({
-        minLength: 2,
-        maxLength: 64,
-        messages: {
-          required: "OAuth provider is required.",
-          default: "OAuth provider is invalid."
-        }
-      })
-    },
-    {
-      additionalProperties: false,
+const oauthProviderParamsDefinition = deepFreeze({
+  schema: createSchema({
+    provider: {
+      type: "string",
+      required: true,
+      minLength: 2,
+      maxLength: 64,
       messages: {
-        additionalProperties: "Unexpected field."
+        required: "OAuth provider is required.",
+        default: "OAuth provider is invalid."
       }
     }
-  ),
-  normalize: normalizeOAuthProviderParams
+  }),
+  mode: "patch"
 });
 
-const oauthProviderQueryValidator = Object.freeze({
-  schema: Type.Object(
-    {
-      returnTo: Type.Optional(
-        Type.String({
-          minLength: 1,
-          messages: {
-            default: "Return path is invalid."
-          }
-        })
-      )
-    },
-    {
-      additionalProperties: false,
+const oauthProviderQueryDefinition = deepFreeze({
+  schema: createSchema({
+    returnTo: {
+      type: "string",
+      required: false,
+      minLength: 1,
       messages: {
-        additionalProperties: "Unexpected field."
+        default: "Return path is invalid."
       }
     }
-  ),
-  normalize: normalizeOAuthProviderQuery
+  }),
+  mode: "patch"
 });
 
-const oauthLinkStartOutputValidator = Object.freeze({
-  schema: Type.Object(
-    {
-      provider: Type.String({ minLength: 2, maxLength: 64 }),
-      returnTo: Type.String({ minLength: 1 }),
-      url: Type.String({ minLength: 1 })
-    },
-    { additionalProperties: false }
-  ),
-  normalize: normalizeObjectInput
+const oauthLinkStartOutputDefinition = deepFreeze({
+  schema: createSchema({
+    provider: { type: "string", required: true, minLength: 2, maxLength: 64 },
+    returnTo: { type: "string", required: true, minLength: 1 },
+    url: { type: "string", required: true, minLength: 1 }
+  }),
+  mode: "replace"
 });
 
-const emptyBodyValidator = Object.freeze({
-  schema: Type.Object({}, { additionalProperties: false }),
-  normalize: normalizeObjectInput
+const emptyBodyDefinition = deepFreeze({
+  schema: createSchema({}),
+  mode: "patch"
 });
 
 const USER_SETTINGS_OPERATION_MESSAGES = createOperationMessages();
 
-const userSettingsResource = Object.freeze({
+const userSettingsResource = deepFreeze({
   namespace: "userSettings",
-  operations: Object.freeze({
-    view: Object.freeze({
+  operations: {
+    view: {
       method: "GET",
       messages: USER_SETTINGS_OPERATION_MESSAGES,
-      outputValidator: userSettingsOutputValidator
-    }),
-    list: Object.freeze({
+      output: userSettingsOutputDefinition
+    },
+    list: {
       method: "GET",
       messages: USER_SETTINGS_OPERATION_MESSAGES,
-      outputValidator: createCursorListValidator(userSettingsOutputValidator)
-    }),
-    create: Object.freeze({
+      output: createCursorListValidator(userSettingsOutputDefinition)
+    },
+    create: {
       method: "POST",
       messages: USER_SETTINGS_OPERATION_MESSAGES,
-      bodyValidator: Object.freeze({
-        get schema() {
-          return buildUserSettingsCreateBodySchema();
-        },
-        normalize: normalizeInput
-      }),
-      outputValidator: userSettingsOutputValidator
-    }),
-    replace: Object.freeze({
+      body: {
+        schema: userSettingsBodySchema,
+        mode: "create"
+      },
+      output: userSettingsOutputDefinition
+    },
+    replace: {
       method: "PUT",
       messages: USER_SETTINGS_OPERATION_MESSAGES,
-      bodyValidator: Object.freeze({
-        get schema() {
-          return buildUserSettingsCreateBodySchema();
-        },
-        normalize: normalizeInput
-      }),
-      outputValidator: userSettingsOutputValidator
-    }),
-    patch: Object.freeze({
+      body: {
+        schema: userSettingsBodySchema,
+        mode: "replace"
+      },
+      output: userSettingsOutputDefinition
+    },
+    patch: {
       method: "PATCH",
       messages: USER_SETTINGS_OPERATION_MESSAGES,
-      bodyValidator: Object.freeze({
-        get schema() {
-          return buildUserSettingsPatchBodySchema();
-        },
-        normalize: normalizeInput
-      }),
-      outputValidator: userSettingsOutputValidator
-    }),
-    preferencesUpdate: Object.freeze({
+      body: {
+        schema: userSettingsBodySchema,
+        mode: "patch"
+      },
+      output: userSettingsOutputDefinition
+    },
+    preferencesUpdate: {
       method: "PATCH",
       messages: USER_SETTINGS_OPERATION_MESSAGES,
-      bodyValidator: preferencesUpdateBodyValidator,
-      outputValidator: userSettingsOutputValidator
-    }),
-    notificationsUpdate: Object.freeze({
+      body: {
+        schema: userSettingsPreferencesSchema,
+        mode: "patch"
+      },
+      output: userSettingsOutputDefinition
+    },
+    notificationsUpdate: {
       method: "PATCH",
       messages: USER_SETTINGS_OPERATION_MESSAGES,
-      bodyValidator: notificationsUpdateBodyValidator,
-      outputValidator: userSettingsOutputValidator
-    }),
-    passwordChange: Object.freeze({
+      body: {
+        schema: userSettingsNotificationsSchema,
+        mode: "patch"
+      },
+      output: userSettingsOutputDefinition
+    },
+    passwordChange: {
       method: "POST",
       messages: USER_SETTINGS_OPERATION_MESSAGES,
-      bodyValidator: passwordChangeBodyValidator,
-      outputValidator: passwordChangeOutputValidator
-    }),
-    passwordMethodToggle: Object.freeze({
+      body: passwordChangeBodyDefinition,
+      output: passwordChangeOutputDefinition
+    },
+    passwordMethodToggle: {
       method: "PATCH",
       messages: USER_SETTINGS_OPERATION_MESSAGES,
-      bodyValidator: passwordMethodToggleBodyValidator,
-      outputValidator: settingsActionOutputValidator
-    }),
-    oauthLinkStart: Object.freeze({
+      body: passwordMethodToggleBodyDefinition,
+      output: settingsActionOutputDefinition
+    },
+    oauthLinkStart: {
       method: "GET",
       messages: USER_SETTINGS_OPERATION_MESSAGES,
-      paramsValidator: oauthProviderParamsValidator,
-      queryValidator: oauthProviderQueryValidator,
-      outputValidator: oauthLinkStartOutputValidator
-    }),
-    oauthUnlink: Object.freeze({
+      params: oauthProviderParamsDefinition,
+      query: oauthProviderQueryDefinition,
+      output: oauthLinkStartOutputDefinition
+    },
+    oauthUnlink: {
       method: "DELETE",
       messages: USER_SETTINGS_OPERATION_MESSAGES,
-      paramsValidator: oauthProviderParamsValidator,
-      outputValidator: settingsActionOutputValidator
-    }),
-    logoutOtherSessions: Object.freeze({
+      params: oauthProviderParamsDefinition,
+      output: settingsActionOutputDefinition
+    },
+    logoutOtherSessions: {
       method: "POST",
       messages: USER_SETTINGS_OPERATION_MESSAGES,
-      bodyValidator: emptyBodyValidator,
-      outputValidator: settingsActionOutputValidator
-    })
-  })
+      body: emptyBodyDefinition,
+      output: settingsActionOutputDefinition
+    }
+  }
 });
 
-export { userSettingsResource };
+export {
+  USER_SETTINGS_ALL_KEYS,
+  USER_SETTINGS_BOOTSTRAP_KEYS,
+  USER_SETTINGS_NOTIFICATION_KEYS,
+  USER_SETTINGS_PREFERENCE_KEYS,
+  userSettingsResource
+};

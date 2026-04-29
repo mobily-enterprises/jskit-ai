@@ -878,31 +878,45 @@ Do not treat the output schema as if it also defined database storage.
 In JSKIT CRUD:
 
 - the schema defines the API contract
-- `resource.fieldMeta` defines storage mapping
+- field definitions may also carry storage/lookup/ui metadata
 - the repository runtime owns computed SQL projections
 
 Use these rules:
 
-- for explicit DB column overrides, use `repository.column`
+- for explicit DB column overrides, use `actualField`
 - standard writable `date-time` fields are serialized automatically during CRUD writes
-- use `repository.writeSerializer` only for non-default DB write serialization
-- for computed output fields, use `repository.storage: "virtual"`
+- use `storage.writeSerializer` only for non-default DB write serialization
+- for computed output fields, use `storage: { virtual: true }`
 - do not put computed fields in create/patch write schemas
 
 Example field metadata:
 
 ```js
-RESOURCE_FIELD_META.push({
-  key: "createdAt",
-  repository: {
-    column: "created_at"
+const recordOutputSchema = createSchema({
+  createdAt: {
+    type: "dateTime",
+    required: true,
+    actualField: "created_at"
   }
 });
 
-RESOURCE_FIELD_META.push({
-  key: "remainingBatchWeight",
-  repository: {
-    storage: "virtual"
+const createBodySchema = createSchema({
+  arrivalDatetime: {
+    type: "dateTime",
+    required: true,
+    storage: {
+      writeSerializer: "datetime-utc"
+    }
+  }
+});
+
+const readModelSchema = createSchema({
+  remainingBatchWeight: {
+    type: "number",
+    required: true,
+    storage: {
+      virtual: true
+    }
   }
 });
 ```
@@ -931,7 +945,7 @@ Once registered there:
 - generic CRUD `listByIds`
 - generic CRUD `listByForeignIds`
 
-and generic CRUD writes automatically serialize standard writable `date-time` fields during create/update payload mapping, so normal datetime DB formatting does not need per-field metadata or repository-specific `preparePayload` hooks. Keep `repository.writeSerializer` for non-default cases only.
+and generic CRUD writes automatically serialize standard writable `date-time` fields during create/update payload mapping, so normal datetime DB formatting does not need per-field metadata or repository-specific `preparePayload` hooks. Keep `storage.writeSerializer` for non-default cases only.
 
 all pick up the projection automatically, so you should not hand-patch `clearSelect()` / re-select logic into each method.
 
@@ -1112,7 +1126,7 @@ const contactsListFiltersRuntime = createCrudListFilters(
 );
 ```
 
-There is no default query-validator mode and no `runtime.queryValidator` alias. Create the validator that matches the contract you want at that route or action boundary.
+There is no default query-validator mode or legacy route-runtime alias. Create the validator that matches the contract you want at that route or action boundary.
 
 Strict contract example:
 
@@ -1133,7 +1147,7 @@ const contactsListFiltersQueryValidator = contactsListFiltersRuntime.createQuery
 Wire the runtime into the list validator and the repository:
 
 ```js
-queryValidator: [
+query: [
   listCursorPaginationQueryValidator,
   listSearchQueryValidator,
   contactsListFiltersQueryValidator,
@@ -1167,7 +1181,7 @@ async function list(query = {}, callOptions = {}) {
 
 - Put the filter definitions in the CRUD package, not the page. Both server and client need them.
 - Keep the filter keys identical all the way through: definition key, query param key, and repository meaning.
-- Do not expect a default `runtime.queryValidator` to exist. Every structured-filter validator must be created explicitly with `createQueryValidator({ invalidValues: ... })`.
+- Do not expect a default route-runtime query-validator alias. Every structured-filter validator must be created explicitly with `createQueryValidator({ invalidValues: ... })`.
 - Use `type: "presence"` for null/not-null filters such as assigned vs unassigned storage. Do not model those as custom enums plus `applyQuery(...)` overrides unless the SQL semantics are genuinely different from `whereNotNull(...)` / `whereNull(...)`.
 - Use `createCrudListFilters(...)` unless the list semantics are truly unusual.
 - Use `q` for free-text and explicit query params for structured filters.

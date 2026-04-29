@@ -5,7 +5,6 @@ import {
   TENANCY_MODE_NONE,
   resolveTenancyProfile
 } from "../shared/tenancyProfile.js";
-import { workspacePendingInvitationsResource } from "../shared/resources/workspacePendingInvitationsResource.js";
 import {
   mapMembershipSummary,
   mapWorkspaceSettingsPublic,
@@ -16,12 +15,6 @@ const REQUESTED_WORKSPACE_STATUS_RESOLVED = "resolved";
 const REQUESTED_WORKSPACE_STATUS_NOT_FOUND = "not_found";
 const REQUESTED_WORKSPACE_STATUS_FORBIDDEN = "forbidden";
 const REQUESTED_WORKSPACE_STATUS_UNAUTHENTICATED = "unauthenticated";
-
-function normalizePendingInvites(invites) {
-  return workspacePendingInvitationsResource.operations.list.outputValidator.normalize({
-    pendingInvites: invites
-  }).pendingInvites;
-}
 
 function normalizeQueryPayload(value = {}) {
   if (!value || typeof value !== "object" || Array.isArray(value)) {
@@ -168,13 +161,11 @@ function createWorkspaceBootstrapContributor({
 
       const pendingInvites =
         workspaceInvitationsEnabled
-          ? normalizePendingInvites(
-              await workspacePendingInvitationsService.listPendingInvitesForUser(latestProfile, {
-                context: {
-                  actor: latestProfile
-                }
-              })
-            )
+          ? await workspacePendingInvitationsService.listPendingInvitesForUser(latestProfile, {
+              context: {
+                actor: latestProfile
+              }
+            })
           : [];
       const workspaces = await workspaceService.listWorkspacesForUser(latestProfile, { request });
       let workspaceContext = null;

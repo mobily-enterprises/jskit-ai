@@ -1,5 +1,4 @@
-import { Type } from "typebox";
-import { normalizeObjectInput } from "../inputNormalization.js";
+import { deepFreeze } from "@jskit-ai/kernel/shared/support/deepFreeze";
 import {
   authAccessTokenValidator,
   authRecoveryTokenValidator,
@@ -29,34 +28,35 @@ const AUTH_PASSWORD_RECOVERY_COMPLETE_MESSAGES = createCommandMessages({
   }
 });
 
-const authPasswordRecoveryCompleteBodyValidator = Object.freeze({
-  schema: Type.Object(
-    {
-      code: Type.Optional(authRecoveryTokenValidator.schema),
-      tokenHash: Type.Optional(authRecoveryTokenValidator.schema),
-      accessToken: Type.Optional(authAccessTokenValidator.schema),
-      refreshToken: Type.Optional(authRefreshTokenValidator.schema),
-      type: Type.Optional(Type.Literal("recovery"))
-    },
-    {
-      additionalProperties: false,
-      minProperties: 1
+const authPasswordRecoveryCompleteBodyValidator = deepFreeze({
+  schema: {
+    type: "object",
+    additionalProperties: false,
+    minProperties: 1,
+    properties: {
+      code: authRecoveryTokenValidator.schema,
+      tokenHash: authRecoveryTokenValidator.schema,
+      accessToken: authAccessTokenValidator.schema,
+      refreshToken: authRefreshTokenValidator.schema,
+      type: {
+        type: "string",
+        enum: ["recovery"]
+      }
     }
-  ),
-  normalize: normalizeObjectInput,
+  },
   messages: AUTH_PASSWORD_RECOVERY_COMPLETE_MESSAGES
 });
 
-const authPasswordRecoveryCompleteCommand = Object.freeze({
+const authPasswordRecoveryCompleteCommand = deepFreeze({
   command: "auth.password.recovery.complete",
-  operation: Object.freeze({
+  operation: {
     method: "POST",
-    bodyValidator: authPasswordRecoveryCompleteBodyValidator,
-    responseValidator: okResponseValidator,
+    body: authPasswordRecoveryCompleteBodyValidator,
+    response: okResponseValidator,
     messages: AUTH_PASSWORD_RECOVERY_COMPLETE_MESSAGES,
     idempotent: false,
-    invalidates: Object.freeze(["auth.session.read"])
-  })
+    invalidates: ["auth.session.read"]
+  }
 });
 
 export {

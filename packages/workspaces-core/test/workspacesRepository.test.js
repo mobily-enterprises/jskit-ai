@@ -1,131 +1,132 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { toIsoString } from "@jskit-ai/database-runtime/shared";
 import { createRepository } from "../src/server/common/repositories/workspacesRepository.js";
 
-function createWorkspacesKnexStub({
-  rowById = new Map(),
-  rowBySlug = new Map(),
-  insertError = null,
-  membershipRows = []
-} = {}) {
-  const state = {
-    insertPayload: null,
-    updatePayload: null
-  };
-
-  function buildWorkspacesQuery(tableName) {
-    const query = {
-      tableName,
-      selectedColumns: [],
-      whereCriteria: [],
-      orderByClauses: [],
-      select(...columns) {
-        this.selectedColumns = columns;
-        return this;
-      },
-      where(criteria) {
-        this.whereCriteria.push(criteria);
-        return this;
-      },
-      orderBy(column, direction) {
-        this.orderByClauses.push({ column, direction });
-        return this;
-      },
-      async first() {
-        const criteria = Object.assign({}, ...this.whereCriteria);
-        if (Object.hasOwn(criteria, "w.id")) {
-          return rowById.get(String(criteria["w.id"])) || null;
-        }
-        if (Object.hasOwn(criteria, "id")) {
-          return rowById.get(String(criteria.id)) || null;
-        }
-        if (Object.hasOwn(criteria, "w.slug")) {
-          return rowBySlug.get(String(criteria["w.slug"])) || null;
-        }
-        if (Object.hasOwn(criteria, "w.owner_user_id") && Object.hasOwn(criteria, "w.is_personal")) {
-          for (const row of rowById.values()) {
-            if (
-              String(row.owner_user_id) === String(criteria["w.owner_user_id"]) &&
-              Number(row.is_personal) === Number(criteria["w.is_personal"])
-            ) {
-              return row;
-            }
-          }
-        }
-        return null;
-      },
-      async insert(payload) {
-        state.insertPayload = payload;
-        if (insertError) {
-          throw insertError;
-        }
-        return [1];
-      },
-      async update(payload) {
-        state.updatePayload = payload;
-        return 1;
-      }
-    };
-
-    return query;
-  }
-
-  function buildMembershipsQuery() {
-    return {
-      join() {
-        return this;
-      },
-      where() {
-        return this;
-      },
-      whereNull() {
-        return this;
-      },
-      orderBy() {
-        return this;
-      },
-      select() {
-        return Promise.resolve([...membershipRows]);
-      }
-    };
-  }
-
-  function knex(tableName) {
-    if (tableName === "workspaces" || tableName === "workspaces as w") {
-      return buildWorkspacesQuery(tableName);
+function createKnexStub() {
+  return Object.assign(() => {
+    throw new Error("query execution not expected");
+  }, {
+    async transaction(work) {
+      return work({ trxId: "trx-1" });
     }
-    if (tableName === "workspace_memberships as wm") {
-      return buildMembershipsQuery();
-    }
-    throw new Error(`Unexpected table ${tableName}`);
-  }
-
-  knex.transaction = async (work) => work(knex);
-
-  return { knex, state };
+  });
 }
 
-test("workspacesRepository.findById normalizes internal workspace fields via the internal resource", async () => {
-  const { knex } = createWorkspacesKnexStub({
-    rowById: new Map([
-      [
-        "7",
-        {
-          id: 7,
-          slug: "tonymobily3",
-          name: "TonyMobily3",
-          owner_user_id: 9,
-          is_personal: 1,
-          avatar_url: "",
-          created_at: "2026-03-09 00:26:35.710",
-          updated_at: "2026-03-10 00:26:35.710",
-          deleted_at: null
+function createWorkspacesApiStub({
+  rowsById = new Map(),
+  rowsBySlug = new Map(),
+  personalRowsByOwnerId = new Map(),
+  membershipRows = [],
+  insertError = null
+} = {}) {
+  const state = {
+    postPayload: null,
+    patchPayload: null
+  };
+
+  const api = {
+    resources: {
+      workspaces: {
+        async query({ queryParams }) {
+          const filters = queryParams?.filters || {};
+
+          if (Object.hasOwn(filters, "id")) {
+            const row = rowsById.get(String(filters.id)) || null;
+            return { data: row ? [{ ...row }] : [] };
+          }
+
+          if (Object.hasOwn(filters, "slug")) {
+            const row = rowsBySlug.get(String(filters.slug)) || null;
+            return { data: row ? [{ ...row }] : [] };
+          }
+
+          if (Object.hasOwn(filters, "owner") && Object.hasOwn(filters, "isPersonal")) {
+            const rows = personalRowsByOwnerId.get(String(filters.owner)) || [];
+            return { data: rows.map((row) => ({ ...row })) };
+          }
+
+          return { data: [] };
+        },
+        async post(payload) {
+          state.postPayload = { ...payload };
+          if (insertError) {
+            throw insertError;
+          }
+
+          const row = {
+            id: "1",
+            slug: String(payload.slug || ""),
+            name: String(payload.name || ""),
+            ownerUserId: String(payload.ownerUserId || ""),
+            isPersonal: Boolean(payload.isPersonal),
+            avatarUrl: String(payload.avatarUrl || ""),
+            createdAt: payload.createdAt,
+            updatedAt: payload.updatedAt,
+            deletedAt: null
+          };
+          rowsById.set(row.id, row);
+          if (row.slug) {
+            rowsBySlug.set(row.slug, row);
+          }
+          return { ...row };
+        },
+        async patch(payload) {
+          state.patchPayload = { ...payload };
+          const existing = rowsById.get(String(payload.id)) || {
+            id: String(payload.id)
+          };
+          const updated = {
+            ...existing,
+            ...payload,
+            id: String(payload.id)
+          };
+          rowsById.set(updated.id, updated);
+          if (updated.slug) {
+            rowsBySlug.set(String(updated.slug), updated);
+          }
+          return { ...updated };
         }
-      ]
+      },
+      workspaceMemberships: {
+        async query({ queryParams }) {
+          const filters = queryParams?.filters || {};
+          if (Object.hasOwn(filters, "user") && Object.hasOwn(filters, "status")) {
+            return {
+              data: membershipRows
+                .filter((row) => (
+                  String(row?.user?.id || "") === String(filters.user) &&
+                  String(row?.status || "") === String(filters.status)
+                ))
+                .map((row) => ({ ...row }))
+            };
+          }
+
+          return { data: [] };
+        }
+      }
+    }
+  };
+
+  return { api, state };
+}
+
+test("workspacesRepository.findById reads a canonical workspace row through json-rest-api", async () => {
+  const { api } = createWorkspacesApiStub({
+    rowsById: new Map([
+      ["7", {
+        id: "7",
+        slug: "tonymobily3",
+        name: "TonyMobily3",
+        ownerUserId: "9",
+        isPersonal: true,
+        avatarUrl: "",
+        createdAt: "2026-03-09 00:26:35.710",
+        updatedAt: "2026-03-10 00:26:35.710",
+        deletedAt: null
+      }]
     ])
   });
-  const repository = createRepository(knex);
+  const repository = createRepository({ api, knex: createKnexStub() });
 
   const workspace = await repository.findById("7");
 
@@ -136,81 +137,89 @@ test("workspacesRepository.findById normalizes internal workspace fields via the
     ownerUserId: "9",
     isPersonal: true,
     avatarUrl: "",
-    createdAt: toIsoString("2026-03-09 00:26:35.710"),
-    updatedAt: toIsoString("2026-03-10 00:26:35.710"),
+    createdAt: "2026-03-09 00:26:35.710",
+    updatedAt: "2026-03-10 00:26:35.710",
     deletedAt: null
   });
 });
 
-test("workspacesRepository.findPersonalByOwnerUserId returns null when no personal workspace exists", async () => {
-  const { knex } = createWorkspacesKnexStub();
-  const repository = createRepository(knex);
+test("workspacesRepository.findPersonalByOwnerUserId returns the first personal workspace by canonical id order", async () => {
+  const { api } = createWorkspacesApiStub({
+    personalRowsByOwnerId: new Map([
+      ["9", [
+        {
+          id: "12",
+          slug: "later-workspace",
+          name: "Later Workspace",
+          ownerUserId: "9",
+          isPersonal: true,
+          avatarUrl: "",
+          createdAt: "2026-03-09 00:26:35.710",
+          updatedAt: "2026-03-09 00:26:35.710",
+          deletedAt: null
+        },
+        {
+          id: "7",
+          slug: "first-workspace",
+          name: "First Workspace",
+          ownerUserId: "9",
+          isPersonal: true,
+          avatarUrl: "",
+          createdAt: "2026-03-08 00:26:35.710",
+          updatedAt: "2026-03-08 00:26:35.710",
+          deletedAt: null
+        }
+      ]]
+    ])
+  });
+  const repository = createRepository({ api, knex: createKnexStub() });
 
-  const workspace = await repository.findPersonalByOwnerUserId("999");
+  const workspace = await repository.findPersonalByOwnerUserId("9");
 
-  assert.equal(workspace, null);
+  assert.equal(workspace?.id, "7");
+  assert.equal(workspace?.slug, "first-workspace");
 });
 
-test("workspacesRepository.insert uses runtime normalization and timestamp columns", async () => {
-  const insertedRow = {
-    id: 1,
-    slug: "tonymobily3",
-    name: "TonyMobily3",
-    owner_user_id: 9,
-    is_personal: 0,
-    avatar_url: "",
-    created_at: "2026-03-09 00:26:35.710",
-    updated_at: "2026-03-09 00:26:35.710",
-    deleted_at: null
-  };
-  const { knex, state } = createWorkspacesKnexStub({
-    rowById: new Map([["1", insertedRow]])
-  });
-  const repository = createRepository(knex);
+test("workspacesRepository.insert writes canonical fields through json-rest-api", async () => {
+  const { api, state } = createWorkspacesApiStub();
+  const repository = createRepository({ api, knex: createKnexStub() });
 
   const inserted = await repository.insert({
     slug: "TonyMobily3",
     name: "TonyMobily3",
-    ownerUserId: "9"
+    ownerUserId: "9",
+    avatarUrl: "",
+    isPersonal: false
   });
 
-  assert.equal(state.insertPayload.slug, "tonymobily3");
-  assert.equal(state.insertPayload.name, "TonyMobily3");
-  assert.equal(state.insertPayload.owner_user_id, "9");
-  assert.equal(state.insertPayload.is_personal, false);
-  assert.equal(state.insertPayload.avatar_url, "");
-  assert.equal(typeof state.insertPayload.created_at, "string");
-  assert.equal(typeof state.insertPayload.updated_at, "string");
-  assert.deepEqual(inserted, {
-    id: "1",
-    slug: "tonymobily3",
-    name: "TonyMobily3",
+  assert.equal(state.postPayload.ownerUserId, "9");
+  assert.equal(state.postPayload.slug, "TonyMobily3");
+  assert.equal(state.postPayload.name, "TonyMobily3");
+  assert.equal(state.postPayload.isPersonal, false);
+  assert.equal(state.postPayload.avatarUrl, "");
+  assert.equal(typeof state.postPayload.createdAt, "object");
+  assert.equal(typeof state.postPayload.updatedAt, "object");
+  assert.equal(inserted.id, "1");
+  assert.equal(inserted.ownerUserId, "9");
+});
+
+test("workspacesRepository.insert falls back to slug lookup on duplicate slug", async () => {
+  const existingRow = {
+    id: "12",
+    slug: "shared-workspace",
+    name: "Shared Workspace",
     ownerUserId: "9",
     isPersonal: false,
     avatarUrl: "",
-    createdAt: toIsoString("2026-03-09 00:26:35.710"),
-    updatedAt: toIsoString("2026-03-09 00:26:35.710"),
+    createdAt: "2026-03-09 00:26:35.710",
+    updatedAt: "2026-03-09 00:26:35.710",
     deletedAt: null
-  });
-});
-
-test("workspacesRepository.insert falls back to slug lookup on duplicate workspace slug", async () => {
-  const existingRow = {
-    id: 12,
-    slug: "shared-workspace",
-    name: "Shared Workspace",
-    owner_user_id: 9,
-    is_personal: 0,
-    avatar_url: "",
-    created_at: "2026-03-09 00:26:35.710",
-    updated_at: "2026-03-09 00:26:35.710",
-    deleted_at: null
   };
-  const { knex } = createWorkspacesKnexStub({
-    rowBySlug: new Map([["shared-workspace", existingRow]]),
+  const { api } = createWorkspacesApiStub({
+    rowsBySlug: new Map([["shared-workspace", existingRow]]),
     insertError: { code: "ER_DUP_ENTRY" }
   });
-  const repository = createRepository(knex);
+  const repository = createRepository({ api, knex: createKnexStub() });
 
   const inserted = await repository.insert({
     slug: "shared-workspace",
@@ -222,29 +231,91 @@ test("workspacesRepository.insert falls back to slug lookup on duplicate workspa
   assert.equal(inserted?.slug, "shared-workspace");
 });
 
-test("workspacesRepository.listForUserId keeps membership-specific fields while normalizing workspace fields", async () => {
-  const { knex } = createWorkspacesKnexStub({
-    membershipRows: [
-      {
-        id: 7,
+test("workspacesRepository.updateById patches canonical fields and updatedAt", async () => {
+  const { api, state } = createWorkspacesApiStub({
+    rowsById: new Map([
+      ["7", {
+        id: "7",
         slug: "tonymobily3",
         name: "TonyMobily3",
-        owner_user_id: 9,
-        is_personal: 1,
-        avatar_url: "",
-        created_at: "2026-03-09 00:26:35.710",
-        updated_at: "2026-03-10 00:26:35.710",
-        deleted_at: null,
-        role_sid: "owner",
-        membership_status: "active"
+        ownerUserId: "9",
+        isPersonal: false,
+        avatarUrl: "",
+        createdAt: "2026-03-09 00:26:35.710",
+        updatedAt: "2026-03-09 00:26:35.710",
+        deletedAt: null
+      }]
+    ])
+  });
+  const repository = createRepository({ api, knex: createKnexStub() });
+
+  await repository.updateById("7", {
+    name: "TonyMobily 4"
+  });
+
+  assert.equal(state.patchPayload.id, "7");
+  assert.equal(state.patchPayload.name, "TonyMobily 4");
+  assert.equal(typeof state.patchPayload.updatedAt, "object");
+});
+
+test("workspacesRepository.listForUserId keeps membership fields outside the canonical workspace row", async () => {
+  const { api } = createWorkspacesApiStub({
+    membershipRows: [
+      {
+        user: { id: "9" },
+        roleSid: "owner",
+        status: "active",
+        workspace: {
+          id: "7",
+          slug: "tonymobily3",
+          name: "TonyMobily3",
+          ownerUserId: "9",
+          isPersonal: true,
+          avatarUrl: "",
+          createdAt: "2026-03-09 00:26:35.710",
+          updatedAt: "2026-03-10 00:26:35.710",
+          deletedAt: null
+        }
+      },
+      {
+        user: { id: "9" },
+        roleSid: "member",
+        status: "active",
+        workspace: {
+          id: "8",
+          slug: "team-space",
+          name: "Team Space",
+          ownerUserId: "10",
+          isPersonal: false,
+          avatarUrl: "",
+          createdAt: "2026-03-09 00:26:35.710",
+          updatedAt: "2026-03-10 00:26:35.710",
+          deletedAt: null
+        }
+      },
+      {
+        user: { id: "9" },
+        roleSid: "member",
+        status: "active",
+        workspace: {
+          id: "9",
+          slug: "deleted-space",
+          name: "Deleted Space",
+          ownerUserId: "10",
+          isPersonal: false,
+          avatarUrl: "",
+          createdAt: "2026-03-09 00:26:35.710",
+          updatedAt: "2026-03-10 00:26:35.710",
+          deletedAt: "2026-03-11 00:26:35.710"
+        }
       }
     ]
   });
-  const repository = createRepository(knex);
+  const repository = createRepository({ api, knex: createKnexStub() });
 
-  const rows = await repository.listForUserId("9");
+  const workspaces = await repository.listForUserId("9");
 
-  assert.deepEqual(rows, [
+  assert.deepEqual(workspaces, [
     {
       id: "7",
       slug: "tonymobily3",
@@ -252,10 +323,23 @@ test("workspacesRepository.listForUserId keeps membership-specific fields while 
       ownerUserId: "9",
       isPersonal: true,
       avatarUrl: "",
-      createdAt: toIsoString("2026-03-09 00:26:35.710"),
-      updatedAt: toIsoString("2026-03-10 00:26:35.710"),
+      createdAt: "2026-03-09 00:26:35.710",
+      updatedAt: "2026-03-10 00:26:35.710",
       deletedAt: null,
       roleSid: "owner",
+      membershipStatus: "active"
+    },
+    {
+      id: "8",
+      slug: "team-space",
+      name: "Team Space",
+      ownerUserId: "10",
+      isPersonal: false,
+      avatarUrl: "",
+      createdAt: "2026-03-09 00:26:35.710",
+      updatedAt: "2026-03-10 00:26:35.710",
+      deletedAt: null,
+      roleSid: "member",
       membershipStatus: "active"
     }
   ]);

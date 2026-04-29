@@ -9,7 +9,7 @@ import {
   toKnexClientId
 } from "@jskit-ai/database-runtime/shared";
 import { resolveCrudSurfacePolicyFromAppConfig } from "@jskit-ai/crud-core/server/crudModuleConfig";
-import { checkCrudLookupFormControl } from "@jskit-ai/crud-core/shared/crudFieldMetaSupport";
+import { checkCrudLookupFormControl } from "@jskit-ai/crud-core/shared/crudFieldSupport";
 import {
   importFreshModuleFromAbsolutePath,
   loadAppConfigFromModuleUrl,
@@ -663,322 +663,169 @@ function renderObjectPropertyKey(value) {
   return isIdentifier(key) ? key : JSON.stringify(key);
 }
 
-function renderPropertyAccess(sourceName, key) {
-  const normalizedKey = String(key || "");
-  if (isIdentifier(normalizedKey)) {
-    return `${sourceName}.${normalizedKey}`;
-  }
-  return `${sourceName}[${JSON.stringify(normalizedKey)}]`;
-}
-
-function renderIntegerSchema(column) {
-  const options = [];
+function renderBoundedNumberEntries(column) {
+  const entries = [];
   if (Number.isFinite(column?.minimum)) {
-    options.push(`minimum: ${column.minimum}`);
-  } else if (Number.isFinite(column?.exclusiveMinimum)) {
-    options.push(`exclusiveMinimum: ${column.exclusiveMinimum}`);
-  } else if (column.unsigned === true) {
-    options.push("minimum: 0");
+    entries.push(`min: ${column.minimum}`);
+  } else if (column?.unsigned === true) {
+    entries.push("min: 0");
   }
   if (Number.isFinite(column?.maximum)) {
-    options.push(`maximum: ${column.maximum}`);
+    entries.push(`max: ${column.maximum}`);
   }
-  if (Number.isFinite(column?.exclusiveMaximum)) {
-    options.push(`exclusiveMaximum: ${column.exclusiveMaximum}`);
-  }
-  if (options.length > 0) {
-    return `Type.Integer({ ${options.join(", ")} })`;
-  }
-  return "Type.Integer()";
+  return entries;
 }
 
-function renderStringSchema(column, { forOutput = false } = {}) {
-  const options = [];
-  if (!forOutput && Number.isInteger(column.maxLength) && column.maxLength > 0) {
-    options.push(`maxLength: ${column.maxLength}`);
+function resolveResourceFieldRequired(column, { forOutput = false, mode = "create" } = {}) {
+  if (forOutput) {
+    return true;
   }
-  const enumValues = Array.isArray(column.enumValues) ? column.enumValues.filter((entry) => entry != null) : [];
-  if (!forOutput && enumValues.length > 0) {
-    options.push(`enum: ${JSON.stringify(enumValues)}`);
+  if (mode === "patch") {
+    return false;
   }
-  if (options.length > 0) {
-    return `Type.String({ ${options.join(", ")} })`;
-  }
-  return "Type.String()";
+  return column?.nullable !== true && column?.hasDefault !== true;
 }
 
-function renderResourceFieldSchema(column, { forOutput = false } = {}) {
-  let schemaExpression = "Type.Any()";
-  const typeKind = String(column.typeKind || "");
+function renderResourceFieldSchema(column, {
+  forOutput = false,
+  mode = "create",
+  fieldContractEntry = null
+} = {}) {
+  const entries = [];
+  const typeKind = String(column?.typeKind || "");
+  const required = resolveResourceFieldRequired(column, { forOutput, mode });
+
   if (typeKind === "string") {
-    schemaExpression = renderStringSchema(column, { forOutput });
+    entries.push('type: "string"');
+    if (Number.isInteger(column?.maxLength) && column.maxLength > 0) {
+      entries.push(`maxLength: ${column.maxLength}`);
+    }
+    const enumValues = Array.isArray(column?.enumValues) ? column.enumValues.filter((entry) => entry != null) : [];
+    if (enumValues.length > 0) {
+      entries.push(`enum: ${JSON.stringify(enumValues)}`);
+    }
   } else if (typeKind === "integer") {
     if (column?.isRecordIdColumn === true) {
-      return forOutput
-        ? (column.nullable === true ? "nullableRecordIdSchema" : "recordIdSchema")
-        : (column.nullable === true ? "nullableRecordIdInputSchema" : "recordIdInputSchema");
+      if (forOutput) {
+        entries.push('type: "string"');
+        entries.push("minLength: 1");
+        entries.push("pattern: RECORD_ID_PATTERN");
+      } else {
+        entries.push('type: "id"');
+      }
+    } else {
+      entries.push('type: "integer"');
+      entries.push(...renderBoundedNumberEntries(column));
     }
-    schemaExpression = renderIntegerSchema(column);
   } else if (typeKind === "number") {
-    const options = [];
-    if (Number.isFinite(column?.minimum)) {
-      options.push(`minimum: ${column.minimum}`);
-    }
-    if (Number.isFinite(column?.exclusiveMinimum)) {
-      options.push(`exclusiveMinimum: ${column.exclusiveMinimum}`);
-    }
-    if (Number.isFinite(column?.maximum)) {
-      options.push(`maximum: ${column.maximum}`);
-    }
-    if (Number.isFinite(column?.exclusiveMaximum)) {
-      options.push(`exclusiveMaximum: ${column.exclusiveMaximum}`);
-    }
-    schemaExpression = options.length > 0
-      ? `Type.Number({ ${options.join(", ")} })`
-      : "Type.Number()";
+    entries.push('type: "number"');
+    entries.push(...renderBoundedNumberEntries(column));
   } else if (typeKind === "boolean") {
-    schemaExpression = "Type.Boolean()";
+    entries.push('type: "boolean"');
   } else if (typeKind === "datetime") {
-    schemaExpression = 'Type.String({ format: "date-time", minLength: 1 })';
+    entries.push('type: "dateTime"');
   } else if (typeKind === "date") {
-    schemaExpression = 'Type.String({ format: "date", minLength: 1 })';
+    entries.push('type: "date"');
   } else if (typeKind === "time") {
-    return column.nullable === true
-      ? "NULLABLE_HTML_TIME_STRING_SCHEMA"
-      : "HTML_TIME_STRING_SCHEMA";
-  } else if (typeKind === "json") {
-    schemaExpression = "Type.Any()";
+    entries.push('type: "time"');
+  } else {
+    entries.push('type: "none"');
   }
 
-  if (column.nullable === true) {
-    return `Type.Union([${schemaExpression}, Type.Null()])`;
+  entries.push(`required: ${required}`);
+  if (column?.nullable === true) {
+    entries.push("nullable: true");
   }
-  return schemaExpression;
-}
 
-function renderResourceValidatorsImport({ htmlTimeSchemaImports = [], recordIdValidatorImports = [] } = {}) {
-  const imports = [
-    "normalizeObjectInput",
-    "createCursorListValidator"
-  ];
-  for (const importName of Array.isArray(recordIdValidatorImports) ? recordIdValidatorImports : []) {
-    if (!imports.includes(importName)) {
-      imports.push(importName);
+  const actualField = normalizeText(fieldContractEntry?.actualField);
+  if (actualField) {
+    entries.push(`actualField: ${JSON.stringify(actualField)}`);
+  }
+
+  if (fieldContractEntry?.storage?.mode === "virtual") {
+    entries.push("storage: { virtual: true }");
+  }
+
+  const parentRouteParamKey = normalizeText(fieldContractEntry?.parentRouteParamKey);
+  if (parentRouteParamKey) {
+    entries.push(`parentRouteParamKey: ${JSON.stringify(parentRouteParamKey)}`);
+  }
+
+  const relation = fieldContractEntry?.relation && typeof fieldContractEntry.relation === "object"
+    ? fieldContractEntry.relation
+    : null;
+  if (relation) {
+    const relationNamespace =
+      normalizeCrudLookupNamespace(relation.namespace) ||
+      normalizeCrudLookupNamespace(relation.apiPath) ||
+      normalizeCrudLookupNamespace(relation?.source?.path) ||
+      normalizeCrudLookupNamespace(relation.targetResource);
+    if (!relationNamespace) {
+      throw new Error(`crud template context field "${normalizeText(column?.key)}" lookup relation requires namespace.`);
     }
-  }
-  for (const importName of Array.isArray(htmlTimeSchemaImports) ? htmlTimeSchemaImports : []) {
-    if (!imports.includes(importName)) {
-      imports.push(importName);
+
+    const relationEntries = [
+      `kind: ${JSON.stringify(normalizeText(relation.kind) || "lookup")}`,
+      `namespace: ${JSON.stringify(relationNamespace)}`,
+      `valueKey: ${JSON.stringify(normalizeText(relation.valueKey) || "id")}`
+    ];
+    const labelKey = normalizeText(relation.labelKey);
+    if (labelKey) {
+      relationEntries.push(`labelKey: ${JSON.stringify(labelKey)}`);
     }
+    entries.push(`relation: { ${relationEntries.join(", ")} }`);
   }
-  return `import {\n  ${imports.join(",\n  ")}\n} from "@jskit-ai/kernel/shared/validators";`;
-}
 
-function resolveHtmlTimeSchemaImports(columns = []) {
-  const imports = [];
-  for (const column of Array.isArray(columns) ? columns : []) {
-    if (column?.typeKind !== "time") {
-      continue;
+  const fieldUiOptions = normalizeFieldMetaUiOptions(fieldContractEntry?.ui?.options);
+  const formControl = checkCrudLookupFormControl(fieldContractEntry?.ui?.formControl, {
+    context: `resource schema field "${normalizeText(column?.key)}" ui.formControl`,
+    defaultValue: relation ? "autocomplete" : (fieldUiOptions.length > 0 ? "select" : "")
+  });
+  if (formControl || fieldUiOptions.length > 0) {
+    const uiEntries = [];
+    if (formControl) {
+      uiEntries.push(`formControl: ${JSON.stringify(formControl)}`);
     }
-    const importName = column.nullable === true
-      ? "NULLABLE_HTML_TIME_STRING_SCHEMA"
-      : "HTML_TIME_STRING_SCHEMA";
-    if (!imports.includes(importName)) {
-      imports.push(importName);
+    if (fieldUiOptions.length > 0) {
+      uiEntries.push(`options: ${JSON.stringify(fieldUiOptions)}`);
     }
+    entries.push(`ui: { ${uiEntries.join(", ")} }`);
   }
-  return imports;
+
+  return [
+    "{",
+    ...entries.map((entry, index) => `  ${entry}${index < entries.length - 1 ? "," : ""}`),
+    "}"
+  ].join("\n");
 }
 
-function resolveRecordIdValidatorImports(...sources) {
-  const imports = ["recordIdSchema"];
-  const joinedSource = sources
-    .map((source) => String(source || ""))
-    .join("\n");
-  for (const importName of ["recordIdInputSchema", "nullableRecordIdSchema", "nullableRecordIdInputSchema"]) {
-    if (joinedSource.includes(importName)) {
-      imports.push(importName);
-    }
-  }
-  return imports;
-}
-
-function renderInputNormalizer(column) {
-  const typeKind = String(column.typeKind || "");
-  const nullable = column?.nullable === true;
-  if (typeKind === "string") {
-    return "normalizeText";
-  }
-  if (typeKind === "time") {
-    if (nullable) {
-      return "(value) => { const normalized = normalizeText(value); return normalized || null; }";
-    }
-    return "normalizeText";
-  }
-  if (typeKind === "integer") {
-    if (column?.isRecordIdColumn === true) {
-      if (nullable) {
-        return "(value) => normalizeRecordId(value, { fallback: null })";
-      }
-      return "normalizeRecordId";
-    }
-    return "normalizeFiniteInteger";
-  }
-  if (typeKind === "number") {
-    return "normalizeFiniteNumber";
-  }
-  if (typeKind === "boolean") {
-    return "normalizeBoolean";
-  }
-  if (typeKind === "datetime") {
-    if (nullable) {
-      return "(value) => { const normalized = normalizeText(value); return normalized ? toIsoString(normalized) : null; }";
-    }
-    return "toIsoString";
-  }
-  if (typeKind === "date") {
-    if (nullable) {
-      return "(value) => { const normalized = normalizeText(value); return normalized ? toIsoString(normalized).slice(0, 10) : null; }";
-    }
-    return "(value) => toIsoString(value).slice(0, 10)";
-  }
-  if (typeKind === "json") {
-    return "(value) => parseJsonValue(value, null, { fallback: null, allowNull: true })";
-  }
-  return "(value) => value";
-}
-
-function renderOutputNormalizerExpression(column) {
-  const typeKind = String(column.typeKind || "");
-  const nullable = column?.nullable === true;
-  if (typeKind === "string" || typeKind === "time") {
-    return "normalizeText";
-  }
-  if (typeKind === "integer") {
-    if (column?.isRecordIdColumn === true) {
-      if (nullable) {
-        return "(value) => normalizeRecordId(value, { fallback: null })";
-      }
-      return "normalizeRecordId";
-    }
-    return "normalizeFiniteInteger";
-  }
-  if (typeKind === "number") {
-    return "normalizeFiniteNumber";
-  }
-  if (typeKind === "boolean") {
-    return "normalizeBoolean";
-  }
-  if (typeKind === "datetime") {
-    return "toIsoString";
-  }
-  if (typeKind === "date") {
-    return "(value) => toIsoString(value).slice(0, 10)";
-  }
-  if (typeKind === "json") {
-    return "(value) => parseJsonValue(value, null, { fallback: null, allowNull: true })";
-  }
-  return "";
-}
-
-function renderResourceSchemaPropertyLines(columns, { forOutput = false } = {}) {
-  const sourceColumns = Array.isArray(columns) ? columns : [];
-  return sourceColumns
-    .map((column) => {
-      const key = renderObjectPropertyKey(column.key);
-      const schemaExpression = renderResourceFieldSchema(column, { forOutput });
-      return `    ${key}: ${schemaExpression},`;
-    })
-    .join("\n");
-}
-
-function renderResourceInputNormalizationLines(columns) {
-  const sourceColumns = Array.isArray(columns) ? columns : [];
-  return sourceColumns
-    .map((column) => {
-      const keyLiteral = JSON.stringify(String(column.key || ""));
-      const normalizer = renderInputNormalizer(column);
-      return `  normalizeIfInSource(source, normalized, ${keyLiteral}, ${normalizer});`;
-    })
-    .join("\n");
-}
-
-function renderResourceOutputNormalizationLines(columns) {
-  const sourceColumns = Array.isArray(columns) ? columns : [];
-  return sourceColumns
-    .map((column) => {
-      const key = renderObjectPropertyKey(column.key);
-      const sourceAccess = renderPropertyAccess("source", column.key);
-      const normalizer = renderOutputNormalizerExpression(column);
-      if (!normalizer) {
-        return `    ${key}: ${sourceAccess},`;
-      }
-      const nullishNormalizer = column.nullable === true ? "normalizeOrNull" : "normalizeIfPresent";
-      return `    ${key}: ${nullishNormalizer}(${sourceAccess}, ${normalizer}),`;
-    })
-    .join("\n");
-}
-
-function renderResourceDatabaseRuntimeImport({ needsToIsoString = false, needsToDatabaseDateTimeUtc = false } = {}) {
-  const imports = [];
-  if (needsToIsoString) {
-    imports.push("toIsoString");
-  }
-  if (needsToDatabaseDateTimeUtc) {
-    imports.push("toDatabaseDateTimeUtc");
-  }
-  if (imports.length < 1) {
-    return "";
-  }
-  return `import {\n  ${imports.join(",\n  ")}\n} from "@jskit-ai/database-runtime/shared";`;
-}
-
-function renderResourceJsonImport({ needsJson = false } = {}) {
-  if (!needsJson) {
-    return "";
-  }
-  return 'import { parseJsonValue } from "@jskit-ai/database-runtime/shared/repositoryOptions";';
-}
-
-function renderResourceNormalizeSupportImport({
-  needsNormalizeText = false,
-  needsNormalizeBoolean = false,
-  needsNormalizeFiniteNumber = false,
-  needsNormalizeFiniteInteger = false,
-  needsNormalizeRecordId = false,
-  needsNormalizeIfInSource = false,
-  needsNormalizeIfPresent = false,
-  needsNormalizeOrNull = false
+function renderResourceSchemaPropertyLines(columns, {
+  forOutput = false,
+  mode = "create",
+  fieldContractEntries = []
 } = {}) {
-  const imports = [];
-  if (needsNormalizeText) {
-    imports.push("normalizeText");
-  }
-  if (needsNormalizeBoolean) {
-    imports.push("normalizeBoolean");
-  }
-  if (needsNormalizeFiniteNumber) {
-    imports.push("normalizeFiniteNumber");
-  }
-  if (needsNormalizeFiniteInteger) {
-    imports.push("normalizeFiniteInteger");
-  }
-  if (needsNormalizeRecordId) {
-    imports.push("normalizeRecordId");
-  }
-  if (needsNormalizeIfInSource) {
-    imports.push("normalizeIfInSource");
-  }
-  if (needsNormalizeIfPresent) {
-    imports.push("normalizeIfPresent");
-  }
-  if (needsNormalizeOrNull) {
-    imports.push("normalizeOrNull");
-  }
-  if (imports.length < 1) {
-    return "";
-  }
-  return `import {\n  ${imports.join(",\n  ")}\n} from "@jskit-ai/kernel/shared/support/normalize";`;
+  const sourceColumns = Array.isArray(columns) ? columns : [];
+  const fieldContractByKey = Object.fromEntries(
+    (Array.isArray(fieldContractEntries) ? fieldContractEntries : [])
+      .map((entry) => [normalizeText(entry?.key), entry])
+      .filter(([key]) => key)
+  );
+  return sourceColumns
+    .map((column) => {
+      const key = renderObjectPropertyKey(column.key);
+      const schemaLines = renderResourceFieldSchema(column, {
+        forOutput,
+        mode,
+        fieldContractEntry: fieldContractByKey[normalizeText(column?.key)] || null
+      }).split("\n");
+      const lines = [`  ${key}: ${schemaLines[0]}`];
+      for (const line of schemaLines.slice(1)) {
+        lines.push(`  ${line}`);
+      }
+      lines[lines.length - 1] = `${lines[lines.length - 1]},`;
+      return lines.join("\n");
+    })
+    .join("\n");
 }
 
 function renderMigrationDefaultClause(column) {
@@ -1411,7 +1258,7 @@ function resolveEnumFieldMetaUiOptions(enumValues = []) {
   return normalizeFieldMetaUiOptions(options);
 }
 
-function buildFieldMetaEntries({ outputColumns = [], writableColumns = [], snapshot = {} } = {}) {
+function buildFieldContractEntries({ outputColumns = [], writableColumns = [], snapshot = {} } = {}) {
   const fieldColumns = [...outputColumns, ...writableColumns];
   const fieldColumnsByName = new Map();
   const fieldColumnsByKey = new Map();
@@ -1507,115 +1354,6 @@ function buildFieldMetaEntries({ outputColumns = [], writableColumns = [], snaps
   }
 
   return mergeFieldMetaEntries(repositoryEntries, relationEntries, enumEntries);
-}
-
-function renderFieldMetaEntryLines(entry = {}) {
-  const lines = ["RESOURCE_FIELD_META.push({"];
-  const topLevelProperties = [`key: ${JSON.stringify(entry.key)}`];
-  const repositoryColumn = normalizeText(entry?.repository?.column);
-  const repositoryWriteSerializer = normalizeText(entry?.repository?.writeSerializer);
-  if (repositoryColumn || repositoryWriteSerializer) {
-    const repositoryLines = [
-      "repository: {",
-      ...(repositoryColumn ? [`  column: ${JSON.stringify(repositoryColumn)}`] : []),
-      ...(repositoryWriteSerializer ? [`  writeSerializer: ${JSON.stringify(repositoryWriteSerializer)}`] : [])
-    ];
-    if (repositoryLines.length > 2) {
-      repositoryLines[repositoryLines.length - 1] = repositoryLines[repositoryLines.length - 1].replace(/,$/, "");
-    }
-    repositoryLines.push("}");
-    for (let index = 1; index < repositoryLines.length - 1; index += 1) {
-      if (index < repositoryLines.length - 2) {
-        repositoryLines[index] = `${repositoryLines[index]},`;
-      }
-    }
-    topLevelProperties.push(repositoryLines.join("\n"));
-  }
-
-  const relation = entry.relation && typeof entry.relation === "object" ? entry.relation : null;
-  if (relation) {
-    const targetResourceNamespace = normalizeCrudLookupNamespace(relation.targetResource);
-    const relationNamespace =
-      normalizeCrudLookupNamespace(relation.namespace) ||
-      normalizeCrudLookupNamespace(relation.apiPath) ||
-      normalizeCrudLookupNamespace(relation?.source?.path) ||
-      targetResourceNamespace;
-    if (!relationNamespace) {
-      throw new Error(`crud template context fieldMeta["${normalizeText(entry.key)}"] lookup relation requires namespace.`);
-    }
-    const relationLines = [
-      "relation: {",
-      `  kind: ${JSON.stringify(normalizeText(relation.kind) || "lookup")},`,
-      `  namespace: ${JSON.stringify(relationNamespace)},`,
-      `  valueKey: ${JSON.stringify(normalizeText(relation.valueKey) || "id")},`
-    ];
-    const labelKey = normalizeText(relation.labelKey);
-    if (labelKey) {
-      relationLines.push(`  labelKey: ${JSON.stringify(labelKey)}`);
-    } else {
-      relationLines[relationLines.length - 1] = relationLines[relationLines.length - 1].replace(/,$/, "");
-    }
-    relationLines.push("}");
-    topLevelProperties.push(relationLines.join("\n"));
-  }
-
-  const fieldUiOptions = normalizeFieldMetaUiOptions(entry?.ui?.options);
-  const formControl = checkCrudLookupFormControl(entry?.ui?.formControl, {
-    context: `resource.fieldMeta["${normalizeText(entry.key)}"].ui.formControl`,
-    defaultValue: relation ? "autocomplete" : (fieldUiOptions.length > 0 ? "select" : "")
-  });
-  if (formControl || fieldUiOptions.length > 0) {
-    const uiPropertyBlocks = [];
-    if (formControl) {
-      uiPropertyBlocks.push([
-        `formControl: ${JSON.stringify(formControl)}${relation ? " // or \"select\"" : ""}`
-      ]);
-    }
-    if (fieldUiOptions.length > 0) {
-      const optionsJsonLines = JSON.stringify(fieldUiOptions, null, 2).split("\n");
-      const optionPropertyLines = [`options: ${optionsJsonLines[0]}`];
-      for (const jsonLine of optionsJsonLines.slice(1)) {
-        optionPropertyLines.push(jsonLine);
-      }
-      uiPropertyBlocks.push(optionPropertyLines);
-    }
-
-    const uiLines = ["ui: {"];
-    for (const [propertyIndex, propertyLines] of uiPropertyBlocks.entries()) {
-      const isLastProperty = propertyIndex >= uiPropertyBlocks.length - 1;
-      const propertySuffix = isLastProperty ? "" : ",";
-      for (const [lineIndex, line] of propertyLines.entries()) {
-        const isLastLine = lineIndex >= propertyLines.length - 1;
-        uiLines.push(`  ${line}${isLastLine ? propertySuffix : ""}`);
-      }
-    }
-    uiLines.push("}");
-    topLevelProperties.push(
-      uiLines.join("\n")
-    );
-  }
-
-  for (const [index, propertyBlock] of topLevelProperties.entries()) {
-    const blockLines = String(propertyBlock || "").split("\n");
-    const isLastProperty = index >= topLevelProperties.length - 1;
-    const propertySuffix = isLastProperty ? "" : ",";
-    for (const [lineIndex, line] of blockLines.entries()) {
-      const isLastLine = lineIndex >= blockLines.length - 1;
-      lines.push(`  ${line}${isLastLine ? propertySuffix : ""}`);
-    }
-  }
-
-  lines.push("});");
-  return lines.join("\n");
-}
-
-function renderResourceFieldMetaPushLines(entries = []) {
-  const sourceEntries = Array.isArray(entries) ? entries : [];
-  if (sourceEntries.length < 1) {
-    return "";
-  }
-
-  return sourceEntries.map((entry) => renderFieldMetaEntryLines(entry)).join("\n\n");
 }
 
 function renderRepositoryListConfigLines(snapshot = {}) {
@@ -1739,14 +1477,14 @@ function renderRouteParamsValidatorLine(operation = "", { surfaceRequiresWorkspa
     if (!surfaceRequiresWorkspace) {
       return "";
     }
-    return "      paramsValidator: routeParamsValidator,";
+    return "      params: routeParamsValidator,";
   }
 
   if (!surfaceRequiresWorkspace) {
-    return "      paramsValidator: recordIdParamsValidator,";
+    return "      params: recordIdParamsValidator,";
   }
 
-  return "      paramsValidator: [routeParamsValidator, recordIdParamsValidator],";
+  return "      params: [routeParamsValidator, recordIdParamsValidator],";
 }
 
 function renderRouteInputLines(operation = "", { surfaceRequiresWorkspace = true } = {}) {
@@ -1801,9 +1539,9 @@ function renderActionInputValidatorExpression(operation = "", { surfaceRequiresW
   } else if (normalizedOperation === "view") {
     validators.push("recordIdParamsValidator", "lookupIncludeQueryValidator");
   } else if (normalizedOperation === "create") {
-    validators.push("{ payload: resource.operations.create.bodyValidator }");
+    validators.push("{ payload: resource.operations.create.body }");
   } else if (normalizedOperation === "update") {
-    validators.push("recordIdParamsValidator", "{ patch: resource.operations.patch.bodyValidator }");
+    validators.push("recordIdParamsValidator", "{ patch: resource.operations.patch.body }");
   } else {
     validators.push("recordIdParamsValidator");
   }
@@ -1822,38 +1560,11 @@ function buildReplacementsFromSnapshot({
   const scaffoldColumns = resolveScaffoldColumns(snapshot);
   const outputColumns = scaffoldColumns.filter((column) => !column.isOwnerColumn);
   const writableColumns = scaffoldColumns.filter((column) => column.writable);
-  const createRequiredFieldKeys = writableColumns
-    .filter((column) => !column.nullable && column.hasDefault !== true)
-    .map((column) => column.key);
-  const resourceColumns = [...outputColumns, ...writableColumns];
-  const fieldMetaEntries = buildFieldMetaEntries({
+  const fieldContractEntries = buildFieldContractEntries({
     outputColumns,
     writableColumns,
     snapshot
   });
-  const needsFiniteInteger = resourceColumns.some((column) => column.typeKind === "integer" && column.isRecordIdColumn !== true);
-  const needsRecordIdSchemas = resourceColumns.some((column) => column.typeKind === "integer" && column.isRecordIdColumn === true);
-  const needsFiniteNumber = resourceColumns.some((column) => column.typeKind === "number");
-  const needsDateTimeOutput = outputColumns.some((column) => column.typeKind === "datetime");
-  const needsNullableDateTimeInput = writableColumns.some(
-    (column) => column.typeKind === "datetime" && column.nullable === true
-  );
-  const needsNullableDateInput = writableColumns.some(
-    (column) => column.typeKind === "date" && column.nullable === true
-  );
-  const htmlTimeSchemaImports = resolveHtmlTimeSchemaImports(resourceColumns);
-  const needsDate = resourceColumns.some((column) => column.typeKind === "date");
-  const needsJson = resourceColumns.some((column) => column.typeKind === "json");
-  const needsNormalizeText = resourceColumns.some((column) =>
-    column.typeKind === "string" || column.typeKind === "time"
-  ) || needsNullableDateTimeInput || needsNullableDateInput;
-  const needsNormalizeBoolean = resourceColumns.some((column) => column.typeKind === "boolean");
-  const needsNormalizeIfInSource = writableColumns.length > 0;
-  const outputColumnsWithNormalizer = outputColumns.filter(
-    (column) => Boolean(renderOutputNormalizerExpression(column))
-  );
-  const needsNormalizeIfPresent = outputColumnsWithNormalizer.some((column) => column.nullable !== true);
-  const needsNormalizeOrNull = outputColumnsWithNormalizer.some((column) => column.nullable === true);
 
   const replacements = Object.freeze({
     __JSKIT_CRUD_TABLE_NAME__: JSON.stringify(snapshot.tableName),
@@ -1934,44 +1645,21 @@ function buildReplacementsFromSnapshot({
     __JSKIT_CRUD_DELETE_ROUTE_INPUT_LINES__: renderRouteInputLines("delete", {
       surfaceRequiresWorkspace
     }),
-    __JSKIT_CRUD_RESOURCE_VALIDATORS_IMPORT__: renderResourceValidatorsImport({
-      htmlTimeSchemaImports,
-      recordIdValidatorImports: resolveRecordIdValidatorImports(
-        renderResourceSchemaPropertyLines(outputColumns, {
-          forOutput: true
-        }),
-        renderResourceSchemaPropertyLines(writableColumns, {
-          forOutput: false
-        })
-      )
-    }),
-    __JSKIT_CRUD_RESOURCE_DATABASE_RUNTIME_IMPORT__: renderResourceDatabaseRuntimeImport({
-      needsToIsoString: needsDateTimeOutput || needsDate || writableColumns.some((column) => column.typeKind === "datetime"),
-      needsToDatabaseDateTimeUtc: false
-    }),
-    __JSKIT_CRUD_RESOURCE_NORMALIZE_SUPPORT_IMPORT__: renderResourceNormalizeSupportImport({
-      needsNormalizeText,
-      needsNormalizeBoolean,
-      needsNormalizeFiniteNumber: needsFiniteNumber,
-      needsNormalizeFiniteInteger: needsFiniteInteger,
-      needsNormalizeRecordId: needsRecordIdSchemas,
-      needsNormalizeIfInSource,
-      needsNormalizeIfPresent,
-      needsNormalizeOrNull
-    }),
-    __JSKIT_CRUD_RESOURCE_JSON_IMPORT__: renderResourceJsonImport({
-      needsJson
-    }),
     __JSKIT_CRUD_RESOURCE_OUTPUT_SCHEMA_PROPERTIES__: renderResourceSchemaPropertyLines(outputColumns, {
-      forOutput: true
+      forOutput: true,
+      mode: "replace",
+      fieldContractEntries
     }),
     __JSKIT_CRUD_RESOURCE_CREATE_SCHEMA_PROPERTIES__: renderResourceSchemaPropertyLines(writableColumns, {
-      forOutput: false
+      forOutput: false,
+      mode: "create",
+      fieldContractEntries
     }),
-    __JSKIT_CRUD_RESOURCE_INPUT_NORMALIZATION_LINES__: renderResourceInputNormalizationLines(writableColumns),
-    __JSKIT_CRUD_RESOURCE_OUTPUT_NORMALIZATION_LINES__: renderResourceOutputNormalizationLines(outputColumns),
-    __JSKIT_CRUD_RESOURCE_CREATE_REQUIRED_FIELDS__: JSON.stringify(createRequiredFieldKeys),
-    __JSKIT_CRUD_RESOURCE_FIELD_META_PUSH_LINES__: renderResourceFieldMetaPushLines(fieldMetaEntries),
+    __JSKIT_CRUD_RESOURCE_PATCH_SCHEMA_PROPERTIES__: renderResourceSchemaPropertyLines(writableColumns, {
+      forOutput: false,
+      mode: "patch",
+      fieldContractEntries
+    }),
     __JSKIT_CRUD_LIST_CONFIG_LINES__: renderRepositoryListConfigLines(snapshot),
     __JSKIT_CRUD_MIGRATION_COLUMN_LINES__: renderMigrationColumnLines(snapshot),
     __JSKIT_CRUD_MIGRATION_INDEX_LINES__: renderMigrationIndexLines(snapshot),
@@ -2086,13 +1774,10 @@ const __testables = Object.freeze({
   renderMigrationCheckConstraintLines,
   renderMigrationForeignKeyLine,
   resolveScaffoldColumns,
-  renderPropertyAccess,
   renderResourceFieldSchema,
-  renderInputNormalizer,
-  renderOutputNormalizerExpression,
   resolveCrudGenerationTableName,
   resolveGenerationSnapshot,
-  buildFieldMetaEntries,
+  buildFieldContractEntries,
   resolveDefaultCrudSurfaceIdFromAppConfig,
   resolveCrudGenerationSurfaceId,
   resolveCrudSurfaceRequiresWorkspace,
@@ -2108,12 +1793,9 @@ const __testables = Object.freeze({
 export {
   buildTemplateContext,
   resolveScaffoldColumns,
-  renderPropertyAccess,
   resolveGenerationSnapshot,
   renderResourceFieldSchema,
-  renderInputNormalizer,
-  renderOutputNormalizerExpression,
-  buildFieldMetaEntries,
+  buildFieldContractEntries,
   resolveCrudGenerationSurfaceId,
   __testables
 };

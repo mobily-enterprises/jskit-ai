@@ -6,10 +6,9 @@
     "test": "node --test"
   },
   "exports": {
+    "./server/jsonRestApiHost": "./src/server/common/jsonRestApiHost.js",
     "./server/profileSyncLifecycleContributorRegistry": "./src/server/profileSyncLifecycleContributorRegistry.js",
-    "./shared/settings": "./src/shared/settings.js",
     "./shared/resources/userProfileResource": "./src/shared/resources/userProfileResource.js",
-    "./shared/resources/userSettingsFields": "./src/shared/resources/userSettingsFields.js",
     "./shared/resources/userSettingsResource": "./src/shared/resources/userSettingsResource.js"
   },
   "dependencies": {
@@ -19,6 +18,9 @@
     "@jskit-ai/kernel": "0.1.55",
     "@jskit-ai/uploads-runtime": "0.1.33",
     "@fastify/type-provider-typebox": "^6.1.0",
+    "hooked-api": "file:../../../hooked-api",
+    "json-rest-api": "file:../../../json-rest-api",
+    "json-rest-schema": "file:../../../json-rest-schema",
     "typebox": "^1.0.81"
   }
 }

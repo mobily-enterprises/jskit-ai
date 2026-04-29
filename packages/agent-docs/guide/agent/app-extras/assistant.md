@@ -181,7 +181,7 @@ For example:
     require: "all",
     permissions: ["workspace.members.invite"]
   },
-  inputValidator: {
+  input: {
     schema: {
       type: "object",
       properties: {
@@ -191,7 +191,7 @@ For example:
       additionalProperties: false
     }
   },
-  outputValidator: {
+  output: {
     schema: {
       type: "object",
       properties: {

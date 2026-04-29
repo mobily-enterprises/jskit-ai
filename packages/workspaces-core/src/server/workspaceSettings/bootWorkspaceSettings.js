@@ -24,9 +24,9 @@ function bootWorkspaceSettings(app) {
         tags: ["workspace"],
         summary: "Get workspace settings and role catalog by workspace slug"
       },
-      paramsValidator: workspaceSlugParamsValidator,
-      responseValidators: withStandardErrorResponses({
-        200: workspaceSettingsResource.operations.view.outputValidator
+      params: workspaceSlugParamsValidator,
+      responses: withStandardErrorResponses({
+        200: workspaceSettingsResource.operations.view.output
       })
     },
     async function (request, reply) {
@@ -51,11 +51,11 @@ function bootWorkspaceSettings(app) {
         tags: ["workspace"],
         summary: "Update workspace settings by workspace slug"
       },
-      paramsValidator: workspaceSlugParamsValidator,
-      bodyValidator: workspaceSettingsResource.operations.patch.bodyValidator,
-      responseValidators: withStandardErrorResponses(
+      params: workspaceSlugParamsValidator,
+      body: workspaceSettingsResource.operations.patch.body,
+      responses: withStandardErrorResponses(
         {
-          200: workspaceSettingsResource.operations.patch.outputValidator
+          200: workspaceSettingsResource.operations.patch.output
         },
         { includeValidation400: true }
       )

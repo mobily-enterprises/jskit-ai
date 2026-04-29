@@ -78,8 +78,9 @@ test("listPendingInvitesForUser returns raw pending invite rows for the action l
   });
 
   assert.equal(pendingInvites.length, 1);
-  assert.equal(pendingInvites[0].tokenHash, tokenHash);
+  assert.equal(pendingInvites[0].token, encodeInviteTokenHash(tokenHash));
   assert.equal(pendingInvites[0].workspaceName, "TonyMobily3");
+  assert.equal(pendingInvites[0].status, "pending");
 });
 
 test("acceptInviteByToken accepts opaque invite token and resolves invite by decoded hash", async () => {

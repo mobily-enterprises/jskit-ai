@@ -15,8 +15,8 @@ const workspacePendingInvitationsActions = Object.freeze([
     permission: {
       require: "authenticated"
     },
-    inputValidator: EMPTY_INPUT_VALIDATOR,
-    outputValidator: workspacePendingInvitationsResource.operations.list.outputValidator,
+    input: EMPTY_INPUT_VALIDATOR,
+    output: workspacePendingInvitationsResource.operations.list.output,
     idempotency: "none",
     audit: {
       actionName: "workspace.invitations.pending.list"
@@ -39,10 +39,10 @@ const workspacePendingInvitationsActions = Object.freeze([
     permission: {
       require: "authenticated"
     },
-    inputValidator: {
-      payload: workspaceMembersResource.operations.redeemInvite.bodyValidator
+    input: {
+      payload: workspaceMembersResource.operations.redeemInvite.body
     },
-    outputValidator: workspaceMembersResource.operations.redeemInvite.outputValidator,
+    output: workspaceMembersResource.operations.redeemInvite.output,
     idempotency: "optional",
     audit: {
       actionName: "workspace.invite.redeem"

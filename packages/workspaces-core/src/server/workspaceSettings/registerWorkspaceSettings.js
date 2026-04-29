@@ -1,5 +1,6 @@
 import { withActionDefaults } from "@jskit-ai/kernel/shared/actions";
 import { resolveAppConfig } from "@jskit-ai/kernel/server/support";
+import { INTERNAL_JSON_REST_API } from "@jskit-ai/users-core/server/jsonRestApiHost";
 import { deepFreeze } from "../common/support/deepFreeze.js";
 import { createRepository as createWorkspaceSettingsRepository } from "./workspaceSettingsRepository.js";
 import { createService as createWorkspaceSettingsService } from "./workspaceSettingsService.js";
@@ -23,9 +24,12 @@ function registerWorkspaceSettings(app) {
   }
 
   app.singleton("internal.repository.workspace-settings", (scope) => {
+    const api = scope.make(INTERNAL_JSON_REST_API);
     const knex = scope.make("jskit.database.knex");
     const appConfig = resolveAppConfig(scope);
-    return createWorkspaceSettingsRepository(knex, {
+    return createWorkspaceSettingsRepository({
+      api,
+      knex,
       defaultInvitesEnabled: resolveWorkspaceSettingsDefaultInvitesEnabled(appConfig)
     });
   });

@@ -18,12 +18,9 @@ Use this on demand; do not load the full index at startup.
 Exports
 - `buildTemplateContext(input = {})`
 - `resolveScaffoldColumns(snapshot)`
-- `renderPropertyAccess(sourceName, key)`
 - `resolveGenerationSnapshot({ appRoot, tableName, idColumnOption } = {})`
-- `renderResourceFieldSchema(column, { forOutput = false } = {})`
-- `renderInputNormalizer(column)`
-- `renderOutputNormalizerExpression(column)`
-- `buildFieldMetaEntries({ outputColumns = [], writableColumns = [], snapshot = {} } = {})`
+- `renderResourceFieldSchema(column, { forOutput = false, mode = "create", fieldContractEntry = null } = {})`
+- `buildFieldContractEntries({ outputColumns = [], writableColumns = [], snapshot = {} } = {})`
 - `resolveCrudGenerationSurfaceId({ appRoot, options } = {})`
 - `__testables`
 Local functions
@@ -53,17 +50,9 @@ Local functions
 - `resolveColumnNumericBounds(snapshot = {})`
 - `isIdentifier(value)`
 - `renderObjectPropertyKey(value)`
-- `renderIntegerSchema(column)`
-- `renderStringSchema(column, { forOutput = false } = {})`
-- `renderResourceValidatorsImport({ htmlTimeSchemaImports = [], recordIdValidatorImports = [] } = {})`
-- `resolveHtmlTimeSchemaImports(columns = [])`
-- `resolveRecordIdValidatorImports(...sources)`
-- `renderResourceSchemaPropertyLines(columns, { forOutput = false } = {})`
-- `renderResourceInputNormalizationLines(columns)`
-- `renderResourceOutputNormalizationLines(columns)`
-- `renderResourceDatabaseRuntimeImport({ needsToIsoString = false, needsToDatabaseDateTimeUtc = false } = {})`
-- `renderResourceJsonImport({ needsJson = false } = {})`
-- `renderResourceNormalizeSupportImport({ needsNormalizeText = false, needsNormalizeBoolean = false, needsNormalizeFiniteNumber = false, needsNormalizeFiniteInteger = false, needsNormalizeRecordId = false, needsNormalizeIfInSource = false, needsNormalizeIfPresent = false, needsNormalizeOrNull = false } = {})`
+- `renderBoundedNumberEntries(column)`
+- `resolveResourceFieldRequired(column, { forOutput = false, mode = "create" } = {})`
+- `renderResourceSchemaPropertyLines(columns, { forOutput = false, mode = "create", fieldContractEntries = [] } = {})`
 - `renderMigrationDefaultClause(column)`
 - `renderMigrationSpecificStringType(column, { tableCollation = "" } = {})`
 - `renderTemporalColumnBuilder(column, methodName)`
@@ -82,8 +71,6 @@ Local functions
 - `toSelectOptionLabel(value)`
 - `normalizeFieldMetaUiOptions(rawOptions = [])`
 - `resolveEnumFieldMetaUiOptions(enumValues = [])`
-- `renderFieldMetaEntryLines(entry = {})`
-- `renderResourceFieldMetaPushLines(entries = [])`
 - `renderRepositoryListConfigLines(snapshot = {})`
 - `buildCrudPermissionIds(namespace = "")`
 - `normalizeCrudOperation(operation = "", context = "CRUD operation")`
@@ -117,38 +104,27 @@ Local functions
 - `parseSubcommandArgs(args = [])`
 - `resolveRequestedTableConfig(source = "", options = {}, context = "crud-server-generator scaffold-field")`
 - `resolveColumnForField(snapshot = {}, fieldKey = "", { idColumn = "id" } = {})`
-- `buildFieldMetaEntry(snapshot = {}, column = {})`
-- `collectKnownIdentifiers(expression = "")`
-- `resolveImportsForField({ inputNormalizationExpression = "", outputNormalizationExpression = "" } = {})`
-- `resolveOutputNormalizationExpression(column = {})`
+- `buildFieldContractEntry(snapshot = {}, column = {})`
 
 ### `src/server/subcommands/resourceAst.js`
 Exports
 - `resolveCrudResourceDefaults(source = "", context = "crud-server-generator scaffold-field")`
-- `applyCrudResourceFieldPatch(source = "", { fieldKey = "", outputSchemaExpression = "", createSchemaExpression = "", outputNormalizationExpression = "", inputNormalizationExpression = "", fieldMetaEntry = null, normalizeImportNames = [], databaseRuntimeImportNames = [], databaseRuntimeRepositoryOptionsImportNames = [], context = "crud-server-generator scaffold-field" } = {})`
+- `applyCrudResourceFieldPatch(source = "", { fieldKey = "", outputSchemaExpression = "", createSchemaExpression = "", patchSchemaExpression = "", context = "crud-server-generator scaffold-field" } = {})`
 Local functions
 - `isIdentifierName(value = "")`
 - `parseModule(source = "", context = "crud-server-generator scaffold-field")`
 - `parseExpression(source = "", context = "crud-server-generator scaffold-field")`
-- `parseStatement(source = "", context = "crud-server-generator scaffold-field")`
 - `resolveNodeKeyName(keyNode, { computed = false } = {})`
 - `createObjectPropertyKeyNode(key = "")`
 - `findVariableDeclarator(programNode, variableName = "")`
 - `requireVariableDeclarator(programNode, variableName = "", context = "crud-server-generator scaffold-field")`
-- `requireSchemaPropertiesObject(programNode, variableName = "", context = "crud-server-generator scaffold-field")`
-- `requireObjectFreezePayloadObject(programNode, variableName = "", context = "crud-server-generator scaffold-field")`
+- `requireCreateSchemaFieldsObject(programNode, variableName = "", context = "crud-server-generator scaffold-field")`
+- `unwrapObjectExpression(expressionNode, context = "crud-server-generator scaffold-field")`
+- `requireResourceObject(programNode, variableName = "resource", context = "crud-server-generator scaffold-field")`
 - `findObjectPropertyByName(objectNode, propertyName = "")`
-- `requireNormalizeFunctionBody(programNode, variableName = "", context = "crud-server-generator scaffold-field")`
-- `requireNormalizedObjectLiteral(functionBody, context = "crud-server-generator scaffold-field")`
 - `hasObjectProperty(objectNode, propertyName = "")`
 - `insertObjectProperty(objectNode, propertyName = "", valueExpressionSource = "", { context = "crud-server-generator scaffold-field", insertBeforeComputed = false } = {})`
-- `hasNormalizeIfInSourceCall(functionBody, fieldKey = "")`
-- `resolveReturnNormalizedIndex(functionBody)`
-- `hasResourceFieldMetaEntry(programNode, fieldKey = "")`
-- `sortImportSpecifiers(importDeclaration)`
-- `ensureNamedImport(programNode, modulePath = "", importName = "")`
 - `resolveObjectPropertyStringValue(objectNode, propertyName = "")`
-- `renderResourceFieldMetaPushStatement(entry = {})`
 
 ### `src/shared/crud/crudResource.js`
 Exports

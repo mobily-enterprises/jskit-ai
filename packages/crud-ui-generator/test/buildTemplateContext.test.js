@@ -85,7 +85,7 @@ const resource = {
   namespace: "customers",
   operations: {
     list: {
-      outputValidator: {
+      output: {
         schema: {
           type: "object",
           properties: {
@@ -100,23 +100,23 @@ const resource = {
       }
     },
     view: {
-      outputValidator: {
+      output: {
         schema: customerRecordSchema
       }
     },
     create: {
-      bodyValidator: {
+      body: {
         schema: customerBodySchema
       },
-      outputValidator: {
+      output: {
         schema: customerRecordSchema
       }
     },
     patch: {
-      bodyValidator: {
+      body: {
         schema: customerBodySchema
       },
-      outputValidator: {
+      output: {
         schema: customerRecordSchema
       }
     }
@@ -149,7 +149,7 @@ const resource = {
   namespace: "customers",
   operations: {
     list: {
-      outputValidator: {
+      output: {
         schema: {
           type: "object",
           properties: {
@@ -164,23 +164,23 @@ const resource = {
       }
     },
     view: {
-      outputValidator: {
+      output: {
         schema: customerRecordSchema
       }
     },
     create: {
-      bodyValidator: {
+      body: {
         schema: customerBodySchema
       },
-      outputValidator: {
+      output: {
         schema: customerRecordSchema
       }
     },
     patch: {
-      bodyValidator: {
+      body: {
         schema: customerBodySchema
       },
-      outputValidator: {
+      output: {
         schema: customerRecordSchema
       }
     }
@@ -202,7 +202,19 @@ const SELECT_RESOURCE_SOURCE = `const recordSchema = {
 const bodySchema = {
   type: "object",
   properties: {
-    type: { type: "string", enum: ["dryer", "pallet racking", "freezer", "coolroom"] }
+    type: {
+      type: "string",
+      enum: ["dryer", "pallet racking", "freezer", "coolroom"],
+      ui: {
+        formControl: "select",
+        options: [
+          { value: "dryer", label: "Dryer" },
+          { value: "pallet racking", label: "Pallet Racking" },
+          { value: "freezer", label: "Freezer" },
+          { value: "coolroom", label: "Coolroom" }
+        ]
+      }
+    }
   },
   additionalProperties: false
 };
@@ -211,7 +223,7 @@ const resource = {
   namespace: "locations",
   operations: {
     list: {
-      outputValidator: {
+      output: {
         schema: {
           type: "object",
           properties: {
@@ -226,41 +238,27 @@ const resource = {
       }
     },
     view: {
-      outputValidator: {
+      output: {
         schema: recordSchema
       }
     },
     create: {
-      bodyValidator: {
+      body: {
         schema: bodySchema
       },
-      outputValidator: {
+      output: {
         schema: recordSchema
       }
     },
     patch: {
-      bodyValidator: {
+      body: {
         schema: bodySchema
       },
-      outputValidator: {
+      output: {
         schema: recordSchema
       }
     }
-  },
-  fieldMeta: [
-    {
-      key: "type",
-      ui: {
-        formControl: "select",
-        options: [
-          { value: "dryer", label: "Dryer" },
-          { value: "pallet racking", label: "Pallet Racking" },
-          { value: "freezer", label: "Freezer" },
-          { value: "coolroom", label: "Coolroom" }
-        ]
-      }
-    }
-  ]
+  }
 };
 
 export { resource };
@@ -279,7 +277,18 @@ const LOOKUP_RESOURCE_SOURCE = `const recordSchema = {
 const bodySchema = {
   type: "object",
   properties: {
-    serviceId: { type: ["integer", "null"] },
+    serviceId: {
+      type: ["integer", "null"],
+      relation: {
+        kind: "lookup",
+        namespace: "services",
+        valueKey: "id",
+        surfaceId: "console"
+      },
+      ui: {
+        formControl: "autocomplete"
+      }
+    },
     name: { type: "string", maxLength: 255 }
   },
   additionalProperties: false
@@ -289,7 +298,7 @@ const resource = {
   namespace: "customers",
   operations: {
     list: {
-      outputValidator: {
+      output: {
         schema: {
           type: "object",
           properties: {
@@ -304,41 +313,27 @@ const resource = {
       }
     },
     view: {
-      outputValidator: {
+      output: {
         schema: recordSchema
       }
     },
     create: {
-      bodyValidator: {
+      body: {
         schema: bodySchema
       },
-      outputValidator: {
+      output: {
         schema: recordSchema
       }
     },
     patch: {
-      bodyValidator: {
+      body: {
         schema: bodySchema
       },
-      outputValidator: {
+      output: {
         schema: recordSchema
       }
     }
-  },
-  fieldMeta: [
-    {
-      key: "serviceId",
-      relation: {
-        kind: "lookup",
-        namespace: "services",
-        valueKey: "id",
-        surfaceId: "console"
-      },
-      ui: {
-        formControl: "autocomplete"
-      }
-    }
-  ]
+  }
 };
 
 export { resource };

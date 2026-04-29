@@ -138,7 +138,7 @@ test("crud routes omit workspaceSlug for non-workspace calls and apply configure
   const createRoute = findRoute(registeredRoutes, "POST", "/api/customers");
   assert.ok(createRoute);
   assert.equal(createRoute.route.surface, "console");
-  assert.equal(createRoute.route.paramsValidator, undefined);
+  assert.equal(createRoute.route.params, undefined);
 
   const calls = [];
   const executeAction = async (payload) => {
@@ -195,9 +195,9 @@ test("crud non-workspace record routes validate only recordId params", () => {
   assert.ok(viewRoute);
   assert.ok(updateRoute);
   assert.ok(deleteRoute);
-  assert.equal(viewRoute.route.paramsValidator, recordIdParamsValidator);
-  assert.equal(updateRoute.route.paramsValidator, recordIdParamsValidator);
-  assert.equal(deleteRoute.route.paramsValidator, recordIdParamsValidator);
+  assert.equal(viewRoute.route.params, recordIdParamsValidator);
+  assert.equal(updateRoute.route.params, recordIdParamsValidator);
+  assert.equal(deleteRoute.route.params, recordIdParamsValidator);
 });
 
 test("crud routes validate route ownership filter values before registering visibility", () => {

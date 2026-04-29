@@ -97,7 +97,7 @@ test("users bootstrap contributor exposes the generic authenticated bootstrap pa
     }
   ]);
   assert.equal(payload.session.oauthDefaultProvider, "google");
-  assert.deepEqual(payload.userSettings, {});
+  assert.deepEqual(payload.userSettings, createUserSettings());
   assert.equal(payload.requestMeta.hasRequest, true);
 });
 

@@ -30,79 +30,10 @@ import {
 } from "./templateContext.js";
 import { normalizeMutationRelativeFilePath } from "./mutationPathUtils.js";
 
-const SETTINGS_FIELDS_CONTRACT_TARGETS = Object.freeze({
-  "packages/main/src/shared/resources/consoleSettingsFields.js": Object.freeze({
-    contractId: "console.settings-fields.v1",
-    marker: "@jskit-contract console.settings-fields.v1",
-    requiredSnippets: Object.freeze([
-      "defineField",
-      "resetConsoleSettingsFields"
-    ])
-  }),
-  "packages/main/src/shared/resources/workspaceSettingsFields.js": Object.freeze({
-    contractId: "users.settings-fields.workspace.v1",
-    marker: "@jskit-contract users.settings-fields.workspace.v1",
-    requiredSnippets: Object.freeze([
-      "defineField",
-      "resetWorkspaceSettingsFields"
-    ])
-  })
-});
 const PRE_FILE_CONFIG_MUTATION_TARGETS = new Set([
   "config/public.js",
   "config/server.js"
 ]);
-
-function resolveSettingsFieldsContractTarget(relativeFile = "") {
-  const normalizedRelativeFile = normalizeMutationRelativeFilePath(relativeFile);
-  if (!normalizedRelativeFile) {
-    return null;
-  }
-  const target = SETTINGS_FIELDS_CONTRACT_TARGETS[normalizedRelativeFile];
-  if (!target) {
-    return null;
-  }
-  return {
-    normalizedRelativeFile,
-    target
-  };
-}
-
-async function validateSettingsFieldsContractMutationTarget({
-  appRoot,
-  relativeFile,
-  packageId
-} = {}) {
-  const contractTarget = resolveSettingsFieldsContractTarget(relativeFile);
-  if (!contractTarget) {
-    return;
-  }
-
-  const { normalizedRelativeFile, target } = contractTarget;
-  const absoluteFile = path.join(appRoot, normalizedRelativeFile);
-  const existing = await readFileBufferIfExists(absoluteFile);
-  if (!existing.exists) {
-    throw createCliError(
-      `Invalid append-text mutation in ${packageId}: ${normalizedRelativeFile} is missing. ` +
-      `Install @jskit-ai/console-core to scaffold ${target.contractId}.`
-    );
-  }
-
-  const source = existing.buffer.toString("utf8");
-  if (!source.includes(target.marker)) {
-    throw createCliError(
-      `Invalid append-text mutation in ${packageId}: ${normalizedRelativeFile} is missing contract marker "${target.marker}".`
-    );
-  }
-  for (const snippet of target.requiredSnippets) {
-    if (source.includes(snippet)) {
-      continue;
-    }
-    throw createCliError(
-      `Invalid append-text mutation in ${packageId}: ${normalizedRelativeFile} must include "${snippet}" for ${target.contractId}.`
-    );
-  }
-}
 
 async function applyTextMutations(packageEntry, appRoot, textMutations, options, managedText, touchedFiles) {
   for (const mutation of textMutations) {
@@ -167,11 +98,6 @@ async function applyTextMutations(packageEntry, appRoot, textMutations, options,
       if (position !== "top" && position !== "bottom") {
         throw createCliError(`Invalid append-text mutation in ${packageEntry.packageId}: "position" must be "top" or "bottom".`);
       }
-      await validateSettingsFieldsContractMutationTarget({
-        appRoot,
-        relativeFile,
-        packageId: packageEntry.packageId
-      });
 
       const absoluteFile = path.join(appRoot, relativeFile);
       const previous = await readFileBufferIfExists(absoluteFile);

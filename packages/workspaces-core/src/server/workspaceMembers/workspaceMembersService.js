@@ -1,4 +1,5 @@
 import { normalizeRecordId } from "@jskit-ai/kernel/shared/support/normalize";
+import { normalizeLowerText, normalizeText } from "@jskit-ai/kernel/shared/actions/textNormalization";
 import { buildInviteToken, hashInviteToken } from "@jskit-ai/auth-core/server/inviteTokens";
 import { AppError } from "@jskit-ai/kernel/server/runtime/errors";
 import { OWNER_ROLE_ID, createWorkspaceRoleCatalog, cloneWorkspaceRoleCatalog } from "../../shared/roles.js";
@@ -41,6 +42,41 @@ function createService({
     };
   }
 
+  function mapWorkspaceSummary(workspace = {}) {
+    return {
+      id: normalizeRecordId(workspace.id, { fallback: "" }),
+      slug: normalizeText(workspace.slug),
+      name: normalizeText(workspace.name),
+      ownerUserId: normalizeRecordId(workspace.ownerUserId, { fallback: "" }),
+      avatarUrl: normalizeText(workspace.avatarUrl)
+    };
+  }
+
+  function mapMemberSummary(member = {}, workspace = {}) {
+    const userId = normalizeRecordId(member.userId, { fallback: "" });
+    const roleSid = normalizeLowerText(member.roleSid || "member") || "member";
+
+    return {
+      userId,
+      roleSid,
+      status: normalizeLowerText(member.status || "active") || "active",
+      displayName: normalizeText(member.displayName),
+      email: normalizeLowerText(member.email),
+      isOwner: userId === normalizeRecordId(workspace.ownerUserId, { fallback: "" }) || roleSid === OWNER_ROLE_ID
+    };
+  }
+
+  function mapInviteSummary(invite = {}) {
+    return {
+      id: normalizeRecordId(invite.id, { fallback: "" }),
+      email: normalizeLowerText(invite.email),
+      roleSid: normalizeLowerText(invite.roleSid || "member") || "member",
+      status: normalizeLowerText(invite.status || "pending") || "pending",
+      expiresAt: invite.expiresAt || null,
+      invitedByUserId: invite.invitedByUserId == null ? null : normalizeRecordId(invite.invitedByUserId, { fallback: null })
+    };
+  }
+
   async function listRoles(options = {}) {
     return cloneWorkspaceRoleCatalog({
       ...resolvedRoleCatalog,
@@ -52,8 +88,8 @@ function createService({
     const members = await workspaceMembershipsRepository.listActiveByWorkspaceId(workspace.id, options);
 
     return withRoleCatalog({
-      workspace,
-      members
+      workspace: mapWorkspaceSummary(workspace),
+      members: members.map((member) => mapMemberSummary(member, workspace))
     });
   }
 
@@ -63,7 +99,7 @@ function createService({
 
   async function updateMemberRole(workspace, payload = {}, options = {}) {
     const memberUserId = normalizeRecordId(payload.memberUserId, { fallback: null });
-    const roleSid = payload.roleSid;
+    const roleSid = normalizeLowerText(payload.roleSid || "");
     if (!memberUserId) {
       throw new AppError(400, "Validation failed.");
     }
@@ -130,8 +166,8 @@ function createService({
     const invites = await workspaceInvitesRepository.listPendingByWorkspaceIdWithWorkspace(workspace.id, options);
 
     return withRoleCatalog({
-      workspace,
-      invites
+      workspace: mapWorkspaceSummary(workspace),
+      invites: invites.map((invite) => mapInviteSummary(invite))
     });
   }
 
@@ -140,8 +176,8 @@ function createService({
   }
 
   async function createInvite(workspace, user, payload = {}, options = {}) {
-    const email = payload.email;
-    const roleSid = payload.roleSid;
+    const email = normalizeLowerText(payload.email);
+    const roleSid = normalizeLowerText(payload.roleSid || "member") || "member";
     if (!assignableRoleIds.includes(roleSid)) {
       throw new AppError(400, "Validation failed.", {
         details: {

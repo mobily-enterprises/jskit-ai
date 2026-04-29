@@ -10,7 +10,15 @@ const RESOURCE_SOURCE = `const contactRecordSchema = {
   properties: {
     id: { type: "integer" },
     firstName: { type: "string" },
-    vetId: { type: ["integer", "null"] }
+    vetId: {
+      type: ["integer", "null"],
+      relation: {
+        kind: "lookup",
+        apiPath: "/vets",
+        valueKey: "id",
+        labelKey: "name"
+      }
+    }
   },
   additionalProperties: false
 };
@@ -19,17 +27,26 @@ const contactBodySchema = {
   type: "object",
   properties: {
     firstName: { type: "string", maxLength: 120 },
-    vetId: { type: ["integer", "null"] }
+    vetId: {
+      type: ["integer", "null"],
+      relation: {
+        kind: "lookup",
+        apiPath: "/vets",
+        valueKey: "id",
+        labelKey: "name"
+      },
+      ui: {
+        formControl: "autocomplete"
+      }
+    }
   },
   additionalProperties: false
 };
 
-const CONTACT_FIELD_META = [];
-
 const resource = {
   operations: {
     list: {
-      outputValidator: {
+      output: {
         schema: {
           type: "object",
           properties: {
@@ -43,39 +60,28 @@ const resource = {
       }
     },
     view: {
-      outputValidator: {
+      output: {
         schema: contactRecordSchema
       }
     },
     create: {
-      bodyValidator: {
+      body: {
         schema: contactBodySchema
       },
-      outputValidator: {
+      output: {
         schema: contactRecordSchema
       }
     },
     patch: {
-      bodyValidator: {
+      body: {
         schema: contactBodySchema
       },
-      outputValidator: {
+      output: {
         schema: contactRecordSchema
       }
     }
-  },
-  fieldMeta: CONTACT_FIELD_META
-};
-
-CONTACT_FIELD_META.push({
-  key: "vetId",
-  relation: {
-    kind: "lookup",
-    apiPath: "/vets",
-    valueKey: "id",
-    labelKey: "name"
   }
-});
+};
 
 export { resource };
 `;

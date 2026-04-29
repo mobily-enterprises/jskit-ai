@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { reactive } from "vue";
-import { Type } from "typebox";
+import { createSchema } from "json-rest-schema";
 import {
   normalizeCrudFormFields,
   createCrudFormModel,
@@ -291,30 +291,22 @@ test("resolveCrudFieldErrors returns Vuetify-compatible error arrays", () => {
   assert.deepEqual(resolveCrudFieldErrors({ name: "Name is required." }, "email"), []);
 });
 
-test("parseCrudResourceOperationInput validates and normalizes operation body payloads", () => {
+test("parseCrudResourceOperationInput validates and normalizes operation body payloads", async () => {
   const resource = {
     operations: {
       create: {
-        bodyValidator: {
-          schema: Type.Object(
-            {
-              name: Type.String({ minLength: 1 }),
-              age: Type.Integer({ minimum: 1 })
-            },
-            { additionalProperties: false }
-          ),
-          normalize(payload = {}) {
-            return {
-              name: String(payload.name || "").trim(),
-              age: Number(payload.age)
-            };
-          }
+        body: {
+          schema: createSchema({
+            name: { type: "string", required: true, minLength: 1 },
+            age: { type: "integer", required: true, min: 1 }
+          }),
+          mode: "create"
         }
       }
     }
   };
 
-  const validResult = parseCrudResourceOperationInput({
+  const validResult = await parseCrudResourceOperationInput({
     resource,
     operationName: "create",
     rawPayload: {
@@ -328,7 +320,7 @@ test("parseCrudResourceOperationInput validates and normalizes operation body pa
     age: 2
   });
 
-  const invalidResult = parseCrudResourceOperationInput({
+  const invalidResult = await parseCrudResourceOperationInput({
     resource,
     operationName: "create",
     rawPayload: {

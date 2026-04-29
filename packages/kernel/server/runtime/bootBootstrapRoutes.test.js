@@ -19,12 +19,9 @@ function createReplyDouble() {
   };
 }
 
-test("bootstrapQueryValidator normalizes generic query payloads", () => {
-  assert.deepEqual(bootstrapQueryValidator.normalize({}), {});
-  assert.deepEqual(bootstrapQueryValidator.normalize({ workspaceSlug: "  AcMe  ", page: "1" }), {
-    workspaceSlug: "  AcMe  ",
-    page: "1"
-  });
+test("bootstrapQueryValidator exposes the shared query schema only", () => {
+  assert.equal(typeof bootstrapQueryValidator.schema, "object");
+  assert.equal(Object.prototype.hasOwnProperty.call(bootstrapQueryValidator, "normalize"), false);
 });
 
 test("bootBootstrapRoutes registers GET /api/bootstrap and resolves contributors", async () => {
@@ -56,7 +53,7 @@ test("bootBootstrapRoutes registers GET /api/bootstrap and resolves contributors
 
   const bootstrapRoute = routes.find((entry) => entry.method === "GET" && entry.path === "/api/bootstrap");
   assert.ok(bootstrapRoute);
-  assert.equal(typeof bootstrapRoute.route.queryValidator.normalize, "function");
+  assert.equal(typeof bootstrapRoute.route.query?.schema, "object");
 
   const reply = createReplyDouble();
   await bootstrapRoute.handler(
