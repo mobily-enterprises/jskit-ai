@@ -37,7 +37,12 @@ const authLoginOAuthStartQueryValidator = deepFreeze({
 });
 
 const authLoginOAuthStartResponseValidator = deepFreeze({
-  schema: {}
+  schema: createSchema({
+    provider: { ...oauthProviderFieldDefinition, required: true },
+    returnTo: { ...oauthReturnToFieldDefinition, required: true },
+    url: { type: "string", required: true, minLength: 1, maxLength: 4096 }
+  }),
+  mode: "replace"
 });
 
 const authLoginOAuthStartCommand = deepFreeze({

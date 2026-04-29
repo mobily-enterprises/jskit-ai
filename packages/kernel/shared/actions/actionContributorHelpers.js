@@ -1,4 +1,4 @@
-import { Type } from "typebox";
+import { createSchema } from "json-rest-schema";
 import { normalizeObject, normalizePositiveInteger as toPositiveInteger } from "../support/normalize.js";
 import { hasPermission } from "../support/permissions.js";
 
@@ -20,7 +20,8 @@ const OBJECT_INPUT_VALIDATOR = Object.freeze({
 });
 
 const EMPTY_INPUT_VALIDATOR = Object.freeze({
-  schema: Type.Object({}, { additionalProperties: false })
+  schema: createSchema({}),
+  mode: "replace"
 });
 
 export {

@@ -1,29 +1,32 @@
+import { createSchema } from "json-rest-schema";
 import {
   EMPTY_INPUT_VALIDATOR,
   resolveRequest
 } from "@jskit-ai/kernel/shared/actions/actionContributorHelpers";
+import { deepFreeze } from "@jskit-ai/kernel/shared/support/deepFreeze";
 import { userSettingsResource } from "../../shared/resources/userSettingsResource.js";
 import { userProfileResource } from "../../shared/resources/userProfileResource.js";
+import { userSettingsOutputSchema } from "../../shared/resources/userSettingsResource.js";
 import { resolveActionUser } from "../common/support/resolveActionUser.js";
 
-const settingsProfileUpdateOutputValidator = Object.freeze({
-  settings: userSettingsResource.operations.view.output,
-  session: {
-    schema: {
-      anyOf: [
-        {
-          type: "object",
-          additionalProperties: true
-        },
-        {
-          type: "null"
-        }
-      ]
+const settingsProfileUpdateOutputValidator = deepFreeze({
+  schema: createSchema({
+    settings: {
+      type: "object",
+      required: true,
+      schema: userSettingsOutputSchema
+    },
+    session: {
+      type: "object",
+      required: true,
+      nullable: true,
+      additionalProperties: true
     }
-  }
+  }),
+  mode: "replace"
 });
 
-const accountProfileActions = Object.freeze([
+const accountProfileActions = deepFreeze([
   {
     id: "settings.read",
     version: 1,

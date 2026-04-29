@@ -219,7 +219,6 @@ export default Object.freeze({
       "runtime": {
         "@tanstack/vue-query": "5.92.12",
         "@mdi/js": "^7.4.47",
-        "@fastify/type-provider-typebox": "^6.1.0",
         "@jskit-ai/auth-core": "0.1.54",
         "@jskit-ai/http-runtime": "0.1.54",
         "@jskit-ai/kernel": "0.1.55",

@@ -1,18 +1,15 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { Type } from "@fastify/type-provider-typebox";
+import { createSchema } from "json-rest-schema";
 import {
   createCursorPagedListResponseSchema,
   createResource
 } from "../src/shared/validators/resource.js";
 
 test("createCursorPagedListResponseSchema builds items + nextCursor schema", () => {
-  const itemSchema = Type.Object(
-    {
-      id: Type.Integer({ minimum: 1 })
-    },
-    { additionalProperties: false }
-  );
+  const itemSchema = createSchema({
+    id: { type: "integer", required: true, min: 1 }
+  });
   const listSchema = createCursorPagedListResponseSchema(itemSchema);
 
   assert.equal(listSchema.type, "object");
@@ -24,26 +21,23 @@ test("createCursorPagedListResponseSchema builds items + nextCursor schema", () 
 test("createResource requires record/create/replace/patch schemas", () => {
   assert.throws(
     () => createResource({}),
-    /record must be a TypeBox schema object/
+    /record must be a schema object/
   );
 });
 
 test("createResource builds default list schema from record/listItem", () => {
-  const recordSchema = Type.Object(
-    {
-      id: Type.Integer({ minimum: 1 }),
-      name: Type.String({ minLength: 1 })
-    },
-    { additionalProperties: false }
-  );
-  const writeSchema = Type.Object(
-    {
-      name: Type.String({ minLength: 1 }),
-      color: Type.String({ minLength: 1 })
-    },
-    { additionalProperties: false }
-  );
-  const patchSchema = Type.Partial(writeSchema, { additionalProperties: false });
+  const recordSchema = createSchema({
+    id: { type: "integer", required: true, min: 1 },
+    name: { type: "string", required: true, minLength: 1 }
+  });
+  const writeSchema = createSchema({
+    name: { type: "string", required: true, minLength: 1 },
+    color: { type: "string", required: true, minLength: 1 }
+  });
+  const patchSchema = createSchema({
+    name: { type: "string", minLength: 1 },
+    color: { type: "string", minLength: 1 }
+  });
   const resource = createResource({
     record: recordSchema,
     create: writeSchema,
@@ -55,32 +49,35 @@ test("createResource builds default list schema from record/listItem", () => {
 });
 
 test("createResource accepts explicit list schema override", () => {
-  const recordSchema = Type.Object(
-    {
-      id: Type.Integer({ minimum: 1 })
-    },
-    { additionalProperties: false }
-  );
-  const writeSchema = Type.Object(
-    {
-      id: Type.Integer({ minimum: 1 })
-    },
-    { additionalProperties: false }
-  );
-  const patchSchema = Type.Partial(writeSchema, { additionalProperties: false });
-  const explicitListSchema = Type.Object(
-    {
-      rows: Type.Array(recordSchema),
-      meta: Type.Object(
-        {
-          page: Type.Integer({ minimum: 1 }),
-          pageSize: Type.Integer({ minimum: 1 })
-        },
-        { additionalProperties: false }
-      )
-    },
-    { additionalProperties: false }
-  );
+  const recordSchema = createSchema({
+    id: { type: "integer", required: true, min: 1 }
+  });
+  const writeSchema = createSchema({
+    id: { type: "integer", required: true, min: 1 }
+  });
+  const patchSchema = createSchema({
+    id: { type: "integer", min: 1 }
+  });
+  const explicitListSchema = {
+    type: "object",
+    additionalProperties: false,
+    required: ["rows", "meta"],
+    properties: {
+      rows: {
+        type: "array",
+        items: recordSchema.toJsonSchema({ mode: "replace" })
+      },
+      meta: {
+        type: "object",
+        additionalProperties: false,
+        required: ["page", "pageSize"],
+        properties: {
+          page: { type: "integer", minimum: 1 },
+          pageSize: { type: "integer", minimum: 1 }
+        }
+      }
+    }
+  };
 
   const resource = createResource({
     record: recordSchema,

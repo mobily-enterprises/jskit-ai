@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { Type } from "typebox";
+import { createSchema } from "json-rest-schema";
 import { createContainer } from "@jskit-ai/kernel/_testable";
 import { ActionRuntimeServiceProvider } from "@jskit-ai/kernel/server/actions";
 import { installServiceRegistrationApi } from "@jskit-ai/kernel/server/runtime";
@@ -211,10 +211,16 @@ test("service tool catalog hides actions that are not automation-enabled", () =>
         nonAutomationService: "demo.non_automation.service"
       },
       input: {
-        schema: Type.Object({}, { additionalProperties: false })
+        schema: createSchema({})
       },
       output: {
-        schema: Type.Array(Type.Object({}, { additionalProperties: true }))
+        schema: {
+          type: "array",
+          items: {
+            type: "object",
+            additionalProperties: true
+          }
+        }
       },
       idempotency: "none",
       audit: {
@@ -269,10 +275,20 @@ test("service tool catalog honors barred action ids", () => {
         auditService: "demo.audit.service"
       },
       input: {
-        schema: Type.Object({}, { additionalProperties: false })
+        schema: {
+          type: "object",
+          additionalProperties: false,
+          properties: {}
+        }
       },
       output: {
-        schema: Type.Array(Type.Object({}, { additionalProperties: true }))
+        schema: {
+          type: "array",
+          items: {
+            type: "object",
+            additionalProperties: true
+          }
+        }
       },
       idempotency: "none",
       audit: {
@@ -787,30 +803,40 @@ test("service tool catalog derives input schema from array action validators", (
       },
       input: [
         {
-          schema: Type.Object(
-            {
-              workspaceSlug: Type.String({ minLength: 1 })
-            },
-            { additionalProperties: false }
-          )
+          schema: createSchema({
+            workspaceSlug: {
+              type: "string",
+              required: true,
+              minLength: 1
+            }
+          })
         },
         {
-          schema: Type.Object(
-            {
-              name: Type.String({ minLength: 1 }),
-              surname: Type.String({ minLength: 1 })
+          schema: createSchema({
+            name: {
+              type: "string",
+              required: true,
+              minLength: 1
             },
-            { additionalProperties: false }
-          )
+            surname: {
+              type: "string",
+              required: true,
+              minLength: 1
+            }
+          })
         }
       ],
       output: {
-        schema: Type.Object(
-          {
-            id: Type.Integer()
+        schema: createSchema({
+          id: {
+            type: "integer",
+            required: true
           },
-          { additionalProperties: true }
-        )
+          payload: {
+            type: "object",
+            required: true
+          }
+        })
       },
       idempotency: "optional",
       audit: {
@@ -858,12 +884,13 @@ test("service tool catalog preserves section-map validators in tool schemas", ()
   );
 
   const patchValidator = Object.freeze({
-    schema: Type.Object(
-      {
-        name: Type.String({ minLength: 1 })
-      },
-      { additionalProperties: false }
-    )
+    schema: createSchema({
+      name: {
+        type: "string",
+        required: true,
+        minLength: 1
+      }
+    })
   });
 
   app.actions([
@@ -882,24 +909,25 @@ test("service tool catalog preserves section-map validators in tool schemas", ()
       },
       input: [
         {
-          schema: Type.Object(
-            {
-              workspaceSlug: Type.String({ minLength: 1 })
-            },
-            { additionalProperties: false }
-          )
+          schema: createSchema({
+            workspaceSlug: {
+              type: "string",
+              required: true,
+              minLength: 1
+            }
+          })
         },
         {
           patch: patchValidator
         }
       ],
       output: {
-        schema: Type.Object(
-          {
-            ok: Type.Boolean()
-          },
-          { additionalProperties: false }
-        )
+        schema: createSchema({
+          ok: {
+            type: "boolean",
+            required: true
+          }
+        })
       },
       idempotency: "optional",
       audit: {
@@ -973,22 +1001,32 @@ test("service tool catalog hides workspaceSlug parameter when workspace context 
         workspaceScopeService: "demo.workspace_scope.service"
       },
       input: {
-        schema: Type.Object(
-          {
-            workspaceSlug: Type.String({ minLength: 1 }),
-            name: Type.String({ minLength: 1 })
+        schema: createSchema({
+          workspaceSlug: {
+            type: "string",
+            required: true,
+            minLength: 1
           },
-          { additionalProperties: false }
-        )
+          name: {
+            type: "string",
+            required: true,
+            minLength: 1
+          }
+        })
       },
       output: {
-        schema: Type.Object(
-          {
-            workspaceSlug: Type.String({ minLength: 1 }),
-            name: Type.String({ minLength: 1 })
+        schema: createSchema({
+          workspaceSlug: {
+            type: "string",
+            required: true,
+            minLength: 1
           },
-          { additionalProperties: false }
-        )
+          name: {
+            type: "string",
+            required: true,
+            minLength: 1
+          }
+        })
       },
       idempotency: "optional",
       audit: {
@@ -1057,22 +1095,32 @@ test("service tool catalog injects workspaceSlug from requestMeta request params
         workspaceInjectionService: "demo.workspace_injection.service"
       },
       input: {
-        schema: Type.Object(
-          {
-            workspaceSlug: Type.String({ minLength: 1 }),
-            name: Type.String({ minLength: 1 })
+        schema: createSchema({
+          workspaceSlug: {
+            type: "string",
+            required: true,
+            minLength: 1
           },
-          { additionalProperties: false }
-        )
+          name: {
+            type: "string",
+            required: true,
+            minLength: 1
+          }
+        })
       },
       output: {
-        schema: Type.Object(
-          {
-            workspaceSlug: Type.String({ minLength: 1 }),
-            name: Type.String({ minLength: 1 })
+        schema: createSchema({
+          workspaceSlug: {
+            type: "string",
+            required: true,
+            minLength: 1
           },
-          { additionalProperties: false }
-        )
+          name: {
+            type: "string",
+            required: true,
+            minLength: 1
+          }
+        })
       },
       idempotency: "optional",
       audit: {
@@ -1159,32 +1207,28 @@ test("service tool catalog executes action-backed tools with object payloads", a
         customersService: "demo.customers.service"
       },
       input: {
-        schema: {
-          type: "object",
-          properties: {
-            recordId: {
-              type: "integer",
-              minimum: 1
-            },
-            name: {
-              type: "string"
-            }
+        schema: createSchema({
+          recordId: {
+            type: "integer",
+            required: true,
+            min: 1
           },
-          required: ["recordId"],
-          additionalProperties: false
-        }
+          name: {
+            type: "string"
+          }
+        })
       },
       output: {
-        schema: {
-          type: "object",
-          properties: {
-            id: {
-              type: "integer"
-            }
+        schema: createSchema({
+          id: {
+            type: "integer",
+            required: true
           },
-          required: ["id"],
-          additionalProperties: true
-        }
+          payload: {
+            type: "object",
+            required: true
+          }
+        })
       },
       idempotency: "optional",
       audit: {
@@ -1251,10 +1295,16 @@ test("service tool catalog hides automation actions from other surfaces", () => 
         require: "authenticated"
       },
       input: {
-        schema: Type.Object({}, { additionalProperties: false })
+        schema: createSchema({})
       },
       output: {
-        schema: Type.Array(Type.Object({}, { additionalProperties: true }))
+        schema: {
+          type: "array",
+          items: {
+            type: "object",
+            additionalProperties: true
+          }
+        }
       },
       idempotency: "none",
       audit: {
@@ -1276,10 +1326,16 @@ test("service tool catalog hides automation actions from other surfaces", () => 
         require: "authenticated"
       },
       input: {
-        schema: Type.Object({}, { additionalProperties: false })
+        schema: createSchema({})
       },
       output: {
-        schema: Type.Array(Type.Object({}, { additionalProperties: true }))
+        schema: {
+          type: "array",
+          items: {
+            type: "object",
+            additionalProperties: true
+          }
+        }
       },
       idempotency: "none",
       audit: {

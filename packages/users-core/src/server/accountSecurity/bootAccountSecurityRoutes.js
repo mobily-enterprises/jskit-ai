@@ -1,4 +1,3 @@
-import { Type } from "@fastify/type-provider-typebox";
 import { withStandardErrorResponses } from "@jskit-ai/http-runtime/shared/validators/errorResponses";
 import { userSettingsResource } from "../../shared/resources/userSettingsResource.js";
 
@@ -97,7 +96,7 @@ function bootAccountSecurityRoutes(app) {
       query: userSettingsResource.operations.oauthLinkStart.query,
       responses: withStandardErrorResponses(
         {
-          302: { schema: Type.Unknown() }
+          302: { schema: {} }
         },
         { includeValidation400: true }
       ),

@@ -347,7 +347,7 @@ Exports
 - `normalizeJsonRestSchemaFieldErrors`
 - `buildSchemaValidationError`
 - `normalizeSchemaValidationErrors`
-- `normalizeTypeBoxValidationErrors`
+- `validateSingleSchemaPayloadSync`
 - `validateSingleSchemaPayload`
 - `validateSchemaPayload`
 - `nestValidator`
@@ -376,6 +376,7 @@ Exports
 - `resolveValidatorSchemaMode(validator = null, { defaultMode = "create", context = "validator.mode" } = {})`
 - `resolveValidatorTransportSchema(validator = null, options = {})`
 - `executeJsonRestSchemaValidator(validator = null, payload, options = {})`
+- `executeJsonRestSchemaValidatorSync(validator = null, payload, options = {})`
 - `normalizeJsonRestSchemaFieldErrors(errors = {}, validator = null)`
 Local functions
 - `resolveJsonRestSchemaFieldMessages(validator = null, fieldName = "")`
@@ -412,6 +413,8 @@ Exports
 - `nullableRecordIdValidator`
 - `recordIdParamsValidator`
 - `positiveIntegerValidator`
+Local functions
+- `validateCanonicalRecordId(value)`
 
 ### `validators/resourceRequiredMetadata.js`
 Exports
@@ -430,6 +433,7 @@ Exports
 - `resolveSchemaTransportSchemaDefinition(value, { context = "schema definition", defaultMode = "" } = {})`
 - `resolveStructuredSchemaTransportSchema(value, { context = "schema definition", defaultMode = "" } = {})`
 - `executeJsonRestSchemaDefinition(value, payload, { context = "schema definition", defaultMode = "" } = {})`
+- `executeJsonRestSchemaDefinitionSync(value, payload, { context = "schema definition", defaultMode = "" } = {})`
 - `normalizeJsonRestSchemaFieldErrors`
 Local functions
 - `isSchemaLike(value)`
@@ -439,11 +443,12 @@ Local functions
 Exports
 - `buildSchemaValidationError({ message = "Schema validation failed.", fieldErrors = null, errors = null, cause } = {})`
 - `normalizeSchemaValidationErrors(schema)`
-- `normalizeTypeBoxValidationErrors(schema, payload)`
+- `validateSingleSchemaPayloadSync(schemaDefinition, payload, { phase = "input", context = "schema definition" } = {})`
 - `validateSingleSchemaPayload(schemaDefinition, payload, { phase = "input", context = "schema definition" } = {})`
 - `validateSchemaPayload(schemaDefinition, payload, { phase = "input", context = "schema definition" } = {})`
 Local functions
 - `normalizeFunctionSchemaResult(result, payload, { context = "schema definition" } = {})`
+- `assertSyncResult(result, { context = "schema definition" } = {})`
 
 ### actions
 

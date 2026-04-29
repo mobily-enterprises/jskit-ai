@@ -261,6 +261,12 @@ Exports
 Exports
 - `createOperationMessages({ validationMessage = "Validation failed.", apiValidationMessage = validationMessage } = {})`
 
+### `src/shared/resources/accountSettingsSchemas.js`
+Exports
+- `accountAvatarOutputSchema`
+- `userProfileOutputSchema`
+- `accountSecurityStatusSchema`
+
 ### `src/shared/resources/resolveGlobalArrayRegistry.js`
 Exports
 - `resolveGlobalArrayRegistry(symbolKey)`
@@ -276,6 +282,8 @@ Exports
 - `USER_SETTINGS_BOOTSTRAP_KEYS`
 - `USER_SETTINGS_NOTIFICATION_KEYS`
 - `USER_SETTINGS_PREFERENCE_KEYS`
+- `userSettingsOutputSchema`
+- `userSettingsOutputDefinition`
 - `userSettingsResource`
 
 ### `src/shared/settings.js`

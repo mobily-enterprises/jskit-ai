@@ -2,6 +2,7 @@ import { normalizeObject, normalizeText } from "../support/normalize.js";
 import { mergeObjectSchemas } from "./mergeObjectSchemas.js";
 import {
   executeJsonRestSchemaValidator,
+  executeJsonRestSchemaValidatorSync,
   hasJsonRestSchemaValidator,
   normalizeJsonRestSchemaFieldErrors,
   resolveValidatorSchemaMode,
@@ -249,6 +250,26 @@ async function executeJsonRestSchemaDefinition(value, payload, {
   });
 }
 
+function executeJsonRestSchemaDefinitionSync(value, payload, {
+  context = "schema definition",
+  defaultMode = ""
+} = {}) {
+  const normalized = normalizeSchemaDefinition(value, {
+    context,
+    allowArray: false,
+    defaultMode
+  });
+
+  if (!normalized || !hasJsonRestSchemaValidator(normalized)) {
+    return null;
+  }
+
+  return executeJsonRestSchemaValidatorSync(normalized, payload, {
+    defaultMode: defaultMode || "patch",
+    context: `${context}.mode`
+  });
+}
+
 export {
   hasJsonRestSchemaDefinition,
   isSchemaDefinitionSectionMap,
@@ -259,5 +280,6 @@ export {
   resolveSchemaTransportSchemaDefinition,
   resolveStructuredSchemaTransportSchema,
   executeJsonRestSchemaDefinition,
+  executeJsonRestSchemaDefinitionSync,
   normalizeJsonRestSchemaFieldErrors
 };

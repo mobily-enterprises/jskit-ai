@@ -134,6 +134,7 @@ Exports
 - `CRUD_LIST_FILTER_INVALID_VALUES_DISCARD`
 - `createCrudListFilters(definitions = {}, { columns = {}, apply = {} } = {})`
 Local functions
+- `createObjectSchema(properties = {})`
 - `normalizeCrudListFilterInvalidValues(value = "")`
 - `createSingleOrMultiValueSchema(itemSchema)`
 - `firstValue(value)`

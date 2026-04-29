@@ -74,6 +74,16 @@ async function executeJsonRestSchemaValidator(validator = null, payload, options
   return schema[mode](payload);
 }
 
+function executeJsonRestSchemaValidatorSync(validator = null, payload, options = {}) {
+  const schema = resolveValidatorSchemaSource(validator);
+  if (!isJsonRestSchemaInstance(schema)) {
+    return null;
+  }
+
+  const mode = resolveValidatorSchemaMode(validator, options);
+  return schema[mode](payload);
+}
+
 function resolveJsonRestSchemaFieldMessages(validator = null, fieldName = "") {
   const normalizedFieldName = normalizeText(fieldName);
   if (!normalizedFieldName) {
@@ -139,5 +149,6 @@ export {
   resolveValidatorSchemaMode,
   resolveValidatorTransportSchema,
   executeJsonRestSchemaValidator,
+  executeJsonRestSchemaValidatorSync,
   normalizeJsonRestSchemaFieldErrors
 };

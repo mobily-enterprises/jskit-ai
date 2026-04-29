@@ -1,4 +1,3 @@
-import { Type } from "typebox";
 import { resolveStructuredSchemaTransportSchema } from "./schemaDefinitions.js";
 
 function createCursorListValidator(itemValidator) {
@@ -15,14 +14,27 @@ function createCursorListValidator(itemValidator) {
   }
 
   return Object.freeze({
-    get schema() {
-      return Type.Object(
-        {
-          items: Type.Array(itemSchema),
-          nextCursor: Type.Union([Type.String({ minLength: 1 }), Type.Null()])
+    schema: {
+      type: "object",
+      additionalProperties: false,
+      required: ["items"],
+      properties: {
+        items: {
+          type: "array",
+          items: itemSchema
         },
-        { additionalProperties: false }
-      );
+        nextCursor: {
+          anyOf: [
+            {
+              type: "string",
+              minLength: 1
+            },
+            {
+              type: "null"
+            }
+          ]
+        }
+      }
     }
   });
 }

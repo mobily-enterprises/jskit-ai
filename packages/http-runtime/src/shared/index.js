@@ -1,5 +1,4 @@
 export { createPaginationQuerySchema } from "./validators/paginationQuery.js";
-export { registerTypeBoxFormats, __testables } from "./validators/typeboxFormats.js";
 export {
   fieldErrorsSchema,
   apiErrorDetailsSchema,

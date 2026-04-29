@@ -16,12 +16,14 @@ const pendingInviteRecordSchema = createSchema({
 });
 
 const pendingInvitationsListOutputDefinition = deepFreeze({
-  pendingInvites: {
-    schema: {
+  schema: createSchema({
+    pendingInvites: {
       type: "array",
-      items: pendingInviteRecordSchema.toJsonSchema({ mode: "replace" })
+      required: true,
+      items: pendingInviteRecordSchema
     }
-  }
+  }),
+  mode: "replace"
 });
 
 const WORKSPACE_PENDING_INVITATIONS_MESSAGES = createOperationMessages();

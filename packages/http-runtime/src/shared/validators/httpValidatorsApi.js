@@ -1,5 +1,4 @@
 import { createPaginationQuerySchema } from "./paginationQuery.js";
-import { registerTypeBoxFormats, __testables } from "./typeboxFormats.js";
 import {
   fieldErrorsSchema,
   apiErrorDetailsSchema,
@@ -36,8 +35,6 @@ import {
 
 const HTTP_VALIDATORS_API = Object.freeze({
   createPaginationQuerySchema,
-  registerTypeBoxFormats,
-  __testables,
   fieldErrorsSchema,
   apiErrorDetailsSchema,
   apiErrorResponseSchema,

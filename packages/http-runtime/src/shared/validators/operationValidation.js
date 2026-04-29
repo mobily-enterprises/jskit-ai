@@ -1,13 +1,10 @@
-import { Check, Errors } from "typebox/value";
-import { mapOperationIssues } from "./operationMessages.js";
 import { isRecord } from "@jskit-ai/kernel/shared/support/normalize";
 import {
-  executeJsonRestSchemaDefinition,
-  hasJsonRestSchemaDefinition,
   isSchemaDefinitionSectionMap,
   listSchemaDefinitions,
-  normalizeJsonRestSchemaFieldErrors,
-  selectPayloadForSchemaDefinition
+  selectPayloadForSchemaDefinition,
+  validateSingleSchemaPayload,
+  validateSingleSchemaPayloadSync
 } from "@jskit-ai/kernel/shared/validators";
 
 function resolveOperationSection(operation = {}, section = "body") {
@@ -20,10 +17,22 @@ function resolveOperationSection(operation = {}, section = "body") {
   return value;
 }
 
-function resolvePlainSchema(definition) {
-  return isRecord(definition) && Object.prototype.hasOwnProperty.call(definition, "schema")
-    ? definition.schema
-    : definition;
+function buildValidationFailureResult(error, normalized) {
+  const fieldErrors = error?.fieldErrors && typeof error.fieldErrors === "object"
+    ? error.fieldErrors
+    : {};
+  const globalErrors = Object.keys(fieldErrors).length < 1 && typeof error?.message === "string" && error.message.trim()
+    ? [error.message.trim()]
+    : [];
+
+  return {
+    ok: false,
+    value: null,
+    normalized,
+    fieldErrors,
+    globalErrors,
+    issues: []
+  };
 }
 
 function validateOperationSection({
@@ -127,27 +136,23 @@ function validateOperationSection({
     };
   }
 
-  if (hasJsonRestSchemaDefinition(sectionDefinition)) {
-    throw new TypeError(`Operation section "${section}" uses json-rest-schema and must be validated asynchronously.`);
+  try {
+    const normalized = validateSingleSchemaPayloadSync(sectionDefinition, value, {
+      phase: "input",
+      context: `operation section "${section}"`
+    });
+
+    return {
+      ok: true,
+      value: normalized,
+      normalized,
+      fieldErrors: {},
+      globalErrors: [],
+      issues: []
+    };
+  } catch (error) {
+    return buildValidationFailureResult(error, value);
   }
-
-  const schema = resolvePlainSchema(sectionDefinition);
-  if (!isRecord(schema)) {
-    throw new TypeError(`Operation section \"${section}\" requires a schema object.`);
-  }
-
-  const normalized = value;
-  const issues = Check(schema, normalized) ? [] : [...Errors(schema, normalized)];
-  const mapped = mapOperationIssues(issues, schema);
-
-  return {
-    ok: issues.length < 1,
-    value: issues.length < 1 ? normalized : null,
-    normalized,
-    fieldErrors: mapped.fieldErrors,
-    globalErrors: mapped.globalErrors,
-    issues
-  };
 }
 
 async function validateOperationSectionAsync({
@@ -247,29 +252,23 @@ async function validateOperationSectionAsync({
     };
   }
 
-  if (!hasJsonRestSchemaDefinition(sectionDefinition)) {
-    return validateOperationSection({
-      operation,
-      section,
-      value,
-      context
+  try {
+    const normalized = await validateSingleSchemaPayload(sectionDefinition, value, {
+      phase: "input",
+      context: `operation section "${section}"`
     });
+
+    return {
+      ok: true,
+      value: normalized,
+      normalized,
+      fieldErrors: {},
+      globalErrors: [],
+      issues: []
+    };
+  } catch (error) {
+    return buildValidationFailureResult(error, value);
   }
-
-  const result = await executeJsonRestSchemaDefinition(sectionDefinition, value, {
-    defaultMode: "patch",
-    context: `${section}`
-  });
-  const fieldErrors = normalizeJsonRestSchemaFieldErrors(result?.errors, sectionDefinition);
-
-  return {
-    ok: Object.keys(fieldErrors).length < 1,
-    value: Object.keys(fieldErrors).length < 1 ? (result?.validatedObject ?? value) : null,
-    normalized: result?.validatedObject ?? value,
-    fieldErrors,
-    globalErrors: [],
-    issues: []
-  };
 }
 
 function validateOperationInput({

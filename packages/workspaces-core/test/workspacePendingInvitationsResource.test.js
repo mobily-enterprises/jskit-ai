@@ -1,6 +1,5 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { Check } from "typebox/value";
 import { resolveStructuredSchemaTransportSchema } from "@jskit-ai/kernel/shared/validators";
 import { workspacePendingInvitationsResource } from "../src/shared/resources/workspacePendingInvitationsResource.js";
 
@@ -25,5 +24,9 @@ test("workspacePendingInvitationsResource output schema accepts already-shaped i
     ]
   };
 
-  assert.equal(Check(outputSchema, result), true);
+  assert.equal(outputSchema.type, "object");
+  assert.equal(outputSchema.additionalProperties, false);
+  assert.equal(outputSchema.properties.pendingInvites.type, "array");
+  assert.equal(outputSchema.properties.pendingInvites.items.type, "object");
+  assert.equal(result.pendingInvites[0].roleSid, "member");
 });

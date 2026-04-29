@@ -2,7 +2,10 @@ import { createSchema } from "json-rest-schema";
 import { createCursorListValidator } from "@jskit-ai/kernel/shared/validators";
 import { deepFreeze } from "@jskit-ai/kernel/shared/support/deepFreeze";
 import { createOperationMessages } from "../operationMessages.js";
-import { userProfileOutputSchema } from "./userProfileResource.js";
+import {
+  accountSecurityStatusSchema,
+  userProfileOutputSchema
+} from "./accountSettingsSchemas.js";
 
 const USER_SETTINGS_PREFERENCE_KEYS = deepFreeze([
   "theme",
@@ -112,32 +115,59 @@ const userSettingsNotificationsSchema = createSchema({
   }
 });
 
-const userSettingsOutputDefinition = deepFreeze({
+const userSettingsOutputSchema = createSchema({
   profile: {
-    schema: userProfileOutputSchema,
-    mode: "replace"
+    type: "object",
+    required: true,
+    schema: userProfileOutputSchema
   },
   security: {
-    schema: {
-      type: "object",
-      additionalProperties: true
-    }
+    type: "object",
+    required: true,
+    schema: accountSecurityStatusSchema
   },
   preferences: {
-    schema: userSettingsPreferencesSchema,
-    mode: "replace"
+    type: "object",
+    required: true,
+    schema: userSettingsPreferencesSchema
   },
   notifications: {
-    schema: userSettingsNotificationsSchema,
-    mode: "replace"
+    type: "object",
+    required: true,
+    schema: userSettingsNotificationsSchema
   }
 });
 
-const settingsActionOutputDefinition = deepFreeze({
-  schema: {
-    type: "object",
-    additionalProperties: true
-  }
+const userSettingsOutputDefinition = deepFreeze({
+  schema: userSettingsOutputSchema,
+  mode: "replace"
+});
+
+const passwordMethodToggleOutputDefinition = deepFreeze({
+  schema: createSchema({
+    securityStatus: {
+      type: "object",
+      required: true,
+      schema: accountSecurityStatusSchema
+    },
+    settings: {
+      type: "object",
+      required: true,
+      schema: userSettingsOutputSchema
+    }
+  }),
+  mode: "replace"
+});
+
+const oauthUnlinkOutputDefinition = deepFreeze({
+  schema: createSchema({
+    securityStatus: {
+      type: "object",
+      required: true,
+      schema: accountSecurityStatusSchema
+    }
+  }),
+  mode: "replace"
 });
 
 const passwordChangeBodyDefinition = deepFreeze({
@@ -236,6 +266,13 @@ const oauthLinkStartOutputDefinition = deepFreeze({
   mode: "replace"
 });
 
+const logoutOtherSessionsOutputDefinition = deepFreeze({
+  schema: createSchema({
+    ok: { type: "boolean", required: true }
+  }),
+  mode: "replace"
+});
+
 const emptyBodyDefinition = deepFreeze({
   schema: createSchema({}),
   mode: "patch"
@@ -311,7 +348,7 @@ const userSettingsResource = deepFreeze({
       method: "PATCH",
       messages: USER_SETTINGS_OPERATION_MESSAGES,
       body: passwordMethodToggleBodyDefinition,
-      output: settingsActionOutputDefinition
+      output: passwordMethodToggleOutputDefinition
     },
     oauthLinkStart: {
       method: "GET",
@@ -324,13 +361,13 @@ const userSettingsResource = deepFreeze({
       method: "DELETE",
       messages: USER_SETTINGS_OPERATION_MESSAGES,
       params: oauthProviderParamsDefinition,
-      output: settingsActionOutputDefinition
+      output: oauthUnlinkOutputDefinition
     },
     logoutOtherSessions: {
       method: "POST",
       messages: USER_SETTINGS_OPERATION_MESSAGES,
       body: emptyBodyDefinition,
-      output: settingsActionOutputDefinition
+      output: logoutOtherSessionsOutputDefinition
     }
   }
 });
@@ -340,5 +377,7 @@ export {
   USER_SETTINGS_BOOTSTRAP_KEYS,
   USER_SETTINGS_NOTIFICATION_KEYS,
   USER_SETTINGS_PREFERENCE_KEYS,
+  userSettingsOutputSchema,
+  userSettingsOutputDefinition,
   userSettingsResource
 };

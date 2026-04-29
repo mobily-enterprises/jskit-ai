@@ -1,6 +1,5 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { Type } from "typebox";
 import {
   normalizeRequiredFieldList,
   deriveRequiredFieldsFromSchema,
@@ -16,23 +15,37 @@ test("normalizeRequiredFieldList trims, dedupes, and drops empty entries", () =>
 });
 
 test("deriveRequiredFieldsFromSchema reads schema.required", () => {
-  const schema = Type.Object({
-    name: Type.String(),
-    color: Type.String(),
-    optionalField: Type.Optional(Type.String())
-  });
+  const schema = {
+    type: "object",
+    properties: {
+      name: { type: "string" },
+      color: { type: "string" },
+      optionalField: { type: "string" }
+    },
+    required: ["name", "color"]
+  };
 
   assert.deepEqual(deriveRequiredFieldsFromSchema(schema), ["name", "color"]);
-  assert.deepEqual(deriveRequiredFieldsFromSchema(Type.Partial(schema)), []);
+  assert.deepEqual(deriveRequiredFieldsFromSchema({
+    ...schema,
+    required: []
+  }), []);
 });
 
 test("deriveResourceRequiredMetadata reads create/replace/patch operation body schemas", () => {
-  const fullSchema = Type.Object({
-    name: Type.String(),
-    color: Type.String(),
-    invitesEnabled: Type.Boolean()
-  });
-  const patchSchema = Type.Partial(fullSchema);
+  const fullSchema = {
+    type: "object",
+    properties: {
+      name: { type: "string" },
+      color: { type: "string" },
+      invitesEnabled: { type: "boolean" }
+    },
+    required: ["name", "color", "invitesEnabled"]
+  };
+  const patchSchema = {
+    ...fullSchema,
+    required: []
+  };
   const resource = {
     operations: {
       create: { body: { schema: fullSchema } },

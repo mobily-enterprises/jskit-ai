@@ -1,6 +1,5 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { Type } from "@fastify/type-provider-typebox";
 import { compileRouteValidator } from "@jskit-ai/kernel/_testable";
 import { routeParamsValidator } from "../src/server/common/validators/routeParamsValidator.js";
 
@@ -11,21 +10,32 @@ test("routeParamsValidator exposes a shared workspace route params schema defini
 
 test("workspace route validator pipeline uses the shared params validator and merges query arrays automatically", async () => {
   const paginationQueryValidator = Object.freeze({
-    schema: Type.Object(
-      {
-        cursor: Type.Optional(Type.String({ minLength: 1 })),
-        limit: Type.Optional(Type.String({ pattern: "^[0-9]+$" }))
-      },
-      { additionalProperties: false }
-    )
+    schema: {
+      type: "object",
+      additionalProperties: false,
+      properties: {
+        cursor: {
+          type: "string",
+          minLength: 1
+        },
+        limit: {
+          type: "string",
+          pattern: "^[0-9]+$"
+        }
+      }
+    }
   });
   const searchQueryValidator = Object.freeze({
-    schema: Type.Object(
-      {
-        search: Type.Optional(Type.String({ minLength: 1 }))
-      },
-      { additionalProperties: false }
-    )
+    schema: {
+      type: "object",
+      additionalProperties: false,
+      properties: {
+        search: {
+          type: "string",
+          minLength: 1
+        }
+      }
+    }
   });
 
   const compiled = compileRouteValidator({

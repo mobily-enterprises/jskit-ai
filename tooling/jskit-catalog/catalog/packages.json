@@ -411,9 +411,9 @@
               "@jskit-ai/users-core": "0.1.65",
               "@tanstack/vue-query": "^5.90.5",
               "dompurify": "^3.3.3",
+              "json-rest-schema": "file:../../../json-rest-schema",
               "marked": "^17.0.4",
               "openai": "^6.22.0",
-              "typebox": "^1.0.81",
               "vuetify": "^4.0.0"
             },
             "dev": {}
@@ -1043,7 +1043,6 @@
             "runtime": {
               "@tanstack/vue-query": "5.92.12",
               "@mdi/js": "^7.4.47",
-              "@fastify/type-provider-typebox": "^6.1.0",
               "@jskit-ai/auth-core": "0.1.54",
               "@jskit-ai/http-runtime": "0.1.54",
               "@jskit-ai/kernel": "0.1.55",
@@ -1195,8 +1194,7 @@
               "@jskit-ai/database-runtime": "0.1.55",
               "@jskit-ai/http-runtime": "0.1.54",
               "@jskit-ai/kernel": "0.1.55",
-              "@jskit-ai/users-core": "0.1.65",
-              "typebox": "^1.0.81"
+              "@jskit-ai/users-core": "0.1.65"
             },
             "dev": {}
           },
@@ -1596,8 +1594,7 @@
               "@jskit-ai/kernel": "0.1.55",
               "@jskit-ai/realtime": "0.1.54",
               "@jskit-ai/users-core": "0.1.65",
-              "@local/${option:namespace|kebab}": "file:packages/${option:namespace|kebab}",
-              "typebox": "^1.0.81"
+              "@local/${option:namespace|kebab}": "file:packages/${option:namespace|kebab}"
             },
             "dev": {}
           },
@@ -2650,9 +2647,7 @@
         "mutations": {
           "dependencies": {
             "runtime": {
-              "@jskit-ai/kernel": "0.1.55",
-              "@fastify/type-provider-typebox": "^6.1.0",
-              "typebox": "^1.0.81"
+              "@jskit-ai/kernel": "0.1.55"
             },
             "dev": {}
           },
@@ -3835,9 +3830,7 @@
               "@jskit-ai/http-runtime": "0.1.54",
               "@jskit-ai/kernel": "0.1.55",
               "@local/users": "file:packages/users",
-              "@jskit-ai/uploads-runtime": "0.1.33",
-              "@fastify/type-provider-typebox": "^6.1.0",
-              "typebox": "^1.0.81"
+              "@jskit-ai/uploads-runtime": "0.1.33"
             },
             "dev": {}
           },

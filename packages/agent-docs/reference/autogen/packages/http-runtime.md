@@ -105,8 +105,6 @@ Local functions
 ### `src/shared/index.js`
 Exports
 - `createPaginationQuerySchema`
-- `registerTypeBoxFormats`
-- `__testables`
 - `fieldErrorsSchema`
 - `apiErrorDetailsSchema`
 - `apiErrorResponseSchema`
@@ -195,7 +193,7 @@ Exports
 - `validateOperationInputAsync({ operation = {}, input = {}, context = {} } = {})`
 Local functions
 - `resolveOperationSection(operation = {}, section = "body")`
-- `resolvePlainSchema(definition)`
+- `buildValidationFailureResult(error, normalized)`
 
 ### `src/shared/validators/paginationQuery.js`
 Exports
@@ -205,19 +203,12 @@ Exports
 Exports
 - `createCursorPagedListResponseSchema(itemSchema)`
 - `createResource({ record, create, replace, patch, list = null, listItem = null } = {})`
+Local functions
+- `resolveTransportSchema(schema, { label = "schema", defaultMode = "replace" } = {})`
 
 ### `src/shared/validators/schemaUtils.js`
 Exports
 - `asSchema(value, label)`
-
-### `src/shared/validators/typeboxFormats.js`
-Exports
-- `registerTypeBoxFormats()`
-- `__testables`
-Local functions
-- `isStrictUuid(value)`
-- `isStrictIsoUtcDateTime(value)`
-- `registerTypeBoxFormatsWith(formatRegistry)`
 
 ### root
 

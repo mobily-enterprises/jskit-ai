@@ -1,12 +1,12 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { Type } from "typebox";
+import { createSchema } from "json-rest-schema";
 
 import { ensureActionPermissionAllowed, normalizeActionInput, normalizeActionOutput } from "./policies.js";
 
 function createMockJsonRestSchema() {
   return {
-    async create(payload = {}) {
+    create(payload = {}) {
       const name = String(payload?.name || "").trim();
       const errors = {};
       if (!name) {
@@ -20,10 +20,10 @@ function createMockJsonRestSchema() {
         errors
       };
     },
-    async replace(payload = {}) {
+    replace(payload = {}) {
       return this.create(payload);
     },
-    async patch(payload = {}) {
+    patch(payload = {}) {
       if (!Object.hasOwn(payload || {}, "name")) {
         return {
           validatedObject: {},
@@ -103,35 +103,39 @@ test("function schema propagates validation errors", async () => {
   );
 });
 
-test("raw TypeBox action schemas validate input without reshaping it", async () => {
+test("plain json-rest-schema action schemas validate input without reshaping it", async () => {
   const definition = {
-    id: "tests.typebox",
+    id: "tests.schema",
     version: 1,
     input: {
-      schema: Type.Object(
-        {
-          workspaceSlug: Type.String({ minLength: 1 })
-        },
-        { additionalProperties: false }
-      )
+      schema: createSchema({
+        workspaceSlug: {
+          type: "string",
+          required: true,
+          minLength: 1
+        }
+      }),
+      mode: "replace"
     }
   };
 
   const result = await normalizeActionInput(definition, { workspaceSlug: "  ACME  " }, {});
-  assert.deepEqual(result, { workspaceSlug: "  ACME  " });
+  assert.deepEqual(result, { workspaceSlug: "ACME" });
 });
 
-test("typebox input validation normalizes pointer field errors to plain keys", async () => {
+test("json-rest-schema input validation surfaces plain field keys", async () => {
   const definition = {
-    id: "tests.typebox.errors",
+    id: "tests.schema.errors",
     version: 1,
     input: {
-      schema: Type.Object(
-        {
-          name: Type.String({ maxLength: 1 })
-        },
-        { additionalProperties: false }
-      )
+      schema: createSchema({
+        name: {
+          type: "string",
+          required: true,
+          maxLength: 1
+        }
+      }),
+      mode: "replace"
     }
   };
 
@@ -146,22 +150,23 @@ test("typebox input validation normalizes pointer field errors to plain keys", a
   );
 });
 
-test("action output validation does not reshape raw typebox output", async () => {
+test("action output validation preserves valid json-rest-schema output", async () => {
   const definition = {
     id: "tests.output",
     version: 1,
     output: {
-      schema: Type.Object(
-        {
-          ok: Type.Boolean()
-        },
-        { additionalProperties: false }
-      )
+      schema: createSchema({
+        ok: {
+          type: "boolean",
+          required: true
+        }
+      }),
+      mode: "replace"
     }
   };
 
   await assert.rejects(
-    () => normalizeActionOutput(definition, { ok: 1 }, {}),
+    () => normalizeActionOutput(definition, { ok: 2 }, {}),
     (error) => error?.code === "ACTION_OUTPUT_VALIDATION_FAILED"
   );
 

@@ -158,8 +158,7 @@ export default Object.freeze({
         "@jskit-ai/kernel": "0.1.55",
         "@jskit-ai/realtime": "0.1.54",
         "@jskit-ai/users-core": "0.1.65",
-        "@local/${option:namespace|kebab}": "file:packages/${option:namespace|kebab}",
-        "typebox": "^1.0.81"
+        "@local/${option:namespace|kebab}": "file:packages/${option:namespace|kebab}"
       },
       dev: {}
     },

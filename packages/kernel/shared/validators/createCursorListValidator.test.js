@@ -1,17 +1,24 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { Type } from "typebox";
 import { createCursorListValidator } from "./createCursorListValidator.js";
 
 test("createCursorListValidator builds a list validator from an item validator", () => {
   const itemValidator = {
-    schema: Type.Object(
-      {
-        id: Type.Integer({ minimum: 1 }),
-        label: Type.String({ minLength: 1 })
+    schema: {
+      type: "object",
+      additionalProperties: false,
+      properties: {
+        id: {
+          type: "integer",
+          minimum: 1
+        },
+        label: {
+          type: "string",
+          minLength: 1
+        }
       },
-      { additionalProperties: false }
-    )
+      required: ["id", "label"]
+    }
   };
 
   const listValidator = createCursorListValidator(itemValidator);

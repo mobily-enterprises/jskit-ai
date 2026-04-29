@@ -299,9 +299,15 @@ Exports
 Exports
 - `workspaceResource`
 
+### `src/shared/resources/workspaceRoleCatalogSchema.js`
+Exports
+- `workspaceRoleCatalogSchema`
+- `workspaceRoleDescriptorSchema`
+
 ### `src/shared/resources/workspaceSettingsResource.js`
 Exports
 - `WORKSPACE_SETTINGS_FIELD_KEYS`
+- `workspaceSettingsOutputSchema`
 - `workspaceSettingsResource`
 
 ### `src/shared/roles.js`

@@ -4,7 +4,7 @@ import { hasPermission, normalizePermissionList } from "../support/permissions.j
 import { isRecord, normalizeOpaqueId } from "../support/normalize.js";
 import {
   normalizeSchemaValidationErrors,
-  normalizeTypeBoxValidationErrors,
+  validateSingleSchemaPayloadSync,
   validateSingleSchemaPayload,
   validateSchemaPayload
 } from "../validators/schemaPayloadValidation.js";
@@ -189,7 +189,7 @@ const __testables = {
   normalizeText,
   normalizeLowerText,
   normalizeSchemaValidationErrors,
-  normalizeTypeBoxValidationErrors,
+  validateSingleSchemaPayloadSync,
   validateSingleSchemaPayload,
   validateSchemaPayload
 };

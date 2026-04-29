@@ -4,6 +4,7 @@ import {
   RECORD_ID_PATTERN
 } from "@jskit-ai/kernel/shared/validators";
 import { deepFreeze } from "@jskit-ai/kernel/shared/support/deepFreeze";
+import { workspaceRoleCatalogSchema } from "./workspaceRoleCatalogSchema.js";
 
 const WORKSPACE_SETTINGS_FIELD_KEYS = deepFreeze([
   "lightPrimaryColor",
@@ -145,40 +146,27 @@ const workspaceSettingsViewSchema = createSchema({
   invitesEffective: { type: "boolean", required: true }
 });
 
-const workspaceSettingsOutputDefinition = deepFreeze({
+const workspaceSettingsOutputSchema = createSchema({
   workspace: {
-    schema: workspaceSettingsWorkspaceOutputSchema,
-    mode: "replace"
+    type: "object",
+    required: true,
+    schema: workspaceSettingsWorkspaceOutputSchema
   },
   settings: {
-    schema: workspaceSettingsViewSchema,
-    mode: "replace"
+    type: "object",
+    required: true,
+    schema: workspaceSettingsViewSchema
   },
   roleCatalog: {
-    schema: {
-      type: "object",
-      additionalProperties: true,
-      properties: {
-        collaborationEnabled: { type: "boolean" },
-        defaultInviteRole: { type: "string" },
-        roles: {
-          type: "array",
-          items: {
-            type: "object",
-            additionalProperties: true
-          }
-        },
-        assignableRoleIds: {
-          type: "array",
-          items: {
-            type: "string",
-            minLength: 1
-          }
-        }
-      },
-      required: ["collaborationEnabled", "defaultInviteRole", "roles", "assignableRoleIds"]
-    }
+    type: "object",
+    required: true,
+    schema: workspaceRoleCatalogSchema
   }
+});
+
+const workspaceSettingsOutputDefinition = deepFreeze({
+  schema: workspaceSettingsOutputSchema,
+  mode: "replace"
 });
 
 const workspaceSettingsResource = deepFreeze({
@@ -227,5 +215,6 @@ const workspaceSettingsResource = deepFreeze({
 
 export {
   WORKSPACE_SETTINGS_FIELD_KEYS,
+  workspaceSettingsOutputSchema,
   workspaceSettingsResource
 };

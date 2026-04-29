@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { createContainer } from "../container/index.js";
 import { registerBootstrapPayloadContributor } from "../registries/bootstrapPayloadContributorRegistry.js";
-import { bootBootstrapRoutes, bootstrapQueryValidator } from "./bootBootstrapRoutes.js";
+import { bootBootstrapRoutes } from "./bootBootstrapRoutes.js";
 
 function createReplyDouble() {
   return {
@@ -18,11 +18,6 @@ function createReplyDouble() {
     }
   };
 }
-
-test("bootstrapQueryValidator exposes the shared query schema only", () => {
-  assert.equal(typeof bootstrapQueryValidator.schema, "object");
-  assert.equal(Object.prototype.hasOwnProperty.call(bootstrapQueryValidator, "normalize"), false);
-});
 
 test("bootBootstrapRoutes registers GET /api/bootstrap and resolves contributors", async () => {
   const app = createContainer();
@@ -53,15 +48,14 @@ test("bootBootstrapRoutes registers GET /api/bootstrap and resolves contributors
 
   const bootstrapRoute = routes.find((entry) => entry.method === "GET" && entry.path === "/api/bootstrap");
   assert.ok(bootstrapRoute);
-  assert.equal(typeof bootstrapRoute.route.query?.schema, "object");
+  assert.equal(Object.prototype.hasOwnProperty.call(bootstrapRoute.route, "query"), false);
+  assert.equal(Object.prototype.hasOwnProperty.call(bootstrapRoute.route, "responses"), false);
 
   const reply = createReplyDouble();
   await bootstrapRoute.handler(
     {
-      input: {
-        query: {
-          workspaceSlug: "acme"
-        }
+      query: {
+        workspaceSlug: "acme"
       }
     },
     reply

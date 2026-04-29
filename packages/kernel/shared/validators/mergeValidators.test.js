@@ -1,18 +1,21 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { Type } from "typebox";
 import { mergeValidators } from "./mergeValidators.js";
 
 test("mergeValidators merges schemas and sync normalizers", () => {
   const merged = mergeValidators(
     [
       {
-        schema: Type.Object(
-          {
-            workspaceSlug: Type.Optional(Type.String({ minLength: 1 }))
-          },
-          { additionalProperties: false }
-        ),
+        schema: {
+          type: "object",
+          additionalProperties: false,
+          properties: {
+            workspaceSlug: {
+              type: "string",
+              minLength: 1
+            }
+          }
+        },
         normalize(input = {}) {
           return {
             workspaceSlug: String(input.workspaceSlug || "").trim().toLowerCase()
@@ -20,12 +23,24 @@ test("mergeValidators merges schemas and sync normalizers", () => {
         }
       },
       {
-        schema: Type.Object(
-          {
-            recordId: Type.Optional(Type.Union([Type.Integer({ minimum: 1 }), Type.String({ minLength: 1 })]))
-          },
-          { additionalProperties: false }
-        ),
+        schema: {
+          type: "object",
+          additionalProperties: false,
+          properties: {
+            recordId: {
+              anyOf: [
+                {
+                  type: "integer",
+                  minimum: 1
+                },
+                {
+                  type: "string",
+                  minLength: 1
+                }
+              ]
+            }
+          }
+        },
         normalize(input = {}) {
           const parsed = Number(input.recordId);
           return {
@@ -52,12 +67,16 @@ test("mergeValidators merges async normalizers for action validators", async () 
   const merged = mergeValidators(
     [
       {
-        schema: Type.Object(
-          {
-            workspaceSlug: Type.Optional(Type.String({ minLength: 1 }))
-          },
-          { additionalProperties: false }
-        ),
+        schema: {
+          type: "object",
+          additionalProperties: false,
+          properties: {
+            workspaceSlug: {
+              type: "string",
+              minLength: 1
+            }
+          }
+        },
         async normalize(input = {}) {
           return {
             workspaceSlug: String(input.workspaceSlug || "").trim().toLowerCase()
@@ -65,12 +84,15 @@ test("mergeValidators merges async normalizers for action validators", async () 
         }
       },
       {
-        schema: Type.Object(
-          {
-            invitesEnabled: Type.Optional(Type.Boolean())
-          },
-          { additionalProperties: false }
-        ),
+        schema: {
+          type: "object",
+          additionalProperties: false,
+          properties: {
+            invitesEnabled: {
+              type: "boolean"
+            }
+          }
+        },
         normalize(input = {}) {
           return {
             invitesEnabled: input.invitesEnabled === true

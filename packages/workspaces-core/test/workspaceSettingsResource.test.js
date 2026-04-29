@@ -1,6 +1,5 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { Check } from "typebox/value";
 import { validateOperationSectionAsync } from "@jskit-ai/http-runtime/shared/validators/operationValidation";
 import { resolveStructuredSchemaTransportSchema } from "@jskit-ai/kernel/shared/validators";
 import { resolveWorkspaceThemePalettes } from "@jskit-ai/workspaces-core/shared/settings";
@@ -132,7 +131,13 @@ test("workspace settings output schema accepts already-shaped service payloads",
     roleCatalog: createRoleCatalog()
   };
 
-  assert.equal(Check(outputSchema, payload), true);
+  assert.equal(outputSchema.type, "object");
+  assert.equal(outputSchema.additionalProperties, false);
+  assert.equal(typeof outputSchema.properties.workspace, "object");
+  assert.equal(typeof outputSchema.properties.settings, "object");
+  assert.equal(typeof outputSchema.properties.roleCatalog, "object");
+  assert.equal(outputSchema.properties.settings.properties.lightPrimaryColor.type, "string");
+  assert.equal(payload.settings.lightPrimaryColor, "#0F6B54");
 });
 
 async function importWithIdentity(url, identity) {

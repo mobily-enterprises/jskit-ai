@@ -10,66 +10,64 @@ const MAX_HISTORY_MESSAGES = 20;
 const MAX_PAGE_SIZE = 200;
 const MAX_MESSAGE_PAGE_SIZE = 500;
 
-const historyMessageSchema = {
-  type: "object",
-  additionalProperties: false,
-  required: ["role", "content"],
-  properties: {
-    role: {
-      type: "string",
-      enum: ["user", "assistant"]
-    },
-    content: {
-      type: "string",
-      minLength: 1,
-      maxLength: MAX_INPUT_CHARS
-    }
+const historyMessageSchema = createSchema({
+  role: {
+    type: "string",
+    required: true,
+    enum: ["user", "assistant"]
+  },
+  content: {
+    type: "string",
+    required: true,
+    minLength: 1,
+    maxLength: MAX_INPUT_CHARS
   }
-};
+});
 
-const clientContextSchema = {
-  type: "object",
-  additionalProperties: false,
-  properties: {
-    locale: {
-      type: "string",
-      maxLength: 64
-    },
-    timezone: {
-      type: "string",
-      maxLength: 64
-    }
+const clientContextSchema = createSchema({
+  locale: {
+    type: "string",
+    required: false,
+    maxLength: 64
+  },
+  timezone: {
+    type: "string",
+    required: false,
+    maxLength: 64
   }
-};
+});
 
-const chatStreamBodySchema = {
-  type: "object",
-  additionalProperties: false,
-  required: ["messageId", "input"],
-  properties: {
-    messageId: {
-      type: "string",
-      minLength: 1,
-      maxLength: 128
-    },
-    conversationId: {
-      type: "string",
-      minLength: 1,
-      pattern: RECORD_ID_PATTERN
-    },
-    input: {
-      type: "string",
-      minLength: 1,
-      maxLength: MAX_INPUT_CHARS
-    },
-    history: {
-      type: "array",
-      maxItems: MAX_HISTORY_MESSAGES,
-      items: historyMessageSchema
-    },
-    clientContext: clientContextSchema
+const chatStreamBodySchema = createSchema({
+  messageId: {
+    type: "string",
+    required: true,
+    minLength: 1,
+    maxLength: 128
+  },
+  conversationId: {
+    type: "string",
+    required: false,
+    minLength: 1,
+    pattern: RECORD_ID_PATTERN
+  },
+  input: {
+    type: "string",
+    required: true,
+    minLength: 1,
+    maxLength: MAX_INPUT_CHARS
+  },
+  history: {
+    type: "array",
+    required: false,
+    maxItems: MAX_HISTORY_MESSAGES,
+    items: historyMessageSchema
+  },
+  clientContext: {
+    type: "object",
+    required: false,
+    schema: clientContextSchema
   }
-};
+});
 
 const conversationsListQuerySchema = createSchema({
   cursor: {
@@ -90,161 +88,147 @@ const conversationsListQuerySchema = createSchema({
   }
 });
 
-const conversationRecordSchema = {
-  type: "object",
-  additionalProperties: false,
-  required: [
-    "id",
-    "workspaceId",
-    "title",
-    "createdByUserId",
-    "status",
-    "provider",
-    "model",
-    "surfaceId",
-    "startedAt",
-    "endedAt",
-    "messageCount",
-    "metadata",
-    "createdAt",
-    "updatedAt"
-  ],
-  properties: {
-    id: {
-      type: "string",
-      minLength: 1,
-      pattern: RECORD_ID_PATTERN
-    },
-    workspaceId: {
-      anyOf: [
-        { type: "string", minLength: 1, pattern: RECORD_ID_PATTERN },
-        { type: "null" }
-      ]
-    },
-    title: {
-      type: "string"
-    },
-    createdByUserId: {
-      anyOf: [
-        { type: "string", minLength: 1, pattern: RECORD_ID_PATTERN },
-        { type: "null" }
-      ]
-    },
-    status: {
-      type: "string"
-    },
-    provider: {
-      type: "string"
-    },
-    model: {
-      type: "string"
-    },
-    surfaceId: {
-      type: "string"
-    },
-    startedAt: {
-      type: "string",
-      minLength: 1
-    },
-    endedAt: {
-      anyOf: [
-        { type: "string", minLength: 1 },
-        { type: "null" }
-      ]
-    },
-    messageCount: {
-      type: "integer",
-      minimum: 0
-    },
-    metadata: {
-      type: "object",
-      additionalProperties: true
-    },
-    createdAt: {
-      type: "string",
-      minLength: 1
-    },
-    updatedAt: {
-      type: "string",
-      minLength: 1
-    }
+const conversationRecordSchema = createSchema({
+  id: {
+    type: "string",
+    required: true,
+    minLength: 1,
+    pattern: RECORD_ID_PATTERN
+  },
+  workspaceId: {
+    type: "string",
+    required: true,
+    nullable: true,
+    minLength: 1,
+    pattern: RECORD_ID_PATTERN
+  },
+  title: {
+    type: "string",
+    required: true
+  },
+  createdByUserId: {
+    type: "string",
+    required: true,
+    nullable: true,
+    minLength: 1,
+    pattern: RECORD_ID_PATTERN
+  },
+  status: {
+    type: "string",
+    required: true
+  },
+  provider: {
+    type: "string",
+    required: true
+  },
+  model: {
+    type: "string",
+    required: true
+  },
+  surfaceId: {
+    type: "string",
+    required: true
+  },
+  startedAt: {
+    type: "string",
+    required: true,
+    minLength: 1
+  },
+  endedAt: {
+    type: "string",
+    required: true,
+    nullable: true,
+    minLength: 1
+  },
+  messageCount: {
+    type: "integer",
+    required: true,
+    min: 0
+  },
+  metadata: {
+    type: "object",
+    required: true,
+    additionalProperties: true
+  },
+  createdAt: {
+    type: "string",
+    required: true,
+    minLength: 1
+  },
+  updatedAt: {
+    type: "string",
+    required: true,
+    minLength: 1
   }
-};
-
-const conversationRecordOutputDefinition = deepFreeze({
-  schema: conversationRecordSchema
 });
 
-const messageRecordSchema = {
-  type: "object",
-  additionalProperties: false,
-  required: [
-    "id",
-    "conversationId",
-    "workspaceId",
-    "seq",
-    "role",
-    "kind",
-    "clientMessageSid",
-    "actorUserId",
-    "contentText",
-    "metadata",
-    "createdAt"
-  ],
-  properties: {
-    id: {
-      type: "string",
-      minLength: 1,
-      pattern: RECORD_ID_PATTERN
-    },
-    conversationId: {
-      type: "string",
-      minLength: 1,
-      pattern: RECORD_ID_PATTERN
-    },
-    workspaceId: {
-      anyOf: [
-        { type: "string", minLength: 1, pattern: RECORD_ID_PATTERN },
-        { type: "null" }
-      ]
-    },
-    seq: {
-      type: "integer",
-      minimum: 1
-    },
-    role: {
-      type: "string",
-      minLength: 1
-    },
-    kind: {
-      type: "string",
-      minLength: 1
-    },
-    clientMessageSid: {
-      type: "string"
-    },
-    actorUserId: {
-      anyOf: [
-        { type: "string", minLength: 1, pattern: RECORD_ID_PATTERN },
-        { type: "null" }
-      ]
-    },
-    contentText: {
-      anyOf: [
-        { type: "string" },
-        { type: "null" }
-      ]
-    },
-    metadata: {
-      type: "object",
-      additionalProperties: true
-    },
-    createdAt: {
-      type: "string",
-      minLength: 1
-    }
+const conversationRecordOutputDefinition = deepFreeze({
+  schema: conversationRecordSchema,
+  mode: "replace"
+});
+
+const messageRecordSchema = createSchema({
+  id: {
+    type: "string",
+    required: true,
+    minLength: 1,
+    pattern: RECORD_ID_PATTERN
+  },
+  conversationId: {
+    type: "string",
+    required: true,
+    minLength: 1,
+    pattern: RECORD_ID_PATTERN
+  },
+  workspaceId: {
+    type: "string",
+    required: true,
+    nullable: true,
+    minLength: 1,
+    pattern: RECORD_ID_PATTERN
+  },
+  seq: {
+    type: "integer",
+    required: true,
+    min: 1
+  },
+  role: {
+    type: "string",
+    required: true,
+    minLength: 1
+  },
+  kind: {
+    type: "string",
+    required: true,
+    minLength: 1
+  },
+  clientMessageSid: {
+    type: "string",
+    required: true
+  },
+  actorUserId: {
+    type: "string",
+    required: true,
+    nullable: true,
+    minLength: 1,
+    pattern: RECORD_ID_PATTERN
+  },
+  contentText: {
+    type: "string",
+    required: true,
+    nullable: true
+  },
+  metadata: {
+    type: "object",
+    required: true,
+    additionalProperties: true
+  },
+  createdAt: {
+    type: "string",
+    required: true,
+    minLength: 1
   }
-};
+});
 
 const conversationMessagesParamsSchema = createSchema({
   conversationId: {
@@ -268,34 +252,39 @@ const conversationMessagesQuerySchema = createSchema({
 });
 
 const conversationMessagesOutputDefinition = deepFreeze({
-  schema: {
-    type: "object",
-    additionalProperties: false,
-    required: ["page", "pageSize", "total", "totalPages", "conversation", "entries"],
-    properties: {
-      page: {
-        type: "integer",
-        minimum: 1
-      },
-      pageSize: {
-        type: "integer",
-        minimum: 1
-      },
-      total: {
-        type: "integer",
-        minimum: 0
-      },
-      totalPages: {
-        type: "integer",
-        minimum: 1
-      },
-      conversation: conversationRecordSchema,
-      entries: {
-        type: "array",
-        items: messageRecordSchema
-      }
+  schema: createSchema({
+    page: {
+      type: "integer",
+      required: true,
+      min: 1
+    },
+    pageSize: {
+      type: "integer",
+      required: true,
+      min: 1
+    },
+    total: {
+      type: "integer",
+      required: true,
+      min: 0
+    },
+    totalPages: {
+      type: "integer",
+      required: true,
+      min: 1
+    },
+    conversation: {
+      type: "object",
+      required: true,
+      schema: conversationRecordSchema
+    },
+    entries: {
+      type: "array",
+      required: true,
+      items: messageRecordSchema
     }
-  }
+  }),
+  mode: "replace"
 });
 
 const assistantResource = deepFreeze({
@@ -304,7 +293,8 @@ const assistantResource = deepFreeze({
     chatStream: {
       method: "POST",
       body: {
-        schema: chatStreamBodySchema
+        schema: chatStreamBodySchema,
+        mode: "create"
       }
     },
     conversationsList: {

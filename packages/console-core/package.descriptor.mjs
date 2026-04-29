@@ -75,8 +75,7 @@ export default Object.freeze({
         "@jskit-ai/database-runtime": "0.1.55",
         "@jskit-ai/http-runtime": "0.1.54",
         "@jskit-ai/kernel": "0.1.55",
-        "@jskit-ai/users-core": "0.1.65",
-        "typebox": "^1.0.81"
+        "@jskit-ai/users-core": "0.1.65"
       },
       dev: {}
     },

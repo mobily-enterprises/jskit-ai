@@ -30,7 +30,6 @@
   "dependencies": {
     "@local/main": "file:packages/main",
     "@fastify/static": "^9.1.1",
-    "@fastify/type-provider-typebox": "^6.1.0",
     "@jskit-ai/kernel": "0.x",
     "fastify": "^5.7.4",
     "pinia": "^3.0.4",

@@ -1,6 +1,6 @@
-import { Check, Errors, Parse } from "typebox/value";
 import { deepFreeze } from "../../shared/support/deepFreeze.js";
 import { normalizeObject, normalizeText } from "../../shared/support/normalize.js";
+import { validateSingleSchemaPayloadSync } from "../../shared/validators/schemaPayloadValidation.js";
 
 function normalizeModuleId(value) {
   const moduleId = normalizeText(value);
@@ -142,28 +142,38 @@ class ModuleConfigError extends Error {
 }
 
 function validateSchemaOrThrow({ moduleId, schema, value, coerce = false }) {
-  if (coerce) {
-    try {
-      return Parse(schema, value);
-    } catch (cause) {
-      const issues = normalizeValidationIssues([...Errors(schema, value)]);
-      throw new ModuleConfigError(buildInvalidConfigMessage(moduleId, issues), {
-        moduleId,
-        issues,
-        cause
-      });
-    }
-  }
+  const schemaDefinition = {
+    schema,
+    mode: "replace"
+  };
 
-  if (Check(schema, value)) {
-    return value;
-  }
+  try {
+    return validateSingleSchemaPayloadSync(schemaDefinition, value, {
+      phase: "input",
+      context: `module config "${moduleId}"`
+    });
+  } catch (cause) {
+    const fieldErrors = normalizeObject(cause?.fieldErrors);
+    const issues = Object.keys(fieldErrors).length > 0
+      ? Object.keys(fieldErrors).map((path) => ({
+          path,
+          message: normalizeText(fieldErrors[path], { fallback: "Invalid value." }),
+          keyword: ""
+        }))
+      : [
+          {
+            path: "(root)",
+            message: normalizeText(cause?.message, { fallback: "Invalid value." }),
+            keyword: ""
+          }
+        ];
 
-  const issues = normalizeValidationIssues([...Errors(schema, value)]);
-  throw new ModuleConfigError(buildInvalidConfigMessage(moduleId, issues), {
-    moduleId,
-    issues
-  });
+    throw new ModuleConfigError(buildInvalidConfigMessage(moduleId, issues), {
+      moduleId,
+      issues,
+      cause
+    });
+  }
 }
 
 function defineModuleConfig({

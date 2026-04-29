@@ -67,9 +67,7 @@ export default Object.freeze({
   "mutations": {
     "dependencies": {
       "runtime": {
-        "@jskit-ai/kernel": "0.1.55",
-        "@fastify/type-provider-typebox": "^6.1.0",
-        "typebox": "^1.0.81"
+        "@jskit-ai/kernel": "0.1.55"
       },
       "dev": {}
     },

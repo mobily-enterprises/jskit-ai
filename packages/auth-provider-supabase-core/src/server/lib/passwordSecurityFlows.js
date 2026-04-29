@@ -267,6 +267,10 @@ function createPasswordSecurityFlows(deps) {
     if (response.error) {
       throw mapAuthError(response.error, Number(response.error?.status || 400));
     }
+
+    return {
+      ok: true
+    };
   }
 
   async function getSecurityStatus(request) {

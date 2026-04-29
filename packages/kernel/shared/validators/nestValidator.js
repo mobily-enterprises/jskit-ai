@@ -1,4 +1,3 @@
-import { Type } from "typebox";
 import { normalizeObjectInput } from "./inputNormalization.js";
 
 function normalizeValidator(validator) {
@@ -24,13 +23,15 @@ function nestValidator(key, validator, { required = true } = {}) {
     throw new TypeError(`nestValidator(\"${normalizedKey}\") requires a validator object with schema.`);
   }
 
-  const keySchema = required ? normalizedValidator.schema : Type.Optional(normalizedValidator.schema);
-  const schema = Type.Object(
-    {
-      [normalizedKey]: keySchema
-    },
-    { additionalProperties: false }
-  );
+  const properties = {
+    [normalizedKey]: normalizedValidator.schema
+  };
+  const schema = {
+    type: "object",
+    additionalProperties: false,
+    properties,
+    ...(required ? { required: [normalizedKey] } : {})
+  };
   const normalizeSection = typeof normalizedValidator.normalize === "function" ? normalizedValidator.normalize : null;
 
   return Object.freeze({

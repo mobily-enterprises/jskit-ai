@@ -134,9 +134,7 @@ export default Object.freeze({
         "@jskit-ai/http-runtime": "0.1.54",
         "@jskit-ai/kernel": "0.1.55",
         "@local/users": "file:packages/users",
-        "@jskit-ai/uploads-runtime": "0.1.33",
-        "@fastify/type-provider-typebox": "^6.1.0",
-        typebox: "^1.0.81"
+        "@jskit-ai/uploads-runtime": "0.1.33"
       },
       dev: {}
     },

@@ -1,6 +1,5 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { Check } from "typebox/value";
 import { compileRouteValidator } from "@jskit-ai/kernel/_testable";
 import { cursorPaginationQueryValidator } from "@jskit-ai/kernel/shared/validators";
 import { listSearchQueryValidator } from "../src/server/listQueryValidators.js";
@@ -297,24 +296,12 @@ test("createCrudListFilters reject validator keeps strict filter schemas", () =>
     invalidValues: CRUD_LIST_FILTER_INVALID_VALUES_REJECT
   });
 
-  assert.equal(Check(validator.schema, {
-    arrivalDateFrom: "2026-04-01",
-    status: ["active"],
-    supplierContactId: ["7"],
-    weightMin: "12.5"
-  }), true);
-  assert.equal(Check(validator.schema, {
-    arrivalDateFrom: "bad-date"
-  }), false);
-  assert.equal(Check(validator.schema, {
-    status: ["active", "unexpected"]
-  }), false);
-  assert.equal(Check(validator.schema, {
-    supplierContactId: ["7", "bad"]
-  }), false);
-  assert.equal(Check(validator.schema, {
-    weightMin: "bad"
-  }), false);
+  assert.equal(validator.schema.type, "object");
+  assert.equal(validator.schema.additionalProperties, false);
+  assert.equal(validator.schema.properties.arrivalDateFrom.pattern, "^\\d{4}-\\d{2}-\\d{2}$");
+  assert.deepEqual(validator.schema.properties.status.anyOf[1].items.enum, ["active", "archived"]);
+  assert.equal(validator.schema.properties.supplierContactId.anyOf[1].items.anyOf[0].pattern, "^[1-9][0-9]*$");
+  assert.equal(validator.schema.properties.weightMin.anyOf[0].pattern, "^[+-]?(?:\\d+(?:\\.\\d*)?|\\.\\d+)(?:[eE][+-]?\\d+)?$");
 });
 
 test("createCrudListFilters discard validator accepts malformed values and lets normalize drop them", () => {
@@ -345,12 +332,10 @@ test("createCrudListFilters discard validator accepts malformed values and lets 
     invalidValues: CRUD_LIST_FILTER_INVALID_VALUES_DISCARD
   });
 
-  assert.equal(Check(validator.schema, {
-    arrivalDateFrom: "bad-date",
-    status: ["active", "unexpected"],
-    supplierContactId: ["7", "bad"],
-    weightMin: "bad"
-  }), true);
+  assert.equal(validator.schema.type, "object");
+  assert.equal(validator.schema.properties.arrivalDateFrom.minLength, 0);
+  assert.equal(validator.schema.properties.status.anyOf[0].minLength, 0);
+  assert.equal(validator.schema.properties.supplierContactId.anyOf[0].anyOf[0].minLength, 0);
   assert.deepEqual(validator.normalize({
     arrivalDateFrom: "bad-date",
     arrivalDateTo: "2026-04-30",

@@ -1,15 +1,35 @@
-import { Type } from "@fastify/type-provider-typebox";
 import { asSchema } from "./schemaUtils.js";
+import { isJsonRestSchemaInstance, resolveValidatorTransportSchema } from "@jskit-ai/kernel/shared/validators";
+
+function resolveTransportSchema(schema, { label = "schema", defaultMode = "replace" } = {}) {
+  const normalized = asSchema(schema, label);
+  return isJsonRestSchemaInstance(normalized)
+    ? resolveValidatorTransportSchema({ schema: normalized, mode: defaultMode }, { defaultMode })
+    : normalized;
+}
 
 function createCursorPagedListResponseSchema(itemSchema) {
-  const normalizedItemSchema = asSchema(itemSchema, "itemSchema");
-  return Type.Object(
-    {
-      items: Type.Array(normalizedItemSchema),
-      nextCursor: Type.Union([Type.String({ minLength: 1 }), Type.Null()])
-    },
-    { additionalProperties: false }
-  );
+  const normalizedItemSchema = resolveTransportSchema(itemSchema, {
+    label: "itemSchema",
+    defaultMode: "replace"
+  });
+  return {
+    type: "object",
+    additionalProperties: false,
+    required: ["items", "nextCursor"],
+    properties: {
+      items: {
+        type: "array",
+        items: normalizedItemSchema
+      },
+      nextCursor: {
+        anyOf: [
+          { type: "string", minLength: 1 },
+          { type: "null" }
+        ]
+      }
+    }
+  };
 }
 
 function createResource({

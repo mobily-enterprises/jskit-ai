@@ -56,3 +56,34 @@ test("oauth complete command allows provider-less session-pair callbacks", () =>
   const responseRequired = Array.isArray(responseSchema?.required) ? responseSchema.required : [];
   assert.equal(responseRequired.includes("provider"), false);
 });
+
+test("auth session and oauth start commands expose explicit nested response schemas", () => {
+  const sessionResponseSchema = resolveStructuredSchemaTransportSchema(
+    authSessionReadCommand.operation.response,
+    {
+      context: "auth session read response",
+      defaultMode: "replace"
+    }
+  );
+  const sessionUnavailableSchema = resolveStructuredSchemaTransportSchema(
+    authSessionReadCommand.operation.unavailableResponse,
+    {
+      context: "auth session read unavailable response",
+      defaultMode: "replace"
+    }
+  );
+  const oauthStartResponseSchema = resolveStructuredSchemaTransportSchema(
+    authLoginOAuthStartCommand.operation.response,
+    {
+      context: "auth login oauth start response",
+      defaultMode: "replace"
+    }
+  );
+
+  assert.equal(sessionResponseSchema.properties.oauthProviders.type, "array");
+  assert.equal(sessionResponseSchema.properties.oauthProviders.items.type, "object");
+  assert.equal(Array.isArray(sessionUnavailableSchema.properties.oauthDefaultProvider.anyOf), true);
+  assert.equal(oauthStartResponseSchema.properties.provider.type, "string");
+  assert.equal(oauthStartResponseSchema.properties.returnTo.type, "string");
+  assert.equal(oauthStartResponseSchema.properties.url.type, "string");
+});

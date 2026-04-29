@@ -30,7 +30,7 @@ export {
 export {
   buildSchemaValidationError,
   normalizeSchemaValidationErrors,
-  normalizeTypeBoxValidationErrors,
+  validateSingleSchemaPayloadSync,
   validateSingleSchemaPayload,
   validateSchemaPayload
 } from "./schemaPayloadValidation.js";

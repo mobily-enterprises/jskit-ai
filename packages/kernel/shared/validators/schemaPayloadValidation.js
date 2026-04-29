@@ -1,7 +1,7 @@
-import { Check, Errors } from "typebox/value";
 import { normalizeObject, normalizeText } from "../support/normalize.js";
 import {
   executeJsonRestSchemaDefinition,
+  executeJsonRestSchemaDefinitionSync,
   hasJsonRestSchemaDefinition,
   isSchemaDefinitionSectionMap,
   listSchemaDefinitions,
@@ -26,17 +26,6 @@ function normalizeSchemaValidationErrors(schema) {
   }
 
   return Object.keys(fieldErrors).length > 0 ? fieldErrors : null;
-}
-
-function normalizeTypeBoxValidationErrors(schema, payload) {
-  const issues = Check(schema, payload) ? [] : [...Errors(schema, payload)];
-  if (issues.length < 1) {
-    return null;
-  }
-
-  return normalizeSchemaValidationErrors({
-    errors: issues
-  });
 }
 
 function buildSchemaValidationError({
@@ -94,6 +83,79 @@ function normalizeFunctionSchemaResult(result, payload, { context = "schema defi
   }
 
   throw buildSchemaValidationError();
+}
+
+function assertSyncResult(result, { context = "schema definition" } = {}) {
+  if (result && typeof result.then === "function") {
+    throw new TypeError(`${context}: Async schema validators are not supported in sync validation.`);
+  }
+
+  return result;
+}
+
+function validateSingleSchemaPayloadSync(schemaDefinition, payload, {
+  phase = "input",
+  context = "schema definition"
+} = {}) {
+  if (schemaDefinition == null) {
+    return payload;
+  }
+
+  const schema = schemaDefinition && typeof schemaDefinition === "object" && !Array.isArray(schemaDefinition) &&
+    Object.prototype.hasOwnProperty.call(schemaDefinition, "schema")
+    ? schemaDefinition.schema
+    : schemaDefinition;
+
+  if (typeof schema === "function") {
+    const result = assertSyncResult(schema(payload, { phase }), { context });
+    return normalizeFunctionSchemaResult(result, payload, { context });
+  }
+
+  if (!schema || typeof schema !== "object" || Array.isArray(schema)) {
+    throw new TypeError(`${context}.schema must be a function or object.`);
+  }
+
+  if (hasJsonRestSchemaDefinition(schemaDefinition)) {
+    const result = executeJsonRestSchemaDefinitionSync(schemaDefinition, payload, {
+      defaultMode: phase === "output" ? "replace" : "patch",
+      context: `${context}.mode`
+    });
+    const fieldErrors = normalizeJsonRestSchemaFieldErrors(result?.errors, schemaDefinition);
+    if (Object.keys(fieldErrors).length > 0) {
+      throw buildSchemaValidationError({ fieldErrors });
+    }
+
+    return result?.validatedObject ?? payload;
+  }
+
+  if (typeof schema.parse === "function") {
+    return assertSyncResult(schema.parse(payload), { context });
+  }
+
+  if (typeof schema.assert === "function") {
+    const assertionResult = assertSyncResult(schema.assert(payload), { context });
+    return assertionResult == null ? payload : assertionResult;
+  }
+
+  if (typeof schema.check === "function") {
+    const valid = assertSyncResult(schema.check(payload), { context });
+    if (!valid) {
+      throw buildSchemaValidationError();
+    }
+    return payload;
+  }
+
+  if (typeof schema.validate === "function") {
+    const valid = assertSyncResult(schema.validate(payload), { context });
+    if (!valid) {
+      throw buildSchemaValidationError({
+        fieldErrors: normalizeSchemaValidationErrors(schema)
+      });
+    }
+    return payload;
+  }
+
+  throw new TypeError(`${context}.schema must expose parse, assert, check, validate, or be a json-rest-schema schema.`);
 }
 
 async function validateSingleSchemaPayload(schemaDefinition, payload, {
@@ -158,12 +220,7 @@ async function validateSingleSchemaPayload(schemaDefinition, payload, {
     return payload;
   }
 
-  const fieldErrors = normalizeTypeBoxValidationErrors(schema, payload);
-  if (!fieldErrors) {
-    return payload;
-  }
-
-  throw buildSchemaValidationError({ fieldErrors });
+  throw new TypeError(`${context}.schema must expose parse, assert, check, validate, or be a json-rest-schema schema.`);
 }
 
 async function validateSchemaPayload(schemaDefinition, payload, {
@@ -223,7 +280,7 @@ async function validateSchemaPayload(schemaDefinition, payload, {
 export {
   buildSchemaValidationError,
   normalizeSchemaValidationErrors,
-  normalizeTypeBoxValidationErrors,
+  validateSingleSchemaPayloadSync,
   validateSingleSchemaPayload,
   validateSchemaPayload
 };
