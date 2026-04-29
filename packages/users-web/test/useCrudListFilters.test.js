@@ -146,7 +146,7 @@ test("useCrudListFilters supports dynamic presets and preset matching", async ()
   assert.equal(filters.matchesPreset("all-dates"), true);
 });
 
-test("useCrudListFilters preset matching rejects extra enumMany values present in current state", async () => {
+test("useCrudListFilters preset matching ignores invalid extra enumMany values outside the shared contract", async () => {
   const { useCrudListFilters } = await import("@jskit-ai/users-web/client/composables/useCrudListFilters");
 
   const filters = useCrudListFilters(
@@ -175,10 +175,11 @@ test("useCrudListFilters preset matching rejects extra enumMany values present i
 
   filters.values.status = ["archived", "bogus"];
 
-  assert.equal(filters.matchesPreset("archived-only"), false);
+  assert.equal(filters.matchesPreset("archived-only"), true);
+  assert.deepEqual(filters.queryParams.status.value, ["archived"]);
   assert.deepEqual(
     filters.activeChips.value.map((chip) => chip.label),
-    ["Status: Archived", "Status: bogus"]
+    ["Status: Archived"]
   );
 });
 

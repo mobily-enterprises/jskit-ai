@@ -1,5 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import { createSchema } from "json-rest-schema";
 import {
   createCrudServiceRuntime,
   crudServiceListRecords,
@@ -9,21 +10,22 @@ import {
   crudServiceDeleteRecord
 } from "../src/server/serviceMethods.js";
 
+function createOperationSchemaDefinition(structure = {}, mode = "replace") {
+  return {
+    schema: createSchema(structure),
+    mode
+  };
+}
+
 function createResourceWithOutputSchema(overrides = {}) {
   return {
     namespace: "contacts",
     operations: {
       view: {
-        output: {
-          schema: {
-            type: "object",
-            properties: {
-              id: { type: "integer" },
-              name: { type: "string" }
-            },
-            required: ["id", "name"]
-          }
-        }
+        output: createOperationSchemaDefinition({
+          id: { type: "integer", required: true },
+          name: { type: "string", required: true }
+        })
       }
     },
     ...overrides

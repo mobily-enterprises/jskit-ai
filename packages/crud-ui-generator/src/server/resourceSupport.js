@@ -13,6 +13,7 @@ import {
   resolveCrudLookupContainerKey
 } from "@jskit-ai/kernel/shared/support/crudLookup";
 import { buildCrudFieldContractMap } from "@jskit-ai/kernel/shared/support/crudFieldContract";
+import { normalizeSchemaDefinition } from "@jskit-ai/kernel/shared/validators";
 import { normalizeSurfaceId } from "@jskit-ai/kernel/shared/surface/registry";
 import { normalizeText } from "@jskit-ai/kernel/shared/support/normalize";
 
@@ -152,18 +153,35 @@ function resolveOperationRealtimeEvents(
   return normalizedEvents.length > 0 ? normalizedEvents : fallbackEvents;
 }
 
+function resolveOperationTransportSchema(definition, {
+  context = "ui-generator",
+  defaultMode = "replace",
+  label = "schema definition"
+} = {}) {
+  const normalized = normalizeSchemaDefinition(definition, {
+    context: `${context} ${label}`,
+    defaultMode
+  });
+  if (!normalized?.schema) {
+    throw new Error(`${context} ${label} is missing schema.`);
+  }
+
+  return normalized.schema.toJsonSchema({
+    mode: normalized.mode
+  });
+}
+
 function requireOutputSchema(operation, operationName, { context = "ui-generator" } = {}) {
   const output = operation?.output;
   if (!output || typeof output !== "object" || Array.isArray(output)) {
     throw new Error(`${context} resource operations.${operationName} is missing output.`);
   }
 
-  const schema = output.schema;
-  if (!schema || typeof schema !== "object" || Array.isArray(schema)) {
-    throw new Error(`${context} resource operations.${operationName}.output is missing schema.`);
-  }
-
-  return schema;
+  return resolveOperationTransportSchema(output, {
+    context,
+    defaultMode: "replace",
+    label: `resource operations.${operationName}.output`
+  });
 }
 
 function requireBodySchema(operation, operationName, { context = "ui-generator" } = {}) {
@@ -172,12 +190,11 @@ function requireBodySchema(operation, operationName, { context = "ui-generator" 
     throw new Error(`${context} resource operations.${operationName} is missing body.`);
   }
 
-  const schema = body.schema;
-  if (!schema || typeof schema !== "object" || Array.isArray(schema)) {
-    throw new Error(`${context} resource operations.${operationName}.body is missing schema.`);
-  }
-
-  return schema;
+  return resolveOperationTransportSchema(body, {
+    context,
+    defaultMode: operationName === "create" ? "create" : "patch",
+    label: `resource operations.${operationName}.body`
+  });
 }
 
 function requireObjectProperties(schema, contextLabel, { context = "ui-generator" } = {}) {

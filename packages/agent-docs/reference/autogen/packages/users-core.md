@@ -237,7 +237,7 @@ Exports
 - `createUsersBootstrapContributor({ userProfilesRepository, userSettingsRepository, appConfig = {}, authService } = {})`
 Local functions
 - `getOAuthProviderCatalogPayload(authService)`
-- `normalizeBoolean(value, fallback)`
+- `resolveBooleanConfigValue(value, fallback)`
 - `resolveAppState(appConfig = {})`
 - `createAnonymousBootstrapPayload({ appState, surfaceAccess = {} })`
 - `mapUserSettingsBootstrap(settings = {})`

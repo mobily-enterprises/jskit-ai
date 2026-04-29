@@ -16,15 +16,6 @@ export {
   executeJsonRestSchemaDefinition
 } from "./schemaDefinitions.js";
 export {
-  isJsonRestSchemaInstance,
-  hasJsonRestSchemaValidator,
-  resolveValidatorSchemaSource,
-  resolveValidatorSchemaMode,
-  resolveValidatorTransportSchema,
-  executeJsonRestSchemaValidator,
-  normalizeJsonRestSchemaFieldErrors
-} from "./jsonRestSchemaSupport.js";
-export {
   buildSchemaValidationError,
   validateSchemaPayload
 } from "./schemaPayloadValidation.js";

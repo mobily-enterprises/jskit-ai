@@ -1,33 +1,7 @@
 import { AppError } from "@jskit-ai/kernel/server/runtime/errors";
+import { resolveCrudFieldSchemaProperties } from "@jskit-ai/kernel/shared/support/crudFieldContract";
 import { normalizeObject, normalizeText } from "@jskit-ai/kernel/shared/support/normalize";
 import { normalizeObjectInput } from "@jskit-ai/kernel/shared/validators/inputNormalization";
-
-function isSchemaNullable(schema = {}) {
-  if (!schema || typeof schema !== "object" || Array.isArray(schema)) {
-    return false;
-  }
-
-  const schemaType = schema.type;
-  if (typeof schemaType === "string" && normalizeText(schemaType).toLowerCase() === "null") {
-    return true;
-  }
-  if (Array.isArray(schemaType)) {
-    const hasNullType = schemaType.some((entry) => normalizeText(entry).toLowerCase() === "null");
-    if (hasNullType) {
-      return true;
-    }
-  }
-
-  const variants = [];
-  if (Array.isArray(schema.anyOf)) {
-    variants.push(...schema.anyOf);
-  }
-  if (Array.isArray(schema.oneOf)) {
-    variants.push(...schema.oneOf);
-  }
-
-  return variants.some((entry) => isSchemaNullable(entry));
-}
 
 function normalizeFieldSet(value, { context = "crudFieldAccess", label = "field list" } = {}) {
   if (value == null || value === "*") {
@@ -73,17 +47,13 @@ function resolveWriteMode(fieldAccess = {}, { context = "crudFieldAccess" } = {}
 }
 
 function buildOutputFieldRules(resource = {}) {
-  const viewOutputSchema = resource?.operations?.view?.output?.schema;
-  if (!viewOutputSchema || typeof viewOutputSchema !== "object" || Array.isArray(viewOutputSchema)) {
+  const outputProperties = resolveCrudFieldSchemaProperties(resource?.operations?.view?.output, {
+    context: "crudFieldAccess resource.operations.view.output"
+  });
+  if (Object.keys(outputProperties).length < 1) {
     return null;
   }
 
-  const outputProperties = normalizeObject(viewOutputSchema.properties);
-  const requiredFields = new Set(
-    (Array.isArray(viewOutputSchema.required) ? viewOutputSchema.required : [])
-      .map((entry) => normalizeText(entry))
-      .filter(Boolean)
-  );
   const fieldRules = new Map();
 
   for (const [fieldKey, fieldSchemaRaw] of Object.entries(outputProperties)) {
@@ -96,8 +66,8 @@ function buildOutputFieldRules(resource = {}) {
     fieldRules.set(
       normalizedFieldKey,
       Object.freeze({
-        required: requiredFields.has(normalizedFieldKey),
-        nullable: isSchemaNullable(fieldSchema),
+        required: fieldSchema.required === true,
+        nullable: fieldSchema.nullable === true,
         hasDefault: Object.hasOwn(fieldSchema, "default"),
         defaultValue: fieldSchema.default
       })
@@ -210,7 +180,7 @@ function applyReadableFieldPolicyToRecord(record, allowedFields, outputRules = n
     }
 
     throw new Error(
-      `${context} cannot redact required non-nullable field "${fieldKey}" without schema.default.`
+      `${context} cannot redact required non-nullable field "${fieldKey}" without a default value.`
     );
   }
 
@@ -233,7 +203,7 @@ function createCrudFieldAccessRuntime(resource = {}, { context = "crudFieldAcces
       return null;
     }
     if (!outputRules) {
-      throw new TypeError(`${context} requires resource.operations.view.output.schema for fieldAccess.readable.`);
+      throw new TypeError(`${context} requires resource.operations.view.output for fieldAccess.readable.`);
     }
 
     return allowedFields;

@@ -2,8 +2,21 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import {
   defineCrudListFilters,
+  CRUD_LIST_FILTER_INVALID_VALUES_REJECT,
+  CRUD_LIST_FILTER_INVALID_VALUES_DISCARD,
+  INVALID_CRUD_LIST_FILTER_QUERY_VALUE,
   parseCrudListRangeQueryExpression,
   formatCrudListRangeQueryExpression,
+  createCrudListFilterInitialValue,
+  isCrudListFilterMultiValue,
+  isCrudListFilterStructuredValue,
+  normalizeCrudListFilterUiValue,
+  areCrudListFilterUiValuesEqual,
+  hasCrudListFilterUiValue,
+  listCrudListFilterChipValues,
+  formatCrudListFilterDefaultChipLabel,
+  formatCrudListFilterQueryValue,
+  parseCrudListFilterQueryValue,
   resolveCrudListFilterQueryKeys,
   resolveCrudListFilterOptionLabel
 } from "./crudListFilters.js";
@@ -181,5 +194,112 @@ test("crud list range helpers parse and format single-key range expressions", ()
   assert.equal(
     formatCrudListRangeQueryExpression("2026-04-01", "2026-04-01", { collapseExact: true }),
     "2026-04-01"
+  );
+});
+
+test("crud list filter helpers share canonical UI and query normalization", () => {
+  const filters = defineCrudListFilters({
+    status: {
+      type: "enumMany",
+      label: "Status",
+      options: [
+        { value: "active", label: "Active" },
+        { value: "archived", label: "Archived" }
+      ]
+    },
+    supplierContactId: {
+      type: "recordIdMany",
+      label: "Supplier"
+    },
+    arrivalDate: {
+      type: "dateRange",
+      label: "Arrival Date"
+    }
+  });
+
+  assert.deepEqual(createCrudListFilterInitialValue(filters.status), []);
+  assert.equal(isCrudListFilterMultiValue(filters.status), true);
+  assert.equal(isCrudListFilterMultiValue(filters.arrivalDate), false);
+  assert.equal(isCrudListFilterStructuredValue(filters.arrivalDate), true);
+  assert.equal(isCrudListFilterStructuredValue(filters.status), false);
+  assert.deepEqual(
+    normalizeCrudListFilterUiValue(filters.status, ["active", "unexpected"]),
+    ["active"]
+  );
+  assert.deepEqual(
+    parseCrudListFilterQueryValue(filters.status, ["active", "unexpected"], {
+      invalidValues: CRUD_LIST_FILTER_INVALID_VALUES_DISCARD
+    }),
+    ["active"]
+  );
+  assert.equal(
+    parseCrudListFilterQueryValue(filters.status, ["active", "unexpected"], {
+      invalidValues: CRUD_LIST_FILTER_INVALID_VALUES_REJECT
+    }),
+    INVALID_CRUD_LIST_FILTER_QUERY_VALUE
+  );
+
+  assert.deepEqual(
+    normalizeCrudListFilterUiValue(filters.supplierContactId, ["7", "bad", 4]),
+    ["7", "4"]
+  );
+  assert.deepEqual(
+    parseCrudListFilterQueryValue(filters.supplierContactId, ["7", "bad", 4], {
+      invalidValues: CRUD_LIST_FILTER_INVALID_VALUES_DISCARD
+    }),
+    ["7", "4"]
+  );
+  assert.equal(
+    parseCrudListFilterQueryValue(filters.supplierContactId, { bad: true }, {
+      invalidValues: CRUD_LIST_FILTER_INVALID_VALUES_REJECT
+    }),
+    INVALID_CRUD_LIST_FILTER_QUERY_VALUE
+  );
+
+  assert.deepEqual(
+    normalizeCrudListFilterUiValue(filters.arrivalDate, "..2026-04-30"),
+    {
+      from: "",
+      to: "2026-04-30"
+    }
+  );
+  assert.equal(
+    formatCrudListFilterQueryValue(filters.arrivalDate, {
+      from: "2026-04-30",
+      to: "2026-04-30"
+    }),
+    "2026-04-30"
+  );
+  assert.equal(
+    areCrudListFilterUiValuesEqual(
+      filters.arrivalDate,
+      {
+        from: "2026-04-30",
+        to: "2026-04-30"
+      },
+      "2026-04-30"
+    ),
+    true
+  );
+  assert.equal(hasCrudListFilterUiValue(filters.status, ["active", "unexpected"]), true);
+  assert.equal(hasCrudListFilterUiValue(filters.arrivalDate, { from: "", to: "" }), false);
+  assert.deepEqual(listCrudListFilterChipValues(filters.status, ["active", "unexpected"]), ["active"]);
+  assert.deepEqual(
+    listCrudListFilterChipValues(filters.arrivalDate, {
+      from: "2026-04-30",
+      to: "2026-04-30"
+    }),
+    [{
+      from: "2026-04-30",
+      to: "2026-04-30"
+    }]
+  );
+  assert.equal(
+    formatCrudListFilterDefaultChipLabel(filters.status, "active", {
+      resolveAtomicValue(value) {
+        return resolveCrudListFilterOptionLabel(filters.status, value);
+      }
+    }),
+    "Status: Active"
   );
 });

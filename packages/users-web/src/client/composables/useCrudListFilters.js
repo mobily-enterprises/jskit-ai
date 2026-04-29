@@ -1,19 +1,17 @@
-import { computed, reactive, toRef } from "vue";
-import { normalizeText, normalizeUniqueTextList } from "@jskit-ai/kernel/shared/support/normalize";
+import { computed, reactive } from "vue";
+import { normalizeText } from "@jskit-ai/kernel/shared/support/normalize";
 import {
   defineCrudListFilters,
-  parseCrudListRangeQueryExpression,
-  formatCrudListRangeQueryExpression,
+  createCrudListFilterInitialValue,
+  isCrudListFilterMultiValue,
+  isCrudListFilterStructuredValue,
+  normalizeCrudListFilterUiValue,
+  areCrudListFilterUiValuesEqual,
+  listCrudListFilterChipValues,
+  formatCrudListFilterDefaultChipLabel,
+  formatCrudListFilterQueryValue,
   resolveCrudListFilterOptionLabel,
-  CRUD_LIST_FILTER_TYPE_FLAG,
-  CRUD_LIST_FILTER_TYPE_ENUM,
-  CRUD_LIST_FILTER_TYPE_ENUM_MANY,
-  CRUD_LIST_FILTER_TYPE_RECORD_ID,
-  CRUD_LIST_FILTER_TYPE_RECORD_ID_MANY,
-  CRUD_LIST_FILTER_TYPE_DATE,
-  CRUD_LIST_FILTER_TYPE_DATE_RANGE,
-  CRUD_LIST_FILTER_TYPE_NUMBER_RANGE,
-  CRUD_LIST_FILTER_TYPE_PRESENCE
+  CRUD_LIST_FILTER_TYPE_FLAG
 } from "@jskit-ai/kernel/shared/support/crudListFilters";
 
 function normalizeFunctionMap(value = {}) {
@@ -32,29 +30,6 @@ function normalizeFunctionMap(value = {}) {
   }
 
   return Object.freeze(normalized);
-}
-
-function createInitialFilterValue(filter = {}) {
-  if (filter.type === CRUD_LIST_FILTER_TYPE_FLAG) {
-    return false;
-  }
-  if (filter.type === CRUD_LIST_FILTER_TYPE_ENUM_MANY || filter.type === CRUD_LIST_FILTER_TYPE_RECORD_ID_MANY) {
-    return [];
-  }
-  if (filter.type === CRUD_LIST_FILTER_TYPE_DATE_RANGE) {
-    return reactive({
-      from: "",
-      to: ""
-    });
-  }
-  if (filter.type === CRUD_LIST_FILTER_TYPE_NUMBER_RANGE) {
-    return reactive({
-      min: "",
-      max: ""
-    });
-  }
-
-  return "";
 }
 
 function normalizePresetEntries(presets = []) {
@@ -107,170 +82,52 @@ function resolvePresetValues(preset = {}, { values = {}, filters = {} } = {}) {
     : {};
 }
 
-function normalizePresetFilterValue(filter = {}, rawValue) {
-  if (filter.type === CRUD_LIST_FILTER_TYPE_FLAG) {
-    return rawValue === true;
-  }
-
-  if (filter.type === CRUD_LIST_FILTER_TYPE_ENUM_MANY || filter.type === CRUD_LIST_FILTER_TYPE_RECORD_ID_MANY) {
-    const allowedValues = filter.type === CRUD_LIST_FILTER_TYPE_ENUM_MANY
-      ? new Set((filter.options || []).map((entry) => entry.value))
-      : null;
-    const normalizedList = normalizeUniqueTextList(rawValue, {
-      acceptSingle: true
-    });
-    if (!allowedValues) {
-      return normalizedList;
-    }
-
-    return normalizedList.filter((entry) => allowedValues.has(entry));
-  }
-
-  if (filter.type === CRUD_LIST_FILTER_TYPE_DATE_RANGE) {
-    const source = rawValue && typeof rawValue === "object" && !Array.isArray(rawValue)
-      ? rawValue
-      : {};
-    return {
-      from: normalizeText(source.from),
-      to: normalizeText(source.to)
-    };
-  }
-
-  if (filter.type === CRUD_LIST_FILTER_TYPE_NUMBER_RANGE) {
-    const source = rawValue && typeof rawValue === "object" && !Array.isArray(rawValue)
-      ? rawValue
-      : {};
-    return {
-      min: normalizeText(source.min),
-      max: normalizeText(source.max)
-    };
-  }
-
-  const normalized = normalizeText(rawValue);
-  if (filter.type === CRUD_LIST_FILTER_TYPE_ENUM || filter.type === CRUD_LIST_FILTER_TYPE_PRESENCE) {
-    const allowedValues = new Set((filter.options || []).map((entry) => entry.value));
-    return allowedValues.has(normalized) ? normalized : "";
-  }
-
-  return normalized;
+function createRuntimeFilterValue(filter = {}) {
+  const initialValue = createCrudListFilterInitialValue(filter);
+  return isCrudListFilterStructuredValue(filter)
+    ? reactive(initialValue)
+    : initialValue;
 }
 
-function normalizeCurrentManyFilterValues(value) {
-  const source = Array.isArray(value) ? value : [value];
-  return source
-    .map((entry) => normalizeText(entry))
-    .filter(Boolean);
-}
+function assignFilterValue(values, filter = {}, rawValue) {
+  const normalizedValue = normalizeCrudListFilterUiValue(filter, rawValue);
 
-function matchArrayValues(currentValue = [], expectedValue = []) {
-  const currentList = Array.isArray(currentValue) ? [...currentValue].sort() : [];
-  const expectedList = Array.isArray(expectedValue) ? [...expectedValue].sort() : [];
-  if (currentList.length !== expectedList.length) {
-    return false;
+  if (!isCrudListFilterStructuredValue(filter)) {
+    values[filter.key] = normalizedValue;
+    return;
   }
 
-  return currentList.every((entry, index) => entry === expectedList[index]);
-}
-
-function matchesPresetFilterValue(filter = {}, currentValue, rawExpectedValue) {
-  const expectedValue = normalizePresetFilterValue(filter, rawExpectedValue);
-
-  if (filter.type === CRUD_LIST_FILTER_TYPE_ENUM_MANY || filter.type === CRUD_LIST_FILTER_TYPE_RECORD_ID_MANY) {
-    return matchArrayValues(normalizeCurrentManyFilterValues(currentValue), expectedValue);
+  if (values[filter.key] && typeof values[filter.key] === "object" && !Array.isArray(values[filter.key])) {
+    Object.assign(values[filter.key], normalizedValue);
+    return;
   }
 
-  const normalizedCurrentValue = normalizePresetFilterValue(filter, currentValue);
-
-  if (filter.type === CRUD_LIST_FILTER_TYPE_DATE_RANGE) {
-    return (
-      normalizeText(normalizedCurrentValue?.from) === normalizeText(expectedValue?.from) &&
-      normalizeText(normalizedCurrentValue?.to) === normalizeText(expectedValue?.to)
-    );
-  }
-
-  if (filter.type === CRUD_LIST_FILTER_TYPE_NUMBER_RANGE) {
-    return (
-      normalizeText(normalizedCurrentValue?.min) === normalizeText(expectedValue?.min) &&
-      normalizeText(normalizedCurrentValue?.max) === normalizeText(expectedValue?.max)
-    );
-  }
-
-  return normalizedCurrentValue === expectedValue;
+  values[filter.key] = reactive(normalizedValue);
 }
 
 function resetFilterValue(values, filter = {}) {
-  if (filter.type === CRUD_LIST_FILTER_TYPE_FLAG) {
-    values[filter.key] = false;
-    return;
-  }
-
-  if (filter.type === CRUD_LIST_FILTER_TYPE_ENUM_MANY || filter.type === CRUD_LIST_FILTER_TYPE_RECORD_ID_MANY) {
-    values[filter.key] = [];
-    return;
-  }
-
-  if (filter.type === CRUD_LIST_FILTER_TYPE_DATE_RANGE) {
-    values[filter.key].from = "";
-    values[filter.key].to = "";
-    return;
-  }
-
-  if (filter.type === CRUD_LIST_FILTER_TYPE_NUMBER_RANGE) {
-    values[filter.key].min = "";
-    values[filter.key].max = "";
-    return;
-  }
-
-  values[filter.key] = "";
+  assignFilterValue(values, filter, createCrudListFilterInitialValue(filter));
 }
 
 function applyPresetFilterValue(values, filter = {}, rawValue) {
-  if (filter.type === CRUD_LIST_FILTER_TYPE_DATE_RANGE || filter.type === CRUD_LIST_FILTER_TYPE_NUMBER_RANGE) {
-    const nextValue = normalizePresetFilterValue(filter, rawValue);
-    Object.assign(values[filter.key], nextValue);
-    return;
-  }
-
-  values[filter.key] = normalizePresetFilterValue(filter, rawValue);
+  assignFilterValue(values, filter, rawValue);
 }
 
 function createQueryParams(values, filterEntries = []) {
   const queryParams = {};
 
   for (const filter of filterEntries) {
-    if (filter.type === CRUD_LIST_FILTER_TYPE_DATE_RANGE) {
-      queryParams[filter.queryKey] = computed({
-        get() {
-          return formatCrudListRangeQueryExpression(values[filter.key]?.from, values[filter.key]?.to, {
-            collapseExact: true
-          });
-        },
-        set(nextValue) {
-          const parsed = parseCrudListRangeQueryExpression(nextValue);
-          values[filter.key].from = normalizeText(parsed?.start);
-          values[filter.key].to = normalizeText(parsed?.end);
-        }
-      });
-      continue;
-    }
-
-    if (filter.type === CRUD_LIST_FILTER_TYPE_NUMBER_RANGE) {
-      queryParams[filter.queryKey] = computed({
-        get() {
-          return formatCrudListRangeQueryExpression(values[filter.key]?.min, values[filter.key]?.max, {
-            collapseExact: true
-          });
-        },
-        set(nextValue) {
-          const parsed = parseCrudListRangeQueryExpression(nextValue);
-          values[filter.key].min = normalizeText(parsed?.start);
-          values[filter.key].max = normalizeText(parsed?.end);
-        }
-      });
-      continue;
-    }
-
-    queryParams[filter.queryKey] = toRef(values, filter.key);
+    queryParams[filter.queryKey] = computed({
+      get() {
+        return formatCrudListFilterQueryValue(
+          filter,
+          normalizeCrudListFilterUiValue(filter, values[filter.key])
+        );
+      },
+      set(nextValue) {
+        assignFilterValue(values, filter, nextValue);
+      }
+    });
   }
 
   return Object.freeze(queryParams);
@@ -290,46 +147,6 @@ function resolveAtomicValueLabel(filter = {}, value = "", labelResolvers = {}) {
   });
 }
 
-function defaultChipLabel(filter = {}, value, labelResolvers = {}) {
-  if (filter.type === CRUD_LIST_FILTER_TYPE_FLAG) {
-    return filter.label;
-  }
-
-  if (
-    filter.type === CRUD_LIST_FILTER_TYPE_ENUM ||
-    filter.type === CRUD_LIST_FILTER_TYPE_PRESENCE ||
-    filter.type === CRUD_LIST_FILTER_TYPE_RECORD_ID
-  ) {
-    return `${filter.label}: ${resolveAtomicValueLabel(filter, value, labelResolvers)}`;
-  }
-
-  if (filter.type === CRUD_LIST_FILTER_TYPE_DATE) {
-    return `${filter.label}: ${value}`;
-  }
-
-  if (filter.type === CRUD_LIST_FILTER_TYPE_DATE_RANGE) {
-    if (value?.from && value?.to) {
-      return `${filter.label}: ${value.from} to ${value.to}`;
-    }
-    if (value?.from) {
-      return `${filter.label}: from ${value.from}`;
-    }
-    return `${filter.label}: to ${value?.to || ""}`;
-  }
-
-  if (filter.type === CRUD_LIST_FILTER_TYPE_NUMBER_RANGE) {
-    if (value?.min && value?.max) {
-      return `${filter.label}: ${value.min} to ${value.max}`;
-    }
-    if (value?.min) {
-      return `${filter.label}: min ${value.min}`;
-    }
-    return `${filter.label}: max ${value?.max || ""}`;
-  }
-
-  return filter.label;
-}
-
 function useCrudListFilters(definitions = {}, { labelResolvers = {}, chipLabels = {}, presets = [] } = {}) {
   const filters = defineCrudListFilters(definitions);
   const filterEntries = Object.values(filters);
@@ -340,7 +157,7 @@ function useCrudListFilters(definitions = {}, { labelResolvers = {}, chipLabels 
   const options = {};
 
   for (const filter of filterEntries) {
-    values[filter.key] = createInitialFilterValue(filter);
+    values[filter.key] = createRuntimeFilterValue(filter);
     if (Array.isArray(filter.options) && filter.options.length > 0) {
       options[filter.key] = filter.options;
     }
@@ -353,62 +170,22 @@ function useCrudListFilters(definitions = {}, { labelResolvers = {}, chipLabels 
 
     for (const filter of filterEntries) {
       const customChipLabel = normalizedChipLabels[filter.key];
-      const rawValue = values[filter.key];
+      const chipValues = listCrudListFilterChipValues(filter, values[filter.key]);
 
-      if (filter.type === CRUD_LIST_FILTER_TYPE_FLAG) {
-        if (rawValue === true) {
-          chips.push({
-            id: filter.key,
-            filterKey: filter.key,
-            label: normalizeText(customChipLabel?.(rawValue, filter, values))
-              || normalizeText(filter.chipLabel?.(rawValue, filter, values))
-              || defaultChipLabel(filter, rawValue, normalizedLabelResolvers)
-          });
-        }
-        continue;
-      }
-
-      if (filter.type === CRUD_LIST_FILTER_TYPE_ENUM_MANY || filter.type === CRUD_LIST_FILTER_TYPE_RECORD_ID_MANY) {
-        for (const value of Array.isArray(rawValue) ? rawValue : []) {
-          chips.push({
-            id: `${filter.key}:${value}`,
-            filterKey: filter.key,
-            value,
-            label: normalizeText(customChipLabel?.(value, filter, values))
-              || normalizeText(filter.chipLabel?.(value, filter, values))
-              || `${filter.label}: ${resolveAtomicValueLabel(filter, value, normalizedLabelResolvers)}`
-          });
-        }
-        continue;
-      }
-
-      if (filter.type === CRUD_LIST_FILTER_TYPE_DATE_RANGE || filter.type === CRUD_LIST_FILTER_TYPE_NUMBER_RANGE) {
-        const hasValue = Boolean(rawValue?.from || rawValue?.to || rawValue?.min || rawValue?.max);
-        if (!hasValue) {
-          continue;
-        }
-
+      for (const chipValue of chipValues) {
         chips.push({
-          id: filter.key,
+          id: isCrudListFilterMultiValue(filter) ? `${filter.key}:${chipValue}` : filter.key,
           filterKey: filter.key,
-          label: normalizeText(customChipLabel?.(rawValue, filter, values))
-            || normalizeText(filter.chipLabel?.(rawValue, filter, values))
-            || defaultChipLabel(filter, rawValue, normalizedLabelResolvers)
+          ...(isCrudListFilterMultiValue(filter) ? { value: chipValue } : {}),
+          label: normalizeText(customChipLabel?.(chipValue, filter, values))
+            || normalizeText(filter.chipLabel?.(chipValue, filter, values))
+            || formatCrudListFilterDefaultChipLabel(filter, chipValue, {
+              resolveAtomicValue(value) {
+                return resolveAtomicValueLabel(filter, value, normalizedLabelResolvers);
+              }
+            })
         });
-        continue;
       }
-
-      if (!normalizeText(rawValue)) {
-        continue;
-      }
-
-      chips.push({
-        id: filter.key,
-        filterKey: filter.key,
-        label: normalizeText(customChipLabel?.(rawValue, filter, values))
-          || normalizeText(filter.chipLabel?.(rawValue, filter, values))
-          || defaultChipLabel(filter, rawValue, normalizedLabelResolvers)
-      });
     }
 
     return chips;
@@ -437,9 +214,13 @@ function useCrudListFilters(definitions = {}, { labelResolvers = {}, chipLabels 
       return;
     }
 
-    if (filter.type === CRUD_LIST_FILTER_TYPE_ENUM_MANY || filter.type === CRUD_LIST_FILTER_TYPE_RECORD_ID_MANY) {
-      values[filter.key] = (Array.isArray(values[filter.key]) ? values[filter.key] : [])
-        .filter((entry) => entry !== chip.value);
+    if (isCrudListFilterMultiValue(filter)) {
+      assignFilterValue(
+        values,
+        filter,
+        (Array.isArray(values[filter.key]) ? values[filter.key] : [])
+          .filter((entry) => entry !== chip.value)
+      );
       return;
     }
 
@@ -497,7 +278,7 @@ function useCrudListFilters(definitions = {}, { labelResolvers = {}, chipLabels 
       }
 
       matchedFilter = true;
-      if (!matchesPresetFilterValue(filter, values[filter.key], presetValues[filter.key])) {
+      if (!areCrudListFilterUiValuesEqual(filter, values[filter.key], presetValues[filter.key])) {
         return false;
       }
     }

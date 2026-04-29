@@ -357,7 +357,11 @@ test("buildReplacementsFromSnapshot omits named permissions and role grants when
   assert.equal(replacements.__JSKIT_CRUD_ROUTE_SURFACE_REQUIRES_WORKSPACE__, "false");
   assert.match(
     replacements.__JSKIT_CRUD_ACTION_INPUT_VALIDATOR_CONSTANTS__,
-    /const createActionInputValidator = composeSchemaDefinitions\(/
+    /const createActionInputValidator = resource\.operations\.create\.body;/
+  );
+  assert.match(
+    replacements.__JSKIT_CRUD_ACTION_INPUT_VALIDATOR_CONSTANTS__,
+    /const deleteActionInputValidator = recordIdParamsValidator;/
   );
   assert.equal(replacements.__JSKIT_CRUD_LIST_ROUTE_PARAMS_VALIDATOR_LINE__, "");
   assert.equal(

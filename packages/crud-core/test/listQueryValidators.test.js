@@ -32,26 +32,20 @@ function createCrudResource({
     operations: {
       view: {
         output: {
-          schema: {
-            type: "object",
-            properties: viewFields
-          }
+          schema: createSchema(viewFields),
+          mode: "replace"
         }
       },
       create: {
         body: {
-          schema: {
-            type: "object",
-            properties: createFields
-          }
+          schema: createSchema(createFields),
+          mode: "create"
         }
       },
       patch: {
         body: {
-          schema: {
-            type: "object",
-            properties: patchFields
-          }
+          schema: createSchema(patchFields),
+          mode: "patch"
         }
       }
     }

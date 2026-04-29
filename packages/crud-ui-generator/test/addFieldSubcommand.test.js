@@ -1,83 +1,89 @@
 import assert from "node:assert/strict";
-import { mkdtemp, mkdir, readFile, rm, writeFile } from "node:fs/promises";
+import { mkdtemp, mkdir, readFile, rm, symlink, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import test from "node:test";
+import { fileURLToPath } from "node:url";
 import { runGeneratorSubcommand } from "../src/server/subcommands/addField.js";
 
-const RESOURCE_SOURCE = `const contactRecordSchema = {
-  type: "object",
-  properties: {
-    id: { type: "integer" },
-    firstName: { type: "string" },
-    vetId: {
-      type: ["integer", "null"],
-      relation: {
-        kind: "lookup",
-        apiPath: "/vets",
-        valueKey: "id",
-        labelKey: "name"
-      }
-    }
-  },
-  additionalProperties: false
-};
+const JSON_REST_SCHEMA_PACKAGE_DIR = path.dirname(
+  fileURLToPath(new URL("../../../node_modules/json-rest-schema/package.json", import.meta.url))
+);
 
-const contactBodySchema = {
-  type: "object",
-  properties: {
-    firstName: { type: "string", maxLength: 120 },
-    vetId: {
-      type: ["integer", "null"],
-      relation: {
-        kind: "lookup",
-        apiPath: "/vets",
-        valueKey: "id",
-        labelKey: "name"
-      },
-      ui: {
-        formControl: "autocomplete"
-      }
+const RESOURCE_SOURCE = `import { createSchema } from "json-rest-schema";
+
+const contactRecordSchema = createSchema({
+  id: { type: "integer", required: true },
+  firstName: { type: "string", required: true },
+  vetId: {
+    type: "integer",
+    nullable: true,
+    relation: {
+      kind: "lookup",
+      apiPath: "/vets",
+      valueKey: "id",
+      labelKey: "name"
     }
-  },
-  additionalProperties: false
-};
+  }
+});
+
+const contactBodySchema = createSchema({
+  firstName: { type: "string", maxLength: 120 },
+  vetId: {
+    type: "integer",
+    nullable: true,
+    relation: {
+      kind: "lookup",
+      apiPath: "/vets",
+      valueKey: "id",
+      labelKey: "name"
+    },
+    ui: {
+      formControl: "autocomplete"
+    }
+  }
+});
+
+const contactListSchema = createSchema({
+  items: {
+    type: "array",
+    required: true,
+    items: contactRecordSchema
+  }
+});
 
 const resource = {
   operations: {
     list: {
       output: {
-        schema: {
-          type: "object",
-          properties: {
-            items: {
-              type: "array",
-              items: contactRecordSchema
-            }
-          },
-          additionalProperties: false
-        }
+        schema: contactListSchema,
+        mode: "replace"
       }
     },
     view: {
       output: {
-        schema: contactRecordSchema
+        schema: contactRecordSchema,
+        mode: "replace"
       }
     },
     create: {
       body: {
-        schema: contactBodySchema
+        schema: contactBodySchema,
+        mode: "create"
       },
       output: {
-        schema: contactRecordSchema
+        schema: contactRecordSchema,
+        mode: "replace"
       }
     },
     patch: {
       body: {
-        schema: contactBodySchema
+        schema: contactBodySchema,
+        mode: "patch"
       },
       output: {
-        schema: contactRecordSchema
+        schema: contactRecordSchema,
+        mode: "replace"
       }
     }
   }
@@ -89,6 +95,12 @@ export { resource };
 async function withTempApp(run) {
   const appRoot = await mkdtemp(path.join(tmpdir(), "crud-ui-field-"));
   try {
+    await mkdir(path.join(appRoot, "node_modules"), { recursive: true });
+    await symlink(
+      JSON_REST_SCHEMA_PACKAGE_DIR,
+      path.join(appRoot, "node_modules", "json-rest-schema"),
+      "dir"
+    );
     return await run(appRoot);
   } finally {
     await rm(appRoot, { recursive: true, force: true });

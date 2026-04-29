@@ -1,4 +1,4 @@
-import { resolveValidatorSchemaSource, isJsonRestSchemaInstance } from "../validators/jsonRestSchemaSupport.js";
+import { normalizeSchemaDefinition } from "../validators/schemaDefinitions.js";
 import { normalizeObject, normalizeText } from "./normalize.js";
 
 const CRUD_FIELD_STORAGE_COLUMN = "column";
@@ -68,17 +68,15 @@ function resolveCrudFieldSchemaProperties(value, { context = "crud resource fiel
     return {};
   }
 
-  const source = resolveValidatorSchemaSource(value);
-  if (isJsonRestSchemaInstance(source)) {
-    return normalizeObject(source.getFieldDefinitions());
+  const normalized = normalizeSchemaDefinition(value, {
+    context,
+    defaultMode: "patch"
+  });
+  if (!normalized) {
+    return {};
   }
 
-  if (!source || typeof source !== "object" || Array.isArray(source)) {
-    throw new TypeError(`${context} must resolve to a schema object.`);
-  }
-
-  const properties = normalizeObject(source.properties);
-  return properties;
+  return normalizeObject(normalized.schema.getFieldDefinitions());
 }
 
 function normalizeCrudFieldStorageConfig(

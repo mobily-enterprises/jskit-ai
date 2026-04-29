@@ -24,17 +24,22 @@ function isJsonRestSchemaInstance(value) {
     typeof value.toJsonSchema === "function";
 }
 
-function resolveValidatorSchemaSource(validator = null) {
-  const source = normalizeObject(validator);
-  if (Object.prototype.hasOwnProperty.call(source, "schema")) {
-    return source.schema;
+function requireJsonRestSchemaInstance(schemaDefinition = null, {
+  context = "schema definition.schema"
+} = {}) {
+  const schema = normalizeObject(schemaDefinition).schema;
+  if (!isJsonRestSchemaInstance(schema)) {
+    throw new TypeError(`${context} must be a json-rest-schema schema instance.`);
   }
 
-  return validator;
+  return schema;
 }
 
-function resolveValidatorSchemaMode(validator = null, { defaultMode = "create", context = "validator.mode" } = {}) {
-  const source = normalizeObject(validator);
+function resolveSchemaDefinitionMode(schemaDefinition = null, {
+  defaultMode = "create",
+  context = "schema definition.mode"
+} = {}) {
+  const source = normalizeObject(schemaDefinition);
   const fallbackMode = normalizeText(defaultMode).toLowerCase() || "create";
   const rawMode = Object.prototype.hasOwnProperty.call(source, "mode")
     ? normalizeText(source.mode).toLowerCase()
@@ -51,46 +56,38 @@ function resolveValidatorSchemaMode(validator = null, { defaultMode = "create", 
   return rawMode;
 }
 
-function hasJsonRestSchemaValidator(validator = null) {
-  return isJsonRestSchemaInstance(resolveValidatorSchemaSource(validator));
-}
-
-function resolveValidatorTransportSchema(validator = null, options = {}) {
-  const schema = resolveValidatorSchemaSource(validator);
-  if (!isJsonRestSchemaInstance(schema)) {
-    return schema;
-  }
-
-  const mode = resolveValidatorSchemaMode(validator, options);
+function resolveSchemaDefinitionTransportSchema(schemaDefinition = null, options = {}) {
+  const schema = requireJsonRestSchemaInstance(schemaDefinition, {
+    context: `${options?.context || "schema definition"}.schema`
+  });
+  const mode = resolveSchemaDefinitionMode(schemaDefinition, options);
   return schema.toJsonSchema({ mode });
 }
 
-function executeJsonRestSchemaValidator(validator = null, payload, options = {}) {
-  const schema = resolveValidatorSchemaSource(validator);
-  if (!isJsonRestSchemaInstance(schema)) {
-    return null;
-  }
-
-  const mode = resolveValidatorSchemaMode(validator, options);
+function executeSchemaDefinition(schemaDefinition = null, payload, options = {}) {
+  const schema = requireJsonRestSchemaInstance(schemaDefinition, {
+    context: `${options?.context || "schema definition"}.schema`
+  });
+  const mode = resolveSchemaDefinitionMode(schemaDefinition, options);
   return schema[mode](payload);
 }
 
-function resolveJsonRestSchemaFieldMessages(validator = null, fieldName = "") {
+function resolveJsonRestSchemaFieldMessages(schemaDefinition = null, fieldName = "") {
   const normalizedFieldName = normalizeText(fieldName);
   if (!normalizedFieldName) {
     return {};
   }
 
-  const schema = resolveValidatorSchemaSource(validator);
-  if (!isJsonRestSchemaInstance(schema)) {
+  const source = normalizeObject(schemaDefinition);
+  if (!isJsonRestSchemaInstance(source.schema)) {
     return {};
   }
 
-  return normalizeObject(schema.getFieldMessages(normalizedFieldName));
+  return normalizeObject(source.schema.getFieldMessages(normalizedFieldName));
 }
 
-function resolveJsonRestSchemaFieldErrorMessage(fieldName, entry, validator = null) {
-  const messages = resolveJsonRestSchemaFieldMessages(validator, fieldName);
+function resolveJsonRestSchemaFieldErrorMessage(fieldName, entry, schemaDefinition = null) {
+  const messages = resolveJsonRestSchemaFieldMessages(schemaDefinition, fieldName);
   const errorCode = normalizeText(entry?.code).toUpperCase();
   const messageKey = JSON_REST_SCHEMA_ERROR_MESSAGE_KEYS[errorCode];
 
@@ -111,7 +108,7 @@ function resolveJsonRestSchemaFieldErrorMessage(fieldName, entry, validator = nu
   return normalizeText(entry?.message || entry?.code || "Invalid value.");
 }
 
-function normalizeJsonRestSchemaFieldErrors(errors = {}, validator = null) {
+function normalizeJsonRestSchemaFieldErrors(errors = {}, schemaDefinition = null) {
   const source = normalizeObject(errors);
   const fieldErrors = {};
 
@@ -126,7 +123,7 @@ function normalizeJsonRestSchemaFieldErrors(errors = {}, validator = null) {
       continue;
     }
 
-    const message = resolveJsonRestSchemaFieldErrorMessage(normalizedFieldName, entry, validator);
+    const message = resolveJsonRestSchemaFieldErrorMessage(normalizedFieldName, entry, schemaDefinition);
     fieldErrors[normalizedFieldName] = message || "Invalid value.";
   }
 
@@ -135,10 +132,8 @@ function normalizeJsonRestSchemaFieldErrors(errors = {}, validator = null) {
 
 export {
   isJsonRestSchemaInstance,
-  hasJsonRestSchemaValidator,
-  resolveValidatorSchemaSource,
-  resolveValidatorSchemaMode,
-  resolveValidatorTransportSchema,
-  executeJsonRestSchemaValidator,
+  resolveSchemaDefinitionMode,
+  resolveSchemaDefinitionTransportSchema,
+  executeSchemaDefinition,
   normalizeJsonRestSchemaFieldErrors
 };
