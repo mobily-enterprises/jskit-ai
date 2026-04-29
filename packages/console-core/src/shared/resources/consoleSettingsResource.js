@@ -15,9 +15,24 @@ const consoleSettingsOutputSchema = createSchema({
   }
 });
 
-const consoleSettingsOutputDefinition = deepFreeze({
+const consoleSettingsOutputValidator = deepFreeze({
   schema: consoleSettingsOutputSchema,
   mode: "replace"
+});
+
+const consoleSettingsCreateBodyValidator = deepFreeze({
+  schema: consoleSettingsBodySchema,
+  mode: "create"
+});
+
+const consoleSettingsReplaceBodyValidator = deepFreeze({
+  schema: consoleSettingsBodySchema,
+  mode: "replace"
+});
+
+const consoleSettingsPatchBodyValidator = deepFreeze({
+  schema: consoleSettingsPatchBodySchema,
+  mode: "patch"
 });
 
 const CONSOLE_SETTINGS_OPERATION_MESSAGES = createOperationMessages();
@@ -28,39 +43,30 @@ const consoleSettingsResource = deepFreeze({
     view: {
       method: "GET",
       messages: CONSOLE_SETTINGS_OPERATION_MESSAGES,
-      output: consoleSettingsOutputDefinition
+      output: consoleSettingsOutputValidator
     },
     list: {
       method: "GET",
       messages: CONSOLE_SETTINGS_OPERATION_MESSAGES,
-      output: createCursorListValidator(consoleSettingsOutputDefinition)
+      output: createCursorListValidator(consoleSettingsOutputValidator)
     },
     create: {
       method: "POST",
       messages: CONSOLE_SETTINGS_OPERATION_MESSAGES,
-      body: {
-        schema: consoleSettingsBodySchema,
-        mode: "create"
-      },
-      output: consoleSettingsOutputDefinition
+      body: consoleSettingsCreateBodyValidator,
+      output: consoleSettingsOutputValidator
     },
     replace: {
       method: "PUT",
       messages: CONSOLE_SETTINGS_OPERATION_MESSAGES,
-      body: {
-        schema: consoleSettingsBodySchema,
-        mode: "replace"
-      },
-      output: consoleSettingsOutputDefinition
+      body: consoleSettingsReplaceBodyValidator,
+      output: consoleSettingsOutputValidator
     },
     patch: {
       method: "PATCH",
       messages: CONSOLE_SETTINGS_OPERATION_MESSAGES,
-      body: {
-        schema: consoleSettingsPatchBodySchema,
-        mode: "patch"
-      },
-      output: consoleSettingsOutputDefinition
+      body: consoleSettingsPatchBodyValidator,
+      output: consoleSettingsOutputValidator
     }
   }
 });

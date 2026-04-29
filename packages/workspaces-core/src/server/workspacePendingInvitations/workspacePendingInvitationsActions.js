@@ -1,5 +1,5 @@
 import {
-  EMPTY_INPUT_VALIDATOR
+  emptyInputValidator
 } from "@jskit-ai/kernel/shared/actions/actionContributorHelpers";
 import { workspaceMembersResource } from "../../shared/resources/workspaceMembersResource.js";
 import { workspacePendingInvitationsResource } from "../../shared/resources/workspacePendingInvitationsResource.js";
@@ -15,7 +15,7 @@ const workspacePendingInvitationsActions = Object.freeze([
     permission: {
       require: "authenticated"
     },
-    input: EMPTY_INPUT_VALIDATOR,
+    input: emptyInputValidator,
     output: workspacePendingInvitationsResource.operations.list.output,
     idempotency: "none",
     audit: {

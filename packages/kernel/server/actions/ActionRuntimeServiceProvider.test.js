@@ -3,7 +3,7 @@ import test from "node:test";
 import { createSchema } from "json-rest-schema";
 
 import {
-  EMPTY_INPUT_VALIDATOR
+  emptyInputValidator
 } from "../../shared/actions/actionContributorHelpers.js";
 import {
   ActionRuntimeServiceProvider,
@@ -162,7 +162,7 @@ test("ActionRuntimeServiceProvider registers SurfaceRuntime from appConfig when 
       kind: "query",
       channels: ["internal"],
       surfacesFrom: "enabled",
-      input: EMPTY_INPUT_VALIDATOR,
+      input: emptyInputValidator,
       idempotency: "none",
       audit: { actionName: "test.surfaces.from.appconfig" },
       observability: {},
@@ -198,7 +198,7 @@ test("ActionRuntimeServiceProvider materializes custom surfacesFrom aliases regi
       kind: "query",
       channels: ["internal"],
       surfacesFrom: "workspace",
-      input: EMPTY_INPUT_VALIDATOR,
+      input: emptyInputValidator,
       idempotency: "none",
       audit: { actionName: "test.workspace.alias" },
       observability: {},
@@ -235,7 +235,7 @@ test("ActionRuntimeServiceProvider does not infer service method bindings from a
       dependencies: {
         customerService: "test.customer.service"
       },
-      input: EMPTY_INPUT_VALIDATOR,
+      input: emptyInputValidator,
       idempotency: "optional",
       audit: { actionName: "test.customer.create" },
       observability: {},
@@ -268,7 +268,7 @@ test("app.actions + resolveActionContributors provide canonical contributor wiri
       kind: "query",
       channels: ["internal"],
       surfaces: ["app"],
-      input: EMPTY_INPUT_VALIDATOR,
+      input: emptyInputValidator,
       idempotency: "none",
       audit: { actionName: "alpha.one" },
       observability: {},
@@ -285,7 +285,7 @@ test("app.actions + resolveActionContributors provide canonical contributor wiri
       kind: "query",
       channels: ["internal"],
       surfaces: ["app"],
-      input: EMPTY_INPUT_VALIDATOR,
+      input: emptyInputValidator,
       idempotency: "none",
       audit: { actionName: "beta.one" },
       observability: {},
@@ -328,7 +328,7 @@ test("action runtime execute merges static and per-execution dependencies", asyn
       dependencies: {
         staticService: "test.static.service"
       },
-      input: EMPTY_INPUT_VALIDATOR,
+      input: emptyInputValidator,
       idempotency: "none",
       audit: { actionName: "test.deps.merge" },
       observability: {},
@@ -372,7 +372,7 @@ test("app.actions accepts custom action domains", () => {
       kind: "query",
       channels: ["internal"],
       surfaces: ["app"],
-      input: EMPTY_INPUT_VALIDATOR,
+      input: emptyInputValidator,
       idempotency: "none",
       audit: { actionName: "custom.domain.check" },
       observability: {},
@@ -399,7 +399,7 @@ test("app.action registers a single action with default contributor id", () => {
     kind: "query",
     channels: ["internal"],
     surfaces: ["app"],
-    input: EMPTY_INPUT_VALIDATOR,
+    input: emptyInputValidator,
     idempotency: "none",
     audit: { actionName: "test.single" },
     observability: {},
@@ -423,7 +423,7 @@ test("app.actions requires an array", () => {
   assert.throws(() => app.actions({}), /requires an array/);
 });
 
-test("EMPTY_INPUT_VALIDATOR allows empty input and rejects unexpected fields", async () => {
+test("emptyInputValidator allows empty input and rejects unexpected fields", async () => {
   const app = createSingletonApp();
   const provider = new ActionRuntimeServiceProvider();
   provider.register(app);
@@ -442,7 +442,7 @@ test("EMPTY_INPUT_VALIDATOR allows empty input and rejects unexpected fields", a
       kind: "query",
       channels: ["internal"],
       surfaces: ["app"],
-      input: EMPTY_INPUT_VALIDATOR,
+      input: emptyInputValidator,
       idempotency: "none",
       audit: { actionName: "test.empty-input" },
       observability: {},
@@ -509,7 +509,7 @@ test("app.actions rejects invalid domain identifiers", () => {
           kind: "query",
           channels: ["internal"],
           surfaces: ["app"],
-          input: EMPTY_INPUT_VALIDATOR,
+          input: emptyInputValidator,
           idempotency: "none",
           audit: { actionName: "invalid.domain" },
           observability: {},
@@ -541,7 +541,7 @@ test("app.actions rejects unsupported surfacesFrom aliases", () => {
       kind: "query",
       channels: ["internal"],
       surfacesFrom: "workspace",
-      input: EMPTY_INPUT_VALIDATOR,
+      input: emptyInputValidator,
       idempotency: "none",
       audit: { actionName: "workspace.alias.invalid" },
       observability: {},

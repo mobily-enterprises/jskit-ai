@@ -36,7 +36,7 @@ const authLoginOAuthStartQueryValidator = deepFreeze({
   messages: AUTH_LOGIN_OAUTH_START_MESSAGES
 });
 
-const authLoginOAuthStartResponseValidator = deepFreeze({
+const authLoginOAuthStartOutputValidator = deepFreeze({
   schema: createSchema({
     provider: { ...oauthProviderFieldDefinition, required: true },
     returnTo: { ...oauthReturnToFieldDefinition, required: true },
@@ -51,7 +51,7 @@ const authLoginOAuthStartCommand = deepFreeze({
     method: "GET",
     params: authLoginOAuthStartParamsValidator,
     query: authLoginOAuthStartQueryValidator,
-    response: authLoginOAuthStartResponseValidator,
+    response: authLoginOAuthStartOutputValidator,
     messages: AUTH_LOGIN_OAUTH_START_MESSAGES,
     idempotent: true,
     invalidates: []
@@ -61,7 +61,7 @@ const authLoginOAuthStartCommand = deepFreeze({
 export {
   authLoginOAuthStartParamsValidator,
   authLoginOAuthStartQueryValidator,
-  authLoginOAuthStartResponseValidator,
+  authLoginOAuthStartOutputValidator,
   AUTH_LOGIN_OAUTH_START_MESSAGES,
   authLoginOAuthStartCommand
 };

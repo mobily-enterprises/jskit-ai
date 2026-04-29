@@ -4,7 +4,7 @@ import {
   authEmailFieldDefinition,
   createCommandMessages,
   oauthReturnToFieldDefinition,
-  okMessageResponseValidator
+  okMessageOutputValidator
 } from "./authCommandValidators.js";
 
 const AUTH_LOGIN_OTP_REQUEST_MESSAGES = createCommandMessages({
@@ -36,7 +36,7 @@ const authLoginOtpRequestCommand = deepFreeze({
   operation: {
     method: "POST",
     body: authLoginOtpRequestBodyValidator,
-    response: okMessageResponseValidator,
+    response: okMessageOutputValidator,
     messages: AUTH_LOGIN_OTP_REQUEST_MESSAGES,
     idempotent: false,
     invalidates: []
@@ -45,7 +45,7 @@ const authLoginOtpRequestCommand = deepFreeze({
 
 export {
   authLoginOtpRequestBodyValidator,
-  okMessageResponseValidator,
+  okMessageOutputValidator,
   AUTH_LOGIN_OTP_REQUEST_MESSAGES,
   authLoginOtpRequestCommand
 };

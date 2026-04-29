@@ -4,7 +4,7 @@ import { deepFreeze } from "@jskit-ai/kernel/shared/support/deepFreeze";
 import {
   authEmailValidator,
   createCommandMessages,
-  devLoginAsResponseValidator
+  devLoginAsOutputValidator
 } from "./authCommandValidators.js";
 
 const AUTH_DEV_LOGIN_AS_MESSAGES = createCommandMessages({
@@ -47,7 +47,7 @@ const authDevLoginAsCommand = deepFreeze({
   operation: {
     method: "POST",
     body: authDevLoginAsBodyValidator,
-    response: devLoginAsResponseValidator,
+    response: devLoginAsOutputValidator,
     messages: AUTH_DEV_LOGIN_AS_MESSAGES,
     idempotent: false,
     invalidates: ["auth.session.read"]

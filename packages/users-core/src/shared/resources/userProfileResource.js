@@ -6,10 +6,10 @@ import {
   userProfileOutputSchema
 } from "./accountSettingsSchemas.js";
 import {
-  userSettingsOutputDefinition
+  userSettingsOutputValidator
 } from "./userSettingsResource.js";
 
-const userProfileOutput = deepFreeze({
+const userProfileOutputValidator = deepFreeze({
   schema: userProfileOutputSchema,
   mode: "replace"
 });
@@ -23,7 +23,7 @@ const userProfileBodySchema = createSchema({
   }
 });
 
-const avatarUploadBody = deepFreeze({
+const avatarUploadBodyValidator = deepFreeze({
   schema: createSchema({
     mimeType: {
       type: "string",
@@ -53,7 +53,7 @@ const avatarUploadBody = deepFreeze({
   mode: "patch"
 });
 
-const avatarDeleteBody = deepFreeze({
+const avatarDeleteBodyValidator = deepFreeze({
   schema: createSchema({}),
   mode: "patch"
 });
@@ -66,12 +66,12 @@ const userProfileResource = deepFreeze({
     view: {
       method: "GET",
       messages: USER_PROFILE_OPERATION_MESSAGES,
-      output: userProfileOutput
+      output: userProfileOutputValidator
     },
     list: {
       method: "GET",
       messages: USER_PROFILE_OPERATION_MESSAGES,
-      output: createCursorListValidator(userProfileOutput)
+      output: createCursorListValidator(userProfileOutputValidator)
     },
     create: {
       method: "POST",
@@ -80,7 +80,7 @@ const userProfileResource = deepFreeze({
         schema: userProfileBodySchema,
         mode: "create"
       },
-      output: userProfileOutput
+      output: userProfileOutputValidator
     },
     replace: {
       method: "PUT",
@@ -89,7 +89,7 @@ const userProfileResource = deepFreeze({
         schema: userProfileBodySchema,
         mode: "replace"
       },
-      output: userProfileOutput
+      output: userProfileOutputValidator
     },
     patch: {
       method: "PATCH",
@@ -98,19 +98,19 @@ const userProfileResource = deepFreeze({
         schema: userProfileBodySchema,
         mode: "patch"
       },
-      output: userProfileOutput
+      output: userProfileOutputValidator
     },
     avatarUpload: {
       method: "POST",
       messages: USER_PROFILE_OPERATION_MESSAGES,
-      body: avatarUploadBody,
-      output: userSettingsOutputDefinition
+      body: avatarUploadBodyValidator,
+      output: userSettingsOutputValidator
     },
     avatarDelete: {
       method: "DELETE",
       messages: USER_PROFILE_OPERATION_MESSAGES,
-      body: avatarDeleteBody,
-      output: userSettingsOutputDefinition
+      body: avatarDeleteBodyValidator,
+      output: userSettingsOutputValidator
     }
   }
 });

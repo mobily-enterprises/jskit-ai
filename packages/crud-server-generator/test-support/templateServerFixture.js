@@ -245,19 +245,27 @@ const patchBodySchema = createSchema({
   }
 });
 
-const recordOutput = deepFreeze({
+const recordOutputValidator = deepFreeze({
   schema: recordOutputSchema,
   mode: "replace"
 });
 
-const createBody = deepFreeze({
+const createBodyValidator = deepFreeze({
   schema: createBodySchema,
   mode: "create"
 });
 
-const patchBody = deepFreeze({
+const patchBodyValidator = deepFreeze({
   schema: patchBodySchema,
   mode: "patch"
+});
+
+const deleteOutputValidator = deepFreeze({
+  schema: createSchema({
+    id: { type: "string", required: true },
+    deleted: { type: "boolean", required: true }
+  }),
+  mode: "replace"
 });
 
 const resource = deepFreeze({
@@ -266,27 +274,21 @@ const resource = deepFreeze({
   idColumn: "id",
   operations: {
     list: {
-      output: createCursorListValidator(recordOutput)
+      output: createCursorListValidator(recordOutputValidator)
     },
     view: {
-      output: recordOutput
+      output: recordOutputValidator
     },
     create: {
-      body: createBody,
-      output: recordOutput
+      body: createBodyValidator,
+      output: recordOutputValidator
     },
     patch: {
-      body: patchBody,
-      output: recordOutput
+      body: patchBodyValidator,
+      output: recordOutputValidator
     },
     delete: {
-      output: deepFreeze({
-        schema: createSchema({
-          id: { type: "string", required: true },
-          deleted: { type: "boolean", required: true }
-        }),
-        mode: "replace"
-      })
+      output: deleteOutputValidator
     }
   }
 });

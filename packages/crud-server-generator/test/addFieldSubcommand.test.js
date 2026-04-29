@@ -48,17 +48,17 @@ const patchBodySchema = createSchema({
   }
 });
 
-const recordOutput = deepFreeze({
+const recordOutputValidator = deepFreeze({
   schema: recordOutputSchema,
   mode: "replace"
 });
 
-const createBody = deepFreeze({
+const createBodyValidator = deepFreeze({
   schema: createBodySchema,
   mode: "create"
 });
 
-const patchBody = deepFreeze({
+const patchBodyValidator = deepFreeze({
   schema: patchBodySchema,
   mode: "patch"
 });
@@ -68,10 +68,10 @@ const resource = deepFreeze({
   tableName: "contacts",
   idColumn: "id",
   operations: {
-    list: { method: "GET", output: createCursorListValidator(recordOutput) },
-    view: { method: "GET", output: recordOutput },
-    create: { method: "POST", body: createBody, output: recordOutput },
-    patch: { method: "PATCH", body: patchBody, output: recordOutput }
+    list: { method: "GET", output: createCursorListValidator(recordOutputValidator) },
+    view: { method: "GET", output: recordOutputValidator },
+    create: { method: "POST", body: createBodyValidator, output: recordOutputValidator },
+    patch: { method: "PATCH", body: patchBodyValidator, output: recordOutputValidator }
   }
 });
 

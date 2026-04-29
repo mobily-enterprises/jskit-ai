@@ -1,7 +1,7 @@
 # Last Items
 
 - [x] 1. Convert `assistant-runtime` route param composition to real schema definitions.
-  - Current problem: `packages/assistant-runtime/src/server/registerRoutes.js` still builds `params` as validator arrays like `[workspaceScopeSupport.params, assistantSurfaceRouteParams]`.
+  - Fixed: `packages/assistant-runtime/src/server/registerRoutes.js` now composes route params into a single schema definition object.
   - Why it matters: the route layer now expects a single schema definition object, and the real router path throws on this shape.
 
 - [x] 2. Convert `assistant-runtime` action input composition to real schema definitions.

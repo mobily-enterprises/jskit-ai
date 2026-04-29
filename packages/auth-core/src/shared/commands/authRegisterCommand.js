@@ -4,7 +4,7 @@ import {
   authEmailFieldDefinition,
   authPasswordFieldDefinition,
   createCommandMessages,
-  registerResponseValidator
+  registerOutputValidator
 } from "./authCommandValidators.js";
 
 const AUTH_REGISTER_MESSAGES = createCommandMessages({
@@ -37,7 +37,7 @@ const authRegisterCommand = deepFreeze({
   operation: {
     method: "POST",
     body: authRegisterBodyValidator,
-    response: registerResponseValidator,
+    response: registerOutputValidator,
     messages: AUTH_REGISTER_MESSAGES,
     idempotent: false,
     invalidates: ["auth.session.read"]
@@ -46,7 +46,7 @@ const authRegisterCommand = deepFreeze({
 
 export {
   authRegisterBodyValidator,
-  registerResponseValidator,
+  registerOutputValidator,
   AUTH_REGISTER_MESSAGES,
   authRegisterCommand
 };

@@ -16,7 +16,7 @@ import {
 } from "@jskit-ai/assistant-core/server";
 import { resolveAssistantSurfaceConfig } from "../shared/assistantSurfaces.js";
 import { actionIds } from "./actionIds.js";
-import { assistantSurfaceRouteParams } from "./inputSchemas.js";
+import { assistantSurfaceRouteParamsValidator } from "./inputSchemas.js";
 import { resolveWorkspaceServerScopeSupport } from "./support/workspaceScopeSupport.js";
 
 function requireWorkspaceAssistantRouteParams(workspaceScopeSupport = null) {
@@ -25,7 +25,7 @@ function requireWorkspaceAssistantRouteParams(workspaceScopeSupport = null) {
   }
 
   return composeSchemaDefinitions(
-    [workspaceScopeSupport.params, assistantSurfaceRouteParams],
+    [workspaceScopeSupport.params, assistantSurfaceRouteParamsValidator],
     {
       mode: "patch",
       context: "assistant-runtime workspace surface route params"
@@ -152,7 +152,7 @@ function registerSettingsRoutes(
   const routePath = `${routeBase}/:surfaceId/settings`;
   const params = requiresWorkspace === true
     ? requireWorkspaceAssistantRouteParams(workspaceScopeSupport)
-    : assistantSurfaceRouteParams;
+    : assistantSurfaceRouteParamsValidator;
 
   router.register(
     "GET",
@@ -246,7 +246,7 @@ function registerRuntimeRoutes(
   const surfaceRouteBase = `${routeBase}/:surfaceId`;
   const params = requiresWorkspace === true
     ? requireWorkspaceAssistantRouteParams(workspaceScopeSupport)
-    : assistantSurfaceRouteParams;
+    : assistantSurfaceRouteParamsValidator;
   const conversationMessagesParams = composeSchemaDefinitions(
     [params, assistantResource.operations.conversationMessagesList.params],
     {

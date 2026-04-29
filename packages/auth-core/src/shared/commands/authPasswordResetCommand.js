@@ -3,7 +3,7 @@ import { deepFreeze } from "@jskit-ai/kernel/shared/support/deepFreeze";
 import {
   authPasswordFieldDefinition,
   createCommandMessages,
-  okMessageResponseValidator
+  okMessageOutputValidator
 } from "./authCommandValidators.js";
 
 const AUTH_PASSWORD_RESET_MESSAGES = createCommandMessages({
@@ -29,7 +29,7 @@ const authPasswordResetCommand = deepFreeze({
   operation: {
     method: "POST",
     body: authPasswordResetBodyValidator,
-    response: okMessageResponseValidator,
+    response: okMessageOutputValidator,
     messages: AUTH_PASSWORD_RESET_MESSAGES,
     idempotent: false,
     invalidates: ["auth.session.read"]
@@ -38,7 +38,7 @@ const authPasswordResetCommand = deepFreeze({
 
 export {
   authPasswordResetBodyValidator,
-  okMessageResponseValidator,
+  okMessageOutputValidator,
   AUTH_PASSWORD_RESET_MESSAGES,
   authPasswordResetCommand
 };

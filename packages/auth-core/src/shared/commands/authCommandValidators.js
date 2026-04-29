@@ -130,14 +130,14 @@ const authRefreshTokenValidator = deepFreeze({
   ...authRefreshTokenFieldDefinition
 });
 
-const okResponseValidator = deepFreeze({
+const okOutputValidator = deepFreeze({
   schema: createSchema({
     ok: { type: "boolean", required: true }
   }),
   mode: "replace"
 });
 
-const okMessageResponseValidator = deepFreeze({
+const okMessageOutputValidator = deepFreeze({
   schema: createSchema({
     ok: { type: "boolean", required: true },
     message: { type: "string", required: true, minLength: 1 }
@@ -145,7 +145,7 @@ const okMessageResponseValidator = deepFreeze({
   mode: "replace"
 });
 
-const registerResponseValidator = deepFreeze({
+const registerOutputValidator = deepFreeze({
   schema: createSchema({
     ok: { type: "boolean", required: true },
     requiresEmailConfirmation: { type: "boolean", required: true },
@@ -155,7 +155,7 @@ const registerResponseValidator = deepFreeze({
   mode: "replace"
 });
 
-const loginResponseValidator = deepFreeze({
+const loginOutputValidator = deepFreeze({
   schema: createSchema({
     ok: { type: "boolean", required: true },
     username: { type: "string", required: true, minLength: 1, maxLength: 120 }
@@ -163,7 +163,7 @@ const loginResponseValidator = deepFreeze({
   mode: "replace"
 });
 
-const otpVerifyResponseValidator = deepFreeze({
+const otpVerifyOutputValidator = deepFreeze({
   schema: createSchema({
     ok: { type: "boolean", required: true },
     username: { type: "string", required: true, minLength: 1, maxLength: 120 },
@@ -172,7 +172,7 @@ const otpVerifyResponseValidator = deepFreeze({
   mode: "replace"
 });
 
-const oauthCompleteResponseValidator = deepFreeze({
+const oauthCompleteOutputValidator = deepFreeze({
   schema: createSchema({
     ok: { type: "boolean", required: true },
     provider: { ...oauthProviderFieldDefinition, required: false },
@@ -182,7 +182,7 @@ const oauthCompleteResponseValidator = deepFreeze({
   mode: "replace"
 });
 
-const devLoginAsResponseValidator = deepFreeze({
+const devLoginAsOutputValidator = deepFreeze({
   schema: createSchema({
     ok: { type: "boolean", required: true },
     userId: { type: "string", required: true, minLength: 1 },
@@ -192,7 +192,7 @@ const devLoginAsResponseValidator = deepFreeze({
   mode: "replace"
 });
 
-const logoutResponseValidator = deepFreeze({
+const logoutOutputValidator = deepFreeze({
   schema: createSchema({
     ok: { type: "boolean", required: true }
   }),
@@ -204,12 +204,12 @@ const oauthProviderCatalogEntrySchema = createSchema({
   label: { type: "string", required: true, minLength: 1, maxLength: 120 }
 });
 
-const oauthProviderCatalogEntryValidator = deepFreeze({
+const oauthProviderCatalogEntryOutputValidator = deepFreeze({
   schema: oauthProviderCatalogEntrySchema,
   mode: "replace"
 });
 
-const sessionResponseSchema = createSchema({
+const sessionOutputSchema = createSchema({
   authenticated: { type: "boolean", required: true },
   username: { type: "string", required: false, minLength: 1, maxLength: 120 },
   email: { ...authEmailFieldDefinition, required: false },
@@ -235,12 +235,12 @@ const sessionResponseSchema = createSchema({
   }
 });
 
-const sessionResponseValidator = deepFreeze({
-  schema: sessionResponseSchema,
+const sessionOutputValidator = deepFreeze({
+  schema: sessionOutputSchema,
   mode: "replace"
 });
 
-const sessionUnavailableResponseSchema = createSchema({
+const sessionUnavailableOutputSchema = createSchema({
   error: { type: "string", required: true, minLength: 1 },
   csrfToken: { type: "string", required: true, minLength: 1 },
   oauthProviders: {
@@ -255,8 +255,8 @@ const sessionUnavailableResponseSchema = createSchema({
   }
 });
 
-const sessionUnavailableResponseValidator = deepFreeze({
-  schema: sessionUnavailableResponseSchema,
+const sessionUnavailableOutputValidator = deepFreeze({
+  schema: sessionUnavailableOutputSchema,
   mode: "replace"
 });
 
@@ -297,16 +297,16 @@ export {
   authMethodIdValidator,
   authMethodKindValidator,
   oauthReturnToValidator,
-  okResponseValidator,
-  okMessageResponseValidator,
-  registerResponseValidator,
-  loginResponseValidator,
-  otpVerifyResponseValidator,
-  oauthCompleteResponseValidator,
-  devLoginAsResponseValidator,
-  logoutResponseValidator,
-  oauthProviderCatalogEntryValidator,
-  sessionResponseValidator,
-  sessionUnavailableResponseValidator,
+  okOutputValidator,
+  okMessageOutputValidator,
+  registerOutputValidator,
+  loginOutputValidator,
+  otpVerifyOutputValidator,
+  oauthCompleteOutputValidator,
+  devLoginAsOutputValidator,
+  logoutOutputValidator,
+  oauthProviderCatalogEntryOutputValidator,
+  sessionOutputValidator,
+  sessionUnavailableOutputValidator,
   createCommandMessages
 };

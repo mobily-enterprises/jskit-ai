@@ -1,6 +1,6 @@
 import { createSchema } from "json-rest-schema";
 import {
-  EMPTY_INPUT_VALIDATOR,
+  emptyInputValidator,
   resolveRequest
 } from "@jskit-ai/kernel/shared/actions/actionContributorHelpers";
 import { deepFreeze } from "@jskit-ai/kernel/shared/support/deepFreeze";
@@ -41,7 +41,7 @@ const accountProfileActions = deepFreeze([
     permission: {
       require: "authenticated"
     },
-    input: EMPTY_INPUT_VALIDATOR,
+    input: emptyInputValidator,
     output: userSettingsResource.operations.view.output,
     idempotency: "none",
     audit: {

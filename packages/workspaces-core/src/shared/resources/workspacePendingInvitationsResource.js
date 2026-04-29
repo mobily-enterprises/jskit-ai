@@ -15,7 +15,7 @@ const pendingInviteRecordSchema = createSchema({
   token: { type: "string", required: true, minLength: 1 }
 });
 
-const pendingInvitationsListOutputDefinition = deepFreeze({
+const pendingInvitationsListOutputValidator = deepFreeze({
   schema: createSchema({
     pendingInvites: {
       type: "array",
@@ -35,7 +35,7 @@ const workspacePendingInvitationsResource = deepFreeze({
     list: {
       method: "GET",
       messages: WORKSPACE_PENDING_INVITATIONS_MESSAGES,
-      output: pendingInvitationsListOutputDefinition
+      output: pendingInvitationsListOutputValidator
     }
   }
 });
