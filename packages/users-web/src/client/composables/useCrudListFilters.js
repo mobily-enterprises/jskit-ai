@@ -2,6 +2,8 @@ import { computed, reactive, toRef } from "vue";
 import { normalizeText, normalizeUniqueTextList } from "@jskit-ai/kernel/shared/support/normalize";
 import {
   defineCrudListFilters,
+  parseCrudListRangeQueryExpression,
+  formatCrudListRangeQueryExpression,
   resolveCrudListFilterOptionLabel,
   CRUD_LIST_FILTER_TYPE_FLAG,
   CRUD_LIST_FILTER_TYPE_ENUM,
@@ -237,14 +239,34 @@ function createQueryParams(values, filterEntries = []) {
 
   for (const filter of filterEntries) {
     if (filter.type === CRUD_LIST_FILTER_TYPE_DATE_RANGE) {
-      queryParams[filter.fromKey] = toRef(values[filter.key], "from");
-      queryParams[filter.toKey] = toRef(values[filter.key], "to");
+      queryParams[filter.queryKey] = computed({
+        get() {
+          return formatCrudListRangeQueryExpression(values[filter.key]?.from, values[filter.key]?.to, {
+            collapseExact: true
+          });
+        },
+        set(nextValue) {
+          const parsed = parseCrudListRangeQueryExpression(nextValue);
+          values[filter.key].from = normalizeText(parsed?.start);
+          values[filter.key].to = normalizeText(parsed?.end);
+        }
+      });
       continue;
     }
 
     if (filter.type === CRUD_LIST_FILTER_TYPE_NUMBER_RANGE) {
-      queryParams[filter.minKey] = toRef(values[filter.key], "min");
-      queryParams[filter.maxKey] = toRef(values[filter.key], "max");
+      queryParams[filter.queryKey] = computed({
+        get() {
+          return formatCrudListRangeQueryExpression(values[filter.key]?.min, values[filter.key]?.max, {
+            collapseExact: true
+          });
+        },
+        set(nextValue) {
+          const parsed = parseCrudListRangeQueryExpression(nextValue);
+          values[filter.key].min = normalizeText(parsed?.start);
+          values[filter.key].max = normalizeText(parsed?.end);
+        }
+      });
       continue;
     }
 

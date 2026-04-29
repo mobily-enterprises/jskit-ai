@@ -6,9 +6,10 @@ import { AppError } from "@jskit-ai/kernel/server/runtime/errors";
 import { RECORD_ID_PATTERN } from "@jskit-ai/kernel/shared/validators";
 import { normalizeRecordId, normalizeText } from "@jskit-ai/kernel/shared/support/normalize";
 import { normalizeObjectInput } from "@jskit-ai/kernel/shared/validators/inputNormalization";
-import { resolveStructuredSchemaTransportSchema } from "@jskit-ai/kernel/shared/validators";
+import { normalizeSchemaDefinition } from "@jskit-ai/kernel/shared/validators";
 import {
   buildCrudFieldContractMap,
+  resolveCrudFieldSchemaProperties,
   CRUD_FIELD_STORAGE_COLUMN,
   CRUD_FIELD_STORAGE_VIRTUAL,
   CRUD_FIELD_WRITE_SERIALIZER_DATETIME_UTC
@@ -117,88 +118,55 @@ function buildRepositoryColumnMetadata({
   });
 }
 
-function resolveOptionalObjectSchemaProperties(schema, options = {}) {
-  if (!schema) {
+function resolveOptionalFieldDefinitions(definition, options = {}) {
+  if (!definition) {
     return {};
   }
-  return requireObjectSchemaProperties(schema, options);
+  return requireFieldDefinitions(definition, options);
 }
 
-function requireObjectSchemaProperties(schema, { context = "crudRepository", schemaLabel = "schema" } = {}) {
-  if (!schema || typeof schema !== "object" || Array.isArray(schema)) {
-    throw new TypeError(`${context} requires ${schemaLabel} to be an object schema.`);
+function requireFieldDefinitions(definition, {
+  context = "crudRepository",
+  schemaLabel = "schema definition",
+  defaultMode = "patch"
+} = {}) {
+  const normalized = normalizeSchemaDefinition(definition, {
+    context: `${context} ${schemaLabel}`,
+    defaultMode
+  });
+  if (!normalized) {
+    throw new TypeError(`${context} requires ${schemaLabel}.`);
   }
 
-  const properties = schema.properties;
+  const properties = resolveCrudFieldSchemaProperties(normalized, {
+    context: `${context} ${schemaLabel}`
+  });
   if (!properties || typeof properties !== "object" || Array.isArray(properties)) {
-    throw new TypeError(`${context} requires ${schemaLabel}.properties.`);
+    throw new TypeError(`${context} requires ${schemaLabel} field definitions.`);
   }
 
   return properties;
 }
 
-function schemaIncludesStringType(schema = {}) {
-  if (!schema || typeof schema !== "object" || Array.isArray(schema)) {
-    return false;
-  }
-
-  const type = normalizeText(schema.type).toLowerCase();
-  if (type === "string") {
-    return true;
-  }
-
-  const variants = Array.isArray(schema.anyOf)
-    ? schema.anyOf
-    : Array.isArray(schema.oneOf)
-      ? schema.oneOf
-      : [];
-  return variants.some((entry) => schemaIncludesStringType(entry));
+function resolveFieldDefinitionType(definition = {}) {
+  return normalizeText(definition?.type).toLowerCase();
 }
 
-function schemaIncludesDateTimeFormat(schema = {}) {
-  if (!schema || typeof schema !== "object" || Array.isArray(schema)) {
-    return false;
-  }
-
-  const jsonRestSchemaMeta = schema["x-json-rest-schema"];
-  const castType = normalizeText(jsonRestSchemaMeta?.castType).toLowerCase();
-  if (castType === "datetime") {
-    return true;
-  }
-
-  if (normalizeText(schema.format).toLowerCase() === "date-time") {
-    return true;
-  }
-
-  const variants = Array.isArray(schema.anyOf)
-    ? schema.anyOf
-    : Array.isArray(schema.oneOf)
-      ? schema.oneOf
-      : [];
-  return variants.some((entry) => schemaIncludesDateTimeFormat(entry));
+function definitionIncludesStringType(definition = {}) {
+  return resolveFieldDefinitionType(definition) === "string";
 }
 
-function schemaIncludesRecordIdType(schema = {}) {
-  if (!schema || typeof schema !== "object" || Array.isArray(schema)) {
-    return false;
-  }
+function definitionIncludesDateTimeType(definition = {}) {
+  return resolveFieldDefinitionType(definition) === "datetime";
+}
 
-  const type = Array.isArray(schema.type)
-    ? schema.type.map((entry) => normalizeText(entry).toLowerCase()).filter(Boolean)
-    : normalizeText(schema.type).toLowerCase();
-  const hasStringType = Array.isArray(type)
-    ? type.includes("string")
-    : type === "string";
-  if (hasStringType && normalizeText(schema.pattern) === RECORD_ID_PATTERN) {
+function definitionIncludesRecordIdType(definition = {}) {
+  const type = resolveFieldDefinitionType(definition);
+  if (type === "id") {
     return true;
   }
 
-  const variants = Array.isArray(schema.anyOf)
-    ? schema.anyOf
-    : Array.isArray(schema.oneOf)
-      ? schema.oneOf
-      : [];
-  return variants.some((entry) => schemaIncludesRecordIdType(entry));
+  return type === "string" && normalizeText(definition?.pattern) === RECORD_ID_PATTERN;
 }
 
 function deriveRepositoryMappingFromResource(resource = {}, { context = "crudRepository" } = {}) {
@@ -211,29 +179,20 @@ function deriveRepositoryMappingFromResource(resource = {}, { context = "crudRep
     throw new TypeError(`${context} requires resource.operations.`);
   }
 
-  const outputSchema = resolveStructuredSchemaTransportSchema(operations?.view?.output, {
-    context: `${context} operations.view.output`,
+  const outputProperties = requireFieldDefinitions(operations?.view?.output, {
+    context,
+    schemaLabel: "operations.view.output",
     defaultMode: "replace"
   });
-  const writeSchema = resolveStructuredSchemaTransportSchema(operations?.create?.body, {
-    context: `${context} operations.create.body`,
+  const writeProperties = requireFieldDefinitions(operations?.create?.body, {
+    context,
+    schemaLabel: "operations.create.body",
     defaultMode: "create"
   });
-  const patchSchema = resolveStructuredSchemaTransportSchema(operations?.patch?.body, {
-    context: `${context} operations.patch.body`,
+  const patchProperties = resolveOptionalFieldDefinitions(operations?.patch?.body, {
+    context,
+    schemaLabel: "operations.patch.body",
     defaultMode: "patch"
-  });
-  const outputProperties = requireObjectSchemaProperties(outputSchema, {
-    context,
-    schemaLabel: "operations.view.output.schema"
-  });
-  const writeProperties = requireObjectSchemaProperties(writeSchema, {
-    context,
-    schemaLabel: "operations.create.body.schema"
-  });
-  const patchProperties = resolveOptionalObjectSchemaProperties(patchSchema, {
-    context,
-    schemaLabel: "operations.patch.body.schema"
   });
   const lookupContainerKey = resolveCrudLookupContainerKey(resource, {
     context: `${context} resource.contract.lookup.containerKey`
@@ -298,11 +257,11 @@ function deriveRepositoryMappingFromResource(resource = {}, { context = "crudRep
   }
 
   const listSearchColumns = [];
-  for (const [key, schema] of Object.entries(outputProperties)) {
+  for (const [key, definition] of Object.entries(outputProperties)) {
     if ((fieldStorageByKey[key] || CRUD_FIELD_STORAGE_COLUMN) !== CRUD_FIELD_STORAGE_COLUMN) {
       continue;
     }
-    if (!schemaIncludesStringType(schema)) {
+    if (!definitionIncludesStringType(definition)) {
       continue;
     }
 
@@ -326,8 +285,8 @@ function deriveRepositoryMappingFromResource(resource = {}, { context = "crudRep
   }
 
   const outputRecordIdKeys = [];
-  for (const [key, schema] of Object.entries(outputProperties)) {
-    if (schemaIncludesRecordIdType(schema)) {
+  for (const [key, definition] of Object.entries(outputProperties)) {
+    if (definitionIncludesRecordIdType(definition)) {
       outputRecordIdKeys.push(key);
     }
   }
@@ -341,8 +300,8 @@ function deriveRepositoryMappingFromResource(resource = {}, { context = "crudRep
       continue;
     }
 
-    const schema = writeProperties[key] || patchProperties[key];
-    if (!schemaIncludesDateTimeFormat(schema)) {
+    const definition = writeProperties[key] || patchProperties[key];
+    if (!definitionIncludesDateTimeType(definition)) {
       continue;
     }
 

@@ -12,7 +12,6 @@ import {
 } from "../formatters/workspaceFormatter.js";
 import { normalizeLowerText, normalizeText } from "@jskit-ai/kernel/shared/actions/textNormalization";
 import { normalizeRecordId } from "@jskit-ai/kernel/shared/support/normalize";
-import { authenticatedUserValidator } from "../validators/authenticatedUserValidator.js";
 
 function toSlugPart(value) {
   const normalized = normalizeLowerText(value)
@@ -105,38 +104,38 @@ function createService({
   }
 
   async function ensurePersonalWorkspaceForUser(user, options = {}) {
-    const normalizedUser = authenticatedUserValidator.normalize(user);
-    if (!normalizedUser) {
+    const normalizedUserId = normalizeRecordId(user?.id, { fallback: null });
+    if (!normalizedUserId) {
       throw new AppError(400, "Invalid authenticated user payload.");
     }
 
-    const existing = await workspacesRepository.findPersonalByOwnerUserId(normalizedUser.id, options);
+    const existing = await workspacesRepository.findPersonalByOwnerUserId(normalizedUserId, options);
     if (existing) {
-      await workspaceMembershipsRepository.ensureOwnerMembership(existing.id, normalizedUser.id, options);
+      await workspaceMembershipsRepository.ensureOwnerMembership(existing.id, normalizedUserId, options);
       await ensureWorkspaceSettingsForWorkspace(existing, options);
       return existing;
     }
 
-    const slug = await ensureUniqueWorkspaceSlug(buildWorkspaceBaseSlug(normalizedUser), options);
+    const slug = await ensureUniqueWorkspaceSlug(buildWorkspaceBaseSlug(user), options);
     const inserted = await workspacesRepository.insert(
       {
         slug,
-        name: buildWorkspaceName(normalizedUser),
-        ownerUserId: normalizedUser.id,
+        name: buildWorkspaceName(user),
+        ownerUserId: normalizedUserId,
         isPersonal: true,
         avatarUrl: ""
       },
       options
     );
 
-    await workspaceMembershipsRepository.ensureOwnerMembership(inserted.id, normalizedUser.id, options);
+    await workspaceMembershipsRepository.ensureOwnerMembership(inserted.id, normalizedUserId, options);
     await ensureWorkspaceSettingsForWorkspace(inserted, options);
     return inserted;
   }
 
   async function listWorkspacesForUser(user, options = {}) {
-    const normalizedUser = authenticatedUserValidator.normalize(user);
-    if (!normalizedUser) {
+    const normalizedUserId = normalizeRecordId(user?.id, { fallback: null });
+    if (!normalizedUserId) {
       return [];
     }
 
@@ -144,7 +143,7 @@ function createService({
       return [];
     }
 
-    const list = await workspacesRepository.listForUserId(normalizedUser.id, options);
+    const list = await workspacesRepository.listForUserId(normalizedUserId, options);
     const accessible = list
       .map((entry) => mapWorkspaceSummary(entry, { roleSid: entry.roleSid, status: entry.membershipStatus }))
       .filter((entry) => entry.isAccessible);
@@ -157,8 +156,8 @@ function createService({
   }
 
   async function provisionWorkspaceForNewUser(user, options = {}) {
-    const normalizedUser = authenticatedUserValidator.normalize(user);
-    if (!normalizedUser) {
+    const normalizedUserId = normalizeRecordId(user?.id, { fallback: null });
+    if (!normalizedUserId) {
       throw new AppError(400, "Invalid authenticated user payload.");
     }
 
@@ -166,12 +165,15 @@ function createService({
       return null;
     }
 
-    return ensurePersonalWorkspaceForUser(normalizedUser, options);
+    return ensurePersonalWorkspaceForUser({
+      ...user,
+      id: normalizedUserId
+    }, options);
   }
 
   async function createWorkspaceForAuthenticatedUser(user, payload = {}, options = {}) {
-    const normalizedUser = authenticatedUserValidator.normalize(user);
-    if (!normalizedUser) {
+    const normalizedUserId = normalizeRecordId(user?.id, { fallback: null });
+    if (!normalizedUserId) {
       throw new AppError(401, "Authentication required.");
     }
 
@@ -190,14 +192,14 @@ function createService({
       {
         slug,
         name: createInput.name,
-        ownerUserId: normalizedUser.id,
+        ownerUserId: normalizedUserId,
         isPersonal: false,
         avatarUrl: ""
       },
       options
     );
 
-    await workspaceMembershipsRepository.ensureOwnerMembership(inserted.id, normalizedUser.id, options);
+    await workspaceMembershipsRepository.ensureOwnerMembership(inserted.id, normalizedUserId, options);
     await ensureWorkspaceSettingsForWorkspace(inserted, options);
     return inserted;
   }
@@ -213,8 +215,8 @@ function createService({
   }
 
   async function resolveWorkspaceContextForUserBySlug(user, workspaceSlug, options = {}) {
-    const normalizedUser = authenticatedUserValidator.normalize(user);
-    if (!normalizedUser) {
+    const normalizedUserId = normalizeRecordId(user?.id, { fallback: null });
+    if (!normalizedUserId) {
       throw new AppError(401, "Authentication required.");
     }
 
@@ -235,16 +237,16 @@ function createService({
 
     let membership = await workspaceMembershipsRepository.findByWorkspaceIdAndUserId(
       workspace.id,
-      normalizedUser.id,
+      normalizedUserId,
       options
     );
     const actorOwnsWorkspace =
       normalizeRecordId(workspace.ownerUserId, { fallback: null }) ===
-      normalizeRecordId(normalizedUser.id, { fallback: null });
+      normalizedUserId;
     const membershipIsActive = normalizeLowerText(membership?.status) === "active";
 
     if (!membershipIsActive && actorOwnsWorkspace) {
-      membership = await workspaceMembershipsRepository.ensureOwnerMembership(workspace.id, normalizedUser.id, options);
+      membership = await workspaceMembershipsRepository.ensureOwnerMembership(workspace.id, normalizedUserId, options);
     }
 
     if (!membership || normalizeLowerText(membership.status) !== "active") {

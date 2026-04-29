@@ -13,6 +13,7 @@ import {
 } from "@jskit-ai/kernel/shared/support/normalize";
 import {
   defineCrudListFilters,
+  parseCrudListRangeQueryExpression,
   CRUD_LIST_FILTER_TYPE_FLAG,
   CRUD_LIST_FILTER_TYPE_ENUM,
   CRUD_LIST_FILTER_TYPE_ENUM_MANY,
@@ -24,9 +25,15 @@ import {
   CRUD_LIST_FILTER_TYPE_PRESENCE
 } from "@jskit-ai/kernel/shared/support/crudListFilters";
 
-const DATE_FILTER_PATTERN_SOURCE = "^\\d{4}-\\d{2}-\\d{2}$";
+const DATE_FILTER_VALUE_PATTERN_SOURCE = "\\d{4}-\\d{2}-\\d{2}";
+const DATE_FILTER_PATTERN_SOURCE = `^${DATE_FILTER_VALUE_PATTERN_SOURCE}$`;
 const DATE_FILTER_PATTERN = /^\d{4}-\d{2}-\d{2}$/u;
-const NUMBER_FILTER_PATTERN_SOURCE = "^[+-]?(?:\\d+(?:\\.\\d*)?|\\.\\d+)(?:[eE][+-]?\\d+)?$";
+const DATE_RANGE_FILTER_PATTERN_SOURCE =
+  `^(?:${DATE_FILTER_VALUE_PATTERN_SOURCE}(?:\\.\\.(?:${DATE_FILTER_VALUE_PATTERN_SOURCE})?)?|\\.\\.${DATE_FILTER_VALUE_PATTERN_SOURCE})$`;
+const NUMBER_FILTER_VALUE_PATTERN_SOURCE = "[+-]?(?:\\d+(?:\\.\\d*)?|\\.\\d+)(?:[eE][+-]?\\d+)?";
+const NUMBER_FILTER_PATTERN_SOURCE = `^${NUMBER_FILTER_VALUE_PATTERN_SOURCE}$`;
+const NUMBER_RANGE_FILTER_PATTERN_SOURCE =
+  `^(?:${NUMBER_FILTER_VALUE_PATTERN_SOURCE}(?:\\.\\.(?:${NUMBER_FILTER_VALUE_PATTERN_SOURCE})?)?|\\.\\.${NUMBER_FILTER_VALUE_PATTERN_SOURCE})$`;
 const CRUD_LIST_FILTER_INVALID_VALUES_REJECT = "reject";
 const CRUD_LIST_FILTER_INVALID_VALUES_DISCARD = "discard";
 const CRUD_LIST_FILTER_INVALID_VALUES_MODES = Object.freeze([
@@ -34,6 +41,8 @@ const CRUD_LIST_FILTER_INVALID_VALUES_MODES = Object.freeze([
   CRUD_LIST_FILTER_INVALID_VALUES_DISCARD
 ]);
 const CRUD_LIST_FILTER_QUERY_TYPE = "crudListFilterQuery";
+const crudListFilterSchemaFactory = createSchema.createFactory();
+const INVALID_FILTER_QUERY_VALUE = Symbol("invalidCrudListFilterQueryValue");
 const looseTextTransportSchema = Object.freeze({
   type: "string",
   minLength: 0
@@ -43,6 +52,17 @@ const strictNumberTransportSchema = Object.freeze({
     {
       type: "string",
       pattern: NUMBER_FILTER_PATTERN_SOURCE
+    },
+    {
+      type: "number"
+    }
+  ]
+});
+const strictNumberRangeTransportSchema = Object.freeze({
+  anyOf: [
+    {
+      type: "string",
+      pattern: NUMBER_RANGE_FILTER_PATTERN_SOURCE
     },
     {
       type: "number"
@@ -205,6 +225,96 @@ function addDaysToDateFilterValue(value = "", days = 0) {
   return `${year}-${month}-${day}`;
 }
 
+function validateDateRangeFilterValue(value) {
+  const parsed = parseCrudListRangeQueryExpression(firstValue(value));
+  if (!parsed) {
+    return false;
+  }
+
+  if (parsed.exact) {
+    return Boolean(normalizeDateFilterValue(parsed.start));
+  }
+
+  const fromValid = !parsed.start || Boolean(normalizeDateFilterValue(parsed.start));
+  const toValid = !parsed.end || Boolean(normalizeDateFilterValue(parsed.end));
+  return Boolean((parsed.start || parsed.end) && fromValid && toValid);
+}
+
+function normalizeDateRangeFilterValue(value) {
+  const parsed = parseCrudListRangeQueryExpression(firstValue(value));
+  if (!parsed) {
+    return undefined;
+  }
+
+  const from = normalizeDateFilterValue(parsed.start);
+  const to = normalizeDateFilterValue(parsed.end);
+
+  if (parsed.exact) {
+    if (!from) {
+      return undefined;
+    }
+
+    return Object.freeze({
+      from,
+      to: from
+    });
+  }
+
+  if (!from && !to) {
+    return undefined;
+  }
+
+  return Object.freeze({
+    ...(from ? { from } : {}),
+    ...(to ? { to } : {})
+  });
+}
+
+function validateNumberRangeFilterValue(value) {
+  const parsed = parseCrudListRangeQueryExpression(firstValue(value));
+  if (!parsed) {
+    return false;
+  }
+
+  if (parsed.exact) {
+    return normalizeNumberFilterValue(parsed.start) != null;
+  }
+
+  const minValid = !parsed.start || normalizeNumberFilterValue(parsed.start) != null;
+  const maxValid = !parsed.end || normalizeNumberFilterValue(parsed.end) != null;
+  return Boolean((parsed.start || parsed.end) && minValid && maxValid);
+}
+
+function normalizeNumberRangeFilterValue(value) {
+  const parsed = parseCrudListRangeQueryExpression(firstValue(value));
+  if (!parsed) {
+    return undefined;
+  }
+
+  const min = normalizeNumberFilterValue(parsed.start);
+  const max = normalizeNumberFilterValue(parsed.end);
+
+  if (parsed.exact) {
+    if (min == null) {
+      return undefined;
+    }
+
+    return Object.freeze({
+      min,
+      max: min
+    });
+  }
+
+  if (min == null && max == null) {
+    return undefined;
+  }
+
+  return Object.freeze({
+    ...(min != null ? { min } : {}),
+    ...(max != null ? { max } : {})
+  });
+}
+
 function isPrimitiveFilterInput(value) {
   const valueType = typeof value;
   return valueType === "string" || valueType === "number" || valueType === "boolean";
@@ -218,72 +328,121 @@ function isPrimitiveOrPrimitiveArrayInput(value) {
   return isPrimitiveFilterInput(value);
 }
 
-function validateRejectingFilterInput(filter = {}, value) {
+function rejectInvalidFilterValue({ invalidValues = CRUD_LIST_FILTER_INVALID_VALUES_REJECT } = {}) {
+  return invalidValues === CRUD_LIST_FILTER_INVALID_VALUES_DISCARD
+    ? null
+    : INVALID_FILTER_QUERY_VALUE;
+}
+
+function parseFilterQueryValue(
+  filter = {},
+  value,
+  { invalidValues = CRUD_LIST_FILTER_INVALID_VALUES_REJECT } = {}
+) {
   const allowedValues = resolveAllowedOptionValues(filter);
 
   if (filter.type === CRUD_LIST_FILTER_TYPE_FLAG) {
     if (!isPrimitiveFilterInput(value)) {
-      return false;
+      return INVALID_FILTER_QUERY_VALUE;
     }
-    if (value === "") {
+    if (value === null || value === "") {
       return true;
     }
 
     try {
-      normalizeBoolean(firstValue(value));
-      return true;
+      return normalizeBoolean(firstValue(value));
     } catch {
-      return false;
+      return rejectInvalidFilterValue({ invalidValues });
     }
   }
 
   if (filter.type === CRUD_LIST_FILTER_TYPE_ENUM || filter.type === CRUD_LIST_FILTER_TYPE_PRESENCE) {
-    return Boolean(isPrimitiveFilterInput(value) && normalizeAllowedTextValue(value, allowedValues));
+    if (!isPrimitiveFilterInput(value)) {
+      return INVALID_FILTER_QUERY_VALUE;
+    }
+
+    return normalizeAllowedTextValue(value, allowedValues) || rejectInvalidFilterValue({ invalidValues });
   }
 
   if (filter.type === CRUD_LIST_FILTER_TYPE_ENUM_MANY) {
     if (!isPrimitiveOrPrimitiveArrayInput(value)) {
-      return false;
+      return INVALID_FILTER_QUERY_VALUE;
     }
 
     const values = Array.isArray(value) ? value : [value];
-    return values.length > 0 && values.every((entry) => Boolean(normalizeAllowedTextValue(entry, allowedValues)));
+    const normalizedValues = normalizeAllowedTextValues(value, allowedValues);
+
+    if (invalidValues === CRUD_LIST_FILTER_INVALID_VALUES_DISCARD) {
+      return normalizedValues.length > 0 ? normalizedValues : null;
+    }
+
+    return normalizedValues.length > 0 && normalizedValues.length === values.length
+      ? normalizedValues
+      : INVALID_FILTER_QUERY_VALUE;
   }
 
   if (filter.type === CRUD_LIST_FILTER_TYPE_RECORD_ID) {
-    return Boolean(isPrimitiveFilterInput(value) && normalizeRecordIdFilterValue(value));
+    if (!isPrimitiveFilterInput(value)) {
+      return INVALID_FILTER_QUERY_VALUE;
+    }
+
+    return normalizeRecordIdFilterValue(value) || rejectInvalidFilterValue({ invalidValues });
   }
 
   if (filter.type === CRUD_LIST_FILTER_TYPE_RECORD_ID_MANY) {
     if (!isPrimitiveOrPrimitiveArrayInput(value)) {
-      return false;
+      return INVALID_FILTER_QUERY_VALUE;
     }
 
     const values = Array.isArray(value) ? value : [value];
-    return values.length > 0 && values.every((entry) => Boolean(normalizeRecordIdFilterValue(entry)));
+    const normalizedValues = normalizeRecordIdFilterValues(value);
+
+    if (invalidValues === CRUD_LIST_FILTER_INVALID_VALUES_DISCARD) {
+      return normalizedValues.length > 0 ? normalizedValues : null;
+    }
+
+    return normalizedValues.length > 0 && normalizedValues.length === values.length
+      ? normalizedValues
+      : INVALID_FILTER_QUERY_VALUE;
   }
 
   if (filter.type === CRUD_LIST_FILTER_TYPE_DATE) {
-    return Boolean(isPrimitiveFilterInput(value) && normalizeDateFilterValue(value));
+    if (!isPrimitiveFilterInput(value)) {
+      return INVALID_FILTER_QUERY_VALUE;
+    }
+
+    return normalizeDateFilterValue(value) || rejectInvalidFilterValue({ invalidValues });
   }
 
   if (filter.type === CRUD_LIST_FILTER_TYPE_DATE_RANGE) {
-    return Boolean(isPrimitiveFilterInput(value) && normalizeDateFilterValue(value));
+    if (!isPrimitiveFilterInput(value)) {
+      return INVALID_FILTER_QUERY_VALUE;
+    }
+
+    if (invalidValues === CRUD_LIST_FILTER_INVALID_VALUES_DISCARD) {
+      return normalizeDateRangeFilterValue(value) || null;
+    }
+
+    return validateDateRangeFilterValue(value)
+      ? normalizeDateRangeFilterValue(value)
+      : INVALID_FILTER_QUERY_VALUE;
   }
 
   if (filter.type === CRUD_LIST_FILTER_TYPE_NUMBER_RANGE) {
-    return Boolean(isPrimitiveFilterInput(value) && normalizeNumberFilterValue(value) != null);
+    if (!isPrimitiveFilterInput(value)) {
+      return INVALID_FILTER_QUERY_VALUE;
+    }
+
+    if (invalidValues === CRUD_LIST_FILTER_INVALID_VALUES_DISCARD) {
+      return normalizeNumberRangeFilterValue(value) || null;
+    }
+
+    return validateNumberRangeFilterValue(value)
+      ? normalizeNumberRangeFilterValue(value)
+      : INVALID_FILTER_QUERY_VALUE;
   }
 
-  return true;
-}
-
-function validateDiscardingFilterInput(filter = {}, value) {
-  if (filter.type === CRUD_LIST_FILTER_TYPE_ENUM_MANY || filter.type === CRUD_LIST_FILTER_TYPE_RECORD_ID_MANY) {
-    return isPrimitiveOrPrimitiveArrayInput(value);
-  }
-
-  return isPrimitiveFilterInput(value);
+  return INVALID_FILTER_QUERY_VALUE;
 }
 
 function buildFilterQueryFieldDefinition(filter = {}, { invalidValues = CRUD_LIST_FILTER_INVALID_VALUES_REJECT } = {}) {
@@ -297,20 +456,6 @@ function buildFilterQueryFieldDefinition(filter = {}, { invalidValues = CRUD_LIS
     type: CRUD_LIST_FILTER_QUERY_TYPE,
     filterContract
   };
-
-  if (filter.type === CRUD_LIST_FILTER_TYPE_DATE_RANGE) {
-    return {
-      [filter.fromKey]: queryFieldDefinition,
-      [filter.toKey]: queryFieldDefinition
-    };
-  }
-
-  if (filter.type === CRUD_LIST_FILTER_TYPE_NUMBER_RANGE) {
-    return {
-      [filter.minKey]: queryFieldDefinition,
-      [filter.maxKey]: queryFieldDefinition
-    };
-  }
 
   return {
     [filter.queryKey]: queryFieldDefinition
@@ -365,20 +510,22 @@ function buildFilterQueryTransportSchema(filter = {}, { invalidValues = CRUD_LIS
       ? cloneTransportSchema(looseTextTransportSchema)
       : {
           type: "string",
-          pattern: DATE_FILTER_PATTERN_SOURCE
+          pattern: filter.type === CRUD_LIST_FILTER_TYPE_DATE
+            ? DATE_FILTER_PATTERN_SOURCE
+            : DATE_RANGE_FILTER_PATTERN_SOURCE
         };
   }
 
   if (filter.type === CRUD_LIST_FILTER_TYPE_NUMBER_RANGE) {
     return discardInvalidValues
       ? cloneTransportSchema(looseStringOrNumberTransportSchema)
-      : cloneTransportSchema(strictNumberTransportSchema);
+      : cloneTransportSchema(strictNumberRangeTransportSchema);
   }
 
   return {};
 }
 
-createSchema.addType(CRUD_LIST_FILTER_QUERY_TYPE, Object.assign(
+crudListFilterSchemaFactory.addType(CRUD_LIST_FILTER_QUERY_TYPE, Object.assign(
   (context) => {
     const contract = isPlainObject(context.definition.filterContract)
       ? context.definition.filterContract
@@ -390,15 +537,15 @@ createSchema.addType(CRUD_LIST_FILTER_QUERY_TYPE, Object.assign(
       context.throwTypeError();
     }
 
-    const isValid = invalidValues === CRUD_LIST_FILTER_INVALID_VALUES_DISCARD
-      ? validateDiscardingFilterInput(filter, context.value)
-      : validateRejectingFilterInput(filter, context.value);
+    const parsedValue = parseFilterQueryValue(filter, context.value, {
+      invalidValues
+    });
 
-    if (!isValid) {
+    if (parsedValue === INVALID_FILTER_QUERY_VALUE) {
       context.throwTypeError();
     }
 
-    return context.value;
+    return parsedValue;
   },
   {
     toJsonSchema({ definition }) {
@@ -431,103 +578,33 @@ function buildFilterQuerySchemaDefinition(filterEntries = [], {
   }
 
   return Object.freeze({
-    schema: createSchema(structure),
+    schema: crudListFilterSchemaFactory(structure),
     mode: "patch"
   });
 }
 
-function normalizeFilterValue(filter = {}, source = {}) {
-  const allowedValues = resolveAllowedOptionValues(filter);
+function projectNormalizedFilterValues(filterEntries = [], source = {}, errors = {}) {
+  const normalizedSource = normalizeObjectInput(source);
+  const errorFieldKeys = new Set(Object.keys(normalizeObject(errors)));
+  const normalized = {};
 
-  if (filter.type === CRUD_LIST_FILTER_TYPE_FLAG) {
-    if (!Object.hasOwn(source, filter.queryKey)) {
-      return undefined;
+  for (const filter of filterEntries) {
+    if (errorFieldKeys.has(filter.queryKey)) {
+      continue;
+    }
+    if (!Object.hasOwn(normalizedSource, filter.queryKey)) {
+      continue;
     }
 
-    const sourceValue = source[filter.queryKey];
-    if (sourceValue === null || sourceValue === "") {
-      return true;
+    const value = normalizedSource[filter.queryKey];
+    if (value === null || value === undefined) {
+      continue;
     }
 
-    try {
-      return normalizeBoolean(firstValue(sourceValue));
-    } catch {
-      return undefined;
-    }
+    normalized[filter.key] = value;
   }
 
-  if (filter.type === CRUD_LIST_FILTER_TYPE_ENUM || filter.type === CRUD_LIST_FILTER_TYPE_PRESENCE) {
-    if (!Object.hasOwn(source, filter.queryKey)) {
-      return undefined;
-    }
-
-    const normalizedValue = normalizeAllowedTextValue(source[filter.queryKey], allowedValues);
-    return normalizedValue || undefined;
-  }
-
-  if (filter.type === CRUD_LIST_FILTER_TYPE_ENUM_MANY) {
-    if (!Object.hasOwn(source, filter.queryKey)) {
-      return undefined;
-    }
-
-    const normalizedValues = normalizeAllowedTextValues(source[filter.queryKey], allowedValues);
-    return normalizedValues.length > 0 ? normalizedValues : undefined;
-  }
-
-  if (filter.type === CRUD_LIST_FILTER_TYPE_RECORD_ID) {
-    if (!Object.hasOwn(source, filter.queryKey)) {
-      return undefined;
-    }
-
-    const normalizedValue = normalizeRecordIdFilterValue(source[filter.queryKey]);
-    return normalizedValue || undefined;
-  }
-
-  if (filter.type === CRUD_LIST_FILTER_TYPE_RECORD_ID_MANY) {
-    if (!Object.hasOwn(source, filter.queryKey)) {
-      return undefined;
-    }
-
-    const normalizedValues = normalizeRecordIdFilterValues(source[filter.queryKey]);
-    return normalizedValues.length > 0 ? normalizedValues : undefined;
-  }
-
-  if (filter.type === CRUD_LIST_FILTER_TYPE_DATE) {
-    if (!Object.hasOwn(source, filter.queryKey)) {
-      return undefined;
-    }
-
-    const normalizedValue = normalizeDateFilterValue(source[filter.queryKey]);
-    return normalizedValue || undefined;
-  }
-
-  if (filter.type === CRUD_LIST_FILTER_TYPE_DATE_RANGE) {
-    const from = normalizeDateFilterValue(source[filter.fromKey]);
-    const to = normalizeDateFilterValue(source[filter.toKey]);
-    if (!from && !to) {
-      return undefined;
-    }
-
-    return Object.freeze({
-      ...(from ? { from } : {}),
-      ...(to ? { to } : {})
-    });
-  }
-
-  if (filter.type === CRUD_LIST_FILTER_TYPE_NUMBER_RANGE) {
-    const min = normalizeNumberFilterValue(source[filter.minKey]);
-    const max = normalizeNumberFilterValue(source[filter.maxKey]);
-    if (min == null && max == null) {
-      return undefined;
-    }
-
-    return Object.freeze({
-      ...(min != null ? { min } : {}),
-      ...(max != null ? { max } : {})
-    });
-  }
-
-  return undefined;
+  return Object.freeze(normalized);
 }
 
 function normalizeColumnsMap(columns = {}) {
@@ -623,23 +700,6 @@ function createCrudListFilters(definitions = {}, { columns = {}, apply = {} } = 
   const normalizedFilters = defineCrudListFilters(definitions);
   const normalizedColumns = normalizeColumnsMap(columns);
   const filterEntries = Object.values(normalizedFilters);
-
-  function normalize(payload = {}) {
-    const source = normalizeObjectInput(payload);
-    const normalized = {};
-
-    for (const filter of filterEntries) {
-      const value = normalizeFilterValue(filter, source);
-      if (value === undefined) {
-        continue;
-      }
-
-      normalized[filter.key] = value;
-    }
-
-    return Object.freeze(normalized);
-  }
-
   const queryValidatorsByInvalidValueMode = Object.freeze({
     [CRUD_LIST_FILTER_INVALID_VALUES_REJECT]: Object.freeze({
       ...buildFilterQuerySchemaDefinition(filterEntries, {
@@ -652,6 +712,12 @@ function createCrudListFilters(definitions = {}, { columns = {}, apply = {} } = 
       })
     })
   });
+
+  function normalize(payload = {}) {
+    const discardValidator = queryValidatorsByInvalidValueMode[CRUD_LIST_FILTER_INVALID_VALUES_DISCARD];
+    const result = discardValidator.schema.patch(normalizeObjectInput(payload));
+    return projectNormalizedFilterValues(filterEntries, result.validatedObject, result.errors);
+  }
 
   function applyQuery(queryBuilder, payload = {}) {
     if (!queryBuilder || typeof queryBuilder.where !== "function") {

@@ -2,7 +2,10 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { createSchema } from "json-rest-schema";
 import { compileRouteValidator } from "@jskit-ai/kernel/_testable";
-import { cursorPaginationQueryValidator } from "@jskit-ai/kernel/shared/validators";
+import {
+  composeSchemaDefinitions,
+  cursorPaginationQueryValidator
+} from "@jskit-ai/kernel/shared/validators";
 import { listSearchQueryValidator } from "../src/server/listQueryValidators.js";
 import {
   CRUD_LIST_FILTER_INVALID_VALUES_REJECT,
@@ -11,11 +14,9 @@ import {
 } from "../src/server/listFilters.js";
 
 function composeSchemaDefinition(...definitions) {
-  return Object.freeze({
-    schema: createSchema(
-      Object.assign({}, ...definitions.map((definition) => definition.schema.getFieldDefinitions()))
-    ),
-    mode: "patch"
+  return composeSchemaDefinitions(definitions, {
+    mode: "patch",
+    context: "crudCore.listFilters.compose"
   });
 }
 
@@ -24,6 +25,20 @@ test("crud-core exposes createCrudListFilters through the public package export"
   assert.equal(typeof module.createCrudListFilters, "function");
   assert.equal(module.CRUD_LIST_FILTER_INVALID_VALUES_REJECT, CRUD_LIST_FILTER_INVALID_VALUES_REJECT);
   assert.equal(module.CRUD_LIST_FILTER_INVALID_VALUES_DISCARD, CRUD_LIST_FILTER_INVALID_VALUES_DISCARD);
+});
+
+test("importing crud-core list filters does not register a global json-rest-schema type", () => {
+  const schema = createSchema({
+    status: {
+      type: "crudListFilterQuery"
+    }
+  });
+
+  assert.throws(() => {
+    schema.patch({
+      status: "active"
+    });
+  }, /No casting function for type: crudListFilterQuery/);
 });
 
 function createQueryDouble() {
@@ -109,11 +124,9 @@ test("createCrudListFilters normalizes filters into semantic values", () => {
   const normalized = runtime.normalize({
     onlyStaff: "",
     status: ["active", "ignored", "archived"],
-    arrivalDateFrom: "2026-04-01",
-    arrivalDateTo: "2026-04-30",
+    arrivalDate: "2026-04-01..2026-04-30",
     supplierContactId: ["7", "bad", "4"],
-    weightMin: "12.5",
-    weightMax: 18
+    weight: "12.5..18"
   });
 
   assert.deepEqual(normalized, {
@@ -180,10 +193,8 @@ test("createCrudListFilters applies default column filters by type", () => {
     onlyStaff: "",
     status: ["active", "archived"],
     supplierContactId: "7",
-    arrivalDateFrom: "2026-04-01",
-    arrivalDateTo: "2026-04-30",
-    weightMin: "12.5",
-    weightMax: "18",
+    arrivalDate: "2026-04-01..2026-04-30",
+    weight: "12.5..18",
     locationAssignment: "missing"
   });
 
@@ -311,13 +322,39 @@ test("createCrudListFilters reject validator keeps strict filter schemas", () =>
 
   assert.equal(transportSchema.type, "object");
   assert.equal(transportSchema.additionalProperties, false);
-  assert.equal(transportSchema.properties.arrivalDateFrom.pattern, "^\\d{4}-\\d{2}-\\d{2}$");
+  assert.equal(
+    transportSchema.properties.arrivalDate.pattern,
+    "^(?:\\d{4}-\\d{2}-\\d{2}(?:\\.\\.(?:\\d{4}-\\d{2}-\\d{2})?)?|\\.\\.\\d{4}-\\d{2}-\\d{2})$"
+  );
   assert.deepEqual(transportSchema.properties.status.anyOf[1].items.enum, ["active", "archived"]);
   assert.equal(transportSchema.properties.supplierContactId.anyOf[1].items.anyOf[0].pattern, "^[1-9][0-9]*$");
-  assert.equal(transportSchema.properties.weightMin.anyOf[0].pattern, "^[+-]?(?:\\d+(?:\\.\\d*)?|\\.\\d+)(?:[eE][+-]?\\d+)?$");
+  assert.equal(
+    transportSchema.properties.weight.anyOf[0].pattern,
+    "^(?:[+-]?(?:\\d+(?:\\.\\d*)?|\\.\\d+)(?:[eE][+-]?\\d+)?(?:\\.\\.(?:[+-]?(?:\\d+(?:\\.\\d*)?|\\.\\d+)(?:[eE][+-]?\\d+)?)?)?|\\.\\.[+-]?(?:\\d+(?:\\.\\d*)?|\\.\\d+)(?:[eE][+-]?\\d+)?)$"
+  );
+  assert.deepEqual(validator.schema.patch({
+    arrivalDate: "2026-04-01..2026-04-30",
+    status: ["active", "archived"],
+    supplierContactId: ["7", "4"],
+    weight: "12.5..18"
+  }), {
+    validatedObject: {
+      arrivalDate: {
+        from: "2026-04-01",
+        to: "2026-04-30"
+      },
+      status: ["active", "archived"],
+      supplierContactId: ["7", "4"],
+      weight: {
+        min: 12.5,
+        max: 18
+      }
+    },
+    errors: {}
+  });
 });
 
-test("createCrudListFilters discard validator accepts malformed values and lets normalize drop them", () => {
+test("createCrudListFilters discard validator returns canonical partial values directly", () => {
   const runtime = createCrudListFilters({
     arrivalDate: {
       type: "dateRange",
@@ -349,21 +386,68 @@ test("createCrudListFilters discard validator accepts malformed values and lets 
   });
 
   assert.equal(transportSchema.type, "object");
-  assert.equal(transportSchema.properties.arrivalDateFrom.minLength, 0);
+  assert.equal(transportSchema.properties.arrivalDate.minLength, 0);
   assert.equal(transportSchema.properties.status.anyOf[0].minLength, 0);
   assert.equal(transportSchema.properties.supplierContactId.anyOf[0].anyOf[0].minLength, 0);
-  assert.deepEqual(runtime.normalize({
-    arrivalDateFrom: "bad-date",
-    arrivalDateTo: "2026-04-30",
+  assert.deepEqual(validator.schema.patch({
+    arrivalDate: "bad-date..2026-04-30",
     status: ["active", "unexpected"],
     supplierContactId: ["7", "bad"],
-    weightMin: "bad"
+    weight: "bad..18"
+  }), {
+    validatedObject: {
+      arrivalDate: {
+        to: "2026-04-30"
+      },
+      status: ["active"],
+      supplierContactId: ["7"],
+      weight: {
+        max: 18
+      }
+    },
+    errors: {}
+  });
+  assert.deepEqual(runtime.normalize({
+    arrivalDate: "bad-date..2026-04-30",
+    status: ["active", "unexpected"],
+    supplierContactId: ["7", "bad"],
+    weight: "bad..18"
   }), {
     arrivalDate: {
       to: "2026-04-30"
     },
     status: ["active"],
-    supplierContactId: ["7"]
+    supplierContactId: ["7"],
+    weight: {
+      max: 18
+    }
+  });
+});
+
+test("createCrudListFilters treats exact range filter values as exact bounds", () => {
+  const runtime = createCrudListFilters({
+    arrivalDate: {
+      type: "dateRange",
+      label: "Arrival Date"
+    },
+    weight: {
+      type: "numberRange",
+      label: "Weight"
+    }
+  });
+
+  assert.deepEqual(runtime.normalize({
+    arrivalDate: "2026-04-18",
+    weight: 12.5
+  }), {
+    arrivalDate: {
+      from: "2026-04-18",
+      to: "2026-04-18"
+    },
+    weight: {
+      min: 12.5,
+      max: 12.5
+    }
   });
 });
 

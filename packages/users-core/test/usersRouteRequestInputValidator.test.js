@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { UsersCoreServiceProvider } from "../src/server/UsersCoreServiceProvider.js";
+import { createRouter } from "../../kernel/server/http/lib/router.js";
 
 function createReplyDouble() {
   return {
@@ -29,17 +30,7 @@ function findRoute(routes, { method, path }) {
 async function registerRoutes({
   authService = {}
 } = {}) {
-  const registeredRoutes = [];
-  const router = {
-    register(method, path, route, handler) {
-      registeredRoutes.push({
-        ...route,
-        method,
-        path,
-        handler
-      });
-    }
-  };
+  const router = createRouter();
 
   const bindings = new Map([
     ["jskit.http.router", router],
@@ -73,7 +64,7 @@ async function registerRoutes({
   const provider = new UsersCoreServiceProvider();
   await provider.boot(app);
 
-  return registeredRoutes;
+  return router.list();
 }
 
 function createActionRequest({ input = {}, executeAction, file = null }) {
@@ -92,6 +83,10 @@ test("users-core boot mounts account routes without workspace routes", async () 
 
   assert.equal(findRoute(routes, { method: "GET", path: "/api/settings" })?.path, "/api/settings");
   assert.equal(findRoute(routes, { method: "PATCH", path: "/api/settings/profile" })?.path, "/api/settings/profile");
+  assert.equal(
+    typeof findRoute(routes, { method: "GET", path: "/api/settings/security/oauth/:provider/start" })?.schema?.response?.[302],
+    "object"
+  );
   assert.equal(findRoute(routes, { method: "GET", path: "/api/workspaces" }), null);
   assert.equal(findRoute(routes, { method: "GET", path: "/api/w/:workspaceSlug/settings" }), null);
 });

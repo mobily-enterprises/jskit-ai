@@ -34,6 +34,43 @@ test("composeSchemaDefinitions merges multiple schema definitions into one contr
   assert.deepEqual(Object.keys(definition.schema.getFieldDefinitions()).sort(), ["q", "workspaceSlug"]);
 });
 
+test("composeSchemaDefinitions preserves isolated schema factory registries", () => {
+  const localSchemaFactory = createSchema.createFactory();
+  localSchemaFactory.addType("scoped-status", (context) => String(context.value).toUpperCase());
+
+  const query = {
+    schema: localSchemaFactory({
+      status: {
+        type: "scoped-status",
+        required: false
+      }
+    }),
+    mode: "patch"
+  };
+  const params = {
+    schema: createSchema({
+      workspaceSlug: {
+        type: "string",
+        required: true,
+        minLength: 1
+      }
+    }),
+    mode: "patch"
+  };
+
+  const definition = composeSchemaDefinitions([params, query], {
+    mode: "patch",
+    context: "test.compose"
+  });
+  const { validatedObject } = definition.schema.patch({
+    workspaceSlug: "alpha",
+    status: "active"
+  });
+
+  assert.equal(validatedObject.workspaceSlug, "alpha");
+  assert.equal(validatedObject.status, "ACTIVE");
+});
+
 test("composeSchemaDefinitions rejects duplicate fields", () => {
   const a = {
     schema: createSchema({

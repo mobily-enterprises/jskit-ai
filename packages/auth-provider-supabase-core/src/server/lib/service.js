@@ -62,6 +62,7 @@ import {
   resolveDevAuthConfig,
   resolveDevAuthProfile
 } from "./devAuthBootstrap.js";
+import { requireAuthenticatedProfile } from "./authenticatedProfile.js";
 import {
   buildOAuthProviderCatalogResponse,
   resolveOAuthProviderQueryParams,
@@ -408,11 +409,16 @@ function createService(options) {
   }
 
   function requireSynchronizedProfile(profile) {
-    if (profile && normalizeRecordId(profile.id, { fallback: null }) && String(profile.displayName || "").trim()) {
-      return profile;
+    try {
+      return requireAuthenticatedProfile(profile, {
+        context: "authentication profile"
+      });
+    } catch (error) {
+      if (error instanceof AppError) {
+        throw new AppError(500, "Authentication profile synchronization failed. Please retry.");
+      }
+      throw error;
     }
-
-    throw new AppError(500, "Authentication profile synchronization failed. Please retry.");
   }
 
   function buildNormalizedIdentityKey(identityLike) {
@@ -687,6 +693,14 @@ function createService(options) {
       }
     );
     if (devAuthResult) {
+      if (devAuthResult.authenticated === true) {
+        return {
+          ...devAuthResult,
+          profile: requireAuthenticatedProfile(devAuthResult.profile, {
+            context: "dev auth profile"
+          })
+        };
+      }
       return devAuthResult;
     }
 
@@ -837,9 +851,12 @@ function createService(options) {
 
   async function devLoginAs(request, input = {}) {
     ensureDevAuthBootstrapAvailable(devAuthConfig, request);
-    const profile = await resolveDevAuthProfile(input, {
+    const rawProfile = await resolveDevAuthProfile(input, {
       userProfilesRepository,
       validationError
+    });
+    const profile = requireAuthenticatedProfile(rawProfile, {
+      context: "dev auth profile"
     });
     return {
       profile,

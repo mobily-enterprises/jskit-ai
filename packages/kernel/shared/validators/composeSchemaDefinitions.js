@@ -33,8 +33,12 @@ function composeSchemaDefinitions(definitions, {
     throw new TypeError(`${context} requires an explicit mode.`);
   }
 
+  const schemaFactory = createSchema.createFactory(
+    normalizedDefinitions.map((definition) => definition.schema)
+  );
+
   return deepFreeze({
-    schema: createSchema(mergedStructure),
+    schema: schemaFactory(mergedStructure),
     mode: resolvedMode
   });
 }

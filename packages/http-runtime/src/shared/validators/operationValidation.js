@@ -19,20 +19,17 @@ function buildValidationSuccessResult(value) {
   };
 }
 
-function buildValidationFailureResult(error, normalized) {
-  const fieldErrors = error?.fieldErrors && typeof error.fieldErrors === "object"
-    ? error.fieldErrors
-    : {};
-  const globalErrors = Object.keys(fieldErrors).length < 1 && typeof error?.message === "string" && error.message.trim()
-    ? [error.message.trim()]
-    : [];
+function isFieldValidationError(error) {
+  return Boolean(error?.fieldErrors && typeof error.fieldErrors === "object");
+}
 
+function buildValidationFailureResult(error, normalized) {
   return {
     ok: false,
     value: null,
     normalized,
-    fieldErrors,
-    globalErrors,
+    fieldErrors: error.fieldErrors,
+    globalErrors: [],
     issues: []
   };
 }
@@ -56,6 +53,10 @@ function validateOperationSection({
 
     return buildValidationSuccessResult(normalized);
   } catch (error) {
+    if (!isFieldValidationError(error)) {
+      throw error;
+    }
+
     return buildValidationFailureResult(error, value);
   }
 }
