@@ -7,7 +7,6 @@ function bootAccountSecurityRoutes(app) {
   }
 
   const router = app.make("jskit.http.router");
-  const authService = app.make("authService");
 
   router.register(
     "POST",
@@ -36,6 +35,7 @@ function bootAccountSecurityRoutes(app) {
         input: request.input.body
       });
 
+      const authService = app.make("authService");
       if (result?.session && typeof authService.writeSessionCookies === "function") {
         authService.writeSessionCookies(reply, result.session);
       }

@@ -42,25 +42,18 @@ async function createJsonRestApiHost({ knex }) {
 }
 
 async function registerJsonRestApiHost(app) {
-  if (
-    !app ||
-    typeof app.singleton !== "function" ||
-    typeof app.make !== "function" ||
-    typeof app.has !== "function"
-  ) {
-    throw new Error("registerJsonRestApiHost requires application singleton()/make()/has().");
+  if (!app || typeof app.instance !== "function" || typeof app.make !== "function" || typeof app.has !== "function") {
+    throw new Error("registerJsonRestApiHost requires application instance()/make()/has().");
   }
 
   if (app.has(INTERNAL_JSON_REST_API)) {
     return app.make(INTERNAL_JSON_REST_API);
   }
 
-  app.singleton(INTERNAL_JSON_REST_API, async (scope) => {
-    const knex = scope.make("jskit.database.knex");
-    return createJsonRestApiHost({ knex });
-  });
-
-  return null;
+  const knex = app.make("jskit.database.knex");
+  const api = await createJsonRestApiHost({ knex });
+  app.instance(INTERNAL_JSON_REST_API, api);
+  return api;
 }
 
 export {

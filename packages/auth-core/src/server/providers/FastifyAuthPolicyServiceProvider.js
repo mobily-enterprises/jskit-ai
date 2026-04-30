@@ -1,8 +1,7 @@
 import { registerActionContextContributor } from "@jskit-ai/kernel/server/actions";
 import { registerRouteVisibilityResolver } from "@jskit-ai/kernel/server/http";
 import {
-  composeAuthPolicyContextResolvers,
-  resolveAuthPolicyContextResolvers
+  resolveComposedAuthPolicyContextResolver
 } from "../authPolicyContextResolverRegistry.js";
 import { authPolicyPlugin } from "../lib/plugin.js";
 import { createAuthActionContextContributor } from "../lib/actionContextContributor.js";
@@ -77,33 +76,10 @@ class FastifyAuthPolicyServiceProvider {
 
     const env = app.has("jskit.env") ? app.make("jskit.env") : {};
     const fastify = app.make("jskit.fastify");
-    const authService = app.make("authService");
-    const legacyResolveContext =
-      typeof app.has === "function" && app.has("auth.policy.contextResolver")
-        ? app.make("auth.policy.contextResolver")
-        : null;
-
-    if (legacyResolveContext != null && typeof legacyResolveContext !== "function") {
-      throw new Error(
-        "FastifyAuthPolicyServiceProvider requires auth.policy.contextResolver to be a function when provided."
-      );
-    }
-
-    const resolveContext = composeAuthPolicyContextResolvers([
-      ...resolveAuthPolicyContextResolvers(app),
-      ...(legacyResolveContext
-        ? [
-            {
-              resolverId: "legacy.auth.policy.contextResolver",
-              order: 1000,
-              resolveAuthPolicyContext: legacyResolveContext
-            }
-          ]
-        : [])
-    ]);
 
     const pluginDeps = {
       resolveActor: async (request) => {
+        const authService = app.make("authService");
         if (authService && typeof authService.authenticateRequest === "function") {
           return authService.authenticateRequest(request);
         }
@@ -114,7 +90,15 @@ class FastifyAuthPolicyServiceProvider {
         };
       },
       hasPermission: defaultHasPermission,
-      ...(typeof resolveContext === "function" ? { resolveContext } : {})
+      resolveContext: async (input = {}) => {
+        const resolveContext = resolveComposedAuthPolicyContextResolver(app);
+
+        if (typeof resolveContext !== "function") {
+          return null;
+        }
+
+        return resolveContext(input);
+      }
     };
 
     const plugin = authPolicyPlugin(

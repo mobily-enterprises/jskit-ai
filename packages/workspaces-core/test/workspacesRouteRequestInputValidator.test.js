@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { UsersCoreServiceProvider } from "../../users-core/src/server/UsersCoreServiceProvider.js";
+import { INTERNAL_JSON_REST_API } from "../../users-core/src/server/common/jsonRestApiHost.js";
 import { resolveTenancyProfile } from "../src/shared/tenancyProfile.js";
 import { WorkspacesCoreServiceProvider } from "../src/server/WorkspacesCoreServiceProvider.js";
 
@@ -36,6 +37,13 @@ async function registerRoutes({
   workspaceInvitationsEnabled = true,
   workspaceSelfCreateEnabled = true
 } = {}) {
+  const internalApi = {
+    resources: {},
+    async addResource(scopeName) {
+      this.resources[scopeName] = {};
+      return this.resources[scopeName];
+    }
+  };
   const registeredRoutes = [];
   const router = {
     register(method, path, route, handler) {
@@ -51,6 +59,7 @@ async function registerRoutes({
   const bindings = new Map([
     ["jskit.http.router", router],
     ["authService", authService],
+    [INTERNAL_JSON_REST_API, internalApi],
     [
       "users.accountProfile.service",
       {
@@ -76,6 +85,10 @@ async function registerRoutes({
   const app = {
     has(token) {
       return bindings.has(token);
+    },
+    instance(token, value) {
+      bindings.set(token, value);
+      return this;
     },
     make(token) {
       if (!bindings.has(token)) {

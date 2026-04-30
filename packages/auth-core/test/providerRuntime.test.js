@@ -50,6 +50,8 @@ test("FastifyAuthPolicyServiceProvider registers auth policy plugin through prov
 
 test("FastifyAuthPolicyServiceProvider wires optional auth policy context resolver", async () => {
   const { fastify, state } = createFakeFastifyPolicyRuntime();
+  const makeCalls = [];
+  const resolveTagCalls = [];
   const bag = new Map([
     ["jskit.fastify", fastify],
     ["jskit.env", { NODE_ENV: "test" }],
@@ -65,14 +67,6 @@ test("FastifyAuthPolicyServiceProvider wires optional auth policy context resolv
           };
         }
       }
-    ],
-    [
-      "auth.policy.contextResolver",
-      async ({ actor, request }) => ({
-        workspace: { id: 11, slug: String(request?.params?.workspaceSlug || "").toLowerCase() },
-        membership: { roleSid: "member" },
-        permissions: actor?.id === 7 ? ["projects.read"] : []
-      })
     ]
   ]);
 
@@ -81,17 +75,30 @@ test("FastifyAuthPolicyServiceProvider wires optional auth policy context resolv
       return bag.has(token);
     },
     make(token) {
+      makeCalls.push(String(token));
       if (!bag.has(token)) {
         throw new Error(`Missing token ${String(token)}`);
       }
       return bag.get(token);
     },
     resolveTag(tag) {
+      resolveTagCalls.push(String(tag));
       if (tag !== AUTH_POLICY_CONTEXT_RESOLVER_TAG) {
         return [];
       }
 
       return [
+        {
+          resolverId: "workspace",
+          order: 10,
+          async resolveAuthPolicyContext({ actor, request }) {
+            return {
+              workspace: { id: 11, slug: String(request?.params?.workspaceSlug || "").toLowerCase() },
+              membership: { roleSid: "member" },
+              permissions: actor?.id === 7 ? ["projects.read"] : []
+            };
+          }
+        },
         async () => ({
           permissions: ["settings.manage"]
         })
@@ -102,6 +109,9 @@ test("FastifyAuthPolicyServiceProvider wires optional auth policy context resolv
   const provider = new FastifyAuthPolicyServiceProvider();
   provider.register(app);
   await provider.boot(app);
+
+  assert.deepEqual(makeCalls, ["jskit.env", "jskit.fastify"]);
+  assert.deepEqual(resolveTagCalls, []);
 
   const request = {
     method: "GET",
@@ -117,6 +127,8 @@ test("FastifyAuthPolicyServiceProvider wires optional auth policy context resolv
   };
 
   await state.preHandler(request, {});
+  assert.ok(makeCalls.includes("authService"));
+  assert.deepEqual(resolveTagCalls, [AUTH_POLICY_CONTEXT_RESOLVER_TAG]);
   assert.equal(request.workspace?.id, 11);
   assert.equal(request.workspace?.slug, "acme");
   assert.equal(request.membership?.roleSid, "member");

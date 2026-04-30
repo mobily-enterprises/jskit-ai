@@ -1,5 +1,29 @@
 import { AuthWebService } from "../services/AuthWebService.js";
 
+function parseBoolean(value, fallback = false) {
+  const raw = String(value || "").trim().toLowerCase();
+  if (!raw) {
+    return fallback;
+  }
+  if (["1", "true", "yes", "on"].includes(raw)) {
+    return true;
+  }
+  if (["0", "false", "no", "off"].includes(raw)) {
+    return false;
+  }
+  return fallback;
+}
+
+function resolveDevAuthBootstrapEnabled(scope) {
+  const env =
+    scope && typeof scope.has === "function" && scope.has("jskit.env")
+      ? scope.make("jskit.env")
+      : {};
+
+  return parseBoolean(env?.AUTH_DEV_BYPASS_ENABLED, false) &&
+    String(env?.NODE_ENV || "development").trim().toLowerCase() !== "production";
+}
+
 class AuthWebServiceProvider {
   static id = "auth.web";
 
@@ -14,8 +38,12 @@ class AuthWebServiceProvider {
     }
 
     app.singleton("auth.web.service", (scope) => {
-      const authService = scope.make("authService");
-      return new AuthWebService({ authService });
+      return new AuthWebService({
+        getAuthService() {
+          return scope.make("authService");
+        },
+        devAuthBootstrapEnabled: resolveDevAuthBootstrapEnabled(scope)
+      });
     });
   }
 }

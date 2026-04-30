@@ -2,6 +2,7 @@ import {
   registerActionContextContributor
 } from "@jskit-ai/kernel/server/actions";
 import { registerRouteVisibilityResolver } from "@jskit-ai/kernel/server/http";
+import { registerAuthPolicyContextResolver } from "@jskit-ai/auth-core/server/authPolicyContextResolverRegistry";
 import { resolveAppConfig } from "@jskit-ai/kernel/server/support";
 import { registerProfileSyncLifecycleContributor } from "@jskit-ai/users-core/server/profileSyncLifecycleContributorRegistry";
 import { createService as createWorkspaceService } from "./common/services/workspaceContextService.js";
@@ -84,13 +85,11 @@ function registerWorkspaceCore(app) {
     });
   });
 
-  if (typeof app.has !== "function" || !app.has("auth.policy.contextResolver")) {
-    app.singleton("auth.policy.contextResolver", (scope) =>
-      createWorkspaceAuthPolicyContextResolver({
-        workspaceService: scope.make("workspaces.service")
-      })
-    );
-  }
+  registerAuthPolicyContextResolver(app, "workspaces.core.authPolicyContextResolver", (scope) =>
+    createWorkspaceAuthPolicyContextResolver({
+      workspaceService: scope.make("workspaces.service")
+    })
+  );
 
   registerRouteVisibilityResolver(app, "users.core.workspace.routeVisibilityResolver", (scope) =>
     createWorkspaceRouteVisibilityResolver({
