@@ -18,6 +18,7 @@ import { normalizeSurfaceId } from "@jskit-ai/kernel/shared/surface/registry";
 import { normalizeText } from "@jskit-ai/kernel/shared/support/normalize";
 
 const JS_IDENTIFIER_PATTERN = /^[A-Za-z_$][A-Za-z0-9_$]*$/;
+const JSON_REST_TRANSPORT_EXTENSION_KEY = "x-json-rest-schema";
 
 function requireOption(options, optionName, { context = "ui-generator" } = {}) {
   const value = normalizeText(options?.[optionName]);
@@ -320,6 +321,11 @@ function resolveObjectSchema(
   return source;
 }
 
+function resolveJsonRestCastType(schema = {}) {
+  const source = schema && typeof schema === "object" && !Array.isArray(schema) ? schema : {};
+  return normalizeText(source?.[JSON_REST_TRANSPORT_EXTENSION_KEY]?.castType).toLowerCase();
+}
+
 function resolveSchemaType(schema) {
   const source = resolveUnionSchemaVariant(schema);
   const rawType = source?.type;
@@ -337,10 +343,21 @@ function resolveSchemaType(schema) {
   const hasNullableType = Array.isArray(rawType)
     ? rawType.some((entry) => normalizeText(entry).toLowerCase() === "null")
     : false;
+  const castType = resolveJsonRestCastType(source) || resolveJsonRestCastType(schema);
+  let format = normalizeText(source?.format).toLowerCase();
+  if (!format) {
+    if (castType === "date") {
+      format = "date";
+    } else if (castType === "datetime") {
+      format = "date-time";
+    } else if (castType === "time") {
+      format = "time";
+    }
+  }
 
   return {
     type: schemaType,
-    format: normalizeText(source.format).toLowerCase(),
+    format,
     schema: source,
     nullable: hasNullableAnyOf || hasNullableOneOf || hasNullableType
   };
