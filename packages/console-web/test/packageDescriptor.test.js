@@ -74,6 +74,7 @@ test("console-web wires console surface policy into app config", () => {
   assert.equal(findTextMutation("console-web-surface-config-console")?.file, "config/public.js");
   assert.match(findTextMutation("console-web-surface-config-console")?.value || "", /accessPolicyId: "console_owner"/);
   assert.match(findTextMutation("console-web-surface-config-console")?.value || "", /icon: "mdi-console-network-outline"/);
+  assert.match(findTextMutation("console-web-surface-config-console")?.value || "", /showInSurfaceSwitchMenu: false/);
   assert.equal(findTextMutation("console-web-profile-menu-console-placement")?.file, "src/placement.js");
   assert.match(findTextMutation("console-web-profile-menu-console-placement")?.value || "", /label: "Go to console"/);
   assert.match(

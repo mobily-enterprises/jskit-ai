@@ -411,7 +411,7 @@
               "@jskit-ai/users-core": "0.1.65",
               "@tanstack/vue-query": "^5.90.5",
               "dompurify": "^3.3.3",
-              "json-rest-schema": "file:../../../json-rest-schema",
+              "json-rest-schema": "^1.0.13",
               "marked": "^17.0.4",
               "openai": "^6.22.0",
               "vuetify": "^4.0.0"
@@ -1124,6 +1124,7 @@
         "kind": "runtime",
         "description": "Console runtime: console settings schema, bootstrap flags, actions, and HTTP routes.",
         "dependsOn": [
+          "@jskit-ai/auth-core",
           "@jskit-ai/database-runtime",
           "@jskit-ai/http-runtime",
           "@jskit-ai/users-core"
@@ -1191,6 +1192,7 @@
         "mutations": {
           "dependencies": {
             "runtime": {
+              "@jskit-ai/auth-core": "0.1.54",
               "@jskit-ai/database-runtime": "0.1.55",
               "@jskit-ai/http-runtime": "0.1.54",
               "@jskit-ai/kernel": "0.1.55",
@@ -1273,6 +1275,17 @@
                 }
               ],
               "contributions": [
+                {
+                  "id": "console.web.profile.menu.console",
+                  "target": "auth-profile-menu:primary-menu",
+                  "surfaces": [
+                    "*"
+                  ],
+                  "order": 600,
+                  "componentToken": "auth.web.profile.menu.link-item",
+                  "when": "auth.authenticated === true && surfaceAccess.consoleowner === true && surface !== \"console\"",
+                  "source": "mutations.text#console-web-profile-menu-console-placement"
+                },
                 {
                   "id": "console.web.menu.settings",
                   "target": "shell-layout:primary-menu",
@@ -1359,10 +1372,20 @@
               "file": "config/public.js",
               "position": "bottom",
               "skipIfContains": "config.surfaceDefinitions.console = {",
-              "value": "\nconfig.surfaceDefinitions.console = {\n  id: \"console\",\n  label: \"Console\",\n  pagesRoot: \"console\",\n  enabled: true,\n  requiresAuth: true,\n  requiresWorkspace: false,\n  accessPolicyId: \"console_owner\",\n  icon: \"mdi-console-network-outline\",\n  origin: \"\"\n};\n",
+              "value": "\nconfig.surfaceDefinitions.console = {\n  id: \"console\",\n  label: \"Console\",\n  pagesRoot: \"console\",\n  enabled: true,\n  requiresAuth: true,\n  requiresWorkspace: false,\n  accessPolicyId: \"console_owner\",\n  icon: \"mdi-console-network-outline\",\n  showInSurfaceSwitchMenu: false,\n  origin: \"\"\n};\n",
               "reason": "Register console surface definition once console-web is installed.",
               "category": "console-web",
               "id": "console-web-surface-config-console"
+            },
+            {
+              "op": "append-text",
+              "file": "src/placement.js",
+              "position": "bottom",
+              "skipIfContains": "id: \"console.web.profile.menu.console\"",
+              "value": "\naddPlacement({\n  id: \"console.web.profile.menu.console\",\n  target: \"auth-profile-menu:primary-menu\",\n  surfaces: [\"*\"],\n  order: 600,\n  componentToken: \"auth.web.profile.menu.link-item\",\n  props: {\n    label: \"Go to console\",\n    to: \"/console\",\n    icon: \"mdi-console-network-outline\"\n  },\n  when: ({ auth, surfaceAccess, surface }) => {\n    return auth?.authenticated === true && surfaceAccess?.consoleowner === true && surface !== \"console\";\n  }\n});\n",
+              "reason": "Append owner-only console navigation entry into the authenticated profile menu outside the console surface.",
+              "category": "console-web",
+              "id": "console-web-profile-menu-console-placement"
             },
             {
               "op": "append-text",
@@ -2851,12 +2874,17 @@
               {
                 "subpath": "./client/error",
                 "summary": "Exports default error policy and runtime error reporter hook."
+              },
+              {
+                "subpath": "./client/bootstrap",
+                "summary": "Exports the shared client bootstrap handler registry used to extend /api/bootstrap handling."
               }
             ],
             "containerTokens": {
               "server": [],
               "client": [
                 "runtime.web-placement.client",
+                "runtime.web-bootstrap.client",
                 "runtime.web-error.client",
                 "runtime.web-error.presentation-store.client",
                 "shell.web.query-client"

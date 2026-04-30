@@ -50,7 +50,7 @@ export default Object.freeze({
         "@jskit-ai/users-core": "0.1.65",
         "@tanstack/vue-query": "^5.90.5",
         "dompurify": "^3.3.3",
-        "json-rest-schema": "file:../../../json-rest-schema",
+        "json-rest-schema": "^1.0.13",
         "marked": "^17.0.4",
         "openai": "^6.22.0",
         "vuetify": "^4.0.0"

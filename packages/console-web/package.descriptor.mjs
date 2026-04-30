@@ -143,7 +143,7 @@ export default Object.freeze({
         position: "bottom",
         skipIfContains: "config.surfaceDefinitions.console = {",
         value:
-          "\nconfig.surfaceDefinitions.console = {\n  id: \"console\",\n  label: \"Console\",\n  pagesRoot: \"console\",\n  enabled: true,\n  requiresAuth: true,\n  requiresWorkspace: false,\n  accessPolicyId: \"console_owner\",\n  icon: \"mdi-console-network-outline\",\n  origin: \"\"\n};\n",
+          "\nconfig.surfaceDefinitions.console = {\n  id: \"console\",\n  label: \"Console\",\n  pagesRoot: \"console\",\n  enabled: true,\n  requiresAuth: true,\n  requiresWorkspace: false,\n  accessPolicyId: \"console_owner\",\n  icon: \"mdi-console-network-outline\",\n  showInSurfaceSwitchMenu: false,\n  origin: \"\"\n};\n",
         reason: "Register console surface definition once console-web is installed.",
         category: "console-web",
         id: "console-web-surface-config-console"
