@@ -42,8 +42,14 @@ function createAppDouble({ surfaceRuntime = null } = {}) {
     plugins,
     pinia,
     vueApp,
+    _tags: new Map(),
     singleton(token, factory) {
       singletons.set(token, factory);
+    },
+    tag(token, tagName) {
+      const current = this._tags.get(tagName) || [];
+      current.push(token);
+      this._tags.set(tagName, current);
     },
     has(token) {
       if (token === "jskit.client.vue.app") {
@@ -78,51 +84,88 @@ function createAppDouble({ surfaceRuntime = null } = {}) {
       singletonInstances.set(token, instance);
       return instance;
     },
-    resolveTag() {
-      return [];
+    resolveTag(tagName) {
+      return (this._tags.get(tagName) || []).map((token) => this.make(token));
     }
   };
 }
 
+async function withFetchStub(responsePayload, callback) {
+  const previousFetch = globalThis.fetch;
+  globalThis.fetch = async () => ({
+    ok: true,
+    async json() {
+      return responsePayload;
+    }
+  });
+
+  try {
+    return await callback();
+  } finally {
+    if (previousFetch === undefined) {
+      delete globalThis.fetch;
+    } else {
+      globalThis.fetch = previousFetch;
+    }
+  }
+}
+
+async function withFetchImplementation(fetchImplementation, callback) {
+  const previousFetch = globalThis.fetch;
+  globalThis.fetch = fetchImplementation;
+
+  try {
+    return await callback();
+  } finally {
+    if (previousFetch === undefined) {
+      delete globalThis.fetch;
+    } else {
+      globalThis.fetch = previousFetch;
+    }
+  }
+}
+
 test("shell web client provider binds runtime and injects it into Vue app", async () => {
-  const app = createAppDouble();
-  const provider = new ShellWebClientProvider();
+  await withFetchStub({ surfaceAccess: {} }, async () => {
+    const app = createAppDouble();
+    const provider = new ShellWebClientProvider();
 
-  provider.register(app);
-  assert.equal(app.singletons.has("runtime.web-placement.client"), true);
-  assert.equal(app.singletons.has("runtime.web-error.client"), true);
-  assert.equal(app.singletons.has("runtime.web-error.presentation-store.client"), true);
+    provider.register(app);
+    assert.equal(app.singletons.has("runtime.web-placement.client"), true);
+    assert.equal(app.singletons.has("runtime.web-error.client"), true);
+    assert.equal(app.singletons.has("runtime.web-error.presentation-store.client"), true);
 
-  await provider.boot(app);
-  assert.equal(app.plugins.length, 1);
-  assert.equal(typeof app.plugins[0].plugin.install, "function");
-  assert.equal(typeof app.plugins[0].options?.queryClient, "object");
+    await provider.boot(app);
+    assert.equal(app.plugins.length, 1);
+    assert.equal(typeof app.plugins[0].plugin.install, "function");
+    assert.equal(typeof app.plugins[0].options?.queryClient, "object");
 
-  const providedByKey = new Map(app.provided.map((entry) => [entry.key, entry.value]));
+    const providedByKey = new Map(app.provided.map((entry) => [entry.key, entry.value]));
 
-  assert.equal(providedByKey.has("jskit.shell-web.runtime.web-placement.client"), true);
-  assert.equal(providedByKey.has("jskit.shell-web.runtime.web-error.client"), true);
-  assert.equal(providedByKey.has("jskit.shell-web.runtime.web-error.presentation-store.client"), true);
+    assert.equal(providedByKey.has("jskit.shell-web.runtime.web-placement.client"), true);
+    assert.equal(providedByKey.has("jskit.shell-web.runtime.web-error.client"), true);
+    assert.equal(providedByKey.has("jskit.shell-web.runtime.web-error.presentation-store.client"), true);
 
-  const placementRuntime = providedByKey.get("jskit.shell-web.runtime.web-placement.client");
-  assert.equal(typeof placementRuntime.getPlacements, "function");
-  assert.equal(typeof placementRuntime.getContext, "function");
-  assert.equal(typeof placementRuntime.setContext, "function");
-  assert.equal(typeof placementRuntime.getContext().surfaceConfig, "object");
+    const placementRuntime = providedByKey.get("jskit.shell-web.runtime.web-placement.client");
+    assert.equal(typeof placementRuntime.getPlacements, "function");
+    assert.equal(typeof placementRuntime.getContext, "function");
+    assert.equal(typeof placementRuntime.setContext, "function");
+    assert.equal(typeof placementRuntime.getContext().surfaceConfig, "object");
 
-  const errorRuntime = providedByKey.get("jskit.shell-web.runtime.web-error.client");
-  assert.equal(typeof errorRuntime.report, "function");
-  assert.equal(typeof errorRuntime.configure, "function");
+    const errorRuntime = providedByKey.get("jskit.shell-web.runtime.web-error.client");
+    assert.equal(typeof errorRuntime.report, "function");
+    assert.equal(typeof errorRuntime.configure, "function");
 
-  const errorStore = providedByKey.get("jskit.shell-web.runtime.web-error.presentation-store.client");
-  assert.equal(typeof errorStore.getState, "function");
-  assert.equal(typeof errorStore.present, "function");
+    const errorStore = providedByKey.get("jskit.shell-web.runtime.web-error.presentation-store.client");
+    assert.equal(typeof errorStore.getState, "function");
+    assert.equal(typeof errorStore.present, "function");
 
-  const errorPresentationStore = useShellErrorPresentationStore(app.pinia);
-  assert.equal(errorPresentationStore.revision, 0);
-  assert.equal(typeof errorPresentationStore.present, "function");
-  errorStore.present("banner", { message: "Hello" });
-  assert.equal(errorPresentationStore.channels.banner[0].message, "Hello");
+    const errorPresentationStore = useShellErrorPresentationStore(app.pinia);
+    assert.equal(errorPresentationStore.revision, 0);
+    assert.equal(typeof errorPresentationStore.present, "function");
+    errorStore.present("banner", { message: "Hello" });
+    assert.equal(errorPresentationStore.channels.banner[0].message, "Hello");
+  });
 });
 
 test("shell web client provider resolves surface config from client app config", async () => {
@@ -134,35 +177,63 @@ test("shell web client provider resolves surface config from client app config",
   });
 
   try {
-    const app = createAppDouble({
-      surfaceRuntime: {
-        DEFAULT_SURFACE_ID: "app",
-        listEnabledSurfaceIds() {
-          return ["app", "admin", "console"];
-        },
-        listSurfaceDefinitions() {
-          return [
-            { id: "app", pagesRoot: "w/[workspaceSlug]", requiresWorkspace: true, enabled: true },
-            { id: "admin", pagesRoot: "w/[workspaceSlug]/admin", requiresWorkspace: true, enabled: true },
-            { id: "console", pagesRoot: "console", requiresWorkspace: false, enabled: true }
-          ];
+    await withFetchStub({ surfaceAccess: {} }, async () => {
+      const app = createAppDouble({
+        surfaceRuntime: {
+          DEFAULT_SURFACE_ID: "app",
+          listEnabledSurfaceIds() {
+            return ["app", "admin", "console"];
+          },
+          listSurfaceDefinitions() {
+            return [
+              { id: "app", pagesRoot: "w/[workspaceSlug]", requiresWorkspace: true, enabled: true },
+              { id: "admin", pagesRoot: "w/[workspaceSlug]/admin", requiresWorkspace: true, enabled: true },
+              { id: "console", pagesRoot: "console", requiresWorkspace: false, enabled: true }
+            ];
+          }
         }
-      }
-    });
-    const provider = new ShellWebClientProvider();
-    provider.register(app);
+      });
+      const provider = new ShellWebClientProvider();
+      provider.register(app);
 
-    await provider.boot(app);
+      await provider.boot(app);
 
-    const placementRuntime = app.make("runtime.web-placement.client");
-    const context = placementRuntime.getContext();
-    assert.equal(context.surfaceConfig.tenancyMode, "workspaces");
-    assert.equal(context.surfaceConfig.defaultSurfaceId, "app");
-    assert.deepEqual(context.surfaceConfig.enabledSurfaceIds, ["app", "admin", "console"]);
-    assert.deepEqual(context.surfaceAccessPolicies, {
-      public: {}
+      const placementRuntime = app.make("runtime.web-placement.client");
+      const context = placementRuntime.getContext();
+      assert.equal(context.surfaceConfig.tenancyMode, "workspaces");
+      assert.equal(context.surfaceConfig.defaultSurfaceId, "app");
+      assert.deepEqual(context.surfaceConfig.enabledSurfaceIds, ["app", "admin", "console"]);
+      assert.deepEqual(context.surfaceAccessPolicies, {
+        public: {}
+      });
     });
   } finally {
     setClientAppConfig({});
   }
+});
+
+test("shell web client provider clears generic surface access on bootstrap 401", async () => {
+  await withFetchImplementation(async () => ({
+    ok: false,
+    status: 401
+  }), async () => {
+    const app = createAppDouble();
+    const provider = new ShellWebClientProvider();
+    provider.register(app);
+
+    const placementRuntime = app.make("runtime.web-placement.client");
+    placementRuntime.setContext(
+      {
+        surfaceAccess: {
+          consoleowner: true
+        }
+      },
+      {
+        source: "test.seed"
+      }
+    );
+
+    await provider.boot(app);
+    assert.deepEqual(placementRuntime.getContext().surfaceAccess, {});
+  });
 });

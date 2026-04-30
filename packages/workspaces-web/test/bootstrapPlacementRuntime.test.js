@@ -6,6 +6,7 @@ import {
   WORKSPACE_BOOTSTRAP_STATUS_FORBIDDEN,
   WORKSPACE_BOOTSTRAP_STATUS_NOT_FOUND,
   WORKSPACE_BOOTSTRAP_STATUS_RESOLVED,
+  WORKSPACE_BOOTSTRAP_STATUS_UNAUTHENTICATED,
   createBootstrapPlacementRuntime
 } from "../src/client/runtime/bootstrapPlacementRuntime.js";
 
@@ -171,6 +172,17 @@ function createSocketStub() {
   };
 }
 
+function createBootstrapRuntimeStub() {
+  const calls = [];
+  return {
+    async refresh(reason) {
+      calls.push(String(reason || ""));
+      return null;
+    },
+    calls
+  };
+}
+
 function createAppStub(records = {}) {
   const registry = new Map();
   for (const key of Reflect.ownKeys(records)) {
@@ -231,61 +243,84 @@ function createVueAppWithThemeController(themeController) {
   };
 }
 
-test("bootstrap placement runtime writes user/workspace/permissions into placement context", async () => {
+function createBootstrapRequest(path = "/w/acme/dashboard", workspaceSlug = "") {
+  const normalizedPath = resolvePathFromFullPath(path);
+  const normalizedWorkspaceSlug = String(workspaceSlug || "").trim().toLowerCase();
+  return Object.freeze({
+    path: "/api/bootstrap",
+    query: Object.freeze(normalizedWorkspaceSlug ? { workspaceSlug: normalizedWorkspaceSlug } : {}),
+    meta: Object.freeze({
+      path: normalizedPath,
+      workspaceSlug: normalizedWorkspaceSlug
+    })
+  });
+}
+
+function createErrorWithStatus(status, message = "") {
+  const error = new Error(message || `HTTP ${status}`);
+  error.status = status;
+  return error;
+}
+
+test("bootstrap placement runtime contributes workspace slug to shared bootstrap request and writes payload into placement context", async () => {
   const placementRuntime = createPlacementRuntimeStub();
   const router = createRouterStub("/w/acme/dashboard");
-  const fetchCalls = [];
   const runtime = createBootstrapPlacementRuntime({
     app: createAppStub({
       ["runtime.web-placement.client"]: placementRuntime,
+      ["runtime.web-bootstrap.client"]: createBootstrapRuntimeStub(),
       ["jskit.client.router"]: router
-    }),
-    fetchBootstrap: async (workspaceSlug) => {
-      fetchCalls.push(workspaceSlug);
-      return {
-        session: {
-          authenticated: true,
-          userId: "7"
-        },
-        profile: {
-          displayName: "Ada Lovelace",
-          email: "ADA@EXAMPLE.COM",
-          avatar: {
-            effectiveUrl: "https://cdn.example.com/ada.png"
-          }
-        },
-        app: {
-          features: {
-            workspaceInvites: true
-          }
-        },
-        pendingInvites: [
-          { id: "1", workspaceId: "1", token: "a" },
-          { id: "2", workspaceId: "2", token: "b" }
-        ],
-        workspaces: [{ id: "1", slug: "acme", name: "Acme Workspace" }],
-        permissions: ["workspace.settings.view"]
-      };
-    }
+    })
   });
 
   await runtime.initialize();
-  const context = placementRuntime.getContext();
+  const request = runtime.resolveBootstrapRequest();
+  assert.deepEqual(request, {
+    query: {
+      workspaceSlug: "acme"
+    },
+    meta: {
+      path: "/w/acme/dashboard",
+      workspaceSlug: "acme"
+    }
+  });
 
-  assert.deepEqual(fetchCalls, ["acme"]);
+  await runtime.applyBootstrapPayload({
+    request,
+    payload: {
+      session: {
+        authenticated: true,
+        userId: "7"
+      },
+      profile: {
+        displayName: "Ada Lovelace",
+        email: "ADA@EXAMPLE.COM",
+        avatar: {
+          effectiveUrl: "https://cdn.example.com/ada.png"
+        }
+      },
+      app: {
+        features: {
+          workspaceInvites: true
+        }
+      },
+      pendingInvites: [
+        { id: "1", workspaceId: "1", token: "a" },
+        { id: "2", workspaceId: "2", token: "b" }
+      ],
+      workspaces: [{ id: "1", slug: "acme", name: "Acme Workspace" }],
+      permissions: ["workspace.settings.view"]
+    },
+    source: "test.bootstrap"
+  });
+
+  const context = placementRuntime.getContext();
   assert.equal(context.workspace?.slug, "acme");
   assert.equal(Array.isArray(context.workspaces), true);
   assert.equal(context.workspaces.length, 1);
   assert.deepEqual(context.permissions, ["workspace.settings.view"]);
   assert.equal(runtime.getWorkspaceBootstrapStatus("acme"), WORKSPACE_BOOTSTRAP_STATUS_RESOLVED);
   assert.equal(context.workspaceBootstrapStatuses?.acme, WORKSPACE_BOOTSTRAP_STATUS_RESOLVED);
-  assert.deepEqual(context.user, {
-    id: "7",
-    displayName: "Ada Lovelace",
-    name: "Ada Lovelace",
-    email: "ada@example.com",
-    avatarUrl: "https://cdn.example.com/ada.png"
-  });
   assert.equal(context.workspaceInvitesEnabled, true);
   assert.equal(context.pendingInvitesCount, 2);
 });
@@ -294,35 +329,39 @@ test("bootstrap placement runtime resolves workspace slug from pathname when sur
   const placementRuntime = createPlacementRuntimeStub();
   placementRuntime.setContext({}, { replace: true, source: "test.clear" });
   const router = createRouterStub("/w/acme/admin");
-  const fetchCalls = [];
   const runtime = createBootstrapPlacementRuntime({
     app: createAppStub({
       ["runtime.web-placement.client"]: placementRuntime,
+      ["runtime.web-bootstrap.client"]: createBootstrapRuntimeStub(),
       ["jskit.client.router"]: router
-    }),
-    fetchBootstrap: async (workspaceSlug) => {
-      fetchCalls.push(workspaceSlug);
-      return {
-        session: {
-          authenticated: true,
-          userId: "1"
-        },
-        profile: {
-          displayName: "User",
-          email: "user@example.com",
-          avatar: {
-            effectiveUrl: ""
-          }
-        },
-        workspaces: [{ id: "1", slug: "acme", name: "Acme Workspace" }],
-        permissions: ["workspace.settings.view"]
-      };
-    }
+    })
   });
 
   await runtime.initialize();
+  const request = runtime.resolveBootstrapRequest();
+  assert.deepEqual(request.query, {
+    workspaceSlug: "acme"
+  });
 
-  assert.deepEqual(fetchCalls, ["acme"]);
+  await runtime.applyBootstrapPayload({
+    request,
+    payload: {
+      session: {
+        authenticated: true,
+        userId: "1"
+      },
+      profile: {
+        displayName: "User",
+        email: "user@example.com",
+        avatar: {
+          effectiveUrl: ""
+        }
+      },
+      workspaces: [{ id: "1", slug: "acme", name: "Acme Workspace" }],
+      permissions: ["workspace.settings.view"]
+    }
+  });
+
   assert.deepEqual(placementRuntime.getContext().permissions, ["workspace.settings.view"]);
 });
 
@@ -342,28 +381,31 @@ test("bootstrap placement runtime does not mutate placement auth context", async
   const runtime = createBootstrapPlacementRuntime({
     app: createAppStub({
       ["runtime.web-placement.client"]: placementRuntime,
+      ["runtime.web-bootstrap.client"]: createBootstrapRuntimeStub(),
       ["jskit.client.router"]: router
-    }),
-    fetchBootstrap: async () => {
-      return {
-        session: {
-          authenticated: true,
-          userId: "9"
-        },
-        profile: {
-          displayName: "User",
-          email: "user@example.com",
-          avatar: {
-            effectiveUrl: ""
-          }
-        },
-        workspaces: [{ id: "1", slug: "acme", name: "Workspace" }],
-        permissions: []
-      };
-    }
+    })
   });
 
   await runtime.initialize();
+  await runtime.applyBootstrapPayload({
+    request: createBootstrapRequest("/w/acme/dashboard", "acme"),
+    payload: {
+      session: {
+        authenticated: true,
+        userId: "9"
+      },
+      profile: {
+        displayName: "User",
+        email: "user@example.com",
+        avatar: {
+          effectiveUrl: ""
+        }
+      },
+      workspaces: [{ id: "1", slug: "acme", name: "Workspace" }],
+      permissions: []
+    }
+  });
+
   assert.deepEqual(placementRuntime.getContext().auth, {
     authenticated: true,
     oauthDefaultProvider: "github",
@@ -371,235 +413,130 @@ test("bootstrap placement runtime does not mutate placement auth context", async
   });
 });
 
-test("bootstrap placement runtime refetches on route changes and users.bootstrap.changed events", async () => {
+test("bootstrap placement runtime delegates route and realtime refreshes to the shared bootstrap runtime", async () => {
   const placementRuntime = createPlacementRuntimeStub();
   const router = createRouterStub("/w/acme/dashboard");
   const socket = createSocketStub();
-  const fetchCalls = [];
+  const bootstrapRuntime = createBootstrapRuntimeStub();
   const runtime = createBootstrapPlacementRuntime({
     app: createAppStub({
       ["runtime.web-placement.client"]: placementRuntime,
+      ["runtime.web-bootstrap.client"]: bootstrapRuntime,
       ["jskit.client.router"]: router,
       ["runtime.realtime.client.socket"]: socket
-    }),
-    fetchBootstrap: async (workspaceSlug) => {
-      fetchCalls.push(workspaceSlug);
-      return {
-        session: {
-          authenticated: true,
-          userId: "1"
-        },
-        profile: {
-          displayName: "User",
-          email: "user@example.com",
-          avatar: {
-            effectiveUrl: ""
-          }
-        },
-        workspaces: [{ id: "1", slug: workspaceSlug || "acme", name: "Workspace" }],
-        permissions: []
-      };
-    }
+    })
   });
 
   await runtime.initialize();
-  assert.deepEqual(fetchCalls, ["acme"]);
+  assert.deepEqual(bootstrapRuntime.calls, []);
 
   router.currentRoute.value.path = "/w/acme/customers";
   router.currentRoute.value.fullPath = "/w/acme/customers";
   router.emitAfterEach();
   await flushTasks();
-  assert.deepEqual(fetchCalls, ["acme"]);
+  assert.deepEqual(bootstrapRuntime.calls, []);
 
   router.currentRoute.value.path = "/w/zen/dashboard";
   router.currentRoute.value.fullPath = "/w/zen/dashboard";
   router.emitAfterEach();
   await flushTasks();
-  assert.deepEqual(fetchCalls, ["acme", "zen"]);
+  assert.deepEqual(bootstrapRuntime.calls, ["route"]);
 
   socket.emit("users.bootstrap.changed", {});
   await flushTasks();
-  assert.deepEqual(fetchCalls, ["acme", "zen", "zen"]);
+  assert.deepEqual(bootstrapRuntime.calls, ["route", "realtime"]);
 });
 
-test("bootstrap placement runtime refetches when auth context changes", async () => {
+test("bootstrap placement runtime applies theme changes from bootstrap payloads", async () => {
   const placementRuntime = createPlacementRuntimeStub();
   const router = createRouterStub("/w/acme/dashboard");
-  const fetchCalls = [];
-  const runtime = createBootstrapPlacementRuntime({
-    app: createAppStub({
-      ["runtime.web-placement.client"]: placementRuntime,
-      ["jskit.client.router"]: router
-    }),
-    fetchBootstrap: async (workspaceSlug) => {
-      fetchCalls.push(workspaceSlug);
-      return {
-        session: {
-          authenticated: true,
-          userId: "1"
-        },
-        profile: {
-          displayName: "User",
-          email: "user@example.com",
-          avatar: {
-            effectiveUrl: ""
-          }
-        },
-        workspaces: [{ id: "1", slug: workspaceSlug || "acme", name: "Workspace" }],
-        permissions: []
-      };
-    }
-  });
-
-  await runtime.initialize();
-  assert.deepEqual(fetchCalls, ["acme"]);
-
-  placementRuntime.setContext(
-    {
-      auth: {
-        authenticated: true,
-        oauthDefaultProvider: "",
-        oauthProviders: []
-      }
-    },
-    {
-      source: "test.auth"
-    }
-  );
-  await flushTasks();
-  await flushTasks();
-  assert.deepEqual(fetchCalls, ["acme", "acme"]);
-});
-
-test("bootstrap placement runtime applies persisted theme preference for unauthenticated bootstrap payloads", async () => {
-  const placementRuntime = createPlacementRuntimeStub();
-  const router = createRouterStub("/auth/login");
-  const themeController = createVuetifyThemeController("dark");
-  const storage = new Map();
-  storage.set("jskit.themePreference", "dark");
-  const originalWindow = globalThis.window;
-  globalThis.window = {
-    localStorage: {
-      getItem(key) {
-        return storage.get(key) || null;
-      },
-      setItem(key, value) {
-        storage.set(key, value);
-      }
-    }
-  };
-  const runtime = createBootstrapPlacementRuntime({
-    app: createAppStub({
-      ["runtime.web-placement.client"]: placementRuntime,
-      ["jskit.client.router"]: router,
-      ["jskit.client.vue.app"]: createVueAppWithThemeController(themeController)
-    }),
-    fetchBootstrap: async () => {
-      return {
-        session: {
-          authenticated: false
-        },
-        workspaces: [],
-        permissions: []
-      };
-    }
-  });
-
-  try {
-    await runtime.initialize();
-    assert.equal(themeController.global.name.value, "dark");
-  } finally {
-    if (typeof originalWindow === "undefined") {
-      delete globalThis.window;
-    } else {
-      globalThis.window = originalWindow;
-    }
-  }
-});
-
-test("bootstrap placement runtime reapplies theme when bootstrap payload changes", async () => {
-  const placementRuntime = createPlacementRuntimeStub();
-  const router = createRouterStub("/w/acme/dashboard");
-  const socket = createSocketStub();
   const themeController = createVuetifyThemeController("light");
-  let fetchCount = 0;
   const runtime = createBootstrapPlacementRuntime({
     app: createAppStub({
       ["runtime.web-placement.client"]: placementRuntime,
+      ["runtime.web-bootstrap.client"]: createBootstrapRuntimeStub(),
       ["jskit.client.router"]: router,
-      ["runtime.realtime.client.socket"]: socket,
       ["jskit.client.vue.app"]: createVueAppWithThemeController(themeController)
-    }),
-    fetchBootstrap: async (workspaceSlug) => {
-      fetchCount += 1;
-      return {
-        session: {
-          authenticated: true,
-          userId: "1"
-        },
-        profile: {
-          displayName: "User",
-          email: "user@example.com",
-          avatar: {
-            effectiveUrl: ""
-          }
-        },
-        userSettings: {
-          theme: fetchCount === 1 ? "dark" : "light"
-        },
-        workspaces: [{ id: "1", slug: workspaceSlug || "acme", name: "Workspace" }],
-        permissions: []
-      };
-    }
+    })
   });
 
   await runtime.initialize();
+  const request = createBootstrapRequest("/w/acme/dashboard", "acme");
+  await runtime.applyBootstrapPayload({
+    request,
+    payload: {
+      session: {
+        authenticated: true,
+        userId: "1"
+      },
+      userSettings: {
+        theme: "dark"
+      },
+      workspaces: [{ id: "1", slug: "acme", name: "Workspace" }],
+      permissions: []
+    }
+  });
   assert.equal(themeController.global.name.value, "workspace-dark");
 
-  socket.emit("users.bootstrap.changed", {});
-  await flushTasks();
+  await runtime.applyBootstrapPayload({
+    request,
+    payload: {
+      session: {
+        authenticated: true,
+        userId: "1"
+      },
+      userSettings: {
+        theme: "light"
+      },
+      workspaces: [{ id: "1", slug: "acme", name: "Workspace" }],
+      permissions: []
+    }
+  });
   assert.equal(themeController.global.name.value, "workspace-light");
 });
 
-test("bootstrap placement runtime applies workspace palette via Vuetify workspace themes and clears it off workspace routes", async () => {
+test("bootstrap placement runtime applies workspace palette and clears it when leaving workspace routes", async () => {
   const placementRuntime = createPlacementRuntimeStub();
   const router = createRouterStub("/w/acme/dashboard");
   const themeController = createVuetifyThemeController("light");
   const runtime = createBootstrapPlacementRuntime({
     app: createAppStub({
       ["runtime.web-placement.client"]: placementRuntime,
+      ["runtime.web-bootstrap.client"]: createBootstrapRuntimeStub(),
       ["jskit.client.router"]: router,
       ["jskit.client.vue.app"]: createVueAppWithThemeController(themeController)
-    }),
-    fetchBootstrap: async (workspaceSlug) => {
-      return {
-        session: {
-          authenticated: true,
-          userId: "1"
-        },
-        workspaceSettings: {
-          lightPrimaryColor: "#CC3344",
-          lightSecondaryColor: "#884455",
-          lightSurfaceColor: "#F4F4F4",
-          lightSurfaceVariantColor: "#444444",
-          darkPrimaryColor: "#BB2233",
-          darkSecondaryColor: "#557799",
-          darkSurfaceColor: "#202020",
-          darkSurfaceVariantColor: "#A0A0A0"
-        },
-        workspaces: [
-          {
-            id: "1",
-            slug: "acme",
-            name: "Acme Workspace"
-          }
-        ],
-        permissions: []
-      };
-    }
+    })
   });
 
   await runtime.initialize();
+  await runtime.applyBootstrapPayload({
+    request: createBootstrapRequest("/w/acme/dashboard", "acme"),
+    payload: {
+      session: {
+        authenticated: true,
+        userId: "1"
+      },
+      workspaceSettings: {
+        lightPrimaryColor: "#CC3344",
+        lightSecondaryColor: "#884455",
+        lightSurfaceColor: "#F4F4F4",
+        lightSurfaceVariantColor: "#444444",
+        darkPrimaryColor: "#BB2233",
+        darkSecondaryColor: "#557799",
+        darkSurfaceColor: "#202020",
+        darkSurfaceVariantColor: "#A0A0A0"
+      },
+      workspaces: [
+        {
+          id: "1",
+          slug: "acme",
+          name: "Acme Workspace"
+        }
+      ],
+      permissions: []
+    }
+  });
+
   const palette = resolveWorkspaceThemePalette({
     lightPrimaryColor: "#CC3344",
     lightSecondaryColor: "#884455",
@@ -621,7 +558,6 @@ test("bootstrap placement runtime applies workspace palette via Vuetify workspac
   router.currentRoute.value.fullPath = "/home";
   router.emitAfterEach();
   await flushTasks();
-  await flushTasks();
 
   assert.equal(themeController.global.name.value, "light");
 });
@@ -632,24 +568,26 @@ test("bootstrap placement runtime marks workspace slug as not_found and clears w
     {
       workspace: { id: "1", slug: "acme", name: "Acme Workspace" },
       workspaces: [{ id: "1", slug: "acme", name: "Acme Workspace" }],
-      permissions: ["workspace.settings.view"]
+      permissions: ["workspace.settings.view"],
+      surfaceAccess: {
+        consoleowner: true
+      }
     },
     { source: "test.seed" }
   );
-
   const runtime = createBootstrapPlacementRuntime({
     app: createAppStub({
       ["runtime.web-placement.client"]: placementRuntime,
+      ["runtime.web-bootstrap.client"]: createBootstrapRuntimeStub(),
       ["jskit.client.router"]: createRouterStub("/w/acme/dashboard")
-    }),
-    fetchBootstrap: async () => {
-      const error = new Error("Workspace not found.");
-      error.status = 404;
-      throw error;
-    }
+    })
   });
 
   await runtime.initialize();
+  await runtime.handleBootstrapError({
+    request: createBootstrapRequest("/w/acme/dashboard", "acme"),
+    error: createErrorWithStatus(404, "Workspace not found.")
+  });
 
   const context = placementRuntime.getContext();
   assert.equal(runtime.getWorkspaceBootstrapStatus("acme"), WORKSPACE_BOOTSTRAP_STATUS_NOT_FOUND);
@@ -657,56 +595,57 @@ test("bootstrap placement runtime marks workspace slug as not_found and clears w
   assert.equal(context.workspace, null);
   assert.deepEqual(context.workspaces, []);
   assert.deepEqual(context.permissions, []);
-  assert.equal(context.user, null);
   assert.equal(context.pendingInvitesCount, 0);
   assert.equal(context.workspaceInvitesEnabled, false);
+  assert.deepEqual(context.surfaceAccess, {
+    consoleowner: true
+  });
 });
 
-test("bootstrap placement runtime updates status per workspace slug across route changes", async () => {
+test("bootstrap placement runtime tracks status per workspace slug across route changes", async () => {
   const placementRuntime = createPlacementRuntimeStub();
   const router = createRouterStub("/w/acme/dashboard");
+  const bootstrapRuntime = createBootstrapRuntimeStub();
   const runtime = createBootstrapPlacementRuntime({
     app: createAppStub({
       ["runtime.web-placement.client"]: placementRuntime,
+      ["runtime.web-bootstrap.client"]: bootstrapRuntime,
       ["jskit.client.router"]: router
-    }),
-    fetchBootstrap: async (workspaceSlug) => {
-      if (workspaceSlug === "zen") {
-        const error = new Error("Workspace not found.");
-        error.status = 404;
-        throw error;
-      }
-
-      return {
-        session: {
-          authenticated: true,
-          userId: "1"
-        },
-        profile: {
-          displayName: "User",
-          email: "user@example.com",
-          avatar: {
-            effectiveUrl: ""
-          }
-        },
-        workspaces: [{ id: "1", slug: workspaceSlug || "acme", name: "Workspace" }],
-        permissions: []
-      };
-    }
+    })
   });
 
   await runtime.initialize();
+  await runtime.applyBootstrapPayload({
+    request: createBootstrapRequest("/w/acme/dashboard", "acme"),
+    payload: {
+      session: {
+        authenticated: true,
+        userId: "1"
+      },
+      workspaces: [{ id: "1", slug: "acme", name: "Workspace" }],
+      permissions: []
+    }
+  });
+
   assert.equal(runtime.getWorkspaceBootstrapStatus("acme"), WORKSPACE_BOOTSTRAP_STATUS_RESOLVED);
 
   router.currentRoute.value.path = "/w/zen/dashboard";
   router.currentRoute.value.fullPath = "/w/zen/dashboard";
   router.emitAfterEach();
   await flushTasks();
+  assert.deepEqual(bootstrapRuntime.calls, ["route"]);
+
+  await runtime.handleBootstrapError({
+    request: createBootstrapRequest("/w/zen", "zen"),
+    error: createErrorWithStatus(404, "Workspace not found.")
+  });
 
   const context = placementRuntime.getContext();
+  assert.equal(runtime.getWorkspaceBootstrapStatus("acme"), WORKSPACE_BOOTSTRAP_STATUS_RESOLVED);
   assert.equal(runtime.getWorkspaceBootstrapStatus("zen"), WORKSPACE_BOOTSTRAP_STATUS_NOT_FOUND);
+  assert.equal(context.workspaceBootstrapStatuses?.acme, WORKSPACE_BOOTSTRAP_STATUS_RESOLVED);
   assert.equal(context.workspaceBootstrapStatuses?.zen, WORKSPACE_BOOTSTRAP_STATUS_NOT_FOUND);
-  assert.equal(context.workspace, null);
+  assert.deepEqual(router.replaceCalls, ["/w/zen"]);
 });
 
 test("bootstrap placement runtime uses requestedWorkspace status and keeps global workspace list on inaccessible slug", async () => {
@@ -715,32 +654,34 @@ test("bootstrap placement runtime uses requestedWorkspace status and keeps globa
   const runtime = createBootstrapPlacementRuntime({
     app: createAppStub({
       ["runtime.web-placement.client"]: placementRuntime,
+      ["runtime.web-bootstrap.client"]: createBootstrapRuntimeStub(),
       ["jskit.client.router"]: router
-    }),
-    fetchBootstrap: async () => {
-      return {
-        session: {
-          authenticated: true,
-          userId: "4"
-        },
-        profile: {
-          displayName: "Chiara",
-          email: "chiara@example.com",
-          avatar: {
-            effectiveUrl: ""
-          }
-        },
-        workspaces: [{ id: "3", slug: "chiaramobily", name: "Chiara Workspace" }],
-        requestedWorkspace: {
-          slug: "tonymobily",
-          status: "forbidden"
-        },
-        permissions: []
-      };
-    }
+    })
   });
 
   await runtime.initialize();
+  await runtime.applyBootstrapPayload({
+    request: createBootstrapRequest("/w/tonymobily", "tonymobily"),
+    payload: {
+      session: {
+        authenticated: true,
+        userId: "4"
+      },
+      profile: {
+        displayName: "Chiara",
+        email: "chiara@example.com",
+        avatar: {
+          effectiveUrl: ""
+        }
+      },
+      workspaces: [{ id: "3", slug: "chiaramobily", name: "Chiara Workspace" }],
+      requestedWorkspace: {
+        slug: "tonymobily",
+        status: "forbidden"
+      },
+      permissions: []
+    }
+  });
 
   const context = placementRuntime.getContext();
   assert.equal(runtime.getWorkspaceBootstrapStatus("tonymobily"), WORKSPACE_BOOTSTRAP_STATUS_FORBIDDEN);
@@ -757,32 +698,34 @@ test("bootstrap placement runtime uses requestedWorkspace=not_found without forc
   const runtime = createBootstrapPlacementRuntime({
     app: createAppStub({
       ["runtime.web-placement.client"]: placementRuntime,
+      ["runtime.web-bootstrap.client"]: createBootstrapRuntimeStub(),
       ["jskit.client.router"]: router
-    }),
-    fetchBootstrap: async () => {
-      return {
-        session: {
-          authenticated: true,
-          userId: "1"
-        },
-        profile: {
-          displayName: "User",
-          email: "user@example.com",
-          avatar: {
-            effectiveUrl: ""
-          }
-        },
-        workspaces: [{ id: "1", slug: "acme", name: "Acme Workspace" }],
-        requestedWorkspace: {
-          slug: "missing",
-          status: "not_found"
-        },
-        permissions: []
-      };
-    }
+    })
   });
 
   await runtime.initialize();
+  await runtime.applyBootstrapPayload({
+    request: createBootstrapRequest("/w/missing", "missing"),
+    payload: {
+      session: {
+        authenticated: true,
+        userId: "1"
+      },
+      profile: {
+        displayName: "User",
+        email: "user@example.com",
+        avatar: {
+          effectiveUrl: ""
+        }
+      },
+      workspaces: [{ id: "1", slug: "acme", name: "Acme Workspace" }],
+      requestedWorkspace: {
+        slug: "missing",
+        status: "not_found"
+      },
+      permissions: []
+    }
+  });
 
   const context = placementRuntime.getContext();
   assert.equal(runtime.getWorkspaceBootstrapStatus("missing"), WORKSPACE_BOOTSTRAP_STATUS_NOT_FOUND);
@@ -805,21 +748,24 @@ test("bootstrap placement runtime guard wrapper preserves delegated deny outcome
   const runtime = createBootstrapPlacementRuntime({
     app: createAppStub({
       ["runtime.web-placement.client"]: placementRuntime,
+      ["runtime.web-bootstrap.client"]: createBootstrapRuntimeStub(),
       ["jskit.client.router"]: router
-    }),
-    fetchBootstrap: async () => {
-      return {
-        session: {
-          authenticated: true,
-          userId: "1"
-        },
-        workspaces: [{ id: "1", slug: "acme", name: "Acme" }],
-        permissions: []
-      };
-    }
+    })
   });
 
   await runtime.initialize();
+  await runtime.applyBootstrapPayload({
+    request: createBootstrapRequest("/w/acme/dashboard", "acme"),
+    payload: {
+      session: {
+        authenticated: true,
+        userId: "1"
+      },
+      workspaces: [{ id: "1", slug: "acme", name: "Acme" }],
+      permissions: []
+    }
+  });
+
   const evaluator = globalThis[SHELL_GUARD_EVALUATOR_KEY];
   const outcome = evaluator({
     guard: {
@@ -840,30 +786,25 @@ test("bootstrap placement runtime guard wrapper preserves delegated deny outcome
   assert.deepEqual(outcome, delegatedOutcome);
 });
 
-test("bootstrap placement runtime guard wrapper blocks forbidden workspace routes", async () => {
+test("bootstrap placement runtime guard wrapper blocks forbidden workspace routes and redirects nested workspace paths", async () => {
   const placementRuntime = createPlacementRuntimeStub();
-  const router = createRouterStub("/w/acme/dashboard");
-  globalThis[SHELL_GUARD_EVALUATOR_KEY] = () => ({ allow: true, redirectTo: "", reason: "" });
-
+  const router = createRouterStub("/w/acme/admin/workspace/settings?tab=general");
   const runtime = createBootstrapPlacementRuntime({
     app: createAppStub({
       ["runtime.web-placement.client"]: placementRuntime,
+      ["runtime.web-bootstrap.client"]: createBootstrapRuntimeStub(),
       ["jskit.client.router"]: router
-    }),
-    fetchBootstrap: async () => {
-      return {
-        session: {
-          authenticated: true,
-          userId: "1"
-        },
-        workspaces: [],
-        permissions: []
-      };
-    }
+    })
   });
 
   await runtime.initialize();
+  await runtime.handleBootstrapError({
+    request: createBootstrapRequest("/w/acme/admin/workspace/settings?tab=general", "acme"),
+    error: createErrorWithStatus(403, "Forbidden")
+  });
+
   assert.equal(runtime.getWorkspaceBootstrapStatus("acme"), WORKSPACE_BOOTSTRAP_STATUS_FORBIDDEN);
+  assert.deepEqual(router.replaceCalls, ["/w/acme/admin"]);
 
   const evaluator = globalThis[SHELL_GUARD_EVALUATOR_KEY];
   const outcome = evaluator({
@@ -889,21 +830,23 @@ test("bootstrap placement runtime guard wrapper blocks forbidden workspace route
 
 test("bootstrap placement runtime guard wrapper redirects nested not_found routes to workspace surface root", async () => {
   const placementRuntime = createPlacementRuntimeStub();
-  const router = createRouterStub("/w/acme/dashboard");
+  const router = createRouterStub("/w/acme/projects");
   const runtime = createBootstrapPlacementRuntime({
     app: createAppStub({
       ["runtime.web-placement.client"]: placementRuntime,
+      ["runtime.web-bootstrap.client"]: createBootstrapRuntimeStub(),
       ["jskit.client.router"]: router
-    }),
-    fetchBootstrap: async () => {
-      const error = new Error("Not found");
-      error.status = 404;
-      throw error;
-    }
+    })
   });
 
   await runtime.initialize();
+  await runtime.handleBootstrapError({
+    request: createBootstrapRequest("/w/acme/projects", "acme"),
+    error: createErrorWithStatus(404, "Not found")
+  });
+
   assert.equal(runtime.getWorkspaceBootstrapStatus("acme"), WORKSPACE_BOOTSTRAP_STATUS_NOT_FOUND);
+  assert.deepEqual(router.replaceCalls, ["/w/acme"]);
 
   const evaluator = globalThis[SHELL_GUARD_EVALUATOR_KEY];
   const nestedOutcome = evaluator({
@@ -951,45 +894,29 @@ test("bootstrap placement runtime redirects admin nested route to admin root whe
   const runtime = createBootstrapPlacementRuntime({
     app: createAppStub({
       ["runtime.web-placement.client"]: placementRuntime,
+      ["runtime.web-bootstrap.client"]: createBootstrapRuntimeStub(),
       ["jskit.client.router"]: router
-    }),
-    fetchBootstrap: async () => {
-      const error = new Error("Not found");
-      error.status = 404;
-      throw error;
-    }
+    })
   });
 
   await runtime.initialize();
+  await runtime.handleBootstrapError({
+    request: createBootstrapRequest("/w/acme/admin/workspace/settings", "acme"),
+    error: createErrorWithStatus(404, "Not found")
+  });
+
   assert.equal(runtime.getWorkspaceBootstrapStatus("acme"), WORKSPACE_BOOTSTRAP_STATUS_NOT_FOUND);
   assert.deepEqual(router.replaceCalls, ["/w/acme/admin"]);
 });
 
-test("bootstrap placement runtime redirects forbidden workspace route to workspace surface root", async () => {
-  const placementRuntime = createPlacementRuntimeStub();
-  const router = createRouterStub("/w/acme/admin/workspace/settings?tab=general");
-  const runtime = createBootstrapPlacementRuntime({
-    app: createAppStub({
-      ["runtime.web-placement.client"]: placementRuntime,
-      ["jskit.client.router"]: router
-    }),
-    fetchBootstrap: async () => {
-      const error = new Error("Forbidden");
-      error.status = 403;
-      throw error;
-    }
-  });
-
-  await runtime.initialize();
-  assert.equal(runtime.getWorkspaceBootstrapStatus("acme"), WORKSPACE_BOOTSTRAP_STATUS_FORBIDDEN);
-  assert.deepEqual(router.replaceCalls, ["/w/acme/admin"]);
-});
-
-test("bootstrap placement runtime enforces surface access policies after bootstrap refresh", async () => {
+test("bootstrap placement runtime enforces surface access policies after bootstrap payloads", async () => {
   const placementRuntime = createPlacementRuntimeStub();
   placementRuntime.setContext({
     auth: {
       authenticated: true
+    },
+    surfaceAccess: {
+      opsowner: false
     },
     surfaceAccessPolicies: {
       public: {},
@@ -1026,70 +953,43 @@ test("bootstrap placement runtime enforces surface access policies after bootstr
   const runtime = createBootstrapPlacementRuntime({
     app: createAppStub({
       ["runtime.web-placement.client"]: placementRuntime,
+      ["runtime.web-bootstrap.client"]: createBootstrapRuntimeStub(),
       ["jskit.client.router"]: router
-    }),
-    fetchBootstrap: async () => {
-      return {
-        session: {
-          authenticated: true,
-          userId: "1"
-        },
-        workspaces: [],
-        permissions: [],
-        surfaceAccess: {
-          opsowner: false
-        }
-      };
-    }
+    })
   });
 
   await runtime.initialize();
+  await runtime.applyBootstrapPayload({
+    request: createBootstrapRequest("/ops"),
+    payload: {
+      session: {
+        authenticated: true,
+        userId: "1"
+      },
+      workspaces: [],
+      permissions: []
+    }
+  });
+
   assert.deepEqual(router.replaceCalls, ["/home"]);
 });
 
-test("bootstrap placement runtime captures guard evaluator assignments after initialization", async () => {
+test("bootstrap placement runtime handles unauthenticated errors and marks workspace status", async () => {
   const placementRuntime = createPlacementRuntimeStub();
-  const router = createRouterStub("/w/acme/dashboard");
   const runtime = createBootstrapPlacementRuntime({
     app: createAppStub({
       ["runtime.web-placement.client"]: placementRuntime,
-      ["jskit.client.router"]: router
-    }),
-    fetchBootstrap: async () => {
-      return {
-        session: {
-          authenticated: true,
-          userId: "1"
-        },
-        workspaces: [{ id: "1", slug: "acme", name: "Acme" }],
-        permissions: []
-      };
-    }
+      ["runtime.web-bootstrap.client"]: createBootstrapRuntimeStub(),
+      ["jskit.client.router"]: createRouterStub("/w/acme/dashboard")
+    })
   });
 
   await runtime.initialize();
-  const delegatedOutcome = {
-    allow: false,
-    redirectTo: "/auth/login",
-    reason: "auth-required"
-  };
-  globalThis[SHELL_GUARD_EVALUATOR_KEY] = () => delegatedOutcome;
-
-  const evaluator = globalThis[SHELL_GUARD_EVALUATOR_KEY];
-  const outcome = evaluator({
-    guard: {
-      policy: "authenticated"
-    },
-    context: {
-      to: {
-        path: "/w/acme/dashboard",
-        fullPath: "/w/acme/dashboard"
-      },
-      location: {
-        pathname: "/w/acme/dashboard",
-        search: ""
-      }
-    }
+  await runtime.handleBootstrapError({
+    request: createBootstrapRequest("/w/acme/dashboard", "acme"),
+    error: createErrorWithStatus(401, "Unauthenticated")
   });
-  assert.deepEqual(outcome, delegatedOutcome);
+
+  assert.equal(runtime.getWorkspaceBootstrapStatus("acme"), WORKSPACE_BOOTSTRAP_STATUS_UNAUTHENTICATED);
+  assert.equal(placementRuntime.getContext().workspace, null);
 });

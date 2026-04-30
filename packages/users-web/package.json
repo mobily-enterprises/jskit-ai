@@ -28,7 +28,6 @@
     "./client/composables/usePaths": "./src/client/composables/usePaths.js",
     "./client/composables/runtime/useUiFeedback": "./src/client/composables/runtime/useUiFeedback.js",
     "./client/lib/httpClient": "./src/client/lib/httpClient.js",
-    "./client/lib/bootstrap": "./src/client/lib/bootstrap.js",
     "./client/lib/permissions": "./src/client/lib/permissions.js",
     "./client/support/contractGuards": "./src/client/support/contractGuards.js"
   },

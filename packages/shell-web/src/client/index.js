@@ -16,6 +16,11 @@ export { default as ShellTabLinkItem } from "./components/ShellTabLinkItem.vue";
 export { useShellLayoutState } from "./composables/useShellLayoutState.js";
 export { useShellLayoutStore } from "./stores/useShellLayoutStore.js";
 export { useShellErrorPresentationStore } from "./stores/useShellErrorPresentationStore.js";
+export {
+  BOOTSTRAP_PAYLOAD_HANDLER_TAG,
+  registerBootstrapPayloadHandler,
+  resolveBootstrapPayloadHandlers
+} from "./bootstrap/index.js";
 
 const clientProviders = Object.freeze([ShellWebClientProvider]);
 

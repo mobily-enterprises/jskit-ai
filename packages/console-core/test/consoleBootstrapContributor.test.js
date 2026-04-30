@@ -2,13 +2,11 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { createConsoleBootstrapContributor } from "../src/server/consoleBootstrapContributor.js";
 
-test("console bootstrap contributor seeds the initial console owner into the existing bootstrap payload", async () => {
-  const ownerSeeds = [];
+test("console bootstrap contributor exposes consoleowner when the authenticated user already owns the console", async () => {
   const contributor = createConsoleBootstrapContributor({
     consoleService: {
-      async ensureInitialConsoleMember(userId) {
-        ownerSeeds.push(String(userId || ""));
-        return String(userId || "");
+      async isConsoleOwnerUserId(userId) {
+        return String(userId || "") === "12";
       }
     }
   });
@@ -26,7 +24,6 @@ test("console bootstrap contributor seeds the initial console owner into the exi
     }
   });
 
-  assert.deepEqual(ownerSeeds, ["12"]);
   assert.deepEqual(contribution, {
     surfaceAccess: {
       existing: true,
@@ -38,7 +35,7 @@ test("console bootstrap contributor seeds the initial console owner into the exi
 test("console bootstrap contributor exposes a false consoleowner flag for anonymous bootstrap", async () => {
   const contributor = createConsoleBootstrapContributor({
     consoleService: {
-      async ensureInitialConsoleMember() {
+      async isConsoleOwnerUserId() {
         throw new Error("should not be called for anonymous payload");
       }
     }

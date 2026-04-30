@@ -5,6 +5,9 @@ function createService({ consoleSettingsRepository } = {}) {
   if (!consoleSettingsRepository || typeof consoleSettingsRepository.ensureOwnerUserId !== "function") {
     throw new Error("consoleService requires consoleSettingsRepository.ensureOwnerUserId().");
   }
+  if (!consoleSettingsRepository || typeof consoleSettingsRepository.getSingleton !== "function") {
+    throw new Error("consoleService requires consoleSettingsRepository.getSingleton().");
+  }
 
   async function ensureInitialConsoleMember(userId, options = {}) {
     const normalizedUserId = normalizeRecordId(userId, { fallback: null });
@@ -13,6 +16,17 @@ function createService({ consoleSettingsRepository } = {}) {
     }
 
     return consoleSettingsRepository.ensureOwnerUserId(normalizedUserId, options);
+  }
+
+  async function isConsoleOwnerUserId(userId, options = {}) {
+    const normalizedUserId = normalizeRecordId(userId, { fallback: null });
+    if (!normalizedUserId) {
+      return false;
+    }
+
+    const settings = await consoleSettingsRepository.getSingleton(options);
+    const ownerUserId = normalizeRecordId(settings?.ownerUserId, { fallback: null });
+    return Boolean(ownerUserId) && ownerUserId === normalizedUserId;
   }
 
   async function requireConsoleOwner(context = {}, options = {}) {
@@ -29,6 +43,7 @@ function createService({ consoleSettingsRepository } = {}) {
 
   return Object.freeze({
     ensureInitialConsoleMember,
+    isConsoleOwnerUserId,
     requireConsoleOwner
   });
 }

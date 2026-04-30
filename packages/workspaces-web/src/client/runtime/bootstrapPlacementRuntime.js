@@ -2,7 +2,6 @@ import {
   findWorkspaceBySlug,
   normalizeWorkspaceList
 } from "../lib/bootstrap.js";
-import { resolvePlacementUserFromBootstrapPayload } from "@jskit-ai/users-web/client/lib/bootstrap";
 import { normalizePermissionList } from "../lib/permissions.js";
 import {
   persistBootstrapThemePreference,
@@ -22,24 +21,19 @@ import {
 import {
   countPendingInvites,
   createProviderLogger,
-  fetchBootstrapPayload,
   normalizeWorkspaceBootstrapStatus,
   normalizeWorkspaceSlugKey,
-  resolveAuthSignature,
   resolveRequestedWorkspaceBootstrapStatus,
   resolveRouteState
 } from "./bootstrapPlacementRuntimeHelpers.js";
 import { resolveErrorStatusCode } from "../support/runtimeNormalization.js";
 
-function createBootstrapPlacementRuntime({ app, logger = null, fetchBootstrap = fetchBootstrapPayload } = {}) {
+function createBootstrapPlacementRuntime({ app, logger = null } = {}) {
   if (!app || typeof app.has !== "function" || typeof app.make !== "function") {
     throw new Error("createBootstrapPlacementRuntime requires application has()/make().");
   }
   if (!app.has("runtime.web-placement.client")) {
     throw new Error("createBootstrapPlacementRuntime requires shell-web placement runtime.");
-  }
-  if (typeof fetchBootstrap !== "function") {
-    throw new TypeError("createBootstrapPlacementRuntime requires fetchBootstrap(workspaceSlug).");
   }
 
   const runtimeLogger = logger || createProviderLogger(app);
@@ -50,10 +44,9 @@ function createBootstrapPlacementRuntime({ app, logger = null, fetchBootstrap = 
   );
   const socket = app.has("runtime.realtime.client.socket") ? app.make("runtime.realtime.client.socket") : null;
   const cleanup = [];
-  let refreshQueue = Promise.resolve();
   let shutdownRequested = false;
-  let authSignature = resolveAuthSignature(placementRuntime.getContext());
   let lastRouteWorkspaceSlug = resolveRouteState(placementRuntime, router).workspaceSlug;
+  let initialized = false;
   const workspaceBootstrapStatusBySlug = new Map();
   const workspaceBootstrapStatusListeners = new Set();
   const root = typeof globalThis === "object" && globalThis ? globalThis : null;
@@ -68,6 +61,23 @@ function createBootstrapPlacementRuntime({ app, logger = null, fetchBootstrap = 
   cleanup.push(() => {
     routeGuards.shutdown();
   });
+
+  function normalizeBootstrapSource(source = "") {
+    return String(source || "workspaces-web.bootstrap-placement").trim() || "workspaces-web.bootstrap-placement";
+  }
+
+  function shouldApplyWorkspaceColorForContextUpdate(event = {}) {
+    if (event?.type !== "context.updated") {
+      return false;
+    }
+
+    const source = String(event?.source || "").trim().toLowerCase();
+    if (!source) {
+      return false;
+    }
+
+    return source.startsWith("workspaces-web.") && !source.startsWith("workspaces-web.bootstrap-placement");
+  }
 
   function setWorkspaceBootstrapStatus(workspaceSlug = "", status = "", source = "workspaces-web.bootstrap-placement") {
     const workspaceSlugKey = normalizeWorkspaceSlugKey(workspaceSlug);
@@ -94,7 +104,7 @@ function createBootstrapPlacementRuntime({ app, logger = null, fetchBootstrap = 
     const payload = Object.freeze({
       workspaceSlug: workspaceSlugKey,
       status: normalizedStatus,
-      source: String(source || "workspaces-web.bootstrap-placement").trim() || "workspaces-web.bootstrap-placement"
+      source: normalizeBootstrapSource(source)
     });
     for (const listener of workspaceBootstrapStatusListeners) {
       try {
@@ -122,7 +132,7 @@ function createBootstrapPlacementRuntime({ app, logger = null, fetchBootstrap = 
     };
   }
 
-  function writePlacementContext(payload = {}, state = {}, source = "workspaces-web.bootstrap-placement") {
+  function writeWorkspacePlacementContext(payload = {}, state = {}, source = "workspaces-web.bootstrap-placement") {
     const availableWorkspaces = normalizeWorkspaceList(payload?.workspaces);
     const currentWorkspace = findWorkspaceBySlug(availableWorkspaces, state.workspaceSlug);
     const workspaceSettings =
@@ -130,7 +140,6 @@ function createBootstrapPlacementRuntime({ app, logger = null, fetchBootstrap = 
         ? payload.workspaceSettings
         : null;
     const permissions = normalizePermissionList(payload?.permissions);
-    const user = resolvePlacementUserFromBootstrapPayload(payload, state.context?.user);
     const workspaceInvitesEnabled = payload?.app?.features?.workspaceInvites === true;
     const pendingInvitesCount = workspaceInvitesEnabled ? countPendingInvites(payload?.pendingInvites) : 0;
 
@@ -140,8 +149,6 @@ function createBootstrapPlacementRuntime({ app, logger = null, fetchBootstrap = 
         workspaceSettings,
         workspaces: availableWorkspaces,
         permissions,
-        user,
-        surfaceAccess: payload?.surfaceAccess && typeof payload.surfaceAccess === "object" ? payload.surfaceAccess : {},
         pendingInvitesCount,
         workspaceInvitesEnabled
       },
@@ -150,18 +157,15 @@ function createBootstrapPlacementRuntime({ app, logger = null, fetchBootstrap = 
       }
     );
     routeGuards.enforceSurfaceAccessForCurrentRoute();
-    applyWorkspaceColorFromPlacementContext("write");
   }
 
-  function clearPlacementContext(source = "workspaces-web.bootstrap-placement") {
+  function clearWorkspacePlacementContext(source = "workspaces-web.bootstrap-placement") {
     placementRuntime.setContext(
       {
         workspace: null,
         workspaceSettings: null,
         workspaces: [],
         permissions: [],
-        user: null,
-        surfaceAccess: {},
         pendingInvitesCount: 0,
         workspaceInvitesEnabled: false
       },
@@ -252,148 +256,195 @@ function createBootstrapPlacementRuntime({ app, logger = null, fetchBootstrap = 
     }
   }
 
-  async function refresh(reason = "manual") {
+  function applyUnauthenticatedTheme(reason = "manual") {
+    applyThemeFromBootstrapPayload(
+      {
+        session: {
+          authenticated: false
+        }
+      },
+      reason
+    );
+  }
+
+  function normalizeBootstrapRequestContext(request = {}) {
+    const meta = request?.meta && typeof request.meta === "object" ? request.meta : {};
+    const query = request?.query && typeof request.query === "object" ? request.query : {};
+    return Object.freeze({
+      path: String(meta.path || "").trim(),
+      workspaceSlug: normalizeWorkspaceSlugKey(meta.workspaceSlug || query.workspaceSlug)
+    });
+  }
+
+  function isCurrentRequestTarget(request = {}) {
+    const requested = normalizeBootstrapRequestContext(request);
+    const currentState = resolveRouteState(placementRuntime, router);
+    if (requested.path && requested.path !== currentState.path) {
+      return false;
+    }
+    return requested.workspaceSlug === normalizeWorkspaceSlugKey(currentState.workspaceSlug);
+  }
+
+  function resolveBootstrapRequest() {
+    const state = resolveRouteState(placementRuntime, router);
+    const workspaceSlug = normalizeWorkspaceSlugKey(state.workspaceSlug);
+    return Object.freeze({
+      query: workspaceSlug ? Object.freeze({ workspaceSlug }) : Object.freeze({}),
+      meta: Object.freeze({
+        path: state.path,
+        workspaceSlug
+      })
+    });
+  }
+
+  async function applyBootstrapPayload({ payload = {}, reason = "manual", source = "", request = {} } = {}) {
+    if (!isCurrentRequestTarget(request)) {
+      return null;
+    }
+
+    const stateAtApply = resolveRouteState(placementRuntime, router);
+    const normalizedSource = normalizeBootstrapSource(source);
+    writeWorkspacePlacementContext(payload, stateAtApply, normalizedSource);
+    applyThemeFromBootstrapPayload(payload, reason);
+    applyWorkspaceColorFromPlacementContext(reason);
+    if (!stateAtApply.workspaceSlug) {
+      return payload;
+    }
+
+    const sessionAuthenticated = payload?.session?.authenticated === true;
+    if (!sessionAuthenticated) {
+      setWorkspaceBootstrapStatus(stateAtApply.workspaceSlug, WORKSPACE_BOOTSTRAP_STATUS_UNAUTHENTICATED, normalizedSource);
+      return payload;
+    }
+
+    const requestedWorkspaceStatus = resolveRequestedWorkspaceBootstrapStatus(payload, stateAtApply.workspaceSlug);
+    if (requestedWorkspaceStatus) {
+      setWorkspaceBootstrapStatus(stateAtApply.workspaceSlug, requestedWorkspaceStatus, normalizedSource);
+      return payload;
+    }
+
+    const availableWorkspaces = normalizeWorkspaceList(payload?.workspaces);
+    const currentWorkspace = findWorkspaceBySlug(availableWorkspaces, stateAtApply.workspaceSlug);
+    setWorkspaceBootstrapStatus(
+      stateAtApply.workspaceSlug,
+      currentWorkspace ? WORKSPACE_BOOTSTRAP_STATUS_RESOLVED : WORKSPACE_BOOTSTRAP_STATUS_FORBIDDEN,
+      normalizedSource
+    );
+    return payload;
+  }
+
+  async function handleBootstrapError({ error, reason = "manual", source = "", request = {} } = {}) {
+    if (!isCurrentRequestTarget(request)) {
+      return null;
+    }
+
+    const normalizedSource = normalizeBootstrapSource(source);
+    const requested = normalizeBootstrapRequestContext(request);
+    const stateAtApply = resolveRouteState(placementRuntime, router);
+    const statusCode = resolveErrorStatusCode(error);
+
+    if (statusCode === 401) {
+      if (requested.workspaceSlug) {
+        setWorkspaceBootstrapStatus(requested.workspaceSlug, WORKSPACE_BOOTSTRAP_STATUS_UNAUTHENTICATED, normalizedSource);
+      }
+      clearWorkspacePlacementContext(normalizedSource);
+      applyUnauthenticatedTheme(reason);
+      return null;
+    }
+
+    if (statusCode === 403) {
+      if (requested.workspaceSlug) {
+        setWorkspaceBootstrapStatus(requested.workspaceSlug, WORKSPACE_BOOTSTRAP_STATUS_FORBIDDEN, normalizedSource);
+      }
+      if (requested.path === stateAtApply.path) {
+        clearWorkspacePlacementContext(normalizedSource);
+      }
+      return null;
+    }
+
+    if (statusCode === 404) {
+      if (requested.workspaceSlug) {
+        setWorkspaceBootstrapStatus(requested.workspaceSlug, WORKSPACE_BOOTSTRAP_STATUS_NOT_FOUND, normalizedSource);
+      }
+      if (requested.path === stateAtApply.path) {
+        clearWorkspacePlacementContext(normalizedSource);
+      }
+      return null;
+    }
+
+    if (requested.workspaceSlug) {
+      setWorkspaceBootstrapStatus(requested.workspaceSlug, WORKSPACE_BOOTSTRAP_STATUS_ERROR, normalizedSource);
+    }
+
+    runtimeLogger.warn(
+      {
+        reason,
+        error: String(error?.message || error || "unknown error")
+      },
+      "workspaces-web bootstrap placement refresh failed."
+    );
+    return null;
+  }
+
+  function resolveBootstrapRuntime() {
+    if (!app.has("runtime.web-bootstrap.client")) {
+      throw new Error("createBootstrapPlacementRuntime requires shell-web bootstrap runtime.");
+    }
+
+    const bootstrapRuntime = app.make("runtime.web-bootstrap.client");
+    if (!bootstrapRuntime || typeof bootstrapRuntime.refresh !== "function") {
+      throw new Error("createBootstrapPlacementRuntime requires runtime.web-bootstrap.client.refresh().");
+    }
+
+    return bootstrapRuntime;
+  }
+
+  function refresh(reason = "manual") {
     if (shutdownRequested) {
+      return Promise.resolve(null);
+    }
+
+    return resolveBootstrapRuntime().refresh(reason);
+  }
+
+  function enforceCurrentWorkspaceStatus() {
+    const state = resolveRouteState(placementRuntime, router);
+    if (!state.workspaceSlug) {
       return;
     }
 
-    const stateAtStart = resolveRouteState(placementRuntime, router);
-    const source = `workspaces-web.bootstrap-placement.${String(reason || "manual").trim() || "manual"}`;
-    try {
-      const payload = await fetchBootstrap(stateAtStart.workspaceSlug);
-      const stateAtApply = resolveRouteState(placementRuntime, router);
-      if (stateAtStart.path !== stateAtApply.path || stateAtStart.workspaceSlug !== stateAtApply.workspaceSlug) {
-        return;
-      }
-
-      writePlacementContext(payload, stateAtStart, source);
-      applyThemeFromBootstrapPayload(payload, reason);
-      applyWorkspaceColorFromPlacementContext(reason);
-      if (stateAtStart.workspaceSlug) {
-        const sessionAuthenticated = payload?.session?.authenticated === true;
-        if (!sessionAuthenticated) {
-          setWorkspaceBootstrapStatus(stateAtStart.workspaceSlug, WORKSPACE_BOOTSTRAP_STATUS_UNAUTHENTICATED, source);
-          return;
-        }
-
-        const requestedWorkspaceStatus = resolveRequestedWorkspaceBootstrapStatus(payload, stateAtStart.workspaceSlug);
-        if (requestedWorkspaceStatus) {
-          setWorkspaceBootstrapStatus(stateAtStart.workspaceSlug, requestedWorkspaceStatus, source);
-          return;
-        }
-
-        const availableWorkspaces = normalizeWorkspaceList(payload?.workspaces);
-        const currentWorkspace = findWorkspaceBySlug(availableWorkspaces, stateAtStart.workspaceSlug);
-        setWorkspaceBootstrapStatus(
-          stateAtStart.workspaceSlug,
-          currentWorkspace ? WORKSPACE_BOOTSTRAP_STATUS_RESOLVED : WORKSPACE_BOOTSTRAP_STATUS_FORBIDDEN,
-          source
-        );
-      }
-    } catch (error) {
-      const statusCode = resolveErrorStatusCode(error);
-      const stateAtApply = resolveRouteState(placementRuntime, router);
-      const sameWorkspaceRoute =
-        stateAtStart.path === stateAtApply.path && stateAtStart.workspaceSlug === stateAtApply.workspaceSlug;
-
-      if (statusCode === 401) {
-        if (stateAtStart.workspaceSlug) {
-          setWorkspaceBootstrapStatus(stateAtStart.workspaceSlug, WORKSPACE_BOOTSTRAP_STATUS_UNAUTHENTICATED, source);
-        }
-        clearPlacementContext(source);
-        applyThemeFromBootstrapPayload(
-          {
-            session: {
-              authenticated: false
-            }
-          },
-          reason
-        );
-        return;
-      }
-      if (statusCode === 403) {
-        if (stateAtStart.workspaceSlug) {
-          setWorkspaceBootstrapStatus(stateAtStart.workspaceSlug, WORKSPACE_BOOTSTRAP_STATUS_FORBIDDEN, source);
-        }
-        if (sameWorkspaceRoute) {
-          clearPlacementContext(source);
-        }
-        return;
-      }
-      if (statusCode === 404) {
-        if (stateAtStart.workspaceSlug) {
-          setWorkspaceBootstrapStatus(stateAtStart.workspaceSlug, WORKSPACE_BOOTSTRAP_STATUS_NOT_FOUND, source);
-        }
-        if (sameWorkspaceRoute) {
-          clearPlacementContext(source);
-        }
-        return;
-      }
-
-      if (stateAtStart.workspaceSlug) {
-        setWorkspaceBootstrapStatus(stateAtStart.workspaceSlug, WORKSPACE_BOOTSTRAP_STATUS_ERROR, source);
-      }
-
-      runtimeLogger.warn(
-        {
-          reason,
-          error: String(error?.message || error || "unknown error")
-        },
-        "workspaces-web bootstrap placement refresh failed."
-      );
+    const status = getWorkspaceBootstrapStatus(state.workspaceSlug);
+    if (!status) {
+      return;
     }
-  }
 
-  function queueRefresh(reason = "manual") {
-    refreshQueue = refreshQueue
-      .then(() => refresh(reason))
-      .catch((error) => {
-        runtimeLogger.warn(
-          {
-            reason,
-            error: String(error?.message || error || "unknown error")
-          },
-          "workspaces-web bootstrap placement queued refresh failed."
-        );
-      });
-    return refreshQueue;
+    routeGuards.enforceWorkspaceRouteForStatusUpdate({
+      workspaceSlug: state.workspaceSlug,
+      status
+    });
   }
 
   async function initialize() {
+    if (initialized) {
+      return null;
+    }
+    initialized = true;
     routeGuards.installWorkspaceGuardEvaluator();
 
     const contextAtInit = placementRuntime.getContext();
     if (contextAtInit?.auth?.authenticated !== true) {
-      applyThemeFromBootstrapPayload({
-        session: {
-          authenticated: false
-        }
-      }, "init");
+      applyUnauthenticatedTheme("init");
     }
     applyWorkspaceColorFromPlacementContext("init");
+    routeGuards.enforceSurfaceAccessForCurrentRoute();
+    enforceCurrentWorkspaceStatus();
 
     if (typeof placementRuntime.subscribe === "function") {
       const unsubscribePlacement = placementRuntime.subscribe((event = {}) => {
-        if (event.type !== "context.updated") {
+        if (!shouldApplyWorkspaceColorForContextUpdate(event)) {
           return;
         }
-
-        const nextContext = placementRuntime.getContext();
         applyWorkspaceColorFromPlacementContext("context");
-        const nextSignature = resolveAuthSignature(nextContext);
-        if (nextSignature === authSignature) {
-          return;
-        }
-
-        authSignature = nextSignature;
-        if (nextContext?.auth?.authenticated !== true) {
-          applyThemeFromBootstrapPayload({
-            session: {
-              authenticated: false
-            }
-          }, "auth");
-        }
-        void queueRefresh("auth");
       });
       cleanup.push(() => {
         if (typeof unsubscribePlacement === "function") {
@@ -402,16 +453,17 @@ function createBootstrapPlacementRuntime({ app, logger = null, fetchBootstrap = 
       });
     }
 
-    await queueRefresh("init");
-
     if (router && typeof router.afterEach === "function") {
       const removeAfterEach = router.afterEach(() => {
+        routeGuards.enforceSurfaceAccessForCurrentRoute();
+        applyWorkspaceColorFromPlacementContext("route");
+        enforceCurrentWorkspaceStatus();
         const nextWorkspaceSlug = resolveRouteState(placementRuntime, router).workspaceSlug;
         if (nextWorkspaceSlug === lastRouteWorkspaceSlug) {
           return;
         }
         lastRouteWorkspaceSlug = nextWorkspaceSlug;
-        void queueRefresh("route");
+        void refresh("route");
       });
       cleanup.push(() => {
         if (typeof removeAfterEach === "function") {
@@ -422,7 +474,7 @@ function createBootstrapPlacementRuntime({ app, logger = null, fetchBootstrap = 
 
     if (socket && typeof socket.on === "function") {
       const handleBootstrapChanged = () => {
-        void queueRefresh("realtime");
+        void refresh("realtime");
       };
       socket.on("users.bootstrap.changed", handleBootstrapChanged);
       cleanup.push(() => {
@@ -447,7 +499,10 @@ function createBootstrapPlacementRuntime({ app, logger = null, fetchBootstrap = 
   return Object.freeze({
     initialize,
     shutdown,
-    refresh: queueRefresh,
+    refresh,
+    resolveBootstrapRequest,
+    applyBootstrapPayload,
+    handleBootstrapError,
     getWorkspaceBootstrapStatus,
     subscribeWorkspaceBootstrapStatus
   });

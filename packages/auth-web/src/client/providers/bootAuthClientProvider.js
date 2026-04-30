@@ -2,8 +2,8 @@ import { AUTH_GUARD_RUNTIME_INJECTION_KEY } from "../runtime/inject.js";
 import { useAuthStore } from "../stores/useAuthStore.js";
 
 async function bootAuthClientProvider(app) {
-  if (!app || typeof app.make !== "function") {
-    throw new Error("AuthWebClientProvider requires application make().");
+  if (!app || typeof app.make !== "function" || typeof app.has !== "function") {
+    throw new Error("AuthWebClientProvider requires application make()/has().");
   }
 
   const authGuardRuntime = app.make("runtime.auth-guard.client");
@@ -14,6 +14,15 @@ async function bootAuthClientProvider(app) {
   const authStore = useAuthStore(pinia);
   authStore.attachRuntime(authGuardRuntime);
   await authStore.initialize();
+
+  if (app.has("runtime.web-bootstrap.client")) {
+    const bootstrapRuntime = app.make("runtime.web-bootstrap.client");
+    if (bootstrapRuntime && typeof bootstrapRuntime.refresh === "function") {
+      authStore.subscribe(() => {
+        void bootstrapRuntime.refresh("auth.state");
+      });
+    }
+  }
 
   if (!app.has("jskit.client.vue.app")) {
     return;

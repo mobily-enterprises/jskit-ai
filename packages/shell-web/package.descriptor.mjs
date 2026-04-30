@@ -39,12 +39,17 @@ export default Object.freeze({
         {
           subpath: "./client/error",
           summary: "Exports default error policy and runtime error reporter hook."
+        },
+        {
+          subpath: "./client/bootstrap",
+          summary: "Exports the shared client bootstrap handler registry used to extend /api/bootstrap handling."
         }
       ],
       containerTokens: {
         server: [],
         client: [
           "runtime.web-placement.client",
+          "runtime.web-bootstrap.client",
           "runtime.web-error.client",
           "runtime.web-error.presentation-store.client",
           "shell.web.query-client"

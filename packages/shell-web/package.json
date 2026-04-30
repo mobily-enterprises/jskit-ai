@@ -9,6 +9,7 @@
     "./client": "./src/client/index.js",
     "./client/error": "./src/client/error/index.js",
     "./client/placement": "./src/client/placement/index.js",
+    "./client/bootstrap": "./src/client/bootstrap/index.js",
     "./server/support/localLinkItemScaffolds": "./src/server/support/localLinkItemScaffolds.js",
     "./client/navigation/linkResolver": "./src/client/navigation/linkResolver.js",
     "./client/components/ShellLayout": "./src/client/components/ShellLayout.vue",
