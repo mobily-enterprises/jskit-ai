@@ -471,20 +471,29 @@ async function resolveActorWorkspaceIds(workspaceMembershipsRepository, actorId)
     .filter(Boolean);
 }
 
+function resolveOptionalScopeBinding(scope, token = "") {
+  if (!scope || typeof scope.has !== "function" || typeof scope.make !== "function") {
+    return null;
+  }
+
+  const normalizedToken = String(token || "").trim();
+  if (!normalizedToken || scope.has(normalizedToken) !== true) {
+    return null;
+  }
+
+  return scope.make(normalizedToken);
+}
+
 function registerRealtimeSocketAudienceBootstrap(scope, io, logger) {
   if (!io || typeof io.on !== "function") {
     return;
   }
 
-  const authService =
-    scope && typeof scope.has === "function" && scope.has("authService") ? scope.make("authService") : null;
-  const workspaceMembershipsRepository =
-    scope && typeof scope.has === "function" && scope.has("internal.repository.workspace-memberships")
-      ? scope.make("internal.repository.workspace-memberships")
-      : null;
-
   io.on("connection", async (socket) => {
     try {
+      const authService = resolveOptionalScopeBinding(scope, "authService");
+      const workspaceMembershipsRepository = resolveOptionalScopeBinding(scope, "internal.repository.workspace-memberships");
+
       socket.join(REALTIME_ROOM_ALL_CLIENTS);
       logger.debug(
         {
