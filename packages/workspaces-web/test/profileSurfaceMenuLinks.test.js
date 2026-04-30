@@ -206,3 +206,37 @@ test("resolveProfileSurfaceMenuLinks includes gated non-workspace switches only 
   assert.equal(nonOwnerLinks.some((entry) => entry.id === "surface-switch.ops"), false);
   assert.equal(ownerLinks.some((entry) => entry.id === "surface-switch.ops"), true);
 });
+
+test("resolveProfileSurfaceMenuLinks excludes surfaces hidden from the generic switch menu", () => {
+  const context = createPlacementContext({
+    workspace: {
+      id: 1,
+      slug: "acme"
+    },
+    workspaces: [
+      {
+        id: 1,
+        slug: "acme"
+      }
+    ]
+  });
+
+  context.surfaceConfig.enabledSurfaceIds = ["home", "app", "admin", "console"];
+  context.surfaceConfig.surfacesById.console = {
+    id: "console",
+    enabled: true,
+    pagesRoot: "console",
+    routeBase: "/console",
+    requiresAuth: true,
+    requiresWorkspace: false,
+    accessPolicyId: "public",
+    showInSurfaceSwitchMenu: false
+  };
+
+  const links = resolveProfileSurfaceMenuLinks({
+    context,
+    surface: "app"
+  });
+
+  assert.equal(links.some((entry) => entry.id === "surface-switch.console"), false);
+});
