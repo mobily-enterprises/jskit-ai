@@ -10,8 +10,6 @@ function bootAccountProfileRoutes(app) {
   }
 
   const router = app.make("jskit.http.router");
-  const authService = app.make("authService");
-  const accountProfileService = app.make("users.accountProfile.service");
 
   router.register(
     "GET",
@@ -57,6 +55,7 @@ function bootAccountProfileRoutes(app) {
         input: request.input.body
       });
 
+      const authService = app.make("authService");
       if (result?.session && typeof authService.writeSessionCookies === "function") {
         authService.writeSessionCookies(reply, result.session);
       }
@@ -76,6 +75,7 @@ function bootAccountProfileRoutes(app) {
       }
     },
     async function (request, reply) {
+      const accountProfileService = app.make("users.accountProfile.service");
       const avatar = await accountProfileService.readAvatar(request, request.user, {
         context: {
           actor: request.user

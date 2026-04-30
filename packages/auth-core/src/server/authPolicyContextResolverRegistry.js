@@ -50,6 +50,10 @@ function resolveAuthPolicyContextResolvers(scope) {
     .map((entry) => entry.resolver);
 }
 
+function resolveComposedAuthPolicyContextResolver(scope) {
+  return composeAuthPolicyContextResolvers(resolveAuthPolicyContextResolvers(scope));
+}
+
 function mergeAuthPolicyContexts(contexts = []) {
   const merged = {};
   let hasValues = false;
@@ -120,6 +124,7 @@ export {
   AUTH_POLICY_CONTEXT_RESOLVER_TAG,
   registerAuthPolicyContextResolver,
   resolveAuthPolicyContextResolvers,
+  resolveComposedAuthPolicyContextResolver,
   mergeAuthPolicyContexts,
   composeAuthPolicyContextResolvers
 };

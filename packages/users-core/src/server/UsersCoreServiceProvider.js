@@ -20,7 +20,6 @@ class UsersCoreServiceProvider {
 
   async register(app) {
     registerSharedApi(app, USERS_SHARED_API);
-    await registerJsonRestApiHost(app);
     registerCommonRepositories(app);
     registerUsersCore(app);
     registerUsersBootstrap(app);
@@ -32,6 +31,7 @@ class UsersCoreServiceProvider {
   }
 
   async boot(app) {
+    await registerJsonRestApiHost(app);
     bootAccountProfileRoutes(app);
     bootAccountPreferencesRoutes(app);
     bootAccountNotificationsRoutes(app);

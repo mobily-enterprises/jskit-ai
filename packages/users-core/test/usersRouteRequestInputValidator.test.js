@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { UsersCoreServiceProvider } from "../src/server/UsersCoreServiceProvider.js";
+import { INTERNAL_JSON_REST_API } from "../src/server/common/jsonRestApiHost.js";
 import { createRouter } from "../../kernel/server/http/lib/router.js";
 
 function createReplyDouble() {
@@ -31,10 +32,17 @@ async function registerRoutes({
   authService = {}
 } = {}) {
   const router = createRouter();
+  const internalApi = {
+    resources: {},
+    async addResource(scopeName) {
+      this.resources[scopeName] = {};
+    }
+  };
 
   const bindings = new Map([
     ["jskit.http.router", router],
     ["authService", authService],
+    [INTERNAL_JSON_REST_API, internalApi],
     [
       "users.accountProfile.service",
       {
@@ -52,6 +60,10 @@ async function registerRoutes({
   const app = {
     has(token) {
       return bindings.has(token);
+    },
+    instance(token, value) {
+      bindings.set(token, value);
+      return this;
     },
     make(token) {
       if (!bindings.has(token)) {

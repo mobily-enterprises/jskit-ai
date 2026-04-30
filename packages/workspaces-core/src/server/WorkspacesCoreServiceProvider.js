@@ -19,7 +19,6 @@ class WorkspacesCoreServiceProvider {
   static dependsOn = ["users.core"];
 
   async register(app) {
-    await registerWorkspaceJsonRestResources(app);
     registerWorkspaceRepositories(app);
     registerWorkspaceCore(app);
     registerWorkspaceBootstrap(app);
@@ -30,6 +29,7 @@ class WorkspacesCoreServiceProvider {
   }
 
   async boot(app) {
+    await registerWorkspaceJsonRestResources(app);
     if (app.make("workspaces.enabled") !== true) {
       return;
     }

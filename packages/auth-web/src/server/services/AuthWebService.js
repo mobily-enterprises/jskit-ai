@@ -1,11 +1,14 @@
 import { AUTH_ACTION_IDS } from "../constants/authActionIds.js";
 
 class AuthWebService {
-  constructor({ authService } = {}) {
-    if (!authService) {
-      throw new Error("authService is required.");
+  constructor({ authService, getAuthService, devAuthBootstrapEnabled } = {}) {
+    if (!authService && typeof getAuthService !== "function") {
+      throw new Error("authService or getAuthService is required.");
     }
-    this.authService = authService;
+    this.authService = authService || null;
+    this.getAuthService = typeof getAuthService === "function" ? getAuthService : null;
+    this.devAuthBootstrapEnabled =
+      typeof devAuthBootstrapEnabled === "boolean" ? devAuthBootstrapEnabled : null;
   }
 
   static get actionIds() {
@@ -68,9 +71,28 @@ class AuthWebService {
     });
   }
 
+  resolveAuthService() {
+    if (this.authService) {
+      return this.authService;
+    }
+    if (typeof this.getAuthService !== "function") {
+      throw new Error("authService is required.");
+    }
+
+    this.authService = this.getAuthService();
+    if (!this.authService) {
+      throw new Error("authService is required.");
+    }
+    return this.authService;
+  }
+
   isDevLoginAsAvailable() {
-    return typeof this.authService?.isDevAuthBootstrapEnabled === "function"
-      ? this.authService.isDevAuthBootstrapEnabled()
+    if (this.devAuthBootstrapEnabled != null) {
+      return this.devAuthBootstrapEnabled === true;
+    }
+    const authService = this.resolveAuthService();
+    return typeof authService?.isDevAuthBootstrapEnabled === "function"
+      ? authService.isDevAuthBootstrapEnabled()
       : false;
   }
 
@@ -109,20 +131,21 @@ class AuthWebService {
 
   writeSessionCookies(reply, session) {
     if (session && reply) {
-      this.authService.writeSessionCookies(reply, session);
+      this.resolveAuthService().writeSessionCookies(reply, session);
     }
   }
 
   clearSessionCookies(reply) {
     if (reply) {
-      this.authService.clearSessionCookies(reply);
+      this.resolveAuthService().clearSessionCookies(reply);
     }
   }
 
   getOAuthProviderCatalogPayload() {
+    const authService = this.resolveAuthService();
     const catalog =
-      typeof this.authService.getOAuthProviderCatalog === "function"
-        ? this.authService.getOAuthProviderCatalog()
+      typeof authService.getOAuthProviderCatalog === "function"
+        ? authService.getOAuthProviderCatalog()
         : null;
     const providers = Array.isArray(catalog?.providers)
       ? catalog.providers
