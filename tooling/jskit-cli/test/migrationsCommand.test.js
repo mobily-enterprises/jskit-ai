@@ -161,6 +161,17 @@ test("migrations changed generates only migrations for changed installed package
     assert.deepEqual(secondRunPayload.requestedPackages, []);
     assert.deepEqual(secondRunPayload.touchedFiles, []);
 
+    const noChangeRun = runCli({
+      cwd: appRoot,
+      args: ["migrations", "changed"]
+    });
+    assert.equal(noChangeRun.status, 0, String(noChangeRun.stderr || ""));
+    assert.match(String(noChangeRun.stdout || ""), /Packages needing migration sync \(0\):/);
+    assert.match(String(noChangeRun.stdout || ""), /Installed packages are already migration-synced, or they do not ship JSKIT-managed migrations\./);
+    assert.match(String(noChangeRun.stdout || ""), /Migration files written \(0\):/);
+    assert.match(String(noChangeRun.stdout || ""), /No managed migration files were written in this run\./);
+    assert.match(String(noChangeRun.stdout || ""), /Run `npm run db:migrate` separately to apply pending migrations to the database\./);
+
     const verboseRun = runCli({
       cwd: appRoot,
       args: ["migrations", "all", "--verbose"]

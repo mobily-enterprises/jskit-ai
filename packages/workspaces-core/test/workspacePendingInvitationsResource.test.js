@@ -27,6 +27,7 @@ test("workspacePendingInvitationsResource output schema accepts already-shaped i
   assert.equal(outputSchema.type, "object");
   assert.equal(outputSchema.additionalProperties, false);
   assert.equal(outputSchema.properties.pendingInvites.type, "array");
-  assert.equal(outputSchema.properties.pendingInvites.items.type, "object");
+  assert.equal(outputSchema.properties.pendingInvites.items["x-json-rest-schema"]?.castType, "object");
+  assert.equal(Array.isArray(outputSchema.properties.pendingInvites.items.allOf), true);
   assert.equal(result.pendingInvites[0].roleSid, "member");
 });

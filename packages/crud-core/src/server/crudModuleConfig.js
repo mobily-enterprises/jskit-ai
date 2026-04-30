@@ -20,6 +20,7 @@ const CRUD_REQUESTED_OWNERSHIP_FILTER_SET = new Set([
   CRUD_REQUESTED_OWNERSHIP_FILTER_AUTO
 ]);
 const CRUD_MODULE_ID = "crud";
+const WORKSPACE_CAPABLE_TENANCY_MODES = new Set(["personal", "workspaces"]);
 
 function asRecord(value) {
   if (!value || typeof value !== "object" || Array.isArray(value)) {
@@ -227,11 +228,30 @@ function resolveCrudSurfacePolicy(
 
 function resolveCrudSurfacePolicyFromAppConfig(sourceConfig = {}, appConfig = {}, options = {}) {
   const config = asRecord(appConfig);
-  return resolveCrudSurfacePolicy(sourceConfig, {
-    ...asRecord(options),
-    surfaceDefinitions: config.surfaceDefinitions,
-    defaultSurfaceId: config.surfaceDefaultId
-  });
+  const requestedSurfaceId = normalizeSurfaceId(asRecord(sourceConfig).surface);
+  const fallbackSurfaceId = normalizeSurfaceId(config.surfaceDefaultId);
+  const resolvedSurfaceId = requestedSurfaceId || fallbackSurfaceId;
+
+  try {
+    return resolveCrudSurfacePolicy(sourceConfig, {
+      ...asRecord(options),
+      surfaceDefinitions: config.surfaceDefinitions,
+      defaultSurfaceId: config.surfaceDefaultId
+    });
+  } catch (error) {
+    const normalizedTenancyMode = normalizeText(config.tenancyMode).toLowerCase();
+    const message = String(error?.message || "");
+    if (
+      message.includes("cannot resolve surface") &&
+      (resolvedSurfaceId === "admin" || resolvedSurfaceId === "app") &&
+      WORKSPACE_CAPABLE_TENANCY_MODES.has(normalizedTenancyMode)
+    ) {
+      error.message = `${message} Workspace-capable tenancy mode "${normalizedTenancyMode}" usually requires ` +
+        '@jskit-ai/workspaces-core, which defines the "app" and "admin" surfaces. ' +
+        "Install that package or add matching surface definitions in config/public.js.";
+    }
+    throw error;
+  }
 }
 
 function resolveCrudConfigsFromModules(modulesSource = {}) {

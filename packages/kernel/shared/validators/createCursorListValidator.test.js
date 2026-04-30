@@ -25,6 +25,9 @@ test("createCursorListValidator builds a list validator from a schema definition
 
   assert.equal(listValidator.mode, "replace");
   assert.equal(transportSchema.properties.items.type, "array");
-  assert.equal(transportSchema.properties.items.items.properties.label.type, "string");
-  assert.equal(transportSchema.properties.items.items.properties.label.minLength, 1);
+  assert.equal(transportSchema.properties.items.items["x-json-rest-schema"]?.castType, "object");
+  assert.equal(Array.isArray(transportSchema.properties.items.items.allOf), true);
+  assert.match(transportSchema.properties.items.items.allOf[0]?.$ref || "", /^#\/definitions\//);
+  assert.equal(transportSchema.definitions.SchemaNode_1_replace.properties.label.type, "string");
+  assert.equal(transportSchema.definitions.SchemaNode_1_replace.properties.label.minLength, 1);
 });

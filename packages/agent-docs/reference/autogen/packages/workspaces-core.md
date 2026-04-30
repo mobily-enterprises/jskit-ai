@@ -54,6 +54,7 @@ Exports
 - `uniqueSorted(values)`
 - `parseJson(value, fallback = {})`
 - `toDbJson(value, fallback = {})`
+- `createSimplifiedWriteParams(inputRecord = {}, { trx = null, returnFullRecord } = {})`
 - `createWithTransaction`
 
 ### `src/server/common/repositories/workspaceInvitesRepository.js`
@@ -268,6 +269,7 @@ Exports
 - `createRepository({ api, knex } = {})`
 Local functions
 - `pickPatchFields(source = {})`
+- `createDefaultWorkspaceSettingsCreatePayload(workspaceId)`
 
 ### `src/server/workspaceSettings/workspaceSettingsService.js`
 Exports
@@ -276,10 +278,6 @@ Exports
 ### `src/shared/operationMessages.js`
 Exports
 - `createOperationMessages({ validationMessage = "Validation failed.", apiValidationMessage = validationMessage } = {})`
-
-### `src/shared/resources/resolveGlobalArrayRegistry.js`
-Exports
-- `resolveGlobalArrayRegistry(symbolKey)`
 
 ### `src/shared/resources/workspaceMembersResource.js`
 Exports

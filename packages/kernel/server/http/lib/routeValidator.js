@@ -8,6 +8,7 @@ import { RouteDefinitionError } from "./errors.js";
 import { resolveRouteLabel } from "./routeSupport.js";
 
 const ROUTE_VALIDATOR_SYMBOL = "@jskit-ai/kernel/http/routeValidator";
+const JSON_REST_TRANSPORT_EXTENSION_KEY = "x-json-rest-schema";
 const VALIDATOR_OPTION_KEYS = Object.freeze([
   "meta",
   "body",
@@ -24,6 +25,28 @@ const LEGACY_ROUTE_VALIDATOR_KEYS = Object.freeze([
   "input",
   "validator"
 ]);
+
+function stripJsonRestTransportExtensions(value) {
+  if (Array.isArray(value)) {
+    return value.map((entry) => stripJsonRestTransportExtensions(entry));
+  }
+
+  if (!value || typeof value !== "object") {
+    return value;
+  }
+
+  const sanitized = {};
+
+  for (const [key, entry] of Object.entries(value)) {
+    if (key === JSON_REST_TRANSPORT_EXTENSION_KEY) {
+      continue;
+    }
+
+    sanitized[key] = stripJsonRestTransportExtensions(entry);
+  }
+
+  return sanitized;
+}
 
 function normalizeRouteSchemaSection(value, { context = "route section", defaultMode = "patch" } = {}) {
   try {
@@ -271,7 +294,7 @@ function compileNormalizedRouteValidator(normalizedValidator) {
   const compiled = {};
   if (Object.keys(schema).length > 0) {
     compiled.schema = Object.freeze({
-      ...schema
+      ...stripJsonRestTransportExtensions(schema)
     });
   }
   if (Object.keys(input).length > 0) {

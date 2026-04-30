@@ -64,9 +64,9 @@ const { drawerOpen, toggleDrawer, resolvedSurface, resolvedSurfaceLabel } = useS
     </v-navigation-drawer>
 
     <v-main class="bg-background">
-      <v-container fluid class="pa-4">
-        <h1 class="text-h5 mb-2">{{ title }}</h1>
-        <p class="text-body-2 text-medium-emphasis mb-4">{{ subtitle }}</p>
+      <v-container fluid class="shell-layout__content">
+        <h1 v-if="title" class="shell-layout__title text-h5">{{ title }}</h1>
+        <p v-if="subtitle" class="shell-layout__subtitle text-body-2 text-medium-emphasis">{{ subtitle }}</p>
         <slot />
       </v-container>
     </v-main>
@@ -76,5 +76,17 @@ const { drawerOpen, toggleDrawer, resolvedSurface, resolvedSurfaceLabel } = useS
 <style scoped>
 .shell-layout {
   min-height: 72vh;
+}
+
+.shell-layout__content {
+  padding: 0.75rem 1rem 1rem;
+}
+
+.shell-layout__title {
+  margin-bottom: 0.25rem;
+}
+
+.shell-layout__subtitle {
+  margin-bottom: 0.75rem;
 }
 </style>

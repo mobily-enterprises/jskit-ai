@@ -1535,6 +1535,14 @@ function renderObjectSchemaDefinition(lines = [], { mode = "patch" } = {}) {
     return entries[0];
   }
 
+  if (normalizeText(mode).toLowerCase() === "patch") {
+    return [
+      "composeSchemaDefinitions([",
+      ...entries.map((line) => `  ${line},`),
+      "])"
+    ].join("\n");
+  }
+
   return [
     "composeSchemaDefinitions([",
     ...entries.map((line) => `  ${line},`),
@@ -1544,7 +1552,7 @@ function renderObjectSchemaDefinition(lines = [], { mode = "patch" } = {}) {
   ].join("\n");
 }
 
-function renderActionInputValidatorConstants({ surfaceRequiresWorkspace = true } = {}) {
+function renderActionInputExpressions({ surfaceRequiresWorkspace = true } = {}) {
   const listLines = [];
   const viewLines = [];
   const createLines = [];
@@ -1576,13 +1584,13 @@ function renderActionInputValidatorConstants({ surfaceRequiresWorkspace = true }
   );
   deleteLines.push("recordIdParamsValidator,");
 
-  return [
-    `const listActionInputValidator = ${renderObjectSchemaDefinition(listLines)};`,
-    `const viewActionInputValidator = ${renderObjectSchemaDefinition(viewLines)};`,
-    `const createActionInputValidator = ${renderObjectSchemaDefinition(createLines, { mode: "create" })};`,
-    `const updateActionInputValidator = ${renderObjectSchemaDefinition(updateLines)};`,
-    `const deleteActionInputValidator = ${renderObjectSchemaDefinition(deleteLines)};`
-  ].join("\n");
+  return Object.freeze({
+    list: renderObjectSchemaDefinition(listLines),
+    view: renderObjectSchemaDefinition(viewLines),
+    create: renderObjectSchemaDefinition(createLines, { mode: "create" }),
+    update: renderObjectSchemaDefinition(updateLines),
+    delete: renderObjectSchemaDefinition(deleteLines)
+  });
 }
 
 function renderRouteValidatorConstants({ surfaceRequiresWorkspace = true } = {}) {
@@ -1594,9 +1602,7 @@ function renderRouteValidatorConstants({ surfaceRequiresWorkspace = true } = {})
     "const recordRouteParamsValidator = composeSchemaDefinitions([",
     "  routeParamsValidator,",
     "  recordIdParamsValidator",
-    '], {',
-    '  mode: "patch"',
-    "});"
+    "]);"
   ].join("\n");
 }
 
@@ -1616,6 +1622,9 @@ function buildReplacementsFromSnapshot({
     writableColumns,
     snapshot
   });
+  const actionInputExpressions = renderActionInputExpressions({
+    surfaceRequiresWorkspace
+  });
 
   const replacements = Object.freeze({
     __JSKIT_CRUD_TABLE_NAME__: JSON.stringify(snapshot.tableName),
@@ -1628,9 +1637,11 @@ function buildReplacementsFromSnapshot({
     __JSKIT_CRUD_ACTION_WORKSPACE_VALIDATOR_IMPORT__: renderActionWorkspaceValidatorImport({
       surfaceRequiresWorkspace
     }),
-    __JSKIT_CRUD_ACTION_INPUT_VALIDATOR_CONSTANTS__: renderActionInputValidatorConstants({
-      surfaceRequiresWorkspace
-    }),
+    __JSKIT_CRUD_LIST_ACTION_INPUT__: actionInputExpressions.list,
+    __JSKIT_CRUD_VIEW_ACTION_INPUT__: actionInputExpressions.view,
+    __JSKIT_CRUD_CREATE_ACTION_INPUT__: actionInputExpressions.create,
+    __JSKIT_CRUD_UPDATE_ACTION_INPUT__: actionInputExpressions.update,
+    __JSKIT_CRUD_DELETE_ACTION_INPUT__: actionInputExpressions.delete,
     __JSKIT_CRUD_LIST_ACTION_PERMISSION__: renderActionPermissionExpression("list", {
       requiresNamedPermissions
     }),
@@ -1827,7 +1838,7 @@ const __testables = Object.freeze({
   renderRoleCatalogPermissionGrants,
   renderActionPermissionSupport,
   renderActionPermissionExpression,
-  renderActionInputValidatorConstants,
+  renderActionInputExpressions,
   renderRouteValidatorConstants,
   renderRouteParamsValidatorLine,
   renderRouteInputLines

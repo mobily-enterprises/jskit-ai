@@ -74,10 +74,6 @@ Exports
 Exports
 - `consoleSettingsResource`
 
-### `src/shared/resources/resolveGlobalArrayRegistry.js`
-Exports
-- `resolveGlobalArrayRegistry(symbolKey)`
-
 ### templates
 
 ### `templates/migrations/console_core_generic_initial.cjs`

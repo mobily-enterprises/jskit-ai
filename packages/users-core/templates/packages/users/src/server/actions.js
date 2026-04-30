@@ -11,13 +11,6 @@ import { actionIds } from "./actionIds.js";
 import { LIST_CONFIG } from "./listConfig.js";
 
 const listCursorPaginationQueryValidator = createCrudCursorPaginationQueryValidator(LIST_CONFIG);
-const listActionInputValidator = composeSchemaDefinitions([
-  listCursorPaginationQueryValidator,
-  listSearchQueryValidator
-], {
-  mode: "patch",
-  context: "usersTemplate.listActionInputValidator"
-});
 const authenticatedPermission = Object.freeze({
   require: "authenticated"
 });
@@ -42,7 +35,10 @@ function createActions({ surface = "" } = {}) {
       channels: ["api", "automation", "internal"],
       surfaces: [actionSurface],
       permission: authenticatedPermission,
-      input: listActionInputValidator,
+      input: composeSchemaDefinitions([
+        listCursorPaginationQueryValidator,
+        listSearchQueryValidator
+      ]),
       output: resource.operations.list.output,
       idempotency: "none",
       audit: {

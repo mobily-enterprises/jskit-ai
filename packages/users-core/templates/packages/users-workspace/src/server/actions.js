@@ -12,21 +12,6 @@ import { actionIds } from "./actionIds.js";
 import { LIST_CONFIG } from "./listConfig.js";
 
 const listCursorPaginationQueryValidator = createCrudCursorPaginationQueryValidator(LIST_CONFIG);
-const listActionInputValidator = composeSchemaDefinitions([
-  workspaceSlugParamsValidator,
-  listCursorPaginationQueryValidator,
-  listSearchQueryValidator
-], {
-  mode: "patch",
-  context: "workspaceUsersTemplate.listActionInputValidator"
-});
-const viewActionInputValidator = composeSchemaDefinitions([
-  workspaceSlugParamsValidator,
-  recordIdParamsValidator
-], {
-  mode: "patch",
-  context: "workspaceUsersTemplate.viewActionInputValidator"
-});
 const authenticatedPermission = Object.freeze({
   require: "authenticated"
 });
@@ -51,7 +36,11 @@ function createActions({ surface = "" } = {}) {
       channels: ["api", "automation", "internal"],
       surfaces: [actionSurface],
       permission: authenticatedPermission,
-      input: listActionInputValidator,
+      input: composeSchemaDefinitions([
+        workspaceSlugParamsValidator,
+        listCursorPaginationQueryValidator,
+        listSearchQueryValidator
+      ]),
       output: resource.operations.list.output,
       idempotency: "none",
       audit: {
@@ -72,7 +61,10 @@ function createActions({ surface = "" } = {}) {
       channels: ["api", "automation", "internal"],
       surfaces: [actionSurface],
       permission: authenticatedPermission,
-      input: viewActionInputValidator,
+      input: composeSchemaDefinitions([
+        workspaceSlugParamsValidator,
+        recordIdParamsValidator
+      ]),
       output: resource.operations.view.output,
       idempotency: "none",
       audit: {

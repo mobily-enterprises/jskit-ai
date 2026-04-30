@@ -1,12 +1,15 @@
 export { createPaginationQuerySchema } from "./validators/paginationQuery.js";
 export {
-  fieldErrorsSchema,
+  fieldErrorsFieldDefinition,
   apiErrorDetailsSchema,
-  apiErrorResponseSchema,
-  apiValidationErrorResponseSchema,
-  fastifyDefaultErrorResponseSchema,
+  apiValidationErrorDetailsSchema,
+  apiErrorOutputValidator,
+  apiValidationErrorOutputValidator,
+  apiErrorTransportSchema,
+  apiValidationErrorTransportSchema,
+  fastifyDefaultErrorTransportSchema,
   STANDARD_ERROR_STATUS_CODES,
-  transportResponseSchema,
+  createTransportResponseSchema,
   passthroughErrorResponses,
   withStandardErrorResponses,
   enumSchema

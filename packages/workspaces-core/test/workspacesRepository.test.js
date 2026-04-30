@@ -48,20 +48,22 @@ function createWorkspacesApiStub({
           return { data: [] };
         },
         async post(payload) {
-          state.postPayload = { ...payload };
+          assert.equal(payload?.simplified, true);
+          const inputRecord = payload?.inputRecord || {};
+          state.postPayload = { ...inputRecord };
           if (insertError) {
             throw insertError;
           }
 
           const row = {
             id: "1",
-            slug: String(payload.slug || ""),
-            name: String(payload.name || ""),
-            ownerUserId: String(payload.ownerUserId || ""),
-            isPersonal: Boolean(payload.isPersonal),
-            avatarUrl: String(payload.avatarUrl || ""),
-            createdAt: payload.createdAt,
-            updatedAt: payload.updatedAt,
+            slug: String(inputRecord.slug || ""),
+            name: String(inputRecord.name || ""),
+            ownerUserId: String(inputRecord.owner || inputRecord.ownerUserId || ""),
+            isPersonal: Boolean(inputRecord.isPersonal),
+            avatarUrl: String(inputRecord.avatarUrl || ""),
+            createdAt: inputRecord.createdAt,
+            updatedAt: inputRecord.updatedAt,
             deletedAt: null
           };
           rowsById.set(row.id, row);
@@ -71,14 +73,16 @@ function createWorkspacesApiStub({
           return { ...row };
         },
         async patch(payload) {
-          state.patchPayload = { ...payload };
-          const existing = rowsById.get(String(payload.id)) || {
-            id: String(payload.id)
+          assert.equal(payload?.simplified, true);
+          const inputRecord = payload?.inputRecord || {};
+          state.patchPayload = { ...inputRecord };
+          const existing = rowsById.get(String(inputRecord.id)) || {
+            id: String(inputRecord.id)
           };
           const updated = {
             ...existing,
-            ...payload,
-            id: String(payload.id)
+            ...inputRecord,
+            id: String(inputRecord.id)
           };
           rowsById.set(updated.id, updated);
           if (updated.slug) {
@@ -192,7 +196,8 @@ test("workspacesRepository.insert writes canonical fields through json-rest-api"
     isPersonal: false
   });
 
-  assert.equal(state.postPayload.ownerUserId, "9");
+  assert.equal(state.postPayload.owner, "9");
+  assert.equal(Object.hasOwn(state.postPayload, "ownerUserId"), false);
   assert.equal(state.postPayload.slug, "TonyMobily3");
   assert.equal(state.postPayload.name, "TonyMobily3");
   assert.equal(state.postPayload.isPersonal, false);

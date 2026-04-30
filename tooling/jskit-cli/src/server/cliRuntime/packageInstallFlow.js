@@ -19,6 +19,9 @@ import {
   removePackageJsonField
 } from "./appState.js";
 import {
+  loadMutationWhenConfigContext
+} from "./ioAndMigrations.js";
+import {
   isGeneratorPackageEntry,
   loadAppLocalPackageRegistry
 } from "./packageRegistries.js";
@@ -80,6 +83,44 @@ function cloneManagedArray(value = []) {
   return ensureArray(value).map((entry) => ({
     ...ensureObject(entry)
   }));
+}
+
+function normalizeModeToken(value = "") {
+  return String(value || "").trim().toLowerCase();
+}
+
+function isWorkspaceCapableTenancyMode(value = "") {
+  const normalized = normalizeModeToken(value);
+  return normalized === "personal" || normalized === "workspaces";
+}
+
+async function collectInstallWarnings({
+  packageEntry,
+  appRoot,
+  appPackageJson
+}) {
+  const warnings = [];
+
+  if (packageEntry?.packageId !== "@jskit-ai/users-core") {
+    return warnings;
+  }
+
+  const configContext = await loadMutationWhenConfigContext(appRoot);
+  const tenancyMode = normalizeModeToken(ensureObject(configContext).merged?.tenancyMode);
+  const runtimeDependencies = ensureObject(appPackageJson.dependencies);
+  const devDependencies = ensureObject(appPackageJson.devDependencies);
+  const hasWorkspacesCore = Boolean(
+    runtimeDependencies["@jskit-ai/workspaces-core"] || devDependencies["@jskit-ai/workspaces-core"]
+  );
+
+  if (isWorkspaceCapableTenancyMode(tenancyMode) && !hasWorkspacesCore) {
+    warnings.push(
+      `users-core selected the workspace users scaffold because config.tenancyMode is "${tenancyMode}". ` +
+      'Install @jskit-ai/workspaces-core so the app gets the required "app" and "admin" surfaces and workspace helpers.'
+    );
+  }
+
+  return warnings;
 }
 
 function resolveManagedSourceRecord(packageEntry, existingInstall = {}) {
@@ -482,6 +523,12 @@ async function applyPackageInstall({
     managedRecord.managed.vite,
     touchedFiles
   );
+
+  mutationWarnings.push(...await collectInstallWarnings({
+    packageEntry,
+    appRoot,
+    appPackageJson
+  }));
 
   if (generatorPackage) {
     delete lock.installedPackages[packageEntry.packageId];

@@ -15,7 +15,6 @@ __JSKIT_CRUD_ACTION_WORKSPACE_VALIDATOR_IMPORT__
 
 const listCursorPaginationQueryValidator = createCrudCursorPaginationQueryValidator(LIST_CONFIG);
 const listParentFilterQueryValidator = createCrudParentFilterQueryValidator(resource);
-__JSKIT_CRUD_ACTION_INPUT_VALIDATOR_CONSTANTS__
 __JSKIT_CRUD_ACTION_PERMISSION_SUPPORT__
 
 function requireActionSurface(surface = "") {
@@ -38,7 +37,7 @@ function createActions({ surface = "" } = {}) {
       channels: ["api", "automation", "internal"],
       surfaces: [actionSurface],
       permission: __JSKIT_CRUD_LIST_ACTION_PERMISSION__,
-      input: listActionInputValidator,
+      input: __JSKIT_CRUD_LIST_ACTION_INPUT__,
       output: resource.operations.list.output,
       idempotency: "none",
       audit: {
@@ -59,7 +58,7 @@ function createActions({ surface = "" } = {}) {
       channels: ["api", "automation", "internal"],
       surfaces: [actionSurface],
       permission: __JSKIT_CRUD_VIEW_ACTION_PERMISSION__,
-      input: viewActionInputValidator,
+      input: __JSKIT_CRUD_VIEW_ACTION_INPUT__,
       output: resource.operations.view.output,
       idempotency: "none",
       audit: {
@@ -81,7 +80,7 @@ function createActions({ surface = "" } = {}) {
       channels: ["api", "automation", "internal"],
       surfaces: [actionSurface],
       permission: __JSKIT_CRUD_CREATE_ACTION_PERMISSION__,
-      input: createActionInputValidator,
+      input: __JSKIT_CRUD_CREATE_ACTION_INPUT__,
       output: resource.operations.create.output,
       idempotency: "optional",
       audit: {
@@ -103,7 +102,7 @@ function createActions({ surface = "" } = {}) {
       channels: ["api", "automation", "internal"],
       surfaces: [actionSurface],
       permission: __JSKIT_CRUD_UPDATE_ACTION_PERMISSION__,
-      input: updateActionInputValidator,
+      input: __JSKIT_CRUD_UPDATE_ACTION_INPUT__,
       output: resource.operations.patch.output,
       idempotency: "optional",
       audit: {
@@ -125,7 +124,7 @@ function createActions({ surface = "" } = {}) {
       channels: ["api", "automation", "internal"],
       surfaces: [actionSurface],
       permission: __JSKIT_CRUD_DELETE_ACTION_PERMISSION__,
-      input: deleteActionInputValidator,
+      input: __JSKIT_CRUD_DELETE_ACTION_INPUT__,
       output: resource.operations.delete.output,
       idempotency: "optional",
       audit: {

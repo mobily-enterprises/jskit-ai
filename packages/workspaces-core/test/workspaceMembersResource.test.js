@@ -12,12 +12,15 @@ function resolveOutputSchema(operationName) {
 
 test("workspace members role catalog output is explicit and nested", () => {
   const outputSchema = resolveOutputSchema("rolesList");
+  const roleItemRef = outputSchema.properties.roles.items.allOf[0].$ref.replace(/^#\/definitions\//, "");
+  const roleItemSchema = outputSchema.definitions[roleItemRef];
 
   assert.equal(outputSchema.type, "object");
   assert.equal(outputSchema.additionalProperties, false);
   assert.equal(outputSchema.properties.roles.type, "array");
-  assert.equal(outputSchema.properties.roles.items.type, "object");
-  assert.equal(outputSchema.properties.roles.items.properties.permissions.type, "array");
+  assert.equal(outputSchema.properties.roles.items["x-json-rest-schema"]?.castType, "object");
+  assert.equal(roleItemSchema.type, "object");
+  assert.equal(roleItemSchema.properties.permissions.type, "array");
 });
 
 test("workspace members invite mutation outputs expose their tracking ids explicitly", () => {
@@ -27,5 +30,6 @@ test("workspace members invite mutation outputs expose their tracking ids explic
   assert.equal(createOutputSchema.properties.createdInviteId.type, "string");
   assert.equal(createOutputSchema.properties.inviteTokenPreview.type, "string");
   assert.equal(revokeOutputSchema.properties.revokedInviteId.type, "string");
-  assert.equal(revokeOutputSchema.properties.roleCatalog.type, "object");
+  assert.equal(revokeOutputSchema.properties.roleCatalog["x-json-rest-schema"]?.castType, "object");
+  assert.equal(Array.isArray(revokeOutputSchema.properties.roleCatalog.allOf), true);
 });

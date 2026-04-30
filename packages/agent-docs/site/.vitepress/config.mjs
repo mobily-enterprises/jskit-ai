@@ -32,8 +32,8 @@ export default defineConfig({
             { text: "Authentication", link: "/guide/app-setup/authentication" },
             { text: "Database Layer", link: "/guide/app-setup/database-layer" },
             { text: "Users", link: "/guide/app-setup/users" },
-            { text: "Console", link: "/guide/app-setup/console" },
-            { text: "Multi-homing", link: "/guide/app-setup/multi-homing" }
+            { text: "Multi-homing", link: "/guide/app-setup/multi-homing" },
+            { text: "Console", link: "/guide/app-setup/console" }
           ]
         },
         {

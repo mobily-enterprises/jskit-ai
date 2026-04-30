@@ -71,7 +71,9 @@ test("createResource builds default list schema from record/listItem", () => {
   assert.equal(resource.create.mode, "create");
   assert.equal(resource.patch.mode, "patch");
   assert.equal(resource.list.mode, "replace");
-  assert.equal(listTransportSchema.properties.items.items.type, "object");
+  assert.equal(listTransportSchema.properties.items.items["x-json-rest-schema"]?.castType, "object");
+  assert.equal(Array.isArray(listTransportSchema.properties.items.items.allOf), true);
+  assert.match(listTransportSchema.properties.items.items.allOf[0].$ref, /^#\/definitions\//);
 });
 
 test("createResource accepts explicit list schema override", () => {
@@ -120,5 +122,7 @@ test("createResource accepts explicit list schema override", () => {
 
   assert.equal(resource.list.mode, "replace");
   assert.equal(listTransportSchema.properties.rows.type, "array");
-  assert.equal(listTransportSchema.properties.meta.type, "object");
+  assert.equal(listTransportSchema.properties.meta["x-json-rest-schema"]?.castType, "object");
+  assert.equal(Array.isArray(listTransportSchema.properties.meta.allOf), true);
+  assert.match(listTransportSchema.properties.meta.allOf[0].$ref, /^#\/definitions\//);
 });

@@ -14,8 +14,8 @@ It starts with the smallest scaffold, then explains how to work with the JSKIT C
 - [Authentication](/guide/app-setup/authentication)
 - [Database Layer](/guide/app-setup/database-layer)
 - [Users](/guide/app-setup/users)
-- [Console](/guide/app-setup/console)
 - [Multi-homing](/guide/app-setup/multi-homing)
+- [Console](/guide/app-setup/console)
 
 ### App Extras
 

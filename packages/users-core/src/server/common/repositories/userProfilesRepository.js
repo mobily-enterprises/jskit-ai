@@ -1,4 +1,5 @@
 import {
+  createSimplifiedWriteParams,
   createWithTransaction,
   isDuplicateEntryError,
   normalizeDbRecordId,
@@ -219,12 +220,16 @@ function createRepository({ api, knex } = {}) {
       return null;
     }
 
-    const updated = await api.resources.userProfiles.patch({
-      id: normalizedUserId,
-      displayName,
-      updatedAt: new Date(),
-      transaction: options?.trx
-    });
+    const updated = await api.resources.userProfiles.patch(
+      createSimplifiedWriteParams(
+        {
+          id: normalizedUserId,
+          displayName,
+          updatedAt: new Date()
+        },
+        { trx: options?.trx }
+      )
+    );
 
     return normalizeProfileRecord(updated);
   }
@@ -235,14 +240,18 @@ function createRepository({ api, knex } = {}) {
       return null;
     }
 
-    const updated = await api.resources.userProfiles.patch({
-      id: normalizedUserId,
-      avatarStorageKey: avatar.avatarStorageKey ?? null,
-      avatarVersion: avatar.avatarVersion ?? null,
-      avatarUpdatedAt: avatar.avatarUpdatedAt ?? nowDb(),
-      updatedAt: new Date(),
-      transaction: options?.trx
-    });
+    const updated = await api.resources.userProfiles.patch(
+      createSimplifiedWriteParams(
+        {
+          id: normalizedUserId,
+          avatarStorageKey: avatar.avatarStorageKey ?? null,
+          avatarVersion: avatar.avatarVersion ?? null,
+          avatarUpdatedAt: avatar.avatarUpdatedAt ?? nowDb(),
+          updatedAt: new Date()
+        },
+        { trx: options?.trx }
+      )
+    );
 
     return normalizeProfileRecord(updated);
   }
@@ -253,14 +262,18 @@ function createRepository({ api, knex } = {}) {
       return null;
     }
 
-    const updated = await api.resources.userProfiles.patch({
-      id: normalizedUserId,
-      avatarStorageKey: null,
-      avatarVersion: null,
-      avatarUpdatedAt: null,
-      updatedAt: new Date(),
-      transaction: options?.trx
-    });
+    const updated = await api.resources.userProfiles.patch(
+      createSimplifiedWriteParams(
+        {
+          id: normalizedUserId,
+          avatarStorageKey: null,
+          avatarVersion: null,
+          avatarUpdatedAt: null,
+          updatedAt: new Date()
+        },
+        { trx: options?.trx }
+      )
+    );
 
     return normalizeProfileRecord(updated);
   }
@@ -296,14 +309,18 @@ function createRepository({ api, knex } = {}) {
             )
           );
 
-          const updated = await api.resources.userProfiles.patch({
-            id: normalizeDbRecordId(existing.id, { fallback: null }),
-            email,
-            displayName,
-            username,
-            updatedAt: new Date(),
-            transaction: trx
-          });
+          const updated = await api.resources.userProfiles.patch(
+            createSimplifiedWriteParams(
+              {
+                id: normalizeDbRecordId(existing.id, { fallback: null }),
+                email,
+                displayName,
+                username,
+                updatedAt: new Date()
+              },
+              { trx }
+            )
+          );
 
           return normalizeProfileRecord(updated);
         }
@@ -314,15 +331,19 @@ function createRepository({ api, knex } = {}) {
           { transaction: trx }
         );
 
-        const created = await api.resources.userProfiles.post({
-          authProvider: identity.provider,
-          authProviderUserSid: identity.providerUserId,
-          email,
-          displayName,
-          username,
-          createdAt: new Date(),
-          transaction: trx
-        });
+        const created = await api.resources.userProfiles.post(
+          createSimplifiedWriteParams(
+            {
+              authProvider: identity.provider,
+              authProviderUserSid: identity.providerUserId,
+              email,
+              displayName,
+              username,
+              createdAt: new Date()
+            },
+            { trx }
+          )
+        );
 
         return normalizeProfileRecord(created);
       } catch (error) {

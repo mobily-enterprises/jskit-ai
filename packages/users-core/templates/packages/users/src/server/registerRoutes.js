@@ -18,10 +18,7 @@ const listCursorPaginationQueryValidator = createCrudCursorPaginationQueryValida
 const listRouteQueryValidator = composeSchemaDefinitions([
   listCursorPaginationQueryValidator,
   listSearchQueryValidator
-], {
-  mode: "patch",
-  context: "usersTemplate.listRouteQueryValidator"
-});
+]);
 
 function registerRoutes(
   app,

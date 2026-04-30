@@ -226,6 +226,9 @@ Local functions
 - `createManagedRecordBase(packageEntry, options)`
 - `cloneManagedMap(value = {})`
 - `cloneManagedArray(value = [])`
+- `normalizeModeToken(value = "")`
+- `isWorkspaceCapableTenancyMode(value = "")`
+- `collectInstallWarnings({ packageEntry, appRoot, appPackageJson })`
 - `resolveManagedSourceRecord(packageEntry, existingInstall = {})`
 
 ### `src/server/cliRuntime/packageIntrospection.js`

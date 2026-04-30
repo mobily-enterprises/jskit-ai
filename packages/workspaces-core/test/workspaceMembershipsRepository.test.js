@@ -52,27 +52,31 @@ function createWorkspaceMembershipsApiStub({
           return { data: [] };
         },
         async post(payload) {
-          state.postPayload = { ...payload };
+          assert.equal(payload?.simplified, true);
+          const inputRecord = payload?.inputRecord || {};
+          state.postPayload = { ...inputRecord };
           const row = rowById.get("1") || {
             id: "1",
-            workspace: { id: String(payload.workspace) },
-            user: { id: String(payload.user) },
-            roleSid: String(payload.roleSid || ""),
-            status: String(payload.status || ""),
+            workspace: { id: String(inputRecord.workspace) },
+            user: { id: String(inputRecord.user) },
+            roleSid: String(inputRecord.roleSid || ""),
+            status: String(inputRecord.status || ""),
             createdAt: "2026-03-09 00:26:35.710",
             updatedAt: "2026-03-09 00:26:35.710"
           };
-          rowByComposite.set(`${payload.workspace}:${payload.user}`, row);
+          rowByComposite.set(`${inputRecord.workspace}:${inputRecord.user}`, row);
           rowById.set(String(row.id), row);
           return { ...row };
         },
         async patch(payload) {
-          state.patchPayload = { ...payload };
-          const existing = rowById.get(String(payload.id));
+          assert.equal(payload?.simplified, true);
+          const inputRecord = payload?.inputRecord || {};
+          state.patchPayload = { ...inputRecord };
+          const existing = rowById.get(String(inputRecord.id));
           const updated = {
             ...(existing || {}),
-            ...payload,
-            id: String(payload.id),
+            ...inputRecord,
+            id: String(inputRecord.id),
             workspace: existing?.workspace || { id: "" },
             user: existing?.user || { id: "" }
           };

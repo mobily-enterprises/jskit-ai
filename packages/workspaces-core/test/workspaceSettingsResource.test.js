@@ -106,6 +106,8 @@ test("workspace settings output schema accepts already-shaped service payloads",
     context: "workspaceSettings.view.output",
     defaultMode: "replace"
   });
+  const settingsRef = outputSchema.properties.settings.allOf[0].$ref.replace(/^#\/definitions\//, "");
+  const settingsSchema = outputSchema.definitions[settingsRef];
   const expectedTheme = resolveWorkspaceThemePalettes({
     lightPrimaryColor: "#0F6B54"
   });
@@ -133,10 +135,10 @@ test("workspace settings output schema accepts already-shaped service payloads",
 
   assert.equal(outputSchema.type, "object");
   assert.equal(outputSchema.additionalProperties, false);
-  assert.equal(typeof outputSchema.properties.workspace, "object");
-  assert.equal(typeof outputSchema.properties.settings, "object");
-  assert.equal(typeof outputSchema.properties.roleCatalog, "object");
-  assert.equal(outputSchema.properties.settings.properties.lightPrimaryColor.type, "string");
+  assert.equal(outputSchema.properties.workspace["x-json-rest-schema"]?.castType, "object");
+  assert.equal(outputSchema.properties.settings["x-json-rest-schema"]?.castType, "object");
+  assert.equal(outputSchema.properties.roleCatalog["x-json-rest-schema"]?.castType, "object");
+  assert.equal(settingsSchema.properties.lightPrimaryColor.type, "string");
   assert.equal(payload.settings.lightPrimaryColor, "#0F6B54");
 });
 

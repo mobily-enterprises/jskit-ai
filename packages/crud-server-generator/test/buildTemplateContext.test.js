@@ -285,14 +285,8 @@ test("buildReplacementsFromSnapshot builds deterministic template replacement pa
     /buildWorkspaceInputFromRouteParams/
   );
   assert.equal(replacements.__JSKIT_CRUD_ROUTE_SURFACE_REQUIRES_WORKSPACE__, "true");
-  assert.match(
-    replacements.__JSKIT_CRUD_ACTION_INPUT_VALIDATOR_CONSTANTS__,
-    /const listActionInputValidator = composeSchemaDefinitions\(/
-  );
-  assert.match(
-    replacements.__JSKIT_CRUD_ACTION_INPUT_VALIDATOR_CONSTANTS__,
-    /workspaceSlugParamsValidator,/
-  );
+  assert.match(replacements.__JSKIT_CRUD_LIST_ACTION_INPUT__, /composeSchemaDefinitions\(\[/);
+  assert.match(replacements.__JSKIT_CRUD_LIST_ACTION_INPUT__, /workspaceSlugParamsValidator,/);
   assert.equal(
     replacements.__JSKIT_CRUD_VIEW_ROUTE_PARAMS_VALIDATOR_LINE__,
     "      params: recordRouteParamsValidator,"
@@ -355,14 +349,8 @@ test("buildReplacementsFromSnapshot omits named permissions and role grants when
   assert.equal(replacements.__JSKIT_CRUD_ACTION_WORKSPACE_VALIDATOR_IMPORT__, "");
   assert.equal(replacements.__JSKIT_CRUD_ROUTE_WORKSPACE_SUPPORT_IMPORTS__, "");
   assert.equal(replacements.__JSKIT_CRUD_ROUTE_SURFACE_REQUIRES_WORKSPACE__, "false");
-  assert.match(
-    replacements.__JSKIT_CRUD_ACTION_INPUT_VALIDATOR_CONSTANTS__,
-    /const createActionInputValidator = resource\.operations\.create\.body;/
-  );
-  assert.match(
-    replacements.__JSKIT_CRUD_ACTION_INPUT_VALIDATOR_CONSTANTS__,
-    /const deleteActionInputValidator = recordIdParamsValidator;/
-  );
+  assert.equal(replacements.__JSKIT_CRUD_CREATE_ACTION_INPUT__, "resource.operations.create.body");
+  assert.equal(replacements.__JSKIT_CRUD_DELETE_ACTION_INPUT__, "recordIdParamsValidator");
   assert.equal(replacements.__JSKIT_CRUD_LIST_ROUTE_PARAMS_VALIDATOR_LINE__, "");
   assert.equal(
     replacements.__JSKIT_CRUD_VIEW_ROUTE_PARAMS_VALIDATOR_LINE__,

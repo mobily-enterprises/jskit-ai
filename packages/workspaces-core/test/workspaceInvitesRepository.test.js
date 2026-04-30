@@ -54,18 +54,20 @@ function createWorkspaceInvitesApiStub({
           };
         },
         async post(payload) {
-          state.postPayload = { ...payload };
+          assert.equal(payload?.simplified, true);
+          const inputRecord = payload?.inputRecord || {};
+          state.postPayload = { ...inputRecord };
           const row = {
             id: "1",
-            workspace: { id: String(payload.workspace) },
-            email: payload.email,
-            roleSid: payload.roleSid,
-            status: payload.status,
-            tokenHash: payload.tokenHash,
-            invitedByUser: payload.invitedByUser ? { id: String(payload.invitedByUser) } : null,
-            expiresAt: payload.expiresAt,
-            acceptedAt: payload.acceptedAt,
-            revokedAt: payload.revokedAt,
+            workspace: { id: String(inputRecord.workspace) },
+            email: inputRecord.email,
+            roleSid: inputRecord.roleSid,
+            status: inputRecord.status,
+            tokenHash: inputRecord.tokenHash,
+            invitedByUser: inputRecord.invitedByUser ? { id: String(inputRecord.invitedByUser) } : null,
+            expiresAt: inputRecord.expiresAt,
+            acceptedAt: inputRecord.acceptedAt,
+            revokedAt: inputRecord.revokedAt,
             createdAt: "2026-03-09 00:26:35.710",
             updatedAt: "2026-03-09 00:26:35.710"
           };
@@ -74,16 +76,18 @@ function createWorkspaceInvitesApiStub({
           return { ...row };
         },
         async patch(payload) {
-          state.patchPayloads.push({ ...payload });
-          const existing = rowById.get(String(payload.id));
+          assert.equal(payload?.simplified, true);
+          const inputRecord = payload?.inputRecord || {};
+          state.patchPayloads.push({ ...inputRecord });
+          const existing = rowById.get(String(inputRecord.id));
           if (existing) {
             const updated = {
               ...existing,
-              ...payload
+              ...inputRecord
             };
-            rowById.set(String(payload.id), updated);
+            rowById.set(String(inputRecord.id), updated);
           }
-          return rowById.get(String(payload.id)) || null;
+          return rowById.get(String(inputRecord.id)) || null;
         }
       }
     }

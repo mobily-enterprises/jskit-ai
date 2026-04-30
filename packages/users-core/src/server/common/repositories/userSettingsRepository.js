@@ -1,4 +1,11 @@
-import { normalizeRecordId, nowDb, isDuplicateEntryError, createWithTransaction } from "./repositoryUtils.js";
+import {
+  normalizeRecordId,
+  nowDb,
+  isDuplicateEntryError,
+  createSimplifiedWriteParams,
+  createWithTransaction
+} from "./repositoryUtils.js";
+import { DEFAULT_USER_SETTINGS } from "../../../shared/settings.js";
 
 const USER_SETTINGS_PATCH_FIELDS = Object.freeze([
   "theme",
@@ -25,6 +32,24 @@ function pickPatchFields(source = {}) {
   }
 
   return patch;
+}
+
+function createDefaultUserSettingsCreatePayload(userId) {
+  return {
+    id: userId,
+    theme: DEFAULT_USER_SETTINGS.theme,
+    locale: DEFAULT_USER_SETTINGS.locale,
+    timeZone: DEFAULT_USER_SETTINGS.timeZone,
+    dateFormat: DEFAULT_USER_SETTINGS.dateFormat,
+    numberFormat: DEFAULT_USER_SETTINGS.numberFormat,
+    currencyCode: DEFAULT_USER_SETTINGS.currencyCode,
+    avatarSize: DEFAULT_USER_SETTINGS.avatarSize,
+    productUpdates: DEFAULT_USER_SETTINGS.productUpdates,
+    accountActivity: DEFAULT_USER_SETTINGS.accountActivity,
+    securityAlerts: DEFAULT_USER_SETTINGS.securityAlerts,
+    passwordSignInEnabled: DEFAULT_USER_SETTINGS.passwordSignInEnabled,
+    passwordSetupRequired: DEFAULT_USER_SETTINGS.passwordSetupRequired
+  };
 }
 
 function createRepository({ api, knex } = {}) {
@@ -69,10 +94,12 @@ function createRepository({ api, knex } = {}) {
     }
 
     try {
-      await api.resources.userSettings.post({
-        id: normalizedUserId,
-        transaction: options?.trx
-      });
+      await api.resources.userSettings.post(
+        createSimplifiedWriteParams(
+          createDefaultUserSettingsCreatePayload(normalizedUserId),
+          { trx: options?.trx }
+        )
+      );
     } catch (error) {
       if (!isDuplicateEntryError(error)) {
         throw error;
@@ -96,12 +123,16 @@ function createRepository({ api, knex } = {}) {
       return findByUserId(normalizedUserId, { trx: options?.trx });
     }
 
-    await api.resources.userSettings.patch({
-      id: normalizedUserId,
-      ...updatePayload,
-      updatedAt: nowDb(),
-      transaction: options?.trx
-    });
+    await api.resources.userSettings.patch(
+      createSimplifiedWriteParams(
+        {
+          id: normalizedUserId,
+          ...updatePayload,
+          updatedAt: nowDb()
+        },
+        { trx: options?.trx }
+      )
+    );
 
     return findByUserId(normalizedUserId, { trx: options?.trx });
   }

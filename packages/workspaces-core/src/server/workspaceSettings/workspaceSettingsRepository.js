@@ -1,9 +1,11 @@
 import {
+  createSimplifiedWriteParams,
   normalizeRecordId,
   nowDb,
   isDuplicateEntryError,
   createWithTransaction
 } from "../common/repositories/repositoryUtils.js";
+import { resolveWorkspaceThemePalettes } from "../../shared/settings.js";
 
 const WORKSPACE_SETTINGS_PATCH_FIELDS = Object.freeze([
   "lightPrimaryColor",
@@ -27,6 +29,23 @@ function pickPatchFields(source = {}) {
   }
 
   return patch;
+}
+
+function createDefaultWorkspaceSettingsCreatePayload(workspaceId) {
+  const palettes = resolveWorkspaceThemePalettes({});
+
+  return {
+    id: workspaceId,
+    lightPrimaryColor: palettes.light.color,
+    lightSecondaryColor: palettes.light.secondaryColor,
+    lightSurfaceColor: palettes.light.surfaceColor,
+    lightSurfaceVariantColor: palettes.light.surfaceVariantColor,
+    darkPrimaryColor: palettes.dark.color,
+    darkSecondaryColor: palettes.dark.secondaryColor,
+    darkSurfaceColor: palettes.dark.surfaceColor,
+    darkSurfaceVariantColor: palettes.dark.surfaceVariantColor,
+    invitesEnabled: true
+  };
 }
 
 function createRepository({ api, knex } = {}) {
@@ -71,10 +90,12 @@ function createRepository({ api, knex } = {}) {
     }
 
     try {
-      await api.resources.workspaceSettings.post({
-        id: normalizedWorkspaceId,
-        transaction: options?.trx
-      });
+      await api.resources.workspaceSettings.post(
+        createSimplifiedWriteParams(
+          createDefaultWorkspaceSettingsCreatePayload(normalizedWorkspaceId),
+          { trx: options?.trx }
+        )
+      );
     } catch (error) {
       if (!isDuplicateEntryError(error)) {
         throw error;
@@ -98,12 +119,16 @@ function createRepository({ api, knex } = {}) {
       return findByWorkspaceId(normalizedWorkspaceId, { trx: options?.trx });
     }
 
-    await api.resources.workspaceSettings.patch({
-      id: normalizedWorkspaceId,
-      ...updatePayload,
-      updatedAt: nowDb(),
-      transaction: options?.trx
-    });
+    await api.resources.workspaceSettings.patch(
+      createSimplifiedWriteParams(
+        {
+          id: normalizedWorkspaceId,
+          ...updatePayload,
+          updatedAt: nowDb()
+        },
+        { trx: options?.trx }
+      )
+    );
 
     return findByWorkspaceId(normalizedWorkspaceId, { trx: options?.trx });
   }

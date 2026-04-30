@@ -1,50 +1,73 @@
-const fieldErrorsSchema = {
-  type: "object",
-  additionalProperties: {
-    type: "string"
-  }
-};
+import { createSchema } from "json-rest-schema";
+import { deepFreeze } from "@jskit-ai/kernel/shared/support/deepFreeze";
 
-const apiErrorDetailsSchema = {
+const fieldErrorsFieldDefinition = deepFreeze({
   type: "object",
-  additionalProperties: true,
-  properties: {
-    fieldErrors: fieldErrorsSchema
+  values: {
+    type: "string",
+    minLength: 1
   }
-};
+});
 
-const apiErrorResponseSchema = {
-  type: "object",
-  additionalProperties: false,
-  required: ["error"],
-  properties: {
-    error: { type: "string", minLength: 1 },
-    code: { type: "string", minLength: 1 },
-    details: apiErrorDetailsSchema,
-    fieldErrors: fieldErrorsSchema
+const apiErrorDetailsSchema = createSchema({
+  fieldErrors: {
+    ...fieldErrorsFieldDefinition,
+    required: false
   }
-};
+});
 
-const apiValidationErrorResponseSchema = {
-  type: "object",
-  additionalProperties: false,
-  required: ["error", "fieldErrors", "details"],
-  properties: {
-    error: { type: "string", minLength: 1 },
-    code: { type: "string", minLength: 1 },
-    fieldErrors: fieldErrorsSchema,
+const apiValidationErrorDetailsSchema = createSchema({
+  fieldErrors: {
+    ...fieldErrorsFieldDefinition,
+    required: true
+  }
+});
+
+const apiErrorOutputValidator = deepFreeze({
+  schema: createSchema({
+    error: { type: "string", required: true, minLength: 1 },
+    code: { type: "string", required: false, minLength: 1 },
     details: {
       type: "object",
-      additionalProperties: true,
-      required: ["fieldErrors"],
-      properties: {
-        fieldErrors: fieldErrorsSchema
-      }
+      required: false,
+      schema: apiErrorDetailsSchema,
+      additionalProperties: true
+    },
+    fieldErrors: {
+      ...fieldErrorsFieldDefinition,
+      required: false
     }
-  }
-};
+  }),
+  mode: "replace"
+});
 
-const fastifyDefaultErrorResponseSchema = {
+const apiValidationErrorOutputValidator = deepFreeze({
+  schema: createSchema({
+    error: { type: "string", required: true, minLength: 1 },
+    code: { type: "string", required: false, minLength: 1 },
+    fieldErrors: {
+      ...fieldErrorsFieldDefinition,
+      required: true
+    },
+    details: {
+      type: "object",
+      required: true,
+      schema: apiValidationErrorDetailsSchema,
+      additionalProperties: true
+    }
+  }),
+  mode: "replace"
+});
+
+const apiErrorTransportSchema = apiErrorOutputValidator.schema.toJsonSchema({
+  mode: apiErrorOutputValidator.mode
+});
+
+const apiValidationErrorTransportSchema = apiValidationErrorOutputValidator.schema.toJsonSchema({
+  mode: apiValidationErrorOutputValidator.mode
+});
+
+const fastifyDefaultErrorTransportSchema = {
   type: "object",
   additionalProperties: true,
   required: ["statusCode", "error", "message"],
@@ -54,17 +77,114 @@ const fastifyDefaultErrorResponseSchema = {
     message: { type: "string", minLength: 1 },
     code: { type: "string", minLength: 1 },
     details: {},
-    fieldErrors: fieldErrorsSchema
+    fieldErrors: {
+      type: "object",
+      additionalProperties: {
+        type: "string"
+      }
+    }
   }
 };
 
 const STANDARD_ERROR_STATUS_CODES = [400, 401, 403, 404, 409, 422, 429, 500, 503];
 
-function transportResponseSchema(schema = {}) {
+function rewriteEmbeddedTransportSchemaRefs(value, {
+  rootRef = "#",
+  definitionRefByName = {}
+} = {}) {
+  if (Array.isArray(value)) {
+    return value.map((entry) => rewriteEmbeddedTransportSchemaRefs(entry, {
+      rootRef,
+      definitionRefByName
+    }));
+  }
+
+  if (!value || typeof value !== "object") {
+    return value;
+  }
+
+  const rewritten = {};
+
+  for (const [key, entry] of Object.entries(value)) {
+    if (key === "$ref" && typeof entry === "string") {
+      if (entry === "#") {
+        rewritten[key] = rootRef;
+        continue;
+      }
+
+      if (entry.startsWith("#/definitions/")) {
+        const definitionName = entry.slice("#/definitions/".length);
+        rewritten[key] = definitionRefByName[definitionName] || entry;
+        continue;
+      }
+    }
+
+    rewritten[key] = rewriteEmbeddedTransportSchemaRefs(entry, {
+      rootRef,
+      definitionRefByName
+    });
+  }
+
+  return rewritten;
+}
+
+function createEmbeddableTransportSchemaDocument(schemaDocument = {}, rootDefinitionName = "TransportSchema") {
+  const {
+    $schema: _jsonSchemaDraft,
+    definitions: sourceDefinitions = {},
+    ...rootSchema
+  } = schemaDocument || {};
+
+  const rootRef = `#/definitions/${rootDefinitionName}`;
+  const definitionRefByName = {};
+  const definitions = {};
+
+  for (const definitionName of Object.keys(sourceDefinitions)) {
+    definitionRefByName[definitionName] = `#/definitions/${rootDefinitionName}__${definitionName}`;
+  }
+
+  definitions[rootDefinitionName] = rewriteEmbeddedTransportSchemaRefs(rootSchema, {
+    rootRef,
+    definitionRefByName
+  });
+
+  for (const [definitionName, definitionSchema] of Object.entries(sourceDefinitions)) {
+    definitions[`${rootDefinitionName}__${definitionName}`] = rewriteEmbeddedTransportSchemaRefs(definitionSchema, {
+      rootRef,
+      definitionRefByName
+    });
+  }
+
+  return {
+    schema: {
+      allOf: [{
+        $ref: rootRef
+      }]
+    },
+    definitions
+  };
+}
+
+function createTransportResponseSchema(schema = {}) {
   return {
     transportSchema: schema
   };
 }
+
+const embeddedApiErrorTransportSchema = createEmbeddableTransportSchemaDocument(
+  apiErrorTransportSchema,
+  "ApiErrorOutput"
+);
+
+const embeddedApiValidationErrorTransportSchema = createEmbeddableTransportSchemaDocument(
+  apiValidationErrorTransportSchema,
+  "ApiValidationErrorOutput"
+);
+
+const sharedErrorTransportDefinitions = {
+  ...embeddedApiValidationErrorTransportSchema.definitions,
+  ...embeddedApiErrorTransportSchema.definitions
+};
 
 function passthroughErrorResponses(successResponses) {
   return successResponses;
@@ -81,18 +201,23 @@ function withStandardErrorResponses(successResponses, { includeValidation400 = f
     }
 
     if (statusCode === 400 && includeValidation400) {
-      responses[statusCode] = transportResponseSchema({
-          anyOf: [
-            apiValidationErrorResponseSchema,
-            apiErrorResponseSchema,
-            fastifyDefaultErrorResponseSchema
-          ]
-        });
+      responses[statusCode] = createTransportResponseSchema({
+        anyOf: [
+          embeddedApiValidationErrorTransportSchema.schema,
+          embeddedApiErrorTransportSchema.schema,
+          fastifyDefaultErrorTransportSchema
+        ],
+        definitions: sharedErrorTransportDefinitions
+      });
       continue;
     }
 
-    responses[statusCode] = transportResponseSchema({
-      anyOf: [apiErrorResponseSchema, fastifyDefaultErrorResponseSchema]
+    responses[statusCode] = createTransportResponseSchema({
+      anyOf: [
+        embeddedApiErrorTransportSchema.schema,
+        fastifyDefaultErrorTransportSchema
+      ],
+      definitions: embeddedApiErrorTransportSchema.definitions
     });
   }
 
@@ -106,13 +231,16 @@ function enumSchema(values) {
 }
 
 export {
-  fieldErrorsSchema,
+  fieldErrorsFieldDefinition,
   apiErrorDetailsSchema,
-  apiErrorResponseSchema,
-  apiValidationErrorResponseSchema,
-  fastifyDefaultErrorResponseSchema,
+  apiValidationErrorDetailsSchema,
+  apiErrorOutputValidator,
+  apiValidationErrorOutputValidator,
+  apiErrorTransportSchema,
+  apiValidationErrorTransportSchema,
+  fastifyDefaultErrorTransportSchema,
   STANDARD_ERROR_STATUS_CODES,
-  transportResponseSchema,
+  createTransportResponseSchema,
   passthroughErrorResponses,
   withStandardErrorResponses,
   enumSchema

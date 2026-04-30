@@ -26,7 +26,6 @@ test("composeSchemaDefinitions merges multiple schema definitions into one contr
   };
 
   const definition = composeSchemaDefinitions([params, query], {
-    mode: "patch",
     context: "test.compose"
   });
 
@@ -59,7 +58,6 @@ test("composeSchemaDefinitions preserves isolated schema factory registries", ()
   };
 
   const definition = composeSchemaDefinitions([params, query], {
-    mode: "patch",
     context: "test.compose"
   });
   const { validatedObject } = definition.schema.patch({
@@ -102,7 +100,7 @@ test("composeSchemaDefinitions rejects duplicate fields", () => {
   );
 });
 
-test("composeSchemaDefinitions requires an explicit mode", () => {
+test("composeSchemaDefinitions defaults to patch when all child definitions use patch mode", () => {
   const params = {
     schema: createSchema({
       workspaceSlug: {
@@ -124,8 +122,35 @@ test("composeSchemaDefinitions requires an explicit mode", () => {
     mode: "patch"
   };
 
+  const definition = composeSchemaDefinitions([params, query], { context: "test.compose" });
+
+  assert.equal(definition.mode, "patch");
+});
+
+test("composeSchemaDefinitions requires an explicit mode when child definitions are not all patch", () => {
+  const params = {
+    schema: createSchema({
+      workspaceSlug: {
+        type: "string",
+        required: true,
+        minLength: 1
+      }
+    }),
+    mode: "patch"
+  };
+  const body = {
+    schema: createSchema({
+      name: {
+        type: "string",
+        required: true,
+        minLength: 1
+      }
+    }),
+    mode: "create"
+  };
+
   assert.throws(
-    () => composeSchemaDefinitions([params, query], { context: "test.compose" }),
-    /test\.compose requires an explicit mode/
+    () => composeSchemaDefinitions([params, body], { context: "test.compose" }),
+    /test\.compose requires an explicit mode unless all schema definitions use patch mode/
   );
 });
