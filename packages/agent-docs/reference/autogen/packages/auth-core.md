@@ -40,6 +40,7 @@ Exports
 - `AUTH_POLICY_CONTEXT_RESOLVER_TAG`
 - `registerAuthPolicyContextResolver(app, token, factory)`
 - `resolveAuthPolicyContextResolvers(scope)`
+- `resolveComposedAuthPolicyContextResolver(scope)`
 - `mergeAuthPolicyContexts(contexts = [])`
 - `composeAuthPolicyContextResolvers(resolvers = [])`
 Local functions

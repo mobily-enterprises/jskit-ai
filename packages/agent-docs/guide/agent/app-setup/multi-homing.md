@@ -612,6 +612,27 @@ For this chapter's `tenancyMode = "personal"` setup, that contributor now does r
 
 So even in this chapter, the package boundary is already correct: users owns user creation/sync, and workspaces reacts through an extension point.
 
+### Workspace auth context comes from the auth policy resolver registry
+
+There is a second registry seam in this chapter that matters just as much for the runtime model.
+
+Workspace-aware routes do not hard-code workspace lookup inside the auth plugin itself. Instead, `workspaces-core` registers an auth policy context resolver contribution, and `auth-core` composes the registered resolvers at request time.
+
+The important consequence is:
+
+- `auth-core` stays generic
+- `workspaces-core` contributes workspace-specific context
+- the request only resolves workspace membership and permissions when a route actually asks for auth context or permissions
+
+So the flow is:
+
+1. a workspace-aware route declares auth and, when needed, permission requirements
+2. the auth policy runtime authenticates the actor
+3. the composed auth policy context resolver asks the workspace layer for the current workspace context
+4. the request gains normalized `workspace`, `membership`, and `permissions` values
+
+That is why the workspace package does not need to patch the auth plugin directly, and it is also why this setup scales better than a one-off global hook. It uses the same tagged-registry pattern as other JSKIT extension seams, but for request-time auth context instead of bootstrap payloads or lifecycle events.
+
 ### Why this chapter is the real routing pivot
 
 Earlier chapters added features inside a flat top-level app.
