@@ -28,9 +28,16 @@ function composeSchemaDefinitions(definitions, {
     }
   }
 
-  const resolvedMode = normalizeText(mode).toLowerCase();
+  let resolvedMode = normalizeText(mode).toLowerCase();
   if (!resolvedMode) {
-    throw new TypeError(`${context} requires an explicit mode.`);
+    const uniqueModes = Array.from(new Set(
+      normalizedDefinitions.map((definition) => normalizeText(definition.mode).toLowerCase())
+    )).filter(Boolean);
+    if (uniqueModes.length === 1 && uniqueModes[0] === "patch") {
+      resolvedMode = "patch";
+    } else {
+      throw new TypeError(`${context} requires an explicit mode unless all schema definitions use patch mode.`);
+    }
   }
 
   const schemaFactory = createSchema.createFactory(

@@ -29,7 +29,7 @@ const health = computed(() => {
 
 <template>
   <v-card rounded="lg" elevation="1" border>
-    <v-card-item>
+    <v-card-item class="home-surface-card__header">
       <template #prepend>
         <v-chip color="primary" size="small" label>Home</v-chip>
       </template>
@@ -37,7 +37,7 @@ const health = computed(() => {
       <v-card-subtitle>Main public surface</v-card-subtitle>
     </v-card-item>
     <v-divider />
-    <v-card-text class="d-flex flex-column ga-4">
+    <v-card-text class="home-surface-card__body d-flex flex-column ga-3">
       <div class="d-flex flex-wrap ga-3">
         <v-chip color="secondary" variant="tonal" label>Route: /home</v-chip>
         <v-chip color="info" variant="tonal" label>Health: {{ health }}</v-chip>
@@ -49,3 +49,13 @@ const health = computed(() => {
     </v-card-text>
   </v-card>
 </template>
+
+<style scoped>
+.home-surface-card__header {
+  padding: 0.875rem 1rem;
+}
+
+.home-surface-card__body {
+  padding: 0.875rem 1rem 1rem;
+}
+</style>

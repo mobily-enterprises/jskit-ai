@@ -16,7 +16,9 @@ test("assistant config resource exposes valid output schema", () => {
   assert.equal(viewSchema.type, "object");
   assert.equal(viewSchema.additionalProperties, false);
   assert.equal(viewSchema.properties.targetSurfaceId.type, "string");
-  assert.equal(viewSchema.properties.settings.type, "object");
+  assert.equal(viewSchema.properties.settings["x-json-rest-schema"]?.castType, "object");
+  assert.equal(Array.isArray(viewSchema.properties.settings.allOf), true);
+  assert.match(viewSchema.properties.settings.allOf[0]?.$ref || "", /^#\/definitions\//);
 });
 
 test("assistant settings patch validation preserves omitted fields", async () => {

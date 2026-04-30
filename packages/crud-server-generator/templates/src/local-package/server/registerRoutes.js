@@ -24,10 +24,7 @@ const listRouteQueryValidator = composeSchemaDefinitions([
   listSearchQueryValidator,
   listParentFilterQueryValidator,
   lookupIncludeQueryValidator
-], {
-  mode: "patch",
-  context: "${option:namespace|camel}.registerRoutes.listRouteQueryValidator"
-});
+]);
 __JSKIT_CRUD_ROUTE_VALIDATOR_CONSTANTS__
 
 function registerRoutes(

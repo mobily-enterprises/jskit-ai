@@ -1,4 +1,5 @@
 import {
+  createSimplifiedWriteParams,
   createWithTransaction,
   normalizeLowerText,
   normalizeRecordId,
@@ -167,20 +168,24 @@ function createRepository({ api, knex } = {}) {
     };
 
     try {
-      const created = await api.resources.workspaceInvites.post({
-        workspace: createPayload.workspaceId,
-        email: createPayload.email,
-        roleSid: createPayload.roleSid,
-        status: createPayload.status,
-        tokenHash: createPayload.tokenHash,
-        invitedByUser: createPayload.invitedByUserId ?? null,
-        expiresAt: createPayload.expiresAt ?? null,
-        acceptedAt: null,
-        revokedAt: null,
-        createdAt: new Date(),
-        updatedAt: new Date(),
-        transaction: options?.trx
-      });
+      const created = await api.resources.workspaceInvites.post(
+        createSimplifiedWriteParams(
+          {
+            workspace: createPayload.workspaceId,
+            email: createPayload.email,
+            roleSid: createPayload.roleSid,
+            status: createPayload.status,
+            tokenHash: createPayload.tokenHash,
+            invitedByUser: createPayload.invitedByUserId ?? null,
+            expiresAt: createPayload.expiresAt ?? null,
+            acceptedAt: null,
+            revokedAt: null,
+            createdAt: new Date(),
+            updatedAt: new Date()
+          },
+          { trx: options?.trx }
+        )
+      );
 
       return normalizeInviteRecord(created);
     } catch (error) {
@@ -222,12 +227,16 @@ function createRepository({ api, knex } = {}) {
       if (!row?.id) {
         continue;
       }
-      await api.resources.workspaceInvites.patch({
-        id: row.id,
-        status: patch.status,
-        updatedAt: nowDb(),
-        transaction: options?.trx
-      });
+      await api.resources.workspaceInvites.patch(
+        createSimplifiedWriteParams(
+          {
+            id: row.id,
+            status: patch.status,
+            updatedAt: nowDb()
+          },
+          { trx: options?.trx }
+        )
+      );
     }
   }
 
@@ -237,13 +246,17 @@ function createRepository({ api, knex } = {}) {
       return;
     }
 
-    await api.resources.workspaceInvites.patch({
-      id: normalizedInviteId,
-      status: "accepted",
-      acceptedAt: new Date(),
-      updatedAt: new Date(),
-      transaction: options?.trx
-    });
+    await api.resources.workspaceInvites.patch(
+      createSimplifiedWriteParams(
+        {
+          id: normalizedInviteId,
+          status: "accepted",
+          acceptedAt: new Date(),
+          updatedAt: new Date()
+        },
+        { trx: options?.trx }
+      )
+    );
   }
 
   async function revokeById(inviteId, options = {}) {
@@ -252,13 +265,17 @@ function createRepository({ api, knex } = {}) {
       return;
     }
 
-    await api.resources.workspaceInvites.patch({
-      id: normalizedInviteId,
-      status: "revoked",
-      revokedAt: new Date(),
-      updatedAt: new Date(),
-      transaction: options?.trx
-    });
+    await api.resources.workspaceInvites.patch(
+      createSimplifiedWriteParams(
+        {
+          id: normalizedInviteId,
+          status: "revoked",
+          revokedAt: new Date(),
+          updatedAt: new Date()
+        },
+        { trx: options?.trx }
+      )
+    );
   }
 
   async function findPendingByIdForWorkspace(inviteId, workspaceId, options = {}) {

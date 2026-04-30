@@ -20,17 +20,11 @@ const listCursorPaginationQueryValidator = createCrudCursorPaginationQueryValida
 const listRouteQueryValidator = composeSchemaDefinitions([
   listCursorPaginationQueryValidator,
   listSearchQueryValidator
-], {
-  mode: "patch",
-  context: "workspaceUsersTemplate.listRouteQueryValidator"
-});
+]);
 const viewRouteParamsValidator = composeSchemaDefinitions([
   routeParamsValidator,
   recordIdParamsValidator
-], {
-  mode: "patch",
-  context: "workspaceUsersTemplate.viewRouteParamsValidator"
-});
+]);
 
 function registerRoutes(
   app,

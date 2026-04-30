@@ -105,13 +105,16 @@ Local functions
 ### `src/shared/index.js`
 Exports
 - `createPaginationQuerySchema`
-- `fieldErrorsSchema`
+- `fieldErrorsFieldDefinition`
 - `apiErrorDetailsSchema`
-- `apiErrorResponseSchema`
-- `apiValidationErrorResponseSchema`
-- `fastifyDefaultErrorResponseSchema`
+- `apiValidationErrorDetailsSchema`
+- `apiErrorOutputValidator`
+- `apiValidationErrorOutputValidator`
+- `apiErrorTransportSchema`
+- `apiValidationErrorTransportSchema`
+- `fastifyDefaultErrorTransportSchema`
 - `STANDARD_ERROR_STATUS_CODES`
-- `transportResponseSchema`
+- `createTransportResponseSchema`
 - `passthroughErrorResponses`
 - `withStandardErrorResponses`
 - `enumSchema`
@@ -144,16 +147,22 @@ Exports
 
 ### `src/shared/validators/errorResponses.js`
 Exports
-- `fieldErrorsSchema`
+- `fieldErrorsFieldDefinition`
 - `apiErrorDetailsSchema`
-- `apiErrorResponseSchema`
-- `apiValidationErrorResponseSchema`
-- `fastifyDefaultErrorResponseSchema`
+- `apiValidationErrorDetailsSchema`
+- `apiErrorOutputValidator`
+- `apiValidationErrorOutputValidator`
+- `apiErrorTransportSchema`
+- `apiValidationErrorTransportSchema`
+- `fastifyDefaultErrorTransportSchema`
 - `STANDARD_ERROR_STATUS_CODES`
-- `transportResponseSchema(schema = {})`
+- `createTransportResponseSchema(schema = {})`
 - `passthroughErrorResponses(successResponses)`
 - `withStandardErrorResponses(successResponses, { includeValidation400 = false } = {})`
 - `enumSchema(values)`
+Local functions
+- `rewriteEmbeddedTransportSchemaRefs(value, { rootRef = "#", definitionRefByName = {} } = {})`
+- `createEmbeddableTransportSchemaDocument(schemaDocument = {}, rootDefinitionName = "TransportSchema")`
 
 ### `src/shared/validators/httpValidatorsApi.js`
 Exports

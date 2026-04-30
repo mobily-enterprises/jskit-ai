@@ -1,5 +1,0 @@
-[done] 1. Remove CRUD field-contract fallback paths and require schema definitions only
-[done] 3. Replace local bootstrap boolean parsing with shared normalization
-[done] 4. Simplify generator output around schema composition
-[done] 2. Centralize CRUD list-filter parsing/normalization in shared support and make server/client consume it
-[done] Verification sweep and final review

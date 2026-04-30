@@ -891,6 +891,7 @@ Exports
 - `compileRouteValidator(validator, { context = "route validator" } = {})`
 - `resolveRouteValidatorOptions({ method = "", path = "", options = {} } = {})`
 Local functions
+- `stripJsonRestTransportExtensions(value)`
 - `normalizeRouteSchemaSection(value, { context = "route section", defaultMode = "patch" } = {})`
 - `normalizeResponseDefinition(value, { context = "route responses" } = {})`
 - `normalizeAdvancedFastifySchema(value, { context = "route validator" } = {})`

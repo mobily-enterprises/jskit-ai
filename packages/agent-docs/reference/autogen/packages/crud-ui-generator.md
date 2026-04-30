@@ -57,7 +57,7 @@ Exports
 - `resolveOperationRealtimeEvents(operation = {}, { defaultEvents = [], context = "ui-generator" } = {})`
 - `requireOutputSchema(operation, operationName, { context = "ui-generator" } = {})`
 - `requireBodySchema(operation, operationName, { context = "ui-generator" } = {})`
-- `requireObjectProperties(schema, contextLabel, { context = "ui-generator" } = {})`
+- `requireObjectProperties(schema, contextLabel, { context = "ui-generator", rootSchema = schema } = {})`
 - `resolveListItemProperties(listOutputSchema, { context = "ui-generator" } = {})`
 - `resolveLookupContainerKey(resource = {}, { context = "ui-generator" } = {})`
 - `buildResourceFieldContractMap(resource = {})`
@@ -76,6 +76,9 @@ Local functions
 - `normalizeRealtimeEventList(events = [])`
 - `resolveOperationTransportSchema(definition, { context = "ui-generator", defaultMode = "replace", label = "schema definition" } = {})`
 - `resolveUnionSchemaVariant(schema = {})`
+- `decodeJsonPointerSegment(segment = "")`
+- `resolveSchemaReference(ref = "", rootSchema = {}, { context = "ui-generator", contextLabel = "schema" } = {})`
+- `resolveObjectSchema(schema = {}, contextLabel, { context = "ui-generator", rootSchema = schema } = {})`
 - `resolveSchemaType(schema)`
 - `toFieldLabel(key)`
 - `isSupportedSelectOptionValue(value)`

@@ -16,6 +16,7 @@ function normalizePositiveInteger(value) {
 
 const resource = Object.freeze({
   tableName: "user_settings",
+  idProperty: "user_id",
   searchSchema: {
     id: { type: "id", actualField: "id" }
   },

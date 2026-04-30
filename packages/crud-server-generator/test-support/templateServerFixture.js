@@ -68,68 +68,70 @@ function buildTemplateReplacements({
     ["__JSKIT_CRUD_SURFACE_ID__", JSON.stringify(surfaceId)],
     ["__JSKIT_CRUD_ACTION_PERMISSION_SUPPORT__", actionPermissionSupport],
     ["__JSKIT_CRUD_ACTION_WORKSPACE_VALIDATOR_IMPORT__", actionWorkspaceValidatorImport],
-    ["__JSKIT_CRUD_ACTION_INPUT_VALIDATOR_CONSTANTS__", surfaceRequiresWorkspace
+    ["__JSKIT_CRUD_LIST_ACTION_INPUT__", surfaceRequiresWorkspace
       ? [
-          "const listActionInputValidator = composeSchemaDefinitions([",
+          "composeSchemaDefinitions([",
           "  workspaceSlugParamsValidator,",
           "  listCursorPaginationQueryValidator,",
           "  listSearchQueryValidator,",
           "  listParentFilterQueryValidator,",
           "  lookupIncludeQueryValidator,",
-          '], {',
-          '  mode: "patch"',
-          "});",
-          "const viewActionInputValidator = composeSchemaDefinitions([",
+          "])"
+        ].join("\n")
+      : [
+          "composeSchemaDefinitions([",
+          "  listCursorPaginationQueryValidator,",
+          "  listSearchQueryValidator,",
+          "  listParentFilterQueryValidator,",
+          "  lookupIncludeQueryValidator,",
+          "])"
+        ].join("\n")],
+    ["__JSKIT_CRUD_VIEW_ACTION_INPUT__", surfaceRequiresWorkspace
+      ? [
+          "composeSchemaDefinitions([",
           "  workspaceSlugParamsValidator,",
           "  recordIdParamsValidator,",
           "  lookupIncludeQueryValidator,",
-          '], {',
-          '  mode: "patch"',
-          "});",
-          "const createActionInputValidator = composeSchemaDefinitions([",
+          "])"
+        ].join("\n")
+      : [
+          "composeSchemaDefinitions([",
+          "  recordIdParamsValidator,",
+          "  lookupIncludeQueryValidator,",
+          "])"
+        ].join("\n")],
+    ["__JSKIT_CRUD_CREATE_ACTION_INPUT__", surfaceRequiresWorkspace
+      ? [
+          "composeSchemaDefinitions([",
           "  workspaceSlugParamsValidator,",
           "  resource.operations.create.body,",
           '], {',
           '  mode: "create"',
-          "});",
-          "const updateActionInputValidator = composeSchemaDefinitions([",
+          "})"
+        ].join("\n")
+      : "resource.operations.create.body"],
+    ["__JSKIT_CRUD_UPDATE_ACTION_INPUT__", surfaceRequiresWorkspace
+      ? [
+          "composeSchemaDefinitions([",
           "  workspaceSlugParamsValidator,",
           "  recordIdParamsValidator,",
           "  resource.operations.patch.body,",
-          '], {',
-          '  mode: "patch"',
-          "});",
-          "const deleteActionInputValidator = composeSchemaDefinitions([",
-          "  workspaceSlugParamsValidator,",
-          "  recordIdParamsValidator,",
-          '], {',
-          '  mode: "patch"',
-          "});"
+          "])"
         ].join("\n")
       : [
-          "const listActionInputValidator = composeSchemaDefinitions([",
-          "  listCursorPaginationQueryValidator,",
-          "  listSearchQueryValidator,",
-          "  listParentFilterQueryValidator,",
-          "  lookupIncludeQueryValidator,",
-          '], {',
-          '  mode: "patch"',
-          "});",
-          "const viewActionInputValidator = composeSchemaDefinitions([",
-          "  recordIdParamsValidator,",
-          "  lookupIncludeQueryValidator,",
-          '], {',
-          '  mode: "patch"',
-          "});",
-          "const createActionInputValidator = resource.operations.create.body;",
-          "const updateActionInputValidator = composeSchemaDefinitions([",
+          "composeSchemaDefinitions([",
           "  recordIdParamsValidator,",
           "  resource.operations.patch.body,",
-          '], {',
-          '  mode: "patch"',
-          "});",
-          "const deleteActionInputValidator = recordIdParamsValidator;"
+          "])"
         ].join("\n")],
+    ["__JSKIT_CRUD_DELETE_ACTION_INPUT__", surfaceRequiresWorkspace
+      ? [
+          "composeSchemaDefinitions([",
+          "  workspaceSlugParamsValidator,",
+          "  recordIdParamsValidator,",
+          "])"
+        ].join("\n")
+      : "recordIdParamsValidator"],
     ["__JSKIT_CRUD_LIST_ACTION_PERMISSION__", listActionPermission],
     ["__JSKIT_CRUD_VIEW_ACTION_PERMISSION__", viewActionPermission],
     ["__JSKIT_CRUD_CREATE_ACTION_PERMISSION__", createActionPermission],
@@ -143,9 +145,7 @@ function buildTemplateReplacements({
           "const recordRouteParamsValidator = composeSchemaDefinitions([",
           "  routeParamsValidator,",
           "  recordIdParamsValidator",
-          '], {',
-          '  mode: "patch"',
-          "});"
+          "]);"
         ].join("\n")
       : ""],
     ["__JSKIT_CRUD_LIST_ROUTE_PARAMS_VALIDATOR_LINE__", surfaceRequiresWorkspace ? "      params: routeParamsValidator," : ""],

@@ -1,4 +1,5 @@
 import {
+  createSimplifiedWriteParams,
   createWithTransaction,
   normalizeRecordId,
   isDuplicateEntryError
@@ -81,7 +82,7 @@ function createRepository({ api, knex } = {}) {
     }
 
     const createPayload = {
-      ownerUserId,
+      owner: ownerUserId,
       ...(Object.hasOwn(source, "slug") ? { slug: source.slug } : {}),
       ...(Object.hasOwn(source, "name") ? { name: source.name } : {}),
       ...(Object.hasOwn(source, "isPersonal") ? { isPersonal: source.isPersonal } : {}),
@@ -89,12 +90,16 @@ function createRepository({ api, knex } = {}) {
     };
 
     try {
-      return await api.resources.workspaces.post({
-        ...createPayload,
-        createdAt: new Date(),
-        updatedAt: new Date(),
-        transaction: options?.trx
-      });
+      return await api.resources.workspaces.post(
+        createSimplifiedWriteParams(
+          {
+            ...createPayload,
+            createdAt: new Date(),
+            updatedAt: new Date()
+          },
+          { trx: options?.trx }
+        )
+      );
     } catch (error) {
       if (!isDuplicateEntryError(error)) {
         throw error;
@@ -117,12 +122,16 @@ function createRepository({ api, knex } = {}) {
       return null;
     }
 
-    return api.resources.workspaces.patch({
-      id: normalizedWorkspaceId,
-      ...(patch && typeof patch === "object" && !Array.isArray(patch) ? patch : {}),
-      updatedAt: new Date(),
-      transaction: options?.trx
-    });
+    return api.resources.workspaces.patch(
+      createSimplifiedWriteParams(
+        {
+          id: normalizedWorkspaceId,
+          ...(patch && typeof patch === "object" && !Array.isArray(patch) ? patch : {}),
+          updatedAt: new Date()
+        },
+        { trx: options?.trx }
+      )
+    );
   }
 
   async function listForUserId(userId, options = {}) {

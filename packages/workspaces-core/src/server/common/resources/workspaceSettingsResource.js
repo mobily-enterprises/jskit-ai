@@ -15,6 +15,7 @@ function normalizeWorkspaceColorInput(value) {
 
 const workspaceSettingsResource = Object.freeze({
   tableName: "workspace_settings",
+  idProperty: "workspace_id",
   searchSchema: {
     id: { type: "id", actualField: "id" }
   },

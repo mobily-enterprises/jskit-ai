@@ -42,6 +42,22 @@ function toDbJson(value, fallback = {}) {
   return JSON.stringify(source);
 }
 
+function createSimplifiedWriteParams(inputRecord = {}, { trx = null, returnFullRecord } = {}) {
+  const params = {
+    inputRecord,
+    simplified: true
+  };
+
+  if (trx) {
+    params.transaction = trx;
+  }
+  if (returnFullRecord !== undefined) {
+    params.returnFullRecord = returnFullRecord;
+  }
+
+  return params;
+}
+
 export {
   toNullableDateTime,
   toIsoString,
@@ -55,5 +71,6 @@ export {
   uniqueSorted,
   parseJson,
   toDbJson,
+  createSimplifiedWriteParams,
   createWithTransaction
 };

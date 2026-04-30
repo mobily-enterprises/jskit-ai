@@ -143,6 +143,7 @@ Exports
 - `uniqueSorted(values)`
 - `parseJson(value, fallback = {})`
 - `toDbJson(value, fallback = {})`
+- `createSimplifiedWriteParams(inputRecord = {}, { trx = null, returnFullRecord } = {})`
 - `createWithTransaction`
 
 ### `src/server/common/repositories/userProfilesRepository.js`
@@ -166,6 +167,7 @@ Exports
 - `createRepository({ api, knex } = {})`
 Local functions
 - `pickPatchFields(source = {})`
+- `createDefaultUserSettingsCreatePayload(userId)`
 
 ### `src/server/common/resources/userProfilesResource.js`
 Exports
@@ -261,14 +263,9 @@ Exports
 - `userProfileOutputSchema`
 - `accountSecurityStatusSchema`
 
-### `src/shared/resources/resolveGlobalArrayRegistry.js`
-Exports
-- `resolveGlobalArrayRegistry(symbolKey)`
-
 ### `src/shared/resources/userProfileResource.js`
 Exports
 - `userProfileResource`
-- `userProfileOutputSchema`
 
 ### `src/shared/resources/userSettingsResource.js`
 Exports

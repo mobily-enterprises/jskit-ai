@@ -197,8 +197,12 @@ function requireBodySchema(operation, operationName, { context = "ui-generator" 
   });
 }
 
-function requireObjectProperties(schema, contextLabel, { context = "ui-generator" } = {}) {
-  const properties = schema?.properties;
+function requireObjectProperties(schema, contextLabel, { context = "ui-generator", rootSchema = schema } = {}) {
+  const resolvedSchema = resolveObjectSchema(schema, contextLabel, {
+    context,
+    rootSchema
+  });
+  const properties = resolvedSchema?.properties;
   if (!properties || typeof properties !== "object" || Array.isArray(properties)) {
     throw new Error(`${context} expected ${contextLabel} to be an object schema with properties.`);
   }
@@ -207,7 +211,10 @@ function requireObjectProperties(schema, contextLabel, { context = "ui-generator
 }
 
 function resolveListItemProperties(listOutputSchema, { context = "ui-generator" } = {}) {
-  const listProperties = requireObjectProperties(listOutputSchema, "operations.list output", { context });
+  const listProperties = requireObjectProperties(listOutputSchema, "operations.list output", {
+    context,
+    rootSchema: listOutputSchema
+  });
   const itemsSchema = listProperties.items;
   if (!itemsSchema || typeof itemsSchema !== "object" || Array.isArray(itemsSchema)) {
     throw new Error(`${context} expected operations.list output schema to include object items schema.`);
@@ -218,7 +225,10 @@ function resolveListItemProperties(listOutputSchema, { context = "ui-generator" 
     throw new Error(`${context} expected operations.list output schema items.items to be an object schema.`);
   }
 
-  return requireObjectProperties(itemSchema, "operations.list output items", { context });
+  return requireObjectProperties(itemSchema, "operations.list output items", {
+    context,
+    rootSchema: listOutputSchema
+  });
 }
 
 function resolveUnionSchemaVariant(schema = {}) {
@@ -248,6 +258,63 @@ function resolveUnionSchemaVariant(schema = {}) {
     if (type && type !== "null") {
       return candidate;
     }
+  }
+
+  return source;
+}
+
+function decodeJsonPointerSegment(segment = "") {
+  return String(segment || "")
+    .replace(/~1/g, "/")
+    .replace(/~0/g, "~");
+}
+
+function resolveSchemaReference(ref = "", rootSchema = {}, { context = "ui-generator", contextLabel = "schema" } = {}) {
+  const normalizedRef = normalizeText(ref);
+  if (!normalizedRef.startsWith("#/")) {
+    throw new Error(`${context} expected ${contextLabel} to use an internal schema reference.`);
+  }
+
+  const segments = normalizedRef
+    .slice(2)
+    .split("/")
+    .map((segment) => decodeJsonPointerSegment(segment))
+    .filter(Boolean);
+
+  let current = rootSchema;
+  for (const segment of segments) {
+    if (!current || typeof current !== "object" || Array.isArray(current) || !Object.hasOwn(current, segment)) {
+      throw new Error(`${context} could not resolve ${contextLabel} reference "${normalizedRef}".`);
+    }
+    current = current[segment];
+  }
+
+  return current;
+}
+
+function resolveObjectSchema(
+  schema = {},
+  contextLabel,
+  { context = "ui-generator", rootSchema = schema } = {}
+) {
+  const source = resolveUnionSchemaVariant(schema);
+  if (source?.properties && typeof source.properties === "object" && !Array.isArray(source.properties)) {
+    return source;
+  }
+
+  const refCandidate = normalizeText(source?.$ref) || normalizeText(source?.allOf?.[0]?.$ref);
+  if (refCandidate) {
+    return resolveObjectSchema(
+      resolveSchemaReference(refCandidate, rootSchema, {
+        context,
+        contextLabel
+      }),
+      contextLabel,
+      {
+        context,
+        rootSchema
+      }
+    );
   }
 
   return source;

@@ -5,6 +5,32 @@ import { createSchema } from "json-rest-schema";
 import { createRouter } from "./router.js";
 import { compileRouteValidator, defineRouteValidator, resolveRouteValidatorOptions } from "./routeValidator.js";
 
+function stripJsonRestTransportExtensions(value) {
+  if (Array.isArray(value)) {
+    return value.map((entry) => stripJsonRestTransportExtensions(entry));
+  }
+
+  if (!value || typeof value !== "object") {
+    return value;
+  }
+
+  const sanitized = {};
+
+  for (const [key, entry] of Object.entries(value)) {
+    if (key === "x-json-rest-schema") {
+      continue;
+    }
+
+    sanitized[key] = stripJsonRestTransportExtensions(entry);
+  }
+
+  return sanitized;
+}
+
+function toFastifySchema(schema, mode) {
+  return stripJsonRestTransportExtensions(schema.toJsonSchema({ mode }));
+}
+
 function createMockJsonRestSchema() {
   return createSchema({
     name: {
@@ -83,11 +109,11 @@ test("defineRouteValidator compiles body/query/params and maps query schema to q
   assert.deepEqual(compiled.schema, {
     tags: ["contacts", "intake"],
     summary: "Create contact intake",
-    body: bodySchema.toJsonSchema({ mode: "patch" }),
-    querystring: querySchema.toJsonSchema({ mode: "patch" }),
-    params: paramsSchema.toJsonSchema({ mode: "patch" }),
+    body: toFastifySchema(bodySchema, "patch"),
+    querystring: toFastifySchema(querySchema, "patch"),
+    params: toFastifySchema(paramsSchema, "patch"),
     response: {
-      200: responseBodySchema.toJsonSchema({ mode: "replace" })
+      200: toFastifySchema(responseBodySchema, "replace")
     },
     headers: headersSchema
   });
@@ -117,7 +143,7 @@ test("compileRouteValidator accepts json-rest-schema definitions", () => {
   });
 
   assert.deepEqual(compiled.schema, {
-    querystring: querySchema.toJsonSchema({ mode: "patch" })
+    querystring: toFastifySchema(querySchema, "patch")
   });
   assert.equal(typeof compiled.input.query, "function");
 });
@@ -148,8 +174,8 @@ test("compileRouteValidator creates request.input transforms for schema-only par
   });
 
   assert.deepEqual(compiled.schema, {
-    querystring: querySchema.toJsonSchema({ mode: "patch" }),
-    params: paramsSchema.toJsonSchema({ mode: "patch" })
+    querystring: toFastifySchema(querySchema, "patch"),
+    params: toFastifySchema(paramsSchema, "patch")
   });
   assert.equal(typeof compiled.input.query, "function");
   assert.equal(typeof compiled.input.params, "function");
@@ -183,13 +209,13 @@ test("compileRouteValidator accepts response schema definitions and extracts onl
 
   assert.deepEqual(compiled.schema, {
     response: {
-      200: responseBodySchema.toJsonSchema({ mode: "replace" }),
-      400: createSchema({
+      200: toFastifySchema(responseBodySchema, "replace"),
+      400: toFastifySchema(createSchema({
         ok: {
           type: "boolean",
           required: true
         }
-      }).toJsonSchema({ mode: "replace" })
+      }), "replace")
     }
   });
   assert.equal(Object.prototype.hasOwnProperty.call(compiled, "output"), false);
@@ -205,7 +231,7 @@ test("compileRouteValidator turns json-rest-schema validators into transport sch
   });
 
   assert.deepEqual(compiled.schema, {
-    body: bodySchema.toJsonSchema({ mode: "patch" })
+    body: toFastifySchema(bodySchema, "patch")
   });
 
   const normalized = compiled.input.body({
@@ -282,7 +308,7 @@ test("resolveRouteValidatorOptions supports inline validator shape without wrapp
   assert.deepEqual(resolved.schema, {
     tags: ["contacts"],
     summary: "Create contact",
-    body: bodySchema.toJsonSchema({ mode: "patch" })
+    body: toFastifySchema(bodySchema, "patch")
   });
   assert.equal(typeof resolved.input.body, "function");
   assert.deepEqual(resolved.input.body({
@@ -443,7 +469,7 @@ test("HttpRouter.register accepts inline validator shape directly", () => {
   assert.deepEqual(route.schema, {
     tags: ["contacts"],
     summary: "List contacts",
-    querystring: querySchema.toJsonSchema({ mode: "patch" })
+    querystring: toFastifySchema(querySchema, "patch")
   });
   assert.equal(typeof route.input.query, "function");
   assert.deepEqual(route.input.query({
@@ -451,4 +477,38 @@ test("HttpRouter.register accepts inline validator shape directly", () => {
   }), {
     dryRun: true
   });
+});
+
+test("compileRouteValidator strips json-rest transport metadata before Fastify handoff", () => {
+  const nestedSchema = createSchema({
+    profile: {
+      type: "object",
+      required: false,
+      schema: createSchema({
+        email: {
+          type: "string",
+          required: false,
+          minLength: 3,
+          format: "email"
+        }
+      }),
+      additionalProperties: true
+    }
+  });
+
+  const compiled = compileRouteValidator({
+    body: {
+      schema: nestedSchema
+    },
+    responses: {
+      200: {
+        schema: nestedSchema,
+        mode: "replace"
+      }
+    }
+  });
+
+  assert.equal(JSON.stringify(compiled.schema).includes("x-json-rest-schema"), false);
+  assert.deepEqual(compiled.schema.body, toFastifySchema(nestedSchema, "patch"));
+  assert.deepEqual(compiled.schema.response[200], toFastifySchema(nestedSchema, "replace"));
 });

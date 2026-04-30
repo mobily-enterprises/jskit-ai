@@ -3,11 +3,13 @@ import test from "node:test";
 
 import {
   STANDARD_ERROR_STATUS_CODES,
-  apiErrorResponseSchema,
-  apiValidationErrorResponseSchema,
-  fastifyDefaultErrorResponseSchema,
+  apiErrorOutputValidator,
+  apiValidationErrorOutputValidator,
+  apiErrorTransportSchema,
+  apiValidationErrorTransportSchema,
+  fastifyDefaultErrorTransportSchema,
   enumSchema,
-  transportResponseSchema,
+  createTransportResponseSchema,
   withStandardErrorResponses
 } from "../src/shared/validators/errorResponses.js";
 
@@ -27,6 +29,16 @@ test("withStandardErrorResponses includes standard statuses", () => {
     assert.ok(responses[statusCode], `missing status ${statusCode}`);
   }
   assert.equal(responses[400].transportSchema.anyOf.length, 2);
+  assert.deepEqual(responses[400].transportSchema.anyOf[0], {
+    allOf: [{
+      $ref: "#/definitions/ApiErrorOutput"
+    }]
+  });
+  assert.equal(responses[400].transportSchema.definitions.ApiErrorOutput.type, "object");
+  assert.equal(
+    responses[400].transportSchema.definitions.ApiErrorOutput.properties.details.allOf[0].$ref,
+    "#/definitions/ApiErrorOutput__SchemaNode_1_replace"
+  );
 });
 
 test("withStandardErrorResponses uses validation union for 400 when enabled", () => {
@@ -42,10 +54,19 @@ test("withStandardErrorResponses uses validation union for 400 when enabled", ()
   );
 
   assert.equal(responses[400].transportSchema.anyOf.length, 3);
-  assert.deepEqual(
-    responses[400].transportSchema.anyOf.map((schema) => schema.type),
-    [apiValidationErrorResponseSchema.type, apiErrorResponseSchema.type, fastifyDefaultErrorResponseSchema.type]
-  );
+  assert.deepEqual(responses[400].transportSchema.anyOf[0], {
+    allOf: [{
+      $ref: "#/definitions/ApiValidationErrorOutput"
+    }]
+  });
+  assert.deepEqual(responses[400].transportSchema.anyOf[1], {
+    allOf: [{
+      $ref: "#/definitions/ApiErrorOutput"
+    }]
+  });
+  assert.equal(responses[400].transportSchema.anyOf[2].type, fastifyDefaultErrorTransportSchema.type);
+  assert.equal(responses[400].transportSchema.definitions.ApiValidationErrorOutput.type, "object");
+  assert.equal(responses[400].transportSchema.definitions.ApiErrorOutput.type, "object");
 });
 
 test("withStandardErrorResponses does not override existing error schemas", () => {
@@ -64,7 +85,7 @@ test("withStandardErrorResponses does not override existing error schemas", () =
           type: "string"
         }
       },
-      400: transportResponseSchema(custom400)
+      400: createTransportResponseSchema(custom400)
     },
     { includeValidation400: true }
   );
@@ -79,5 +100,21 @@ test("enumSchema creates a literal union", () => {
   assert.deepEqual(
     schema.anyOf.map((entry) => entry.const),
     ["one", "two", "three"]
+  );
+});
+
+test("error response validators export transport schemas from the same contracts", () => {
+  assert.equal(apiErrorOutputValidator.mode, "replace");
+  assert.equal(apiValidationErrorOutputValidator.mode, "replace");
+  assert.equal(apiErrorTransportSchema.type, "object");
+  assert.equal(apiValidationErrorTransportSchema.type, "object");
+  assert.equal(apiErrorTransportSchema.properties.details.allOf[0].$ref, "#/definitions/SchemaNode_1_replace");
+  assert.equal(
+    apiValidationErrorTransportSchema.properties.details.allOf[0].$ref,
+    "#/definitions/SchemaNode_1_replace"
+  );
+  assert.equal(
+    apiValidationErrorTransportSchema.definitions.SchemaNode_1_replace.required.includes("fieldErrors"),
+    true
   );
 });

@@ -116,4 +116,3 @@ const userProfileResource = deepFreeze({
 });
 
 export { userProfileResource };
-export { userProfileOutputSchema };

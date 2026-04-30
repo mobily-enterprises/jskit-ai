@@ -128,16 +128,33 @@ async function runPackageMigrationsCommand(ctx = {}, { positional, options, cwd,
       warnings: migrationWarnings
     }, null, 2)}\n`);
   } else {
-    io.stdout.write(`Generated migrations (${scope}).\n`);
-    io.stdout.write(`Resolved packages (${requestedPackageIds.length}):\n`);
-    for (const packageId of requestedPackageIds) {
-      io.stdout.write(`- ${packageId}\n`);
+    io.stdout.write(`Generated managed migrations (${scope}).\n`);
+    io.stdout.write(`Packages needing migration sync (${requestedPackageIds.length}):\n`);
+    if (requestedPackageIds.length > 0) {
+      for (const packageId of requestedPackageIds) {
+        io.stdout.write(`- ${packageId}\n`);
+      }
+    } else {
+      io.stdout.write("- none\n");
+      io.stdout.write(
+        "  Installed packages are already migration-synced, or they do not ship JSKIT-managed migrations.\n"
+      );
     }
-    io.stdout.write(`Touched files (${touchedFileList.length}):\n`);
-    for (const touchedFile of touchedFileList) {
-      io.stdout.write(`- ${touchedFile}\n`);
+
+    io.stdout.write(`Migration files written (${touchedFileList.length}):\n`);
+    if (touchedFileList.length > 0) {
+      for (const touchedFile of touchedFileList) {
+        io.stdout.write(`- ${touchedFile}\n`);
+      }
+    } else {
+      io.stdout.write("- none\n");
+      io.stdout.write("  No managed migration files were written in this run.\n");
     }
+
     io.stdout.write(`Lock file: ${normalizeRelativePath(appRoot, lockPath)}\n`);
+    io.stdout.write(
+      "Reminder: this command only writes or refreshes JSKIT-managed migration files. Run `npm run db:migrate` separately to apply pending migrations to the database.\n"
+    );
     if (options.verbose && migrationWarnings.length > 0) {
       io.stdout.write(`Warnings (${migrationWarnings.length}):\n`);
       for (const warning of migrationWarnings) {
