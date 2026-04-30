@@ -9,6 +9,11 @@ function createFixture(initialOwnerUserId = null) {
 
   const service = createService({
     consoleSettingsRepository: {
+      async getSingleton() {
+        return {
+          ownerUserId: state.ownerUserId
+        };
+      },
       async ensureOwnerUserId(userId) {
         const normalizedUserId = String(userId || "");
         if (!state.ownerUserId) {
@@ -31,6 +36,13 @@ test("consoleService seeds the first authenticated user as console owner", async
   assert.equal(firstOwner, "7");
   assert.equal(secondAttempt, "7");
   assert.equal(state.ownerUserId, "7");
+});
+
+test("consoleService.isConsoleOwnerUserId reports current ownership without reseeding", async () => {
+  const { service } = createFixture("7");
+
+  assert.equal(await service.isConsoleOwnerUserId("7"), true);
+  assert.equal(await service.isConsoleOwnerUserId("9"), false);
 });
 
 test("consoleService.requireConsoleOwner denies authenticated non-owners", async () => {

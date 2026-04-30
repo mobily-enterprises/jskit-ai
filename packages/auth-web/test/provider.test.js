@@ -56,7 +56,7 @@ function createAuthRuntimeStub(initialState = {}) {
   };
 }
 
-function createAppDouble({ authGuardRuntime } = {}) {
+function createAppDouble({ authGuardRuntime, bootstrapRuntime = null } = {}) {
   const singletons = new Map();
   const singletonInstances = new Map();
   const provided = [];
@@ -87,6 +87,9 @@ function createAppDouble({ authGuardRuntime } = {}) {
       }
       if (token === "runtime.auth-guard.client") {
         return true;
+      }
+      if (token === "runtime.web-bootstrap.client") {
+        return Boolean(bootstrapRuntime);
       }
       return singletons.has(token) || singletonInstances.has(token);
     },
@@ -123,6 +126,9 @@ function createAppDouble({ authGuardRuntime } = {}) {
       }
       if (token === "runtime.auth-guard.client") {
         return authGuardRuntime;
+      }
+      if (token === "runtime.web-bootstrap.client") {
+        return bootstrapRuntime;
       }
       if (singletonInstances.has(token)) {
         return singletonInstances.get(token);
@@ -162,4 +168,31 @@ test("auth web client boot binds explicit Pinia store state and raw runtime inje
 
   const providedByKey = new Map(app.provided.map((entry) => [entry.key, entry.value]));
   assert.equal(providedByKey.get(AUTH_GUARD_RUNTIME_INJECTION_KEY), authGuardRuntime);
+});
+
+test("auth web client boot refreshes shared bootstrap runtime on auth changes", async () => {
+  const authGuardRuntime = createAuthRuntimeStub({
+    authenticated: false,
+    username: ""
+  });
+  const refreshCalls = [];
+  const app = createAppDouble({
+    authGuardRuntime,
+    bootstrapRuntime: {
+      async refresh(reason) {
+        refreshCalls.push(String(reason || ""));
+        return null;
+      }
+    }
+  });
+
+  await bootAuthClientProvider(app);
+  assert.deepEqual(refreshCalls, []);
+
+  authGuardRuntime.push({
+    authenticated: true,
+    username: "ada"
+  });
+
+  assert.deepEqual(refreshCalls, ["auth.state"]);
 });

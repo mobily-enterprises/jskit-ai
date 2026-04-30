@@ -1,3 +1,5 @@
+import { registerAuthServiceDecorator } from "@jskit-ai/auth-core/server/authServiceDecoratorRegistry";
+import { createConsoleAuthServiceDecorator } from "./consoleAuthServiceDecorator.js";
 import { createRepository as createConsoleSettingsRepository } from "./consoleSettings/consoleSettingsRepository.js";
 import { registerConsoleCoreActionSurfaceSources } from "./support/consoleActionSurfaces.js";
 
@@ -7,6 +9,12 @@ function registerConsoleCore(app) {
   }
 
   registerConsoleCoreActionSurfaceSources(app);
+
+  registerAuthServiceDecorator(app, "console.core.authServiceDecorator", (scope) =>
+    createConsoleAuthServiceDecorator({
+      consoleService: scope.make("consoleService")
+    })
+  );
 
   app.singleton("consoleSettingsRepository", (scope) => {
     const knex = scope.make("jskit.database.knex");

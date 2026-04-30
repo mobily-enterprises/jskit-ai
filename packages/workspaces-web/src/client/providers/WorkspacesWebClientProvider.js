@@ -4,6 +4,7 @@ import UsersWorkspaceToolsWidget from "../components/UsersWorkspaceToolsWidget.v
 import UsersWorkspaceSettingsMenuItem from "../components/UsersWorkspaceSettingsMenuItem.vue";
 import UsersWorkspaceMembersMenuItem from "../components/UsersWorkspaceMembersMenuItem.vue";
 import MembersAdminClientElement from "../components/MembersAdminClientElement.vue";
+import { registerBootstrapPayloadHandler } from "@jskit-ai/shell-web/client/bootstrap";
 import { createBootstrapPlacementRuntime } from "../runtime/bootstrapPlacementRuntime.js";
 import {
   WORKSPACES_WEB_SCOPE_SUPPORT_INJECTION_KEY,
@@ -15,8 +16,8 @@ class WorkspacesWebClientProvider {
   static dependsOn = ["users.web.client"];
 
   register(app) {
-    if (!app || typeof app.singleton !== "function") {
-      throw new Error("WorkspacesWebClientProvider requires application singleton().");
+    if (!app || typeof app.singleton !== "function" || typeof app.tag !== "function") {
+      throw new Error("WorkspacesWebClientProvider requires application singleton()/tag().");
     }
 
     app.singleton("workspaces.web.profile.menu.surface-switch-item", () => UsersProfileSurfaceSwitchMenuItem);
@@ -26,6 +27,22 @@ class WorkspacesWebClientProvider {
     app.singleton("workspaces.web.workspace-members.menu-item", () => UsersWorkspaceMembersMenuItem);
     app.singleton("workspaces.web.members-admin.element", () => MembersAdminClientElement);
     app.singleton("workspaces.web.bootstrap-placement.runtime", (scope) => createBootstrapPlacementRuntime({ app: scope }));
+    registerBootstrapPayloadHandler(app, "workspaces.web.bootstrap.handler", (scope) => {
+      const runtime = scope.make("workspaces.web.bootstrap-placement.runtime");
+      return Object.freeze({
+        handlerId: "workspaces.web.bootstrap",
+        order: 100,
+        resolveBootstrapRequest(input = {}) {
+          return runtime.resolveBootstrapRequest(input);
+        },
+        applyBootstrapPayload(input = {}) {
+          return runtime.applyBootstrapPayload(input);
+        },
+        handleBootstrapError(input = {}) {
+          return runtime.handleBootstrapError(input);
+        }
+      });
+    });
     app.singleton("workspaces.web.scope-support", () => createWorkspaceScopeSupport());
   }
 

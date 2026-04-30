@@ -1,8 +1,8 @@
 import { normalizeObject, normalizeRecordId } from "@jskit-ai/kernel/shared/support/normalize";
 
 function createConsoleBootstrapContributor({ consoleService } = {}) {
-  if (!consoleService || typeof consoleService.ensureInitialConsoleMember !== "function") {
-    throw new Error("createConsoleBootstrapContributor requires consoleService.ensureInitialConsoleMember().");
+  if (!consoleService || typeof consoleService.isConsoleOwnerUserId !== "function") {
+    throw new Error("createConsoleBootstrapContributor requires consoleService.isConsoleOwnerUserId().");
   }
 
   return Object.freeze({
@@ -17,11 +17,7 @@ function createConsoleBootstrapContributor({ consoleService } = {}) {
 
       let consoleOwner = false;
       if (authenticatedUserId) {
-        const seededConsoleOwnerUserId = normalizeRecordId(
-          await consoleService.ensureInitialConsoleMember(authenticatedUserId),
-          { fallback: null }
-        );
-        consoleOwner = Boolean(seededConsoleOwnerUserId) && seededConsoleOwnerUserId === authenticatedUserId;
+        consoleOwner = await consoleService.isConsoleOwnerUserId(authenticatedUserId);
       }
 
       return {

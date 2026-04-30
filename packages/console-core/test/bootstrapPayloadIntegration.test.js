@@ -19,7 +19,6 @@ function createAuthenticatedProfile(overrides = {}) {
 
 test("bootstrap payload preserves consoleowner for authenticated users after users bootstrap runs", async () => {
   const profile = createAuthenticatedProfile();
-  const ownerSeeds = [];
   const app = createContainer();
 
   app.instance("internal.repository.user-profiles", {
@@ -43,9 +42,8 @@ test("bootstrap payload preserves consoleowner for authenticated users after use
     clearSessionCookies() {}
   });
   app.instance("consoleService", {
-    async ensureInitialConsoleMember(userId) {
-      ownerSeeds.push(String(userId || ""));
-      return String(userId || "");
+    async isConsoleOwnerUserId(userId) {
+      return String(userId || "") === profile.id;
     }
   });
 
@@ -68,7 +66,6 @@ test("bootstrap payload preserves consoleowner for authenticated users after use
     reply: {}
   });
 
-  assert.deepEqual(ownerSeeds, ["12"]);
   assert.equal(payload.session.authenticated, true);
   assert.equal(payload.session.userId, "12");
   assert.deepEqual(payload.surfaceAccess, {

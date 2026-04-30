@@ -6,6 +6,7 @@
     "test": "node --test"
   },
   "dependencies": {
+    "@jskit-ai/auth-core": "0.1.54",
     "@jskit-ai/database-runtime": "0.1.55",
     "@jskit-ai/http-runtime": "0.1.54",
     "@jskit-ai/kernel": "0.1.55",

@@ -24,6 +24,9 @@ import {
 import { createWebPlacementRuntime } from "../placement/runtime.js";
 import { useShellErrorPresentationStore } from "../stores/useShellErrorPresentationStore.js";
 import { buildSurfaceConfigContext } from "../placement/surfaceContext.js";
+import { createShellBootstrapRuntime } from "../runtime/bootstrapRuntime.js";
+import { registerBootstrapPayloadHandler } from "../bootstrap/bootstrapPayloadHandlerRegistry.js";
+import { resolveBootstrapErrorStatusCode } from "../bootstrap/bootstrapErrorStatus.js";
 
 // Keep this constant for diagnostics, but keep import() below as a literal string so Vite can statically analyze it.
 const APP_PLACEMENT_MODULE_SPECIFIER = "/src/placement.js";
@@ -229,12 +232,49 @@ class ShellWebClientProvider {
   static id = "shell.web.client";
 
   register(app) {
-    if (!app || typeof app.singleton !== "function") {
-      throw new Error("ShellWebClientProvider requires application singleton().");
+    if (!app || typeof app.singleton !== "function" || typeof app.tag !== "function") {
+      throw new Error("ShellWebClientProvider requires application singleton()/tag().");
     }
 
     const logger = createSharedProviderLogger(isRecord(app) ? app : null);
+    registerBootstrapPayloadHandler(app, "shell.web.bootstrap.surfaceAccessHandler", () =>
+      Object.freeze({
+        handlerId: "shell.web.bootstrap.surfaceAccess",
+        order: 0,
+        applyBootstrapPayload({ payload = {}, placementRuntime, source } = {}) {
+          placementRuntime.setContext(
+            {
+              surfaceAccess:
+                payload?.surfaceAccess && typeof payload.surfaceAccess === "object" ? payload.surfaceAccess : {}
+            },
+            {
+              source
+            }
+          );
+        },
+        handleBootstrapError({ error, placementRuntime, source } = {}) {
+          if (resolveBootstrapErrorStatusCode(error) !== 401) {
+            return;
+          }
+
+          placementRuntime.setContext(
+            {
+              surfaceAccess: {}
+            },
+            {
+              source
+            }
+          );
+        }
+      })
+    );
     app.singleton("runtime.web-placement.client", () => createWebPlacementRuntime({ app, logger }));
+    app.singleton("runtime.web-bootstrap.client", (scope) =>
+      createShellBootstrapRuntime({
+        app: scope,
+        logger
+      })
+    );
     app.singleton("shell.web.query-client", () => createShellWebQueryClient());
     app.singleton("runtime.web-error.presentation-store.client", () => createErrorPresentationStore());
     app.singleton("runtime.web-error.client", (scope) =>
@@ -284,6 +324,11 @@ class ShellWebClientProvider {
     const errorRuntime = app.make("runtime.web-error.client");
     const errorConfig = await loadAppErrorConfig(logger, errorRuntime);
     applyAppErrorConfig(errorRuntime, errorConfig);
+
+    const bootstrapRuntime = app.make("runtime.web-bootstrap.client");
+    if (bootstrapRuntime && typeof bootstrapRuntime.initialize === "function") {
+      await bootstrapRuntime.initialize();
+    }
 
     if (!app.has("jskit.client.vue.app")) {
       return;
