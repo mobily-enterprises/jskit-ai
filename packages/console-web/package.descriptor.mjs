@@ -50,6 +50,15 @@ export default Object.freeze({
         ],
         contributions: [
           {
+            id: "console.web.profile.menu.console",
+            target: "auth-profile-menu:primary-menu",
+            surfaces: ["*"],
+            order: 600,
+            componentToken: "auth.web.profile.menu.link-item",
+            when: "auth.authenticated === true && surfaceAccess.consoleowner === true && surface !== \"console\"",
+            source: "mutations.text#console-web-profile-menu-console-placement"
+          },
+          {
             id: "console.web.menu.settings",
             target: "shell-layout:primary-menu",
             surfaces: ["console"],
@@ -138,6 +147,17 @@ export default Object.freeze({
         reason: "Register console surface definition once console-web is installed.",
         category: "console-web",
         id: "console-web-surface-config-console"
+      },
+      {
+        op: "append-text",
+        file: "src/placement.js",
+        position: "bottom",
+        skipIfContains: "id: \"console.web.profile.menu.console\"",
+        value:
+          "\naddPlacement({\n  id: \"console.web.profile.menu.console\",\n  target: \"auth-profile-menu:primary-menu\",\n  surfaces: [\"*\"],\n  order: 600,\n  componentToken: \"auth.web.profile.menu.link-item\",\n  props: {\n    label: \"Go to console\",\n    to: \"/console\",\n    icon: \"mdi-console-network-outline\"\n  },\n  when: ({ auth, surfaceAccess, surface }) => {\n    return auth?.authenticated === true && surfaceAccess?.consoleowner === true && surface !== \"console\";\n  }\n});\n",
+        reason: "Append owner-only console navigation entry into the authenticated profile menu outside the console surface.",
+        category: "console-web",
+        id: "console-web-profile-menu-console-placement"
       },
       {
         op: "append-text",

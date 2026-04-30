@@ -214,6 +214,9 @@ Exports
 ### `src/server/providers/AuthWebServiceProvider.js`
 Exports
 - `AuthWebServiceProvider`
+Local functions
+- `parseBoolean(value, fallback = false)`
+- `resolveDevAuthBootstrapEnabled(scope)`
 
 ### `src/server/routes/authRoutes.js`
 Exports
