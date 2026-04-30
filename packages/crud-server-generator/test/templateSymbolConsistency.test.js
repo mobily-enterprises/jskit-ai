@@ -38,3 +38,19 @@ test("shared index template re-exports standardized resource symbol", async () =
     /export\s*\{\s*\$\{option:namespace\|singular\|camel\}Resource\s*\}/s
   );
 });
+
+test("shared resource template uses kernel createSchema export", async () => {
+  const sharedResourceTemplate = await readFile(
+    resolveTemplatePath("src/local-package/shared/crudResource.js"),
+    "utf8"
+  );
+
+  assert.match(
+    sharedResourceTemplate,
+    /import\s*\{\s*createSchema,\s*createCursorListValidator,\s*RECORD_ID_PATTERN\s*\}\s*from\s*"@jskit-ai\/kernel\/shared\/validators";/s
+  );
+  assert.doesNotMatch(
+    sharedResourceTemplate,
+    /from\s*"json-rest-schema";/
+  );
+});

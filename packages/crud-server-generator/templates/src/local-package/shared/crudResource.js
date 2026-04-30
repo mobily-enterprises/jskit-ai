@@ -1,5 +1,5 @@
-import { createSchema } from "json-rest-schema";
 import {
+  createSchema,
   createCursorListValidator,
   RECORD_ID_PATTERN
 } from "@jskit-ai/kernel/shared/validators";

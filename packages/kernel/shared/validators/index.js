@@ -1,3 +1,4 @@
+export { createSchema } from "json-rest-schema";
 export { normalizeObjectInput } from "./inputNormalization.js";
 export { composeSchemaDefinitions } from "./composeSchemaDefinitions.js";
 export { createCursorListValidator } from "./createCursorListValidator.js";

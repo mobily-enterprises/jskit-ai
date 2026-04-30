@@ -348,6 +348,71 @@ const resource = {
 export { resource };
 `;
 
+const TEMPORAL_RESOURCE_SOURCE = `import { createSchema } from "json-rest-schema";
+
+const recordSchema = createSchema({
+  id: { type: "integer", required: true },
+  dob: { type: "date", required: true, nullable: true },
+  appointmentAt: { type: "dateTime", required: true, nullable: true },
+  preferredTime: { type: "time", required: true, nullable: true }
+});
+
+const bodySchema = createSchema({
+  dob: { type: "date", nullable: true },
+  appointmentAt: { type: "dateTime", nullable: true },
+  preferredTime: { type: "time", nullable: true }
+});
+
+const recordListSchema = createSchema({
+  items: {
+    type: "array",
+    required: true,
+    items: recordSchema
+  },
+  nextCursor: { type: "string", nullable: true }
+});
+
+const resource = {
+  namespace: "appointments",
+  operations: {
+    list: {
+      output: {
+        schema: recordListSchema,
+        mode: "replace"
+      }
+    },
+    view: {
+      output: {
+        schema: recordSchema,
+        mode: "replace"
+      }
+    },
+    create: {
+      body: {
+        schema: bodySchema,
+        mode: "create"
+      },
+      output: {
+        schema: recordSchema,
+        mode: "replace"
+      }
+    },
+    patch: {
+      body: {
+        schema: bodySchema,
+        mode: "patch"
+      },
+      output: {
+        schema: recordSchema,
+        mode: "replace"
+      }
+    }
+  }
+};
+
+export { resource };
+`;
+
 function createOptions(overrides = {}) {
   return {
     "target-root": "admin/customers",
@@ -525,6 +590,24 @@ test("buildUiTemplateContext escapes select option bindings safely for Vue attri
       context.__JSKIT_UI_CREATE_FORM_COLUMNS__,
       /:items="\[\{&quot;value&quot;:&quot;dryer&quot;,&quot;label&quot;:&quot;Dryer&quot;\},\{&quot;value&quot;:&quot;pallet racking&quot;,&quot;label&quot;:&quot;Pallet Racking&quot;\},\{&quot;value&quot;:&quot;freezer&quot;,&quot;label&quot;:&quot;Freezer&quot;\},\{&quot;value&quot;:&quot;coolroom&quot;,&quot;label&quot;:&quot;Coolroom&quot;\}\]"/
     );
+  });
+});
+
+test("buildUiTemplateContext maps json-rest temporal cast types to date-aware form inputs", async () => {
+  await withTempApp(async (appRoot) => {
+    await writeResource(appRoot, RESOURCE_FILE, TEMPORAL_RESOURCE_SOURCE);
+
+    const context = await buildUiTemplateContext({
+      appRoot,
+      options: createOptions()
+    });
+
+    assert.match(context.__JSKIT_UI_CREATE_FORM_FIELDS__, /"key":"dob"[\s\S]*"inputType":"date"/);
+    assert.match(context.__JSKIT_UI_CREATE_FORM_FIELDS__, /"key":"appointmentAt"[\s\S]*"inputType":"datetime-local"/);
+    assert.match(context.__JSKIT_UI_CREATE_FORM_FIELDS__, /"key":"preferredTime"[\s\S]*"inputType":"time"/);
+    assert.match(context.__JSKIT_UI_CREATE_FORM_COLUMNS__, /formState\.dob[\s\S]*type="date"/);
+    assert.match(context.__JSKIT_UI_CREATE_FORM_COLUMNS__, /formState\.appointmentAt[\s\S]*type="datetime-local"/);
+    assert.match(context.__JSKIT_UI_CREATE_FORM_COLUMNS__, /formState\.preferredTime[\s\S]*type="time"/);
   });
 });
 
