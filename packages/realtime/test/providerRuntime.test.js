@@ -125,6 +125,25 @@ test("RealtimeServiceProvider boot starts socket io and shutdown closes it", asy
   await provider.shutdown(app);
 });
 
+test("RealtimeServiceProvider boot does not eagerly resolve optional auth/workspace bindings", async () => {
+  const app = createSingletonApp();
+  app.instance("jskit.fastify", {
+    server: createServer()
+  });
+  app.singleton("authService", () => {
+    throw new Error("authService should not resolve during realtime boot");
+  });
+  app.singleton("internal.repository.workspace-memberships", () => {
+    throw new Error("workspace memberships repository should not resolve during realtime boot");
+  });
+
+  const provider = new RealtimeServiceProvider();
+  provider.register(app);
+
+  await assert.doesNotReject(() => provider.boot(app));
+  await provider.shutdown(app);
+});
+
 test("RealtimeClientProvider registers runtime realtime client api", () => {
   const app = createSingletonApp();
   const provider = new RealtimeClientProvider();
