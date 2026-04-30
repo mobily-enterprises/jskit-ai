@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+import { computed, ref } from "vue";
 import {
   createWorkspaceScopeSupport,
   readWorkspaceRouteScope
@@ -7,31 +8,25 @@ import {
 
 test("readWorkspaceRouteScope extracts workspace slug from the current dynamic surface path", () => {
   const scope = readWorkspaceRouteScope({
-    placementContext: {
-      value: {
-        surfaceConfig: {
-          defaultSurfaceId: "app",
-          surfacesById: {
-            app: {
-              id: "app",
-              routeBase: "w/[workspaceSlug]",
-              requiresWorkspace: true
-            },
-            admin: {
-              id: "admin",
-              routeBase: "w/[workspaceSlug]/admin",
-              requiresWorkspace: true
-            }
+    placementContext: ref({
+      surfaceConfig: {
+        defaultSurfaceId: "app",
+        surfacesById: {
+          app: {
+            id: "app",
+            routeBase: "w/[workspaceSlug]",
+            requiresWorkspace: true
+          },
+          admin: {
+            id: "admin",
+            routeBase: "w/[workspaceSlug]/admin",
+            requiresWorkspace: true
           }
         }
       }
-    },
-    currentSurfaceId: {
-      value: "admin"
-    },
-    routePath: {
-      value: "/w/acme/admin/settings"
-    }
+    }),
+    currentSurfaceId: computed(() => "admin"),
+    routePath: computed(() => "/w/acme/admin/settings")
   });
 
   assert.deepEqual(scope, {
@@ -46,26 +41,20 @@ test("workspace scope support exposes the shared route-scope reader", () => {
   assert.equal(typeof support.readRouteScope, "function");
   assert.deepEqual(
     support.readRouteScope({
-      placementContext: {
-        value: {
-          surfaceConfig: {
-            defaultSurfaceId: "app",
-            surfacesById: {
-              app: {
-                id: "app",
-                routeBase: "w/[workspaceSlug]",
-                requiresWorkspace: true
-              }
+      placementContext: ref({
+        surfaceConfig: {
+          defaultSurfaceId: "app",
+          surfacesById: {
+            app: {
+              id: "app",
+              routeBase: "w/[workspaceSlug]",
+              requiresWorkspace: true
             }
           }
         }
-      },
-      currentSurfaceId: {
-        value: "app"
-      },
-      routePath: {
-        value: "/w/dogandgroom"
-      }
+      }),
+      currentSurfaceId: computed(() => "app"),
+      routePath: computed(() => "/w/dogandgroom")
     }),
     {
       workspaceSlug: "dogandgroom"

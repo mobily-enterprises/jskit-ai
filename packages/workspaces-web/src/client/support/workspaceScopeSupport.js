@@ -1,3 +1,4 @@
+import { unref } from "vue";
 import { getClientAppConfig } from "@jskit-ai/kernel/client";
 import { normalizeText } from "@jskit-ai/kernel/shared/support/normalize";
 import {
@@ -6,18 +7,10 @@ import {
 
 const WORKSPACES_WEB_SCOPE_SUPPORT_INJECTION_KEY = "jskit.workspaces.web.scope-support";
 
-function unwrapRefValue(value) {
-  if (value && typeof value === "object" && Object.hasOwn(value, "value")) {
-    return value.value;
-  }
-
-  return value;
-}
-
 function readWorkspaceRouteScope(routeContext = {}) {
-  const placementContext = unwrapRefValue(routeContext?.placementContext);
-  const currentSurfaceId = normalizeText(unwrapRefValue(routeContext?.currentSurfaceId)).toLowerCase();
-  const routePath = normalizeText(unwrapRefValue(routeContext?.routePath));
+  const placementContext = unref(routeContext?.placementContext);
+  const currentSurfaceId = normalizeText(unref(routeContext?.currentSurfaceId)).toLowerCase();
+  const routePath = normalizeText(unref(routeContext?.routePath));
   const workspaceSlug = extractWorkspaceSlugFromSurfacePathname(
     placementContext,
     currentSurfaceId,

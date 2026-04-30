@@ -156,6 +156,7 @@ test("registerRoutes resolves appConfig lazily when handlers run", async () => {
 
 test("registerRoutes returns clear AppError payload for pre-stream assistant failures", async () => {
   let currentAppConfig = null;
+  let capturedInput = null;
   const workspaceScopeSupport = createWorkspaceServerScopeSupport();
   const testApp = createAssistantTestApp({
     workspaceScopeSupport,
@@ -210,7 +211,8 @@ test("registerRoutes returns clear AppError payload for pre-stream assistant fai
           history: []
         }
       },
-      executeAction: async () => {
+      executeAction: async ({ input }) => {
+        capturedInput = input;
         throw new AppError(503, "Assistant provider is not configured.");
       }
     },
@@ -221,6 +223,13 @@ test("registerRoutes returns clear AppError payload for pre-stream assistant fai
   assert.deepEqual(reply.payload, {
     error: "Assistant provider is not configured.",
     code: "APP_ERROR"
+  });
+  assert.deepEqual(capturedInput, {
+    targetSurfaceId: "admin",
+    workspaceSlug: "dogandgroom",
+    messageId: "msg_1",
+    input: "hello",
+    history: []
   });
 });
 

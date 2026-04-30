@@ -140,6 +140,22 @@ function resolveRouteRequestState(
   });
 }
 
+function buildChatStreamActionInput(routeInput = {}, requestBody = {}) {
+  const actionInput = {
+    ...routeInput,
+    messageId: requestBody.messageId,
+    input: requestBody.input
+  };
+
+  for (const key of ["conversationId", "history", "clientContext"]) {
+    if (Object.prototype.hasOwnProperty.call(requestBody, key)) {
+      actionInput[key] = requestBody[key];
+    }
+  }
+
+  return actionInput;
+}
+
 function registerSettingsRoutes(
   router,
   resolveCurrentAppConfig,
@@ -338,14 +354,7 @@ function registerRuntimeRoutes(
           context: {
             surface: routeState.hostSurfaceId
           },
-          input: {
-            ...routeState.actionInput,
-            messageId: requestBody.messageId,
-            conversationId: requestBody.conversationId,
-            input: requestBody.input,
-            history: requestBody.history,
-            clientContext: requestBody.clientContext
-          },
+          input: buildChatStreamActionInput(routeState.actionInput, requestBody),
           deps: {
             streamWriter,
             abortSignal: abortController.signal
