@@ -41,5 +41,9 @@
     "@jskit-ai/uploads-image-web": "0.1.33",
     "@jskit-ai/users-core": "0.1.65",
     "vuetify": "^4.0.0"
+  },
+  "peerDependencies": {
+    "vue": "^3.5.13",
+    "vue-router": "^5.0.4"
   }
 }

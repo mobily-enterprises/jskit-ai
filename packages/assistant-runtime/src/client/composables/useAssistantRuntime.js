@@ -1,4 +1,4 @@
-import { computed, ref, watch } from "vue";
+import { computed, nextTick, ref, watch } from "vue";
 import { useQueryClient } from "@tanstack/vue-query";
 import { getClientAppConfig } from "@jskit-ai/kernel/client";
 import { normalizeObject, normalizeRecordId, normalizeText } from "@jskit-ai/kernel/shared/support/normalize";
@@ -23,6 +23,7 @@ import { useShellWebErrorRuntime } from "@jskit-ai/shell-web/client/error";
 import { usePagedCollection } from "@jskit-ai/users-web/client/composables/usePagedCollection";
 import { useSurfaceRouteContext } from "@jskit-ai/users-web/client/composables/useSurfaceRouteContext";
 import { resolveAssistantSurfaceConfig } from "../../shared/assistantSurfaces.js";
+import { insertTextAtSelection } from "../support/composerInputSupport.js";
 import { useWorkspaceWebScopeSupport } from "../support/workspaceScopeSupport.js";
 
 const DEFAULT_STREAM_TIMEOUT_MS = 120_000;
@@ -520,6 +521,23 @@ function useAssistantRuntime({ api = null, surfaceId = "" } = {}) {
   function handleInputKeydown(event) {
     if (event?.key === "Enter" && isStreaming.value) {
       event.preventDefault();
+      return;
+    }
+
+    if (event?.key === "Enter" && event?.altKey === true && event?.ctrlKey !== true && event?.metaKey !== true) {
+      event.preventDefault();
+
+      const target = event?.target;
+      const nextValue = insertTextAtSelection(input.value, target?.selectionStart, target?.selectionEnd, "\n");
+      input.value = nextValue.value;
+
+      void nextTick(() => {
+        if (!target || typeof target.setSelectionRange !== "function") {
+          return;
+        }
+
+        target.setSelectionRange(nextValue.selectionStart, nextValue.selectionEnd);
+      });
       return;
     }
 

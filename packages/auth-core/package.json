@@ -49,6 +49,7 @@
     "@jskit-ai/kernel": "0.1.55",
     "@fastify/cookie": "^11.0.2",
     "@fastify/csrf-protection": "^7.1.0",
-    "@fastify/rate-limit": "^10.3.0"
+    "@fastify/rate-limit": "^10.3.0",
+    "json-rest-schema": "1.x.x"
   }
 }

@@ -379,8 +379,21 @@ function ensureFields(fields, fallbackFields = createFieldDefinitions({})) {
   return fallbackFields;
 }
 
-function resolveViewTitleFallbackFieldKey(fields = []) {
+function resolveViewTitleFallbackFieldKey(fields = [], { recordIdFieldKey = "" } = {}) {
   const sourceFields = Array.isArray(fields) ? fields : [];
+  const normalizedRecordIdFieldKey = normalizeText(recordIdFieldKey);
+
+  for (const field of sourceFields) {
+    if (normalizeText(field?.type).toLowerCase() !== "string") {
+      continue;
+    }
+
+    const key = normalizeText(field?.key);
+    if (key && key !== normalizedRecordIdFieldKey) {
+      return key;
+    }
+  }
+
   for (const field of sourceFields) {
     if (normalizeText(field?.type).toLowerCase() !== "string") {
       continue;
@@ -508,9 +521,9 @@ async function buildUiTemplateContext({ appRoot, options } = {}) {
   let createFieldsAll = [];
   if (hasNewOperation) {
     const createOperation = requireOperation(resource, "create", { context: "crud-ui-generator" });
-    const createBodySchema = requireBodySchema(createOperation, "create", { context: "crud-ui-generator" });
+    const createInputSchema = requireBodySchema(createOperation, "create", { context: "crud-ui-generator" });
     createFieldsAll = createFormFieldDefinitions(
-      requireObjectProperties(createBodySchema, "operations.create body", { context: "crud-ui-generator" }),
+      requireObjectProperties(createInputSchema, "operations.create body", { context: "crud-ui-generator" }),
       {
         fieldContractMap,
         lookupContainerKey,
@@ -523,9 +536,9 @@ async function buildUiTemplateContext({ appRoot, options } = {}) {
   let editFieldsAll = [];
   if (hasEditOperation) {
     const patchOperation = requireOperation(resource, "patch", { context: "crud-ui-generator" });
-    const patchBodySchema = requireBodySchema(patchOperation, "patch", { context: "crud-ui-generator" });
+    const patchInputSchema = requireBodySchema(patchOperation, "patch", { context: "crud-ui-generator" });
     editFieldsAll = createFormFieldDefinitions(
-      requireObjectProperties(patchBodySchema, "operations.patch body", { context: "crud-ui-generator" }),
+      requireObjectProperties(patchInputSchema, "operations.patch body", { context: "crud-ui-generator" }),
       {
         fieldContractMap,
         lookupContainerKey,
@@ -556,9 +569,6 @@ async function buildUiTemplateContext({ appRoot, options } = {}) {
   const editFields = hasEditOperation
     ? filterDisplayFields(selectedDisplayFields, editFieldsAll)
     : [];
-  const viewTitleFallbackFieldKey = hasViewOperation
-    ? resolveViewTitleFallbackFieldKey(viewFieldsAll)
-    : "";
   const recordIdFields =
     listFieldsAll.length > 0
       ? listFieldsAll
@@ -567,6 +577,10 @@ async function buildUiTemplateContext({ appRoot, options } = {}) {
         : editFieldsAll.length > 0
           ? editFieldsAll
           : createFieldDefinitions({});
+  const recordIdFieldKey = resolveRecordIdFieldKey(recordIdFields);
+  const viewTitleFallbackFieldKey = hasViewOperation
+    ? resolveViewTitleFallbackFieldKey(viewFieldsAll, { recordIdFieldKey })
+    : "";
 
   const pageLinkTarget = hasListOperation
     ? await resolvePageLinkTargetDetails({

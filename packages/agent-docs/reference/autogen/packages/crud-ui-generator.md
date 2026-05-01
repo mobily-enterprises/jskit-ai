@@ -40,7 +40,7 @@ Local functions
 - `buildLookupFormPropDefinitions({ createFields = [], editFields = [] } = {})`
 - `filterDefaultHiddenListFields(selectedFieldKeys, fields, { recordIdFieldKey = "" } = {})`
 - `ensureFields(fields, fallbackFields = createFieldDefinitions({}))`
-- `resolveViewTitleFallbackFieldKey(fields = [])`
+- `resolveViewTitleFallbackFieldKey(fields = [], { recordIdFieldKey = "" } = {})`
 - `resolveResourceNamespace(resource = {}, pageTarget = {}, options = {})`
 - `resolveResourceLabels(namespace = "", pageTarget = {})`
 - `resolveTargetRootRelativeRoutePath(pageTarget = {})`

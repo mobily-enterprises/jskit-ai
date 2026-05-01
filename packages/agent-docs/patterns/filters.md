@@ -17,7 +17,7 @@ Default JSKIT pattern:
 1. Put shared filter definitions in the CRUD package.
    Example path: `packages/<crud>/src/shared/<crud>ListFilters.js`
 2. Build the server runtime from that module with `createCrudListFilters(...)`.
-3. Build route/action validators explicitly with `createCrudListFilterQueryField(...)` plus `createCrudListFilterQuerySchema(...)`, and use `applyQuery(...)` in the repository. There is no default validator mode or legacy route-runtime alias.
+3. Build route/action validators explicitly with `createCrudListFilterQueryField(...)` plus `createCrudListFilterQuerySchema(...)`, and use `applyQuery(...)` in the repository. There is no default validator mode or route-runtime alias.
 4. Build the client runtime from the same shared definitions with `useCrudListFilters(...)`. Presets can use static `values` or dynamic `resolveValues({ values, filters, presetKey, preset })`.
 5. Pass `listFilters.queryParams` into `useCrudList(...)`.
 6. For lookup-backed filters, use `useCrudListFilterLookups(...)` instead of hand-rolling `useList()` in each page.

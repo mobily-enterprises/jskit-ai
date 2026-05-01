@@ -477,7 +477,7 @@ test("deriveRepositoryMappingFromResource excludes custom lookup output containe
   assert.deepEqual(mapping.outputKeys, ["id", "firstName"]);
 });
 
-test("deriveRepositoryMappingFromResource rejects legacy non-schema view output definitions", () => {
+test("deriveRepositoryMappingFromResource rejects non-schema view output definitions", () => {
   const resource = {
     operations: {
       view: {
@@ -501,7 +501,7 @@ test("deriveRepositoryMappingFromResource rejects legacy non-schema view output 
   );
 });
 
-test("deriveRepositoryMappingFromResource rejects legacy non-schema create body definitions", () => {
+test("deriveRepositoryMappingFromResource rejects non-schema create body definitions", () => {
   const resource = {
     operations: {
       view: {
@@ -615,7 +615,7 @@ test("deriveRepositoryMappingFromResource ignores transport export shape and use
       actualField: "scheduled_at"
     }
   });
-  const createBodySchema = createSchema({
+  const createInputSchema = createSchema({
     title: {
       type: "string",
       required: true
@@ -626,7 +626,7 @@ test("deriveRepositoryMappingFromResource ignores transport export shape and use
       actualField: "scheduled_at"
     }
   });
-  const patchBodySchema = createSchema({
+  const patchInputSchema = createSchema({
     scheduledAt: {
       type: "dateTime",
       required: false,
@@ -645,7 +645,7 @@ test("deriveRepositoryMappingFromResource ignores transport export shape and use
       }
     }
   });
-  createBodySchema.toJsonSchema = () => ({
+  createInputSchema.toJsonSchema = () => ({
     type: "object",
     properties: {
       scheduledAt: {
@@ -653,7 +653,7 @@ test("deriveRepositoryMappingFromResource ignores transport export shape and use
       }
     }
   });
-  patchBodySchema.toJsonSchema = () => ({
+  patchInputSchema.toJsonSchema = () => ({
     type: "object",
     properties: {}
   });
@@ -668,13 +668,13 @@ test("deriveRepositoryMappingFromResource ignores transport export shape and use
       },
       create: {
         body: {
-          schema: createBodySchema,
+          schema: createInputSchema,
           mode: "create"
         }
       },
       patch: {
         body: {
-          schema: patchBodySchema,
+          schema: patchInputSchema,
           mode: "patch"
         }
       }

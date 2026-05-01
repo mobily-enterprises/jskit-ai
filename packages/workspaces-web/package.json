@@ -22,5 +22,9 @@
     "@jskit-ai/users-web": "0.1.70",
     "@jskit-ai/workspaces-core": "0.1.31",
     "vuetify": "^4.0.0"
+  },
+  "peerDependencies": {
+    "vue": "^3.5.13",
+    "vue-router": "^5.0.4"
   }
 }

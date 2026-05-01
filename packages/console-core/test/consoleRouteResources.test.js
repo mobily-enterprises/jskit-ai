@@ -75,16 +75,16 @@ test("console settings operations expose canonical validators", () => {
   }
 });
 
-test("console-core no longer uses a legacy workspace schema helper path", () => {
+test("console-core does not use workspaceRoutes.js helper path", () => {
   const testFilePath = fileURLToPath(import.meta.url);
   const packageRoot = path.resolve(path.dirname(testFilePath), "..");
-  const legacyWorkspaceRoutesFile = path.join(packageRoot, "src", "server", "common", "routes", "workspaceRoutes.js");
-  assert.equal(existsSync(legacyWorkspaceRoutesFile), false, "workspaceRoutes.js must not exist.");
+  const workspaceRoutesFilePath = path.join(packageRoot, "src", "server", "common", "routes", "workspaceRoutes.js");
+  assert.equal(existsSync(workspaceRoutesFilePath), false, "workspaceRoutes.js must not exist.");
 });
 
-test("console-core route validators do not live under a legacy shared/schema directory", () => {
+test("console-core route validators do not live under src/shared/schema", () => {
   const testFilePath = fileURLToPath(import.meta.url);
   const packageRoot = path.resolve(path.dirname(testFilePath), "..");
-  const legacySchemaDir = path.join(packageRoot, "src", "shared", "schema");
-  assert.equal(existsSync(legacySchemaDir), false, "src/shared/schema must not exist.");
+  const sharedSchemaDirPath = path.join(packageRoot, "src", "shared", "schema");
+  assert.equal(existsSync(sharedSchemaDirPath), false, "src/shared/schema must not exist.");
 });

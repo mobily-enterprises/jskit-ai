@@ -305,17 +305,20 @@ test("buildReplacementsFromSnapshot builds deterministic template replacement pa
   );
   assert.match(replacements.__JSKIT_CRUD_MIGRATION_COLUMN_LINES__, /table\.bigIncrements\("id"\)/);
   assert.match(replacements.__JSKIT_CRUD_MIGRATION_COLUMN_LINES__, /table\.string\("first_name", 160\)/);
-  assert.match(replacements.__JSKIT_CRUD_RESOURCE_OUTPUT_SCHEMA_PROPERTIES__, /updatedAt: \{/);
+  assert.equal(Object.hasOwn(replacements, "__JSKIT_CRUD_RESOURCE_OUTPUT_SCHEMA_PROPERTIES__"), false);
+  assert.equal(Object.hasOwn(replacements, "__JSKIT_CRUD_RESOURCE_CREATE_SCHEMA_PROPERTIES__"), false);
+  assert.equal(Object.hasOwn(replacements, "__JSKIT_CRUD_RESOURCE_PATCH_SCHEMA_PROPERTIES__"), false);
+  assert.match(replacements.__JSKIT_CRUD_RESOURCE_SCHEMA_PROPERTIES__, /updatedAt: \{/);
   assert.match(
-    replacements.__JSKIT_CRUD_RESOURCE_OUTPUT_SCHEMA_PROPERTIES__,
-    /id: \{\s+type: "string",\s+minLength: 1,\s+pattern: RECORD_ID_PATTERN,\s+required: true\s+\},/s
+    replacements.__JSKIT_CRUD_RESOURCE_SCHEMA_PROPERTIES__,
+    /firstName: \{[\s\S]*type: "string",[\s\S]*maxLength: 160,[\s\S]*required: true,[\s\S]*search: true,[\s\S]*output: \{ required: true \},[\s\S]*create: \{ required: true \},[\s\S]*patch: \{ required: false \}[\s\S]*\},/s
   );
-  assert.match(replacements.__JSKIT_CRUD_RESOURCE_CREATE_SCHEMA_PROPERTIES__, /firstName: \{/);
-  assert.match(replacements.__JSKIT_CRUD_RESOURCE_PATCH_SCHEMA_PROPERTIES__, /firstName: \{/);
   assert.match(
-    replacements.__JSKIT_CRUD_RESOURCE_CREATE_SCHEMA_PROPERTIES__,
-    /firstName: \{\s+type: "string",\s+maxLength: 160,\s+required: true\s+\},/s
+    replacements.__JSKIT_CRUD_RESOURCE_SCHEMA_PROPERTIES__,
+    /createdAt: \{[\s\S]*type: "dateTime",[\s\S]*default: "now\(\)",[\s\S]*storage: \{ writeSerializer: "datetime-utc" \}[\s\S]*output: \{ required: true \}[\s\S]*\},/s
   );
+  assert.doesNotMatch(replacements.__JSKIT_CRUD_RESOURCE_SCHEMA_PROPERTIES__, /^\s*id:\s*\{/m);
+  assert.doesNotMatch(replacements.__JSKIT_CRUD_RESOURCE_SCHEMA_PROPERTIES__, /pattern: RECORD_ID_PATTERN/);
   assert.match(
     replacements.__JSKIT_CRUD_JSONREST_SCHEMA_PROPERTIES__,
     /createdAt: \{[\s\S]*storage: \{ serialize: serializeNullableDateTime \}[\s\S]*\},/s
@@ -512,10 +515,10 @@ test("buildReplacementsFromSnapshot renders inline field relation metadata from 
     resolvedOwnershipFilter: "workspace_user"
   });
 
-  assert.match(replacements.__JSKIT_CRUD_RESOURCE_OUTPUT_SCHEMA_PROPERTIES__, /vetId: \{/);
+  assert.match(replacements.__JSKIT_CRUD_RESOURCE_SCHEMA_PROPERTIES__, /vetId: \{/);
   assert.match(
-    replacements.__JSKIT_CRUD_RESOURCE_OUTPUT_SCHEMA_PROPERTIES__,
-    /relation: \{ kind: "lookup", namespace: "customer-categories", valueKey: "id" \}.*ui: \{ formControl: "autocomplete" \}/s
+    replacements.__JSKIT_CRUD_RESOURCE_SCHEMA_PROPERTIES__,
+    /relation: \{ kind: "lookup", namespace: "customer-categories", valueKey: "id" \}.*belongsTo: "customerCategories".*as: "vet".*ui: \{ formControl: "autocomplete" \}/s
   );
   assert.match(replacements.__JSKIT_CRUD_MIGRATION_FOREIGN_KEY_LINES__, /table\.foreign\(\["vet_id"\]/);
 });
@@ -555,11 +558,11 @@ test("buildReplacementsFromSnapshot renders inline enum field ui options as sele
     resolvedOwnershipFilter: "public"
   });
 
-  assert.match(replacements.__JSKIT_CRUD_RESOURCE_CREATE_SCHEMA_PROPERTIES__, /temperament: \{/);
-  assert.match(replacements.__JSKIT_CRUD_RESOURCE_CREATE_SCHEMA_PROPERTIES__, /ui: \{ formControl: "select"/);
-  assert.match(replacements.__JSKIT_CRUD_RESOURCE_CREATE_SCHEMA_PROPERTIES__, /options: \[/);
-  assert.match(replacements.__JSKIT_CRUD_RESOURCE_CREATE_SCHEMA_PROPERTIES__, /"value":"friendly_excitable"/);
-  assert.match(replacements.__JSKIT_CRUD_RESOURCE_CREATE_SCHEMA_PROPERTIES__, /"label":"Friendly Excitable"/);
+  assert.match(replacements.__JSKIT_CRUD_RESOURCE_SCHEMA_PROPERTIES__, /temperament: \{/);
+  assert.match(replacements.__JSKIT_CRUD_RESOURCE_SCHEMA_PROPERTIES__, /ui: \{ formControl: "select"/);
+  assert.match(replacements.__JSKIT_CRUD_RESOURCE_SCHEMA_PROPERTIES__, /options: \[/);
+  assert.match(replacements.__JSKIT_CRUD_RESOURCE_SCHEMA_PROPERTIES__, /"value":"friendly_excitable"/);
+  assert.match(replacements.__JSKIT_CRUD_RESOURCE_SCHEMA_PROPERTIES__, /"label":"Friendly Excitable"/);
 });
 
 test("renderMigrationColumnLine ignores SQL NULL string defaults", () => {
@@ -724,7 +727,7 @@ test("buildReplacementsFromSnapshot preserves custom collations, hash unique ind
   );
 });
 
-test("resolveScaffoldColumns derives resource numeric bounds from check constraints", () => {
+test("resolveScaffoldColumns derives canonical resource numeric bounds from check constraints", () => {
   const snapshot = createSnapshot({
     tableName: "batch_receivals",
     hasWorkspaceIdColumn: false,
@@ -849,25 +852,25 @@ test("resolveScaffoldColumns derives resource numeric bounds from check constrai
   const moistureLevel = scaffoldColumns.find((column) => column.name === "moisture_level");
   const severity = scaffoldColumns.find((column) => column.name === "severity");
 
-  assert.equal(
-    __testables.renderResourceFieldSchema(inputWeight),
-    "{\n  type: \"number\",\n  min: 0.001,\n  required: true\n}"
+  assert.match(
+    __testables.renderCanonicalResourceFieldSchema(inputWeight),
+    /type: "number".*min: 0.001.*required: true.*search: true.*create: \{ required: true \}/s
   );
-  assert.equal(
-    __testables.renderResourceFieldSchema(batchedDailySequence),
-    "{\n  type: \"integer\",\n  min: 1,\n  required: true\n}"
+  assert.match(
+    __testables.renderCanonicalResourceFieldSchema(batchedDailySequence),
+    /type: "integer".*min: 1.*required: true.*search: true.*create: \{ required: true \}/s
   );
-  assert.equal(
-    __testables.renderResourceFieldSchema(moistureLevel),
-    "{\n  type: \"number\",\n  min: 0,\n  max: 100,\n  required: false,\n  nullable: true\n}"
+  assert.match(
+    __testables.renderCanonicalResourceFieldSchema(moistureLevel),
+    /type: "number".*min: 0.*max: 100.*nullable: true.*search: true.*create: \{ required: false \}/s
   );
-  assert.equal(
-    __testables.renderResourceFieldSchema(severity),
-    "{\n  type: \"integer\",\n  min: 1,\n  max: 10,\n  required: false,\n  nullable: true\n}"
+  assert.match(
+    __testables.renderCanonicalResourceFieldSchema(severity),
+    /type: "integer".*min: 1.*max: 10.*nullable: true.*search: true.*create: \{ required: false \}/s
   );
 });
 
-test("buildReplacementsFromSnapshot normalizes nullable temporal inputs without invalid date errors", () => {
+test("buildReplacementsFromSnapshot renders canonical nullable temporal fields without invalid date errors", () => {
   const snapshot = createSnapshot({
     hasWorkspaceIdColumn: false,
     hasUserIdColumn: false
@@ -937,16 +940,16 @@ test("buildReplacementsFromSnapshot normalizes nullable temporal inputs without 
   });
 
   assert.match(
-    replacements.__JSKIT_CRUD_RESOURCE_CREATE_SCHEMA_PROPERTIES__,
-    /scheduledAt: \{\s+type: "dateTime",\s+required: false,\s+nullable: true\s+\},/s
+    replacements.__JSKIT_CRUD_RESOURCE_SCHEMA_PROPERTIES__,
+    /scheduledAt: \{[\s\S]*type: "dateTime",[\s\S]*nullable: true,[\s\S]*storage: \{ writeSerializer: "datetime-utc" \},[\s\S]*create: \{ required: false \}[\s\S]*\},/s
   );
   assert.match(
-    replacements.__JSKIT_CRUD_RESOURCE_CREATE_SCHEMA_PROPERTIES__,
-    /birthDate: \{\s+type: "date",\s+required: false,\s+nullable: true\s+\},/s
+    replacements.__JSKIT_CRUD_RESOURCE_SCHEMA_PROPERTIES__,
+    /birthDate: \{[\s\S]*type: "date",[\s\S]*nullable: true,[\s\S]*create: \{ required: false \}[\s\S]*\},/s
   );
   assert.match(
-    replacements.__JSKIT_CRUD_RESOURCE_CREATE_SCHEMA_PROPERTIES__,
-    /preferredTime: \{\s+type: "time",\s+required: false,\s+nullable: true\s+\},/s
+    replacements.__JSKIT_CRUD_RESOURCE_SCHEMA_PROPERTIES__,
+    /preferredTime: \{[\s\S]*type: "time",[\s\S]*nullable: true,[\s\S]*create: \{ required: false \}[\s\S]*\},/s
   );
 });
 
@@ -1052,7 +1055,7 @@ test("crud generator renders time columns with html-time-compatible schemas", as
   assert.doesNotMatch(templateSource, /HTML_TIME_STRING_SCHEMA|NULLABLE_HTML_TIME_STRING_SCHEMA/);
 });
 
-test("buildReplacementsFromSnapshot uses shared framework time schemas in generated resources", () => {
+test("buildReplacementsFromSnapshot renders canonical nullable time fields", () => {
   const snapshot = createSnapshot({
     tableName: "opening_hours"
   });
@@ -1083,16 +1086,12 @@ test("buildReplacementsFromSnapshot uses shared framework time schemas in genera
   });
 
   assert.match(
-    replacements.__JSKIT_CRUD_RESOURCE_OUTPUT_SCHEMA_PROPERTIES__,
-    /fromTime: \{\s+type: "time",\s+required: true,\s+nullable: true\s+\},/s
-  );
-  assert.match(
-    replacements.__JSKIT_CRUD_RESOURCE_CREATE_SCHEMA_PROPERTIES__,
-    /fromTime: \{\s+type: "time",\s+required: false,\s+nullable: true\s+\},/s
+    replacements.__JSKIT_CRUD_RESOURCE_SCHEMA_PROPERTIES__,
+    /fromTime: \{[\s\S]*type: "time",[\s\S]*nullable: true,[\s\S]*output: \{ required: true \},[\s\S]*create: \{ required: false \},[\s\S]*patch: \{ required: false \}[\s\S]*\},/s
   );
 });
 
-test("buildReplacementsFromSnapshot imports only the non-nullable time schema when nullable time fields are absent", () => {
+test("buildReplacementsFromSnapshot renders canonical non-nullable time fields", () => {
   const snapshot = createSnapshot({
     tableName: "opening_hours"
   });
@@ -1123,50 +1122,8 @@ test("buildReplacementsFromSnapshot imports only the non-nullable time schema wh
   });
 
   assert.match(
-    replacements.__JSKIT_CRUD_RESOURCE_OUTPUT_SCHEMA_PROPERTIES__,
-    /fromTime: \{\s+type: "time",\s+required: true\s+\},/s
-  );
-  assert.match(
-    replacements.__JSKIT_CRUD_RESOURCE_CREATE_SCHEMA_PROPERTIES__,
-    /fromTime: \{\s+type: "time",\s+required: true\s+\},/s
-  );
-});
-
-test("buildReplacementsFromSnapshot only imports record-id validator helpers that the resource actually uses", () => {
-  const snapshot = createSnapshot({
-    tableName: "pollen_types",
-    columns: [
-      {
-        name: "id",
-        dataType: "bigint",
-        columnType: "bigint unsigned",
-        nullable: false,
-        key: "id"
-      },
-      {
-        name: "name",
-        dataType: "varchar",
-        columnType: "varchar(32)",
-        nullable: false,
-        maxLength: 32,
-        key: "name"
-      }
-    ]
-  });
-
-  const replacements = __testables.buildReplacementsFromSnapshot({
-    namespace: "pollen-types",
-    snapshot,
-    resolvedOwnershipFilter: "public"
-  });
-
-  assert.match(
-    replacements.__JSKIT_CRUD_RESOURCE_OUTPUT_SCHEMA_PROPERTIES__,
-    /id: \{\s+type: "string",\s+minLength: 1,\s+pattern: RECORD_ID_PATTERN,\s+required: true\s+\},/s
-  );
-  assert.doesNotMatch(
-    replacements.__JSKIT_CRUD_RESOURCE_CREATE_SCHEMA_PROPERTIES__,
-    /pattern: RECORD_ID_PATTERN/
+    replacements.__JSKIT_CRUD_RESOURCE_SCHEMA_PROPERTIES__,
+    /fromTime: \{[\s\S]*type: "time",[\s\S]*required: true,[\s\S]*output: \{ required: true \},[\s\S]*create: \{ required: true \},[\s\S]*patch: \{ required: false \}[\s\S]*\},/s
   );
 });
 

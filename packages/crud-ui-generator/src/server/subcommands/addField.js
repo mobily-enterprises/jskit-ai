@@ -149,17 +149,17 @@ function resolveOperationFields(resource, operationName) {
 
   if (operationName === "new") {
     const createOperation = requireOperation(resource, "create", { context: "crud-ui-generator field" });
-    const createBodySchema = requireBodySchema(createOperation, "create", { context: "crud-ui-generator field" });
+    const createInputSchema = requireBodySchema(createOperation, "create", { context: "crud-ui-generator field" });
     return createFormFieldDefinitions(
-      requireObjectProperties(createBodySchema, "operations.create body", { context: "crud-ui-generator field" }),
+      requireObjectProperties(createInputSchema, "operations.create body", { context: "crud-ui-generator field" }),
       { fieldContractMap, lookupContainerKey }
     );
   }
 
   const patchOperation = requireOperation(resource, "patch", { context: "crud-ui-generator field" });
-  const patchBodySchema = requireBodySchema(patchOperation, "patch", { context: "crud-ui-generator field" });
+  const patchInputSchema = requireBodySchema(patchOperation, "patch", { context: "crud-ui-generator field" });
   return createFormFieldDefinitions(
-    requireObjectProperties(patchBodySchema, "operations.patch body", { context: "crud-ui-generator field" }),
+    requireObjectProperties(patchInputSchema, "operations.patch body", { context: "crud-ui-generator field" }),
     { fieldContractMap, lookupContainerKey }
   );
 }

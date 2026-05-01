@@ -473,20 +473,20 @@ test("service tool catalog uses action-backed schemas for tool contracts", () =>
   assert.deepEqual(toolSet.tools[0].outputSchema, outputSchema.toJsonSchema({ mode: "replace" }));
 });
 
-test("service tool catalog rejects legacy assistantTool field at assistant layer", () => {
+test("service tool catalog rejects unsupported assistantTool field at assistant layer", () => {
   const app = createApp();
   const actionRuntimeProvider = new ActionRuntimeServiceProvider();
   actionRuntimeProvider.register(app);
 
   app.service(
-    "demo.legacy_assistant.service",
+    "demo.assistant_tool_shape.service",
     () => ({
-      createLegacy(input = {}) {
+      createWithAssistantToolField(input = {}) {
         return {
           ok: Boolean(input)
         };
       },
-      createModern(input = {}) {
+      createWithAssistantExtension(input = {}) {
         return {
           ok: Boolean(input)
         };
@@ -499,7 +499,7 @@ test("service tool catalog rejects legacy assistantTool field at assistant layer
 
   app.actions([
     {
-      id: "demo.legacy_assistant.create",
+      id: "demo.assistant_tool_shape.create",
       domain: "demo",
       version: 1,
       kind: "command",
@@ -509,7 +509,7 @@ test("service tool catalog rejects legacy assistantTool field at assistant layer
         require: "authenticated"
       },
       dependencies: {
-        legacyAssistantService: "demo.legacy_assistant.service"
+        assistantToolShapeService: "demo.assistant_tool_shape.service"
       },
       input: {
         schema
@@ -519,18 +519,18 @@ test("service tool catalog rejects legacy assistantTool field at assistant layer
       },
       idempotency: "optional",
       audit: {
-        actionName: "demo.legacy_assistant.create"
+        actionName: "demo.assistant_tool_shape.create"
       },
       observability: {},
       assistantTool: {
-        description: "Legacy assistant tool metadata."
+        description: "Unsupported assistant tool metadata."
       },
       async execute(input, _context, deps) {
-        return deps.legacyAssistantService.createLegacy(input);
+        return deps.assistantToolShapeService.createWithAssistantToolField(input);
       }
     },
     {
-      id: "demo.modern_assistant.create",
+      id: "demo.assistant_extension_shape.create",
       domain: "demo",
       version: 1,
       kind: "command",
@@ -540,7 +540,7 @@ test("service tool catalog rejects legacy assistantTool field at assistant layer
         require: "authenticated"
       },
       dependencies: {
-        legacyAssistantService: "demo.legacy_assistant.service"
+        assistantToolShapeService: "demo.assistant_tool_shape.service"
       },
       input: {
         schema
@@ -550,16 +550,16 @@ test("service tool catalog rejects legacy assistantTool field at assistant layer
       },
       idempotency: "optional",
       audit: {
-        actionName: "demo.modern_assistant.create"
+        actionName: "demo.assistant_extension_shape.create"
       },
       observability: {},
       extensions: {
         assistant: {
-          description: "Modern assistant extension metadata."
+          description: "Assistant extension metadata."
         }
       },
       async execute(input, _context, deps) {
-        return deps.legacyAssistantService.createModern(input);
+        return deps.assistantToolShapeService.createWithAssistantExtension(input);
       }
     }
   ]);
@@ -573,7 +573,7 @@ test("service tool catalog rejects legacy assistantTool field at assistant layer
   });
   const actionIds = toolSet.tools.map((tool) => tool.actionId).sort();
 
-  assert.deepEqual(actionIds, ["demo.modern_assistant.create"]);
+  assert.deepEqual(actionIds, ["demo.assistant_extension_shape.create"]);
 });
 
 test("service tool catalog can require input/output schemas for tool exposure", () => {

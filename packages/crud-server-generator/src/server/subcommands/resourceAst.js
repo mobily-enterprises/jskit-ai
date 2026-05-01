@@ -112,69 +112,40 @@ function requireVariableDeclarator(programNode, variableName = "", context = "cr
   throw new Error(`${context} could not find const ${variableName}.`);
 }
 
-function requireCreateSchemaFieldsObject(programNode, variableName = "", context = "crud-server-generator scaffold-field") {
-  const declaration = requireVariableDeclarator(programNode, variableName, context);
+function requireCrudResourceConfigObject(programNode, context = "crud-server-generator scaffold-field") {
+  const declaration = requireVariableDeclarator(programNode, "resource", context);
   const initExpression = declaration.init;
   if (!n.CallExpression.check(initExpression)) {
-    throw new Error(`${context} expected ${variableName} to be initialized with createSchema(...).`);
+    throw new Error(
+      `${context} requires resource files authored as const resource = defineCrudResource({ ... }).`
+    );
   }
-  if (!n.Identifier.check(initExpression.callee) || initExpression.callee.name !== "createSchema") {
-    throw new Error(`${context} expected ${variableName} to call createSchema(...).`);
+  if (!n.Identifier.check(initExpression.callee) || initExpression.callee.name !== "defineCrudResource") {
+    throw new Error(
+      `${context} requires resource files authored as const resource = defineCrudResource({ ... }).`
+    );
   }
 
   const firstArgument = initExpression.arguments?.[0];
   if (!n.ObjectExpression.check(firstArgument)) {
-    throw new Error(`${context} expected ${variableName} createSchema first argument to be an object literal.`);
+    throw new Error(
+      `${context} requires defineCrudResource(...) to receive an inline object literal.`
+    );
   }
 
   return firstArgument;
 }
 
-function unwrapObjectExpression(expressionNode, context = "crud-server-generator scaffold-field") {
-  if (n.ObjectExpression.check(expressionNode)) {
-    return expressionNode;
-  }
-
-  if (n.CallExpression.check(expressionNode)) {
-    const callee = expressionNode.callee;
-    const isFreezeCall =
-      (n.Identifier.check(callee) && callee.name === "deepFreeze") ||
-      (n.Identifier.check(callee) && callee.name === "defineCrudResource") ||
-      (
-        n.MemberExpression.check(callee) &&
-        !callee.computed &&
-        n.Identifier.check(callee.object) &&
-        callee.object.name === "Object" &&
-        n.Identifier.check(callee.property) &&
-        callee.property.name === "freeze"
-      );
-
-    if (isFreezeCall && n.ObjectExpression.check(expressionNode.arguments?.[0])) {
-      return expressionNode.arguments[0];
-    }
-  }
-
-  throw new Error(`${context} expected object literal or freeze-wrapped object literal.`);
-}
-
-function requireResourceObject(programNode, variableName = "resource", context = "crud-server-generator scaffold-field") {
-  const declaration = requireVariableDeclarator(programNode, variableName, context);
-  return unwrapObjectExpression(declaration.init, context);
-}
-
-function resolveResourceSchemaObject(programNode, context = "crud-server-generator scaffold-field") {
-  const resourceSchemaDeclaration = findVariableDeclarator(programNode, "resourceSchema");
-  if (resourceSchemaDeclaration) {
-    return unwrapObjectExpression(resourceSchemaDeclaration.init, context);
-  }
-
-  const resourceObject = requireResourceObject(programNode, "resource", context);
+function requireResourceSchemaObject(programNode, context = "crud-server-generator scaffold-field") {
+  const resourceObject = requireCrudResourceConfigObject(programNode, context);
   const schemaProperty = findObjectPropertyByName(resourceObject, "schema");
-  if (!schemaProperty || !schemaProperty.value) {
-    throw new Error(`${context} could not find resource schema object.`);
+  if (!schemaProperty || !n.ObjectExpression.check(schemaProperty.value)) {
+    throw new Error(
+      `${context} requires defineCrudResource({ ..., schema: { ... } }) with an inline schema object literal.`
+    );
   }
 
-  return unwrapObjectExpression(schemaProperty.value, `${context} resource.schema`);
+  return schemaProperty.value;
 }
 
 function findObjectPropertyByName(objectNode, propertyName = "") {
@@ -260,7 +231,7 @@ function resolveObjectPropertyStringValue(objectNode, propertyName = "") {
 
 function resolveCrudResourceDefaults(source = "", context = "crud-server-generator scaffold-field") {
   const ast = parseModule(source, context);
-  const resourceObject = requireResourceObject(ast.program, "resource", context);
+  const resourceObject = requireCrudResourceConfigObject(ast.program, context);
   const tableName = resolveObjectPropertyStringValue(resourceObject, "tableName");
   if (!tableName) {
     throw new Error(`${context} could not resolve resource tableName from resource object literal.`);
@@ -277,9 +248,6 @@ function applyCrudResourceFieldPatch(
   {
     fieldKey = "",
     resourceSchemaExpression = "",
-    outputSchemaExpression = "",
-    createSchemaExpression = "",
-    patchSchemaExpression = "",
     context = "crud-server-generator scaffold-field"
   } = {}
 ) {
@@ -288,63 +256,18 @@ function applyCrudResourceFieldPatch(
     throw new Error(`${context} apply patch requires fieldKey.`);
   }
   const hasCanonicalFieldExpression = Boolean(normalizeText(resourceSchemaExpression));
-  const hasLegacyFieldExpressions =
-    Boolean(normalizeText(outputSchemaExpression)) &&
-    Boolean(normalizeText(createSchemaExpression)) &&
-    Boolean(normalizeText(patchSchemaExpression));
-
-  if (!hasCanonicalFieldExpression && !hasLegacyFieldExpressions) {
+  if (!hasCanonicalFieldExpression) {
     throw new Error(
-      `${context} apply patch requires resourceSchemaExpression or output/create/patch schema expressions.`
+      `${context} apply patch requires resourceSchemaExpression.`
     );
   }
 
   const ast = parseModule(source, context);
   const programNode = ast.program;
-  let changed = false;
-
-  const hasCanonicalResourceSchema =
-    Boolean(findVariableDeclarator(programNode, "resourceSchema")) ||
-    Boolean(findObjectPropertyByName(requireResourceObject(programNode, "resource", context), "schema"));
-  if (hasCanonicalResourceSchema) {
-    if (!hasCanonicalFieldExpression) {
-      throw new Error(`${context} resourceSchema patch requires resourceSchemaExpression.`);
-    }
-
-    const resourceSchemaObject = resolveResourceSchemaObject(programNode, context);
-    changed =
-      insertObjectProperty(resourceSchemaObject, normalizedFieldKey, resourceSchemaExpression, {
-        context
-      }) || changed;
-
-    return {
-      changed,
-      content: changed ? recast.print(ast, { reuseWhitespace: true }).code : String(source || "")
-    };
-  }
-
-  if (!hasLegacyFieldExpressions) {
-    throw new Error(`${context} legacy resource patch requires output/create/patch schema expressions.`);
-  }
-
-  const recordOutputSchemaObject = requireCreateSchemaFieldsObject(programNode, "recordOutputSchema", context);
-  changed =
-    insertObjectProperty(recordOutputSchemaObject, normalizedFieldKey, outputSchemaExpression, {
-      context,
-      insertBeforeComputed: true
-    }) || changed;
-
-  const createBodySchemaObject = requireCreateSchemaFieldsObject(programNode, "createBodySchema", context);
-  changed =
-    insertObjectProperty(createBodySchemaObject, normalizedFieldKey, createSchemaExpression, {
-      context
-    }) || changed;
-
-  const patchBodySchemaObject = requireCreateSchemaFieldsObject(programNode, "patchBodySchema", context);
-  changed =
-    insertObjectProperty(patchBodySchemaObject, normalizedFieldKey, patchSchemaExpression, {
-      context
-    }) || changed;
+  const resourceSchemaObject = requireResourceSchemaObject(programNode, context);
+  const changed = insertObjectProperty(resourceSchemaObject, normalizedFieldKey, resourceSchemaExpression, {
+    context
+  });
 
   return {
     changed,

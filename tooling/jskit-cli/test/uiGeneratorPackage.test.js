@@ -157,67 +157,47 @@ async function writeCustomerResource(appRoot, { includeResourceNamespace = true 
   await mkdir(path.dirname(resourceFile), { recursive: true });
   await writeFile(
     resourceFile,
-    `import { createSchema } from "json-rest-schema";
+    `import { defineCrudResource } from "@jskit-ai/resource-crud-core/shared/crudResource";
 
-const customerRecordSchema = createSchema({
-  id: { type: "integer", required: true },
-  firstName: { type: "string", required: true },
-  email: { type: "string", required: true },
-  vip: { type: "boolean", required: true }
-});
-
-const customerBodySchema = createSchema({
-  firstName: { type: "string", maxLength: 120 },
-  email: { type: "string", maxLength: 160 },
-  vip: { type: "boolean" }
-});
-
-const customerListOutputSchema = createSchema({
-  items: {
-    type: "array",
-    required: true,
-    items: customerRecordSchema
-  },
-  nextCursor: { type: "string", nullable: true }
-});
-
-const resource = Object.freeze({
-${includeResourceNamespace ? '  namespace: "customers",\n' : ""}  operations: {
-    list: {
-      output: {
-        schema: customerListOutputSchema,
-        mode: "replace"
+const canonicalResource = defineCrudResource({
+  namespace: "customers",
+  tableName: "customers",
+  schema: {
+    firstName: {
+      type: "string",
+      required: true,
+      maxLength: 120,
+      operations: {
+        output: { required: true },
+        create: { required: false },
+        patch: { required: false }
       }
     },
-    view: {
-      output: {
-        schema: customerRecordSchema,
-        mode: "replace"
+    email: {
+      type: "string",
+      required: true,
+      maxLength: 160,
+      operations: {
+        output: { required: true },
+        create: { required: false },
+        patch: { required: false }
       }
     },
-    create: {
-      body: {
-        schema: customerBodySchema,
-        mode: "create"
-      },
-      output: {
-        schema: customerRecordSchema,
-        mode: "replace"
-      }
-    },
-    patch: {
-      body: {
-        schema: customerBodySchema,
-        mode: "patch"
-      },
-      output: {
-        schema: customerRecordSchema,
-        mode: "replace"
+    vip: {
+      type: "boolean",
+      required: true,
+      operations: {
+        output: { required: true },
+        create: { required: false },
+        patch: { required: false }
       }
     }
-  }
+  },
+  crudOperations: ["list", "view", "create", "patch"]
 });
 
+const resource = ${includeResourceNamespace ? "canonicalResource" : "{ ...canonicalResource }"};
+${includeResourceNamespace ? "" : "delete resource.namespace;\n"}
 export { resource };
 `,
     "utf8"

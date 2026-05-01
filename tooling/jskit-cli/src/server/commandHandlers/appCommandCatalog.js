@@ -5,7 +5,7 @@ const APP_SCRIPT_WRAPPERS = Object.freeze({
   release: "jskit app release"
 });
 
-const LEGACY_APP_SCRIPT_VALUES = Object.freeze({
+const COPIED_APP_SCRIPT_VALUES = Object.freeze({
   verify: Object.freeze([
     "npm run lint && npm run test && npm run test:client && npm run build && npx jskit doctor"
   ]),
@@ -20,7 +20,7 @@ const LEGACY_APP_SCRIPT_VALUES = Object.freeze({
   ])
 });
 
-const LEGACY_APP_SCRIPT_FILES = Object.freeze([
+const COPIED_APP_SCRIPT_FILES = Object.freeze([
   "scripts/update-jskit-packages.sh",
   "scripts/link-local-jskit-packages.sh",
   "scripts/release.sh"
@@ -120,7 +120,7 @@ const APP_COMMAND_DEFINITIONS = Object.freeze({
   }),
   "adopt-managed-scripts": Object.freeze({
     name: "adopt-managed-scripts",
-    summary: "Rewrite legacy scaffolded maintenance scripts to the modern jskit app wrappers.",
+    summary: "Rewrite copied scaffolded maintenance scripts to the managed jskit app wrappers.",
     usage: "jskit app adopt-managed-scripts [--dry-run] [--force]",
     options: Object.freeze([
       Object.freeze({
@@ -129,13 +129,13 @@ const APP_COMMAND_DEFINITIONS = Object.freeze({
       }),
       Object.freeze({
         label: "--force",
-        description: "Replace customized script values too, and remove the legacy copied maintenance scripts if they exist."
+        description: "Replace customized script values too, and remove copied maintenance scripts if they exist."
       })
     ]),
     defaults: Object.freeze([
       "Known scaffolded script values are rewritten automatically.",
       "Customized script values are reported and left alone unless --force is used.",
-      "This command is the migration path for existing apps that still carry copied JSKIT maintenance scripts."
+      "This command is for apps that still carry copied JSKIT maintenance scripts."
     ])
   })
 });
@@ -190,8 +190,8 @@ function buildAppCommandOptionMeta(subcommandName = "") {
 
 export {
   APP_SCRIPT_WRAPPERS,
-  LEGACY_APP_SCRIPT_VALUES,
-  LEGACY_APP_SCRIPT_FILES,
+  COPIED_APP_SCRIPT_VALUES,
+  COPIED_APP_SCRIPT_FILES,
   APP_COMMAND_DEFINITIONS,
   listAppCommandDefinitions,
   resolveAppCommandDefinition,

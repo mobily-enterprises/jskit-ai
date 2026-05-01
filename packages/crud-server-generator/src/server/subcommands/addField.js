@@ -5,7 +5,6 @@ import { toCamelCase } from "@jskit-ai/kernel/shared/support/stringCase";
 import {
   resolveGenerationSnapshot,
   resolveScaffoldColumns,
-  renderResourceFieldSchema,
   renderCanonicalResourceFieldSchema,
   buildFieldContractEntries
 } from "../buildTemplateContext.js";
@@ -143,29 +142,13 @@ async function runGeneratorSubcommand({
   }
 
   const fieldContractEntry = buildFieldContractEntry(snapshot, column);
-  const outputSchemaExpression = renderResourceFieldSchema(column, {
-    forOutput: true,
-    fieldContractEntry
-  });
-  const patchSchemaExpression = renderResourceFieldSchema(column, {
-    forOutput: false,
-    mode: "patch",
-    fieldContractEntry
-  });
   const resourceSchemaExpression = renderCanonicalResourceFieldSchema(column, {
-    fieldContractEntry
-  });
-  const createSchemaExpressionWithMetadata = renderResourceFieldSchema(column, {
-    forOutput: false,
     fieldContractEntry
   });
 
   const applied = applyCrudResourceFieldPatch(originalSource, {
     fieldKey,
-    resourceSchemaExpression,
-    createSchemaExpression: createSchemaExpressionWithMetadata,
-    outputSchemaExpression,
-    patchSchemaExpression,
+    resourceSchemaExpression
   });
 
   if (applied.changed && dryRun !== true) {

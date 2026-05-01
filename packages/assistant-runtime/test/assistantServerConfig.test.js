@@ -5,7 +5,7 @@ import {
   resolveAssistantServerConfig
 } from "../src/server/support/assistantServerConfig.js";
 
-test("assistant server config resolves per-surface AI config without legacy global fallback", () => {
+test("assistant server config resolves per-surface AI config without app-level global fallback", () => {
   const appConfig = {
     assistantServer: {
       admin: {
@@ -21,14 +21,14 @@ test("assistant server config resolves per-surface AI config without legacy glob
     },
     assistant: {
       provider: "openai",
-      apiKey: "legacy-key"
+      apiKey: "global-key"
     }
   };
   const env = {
     ADMIN_ASSISTANT_AI_PROVIDER: "deepseek",
     ADMIN_ASSISTANT_AI_API_KEY: "surface-key",
     AI_PROVIDER: "openai",
-    AI_API_KEY: "legacy-env-key"
+    AI_API_KEY: "global-env-key"
   };
 
   assert.deepEqual(resolveAssistantServerConfig(appConfig, "admin"), {
@@ -62,7 +62,7 @@ test("assistant server config requires explicit aiConfigPrefix for each surface"
           appConfig: {},
           env: {
             AI_PROVIDER: "anthropic",
-            AI_API_KEY: "legacy-env-key"
+            AI_API_KEY: "global-env-key"
           }
         },
         "admin"

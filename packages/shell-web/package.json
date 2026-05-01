@@ -28,5 +28,9 @@
     "@jskit-ai/kernel": "0.1.55",
     "pinia": "^3.0.4",
     "vuetify": "^4.0.0"
+  },
+  "peerDependencies": {
+    "vue": "^3.5.13",
+    "vue-router": "^5.0.4"
   }
 }

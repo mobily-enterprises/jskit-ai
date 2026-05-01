@@ -899,32 +899,44 @@ Use these rules:
 Example field metadata:
 
 ```js
-const recordOutputSchema = createSchema({
-  createdAt: {
-    type: "dateTime",
-    required: true,
-    actualField: "created_at"
-  }
-});
+import { defineCrudResource } from "@jskit-ai/resource-crud-core/shared/crudResource";
 
-const createBodySchema = createSchema({
-  arrivalDatetime: {
-    type: "dateTime",
-    required: true,
-    storage: {
-      writeSerializer: "datetime-utc"
+const resource = defineCrudResource({
+  namespace: "receivals",
+  tableName: "receivals",
+  schema: {
+    createdAt: {
+      type: "dateTime",
+      required: true,
+      actualField: "created_at",
+      operations: {
+        output: { required: true }
+      }
+    },
+    arrivalDatetime: {
+      type: "dateTime",
+      required: true,
+      storage: {
+        writeSerializer: "datetime-utc"
+      },
+      operations: {
+        output: { required: true },
+        create: { required: true },
+        patch: { required: false }
+      }
+    },
+    remainingBatchWeight: {
+      type: "number",
+      required: true,
+      storage: {
+        virtual: true
+      },
+      operations: {
+        output: { required: true }
+      }
     }
-  }
-});
-
-const readModelSchema = createSchema({
-  remainingBatchWeight: {
-    type: "number",
-    required: true,
-    storage: {
-      virtual: true
-    }
-  }
+  },
+  crudOperations: ["list", "view", "create", "patch"]
 });
 ```
 
@@ -1133,7 +1145,7 @@ const contactsListFiltersRuntime = createCrudListFilters(
 );
 ```
 
-There is no default query-validator mode or legacy route-runtime alias. Keep the filter runtime for repository semantics, but author route/action query params explicitly.
+There is no default query-validator mode or route-runtime alias. Keep the filter runtime for repository semantics, but author route/action query params explicitly.
 
 Strict contract example:
 

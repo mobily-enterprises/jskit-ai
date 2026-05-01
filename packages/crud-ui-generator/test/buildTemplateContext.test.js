@@ -9,17 +9,31 @@ import { buildUiTemplateContext } from "../src/server/buildTemplateContext.js";
 const JSON_REST_SCHEMA_PACKAGE_DIR = path.dirname(
   fileURLToPath(new URL("../../../node_modules/json-rest-schema/package.json", import.meta.url))
 );
+const KERNEL_PACKAGE_DIR = path.dirname(
+  fileURLToPath(new URL("../../kernel/package.json", import.meta.url))
+);
+const RESOURCE_CORE_PACKAGE_DIR = path.dirname(
+  fileURLToPath(new URL("../../resource-core/package.json", import.meta.url))
+);
+const RESOURCE_CRUD_CORE_PACKAGE_DIR = path.dirname(
+  fileURLToPath(new URL("../../resource-crud-core/package.json", import.meta.url))
+);
 
 async function linkTestPackage(appRoot, packageName, packageDir) {
   const nodeModulesDir = path.join(appRoot, "node_modules");
+  const targetPath = path.join(nodeModulesDir, packageName);
   await mkdir(nodeModulesDir, { recursive: true });
-  await symlink(packageDir, path.join(nodeModulesDir, packageName), "dir");
+  await mkdir(path.dirname(targetPath), { recursive: true });
+  await symlink(packageDir, targetPath, "dir");
 }
 
 async function withTempApp(run) {
   const appRoot = await mkdtemp(path.join(tmpdir(), "crud-ui-generator-"));
   try {
     await linkTestPackage(appRoot, "json-rest-schema", JSON_REST_SCHEMA_PACKAGE_DIR);
+    await linkTestPackage(appRoot, "@jskit-ai/kernel", KERNEL_PACKAGE_DIR);
+    await linkTestPackage(appRoot, "@jskit-ai/resource-core", RESOURCE_CORE_PACKAGE_DIR);
+    await linkTestPackage(appRoot, "@jskit-ai/resource-crud-core", RESOURCE_CRUD_CORE_PACKAGE_DIR);
     await mkdir(path.join(appRoot, "config"), { recursive: true });
     await mkdir(path.join(appRoot, "src", "components"), { recursive: true });
     await writeFile(
@@ -71,347 +85,196 @@ async function writeFileInApp(appRoot, relativeFile, source) {
 
 const RESOURCE_FILE = "packages/customers/src/shared/customerResource.js";
 
-const FULL_RESOURCE_SOURCE = `import { createSchema } from "json-rest-schema";
+function buildCrudResourceSource({
+  namespace = "customers",
+  tableName = namespace,
+  schemaSource = "",
+  includeNamespace = true
+} = {}) {
+  return `import { defineCrudResource } from "@jskit-ai/resource-crud-core/shared/crudResource";
 
-const customerRecordSchema = createSchema({
-  id: { type: "integer", required: true },
-  firstName: { type: "string", required: true },
-  email: { type: "string", required: true },
-  vip: { type: "boolean", required: true },
-  updatedAt: { type: "dateTime", required: true }
-});
-
-const customerBodySchema = createSchema({
-  firstName: { type: "string", maxLength: 120 },
-  email: { type: "string", maxLength: 160 },
-  vip: { type: "boolean" }
-});
-
-const customerListSchema = createSchema({
-  items: {
-    type: "array",
-    required: true,
-    items: customerRecordSchema
+const canonicalResource = defineCrudResource({
+  namespace: ${JSON.stringify(namespace)},
+  tableName: ${JSON.stringify(tableName)},
+  schema: {
+${schemaSource}
   },
-  nextCursor: { type: "string", nullable: true }
+  crudOperations: ["list", "view", "create", "patch"]
 });
 
-const resource = {
-  namespace: "customers",
-  operations: {
-    list: {
-      output: {
-        schema: customerListSchema,
-        mode: "replace"
-      }
-    },
-    view: {
-      output: {
-        schema: customerRecordSchema,
-        mode: "replace"
-      }
-    },
-    create: {
-      body: {
-        schema: customerBodySchema,
-        mode: "create"
-      },
-      output: {
-        schema: customerRecordSchema,
-        mode: "replace"
-      }
-    },
-    patch: {
-      body: {
-        schema: customerBodySchema,
-        mode: "patch"
-      },
-      output: {
-        schema: customerRecordSchema,
-        mode: "replace"
-      }
-    }
-  }
-};
-
+const resource = ${includeNamespace ? "canonicalResource" : "{ ...canonicalResource }"};
+${includeNamespace ? "" : "delete resource.namespace;\n"}
 export { resource };
 `;
+}
 
-const NULLABLE_BOOLEAN_RESOURCE_SOURCE = `import { createSchema } from "json-rest-schema";
+const FULL_RESOURCE_SCHEMA_SOURCE = `    firstName: {
+      type: "string",
+      required: true,
+      maxLength: 120,
+      operations: {
+        output: { required: true },
+        create: { required: false },
+        patch: { required: false }
+      }
+    },
+    email: {
+      type: "string",
+      required: true,
+      maxLength: 160,
+      operations: {
+        output: { required: true },
+        create: { required: false },
+        patch: { required: false }
+      }
+    },
+    vip: {
+      type: "boolean",
+      required: true,
+      operations: {
+        output: { required: true },
+        create: { required: false },
+        patch: { required: false }
+      }
+    },
+    updatedAt: {
+      type: "dateTime",
+      required: true,
+      operations: {
+        output: { required: true }
+      }
+    }`;
 
-const customerRecordSchema = createSchema({
-  id: { type: "integer", required: true },
-  firstName: { type: "string", required: true },
-  reviewPassed: { type: "boolean", required: true, nullable: true }
-});
+const NULLABLE_BOOLEAN_RESOURCE_SCHEMA_SOURCE = `    firstName: {
+      type: "string",
+      required: true,
+      maxLength: 120,
+      operations: {
+        output: { required: true },
+        create: { required: false },
+        patch: { required: false }
+      }
+    },
+    reviewPassed: {
+      type: "boolean",
+      required: true,
+      nullable: true,
+      operations: {
+        output: { required: true },
+        create: { required: false },
+        patch: { required: false }
+      }
+    }`;
 
-const customerBodySchema = createSchema({
-  firstName: { type: "string", maxLength: 120 },
-  reviewPassed: { type: "boolean", nullable: true }
-});
+const SELECT_RESOURCE_SCHEMA_SOURCE = `    type: {
+      type: "string",
+      required: true,
+      enum: ["dryer", "pallet racking", "freezer", "coolroom"],
+      ui: {
+        formControl: "select",
+        options: [
+          { value: "dryer", label: "Dryer" },
+          { value: "pallet racking", label: "Pallet Racking" },
+          { value: "freezer", label: "Freezer" },
+          { value: "coolroom", label: "Coolroom" }
+        ]
+      },
+      operations: {
+        output: { required: true },
+        create: { required: false },
+        patch: { required: false }
+      }
+    }`;
 
-const customerListSchema = createSchema({
-  items: {
-    type: "array",
-    required: true,
-    items: customerRecordSchema
-  },
-  nextCursor: { type: "string", nullable: true }
-});
+const LOOKUP_RESOURCE_SCHEMA_SOURCE = `    serviceId: {
+      type: "integer",
+      nullable: true,
+      relation: {
+        kind: "lookup",
+        namespace: "services",
+        valueKey: "id",
+        surfaceId: "console"
+      },
+      ui: {
+        formControl: "autocomplete"
+      },
+      operations: {
+        output: { required: false },
+        create: { required: false },
+        patch: { required: false }
+      }
+    },
+    name: {
+      type: "string",
+      required: true,
+      maxLength: 255,
+      operations: {
+        output: { required: true },
+        create: { required: false },
+        patch: { required: false }
+      }
+    }`;
 
-const resource = {
+const TEMPORAL_RESOURCE_SCHEMA_SOURCE = `    dob: {
+      type: "date",
+      required: true,
+      nullable: true,
+      operations: {
+        output: { required: true },
+        create: { required: false },
+        patch: { required: false }
+      }
+    },
+    appointmentAt: {
+      type: "dateTime",
+      required: true,
+      nullable: true,
+      operations: {
+        output: { required: true },
+        create: { required: false },
+        patch: { required: false }
+      }
+    },
+    preferredTime: {
+      type: "time",
+      required: true,
+      nullable: true,
+      operations: {
+        output: { required: true },
+        create: { required: false },
+        patch: { required: false }
+      }
+    }`;
+
+const FULL_RESOURCE_SOURCE = buildCrudResourceSource({
   namespace: "customers",
-  operations: {
-    list: {
-      output: {
-        schema: customerListSchema,
-        mode: "replace"
-      }
-    },
-    view: {
-      output: {
-        schema: customerRecordSchema,
-        mode: "replace"
-      }
-    },
-    create: {
-      body: {
-        schema: customerBodySchema,
-        mode: "create"
-      },
-      output: {
-        schema: customerRecordSchema,
-        mode: "replace"
-      }
-    },
-    patch: {
-      body: {
-        schema: customerBodySchema,
-        mode: "patch"
-      },
-      output: {
-        schema: customerRecordSchema,
-        mode: "replace"
-      }
-    }
-  }
-};
-
-export { resource };
-`;
-
-const SELECT_RESOURCE_SOURCE = `import { createSchema } from "json-rest-schema";
-
-const recordSchema = createSchema({
-  id: { type: "integer", required: true },
-  type: { type: "string", required: true }
+  tableName: "customers",
+  schemaSource: FULL_RESOURCE_SCHEMA_SOURCE
 });
 
-const bodySchema = createSchema({
-  type: {
-    type: "string",
-    enum: ["dryer", "pallet racking", "freezer", "coolroom"],
-    ui: {
-      formControl: "select",
-      options: [
-        { value: "dryer", label: "Dryer" },
-        { value: "pallet racking", label: "Pallet Racking" },
-        { value: "freezer", label: "Freezer" },
-        { value: "coolroom", label: "Coolroom" }
-      ]
-    }
-  }
+const NULLABLE_BOOLEAN_RESOURCE_SOURCE = buildCrudResourceSource({
+  namespace: "customers",
+  tableName: "customers",
+  schemaSource: NULLABLE_BOOLEAN_RESOURCE_SCHEMA_SOURCE
 });
 
-const recordListSchema = createSchema({
-  items: {
-    type: "array",
-    required: true,
-    items: recordSchema
-  },
-  nextCursor: { type: "string", nullable: true }
-});
-
-const resource = {
+const SELECT_RESOURCE_SOURCE = buildCrudResourceSource({
   namespace: "locations",
-  operations: {
-    list: {
-      output: {
-        schema: recordListSchema,
-        mode: "replace"
-      }
-    },
-    view: {
-      output: {
-        schema: recordSchema,
-        mode: "replace"
-      }
-    },
-    create: {
-      body: {
-        schema: bodySchema,
-        mode: "create"
-      },
-      output: {
-        schema: recordSchema,
-        mode: "replace"
-      }
-    },
-    patch: {
-      body: {
-        schema: bodySchema,
-        mode: "patch"
-      },
-      output: {
-        schema: recordSchema,
-        mode: "replace"
-      }
-    }
-  }
-};
-
-export { resource };
-`;
-
-const LOOKUP_RESOURCE_SOURCE = `import { createSchema } from "json-rest-schema";
-
-const recordSchema = createSchema({
-  id: { type: "integer", required: true },
-  serviceId: { type: "integer", nullable: true },
-  name: { type: "string", required: true }
+  tableName: "locations",
+  schemaSource: SELECT_RESOURCE_SCHEMA_SOURCE
 });
 
-const bodySchema = createSchema({
-  serviceId: {
-    type: "integer",
-    nullable: true,
-    relation: {
-      kind: "lookup",
-      namespace: "services",
-      valueKey: "id",
-      surfaceId: "console"
-    },
-    ui: {
-      formControl: "autocomplete"
-    }
-  },
-  name: { type: "string", maxLength: 255 }
-});
-
-const recordListSchema = createSchema({
-  items: {
-    type: "array",
-    required: true,
-    items: recordSchema
-  },
-  nextCursor: { type: "string", nullable: true }
-});
-
-const resource = {
+const LOOKUP_RESOURCE_SOURCE = buildCrudResourceSource({
   namespace: "customers",
-  operations: {
-    list: {
-      output: {
-        schema: recordListSchema,
-        mode: "replace"
-      }
-    },
-    view: {
-      output: {
-        schema: recordSchema,
-        mode: "replace"
-      }
-    },
-    create: {
-      body: {
-        schema: bodySchema,
-        mode: "create"
-      },
-      output: {
-        schema: recordSchema,
-        mode: "replace"
-      }
-    },
-    patch: {
-      body: {
-        schema: bodySchema,
-        mode: "patch"
-      },
-      output: {
-        schema: recordSchema,
-        mode: "replace"
-      }
-    }
-  }
-};
-
-export { resource };
-`;
-
-const TEMPORAL_RESOURCE_SOURCE = `import { createSchema } from "json-rest-schema";
-
-const recordSchema = createSchema({
-  id: { type: "integer", required: true },
-  dob: { type: "date", required: true, nullable: true },
-  appointmentAt: { type: "dateTime", required: true, nullable: true },
-  preferredTime: { type: "time", required: true, nullable: true }
+  tableName: "customers",
+  schemaSource: LOOKUP_RESOURCE_SCHEMA_SOURCE
 });
 
-const bodySchema = createSchema({
-  dob: { type: "date", nullable: true },
-  appointmentAt: { type: "dateTime", nullable: true },
-  preferredTime: { type: "time", nullable: true }
-});
-
-const recordListSchema = createSchema({
-  items: {
-    type: "array",
-    required: true,
-    items: recordSchema
-  },
-  nextCursor: { type: "string", nullable: true }
-});
-
-const resource = {
+const TEMPORAL_RESOURCE_SOURCE = buildCrudResourceSource({
   namespace: "appointments",
-  operations: {
-    list: {
-      output: {
-        schema: recordListSchema,
-        mode: "replace"
-      }
-    },
-    view: {
-      output: {
-        schema: recordSchema,
-        mode: "replace"
-      }
-    },
-    create: {
-      body: {
-        schema: bodySchema,
-        mode: "create"
-      },
-      output: {
-        schema: recordSchema,
-        mode: "replace"
-      }
-    },
-    patch: {
-      body: {
-        schema: bodySchema,
-        mode: "patch"
-      },
-      output: {
-        schema: recordSchema,
-        mode: "replace"
-      }
-    }
-  }
-};
-
-export { resource };
-`;
+  tableName: "appointments",
+  schemaSource: TEMPORAL_RESOURCE_SCHEMA_SOURCE
+});
 
 function createOptions(overrides = {}) {
   return {
@@ -646,7 +509,12 @@ test("buildUiTemplateContext falls back to target-root leaf for namespace when r
     await writeResource(
       appRoot,
       RESOURCE_FILE,
-      FULL_RESOURCE_SOURCE.replace('  namespace: "customers",\n', "")
+      buildCrudResourceSource({
+        namespace: "customers",
+        tableName: "customers",
+        schemaSource: FULL_RESOURCE_SCHEMA_SOURCE,
+        includeNamespace: false
+      })
     );
 
     const context = await buildUiTemplateContext({

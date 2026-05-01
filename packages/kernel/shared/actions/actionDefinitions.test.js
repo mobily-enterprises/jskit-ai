@@ -123,7 +123,7 @@ test("normalizeActionExtensions keeps plain objects", () => {
   assert.equal(extensions.assistant?.description, "Update workspace settings.");
 });
 
-test("normalizeActionDefinition stays channel-agnostic and ignores unknown legacy fields", () => {
+test("normalizeActionDefinition stays channel-agnostic and ignores unknown extra fields", () => {
   const definition = normalizeActionDefinition({
     id: "demo.workspace.settings.update",
     domain: "demo",

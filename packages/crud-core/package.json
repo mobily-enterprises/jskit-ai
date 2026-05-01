@@ -31,10 +31,15 @@
     "@jskit-ai/database-runtime": "0.1.55",
     "@jskit-ai/http-runtime": "0.1.54",
     "@jskit-ai/kernel": "0.1.55",
+    "json-rest-schema": "1.x.x",
     "@jskit-ai/realtime": "0.1.54",
     "@jskit-ai/resource-crud-core": "0.1.0",
     "@jskit-ai/shell-web": "0.1.54",
     "@jskit-ai/users-core": "0.1.65",
     "@jskit-ai/users-web": "0.1.70"
+  },
+  "peerDependencies": {
+    "vue": "^3.5.13",
+    "vue-router": "^5.0.4"
   }
 }

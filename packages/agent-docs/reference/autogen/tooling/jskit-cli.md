@@ -352,8 +352,8 @@ Local functions
 ### `src/server/commandHandlers/appCommandCatalog.js`
 Exports
 - `APP_SCRIPT_WRAPPERS`
-- `LEGACY_APP_SCRIPT_VALUES`
-- `LEGACY_APP_SCRIPT_FILES`
+- `COPIED_APP_SCRIPT_VALUES`
+- `COPIED_APP_SCRIPT_FILES`
 - `APP_COMMAND_DEFINITIONS`
 - `listAppCommandDefinitions()`
 - `resolveAppCommandDefinition(rawName = "")`

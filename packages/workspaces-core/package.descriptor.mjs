@@ -154,7 +154,7 @@ export default Object.freeze({
         from: "templates/migrations/workspaces_core_workspaces_drop_color.cjs",
         toDir: "migrations",
         extension: ".cjs",
-        reason: "Drop legacy workspaces.color now that workspace theme colors live in workspace_settings.",
+        reason: "Drop workspaces.color now that workspace theme colors live in workspace_settings.",
         category: "migration",
         id: "users-core-workspaces-drop-color"
       },

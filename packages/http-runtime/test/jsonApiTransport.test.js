@@ -122,7 +122,7 @@ test("normalizeJsonApiDocument preserves compound-document structure", () => {
   assert.equal(normalized.meta.page, 1);
 });
 
-test("simplifyJsonApiDocument keeps legacy flat-record behavior for resource and collection documents", () => {
+test("simplifyJsonApiDocument keeps flat-record behavior for resource and collection documents", () => {
   assert.deepEqual(
     simplifyJsonApiDocument({
       data: {

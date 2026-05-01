@@ -2,8 +2,8 @@ import path from "node:path";
 import { rm } from "node:fs/promises";
 import {
   APP_SCRIPT_WRAPPERS,
-  LEGACY_APP_SCRIPT_FILES,
-  LEGACY_APP_SCRIPT_VALUES
+  COPIED_APP_SCRIPT_FILES,
+  COPIED_APP_SCRIPT_VALUES
 } from "../appCommandCatalog.js";
 import { fileExists, isTruthyFlag } from "./shared.js";
 
@@ -22,10 +22,10 @@ function shouldRewriteScript(currentValue = "", scriptName = "", force = false) 
       reason: "already-current"
     };
   }
-  if ((LEGACY_APP_SCRIPT_VALUES[scriptName] || []).includes(normalizedCurrentValue)) {
+  if ((COPIED_APP_SCRIPT_VALUES[scriptName] || []).includes(normalizedCurrentValue)) {
     return {
       rewrite: true,
-      reason: "legacy"
+      reason: "copied"
     };
   }
   if (force) {
@@ -84,12 +84,12 @@ async function runAppAdoptManagedScriptsCommand(ctx = {}, { appRoot = "", option
     });
   }
 
-  const removableLegacyFiles = [];
+  const removableCopiedFiles = [];
   if (force) {
-    for (const relativePath of LEGACY_APP_SCRIPT_FILES) {
+    for (const relativePath of COPIED_APP_SCRIPT_FILES) {
       const absolutePath = path.join(appRoot, relativePath);
       if (await fileExists(absolutePath)) {
-        removableLegacyFiles.push({
+        removableCopiedFiles.push({
           relativePath,
           absolutePath
         });
@@ -102,12 +102,12 @@ async function runAppAdoptManagedScriptsCommand(ctx = {}, { appRoot = "", option
   }
 
   if (!dryRun && force) {
-    for (const { absolutePath } of removableLegacyFiles) {
+    for (const { absolutePath } of removableCopiedFiles) {
       await rm(absolutePath, { recursive: true, force: true });
     }
   }
 
-  if (changedScripts.length < 1 && skippedScripts.length < 1 && removableLegacyFiles.length < 1) {
+  if (changedScripts.length < 1 && skippedScripts.length < 1 && removableCopiedFiles.length < 1) {
     stdout.write("[adopt-managed-scripts] package.json already uses the managed JSKIT wrappers.\n");
     return 0;
   }
@@ -118,7 +118,7 @@ async function runAppAdoptManagedScriptsCommand(ctx = {}, { appRoot = "", option
   for (const record of skippedScripts) {
     stdout.write(`[adopt-managed-scripts] kept customized script ${record.scriptName}: ${record.currentValue}\n`);
   }
-  for (const record of removableLegacyFiles) {
+  for (const record of removableCopiedFiles) {
     stdout.write(`[adopt-managed-scripts] ${dryRun ? "would remove" : "removed"} ${record.relativePath}\n`);
   }
 

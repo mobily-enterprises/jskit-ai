@@ -9,98 +9,72 @@ import { runGeneratorSubcommand } from "../src/server/subcommands/addField.js";
 const JSON_REST_SCHEMA_PACKAGE_DIR = path.dirname(
   fileURLToPath(new URL("../../../node_modules/json-rest-schema/package.json", import.meta.url))
 );
+const KERNEL_PACKAGE_DIR = path.dirname(
+  fileURLToPath(new URL("../../kernel/package.json", import.meta.url))
+);
+const RESOURCE_CORE_PACKAGE_DIR = path.dirname(
+  fileURLToPath(new URL("../../resource-core/package.json", import.meta.url))
+);
+const RESOURCE_CRUD_CORE_PACKAGE_DIR = path.dirname(
+  fileURLToPath(new URL("../../resource-crud-core/package.json", import.meta.url))
+);
 
-const RESOURCE_SOURCE = `import { createSchema } from "json-rest-schema";
+const RESOURCE_SOURCE = `import { defineCrudResource } from "@jskit-ai/resource-crud-core/shared/crudResource";
 
-const contactRecordSchema = createSchema({
-  id: { type: "integer", required: true },
-  firstName: { type: "string", required: true },
-  vetId: {
-    type: "integer",
-    nullable: true,
-    relation: {
-      kind: "lookup",
-      apiPath: "/vets",
-      valueKey: "id",
-      labelKey: "name"
-    }
-  }
-});
-
-const contactBodySchema = createSchema({
-  firstName: { type: "string", maxLength: 120 },
-  vetId: {
-    type: "integer",
-    nullable: true,
-    relation: {
-      kind: "lookup",
-      apiPath: "/vets",
-      valueKey: "id",
-      labelKey: "name"
-    },
-    ui: {
-      formControl: "autocomplete"
-    }
-  }
-});
-
-const contactListSchema = createSchema({
-  items: {
-    type: "array",
-    required: true,
-    items: contactRecordSchema
-  }
-});
-
-const resource = {
-  operations: {
-    list: {
-      output: {
-        schema: contactListSchema,
-        mode: "replace"
+const resource = defineCrudResource({
+  namespace: "contacts",
+  tableName: "contacts",
+  schema: {
+    firstName: {
+      type: "string",
+      required: true,
+      maxLength: 120,
+      operations: {
+        output: { required: true },
+        create: { required: false },
+        patch: { required: false }
       }
     },
-    view: {
-      output: {
-        schema: contactRecordSchema,
-        mode: "replace"
-      }
-    },
-    create: {
-      body: {
-        schema: contactBodySchema,
-        mode: "create"
+    vetId: {
+      type: "integer",
+      nullable: true,
+      relation: {
+        kind: "lookup",
+        apiPath: "/vets",
+        valueKey: "id",
+        labelKey: "name"
       },
-      output: {
-        schema: contactRecordSchema,
-        mode: "replace"
-      }
-    },
-    patch: {
-      body: {
-        schema: contactBodySchema,
-        mode: "patch"
+      ui: {
+        formControl: "autocomplete"
       },
-      output: {
-        schema: contactRecordSchema,
-        mode: "replace"
+      operations: {
+        output: { required: false },
+        create: { required: false },
+        patch: { required: false }
       }
     }
-  }
-};
+  },
+  crudOperations: ["list", "view", "create", "patch"]
+});
 
 export { resource };
 `;
 
+async function linkTestPackage(appRoot, packageName, packageDir) {
+  const nodeModulesDir = path.join(appRoot, "node_modules");
+  const targetPath = path.join(nodeModulesDir, packageName);
+  await mkdir(nodeModulesDir, { recursive: true });
+  await mkdir(path.dirname(targetPath), { recursive: true });
+  await symlink(packageDir, targetPath, "dir");
+}
+
 async function withTempApp(run) {
   const appRoot = await mkdtemp(path.join(tmpdir(), "crud-ui-field-"));
   try {
-    await mkdir(path.join(appRoot, "node_modules"), { recursive: true });
-    await symlink(
-      JSON_REST_SCHEMA_PACKAGE_DIR,
-      path.join(appRoot, "node_modules", "json-rest-schema"),
-      "dir"
-    );
+    await linkTestPackage(appRoot, "json-rest-schema", JSON_REST_SCHEMA_PACKAGE_DIR);
+    await linkTestPackage(appRoot, "@jskit-ai/kernel", KERNEL_PACKAGE_DIR);
+    await linkTestPackage(appRoot, "@jskit-ai/resource-core", RESOURCE_CORE_PACKAGE_DIR);
+    await linkTestPackage(appRoot, "@jskit-ai/resource-crud-core", RESOURCE_CRUD_CORE_PACKAGE_DIR);
     return await run(appRoot);
   } finally {
     await rm(appRoot, { recursive: true, force: true });

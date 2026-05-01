@@ -18,5 +18,8 @@
     "json-rest-schema": "1.x.x",
     "@tanstack/vue-query": "^5.90.5",
     "vuetify": "^4.0.0"
+  },
+  "peerDependencies": {
+    "vue": "^3.5.13"
   }
 }

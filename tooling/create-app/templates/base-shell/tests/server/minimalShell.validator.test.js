@@ -101,7 +101,7 @@ test("latest JSKIT scaffold files are present at the app root", async () => {
   }
 });
 
-test("legacy app.manifest scaffold is removed from starter shell", async () => {
+test("starter shell does not include the app.manifest scaffold", async () => {
   await assert.rejects(access(path.join(APP_ROOT, "framework/app.manifest.mjs")), /ENOENT/);
 });
 

@@ -12,6 +12,7 @@
     "./shared/dialect": "./src/shared/dialect.js"
   },
   "dependencies": {
-    "@jskit-ai/database-runtime": "0.1.55"
+    "@jskit-ai/database-runtime": "0.1.55",
+    "@jskit-ai/kernel": "0.1.55"
   }
 }
