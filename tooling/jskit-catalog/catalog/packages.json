@@ -1411,6 +1411,7 @@
         "kind": "runtime",
         "description": "Shared CRUD helpers used by CRUD modules.",
         "dependsOn": [
+          "@jskit-ai/http-runtime",
           "@jskit-ai/kernel",
           "@jskit-ai/realtime",
           "@jskit-ai/shell-web",
@@ -1681,17 +1682,6 @@
               "reason": "Install app-local CRUD route registration.",
               "category": "crud",
               "id": "crud-local-package-server-routes-${option:namespace|snake}",
-              "templateContext": {
-                "entrypoint": "src/server/buildTemplateContext.js",
-                "export": "buildTemplateContext"
-              }
-            },
-            {
-              "from": "templates/src/local-package/server/jsonRestResource.js",
-              "to": "packages/${option:namespace|kebab}/src/server/jsonRestResource.js",
-              "reason": "Install app-local JSON:API resource config.",
-              "category": "crud",
-              "id": "crud-local-package-server-jsonrest-resource-${option:namespace|snake}",
               "templateContext": {
                 "entrypoint": "src/server/buildTemplateContext.js",
                 "export": "buildTemplateContext"
@@ -4089,15 +4079,6 @@
               "reason": "Install app-owned users CRUD repository.",
               "category": "users-core",
               "id": "users-core-users-repository"
-            },
-            {
-              "from": "templates/packages/users/src/server/jsonRestResource.js",
-              "to": "packages/users/src/server/jsonRestResource.js",
-              "ownership": "app",
-              "preserveOnRemove": true,
-              "reason": "Install app-owned users JSON:API resource configuration.",
-              "category": "users-core",
-              "id": "users-core-users-json-rest-resource"
             },
             {
               "from": "templates/packages/users/src/server/service.js",

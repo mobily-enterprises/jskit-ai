@@ -293,6 +293,10 @@ Local functions
 - `buildLookupCollectionMap(records = [], foreignKey = "")`
 - `resolveLookupVisitedNamespaces(runtime = {}, callOptions = {})`
 
+### `src/server/routeContracts.js`
+Exports
+- `createCrudJsonApiRouteContracts({ resource = {}, routeParamsValidator = null, listSearchQueryValidator = defaultListSearchQueryValidator, lookupIncludeQueryValidator = defaultLookupIncludeQueryValidator } = {})`
+
 ### `src/server/serviceEvents.js`
 Exports
 - `createCrudServiceEvents(resource = {}, { context = "crudService" } = {})`

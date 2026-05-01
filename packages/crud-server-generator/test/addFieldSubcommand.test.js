@@ -5,73 +5,27 @@ import { mkdtemp, mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { runGeneratorSubcommand } from "../src/server/subcommands/addField.js";
 
-const RESOURCE_SOURCE = `import { createSchema } from "json-rest-schema";
-import { createCursorListValidator, RECORD_ID_PATTERN } from "@jskit-ai/kernel/shared/validators";
-import { deepFreeze } from "@jskit-ai/kernel/shared/support/deepFreeze";
+const RESOURCE_SOURCE = `import { defineCrudResource } from "@jskit-ai/crud-core/shared/crudResource";
 
-const RESOURCE_LOOKUP_CONTAINER_KEY = "lookups";
-
-const recordOutputSchema = createSchema({
-  id: {
-    type: "string",
-    required: true,
-    minLength: 1,
-    pattern: RECORD_ID_PATTERN
-  },
-  firstName: {
-    type: "string",
-    required: true,
-    nullable: true,
-    maxLength: 160
-  },
-  [RESOURCE_LOOKUP_CONTAINER_KEY]: {
-    type: "object",
-    required: false
-  }
-});
-
-const createBodySchema = createSchema({
-  firstName: {
-    type: "string",
-    required: false,
-    nullable: true,
-    maxLength: 160
-  }
-});
-
-const patchBodySchema = createSchema({
-  firstName: {
-    type: "string",
-    required: false,
-    nullable: true,
-    maxLength: 160
-  }
-});
-
-const recordOutputValidator = deepFreeze({
-  schema: recordOutputSchema,
-  mode: "replace"
-});
-
-const createBodyValidator = deepFreeze({
-  schema: createBodySchema,
-  mode: "create"
-});
-
-const patchBodyValidator = deepFreeze({
-  schema: patchBodySchema,
-  mode: "patch"
-});
-
-const resource = deepFreeze({
+const resource = defineCrudResource({
   namespace: "contacts",
   tableName: "contacts",
-  idColumn: "id",
-  operations: {
-    list: { method: "GET", output: createCursorListValidator(recordOutputValidator) },
-    view: { method: "GET", output: recordOutputValidator },
-    create: { method: "POST", body: createBodyValidator, output: recordOutputValidator },
-    patch: { method: "PATCH", body: patchBodyValidator, output: recordOutputValidator }
+  schema: {
+    firstName: {
+      type: "string",
+      nullable: true,
+      maxLength: 160,
+      operations: {
+        output: { required: true },
+        create: { required: false },
+        patch: { required: false }
+      }
+    }
+  },
+  contract: {
+    lookup: {
+      containerKey: "lookups"
+    }
   }
 });
 
@@ -139,10 +93,11 @@ test("scaffold-field patches CRUD resource file using DB snapshot metadata", asy
 
     const content = await readFile(path.join(appRoot, resourceFile), "utf8");
     assert.match(content, /categoryId: \{/);
-    assert.match(content, /type: "string"/);
-    assert.match(content, /pattern: RECORD_ID_PATTERN/);
     assert.match(content, /type: "id"/);
     assert.match(content, /nullable: true/);
+    assert.match(content, /operations: \{/);
+    assert.match(content, /create: \{ required: false \}/);
+    assert.match(content, /patch: \{ required: false \}/);
     assert.match(content, /relation: \{ kind: "lookup", namespace: "customer-categories", valueKey: "id" \}/);
     assert.match(content, /ui: \{ formControl: "autocomplete" \}/);
     assert.doesNotMatch(content, /normalizeIfInSource|normalizeIfPresent|normalizeOrNull|normalizeRecordId/);

@@ -12,6 +12,7 @@
     "./client/composables/useCrudRealtimeInvalidation": "./src/client/composables/useCrudRealtimeInvalidation.js",
     "./shared/crudFieldSupport": "./src/shared/crudFieldSupport.js",
     "./shared/crudNamespaceSupport": "./src/shared/crudNamespaceSupport.js",
+    "./shared/crudResource": "./src/shared/crudResource.js",
     "./server/repositorySupport": "./src/server/repositorySupport.js",
     "./server/resourceRuntime": "./src/server/resourceRuntime/index.js",
     "./server/createHooksToCollectChildren": "./src/server/createHooksToCollectChildren.js",

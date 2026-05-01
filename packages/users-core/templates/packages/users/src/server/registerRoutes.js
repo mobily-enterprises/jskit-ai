@@ -11,10 +11,9 @@ import {
   recordIdParamsValidator
 } from "@jskit-ai/kernel/shared/validators";
 import { resource } from "../shared/userResource.js";
-import { jsonRestResource } from "./jsonRestResource.js";
 
 const listCursorPaginationQueryValidator = createCrudCursorPaginationQueryValidator({
-  orderBy: jsonRestResource.defaultSort
+  orderBy: resource.defaultSort
 });
 const listRouteQueryValidator = composeSchemaDefinitions([
   listCursorPaginationQueryValidator,

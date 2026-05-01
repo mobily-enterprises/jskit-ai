@@ -1,12 +1,17 @@
 import { resolveAppConfig } from "@jskit-ai/kernel/server/support";
 import { resolveCrudSurfacePolicyFromAppConfig } from "@jskit-ai/crud-core/server/crudModuleConfig";
-import { INTERNAL_JSON_REST_API, addResourceIfMissing } from "@jskit-ai/json-rest-api-core/server/jsonRestApiHost";
+import {
+  INTERNAL_JSON_REST_API,
+  addResourceIfMissing,
+  createJsonRestResourceScopeOptions
+} from "@jskit-ai/json-rest-api-core/server/jsonRestApiHost";
 import { withActionDefaults } from "@jskit-ai/kernel/shared/actions";
+import { toDatabaseDateTimeUtc } from "@jskit-ai/database-runtime/shared";
 import { createRepository } from "./repository.js";
 import { createService } from "./service.js";
 import { createActions } from "./actions.js";
 import { registerRoutes } from "./registerRoutes.js";
-import { jsonRestResource } from "./jsonRestResource.js";
+import { resource } from "../shared/userResource.js";
 
 const CRUD_MODULE_CONFIG = Object.freeze({
   namespace: "users",
@@ -65,7 +70,15 @@ class UsersProvider {
   async boot(app) {
     const crudPolicy = resolveCrudPolicyFromApp(app);
     const api = app.make(INTERNAL_JSON_REST_API);
-    await addResourceIfMissing(api, "users", jsonRestResource);
+    await addResourceIfMissing(
+      api,
+      "users",
+      createJsonRestResourceScopeOptions(resource, {
+        writeSerializers: {
+          "datetime-utc": toDatabaseDateTimeUtc
+        }
+      })
+    );
     registerRoutes(app, {
       routeOwnershipFilter: crudPolicy.ownershipFilter,
       routeSurface: crudPolicy.surfaceId,

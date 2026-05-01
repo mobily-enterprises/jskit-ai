@@ -1,4 +1,9 @@
-import { INTERNAL_JSON_REST_API, addResourceIfMissing } from "@jskit-ai/json-rest-api-core/server/jsonRestApiHost";
+import {
+  INTERNAL_JSON_REST_API,
+  addResourceIfMissing,
+  createJsonRestResourceScopeOptions
+} from "@jskit-ai/json-rest-api-core/server/jsonRestApiHost";
+import { toDatabaseDateTimeUtc } from "@jskit-ai/database-runtime/shared";
 import { bootWorkspaceDirectoryRoutes } from "./workspaceDirectory/bootWorkspaceDirectoryRoutes.js";
 import { registerWorkspaceDirectory } from "./workspaceDirectory/registerWorkspaceDirectory.js";
 import {
@@ -9,13 +14,13 @@ import { registerWorkspaceMembers } from "./workspaceMembers/registerWorkspaceMe
 import { bootWorkspaceMembers } from "./workspaceMembers/bootWorkspaceMembers.js";
 import { registerWorkspaceSettings } from "./workspaceSettings/registerWorkspaceSettings.js";
 import { bootWorkspaceSettings } from "./workspaceSettings/bootWorkspaceSettings.js";
-import { workspacesResource } from "./common/resources/workspacesResource.js";
-import { workspaceMembershipsResource } from "./common/resources/workspaceMembershipsResource.js";
-import { workspaceInvitesResource } from "./common/resources/workspaceInvitesResource.js";
-import { workspaceSettingsResource } from "./common/resources/workspaceSettingsResource.js";
 import { registerWorkspaceRepositories } from "./registerWorkspaceRepositories.js";
 import { registerWorkspaceCore } from "./registerWorkspaceCore.js";
 import { registerWorkspaceBootstrap } from "./registerWorkspaceBootstrap.js";
+import { workspaceResource } from "../shared/resources/workspaceResource.js";
+import { workspaceMembershipsResource } from "../shared/resources/workspaceMembershipsResource.js";
+import { workspaceInvitesResource } from "../shared/resources/workspaceInvitesResource.js";
+import { workspaceSettingsResource } from "../shared/resources/workspaceSettingsResource.js";
 
 class WorkspacesCoreServiceProvider {
   static id = "workspaces.core";
@@ -34,10 +39,15 @@ class WorkspacesCoreServiceProvider {
 
   async boot(app) {
     const api = app.make(INTERNAL_JSON_REST_API);
-    await addResourceIfMissing(api, "workspaces", workspacesResource);
-    await addResourceIfMissing(api, "workspaceMemberships", workspaceMembershipsResource);
-    await addResourceIfMissing(api, "workspaceInvites", workspaceInvitesResource);
-    await addResourceIfMissing(api, "workspaceSettings", workspaceSettingsResource);
+    const scopeOptions = {
+      writeSerializers: {
+        "datetime-utc": toDatabaseDateTimeUtc
+      }
+    };
+    await addResourceIfMissing(api, "workspaces", createJsonRestResourceScopeOptions(workspaceResource, scopeOptions));
+    await addResourceIfMissing(api, "workspaceMemberships", createJsonRestResourceScopeOptions(workspaceMembershipsResource, scopeOptions));
+    await addResourceIfMissing(api, "workspaceInvites", createJsonRestResourceScopeOptions(workspaceInvitesResource, scopeOptions));
+    await addResourceIfMissing(api, "workspaceSettings", createJsonRestResourceScopeOptions(workspaceSettingsResource, scopeOptions));
     if (app.make("workspaces.enabled") !== true) {
       return;
     }

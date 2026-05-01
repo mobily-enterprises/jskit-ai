@@ -5,7 +5,8 @@ export default Object.freeze({
   kind: "runtime",
   description: "Shared internal json-rest-api host runtime for JSKIT server packages.",
   dependsOn: [
-    "@jskit-ai/database-runtime"
+    "@jskit-ai/database-runtime",
+    "@jskit-ai/kernel"
   ],
   capabilities: {
     provides: [

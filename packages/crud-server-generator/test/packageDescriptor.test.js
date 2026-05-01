@@ -21,19 +21,11 @@ test("crud-server-generator surface option validates against enabled surface ids
   assert.equal(descriptor.metadata?.generatorSubcommands?.scaffold?.createTarget?.pathTemplate, "packages/${option:namespace|kebab}");
 });
 
-test("crud-server-generator installs jsonRestResource alongside server templates", () => {
+test("crud-server-generator no longer installs a separate jsonRestResource server template", () => {
   const files = descriptor.mutations?.files || [];
   const jsonRestResourceTemplate = files.find((entry) => entry.from === "templates/src/local-package/server/jsonRestResource.js");
 
-  assert.ok(jsonRestResourceTemplate);
-  assert.equal(
-    jsonRestResourceTemplate.to,
-    "packages/${option:namespace|kebab}/src/server/jsonRestResource.js"
-  );
-  assert.deepEqual(jsonRestResourceTemplate.templateContext, {
-    entrypoint: "src/server/buildTemplateContext.js",
-    export: "buildTemplateContext"
-  });
+  assert.equal(jsonRestResourceTemplate, undefined);
 });
 
 test("crud-server-generator wires action and role mutations through template context", () => {

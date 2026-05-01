@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
+import { normalizeRecordId } from "@jskit-ai/kernel/shared/support/normalize";
 
 import {
   INTERNAL_JSON_REST_API,
@@ -81,6 +82,30 @@ test("createJsonRestContext returns an empty mutable object when source context 
   assert.deepEqual(result, {});
   result.method = "query";
   assert.equal(result.method, "query");
+});
+
+test("createJsonRestApiHost installs normalizeRecordId as the default resource id normalizer", async () => {
+  const fakeKnex = Object.assign(() => {}, {
+    client: {
+      config: {
+        client: "sqlite3"
+      }
+    },
+    async raw() {
+      return [
+        {
+          version: "3.35.5"
+        }
+      ];
+    },
+    transaction() {}
+  });
+
+  const api = await createJsonRestApiHost({
+    knex: fakeKnex
+  });
+
+  assert.equal(api.vars.normalizeId, normalizeRecordId);
 });
 
 test("shared query/document helpers build json-rest-api request shapes", () => {

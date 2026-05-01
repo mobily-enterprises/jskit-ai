@@ -1,5 +1,6 @@
 import { Api } from "hooked-api";
 import { AutoFilterPlugin, RestApiKnexPlugin, RestApiPlugin } from "json-rest-api";
+import { normalizeRecordId } from "@jskit-ai/kernel/shared/support/normalize";
 
 const INTERNAL_JSON_REST_API = "internal.json-rest-api";
 
@@ -440,7 +441,8 @@ async function createJsonRestApiHost({ knex }) {
       post: "full",
       put: "full",
       patch: "full"
-    }
+    },
+    normalizeId: normalizeRecordId
   });
 
   await api.use(RestApiKnexPlugin, { knex });

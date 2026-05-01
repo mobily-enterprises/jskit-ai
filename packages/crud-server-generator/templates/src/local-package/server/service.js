@@ -43,10 +43,11 @@ function createService({ ${option:namespace|camel}Repository } = {}) {
   }
 
   async function deleteDocumentById(recordId, options = {}) {
-    return ${option:namespace|camel}Repository.deleteDocumentById(recordId, {
+    return404IfNotFound(await ${option:namespace|camel}Repository.deleteDocumentById(recordId, {
       trx: options?.trx || null,
       context: options?.context || null
-    });
+    }));
+    return null;
   }
 
   return Object.freeze({

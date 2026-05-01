@@ -6,6 +6,7 @@ import {
   resolveGenerationSnapshot,
   resolveScaffoldColumns,
   renderResourceFieldSchema,
+  renderCanonicalResourceFieldSchema,
   buildFieldContractEntries
 } from "../buildTemplateContext.js";
 import {
@@ -151,6 +152,9 @@ async function runGeneratorSubcommand({
     mode: "patch",
     fieldContractEntry
   });
+  const resourceSchemaExpression = renderCanonicalResourceFieldSchema(column, {
+    fieldContractEntry
+  });
   const createSchemaExpressionWithMetadata = renderResourceFieldSchema(column, {
     forOutput: false,
     fieldContractEntry
@@ -158,6 +162,7 @@ async function runGeneratorSubcommand({
 
   const applied = applyCrudResourceFieldPatch(originalSource, {
     fieldKey,
+    resourceSchemaExpression,
     createSchemaExpression: createSchemaExpressionWithMetadata,
     outputSchemaExpression,
     patchSchemaExpression,

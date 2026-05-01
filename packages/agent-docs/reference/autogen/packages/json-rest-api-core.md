@@ -26,13 +26,18 @@ Exports
 - `buildJsonRestQueryParams(resourceType = "", query = {}, { include = undefined } = {})`
 - `createJsonApiInputRecord(resourceType = "", attributes = {}, { id = null, relationships = null } = {})`
 - `createJsonApiRelationship(resourceType = "", id = null)`
+- `createJsonRestResourceScopeOptions(resource = {}, { writeSerializers = {}, normalizeId = null } = {})`
 - `createJsonRestContext(context = null)`
+- `isJsonRestResourceMissingError(error = null)`
+- `returnNullWhenJsonRestResourceMissing(run)`
 - `resolveWorkspaceScopeValue(context = null)`
 - `resolveUserScopeValue(context = null)`
 - `simplifyJsonApiDocument(payload = {})`
 - `createJsonRestApiHost({ knex })`
 - `registerJsonRestApiHost(app)`
 Local functions
+- `isPlainJsonRestObject(value)`
+- `cloneJsonRestResourceValue(value, { writeSerializers = {} } = {})`
 - `normalizeScopeValue(value)`
 - `normalizeJsonRestText(value, { fallback = "" } = {})`
 - `normalizeJsonRestObject(value)`

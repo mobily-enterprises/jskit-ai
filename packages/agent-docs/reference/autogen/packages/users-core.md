@@ -161,22 +161,6 @@ Local functions
 - `pickPatchFields(source = {})`
 - `createDefaultUserSettingsCreatePayload(userId)`
 
-### `src/server/common/resources/userProfilesResource.js`
-Exports
-- `resource`
-Local functions
-- `normalizeUsername(value)`
-- `normalizeNullableString(value)`
-- `normalizeNullableVersion(value)`
-- `serializeNullableDateTime(value)`
-
-### `src/server/common/resources/userSettingsResource.js`
-Exports
-- `userSettingsResource`
-Local functions
-- `serializeNullableDateTime(value)`
-- `normalizePositiveInteger(value)`
-
 ### `src/server/common/services/accountContextService.js`
 Exports
 - `resolveUserProfile(userProfilesRepository, user)`
@@ -262,6 +246,10 @@ Exports
 ### `src/shared/resources/userProfileResource.js`
 Exports
 - `userProfileResource`
+Local functions
+- `normalizeUsername(value)`
+- `normalizeNullableString(value)`
+- `normalizeNullableVersion(value)`
 
 ### `src/shared/resources/userSettingsResource.js`
 Exports
@@ -272,6 +260,8 @@ Exports
 - `userSettingsOutputSchema`
 - `userSettingsOutputValidator`
 - `userSettingsResource`
+Local functions
+- `normalizePositiveInteger(value)`
 
 ### `src/shared/settings.js`
 Exports
@@ -317,12 +307,6 @@ Exports
 ### `templates/packages/users/src/server/actions.js`
 Exports
 - `createActions({ surface } = {})`
-
-### `templates/packages/users/src/server/jsonRestResource.js`
-Exports
-- `jsonRestResource`
-Local functions
-- `serializeNullableDateTime(value)`
 
 ### `templates/packages/users/src/server/registerRoutes.js`
 Exports

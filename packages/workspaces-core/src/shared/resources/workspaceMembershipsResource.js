@@ -1,15 +1,7 @@
-import { toDatabaseDateTimeUtc } from "@jskit-ai/database-runtime/shared";
+import { deepFreeze } from "@jskit-ai/kernel/shared/support/deepFreeze";
 import { normalizeLowerText } from "@jskit-ai/kernel/shared/support/normalize";
 
-function serializeNullableDateTime(value) {
-  if (value == null) {
-    return null;
-  }
-
-  return toDatabaseDateTimeUtc(value);
-}
-
-const workspaceMembershipsResource = Object.freeze({
+const workspaceMembershipsResource = deepFreeze({
   tableName: "workspace_memberships",
   searchSchema: {
     id: { type: "id", actualField: "id" }
@@ -20,16 +12,14 @@ const workspaceMembershipsResource = Object.freeze({
       required: true,
       search: true,
       belongsTo: "workspaces",
-      as: "workspace",
-      storage: { column: "workspace_id" }
+      as: "workspace"
     },
     userId: {
       type: "id",
       required: true,
       search: true,
       belongsTo: "userProfiles",
-      as: "user",
-      storage: { column: "user_id" }
+      as: "user"
     },
     roleSid: {
       type: "string",
@@ -53,7 +43,7 @@ const workspaceMembershipsResource = Object.freeze({
       default: "now()",
       storage: {
         column: "created_at",
-        serialize: serializeNullableDateTime
+        writeSerializer: "datetime-utc"
       }
     },
     updatedAt: {
@@ -61,7 +51,7 @@ const workspaceMembershipsResource = Object.freeze({
       default: "now()",
       storage: {
         column: "updated_at",
-        serialize: serializeNullableDateTime
+        writeSerializer: "datetime-utc"
       }
     }
   }

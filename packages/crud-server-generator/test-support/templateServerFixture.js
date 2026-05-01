@@ -141,6 +141,7 @@ function buildTemplateReplacements({
     ["__JSKIT_CRUD_ROUTE_SURFACE_REQUIRES_WORKSPACE__", String(surfaceRequiresWorkspace === true)],
     ["__JSKIT_CRUD_ROUTE_BASE__", JSON.stringify(surfaceRequiresWorkspace ? "/w/:workspaceSlug" : "/")],
     ["__JSKIT_CRUD_ROUTE_WORKSPACE_SUPPORT_IMPORTS__", routeWorkspaceSupportImports],
+    ["__JSKIT_CRUD_ROUTE_CONTRACTS_RESOURCE_ARGS__", surfaceRequiresWorkspace ? ",\n  routeParamsValidator" : ""],
     ["__JSKIT_CRUD_ROUTE_VALIDATOR_CONSTANTS__", surfaceRequiresWorkspace
       ? [
           "const recordRouteParamsValidator = composeSchemaDefinitions([",
@@ -150,10 +151,10 @@ function buildTemplateReplacements({
         ].join("\n")
       : ""],
     ["__JSKIT_CRUD_LIST_ROUTE_PARAMS_VALIDATOR_LINE__", surfaceRequiresWorkspace ? "      params: routeParamsValidator," : ""],
-    ["__JSKIT_CRUD_VIEW_ROUTE_PARAMS_VALIDATOR_LINE__", surfaceRequiresWorkspace ? "      params: recordRouteParamsValidator," : "      params: recordIdParamsValidator,"],
+    ["__JSKIT_CRUD_VIEW_ROUTE_PARAMS_VALIDATOR_LINE__", "      params: recordRouteParamsValidator,"],
     ["__JSKIT_CRUD_CREATE_ROUTE_PARAMS_VALIDATOR_LINE__", surfaceRequiresWorkspace ? "      params: routeParamsValidator," : ""],
-    ["__JSKIT_CRUD_UPDATE_ROUTE_PARAMS_VALIDATOR_LINE__", surfaceRequiresWorkspace ? "      params: recordRouteParamsValidator," : "      params: recordIdParamsValidator,"],
-    ["__JSKIT_CRUD_DELETE_ROUTE_PARAMS_VALIDATOR_LINE__", surfaceRequiresWorkspace ? "      params: recordRouteParamsValidator," : "      params: recordIdParamsValidator,"],
+    ["__JSKIT_CRUD_UPDATE_ROUTE_PARAMS_VALIDATOR_LINE__", "      params: recordRouteParamsValidator,"],
+    ["__JSKIT_CRUD_DELETE_ROUTE_PARAMS_VALIDATOR_LINE__", "      params: recordRouteParamsValidator,"],
     ["__JSKIT_CRUD_LIST_ROUTE_INPUT_LINES__", surfaceRequiresWorkspace
       ? ["          ...buildWorkspaceInputFromRouteParams(request.input.params),", "          ...(request.input.query || {})"].join("\n")
       : "          ...(request.input.query || {})"],
@@ -190,27 +191,38 @@ function buildTemplateReplacements({
         ].join("\n")
       : "          recordId: request.input.params.recordId"],
     ["__JSKIT_CRUD_JSONREST_SCOPE_NAME__", JSON.stringify("customers")],
-    ["__JSKIT_CRUD_JSONREST_AUTOFILTER__", JSON.stringify(surfaceRequiresWorkspace ? "workspace" : "public")],
-    ["__JSKIT_CRUD_JSONREST_SEARCH_SCHEMA_LINES__", [
+    ["__JSKIT_CRUD_RESOURCE_AUTOFILTER__", JSON.stringify(surfaceRequiresWorkspace ? "workspace" : "public")],
+    ["__JSKIT_CRUD_RESOURCE_SEARCH_SCHEMA_LINES__", [
       '    id: { type: "id", actualField: "id" },',
       '    q: { type: "string", oneOf: ["name"], filterOperator: "like", splitBy: " ", matchAll: true },'
     ].join("\n")],
-    ["__JSKIT_CRUD_JSONREST_DEFAULT_SORT_LINE__", '  defaultSort: ["-createdAt"],'],
-    ["__JSKIT_CRUD_JSONREST_SCHEMA_PROPERTIES__", [
+    ["__JSKIT_CRUD_RESOURCE_DEFAULT_SORT__", '["-createdAt"]'],
+    ["__JSKIT_CRUD_RESOURCE_SCHEMA_PROPERTIES__", [
       "    name: {",
       '      type: "string",',
       "      required: true,",
-      "      search: true",
+      "      search: true,",
+      "      operations: {",
+      '        output: { required: true },',
+      '        create: { required: true },',
+      '        patch: { required: false }',
+      "      }",
       "    },",
       "    createdAt: {",
       '      type: "dateTime",',
-      "      required: false,",
-      "      storage: { serialize: serializeNullableDateTime }",
+      '      default: "now()",',
+      '      storage: { writeSerializer: "datetime-utc" },',
+      "      operations: {",
+      '        output: { required: true }',
+      "      }",
       "    },",
       "    updatedAt: {",
       '      type: "dateTime",',
-      "      required: false,",
-      "      storage: { serialize: serializeNullableDateTime }",
+      '      default: "now()",',
+      '      storage: { writeSerializer: "datetime-utc" },',
+      "      operations: {",
+      '        output: { required: true }',
+      "      }",
       "    },"
     ].join("\n")]
   ]);
@@ -225,87 +237,48 @@ function applyTemplateReplacements(sourceText = "", options = {}) {
 }
 
 function buildResourceStubSource() {
-  return `import { createSchema } from "json-rest-schema";
-import { createCursorListValidator } from "@jskit-ai/kernel/shared/validators";
-import { deepFreeze } from "@jskit-ai/kernel/shared/support/deepFreeze";
+  return `import { defineCrudResource } from "@jskit-ai/crud-core/shared/crudResource";
 
-const recordOutputSchema = createSchema({
-  id: { type: "string", required: true },
-  name: { type: "string", required: true }
-});
-
-const createBodySchema = createSchema({
-  name: { type: "string", required: true },
-  contactId: {
-    type: "id",
-    required: false,
-    nullable: true,
-    relation: {
-      kind: "lookup",
-      namespace: "contacts",
-      valueKey: "id"
-    }
-  }
-});
-
-const patchBodySchema = createSchema({
-  name: { type: "string", required: false },
-  contactId: {
-    type: "id",
-    required: false,
-    nullable: true,
-    relation: {
-      kind: "lookup",
-      namespace: "contacts",
-      valueKey: "id"
-    }
-  }
-});
-
-const recordOutputValidator = deepFreeze({
-  schema: recordOutputSchema,
-  mode: "replace"
-});
-
-const createBodyValidator = deepFreeze({
-  schema: createBodySchema,
-  mode: "create"
-});
-
-const patchBodyValidator = deepFreeze({
-  schema: patchBodySchema,
-  mode: "patch"
-});
-
-const deleteOutputValidator = deepFreeze({
-  schema: createSchema({
-    id: { type: "string", required: true },
-    deleted: { type: "boolean", required: true }
-  }),
-  mode: "replace"
-});
-
-const resource = deepFreeze({
+const resource = defineCrudResource({
   namespace: "customers",
   tableName: "customers",
-  idColumn: "id",
-  operations: {
-    list: {
-      output: createCursorListValidator(recordOutputValidator)
+  schema: {
+  name: {
+    type: "string",
+    required: true,
+    search: true,
+    operations: {
+      output: { required: true },
+      create: { required: true },
+      patch: { required: false }
+    }
+  },
+  contactId: {
+    type: "id",
+    nullable: true,
+    relation: {
+      kind: "lookup",
+      namespace: "contacts",
+      valueKey: "id"
     },
-    view: {
-      output: recordOutputValidator
-    },
-    create: {
-      body: createBodyValidator,
-      output: recordOutputValidator
-    },
-    patch: {
-      body: patchBodyValidator,
-      output: recordOutputValidator
-    },
-    delete: {
-      output: deleteOutputValidator
+    operations: {
+      output: { required: true },
+      create: { required: false },
+      patch: { required: false }
+    }
+  }
+  },
+  searchSchema: {
+    id: { type: "id", actualField: "id" },
+    q: { type: "string", oneOf: ["name"], filterOperator: "like", splitBy: " ", matchAll: true }
+  },
+  defaultSort: ["-createdAt"],
+  autofilter: "workspace",
+  contract: {
+    lookup: {
+      containerKey: "lookups",
+      defaultInclude: "*",
+      maxDepth: 3
     }
   }
 });
@@ -336,7 +309,7 @@ async function createTemplateServerFixture(options = {}) {
   );
   await writeFile(path.join(sharedRoot, "customerResource.js"), buildResourceStubSource(), "utf8");
 
-  for (const fileName of ["actions.js", "jsonRestResource.js", "registerRoutes.js", "repository.js", "service.js"]) {
+  for (const fileName of ["actions.js", "registerRoutes.js", "repository.js", "service.js"]) {
     await renderServerTemplateFile(serverRoot, fileName, options);
   }
 

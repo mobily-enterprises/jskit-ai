@@ -1,15 +1,7 @@
-import { toDatabaseDateTimeUtc } from "@jskit-ai/database-runtime/shared";
+import { deepFreeze } from "@jskit-ai/kernel/shared/support/deepFreeze";
 import { normalizeLowerText, normalizeText } from "@jskit-ai/kernel/shared/support/normalize";
 
-function serializeNullableDateTime(value) {
-  if (value == null) {
-    return null;
-  }
-
-  return toDatabaseDateTimeUtc(value);
-}
-
-const workspaceInvitesResource = Object.freeze({
+const workspaceInvitesResource = deepFreeze({
   tableName: "workspace_invites",
   searchSchema: {
     id: { type: "id", actualField: "id" }
@@ -20,8 +12,7 @@ const workspaceInvitesResource = Object.freeze({
       required: true,
       search: true,
       belongsTo: "workspaces",
-      as: "workspace",
-      storage: { column: "workspace_id" }
+      as: "workspace"
     },
     email: {
       type: "string",
@@ -67,7 +58,7 @@ const workspaceInvitesResource = Object.freeze({
       nullable: true,
       storage: {
         column: "expires_at",
-        serialize: serializeNullableDateTime
+        writeSerializer: "datetime-utc"
       }
     },
     acceptedAt: {
@@ -75,7 +66,7 @@ const workspaceInvitesResource = Object.freeze({
       nullable: true,
       storage: {
         column: "accepted_at",
-        serialize: serializeNullableDateTime
+        writeSerializer: "datetime-utc"
       }
     },
     revokedAt: {
@@ -83,7 +74,7 @@ const workspaceInvitesResource = Object.freeze({
       nullable: true,
       storage: {
         column: "revoked_at",
-        serialize: serializeNullableDateTime
+        writeSerializer: "datetime-utc"
       }
     },
     createdAt: {
@@ -91,7 +82,7 @@ const workspaceInvitesResource = Object.freeze({
       default: "now()",
       storage: {
         column: "created_at",
-        serialize: serializeNullableDateTime
+        writeSerializer: "datetime-utc"
       }
     },
     updatedAt: {
@@ -99,7 +90,7 @@ const workspaceInvitesResource = Object.freeze({
       default: "now()",
       storage: {
         column: "updated_at",
-        serialize: serializeNullableDateTime
+        writeSerializer: "datetime-utc"
       }
     }
   }

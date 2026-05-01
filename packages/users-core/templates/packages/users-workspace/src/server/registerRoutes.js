@@ -13,10 +13,9 @@ import {
 import { routeParamsValidator } from "@jskit-ai/workspaces-core/server/validators/routeParamsValidator";
 import { buildWorkspaceInputFromRouteParams } from "@jskit-ai/workspaces-core/server/support/workspaceRouteInput";
 import { resource } from "../shared/userResource.js";
-import { jsonRestResource } from "./jsonRestResource.js";
 
 const listCursorPaginationQueryValidator = createCrudCursorPaginationQueryValidator({
-  orderBy: jsonRestResource.defaultSort
+  orderBy: resource.defaultSort
 });
 const listRouteQueryValidator = composeSchemaDefinitions([
   listCursorPaginationQueryValidator,
