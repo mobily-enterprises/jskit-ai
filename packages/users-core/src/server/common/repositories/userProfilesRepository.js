@@ -1,5 +1,4 @@
 import {
-  createSimplifiedWriteParams,
   createWithTransaction,
   isDuplicateEntryError,
   normalizeDbRecordId,
@@ -9,8 +8,14 @@ import {
   nowDb,
   toIsoString
 } from "./repositoryUtils.js";
+import {
+  createJsonApiInputRecord,
+  createJsonRestContext,
+  simplifyJsonApiDocument
+} from "@jskit-ai/json-rest-api-core/server/jsonRestApiHost";
 import { normalizeIdentity } from "../support/identity.js";
 
+const RESOURCE_TYPE = "userProfiles";
 const USERNAME_MAX_LENGTH = 120;
 
 function normalizeUsername(value) {
@@ -144,10 +149,11 @@ async function resolveUniqueUsername(api, baseUsername, { excludeUserId = null, 
         }
       },
       transaction,
-      simplified: true
+      simplified: false
     });
 
-    const existing = Array.isArray(result?.data) ? result.data[0] || null : null;
+    const existingRows = simplifyJsonApiDocument(result);
+    const existing = Array.isArray(existingRows) ? existingRows[0] || null : null;
     const existingId = normalizeDbRecordId(existing?.id, { fallback: null });
     if (!existing || existingId === normalizedExcludeUserId) {
       return candidate;
@@ -168,15 +174,19 @@ function createRepository({ api, knex } = {}) {
   const withTransaction = createWithTransaction(knex);
 
   async function queryFirst(filters = {}, options = {}) {
-    const result = await api.resources.userProfiles.query({
-      queryParams: {
-        filters
+    const result = await api.resources.userProfiles.query(
+      {
+        queryParams: {
+          filters
+        },
+        transaction: options?.trx || null,
+        simplified: false
       },
-      transaction: options?.trx,
-      simplified: true
-    });
+      createJsonRestContext(options?.context || null)
+    );
 
-    return Array.isArray(result?.data) ? result.data[0] || null : null;
+    const rows = simplifyJsonApiDocument(result);
+    return Array.isArray(rows) ? rows[0] || null : null;
   }
 
   async function findById(userId, options = {}) {
@@ -221,17 +231,24 @@ function createRepository({ api, knex } = {}) {
     }
 
     const updated = await api.resources.userProfiles.patch(
-      createSimplifiedWriteParams(
-        {
-          id: normalizedUserId,
-          displayName,
-          updatedAt: new Date()
-        },
-        { trx: options?.trx }
-      )
+      {
+        inputRecord: createJsonApiInputRecord(
+          RESOURCE_TYPE,
+          {
+            displayName,
+            updatedAt: new Date()
+          },
+          {
+            id: normalizedUserId
+          }
+        ),
+        transaction: options?.trx || null,
+        simplified: false
+      },
+      createJsonRestContext(options?.context || null)
     );
 
-    return normalizeProfileRecord(updated);
+    return normalizeProfileRecord(simplifyJsonApiDocument(updated));
   }
 
   async function updateAvatarById(userId, avatar = {}, options = {}) {
@@ -241,19 +258,26 @@ function createRepository({ api, knex } = {}) {
     }
 
     const updated = await api.resources.userProfiles.patch(
-      createSimplifiedWriteParams(
-        {
-          id: normalizedUserId,
-          avatarStorageKey: avatar.avatarStorageKey ?? null,
-          avatarVersion: avatar.avatarVersion ?? null,
-          avatarUpdatedAt: avatar.avatarUpdatedAt ?? nowDb(),
-          updatedAt: new Date()
-        },
-        { trx: options?.trx }
-      )
+      {
+        inputRecord: createJsonApiInputRecord(
+          RESOURCE_TYPE,
+          {
+            avatarStorageKey: avatar.avatarStorageKey ?? null,
+            avatarVersion: avatar.avatarVersion ?? null,
+            avatarUpdatedAt: avatar.avatarUpdatedAt ?? nowDb(),
+            updatedAt: new Date()
+          },
+          {
+            id: normalizedUserId
+          }
+        ),
+        transaction: options?.trx || null,
+        simplified: false
+      },
+      createJsonRestContext(options?.context || null)
     );
 
-    return normalizeProfileRecord(updated);
+    return normalizeProfileRecord(simplifyJsonApiDocument(updated));
   }
 
   async function clearAvatarById(userId, options = {}) {
@@ -263,19 +287,26 @@ function createRepository({ api, knex } = {}) {
     }
 
     const updated = await api.resources.userProfiles.patch(
-      createSimplifiedWriteParams(
-        {
-          id: normalizedUserId,
-          avatarStorageKey: null,
-          avatarVersion: null,
-          avatarUpdatedAt: null,
-          updatedAt: new Date()
-        },
-        { trx: options?.trx }
-      )
+      {
+        inputRecord: createJsonApiInputRecord(
+          RESOURCE_TYPE,
+          {
+            avatarStorageKey: null,
+            avatarVersion: null,
+            avatarUpdatedAt: null,
+            updatedAt: new Date()
+          },
+          {
+            id: normalizedUserId
+          }
+        ),
+        transaction: options?.trx || null,
+        simplified: false
+      },
+      createJsonRestContext(options?.context || null)
     );
 
-    return normalizeProfileRecord(updated);
+    return normalizeProfileRecord(simplifyJsonApiDocument(updated));
   }
 
   async function upsert(profileLike = {}, options = {}) {
@@ -296,7 +327,10 @@ function createRepository({ api, knex } = {}) {
     }
 
     const executeUpsert = async (trx) => {
-      const existing = await findByIdentity(identity, { trx });
+      const existing = await findByIdentity(identity, {
+        trx,
+        context: options?.context || null
+      });
 
       try {
         if (existing) {
@@ -310,19 +344,26 @@ function createRepository({ api, knex } = {}) {
           );
 
           const updated = await api.resources.userProfiles.patch(
-            createSimplifiedWriteParams(
-              {
-                id: normalizeDbRecordId(existing.id, { fallback: null }),
-                email,
-                displayName,
-                username,
-                updatedAt: new Date()
-              },
-              { trx }
-            )
+            {
+              inputRecord: createJsonApiInputRecord(
+                RESOURCE_TYPE,
+                {
+                  email,
+                  displayName,
+                  username,
+                  updatedAt: new Date()
+                },
+                {
+                  id: normalizeDbRecordId(existing.id, { fallback: null })
+                }
+              ),
+              transaction: trx,
+              simplified: false
+            },
+            createJsonRestContext(options?.context || null)
           );
 
-          return normalizeProfileRecord(updated);
+          return normalizeProfileRecord(simplifyJsonApiDocument(updated));
         }
 
         const username = await resolveUniqueUsername(
@@ -332,20 +373,22 @@ function createRepository({ api, knex } = {}) {
         );
 
         const created = await api.resources.userProfiles.post(
-          createSimplifiedWriteParams(
-            {
+          {
+            inputRecord: createJsonApiInputRecord(RESOURCE_TYPE, {
               authProvider: identity.provider,
               authProviderUserSid: identity.providerUserId,
               email,
               displayName,
               username,
               createdAt: new Date()
-            },
-            { trx }
-          )
+            }),
+            transaction: trx,
+            simplified: false
+          },
+          createJsonRestContext(options?.context || null)
         );
 
-        return normalizeProfileRecord(created);
+        return normalizeProfileRecord(simplifyJsonApiDocument(created));
       } catch (error) {
         if (duplicateTargetsEmail(error)) {
           throw createDuplicateEmailConflictError();
@@ -358,7 +401,10 @@ function createRepository({ api, knex } = {}) {
         }
       }
 
-      return findByIdentity(identity, { trx });
+      return findByIdentity(identity, {
+        trx,
+        context: options?.context || null
+      });
     };
 
     if (options?.trx) {

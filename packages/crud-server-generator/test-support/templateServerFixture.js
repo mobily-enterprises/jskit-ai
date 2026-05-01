@@ -64,6 +64,7 @@ function buildTemplateReplacements({
     ["${option:namespace|camel}", CRUD_NAMESPACE.camel],
     ["${option:namespace|singular|camel}", CRUD_NAMESPACE.singularCamel],
     ["${option:namespace|pascal}", CRUD_NAMESPACE.pascal],
+    ["__JSKIT_CRUD_TABLE_NAME__", JSON.stringify("customers")],
     ["__JSKIT_CRUD_ID_COLUMN__", JSON.stringify("id")],
     ["__JSKIT_CRUD_SURFACE_ID__", JSON.stringify(surfaceId)],
     ["__JSKIT_CRUD_ACTION_PERMISSION_SUPPORT__", actionPermissionSupport],
@@ -188,14 +189,30 @@ function buildTemplateReplacements({
           "          recordId: request.input.params.recordId"
         ].join("\n")
       : "          recordId: request.input.params.recordId"],
-    [
-      "__JSKIT_CRUD_LIST_CONFIG_LINES__",
-      [
-        "  // defaultLimit: 20,",
-        "  // maxLimit: 100,",
-        "  // searchColumns: [\"name\"],"
-      ].join("\n")
-    ]
+    ["__JSKIT_CRUD_JSONREST_SCOPE_NAME__", JSON.stringify("customers")],
+    ["__JSKIT_CRUD_JSONREST_AUTOFILTER__", JSON.stringify(surfaceRequiresWorkspace ? "workspace" : "public")],
+    ["__JSKIT_CRUD_JSONREST_SEARCH_SCHEMA_LINES__", [
+      '    id: { type: "id", actualField: "id" },',
+      '    q: { type: "string", oneOf: ["name"], filterOperator: "like", splitBy: " ", matchAll: true },'
+    ].join("\n")],
+    ["__JSKIT_CRUD_JSONREST_DEFAULT_SORT_LINE__", '  defaultSort: ["-createdAt"],'],
+    ["__JSKIT_CRUD_JSONREST_SCHEMA_PROPERTIES__", [
+      "    name: {",
+      '      type: "string",',
+      "      required: true,",
+      "      search: true",
+      "    },",
+      "    createdAt: {",
+      '      type: "dateTime",',
+      "      required: false,",
+      "      storage: { serialize: serializeNullableDateTime }",
+      "    },",
+      "    updatedAt: {",
+      '      type: "dateTime",',
+      "      required: false,",
+      "      storage: { serialize: serializeNullableDateTime }",
+      "    },"
+    ].join("\n")]
   ]);
 }
 
@@ -319,7 +336,7 @@ async function createTemplateServerFixture(options = {}) {
   );
   await writeFile(path.join(sharedRoot, "customerResource.js"), buildResourceStubSource(), "utf8");
 
-  for (const fileName of ["actionIds.js", "actions.js", "listConfig.js", "registerRoutes.js", "repository.js", "service.js"]) {
+  for (const fileName of ["actionIds.js", "actions.js", "jsonRestResource.js", "registerRoutes.js", "repository.js", "service.js"]) {
     await renderServerTemplateFile(serverRoot, fileName, options);
   }
 

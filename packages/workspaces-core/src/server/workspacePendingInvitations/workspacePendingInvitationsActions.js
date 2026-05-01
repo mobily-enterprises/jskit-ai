@@ -2,7 +2,6 @@ import {
   emptyInputValidator
 } from "@jskit-ai/kernel/shared/actions/actionContributorHelpers";
 import { workspaceMembersResource } from "../../shared/resources/workspaceMembersResource.js";
-import { workspacePendingInvitationsResource } from "../../shared/resources/workspacePendingInvitationsResource.js";
 import { resolveActionUser } from "../common/support/resolveActionUser.js";
 
 const workspacePendingInvitationsActions = Object.freeze([
@@ -16,7 +15,7 @@ const workspacePendingInvitationsActions = Object.freeze([
       require: "authenticated"
     },
     input: emptyInputValidator,
-    output: workspacePendingInvitationsResource.operations.list.output,
+    output: null,
     idempotency: "none",
     audit: {
       actionName: "workspace.invitations.pending.list"
@@ -40,7 +39,7 @@ const workspacePendingInvitationsActions = Object.freeze([
       require: "authenticated"
     },
     input: workspaceMembersResource.operations.redeemInvite.body,
-    output: workspaceMembersResource.operations.redeemInvite.output,
+    output: null,
     idempotency: "optional",
     audit: {
       actionName: "workspace.invite.redeem"

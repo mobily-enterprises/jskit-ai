@@ -26,10 +26,10 @@ test("users-core installs the app-local users package scaffold", () => {
     "users-core-users-action-ids",
     "users-core-users-actions-base",
     "users-core-users-actions-workspace",
-    "users-core-users-list-config",
     "users-core-users-routes-base",
     "users-core-users-routes-workspace",
     "users-core-users-repository",
+    "users-core-users-json-rest-resource",
     "users-core-users-service",
     "users-core-users-shared-index",
     "users-core-users-resource"
@@ -59,16 +59,43 @@ test("users-core base users package templates stay aligned with non-workspace ap
     path.join(PACKAGE_ROOT, "templates/packages/users/src/server/actions.js"),
     "utf8"
   );
+  const repositorySource = await readFile(
+    path.join(PACKAGE_ROOT, "templates/packages/users/src/server/repository.js"),
+    "utf8"
+  );
+  const jsonRestResourceSource = await readFile(
+    path.join(PACKAGE_ROOT, "templates/packages/users/src/server/jsonRestResource.js"),
+    "utf8"
+  );
+  const serviceSource = await readFile(
+    path.join(PACKAGE_ROOT, "templates/packages/users/src/server/service.js"),
+    "utf8"
+  );
   const routesSource = await readFile(
     path.join(PACKAGE_ROOT, "templates/packages/users/src/server/registerRoutes.js"),
     "utf8"
   );
 
   assert.doesNotMatch(packageDescriptorSource, /@jskit-ai\/workspaces-core/);
+  assert.match(packageDescriptorSource, /@jskit-ai\/json-rest-api-core/);
+  assert.match(packageDescriptorSource, /json-rest-api\.core/);
   assert.match(providerSource, /surface: "home"/);
   assert.doesNotMatch(providerSource, /routeSurfaceRequiresWorkspace/);
+  assert.doesNotMatch(providerSource, /createCrudLookup/);
+  assert.doesNotMatch(providerSource, /lookup\.users/);
+  assert.match(providerSource, /addResourceIfMissing\(api, "users", jsonRestResource\)/);
+  assert.match(repositorySource, /api\.resources\.users\.query\(/);
+  assert.match(repositorySource, /api\.resources\.users\.get\(/);
+  assert.match(jsonRestResourceSource, /defaultSort: \["name", "email"\]/);
   assert.doesNotMatch(actionsSource, /workspaceSlugParamsValidator/);
+  assert.doesNotMatch(actionsSource, /requireActionSurface/);
+  assert.match(actionsSource, /import \{ jsonRestResource \} from "\.\/jsonRestResource\.js";/);
+  assert.match(actionsSource, /output: null/);
+  assert.doesNotMatch(serviceSource, /serviceEvents/);
+  assert.match(serviceSource, /return404IfNotFound/);
   assert.doesNotMatch(routesSource, /workspaceRouteInput/);
+  assert.match(routesSource, /createJsonApiResourceRouteContract/);
+  assert.match(routesSource, /wrapResponse: false/);
   assert.match(routesSource, /routeBase: "\/"/);
 });
 
@@ -89,11 +116,24 @@ test("users-core workspace users package templates stay aligned with workspace a
     path.join(PACKAGE_ROOT, "templates/packages/users-workspace/src/server/registerRoutes.js"),
     "utf8"
   );
+  const serviceSource = await readFile(
+    path.join(PACKAGE_ROOT, "templates/packages/users/src/server/service.js"),
+    "utf8"
+  );
 
   assert.match(packageDescriptorSource, /@jskit-ai\/workspaces-core/);
+  assert.match(packageDescriptorSource, /@jskit-ai\/json-rest-api-core/);
+  assert.match(packageDescriptorSource, /json-rest-api\.core/);
   assert.match(providerSource, /surface: "admin"/);
   assert.match(providerSource, /routeSurfaceRequiresWorkspace/);
+  assert.doesNotMatch(providerSource, /createCrudLookup/);
+  assert.doesNotMatch(providerSource, /lookup\.users/);
+  assert.match(providerSource, /addResourceIfMissing\(api, "users", jsonRestResource\)/);
   assert.match(actionsSource, /workspaceSlugParamsValidator/);
+  assert.doesNotMatch(actionsSource, /requireActionSurface/);
+  assert.match(actionsSource, /import \{ jsonRestResource \} from "\.\/jsonRestResource\.js";/);
   assert.match(routesSource, /buildWorkspaceInputFromRouteParams/);
+  assert.match(routesSource, /createJsonApiResourceRouteContract/);
   assert.match(routesSource, /routeBase: routeSurfaceRequiresWorkspace === true \? "\/w\/:workspaceSlug" : "\/"/);
+  assert.doesNotMatch(serviceSource, /serviceEvents/);
 });

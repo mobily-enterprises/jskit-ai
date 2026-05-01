@@ -51,6 +51,23 @@ function useAccountSettingsRuntime() {
   const accountNotificationsWriteQueryKey = ["users-web", "settings", "account-notifications-write"];
   const sessionQueryKey = Object.freeze(["users-web", "session", "csrf"]);
   const OWNERSHIP_PUBLIC = ROUTE_VISIBILITY_PUBLIC;
+  const USER_SETTINGS_TRANSPORT = Object.freeze({
+    kind: "jsonapi-resource",
+    responseType: "user-settings",
+    responseKind: "record"
+  });
+  const USER_PROFILE_UPDATE_TRANSPORT = Object.freeze({
+    ...USER_SETTINGS_TRANSPORT,
+    requestType: "user-profiles"
+  });
+  const USER_PREFERENCES_UPDATE_TRANSPORT = Object.freeze({
+    ...USER_SETTINGS_TRANSPORT,
+    requestType: "user-preferences"
+  });
+  const USER_NOTIFICATION_SETTINGS_UPDATE_TRANSPORT = Object.freeze({
+    ...USER_SETTINGS_TRANSPORT,
+    requestType: "user-notification-settings"
+  });
 
   const accountSettingsPath = computed(() =>
     resolveSurfacePathFromPlacementContext(placementContext.value, "account", "/")
@@ -179,10 +196,11 @@ function useAccountSettingsRuntime() {
     applySettingsData(payload);
   };
 
-const settingsView = useView({
+  const settingsView = useView({
     ownershipFilter: OWNERSHIP_PUBLIC,
     apiSuffix: "/settings",
     queryKeyFactory: () => accountSettingsQueryKey,
+    transport: USER_SETTINGS_TRANSPORT,
     realtime: {
       event: "account.settings.changed"
     },
@@ -197,6 +215,7 @@ const settingsView = useView({
     queryKeyFactory: () => accountProfileWriteQueryKey,
     readEnabled: false,
     writeMethod: "PATCH",
+    transport: USER_PROFILE_UPDATE_TRANSPORT,
     fallbackSaveError: "Unable to update profile.",
     fieldErrorKeys: ["displayName"],
     model: profileForm,
@@ -234,6 +253,7 @@ const settingsView = useView({
     queryKeyFactory: () => accountPreferencesWriteQueryKey,
     readEnabled: false,
     writeMethod: "PATCH",
+    transport: USER_PREFERENCES_UPDATE_TRANSPORT,
     fallbackSaveError: "Unable to update preferences.",
     fieldErrorKeys: ["theme", "locale", "timeZone", "dateFormat", "numberFormat", "currencyCode", "avatarSize"],
     model: preferencesForm,
@@ -261,6 +281,7 @@ const settingsView = useView({
     queryKeyFactory: () => accountNotificationsWriteQueryKey,
     readEnabled: false,
     writeMethod: "PATCH",
+    transport: USER_NOTIFICATION_SETTINGS_UPDATE_TRANSPORT,
     fallbackSaveError: "Unable to update notifications.",
     model: notificationsForm,
     mapLoadedToModel: mapAccountSettingsPayload,

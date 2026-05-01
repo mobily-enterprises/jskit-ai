@@ -21,16 +21,16 @@ test("crud-server-generator surface option validates against enabled surface ids
   assert.equal(descriptor.metadata?.generatorSubcommands?.scaffold?.createTarget?.pathTemplate, "packages/${option:namespace|kebab}");
 });
 
-test("crud-server-generator installs listConfig alongside server templates", () => {
+test("crud-server-generator installs jsonRestResource alongside server templates", () => {
   const files = descriptor.mutations?.files || [];
-  const listConfigTemplate = files.find((entry) => entry.from === "templates/src/local-package/server/listConfig.js");
+  const jsonRestResourceTemplate = files.find((entry) => entry.from === "templates/src/local-package/server/jsonRestResource.js");
 
-  assert.ok(listConfigTemplate);
+  assert.ok(jsonRestResourceTemplate);
   assert.equal(
-    listConfigTemplate.to,
-    "packages/${option:namespace|kebab}/src/server/listConfig.js"
+    jsonRestResourceTemplate.to,
+    "packages/${option:namespace|kebab}/src/server/jsonRestResource.js"
   );
-  assert.deepEqual(listConfigTemplate.templateContext, {
+  assert.deepEqual(jsonRestResourceTemplate.templateContext, {
     entrypoint: "src/server/buildTemplateContext.js",
     export: "buildTemplateContext"
   });

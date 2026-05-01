@@ -15,7 +15,7 @@ const accountPreferencesActions = Object.freeze([
       require: "authenticated"
     },
     input: userSettingsResource.operations.preferencesUpdate.body,
-    output: userSettingsResource.operations.view.output,
+    output: null,
     idempotency: "optional",
     audit: {
       actionName: "settings.preferences.update"

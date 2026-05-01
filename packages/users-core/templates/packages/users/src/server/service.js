@@ -1,14 +1,11 @@
-import {
-  createCrudServiceRuntime,
-  crudServiceListRecords,
-  crudServiceGetRecord
-} from "@jskit-ai/crud-core/server/serviceMethods";
-import { resource } from "../shared/userResource.js";
+import { AppError } from "@jskit-ai/kernel/server/runtime/errors";
 
-const serviceRuntime = createCrudServiceRuntime(resource, {
-  context: "usersService"
-});
-const serviceEvents = Object.freeze({});
+function return404IfNotFound(record = null) {
+  if (!record) {
+    throw new AppError(404, "Record not found.");
+  }
+  return record;
+}
 
 function createService({ usersRepository } = {}) {
   if (!usersRepository) {
@@ -17,12 +14,19 @@ function createService({ usersRepository } = {}) {
 
   return Object.freeze({
     listRecords(query = {}, options = {}) {
-      return crudServiceListRecords(serviceRuntime, usersRepository, {}, query, options);
+      return usersRepository.list(query, {
+        trx: options?.trx || null,
+        context: options?.context || null
+      });
     },
-    getRecord(recordId, options = {}) {
-      return crudServiceGetRecord(serviceRuntime, usersRepository, {}, recordId, options);
+    async getRecord(recordId, options = {}) {
+      return return404IfNotFound(await usersRepository.findById(recordId, {
+        trx: options?.trx || null,
+        context: options?.context || null,
+        include: options?.include
+      }));
     }
   });
 }
 
-export { createService, serviceEvents };
+export { createService };

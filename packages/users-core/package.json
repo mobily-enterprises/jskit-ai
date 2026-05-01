@@ -6,7 +6,6 @@
     "test": "node --test"
   },
   "exports": {
-    "./server/jsonRestApiHost": "./src/server/common/jsonRestApiHost.js",
     "./server/profileSyncLifecycleContributorRegistry": "./src/server/profileSyncLifecycleContributorRegistry.js",
     "./shared/resources/userProfileResource": "./src/shared/resources/userProfileResource.js",
     "./shared/resources/userSettingsResource": "./src/shared/resources/userSettingsResource.js"
@@ -15,10 +14,9 @@
     "@jskit-ai/auth-core": "0.1.54",
     "@jskit-ai/database-runtime": "0.1.55",
     "@jskit-ai/http-runtime": "0.1.54",
+    "@jskit-ai/json-rest-api-core": "0.1.0",
     "@jskit-ai/kernel": "0.1.55",
     "@jskit-ai/uploads-runtime": "0.1.33",
-    "hooked-api": "file:../../../hooked-api",
-    "json-rest-api": "file:../../../json-rest-api",
     "json-rest-schema": "file:../../../json-rest-schema"
   }
 }

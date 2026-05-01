@@ -517,6 +517,7 @@ Exports
 
 ### `shared/validators/index.js`
 Exports
+- `createSchema`
 - `normalizeObjectInput`
 - `composeSchemaDefinitions`
 - `createCursorListValidator`
@@ -876,14 +877,27 @@ Exports
 - `registerRoutes(fastify, { routes = [], app = null, applyRoutePolicy = defaultApplyRoutePolicy, missingHandler = defaultMissingHandler, enableRequestScope = true, requestScopeProperty = "scope", requestActionExecutorProperty = "executeAction", actionExecutorToken = "actionExecutor", requestActionDefaultChannel = "api", requestActionDefaultSurface = "", requestScopeIdPrefix = "http", requestIdResolver = null, middleware = {} } = {})`
 Local functions
 - `toFastifyRouteOptions(route)`
+- `normalizeHeaderValue(value)`
+- `normalizeMediaType(value = "")`
+- `shouldEnforceRequestContentType(method = "", transport = null)`
+- `enforceRequestContentType({ request = null, route = null, transport = null } = {})`
+- `attachRouteTransport(request, transport = null)`
+- `replyHasHeader(reply, name = "")`
 - `normalizeRouteInputTransforms(route)`
-- `buildRequestInput({ request = null, inputTransforms = null } = {})`
+- `buildRequestInput({ request = null, inputTransforms = null, transportInputTransforms = null } = {})`
+- `wrapReplySend({ reply = null, request = null, route = null, outputTransform = null, transport = null } = {})`
 
 ### `server/http/lib/routeSupport.js`
 Exports
 - `resolveRouteLabel({ method = "", path = "" } = {})`
 - `normalizeMiddlewareEntry(entry, { context = "middleware", index = -1, ErrorType = Error, entryLabel = "entry" } = {})`
 - `normalizeMiddlewareStack(value, { context = "middleware", ErrorType = Error, entryLabel = "entry", includeIndex = true } = {})`
+
+### `server/http/lib/routeTransport.js`
+Exports
+- `ROUTE_TRANSPORT_KINDS`
+- `normalizeRouteOutputTransform(value, { context = "route output", ErrorType = Error } = {})`
+- `normalizeRouteTransport(value, { context = "route transport", ErrorType = Error } = {})`
 
 ### `server/http/lib/routeValidator.js`
 Exports
@@ -1138,6 +1152,7 @@ Exports
 Exports
 - `resolveLoggerLevel({ configuredLevel = "", nodeEnv = "development", allowedLevels = [] } = {})`
 - `createFastifyLoggerOptions({ configuredLevel = "", nodeEnv = "development", allowedLevels = [], redactPaths = [], redactCensor = "[REDACTED]" } = {})`
+- `registerJsonApiContentTypeParser(fastify)`
 - `registerRequestLoggingHooks(app, { requestStartedAtSymbol, getPathname, getSurface, observeRequest, enableRequestLogs = true, defaultSurfaceId = "" } = {})`
 - `registerApiErrorHandler(app, { isAppError, onRecordDbError, onCaptureServerError, appErrorLogMessage = "AppError 5xx", unhandledErrorLogMessage = "Unhandled error" } = {})`
 - `ensureApiErrorHandling(app, { fastifyToken = "jskit.fastify", markerToken = "kernel.runtime.apiErrorHandlerRegistered", isAppError: isAppErrorOverride, autoRegister = true, ...handlerOptions } = {})`
@@ -1145,7 +1160,10 @@ Exports
 - `recordDbErrorBestEffort(observabilityService, error)`
 - `runGracefulShutdown({ signal = "", exitProcess = false, exitCode = 0, timeoutMs = 10_000, appInstance = null, stopBackgroundRuntimes = () => {}, closeDatabase = async () => {}, logger = console } = {})`
 Local functions
+- `createFallbackJsonBodyParser()`
 - `resolveValidationFieldErrors(error)`
+- `resolveRequestRouteTransport(request)`
+- `applyRouteTransportErrorResponse(reply, request, error, { statusCode = 500, normalizedErrorCode = "" } = {})`
 
 ### `server/runtime/index.js`
 Exports

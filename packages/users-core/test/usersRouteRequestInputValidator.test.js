@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { UsersCoreServiceProvider } from "../src/server/UsersCoreServiceProvider.js";
-import { INTERNAL_JSON_REST_API } from "../src/server/common/jsonRestApiHost.js";
+import { INTERNAL_JSON_REST_API } from "@jskit-ai/json-rest-api-core/server/jsonRestApiHost";
 import { createRouter } from "../../kernel/server/http/lib/router.js";
 
 function createReplyDouble() {
@@ -92,9 +92,30 @@ function createActionRequest({ input = {}, executeAction, file = null }) {
 
 test("users-core boot mounts account routes without workspace routes", async () => {
   const routes = await registerRoutes();
+  const settingsRoute = findRoute(routes, { method: "GET", path: "/api/settings" });
+  const profileRoute = findRoute(routes, { method: "PATCH", path: "/api/settings/profile" });
+  const preferencesRoute = findRoute(routes, { method: "PATCH", path: "/api/settings/preferences" });
+  const notificationsRoute = findRoute(routes, { method: "PATCH", path: "/api/settings/notifications" });
 
-  assert.equal(findRoute(routes, { method: "GET", path: "/api/settings" })?.path, "/api/settings");
-  assert.equal(findRoute(routes, { method: "PATCH", path: "/api/settings/profile" })?.path, "/api/settings/profile");
+  assert.equal(settingsRoute?.path, "/api/settings");
+  assert.equal(profileRoute?.path, "/api/settings/profile");
+  assert.equal(preferencesRoute?.path, "/api/settings/preferences");
+  assert.equal(notificationsRoute?.path, "/api/settings/notifications");
+  assert.equal(settingsRoute?.transport?.kind, "jsonapi-resource");
+  assert.equal(profileRoute?.transport?.kind, "jsonapi-resource");
+  assert.equal(preferencesRoute?.transport?.kind, "jsonapi-resource");
+  assert.equal(notificationsRoute?.transport?.kind, "jsonapi-resource");
+  assert.equal(settingsRoute?.schema?.response?.[200]?.required?.[0], "data");
+  assert.equal(profileRoute?.schema?.body?.required?.[0], "data");
+  assert.equal(profileRoute?.schema?.response?.[200]?.required?.[0], "data");
+  assert.equal(
+    profileRoute?.schema?.body?.definitions?.["user-profilesRequestResource"]?.properties?.type?.const,
+    "user-profiles"
+  );
+  assert.equal(
+    settingsRoute?.schema?.response?.[200]?.definitions?.["user-settingsSuccessResource"]?.properties?.type?.const,
+    "user-settings"
+  );
   assert.equal(
     typeof findRoute(routes, { method: "GET", path: "/api/settings/security/oauth/:provider/start" })?.schema?.response?.[302],
     "object"
@@ -203,4 +224,43 @@ test("account route handlers build action input from request.input", async () =>
   assert.equal(oauthReply.redirectedTo, "/oauth/link");
   assert.deepEqual(calls[6].input, { provider: "github" });
   assert.equal(calls[7].actionId, "settings.security.sessions.logout_others");
+});
+
+test("account settings jsonapi transport resolves response resource id from request user", async () => {
+  const routes = await registerRoutes();
+  const settingsRoute = findRoute(routes, { method: "GET", path: "/api/settings" });
+
+  const document = settingsRoute.transport.response(
+    {
+      profile: {
+        displayName: "Merc"
+      },
+      security: {},
+      preferences: {},
+      notifications: {}
+    },
+    {
+      request: {
+        user: {
+          id: 42
+        }
+      },
+      statusCode: 200
+    }
+  );
+
+  assert.deepEqual(document, {
+    data: {
+      type: "user-settings",
+      id: "42",
+      attributes: {
+        profile: {
+          displayName: "Merc"
+        },
+        security: {},
+        preferences: {},
+        notifications: {}
+      }
+    }
+  });
 });

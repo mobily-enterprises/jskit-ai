@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+import { toIsoString } from "@jskit-ai/database-runtime/shared";
 import { createRepository } from "../src/server/common/repositories/workspacesRepository.js";
 
 function createKnexStub() {
@@ -10,6 +11,53 @@ function createKnexStub() {
       return work({ trxId: "trx-1" });
     }
   });
+}
+
+function toWorkspaceResource(row = {}) {
+  return {
+    type: "workspaces",
+    id: String(row.id || ""),
+    attributes: {
+      slug: row.slug,
+      name: row.name,
+      isPersonal: row.isPersonal,
+      avatarUrl: row.avatarUrl,
+      createdAt: row.createdAt,
+      updatedAt: row.updatedAt,
+      deletedAt: row.deletedAt
+    },
+    relationships: {
+      owner: {
+        data: row.ownerUserId == null
+          ? null
+          : {
+              type: "userProfiles",
+              id: String(row.ownerUserId)
+            }
+      }
+    }
+  };
+}
+
+function toWorkspaceMembershipResource(row = {}) {
+  return {
+    type: "workspaceMemberships",
+    id: String(row.id || ""),
+    attributes: {
+      roleSid: row.roleSid,
+      status: row.status,
+      createdAt: row.createdAt,
+      updatedAt: row.updatedAt
+    },
+    relationships: {
+      user: {
+        data: row?.user?.id == null ? null : { type: "userProfiles", id: String(row.user.id) }
+      },
+      workspace: {
+        data: row?.workspace?.id == null ? null : { type: "workspaces", id: String(row.workspace.id) }
+      }
+    }
+  };
 }
 
 function createWorkspacesApiStub({
@@ -32,76 +80,84 @@ function createWorkspacesApiStub({
 
           if (Object.hasOwn(filters, "id")) {
             const row = rowsById.get(String(filters.id)) || null;
-            return { data: row ? [{ ...row }] : [] };
+            return { data: row ? [toWorkspaceResource(row)] : [] };
           }
 
           if (Object.hasOwn(filters, "slug")) {
             const row = rowsBySlug.get(String(filters.slug)) || null;
-            return { data: row ? [{ ...row }] : [] };
+            return { data: row ? [toWorkspaceResource(row)] : [] };
           }
 
           if (Object.hasOwn(filters, "owner") && Object.hasOwn(filters, "isPersonal")) {
             const rows = personalRowsByOwnerId.get(String(filters.owner)) || [];
-            return { data: rows.map((row) => ({ ...row })) };
+            return { data: rows.map((row) => toWorkspaceResource(row)) };
           }
 
           return { data: [] };
         },
         async post(payload) {
-          assert.equal(payload?.simplified, true);
-          const inputRecord = payload?.inputRecord || {};
-          state.postPayload = { ...inputRecord };
+          assert.equal(payload?.simplified, false);
+          const inputRecord = payload?.inputRecord?.data || {};
+          state.postPayload = inputRecord;
           if (insertError) {
             throw insertError;
           }
 
           const row = {
             id: "1",
-            slug: String(inputRecord.slug || ""),
-            name: String(inputRecord.name || ""),
-            ownerUserId: String(inputRecord.owner || inputRecord.ownerUserId || ""),
-            isPersonal: Boolean(inputRecord.isPersonal),
-            avatarUrl: String(inputRecord.avatarUrl || ""),
-            createdAt: inputRecord.createdAt,
-            updatedAt: inputRecord.updatedAt,
+            slug: String(inputRecord.attributes?.slug || ""),
+            name: String(inputRecord.attributes?.name || ""),
+            ownerUserId: String(inputRecord.relationships?.owner?.data?.id || ""),
+            isPersonal: Boolean(inputRecord.attributes?.isPersonal),
+            avatarUrl: String(inputRecord.attributes?.avatarUrl || ""),
+            createdAt: inputRecord.attributes?.createdAt,
+            updatedAt: inputRecord.attributes?.updatedAt,
             deletedAt: null
           };
           rowsById.set(row.id, row);
           if (row.slug) {
             rowsBySlug.set(row.slug, row);
           }
-          return { ...row };
+          return { data: toWorkspaceResource(row) };
         },
         async patch(payload) {
-          assert.equal(payload?.simplified, true);
-          const inputRecord = payload?.inputRecord || {};
-          state.patchPayload = { ...inputRecord };
+          assert.equal(payload?.simplified, false);
+          const inputRecord = payload?.inputRecord?.data || {};
+          state.patchPayload = inputRecord;
           const existing = rowsById.get(String(inputRecord.id)) || {
             id: String(inputRecord.id)
           };
           const updated = {
             ...existing,
-            ...inputRecord,
+            ...(inputRecord.attributes || {}),
+            ...(inputRecord.relationships?.owner?.data?.id
+              ? { ownerUserId: String(inputRecord.relationships.owner.data.id) }
+              : {}),
             id: String(inputRecord.id)
           };
           rowsById.set(updated.id, updated);
           if (updated.slug) {
             rowsBySlug.set(String(updated.slug), updated);
           }
-          return { ...updated };
+          return { data: toWorkspaceResource(updated) };
         }
       },
       workspaceMemberships: {
         async query({ queryParams }) {
           const filters = queryParams?.filters || {};
+          const includeWorkspace = Array.isArray(queryParams?.include) && queryParams.include.includes("workspace");
           if (Object.hasOwn(filters, "user") && Object.hasOwn(filters, "status")) {
+            const rows = membershipRows.filter((row) => (
+              String(row?.user?.id || "") === String(filters.user) &&
+              String(row?.status || "") === String(filters.status)
+            ));
             return {
-              data: membershipRows
-                .filter((row) => (
-                  String(row?.user?.id || "") === String(filters.user) &&
-                  String(row?.status || "") === String(filters.status)
-                ))
-                .map((row) => ({ ...row }))
+              data: rows.map((row) => toWorkspaceMembershipResource(row)),
+              included: includeWorkspace
+                ? rows
+                    .filter((row) => row?.workspace?.id != null)
+                    .map((row) => toWorkspaceResource(row.workspace))
+                : []
             };
           }
 
@@ -141,8 +197,8 @@ test("workspacesRepository.findById reads a canonical workspace row through json
     ownerUserId: "9",
     isPersonal: true,
     avatarUrl: "",
-    createdAt: "2026-03-09 00:26:35.710",
-    updatedAt: "2026-03-10 00:26:35.710",
+    createdAt: toIsoString("2026-03-09 00:26:35.710"),
+    updatedAt: toIsoString("2026-03-10 00:26:35.710"),
     deletedAt: null
   });
 });
@@ -196,14 +252,13 @@ test("workspacesRepository.insert writes canonical fields through json-rest-api"
     isPersonal: false
   });
 
-  assert.equal(state.postPayload.owner, "9");
-  assert.equal(Object.hasOwn(state.postPayload, "ownerUserId"), false);
-  assert.equal(state.postPayload.slug, "TonyMobily3");
-  assert.equal(state.postPayload.name, "TonyMobily3");
-  assert.equal(state.postPayload.isPersonal, false);
-  assert.equal(state.postPayload.avatarUrl, "");
-  assert.equal(typeof state.postPayload.createdAt, "object");
-  assert.equal(typeof state.postPayload.updatedAt, "object");
+  assert.equal(state.postPayload.relationships?.owner?.data?.id, "9");
+  assert.equal(state.postPayload.attributes?.slug, "TonyMobily3");
+  assert.equal(state.postPayload.attributes?.name, "TonyMobily3");
+  assert.equal(state.postPayload.attributes?.isPersonal, false);
+  assert.equal(state.postPayload.attributes?.avatarUrl, "");
+  assert.equal(typeof state.postPayload.attributes?.createdAt, "object");
+  assert.equal(typeof state.postPayload.attributes?.updatedAt, "object");
   assert.equal(inserted.id, "1");
   assert.equal(inserted.ownerUserId, "9");
 });
@@ -259,8 +314,8 @@ test("workspacesRepository.updateById patches canonical fields and updatedAt", a
   });
 
   assert.equal(state.patchPayload.id, "7");
-  assert.equal(state.patchPayload.name, "TonyMobily 4");
-  assert.equal(typeof state.patchPayload.updatedAt, "object");
+  assert.equal(state.patchPayload.attributes?.name, "TonyMobily 4");
+  assert.equal(typeof state.patchPayload.attributes?.updatedAt, "object");
 });
 
 test("workspacesRepository.listForUserId keeps membership fields outside the canonical workspace row", async () => {
@@ -328,8 +383,8 @@ test("workspacesRepository.listForUserId keeps membership fields outside the can
       ownerUserId: "9",
       isPersonal: true,
       avatarUrl: "",
-      createdAt: "2026-03-09 00:26:35.710",
-      updatedAt: "2026-03-10 00:26:35.710",
+      createdAt: toIsoString("2026-03-09 00:26:35.710"),
+      updatedAt: toIsoString("2026-03-10 00:26:35.710"),
       deletedAt: null,
       roleSid: "owner",
       membershipStatus: "active"
@@ -341,8 +396,8 @@ test("workspacesRepository.listForUserId keeps membership fields outside the can
       ownerUserId: "10",
       isPersonal: false,
       avatarUrl: "",
-      createdAt: "2026-03-09 00:26:35.710",
-      updatedAt: "2026-03-10 00:26:35.710",
+      createdAt: toIsoString("2026-03-09 00:26:35.710"),
+      updatedAt: toIsoString("2026-03-10 00:26:35.710"),
       deletedAt: null,
       roleSid: "member",
       membershipStatus: "active"

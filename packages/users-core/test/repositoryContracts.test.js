@@ -55,7 +55,21 @@ function createUserProfilesApiStub(expectedRecord) {
           async query({ queryParams }) {
             calls.push(queryParams?.filters || {});
             return {
-              data: expectedRecord ? [expectedRecord] : []
+              data: expectedRecord ? [{
+                type: "userProfiles",
+                id: String(expectedRecord.id),
+                attributes: {
+                  authProvider: expectedRecord.authProvider,
+                  authProviderUserSid: expectedRecord.authProviderUserSid,
+                  email: expectedRecord.email,
+                  username: expectedRecord.username,
+                  displayName: expectedRecord.displayName,
+                  avatarStorageKey: expectedRecord.avatarStorageKey,
+                  avatarVersion: expectedRecord.avatarVersion,
+                  avatarUpdatedAt: expectedRecord.avatarUpdatedAt,
+                  createdAt: expectedRecord.createdAt
+                }
+              }] : []
             };
           }
         }
@@ -75,11 +89,29 @@ test("userSettingsRepository.ensureForUserId sends transaction outside simplifie
         userSettings: {
           async query() {
             queryCount += 1;
-            return queryCount < 2 ? { data: [] } : { data: [{ id: "7" }] };
+            return queryCount < 2
+              ? { data: [] }
+              : {
+                  data: [{
+                    type: "userSettings",
+                    id: "7",
+                    attributes: {
+                      ...DEFAULT_USER_SETTINGS
+                    }
+                  }]
+                };
           },
           async post(params) {
             postParams = params;
-            return { id: "7" };
+            return {
+              data: {
+                type: "userSettings",
+                id: "7",
+                attributes: {
+                  ...DEFAULT_USER_SETTINGS
+                }
+              }
+            };
           }
         }
       }
@@ -88,16 +120,20 @@ test("userSettingsRepository.ensureForUserId sends transaction outside simplifie
 
   const record = await repository.ensureForUserId("7", { trx });
 
-  assert.equal(postParams?.simplified, true);
+  assert.equal(postParams?.simplified, false);
   assert.equal(postParams?.transaction, trx);
-  assert.deepEqual(postParams?.inputRecord, {
+  assert.deepEqual(postParams?.inputRecord?.data, {
+    type: "userSettings",
     id: "7",
-    ...DEFAULT_USER_SETTINGS
+    attributes: {
+      id: "7",
+      ...DEFAULT_USER_SETTINGS
+    }
   });
   assert.equal(record?.id, "7");
 });
 
-test("userProfilesRepository.upsert sends write transaction outside simplified attributes", async () => {
+test("userProfilesRepository.upsert sends native JSON:API write documents with transaction outside the record body", async () => {
   const trx = { trxId: "trx-1" };
   let postParams = null;
   const repository = createUserProfilesRepository({
@@ -117,17 +153,23 @@ test("userProfilesRepository.upsert sends write transaction outside simplified a
           },
           async post(params) {
             postParams = params;
+            const attributes = params.inputRecord?.data?.attributes || {};
             return {
-              id: "11",
-              authProvider: params.inputRecord.authProvider,
-              authProviderUserSid: params.inputRecord.authProviderUserSid,
-              email: params.inputRecord.email,
-              username: params.inputRecord.username,
-              displayName: params.inputRecord.displayName,
-              avatarStorageKey: null,
-              avatarVersion: null,
-              avatarUpdatedAt: null,
-              createdAt: params.inputRecord.createdAt
+              data: {
+                type: "userProfiles",
+                id: "11",
+                attributes: {
+                  authProvider: attributes.authProvider,
+                  authProviderUserSid: attributes.authProviderUserSid,
+                  email: attributes.email,
+                  username: attributes.username,
+                  displayName: attributes.displayName,
+                  avatarStorageKey: null,
+                  avatarVersion: null,
+                  avatarUpdatedAt: null,
+                  createdAt: attributes.createdAt
+                }
+              }
             };
           }
         }
@@ -142,10 +184,11 @@ test("userProfilesRepository.upsert sends write transaction outside simplified a
     displayName: "Ada Example"
   }, { trx });
 
-  assert.equal(postParams?.simplified, true);
+  assert.equal(postParams?.simplified, false);
   assert.equal(postParams?.transaction, trx);
   assert.equal(postParams?.inputRecord?.transaction, undefined);
-  assert.equal(postParams?.inputRecord?.authProvider, "supabase");
+  assert.equal(postParams?.inputRecord?.data?.type, "userProfiles");
+  assert.equal(postParams?.inputRecord?.data?.attributes?.authProvider, "supabase");
   assert.equal(record?.id, "11");
 });
 

@@ -12,12 +12,22 @@ function createFastifyStub() {
     routes,
     setErrorHandlerCalls: 0,
     errorHandler: null,
+    contentTypeParsers: new Map(),
     route(definition) {
       routes.push(definition);
     },
     setErrorHandler(handler) {
       this.errorHandler = handler;
       this.setErrorHandlerCalls += 1;
+    },
+    hasContentTypeParser(contentType) {
+      return this.contentTypeParsers.has(String(contentType || "").trim().toLowerCase());
+    },
+    addContentTypeParser(contentType, options, parser) {
+      this.contentTypeParsers.set(String(contentType || "").trim().toLowerCase(), {
+        options,
+        parser
+      });
     }
   };
 }
@@ -508,6 +518,8 @@ test("registerHttpRuntime installs API error handling once by default", () => {
 
   assert.equal(fastify.setErrorHandlerCalls, 1);
   assert.equal(typeof fastify.errorHandler, "function");
+  assert.equal(fastify.contentTypeParsers.has("application/vnd.api+json"), true);
+  assert.equal(fastify.contentTypeParsers.size, 1);
 });
 
 test("registerHttpRuntime can disable automatic API error handling", () => {
@@ -717,6 +729,109 @@ test("registerRoutes attaches request.input when route input transforms are conf
   assert.equal(reply.statusCode, 200);
 });
 
+test("registerRoutes applies transport request transforms before route input normalization", async () => {
+  const fastify = createFastifyStub();
+
+  registerRoutes(fastify, {
+    routes: [
+      {
+        method: "POST",
+        path: "/transport-input",
+        transport: {
+          kind: "jsonapi-resource",
+          request: {
+            body(body) {
+              return body?.data?.attributes || {};
+            }
+          }
+        },
+        input: {
+          body: (body) => ({
+            name: String(body?.name || "").trim()
+          })
+        },
+        handler: async (request, reply) => {
+          assert.equal(request.routeOptions.config.transport.kind, "jsonapi-resource");
+          assert.deepEqual(request.input, {
+            body: {
+              name: "Alice"
+            },
+            query: undefined,
+            params: undefined
+          });
+          reply.code(200).send({ ok: true });
+        }
+      }
+    ]
+  });
+
+  const request = {
+    body: {
+      data: {
+        type: "contacts",
+        attributes: {
+          name: "  Alice  "
+        }
+      }
+    }
+  };
+  const reply = createReplyStub();
+
+  await fastify.routes[0].handler(request, reply);
+
+  assert.equal(reply.statusCode, 200);
+});
+
+test("registerRoutes does not invoke transport body transforms for bodyless requests", async () => {
+  const fastify = createFastifyStub();
+  let bodyTransformCalls = 0;
+
+  registerRoutes(fastify, {
+    routes: [
+      {
+        method: "GET",
+        path: "/transport-input-no-body",
+        transport: {
+          kind: "jsonapi-resource",
+          request: {
+            body() {
+              bodyTransformCalls += 1;
+              throw new Error("transport body transform should not run");
+            }
+          }
+        },
+        input: {
+          query: (query) => ({
+            page: Number(query?.page || 1)
+          })
+        },
+        handler: async (request, reply) => {
+          assert.deepEqual(request.input, {
+            body: undefined,
+            query: {
+              page: 2
+            },
+            params: undefined
+          });
+          reply.code(200).send({ ok: true });
+        }
+      }
+    ]
+  });
+
+  const request = {
+    query: {
+      page: "2"
+    }
+  };
+  const reply = createReplyStub();
+
+  await fastify.routes[0].handler(request, reply);
+
+  assert.equal(reply.statusCode, 200);
+  assert.equal(bodyTransformCalls, 0);
+});
+
 test("registerRoutes leaves request.input undefined when route input is not configured", async () => {
   const fastify = createFastifyStub();
 
@@ -740,6 +855,214 @@ test("registerRoutes leaves request.input undefined when route input is not conf
   assert.equal(reply.statusCode, 200);
 });
 
+test("registerRoutes applies output transform on reply.send without changing handler shape", async () => {
+  const fastify = createFastifyStub();
+
+  registerRoutes(fastify, {
+    routes: [
+      {
+        method: "GET",
+        path: "/transport-output",
+        transport: {
+          kind: "jsonapi-resource"
+        },
+        output(payload) {
+          return {
+            data: payload
+          };
+        },
+        handler: async (request, reply) => {
+          assert.equal(request.routeOptions.config.transport.kind, "jsonapi-resource");
+          reply.code(200).send({
+            id: "7",
+            name: "Alice"
+          });
+        }
+      }
+    ]
+  });
+
+  const request = {};
+  const reply = createReplyStub();
+
+  await fastify.routes[0].handler(request, reply);
+
+  assert.equal(reply.statusCode, 200);
+  assert.equal(reply.headers["Content-Type"], undefined);
+  assert.deepEqual(reply.payload, {
+    data: {
+      id: "7",
+      name: "Alice"
+    }
+  });
+});
+
+test("registerRoutes applies transport response transforms before reply serialization", async () => {
+  const fastify = createFastifyStub();
+
+  registerRoutes(fastify, {
+    routes: [
+      {
+        method: "GET",
+        path: "/transport-response",
+        transport: {
+          kind: "jsonapi-resource",
+          contentType: "application/vnd.api+json",
+          response(payload) {
+            return {
+              data: {
+                type: "contacts",
+                id: String(payload?.id || ""),
+                attributes: {
+                  name: String(payload?.name || "")
+                }
+              }
+            };
+          }
+        },
+        handler: async (_request, reply) => {
+          reply.code(200).send({
+            id: 7,
+            name: "Alice"
+          });
+        }
+      }
+    ]
+  });
+
+  const request = {};
+  const reply = createReplyStub();
+
+  await fastify.routes[0].handler(request, reply);
+
+  assert.equal(reply.statusCode, 200);
+  assert.equal(reply.headers["Content-Type"], "application/vnd.api+json");
+  assert.deepEqual(reply.payload, {
+    data: {
+      type: "contacts",
+      id: "7",
+      attributes: {
+        name: "Alice"
+      }
+    }
+  });
+});
+
+test("registerRoutes exposes full transport runtime on Fastify route config for pre-handler error serialization", () => {
+  const fastify = createFastifyStub();
+  const transport = {
+    kind: "jsonapi-resource",
+    contentType: "application/vnd.api+json",
+    error() {
+      return {
+        errors: []
+      };
+    }
+  };
+
+  registerRoutes(fastify, {
+    routes: [
+      {
+        method: "GET",
+        path: "/transport-runtime",
+        transport,
+        handler: async (_request, reply) => {
+          reply.code(200).send({ ok: true });
+        }
+      }
+    ]
+  });
+
+  assert.equal(fastify.routes[0].config.transport.kind, "jsonapi-resource");
+  assert.equal(fastify.routes[0].config.transport.contentType, "application/vnd.api+json");
+  assert.deepEqual(fastify.routes[0].config.transport.runtime, transport);
+});
+
+test("registerRoutes keeps transport response payload when output transform returns undefined", async () => {
+  const fastify = createFastifyStub();
+
+  registerRoutes(fastify, {
+    routes: [
+      {
+        method: "GET",
+        path: "/transport-response-output-undefined",
+        transport: {
+          kind: "jsonapi-resource",
+          contentType: "application/vnd.api+json",
+          response(payload) {
+            return {
+              data: {
+                type: "contacts",
+                id: String(payload?.id || ""),
+                attributes: {
+                  name: String(payload?.name || "")
+                }
+              }
+            };
+          }
+        },
+        output() {
+          return undefined;
+        },
+        handler: async (_request, reply) => {
+          reply.code(200).send({
+            id: 7,
+            name: "Alice"
+          });
+        }
+      }
+    ]
+  });
+
+  const request = {};
+  const reply = createReplyStub();
+
+  await fastify.routes[0].handler(request, reply);
+
+  assert.equal(reply.statusCode, 200);
+  assert.equal(reply.headers["Content-Type"], "application/vnd.api+json");
+  assert.deepEqual(reply.payload, {
+    data: {
+      type: "contacts",
+      id: "7",
+      attributes: {
+        name: "Alice"
+      }
+    }
+  });
+});
+
+test("registerRoutes sets transport content type on successful replies", async () => {
+  const fastify = createFastifyStub();
+
+  registerRoutes(fastify, {
+    routes: [
+      {
+        method: "GET",
+        path: "/transport-content-type",
+        transport: {
+          kind: "jsonapi-resource",
+          contentType: "application/vnd.api+json"
+        },
+        handler: async (_request, reply) => {
+          reply.code(200).send({
+            data: {
+              type: "contacts",
+              id: "7"
+            }
+          });
+        }
+      }
+    ]
+  });
+
+  const reply = createReplyStub();
+  await fastify.routes[0].handler({}, reply);
+
+  assert.equal(reply.statusCode, 200);
+  assert.equal(reply.headers["Content-Type"], "application/vnd.api+json");
+});
+
 test("registerRoutes rejects invalid route input transform definitions", () => {
   const fastify = createFastifyStub();
 
@@ -758,6 +1081,64 @@ test("registerRoutes rejects invalid route input transform definitions", () => {
         ]
       }),
     /input\.body must be a function/
+  );
+});
+
+test("registerRoutes rejects invalid transport definitions", () => {
+  const fastify = createFastifyStub();
+
+  assert.throws(
+    () =>
+      registerRoutes(fastify, {
+        routes: [
+          {
+            method: "GET",
+            path: "/invalid-transport",
+            transport: {
+              kind: "weird"
+            },
+            handler: async () => {}
+          }
+        ]
+      }),
+    /transport\.kind must be one of: command, jsonapi-resource/
+  );
+});
+
+test("registerRoutes enforces request content type for unsafe transport routes", async () => {
+  const fastify = createFastifyStub();
+
+  registerRoutes(fastify, {
+    routes: [
+      {
+        method: "POST",
+        path: "/transport-content-type-enforced",
+        transport: {
+          kind: "jsonapi-resource",
+          contentType: "application/vnd.api+json"
+        },
+        handler: async (_request, reply) => {
+          reply.code(200).send({ ok: true });
+        }
+      }
+    ]
+  });
+
+  await assert.rejects(
+    () =>
+      fastify.routes[0].handler(
+        {
+          headers: {
+            "content-type": "application/json"
+          }
+        },
+        createReplyStub()
+      ),
+    (error) => {
+      assert.equal(error?.status, 415);
+      assert.equal(error?.code, "unsupported_media_type");
+      return true;
+    }
   );
 });
 

@@ -26,8 +26,13 @@ const lookupIncludeQueryValidator = Object.freeze({
 });
 
 function resolveCrudListUsesOrderedCursor(list = {}) {
-  const orderBy = Array.isArray(list?.orderBy) ? list.orderBy : [];
-  for (const entry of orderBy) {
+  const entries = Array.isArray(list?.orderBy)
+    ? list.orderBy
+    : list?.orderBy == null
+      ? []
+      : [list.orderBy];
+
+  for (const entry of entries) {
     if (typeof entry === "string" && normalizeText(entry)) {
       return true;
     }

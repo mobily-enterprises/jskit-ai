@@ -3,6 +3,9 @@ import { normalizeOpaqueId } from "../../shared/support/normalize.js";
 import { isAppError } from "./errors.js";
 import { resolveDefaultSurfaceId } from "../support/appConfig.js";
 
+const JSON_API_CONTENT_TYPE = "application/vnd.api+json";
+const JSON_API_CONTENT_TYPE_PARSER_MARKER = Symbol.for("jskit.fastify.jsonApiContentTypeParserRegistered");
+
 function resolveLoggerLevel({ configuredLevel = "", nodeEnv = "development", allowedLevels = [] } = {}) {
   const normalizedConfiguredLevel = String(configuredLevel || "")
     .trim()
@@ -36,6 +39,48 @@ function createFastifyLoggerOptions({
       censor: redactCensor
     }
   };
+}
+
+function createFallbackJsonBodyParser() {
+  return function parseJsonBody(_request, body, done) {
+    const source = typeof body === "string" ? body.trim() : "";
+    if (!source) {
+      done(null, {});
+      return;
+    }
+
+    try {
+      done(null, JSON.parse(source));
+    } catch (error) {
+      if (error && typeof error === "object" && !Array.isArray(error)) {
+        error.statusCode = 400;
+      }
+      done(error);
+    }
+  };
+}
+
+function registerJsonApiContentTypeParser(fastify) {
+  if (!fastify || typeof fastify.addContentTypeParser !== "function") {
+    throw new TypeError("registerJsonApiContentTypeParser requires a Fastify instance.");
+  }
+
+  if (fastify[JSON_API_CONTENT_TYPE_PARSER_MARKER]) {
+    return false;
+  }
+
+  if (typeof fastify.hasContentTypeParser === "function" && fastify.hasContentTypeParser(JSON_API_CONTENT_TYPE)) {
+    fastify[JSON_API_CONTENT_TYPE_PARSER_MARKER] = true;
+    return false;
+  }
+
+  const parser = typeof fastify.getDefaultJsonParser === "function"
+    ? fastify.getDefaultJsonParser("ignore", "ignore")
+    : createFallbackJsonBodyParser();
+
+  fastify.addContentTypeParser(JSON_API_CONTENT_TYPE, { parseAs: "string" }, parser);
+  fastify[JSON_API_CONTENT_TYPE_PARSER_MARKER] = true;
+  return true;
 }
 
 function registerRequestLoggingHooks(
@@ -124,6 +169,61 @@ function resolveValidationFieldErrors(error) {
   return fieldErrors;
 }
 
+function resolveRequestRouteTransport(request) {
+  const directTransport =
+    request?.routeTransport && typeof request.routeTransport === "object" && !Array.isArray(request.routeTransport)
+      ? request.routeTransport
+      : null;
+  if (directTransport) {
+    return directTransport;
+  }
+
+  const configTransport =
+    request?.routeOptions?.config?.transport &&
+    typeof request.routeOptions.config.transport === "object" &&
+    !Array.isArray(request.routeOptions.config.transport)
+      ? request.routeOptions.config.transport
+      : null;
+  const runtimeTransport =
+    configTransport?.runtime && typeof configTransport.runtime === "object" && !Array.isArray(configTransport.runtime)
+      ? configTransport.runtime
+      : null;
+  if (runtimeTransport) {
+    return runtimeTransport;
+  }
+
+  return configTransport;
+}
+
+function applyRouteTransportErrorResponse(reply, request, error, {
+  statusCode = 500,
+  normalizedErrorCode = ""
+} = {}) {
+  const transport = resolveRequestRouteTransport(request);
+  const errorSerializer = transport && typeof transport.error === "function" ? transport.error : null;
+  if (!errorSerializer) {
+    return false;
+  }
+
+  const payload = errorSerializer(error, {
+    request,
+    reply,
+    statusCode,
+    code: normalizedErrorCode
+  });
+
+  if (payload && typeof payload.then === "function") {
+    throw new TypeError("Route transport error serializer must return synchronously.");
+  }
+
+  if (transport.contentType) {
+    reply.header("Content-Type", transport.contentType);
+  }
+
+  reply.code(statusCode).send(payload);
+  return true;
+}
+
 function registerApiErrorHandler(
   app,
   {
@@ -158,6 +258,12 @@ function registerApiErrorHandler(
     if (Array.isArray(error?.validation)) {
       const fieldErrors = resolveValidationFieldErrors(error);
       const validationErrorCode = normalizedErrorCode || "validation_failed";
+      if (applyRouteTransportErrorResponse(reply, request, error, {
+        statusCode: 400,
+        normalizedErrorCode: validationErrorCode
+      })) {
+        return;
+      }
       reply.code(400).send({
         error: "Validation failed.",
         code: validationErrorCode,
@@ -170,6 +276,12 @@ function registerApiErrorHandler(
     }
 
     if (isAppError(error) || error instanceof ActionRuntimeError) {
+      if (applyRouteTransportErrorResponse(reply, request, error, {
+        statusCode: error.status,
+        normalizedErrorCode: normalizedErrorCode || "app_error"
+      })) {
+        return;
+      }
       if (error.status >= 500) {
         recordDbError(error);
         captureServerError(request, error, error.status);
@@ -221,6 +333,12 @@ function registerApiErrorHandler(
       payload.details = {
         code: normalizedErrorCode
       };
+    }
+    if (applyRouteTransportErrorResponse(reply, request, error, {
+      statusCode,
+      normalizedErrorCode: fallbackErrorCode
+    })) {
+      return;
     }
     reply.code(statusCode).send(payload);
   });
@@ -364,6 +482,7 @@ async function runGracefulShutdown({
 export {
   resolveLoggerLevel,
   createFastifyLoggerOptions,
+  registerJsonApiContentTypeParser,
   registerRequestLoggingHooks,
   registerApiErrorHandler,
   ensureApiErrorHandling,

@@ -3,9 +3,8 @@ import test from "node:test";
 import { computed, reactive, ref, shallowRef } from "vue";
 import { createRequestQueryRuntime } from "../src/client/composables/support/requestQueryRuntimeSupport.js";
 
-test("add/edit request query params resolve stable cache tokens and request paths", () => {
+test("add/edit request query params resolve stable cache tokens and request query objects", () => {
   const sourceQueryKey = ref(["products", "dev-admin"]);
-  const sourcePath = ref("/api/w/dev-admin/products/product-42");
   const context = ref(Object.freeze({
     surfaceId: "admin",
     scopeParamValue: "dev-admin",
@@ -25,8 +24,7 @@ test("add/edit request query params resolve stable cache tokens and request path
       };
     },
     context,
-    sourceQueryKey,
-    sourcePath
+    sourceQueryKey
   });
 
   assert.deepEqual(runtime.activeRequestQueryParamEntries.value, [
@@ -52,10 +50,10 @@ test("add/edit request query params resolve stable cache tokens and request path
       "include=serviceId,bookingSteps,bookingSteps.requiredRoleId&preview=1"
     ]
   );
-  assert.equal(
-    runtime.requestPath.value,
-    "/api/w/dev-admin/products/product-42?include=serviceId%2CbookingSteps%2CbookingSteps.requiredRoleId&preview=1"
-  );
+  assert.deepEqual(runtime.requestQuery.value, {
+    include: "serviceId,bookingSteps,bookingSteps.requiredRoleId",
+    preview: "1"
+  });
 });
 
 test("add/edit request query params react to callback context changes", () => {
@@ -79,8 +77,7 @@ test("add/edit request query params react to callback context changes", () => {
       };
     },
     context,
-    sourceQueryKey: computed(() => ["products", context.value.scopeParamValue]),
-    sourcePath: computed(() => `/api/w/dev-admin/products/${recordId.value}`)
+    sourceQueryKey: computed(() => ["products", context.value.scopeParamValue])
   });
 
   assert.deepEqual(
@@ -92,10 +89,11 @@ test("add/edit request query params react to callback context changes", () => {
       "include=bookingSteps&preview=1&recordId=product-42"
     ]
   );
-  assert.equal(
-    runtime.requestPath.value,
-    "/api/w/dev-admin/products/product-42?include=bookingSteps&preview=1&recordId=product-42"
-  );
+  assert.deepEqual(runtime.requestQuery.value, {
+    include: "bookingSteps",
+    preview: "1",
+    recordId: "product-42"
+  });
 
   model.status = "published";
   recordId.value = "product-99";
@@ -109,10 +107,10 @@ test("add/edit request query params react to callback context changes", () => {
       "include=bookingSteps&recordId=product-99"
     ]
   );
-  assert.equal(
-    runtime.requestPath.value,
-    "/api/w/dev-admin/products/product-99?include=bookingSteps&recordId=product-99"
-  );
+  assert.deepEqual(runtime.requestQuery.value, {
+    include: "bookingSteps",
+    recordId: "product-99"
+  });
 });
 
 test("request query runtime preserves scalar base query keys", () => {
@@ -141,15 +139,14 @@ test("request query runtime leaves keys and paths unchanged without active reque
       include: "",
       archived: false
     },
-    sourceQueryKey: shallowRef(sourceQueryKey),
-    sourcePath: "/api/products/42"
+    sourceQueryKey: shallowRef(sourceQueryKey)
   });
 
   assert.deepEqual(runtime.activeRequestQueryParamEntries.value, []);
   assert.equal(runtime.activeRequestQueryParamsToken.value, "");
   assert.deepEqual(runtime.queryKey.value, ["products"]);
   assert.equal(runtime.queryKey.value, sourceQueryKey);
-  assert.equal(runtime.requestPath.value, "/api/products/42");
+  assert.equal(runtime.requestQuery.value, null);
 });
 
 test("request query runtime preserves inactive scalar query keys", () => {
@@ -157,10 +154,9 @@ test("request query runtime preserves inactive scalar query keys", () => {
     requestQueryParams: {
       include: ""
     },
-    sourceQueryKey: ref("products"),
-    sourcePath: "/api/products/42"
+    sourceQueryKey: ref("products")
   });
 
   assert.equal(runtime.queryKey.value, "products");
-  assert.equal(runtime.requestPath.value, "/api/products/42");
+  assert.equal(runtime.requestQuery.value, null);
 });

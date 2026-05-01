@@ -1,6 +1,5 @@
 import { computed, onScopeDispose, proxyRefs, ref, watch } from "vue";
 import { useRouter } from "vue-router";
-import { appendQueryString } from "@jskit-ai/kernel/shared/support";
 import { normalizeText } from "@jskit-ai/kernel/shared/support/normalize";
 import { ROUTE_VISIBILITY_WORKSPACE } from "@jskit-ai/kernel/shared/support/visibility";
 import { useListCore } from "../runtime/useListCore.js";
@@ -8,6 +7,7 @@ import { resolveOperationAdapter } from "../runtime/operationAdapters.js";
 import { setupOperationErrorReporting } from "../runtime/operationUiHelpers.js";
 import { createListUiRuntime } from "../runtime/listUiRuntime.js";
 import { asPlainObject } from "../support/scopeHelpers.js";
+import { buildRequestQueryObject } from "../support/requestQueryRuntimeSupport.js";
 import {
   normalizeListSearchConfig,
   matchesLocalSearch
@@ -43,6 +43,7 @@ function useList({
   initialPageParam = null,
   getNextPageParam,
   selectItems,
+  transport = null,
   requestOptions,
   queryOptions,
   realtime = null,
@@ -169,36 +170,34 @@ function useList({
   });
   const querySearchEnabled = computed(() => searchConfig.enabled === true && searchConfig.mode === "query");
   const listPath = computed(() => {
-    const basePath = normalizeText(operationScope.apiPath.value);
-    if (!basePath) {
-      return "";
-    }
+    return normalizeText(operationScope.apiPath.value);
+  });
+  const listRequestOptions = computed(() => {
+    const entries = [];
 
-    const searchParams = new URLSearchParams();
     if (querySearchEnabled.value) {
       const queryValue = activeSearchQuery.value;
       if (queryValue) {
-        searchParams.set(searchConfig.queryParam, queryValue);
+        entries.push({
+          key: searchConfig.queryParam,
+          values: [queryValue]
+        });
       }
     }
 
-    for (const entry of activeRequestQueryParamEntries.value) {
-      for (const value of entry.values) {
-        searchParams.append(entry.key, value);
-      }
-    }
-    for (const entry of activeQueryParamEntries.value) {
-      for (const value of entry.values) {
-        searchParams.append(entry.key, value);
-      }
+    entries.push(...activeRequestQueryParamEntries.value);
+    entries.push(...activeQueryParamEntries.value);
+
+    const query = buildRequestQueryObject(entries);
+    const baseOptions = asPlainObject(requestOptions);
+    if (Object.keys(query).length < 1) {
+      return baseOptions;
     }
 
-    const serializedSearch = searchParams.toString();
-    if (!serializedSearch) {
-      return basePath;
-    }
-
-    return appendQueryString(basePath, serializedSearch);
+    return {
+      ...baseOptions,
+      query
+    };
   });
   const listQueryKey = computed(() => {
     const sourceQueryKey = operationScope.queryKey.value;
@@ -223,10 +222,11 @@ function useList({
     queryKey: listQueryKey,
     path: listPath,
     enabled: operationScope.queryCanRun(canView),
+    transport,
     initialPageParam,
     getNextPageParam,
     selectItems,
-    requestOptions,
+    requestOptions: listRequestOptions,
     queryOptions,
     fallbackLoadError
   });

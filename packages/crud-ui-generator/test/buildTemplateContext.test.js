@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { mkdtemp, mkdir, rm, symlink, writeFile } from "node:fs/promises";
+import { mkdtemp, mkdir, readFile, rm, symlink, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import test from "node:test";
@@ -844,4 +844,38 @@ test("buildUiTemplateContext validates operations against the supported CRUD set
       /operations" supports only: list, view, new, edit/
     );
   });
+});
+
+test("crud ui templates opt into shared JSON:API client transport", async () => {
+  const testDirectory = path.dirname(fileURLToPath(import.meta.url));
+  const templateRoot = path.resolve(testDirectory, "..", "templates", "src", "pages", "admin", "ui-generator");
+
+  const listTemplateSource = await readFile(path.join(templateRoot, "ListElement.vue"), "utf8");
+  const viewTemplateSource = await readFile(path.join(templateRoot, "ViewElement.vue"), "utf8");
+  const newTemplateSource = await readFile(path.join(templateRoot, "NewElement.vue"), "utf8");
+  const editTemplateSource = await readFile(path.join(templateRoot, "EditElement.vue"), "utf8");
+  const newWrapperTemplateSource = await readFile(path.join(templateRoot, "NewWrapperElement.vue"), "utf8");
+  const editWrapperTemplateSource = await readFile(path.join(templateRoot, "EditWrapperElement.vue"), "utf8");
+
+  assert.match(listTemplateSource, /const UI_LIST_TRANSPORT = Object\.freeze\(\{/);
+  assert.match(listTemplateSource, /responseKind: "collection"/);
+  assert.match(listTemplateSource, /transport: UI_LIST_TRANSPORT,/);
+
+  assert.match(viewTemplateSource, /const UI_VIEW_TRANSPORT = Object\.freeze\(\{/);
+  assert.match(viewTemplateSource, /responseKind: "record"/);
+  assert.match(viewTemplateSource, /transport: UI_VIEW_TRANSPORT,/);
+
+  assert.match(newTemplateSource, /const UI_CREATE_TRANSPORT = Object\.freeze\(\{/);
+  assert.match(newTemplateSource, /requestType: "__JSKIT_UI_RESOURCE_NAMESPACE__"/);
+  assert.match(newTemplateSource, /transport: UI_CREATE_TRANSPORT,/);
+
+  assert.match(editTemplateSource, /const UI_EDIT_TRANSPORT = Object\.freeze\(\{/);
+  assert.match(editTemplateSource, /requestType: "__JSKIT_UI_RESOURCE_NAMESPACE__"/);
+  assert.match(editTemplateSource, /transport: UI_EDIT_TRANSPORT,/);
+
+  assert.match(newWrapperTemplateSource, /const UI_CREATE_TRANSPORT = Object\.freeze\(\{/);
+  assert.match(newWrapperTemplateSource, /transport: UI_CREATE_TRANSPORT,/);
+
+  assert.match(editWrapperTemplateSource, /const UI_EDIT_TRANSPORT = Object\.freeze\(\{/);
+  assert.match(editWrapperTemplateSource, /transport: UI_EDIT_TRANSPORT,/);
 });

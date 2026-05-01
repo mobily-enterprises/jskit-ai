@@ -204,6 +204,71 @@ test("crud non-workspace record routes validate only recordId params", () => {
   assert.equal(deleteRoute.route.params, recordIdParamsValidator);
 });
 
+test("crud routes register JSON:API transport contracts and delete replies with 204", async () => {
+  const registeredRoutes = [];
+  const router = {
+    register(method, path, route, handler) {
+      registeredRoutes.push({
+        method,
+        path,
+        route,
+        handler
+      });
+    }
+  };
+  const app = {
+    make(token) {
+      if (token !== "jskit.http.router") {
+        throw new Error(`Unexpected token: ${String(token)}`);
+      }
+      return router;
+    }
+  };
+
+  registerWorkspaceRoutes(app, {
+    routeRelativePath: "/customers"
+  });
+
+  const workspaceRouteBase = resolveScopedApiBasePath({
+    routeBase: "/w/:workspaceSlug",
+    relativePath: "/customers",
+    strictParams: false
+  });
+  const listRoute = findRoute(registeredRoutes, "GET", workspaceRouteBase);
+  const viewRoute = findRoute(registeredRoutes, "GET", `${workspaceRouteBase}/:recordId`);
+  const createRoute = findRoute(registeredRoutes, "POST", workspaceRouteBase);
+  const updateRoute = findRoute(registeredRoutes, "PATCH", `${workspaceRouteBase}/:recordId`);
+  const deleteRoute = findRoute(registeredRoutes, "DELETE", `${workspaceRouteBase}/:recordId`);
+
+  assert.ok(listRoute);
+  assert.ok(viewRoute);
+  assert.ok(createRoute);
+  assert.ok(updateRoute);
+  assert.ok(deleteRoute);
+  assert.equal(listRoute.route.transport?.kind, "jsonapi-resource");
+  assert.equal(viewRoute.route.transport?.kind, "jsonapi-resource");
+  assert.equal(createRoute.route.transport?.kind, "jsonapi-resource");
+  assert.equal(updateRoute.route.transport?.kind, "jsonapi-resource");
+  assert.equal(deleteRoute.route.transport?.kind, "jsonapi-resource");
+  assert.ok(listRoute.route.advanced?.fastifySchema?.querystring);
+  assert.ok(viewRoute.route.advanced?.fastifySchema?.querystring);
+  assert.ok(createRoute.route.advanced?.fastifySchema?.body);
+  assert.ok(updateRoute.route.advanced?.fastifySchema?.body);
+
+  const reply = createReplyDouble();
+  await deleteRoute.handler(
+    {
+      input: {
+        params: { workspaceSlug: "acme", recordId: 7 }
+      },
+      executeAction: async () => ({ id: 7 })
+    },
+    reply
+  );
+
+  assert.equal(reply.statusCode, 204);
+});
+
 test("crud routes validate route ownership filter values before registering visibility", () => {
   const registeredRoutes = [];
   const router = {

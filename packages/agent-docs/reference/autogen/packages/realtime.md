@@ -72,6 +72,7 @@ Local functions
 - `resolveAudienceTargets(dispatcher, event, { scope, logger } = {})`
 - `resolveSocketActorId(authService, socket)`
 - `resolveActorWorkspaceIds(workspaceMembershipsRepository, actorId)`
+- `resolveOptionalScopeBinding(scope, token = "")`
 - `registerRealtimeSocketAudienceBootstrap(scope, io, logger)`
 
 ### `src/server/runtime.js`

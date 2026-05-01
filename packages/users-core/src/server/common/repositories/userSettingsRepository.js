@@ -2,11 +2,16 @@ import {
   normalizeRecordId,
   nowDb,
   isDuplicateEntryError,
-  createSimplifiedWriteParams,
   createWithTransaction
 } from "./repositoryUtils.js";
+import {
+  createJsonApiInputRecord,
+  createJsonRestContext,
+  simplifyJsonApiDocument
+} from "@jskit-ai/json-rest-api-core/server/jsonRestApiHost";
 import { DEFAULT_USER_SETTINGS } from "../../../shared/settings.js";
 
+const RESOURCE_TYPE = "userSettings";
 const USER_SETTINGS_PATCH_FIELDS = Object.freeze([
   "theme",
   "locale",
@@ -62,15 +67,19 @@ function createRepository({ api, knex } = {}) {
   const withTransaction = createWithTransaction(knex);
 
   async function queryFirst(filters = {}, options = {}) {
-    const result = await api.resources.userSettings.query({
-      queryParams: {
-        filters
+    const result = await api.resources.userSettings.query(
+      {
+        queryParams: {
+          filters
+        },
+        transaction: options?.trx || null,
+        simplified: false
       },
-      transaction: options?.trx,
-      simplified: true
-    });
+      createJsonRestContext(options?.context || null)
+    );
 
-    return Array.isArray(result?.data) ? result.data[0] || null : null;
+    const rows = simplifyJsonApiDocument(result);
+    return Array.isArray(rows) ? rows[0] || null : null;
   }
 
   async function findByUserId(userId, options = {}) {
@@ -88,17 +97,25 @@ function createRepository({ api, knex } = {}) {
       throw new TypeError("userSettingsRepository.ensureForUserId requires a valid user id.");
     }
 
-    const existing = await findByUserId(normalizedUserId, { trx: options?.trx });
+    const existing = await findByUserId(normalizedUserId, options);
     if (existing) {
       return existing;
     }
 
     try {
       await api.resources.userSettings.post(
-        createSimplifiedWriteParams(
-          createDefaultUserSettingsCreatePayload(normalizedUserId),
-          { trx: options?.trx }
-        )
+        {
+          inputRecord: createJsonApiInputRecord(
+            RESOURCE_TYPE,
+            createDefaultUserSettingsCreatePayload(normalizedUserId),
+            {
+              id: normalizedUserId
+            }
+          ),
+          transaction: options?.trx || null,
+          simplified: false
+        },
+        createJsonRestContext(options?.context || null)
       );
     } catch (error) {
       if (!isDuplicateEntryError(error)) {
@@ -106,7 +123,7 @@ function createRepository({ api, knex } = {}) {
       }
     }
 
-    return findByUserId(normalizedUserId, { trx: options?.trx });
+    return findByUserId(normalizedUserId, options);
   }
 
   async function patchUserSettings(userId, patch = {}, options = {}) {
@@ -115,26 +132,33 @@ function createRepository({ api, knex } = {}) {
       throw new TypeError("userSettingsRepository.patchUserSettings requires a valid user id.");
     }
 
-    await ensureForUserId(normalizedUserId, { trx: options?.trx });
+    await ensureForUserId(normalizedUserId, options);
     const source = patch && typeof patch === "object" ? patch : {};
     const updatePayload = pickPatchFields(source);
 
     if (Object.keys(updatePayload).length < 1) {
-      return findByUserId(normalizedUserId, { trx: options?.trx });
+      return findByUserId(normalizedUserId, options);
     }
 
     await api.resources.userSettings.patch(
-      createSimplifiedWriteParams(
-        {
-          id: normalizedUserId,
-          ...updatePayload,
-          updatedAt: nowDb()
-        },
-        { trx: options?.trx }
-      )
+      {
+        inputRecord: createJsonApiInputRecord(
+          RESOURCE_TYPE,
+          {
+            ...updatePayload,
+            updatedAt: nowDb()
+          },
+          {
+            id: normalizedUserId
+          }
+        ),
+        transaction: options?.trx || null,
+        simplified: false
+      },
+      createJsonRestContext(options?.context || null)
     );
 
-    return findByUserId(normalizedUserId, { trx: options?.trx });
+    return findByUserId(normalizedUserId, options);
   }
 
   async function updatePreferences(userId, patch = {}, options = {}) {

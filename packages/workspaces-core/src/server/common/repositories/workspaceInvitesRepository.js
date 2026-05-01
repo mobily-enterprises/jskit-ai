@@ -1,5 +1,4 @@
 import {
-  createSimplifiedWriteParams,
   createWithTransaction,
   normalizeLowerText,
   normalizeRecordId,
@@ -9,6 +8,14 @@ import {
   isDuplicateEntryError,
   toIsoString
 } from "./repositoryUtils.js";
+import {
+  createJsonApiInputRecord,
+  createJsonApiRelationship,
+  createJsonRestContext,
+  simplifyJsonApiDocument
+} from "@jskit-ai/json-rest-api-core/server/jsonRestApiHost";
+
+const RESOURCE_TYPE = "workspaceInvites";
 
 function normalizeInviteRecord(payload) {
   if (!payload) {
@@ -17,12 +24,12 @@ function normalizeInviteRecord(payload) {
 
   return {
     id: normalizeDbRecordId(payload.id, { fallback: null }),
-    workspaceId: normalizeDbRecordId(payload?.workspace?.id, { fallback: null }),
+    workspaceId: normalizeDbRecordId(payload?.workspace?.id || payload?.workspaceId, { fallback: null }),
     email: normalizeLowerText(payload.email),
     roleSid: normalizeLowerText(payload.roleSid || "member") || "member",
     status: normalizeLowerText(payload.status || "pending") || "pending",
     tokenHash: normalizeText(payload.tokenHash),
-    invitedByUserId: normalizeDbRecordId(payload?.invitedByUser?.id, { fallback: null }),
+    invitedByUserId: normalizeDbRecordId(payload?.invitedByUser?.id || payload?.invitedByUserId, { fallback: null }),
     expiresAt: payload.expiresAt ? toIsoString(payload.expiresAt) : null,
     acceptedAt: payload.acceptedAt ? toIsoString(payload.acceptedAt) : null,
     revokedAt: payload.revokedAt ? toIsoString(payload.revokedAt) : null,
@@ -74,6 +81,19 @@ function normalizeInviteWithWorkspace(payload = {}) {
   };
 }
 
+function createInviteRelationships({ workspaceId = null, invitedByUserId = undefined } = {}) {
+  const relationships = {};
+
+  if (workspaceId) {
+    relationships.workspace = createJsonApiRelationship("workspaces", workspaceId);
+  }
+  if (invitedByUserId !== undefined) {
+    relationships.invitedByUser = createJsonApiRelationship("userProfiles", invitedByUserId);
+  }
+
+  return relationships;
+}
+
 function createRepository({ api, knex } = {}) {
   if (!api?.resources?.workspaceInvites) {
     throw new TypeError("workspaceInvitesRepository requires json-rest-api workspaceInvites resource.");
@@ -85,16 +105,19 @@ function createRepository({ api, knex } = {}) {
   const withTransaction = createWithTransaction(knex);
 
   async function queryInvites(filters = {}, options = {}, { includeWorkspace = false } = {}) {
-    const result = await api.resources.workspaceInvites.query({
-      queryParams: {
-        filters,
-        ...(includeWorkspace ? { include: ["workspace"] } : {})
+    const result = await api.resources.workspaceInvites.query(
+      {
+        queryParams: {
+          filters,
+          ...(includeWorkspace ? { include: ["workspace"] } : {})
+        },
+        transaction: options?.trx || null,
+        simplified: false
       },
-      transaction: options?.trx,
-      simplified: true
-    });
+      createJsonRestContext(options?.context || null)
+    );
 
-    return Array.isArray(result?.data) ? result.data : [];
+    return Array.isArray(simplifyJsonApiDocument(result)) ? simplifyJsonApiDocument(result) : [];
   }
 
   async function findPendingByTokenHash(tokenHash, options = {}) {
@@ -169,25 +192,34 @@ function createRepository({ api, knex } = {}) {
 
     try {
       const created = await api.resources.workspaceInvites.post(
-        createSimplifiedWriteParams(
-          {
-            workspace: createPayload.workspaceId,
-            email: createPayload.email,
-            roleSid: createPayload.roleSid,
-            status: createPayload.status,
-            tokenHash: createPayload.tokenHash,
-            invitedByUser: createPayload.invitedByUserId ?? null,
-            expiresAt: createPayload.expiresAt ?? null,
-            acceptedAt: null,
-            revokedAt: null,
-            createdAt: new Date(),
-            updatedAt: new Date()
-          },
-          { trx: options?.trx }
-        )
+        {
+          inputRecord: createJsonApiInputRecord(
+            RESOURCE_TYPE,
+            {
+              email: createPayload.email,
+              roleSid: createPayload.roleSid,
+              status: createPayload.status,
+              tokenHash: createPayload.tokenHash,
+              expiresAt: createPayload.expiresAt ?? null,
+              acceptedAt: null,
+              revokedAt: null,
+              createdAt: new Date(),
+              updatedAt: new Date()
+            },
+            {
+              relationships: createInviteRelationships({
+                workspaceId: createPayload.workspaceId,
+                invitedByUserId: createPayload.invitedByUserId ?? null
+              })
+            }
+          ),
+          transaction: options?.trx || null,
+          simplified: false
+        },
+        createJsonRestContext(options?.context || null)
       );
 
-      return normalizeInviteRecord(created);
+      return normalizeInviteRecord(simplifyJsonApiDocument(created));
     } catch (error) {
       if (!isDuplicateEntryError(error)) {
         throw error;
@@ -228,14 +260,21 @@ function createRepository({ api, knex } = {}) {
         continue;
       }
       await api.resources.workspaceInvites.patch(
-        createSimplifiedWriteParams(
-          {
-            id: row.id,
-            status: patch.status,
-            updatedAt: nowDb()
-          },
-          { trx: options?.trx }
-        )
+        {
+          inputRecord: createJsonApiInputRecord(
+            RESOURCE_TYPE,
+            {
+              status: patch.status,
+              updatedAt: nowDb()
+            },
+            {
+              id: row.id
+            }
+          ),
+          transaction: options?.trx || null,
+          simplified: false
+        },
+        createJsonRestContext(options?.context || null)
       );
     }
   }
@@ -247,15 +286,22 @@ function createRepository({ api, knex } = {}) {
     }
 
     await api.resources.workspaceInvites.patch(
-      createSimplifiedWriteParams(
-        {
-          id: normalizedInviteId,
-          status: "accepted",
-          acceptedAt: new Date(),
-          updatedAt: new Date()
-        },
-        { trx: options?.trx }
-      )
+      {
+        inputRecord: createJsonApiInputRecord(
+          RESOURCE_TYPE,
+          {
+            status: "accepted",
+            acceptedAt: new Date(),
+            updatedAt: new Date()
+          },
+          {
+            id: normalizedInviteId
+          }
+        ),
+        transaction: options?.trx || null,
+        simplified: false
+      },
+      createJsonRestContext(options?.context || null)
     );
   }
 
@@ -266,15 +312,22 @@ function createRepository({ api, knex } = {}) {
     }
 
     await api.resources.workspaceInvites.patch(
-      createSimplifiedWriteParams(
-        {
-          id: normalizedInviteId,
-          status: "revoked",
-          revokedAt: new Date(),
-          updatedAt: new Date()
-        },
-        { trx: options?.trx }
-      )
+      {
+        inputRecord: createJsonApiInputRecord(
+          RESOURCE_TYPE,
+          {
+            status: "revoked",
+            revokedAt: new Date(),
+            updatedAt: new Date()
+          },
+          {
+            id: normalizedInviteId
+          }
+        ),
+        transaction: options?.trx || null,
+        simplified: false
+      },
+      createJsonRestContext(options?.context || null)
     );
   }
 

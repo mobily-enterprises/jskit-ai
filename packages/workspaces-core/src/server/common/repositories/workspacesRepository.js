@@ -1,9 +1,47 @@
 import {
-  createSimplifiedWriteParams,
   createWithTransaction,
   normalizeRecordId,
-  isDuplicateEntryError
+  isDuplicateEntryError,
+  normalizeText,
+  toIsoString
 } from "./repositoryUtils.js";
+import {
+  createJsonApiInputRecord,
+  createJsonApiRelationship,
+  createJsonRestContext,
+  simplifyJsonApiDocument
+} from "@jskit-ai/json-rest-api-core/server/jsonRestApiHost";
+
+const RESOURCE_TYPE = "workspaces";
+
+function normalizeWorkspaceRecord(payload = null) {
+  if (!payload || typeof payload !== "object") {
+    return null;
+  }
+
+  return {
+    id: normalizeRecordId(payload.id, { fallback: null }),
+    slug: normalizeText(payload.slug),
+    name: normalizeText(payload.name),
+    ownerUserId: normalizeRecordId(payload.ownerUserId || payload?.owner?.id, { fallback: null }),
+    isPersonal: payload.isPersonal === true,
+    avatarUrl: normalizeText(payload.avatarUrl),
+    createdAt: payload.createdAt ? toIsoString(payload.createdAt) : null,
+    updatedAt: payload.updatedAt ? toIsoString(payload.updatedAt) : null,
+    deletedAt: payload.deletedAt ? toIsoString(payload.deletedAt) : null
+  };
+}
+
+function createWorkspaceRelationships(source = {}) {
+  const relationships = {};
+  const ownerUserId = normalizeRecordId(source.ownerUserId, { fallback: null });
+
+  if (ownerUserId) {
+    relationships.owner = createJsonApiRelationship("userProfiles", ownerUserId);
+  }
+
+  return relationships;
+}
 
 function createRepository({ api, knex } = {}) {
   if (!api?.resources?.workspaces || !api?.resources?.workspaceMemberships) {
@@ -16,15 +54,19 @@ function createRepository({ api, knex } = {}) {
   const withTransaction = createWithTransaction(knex);
 
   async function queryFirst(filters = {}, options = {}) {
-    const result = await api.resources.workspaces.query({
-      queryParams: {
-        filters
+    const result = await api.resources.workspaces.query(
+      {
+        queryParams: {
+          filters
+        },
+        transaction: options?.trx || null,
+        simplified: false
       },
-      transaction: options?.trx,
-      simplified: true
-    });
+      createJsonRestContext(options?.context || null)
+    );
 
-    return Array.isArray(result?.data) ? result.data[0] || null : null;
+    const rows = simplifyJsonApiDocument(result);
+    return normalizeWorkspaceRecord(Array.isArray(rows) ? rows[0] || null : null);
   }
 
   async function findById(workspaceId, options = {}) {
@@ -51,18 +93,23 @@ function createRepository({ api, knex } = {}) {
       return null;
     }
 
-    const result = await api.resources.workspaces.query({
-      queryParams: {
-        filters: {
-          owner: normalizedUserId,
-          isPersonal: true
-        }
+    const result = await api.resources.workspaces.query(
+      {
+        queryParams: {
+          filters: {
+            owner: normalizedUserId,
+            isPersonal: true
+          }
+        },
+        transaction: options?.trx || null,
+        simplified: false
       },
-      transaction: options?.trx,
-      simplified: true
-    });
+      createJsonRestContext(options?.context || null)
+    );
 
-    const rows = Array.isArray(result?.data) ? [...result.data] : [];
+    const rows = Array.isArray(simplifyJsonApiDocument(result))
+      ? simplifyJsonApiDocument(result).map((row) => normalizeWorkspaceRecord(row)).filter(Boolean)
+      : [];
     rows.sort((left, right) => {
       const leftId = Number(left?.id);
       const rightId = Number(right?.id);
@@ -82,7 +129,6 @@ function createRepository({ api, knex } = {}) {
     }
 
     const createPayload = {
-      owner: ownerUserId,
       ...(Object.hasOwn(source, "slug") ? { slug: source.slug } : {}),
       ...(Object.hasOwn(source, "name") ? { name: source.name } : {}),
       ...(Object.hasOwn(source, "isPersonal") ? { isPersonal: source.isPersonal } : {}),
@@ -90,16 +136,26 @@ function createRepository({ api, knex } = {}) {
     };
 
     try {
-      return await api.resources.workspaces.post(
-        createSimplifiedWriteParams(
-          {
-            ...createPayload,
-            createdAt: new Date(),
-            updatedAt: new Date()
-          },
-          { trx: options?.trx }
-        )
+      const created = await api.resources.workspaces.post(
+        {
+          inputRecord: createJsonApiInputRecord(
+            RESOURCE_TYPE,
+            {
+              ...createPayload,
+              createdAt: new Date(),
+              updatedAt: new Date()
+            },
+            {
+              relationships: createWorkspaceRelationships({ ownerUserId })
+            }
+          ),
+          transaction: options?.trx || null,
+          simplified: false
+        },
+        createJsonRestContext(options?.context || null)
       );
+
+      return normalizeWorkspaceRecord(simplifyJsonApiDocument(created));
     } catch (error) {
       if (!isDuplicateEntryError(error)) {
         throw error;
@@ -108,7 +164,7 @@ function createRepository({ api, knex } = {}) {
         throw error;
       }
 
-      const bySlug = await findBySlug(createPayload.slug, { trx: options?.trx });
+      const bySlug = await findBySlug(createPayload.slug, options);
       if (bySlug) {
         return bySlug;
       }
@@ -122,16 +178,30 @@ function createRepository({ api, knex } = {}) {
       return null;
     }
 
-    return api.resources.workspaces.patch(
-      createSimplifiedWriteParams(
-        {
-          id: normalizedWorkspaceId,
-          ...(patch && typeof patch === "object" && !Array.isArray(patch) ? patch : {}),
-          updatedAt: new Date()
-        },
-        { trx: options?.trx }
-      )
+    const sourcePatch = patch && typeof patch === "object" && !Array.isArray(patch) ? patch : {};
+    const workspacePatch = {
+      ...sourcePatch,
+      updatedAt: new Date()
+    };
+    const relationships = createWorkspaceRelationships(sourcePatch);
+
+    const updated = await api.resources.workspaces.patch(
+      {
+        inputRecord: createJsonApiInputRecord(
+          RESOURCE_TYPE,
+          workspacePatch,
+          {
+            id: normalizedWorkspaceId,
+            relationships
+          }
+        ),
+        transaction: options?.trx || null,
+        simplified: false
+      },
+      createJsonRestContext(options?.context || null)
     );
+
+    return normalizeWorkspaceRecord(simplifyJsonApiDocument(updated));
   }
 
   async function listForUserId(userId, options = {}) {
@@ -140,29 +210,33 @@ function createRepository({ api, knex } = {}) {
       return [];
     }
 
-    const result = await api.resources.workspaceMemberships.query({
-      queryParams: {
-        filters: {
-          user: normalizedUserId,
-          status: "active"
+    const result = await api.resources.workspaceMemberships.query(
+      {
+        queryParams: {
+          filters: {
+            user: normalizedUserId,
+            status: "active"
+          },
+          include: ["workspace"]
         },
-        include: ["workspace"]
+        transaction: options?.trx || null,
+        simplified: false
       },
-      transaction: options?.trx,
-      simplified: true
-    });
+      createJsonRestContext(options?.context || null)
+    );
 
-    const rows = Array.isArray(result?.data) ? result.data : [];
+    const rows = Array.isArray(simplifyJsonApiDocument(result)) ? simplifyJsonApiDocument(result) : [];
     const workspaces = rows
       .map((row) => {
-        if (!row?.workspace || row.workspace.deletedAt != null) {
+        const workspace = normalizeWorkspaceRecord(row?.workspace);
+        if (!workspace || workspace.deletedAt != null) {
           return null;
         }
 
         return {
-          ...row.workspace,
-          roleSid: row.roleSid,
-          membershipStatus: row.status
+          ...workspace,
+          roleSid: row?.roleSid,
+          membershipStatus: row?.status
         };
       })
       .filter(Boolean);

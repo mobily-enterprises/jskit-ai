@@ -1,5 +1,6 @@
-import { withStandardErrorResponses } from "@jskit-ai/http-runtime/shared/validators/errorResponses";
+import { createJsonApiResourceRouteContract } from "@jskit-ai/http-runtime/shared/validators/jsonApiRouteTransport";
 import { userSettingsResource } from "../../shared/resources/userSettingsResource.js";
+import { resolveAccountSettingsResourceId } from "../common/support/accountSettingsJsonApiTransport.js";
 
 function bootAccountNotificationsRoutes(app) {
   if (!app || typeof app.make !== "function") {
@@ -17,13 +18,15 @@ function bootAccountNotificationsRoutes(app) {
         tags: ["settings"],
         summary: "Update notification settings"
       },
-      body: userSettingsResource.operations.notificationsUpdate.body,
-      responses: withStandardErrorResponses(
-        {
-          200: userSettingsResource.operations.view.output
-        },
-        { includeValidation400: true }
-      )
+      ...createJsonApiResourceRouteContract({
+        requestType: "user-notification-settings",
+        responseType: "user-settings",
+        body: userSettingsResource.operations.notificationsUpdate.body,
+        output: userSettingsResource.operations.view.output,
+        outputKind: "record",
+        getRecordId: resolveAccountSettingsResourceId,
+        includeValidation400: true
+      })
     },
     async function (request, reply) {
       const response = await request.executeAction({

@@ -828,6 +828,197 @@ function renderResourceSchemaPropertyLines(columns, {
     .join("\n");
 }
 
+function resolveJsonRestRelationshipScopeName(fieldContractEntry = null) {
+  const namespace = normalizeText(fieldContractEntry?.relation?.namespace);
+  if (!namespace) {
+    return "";
+  }
+
+  return toCamelCase(namespace.replace(/\//g, "-"));
+}
+
+function resolveJsonRestRelationshipAlias(column = null) {
+  const key = normalizeText(column?.key);
+  if (!key) {
+    return "";
+  }
+  if (key.endsWith("Id") && key.length > 2) {
+    return `${key.slice(0, -2).slice(0, 1).toLowerCase()}${key.slice(0, -2).slice(1)}`;
+  }
+  return "";
+}
+
+function resolveJsonRestFieldType(column = {}) {
+  if (column?.isRecordIdColumn === true) {
+    return "id";
+  }
+
+  const typeKind = normalizeText(column?.typeKind).toLowerCase();
+  if (typeKind === "string") {
+    return "string";
+  }
+  if (typeKind === "integer") {
+    return "integer";
+  }
+  if (typeKind === "number") {
+    return "number";
+  }
+  if (typeKind === "boolean") {
+    return "boolean";
+  }
+  if (typeKind === "datetime") {
+    return "dateTime";
+  }
+  if (typeKind === "date") {
+    return "date";
+  }
+  if (typeKind === "time") {
+    return "time";
+  }
+  return "string";
+}
+
+function shouldRenderJsonRestSearch(column = {}) {
+  return column?.isCreatedAtColumn !== true && column?.isUpdatedAtColumn !== true;
+}
+
+function shouldRenderJsonRestStorage(column = {}) {
+  const key = normalizeText(column?.key);
+  const columnName = normalizeText(column?.name);
+  if (!key || !columnName) {
+    return false;
+  }
+
+  if (toSnakeCase(key) !== columnName) {
+    return true;
+  }
+
+  return normalizeText(column?.typeKind).toLowerCase() === "datetime";
+}
+
+function renderJsonRestFieldSchema(column, { fieldContractEntry = null } = {}) {
+  const entries = [];
+  const type = resolveJsonRestFieldType(column);
+  entries.push(`type: ${JSON.stringify(type)}`);
+
+  if (column?.isIdColumn === true) {
+    entries.push("primary: true");
+    entries.push("required: true");
+    entries.push("search: true");
+  } else {
+    const required = column?.nullable !== true && column?.hasDefault !== true;
+    entries.push(`required: ${required}`);
+    if (shouldRenderJsonRestSearch(column)) {
+      entries.push("search: true");
+    }
+  }
+
+  if (column?.nullable === true) {
+    entries.push("nullable: true");
+  }
+
+  if (type === "string" && Number.isInteger(column?.maxLength) && column.maxLength > 0) {
+    entries.push(`max: ${column.maxLength}`);
+  }
+
+  if (column?.isOwnerColumn === true) {
+    entries.push("hidden: true");
+  }
+
+  const relationshipScopeName = resolveJsonRestRelationshipScopeName(fieldContractEntry);
+  const relationshipAlias = resolveJsonRestRelationshipAlias(column);
+  if (
+    relationshipScopeName &&
+    relationshipAlias &&
+    column?.isOwnerColumn !== true &&
+    column?.isForeignIdColumn === true
+  ) {
+    entries.push(`belongsTo: ${JSON.stringify(relationshipScopeName)}`);
+    entries.push(`as: ${JSON.stringify(relationshipAlias)}`);
+  }
+
+  if (shouldRenderJsonRestStorage(column)) {
+    const storageEntries = [];
+    if (toSnakeCase(normalizeText(column?.key)) !== normalizeText(column?.name)) {
+      storageEntries.push(`column: ${JSON.stringify(column.name)}`);
+    }
+    if (normalizeText(column?.typeKind).toLowerCase() === "datetime") {
+      storageEntries.push("serialize: serializeNullableDateTime");
+    }
+    entries.push(`storage: { ${storageEntries.join(", ")} }`);
+  }
+
+  return [
+    "{",
+    ...entries.map((entry, index) => `  ${entry}${index < entries.length - 1 ? "," : ""}`),
+    "}"
+  ].join("\n");
+}
+
+function renderJsonRestSchemaPropertyLines(columns = [], { fieldContractEntries = [] } = {}) {
+  const fieldContractByKey = Object.fromEntries(
+    (Array.isArray(fieldContractEntries) ? fieldContractEntries : [])
+      .map((entry) => [normalizeText(entry?.key), entry])
+      .filter(([key]) => key)
+  );
+
+  return (Array.isArray(columns) ? columns : [])
+    .filter((column) => column?.isIdColumn !== true)
+    .map((column) => {
+      const key = renderObjectPropertyKey(column.key);
+      const schemaLines = renderJsonRestFieldSchema(column, {
+        fieldContractEntry: fieldContractByKey[normalizeText(column?.key)] || null
+      }).split("\n");
+      const lines = [`    ${key}: ${schemaLines[0]}`];
+      for (const line of schemaLines.slice(1)) {
+        lines.push(`    ${line}`);
+      }
+      lines[lines.length - 1] = `${lines[lines.length - 1]},`;
+      return lines.join("\n");
+    })
+    .join("\n");
+}
+
+function renderJsonRestSearchSchemaLines(columns = []) {
+  const searchableStringKeys = (Array.isArray(columns) ? columns : [])
+    .filter((column) =>
+      normalizeText(column?.typeKind).toLowerCase() === "string" &&
+      column?.isOwnerColumn !== true &&
+      column?.isIdColumn !== true &&
+      column?.isCreatedAtColumn !== true &&
+      column?.isUpdatedAtColumn !== true
+    )
+    .map((column) => normalizeText(column?.key))
+    .filter(Boolean);
+
+  const lines = [
+    '    id: { type: "id", actualField: "id" },'
+  ];
+
+  if (searchableStringKeys.length > 0) {
+    lines.push(
+      `    q: { type: "string", oneOf: ${JSON.stringify(searchableStringKeys)}, filterOperator: "like", splitBy: " ", matchAll: true },`
+    );
+  }
+
+  return lines.join("\n");
+}
+
+function renderJsonRestDefaultSortLine(columns = []) {
+  const sourceColumns = Array.isArray(columns) ? columns : [];
+  const createdAtColumn = sourceColumns.find((column) => column?.isCreatedAtColumn === true);
+  if (createdAtColumn?.key) {
+    return `  defaultSort: ${JSON.stringify([`-${createdAtColumn.key}`])},`;
+  }
+
+  const idColumn = sourceColumns.find((column) => column?.isIdColumn === true);
+  if (idColumn?.key) {
+    return `  defaultSort: ${JSON.stringify([`-${idColumn.key}`])},`;
+  }
+
+  return "";
+}
+
 function renderMigrationDefaultClause(column) {
   if (column.hasDefault !== true) {
     return "";
@@ -1356,29 +1547,6 @@ function buildFieldContractEntries({ outputColumns = [], writableColumns = [], s
   return mergeFieldMetaEntries(repositoryEntries, relationEntries, enumEntries);
 }
 
-function renderRepositoryListConfigLines(snapshot = {}) {
-  const commentLines = [
-    "  // defaultLimit: 20,",
-    "  // maxLimit: 100,",
-    "  // searchColumns: [\"name\"],"
-  ];
-  const sourceColumns = Array.isArray(snapshot?.columns) ? snapshot.columns : [];
-  const hasCreatedAtColumn = sourceColumns.some((column = {}) => normalizeText(column?.name) === "created_at");
-  if (!hasCreatedAtColumn) {
-    return commentLines.join("\n");
-  }
-
-  return [
-    ...commentLines,
-    "  orderBy: [",
-    "    {",
-    "      column: \"created_at\",",
-    "      direction: \"desc\"",
-    "    }",
-    "  ]"
-  ].join("\n");
-}
-
 function buildCrudPermissionIds(namespace = "") {
   const permissionNamespace = toSnakeCase(namespace);
   if (!permissionNamespace) {
@@ -1625,6 +1793,12 @@ function buildReplacementsFromSnapshot({
   const actionInputExpressions = renderActionInputExpressions({
     surfaceRequiresWorkspace
   });
+  const jsonRestSchemaColumns = scaffoldColumns;
+  const jsonRestSchemaPropertyLines = renderJsonRestSchemaPropertyLines(jsonRestSchemaColumns, {
+    fieldContractEntries
+  });
+  const jsonRestSearchSchemaLines = renderJsonRestSearchSchemaLines(jsonRestSchemaColumns);
+  const jsonRestDefaultSortLine = renderJsonRestDefaultSortLine(jsonRestSchemaColumns);
 
   const replacements = Object.freeze({
     __JSKIT_CRUD_TABLE_NAME__: JSON.stringify(snapshot.tableName),
@@ -1713,7 +1887,11 @@ function buildReplacementsFromSnapshot({
       mode: "patch",
       fieldContractEntries
     }),
-    __JSKIT_CRUD_LIST_CONFIG_LINES__: renderRepositoryListConfigLines(snapshot),
+    __JSKIT_CRUD_JSONREST_SCOPE_NAME__: JSON.stringify(toCamelCase(namespace)),
+    __JSKIT_CRUD_JSONREST_AUTOFILTER__: JSON.stringify(resolvedOwnershipFilter),
+    __JSKIT_CRUD_JSONREST_SEARCH_SCHEMA_LINES__: jsonRestSearchSchemaLines,
+    __JSKIT_CRUD_JSONREST_SCHEMA_PROPERTIES__: jsonRestSchemaPropertyLines,
+    __JSKIT_CRUD_JSONREST_DEFAULT_SORT_LINE__: jsonRestDefaultSortLine,
     __JSKIT_CRUD_MIGRATION_COLUMN_LINES__: renderMigrationColumnLines(snapshot),
     __JSKIT_CRUD_MIGRATION_INDEX_LINES__: renderMigrationIndexLines(snapshot),
     __JSKIT_CRUD_MIGRATION_FOREIGN_KEY_LINES__: renderMigrationForeignKeyLines(snapshot),

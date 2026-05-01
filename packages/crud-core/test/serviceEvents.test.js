@@ -1,6 +1,12 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { createCrudServiceEvents } from "../src/server/serviceEvents.js";
+import {
+  createCrudJsonApiServiceEvents,
+  createCrudServiceEvents,
+  resolveCrudEntityIdFromArgs,
+  resolveCrudEntityIdFromResult,
+  resolveCrudJsonApiEntityIdFromResult
+} from "../src/server/serviceEvents.js";
 
 test("createCrudServiceEvents builds CRUD realtime events from resource namespace", () => {
   const events = createCrudServiceEvents({
@@ -25,4 +31,38 @@ test("createCrudServiceEvents validates required resource namespace", () => {
     () => createCrudServiceEvents({}),
     /resource\.namespace/
   );
+});
+
+test("createCrudJsonApiServiceEvents builds JSON:API-aware create/update/delete event defaults", () => {
+  const events = createCrudJsonApiServiceEvents("contacts");
+
+  assert.equal(events.createRecord[0].realtime.event, "contacts.record.changed");
+  assert.equal(events.updateRecord[0].realtime.event, "contacts.record.changed");
+  assert.equal(events.deleteRecord[0].realtime.event, "contacts.record.changed");
+  assert.equal(events.createRecord[0].entityId({
+    result: {
+      data: {
+        id: "21"
+      }
+    }
+  }), "21");
+  assert.equal(events.updateRecord[0].entityId({
+    args: [22]
+  }), "22");
+  assert.equal(events.deleteRecord[0].entityId({
+    args: [23]
+  }), "23");
+});
+
+test("service event entity-id helpers normalize ids from args, plain results, and JSON:API results", () => {
+  assert.equal(resolveCrudEntityIdFromArgs({ args: [12] }), "12");
+  assert.equal(resolveCrudEntityIdFromResult({ result: { id: 13 } }), "13");
+  assert.equal(resolveCrudJsonApiEntityIdFromResult({
+    result: {
+      data: {
+        id: 14
+      }
+    }
+  }), "14");
+  assert.equal(resolveCrudEntityIdFromArgs({ args: ["   "] }), "");
 });

@@ -26,7 +26,7 @@ const workspaceDirectoryActions = Object.freeze([
       require: "authenticated"
     },
     input: workspaceResource.operations.create.body,
-    output: workspaceResource.operations.create.output,
+    output: null,
     idempotency: "none",
     audit: {
       actionName: "workspace.workspaces.create"
@@ -54,7 +54,7 @@ const workspaceDirectoryActions = Object.freeze([
       require: "authenticated"
     },
     input: emptyInputValidator,
-    output: workspaceResource.operations.list.output,
+    output: null,
     idempotency: "none",
     audit: {
       actionName: "workspace.workspaces.list"
@@ -81,7 +81,7 @@ const workspaceDirectoryActions = Object.freeze([
       permissions: ["workspace.settings.view", "workspace.settings.update"]
     },
     input: workspaceSlugParamsValidator,
-    output: workspaceResource.operations.view.output,
+    output: null,
     idempotency: "none",
     audit: {
       actionName: "workspace.workspaces.read"
@@ -109,7 +109,7 @@ const workspaceDirectoryActions = Object.freeze([
       permissions: ["workspace.settings.update"]
     },
     input: workspaceUpdateInputValidator,
-    output: workspaceResource.operations.patch.output,
+    output: null,
     idempotency: "optional",
     audit: {
       actionName: "workspace.workspaces.update"

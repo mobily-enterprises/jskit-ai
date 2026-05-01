@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { UsersCoreServiceProvider } from "../../users-core/src/server/UsersCoreServiceProvider.js";
-import { INTERNAL_JSON_REST_API } from "../../users-core/src/server/common/jsonRestApiHost.js";
+import { INTERNAL_JSON_REST_API } from "../../json-rest-api-core/src/server/jsonRestApiHost.js";
 import { resolveTenancyProfile } from "../src/shared/tenancyProfile.js";
 import { WorkspacesCoreServiceProvider } from "../src/server/WorkspacesCoreServiceProvider.js";
 

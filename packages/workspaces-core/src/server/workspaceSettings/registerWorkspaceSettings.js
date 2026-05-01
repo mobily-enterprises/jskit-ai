@@ -1,6 +1,6 @@
 import { withActionDefaults } from "@jskit-ai/kernel/shared/actions";
 import { resolveAppConfig } from "@jskit-ai/kernel/server/support";
-import { INTERNAL_JSON_REST_API } from "@jskit-ai/users-core/server/jsonRestApiHost";
+import { INTERNAL_JSON_REST_API } from "@jskit-ai/json-rest-api-core/server/jsonRestApiHost";
 import { deepFreeze } from "../common/support/deepFreeze.js";
 import { createRepository as createWorkspaceSettingsRepository } from "./workspaceSettingsRepository.js";
 import { createService as createWorkspaceSettingsService } from "./workspaceSettingsService.js";

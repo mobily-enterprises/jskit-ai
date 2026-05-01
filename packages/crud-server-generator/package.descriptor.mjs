@@ -68,8 +68,8 @@ export default Object.freeze({
     "@jskit-ai/crud-core",
     "@jskit-ai/database-runtime",
     "@jskit-ai/http-runtime",
+    "@jskit-ai/json-rest-api-core",
     "@jskit-ai/realtime",
-    "@jskit-ai/users-core"
   ],
   capabilities: {
     provides: ["crud"],
@@ -77,7 +77,7 @@ export default Object.freeze({
       "runtime.actions",
       "runtime.database",
       "auth.policy",
-      "users.core"
+      "json-rest-api.core"
     ]
   },
   runtime: {
@@ -155,9 +155,9 @@ export default Object.freeze({
         "@jskit-ai/crud-core": "0.1.63",
         "@jskit-ai/database-runtime": "0.1.55",
         "@jskit-ai/http-runtime": "0.1.54",
+        "@jskit-ai/json-rest-api-core": "0.1.0",
         "@jskit-ai/kernel": "0.1.55",
         "@jskit-ai/realtime": "0.1.54",
-        "@jskit-ai/users-core": "0.1.65",
         "@local/${option:namespace|kebab}": "file:packages/${option:namespace|kebab}"
       },
       dev: {}
@@ -224,22 +224,22 @@ export default Object.freeze({
         id: "crud-local-package-server-action-ids-${option:namespace|snake}"
       },
       {
-        from: "templates/src/local-package/server/listConfig.js",
-        to: "packages/${option:namespace|kebab}/src/server/listConfig.js",
-        reason: "Install app-local CRUD list configuration.",
+        from: "templates/src/local-package/server/registerRoutes.js",
+        to: "packages/${option:namespace|kebab}/src/server/registerRoutes.js",
+        reason: "Install app-local CRUD route registration.",
         category: "crud",
-        id: "crud-local-package-server-list-config-${option:namespace|snake}",
+        id: "crud-local-package-server-routes-${option:namespace|snake}",
         templateContext: {
           entrypoint: "src/server/buildTemplateContext.js",
           export: "buildTemplateContext"
         }
       },
       {
-        from: "templates/src/local-package/server/registerRoutes.js",
-        to: "packages/${option:namespace|kebab}/src/server/registerRoutes.js",
-        reason: "Install app-local CRUD route registration.",
+        from: "templates/src/local-package/server/jsonRestResource.js",
+        to: "packages/${option:namespace|kebab}/src/server/jsonRestResource.js",
+        reason: "Install app-local JSON:API resource config.",
         category: "crud",
-        id: "crud-local-package-server-routes-${option:namespace|snake}",
+        id: "crud-local-package-server-jsonrest-resource-${option:namespace|snake}",
         templateContext: {
           entrypoint: "src/server/buildTemplateContext.js",
           export: "buildTemplateContext"

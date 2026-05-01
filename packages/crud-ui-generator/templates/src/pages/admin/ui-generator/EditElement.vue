@@ -63,6 +63,12 @@ const UI_VIEW_URL = __JSKIT_UI_EDIT_PAGE_VIEW_URL__;
 const UI_CANCEL_URL = UI_VIEW_URL || UI_LIST_URL;
 const UI_RECORD_CHANGED_EVENT = __JSKIT_UI_RECORD_CHANGED_EVENT__;
 const UI_EDIT_FORM_FIELDS = [];
+const UI_EDIT_TRANSPORT = Object.freeze({
+  kind: "jsonapi-resource",
+  requestType: "__JSKIT_UI_RESOURCE_NAMESPACE__",
+  responseType: "__JSKIT_UI_RESOURCE_NAMESPACE__",
+  responseKind: "record"
+});
 
 // @jskit-contract crud.ui.form-fields.__JSKIT_UI_RESOURCE_NAMESPACE__.edit.v1
 void UI_EDIT_FORM_FIELDS;
@@ -99,6 +105,7 @@ const formRuntime = useCrudAddEdit({
       routeRecordId.value
     ],
     placementSource: "ui-generator.__JSKIT_UI_RESOURCE_NAMESPACE__.edit",
+    transport: UI_EDIT_TRANSPORT,
     writeMethod: "PATCH",
     fallbackLoadError: "Unable to load record.",
     fallbackSaveError: "Unable to save record.",

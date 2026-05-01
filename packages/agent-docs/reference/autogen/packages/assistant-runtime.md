@@ -93,6 +93,7 @@ Local functions
 - `shouldExposeAppErrorDetails(errorCode = "")`
 - `sendPreStreamErrorResponse(reply, error)`
 - `resolveRouteRequestState(request, { resolveCurrentAppConfig = () => ({}), kind = "runtime", requiresWorkspace = false, workspaceScopeSupport = null } = {})`
+- `buildChatStreamActionInput(routeInput = {}, requestBody = {})`
 - `registerSettingsRoutes(router, resolveCurrentAppConfig, { requiresWorkspace = false, workspaceScopeSupport = null } = {})`
 - `registerRuntimeRoutes(router, resolveCurrentAppConfig, { requiresWorkspace = false, workspaceScopeSupport = null } = {})`
 

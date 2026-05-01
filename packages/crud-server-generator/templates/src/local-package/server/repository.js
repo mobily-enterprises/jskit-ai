@@ -1,54 +1,114 @@
-import { createCrudResourceRuntime } from "@jskit-ai/crud-core/server/resourceRuntime";
+import { createWithTransaction } from "@jskit-ai/database-runtime/shared";
+import { normalizeRecordId, normalizeText } from "@jskit-ai/kernel/shared/support/normalize";
+import {
+  buildJsonRestQueryParams,
+  createJsonApiInputRecord,
+  createJsonRestContext
+} from "@jskit-ai/json-rest-api-core/server/jsonRestApiHost";
 import { resource } from "../shared/${option:namespace|singular|camel}Resource.js";
-import { LIST_CONFIG } from "./listConfig.js";
+const RESOURCE_TYPE = resource.namespace;
 
-const REPOSITORY_CONTEXT = "${option:namespace|snake} repository";
+function createRepository({ api, knex } = {}) {
+  const withTransaction = createWithTransaction(knex);
 
-const REPOSITORY_CONFIG = Object.freeze({
-  context: REPOSITORY_CONTEXT,
-  list: LIST_CONFIG
-});
-
-function createRepository(knex, options = {}) {
-  const resourceRuntime = createCrudResourceRuntime(resource, knex, {
-    ...options,
-    ...REPOSITORY_CONFIG
-  });
-
-  async function list(query = {}, callOptions = {}) {
-    return resourceRuntime.list(query, callOptions);
+  async function list(query = {}, options = {}) {
+    return api.resources.${option:namespace|camel}.query(
+      {
+        queryParams: buildJsonRestQueryParams(RESOURCE_TYPE, query),
+        transaction: options?.trx || null,
+        simplified: false
+      },
+      createJsonRestContext(options?.context || null)
+    );
   }
 
-  async function findById(recordId, callOptions = {}) {
-    return resourceRuntime.findById(recordId, callOptions);
+  async function findById(recordId, options = {}) {
+    const normalizedRecordId = normalizeRecordId(recordId, { fallback: null });
+    if (!normalizedRecordId) {
+      return null;
+    }
+
+    try {
+      return await api.resources.${option:namespace|camel}.get(
+        {
+          id: normalizedRecordId,
+          queryParams: buildJsonRestQueryParams(RESOURCE_TYPE, {}, {
+            include: options?.include
+          }),
+          transaction: options?.trx || null,
+          simplified: false
+        },
+        createJsonRestContext(options?.context || null)
+      );
+    } catch (error) {
+      if (normalizeText(error?.code) === "REST_API_RESOURCE") {
+        return null;
+      }
+      throw error;
+    }
   }
 
-  async function listByIds(ids = [], callOptions = {}) {
-    return resourceRuntime.listByIds(ids, callOptions);
+  async function create(payload = {}, options = {}) {
+    return api.resources.${option:namespace|camel}.post(
+      {
+        inputRecord: createJsonApiInputRecord(RESOURCE_TYPE, payload),
+        transaction: options?.trx || null,
+        simplified: false
+      },
+      createJsonRestContext(options?.context || null)
+    );
   }
 
-  async function listByForeignIds(ids = [], foreignKey = "", callOptions = {}) {
-    return resourceRuntime.listByForeignIds(ids, foreignKey, callOptions);
+  async function updateById(recordId, patch = {}, options = {}) {
+    const normalizedRecordId = normalizeRecordId(recordId, { fallback: null });
+    if (!normalizedRecordId) {
+      return null;
+    }
+
+    const sourcePatch = patch && typeof patch === "object" && !Array.isArray(patch) ? patch : {};
+    if (Object.keys(sourcePatch).length < 1) {
+      return findById(normalizedRecordId, options);
+    }
+
+    return api.resources.${option:namespace|camel}.patch(
+      {
+        inputRecord: createJsonApiInputRecord(
+          RESOURCE_TYPE,
+          {
+            ...sourcePatch,
+            updatedAt: new Date()
+          },
+          { id: normalizedRecordId }
+        ),
+        transaction: options?.trx || null,
+        simplified: false
+      },
+      createJsonRestContext(options?.context || null)
+    );
   }
 
-  async function create(payload = {}, callOptions = {}) {
-    return resourceRuntime.create(payload, callOptions);
-  }
+  async function deleteById(recordId, options = {}) {
+    const normalizedRecordId = normalizeRecordId(recordId, { fallback: null });
+    if (!normalizedRecordId) {
+      return null;
+    }
 
-  async function updateById(recordId, patch = {}, callOptions = {}) {
-    return resourceRuntime.updateById(recordId, patch, callOptions);
-  }
+    await api.resources.${option:namespace|camel}.delete(
+      {
+        id: normalizedRecordId,
+        transaction: options?.trx || null,
+        simplified: false
+      },
+      createJsonRestContext(options?.context || null)
+    );
 
-  async function deleteById(recordId, callOptions = {}) {
-    return resourceRuntime.deleteById(recordId, callOptions);
+    return null;
   }
 
   return Object.freeze({
-    withTransaction: resourceRuntime.withTransaction,
+    withTransaction,
     list,
     findById,
-    listByIds,
-    listByForeignIds,
     create,
     updateById,
     deleteById

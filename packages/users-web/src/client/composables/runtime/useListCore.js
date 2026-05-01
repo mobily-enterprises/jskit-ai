@@ -1,22 +1,42 @@
-import { computed } from "vue";
-import { appendQueryString } from "@jskit-ai/kernel/shared/support";
+import { computed, unref } from "vue";
 import { usersWebHttpClient } from "../../lib/httpClient.js";
 import { asPlainObject } from "../support/scopeHelpers.js";
 import { resolveEnabledRef, resolveTextRef } from "../support/refValueHelpers.js";
 import { usePagedCollection } from "../usePagedCollection.js";
 
-function appendPageParam(path, pageParam) {
-  const normalizedPath = String(path || "").trim();
-  if (!normalizedPath) {
-    return "";
+function buildListRequestOptions({
+  requestOptions = null,
+  transport = null,
+  pageParam = null
+} = {}) {
+  const resolvedOptions = {
+    method: "GET",
+    ...(resolveRequestOptionsObject(requestOptions))
+  };
+
+  const sourceQuery =
+    resolvedOptions.query && typeof resolvedOptions.query === "object" && !Array.isArray(resolvedOptions.query)
+      ? { ...resolvedOptions.query }
+      : {};
+  if (pageParam !== null && pageParam !== undefined && pageParam !== "") {
+    sourceQuery.cursor = String(pageParam);
   }
-  if (pageParam === null || pageParam === undefined || pageParam === "") {
-    return normalizedPath;
+  if (Object.keys(sourceQuery).length > 0) {
+    resolvedOptions.query = sourceQuery;
+  } else {
+    delete resolvedOptions.query;
   }
 
-  const query = new URLSearchParams();
-  query.set("cursor", String(pageParam));
-  return appendQueryString(normalizedPath, query.toString());
+  if (transport && typeof transport === "object") {
+    resolvedOptions.transport = transport;
+  }
+
+  return resolvedOptions;
+}
+
+function resolveRequestOptionsObject(value = null) {
+  const source = unref(value);
+  return asPlainObject(source);
 }
 
 function useListCore({
@@ -24,6 +44,7 @@ function useListCore({
   path = "",
   enabled = true,
   client = usersWebHttpClient,
+  transport = null,
   initialPageParam = null,
   getNextPageParam,
   selectItems,
@@ -43,15 +64,19 @@ function useListCore({
     initialPageParam,
     enabled: queryEnabled,
     queryFn: async ({ pageParam }) => {
-      const requestPath = appendPageParam(normalizedPath.value, pageParam);
+      const requestPath = normalizedPath.value;
       if (!requestPath) {
         throw new Error("List path is required.");
       }
 
-      return client.request(requestPath, {
-        method: "GET",
-        ...(asPlainObject(requestOptions))
-      });
+      return client.request(
+        requestPath,
+        buildListRequestOptions({
+          requestOptions,
+          transport,
+          pageParam
+        })
+      );
     },
     getNextPageParam,
     selectItems,
@@ -62,4 +87,7 @@ function useListCore({
   return collection;
 }
 
-export { useListCore };
+export {
+  buildListRequestOptions,
+  useListCore
+};

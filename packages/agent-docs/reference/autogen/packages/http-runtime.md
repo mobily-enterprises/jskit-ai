@@ -69,6 +69,8 @@ Local functions
 - `resolveUnsafeMethods(value)`
 - `resolveFetch()`
 - `isObjectBody(value)`
+- `isQueryValuePresent(value)`
+- `appendRequestQueryToUrl(url, query = null, transport = null)`
 - `parseJsonSafely(response)`
 - `emitNdjsonLine(line, handlers)`
 - `readNdjsonStream(response, handlers = {})`
@@ -94,6 +96,24 @@ Exports
 - `normalizeHeaderName`
 - `hasHeader`
 - `setHeaderIfMissing`
+
+### `src/shared/clientRuntime/jsonApiResourceTransport.js`
+Exports
+- `JSON_API_CONTENT_TYPE`
+- `isJsonApiResourceTransport(transport = null)`
+- `normalizeJsonApiClientTransport(transport = null)`
+- `encodeJsonApiResourceRequestBody(body, transport = null)`
+- `encodeJsonApiResourceQuery(query, transport = null)`
+- `decodeJsonApiResourceResponse(payload, transport = null)`
+- `decodeJsonApiErrorFieldErrors(payload = {})`
+- `createJsonApiClientErrorPayload(payload = {})`
+Local functions
+- `isRecord(value)`
+- `normalizeTransportKind(transport = null)`
+- `defaultEncodeAttributes(body = {})`
+- `simplifyResourceObject(resource = {})`
+- `assertPrimaryDataType(resource = {}, expectedType = "")`
+- `resolveCollectionPageMeta(document = {})`
 
 ### `src/shared/clientRuntime/retry.js`
 Exports
@@ -129,7 +149,36 @@ Exports
 - `mapOperationIssues`
 - `validateOperationSection`
 - `validateOperationInput`
+- `JSON_API_CONTENT_TYPE`
+- `createJsonApiDocument`
+- `createJsonApiErrorDocumentFromFailure`
+- `createJsonApiErrorObject`
+- `createJsonApiResourceObject`
+- `isJsonApiCollectionDocument`
+- `isJsonApiContentType`
+- `isJsonApiErrorDocument`
+- `isJsonApiResourceDocument`
+- `isJsonContentType`
+- `normalizeJsonApiDocument`
+- `normalizeJsonApiResourceObject`
+- `resolveJsonApiTransportTypes`
 - `simplifyJsonApiDocument`
+- `JSON_API_QUERY_PAGE_CURSOR_KEY`
+- `JSON_API_QUERY_PAGE_LIMIT_KEY`
+- `JSON_API_QUERY_INCLUDE_KEY`
+- `JSON_API_QUERY_SORT_KEY`
+- `mapPlainQueryKeyToTransportKey`
+- `mapTransportQueryKeyToPlainKey`
+- `encodeJsonApiResourceQueryObject`
+- `decodeJsonApiResourceQueryObject`
+- `createJsonApiResourceQueryTransportSchema`
+- `JSON_API_ERROR_DOCUMENT_SCHEMA`
+- `createJsonApiResourceObjectTransportSchema`
+- `createJsonApiResourceRequestBodyTransportSchema`
+- `createJsonApiResourceSuccessTransportSchema`
+- `withJsonApiErrorResponses`
+- `createJsonApiResourceRouteTransport`
+- `createJsonApiResourceRouteContract`
 
 ### `src/shared/providers/singletonApiProvider.js`
 Exports
@@ -160,21 +209,80 @@ Exports
 - `passthroughErrorResponses(successResponses)`
 - `withStandardErrorResponses(successResponses, { includeValidation400 = false } = {})`
 - `enumSchema(values)`
-Local functions
-- `rewriteEmbeddedTransportSchemaRefs(value, { rootRef = "#", definitionRefByName = {} } = {})`
-- `createEmbeddableTransportSchemaDocument(schemaDocument = {}, rootDefinitionName = "TransportSchema")`
 
 ### `src/shared/validators/httpValidatorsApi.js`
 Exports
 - `HTTP_VALIDATORS_API`
 
+### `src/shared/validators/jsonApiQueryTransport.js`
+Exports
+- `JSON_API_QUERY_PAGE_CURSOR_KEY`
+- `JSON_API_QUERY_PAGE_LIMIT_KEY`
+- `JSON_API_QUERY_INCLUDE_KEY`
+- `JSON_API_QUERY_SORT_KEY`
+- `mapPlainQueryKeyToTransportKey(key = "", { responseType = "" } = {})`
+- `mapTransportQueryKeyToPlainKey(key = "", { responseType = "" } = {})`
+- `encodeJsonApiResourceQueryObject(query = {}, { responseType = "" } = {})`
+- `decodeJsonApiResourceQueryObject(query = {}, { responseType = "" } = {})`
+- `createJsonApiResourceQueryTransportSchema({ query, responseType = "" } = {})`
+Local functions
+- `isRecord(value)`
+- `normalizeQueryKey(key = "")`
+- `buildFieldsTransportKey(responseType = "")`
+- `normalizeTransportQueryScalar(value)`
+
 ### `src/shared/validators/jsonApiResponses.js`
 Exports
+- `simplifyJsonApiDocument`
+
+### `src/shared/validators/jsonApiRouteTransport.js`
+Exports
+- `JSON_API_ERROR_DOCUMENT_SCHEMA`
+- `createJsonApiResourceObjectTransportSchema({ type = "", attributes, requireId = true, includeLinks = false, includeMeta = false } = {})`
+- `createJsonApiResourceRequestBodyTransportSchema({ type = "", attributes, requireId = false } = {})`
+- `createJsonApiResourceSuccessTransportSchema({ type = "", attributes, kind = "record", includeLinks = false, includeMeta = false, includeIncluded = false } = {})`
+- `withJsonApiErrorResponses(successResponses, { includeValidation400 = false } = {})`
+- `createJsonApiResourceRouteTransport({ type = "", requestType = "", responseType = "", query = null, allowBodyId = false, successKind = "record", pointerPrefix = "/data/attributes", mapRequestRelationships = null, getRecordType = null, getRecordId = null, getRecordAttributes = null, getRecordRelationships = null, getRecordLinks = null, getRecordMeta = null, getIncluded = null, getDocumentLinks = null, getDocumentMeta = null, getCollectionItems = null } = {})`
+- `createJsonApiResourceRouteContract({ type = "", requestType = "", responseType = "", body = null, query = null, output = null, outputKind = "record", successStatus = 200, includeValidation400 = false, allowBodyId = false, pointerPrefix = "/data/attributes", getRecordType = null, getRecordId = null, getRecordAttributes = null, getRecordRelationships = null, getRecordLinks = null, getRecordMeta = null, getIncluded = null, getDocumentLinks = null, getDocumentMeta = null, getCollectionItems = null, mapRequestRelationships = null, wrapResponse = true } = {})`
+Local functions
+- `isRecord(value)`
+- `createJsonApiTransportError(statusCode, message, code)`
+- `resolveRouteType(type = "")`
+- `resolveRouteTypes(value = {})`
+- `resolveEmbeddedAttributesTransportSchema(definition, { context = "JSON:API resource", defaultMode = "replace", removeId = false } = {})`
+- `defaultRecordTypeResolver(type)`
+- `defaultRecordIdResolver(record = {})`
+- `defaultRecordAttributesResolver(record = {})`
+- `defaultCollectionItemsResolver(payload)`
+- `defaultCollectionMetaResolver(payload)`
+
+### `src/shared/validators/jsonApiTransport.js`
+Exports
+- `JSON_API_CONTENT_TYPE`
+- `resolveJsonApiTransportTypes({ type = "", requestType = "", responseType = "" } = {}, { context = "JSON:API transport" } = {})`
+- `createJsonApiDocument({ data = undefined, included = undefined, links = undefined, meta = undefined, errors = undefined } = {})`
+- `createJsonApiErrorDocumentFromFailure({ statusCode = 500, code = "", message = "", fieldErrors = {}, validationIssues = [], validationContext = "", pointerPrefix = "/data/attributes" } = {})`
+- `createJsonApiErrorObject({ status = "", code = "", title = "", detail = "", source = undefined, links = undefined, meta = undefined } = {})`
+- `createJsonApiResourceObject({ type = "", id = null, attributes = undefined, relationships = undefined, links = undefined, meta = undefined } = {})`
+- `isJsonApiCollectionDocument(payload = {})`
+- `isJsonApiContentType(contentType = "")`
+- `isJsonApiErrorDocument(payload = {})`
+- `isJsonApiResourceDocument(payload = {})`
+- `isJsonContentType(contentType = "")`
+- `normalizeJsonApiDocument(payload = {})`
+- `normalizeJsonApiResourceObject(resource = {})`
 - `simplifyJsonApiDocument(payload = {})`
 Local functions
 - `isRecord(value)`
-- `isJsonApiResourceDocument(payload = {})`
-- `isJsonApiCollectionDocument(payload = {})`
+- `normalizeMediaType(contentType = "")`
+- `normalizeJsonApiResourceArray(value)`
+- `normalizeJsonApiLinks(value)`
+- `normalizeJsonApiMeta(value)`
+- `normalizeJsonApiErrors(value)`
+- `escapeJsonPointerSegment(value = "")`
+- `resolveValidationFieldName(issue = {})`
+- `resolveJsonApiValidationSource(issue = {}, validationContext = "")`
+- `simplifyJsonApiResourceObject(resource = {})`
 
 ### `src/shared/validators/operationMessages.js`
 Exports
@@ -216,6 +324,11 @@ Exports
 ### `src/shared/validators/schemaUtils.js`
 Exports
 - `asSchemaDefinition(value, label, defaultMode, { required = true } = {})`
+
+### `src/shared/validators/transportSchemaEmbedding.js`
+Exports
+- `rewriteEmbeddedTransportSchemaRefs(value, { rootRef = "#", definitionRefByName = {} } = {})`
+- `createEmbeddableTransportSchemaDocument(schemaDocument = {}, rootDefinitionName = "TransportSchema")`
 
 ### root
 

@@ -1,5 +1,6 @@
-import { withStandardErrorResponses } from "@jskit-ai/http-runtime/shared/validators/errorResponses";
+import { createJsonApiResourceRouteContract } from "@jskit-ai/http-runtime/shared/validators/jsonApiRouteTransport";
 import { userSettingsResource } from "../../shared/resources/userSettingsResource.js";
+import { resolveAccountSettingsResourceId } from "../common/support/accountSettingsJsonApiTransport.js";
 
 function bootAccountPreferencesRoutes(app) {
   if (!app || typeof app.make !== "function") {
@@ -17,13 +18,15 @@ function bootAccountPreferencesRoutes(app) {
         tags: ["settings"],
         summary: "Update user preferences"
       },
-      body: userSettingsResource.operations.preferencesUpdate.body,
-      responses: withStandardErrorResponses(
-        {
-          200: userSettingsResource.operations.view.output
-        },
-        { includeValidation400: true }
-      )
+      ...createJsonApiResourceRouteContract({
+        requestType: "user-preferences",
+        responseType: "user-settings",
+        body: userSettingsResource.operations.preferencesUpdate.body,
+        output: userSettingsResource.operations.view.output,
+        outputKind: "record",
+        getRecordId: resolveAccountSettingsResourceId,
+        includeValidation400: true
+      })
     },
     async function (request, reply) {
       const response = await request.executeAction({

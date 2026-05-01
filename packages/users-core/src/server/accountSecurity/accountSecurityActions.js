@@ -24,7 +24,7 @@ const accountSecurityActions = Object.freeze([
       require: "authenticated"
     },
     input: userSettingsResource.operations.passwordChange.body,
-    output: userSettingsResource.operations.passwordChange.output,
+    output: null,
     idempotency: "none",
     audit: {
       actionName: "settings.security.password.change"
@@ -51,7 +51,7 @@ const accountSecurityActions = Object.freeze([
       require: "authenticated"
     },
     input: userSettingsResource.operations.passwordMethodToggle.body,
-    output: userSettingsResource.operations.passwordMethodToggle.output,
+    output: null,
     idempotency: "none",
     audit: {
       actionName: "settings.security.password_method.toggle"
@@ -78,7 +78,7 @@ const accountSecurityActions = Object.freeze([
       require: "authenticated"
     },
     input: oauthLinkStartInputValidator,
-    output: userSettingsResource.operations.oauthLinkStart.output,
+    output: null,
     idempotency: "none",
     audit: {
       actionName: "settings.security.oauth.link.start"
@@ -105,7 +105,7 @@ const accountSecurityActions = Object.freeze([
       require: "authenticated"
     },
     input: userSettingsResource.operations.oauthUnlink.params,
-    output: userSettingsResource.operations.oauthUnlink.output,
+    output: null,
     idempotency: "none",
     audit: {
       actionName: "settings.security.oauth.unlink"
@@ -132,7 +132,7 @@ const accountSecurityActions = Object.freeze([
       require: "authenticated"
     },
     input: userSettingsResource.operations.logoutOtherSessions.body,
-    output: userSettingsResource.operations.logoutOtherSessions.output,
+    output: null,
     idempotency: "none",
     audit: {
       actionName: "settings.security.sessions.logout_others"

@@ -1,4 +1,4 @@
-import { INTERNAL_JSON_REST_API } from "@jskit-ai/users-core/server/jsonRestApiHost";
+import { INTERNAL_JSON_REST_API } from "@jskit-ai/json-rest-api-core/server/jsonRestApiHost";
 import { createRepository as createWorkspacesRepository } from "./common/repositories/workspacesRepository.js";
 import { createRepository as createWorkspaceMembershipsRepository } from "./common/repositories/workspaceMembershipsRepository.js";
 import { createRepository as createWorkspaceInvitesRepository } from "./common/repositories/workspaceInvitesRepository.js";

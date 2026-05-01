@@ -270,7 +270,7 @@ Exports
 - `WORKSPACE_BOOTSTRAP_STATUS_FORBIDDEN`
 - `WORKSPACE_BOOTSTRAP_STATUS_UNAUTHENTICATED`
 - `WORKSPACE_BOOTSTRAP_STATUS_ERROR`
-- `createBootstrapPlacementRuntime({ app, logger = null, fetchBootstrap = fetchBootstrapPayload } = {})`
+- `createBootstrapPlacementRuntime({ app, logger = null } = {})`
 
 ### `src/client/runtime/bootstrapPlacementRuntimeConstants.js`
 Exports
@@ -318,8 +318,6 @@ Exports
 - `WORKSPACES_WEB_SCOPE_SUPPORT_INJECTION_KEY`
 - `createWorkspaceScopeSupport()`
 - `readWorkspaceRouteScope(routeContext = {})`
-Local functions
-- `unwrapRefValue(value)`
 
 ### `src/shared/toolsOutletContracts.js`
 Exports

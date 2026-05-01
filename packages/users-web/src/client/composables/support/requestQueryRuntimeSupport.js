@@ -4,7 +4,6 @@ import {
   resolveActiveQueryParamEntries,
   buildQueryParamEntriesToken
 } from "./listQueryParamSupport.js";
-import { appendRequestQueryEntriesToPath } from "./requestQueryPathSupport.js";
 
 function resolveRequestQueryContext(context = null) {
   const source = unref(context);
@@ -22,11 +21,40 @@ function resolveRequestQueryBaseKey(sourceQueryKey = null) {
   return [source];
 }
 
+function appendRequestQueryValue(target = {}, key = "", values = []) {
+  const normalizedKey = String(key || "").trim();
+  const normalizedValues = (Array.isArray(values) ? values : [])
+    .map((value) => String(value ?? "").trim())
+    .filter(Boolean);
+  if (!normalizedKey || normalizedValues.length < 1) {
+    return;
+  }
+
+  const currentValue = target[normalizedKey];
+  if (currentValue === undefined) {
+    target[normalizedKey] = normalizedValues.length === 1 ? normalizedValues[0] : [...normalizedValues];
+    return;
+  }
+
+  const currentValues = Array.isArray(currentValue) ? [...currentValue] : [currentValue];
+  target[normalizedKey] = [...currentValues, ...normalizedValues];
+}
+
+function buildRequestQueryObject(entries = []) {
+  const sourceEntries = Array.isArray(entries) ? entries : [];
+  const query = {};
+
+  for (const entry of sourceEntries) {
+    appendRequestQueryValue(query, entry?.key, entry?.values);
+  }
+
+  return Object.freeze(query);
+}
+
 function createRequestQueryRuntime({
   requestQueryParams = null,
   context = null,
-  sourceQueryKey = null,
-  sourcePath = ""
+  sourceQueryKey = null
 } = {}) {
   const requestQueryParamDescriptors = computed(() => {
     return resolveQueryParamDescriptors(requestQueryParams, resolveRequestQueryContext(context));
@@ -46,11 +74,12 @@ function createRequestQueryRuntime({
     next.push("__request_query__", activeRequestQueryParamsToken.value);
     return next;
   });
-  const requestPath = computed(() => {
-    return appendRequestQueryEntriesToPath(
-      unref(sourcePath),
-      activeRequestQueryParamEntries.value
-    );
+  const requestQuery = computed(() => {
+    if (activeRequestQueryParamEntries.value.length < 1) {
+      return null;
+    }
+
+    return buildRequestQueryObject(activeRequestQueryParamEntries.value);
   });
 
   return Object.freeze({
@@ -58,11 +87,13 @@ function createRequestQueryRuntime({
     activeRequestQueryParamEntries,
     activeRequestQueryParamsToken,
     queryKey,
-    requestPath
+    requestQuery
   });
 }
 
 export {
+  appendRequestQueryValue,
+  buildRequestQueryObject,
   createRequestQueryRuntime,
   resolveRequestQueryBaseKey,
   resolveRequestQueryContext

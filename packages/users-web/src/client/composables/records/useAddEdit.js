@@ -29,6 +29,7 @@ function useAddEdit({
   readMethod = "GET",
   readEnabled = true,
   writeMethod = "PATCH",
+  transport = null,
   placementSource = "users-web.add-edit",
   fallbackLoadError = "Unable to load resource.",
   fallbackSaveError = "Unable to save resource.",
@@ -109,16 +110,17 @@ function useAddEdit({
   const requestQueryRuntime = createRequestQueryRuntime({
     requestQueryParams,
     context: queryParamsContext,
-    sourceQueryKey: operationScope.queryKey,
-    sourcePath: operationScope.apiPath
+    sourceQueryKey: operationScope.queryKey
   });
 
   const endpointResource = useEndpointResource({
     queryKey: requestQueryRuntime.queryKey,
-    path: requestQueryRuntime.requestPath,
+    path: operationScope.apiPath,
     enabled: queryCanRun,
     readMethod,
     writeMethod,
+    readQuery: requestQueryRuntime.requestQuery,
+    transport,
     fallbackLoadError,
     fallbackSaveError: String(fallbackSaveError || effectiveMessages.saveError || "Unable to save resource.")
   });

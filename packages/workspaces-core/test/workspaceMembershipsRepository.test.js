@@ -15,6 +15,32 @@ function createKnexStub() {
   return knex;
 }
 
+function toWorkspaceMembershipResource(row = {}) {
+  return {
+    type: "workspaceMemberships",
+    id: String(row.id || ""),
+    attributes: {
+      roleSid: row.roleSid,
+      status: row.status,
+      createdAt: row.createdAt,
+      updatedAt: row.updatedAt
+    },
+    relationships: {
+      workspace: {
+        data: row?.workspace?.id == null ? null : { type: "workspaces", id: String(row.workspace.id) }
+      },
+      user: {
+        data: row?.user?.id == null
+          ? null
+          : {
+              type: "userProfiles",
+              id: String(row.user.id)
+            }
+      }
+    }
+  };
+}
+
 function createWorkspaceMembershipsApiStub({
   rowByComposite = new Map(),
   memberSummaryRows = [],
@@ -34,11 +60,23 @@ function createWorkspaceMembershipsApiStub({
 
           if (Object.hasOwn(filters, "workspace") && Object.hasOwn(filters, "user")) {
             const row = rowByComposite.get(`${filters.workspace}:${filters.user}`) || null;
-            return { data: row ? [{ ...row }] : [] };
+            return { data: row ? [toWorkspaceMembershipResource(row)] : [] };
           }
 
           if (Object.hasOwn(filters, "workspace") && Object.hasOwn(filters, "status") && includeUser) {
-            return { data: memberSummaryRows.map((row) => ({ ...row })) };
+            return {
+              data: memberSummaryRows.map((row) => toWorkspaceMembershipResource(row)),
+              included: memberSummaryRows
+                .filter((row) => row?.user?.id != null)
+                .map((row) => ({
+                  type: "userProfiles",
+                  id: String(row.user.id),
+                  attributes: {
+                    displayName: row.user.displayName,
+                    email: row.user.email
+                  }
+                }))
+            };
           }
 
           if (Object.hasOwn(filters, "user") && Object.hasOwn(filters, "status")) {
@@ -46,43 +84,43 @@ function createWorkspaceMembershipsApiStub({
               String(row?.user?.id || "") === String(filters.user) &&
               String(row?.status || "") === String(filters.status)
             ));
-            return { data: rows.map((row) => ({ ...row })) };
+            return { data: rows.map((row) => toWorkspaceMembershipResource(row)) };
           }
 
           return { data: [] };
         },
         async post(payload) {
-          assert.equal(payload?.simplified, true);
-          const inputRecord = payload?.inputRecord || {};
-          state.postPayload = { ...inputRecord };
+          assert.equal(payload?.simplified, false);
+          const inputRecord = payload?.inputRecord?.data || {};
+          state.postPayload = inputRecord;
           const row = rowById.get("1") || {
             id: "1",
-            workspace: { id: String(inputRecord.workspace) },
-            user: { id: String(inputRecord.user) },
-            roleSid: String(inputRecord.roleSid || ""),
-            status: String(inputRecord.status || ""),
+            workspace: { id: String(inputRecord.relationships?.workspace?.data?.id || "") },
+            user: { id: String(inputRecord.relationships?.user?.data?.id || "") },
+            roleSid: String(inputRecord.attributes?.roleSid || ""),
+            status: String(inputRecord.attributes?.status || ""),
             createdAt: "2026-03-09 00:26:35.710",
             updatedAt: "2026-03-09 00:26:35.710"
           };
-          rowByComposite.set(`${inputRecord.workspace}:${inputRecord.user}`, row);
+          rowByComposite.set(`${row.workspace.id}:${row.user.id}`, row);
           rowById.set(String(row.id), row);
-          return { ...row };
+          return { data: toWorkspaceMembershipResource(row) };
         },
         async patch(payload) {
-          assert.equal(payload?.simplified, true);
-          const inputRecord = payload?.inputRecord || {};
-          state.patchPayload = { ...inputRecord };
+          assert.equal(payload?.simplified, false);
+          const inputRecord = payload?.inputRecord?.data || {};
+          state.patchPayload = inputRecord;
           const existing = rowById.get(String(inputRecord.id));
           const updated = {
             ...(existing || {}),
-            ...inputRecord,
+            ...(inputRecord.attributes || {}),
             id: String(inputRecord.id),
             workspace: existing?.workspace || { id: "" },
             user: existing?.user || { id: "" }
           };
           rowById.set(String(updated.id), updated);
           rowByComposite.set(`${updated.workspace.id}:${updated.user.id}`, updated);
-          return { ...updated };
+          return { data: toWorkspaceMembershipResource(updated) };
         }
       }
     }
@@ -143,9 +181,9 @@ test("workspaceMembershipsRepository.ensureOwnerMembership upgrades an existing 
 
   const membership = await repository.ensureOwnerMembership("7", "9");
 
-  assert.equal(state.patchPayload.roleSid, "owner");
-  assert.equal(state.patchPayload.status, "active");
-  assert.equal(typeof state.patchPayload.updatedAt, "object");
+  assert.equal(state.patchPayload.attributes?.roleSid, "owner");
+  assert.equal(state.patchPayload.attributes?.status, "active");
+  assert.equal(typeof state.patchPayload.attributes?.updatedAt, "object");
   assert.deepEqual(membership, {
     id: "11",
     workspaceId: "7",
@@ -153,7 +191,7 @@ test("workspaceMembershipsRepository.ensureOwnerMembership upgrades an existing 
     roleSid: "owner",
     status: "active",
     createdAt: toIsoString("2026-03-09 00:26:35.710"),
-    updatedAt: toIsoString(state.patchPayload.updatedAt)
+    updatedAt: toIsoString(state.patchPayload.attributes.updatedAt)
   });
 });
 
@@ -178,10 +216,10 @@ test("workspaceMembershipsRepository.upsertMembership creates normalized members
     status: "ACTIVE"
   });
 
-  assert.equal(state.postPayload.workspace, "7");
-  assert.equal(state.postPayload.user, "9");
-  assert.equal(state.postPayload.roleSid, "admin");
-  assert.equal(state.postPayload.status, "active");
+  assert.equal(state.postPayload.relationships?.workspace?.data?.id, "7");
+  assert.equal(state.postPayload.relationships?.user?.data?.id, "9");
+  assert.equal(state.postPayload.attributes?.roleSid, "admin");
+  assert.equal(state.postPayload.attributes?.status, "active");
 });
 
 test("workspaceMembershipsRepository.listActiveByWorkspaceId keeps summary rows separate from the canonical membership resource", async () => {

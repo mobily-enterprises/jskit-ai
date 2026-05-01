@@ -1,6 +1,15 @@
 import { createHttpError, createNetworkError } from "./errors.js";
 import { hasHeader, setHeaderIfMissing } from "./headers.js";
 import { DEFAULT_RETRYABLE_CSRF_ERROR_CODES, shouldRetryForCsrfFailure } from "./retry.js";
+import { appendQueryString } from "@jskit-ai/kernel/shared/support";
+import { isJsonContentType } from "../validators/jsonApiTransport.js";
+import {
+  JSON_API_CONTENT_TYPE,
+  decodeJsonApiResourceResponse,
+  encodeJsonApiResourceRequestBody,
+  encodeJsonApiResourceQuery,
+  normalizeJsonApiClientTransport
+} from "./jsonApiResourceTransport.js";
 
 const DEFAULT_UNSAFE_METHODS = Object.freeze(["POST", "PUT", "PATCH", "DELETE"]);
 const DEFAULT_NDJSON_CONTENT_TYPE = "application/x-ndjson";
@@ -28,9 +37,58 @@ function isObjectBody(value) {
   return Boolean(value) && typeof value === "object" && !(value instanceof FormData);
 }
 
+function isQueryValuePresent(value) {
+  if (Array.isArray(value)) {
+    return value.some((entry) => String(entry ?? "").trim());
+  }
+  return String(value ?? "").trim().length > 0;
+}
+
+function appendRequestQueryToUrl(url, query = null, transport = null) {
+  const normalizedUrl = String(url || "").trim();
+  if (!normalizedUrl) {
+    return "";
+  }
+
+  const encodedQuery =
+    transport
+      ? encodeJsonApiResourceQuery(query, transport)
+      : query && typeof query === "object" && !Array.isArray(query)
+        ? query
+        : null;
+
+  if (!encodedQuery || typeof encodedQuery !== "object" || Array.isArray(encodedQuery)) {
+    return normalizedUrl;
+  }
+
+  const searchParams = new URLSearchParams();
+  for (const [key, rawValue] of Object.entries(encodedQuery)) {
+    const normalizedKey = String(key || "").trim();
+    if (!normalizedKey || !isQueryValuePresent(rawValue)) {
+      continue;
+    }
+
+    const values = Array.isArray(rawValue) ? rawValue : [rawValue];
+    for (const value of values) {
+      const normalizedValue = String(value ?? "").trim();
+      if (!normalizedValue) {
+        continue;
+      }
+      searchParams.append(normalizedKey, normalizedValue);
+    }
+  }
+
+  const serializedQuery = searchParams.toString();
+  if (!serializedQuery) {
+    return normalizedUrl;
+  }
+
+  return appendQueryString(normalizedUrl, serializedQuery);
+}
+
 function parseJsonSafely(response) {
   const contentType = String(response?.headers?.get?.("content-type") || "");
-  const isJson = contentType.includes("application/json");
+  const isJson = isJsonContentType(contentType);
   if (!isJson) {
     return Promise.resolve({
       contentType,
@@ -256,11 +314,18 @@ function createHttpClient(options = {}) {
     const resolvedState = resolveRequestState(state);
 
     const method = normalizeMethod(requestOptions.method);
+    const transport = normalizeJsonApiClientTransport(requestOptions.transport);
+    const {
+      transport: _transport,
+      query: requestQuery,
+      ...forwardedRequestOptions
+    } = requestOptions && typeof requestOptions === "object" ? requestOptions : {};
+    const requestUrl = appendRequestQueryToUrl(url, requestQuery, transport);
     const headers =
       requestOptions.headers && typeof requestOptions.headers === "object" ? { ...requestOptions.headers } : {};
 
     const decorateHeadersResult = decorateHeaders({
-      url,
+      url: requestUrl,
       method,
       headers,
       requestOptions,
@@ -273,10 +338,19 @@ function createHttpClient(options = {}) {
 
     const config = {
       credentials: String(options?.credentials || "same-origin"),
-      ...requestOptions,
+      ...forwardedRequestOptions,
       method,
       headers
     };
+
+    if (transport) {
+      setHeaderIfMissing(headers, "Accept", JSON_API_CONTENT_TYPE);
+    }
+
+    if (transport && isObjectBody(config.body)) {
+      setHeaderIfMissing(headers, "Content-Type", JSON_API_CONTENT_TYPE);
+      config.body = encodeJsonApiResourceRequestBody(config.body, transport);
+    }
 
     if (isObjectBody(config.body)) {
       setHeaderIfMissing(headers, "Content-Type", "application/json");
@@ -293,7 +367,9 @@ function createHttpClient(options = {}) {
     return {
       method,
       config,
-      state: resolvedState
+      state: resolvedState,
+      transport,
+      url: requestUrl
     };
   }
 
@@ -383,7 +459,7 @@ function createHttpClient(options = {}) {
       state: resolvedState
     } = requestContext;
     const result = await executePreparedRequest(
-      url,
+      requestContext.url,
       requestContext.config,
       requestContext,
       (cause) =>
@@ -420,7 +496,8 @@ function createHttpClient(options = {}) {
       value: {
         method,
         state: resolvedState,
-        result
+        result,
+        transport: requestContext.transport
       }
     };
   }
@@ -454,20 +531,45 @@ function createHttpClient(options = {}) {
     const {
       method,
       state: resolvedState,
-      result
+      result,
+      transport
     } = execution.value;
+
+    let responseData = result.data;
+    if (transport) {
+      try {
+        responseData = decodeJsonApiResourceResponse(result.data, transport);
+      } catch (cause) {
+        const error = createNetworkError(cause);
+        error.message = "JSON:API response decoding failed.";
+        await notifyFailure({
+          url,
+          method,
+          state: resolvedState,
+          reason: "transport_decode_error",
+          error,
+          response: result.response,
+          data: result.data,
+          contentType: result.contentType,
+          isJson: result.isJson,
+          stream: false
+        });
+        throw error;
+      }
+    }
 
     await notifySuccess({
       url,
       method,
       state: resolvedState,
       response: result.response,
-      data: result.data,
+      data: responseData,
+      rawData: result.data,
       contentType: result.contentType,
       isJson: result.isJson,
       stream: false
     });
-    return result.data;
+    return responseData;
   }
 
   async function requestStream(url, requestOptions = {}, handlers = {}, state = null) {

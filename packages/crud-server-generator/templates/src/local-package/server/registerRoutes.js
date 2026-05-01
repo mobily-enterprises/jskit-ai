@@ -1,4 +1,4 @@
-import { withStandardErrorResponses } from "@jskit-ai/http-runtime/shared/validators/errorResponses";
+import { createJsonApiResourceRouteContract } from "@jskit-ai/http-runtime/shared/validators/jsonApiRouteTransport";
 import { normalizeSurfaceId } from "@jskit-ai/kernel/shared/surface/registry";
 import { composeSchemaDefinitions } from "@jskit-ai/kernel/shared/validators";
 import {
@@ -14,10 +14,12 @@ import { checkRouteVisibility } from "@jskit-ai/kernel/shared/support/visibility
 import { resolveScopedApiBasePath } from "@jskit-ai/kernel/shared/surface";
 import { actionIds } from "./actionIds.js";
 import { resource } from "../shared/${option:namespace|singular|camel}Resource.js";
-import { LIST_CONFIG } from "./listConfig.js";
+import { jsonRestResource } from "./jsonRestResource.js";
 __JSKIT_CRUD_ROUTE_WORKSPACE_SUPPORT_IMPORTS__
 
-const listCursorPaginationQueryValidator = createCrudCursorPaginationQueryValidator(LIST_CONFIG);
+const listCursorPaginationQueryValidator = createCrudCursorPaginationQueryValidator({
+  orderBy: jsonRestResource.defaultSort
+});
 const listParentFilterQueryValidator = createCrudParentFilterQueryValidator(resource);
 const listRouteQueryValidator = composeSchemaDefinitions([
   listCursorPaginationQueryValidator,
@@ -25,6 +27,44 @@ const listRouteQueryValidator = composeSchemaDefinitions([
   listParentFilterQueryValidator,
   lookupIncludeQueryValidator
 ]);
+const RESOURCE_ROUTE_CONTRACT_TYPE = resource.namespace;
+const listRouteContract = createJsonApiResourceRouteContract({
+  type: RESOURCE_ROUTE_CONTRACT_TYPE,
+  query: listRouteQueryValidator,
+  output: resource.operations.view.output,
+  outputKind: "collection",
+  wrapResponse: false
+});
+const viewRouteContract = createJsonApiResourceRouteContract({
+  type: RESOURCE_ROUTE_CONTRACT_TYPE,
+  query: lookupIncludeQueryValidator,
+  output: resource.operations.view.output,
+  outputKind: "record",
+  wrapResponse: false
+});
+const createRouteContract = createJsonApiResourceRouteContract({
+  type: RESOURCE_ROUTE_CONTRACT_TYPE,
+  body: resource.operations.create.body,
+  output: resource.operations.create.output,
+  outputKind: "record",
+  successStatus: 201,
+  includeValidation400: true,
+  wrapResponse: false
+});
+const updateRouteContract = createJsonApiResourceRouteContract({
+  type: RESOURCE_ROUTE_CONTRACT_TYPE,
+  body: resource.operations.patch.body,
+  output: resource.operations.patch.output,
+  outputKind: "record",
+  includeValidation400: true,
+  wrapResponse: false
+});
+const deleteRouteContract = createJsonApiResourceRouteContract({
+  type: RESOURCE_ROUTE_CONTRACT_TYPE,
+  outputKind: "no-content",
+  successStatus: 204,
+  wrapResponse: false
+});
 __JSKIT_CRUD_ROUTE_VALIDATOR_CONSTANTS__
 
 function registerRoutes(
@@ -54,11 +94,8 @@ function registerRoutes(
         tags: ["crud"],
         summary: "List records."
       },
+      ...listRouteContract,
 __JSKIT_CRUD_LIST_ROUTE_PARAMS_VALIDATOR_LINE__
-      query: listRouteQueryValidator,
-      responses: withStandardErrorResponses({
-        200: resource.operations.list.output
-      })
     },
     async function (request, reply) {
       const listInput = {
@@ -83,11 +120,8 @@ __JSKIT_CRUD_LIST_ROUTE_INPUT_LINES__
         tags: ["crud"],
         summary: "View a record."
       },
+      ...viewRouteContract,
 __JSKIT_CRUD_VIEW_ROUTE_PARAMS_VALIDATOR_LINE__
-      query: lookupIncludeQueryValidator,
-      responses: withStandardErrorResponses({
-        200: resource.operations.view.output
-      })
     },
     async function (request, reply) {
       const response = await request.executeAction({
@@ -111,14 +145,8 @@ __JSKIT_CRUD_VIEW_ROUTE_INPUT_LINES__
         tags: ["crud"],
         summary: "Create a record."
       },
+      ...createRouteContract,
 __JSKIT_CRUD_CREATE_ROUTE_PARAMS_VALIDATOR_LINE__
-      body: resource.operations.create.body,
-      responses: withStandardErrorResponses(
-        {
-          201: resource.operations.create.output
-        },
-        { includeValidation400: true }
-      )
     },
     async function (request, reply) {
       const response = await request.executeAction({
@@ -142,14 +170,8 @@ __JSKIT_CRUD_CREATE_ROUTE_INPUT_LINES__
         tags: ["crud"],
         summary: "Update a record."
       },
+      ...updateRouteContract,
 __JSKIT_CRUD_UPDATE_ROUTE_PARAMS_VALIDATOR_LINE__
-      body: resource.operations.patch.body,
-      responses: withStandardErrorResponses(
-        {
-          200: resource.operations.patch.output
-        },
-        { includeValidation400: true }
-      )
     },
     async function (request, reply) {
       const response = await request.executeAction({
@@ -173,10 +195,8 @@ __JSKIT_CRUD_UPDATE_ROUTE_INPUT_LINES__
         tags: ["crud"],
         summary: "Delete a record."
       },
+      ...deleteRouteContract,
 __JSKIT_CRUD_DELETE_ROUTE_PARAMS_VALIDATOR_LINE__
-      responses: withStandardErrorResponses({
-        200: resource.operations.delete.output
-      })
     },
     async function (request, reply) {
       const response = await request.executeAction({
@@ -185,7 +205,7 @@ __JSKIT_CRUD_DELETE_ROUTE_PARAMS_VALIDATOR_LINE__
 __JSKIT_CRUD_DELETE_ROUTE_INPUT_LINES__
         }
       });
-      reply.code(200).send(response);
+      reply.code(204).send(response);
     }
   );
 }

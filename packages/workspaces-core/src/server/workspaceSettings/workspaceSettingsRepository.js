@@ -1,12 +1,17 @@
 import {
-  createSimplifiedWriteParams,
   normalizeRecordId,
   nowDb,
   isDuplicateEntryError,
   createWithTransaction
 } from "../common/repositories/repositoryUtils.js";
+import {
+  createJsonApiInputRecord,
+  createJsonRestContext,
+  simplifyJsonApiDocument
+} from "@jskit-ai/json-rest-api-core/server/jsonRestApiHost";
 import { resolveWorkspaceThemePalettes } from "../../shared/settings.js";
 
+const RESOURCE_TYPE = "workspaceSettings";
 const WORKSPACE_SETTINGS_PATCH_FIELDS = Object.freeze([
   "lightPrimaryColor",
   "lightSecondaryColor",
@@ -58,15 +63,19 @@ function createRepository({ api, knex } = {}) {
   const withTransaction = createWithTransaction(knex);
 
   async function queryFirst(filters = {}, options = {}) {
-    const result = await api.resources.workspaceSettings.query({
-      queryParams: {
-        filters
+    const result = await api.resources.workspaceSettings.query(
+      {
+        queryParams: {
+          filters
+        },
+        transaction: options?.trx || null,
+        simplified: false
       },
-      transaction: options?.trx,
-      simplified: true
-    });
+      createJsonRestContext(options?.context || null)
+    );
 
-    return Array.isArray(result?.data) ? result.data[0] || null : null;
+    const rows = simplifyJsonApiDocument(result);
+    return Array.isArray(rows) ? rows[0] || null : null;
   }
 
   async function findByWorkspaceId(workspaceId, options = {}) {
@@ -84,17 +93,25 @@ function createRepository({ api, knex } = {}) {
       throw new TypeError("workspaceSettingsRepository.ensureForWorkspaceId requires a valid workspace id.");
     }
 
-    const existing = await findByWorkspaceId(normalizedWorkspaceId, { trx: options?.trx });
+    const existing = await findByWorkspaceId(normalizedWorkspaceId, options);
     if (existing) {
       return existing;
     }
 
     try {
       await api.resources.workspaceSettings.post(
-        createSimplifiedWriteParams(
-          createDefaultWorkspaceSettingsCreatePayload(normalizedWorkspaceId),
-          { trx: options?.trx }
-        )
+        {
+          inputRecord: createJsonApiInputRecord(
+            RESOURCE_TYPE,
+            createDefaultWorkspaceSettingsCreatePayload(normalizedWorkspaceId),
+            {
+              id: normalizedWorkspaceId
+            }
+          ),
+          transaction: options?.trx || null,
+          simplified: false
+        },
+        createJsonRestContext(options?.context || null)
       );
     } catch (error) {
       if (!isDuplicateEntryError(error)) {
@@ -102,7 +119,7 @@ function createRepository({ api, knex } = {}) {
       }
     }
 
-    return findByWorkspaceId(normalizedWorkspaceId, { trx: options?.trx });
+    return findByWorkspaceId(normalizedWorkspaceId, options);
   }
 
   async function updateSettingsByWorkspaceId(workspaceId, patch = {}, options = {}) {
@@ -111,26 +128,33 @@ function createRepository({ api, knex } = {}) {
       throw new TypeError("workspaceSettingsRepository.updateSettingsByWorkspaceId requires a valid workspace id.");
     }
 
-    await ensureForWorkspaceId(normalizedWorkspaceId, { trx: options?.trx });
+    await ensureForWorkspaceId(normalizedWorkspaceId, options);
     const source = patch && typeof patch === "object" && !Array.isArray(patch) ? patch : {};
     const updatePayload = pickPatchFields(source);
 
     if (Object.keys(updatePayload).length < 1) {
-      return findByWorkspaceId(normalizedWorkspaceId, { trx: options?.trx });
+      return findByWorkspaceId(normalizedWorkspaceId, options);
     }
 
     await api.resources.workspaceSettings.patch(
-      createSimplifiedWriteParams(
-        {
-          id: normalizedWorkspaceId,
-          ...updatePayload,
-          updatedAt: nowDb()
-        },
-        { trx: options?.trx }
-      )
+      {
+        inputRecord: createJsonApiInputRecord(
+          RESOURCE_TYPE,
+          {
+            ...updatePayload,
+            updatedAt: nowDb()
+          },
+          {
+            id: normalizedWorkspaceId
+          }
+        ),
+        transaction: options?.trx || null,
+        simplified: false
+      },
+      createJsonRestContext(options?.context || null)
     );
 
-    return findByWorkspaceId(normalizedWorkspaceId, { trx: options?.trx });
+    return findByWorkspaceId(normalizedWorkspaceId, options);
   }
 
   return Object.freeze({

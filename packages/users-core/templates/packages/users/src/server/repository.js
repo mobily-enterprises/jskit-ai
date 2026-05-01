@@ -1,40 +1,54 @@
-import { createCrudResourceRuntime } from "@jskit-ai/crud-core/server/resourceRuntime";
+import { createWithTransaction } from "@jskit-ai/database-runtime/shared";
+import { normalizeRecordId, normalizeText } from "@jskit-ai/kernel/shared/support/normalize";
+import {
+  buildJsonRestQueryParams,
+  createJsonRestContext
+} from "@jskit-ai/json-rest-api-core/server/jsonRestApiHost";
 import { resource } from "../shared/userResource.js";
-import { LIST_CONFIG } from "./listConfig.js";
 
-const REPOSITORY_CONFIG = Object.freeze({
-  context: "users repository",
-  list: LIST_CONFIG
-});
+const RESOURCE_TYPE = resource.namespace;
 
-function createRepository(knex, options = {}) {
-  const resourceRuntime = createCrudResourceRuntime(resource, knex, {
-    ...options,
-    ...REPOSITORY_CONFIG
-  });
+function createRepository({ api, knex } = {}) {
+  const withTransaction = createWithTransaction(knex);
 
-  async function list(query = {}, callOptions = {}) {
-    return resourceRuntime.list(query, callOptions);
+  async function list(query = {}, options = {}) {
+    return api.resources.users.query(
+      {
+        queryParams: buildJsonRestQueryParams(RESOURCE_TYPE, query),
+        transaction: options?.trx || null,
+        simplified: false
+      },
+      createJsonRestContext(options?.context || null)
+    );
   }
 
-  async function findById(recordId, callOptions = {}) {
-    return resourceRuntime.findById(recordId, callOptions);
-  }
+  async function findById(recordId, options = {}) {
+    const normalizedRecordId = normalizeRecordId(recordId, { fallback: null });
+    if (!normalizedRecordId) {
+      return null;
+    }
 
-  async function listByIds(ids = [], callOptions = {}) {
-    return resourceRuntime.listByIds(ids, callOptions);
-  }
-
-  async function listByForeignIds(ids = [], foreignKey = "", callOptions = {}) {
-    return resourceRuntime.listByForeignIds(ids, foreignKey, callOptions);
+    try {
+      return await api.resources.users.get(
+        {
+          id: normalizedRecordId,
+          transaction: options?.trx || null,
+          simplified: false
+        },
+        createJsonRestContext(options?.context || null)
+      );
+    } catch (error) {
+      if (normalizeText(error?.code) === "REST_API_RESOURCE") {
+        return null;
+      }
+      throw error;
+    }
   }
 
   return Object.freeze({
-    withTransaction: resourceRuntime.withTransaction,
+    withTransaction,
     list,
-    findById,
-    listByIds,
-    listByForeignIds
+    findById
   });
 }
 
