@@ -77,32 +77,6 @@ Local functions
 - `normalizeWorkspaceRecord(payload = null)`
 - `createWorkspaceRelationships(source = {})`
 
-### `src/server/common/resources/workspaceInvitesResource.js`
-Exports
-- `workspaceInvitesResource`
-Local functions
-- `serializeNullableDateTime(value)`
-
-### `src/server/common/resources/workspaceMembershipsResource.js`
-Exports
-- `workspaceMembershipsResource`
-Local functions
-- `serializeNullableDateTime(value)`
-
-### `src/server/common/resources/workspaceSettingsResource.js`
-Exports
-- `workspaceSettingsResource`
-Local functions
-- `serializeNullableDateTime(value)`
-- `normalizeWorkspaceColorInput(value)`
-
-### `src/server/common/resources/workspacesResource.js`
-Exports
-- `workspacesResource`
-Local functions
-- `normalizeWorkspaceAvatarUrl(value)`
-- `serializeNullableDateTime(value)`
-
 ### `src/server/common/services/workspaceContextService.js`
 Exports
 - `createService({ appConfig = {}, workspacesRepository, workspaceMembershipsRepository, workspaceSettingsRepository } = {})`
@@ -300,6 +274,14 @@ Exports
 Exports
 - `createOperationMessages({ validationMessage = "Validation failed.", apiValidationMessage = validationMessage } = {})`
 
+### `src/shared/resources/workspaceInvitesResource.js`
+Exports
+- `workspaceInvitesResource`
+
+### `src/shared/resources/workspaceMembershipsResource.js`
+Exports
+- `workspaceMembershipsResource`
+
 ### `src/shared/resources/workspaceMembersResource.js`
 Exports
 - `workspaceMembersResource`
@@ -312,6 +294,8 @@ Exports
 Exports
 - `workspaceResource`
 - `workspaceListItemOutputValidator`
+Local functions
+- `normalizeWorkspaceAvatarUrl(value)`
 
 ### `src/shared/resources/workspaceRoleCatalogSchema.js`
 Exports
@@ -323,6 +307,8 @@ Exports
 - `WORKSPACE_SETTINGS_FIELD_KEYS`
 - `workspaceSettingsOutputSchema`
 - `workspaceSettingsResource`
+Local functions
+- `normalizeWorkspaceColorInput(value)`
 
 ### `src/shared/roles.js`
 Exports

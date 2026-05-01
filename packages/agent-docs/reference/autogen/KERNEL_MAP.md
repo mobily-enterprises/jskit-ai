@@ -35,6 +35,7 @@ Exports
 - `checkCrudLookupFormControl(value, { context = "crud field ui.formControl", defaultValue = CRUD_LOOKUP_FORM_CONTROL_AUTOCOMPLETE } = {})`
 - `resolveCrudFieldSchemaProperties(value, { context = "crud resource field definitions" } = {})`
 - `normalizeCrudFieldStorageConfig(fieldDefinition = {}, { context = "crud field storage", fieldKey = "" } = {})`
+- `buildCrudOperationSchemaFields(fields = {}, operationName = "")`
 - `buildCrudFieldContractMap(resource = {}, { context = "crud resource field contract" } = {})`
 - `resolveCrudFieldContractEntry(resource = {}, fieldKey = "", options = {})`
 Local functions

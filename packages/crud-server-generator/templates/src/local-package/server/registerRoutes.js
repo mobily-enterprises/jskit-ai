@@ -1,65 +1,20 @@
-import { createJsonApiResourceRouteContract } from "@jskit-ai/http-runtime/shared/validators/jsonApiRouteTransport";
 import { normalizeSurfaceId } from "@jskit-ai/kernel/shared/surface/registry";
-import { composeSchemaDefinitions } from "@jskit-ai/kernel/shared/validators";
-import {
-  createCrudCursorPaginationQueryValidator,
-  listSearchQueryValidator,
-  lookupIncludeQueryValidator,
-  createCrudParentFilterQueryValidator
-} from "@jskit-ai/crud-core/server/listQueryValidators";
-import {
-  recordIdParamsValidator
-} from "@jskit-ai/kernel/shared/validators";
+import { createCrudJsonApiRouteContracts } from "@jskit-ai/crud-core/server/routeContracts";
 import { checkRouteVisibility } from "@jskit-ai/kernel/shared/support/visibility";
 import { resolveScopedApiBasePath } from "@jskit-ai/kernel/shared/surface";
 import { resource } from "../shared/${option:namespace|singular|camel}Resource.js";
-import { jsonRestResource } from "./jsonRestResource.js";
 __JSKIT_CRUD_ROUTE_WORKSPACE_SUPPORT_IMPORTS__
 
-const listCursorPaginationQueryValidator = createCrudCursorPaginationQueryValidator({
-  orderBy: jsonRestResource.defaultSort
+const {
+  listRouteContract,
+  viewRouteContract,
+  createRouteContract,
+  updateRouteContract,
+  deleteRouteContract,
+  recordRouteParamsValidator
+} = createCrudJsonApiRouteContracts({
+  resource__JSKIT_CRUD_ROUTE_CONTRACTS_RESOURCE_ARGS__
 });
-const listParentFilterQueryValidator = createCrudParentFilterQueryValidator(resource);
-const listRouteQueryValidator = composeSchemaDefinitions([
-  listCursorPaginationQueryValidator,
-  listSearchQueryValidator,
-  listParentFilterQueryValidator,
-  lookupIncludeQueryValidator
-]);
-const RESOURCE_ROUTE_CONTRACT_TYPE = resource.namespace;
-const listRouteContract = createJsonApiResourceRouteContract({
-  type: RESOURCE_ROUTE_CONTRACT_TYPE,
-  query: listRouteQueryValidator,
-  output: resource.operations.view.output,
-  outputKind: "collection"
-});
-const viewRouteContract = createJsonApiResourceRouteContract({
-  type: RESOURCE_ROUTE_CONTRACT_TYPE,
-  query: lookupIncludeQueryValidator,
-  output: resource.operations.view.output,
-  outputKind: "record"
-});
-const createRouteContract = createJsonApiResourceRouteContract({
-  type: RESOURCE_ROUTE_CONTRACT_TYPE,
-  body: resource.operations.create.body,
-  output: resource.operations.create.output,
-  outputKind: "record",
-  successStatus: 201,
-  includeValidation400: true
-});
-const updateRouteContract = createJsonApiResourceRouteContract({
-  type: RESOURCE_ROUTE_CONTRACT_TYPE,
-  body: resource.operations.patch.body,
-  output: resource.operations.patch.output,
-  outputKind: "record",
-  includeValidation400: true
-});
-const deleteRouteContract = createJsonApiResourceRouteContract({
-  type: RESOURCE_ROUTE_CONTRACT_TYPE,
-  outputKind: "no-content",
-  successStatus: 204
-});
-__JSKIT_CRUD_ROUTE_VALIDATOR_CONSTANTS__
 
 function registerRoutes(
   app,

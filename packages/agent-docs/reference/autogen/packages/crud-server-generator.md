@@ -53,6 +53,10 @@ Local functions
 - `renderBoundedNumberEntries(column)`
 - `resolveResourceFieldRequired(column, { forOutput = false, mode = "create" } = {})`
 - `renderResourceSchemaPropertyLines(columns, { forOutput = false, mode = "create", fieldContractEntries = [] } = {})`
+- `resolveCanonicalResourceFieldRequired(column = {})`
+- `renderCanonicalResourceOperations(column = {})`
+- `renderCanonicalResourceFieldSchema(column, { fieldContractEntry = null } = {})`
+- `renderCanonicalResourceSchemaPropertyLines(columns = [], { fieldContractEntries = [] } = {})`
 - `resolveJsonRestRelationshipScopeName(fieldContractEntry = null)`
 - `resolveJsonRestRelationshipAlias(column = null)`
 - `resolveJsonRestFieldType(column = {})`
@@ -62,6 +66,7 @@ Local functions
 - `renderJsonRestSchemaPropertyLines(columns = [], { fieldContractEntries = [] } = {})`
 - `renderJsonRestSearchSchemaLines(columns = [])`
 - `renderJsonRestDefaultSortLine(columns = [])`
+- `renderResourceDefaultSortLiteral(columns = [])`
 - `renderMigrationDefaultClause(column)`
 - `renderMigrationSpecificStringType(column, { tableCollation = "" } = {})`
 - `renderTemporalColumnBuilder(column, methodName)`
@@ -163,12 +168,6 @@ Exports
 - `${option:namespace|pascal`
 Local functions
 - `resolveCrudPolicyFromApp(app)`
-
-### `templates/src/local-package/server/jsonRestResource.js`
-Exports
-- `jsonRestResource`
-Local functions
-- `serializeNullableDateTime(value)`
 
 ### `templates/src/local-package/server/registerRoutes.js`
 Exports

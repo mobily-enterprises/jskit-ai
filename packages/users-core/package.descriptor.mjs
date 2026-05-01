@@ -287,15 +287,6 @@ export default Object.freeze({
         id: "users-core-users-repository"
       },
       {
-        from: "templates/packages/users/src/server/jsonRestResource.js",
-        to: "packages/users/src/server/jsonRestResource.js",
-        ownership: "app",
-        preserveOnRemove: true,
-        reason: "Install app-owned users JSON:API resource configuration.",
-        category: "users-core",
-        id: "users-core-users-json-rest-resource"
-      },
-      {
         from: "templates/packages/users/src/server/service.js",
         to: "packages/users/src/server/service.js",
         ownership: "app",

@@ -9,11 +9,10 @@ import {
   createCrudParentFilterQueryValidator
 } from "@jskit-ai/crud-core/server/listQueryValidators";
 import { resource } from "../shared/${option:namespace|singular|camel}Resource.js";
-import { jsonRestResource } from "./jsonRestResource.js";
 __JSKIT_CRUD_ACTION_WORKSPACE_VALIDATOR_IMPORT__
 
 const listCursorPaginationQueryValidator = createCrudCursorPaginationQueryValidator({
-  orderBy: jsonRestResource.defaultSort
+  orderBy: resource.defaultSort
 });
 const listParentFilterQueryValidator = createCrudParentFilterQueryValidator(resource);
 __JSKIT_CRUD_ACTION_PERMISSION_SUPPORT__

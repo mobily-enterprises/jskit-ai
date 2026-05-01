@@ -39,7 +39,7 @@ test("shared index template re-exports standardized resource symbol", async () =
   );
 });
 
-test("shared resource template uses kernel createSchema export", async () => {
+test("shared resource template uses defineCrudResource export", async () => {
   const sharedResourceTemplate = await readFile(
     resolveTemplatePath("src/local-package/shared/crudResource.js"),
     "utf8"
@@ -47,7 +47,7 @@ test("shared resource template uses kernel createSchema export", async () => {
 
   assert.match(
     sharedResourceTemplate,
-    /import\s*\{\s*createSchema,\s*createCursorListValidator,\s*RECORD_ID_PATTERN\s*\}\s*from\s*"@jskit-ai\/kernel\/shared\/validators";/s
+    /import\s*\{\s*defineCrudResource\s*\}\s*from\s*"@jskit-ai\/crud-core\/shared\/crudResource";/s
   );
   assert.doesNotMatch(
     sharedResourceTemplate,

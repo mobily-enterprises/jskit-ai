@@ -228,17 +228,6 @@ export default Object.freeze({
         }
       },
       {
-        from: "templates/src/local-package/server/jsonRestResource.js",
-        to: "packages/${option:namespace|kebab}/src/server/jsonRestResource.js",
-        reason: "Install app-local JSON:API resource config.",
-        category: "crud",
-        id: "crud-local-package-server-jsonrest-resource-${option:namespace|snake}",
-        templateContext: {
-          entrypoint: "src/server/buildTemplateContext.js",
-          export: "buildTemplateContext"
-        }
-      },
-      {
         from: "templates/src/local-package/server/repository.js",
         to: "packages/${option:namespace|kebab}/src/server/repository.js",
         reason: "Install app-local CRUD repository.",

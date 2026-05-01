@@ -828,6 +828,200 @@ function renderResourceSchemaPropertyLines(columns, {
     .join("\n");
 }
 
+function resolveCanonicalResourceFieldRequired(column = {}) {
+  return column?.nullable !== true && column?.hasDefault !== true;
+}
+
+function renderCanonicalResourceOperations(column = {}) {
+  if (column?.isOwnerColumn === true) {
+    return "{}";
+  }
+
+  const entries = [
+    'output: { required: true }'
+  ];
+
+  if (column?.writable === true) {
+    entries.push(`create: { required: ${resolveCanonicalResourceFieldRequired(column)} }`);
+    entries.push("patch: { required: false }");
+  }
+
+  return [
+    "{",
+    ...entries.map((entry, index) => `  ${entry}${index < entries.length - 1 ? "," : ""}`),
+    "}"
+  ].join("\n");
+}
+
+function renderCanonicalResourceFieldSchema(column, { fieldContractEntry = null } = {}) {
+  const entries = [];
+  const typeKind = String(column?.typeKind || "");
+  const isRequired = resolveCanonicalResourceFieldRequired(column);
+
+  if (typeKind === "string") {
+    entries.push('type: "string"');
+    if (Number.isInteger(column?.maxLength) && column.maxLength > 0) {
+      entries.push(`maxLength: ${column.maxLength}`);
+    }
+    const enumValues = Array.isArray(column?.enumValues) ? column.enumValues.filter((entry) => entry != null) : [];
+    if (enumValues.length > 0) {
+      entries.push(`enum: ${JSON.stringify(enumValues)}`);
+    }
+  } else if (typeKind === "integer") {
+    if (column?.isRecordIdColumn === true) {
+      entries.push('type: "id"');
+    } else {
+      entries.push('type: "integer"');
+      entries.push(...renderBoundedNumberEntries(column));
+    }
+  } else if (typeKind === "number") {
+    entries.push('type: "number"');
+    entries.push(...renderBoundedNumberEntries(column));
+  } else if (typeKind === "boolean") {
+    entries.push('type: "boolean"');
+  } else if (typeKind === "datetime") {
+    entries.push('type: "dateTime"');
+    const normalizedDefault = normalizeText(column?.defaultValue).toLowerCase();
+    if (normalizedDefault === "current_timestamp" || normalizedDefault === "current_timestamp()") {
+      entries.push('default: "now()"');
+    }
+  } else if (typeKind === "date") {
+    entries.push('type: "date"');
+  } else if (typeKind === "time") {
+    entries.push('type: "time"');
+  } else {
+    entries.push('type: "none"');
+  }
+
+  if (isRequired) {
+    entries.push("required: true");
+  }
+  if (column?.nullable === true) {
+    entries.push("nullable: true");
+  }
+  if (shouldRenderJsonRestSearch(column)) {
+    entries.push("search: true");
+  }
+  if (column?.isOwnerColumn === true) {
+    entries.push("hidden: true");
+  }
+
+  const actualField = normalizeText(fieldContractEntry?.actualField);
+  if (actualField) {
+    entries.push(`actualField: ${JSON.stringify(actualField)}`);
+  }
+
+  const parentRouteParamKey = normalizeText(fieldContractEntry?.parentRouteParamKey);
+  if (parentRouteParamKey) {
+    entries.push(`parentRouteParamKey: ${JSON.stringify(parentRouteParamKey)}`);
+  }
+
+  const relation = fieldContractEntry?.relation && typeof fieldContractEntry.relation === "object"
+    ? fieldContractEntry.relation
+    : null;
+  if (relation) {
+    const relationNamespace =
+      normalizeCrudLookupNamespace(relation.namespace) ||
+      normalizeCrudLookupNamespace(relation.apiPath) ||
+      normalizeCrudLookupNamespace(relation?.source?.path) ||
+      normalizeCrudLookupNamespace(relation.targetResource);
+    if (!relationNamespace) {
+      throw new Error(`crud template context field "${normalizeText(column?.key)}" lookup relation requires namespace.`);
+    }
+
+    const relationEntries = [
+      `kind: ${JSON.stringify(normalizeText(relation.kind) || "lookup")}`,
+      `namespace: ${JSON.stringify(relationNamespace)}`,
+      `valueKey: ${JSON.stringify(normalizeText(relation.valueKey) || "id")}`
+    ];
+    const labelKey = normalizeText(relation.labelKey);
+    if (labelKey) {
+      relationEntries.push(`labelKey: ${JSON.stringify(labelKey)}`);
+    }
+    entries.push(`relation: { ${relationEntries.join(", ")} }`);
+  }
+
+  const relationshipScopeName = resolveJsonRestRelationshipScopeName(fieldContractEntry);
+  const relationshipAlias = resolveJsonRestRelationshipAlias(column);
+  if (
+    relationshipScopeName &&
+    relationshipAlias &&
+    column?.isOwnerColumn !== true &&
+    column?.isForeignIdColumn === true
+  ) {
+    entries.push(`belongsTo: ${JSON.stringify(relationshipScopeName)}`);
+    entries.push(`as: ${JSON.stringify(relationshipAlias)}`);
+  }
+
+  const fieldUiOptions = normalizeFieldMetaUiOptions(fieldContractEntry?.ui?.options);
+  const formControl = checkCrudLookupFormControl(fieldContractEntry?.ui?.formControl, {
+    context: `resource schema field "${normalizeText(column?.key)}" ui.formControl`,
+    defaultValue: relation ? "autocomplete" : (fieldUiOptions.length > 0 ? "select" : "")
+  });
+  if (formControl || fieldUiOptions.length > 0) {
+    const uiEntries = [];
+    if (formControl) {
+      uiEntries.push(`formControl: ${JSON.stringify(formControl)}`);
+    }
+    if (fieldUiOptions.length > 0) {
+      uiEntries.push(`options: ${JSON.stringify(fieldUiOptions)}`);
+    }
+    entries.push(`ui: { ${uiEntries.join(", ")} }`);
+  }
+
+  const storageEntries = [];
+  if (fieldContractEntry?.storage?.mode === "virtual") {
+    storageEntries.push("virtual: true");
+  }
+  if (toSnakeCase(normalizeText(column?.key)) !== normalizeText(column?.name)) {
+    storageEntries.push(`column: ${JSON.stringify(column.name)}`);
+  }
+  if (normalizeText(column?.typeKind).toLowerCase() === "datetime") {
+    storageEntries.push('writeSerializer: "datetime-utc"');
+  }
+  if (storageEntries.length > 0) {
+    entries.push(`storage: { ${storageEntries.join(", ")} }`);
+  }
+
+  const operationsLines = renderCanonicalResourceOperations(column).split("\n");
+  const lines = [
+    "{",
+    ...entries.map((entry) => `  ${entry},`),
+    `  operations: ${operationsLines[0]}`
+  ];
+
+  for (const line of operationsLines.slice(1)) {
+    lines.push(`  ${line}`);
+  }
+
+  lines.push("}");
+  return lines.join("\n");
+}
+
+function renderCanonicalResourceSchemaPropertyLines(columns = [], { fieldContractEntries = [] } = {}) {
+  const fieldContractByKey = Object.fromEntries(
+    (Array.isArray(fieldContractEntries) ? fieldContractEntries : [])
+      .map((entry) => [normalizeText(entry?.key), entry])
+      .filter(([key]) => key)
+  );
+
+  return (Array.isArray(columns) ? columns : [])
+    .filter((column) => column?.isIdColumn !== true)
+    .map((column) => {
+      const key = renderObjectPropertyKey(column.key);
+      const schemaLines = renderCanonicalResourceFieldSchema(column, {
+        fieldContractEntry: fieldContractByKey[normalizeText(column?.key)] || null
+      }).split("\n");
+      const lines = [`  ${key}: ${schemaLines[0]}`];
+      for (const line of schemaLines.slice(1)) {
+        lines.push(`  ${line}`);
+      }
+      lines[lines.length - 1] = `${lines[lines.length - 1]},`;
+      return lines.join("\n");
+    })
+    .join("\n");
+}
+
 function resolveJsonRestRelationshipScopeName(fieldContractEntry = null) {
   const namespace = normalizeText(fieldContractEntry?.relation?.namespace);
   if (!namespace) {
@@ -1017,6 +1211,12 @@ function renderJsonRestDefaultSortLine(columns = []) {
   }
 
   return "";
+}
+
+function renderResourceDefaultSortLiteral(columns = []) {
+  const sortLine = renderJsonRestDefaultSortLine(columns);
+  const match = sortLine.match(/defaultSort:\s*(.+),$/);
+  return match?.[1] || "[]";
 }
 
 function renderMigrationDefaultClause(column) {
@@ -1648,10 +1848,6 @@ function renderRouteParamsValidatorLine(operation = "", { surfaceRequiresWorkspa
     return "      params: routeParamsValidator,";
   }
 
-  if (!surfaceRequiresWorkspace) {
-    return "      params: recordIdParamsValidator,";
-  }
-
   return "      params: recordRouteParamsValidator,";
 }
 
@@ -1793,12 +1989,32 @@ function buildReplacementsFromSnapshot({
   const actionInputExpressions = renderActionInputExpressions({
     surfaceRequiresWorkspace
   });
-  const jsonRestSchemaColumns = scaffoldColumns;
-  const jsonRestSchemaPropertyLines = renderJsonRestSchemaPropertyLines(jsonRestSchemaColumns, {
+  const resourceSchemaColumns = scaffoldColumns;
+  const resourceSchemaPropertyLines = renderCanonicalResourceSchemaPropertyLines(resourceSchemaColumns, {
     fieldContractEntries
   });
-  const jsonRestSearchSchemaLines = renderJsonRestSearchSchemaLines(jsonRestSchemaColumns);
-  const jsonRestDefaultSortLine = renderJsonRestDefaultSortLine(jsonRestSchemaColumns);
+  const resourceSearchSchemaLines = renderJsonRestSearchSchemaLines(resourceSchemaColumns);
+  const resourceDefaultSortLiteral = renderResourceDefaultSortLiteral(resourceSchemaColumns);
+  const legacyOutputSchemaPropertyLines = renderResourceSchemaPropertyLines(outputColumns, {
+    forOutput: true,
+    mode: "replace",
+    fieldContractEntries
+  });
+  const legacyCreateSchemaPropertyLines = renderResourceSchemaPropertyLines(writableColumns, {
+    forOutput: false,
+    mode: "create",
+    fieldContractEntries
+  });
+  const legacyPatchSchemaPropertyLines = renderResourceSchemaPropertyLines(writableColumns, {
+    forOutput: false,
+    mode: "patch",
+    fieldContractEntries
+  });
+  const jsonRestSchemaPropertyLines = renderJsonRestSchemaPropertyLines(resourceSchemaColumns, {
+    fieldContractEntries
+  });
+  const jsonRestSearchSchemaLines = renderJsonRestSearchSchemaLines(resourceSchemaColumns);
+  const jsonRestDefaultSortLine = renderJsonRestDefaultSortLine(resourceSchemaColumns);
 
   const replacements = Object.freeze({
     __JSKIT_CRUD_TABLE_NAME__: JSON.stringify(snapshot.tableName),
@@ -1839,6 +2055,7 @@ function buildReplacementsFromSnapshot({
     __JSKIT_CRUD_ROUTE_WORKSPACE_SUPPORT_IMPORTS__: renderRouteWorkspaceSupportImports({
       surfaceRequiresWorkspace
     }),
+    __JSKIT_CRUD_ROUTE_CONTRACTS_RESOURCE_ARGS__: surfaceRequiresWorkspace ? ",\n  routeParamsValidator" : "",
     __JSKIT_CRUD_ROUTE_VALIDATOR_CONSTANTS__: renderRouteValidatorConstants({
       surfaceRequiresWorkspace
     }),
@@ -1872,21 +2089,13 @@ function buildReplacementsFromSnapshot({
     __JSKIT_CRUD_DELETE_ROUTE_INPUT_LINES__: renderRouteInputLines("delete", {
       surfaceRequiresWorkspace
     }),
-    __JSKIT_CRUD_RESOURCE_OUTPUT_SCHEMA_PROPERTIES__: renderResourceSchemaPropertyLines(outputColumns, {
-      forOutput: true,
-      mode: "replace",
-      fieldContractEntries
-    }),
-    __JSKIT_CRUD_RESOURCE_CREATE_SCHEMA_PROPERTIES__: renderResourceSchemaPropertyLines(writableColumns, {
-      forOutput: false,
-      mode: "create",
-      fieldContractEntries
-    }),
-    __JSKIT_CRUD_RESOURCE_PATCH_SCHEMA_PROPERTIES__: renderResourceSchemaPropertyLines(writableColumns, {
-      forOutput: false,
-      mode: "patch",
-      fieldContractEntries
-    }),
+    __JSKIT_CRUD_RESOURCE_OUTPUT_SCHEMA_PROPERTIES__: legacyOutputSchemaPropertyLines,
+    __JSKIT_CRUD_RESOURCE_CREATE_SCHEMA_PROPERTIES__: legacyCreateSchemaPropertyLines,
+    __JSKIT_CRUD_RESOURCE_PATCH_SCHEMA_PROPERTIES__: legacyPatchSchemaPropertyLines,
+    __JSKIT_CRUD_RESOURCE_SCHEMA_PROPERTIES__: resourceSchemaPropertyLines,
+    __JSKIT_CRUD_RESOURCE_SEARCH_SCHEMA_LINES__: resourceSearchSchemaLines,
+    __JSKIT_CRUD_RESOURCE_DEFAULT_SORT__: resourceDefaultSortLiteral,
+    __JSKIT_CRUD_RESOURCE_AUTOFILTER__: JSON.stringify(resolvedOwnershipFilter),
     __JSKIT_CRUD_JSONREST_SCOPE_NAME__: JSON.stringify(toCamelCase(namespace)),
     __JSKIT_CRUD_JSONREST_AUTOFILTER__: JSON.stringify(resolvedOwnershipFilter),
     __JSKIT_CRUD_JSONREST_SEARCH_SCHEMA_LINES__: jsonRestSearchSchemaLines,
@@ -2009,6 +2218,7 @@ const __testables = Object.freeze({
   resolveCrudGenerationTableName,
   resolveGenerationSnapshot,
   buildFieldContractEntries,
+  renderCanonicalResourceFieldSchema,
   resolveDefaultCrudSurfaceIdFromAppConfig,
   resolveCrudGenerationSurfaceId,
   resolveCrudSurfaceRequiresWorkspace,
@@ -2027,6 +2237,7 @@ export {
   resolveScaffoldColumns,
   resolveGenerationSnapshot,
   renderResourceFieldSchema,
+  renderCanonicalResourceFieldSchema,
   buildFieldContractEntries,
   resolveCrudGenerationSurfaceId,
   __testables

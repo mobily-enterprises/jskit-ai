@@ -1,9 +1,9 @@
 import { createWithTransaction } from "@jskit-ai/database-runtime/shared";
-import { normalizeRecordId, normalizeText } from "@jskit-ai/kernel/shared/support/normalize";
 import {
   buildJsonRestQueryParams,
   createJsonApiInputRecord,
-  createJsonRestContext
+  createJsonRestContext,
+  returnNullWhenJsonRestResourceMissing
 } from "@jskit-ai/json-rest-api-core/server/jsonRestApiHost";
 import { resource } from "../shared/${option:namespace|singular|camel}Resource.js";
 const RESOURCE_TYPE = resource.namespace;
@@ -23,15 +23,10 @@ function createRepository({ api, knex } = {}) {
   }
 
   async function getDocumentById(recordId, options = {}) {
-    const normalizedRecordId = normalizeRecordId(recordId, { fallback: null });
-    if (!normalizedRecordId) {
-      return null;
-    }
-
-    try {
-      return await api.resources.${option:namespace|camel}.get(
+    return returnNullWhenJsonRestResourceMissing(() =>
+      api.resources.${option:namespace|camel}.get(
         {
-          id: normalizedRecordId,
+          id: recordId,
           queryParams: buildJsonRestQueryParams(RESOURCE_TYPE, {}, {
             include: options?.include
           }),
@@ -39,13 +34,8 @@ function createRepository({ api, knex } = {}) {
           simplified: false
         },
         createJsonRestContext(options?.context || null)
-      );
-    } catch (error) {
-      if (normalizeText(error?.code) === "REST_API_RESOURCE") {
-        return null;
-      }
-      throw error;
-    }
+      )
+    );
   }
 
   async function createDocument(payload = {}, options = {}) {
@@ -60,49 +50,43 @@ function createRepository({ api, knex } = {}) {
   }
 
   async function patchDocumentById(recordId, patch = {}, options = {}) {
-    const normalizedRecordId = normalizeRecordId(recordId, { fallback: null });
-    if (!normalizedRecordId) {
-      return null;
-    }
-
     const sourcePatch = patch && typeof patch === "object" && !Array.isArray(patch) ? patch : {};
     if (Object.keys(sourcePatch).length < 1) {
-      return getDocumentById(normalizedRecordId, options);
+      return getDocumentById(recordId, options);
     }
 
-    return api.resources.${option:namespace|camel}.patch(
-      {
-        inputRecord: createJsonApiInputRecord(
-          RESOURCE_TYPE,
-          {
-            ...sourcePatch,
-            updatedAt: new Date()
-          },
-          { id: normalizedRecordId }
-        ),
-        transaction: options?.trx || null,
-        simplified: false
-      },
-      createJsonRestContext(options?.context || null)
+    return returnNullWhenJsonRestResourceMissing(() =>
+      api.resources.${option:namespace|camel}.patch(
+        {
+          id: recordId,
+          inputRecord: createJsonApiInputRecord(
+            RESOURCE_TYPE,
+            {
+              ...sourcePatch,
+              updatedAt: new Date()
+            }
+          ),
+          transaction: options?.trx || null,
+          simplified: false
+        },
+        createJsonRestContext(options?.context || null)
+      )
     );
   }
 
   async function deleteDocumentById(recordId, options = {}) {
-    const normalizedRecordId = normalizeRecordId(recordId, { fallback: null });
-    if (!normalizedRecordId) {
-      return null;
-    }
+    return returnNullWhenJsonRestResourceMissing(async () => {
+      await api.resources.${option:namespace|camel}.delete(
+        {
+          id: recordId,
+          transaction: options?.trx || null,
+          simplified: false
+        },
+        createJsonRestContext(options?.context || null)
+      );
 
-    await api.resources.${option:namespace|camel}.delete(
-      {
-        id: normalizedRecordId,
-        transaction: options?.trx || null,
-        simplified: false
-      },
-      createJsonRestContext(options?.context || null)
-    );
-
-    return null;
+      return true;
+    });
   }
 
   return Object.freeze({

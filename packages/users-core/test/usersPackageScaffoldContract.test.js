@@ -28,7 +28,6 @@ test("users-core installs the app-local users package scaffold", () => {
     "users-core-users-routes-base",
     "users-core-users-routes-workspace",
     "users-core-users-repository",
-    "users-core-users-json-rest-resource",
     "users-core-users-service",
     "users-core-users-shared-index",
     "users-core-users-resource"
@@ -62,10 +61,6 @@ test("users-core base users package templates stay aligned with non-workspace ap
     path.join(PACKAGE_ROOT, "templates/packages/users/src/server/repository.js"),
     "utf8"
   );
-  const jsonRestResourceSource = await readFile(
-    path.join(PACKAGE_ROOT, "templates/packages/users/src/server/jsonRestResource.js"),
-    "utf8"
-  );
   const serviceSource = await readFile(
     path.join(PACKAGE_ROOT, "templates/packages/users/src/server/service.js"),
     "utf8"
@@ -83,16 +78,18 @@ test("users-core base users package templates stay aligned with non-workspace ap
   assert.doesNotMatch(providerSource, /routeSurfaceRequiresWorkspace/);
   assert.doesNotMatch(providerSource, /createCrudLookup/);
   assert.doesNotMatch(providerSource, /lookup\.users/);
+  assert.doesNotMatch(providerSource, /normalizeRecordId/);
   assert.doesNotMatch(providerSource, /requires application singleton\(\)\/service\(\)\/actions\(\)\./);
-  assert.match(providerSource, /addResourceIfMissing\(api, "users", jsonRestResource\)/);
+  assert.match(providerSource, /createJsonRestResourceScopeOptions/);
+  assert.match(providerSource, /addResourceIfMissing\(\s*api,\s*"users",\s*createJsonRestResourceScopeOptions\(resource,/s);
   assert.match(repositorySource, /api\.resources\.users\.query\(/);
   assert.match(repositorySource, /api\.resources\.users\.get\(/);
   assert.match(repositorySource, /async function queryDocuments\(query = \{\}, options = \{\}\)/);
   assert.match(repositorySource, /async function getDocumentById\(recordId, options = \{\}\)/);
-  assert.match(jsonRestResourceSource, /defaultSort: \["name", "email"\]/);
+  assert.match(repositorySource, /returnNullWhenJsonRestResourceMissing/);
   assert.doesNotMatch(actionsSource, /workspaceSlugParamsValidator/);
   assert.doesNotMatch(actionsSource, /requireActionSurface/);
-  assert.match(actionsSource, /import \{ jsonRestResource \} from "\.\/jsonRestResource\.js";/);
+  assert.match(actionsSource, /orderBy: resource\.defaultSort/);
   assert.match(actionsSource, /output: null/);
   assert.match(actionsSource, /usersService\.queryDocuments/);
   assert.match(actionsSource, /usersService\.getDocumentById/);
@@ -108,6 +105,7 @@ test("users-core base users package templates stay aligned with non-workspace ap
   assert.match(routesSource, /createJsonApiResourceRouteContract/);
   assert.doesNotMatch(routesSource, /wrapResponse/);
   assert.match(routesSource, /routeBase: "\/"/);
+  assert.match(routesSource, /orderBy: resource\.defaultSort/);
 });
 
 test("users-core workspace users package templates stay aligned with workspace apps", async () => {
@@ -140,11 +138,13 @@ test("users-core workspace users package templates stay aligned with workspace a
   assert.match(providerSource, /routeSurfaceRequiresWorkspace/);
   assert.doesNotMatch(providerSource, /createCrudLookup/);
   assert.doesNotMatch(providerSource, /lookup\.users/);
+  assert.doesNotMatch(providerSource, /normalizeRecordId/);
   assert.doesNotMatch(providerSource, /requires application singleton\(\)\/service\(\)\/actions\(\)\./);
-  assert.match(providerSource, /addResourceIfMissing\(api, "users", jsonRestResource\)/);
+  assert.match(providerSource, /createJsonRestResourceScopeOptions/);
+  assert.match(providerSource, /addResourceIfMissing\(\s*api,\s*"users",\s*createJsonRestResourceScopeOptions\(resource,/s);
   assert.match(actionsSource, /workspaceSlugParamsValidator/);
   assert.doesNotMatch(actionsSource, /requireActionSurface/);
-  assert.match(actionsSource, /import \{ jsonRestResource \} from "\.\/jsonRestResource\.js";/);
+  assert.match(actionsSource, /orderBy: resource\.defaultSort/);
   assert.match(actionsSource, /usersService\.queryDocuments/);
   assert.match(actionsSource, /usersService\.getDocumentById/);
   assert.doesNotMatch(actionsSource, /from "\.\/actionIds\.js"/);
