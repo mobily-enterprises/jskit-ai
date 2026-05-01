@@ -4,6 +4,7 @@ import {
   RECORD_ID_PATTERN
 } from "@jskit-ai/kernel/shared/validators";
 import { buildCrudOperationSchemaFields } from "@jskit-ai/kernel/shared/support/crudFieldContract";
+import { deepFreeze } from "@jskit-ai/kernel/shared/support/deepFreeze";
 import { normalizeObject, normalizeText } from "@jskit-ai/kernel/shared/support/normalize";
 import {
   createSchemaDefinition,
@@ -29,6 +30,43 @@ const SUPPORTED_CRUD_OPERATION_NAMES = Object.freeze([
   "delete"
 ]);
 
+const CRUD_OPERATION_SPECS = deepFreeze({
+  list: {
+    method: "GET",
+    outputKind: "list",
+    includeRealtimeEvent: true
+  },
+  view: {
+    method: "GET",
+    outputKind: "record"
+  },
+  create: {
+    method: "POST",
+    outputKind: "record",
+    bodyOperation: "create",
+    bodyMode: "create",
+    explicitBodyKeys: ["createBody", "body"]
+  },
+  replace: {
+    method: "PUT",
+    outputKind: "record",
+    bodyOperation: "replace",
+    bodyMode: "replace",
+    explicitBodyKeys: ["replaceBody", "body", "createBody"]
+  },
+  patch: {
+    method: "PATCH",
+    outputKind: "record",
+    bodyOperation: "patch",
+    bodyMode: "patch",
+    explicitBodyKeys: ["patchBody", "body"]
+  },
+  delete: {
+    method: "DELETE",
+    outputKind: "delete"
+  }
+});
+
 function createCrudRecordIdFieldDefinition() {
   return {
     type: "string",
@@ -42,10 +80,21 @@ function resolveCrudLookupContainerKey(resource = {}) {
   return normalizeText(resource?.contract?.lookup?.containerKey);
 }
 
+function resolveFieldEntries(resource = {}, operationName = "output") {
+  return buildCrudOperationSchemaFields(resource?.schema, operationName);
+}
+
 function createDerivedCrudRecordOutputDefinition(resource = {}) {
+  const outputFields = resolveFieldEntries(resource, "output");
+  if (Object.keys(outputFields).length < 1) {
+    throw new Error(
+      "defineCrudResource derived output requires explicit crud.output or at least one schema field with operations.output."
+    );
+  }
+
   const fields = {
     id: createCrudRecordIdFieldDefinition(),
-    ...buildCrudOperationSchemaFields(resource?.schema, "output")
+    ...outputFields
   };
   const lookupContainerKey = resolveCrudLookupContainerKey(resource);
 
@@ -62,10 +111,19 @@ function createDerivedCrudRecordOutputDefinition(resource = {}) {
 }
 
 function createDerivedCrudBodyDefinition(resource = {}, operationName = "patch") {
-  let fields = buildCrudOperationSchemaFields(resource?.schema, operationName);
+  let fields = resolveFieldEntries(resource, operationName);
 
   if (operationName === "replace" && Object.keys(fields).length === 0) {
-    fields = buildCrudOperationSchemaFields(resource?.schema, "create");
+    fields = resolveFieldEntries(resource, "create");
+  }
+
+  if (Object.keys(fields).length < 1) {
+    const fieldHint = operationName === "replace"
+      ? "operations.replace or operations.create"
+      : `operations.${operationName}`;
+    throw new Error(
+      `defineCrudResource derived ${operationName} body requires explicit crud.${operationName}Body or at least one schema field with ${fieldHint}.`
+    );
   }
 
   const defaultMode = operationName === "create"
@@ -102,6 +160,14 @@ function requireCrudOperationName(value = "", { context = "crud operation name" 
   );
 }
 
+function requireCrudOperationSpec(operationName = "") {
+  const spec = CRUD_OPERATION_SPECS[operationName];
+  if (spec) {
+    return spec;
+  }
+  throw new Error(`createCrudOperationDefinition received unsupported operation "${operationName}".`);
+}
+
 function resolveCrudOperationNames(resource = {}) {
   const hasConfiguredOperations = Array.isArray(resource?.crudOperations);
   const configuredOperations = hasConfiguredOperations
@@ -128,169 +194,128 @@ function resolveCrudOperationNames(resource = {}) {
   return names.length > 0 ? names : [...DEFAULT_CRUD_OPERATION_NAMES];
 }
 
-function resolveCrudConfigValue(crudConfig = {}, operationName = "", key = "") {
-  if (operationName === "create" && key === "body") {
-    return crudConfig.createBody ?? crudConfig.body ?? null;
+function resolveFirstPresentValue(source = {}, keys = []) {
+  for (const key of Array.isArray(keys) ? keys : []) {
+    if (Object.hasOwn(source, key) && source[key] != null) {
+      return source[key];
+    }
   }
-  if (operationName === "replace" && key === "body") {
-    return crudConfig.replaceBody ?? crudConfig.body ?? crudConfig.createBody ?? null;
-  }
-  if (operationName === "patch" && key === "body") {
-    return crudConfig.patchBody ?? crudConfig.body ?? null;
-  }
-  if (operationName === "view" && key === "output") {
-    return crudConfig.output ?? null;
-  }
-  if (operationName === "create" && key === "output") {
-    return crudConfig.output ?? null;
-  }
-  if (operationName === "replace" && key === "output") {
-    return crudConfig.output ?? null;
-  }
-  if (operationName === "patch" && key === "output") {
-    return crudConfig.output ?? null;
-  }
-  if (operationName === "list" && key === "listOutput") {
-    return crudConfig.listOutput ?? null;
-  }
-  if (operationName === "list" && key === "listItemOutput") {
-    return crudConfig.listItemOutput ?? null;
-  }
-  if (operationName === "delete" && key === "output") {
-    return crudConfig.deleteOutput ?? null;
-  }
-
   return null;
 }
 
-function createCrudListOutputDefinition(recordOutputDefinition, crudConfig = {}) {
-  const explicitListOutput = resolveCrudConfigValue(crudConfig, "list", "listOutput");
-  if (explicitListOutput) {
-    return normalizeSchemaDefinitionLike(explicitListOutput, {
-      context: "defineCrudResource crud.listOutput",
-      defaultMode: "replace"
-    });
+function resolveExplicitCrudSchemaDefinition(crudConfig = {}, keys = [], {
+  context = "defineCrudResource schema definition",
+  defaultMode = "patch"
+} = {}) {
+  const explicitValue = resolveFirstPresentValue(crudConfig, keys);
+  if (explicitValue == null) {
+    return null;
   }
 
-  const explicitListItemOutput = resolveCrudConfigValue(crudConfig, "list", "listItemOutput");
+  return normalizeSchemaDefinitionLike(explicitValue, {
+    context,
+    defaultMode
+  });
+}
+
+function createCrudListOutputDefinition(resolveRecordOutputDefinition, crudConfig = {}) {
+  const explicitListOutput = resolveExplicitCrudSchemaDefinition(crudConfig, ["listOutput"], {
+    context: "defineCrudResource crud.listOutput",
+    defaultMode: "replace"
+  });
+  if (explicitListOutput) {
+    return explicitListOutput;
+  }
+
+  const explicitListItemOutput = resolveExplicitCrudSchemaDefinition(crudConfig, ["listItemOutput"], {
+    context: "defineCrudResource crud.listItemOutput",
+    defaultMode: "replace"
+  });
   if (explicitListItemOutput) {
     return createCursorListValidator(
-      normalizeSchemaDefinitionLike(explicitListItemOutput, {
-        context: "defineCrudResource crud.listItemOutput",
-        defaultMode: "replace"
-      })
+      explicitListItemOutput
     );
   }
 
-  return createCursorListValidator(recordOutputDefinition);
+  return createCursorListValidator(resolveRecordOutputDefinition());
+}
+
+function createCrudRecordOutputDefinitionResolver(resource = {}, crudConfig = {}) {
+  let cachedDefinition = null;
+  let hasResolved = false;
+
+  return function resolveRecordOutputDefinition() {
+    if (hasResolved) {
+      return cachedDefinition;
+    }
+
+    cachedDefinition = resolveExplicitCrudSchemaDefinition(crudConfig, ["output"], {
+      context: "defineCrudResource crud.output",
+      defaultMode: "replace"
+    }) || createDerivedCrudRecordOutputDefinition(resource);
+    hasResolved = true;
+    return cachedDefinition;
+  };
+}
+
+function resolveCrudBodyDefinition(spec, resource = {}, crudConfig = {}) {
+  const explicitBody = resolveExplicitCrudSchemaDefinition(
+    crudConfig,
+    spec.explicitBodyKeys,
+    {
+      context: `defineCrudResource operations.${spec.bodyOperation}.body`,
+      defaultMode: spec.bodyMode
+    }
+  );
+  if (explicitBody) {
+    return explicitBody;
+  }
+
+  return createDerivedCrudBodyDefinition(resource, spec.bodyOperation);
+}
+
+function resolveCrudOutputDefinition(spec, resolveRecordOutputDefinition, crudConfig = {}) {
+  if (spec.outputKind === "list") {
+    return createCrudListOutputDefinition(resolveRecordOutputDefinition, crudConfig);
+  }
+
+  if (spec.outputKind === "record") {
+    return resolveRecordOutputDefinition();
+  }
+
+  if (spec.outputKind === "delete") {
+    return resolveExplicitCrudSchemaDefinition(crudConfig, ["deleteOutput"], {
+      context: "defineCrudResource operations.delete.output",
+      defaultMode: "replace"
+    }) || createCrudDeleteOutputDefinition();
+  }
+
+  throw new Error(`resolveCrudOutputDefinition received unsupported output kind "${spec.outputKind}".`);
 }
 
 function createCrudOperationDefinition(operationName, {
   namespace = "",
-  recordOutputDefinition,
   resource = {},
-  crudConfig = {}
+  crudConfig = {},
+  resolveRecordOutputDefinition
 } = {}) {
-  if (operationName === "list") {
-    return {
-      realtime: {
-        events: [resolveCrudRecordChangedEvent(namespace)]
-      },
-      method: "GET",
-      output: createCrudListOutputDefinition(recordOutputDefinition, crudConfig)
+  const spec = requireCrudOperationSpec(operationName);
+  const nextOperation = {
+    method: spec.method
+  };
+
+  if (spec.includeRealtimeEvent) {
+    nextOperation.realtime = {
+      events: [resolveCrudRecordChangedEvent(namespace)]
     };
   }
 
-  if (operationName === "view") {
-    return {
-      method: "GET",
-      output: normalizeSchemaDefinitionLike(
-        resolveCrudConfigValue(crudConfig, "view", "output") || recordOutputDefinition,
-        {
-          context: "defineCrudResource operations.view.output",
-          defaultMode: "replace"
-        }
-      )
-    };
+  if (spec.bodyOperation) {
+    nextOperation.body = resolveCrudBodyDefinition(spec, resource, crudConfig);
   }
 
-  if (operationName === "create") {
-    return {
-      method: "POST",
-      body: normalizeSchemaDefinitionLike(
-        resolveCrudConfigValue(crudConfig, "create", "body") ||
-          createDerivedCrudBodyDefinition(resource, "create"),
-        {
-          context: "defineCrudResource operations.create.body",
-          defaultMode: "create"
-        }
-      ),
-      output: normalizeSchemaDefinitionLike(
-        resolveCrudConfigValue(crudConfig, "create", "output") || recordOutputDefinition,
-        {
-          context: "defineCrudResource operations.create.output",
-          defaultMode: "replace"
-        }
-      )
-    };
-  }
-
-  if (operationName === "replace") {
-    return {
-      method: "PUT",
-      body: normalizeSchemaDefinitionLike(
-        resolveCrudConfigValue(crudConfig, "replace", "body") ||
-          createDerivedCrudBodyDefinition(resource, "replace"),
-        {
-          context: "defineCrudResource operations.replace.body",
-          defaultMode: "replace"
-        }
-      ),
-      output: normalizeSchemaDefinitionLike(
-        resolveCrudConfigValue(crudConfig, "replace", "output") || recordOutputDefinition,
-        {
-          context: "defineCrudResource operations.replace.output",
-          defaultMode: "replace"
-        }
-      )
-    };
-  }
-
-  if (operationName === "patch") {
-    return {
-      method: "PATCH",
-      body: normalizeSchemaDefinitionLike(
-        resolveCrudConfigValue(crudConfig, "patch", "body") ||
-          createDerivedCrudBodyDefinition(resource, "patch"),
-        {
-          context: "defineCrudResource operations.patch.body",
-          defaultMode: "patch"
-        }
-      ),
-      output: normalizeSchemaDefinitionLike(
-        resolveCrudConfigValue(crudConfig, "patch", "output") || recordOutputDefinition,
-        {
-          context: "defineCrudResource operations.patch.output",
-          defaultMode: "replace"
-        }
-      )
-    };
-  }
-
-  if (operationName === "delete") {
-    return {
-      method: "DELETE",
-      output: normalizeSchemaDefinitionLike(
-        resolveCrudConfigValue(crudConfig, "delete", "output") || createCrudDeleteOutputDefinition(),
-        {
-          context: "defineCrudResource operations.delete.output",
-          defaultMode: "replace"
-        }
-      )
-    };
-  }
-
-  throw new Error(`createCrudOperationDefinition received unsupported operation "${operationName}".`);
+  nextOperation.output = resolveCrudOutputDefinition(spec, resolveRecordOutputDefinition, crudConfig);
+  return nextOperation;
 }
 
 function createDefaultCrudOperations(resource = {}) {
@@ -298,21 +323,15 @@ function createDefaultCrudOperations(resource = {}) {
     context: "createDefaultCrudOperations resource.namespace"
   });
   const crudConfig = normalizeObject(resource?.crud);
-  const recordOutputDefinition = normalizeSchemaDefinitionLike(
-    crudConfig.output || createDerivedCrudRecordOutputDefinition(resource),
-    {
-      context: "defineCrudResource crud.output",
-      defaultMode: "replace"
-    }
-  );
+  const resolveRecordOutputDefinition = createCrudRecordOutputDefinitionResolver(resource, crudConfig);
   const operations = {};
 
   for (const operationName of resolveCrudOperationNames(resource)) {
     operations[operationName] = createCrudOperationDefinition(operationName, {
       namespace,
-      recordOutputDefinition,
       resource,
-      crudConfig
+      crudConfig,
+      resolveRecordOutputDefinition
     });
   }
 

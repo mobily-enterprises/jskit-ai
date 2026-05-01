@@ -1,6 +1,6 @@
 import {
   requireCrudNamespace
-} from "@jskit-ai/crud-core/shared/crudNamespaceSupport";
+} from "@jskit-ai/resource-crud-core/shared/crudNamespaceSupport";
 import {
   normalizePagesRelativeTargetRoot,
   resolvePageLinkTargetDetails,

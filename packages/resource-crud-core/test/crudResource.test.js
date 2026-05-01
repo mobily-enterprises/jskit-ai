@@ -142,3 +142,53 @@ test("defineCrudResource supports explicit list item output and custom operation
   assert.equal(resource.operations.archive.method, "POST");
   assert.equal(resource.operations.list.output.schema.toJsonSchema({ mode: "replace" }).properties.items.type, "array");
 });
+
+test("defineCrudResource allows list-only resources with explicit list output and no canonical output schema", () => {
+  const resource = defineCrudResource({
+    namespace: "auditEntry",
+    crudOperations: ["list"],
+    crud: {
+      listItemOutput: createSchema({
+        id: {
+          type: "string",
+          required: true
+        },
+        label: {
+          type: "string",
+          required: true
+        }
+      })
+    }
+  });
+
+  assert.deepEqual(Object.keys(resource.operations), ["list"]);
+  assert.equal(resource.operations.list.output.schema.toJsonSchema({ mode: "replace" }).properties.items.type, "array");
+});
+
+test("defineCrudResource fails fast when enabled CRUD operations cannot be derived", () => {
+  assert.throws(() => defineCrudResource({
+    namespace: "assistantConfig",
+    crudOperations: ["view", "patch"],
+    crud: {
+      patchBody: createSchema({
+        systemPrompt: {
+          type: "string",
+          required: false
+        }
+      })
+    }
+  }), /derived output requires explicit crud\.output or at least one schema field with operations\.output/);
+
+  assert.throws(() => defineCrudResource({
+    namespace: "assistantConfig",
+    crudOperations: ["patch"],
+    crud: {
+      output: createSchema({
+        id: {
+          type: "string",
+          required: true
+        }
+      })
+    }
+  }), /derived patch body requires explicit crud\.patchBody or at least one schema field with operations\.patch/);
+});

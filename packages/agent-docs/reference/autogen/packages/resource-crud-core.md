@@ -26,14 +26,20 @@ Exports
 Local functions
 - `createCrudRecordIdFieldDefinition()`
 - `resolveCrudLookupContainerKey(resource = {})`
+- `resolveFieldEntries(resource = {}, operationName = "output")`
 - `createDerivedCrudRecordOutputDefinition(resource = {})`
 - `createDerivedCrudBodyDefinition(resource = {}, operationName = "patch")`
 - `createCrudDeleteOutputDefinition()`
 - `requireCrudOperationName(value = "", { context = "crud operation name" } = {})`
+- `requireCrudOperationSpec(operationName = "")`
 - `resolveCrudOperationNames(resource = {})`
-- `resolveCrudConfigValue(crudConfig = {}, operationName = "", key = "")`
-- `createCrudListOutputDefinition(recordOutputDefinition, crudConfig = {})`
-- `createCrudOperationDefinition(operationName, { namespace = "", recordOutputDefinition, resource = {}, crudConfig = {} } = {})`
+- `resolveFirstPresentValue(source = {}, keys = [])`
+- `resolveExplicitCrudSchemaDefinition(crudConfig = {}, keys = [], { context = "defineCrudResource schema definition", defaultMode = "patch" } = {})`
+- `createCrudListOutputDefinition(resolveRecordOutputDefinition, crudConfig = {})`
+- `createCrudRecordOutputDefinitionResolver(resource = {}, crudConfig = {})`
+- `resolveCrudBodyDefinition(spec, resource = {}, crudConfig = {})`
+- `resolveCrudOutputDefinition(spec, resolveRecordOutputDefinition, crudConfig = {})`
+- `createCrudOperationDefinition(operationName, { namespace = "", resource = {}, crudConfig = {}, resolveRecordOutputDefinition } = {})`
 - `createDefaultCrudOperations(resource = {})`
 - `mergeCrudOperationDefinition(baseDefinition, overrideDefinition)`
 - `mergeCrudOperations(defaultOperations = {}, overrides = {})`

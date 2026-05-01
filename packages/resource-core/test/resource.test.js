@@ -81,3 +81,25 @@ test("defineResource normalizes operation messages and schema sections", () => {
   assert.equal(resource.operations.patch.body.mode, "patch");
   assert.equal(resource.operations.patch.messages, resource.messages);
 });
+
+test("defineResource rejects invalid operation schema section values eagerly", () => {
+  assert.throws(() => defineResource({
+    namespace: "assistantConfig",
+    operations: {
+      view: {
+        method: "GET",
+        output: true
+      }
+    }
+  }), /operations\.view\.output must be a json-rest-schema schema instance or schema definition object/);
+
+  assert.throws(() => defineResource({
+    namespace: "assistantConfig",
+    operations: {
+      patch: {
+        method: "PATCH",
+        body: "invalid"
+      }
+    }
+  }), /operations\.patch\.body must be a json-rest-schema schema instance or schema definition object/);
+});

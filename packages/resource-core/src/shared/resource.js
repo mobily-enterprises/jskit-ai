@@ -72,7 +72,9 @@ function normalizeSchemaDefinitionLike(value, {
   }
 
   if (!isSchemaDefinitionLike(value)) {
-    return value;
+    throw new TypeError(
+      `${context} must be a json-rest-schema schema instance or schema definition object.`
+    );
   }
 
   const source = normalizeObject(value);
