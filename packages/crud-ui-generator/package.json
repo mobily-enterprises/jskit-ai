@@ -7,7 +7,8 @@
   },
   "dependencies": {
     "@jskit-ai/crud-core": "0.1.63",
-    "@jskit-ai/kernel": "0.1.55"
+    "@jskit-ai/kernel": "0.1.55",
+    "@jskit-ai/resource-crud-core": "0.1.0"
   },
   "exports": {
     "./server/buildTemplateContext": "./src/server/buildTemplateContext.js"

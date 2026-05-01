@@ -1,5 +1,5 @@
 import path from "node:path";
-import { resolveCrudRecordChangedEvent } from "@jskit-ai/crud-core/shared/crudNamespaceSupport";
+import { resolveCrudRecordChangedEvent } from "@jskit-ai/resource-crud-core/shared/crudNamespaceSupport";
 import {
   checkCrudLookupFormControl,
   isCrudRuntimeOutputOnlyFieldKey
