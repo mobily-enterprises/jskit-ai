@@ -32,7 +32,8 @@ For CRUD chunks:
 2. If `crud-server-generator` is going to own the CRUD schema, do not hand-write a separate migration for that CRUD table.
 3. Scaffold the server side first with `crud-server-generator`.
 4. Only after the shared resource file exists, scaffold the client side against that resource.
-5. Do not guess CRUD operations or screen shape. Ask the developer:
+5. Treat that shared resource file as the canonical CRUD definition. Put field and ownership changes there instead of hand-duplicating derived CRUD validators elsewhere.
+6. Do not guess CRUD operations or screen shape. Ask the developer:
    - which operations are allowed
    - which fields belong in the list view if one exists
    - what the view form should look like

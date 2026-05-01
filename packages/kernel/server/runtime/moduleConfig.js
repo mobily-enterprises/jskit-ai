@@ -17,46 +17,6 @@ function normalizeSchema(value) {
   return value;
 }
 
-function normalizeIssuePath(issue) {
-  const fromInstancePath = normalizeText(issue?.instancePath || issue?.path).replace(/^\//, "").replace(/\//g, ".");
-  if (fromInstancePath) {
-    return fromInstancePath;
-  }
-
-  const missingProperty = normalizeText(issue?.params?.missingProperty);
-  if (missingProperty) {
-    return missingProperty;
-  }
-
-  const additionalProperties = issue?.params?.additionalProperties;
-  if (Array.isArray(additionalProperties) && additionalProperties.length > 0) {
-    const firstAdditional = normalizeText(additionalProperties[0]);
-    if (firstAdditional) {
-      return firstAdditional;
-    }
-  }
-
-  const oneAdditional = normalizeText(additionalProperties);
-  if (oneAdditional) {
-    return oneAdditional;
-  }
-
-  return "(root)";
-}
-
-function normalizeIssueMessage(issue) {
-  const message = normalizeText(issue?.message || issue?.error || issue?.description);
-  return message || "Invalid value.";
-}
-
-function normalizeValidationIssues(rawIssues = []) {
-  return rawIssues.map((issue) => ({
-    path: normalizeIssuePath(issue),
-    message: normalizeIssueMessage(issue),
-    keyword: normalizeText(issue?.keyword)
-  }));
-}
-
 function formatIssues(issues = []) {
   return issues
     .slice(0, 8)

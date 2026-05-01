@@ -6,6 +6,8 @@ export default Object.freeze({
   description: "Reusable assistant client/server/shared primitives without surface-specific routes or settings ownership.",
   dependsOn: [
     "@jskit-ai/http-runtime",
+    "@jskit-ai/resource-core",
+    "@jskit-ai/resource-crud-core",
     "@jskit-ai/users-core"
   ],
   capabilities: {
@@ -47,6 +49,8 @@ export default Object.freeze({
       runtime: {
         "@jskit-ai/http-runtime": "0.1.54",
         "@jskit-ai/kernel": "0.1.55",
+        "@jskit-ai/resource-core": "0.1.0",
+        "@jskit-ai/resource-crud-core": "0.1.0",
         "@jskit-ai/users-core": "0.1.65",
         "@tanstack/vue-query": "^5.90.5",
         "dompurify": "^3.3.3",

@@ -20,6 +20,7 @@ Exports
 - `resolveScaffoldColumns(snapshot)`
 - `resolveGenerationSnapshot({ appRoot, tableName, idColumnOption } = {})`
 - `renderResourceFieldSchema(column, { forOutput = false, mode = "create", fieldContractEntry = null } = {})`
+- `renderCanonicalResourceFieldSchema(column, { fieldContractEntry = null } = {})`
 - `buildFieldContractEntries({ outputColumns = [], writableColumns = [], snapshot = {} } = {})`
 - `resolveCrudGenerationSurfaceId({ appRoot, options } = {})`
 - `__testables`
@@ -55,7 +56,6 @@ Local functions
 - `renderResourceSchemaPropertyLines(columns, { forOutput = false, mode = "create", fieldContractEntries = [] } = {})`
 - `resolveCanonicalResourceFieldRequired(column = {})`
 - `renderCanonicalResourceOperations(column = {})`
-- `renderCanonicalResourceFieldSchema(column, { fieldContractEntry = null } = {})`
 - `renderCanonicalResourceSchemaPropertyLines(columns = [], { fieldContractEntries = [] } = {})`
 - `resolveJsonRestRelationshipScopeName(fieldContractEntry = null)`
 - `resolveJsonRestRelationshipAlias(column = null)`
@@ -124,7 +124,7 @@ Local functions
 ### `src/server/subcommands/resourceAst.js`
 Exports
 - `resolveCrudResourceDefaults(source = "", context = "crud-server-generator scaffold-field")`
-- `applyCrudResourceFieldPatch(source = "", { fieldKey = "", outputSchemaExpression = "", createSchemaExpression = "", patchSchemaExpression = "", context = "crud-server-generator scaffold-field" } = {})`
+- `applyCrudResourceFieldPatch(source = "", { fieldKey = "", resourceSchemaExpression = "", outputSchemaExpression = "", createSchemaExpression = "", patchSchemaExpression = "", context = "crud-server-generator scaffold-field" } = {})`
 Local functions
 - `isIdentifierName(value = "")`
 - `parseModule(source = "", context = "crud-server-generator scaffold-field")`
@@ -136,6 +136,7 @@ Local functions
 - `requireCreateSchemaFieldsObject(programNode, variableName = "", context = "crud-server-generator scaffold-field")`
 - `unwrapObjectExpression(expressionNode, context = "crud-server-generator scaffold-field")`
 - `requireResourceObject(programNode, variableName = "resource", context = "crud-server-generator scaffold-field")`
+- `resolveResourceSchemaObject(programNode, context = "crud-server-generator scaffold-field")`
 - `findObjectPropertyByName(objectNode, propertyName = "")`
 - `hasObjectProperty(objectNode, propertyName = "")`
 - `insertObjectProperty(objectNode, propertyName = "", valueExpressionSource = "", { context = "crud-server-generator scaffold-field", insertBeforeComputed = false } = {})`

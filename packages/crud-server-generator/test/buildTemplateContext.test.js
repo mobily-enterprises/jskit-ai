@@ -460,12 +460,11 @@ test("buildReplacementsFromSnapshot omits default list ordering when created_at 
   const snapshot = createSnapshot({
     hasCreatedAtColumn: false
   });
-  const replacements = __testables.buildReplacementsFromSnapshot({
+  __testables.buildReplacementsFromSnapshot({
     namespace: "contacts",
     snapshot,
     resolvedOwnershipFilter: "workspace_user"
   });
-
 });
 
 test("buildReplacementsFromSnapshot renders inline field relation metadata from foreign keys", () => {

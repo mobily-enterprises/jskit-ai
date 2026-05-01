@@ -26,6 +26,8 @@ Startup navigation stays in `KERNEL_MAP.md`.
 - [json-rest-api-core](/packages/agent-docs/reference/autogen/packages/json-rest-api-core.md)
 - [kernel](/packages/agent-docs/reference/autogen/packages/kernel.md)
 - [realtime](/packages/agent-docs/reference/autogen/packages/realtime.md)
+- [resource-core](/packages/agent-docs/reference/autogen/packages/resource-core.md)
+- [resource-crud-core](/packages/agent-docs/reference/autogen/packages/resource-crud-core.md)
 - [shell-web](/packages/agent-docs/reference/autogen/packages/shell-web.md)
 - [storage-runtime](/packages/agent-docs/reference/autogen/packages/storage-runtime.md)
 - [ui-generator](/packages/agent-docs/reference/autogen/packages/ui-generator.md)

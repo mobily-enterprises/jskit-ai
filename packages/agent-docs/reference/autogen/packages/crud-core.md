@@ -329,9 +329,13 @@ Exports
 
 ### `src/shared/crudNamespaceSupport.js`
 Exports
-- `normalizeCrudNamespace(value = "")`
-- `requireCrudNamespace(namespace, { context = "requireCrudNamespace" } = {})`
-- `resolveCrudRecordChangedEvent(namespace = "")`
+- `normalizeCrudNamespace`
+- `requireCrudNamespace`
+- `resolveCrudRecordChangedEvent`
+
+### `src/shared/crudResource.js`
+Exports
+- `defineCrudResource`
 
 ### root
 

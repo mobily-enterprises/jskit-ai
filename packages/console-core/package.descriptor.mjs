@@ -8,6 +8,7 @@ export default Object.freeze({
     "@jskit-ai/auth-core",
     "@jskit-ai/database-runtime",
     "@jskit-ai/http-runtime",
+    "@jskit-ai/resource-crud-core",
     "@jskit-ai/users-core"
   ],
   capabilities: {
@@ -77,6 +78,7 @@ export default Object.freeze({
         "@jskit-ai/database-runtime": "0.1.55",
         "@jskit-ai/http-runtime": "0.1.54",
         "@jskit-ai/kernel": "0.1.55",
+        "@jskit-ai/resource-crud-core": "0.1.0",
         "@jskit-ai/users-core": "0.1.65"
       },
       dev: {}

@@ -1,9 +1,9 @@
 import { createSchema } from "json-rest-schema";
+import { createCursorListValidator, RECORD_ID_PATTERN } from "@jskit-ai/kernel/shared/validators";
 import {
-  createCursorListValidator,
-  RECORD_ID_PATTERN
-} from "@jskit-ai/kernel/shared/validators";
-import { deepFreeze } from "@jskit-ai/kernel/shared/support/deepFreeze";
+  createSchemaDefinition,
+  defineResource
+} from "@jskit-ai/resource-core/shared/resource";
 
 const MAX_INPUT_CHARS = 8000;
 const MAX_HISTORY_MESSAGES = 20;
@@ -162,11 +162,6 @@ const conversationRecordSchema = createSchema({
   }
 });
 
-const conversationRecordOutputValidator = deepFreeze({
-  schema: conversationRecordSchema,
-  mode: "replace"
-});
-
 const messageRecordSchema = createSchema({
   id: {
     type: "string",
@@ -218,15 +213,15 @@ const messageRecordSchema = createSchema({
     required: true,
     nullable: true
   },
-  metadata: {
-    type: "object",
-    required: true,
-    additionalProperties: true
-  },
   createdAt: {
     type: "string",
     required: true,
     minLength: 1
+  },
+  metadata: {
+    type: "object",
+    required: true,
+    additionalProperties: true
   }
 });
 
@@ -251,79 +246,56 @@ const conversationMessagesQuerySchema = createSchema({
   }
 });
 
-const assistantChatStreamBodyValidator = deepFreeze({
-  schema: chatStreamBodySchema,
-  mode: "create"
+const conversationMessagesListOutputSchema = createSchema({
+  page: {
+    type: "integer",
+    required: true,
+    min: 1
+  },
+  pageSize: {
+    type: "integer",
+    required: true,
+    min: 1
+  },
+  total: {
+    type: "integer",
+    required: true,
+    min: 0
+  },
+  totalPages: {
+    type: "integer",
+    required: true,
+    min: 1
+  },
+  conversation: {
+    type: "object",
+    required: true,
+    schema: conversationRecordSchema
+  },
+  entries: {
+    type: "array",
+    required: true,
+    items: messageRecordSchema
+  }
 });
 
-const assistantConversationsListQueryValidator = deepFreeze({
-  schema: conversationsListQuerySchema,
-  mode: "patch"
-});
-
-const assistantConversationMessagesParamsValidator = deepFreeze({
-  schema: conversationMessagesParamsSchema,
-  mode: "patch"
-});
-
-const assistantConversationMessagesQueryValidator = deepFreeze({
-  schema: conversationMessagesQuerySchema,
-  mode: "patch"
-});
-
-const conversationMessagesListOutputValidator = deepFreeze({
-  schema: createSchema({
-    page: {
-      type: "integer",
-      required: true,
-      min: 1
-    },
-    pageSize: {
-      type: "integer",
-      required: true,
-      min: 1
-    },
-    total: {
-      type: "integer",
-      required: true,
-      min: 0
-    },
-    totalPages: {
-      type: "integer",
-      required: true,
-      min: 1
-    },
-    conversation: {
-      type: "object",
-      required: true,
-      schema: conversationRecordSchema
-    },
-    entries: {
-      type: "array",
-      required: true,
-      items: messageRecordSchema
-    }
-  }),
-  mode: "replace"
-});
-
-const assistantResource = deepFreeze({
+const assistantResource = defineResource({
   namespace: "assistant",
   operations: {
     chatStream: {
       method: "POST",
-      body: assistantChatStreamBodyValidator
+      body: chatStreamBodySchema
     },
     conversationsList: {
       method: "GET",
-      query: assistantConversationsListQueryValidator,
-      output: createCursorListValidator(conversationRecordOutputValidator)
+      query: conversationsListQuerySchema,
+      output: createCursorListValidator(createSchemaDefinition(conversationRecordSchema, "replace"))
     },
     conversationMessagesList: {
       method: "GET",
-      params: assistantConversationMessagesParamsValidator,
-      query: assistantConversationMessagesQueryValidator,
-      output: conversationMessagesListOutputValidator
+      params: conversationMessagesParamsSchema,
+      query: conversationMessagesQuerySchema,
+      output: conversationMessagesListOutputSchema
     }
   }
 });

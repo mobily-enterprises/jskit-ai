@@ -284,6 +284,8 @@ That file is the shared CRUD contract. The UI generator reads it to decide:
 
 So even though the server scaffold writes many files, the resource file is the bridge between the server and UI halves.
 
+For standard CRUDs, that file is now intentionally compact. It uses `defineCrudResource(...)` from `@jskit-ai/resource-crud-core`, authors the canonical `schema` / `searchSchema` / `defaultSort` / `autofilter` shape once, and lets JSKIT derive the standard CRUD operation contracts from it.
+
 ### Step 3: scaffold the UI
 
 Once the resource file exists, generate the UI route tree:
@@ -565,6 +567,8 @@ Use this when:
 - you want to patch one writable field into the generated resource file
 
 It is a maintenance tool, not the first step in the workflow.
+
+It patches the canonical `schema` inside the shared resource file. That matters because the standard CRUD validators are derived from that canonical schema; you are no longer maintaining separate authored `create` / `patch` / `view` validator blocks by hand.
 
 ## Summary
 

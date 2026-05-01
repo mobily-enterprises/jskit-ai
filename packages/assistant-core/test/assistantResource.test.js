@@ -20,11 +20,6 @@ test("assistant output schemas accept normalized paginated payloads", () => {
     }
   );
 
-  const conversationsPayload = {
-    items: [],
-    nextCursor: null
-  };
-
   const messagesPayload = {
     conversation: {
       id: "1",

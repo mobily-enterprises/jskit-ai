@@ -9,6 +9,8 @@ export default Object.freeze({
     "@jskit-ai/database-runtime",
     "@jskit-ai/http-runtime",
     "@jskit-ai/json-rest-api-core",
+    "@jskit-ai/resource-core",
+    "@jskit-ai/resource-crud-core",
     "@jskit-ai/uploads-runtime",
     "@jskit-ai/storage-runtime"
   ],
@@ -136,6 +138,8 @@ export default Object.freeze({
         "@jskit-ai/http-runtime": "0.1.54",
         "@jskit-ai/json-rest-api-core": "0.1.0",
         "@jskit-ai/kernel": "0.1.55",
+        "@jskit-ai/resource-core": "0.1.0",
+        "@jskit-ai/resource-crud-core": "0.1.0",
         "@local/users": "file:packages/users",
         "@jskit-ai/uploads-runtime": "0.1.33"
       },

@@ -1,7 +1,10 @@
 import { createSchema } from "json-rest-schema";
-import { createCursorListValidator } from "@jskit-ai/kernel/shared/validators";
 import { deepFreeze } from "@jskit-ai/kernel/shared/support/deepFreeze";
 import { normalizeLowerText, normalizeText } from "@jskit-ai/kernel/shared/support/normalize";
+import {
+  createSchemaDefinition
+} from "@jskit-ai/resource-core/shared/resource";
+import { defineCrudResource } from "@jskit-ai/resource-crud-core/shared/crudResource";
 import { createOperationMessages } from "../operationMessages.js";
 import { DEFAULT_USER_SETTINGS } from "../settings.js";
 import {
@@ -144,149 +147,114 @@ const userSettingsOutputSchema = createSchema({
   }
 });
 
-const userSettingsOutputValidator = deepFreeze({
-  schema: userSettingsOutputSchema,
-  mode: "replace"
+const userSettingsOutputValidator = createSchemaDefinition(userSettingsOutputSchema, "replace");
+
+const passwordMethodToggleOutputSchema = createSchema({
+  securityStatus: {
+    type: "object",
+    required: true,
+    schema: accountSecurityStatusSchema
+  },
+  settings: {
+    type: "object",
+    required: true,
+    schema: userSettingsOutputSchema
+  }
 });
 
-const passwordMethodToggleOutputValidator = deepFreeze({
-  schema: createSchema({
-    securityStatus: {
-      type: "object",
-      required: true,
-      schema: accountSecurityStatusSchema
-    },
-    settings: {
-      type: "object",
-      required: true,
-      schema: userSettingsOutputSchema
+const oauthUnlinkOutputSchema = createSchema({
+  securityStatus: {
+    type: "object",
+    required: true,
+    schema: accountSecurityStatusSchema
+  }
+});
+
+const passwordChangeBodySchema = createSchema({
+  currentPassword: {
+    type: "string",
+    required: false,
+    minLength: 1,
+    messages: {
+      default: "Current password is invalid."
     }
-  }),
-  mode: "replace"
-});
-
-const oauthUnlinkOutputValidator = deepFreeze({
-  schema: createSchema({
-    securityStatus: {
-      type: "object",
-      required: true,
-      schema: accountSecurityStatusSchema
+  },
+  newPassword: {
+    type: "string",
+    required: true,
+    minLength: 8,
+    messages: {
+      required: "New password is required.",
+      minLength: "New password must be at least 8 characters.",
+      default: "New password must be at least 8 characters."
     }
-  }),
-  mode: "replace"
-});
-
-const passwordChangeBodyValidator = deepFreeze({
-  schema: createSchema({
-    currentPassword: {
-      type: "string",
-      required: false,
-      minLength: 1,
-      messages: {
-        default: "Current password is invalid."
-      }
-    },
-    newPassword: {
-      type: "string",
-      required: true,
-      minLength: 8,
-      messages: {
-        required: "New password is required.",
-        minLength: "New password must be at least 8 characters.",
-        default: "New password must be at least 8 characters."
-      }
-    },
-    confirmPassword: {
-      type: "string",
-      required: true,
-      minLength: 1,
-      messages: {
-        required: "Confirm password is required.",
-        minLength: "Confirm password is required.",
-        default: "Confirm password is required."
-      }
+  },
+  confirmPassword: {
+    type: "string",
+    required: true,
+    minLength: 1,
+    messages: {
+      required: "Confirm password is required.",
+      minLength: "Confirm password is required.",
+      default: "Confirm password is required."
     }
-  }),
-  mode: "create"
+  }
 });
 
-const passwordChangeOutputValidator = deepFreeze({
-  schema: createSchema({
-    ok: { type: "boolean", required: true },
-    message: { type: "string", required: true, minLength: 1 }
-  }),
-  mode: "replace"
+const passwordChangeOutputSchema = createSchema({
+  ok: { type: "boolean", required: true },
+  message: { type: "string", required: true, minLength: 1 }
 });
 
-const passwordMethodToggleBodyValidator = deepFreeze({
-  schema: createSchema({
-    enabled: {
-      type: "boolean",
-      required: true,
-      strictBoolean: true,
-      messages: {
-        required: "enabled is required.",
-        default: "enabled must be a boolean."
-      }
+const passwordMethodToggleBodySchema = createSchema({
+  enabled: {
+    type: "boolean",
+    required: true,
+    strictBoolean: true,
+    messages: {
+      required: "enabled is required.",
+      default: "enabled must be a boolean."
     }
-  }),
-  mode: "patch"
+  }
 });
 
-const oauthProviderParamsValidator = deepFreeze({
-  schema: createSchema({
-    provider: {
-      type: "string",
-      required: true,
-      minLength: 2,
-      maxLength: 64,
-      messages: {
-        required: "OAuth provider is required.",
-        default: "OAuth provider is invalid."
-      }
+const oauthProviderParamsSchema = createSchema({
+  provider: {
+    type: "string",
+    required: true,
+    minLength: 2,
+    maxLength: 64,
+    messages: {
+      required: "OAuth provider is required.",
+      default: "OAuth provider is invalid."
     }
-  }),
-  mode: "patch"
+  }
 });
 
-const oauthProviderQueryValidator = deepFreeze({
-  schema: createSchema({
-    returnTo: {
-      type: "string",
-      required: false,
-      minLength: 1,
-      messages: {
-        default: "Return path is invalid."
-      }
+const oauthProviderQuerySchema = createSchema({
+  returnTo: {
+    type: "string",
+    required: false,
+    minLength: 1,
+    messages: {
+      default: "Return path is invalid."
     }
-  }),
-  mode: "patch"
+  }
 });
 
-const oauthLinkStartOutputValidator = deepFreeze({
-  schema: createSchema({
-    provider: { type: "string", required: true, minLength: 2, maxLength: 64 },
-    returnTo: { type: "string", required: true, minLength: 1 },
-    url: { type: "string", required: true, minLength: 1 }
-  }),
-  mode: "replace"
+const oauthLinkStartOutputSchema = createSchema({
+  provider: { type: "string", required: true, minLength: 2, maxLength: 64 },
+  returnTo: { type: "string", required: true, minLength: 1 },
+  url: { type: "string", required: true, minLength: 1 }
 });
 
-const logoutOtherSessionsOutputValidator = deepFreeze({
-  schema: createSchema({
-    ok: { type: "boolean", required: true }
-  }),
-  mode: "replace"
-});
-
-const emptyBodyValidator = deepFreeze({
-  schema: createSchema({}),
-  mode: "patch"
+const logoutOtherSessionsOutputSchema = createSchema({
+  ok: { type: "boolean", required: true }
 });
 
 const USER_SETTINGS_OPERATION_MESSAGES = createOperationMessages();
 
-const userSettingsResource = deepFreeze({
+const userSettingsResource = defineCrudResource({
   namespace: "userSettings",
   tableName: "user_settings",
   idProperty: "user_id",
@@ -403,92 +371,48 @@ const userSettingsResource = deepFreeze({
       }
     }
   },
+  messages: USER_SETTINGS_OPERATION_MESSAGES,
+  crudOperations: ["view", "list", "create", "replace", "patch"],
+  crud: {
+    output: userSettingsOutputValidator,
+    body: userSettingsBodySchema
+  },
   operations: {
-    view: {
-      method: "GET",
-      messages: USER_SETTINGS_OPERATION_MESSAGES,
-      output: userSettingsOutputValidator
-    },
-    list: {
-      method: "GET",
-      messages: USER_SETTINGS_OPERATION_MESSAGES,
-      output: createCursorListValidator(userSettingsOutputValidator)
-    },
-    create: {
-      method: "POST",
-      messages: USER_SETTINGS_OPERATION_MESSAGES,
-      body: {
-        schema: userSettingsBodySchema,
-        mode: "create"
-      },
-      output: userSettingsOutputValidator
-    },
-    replace: {
-      method: "PUT",
-      messages: USER_SETTINGS_OPERATION_MESSAGES,
-      body: {
-        schema: userSettingsBodySchema,
-        mode: "replace"
-      },
-      output: userSettingsOutputValidator
-    },
-    patch: {
-      method: "PATCH",
-      messages: USER_SETTINGS_OPERATION_MESSAGES,
-      body: {
-        schema: userSettingsBodySchema,
-        mode: "patch"
-      },
-      output: userSettingsOutputValidator
-    },
     preferencesUpdate: {
       method: "PATCH",
-      messages: USER_SETTINGS_OPERATION_MESSAGES,
-      body: {
-        schema: userSettingsPreferencesSchema,
-        mode: "patch"
-      },
+      body: userSettingsPreferencesSchema,
       output: userSettingsOutputValidator
     },
     notificationsUpdate: {
       method: "PATCH",
-      messages: USER_SETTINGS_OPERATION_MESSAGES,
-      body: {
-        schema: userSettingsNotificationsSchema,
-        mode: "patch"
-      },
+      body: userSettingsNotificationsSchema,
       output: userSettingsOutputValidator
     },
     passwordChange: {
       method: "POST",
-      messages: USER_SETTINGS_OPERATION_MESSAGES,
-      body: passwordChangeBodyValidator,
-      output: passwordChangeOutputValidator
+      body: passwordChangeBodySchema,
+      output: passwordChangeOutputSchema
     },
     passwordMethodToggle: {
       method: "PATCH",
-      messages: USER_SETTINGS_OPERATION_MESSAGES,
-      body: passwordMethodToggleBodyValidator,
-      output: passwordMethodToggleOutputValidator
+      body: passwordMethodToggleBodySchema,
+      output: passwordMethodToggleOutputSchema
     },
     oauthLinkStart: {
       method: "GET",
-      messages: USER_SETTINGS_OPERATION_MESSAGES,
-      params: oauthProviderParamsValidator,
-      query: oauthProviderQueryValidator,
-      output: oauthLinkStartOutputValidator
+      params: oauthProviderParamsSchema,
+      query: oauthProviderQuerySchema,
+      output: oauthLinkStartOutputSchema
     },
     oauthUnlink: {
       method: "DELETE",
-      messages: USER_SETTINGS_OPERATION_MESSAGES,
-      params: oauthProviderParamsValidator,
-      output: oauthUnlinkOutputValidator
+      params: oauthProviderParamsSchema,
+      output: oauthUnlinkOutputSchema
     },
     logoutOtherSessions: {
       method: "POST",
-      messages: USER_SETTINGS_OPERATION_MESSAGES,
-      body: emptyBodyValidator,
-      output: logoutOtherSessionsOutputValidator
+      body: createSchema({}),
+      output: logoutOtherSessionsOutputSchema
     }
   }
 });

@@ -12,6 +12,8 @@ const REPO_ROOT = fileURLToPath(new URL("../../../", import.meta.url));
 const CRUD_UI_GENERATOR_SOURCE_ROOT = path.join(REPO_ROOT, "packages", "crud-ui-generator");
 const CRUD_CORE_SOURCE_ROOT = path.join(REPO_ROOT, "packages", "crud-core");
 const KERNEL_SOURCE_ROOT = path.join(REPO_ROOT, "packages", "kernel");
+const RESOURCE_CORE_SOURCE_ROOT = path.join(REPO_ROOT, "packages", "resource-core");
+const RESOURCE_CRUD_CORE_SOURCE_ROOT = path.join(REPO_ROOT, "packages", "resource-crud-core");
 const JSON_REST_SCHEMA_PACKAGE_DIR = path.dirname(
   fileURLToPath(new URL("../../../node_modules/json-rest-schema/package.json", import.meta.url))
 );
@@ -135,10 +137,14 @@ async function installCrudUiGeneratorPackage(appRoot) {
   const packageRoot = path.join(scopedRoot, "crud-ui-generator");
   const crudCoreRoot = path.join(scopedRoot, "crud-core");
   const kernelRoot = path.join(scopedRoot, "kernel");
+  const resourceCoreRoot = path.join(scopedRoot, "resource-core");
+  const resourceCrudCoreRoot = path.join(scopedRoot, "resource-crud-core");
   await mkdir(path.dirname(packageRoot), { recursive: true });
   await cp(CRUD_UI_GENERATOR_SOURCE_ROOT, packageRoot, { recursive: true });
   await cp(CRUD_CORE_SOURCE_ROOT, crudCoreRoot, { recursive: true });
   await cp(KERNEL_SOURCE_ROOT, kernelRoot, { recursive: true });
+  await cp(RESOURCE_CORE_SOURCE_ROOT, resourceCoreRoot, { recursive: true });
+  await cp(RESOURCE_CRUD_CORE_SOURCE_ROOT, resourceCrudCoreRoot, { recursive: true });
   await symlink(
     JSON_REST_SCHEMA_PACKAGE_DIR,
     path.join(nodeModulesRoot, "json-rest-schema"),
