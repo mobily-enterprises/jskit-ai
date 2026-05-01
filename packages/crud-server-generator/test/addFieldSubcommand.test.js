@@ -5,7 +5,7 @@ import { mkdtemp, mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { runGeneratorSubcommand } from "../src/server/subcommands/addField.js";
 
-const RESOURCE_SOURCE = `import { defineCrudResource } from "@jskit-ai/crud-core/shared/crudResource";
+const RESOURCE_SOURCE = `import { defineCrudResource } from "@jskit-ai/resource-crud-core/shared/crudResource";
 
 const resource = defineCrudResource({
   namespace: "contacts",

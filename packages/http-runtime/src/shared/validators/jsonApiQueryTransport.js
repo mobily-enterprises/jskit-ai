@@ -1,4 +1,4 @@
-import { normalizeArray, normalizeObject, normalizeText } from "@jskit-ai/kernel/shared/support/normalize";
+import { normalizeObject, normalizeText } from "@jskit-ai/kernel/shared/support/normalize";
 import { resolveSchemaTransportSchemaDefinition } from "@jskit-ai/kernel/shared/validators";
 
 const JSON_API_QUERY_PAGE_CURSOR_KEY = "page[cursor]";

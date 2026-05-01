@@ -263,14 +263,60 @@ If you come from an ORM stack, this is the key adjustment:
 The resource file owns:
 
 - the resource name and table name
-- the id column
-- input and output validators
-- operation metadata for `list`, `view`, `create`, `patch`, and `delete`
+- the canonical `schema`
+- `searchSchema`
+- `defaultSort`
+- `autofilter`
 - lookup contract configuration
-- messages and realtime event declarations
-- field metadata when column overrides or richer metadata are needed
+- messages
+- field metadata, including which fields participate in `output`, `create`, `replace`, and `patch`
 
 This file is the bridge between the server and the client. The UI generator reads it, and the server runtime also depends on it.
+
+For a standard CRUD resource like `contacts`, the authored file is intentionally compact. It uses `defineCrudResource(...)` from `@jskit-ai/resource-crud-core`:
+
+```js
+import { defineCrudResource } from "@jskit-ai/resource-crud-core/shared/crudResource";
+
+const resource = defineCrudResource({
+  namespace: "contacts",
+  tableName: "contacts",
+  schema: {
+    name: {
+      type: "string",
+      maxLength: 190,
+      required: true,
+      search: true,
+      operations: {
+        output: { required: true },
+        create: { required: true },
+        patch: { required: false }
+      }
+    }
+  },
+  searchSchema: {
+    id: { type: "id", actualField: "id" }
+  },
+  defaultSort: ["-createdAt"],
+  autofilter: "workspace",
+  messages: {
+    saveSuccess: "Record saved."
+  },
+  contract: {
+    lookup: {
+      containerKey: "lookups"
+    }
+  }
+});
+```
+
+`defineCrudResource(...)` derives the standard CRUD operation contracts once at module load time and exposes them on `resource.operations`. That means:
+
+- you author the canonical resource shape once
+- JSKIT derives the standard `list` / `view` / `create` / `replace` / `patch` / `delete` contracts
+- routes, actions, client code, and generators can keep reading `resource.operations.*` without each resource file repeating that boilerplate
+
+For non-CRUD or heavily custom resources, use `defineResource(...)` from `@jskit-ai/resource-core` instead. That keeps standard CRUD derivation and custom operation bundles clearly separated.
 
 ### `src/shared/index.js`
 
@@ -325,48 +371,6 @@ In other words:
 - `actions.js` is about action contracts and permissions
 
 Those are related, but not the same concern.
-
-### `src/shared/contactResource.js`
-
-This is the canonical CRUD resource. It is both:
-
-- the shared CRUD contract used by routes, actions, and client code
-- the internal JSON:API host resource configuration used by the server
-
-That means this one file owns things like:
-
-- `schema`
-- `searchSchema`
-- `defaultSort`
-- `autofilter`
-- operation validators and messages
-
-Example:
-
-```js
-const resource = Object.freeze({
-  namespace: "contacts",
-  tableName: "contacts",
-  schema: resourceSchema,
-  searchSchema: {
-    id: { type: "id", actualField: "id" },
-    q: {
-      type: "string",
-      oneOf: ["fullName", "email", "phone"],
-      filterOperator: "like",
-      splitBy: " ",
-      matchAll: true
-    }
-  },
-  defaultSort: ["-createdAt"],
-  autofilter: "workspace",
-  operations: {
-    // CRUD validators...
-  }
-});
-```
-
-The server provider registers that shared resource almost as-is. The only server-only adaptation should be tiny things like resolving symbolic write serializers into actual functions.
 
 ### `src/server/repository.js`
 
@@ -739,7 +743,7 @@ A generated CRUD works because several layers cooperate:
 4. the route executes an action from `actions.js`
 5. the action delegates to the service in `service.js`
 6. the service calls the repository in `repository.js`
-7. the repository uses `crud-core` helpers and the resource contract to talk to the database
+7. the repository uses the shared resource contract, `crud-core` helpers, and the internal JSON:API host to talk to the database
 8. the response comes back through validators and is rendered by the page
 
 That is why the generated route files are mostly containers: they are the outermost layer of a larger pipeline.
@@ -750,7 +754,7 @@ Use this rule of thumb when deciding where to edit:
 
 | Need | Primary owner | Why |
 | --- | --- | --- |
-| Change API/input/output contract | `contactResource.js` and `actions.js` | This is where operation shape and validators live |
+| Change API/input/output contract | `contactResource.js` first, then `actions.js` only if the action boundary must diverge | Standard CRUD validators are derived from the resource; `actions.js` owns channels, permissions, and any transport-specific input composition |
 | Change route path or HTTP transport | `registerRoutes.js` | This is the HTTP layer |
 | Change permissions or channels | `actions.js` | This is the action contract boundary |
 | Change default ordering, searchable fields, or ownership autofilter | `contactResource.js` | The shared resource is the single source of truth for both CRUD contract and internal JSON:API resource config |
@@ -1488,7 +1492,7 @@ Touch:
 - `CrudAddEditFormFields.js`
 - the relevant page/table display
 
-Use `scaffold-field` when it fits, then review the generated result.
+Use `scaffold-field` when it fits, then review the generated result. It patches the canonical `schema` in the shared resource file; the standard CRUD validators are derived from that schema automatically.
 
 ### "I want a new boolean or enum list filter."
 

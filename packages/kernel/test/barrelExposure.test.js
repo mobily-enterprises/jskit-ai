@@ -56,6 +56,7 @@ const BARREL_EXPECTATIONS = Object.freeze([
       "buildSchemaValidationError",
       "composeSchemaDefinitions",
       "createCursorListValidator",
+      "createSchema",
       "cursorPaginationQueryValidator",
       "deriveRequiredFieldsFromSchema",
       "deriveResourceRequiredMetadata",

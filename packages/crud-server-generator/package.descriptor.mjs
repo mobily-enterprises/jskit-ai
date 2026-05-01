@@ -70,6 +70,7 @@ export default Object.freeze({
     "@jskit-ai/http-runtime",
     "@jskit-ai/json-rest-api-core",
     "@jskit-ai/realtime",
+    "@jskit-ai/resource-crud-core",
   ],
   capabilities: {
     provides: ["crud"],
@@ -158,6 +159,7 @@ export default Object.freeze({
         "@jskit-ai/json-rest-api-core": "0.1.0",
         "@jskit-ai/kernel": "0.1.55",
         "@jskit-ai/realtime": "0.1.54",
+        "@jskit-ai/resource-crud-core": "0.1.0",
         "@local/${option:namespace|kebab}": "file:packages/${option:namespace|kebab}"
       },
       dev: {}

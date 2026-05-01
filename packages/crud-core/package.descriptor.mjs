@@ -8,6 +8,7 @@ export default Object.freeze({
     "@jskit-ai/http-runtime",
     "@jskit-ai/kernel",
     "@jskit-ai/realtime",
+    "@jskit-ai/resource-crud-core",
     "@jskit-ai/shell-web",
     "@jskit-ai/users-core",
     "@jskit-ai/users-web"

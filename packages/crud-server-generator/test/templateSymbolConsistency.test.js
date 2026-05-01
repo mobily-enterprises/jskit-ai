@@ -47,7 +47,7 @@ test("shared resource template uses defineCrudResource export", async () => {
 
   assert.match(
     sharedResourceTemplate,
-    /import\s*\{\s*defineCrudResource\s*\}\s*from\s*"@jskit-ai\/crud-core\/shared\/crudResource";/s
+    /import\s*\{\s*defineCrudResource\s*\}\s*from\s*"@jskit-ai\/resource-crud-core\/shared\/crudResource";/s
   );
   assert.doesNotMatch(
     sharedResourceTemplate,

@@ -1,16 +1,8 @@
 import { createSchema } from "json-rest-schema";
-import { deepFreeze } from "@jskit-ai/kernel/shared/support/deepFreeze";
 import { RECORD_ID_PATTERN } from "@jskit-ai/kernel/shared/validators";
+import { defineCrudResource } from "@jskit-ai/resource-crud-core/shared/crudResource";
 
 const MAX_SYSTEM_PROMPT_CHARS = 12_000;
-
-const assistantConfigSettingsSchema = createSchema({
-  systemPrompt: {
-    type: "string",
-    required: true,
-    maxLength: MAX_SYSTEM_PROMPT_CHARS
-  }
-});
 
 const assistantConfigRecordSchema = createSchema({
   targetSurfaceId: {
@@ -35,7 +27,13 @@ const assistantConfigRecordSchema = createSchema({
   settings: {
     type: "object",
     required: true,
-    schema: assistantConfigSettingsSchema
+    schema: createSchema({
+      systemPrompt: {
+        type: "string",
+        required: true,
+        maxLength: MAX_SYSTEM_PROMPT_CHARS
+      }
+    })
   }
 });
 
@@ -51,33 +49,12 @@ const assistantConfigPatchSchema = createSchema({
   }
 });
 
-const assistantConfigViewOutputValidator = deepFreeze({
-  schema: assistantConfigRecordSchema,
-  mode: "replace"
-});
-
-const assistantConfigPatchBodyValidator = deepFreeze({
-  schema: assistantConfigPatchSchema,
-  mode: "patch"
-});
-
-const assistantConfigPatchOutputValidator = deepFreeze({
-  schema: assistantConfigRecordSchema,
-  mode: "replace"
-});
-
-const assistantConfigResource = deepFreeze({
+const assistantConfigResource = defineCrudResource({
   namespace: "assistantConfig",
-  operations: {
-    view: {
-      method: "GET",
-      output: assistantConfigViewOutputValidator
-    },
-    patch: {
-      method: "PATCH",
-      body: assistantConfigPatchBodyValidator,
-      output: assistantConfigPatchOutputValidator
-    }
+  crudOperations: ["view", "patch"],
+  crud: {
+    output: assistantConfigRecordSchema,
+    patchBody: assistantConfigPatchSchema
   }
 });
 

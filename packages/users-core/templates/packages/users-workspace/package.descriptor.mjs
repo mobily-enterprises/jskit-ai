@@ -10,6 +10,7 @@ export default Object.freeze({
     "@jskit-ai/database-runtime",
     "@jskit-ai/http-runtime",
     "@jskit-ai/json-rest-api-core",
+    "@jskit-ai/resource-crud-core",
     "@jskit-ai/users-core",
     "@jskit-ai/workspaces-core"
   ],

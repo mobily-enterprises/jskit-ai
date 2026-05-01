@@ -11,6 +11,7 @@ export default Object.freeze({
     "@jskit-ai/http-runtime",
     "@jskit-ai/json-rest-api-core",
     "@jskit-ai/realtime",
+    "@jskit-ai/resource-crud-core",
   ],
   capabilities: {
     provides: [

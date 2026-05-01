@@ -1,4 +1,4 @@
-import { defineCrudResource } from "@jskit-ai/crud-core/shared/crudResource";
+import { defineCrudResource } from "@jskit-ai/resource-crud-core/shared/crudResource";
 
 const crudResource = defineCrudResource({
   namespace: "crud",

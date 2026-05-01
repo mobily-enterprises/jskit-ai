@@ -1191,9 +1191,6 @@ Exports
 Local functions
 - `normalizeModuleId(value)`
 - `normalizeSchema(value)`
-- `normalizeIssuePath(issue)`
-- `normalizeIssueMessage(issue)`
-- `normalizeValidationIssues(rawIssues = [])`
 - `formatIssues(issues = [])`
 - `buildInvalidConfigMessage(moduleId, issues = [])`
 - `normalizeCustomValidationIssues(result)`

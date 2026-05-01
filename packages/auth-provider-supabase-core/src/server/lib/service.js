@@ -6,7 +6,6 @@ import {
   buildOAuthMethodId
 } from "@jskit-ai/auth-core/shared/authMethods";
 import { normalizeEmail } from "@jskit-ai/auth-core/server/utils";
-import { normalizeRecordId } from "@jskit-ai/kernel/shared/support/normalize";
 import {
   isTransientAuthMessage,
   isTransientSupabaseError,

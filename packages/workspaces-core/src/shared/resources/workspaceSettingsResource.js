@@ -1,9 +1,7 @@
 import { createSchema } from "json-rest-schema";
-import {
-  createCursorListValidator,
-  RECORD_ID_PATTERN
-} from "@jskit-ai/kernel/shared/validators";
 import { deepFreeze } from "@jskit-ai/kernel/shared/support/deepFreeze";
+import { RECORD_ID_PATTERN } from "@jskit-ai/kernel/shared/validators";
+import { defineCrudResource } from "@jskit-ai/resource-crud-core/shared/crudResource";
 import { workspaceRoleCatalogSchema } from "./workspaceRoleCatalogSchema.js";
 import { normalizeWorkspaceHexColor, DEFAULT_WORKSPACE_DARK_PALETTE, DEFAULT_WORKSPACE_LIGHT_PALETTE } from "../settings.js";
 
@@ -165,31 +163,11 @@ const workspaceSettingsOutputSchema = createSchema({
   }
 });
 
-const workspaceSettingsOutputValidator = deepFreeze({
-  schema: workspaceSettingsOutputSchema,
-  mode: "replace"
-});
-
-const workspaceSettingsCreateBodyValidator = deepFreeze({
-  schema: workspaceSettingsBodySchema,
-  mode: "create"
-});
-
-const workspaceSettingsReplaceBodyValidator = deepFreeze({
-  schema: workspaceSettingsBodySchema,
-  mode: "replace"
-});
-
-const workspaceSettingsPatchBodyValidator = deepFreeze({
-  schema: workspaceSettingsBodySchema,
-  mode: "patch"
-});
-
 function normalizeWorkspaceColorInput(value) {
   return normalizeWorkspaceHexColor(value);
 }
 
-const workspaceSettingsResource = deepFreeze({
+const workspaceSettingsResource = defineCrudResource({
   namespace: "workspaceSettings",
   tableName: "workspace_settings",
   idProperty: "workspace_id",
@@ -305,30 +283,10 @@ const workspaceSettingsResource = deepFreeze({
     saveError: "Unable to update workspace settings.",
     apiValidation: "Validation failed."
   },
-  operations: {
-    view: {
-      method: "GET",
-      output: workspaceSettingsOutputValidator
-    },
-    list: {
-      method: "GET",
-      output: createCursorListValidator(workspaceSettingsOutputValidator)
-    },
-    create: {
-      method: "POST",
-      body: workspaceSettingsCreateBodyValidator,
-      output: workspaceSettingsOutputValidator
-    },
-    replace: {
-      method: "PUT",
-      body: workspaceSettingsReplaceBodyValidator,
-      output: workspaceSettingsOutputValidator
-    },
-    patch: {
-      method: "PATCH",
-      body: workspaceSettingsPatchBodyValidator,
-      output: workspaceSettingsOutputValidator
-    }
+  crudOperations: ["view", "list", "create", "replace", "patch"],
+  crud: {
+    output: workspaceSettingsOutputSchema,
+    body: workspaceSettingsBodySchema
   }
 });
 

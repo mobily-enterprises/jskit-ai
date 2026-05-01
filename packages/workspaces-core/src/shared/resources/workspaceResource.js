@@ -1,10 +1,8 @@
 import { createSchema } from "json-rest-schema";
-import {
-  createCursorListValidator,
-  RECORD_ID_PATTERN
-} from "@jskit-ai/kernel/shared/validators";
-import { deepFreeze } from "@jskit-ai/kernel/shared/support/deepFreeze";
 import { normalizeLowerText, normalizeText } from "@jskit-ai/kernel/shared/support/normalize";
+import { RECORD_ID_PATTERN } from "@jskit-ai/kernel/shared/validators";
+import { defineCrudResource } from "@jskit-ai/resource-crud-core/shared/crudResource";
+import { createSchemaDefinition } from "@jskit-ai/resource-core/shared/resource";
 
 function normalizeWorkspaceAvatarUrl(value) {
   const avatarUrl = normalizeText(value);
@@ -57,17 +55,9 @@ const workspacePatchBodySchema = createSchema({
   }
 });
 
-const workspaceOutputValidator = deepFreeze({
-  schema: workspaceOutputSchema,
-  mode: "replace"
-});
+const workspaceListItemOutputValidator = createSchemaDefinition(workspaceListItemSchema, "replace");
 
-const workspaceListItemOutputValidator = deepFreeze({
-  schema: workspaceListItemSchema,
-  mode: "replace"
-});
-
-const resource = deepFreeze({
+const resource = defineCrudResource({
   namespace: "workspace",
   tableName: "workspaces",
   searchSchema: {
@@ -141,39 +131,13 @@ const resource = deepFreeze({
     saveError: "Unable to update workspace.",
     apiValidation: "Validation failed."
   },
-  operations: {
-    view: {
-      method: "GET",
-      output: workspaceOutputValidator
-    },
-    list: {
-      method: "GET",
-      output: createCursorListValidator(workspaceListItemOutputValidator)
-    },
-    create: {
-      method: "POST",
-      body: {
-        schema: workspaceCreateBodySchema,
-        mode: "create"
-      },
-      output: workspaceOutputValidator
-    },
-    replace: {
-      method: "PUT",
-      body: {
-        schema: workspaceCreateBodySchema,
-        mode: "replace"
-      },
-      output: workspaceOutputValidator
-    },
-    patch: {
-      method: "PATCH",
-      body: {
-        schema: workspacePatchBodySchema,
-        mode: "patch"
-      },
-      output: workspaceOutputValidator
-    }
+  crudOperations: ["view", "list", "create", "replace", "patch"],
+  crud: {
+    output: workspaceOutputSchema,
+    listItemOutput: workspaceListItemOutputValidator,
+    createBody: workspaceCreateBodySchema,
+    replaceBody: workspaceCreateBodySchema,
+    patchBody: workspacePatchBodySchema
   }
 });
 

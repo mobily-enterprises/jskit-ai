@@ -237,7 +237,7 @@ function applyTemplateReplacements(sourceText = "", options = {}) {
 }
 
 function buildResourceStubSource() {
-  return `import { defineCrudResource } from "@jskit-ai/crud-core/shared/crudResource";
+  return `import { defineCrudResource } from "@jskit-ai/resource-crud-core/shared/crudResource";
 
 const resource = defineCrudResource({
   namespace: "customers",
