@@ -1,6 +1,7 @@
 import {
   emptyInputValidator
 } from "@jskit-ai/kernel/shared/actions/actionContributorHelpers";
+import { returnJsonApiData } from "@jskit-ai/http-runtime/shared";
 import { workspaceMembersResource } from "../../shared/resources/workspaceMembersResource.js";
 import { resolveActionUser } from "../common/support/resolveActionUser.js";
 
@@ -22,11 +23,11 @@ const workspacePendingInvitationsActions = Object.freeze([
     },
     observability: {},
     async execute(input, context, deps) {
-      return {
+      return returnJsonApiData({
         pendingInvites: await deps.workspacePendingInvitationsService.listPendingInvitesForUser(resolveActionUser(context, input), {
           context
         })
-      };
+      });
     }
   },
   {
@@ -50,20 +51,20 @@ const workspacePendingInvitationsActions = Object.freeze([
       const user = resolveActionUser(context, input);
 
       if (payload.decision === "accept") {
-        return deps.workspacePendingInvitationsService.acceptInviteByToken({
+        return returnJsonApiData(await deps.workspacePendingInvitationsService.acceptInviteByToken({
           user,
           token: payload.token
         }, {
           context
-        });
+        }));
       }
 
-      return deps.workspacePendingInvitationsService.refuseInviteByToken({
+      return returnJsonApiData(await deps.workspacePendingInvitationsService.refuseInviteByToken({
         user,
         token: payload.token
       }, {
         context
-      });
+      }));
     }
   }
 ]);

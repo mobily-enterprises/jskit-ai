@@ -118,10 +118,6 @@ Local functions
 Exports
 - `registerCommonRepositories(app)`
 
-### `src/server/common/registerJsonRestResources.js`
-Exports
-- `registerUsersJsonRestResources(app)`
-
 ### `src/server/common/registerSharedApi.js`
 Exports
 - `registerSharedApi(app, usersCoreApi)`
@@ -140,7 +136,6 @@ Exports
 - `uniqueSorted(values)`
 - `parseJson(value, fallback = {})`
 - `toDbJson(value, fallback = {})`
-- `createSimplifiedWriteParams(inputRecord = {}, { trx = null, returnFullRecord } = {})`
 - `createWithTransaction`
 
 ### `src/server/common/repositories/userProfilesRepository.js`
@@ -303,9 +298,7 @@ Exports
 
 ### `templates/packages/users-workspace/src/server/actions.js`
 Exports
-- `createActions({ surface = "" } = {})`
-Local functions
-- `requireActionSurface(surface = "")`
+- `createActions({ surface } = {})`
 
 ### `templates/packages/users-workspace/src/server/registerRoutes.js`
 Exports
@@ -321,19 +314,15 @@ Local functions
 Exports
 - None
 
-### `templates/packages/users/src/server/actionIds.js`
-Exports
-- `actionIds`
-
 ### `templates/packages/users/src/server/actions.js`
 Exports
-- `createActions({ surface = "" } = {})`
-Local functions
-- `requireActionSurface(surface = "")`
+- `createActions({ surface } = {})`
 
-### `templates/packages/users/src/server/listConfig.js`
+### `templates/packages/users/src/server/jsonRestResource.js`
 Exports
-- `LIST_CONFIG`
+- `jsonRestResource`
+Local functions
+- `serializeNullableDateTime(value)`
 
 ### `templates/packages/users/src/server/registerRoutes.js`
 Exports
@@ -341,12 +330,13 @@ Exports
 
 ### `templates/packages/users/src/server/repository.js`
 Exports
-- `createRepository(knex, options = {})`
+- `createRepository({ api, knex } = {})`
 
 ### `templates/packages/users/src/server/service.js`
 Exports
 - `createService({ usersRepository } = {})`
-- `serviceEvents`
+Local functions
+- `return404IfNotFound(document = null)`
 
 ### `templates/packages/users/src/server/UsersProvider.js`
 Exports

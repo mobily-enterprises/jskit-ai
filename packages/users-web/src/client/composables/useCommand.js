@@ -17,6 +17,7 @@ function useCommand({
   apiSuffix = "",
   runPermissions = [],
   writeMethod = "POST",
+  transport = null,
   placementSource = "users-web.command",
   fallbackRunError = "Unable to complete action.",
   fieldErrorKeys = [],
@@ -52,6 +53,7 @@ function useCommand({
     path: operationScope.apiPath,
     enabled: false,
     writeMethod,
+    transport,
     fallbackSaveError: fallbackRunError
   });
 

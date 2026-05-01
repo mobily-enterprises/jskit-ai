@@ -66,6 +66,20 @@ test("createJsonApiDocument builds normalized resource and collection documents"
   assert.equal(document.meta.pageSize, 20);
 });
 
+test("createJsonApiDocument supports meta-only success documents", () => {
+  const document = createJsonApiDocument({
+    meta: {
+      message: "Password updated."
+    }
+  });
+
+  assert.deepEqual(document, {
+    meta: {
+      message: "Password updated."
+    }
+  });
+});
+
 test("normalizeJsonApiDocument preserves compound-document structure", () => {
   const normalized = normalizeJsonApiDocument({
     data: {

@@ -69,6 +69,7 @@
 <script setup>
 import { computed, reactive } from "vue";
 import { ROUTE_VISIBILITY_WORKSPACE } from "@jskit-ai/kernel/shared/support/visibility";
+import { WORKSPACES_TRANSPORT } from "@jskit-ai/workspaces-core/shared/jsonApiTransports";
 import { workspaceResource } from "@jskit-ai/workspaces-core/shared/resources/workspaceResource";
 import { useAddEdit } from "@jskit-ai/users-web/client/composables/useAddEdit";
 import { buildWorkspaceQueryKey } from "../support/workspaceQueryKeys.js";
@@ -88,6 +89,7 @@ const addEdit = useAddEdit({
     buildWorkspaceQueryKey("profile", surfaceId, scopeParamValue),
   viewPermissions: ["workspace.settings.view", "workspace.settings.update"],
   savePermissions: ["workspace.settings.update"],
+  transport: WORKSPACES_TRANSPORT,
   placementSource: "workspaces-web.workspace-profile-view",
   fallbackLoadError: "Unable to load workspace profile.",
   fieldErrorKeys: ["name", "avatarUrl"],

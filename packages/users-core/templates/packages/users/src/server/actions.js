@@ -8,7 +8,6 @@ import {
 } from "@jskit-ai/crud-core/server/listQueryValidators";
 import { resource } from "../shared/userResource.js";
 import { jsonRestResource } from "./jsonRestResource.js";
-import { actionIds } from "./actionIds.js";
 
 const listCursorPaginationQueryValidator = createCrudCursorPaginationQueryValidator({
   orderBy: jsonRestResource.defaultSort
@@ -20,7 +19,7 @@ const authenticatedPermission = Object.freeze({
 function createActions({ surface } = {}) {
   return Object.freeze([
     {
-      id: actionIds.list,
+      id: "crud.users.list",
       version: 1,
       kind: "query",
       channels: ["api", "automation", "internal"],
@@ -33,19 +32,19 @@ function createActions({ surface } = {}) {
       output: null,
       idempotency: "none",
       audit: {
-        actionName: actionIds.list
+        actionName: "crud.users.list"
       },
       observability: {},
       async execute(input, context, deps) {
         const { workspaceSlug, ...query } = input || {};
-        return deps.usersService.listRecords(query, {
+        return deps.usersService.queryDocuments(query, {
           context,
           visibilityContext: context?.visibilityContext
         });
       }
     },
     {
-      id: actionIds.view,
+      id: "crud.users.view",
       version: 1,
       kind: "query",
       channels: ["api", "automation", "internal"],
@@ -57,11 +56,11 @@ function createActions({ surface } = {}) {
       output: null,
       idempotency: "none",
       audit: {
-        actionName: actionIds.view
+        actionName: "crud.users.view"
       },
       observability: {},
       async execute(input, context, deps) {
-        return deps.usersService.getRecord(input.recordId, {
+        return deps.usersService.getDocumentById(input.recordId, {
           context,
           visibilityContext: context?.visibilityContext
         });

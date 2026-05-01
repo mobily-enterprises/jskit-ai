@@ -43,8 +43,8 @@ test("template createRepository passes a mutable JSKIT context into json-rest-ap
   });
 
   const repository = createRepository({ api, knex });
-  assert.equal(typeof repository.list, "function");
-  await repository.list(
+  assert.equal(typeof repository.queryDocuments, "function");
+  await repository.queryDocuments(
     {
       q: "Merc",
       cursor: "cursor_2",
@@ -102,7 +102,7 @@ test("template createRepository builds mutable JSON:API input documents for writ
   };
 
   const repository = createRepository({ api, knex });
-  await repository.create({ name: "Merc" }, {});
+  await repository.createDocument({ name: "Merc" }, {});
 
   assert.equal(Object.isFrozen(calls[0].inputRecord), false);
   assert.equal(Object.isFrozen(calls[0].inputRecord.data), false);
@@ -120,22 +120,22 @@ test("template createRepository builds mutable JSON:API input documents for writ
 test("template createService turns missing resource records into 404 errors", async () => {
   const service = createService({
     customersRepository: {
-      async findById() {
+      async getDocumentById() {
         return null;
       },
-      async updateById() {
+      async patchDocumentById() {
         return null;
       }
     }
   });
 
   await assert.rejects(
-    () => service.getRecord("7", {}),
-    (error) => error?.status === 404 && error?.message === "Record not found."
+    () => service.getDocumentById("7", {}),
+    (error) => error?.status === 404 && error?.message === "Document not found."
   );
   await assert.rejects(
-    () => service.updateRecord("7", { name: "Merc" }, {}),
-    (error) => error?.status === 404 && error?.message === "Record not found."
+    () => service.patchDocumentById("7", { name: "Merc" }, {}),
+    (error) => error?.status === 404 && error?.message === "Document not found."
   );
 });
 
@@ -168,9 +168,9 @@ test("template list action strips workspaceSlug before calling the service", asy
     { visibilityContext: { visibility: "workspace", scopeOwnerId: "7" } },
     {
       customersService: {
-        async listRecords(query, options) {
+        async queryDocuments(query, options) {
           calls.push({ query, options });
-          return { data: [] };
+          return { kind: "document", value: { data: [] } };
         }
       }
     }

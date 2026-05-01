@@ -336,7 +336,7 @@ async function createTemplateServerFixture(options = {}) {
   );
   await writeFile(path.join(sharedRoot, "customerResource.js"), buildResourceStubSource(), "utf8");
 
-  for (const fileName of ["actionIds.js", "actions.js", "jsonRestResource.js", "registerRoutes.js", "repository.js", "service.js"]) {
+  for (const fileName of ["actions.js", "jsonRestResource.js", "registerRoutes.js", "repository.js", "service.js"]) {
     await renderServerTemplateFile(serverRoot, fileName, options);
   }
 

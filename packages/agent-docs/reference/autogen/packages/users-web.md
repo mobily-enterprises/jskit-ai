@@ -366,7 +366,7 @@ Exports
 
 ### `src/client/composables/useCommand.js`
 Exports
-- `useCommand({ ownershipFilter = ROUTE_VISIBILITY_WORKSPACE, surfaceId = "", access = "auto", apiSuffix = "", runPermissions = [], writeMethod = "POST", placementSource = "users-web.command", fallbackRunError = "Unable to complete action.", fieldErrorKeys = [], clearOnRouteChange = true, model, input, buildRawPayload, buildCommandPayload, buildCommandOptions, onRunSuccess, onRunError, suppressSuccessMessage = false, messages = {}, realtime = null } = {})`
+- `useCommand({ ownershipFilter = ROUTE_VISIBILITY_WORKSPACE, surfaceId = "", access = "auto", apiSuffix = "", runPermissions = [], writeMethod = "POST", transport = null, placementSource = "users-web.command", fallbackRunError = "Unable to complete action.", fieldErrorKeys = [], clearOnRouteChange = true, model, input, buildRawPayload, buildCommandPayload, buildCommandOptions, onRunSuccess, onRunError, suppressSuccessMessage = false, messages = {}, realtime = null } = {})`
 
 ### `src/client/composables/useCrudListFilterLookups.js`
 Exports

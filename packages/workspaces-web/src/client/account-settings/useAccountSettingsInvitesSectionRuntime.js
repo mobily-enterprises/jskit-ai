@@ -10,6 +10,7 @@ import { useCommand } from "@jskit-ai/users-web/client/composables/useCommand";
 import { usePaths } from "@jskit-ai/users-web/client/composables/usePaths";
 import { useView } from "@jskit-ai/users-web/client/composables/useView";
 import { normalizeRecordId } from "@jskit-ai/kernel/shared/support/normalize";
+import { WORKSPACE_INVITE_REDEEM_TRANSPORT } from "@jskit-ai/workspaces-core/shared/jsonApiTransports";
 import { useWorkspaceSurfaceId } from "../composables/useWorkspaceSurfaceId.js";
 import { createAccountSettingsInvitesRuntime } from "./accountSettingsInvitesRuntime.js";
 
@@ -112,6 +113,7 @@ function useAccountSettingsInvitesSectionRuntime() {
     ownershipFilter: ROUTE_VISIBILITY_PUBLIC,
     apiSuffix: "/workspace/invitations/redeem",
     writeMethod: "POST",
+    transport: WORKSPACE_INVITE_REDEEM_TRANSPORT,
     fallbackRunError: "Unable to respond to invitation.",
     suppressSuccessMessage: true,
     model: redeemInviteModel,

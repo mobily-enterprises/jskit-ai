@@ -226,15 +226,6 @@ export default Object.freeze({
         }
       },
       {
-        from: "templates/packages/users/src/server/actionIds.js",
-        to: "packages/users/src/server/actionIds.js",
-        ownership: "app",
-        preserveOnRemove: true,
-        reason: "Install app-owned users CRUD action IDs.",
-        category: "users-core",
-        id: "users-core-users-action-ids"
-      },
-      {
         from: "templates/packages/users/src/server/actions.js",
         to: "packages/users/src/server/actions.js",
         ownership: "app",

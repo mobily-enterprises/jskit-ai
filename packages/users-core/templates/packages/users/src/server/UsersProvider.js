@@ -27,10 +27,6 @@ class UsersProvider {
   static dependsOn = ["runtime.actions", "runtime.database", "auth.policy.fastify", "local.main", "json-rest-api.core"];
 
   register(app) {
-    if (!app || typeof app.singleton !== "function" || typeof app.service !== "function" || typeof app.actions !== "function") {
-      throw new Error("UsersProvider requires application singleton()/service()/actions().");
-    }
-
     const crudPolicy = resolveCrudPolicyFromApp(app);
 
     app.singleton("repository.users", (scope) => {

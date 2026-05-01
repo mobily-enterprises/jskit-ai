@@ -8,9 +8,12 @@ import {
   buildJsonRestQueryParams,
   createJsonApiInputRecord,
   createJsonApiRelationship,
+  createJsonRestResourceScopeOptions,
   createJsonRestContext,
   createJsonRestApiHost,
+  isJsonRestResourceMissingError,
   registerJsonRestApiHost,
+  returnNullWhenJsonRestResourceMissing,
   resolveWorkspaceScopeValue,
   resolveUserScopeValue,
   simplifyJsonApiDocument
@@ -30,9 +33,12 @@ test("server entrypoint exports shared host helpers", () => {
   assert.equal(typeof buildJsonRestQueryParams, "function");
   assert.equal(typeof createJsonApiInputRecord, "function");
   assert.equal(typeof createJsonApiRelationship, "function");
+  assert.equal(typeof createJsonRestResourceScopeOptions, "function");
   assert.equal(typeof createJsonRestContext, "function");
   assert.equal(typeof createJsonRestApiHost, "function");
+  assert.equal(typeof isJsonRestResourceMissingError, "function");
   assert.equal(typeof registerJsonRestApiHost, "function");
+  assert.equal(typeof returnNullWhenJsonRestResourceMissing, "function");
   assert.equal(typeof resolveWorkspaceScopeValue, "function");
   assert.equal(typeof resolveUserScopeValue, "function");
   assert.equal(typeof simplifyJsonApiDocument, "function");
@@ -170,6 +176,95 @@ test("shared query/document helpers build json-rest-api request shapes", () => {
         }
       }
     ]
+  );
+});
+
+test("createJsonRestResourceScopeOptions clones canonical resource metadata and resolves symbolic write serializers", () => {
+  const serializer = (value) => value;
+  const normalizeId = (value) => String(value || "").trim() || null;
+  const source = Object.freeze({
+    namespace: "contacts",
+    tableName: "contacts",
+    defaultSort: Object.freeze(["-createdAt"]),
+    schema: Object.freeze({
+      name: Object.freeze({
+        type: "string",
+        maxLength: 190,
+        required: true,
+        search: true,
+        operations: Object.freeze({
+          output: Object.freeze({
+            required: true
+          })
+        })
+      }),
+      createdAt: Object.freeze({
+        type: "dateTime",
+        storage: Object.freeze({
+          column: "created_at",
+          writeSerializer: "datetime-utc"
+        }),
+        operations: Object.freeze({
+          output: Object.freeze({
+            required: true
+          })
+        })
+      })
+    }),
+    operations: Object.freeze({
+      view: Object.freeze({
+        method: "GET"
+      })
+    })
+  });
+
+  const result = createJsonRestResourceScopeOptions(source, {
+    normalizeId,
+    writeSerializers: {
+      "datetime-utc": serializer
+    }
+  });
+
+  assert.notEqual(result, source);
+  assert.notEqual(result.schema, source.schema);
+  assert.notEqual(result.schema.createdAt, source.schema.createdAt);
+  assert.equal(result.schema.createdAt.storage.column, "created_at");
+  assert.equal(result.schema.createdAt.storage.serialize, serializer);
+  assert.equal(result.schema.createdAt.storage.writeSerializer, undefined);
+  assert.equal(result.normalizeId, normalizeId);
+  assert.equal(result.schema.name.maxLength, 190);
+  assert.equal(result.schema.name.operations.output.required, true);
+  assert.equal(result.operations.view.method, "GET");
+
+  result.schema.createdAt.indexed = true;
+  assert.equal(source.schema.createdAt.indexed, undefined);
+});
+
+test("returnNullWhenJsonRestResourceMissing only swallows missing-resource errors", async () => {
+  await assert.doesNotReject(async () => {
+    const result = await returnNullWhenJsonRestResourceMissing(async () => {
+      return "ok";
+    });
+
+    assert.equal(result, "ok");
+  });
+
+  const missing = Object.freeze({
+    code: "REST_API_RESOURCE",
+    subtype: "not_found"
+  });
+
+  assert.equal(isJsonRestResourceMissingError(missing), true);
+  assert.equal(await returnNullWhenJsonRestResourceMissing(async () => {
+    throw missing;
+  }), null);
+
+  const otherError = new Error("boom");
+  await assert.rejects(
+    async () => returnNullWhenJsonRestResourceMissing(async () => {
+      throw otherError;
+    }),
+    (error) => error === otherError
   );
 });
 

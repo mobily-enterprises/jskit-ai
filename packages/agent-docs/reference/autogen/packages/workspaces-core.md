@@ -36,10 +36,6 @@ Exports
 - `mapWorkspaceSettingsPublic(workspaceSettings, { workspaceInvitationsEnabled = true } = {})`
 - `mapWorkspaceSummary(workspace, membership)`
 
-### `src/server/common/registerJsonRestResources.js`
-Exports
-- `registerWorkspaceJsonRestResources(app)`
-
 ### `src/server/common/repositories/repositoryUtils.js`
 Exports
 - `toNullableDateTime`
@@ -54,7 +50,6 @@ Exports
 - `uniqueSorted(values)`
 - `parseJson(value, fallback = {})`
 - `toDbJson(value, fallback = {})`
-- `createSimplifiedWriteParams(inputRecord = {}, { trx = null, returnFullRecord } = {})`
 - `createWithTransaction`
 
 ### `src/server/common/repositories/workspaceInvitesRepository.js`
@@ -64,6 +59,7 @@ Exports
 - `normalizeInviteWithWorkspace(payload = {})`
 Local functions
 - `normalizeInvitePatchPayload(payload = {})`
+- `createInviteRelationships({ workspaceId = null, invitedByUserId = undefined } = {})`
 
 ### `src/server/common/repositories/workspaceMembershipsRepository.js`
 Exports
@@ -72,10 +68,14 @@ Exports
 - `normalizeMemberSummaryRow(row)`
 Local functions
 - `normalizeMembershipPatchPayload(payload = {})`
+- `createMembershipRelationships({ workspaceId = null, userId = null } = {})`
 
 ### `src/server/common/repositories/workspacesRepository.js`
 Exports
 - `createRepository({ api, knex } = {})`
+Local functions
+- `normalizeWorkspaceRecord(payload = null)`
+- `createWorkspaceRelationships(source = {})`
 
 ### `src/server/common/resources/workspaceInvitesResource.js`
 Exports
@@ -197,6 +197,8 @@ Local functions
 ### `src/server/workspaceDirectory/bootWorkspaceDirectoryRoutes.js`
 Exports
 - `bootWorkspaceDirectoryRoutes(app)`
+Local functions
+- `resolveWorkspaceRecordId(record = {}, context = {})`
 
 ### `src/server/workspaceDirectory/registerWorkspaceDirectory.js`
 Exports
@@ -209,6 +211,8 @@ Exports
 ### `src/server/workspaceMembers/bootWorkspaceMembers.js`
 Exports
 - `bootWorkspaceMembers(app)`
+Local functions
+- `resolveWorkspaceAggregateRecordId(record = {}, context = {})`
 
 ### `src/server/workspaceMembers/registerWorkspaceMembers.js`
 Exports
@@ -227,6 +231,8 @@ Exports
 ### `src/server/workspacePendingInvitations/bootWorkspacePendingInvitations.js`
 Exports
 - `bootWorkspacePendingInvitations(app)`
+Local functions
+- `resolveAuthenticatedUserRecordId(_record, context = {})`
 
 ### `src/server/workspacePendingInvitations/registerWorkspacePendingInvitations.js`
 Exports
@@ -253,6 +259,8 @@ Exports
 ### `src/server/workspaceSettings/bootWorkspaceSettings.js`
 Exports
 - `bootWorkspaceSettings(app)`
+Local functions
+- `resolveWorkspaceSettingsRecordId(record = {}, context = {})`
 
 ### `src/server/workspaceSettings/registerWorkspaceSettings.js`
 Exports
@@ -275,6 +283,19 @@ Local functions
 Exports
 - `createService({ workspaceSettingsRepository, workspaceInvitationsEnabled = true, roleCatalog = null } = {})`
 
+### `src/shared/jsonApiTransports.js`
+Exports
+- `WORKSPACES_TRANSPORT`
+- `WORKSPACES_COLLECTION_TRANSPORT`
+- `WORKSPACE_SETTINGS_TRANSPORT`
+- `WORKSPACE_ROLE_CATALOG_TRANSPORT`
+- `WORKSPACE_MEMBERS_TRANSPORT`
+- `WORKSPACE_MEMBER_ROLE_UPDATE_TRANSPORT`
+- `WORKSPACE_INVITES_TRANSPORT`
+- `WORKSPACE_INVITE_CREATE_TRANSPORT`
+- `WORKSPACE_INVITE_REDEEM_TRANSPORT`
+- `WORKSPACE_PENDING_INVITATIONS_TRANSPORT`
+
 ### `src/shared/operationMessages.js`
 Exports
 - `createOperationMessages({ validationMessage = "Validation failed.", apiValidationMessage = validationMessage } = {})`
@@ -290,6 +311,7 @@ Exports
 ### `src/shared/resources/workspaceResource.js`
 Exports
 - `workspaceResource`
+- `workspaceListItemOutputValidator`
 
 ### `src/shared/resources/workspaceRoleCatalogSchema.js`
 Exports

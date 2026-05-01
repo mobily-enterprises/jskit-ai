@@ -9,6 +9,7 @@
     "./server/WorkspacesCoreServiceProvider": "./src/server/WorkspacesCoreServiceProvider.js",
     "./server/validators/routeParamsValidator": "./src/server/common/validators/routeParamsValidator.js",
     "./server/support/workspaceRouteInput": "./src/server/support/workspaceRouteInput.js",
+    "./shared/jsonApiTransports": "./src/shared/jsonApiTransports.js",
     "./shared/settings": "./src/shared/settings.js",
     "./shared/tenancyProfile": "./src/shared/tenancyProfile.js",
     "./shared/support/workspacePathModel": "./src/shared/support/workspacePathModel.js",

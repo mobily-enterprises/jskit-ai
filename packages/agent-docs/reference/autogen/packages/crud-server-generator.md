@@ -80,7 +80,6 @@ Local functions
 - `toSelectOptionLabel(value)`
 - `normalizeFieldMetaUiOptions(rawOptions = [])`
 - `resolveEnumFieldMetaUiOptions(enumValues = [])`
-- `renderRepositoryListConfigLines(snapshot = {})`
 - `buildCrudPermissionIds(namespace = "")`
 - `normalizeCrudOperation(operation = "", context = "CRUD operation")`
 - `renderRoleCatalogPermissionGrants(namespace = "", { requiresNamedPermissions = true } = {})`
@@ -155,15 +154,9 @@ Exports
 Exports
 - None
 
-### `templates/src/local-package/server/actionIds.js`
-Exports
-- `actionIds`
-
 ### `templates/src/local-package/server/actions.js`
 Exports
-- `createActions({ surface = "" } = {})`
-Local functions
-- `requireActionSurface(surface = "")`
+- `createActions({ surface } = {})`
 
 ### `templates/src/local-package/server/CrudProvider.js`
 Exports
@@ -177,14 +170,6 @@ Exports
 Local functions
 - `serializeNullableDateTime(value)`
 
-### `templates/src/local-package/server/listConfig.js`
-Exports
-- `LIST_CONFIG`
-
-### `templates/src/local-package/server/registerJsonRestResources.js`
-Exports
-- `register${option:namespace|pascal`
-
 ### `templates/src/local-package/server/registerRoutes.js`
 Exports
 - `registerRoutes(app, { routeOwnershipFilter = "public", routeSurface = "", routeRelativePath = "" } = {})`
@@ -192,19 +177,12 @@ Exports
 ### `templates/src/local-package/server/repository.js`
 Exports
 - `createRepository({ api, knex } = {})`
-Local functions
-- `normalizeArrayInput(value)`
-- `toJsonRestContext(context = null)`
-- `buildJsonRestQueryParams(query = {}, { include = undefined } = {})`
-- `createJsonApiInputRecord(attributes = {}, { id = null } = {})`
 
 ### `templates/src/local-package/server/service.js`
 Exports
 - `createService({ ${option:namespace|camel}Repository } = {})`
-- `serviceEvents`
 Local functions
-- `resolveJsonApiResultRecordId(result = null)`
-- `return404IfNotFound(record = null)`
+- `return404IfNotFound(document = null)`
 
 ### `templates/src/local-package/shared/crudResource.js`
 Exports

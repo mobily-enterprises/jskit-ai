@@ -535,6 +535,21 @@ function createHttpClient(options = {}) {
       transport
     } = execution.value;
 
+    if (Number(result.response?.status || 200) === 204) {
+      await notifySuccess({
+        url,
+        method,
+        state: resolvedState,
+        response: result.response,
+        data: null,
+        rawData: null,
+        contentType: result.contentType,
+        isJson: result.isJson,
+        stream: false
+      });
+      return null;
+    }
+
     let responseData = result.data;
     if (transport) {
       try {

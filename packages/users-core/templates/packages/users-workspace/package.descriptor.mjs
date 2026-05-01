@@ -38,10 +38,6 @@ export default Object.freeze({
     apiSummary: {
       surfaces: [
         {
-          subpath: "./server/actionIds",
-          summary: "App-local CRUD public action identifiers."
-        },
-        {
           subpath: "./shared",
           summary: "App-local CRUD shared resource."
         }

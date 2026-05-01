@@ -1,4 +1,5 @@
 import { AppError } from "@jskit-ai/kernel/server/runtime/errors";
+import { returnJsonApiData } from "@jskit-ai/http-runtime/shared";
 import {
   resolveUserProfile,
   resolveSecurityStatus
@@ -26,12 +27,12 @@ function createService({
     const settings = await userSettingsRepository.ensureForUserId(profile.id);
     const securityStatus = await resolveSecurityStatus(authService, request);
 
-    return accountSettingsResponseFormatter({
+    return returnJsonApiData(accountSettingsResponseFormatter({
       profile,
       settings,
       securityStatus,
       authService
-    });
+    }));
   }
 
   async function updateProfile(request, user, payload = {}, options = {}) {
@@ -57,12 +58,12 @@ function createService({
 
     return {
       session,
-      settings: accountSettingsResponseFormatter({
+      response: returnJsonApiData(accountSettingsResponseFormatter({
         profile: updatedProfile,
         settings,
         securityStatus,
         authService
-      })
+      }))
     };
   }
 
@@ -78,12 +79,12 @@ function createService({
     const settings = await userSettingsRepository.ensureForUserId(profile.id);
     const securityStatus = await resolveSecurityStatus(authService, request);
 
-    return accountSettingsResponseFormatter({
+    return returnJsonApiData(accountSettingsResponseFormatter({
       profile,
       settings,
       securityStatus,
       authService
-    });
+    }));
   }
 
   async function deleteAvatar(request, user, options = {}) {
@@ -93,12 +94,12 @@ function createService({
     const settings = await userSettingsRepository.ensureForUserId(profile.id);
     const securityStatus = await resolveSecurityStatus(authService, request);
 
-    return accountSettingsResponseFormatter({
+    return returnJsonApiData(accountSettingsResponseFormatter({
       profile,
       settings,
       securityStatus,
       authService
-    });
+    }));
   }
 
   async function readAvatar(_request, user, options = {}) {

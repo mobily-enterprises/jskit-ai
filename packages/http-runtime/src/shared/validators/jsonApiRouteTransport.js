@@ -12,6 +12,12 @@ import {
   resolveJsonApiTransportTypes
 } from "./jsonApiTransport.js";
 import {
+  isJsonApiDataResult,
+  isJsonApiDocumentResult,
+  isJsonApiMetaResult,
+  unwrapJsonApiResult
+} from "./jsonApiResult.js";
+import {
   createJsonApiResourceQueryTransportSchema,
   decodeJsonApiResourceQueryObject
 } from "./jsonApiQueryTransport.js";
@@ -228,6 +234,26 @@ function createJsonApiResourceRequestBodyTransportSchema({
   };
 }
 
+function createJsonApiMetaSuccessTransportSchema({
+  meta
+} = {}) {
+  const embeddedMeta = resolveEmbeddedAttributesTransportSchema(meta, {
+    context: "JSON:API success meta",
+    defaultMode: "replace",
+    removeId: false
+  });
+
+  return {
+    type: "object",
+    additionalProperties: false,
+    required: ["meta"],
+    properties: {
+      meta: embeddedMeta.schema
+    },
+    definitions: embeddedMeta.definitions
+  };
+}
+
 function createJsonApiResourceSuccessTransportSchema({
   type = "",
   attributes,
@@ -237,8 +263,14 @@ function createJsonApiResourceSuccessTransportSchema({
   includeIncluded = false
 } = {}) {
   const normalizedKind = String(kind || "record").trim().toLowerCase();
-  if (!["record", "nullable-record", "collection"].includes(normalizedKind)) {
+  if (!["record", "nullable-record", "collection", "meta"].includes(normalizedKind)) {
     throw new TypeError(`Unsupported JSON:API success schema kind: ${normalizedKind || "<empty>"}.`);
+  }
+
+  if (normalizedKind === "meta") {
+    return createJsonApiMetaSuccessTransportSchema({
+      meta: attributes
+    });
   }
 
   const resourceTransport = createJsonApiResourceObjectTransportSchema({
@@ -365,6 +397,19 @@ function defaultCollectionMetaResolver(payload) {
   };
 }
 
+function assertJsonApiSuccessResult(payload) {
+  const result = unwrapJsonApiResult(payload);
+  if (!result) {
+    throw createJsonApiTransportError(
+      500,
+      "JSON:API route success payload must be returned with an explicit JSON:API result wrapper.",
+      "jsonapi_success_result_missing"
+    );
+  }
+
+  return result;
+}
+
 function createJsonApiResourceRouteTransport({
   type = "",
   requestType = "",
@@ -483,25 +528,91 @@ function createJsonApiResourceRouteTransport({
         return undefined;
       }
 
+      const result = assertJsonApiSuccessResult(payload);
+
+      if (isJsonApiDocumentResult(result)) {
+        const document = normalizeJsonApiDocument(result.value);
+        if (document.kind === "unknown") {
+          throw createJsonApiTransportError(
+            500,
+            "JSON:API document result must contain a valid JSON:API document.",
+            "jsonapi_document_result_invalid"
+          );
+        }
+
+        if (normalizedSuccessKind === "collection" && document.kind !== "collection") {
+          throw createJsonApiTransportError(
+            500,
+            "JSON:API collection route requires a collection document result.",
+            "jsonapi_document_result_kind_mismatch"
+          );
+        }
+
+        if (
+          (normalizedSuccessKind === "record" || normalizedSuccessKind === "nullable-record") &&
+          document.kind !== "resource"
+        ) {
+          throw createJsonApiTransportError(
+            500,
+            "JSON:API record route requires a resource document result.",
+            "jsonapi_document_result_kind_mismatch"
+          );
+        }
+
+        if (normalizedSuccessKind === "meta" && document.kind !== "meta") {
+          throw createJsonApiTransportError(
+            500,
+            "JSON:API meta route requires a meta-only document result.",
+            "jsonapi_document_result_kind_mismatch"
+          );
+        }
+
+        return result.value;
+      }
+
+      if (normalizedSuccessKind === "meta") {
+        if (isJsonApiMetaResult(result)) {
+          return createJsonApiDocument({
+            meta: result.value
+          });
+        }
+
+        throw createJsonApiTransportError(
+          500,
+          "JSON:API meta route requires a meta result.",
+          "jsonapi_meta_result_missing"
+        );
+      }
+
+      if (!isJsonApiDataResult(result)) {
+        throw createJsonApiTransportError(
+          500,
+          "JSON:API resource route requires a data or document result.",
+          "jsonapi_success_result_kind_invalid"
+        );
+      }
+
+      const sourcePayload = result.value;
+
       if (normalizedSuccessKind === "collection") {
-        const items = normalizeArray(resolveCollectionItems(payload, context));
+        const items = normalizeArray(resolveCollectionItems(sourcePayload, context));
         const documentOptions = {
           data: items.map((entry) => buildResourceObject(entry, context))
         };
 
         if (typeof getIncluded === "function") {
-          const included = normalizeArray(getIncluded(payload, context));
+          const included = normalizeArray(getIncluded(sourcePayload, context));
           if (included.length > 0) {
             documentOptions.included = included;
           }
         }
 
-        const links = typeof getDocumentLinks === "function" ? getDocumentLinks(payload, context) : undefined;
+        const links = typeof getDocumentLinks === "function" ? getDocumentLinks(sourcePayload, context) : undefined;
         if (links !== undefined) {
           documentOptions.links = links;
         }
 
-        const meta = resolveDocumentMeta(payload, context);
+        const meta = resolveDocumentMeta(sourcePayload, context);
         if (meta !== undefined) {
           documentOptions.meta = meta;
         }
@@ -509,7 +620,7 @@ function createJsonApiResourceRouteTransport({
         return createJsonApiDocument(documentOptions);
       }
 
-      if (payload == null) {
+      if (sourcePayload == null) {
         if (normalizedSuccessKind === "nullable-record") {
           return createJsonApiDocument({
             data: null
@@ -520,25 +631,25 @@ function createJsonApiResourceRouteTransport({
       }
 
       const documentOptions = {
-        data: buildResourceObject(payload, context)
+        data: buildResourceObject(sourcePayload, context)
       };
 
       if (typeof getIncluded === "function") {
-        const included = normalizeArray(getIncluded(payload, context));
+        const included = normalizeArray(getIncluded(sourcePayload, context));
         if (included.length > 0) {
           documentOptions.included = included;
         }
       }
 
       if (typeof getDocumentLinks === "function") {
-        const links = getDocumentLinks(payload, context);
+        const links = getDocumentLinks(sourcePayload, context);
         if (links !== undefined) {
           documentOptions.links = links;
         }
       }
 
       if (typeof getDocumentMeta === "function") {
-        const meta = getDocumentMeta(payload, context);
+        const meta = getDocumentMeta(sourcePayload, context);
         if (meta !== undefined) {
           documentOptions.meta = meta;
         }
@@ -591,8 +702,7 @@ function createJsonApiResourceRouteContract({
   getDocumentLinks = null,
   getDocumentMeta = null,
   getCollectionItems = null,
-  mapRequestRelationships = null,
-  wrapResponse = true
+  mapRequestRelationships = null
 } = {}) {
   const resolvedTypes = resolveRouteTypes({
     type,
@@ -628,12 +738,7 @@ function createJsonApiResourceRouteContract({
       mapRequestRelationships
     });
   const contract = {
-    transport: wrapResponse === false
-      ? Object.freeze({
-          ...transport,
-          response: undefined
-        })
-      : transport
+    transport
   };
 
   const fastifySchema = {};

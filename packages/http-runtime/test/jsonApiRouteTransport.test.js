@@ -7,7 +7,10 @@ import {
   createJsonApiResourceRequestBodyTransportSchema,
   createJsonApiResourceRouteContract,
   createJsonApiResourceRouteTransport,
-  createJsonApiResourceSuccessTransportSchema
+  createJsonApiResourceSuccessTransportSchema,
+  returnJsonApiData,
+  returnJsonApiDocument,
+  returnJsonApiMeta
 } from "../src/shared/index.js";
 import { createSchema } from "../../kernel/shared/validators/index.js";
 import { resolveRouteValidatorOptions } from "../../kernel/server/http/lib/routeValidator.js";
@@ -130,13 +133,13 @@ test("createJsonApiResourceRouteTransport unwraps request payloads and wraps res
     subscribed: true
   });
 
-  const response = transport.response({
+  const response = transport.response(returnJsonApiData({
     items: [
       { id: "1", name: "Merc", subscribed: true },
       { id: "2", name: "Tony", subscribed: false }
     ],
     nextCursor: "cursor_2"
-  });
+  }));
   assert.deepEqual(response, {
     data: [
       {
@@ -279,15 +282,68 @@ test("createJsonApiResourceRouteContract produces route options compatible with 
   });
 });
 
-test("createJsonApiResourceRouteContract can validate JSON:API responses without wrapping them again", () => {
-  const contract = createJsonApiResourceRouteContract({
+test("createJsonApiResourceRouteTransport passes through tagged JSON:API document results", () => {
+  const transport = createJsonApiResourceRouteTransport({
     type: "contacts",
-    output: CONTACT_RECORD_SCHEMA,
-    outputKind: "record",
-    wrapResponse: false
+    successKind: "record"
+  });
+
+  const document = {
+    data: {
+      type: "contacts",
+      id: "1",
+      attributes: {
+        name: "Merc",
+        subscribed: true
+      }
+    }
+  };
+
+  assert.deepEqual(transport.response(returnJsonApiDocument(document)), document);
+});
+
+test("createJsonApiResourceRouteTransport wraps tagged meta results for meta routes", () => {
+  const contract = createJsonApiResourceRouteContract({
+    requestType: "password-changes",
+    body: CONTACT_BODY_SCHEMA,
+    output: {
+      schema: createSchema({
+        message: {
+          type: "string",
+          required: true,
+          minLength: 1
+        }
+      }),
+      mode: "replace"
+    },
+    outputKind: "meta",
+    successStatus: 200
   });
 
   assert.equal(contract.transport.kind, "jsonapi-resource");
-  assert.equal(typeof contract.transport.response, "undefined");
-  assert.equal(contract.responses["200"].transportSchema.required[0], "data");
+  assert.equal(contract.responses["200"].transportSchema.required[0], "meta");
+  assert.deepEqual(
+    contract.transport.response(returnJsonApiMeta({
+      message: "Password updated."
+    })),
+    {
+      meta: {
+        message: "Password updated."
+      }
+    }
+  );
+});
+
+test("createJsonApiResourceRouteTransport rejects untagged success payloads", () => {
+  const transport = createJsonApiResourceRouteTransport({
+    type: "contacts",
+    successKind: "record"
+  });
+
+  assert.throws(() => {
+    transport.response({
+      id: "1",
+      name: "Merc"
+    });
+  }, /explicit JSON:API result wrapper/);
 });

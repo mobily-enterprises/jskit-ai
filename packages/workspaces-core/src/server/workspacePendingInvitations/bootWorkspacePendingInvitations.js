@@ -1,6 +1,19 @@
-import { withStandardErrorResponses } from "@jskit-ai/http-runtime/shared/validators/errorResponses";
+import { createJsonApiResourceRouteContract } from "@jskit-ai/http-runtime/shared/validators/jsonApiRouteTransport";
 import { workspaceMembersResource } from "../../shared/resources/workspaceMembersResource.js";
 import { workspacePendingInvitationsResource } from "../../shared/resources/workspacePendingInvitationsResource.js";
+import {
+  WORKSPACE_INVITE_REDEEM_TRANSPORT,
+  WORKSPACE_PENDING_INVITATIONS_TRANSPORT
+} from "../../shared/jsonApiTransports.js";
+
+function resolveAuthenticatedUserRecordId(_record, context = {}) {
+  const userId = context?.request?.user?.id;
+  if (userId != null && String(userId).trim()) {
+    return userId;
+  }
+
+  throw new Error("JSON:API response requires request.user.id.");
+}
 
 function bootWorkspacePendingInvitations(app) {
   if (!app || typeof app.make !== "function") {
@@ -18,8 +31,11 @@ function bootWorkspacePendingInvitations(app) {
         tags: ["workspace"],
         summary: "List pending workspace invitations for authenticated user"
       },
-      responses: withStandardErrorResponses({
-        200: workspacePendingInvitationsResource.operations.list.output
+      ...createJsonApiResourceRouteContract({
+        ...WORKSPACE_PENDING_INVITATIONS_TRANSPORT,
+        output: workspacePendingInvitationsResource.operations.list.output,
+        outputKind: "record",
+        getRecordId: resolveAuthenticatedUserRecordId
       })
     },
     async function (request, reply) {
@@ -39,13 +55,14 @@ function bootWorkspacePendingInvitations(app) {
         tags: ["workspace"],
         summary: "Accept or refuse a workspace invitation using an invite token"
       },
-      body: workspaceMembersResource.operations.redeemInvite.body,
-      responses: withStandardErrorResponses(
-        {
-          200: workspaceMembersResource.operations.redeemInvite.output
-        },
-        { includeValidation400: true }
-      )
+      ...createJsonApiResourceRouteContract({
+        ...WORKSPACE_INVITE_REDEEM_TRANSPORT,
+        body: workspaceMembersResource.operations.redeemInvite.body,
+        output: workspaceMembersResource.operations.redeemInvite.output,
+        outputKind: "record",
+        getRecordId: resolveAuthenticatedUserRecordId,
+        includeValidation400: true
+      })
     },
     async function (request, reply) {
       const response = await request.executeAction({

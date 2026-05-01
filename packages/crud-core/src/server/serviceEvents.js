@@ -73,7 +73,7 @@ function createCrudJsonApiServiceEvents(namespace = "", { context = "createCrudJ
   const recordChangedEventName = resolveCrudRecordChangedEvent(normalizedNamespace);
 
   return Object.freeze({
-    createRecord: Object.freeze([
+    createDocument: Object.freeze([
       Object.freeze({
         type: "entity.changed",
         source: "crud",
@@ -86,7 +86,7 @@ function createCrudJsonApiServiceEvents(namespace = "", { context = "createCrudJ
         })
       })
     ]),
-    updateRecord: Object.freeze([
+    patchDocumentById: Object.freeze([
       Object.freeze({
         type: "entity.changed",
         source: "crud",
@@ -99,7 +99,7 @@ function createCrudJsonApiServiceEvents(namespace = "", { context = "createCrudJ
         })
       })
     ]),
-    deleteRecord: Object.freeze([
+    deleteDocumentById: Object.freeze([
       Object.freeze({
         type: "entity.changed",
         source: "crud",

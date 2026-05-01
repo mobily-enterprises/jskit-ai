@@ -1,5 +1,5 @@
 import { normalizeObject } from "../../../shared/support/normalize.js";
-import { ensureApiErrorHandling, registerJsonApiContentTypeParser } from "../../runtime/fastifyBootstrap.js";
+import { ensureApiErrorHandling } from "../../runtime/fastifyBootstrap.js";
 import { resolveDefaultSurfaceId } from "../../support/appConfig.js";
 import { RouteRegistrationError } from "./errors.js";
 import { createRouter } from "./router.js";
@@ -24,8 +24,6 @@ function registerHttpRuntime(app, options = {}) {
   const resolvedDefaultActionSurface = resolveDefaultSurfaceId(app, {
     defaultSurfaceId: routeRegistrationOptions.requestActionDefaultSurface
   });
-
-  registerJsonApiContentTypeParser(fastify);
 
   if (autoRegisterApiErrorHandling !== false) {
     ensureApiErrorHandling(app, {

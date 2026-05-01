@@ -10,7 +10,6 @@ import {
   composeSchemaDefinitions,
   recordIdParamsValidator
 } from "@jskit-ai/kernel/shared/validators";
-import { actionIds } from "./actionIds.js";
 import { resource } from "../shared/userResource.js";
 import { jsonRestResource } from "./jsonRestResource.js";
 
@@ -26,14 +25,12 @@ const listRouteContract = createJsonApiResourceRouteContract({
   type: RESOURCE_ROUTE_CONTRACT_TYPE,
   query: listRouteQueryValidator,
   output: resource.operations.view.output,
-  outputKind: "collection",
-  wrapResponse: false
+  outputKind: "collection"
 });
 const viewRouteContract = createJsonApiResourceRouteContract({
   type: RESOURCE_ROUTE_CONTRACT_TYPE,
   output: resource.operations.view.output,
-  outputKind: "record",
-  wrapResponse: false
+  outputKind: "record"
 });
 
 function registerRoutes(
@@ -67,7 +64,7 @@ function registerRoutes(
     },
     async function (request, reply) {
       const response = await request.executeAction({
-        actionId: actionIds.list,
+        actionId: "crud.users.list",
         input: {
           ...(request.input.query || {})
         }
@@ -92,7 +89,7 @@ function registerRoutes(
     },
     async function (request, reply) {
       const response = await request.executeAction({
-        actionId: actionIds.view,
+        actionId: "crud.users.view",
         input: {
           recordId: request.input.params.recordId
         }

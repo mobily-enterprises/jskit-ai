@@ -11,7 +11,7 @@ const RESOURCE_TYPE = resource.namespace;
 function createRepository({ api, knex } = {}) {
   const withTransaction = createWithTransaction(knex);
 
-  async function list(query = {}, options = {}) {
+  async function queryDocuments(query = {}, options = {}) {
     return api.resources.${option:namespace|camel}.query(
       {
         queryParams: buildJsonRestQueryParams(RESOURCE_TYPE, query),
@@ -22,7 +22,7 @@ function createRepository({ api, knex } = {}) {
     );
   }
 
-  async function findById(recordId, options = {}) {
+  async function getDocumentById(recordId, options = {}) {
     const normalizedRecordId = normalizeRecordId(recordId, { fallback: null });
     if (!normalizedRecordId) {
       return null;
@@ -48,7 +48,7 @@ function createRepository({ api, knex } = {}) {
     }
   }
 
-  async function create(payload = {}, options = {}) {
+  async function createDocument(payload = {}, options = {}) {
     return api.resources.${option:namespace|camel}.post(
       {
         inputRecord: createJsonApiInputRecord(RESOURCE_TYPE, payload),
@@ -59,7 +59,7 @@ function createRepository({ api, knex } = {}) {
     );
   }
 
-  async function updateById(recordId, patch = {}, options = {}) {
+  async function patchDocumentById(recordId, patch = {}, options = {}) {
     const normalizedRecordId = normalizeRecordId(recordId, { fallback: null });
     if (!normalizedRecordId) {
       return null;
@@ -67,7 +67,7 @@ function createRepository({ api, knex } = {}) {
 
     const sourcePatch = patch && typeof patch === "object" && !Array.isArray(patch) ? patch : {};
     if (Object.keys(sourcePatch).length < 1) {
-      return findById(normalizedRecordId, options);
+      return getDocumentById(normalizedRecordId, options);
     }
 
     return api.resources.${option:namespace|camel}.patch(
@@ -87,7 +87,7 @@ function createRepository({ api, knex } = {}) {
     );
   }
 
-  async function deleteById(recordId, options = {}) {
+  async function deleteDocumentById(recordId, options = {}) {
     const normalizedRecordId = normalizeRecordId(recordId, { fallback: null });
     if (!normalizedRecordId) {
       return null;
@@ -107,11 +107,11 @@ function createRepository({ api, knex } = {}) {
 
   return Object.freeze({
     withTransaction,
-    list,
-    findById,
-    create,
-    updateById,
-    deleteById
+    queryDocuments,
+    getDocumentById,
+    createDocument,
+    patchDocumentById,
+    deleteDocumentById
   });
 }
 

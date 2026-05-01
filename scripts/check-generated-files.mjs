@@ -1,4 +1,5 @@
 import { spawnSync } from "node:child_process";
+import { validateGeneratedReferencePaths } from "./check-generated-reference-paths.mjs";
 
 const GENERATED_PATHS = Object.freeze([
   "packages/agent-docs/reference/autogen",
@@ -6,7 +7,11 @@ const GENERATED_PATHS = Object.freeze([
   "tooling/jskit-catalog/catalog/packages.json"
 ]);
 
-function main() {
+async function main() {
+  await validateGeneratedReferencePaths({
+    repoRoot: process.cwd()
+  });
+
   const result = spawnSync(
     "git",
     ["status", "--short", "--untracked-files=all", "--", ...GENERATED_PATHS],
@@ -37,4 +42,4 @@ function main() {
   process.exit(1);
 }
 
-main();
+await main();
