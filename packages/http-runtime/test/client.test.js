@@ -56,6 +56,285 @@ test("request serializes json body and injects csrf token for unsafe methods", a
   assert.equal(calls[1][1].body, JSON.stringify({ demo: true }));
 });
 
+test("request parses json:api responses as json payloads", async () => {
+  const fetchImpl = async () =>
+    mockResponse({
+      contentType: "application/vnd.api+json",
+      data: {
+        data: {
+          type: "contacts",
+          id: "2",
+          attributes: {
+            name: "ddd"
+          }
+        }
+      }
+    });
+
+  const client = createHttpClient({ fetchImpl });
+  const payload = await client.request("/api/contacts/2");
+
+  assert.deepEqual(payload, {
+    data: {
+      type: "contacts",
+      id: "2",
+      attributes: {
+        name: "ddd"
+      }
+    }
+  });
+});
+
+test("request encodes and decodes json:api resource transport for records", async () => {
+  const calls = [];
+  const fetchImpl = async (url, options) => {
+    calls.push([url, options]);
+    if (url === "/api/session") {
+      return mockResponse({
+        data: {
+          csrfToken: "csrf-jsonapi"
+        }
+      });
+    }
+
+    return mockResponse({
+      contentType: "application/vnd.api+json",
+      data: {
+        data: {
+          type: "contacts",
+          id: "2",
+          attributes: {
+            name: "ddd",
+            subscribed: false
+          }
+        }
+      }
+    });
+  };
+
+  const client = createHttpClient({ fetchImpl });
+  const payload = await client.request("/api/contacts/2", {
+    method: "PATCH",
+    body: {
+      name: "ddd",
+      subscribed: false
+    },
+    transport: {
+      kind: "jsonapi-resource",
+      requestType: "contact-updates",
+      responseType: "contacts",
+      responseKind: "record"
+    }
+  });
+
+  assert.deepEqual(payload, {
+    id: "2",
+    name: "ddd",
+    subscribed: false
+  });
+  assert.equal(calls[1][1].headers.Accept, "application/vnd.api+json");
+  assert.equal(calls[1][1].headers["Content-Type"], "application/vnd.api+json");
+  assert.equal(
+    calls[1][1].body,
+    JSON.stringify({
+      data: {
+        type: "contact-updates",
+        attributes: {
+          name: "ddd",
+          subscribed: false
+        }
+      }
+    })
+  );
+});
+
+test("request decodes json:api collection responses into JSKIT paged-list shape", async () => {
+  const fetchImpl = async () =>
+    mockResponse({
+      contentType: "application/vnd.api+json",
+      data: {
+        data: [
+          {
+            type: "contacts",
+            id: "2",
+            attributes: {
+              name: "ddd"
+            }
+          }
+        ],
+        meta: {
+          page: {
+            nextCursor: "cursor_2"
+          }
+        },
+        links: {
+          next: "/api/contacts?page[cursor]=cursor_2"
+        }
+      }
+    });
+
+  const client = createHttpClient({ fetchImpl });
+  const payload = await client.request("/api/contacts", {
+    method: "GET",
+    transport: {
+      kind: "jsonapi-resource",
+      responseType: "contacts",
+      responseKind: "collection"
+    }
+  });
+
+  assert.deepEqual(payload, {
+    items: [
+      {
+        id: "2",
+        name: "ddd"
+      }
+    ],
+    nextCursor: "cursor_2",
+    meta: {
+      page: {
+        nextCursor: "cursor_2"
+      }
+    },
+    links: {
+      next: "/api/contacts?page[cursor]=cursor_2"
+    }
+  });
+});
+
+test("request decodes native json-rest-api collection pagination metadata into JSKIT nextCursor", async () => {
+  const fetchImpl = async () =>
+    mockResponse({
+      contentType: "application/vnd.api+json",
+      data: {
+        data: [
+          {
+            type: "contacts",
+            id: "2",
+            attributes: {
+              name: "ddd"
+            }
+          }
+        ],
+        meta: {
+          pagination: {
+            cursor: {
+              next: "cursor_2"
+            }
+          }
+        },
+        links: {
+          next: "/api/contacts?page[after]=cursor_2&page[size]=20"
+        }
+      }
+    });
+
+  const client = createHttpClient({ fetchImpl });
+  const payload = await client.request("/api/contacts", {
+    method: "GET",
+    transport: {
+      kind: "jsonapi-resource",
+      responseType: "contacts",
+      responseKind: "collection"
+    }
+  });
+
+  assert.deepEqual(payload, {
+    items: [
+      {
+        id: "2",
+        name: "ddd"
+      }
+    ],
+    nextCursor: "cursor_2",
+    meta: {
+      pagination: {
+        cursor: {
+          next: "cursor_2"
+        }
+      }
+    },
+    links: {
+      next: "/api/contacts?page[after]=cursor_2&page[size]=20"
+    }
+  });
+});
+
+test("request encodes JSON:API query params for resource collections", async () => {
+  const calls = [];
+  const fetchImpl = async (url) => {
+    calls.push(url);
+    return mockResponse({
+      contentType: "application/vnd.api+json",
+      data: {
+        data: [],
+        meta: {
+          page: {
+            nextCursor: null
+          }
+        }
+      }
+    });
+  };
+
+  const client = createHttpClient({ fetchImpl });
+  await client.request("/api/contacts", {
+    method: "GET",
+    query: {
+      cursor: "cursor_2",
+      limit: 10,
+      q: "Merc",
+      include: "workspace,user",
+      workspaceId: "7"
+    },
+    transport: {
+      kind: "jsonapi-resource",
+      responseType: "contacts",
+      responseKind: "collection"
+    }
+  });
+
+  assert.equal(
+    calls[0],
+    "/api/contacts?page%5Bcursor%5D=cursor_2&page%5Blimit%5D=10&filter%5Bq%5D=Merc&include=workspace%2Cuser&filter%5BworkspaceId%5D=7"
+  );
+});
+
+test("request rejects json:api responses whose primary data type does not match the transport contract", async () => {
+  const fetchImpl = async () =>
+    mockResponse({
+      contentType: "application/vnd.api+json",
+      data: {
+        data: {
+          type: "user-settings",
+          id: "2",
+          attributes: {
+            name: "ddd"
+          }
+        }
+      }
+    });
+
+  const client = createHttpClient({ fetchImpl });
+
+  await assert.rejects(
+    () =>
+      client.request("/api/contacts/2", {
+        method: "GET",
+        transport: {
+          kind: "jsonapi-resource",
+          responseType: "contacts",
+          responseKind: "record"
+        }
+      }),
+    (error) => {
+      assert.equal(error?.message, "JSON:API response decoding failed.");
+      assert.equal(error?.cause?.message, "Expected JSON:API resource type contacts, received user-settings.");
+      return true;
+    }
+  );
+});
+
 test("request retries once on retryable csrf failure and preserves stateful headers", async () => {
   const calls = [];
   const fetchImpl = async (url, options) => {

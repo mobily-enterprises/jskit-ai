@@ -9,6 +9,7 @@ const nonWorkspaceFixture = await createTemplateServerFixture({
 });
 const { createActions } = await fixture.importServerModule("actions.js");
 const { createRepository } = await fixture.importServerModule("repository.js");
+const { createService } = await fixture.importServerModule("service.js");
 const { createActions: createNonWorkspaceActions } = await nonWorkspaceFixture.importServerModule("actions.js");
 
 after(async () => {
@@ -16,47 +17,125 @@ after(async () => {
   await nonWorkspaceFixture.cleanup();
 });
 
-test("template createRepository defaults tableName from resource metadata", () => {
-  const query = {
-    select() {
-      return query;
-    },
-    where() {
-      return query;
-    },
-    orderBy() {
-      return query;
-    },
-    modify(callback) {
-      if (typeof callback === "function") {
-        callback(query);
+test("template createRepository passes a mutable JSKIT context into json-rest-api", async () => {
+  const calls = [];
+  const api = {
+    resources: {
+      customers: {
+        async query(params, context) {
+          context.method = "query";
+          calls.push({ params, context });
+          return { data: [] };
+        }
       }
-      return query;
-    },
-    limit() {
-      return query;
-    },
-    then(resolve) {
-      return Promise.resolve([]).then(resolve);
     }
   };
-  const tables = [];
-  const knex = (tableName) => {
-    tables.push(tableName);
-    return query;
+  const knex = {
+    async transaction(work) {
+      return work("trx");
+    }
   };
+  const sourceContext = Object.freeze({
+    visibilityContext: Object.freeze({
+      visibility: "workspace",
+      scopeOwnerId: "7"
+    })
+  });
 
-  const repository = createRepository(knex, {});
+  const repository = createRepository({ api, knex });
   assert.equal(typeof repository.list, "function");
-  return repository.list({}).then(() => {
-    assert.equal(tables[0], "customers");
+  await repository.list(
+    {
+      q: "Merc",
+      cursor: "cursor_2",
+      limit: 10,
+      include: "workspace"
+    },
+    {
+      context: sourceContext
+    }
+  );
+
+  assert.deepEqual(calls[0].params, {
+    queryParams: {
+      filters: {
+        q: "Merc"
+      },
+      include: ["workspace"],
+      page: {
+        after: "cursor_2",
+        size: "10"
+      }
+    },
+    transaction: null,
+    simplified: false
+  });
+  assert.notEqual(
+    calls[0].context,
+    sourceContext
+  );
+  assert.deepEqual(calls[0].context, {
+    method: "query",
+    visibilityContext: {
+      visibility: "workspace",
+      scopeOwnerId: "7"
+    }
   });
 });
 
-test("template createActions requires explicit surface", () => {
-  assert.throws(
-    () => createActions({}),
-    /requires a non-empty surface/
+test("template createRepository builds mutable JSON:API input documents for writes", async () => {
+  const calls = [];
+  const api = {
+    resources: {
+      customers: {
+        async post(params) {
+          calls.push(params);
+          return { data: { type: "customers", id: "1", attributes: { name: "Merc" } } };
+        }
+      }
+    }
+  };
+  const knex = {
+    async transaction(work) {
+      return work("trx");
+    }
+  };
+
+  const repository = createRepository({ api, knex });
+  await repository.create({ name: "Merc" }, {});
+
+  assert.equal(Object.isFrozen(calls[0].inputRecord), false);
+  assert.equal(Object.isFrozen(calls[0].inputRecord.data), false);
+  assert.equal(Object.isFrozen(calls[0].inputRecord.data.attributes), false);
+  assert.deepEqual(calls[0].inputRecord, {
+    data: {
+      type: "customers",
+      attributes: {
+        name: "Merc"
+      }
+    }
+  });
+});
+
+test("template createService turns missing resource records into 404 errors", async () => {
+  const service = createService({
+    customersRepository: {
+      async findById() {
+        return null;
+      },
+      async updateById() {
+        return null;
+      }
+    }
+  });
+
+  await assert.rejects(
+    () => service.getRecord("7", {}),
+    (error) => error?.status === 404 && error?.message === "Record not found."
+  );
+  await assert.rejects(
+    () => service.updateRecord("7", { name: "Merc" }, {}),
+    (error) => error?.status === 404 && error?.message === "Record not found."
   );
 });
 
@@ -73,6 +152,42 @@ test("template createActions requires namespaced CRUD permissions by default", (
       { require: "all", permissions: ["crud.customers.delete"] }
     ]
   );
+});
+
+test("template list action strips workspaceSlug before calling the service", async () => {
+  const actions = createActions({ surface: "admin" });
+  const listAction = actions.find((action) => action.id === "crud.customers.list");
+  const calls = [];
+
+  await listAction.execute(
+    {
+      workspaceSlug: "acme",
+      q: "Merc",
+      include: "workspace"
+    },
+    { visibilityContext: { visibility: "workspace", scopeOwnerId: "7" } },
+    {
+      customersService: {
+        async listRecords(query, options) {
+          calls.push({ query, options });
+          return { data: [] };
+        }
+      }
+    }
+  );
+
+  assert.deepEqual(calls[0].query, {
+    q: "Merc",
+    include: "workspace"
+  });
+  assert.deepEqual(calls[0].options, {
+    context: {
+      visibilityContext: {
+        visibility: "workspace",
+        scopeOwnerId: "7"
+      }
+    }
+  });
 });
 
 test("template createActions omits workspace validators for non-workspace generation", () => {

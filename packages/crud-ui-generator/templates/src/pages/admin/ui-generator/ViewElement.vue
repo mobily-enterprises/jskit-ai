@@ -66,6 +66,11 @@ const UI_LIST_URL = __JSKIT_UI_VIEW_PAGE_LIST_URL__;
 const UI_EDIT_URL = __JSKIT_UI_VIEW_PAGE_EDIT_URL__;
 const UI_VIEW_TITLE_FALLBACK_FIELD_KEY = __JSKIT_UI_VIEW_TITLE_FALLBACK_FIELD_KEY__;
 const UI_RECORD_CHANGED_EVENT = __JSKIT_UI_RECORD_CHANGED_EVENT__;
+const UI_VIEW_TRANSPORT = Object.freeze({
+  kind: "jsonapi-resource",
+  responseType: "__JSKIT_UI_RESOURCE_NAMESPACE__",
+  responseKind: "record"
+});
 
 const view = useCrudView({
   adapter: UI_OPERATION_ADAPTER || undefined,
@@ -80,6 +85,7 @@ const view = useCrudView({
     String(workspaceSlug || "")
   ],
   placementSource: "ui-generator.__JSKIT_UI_RESOURCE_NAMESPACE__.view",
+  transport: UI_VIEW_TRANSPORT,
   fallbackLoadError: "Unable to load record.",
   notFoundMessage: "Record not found.",
   listUrlTemplate: UI_LIST_URL,

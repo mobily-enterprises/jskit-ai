@@ -9,45 +9,36 @@ import {
   createCrudParentFilterQueryValidator
 } from "@jskit-ai/crud-core/server/listQueryValidators";
 import { resource } from "../shared/${option:namespace|singular|camel}Resource.js";
+import { jsonRestResource } from "./jsonRestResource.js";
 import { actionIds } from "./actionIds.js";
-import { LIST_CONFIG } from "./listConfig.js";
 __JSKIT_CRUD_ACTION_WORKSPACE_VALIDATOR_IMPORT__
 
-const listCursorPaginationQueryValidator = createCrudCursorPaginationQueryValidator(LIST_CONFIG);
+const listCursorPaginationQueryValidator = createCrudCursorPaginationQueryValidator({
+  orderBy: jsonRestResource.defaultSort
+});
 const listParentFilterQueryValidator = createCrudParentFilterQueryValidator(resource);
 __JSKIT_CRUD_ACTION_PERMISSION_SUPPORT__
 
-function requireActionSurface(surface = "") {
-  const normalizedSurface = String(surface || "").trim().toLowerCase();
-  if (!normalizedSurface) {
-    throw new TypeError("createActions requires a non-empty surface.");
-  }
-
-  return normalizedSurface;
-}
-
-function createActions({ surface = "" } = {}) {
-  const actionSurface = requireActionSurface(surface);
-
+function createActions({ surface } = {}) {
   return Object.freeze([
     {
       id: actionIds.list,
       version: 1,
       kind: "query",
       channels: ["api", "automation", "internal"],
-      surfaces: [actionSurface],
+      surfaces: [surface],
       permission: __JSKIT_CRUD_LIST_ACTION_PERMISSION__,
       input: __JSKIT_CRUD_LIST_ACTION_INPUT__,
-      output: resource.operations.list.output,
+      output: null,
       idempotency: "none",
       audit: {
         actionName: actionIds.list
       },
       observability: {},
       async execute(input, context, deps) {
-        return deps.${option:namespace|camel}Service.listRecords(input, {
-          context,
-          visibilityContext: context?.visibilityContext
+        const { workspaceSlug, ...query } = input || {};
+        return deps.${option:namespace|camel}Service.listRecords(query, {
+          context
         });
       }
     },
@@ -56,10 +47,10 @@ function createActions({ surface = "" } = {}) {
       version: 1,
       kind: "query",
       channels: ["api", "automation", "internal"],
-      surfaces: [actionSurface],
+      surfaces: [surface],
       permission: __JSKIT_CRUD_VIEW_ACTION_PERMISSION__,
       input: __JSKIT_CRUD_VIEW_ACTION_INPUT__,
-      output: resource.operations.view.output,
+      output: null,
       idempotency: "none",
       audit: {
         actionName: actionIds.view
@@ -68,7 +59,6 @@ function createActions({ surface = "" } = {}) {
       async execute(input, context, deps) {
         return deps.${option:namespace|camel}Service.getRecord(input.recordId, {
           context,
-          visibilityContext: context?.visibilityContext,
           include: input.include
         });
       }
@@ -78,10 +68,10 @@ function createActions({ surface = "" } = {}) {
       version: 1,
       kind: "command",
       channels: ["api", "automation", "internal"],
-      surfaces: [actionSurface],
+      surfaces: [surface],
       permission: __JSKIT_CRUD_CREATE_ACTION_PERMISSION__,
       input: __JSKIT_CRUD_CREATE_ACTION_INPUT__,
-      output: resource.operations.create.output,
+      output: null,
       idempotency: "optional",
       audit: {
         actionName: actionIds.create
@@ -90,8 +80,7 @@ function createActions({ surface = "" } = {}) {
       async execute(input, context, deps) {
         const { workspaceSlug, ...payload } = input || {};
         return deps.${option:namespace|camel}Service.createRecord(payload, {
-          context,
-          visibilityContext: context?.visibilityContext
+          context
         });
       }
     },
@@ -100,10 +89,10 @@ function createActions({ surface = "" } = {}) {
       version: 1,
       kind: "command",
       channels: ["api", "automation", "internal"],
-      surfaces: [actionSurface],
+      surfaces: [surface],
       permission: __JSKIT_CRUD_UPDATE_ACTION_PERMISSION__,
       input: __JSKIT_CRUD_UPDATE_ACTION_INPUT__,
-      output: resource.operations.patch.output,
+      output: null,
       idempotency: "optional",
       audit: {
         actionName: actionIds.update
@@ -112,8 +101,7 @@ function createActions({ surface = "" } = {}) {
       async execute(input, context, deps) {
         const { workspaceSlug, recordId, ...patch } = input || {};
         return deps.${option:namespace|camel}Service.updateRecord(recordId, patch, {
-          context,
-          visibilityContext: context?.visibilityContext
+          context
         });
       }
     },
@@ -122,10 +110,10 @@ function createActions({ surface = "" } = {}) {
       version: 1,
       kind: "command",
       channels: ["api", "automation", "internal"],
-      surfaces: [actionSurface],
+      surfaces: [surface],
       permission: __JSKIT_CRUD_DELETE_ACTION_PERMISSION__,
       input: __JSKIT_CRUD_DELETE_ACTION_INPUT__,
-      output: resource.operations.delete.output,
+      output: null,
       idempotency: "optional",
       audit: {
         actionName: actionIds.delete
@@ -133,8 +121,7 @@ function createActions({ surface = "" } = {}) {
       observability: {},
       async execute(input, context, deps) {
         return deps.${option:namespace|camel}Service.deleteRecord(input.recordId, {
-          context,
-          visibilityContext: context?.visibilityContext
+          context
         });
       }
     }

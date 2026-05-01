@@ -98,3 +98,36 @@ test("createHttpError normalizes code and fieldErrors", () => {
     }
   });
 });
+
+test("createHttpError decodes json:api error documents into the existing fieldErrors shape", () => {
+  const error = createHttpError(
+    {
+      status: 422
+    },
+    {
+      errors: [
+        {
+          status: "422",
+          code: "invalid_input",
+          title: "Validation failed.",
+          detail: "Name is required.",
+          source: {
+            pointer: "/data/attributes/name"
+          }
+        }
+      ]
+    }
+  );
+
+  assert.equal(error.status, 422);
+  assert.equal(error.code, "invalid_input");
+  assert.equal(error.message, "Name is required.");
+  assert.deepEqual(error.fieldErrors, {
+    name: "Name is required."
+  });
+  assert.deepEqual(error.details, {
+    fieldErrors: {
+      name: "Name is required."
+    }
+  });
+});

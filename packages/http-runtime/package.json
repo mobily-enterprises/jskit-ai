@@ -9,6 +9,7 @@
     "./client": "./src/client/index.js",
     "./shared": "./src/shared/index.js",
     "./shared/validators/errorResponses": "./src/shared/validators/errorResponses.js",
+    "./shared/validators/jsonApiRouteTransport": "./src/shared/validators/jsonApiRouteTransport.js",
     "./shared/validators/paginationQuery": "./src/shared/validators/paginationQuery.js",
     "./shared/validators/command": "./src/shared/validators/command.js",
     "./shared/validators/resource": "./src/shared/validators/resource.js",

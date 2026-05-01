@@ -317,12 +317,20 @@ test("buildReplacementsFromSnapshot builds deterministic template replacement pa
     /firstName: \{\s+type: "string",\s+maxLength: 160,\s+required: true\s+\},/s
   );
   assert.match(
-    replacements.__JSKIT_CRUD_LIST_CONFIG_LINES__,
-    /orderBy: \[\s+{\s+column: "created_at",\s+direction: "desc"\s+}\s+\]/s
+    replacements.__JSKIT_CRUD_JSONREST_SCHEMA_PROPERTIES__,
+    /createdAt: \{[\s\S]*storage: \{ serialize: serializeNullableDateTime \}[\s\S]*\},/s
   );
-  assert.match(
-    replacements.__JSKIT_CRUD_LIST_CONFIG_LINES__,
-    /\/\/ searchColumns: \["name"\],\s+orderBy:/s
+  assert.doesNotMatch(
+    replacements.__JSKIT_CRUD_JSONREST_SCHEMA_PROPERTIES__,
+    /workspaceId: \{[^}]*storage: \{/s
+  );
+  assert.doesNotMatch(
+    replacements.__JSKIT_CRUD_JSONREST_SCHEMA_PROPERTIES__,
+    /howManyCars: \{[^}]*storage: \{/s
+  );
+  assert.doesNotMatch(
+    replacements.__JSKIT_CRUD_JSONREST_SCHEMA_PROPERTIES__,
+    /^\s*id:\s*\{/m
   );
   assert.equal(replacements.__JSKIT_CRUD_MIGRATION_FOREIGN_KEY_LINES__, "");
 });
@@ -458,8 +466,6 @@ test("buildReplacementsFromSnapshot omits default list ordering when created_at 
     resolvedOwnershipFilter: "workspace_user"
   });
 
-  assert.doesNotMatch(replacements.__JSKIT_CRUD_LIST_CONFIG_LINES__, /orderBy/);
-  assert.match(replacements.__JSKIT_CRUD_LIST_CONFIG_LINES__, /searchColumns/);
 });
 
 test("buildReplacementsFromSnapshot renders inline field relation metadata from foreign keys", () => {
@@ -945,79 +951,98 @@ test("buildReplacementsFromSnapshot normalizes nullable temporal inputs without 
   );
 });
 
-test("crud repository template defines explicit one-line CRUD methods over repository primitives", async () => {
+test("crud repository template defines a json-rest-api adapter over the injected internal host", async () => {
   const testDirectory = path.dirname(fileURLToPath(import.meta.url));
   const templatePath = path.resolve(testDirectory, "..", "templates", "src", "local-package", "server", "repository.js");
   const templateSource = await readFile(templatePath, "utf8");
-  assert.match(
-    templateSource,
-    /from "@jskit-ai\/crud-core\/server\/resourceRuntime";/
-  );
-  assert.match(templateSource, /import \{ LIST_CONFIG \} from "\.\/listConfig\.js";/);
-  assert.match(templateSource, /const REPOSITORY_CONFIG = Object\.freeze\(\{/);
-  assert.match(templateSource, /const resourceRuntime = createCrudResourceRuntime\(resource, knex, \{/);
-  assert.match(templateSource, /\.\.\.options,/);
-  assert.match(templateSource, /\.\.\.REPOSITORY_CONFIG/);
-  assert.match(templateSource, /return resourceRuntime\.list\(query, callOptions\);/);
-  assert.match(templateSource, /return resourceRuntime\.findById\(recordId, callOptions\);/);
-  assert.match(templateSource, /return resourceRuntime\.listByIds\(ids, callOptions\);/);
-  assert.match(templateSource, /return resourceRuntime\.listByForeignIds\(ids, foreignKey, callOptions\);/);
-  assert.match(templateSource, /return resourceRuntime\.create\(payload, callOptions\);/);
-  assert.match(templateSource, /return resourceRuntime\.updateById\(recordId, patch, callOptions\);/);
-  assert.match(templateSource, /return resourceRuntime\.deleteById\(recordId, callOptions\);/);
-  assert.match(templateSource, /async function listByForeignIds\(ids = \[\], foreignKey = "", callOptions = \{\}\) \{/);
-  assert.match(templateSource, /withTransaction: resourceRuntime\.withTransaction/);
+  assert.doesNotMatch(templateSource, /from "@jskit-ai\/http-runtime\/shared";/);
+  assert.match(templateSource, /import \{\s*buildJsonRestQueryParams,\s*createJsonApiInputRecord,\s*createJsonRestContext\s*\} from "@jskit-ai\/json-rest-api-core\/server\/jsonRestApiHost";/s);
+  assert.match(templateSource, /return api\.resources\.\$\{option:namespace\|camel\}\.query\(/);
+  assert.match(templateSource, /return await api\.resources\.\$\{option:namespace\|camel\}\.get\(/);
+  assert.match(templateSource, /return api\.resources\.\$\{option:namespace\|camel\}\.post\(/);
+  assert.match(templateSource, /return api\.resources\.\$\{option:namespace\|camel\}\.patch\(/);
+  assert.match(templateSource, /await api\.resources\.\$\{option:namespace\|camel\}\.delete\(/);
+  assert.match(templateSource, /createJsonRestContext\(options\?\.context \|\| null\)/);
+  assert.match(templateSource, /buildJsonRestQueryParams\(RESOURCE_TYPE, query\)/);
+  assert.match(templateSource, /createJsonApiInputRecord\(RESOURCE_TYPE, payload\)/);
+  assert.doesNotMatch(templateSource, /function toJsonRestContext\(context = null\)/);
+  assert.doesNotMatch(templateSource, /function normalizeArrayInput\(value\)/);
+  assert.doesNotMatch(templateSource, /function buildJsonRestQueryParams\(query = \{\}/);
+  assert.doesNotMatch(templateSource, /function createJsonApiInputRecord\(attributes = \{\}/);
+  assert.doesNotMatch(templateSource, /normalizeVisibilityContext/);
+  assert.match(templateSource, /withTransaction,/);
   assert.match(templateSource, /return Object\.freeze\(\{/);
-  assert.doesNotMatch(templateSource, /crudRepositoryList/);
+  assert.doesNotMatch(templateSource, /createCrudResourceRuntime|resourceRuntime\./);
 });
 
-test("crud actions and routes templates share LIST_CONFIG for cursor validation", async () => {
+test("crud provider template registers its json-rest resource directly in boot", async () => {
+  const testDirectory = path.dirname(fileURLToPath(import.meta.url));
+  const templatePath = path.resolve(testDirectory, "..", "templates", "src", "local-package", "server", "CrudProvider.js");
+  const templateSource = await readFile(templatePath, "utf8");
+
+  assert.match(templateSource, /import \{ createCrudJsonApiServiceEvents \} from "@jskit-ai\/crud-core\/server\/serviceEvents";/);
+  assert.match(templateSource, /import \{ INTERNAL_JSON_REST_API, addResourceIfMissing \} from "@jskit-ai\/json-rest-api-core\/server\/jsonRestApiHost";/);
+  assert.match(templateSource, /import \{ createService \} from "\.\/service\.js";/);
+  assert.doesNotMatch(templateSource, /serviceEvents\s*\}\s*from "\.\/service\.js";/);
+  assert.match(templateSource, /import \{ jsonRestResource \} from "\.\/jsonRestResource\.js";/);
+  assert.doesNotMatch(templateSource, /register\$\{option:namespace\|pascal\}JsonRestResources/);
+  assert.match(templateSource, /const baseServiceEvents = createCrudJsonApiServiceEvents\(CRUD_MODULE_CONFIG\.namespace\);/);
+  assert.match(templateSource, /const serviceEvents = \{\s+\.\.\.baseServiceEvents\s+\};/s);
+  assert.match(templateSource, /const api = app\.make\(INTERNAL_JSON_REST_API\);/);
+  assert.match(templateSource, /await addResourceIfMissing\(api, __JSKIT_CRUD_JSONREST_SCOPE_NAME__, jsonRestResource\);/);
+});
+
+test("crud actions and routes templates derive cursor validation from jsonRestResource", async () => {
   const testDirectory = path.dirname(fileURLToPath(import.meta.url));
   const actionsTemplatePath = path.resolve(testDirectory, "..", "templates", "src", "local-package", "server", "actions.js");
   const registerRoutesTemplatePath = path.resolve(testDirectory, "..", "templates", "src", "local-package", "server", "registerRoutes.js");
-  const listConfigTemplatePath = path.resolve(testDirectory, "..", "templates", "src", "local-package", "server", "listConfig.js");
 
   const actionsTemplateSource = await readFile(actionsTemplatePath, "utf8");
   const registerRoutesTemplateSource = await readFile(registerRoutesTemplatePath, "utf8");
-  const listConfigTemplateSource = await readFile(listConfigTemplatePath, "utf8");
 
   assert.match(actionsTemplateSource, /createCrudCursorPaginationQueryValidator/);
-  assert.match(actionsTemplateSource, /import \{ LIST_CONFIG \} from "\.\/listConfig\.js";/);
-  assert.match(actionsTemplateSource, /const listCursorPaginationQueryValidator = createCrudCursorPaginationQueryValidator\(LIST_CONFIG\);/);
+  assert.match(actionsTemplateSource, /import \{ jsonRestResource \} from "\.\/jsonRestResource\.js";/);
+  assert.match(actionsTemplateSource, /const listCursorPaginationQueryValidator = createCrudCursorPaginationQueryValidator\(\{\s+orderBy: jsonRestResource\.defaultSort\s+\}\);/s);
   assert.match(actionsTemplateSource, /__JSKIT_CRUD_ACTION_PERMISSION_SUPPORT__/);
   assert.match(actionsTemplateSource, /__JSKIT_CRUD_LIST_ACTION_PERMISSION__/);
+  assert.match(actionsTemplateSource, /output: null,/);
   assert.doesNotMatch(actionsTemplateSource, /ACTIONS_REQUIRE_NAMED_PERMISSIONS/);
   assert.doesNotMatch(actionsTemplateSource, /createActionPermission/);
   assert.match(registerRoutesTemplateSource, /createCrudCursorPaginationQueryValidator/);
-  assert.match(registerRoutesTemplateSource, /import \{ LIST_CONFIG \} from "\.\/listConfig\.js";/);
-  assert.match(registerRoutesTemplateSource, /const listCursorPaginationQueryValidator = createCrudCursorPaginationQueryValidator\(LIST_CONFIG\);/);
-  assert.match(listConfigTemplateSource, /const LIST_CONFIG = Object\.freeze\(\{/);
-  assert.match(listConfigTemplateSource, /__JSKIT_CRUD_LIST_CONFIG_LINES__/);
+  assert.match(registerRoutesTemplateSource, /createJsonApiResourceRouteContract/);
+  assert.match(registerRoutesTemplateSource, /import \{ jsonRestResource \} from "\.\/jsonRestResource\.js";/);
+  assert.match(registerRoutesTemplateSource, /const listCursorPaginationQueryValidator = createCrudCursorPaginationQueryValidator\(\{\s+orderBy: jsonRestResource\.defaultSort\s+\}\);/s);
+  assert.match(registerRoutesTemplateSource, /const listRouteContract = createJsonApiResourceRouteContract\(\{/);
+  assert.match(registerRoutesTemplateSource, /const viewRouteContract = createJsonApiResourceRouteContract\(\{/);
+  assert.match(registerRoutesTemplateSource, /const createRouteContract = createJsonApiResourceRouteContract\(\{/);
+  assert.match(registerRoutesTemplateSource, /const updateRouteContract = createJsonApiResourceRouteContract\(\{/);
+  assert.match(registerRoutesTemplateSource, /const deleteRouteContract = createJsonApiResourceRouteContract\(\{/);
+  assert.match(registerRoutesTemplateSource, /output: resource\.operations\.view\.output,\s+outputKind: "collection",\s+wrapResponse: false/s);
+  assert.match(registerRoutesTemplateSource, /successStatus: 201/);
+  assert.match(registerRoutesTemplateSource, /outputKind: "no-content",\s+successStatus: 204,\s+wrapResponse: false/s);
+  assert.match(registerRoutesTemplateSource, /reply\.code\(204\)\.send\(response\);/);
+  assert.doesNotMatch(registerRoutesTemplateSource, /withStandardErrorResponses/);
 });
 
-test("crud service template defines explicit service methods over shared service primitives and preserves overridable default events", async () => {
+test("crud service template preserves JSON:API output and emits entity ids from resource documents", async () => {
   const testDirectory = path.dirname(fileURLToPath(import.meta.url));
   const templatePath = path.resolve(testDirectory, "..", "templates", "src", "local-package", "server", "service.js");
   const templateSource = await readFile(templatePath, "utf8");
 
-  assert.match(
-    templateSource,
-    /from "@jskit-ai\/crud-core\/server\/serviceEvents";/
-  );
-  assert.match(
-    templateSource,
-    /from "@jskit-ai\/crud-core\/server\/serviceMethods";/
-  );
-  assert.match(templateSource, /const serviceRuntime = createCrudServiceRuntime\(resource,/);
-  assert.match(templateSource, /const baseServiceEvents = createCrudServiceEvents\(resource,/);
-  assert.match(templateSource, /const serviceEvents = Object\.freeze\(\{/);
-  assert.match(templateSource, /createRecord: \[\.\.\.baseServiceEvents\.createRecord\],/);
-  assert.match(templateSource, /function createService\(\{ \$\{option:namespace\|camel\}Repository, fieldAccess = DEFAULT_FIELD_ACCESS \} = \{\}\)/);
+  assert.doesNotMatch(templateSource, /crudNamespaceSupport/);
+  assert.doesNotMatch(templateSource, /serviceEvents/);
+  assert.doesNotMatch(templateSource, /recordChangedEventName/);
+  assert.doesNotMatch(templateSource, /resolveJsonApiResultRecordId/);
+  assert.doesNotMatch(templateSource, /entityId:/);
+  assert.match(templateSource, /function return404IfNotFound\(record = null\) \{/);
+  assert.match(templateSource, /throw new AppError\(404, "Record not found\."\);/);
+  assert.match(templateSource, /function createService\(\{ \$\{option:namespace\|camel\}Repository \} = \{\}\)/);
   assert.match(templateSource, /async function listRecords\(query = \{\}, options = \{\}\)/);
-  assert.match(templateSource, /return crudServiceListRecords\(serviceRuntime, \$\{option:namespace\|camel\}Repository, fieldAccess, query, options\);/);
+  assert.match(templateSource, /return \$\{option:namespace\|camel\}Repository\.list\(query, \{/);
   assert.match(templateSource, /async function updateRecord\(recordId, payload = \{\}, options = \{\}\)/);
-  assert.match(templateSource, /return crudServiceUpdateRecord\(serviceRuntime, \$\{option:namespace\|camel\}Repository, fieldAccess, recordId, payload, options\);/);
+  assert.match(templateSource, /return return404IfNotFound\(await \$\{option:namespace\|camel\}Repository\.updateById\(recordId, payload, \{/);
   assert.match(templateSource, /return Object\.freeze\(\{/);
+  assert.match(templateSource, /export \{ createService \};/);
 });
 
 test("crud generator renders time columns with html-time-compatible schemas", async () => {
@@ -1150,23 +1175,25 @@ test("buildReplacementsFromSnapshot only imports record-id validator helpers tha
   );
 });
 
-test("crud provider template uses shared lookup provider helpers instead of inline wiring", async () => {
+test("crud provider template injects the shared internal json-rest-api host and registers local resources at boot", async () => {
   const testDirectory = path.dirname(fileURLToPath(import.meta.url));
   const templatePath = path.resolve(testDirectory, "..", "templates", "src", "local-package", "server", "CrudProvider.js");
   const templateSource = await readFile(templatePath, "utf8");
 
   assert.match(
     templateSource,
-    /from "@jskit-ai\/crud-core\/server\/lookups";/
+    /from "@jskit-ai\/json-rest-api-core\/server\/jsonRestApiHost";/
   );
-  assert.match(templateSource, /resolveLookup: createCrudLookupResolver\(scope\)/);
   assert.match(
     templateSource,
-    /return createCrudLookup\(scope\.make\("repository\.\$\{option:namespace\|snake\}"\), \{\s*ownershipFilter: crudPolicy\.ownershipFilter\s*\}\);/
+    /const api = scope\.make\(INTERNAL_JSON_REST_API\);/
   );
+  assert.match(templateSource, /return createRepository\(\{\s*api,\s*knex\s*\}\);/s);
+  assert.match(templateSource, /await addResourceIfMissing\(api, __JSKIT_CRUD_JSONREST_SCOPE_NAME__, jsonRestResource\);/);
+  assert.doesNotMatch(templateSource, /register\$\{option:namespace\|pascal\}JsonRestResources/);
   assert.match(
     templateSource,
     /routeSurfaceRequiresWorkspace: crudPolicy\.surfaceDefinition\.requiresWorkspace === true,/
   );
-  assert.doesNotMatch(templateSource, /normalizePathname\(relation\.apiPath\)/);
+  assert.doesNotMatch(templateSource, /createCrudLookup|lookup\.\$\{option:namespace\|snake\}/);
 });

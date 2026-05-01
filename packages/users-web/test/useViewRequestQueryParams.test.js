@@ -1,20 +1,20 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { appendRequestQueryEntriesToPath } from "../src/client/composables/support/requestQueryPathSupport.js";
+import { buildRequestQueryObject } from "../src/client/composables/support/requestQueryRuntimeSupport.js";
 
-test("appendRequestQueryEntriesToPath appends request query params deterministically", () => {
-  assert.equal(
-    appendRequestQueryEntriesToPath("/api/w/dev-admin/contacts/1", [
+test("buildRequestQueryObject preserves repeated keys as arrays deterministically", () => {
+  assert.deepEqual(
+    buildRequestQueryObject([
       { key: "include", values: ["vetId", "linkedUserId", "pets", "pets.breedId"] },
       { key: "limit", values: ["10"] }
     ]),
-    "/api/w/dev-admin/contacts/1?include=vetId&include=linkedUserId&include=pets&include=pets.breedId&limit=10"
+    {
+      include: ["vetId", "linkedUserId", "pets", "pets.breedId"],
+      limit: "10"
+    }
   );
 });
 
-test("appendRequestQueryEntriesToPath leaves the base path unchanged when no request params are active", () => {
-  assert.equal(
-    appendRequestQueryEntriesToPath("/api/w/dev-admin/contacts/1", []),
-    "/api/w/dev-admin/contacts/1"
-  );
+test("buildRequestQueryObject returns an empty object when no request params are active", () => {
+  assert.deepEqual(buildRequestQueryObject([]), {});
 });

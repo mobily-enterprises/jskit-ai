@@ -9,6 +9,7 @@ export default Object.freeze({
     "@jskit-ai/crud-core",
     "@jskit-ai/database-runtime",
     "@jskit-ai/http-runtime",
+    "@jskit-ai/json-rest-api-core",
     "@jskit-ai/users-core",
     "@jskit-ai/workspaces-core"
   ],
@@ -19,7 +20,8 @@ export default Object.freeze({
     requires: [
       "runtime.actions",
       "runtime.database",
-      "auth.policy"
+      "auth.policy",
+      "json-rest-api.core"
     ]
   },
   runtime: {

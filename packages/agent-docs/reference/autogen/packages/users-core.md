@@ -114,16 +114,13 @@ Local functions
 - `resolveAuthProfileSettings(authService)`
 - `formatUserSettingsSection(fieldKeys, settings = {})`
 
-### `src/server/common/jsonRestApiHost.js`
-Exports
-- `INTERNAL_JSON_REST_API`
-- `addResourceIfMissing(api, scopeName, resourceConfig)`
-- `createJsonRestApiHost({ knex })`
-- `registerJsonRestApiHost(app)`
-
 ### `src/server/common/registerCommonRepositories.js`
 Exports
 - `registerCommonRepositories(app)`
+
+### `src/server/common/registerJsonRestResources.js`
+Exports
+- `registerUsersJsonRestResources(app)`
 
 ### `src/server/common/registerSharedApi.js`
 Exports
@@ -199,6 +196,10 @@ Local functions
 - `profileNeedsUpdate(existing, nextProfile)`
 - `requireSynchronizedProfile(profile)`
 - `normalizeLifecycleContributors(entries = [])`
+
+### `src/server/common/support/accountSettingsJsonApiTransport.js`
+Exports
+- `resolveAccountSettingsResourceId(_record, context = {})`
 
 ### `src/server/common/support/deepFreeze.js`
 Exports

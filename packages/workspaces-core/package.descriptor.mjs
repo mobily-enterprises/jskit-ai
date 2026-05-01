@@ -5,6 +5,7 @@ export default Object.freeze({
   kind: "runtime",
   description: "Workspace tenancy runtime plus HTTP routes, role catalog, and workspace config scaffolding.",
   dependsOn: [
+    "@jskit-ai/json-rest-api-core",
     "@jskit-ai/users-core"
   ],
   capabilities: {
@@ -13,7 +14,8 @@ export default Object.freeze({
       "workspaces.server-routes"
     ],
     requires: [
-      "users.core"
+      "users.core",
+      "json-rest-api.core"
     ]
   },
   runtime: {
@@ -112,6 +114,7 @@ export default Object.freeze({
   mutations: {
     dependencies: {
       runtime: {
+        "@jskit-ai/json-rest-api-core": "0.1.0",
         "@jskit-ai/users-core": "0.1.65"
       },
       dev: {}

@@ -14,6 +14,26 @@ Use this on demand; do not load the full index at startup.
 
 ### src
 
+### `src/client/bootstrap/bootstrapErrorStatus.js`
+Exports
+- `resolveBootstrapErrorStatusCode(error)`
+
+### `src/client/bootstrap/bootstrapPayloadHandlerRegistry.js`
+Exports
+- `BOOTSTRAP_PAYLOAD_HANDLER_TAG`
+- `registerBootstrapPayloadHandler(app, token, factory)`
+- `resolveBootstrapPayloadHandlers(scope)`
+Local functions
+- `assertTaggableApp(app, context = "bootstrap payload handler registry")`
+- `normalizeBootstrapPayloadHandler(entry)`
+
+### `src/client/bootstrap/index.js`
+Exports
+- `BOOTSTRAP_PAYLOAD_HANDLER_TAG`
+- `registerBootstrapPayloadHandler`
+- `resolveBootstrapPayloadHandlers`
+- `resolveBootstrapErrorStatusCode`
+
 ### `src/client/components/ShellErrorHost.vue`
 Exports
 - None
@@ -130,6 +150,9 @@ Exports
 - `useShellLayoutState`
 - `useShellLayoutStore`
 - `useShellErrorPresentationStore`
+- `BOOTSTRAP_PAYLOAD_HANDLER_TAG`
+- `registerBootstrapPayloadHandler`
+- `resolveBootstrapPayloadHandlers`
 - `clientProviders`
 
 ### `src/client/lib/menuIcons.js`
@@ -246,6 +269,14 @@ Local functions
 - `applyAppErrorConfig(errorRuntime, errorConfig = {})`
 - `installVueErrorBridge(vueApp, errorRuntime, logger)`
 - `installRouterErrorBridge(app, errorRuntime, logger)`
+
+### `src/client/runtime/bootstrapRuntime.js`
+Exports
+- `createShellBootstrapRuntime({ app, logger = null, fetchImplementation = globalThis.fetch, bootstrapPath = DEFAULT_BOOTSTRAP_PATH } = {})`
+Local functions
+- `normalizeObject(value)`
+- `buildBootstrapUrl({ path = DEFAULT_BOOTSTRAP_PATH, query = {} } = {})`
+- `normalizeBootstrapResponseError(response, url)`
 
 ### `src/client/stores/useShellErrorPresentationStore.js`
 Exports

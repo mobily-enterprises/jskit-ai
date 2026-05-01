@@ -19,10 +19,9 @@
     "@jskit-ai/auth-core": "0.1.54",
     "@jskit-ai/database-runtime": "0.1.55",
     "@jskit-ai/http-runtime": "0.1.54",
+    "@jskit-ai/json-rest-api-core": "0.1.0",
     "@jskit-ai/kernel": "0.1.55",
     "@jskit-ai/users-core": "0.1.65",
-    "hooked-api": "file:../../../hooked-api",
-    "json-rest-api": "file:../../../json-rest-api",
     "json-rest-schema": "file:../../../json-rest-schema"
   }
 }

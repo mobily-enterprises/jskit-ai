@@ -2,6 +2,7 @@ import { ensureNonEmptyText, normalizeObject, normalizeText } from "../../../sha
 import { RouteDefinitionError } from "./errors.js";
 import { resolveRouteValidatorOptions } from "./routeValidator.js";
 import { normalizeMiddlewareStack as normalizeSharedMiddlewareStack } from "./routeSupport.js";
+import { normalizeRouteOutputTransform, normalizeRouteTransport } from "./routeTransport.js";
 
 function normalizeMethod(method) {
   return ensureNonEmptyText(method, "route method").toUpperCase();
@@ -79,8 +80,21 @@ class HttpRouter {
     const routeMiddleware = normalizeRouterMiddlewareStack(resolvedOptions.middleware, {
       context: `Route ${input.method} ${input.path} middleware`
     });
-    const routeInput = Object.prototype.hasOwnProperty.call(resolvedOptions, "input") ? resolvedOptions.input : null;
-    const routeOutput = Object.prototype.hasOwnProperty.call(resolvedOptions, "output") ? resolvedOptions.output : null;
+    const routeInput = Object.hasOwn(resolvedOptions, "input") ? resolvedOptions.input : null;
+    const routeOutput = normalizeRouteOutputTransform(
+      Object.hasOwn(resolvedOptions, "output") ? resolvedOptions.output : null,
+      {
+        context: `Route ${input.method} ${input.path} output`,
+        ErrorType: RouteDefinitionError
+      }
+    );
+    const routeTransport = normalizeRouteTransport(
+      Object.hasOwn(resolvedOptions, "transport") ? resolvedOptions.transport : null,
+      {
+        context: `Route ${input.method} ${input.path} transport`,
+        ErrorType: RouteDefinitionError
+      }
+    );
 
     const route = Object.freeze({
       id: normalizeText(resolvedOptions.id),
@@ -89,6 +103,7 @@ class HttpRouter {
       schema: resolvedOptions.schema,
       input: routeInput,
       output: routeOutput,
+      transport: routeTransport,
       config: normalizeObject(resolvedOptions.config),
       auth: resolvedOptions.auth,
       contextPolicy: resolvedOptions.contextPolicy,

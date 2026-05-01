@@ -6,12 +6,7 @@ import { useEndpointResource } from "../runtime/useEndpointResource.js";
 import { resolveOperationAdapter } from "../runtime/operationAdapters.js";
 import { setupOperationErrorReporting } from "../runtime/operationUiHelpers.js";
 import { createViewUiRuntime } from "../runtime/viewUiRuntime.js";
-import {
-  resolveQueryParamDescriptors,
-  resolveActiveQueryParamEntries,
-  buildQueryParamEntriesToken
-} from "../support/listQueryParamSupport.js";
-import { appendRequestQueryEntriesToPath } from "../support/requestQueryPathSupport.js";
+import { createRequestQueryRuntime } from "../support/requestQueryRuntimeSupport.js";
 import { resolveRouteParamNamesInOrder } from "../support/routeTemplateHelpers.js";
 
 function useView({
@@ -23,6 +18,7 @@ function useView({
   viewPermissions = [],
   readMethod = "GET",
   readEnabled = true,
+  transport = null,
   placementSource = "users-web.view",
   fallbackLoadError = "Unable to load resource.",
   notFoundStatuses = [404],
@@ -73,24 +69,13 @@ function useView({
     return Object.freeze({
       surfaceId: operationScope.routeContext.currentSurfaceId.value,
       scopeParamValue: operationScope.scopeParamValue.value,
-      ownershipFilter: operationScope.normalizedOwnershipFilter
+      ownershipFilter: operationScope.normalizedOwnershipFilter,
+      recordId: viewUiRuntime.recordId.value
     });
   });
-  const requestQueryParamDescriptors = computed(() => {
-    return resolveQueryParamDescriptors(requestQueryParams, queryParamsContext.value);
-  });
-  const activeRequestQueryParamEntries = computed(() => {
-    return resolveActiveQueryParamEntries(requestQueryParamDescriptors.value);
-  });
-  const activeRequestQueryParamsToken = computed(() => {
-    return buildQueryParamEntriesToken(activeRequestQueryParamEntries.value);
-  });
-  const queryKey = computed(() => {
+  const baseQueryKey = computed(() => {
     const source = Array.isArray(operationScope.queryKey.value) ? operationScope.queryKey.value : [];
     const next = [...source];
-    if (activeRequestQueryParamsToken.value) {
-      next.push("__request_query__", activeRequestQueryParamsToken.value);
-    }
     if (!includeRecordIdInQueryKey) {
       return next;
     }
@@ -98,19 +83,20 @@ function useView({
     const recordIdToken = String(viewUiRuntime.recordId.value || "").trim();
     return [...next, recordIdToken];
   });
-  const requestPath = computed(() => {
-    return appendRequestQueryEntriesToPath(
-      operationScope.apiPath.value,
-      activeRequestQueryParamEntries.value
-    );
+  const requestQueryRuntime = createRequestQueryRuntime({
+    requestQueryParams,
+    context: queryParamsContext,
+    sourceQueryKey: baseQueryKey
   });
   const canView = operationScope.permissionGate("view");
 
   const resource = useEndpointResource({
-    queryKey,
-    path: requestPath,
+    queryKey: requestQueryRuntime.queryKey,
+    path: operationScope.apiPath,
     enabled: operationScope.queryCanRun(canView),
     readMethod,
+    readQuery: requestQueryRuntime.requestQuery,
+    transport,
     fallbackLoadError
   });
 

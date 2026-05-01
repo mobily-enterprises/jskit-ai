@@ -1,8 +1,17 @@
 import { withStandardErrorResponses } from "@jskit-ai/http-runtime/shared/validators/errorResponses";
+import { createJsonApiResourceRouteContract } from "@jskit-ai/http-runtime/shared/validators/jsonApiRouteTransport";
 import { DEFAULT_IMAGE_UPLOAD_MAX_BYTES } from "@jskit-ai/uploads-runtime/shared";
 import { readSingleMultipartFile } from "@jskit-ai/uploads-runtime/server/multipart/readSingleMultipartFile";
 import { userSettingsResource } from "../../shared/resources/userSettingsResource.js";
 import { userProfileResource } from "../../shared/resources/userProfileResource.js";
+import { resolveAccountSettingsResourceId } from "../common/support/accountSettingsJsonApiTransport.js";
+
+const USER_SETTINGS_RESOURCE_TRANSPORT = Object.freeze({
+  responseType: "user-settings",
+  output: userSettingsResource.operations.view.output,
+  outputKind: "record",
+  getRecordId: resolveAccountSettingsResourceId
+});
 
 function bootAccountProfileRoutes(app) {
   if (!app || typeof app.make !== "function") {
@@ -20,8 +29,8 @@ function bootAccountProfileRoutes(app) {
         tags: ["settings"],
         summary: "Get authenticated user's settings"
       },
-      responses: withStandardErrorResponses({
-        200: userSettingsResource.operations.view.output
+      ...createJsonApiResourceRouteContract({
+        ...USER_SETTINGS_RESOURCE_TRANSPORT
       })
     },
     async function (request, reply) {
@@ -41,13 +50,12 @@ function bootAccountProfileRoutes(app) {
         tags: ["settings"],
         summary: "Update profile settings"
       },
-      body: userProfileResource.operations.patch.body,
-      responses: withStandardErrorResponses(
-        {
-          200: userSettingsResource.operations.view.output
-        },
-        { includeValidation400: true }
-      )
+      ...createJsonApiResourceRouteContract({
+        requestType: "user-profiles",
+        body: userProfileResource.operations.patch.body,
+        includeValidation400: true,
+        ...USER_SETTINGS_RESOURCE_TRANSPORT
+      })
     },
     async function (request, reply) {
       const result = await request.executeAction({

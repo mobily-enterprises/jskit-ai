@@ -357,6 +357,7 @@ Exports
 
 ### `validators/index.js`
 Exports
+- `createSchema`
 - `normalizeObjectInput`
 - `composeSchemaDefinitions`
 - `createCursorListValidator`

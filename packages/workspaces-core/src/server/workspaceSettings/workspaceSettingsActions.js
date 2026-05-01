@@ -23,7 +23,7 @@ const workspaceSettingsActions = Object.freeze([
       permissions: ["workspace.settings.view", "workspace.settings.update"]
     },
     input: workspaceSlugParamsValidator,
-    output: workspaceSettingsResource.operations.view.output,
+    output: null,
     idempotency: "none",
     audit: {
       actionName: "workspace.settings.read"
@@ -48,7 +48,7 @@ const workspaceSettingsActions = Object.freeze([
       permissions: ["workspace.settings.update"]
     },
     input: workspaceSettingsUpdateInputValidator,
-    output: workspaceSettingsResource.operations.patch.output,
+    output: null,
     idempotency: "optional",
     audit: {
       actionName: "workspace.settings.update"

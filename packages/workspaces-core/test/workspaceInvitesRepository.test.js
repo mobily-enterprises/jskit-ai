@@ -15,6 +15,37 @@ function createKnexStub() {
   return knex;
 }
 
+function toWorkspaceInviteResource(row = {}, { includeWorkspace = false } = {}) {
+  return {
+    type: "workspaceInvites",
+    id: String(row.id || ""),
+    attributes: {
+      email: row.email,
+      roleSid: row.roleSid,
+      status: row.status,
+      tokenHash: row.tokenHash,
+      expiresAt: row.expiresAt,
+      acceptedAt: row.acceptedAt,
+      revokedAt: row.revokedAt,
+      createdAt: row.createdAt,
+      updatedAt: row.updatedAt
+    },
+    relationships: {
+      workspace: {
+        data: row?.workspace?.id == null
+          ? null
+          : {
+              type: "workspaces",
+              id: String(row.workspace.id)
+            }
+      },
+      invitedByUser: {
+        data: row?.invitedByUser?.id == null ? null : { type: "userProfiles", id: String(row.invitedByUser.id) }
+      }
+    }
+  };
+}
+
 function createWorkspaceInvitesApiStub({
   rows = [],
   rowById = new Map()
@@ -50,44 +81,60 @@ function createWorkspaceInvitesApiStub({
           });
 
           return {
-            data: matching.map((row) => includeWorkspace ? { ...row } : { ...row, workspace: row.workspace })
+            data: matching.map((row) => toWorkspaceInviteResource(row, { includeWorkspace })),
+            included: includeWorkspace
+              ? matching
+                  .filter((row) => row?.workspace?.id != null)
+                  .map((row) => ({
+                    type: "workspaces",
+                    id: String(row.workspace.id),
+                    attributes: {
+                      slug: row.workspace.slug,
+                      name: row.workspace.name,
+                      avatarUrl: row.workspace.avatarUrl
+                    }
+                  }))
+              : []
           };
         },
         async post(payload) {
-          assert.equal(payload?.simplified, true);
-          const inputRecord = payload?.inputRecord || {};
-          state.postPayload = { ...inputRecord };
+          assert.equal(payload?.simplified, false);
+          const inputRecord = payload?.inputRecord?.data || {};
+          state.postPayload = inputRecord;
           const row = {
             id: "1",
-            workspace: { id: String(inputRecord.workspace) },
-            email: inputRecord.email,
-            roleSid: inputRecord.roleSid,
-            status: inputRecord.status,
-            tokenHash: inputRecord.tokenHash,
-            invitedByUser: inputRecord.invitedByUser ? { id: String(inputRecord.invitedByUser) } : null,
-            expiresAt: inputRecord.expiresAt,
-            acceptedAt: inputRecord.acceptedAt,
-            revokedAt: inputRecord.revokedAt,
+            workspace: { id: String(inputRecord.relationships?.workspace?.data?.id || "") },
+            email: inputRecord.attributes?.email,
+            roleSid: inputRecord.attributes?.roleSid,
+            status: inputRecord.attributes?.status,
+            tokenHash: inputRecord.attributes?.tokenHash,
+            invitedByUser: inputRecord.relationships?.invitedByUser?.data
+              ? { id: String(inputRecord.relationships.invitedByUser.data.id) }
+              : null,
+            expiresAt: inputRecord.attributes?.expiresAt,
+            acceptedAt: inputRecord.attributes?.acceptedAt,
+            revokedAt: inputRecord.attributes?.revokedAt,
             createdAt: "2026-03-09 00:26:35.710",
             updatedAt: "2026-03-09 00:26:35.710"
           };
           rows.push(row);
           rowById.set("1", row);
-          return { ...row };
+          return { data: toWorkspaceInviteResource(row) };
         },
         async patch(payload) {
-          assert.equal(payload?.simplified, true);
-          const inputRecord = payload?.inputRecord || {};
-          state.patchPayloads.push({ ...inputRecord });
+          assert.equal(payload?.simplified, false);
+          const inputRecord = payload?.inputRecord?.data || {};
+          state.patchPayloads.push(inputRecord);
           const existing = rowById.get(String(inputRecord.id));
           if (existing) {
             const updated = {
               ...existing,
-              ...inputRecord
+              ...(inputRecord.attributes || {})
             };
             rowById.set(String(inputRecord.id), updated);
           }
-          return rowById.get(String(inputRecord.id)) || null;
+          const updatedRow = rowById.get(String(inputRecord.id)) || null;
+          return updatedRow ? { data: toWorkspaceInviteResource(updatedRow) } : null;
         }
       }
     }
@@ -110,11 +157,11 @@ test("workspaceInvitesRepository.insert preserves expiresAt and relationship fie
     expiresAt: "2026-03-16T00:26:35.709Z"
   });
 
-  assert.equal(state.postPayload.workspace, "1");
-  assert.equal(state.postPayload.email, "invitee@example.com");
-  assert.equal(state.postPayload.invitedByUser, "1");
-  assert.equal(state.postPayload.tokenHash, "hash");
-  assert.equal(typeof state.postPayload.expiresAt, "string");
+  assert.equal(state.postPayload.relationships?.workspace?.data?.id, "1");
+  assert.equal(state.postPayload.attributes?.email, "invitee@example.com");
+  assert.equal(state.postPayload.relationships?.invitedByUser?.data?.id, "1");
+  assert.equal(state.postPayload.attributes?.tokenHash, "hash");
+  assert.equal(typeof state.postPayload.attributes?.expiresAt, "string");
 });
 
 test("workspaceInvitesRepository.findPendingByTokenHash reads from the canonical invite resource without workspace data", async () => {
@@ -168,9 +215,9 @@ test("workspaceInvitesRepository.markAcceptedById uses the internal invite resou
   await repository.markAcceptedById("1");
 
   const payload = state.patchPayloads[0];
-  assert.equal(payload.status, "accepted");
-  assert.equal(typeof payload.acceptedAt, "object");
-  assert.equal(typeof payload.updatedAt, "object");
+  assert.equal(payload.attributes?.status, "accepted");
+  assert.equal(typeof payload.attributes?.acceptedAt, "object");
+  assert.equal(typeof payload.attributes?.updatedAt, "object");
 });
 
 test("workspaceInvitesRepository.listPendingByWorkspaceIdWithWorkspace keeps workspace join fields outside the base resource contract", async () => {

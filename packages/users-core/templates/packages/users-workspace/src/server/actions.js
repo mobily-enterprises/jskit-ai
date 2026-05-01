@@ -8,47 +8,39 @@ import {
 } from "@jskit-ai/crud-core/server/listQueryValidators";
 import { workspaceSlugParamsValidator } from "@jskit-ai/workspaces-core/server/validators/routeParamsValidator";
 import { resource } from "../shared/userResource.js";
+import { jsonRestResource } from "./jsonRestResource.js";
 import { actionIds } from "./actionIds.js";
-import { LIST_CONFIG } from "./listConfig.js";
 
-const listCursorPaginationQueryValidator = createCrudCursorPaginationQueryValidator(LIST_CONFIG);
+const listCursorPaginationQueryValidator = createCrudCursorPaginationQueryValidator({
+  orderBy: jsonRestResource.defaultSort
+});
 const authenticatedPermission = Object.freeze({
   require: "authenticated"
 });
 
-function requireActionSurface(surface = "") {
-  const normalizedSurface = String(surface || "").trim().toLowerCase();
-  if (!normalizedSurface) {
-    throw new TypeError("createActions requires a non-empty surface.");
-  }
-
-  return normalizedSurface;
-}
-
-function createActions({ surface = "" } = {}) {
-  const actionSurface = requireActionSurface(surface);
-
+function createActions({ surface } = {}) {
   return Object.freeze([
     {
       id: actionIds.list,
       version: 1,
       kind: "query",
       channels: ["api", "automation", "internal"],
-      surfaces: [actionSurface],
+      surfaces: [surface],
       permission: authenticatedPermission,
       input: composeSchemaDefinitions([
         workspaceSlugParamsValidator,
         listCursorPaginationQueryValidator,
         listSearchQueryValidator
       ]),
-      output: resource.operations.list.output,
+      output: null,
       idempotency: "none",
       audit: {
         actionName: actionIds.list
       },
       observability: {},
       async execute(input, context, deps) {
-        return deps.usersService.listRecords(input, {
+        const { workspaceSlug, ...query } = input || {};
+        return deps.usersService.listRecords(query, {
           context,
           visibilityContext: context?.visibilityContext
         });
@@ -59,13 +51,13 @@ function createActions({ surface = "" } = {}) {
       version: 1,
       kind: "query",
       channels: ["api", "automation", "internal"],
-      surfaces: [actionSurface],
+      surfaces: [surface],
       permission: authenticatedPermission,
       input: composeSchemaDefinitions([
         workspaceSlugParamsValidator,
         recordIdParamsValidator
       ]),
-      output: resource.operations.view.output,
+      output: null,
       idempotency: "none",
       audit: {
         actionName: actionIds.view

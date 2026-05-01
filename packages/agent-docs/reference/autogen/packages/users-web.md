@@ -24,6 +24,11 @@ Exports
 - `sortAccountSettingsSections(entries = [])`
 - `useAccountSettingsSections()`
 
+### `src/client/bootstrap/user-bootstrap-handler.js`
+Exports
+- `createUsersBootstrapUserHandler()`
+- `registerUsersBootstrapPayloadHandlers(app)`
+
 ### `src/client/components/ProfileClientElement.vue`
 Exports
 - None
@@ -143,7 +148,7 @@ Local functions
 
 ### `src/client/composables/records/useAddEdit.js`
 Exports
-- `useAddEdit({ ownershipFilter = ROUTE_VISIBILITY_WORKSPACE, surfaceId = "", access = "auto", resource = null, apiSuffix = "", queryKeyFactory = null, viewPermissions = [], savePermissions = [], readMethod = "GET", readEnabled = true, writeMethod = "PATCH", placementSource = "users-web.add-edit", fallbackLoadError = "Unable to load resource.", fallbackSaveError = "Unable to save resource.", fieldErrorKeys = [], clearOnRouteChange = true, model, input, mapLoadedToModel, buildRawPayload, buildSavePayload, onSaveSuccess, requestQueryParams = null, recordIdParam = "recordId", routeParams = null, routeRecordId = null, apiUrlTemplate = "", viewUrlTemplate = "", listUrlTemplate = "", saveRecordIdSelector = null, messages = {}, realtime = null, adapter = null } = {})`
+- `useAddEdit({ ownershipFilter = ROUTE_VISIBILITY_WORKSPACE, surfaceId = "", access = "auto", resource = null, apiSuffix = "", queryKeyFactory = null, viewPermissions = [], savePermissions = [], readMethod = "GET", readEnabled = true, writeMethod = "PATCH", transport = null, placementSource = "users-web.add-edit", fallbackLoadError = "Unable to load resource.", fallbackSaveError = "Unable to save resource.", fieldErrorKeys = [], clearOnRouteChange = true, model, input, mapLoadedToModel, buildRawPayload, buildSavePayload, onSaveSuccess, requestQueryParams = null, recordIdParam = "recordId", routeParams = null, routeRecordId = null, apiUrlTemplate = "", viewUrlTemplate = "", listUrlTemplate = "", saveRecordIdSelector = null, messages = {}, realtime = null, adapter = null } = {})`
 
 ### `src/client/composables/records/useCrudAddEdit.js`
 Exports
@@ -165,11 +170,11 @@ Exports
 
 ### `src/client/composables/records/useList.js`
 Exports
-- `useList({ ownershipFilter = ROUTE_VISIBILITY_WORKSPACE, surfaceId = "", access = "auto", apiSuffix = "", queryKeyFactory = null, viewPermissions = [], readEnabled = true, placementSource = "users-web.list", fallbackLoadError = "Unable to load list.", initialPageParam = null, getNextPageParam, selectItems, requestOptions, queryOptions, realtime = null, adapter = null, recordIdParam = "recordId", recordIdSelector = null, viewUrlTemplate = "", editUrlTemplate = "", search = null, queryParams = null, requestQueryParams = null, syncToRoute = false } = {})`
+- `useList({ ownershipFilter = ROUTE_VISIBILITY_WORKSPACE, surfaceId = "", access = "auto", apiSuffix = "", queryKeyFactory = null, viewPermissions = [], readEnabled = true, placementSource = "users-web.list", fallbackLoadError = "Unable to load list.", initialPageParam = null, getNextPageParam, selectItems, transport = null, requestOptions, queryOptions, realtime = null, adapter = null, recordIdParam = "recordId", recordIdSelector = null, viewUrlTemplate = "", editUrlTemplate = "", search = null, queryParams = null, requestQueryParams = null, syncToRoute = false } = {})`
 
 ### `src/client/composables/records/useView.js`
 Exports
-- `useView({ ownershipFilter = ROUTE_VISIBILITY_WORKSPACE, surfaceId = "", access = "auto", apiSuffix = "", queryKeyFactory = null, viewPermissions = [], readMethod = "GET", readEnabled = true, placementSource = "users-web.view", fallbackLoadError = "Unable to load resource.", notFoundStatuses = [404], notFoundMessage = "Record not found.", model, mapLoadedToModel, requestQueryParams = null, recordIdParam = "recordId", routeParams = null, routeRecordId = null, apiUrlTemplate = "", listUrlTemplate = "", editUrlTemplate = "", includeRecordIdInQueryKey = false, realtime = null, adapter = null } = {})`
+- `useView({ ownershipFilter = ROUTE_VISIBILITY_WORKSPACE, surfaceId = "", access = "auto", apiSuffix = "", queryKeyFactory = null, viewPermissions = [], readMethod = "GET", readEnabled = true, transport = null, placementSource = "users-web.view", fallbackLoadError = "Unable to load resource.", notFoundStatuses = [404], notFoundMessage = "Record not found.", model, mapLoadedToModel, requestQueryParams = null, recordIdParam = "recordId", routeParams = null, routeRecordId = null, apiUrlTemplate = "", listUrlTemplate = "", editUrlTemplate = "", includeRecordIdInQueryKey = false, realtime = null, adapter = null } = {})`
 
 ### `src/client/composables/runtime/addEditUiRuntime.js`
 Exports
@@ -219,7 +224,11 @@ Exports
 
 ### `src/client/composables/runtime/useEndpointResource.js`
 Exports
-- `useEndpointResource({ queryKey, path = "", enabled = true, client = usersWebHttpClient, readMethod = "GET", writeMethod = "PATCH", queryOptions = null, mutationOptions = null, fallbackLoadError = "Unable to load resource.", fallbackSaveError = "Unable to save resource." } = {})`
+- `buildEndpointReadRequestOptions({ method = "GET", query = null, transport = null } = {})`
+- `buildEndpointWriteRequestOptions({ method = "PATCH", body = undefined, options = null, transport = null } = {})`
+- `useEndpointResource({ queryKey, path = "", enabled = true, client = usersWebHttpClient, readMethod = "GET", writeMethod = "PATCH", readQuery = null, transport = null, queryOptions = null, mutationOptions = null, fallbackLoadError = "Unable to load resource.", fallbackSaveError = "Unable to save resource." } = {})`
+Local functions
+- `resolveRequestQuery(value = null)`
 
 ### `src/client/composables/runtime/useFieldErrorBag.js`
 Exports
@@ -229,9 +238,10 @@ Local functions
 
 ### `src/client/composables/runtime/useListCore.js`
 Exports
-- `useListCore({ queryKey, path = "", enabled = true, client = usersWebHttpClient, initialPageParam = null, getNextPageParam, selectItems, requestOptions = null, queryOptions = null, fallbackLoadError = "Unable to load list." } = {})`
+- `buildListRequestOptions({ requestOptions = null, transport = null, pageParam = null } = {})`
+- `useListCore({ queryKey, path = "", enabled = true, client = usersWebHttpClient, transport = null, initialPageParam = null, getNextPageParam, selectItems, requestOptions = null, queryOptions = null, fallbackLoadError = "Unable to load list." } = {})`
 Local functions
-- `appendPageParam(path, pageParam)`
+- `resolveRequestOptionsObject(value = null)`
 
 ### `src/client/composables/runtime/useUiFeedback.js`
 Exports
@@ -296,13 +306,11 @@ Exports
 - `resolveEnabledRef(value)`
 - `resolveTextRef(value)`
 
-### `src/client/composables/support/requestQueryPathSupport.js`
-Exports
-- `appendRequestQueryEntriesToPath(path = "", entries = [])`
-
 ### `src/client/composables/support/requestQueryRuntimeSupport.js`
 Exports
-- `createRequestQueryRuntime({ requestQueryParams = null, context = null, sourceQueryKey = null, sourcePath = "" } = {})`
+- `appendRequestQueryValue(target = {}, key = "", values = [])`
+- `buildRequestQueryObject(entries = [])`
+- `createRequestQueryRuntime({ requestQueryParams = null, context = null, sourceQueryKey = null } = {})`
 - `resolveRequestQueryBaseKey(sourceQueryKey = null)`
 - `resolveRequestQueryContext(context = null)`
 

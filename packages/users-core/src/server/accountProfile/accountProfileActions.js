@@ -1,30 +1,10 @@
-import { createSchema } from "json-rest-schema";
 import {
   emptyInputValidator,
   resolveRequest
 } from "@jskit-ai/kernel/shared/actions/actionContributorHelpers";
 import { deepFreeze } from "@jskit-ai/kernel/shared/support/deepFreeze";
-import { userSettingsResource } from "../../shared/resources/userSettingsResource.js";
 import { userProfileResource } from "../../shared/resources/userProfileResource.js";
-import { userSettingsOutputSchema } from "../../shared/resources/userSettingsResource.js";
 import { resolveActionUser } from "../common/support/resolveActionUser.js";
-
-const settingsProfileUpdateOutputValidator = deepFreeze({
-  schema: createSchema({
-    settings: {
-      type: "object",
-      required: true,
-      schema: userSettingsOutputSchema
-    },
-    session: {
-      type: "object",
-      required: true,
-      nullable: true,
-      additionalProperties: true
-    }
-  }),
-  mode: "replace"
-});
 
 const settingsProfileUpdateInputValidator = deepFreeze({
   schema: userProfileResource.operations.patch.body.schema,
@@ -42,7 +22,7 @@ const accountProfileActions = deepFreeze([
       require: "authenticated"
     },
     input: emptyInputValidator,
-    output: userSettingsResource.operations.view.output,
+    output: null,
     idempotency: "none",
     audit: {
       actionName: "settings.read"
@@ -64,7 +44,7 @@ const accountProfileActions = deepFreeze([
       require: "authenticated"
     },
     input: settingsProfileUpdateInputValidator,
-    output: settingsProfileUpdateOutputValidator,
+    output: null,
     idempotency: "optional",
     audit: {
       actionName: "settings.profile.update"
@@ -91,7 +71,7 @@ const accountProfileActions = deepFreeze([
       require: "authenticated"
     },
     input: userProfileResource.operations.avatarUpload.body,
-    output: userProfileResource.operations.avatarUpload.output,
+    output: null,
     idempotency: "none",
     audit: {
       actionName: "settings.profile.avatar.upload"
@@ -125,7 +105,7 @@ const accountProfileActions = deepFreeze([
       require: "authenticated"
     },
     input: userProfileResource.operations.avatarDelete.body,
-    output: userProfileResource.operations.avatarDelete.output,
+    output: null,
     idempotency: "none",
     audit: {
       actionName: "settings.profile.avatar.delete"

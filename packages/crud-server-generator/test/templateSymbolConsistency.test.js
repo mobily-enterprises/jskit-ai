@@ -7,7 +7,7 @@ function resolveTemplatePath(relativePath) {
   return fileURLToPath(new URL(`../templates/${relativePath}`, import.meta.url));
 }
 
-test("actions template uses resource symbol for view output validator", async () => {
+test("actions template does not emit resource action output validators", async () => {
   const actionsTemplate = await readFile(
     resolveTemplatePath("src/local-package/server/actions.js"),
     "utf8"
@@ -15,11 +15,11 @@ test("actions template uses resource symbol for view output validator", async ()
 
   assert.match(
     actionsTemplate,
-    /output:\s*resource\.operations\.view\.output,/
+    /output:\s*null,/
   );
   assert.doesNotMatch(
     actionsTemplate,
-    /\$\{option:namespace\|singular\|camel\}Resource\.operations\.view\.output/
+    /createJsonApiResourceActionOutputValidator/
   );
 });
 

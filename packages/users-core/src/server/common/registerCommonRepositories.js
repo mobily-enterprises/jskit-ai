@@ -1,4 +1,4 @@
-import { INTERNAL_JSON_REST_API } from "./jsonRestApiHost.js";
+import { INTERNAL_JSON_REST_API } from "@jskit-ai/json-rest-api-core/server/jsonRestApiHost";
 import { createRepository as createUserProfilesRepository } from "./repositories/userProfilesRepository.js";
 import { createRepository as createUserSettingsRepository } from "./repositories/userSettingsRepository.js";
 

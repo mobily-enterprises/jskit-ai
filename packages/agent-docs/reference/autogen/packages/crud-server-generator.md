@@ -53,6 +53,15 @@ Local functions
 - `renderBoundedNumberEntries(column)`
 - `resolveResourceFieldRequired(column, { forOutput = false, mode = "create" } = {})`
 - `renderResourceSchemaPropertyLines(columns, { forOutput = false, mode = "create", fieldContractEntries = [] } = {})`
+- `resolveJsonRestRelationshipScopeName(fieldContractEntry = null)`
+- `resolveJsonRestRelationshipAlias(column = null)`
+- `resolveJsonRestFieldType(column = {})`
+- `shouldRenderJsonRestSearch(column = {})`
+- `shouldRenderJsonRestStorage(column = {})`
+- `renderJsonRestFieldSchema(column, { fieldContractEntry = null } = {})`
+- `renderJsonRestSchemaPropertyLines(columns = [], { fieldContractEntries = [] } = {})`
+- `renderJsonRestSearchSchemaLines(columns = [])`
+- `renderJsonRestDefaultSortLine(columns = [])`
 - `renderMigrationDefaultClause(column)`
 - `renderMigrationSpecificStringType(column, { tableCollation = "" } = {})`
 - `renderTemporalColumnBuilder(column, methodName)`
@@ -162,9 +171,19 @@ Exports
 Local functions
 - `resolveCrudPolicyFromApp(app)`
 
+### `templates/src/local-package/server/jsonRestResource.js`
+Exports
+- `jsonRestResource`
+Local functions
+- `serializeNullableDateTime(value)`
+
 ### `templates/src/local-package/server/listConfig.js`
 Exports
 - `LIST_CONFIG`
+
+### `templates/src/local-package/server/registerJsonRestResources.js`
+Exports
+- `register${option:namespace|pascal`
 
 ### `templates/src/local-package/server/registerRoutes.js`
 Exports
@@ -172,12 +191,20 @@ Exports
 
 ### `templates/src/local-package/server/repository.js`
 Exports
-- `createRepository(knex, options = {})`
+- `createRepository({ api, knex } = {})`
+Local functions
+- `normalizeArrayInput(value)`
+- `toJsonRestContext(context = null)`
+- `buildJsonRestQueryParams(query = {}, { include = undefined } = {})`
+- `createJsonApiInputRecord(attributes = {}, { id = null } = {})`
 
 ### `templates/src/local-package/server/service.js`
 Exports
-- `createService({ ${option:namespace|camel}Repository, fieldAccess = DEFAULT_FIELD_ACCESS } = {})`
+- `createService({ ${option:namespace|camel}Repository } = {})`
 - `serviceEvents`
+Local functions
+- `resolveJsonApiResultRecordId(result = null)`
+- `return404IfNotFound(record = null)`
 
 ### `templates/src/local-package/shared/crudResource.js`
 Exports

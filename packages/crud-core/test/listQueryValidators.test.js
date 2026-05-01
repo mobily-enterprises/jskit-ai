@@ -96,12 +96,7 @@ test("createCrudCursorPaginationQueryValidator keeps numeric cursor validation f
 
 test("createCrudCursorPaginationQueryValidator allows opaque cursor strings for ordered lists", () => {
   const validator = createCrudCursorPaginationQueryValidator({
-    orderBy: [
-      {
-        column: "created_at",
-        direction: "desc"
-      }
-    ]
+    orderBy: ["-createdAt"]
   });
 
   assert.notEqual(validator, cursorPaginationQueryValidator);

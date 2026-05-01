@@ -1,4 +1,4 @@
-import { withStandardErrorResponses } from "@jskit-ai/http-runtime/shared/validators/errorResponses";
+import { createJsonApiResourceRouteContract } from "@jskit-ai/http-runtime/shared/validators/jsonApiRouteTransport";
 import { normalizeSurfaceId } from "@jskit-ai/kernel/shared/surface/registry";
 import {
   createCrudCursorPaginationQueryValidator,
@@ -11,14 +11,30 @@ import {
   recordIdParamsValidator
 } from "@jskit-ai/kernel/shared/validators";
 import { actionIds } from "./actionIds.js";
-import { LIST_CONFIG } from "./listConfig.js";
 import { resource } from "../shared/userResource.js";
+import { jsonRestResource } from "./jsonRestResource.js";
 
-const listCursorPaginationQueryValidator = createCrudCursorPaginationQueryValidator(LIST_CONFIG);
+const listCursorPaginationQueryValidator = createCrudCursorPaginationQueryValidator({
+  orderBy: jsonRestResource.defaultSort
+});
 const listRouteQueryValidator = composeSchemaDefinitions([
   listCursorPaginationQueryValidator,
   listSearchQueryValidator
 ]);
+const RESOURCE_ROUTE_CONTRACT_TYPE = resource.namespace;
+const listRouteContract = createJsonApiResourceRouteContract({
+  type: RESOURCE_ROUTE_CONTRACT_TYPE,
+  query: listRouteQueryValidator,
+  output: resource.operations.view.output,
+  outputKind: "collection",
+  wrapResponse: false
+});
+const viewRouteContract = createJsonApiResourceRouteContract({
+  type: RESOURCE_ROUTE_CONTRACT_TYPE,
+  output: resource.operations.view.output,
+  outputKind: "record",
+  wrapResponse: false
+});
 
 function registerRoutes(
   app,
@@ -47,10 +63,7 @@ function registerRoutes(
         tags: ["crud"],
         summary: "List users."
       },
-      query: listRouteQueryValidator,
-      responses: withStandardErrorResponses({
-        200: resource.operations.list.output
-      })
+      ...listRouteContract
     },
     async function (request, reply) {
       const response = await request.executeAction({
@@ -74,10 +87,8 @@ function registerRoutes(
         tags: ["crud"],
         summary: "View a user."
       },
-      params: recordIdParamsValidator,
-      responses: withStandardErrorResponses({
-        200: resource.operations.view.output
-      })
+      ...viewRouteContract,
+      params: recordIdParamsValidator
     },
     async function (request, reply) {
       const response = await request.executeAction({

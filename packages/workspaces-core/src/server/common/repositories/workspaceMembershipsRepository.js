@@ -1,5 +1,4 @@
 import {
-  createSimplifiedWriteParams,
   createWithTransaction,
   normalizeLowerText,
   normalizeRecordId,
@@ -8,7 +7,15 @@ import {
   isDuplicateEntryError,
   toIsoString
 } from "./repositoryUtils.js";
+import {
+  createJsonApiInputRecord,
+  createJsonApiRelationship,
+  createJsonRestContext,
+  simplifyJsonApiDocument
+} from "@jskit-ai/json-rest-api-core/server/jsonRestApiHost";
 import { OWNER_ROLE_ID } from "../../../shared/roles.js";
+
+const RESOURCE_TYPE = "workspaceMemberships";
 
 function normalizeMembershipRecord(payload) {
   if (!payload) {
@@ -17,8 +24,8 @@ function normalizeMembershipRecord(payload) {
 
   return {
     id: normalizeDbRecordId(payload.id, { fallback: null }),
-    workspaceId: normalizeDbRecordId(payload?.workspace?.id, { fallback: null }),
-    userId: normalizeDbRecordId(payload?.user?.id, { fallback: null }),
+    workspaceId: normalizeDbRecordId(payload?.workspace?.id || payload?.workspaceId, { fallback: null }),
+    userId: normalizeDbRecordId(payload?.user?.id || payload?.userId, { fallback: null }),
     roleSid: normalizeLowerText(payload.roleSid || "member") || "member",
     status: normalizeLowerText(payload.status || "active") || "active",
     createdAt: payload.createdAt ? toIsoString(payload.createdAt) : null,
@@ -54,6 +61,19 @@ function normalizeMemberSummaryRow(row) {
   };
 }
 
+function createMembershipRelationships({ workspaceId = null, userId = null } = {}) {
+  const relationships = {};
+
+  if (workspaceId) {
+    relationships.workspace = createJsonApiRelationship("workspaces", workspaceId);
+  }
+  if (userId) {
+    relationships.user = createJsonApiRelationship("userProfiles", userId);
+  }
+
+  return relationships;
+}
+
 function createRepository({ api, knex } = {}) {
   if (!api?.resources?.workspaceMemberships) {
     throw new TypeError("workspaceMembershipsRepository requires json-rest-api workspaceMemberships resource.");
@@ -65,16 +85,19 @@ function createRepository({ api, knex } = {}) {
   const withTransaction = createWithTransaction(knex);
 
   async function queryMemberships(filters = {}, options = {}, { includeUser = false } = {}) {
-    const result = await api.resources.workspaceMemberships.query({
-      queryParams: {
-        filters,
-        ...(includeUser ? { include: ["user"] } : {})
+    const result = await api.resources.workspaceMemberships.query(
+      {
+        queryParams: {
+          filters,
+          ...(includeUser ? { include: ["user"] } : {})
+        },
+        transaction: options?.trx || null,
+        simplified: false
       },
-      transaction: options?.trx,
-      simplified: true
-    });
+      createJsonRestContext(options?.context || null)
+    );
 
-    return Array.isArray(result?.data) ? result.data : [];
+    return Array.isArray(simplifyJsonApiDocument(result)) ? simplifyJsonApiDocument(result) : [];
   }
 
   async function findByWorkspaceIdAndUserId(workspaceId, userId, options = {}) {
@@ -102,37 +125,53 @@ function createRepository({ api, knex } = {}) {
       throw new TypeError("workspaceMembershipsRepository.ensureOwnerMembership requires workspaceId and userId.");
     }
 
-    const existing = await findByWorkspaceIdAndUserId(normalizedWorkspaceId, normalizedUserId, { trx: options?.trx });
+    const existing = await findByWorkspaceIdAndUserId(normalizedWorkspaceId, normalizedUserId, options);
     if (existing) {
       if (existing.roleSid !== OWNER_ROLE_ID || existing.status !== "active") {
         await api.resources.workspaceMemberships.patch(
-          createSimplifiedWriteParams(
-            {
-              id: existing.id,
-              roleSid: OWNER_ROLE_ID,
-              status: "active",
-              updatedAt: new Date()
-            },
-            { trx: options?.trx }
-          )
+          {
+            inputRecord: createJsonApiInputRecord(
+              RESOURCE_TYPE,
+              {
+                roleSid: OWNER_ROLE_ID,
+                status: "active",
+                updatedAt: new Date()
+              },
+              {
+                id: existing.id
+              }
+            ),
+            transaction: options?.trx || null,
+            simplified: false
+          },
+          createJsonRestContext(options?.context || null)
         );
       }
-      return findByWorkspaceIdAndUserId(normalizedWorkspaceId, normalizedUserId, { trx: options?.trx });
+      return findByWorkspaceIdAndUserId(normalizedWorkspaceId, normalizedUserId, options);
     }
 
     try {
       await api.resources.workspaceMemberships.post(
-        createSimplifiedWriteParams(
-          {
-            workspace: normalizedWorkspaceId,
-            user: normalizedUserId,
-            roleSid: OWNER_ROLE_ID,
-            status: "active",
-            createdAt: new Date(),
-            updatedAt: new Date()
-          },
-          { trx: options?.trx }
-        )
+        {
+          inputRecord: createJsonApiInputRecord(
+            RESOURCE_TYPE,
+            {
+              roleSid: OWNER_ROLE_ID,
+              status: "active",
+              createdAt: new Date(),
+              updatedAt: new Date()
+            },
+            {
+              relationships: createMembershipRelationships({
+                workspaceId: normalizedWorkspaceId,
+                userId: normalizedUserId
+              })
+            }
+          ),
+          transaction: options?.trx || null,
+          simplified: false
+        },
+        createJsonRestContext(options?.context || null)
       );
     } catch (error) {
       if (!isDuplicateEntryError(error)) {
@@ -140,7 +179,7 @@ function createRepository({ api, knex } = {}) {
       }
     }
 
-    return findByWorkspaceIdAndUserId(normalizedWorkspaceId, normalizedUserId, { trx: options?.trx });
+    return findByWorkspaceIdAndUserId(normalizedWorkspaceId, normalizedUserId, options);
   }
 
   async function upsertMembership(workspaceId, userId, patch = {}, options = {}) {
@@ -150,7 +189,7 @@ function createRepository({ api, knex } = {}) {
       throw new TypeError("workspaceMembershipsRepository.upsertMembership requires workspaceId and userId.");
     }
 
-    const existing = await findByWorkspaceIdAndUserId(normalizedWorkspaceId, normalizedUserId, { trx: options?.trx });
+    const existing = await findByWorkspaceIdAndUserId(normalizedWorkspaceId, normalizedUserId, options);
     const normalizedPatch = normalizeMembershipPatchPayload({
       roleSid: patch?.roleSid ?? existing?.roleSid ?? "member",
       status: patch?.status ?? existing?.status ?? "active"
@@ -161,39 +200,55 @@ function createRepository({ api, knex } = {}) {
     if (!existing) {
       try {
         await api.resources.workspaceMemberships.post(
-          createSimplifiedWriteParams(
-            {
-              workspace: normalizedWorkspaceId,
-              user: normalizedUserId,
-              roleSid,
-              status,
-              createdAt: new Date(),
-              updatedAt: new Date()
-            },
-            { trx: options?.trx }
-          )
+          {
+            inputRecord: createJsonApiInputRecord(
+              RESOURCE_TYPE,
+              {
+                roleSid,
+                status,
+                createdAt: new Date(),
+                updatedAt: new Date()
+              },
+              {
+                relationships: createMembershipRelationships({
+                  workspaceId: normalizedWorkspaceId,
+                  userId: normalizedUserId
+                })
+              }
+            ),
+            transaction: options?.trx || null,
+            simplified: false
+          },
+          createJsonRestContext(options?.context || null)
         );
       } catch (error) {
         if (!isDuplicateEntryError(error)) {
           throw error;
         }
       }
-      return findByWorkspaceIdAndUserId(normalizedWorkspaceId, normalizedUserId, { trx: options?.trx });
+      return findByWorkspaceIdAndUserId(normalizedWorkspaceId, normalizedUserId, options);
     }
 
     await api.resources.workspaceMemberships.patch(
-      createSimplifiedWriteParams(
-        {
-          id: existing.id,
-          roleSid,
-          status,
-          updatedAt: new Date()
-        },
-        { trx: options?.trx }
-      )
+      {
+        inputRecord: createJsonApiInputRecord(
+          RESOURCE_TYPE,
+          {
+            roleSid,
+            status,
+            updatedAt: new Date()
+          },
+          {
+            id: existing.id
+          }
+        ),
+        transaction: options?.trx || null,
+        simplified: false
+      },
+      createJsonRestContext(options?.context || null)
     );
 
-    return findByWorkspaceIdAndUserId(normalizedWorkspaceId, normalizedUserId, { trx: options?.trx });
+    return findByWorkspaceIdAndUserId(normalizedWorkspaceId, normalizedUserId, options);
   }
 
   async function listActiveByWorkspaceId(workspaceId, options = {}) {
@@ -240,7 +295,7 @@ function createRepository({ api, knex } = {}) {
     );
 
     return rows
-      .map((row) => normalizeDbRecordId(row?.workspace?.id, { fallback: null }))
+      .map((row) => normalizeDbRecordId(row?.workspace?.id || row?.workspaceId, { fallback: null }))
       .filter(Boolean);
   }
 

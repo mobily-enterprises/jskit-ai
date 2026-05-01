@@ -15,7 +15,7 @@ const accountNotificationsActions = Object.freeze([
       require: "authenticated"
     },
     input: userSettingsResource.operations.notificationsUpdate.body,
-    output: userSettingsResource.operations.view.output,
+    output: null,
     idempotency: "optional",
     audit: {
       actionName: "settings.notifications.update"

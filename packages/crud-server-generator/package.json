@@ -16,8 +16,8 @@
     "@jskit-ai/crud-core": "0.1.63",
     "@jskit-ai/database-runtime": "0.1.55",
     "@jskit-ai/http-runtime": "0.1.54",
+    "@jskit-ai/json-rest-api-core": "0.1.0",
     "@jskit-ai/kernel": "0.1.55",
-    "@jskit-ai/users-core": "0.1.65",
     "recast": "^0.23.11"
   }
 }

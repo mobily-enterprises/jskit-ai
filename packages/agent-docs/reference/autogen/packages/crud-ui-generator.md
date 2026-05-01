@@ -79,6 +79,7 @@ Local functions
 - `decodeJsonPointerSegment(segment = "")`
 - `resolveSchemaReference(ref = "", rootSchema = {}, { context = "ui-generator", contextLabel = "schema" } = {})`
 - `resolveObjectSchema(schema = {}, contextLabel, { context = "ui-generator", rootSchema = schema } = {})`
+- `resolveJsonRestCastType(schema = {})`
 - `resolveSchemaType(schema)`
 - `toFieldLabel(key)`
 - `isSupportedSelectOptionValue(value)`

@@ -54,46 +54,82 @@ function createWorkspaceSettingsApiStub(rowOverrides = {}) {
             return { data: [] };
           }
 
-          return { data: [{ ...state.row }] };
+          return {
+            data: [{
+              type: "workspaceSettings",
+              id: String(state.row.id),
+              attributes: {
+                lightPrimaryColor: state.row.lightPrimaryColor,
+                lightSecondaryColor: state.row.lightSecondaryColor,
+                lightSurfaceColor: state.row.lightSurfaceColor,
+                lightSurfaceVariantColor: state.row.lightSurfaceVariantColor,
+                darkPrimaryColor: state.row.darkPrimaryColor,
+                darkSecondaryColor: state.row.darkSecondaryColor,
+                darkSurfaceColor: state.row.darkSurfaceColor,
+                darkSurfaceVariantColor: state.row.darkSurfaceVariantColor,
+                invitesEnabled: state.row.invitesEnabled,
+                createdAt: state.row.createdAt,
+                updatedAt: state.row.updatedAt
+              }
+            }]
+          };
         },
         async post(payload) {
-          assert.equal(payload?.simplified, true);
-          const inputRecord = payload?.inputRecord || {};
-          state.postPayload = { ...inputRecord };
+          assert.equal(payload?.simplified, false);
+          const inputRecord = payload?.inputRecord?.data || {};
+          const attributes = inputRecord.attributes || {};
+          state.postPayload = inputRecord;
           state.row = {
             id: String(inputRecord.id),
-            lightPrimaryColor: normalizeWorkspaceColor(inputRecord.lightPrimaryColor ?? DEFAULT_WORKSPACE_THEME.light.color),
-            lightSecondaryColor: normalizeWorkspaceColor(inputRecord.lightSecondaryColor ?? DEFAULT_WORKSPACE_THEME.light.secondaryColor),
-            lightSurfaceColor: normalizeWorkspaceColor(inputRecord.lightSurfaceColor ?? DEFAULT_WORKSPACE_THEME.light.surfaceColor),
-            lightSurfaceVariantColor: normalizeWorkspaceColor(inputRecord.lightSurfaceVariantColor ?? DEFAULT_WORKSPACE_THEME.light.surfaceVariantColor),
-            darkPrimaryColor: normalizeWorkspaceColor(inputRecord.darkPrimaryColor ?? DEFAULT_WORKSPACE_THEME.dark.color),
-            darkSecondaryColor: normalizeWorkspaceColor(inputRecord.darkSecondaryColor ?? DEFAULT_WORKSPACE_THEME.dark.secondaryColor),
-            darkSurfaceColor: normalizeWorkspaceColor(inputRecord.darkSurfaceColor ?? DEFAULT_WORKSPACE_THEME.dark.surfaceColor),
-            darkSurfaceVariantColor: normalizeWorkspaceColor(inputRecord.darkSurfaceVariantColor ?? DEFAULT_WORKSPACE_THEME.dark.surfaceVariantColor),
-            invitesEnabled: inputRecord.invitesEnabled ?? true,
+            lightPrimaryColor: normalizeWorkspaceColor(attributes.lightPrimaryColor ?? DEFAULT_WORKSPACE_THEME.light.color),
+            lightSecondaryColor: normalizeWorkspaceColor(attributes.lightSecondaryColor ?? DEFAULT_WORKSPACE_THEME.light.secondaryColor),
+            lightSurfaceColor: normalizeWorkspaceColor(attributes.lightSurfaceColor ?? DEFAULT_WORKSPACE_THEME.light.surfaceColor),
+            lightSurfaceVariantColor: normalizeWorkspaceColor(attributes.lightSurfaceVariantColor ?? DEFAULT_WORKSPACE_THEME.light.surfaceVariantColor),
+            darkPrimaryColor: normalizeWorkspaceColor(attributes.darkPrimaryColor ?? DEFAULT_WORKSPACE_THEME.dark.color),
+            darkSecondaryColor: normalizeWorkspaceColor(attributes.darkSecondaryColor ?? DEFAULT_WORKSPACE_THEME.dark.secondaryColor),
+            darkSurfaceColor: normalizeWorkspaceColor(attributes.darkSurfaceColor ?? DEFAULT_WORKSPACE_THEME.dark.surfaceColor),
+            darkSurfaceVariantColor: normalizeWorkspaceColor(attributes.darkSurfaceVariantColor ?? DEFAULT_WORKSPACE_THEME.dark.surfaceVariantColor),
+            invitesEnabled: attributes.invitesEnabled ?? true,
             createdAt: toIsoString("2026-03-10 00:00:00.000"),
             updatedAt: toIsoString("2026-03-10 00:00:00.000")
           };
-          return { ...state.row };
+          return {
+            data: {
+              type: "workspaceSettings",
+              id: String(state.row.id),
+              attributes: {
+                ...state.row
+              }
+            }
+          };
         },
         async patch(payload) {
-          assert.equal(payload?.simplified, true);
-          const inputRecord = payload?.inputRecord || {};
-          state.patchPayload = { ...inputRecord };
+          assert.equal(payload?.simplified, false);
+          const inputRecord = payload?.inputRecord?.data || {};
+          const attributes = inputRecord.attributes || {};
+          state.patchPayload = inputRecord;
           state.row = {
             ...state.row,
-            ...inputRecord,
-            ...(Object.hasOwn(inputRecord, "lightPrimaryColor") ? { lightPrimaryColor: normalizeWorkspaceColor(inputRecord.lightPrimaryColor) } : {}),
-            ...(Object.hasOwn(inputRecord, "lightSecondaryColor") ? { lightSecondaryColor: normalizeWorkspaceColor(inputRecord.lightSecondaryColor) } : {}),
-            ...(Object.hasOwn(inputRecord, "lightSurfaceColor") ? { lightSurfaceColor: normalizeWorkspaceColor(inputRecord.lightSurfaceColor) } : {}),
-            ...(Object.hasOwn(inputRecord, "lightSurfaceVariantColor") ? { lightSurfaceVariantColor: normalizeWorkspaceColor(inputRecord.lightSurfaceVariantColor) } : {}),
-            ...(Object.hasOwn(inputRecord, "darkPrimaryColor") ? { darkPrimaryColor: normalizeWorkspaceColor(inputRecord.darkPrimaryColor) } : {}),
-            ...(Object.hasOwn(inputRecord, "darkSecondaryColor") ? { darkSecondaryColor: normalizeWorkspaceColor(inputRecord.darkSecondaryColor) } : {}),
-            ...(Object.hasOwn(inputRecord, "darkSurfaceColor") ? { darkSurfaceColor: normalizeWorkspaceColor(inputRecord.darkSurfaceColor) } : {}),
-            ...(Object.hasOwn(inputRecord, "darkSurfaceVariantColor") ? { darkSurfaceVariantColor: normalizeWorkspaceColor(inputRecord.darkSurfaceVariantColor) } : {}),
+            ...attributes,
+            ...(Object.hasOwn(attributes, "lightPrimaryColor") ? { lightPrimaryColor: normalizeWorkspaceColor(attributes.lightPrimaryColor) } : {}),
+            ...(Object.hasOwn(attributes, "lightSecondaryColor") ? { lightSecondaryColor: normalizeWorkspaceColor(attributes.lightSecondaryColor) } : {}),
+            ...(Object.hasOwn(attributes, "lightSurfaceColor") ? { lightSurfaceColor: normalizeWorkspaceColor(attributes.lightSurfaceColor) } : {}),
+            ...(Object.hasOwn(attributes, "lightSurfaceVariantColor") ? { lightSurfaceVariantColor: normalizeWorkspaceColor(attributes.lightSurfaceVariantColor) } : {}),
+            ...(Object.hasOwn(attributes, "darkPrimaryColor") ? { darkPrimaryColor: normalizeWorkspaceColor(attributes.darkPrimaryColor) } : {}),
+            ...(Object.hasOwn(attributes, "darkSecondaryColor") ? { darkSecondaryColor: normalizeWorkspaceColor(attributes.darkSecondaryColor) } : {}),
+            ...(Object.hasOwn(attributes, "darkSurfaceColor") ? { darkSurfaceColor: normalizeWorkspaceColor(attributes.darkSurfaceColor) } : {}),
+            ...(Object.hasOwn(attributes, "darkSurfaceVariantColor") ? { darkSurfaceVariantColor: normalizeWorkspaceColor(attributes.darkSurfaceVariantColor) } : {}),
             id: String(inputRecord.id || state.row?.id || "")
           };
-          return { ...state.row };
+          return {
+            data: {
+              type: "workspaceSettings",
+              id: String(state.row.id),
+              attributes: {
+                ...state.row
+              }
+            }
+          };
         }
       }
     }
@@ -138,7 +174,7 @@ test("workspaceSettingsRepository.updateSettingsByWorkspaceId updates invitesEna
     invitesEnabled: false
   });
 
-  assert.equal(state.patchPayload.invitesEnabled, false);
+  assert.equal(state.patchPayload.attributes?.invitesEnabled, false);
   assert.equal(updated.invitesEnabled, false);
 });
 
@@ -153,15 +189,15 @@ test("workspaceSettingsRepository.ensureForWorkspaceId delegates defaults to the
   const record = await repository.ensureForWorkspaceId("5");
 
   assert.equal(state.postPayload.id, "5");
-  assert.equal(state.postPayload.lightPrimaryColor, DEFAULT_WORKSPACE_THEME.light.color);
-  assert.equal(state.postPayload.lightSecondaryColor, DEFAULT_WORKSPACE_THEME.light.secondaryColor);
-  assert.equal(state.postPayload.lightSurfaceColor, DEFAULT_WORKSPACE_THEME.light.surfaceColor);
-  assert.equal(state.postPayload.lightSurfaceVariantColor, DEFAULT_WORKSPACE_THEME.light.surfaceVariantColor);
-  assert.equal(state.postPayload.darkPrimaryColor, DEFAULT_WORKSPACE_THEME.dark.color);
-  assert.equal(state.postPayload.darkSecondaryColor, DEFAULT_WORKSPACE_THEME.dark.secondaryColor);
-  assert.equal(state.postPayload.darkSurfaceColor, DEFAULT_WORKSPACE_THEME.dark.surfaceColor);
-  assert.equal(state.postPayload.darkSurfaceVariantColor, DEFAULT_WORKSPACE_THEME.dark.surfaceVariantColor);
-  assert.equal(state.postPayload.invitesEnabled, true);
+  assert.equal(state.postPayload.attributes?.lightPrimaryColor, DEFAULT_WORKSPACE_THEME.light.color);
+  assert.equal(state.postPayload.attributes?.lightSecondaryColor, DEFAULT_WORKSPACE_THEME.light.secondaryColor);
+  assert.equal(state.postPayload.attributes?.lightSurfaceColor, DEFAULT_WORKSPACE_THEME.light.surfaceColor);
+  assert.equal(state.postPayload.attributes?.lightSurfaceVariantColor, DEFAULT_WORKSPACE_THEME.light.surfaceVariantColor);
+  assert.equal(state.postPayload.attributes?.darkPrimaryColor, DEFAULT_WORKSPACE_THEME.dark.color);
+  assert.equal(state.postPayload.attributes?.darkSecondaryColor, DEFAULT_WORKSPACE_THEME.dark.secondaryColor);
+  assert.equal(state.postPayload.attributes?.darkSurfaceColor, DEFAULT_WORKSPACE_THEME.dark.surfaceColor);
+  assert.equal(state.postPayload.attributes?.darkSurfaceVariantColor, DEFAULT_WORKSPACE_THEME.dark.surfaceVariantColor);
+  assert.equal(state.postPayload.attributes?.invitesEnabled, true);
   assert.equal(record.lightPrimaryColor, DEFAULT_WORKSPACE_THEME.light.color);
   assert.equal(record.lightSecondaryColor, DEFAULT_WORKSPACE_THEME.light.secondaryColor);
   assert.equal(record.lightSurfaceColor, DEFAULT_WORKSPACE_THEME.light.surfaceColor);
@@ -185,7 +221,7 @@ test("workspaceSettingsRepository.updateSettingsByWorkspaceId updates workspace 
     lightPrimaryColor: "#123abc"
   });
 
-  assert.equal(state.patchPayload.lightPrimaryColor, "#123abc");
+  assert.equal(state.patchPayload.attributes?.lightPrimaryColor, "#123abc");
   assert.equal(updated.lightPrimaryColor, "#123ABC");
 });
 

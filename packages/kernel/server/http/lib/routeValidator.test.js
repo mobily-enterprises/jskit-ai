@@ -218,7 +218,7 @@ test("compileRouteValidator accepts response schema definitions and extracts onl
       }), "replace")
     }
   });
-  assert.equal(Object.prototype.hasOwnProperty.call(compiled, "output"), false);
+  assert.equal(Object.hasOwn(compiled, "output"), false);
 });
 
 test("compileRouteValidator turns json-rest-schema validators into transport schema plus input normalization", () => {
@@ -477,6 +477,73 @@ test("HttpRouter.register accepts inline validator shape directly", () => {
   }), {
     dryRun: true
   });
+});
+
+test("HttpRouter.register accepts explicit transport metadata and output transform", () => {
+  const router = createRouter();
+  const output = (payload) => ({
+    data: payload
+  });
+  const error = (currentError) => ({
+    errors: [{
+      title: currentError.message
+    }]
+  });
+
+  router.get(
+    "/contacts",
+    {
+      transport: {
+        kind: "jsonapi-resource",
+        contentType: "application/vnd.api+json",
+        request: {
+          body(body) {
+            return body?.data?.attributes || {};
+          }
+        },
+        error
+      },
+      output
+    },
+    async () => {}
+  );
+
+  const [route] = router.list();
+  assert.equal(route.transport.kind, "jsonapi-resource");
+  assert.equal(route.transport.contentType, "application/vnd.api+json");
+  assert.equal(typeof route.transport.request.body, "function");
+  assert.equal(route.transport.error, error);
+  assert.equal(route.output, output);
+});
+
+test("HttpRouter.register rejects invalid transport definitions and output transforms", () => {
+  const router = createRouter();
+
+  assert.throws(
+    () => router.get(
+      "/contacts",
+      {
+        transport: {
+          kind: "weird"
+        }
+      },
+      async () => {}
+    ),
+    /transport\.kind must be one of: command, jsonapi-resource/
+  );
+
+  assert.throws(
+    () => router.get(
+      "/contacts",
+      {
+        output: {
+          mode: "unsupported"
+        }
+      },
+      async () => {}
+    ),
+    /output must be a function/
+  );
 });
 
 test("compileRouteValidator strips json-rest transport metadata before Fastify handoff", () => {

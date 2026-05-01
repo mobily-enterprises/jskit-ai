@@ -1,17 +1,12 @@
 import { resolveAppConfig } from "@jskit-ai/kernel/server/support";
 import { resolveCrudSurfacePolicyFromAppConfig } from "@jskit-ai/crud-core/server/crudModuleConfig";
-import {
-  createCrudLookupResolver,
-  createCrudLookup
-} from "@jskit-ai/crud-core/server/lookups";
+import { INTERNAL_JSON_REST_API, addResourceIfMissing } from "@jskit-ai/json-rest-api-core/server/jsonRestApiHost";
 import { withActionDefaults } from "@jskit-ai/kernel/shared/actions";
 import { createRepository } from "./repository.js";
-import {
-  createService,
-  serviceEvents
-} from "./service.js";
+import { createService } from "./service.js";
 import { createActions } from "./actions.js";
 import { registerRoutes } from "./registerRoutes.js";
+import { jsonRestResource } from "./jsonRestResource.js";
 
 const CRUD_MODULE_CONFIG = Object.freeze({
   namespace: "users",
@@ -29,7 +24,7 @@ function resolveCrudPolicyFromApp(app) {
 class UsersProvider {
   static id = "crud.users";
 
-  static dependsOn = ["runtime.actions", "runtime.database", "auth.policy.fastify", "local.main"];
+  static dependsOn = ["runtime.actions", "runtime.database", "auth.policy.fastify", "local.main", "json-rest-api.core"];
 
   register(app) {
     if (!app || typeof app.singleton !== "function" || typeof app.service !== "function" || typeof app.actions !== "function") {
@@ -39,15 +34,11 @@ class UsersProvider {
     const crudPolicy = resolveCrudPolicyFromApp(app);
 
     app.singleton("repository.users", (scope) => {
+      const api = scope.make(INTERNAL_JSON_REST_API);
       const knex = scope.make("jskit.database.knex");
-      return createRepository(knex, {
-        resolveLookup: createCrudLookupResolver(scope)
-      });
-    });
-
-    app.singleton("lookup.users", (scope) => {
-      return createCrudLookup(scope.make("repository.users"), {
-        ownershipFilter: crudPolicy.ownershipFilter
+      return createRepository({
+        api,
+        knex
       });
     });
 
@@ -57,9 +48,6 @@ class UsersProvider {
         return createService({
           usersRepository: scope.make("repository.users")
         });
-      },
-      {
-        events: serviceEvents
       }
     );
 
@@ -78,8 +66,10 @@ class UsersProvider {
     );
   }
 
-  boot(app) {
+  async boot(app) {
     const crudPolicy = resolveCrudPolicyFromApp(app);
+    const api = app.make(INTERNAL_JSON_REST_API);
+    await addResourceIfMissing(api, "users", jsonRestResource);
     registerRoutes(app, {
       routeOwnershipFilter: crudPolicy.ownershipFilter,
       routeSurface: crudPolicy.surfaceId,

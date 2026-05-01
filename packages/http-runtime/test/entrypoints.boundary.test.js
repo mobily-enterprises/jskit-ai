@@ -32,6 +32,11 @@ test("shared entrypoint exports shared validators only", () => {
   assert.equal(typeof sharedApi.enumSchema, "function");
   assert.equal(typeof sharedApi.createResource, "function");
   assert.equal(typeof sharedApi.createCommand, "function");
+  assert.equal(typeof sharedApi.createJsonApiDocument, "function");
+  assert.equal(typeof sharedApi.createJsonApiErrorDocumentFromFailure, "function");
+  assert.equal(typeof sharedApi.normalizeJsonApiDocument, "function");
+  assert.equal(typeof sharedApi.createJsonApiResourceRouteContract, "function");
+  assert.equal(typeof sharedApi.withJsonApiErrorResponses, "function");
   assert.equal(typeof sharedApi.createHttpClient, "undefined");
   assert.equal(typeof sharedApi.HttpValidatorsServiceProvider, "undefined");
 });

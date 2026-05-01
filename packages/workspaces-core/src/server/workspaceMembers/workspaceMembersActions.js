@@ -48,7 +48,7 @@ const workspaceMembersActions = Object.freeze([
       permissions: ["workspace.roles.view"]
     },
     input: workspaceSlugParamsValidator,
-    output: workspaceMembersResource.operations.rolesList.output,
+    output: null,
     idempotency: "none",
     audit: {
       actionName: "workspace.roles.list"
@@ -69,7 +69,7 @@ const workspaceMembersActions = Object.freeze([
       permissions: ["workspace.members.view"]
     },
     input: workspaceSlugParamsValidator,
-    output: workspaceMembersResource.operations.membersList.output,
+    output: null,
     idempotency: "none",
     audit: {
       actionName: "workspace.members.list"
@@ -92,7 +92,7 @@ const workspaceMembersActions = Object.freeze([
       permissions: ["workspace.members.manage"]
     },
     input: updateMemberRoleActionInput,
-    output: workspaceMembersResource.operations.updateMemberRole.output,
+    output: null,
     idempotency: "optional",
     audit: {
       actionName: "workspace.member.role.update"
@@ -118,7 +118,7 @@ const workspaceMembersActions = Object.freeze([
       permissions: ["workspace.members.manage"]
     },
     input: removeMemberActionInput,
-    output: workspaceMembersResource.operations.removeMember.output,
+    output: null,
     idempotency: "optional",
     audit: {
       actionName: "workspace.member.remove"
@@ -143,7 +143,7 @@ const workspaceMembersActions = Object.freeze([
       permissions: ["workspace.members.view"]
     },
     input: workspaceSlugParamsValidator,
-    output: workspaceMembersResource.operations.invitesList.output,
+    output: null,
     idempotency: "none",
     audit: {
       actionName: "workspace.invites.list"
@@ -166,7 +166,7 @@ const workspaceMembersActions = Object.freeze([
       permissions: ["workspace.members.invite"]
     },
     input: createInviteActionInput,
-    output: workspaceMembersResource.operations.createInvite.output,
+    output: null,
     idempotency: "optional",
     audit: {
       actionName: "workspace.invite.create"
@@ -202,7 +202,7 @@ const workspaceMembersActions = Object.freeze([
       permissions: ["workspace.invites.revoke"]
     },
     input: revokeInviteActionInput,
-    output: workspaceMembersResource.operations.revokeInvite.output,
+    output: null,
     idempotency: "optional",
     audit: {
       actionName: "workspace.invite.revoke"

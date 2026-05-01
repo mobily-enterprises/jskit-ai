@@ -14,6 +14,12 @@ Use this on demand; do not load the full index at startup.
 
 ### src
 
+### `src/server/consoleAuthServiceDecorator.js`
+Exports
+- `createConsoleAuthServiceDecorator({ consoleService } = {})`
+Local functions
+- `normalizeRequestPathname(request = null)`
+
 ### `src/server/consoleBootstrapContributor.js`
 Exports
 - `createConsoleBootstrapContributor({ consoleService } = {})`

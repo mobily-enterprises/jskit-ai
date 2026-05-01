@@ -1525,8 +1525,8 @@
           "@jskit-ai/crud-core",
           "@jskit-ai/database-runtime",
           "@jskit-ai/http-runtime",
-          "@jskit-ai/realtime",
-          "@jskit-ai/users-core"
+          "@jskit-ai/json-rest-api-core",
+          "@jskit-ai/realtime"
         ],
         "capabilities": {
           "provides": [
@@ -1536,7 +1536,7 @@
             "runtime.actions",
             "runtime.database",
             "auth.policy",
-            "users.core"
+            "json-rest-api.core"
           ]
         },
         "runtime": {
@@ -1614,9 +1614,9 @@
               "@jskit-ai/crud-core": "0.1.63",
               "@jskit-ai/database-runtime": "0.1.55",
               "@jskit-ai/http-runtime": "0.1.54",
+              "@jskit-ai/json-rest-api-core": "0.1.0",
               "@jskit-ai/kernel": "0.1.55",
               "@jskit-ai/realtime": "0.1.54",
-              "@jskit-ai/users-core": "0.1.65",
               "@local/${option:namespace|kebab}": "file:packages/${option:namespace|kebab}"
             },
             "dev": {}
@@ -1699,6 +1699,28 @@
               "reason": "Install app-local CRUD route registration.",
               "category": "crud",
               "id": "crud-local-package-server-routes-${option:namespace|snake}",
+              "templateContext": {
+                "entrypoint": "src/server/buildTemplateContext.js",
+                "export": "buildTemplateContext"
+              }
+            },
+            {
+              "from": "templates/src/local-package/server/registerJsonRestResources.js",
+              "to": "packages/${option:namespace|kebab}/src/server/registerJsonRestResources.js",
+              "reason": "Install app-local JSON:API resource registration.",
+              "category": "crud",
+              "id": "crud-local-package-server-jsonrest-register-${option:namespace|snake}",
+              "templateContext": {
+                "entrypoint": "src/server/buildTemplateContext.js",
+                "export": "buildTemplateContext"
+              }
+            },
+            {
+              "from": "templates/src/local-package/server/jsonRestResource.js",
+              "to": "packages/${option:namespace|kebab}/src/server/jsonRestResource.js",
+              "reason": "Install app-local JSON:API resource config.",
+              "category": "crud",
+              "id": "crud-local-package-server-jsonrest-resource-${option:namespace|snake}",
               "templateContext": {
                 "entrypoint": "src/server/buildTemplateContext.js",
                 "export": "buildTemplateContext"
@@ -2679,6 +2701,69 @@
           },
           "procfile": {},
           "files": []
+        }
+      }
+    },
+    {
+      "packageId": "@jskit-ai/json-rest-api-core",
+      "version": "0.1.0",
+      "descriptor": {
+        "packageVersion": 1,
+        "packageId": "@jskit-ai/json-rest-api-core",
+        "version": "0.1.0",
+        "kind": "runtime",
+        "description": "Shared internal json-rest-api host runtime for JSKIT server packages.",
+        "dependsOn": [
+          "@jskit-ai/database-runtime"
+        ],
+        "capabilities": {
+          "provides": [
+            "json-rest-api.core"
+          ],
+          "requires": [
+            "runtime.database"
+          ]
+        },
+        "runtime": {
+          "server": {
+            "providers": [
+              {
+                "entrypoint": "src/server/JsonRestApiCoreServiceProvider.js",
+                "export": "JsonRestApiCoreServiceProvider"
+              }
+            ]
+          },
+          "client": {
+            "providers": []
+          }
+        },
+        "metadata": {
+          "apiSummary": {
+            "surfaces": [
+              {
+                "subpath": "./server",
+                "summary": "Exports the shared internal json-rest-api host token and host registration helpers."
+              }
+            ],
+            "containerTokens": {
+              "server": [
+                "internal.json-rest-api"
+              ],
+              "client": []
+            }
+          }
+        },
+        "mutations": {
+          "dependencies": {
+            "runtime": {},
+            "dev": {}
+          },
+          "packageJson": {
+            "scripts": {}
+          },
+          "procfile": {},
+          "files": [],
+          "text": []
         }
       }
     },
@@ -3733,6 +3818,7 @@
           "@jskit-ai/auth-core",
           "@jskit-ai/database-runtime",
           "@jskit-ai/http-runtime",
+          "@jskit-ai/json-rest-api-core",
           "@jskit-ai/uploads-runtime",
           "@jskit-ai/storage-runtime"
         ],
@@ -3744,6 +3830,7 @@
           "requires": [
             "runtime.actions",
             "runtime.database",
+            "json-rest-api.core",
             "runtime.storage",
             "runtime.uploads",
             "auth.provider",
@@ -3856,6 +3943,7 @@
               "@jskit-ai/crud-core": "0.1.63",
               "@jskit-ai/database-runtime": "0.1.55",
               "@jskit-ai/http-runtime": "0.1.54",
+              "@jskit-ai/json-rest-api-core": "0.1.0",
               "@jskit-ai/kernel": "0.1.55",
               "@local/users": "file:packages/users",
               "@jskit-ai/uploads-runtime": "0.1.33"
@@ -4363,6 +4451,7 @@
         "kind": "runtime",
         "description": "Workspace tenancy runtime plus HTTP routes, role catalog, and workspace config scaffolding.",
         "dependsOn": [
+          "@jskit-ai/json-rest-api-core",
           "@jskit-ai/users-core"
         ],
         "capabilities": {
@@ -4371,7 +4460,8 @@
             "workspaces.server-routes"
           ],
           "requires": [
-            "users.core"
+            "users.core",
+            "json-rest-api.core"
           ]
         },
         "runtime": {
@@ -4470,6 +4560,7 @@
         "mutations": {
           "dependencies": {
             "runtime": {
+              "@jskit-ai/json-rest-api-core": "0.1.0",
               "@jskit-ai/users-core": "0.1.65"
             },
             "dev": {}

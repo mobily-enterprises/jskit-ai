@@ -4,7 +4,6 @@ import { workspaceDirectoryActions } from "../src/server/workspaceDirectory/work
 import { workspacePendingInvitationsActions } from "../src/server/workspacePendingInvitations/workspacePendingInvitationsActions.js";
 import { workspaceMembersActions } from "../src/server/workspaceMembers/workspaceMembersActions.js";
 import { workspaceSettingsActions } from "../src/server/workspaceSettings/workspaceSettingsActions.js";
-import { workspaceResource } from "../src/shared/resources/workspaceResource.js";
 
 test("workspace settings actions live in their own action array", () => {
   assert.deepEqual(
@@ -34,18 +33,18 @@ test("workspace actions array no longer owns workspace settings actions", () => 
   );
 });
 
-test("workspace directory actions use the canonical workspace list resource output", () => {
+test("workspace directory actions stay thin and defer output validation to routes", () => {
   const listAction = workspaceDirectoryActions.find((action) => action.id === "workspace.workspaces.list");
   assert.ok(listAction);
-  assert.equal(listAction.output, workspaceResource.operations.list.output);
+  assert.equal(listAction.output, null);
 });
 
-test("workspace directory read/update actions use canonical workspace resource validators", () => {
+test("workspace directory read/update actions stay thin and defer output validation to routes", () => {
   const readAction = workspaceDirectoryActions.find((action) => action.id === "workspace.workspaces.read");
   const updateAction = workspaceDirectoryActions.find((action) => action.id === "workspace.workspaces.update");
 
   assert.ok(readAction);
   assert.ok(updateAction);
-  assert.equal(readAction.output, workspaceResource.operations.view.output);
-  assert.equal(updateAction.output, workspaceResource.operations.patch.output);
+  assert.equal(readAction.output, null);
+  assert.equal(updateAction.output, null);
 });

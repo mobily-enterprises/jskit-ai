@@ -8,6 +8,7 @@ export default Object.freeze({
     "@jskit-ai/auth-core",
     "@jskit-ai/database-runtime",
     "@jskit-ai/http-runtime",
+    "@jskit-ai/json-rest-api-core",
     "@jskit-ai/uploads-runtime",
     "@jskit-ai/storage-runtime"
   ],
@@ -19,6 +20,7 @@ export default Object.freeze({
     requires: [
       "runtime.actions",
       "runtime.database",
+      "json-rest-api.core",
       "runtime.storage",
       "runtime.uploads",
       "auth.provider",
@@ -132,6 +134,7 @@ export default Object.freeze({
         "@jskit-ai/crud-core": "0.1.63",
         "@jskit-ai/database-runtime": "0.1.55",
         "@jskit-ai/http-runtime": "0.1.54",
+        "@jskit-ai/json-rest-api-core": "0.1.0",
         "@jskit-ai/kernel": "0.1.55",
         "@local/users": "file:packages/users",
         "@jskit-ai/uploads-runtime": "0.1.33"
@@ -258,15 +261,6 @@ export default Object.freeze({
         }
       },
       {
-        from: "templates/packages/users/src/server/listConfig.js",
-        to: "packages/users/src/server/listConfig.js",
-        ownership: "app",
-        preserveOnRemove: true,
-        reason: "Install app-owned users CRUD list configuration.",
-        category: "users-core",
-        id: "users-core-users-list-config"
-      },
-      {
         from: "templates/packages/users/src/server/registerRoutes.js",
         to: "packages/users/src/server/registerRoutes.js",
         ownership: "app",
@@ -300,6 +294,15 @@ export default Object.freeze({
         reason: "Install app-owned users CRUD repository.",
         category: "users-core",
         id: "users-core-users-repository"
+      },
+      {
+        from: "templates/packages/users/src/server/jsonRestResource.js",
+        to: "packages/users/src/server/jsonRestResource.js",
+        ownership: "app",
+        preserveOnRemove: true,
+        reason: "Install app-owned users JSON:API resource configuration.",
+        category: "users-core",
+        id: "users-core-users-json-rest-resource"
       },
       {
         from: "templates/packages/users/src/server/service.js",
