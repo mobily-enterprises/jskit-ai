@@ -9,8 +9,8 @@
     "./server/jsonRestApiHost": "./src/server/jsonRestApiHost.js"
   },
   "dependencies": {
-    "hooked-api": "file:../../../hooked-api",
-    "json-rest-api": "file:../../../json-rest-api",
+    "hooked-api": "1.x.x",
+    "json-rest-api": "1.x.x",
     "@jskit-ai/kernel": "0.1.55"
   }
 }

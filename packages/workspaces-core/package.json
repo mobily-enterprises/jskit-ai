@@ -25,6 +25,6 @@
     "@jskit-ai/resource-crud-core": "0.1.0",
     "@jskit-ai/resource-core": "0.1.0",
     "@jskit-ai/users-core": "0.1.65",
-    "json-rest-schema": "file:../../../json-rest-schema"
+    "json-rest-schema": "1.x.x"
   }
 }

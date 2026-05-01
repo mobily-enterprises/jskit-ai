@@ -7,7 +7,7 @@ test("assistant-core advertises a portable json-rest-schema runtime dependency f
 
   assert.match(
     specifier,
-    /^[~^]?\d+\.\d+\.\d+(?:[-+][0-9A-Za-z.-]+)?$/,
+    /^(?:[~^]?\d+\.\d+\.\d+(?:[-+][0-9A-Za-z.-]+)?|\d+\.x\.x)$/,
     "assistant-core descriptor must not write a repo-local file: dependency into app package.json"
   );
 });

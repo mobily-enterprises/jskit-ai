@@ -19,6 +19,6 @@
     "@jskit-ai/resource-crud-core": "0.1.0",
     "@jskit-ai/resource-core": "0.1.0",
     "@jskit-ai/uploads-runtime": "0.1.33",
-    "json-rest-schema": "file:../../../json-rest-schema"
+    "json-rest-schema": "1.x.x"
   }
 }
