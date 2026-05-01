@@ -273,6 +273,30 @@ function buildCrudFieldContractMap(resource = {}, { context = "crud resource fie
   );
 }
 
+function buildCrudOperationSchemaFields(fields = {}, operationName = "") {
+  const definitions = {};
+
+  for (const [fieldKey, fieldDefinition] of Object.entries(fields)) {
+    const operationConfig = fieldDefinition?.operations?.[operationName];
+    if (!operationConfig) {
+      continue;
+    }
+
+    const nextDefinition = {
+      ...fieldDefinition
+    };
+    delete nextDefinition.operations;
+
+    if (operationConfig !== true) {
+      Object.assign(nextDefinition, operationConfig);
+    }
+
+    definitions[fieldKey] = nextDefinition;
+  }
+
+  return definitions;
+}
+
 function resolveCrudFieldContractEntry(resource = {}, fieldKey = "", options = {}) {
   const normalizedFieldKey = normalizeText(fieldKey);
   if (!normalizedFieldKey) {
@@ -292,6 +316,7 @@ export {
   checkCrudLookupFormControl,
   resolveCrudFieldSchemaProperties,
   normalizeCrudFieldStorageConfig,
+  buildCrudOperationSchemaFields,
   buildCrudFieldContractMap,
   resolveCrudFieldContractEntry
 };

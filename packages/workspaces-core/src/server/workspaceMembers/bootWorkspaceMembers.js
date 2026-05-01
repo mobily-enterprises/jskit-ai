@@ -1,4 +1,11 @@
-import { withStandardErrorResponses } from "@jskit-ai/http-runtime/shared/validators/errorResponses";
+import { createJsonApiResourceRouteContract } from "@jskit-ai/http-runtime/shared/validators/jsonApiRouteTransport";
+import {
+  WORKSPACE_INVITES_TRANSPORT,
+  WORKSPACE_INVITE_CREATE_TRANSPORT,
+  WORKSPACE_MEMBERS_TRANSPORT,
+  WORKSPACE_MEMBER_ROLE_UPDATE_TRANSPORT,
+  WORKSPACE_ROLE_CATALOG_TRANSPORT
+} from "../../shared/jsonApiTransports.js";
 import { workspaceMembersResource } from "../../shared/resources/workspaceMembersResource.js";
 import { resolveWorkspaceRoutePath } from "../common/support/workspaceRoutePaths.js";
 import {
@@ -6,6 +13,20 @@ import {
   workspaceSlugParamsValidator
 } from "../common/validators/routeParamsValidator.js";
 import { resolveDefaultWorkspaceRouteSurfaceIdFromAppConfig } from "../support/workspaceActionSurfaces.js";
+
+function resolveWorkspaceAggregateRecordId(record = {}, context = {}) {
+  const workspaceId = record?.workspace?.id;
+  if (workspaceId != null && String(workspaceId).trim()) {
+    return workspaceId;
+  }
+
+  const workspaceSlug = context?.request?.params?.workspaceSlug;
+  if (workspaceSlug != null && String(workspaceSlug).trim()) {
+    return workspaceSlug;
+  }
+
+  throw new Error("Workspace JSON:API response requires workspace id.");
+}
 
 function bootWorkspaceMembers(app) {
   if (!app || typeof app.make !== "function") {
@@ -33,8 +54,11 @@ function bootWorkspaceMembers(app) {
         summary: "Get workspace role catalog by workspace slug"
       },
       params: workspaceSlugParamsValidator,
-      responses: withStandardErrorResponses({
-        200: workspaceMembersResource.operations.rolesList.output
+      ...createJsonApiResourceRouteContract({
+        ...WORKSPACE_ROLE_CATALOG_TRANSPORT,
+        output: workspaceMembersResource.operations.rolesList.output,
+        outputKind: "record",
+        getRecordId: resolveWorkspaceAggregateRecordId
       })
     },
     async function (request, reply) {
@@ -61,8 +85,11 @@ function bootWorkspaceMembers(app) {
         summary: "List members by workspace slug"
       },
       params: workspaceSlugParamsValidator,
-      responses: withStandardErrorResponses({
-        200: workspaceMembersResource.operations.membersList.output
+      ...createJsonApiResourceRouteContract({
+        ...WORKSPACE_MEMBERS_TRANSPORT,
+        output: workspaceMembersResource.operations.membersList.output,
+        outputKind: "record",
+        getRecordId: resolveWorkspaceAggregateRecordId
       })
     },
     async function (request, reply) {
@@ -89,13 +116,14 @@ function bootWorkspaceMembers(app) {
         summary: "Update workspace member role by workspace slug"
       },
       params: routeParamsValidator,
-      body: workspaceMembersResource.operations.updateMemberRole.body,
-      responses: withStandardErrorResponses(
-        {
-          200: workspaceMembersResource.operations.updateMemberRole.output
-        },
-        { includeValidation400: true }
-      )
+      ...createJsonApiResourceRouteContract({
+        ...WORKSPACE_MEMBER_ROLE_UPDATE_TRANSPORT,
+        body: workspaceMembersResource.operations.updateMemberRole.body,
+        output: workspaceMembersResource.operations.updateMemberRole.output,
+        outputKind: "record",
+        getRecordId: resolveWorkspaceAggregateRecordId,
+        includeValidation400: true
+      })
     },
     async function (request, reply) {
       const response = await request.executeAction({
@@ -123,8 +151,11 @@ function bootWorkspaceMembers(app) {
         summary: "Remove workspace member by workspace slug"
       },
       params: routeParamsValidator,
-      responses: withStandardErrorResponses({
-        200: workspaceMembersResource.operations.removeMember.output
+      ...createJsonApiResourceRouteContract({
+        ...WORKSPACE_MEMBERS_TRANSPORT,
+        output: workspaceMembersResource.operations.removeMember.output,
+        outputKind: "record",
+        getRecordId: resolveWorkspaceAggregateRecordId
       })
     },
     async function (request, reply) {
@@ -153,8 +184,11 @@ function bootWorkspaceMembers(app) {
           summary: "List workspace invites by workspace slug"
         },
         params: workspaceSlugParamsValidator,
-        responses: withStandardErrorResponses({
-          200: workspaceMembersResource.operations.invitesList.output
+        ...createJsonApiResourceRouteContract({
+          ...WORKSPACE_INVITES_TRANSPORT,
+          output: workspaceMembersResource.operations.invitesList.output,
+          outputKind: "record",
+          getRecordId: resolveWorkspaceAggregateRecordId
         })
       },
       async function (request, reply) {
@@ -181,13 +215,14 @@ function bootWorkspaceMembers(app) {
           summary: "Create workspace invite by workspace slug"
         },
         params: workspaceSlugParamsValidator,
-        body: workspaceMembersResource.operations.createInvite.body,
-        responses: withStandardErrorResponses(
-          {
-            200: workspaceMembersResource.operations.createInvite.output
-          },
-          { includeValidation400: true }
-        )
+        ...createJsonApiResourceRouteContract({
+          ...WORKSPACE_INVITE_CREATE_TRANSPORT,
+          body: workspaceMembersResource.operations.createInvite.body,
+          output: workspaceMembersResource.operations.createInvite.output,
+          outputKind: "record",
+          getRecordId: resolveWorkspaceAggregateRecordId,
+          includeValidation400: true
+        })
       },
       async function (request, reply) {
         const response = await request.executeAction({
@@ -215,8 +250,11 @@ function bootWorkspaceMembers(app) {
           summary: "Revoke workspace invite by workspace slug"
         },
         params: routeParamsValidator,
-        responses: withStandardErrorResponses({
-          200: workspaceMembersResource.operations.revokeInvite.output
+        ...createJsonApiResourceRouteContract({
+          ...WORKSPACE_INVITES_TRANSPORT,
+          output: workspaceMembersResource.operations.revokeInvite.output,
+          outputKind: "record",
+          getRecordId: resolveWorkspaceAggregateRecordId
         })
       },
       async function (request, reply) {

@@ -23,6 +23,14 @@ import { computed, reactive, ref, watch } from "vue";
 import { formatDateTime } from "@jskit-ai/kernel/shared/support";
 import { normalizeRecordId } from "@jskit-ai/kernel/shared/support/normalize";
 import { ROUTE_VISIBILITY_WORKSPACE } from "@jskit-ai/kernel/shared/support/visibility";
+import {
+  WORKSPACE_INVITES_TRANSPORT,
+  WORKSPACE_INVITE_CREATE_TRANSPORT,
+  WORKSPACE_MEMBER_ROLE_UPDATE_TRANSPORT,
+  WORKSPACE_MEMBERS_TRANSPORT,
+  WORKSPACE_ROLE_CATALOG_TRANSPORT,
+  WORKSPACE_SETTINGS_TRANSPORT
+} from "@jskit-ai/workspaces-core/shared/jsonApiTransports";
 import MembersAdminClientElement from "./MembersAdminClientElement.vue";
 import { useCommand } from "@jskit-ai/users-web/client/composables/useCommand";
 import { useList } from "@jskit-ai/users-web/client/composables/useList";
@@ -276,6 +284,7 @@ const workspaceSettingsView = useView({
     event: "workspace.settings.changed",
     matches: matchesWorkspaceRealtime
   },
+  transport: WORKSPACE_SETTINGS_TRANSPORT,
   fallbackLoadError: "Unable to load workspace settings."
 });
 
@@ -284,6 +293,7 @@ const workspaceRolesView = useView({
   apiSuffix: "/roles",
   queryKeyFactory: (surfaceId = "", workspaceSlug = "") => buildWorkspaceQueryKey("roles", surfaceId, workspaceSlug),
   viewPermissions: ["workspace.members.view", "workspace.members.invite", "workspace.members.manage"],
+  transport: WORKSPACE_ROLE_CATALOG_TRANSPORT,
   fallbackLoadError: "Unable to load workspace roles."
 });
 
@@ -297,6 +307,7 @@ const workspaceMembersList = useList({
     event: "workspace.members.changed",
     matches: matchesWorkspaceRealtime
   },
+  transport: WORKSPACE_MEMBERS_TRANSPORT,
   selectItems: (payload) => normalizeMembers(payload?.members),
   fallbackLoadError: "Unable to load workspace members."
 });
@@ -311,6 +322,7 @@ const workspaceInvitesList = useList({
     event: "workspace.invites.changed",
     matches: matchesWorkspaceRealtime
   },
+  transport: WORKSPACE_INVITES_TRANSPORT,
   selectItems: (payload) => normalizeInvites(payload?.invites),
   fallbackLoadError: "Unable to load workspace invites."
 });
@@ -320,6 +332,7 @@ const inviteCreateCommand = useCommand({
   apiSuffix: "/invites",
   runPermissions: ["workspace.members.invite"],
   writeMethod: "POST",
+  transport: WORKSPACE_INVITE_CREATE_TRANSPORT,
   fallbackRunError: "Unable to send invite.",
   buildRawPayload: () => ({
     email: forms.invite.email,
@@ -336,6 +349,7 @@ const revokeInviteCommand = useCommand({
   apiSuffix: "/invites",
   runPermissions: ["workspace.invites.revoke"],
   writeMethod: "DELETE",
+  transport: WORKSPACE_INVITES_TRANSPORT,
   fallbackRunError: "Unable to revoke invite.",
   buildCommandOptions: (_parsed, { context }) => {
     return {
@@ -354,6 +368,7 @@ const memberRoleCommand = useCommand({
   apiSuffix: "/members",
   runPermissions: ["workspace.members.manage"],
   writeMethod: "PATCH",
+  transport: WORKSPACE_MEMBER_ROLE_UPDATE_TRANSPORT,
   fallbackRunError: "Unable to update member role.",
   buildRawPayload: (_model, { context }) => ({
     roleSid: String(context?.roleSid || "").trim().toLowerCase()
@@ -375,6 +390,7 @@ const memberRemoveCommand = useCommand({
   apiSuffix: "/members",
   runPermissions: ["workspace.members.manage"],
   writeMethod: "DELETE",
+  transport: WORKSPACE_MEMBERS_TRANSPORT,
   fallbackRunError: "Unable to remove member.",
   buildCommandOptions: (_parsed, { context }) => {
     return {

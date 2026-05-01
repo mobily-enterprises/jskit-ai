@@ -209,9 +209,8 @@ packages/contacts/
   package.json
   package.descriptor.mjs
   src/server/ContactsProvider.js
-  src/server/actionIds.js
   src/server/actions.js
-  src/server/listConfig.js
+  src/server/jsonRestResource.js
   src/server/registerRoutes.js
   src/server/repository.js
   src/server/service.js
@@ -290,22 +289,6 @@ It owns:
 
 It is wiring, not business logic. If you need to change how contacts are validated or saved, this is usually **not** the file to edit first.
 
-### `src/server/actionIds.js`
-
-This is the stable list of action ids:
-
-```js
-const actionIds = Object.freeze({
-  list: "crud.contacts.list",
-  view: "crud.contacts.view",
-  create: "crud.contacts.create",
-  update: "crud.contacts.update",
-  delete: "crud.contacts.delete"
-});
-```
-
-Keep this file boring. It is identity, not behavior.
-
 ### `src/server/actions.js`
 
 This is the action contract boundary.
@@ -342,32 +325,41 @@ In other words:
 
 Those are related, but not the same concern.
 
-### `src/server/listConfig.js`
+### `src/server/jsonRestResource.js`
 
-This is the baseline list behavior for the repository.
+This is the package-local JSON:API resource configuration for the shared internal host.
 
 It owns things like:
 
-- `defaultLimit`
-- `maxLimit`
-- `orderBy`
-- `searchColumns`
-
-One subtle but important detail: `searchColumns` are **database column names**, not camelCase resource field keys.
+- `searchSchema`
+- `defaultSort`
+- `autofilter`
+- the resource field/storage schema used by the internal JSON:API runtime
 
 Example:
 
 ```js
-const LIST_CONFIG = Object.freeze({
-  searchColumns: ["full_name", "email", "phone"],
-  orderBy: [
-    {
-      column: "created_at",
-      direction: "desc"
+const jsonRestResource = Object.freeze({
+  tableName: "contacts",
+  searchSchema: {
+    id: { type: "id", actualField: "id" },
+    q: {
+      type: "string",
+      oneOf: ["fullName", "email", "phone"],
+      filterOperator: "like",
+      splitBy: " ",
+      matchAll: true
     }
-  ]
+  },
+  defaultSort: ["-createdAt"],
+  autofilter: "workspace",
+  schema: {
+    // resource fields...
+  }
 });
 ```
+
+One subtle but important detail: the `searchSchema.q.oneOf` entries are the resource/search field keys understood by the internal JSON:API runtime.
 
 ### `src/server/repository.js`
 
@@ -754,7 +746,7 @@ Use this rule of thumb when deciding where to edit:
 | Change API/input/output contract | `contactResource.js` and `actions.js` | This is where operation shape and validators live |
 | Change route path or HTTP transport | `registerRoutes.js` | This is the HTTP layer |
 | Change permissions or channels | `actions.js` | This is the action contract boundary |
-| Change default ordering, limits, or searchable DB columns | `listConfig.js` | This is list runtime configuration |
+| Change default ordering, searchable fields, or ownership autofilter | `jsonRestResource.js` | This is the internal JSON:API resource/runtime configuration |
 | Change SQL, joins, parent filters, or advanced search | `repository.js` | This is the data-access layer |
 | Add cross-record or domain rules on save/delete | `service.js` | This is business logic |
 | Change page layout and display behavior | the route pages and app-owned composables | This is presentation |
@@ -825,8 +817,8 @@ The client runtime debounces the search input, writes the query string to `q`, a
 The generic CRUD stack already understands `q`.
 
 - `listSearchQueryValidator` reads and normalizes the `q` query param
-- the repository applies search to `list.searchColumns`
-- if `searchColumns` is not configured, CRUD falls back to a derived set of searchable string columns from the resource output schema
+- the repository applies search through `jsonRestResource.searchSchema.q`
+- the generated CRUD starts with an explicit `q` search definition, so you edit that definition directly when you want to narrow or expand the search surface
 
 For the tutorial `contacts` table, that usually means the columns behind:
 
@@ -837,27 +829,31 @@ For the tutorial `contacts` table, that usually means the columns behind:
 
 #### Best practices
 
-- Once the UX is stable, set explicit `searchColumns` instead of relying on the fallback.
-- Keep search focused on the columns users actually expect.
-- Remember that `searchColumns` are database columns.
+- Once the UX is stable, edit `jsonRestResource.searchSchema.q.oneOf` explicitly instead of relying on the initial generated defaults.
+- Keep search focused on the fields users actually expect.
+- Remember that these are JSON:API/internal resource search keys, not a free-form UI concern.
 
-### Pattern 2: explicit `contacts` search columns
+### Pattern 2: explicit `contacts` search fields
 
-This is the first thing to do when the fallback search becomes too broad or too accidental.
+This is the first thing to do when the generated `q` search becomes too broad or too accidental.
 
 #### Server side
 
-Set the searchable columns explicitly in `listConfig.js`:
+Set the searchable fields explicitly in `jsonRestResource.js`:
 
 ```js
-const LIST_CONFIG = Object.freeze({
-  searchColumns: ["full_name", "email", "phone"],
-  orderBy: [
-    {
-      column: "created_at",
-      direction: "desc"
+const jsonRestResource = Object.freeze({
+  searchSchema: {
+    id: { type: "id", actualField: "id" },
+    q: {
+      type: "string",
+      oneOf: ["fullName", "email", "phone"],
+      filterOperator: "like",
+      splitBy: " ",
+      matchAll: true
     }
-  ]
+  },
+  defaultSort: ["-createdAt"]
 });
 ```
 
@@ -1365,14 +1361,18 @@ The CRUD stack can derive parent filter keys from the resource contract via `cre
 For the tutorial `addresses` table, the list search itself can stay very simple:
 
 ```js
-const LIST_CONFIG = Object.freeze({
-  searchColumns: ["label", "line_1", "line_2", "suburb", "state", "postcode"],
-  orderBy: [
-    {
-      column: "created_at",
-      direction: "desc"
+const jsonRestResource = Object.freeze({
+  searchSchema: {
+    id: { type: "id", actualField: "id" },
+    q: {
+      type: "string",
+      oneOf: ["label", "line1", "line2", "suburb", "state", "postcode"],
+      filterOperator: "like",
+      splitBy: " ",
+      matchAll: true
     }
-  ]
+  },
+  defaultSort: ["-createdAt"]
 });
 ```
 

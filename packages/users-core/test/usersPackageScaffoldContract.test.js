@@ -23,7 +23,6 @@ test("users-core installs the app-local users package scaffold", () => {
     "users-core-users-package-descriptor-workspace",
     "users-core-users-provider-base",
     "users-core-users-provider-workspace",
-    "users-core-users-action-ids",
     "users-core-users-actions-base",
     "users-core-users-actions-workspace",
     "users-core-users-routes-base",
@@ -79,23 +78,35 @@ test("users-core base users package templates stay aligned with non-workspace ap
   assert.doesNotMatch(packageDescriptorSource, /@jskit-ai\/workspaces-core/);
   assert.match(packageDescriptorSource, /@jskit-ai\/json-rest-api-core/);
   assert.match(packageDescriptorSource, /json-rest-api\.core/);
+  assert.doesNotMatch(packageDescriptorSource, /server\/actionIds/);
   assert.match(providerSource, /surface: "home"/);
   assert.doesNotMatch(providerSource, /routeSurfaceRequiresWorkspace/);
   assert.doesNotMatch(providerSource, /createCrudLookup/);
   assert.doesNotMatch(providerSource, /lookup\.users/);
+  assert.doesNotMatch(providerSource, /requires application singleton\(\)\/service\(\)\/actions\(\)\./);
   assert.match(providerSource, /addResourceIfMissing\(api, "users", jsonRestResource\)/);
   assert.match(repositorySource, /api\.resources\.users\.query\(/);
   assert.match(repositorySource, /api\.resources\.users\.get\(/);
+  assert.match(repositorySource, /async function queryDocuments\(query = \{\}, options = \{\}\)/);
+  assert.match(repositorySource, /async function getDocumentById\(recordId, options = \{\}\)/);
   assert.match(jsonRestResourceSource, /defaultSort: \["name", "email"\]/);
   assert.doesNotMatch(actionsSource, /workspaceSlugParamsValidator/);
   assert.doesNotMatch(actionsSource, /requireActionSurface/);
   assert.match(actionsSource, /import \{ jsonRestResource \} from "\.\/jsonRestResource\.js";/);
   assert.match(actionsSource, /output: null/);
+  assert.match(actionsSource, /usersService\.queryDocuments/);
+  assert.match(actionsSource, /usersService\.getDocumentById/);
+  assert.doesNotMatch(actionsSource, /from "\.\/actionIds\.js"/);
+  assert.match(actionsSource, /id: "crud\.users\.list"/);
+  assert.match(actionsSource, /id: "crud\.users\.view"/);
   assert.doesNotMatch(serviceSource, /serviceEvents/);
+  assert.match(serviceSource, /throw new TypeError\("createService requires usersRepository\."\);/);
   assert.match(serviceSource, /return404IfNotFound/);
+  assert.match(serviceSource, /throw new AppError\(404, "Document not found\."\);/);
+  assert.match(serviceSource, /returnJsonApiDocument/);
   assert.doesNotMatch(routesSource, /workspaceRouteInput/);
   assert.match(routesSource, /createJsonApiResourceRouteContract/);
-  assert.match(routesSource, /wrapResponse: false/);
+  assert.doesNotMatch(routesSource, /wrapResponse/);
   assert.match(routesSource, /routeBase: "\/"/);
 });
 
@@ -124,16 +135,26 @@ test("users-core workspace users package templates stay aligned with workspace a
   assert.match(packageDescriptorSource, /@jskit-ai\/workspaces-core/);
   assert.match(packageDescriptorSource, /@jskit-ai\/json-rest-api-core/);
   assert.match(packageDescriptorSource, /json-rest-api\.core/);
+  assert.doesNotMatch(packageDescriptorSource, /server\/actionIds/);
   assert.match(providerSource, /surface: "admin"/);
   assert.match(providerSource, /routeSurfaceRequiresWorkspace/);
   assert.doesNotMatch(providerSource, /createCrudLookup/);
   assert.doesNotMatch(providerSource, /lookup\.users/);
+  assert.doesNotMatch(providerSource, /requires application singleton\(\)\/service\(\)\/actions\(\)\./);
   assert.match(providerSource, /addResourceIfMissing\(api, "users", jsonRestResource\)/);
   assert.match(actionsSource, /workspaceSlugParamsValidator/);
   assert.doesNotMatch(actionsSource, /requireActionSurface/);
   assert.match(actionsSource, /import \{ jsonRestResource \} from "\.\/jsonRestResource\.js";/);
+  assert.match(actionsSource, /usersService\.queryDocuments/);
+  assert.match(actionsSource, /usersService\.getDocumentById/);
+  assert.doesNotMatch(actionsSource, /from "\.\/actionIds\.js"/);
+  assert.match(actionsSource, /id: "crud\.users\.list"/);
+  assert.match(actionsSource, /id: "crud\.users\.view"/);
   assert.match(routesSource, /buildWorkspaceInputFromRouteParams/);
   assert.match(routesSource, /createJsonApiResourceRouteContract/);
+  assert.doesNotMatch(routesSource, /wrapResponse/);
   assert.match(routesSource, /routeBase: routeSurfaceRequiresWorkspace === true \? "\/w\/:workspaceSlug" : "\/"/);
   assert.doesNotMatch(serviceSource, /serviceEvents/);
+  assert.match(serviceSource, /throw new TypeError\("createService requires usersRepository\."\);/);
+  assert.match(serviceSource, /returnJsonApiDocument/);
 });

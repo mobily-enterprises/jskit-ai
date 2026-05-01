@@ -1,8 +1,23 @@
-import { withStandardErrorResponses } from "@jskit-ai/http-runtime/shared/validators/errorResponses";
+import { createJsonApiResourceRouteContract } from "@jskit-ai/http-runtime/shared/validators/jsonApiRouteTransport";
+import { WORKSPACE_SETTINGS_TRANSPORT } from "../../shared/jsonApiTransports.js";
 import { workspaceSettingsResource } from "../../shared/resources/workspaceSettingsResource.js";
 import { resolveWorkspaceRoutePath } from "../common/support/workspaceRoutePaths.js";
 import { workspaceSlugParamsValidator } from "../common/validators/routeParamsValidator.js";
 import { resolveDefaultWorkspaceRouteSurfaceIdFromAppConfig } from "../support/workspaceActionSurfaces.js";
+
+function resolveWorkspaceSettingsRecordId(record = {}, context = {}) {
+  const workspaceId = record?.workspace?.id;
+  if (workspaceId != null && String(workspaceId).trim()) {
+    return workspaceId;
+  }
+
+  const workspaceSlug = context?.request?.params?.workspaceSlug;
+  if (workspaceSlug != null && String(workspaceSlug).trim()) {
+    return workspaceSlug;
+  }
+
+  throw new Error("Workspace settings JSON:API response requires workspace id.");
+}
 
 function bootWorkspaceSettings(app) {
   if (!app || typeof app.make !== "function") {
@@ -25,8 +40,11 @@ function bootWorkspaceSettings(app) {
         summary: "Get workspace settings and role catalog by workspace slug"
       },
       params: workspaceSlugParamsValidator,
-      responses: withStandardErrorResponses({
-        200: workspaceSettingsResource.operations.view.output
+      ...createJsonApiResourceRouteContract({
+        ...WORKSPACE_SETTINGS_TRANSPORT,
+        output: workspaceSettingsResource.operations.view.output,
+        outputKind: "record",
+        getRecordId: resolveWorkspaceSettingsRecordId
       })
     },
     async function (request, reply) {
@@ -52,13 +70,14 @@ function bootWorkspaceSettings(app) {
         summary: "Update workspace settings by workspace slug"
       },
       params: workspaceSlugParamsValidator,
-      body: workspaceSettingsResource.operations.patch.body,
-      responses: withStandardErrorResponses(
-        {
-          200: workspaceSettingsResource.operations.patch.output
-        },
-        { includeValidation400: true }
-      )
+      ...createJsonApiResourceRouteContract({
+        ...WORKSPACE_SETTINGS_TRANSPORT,
+        body: workspaceSettingsResource.operations.patch.body,
+        output: workspaceSettingsResource.operations.patch.output,
+        outputKind: "record",
+        getRecordId: resolveWorkspaceSettingsRecordId,
+        includeValidation400: true
+      })
     },
     async function (request, reply) {
       const response = await request.executeAction({

@@ -8,6 +8,10 @@ import {
 import { useShellWebErrorRuntime } from "@jskit-ai/shell-web/client/error";
 import { normalizeWorkspaceList } from "../lib/bootstrap.js";
 import { ROUTE_VISIBILITY_PUBLIC } from "@jskit-ai/kernel/shared/support/visibility";
+import {
+  WORKSPACES_TRANSPORT,
+  WORKSPACE_INVITE_REDEEM_TRANSPORT
+} from "@jskit-ai/workspaces-core/shared/jsonApiTransports";
 import { useCommand } from "@jskit-ai/users-web/client/composables/useCommand";
 import { useView } from "@jskit-ai/users-web/client/composables/useView";
 import { usePaths } from "@jskit-ai/users-web/client/composables/usePaths";
@@ -102,6 +106,7 @@ const redeemInviteCommand = useCommand({
   ownershipFilter: OWNERSHIP_PUBLIC,
   apiSuffix: "/workspace/invitations/redeem",
   writeMethod: "POST",
+  transport: WORKSPACE_INVITE_REDEEM_TRANSPORT,
   fallbackRunError: "Unable to respond to invitation.",
   suppressSuccessMessage: true,
   model: redeemInviteModel,
@@ -118,6 +123,7 @@ const createWorkspaceCommand = useCommand({
   ownershipFilter: OWNERSHIP_PUBLIC,
   apiSuffix: "/workspaces",
   writeMethod: "POST",
+  transport: WORKSPACES_TRANSPORT,
   fallbackRunError: "Unable to create workspace.",
   suppressSuccessMessage: true,
   model: createWorkspaceModel,

@@ -22,11 +22,13 @@
     "./server/createCrudServiceFromResource": "./src/server/createCrudServiceFromResource.js",
     "./server/crudModuleConfig": "./src/server/crudModuleConfig.js",
     "./server/listQueryValidators": "./src/server/listQueryValidators.js",
-    "./server/listFilters": "./src/server/listFilters.js"
+    "./server/listFilters": "./src/server/listFilters.js",
+    "./server/routeContracts": "./src/server/routeContracts.js"
   },
   "dependencies": {
     "@tanstack/vue-query": "^5.90.5",
     "@jskit-ai/database-runtime": "0.1.55",
+    "@jskit-ai/http-runtime": "0.1.54",
     "@jskit-ai/kernel": "0.1.55",
     "@jskit-ai/realtime": "0.1.54",
     "@jskit-ai/shell-web": "0.1.54",

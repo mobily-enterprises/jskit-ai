@@ -879,7 +879,9 @@ Local functions
 - `toFastifyRouteOptions(route)`
 - `normalizeHeaderValue(value)`
 - `normalizeMediaType(value = "")`
-- `shouldEnforceRequestContentType(method = "", transport = null)`
+- `routeDefinesRequestBody(route = null)`
+- `shouldEnforceRequestContentType(method = "", transport = null, route = null)`
+- `routeRequiresJsonApiContentTypeParser(route = null)`
 - `enforceRequestContentType({ request = null, route = null, transport = null } = {})`
 - `attachRouteTransport(request, transport = null)`
 - `replyHasHeader(reply, name = "")`

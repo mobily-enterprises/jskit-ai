@@ -48,6 +48,16 @@ export {
   simplifyJsonApiDocument
 } from "./validators/jsonApiTransport.js";
 export {
+  returnJsonApiData,
+  returnJsonApiDocument,
+  returnJsonApiMeta,
+  isJsonApiResult,
+  isJsonApiDataResult,
+  isJsonApiDocumentResult,
+  isJsonApiMetaResult,
+  unwrapJsonApiResult
+} from "./validators/jsonApiResult.js";
+export {
   JSON_API_QUERY_PAGE_CURSOR_KEY,
   JSON_API_QUERY_PAGE_LIMIT_KEY,
   JSON_API_QUERY_INCLUDE_KEY,

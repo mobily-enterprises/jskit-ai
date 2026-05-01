@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+import { createSchema } from "json-rest-schema";
 import { registerActionContextContributor } from "../../actions/ActionRuntimeServiceProvider.js";
 import { createApplication } from "../../kernel/index.js";
 import { createRouter } from "./router.js";
@@ -518,6 +519,36 @@ test("registerHttpRuntime installs API error handling once by default", () => {
 
   assert.equal(fastify.setErrorHandlerCalls, 1);
   assert.equal(typeof fastify.errorHandler, "function");
+  assert.equal(fastify.contentTypeParsers.size, 0);
+});
+
+test("registerHttpRuntime installs the JSON:API parser only when a registered route accepts JSON:API request bodies", () => {
+  const app = createApplication();
+  const fastify = createFastifyStub();
+  const router = createRouter();
+
+  router.post(
+    "/jsonapi-body",
+    {
+      body: {
+        schema: createSchema({})
+      },
+      transport: {
+        kind: "jsonapi-resource",
+        contentType: "application/vnd.api+json"
+      }
+    },
+    async (_request, reply) => {
+      reply.code(204).send();
+    }
+  );
+
+  app.instance("jskit.fastify", fastify);
+  app.instance("jskit.http.router", router);
+
+  registerHttpRuntime(app);
+  registerHttpRuntime(app);
+
   assert.equal(fastify.contentTypeParsers.has("application/vnd.api+json"), true);
   assert.equal(fastify.contentTypeParsers.size, 1);
 });
@@ -1113,6 +1144,10 @@ test("registerRoutes enforces request content type for unsafe transport routes",
       {
         method: "POST",
         path: "/transport-content-type-enforced",
+        body: {
+          type: "object",
+          additionalProperties: true
+        },
         transport: {
           kind: "jsonapi-resource",
           contentType: "application/vnd.api+json"
@@ -1140,6 +1175,37 @@ test("registerRoutes enforces request content type for unsafe transport routes",
       return true;
     }
   );
+});
+
+test("registerRoutes does not enforce request content type for bodyless unsafe transport routes", async () => {
+  const fastify = createFastifyStub();
+
+  registerRoutes(fastify, {
+    routes: [
+      {
+        method: "POST",
+        path: "/transport-content-type-bodyless",
+        transport: {
+          kind: "jsonapi-resource",
+          contentType: "application/vnd.api+json"
+        },
+        handler: async (_request, reply) => {
+          reply.code(204).send();
+        }
+      }
+    ]
+  });
+
+  const reply = createReplyStub();
+  await fastify.routes[0].handler(
+    {
+      headers: {}
+    },
+    reply
+  );
+
+  assert.equal(reply.statusCode, 204);
+  assert.equal(reply.payload, undefined);
 });
 
 test("registerRoutes resolves middleware aliases and groups", async () => {

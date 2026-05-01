@@ -1,5 +1,20 @@
+import { createSchema } from "json-rest-schema";
+import { createJsonApiResourceRouteContract } from "@jskit-ai/http-runtime/shared/validators/jsonApiRouteTransport";
 import { withStandardErrorResponses } from "@jskit-ai/http-runtime/shared/validators/errorResponses";
+import { deepFreeze } from "@jskit-ai/kernel/shared/support/deepFreeze";
 import { userSettingsResource } from "../../shared/resources/userSettingsResource.js";
+import { resolveAccountSettingsResourceId } from "../common/support/accountSettingsJsonApiTransport.js";
+
+const passwordChangeMetaOutputValidator = deepFreeze({
+  schema: createSchema({
+    message: {
+      type: "string",
+      required: true,
+      minLength: 1
+    }
+  }),
+  mode: "replace"
+});
 
 function bootAccountSecurityRoutes(app) {
   if (!app || typeof app.make !== "function") {
@@ -17,13 +32,13 @@ function bootAccountSecurityRoutes(app) {
         tags: ["settings"],
         summary: "Set or change authenticated user's password"
       },
-      body: userSettingsResource.operations.passwordChange.body,
-      responses: withStandardErrorResponses(
-        {
-          200: userSettingsResource.operations.passwordChange.output
-        },
-        { includeValidation400: true }
-      ),
+      ...createJsonApiResourceRouteContract({
+        requestType: "user-password-changes",
+        body: userSettingsResource.operations.passwordChange.body,
+        output: passwordChangeMetaOutputValidator,
+        outputKind: "meta",
+        includeValidation400: true
+      }),
       rateLimit: {
         max: 10,
         timeWindow: "1 minute"
@@ -40,10 +55,7 @@ function bootAccountSecurityRoutes(app) {
         authService.writeSessionCookies(reply, result.session);
       }
 
-      reply.code(200).send({
-        ok: true,
-        message: result?.message || "Password updated."
-      });
+      reply.code(200).send(result?.response || result);
     }
   );
 
@@ -56,13 +68,15 @@ function bootAccountSecurityRoutes(app) {
         tags: ["settings"],
         summary: "Enable or disable password sign-in method"
       },
-      body: userSettingsResource.operations.passwordMethodToggle.body,
-      responses: withStandardErrorResponses(
-        {
-          200: userSettingsResource.operations.passwordMethodToggle.output
-        },
-        { includeValidation400: true }
-      ),
+      ...createJsonApiResourceRouteContract({
+        requestType: "user-password-method-settings",
+        responseType: "user-security-settings",
+        body: userSettingsResource.operations.passwordMethodToggle.body,
+        output: userSettingsResource.operations.passwordMethodToggle.output,
+        outputKind: "record",
+        getRecordId: resolveAccountSettingsResourceId,
+        includeValidation400: true
+      }),
       rateLimit: {
         max: 20,
         timeWindow: "1 minute"
@@ -124,12 +138,13 @@ function bootAccountSecurityRoutes(app) {
         summary: "Unlink an OAuth provider from authenticated account"
       },
       params: userSettingsResource.operations.oauthUnlink.params,
-      responses: withStandardErrorResponses(
-        {
-          200: userSettingsResource.operations.oauthUnlink.output
-        },
-        { includeValidation400: true }
-      ),
+      ...createJsonApiResourceRouteContract({
+        responseType: "user-security-settings",
+        output: userSettingsResource.operations.oauthUnlink.output,
+        outputKind: "record",
+        getRecordId: resolveAccountSettingsResourceId,
+        includeValidation400: true
+      }),
       rateLimit: {
         max: 20,
         timeWindow: "1 minute"
@@ -156,8 +171,10 @@ function bootAccountSecurityRoutes(app) {
         tags: ["settings"],
         summary: "Sign out from other active sessions"
       },
-      responses: withStandardErrorResponses({
-        200: userSettingsResource.operations.logoutOtherSessions.output
+      ...createJsonApiResourceRouteContract({
+        responseType: "user-security-session-operations",
+        outputKind: "no-content",
+        successStatus: 204
       }),
       rateLimit: {
         max: 20,
@@ -169,7 +186,7 @@ function bootAccountSecurityRoutes(app) {
         actionId: "settings.security.sessions.logout_others",
         input: {}
       });
-      reply.code(200).send(response);
+      reply.code(204).send(response);
     }
   );
 }

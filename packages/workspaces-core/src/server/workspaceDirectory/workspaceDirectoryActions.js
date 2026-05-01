@@ -2,6 +2,7 @@ import {
   emptyInputValidator,
   resolveRequest
 } from "@jskit-ai/kernel/shared/actions/actionContributorHelpers";
+import { returnJsonApiData } from "@jskit-ai/http-runtime/shared";
 import { composeSchemaDefinitions } from "@jskit-ai/kernel/shared/validators";
 import { workspaceResource } from "../../shared/resources/workspaceResource.js";
 import { workspaceSlugParamsValidator } from "../common/validators/routeParamsValidator.js";
@@ -38,10 +39,10 @@ const workspaceDirectoryActions = Object.freeze([
       }
     },
     async execute(input, context, deps) {
-      return deps.workspaceService.createWorkspaceForAuthenticatedUser(resolveActionUser(context, input), input, {
+      return returnJsonApiData(await deps.workspaceService.createWorkspaceForAuthenticatedUser(resolveActionUser(context, input), input, {
         request: resolveRequest(context),
         context
-      });
+      }));
     }
   },
   {
@@ -61,13 +62,13 @@ const workspaceDirectoryActions = Object.freeze([
     },
     observability: {},
     async execute(input, context, deps) {
-      return {
+      return returnJsonApiData({
         items: await deps.workspaceService.listWorkspacesForAuthenticatedUser(resolveActionUser(context, input), {
           request: resolveRequest(context),
           context
         }),
         nextCursor: null
-      };
+      });
     }
   },
   {
@@ -88,14 +89,14 @@ const workspaceDirectoryActions = Object.freeze([
     },
     observability: {},
     async execute(input, context, deps) {
-      return deps.workspaceService.getWorkspaceForAuthenticatedUser(
+      return returnJsonApiData(await deps.workspaceService.getWorkspaceForAuthenticatedUser(
         resolveActionUser(context, input),
         input.workspaceSlug,
         {
           request: resolveRequest(context),
           context
         }
-      );
+      ));
     }
   },
   {
@@ -122,7 +123,7 @@ const workspaceDirectoryActions = Object.freeze([
     },
     async execute(input, context, deps) {
       const { workspaceSlug, ...patch } = input;
-      return deps.workspaceService.updateWorkspaceForAuthenticatedUser(
+      return returnJsonApiData(await deps.workspaceService.updateWorkspaceForAuthenticatedUser(
         resolveActionUser(context, input),
         workspaceSlug,
         patch,
@@ -130,7 +131,7 @@ const workspaceDirectoryActions = Object.freeze([
           request: resolveRequest(context),
           context
         }
-      );
+      ));
     }
   }
 ]);

@@ -1,4 +1,5 @@
 import { composeSchemaDefinitions } from "@jskit-ai/kernel/shared/validators";
+import { returnJsonApiData } from "@jskit-ai/http-runtime/shared";
 import { resolveWorkspace } from "../support/resolveWorkspace.js";
 import { resolveActionUser } from "../common/support/resolveActionUser.js";
 import { workspaceMembersResource } from "../../shared/resources/workspaceMembersResource.js";
@@ -55,7 +56,7 @@ const workspaceMembersActions = Object.freeze([
     },
     observability: {},
     async execute(_input, context, deps) {
-      return deps.workspaceMembersService.listRoles({ context });
+      return returnJsonApiData(await deps.workspaceMembersService.listRoles({ context }));
     }
   },
   {
@@ -76,9 +77,9 @@ const workspaceMembersActions = Object.freeze([
     },
     observability: {},
     async execute(input, context, deps) {
-      return deps.workspaceMembersService.listMembers(resolveWorkspace(context, input), {
+      return returnJsonApiData(await deps.workspaceMembersService.listMembers(resolveWorkspace(context, input), {
         context
-      });
+      }));
     }
   },
   {
@@ -99,12 +100,12 @@ const workspaceMembersActions = Object.freeze([
     },
     observability: {},
     async execute(input, context, deps) {
-      return deps.workspaceMembersService.updateMemberRole(resolveWorkspace(context, input), {
+      return returnJsonApiData(await deps.workspaceMembersService.updateMemberRole(resolveWorkspace(context, input), {
         memberUserId: input.memberUserId,
         roleSid: input.roleSid
       }, {
         context
-      });
+      }));
     }
   },
   {
@@ -125,11 +126,11 @@ const workspaceMembersActions = Object.freeze([
     },
     observability: {},
     async execute(input, context, deps) {
-      return deps.workspaceMembersService.removeMember(resolveWorkspace(context, input), {
+      return returnJsonApiData(await deps.workspaceMembersService.removeMember(resolveWorkspace(context, input), {
         memberUserId: input.memberUserId
       }, {
         context
-      });
+      }));
     }
   },
   {
@@ -150,9 +151,9 @@ const workspaceMembersActions = Object.freeze([
     },
     observability: {},
     async execute(input, context, deps) {
-      return deps.workspaceMembersService.listInvites(resolveWorkspace(context, input), {
+      return returnJsonApiData(await deps.workspaceMembersService.listInvites(resolveWorkspace(context, input), {
         context
-      });
+      }));
     }
   },
   {
@@ -178,7 +179,7 @@ const workspaceMembersActions = Object.freeze([
       }
     },
     async execute(input, context, deps) {
-      return deps.workspaceMembersService.createInvite(
+      return returnJsonApiData(await deps.workspaceMembersService.createInvite(
         resolveWorkspace(context, input),
         resolveActionUser(context, input),
         {
@@ -188,7 +189,7 @@ const workspaceMembersActions = Object.freeze([
         {
           context
         }
-      );
+      ));
     }
   },
   {
@@ -209,9 +210,9 @@ const workspaceMembersActions = Object.freeze([
     },
     observability: {},
     async execute(input, context, deps) {
-      return deps.workspaceMembersService.revokeInvite(resolveWorkspace(context, input), input.inviteId, {
+      return returnJsonApiData(await deps.workspaceMembersService.revokeInvite(resolveWorkspace(context, input), input.inviteId, {
         context
-      });
+      }));
     }
   }
 ]);

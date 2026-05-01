@@ -237,9 +237,14 @@ function createJsonApiDocument({
 } = {}) {
   const hasData = data !== undefined;
   const hasErrors = errors !== undefined;
+  const hasMeta = meta !== undefined;
 
-  if (hasData === hasErrors) {
-    throw new TypeError("createJsonApiDocument requires exactly one of data or errors.");
+  if (!hasData && !hasErrors && !hasMeta) {
+    throw new TypeError("createJsonApiDocument requires at least one of data, errors, or meta.");
+  }
+
+  if (hasData && hasErrors) {
+    throw new TypeError("createJsonApiDocument cannot include both data and errors.");
   }
 
   const document = {};

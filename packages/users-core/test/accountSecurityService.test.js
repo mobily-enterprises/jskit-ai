@@ -2,7 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { createService } from "../src/server/accountSecurity/accountSecurityService.js";
 
-test("account security service returns explicit logout result for other sessions", async () => {
+test("account security service returns no content result for other sessions", async () => {
   const calls = [];
   const authService = {
     async signOutOtherSessions(request) {
@@ -27,8 +27,6 @@ test("account security service returns explicit logout result for other sessions
     id: "user-1"
   });
 
-  assert.deepEqual(result, {
-    ok: true
-  });
+  assert.equal(result, null);
   assert.deepEqual(calls, [request]);
 });

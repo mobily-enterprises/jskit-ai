@@ -296,6 +296,12 @@ Local functions
 ### `src/server/serviceEvents.js`
 Exports
 - `createCrudServiceEvents(resource = {}, { context = "crudService" } = {})`
+- `createCrudJsonApiServiceEvents(namespace = "", { context = "createCrudJsonApiServiceEvents" } = {})`
+- `resolveCrudEntityIdFromArgs({ args = [] } = {})`
+- `resolveCrudEntityIdFromResult({ result } = {})`
+- `resolveCrudJsonApiEntityIdFromResult({ result } = {})`
+Local functions
+- `normalizeCrudEventEntityId(value = null)`
 
 ### `src/server/serviceMethods.js`
 Exports

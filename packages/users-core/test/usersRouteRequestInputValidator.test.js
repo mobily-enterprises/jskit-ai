@@ -137,10 +137,10 @@ test("account route handlers build action input from request.input", async () =>
       return { url: "/oauth/link" };
     }
     if (payload.actionId === "settings.profile.update") {
-      return { settings: {}, session: null };
+      return { response: { __jskitJsonApiResult: true, kind: "data", value: {} }, session: null };
     }
     if (payload.actionId === "settings.security.password.change") {
-      return { message: "ok", session: null };
+      return { response: { __jskitJsonApiResult: true, kind: "meta", value: { message: "ok" } }, session: null };
     }
     return {};
   };
@@ -232,12 +232,16 @@ test("account settings jsonapi transport resolves response resource id from requ
 
   const document = settingsRoute.transport.response(
     {
-      profile: {
-        displayName: "Merc"
-      },
-      security: {},
-      preferences: {},
-      notifications: {}
+      __jskitJsonApiResult: true,
+      kind: "data",
+      value: {
+        profile: {
+          displayName: "Merc"
+        },
+        security: {},
+        preferences: {},
+        notifications: {}
+      }
     },
     {
       request: {

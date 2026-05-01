@@ -36,20 +36,20 @@ test("createCrudServiceEvents validates required resource namespace", () => {
 test("createCrudJsonApiServiceEvents builds JSON:API-aware create/update/delete event defaults", () => {
   const events = createCrudJsonApiServiceEvents("contacts");
 
-  assert.equal(events.createRecord[0].realtime.event, "contacts.record.changed");
-  assert.equal(events.updateRecord[0].realtime.event, "contacts.record.changed");
-  assert.equal(events.deleteRecord[0].realtime.event, "contacts.record.changed");
-  assert.equal(events.createRecord[0].entityId({
+  assert.equal(events.createDocument[0].realtime.event, "contacts.record.changed");
+  assert.equal(events.patchDocumentById[0].realtime.event, "contacts.record.changed");
+  assert.equal(events.deleteDocumentById[0].realtime.event, "contacts.record.changed");
+  assert.equal(events.createDocument[0].entityId({
     result: {
       data: {
         id: "21"
       }
     }
   }), "21");
-  assert.equal(events.updateRecord[0].entityId({
+  assert.equal(events.patchDocumentById[0].entityId({
     args: [22]
   }), "22");
-  assert.equal(events.deleteRecord[0].entityId({
+  assert.equal(events.deleteDocumentById[0].entityId({
     args: [23]
   }), "23");
 });

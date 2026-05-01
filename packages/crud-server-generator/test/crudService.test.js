@@ -9,207 +9,126 @@ after(async () => {
   await fixture.cleanup();
 });
 
-test("crudService delegates CRUD operations to the repository", async () => {
+test("crudService exposes the explicit JSON:API CRUD service contract", async () => {
   const calls = [];
   const customersRepository = {
-    async list(query) {
-      calls.push(["list", query]);
-      return { items: [], nextCursor: null };
+    async queryDocuments(query, options) {
+      calls.push(["queryDocuments", query, options]);
+      return { data: [] };
     },
-    async findById(recordId) {
-      calls.push(["findById", recordId]);
-      return { id: recordId, textField: "Example", dateField: "2026-03-11T00:00:00.000Z", numberField: 3 };
+    async getDocumentById(recordId, options) {
+      calls.push(["getDocumentById", recordId, options]);
+      return { data: { id: String(recordId) } };
     },
-    async create(payload) {
-      calls.push(["create", payload]);
-      return { id: 1, ...payload };
+    async createDocument(payload, options) {
+      calls.push(["createDocument", payload, options]);
+      return { data: { id: "1", attributes: payload } };
     },
-    async updateById(recordId, payload) {
-      calls.push(["updateById", recordId, payload]);
-      return { id: recordId, ...payload };
+    async patchDocumentById(recordId, payload, options) {
+      calls.push(["patchDocumentById", recordId, payload, options]);
+      return { data: { id: String(recordId), attributes: payload } };
     },
-    async deleteById(recordId) {
-      calls.push(["deleteById", recordId]);
-      return { id: recordId, deleted: true };
+    async deleteDocumentById(recordId, options) {
+      calls.push(["deleteDocumentById", recordId, options]);
+      return null;
     }
   };
 
   const service = createService({ customersRepository });
 
-  const options = {};
-  await service.listRecords({ limit: 10 }, options);
-  await service.getRecord(3, options);
-  await service.createRecord({ textField: "Example", dateField: "2026-03-11", numberField: 3 }, options);
-  await service.updateRecord(4, { textField: "Changed" }, options);
-  await service.deleteRecord(5, options);
-
-  assert.deepEqual(calls, [
-    ["list", { limit: 10 }],
-    ["findById", 3],
-    ["create", { textField: "Example", dateField: "2026-03-11", numberField: 3 }],
-    ["findById", 4],
-    ["updateById", 4, { textField: "Changed" }],
-    ["deleteById", 5]
+  assert.deepEqual(Object.keys(service), [
+    "queryDocuments",
+    "getDocumentById",
+    "createDocument",
+    "patchDocumentById",
+    "deleteDocumentById"
   ]);
-});
+  assert.equal(Object.isFrozen(service), true);
 
-test("crudService throws 404 when a record is missing", async () => {
-  const service = createService({
-    customersRepository: {
-      async list() {
-        return { items: [], nextCursor: null };
-      },
-      async findById() {
-        return null;
-      },
-      async create(payload) {
-        return { id: 1, ...payload };
-      },
-      async updateById() {
-        return null;
-      },
-      async deleteById() {
-        return null;
-      }
-    }
-  });
-
-  await assert.rejects(
-    () => service.getRecord(9, {}),
-    (error) => error?.status === 404 && error?.message === "Record not found."
-  );
-
-  await assert.rejects(
-    () => service.updateRecord(9, { textField: "Changed" }, {}),
-    (error) => error?.status === 404 && error?.message === "Record not found."
-  );
-
-  await assert.rejects(
-    () => service.deleteRecord(9, {}),
-    (error) => error?.status === 404 && error?.message === "Record not found."
-  );
-});
-
-test("crudService passes existing records into repository update options via the shared CRUD service", async () => {
-  const calls = [];
-  const service = createService({
-    customersRepository: {
-      async list() {
-        return { items: [], nextCursor: null };
-      },
-      async findById(recordId) {
-        calls.push(["findById", recordId]);
-        return {
-          id: recordId,
-          textField: "Existing",
-          dateField: "2026-03-11T00:00:00.000Z",
-          numberField: 3
-        };
-      },
-      async create(payload) {
-        return { id: 1, ...payload };
-      },
-      async updateById(recordId, payload, options = {}) {
-        calls.push(["updateById", recordId, payload, options]);
-        return {
-          id: recordId,
-          textField: payload.textField || "",
-          dateField: "2026-03-11T00:00:00.000Z",
-          numberField: payload.numberField ?? 0
-        };
-      },
-      async deleteById(recordId) {
-        return { id: recordId, deleted: true };
-      }
-    }
-  });
-
-  await service.updateRecord(4, { textField: "Changed" }, {});
+  const options = {
+    trx: "trx-1",
+    context: { visibilityContext: { visibility: "workspace", scopeOwnerId: "7" } },
+    include: ["workspace"]
+  };
+  const listResult = await service.queryDocuments({ limit: 10 }, options);
+  const recordResult = await service.getDocumentById(3, options);
+  const createResult = await service.createDocument({ textField: "Example", dateField: "2026-03-11", numberField: 3 }, options);
+  const updateResult = await service.patchDocumentById(4, { textField: "Changed" }, options);
+  const deleteResult = await service.deleteDocumentById(5, options);
 
   assert.deepEqual(calls, [
-    ["findById", 4],
-    ["updateById", 4, { textField: "Changed" }, {
-      existingRecord: {
-        id: 4,
-        textField: "Existing",
-        dateField: "2026-03-11T00:00:00.000Z",
+    ["queryDocuments", { limit: 10 }, { trx: "trx-1", context: { visibilityContext: { visibility: "workspace", scopeOwnerId: "7" } } }],
+    ["getDocumentById", 3, { trx: "trx-1", context: { visibilityContext: { visibility: "workspace", scopeOwnerId: "7" } }, include: ["workspace"] }],
+    ["createDocument", { textField: "Example", dateField: "2026-03-11", numberField: 3 }, { trx: "trx-1", context: { visibilityContext: { visibility: "workspace", scopeOwnerId: "7" } } }],
+    ["patchDocumentById", 4, { textField: "Changed" }, { trx: "trx-1", context: { visibilityContext: { visibility: "workspace", scopeOwnerId: "7" } } }],
+    ["deleteDocumentById", 5, { trx: "trx-1", context: { visibilityContext: { visibility: "workspace", scopeOwnerId: "7" } } }]
+  ]);
+  assert.equal(listResult.__jskitJsonApiResult, true);
+  assert.equal(listResult.kind, "document");
+  assert.deepEqual(listResult.value, { data: [] });
+  assert.equal(recordResult.__jskitJsonApiResult, true);
+  assert.equal(recordResult.kind, "document");
+  assert.deepEqual(recordResult.value, { data: { id: "3" } });
+  assert.equal(createResult.__jskitJsonApiResult, true);
+  assert.equal(createResult.kind, "document");
+  assert.deepEqual(createResult.value, {
+    data: {
+      id: "1",
+      attributes: {
+        textField: "Example",
+        dateField: "2026-03-11",
         numberField: 3
       }
-    }]
-  ]);
+    }
+  });
+  assert.equal(updateResult.__jskitJsonApiResult, true);
+  assert.equal(updateResult.kind, "document");
+  assert.deepEqual(updateResult.value, {
+    data: {
+      id: "4",
+      attributes: {
+        textField: "Changed"
+      }
+    }
+  });
+  assert.equal(deleteResult, null);
 });
 
-test("crudService supports optional fieldAccess hooks for writable filtering", async () => {
-  const calls = [];
+test("crudService throws immediately when the repository dependency is missing", () => {
+  assert.throws(
+    () => createService({}),
+    /createService requires customersRepository\./
+  );
+});
+
+test("crudService throws 404 when a document is missing", async () => {
   const service = createService({
     customersRepository: {
-      async list() {
-        return {
-          items: [
-            {
-              id: 1,
-              textField: "A",
-              dateField: "2026-03-11T00:00:00.000Z",
-              numberField: 1
-            }
-          ],
-          nextCursor: null
-        };
+      async queryDocuments() {
+        return { data: [] };
       },
-      async findById() {
-        return {
-          id: 1,
-          textField: "A",
-          dateField: "2026-03-11T00:00:00.000Z",
-          numberField: 1
-        };
+      async getDocumentById() {
+        return null;
       },
-      async create(payload) {
-        calls.push(payload);
-        return {
-          id: 1,
-          textField: payload.textField || "",
-          dateField: "2026-03-11T00:00:00.000Z",
-          numberField: payload.numberField ?? 0
-        };
+      async createDocument(payload) {
+        return { data: { id: "1", attributes: payload } };
       },
-      async updateById(recordId, payload) {
-        calls.push([recordId, payload]);
-        return {
-          id: recordId,
-          textField: payload.textField || "",
-          dateField: "2026-03-11T00:00:00.000Z",
-          numberField: payload.numberField ?? 0
-        };
+      async patchDocumentById() {
+        return null;
       },
-      async deleteById(recordId) {
-        return { id: recordId, deleted: true };
+      async deleteDocumentById() {
+        return null;
       }
-    },
-    fieldAccess: {
-      writable: () => ["textField"],
-      writeMode: "strip"
     }
   });
 
-  await service.createRecord(
-    {
-      textField: "Allowed",
-      numberField: 99
-    },
-    {}
-  );
-  await service.updateRecord(
-    2,
-    {
-      textField: "Updated",
-      numberField: 88
-    },
-    {}
+  await assert.rejects(
+    () => service.getDocumentById(9, {}),
+    (error) => error?.status === 404 && error?.message === "Document not found."
   );
 
-  assert.deepEqual(calls, [
-    { textField: "Allowed" },
-    [2, { textField: "Updated" }]
-  ]);
+  await assert.rejects(
+    () => service.patchDocumentById(9, { textField: "Changed" }, {}),
+    (error) => error?.status === 404 && error?.message === "Document not found."
+  );
 });

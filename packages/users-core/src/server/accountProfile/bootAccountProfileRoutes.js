@@ -68,7 +68,7 @@ function bootAccountProfileRoutes(app) {
         authService.writeSessionCookies(reply, result.session);
       }
 
-      reply.code(200).send(result?.settings || result);
+      reply.code(200).send(result?.response || result);
     }
   );
 
@@ -152,8 +152,8 @@ function bootAccountProfileRoutes(app) {
         tags: ["settings"],
         summary: "Delete profile avatar and fallback to gravatar"
       },
-      responses: withStandardErrorResponses({
-        200: userProfileResource.operations.avatarDelete.output
+      ...createJsonApiResourceRouteContract({
+        ...USER_SETTINGS_RESOURCE_TRANSPORT
       })
     },
     async function (request, reply) {

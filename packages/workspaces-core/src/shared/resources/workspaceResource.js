@@ -96,3 +96,4 @@ const resource = deepFreeze({
 });
 
 export { resource as workspaceResource };
+export { workspaceListItemOutputValidator };

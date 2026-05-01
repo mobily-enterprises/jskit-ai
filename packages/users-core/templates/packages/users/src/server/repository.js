@@ -11,7 +11,7 @@ const RESOURCE_TYPE = resource.namespace;
 function createRepository({ api, knex } = {}) {
   const withTransaction = createWithTransaction(knex);
 
-  async function list(query = {}, options = {}) {
+  async function queryDocuments(query = {}, options = {}) {
     return api.resources.users.query(
       {
         queryParams: buildJsonRestQueryParams(RESOURCE_TYPE, query),
@@ -22,7 +22,7 @@ function createRepository({ api, knex } = {}) {
     );
   }
 
-  async function findById(recordId, options = {}) {
+  async function getDocumentById(recordId, options = {}) {
     const normalizedRecordId = normalizeRecordId(recordId, { fallback: null });
     if (!normalizedRecordId) {
       return null;
@@ -47,8 +47,8 @@ function createRepository({ api, knex } = {}) {
 
   return Object.freeze({
     withTransaction,
-    list,
-    findById
+    queryDocuments,
+    getDocumentById
   });
 }
 

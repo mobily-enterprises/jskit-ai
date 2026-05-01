@@ -10,7 +10,6 @@ import {
 } from "@jskit-ai/crud-core/server/listQueryValidators";
 import { resource } from "../shared/${option:namespace|singular|camel}Resource.js";
 import { jsonRestResource } from "./jsonRestResource.js";
-import { actionIds } from "./actionIds.js";
 __JSKIT_CRUD_ACTION_WORKSPACE_VALIDATOR_IMPORT__
 
 const listCursorPaginationQueryValidator = createCrudCursorPaginationQueryValidator({
@@ -22,7 +21,7 @@ __JSKIT_CRUD_ACTION_PERMISSION_SUPPORT__
 function createActions({ surface } = {}) {
   return Object.freeze([
     {
-      id: actionIds.list,
+      id: "crud.${option:namespace|snake}.list",
       version: 1,
       kind: "query",
       channels: ["api", "automation", "internal"],
@@ -32,18 +31,18 @@ function createActions({ surface } = {}) {
       output: null,
       idempotency: "none",
       audit: {
-        actionName: actionIds.list
+        actionName: "crud.${option:namespace|snake}.list"
       },
       observability: {},
       async execute(input, context, deps) {
         const { workspaceSlug, ...query } = input || {};
-        return deps.${option:namespace|camel}Service.listRecords(query, {
+        return deps.${option:namespace|camel}Service.queryDocuments(query, {
           context
         });
       }
     },
     {
-      id: actionIds.view,
+      id: "crud.${option:namespace|snake}.view",
       version: 1,
       kind: "query",
       channels: ["api", "automation", "internal"],
@@ -53,18 +52,18 @@ function createActions({ surface } = {}) {
       output: null,
       idempotency: "none",
       audit: {
-        actionName: actionIds.view
+        actionName: "crud.${option:namespace|snake}.view"
       },
       observability: {},
       async execute(input, context, deps) {
-        return deps.${option:namespace|camel}Service.getRecord(input.recordId, {
+        return deps.${option:namespace|camel}Service.getDocumentById(input.recordId, {
           context,
           include: input.include
         });
       }
     },
     {
-      id: actionIds.create,
+      id: "crud.${option:namespace|snake}.create",
       version: 1,
       kind: "command",
       channels: ["api", "automation", "internal"],
@@ -74,18 +73,18 @@ function createActions({ surface } = {}) {
       output: null,
       idempotency: "optional",
       audit: {
-        actionName: actionIds.create
+        actionName: "crud.${option:namespace|snake}.create"
       },
       observability: {},
       async execute(input, context, deps) {
         const { workspaceSlug, ...payload } = input || {};
-        return deps.${option:namespace|camel}Service.createRecord(payload, {
+        return deps.${option:namespace|camel}Service.createDocument(payload, {
           context
         });
       }
     },
     {
-      id: actionIds.update,
+      id: "crud.${option:namespace|snake}.update",
       version: 1,
       kind: "command",
       channels: ["api", "automation", "internal"],
@@ -95,18 +94,18 @@ function createActions({ surface } = {}) {
       output: null,
       idempotency: "optional",
       audit: {
-        actionName: actionIds.update
+        actionName: "crud.${option:namespace|snake}.update"
       },
       observability: {},
       async execute(input, context, deps) {
         const { workspaceSlug, recordId, ...patch } = input || {};
-        return deps.${option:namespace|camel}Service.updateRecord(recordId, patch, {
+        return deps.${option:namespace|camel}Service.patchDocumentById(recordId, patch, {
           context
         });
       }
     },
     {
-      id: actionIds.delete,
+      id: "crud.${option:namespace|snake}.delete",
       version: 1,
       kind: "command",
       channels: ["api", "automation", "internal"],
@@ -116,11 +115,11 @@ function createActions({ surface } = {}) {
       output: null,
       idempotency: "optional",
       audit: {
-        actionName: actionIds.delete
+        actionName: "crud.${option:namespace|snake}.delete"
       },
       observability: {},
       async execute(input, context, deps) {
-        return deps.${option:namespace|camel}Service.deleteRecord(input.recordId, {
+        return deps.${option:namespace|camel}Service.deleteDocumentById(input.recordId, {
           context
         });
       }

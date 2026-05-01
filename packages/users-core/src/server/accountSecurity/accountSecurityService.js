@@ -1,5 +1,6 @@
 import { AppError } from "@jskit-ai/kernel/server/runtime/errors";
 import { createValidationError } from "@jskit-ai/kernel/server/runtime";
+import { returnJsonApiData, returnJsonApiMeta } from "@jskit-ai/http-runtime/shared";
 import {
   resolveUserProfile,
   resolveSecurityStatus
@@ -28,11 +29,18 @@ function createService({
       });
     }
 
-    return authService.changePassword(request, {
+    const result = await authService.changePassword(request, {
       currentPassword: payload.currentPassword,
       newPassword: payload.newPassword,
       confirmPassword: payload.confirmPassword
     });
+
+    return {
+      session: result?.session || null,
+      response: returnJsonApiMeta({
+        message: "Password updated."
+      })
+    };
   }
 
   async function setPasswordMethodEnabled(request, user, payload = {}, options = {}) {
@@ -51,7 +59,7 @@ function createService({
     const settings = await userSettingsRepository.ensureForUserId(profile.id);
     const securityStatus = await resolveSecurityStatus(authService, request);
 
-    return {
+    return returnJsonApiData({
       ...(response && typeof response === "object" ? response : {}),
       settings: accountSettingsResponseFormatter({
         profile,
@@ -59,7 +67,7 @@ function createService({
         securityStatus,
         authService
       })
-    };
+    });
   }
 
   async function startOAuthProviderLink(request, user, payload = {}, options = {}) {
@@ -78,9 +86,9 @@ function createService({
       throw new AppError(501, "OAuth unlink is not available.");
     }
 
-    return authService.unlinkProvider(request, {
+    return returnJsonApiData(await authService.unlinkProvider(request, {
       provider: payload.provider
-    });
+    }));
   }
 
   async function logoutOtherSessions(request, _user, options = {}) {
@@ -90,9 +98,7 @@ function createService({
 
     await authService.signOutOtherSessions(request);
 
-    return {
-      ok: true
-    };
+    return null;
   }
 
   return Object.freeze({

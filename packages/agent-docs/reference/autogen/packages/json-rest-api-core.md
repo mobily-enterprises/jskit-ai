@@ -23,8 +23,24 @@ Exports
 - `INTERNAL_JSON_REST_API`
 - `JSON_REST_AUTOFILTER_PRESETS`
 - `addResourceIfMissing(api, scopeName, resourceConfig)`
+- `buildJsonRestQueryParams(resourceType = "", query = {}, { include = undefined } = {})`
+- `createJsonApiInputRecord(resourceType = "", attributes = {}, { id = null, relationships = null } = {})`
+- `createJsonApiRelationship(resourceType = "", id = null)`
+- `createJsonRestContext(context = null)`
+- `resolveWorkspaceScopeValue(context = null)`
+- `resolveUserScopeValue(context = null)`
+- `simplifyJsonApiDocument(payload = {})`
 - `createJsonRestApiHost({ knex })`
 - `registerJsonRestApiHost(app)`
+Local functions
+- `normalizeScopeValue(value)`
+- `normalizeJsonRestText(value, { fallback = "" } = {})`
+- `normalizeJsonRestObject(value)`
+- `normalizeJsonRestList(value)`
+- `normalizeJsonApiResourceObject(resource = {})`
+- `buildJsonApiIncludedIndex(payload = {})`
+- `simplifyJsonApiRelationshipData(data, { includedIndex = null, seen = null } = {})`
+- `simplifyJsonApiResourceObject(resource = {}, { includedIndex = null, seen = null } = {})`
 
 ### root
 

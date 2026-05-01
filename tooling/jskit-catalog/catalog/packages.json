@@ -1676,40 +1676,11 @@
               }
             },
             {
-              "from": "templates/src/local-package/server/actionIds.js",
-              "to": "packages/${option:namespace|kebab}/src/server/actionIds.js",
-              "reason": "Install app-local CRUD action IDs.",
-              "category": "crud",
-              "id": "crud-local-package-server-action-ids-${option:namespace|snake}"
-            },
-            {
-              "from": "templates/src/local-package/server/listConfig.js",
-              "to": "packages/${option:namespace|kebab}/src/server/listConfig.js",
-              "reason": "Install app-local CRUD list configuration.",
-              "category": "crud",
-              "id": "crud-local-package-server-list-config-${option:namespace|snake}",
-              "templateContext": {
-                "entrypoint": "src/server/buildTemplateContext.js",
-                "export": "buildTemplateContext"
-              }
-            },
-            {
               "from": "templates/src/local-package/server/registerRoutes.js",
               "to": "packages/${option:namespace|kebab}/src/server/registerRoutes.js",
               "reason": "Install app-local CRUD route registration.",
               "category": "crud",
               "id": "crud-local-package-server-routes-${option:namespace|snake}",
-              "templateContext": {
-                "entrypoint": "src/server/buildTemplateContext.js",
-                "export": "buildTemplateContext"
-              }
-            },
-            {
-              "from": "templates/src/local-package/server/registerJsonRestResources.js",
-              "to": "packages/${option:namespace|kebab}/src/server/registerJsonRestResources.js",
-              "reason": "Install app-local JSON:API resource registration.",
-              "category": "crud",
-              "id": "crud-local-package-server-jsonrest-register-${option:namespace|snake}",
               "templateContext": {
                 "entrypoint": "src/server/buildTemplateContext.js",
                 "export": "buildTemplateContext"
@@ -4047,15 +4018,6 @@
               }
             },
             {
-              "from": "templates/packages/users/src/server/actionIds.js",
-              "to": "packages/users/src/server/actionIds.js",
-              "ownership": "app",
-              "preserveOnRemove": true,
-              "reason": "Install app-owned users CRUD action IDs.",
-              "category": "users-core",
-              "id": "users-core-users-action-ids"
-            },
-            {
               "from": "templates/packages/users/src/server/actions.js",
               "to": "packages/users/src/server/actions.js",
               "ownership": "app",
@@ -4086,15 +4048,6 @@
                   "workspaces"
                 ]
               }
-            },
-            {
-              "from": "templates/packages/users/src/server/listConfig.js",
-              "to": "packages/users/src/server/listConfig.js",
-              "ownership": "app",
-              "preserveOnRemove": true,
-              "reason": "Install app-owned users CRUD list configuration.",
-              "category": "users-core",
-              "id": "users-core-users-list-config"
             },
             {
               "from": "templates/packages/users/src/server/registerRoutes.js",
@@ -4136,6 +4089,15 @@
               "reason": "Install app-owned users CRUD repository.",
               "category": "users-core",
               "id": "users-core-users-repository"
+            },
+            {
+              "from": "templates/packages/users/src/server/jsonRestResource.js",
+              "to": "packages/users/src/server/jsonRestResource.js",
+              "ownership": "app",
+              "preserveOnRemove": true,
+              "reason": "Install app-owned users JSON:API resource configuration.",
+              "category": "users-core",
+              "id": "users-core-users-json-rest-resource"
             },
             {
               "from": "templates/packages/users/src/server/service.js",

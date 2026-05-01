@@ -5,6 +5,7 @@ export default Object.freeze({
   kind: "runtime",
   description: "Shared CRUD helpers used by CRUD modules.",
   dependsOn: [
+    "@jskit-ai/http-runtime",
     "@jskit-ai/kernel",
     "@jskit-ai/realtime",
     "@jskit-ai/shell-web",

@@ -217,13 +217,6 @@ export default Object.freeze({
         }
       },
       {
-        from: "templates/src/local-package/server/actionIds.js",
-        to: "packages/${option:namespace|kebab}/src/server/actionIds.js",
-        reason: "Install app-local CRUD action IDs.",
-        category: "crud",
-        id: "crud-local-package-server-action-ids-${option:namespace|snake}"
-      },
-      {
         from: "templates/src/local-package/server/registerRoutes.js",
         to: "packages/${option:namespace|kebab}/src/server/registerRoutes.js",
         reason: "Install app-local CRUD route registration.",

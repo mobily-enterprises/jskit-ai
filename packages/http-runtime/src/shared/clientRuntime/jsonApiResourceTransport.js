@@ -141,6 +141,14 @@ function decodeJsonApiResourceResponse(payload, transport = null) {
     };
   }
 
+  if (normalizedTransport.responseKind === "meta") {
+    if (document.kind !== "meta") {
+      throw new Error("Expected JSON:API meta document.");
+    }
+
+    return isRecord(document.meta) ? document.meta : {};
+  }
+
   if (normalizedTransport.responseKind === "nullable-record") {
     if (document.kind !== "resource") {
       throw new Error("Expected JSON:API resource document.");

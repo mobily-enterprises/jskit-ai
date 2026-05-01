@@ -68,6 +68,7 @@ function useAccountSettingsRuntime() {
     ...USER_SETTINGS_TRANSPORT,
     requestType: "user-notification-settings"
   });
+  const USER_PROFILE_AVATAR_DELETE_TRANSPORT = USER_SETTINGS_TRANSPORT;
 
   const accountSettingsPath = computed(() =>
     resolveSurfacePathFromPlacementContext(placementContext.value, "account", "/")
@@ -234,6 +235,7 @@ function useAccountSettingsRuntime() {
     ownershipFilter: OWNERSHIP_PUBLIC,
     apiSuffix: "/settings/profile/avatar",
     writeMethod: "DELETE",
+    transport: USER_PROFILE_AVATAR_DELETE_TRANSPORT,
     fallbackRunError: "Unable to remove avatar.",
     model: profileForm,
     onRunSuccess: (payload, { queryClient: commandQueryClient }) => {

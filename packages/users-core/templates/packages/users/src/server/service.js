@@ -1,10 +1,11 @@
 import { AppError } from "@jskit-ai/kernel/server/runtime/errors";
+import { returnJsonApiDocument } from "@jskit-ai/http-runtime/shared";
 
-function return404IfNotFound(record = null) {
-  if (!record) {
-    throw new AppError(404, "Record not found.");
+function return404IfNotFound(document = null) {
+  if (!document) {
+    throw new AppError(404, "Document not found.");
   }
-  return record;
+  return document;
 }
 
 function createService({ usersRepository } = {}) {
@@ -13,18 +14,18 @@ function createService({ usersRepository } = {}) {
   }
 
   return Object.freeze({
-    listRecords(query = {}, options = {}) {
-      return usersRepository.list(query, {
+    async queryDocuments(query = {}, options = {}) {
+      return returnJsonApiDocument(await usersRepository.queryDocuments(query, {
         trx: options?.trx || null,
         context: options?.context || null
-      });
+      }));
     },
-    async getRecord(recordId, options = {}) {
-      return return404IfNotFound(await usersRepository.findById(recordId, {
+    async getDocumentById(recordId, options = {}) {
+      return returnJsonApiDocument(return404IfNotFound(await usersRepository.getDocumentById(recordId, {
         trx: options?.trx || null,
         context: options?.context || null,
         include: options?.include
-      }));
+      })));
     }
   });
 }

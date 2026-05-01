@@ -169,6 +169,7 @@
 <script setup>
 import { computed, reactive } from "vue";
 import { ROUTE_VISIBILITY_WORKSPACE } from "@jskit-ai/kernel/shared/support/visibility";
+import { WORKSPACE_SETTINGS_TRANSPORT } from "@jskit-ai/workspaces-core/shared/jsonApiTransports";
 import { workspaceSettingsResource } from "@jskit-ai/workspaces-core/shared/resources/workspaceSettingsResource";
 import {
   DEFAULT_WORKSPACE_DARK_PALETTE,
@@ -206,6 +207,7 @@ const addEdit = useAddEdit({
     buildWorkspaceQueryKey("settings", surfaceId, scopeParamValue),
   viewPermissions: ["workspace.settings.view", "workspace.settings.update"],
   savePermissions: ["workspace.settings.update"],
+  transport: WORKSPACE_SETTINGS_TRANSPORT,
   placementSource: "workspaces-web.workspace-settings-view",
   fallbackLoadError: "Unable to load workspace settings.",
   fieldErrorKeys: [

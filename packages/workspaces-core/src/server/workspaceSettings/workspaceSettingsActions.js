@@ -1,4 +1,5 @@
 import { composeSchemaDefinitions } from "@jskit-ai/kernel/shared/validators";
+import { returnJsonApiData } from "@jskit-ai/http-runtime/shared";
 import { workspaceSettingsResource } from "../../shared/resources/workspaceSettingsResource.js";
 import { workspaceSlugParamsValidator } from "../common/validators/routeParamsValidator.js";
 import { resolveWorkspace } from "../support/resolveWorkspace.js";
@@ -34,7 +35,7 @@ const workspaceSettingsActions = Object.freeze([
         context
       });
 
-      return response;
+      return returnJsonApiData(response);
     }
   },
   {
@@ -69,7 +70,7 @@ const workspaceSettingsActions = Object.freeze([
         }
       );
 
-      return response;
+      return returnJsonApiData(response);
     }
   }
 ]);

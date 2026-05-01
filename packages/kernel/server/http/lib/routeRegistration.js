@@ -3,6 +3,7 @@ import { AppError } from "../../runtime/errors.js";
 import { defaultApplyRoutePolicy } from "../../support/routePolicyConfig.js";
 import { resolveDefaultSurfaceId } from "../../support/appConfig.js";
 import { defaultMissingHandler } from "../../support/defaultMissingHandler.js";
+import { registerJsonApiContentTypeParser } from "../../runtime/fastifyBootstrap.js";
 import { RouteRegistrationError } from "./errors.js";
 import { executeMiddlewareStack, normalizeRuntimeMiddlewareConfig, resolveRouteMiddlewareHandlers } from "./middlewareRuntime.js";
 import { attachRequestScope } from "./requestScope.js";
@@ -11,6 +12,7 @@ import { normalizeRouteOutputTransform, normalizeRouteTransport } from "./routeT
 
 const { structuredClone: cloneRouteSchema } = globalThis;
 const UNSAFE_BODY_METHODS = Object.freeze(["POST", "PUT", "PATCH"]);
+const JSON_API_CONTENT_TYPE = "application/vnd.api+json";
 
 function toFastifyRouteOptions(route) {
   const sourceRoute = normalizeObject(route);
@@ -60,12 +62,28 @@ function normalizeMediaType(value = "") {
     .toLowerCase();
 }
 
-function shouldEnforceRequestContentType(method = "", transport = null) {
-  return UNSAFE_BODY_METHODS.includes(String(method || "").toUpperCase()) && normalizeText(transport?.contentType).length > 0;
+function routeDefinesRequestBody(route = null) {
+  if (!route || typeof route !== "object") {
+    return false;
+  }
+
+  return route.body != null || route.schema?.body != null;
+}
+
+function shouldEnforceRequestContentType(method = "", transport = null, route = null) {
+  return (
+    UNSAFE_BODY_METHODS.includes(String(method || "").toUpperCase()) &&
+    normalizeText(transport?.contentType).length > 0 &&
+    routeDefinesRequestBody(route)
+  );
+}
+
+function routeRequiresJsonApiContentTypeParser(route = null) {
+  return routeDefinesRequestBody(route) && normalizeMediaType(route?.transport?.contentType) === JSON_API_CONTENT_TYPE;
 }
 
 function enforceRequestContentType({ request = null, route = null, transport = null } = {}) {
-  if (!shouldEnforceRequestContentType(route?.method, transport)) {
+  if (!shouldEnforceRequestContentType(route?.method, transport, route)) {
     return;
   }
 
@@ -267,6 +285,10 @@ function registerRoutes(
   const policyApplier = typeof applyRoutePolicy === "function" ? applyRoutePolicy : defaultApplyRoutePolicy;
   const fallbackHandler = typeof missingHandler === "function" ? missingHandler : defaultMissingHandler;
   const runtimeMiddlewareConfig = normalizeRuntimeMiddlewareConfig(middleware);
+
+  if (normalizedRoutes.some((route) => routeRequiresJsonApiContentTypeParser(route))) {
+    registerJsonApiContentTypeParser(fastify);
+  }
 
   for (const route of normalizedRoutes) {
     const routeTransport = normalizeRouteTransport(route?.transport, {

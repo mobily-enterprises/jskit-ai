@@ -37,6 +37,48 @@ const JSON_REST_RESERVED_QUERY_KEYS = Object.freeze(new Set([
   "fields"
 ]));
 
+function isPlainJsonRestObject(value) {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    return false;
+  }
+
+  const prototype = Object.getPrototypeOf(value);
+  return prototype === Object.prototype || prototype === null;
+}
+
+function cloneJsonRestResourceValue(value, { writeSerializers = {} } = {}) {
+  if (Array.isArray(value)) {
+    return value.map((entry) => cloneJsonRestResourceValue(entry, { writeSerializers }));
+  }
+
+  if (!isPlainJsonRestObject(value)) {
+    return value;
+  }
+
+  const next = {};
+  for (const [key, entry] of Object.entries(value)) {
+    next[key] = cloneJsonRestResourceValue(entry, { writeSerializers });
+  }
+
+  if (isPlainJsonRestObject(next.storage)) {
+    const serializerKey = normalizeJsonRestText(next.storage.writeSerializer).toLowerCase();
+    if (serializerKey) {
+      const serializer = writeSerializers[serializerKey];
+      if (typeof serializer !== "function") {
+        throw new Error(`Unsupported json-rest-api write serializer: ${JSON.stringify(serializerKey)}.`);
+      }
+
+      next.storage = {
+        ...next.storage,
+        serialize: serializer
+      };
+      delete next.storage.writeSerializer;
+    }
+  }
+
+  return next;
+}
+
 async function addResourceIfMissing(api, scopeName, resourceConfig) {
   if (api?.resources?.[scopeName]) {
     return api.resources[scopeName];
@@ -179,6 +221,18 @@ function createJsonApiRelationship(resourceType = "", id = null) {
       id: String(id)
     }
   };
+}
+
+function createJsonRestResourceScopeOptions(resource = {}, { writeSerializers = {}, normalizeId = null } = {}) {
+  const scopeOptions = cloneJsonRestResourceValue(resource, {
+    writeSerializers: normalizeJsonRestObject(writeSerializers)
+  });
+
+  if (typeof normalizeId === "function") {
+    scopeOptions.normalizeId = normalizeId;
+  }
+
+  return scopeOptions;
 }
 
 function normalizeJsonApiResourceObject(resource = {}) {
@@ -348,6 +402,27 @@ function resolveUserScopeValue(context = null) {
   return normalizeScopeValue(context?.visibilityContext?.userId);
 }
 
+function isJsonRestResourceMissingError(error = null) {
+  return normalizeJsonRestText(error?.code) === "REST_API_RESOURCE" &&
+    normalizeJsonRestText(error?.subtype) === "not_found";
+}
+
+async function returnNullWhenJsonRestResourceMissing(run) {
+  if (typeof run !== "function") {
+    throw new TypeError("returnNullWhenJsonRestResourceMissing requires run function.");
+  }
+
+  try {
+    return await run();
+  } catch (error) {
+    if (isJsonRestResourceMissingError(error)) {
+      return null;
+    }
+
+    throw error;
+  }
+}
+
 async function createJsonRestApiHost({ knex }) {
   if (typeof knex !== "function") {
     throw new TypeError("createJsonRestApiHost requires knex.");
@@ -402,7 +477,10 @@ export {
   buildJsonRestQueryParams,
   createJsonApiInputRecord,
   createJsonApiRelationship,
+  createJsonRestResourceScopeOptions,
   createJsonRestContext,
+  isJsonRestResourceMissingError,
+  returnNullWhenJsonRestResourceMissing,
   resolveWorkspaceScopeValue,
   resolveUserScopeValue,
   simplifyJsonApiDocument,

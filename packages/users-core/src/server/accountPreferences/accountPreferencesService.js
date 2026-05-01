@@ -1,4 +1,5 @@
 import { AppError } from "@jskit-ai/kernel/server/runtime/errors";
+import { returnJsonApiData } from "@jskit-ai/http-runtime/shared";
 import {
   resolveUserProfile,
   resolveSecurityStatus
@@ -25,12 +26,12 @@ function createService({
     const settings = await userSettingsRepository.updatePreferences(profile.id, payload);
     const securityStatus = await resolveSecurityStatus(authService, request);
 
-    return accountSettingsResponseFormatter({
+    return returnJsonApiData(accountSettingsResponseFormatter({
       profile,
       settings,
       securityStatus,
       authService
-    });
+    }));
   }
 
   return Object.freeze({
