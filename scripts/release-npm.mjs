@@ -514,8 +514,7 @@ async function createNpmUserConfig({ registry, token, dryRun }) {
   const npmrcText = [
     `@jskit-ai:registry=${registryWithSlash}`,
     `registry=${registryWithSlash}`,
-    `//${authHost}/:_authToken=${normalizedToken}`,
-    "always-auth=true"
+    `//${authHost}/:_authToken=${normalizedToken}`
   ].join("\n");
 
   await writeFile(configPath, `${npmrcText}\n`, "utf8");

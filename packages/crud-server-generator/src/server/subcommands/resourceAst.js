@@ -31,6 +31,16 @@ const BABEL_REC_AST_PARSER = Object.freeze({
 });
 
 const IDENTIFIER_PATTERN = /^[A-Za-z_$][A-Za-z0-9_$]*$/;
+const EXPLICIT_CRUD_SCHEMA_OVERRIDE_KEYS = Object.freeze([
+  "body",
+  "output",
+  "listOutput",
+  "listItemOutput",
+  "createBody",
+  "replaceBody",
+  "patchBody",
+  "deleteOutput"
+]);
 
 function isIdentifierName(value = "") {
   return IDENTIFIER_PATTERN.test(String(value || ""));
@@ -138,6 +148,7 @@ function requireCrudResourceConfigObject(programNode, context = "crud-server-gen
 
 function requireResourceSchemaObject(programNode, context = "crud-server-generator scaffold-field") {
   const resourceObject = requireCrudResourceConfigObject(programNode, context);
+  assertNoExplicitCrudSchemaOverrides(resourceObject, context);
   const schemaProperty = findObjectPropertyByName(resourceObject, "schema");
   if (!schemaProperty || !n.ObjectExpression.check(schemaProperty.value)) {
     throw new Error(
@@ -146,6 +157,30 @@ function requireResourceSchemaObject(programNode, context = "crud-server-generat
   }
 
   return schemaProperty.value;
+}
+
+function assertNoExplicitCrudSchemaOverrides(resourceObject, context = "crud-server-generator scaffold-field") {
+  const crudProperty = findObjectPropertyByName(resourceObject, "crud");
+  if (!crudProperty) {
+    return;
+  }
+
+  if (!n.ObjectExpression.check(crudProperty.value)) {
+    throw new Error(
+      `${context} cannot patch defineCrudResource({ ..., crud: ... }) unless crud is omitted or authored as an inline object literal without explicit schema overrides.`
+    );
+  }
+
+  const overrideKeys = EXPLICIT_CRUD_SCHEMA_OVERRIDE_KEYS.filter((propertyName) =>
+    hasObjectProperty(crudProperty.value, propertyName)
+  );
+  if (overrideKeys.length === 0) {
+    return;
+  }
+
+  throw new Error(
+    `${context} cannot patch defineCrudResource({ ..., crud: { ... } }) when explicit crud schema overrides are authored (${overrideKeys.join(", ")}). Update schema and override validators manually.`
+  );
 }
 
 function findObjectPropertyByName(objectNode, propertyName = "") {

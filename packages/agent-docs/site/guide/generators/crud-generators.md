@@ -282,6 +282,28 @@ That file is the shared CRUD contract. The UI generator reads it to decide:
 
 So even though the server scaffold writes many files, the resource file is the bridge between the server and UI halves.
 
+### One install boundary to remember
+
+`crud-server-generator scaffold` also adds a new local app package dependency such as:
+
+```text
+@local/contacts
+```
+
+So before you build or run the app again, install that new local package:
+
+```bash
+npm install
+```
+
+If you are verifying the guide against a local JSKIT checkout and have already been using local package links, rerun:
+
+```bash
+npm run devlinks
+```
+
+The same rule applies after later server scaffolds such as `addresses` and `comments`. The UI generator can still read the generated resource file directly, but the app runtime needs the local package install boundary to be completed before the CRUD can boot normally.
+
 For standard CRUDs, that file is now intentionally compact. It uses `defineCrudResource(...)` from `@jskit-ai/resource-crud-core`, authors the canonical `schema` / `searchSchema` / `defaultSort` / `autofilter` shape once, and lets JSKIT derive the standard CRUD operation contracts from it.
 
 ### Step 3: scaffold the UI

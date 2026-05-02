@@ -503,7 +503,10 @@ async function applyPackageInstall({
     managedRecord.managed.migrations,
     touchedFiles,
     mutationWarnings,
-    ensureArray(existingManaged.files)
+    ensureArray(existingManaged.files),
+    {
+      reapplyManagedAppFiles: Object.keys(existingInstall).length > 0
+    }
   );
 
   await applyTextMutations(

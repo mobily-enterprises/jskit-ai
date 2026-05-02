@@ -198,6 +198,13 @@ function normalizeRecordId(value, { fallback = null } = {}) {
     return normalizeCanonicalRecordIdText(value, { fallback });
   }
 
+  if (typeof value === "number") {
+    if (!Number.isSafeInteger(value) || value < 1) {
+      return fallback;
+    }
+    return normalizeCanonicalRecordIdText(value, { fallback });
+  }
+
   if (typeof value === "bigint") {
     if (value < 1n) {
       return fallback;

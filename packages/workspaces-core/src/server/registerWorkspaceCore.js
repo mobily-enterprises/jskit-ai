@@ -67,12 +67,12 @@ function registerWorkspaceCore(app) {
     return Object.freeze({
       contributorId: "workspaces.core.profileSync",
       order: 100,
-      async afterIdentityProfileSynced({ profile, created, options } = {}) {
-        if (!created || !profile || typeof workspaceService?.provisionWorkspaceForNewUser !== "function") {
+      async afterIdentityProfileSynced({ profile, options } = {}) {
+        if (!profile || typeof workspaceService?.ensureProvisionedWorkspaceForAuthenticatedUser !== "function") {
           return;
         }
 
-        await workspaceService.provisionWorkspaceForNewUser(profile, options);
+        await workspaceService.ensureProvisionedWorkspaceForAuthenticatedUser(profile, options);
       }
     });
   });

@@ -1,6 +1,6 @@
 {
   "name": "@jskit-ai/json-rest-api-core",
-  "version": "0.1.0",
+  "version": "0.1.2",
   "type": "module",
   "scripts": {
     "test": "node --test"
@@ -11,6 +11,6 @@
   "dependencies": {
     "hooked-api": "1.x.x",
     "json-rest-api": "1.x.x",
-    "@jskit-ai/kernel": "0.1.55"
+    "@jskit-ai/kernel": "0.1.57"
   }
 }

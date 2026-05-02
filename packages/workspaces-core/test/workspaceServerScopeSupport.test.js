@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { AUTH_POLICY_CONTEXT_RESOLVER_TAG } from "@jskit-ai/auth-core/server/authPolicyContextResolverRegistry";
 import { validateSchemaPayload } from "@jskit-ai/kernel/shared/validators";
+import { PROFILE_SYNC_LIFECYCLE_CONTRIBUTOR_TAG } from "@jskit-ai/users-core/server/profileSyncLifecycleContributorRegistry";
 import { createWorkspaceServerScopeSupport } from "../src/server/support/workspaceServerScopeSupport.js";
 import { registerWorkspaceCore } from "../src/server/registerWorkspaceCore.js";
 
@@ -72,4 +73,59 @@ test("registerWorkspaceCore registers the workspace server scope support token",
   assert.equal(support.available, true);
   assert.equal(typeof support.buildInputFromRouteParams, "function");
   assert.equal(typeof support.resolveWorkspace, "function");
+});
+
+test("registerWorkspaceCore ensures personal workspace provisioning on every authenticated profile sync", async () => {
+  const singletons = new Map();
+  const tags = new Map();
+  const app = {
+    singleton(token, factory) {
+      singletons.set(token, factory);
+      return this;
+    },
+    tag(token, tagName) {
+      const key = String(tagName || "");
+      const list = tags.get(key) || [];
+      list.push(String(token || ""));
+      tags.set(key, list);
+      return this;
+    },
+    has() {
+      return false;
+    }
+  };
+
+  registerWorkspaceCore(app);
+
+  assert.deepEqual(tags.get(PROFILE_SYNC_LIFECYCLE_CONTRIBUTOR_TAG), ["workspaces.core.profileSyncLifecycleContributor"]);
+
+  const lifecycleFactory = singletons.get("workspaces.core.profileSyncLifecycleContributor");
+  assert.equal(typeof lifecycleFactory, "function");
+
+  const calls = [];
+  const contributor = lifecycleFactory({
+    make(token) {
+      if (token === "workspaces.service") {
+        return {
+          async ensureProvisionedWorkspaceForAuthenticatedUser(profile, options = {}) {
+            calls.push({ profile, options });
+          }
+        };
+      }
+      throw new Error(`Unexpected token: ${token}`);
+    }
+  });
+
+  await contributor.afterIdentityProfileSynced({
+    profile: { id: "7", username: "tonymobily" },
+    created: false,
+    options: { trx: { id: "tx-1" } }
+  });
+
+  assert.deepEqual(calls, [
+    {
+      profile: { id: "7", username: "tonymobily" },
+      options: { trx: { id: "tx-1" } }
+    }
+  ]);
 });

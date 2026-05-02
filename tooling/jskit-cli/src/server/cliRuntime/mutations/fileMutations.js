@@ -196,7 +196,10 @@ async function applyFileMutations(
   managedMigrations,
   touchedFiles,
   warnings = [],
-  existingManagedFiles = []
+  existingManagedFiles = [],
+  {
+    reapplyManagedAppFiles = false
+  } = {}
 ) {
   const existingManagedFilesByPath = new Map();
   for (const managedFileValue of ensureArray(existingManagedFiles)) {
@@ -242,8 +245,16 @@ async function applyFileMutations(
       const relativeTargetPath = normalizeRelativePath(appRoot, targetPath);
       const previous = await readFileBufferIfExists(targetPath);
       const existingManaged = existingManagedFilesByPath.get(relativeTargetPath);
+      const existingManagedHash = String(existingManaged?.hash || "").trim();
+      const currentContentMatchesManagedVersion =
+        previous.exists &&
+        existingManagedHash &&
+        hashBuffer(previous.buffer) === existingManagedHash;
+      const canSafelyReapplyManagedAppFile =
+        reapplyManagedAppFiles === true &&
+        (!previous.exists || currentContentMatchesManagedVersion);
 
-      if (mutation.ownership === "app" && existingManaged) {
+      if (mutation.ownership === "app" && existingManaged && !canSafelyReapplyManagedAppFile) {
         managedFiles.push({
           ...existingManaged,
           path: relativeTargetPath,

@@ -106,6 +106,9 @@ test("createJsonRestApiHost installs normalizeRecordId as the default resource i
   });
 
   assert.equal(api.vars.normalizeId, normalizeRecordId);
+  assert.equal(api.vars.normalizeId(7), "7");
+  assert.equal(api.vars.normalizeId(0), null);
+  assert.equal(api.vars.normalizeId(7.5), null);
 });
 
 test("shared query/document helpers build json-rest-api request shapes", () => {
