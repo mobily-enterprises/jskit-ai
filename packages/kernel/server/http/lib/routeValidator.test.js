@@ -319,7 +319,7 @@ test("resolveRouteValidatorOptions supports inline validator shape without wrapp
   assert.deepEqual(resolved.middleware, ["api"]);
 });
 
-test("resolveRouteValidatorOptions rejects legacy schema/input definitions", () => {
+test("resolveRouteValidatorOptions rejects schema/input definitions", () => {
   assert.throws(
     () => resolveRouteValidatorOptions({
       method: "POST",
@@ -334,7 +334,7 @@ test("resolveRouteValidatorOptions rejects legacy schema/input definitions", () 
         middleware: ["api"]
       }
     }),
-    /uses unsupported legacy validator options: schema, input/
+    /uses unsupported validator options: schema, input/
   );
 });
 
@@ -348,7 +348,7 @@ test("resolveRouteValidatorOptions rejects validator wrapper", () => {
         middleware: ["api"]
       }
     }),
-    /uses unsupported legacy validator options: validator/
+    /uses unsupported validator options: validator/
   );
 });
 
@@ -368,13 +368,13 @@ test("defineRouteValidator rejects unsupported top-level keys generically", () =
   assert.throws(
     () =>
       defineRouteValidator({
-        legacyContract: {
+        unsupportedContract: {
           schema: {
             type: "object"
           }
         }
       }),
-    /defineRouteValidator\(\)\.legacyContract is not supported/
+    /defineRouteValidator\(\)\.unsupportedContract is not supported/
   );
 });
 
@@ -411,7 +411,7 @@ test("HttpRouter.register rejects validator wrapper options", () => {
       },
       async () => {}
     ),
-    /uses unsupported legacy validator options: validator/
+    /uses unsupported validator options: validator/
   );
 });
 
@@ -437,7 +437,7 @@ test("HttpRouter.register rejects compiled route option payloads", () => {
       validator.toRouteOptions(),
       async () => {}
     ),
-    /uses unsupported legacy validator options: schema, input/
+    /uses unsupported validator options: schema, input/
   );
 });
 

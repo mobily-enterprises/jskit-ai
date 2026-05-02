@@ -174,11 +174,13 @@ test("normalizeOrNull normalizes non-nullish values and coerces nullish to null"
   );
 });
 
-test("normalizeRecordId accepts canonical string and bigint identifiers only", () => {
+test("normalizeRecordId accepts canonical string, safe integer, and bigint identifiers", () => {
   const unsafeNumericId = Number(9007199254740993n);
   assert.equal(normalizeRecordId("  7  "), "7");
+  assert.equal(normalizeRecordId(7), "7");
   assert.equal(normalizeRecordId(10n), "10");
-  assert.equal(normalizeRecordId(7), null);
+  assert.equal(normalizeRecordId(7.5), null);
+  assert.equal(normalizeRecordId(0), null);
   assert.equal(normalizeRecordId(unsafeNumericId), null);
   assert.equal(normalizeRecordId(""), null);
   assert.equal(normalizeRecordId(null), null);

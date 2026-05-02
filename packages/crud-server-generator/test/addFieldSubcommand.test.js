@@ -32,6 +32,84 @@ const resource = defineCrudResource({
 export { resource };
 `;
 
+const NON_INLINE_RESOURCE_SOURCE = `import { defineCrudResource } from "@jskit-ai/resource-crud-core/shared/crudResource";
+
+const resourceConfig = {
+  namespace: "contacts",
+  tableName: "contacts",
+  schema: {
+    firstName: {
+      type: "string",
+      required: true,
+      operations: {
+        output: { required: true },
+        create: { required: true },
+        patch: { required: false }
+      }
+    }
+  }
+};
+
+const resource = defineCrudResource(resourceConfig);
+
+export { resource };
+`;
+
+const NON_INLINE_SCHEMA_RESOURCE_SOURCE = `import { defineCrudResource } from "@jskit-ai/resource-crud-core/shared/crudResource";
+
+const schemaFields = {
+  firstName: {
+    type: "string",
+    required: true,
+    operations: {
+      output: { required: true },
+      create: { required: true },
+      patch: { required: false }
+    }
+  }
+};
+
+const resource = defineCrudResource({
+  namespace: "contacts",
+  tableName: "contacts",
+  schema: schemaFields
+});
+
+export { resource };
+`;
+
+const EXPLICIT_CRUD_OVERRIDE_RESOURCE_SOURCE = `import { createSchema } from "json-rest-schema";
+import { defineCrudResource } from "@jskit-ai/resource-crud-core/shared/crudResource";
+
+const recordOutputSchema = createSchema({
+  id: {
+    type: "string",
+    required: true
+  }
+});
+
+const resource = defineCrudResource({
+  namespace: "contacts",
+  tableName: "contacts",
+  schema: {
+    firstName: {
+      type: "string",
+      required: true,
+      operations: {
+        output: { required: true },
+        create: { required: true },
+        patch: { required: false }
+      }
+    }
+  },
+  crud: {
+    output: recordOutputSchema
+  }
+});
+
+export { resource };
+`;
+
 async function withTempApp(run) {
   const appRoot = await mkdtemp(path.join(tmpdir(), "crud-server-scaffold-field-"));
   try {
@@ -110,5 +188,59 @@ test("scaffold-field patches CRUD resource file using DB snapshot metadata", asy
       resolveSnapshot: async () => createSnapshot()
     });
     assert.deepEqual(secondRun.touchedFiles, []);
+  });
+});
+
+test("scaffold-field rejects resource modules that do not inline the defineCrudResource config object", async () => {
+  await withTempApp(async (appRoot) => {
+    const resourceFile = "packages/contacts/src/shared/contactResource.js";
+    await writeAppFile(appRoot, resourceFile, NON_INLINE_RESOURCE_SOURCE);
+
+    await assert.rejects(
+      () => runGeneratorSubcommand({
+        appRoot,
+        subcommand: "scaffold-field",
+        args: ["categoryId", resourceFile],
+        options: {},
+        resolveSnapshot: async () => createSnapshot()
+      }),
+      /requires defineCrudResource\(\.\.\.\) to receive an inline object literal\./
+    );
+  });
+});
+
+test("scaffold-field rejects resource modules without an inline schema object literal", async () => {
+  await withTempApp(async (appRoot) => {
+    const resourceFile = "packages/contacts/src/shared/contactResource.js";
+    await writeAppFile(appRoot, resourceFile, NON_INLINE_SCHEMA_RESOURCE_SOURCE);
+
+    await assert.rejects(
+      () => runGeneratorSubcommand({
+        appRoot,
+        subcommand: "scaffold-field",
+        args: ["categoryId", resourceFile],
+        options: {},
+        resolveSnapshot: async () => createSnapshot()
+      }),
+      /requires defineCrudResource\(\{ \.\.\., schema: \{ \.\.\. \} \}\) with an inline schema object literal\./
+    );
+  });
+});
+
+test("scaffold-field rejects defineCrudResource modules with explicit crud schema overrides", async () => {
+  await withTempApp(async (appRoot) => {
+    const resourceFile = "packages/contacts/src/shared/contactResource.js";
+    await writeAppFile(appRoot, resourceFile, EXPLICIT_CRUD_OVERRIDE_RESOURCE_SOURCE);
+
+    await assert.rejects(
+      () => runGeneratorSubcommand({
+        appRoot,
+        subcommand: "scaffold-field",
+        args: ["categoryId", resourceFile],
+        options: {},
+        resolveSnapshot: async () => createSnapshot()
+      }),
+      /cannot patch defineCrudResource\(\{ \.\.\., crud: \{ \.\.\. \} \}\) when explicit crud schema overrides are authored \(output\)\. Update schema and override validators manually\./
+    );
   });
 });

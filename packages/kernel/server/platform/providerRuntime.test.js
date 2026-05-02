@@ -112,17 +112,17 @@ test("createProviderRuntimeFromApp discovers package providers from descriptor d
   }
 });
 
-test("createProviderRuntimeFromApp ignores legacy app local src/server/providers folder", async () => {
-  const appRoot = await createTestAppRoot("kernel-provider-runtime-legacy-app-local-");
+test("createProviderRuntimeFromApp ignores app-local src/server/providers folder", async () => {
+  const appRoot = await createTestAppRoot("kernel-provider-runtime-app-local-");
   try {
     await mkdir(path.join(appRoot, "src", "server", "providers"), { recursive: true });
     await writeFile(
-      path.join(appRoot, "src", "server", "providers", "LegacyProvider.js"),
+      path.join(appRoot, "src", "server", "providers", "IgnoredProvider.js"),
       [
-        "export default class LegacyProvider {",
-        "  static id = \"legacy.app.local\";",
+        "export default class IgnoredProvider {",
+        "  static id = \"ignored.app.local\";",
         "  register(app) {",
-        "    app.instance(\"legacy.value\", true);",
+        "    app.instance(\"ignored.value\", true);",
         "  }",
         "  boot() {}",
         "}"
@@ -139,7 +139,7 @@ test("createProviderRuntimeFromApp ignores legacy app local src/server/providers
     assert.deepEqual(runtime.providerPackageOrder, []);
     assert.equal(runtime.appLocalProviderOrder.length, 0);
     assert.deepEqual(runtime.diagnostics.providerOrder, ["runtime.actions", "runtime.server"]);
-    assert.equal(runtime.app.has("legacy.value"), false);
+    assert.equal(runtime.app.has("ignored.value"), false);
   } finally {
     await rm(appRoot, { recursive: true, force: true });
   }

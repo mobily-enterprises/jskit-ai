@@ -41,7 +41,8 @@ function createWorkspaceServiceFixture({
     listForUserId: 0,
     insert: 0,
     updateById: 0,
-    ensureOwnerMembership: 0
+    ensureOwnerMembership: 0,
+    ensureWorkspaceSettings: 0
   };
   let nextWorkspaceId = 10;
   const personalWorkspaceState =
@@ -167,6 +168,7 @@ function createWorkspaceServiceFixture({
     },
     workspaceSettingsRepository: {
       async ensureForWorkspaceId() {
+        calls.ensureWorkspaceSettings += 1;
         return {
           invitesEnabled: true
         };
@@ -258,13 +260,13 @@ test("workspaceService.listWorkspacesForUser returns all active memberships in p
   assert.equal(calls.listForUserId, 1);
 });
 
-test("workspaceService.provisionWorkspaceForNewUser provisions personal workspace only in personal tenancy", async () => {
+test("workspaceService.ensureProvisionedWorkspaceForAuthenticatedUser provisions personal workspace only in personal tenancy", async () => {
   const { service, calls, insertedPayloads } = createWorkspaceServiceFixture({
     tenancyMode: "personal",
     personalWorkspace: null
   });
 
-  const workspace = await service.provisionWorkspaceForNewUser({
+  const workspace = await service.ensureProvisionedWorkspaceForAuthenticatedUser({
     id: "7",
     email: "chiaramobily@gmail.com",
     displayName: "Chiara"
@@ -274,15 +276,34 @@ test("workspaceService.provisionWorkspaceForNewUser provisions personal workspac
   assert.equal(calls.findPersonalByOwnerUserId, 1);
   assert.equal(calls.insert, 1);
   assert.equal(calls.ensureOwnerMembership, 1);
+  assert.equal(calls.ensureWorkspaceSettings, 1);
   assert.equal(insertedPayloads[0].isPersonal, true);
 });
 
-test("workspaceService.provisionWorkspaceForNewUser is a no-op outside personal tenancy", async () => {
+test("workspaceService.ensureProvisionedWorkspaceForAuthenticatedUser reuses the existing personal workspace in personal tenancy", async () => {
+  const { service, calls } = createWorkspaceServiceFixture({
+    tenancyMode: "personal"
+  });
+
+  const workspace = await service.ensureProvisionedWorkspaceForAuthenticatedUser({
+    id: "7",
+    email: "chiaramobily@gmail.com",
+    displayName: "Chiara"
+  });
+
+  assert.equal(workspace.id, "1");
+  assert.equal(calls.findPersonalByOwnerUserId, 1);
+  assert.equal(calls.insert, 0);
+  assert.equal(calls.ensureOwnerMembership, 1);
+  assert.equal(calls.ensureWorkspaceSettings, 1);
+});
+
+test("workspaceService.ensureProvisionedWorkspaceForAuthenticatedUser is a no-op outside personal tenancy", async () => {
   const { service, calls } = createWorkspaceServiceFixture({
     tenancyMode: "workspaces"
   });
 
-  const result = await service.provisionWorkspaceForNewUser({
+  const result = await service.ensureProvisionedWorkspaceForAuthenticatedUser({
     id: "7",
     email: "chiaramobily@gmail.com",
     displayName: "Chiara"

@@ -431,11 +431,11 @@ test("jskit app adopt-managed-scripts rewrites known scaffold values and preserv
   });
 });
 
-test("jskit app adopt-managed-scripts --force rewrites customized wrappers and removes legacy copied scripts", async () => {
+test("jskit app adopt-managed-scripts --force rewrites customized wrappers and removes copied maintenance scripts", async () => {
   await withTempDir(async (cwd) => {
     const appRoot = path.join(cwd, "app");
     const packageJsonPath = path.join(appRoot, "package.json");
-    const legacyScriptPath = path.join(appRoot, "scripts", "release.sh");
+    const copiedScriptPath = path.join(appRoot, "scripts", "release.sh");
 
     await createMinimalApp(appRoot, {
       scripts: {
@@ -445,8 +445,8 @@ test("jskit app adopt-managed-scripts --force rewrites customized wrappers and r
         release: "echo customized"
       }
     });
-    await mkdir(path.dirname(legacyScriptPath), { recursive: true });
-    await writeFile(legacyScriptPath, "#!/usr/bin/env bash\n", "utf8");
+    await mkdir(path.dirname(copiedScriptPath), { recursive: true });
+    await writeFile(copiedScriptPath, "#!/usr/bin/env bash\n", "utf8");
 
     const result = runCli({
       cwd: appRoot,
@@ -461,7 +461,7 @@ test("jskit app adopt-managed-scripts --force rewrites customized wrappers and r
       devlinks: "jskit app link-local-packages",
       release: "jskit app release"
     });
-    await assert.rejects(lstat(legacyScriptPath), /ENOENT/);
+    await assert.rejects(lstat(copiedScriptPath), /ENOENT/);
   });
 });
 

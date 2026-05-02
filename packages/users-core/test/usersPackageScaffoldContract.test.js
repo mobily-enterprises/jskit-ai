@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import path from "node:path";
 import test from "node:test";
-import { fileURLToPath } from "node:url";
+import { fileURLToPath, pathToFileURL } from "node:url";
 import descriptor from "../package.descriptor.mjs";
 import crudCorePackage from "../../crud-core/package.json" with { type: "json" };
 import resourceCrudCorePackage from "../../resource-crud-core/package.json" with { type: "json" };
@@ -162,4 +162,15 @@ test("users-core workspace users package templates stay aligned with workspace a
   assert.doesNotMatch(serviceSource, /serviceEvents/);
   assert.match(serviceSource, /throw new TypeError\("createService requires usersRepository\."\);/);
   assert.match(serviceSource, /returnJsonApiDocument/);
+});
+
+test("users-core local users resource scaffold stays read-only and canonical", async () => {
+  const resourceModule = await import(
+    pathToFileURL(path.join(PACKAGE_ROOT, "templates/packages/users/src/shared/userResource.js")).href
+  );
+  const resource = resourceModule?.resource;
+
+  assert.equal(typeof resource, "object");
+  assert.deepEqual(Object.keys(resource.operations), ["list", "view"]);
+  assert.equal(Object.hasOwn(resource.operations, "create"), false);
 });

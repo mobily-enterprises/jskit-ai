@@ -155,7 +155,7 @@ function createService({
     return listWorkspacesForUser(user, options);
   }
 
-  async function provisionWorkspaceForNewUser(user, options = {}) {
+  async function ensureProvisionedWorkspaceForAuthenticatedUser(user, options = {}) {
     const normalizedUserId = normalizeRecordId(user?.id, { fallback: null });
     if (!normalizedUserId) {
       throw new AppError(400, "Invalid authenticated user payload.");
@@ -270,7 +270,7 @@ function createService({
     buildWorkspaceBaseSlug,
     hashInviteToken,
     ensurePersonalWorkspaceForUser,
-    provisionWorkspaceForNewUser,
+    ensureProvisionedWorkspaceForAuthenticatedUser,
     createWorkspaceForAuthenticatedUser,
     getWorkspaceForAuthenticatedUser,
     updateWorkspaceForAuthenticatedUser,

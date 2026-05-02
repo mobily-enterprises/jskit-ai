@@ -13,9 +13,9 @@ test("auth fastify adapter exports controller/routes backed by shared command va
   assert.ok(authLoginPasswordCommand.operation.body.schema);
 });
 
-test("auth-web no longer contains legacy server/schema directory", () => {
+test("auth-web does not contain src/server/schema", () => {
   const testFilePath = fileURLToPath(import.meta.url);
   const packageRoot = path.resolve(path.dirname(testFilePath), "..");
-  const legacySchemaDir = path.join(packageRoot, "src", "server", "schema");
-  assert.equal(existsSync(legacySchemaDir), false, "src/server/schema must not exist.");
+  const serverSchemaDirPath = path.join(packageRoot, "src", "server", "schema");
+  assert.equal(existsSync(serverSchemaDirPath), false, "src/server/schema must not exist.");
 });

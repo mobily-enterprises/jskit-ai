@@ -55,6 +55,12 @@ Exports
 Exports
 - `AssistantClientProvider`
 
+### `src/client/support/composerInputSupport.js`
+Exports
+- `insertTextAtSelection(source = "", selectionStart, selectionEnd, text = "")`
+Local functions
+- `normalizeSelectionBoundary(value, fallback, max)`
+
 ### `src/client/support/workspaceScopeSupport.js`
 Exports
 - `EMPTY_WORKSPACE_WEB_SCOPE_SUPPORT`

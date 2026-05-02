@@ -70,7 +70,7 @@ test("jskit help completion prints completion command help", () => {
   assert.match(stdout, /source <\(npx jskit completion bash\)/);
 });
 
-test("legacy alias commands are rejected as unknown commands", () => {
+test("unsupported alias commands are rejected as unknown commands", () => {
   for (const alias of [
     "gen",
     "ls",

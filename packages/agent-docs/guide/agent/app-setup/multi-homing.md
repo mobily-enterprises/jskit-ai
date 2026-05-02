@@ -591,12 +591,12 @@ registerProfileSyncLifecycleContributor(app, "workspaces.core.profileSyncLifecyc
   return Object.freeze({
     contributorId: "workspaces.core.profileSync",
     order: 100,
-    async afterIdentityProfileSynced({ profile, created, options } = {}) {
-      if (!created || !profile || typeof workspaceService?.provisionWorkspaceForNewUser !== "function") {
+    async afterIdentityProfileSynced({ profile, options } = {}) {
+      if (!profile || typeof workspaceService?.ensureProvisionedWorkspaceForAuthenticatedUser !== "function") {
         return;
       }
 
-      await workspaceService.provisionWorkspaceForNewUser(profile, options);
+      await workspaceService.ensureProvisionedWorkspaceForAuthenticatedUser(profile, options);
     }
   });
 });
@@ -604,7 +604,9 @@ registerProfileSyncLifecycleContributor(app, "workspaces.core.profileSyncLifecyc
 
 That means the workspace package does not need to patch auth directly to learn that a user was added. It listens through the `users-core` lifecycle registry instead.
 
-For this chapter's `tenancyMode = "personal"` setup, that contributor now does real work. When a brand-new JSKIT user is synchronized from auth, `workspaces-core` uses the lifecycle seam to provision that user's first personal workspace automatically.
+For this chapter's `tenancyMode = "personal"` setup, that contributor now does real work. When an authenticated JSKIT user is synchronized from auth, `workspaces-core` ensures that user's personal workspace exists.
+
+That detail matters for the retrofit path described earlier in this chapter. If the app started on `none`, then later switched to `personal`, the first sign-in after that switch still needs to backfill the personal workspace for the already-existing user record. The lifecycle contributor handles that because the workspace provision step is idempotent.
 
 - `users-core` owns the "user was synchronized" lifecycle
 - `workspaces-core` subscribes to that lifecycle through the registry

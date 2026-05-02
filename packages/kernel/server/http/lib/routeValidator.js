@@ -20,7 +20,7 @@ const VALIDATOR_OPTION_KEYS = Object.freeze([
 const ADVANCED_VALIDATOR_OPTION_KEYS = Object.freeze([
   "fastifySchema"
 ]);
-const LEGACY_ROUTE_VALIDATOR_KEYS = Object.freeze([
+const UNSUPPORTED_ROUTE_VALIDATOR_KEYS = Object.freeze([
   "schema",
   "input",
   "validator"
@@ -362,12 +362,12 @@ function resolveRouteValidatorOptions({
     path
   });
 
-  const legacyRouteKeys = LEGACY_ROUTE_VALIDATOR_KEYS.filter((key) =>
+  const unsupportedRouteKeys = UNSUPPORTED_ROUTE_VALIDATOR_KEYS.filter((key) =>
     Object.prototype.hasOwnProperty.call(normalizedOptions, key)
   );
-  if (legacyRouteKeys.length > 0) {
+  if (unsupportedRouteKeys.length > 0) {
     throw new RouteDefinitionError(
-      `Route ${routeLabel} uses unsupported legacy validator options: ${legacyRouteKeys.join(", ")}.`
+      `Route ${routeLabel} uses unsupported validator options: ${unsupportedRouteKeys.join(", ")}.`
     );
   }
 

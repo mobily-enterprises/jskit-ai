@@ -251,7 +251,7 @@ test("action registry rejects invalid version requests", async () => {
   );
 });
 
-test("action registry ignores unknown legacy fields", async () => {
+test("action registry ignores unknown extra fields", async () => {
   const registry = createActionRegistry({
     contributors: [
       {

@@ -580,6 +580,7 @@ So `update` is for reapplying package-owned managed changes, not for generic dep
 The best guide example is the tenancy-mode recovery path from the multi-homing chapter. If you installed `workspaces-core` or `workspaces-web` while the app was still on `tenancyMode = "none"`, then later changed the app to `personal`, the missing gated scaffold does not backfill automatically. The recovery path is:
 
 ```bash
+npx jskit update package users-core
 npx jskit update package workspaces-core
 npx jskit update package workspaces-web
 ```

@@ -181,7 +181,7 @@ test("workspace action context contributor always resolves and stores resolved c
   });
 });
 
-test("workspace action context contributor resolves context for workspace-visible routes outside legacy action list", async () => {
+test("workspace action context contributor resolves context for workspace-visible routes without an explicit action list", async () => {
   const calls = [];
   const contributor = createWorkspaceActionContextContributor({
     workspaceService: {

@@ -37,15 +37,15 @@ test("auth-web exports runtime signout helpers directly", () => {
   assert.equal(typeof fromRuntimePerformSignOutRequest, "function");
 });
 
-test("auth-web removes legacy client wrapper modules", () => {
-  const legacyFiles = [
+test("auth-web removes copied client wrapper modules", () => {
+  const removedFiles = [
     "../src/client/composables/authHttpClient.js",
     "../src/client/composables/authGuardRuntime.js",
     "../src/client/composables/useSignOut.js",
     "../src/client/api/AuthHttpClient.js"
   ];
 
-  for (const relativePath of legacyFiles) {
+  for (const relativePath of removedFiles) {
     const absolutePath = fileURLToPath(new URL(relativePath, import.meta.url));
     assert.equal(existsSync(absolutePath), false, `${relativePath} must not exist.`);
   }

@@ -127,7 +127,7 @@ test("defineCrudListFilters rejects duplicate query keys", () => {
   );
 });
 
-test("defineCrudListFilters rejects legacy split range keys", () => {
+test("defineCrudListFilters rejects split range keys", () => {
   assert.throws(
     () => defineCrudListFilters({
       arrivalDate: {
@@ -136,7 +136,7 @@ test("defineCrudListFilters rejects legacy split range keys", () => {
         fromKey: "arrivalDateFrom"
       }
     }),
-    /unsupported legacy range keys/
+    /unsupported split range keys/
   );
 
   assert.throws(
@@ -147,7 +147,7 @@ test("defineCrudListFilters rejects legacy split range keys", () => {
         minKey: "weightMin"
       }
     }),
-    /unsupported legacy range keys/
+    /unsupported split range keys/
   );
 });
 

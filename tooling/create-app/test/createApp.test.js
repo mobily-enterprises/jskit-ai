@@ -13,6 +13,15 @@ const CLI_PATH = fileURLToPath(new URL("../bin/jskit-create-app.js", import.meta
 const JSON_REST_SCHEMA_PACKAGE_DIR = path.dirname(
   fileURLToPath(new URL("../../../node_modules/json-rest-schema/package.json", import.meta.url))
 );
+const KERNEL_PACKAGE_DIR = path.dirname(
+  fileURLToPath(new URL("../../../packages/kernel/package.json", import.meta.url))
+);
+const RESOURCE_CORE_PACKAGE_DIR = path.dirname(
+  fileURLToPath(new URL("../../../packages/resource-core/package.json", import.meta.url))
+);
+const RESOURCE_CRUD_CORE_PACKAGE_DIR = path.dirname(
+  fileURLToPath(new URL("../../../packages/resource-crud-core/package.json", import.meta.url))
+);
 const runCli = createCliRunner(CLI_PATH);
 const withCreateAppTempDir = (run) => withTempDir(run, { prefix: "jskit-create-app-" });
 
@@ -31,78 +40,67 @@ function createCaptureWritable() {
   };
 }
 
+async function linkTestPackage(nodeModulesDir, packageName, packageDir) {
+  const targetPath = path.join(nodeModulesDir, packageName);
+  await mkdir(path.dirname(targetPath), { recursive: true });
+  await symlink(packageDir, targetPath, "dir");
+}
+
 async function writeCrudCustomerResource(appRoot) {
   const resourcePath = path.join(appRoot, "packages", "customers", "src", "shared", "customerResource.js");
   const nodeModulesDir = path.join(appRoot, "node_modules");
   await mkdir(path.dirname(resourcePath), { recursive: true });
   await mkdir(nodeModulesDir, { recursive: true });
-  await symlink(
-    JSON_REST_SCHEMA_PACKAGE_DIR,
-    path.join(nodeModulesDir, "json-rest-schema"),
-    "dir"
-  );
+  await linkTestPackage(nodeModulesDir, "json-rest-schema", JSON_REST_SCHEMA_PACKAGE_DIR);
+  await linkTestPackage(nodeModulesDir, "@jskit-ai/kernel", KERNEL_PACKAGE_DIR);
+  await linkTestPackage(nodeModulesDir, "@jskit-ai/resource-core", RESOURCE_CORE_PACKAGE_DIR);
+  await linkTestPackage(nodeModulesDir, "@jskit-ai/resource-crud-core", RESOURCE_CRUD_CORE_PACKAGE_DIR);
   await writeFile(
     resourcePath,
-    `import { createSchema } from "json-rest-schema";
+    `import { defineCrudResource } from "@jskit-ai/resource-crud-core/shared/crudResource";
 
-const customerRecordSchema = createSchema({
-  id: { type: "integer", required: true },
-  firstName: { type: "string", required: true },
-  email: { type: "string", required: true },
-  vip: { type: "boolean", required: true }
-});
-
-const customerBodySchema = createSchema({
-  firstName: { type: "string", maxLength: 120 },
-  email: { type: "string", maxLength: 160 },
-  vip: { type: "boolean" }
-});
-
-const customerListOutputSchema = createSchema({
-  items: {
-    type: "array",
-    required: true,
-    items: customerRecordSchema
-  },
-  nextCursor: { type: "string", nullable: true }
-});
-
-const resource = Object.freeze({
+const resource = defineCrudResource({
   namespace: "customers",
-  operations: {
-    list: {
-      output: {
-        schema: customerListOutputSchema,
-        mode: "replace"
+  tableName: "customers",
+  schema: {
+    firstName: {
+      type: "string",
+      required: true,
+      maxLength: 120,
+      operations: {
+        output: { required: true },
+        create: { required: false },
+        patch: { required: false }
       }
     },
-    view: {
-      output: {
-        schema: customerRecordSchema,
-        mode: "replace"
+    email: {
+      type: "string",
+      required: true,
+      maxLength: 160,
+      operations: {
+        output: { required: true },
+        create: { required: false },
+        patch: { required: false }
       }
     },
-    create: {
-      body: {
-        schema: customerBodySchema,
-        mode: "create"
-      },
-      output: {
-        schema: customerRecordSchema,
-        mode: "replace"
+    vip: {
+      type: "boolean",
+      required: true,
+      operations: {
+        output: { required: true },
+        create: { required: false },
+        patch: { required: false }
       }
     },
-    patch: {
-      body: {
-        schema: customerBodySchema,
-        mode: "patch"
-      },
-      output: {
-        schema: customerRecordSchema,
-        mode: "replace"
+    updatedAt: {
+      type: "dateTime",
+      required: true,
+      operations: {
+        output: { required: true }
       }
     }
-  }
+  },
+  crudOperations: ["list", "view", "create", "patch"]
 });
 
 export { resource };

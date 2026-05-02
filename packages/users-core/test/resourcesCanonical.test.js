@@ -71,9 +71,9 @@ test("users-core specialized resource operations expose messages and validators"
   }
 });
 
-test("users-core no longer contains legacy shared/schema directory", () => {
+test("users-core does not contain src/shared/schema", () => {
   const testFilePath = fileURLToPath(import.meta.url);
   const packageRoot = path.resolve(path.dirname(testFilePath), "..");
-  const legacySchemaDir = path.join(packageRoot, "src", "shared", "schema");
-  assert.equal(existsSync(legacySchemaDir), false, "src/shared/schema must not exist.");
+  const sharedSchemaDirPath = path.join(packageRoot, "src", "shared", "schema");
+  assert.equal(existsSync(sharedSchemaDirPath), false, "src/shared/schema must not exist.");
 });

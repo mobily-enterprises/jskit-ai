@@ -3,7 +3,7 @@ import { defineCrudResource } from "@jskit-ai/resource-crud-core/shared/crudReso
 const resource = defineCrudResource({
   namespace: "users",
   tableName: "users",
-  crudOperations: ["list", "view", "create"],
+  crudOperations: ["list", "view"],
   schema: {
     name: {
       type: "string",

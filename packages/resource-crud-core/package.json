@@ -1,6 +1,6 @@
 {
   "name": "@jskit-ai/resource-crud-core",
-  "version": "0.1.0",
+  "version": "0.1.2",
   "type": "module",
   "scripts": {
     "test": "node --test"
@@ -10,7 +10,7 @@
     "./shared/crudResource": "./src/shared/crudResource.js"
   },
   "dependencies": {
-    "@jskit-ai/kernel": "0.1.55",
-    "@jskit-ai/resource-core": "0.1.0"
+    "@jskit-ai/kernel": "0.1.57",
+    "@jskit-ai/resource-core": "0.1.2"
   }
 }

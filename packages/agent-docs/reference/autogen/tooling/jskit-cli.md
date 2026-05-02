@@ -166,7 +166,7 @@ Exports
 
 ### `src/server/cliRuntime/mutations/fileMutations.js`
 Exports
-- `applyFileMutations(packageEntry, appRoot, preparedMutations, managedFiles, managedMigrations, touchedFiles, warnings = [], existingManagedFiles = [])`
+- `applyFileMutations(packageEntry, appRoot, preparedMutations, managedFiles, managedMigrations, touchedFiles, warnings = [], existingManagedFiles = [], { reapplyManagedAppFiles = false } = {})`
 - `prepareFileMutations(packageEntry, options, appRoot, fileMutations, existingManagedFiles = [])`
 
 ### `src/server/cliRuntime/mutations/installMigrationMutation.js`
@@ -352,8 +352,8 @@ Local functions
 ### `src/server/commandHandlers/appCommandCatalog.js`
 Exports
 - `APP_SCRIPT_WRAPPERS`
-- `LEGACY_APP_SCRIPT_VALUES`
-- `LEGACY_APP_SCRIPT_FILES`
+- `COPIED_APP_SCRIPT_VALUES`
+- `COPIED_APP_SCRIPT_FILES`
 - `APP_COMMAND_DEFINITIONS`
 - `listAppCommandDefinitions()`
 - `resolveAppCommandDefinition(rawName = "")`

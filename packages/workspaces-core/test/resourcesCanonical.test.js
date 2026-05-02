@@ -5,6 +5,8 @@ import { existsSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { resolveStructuredSchemaTransportSchema } from "@jskit-ai/kernel/shared/validators";
 import { workspaceMembersResource } from "../src/shared/resources/workspaceMembersResource.js";
+import { workspaceInvitesResource } from "../src/shared/resources/workspaceInvitesResource.js";
+import { workspaceMembershipsResource } from "../src/shared/resources/workspaceMembershipsResource.js";
 import { workspaceResource } from "../src/shared/resources/workspaceResource.js";
 import { workspaceSettingsResource } from "../src/shared/resources/workspaceSettingsResource.js";
 
@@ -28,13 +30,27 @@ function assertResourceOperationMessages(resource, operationName, label) {
 
 test("workspaces-core resources expose messages for all operations", () => {
   const resources = {
-    workspace: workspaceResource,
-    workspaceSettings: workspaceSettingsResource
+    workspace: {
+      resource: workspaceResource,
+      operations: ["view", "list", "create", "replace", "patch"]
+    },
+    workspaceSettings: {
+      resource: workspaceSettingsResource,
+      operations: ["view", "list", "create", "replace", "patch"]
+    },
+    workspaceMemberships: {
+      resource: workspaceMembershipsResource,
+      operations: ["view", "list", "create", "patch"]
+    },
+    workspaceInvites: {
+      resource: workspaceInvitesResource,
+      operations: ["view", "list", "create", "patch"]
+    }
   };
 
-  for (const [label, resource] of Object.entries(resources)) {
-    for (const operationName of ["view", "list", "create", "replace", "patch"]) {
-      assertResourceOperationMessages(resource, operationName, label);
+  for (const [label, spec] of Object.entries(resources)) {
+    for (const operationName of spec.operations) {
+      assertResourceOperationMessages(spec.resource, operationName, label);
     }
   }
 });
@@ -73,9 +89,9 @@ test("workspaces-core specialized resource operations expose messages and valida
   }
 });
 
-test("workspaces-core no longer contains legacy shared/schema directory", () => {
+test("workspaces-core does not contain src/shared/schema", () => {
   const testFilePath = fileURLToPath(import.meta.url);
   const packageRoot = path.resolve(path.dirname(testFilePath), "..");
-  const legacySchemaDir = path.join(packageRoot, "src", "shared", "schema");
-  assert.equal(existsSync(legacySchemaDir), false, "src/shared/schema must not exist.");
+  const sharedSchemaDirPath = path.join(packageRoot, "src", "shared", "schema");
+  assert.equal(existsSync(sharedSchemaDirPath), false, "src/shared/schema must not exist.");
 });

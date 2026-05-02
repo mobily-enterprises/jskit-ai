@@ -1,6 +1,6 @@
 {
   "name": "@jskit-ai/crud-core",
-  "version": "0.1.63",
+  "version": "0.1.65",
   "type": "module",
   "scripts": {
     "test": "node --test"
@@ -28,13 +28,18 @@
   },
   "dependencies": {
     "@tanstack/vue-query": "^5.90.5",
-    "@jskit-ai/database-runtime": "0.1.55",
-    "@jskit-ai/http-runtime": "0.1.54",
-    "@jskit-ai/kernel": "0.1.55",
-    "@jskit-ai/realtime": "0.1.54",
-    "@jskit-ai/resource-crud-core": "0.1.0",
-    "@jskit-ai/shell-web": "0.1.54",
-    "@jskit-ai/users-core": "0.1.65",
-    "@jskit-ai/users-web": "0.1.70"
+    "@jskit-ai/database-runtime": "0.1.57",
+    "@jskit-ai/http-runtime": "0.1.56",
+    "@jskit-ai/kernel": "0.1.57",
+    "json-rest-schema": "1.x.x",
+    "@jskit-ai/realtime": "0.1.56",
+    "@jskit-ai/resource-crud-core": "0.1.2",
+    "@jskit-ai/shell-web": "0.1.56",
+    "@jskit-ai/users-core": "0.1.67",
+    "@jskit-ai/users-web": "0.1.72"
+  },
+  "peerDependencies": {
+    "vue": "^3.5.13",
+    "vue-router": "^5.0.4"
   }
 }

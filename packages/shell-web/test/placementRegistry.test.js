@@ -41,15 +41,15 @@ test("placement registry accepts explicit non-global surface ids", () => {
   assert.equal(added, true);
 });
 
-test("placement registry rejects legacy split target fields", () => {
+test("placement registry rejects split target fields", () => {
   const registry = createPlacementRegistry();
 
   assert.throws(
     () => registry.addPlacement({
-      id: "example.legacy",
+      id: "example.split",
       host: "shell-layout",
       position: "top-right",
-      componentToken: "example.legacy.component"
+      componentToken: "example.split.component"
     }),
     /must use "target" only/
   );

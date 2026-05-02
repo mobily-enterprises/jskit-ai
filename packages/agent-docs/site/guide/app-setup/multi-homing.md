@@ -86,10 +86,11 @@ config.tenancyMode = "personal";
 ```
 
 2. Add `workspaces-core`
-3. Run `npm install`
-4. Add `workspaces-web`
-5. Run `npm install`
-6. Run `npm run db:migrate`
+3. Run `npx jskit update package users-core`
+4. Run `npm install`
+5. Add `workspaces-web`
+6. Run `npm install`
+7. Run `npm run db:migrate`
 
 I checked the two failure modes while updating this chapter.
 
@@ -105,12 +106,24 @@ That last part is the trap: simply changing `config.tenancyMode` afterwards and 
 If you already installed either workspace package while the app was still on `none`, the clean recovery path is:
 
 1. Change `config.tenancyMode` to `"personal"`
-2. Run `npx jskit update package workspaces-core`
-3. Run `npx jskit update package workspaces-web`
-4. Run `npm install`
-5. Run `npm run db:migrate`
+2. Run `npx jskit update package users-core`
+3. Run `npx jskit update package workspaces-core`
+4. Run `npx jskit update package workspaces-web`
+5. Run `npm install`
+6. Run `npm run db:migrate`
 
-When I tested that recovery path, JSKIT warned that some workspace migrations already existed and skipped re-installing them. That is expected. The important part is that `update package ...` re-applies the gated workspace scaffold after the tenancy mode has been fixed.
+Why `users-core` is in that list too:
+
+- the workspace route scaffold comes from `workspaces-web`
+- but the app-owned `packages/users/...` CRUD scaffold also changes shape in workspace tenancy
+- if `users-web` was installed earlier while the app was still on `none`, the underlying `users-core` package had already written the non-workspace users scaffold
+
+So the recovery path has to refresh **both**:
+
+- the workspace surface scaffold from `workspaces-core` / `workspaces-web`
+- the workspace-aware users scaffold from `users-core`
+
+When I tested that recovery path, JSKIT warned that some migrations already existed and skipped re-installing them. That is expected. The important part is that `update package ...` re-applies the tenancy-sensitive scaffold after the tenancy mode has been fixed.
 </DocsTerminalTip>
 
 ## Installing the workspace packages
@@ -729,12 +742,12 @@ registerProfileSyncLifecycleContributor(app, "workspaces.core.profileSyncLifecyc
   return Object.freeze({
     contributorId: "workspaces.core.profileSync",
     order: 100,
-    async afterIdentityProfileSynced({ profile, created, options } = {}) {
-      if (!created || !profile || typeof workspaceService?.provisionWorkspaceForNewUser !== "function") {
+    async afterIdentityProfileSynced({ profile, options } = {}) {
+      if (!profile || typeof workspaceService?.ensureProvisionedWorkspaceForAuthenticatedUser !== "function") {
         return;
       }
 
-      await workspaceService.provisionWorkspaceForNewUser(profile, options);
+      await workspaceService.ensureProvisionedWorkspaceForAuthenticatedUser(profile, options);
     }
   });
 });
@@ -742,7 +755,9 @@ registerProfileSyncLifecycleContributor(app, "workspaces.core.profileSyncLifecyc
 
 That means the workspace package does not need to patch auth directly to learn that a user was added. It listens through the `users-core` lifecycle registry instead.
 
-For this chapter's `tenancyMode = "personal"` setup, that contributor now does real work. When a brand-new JSKIT user is synchronized from auth, `workspaces-core` uses the lifecycle seam to provision that user's first personal workspace automatically.
+For this chapter's `tenancyMode = "personal"` setup, that contributor now does real work. When an authenticated JSKIT user is synchronized from auth, `workspaces-core` ensures that user's personal workspace exists.
+
+That detail matters for the retrofit path described earlier in this chapter. If the app started on `none`, then later switched to `personal`, the first sign-in after that switch still needs to backfill the personal workspace for the already-existing user record. The lifecycle contributor handles that because the workspace provision step is idempotent.
 
 - `users-core` owns the "user was synchronized" lifecycle
 - `workspaces-core` subscribes to that lifecycle through the registry

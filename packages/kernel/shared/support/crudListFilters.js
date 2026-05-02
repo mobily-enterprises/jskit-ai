@@ -748,13 +748,13 @@ function normalizeCrudListFilterDefinition(rawKey = "", rawDefinition = null) {
 
   if (type === CRUD_LIST_FILTER_TYPE_DATE_RANGE) {
     if (normalizeText(source.fromKey) || normalizeText(source.toKey)) {
-      throw new TypeError(`CRUD list filter "${key}" uses unsupported legacy range keys. Use queryKey.`);
+      throw new TypeError(`CRUD list filter "${key}" uses unsupported split range keys. Use queryKey.`);
     }
   }
 
   if (type === CRUD_LIST_FILTER_TYPE_NUMBER_RANGE) {
     if (normalizeText(source.minKey) || normalizeText(source.maxKey)) {
-      throw new TypeError(`CRUD list filter "${key}" uses unsupported legacy range keys. Use queryKey.`);
+      throw new TypeError(`CRUD list filter "${key}" uses unsupported split range keys. Use queryKey.`);
     }
   }
 

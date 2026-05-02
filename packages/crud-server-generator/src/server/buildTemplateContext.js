@@ -676,158 +676,6 @@ function renderBoundedNumberEntries(column) {
   return entries;
 }
 
-function resolveResourceFieldRequired(column, { forOutput = false, mode = "create" } = {}) {
-  if (forOutput) {
-    return true;
-  }
-  if (mode === "patch") {
-    return false;
-  }
-  return column?.nullable !== true && column?.hasDefault !== true;
-}
-
-function renderResourceFieldSchema(column, {
-  forOutput = false,
-  mode = "create",
-  fieldContractEntry = null
-} = {}) {
-  const entries = [];
-  const typeKind = String(column?.typeKind || "");
-  const required = resolveResourceFieldRequired(column, { forOutput, mode });
-
-  if (typeKind === "string") {
-    entries.push('type: "string"');
-    if (Number.isInteger(column?.maxLength) && column.maxLength > 0) {
-      entries.push(`maxLength: ${column.maxLength}`);
-    }
-    const enumValues = Array.isArray(column?.enumValues) ? column.enumValues.filter((entry) => entry != null) : [];
-    if (enumValues.length > 0) {
-      entries.push(`enum: ${JSON.stringify(enumValues)}`);
-    }
-  } else if (typeKind === "integer") {
-    if (column?.isRecordIdColumn === true) {
-      if (forOutput) {
-        entries.push('type: "string"');
-        entries.push("minLength: 1");
-        entries.push("pattern: RECORD_ID_PATTERN");
-      } else {
-        entries.push('type: "id"');
-      }
-    } else {
-      entries.push('type: "integer"');
-      entries.push(...renderBoundedNumberEntries(column));
-    }
-  } else if (typeKind === "number") {
-    entries.push('type: "number"');
-    entries.push(...renderBoundedNumberEntries(column));
-  } else if (typeKind === "boolean") {
-    entries.push('type: "boolean"');
-  } else if (typeKind === "datetime") {
-    entries.push('type: "dateTime"');
-  } else if (typeKind === "date") {
-    entries.push('type: "date"');
-  } else if (typeKind === "time") {
-    entries.push('type: "time"');
-  } else {
-    entries.push('type: "none"');
-  }
-
-  entries.push(`required: ${required}`);
-  if (column?.nullable === true) {
-    entries.push("nullable: true");
-  }
-
-  const actualField = normalizeText(fieldContractEntry?.actualField);
-  if (actualField) {
-    entries.push(`actualField: ${JSON.stringify(actualField)}`);
-  }
-
-  if (fieldContractEntry?.storage?.mode === "virtual") {
-    entries.push("storage: { virtual: true }");
-  }
-
-  const parentRouteParamKey = normalizeText(fieldContractEntry?.parentRouteParamKey);
-  if (parentRouteParamKey) {
-    entries.push(`parentRouteParamKey: ${JSON.stringify(parentRouteParamKey)}`);
-  }
-
-  const relation = fieldContractEntry?.relation && typeof fieldContractEntry.relation === "object"
-    ? fieldContractEntry.relation
-    : null;
-  if (relation) {
-    const relationNamespace =
-      normalizeCrudLookupNamespace(relation.namespace) ||
-      normalizeCrudLookupNamespace(relation.apiPath) ||
-      normalizeCrudLookupNamespace(relation?.source?.path) ||
-      normalizeCrudLookupNamespace(relation.targetResource);
-    if (!relationNamespace) {
-      throw new Error(`crud template context field "${normalizeText(column?.key)}" lookup relation requires namespace.`);
-    }
-
-    const relationEntries = [
-      `kind: ${JSON.stringify(normalizeText(relation.kind) || "lookup")}`,
-      `namespace: ${JSON.stringify(relationNamespace)}`,
-      `valueKey: ${JSON.stringify(normalizeText(relation.valueKey) || "id")}`
-    ];
-    const labelKey = normalizeText(relation.labelKey);
-    if (labelKey) {
-      relationEntries.push(`labelKey: ${JSON.stringify(labelKey)}`);
-    }
-    entries.push(`relation: { ${relationEntries.join(", ")} }`);
-  }
-
-  const fieldUiOptions = normalizeFieldMetaUiOptions(fieldContractEntry?.ui?.options);
-  const formControl = checkCrudLookupFormControl(fieldContractEntry?.ui?.formControl, {
-    context: `resource schema field "${normalizeText(column?.key)}" ui.formControl`,
-    defaultValue: relation ? "autocomplete" : (fieldUiOptions.length > 0 ? "select" : "")
-  });
-  if (formControl || fieldUiOptions.length > 0) {
-    const uiEntries = [];
-    if (formControl) {
-      uiEntries.push(`formControl: ${JSON.stringify(formControl)}`);
-    }
-    if (fieldUiOptions.length > 0) {
-      uiEntries.push(`options: ${JSON.stringify(fieldUiOptions)}`);
-    }
-    entries.push(`ui: { ${uiEntries.join(", ")} }`);
-  }
-
-  return [
-    "{",
-    ...entries.map((entry, index) => `  ${entry}${index < entries.length - 1 ? "," : ""}`),
-    "}"
-  ].join("\n");
-}
-
-function renderResourceSchemaPropertyLines(columns, {
-  forOutput = false,
-  mode = "create",
-  fieldContractEntries = []
-} = {}) {
-  const sourceColumns = Array.isArray(columns) ? columns : [];
-  const fieldContractByKey = Object.fromEntries(
-    (Array.isArray(fieldContractEntries) ? fieldContractEntries : [])
-      .map((entry) => [normalizeText(entry?.key), entry])
-      .filter(([key]) => key)
-  );
-  return sourceColumns
-    .map((column) => {
-      const key = renderObjectPropertyKey(column.key);
-      const schemaLines = renderResourceFieldSchema(column, {
-        forOutput,
-        mode,
-        fieldContractEntry: fieldContractByKey[normalizeText(column?.key)] || null
-      }).split("\n");
-      const lines = [`  ${key}: ${schemaLines[0]}`];
-      for (const line of schemaLines.slice(1)) {
-        lines.push(`  ${line}`);
-      }
-      lines[lines.length - 1] = `${lines[lines.length - 1]},`;
-      return lines.join("\n");
-    })
-    .join("\n");
-}
-
 function resolveCanonicalResourceFieldRequired(column = {}) {
   return column?.nullable !== true && column?.hasDefault !== true;
 }
@@ -1995,21 +1843,6 @@ function buildReplacementsFromSnapshot({
   });
   const resourceSearchSchemaLines = renderJsonRestSearchSchemaLines(resourceSchemaColumns);
   const resourceDefaultSortLiteral = renderResourceDefaultSortLiteral(resourceSchemaColumns);
-  const legacyOutputSchemaPropertyLines = renderResourceSchemaPropertyLines(outputColumns, {
-    forOutput: true,
-    mode: "replace",
-    fieldContractEntries
-  });
-  const legacyCreateSchemaPropertyLines = renderResourceSchemaPropertyLines(writableColumns, {
-    forOutput: false,
-    mode: "create",
-    fieldContractEntries
-  });
-  const legacyPatchSchemaPropertyLines = renderResourceSchemaPropertyLines(writableColumns, {
-    forOutput: false,
-    mode: "patch",
-    fieldContractEntries
-  });
   const jsonRestSchemaPropertyLines = renderJsonRestSchemaPropertyLines(resourceSchemaColumns, {
     fieldContractEntries
   });
@@ -2089,9 +1922,6 @@ function buildReplacementsFromSnapshot({
     __JSKIT_CRUD_DELETE_ROUTE_INPUT_LINES__: renderRouteInputLines("delete", {
       surfaceRequiresWorkspace
     }),
-    __JSKIT_CRUD_RESOURCE_OUTPUT_SCHEMA_PROPERTIES__: legacyOutputSchemaPropertyLines,
-    __JSKIT_CRUD_RESOURCE_CREATE_SCHEMA_PROPERTIES__: legacyCreateSchemaPropertyLines,
-    __JSKIT_CRUD_RESOURCE_PATCH_SCHEMA_PROPERTIES__: legacyPatchSchemaPropertyLines,
     __JSKIT_CRUD_RESOURCE_SCHEMA_PROPERTIES__: resourceSchemaPropertyLines,
     __JSKIT_CRUD_RESOURCE_SEARCH_SCHEMA_LINES__: resourceSearchSchemaLines,
     __JSKIT_CRUD_RESOURCE_DEFAULT_SORT__: resourceDefaultSortLiteral,
@@ -2214,7 +2044,6 @@ const __testables = Object.freeze({
   renderMigrationCheckConstraintLines,
   renderMigrationForeignKeyLine,
   resolveScaffoldColumns,
-  renderResourceFieldSchema,
   resolveCrudGenerationTableName,
   resolveGenerationSnapshot,
   buildFieldContractEntries,
@@ -2236,7 +2065,6 @@ export {
   buildTemplateContext,
   resolveScaffoldColumns,
   resolveGenerationSnapshot,
-  renderResourceFieldSchema,
   renderCanonicalResourceFieldSchema,
   buildFieldContractEntries,
   resolveCrudGenerationSurfaceId,
