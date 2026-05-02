@@ -9,6 +9,7 @@ import { buildAuthActions } from "../lib/actions/auth.contributor.js";
 const AUTH_PROFILE_MODE_STANDALONE = "standalone";
 const AUTH_PROFILE_MODE_USERS = "users";
 const SUPPORTED_AUTH_PROFILE_MODES = Object.freeze([AUTH_PROFILE_MODE_STANDALONE, AUTH_PROFILE_MODE_USERS]);
+const INTERNAL_JSON_REST_API = "internal.json-rest-api";
 
 function splitCsv(value) {
   return String(value || "")
@@ -186,6 +187,21 @@ function resolveOptionalRepositories(scope) {
   return repositories;
 }
 
+function isDeferredJsonRestBootGap(app, error) {
+  const hasUserProfilesRepository = typeof app?.has === "function" && app.has("internal.repository.user-profiles");
+  const hasJsonRestApi = typeof app?.has === "function" && app.has(INTERNAL_JSON_REST_API);
+  const message = String(error?.message || "");
+  const causeMessage = String(error?.cause?.message || "");
+  const combined = `${message}\n${causeMessage}`;
+
+  return (
+    hasUserProfilesRepository &&
+    !hasJsonRestApi &&
+    /internal\.json-rest-api/.test(combined) &&
+    /not registered/i.test(combined)
+  );
+}
+
 function applyAuthServiceDecorators(scope, authService) {
   let decoratedAuthService = authService;
 
@@ -315,7 +331,18 @@ class AuthSupabaseServiceProvider {
       return;
     }
 
-    app.make("authService");
+    try {
+      app.make("authService");
+    } catch (error) {
+      // In users mode, repo bindings can exist after register() while the json-rest host
+      // token is still unavailable until json-rest-api.core.boot(). Defer eager authService
+      // materialization only for that exact lifecycle gap; every other configuration error
+      // should still fail fast during boot.
+      if (isDeferredJsonRestBootGap(app, error)) {
+        return;
+      }
+      throw error;
+    }
   }
 }
 

@@ -71,6 +71,7 @@ test("shell-web scaffolds app-owned local link-item wrappers under src/component
   assert.match(tabWrapperSource, /@jskit-ai\/shell-web\/client\/components\/ShellTabLinkItem/);
   assert.match(menuWrapperSource, /exact:\s*\{/);
   assert.match(surfaceAwareWrapperSource, /exact:\s*\{/);
+  assert.match(tabWrapperSource, /icon:\s*\{/);
 
   assert.deepEqual(findFileMutation("shell-web-component-menu-link-item"), {
     from: "templates/src/components/menus/MenuLinkItem.vue",
@@ -129,7 +130,7 @@ test("shell-web scaffolds app-owned local link-item wrappers under src/component
   assert.equal(await readLocalLinkItemComponentSource("local.main.ui.tab-link-item"), tabWrapperSource);
 });
 
-test("shell-web generic menu link items support exact route matching", async () => {
+test("shell-web generic link items support the expected shared route and icon behavior", async () => {
   const shellMenuSource = await readFile(
     path.join(PACKAGE_DIR, "src", "client", "components", "ShellMenuLinkItem.vue"),
     "utf8"
@@ -138,11 +139,18 @@ test("shell-web generic menu link items support exact route matching", async () 
     path.join(PACKAGE_DIR, "src", "client", "components", "ShellSurfaceAwareMenuLinkItem.vue"),
     "utf8"
   );
+  const shellTabSource = await readFile(
+    path.join(PACKAGE_DIR, "src", "client", "components", "ShellTabLinkItem.vue"),
+    "utf8"
+  );
 
   assert.match(shellMenuSource, /exact:\s*\{/);
   assert.match(shellMenuSource, /:exact="props\.exact"/);
   assert.match(shellSurfaceAwareSource, /exact:\s*\{/);
   assert.match(shellSurfaceAwareSource, /:exact="props\.exact"/);
+  assert.match(shellTabSource, /icon:\s*\{/);
+  assert.match(shellTabSource, /resolveMenuLinkIcon/);
+  assert.match(shellTabSource, /:prepend-icon="resolvedIcon \|\| undefined"/);
 });
 
 test("shell-web binds the local link-item wrapper tokens into MainClientProvider", () => {

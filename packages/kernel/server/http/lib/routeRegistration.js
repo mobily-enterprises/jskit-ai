@@ -17,6 +17,9 @@ const JSON_API_CONTENT_TYPE = "application/vnd.api+json";
 function toFastifyRouteOptions(route) {
   const sourceRoute = normalizeObject(route);
   const schema = cloneRouteSchema(sourceRoute.schema);
+  if (shouldStripFastifyBodySchema(sourceRoute, schema)) {
+    delete schema.body;
+  }
   const existingConfig = normalizeObject(sourceRoute.config);
   const transportKind = normalizeText(sourceRoute?.transport?.kind).toLowerCase();
   const existingTransportConfig =
@@ -46,6 +49,18 @@ function toFastifyRouteOptions(route) {
         : {})
     }
   };
+}
+
+function shouldStripFastifyBodySchema(route = null, schema = null) {
+  if (!route || !schema || typeof schema !== "object" || Array.isArray(schema)) {
+    return false;
+  }
+
+  if (!Object.prototype.hasOwnProperty.call(schema, "body")) {
+    return false;
+  }
+
+  return typeof route?.input?.body === "function";
 }
 
 function normalizeHeaderValue(value) {

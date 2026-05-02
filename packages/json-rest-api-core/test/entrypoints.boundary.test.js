@@ -166,6 +166,42 @@ test("shared query/document helpers build json-rest-api request shapes", () => {
   );
 
   assert.deepEqual(
+    createJsonApiInputRecord("products", {
+      serviceId: "9",
+      name: "Style Groom"
+    }, {
+      resource: {
+        schema: {
+          serviceId: {
+            type: "id",
+            belongsTo: "services",
+            as: "service"
+          },
+          name: {
+            type: "string"
+          }
+        }
+      }
+    }),
+    {
+      data: {
+        type: "products",
+        attributes: {
+          name: "Style Groom"
+        },
+        relationships: {
+          service: {
+            data: {
+              type: "services",
+              id: "9"
+            }
+          }
+        }
+      }
+    }
+  );
+
+  assert.deepEqual(
     simplifyJsonApiDocument({
       data: [
         {
@@ -237,6 +273,17 @@ test("createJsonRestResourceScopeOptions clones canonical resource metadata and 
             required: true
           })
         })
+      }),
+      bookingSteps: Object.freeze({
+        type: "array",
+        storage: Object.freeze({
+          virtual: true
+        }),
+        operations: Object.freeze({
+          output: Object.freeze({
+            required: false
+          })
+        })
       })
     }),
     operations: Object.freeze({
@@ -259,6 +306,7 @@ test("createJsonRestResourceScopeOptions clones canonical resource metadata and 
   assert.equal(result.schema.createdAt.storage.column, "created_at");
   assert.equal(result.schema.createdAt.storage.serialize, serializer);
   assert.equal(result.schema.createdAt.storage.writeSerializer, undefined);
+  assert.equal(result.schema.bookingSteps.virtual, true);
   assert.equal(result.normalizeId, normalizeId);
   assert.equal(result.schema.name.maxLength, 190);
   assert.equal(result.schema.name.operations.output.required, true);

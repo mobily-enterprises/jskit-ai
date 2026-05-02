@@ -16,12 +16,12 @@ test("resolveAccountSettingsSections normalizes, deduplicates, and sorts placeme
 
   const resolved = resolveAccountSettingsSections([
     {
-      id: "users.notifications.duplicate",
+      id: "users.profile.duplicate",
       order: 999,
       component: SectionA,
       props: {
-        value: "notifications",
-        title: "Ignore duplicate"
+        value: "profile",
+        title: "Profile duplicate"
       }
     },
     {
@@ -37,8 +37,18 @@ test("resolveAccountSettingsSections normalizes, deduplicates, and sorts placeme
       id: "invalid.missing-component",
       order: 250,
       props: {
-        value: "profile",
+        value: "broken",
         title: "Broken missing component"
+      }
+    },
+    {
+      id: "users.profile",
+      order: 100,
+      component: SectionB,
+      props: {
+        value: "profile",
+        title: "Profile",
+        usesSharedRuntime: true
       }
     },
     {
@@ -70,8 +80,9 @@ test("resolveAccountSettingsSections normalizes, deduplicates, and sorts placeme
       usesSharedRuntime: entry.usesSharedRuntime
     })),
     [
+      { value: "invites", title: "Second duplicate", order: 100, usesSharedRuntime: false },
+      { value: "profile", title: "Profile", order: 100, usesSharedRuntime: true },
       { value: "security", title: "Security", order: 350, usesSharedRuntime: true },
-      { value: "invites", title: "Invites", order: 400, usesSharedRuntime: false }
     ]
   );
 });

@@ -9,11 +9,6 @@ import { useWebPlacementContext } from "@jskit-ai/shell-web/client/placement";
 
 const ACCOUNT_SETTINGS_SECTION_TARGET = "account-settings:sections";
 const EMPTY_ACCOUNT_SETTINGS_SECTIONS = Object.freeze([]);
-const RESERVED_ACCOUNT_SETTINGS_SECTION_VALUES = Object.freeze([
-  "profile",
-  "preferences",
-  "notifications"
-]);
 const WEB_PLACEMENT_RUNTIME_INJECTION_KEY = "jskit.shell-web.runtime.web-placement.client";
 
 function normalizeAccountSettingsSectionEntry(entry = null) {
@@ -53,20 +48,30 @@ function sortAccountSettingsSections(entries = []) {
 }
 
 function resolveAccountSettingsSections(entries = []) {
-  const seen = new Set(RESERVED_ACCOUNT_SETTINGS_SECTION_VALUES);
   const normalized = [];
 
   for (const entry of Array.isArray(entries) ? entries : []) {
     const resolved = normalizeAccountSettingsSectionEntry(entry);
-    if (!resolved || seen.has(resolved.value)) {
+    if (!resolved) {
       continue;
     }
 
-    seen.add(resolved.value);
     normalized.push(resolved);
   }
 
-  return sortAccountSettingsSections(normalized);
+  const sorted = sortAccountSettingsSections(normalized);
+  const seen = new Set();
+  const deduplicated = [];
+  for (const entry of sorted) {
+    if (seen.has(entry.value)) {
+      continue;
+    }
+
+    seen.add(entry.value);
+    deduplicated.push(entry);
+  }
+
+  return Object.freeze(deduplicated);
 }
 
 function useAccountSettingsSections() {
@@ -114,7 +119,6 @@ function useAccountSettingsSections() {
 export {
   ACCOUNT_SETTINGS_SECTION_TARGET,
   EMPTY_ACCOUNT_SETTINGS_SECTIONS,
-  RESERVED_ACCOUNT_SETTINGS_SECTION_VALUES,
   normalizeAccountSettingsSectionEntry,
   resolveAccountSettingsSections,
   sortAccountSettingsSections,

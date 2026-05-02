@@ -878,6 +878,7 @@ Exports
 - `registerRoutes(fastify, { routes = [], app = null, applyRoutePolicy = defaultApplyRoutePolicy, missingHandler = defaultMissingHandler, enableRequestScope = true, requestScopeProperty = "scope", requestActionExecutorProperty = "executeAction", actionExecutorToken = "actionExecutor", requestActionDefaultChannel = "api", requestActionDefaultSurface = "", requestScopeIdPrefix = "http", requestIdResolver = null, middleware = {} } = {})`
 Local functions
 - `toFastifyRouteOptions(route)`
+- `shouldStripFastifyBodySchema(route = null, schema = null)`
 - `normalizeHeaderValue(value)`
 - `normalizeMediaType(value = "")`
 - `routeDefinesRequestBody(route = null)`

@@ -25,15 +25,15 @@ import {
 
 const DEFAULT_SUBPAGES_POSITION = "sub-pages";
 const SECTION_CONTAINER_SHELL_COMPONENT = "SectionContainerShell";
-const TAB_LINK_COMPONENT_TOKEN = "local.main.ui.tab-link-item";
+const SUBPAGES_LINK_COMPONENT_TOKEN = "local.main.ui.surface-aware-menu-link-item";
 const DEFAULT_MENU_COMPONENT_DIRECTORY = path.join(DEFAULT_COMPONENT_DIRECTORY, "menus");
-const TAB_LINK_COMPONENT_DEFINITION = findLocalLinkItemDefinition(TAB_LINK_COMPONENT_TOKEN);
+const SUBPAGES_LINK_COMPONENT_DEFINITION = findLocalLinkItemDefinition(SUBPAGES_LINK_COMPONENT_TOKEN);
 
-if (!TAB_LINK_COMPONENT_DEFINITION) {
-  throw new Error(`ui-generator add-subpages could not resolve ${TAB_LINK_COMPONENT_TOKEN} scaffold definition.`);
+if (!SUBPAGES_LINK_COMPONENT_DEFINITION) {
+  throw new Error(`ui-generator add-subpages could not resolve ${SUBPAGES_LINK_COMPONENT_TOKEN} scaffold definition.`);
 }
 
-const TAB_LINK_COMPONENT = TAB_LINK_COMPONENT_DEFINITION.componentName;
+const SUBPAGES_LINK_COMPONENT = SUBPAGES_LINK_COMPONENT_DEFINITION.componentName;
 
 const ROUTE_TAG_PATTERN = /<route\b[^>]*>[\s\S]*?<\/route>\s*/gi;
 const TEMPLATE_TOKEN_PATTERN = /<\/?template\b[^>]*>/gi;
@@ -145,7 +145,7 @@ async function ensureSubpagesSupportScaffold({
   );
   const tabLinkPath = resolvePathWithinApp(
     resolvedAppRoot,
-    path.join(normalizedTabLinkComponentDirectory, `${TAB_LINK_COMPONENT}.vue`),
+    path.join(normalizedTabLinkComponentDirectory, `${SUBPAGES_LINK_COMPONENT}.vue`),
     { context: "ui-generator add-subpages" }
   );
 
@@ -156,7 +156,7 @@ async function ensureSubpagesSupportScaffold({
     );
   }
 
-  const providerRegisterLine = `registerMainClientComponent("${TAB_LINK_COMPONENT_TOKEN}", () => ${TAB_LINK_COMPONENT});`;
+  const providerRegisterLine = `registerMainClientComponent("${SUBPAGES_LINK_COMPONENT_TOKEN}", () => ${SUBPAGES_LINK_COMPONENT});`;
   const providerHasTabLinkRegistration = providerSource.includes(providerRegisterLine);
   const touchedFiles = new Set();
   const supportFiles = [
@@ -168,7 +168,7 @@ async function ensureSubpagesSupportScaffold({
   if (!providerHasTabLinkRegistration) {
     supportFiles.push({
       path: tabLinkPath,
-      desiredSource: await readLocalLinkItemComponentSource(TAB_LINK_COMPONENT_DEFINITION)
+      desiredSource: await readLocalLinkItemComponentSource(SUBPAGES_LINK_COMPONENT_DEFINITION)
     });
   }
 
@@ -191,7 +191,7 @@ async function ensureSubpagesSupportScaffold({
     touchedFiles.add(supportFile.path.relativePath);
   }
 
-  const providerImportLine = `import ${TAB_LINK_COMPONENT} from "/${toPosixPath(path.join(normalizedTabLinkComponentDirectory, `${TAB_LINK_COMPONENT}.vue`))}";`;
+  const providerImportLine = `import ${SUBPAGES_LINK_COMPONENT} from "/${toPosixPath(path.join(normalizedTabLinkComponentDirectory, `${SUBPAGES_LINK_COMPONENT}.vue`))}";`;
   if (providerHasTabLinkRegistration) {
     return Object.freeze({
       touchedFiles: [...touchedFiles].sort((left, right) => left.localeCompare(right)),
@@ -313,7 +313,7 @@ function renderSubpagesTemplate({
     "<template>",
     renderSectionContainerOpenTag({ title, subtitle }),
     "    <template #tabs>",
-    `      <ShellOutlet target="${normalizedTarget}" default-link-component-token="${TAB_LINK_COMPONENT_TOKEN}" />`,
+    `      <ShellOutlet target="${normalizedTarget}" default-link-component-token="${SUBPAGES_LINK_COMPONENT_TOKEN}" />`,
     "    </template>"
   ];
 
@@ -483,8 +483,8 @@ export {
   DEFAULT_SUBPAGES_POSITION,
   DEFAULT_COMPONENT_DIRECTORY,
   SECTION_CONTAINER_SHELL_COMPONENT,
-  TAB_LINK_COMPONENT,
-  TAB_LINK_COMPONENT_TOKEN,
+  SUBPAGES_LINK_COMPONENT,
+  SUBPAGES_LINK_COMPONENT_TOKEN,
   resolvePageTargetDetails,
   resolveNearestParentSubpagesHost,
   deriveDefaultSubpagesHost,

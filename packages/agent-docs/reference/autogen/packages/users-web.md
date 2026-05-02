@@ -18,7 +18,6 @@ Use this on demand; do not load the full index at startup.
 Exports
 - `ACCOUNT_SETTINGS_SECTION_TARGET`
 - `EMPTY_ACCOUNT_SETTINGS_SECTIONS`
-- `RESERVED_ACCOUNT_SETTINGS_SECTION_VALUES`
 - `normalizeAccountSettingsSectionEntry(entry = null)`
 - `resolveAccountSettingsSections(entries = [])`
 - `sortAccountSettingsSections(entries = [])`
@@ -28,6 +27,13 @@ Exports
 Exports
 - `createUsersBootstrapUserHandler()`
 - `registerUsersBootstrapPayloadHandlers(app)`
+
+### `src/client/components/AccountSettingsClientElement.vue`
+Exports
+- None
+Local functions
+- `normalizeSection(value)`
+- `readRouteSection()`
 
 ### `src/client/components/ProfileClientElement.vue`
 Exports
@@ -433,6 +439,7 @@ Exports
 ### `src/client/index.js`
 Exports
 - `UsersWebClientProvider`
+- `AccountSettingsClientElement`
 - `clientProviders`
 
 ### `src/client/lib/bootstrap.js`
@@ -485,13 +492,6 @@ Exports
 - `HOME_COG_OUTLET`
 
 ### templates
-
-### `templates/src/components/account/settings/AccountSettingsClientElement.vue`
-Exports
-- None
-Local functions
-- `normalizeSection(value)`
-- `readRouteSection()`
 
 ### `templates/src/components/account/settings/AccountSettingsNotificationsSection.vue`
 Exports

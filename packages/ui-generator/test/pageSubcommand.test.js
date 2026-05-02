@@ -162,6 +162,7 @@ test("ui-generator page subcommand supports link placement options", async () =>
     const placementSource = await readFile(path.join(appRoot, "src", "placement.js"), "utf8");
     assert.match(placementSource, /target: "shell-layout:top-right"/);
     assert.match(placementSource, /componentToken: "local\.main\.ui\.tab-link-item"/);
+    assert.match(placementSource, /icon: "mdi-view-list-outline"/);
     assert.match(placementSource, /to: "\.\/notes"/);
   });
 });
@@ -196,7 +197,8 @@ test("ui-generator page subcommand infers subpage link placement, tab token, and
 
     const placementSource = await readFile(path.join(appRoot, "src", "placement.js"), "utf8");
     assert.match(placementSource, /target: "contact-view:sub-pages"/);
-    assert.match(placementSource, /componentToken: "local\.main\.ui\.tab-link-item"/);
+    assert.match(placementSource, /componentToken: "local\.main\.ui\.surface-aware-menu-link-item"/);
+    assert.match(placementSource, /icon: "mdi-view-list-outline"/);
     assert.match(placementSource, /to: "\.\/notes"/);
   });
 });
@@ -246,7 +248,7 @@ test("ui-generator page subcommand prefers the nearest index-route parent host",
 
     const placementSource = await readFile(path.join(appRoot, "src", "placement.js"), "utf8");
     assert.match(placementSource, /target: "catalog-products:sub-pages"/);
-    assert.match(placementSource, /componentToken: "local\.main\.ui\.tab-link-item"/);
+    assert.match(placementSource, /componentToken: "local\.main\.ui\.surface-aware-menu-link-item"/);
     assert.match(placementSource, /to: "\.\/variants"/);
   });
 });

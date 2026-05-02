@@ -244,6 +244,7 @@ Local functions
 - `resolveCommonDependencies(scope)`
 - `resolveRuntimeEnv(scope)`
 - `resolveOptionalRepositories(scope)`
+- `isDeferredJsonRestBootGap(app, error)`
 - `applyAuthServiceDecorators(scope, authService)`
 
 ### root

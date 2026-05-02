@@ -80,6 +80,28 @@ test("users-web home tools widget exposes home-cog outlet", async () => {
   assert.match(source, /:default-link-component-token="HOME_COG_OUTLET\.defaultLinkComponentToken"/);
 });
 
+test("users-web account page template uses the package-owned account settings host", async () => {
+  const source = await readFile(path.join(PACKAGE_DIR, "templates", "src", "pages", "account", "index.vue"), "utf8");
+
+  assert.match(
+    source,
+    /import AccountSettingsClientElement from "@jskit-ai\/users-web\/client\/components\/AccountSettingsClientElement";/
+  );
+  assert.doesNotMatch(source, /components\/account\/settings\/AccountSettingsClientElement\.vue/);
+});
+
+test("users-web package-owned account settings host is fully placement-backed", async () => {
+  const source = await readFile(
+    path.join(PACKAGE_DIR, "src", "client", "components", "AccountSettingsClientElement.vue"),
+    "utf8"
+  );
+
+  assert.match(source, /useAccountSettingsSections/);
+  assert.doesNotMatch(source, /AccountSettingsProfileSection/);
+  assert.doesNotMatch(source, /AccountSettingsPreferencesSection/);
+  assert.doesNotMatch(source, /AccountSettingsNotificationsSection/);
+});
+
 test("users-web descriptor metadata advertises home cog outlet and standard home settings placements", () => {
   assert.deepEqual(
     readOutlets("home-cog:primary-menu"),
@@ -98,7 +120,7 @@ test("users-web descriptor metadata advertises home cog outlet and standard home
       {
         target: "account-settings:sections",
         surfaces: ["account"],
-        source: "templates/src/components/account/settings/AccountSettingsClientElement.vue"
+        source: "src/client/components/AccountSettingsClientElement.vue"
       }
     ]
   );
@@ -130,6 +152,27 @@ test("users-web descriptor metadata advertises home cog outlet and standard home
     source: "mutations.text#users-web-home-tools-placement"
   });
   assert.equal(findContribution("users.home.settings.general"), null);
+  expectContribution("users.account.settings.profile", {
+    target: "account-settings:sections",
+    surfaces: ["account"],
+    order: 100,
+    componentToken: "local.main.account-settings.section.profile",
+    source: "mutations.text#users-web-account-settings-sections-placement"
+  });
+  expectContribution("users.account.settings.preferences", {
+    target: "account-settings:sections",
+    surfaces: ["account"],
+    order: 200,
+    componentToken: "local.main.account-settings.section.preferences",
+    source: "mutations.text#users-web-account-settings-sections-placement"
+  });
+  expectContribution("users.account.settings.notifications", {
+    target: "account-settings:sections",
+    surfaces: ["account"],
+    order: 300,
+    componentToken: "local.main.account-settings.section.notifications",
+    source: "mutations.text#users-web-account-settings-sections-placement"
+  });
 
   expectTextMutation("users-web-home-tools-placement", {
     reason: "Append users-web home tools widget and settings menu placements into app-owned placement registry.",
@@ -143,6 +186,22 @@ test("users-web descriptor metadata advertises home cog outlet and standard home
       'componentToken: "local.main.ui.surface-aware-menu-link-item"',
       'scopedSuffix: "/settings"',
       'unscopedSuffix: "/settings"'
+    ]
+  });
+  expectTextMutation("users-web-account-settings-sections-placement", {
+    reason: "Append users-web account settings section placements into the app-owned placement registry.",
+    category: "users-web",
+    skipIfContains: 'id: "users.account.settings.profile"',
+    snippets: [
+      'id: "users.account.settings.profile"',
+      'componentToken: "local.main.account-settings.section.profile"',
+      'value: "profile"',
+      'id: "users.account.settings.preferences"',
+      'componentToken: "local.main.account-settings.section.preferences"',
+      'value: "preferences"',
+      'id: "users.account.settings.notifications"',
+      'componentToken: "local.main.account-settings.section.notifications"',
+      'value: "notifications"'
     ]
   });
 
@@ -159,6 +218,99 @@ test("users-web descriptor metadata advertises home cog outlet and standard home
     ]
   });
 
+  assert.equal(findFileMutation("users-web-component-account-settings-root"), null);
   assert.equal(findFileMutation("users-web-component-account-settings-invites"), null);
+  assert.deepEqual(findFileMutation("users-web-component-account-settings-profile"), {
+    from: "templates/src/components/account/settings/AccountSettingsProfileSection.vue",
+    to: "src/components/account/settings/AccountSettingsProfileSection.vue",
+    reason: "Install app-owned account settings profile section scaffold.",
+    category: "users-web",
+    id: "users-web-component-account-settings-profile"
+  });
+  assert.deepEqual(findFileMutation("users-web-component-account-settings-preferences"), {
+    from: "templates/src/components/account/settings/AccountSettingsPreferencesSection.vue",
+    to: "src/components/account/settings/AccountSettingsPreferencesSection.vue",
+    reason: "Install app-owned account settings preferences section scaffold.",
+    category: "users-web",
+    id: "users-web-component-account-settings-preferences"
+  });
+  assert.deepEqual(findFileMutation("users-web-component-account-settings-notifications"), {
+    from: "templates/src/components/account/settings/AccountSettingsNotificationsSection.vue",
+    to: "src/components/account/settings/AccountSettingsNotificationsSection.vue",
+    reason: "Install app-owned account settings notifications section scaffold.",
+    category: "users-web",
+    id: "users-web-component-account-settings-notifications"
+  });
+  assert.deepEqual(findTextMutation("users-web-main-client-provider-account-settings-profile-import"), {
+    op: "append-text",
+    file: "packages/main/src/client/providers/MainClientProvider.js",
+    position: "top",
+    skipIfContains:
+      "import AccountSettingsProfileSection from \"/src/components/account/settings/AccountSettingsProfileSection.vue\";",
+    value: "import AccountSettingsProfileSection from \"/src/components/account/settings/AccountSettingsProfileSection.vue\";\n",
+    reason: "Bind the app-owned account profile settings section into local main client provider imports.",
+    category: "users-web",
+    id: "users-web-main-client-provider-account-settings-profile-import"
+  });
+  assert.deepEqual(findTextMutation("users-web-main-client-provider-account-settings-preferences-import"), {
+    op: "append-text",
+    file: "packages/main/src/client/providers/MainClientProvider.js",
+    position: "top",
+    skipIfContains:
+      "import AccountSettingsPreferencesSection from \"/src/components/account/settings/AccountSettingsPreferencesSection.vue\";",
+    value:
+      "import AccountSettingsPreferencesSection from \"/src/components/account/settings/AccountSettingsPreferencesSection.vue\";\n",
+    reason: "Bind the app-owned account preferences settings section into local main client provider imports.",
+    category: "users-web",
+    id: "users-web-main-client-provider-account-settings-preferences-import"
+  });
+  assert.deepEqual(findTextMutation("users-web-main-client-provider-account-settings-notifications-import"), {
+    op: "append-text",
+    file: "packages/main/src/client/providers/MainClientProvider.js",
+    position: "top",
+    skipIfContains:
+      "import AccountSettingsNotificationsSection from \"/src/components/account/settings/AccountSettingsNotificationsSection.vue\";",
+    value:
+      "import AccountSettingsNotificationsSection from \"/src/components/account/settings/AccountSettingsNotificationsSection.vue\";\n",
+    reason: "Bind the app-owned account notifications settings section into local main client provider imports.",
+    category: "users-web",
+    id: "users-web-main-client-provider-account-settings-notifications-import"
+  });
+  assert.deepEqual(findTextMutation("users-web-main-client-provider-account-settings-profile-register"), {
+    op: "append-text",
+    file: "packages/main/src/client/providers/MainClientProvider.js",
+    position: "bottom",
+    skipIfContains:
+      "registerMainClientComponent(\"local.main.account-settings.section.profile\", () => AccountSettingsProfileSection);",
+    value:
+      "\nregisterMainClientComponent(\"local.main.account-settings.section.profile\", () => AccountSettingsProfileSection);\n",
+    reason: "Bind the app-owned account profile settings section token into local main client provider registry.",
+    category: "users-web",
+    id: "users-web-main-client-provider-account-settings-profile-register"
+  });
+  assert.deepEqual(findTextMutation("users-web-main-client-provider-account-settings-preferences-register"), {
+    op: "append-text",
+    file: "packages/main/src/client/providers/MainClientProvider.js",
+    position: "bottom",
+    skipIfContains:
+      "registerMainClientComponent(\"local.main.account-settings.section.preferences\", () => AccountSettingsPreferencesSection);",
+    value:
+      "\nregisterMainClientComponent(\"local.main.account-settings.section.preferences\", () => AccountSettingsPreferencesSection);\n",
+    reason: "Bind the app-owned account preferences settings section token into local main client provider registry.",
+    category: "users-web",
+    id: "users-web-main-client-provider-account-settings-preferences-register"
+  });
+  assert.deepEqual(findTextMutation("users-web-main-client-provider-account-settings-notifications-register"), {
+    op: "append-text",
+    file: "packages/main/src/client/providers/MainClientProvider.js",
+    position: "bottom",
+    skipIfContains:
+      "registerMainClientComponent(\"local.main.account-settings.section.notifications\", () => AccountSettingsNotificationsSection);",
+    value:
+      "\nregisterMainClientComponent(\"local.main.account-settings.section.notifications\", () => AccountSettingsNotificationsSection);\n",
+    reason: "Bind the app-owned account notifications settings section token into local main client provider registry.",
+    category: "users-web",
+    id: "users-web-main-client-provider-account-settings-notifications-register"
+  });
 
 });

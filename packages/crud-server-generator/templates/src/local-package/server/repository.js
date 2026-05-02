@@ -41,7 +41,9 @@ function createRepository({ api, knex } = {}) {
   async function createDocument(payload = {}, options = {}) {
     return api.resources.${option:namespace|camel}.post(
       {
-        inputRecord: createJsonApiInputRecord(RESOURCE_TYPE, payload),
+        inputRecord: createJsonApiInputRecord(RESOURCE_TYPE, payload, {
+          resource
+        }),
         transaction: options?.trx || null,
         simplified: false
       },
@@ -64,6 +66,9 @@ function createRepository({ api, knex } = {}) {
             {
               ...sourcePatch,
               updatedAt: new Date()
+            },
+            {
+              resource
             }
           ),
           transaction: options?.trx || null,

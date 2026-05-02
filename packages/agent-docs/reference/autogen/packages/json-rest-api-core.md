@@ -24,7 +24,7 @@ Exports
 - `JSON_REST_AUTOFILTER_PRESETS`
 - `addResourceIfMissing(api, scopeName, resourceConfig)`
 - `buildJsonRestQueryParams(resourceType = "", query = {}, { include = undefined } = {})`
-- `createJsonApiInputRecord(resourceType = "", attributes = {}, { id = null, relationships = null } = {})`
+- `createJsonApiInputRecord(resourceType = "", attributes = {}, { id = null, relationships = null, resource = null } = {})`
 - `createJsonApiRelationship(resourceType = "", id = null)`
 - `createJsonRestResourceScopeOptions(resource = {}, { writeSerializers = {}, normalizeId = null } = {})`
 - `createJsonRestContext(context = null)`
@@ -42,6 +42,7 @@ Local functions
 - `normalizeJsonRestText(value, { fallback = "" } = {})`
 - `normalizeJsonRestObject(value)`
 - `normalizeJsonRestList(value)`
+- `extractJsonApiInputRelationships(attributes = {}, resource = null, relationships = null)`
 - `normalizeJsonApiResourceObject(resource = {})`
 - `buildJsonApiIncludedIndex(payload = {})`
 - `simplifyJsonApiRelationshipData(data, { includedIndex = null, seen = null } = {})`

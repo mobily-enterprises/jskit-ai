@@ -259,13 +259,17 @@ The account route itself is very small:
 <template>
   <AccountSettingsClientElement />
 </template>
+
+<script setup>
+import AccountSettingsClientElement from "@jskit-ai/users-web/client/components/AccountSettingsClientElement";
+</script>
 ```
 
 That is a very JSKIT-style file.
 
 - the route policy is app-owned
 - the page wrapper is app-owned
-- the heavy UI is delegated to a reusable client element
+- the heavy UI is delegated to a package-owned reusable client element
 
 So the route is simple, but it is already a real authenticated account screen rather than a placeholder card.
 
@@ -275,18 +279,21 @@ The account page is backed by:
 
 ```text
 src/components/account/settings/
-  AccountSettingsClientElement.vue
   AccountSettingsProfileSection.vue
   AccountSettingsPreferencesSection.vue
   AccountSettingsNotificationsSection.vue
 ```
 
-The top-level `AccountSettingsClientElement.vue` uses `useAccountSettingsRuntime()` from `users-web` and wires those sections into a tabbed settings experience.
+Those three section components stay app-owned so you can reshape the actual UI freely.
+
+The host itself now lives in `users-web` and resolves every account section through the `account-settings:sections` placement target, including the default `profile`, `preferences`, and `notifications` entries.
+
+So the screen follows the same rule as the rest of JSKIT UI: sections are added by placement rather than being hardcoded into an app-owned host component.
 
 That is worth noticing because the guide has now reached a new level of scaffolding:
 
 - earlier chapters mostly introduced shells and routes
-- this chapter introduces real app-owned feature UI that is already split into reusable sections
+- this chapter introduces app-owned leaf section UI while the generic section host stays in the package
 
 ## Under the hood
 

@@ -3,6 +3,7 @@ import test from "node:test";
 import { createApplication } from "@jskit-ai/kernel/_testable";
 import { registerAuthServiceDecorator } from "@jskit-ai/auth-core/server/authServiceDecoratorRegistry";
 import { ActionRuntimeServiceProvider } from "@jskit-ai/kernel/server/actions";
+import { createProviderClass } from "../../kernel/shared/runtime/application.js";
 import { AuthSupabaseServiceProvider } from "../src/server/providers/AuthSupabaseServiceProvider.js";
 
 function createAppConfigFixture() {
@@ -403,6 +404,81 @@ test("auth supabase provider rejects dev auth bypass without internal.repository
       }),
     (error) => isBootFailureWithCause(error, /requires internal\.repository\.user-profiles with findById\(\) and findByEmail\(\)/)
   );
+});
+
+test("auth supabase provider defers eager dev auth materialization until json-rest host is available", async () => {
+  const DeferredUserProfilesRepositoryProvider = createProviderClass({
+    id: "aaa.deferred-user-profiles-repository",
+    register(app) {
+      app.singleton("internal.repository.user-profiles", (scope) => {
+        const api = scope.make("internal.json-rest-api");
+
+        return {
+          api,
+          async findById() {
+            return null;
+          },
+          async findByEmail() {
+            return null;
+          }
+        };
+      });
+    }
+  });
+
+  const DeferredJsonRestApiProvider = createProviderClass({
+    id: "json-rest-api.core",
+    boot(app) {
+      app.instance("internal.json-rest-api", {
+        scopes: new Map()
+      });
+    }
+  });
+
+  const app = createApplication();
+  app.instance("appConfig", createAppConfigFixture());
+  app.instance("jskit.env", {
+    AUTH_DEV_BYPASS_ENABLED: "true",
+    AUTH_DEV_BYPASS_SECRET: "dev-bootstrap-secret",
+    AUTH_PROFILE_MODE: "users",
+    APP_PUBLIC_URL: "http://localhost:5173",
+    NODE_ENV: "development"
+  });
+  app.instance("jskit.logger", {
+    info() {},
+    warn() {},
+    error() {},
+    debug() {}
+  });
+  app.instance("domainEvents", {
+    async publish() {}
+  });
+  app.instance("users.profile.sync.service", {
+    async findByIdentity() {
+      return null;
+    },
+    async syncIdentityProfile(profile) {
+      return {
+        id: 1,
+        authProvider: String(profile?.authProvider || "supabase"),
+        authProviderUserSid: String(profile?.authProviderUserSid || "user-1"),
+        email: String(profile?.email || "test@example.com"),
+        displayName: String(profile?.displayName || "Test User")
+      };
+    }
+  });
+
+  await app.start({
+    providers: [
+      ActionRuntimeServiceProvider,
+      DeferredUserProfilesRepositoryProvider,
+      AuthSupabaseServiceProvider,
+      DeferredJsonRestApiProvider
+    ]
+  });
+
+  const authService = app.make("authService");
+  assert.equal(typeof authService?.devLoginAs, "function");
 });
 
 test("auth supabase provider reads oauth providers from appConfig.auth.oauth", async () => {

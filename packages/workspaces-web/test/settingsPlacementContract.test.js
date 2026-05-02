@@ -67,6 +67,25 @@ test("workspaces-web installs an app-owned account invites section wrapper", asy
   });
 });
 
+test("workspaces-web installs an account invites cue scaffold that reads placement runtime state", async () => {
+  const source = await readFile(
+    path.join(PACKAGE_DIR, "templates", "packages", "main", "src", "client", "components", "AccountPendingInvitesCue.vue"),
+    "utf8"
+  );
+
+  assert.doesNotMatch(source, /\bfetch\s*\(/);
+  assert.doesNotMatch(source, /\buseQuery\b/);
+  assert.match(source, /placementContext\.value\?\.pendingInvitesCount/);
+  assert.match(source, /placementContext\.value\?\.workspaceInvitesEnabled/);
+  assert.deepEqual(findFileMutation("users-web-main-component-account-pending-invites-cue"), {
+    from: "templates/packages/main/src/client/components/AccountPendingInvitesCue.vue",
+    to: "packages/main/src/client/components/AccountPendingInvitesCue.vue",
+    reason: "Install app-owned account pending invites cue component scaffold.",
+    category: "workspaces-web",
+    id: "users-web-main-component-account-pending-invites-cue"
+  });
+});
+
 test("workspaces-web admin settings index template is a simple developer-owned stub", async () => {
   const source = await readFile(
     path.join(PACKAGE_DIR, "templates", "src", "pages", "admin", "workspace", "settings", "index.vue"),

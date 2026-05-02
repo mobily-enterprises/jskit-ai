@@ -2,55 +2,25 @@
 import { computed } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import { normalizeOneOf } from "@jskit-ai/kernel/shared/support/normalize";
-import { useAccountSettingsRuntime } from "@jskit-ai/users-web/client/composables/useAccountSettingsRuntime";
-import { useAccountSettingsSections } from "@jskit-ai/users-web/client/account-settings/sections";
-import AccountSettingsProfileSection from "./AccountSettingsProfileSection.vue";
-import AccountSettingsPreferencesSection from "./AccountSettingsPreferencesSection.vue";
-import AccountSettingsNotificationsSection from "./AccountSettingsNotificationsSection.vue";
+import { useAccountSettingsRuntime } from "../composables/useAccountSettingsRuntime.js";
+import { useAccountSettingsSections } from "../account-settings/sections.js";
 
 const runtime = useAccountSettingsRuntime();
 const route = useRoute();
 const router = useRouter();
-const extensionSections = useAccountSettingsSections();
-
-const sections = computed(() => {
-  const nextSections = [
-    { title: "Profile", value: "profile", component: AccountSettingsProfileSection, usesSharedRuntime: true, order: 100 },
-    {
-      title: "Preferences",
-      value: "preferences",
-      component: AccountSettingsPreferencesSection,
-      usesSharedRuntime: true,
-      order: 200
-    },
-    {
-      title: "Notifications",
-      value: "notifications",
-      component: AccountSettingsNotificationsSection,
-      usesSharedRuntime: true,
-      order: 300
-    }
-  ];
-
-  for (const entry of extensionSections.value) {
-    nextSections.push(entry);
+const sections = useAccountSettingsSections();
+const sectionValues = computed(() => Object.freeze(sections.value.map((section) => section.value)));
+const defaultSection = computed(() => {
+  if (sectionValues.value.includes("profile")) {
+    return "profile";
   }
 
-  return Object.freeze(
-    nextSections.sort((left, right) => {
-      const orderDelta = Number(left.order || 0) - Number(right.order || 0);
-      if (orderDelta !== 0) {
-        return orderDelta;
-      }
-      return String(left.value || "").localeCompare(String(right.value || ""));
-    })
-  );
+  return sectionValues.value[0] || "";
 });
-const sectionValues = computed(() => Object.freeze(sections.value.map((section) => section.value)));
 
 function normalizeSection(value) {
   const source = Array.isArray(value) ? value[0] : value;
-  return normalizeOneOf(source, sectionValues.value, "profile");
+  return normalizeOneOf(source, sectionValues.value, defaultSection.value);
 }
 
 function readRouteSection() {
@@ -64,14 +34,14 @@ const activeTab = computed({
   set(nextValue) {
     const normalizedSection = normalizeSection(nextValue);
     const currentSection = readRouteSection();
-    if (normalizedSection === currentSection) {
+    if (!normalizedSection || normalizedSection === currentSection) {
       return;
     }
 
     const nextQuery = {
       ...route.query
     };
-    if (normalizedSection === "profile") {
+    if (normalizedSection === defaultSection.value) {
       delete nextQuery.section;
     } else {
       nextQuery.section = normalizedSection;
@@ -107,6 +77,9 @@ const activeTab = computed({
         <template v-if="runtime.loadingSettings.value">
           <v-skeleton-loader type="text@2, list-item-two-line@4" class="mb-4" />
           <v-skeleton-loader type="text@2, paragraph, button" />
+        </template>
+        <template v-else-if="sections.length < 1">
+          <p class="text-body-2 text-medium-emphasis mb-0">No account settings sections are registered.</p>
         </template>
         <template v-else>
           <v-progress-linear v-if="runtime.refreshingSettings.value" indeterminate class="mb-4" />

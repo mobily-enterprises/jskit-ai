@@ -7,6 +7,7 @@
   },
   "exports": {
     "./client": "./src/client/index.js",
+    "./client/components/AccountSettingsClientElement": "./src/client/components/AccountSettingsClientElement.vue",
     "./client/account-settings/sections": "./src/client/account-settings/sections.js",
     "./client/composables/useAddEdit": "./src/client/composables/records/useAddEdit.js",
     "./client/composables/useAccess": "./src/client/composables/useAccess.js",
@@ -24,7 +25,6 @@
     "./client/composables/useView": "./src/client/composables/records/useView.js",
     "./client/composables/useCrudView": "./src/client/composables/records/useCrudView.js",
     "./client/composables/usePagedCollection": "./src/client/composables/usePagedCollection.js",
-    "./client/composables/useAccountSettingsRuntime": "./src/client/composables/useAccountSettingsRuntime.js",
     "./client/composables/usePaths": "./src/client/composables/usePaths.js",
     "./client/composables/runtime/useUiFeedback": "./src/client/composables/runtime/useUiFeedback.js",
     "./client/lib/httpClient": "./src/client/lib/httpClient.js",

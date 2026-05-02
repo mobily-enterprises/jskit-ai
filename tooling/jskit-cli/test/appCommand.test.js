@@ -348,11 +348,98 @@ test("jskit app link-local-packages links local repo packages, refreshes bins, a
   await withTempDir(async (cwd) => {
     const appRoot = path.join(cwd, "app");
     const repoRoot = path.join(cwd, "jskit-ai");
+    const schemaRepoRoot = path.join(cwd, "json-rest-schema");
+    const storesRepoRoot = path.join(cwd, "json-rest-stores");
 
-    await createMinimalApp(appRoot);
+    await createMinimalApp(appRoot, {
+      dependencies: {
+        "json-rest-schema": "1.0.0",
+        "json-rest-stores": "1.0.0"
+      }
+    });
     await mkdir(path.join(appRoot, "node_modules", "@jskit-ai"), { recursive: true });
     await mkdir(path.join(appRoot, "node_modules", ".vite"), { recursive: true });
     await writeFile(path.join(appRoot, "node_modules", ".vite", "stale.txt"), "stale\n", "utf8");
+
+    const shellWebRoot = path.join(repoRoot, "packages", "shell-web");
+    await mkdir(shellWebRoot, { recursive: true });
+    await writeFile(
+      path.join(shellWebRoot, "package.json"),
+      `${JSON.stringify({ name: "@jskit-ai/shell-web", version: "0.1.0" }, null, 2)}\n`,
+      "utf8"
+    );
+
+    const cliRoot = path.join(repoRoot, "tooling", "jskit-cli");
+    await mkdir(path.join(cliRoot, "bin"), { recursive: true });
+    await writeFile(
+      path.join(cliRoot, "package.json"),
+      `${JSON.stringify(
+        {
+          name: "@jskit-ai/jskit-cli",
+          version: "0.1.0",
+          bin: {
+            jskit: "./bin/jskit.js"
+          }
+        },
+        null,
+        2
+      )}\n`,
+      "utf8"
+    );
+    await writeFile(path.join(cliRoot, "bin", "jskit.js"), "#!/usr/bin/env node\n", "utf8");
+
+    await mkdir(schemaRepoRoot, { recursive: true });
+    await writeFile(
+      path.join(schemaRepoRoot, "package.json"),
+      `${JSON.stringify({ name: "json-rest-schema", version: "1.0.0" }, null, 2)}\n`,
+      "utf8"
+    );
+    await mkdir(storesRepoRoot, { recursive: true });
+    await writeFile(
+      path.join(storesRepoRoot, "package.json"),
+      `${JSON.stringify({ name: "json-rest-stores", version: "1.0.0" }, null, 2)}\n`,
+      "utf8"
+    );
+
+    const result = runCli({
+      cwd: appRoot,
+      args: ["app", "link-local-packages", "--repo-root", repoRoot]
+    });
+
+    assert.equal(result.status, 0, String(result.stderr || ""));
+
+    const linkedShellWeb = path.join(appRoot, "node_modules", "@jskit-ai", "shell-web");
+    const linkedCli = path.join(appRoot, "node_modules", "@jskit-ai", "jskit-cli");
+    const linkedJsonRestSchema = path.join(appRoot, "node_modules", "json-rest-schema");
+    const linkedJsonRestStores = path.join(appRoot, "node_modules", "json-rest-stores");
+    const jskitBin = path.join(appRoot, "node_modules", ".bin", "jskit");
+
+    assert.equal((await lstat(linkedShellWeb)).isSymbolicLink(), true);
+    assert.equal((await lstat(linkedCli)).isSymbolicLink(), true);
+    assert.equal((await lstat(linkedJsonRestSchema)).isSymbolicLink(), true);
+    assert.equal((await lstat(linkedJsonRestStores)).isSymbolicLink(), true);
+    assert.equal((await lstat(jskitBin)).isSymbolicLink(), true);
+    assert.equal(await readlink(linkedShellWeb), shellWebRoot);
+    assert.equal(await readlink(linkedCli), cliRoot);
+    assert.equal(await readlink(linkedJsonRestSchema), schemaRepoRoot);
+    assert.equal(await readlink(linkedJsonRestStores), storesRepoRoot);
+    assert.equal(await readlink(jskitBin), "../@jskit-ai/jskit-cli/bin/jskit.js");
+
+    await assert.rejects(lstat(path.join(appRoot, "node_modules", ".vite")), /ENOENT/);
+  });
+});
+
+test("jskit app link-local-packages fails when a declared companion package has no local repo source", async () => {
+  await withTempDir(async (cwd) => {
+    const appRoot = path.join(cwd, "app");
+    const repoRoot = path.join(cwd, "jskit-ai");
+
+    await createMinimalApp(appRoot, {
+      dependencies: {
+        "json-rest-schema": "1.0.0"
+      }
+    });
+    await mkdir(path.join(appRoot, "node_modules", "@jskit-ai"), { recursive: true });
 
     const shellWebRoot = path.join(repoRoot, "packages", "shell-web");
     await mkdir(shellWebRoot, { recursive: true });
@@ -386,20 +473,11 @@ test("jskit app link-local-packages links local repo packages, refreshes bins, a
       args: ["app", "link-local-packages", "--repo-root", repoRoot]
     });
 
-    assert.equal(result.status, 0, String(result.stderr || ""));
-
-    const linkedShellWeb = path.join(appRoot, "node_modules", "@jskit-ai", "shell-web");
-    const linkedCli = path.join(appRoot, "node_modules", "@jskit-ai", "jskit-cli");
-    const jskitBin = path.join(appRoot, "node_modules", ".bin", "jskit");
-
-    assert.equal((await lstat(linkedShellWeb)).isSymbolicLink(), true);
-    assert.equal((await lstat(linkedCli)).isSymbolicLink(), true);
-    assert.equal((await lstat(jskitBin)).isSymbolicLink(), true);
-    assert.equal(await readlink(linkedShellWeb), shellWebRoot);
-    assert.equal(await readlink(linkedCli), cliRoot);
-    assert.equal(await readlink(jskitBin), "../@jskit-ai/jskit-cli/bin/jskit.js");
-
-    await assert.rejects(lstat(path.join(appRoot, "node_modules", ".vite")), /ENOENT/);
+    assert.equal(result.status, 1);
+    assert.match(
+      String(result.stderr || result.stdout || ""),
+      /companion package json-rest-schema is declared by the app but local source was not found/
+    );
   });
 });
 

@@ -3,6 +3,8 @@ import {
   resolvePageTargetDetails
 } from "@jskit-ai/kernel/server/support";
 
+const DEFAULT_GENERATED_LINK_ICON = "mdi-view-list-outline";
+
 function resolveLinkToPropLine(linkTo = "") {
   if (!linkTo) {
     return "";
@@ -34,6 +36,7 @@ async function buildUiPageTemplateContext({
     __JSKIT_UI_LINK_PLACEMENT_ID__: pageTarget.placementId,
     __JSKIT_UI_LINK_PLACEMENT_TARGET__: String(linkTarget.placementTarget?.id || ""),
     __JSKIT_UI_LINK_COMPONENT_TOKEN__: String(linkTarget.componentToken || ""),
+    __JSKIT_UI_LINK_ICON__: DEFAULT_GENERATED_LINK_ICON,
     __JSKIT_UI_LINK_WORKSPACE_SUFFIX__: pageTarget.routeUrlSuffix,
     __JSKIT_UI_LINK_NON_WORKSPACE_SUFFIX__: pageTarget.routeUrlSuffix,
     __JSKIT_UI_LINK_WHEN_LINE__: String(linkTarget.whenLine || ""),

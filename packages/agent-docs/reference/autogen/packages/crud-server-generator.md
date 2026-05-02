@@ -132,6 +132,7 @@ Local functions
 - `requireVariableDeclarator(programNode, variableName = "", context = "crud-server-generator scaffold-field")`
 - `requireCrudResourceConfigObject(programNode, context = "crud-server-generator scaffold-field")`
 - `requireResourceSchemaObject(programNode, context = "crud-server-generator scaffold-field")`
+- `assertNoExplicitCrudSchemaOverrides(resourceObject, context = "crud-server-generator scaffold-field")`
 - `findObjectPropertyByName(objectNode, propertyName = "")`
 - `hasObjectProperty(objectNode, propertyName = "")`
 - `insertObjectProperty(objectNode, propertyName = "", valueExpressionSource = "", { context = "crud-server-generator scaffold-field", insertBeforeComputed = false } = {})`
