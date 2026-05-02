@@ -1,7 +1,6 @@
 <script setup>
 import { computed } from "vue";
 import { useRoute } from "vue-router";
-import { useQuery } from "@tanstack/vue-query";
 import { mdiEmailAlertOutline } from "@mdi/js";
 import { appendQueryString } from "@jskit-ai/kernel/shared/support";
 import {
@@ -41,68 +40,13 @@ function resolveReturnToHref() {
   return resolveReturnTo();
 }
 
-function countPendingInvites(entries = []) {
-  if (!Array.isArray(entries)) {
-    return 0;
-  }
-
-  let total = 0;
-  for (const entry of entries) {
-    if (!entry || typeof entry !== "object") {
-      continue;
-    }
-    total += 1;
-  }
-  return total;
-}
-
 const authenticated = computed(() => placementContext.value?.auth?.authenticated === true);
-
-const bootstrapSummaryQuery = useQuery({
-  queryKey: ["local-main", "account", "invites-cue", "bootstrap"],
-  enabled: authenticated,
-  staleTime: 5_000,
-  refetchInterval: 15_000,
-  queryFn: async () => {
-    const response = await fetch("/api/bootstrap", {
-      method: "GET",
-      credentials: "include",
-      headers: {
-        accept: "application/json"
-      }
-    });
-    if (!response.ok) {
-      throw new Error(`Bootstrap request failed with status ${response.status}.`);
-    }
-
-    return response.json();
-  }
-});
-
 const placementPendingInvitesCount = computed(() =>
   normalizePendingInvitesCount(placementContext.value?.pendingInvitesCount)
 );
-const bootstrapPendingInvitesCount = computed(() => {
-  const payload = bootstrapSummaryQuery.data.value;
-  const invitesEnabled = payload?.app?.features?.workspaceInvites === true;
-  if (!invitesEnabled) {
-    return 0;
-  }
-
-  return countPendingInvites(payload?.pendingInvites);
-});
-const pendingInvitesCount = computed(() =>
-  Math.max(placementPendingInvitesCount.value, bootstrapPendingInvitesCount.value)
-);
-
+const pendingInvitesCount = computed(() => placementPendingInvitesCount.value);
 const placementWorkspaceInvitesEnabled = computed(() => placementContext.value?.workspaceInvitesEnabled === true);
-const bootstrapWorkspaceInvitesEnabled = computed(() => {
-  const payload = bootstrapSummaryQuery.data.value;
-  return payload?.app?.features?.workspaceInvites === true;
-});
-const workspaceInvitesEnabled = computed(
-  () => placementWorkspaceInvitesEnabled.value || bootstrapWorkspaceInvitesEnabled.value
-);
+const workspaceInvitesEnabled = computed(() => placementWorkspaceInvitesEnabled.value);
 
 const isVisible = computed(() => {
   return (

@@ -97,7 +97,7 @@ test("ui-generator add-subpages derives the default target from an index-route p
 
     assert.deepEqual(result.touchedFiles, [
       "packages/main/src/client/providers/MainClientProvider.js",
-      "src/components/menus/TabLinkItem.vue",
+      "src/components/menus/SurfaceAwareMenuLinkItem.vue",
       "src/components/SectionContainerShell.vue",
       `src/pages/${targetFile}`
     ]);
@@ -105,12 +105,12 @@ test("ui-generator add-subpages derives the default target from an index-route p
     const pageSource = await readPageFile(appRoot, targetFile);
     assert.match(
       pageSource,
-      /<ShellOutlet target="practice:sub-pages" default-link-component-token="local\.main\.ui\.tab-link-item" \/>/
+      /<ShellOutlet target="practice:sub-pages" default-link-component-token="local\.main\.ui\.surface-aware-menu-link-item" \/>/
     );
     assert.match(pageSource, /<RouterView \/>/);
     assert.equal(
-      await readFile(path.join(appRoot, "src", "components", "menus", "TabLinkItem.vue"), "utf8"),
-      await readLocalLinkItemComponentSource("local.main.ui.tab-link-item")
+      await readFile(path.join(appRoot, "src", "components", "menus", "SurfaceAwareMenuLinkItem.vue"), "utf8"),
+      await readLocalLinkItemComponentSource("local.main.ui.surface-aware-menu-link-item")
     );
   });
 });
@@ -132,7 +132,7 @@ test("ui-generator add-subpages derives the default target from a dynamic file-r
     const pageSource = await readPageFile(appRoot, targetFile);
     assert.match(
       pageSource,
-      /<ShellOutlet target="contacts-contact-id:sub-pages" default-link-component-token="local\.main\.ui\.tab-link-item" \/>/
+      /<ShellOutlet target="contacts-contact-id:sub-pages" default-link-component-token="local\.main\.ui\.surface-aware-menu-link-item" \/>/
     );
   });
 });
@@ -154,7 +154,7 @@ test("ui-generator add-subpages derives the default target from a nested route p
     const pageSource = await readPageFile(appRoot, targetFile);
     assert.match(
       pageSource,
-      /<ShellOutlet target="catalog-products:sub-pages" default-link-component-token="local\.main\.ui\.tab-link-item" \/>/
+      /<ShellOutlet target="catalog-products:sub-pages" default-link-component-token="local\.main\.ui\.surface-aware-menu-link-item" \/>/
     );
   });
 });
@@ -199,7 +199,7 @@ test("ui-generator add-subpages supports explicit target host:position", async (
     const pageSource = await readPageFile(appRoot, targetFile);
     assert.match(
       pageSource,
-      /<ShellOutlet target="practice-hub:secondary-tabs" default-link-component-token="local\.main\.ui\.tab-link-item" \/>/
+      /<ShellOutlet target="practice-hub:secondary-tabs" default-link-component-token="local\.main\.ui\.surface-aware-menu-link-item" \/>/
     );
   });
 });
@@ -211,7 +211,7 @@ test("ui-generator add-subpages does not rewrite existing scaffold support compo
     const targetFile = "w/[workspaceSlug]/admin/practice/index.vue";
     await writePageFile(appRoot, targetFile);
     const customSectionShellSource = `<template><section class="custom-shell"><slot /></section></template>\n`;
-    const customTabLinkSource = `<template><button class="custom-tab-link"><slot /></button></template>\n`;
+    const customSurfaceAwareLinkSource = `<template><button class="custom-surface-aware-link"><slot /></button></template>\n`;
     await writeFile(
       path.join(appRoot, "src", "components", "SectionContainerShell.vue"),
       customSectionShellSource,
@@ -219,8 +219,8 @@ test("ui-generator add-subpages does not rewrite existing scaffold support compo
     );
     await mkdir(path.join(appRoot, "src", "components", "menus"), { recursive: true });
     await writeFile(
-      path.join(appRoot, "src", "components", "menus", "TabLinkItem.vue"),
-      customTabLinkSource,
+      path.join(appRoot, "src", "components", "menus", "SurfaceAwareMenuLinkItem.vue"),
+      customSurfaceAwareLinkSource,
       "utf8"
     );
 
@@ -242,8 +242,8 @@ test("ui-generator add-subpages does not rewrite existing scaffold support compo
       customSectionShellSource
     );
     assert.equal(
-      await readFile(path.join(appRoot, "src", "components", "menus", "TabLinkItem.vue"), "utf8"),
-      customTabLinkSource
+      await readFile(path.join(appRoot, "src", "components", "menus", "SurfaceAwareMenuLinkItem.vue"), "utf8"),
+      customSurfaceAwareLinkSource
     );
   });
 });
@@ -332,7 +332,7 @@ test("ui-generator add-subpages accepts target files with a src/pages prefix", a
     const pageSource = await readFile(path.join(appRoot, targetFile), "utf8");
     assert.match(
       pageSource,
-      /<ShellOutlet target="practice:sub-pages" default-link-component-token="local\.main\.ui\.tab-link-item" \/>/
+      /<ShellOutlet target="practice:sub-pages" default-link-component-token="local\.main\.ui\.surface-aware-menu-link-item" \/>/
     );
     assert.match(pageSource, /<RouterView \/>/);
   });

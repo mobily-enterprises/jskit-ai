@@ -31,6 +31,7 @@ function renderPageLinkPlacementBlock({
     `    componentToken: "${context.__JSKIT_UI_LINK_COMPONENT_TOKEN__}",\n` +
     "    props: {\n" +
     `      label: "${label}",\n` +
+    `      icon: "${context.__JSKIT_UI_LINK_ICON__}",\n` +
     `      surface: "${surface}",\n` +
     `      scopedSuffix: "${context.__JSKIT_UI_LINK_WORKSPACE_SUFFIX__}",\n` +
     `      unscopedSuffix: "${context.__JSKIT_UI_LINK_NON_WORKSPACE_SUFFIX__}",\n` +

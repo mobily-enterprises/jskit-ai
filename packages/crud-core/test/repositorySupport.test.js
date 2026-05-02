@@ -126,6 +126,18 @@ test("mapRecordRow remaps rows by key/column pairs", () => {
   });
 });
 
+test("mapRecordRow omits keys whose source column is absent", () => {
+  const row = { some_column: 1 };
+  const mapped = mapRecordRow(row, ["someKey", "virtualField"], {
+    someKey: "some_column",
+    virtualField: "virtual_field"
+  });
+
+  assert.deepEqual(mapped, {
+    someKey: 1
+  });
+});
+
 test("buildWritePayload respects defined keys", () => {
   const payload = buildWritePayload(
     { foo: "bar", missing: true },

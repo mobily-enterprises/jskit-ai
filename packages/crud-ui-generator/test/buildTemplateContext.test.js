@@ -628,7 +628,8 @@ test("buildUiTemplateContext infers tab placement and relative link-to from the 
     });
 
     assert.equal(context.__JSKIT_UI_MENU_PLACEMENT_TARGET__, "catalog:sub-pages");
-    assert.equal(context.__JSKIT_UI_MENU_COMPONENT_TOKEN__, "local.main.ui.tab-link-item");
+    assert.equal(context.__JSKIT_UI_MENU_COMPONENT_TOKEN__, "local.main.ui.surface-aware-menu-link-item");
+    assert.equal(context.__JSKIT_UI_MENU_ICON__, "mdi-view-list-outline");
     assert.equal(context.__JSKIT_UI_MENU_TO_PROP_LINE__, "      to: \"./products\",\n");
     assert.equal(context.__JSKIT_UI_MENU_WORKSPACE_SUFFIX__, "/catalog/products");
   });

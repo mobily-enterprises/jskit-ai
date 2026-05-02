@@ -341,6 +341,10 @@ function mapRecordRow(row, fieldKeys = [], overrides = {}, { recordIdKeys = [] }
     }
 
     const rawValue = row[columnName];
+    if (rawValue === undefined) {
+      continue;
+    }
+
     if (recordIdKeySet.has(normalizedKey)) {
       const normalizedIdValue = normalizeDbRecordId(rawValue, { fallback: null });
       mapped[normalizedKey] = normalizedIdValue || rawValue;

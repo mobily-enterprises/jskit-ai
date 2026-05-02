@@ -333,7 +333,6 @@ Local functions
 - `normalizePendingInvitesCount(value)`
 - `resolveReturnTo()`
 - `resolveReturnToHref()`
-- `countPendingInvites(entries = [])`
 
 ### `templates/packages/main/src/client/components/AccountSettingsInvitesSection.vue`
 Exports

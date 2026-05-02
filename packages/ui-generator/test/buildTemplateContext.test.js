@@ -250,6 +250,7 @@ test("buildUiPageTemplateContext supports explicit link component token and link
       }
     });
     assert.equal(context.__JSKIT_UI_LINK_COMPONENT_TOKEN__, "local.main.ui.tab-link-item");
+    assert.equal(context.__JSKIT_UI_LINK_ICON__, "mdi-view-list-outline");
     assert.equal(context.__JSKIT_UI_LINK_WORKSPACE_SUFFIX__, "/contacts/[contactId]/notes");
     assert.equal(context.__JSKIT_UI_LINK_NON_WORKSPACE_SUFFIX__, "/contacts/[contactId]/notes");
     assert.equal(context.__JSKIT_UI_LINK_TO_PROP_LINE__, "      to: \"./notes\",\n");
@@ -314,7 +315,8 @@ test("buildUiPageTemplateContext infers subpage link placement, tab token, and l
     });
 
     assert.equal(context.__JSKIT_UI_LINK_PLACEMENT_TARGET__, "contact-view:sub-pages");
-    assert.equal(context.__JSKIT_UI_LINK_COMPONENT_TOKEN__, "local.main.ui.tab-link-item");
+    assert.equal(context.__JSKIT_UI_LINK_COMPONENT_TOKEN__, "local.main.ui.surface-aware-menu-link-item");
+    assert.equal(context.__JSKIT_UI_LINK_ICON__, "mdi-view-list-outline");
     assert.equal(context.__JSKIT_UI_LINK_TO_PROP_LINE__, "      to: \"./notes\",\n");
   });
 });
@@ -352,7 +354,7 @@ test("buildUiPageTemplateContext inherits a file-route parent host for deeper de
     });
 
     assert.equal(context.__JSKIT_UI_LINK_PLACEMENT_TARGET__, "contact-view:sub-pages");
-    assert.equal(context.__JSKIT_UI_LINK_COMPONENT_TOKEN__, "local.main.ui.tab-link-item");
+    assert.equal(context.__JSKIT_UI_LINK_COMPONENT_TOKEN__, "local.main.ui.surface-aware-menu-link-item");
     assert.equal(context.__JSKIT_UI_LINK_TO_PROP_LINE__, "      to: \"./notes/history\",\n");
   });
 });
@@ -390,7 +392,8 @@ test("buildUiPageTemplateContext infers subpage link placement from an index-rou
     });
 
     assert.equal(context.__JSKIT_UI_LINK_PLACEMENT_TARGET__, "catalog:sub-pages");
-    assert.equal(context.__JSKIT_UI_LINK_COMPONENT_TOKEN__, "local.main.ui.tab-link-item");
+    assert.equal(context.__JSKIT_UI_LINK_COMPONENT_TOKEN__, "local.main.ui.surface-aware-menu-link-item");
+    assert.equal(context.__JSKIT_UI_LINK_ICON__, "mdi-view-list-outline");
     assert.equal(context.__JSKIT_UI_LINK_TO_PROP_LINE__, "      to: \"./products\",\n");
   });
 });
@@ -441,7 +444,7 @@ test("buildUiPageTemplateContext finds the nearest index-route parent host", asy
     });
 
     assert.equal(context.__JSKIT_UI_LINK_PLACEMENT_TARGET__, "catalog-products:sub-pages");
-    assert.equal(context.__JSKIT_UI_LINK_COMPONENT_TOKEN__, "local.main.ui.tab-link-item");
+    assert.equal(context.__JSKIT_UI_LINK_COMPONENT_TOKEN__, "local.main.ui.surface-aware-menu-link-item");
     assert.equal(context.__JSKIT_UI_LINK_TO_PROP_LINE__, "      to: \"./variants\",\n");
   });
 });
@@ -479,7 +482,7 @@ test("buildUiPageTemplateContext infers subpage link placement from an index rou
     });
 
     assert.equal(context.__JSKIT_UI_LINK_PLACEMENT_TARGET__, "customer-view:sub-pages");
-    assert.equal(context.__JSKIT_UI_LINK_COMPONENT_TOKEN__, "local.main.ui.tab-link-item");
+    assert.equal(context.__JSKIT_UI_LINK_COMPONENT_TOKEN__, "local.main.ui.surface-aware-menu-link-item");
     assert.equal(context.__JSKIT_UI_LINK_TO_PROP_LINE__, "      to: \"./pets\",\n");
     assert.equal(context.__JSKIT_UI_LINK_WORKSPACE_SUFFIX__, "/customers/[customerId]/pets");
   });

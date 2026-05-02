@@ -760,6 +760,51 @@ test("registerRoutes attaches request.input when route input transforms are conf
   assert.equal(reply.statusCode, 200);
 });
 
+test("registerRoutes strips Fastify body schemas when JSKIT runtime body validation is present", () => {
+  const fastify = createFastifyStub();
+
+  registerRoutes(fastify, {
+    routes: [
+      {
+        method: "POST",
+        path: "/body-schema-runtime-validation",
+        schema: {
+          body: {
+            type: "object",
+            properties: {
+              flag: {
+                anyOf: [{ type: "boolean" }, { type: "null" }]
+              }
+            }
+          },
+          querystring: {
+            type: "object",
+            properties: {
+              limit: { type: "integer" }
+            }
+          }
+        },
+        input: {
+          body: (body) => ({
+            flag: body?.flag ?? null
+          })
+        },
+        handler: async (_request, reply) => {
+          reply.code(200).send({ ok: true });
+        }
+      }
+    ]
+  });
+
+  assert.equal(Object.prototype.hasOwnProperty.call(fastify.routes[0].schema, "body"), false);
+  assert.deepEqual(fastify.routes[0].schema.querystring, {
+    type: "object",
+    properties: {
+      limit: { type: "integer" }
+    }
+  });
+});
+
 test("registerRoutes applies transport request transforms before route input normalization", async () => {
   const fastify = createFastifyStub();
 

@@ -7,6 +7,7 @@ import {
   resolveSurfaceNavigationTargetFromPlacementContext,
   useWebPlacementContext
 } from "../placement/index.js";
+import { resolveMenuLinkIcon } from "../lib/menuIcons.js";
 import {
   normalizeMenuLinkPathname,
   resolveMenuLinkTarget
@@ -18,6 +19,10 @@ const props = defineProps({
     default: ""
   },
   to: {
+    type: String,
+    default: ""
+  },
+  icon: {
     type: String,
     default: ""
   },
@@ -88,6 +93,14 @@ const resolvedTarget = computed(() => {
   };
 });
 
+const resolvedIcon = computed(() =>
+  resolveMenuLinkIcon({
+    icon: props.icon,
+    label: props.label,
+    to: resolvedTarget.value.href || resolvedTo.value
+  })
+);
+
 const isActive = computed(() => {
   if (!resolvedTarget.value.sameOrigin) {
     return false;
@@ -111,6 +124,7 @@ const isActive = computed(() => {
     size="small"
     :to="resolvedTarget.sameOrigin ? resolvedTarget.href : undefined"
     :href="resolvedTarget.sameOrigin ? undefined : resolvedTarget.href"
+    :prepend-icon="resolvedIcon || undefined"
     :active="isActive"
     :disabled="disabled"
     color="primary"

@@ -354,7 +354,7 @@ test("resolvePageLinkTargetDetails inherits a file-route parent subpages host", 
 
     assert.equal(details.parentHost?.id, "contact-view:sub-pages");
     assert.equal(details.placementTarget.id, "contact-view:sub-pages");
-    assert.equal(details.componentToken, "local.main.ui.tab-link-item");
+    assert.equal(details.componentToken, "local.main.ui.surface-aware-menu-link-item");
     assert.equal(details.linkTo, "./notes");
   });
 });
@@ -422,7 +422,7 @@ test("resolvePageLinkTargetDetails inherits an index-route parent subpages host 
     assert.equal(details.parentHost?.id, "customer-view:sub-pages");
     assert.equal(details.parentHost?.pageFile, "src/pages/admin/customers/[customerId]/index.vue");
     assert.equal(details.placementTarget.id, "customer-view:sub-pages");
-    assert.equal(details.componentToken, "local.main.ui.tab-link-item");
+    assert.equal(details.componentToken, "local.main.ui.surface-aware-menu-link-item");
     assert.equal(details.linkTo, "./pets");
   });
 });

@@ -63,6 +63,9 @@ function cloneJsonRestResourceValue(value, { writeSerializers = {} } = {}) {
 
   if (isPlainJsonRestObject(next.storage)) {
     const serializerKey = normalizeJsonRestText(next.storage.writeSerializer).toLowerCase();
+    if (next.storage.virtual === true) {
+      next.virtual = true;
+    }
     if (serializerKey) {
       const serializer = writeSerializers[serializerKey];
       if (typeof serializer !== "function") {
@@ -195,16 +198,68 @@ function buildJsonRestQueryParams(resourceType = "", query = {}, { include = und
   return queryParams;
 }
 
-function createJsonApiInputRecord(resourceType = "", attributes = {}, { id = null, relationships = null } = {}) {
-  const normalizedRelationships = normalizeJsonRestObject(relationships);
+function extractJsonApiInputRelationships(attributes = {}, resource = null, relationships = null) {
+  const normalizedAttributes = {
+    ...normalizeJsonRestObject(attributes)
+  };
+  const normalizedRelationships = {
+    ...normalizeJsonRestObject(relationships)
+  };
+  const resourceSchema = normalizeJsonRestObject(resource?.schema);
+
+  for (const [fieldName, fieldDefinition] of Object.entries(resourceSchema)) {
+    if (!Object.hasOwn(normalizedAttributes, fieldName)) {
+      continue;
+    }
+
+    const normalizedFieldDefinition = normalizeJsonRestObject(fieldDefinition);
+    const relationshipType = normalizeJsonRestText(normalizedFieldDefinition.belongsTo);
+    if (!relationshipType) {
+      continue;
+    }
+
+    const relationshipName = normalizeJsonRestText(normalizedFieldDefinition.as, {
+      fallback: fieldName
+    });
+    if (!relationshipName) {
+      continue;
+    }
+
+    const relationshipValue = normalizedAttributes[fieldName];
+    delete normalizedAttributes[fieldName];
+
+    if (relationshipValue === undefined) {
+      continue;
+    }
+
+    if (!Object.hasOwn(normalizedRelationships, relationshipName)) {
+      normalizedRelationships[relationshipName] = createJsonApiRelationship(
+        relationshipType,
+        relationshipValue
+      );
+    }
+  }
+
+  return {
+    attributes: normalizedAttributes,
+    relationships: normalizedRelationships
+  };
+}
+
+function createJsonApiInputRecord(
+  resourceType = "",
+  attributes = {},
+  { id = null, relationships = null, resource = null } = {}
+) {
+  const normalizedInput = extractJsonApiInputRelationships(attributes, resource, relationships);
   return {
     data: {
       type: normalizeJsonRestText(resourceType),
       ...(id == null ? {} : { id: String(id) }),
-      attributes: {
-        ...normalizeJsonRestObject(attributes)
-      },
-      ...(Object.keys(normalizedRelationships).length < 1 ? {} : { relationships: normalizedRelationships })
+      attributes: normalizedInput.attributes,
+      ...(Object.keys(normalizedInput.relationships).length < 1
+        ? {}
+        : { relationships: normalizedInput.relationships })
     }
   };
 }

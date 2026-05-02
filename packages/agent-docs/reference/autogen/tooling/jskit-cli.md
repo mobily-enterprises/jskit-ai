@@ -368,6 +368,8 @@ Local functions
 ### `src/server/commandHandlers/appCommands/linkLocalPackages.js`
 Exports
 - `runAppLinkLocalPackagesCommand(ctx = {}, { appRoot = "", options = {}, stdout })`
+Local functions
+- `maybeLinkCompanionPackages({ appRoot = "", repoRoot = "", stdout })`
 
 ### `src/server/commandHandlers/appCommands/release.js`
 Exports

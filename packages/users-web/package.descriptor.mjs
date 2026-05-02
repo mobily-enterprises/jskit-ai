@@ -47,6 +47,10 @@ export default Object.freeze({
           summary: "Exports users-web client provider class."
         },
         {
+          subpath: "./client/components/AccountSettingsClientElement",
+          summary: "Exports the package-owned account settings host that renders placement-backed account sections."
+        },
+        {
           subpath: "./client/components/ProfileClientElement",
           summary: "Exports profile settings client element scaffold component."
         },
@@ -91,10 +95,6 @@ export default Object.freeze({
           summary: "Exports the shared users-web HTTP client with credentials and CSRF behavior."
         },
         {
-          subpath: "./client/composables/useAccountSettingsRuntime",
-          summary: "Exports account settings runtime composable for app-owned settings UI."
-        },
-        {
           subpath: "./client/account-settings/sections",
           summary: "Exports placement-backed account settings section helpers."
         }
@@ -119,7 +119,7 @@ export default Object.freeze({
           {
             target: "account-settings:sections",
             surfaces: ["account"],
-            source: "templates/src/components/account/settings/AccountSettingsClientElement.vue"
+            source: "src/client/components/AccountSettingsClientElement.vue"
           }
         ],
         contributions: [
@@ -149,6 +149,30 @@ export default Object.freeze({
             componentToken: "local.main.ui.surface-aware-menu-link-item",
             when: "auth.authenticated === true",
             source: "mutations.text#users-web-home-tools-placement"
+          },
+          {
+            id: "users.account.settings.profile",
+            target: "account-settings:sections",
+            surfaces: ["account"],
+            order: 100,
+            componentToken: "local.main.account-settings.section.profile",
+            source: "mutations.text#users-web-account-settings-sections-placement"
+          },
+          {
+            id: "users.account.settings.preferences",
+            target: "account-settings:sections",
+            surfaces: ["account"],
+            order: 200,
+            componentToken: "local.main.account-settings.section.preferences",
+            source: "mutations.text#users-web-account-settings-sections-placement"
+          },
+          {
+            id: "users.account.settings.notifications",
+            target: "account-settings:sections",
+            surfaces: ["account"],
+            order: 300,
+            componentToken: "local.main.account-settings.section.notifications",
+            source: "mutations.text#users-web-account-settings-sections-placement"
           }
         ]
       }
@@ -184,13 +208,6 @@ export default Object.freeze({
         reason: "Install app-owned account surface root page scaffold.",
         category: "users-web",
         id: "users-web-page-account-root"
-      },
-      {
-        from: "templates/src/components/account/settings/AccountSettingsClientElement.vue",
-        to: "src/components/account/settings/AccountSettingsClientElement.vue",
-        reason: "Install app-owned account settings container component scaffold.",
-        category: "users-web",
-        id: "users-web-component-account-settings-root"
       },
       {
         from: "templates/src/components/account/settings/AccountSettingsProfileSection.vue",
@@ -247,6 +264,77 @@ export default Object.freeze({
         reason: "Append users-web home tools widget and settings menu placements into app-owned placement registry.",
         category: "users-web",
         id: "users-web-home-tools-placement"
+      },
+      {
+        op: "append-text",
+        file: "src/placement.js",
+        position: "bottom",
+        skipIfContains: "id: \"users.account.settings.profile\"",
+        value:
+          "\naddPlacement({\n  id: \"users.account.settings.profile\",\n  target: \"account-settings:sections\",\n  surfaces: [\"account\"],\n  order: 100,\n  componentToken: \"local.main.account-settings.section.profile\",\n  props: {\n    title: \"Profile\",\n    value: \"profile\",\n    usesSharedRuntime: true\n  }\n});\n\naddPlacement({\n  id: \"users.account.settings.preferences\",\n  target: \"account-settings:sections\",\n  surfaces: [\"account\"],\n  order: 200,\n  componentToken: \"local.main.account-settings.section.preferences\",\n  props: {\n    title: \"Preferences\",\n    value: \"preferences\",\n    usesSharedRuntime: true\n  }\n});\n\naddPlacement({\n  id: \"users.account.settings.notifications\",\n  target: \"account-settings:sections\",\n  surfaces: [\"account\"],\n  order: 300,\n  componentToken: \"local.main.account-settings.section.notifications\",\n  props: {\n    title: \"Notifications\",\n    value: \"notifications\",\n    usesSharedRuntime: true\n  }\n});\n",
+        reason: "Append users-web account settings section placements into the app-owned placement registry.",
+        category: "users-web",
+        id: "users-web-account-settings-sections-placement"
+      },
+      {
+        op: "append-text",
+        file: "packages/main/src/client/providers/MainClientProvider.js",
+        position: "top",
+        skipIfContains: "import AccountSettingsProfileSection from \"/src/components/account/settings/AccountSettingsProfileSection.vue\";",
+        value: "import AccountSettingsProfileSection from \"/src/components/account/settings/AccountSettingsProfileSection.vue\";\n",
+        reason: "Bind the app-owned account profile settings section into local main client provider imports.",
+        category: "users-web",
+        id: "users-web-main-client-provider-account-settings-profile-import"
+      },
+      {
+        op: "append-text",
+        file: "packages/main/src/client/providers/MainClientProvider.js",
+        position: "top",
+        skipIfContains: "import AccountSettingsPreferencesSection from \"/src/components/account/settings/AccountSettingsPreferencesSection.vue\";",
+        value: "import AccountSettingsPreferencesSection from \"/src/components/account/settings/AccountSettingsPreferencesSection.vue\";\n",
+        reason: "Bind the app-owned account preferences settings section into local main client provider imports.",
+        category: "users-web",
+        id: "users-web-main-client-provider-account-settings-preferences-import"
+      },
+      {
+        op: "append-text",
+        file: "packages/main/src/client/providers/MainClientProvider.js",
+        position: "top",
+        skipIfContains: "import AccountSettingsNotificationsSection from \"/src/components/account/settings/AccountSettingsNotificationsSection.vue\";",
+        value: "import AccountSettingsNotificationsSection from \"/src/components/account/settings/AccountSettingsNotificationsSection.vue\";\n",
+        reason: "Bind the app-owned account notifications settings section into local main client provider imports.",
+        category: "users-web",
+        id: "users-web-main-client-provider-account-settings-notifications-import"
+      },
+      {
+        op: "append-text",
+        file: "packages/main/src/client/providers/MainClientProvider.js",
+        position: "bottom",
+        skipIfContains: "registerMainClientComponent(\"local.main.account-settings.section.profile\", () => AccountSettingsProfileSection);",
+        value: "\nregisterMainClientComponent(\"local.main.account-settings.section.profile\", () => AccountSettingsProfileSection);\n",
+        reason: "Bind the app-owned account profile settings section token into local main client provider registry.",
+        category: "users-web",
+        id: "users-web-main-client-provider-account-settings-profile-register"
+      },
+      {
+        op: "append-text",
+        file: "packages/main/src/client/providers/MainClientProvider.js",
+        position: "bottom",
+        skipIfContains: "registerMainClientComponent(\"local.main.account-settings.section.preferences\", () => AccountSettingsPreferencesSection);",
+        value: "\nregisterMainClientComponent(\"local.main.account-settings.section.preferences\", () => AccountSettingsPreferencesSection);\n",
+        reason: "Bind the app-owned account preferences settings section token into local main client provider registry.",
+        category: "users-web",
+        id: "users-web-main-client-provider-account-settings-preferences-register"
+      },
+      {
+        op: "append-text",
+        file: "packages/main/src/client/providers/MainClientProvider.js",
+        position: "bottom",
+        skipIfContains: "registerMainClientComponent(\"local.main.account-settings.section.notifications\", () => AccountSettingsNotificationsSection);",
+        value: "\nregisterMainClientComponent(\"local.main.account-settings.section.notifications\", () => AccountSettingsNotificationsSection);\n",
+        reason: "Bind the app-owned account notifications settings section token into local main client provider registry.",
+        category: "users-web",
+        id: "users-web-main-client-provider-account-settings-notifications-register"
       }
     ]
   }

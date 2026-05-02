@@ -15,6 +15,7 @@ test("users-web exports are explicit and aligned with production/template usage"
     packageId: "@jskit-ai/users-web",
     requiredExports: [
       "./client",
+      "./client/components/AccountSettingsClientElement",
       "./client/account-settings/sections",
       "./client/composables/useAddEdit",
       "./client/composables/useCommand",

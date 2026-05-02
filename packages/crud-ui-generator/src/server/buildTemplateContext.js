@@ -59,6 +59,7 @@ const DEFAULT_OPERATIONS = normalizeText(descriptor?.options?.operations?.defaul
 const DEFAULT_LIST_HIDDEN_FIELD_KEYS = new Set(["createdAt", "updatedAt"]);
 const DEFAULT_FORM_COMPONENT_FILE = "CrudAddEditForm.vue";
 const DEFAULT_FORM_FIELDS_FILE = "CrudAddEditFormFields.js";
+const DEFAULT_GENERATED_LINK_ICON = "mdi-view-list-outline";
 
 function splitTextIntoWords(value = "") {
   const normalized = String(value || "")
@@ -659,6 +660,7 @@ async function buildUiTemplateContext({ appRoot, options } = {}) {
     __JSKIT_UI_MENU_PLACEMENT_ID__: String(pageLinkTarget?.pageTarget?.placementId || ""),
     __JSKIT_UI_MENU_PLACEMENT_TARGET__: String(pageLinkTarget?.placementTarget?.id || ""),
     __JSKIT_UI_MENU_COMPONENT_TOKEN__: String(pageLinkTarget?.componentToken || ""),
+    __JSKIT_UI_MENU_ICON__: DEFAULT_GENERATED_LINK_ICON,
     __JSKIT_UI_MENU_WORKSPACE_SUFFIX__: String(pageLinkTarget?.pageTarget?.routeUrlSuffix || ""),
     __JSKIT_UI_MENU_NON_WORKSPACE_SUFFIX__: String(pageLinkTarget?.pageTarget?.routeUrlSuffix || ""),
     __JSKIT_UI_MENU_WHEN_LINE__: String(pageLinkTarget?.whenLine || ""),

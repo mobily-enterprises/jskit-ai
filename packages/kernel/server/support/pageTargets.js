@@ -19,9 +19,11 @@ import { resolveRequiredAppRoot, toPosixPath } from "./path.js";
 import { loadAppConfigFromModuleUrl } from "./appConfigFiles.js";
 
 const DEFAULT_PAGE_LINK_COMPONENT_TOKEN = "local.main.ui.surface-aware-menu-link-item";
-const DEFAULT_SUBPAGE_LINK_COMPONENT_TOKEN = "local.main.ui.tab-link-item";
+const DEFAULT_SUBPAGE_LINK_COMPONENT_TOKEN = "local.main.ui.surface-aware-menu-link-item";
 const PAGE_ROOT_PREFIX = "src/pages/";
 const ROUTER_VIEW_TAG_PATTERN = /<RouterView\b/i;
+const SECTION_CONTAINER_SHELL_TAG_PATTERN = /<SectionContainerShell\b/i;
+const TABS_SLOT_PATTERN = /<template\b[^>]*(?:#tabs|v-slot:tabs)\b[^>]*>([\s\S]*?)<\/template>/i;
 
 function normalizeRelativeFilePath(value = "") {
   return String(value || "")
@@ -430,7 +432,6 @@ function resolveSubpagesHostTargetFromPageSource(source = "") {
   if (!ROUTER_VIEW_TAG_PATTERN.test(sourceText)) {
     return null;
   }
-
   const discoveredTargets = discoverShellOutletTargetsFromVueSource(sourceText, {
     context: "subpages host"
   });
@@ -444,8 +445,25 @@ function resolveSubpagesHostTargetFromPageSource(source = "") {
     return null;
   }
 
+  let isSectionSubpagesHost = false;
+  if (SECTION_CONTAINER_SHELL_TAG_PATTERN.test(sourceText)) {
+    const tabsSlotMatch = TABS_SLOT_PATTERN.exec(sourceText);
+    if (tabsSlotMatch) {
+      const tabsTargets = discoverShellOutletTargetsFromVueSource(String(tabsSlotMatch[1] || ""), {
+        context: "subpages host tabs slot"
+      });
+      const tabTargetIds = Array.isArray(tabsTargets.targets)
+        ? tabsTargets.targets.map((entry) => normalizeShellOutletTargetId(entry?.id)).filter(Boolean)
+        : [];
+      if (tabTargetIds.length === 1 && tabTargetIds[0] === normalizeShellOutletTargetId(target.id)) {
+        isSectionSubpagesHost = true;
+      }
+    }
+  }
+
   return Object.freeze({
-    id: target.id
+    id: target.id,
+    isSectionSubpagesHost
   });
 }
 
@@ -594,16 +612,11 @@ function resolveInferredPageLinkTo({
   const parentTargetId = normalizePlacementTargetId(parentHost);
   const placementTargetId = normalizePlacementTargetId(placementTarget);
   if (parentTargetId && parentTargetId === placementTargetId) {
-    const inferredLinkTo = resolveRelativeLinkToFromParent(pageTarget, parentHost);
-    if (inferredLinkTo) {
-      return inferredLinkTo;
-    }
-  }
-
-  if (normalizeText(parentHost?.pageShape) === "index") {
-    const inferredLinkTo = resolveRelativeLinkToFromParent(pageTarget, parentHost);
-    if (inferredLinkTo) {
-      return inferredLinkTo;
+    if (parentHost?.isSectionSubpagesHost === true) {
+      const inferredLinkTo = resolveRelativeLinkToFromParent(pageTarget, parentHost);
+      if (inferredLinkTo) {
+        return inferredLinkTo;
+      }
     }
   }
 
@@ -633,7 +646,11 @@ function resolveInferredPageLinkComponentToken({
 
   const parentTargetId = normalizePlacementTargetId(parentHost);
   const placementTargetId = normalizePlacementTargetId(placementTarget);
-  if (parentTargetId && parentTargetId === placementTargetId) {
+  if (
+    parentHost?.isSectionSubpagesHost === true &&
+    parentTargetId &&
+    parentTargetId === placementTargetId
+  ) {
     return normalizeText(subpageComponentToken) || DEFAULT_SUBPAGE_LINK_COMPONENT_TOKEN;
   }
 
@@ -681,6 +698,12 @@ async function resolvePageLinkTargetDetails({
     defaultComponentToken,
     subpageComponentToken
   });
+  const parentTargetId = normalizePlacementTargetId(parentHost);
+  const placementTargetId = normalizePlacementTargetId(placementTarget);
+  const preservesRelativeSubpageLinks =
+    parentHost?.isSectionSubpagesHost === true &&
+    Boolean(parentTargetId) &&
+    parentTargetId === placementTargetId;
 
   return Object.freeze({
     pageTarget: resolvedPageTarget,
@@ -693,7 +716,9 @@ async function resolvePageLinkTargetDetails({
       pageTarget: resolvedPageTarget,
       parentHost,
       placementTarget,
-      suppressImplicitRelativeLinks: resolvedComponentToken === (normalizeText(defaultComponentToken) || DEFAULT_PAGE_LINK_COMPONENT_TOKEN)
+      suppressImplicitRelativeLinks:
+        resolvedComponentToken === (normalizeText(defaultComponentToken) || DEFAULT_PAGE_LINK_COMPONENT_TOKEN) &&
+        preservesRelativeSubpageLinks !== true
     })
   });
 }
