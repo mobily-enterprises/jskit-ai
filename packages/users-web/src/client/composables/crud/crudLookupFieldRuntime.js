@@ -11,6 +11,7 @@ import {
   resolveLookupItemLabel,
   resolveLookupFieldDisplayValue
 } from "./crudLookupFieldLabelSupport.js";
+import { inferCrudLookupJsonApiTransport } from "./crudJsonApiTransportSupport.js";
 import { asPlainObject } from "../support/scopeHelpers.js";
 
 function normalizeQueryKeyPrefix(value) {
@@ -104,6 +105,10 @@ function createCrudLookupFieldRuntime({
     }
     const explicitApiPath = normalizeCrudLookupApiPath(rawRelation.apiPath);
     const apiPath = explicitApiPath || resolveCrudLookupApiPathFromNamespace(namespace);
+    const transport = inferCrudLookupJsonApiTransport({
+      namespace,
+      apiPath
+    });
     const valueKey = normalizeText(rawRelation.valueKey);
     const labelKey = normalizeText(rawRelation.labelKey);
     const relationLookupContainerKey = normalizeCrudLookupContainerKey(rawRelation.containerKey, {
@@ -119,6 +124,7 @@ function createCrudLookupFieldRuntime({
       adapter: adapter || undefined,
       ...(relationSurfaceId ? { surfaceId: relationSurfaceId } : {}),
       apiSuffix: apiPath,
+      ...(transport ? { transport } : {}),
       queryKeyFactory: (surfaceId = "", scopeParamValue = "") => [
         ...normalizedQueryKeyPrefix,
         key,

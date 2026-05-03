@@ -1,4 +1,7 @@
-import { createJsonApiResourceRouteContract } from "@jskit-ai/http-runtime/shared/validators/jsonApiRouteTransport";
+import {
+  createJsonApiResourceObject,
+  createJsonApiResourceRouteContract
+} from "@jskit-ai/http-runtime/shared";
 import {
   composeSchemaDefinitions,
   recordIdParamsValidator
@@ -160,6 +163,134 @@ function resolveOutputAttributeExcludeKeys(resource = {}) {
   return lookupContainerKey ? Object.freeze([lookupContainerKey]) : Object.freeze([]);
 }
 
+function resolveLookupContainerKey(resource = {}) {
+  return String(resource?.contract?.lookup?.containerKey || "").trim();
+}
+
+function normalizeLookupId(value) {
+  if (value == null) {
+    return null;
+  }
+
+  const normalized = String(value).trim();
+  return normalized || null;
+}
+
+function normalizeIncludedLookupRecord(source = null, fallbackId = null) {
+  if (!isRecord(source)) {
+    return null;
+  }
+
+  const directId = normalizeLookupId(source.id);
+  if (directId) {
+    return {
+      id: directId,
+      ...source
+    };
+  }
+
+  const preferredNestedRecord = normalizeLookupId(fallbackId) && isRecord(source[fallbackId])
+    ? source[fallbackId]
+    : null;
+  if (preferredNestedRecord) {
+    return {
+      id: normalizeLookupId(preferredNestedRecord.id ?? fallbackId),
+      ...preferredNestedRecord
+    };
+  }
+
+  const nestedEntries = Object.entries(source).filter(([, value]) => isRecord(value));
+  if (nestedEntries.length !== 1) {
+    const fallbackRecordId = normalizeLookupId(fallbackId);
+    if (!fallbackRecordId) {
+      return null;
+    }
+
+    return {
+      id: fallbackRecordId,
+      ...source
+    };
+  }
+
+  const [nestedKey, nestedRecord] = nestedEntries[0];
+  const nestedId = normalizeLookupId(nestedRecord.id ?? nestedKey ?? fallbackId);
+  if (!nestedId) {
+    return null;
+  }
+
+  return {
+    id: nestedId,
+    ...nestedRecord
+  };
+}
+
+function createLookupIncludedResolver(definition = null, {
+  lookupContainerKey = ""
+} = {}) {
+  const relationshipEntries = resolveJsonApiRelationshipEntries(definition);
+  const normalizedLookupContainerKey = String(lookupContainerKey || "").trim();
+  if (!normalizedLookupContainerKey || relationshipEntries.length < 1) {
+    return null;
+  }
+
+  return function getIncluded(payload = {}) {
+    const sourceRecords = Array.isArray(payload)
+      ? payload
+      : Array.isArray(payload?.items)
+        ? payload.items
+        : isRecord(payload)
+          ? [payload]
+          : [];
+    const included = [];
+    const seen = new Set();
+
+    for (const record of sourceRecords) {
+      if (!isRecord(record)) {
+        continue;
+      }
+
+      const sourceLookups = isRecord(record[normalizedLookupContainerKey])
+        ? record[normalizedLookupContainerKey]
+        : {};
+
+      for (const entry of relationshipEntries) {
+        const relationshipId = normalizeLookupId(record[entry.attributeKey]);
+        const lookupRecord = normalizeIncludedLookupRecord(
+          sourceLookups[entry.attributeKey] ?? sourceLookups[entry.relationshipName],
+          relationshipId
+        );
+        const includedId = normalizeLookupId(lookupRecord?.id ?? relationshipId);
+        if (!lookupRecord || !includedId) {
+          continue;
+        }
+
+        const resourceKey = `${entry.relationshipType}:${includedId}`;
+        if (seen.has(resourceKey)) {
+          continue;
+        }
+        seen.add(resourceKey);
+
+        const attributes = {
+          ...lookupRecord
+        };
+        delete attributes.id;
+        delete attributes.type;
+        delete attributes.relationships;
+        delete attributes.links;
+        delete attributes.meta;
+
+        included.push(createJsonApiResourceObject({
+          type: entry.relationshipType,
+          id: includedId,
+          attributes
+        }));
+      }
+    }
+
+    return included;
+  };
+}
+
 function createCrudJsonApiRouteContracts({
   resource = {},
   routeParamsValidator = null,
@@ -189,6 +320,7 @@ function createCrudJsonApiRouteContracts({
   const patchBody = resource?.operations?.patch?.body;
   const patchOutput = resource?.operations?.patch?.output;
   const outputAttributeExcludeKeys = resolveOutputAttributeExcludeKeys(resource);
+  const lookupContainerKey = resolveLookupContainerKey(resource);
   const viewOutputRelationships = resolveJsonApiRelationshipEntries(viewOutput);
   const createBodyRelationships = resolveJsonApiRelationshipEntries(createBody);
   const createOutputRelationships = resolveJsonApiRelationshipEntries(createOutput);
@@ -208,6 +340,15 @@ function createCrudJsonApiRouteContracts({
   const patchRecordRelationships = createRecordRelationshipsResolver(patchOutput);
   const createRequestRelationships = createRequestRelationshipMapper(createBody);
   const patchRequestRelationships = createRequestRelationshipMapper(patchBody);
+  const viewIncluded = createLookupIncludedResolver(viewOutput, {
+    lookupContainerKey
+  });
+  const createIncluded = createLookupIncludedResolver(createOutput, {
+    lookupContainerKey
+  });
+  const patchIncluded = createLookupIncludedResolver(patchOutput, {
+    lookupContainerKey
+  });
 
   return Object.freeze({
     listRouteContract: createJsonApiResourceRouteContract({
@@ -218,7 +359,8 @@ function createCrudJsonApiRouteContracts({
       outputAttributeExcludeKeys,
       outputRelationshipEntries: viewOutputRelationships,
       getRecordAttributes: viewRecordAttributes,
-      getRecordRelationships: viewRecordRelationships
+      getRecordRelationships: viewRecordRelationships,
+      getIncluded: viewIncluded
     }),
     viewRouteContract: createJsonApiResourceRouteContract({
       type: routeType,
@@ -228,7 +370,8 @@ function createCrudJsonApiRouteContracts({
       outputAttributeExcludeKeys,
       outputRelationshipEntries: viewOutputRelationships,
       getRecordAttributes: viewRecordAttributes,
-      getRecordRelationships: viewRecordRelationships
+      getRecordRelationships: viewRecordRelationships,
+      getIncluded: viewIncluded
     }),
     createRouteContract: createJsonApiResourceRouteContract({
       type: routeType,
@@ -242,7 +385,8 @@ function createCrudJsonApiRouteContracts({
       outputRelationshipEntries: createOutputRelationships,
       mapRequestRelationships: createRequestRelationships,
       getRecordAttributes: createRecordAttributes,
-      getRecordRelationships: createRecordRelationships
+      getRecordRelationships: createRecordRelationships,
+      getIncluded: createIncluded
     }),
     updateRouteContract: createJsonApiResourceRouteContract({
       type: routeType,
@@ -255,7 +399,8 @@ function createCrudJsonApiRouteContracts({
       outputRelationshipEntries: patchOutputRelationships,
       mapRequestRelationships: patchRequestRelationships,
       getRecordAttributes: patchRecordAttributes,
-      getRecordRelationships: patchRecordRelationships
+      getRecordRelationships: patchRecordRelationships,
+      getIncluded: patchIncluded
     }),
     deleteRouteContract: createJsonApiResourceRouteContract({
       type: routeType,

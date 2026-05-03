@@ -678,6 +678,7 @@ In the current CLI, that includes checks such as:
 - installed package entries in `.jskit/lock.json`
 - whether managed files recorded in the lock still exist
 - whether installed packages are still visible in the package registry
+- explicit `transport` passed to high-level CRUD hooks such as `useCrudList()`, `useCrudView()`, and `useCrudAddEdit()`, where the shared CRUD resource should derive the JSON:API transport automatically
 - certain JSKIT-specific app checks, such as invalid raw `mdi-*` icon literals in Vue templates when the app uses Vuetify's `mdi-svg` iconset
 - UI verification receipts for current dirty UI files in git, via `.jskit/verification/ui.json`
 

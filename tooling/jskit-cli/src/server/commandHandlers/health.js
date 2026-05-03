@@ -75,6 +75,11 @@ function createHealthCommands(ctx = {}) {
     "createCrudListFilters",
     "useCrudListFilters"
   ]);
+  const CRUD_TRANSPORT_RUNTIME_CALLEES = Object.freeze([
+    "useCrudList",
+    "useCrudView",
+    "useCrudAddEdit"
+  ]);
 
   function collectDescriptorContainerTokens({ packageId, side, values, issues }) {
     const declaredTokens = new Set();
@@ -485,6 +490,146 @@ function createHealthCommands(ctx = {}) {
     return bindings;
   }
 
+  function hasTopLevelObjectProperty(sourceText = "", propertyName = "") {
+    const normalizedPropertyName = String(propertyName || "").trim();
+    const normalizedSourceText = String(sourceText || "").trim();
+    if (!normalizedPropertyName || !normalizedSourceText.startsWith("{")) {
+      return false;
+    }
+
+    let parenDepth = 0;
+    let braceDepth = 0;
+    let bracketDepth = 0;
+    let inLineComment = false;
+    let inBlockComment = false;
+
+    for (let index = 0; index < normalizedSourceText.length; index += 1) {
+      const character = normalizedSourceText[index];
+      const nextCharacter = normalizedSourceText[index + 1] || "";
+
+      if (inLineComment) {
+        if (character === "\n") {
+          inLineComment = false;
+        }
+        continue;
+      }
+
+      if (inBlockComment) {
+        if (character === "*" && nextCharacter === "/") {
+          inBlockComment = false;
+          index += 1;
+        }
+        continue;
+      }
+
+      if (character === "/" && nextCharacter === "/") {
+        inLineComment = true;
+        index += 1;
+        continue;
+      }
+
+      if (character === "/" && nextCharacter === "*") {
+        inBlockComment = true;
+        index += 1;
+        continue;
+      }
+
+      if (character === "'" || character === "\"") {
+        const quote = character;
+        const stringStart = index + 1;
+        let stringEnd = stringStart;
+        for (; stringEnd < normalizedSourceText.length; stringEnd += 1) {
+          if (
+            normalizedSourceText[stringEnd] === quote &&
+            !isEscapedCharacter(normalizedSourceText, stringEnd)
+          ) {
+            break;
+          }
+        }
+
+        const stringValue = normalizedSourceText.slice(stringStart, stringEnd);
+        index = stringEnd;
+        if (braceDepth === 1 && parenDepth === 0 && bracketDepth === 0 && stringValue === normalizedPropertyName) {
+          let cursor = index + 1;
+          while (/\s/u.test(normalizedSourceText[cursor] || "")) {
+            cursor += 1;
+          }
+          if (normalizedSourceText[cursor] === ":") {
+            return true;
+          }
+        }
+        continue;
+      }
+
+      if (character === "`") {
+        for (index += 1; index < normalizedSourceText.length; index += 1) {
+          if (
+            normalizedSourceText[index] === "`" &&
+            !isEscapedCharacter(normalizedSourceText, index)
+          ) {
+            break;
+          }
+        }
+        continue;
+      }
+
+      if (character === "(") {
+        parenDepth += 1;
+        continue;
+      }
+      if (character === ")") {
+        parenDepth -= 1;
+        continue;
+      }
+      if (character === "{") {
+        braceDepth += 1;
+        continue;
+      }
+      if (character === "}") {
+        braceDepth -= 1;
+        continue;
+      }
+      if (character === "[") {
+        bracketDepth += 1;
+        continue;
+      }
+      if (character === "]") {
+        bracketDepth -= 1;
+        continue;
+      }
+
+      if (
+        braceDepth === 1 &&
+        parenDepth === 0 &&
+        bracketDepth === 0 &&
+        /[A-Za-z_$]/u.test(character)
+      ) {
+        const identifierStart = index;
+        for (index += 1; index < normalizedSourceText.length; index += 1) {
+          if (!/[\w$]/u.test(normalizedSourceText[index] || "")) {
+            break;
+          }
+        }
+
+        const identifier = normalizedSourceText.slice(identifierStart, index);
+        index -= 1;
+        if (identifier !== normalizedPropertyName) {
+          continue;
+        }
+
+        let cursor = index + 1;
+        while (/\s/u.test(normalizedSourceText[cursor] || "")) {
+          cursor += 1;
+        }
+        if (normalizedSourceText[cursor] === ":") {
+          return true;
+        }
+      }
+    }
+
+    return false;
+  }
+
   function isSharedListFiltersImportSource(sourcePath = "") {
     return /(^|\/)shared\/[^/'"]*ListFilters(?:\.[A-Za-z0-9]+)?$/u.test(String(sourcePath || "").trim());
   }
@@ -570,6 +715,26 @@ function createHealthCommands(ctx = {}) {
     }
   }
 
+  function collectCrudTransportOwnershipIssues({
+    sourceText = "",
+    relativePath = "",
+    issues = []
+  }) {
+    for (const calleeName of CRUD_TRANSPORT_RUNTIME_CALLEES) {
+      for (const callSite of findCallSites(sourceText, calleeName)) {
+        const firstArgument = extractFirstArgumentText(callSite.argsText).trim();
+        if (!hasTopLevelObjectProperty(firstArgument, "transport")) {
+          continue;
+        }
+
+        const lineNumber = resolveLineNumberFromIndex(sourceText, callSite.index);
+        issues.push(
+          `${relativePath}:${lineNumber}: [crud:transport-derived] do not pass explicit transport to ${calleeName}(...). Let the shared CRUD resource derive JSON:API transport automatically, or drop to useList/useView/useAddEdit/usersWebHttpClient.request(...) for custom transport behavior.`
+        );
+      }
+    }
+  }
+
   async function collectMdiSvgDoctorIssues({ appRoot, issues }) {
     if (!(await appUsesVuetifyMdiSvg(appRoot))) {
       return;
@@ -609,7 +774,10 @@ function createHealthCommands(ctx = {}) {
       if (
         !sourceText.includes("useCrudListFilters") &&
         !sourceText.includes("createCrudListFilters") &&
-        !sourceText.includes("createQueryValidator")
+        !sourceText.includes("createQueryValidator") &&
+        !sourceText.includes("useCrudList") &&
+        !sourceText.includes("useCrudView") &&
+        !sourceText.includes("useCrudAddEdit")
       ) {
         continue;
       }
@@ -621,6 +789,11 @@ function createHealthCommands(ctx = {}) {
         issues
       });
       collectFilterValidatorModeIssues({
+        sourceText,
+        relativePath,
+        issues
+      });
+      collectCrudTransportOwnershipIssues({
         sourceText,
         relativePath,
         issues

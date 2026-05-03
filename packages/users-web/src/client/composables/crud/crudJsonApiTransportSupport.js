@@ -1,4 +1,5 @@
 import { normalizeText } from "@jskit-ai/kernel/shared/support/normalize";
+import { normalizeCrudLookupNamespace } from "@jskit-ai/kernel/shared/support/crudLookup";
 
 function isRecord(value) {
   return Boolean(value) && typeof value === "object" && !Array.isArray(value);
@@ -48,6 +49,21 @@ function isJsonApiResourceTransport(transport = null) {
 
 function resolveCrudJsonApiResourceType(resource = null) {
   return normalizeText(resource?.namespace);
+}
+
+function inferCrudLookupJsonApiTransport({ namespace = "", apiPath = "" } = {}) {
+  const resourceType =
+    normalizeCrudLookupNamespace(namespace) ||
+    normalizeCrudLookupNamespace(apiPath);
+  if (!resourceType) {
+    return null;
+  }
+
+  return Object.freeze({
+    kind: "jsonapi-resource",
+    responseType: resourceType,
+    responseKind: "collection"
+  });
 }
 
 function inferCrudJsonApiTransport(resource = null, { mode = "", operationName = "" } = {}) {
@@ -115,6 +131,7 @@ function resolveCrudJsonApiTransport(transport = null, resource = null, options 
 
 export {
   inferCrudJsonApiTransport,
+  inferCrudLookupJsonApiTransport,
   resolveCrudJsonApiTransport,
   resolveLookupFieldMap
 };

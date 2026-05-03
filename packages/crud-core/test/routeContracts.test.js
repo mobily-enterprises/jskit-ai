@@ -234,6 +234,54 @@ test("createCrudJsonApiRouteContracts builds default CRUD JSON:API contracts", a
       }
     }
   });
+  assert.deepEqual(responseDocument.included, [
+    {
+      type: "userProfiles",
+      id: "user-7",
+      attributes: {
+        name: "User Seven"
+      }
+    }
+  ]);
+
+  const listResponseDocument = contracts.listRouteContract.transport.response(returnJsonApiData({
+    items: [
+      {
+        id: "contact-1",
+        ownerUserId: "user-7",
+        name: "Alice",
+        lookups: {
+          owner: {
+            "user-7": {
+              id: "user-7",
+              name: "User Seven"
+            }
+          }
+        }
+      },
+      {
+        id: "contact-2",
+        ownerUserId: "user-7",
+        name: "Bob",
+        lookups: {
+          ownerUserId: {
+            id: "user-7",
+            name: "User Seven"
+          }
+        }
+      }
+    ]
+  }));
+
+  assert.deepEqual(listResponseDocument.included, [
+    {
+      type: "userProfiles",
+      id: "user-7",
+      attributes: {
+        name: "User Seven"
+      }
+    }
+  ]);
 });
 
 test("createCrudJsonApiRouteContracts falls back to recordId params when no route params validator is provided", () => {

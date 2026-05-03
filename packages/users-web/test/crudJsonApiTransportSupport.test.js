@@ -3,6 +3,7 @@ import test from "node:test";
 import { createSchema } from "json-rest-schema";
 import {
   inferCrudJsonApiTransport,
+  inferCrudLookupJsonApiTransport,
   resolveCrudJsonApiTransport,
   resolveLookupFieldMap
 } from "../src/client/composables/crud/crudJsonApiTransportSupport.js";
@@ -65,6 +66,39 @@ test("inferCrudJsonApiTransport infers record request/response transport for CRU
       responseType: "pets",
       responseKind: "record"
     }
+  );
+});
+
+test("inferCrudLookupJsonApiTransport infers collection transport from lookup namespace", () => {
+  assert.deepEqual(
+    inferCrudLookupJsonApiTransport({
+      namespace: "services"
+    }),
+    {
+      kind: "jsonapi-resource",
+      responseType: "services",
+      responseKind: "collection"
+    }
+  );
+});
+
+test("inferCrudLookupJsonApiTransport infers collection transport from lookup apiPath", () => {
+  assert.deepEqual(
+    inferCrudLookupJsonApiTransport({
+      apiPath: "/contact-roles"
+    }),
+    {
+      kind: "jsonapi-resource",
+      responseType: "contact-roles",
+      responseKind: "collection"
+    }
+  );
+});
+
+test("inferCrudLookupJsonApiTransport returns null without a lookup namespace", () => {
+  assert.equal(
+    inferCrudLookupJsonApiTransport({}),
+    null
   );
 });
 
