@@ -1,7 +1,7 @@
 export default Object.freeze({
   packageVersion: 1,
   packageId: "@jskit-ai/json-rest-api-core",
-  version: "0.1.2",
+  version: "0.1.3",
   kind: "runtime",
   description: "Shared internal json-rest-api host runtime for JSKIT server packages.",
   dependsOn: [
