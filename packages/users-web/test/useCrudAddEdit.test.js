@@ -51,6 +51,22 @@ test("createCrudFormModel preserves explicit boolean defaults for nullable field
   });
 });
 
+test("createCrudFormModel initializes nullable lookup fields as null", () => {
+  const model = createCrudFormModel([
+    {
+      key: "serviceId",
+      type: "string",
+      nullable: true,
+      component: "lookup",
+      relation: { kind: "lookup", namespace: "services" }
+    }
+  ]);
+
+  assert.deepEqual(model, {
+    serviceId: null
+  });
+});
+
 test("buildCrudFormPayload normalizes booleans and numbers while skipping empty numeric values", () => {
   const payload = buildCrudFormPayload(
     [
@@ -114,6 +130,13 @@ test("buildCrudFormPayload serializes cleared nullable typed fields as null", ()
     [
       { key: "reviewed", type: "boolean", nullable: true },
       { key: "serviceId", type: "integer", nullable: true },
+      {
+        key: "selectedServiceId",
+        type: "string",
+        nullable: true,
+        component: "lookup",
+        relation: { kind: "lookup", namespace: "services" }
+      },
       { key: "fromDate", type: "string", format: "date", nullable: true },
       { key: "scheduledAt", type: "string", format: "date-time", nullable: true },
       { key: "fromTime", type: "string", format: "time", nullable: true }
@@ -121,6 +144,7 @@ test("buildCrudFormPayload serializes cleared nullable typed fields as null", ()
     {
       reviewed: null,
       serviceId: null,
+      selectedServiceId: "",
       fromDate: "",
       scheduledAt: "",
       fromTime: ""
@@ -130,6 +154,7 @@ test("buildCrudFormPayload serializes cleared nullable typed fields as null", ()
   assert.deepEqual(payload, {
     reviewed: null,
     serviceId: null,
+    selectedServiceId: null,
     fromDate: null,
     scheduledAt: null,
     fromTime: null
@@ -245,6 +270,31 @@ test("applyCrudPayloadToForm preserves nullable boolean payload values", () => {
     reviewed: null,
     approved: true
   });
+});
+
+test("applyCrudPayloadToForm preserves null lookup payload values", () => {
+  const fields = [
+    {
+      key: "serviceId",
+      type: "string",
+      nullable: true,
+      component: "lookup",
+      relation: { kind: "lookup", namespace: "services" }
+    }
+  ];
+  const form = reactive({
+    serviceId: "existing"
+  });
+
+  applyCrudPayloadToForm(fields, form, {
+    serviceId: null
+  });
+  assert.equal(form.serviceId, null);
+
+  applyCrudPayloadToForm(fields, form, {
+    serviceId: 42
+  });
+  assert.equal(form.serviceId, "42");
 });
 
 test("resolveCrudRouteBoundFieldValues maps route params for route-bound form fields", () => {

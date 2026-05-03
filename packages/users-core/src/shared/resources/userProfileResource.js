@@ -42,6 +42,13 @@ const userProfileBodySchema = createSchema({
 });
 
 const avatarUploadBodySchema = createSchema({
+  stream: {
+    type: "none",
+    required: true,
+    messages: {
+      default: "Avatar stream is missing."
+    }
+  },
   mimeType: {
     type: "string",
     required: false,

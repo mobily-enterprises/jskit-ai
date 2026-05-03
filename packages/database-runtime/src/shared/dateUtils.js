@@ -42,6 +42,14 @@ function toNullableDateTime(value) {
 }
 
 function toDatabaseDateTimeUtc(value) {
+  if (value == null) {
+    return null;
+  }
+
+  if (typeof value === "string" && value.trim() === "") {
+    return null;
+  }
+
   const date = toDateOrThrow(value);
   const year = date.getUTCFullYear();
   const month = pad(date.getUTCMonth() + 1);

@@ -302,6 +302,76 @@ test("createJsonApiResourceRouteTransport passes through tagged JSON:API documen
   assert.deepEqual(transport.response(returnJsonApiDocument(document)), document);
 });
 
+test("createJsonApiResourceRouteContract models explicit relationship-backed output fields as relationships", () => {
+  const contract = createJsonApiResourceRouteContract({
+    responseType: "availabilities",
+    output: {
+      schema: createSchema({
+        id: {
+          type: "string",
+          required: true,
+          minLength: 1
+        },
+        serviceId: {
+          type: "string",
+          required: true,
+          nullable: true,
+          belongsTo: "services",
+          as: "service"
+        },
+        name: {
+          type: "string",
+          required: true,
+          minLength: 1
+        },
+        deletedAt: {
+          type: "string",
+          required: true,
+          nullable: true
+        },
+        lookups: {
+          type: "object",
+          required: false
+        }
+      }),
+      mode: "replace"
+    },
+    outputKind: "record",
+    outputAttributeExcludeKeys: ["lookups"],
+    outputRelationshipEntries: [
+      {
+        attributeKey: "serviceId",
+        relationshipName: "service",
+        relationshipType: "services",
+        nullable: true
+      }
+    ]
+  });
+
+  const resourceSchema = contract.responses["200"].transportSchema.definitions.availabilitiesSuccessResource;
+  const attributesSchemaRef = resourceSchema.properties.attributes.allOf[0].$ref;
+  const attributesSchemaName = attributesSchemaRef.replace("#/definitions/", "");
+  const attributesSchema = contract.responses["200"].transportSchema.definitions[attributesSchemaName];
+
+  assert.deepEqual(resourceSchema.required, ["type", "attributes", "id"]);
+  assert.ok(Object.hasOwn(resourceSchema.properties, "relationships"));
+  assert.equal(attributesSchema.required.includes("serviceId"), false);
+  assert.equal(attributesSchema.required.includes("deletedAt"), false);
+  assert.equal(attributesSchema.required.includes("lookups"), false);
+  assert.equal(Object.hasOwn(attributesSchema.properties, "serviceId"), false);
+  assert.equal(Object.hasOwn(attributesSchema.properties, "deletedAt"), true);
+  assert.equal(Object.hasOwn(attributesSchema.properties, "lookups"), false);
+  assert.equal(
+    Array.isArray(resourceSchema.properties.relationships.required),
+    false
+  );
+  assert.equal(
+    resourceSchema.properties.relationships.properties.service.properties.data.anyOf[1].type,
+    "null"
+  );
+  assert.ok(Object.hasOwn(contract.responses["200"].transportSchema.properties, "included"));
+});
+
 test("createJsonApiResourceRouteTransport wraps tagged meta results for meta routes", () => {
   const contract = createJsonApiResourceRouteContract({
     requestType: "password-changes",

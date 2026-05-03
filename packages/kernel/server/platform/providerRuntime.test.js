@@ -215,3 +215,115 @@ test("createProviderRuntimeFromApp resolves descriptor using source.packagePath"
     await rm(appRoot, { recursive: true, force: true });
   }
 });
+
+test("createProviderRuntimeFromApp wires fastify onClose to provider shutdown exactly once", async () => {
+  const appRoot = await createTestAppRoot("kernel-provider-runtime-fastify-close-");
+  try {
+    await mkdir(path.join(appRoot, "packages", "local-example", "src", "server", "providers"), { recursive: true });
+    await writeFile(
+      path.join(appRoot, ".jskit", "lock.json"),
+      `${JSON.stringify(
+        {
+          lockVersion: 1,
+          installedPackages: {
+            "@local/example": {
+              packageId: "@local/example",
+              version: "0.1.0",
+              source: {
+                type: "local-package",
+                packagePath: "packages/local-example"
+              },
+              managed: {
+                packageJson: {
+                  dependencies: {},
+                  devDependencies: {},
+                  scripts: {}
+                },
+                text: {},
+                files: []
+              },
+              options: {},
+              installedAt: "2026-01-01T00:00:00.000Z"
+            }
+          }
+        },
+        null,
+        2
+      )}\n`,
+      "utf8"
+    );
+    await writeFile(
+      path.join(appRoot, "packages", "local-example", "package.descriptor.mjs"),
+      [
+        "export default Object.freeze({",
+        "  packageVersion: 1,",
+        "  packageId: \"@local/example\",",
+        "  version: \"0.1.0\",",
+        "  description: \"Local example package\",",
+        "  dependsOn: [],",
+        "  capabilities: {",
+        "    provides: [],",
+        "    requires: []",
+        "  },",
+        "  runtime: {",
+        "    server: {",
+        "      providers: [",
+        "        { discover: { dir: \"src/server/providers\", pattern: \"*Provider.js\" } }",
+        "      ]",
+        "    }",
+        "  }",
+        "});"
+      ].join("\n"),
+      "utf8"
+    );
+    await writeFile(
+      path.join(appRoot, "packages", "local-example", "src", "server", "providers", "CloseAwareProvider.js"),
+      [
+        "export default class CloseAwareProvider {",
+        "  static id = \"example.close-aware\";",
+        "  register(app) {",
+        "    app.instance(\"example.close.state\", { shutdownCalls: 0 });",
+        "  }",
+        "  async boot() {}",
+        "  async shutdown(app) {",
+        "    app.make(\"example.close.state\").shutdownCalls += 1;",
+        "  }",
+        "}"
+      ].join("\n"),
+      "utf8"
+    );
+
+    const hooks = [];
+    const fastify = {
+      route() {},
+      setErrorHandler() {},
+      addContentTypeParser() {},
+      hasContentTypeParser() {
+        return false;
+      },
+      getDefaultJsonParser() {
+        return (_request, body, done) => done(null, body);
+      },
+      addHook(name, handler) {
+        hooks.push({ name, handler });
+      }
+    };
+
+    const runtime = await createProviderRuntimeFromApp({
+      appRoot,
+      profile: "app",
+      fastify
+    });
+
+    const closeHook = hooks.find((entry) => entry.name === "onClose");
+    assert.ok(closeHook);
+    assert.equal(runtime.app.make("example.close.state").shutdownCalls, 0);
+
+    await closeHook.handler();
+    await closeHook.handler();
+
+    assert.equal(runtime.app.make("example.close.state").shutdownCalls, 1);
+  } finally {
+    await rm(appRoot, { recursive: true, force: true });
+  }
+});

@@ -1,6 +1,7 @@
 import { computed, proxyRefs, reactive, watch } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import { asPlainObject } from "../support/scopeHelpers.js";
+import { resolveCrudJsonApiTransport } from "../crud/crudJsonApiTransportSupport.js";
 import { useAddEdit } from "./useAddEdit.js";
 import {
   resolveCrudBoundValues,
@@ -54,6 +55,15 @@ function useCrudAddEdit({
   const route = useRoute();
   const normalizedFields = normalizeCrudFormFields(formFields);
   const normalizedAddEditOptions = asPlainObject(addEditOptions);
+  const resolvedResource = normalizedAddEditOptions.resource || resource;
+  const resolvedTransport = resolveCrudJsonApiTransport(
+    normalizedAddEditOptions.transport,
+    resolvedResource,
+    {
+      mode: "add-edit",
+      operationName
+    }
+  );
   const saveSuccessOptions = normalizeSaveSuccessOptions(saveSuccess);
   const defaultFieldErrorKeys = normalizedFields.map((field) => field.key);
   const providedFieldErrorKeys = normalizeFieldErrorKeys(normalizedAddEditOptions.fieldErrorKeys);
@@ -101,7 +111,6 @@ function useCrudAddEdit({
     ? normalizedAddEditOptions.onSaveSuccess
     : null;
   const shouldApplyDefaultMapPayload = normalizedAddEditOptions.readEnabled !== false;
-  const resolvedResource = normalizedAddEditOptions.resource || resource;
   const resolvedInput = inputOverride || resolvedResource?.operations?.[operationName]?.body || null;
 
   function resolveBuildRawPayload(model = {}, context = {}) {
@@ -170,6 +179,7 @@ function useCrudAddEdit({
   const addEdit = useAddEdit({
     ...normalizedAddEditOptions,
     resource: resolvedResource,
+    transport: resolvedTransport,
     model: form,
     fieldErrorKeys,
     input: resolvedInput,

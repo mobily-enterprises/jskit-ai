@@ -84,12 +84,19 @@ function createRepository({ api, knex } = {}) {
 
   const withTransaction = createWithTransaction(knex);
 
-  async function queryMemberships(filters = {}, options = {}, { includeUser = false } = {}) {
+  async function queryMemberships(filters = {}, options = {}, { include = [] } = {}) {
+    const normalizedInclude = Array.from(
+      new Set(
+        (Array.isArray(include) ? include : [])
+          .map((entry) => normalizeText(entry))
+          .filter(Boolean)
+      )
+    );
     const result = await api.resources.workspaceMemberships.query(
       {
         queryParams: {
           filters,
-          ...(includeUser ? { include: ["user"] } : {})
+          ...(normalizedInclude.length > 0 ? { include: normalizedInclude } : {})
         },
         transaction: options?.trx || null,
         simplified: false
@@ -263,7 +270,7 @@ function createRepository({ api, knex } = {}) {
         status: "active"
       },
       options,
-      { includeUser: true }
+      { include: ["user"] }
     );
 
     const members = rows

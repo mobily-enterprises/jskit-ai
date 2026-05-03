@@ -8,10 +8,7 @@ import {
   useWebPlacementContext
 } from "../placement/index.js";
 import { resolveMenuLinkIcon } from "../lib/menuIcons.js";
-import {
-  normalizeMenuLinkPathname,
-  resolveMenuLinkTarget
-} from "../support/menuLinkTarget.js";
+import { resolveMenuLinkTarget } from "../support/menuLinkTarget.js";
 
 const props = defineProps({
   label: {
@@ -101,42 +98,22 @@ const resolvedIcon = computed(() =>
   })
 );
 
-const isActive = computed(() => {
-  if (!resolvedTarget.value.sameOrigin) {
-    return false;
-  }
-
-  const targetPath = normalizeMenuLinkPathname(resolvedTarget.value.href);
-  const currentPath = normalizeMenuLinkPathname(route.fullPath || route.path || "");
-  if (!targetPath || !currentPath) {
-    return false;
-  }
-
-  return currentPath === targetPath || currentPath.startsWith(`${targetPath}/`);
-});
 </script>
 
 <template>
-  <v-btn
+  <v-list-item
     v-if="resolvedTarget.href"
     class="tab-link-item"
-    variant="text"
-    size="small"
     :to="resolvedTarget.sameOrigin ? resolvedTarget.href : undefined"
     :href="resolvedTarget.sameOrigin ? undefined : resolvedTarget.href"
     :prepend-icon="resolvedIcon || undefined"
-    :active="isActive"
     :disabled="disabled"
-    color="primary"
-  >
-    {{ label || "Tab" }}
-  </v-btn>
+    :title="label || 'Tab'"
+  />
 </template>
 
 <style scoped>
 .tab-link-item {
-  text-transform: none;
-  font-weight: 600;
-  border-radius: 999px;
+  flex: 0 0 auto;
 }
 </style>

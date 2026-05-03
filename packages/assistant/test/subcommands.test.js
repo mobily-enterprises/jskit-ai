@@ -138,7 +138,7 @@ test("assistant settings-page subcommand uses the target assistant surface and i
     const placementSource = await readFile(path.join(appRoot, "src/placement.js"), "utf8");
     assert.match(placementSource, /jskit:assistant\.settings-page\.link:admin:\/settings\/assistant:console/);
     assert.match(placementSource, /target: "admin-settings:sub-pages"/);
-    assert.match(placementSource, /componentToken: "local\.main\.ui\.tab-link-item"/);
+    assert.match(placementSource, /componentToken: "local\.main\.ui\.surface-aware-menu-link-item"/);
     assert.match(placementSource, /to: "\.\/assistant"/);
     assert.match(placementSource, /label: "Assistant"/);
   });

@@ -700,10 +700,6 @@ test("workspaces-web workspace tenancy mode installs workspace surfaces and wrap
     const adminWrapper = await readFile(path.join(appRoot, "src/pages/w/[workspaceSlug]/admin.vue"), "utf8");
     const accountRootPage = await readFile(path.join(appRoot, "src/pages/account/index.vue"), "utf8");
     await assert.rejects(access(path.join(appRoot, "src/pages/account/settings/index.vue")), /ENOENT/);
-    const accountSettingsClientElement = await readFile(
-      path.join(appRoot, "src/components/account/settings/AccountSettingsClientElement.vue"),
-      "utf8"
-    );
     const placement = await readFile(path.join(appRoot, "src/placement.js"), "utf8");
     const mainClientProvider = await readFile(
       path.join(appRoot, "packages/main/src/client/providers/MainClientProvider.js"),
@@ -733,8 +729,15 @@ test("workspaces-web workspace tenancy mode installs workspace surfaces and wrap
     assert.match(publicConfig, /pagesRoot:\s*"w\/\[workspaceSlug\]\/admin"/);
     assert.match(publicConfig, /config\.surfaceDefinitions\.account = \{/);
     assert.match(accountRootPage, /<AccountSettingsClientElement \/>/);
-    assert.match(accountSettingsClientElement, /useRoute, useRouter/);
-    assert.match(accountSettingsClientElement, /route\?\.query\?\.section/);
+    assert.match(
+      accountRootPage,
+      /import AccountSettingsClientElement from "@jskit-ai\/users-web\/client\/components\/AccountSettingsClientElement";/
+    );
+    assert.doesNotMatch(accountRootPage, /components\/account\/settings\/AccountSettingsClientElement\.vue/);
+    await assert.rejects(
+      access(path.join(appRoot, "src/components/account/settings/AccountSettingsClientElement.vue")),
+      /ENOENT/
+    );
     assert.match(placement, /id:\s*"workspaces\.account\.invites\.cue"/);
     assert.match(placement, /componentToken:\s*"local\.main\.account\.pending-invites\.cue"/);
     assert.match(placement, /id:\s*"workspaces\.account\.settings\.invites"/);

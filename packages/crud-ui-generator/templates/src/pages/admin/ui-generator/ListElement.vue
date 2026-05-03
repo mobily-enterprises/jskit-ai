@@ -101,11 +101,6 @@ const UI_EDIT_URL = __JSKIT_UI_LIST_PAGE_EDIT_URL__;
 const UI_NEW_URL = __JSKIT_UI_LIST_PAGE_NEW_URL__;
 const UI_RECORD_CHANGED_EVENTS = __JSKIT_UI_LIST_REALTIME_EVENTS__;
 const UI_ROUTE_QUERY_BLACKLIST = Object.freeze(["include", "cursor", "limit"]);
-const UI_LIST_TRANSPORT = Object.freeze({
-  kind: "jsonapi-resource",
-  responseType: "__JSKIT_UI_RESOURCE_NAMESPACE__",
-  responseKind: "collection"
-});
 
 const records = useCrudList({
   adapter: UI_OPERATION_ADAPTER || undefined,
@@ -131,7 +126,6 @@ const records = useCrudList({
   },
   placementSource: "ui-generator.__JSKIT_UI_RESOURCE_NAMESPACE__.list",
   fallbackLoadError: "Unable to load records.",
-  transport: UI_LIST_TRANSPORT,
   recordIdParam: UI_RECORD_ID_PARAM,
   recordIdSelector: (item = {}) => __JSKIT_UI_LIST_RECORD_ID_EXPR__,
   viewUrlTemplate: UI_VIEW_URL,

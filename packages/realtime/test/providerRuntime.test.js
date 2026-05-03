@@ -144,6 +144,96 @@ test("RealtimeServiceProvider boot does not eagerly resolve optional auth/worksp
   await provider.shutdown(app);
 });
 
+test("RealtimeServiceProvider boot authenticates sockets from handshake cookies and joins actor workspace rooms", async () => {
+  const app = createSingletonApp();
+  app.instance("jskit.fastify", {
+    server: createServer()
+  });
+
+  const authenticateCalls = [];
+  app.singleton("authService", () => ({
+    async authenticateRequest(input = {}) {
+      authenticateCalls.push(input);
+      return {
+        authenticated: true,
+        profile: {
+          id: 9
+        }
+      };
+    }
+  }));
+  app.singleton("internal.repository.workspace-memberships", () => ({
+    async listActiveWorkspaceIdsByUserId(userId) {
+      assert.equal(userId, "9");
+      return [11, 12];
+    }
+  }));
+
+  let connectionHandler = null;
+  const io = {
+    on(eventName, handler) {
+      if (eventName === "connection") {
+        connectionHandler = handler;
+      }
+    }
+  };
+
+  const provider = new RealtimeServiceProvider();
+  provider.register(app);
+  app.instance("runtime.realtime.io", io);
+
+  await provider.boot(app);
+
+  const joinedRooms = [];
+  const socket = {
+    handshake: {
+      headers: {
+        cookie: "session=abc123; theme=dark",
+        host: "127.0.0.1:3100"
+      },
+      address: "127.0.0.1"
+    },
+    request: {
+      headers: {},
+      socket: {
+        remoteAddress: "127.0.0.1"
+      }
+    },
+    data: {},
+    join(room) {
+      joinedRooms.push(room);
+    }
+  };
+
+  await connectionHandler(socket);
+  await provider.shutdown(app);
+
+  assert.deepEqual(authenticateCalls, [
+    {
+      cookies: {
+        session: "abc123",
+        theme: "dark"
+      },
+      headers: {
+        host: "127.0.0.1:3100"
+      },
+      socket: {
+        remoteAddress: "127.0.0.1"
+      }
+    }
+  ]);
+  assert.equal(socket.data.actorId, "9");
+  assert.deepEqual(joinedRooms, [
+    "clients",
+    "users",
+    "user:9",
+    "workspace:11",
+    "workspace:11:user:9",
+    "workspace:12",
+    "workspace:12:user:9"
+  ]);
+});
+
 test("RealtimeClientProvider registers runtime realtime client api", () => {
   const app = createSingletonApp();
   const provider = new RealtimeClientProvider();

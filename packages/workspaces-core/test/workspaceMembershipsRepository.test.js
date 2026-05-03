@@ -48,13 +48,15 @@ function createWorkspaceMembershipsApiStub({
 } = {}) {
   const state = {
     postPayload: null,
-    patchPayload: null
+    patchPayload: null,
+    queryCalls: []
   };
 
   const api = {
     resources: {
       workspaceMemberships: {
         async query({ queryParams }) {
+          state.queryCalls.push(queryParams || {});
           const filters = queryParams?.filters || {};
           const includeUser = Array.isArray(queryParams?.include) && queryParams.include.includes("user");
 
@@ -249,4 +251,24 @@ test("workspaceMembershipsRepository.listActiveByWorkspaceId keeps summary rows 
       email: "chiara@example.com"
     }
   ]);
+});
+
+test("workspaceMembershipsRepository.listActiveWorkspaceIdsByUserId returns normalized workspace ids from the canonical resource", async () => {
+  const membershipRow = {
+    id: "11",
+    workspace: { id: "7" },
+    user: { id: "9" },
+    roleSid: "owner",
+    status: "active",
+    createdAt: "2026-03-09 00:26:35.710",
+    updatedAt: "2026-03-10 00:26:35.710"
+  };
+  const { api } = createWorkspaceMembershipsApiStub({
+    rowByComposite: new Map([["7:9", membershipRow]])
+  });
+  const repository = createRepository({ api, knex: createKnexStub() });
+
+  const workspaceIds = await repository.listActiveWorkspaceIdsByUserId("9");
+
+  assert.deepEqual(workspaceIds, ["7"]);
 });

@@ -1,6 +1,9 @@
 import { computed } from "vue";
 import { useRoute } from "vue-router";
 import {
+  resolveCrudJsonApiTransport
+} from "../crud/crudJsonApiTransportSupport.js";
+import {
   resolveLookupFieldDisplayValue,
   resolveRecordTitle
 } from "../crud/crudLookupFieldLabelSupport.js";
@@ -9,6 +12,7 @@ import { asPlainObject } from "../support/scopeHelpers.js";
 import { useView } from "./useView.js";
 
 function useCrudView({
+  resource = null,
   paramBinding = null,
   route = null,
   ...viewOptions
@@ -25,6 +29,9 @@ function useCrudView({
   });
   const view = useView({
     ...viewOptions,
+    transport: resolveCrudJsonApiTransport(viewOptions.transport, resource, {
+      mode: "view"
+    }),
     routeParams: boundRouteParams
   });
   view.resolveFieldDisplay = resolveLookupFieldDisplayValue;

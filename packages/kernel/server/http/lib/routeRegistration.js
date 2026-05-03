@@ -225,6 +225,19 @@ function wrapReplySend({ reply = null, request = null, route = null, outputTrans
 
   const originalSend = reply.send.bind(reply);
   reply.send = function transformedSend(payload) {
+    const statusCode = Number(reply?.statusCode || 200);
+
+    if (payload instanceof Error || statusCode >= 400) {
+      if (
+        normalizeText(transport?.contentType) &&
+        !replyHasHeader(reply, "content-type")
+      ) {
+        reply.header("Content-Type", transport.contentType);
+      }
+
+      return originalSend(payload);
+    }
+
     let nextPayload = payload;
     if (typeof transport?.response === "function") {
       const transportedPayload = transport.response(payload, {
@@ -232,7 +245,7 @@ function wrapReplySend({ reply = null, request = null, route = null, outputTrans
         reply,
         route,
         transport,
-        statusCode: Number(reply?.statusCode || 200)
+        statusCode
       });
 
       if (transportedPayload && typeof transportedPayload.then === "function") {
@@ -250,7 +263,7 @@ function wrapReplySend({ reply = null, request = null, route = null, outputTrans
         reply,
         route,
         transport,
-        statusCode: Number(reply?.statusCode || 200)
+        statusCode
       });
 
       if (transformedPayload && typeof transformedPayload.then === "function") {
@@ -264,7 +277,7 @@ function wrapReplySend({ reply = null, request = null, route = null, outputTrans
 
     if (
       normalizeText(transport?.contentType) &&
-      Number(reply?.statusCode || 200) !== 204 &&
+      statusCode !== 204 &&
       !replyHasHeader(reply, "content-type")
     ) {
       reply.header("Content-Type", transport.contentType);

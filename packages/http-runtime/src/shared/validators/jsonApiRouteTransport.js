@@ -54,6 +54,54 @@ const JSON_API_META_SCHEMA = Object.freeze({
   additionalProperties: true
 });
 
+const JSON_API_RESOURCE_IDENTIFIER_SCHEMA = Object.freeze({
+  type: "object",
+  additionalProperties: false,
+  required: ["type", "id"],
+  properties: {
+    type: { type: "string", minLength: 1 },
+    id: JSON_API_ID_SCHEMA
+  }
+});
+
+const JSON_API_RELATIONSHIP_OBJECT_SCHEMA = Object.freeze({
+  type: "object",
+  additionalProperties: false,
+  required: ["data"],
+  properties: {
+    data: {
+      anyOf: [
+        JSON_API_RESOURCE_IDENTIFIER_SCHEMA,
+        {
+          type: "array",
+          items: JSON_API_RESOURCE_IDENTIFIER_SCHEMA
+        },
+        { type: "null" }
+      ]
+    }
+  }
+});
+
+const JSON_API_INCLUDED_RESOURCE_SCHEMA = Object.freeze({
+  type: "object",
+  additionalProperties: false,
+  required: ["type", "id"],
+  properties: {
+    type: { type: "string", minLength: 1 },
+    id: JSON_API_ID_SCHEMA,
+    attributes: {
+      type: "object",
+      additionalProperties: true
+    },
+    relationships: {
+      type: "object",
+      additionalProperties: JSON_API_RELATIONSHIP_OBJECT_SCHEMA
+    },
+    links: JSON_API_LINKS_SCHEMA,
+    meta: JSON_API_META_SCHEMA
+  }
+});
+
 const JSON_API_ERROR_OBJECT_SCHEMA = Object.freeze({
   type: "object",
   additionalProperties: false,
@@ -120,7 +168,8 @@ function resolveRouteTypes(value = {}) {
 function resolveEmbeddedAttributesTransportSchema(definition, {
   context = "JSON:API resource",
   defaultMode = "replace",
-  removeId = false
+  removeId = false,
+  removeKeys = []
 } = {}) {
   const transportSchema = resolveSchemaTransportSchemaDefinition(definition, {
     context,
@@ -136,13 +185,35 @@ function resolveEmbeddedAttributesTransportSchema(definition, {
   const nextProperties = {
     ...properties
   };
+  const excludedKeys = new Set(
+    normalizeArray(removeKeys)
+      .map((entry) => String(entry || "").trim())
+      .filter(Boolean)
+  );
 
   if (removeId) {
-    delete nextProperties.id;
+    excludedKeys.add("id");
   }
 
+  for (const key of excludedKeys) {
+    delete nextProperties[key];
+  }
+
+  const schemaFieldDefinitions = (() => {
+    const fieldDefinitions = definition?.schema?.getFieldDefinitions?.();
+    return isRecord(fieldDefinitions) ? fieldDefinitions : {};
+  })();
+
   const required = Array.isArray(sourceSchema.required)
-    ? sourceSchema.required.filter((entry) => String(entry || "").trim() && (!removeId || entry !== "id"))
+    ? sourceSchema.required.filter((entry) => {
+        const normalizedEntry = String(entry || "").trim();
+        if (!normalizedEntry || excludedKeys.has(normalizedEntry)) {
+          return false;
+        }
+
+        const fieldDefinition = normalizeObject(schemaFieldDefinitions[normalizedEntry]);
+        return fieldDefinition.nullable !== true;
+      })
     : [];
 
   const attributeSchema = {
@@ -160,18 +231,124 @@ function resolveEmbeddedAttributesTransportSchema(definition, {
   return createEmbeddableTransportSchemaDocument(attributeSchema, `${normalizeText(context, { fallback: "JsonApiAttributes" }).replace(/[^a-z0-9]+/gi, "_")}`);
 }
 
+function normalizeRelationshipSchemaEntries(entries = []) {
+  const normalizedEntries = [];
+
+  for (const entry of normalizeArray(entries)) {
+    const source = normalizeObject(entry);
+    const relationshipName = normalizeText(source.relationshipName || source.name);
+    const relationshipType = normalizeText(source.relationshipType || source.type);
+    const attributeKey = normalizeText(source.attributeKey || source.fieldKey);
+    if (!relationshipName) {
+      continue;
+    }
+
+    normalizedEntries.push(Object.freeze({
+      relationshipName,
+      relationshipType,
+      attributeKey,
+      required: source.required === true,
+      nullable: source.nullable === true
+    }));
+  }
+
+  return Object.freeze(normalizedEntries);
+}
+
+function createJsonApiRelationshipDataSchema(relationshipType = "", {
+  nullable = false
+} = {}) {
+  const normalizedRelationshipType = normalizeText(relationshipType);
+  const resourceIdentifierSchema = normalizedRelationshipType
+    ? {
+        type: "object",
+        additionalProperties: false,
+        required: ["type", "id"],
+        properties: {
+          type: { const: normalizedRelationshipType },
+          id: JSON_API_ID_SCHEMA
+        }
+      }
+    : JSON_API_RESOURCE_IDENTIFIER_SCHEMA;
+
+  return {
+    anyOf: nullable
+      ? [
+          resourceIdentifierSchema,
+          { type: "null" }
+        ]
+      : [resourceIdentifierSchema]
+  };
+}
+
+function createJsonApiRelationshipsTransportSchema(entries = [], {
+  includeRequired = false
+} = {}) {
+  const relationshipEntries = normalizeRelationshipSchemaEntries(entries);
+  if (relationshipEntries.length < 1) {
+    return null;
+  }
+
+  const properties = {};
+  const required = [];
+
+  for (const entry of relationshipEntries) {
+    properties[entry.relationshipName] = {
+      type: "object",
+      additionalProperties: false,
+      required: ["data"],
+      properties: {
+        data: createJsonApiRelationshipDataSchema(entry.relationshipType, {
+          nullable: entry.nullable
+        })
+      }
+    };
+
+    if (includeRequired && entry.required) {
+      required.push(entry.relationshipName);
+    }
+  }
+
+  const schema = {
+    type: "object",
+    additionalProperties: false,
+    properties
+  };
+  if (required.length > 0) {
+    schema.required = required;
+  }
+
+  return Object.freeze({
+    schema,
+    entries: relationshipEntries
+  });
+}
+
 function createJsonApiResourceObjectTransportSchema({
   type = "",
   attributes,
   requireId = true,
   includeLinks = false,
-  includeMeta = false
+  includeMeta = false,
+  excludeAttributeKeys = [],
+  relationshipEntries = [],
+  relationshipMembersRequired = false
 } = {}) {
   const normalizedType = resolveRouteType(type);
+  const relationshipsTransport = createJsonApiRelationshipsTransportSchema(relationshipEntries, {
+    includeRequired: relationshipMembersRequired
+  });
+  const relationFieldKeys = relationshipsTransport
+    ? relationshipsTransport.entries.map((entry) => entry.attributeKey).filter(Boolean)
+    : [];
   const embeddedAttributes = resolveEmbeddedAttributesTransportSchema(attributes, {
     context: `${normalizedType} resource attributes`,
     defaultMode: "replace",
-    removeId: true
+    removeId: true,
+    removeKeys: [
+      ...normalizeArray(excludeAttributeKeys),
+      ...relationFieldKeys,
+    ]
   });
 
   const properties = {
@@ -185,6 +362,10 @@ function createJsonApiResourceObjectTransportSchema({
   if (requireId) {
     properties.id = JSON_API_ID_SCHEMA;
     required.push("id");
+  }
+
+  if (relationshipsTransport) {
+    properties.relationships = relationshipsTransport.schema;
   }
 
   if (includeLinks) {
@@ -201,19 +382,25 @@ function createJsonApiResourceObjectTransportSchema({
       required,
       properties
     },
-    definitions: embeddedAttributes.definitions
+    definitions: embeddedAttributes.definitions,
+    hasRelationships: Boolean(relationshipsTransport)
   };
 }
 
 function createJsonApiResourceRequestBodyTransportSchema({
   type = "",
   attributes,
-  requireId = false
+  requireId = false,
+  excludeAttributeKeys = [],
+  relationshipEntries = []
 } = {}) {
   const resourceTransport = createJsonApiResourceObjectTransportSchema({
     type,
     attributes,
-    requireId
+    requireId,
+    excludeAttributeKeys,
+    relationshipEntries,
+    relationshipMembersRequired: true
   });
   const embeddedResource = createEmbeddableTransportSchemaDocument(
     {
@@ -260,7 +447,9 @@ function createJsonApiResourceSuccessTransportSchema({
   kind = "record",
   includeLinks = false,
   includeMeta = false,
-  includeIncluded = false
+  includeIncluded = false,
+  excludeAttributeKeys = [],
+  relationshipEntries = []
 } = {}) {
   const normalizedKind = String(kind || "record").trim().toLowerCase();
   if (!["record", "nullable-record", "collection", "meta"].includes(normalizedKind)) {
@@ -276,7 +465,9 @@ function createJsonApiResourceSuccessTransportSchema({
   const resourceTransport = createJsonApiResourceObjectTransportSchema({
     type,
     attributes,
-    requireId: true
+    requireId: true,
+    excludeAttributeKeys,
+    relationshipEntries
   });
   const embeddedResource = createEmbeddableTransportSchemaDocument(
     {
@@ -308,10 +499,10 @@ function createJsonApiResourceSuccessTransportSchema({
     documentProperties.data = embeddedResource.schema;
   }
 
-  if (includeIncluded) {
+  if (includeIncluded || resourceTransport.hasRelationships) {
     documentProperties.included = {
       type: "array",
-      items: embeddedResource.schema
+      items: JSON_API_INCLUDED_RESOURCE_SCHEMA
     };
   }
   if (includeLinks) {
@@ -692,6 +883,10 @@ function createJsonApiResourceRouteContract({
   includeValidation400 = false,
   allowBodyId = false,
   pointerPrefix = "/data/attributes",
+  bodyAttributeExcludeKeys = [],
+  outputAttributeExcludeKeys = [],
+  bodyRelationshipEntries = [],
+  outputRelationshipEntries = [],
   getRecordType = null,
   getRecordId = null,
   getRecordAttributes = null,
@@ -747,7 +942,9 @@ function createJsonApiResourceRouteContract({
     fastifySchema.body = createJsonApiResourceRequestBodyTransportSchema({
       type: normalizedRequestType,
       attributes: body,
-      requireId: allowBodyId
+      requireId: allowBodyId,
+      excludeAttributeKeys: bodyAttributeExcludeKeys,
+      relationshipEntries: bodyRelationshipEntries
     });
   }
   if (query) {
@@ -777,7 +974,9 @@ function createJsonApiResourceRouteContract({
         kind: normalizedOutputKind,
         includeLinks: typeof getDocumentLinks === "function",
         includeMeta: typeof getDocumentMeta === "function" || normalizedOutputKind === "collection",
-        includeIncluded: typeof getIncluded === "function"
+        includeIncluded: typeof getIncluded === "function",
+        excludeAttributeKeys: outputAttributeExcludeKeys,
+        relationshipEntries: outputRelationshipEntries
       })
     );
   }
