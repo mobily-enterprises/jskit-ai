@@ -36,7 +36,21 @@ function normalizeJsonApiClientTransport(transport = null) {
     responseKind: normalizeText(transport?.responseKind, {
       fallback: "record"
     }).toLowerCase(),
-    includeBodyId: transport?.includeBodyId === true
+    includeBodyId: transport?.includeBodyId === true,
+    lookupContainerKey: normalizeText(transport?.lookupContainerKey, {
+      fallback: "lookups"
+    }),
+    lookupFieldMap: Object.freeze(
+      Object.fromEntries(
+        Object.entries(normalizeObject(transport?.lookupFieldMap))
+          .map(([relationshipName, fieldKey]) => [
+            normalizeText(relationshipName),
+            normalizeText(fieldKey)
+          ])
+          .filter(([relationshipName, fieldKey]) => relationshipName && fieldKey)
+          .sort(([left], [right]) => left.localeCompare(right))
+      )
+    )
   });
 }
 
@@ -84,12 +98,119 @@ function encodeJsonApiResourceQuery(query, transport = null) {
   });
 }
 
-function simplifyResourceObject(resource = {}) {
+function resolveRelationshipFieldKey(relationshipName = "", lookupFieldMap = null) {
+  const normalizedRelationshipName = normalizeText(relationshipName);
+  const explicitFieldKey = normalizeText(lookupFieldMap?.[normalizedRelationshipName]);
+  if (explicitFieldKey) {
+    return explicitFieldKey;
+  }
+
+  return normalizedRelationshipName ? `${normalizedRelationshipName}Id` : "";
+}
+
+function createIncludedResourceIndex(document = {}) {
+  const index = new Map();
+
+  for (const resource of normalizeArray(document?.included)) {
+    const type = normalizeText(resource?.type);
+    const id = normalizeText(resource?.id);
+    if (!type || !id) {
+      continue;
+    }
+
+    index.set(`${type}:${id}`, resource);
+  }
+
+  return index;
+}
+
+function simplifyRelationshipResource(linkage = {}, options = {}) {
+  const normalizedLinkage = isRecord(linkage) ? normalizeObject(linkage) : {};
+  const type = normalizeText(normalizedLinkage.type);
+  const id = normalizeText(normalizedLinkage.id);
+  if (!type || !id) {
+    return null;
+  }
+
+  const resourceKey = `${type}:${id}`;
+  const includedResource = options.includedResourceIndex?.get(resourceKey);
+  if (!includedResource) {
+    return {
+      id
+    };
+  }
+
+  return simplifyResourceObject(includedResource, options);
+}
+
+function simplifyResourceObject(resource = {}, options = {}) {
   const normalizedResource = isRecord(resource) ? normalizeObject(resource) : {};
-  return {
+  const simplified = {
     id: normalizedResource.id == null ? "" : String(normalizedResource.id),
     ...(normalizeObject(normalizedResource.attributes))
   };
+  const lookupContainerKey = normalizeText(options.lookupContainerKey, {
+    fallback: "lookups"
+  });
+  const lookupFieldMap = options.lookupFieldMap || null;
+  const resourceKey = `${normalizeText(normalizedResource.type)}:${normalizeText(normalizedResource.id)}`;
+  if (resourceKey && options.inFlightKeys?.has(resourceKey)) {
+    return simplified;
+  }
+  if (resourceKey && options.resourceCache?.has(resourceKey)) {
+    return options.resourceCache.get(resourceKey);
+  }
+
+  if (resourceKey) {
+    options.inFlightKeys?.add(resourceKey);
+  }
+
+  const lookups = {};
+  for (const [relationshipName, relationshipValue] of Object.entries(normalizeObject(normalizedResource.relationships))) {
+    const relationshipData = relationshipValue?.data;
+    if (Array.isArray(relationshipData)) {
+      const items = relationshipData
+        .map((entry) =>
+          simplifyRelationshipResource(entry, {
+            ...options,
+            lookupFieldMap: null
+          })
+        )
+        .filter(Boolean);
+      if (items.length > 0) {
+        lookups[relationshipName] = items;
+      }
+      continue;
+    }
+
+    const fieldKey = resolveRelationshipFieldKey(relationshipName, lookupFieldMap);
+    if (!Object.hasOwn(simplified, fieldKey)) {
+      simplified[fieldKey] = relationshipData?.id == null ? null : String(relationshipData.id);
+    }
+
+    const lookupRecord = relationshipData == null
+      ? null
+      : simplifyRelationshipResource(relationshipData, {
+          ...options,
+          lookupFieldMap: null
+        });
+    if (lookupRecord) {
+      lookups[fieldKey] = lookupRecord;
+      if (relationshipName !== fieldKey) {
+        lookups[relationshipName] = lookupRecord;
+      }
+    }
+  }
+
+  if (Object.keys(lookups).length > 0) {
+    simplified[lookupContainerKey] = lookups;
+  }
+  if (resourceKey) {
+    options.inFlightKeys?.delete(resourceKey);
+    options.resourceCache?.set(resourceKey, simplified);
+  }
+
+  return simplified;
 }
 
 function assertPrimaryDataType(resource = {}, expectedType = "") {
@@ -122,6 +243,13 @@ function decodeJsonApiResourceResponse(payload, transport = null) {
   }
 
   const document = normalizeJsonApiDocument(payload);
+  const simplifyOptions = {
+    lookupContainerKey: normalizedTransport.lookupContainerKey,
+    lookupFieldMap: normalizedTransport.lookupFieldMap,
+    includedResourceIndex: createIncludedResourceIndex(document),
+    resourceCache: new Map(),
+    inFlightKeys: new Set()
+  };
   if (document.kind === "unknown") {
     throw new Error("Expected JSON:API response document.");
   }
@@ -136,7 +264,7 @@ function decodeJsonApiResourceResponse(payload, transport = null) {
     }
 
     return {
-      items: document.data.map((entry) => simplifyResourceObject(entry)),
+      items: document.data.map((entry) => simplifyResourceObject(entry, simplifyOptions)),
       ...resolveCollectionPageMeta(document)
     };
   }
@@ -158,7 +286,7 @@ function decodeJsonApiResourceResponse(payload, transport = null) {
       assertPrimaryDataType(document.data, normalizedTransport.responseType);
     }
 
-    return document.data == null ? null : simplifyResourceObject(document.data);
+    return document.data == null ? null : simplifyResourceObject(document.data, simplifyOptions);
   }
 
   if (document.kind !== "resource") {
@@ -169,7 +297,7 @@ function decodeJsonApiResourceResponse(payload, transport = null) {
     assertPrimaryDataType(document.data, normalizedTransport.responseType);
   }
 
-  return document.data == null ? null : simplifyResourceObject(document.data);
+  return document.data == null ? null : simplifyResourceObject(document.data, simplifyOptions);
 }
 
 function decodeJsonApiErrorFieldErrors(payload = {}) {

@@ -57,6 +57,7 @@ __JSKIT_UI_VIEW_COLUMNS__
 
 <script setup>
 import { useCrudView } from "@jskit-ai/users-web/client/composables/useCrudView";
+import { resource as uiResource } from "__JSKIT_UI_RESOURCE_IMPORT_PATH__";
 
 const UI_OPERATION_ADAPTER = null;
 const UI_RECORD_ID_PARAM = "__JSKIT_UI_RECORD_ID_PARAM__";
@@ -66,14 +67,10 @@ const UI_LIST_URL = __JSKIT_UI_VIEW_PAGE_LIST_URL__;
 const UI_EDIT_URL = __JSKIT_UI_VIEW_PAGE_EDIT_URL__;
 const UI_VIEW_TITLE_FALLBACK_FIELD_KEY = __JSKIT_UI_VIEW_TITLE_FALLBACK_FIELD_KEY__;
 const UI_RECORD_CHANGED_EVENT = __JSKIT_UI_RECORD_CHANGED_EVENT__;
-const UI_VIEW_TRANSPORT = Object.freeze({
-  kind: "jsonapi-resource",
-  responseType: "__JSKIT_UI_RESOURCE_NAMESPACE__",
-  responseKind: "record"
-});
 
 const view = useCrudView({
   adapter: UI_OPERATION_ADAPTER || undefined,
+  resource: uiResource,
   apiUrlTemplate: UI_VIEW_API_URL,
   recordIdParam: UI_RECORD_ID_PARAM,
   includeRecordIdInQueryKey: true,
@@ -85,7 +82,6 @@ const view = useCrudView({
     String(workspaceSlug || "")
   ],
   placementSource: "ui-generator.__JSKIT_UI_RESOURCE_NAMESPACE__.view",
-  transport: UI_VIEW_TRANSPORT,
   fallbackLoadError: "Unable to load record.",
   notFoundMessage: "Record not found.",
   listUrlTemplate: UI_LIST_URL,

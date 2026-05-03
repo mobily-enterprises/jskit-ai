@@ -108,7 +108,7 @@ async function createAppOwnedClaimPackage(
   );
 }
 
-test("add package claims an app-owned file from the expected baseline and preserves it on update", async () => {
+test("add package claims an app-owned file from the expected baseline and reapplies unchanged content on update", async () => {
   await withTempDir(async (cwd) => {
     const appRoot = path.join(cwd, "app-owned-claim-app");
     await createMinimalApp(appRoot, { name: "app-owned-claim-app" });
@@ -142,7 +142,7 @@ test("add package claims an app-owned file from the expected baseline and preser
       args: ["update", "package", "@demo/claim-feature"]
     });
     assert.equal(updateResult.status, 0, String(updateResult.stderr || ""));
-    assert.equal(await readFile(path.join(appRoot, "src", "App.vue"), "utf8"), "claimed-shell-v1\n");
+    assert.equal(await readFile(path.join(appRoot, "src", "App.vue"), "utf8"), "claimed-shell-v2\n");
   });
 });
 

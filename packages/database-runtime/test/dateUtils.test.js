@@ -11,6 +11,13 @@ test("toDatabaseDateTimeUtc formats DATETIME(3) UTC string", () => {
   assert.equal(toDatabaseDateTimeUtc(new Date("2024-01-01T01:02:03.045Z")), "2024-01-01 01:02:03.045");
 });
 
+test("toDatabaseDateTimeUtc preserves nullable empty values", () => {
+  assert.equal(toDatabaseDateTimeUtc(null), null);
+  assert.equal(toDatabaseDateTimeUtc(undefined), null);
+  assert.equal(toDatabaseDateTimeUtc(""), null);
+  assert.equal(toDatabaseDateTimeUtc("   "), null);
+});
+
 test("date utils throw on invalid date", () => {
   assert.throws(() => toIsoString("not-a-date"), /Invalid date value\./);
   assert.throws(() => toDatabaseDateTimeUtc("not-a-date"), /Invalid date value\./);

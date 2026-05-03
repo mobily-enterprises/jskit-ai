@@ -496,7 +496,7 @@ test("generate @jskit-ai/ui-generator page infers subpage link placement from th
     const placementPath = path.join(appRoot, "src", "placement.js");
     const placementSource = await readFile(placementPath, "utf8");
     assert.match(placementSource, /target: "contact-view:sub-pages"/);
-    assert.match(placementSource, /componentToken: "local\.main\.ui\.tab-link-item"/);
+    assert.match(placementSource, /componentToken: "local\.main\.ui\.surface-aware-menu-link-item"/);
     assert.match(placementSource, /to: "\.\/notes"/);
   });
 });
@@ -759,18 +759,18 @@ test("generate @jskit-ai/ui-generator add-subpages derives the default target fo
     const pagePath = path.join(appRoot, "src", "pages", "admin", "contacts", "[contactId].vue");
     const providerPath = path.join(appRoot, "packages", "main", "src", "client", "providers", "MainClientProvider.js");
     const sectionShellPath = path.join(appRoot, "src", "components", "SectionContainerShell.vue");
-    const tabLinkPath = path.join(appRoot, "src", "components", "menus", "TabLinkItem.vue");
+    const surfaceAwareMenuLinkPath = path.join(appRoot, "src", "components", "menus", "SurfaceAwareMenuLinkItem.vue");
 
     assert.equal(await fileExists(pagePath), true);
     assert.equal(await fileExists(sectionShellPath), true);
-    assert.equal(await fileExists(tabLinkPath), true);
+    assert.equal(await fileExists(surfaceAwareMenuLinkPath), true);
 
     const pageSource = await readFile(pagePath, "utf8");
     assert.match(pageSource, /<SectionContainerShell/);
     assert.match(pageSource, /<template #tabs>/);
     assert.match(
       pageSource,
-      /<ShellOutlet target="contacts-contact-id:sub-pages" default-link-component-token="local\.main\.ui\.tab-link-item" \/>/
+      /<ShellOutlet target="contacts-contact-id:sub-pages" default-link-component-token="local\.main\.ui\.surface-aware-menu-link-item" \/>/
     );
     assert.match(pageSource, /<RouterView \/>/);
 
@@ -778,11 +778,14 @@ test("generate @jskit-ai/ui-generator add-subpages derives the default target fo
     assert.match(sectionShellSource, /<slot name="tabs" \/>/);
     assert.doesNotMatch(sectionShellSource, /ShellOutlet/);
     assert.equal(
-      await readFile(tabLinkPath, "utf8"),
-      await readLocalLinkItemComponentSource("local.main.ui.tab-link-item")
+      await readFile(surfaceAwareMenuLinkPath, "utf8"),
+      await readLocalLinkItemComponentSource("local.main.ui.surface-aware-menu-link-item")
     );
 
     const providerSource = await readFile(providerPath, "utf8");
-    assert.match(providerSource, /registerMainClientComponent\("local\.main\.ui\.tab-link-item", \(\) => TabLinkItem\);/);
+    assert.match(
+      providerSource,
+      /registerMainClientComponent\("local\.main\.ui\.surface-aware-menu-link-item", \(\) => SurfaceAwareMenuLinkItem\);/
+    );
   });
 });

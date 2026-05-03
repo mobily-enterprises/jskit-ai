@@ -28,6 +28,8 @@ How to use it:
   - `ui-testing.md`
 - filter, filters, search facets, chips, date range, enum filter, lookup filter, `useCrudListFilters`, `createCrudListFilters`
   - `filters.md`
+- `searchSchema`, `search: true`, `applyFilter`, server search, query validators, backend filters, internal JSON REST filters
+  - `server-search.md`
 - `actualField`, `storage.writeSerializer`, `storage.virtual`, computed field, virtual field, projection, `createCrudResourceRuntime`, `remainingBatchWeight`, datetime write serialization
   - `crud-repository-mapping.md`
 
@@ -42,4 +44,5 @@ How to use it:
 - [client-requests.md](./client-requests.md)
 - [ui-testing.md](./ui-testing.md)
 - [filters.md](./filters.md)
+- [server-search.md](./server-search.md)
 - [crud-repository-mapping.md](./crud-repository-mapping.md)

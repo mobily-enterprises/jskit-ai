@@ -958,6 +958,7 @@ test("crud repository template defines a json-rest-api adapter over the injected
   const templatePath = path.resolve(testDirectory, "..", "templates", "src", "local-package", "server", "repository.js");
   const templateSource = await readFile(templatePath, "utf8");
   assert.doesNotMatch(templateSource, /from "@jskit-ai\/http-runtime\/shared";/);
+  assert.match(templateSource, /const JSON_REST_SCOPE_NAME = __JSKIT_CRUD_JSONREST_SCOPE_NAME__;/);
   assert.match(templateSource, /returnNullWhenJsonRestResourceMissing/);
   assert.match(templateSource, /return api\.resources\.\$\{option:namespace\|camel\}\.query\(/);
   assert.match(templateSource, /return returnNullWhenJsonRestResourceMissing\(\(\) =>\s+api\.resources\.\$\{option:namespace\|camel\}\.get\(/s);
@@ -965,8 +966,8 @@ test("crud repository template defines a json-rest-api adapter over the injected
   assert.match(templateSource, /return returnNullWhenJsonRestResourceMissing\(\(\) =>\s+api\.resources\.\$\{option:namespace\|camel\}\.patch\(/s);
   assert.match(templateSource, /return returnNullWhenJsonRestResourceMissing\(async \(\) => \{\s+await api\.resources\.\$\{option:namespace\|camel\}\.delete\(/s);
   assert.match(templateSource, /createJsonRestContext\(options\?\.context \|\| null\)/);
-  assert.match(templateSource, /buildJsonRestQueryParams\(RESOURCE_TYPE, query\)/);
-  assert.match(templateSource, /createJsonApiInputRecord\(RESOURCE_TYPE, payload\)/);
+  assert.match(templateSource, /buildJsonRestQueryParams\(JSON_REST_SCOPE_NAME, query\)/);
+  assert.match(templateSource, /createJsonApiInputRecord\(JSON_REST_SCOPE_NAME, payload/);
   assert.doesNotMatch(templateSource, /function toJsonRestContext\(context = null\)/);
   assert.doesNotMatch(templateSource, /function normalizeArrayInput\(value\)/);
   assert.doesNotMatch(templateSource, /function buildJsonRestQueryParams\(query = \{\}/);

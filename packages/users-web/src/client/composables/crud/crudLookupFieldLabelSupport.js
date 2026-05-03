@@ -102,6 +102,15 @@ function resolveLookupFieldDescriptor(field = {}, relationKind = "", valueKey = 
   };
 }
 
+function resolveFallbackLookupKey(key = "") {
+  const normalizedKey = normalizeText(key);
+  if (!normalizedKey.endsWith("Id") || normalizedKey.length <= 2) {
+    return "";
+  }
+
+  return normalizedKey.slice(0, -2);
+}
+
 function resolveLookupFieldDisplayValue(record = {}, field = {}, relationKind = "", valueKey = "", labelKey = "") {
   const sourceRecord = asPlainObject(record);
   const descriptor = resolveLookupFieldDescriptor(field, relationKind, valueKey, labelKey);
@@ -118,7 +127,10 @@ function resolveLookupFieldDisplayValue(record = {}, field = {}, relationKind = 
     context: `lookup relation "${key}" containerKey`
   });
   const sourceLookups = asPlainObject(sourceRecord[lookupContainerKey]);
-  const lookupRecord = asPlainObject(sourceLookups[key]);
+  let lookupRecord = asPlainObject(sourceLookups[key]);
+  if (Object.keys(lookupRecord).length < 1) {
+    lookupRecord = asPlainObject(sourceLookups[resolveFallbackLookupKey(key)]);
+  }
   const lookupLabel = resolveLookupItemLabel(lookupRecord, descriptor.relation.labelKey);
   if (lookupLabel) {
     return lookupLabel;

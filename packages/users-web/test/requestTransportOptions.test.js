@@ -95,12 +95,47 @@ test("list request options stay GET and carry transport when provided", () => {
         "x-demo": "1"
       },
       query: {
+        limit: 20,
         cursor: "cursor_2"
       },
       transport: {
         kind: "jsonapi-resource",
         responseType: "contacts",
         responseKind: "collection"
+      }
+    }
+  );
+});
+
+test("list request options preserve explicit limit values", () => {
+  assert.deepEqual(
+    buildListRequestOptions({
+      requestOptions: {
+        query: {
+          limit: 50
+        }
+      }
+    }),
+    {
+      method: "GET",
+      query: {
+        limit: 50
+      }
+    }
+  );
+
+  assert.deepEqual(
+    buildListRequestOptions({
+      requestOptions: {
+        query: {
+          "page[limit]": "75"
+        }
+      }
+    }),
+    {
+      method: "GET",
+      query: {
+        "page[limit]": "75"
       }
     }
   );

@@ -148,6 +148,173 @@ test("request encodes and decodes json:api resource transport for records", asyn
   );
 });
 
+test("request decodes json:api relationship includes into JSKIT lookups and foreign-key fields", async () => {
+  const fetchImpl = async () =>
+    mockResponse({
+      contentType: "application/vnd.api+json",
+      data: {
+        data: {
+          type: "pets",
+          id: "729900",
+          attributes: {
+            name: "Daisy"
+          },
+          relationships: {
+            contact: {
+              data: {
+                type: "contacts",
+                id: "552252"
+              }
+            },
+            breed: {
+              data: {
+                type: "breeds",
+                id: "2"
+              }
+            }
+          }
+        },
+        included: [
+          {
+            type: "contacts",
+            id: "552252",
+            attributes: {
+              firstName: "Serena",
+              lastName: "Ellison"
+            }
+          },
+          {
+            type: "breeds",
+            id: "2",
+            attributes: {
+              name: "Cavoodle"
+            }
+          }
+        ]
+      }
+    });
+
+  const client = createHttpClient({ fetchImpl });
+  const payload = await client.request("/api/pets/729900", {
+    method: "GET",
+    transport: {
+      kind: "jsonapi-resource",
+      responseType: "pets",
+      responseKind: "record",
+      lookupFieldMap: {
+        contact: "contactId",
+        breed: "breedId"
+      }
+    }
+  });
+
+  assert.deepEqual(payload, {
+    id: "729900",
+    name: "Daisy",
+    contactId: "552252",
+    breedId: "2",
+    lookups: {
+      contactId: {
+        id: "552252",
+        firstName: "Serena",
+        lastName: "Ellison"
+      },
+      contact: {
+        id: "552252",
+        firstName: "Serena",
+        lastName: "Ellison"
+      },
+      breedId: {
+        id: "2",
+        name: "Cavoodle"
+      },
+      breed: {
+        id: "2",
+        name: "Cavoodle"
+      }
+    }
+  });
+});
+
+test("request recursively decodes nested included relationships for collection-style lookups", async () => {
+  const fetchImpl = async () =>
+    mockResponse({
+      contentType: "application/vnd.api+json",
+      data: {
+        data: {
+          type: "contacts",
+          id: "552252",
+          attributes: {
+            firstName: "Serena",
+            lastName: "Ellison"
+          },
+          relationships: {
+            pets: {
+              data: [
+                {
+                  type: "pets",
+                  id: "729900"
+                }
+              ]
+            }
+          }
+        },
+        included: [
+          {
+            type: "pets",
+            id: "729900",
+            attributes: {
+              name: "Daisy"
+            },
+            relationships: {
+              breed: {
+                data: {
+                  type: "breeds",
+                  id: "2"
+                }
+              }
+            }
+          },
+          {
+            type: "breeds",
+            id: "2",
+            attributes: {
+              name: "Cavoodle"
+            }
+          }
+        ]
+      }
+    });
+
+  const client = createHttpClient({ fetchImpl });
+  const payload = await client.request("/api/contacts/552252", {
+    method: "GET",
+    transport: {
+      kind: "jsonapi-resource",
+      responseType: "contacts",
+      responseKind: "record"
+    }
+  });
+
+  assert.deepEqual(payload.lookups?.pets, [
+    {
+      id: "729900",
+      name: "Daisy",
+      breedId: "2",
+      lookups: {
+        breedId: {
+          id: "2",
+          name: "Cavoodle"
+        },
+        breed: {
+          id: "2",
+          name: "Cavoodle"
+        }
+      }
+    }
+  ]);
+});
+
 test("request decodes json:api collection responses into JSKIT paged-list shape", async () => {
   const fetchImpl = async () =>
     mockResponse({

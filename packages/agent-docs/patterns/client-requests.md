@@ -41,6 +41,11 @@ Use the CRUD wrappers when they fit:
 - `useCrudView()` for routed CRUD record loading
 - `useCrudAddEdit()` for routed CRUD forms
 
+CRUD hook transport defaults:
+
+- CRUD hooks derive the standard JSON:API transport from the shared CRUD `resource` automatically.
+- Do not pass `transport` to CRUD hooks. If you need a non-standard wire contract, drop to `useList()`, `useView()`, `useAddEdit()`, or `usersWebHttpClient.request(...)` instead of the CRUD wrappers.
+
 Why this is the standard JSKIT shape:
 
 - `useCommand()` resolves the scoped API path for the current route and surface.

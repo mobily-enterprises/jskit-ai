@@ -39,6 +39,18 @@ async function createProviderRuntimeApp({
 
   await app.start({ providers });
 
+  if (fastify && typeof fastify.addHook === "function") {
+    let didShutdown = false;
+    fastify.addHook("onClose", async () => {
+      if (didShutdown) {
+        return;
+      }
+
+      didShutdown = true;
+      await app.shutdown();
+    });
+  }
+
   const routeRegistration = httpRuntime ? httpRuntime.registerRoutes() : { routeCount: 0 };
   return Object.freeze({
     app,

@@ -83,7 +83,14 @@ function canServeStaticFile(distRoot, relativePath) {
 }
 
 async function createServer() {
-  const app = Fastify({ logger: true });
+  const app = Fastify({
+    logger: true,
+    ajv: {
+      customOptions: {
+        allowUnionTypes: true
+      }
+    }
+  });
 
   app.get("/api/health", async () => {
     return {

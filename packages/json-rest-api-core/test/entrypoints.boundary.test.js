@@ -305,6 +305,7 @@ test("createJsonRestResourceScopeOptions clones canonical resource metadata and 
   assert.notEqual(result.schema.createdAt, source.schema.createdAt);
   assert.equal(result.schema.createdAt.storage.column, "created_at");
   assert.equal(result.schema.createdAt.storage.serialize, serializer);
+  assert.equal(result.schema.createdAt.storage.serialize(null), null);
   assert.equal(result.schema.createdAt.storage.writeSerializer, undefined);
   assert.equal(result.schema.bookingSteps.virtual, true);
   assert.equal(result.normalizeId, normalizeId);

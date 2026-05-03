@@ -3,6 +3,8 @@ import test from "node:test";
 import { UsersCoreServiceProvider } from "../src/server/UsersCoreServiceProvider.js";
 import { INTERNAL_JSON_REST_API } from "@jskit-ai/json-rest-api-core/server/jsonRestApiHost";
 import { createRouter } from "../../kernel/server/http/lib/router.js";
+import { validateOperationSection } from "../../http-runtime/src/shared/validators/operationValidation.js";
+import { userProfileResource } from "../src/shared/resources/userProfileResource.js";
 
 function createReplyDouble() {
   return {
@@ -267,4 +269,20 @@ test("account settings jsonapi transport resolves response resource id from requ
       }
     }
   });
+});
+
+test("avatar upload operation accepts the internal multipart stream field", () => {
+  const parsed = validateOperationSection({
+    operation: userProfileResource.operations.avatarUpload,
+    section: "body",
+    value: {
+      stream: {},
+      mimeType: "image/png",
+      fileName: "avatar.png"
+    }
+  });
+
+  assert.equal(parsed.ok, true);
+  assert.equal(parsed.value.mimeType, "image/png");
+  assert.equal(parsed.value.fileName, "avatar.png");
 });

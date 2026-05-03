@@ -15,6 +15,7 @@ import {
   mergeSelectedLookupOptions,
   resolveLookupOptionLabel
 } from "./internal/crudListFilterLookupSupport.js";
+import { inferCrudLookupJsonApiTransport } from "./crud/crudJsonApiTransportSupport.js";
 
 function useCrudListFilterLookups(
   definitions = {},
@@ -46,10 +47,14 @@ function useCrudListFilterLookups(
     if (!filter.lookup?.apiSuffix) {
       continue;
     }
+    const transport = inferCrudLookupJsonApiTransport({
+      apiPath: filter.lookup.apiSuffix
+    });
 
     const runtime = useList({
       adapter: adapter || undefined,
       apiSuffix: filter.lookup.apiSuffix,
+      ...(transport ? { transport } : {}),
       queryKeyFactory: (surfaceId = "", scopeParamValue = "") => [
         ...normalizedQueryKeyPrefix,
         filter.key,

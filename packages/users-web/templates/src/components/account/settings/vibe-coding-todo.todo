@@ -1,0 +1,20 @@
+This note was split.
+
+Use these repo-level docs instead:
+
+- `docs/jskit-product-lanes-rulebook.md`
+- `docs/jskit-product-lanes-workboard.md`
+
+Why:
+
+- the previous file had become a giant mixed artifact
+- the durable product direction now lives in the rulebook
+- the prioritized execution plan now lives in the workboard
+- this template-path file is intentionally reduced to a pointer so the catch-all handoff does not keep living inside a shipped template location
+
+If a future agent needs to continue the work:
+
+1. read `AGENTS.md`
+2. read the JSKIT pattern/workflow files named in the rulebook
+3. use the rulebook for architecture and product direction
+4. use the workboard for prioritization and execution planning

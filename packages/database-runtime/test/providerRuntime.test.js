@@ -50,8 +50,12 @@ function createSingletonApp() {
 
 function createKnexStub() {
   return {
+    destroyCalls: 0,
     async transaction(callback) {
       return callback({ trxId: "trx-1" });
+    },
+    async destroy() {
+      this.destroyCalls += 1;
     }
   };
 }
@@ -197,4 +201,19 @@ test("DatabaseRuntimeServiceProvider resolves knex config from DATABASE_URL when
     assert.equal(knex.__config.connection.user, "urluser");
     assert.equal(knex.__config.connection.password, "urlpass");
   });
+});
+
+test("DatabaseRuntimeServiceProvider destroys resolved knex during shutdown", async () => {
+  const app = createSingletonApp();
+  const knex = createKnexStub();
+  app.instance("jskit.database.knex", knex);
+
+  const provider = new DatabaseRuntimeServiceProvider();
+  provider.register(app);
+
+  await provider.shutdown(app);
+  assert.equal(knex.destroyCalls, 1);
+
+  await provider.shutdown(app);
+  assert.equal(knex.destroyCalls, 1);
 });

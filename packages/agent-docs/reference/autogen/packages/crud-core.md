@@ -296,6 +296,14 @@ Local functions
 ### `src/server/routeContracts.js`
 Exports
 - `createCrudJsonApiRouteContracts({ resource = {}, routeParamsValidator = null, listSearchQueryValidator = defaultListSearchQueryValidator, lookupIncludeQueryValidator = defaultLookupIncludeQueryValidator } = {})`
+Local functions
+- `isRecord(value)`
+- `resolveSchemaFieldDefinitions(definition = null)`
+- `resolveJsonApiRelationshipEntries(definition = null)`
+- `createRecordAttributesResolver(definition = null, { excludeKeys = [] } = {})`
+- `createRecordRelationshipsResolver(definition = null)`
+- `createRequestRelationshipMapper(definition = null)`
+- `resolveOutputAttributeExcludeKeys(resource = {})`
 
 ### `src/server/serviceEvents.js`
 Exports

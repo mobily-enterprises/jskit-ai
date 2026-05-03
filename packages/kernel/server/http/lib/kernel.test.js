@@ -1024,6 +1024,116 @@ test("registerRoutes applies transport response transforms before reply serializ
   });
 });
 
+test("registerRoutes bypasses success transport and output transforms for error replies", async () => {
+  const fastify = createFastifyStub();
+  let successTransportCalls = 0;
+  let outputTransformCalls = 0;
+
+  registerRoutes(fastify, {
+    routes: [
+      {
+        method: "GET",
+        path: "/transport-error-bypass",
+        transport: {
+          kind: "jsonapi-resource",
+          contentType: "application/vnd.api+json",
+          response() {
+            successTransportCalls += 1;
+            return {
+              data: {
+                type: "contacts",
+                id: "7",
+                attributes: {
+                  name: "Alice"
+                }
+              }
+            };
+          }
+        },
+        output() {
+          outputTransformCalls += 1;
+          return {
+            mutated: true
+          };
+        },
+        handler: async (_request, reply) => {
+          reply.code(500).send({
+            errors: [
+              {
+                status: "500",
+                code: "internal_server_error",
+                title: "Internal server error."
+              }
+            ]
+          });
+        }
+      }
+    ]
+  });
+
+  const request = {};
+  const reply = createReplyStub();
+
+  await fastify.routes[0].handler(request, reply);
+
+  assert.equal(reply.statusCode, 500);
+  assert.equal(reply.headers["Content-Type"], "application/vnd.api+json");
+  assert.equal(successTransportCalls, 0);
+  assert.equal(outputTransformCalls, 0);
+  assert.deepEqual(reply.payload, {
+    errors: [
+      {
+        status: "500",
+        code: "internal_server_error",
+        title: "Internal server error."
+      }
+    ]
+  });
+});
+
+test("registerRoutes bypasses success transport for Error payloads before status normalization", async () => {
+  const fastify = createFastifyStub();
+  let successTransportCalls = 0;
+
+  registerRoutes(fastify, {
+    routes: [
+      {
+        method: "GET",
+        path: "/transport-error-instance",
+        transport: {
+          kind: "jsonapi-resource",
+          contentType: "application/vnd.api+json",
+          response() {
+            successTransportCalls += 1;
+            return {
+              data: {
+                type: "contacts",
+                id: "7",
+                attributes: {
+                  name: "Alice"
+                }
+              }
+            };
+          }
+        },
+        handler: async (_request, reply) => {
+          reply.send(new Error("Boom"));
+        }
+      }
+    ]
+  });
+
+  const request = {};
+  const reply = createReplyStub();
+
+  await fastify.routes[0].handler(request, reply);
+
+  assert.equal(successTransportCalls, 0);
+  assert.equal(reply.headers["Content-Type"], "application/vnd.api+json");
+  assert.equal(reply.payload instanceof Error, true);
+  assert.equal(reply.payload.message, "Boom");
+});
+
 test("registerRoutes exposes full transport runtime on Fastify route config for pre-handler error serialization", () => {
   const fastify = createFastifyStub();
   const transport = {

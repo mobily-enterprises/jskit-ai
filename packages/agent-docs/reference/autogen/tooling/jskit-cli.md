@@ -369,7 +369,9 @@ Local functions
 Exports
 - `runAppLinkLocalPackagesCommand(ctx = {}, { appRoot = "", options = {}, stdout })`
 Local functions
-- `maybeLinkCompanionPackages({ appRoot = "", repoRoot = "", stdout })`
+- `collectDeclaredPackageNames(packageJson = {})`
+- `verifySymlinkTarget(targetPath = "", sourceDir = "", { packageName = "" } = {})`
+- `maybeLinkCompanionPackages({ appRoot = "", repoRoot = "", stdout, createCliError })`
 
 ### `src/server/commandHandlers/appCommands/release.js`
 Exports

@@ -81,6 +81,17 @@ Exports
 - `resolveCrudBindingValues(values, context = {})`
 - `resolveCrudBoundValues({ binding = {}, routeValues = {}, context = {} } = {})`
 
+### `src/client/composables/crud/crudJsonApiTransportSupport.js`
+Exports
+- `inferCrudJsonApiTransport(resource = null, { mode = "", operationName = "" } = {})`
+- `resolveCrudJsonApiTransport(transport = null, resource = null, options = {})`
+- `resolveLookupFieldMap(resource = null)`
+Local functions
+- `isRecord(value)`
+- `resolveSchemaFieldDefinitions(definition = null)`
+- `isJsonApiResourceTransport(transport = null)`
+- `resolveCrudJsonApiResourceType(resource = null)`
+
 ### `src/client/composables/crud/crudLookupFieldLabelSupport.js`
 Exports
 - `resolveLookupItemLabel(item = {}, labelKey = "")`
@@ -90,6 +101,7 @@ Local functions
 - `hasDisplayValue(value)`
 - `resolveComposedLabel(source = {}, candidates = LOOKUP_LABEL_COMPOSITION_CANDIDATES)`
 - `resolveLookupFieldDescriptor(field = {}, relationKind = "", valueKey = "", labelKey = "")`
+- `resolveFallbackLookupKey(key = "")`
 
 ### `src/client/composables/crud/crudLookupFieldRuntime.js`
 Exports
@@ -114,6 +126,7 @@ Local functions
 - `resolveFormFieldType(field = {})`
 - `resolveFormFieldFormat(field = {})`
 - `isNullableFormField(field = {})`
+- `isLookupFormField(field = {})`
 - `padDateTimePart(value)`
 - `normalizeTimeWhitespace(value)`
 - `toTimeInputValue(value)`
@@ -172,7 +185,7 @@ Local functions
 
 ### `src/client/composables/records/useCrudView.js`
 Exports
-- `useCrudView({ paramBinding = null, route = null, ...viewOptions } = {})`
+- `useCrudView({ resource = null, paramBinding = null, route = null, ...viewOptions } = {})`
 
 ### `src/client/composables/records/useList.js`
 Exports

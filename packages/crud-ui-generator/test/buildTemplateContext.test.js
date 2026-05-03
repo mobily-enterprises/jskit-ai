@@ -715,7 +715,7 @@ test("buildUiTemplateContext validates operations against the supported CRUD set
   });
 });
 
-test("crud ui templates opt into shared JSON:API client transport", async () => {
+test("crud ui templates derive JSON:API transport from the shared CRUD resource", async () => {
   const testDirectory = path.dirname(fileURLToPath(import.meta.url));
   const templateRoot = path.resolve(testDirectory, "..", "templates", "src", "pages", "admin", "ui-generator");
 
@@ -726,25 +726,28 @@ test("crud ui templates opt into shared JSON:API client transport", async () => 
   const newWrapperTemplateSource = await readFile(path.join(templateRoot, "NewWrapperElement.vue"), "utf8");
   const editWrapperTemplateSource = await readFile(path.join(templateRoot, "EditWrapperElement.vue"), "utf8");
 
-  assert.match(listTemplateSource, /const UI_LIST_TRANSPORT = Object\.freeze\(\{/);
-  assert.match(listTemplateSource, /responseKind: "collection"/);
-  assert.match(listTemplateSource, /transport: UI_LIST_TRANSPORT,/);
+  assert.match(listTemplateSource, /resource: uiResource,/);
+  assert.doesNotMatch(listTemplateSource, /const UI_LIST_TRANSPORT = Object\.freeze\(\{/);
+  assert.doesNotMatch(listTemplateSource, /transport:\s*UI_LIST_TRANSPORT,/);
 
-  assert.match(viewTemplateSource, /const UI_VIEW_TRANSPORT = Object\.freeze\(\{/);
-  assert.match(viewTemplateSource, /responseKind: "record"/);
-  assert.match(viewTemplateSource, /transport: UI_VIEW_TRANSPORT,/);
+  assert.match(viewTemplateSource, /import \{ resource as uiResource \} from/);
+  assert.match(viewTemplateSource, /resource: uiResource,/);
+  assert.doesNotMatch(viewTemplateSource, /const UI_VIEW_TRANSPORT = Object\.freeze\(\{/);
+  assert.doesNotMatch(viewTemplateSource, /transport:\s*UI_VIEW_TRANSPORT,/);
 
-  assert.match(newTemplateSource, /const UI_CREATE_TRANSPORT = Object\.freeze\(\{/);
-  assert.match(newTemplateSource, /requestType: "__JSKIT_UI_RESOURCE_NAMESPACE__"/);
-  assert.match(newTemplateSource, /transport: UI_CREATE_TRANSPORT,/);
+  assert.match(newTemplateSource, /resource: uiResource,/);
+  assert.doesNotMatch(newTemplateSource, /const UI_CREATE_TRANSPORT = Object\.freeze\(\{/);
+  assert.doesNotMatch(newTemplateSource, /transport:\s*UI_CREATE_TRANSPORT,/);
 
-  assert.match(editTemplateSource, /const UI_EDIT_TRANSPORT = Object\.freeze\(\{/);
-  assert.match(editTemplateSource, /requestType: "__JSKIT_UI_RESOURCE_NAMESPACE__"/);
-  assert.match(editTemplateSource, /transport: UI_EDIT_TRANSPORT,/);
+  assert.match(editTemplateSource, /resource: uiResource,/);
+  assert.doesNotMatch(editTemplateSource, /const UI_EDIT_TRANSPORT = Object\.freeze\(\{/);
+  assert.doesNotMatch(editTemplateSource, /transport:\s*UI_EDIT_TRANSPORT,/);
 
-  assert.match(newWrapperTemplateSource, /const UI_CREATE_TRANSPORT = Object\.freeze\(\{/);
-  assert.match(newWrapperTemplateSource, /transport: UI_CREATE_TRANSPORT,/);
+  assert.match(newWrapperTemplateSource, /resource: uiResource,/);
+  assert.doesNotMatch(newWrapperTemplateSource, /const UI_CREATE_TRANSPORT = Object\.freeze\(\{/);
+  assert.doesNotMatch(newWrapperTemplateSource, /transport:\s*UI_CREATE_TRANSPORT,/);
 
-  assert.match(editWrapperTemplateSource, /const UI_EDIT_TRANSPORT = Object\.freeze\(\{/);
-  assert.match(editWrapperTemplateSource, /transport: UI_EDIT_TRANSPORT,/);
+  assert.match(editWrapperTemplateSource, /resource: uiResource,/);
+  assert.doesNotMatch(editWrapperTemplateSource, /const UI_EDIT_TRANSPORT = Object\.freeze\(\{/);
+  assert.doesNotMatch(editWrapperTemplateSource, /transport:\s*UI_EDIT_TRANSPORT,/);
 });

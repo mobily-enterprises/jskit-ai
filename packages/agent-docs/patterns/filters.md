@@ -5,6 +5,10 @@ Use when:
 - the user asks to "add a filter", "make the list filterable", or "keep filters in the URL"
 - a screen mixes free-text search with structured facets
 
+Server-side note:
+- for the current CRUD server contract on the JSON REST path, see `server-search.md`
+- this file is about the shared structured-filter runtime used by CRUD list pages and explicit list-filter modules
+
 Ask first:
 - which fields are filterable
 - whether each filter is a flag, enum, multi-enum, date/date-range, number-range, record id, or lookup-backed record id

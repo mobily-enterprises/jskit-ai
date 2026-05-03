@@ -141,6 +141,11 @@ function createKnexInstance(scope) {
 class DatabaseRuntimeServiceProvider {
   static id = "runtime.database";
 
+  constructor() {
+    this.knexInstance = null;
+    this.knexDestroyed = false;
+  }
+
   register(app) {
     if (!app || typeof app.singleton !== "function" || typeof app.has !== "function") {
       throw new Error("DatabaseRuntimeServiceProvider requires application singleton()/has().");
@@ -153,7 +158,12 @@ class DatabaseRuntimeServiceProvider {
     }
 
     if (!app.has("jskit.database.knex")) {
-      app.singleton("jskit.database.knex", (scope) => createKnexInstance(scope));
+      app.singleton("jskit.database.knex", (scope) => {
+        const knex = createKnexInstance(scope);
+        this.knexInstance = knex;
+        this.knexDestroyed = false;
+        return knex;
+      });
     }
 
     if (!app.has("jskit.database.transactionManager")) {
@@ -165,6 +175,38 @@ class DatabaseRuntimeServiceProvider {
   }
 
   boot() {}
+
+  async shutdown(app) {
+    if (this.knexDestroyed) {
+      return;
+    }
+
+    let knex = this.knexInstance || null;
+
+    if (!knex) {
+      const container = app?.container;
+      const instanceRecord =
+        container && typeof container.findInstanceRecord === "function"
+          ? container.findInstanceRecord("jskit.database.knex")
+          : null;
+      knex = instanceRecord?.value || null;
+    }
+
+    if (!knex && app && typeof app.has === "function" && app.has("jskit.database.knex") && typeof app.make === "function") {
+      try {
+        knex = app.make("jskit.database.knex");
+      } catch {
+        knex = null;
+      }
+    }
+
+    if (!knex || typeof knex.destroy !== "function") {
+      return;
+    }
+
+    await knex.destroy();
+    this.knexDestroyed = true;
+  }
 }
 
 export { DatabaseRuntimeServiceProvider };

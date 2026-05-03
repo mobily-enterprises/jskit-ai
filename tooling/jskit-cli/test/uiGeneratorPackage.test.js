@@ -508,7 +508,7 @@ test("generate @jskit-ai/crud-ui-generator infers tab placement and relative to 
 
     const placementSource = await readFile(path.join(appRoot, "src", "placement.js"), "utf8");
     assert.match(placementSource, /target: "catalog:sub-pages"/);
-    assert.match(placementSource, /componentToken: "local\.main\.ui\.tab-link-item"/);
+    assert.match(placementSource, /componentToken: "local\.main\.ui\.surface-aware-menu-link-item"/);
     assert.match(placementSource, /to: "\.\/products"/);
   });
 });

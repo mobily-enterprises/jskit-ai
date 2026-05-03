@@ -6,7 +6,7 @@ import {
   returnNullWhenJsonRestResourceMissing
 } from "@jskit-ai/json-rest-api-core/server/jsonRestApiHost";
 import { resource } from "../shared/${option:namespace|singular|camel}Resource.js";
-const RESOURCE_TYPE = resource.namespace;
+const JSON_REST_SCOPE_NAME = __JSKIT_CRUD_JSONREST_SCOPE_NAME__;
 
 function createRepository({ api, knex } = {}) {
   const withTransaction = createWithTransaction(knex);
@@ -14,7 +14,7 @@ function createRepository({ api, knex } = {}) {
   async function queryDocuments(query = {}, options = {}) {
     return api.resources.${option:namespace|camel}.query(
       {
-        queryParams: buildJsonRestQueryParams(RESOURCE_TYPE, query),
+        queryParams: buildJsonRestQueryParams(JSON_REST_SCOPE_NAME, query),
         transaction: options?.trx || null,
         simplified: false
       },
@@ -27,7 +27,7 @@ function createRepository({ api, knex } = {}) {
       api.resources.${option:namespace|camel}.get(
         {
           id: recordId,
-          queryParams: buildJsonRestQueryParams(RESOURCE_TYPE, {}, {
+          queryParams: buildJsonRestQueryParams(JSON_REST_SCOPE_NAME, {}, {
             include: options?.include
           }),
           transaction: options?.trx || null,
@@ -41,7 +41,7 @@ function createRepository({ api, knex } = {}) {
   async function createDocument(payload = {}, options = {}) {
     return api.resources.${option:namespace|camel}.post(
       {
-        inputRecord: createJsonApiInputRecord(RESOURCE_TYPE, payload, {
+        inputRecord: createJsonApiInputRecord(JSON_REST_SCOPE_NAME, payload, {
           resource
         }),
         transaction: options?.trx || null,
@@ -62,7 +62,7 @@ function createRepository({ api, knex } = {}) {
         {
           id: recordId,
           inputRecord: createJsonApiInputRecord(
-            RESOURCE_TYPE,
+            JSON_REST_SCOPE_NAME,
             {
               ...sourcePatch,
               updatedAt: new Date()

@@ -50,12 +50,6 @@ const UI_LIST_URL = __JSKIT_UI_NEW_PAGE_LIST_URL__;
 const UI_VIEW_URL = __JSKIT_UI_NEW_PAGE_VIEW_URL__;
 const UI_RECORD_CHANGED_EVENT = __JSKIT_UI_RECORD_CHANGED_EVENT__;
 const UI_CREATE_FORM_FIELDS = [];
-const UI_CREATE_TRANSPORT = Object.freeze({
-  kind: "jsonapi-resource",
-  requestType: "__JSKIT_UI_RESOURCE_NAMESPACE__",
-  responseType: "__JSKIT_UI_RESOURCE_NAMESPACE__",
-  responseKind: "record"
-});
 
 // @jskit-contract crud.ui.form-fields.__JSKIT_UI_RESOURCE_NAMESPACE__.new.v1
 void UI_CREATE_FORM_FIELDS;
@@ -81,7 +75,6 @@ const formRuntime = useCrudAddEdit({
     ],
     placementSource: "ui-generator.__JSKIT_UI_RESOURCE_NAMESPACE__.new",
     readEnabled: false,
-    transport: UI_CREATE_TRANSPORT,
     writeMethod: "POST",
     fallbackSaveError: "Unable to save record.",
     recordIdParam: UI_RECORD_ID_PARAM,

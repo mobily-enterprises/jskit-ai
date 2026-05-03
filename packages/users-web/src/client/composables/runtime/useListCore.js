@@ -4,6 +4,8 @@ import { asPlainObject } from "../support/scopeHelpers.js";
 import { resolveEnabledRef, resolveTextRef } from "../support/refValueHelpers.js";
 import { usePagedCollection } from "../usePagedCollection.js";
 
+const DEFAULT_LIST_LIMIT = 20;
+
 function buildListRequestOptions({
   requestOptions = null,
   transport = null,
@@ -18,6 +20,12 @@ function buildListRequestOptions({
     resolvedOptions.query && typeof resolvedOptions.query === "object" && !Array.isArray(resolvedOptions.query)
       ? { ...resolvedOptions.query }
       : {};
+  if (
+    !Object.hasOwn(sourceQuery, "limit") &&
+    !Object.hasOwn(sourceQuery, "page[limit]")
+  ) {
+    sourceQuery.limit = DEFAULT_LIST_LIMIT;
+  }
   if (pageParam !== null && pageParam !== undefined && pageParam !== "") {
     sourceQuery.cursor = String(pageParam);
   }

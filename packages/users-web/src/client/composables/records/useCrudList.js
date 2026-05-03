@@ -1,5 +1,6 @@
 import { computed, unref } from "vue";
 import { useRoute } from "vue-router";
+import { resolveCrudJsonApiTransport } from "../crud/crudJsonApiTransportSupport.js";
 import { resolveLookupFieldDisplayValue } from "../crud/crudLookupFieldLabelSupport.js";
 import { resolveCrudBoundValues } from "../crud/crudBindingSupport.js";
 import { resolveCrudListParentDescriptor } from "../internal/crudListParentTitleSupport.js";
@@ -65,6 +66,9 @@ function useCrudList({
   });
   const records = useList({
     ...listOptions,
+    transport: resolveCrudJsonApiTransport(listOptions.transport, resource, {
+      mode: "list"
+    }),
     recordIdParam,
     requestQueryParams(context = {}) {
       const baseRequestQueryParams = resolveRequestQueryParamsInput(requestQueryParams, context);

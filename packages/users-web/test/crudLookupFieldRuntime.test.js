@@ -203,6 +203,31 @@ test("resolveLookupFieldDisplayValue supports custom lookup container key", () =
   );
 });
 
+test("resolveLookupFieldDisplayValue falls back to alias-keyed lookups for relationship-backed fields", () => {
+  assert.equal(
+    resolveLookupFieldDisplayValue(
+      {
+        vetId: "17",
+        lookups: {
+          vet: {
+            id: "17",
+            name: "Harbor Vet"
+          }
+        }
+      },
+      {
+        key: "vetId",
+        relation: {
+          kind: "lookup",
+          valueKey: "id",
+          labelKey: "name"
+        }
+      }
+    ),
+    "Harbor Vet"
+  );
+});
+
 test("resolveLookupFieldDisplayValue returns raw value for non-lookup fields", () => {
   assert.equal(
     resolveLookupFieldDisplayValue(

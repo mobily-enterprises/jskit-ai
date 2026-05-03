@@ -51,6 +51,10 @@ function isNullableFormField(field = {}) {
   return field?.nullable === true;
 }
 
+function isLookupFormField(field = {}) {
+  return field?.component === "lookup" || field?.relation?.kind === "lookup";
+}
+
 function padDateTimePart(value) {
   return String(value).padStart(2, "0");
 }
@@ -138,12 +142,20 @@ function resolveFormFieldInitialValue(field = {}) {
     return isNullableFormField(field) ? null : false;
   }
 
+  if (isNullableFormField(field) && isLookupFormField(field)) {
+    return null;
+  }
+
   return "";
 }
 
 function shouldSerializeClearedFieldAsNull(field = {}) {
   if (field?.nullable !== true) {
     return false;
+  }
+
+  if (isLookupFormField(field)) {
+    return true;
   }
 
   const fieldType = resolveFormFieldType(field);
@@ -205,6 +217,19 @@ function buildCrudFormPayload(fields = [], model = {}) {
       if (clearAsNull) {
         payload[fieldKey] = null;
       }
+      continue;
+    }
+
+    if (isLookupFormField(field)) {
+      const normalizedLookupValue = String(rawValue).trim();
+      if (!normalizedLookupValue) {
+        if (clearAsNull) {
+          payload[fieldKey] = null;
+        }
+        continue;
+      }
+
+      payload[fieldKey] = normalizedLookupValue;
       continue;
     }
 
@@ -281,6 +306,11 @@ function applyCrudPayloadToForm(fields = [], model = {}, payload = {}) {
 
     if (fieldFormat === "time") {
       targetModel[fieldKey] = toTimeInputValue(rawValue);
+      continue;
+    }
+
+    if (isLookupFormField(field)) {
+      targetModel[fieldKey] = rawValue == null ? null : String(rawValue);
       continue;
     }
 

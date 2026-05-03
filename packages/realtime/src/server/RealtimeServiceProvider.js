@@ -450,9 +450,40 @@ async function resolveSocketActorId(authService, socket) {
     return null;
   }
 
-  const cookies = parseCookieHeader(socket?.request?.headers?.cookie);
-  const authResult = await authService.authenticateRequest({
+  const handshakeHeaders =
+    socket?.handshake?.headers && typeof socket.handshake.headers === "object"
+      ? socket.handshake.headers
+      : {};
+  const requestHeaders =
+    socket?.request?.headers && typeof socket.request.headers === "object"
+      ? socket.request.headers
+      : {};
+  const cookieHeader = normalizeText(
+    handshakeHeaders.cookie ||
+    requestHeaders.cookie
+  );
+  const cookies = parseCookieHeader(cookieHeader);
+  const host = normalizeText(handshakeHeaders.host || requestHeaders.host);
+  const remoteAddress = normalizeText(
+    socket?.request?.socket?.remoteAddress ||
+    socket?.conn?.remoteAddress ||
+    socket?.handshake?.address
+  );
+  const authRequest = {
     cookies
+  };
+  if (host) {
+    authRequest.headers = {
+      host
+    };
+  }
+  if (remoteAddress) {
+    authRequest.socket = {
+      remoteAddress
+    };
+  }
+  const authResult = await authService.authenticateRequest({
+    ...authRequest
   });
   if (!authResult || authResult.authenticated !== true) {
     return null;
