@@ -1,7 +1,7 @@
 export default Object.freeze({
   packageVersion: 1,
   packageId: "@jskit-ai/shell-web",
-  version: "0.1.56",
+  version: "0.1.57",
   kind: "runtime",
   description: "Web shell layout runtime with outlet-based placement contributions.",
   dependsOn: [],
@@ -122,7 +122,7 @@ export default Object.freeze({
       runtime: {
         "@mdi/js": "^7.4.47",
         "@tanstack/vue-query": "^5.90.5",
-        "@jskit-ai/kernel": "0.1.57",
+        "@jskit-ai/kernel": "0.1.58",
         "vuetify": "^4.0.0"
       },
       dev: {}

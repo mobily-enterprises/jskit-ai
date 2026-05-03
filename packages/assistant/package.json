@@ -1,6 +1,6 @@
 {
   "name": "@jskit-ai/assistant",
-  "version": "0.1.66",
+  "version": "0.1.67",
   "type": "module",
   "scripts": {
     "test": "node --test"
@@ -9,6 +9,6 @@
     "./server/buildTemplateContext": "./src/server/buildTemplateContext.js"
   },
   "dependencies": {
-    "@jskit-ai/kernel": "0.1.57"
+    "@jskit-ai/kernel": "0.1.58"
   }
 }

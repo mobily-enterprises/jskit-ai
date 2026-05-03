@@ -1,6 +1,6 @@
 {
   "name": "@jskit-ai/auth-core",
-  "version": "0.1.56",
+  "version": "0.1.57",
   "type": "module",
   "scripts": {
     "test": "node --test"
@@ -46,7 +46,7 @@
     "./shared/commands/authSessionReadCommand": "./src/shared/commands/authSessionReadCommand.js"
   },
   "dependencies": {
-    "@jskit-ai/kernel": "0.1.57",
+    "@jskit-ai/kernel": "0.1.58",
     "@fastify/cookie": "^11.0.2",
     "@fastify/csrf-protection": "^7.1.0",
     "@fastify/rate-limit": "^10.3.0",
