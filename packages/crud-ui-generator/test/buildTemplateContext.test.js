@@ -320,6 +320,9 @@ test("buildUiTemplateContext derives CRUD placeholders from the explicit target-
     assert.equal(context.__JSKIT_UI_RESOURCE_SINGULAR_TITLE__, "Customer");
     assert.equal(context.__JSKIT_UI_RESOURCE_PLURAL_TITLE__, "Customers");
     assert.equal(context.__JSKIT_UI_ROUTE_TITLE__, "Customers");
+    assert.equal(context.__JSKIT_UI_PARENT_TITLE_MODE__, "contextual");
+    assert.match(context.__JSKIT_UI_LIST_PARENT_TITLE_IMPORT_LINE__, /useCrudListParentTitle/);
+    assert.match(context.__JSKIT_UI_LIST_HEADING_TITLE_SETUP__, /Customers for /);
     assert.equal(context.__JSKIT_UI_FORM_COMPONENT_FILE__, "CrudAddEditForm.vue");
     assert.equal(context.__JSKIT_UI_FORM_FIELDS_FILE__, "CrudAddEditFormFields.js");
     assert.equal(context.__JSKIT_UI_SURFACE_ID__, "admin");
@@ -347,6 +350,24 @@ test("buildUiTemplateContext derives CRUD placeholders from the explicit target-
     assert.equal(context.__JSKIT_UI_EDIT_PAGE_VIEW_URL__, "\"..\"");
     assert.equal(context.__JSKIT_UI_VIEW_PAGE_LIST_URL__, "\"..\"");
     assert.equal(context.__JSKIT_UI_VIEW_PAGE_EDIT_URL__, "\"./edit\"");
+  });
+});
+
+test("buildUiTemplateContext can suppress parent-title heading generation with parent-title none", async () => {
+  await withTempApp(async (appRoot) => {
+    await writeResource(appRoot, RESOURCE_FILE, FULL_RESOURCE_SOURCE);
+
+    const context = await buildUiTemplateContext({
+      appRoot,
+      options: createOptions({
+        "parent-title": "none"
+      })
+    });
+
+    assert.equal(context.__JSKIT_UI_PARENT_TITLE_MODE__, "none");
+    assert.equal(context.__JSKIT_UI_LIST_PARENT_TITLE_IMPORT_LINE__, "");
+    assert.doesNotMatch(context.__JSKIT_UI_LIST_HEADING_TITLE_SETUP__, /useCrudListParentTitle/);
+    assert.match(context.__JSKIT_UI_LIST_HEADING_TITLE_SETUP__, /computed\(\(\) => "Customers"\)/);
   });
 });
 
@@ -711,6 +732,23 @@ test("buildUiTemplateContext validates operations against the supported CRUD set
           })
         }),
       /operations" supports only: list, view, new, edit/
+    );
+  });
+});
+
+test("buildUiTemplateContext validates parent-title against the supported modes", async () => {
+  await withTempApp(async (appRoot) => {
+    await writeResource(appRoot, RESOURCE_FILE, FULL_RESOURCE_SOURCE);
+
+    await assert.rejects(
+      () =>
+        buildUiTemplateContext({
+          appRoot,
+          options: createOptions({
+            "parent-title": "always"
+          })
+        }),
+      /parent-title" supports only: contextual, none/
     );
   });
 });

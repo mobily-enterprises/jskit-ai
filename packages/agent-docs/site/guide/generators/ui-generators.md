@@ -272,6 +272,37 @@ The route page is still a normal page file. What changes is the inferred placeme
 
 So JSKIT is not switching to a different generator. It is switching the inferred placement behavior because the route tree now has a routed host above the new page.
 
+### Making a child page the default landing route
+
+This is important enough to state explicitly: if a routed host has child pages, and you want the bare parent URL to open one child immediately, use an explicit redirect.
+
+Do **not** try to make the app "guess the first tab". Do **not** infer it from placement order. Keep the target explicit.
+
+The standard pattern is:
+
+```vue
+<script setup>
+import { redirectToChild } from "@jskit-ai/kernel/client/pageRedirects";
+
+definePage({
+  redirect: redirectToChild("exports")
+});
+</script>
+```
+
+If this is placed on the host page, opening `/reports` lands on `/reports/exports`.
+
+This is also the right pattern when the host page still renders shared content such as a title, tabs, summary panel, or `RouterView`. The parent route remains the host, and the child page simply becomes the default destination under it.
+
+Why this is the recommended pattern:
+
+- the destination is explicit and stable
+- it survives later placement reordering
+- it does not depend on which child link happens to render first
+- it is easy to change later by editing one child segment
+
+This is one of the most common things people want once they start using child-page hosts. Treat it as normal JSKIT routing, not a special hack.
+
 ## Nested pages under an `index.vue` host
 
 Once `Reports` is a host, create a child page under it:

@@ -304,6 +304,10 @@ Local functions
 - `createRecordRelationshipsResolver(definition = null)`
 - `createRequestRelationshipMapper(definition = null)`
 - `resolveOutputAttributeExcludeKeys(resource = {})`
+- `resolveLookupContainerKey(resource = {})`
+- `normalizeLookupId(value)`
+- `normalizeIncludedLookupRecord(source = null, fallbackId = null)`
+- `createLookupIncludedResolver(definition = null, { lookupContainerKey = "" } = {})`
 
 ### `src/server/serviceEvents.js`
 Exports

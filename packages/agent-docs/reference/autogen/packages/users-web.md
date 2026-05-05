@@ -84,6 +84,7 @@ Exports
 ### `src/client/composables/crud/crudJsonApiTransportSupport.js`
 Exports
 - `inferCrudJsonApiTransport(resource = null, { mode = "", operationName = "" } = {})`
+- `inferCrudLookupJsonApiTransport({ namespace = "", apiPath = "" } = {})`
 - `resolveCrudJsonApiTransport(transport = null, resource = null, options = {})`
 - `resolveLookupFieldMap(resource = null)`
 Local functions

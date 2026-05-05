@@ -133,7 +133,11 @@ function resolveCrudListParentTitleFromItems(items = [], descriptor = null) {
   }
 
   for (const item of sourceItems) {
+    const rawParentValue = toRouteParamValue(item?.[descriptor.fieldKey]);
     const resolvedTitle = normalizeText(resolveLookupFieldDisplayValue(item, descriptor.fieldDescriptor));
+    if (resolvedTitle && rawParentValue && resolvedTitle === rawParentValue) {
+      continue;
+    }
     if (resolvedTitle) {
       return resolvedTitle;
     }

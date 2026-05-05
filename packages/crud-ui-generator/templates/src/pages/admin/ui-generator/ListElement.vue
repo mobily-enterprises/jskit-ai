@@ -89,7 +89,7 @@ __JSKIT_UI_LIST_ROW_COLUMNS__
 
 <script setup>
 import { computed } from "vue";
-import { useCrudListParentTitle } from "@jskit-ai/users-web/client/composables/useCrudListParentTitle";
+__JSKIT_UI_LIST_PARENT_TITLE_IMPORT_LINE__
 import { useCrudList } from "@jskit-ai/users-web/client/composables/useCrudList";
 import { resource as uiResource } from "__JSKIT_UI_RESOURCE_IMPORT_PATH__";
 
@@ -137,25 +137,7 @@ const records = useCrudList({
     : null
 });
 
-const parentTitle = useCrudListParentTitle({
-  listRuntime: records,
-  resource: uiResource,
-  adapter: UI_OPERATION_ADAPTER || undefined,
-  recordIdParam: UI_RECORD_ID_PARAM,
-  queryKeyPrefix: ["ui-generator", "__JSKIT_UI_RESOURCE_NAMESPACE__", "list", "parent-title"],
-  placementSource: "ui-generator.__JSKIT_UI_RESOURCE_NAMESPACE__.list.parent-title",
-  fallbackLoadError: "Unable to load parent record.",
-  notFoundMessage: "Parent record not found."
-});
-
-const listHeadingTitle = computed(() => {
-  const resolvedParentTitle = String(parentTitle.title || "").trim();
-  if (!resolvedParentTitle) {
-    return "__JSKIT_UI_ROUTE_TITLE__";
-  }
-
-  return `__JSKIT_UI_ROUTE_TITLE__ for ${resolvedParentTitle}`;
-});
+__JSKIT_UI_LIST_HEADING_TITLE_SETUP__
 </script>
 
 <style scoped>

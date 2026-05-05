@@ -92,6 +92,8 @@ config.tenancyMode = "personal";
 6. Run `npm install`
 7. Run `npm run db:migrate`
 
+The easy part to miss is step 3. If `users-web` / `users-core` were already installed while the app was still on `tenancyMode = "none"`, then changing `config.tenancyMode` and adding only the workspace packages is **not** enough. `npx jskit update package users-core` is required so the app-local `packages/users/...` scaffold is rewritten in its workspace-aware shape too.
+
 I checked the two failure modes while updating this chapter.
 
 - If the app is already in `personal` or `workspaces` mode when you add the workspace packages, JSKIT installs the full workspace scaffold, including:
@@ -137,6 +139,12 @@ npx jskit add package workspaces-web
 npm install
 npm run db:migrate
 ```
+
+<DocsTerminalTip label="Important" title="This Block Is Only The Fresh Workspace Install Path">
+These commands are complete only if the app was already on `tenancyMode = "personal"` when `users-web` / `users-core` were originally installed, or if you already ran the recovery `npx jskit update package users-core` step above.
+
+If you changed tenancy after installing users, do not skip that update. The workspace packages add workspace runtime and routes, but `users-core` is what rewrites the app-local users scaffold into its workspace-aware shape.
+</DocsTerminalTip>
 
 `workspaces-core` adds the server-side workspace runtime and schema migrations. `workspaces-web` adds the workspace-facing client surfaces, shell placements, and app-owned route files.
 
@@ -457,6 +465,30 @@ Concretely, that route tree works like this:
 - `w/[workspaceSlug]/admin/workspace/settings.vue` is a section shell. It does not own the actual settings fields. It owns the card frame, the left-side settings menu outlet, and the nested `<RouterView />` where child settings pages render.
 - `w/[workspaceSlug]/admin/workspace/settings/index.vue` is intentionally almost empty. Its job is to make `/admin/workspace/settings` a real route today and give you a clean place to redirect or add child settings pages later.
 
+If you want to add a real workspace settings child page at this point, use the normal page generator under that route tree:
+
+```bash
+npx jskit generate ui-generator page \
+  w/[workspaceSlug]/admin/workspace/settings/billing/index.vue \
+  --name "Billing"
+```
+
+That command does two things:
+
+- it creates `src/pages/w/[workspaceSlug]/admin/workspace/settings/billing/index.vue`
+- it also appends the matching workspace settings menu entry into `src/placement.js`
+
+The reason JSKIT can wire that link automatically is that the workspace settings shell already exposes a named placement outlet with a default link renderer:
+
+```vue
+<ShellOutlet
+  target="admin-settings:primary-menu"
+  default-link-component-token="local.main.ui.surface-aware-menu-link-item"
+/>
+```
+
+`target="admin-settings:primary-menu"` tells the generator which settings menu host owns those child links. `default-link-component-token="local.main.ui.surface-aware-menu-link-item"` tells it which local menu-link component to use unless you override it. So a page generated under `w/[workspaceSlug]/admin/workspace/settings/...` automatically lands in the left-side workspace settings menu without you hand-writing the placement entry.
+
 ### Workspace pages are prepared for missing-workspace states
 
 The starter workspace pages already use a dedicated unavailable-state helper:
@@ -708,6 +740,35 @@ That one block explains a lot of the new shell behavior.
 - the top-right area can show a pending-invites cue
 - the admin surface gets workspace tools in the top-right area
 - the admin workspace settings menu is now another nested placement host with both `Settings` and `Members`
+
+If you want to add your own app-owned page into that top cog menu, first ask JSKIT which placement targets exist:
+
+```bash
+npx jskit list-placements
+```
+
+In a workspace-enabled app, that list now includes:
+
+```text
+- admin-cog:primary-menu [package:@jskit-ai/workspaces-web:src/client/components/UsersWorkspaceToolsWidget.vue]
+```
+
+If you want more context than the raw target list, `npx jskit show @jskit-ai/workspaces-web --details` also shows that same outlet plus the default `Settings` and `Members` entries already targeting it.
+
+Once you know the outlet id, generate the page like this:
+
+```bash
+npx jskit generate ui-generator page \
+  w/[workspaceSlug]/admin/catalogue/index.vue \
+  --name "Catalogue" \
+  --link-placement admin-cog:primary-menu
+```
+
+That command creates `src/pages/w/[workspaceSlug]/admin/catalogue/index.vue` and appends the matching link entry into `src/placement.js`.
+
+`--link-placement` is necessary here because this route is just a normal `admin` page. It is **not** a child page under a local host like `w/[workspaceSlug]/admin/workspace/settings.vue`, so the generator has no nested settings outlet to infer automatically. If you omit `--link-placement`, the new page link falls back to the app's default shell menu outlet instead of the cog menu.
+
+You also do **not** need `--link-component-token` here. `admin-cog:primary-menu` already declares `local.main.ui.surface-aware-menu-link-item` as its default link renderer, so JSKIT reuses that automatically when it writes the placement entry.
 
 So the placement system from the shell chapter is still doing the same job as before. The app just has a richer routing and tenancy context now.
 

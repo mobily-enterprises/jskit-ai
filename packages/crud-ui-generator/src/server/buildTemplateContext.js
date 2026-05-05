@@ -32,6 +32,7 @@ import {
 import descriptor from "../../package.descriptor.mjs";
 
 const DEFAULT_ALLOWED_OPERATIONS = Object.freeze(["list", "view", "new", "edit"]);
+const DEFAULT_ALLOWED_PARENT_TITLE_VALUES = Object.freeze(["contextual", "none"]);
 function resolveAllowedValues(schema = {}, fallbackValues = []) {
   const resolvedValues = [];
   const seen = new Set();
@@ -56,6 +57,14 @@ function resolveAllowedValues(schema = {}, fallbackValues = []) {
 const OPERATION_VALUES = resolveAllowedValues(descriptor?.options?.operations, DEFAULT_ALLOWED_OPERATIONS);
 const ALLOWED_OPERATIONS = new Set(OPERATION_VALUES);
 const DEFAULT_OPERATIONS = normalizeText(descriptor?.options?.operations?.defaultValue) || OPERATION_VALUES.join(",");
+const PARENT_TITLE_VALUES = resolveAllowedValues(
+  descriptor?.options?.["parent-title"],
+  DEFAULT_ALLOWED_PARENT_TITLE_VALUES
+);
+const ALLOWED_PARENT_TITLE_VALUES = new Set(PARENT_TITLE_VALUES);
+const DEFAULT_PARENT_TITLE_MODE = normalizeText(descriptor?.options?.["parent-title"]?.defaultValue).toLowerCase()
+  || PARENT_TITLE_VALUES[0]
+  || "contextual";
 const DEFAULT_LIST_HIDDEN_FIELD_KEYS = new Set(["createdAt", "updatedAt"]);
 const DEFAULT_FORM_COMPONENT_FILE = "CrudAddEditForm.vue";
 const DEFAULT_FORM_FIELDS_FILE = "CrudAddEditFormFields.js";
@@ -220,6 +229,17 @@ function parseDisplayFieldsOption(options) {
   }
 
   return Object.freeze(unique);
+}
+
+function parseParentTitleOption(options) {
+  const parentTitleMode = normalizeText(options?.["parent-title"]).toLowerCase() || DEFAULT_PARENT_TITLE_MODE;
+  if (!ALLOWED_PARENT_TITLE_VALUES.has(parentTitleMode)) {
+    throw new Error(
+      `crud-ui-generator option "parent-title" supports only: ${PARENT_TITLE_VALUES.join(", ")}.`
+    );
+  }
+
+  return parentTitleMode;
 }
 
 function validateDisplayFieldsForOperation(selectedFieldKeys, fields, operationName) {
@@ -461,11 +481,52 @@ function resolveCrudRelativePath(namespace = "") {
   })}`;
 }
 
+function buildListParentTitleImportLine(parentTitleMode = "contextual") {
+  if (parentTitleMode !== "contextual") {
+    return "";
+  }
+
+  return 'import { useCrudListParentTitle } from "@jskit-ai/users-web/client/composables/useCrudListParentTitle";';
+}
+
+function buildListHeadingTitleSetup({
+  parentTitleMode = "contextual",
+  resourceNamespace = "",
+  routeTitle = "Records"
+} = {}) {
+  const normalizedRouteTitle = normalizeText(routeTitle) || "Records";
+  const routeTitleLiteral = JSON.stringify(normalizedRouteTitle);
+  if (parentTitleMode !== "contextual") {
+    return `const listHeadingTitle = computed(() => ${routeTitleLiteral});`;
+  }
+
+  return `const parentTitle = useCrudListParentTitle({
+  listRuntime: records,
+  resource: uiResource,
+  adapter: UI_OPERATION_ADAPTER || undefined,
+  recordIdParam: UI_RECORD_ID_PARAM,
+  queryKeyPrefix: ["ui-generator", "${resourceNamespace}", "list", "parent-title"],
+  placementSource: "ui-generator.${resourceNamespace}.list.parent-title",
+  fallbackLoadError: "Unable to load parent record.",
+  notFoundMessage: "Parent record not found."
+});
+
+const listHeadingTitle = computed(() => {
+  const resolvedParentTitle = String(parentTitle.title || "").trim();
+  if (!resolvedParentTitle) {
+    return ${routeTitleLiteral};
+  }
+
+  return ${JSON.stringify(`${normalizedRouteTitle} for `)} + resolvedParentTitle;
+});`;
+}
+
 async function buildUiTemplateContext({ appRoot, options } = {}) {
   const targetRoot = requireTargetRootOption(options);
   const listTargetFile = resolveListTargetFile(targetRoot);
   const selectedOperations = parseOperationsOption(options);
   const selectedDisplayFields = parseDisplayFieldsOption(options);
+  const parentTitleMode = parseParentTitleOption(options);
   const pageTarget = await resolvePageTargetDetails({
     appRoot,
     targetFile: listTargetFile,
@@ -607,6 +668,13 @@ async function buildUiTemplateContext({ appRoot, options } = {}) {
     __JSKIT_UI_RESOURCE_SINGULAR_TITLE__: resourceLabels.singularTitle,
     __JSKIT_UI_RESOURCE_PLURAL_TITLE__: resourceLabels.pluralTitle,
     __JSKIT_UI_ROUTE_TITLE__: pageTarget.defaultName,
+    __JSKIT_UI_PARENT_TITLE_MODE__: parentTitleMode,
+    __JSKIT_UI_LIST_PARENT_TITLE_IMPORT_LINE__: buildListParentTitleImportLine(parentTitleMode),
+    __JSKIT_UI_LIST_HEADING_TITLE_SETUP__: buildListHeadingTitleSetup({
+      parentTitleMode,
+      resourceNamespace,
+      routeTitle: pageTarget.defaultName
+    }),
     __JSKIT_UI_FORM_COMPONENT_FILE__: DEFAULT_FORM_COMPONENT_FILE,
     __JSKIT_UI_FORM_FIELDS_FILE__: DEFAULT_FORM_FIELDS_FILE,
     __JSKIT_UI_SURFACE_ID__: pageTarget.surfaceId,

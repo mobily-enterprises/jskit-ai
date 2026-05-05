@@ -13,6 +13,16 @@ test("crud-ui-generator operations option exposes structured csv-enum metadata",
   assert.equal(descriptor.metadata?.generatorSubcommands?.crud?.optionNames?.includes("operations"), true);
 });
 
+test("crud-ui-generator parent-title option exposes structured enum metadata", () => {
+  assert.equal(descriptor.options?.["parent-title"]?.validationType, "enum");
+  assert.deepEqual(
+    descriptor.options?.["parent-title"]?.allowedValues,
+    ["contextual", "none"]
+  );
+  assert.equal(descriptor.options?.["parent-title"]?.defaultValue, "contextual");
+  assert.equal(descriptor.metadata?.generatorSubcommands?.crud?.optionNames?.includes("parent-title"), true);
+});
+
 test("crud-ui-generator placement scaffold includes an explicit stock icon prop", () => {
   const placementMutation = descriptor?.mutations?.text?.find(
     (entry) => String(entry?.id || "").trim() === "crud-ui-placement-menu"

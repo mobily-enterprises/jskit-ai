@@ -390,6 +390,14 @@ Under the hood, `users-core` wires those contributors into the users-backed prof
 
 The next chapter uses exactly that pattern. `workspaces-core` registers a contributor so the workspace layer can react when a new user enters the system.
 
+One forward-looking warning matters here. If this app later changes from `tenancyMode = "none"` to `personal` or `workspaces`, the app-local users scaffold written by `users-core` also needs to be refreshed. The multi-homing chapter calls out that recovery step explicitly with:
+
+```bash
+npx jskit update package users-core
+```
+
+That is not only a workspace-package concern. The generated `packages/users/...` scaffold itself changes shape when tenancy becomes workspace-aware.
+
 ## Summary
 
 This chapter is where the app stopped treating signed-in people as only Supabase identities and started treating them as real JSKIT users.

@@ -212,3 +212,19 @@ test("update package fails when a managed app-owned file is missing on disk", as
     assert.equal(await readFile(lockPath, "utf8"), lockAfterAdd);
   });
 });
+
+test("update package fails with install guidance when the package is not installed", async () => {
+  await withTempDir(async (cwd) => {
+    const appRoot = path.join(cwd, "update-missing-package-app");
+    await createMinimalApp(appRoot, { name: "update-missing-package-app" });
+
+    const updateResult = runCli({
+      cwd: appRoot,
+      args: ["update", "package", "workspaces-core"]
+    });
+    assert.equal(updateResult.status, 1);
+    assert.match(String(updateResult.stderr || ""), /Package is not installed: workspaces-core/);
+    assert.match(String(updateResult.stderr || ""), /already recorded in \.jskit\/lock\.json/i);
+    assert.match(String(updateResult.stderr || ""), /jskit add package workspaces-core/);
+  });
+});
