@@ -198,6 +198,15 @@ function buildJsonRestQueryParams(resourceType = "", query = {}, { include = und
   return queryParams;
 }
 
+function extractJsonRestCollectionRows(payload = null) {
+  if (Array.isArray(payload)) {
+    return payload;
+  }
+
+  const source = normalizeJsonRestObject(payload);
+  return Array.isArray(source.data) ? source.data : [];
+}
+
 function extractJsonApiInputRelationships(attributes = {}, resource = null, relationships = null) {
   const normalizedAttributes = {
     ...normalizeJsonRestObject(attributes)
@@ -411,6 +420,7 @@ export {
   createJsonApiRelationship,
   createJsonRestResourceScopeOptions,
   createJsonRestContext,
+  extractJsonRestCollectionRows,
   isJsonRestResourceMissingError,
   returnNullWhenJsonRestResourceMissing,
   resolveWorkspaceScopeValue,

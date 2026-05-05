@@ -371,6 +371,7 @@ Exports
 Local functions
 - `collectDeclaredPackageNames(packageJson = {})`
 - `verifySymlinkTarget(targetPath = "", sourceDir = "", { packageName = "" } = {})`
+- `replaceWithSymlink(targetPath = "", sourceDir = "", { packageName = "" } = {})`
 - `maybeLinkCompanionPackages({ appRoot = "", repoRoot = "", stdout, createCliError })`
 
 ### `src/server/commandHandlers/appCommands/release.js`

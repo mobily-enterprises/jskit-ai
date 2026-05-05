@@ -15,6 +15,12 @@ function createKnexStub() {
   return knex;
 }
 
+function asCollectionDocument(rows = []) {
+  return {
+    data: Array.isArray(rows) ? rows : []
+  };
+}
+
 function toWorkspaceInviteRow(row = {}) {
   return {
     id: String(row.id || ""),
@@ -73,7 +79,7 @@ function createWorkspaceInvitesApiStub({
             return true;
           });
 
-          return matching.map((row) => toWorkspaceInviteRow(row));
+          return asCollectionDocument(matching.map((row) => toWorkspaceInviteRow(row)));
         },
         async post(payload) {
           const inputRecord = payload?.inputRecord?.data || {};

@@ -34,6 +34,10 @@ It should feel like:
 
 The default lane should be the easiest lane.
 
+For new feature topology, the default lane should begin with a JSKIT command.
+
+Normal work should not start with ad hoc file creation when the framework intends a package or generator-backed shape.
+
 ## Weird / Custom Lane
 
 The weird lane is real and supported, but explicit.
@@ -97,6 +101,8 @@ Generators should create app-owned files for:
 
 These files are app-owned, but they should still start from a strong standard baseline.
 
+When a generated feature becomes substantial on the server side, that baseline is a dedicated app-local package with its own provider rather than extra domain logic stuffed into `packages/main`.
+
 ### App-owned custom code
 
 App-owned custom code should be where the app genuinely customizes:
@@ -105,6 +111,9 @@ App-owned custom code should be where the app genuinely customizes:
 - branding
 - page-specific additions
 - app-specific business behavior that goes beyond package baseline behavior
+
+`packages/main` remains the composition/glue module for the app.
+It is not the default home for substantial generated server features.
 
 ## Ownership Smell Rule
 
@@ -151,6 +160,43 @@ The standard CRUD server lane is:
 
 Custom server behavior is allowed, but the default path should remain obvious and generator-backed.
 
+## Standard Non-CRUD Server Lane
+
+The standard non-CRUD server lane is:
+
+- start with a JSKIT generator command when creating a new substantial server-side feature
+- emit a dedicated app-local package under `packages/<feature>/`
+- give that package its own provider
+- keep provider, actions, service, repository, and routes as separate seams when they are needed
+- keep `packages/main` focused on app composition and lightweight local glue
+
+This lane exists for features such as engines, workflows, bounded-domain services, and other server-side capability that is more than a trivial leaf customization.
+
+The concrete generator contract for this lane is `feature-server-generator scaffold`; see `docs/feature-server-generator-spec.md`.
+
+### Standard non-CRUD package shape
+
+For a substantial generated server feature, the default shape is:
+
+- a dedicated package under `packages/<feature>/`
+- a provider that wires DI, services, actions, and boot hooks
+- a service that owns business orchestration
+- a repository that owns persistence access when persistence is needed
+- thin actions and optional route wiring around that service
+
+Do not collapse that shape into a single provider file or into `packages/main` as the normal path.
+
+### Persistence boundary rule
+
+For the default lane:
+
+- services must not talk to persistence directly
+- repositories own the persistence boundary
+- repositories should use internal `json-rest-api` first when that path fits
+- raw `knex` inside repositories is a rare explicit exception, not the baseline
+
+If a feature uses a rarer persistence pattern, that should be treated as an explicit weird/custom lane decision rather than silent default-lane drift.
+
 ## Standard CRUD Client Lane
 
 The standard CRUD client lane is:
@@ -175,6 +221,9 @@ Good failures:
 - missing standard relationship data
 - invalid route contract
 - unsupported explicit transport override on a high-level CRUD seam
+- a substantial server feature added without a package/provider seam
+- service-layer code reaching directly into persistence
+- repository-layer persistence that bypasses the standard internal path without an explicit exception
 
 Bad behavior:
 
@@ -200,9 +249,12 @@ First make the existing lane stronger and more coherent.
 ## What This Rulebook Rejects
 
 - giant app-owned copied runtime hosts as the normal package story
+- substantial generated server features crammed into `packages/main`
+- collapsing provider, service, actions, and persistence into one file as the normal feature path
 - hidden alternate page/surface extension systems
 - duplicated CRUD transport or lookup semantics outside the shared resource
 - normal app work relying on raw `fetch(...)`
+- normal app work starting from hand-made topology when a JSKIT command should have created the shape
 - making the default lane depend on expert knowledge of lower-level seams
 
 ## Success Criteria
@@ -212,6 +264,8 @@ JSKIT is closer to the intended product shape when:
 - the normal authoring flow is command-backed and obvious
 - app-owned files are mostly true customization seams
 - package baseline behavior stays package-owned
+- substantial generated server features land in dedicated packages with their own providers
+- services do not become persistence layers in the default lane
 - placements are the standard extension seam
 - shared CRUD resources remain canonical
 - weird/custom work is still possible without contaminating the normal lane

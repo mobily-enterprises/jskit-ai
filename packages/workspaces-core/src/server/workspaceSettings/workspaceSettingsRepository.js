@@ -6,7 +6,8 @@ import {
 } from "../common/repositories/repositoryUtils.js";
 import {
   createJsonApiInputRecord,
-  createJsonRestContext
+  createJsonRestContext,
+  extractJsonRestCollectionRows
 } from "@jskit-ai/json-rest-api-core/server/jsonRestApiHost";
 import { resolveWorkspaceThemePalettes } from "../../shared/settings.js";
 
@@ -62,17 +63,20 @@ function createRepository({ api, knex } = {}) {
   const withTransaction = createWithTransaction(knex);
 
   async function queryFirst(filters = {}, options = {}) {
-    const rows = await api.resources.workspaceSettings.query(
-      {
-        queryParams: {
-          filters
+    const rows = extractJsonRestCollectionRows(
+      await api.resources.workspaceSettings.query(
+        {
+          queryParams: {
+            filters
+          },
+          transaction: options?.trx || null,
+          simplified: true
         },
-        transaction: options?.trx || null
-      },
-      createJsonRestContext(options?.context || null)
+        createJsonRestContext(options?.context || null)
+      )
     );
 
-    return Array.isArray(rows) ? rows[0] || null : null;
+    return rows[0] || null;
   }
 
   async function findByWorkspaceId(workspaceId, options = {}) {

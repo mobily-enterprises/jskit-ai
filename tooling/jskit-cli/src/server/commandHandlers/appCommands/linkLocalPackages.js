@@ -60,6 +60,17 @@ async function verifySymlinkTarget(targetPath = "", sourceDir = "", {
   }
 }
 
+async function replaceWithSymlink(targetPath = "", sourceDir = "", {
+  packageName = ""
+} = {}) {
+  await mkdir(path.dirname(targetPath), { recursive: true });
+  await rm(targetPath, { recursive: true, force: true });
+  await symlink(sourceDir, targetPath, resolveSymlinkType());
+  await verifySymlinkTarget(targetPath, sourceDir, {
+    packageName
+  });
+}
+
 async function maybeLinkCompanionPackages({
   appRoot = "",
   repoRoot = "",
@@ -105,14 +116,18 @@ async function maybeLinkCompanionPackages({
       );
     }
 
-    const targetPath = path.join(appRoot, "node_modules", companion.packageName);
-    await mkdir(path.dirname(targetPath), { recursive: true });
-    await rm(targetPath, { recursive: true, force: true });
-    await symlink(sourceDir, targetPath, resolveSymlinkType());
-    await verifySymlinkTarget(targetPath, sourceDir, {
+    const appTargetPath = path.join(appRoot, "node_modules", companion.packageName);
+    await replaceWithSymlink(appTargetPath, sourceDir, {
       packageName: companion.packageName
     });
     stdout.write(`[link-local] linked ${companion.packageName} -> ${sourceDir}\n`);
+    linkedCount += 1;
+
+    const repoTargetPath = path.join(repoRoot, "node_modules", companion.packageName);
+    await replaceWithSymlink(repoTargetPath, sourceDir, {
+      packageName: `${companion.packageName} (repo root)`
+    });
+    stdout.write(`[link-local] linked repo companion ${companion.packageName} -> ${sourceDir}\n`);
     linkedCount += 1;
   }
 
@@ -150,8 +165,9 @@ async function runAppLinkLocalPackagesCommand(ctx = {}, { appRoot = "", options 
 
   for (const [packageDirName, sourceDir] of [...packageMap.entries()].sort((left, right) => left[0].localeCompare(right[0]))) {
     const targetPath = path.join(scopeDirectory, packageDirName);
-    await rm(targetPath, { recursive: true, force: true });
-    await symlink(sourceDir, targetPath, resolveSymlinkType());
+    await replaceWithSymlink(targetPath, sourceDir, {
+      packageName: `@jskit-ai/${packageDirName}`
+    });
     stdout.write(`[link-local] linked @jskit-ai/${packageDirName} -> ${sourceDir}\n`);
     await linkPackageBinEntries({
       appRoot,

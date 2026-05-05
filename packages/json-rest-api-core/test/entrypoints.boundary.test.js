@@ -12,6 +12,7 @@ import {
   createJsonRestResourceScopeOptions,
   createJsonRestContext,
   createJsonRestApiHost,
+  extractJsonRestCollectionRows,
   isJsonRestResourceMissingError,
   registerJsonRestApiHost,
   returnNullWhenJsonRestResourceMissing,
@@ -41,6 +42,7 @@ test("server entrypoint exports shared host helpers", () => {
   assert.equal(typeof createJsonRestResourceScopeOptions, "function");
   assert.equal(typeof createJsonRestContext, "function");
   assert.equal(typeof createJsonRestApiHost, "function");
+  assert.equal(typeof extractJsonRestCollectionRows, "function");
   assert.equal(typeof isJsonRestResourceMissingError, "function");
   assert.equal(typeof registerJsonRestApiHost, "function");
   assert.equal(typeof returnNullWhenJsonRestResourceMissing, "function");
@@ -85,6 +87,23 @@ test("createJsonRestContext returns an empty mutable object when source context 
   assert.deepEqual(result, {});
   result.method = "query";
   assert.equal(result.method, "query");
+});
+
+test("extractJsonRestCollectionRows understands the internal collection-document contract", () => {
+  const rows = [{ id: "1" }, { id: "2" }];
+
+  assert.deepEqual(extractJsonRestCollectionRows(rows), rows);
+  assert.deepEqual(
+    extractJsonRestCollectionRows({
+      data: rows,
+      links: {
+        self: "/contacts"
+      }
+    }),
+    rows
+  );
+  assert.deepEqual(extractJsonRestCollectionRows({ data: null }), []);
+  assert.deepEqual(extractJsonRestCollectionRows(null), []);
 });
 
 test("createJsonRestApiHost installs normalizeRecordId as the default resource id normalizer", async () => {

@@ -8,7 +8,8 @@ import {
 import {
   createJsonApiInputRecord,
   createJsonApiRelationship,
-  createJsonRestContext
+  createJsonRestContext,
+  extractJsonRestCollectionRows
 } from "@jskit-ai/json-rest-api-core/server/jsonRestApiHost";
 
 const RESOURCE_TYPE = "workspaces";
@@ -53,17 +54,20 @@ function createRepository({ api, knex } = {}) {
   const withTransaction = createWithTransaction(knex);
 
   async function queryFirst(filters = {}, options = {}) {
-    const rows = await api.resources.workspaces.query(
-      {
-        queryParams: {
-          filters
+    const rows = extractJsonRestCollectionRows(
+      await api.resources.workspaces.query(
+        {
+          queryParams: {
+            filters
+          },
+          transaction: options?.trx || null,
+          simplified: true
         },
-        transaction: options?.trx || null
-      },
-      createJsonRestContext(options?.context || null)
+        createJsonRestContext(options?.context || null)
+      )
     );
 
-    return normalizeWorkspaceRecord(Array.isArray(rows) ? rows[0] || null : null);
+    return normalizeWorkspaceRecord(rows[0] || null);
   }
 
   async function findById(workspaceId, options = {}) {
@@ -90,22 +94,23 @@ function createRepository({ api, knex } = {}) {
       return null;
     }
 
-    const rows = await api.resources.workspaces.query(
-      {
-        queryParams: {
-          filters: {
-            owner: normalizedUserId,
-            isPersonal: true
-          }
+    const rows = extractJsonRestCollectionRows(
+      await api.resources.workspaces.query(
+        {
+          queryParams: {
+            filters: {
+              owner: normalizedUserId,
+              isPersonal: true
+            }
+          },
+          transaction: options?.trx || null,
+          simplified: true
         },
-        transaction: options?.trx || null
-      },
-      createJsonRestContext(options?.context || null)
+        createJsonRestContext(options?.context || null)
+      )
     );
 
-    const normalizedRows = Array.isArray(rows)
-      ? rows.map((row) => normalizeWorkspaceRecord(row)).filter(Boolean)
-      : [];
+    const normalizedRows = rows.map((row) => normalizeWorkspaceRecord(row)).filter(Boolean);
     normalizedRows.sort((left, right) => {
       const leftId = Number(left?.id);
       const rightId = Number(right?.id);
@@ -204,21 +209,24 @@ function createRepository({ api, knex } = {}) {
       return [];
     }
 
-    const rows = await api.resources.workspaceMemberships.query(
-      {
-        queryParams: {
-          filters: {
-            user: normalizedUserId,
-            status: "active"
+    const rows = extractJsonRestCollectionRows(
+      await api.resources.workspaceMemberships.query(
+        {
+          queryParams: {
+            filters: {
+              user: normalizedUserId,
+              status: "active"
+            },
+            include: ["workspace"]
           },
-          include: ["workspace"]
+          transaction: options?.trx || null,
+          simplified: true
         },
-        transaction: options?.trx || null
-      },
-      createJsonRestContext(options?.context || null)
+        createJsonRestContext(options?.context || null)
+      )
     );
 
-    const workspaces = (Array.isArray(rows) ? rows : [])
+    const workspaces = rows
       .map((row) => {
         const workspace = normalizeWorkspaceRecord(row?.workspace);
         if (!workspace || workspace.deletedAt != null) {
