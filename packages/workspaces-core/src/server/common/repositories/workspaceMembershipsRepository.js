@@ -10,8 +10,7 @@ import {
 import {
   createJsonApiInputRecord,
   createJsonApiRelationship,
-  createJsonRestContext,
-  simplifyJsonApiDocument
+  createJsonRestContext
 } from "@jskit-ai/json-rest-api-core/server/jsonRestApiHost";
 import { OWNER_ROLE_ID } from "../../../shared/roles.js";
 
@@ -92,19 +91,18 @@ function createRepository({ api, knex } = {}) {
           .filter(Boolean)
       )
     );
-    const result = await api.resources.workspaceMemberships.query(
+    const rows = await api.resources.workspaceMemberships.query(
       {
         queryParams: {
           filters,
           ...(normalizedInclude.length > 0 ? { include: normalizedInclude } : {})
         },
-        transaction: options?.trx || null,
-        simplified: false
+        transaction: options?.trx || null
       },
       createJsonRestContext(options?.context || null)
     );
 
-    return Array.isArray(simplifyJsonApiDocument(result)) ? simplifyJsonApiDocument(result) : [];
+    return Array.isArray(rows) ? rows : [];
   }
 
   async function findByWorkspaceIdAndUserId(workspaceId, userId, options = {}) {
@@ -148,8 +146,7 @@ function createRepository({ api, knex } = {}) {
                 id: existing.id
               }
             ),
-            transaction: options?.trx || null,
-            simplified: false
+            transaction: options?.trx || null
           },
           createJsonRestContext(options?.context || null)
         );
@@ -175,8 +172,7 @@ function createRepository({ api, knex } = {}) {
               })
             }
           ),
-          transaction: options?.trx || null,
-          simplified: false
+          transaction: options?.trx || null
         },
         createJsonRestContext(options?.context || null)
       );
@@ -223,8 +219,7 @@ function createRepository({ api, knex } = {}) {
                 })
               }
             ),
-            transaction: options?.trx || null,
-            simplified: false
+            transaction: options?.trx || null
           },
           createJsonRestContext(options?.context || null)
         );
@@ -249,8 +244,7 @@ function createRepository({ api, knex } = {}) {
             id: existing.id
           }
         ),
-        transaction: options?.trx || null,
-        simplified: false
+        transaction: options?.trx || null
       },
       createJsonRestContext(options?.context || null)
     );

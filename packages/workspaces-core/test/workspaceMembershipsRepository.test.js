@@ -15,29 +15,25 @@ function createKnexStub() {
   return knex;
 }
 
-function toWorkspaceMembershipResource(row = {}) {
+function toWorkspaceMembershipRow(row = {}) {
   return {
-    type: "workspaceMemberships",
     id: String(row.id || ""),
-    attributes: {
-      roleSid: row.roleSid,
-      status: row.status,
-      createdAt: row.createdAt,
-      updatedAt: row.updatedAt
+    workspaceId: row?.workspace?.id == null ? null : String(row.workspace.id),
+    workspace: row?.workspace?.id == null ? null : {
+      ...row.workspace,
+      id: String(row.workspace.id)
     },
-    relationships: {
-      workspace: {
-        data: row?.workspace?.id == null ? null : { type: "workspaces", id: String(row.workspace.id) }
-      },
-      user: {
-        data: row?.user?.id == null
-          ? null
-          : {
-              type: "userProfiles",
-              id: String(row.user.id)
-            }
-      }
-    }
+    userId: row?.user?.id == null ? null : String(row.user.id),
+    user: row?.user?.id == null
+      ? null
+      : {
+          ...row.user,
+          id: String(row.user.id)
+        },
+    roleSid: row.roleSid,
+    status: row.status,
+    createdAt: row.createdAt,
+    updatedAt: row.updatedAt
   };
 }
 
@@ -62,23 +58,11 @@ function createWorkspaceMembershipsApiStub({
 
           if (Object.hasOwn(filters, "workspace") && Object.hasOwn(filters, "user")) {
             const row = rowByComposite.get(`${filters.workspace}:${filters.user}`) || null;
-            return { data: row ? [toWorkspaceMembershipResource(row)] : [] };
+            return row ? [toWorkspaceMembershipRow(row)] : [];
           }
 
           if (Object.hasOwn(filters, "workspace") && Object.hasOwn(filters, "status") && includeUser) {
-            return {
-              data: memberSummaryRows.map((row) => toWorkspaceMembershipResource(row)),
-              included: memberSummaryRows
-                .filter((row) => row?.user?.id != null)
-                .map((row) => ({
-                  type: "userProfiles",
-                  id: String(row.user.id),
-                  attributes: {
-                    displayName: row.user.displayName,
-                    email: row.user.email
-                  }
-                }))
-            };
+            return memberSummaryRows.map((row) => toWorkspaceMembershipRow(row));
           }
 
           if (Object.hasOwn(filters, "user") && Object.hasOwn(filters, "status")) {
@@ -86,13 +70,12 @@ function createWorkspaceMembershipsApiStub({
               String(row?.user?.id || "") === String(filters.user) &&
               String(row?.status || "") === String(filters.status)
             ));
-            return { data: rows.map((row) => toWorkspaceMembershipResource(row)) };
+            return rows.map((row) => toWorkspaceMembershipRow(row));
           }
 
-          return { data: [] };
+          return [];
         },
         async post(payload) {
-          assert.equal(payload?.simplified, false);
           const inputRecord = payload?.inputRecord?.data || {};
           state.postPayload = inputRecord;
           const row = rowById.get("1") || {
@@ -106,10 +89,9 @@ function createWorkspaceMembershipsApiStub({
           };
           rowByComposite.set(`${row.workspace.id}:${row.user.id}`, row);
           rowById.set(String(row.id), row);
-          return { data: toWorkspaceMembershipResource(row) };
+          return toWorkspaceMembershipRow(row);
         },
         async patch(payload) {
-          assert.equal(payload?.simplified, false);
           const inputRecord = payload?.inputRecord?.data || {};
           state.patchPayload = inputRecord;
           const existing = rowById.get(String(inputRecord.id));
@@ -122,7 +104,7 @@ function createWorkspaceMembershipsApiStub({
           };
           rowById.set(String(updated.id), updated);
           rowByComposite.set(`${updated.workspace.id}:${updated.user.id}`, updated);
-          return { data: toWorkspaceMembershipResource(updated) };
+          return toWorkspaceMembershipRow(updated);
         }
       }
     }

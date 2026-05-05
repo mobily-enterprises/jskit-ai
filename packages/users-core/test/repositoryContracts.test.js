@@ -22,12 +22,12 @@ test("users-core repositories expose withTransaction", async () => {
     resources: {
       userProfiles: {
         async query() {
-          return { data: [] };
+          return [];
         }
       },
       userSettings: {
         async query() {
-          return { data: [] };
+          return [];
         }
       }
     }
@@ -54,23 +54,10 @@ function createUserProfilesApiStub(expectedRecord) {
         userProfiles: {
           async query({ queryParams }) {
             calls.push(queryParams?.filters || {});
-            return {
-              data: expectedRecord ? [{
-                type: "userProfiles",
-                id: String(expectedRecord.id),
-                attributes: {
-                  authProvider: expectedRecord.authProvider,
-                  authProviderUserSid: expectedRecord.authProviderUserSid,
-                  email: expectedRecord.email,
-                  username: expectedRecord.username,
-                  displayName: expectedRecord.displayName,
-                  avatarStorageKey: expectedRecord.avatarStorageKey,
-                  avatarVersion: expectedRecord.avatarVersion,
-                  avatarUpdatedAt: expectedRecord.avatarUpdatedAt,
-                  createdAt: expectedRecord.createdAt
-                }
-              }] : []
-            };
+            return expectedRecord ? [{
+              ...expectedRecord,
+              id: String(expectedRecord.id)
+            }] : [];
           }
         }
       }
@@ -90,27 +77,17 @@ test("userSettingsRepository.ensureForUserId sends transaction outside simplifie
           async query() {
             queryCount += 1;
             return queryCount < 2
-              ? { data: [] }
-              : {
-                  data: [{
-                    type: "userSettings",
-                    id: "7",
-                    attributes: {
-                      ...DEFAULT_USER_SETTINGS
-                    }
-                  }]
-                };
+              ? []
+              : [{
+                  id: "7",
+                  ...DEFAULT_USER_SETTINGS
+                }];
           },
           async post(params) {
             postParams = params;
             return {
-              data: {
-                type: "userSettings",
-                id: "7",
-                attributes: {
-                  ...DEFAULT_USER_SETTINGS
-                }
-              }
+              id: "7",
+              ...DEFAULT_USER_SETTINGS
             };
           }
         }
@@ -120,7 +97,7 @@ test("userSettingsRepository.ensureForUserId sends transaction outside simplifie
 
   const record = await repository.ensureForUserId("7", { trx });
 
-  assert.equal(postParams?.simplified, false);
+  assert.equal(postParams?.simplified, undefined);
   assert.equal(postParams?.transaction, trx);
   assert.deepEqual(postParams?.inputRecord?.data, {
     type: "userSettings",
@@ -144,32 +121,27 @@ test("userProfilesRepository.upsert sends native JSON:API write documents with t
           async query({ queryParams }) {
             const filters = queryParams?.filters || {};
             if (Object.hasOwn(filters, "authProvider") || Object.hasOwn(filters, "authProviderUserSid")) {
-              return { data: [] };
+              return [];
             }
             if (Object.hasOwn(filters, "username")) {
-              return { data: [] };
+              return [];
             }
-            return { data: [] };
+            return [];
           },
           async post(params) {
             postParams = params;
             const attributes = params.inputRecord?.data?.attributes || {};
             return {
-              data: {
-                type: "userProfiles",
-                id: "11",
-                attributes: {
-                  authProvider: attributes.authProvider,
-                  authProviderUserSid: attributes.authProviderUserSid,
-                  email: attributes.email,
-                  username: attributes.username,
-                  displayName: attributes.displayName,
-                  avatarStorageKey: null,
-                  avatarVersion: null,
-                  avatarUpdatedAt: null,
-                  createdAt: attributes.createdAt
-                }
-              }
+              id: "11",
+              authProvider: attributes.authProvider,
+              authProviderUserSid: attributes.authProviderUserSid,
+              email: attributes.email,
+              username: attributes.username,
+              displayName: attributes.displayName,
+              avatarStorageKey: null,
+              avatarVersion: null,
+              avatarUpdatedAt: null,
+              createdAt: attributes.createdAt
             };
           }
         }
@@ -184,7 +156,7 @@ test("userProfilesRepository.upsert sends native JSON:API write documents with t
     displayName: "Ada Example"
   }, { trx });
 
-  assert.equal(postParams?.simplified, false);
+  assert.equal(postParams?.simplified, undefined);
   assert.equal(postParams?.transaction, trx);
   assert.equal(postParams?.inputRecord?.transaction, undefined);
   assert.equal(postParams?.inputRecord?.data?.type, "userProfiles");

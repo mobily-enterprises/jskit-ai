@@ -10,8 +10,7 @@ import {
 } from "./repositoryUtils.js";
 import {
   createJsonApiInputRecord,
-  createJsonRestContext,
-  simplifyJsonApiDocument
+  createJsonRestContext
 } from "@jskit-ai/json-rest-api-core/server/jsonRestApiHost";
 import { normalizeIdentity } from "../support/identity.js";
 
@@ -142,17 +141,15 @@ async function resolveUniqueUsername(api, baseUsername, { excludeUserId = null, 
 
   for (let suffix = 0; suffix < 1000; suffix += 1) {
     const candidate = buildUsernameCandidate(baseUsername, suffix);
-    const result = await api.resources.userProfiles.query({
+    const existingRows = await api.resources.userProfiles.query({
       queryParams: {
         filters: {
           username: candidate
         }
       },
-      transaction,
-      simplified: false
+      transaction
     });
 
-    const existingRows = simplifyJsonApiDocument(result);
     const existing = Array.isArray(existingRows) ? existingRows[0] || null : null;
     const existingId = normalizeDbRecordId(existing?.id, { fallback: null });
     if (!existing || existingId === normalizedExcludeUserId) {
@@ -174,18 +171,16 @@ function createRepository({ api, knex } = {}) {
   const withTransaction = createWithTransaction(knex);
 
   async function queryFirst(filters = {}, options = {}) {
-    const result = await api.resources.userProfiles.query(
+    const rows = await api.resources.userProfiles.query(
       {
         queryParams: {
           filters
         },
-        transaction: options?.trx || null,
-        simplified: false
+        transaction: options?.trx || null
       },
       createJsonRestContext(options?.context || null)
     );
 
-    const rows = simplifyJsonApiDocument(result);
     return Array.isArray(rows) ? rows[0] || null : null;
   }
 
@@ -242,13 +237,12 @@ function createRepository({ api, knex } = {}) {
             id: normalizedUserId
           }
         ),
-        transaction: options?.trx || null,
-        simplified: false
+        transaction: options?.trx || null
       },
       createJsonRestContext(options?.context || null)
     );
 
-    return normalizeProfileRecord(simplifyJsonApiDocument(updated));
+    return normalizeProfileRecord(updated);
   }
 
   async function updateAvatarById(userId, avatar = {}, options = {}) {
@@ -271,13 +265,12 @@ function createRepository({ api, knex } = {}) {
             id: normalizedUserId
           }
         ),
-        transaction: options?.trx || null,
-        simplified: false
+        transaction: options?.trx || null
       },
       createJsonRestContext(options?.context || null)
     );
 
-    return normalizeProfileRecord(simplifyJsonApiDocument(updated));
+    return normalizeProfileRecord(updated);
   }
 
   async function clearAvatarById(userId, options = {}) {
@@ -300,13 +293,12 @@ function createRepository({ api, knex } = {}) {
             id: normalizedUserId
           }
         ),
-        transaction: options?.trx || null,
-        simplified: false
+        transaction: options?.trx || null
       },
       createJsonRestContext(options?.context || null)
     );
 
-    return normalizeProfileRecord(simplifyJsonApiDocument(updated));
+    return normalizeProfileRecord(updated);
   }
 
   async function upsert(profileLike = {}, options = {}) {
@@ -357,13 +349,12 @@ function createRepository({ api, knex } = {}) {
                   id: normalizeDbRecordId(existing.id, { fallback: null })
                 }
               ),
-              transaction: trx,
-              simplified: false
+              transaction: trx
             },
             createJsonRestContext(options?.context || null)
           );
 
-          return normalizeProfileRecord(simplifyJsonApiDocument(updated));
+          return normalizeProfileRecord(updated);
         }
 
         const username = await resolveUniqueUsername(
@@ -382,13 +373,12 @@ function createRepository({ api, knex } = {}) {
               username,
               createdAt: new Date()
             }),
-            transaction: trx,
-            simplified: false
+            transaction: trx
           },
           createJsonRestContext(options?.context || null)
         );
 
-        return normalizeProfileRecord(simplifyJsonApiDocument(created));
+        return normalizeProfileRecord(created);
       } catch (error) {
         if (duplicateTargetsEmail(error)) {
           throw createDuplicateEmailConflictError();

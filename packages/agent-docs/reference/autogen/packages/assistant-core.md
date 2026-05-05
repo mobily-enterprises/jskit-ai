@@ -216,6 +216,7 @@ Exports
 - `MAX_INPUT_CHARS`
 - `MAX_HISTORY_MESSAGES`
 - `assistantResource`
+- `assistantConversationOutputValidator`
 
 ### `src/shared/assistantSettingsResource.js`
 Exports
@@ -245,13 +246,25 @@ Exports
 - `MAX_INPUT_CHARS`
 - `MAX_HISTORY_MESSAGES`
 - `assistantResource`
+- `assistantConversationOutputValidator`
 - `MAX_SYSTEM_PROMPT_CHARS`
 - `assistantConfigResource`
+- `ASSISTANT_SETTINGS_TRANSPORT`
+- `ASSISTANT_SETTINGS_UPDATE_TRANSPORT`
+- `ASSISTANT_CONVERSATIONS_TRANSPORT`
+- `ASSISTANT_CONVERSATION_MESSAGES_TRANSPORT`
 - `assistantSettingsEvents`
 - `ASSISTANT_CONVERSATION_STATUSES`
 - `normalizeConversationStatus`
 - `parseJsonObject`
 - `toPositiveInteger`
+
+### `src/shared/jsonApiTransports.js`
+Exports
+- `ASSISTANT_SETTINGS_TRANSPORT`
+- `ASSISTANT_SETTINGS_UPDATE_TRANSPORT`
+- `ASSISTANT_CONVERSATIONS_TRANSPORT`
+- `ASSISTANT_CONVERSATION_MESSAGES_TRANSPORT`
 
 ### `src/shared/queryKeys.js`
 Exports

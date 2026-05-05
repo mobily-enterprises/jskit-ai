@@ -11,8 +11,7 @@ import {
 import {
   createJsonApiInputRecord,
   createJsonApiRelationship,
-  createJsonRestContext,
-  simplifyJsonApiDocument
+  createJsonRestContext
 } from "@jskit-ai/json-rest-api-core/server/jsonRestApiHost";
 
 const RESOURCE_TYPE = "workspaceInvites";
@@ -105,19 +104,18 @@ function createRepository({ api, knex } = {}) {
   const withTransaction = createWithTransaction(knex);
 
   async function queryInvites(filters = {}, options = {}, { includeWorkspace = false } = {}) {
-    const result = await api.resources.workspaceInvites.query(
+    const rows = await api.resources.workspaceInvites.query(
       {
         queryParams: {
           filters,
           ...(includeWorkspace ? { include: ["workspace"] } : {})
         },
-        transaction: options?.trx || null,
-        simplified: false
+        transaction: options?.trx || null
       },
       createJsonRestContext(options?.context || null)
     );
 
-    return Array.isArray(simplifyJsonApiDocument(result)) ? simplifyJsonApiDocument(result) : [];
+    return Array.isArray(rows) ? rows : [];
   }
 
   async function findPendingByTokenHash(tokenHash, options = {}) {
@@ -213,13 +211,12 @@ function createRepository({ api, knex } = {}) {
               })
             }
           ),
-          transaction: options?.trx || null,
-          simplified: false
+          transaction: options?.trx || null
         },
         createJsonRestContext(options?.context || null)
       );
 
-      return normalizeInviteRecord(simplifyJsonApiDocument(created));
+      return normalizeInviteRecord(created);
     } catch (error) {
       if (!isDuplicateEntryError(error)) {
         throw error;
@@ -271,8 +268,7 @@ function createRepository({ api, knex } = {}) {
               id: row.id
             }
           ),
-          transaction: options?.trx || null,
-          simplified: false
+          transaction: options?.trx || null
         },
         createJsonRestContext(options?.context || null)
       );
@@ -298,8 +294,7 @@ function createRepository({ api, knex } = {}) {
             id: normalizedInviteId
           }
         ),
-        transaction: options?.trx || null,
-        simplified: false
+        transaction: options?.trx || null
       },
       createJsonRestContext(options?.context || null)
     );
@@ -324,8 +319,7 @@ function createRepository({ api, knex } = {}) {
             id: normalizedInviteId
           }
         ),
-        transaction: options?.trx || null,
-        simplified: false
+        transaction: options?.trx || null
       },
       createJsonRestContext(options?.context || null)
     );

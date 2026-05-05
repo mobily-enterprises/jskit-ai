@@ -51,31 +51,15 @@ function createWorkspaceSettingsApiStub(rowOverrides = {}) {
         async query({ queryParams }) {
           const id = String(queryParams?.filters?.id || "");
           if (!state.row || (id && String(state.row.id) !== id)) {
-            return { data: [] };
+            return [];
           }
 
-          return {
-            data: [{
-              type: "workspaceSettings",
-              id: String(state.row.id),
-              attributes: {
-                lightPrimaryColor: state.row.lightPrimaryColor,
-                lightSecondaryColor: state.row.lightSecondaryColor,
-                lightSurfaceColor: state.row.lightSurfaceColor,
-                lightSurfaceVariantColor: state.row.lightSurfaceVariantColor,
-                darkPrimaryColor: state.row.darkPrimaryColor,
-                darkSecondaryColor: state.row.darkSecondaryColor,
-                darkSurfaceColor: state.row.darkSurfaceColor,
-                darkSurfaceVariantColor: state.row.darkSurfaceVariantColor,
-                invitesEnabled: state.row.invitesEnabled,
-                createdAt: state.row.createdAt,
-                updatedAt: state.row.updatedAt
-              }
-            }]
-          };
+          return [{
+            ...state.row,
+            id: String(state.row.id)
+          }];
         },
         async post(payload) {
-          assert.equal(payload?.simplified, false);
           const inputRecord = payload?.inputRecord?.data || {};
           const attributes = inputRecord.attributes || {};
           state.postPayload = inputRecord;
@@ -94,17 +78,11 @@ function createWorkspaceSettingsApiStub(rowOverrides = {}) {
             updatedAt: toIsoString("2026-03-10 00:00:00.000")
           };
           return {
-            data: {
-              type: "workspaceSettings",
-              id: String(state.row.id),
-              attributes: {
-                ...state.row
-              }
-            }
+            ...state.row,
+            id: String(state.row.id)
           };
         },
         async patch(payload) {
-          assert.equal(payload?.simplified, false);
           const inputRecord = payload?.inputRecord?.data || {};
           const attributes = inputRecord.attributes || {};
           state.patchPayload = inputRecord;
@@ -122,13 +100,8 @@ function createWorkspaceSettingsApiStub(rowOverrides = {}) {
             id: String(inputRecord.id || state.row?.id || "")
           };
           return {
-            data: {
-              type: "workspaceSettings",
-              id: String(state.row.id),
-              attributes: {
-                ...state.row
-              }
-            }
+            ...state.row,
+            id: String(state.row.id)
           };
         }
       }

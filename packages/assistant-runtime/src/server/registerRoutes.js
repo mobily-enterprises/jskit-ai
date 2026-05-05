@@ -2,8 +2,13 @@ import { AppError } from "@jskit-ai/kernel/server/runtime";
 import { resolveAppConfig } from "@jskit-ai/kernel/server/support";
 import { composeSchemaDefinitions } from "@jskit-ai/kernel/shared/validators";
 import { normalizeSurfaceId } from "@jskit-ai/kernel/shared/surface/registry";
-import { withStandardErrorResponses } from "@jskit-ai/http-runtime/shared/validators/errorResponses";
+import { createJsonApiResourceRouteContract } from "@jskit-ai/http-runtime/shared/validators/jsonApiRouteTransport";
 import {
+  ASSISTANT_CONVERSATIONS_TRANSPORT,
+  ASSISTANT_CONVERSATION_MESSAGES_TRANSPORT,
+  ASSISTANT_SETTINGS_UPDATE_TRANSPORT,
+  ASSISTANT_SETTINGS_TRANSPORT,
+  assistantConversationOutputValidator,
   assistantConfigResource,
   assistantResource,
   resolveAssistantApiBasePath
@@ -156,6 +161,24 @@ function buildChatStreamActionInput(routeInput = {}, requestBody = {}) {
   return actionInput;
 }
 
+function resolveAssistantSettingsRecordId(record = {}) {
+  const scopeKey = String(record?.scopeKey || "").trim();
+  if (!scopeKey) {
+    throw new Error("Assistant settings JSON:API response requires scopeKey.");
+  }
+
+  return scopeKey;
+}
+
+function resolveAssistantConversationMessagesRecordId(record = {}) {
+  const conversationId = String(record?.conversation?.id || "").trim();
+  if (!conversationId) {
+    throw new Error("Assistant conversation messages JSON:API response requires conversation.id.");
+  }
+
+  return conversationId;
+}
+
 function registerSettingsRoutes(
   router,
   resolveCurrentAppConfig,
@@ -181,8 +204,11 @@ function registerSettingsRoutes(
         tags: ["assistant", "settings"],
         summary: "Get assistant settings."
       },
-      responses: withStandardErrorResponses({
-        200: assistantConfigResource.operations.view.output
+      ...createJsonApiResourceRouteContract({
+        ...ASSISTANT_SETTINGS_TRANSPORT,
+        output: assistantConfigResource.operations.view.output,
+        outputKind: "record",
+        getRecordId: resolveAssistantSettingsRecordId
       })
     },
     async function assistantSettingsReadRoute(request, reply) {
@@ -216,15 +242,14 @@ function registerSettingsRoutes(
         tags: ["assistant", "settings"],
         summary: "Update assistant settings."
       },
-      body: assistantConfigResource.operations.patch.body,
-      responses: withStandardErrorResponses(
-        {
-          200: assistantConfigResource.operations.patch.output
-        },
-        {
-          includeValidation400: true
-        }
-      )
+      ...createJsonApiResourceRouteContract({
+        ...ASSISTANT_SETTINGS_UPDATE_TRANSPORT,
+        body: assistantConfigResource.operations.patch.body,
+        output: assistantConfigResource.operations.patch.output,
+        outputKind: "record",
+        getRecordId: resolveAssistantSettingsRecordId,
+        includeValidation400: true
+      })
     },
     async function assistantSettingsPatchRoute(request, reply) {
       const routeState = resolveRouteRequestState(request, {
@@ -400,9 +425,11 @@ function registerRuntimeRoutes(
         tags: ["assistant"],
         summary: "List assistant conversations."
       },
-      query: assistantResource.operations.conversationsList.query,
-      responses: withStandardErrorResponses({
-        200: assistantResource.operations.conversationsList.output
+      ...createJsonApiResourceRouteContract({
+        ...ASSISTANT_CONVERSATIONS_TRANSPORT,
+        query: assistantResource.operations.conversationsList.query,
+        output: assistantConversationOutputValidator,
+        outputKind: "collection"
       })
     },
     async function assistantConversationsRoute(request, reply) {
@@ -439,9 +466,12 @@ function registerRuntimeRoutes(
         tags: ["assistant"],
         summary: "List assistant conversation messages."
       },
-      query: assistantResource.operations.conversationMessagesList.query,
-      responses: withStandardErrorResponses({
-        200: assistantResource.operations.conversationMessagesList.output
+      ...createJsonApiResourceRouteContract({
+        ...ASSISTANT_CONVERSATION_MESSAGES_TRANSPORT,
+        query: assistantResource.operations.conversationMessagesList.query,
+        output: assistantResource.operations.conversationMessagesList.output,
+        outputKind: "record",
+        getRecordId: resolveAssistantConversationMessagesRecordId
       })
     },
     async function assistantConversationMessagesRoute(request, reply) {

@@ -8,8 +8,7 @@ import {
 import {
   createJsonApiInputRecord,
   createJsonApiRelationship,
-  createJsonRestContext,
-  simplifyJsonApiDocument
+  createJsonRestContext
 } from "@jskit-ai/json-rest-api-core/server/jsonRestApiHost";
 
 const RESOURCE_TYPE = "workspaces";
@@ -54,18 +53,16 @@ function createRepository({ api, knex } = {}) {
   const withTransaction = createWithTransaction(knex);
 
   async function queryFirst(filters = {}, options = {}) {
-    const result = await api.resources.workspaces.query(
+    const rows = await api.resources.workspaces.query(
       {
         queryParams: {
           filters
         },
-        transaction: options?.trx || null,
-        simplified: false
+        transaction: options?.trx || null
       },
       createJsonRestContext(options?.context || null)
     );
 
-    const rows = simplifyJsonApiDocument(result);
     return normalizeWorkspaceRecord(Array.isArray(rows) ? rows[0] || null : null);
   }
 
@@ -93,7 +90,7 @@ function createRepository({ api, knex } = {}) {
       return null;
     }
 
-    const result = await api.resources.workspaces.query(
+    const rows = await api.resources.workspaces.query(
       {
         queryParams: {
           filters: {
@@ -101,16 +98,15 @@ function createRepository({ api, knex } = {}) {
             isPersonal: true
           }
         },
-        transaction: options?.trx || null,
-        simplified: false
+        transaction: options?.trx || null
       },
       createJsonRestContext(options?.context || null)
     );
 
-    const rows = Array.isArray(simplifyJsonApiDocument(result))
-      ? simplifyJsonApiDocument(result).map((row) => normalizeWorkspaceRecord(row)).filter(Boolean)
+    const normalizedRows = Array.isArray(rows)
+      ? rows.map((row) => normalizeWorkspaceRecord(row)).filter(Boolean)
       : [];
-    rows.sort((left, right) => {
+    normalizedRows.sort((left, right) => {
       const leftId = Number(left?.id);
       const rightId = Number(right?.id);
       if (Number.isFinite(leftId) && Number.isFinite(rightId)) {
@@ -118,7 +114,7 @@ function createRepository({ api, knex } = {}) {
       }
       return String(left?.id || "").localeCompare(String(right?.id || ""));
     });
-    return rows[0] || null;
+    return normalizedRows[0] || null;
   }
 
   async function insert(payload = {}, options = {}) {
@@ -149,13 +145,12 @@ function createRepository({ api, knex } = {}) {
               relationships: createWorkspaceRelationships({ ownerUserId })
             }
           ),
-          transaction: options?.trx || null,
-          simplified: false
+          transaction: options?.trx || null
         },
         createJsonRestContext(options?.context || null)
       );
 
-      return normalizeWorkspaceRecord(simplifyJsonApiDocument(created));
+      return normalizeWorkspaceRecord(created);
     } catch (error) {
       if (!isDuplicateEntryError(error)) {
         throw error;
@@ -195,13 +190,12 @@ function createRepository({ api, knex } = {}) {
             relationships
           }
         ),
-        transaction: options?.trx || null,
-        simplified: false
+        transaction: options?.trx || null
       },
       createJsonRestContext(options?.context || null)
     );
 
-    return normalizeWorkspaceRecord(simplifyJsonApiDocument(updated));
+    return normalizeWorkspaceRecord(updated);
   }
 
   async function listForUserId(userId, options = {}) {
@@ -210,7 +204,7 @@ function createRepository({ api, knex } = {}) {
       return [];
     }
 
-    const result = await api.resources.workspaceMemberships.query(
+    const rows = await api.resources.workspaceMemberships.query(
       {
         queryParams: {
           filters: {
@@ -219,14 +213,12 @@ function createRepository({ api, knex } = {}) {
           },
           include: ["workspace"]
         },
-        transaction: options?.trx || null,
-        simplified: false
+        transaction: options?.trx || null
       },
       createJsonRestContext(options?.context || null)
     );
 
-    const rows = Array.isArray(simplifyJsonApiDocument(result)) ? simplifyJsonApiDocument(result) : [];
-    const workspaces = rows
+    const workspaces = (Array.isArray(rows) ? rows : [])
       .map((row) => {
         const workspace = normalizeWorkspaceRecord(row?.workspace);
         if (!workspace || workspace.deletedAt != null) {

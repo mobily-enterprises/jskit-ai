@@ -279,6 +279,8 @@ const conversationMessagesListOutputSchema = createSchema({
   }
 });
 
+const assistantConversationOutputValidator = createSchemaDefinition(conversationRecordSchema, "replace");
+
 const assistantResource = defineResource({
   namespace: "assistant",
   operations: {
@@ -303,5 +305,6 @@ const assistantResource = defineResource({
 export {
   MAX_INPUT_CHARS,
   MAX_HISTORY_MESSAGES,
-  assistantResource
+  assistantResource,
+  assistantConversationOutputValidator
 };

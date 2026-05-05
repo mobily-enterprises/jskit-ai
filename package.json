@@ -33,6 +33,7 @@
   "devDependencies": {
     "cloc": "^2.6.0-cloc",
     "jscpd": "^4.0.8",
+    "knex": "^3.1.0",
     "vitepress": "^1.6.4"
   },
   "dependencies": {

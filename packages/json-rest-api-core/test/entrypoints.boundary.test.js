@@ -16,8 +16,7 @@ import {
   registerJsonRestApiHost,
   returnNullWhenJsonRestResourceMissing,
   resolveWorkspaceScopeValue,
-  resolveUserScopeValue,
-  simplifyJsonApiDocument
+  resolveUserScopeValue
 } from "../src/server/jsonRestApiHost.js";
 import { JsonRestApiCoreServiceProvider } from "../src/server/JsonRestApiCoreServiceProvider.js";
 
@@ -26,6 +25,11 @@ test("package exports include explicit server jsonRestApiHost entrypoint only", 
   const exportsMap = packageJson && typeof packageJson === "object" ? packageJson.exports : {};
   assert.equal(exportsMap["./server/jsonRestApiHost"], "./src/server/jsonRestApiHost.js");
   assert.equal(exportsMap["./server"], undefined);
+});
+
+test("server jsonRestApiHost entrypoint no longer exports host-side JSON:API simplification helpers", async () => {
+  const hostModule = await import("../src/server/jsonRestApiHost.js");
+  assert.equal(Object.hasOwn(hostModule, "simplifyJsonApiDocument"), false);
 });
 
 test("server entrypoint exports shared host helpers", () => {
@@ -42,7 +46,6 @@ test("server entrypoint exports shared host helpers", () => {
   assert.equal(typeof returnNullWhenJsonRestResourceMissing, "function");
   assert.equal(typeof resolveWorkspaceScopeValue, "function");
   assert.equal(typeof resolveUserScopeValue, "function");
-  assert.equal(typeof simplifyJsonApiDocument, "function");
   assert.equal(typeof JsonRestApiCoreServiceProvider, "function");
 });
 
@@ -201,46 +204,6 @@ test("shared query/document helpers build json-rest-api request shapes", () => {
     }
   );
 
-  assert.deepEqual(
-    simplifyJsonApiDocument({
-      data: [
-        {
-          type: "workspace-memberships",
-          id: "11",
-          attributes: {
-            roleSid: "owner"
-          },
-          relationships: {
-            user: {
-              data: {
-                type: "user-profiles",
-                id: "9"
-              }
-            }
-          }
-        }
-      ],
-      included: [
-        {
-          type: "user-profiles",
-          id: "9",
-          attributes: {
-            displayName: "Chiara"
-          }
-        }
-      ]
-    }),
-    [
-      {
-        id: "11",
-        roleSid: "owner",
-        user: {
-          id: "9",
-          displayName: "Chiara"
-        }
-      }
-    ]
-  );
 });
 
 test("createJsonRestResourceScopeOptions clones canonical resource metadata and resolves symbolic write serializers", () => {

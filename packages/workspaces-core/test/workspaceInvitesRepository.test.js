@@ -15,34 +15,28 @@ function createKnexStub() {
   return knex;
 }
 
-function toWorkspaceInviteResource(row = {}, { includeWorkspace = false } = {}) {
+function toWorkspaceInviteRow(row = {}) {
   return {
-    type: "workspaceInvites",
     id: String(row.id || ""),
-    attributes: {
-      email: row.email,
-      roleSid: row.roleSid,
-      status: row.status,
-      tokenHash: row.tokenHash,
-      expiresAt: row.expiresAt,
-      acceptedAt: row.acceptedAt,
-      revokedAt: row.revokedAt,
-      createdAt: row.createdAt,
-      updatedAt: row.updatedAt
+    workspaceId: row?.workspace?.id == null ? null : String(row.workspace.id),
+    workspace: row?.workspace?.id == null ? null : {
+      ...row.workspace,
+      id: String(row.workspace.id)
     },
-    relationships: {
-      workspace: {
-        data: row?.workspace?.id == null
-          ? null
-          : {
-              type: "workspaces",
-              id: String(row.workspace.id)
-            }
-      },
-      invitedByUser: {
-        data: row?.invitedByUser?.id == null ? null : { type: "userProfiles", id: String(row.invitedByUser.id) }
-      }
-    }
+    email: row.email,
+    roleSid: row.roleSid,
+    status: row.status,
+    tokenHash: row.tokenHash,
+    invitedByUserId: row?.invitedByUser?.id == null ? null : String(row.invitedByUser.id),
+    invitedByUser: row?.invitedByUser?.id == null ? null : {
+      ...row.invitedByUser,
+      id: String(row.invitedByUser.id)
+    },
+    expiresAt: row.expiresAt,
+    acceptedAt: row.acceptedAt,
+    revokedAt: row.revokedAt,
+    createdAt: row.createdAt,
+    updatedAt: row.updatedAt
   };
 }
 
@@ -60,7 +54,6 @@ function createWorkspaceInvitesApiStub({
       workspaceInvites: {
         async query({ queryParams }) {
           const filters = queryParams?.filters || {};
-          const includeWorkspace = Array.isArray(queryParams?.include) && queryParams.include.includes("workspace");
           const matching = rows.filter((row) => {
             if (Object.hasOwn(filters, "id") && String(row.id) !== String(filters.id)) {
               return false;
@@ -80,25 +73,9 @@ function createWorkspaceInvitesApiStub({
             return true;
           });
 
-          return {
-            data: matching.map((row) => toWorkspaceInviteResource(row, { includeWorkspace })),
-            included: includeWorkspace
-              ? matching
-                  .filter((row) => row?.workspace?.id != null)
-                  .map((row) => ({
-                    type: "workspaces",
-                    id: String(row.workspace.id),
-                    attributes: {
-                      slug: row.workspace.slug,
-                      name: row.workspace.name,
-                      avatarUrl: row.workspace.avatarUrl
-                    }
-                  }))
-              : []
-          };
+          return matching.map((row) => toWorkspaceInviteRow(row));
         },
         async post(payload) {
-          assert.equal(payload?.simplified, false);
           const inputRecord = payload?.inputRecord?.data || {};
           state.postPayload = inputRecord;
           const row = {
@@ -119,10 +96,9 @@ function createWorkspaceInvitesApiStub({
           };
           rows.push(row);
           rowById.set("1", row);
-          return { data: toWorkspaceInviteResource(row) };
+          return toWorkspaceInviteRow(row);
         },
         async patch(payload) {
-          assert.equal(payload?.simplified, false);
           const inputRecord = payload?.inputRecord?.data || {};
           state.patchPayloads.push(inputRecord);
           const existing = rowById.get(String(inputRecord.id));
@@ -134,7 +110,7 @@ function createWorkspaceInvitesApiStub({
             rowById.set(String(inputRecord.id), updated);
           }
           const updatedRow = rowById.get(String(inputRecord.id)) || null;
-          return updatedRow ? { data: toWorkspaceInviteResource(updatedRow) } : null;
+          return updatedRow ? toWorkspaceInviteRow(updatedRow) : null;
         }
       }
     }

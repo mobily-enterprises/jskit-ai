@@ -85,6 +85,46 @@ function createAssistantTestApp({
   };
 }
 
+function findRoute(routes, { method, path }) {
+  return routes.find((entry) => entry.method === method && entry.path === path) || null;
+}
+
+test("registerRoutes exposes JSON:API contracts for assistant settings and transcript endpoints", () => {
+  const testApp = createAssistantTestApp({
+    workspaceScopeSupport: createWorkspaceServerScopeSupport(),
+    resolveCurrentAppConfig: () => createAssistantAppConfig()
+  });
+
+  registerRoutes(testApp.app);
+  const routes = testApp.router.list();
+  const publicSettingsReadRoute = findRoute(routes, {
+    method: "GET",
+    path: "/api/assistant/:surfaceId/settings"
+  });
+  const publicSettingsUpdateRoute = findRoute(routes, {
+    method: "PATCH",
+    path: "/api/assistant/:surfaceId/settings"
+  });
+  const publicConversationsRoute = findRoute(routes, {
+    method: "GET",
+    path: "/api/assistant/:surfaceId/conversations"
+  });
+  const publicConversationMessagesRoute = findRoute(routes, {
+    method: "GET",
+    path: "/api/assistant/:surfaceId/conversations/:conversationId/messages"
+  });
+
+  assert.equal(publicSettingsReadRoute?.transport?.kind, "jsonapi-resource");
+  assert.equal(publicSettingsUpdateRoute?.transport?.kind, "jsonapi-resource");
+  assert.equal(publicConversationsRoute?.transport?.kind, "jsonapi-resource");
+  assert.equal(publicConversationMessagesRoute?.transport?.kind, "jsonapi-resource");
+  assert.equal(publicSettingsReadRoute?.schema?.response?.[200]?.required?.[0], "data");
+  assert.equal(publicSettingsUpdateRoute?.schema?.body?.required?.[0], "data");
+  assert.equal(publicSettingsUpdateRoute?.schema?.response?.[200]?.required?.[0], "data");
+  assert.equal(publicConversationsRoute?.schema?.response?.[200]?.required?.[0], "data");
+  assert.equal(publicConversationMessagesRoute?.schema?.response?.[200]?.required?.[0], "data");
+});
+
 test("registerRoutes resolves appConfig lazily when handlers run", async () => {
   let currentAppConfig = null;
   const workspaceScopeSupport = createWorkspaceServerScopeSupport();
@@ -97,11 +137,10 @@ test("registerRoutes resolves appConfig lazily when handlers run", async () => {
   currentAppConfig = createAssistantAppConfig();
   const routes = testApp.router.list();
 
-  const route = routes.find(
-    (entry) =>
-      entry.method === "GET" &&
-      entry.path === "/api/w/:workspaceSlug/assistant/:surfaceId/conversations"
-  );
+  const route = findRoute(routes, {
+    method: "GET",
+    path: "/api/w/:workspaceSlug/assistant/:surfaceId/conversations"
+  });
 
   assert.ok(route, "Expected workspace assistant conversations route to be registered.");
 
@@ -167,11 +206,10 @@ test("registerRoutes returns clear AppError payload for pre-stream assistant fai
   currentAppConfig = createAssistantAppConfig();
   const routes = testApp.router.list();
 
-  const route = routes.find(
-    (entry) =>
-      entry.method === "POST" &&
-      entry.path === "/api/w/:workspaceSlug/assistant/:surfaceId/chat/stream"
-  );
+  const route = findRoute(routes, {
+    method: "POST",
+    path: "/api/w/:workspaceSlug/assistant/:surfaceId/chat/stream"
+  });
 
   assert.ok(route, "Expected workspace assistant chat stream route to be registered.");
 

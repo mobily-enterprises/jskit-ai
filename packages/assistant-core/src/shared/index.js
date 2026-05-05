@@ -28,13 +28,21 @@ export {
 export {
   MAX_INPUT_CHARS,
   MAX_HISTORY_MESSAGES,
-  assistantResource
+  assistantResource,
+  assistantConversationOutputValidator
 } from "./assistantResource.js";
 
 export {
   MAX_SYSTEM_PROMPT_CHARS,
   assistantConfigResource
 } from "./assistantSettingsResource.js";
+
+export {
+  ASSISTANT_SETTINGS_TRANSPORT,
+  ASSISTANT_SETTINGS_UPDATE_TRANSPORT,
+  ASSISTANT_CONVERSATIONS_TRANSPORT,
+  ASSISTANT_CONVERSATION_MESSAGES_TRANSPORT
+} from "./jsonApiTransports.js";
 
 export { assistantSettingsEvents } from "./settingsEvents.js";
 

@@ -32,7 +32,6 @@ Exports
 - `returnNullWhenJsonRestResourceMissing(run)`
 - `resolveWorkspaceScopeValue(context = null)`
 - `resolveUserScopeValue(context = null)`
-- `simplifyJsonApiDocument(payload = {})`
 - `createJsonRestApiHost({ knex })`
 - `registerJsonRestApiHost(app)`
 Local functions
@@ -43,10 +42,6 @@ Local functions
 - `normalizeJsonRestObject(value)`
 - `normalizeJsonRestList(value)`
 - `extractJsonApiInputRelationships(attributes = {}, resource = null, relationships = null)`
-- `normalizeJsonApiResourceObject(resource = {})`
-- `buildJsonApiIncludedIndex(payload = {})`
-- `simplifyJsonApiRelationshipData(data, { includedIndex = null, seen = null } = {})`
-- `simplifyJsonApiResourceObject(resource = {}, { includedIndex = null, seen = null } = {})`
 
 ### root
 
