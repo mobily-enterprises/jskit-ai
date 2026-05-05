@@ -3,7 +3,7 @@ export default Object.freeze({
   packageId: "@local/main",
   version: "0.1.0",
   kind: "runtime",
-  description: "App-local main module scaffold.",
+  description: "App-local main composition and glue scaffold.",
   dependsOn: [],
   capabilities: {
     provides: [],
@@ -12,13 +12,11 @@ export default Object.freeze({
   options: {},
   runtime: {
     server: {
-      providerEntrypoint: "src/server/index.js",
+      providerEntrypoint: "src/server/MainServiceProvider.js",
       providers: [
         {
-          discover: {
-            dir: "src/server/providers",
-            pattern: "*Provider.js"
-          }
+          entrypoint: "src/server/MainServiceProvider.js",
+          export: "MainServiceProvider"
         }
       ]
     },
@@ -32,6 +30,21 @@ export default Object.freeze({
     }
   },
   metadata: {
+    jskit: {
+      ownershipGuidance: {
+        title: "App-local main lane",
+        summary: "Keep @local/main focused on app composition and lightweight glue. Substantial server features should become dedicated packages instead of growing inside packages/main.",
+        responsibilities: [
+          "packages/main server code: bootstraps app-local configuration and lightweight wiring only",
+          "substantial non-CRUD server features: scaffold a dedicated package with feature-server-generator",
+          "packages/main: do not add service/controller/route/repository feature trees here"
+        ],
+        examples: [
+          "jskit generate feature-server-generator scaffold booking-engine",
+          "jskit generate feature-server-generator scaffold availability-engine --mode orchestrator"
+        ]
+      }
+    },
     server: {
       routes: []
     },

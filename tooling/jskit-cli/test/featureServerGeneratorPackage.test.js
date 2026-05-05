@@ -192,5 +192,6 @@ test("generate feature-server-generator scaffold help exposes mode guidance and 
   assert.match(stdout, /custom-knex is the explicit weird\/custom lane/);
   assert.match(stdout, /booking-engine/);
   assert.match(stdout, /availability-engine/);
+  assert.match(stdout, /billing-engine/);
   assert.match(stdout, /invoice-rollup/);
 });

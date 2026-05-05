@@ -12,6 +12,8 @@ const MAIN_CLIENT_PROVIDERS_RELATIVE_PATH = "packages/main/src/client/providers"
 const COMPONENT_TOKEN_PATTERN = /\bcomponentToken\s*:\s*["']([^"']+)["']/g;
 const REGISTER_MAIN_CLIENT_COMPONENT_PATTERN = /registerMainClientComponent\(\s*["']([^"']+)["']\s*,/g;
 const LINK_ITEM_TOKEN_SUFFIX = "link-item";
+const JSKIT_SCOPE_PREFIX = "@jskit-ai/";
+const FEATURE_SERVER_GENERATOR_PACKAGE_ID = "@jskit-ai/feature-server-generator";
 const PROVIDER_SOURCE_EXTENSIONS = new Set([".js", ".mjs", ".cjs", ".ts", ".tsx"]);
 const READ_FILE_IGNORE_ERROR_CODES = new Set(["ENOENT", "ENOTDIR", "EISDIR", "EACCES", "EPERM"]);
 const READ_DIRECTORY_IGNORE_ERROR_CODES = new Set(["ENOENT", "ENOTDIR", "EACCES", "EPERM"]);
@@ -39,6 +41,41 @@ function appendTokenSource(map, token = "", source = "") {
     existingSources.add(normalizedSource);
   }
   map.set(normalizedToken, existingSources);
+}
+
+function toShortPackageId(packageId = "") {
+  const normalizedPackageId = String(packageId || "").trim();
+  if (!normalizedPackageId.startsWith(JSKIT_SCOPE_PREFIX)) {
+    return normalizedPackageId;
+  }
+  return normalizedPackageId.slice(JSKIT_SCOPE_PREFIX.length);
+}
+
+function resolveGeneratorPrimarySubcommand(packageEntry = {}) {
+  const descriptor = ensureObject(packageEntry?.descriptor);
+  const metadata = ensureObject(descriptor.metadata);
+  return String(metadata.generatorPrimarySubcommand || descriptor.generatorPrimarySubcommand || "").trim();
+}
+
+function resolveGeneratorDescription(packageEntry = {}) {
+  const descriptor = ensureObject(packageEntry?.descriptor);
+  return String(descriptor.description || "").trim();
+}
+
+function resolveGeneratorQuickStartRows(packageEntry = {}, { limit = 3 } = {}) {
+  const descriptor = ensureObject(packageEntry?.descriptor);
+  const metadata = ensureObject(descriptor.metadata);
+  const subcommands = ensureObject(metadata.generatorSubcommands || descriptor.generatorSubcommands);
+  const primarySubcommandName = resolveGeneratorPrimarySubcommand(packageEntry);
+  const primarySubcommand = ensureObject(subcommands[primarySubcommandName]);
+  const examples = ensureArray(primarySubcommand.examples);
+  return examples
+    .slice(0, Math.max(0, Number(limit) || 0))
+    .map((example) => ({
+      label: String(ensureObject(example).label || "").trim(),
+      lines: ensureArray(ensureObject(example).lines).map((value) => String(value || "").trim()).filter(Boolean)
+    }))
+    .filter((example) => example.lines.length > 0);
 }
 
 function isLinkItemToken(token = "") {
@@ -265,6 +302,21 @@ function createListCommands(ctx = {}) {
       if (lines.length > 0) {
         lines.push("");
       }
+      const featureServerEntry = packageRegistry.get(FEATURE_SERVER_GENERATOR_PACKAGE_ID);
+      const recommendedQuickStarts = resolveGeneratorQuickStartRows(featureServerEntry, { limit: 3 });
+      if (recommendedQuickStarts.length > 0) {
+        lines.push(color.heading(`Recommended non-CRUD server starts (${recommendedQuickStarts.length}):`));
+        for (const example of recommendedQuickStarts) {
+          const label = String(example.label || "").trim();
+          if (label) {
+            lines.push(`- ${color.item(label)}`);
+          }
+          for (const commandLine of ensureArray(example.lines)) {
+            lines.push(`  ${commandLine}`);
+          }
+        }
+        lines.push("");
+      }
       lines.push(color.heading("Available generators:"));
       const packageIds = sortStrings([...packageRegistry.keys()].filter((packageId) => {
         const packageEntry = packageRegistry.get(packageId);
@@ -273,8 +325,14 @@ function createListCommands(ctx = {}) {
       for (const packageId of packageIds) {
         const packageEntry = packageRegistry.get(packageId);
         const installedLabel = installedPackages.has(packageId) ? " (installed)" : "";
+        const shortId = toShortPackageId(packageId);
+        const shortIdPrefix = shortId && shortId !== packageId ? `${color.item(shortId)} ` : "";
+        const primarySubcommand = resolveGeneratorPrimarySubcommand(packageEntry);
+        const primarySuffix = primarySubcommand ? ` ${color.dim(`[primary:${primarySubcommand}]`)}` : "";
+        const description = resolveGeneratorDescription(packageEntry);
+        const descriptionSuffix = description ? `: ${description}` : "";
         lines.push(
-          `- ${color.item(packageId)} ${color.version(`(${packageEntry.version})`)}${installedLabel ? color.installed(installedLabel) : ""}`
+          `- ${shortIdPrefix}${color.item(packageId)} ${color.version(`(${packageEntry.version})`)}${primarySuffix}${installedLabel ? color.installed(installedLabel) : ""}${descriptionSuffix}`.trim()
         );
       }
     }
@@ -328,8 +386,12 @@ function createListCommands(ctx = {}) {
             }
             return {
               packageId,
+              shortId: toShortPackageId(packageId),
               version: packageEntry.version,
-              installed: installedPackages.has(packageId)
+              installed: installedPackages.has(packageId),
+              description: resolveGeneratorDescription(packageEntry),
+              primarySubcommand: resolveGeneratorPrimarySubcommand(packageEntry),
+              quickStarts: resolveGeneratorQuickStartRows(packageEntry, { limit: 3 })
             };
           }).filter(Boolean)
           : [],

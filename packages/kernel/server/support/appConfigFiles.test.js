@@ -18,7 +18,7 @@ test("loadAppConfigFromModuleUrl merges public and server config", async () => {
   await mkdir(path.join(appRoot, "config"), { recursive: true });
   await writeFile(path.join(appRoot, "config", "public.js"), "export const config = { a: 1, shared: 'public' };", "utf8");
   await writeFile(path.join(appRoot, "config", "server.js"), "export const config = { b: 2, shared: 'server' };", "utf8");
-  const moduleUrl = await createModuleUrlAt(path.join(appRoot, "packages", "main", "src", "server", "providers", "MainServiceProvider.js"));
+  const moduleUrl = await createModuleUrlAt(path.join(appRoot, "packages", "main", "src", "server", "MainServiceProvider.js"));
 
   const loaded = await loadAppConfigFromModuleUrl({ moduleUrl });
 
@@ -35,7 +35,7 @@ test("loadAppConfigFromModuleUrl tolerates missing server config", async () => {
   const appRoot = path.join(tempRoot, "app");
   await mkdir(path.join(appRoot, "config"), { recursive: true });
   await writeFile(path.join(appRoot, "config", "public.js"), "export const config = { a: 1 };", "utf8");
-  const moduleUrl = await createModuleUrlAt(path.join(appRoot, "packages", "main", "src", "server", "providers", "MainServiceProvider.js"));
+  const moduleUrl = await createModuleUrlAt(path.join(appRoot, "packages", "main", "src", "server", "MainServiceProvider.js"));
 
   const loaded = await loadAppConfigFromModuleUrl({ moduleUrl });
 
@@ -46,7 +46,7 @@ test("loadAppConfigFromModuleUrl tolerates missing server config", async () => {
 
 test("loadAppConfigFromModuleUrl throws when app root cannot be resolved", async () => {
   const tempRoot = await mkdtemp(path.join(os.tmpdir(), "kernel-app-config-"));
-  const moduleUrl = await createModuleUrlAt(path.join(tempRoot, "missing", "packages", "main", "src", "server", "providers", "MainServiceProvider.js"));
+  const moduleUrl = await createModuleUrlAt(path.join(tempRoot, "missing", "packages", "main", "src", "server", "MainServiceProvider.js"));
 
   await assert.rejects(
     loadAppConfigFromModuleUrl({ moduleUrl }),

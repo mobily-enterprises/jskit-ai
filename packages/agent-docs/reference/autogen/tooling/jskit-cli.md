@@ -430,6 +430,10 @@ Exports
 Local functions
 - `collectTokenMatches(source = "", pattern = COMPONENT_TOKEN_PATTERN)`
 - `appendTokenSource(map, token = "", source = "")`
+- `toShortPackageId(packageId = "")`
+- `resolveGeneratorPrimarySubcommand(packageEntry = {})`
+- `resolveGeneratorDescription(packageEntry = {})`
+- `resolveGeneratorQuickStartRows(packageEntry = {}, { limit = 3 } = {})`
 - `isLinkItemToken(token = "")`
 - `readFileIfExists(filePath = "")`
 - `resolveDescriptorFromLockEntry({ appRoot = "", packageId = "", installedPackageEntry = {} } = {})`
@@ -470,6 +474,7 @@ Local functions
 - `normalizeHelpParagraphRows(rawValue = "")`
 - `appendHelpLongDescription(lines = [], rawLongDescription = "", { color = null } = {})`
 - `appendHelpExamples(lines = [], exampleRows = [], { color = null } = {})`
+- `appendHelpExamplesWithHeading(lines = [], exampleRows = [], heading = "", { color = null } = {})`
 - `appendHelpNotes(lines = [], rawNotes = [], { color = null } = {})`
 - `appendSeparatedBlocks(lines = [], blocks = [])`
 - `resolveGeneratorSubcommandMetadata(packageEntry = {})`
@@ -478,6 +483,7 @@ Local functions
 - `formatPositionalArgSummary(arg = {}, { color = null } = {})`
 - `findGeneratorSubcommandRow(packageEntry = {}, subcommandName = "")`
 - `buildSubcommandOptionRows(optionRows = [], subcommandRow = {})`
+- `resolvePrimaryGeneratorQuickStartRows(packageEntry = {}, { limit = 3 } = {})`
 
 ### `src/server/commandHandlers/packageCommands/generate.js`
 Exports
@@ -564,6 +570,9 @@ Local functions
 ### `src/server/commandHandlers/show/renderPackageText.js`
 Exports
 - `renderPackagePayloadText({ payload, provides, requires, capabilityDetails, options, stdout, color, resolveWrapWidth, writeWrappedItems, normalizeRelativePosixPath, formatPackageSubpathImport, normalizePlacementOutlets, normalizePlacementContributions, shouldShowPackageExportTarget, classifyExportedSymbols, deriveProviderDisplayName } = {})`
+Local functions
+- `resolveGeneratorSubcommandRows(payload = {})`
+- `resolveOwnershipGuidance(payload = {})`
 
 ### `src/server/core/argParser.js`
 Exports

@@ -130,7 +130,12 @@ test("list generators prints generator-only section", async () => {
 
     assert.equal(result.status, 0, String(result.stderr || ""));
     const stdout = String(result.stdout || "");
+    assert.match(stdout, /Recommended non-CRUD server starts \(\d+\):/);
+    assert.match(stdout, /booking-engine/);
+    assert.match(stdout, /availability-engine/);
+    assert.match(stdout, /billing-engine/);
     assert.match(stdout, /Available generators:/);
+    assert.match(stdout, /@jskit-ai\/feature-server-generator[\s\S]*\[primary:scaffold\]/);
     assert.match(stdout, /@jskit-ai\/crud-server-generator/);
     assert.match(stdout, /@jskit-ai\/crud-ui-generator/);
     assert.doesNotMatch(stdout, /Available runtime packages:/);

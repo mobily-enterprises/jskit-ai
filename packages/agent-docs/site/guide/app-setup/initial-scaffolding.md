@@ -650,13 +650,11 @@ export default Object.freeze({
   kind: "runtime",
   runtime: {
     server: {
-      providerEntrypoint: "src/server/index.js",
+      providerEntrypoint: "src/server/MainServiceProvider.js",
       providers: [
         {
-          discover: {
-            dir: "src/server/providers",
-            pattern: "*Provider.js"
-          }
+          entrypoint: "src/server/MainServiceProvider.js",
+          export: "MainServiceProvider"
         }
       ]
     }
@@ -671,12 +669,12 @@ export default Object.freeze({
 
 This is the moment where the scaffold stops looking like "just a Vue app". The app is declaring itself as a runtime package that JSKIT can discover, load, and mutate safely.
 
-For the server side, the main file to remember is `packages/main/src/server/providers/MainServiceProvider.js`. At the beginning it is almost empty, but that emptiness is useful. It means you already have a stable place to put backend runtime code as the app grows, instead of inventing ad hoc structure later.
+For the server side, the main file to remember is `packages/main/src/server/MainServiceProvider.js`. It stays intentionally flat and small. That is the point: `packages/main` is the app-local composition package, not the default home for new backend feature trees.
 
 The server-side provider starts like this:
 
 ```js
-import { loadAppConfig } from "../support/loadAppConfig.js";
+import { loadAppConfig } from "./loadAppConfig.js";
 
 class MainServiceProvider {
   static id = "local.main";
@@ -694,7 +692,13 @@ class MainServiceProvider {
 export { MainServiceProvider };
 ```
 
-It is deliberately small, but it already shows the pattern: register things with the app container first, then grow real backend behavior from there. The client side uses the same provider lifecycle; you already saw the matching pattern earlier in the client boot path.
+It is deliberately small because it is only for app-local glue: loading config, wiring tiny app-specific behavior, and bootstrapping shared runtime concerns. When a backend capability becomes substantial, do not grow `packages/main` into a mini service tree. Generate a dedicated package instead:
+
+```bash
+npx jskit generate feature-server-generator scaffold booking-engine
+```
+
+That keeps the ownership boundary clear: `packages/main` stays composition-only, while real server features get their own provider, service, and optional repository seams. The client side uses the same provider lifecycle; you already saw the matching pattern earlier in the client boot path.
 
 The `.jskit/lock.json` file is also important. Treat it like JSKIT's own lock and state file. It records which runtime packages JSKIT believes are installed and which managed changes they introduced. When you use `jskit add`, `jskit update`, or generators that depend on installed package state, this file is part of the source of truth. It belongs in version control, and you should not hand-edit it.
 

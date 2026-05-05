@@ -39,6 +39,12 @@ function printTopLevelHelp(stream = process.stderr) {
   for (const entry of listOverviewCommandDescriptors()) {
     lines.push(`  ${color.item(entry.command.padEnd(16, " "))} ${entry.summary}`);
   }
+  lines.push("");
+  lines.push(color.heading("Generator quick starts:"));
+  lines.push("  substantial non-CRUD server feature:");
+  lines.push(`    ${color.item("jskit generate feature-server-generator scaffold booking-engine")}`);
+  lines.push("  non-persistent workflow/orchestrator:");
+  lines.push(`    ${color.item("jskit generate feature-server-generator scaffold availability-engine --mode orchestrator")}`);
   writeHelpLines(stream, lines);
 }
 

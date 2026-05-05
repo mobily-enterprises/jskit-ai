@@ -244,60 +244,50 @@ test("create-app scaffolds the base shell with placeholder replacements", async 
     );
     assert.equal(localMainPackageJson.name, "@local/main");
     assert.equal(
-      localMainPackageJson.exports["./server/providers/MainServiceProvider"],
-      "./src/server/providers/MainServiceProvider.js"
+      localMainPackageJson.exports["./server/MainServiceProvider"],
+      "./src/server/MainServiceProvider.js"
     );
 
     await assert.rejects(access(path.join(appRoot, "packages/main/src/index.js")), /ENOENT/);
 
     const localMainServerEntrypoint = await readFile(path.join(appRoot, "packages/main/src/server/index.js"), "utf8");
     assert.match(localMainServerEntrypoint, /export \{ MainServiceProvider \}/);
+    assert.match(localMainServerEntrypoint, /\.\/MainServiceProvider\.js/);
 
     const localMainServiceProvider = await readFile(
-      path.join(appRoot, "packages/main/src/server/providers/MainServiceProvider.js"),
+      path.join(appRoot, "packages/main/src/server/MainServiceProvider.js"),
       "utf8"
     );
     assert.match(localMainServiceProvider, /class MainServiceProvider/);
     assert.match(localMainServiceProvider, /static id = "local\.main";/);
-    assert.match(localMainServiceProvider, /import \{ loadAppConfig \} from "\.\.\/support\/loadAppConfig\.js";/);
+    assert.match(localMainServiceProvider, /import \{ loadAppConfig \} from "\.\/loadAppConfig\.js";/);
     assert.match(localMainServiceProvider, /async register\(app\)/);
     assert.match(localMainServiceProvider, /await loadAppConfig\(\{\s*moduleUrl: import\.meta\.url\s*\}\);/);
     assert.match(localMainServiceProvider, /app\.instance\("appConfig", appConfig\);/);
     assert.match(localMainServiceProvider, /boot\(\)\s*\{\}/);
-    assert.match(localMainServiceProvider, /src\/shared\/schemas/);
+    assert.match(localMainServiceProvider, /packages\/main as app glue only/);
+    assert.match(localMainServiceProvider, /feature-server-generator scaffold <feature-name>/);
 
     const localMainAppConfigLoader = await readFile(
-      path.join(appRoot, "packages/main/src/server/support/loadAppConfig.js"),
+      path.join(appRoot, "packages/main/src/server/loadAppConfig.js"),
       "utf8"
     );
     assert.match(localMainAppConfigLoader, /@jskit-ai\/kernel\/server\/support/);
     assert.match(localMainAppConfigLoader, /loadAppConfigFromModuleUrl/);
     assert.match(localMainAppConfigLoader, /return loadAppConfigFromModuleUrl\(\{/);
 
-    const localMainControllersIndex = await readFile(
-      path.join(appRoot, "packages/main/src/server/controllers/index.js"),
-      "utf8"
-    );
-    assert.match(localMainControllersIndex, /export \{\};/);
-
-    const localMainServicesIndex = await readFile(
-      path.join(appRoot, "packages/main/src/server/services/index.js"),
-      "utf8"
-    );
-    assert.match(localMainServicesIndex, /export \{\};/);
-
-    const localMainRoutesIndex = await readFile(
-      path.join(appRoot, "packages/main/src/server/routes/index.js"),
-      "utf8"
-    );
-    assert.match(localMainRoutesIndex, /export \{\};/);
+    await assert.rejects(access(path.join(appRoot, "packages/main/src/server/controllers/index.js")), /ENOENT/);
+    await assert.rejects(access(path.join(appRoot, "packages/main/src/server/services/index.js")), /ENOENT/);
+    await assert.rejects(access(path.join(appRoot, "packages/main/src/server/routes/index.js")), /ENOENT/);
 
     const localMainDescriptor = await readFile(path.join(appRoot, "packages/main/package.descriptor.mjs"), "utf8");
     assert.match(localMainDescriptor, /packageId:\s*"@local\/main"/);
-    assert.match(localMainDescriptor, /providerEntrypoint:\s*"src\/server\/index\.js"/);
-    assert.match(localMainDescriptor, /discover:\s*\{/);
-    assert.match(localMainDescriptor, /dir:\s*"src\/server\/providers"/);
-    assert.match(localMainDescriptor, /pattern:\s*"\*Provider\.js"/);
+    assert.match(localMainDescriptor, /description:\s*"App-local main composition and glue scaffold\."/);
+    assert.match(localMainDescriptor, /providerEntrypoint:\s*"src\/server\/MainServiceProvider\.js"/);
+    assert.match(localMainDescriptor, /entrypoint:\s*"src\/server\/MainServiceProvider\.js"/);
+    assert.match(localMainDescriptor, /export:\s*"MainServiceProvider"/);
+    assert.match(localMainDescriptor, /title:\s*"App-local main lane"/);
+    assert.match(localMainDescriptor, /feature-server-generator scaffold booking-engine/);
     assert.match(localMainDescriptor, /entrypoint:\s*"src\/client\/providers\/MainClientProvider\.js"/);
     assert.match(localMainDescriptor, /export:\s*"MainClientProvider"/);
 

@@ -211,6 +211,44 @@ test("generate <generatorId> help points users to subcommand contracts", async (
   });
 });
 
+test("generate feature-server-generator help surfaces primary quick starts", async () => {
+  await withTempDir(async (cwd) => {
+    const appRoot = path.join(cwd, "discoverability-feature-server-generator-help-app");
+    await createMinimalApp(appRoot, { name: "discoverability-feature-server-generator-help-app" });
+
+    const result = runCli({
+      cwd: appRoot,
+      args: ["generate", "feature-server-generator", "help"]
+    });
+
+    assert.equal(result.status, 0, String(result.stderr || ""));
+    const stdout = String(result.stdout || "");
+    assert.match(stdout, /Generator help: @jskit-ai\/feature-server-generator/);
+    assert.match(stdout, /Primary quick starts \(\d+\):/);
+    assert.match(stdout, /booking-engine/);
+    assert.match(stdout, /availability-engine/);
+    assert.match(stdout, /billing-engine/);
+  });
+});
+
+test("generate rejects runtime packages and points non-CRUD feature work at feature-server-generator", async () => {
+  await withTempDir(async (cwd) => {
+    const appRoot = path.join(cwd, "discoverability-runtime-generate-rejection-app");
+    await createMinimalApp(appRoot, { name: "discoverability-runtime-generate-rejection-app" });
+
+    const result = runCli({
+      cwd: appRoot,
+      args: ["generate", "auth-web"]
+    });
+
+    assert.notEqual(result.status, 0);
+    const stderr = String(result.stderr || "");
+    assert.match(stderr, /Package @jskit-ai\/auth-web is a runtime package/);
+    assert.match(stderr, /Use: jskit add package @jskit-ai\/auth-web/);
+    assert.match(stderr, /feature-server-generator scaffold <feature-name>/);
+  });
+});
+
 test("generate <generatorId> <subcommand> help prints subcommand contract", async () => {
   await withTempDir(async (cwd) => {
     const appRoot = path.join(cwd, "discoverability-generate-subcommand-help-app");

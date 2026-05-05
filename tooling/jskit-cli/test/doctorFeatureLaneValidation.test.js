@@ -71,7 +71,7 @@ async function createMainPackage(appRoot, { extraService = false } = {}) {
     server: {
       providers: [
         {
-          entrypoint: "src/server/providers/MainServiceProvider.js",
+          entrypoint: "src/server/MainServiceProvider.js",
           export: "MainServiceProvider"
         }
       ]
@@ -94,7 +94,7 @@ async function createMainPackage(appRoot, { extraService = false } = {}) {
 
   await writeAppFile(
     appRoot,
-    "packages/main/src/server/providers/MainServiceProvider.js",
+    "packages/main/src/server/MainServiceProvider.js",
     `class MainServiceProvider {
   static id = "local.main";
 
@@ -109,19 +109,16 @@ export { MainServiceProvider };
 `
   );
   await writeAppFile(appRoot, "packages/main/src/server/index.js", "export {};\n");
-  await writeAppFile(appRoot, "packages/main/src/server/routes/index.js", "export {};\n");
-  await writeAppFile(appRoot, "packages/main/src/server/services/index.js", "export {};\n");
-  await writeAppFile(appRoot, "packages/main/src/server/controllers/index.js", "export {};\n");
   await writeAppFile(
     appRoot,
-    "packages/main/src/server/support/loadAppConfig.js",
+    "packages/main/src/server/loadAppConfig.js",
     "async function loadAppConfig() { return {}; }\nexport { loadAppConfig };\n"
   );
 
   if (extraService) {
     await writeAppFile(
       appRoot,
-      "packages/main/src/server/services/BookingEngineService.js",
+      "packages/main/src/server/BookingEngineService.js",
       "class BookingEngineService {}\nexport { BookingEngineService };\n"
     );
   }
@@ -203,11 +200,6 @@ async function createHandmadeFeaturePackage(appRoot, featureName = "billing-engi
 
 export { ${featurePascal}Provider };
 `
-  );
-  await writeAppFile(
-    appRoot,
-    `packages/${featureName}/src/server/actionIds.js`,
-    "const actionIds = Object.freeze({ getStatus: \"feature.billing-engine.status.read\" });\nexport { actionIds };\n"
   );
   await writeAppFile(
     appRoot,

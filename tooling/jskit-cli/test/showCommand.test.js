@@ -56,6 +56,22 @@ test("show package --details renders expanded capability graph details", () => {
   assert.match(stdout, /Code introspection:\n- Source files unavailable \(descriptor metadata only\)\./);
 });
 
+test("show feature-server-generator --details renders generator commands and ownership guidance", () => {
+  const result = runCli({
+    cwd: path.resolve(path.dirname(CLI_PATH), ".."),
+    args: ["show", "feature-server-generator", "--details"]
+  });
+
+  assert.equal(result.status, 0, String(result.stderr || ""));
+  const stdout = stripVTControlCharacters(String(result.stdout || ""));
+  assert.match(stdout, /Generator commands \(\d+\):/);
+  assert.match(stdout, /scaffold \[primary\]/);
+  assert.match(stdout, /booking-engine/);
+  assert.match(stdout, /Standard non-CRUD server lane/);
+  assert.match(stdout, /provider: wires DI, actions, repository, and optional routes/);
+  assert.match(stdout, /packages\/main: stays composition\/glue only/);
+});
+
 test("show package --debug-exports includes re-export provenance details", () => {
   const result = runCli({
     cwd: path.resolve(path.dirname(CLI_PATH), ".."),

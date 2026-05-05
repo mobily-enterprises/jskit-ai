@@ -240,7 +240,7 @@ async function runPackageGenerateCommand(
     });
     if (!resolvedPackageId) {
       throw createCliError(
-        `Unknown package: ${packageIdInput}. Install it first (npm install ${packageIdInput}) if you want to run generator subcommands from node_modules.`
+        `Unknown package: ${packageIdInput}. Use jskit list generators to discover available generators. If you want to run generator subcommands from node_modules, install the generator first (npm install ${packageIdInput}). For a substantial non-CRUD server feature, start with: jskit generate feature-server-generator scaffold <feature-name>.`
       );
     }
 
@@ -255,7 +255,7 @@ async function runPackageGenerateCommand(
     }
     if (resolvePackageKind(packageEntry) !== "generator") {
       throw createCliError(
-        `Package ${resolvedPackageId} is a runtime package. Use: jskit add package ${resolvedPackageId}`
+        `Package ${resolvedPackageId} is a runtime package. Use: jskit add package ${resolvedPackageId}. For a new substantial non-CRUD server feature, start with: jskit generate feature-server-generator scaffold <feature-name>.`
       );
     }
 

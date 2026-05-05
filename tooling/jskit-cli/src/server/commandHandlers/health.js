@@ -88,7 +88,6 @@ function createHealthCommands(ctx = {}) {
     "custom-knex"
   ]);
   const FEATURE_SERVER_COMPLEX_MARKER_RELATIVE_PATHS = Object.freeze([
-    "src/server/actionIds.js",
     "src/server/inputSchemas.js",
     "src/server/actions.js",
     "src/server/service.js",
@@ -104,14 +103,11 @@ function createHealthCommands(ctx = {}) {
   ]);
   const MAIN_SERVER_BASELINE_RELATIVE_PATHS = new Set([
     "src/server/index.js",
-    "src/server/providers/MainServiceProvider.js",
-    "src/server/routes/index.js",
-    "src/server/services/index.js",
-    "src/server/controllers/index.js",
-    "src/server/support/loadAppConfig.js"
+    "src/server/MainServiceProvider.js",
+    "src/server/loadAppConfig.js"
   ]);
   const MAIN_SERVER_DOMAIN_FILE_PATTERN =
-    /^src\/server\/(?:(?:providers\/(?!MainServiceProvider\.)[^/]+)|(?:services|controllers|routes)\/(?!index\.)[^/]+|actionIds\.js|actions\.js|service\.js|repository\.js|registerRoutes\.js|inputSchemas\.js)/u;
+    /^src\/server\/(?!(?:index|MainServiceProvider|loadAppConfig)\.[A-Za-z0-9]+$).+/u;
 
   function collectDescriptorContainerTokens({ packageId, side, values, issues }) {
     const declaredTokens = new Set();
@@ -734,7 +730,7 @@ function createHealthCommands(ctx = {}) {
       reasons.push(`extra server domain files: ${extraDomainFiles.join(", ")}`);
     }
 
-    const providerPath = path.join(rootDir, "src", "server", "providers", "MainServiceProvider.js");
+    const providerPath = path.join(rootDir, "src", "server", "MainServiceProvider.js");
     if (await fileExists(providerPath)) {
       const providerSource = await readFile(providerPath, "utf8");
       const actionBindingCount = (providerSource.match(/\bapp\.actions\s*\(/gu) || []).length;

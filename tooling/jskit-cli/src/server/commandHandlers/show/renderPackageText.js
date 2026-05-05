@@ -6,6 +6,35 @@ import { createShowRenderHelpers } from "./renderHelpers.js";
 import { writePackageExportsSection } from "./renderPackageExports.js";
 import { writeCapabilitiesSections } from "./renderPackageCapabilities.js";
 
+function resolveGeneratorSubcommandRows(payload = {}) {
+  const metadata = ensureObject(payload.metadata);
+  const generatorSubcommands = ensureObject(metadata.generatorSubcommands);
+  const primarySubcommand = String(metadata.generatorPrimarySubcommand || "").trim();
+  return Object.keys(generatorSubcommands)
+    .sort((left, right) => left.localeCompare(right))
+    .map((subcommandName) => {
+      const definition = ensureObject(generatorSubcommands[subcommandName]);
+      return {
+        name: subcommandName,
+        primary: primarySubcommand === subcommandName,
+        description: String(definition.description || "").trim(),
+        examples: ensureArray(definition.examples)
+          .map((example) => {
+            const record = ensureObject(example);
+            return {
+              label: String(record.label || "").trim(),
+              lines: ensureArray(record.lines).map((value) => String(value || "").trim()).filter(Boolean)
+            };
+          })
+          .filter((example) => example.lines.length > 0)
+      };
+    });
+}
+
+function resolveOwnershipGuidance(payload = {}) {
+  return ensureObject(ensureObject(ensureObject(payload.metadata).jskit).ownershipGuidance);
+}
+
 function renderPackagePayloadText({
   payload,
   provides,
@@ -70,6 +99,8 @@ function renderPackagePayloadText({
   const bindingSections = ensureObject(payload.containerBindings);
   const serverBindings = ensureArray(bindingSections.server);
   const clientBindings = ensureArray(bindingSections.client);
+  const generatorSubcommands = resolveGeneratorSubcommandRows(payload);
+  const ownershipGuidance = resolveOwnershipGuidance(payload);
 
   stdout.write(`${color.heading("Information")}\n`);
   writeField("Package", payload.packageId, color.item);
@@ -95,6 +126,50 @@ function renderPackagePayloadText({
     }
     if (quickClientTokens.length > 0) {
       stdout.write(`- ${color.installed("client")}: ${quickClientTokens.map((token) => color.item(token)).join(", ")}\n`);
+    }
+  }
+
+  if (generatorSubcommands.length > 0) {
+    stdout.write(`${color.heading(`Generator commands (${generatorSubcommands.length}):`)}\n`);
+    for (const subcommand of generatorSubcommands) {
+      const primarySuffix = subcommand.primary ? ` ${color.installed("[primary]")}` : "";
+      const descriptionSuffix = subcommand.description ? `: ${subcommand.description}` : "";
+      stdout.write(`- ${color.item(subcommand.name)}${primarySuffix}${descriptionSuffix}\n`);
+      if (options.details && subcommand.examples.length > 0) {
+        for (const example of subcommand.examples.slice(0, 2)) {
+          const exampleLabel = String(example.label || "").trim();
+          if (exampleLabel) {
+            stdout.write(`  ${color.dim(`example: ${exampleLabel}`)}\n`);
+          }
+          for (const commandLine of ensureArray(example.lines)) {
+            stdout.write(`  ${commandLine}\n`);
+          }
+        }
+      }
+    }
+  }
+
+  if (options.details && Object.keys(ownershipGuidance).length > 0) {
+    const title = String(ownershipGuidance.title || "Ownership guidance").trim() || "Ownership guidance";
+    const summary = String(ownershipGuidance.summary || "").trim();
+    const responsibilities = ensureArray(ownershipGuidance.responsibilities)
+      .map((value) => String(value || "").trim())
+      .filter(Boolean);
+    const examples = ensureArray(ownershipGuidance.examples)
+      .map((value) => String(value || "").trim())
+      .filter(Boolean);
+    stdout.write(`${color.heading(title)}\n`);
+    if (summary) {
+      stdout.write(`- ${summary}\n`);
+    }
+    for (const responsibility of responsibilities) {
+      stdout.write(`- ${responsibility}\n`);
+    }
+    if (examples.length > 0) {
+      stdout.write(`- ${color.dim("quick starts:")}\n`);
+      for (const example of examples) {
+        stdout.write(`  ${example}\n`);
+      }
     }
   }
 

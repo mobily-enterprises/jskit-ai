@@ -1,12 +1,14 @@
-import { actionIds } from "./actionIds.js";
 import {
   statusQueryInputValidator,
   executeCommandInputValidator
 } from "./inputSchemas.js";
 
+const ACTION_GET_STATUS = "feature.${option:feature-name|kebab}.status.read";
+const ACTION_EXECUTE = "feature.${option:feature-name|kebab}.execute";
+
 const featureActions = Object.freeze([
   {
-    id: actionIds.getStatus,
+    id: ACTION_GET_STATUS,
     version: 1,
     kind: "query",
     channels: ["api", "automation", "internal"],
@@ -15,7 +17,7 @@ __JSKIT_FEATURE_ACTION_SURFACES_LINE__
     output: null,
     idempotency: "none",
     audit: {
-      actionName: actionIds.getStatus
+      actionName: ACTION_GET_STATUS
     },
     observability: {},
     async execute(input, context, deps) {
@@ -25,7 +27,7 @@ __JSKIT_FEATURE_ACTION_SURFACES_LINE__
     }
   },
   {
-    id: actionIds.execute,
+    id: ACTION_EXECUTE,
     version: 1,
     kind: "command",
     channels: ["api", "automation", "internal"],
@@ -34,7 +36,7 @@ __JSKIT_FEATURE_ACTION_SURFACES_LINE__
     output: null,
     idempotency: "optional",
     audit: {
-      actionName: actionIds.execute
+      actionName: ACTION_EXECUTE
     },
     observability: {},
     async execute(input, context, deps) {
