@@ -30,6 +30,7 @@ Local functions
 - `resolveListTargetFile(targetRoot = "")`
 - `parseOperationsOption(options)`
 - `parseDisplayFieldsOption(options)`
+- `parseParentTitleOption(options)`
 - `validateDisplayFieldsForOperation(selectedFieldKeys, fields, operationName)`
 - `filterDisplayFields(selectedFieldKeys, fields)`
 - `rewriteGeneratedBlockIndent(source = "", { trimPrefix = "", addPrefix = "" } = {})`
@@ -46,6 +47,8 @@ Local functions
 - `resolveTargetRootRelativeRoutePath(pageTarget = {})`
 - `resolveMenuToPropLine(linkTo = "")`
 - `resolveCrudRelativePath(namespace = "")`
+- `buildListParentTitleImportLine(parentTitleMode = "contextual")`
+- `buildListHeadingTitleSetup({ parentTitleMode = "contextual", resourceNamespace = "", routeTitle = "Records" } = {})`
 
 ### `src/server/resourceSupport.js`
 Exports

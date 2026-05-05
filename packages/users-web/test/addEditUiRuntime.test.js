@@ -35,6 +35,23 @@ test("createAddEditUiRuntime resolves view urls for saved payload ids with neste
   assert.equal(runtime.resolveSavedViewUrl({ id: 99 }), "/contacts/7/addresses/99");
 });
 
+test("createAddEditUiRuntime keeps nested child routes stable when the saved child id matches a parent id", () => {
+  const runtime = createAddEditUiRuntime({
+    recordIdParam: "addressId",
+    routeParams: ref({
+      workspaceSlug: "tonymobily",
+      contactId: "1"
+    }),
+    routeParamNames: ref(["workspaceSlug", "contactId"]),
+    routePath: ref("/w/tonymobily/admin/contacts/1/addresses/new"),
+    viewUrlTemplate: "../:addressId",
+    listUrlTemplate: ".."
+  });
+
+  assert.equal(runtime.listUrl.value, "/w/tonymobily/admin/contacts/1/addresses");
+  assert.equal(runtime.resolveSavedViewUrl({ id: 1 }), "/w/tonymobily/admin/contacts/1/addresses/1");
+});
+
 test("createAddEditUiRuntime resolves edit-page relative list and cancel links", () => {
   const runtime = createAddEditUiRuntime({
     recordIdParam: "addressId",

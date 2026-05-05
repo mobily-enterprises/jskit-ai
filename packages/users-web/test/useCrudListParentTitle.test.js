@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { createSchema } from "json-rest-schema";
 import { resolveCrudListParentDescriptor, resolveCrudListParentRecordTitle, resolveCrudListParentTitleFromItems } from "../src/client/composables/internal/crudListParentTitleSupport.js";
+import { useCrudListParentTitle } from "../src/client/composables/useCrudListParentTitle.js";
 
 const contactChildResource = Object.freeze({
   contract: {
@@ -106,6 +107,32 @@ test("resolveCrudListParentTitleFromItems uses the hydrated lookup label", () =>
   assert.equal(title, "Jessica Dickinson");
 });
 
+test("resolveCrudListParentTitleFromItems ignores raw lookup ids when no hydrated label is present", () => {
+  const descriptor = resolveCrudListParentDescriptor({
+    resource: contactChildResource,
+    route: {
+      matched: [{ path: "/w/:workspaceSlug/admin/contacts/:contactId/availabilities" }],
+      params: {
+        workspaceSlug: "dogandgroom",
+        contactId: "538779"
+      }
+    },
+    recordIdParam: "availabilityRuleId"
+  });
+
+  const title = resolveCrudListParentTitleFromItems(
+    [
+      {
+        id: 1,
+        contactId: 538779
+      }
+    ],
+    descriptor
+  );
+
+  assert.equal(title, "");
+});
+
 test("resolveCrudListParentRecordTitle falls back to entity label plus id", () => {
   const title = resolveCrudListParentRecordTitle(
     {
@@ -153,4 +180,83 @@ test("resolveCrudListParentDescriptor supports parentRouteParamKey aliases", () 
 
   assert.equal(descriptor?.fieldKey, "staffContactId");
   assert.equal(descriptor?.routeParamKey, "contactId");
+});
+
+test("useCrudListParentTitle loads the parent record when child rows only expose the raw parent id", () => {
+  const runtime = useCrudListParentTitle({
+    listRuntime: {
+      items: [
+        {
+          id: 1,
+          contactId: 538779
+        }
+      ],
+      isInitialLoading: false,
+      loadError: ""
+    },
+    resource: contactChildResource,
+    recordIdParam: "availabilityRuleId",
+    route: {
+      matched: [{ path: "/w/:workspaceSlug/admin/contacts/:contactId/availabilities" }],
+      params: {
+        workspaceSlug: "dogandgroom",
+        contactId: "538779"
+      }
+    },
+    viewRuntimeFactory: () => ({
+      record: {
+        id: 538779,
+        firstName: "Jessica",
+        lastName: "Dickinson"
+      },
+      isLoading: false,
+      loadError: ""
+    })
+  });
+
+  assert.equal(runtime.shouldLoadParentRecord, true);
+  assert.equal(runtime.title, "Jessica Dickinson");
+});
+
+test("useCrudListParentTitle requests the parent through JSON:API record transport", () => {
+  let capturedTransport = null;
+
+  useCrudListParentTitle({
+    listRuntime: {
+      items: [
+        {
+          id: 1,
+          contactId: 538779
+        }
+      ],
+      isInitialLoading: false,
+      loadError: ""
+    },
+    resource: contactChildResource,
+    recordIdParam: "availabilityRuleId",
+    route: {
+      matched: [{ path: "/w/:workspaceSlug/admin/contacts/:contactId/availabilities" }],
+      params: {
+        workspaceSlug: "dogandgroom",
+        contactId: "538779"
+      }
+    },
+    viewRuntimeFactory: (options = {}) => {
+      capturedTransport = options.transport;
+      return {
+        record: {
+          id: 538779,
+          fullName: "Jessica Dickinson"
+        },
+        isLoading: false,
+        loadError: ""
+      };
+    }
+  });
+
+  assert.deepEqual(capturedTransport, {
+    kind: "jsonapi-resource",
+    responseType: "contacts",
+    responseKind: "record"
+  });
 });

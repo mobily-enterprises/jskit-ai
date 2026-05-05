@@ -43,6 +43,15 @@ export default Object.freeze({
       promptLabel: "Route id param",
       promptHint: "Route param used by view and edit pages (default: recordId)."
     },
+    "parent-title": {
+      required: false,
+      inputType: "text",
+      defaultValue: "contextual",
+      validationType: "enum",
+      allowedValues: ["contextual", "none"],
+      promptLabel: "Parent title mode",
+      promptHint: "Whether list pages should show a parent-aware heading: contextual | none."
+    },
     force: {
       required: false,
       inputType: "flag",
@@ -108,6 +117,7 @@ export default Object.freeze({
           "operations",
           "display-fields",
           "id-param",
+          "parent-title",
           "link-placement",
           "link-component-token",
           "namespace",
@@ -130,7 +140,8 @@ export default Object.freeze({
             lines: [
               "npx jskit generate crud-ui-generator crud \\",
               "  admin/catalog/index/products \\",
-              "  --resource-file packages/products/src/shared/productResource.js"
+              "  --resource-file packages/products/src/shared/productResource.js \\",
+              "  --parent-title contextual"
             ]
           },
           {
@@ -141,6 +152,7 @@ export default Object.freeze({
               "  --resource-file packages/pets/src/shared/petResource.js \\",
               "  --id-param petId \\",
               "  --display-fields name,breedId,sex \\",
+              "  --parent-title none \\",
               "  --force"
             ]
           }

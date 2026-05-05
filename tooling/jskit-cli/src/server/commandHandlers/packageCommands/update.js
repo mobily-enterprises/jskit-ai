@@ -23,7 +23,9 @@ async function runPackageUpdateCommand(
   const installedPackages = ensureObject(lock.installedPackages);
   const resolvedTargetId = resolveInstalledPackageIdInput(targetId, installedPackages);
   if (!resolvedTargetId) {
-    throw createCliError(`Package is not installed: ${targetId}`);
+    throw createCliError(
+      `Package is not installed: ${targetId}. update package only reapplies packages already recorded in .jskit/lock.json. If you meant to install it, run: jskit add package ${targetId}`
+    );
   }
 
   return runCommandAdd({

@@ -14,8 +14,8 @@ So the real order is always:
 This chapter uses three examples, in increasing complexity:
 
 - `contacts`: the baseline full CRUD walkthrough
-- `addresses`: a child CRUD with its own routed list page
-- `comments`: a child CRUD that lives inside the parent page, with only the child routes being routed
+- `addresses`: a child CRUD with its own routed list page reached from the parent record view
+- `comments`: a child CRUD that lives under the parent record host as a child page
 
 The examples assume the guide app already has the database and workspace/admin setup from the earlier chapters. That is why the route roots below live under `w/[workspaceSlug]/admin/...`.
 
@@ -348,7 +348,7 @@ That is the shape to learn first.
 
 Now move to a child CRUD with its own URL.
 
-This is the right pattern when the child collection deserves its own list page.
+This is the right pattern when the child collection deserves its own list page, but should still be reached from a specific parent record.
 
 Example route:
 
@@ -356,11 +356,22 @@ Example route:
 .../contacts/3/addresses
 ```
 
-In the guide app's real route tree, that becomes:
+In the guide app's real route tree, the visible URL becomes:
 
 ```text
 w/[workspaceSlug]/admin/contacts/[contactId]/addresses
 ```
+
+This example is intentionally **not** an in-page child list and **not** a contact subtab.
+
+The intended UX is:
+
+- `addresses` gets its own routed list page
+- the page lives under a specific contact
+- the user reaches it from an explicit link or button on the contact view
+- it does **not** appear in the global left menu
+
+That makes it different from the later `comments` example, where the child list stays inside the parent page.
 
 ### Step 1: create the child table
 
@@ -380,11 +391,15 @@ CREATE TABLE addresses (
   created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   KEY idx_addresses_workspace_id (workspace_id),
-  KEY idx_addresses_contact_id (contact_id)
+  KEY idx_addresses_contact_id (contact_id),
+  CONSTRAINT fk_addresses_contact_id
+    FOREIGN KEY (contact_id) REFERENCES contacts(id)
 );
 ```
 
 The important extra column here is `contact_id`. This is what makes the CRUD a child of a contact instead of a top-level resource.
+
+The foreign key is not optional in this example. It is what lets `crud-server-generator` emit `contactId` as a real lookup relation in `packages/addresses/src/shared/addressResource.js`.
 
 ### Step 2: scaffold the server package
 
@@ -396,17 +411,104 @@ npx jskit generate crud-server-generator scaffold \
   --table-name addresses
 ```
 
-### Step 3: scaffold the UI at the child route root
+Then install the generated local package:
+
+```bash
+npm install
+```
+
+If you are developing against a local JSKIT checkout, relink your app to the local packages before you run the UI:
+
+```bash
+npm run devlinks
+```
+
+### Step 3: refine the generated lookup metadata by hand
+
+Open `packages/addresses/src/shared/addressResource.js` and add `labelKey: "fullName"` to the generated `contactId` relation:
+
+```js
+contactId: {
+  type: "id",
+  required: true,
+  search: true,
+  relation: {
+    kind: "lookup",
+    namespace: "contacts",
+    valueKey: "id",
+    labelKey: "fullName"
+  },
+  belongsTo: "contacts",
+  as: "contact",
+  ui: { formControl: "autocomplete" },
+  ...
+}
+```
+
+This part is still manual today.
+
+The scaffold can infer the lookup **relationship** from the foreign key, but it cannot infer which contact field should be used as the human-readable label. Without `labelKey: "fullName"`, the page falls back to generic headings like `Addresses for Contact #1`.
+
+### Step 4: scaffold the UI route tree
 
 ```bash
 npx jskit generate crud-ui-generator crud \
   w/[workspaceSlug]/admin/contacts/[contactId]/addresses \
   --resource-file packages/addresses/src/shared/addressResource.js \
   --id-param addressId \
+  --parent-title contextual \
   --display-fields label,line1,postcode
 ```
 
-That gives you a proper child CRUD with its own list, view, new, and edit pages under the contact route.
+That gives you a normal child route tree:
+
+- `w/[workspaceSlug]/admin/contacts/[contactId]/addresses/index.vue`
+- `w/[workspaceSlug]/admin/contacts/[contactId]/addresses/new.vue`
+- `w/[workspaceSlug]/admin/contacts/[contactId]/addresses/[addressId]/index.vue`
+- `w/[workspaceSlug]/admin/contacts/[contactId]/addresses/[addressId]/edit.vue`
+- shared `_components` files under the same route root
+
+### Step 5: remove the generated shell placement by hand
+
+`crud-ui-generator` currently generates a list-page placement block in `src/placement.js`.
+
+For this example, that block is **not** what you want.
+
+Delete the generated `addresses` placement block from `src/placement.js`.
+
+It will be the block added for the `w/[workspaceSlug]/admin/contacts/[contactId]/addresses` page link.
+
+Depending on what outlets already exist in the app, that block may try to place `Addresses` in the shell menu or in the contact subpages outlet. For this example, remove it either way and keep navigation manual from the contact view.
+
+This is an intentional manual cleanup for now:
+
+- keep the routed pages
+- remove the auto menu link
+- navigate to the page from the contact view instead
+
+### Step 6: add a manual link from the contact view
+
+Open `src/pages/w/[workspaceSlug]/admin/contacts/[contactId]/index.vue` and add a button that links to `./addresses`.
+
+The simplest version is:
+
+```vue
+<v-btn
+  color="primary"
+  variant="tonal"
+  :to="{ path: view.resolveParams(UI_ADDRESSES_URL), query: $route.query }"
+>
+  Addresses
+</v-btn>
+```
+
+Then define the URL template in the script:
+
+```js
+const UI_ADDRESSES_URL = "./addresses";
+```
+
+That gives you a standalone child page with a clear entry point from the parent contact view, without mixing record-scoped pages into the global shell menu.
 
 ### The important refinement: parent title handling
 
@@ -414,8 +516,8 @@ This is where nested CRUD starts to feel real.
 
 An addresses list page should not show a generic heading like `Addresses`. It should usually show whose addresses these are, for example:
 
-- `Jane Smith's addresses`
-- `Acme Pty Ltd's addresses`
+- `Addresses for Jane Smith`
+- `Addresses for Acme Pty Ltd`
 
 The awkward case is when there are **no child rows yet**. If the list is empty, you cannot derive the parent title from the first address record.
 
@@ -431,37 +533,36 @@ const parentTitle = useCrudListParentTitle({
 });
 ```
 
-That helper does the nice thing automatically:
+That helper does the right thing automatically:
 
-- if the child list already has rows, it derives the parent title from the first child record
+- if the child list already has rows, it derives the parent title from the first child record when lookup data is available
 - if the child list is empty, it loads the parent record directly
 
-This is exactly the pattern used in the real app codebase for nested CRUD lists like a contact's pets. It avoids the common broken state where an empty child list loses all context about the parent it belongs to.
-
-So the `addresses` example is important because it teaches the first truly practical nested-CRUD problem:
+So the `addresses` example is important because it teaches the first truly practical child-page problem:
 
 - the route is child-scoped
 - the data is child-scoped
-- but the page still needs a reliable parent identity even when the child list is empty
+- the page is reached from a parent action, not from the main shell menu
+- the page still needs a reliable parent identity even when the child list is empty
 
-## Example 3: `comments` in-page
+## Example 3: `comments` under the contact host
 
 This is the advanced example.
 
-Sometimes a child resource is real enough to deserve its own CRUD operations, but **not** important enough to deserve its own full-screen list page.
+Sometimes a child resource should stay attached to the parent record, but still deserves its own routed child page.
 
 Comments are a good example:
 
 - they matter
 - they need persistence
-- they may need `view`, `new`, or `edit` routes
-- but the main screen is still the contact view page
+- they benefit from their own list, `new`, `view`, and `edit` routes
+- but they still belong inside the contact experience rather than as a top-level destination
 
 So the pattern is:
 
 - keep the contact page as the real host
-- render the comments list inside that page
-- route only the child operations underneath it
+- keep the child route tree under that host
+- let the generated placement surface the comments page as a contact child page
 
 ### Step 1: create the table
 
@@ -472,12 +573,13 @@ CREATE TABLE comments (
   id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
   workspace_id BIGINT UNSIGNED NOT NULL,
   contact_id BIGINT UNSIGNED NOT NULL,
-  author_user_id BIGINT UNSIGNED NULL,
   body TEXT NOT NULL,
   created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   KEY idx_comments_workspace_id (workspace_id),
-  KEY idx_comments_contact_id (contact_id)
+  KEY idx_comments_contact_id (contact_id),
+  CONSTRAINT fk_comments_contact_id
+    FOREIGN KEY (contact_id) REFERENCES contacts(id)
 );
 ```
 
@@ -491,7 +593,45 @@ npx jskit generate crud-server-generator scaffold \
   --table-name comments
 ```
 
-### Step 3: make the parent page able to host routed children
+Then install the generated local package:
+
+```bash
+npm install
+```
+
+If you are developing against a local JSKIT checkout, relink the app before you run the UI:
+
+```bash
+npm run devlinks
+```
+
+### Step 3: refine the generated lookup metadata by hand
+
+Open `packages/comments/src/shared/commentResource.js` and add `labelKey: "fullName"` to the generated `contactId` relation:
+
+```js
+contactId: {
+  type: "id",
+  required: true,
+  search: true,
+  relation: {
+    kind: "lookup",
+    namespace: "contacts",
+    valueKey: "id",
+    labelKey: "fullName"
+  },
+  belongsTo: "contacts",
+  as: "contact",
+  ui: { formControl: "autocomplete" },
+  ...
+}
+```
+
+This is the same manual refinement used in the `addresses` example: the scaffold can infer the lookup relationship from the foreign key, but it cannot infer which parent field should be used as the display label.
+
+The next command also makes the parent-title mode explicit on purpose. That way changing the heading behavior later is just changing the value and rerunning with `--force`, not adding a new flag.
+
+### Step 4: make the parent page able to host routed children
 
 If the contact view page should stay visible while child comment routes render underneath it, first upgrade it into a routed host:
 
@@ -507,63 +647,71 @@ That is the point where the comments example deliberately overlaps with the `ui-
 - CRUD scaffolding for the comments resource
 - a routed host in the parent contact page
 
-### Step 4: generate only the routed child operations
+### Step 4.5: make `comments` the default child page
 
-Now generate the comments UI without a list page:
+This is a very common next step.
+
+If the contact page should open directly on `Comments`, add an explicit redirect to the contact host page:
+
+```vue
+<script setup>
+import { redirectToChild } from "@jskit-ai/kernel/client/pageRedirects";
+
+definePage({
+  redirect: redirectToChild("comments")
+});
+</script>
+```
+
+In this example, that edit belongs in:
+
+```text
+src/pages/w/[workspaceSlug]/admin/contacts/[contactId]/index.vue
+```
+
+This is the recommended pattern. Do **not** try to infer the default child page from placement order or "the first tab". Keep it explicit.
+
+When this redirect is present:
+
+- opening `/w/<workspaceSlug>/admin/contacts/<contactId>` lands on `/w/<workspaceSlug>/admin/contacts/<contactId>/comments`
+- the parent contact page still stays visible
+- the child page renders underneath it
+
+That last point matters. The contact page is still the host page. The redirect only changes which child route becomes the default landing destination.
+
+### Step 5: generate the full child CRUD page
+
+Now generate the comments UI under the contact host:
 
 ```bash
 npx jskit generate crud-ui-generator crud \
   w/[workspaceSlug]/admin/contacts/[contactId]/index/comments \
   --resource-file packages/comments/src/shared/commentResource.js \
-  --operations view,new,edit \
-  --id-param commentId
+  --id-param commentId \
+  --parent-title none \
+  --display-fields body
 ```
 
-This is the key move.
+Do **not** pass `--operations view,new,edit` here. That would omit the list page and leave you with only child operation routes.
 
-By leaving `list` out:
+`--parent-title none` is the important difference from `addresses`.
 
-- you do **not** generate a standalone comments list page
-- the host contact page stays responsible for showing the comment list
-- the generated child routes still handle things like `new`, `view`, and `edit`
+The contact host page already shows the parent identity, so a generated heading like `Comments for Tony Mobily` is redundant. If you later decide you do want that heading, rerun the same command with `--parent-title contextual --force`.
 
-### What the host page does
+This command gives you:
 
-The host page then renders the comment list directly, usually with lower-level CRUD composables such as:
+- `w/[workspaceSlug]/admin/contacts/[contactId]/index/comments/index.vue`
+- `w/[workspaceSlug]/admin/contacts/[contactId]/index/comments/new.vue`
+- `w/[workspaceSlug]/admin/contacts/[contactId]/index/comments/[commentId]/index.vue`
+- `w/[workspaceSlug]/admin/contacts/[contactId]/index/comments/[commentId]/edit.vue`
 
-- `useCrudList()`
-- `useCrudAddEdit()`
-- `useCrudView()` when needed
-
-There is one more runtime worth knowing about early:
-
-- `useCommand()`
-
-Use it for live actions that are **not** full forms, such as:
-
-- checkbox toggles
-- archive / reopen buttons
-- quick PATCH / POST / DELETE actions on one record
-
-So the practical split is:
-
-- `useCrudList()` / `useCrudView()`
-  - routed list/view loading
-- `useCrudAddEdit()`
-  - real create/edit forms
-- `useCommand()`
-  - live actions inside the page
-
-The `todo` app uses that last pattern for "mark item done" checkboxes. The deeper best-practices explanation is in [Advanced CRUDs](/guide/generators/advanced-cruds).
-
-That is the same general pattern already used in the real app for embedded child records like pet notes: the record list lives inside the main view page, while routed child pages handle the operations that still deserve their own URLs.
-
-This pattern is useful when the child records are supporting detail rather than a destination in their own right.
+Because this route root lives under `.../[contactId]/index/comments`, the generated placement is the desired one here: `Comments` appears as a child page under the contact host.
 
 That is the real lesson of the `comments` example:
 
-- a child CRUD does **not** have to mean "make another full-screen list page"
-- you can keep the parent page as the main experience and route only the child operations that benefit from their own URLs
+- the contact page stays the routed host
+- the child CRUD gets its own list page
+- the route still stays under the parent record experience
 
 ## When `scaffold-field` matters
 
@@ -595,8 +743,8 @@ It patches the canonical `schema` inside the shared resource file. That matters 
 The important thing is not memorizing commands. It is learning the three shapes:
 
 - `contacts`: a normal top-level CRUD
-- `addresses`: a child CRUD with its own routed list page
-- `comments`: a child CRUD that lives inside the parent page, with only the child operations routed
+- `addresses`: a child CRUD with its own routed list page reached from the parent record view
+- `comments`: a child CRUD that lives under the parent record host as a child page
 
 Once you understand those three shapes, the two generator packages stop feeling like separate tools.
 

@@ -57,19 +57,20 @@ function createAddEditUiRuntime({
       ...currentRouteParams,
       ...asPlainObject(extraParams)
     };
+    const currentRouteRecordId = toResolvedRecordId({
+      routeParams: currentRouteParams,
+      recordIdParam: normalizedRecordIdParam,
+      routeRecordId
+    });
     const resolvedRecordId = toRouteParamValue(sourceParams[normalizedRecordIdParam]) ||
-      toResolvedRecordId({
-        routeParams: currentRouteParams,
-        recordIdParam: normalizedRecordIdParam,
-        routeRecordId
-      });
+      currentRouteRecordId;
     sourceParams[normalizedRecordIdParam] = resolvedRecordId;
     const currentPathname = resolveScopedRoutePathname({
       currentPathname: routePath,
       params: currentRouteParams,
       orderedParamNames: routeParamNames,
       anchorParamName: normalizedRecordIdParam,
-      anchorParamValue: resolvedRecordId,
+      anchorParamValue: currentRouteRecordId,
       anchorMode: "after"
     });
 

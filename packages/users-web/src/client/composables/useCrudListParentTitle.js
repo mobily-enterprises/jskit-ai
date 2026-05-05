@@ -1,6 +1,7 @@
 import { computed, proxyRefs } from "vue";
 import { useRoute } from "vue-router";
 import { normalizeText } from "@jskit-ai/kernel/shared/support/normalize";
+import { inferCrudLookupJsonApiTransport } from "./crud/crudJsonApiTransportSupport.js";
 import {
   resolveRouteParamsSource,
   toRouteParamValue
@@ -59,6 +60,19 @@ function useCrudListParentTitle({
   });
 
   const initialParentDescriptor = parentDescriptor.value || {};
+  const parentTransport = (() => {
+    const baseTransport = inferCrudLookupJsonApiTransport({
+      namespace: initialParentDescriptor.relationNamespace
+    });
+    if (!baseTransport) {
+      return null;
+    }
+
+    return Object.freeze({
+      ...baseTransport,
+      responseKind: "record"
+    });
+  })();
   const normalizedQueryKeyPrefix = normalizeQueryKeyPrefix(queryKeyPrefix);
   const shouldLoadParentRecord = computed(() => {
     const descriptor = parentDescriptor.value;
@@ -70,12 +84,18 @@ function useCrudListParentTitle({
     }
 
     const items = Array.isArray(listRuntime?.items) ? listRuntime.items : [];
-    return items.length < 1;
+    if (items.length < 1) {
+      return true;
+    }
+
+    const listTitle = resolveCrudListParentTitleFromItems(items, descriptor);
+    return !listTitle;
   });
 
   const parentView = viewRuntimeFactory({
     adapter,
     apiUrlTemplate: normalizeText(initialParentDescriptor.apiUrlTemplate),
+    transport: parentTransport,
     readEnabled: shouldLoadParentRecord,
     recordIdParam: normalizeText(initialParentDescriptor.routeParamKey) || "recordId",
     includeRecordIdInQueryKey: true,
