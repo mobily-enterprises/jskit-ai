@@ -475,14 +475,15 @@ const COMMAND_DESCRIPTORS = Object.freeze({
     defaults: Object.freeze([
       "Validates lock entries, managed files, and registry visibility.",
       "Reports issues as plain text by default.",
-      "Use --json for machine-readable diagnostics."
+      "Use --json for machine-readable diagnostics.",
+      "Use --against <base-ref> when changed-file checks should compare against a branch, tag, or commit."
     ]),
-    fullUse: "jskit doctor [--json]",
+    fullUse: "jskit doctor [--against <base-ref>] [--json]",
     showHelpOnBareInvocation: false,
     handlerName: "commandDoctor",
     allowedFlagKeys: Object.freeze(["json"]),
-    inlineOptionMode: "none",
-    allowedValueOptionNames: Object.freeze([])
+    inlineOptionMode: "enumerated",
+    allowedValueOptionNames: Object.freeze(["against"])
   }),
   "lint-descriptors": Object.freeze({
     command: "lint-descriptors",

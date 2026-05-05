@@ -1030,6 +1030,14 @@ npx jskit app verify-ui \
   --auth-mode dev-auth-login-as
 ```
 
+For local pre-merge review, the next step after recording that Playwright run is usually:
+
+```bash
+npx jskit doctor --against origin/main
+```
+
+Advanced CI pipelines can use the same `--against` contract too, but JSKIT does not scaffold hosted auth/database/browser verification by default.
+
 That flow is preferable to driving the real sign-in form in feature tests because it keeps the test focused on the UI feature being added, not on an external auth dependency. If a chunk changes user-facing UI and the flow requires login, the expected JSKIT review standard is:
 
 - use Playwright

@@ -62,6 +62,8 @@ Playwright note:
 
 - When login is required, use a test-only auth bypass or session bootstrap path instead of dependence on a live external auth provider.
 - Record the run through `jskit app verify-ui --command "<playwright command>" --feature "<label>" --auth-mode <mode>` so `jskit doctor` can verify the receipt against the current changed UI files.
+- In local pre-merge review, use `jskit doctor --against <base-ref>` after the recorded Playwright run so JSKIT compares against the branch delta, not only the current dirty worktree.
+- Advanced CI setups may also use `--against <base-ref>`, but JSKIT does not scaffold hosted browser/auth/database verification by default.
 - In the standard JSKIT auth stack, the default development path is `POST /api/dev-auth/login-as`, guarded by `AUTH_DEV_BYPASS_ENABLED=true` and `AUTH_DEV_BYPASS_SECRET=...`.
 - That route is development-only and must not be enabled in production.
 - Because it is still an unsafe POST, fetch `csrfToken` from `/api/session`, send it as the `csrf-token` header, and make the request in the same browser context that will run the Playwright assertions so the session cookies land in the page session.

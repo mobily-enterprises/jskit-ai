@@ -701,7 +701,8 @@ Exports
 - `isUiVerificationPath(relativePath = "")`
 - `isValidUiVerificationReceipt(receipt)`
 - `normalizeUiVerificationReceipt(rawReceipt = {})`
-- `resolveChangedUiFilesFromGit(appRoot = "")`
+- `resolveChangedPathsFromGit(appRoot = "", { against = "", pathspecs = ["src", "packages"] } = {})`
+- `resolveChangedUiFilesFromGit(appRoot = "", { against = "" } = {})`
 - `sortUniqueStrings(values = [])`
 Local functions
 - `normalizeText(value = "")`

@@ -118,7 +118,17 @@ test("completion bash __complete__ lists app subcommands and app-specific option
   assert.equal(verifyUiOptionResult.status, 0, String(verifyUiOptionResult.stderr || ""));
   assert.deepEqual(
     String(verifyUiOptionResult.stdout || "").trim().split(/\r?\n/u).filter(Boolean),
-    ["--auth-mode", "--command", "--feature", "--help"]
+    ["--against", "--auth-mode", "--command", "--feature", "--help"]
+  );
+
+  const verifyOptionResult = runCli({
+    args: ["completion", "bash", "__complete__", "4", "--", "npx", "jskit", "app", "verify", "--"]
+  });
+
+  assert.equal(verifyOptionResult.status, 0, String(verifyOptionResult.stderr || ""));
+  assert.deepEqual(
+    String(verifyOptionResult.stdout || "").trim().split(/\r?\n/u).filter(Boolean),
+    ["--against", "--help"]
   );
 });
 

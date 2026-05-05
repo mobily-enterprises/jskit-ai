@@ -12,6 +12,8 @@ Rules:
 - Any chunk that adds or changes user-facing UI must include a Playwright flow that exercises the changed behavior before the chunk is done.
 - Record that Playwright run with `jskit app verify-ui --command "<playwright command>" --feature "<label>" --auth-mode <mode>`.
 - `jskit doctor` expects `.jskit/verification/ui.json` to match the current dirty UI file set when UI files are changed.
+- For local pre-merge review, follow the recorded Playwright run with `jskit doctor --against <base-ref>` so `doctor` compares against the branch delta instead of only the local dirty worktree.
+- Advanced CI setups may also use `--against <base-ref>`, but JSKIT does not scaffold hosted browser/auth/database verification by default.
 - Do not rely on a live external auth provider for Playwright verification of normal app features.
 - For authenticated UI in the standard JSKIT auth stack, use the development-only dev auth bypass route instead.
 - The standard route is `POST /api/dev-auth/login-as`.
@@ -29,6 +31,12 @@ npx jskit app verify-ui \
   --command "npx playwright test tests/e2e/contacts.spec.ts -g filters" \
   --feature "contacts filters" \
   --auth-mode dev-auth-login-as
+```
+
+Local pre-merge follow-up:
+
+```bash
+npx jskit doctor --against origin/main
 ```
 
 The Playwright command itself should follow this setup shape when login is needed:

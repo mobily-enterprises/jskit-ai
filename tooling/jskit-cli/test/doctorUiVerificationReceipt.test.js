@@ -53,6 +53,7 @@ async function writeUiReceipt(appRoot, {
   feature = "contacts list",
   command = "npx playwright test tests/e2e/contacts.spec.ts -g list",
   authMode = "none",
+  against = "",
   changedUiFiles = []
 } = {}) {
   await mkdir(path.join(appRoot, ".jskit", "verification"), { recursive: true });
@@ -66,6 +67,7 @@ async function writeUiReceipt(appRoot, {
         feature,
         command,
         authMode,
+        ...(against ? { against } : {}),
         changedUiFiles
       },
       null,
@@ -167,6 +169,95 @@ test("doctor accepts matching UI verification receipts for the current dirty UI 
     assert.equal(doctorResult.status, 0, String(doctorResult.stderr || ""));
     const payload = JSON.parse(String(doctorResult.stdout || "{}"));
     assert.deepEqual(payload.issues, []);
+  });
+});
+
+test("doctor accepts matching UI verification receipts against a base ref", async () => {
+  await withTempDir(async (cwd) => {
+    const appRoot = path.join(cwd, "doctor-ui-receipt-against-app");
+    await createMinimalApp(appRoot, { name: "doctor-ui-receipt-against-app" });
+    await initializeGitApp(appRoot);
+    runGit(appRoot, ["branch", "baseline"]);
+
+    await mkdir(path.join(appRoot, "src", "pages", "home", "contacts"), { recursive: true });
+    await writeFile(
+      path.join(appRoot, "src", "pages", "home", "contacts", "index.vue"),
+      "<template><div>Contacts</div></template>\n",
+      "utf8"
+    );
+    runGit(appRoot, ["add", "src/pages/home/contacts/index.vue"]);
+    runGit(appRoot, ["commit", "-m", "Add contacts page"]);
+
+    await writeUiReceipt(appRoot, {
+      against: "baseline",
+      changedUiFiles: ["src/pages/home/contacts/index.vue"]
+    });
+
+    const doctorResult = runCli({
+      cwd: appRoot,
+      args: ["doctor", "--json", "--against", "baseline"]
+    });
+
+    assert.equal(doctorResult.status, 0, String(doctorResult.stderr || ""));
+    const payload = JSON.parse(String(doctorResult.stdout || "{}"));
+    assert.deepEqual(payload.issues, []);
+  });
+});
+
+test("doctor flags receipts recorded against a different base ref", async () => {
+  await withTempDir(async (cwd) => {
+    const appRoot = path.join(cwd, "doctor-ui-receipt-wrong-base-app");
+    await createMinimalApp(appRoot, { name: "doctor-ui-receipt-wrong-base-app" });
+    await initializeGitApp(appRoot);
+    runGit(appRoot, ["branch", "baseline"]);
+
+    await mkdir(path.join(appRoot, "src", "pages", "home", "contacts"), { recursive: true });
+    await writeFile(
+      path.join(appRoot, "src", "pages", "home", "contacts", "index.vue"),
+      "<template><div>Contacts</div></template>\n",
+      "utf8"
+    );
+    runGit(appRoot, ["add", "src/pages/home/contacts/index.vue"]);
+    runGit(appRoot, ["commit", "-m", "Add contacts page"]);
+
+    await writeUiReceipt(appRoot, {
+      against: "origin/main",
+      changedUiFiles: ["src/pages/home/contacts/index.vue"]
+    });
+
+    const doctorResult = runCli({
+      cwd: appRoot,
+      args: ["doctor", "--json", "--against", "baseline"]
+    });
+
+    assert.equal(doctorResult.status, 1, String(doctorResult.stderr || ""));
+    const payload = JSON.parse(String(doctorResult.stdout || "{}"));
+    assert.equal(payload.issues.length, 1);
+    assert.match(
+      String(payload.issues[0] || ""),
+      /\[ui:verification\] \.jskit\/verification\/ui\.json was recorded against/
+    );
+  });
+});
+
+test("doctor flags an invalid --against ref as a verification issue", async () => {
+  await withTempDir(async (cwd) => {
+    const appRoot = path.join(cwd, "doctor-ui-receipt-invalid-base-app");
+    await createMinimalApp(appRoot, { name: "doctor-ui-receipt-invalid-base-app" });
+    await initializeGitApp(appRoot);
+
+    const doctorResult = runCli({
+      cwd: appRoot,
+      args: ["doctor", "--json", "--against", "missing-ref"]
+    });
+
+    assert.equal(doctorResult.status, 1, String(doctorResult.stderr || ""));
+    const payload = JSON.parse(String(doctorResult.stdout || "{}"));
+    assert.equal(payload.issues.length, 1);
+    assert.match(
+      String(payload.issues[0] || ""),
+      /\[ui:verification\] could not resolve changed UI files against "missing-ref"/
+    );
   });
 });
 

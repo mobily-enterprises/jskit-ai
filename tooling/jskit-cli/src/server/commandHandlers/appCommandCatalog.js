@@ -30,18 +30,24 @@ const APP_COMMAND_DEFINITIONS = Object.freeze({
   verify: Object.freeze({
     name: "verify",
     summary: "Run the JSKIT baseline app verification flow.",
-    usage: "jskit app verify",
-    options: Object.freeze([]),
+    usage: "jskit app verify [--against <base-ref>]",
+    options: Object.freeze([
+      Object.freeze({
+        label: "--against <base-ref>",
+        description: "Resolve changed-file checks against a branch, tag, or commit in addition to any local dirty UI files."
+      })
+    ]),
     defaults: Object.freeze([
       "Runs npm scripts lint, test, test:client, and build only when those scripts are present.",
       "Runs jskit doctor after the normal app checks.",
+      "Use --against <base-ref> in CI or PR validation so doctor evaluates changed-file checks against the branch delta too.",
       "The scaffolded npm run verify wrapper can append npm run --if-present verify:app afterwards."
     ])
   }),
   "verify-ui": Object.freeze({
     name: "verify-ui",
     summary: "Run a targeted Playwright command and write a UI verification receipt for jskit doctor.",
-    usage: "jskit app verify-ui --command <shell-command> --feature <label> --auth-mode <mode>",
+    usage: "jskit app verify-ui --command <shell-command> --feature <label> --auth-mode <mode> [--against <base-ref>]",
     options: Object.freeze([
       Object.freeze({
         label: "--command <shell-command>",
@@ -54,12 +60,16 @@ const APP_COMMAND_DEFINITIONS = Object.freeze({
       Object.freeze({
         label: "--auth-mode <mode>",
         description: "Auth path used by the Playwright flow: none | dev-auth-login-as | session-bootstrap | custom-local."
+      }),
+      Object.freeze({
+        label: "--against <base-ref>",
+        description: "Record changed UI files against a branch, tag, or commit instead of only the current dirty worktree."
       })
     ]),
     defaults: Object.freeze([
       "Requires a git working tree so the receipt can record the currently changed UI files.",
       "Writes .jskit/verification/ui.json after the command succeeds.",
-      "Doctor expects the receipt to match the current dirty UI file set."
+      "Doctor expects the receipt to match the current dirty UI file set, or the same --against <base-ref> delta when used."
     ])
   }),
   "update-packages": Object.freeze({
@@ -175,6 +185,9 @@ function buildAppCommandOptionMeta(subcommandName = "") {
   }
   if (definition.name === "update-packages" || definition.name === "release") {
     optionMeta.registry = { inputType: "text" };
+  }
+  if (definition.name === "verify" || definition.name === "verify-ui") {
+    optionMeta.against = { inputType: "text" };
   }
   if (definition.name === "verify-ui") {
     optionMeta.command = { inputType: "text" };

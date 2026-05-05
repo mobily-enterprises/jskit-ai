@@ -151,6 +151,8 @@ That matters because JSKIT maintenance policy changes over time. If the scaffold
 
 `jskit app verify` is worth noticing specifically. Linting, tests, and builds check your source code and runtime behavior. The JSKIT part of that flow runs `doctor`, which checks JSKIT-managed app state: installed package visibility, lock-file-backed managed files, and other JSKIT-specific health rules. It is there because a JSKIT app is not only code. It is also a descriptor-driven managed project.
 
+The starter scaffold also writes `.github/workflows/verify.yml`. That workflow stays intentionally small: it runs `npm run verify` for the normal GitHub Actions gate and leaves browser/auth/database-heavy review flows to app-specific local or CI setups. The `--against <base-ref>` review mode exists in the CLI for local pre-merge checks and for advanced CI pipelines, but it is not assumed by the starter scaffold.
+
 The surface-specific script names are also worth noticing early, even in this tiny app. `dev:home`, `server:home`, and `build:home` are the first concrete places where surface selection shows up in the scaffold. They work by setting `VITE_SURFACE=home` on the client side and `SERVER_SURFACE=home` on the server side. In this first chapter, where `home` is the only surface, those variants behave almost the same as the default commands. Later, once more surfaces exist, those scripts become the simplest way to run or build just one surface at a time.
 
 ### App surfaces in JSKIT
