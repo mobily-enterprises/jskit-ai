@@ -90,7 +90,7 @@ function createRepository({ api, knex } = {}) {
         createJsonRestContext(options?.context || null)
       );
 
-      return true;
+      return null;
     });
   }
 
