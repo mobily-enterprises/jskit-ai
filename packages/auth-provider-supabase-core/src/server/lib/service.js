@@ -48,6 +48,7 @@ import { buildDisabledPasswordSecret } from "./authSecrets.js";
 import { createAccountFlows } from "./accountFlows.js";
 import { createOauthFlows } from "./oauthFlows.js";
 import { createPasswordSecurityFlows } from "./passwordSecurityFlows.js";
+import { buildSupabaseServerClientOptions } from "./supabaseClientOptions.js";
 import { USER_PROFILE_EMAIL_CONFLICT_CODE } from "./standaloneProfileSyncService.js";
 import {
   assertDevAuthBootstrapConfig,
@@ -202,12 +203,7 @@ function createService(options) {
 
   function createSupabaseClient() {
     ensureConfigured();
-    return createClient(supabaseUrl, supabasePublishableKey, {
-      auth: {
-        autoRefreshToken: false,
-        persistSession: false
-      }
-    });
+    return createClient(supabaseUrl, supabasePublishableKey, buildSupabaseServerClientOptions());
   }
 
   function getSupabaseClient() {

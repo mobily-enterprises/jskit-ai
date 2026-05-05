@@ -1,6 +1,6 @@
 {
   "name": "@jskit-ai/http-runtime",
-  "version": "0.1.58",
+  "version": "0.1.59",
   "type": "module",
   "scripts": {
     "test": "node --test"
@@ -18,7 +18,7 @@
     "./shared/validators/operationValidation": "./src/shared/validators/operationValidation.js"
   },
   "dependencies": {
-    "@jskit-ai/kernel": "0.1.59",
+    "@jskit-ai/kernel": "0.1.60",
     "json-rest-schema": "1.x.x"
   }
 }
