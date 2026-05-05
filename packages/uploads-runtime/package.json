@@ -1,6 +1,6 @@
 {
   "name": "@jskit-ai/uploads-runtime",
-  "version": "0.1.36",
+  "version": "0.1.37",
   "type": "module",
   "scripts": {
     "test": "node --test"
@@ -16,6 +16,6 @@
   },
   "dependencies": {
     "@fastify/multipart": "^9.4.0",
-    "@jskit-ai/kernel": "0.1.58"
+    "@jskit-ai/kernel": "0.1.59"
   }
 }
