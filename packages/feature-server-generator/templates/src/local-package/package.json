@@ -4,6 +4,6 @@
   "private": true,
   "type": "module",
   "exports": {
-    "./server/actionIds": "./src/server/actionIds.js"
+    "./server/actions": "./src/server/actions.js"
   }
 }

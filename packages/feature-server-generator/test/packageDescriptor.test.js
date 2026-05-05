@@ -23,6 +23,7 @@ test("feature-server-generator routes mode-specific files through mutation when 
   const jsonRestRepositoryTemplate = files.find((entry) => entry.from === "templates/src/local-package/server/repositoryJsonRest.js");
   const customKnexRepositoryTemplate = files.find((entry) => entry.from === "templates/src/local-package/server/repositoryCustomKnex.js");
   const providerTemplate = files.find((entry) => entry.from === "templates/src/local-package/server/FeatureProvider.js");
+  const actionIdsTemplate = files.find((entry) => entry.from === "templates/src/local-package/server/actionIds.js");
 
   assert.ok(routesTemplate);
   assert.deepEqual(routesTemplate.when, {
@@ -47,4 +48,6 @@ test("feature-server-generator routes mode-specific files through mutation when 
     entrypoint: "src/server/buildTemplateContext.js",
     export: "buildTemplateContext"
   });
+
+  assert.equal(actionIdsTemplate, undefined);
 });

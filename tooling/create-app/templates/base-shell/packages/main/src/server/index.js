@@ -1,1 +1,1 @@
-export { MainServiceProvider } from "./providers/MainServiceProvider.js";
+export { MainServiceProvider } from "./MainServiceProvider.js";

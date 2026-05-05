@@ -1,5 +1,6 @@
 /**
- * Shared transport validators/resources live here.
+ * App-local shared transport validators/resources live here.
+ * Dedicated feature packages should keep their own schemas with the feature.
  *
  * Example:
  * import { createSchema } from "json-rest-schema";

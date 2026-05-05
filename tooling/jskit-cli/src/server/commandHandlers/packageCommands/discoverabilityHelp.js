@@ -10,6 +10,7 @@ import {
 } from "../../shared/outputFormatting.js";
 
 const JSKIT_SCOPE_PREFIX = "@jskit-ai/";
+const FEATURE_SERVER_GENERATOR_PACKAGE_ID = "@jskit-ai/feature-server-generator";
 const HELP_TEXT_BY_KEY = Object.freeze({
   "page-target-file":
     "Vue page file relative to src/pages/. It must resolve to a configured surface.",
@@ -223,7 +224,8 @@ function appendHelpExamples(lines = [], exampleRows = [], { color = null } = {})
   }
 
   lines.push("");
-  lines.push(color ? color.heading(`Examples (${examples.length}):`) : `Examples (${examples.length}):`);
+  const headingLabel = color ? color.heading(`Examples (${examples.length}):`) : `Examples (${examples.length}):`;
+  lines.push(headingLabel);
   appendSeparatedBlocks(
     lines,
     examples.map((example) => {
@@ -243,6 +245,31 @@ function appendHelpExamples(lines = [], exampleRows = [], { color = null } = {})
       }
       block.push(`- ${commandLines[0]}`);
       for (const commandLine of commandLines.slice(1)) {
+        block.push(`  ${commandLine}`);
+      }
+      return block;
+    }).filter((block) => block.length > 0)
+  );
+}
+
+function appendHelpExamplesWithHeading(lines = [], exampleRows = [], heading = "", { color = null } = {}) {
+  const examples = ensureArray(exampleRows);
+  const headingText = String(heading || "").trim();
+  if (examples.length < 1 || !headingText) {
+    return;
+  }
+
+  lines.push("");
+  lines.push(color ? color.heading(headingText) : headingText);
+  appendSeparatedBlocks(
+    lines,
+    examples.map((example) => {
+      const block = [];
+      const label = String(example?.label || "").trim();
+      if (label) {
+        block.push(`- ${color ? color.item(label) : label}`);
+      }
+      for (const commandLine of ensureArray(example?.lines)) {
         block.push(`  ${commandLine}`);
       }
       return block;
@@ -420,6 +447,23 @@ function buildSubcommandOptionRows(optionRows = [], subcommandRow = {}) {
   return rows;
 }
 
+function resolvePrimaryGeneratorQuickStartRows(packageEntry = {}, { limit = 3 } = {}) {
+  const metadata = resolveGeneratorSubcommandMetadata(packageEntry);
+  const subcommands = ensureArray(metadata.subcommands);
+  const primarySubcommand = subcommands.find((row) => row.primary) || subcommands[0] || null;
+  if (!primarySubcommand) {
+    return [];
+  }
+
+  return ensureArray(primarySubcommand.examples)
+    .slice(0, Math.max(0, Number(limit) || 0))
+    .map((example) => Object.freeze({
+      label: String(example?.label || "").trim(),
+      lines: ensureArray(example?.lines).map((value) => String(value || "").trim()).filter(Boolean)
+    }))
+    .filter((example) => example.lines.length > 0);
+}
+
 function renderGenerateCatalogHelp({
   io,
   packageRegistry,
@@ -438,11 +482,14 @@ function renderGenerateCatalogHelp({
         description: resolvePackageSummary(entry)
       });
     });
+  const featureServerPackageEntry = packageRegistry.get(FEATURE_SERVER_GENERATOR_PACKAGE_ID);
+  const recommendedQuickStarts = resolvePrimaryGeneratorQuickStartRows(featureServerPackageEntry, { limit: 3 });
 
   if (json) {
     io.stdout.write(`${JSON.stringify({
       command: "generate",
       generators,
+      recommendedQuickStarts,
       usage: [
         "jskit generate <generatorId> help",
         "jskit generate <generatorId> [subcommand] [subcommand args...] [--<option> <value>...]",
@@ -471,6 +518,12 @@ function renderGenerateCatalogHelp({
   lines.push("- jskit generate <generatorId> help");
   lines.push("- jskit generate <generatorId> [subcommand] [subcommand args...] [--<option> <value>...]");
   lines.push("- jskit list generators");
+  appendHelpExamplesWithHeading(
+    lines,
+    recommendedQuickStarts,
+    `Recommended non-CRUD server starts (${recommendedQuickStarts.length}):`,
+    { color }
+  );
   writeWrappedLines({
     stdout: io.stdout,
     lines
@@ -619,6 +672,12 @@ function renderGeneratePackageHelp({
       const descriptionSuffix = subcommand.description ? `: ${subcommand.description}` : "";
       lines.push(`- ${color.item(subcommand.name)}${primarySuffix}${descriptionSuffix}`);
     }
+    appendHelpExamplesWithHeading(
+      lines,
+      resolvePrimaryGeneratorQuickStartRows(packageEntry, { limit: 3 }),
+      `Primary quick starts (${resolvePrimaryGeneratorQuickStartRows(packageEntry, { limit: 3 }).length}):`,
+      { color }
+    );
     lines.push("");
     lines.push("Use subcommand help for positional args, options, notes, and examples:");
     lines.push(`  ${color.item("jskit generate <generatorId> <subcommand> help")}`);

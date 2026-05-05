@@ -38,10 +38,6 @@ Local functions
 Exports
 - None
 
-### `templates/src/local-package/server/actionIds.js`
-Exports
-- `actionIds`
-
 ### `templates/src/local-package/server/actions.js`
 Exports
 - `featureActions`

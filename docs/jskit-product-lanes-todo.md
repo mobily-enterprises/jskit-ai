@@ -64,7 +64,6 @@ Review notes:
 - [x] Scaffold `package.descriptor.mjs`
 - [x] Scaffold `package.json`
 - [x] Scaffold `src/server/<Feature>Provider.js`
-- [x] Scaffold `src/server/actionIds.js`
 - [x] Scaffold `src/server/inputSchemas.js`
 - [x] Scaffold `src/server/actions.js`
 - [x] Scaffold `src/server/service.js`
@@ -99,49 +98,58 @@ Review notes:
 
 ## Group 5: CLI Guidance
 
-- [ ] Update `jskit help` output to expose the non-CRUD server lane
-- [ ] Update `jskit list generators` discoverability
-- [ ] Update `jskit show --details` ownership explanations
-- [ ] Add examples such as `booking-engine`, `availability-engine`, and `billing-engine`
-- [ ] Improve failure/help text so users are steered to the new generator instead of ad hoc edits
+- [x] Update `jskit help` output to expose the non-CRUD server lane
+- [x] Update `jskit list generators` discoverability
+- [x] Update `jskit show --details` ownership explanations
+- [x] Add examples such as `booking-engine`, `availability-engine`, and `billing-engine`
+- [x] Improve failure/help text so users are steered to the new generator instead of ad hoc edits
 - [ ] User reviewed Group 5
 
 Review notes:
 
-- Describe the CLI story a user sees before and after these changes.
+- Top-level `jskit` help and `jskit help generate` now surface the standard non-CRUD server lane directly instead of assuming the user already knows the right generator.
+- `jskit generate` and `jskit list generators` now expose `feature-server-generator` more clearly with primary-subcommand labeling plus command examples like `booking-engine`, `availability-engine`, and `billing-engine`.
+- `jskit show feature-server-generator --details` now explains the lane ownership contract: provider wires DI, service owns orchestration, repository owns persistence, and `packages/main` stays glue/composition only.
+- Generator/runtime failure text now points users to `jskit add package ...` for runtime packages and to `jskit generate feature-server-generator scaffold <feature-name>` for new substantial non-CRUD server features.
 
 ## Group 6: Tests
 
-- [ ] Add generator tests for each scaffold mode
-- [ ] Add file inventory tests for emitted packages
-- [ ] Add service contract tests proving generated services do not talk to persistence directly
-- [ ] Add repository contract tests for default `json-rest-api` usage
-- [ ] Add doctor tests for every new anti-pattern
-- [ ] Add an end-to-end fixture test showing a generated feature package lands outside `packages/main`
+- [x] Add generator tests for each scaffold mode
+- [x] Add file inventory tests for emitted packages
+- [x] Add service contract tests proving generated services do not talk to persistence directly
+- [x] Add repository contract tests for default `json-rest-api` usage
+- [x] Add doctor tests for every new anti-pattern
+- [x] Add an end-to-end fixture test showing a generated feature package lands outside `packages/main`
 - [ ] User reviewed Group 6
 
 Review notes:
 
-- Describe the test matrix and what repo invariants it now enforces.
+- `tooling/jskit-cli/test/featureServerGeneratorPackage.test.js` covers the three scaffold modes, route gating, adoption path, and generator help/examples.
+- `tooling/jskit-cli/test/featureServerGeneratorContract.test.js` adds exact emitted file inventories, generated service delegation checks, default `json-rest-api` repository seam checks, and an end-to-end fixture proving generated feature packages land under `packages/<feature>/` instead of `packages/main`.
+- `tooling/jskit-cli/test/doctorFeatureLaneValidation.test.js` covers every Group 4 anti-pattern: direct service/provider persistence work, missing repositories, default-lane repository bypass, `packages/main` creep warnings, and hand-made feature topology warnings.
+- `packages/feature-server-generator/test/*.test.js` still covers descriptor/template-context invariants at the package level, so the repo now has generator-unit, CLI-integration, contract, and doctor coverage for this lane.
 
 ## Group 7: Migration And Cleanup
 
-- [ ] Audit existing substantial feature logic living in `packages/main`
-- [ ] Move real domain features into dedicated packages with their own providers
-- [ ] Move service-level persistence code down into repositories or remove fake repository layers where persistence is not needed
-- [ ] Mark any unavoidable exceptions as explicit weird/custom lane cases
-- [ ] Re-run relevant doctor/test suites after migration
+- [x] Audit existing substantial feature logic living in `packages/main`
+- [x] Move real domain features into dedicated packages with their own providers
+- [x] Move service-level persistence code down into repositories or remove fake repository layers where persistence is not needed
+- [x] Mark any unavoidable exceptions as explicit weird/custom lane cases
+- [x] Re-run relevant doctor/test suites after migration
 - [ ] User reviewed Group 7
 
 Review notes:
 
-- Describe what was moved, what remains exceptional, and why.
+- The repo did not contain a real root-app `packages/main` feature implementation to extract; the remaining drift was the base-shell app template, which still shipped a feature-inviting `services/controllers/routes` tree and nested server provider paths.
+- The migration flattened the `@local/main` server scaffold to `src/server/index.js`, `src/server/MainServiceProvider.js`, and `src/server/loadAppConfig.js`, removed the placeholder feature folders, and encoded the glue-only rule directly in `packages/main/package.descriptor.mjs`.
+- `doctor` now treats the flattened local-main shape as the preferred baseline while still tolerating the legacy scaffold shape for older apps; new direct server files under `packages/main` still trigger the existing glue-only warning.
+- No explicit weird/custom lane exceptions were required, because there was no unavoidable direct-persistence feature living in `packages/main`.
 
 ## Final Done Criteria
 
-- [ ] A request like “add booking-engine” has a command-backed answer
-- [ ] The default output is always a dedicated package with its own provider
-- [ ] Services cannot silently become persistence layers
-- [ ] Default-lane repositories use internal `json-rest-api` first
-- [ ] `packages/main` stops being the accidental home for substantial domain features
-- [ ] `doctor`, docs, CLI, and generators all enforce the same lane
+- [x] A request like “add booking-engine” has a command-backed answer
+- [x] The default output is always a dedicated package with its own provider
+- [x] Services cannot silently become persistence layers
+- [x] Default-lane repositories use internal `json-rest-api` first
+- [x] `packages/main` stops being the accidental home for substantial domain features
+- [x] `doctor`, docs, CLI, and generators all enforce the same lane

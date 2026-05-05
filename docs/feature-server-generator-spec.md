@@ -61,7 +61,7 @@ Every scaffold emits a minimal but useful action baseline for AI and human follo
 
 - one query action that delegates to `service.getStatus(...)`
 - one command action that delegates to `service.execute(...)`
-- matching action ids and input validators in dedicated files instead of hard-coding everything inline
+- matching input validators in a dedicated file while keeping starter action ids inline in `actions.js` and `registerRoutes.js`
 
 This keeps the generated feature immediately understandable as a shape while making the intended extension seams obvious.
 
@@ -151,7 +151,6 @@ Emitted for every scaffold:
 - `packages/<feature-name>/package.json`
 - `packages/<feature-name>/package.descriptor.mjs`
 - `packages/<feature-name>/src/server/<FeaturePascal>Provider.js`
-- `packages/<feature-name>/src/server/actionIds.js`
 - `packages/<feature-name>/src/server/inputSchemas.js`
 - `packages/<feature-name>/src/server/actions.js`
 - `packages/<feature-name>/src/server/service.js`
@@ -175,12 +174,11 @@ Not emitted for `orchestrator`:
 ## File Responsibilities
 
 - `<Feature>Provider.js` wires DI, actions, service, repository when present, and optional route boot.
-- `actionIds.js` owns stable action id constants.
 - `inputSchemas.js` owns the starter query and command validators.
-- `actions.js` owns thin action definitions and delegates to the service.
+- `actions.js` owns thin action definitions, keeps the starter action ids inline, and delegates to the service.
 - `service.js` owns business orchestration and never reaches directly into persistence.
 - `repository.js` owns persistence and uses internal `json-rest-api` first unless the scaffold mode explicitly says otherwise.
-- `registerRoutes.js` is an optional adapter seam and must not become a second service layer.
+- `registerRoutes.js` is an optional adapter seam, reuses the same inline starter action ids, and must not become a second service layer.
 
 ## Descriptor Contract
 

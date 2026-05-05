@@ -69,7 +69,7 @@ export default Object.freeze({
           {
             name: "feature-name",
             required: true,
-            description: "Feature slug used for the package path, provider name, action ids, and default container tokens."
+            description: "Feature slug used for the package path, provider name, inline action ids, and default container tokens."
           }
         ],
         optionNames: ["feature-name", "mode", "surface", "route-prefix", "force"],
@@ -101,6 +101,13 @@ export default Object.freeze({
             ]
           },
           {
+            label: "Another default persistent feature",
+            lines: [
+              "npx jskit generate feature-server-generator scaffold \\",
+              "  billing-engine"
+            ]
+          },
+          {
             label: "Rare explicit custom-knex feature",
             lines: [
               "npx jskit generate feature-server-generator scaffold \\",
@@ -123,6 +130,23 @@ export default Object.freeze({
       containerTokens: {
         server: [],
         client: []
+      }
+    },
+    jskit: {
+      ownershipGuidance: {
+        title: "Standard non-CRUD server lane",
+        summary: "Use this generator when a substantial server feature should become its own package instead of growing inside packages/main.",
+        responsibilities: [
+          "provider: wires DI, actions, repository, and optional routes",
+          "service: owns orchestration and must not talk to persistence directly",
+          "repository: owns persistence; default-lane persistent scaffolds start from internal json-rest-api",
+          "packages/main: stays composition/glue only"
+        ],
+        examples: [
+          "jskit generate feature-server-generator scaffold booking-engine",
+          "jskit generate feature-server-generator scaffold availability-engine --mode orchestrator",
+          "jskit generate feature-server-generator scaffold billing-engine"
+        ]
       }
     }
   },
@@ -171,13 +195,6 @@ export default Object.freeze({
           entrypoint: "src/server/buildTemplateContext.js",
           export: "buildTemplateContext"
         }
-      },
-      {
-        from: "templates/src/local-package/server/actionIds.js",
-        to: "packages/${option:feature-name|kebab}/src/server/actionIds.js",
-        reason: "Install generated feature action identifiers.",
-        category: "feature-server-generator",
-        id: "feature-server-action-ids-${option:feature-name|snake}"
       },
       {
         from: "templates/src/local-package/server/inputSchemas.js",

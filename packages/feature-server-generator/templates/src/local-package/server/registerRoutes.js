@@ -1,9 +1,11 @@
 import { resolveScopedApiBasePath__JSKIT_FEATURE_ROUTE_SURFACE_IMPORT__ } from "@jskit-ai/kernel/shared/surface";
-import { actionIds } from "./actionIds.js";
 import {
   statusQueryInputValidator,
   executeCommandInputValidator
 } from "./inputSchemas.js";
+
+const ACTION_GET_STATUS = "feature.${option:feature-name|kebab}.status.read";
+const ACTION_EXECUTE = "feature.${option:feature-name|kebab}.execute";
 
 function registerRoutes(
   app,
@@ -38,7 +40,7 @@ __JSKIT_FEATURE_ROUTE_SURFACE_LINE__
     },
     async function (request, reply) {
       const response = await request.executeAction({
-        actionId: actionIds.getStatus,
+        actionId: ACTION_GET_STATUS,
         input: request.input.query || {}
       });
 
@@ -60,7 +62,7 @@ __JSKIT_FEATURE_ROUTE_SURFACE_LINE__
     },
     async function (request, reply) {
       const response = await request.executeAction({
-        actionId: actionIds.execute,
+        actionId: ACTION_EXECUTE,
         input: request.input.body || {}
       });
 

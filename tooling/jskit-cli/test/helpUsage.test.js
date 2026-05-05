@@ -36,6 +36,8 @@ test("jskit with no args prints top-level command overview", () => {
   assert.match(stdout, /generate\s+Run a generator package/);
   assert.match(stdout, /list-placements\s+List discovered UI placement targets/);
   assert.match(stdout, /list-component-tokens\s+List available placement component tokens/);
+  assert.match(stdout, /Generator quick starts:/);
+  assert.match(stdout, /feature-server-generator scaffold booking-engine/);
 });
 
 test("jskit help app prints app maintenance command help", () => {
@@ -95,6 +97,8 @@ test("jskit generate with no params lists available generators", () => {
   assert.match(stdout, /Generate command/);
   assert.match(stdout, /Available generators \(\d+\):/);
   assert.match(stdout, /@jskit-ai\/crud-server-generator/);
+  assert.match(stdout, /Recommended non-CRUD server starts \(\d+\):/);
+  assert.match(stdout, /feature-server-generator scaffold[\s\S]*booking-engine/);
   assert.match(stdout, /jskit generate <generatorId> help/);
 });
 
@@ -117,8 +121,9 @@ test("jskit help generate prints generate command help", () => {
   assert.match(stdout, /Command: generate/);
   assert.match(stdout, /jskit generate <generatorId>/);
   assert.match(stdout, /3\) Examples/);
-  assert.match(stdout, /ui-generator page/);
-  assert.match(stdout, /crud-ui-generator crud/);
+  assert.match(stdout, /feature-server-generator scaffold/);
+  assert.match(stdout, /booking-engine/);
+  assert.match(stdout, /availability-engine/);
 });
 
 test("jskit generate ui-generator help wraps long generator help lines", () => {

@@ -32,8 +32,8 @@ export default Object.freeze({
     apiSummary: {
       surfaces: [
         {
-          subpath: "./server/actionIds",
-          summary: "Exports generated feature action identifiers."
+          subpath: "./server/actions",
+          summary: "Exports generated feature action definitions with inline starter ids."
         }
       ],
       containerTokens: {

@@ -95,29 +95,17 @@ Exports
 - `MainClientProvider`
 - `registerMainClientComponent(token, resolveComponent)`
 
-### `templates/base-shell/packages/main/src/server/controllers/index.js`
-Exports
-- None
-
 ### `templates/base-shell/packages/main/src/server/index.js`
 Exports
 - `MainServiceProvider`
 
-### `templates/base-shell/packages/main/src/server/providers/MainServiceProvider.js`
-Exports
-- `MainServiceProvider`
-
-### `templates/base-shell/packages/main/src/server/routes/index.js`
-Exports
-- None
-
-### `templates/base-shell/packages/main/src/server/services/index.js`
-Exports
-- None
-
-### `templates/base-shell/packages/main/src/server/support/loadAppConfig.js`
+### `templates/base-shell/packages/main/src/server/loadAppConfig.js`
 Exports
 - `loadAppConfig({ moduleUrl = import.meta.url } = {})`
+
+### `templates/base-shell/packages/main/src/server/MainServiceProvider.js`
+Exports
+- `MainServiceProvider`
 
 ### `templates/base-shell/packages/main/src/shared/index.js`
 Exports

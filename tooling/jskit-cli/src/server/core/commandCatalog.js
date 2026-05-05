@@ -223,22 +223,23 @@ const COMMAND_DESCRIPTORS = Object.freeze({
       "Short ids resolve to @jskit-ai/<id> when available.",
       "Running without args lists available generators.",
       "Running with only <generatorId> shows generator help.",
+      "For substantial non-CRUD server features, start with feature-server-generator scaffold.",
       "Use jskit generate <generatorId> <subcommand> help for subcommand-specific usage."
     ]),
     examples: Object.freeze([
       Object.freeze({
         label: "Common usage",
         lines: Object.freeze([
-          "npx jskit generate ui-generator page \\",
-          "  admin/reports/index.vue"
+          "npx jskit generate feature-server-generator scaffold \\",
+          "  booking-engine"
         ])
       }),
       Object.freeze({
         label: "More advanced usage",
         lines: Object.freeze([
-          "npx jskit generate crud-ui-generator crud \\",
-          "  admin/catalog/index/products \\",
-          "  --resource-file packages/products/src/shared/productResource.js"
+          "npx jskit generate feature-server-generator scaffold \\",
+          "  availability-engine \\",
+          "  --mode orchestrator"
         ])
       })
     ]),
@@ -265,6 +266,7 @@ const COMMAND_DESCRIPTORS = Object.freeze({
     ]),
     defaults: Object.freeze([
       "Without mode, list prints bundles + runtime packages + generators.",
+      "Use list generators when you want the standard non-CRUD server lane command examples.",
       "placements are listed by the dedicated list-placements command.",
       "--full and --expanded only affect bundle/package listing views."
     ]),
@@ -338,6 +340,7 @@ const COMMAND_DESCRIPTORS = Object.freeze({
     ]),
     defaults: Object.freeze([
       "Basic output is compact; --details expands capability and runtime sections.",
+      "Generator packages may include lane ownership guidance and subcommand examples under --details.",
       "--debug-exports implies --details."
     ]),
     fullUse: "jskit show <id> [--details] [--debug-exports] [--json]",
