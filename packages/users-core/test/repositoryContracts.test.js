@@ -16,18 +16,24 @@ function createKnexStub() {
   return knex;
 }
 
+function asCollectionDocument(rows = []) {
+  return {
+    data: Array.isArray(rows) ? rows : []
+  };
+}
+
 test("users-core repositories expose withTransaction", async () => {
   const knex = createKnexStub();
   const api = {
     resources: {
       userProfiles: {
         async query() {
-          return [];
+          return asCollectionDocument([]);
         }
       },
       userSettings: {
         async query() {
-          return [];
+          return asCollectionDocument([]);
         }
       }
     }
@@ -54,10 +60,12 @@ function createUserProfilesApiStub(expectedRecord) {
         userProfiles: {
           async query({ queryParams }) {
             calls.push(queryParams?.filters || {});
-            return expectedRecord ? [{
-              ...expectedRecord,
-              id: String(expectedRecord.id)
-            }] : [];
+            return asCollectionDocument(
+              expectedRecord ? [{
+                ...expectedRecord,
+                id: String(expectedRecord.id)
+              }] : []
+            );
           }
         }
       }
@@ -76,12 +84,14 @@ test("userSettingsRepository.ensureForUserId sends transaction outside simplifie
         userSettings: {
           async query() {
             queryCount += 1;
-            return queryCount < 2
-              ? []
-              : [{
-                  id: "7",
-                  ...DEFAULT_USER_SETTINGS
-                }];
+            return asCollectionDocument(
+              queryCount < 2
+                ? []
+                : [{
+                    id: "7",
+                    ...DEFAULT_USER_SETTINGS
+                  }]
+            );
           },
           async post(params) {
             postParams = params;
@@ -121,12 +131,12 @@ test("userProfilesRepository.upsert sends native JSON:API write documents with t
           async query({ queryParams }) {
             const filters = queryParams?.filters || {};
             if (Object.hasOwn(filters, "authProvider") || Object.hasOwn(filters, "authProviderUserSid")) {
-              return [];
+              return asCollectionDocument([]);
             }
             if (Object.hasOwn(filters, "username")) {
-              return [];
+              return asCollectionDocument([]);
             }
-            return [];
+            return asCollectionDocument([]);
           },
           async post(params) {
             postParams = params;
@@ -187,6 +197,37 @@ test("userProfilesRepository.findByEmail normalizes email lookup", async () => {
   assert.deepEqual(calls, [{ email: "ada@example.com" }]);
   assert.equal(profile?.id, "7");
   assert.equal(profile?.email, "ada@example.com");
+  assert.equal(profile?.displayName, "Ada Example");
+});
+
+test("userProfilesRepository.findByIdentity reads existing profiles from collection documents", async () => {
+  const { api, calls } = createUserProfilesApiStub({
+    id: 7,
+    authProvider: "supabase",
+    authProviderUserSid: "supabase-user-7",
+    email: "ada@example.com",
+    username: "ada",
+    displayName: "Ada Example",
+    avatarStorageKey: null,
+    avatarVersion: null,
+    avatarUpdatedAt: null,
+    createdAt: "2026-04-20T00:00:00.000Z"
+  });
+  const repository = createUserProfilesRepository({
+    api,
+    knex: createKnexStub()
+  });
+
+  const profile = await repository.findByIdentity({
+    provider: "supabase",
+    providerUserId: "supabase-user-7"
+  });
+
+  assert.deepEqual(calls, [{
+    authProvider: "supabase",
+    authProviderUserSid: "supabase-user-7"
+  }]);
+  assert.equal(profile?.id, "7");
   assert.equal(profile?.displayName, "Ada Example");
 });
 

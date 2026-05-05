@@ -15,6 +15,12 @@ function createKnexStub() {
   return knex;
 }
 
+function asCollectionDocument(rows = []) {
+  return {
+    data: Array.isArray(rows) ? rows : []
+  };
+}
+
 function toWorkspaceMembershipRow(row = {}) {
   return {
     id: String(row.id || ""),
@@ -58,11 +64,11 @@ function createWorkspaceMembershipsApiStub({
 
           if (Object.hasOwn(filters, "workspace") && Object.hasOwn(filters, "user")) {
             const row = rowByComposite.get(`${filters.workspace}:${filters.user}`) || null;
-            return row ? [toWorkspaceMembershipRow(row)] : [];
+            return asCollectionDocument(row ? [toWorkspaceMembershipRow(row)] : []);
           }
 
           if (Object.hasOwn(filters, "workspace") && Object.hasOwn(filters, "status") && includeUser) {
-            return memberSummaryRows.map((row) => toWorkspaceMembershipRow(row));
+            return asCollectionDocument(memberSummaryRows.map((row) => toWorkspaceMembershipRow(row)));
           }
 
           if (Object.hasOwn(filters, "user") && Object.hasOwn(filters, "status")) {
@@ -70,10 +76,10 @@ function createWorkspaceMembershipsApiStub({
               String(row?.user?.id || "") === String(filters.user) &&
               String(row?.status || "") === String(filters.status)
             ));
-            return rows.map((row) => toWorkspaceMembershipRow(row));
+            return asCollectionDocument(rows.map((row) => toWorkspaceMembershipRow(row)));
           }
 
-          return [];
+          return asCollectionDocument([]);
         },
         async post(payload) {
           const inputRecord = payload?.inputRecord?.data || {};

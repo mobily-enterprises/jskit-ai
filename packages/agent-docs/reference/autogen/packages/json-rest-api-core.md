@@ -28,6 +28,7 @@ Exports
 - `createJsonApiRelationship(resourceType = "", id = null)`
 - `createJsonRestResourceScopeOptions(resource = {}, { writeSerializers = {}, normalizeId = null } = {})`
 - `createJsonRestContext(context = null)`
+- `extractJsonRestCollectionRows(payload = null)`
 - `isJsonRestResourceMissingError(error = null)`
 - `returnNullWhenJsonRestResourceMissing(run)`
 - `resolveWorkspaceScopeValue(context = null)`

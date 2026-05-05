@@ -388,18 +388,23 @@ test("jskit app link-local-packages links local repo packages, refreshes bins, a
     );
     await writeFile(path.join(cliRoot, "bin", "jskit.js"), "#!/usr/bin/env node\n", "utf8");
 
-    await mkdir(schemaRepoRoot, { recursive: true });
-    await writeFile(
-      path.join(schemaRepoRoot, "package.json"),
-      `${JSON.stringify({ name: "json-rest-schema", version: "1.0.0" }, null, 2)}\n`,
-      "utf8"
-    );
-    await mkdir(storesRepoRoot, { recursive: true });
-    await writeFile(
-      path.join(storesRepoRoot, "package.json"),
-      `${JSON.stringify({ name: "json-rest-stores", version: "1.0.0" }, null, 2)}\n`,
-      "utf8"
-    );
+	    await mkdir(schemaRepoRoot, { recursive: true });
+	    await writeFile(
+	      path.join(schemaRepoRoot, "package.json"),
+	      `${JSON.stringify({ name: "json-rest-schema", version: "1.0.0" }, null, 2)}\n`,
+	      "utf8"
+	    );
+	    const repoNodeModulesDir = path.join(repoRoot, "node_modules");
+	    await mkdir(path.join(repoNodeModulesDir, "json-rest-schema"), { recursive: true });
+	    await writeFile(path.join(repoNodeModulesDir, "json-rest-schema", "stale.txt"), "stale\n", "utf8");
+	    await mkdir(storesRepoRoot, { recursive: true });
+	    await writeFile(
+	      path.join(storesRepoRoot, "package.json"),
+	      `${JSON.stringify({ name: "json-rest-stores", version: "1.0.0" }, null, 2)}\n`,
+	      "utf8"
+	    );
+	    await mkdir(path.join(repoNodeModulesDir, "json-rest-stores"), { recursive: true });
+	    await writeFile(path.join(repoNodeModulesDir, "json-rest-stores", "stale.txt"), "stale\n", "utf8");
 
     const result = runCli({
       cwd: appRoot,
@@ -410,20 +415,26 @@ test("jskit app link-local-packages links local repo packages, refreshes bins, a
 
     const linkedShellWeb = path.join(appRoot, "node_modules", "@jskit-ai", "shell-web");
     const linkedCli = path.join(appRoot, "node_modules", "@jskit-ai", "jskit-cli");
-    const linkedJsonRestSchema = path.join(appRoot, "node_modules", "json-rest-schema");
-    const linkedJsonRestStores = path.join(appRoot, "node_modules", "json-rest-stores");
-    const jskitBin = path.join(appRoot, "node_modules", ".bin", "jskit");
+	    const linkedJsonRestSchema = path.join(appRoot, "node_modules", "json-rest-schema");
+	    const linkedJsonRestStores = path.join(appRoot, "node_modules", "json-rest-stores");
+	    const linkedRepoJsonRestSchema = path.join(repoRoot, "node_modules", "json-rest-schema");
+	    const linkedRepoJsonRestStores = path.join(repoRoot, "node_modules", "json-rest-stores");
+	    const jskitBin = path.join(appRoot, "node_modules", ".bin", "jskit");
 
-    assert.equal((await lstat(linkedShellWeb)).isSymbolicLink(), true);
-    assert.equal((await lstat(linkedCli)).isSymbolicLink(), true);
-    assert.equal((await lstat(linkedJsonRestSchema)).isSymbolicLink(), true);
-    assert.equal((await lstat(linkedJsonRestStores)).isSymbolicLink(), true);
-    assert.equal((await lstat(jskitBin)).isSymbolicLink(), true);
-    assert.equal(await readlink(linkedShellWeb), shellWebRoot);
-    assert.equal(await readlink(linkedCli), cliRoot);
-    assert.equal(await readlink(linkedJsonRestSchema), schemaRepoRoot);
-    assert.equal(await readlink(linkedJsonRestStores), storesRepoRoot);
-    assert.equal(await readlink(jskitBin), "../@jskit-ai/jskit-cli/bin/jskit.js");
+	    assert.equal((await lstat(linkedShellWeb)).isSymbolicLink(), true);
+	    assert.equal((await lstat(linkedCli)).isSymbolicLink(), true);
+	    assert.equal((await lstat(linkedJsonRestSchema)).isSymbolicLink(), true);
+	    assert.equal((await lstat(linkedJsonRestStores)).isSymbolicLink(), true);
+	    assert.equal((await lstat(linkedRepoJsonRestSchema)).isSymbolicLink(), true);
+	    assert.equal((await lstat(linkedRepoJsonRestStores)).isSymbolicLink(), true);
+	    assert.equal((await lstat(jskitBin)).isSymbolicLink(), true);
+	    assert.equal(await readlink(linkedShellWeb), shellWebRoot);
+	    assert.equal(await readlink(linkedCli), cliRoot);
+	    assert.equal(await readlink(linkedJsonRestSchema), schemaRepoRoot);
+	    assert.equal(await readlink(linkedJsonRestStores), storesRepoRoot);
+	    assert.equal(await readlink(linkedRepoJsonRestSchema), schemaRepoRoot);
+	    assert.equal(await readlink(linkedRepoJsonRestStores), storesRepoRoot);
+	    assert.equal(await readlink(jskitBin), "../@jskit-ai/jskit-cli/bin/jskit.js");
 
     await assert.rejects(lstat(path.join(appRoot, "node_modules", ".vite")), /ENOENT/);
   });

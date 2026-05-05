@@ -80,6 +80,38 @@ function createHealthCommands(ctx = {}) {
     "useCrudView",
     "useCrudAddEdit"
   ]);
+  const FEATURE_SERVER_SCAFFOLD_SHAPE = "feature-server-v1";
+  const FEATURE_SERVER_DEFAULT_LANE = "default";
+  const FEATURE_SERVER_JSON_REST_MODE = "json-rest";
+  const FEATURE_SERVER_PERSISTENT_MODES = new Set([
+    "json-rest",
+    "custom-knex"
+  ]);
+  const FEATURE_SERVER_COMPLEX_MARKER_RELATIVE_PATHS = Object.freeze([
+    "src/server/actionIds.js",
+    "src/server/inputSchemas.js",
+    "src/server/actions.js",
+    "src/server/service.js",
+    "src/server/repository.js",
+    "src/server/registerRoutes.js"
+  ]);
+  const FEATURE_SERVER_PERSISTENCE_IMPORT_SOURCE_PATTERNS = Object.freeze([
+    /^@jskit-ai\/json-rest-api-core(?:\/|$)/u,
+    /^@jskit-ai\/database-runtime(?:\/|$)/u,
+    /^@jskit-ai\/database-runtime-mysql(?:\/|$)/u,
+    /^knex(?:\/|$)/u,
+    /^\.{1,2}\/.*repository(?:\.[A-Za-z0-9]+)?$/u
+  ]);
+  const MAIN_SERVER_BASELINE_RELATIVE_PATHS = new Set([
+    "src/server/index.js",
+    "src/server/providers/MainServiceProvider.js",
+    "src/server/routes/index.js",
+    "src/server/services/index.js",
+    "src/server/controllers/index.js",
+    "src/server/support/loadAppConfig.js"
+  ]);
+  const MAIN_SERVER_DOMAIN_FILE_PATTERN =
+    /^src\/server\/(?:(?:providers\/(?!MainServiceProvider\.)[^/]+)|(?:services|controllers|routes)\/(?!index\.)[^/]+|actionIds\.js|actions\.js|service\.js|repository\.js|registerRoutes\.js|inputSchemas\.js)/u;
 
   function collectDescriptorContainerTokens({ packageId, side, values, issues }) {
     const declaredTokens = new Set();
@@ -488,6 +520,331 @@ function createHealthCommands(ctx = {}) {
     }
 
     return bindings;
+  }
+
+  function collectStaticImportSummaries(sourceText = "") {
+    const imports = [];
+    const importPattern = /^\s*import\s+[\s\S]*?\s+from\s+["']([^"']+)["'];?/gmu;
+
+    for (const match of sourceText.matchAll(importPattern)) {
+      const sourcePath = String(match[1] || "").trim();
+      if (!sourcePath) {
+        continue;
+      }
+      imports.push({
+        sourcePath,
+        lineNumber: resolveLineNumberFromIndex(sourceText, match.index || 0)
+      });
+    }
+
+    return imports;
+  }
+
+  function normalizeFeatureLaneMetadata(descriptor = {}) {
+    const metadata = ensureObject(ensureObject(ensureObject(descriptor).metadata).jskit);
+    return {
+      scaffoldShape: String(metadata.scaffoldShape || "").trim(),
+      scaffoldMode: String(metadata.scaffoldMode || "").trim(),
+      lane: String(metadata.lane || "").trim()
+    };
+  }
+
+  function isFeatureLanePersistenceImportSource(sourcePath = "") {
+    const normalizedSourcePath = String(sourcePath || "").trim();
+    if (!normalizedSourcePath) {
+      return false;
+    }
+    return FEATURE_SERVER_PERSISTENCE_IMPORT_SOURCE_PATTERNS.some((pattern) => pattern.test(normalizedSourcePath));
+  }
+
+  function findFirstPatternMatch(sourceText = "", patternEntries = []) {
+    let firstMatch = null;
+
+    for (const rawEntry of ensureArray(patternEntries)) {
+      const entry = ensureObject(rawEntry);
+      const pattern = entry.pattern instanceof RegExp ? entry.pattern : null;
+      if (!pattern) {
+        continue;
+      }
+      const match = pattern.exec(sourceText);
+      if (!match) {
+        continue;
+      }
+      if (!firstMatch || (match.index || 0) < firstMatch.index) {
+        firstMatch = {
+          index: match.index || 0,
+          label: String(entry.label || pattern.source).trim() || pattern.source
+        };
+      }
+    }
+
+    if (!firstMatch) {
+      return null;
+    }
+
+    return {
+      ...firstMatch,
+      lineNumber: resolveLineNumberFromIndex(sourceText, firstMatch.index)
+    };
+  }
+
+  function resolvePrimaryServerProviderPath(packageEntry) {
+    const rootDir = String(packageEntry?.rootDir || "").trim();
+    if (!rootDir) {
+      return "";
+    }
+
+    const providers = ensureArray(ensureObject(ensureObject(packageEntry?.descriptor).runtime).server?.providers);
+    for (const rawProvider of providers) {
+      const provider = ensureObject(rawProvider);
+      const entrypoint = String(provider.entrypoint || "").trim();
+      if (!entrypoint || entrypoint.includes("*")) {
+        continue;
+      }
+      return path.resolve(rootDir, entrypoint);
+    }
+
+    return "";
+  }
+
+  function resolvePackageDisplayPath(packageEntry) {
+    const relativeDir = String(packageEntry?.relativeDir || "").trim();
+    if (relativeDir) {
+      return relativeDir;
+    }
+    return String(packageEntry?.packageId || "").trim() || "package";
+  }
+
+  async function collectFeatureLaneRuleIssuesForPackage({ appRoot, packageEntry, issues }) {
+    const metadata = normalizeFeatureLaneMetadata(packageEntry?.descriptor);
+    if (metadata.scaffoldShape !== FEATURE_SERVER_SCAFFOLD_SHAPE) {
+      return;
+    }
+
+    const rootDir = String(packageEntry?.rootDir || "").trim();
+    if (!rootDir) {
+      return;
+    }
+
+    const packageDisplayPath = resolvePackageDisplayPath(packageEntry);
+    const isDefaultLane = metadata.lane === FEATURE_SERVER_DEFAULT_LANE;
+    const isPersistentMode = FEATURE_SERVER_PERSISTENT_MODES.has(metadata.scaffoldMode);
+
+    const servicePath = path.join(rootDir, "src", "server", "service.js");
+    if (isDefaultLane && (await fileExists(servicePath))) {
+      const serviceSource = await readFile(servicePath, "utf8");
+      const serviceRelativePath = normalizeRelativePath(appRoot, servicePath);
+      const knexMatch = findFirstPatternMatch(serviceSource, [
+        { pattern: /\bjskit\.database\.knex\b/u, label: "jskit.database.knex" },
+        { pattern: /\bcreateWithTransaction\s*\(/u, label: "createWithTransaction(...)" },
+        { pattern: /\bknex\b/u, label: "knex" }
+      ]);
+      if (knexMatch) {
+        issues.push(
+          `${serviceRelativePath}:${knexMatch.lineNumber}: [feature-lane:service-knex] default-lane service code must not use knex directly (${knexMatch.label}). Move persistence into src/server/repository.js or switch the package to an explicit weird-custom lane.`
+        );
+      }
+
+      const offendingServiceImports = collectStaticImportSummaries(serviceSource)
+        .filter((entry) => isFeatureLanePersistenceImportSource(entry.sourcePath));
+      if (offendingServiceImports.length > 0) {
+        const firstImport = offendingServiceImports[0];
+        const importSources = sortStrings(
+          [...new Set(offendingServiceImports.map((entry) => String(entry.sourcePath || "").trim()).filter(Boolean))]
+        );
+        issues.push(
+          `${serviceRelativePath}:${firstImport.lineNumber}: [feature-lane:service-persistence-import] default-lane service code must not import persistence helpers directly (${importSources.join(", ")}). Use the injected repository seam instead.`
+        );
+      }
+    }
+
+    const providerPath = resolvePrimaryServerProviderPath(packageEntry);
+    if (isDefaultLane && providerPath && (await fileExists(providerPath))) {
+      const providerSource = await readFile(providerPath, "utf8");
+      const providerRelativePath = normalizeRelativePath(appRoot, providerPath);
+      const providerPersistenceMatch = findFirstPatternMatch(providerSource, [
+        { pattern: /\bcreateJsonRestContext\s*\(/u, label: "createJsonRestContext(...)" },
+        { pattern: /\.resources\b/u, label: ".resources" },
+        { pattern: /\bjskit\.database\.knex\b/u, label: "jskit.database.knex" },
+        { pattern: /\bcreateWithTransaction\s*\(/u, label: "createWithTransaction(...)" },
+        { pattern: /\bknex\s*\./u, label: "knex." }
+      ]);
+      if (providerPersistenceMatch) {
+        issues.push(
+          `${providerRelativePath}:${providerPersistenceMatch.lineNumber}: [feature-lane:provider-persistence-direct] default-lane providers may wire repositories but must not perform persistence work directly (${providerPersistenceMatch.label}). Move json-rest/database calls into src/server/repository.js.`
+        );
+      }
+    }
+
+    const repositoryPath = path.join(rootDir, "src", "server", "repository.js");
+    if (isPersistentMode && !(await fileExists(repositoryPath))) {
+      issues.push(
+        `${packageDisplayPath}/src/server/repository.js: [feature-lane:repository-required] generated persistent feature packages require src/server/repository.js for scaffoldMode "${metadata.scaffoldMode}".`
+      );
+      return;
+    }
+
+    if (
+      isDefaultLane &&
+      metadata.scaffoldMode === FEATURE_SERVER_JSON_REST_MODE &&
+      (await fileExists(repositoryPath))
+    ) {
+      const repositorySource = await readFile(repositoryPath, "utf8");
+      const repositoryRelativePath = normalizeRelativePath(appRoot, repositoryPath);
+      const directDatabaseMatch = findFirstPatternMatch(repositorySource, [
+        { pattern: /\bjskit\.database\.knex\b/u, label: "jskit.database.knex" },
+        { pattern: /\bcreateWithTransaction\s*\(/u, label: "createWithTransaction(...)" },
+        { pattern: /\bknex\b/u, label: "knex" }
+      ]);
+      const usesJsonRest = /@jskit-ai\/json-rest-api-core|createJsonRestContext\s*\(|\.resources\b|json-rest-api/iu.test(repositorySource);
+      if (directDatabaseMatch || !usesJsonRest) {
+        const locationSuffix = directDatabaseMatch ? `:${directDatabaseMatch.lineNumber}` : "";
+        issues.push(
+          `${repositoryRelativePath}${locationSuffix}: [feature-lane:repository-default-path] default-lane persistent repositories must stay on internal json-rest-api. Use the injected json-rest-api seam or mark the package as an explicit weird-custom lane.`
+        );
+      }
+    }
+  }
+
+  async function collectMainPackageFeatureLaneWarnings({ appRoot, appLocalRegistry, warnings }) {
+    const mainPackageEntry = [...appLocalRegistry.values()].find((packageEntry) => {
+      const packageId = String(packageEntry?.packageId || "").trim();
+      const relativeDir = String(packageEntry?.relativeDir || "").trim();
+      return packageId === "@local/main" || relativeDir === "packages/main";
+    });
+    if (!mainPackageEntry) {
+      return;
+    }
+
+    const rootDir = String(mainPackageEntry.rootDir || "").trim();
+    if (!rootDir) {
+      return;
+    }
+
+    const reasons = [];
+    const serverFilePaths = [];
+    await collectAppSourceFiles(path.join(rootDir, "src", "server"), undefined, serverFilePaths);
+    const relativeServerFiles = sortStrings(serverFilePaths.map((absolutePath) => normalizeRelativePath(rootDir, absolutePath)));
+    const extraDomainFiles = relativeServerFiles.filter(
+      (relativePath) =>
+        !MAIN_SERVER_BASELINE_RELATIVE_PATHS.has(relativePath) &&
+        MAIN_SERVER_DOMAIN_FILE_PATTERN.test(relativePath)
+    );
+    if (extraDomainFiles.length > 0) {
+      reasons.push(`extra server domain files: ${extraDomainFiles.join(", ")}`);
+    }
+
+    const providerPath = path.join(rootDir, "src", "server", "providers", "MainServiceProvider.js");
+    if (await fileExists(providerPath)) {
+      const providerSource = await readFile(providerPath, "utf8");
+      const actionBindingCount = (providerSource.match(/\bapp\.actions\s*\(/gu) || []).length;
+      const serviceBindingCount = (providerSource.match(/\bapp\.(?:service|singleton)\s*\(/gu) || []).length;
+      const routeRegistrationCount = (providerSource.match(/\brouter\.register\s*\(/gu) || []).length;
+
+      if (actionBindingCount > 0) {
+        reasons.push("MainServiceProvider registers actions directly");
+      }
+      if (serviceBindingCount > 1) {
+        reasons.push(`MainServiceProvider registers ${serviceBindingCount} service/singleton bindings directly`);
+      }
+      if (routeRegistrationCount > 0) {
+        reasons.push("MainServiceProvider registers HTTP routes directly");
+      }
+    }
+
+    if (reasons.length > 0) {
+      warnings.push(
+        `packages/main: [feature-lane:main-glue-only] packages/main should stay composition/glue. Found ${reasons.join("; ")}. Move substantial server feature logic into a dedicated package generated with feature-server-generator scaffold.`
+      );
+    }
+  }
+
+  async function collectHandmadeFeatureLaneWarnings({ appLocalRegistry, warnings }) {
+    const packageEntries = sortStrings([...appLocalRegistry.keys()])
+      .map((packageId) => appLocalRegistry.get(packageId))
+      .filter(Boolean);
+
+    for (const packageEntry of packageEntries) {
+      const relativeDir = String(packageEntry?.relativeDir || "").trim();
+      if (relativeDir === "packages/main") {
+        continue;
+      }
+
+      const rootDir = String(packageEntry?.rootDir || "").trim();
+      if (!rootDir) {
+        continue;
+      }
+
+      const metadata = normalizeFeatureLaneMetadata(packageEntry?.descriptor);
+      if (metadata.scaffoldShape === FEATURE_SERVER_SCAFFOLD_SHAPE) {
+        continue;
+      }
+
+      const descriptor = ensureObject(packageEntry?.descriptor);
+      const capabilities = ensureObject(descriptor.capabilities);
+      const providedCapabilities = ensureArray(capabilities.provides)
+        .map((value) => String(value || "").trim())
+        .filter(Boolean);
+      const dependsOn = ensureArray(descriptor.dependsOn)
+        .map((value) => String(value || "").trim())
+        .filter(Boolean);
+      if (
+        providedCapabilities.some((value) => value.startsWith("crud.")) ||
+        dependsOn.includes("@jskit-ai/crud-core")
+      ) {
+        continue;
+      }
+
+      const serverProviders = ensureArray(ensureObject(ensureObject(descriptor.runtime).server).providers);
+      const hasDirectServerProvider = serverProviders.some((rawProvider) => {
+        const provider = ensureObject(rawProvider);
+        const entrypoint = String(provider.entrypoint || "").trim();
+        return entrypoint.startsWith("src/server/") && /Provider\.[A-Za-z0-9]+$/u.test(entrypoint);
+      });
+      if (!hasDirectServerProvider) {
+        continue;
+      }
+
+      const markerPaths = [];
+      for (const relativePath of FEATURE_SERVER_COMPLEX_MARKER_RELATIVE_PATHS) {
+        if (await fileExists(path.join(rootDir, relativePath))) {
+          markerPaths.push(relativePath);
+        }
+      }
+
+      const looksLikeFeatureCapability = providedCapabilities.some((value) => value.startsWith("feature."));
+      if (!(markerPaths.length >= 3 || (looksLikeFeatureCapability && markerPaths.length >= 2))) {
+        continue;
+      }
+
+      warnings.push(
+        `${relativeDir || String(packageEntry?.packageId || "").trim()}: [feature-lane:handmade-feature] package looks like a substantial non-CRUD server feature (${markerPaths.join(", ")}) but is missing metadata.jskit.scaffoldShape="${FEATURE_SERVER_SCAFFOLD_SHAPE}". Start from jskit generate feature-server-generator scaffold <feature-name> for this lane instead of hand-making the topology.`
+      );
+    }
+  }
+
+  async function collectFeatureLaneDoctorIssues({ appRoot, appLocalRegistry, issues, warnings }) {
+    const packageEntries = sortStrings([...appLocalRegistry.keys()])
+      .map((packageId) => appLocalRegistry.get(packageId))
+      .filter(Boolean);
+
+    for (const packageEntry of packageEntries) {
+      await collectFeatureLaneRuleIssuesForPackage({
+        appRoot,
+        packageEntry,
+        issues
+      });
+    }
+
+    await collectMainPackageFeatureLaneWarnings({
+      appRoot,
+      appLocalRegistry,
+      warnings
+    });
+    await collectHandmadeFeatureLaneWarnings({
+      appLocalRegistry,
+      warnings
+    });
   }
 
   function hasTopLevelObjectProperty(sourceText = "", propertyName = "") {
@@ -903,6 +1260,7 @@ function createHealthCommands(ctx = {}) {
     const appLocalRegistry = await loadAppLocalPackageRegistry(appRoot);
     const combinedPackageRegistry = mergePackageRegistries(packageRegistry, appLocalRegistry);
     const issues = [];
+    const warnings = [];
     const installed = ensureObject(lock.installedPackages);
     await hydratePackageRegistryFromInstalledNodeModules({
       appRoot,
@@ -940,12 +1298,19 @@ function createHealthCommands(ctx = {}) {
       appRoot,
       issues
     });
+    await collectFeatureLaneDoctorIssues({
+      appRoot,
+      appLocalRegistry,
+      issues,
+      warnings
+    });
 
     const payload = {
       appRoot,
       lockVersion: lock.lockVersion,
       installedPackages: sortStrings(Object.keys(installed)),
-      issues
+      issues,
+      warnings: sortStrings(warnings)
     };
 
     if (options.json) {
@@ -953,12 +1318,20 @@ function createHealthCommands(ctx = {}) {
     } else {
       stdout.write(`App root: ${appRoot}\n`);
       stdout.write(`Installed packages: ${payload.installedPackages.length}\n`);
-      if (issues.length === 0) {
+      if (issues.length === 0 && payload.warnings.length === 0) {
         stdout.write("Doctor status: healthy\n");
+      } else if (issues.length === 0) {
+        stdout.write(`Doctor status: warnings (${payload.warnings.length} warning(s))\n`);
+        for (const warning of payload.warnings) {
+          stdout.write(`! ${warning}\n`);
+        }
       } else {
         stdout.write(`Doctor status: unhealthy (${issues.length} issue(s))\n`);
         for (const issue of issues) {
           stdout.write(`- ${issue}\n`);
+        }
+        for (const warning of payload.warnings) {
+          stdout.write(`! ${warning}\n`);
         }
       }
     }

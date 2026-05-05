@@ -73,17 +73,22 @@ Tasks:
 - keep transport derivation automatic from the shared resource
 - remove duplicated seams in generated output where the framework already knows the answer
 - improve deterministic and readable generator output where necessary
+- define and add `feature-server-generator scaffold` as the standard non-CRUD server lane for substantial server-side features
+- make package-with-provider the default generated shape for those features
 
 Focus areas already known:
 
 - CRUD UI transport derivation
 - CRUD repository JSON REST scope correctness
 - shared lookup / relationship handling
+- `feature-server-generator` package scaffolding
+- provider/service/repository boundary enforcement
 
 Done when:
 
 - the standard generator output is structurally aligned with the intended lane
 - normal follow-up app edits happen in obvious app-owned places
+- substantial non-CRUD server features no longer require ad hoc topology decisions
 
 ## Phase 3: Command Lane Clarity
 
@@ -99,6 +104,7 @@ Tasks:
   - what becomes app-owned
   - what a package contributes
   - where the normal lane differs from lower-level tools
+- make it clear that substantial server features should start from a generator command and land in their own packages
 - make standard command sequences easier to discover
 - improve update/remove/help text where it helps explain the default lane
 
@@ -120,6 +126,10 @@ Candidate checks:
 - stale or obviously invalid resource shapes
 - extension seams that bypass placements in normal situations
 - stale package-managed files that could be safely re-adopted
+- service-layer code that reaches directly into persistence in the default lane
+- substantial domain feature logic added under `packages/main`
+- generated persistent feature packages missing a repository seam
+- default-lane repositories bypassing the standard internal `json-rest-api` path without an explicit exception
 
 Done when:
 
@@ -139,6 +149,7 @@ Most likely candidates:
 
 - a `ui-generator section` command for the common "top-level section page + placement + child-page host" pattern
 - possibly a higher-level CRUD orchestration command if the existing server-first/UI-second flow still feels too fragmented for common use
+- `feature-server-generator scaffold` for engines, workflows, and other substantial server-side features that should live in dedicated packages
 
 Lower priority:
 
@@ -172,7 +183,7 @@ Done when:
 The recommended first implementation tranche is:
 
 1. finish the strongest ownership cleanup
-2. strengthen the existing generator/golden path
+2. strengthen the existing generator/golden path, including the non-CRUD server lane
 3. add targeted `doctor` enforcement for the most obvious violations
 
 Do not start with:
@@ -195,3 +206,4 @@ Do not start with:
 - which command-lane gaps are real enough to justify new high-level commands?
 - which `doctor` checks are precise enough to add without producing noisy false positives?
 - which metadata changes help the CLI tell the ownership story best without overcomplicating the package catalog?
+- what is the narrowest first-party non-CRUD server generator shape that solves the booking-engine class of problem without opening a second muddy middle?

@@ -13,6 +13,12 @@ function createKnexStub() {
   });
 }
 
+function asCollectionDocument(rows = []) {
+  return {
+    data: Array.isArray(rows) ? rows : []
+  };
+}
+
 function toWorkspaceRow(row = {}) {
   return {
     id: String(row.id || ""),
@@ -59,20 +65,20 @@ function createWorkspacesApiStub({
 
           if (Object.hasOwn(filters, "id")) {
             const row = rowsById.get(String(filters.id)) || null;
-            return row ? [toWorkspaceRow(row)] : [];
+            return asCollectionDocument(row ? [toWorkspaceRow(row)] : []);
           }
 
           if (Object.hasOwn(filters, "slug")) {
             const row = rowsBySlug.get(String(filters.slug)) || null;
-            return row ? [toWorkspaceRow(row)] : [];
+            return asCollectionDocument(row ? [toWorkspaceRow(row)] : []);
           }
 
           if (Object.hasOwn(filters, "owner") && Object.hasOwn(filters, "isPersonal")) {
             const rows = personalRowsByOwnerId.get(String(filters.owner)) || [];
-            return rows.map((row) => toWorkspaceRow(row));
+            return asCollectionDocument(rows.map((row) => toWorkspaceRow(row)));
           }
 
-          return [];
+          return asCollectionDocument([]);
         },
         async post(payload) {
           const inputRecord = payload?.inputRecord?.data || {};
@@ -127,10 +133,10 @@ function createWorkspacesApiStub({
               String(row?.user?.id || "") === String(filters.user) &&
               String(row?.status || "") === String(filters.status)
             ));
-            return rows.map((row) => toWorkspaceMembershipRow(row));
+            return asCollectionDocument(rows.map((row) => toWorkspaceMembershipRow(row)));
           }
 
-          return [];
+          return asCollectionDocument([]);
         }
       }
     }

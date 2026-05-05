@@ -11,7 +11,8 @@ import {
 import {
   createJsonApiInputRecord,
   createJsonApiRelationship,
-  createJsonRestContext
+  createJsonRestContext,
+  extractJsonRestCollectionRows
 } from "@jskit-ai/json-rest-api-core/server/jsonRestApiHost";
 
 const RESOURCE_TYPE = "workspaceInvites";
@@ -104,18 +105,19 @@ function createRepository({ api, knex } = {}) {
   const withTransaction = createWithTransaction(knex);
 
   async function queryInvites(filters = {}, options = {}, { includeWorkspace = false } = {}) {
-    const rows = await api.resources.workspaceInvites.query(
-      {
-        queryParams: {
-          filters,
-          ...(includeWorkspace ? { include: ["workspace"] } : {})
+    return extractJsonRestCollectionRows(
+      await api.resources.workspaceInvites.query(
+        {
+          queryParams: {
+            filters,
+            ...(includeWorkspace ? { include: ["workspace"] } : {})
+          },
+          transaction: options?.trx || null,
+          simplified: true
         },
-        transaction: options?.trx || null
-      },
-      createJsonRestContext(options?.context || null)
+        createJsonRestContext(options?.context || null)
+      )
     );
-
-    return Array.isArray(rows) ? rows : [];
   }
 
   async function findPendingByTokenHash(tokenHash, options = {}) {

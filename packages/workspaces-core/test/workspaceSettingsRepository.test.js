@@ -20,6 +20,12 @@ function normalizeWorkspaceColor(value) {
   return typeof value === "string" ? value.toUpperCase() : value;
 }
 
+function asCollectionDocument(rows = []) {
+  return {
+    data: Array.isArray(rows) ? rows : []
+  };
+}
+
 function createWorkspaceSettingsApiStub(rowOverrides = {}) {
   const DEFAULT_WORKSPACE_THEME = resolveWorkspaceThemePalettes({});
   const STUB_CREATED_AT = "2026-03-09 00:26:35.710";
@@ -51,13 +57,13 @@ function createWorkspaceSettingsApiStub(rowOverrides = {}) {
         async query({ queryParams }) {
           const id = String(queryParams?.filters?.id || "");
           if (!state.row || (id && String(state.row.id) !== id)) {
-            return [];
+            return asCollectionDocument([]);
           }
 
-          return [{
+          return asCollectionDocument([{
             ...state.row,
             id: String(state.row.id)
-          }];
+          }]);
         },
         async post(payload) {
           const inputRecord = payload?.inputRecord?.data || {};

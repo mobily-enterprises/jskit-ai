@@ -69,8 +69,9 @@ function normalizeMutationWhen(value) {
   const notContains = String(source.notContains || "").trim();
   const includes = ensureArray(source.in).map((entry) => String(entry || "").trim()).filter(Boolean);
   const excludes = ensureArray(source.notIn).map((entry) => String(entry || "").trim()).filter(Boolean);
+  const hasText = typeof source.hasText === "boolean" ? source.hasText : null;
 
-  if (!option && !config && allConditions.length < 1 && anyConditions.length < 1) {
+  if (!option && !config && allConditions.length < 1 && anyConditions.length < 1 && hasText == null) {
     return null;
   }
 
@@ -84,7 +85,8 @@ function normalizeMutationWhen(value) {
     contains,
     notContains,
     includes,
-    excludes
+    excludes,
+    hasText
   };
 }
 
@@ -270,6 +272,12 @@ function shouldApplyMutationWhen(
   const notContains = normalizeWhenComparisonValue(when.notContains);
   const includes = ensureArray(when.includes).map((entry) => normalizeWhenComparisonValue(entry)).filter(Boolean);
   const excludes = ensureArray(when.excludes).map((entry) => normalizeWhenComparisonValue(entry)).filter(Boolean);
+  const hasText = typeof when.hasText === "boolean" ? when.hasText : null;
+  const sourceText = normalizeWhenSourceValue(sourceValue);
+
+  if (hasText != null && (sourceText.length > 0) !== hasText) {
+    return false;
+  }
 
   if (equals && optionValue !== equals) {
     return false;
