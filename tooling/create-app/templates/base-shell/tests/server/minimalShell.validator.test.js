@@ -101,6 +101,14 @@ test("latest JSKIT scaffold files are present at the app root", async () => {
   }
 });
 
+test("starter shell keeps the default hosted CI workflow simple", async () => {
+  const workflowSource = await readFile(path.join(APP_ROOT, ".github", "workflows", "verify.yml"), "utf8");
+
+  assert.match(workflowSource, /run: npm run verify/);
+  assert.doesNotMatch(workflowSource, /jskit app verify --against/);
+  assert.doesNotMatch(workflowSource, /jskit app verify-ui/);
+});
+
 test("starter shell does not include the app.manifest scaffold", async () => {
   await assert.rejects(access(path.join(APP_ROOT, "framework/app.manifest.mjs")), /ENOENT/);
 });

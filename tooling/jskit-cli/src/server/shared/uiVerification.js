@@ -61,17 +61,26 @@ function readGitPathList(appRoot = "", args = []) {
   if (result?.error || result?.status !== 0) {
     return {
       ok: false,
-      paths: []
+      paths: [],
+      error: normalizeText(result?.stderr) || normalizeText(result?.error?.message)
     };
   }
 
   return {
     ok: true,
-    paths: sortUniqueStrings(String(result.stdout || "").split(/\r?\n/u))
+    paths: sortUniqueStrings(String(result.stdout || "").split(/\r?\n/u)),
+    error: ""
   };
 }
 
-function resolveChangedUiFilesFromGit(appRoot = "") {
+function resolveChangedPathsFromGit(
+  appRoot = "",
+  {
+    against = "",
+    pathspecs = ["src", "packages"]
+  } = {}
+) {
+  const normalizedAgainst = normalizeText(against);
   const gitRepoCheck = spawnSync("git", ["rev-parse", "--is-inside-work-tree"], {
     cwd: appRoot || process.cwd(),
     encoding: "utf8"
@@ -84,26 +93,72 @@ function resolveChangedUiFilesFromGit(appRoot = "") {
   ) {
     return {
       available: false,
-      paths: []
+      paths: [],
+      against: normalizedAgainst,
+      mode: normalizedAgainst ? "against-base-ref" : "dirty-worktree",
+      error: "Current directory is not inside a git work tree."
     };
   }
 
-  const changedPathSets = [
-    readGitPathList(appRoot, ["diff", "--name-only", "--relative", "--cached", "--", "src", "packages"]),
-    readGitPathList(appRoot, ["diff", "--name-only", "--relative", "--", "src", "packages"]),
-    readGitPathList(appRoot, ["ls-files", "--others", "--exclude-standard", "--", "src", "packages"])
-  ];
+  const normalizedPathspecs = sortUniqueStrings(pathspecs);
+  const pathspecArgs = normalizedPathspecs.length > 0 ? ["--", ...normalizedPathspecs] : [];
+  const changedPathSets = [];
+
+  if (normalizedAgainst) {
+    const baseDiff = readGitPathList(appRoot, [
+      "diff",
+      "--name-only",
+      "--relative",
+      `${normalizedAgainst}...HEAD`,
+      ...pathspecArgs
+    ]);
+    if (!baseDiff.ok) {
+      return {
+        available: false,
+        paths: [],
+        against: normalizedAgainst,
+        mode: "against-base-ref",
+        error:
+          baseDiff.error ||
+          `Could not resolve git diff against ${JSON.stringify(normalizedAgainst)}.`
+      };
+    }
+    changedPathSets.push(baseDiff);
+  }
+
+  changedPathSets.push(
+    readGitPathList(appRoot, ["diff", "--name-only", "--relative", "--cached", ...pathspecArgs]),
+    readGitPathList(appRoot, ["diff", "--name-only", "--relative", ...pathspecArgs]),
+    readGitPathList(appRoot, ["ls-files", "--others", "--exclude-standard", ...pathspecArgs])
+  );
 
   const changedPaths = sortUniqueStrings(
     changedPathSets
       .filter((entry) => entry.ok)
       .flatMap((entry) => entry.paths)
-      .filter((relativePath) => isUiVerificationPath(relativePath))
   );
 
   return {
     available: true,
-    paths: changedPaths
+    paths: changedPaths,
+    against: normalizedAgainst,
+    mode: normalizedAgainst ? "against-base-ref" : "dirty-worktree",
+    error: ""
+  };
+}
+
+function resolveChangedUiFilesFromGit(appRoot = "", { against = "" } = {}) {
+  const changedPathState = resolveChangedPathsFromGit(appRoot, {
+    against,
+    pathspecs: ["src", "packages"]
+  });
+  if (!changedPathState.available) {
+    return changedPathState;
+  }
+
+  return {
+    ...changedPathState,
+    paths: changedPathState.paths.filter((relativePath) => isUiVerificationPath(relativePath))
   };
 }
 
@@ -117,6 +172,7 @@ function normalizeUiVerificationReceipt(rawReceipt = {}) {
     feature: normalizeText(receipt.feature),
     command: normalizeText(receipt.command),
     authMode: normalizeText(receipt.authMode),
+    against: normalizeText(receipt.against),
     changedUiFiles: sortUniqueStrings(receipt.changedUiFiles)
   });
 }
@@ -143,6 +199,7 @@ export {
   isUiVerificationPath,
   isValidUiVerificationReceipt,
   normalizeUiVerificationReceipt,
+  resolveChangedPathsFromGit,
   resolveChangedUiFilesFromGit,
   sortUniqueStrings
 };

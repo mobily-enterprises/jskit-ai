@@ -80,6 +80,8 @@ This gives you a clean ownership split:
 
 That split is worth keeping in mind through the rest of the guide. When you see `npm run verify`, that is now shorthand for "run the app's JSKIT baseline verification policy, then any app-specific extra verification hook".
 
+The starter scaffold also includes `.github/workflows/verify.yml`. That workflow is intentionally conservative: it runs `npm run verify` and does not assume that every app can stand up full browser, auth, seed-data, and database verification inside hosted CI.
+
 If your app uses a non-default npm registry for JSKIT packages, pass it to the maintained CLI command rather than hard-coding it in the scaffold. For example:
 
 ```bash
@@ -746,6 +748,20 @@ That command does two things:
 - writes a receipt describing the verified feature, auth mode, and current dirty UI file set
 
 `doctor` then compares the current changed UI files to that receipt. If you edit the UI again afterwards, the receipt is stale and `doctor` tells you to rerun `jskit app verify-ui`.
+
+For local pre-merge review, use `--against <base-ref>` so JSKIT compares against the branch delta instead of only the current dirty worktree. The common shape is:
+
+```bash
+npx jskit doctor --against origin/main
+```
+
+If the UI changed, the normal local sequence is:
+
+1. run the targeted Playwright flow locally
+2. record it with `jskit app verify-ui ...`
+3. run `jskit doctor --against <base-ref>`
+
+Advanced CI pipelines can also use `--against <base-ref>`, but that is intentionally app-specific. JSKIT does not scaffold hosted browser/auth/database verification by default, because many real apps need secrets, seeded databases, local auth bypass, or environment-specific bootstrap paths that do not belong in a one-size-fits-all template.
 
 ### Why `--json` exists
 

@@ -139,6 +139,40 @@ fs.appendFileSync(process.env.TEST_LOG_PATH, ["npm", ...process.argv.slice(2)].j
   });
 });
 
+test("jskit app verify forwards --against to doctor", async () => {
+  await withTempDir(async (cwd) => {
+    const appRoot = path.join(cwd, "app");
+    const binDir = path.join(cwd, "bin");
+    const logPath = path.join(cwd, "commands.log");
+
+    await createMinimalApp(appRoot);
+    await installFakeLocalJskit(appRoot, logPath);
+    await installFakeCommand(
+      binDir,
+      "npm",
+      `#!/usr/bin/env node
+const fs = require("node:fs");
+fs.appendFileSync(process.env.TEST_LOG_PATH, ["npm", ...process.argv.slice(2)].join(" ") + "\\n");
+`
+    );
+
+    const result = runCli({
+      cwd: appRoot,
+      args: ["app", "verify", "--against", "origin/main"],
+      env: buildTestEnv(binDir, logPath)
+    });
+
+    assert.equal(result.status, 0, String(result.stderr || ""));
+    assert.deepEqual(await readLogLines(logPath), [
+      "npm run --if-present lint",
+      "npm run --if-present test",
+      "npm run --if-present test:client",
+      "npm run --if-present build",
+      "local-jskit doctor --against origin/main"
+    ]);
+  });
+});
+
 test("jskit app verify-ui runs the provided command and writes a matching UI verification receipt", async () => {
   await withTempDir(async (cwd) => {
     const appRoot = path.join(cwd, "app");
@@ -191,6 +225,97 @@ fs.appendFileSync(process.env.TEST_LOG_PATH, ["npm", ...process.argv.slice(2)].j
     assert.equal(receipt.command, "npm run e2e -- tests/e2e/contacts.spec.ts -g filters");
     assert.equal(receipt.authMode, "dev-auth-login-as");
     assert.deepEqual(receipt.changedUiFiles, ["src/pages/home/contacts/index.vue"]);
+  });
+});
+
+test("jskit app verify-ui can record committed UI changes against a base ref", async () => {
+  await withTempDir(async (cwd) => {
+    const appRoot = path.join(cwd, "app");
+    const binDir = path.join(cwd, "bin");
+    const logPath = path.join(cwd, "commands.log");
+
+    await createMinimalApp(appRoot, { jskitApp: true });
+    await initializeGitApp(appRoot);
+    runGit(appRoot, ["branch", "baseline"]);
+
+    await mkdir(path.join(appRoot, "src", "pages", "home", "contacts"), { recursive: true });
+    await writeFile(
+      path.join(appRoot, "src", "pages", "home", "contacts", "index.vue"),
+      "<template><div>Contacts</div></template>\n",
+      "utf8"
+    );
+    runGit(appRoot, ["add", "src/pages/home/contacts/index.vue"]);
+    runGit(appRoot, ["commit", "-m", "Add contacts page"]);
+
+    await installFakeCommand(
+      binDir,
+      "npm",
+      `#!/usr/bin/env node
+const fs = require("node:fs");
+fs.appendFileSync(process.env.TEST_LOG_PATH, ["npm", ...process.argv.slice(2)].join(" ") + "\\n");
+`
+    );
+
+    const result = runCli({
+      cwd: appRoot,
+      args: [
+        "app",
+        "verify-ui",
+        "--against",
+        "baseline",
+        "--command",
+        "npm run e2e -- tests/e2e/contacts.spec.ts -g filters",
+        "--feature",
+        "contacts filters",
+        "--auth-mode",
+        "dev-auth-login-as"
+      ],
+      env: buildTestEnv(binDir, logPath)
+    });
+
+    assert.equal(result.status, 0, String(result.stderr || ""));
+    assert.deepEqual(await readLogLines(logPath), [
+      "npm run e2e -- tests/e2e/contacts.spec.ts -g filters"
+    ]);
+
+    const receipt = JSON.parse(await readFile(path.join(appRoot, ".jskit", "verification", "ui.json"), "utf8"));
+    assert.equal(receipt.against, "baseline");
+    assert.deepEqual(receipt.changedUiFiles, ["src/pages/home/contacts/index.vue"]);
+  });
+});
+
+test("jskit app verify-ui fails when --against points at an unknown ref", async () => {
+  await withTempDir(async (cwd) => {
+    const appRoot = path.join(cwd, "app");
+
+    await createMinimalApp(appRoot, { jskitApp: true });
+    await initializeGitApp(appRoot);
+
+    await mkdir(path.join(appRoot, "src", "pages", "home", "contacts"), { recursive: true });
+    await writeFile(
+      path.join(appRoot, "src", "pages", "home", "contacts", "index.vue"),
+      "<template><div>Contacts</div></template>\n",
+      "utf8"
+    );
+
+    const result = runCli({
+      cwd: appRoot,
+      args: [
+        "app",
+        "verify-ui",
+        "--against",
+        "missing-ref",
+        "--command",
+        "npm run e2e -- tests/e2e/contacts.spec.ts -g filters",
+        "--feature",
+        "contacts filters",
+        "--auth-mode",
+        "dev-auth-login-as"
+      ]
+    });
+
+    assert.equal(result.status, 1, String(result.stdout || ""));
+    assert.match(String(result.stderr || ""), /could not resolve changed UI files against "missing-ref"/);
   });
 });
 

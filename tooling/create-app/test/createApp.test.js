@@ -175,6 +175,11 @@ test("create-app scaffolds the base shell with placeholder replacements", async 
     assert.match(gitignore, /node_modules\//);
     assert.match(gitignore, /\.jskit\/verification\//);
 
+    const verifyWorkflow = await readFile(path.join(appRoot, ".github", "workflows", "verify.yml"), "utf8");
+    assert.match(verifyWorkflow, /run: npm run verify/);
+    assert.doesNotMatch(verifyWorkflow, /jskit app verify --against/);
+    assert.doesNotMatch(verifyWorkflow, /jskit app verify-ui/);
+
     const indexHtml = await readFile(path.join(appRoot, "index.html"), "utf8");
     assert.match(indexHtml, /<title>Sample App<\/title>/);
     assert.match(indexHtml, /href="\/favicon\.svg"/);

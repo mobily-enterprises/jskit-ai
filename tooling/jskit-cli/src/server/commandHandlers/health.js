@@ -1154,20 +1154,32 @@ function createHealthCommands(ctx = {}) {
     }
   }
 
-  async function collectUiVerificationDoctorIssues({ appRoot, issues }) {
+  async function collectUiVerificationDoctorIssues({ appRoot, issues, against = "" }) {
     if (!(await directoryLooksLikeJskitAppRoot(appRoot))) {
       return;
     }
 
-    const changedUiState = resolveChangedUiFilesFromGit(appRoot);
-    if (!changedUiState.available || changedUiState.paths.length < 1) {
+    const normalizedAgainst = String(against || "").trim();
+    const changedUiState = resolveChangedUiFilesFromGit(appRoot, {
+      against: normalizedAgainst
+    });
+    if (!changedUiState.available) {
+      if (normalizedAgainst) {
+        issues.push(
+          `[ui:verification] could not resolve changed UI files against ${JSON.stringify(normalizedAgainst)}: ${changedUiState.error || "unknown git error"}`
+        );
+      }
+      return;
+    }
+    if (changedUiState.paths.length < 1) {
       return;
     }
 
     const receiptPath = path.join(appRoot, UI_VERIFICATION_RECEIPT_RELATIVE_PATH);
     if (!(await fileExists(receiptPath))) {
+      const againstSegment = normalizedAgainst ? ` --against ${JSON.stringify(normalizedAgainst)}` : "";
       issues.push(
-        `[ui:verification] changed UI files require a matching ${UI_VERIFICATION_RECEIPT_RELATIVE_PATH} receipt. Run jskit app verify-ui --command "<playwright command>" --feature "<label>" --auth-mode <mode>. Current files: ${changedUiState.paths.join(", ")}`
+        `[ui:verification] changed UI files require a matching ${UI_VERIFICATION_RECEIPT_RELATIVE_PATH} receipt. Run jskit app verify-ui${againstSegment} --command "<playwright command>" --feature "<label>" --auth-mode <mode>. Current files: ${changedUiState.paths.join(", ")}`
       );
       return;
     }
@@ -1186,6 +1198,13 @@ function createHealthCommands(ctx = {}) {
     if (!isValidUiVerificationReceipt(receipt)) {
       issues.push(
         `[ui:verification] ${UI_VERIFICATION_RECEIPT_RELATIVE_PATH} is incomplete. It must include version, runner, recordedAt, feature, command, authMode, and changedUiFiles from jskit app verify-ui.`
+      );
+      return;
+    }
+
+    if (normalizedAgainst && receipt.against !== normalizedAgainst) {
+      issues.push(
+        `[ui:verification] ${UI_VERIFICATION_RECEIPT_RELATIVE_PATH} was recorded against ${JSON.stringify(receipt.against || "<dirty-worktree>")} but doctor is checking against ${JSON.stringify(normalizedAgainst)}. Re-run jskit app verify-ui with the same --against value.`
       );
       return;
     }
@@ -1251,6 +1270,7 @@ function createHealthCommands(ctx = {}) {
 
   async function commandDoctor({ cwd, options, stdout }) {
     const appRoot = await resolveAppRootFromCwd(cwd);
+    const against = String(options?.inlineOptions?.against || "").trim();
     const { lock } = await loadLockFile(appRoot);
     const packageRegistry = await loadPackageRegistry();
     const appLocalRegistry = await loadAppLocalPackageRegistry(appRoot);
@@ -1292,7 +1312,8 @@ function createHealthCommands(ctx = {}) {
     });
     await collectUiVerificationDoctorIssues({
       appRoot,
-      issues
+      issues,
+      against
     });
     await collectFeatureLaneDoctorIssues({
       appRoot,

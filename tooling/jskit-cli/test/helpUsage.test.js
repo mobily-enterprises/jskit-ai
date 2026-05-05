@@ -61,6 +61,21 @@ test("jskit app help release prints release-specific options", () => {
   assert.match(stdout, /--dry-run/);
 });
 
+test("jskit app help verify and doctor help mention --against", () => {
+  const verifyResult = runCli({ args: ["app", "help", "verify"] });
+  assert.equal(verifyResult.status, 0, String(verifyResult.stderr || ""));
+  const verifyStdout = String(verifyResult.stdout || "");
+  assertMaxLineLength(verifyStdout);
+  assert.match(verifyStdout, /App subcommand: verify/);
+  assert.match(verifyStdout, /--against <base-ref>/);
+
+  const doctorResult = runCli({ args: ["help", "doctor"] });
+  assert.equal(doctorResult.status, 0, String(doctorResult.stderr || ""));
+  const doctorStdout = String(doctorResult.stdout || "");
+  assertMaxLineLength(doctorStdout);
+  assert.match(doctorStdout, /jskit doctor \[--against <base-ref>\] \[--json\]/);
+});
+
 test("jskit help completion prints completion command help", () => {
   const result = runCli({ args: ["help", "completion"] });
   assert.equal(result.status, 0, String(result.stderr || ""));

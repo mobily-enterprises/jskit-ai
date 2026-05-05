@@ -24,6 +24,7 @@ async function runAppVerifyUiCommand(ctx = {}, { appRoot = "", options = {}, std
   const command = String(inlineOptions.command || "").trim();
   const feature = String(inlineOptions.feature || "").trim();
   const authMode = String(inlineOptions["auth-mode"] || "").trim();
+  const against = String(inlineOptions.against || "").trim();
 
   if (!command) {
     throw createCliError("jskit app verify-ui requires --command <shell-command>.", {
@@ -52,16 +53,18 @@ async function runAppVerifyUiCommand(ctx = {}, { appRoot = "", options = {}, std
     );
   }
 
-  const changedUiState = resolveChangedUiFilesFromGit(appRoot);
+  const changedUiState = resolveChangedUiFilesFromGit(appRoot, { against });
   if (!changedUiState.available) {
-    throw createCliError("jskit app verify-ui requires a git working tree so it can record changed UI files.", {
-      exitCode: 1
-    });
+    const message = against
+      ? `jskit app verify-ui could not resolve changed UI files against ${JSON.stringify(against)}: ${changedUiState.error || "unknown git error"}.`
+      : "jskit app verify-ui requires a git working tree so it can record changed UI files.";
+    throw createCliError(message, { exitCode: 1 });
   }
   if (changedUiState.paths.length < 1) {
-    throw createCliError("jskit app verify-ui found no changed UI files in src/ or packages/.", {
-      exitCode: 1
-    });
+    const message = against
+      ? `jskit app verify-ui found no changed UI files in src/ or packages/ against ${JSON.stringify(against)}.`
+      : "jskit app verify-ui found no changed UI files in src/ or packages/.";
+    throw createCliError(message, { exitCode: 1 });
   }
 
   runExternalShellCommand(command, {
@@ -84,6 +87,7 @@ async function runAppVerifyUiCommand(ctx = {}, { appRoot = "", options = {}, std
         feature,
         command,
         authMode,
+        ...(against ? { against } : {}),
         changedUiFiles: changedUiState.paths
       },
       null,

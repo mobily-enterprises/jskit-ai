@@ -14,20 +14,26 @@ test("workflow and guide docs require Playwright plus dev auth bypass for authen
 
   assert.match(featureDelivery, /adds or changes user-facing UI must include a Playwright flow/);
   assert.match(featureDelivery, /jskit app verify-ui/);
+  assert.match(featureDelivery, /--against <base-ref>/);
   assert.match(featureDelivery, /\/api\/dev-auth\/login-as/);
   assert.match(featureDelivery, /must not be enabled in production/);
 
   assert.match(review, /any added or changed user-facing UI must be exercised with Playwright/);
+  assert.match(review, /--against <base-ref>/);
   assert.match(review, /development-only .*\/api\/dev-auth\/login-as/);
 
   assert.match(pattern, /^# UI Testing Pattern$/m);
   assert.match(pattern, /jskit app verify-ui/);
+  assert.match(pattern, /--against origin\/main/);
+  assert.match(pattern, /jskit doctor --against origin\/main/);
   assert.match(pattern, /\/api\/dev-auth\/login-as/);
   assert.match(pattern, /AUTH_DEV_BYPASS_ENABLED=true/);
   assert.match(pattern, /csrf-token/);
 
   assert.match(authGuide, /^### Authenticated Playwright testing with the dev auth bypass$/m);
   assert.match(authGuide, /jskit app verify-ui/);
+  assert.match(authGuide, /--against origin\/main/);
+  assert.match(authGuide, /jskit doctor --against origin\/main/);
   assert.match(authGuide, /AUTH_DEV_BYPASS_ENABLED=true/);
   assert.match(authGuide, /POST \/api\/dev-auth\/login-as/);
   assert.match(authGuide, /This is the standard path the agent should use for authenticated browser tests/);
