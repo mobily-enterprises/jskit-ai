@@ -26,6 +26,7 @@ export default defineConfig({
         {
           text: "App Setup",
           items: [
+            { text: "Quickstart", link: "/guide/app-setup/quickstart" },
             { text: "Initial Scaffolding", link: "/guide/app-setup/initial-scaffolding" },
             { text: "Working With The JSKIT CLI", link: "/guide/app-setup/working-with-the-jskit-cli" },
             { text: "A More Interesting Shell", link: "/guide/app-setup/a-more-interesting-shell" },

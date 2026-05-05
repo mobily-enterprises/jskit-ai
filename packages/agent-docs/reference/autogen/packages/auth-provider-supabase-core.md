@@ -190,6 +190,12 @@ Local functions
 - `cloneProfile(profile)`
 - `createEmailConflictError()`
 
+### `src/server/lib/supabaseClientOptions.js`
+Exports
+- `buildSupabaseServerClientOptions(options = {})`
+Local functions
+- `resolveRealtimeTransport({ nativeWebSocket = globalThis.WebSocket, fallbackTransport = WebSocket } = {})`
+
 ### `src/server/lib/test-utils.js`
 Exports
 - `createAccountFlows`
