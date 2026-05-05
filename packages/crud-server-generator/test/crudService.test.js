@@ -30,7 +30,7 @@ test("crudService exposes the explicit JSON:API CRUD service contract", async ()
     },
     async deleteDocumentById(recordId, options) {
       calls.push(["deleteDocumentById", recordId, options]);
-      return true;
+      return null;
     }
   };
 
@@ -131,9 +131,42 @@ test("crudService throws 404 when a document is missing", async () => {
     () => service.patchDocumentById(9, { textField: "Changed" }, {}),
     (error) => error?.status === 404 && error?.message === "Document not found."
   );
+});
 
-  await assert.rejects(
-    () => service.deleteDocumentById(9, {}),
-    (error) => error?.status === 404 && error?.message === "Document not found."
-  );
+test("crudService returns delete results unchanged", async () => {
+  const service = createService({
+    customersRepository: {
+      async deleteDocumentById(recordId, options) {
+        return {
+          recordId,
+          options,
+          deleted: true
+        };
+      }
+    }
+  });
+
+  const result = await service.deleteDocumentById(9, {
+    trx: "trx-1",
+    context: {
+      visibilityContext: {
+        visibility: "workspace",
+        scopeOwnerId: "7"
+      }
+    }
+  });
+
+  assert.deepEqual(result, {
+    recordId: 9,
+    options: {
+      trx: "trx-1",
+      context: {
+        visibilityContext: {
+          visibility: "workspace",
+          scopeOwnerId: "7"
+        }
+      }
+    },
+    deleted: true
+  });
 });

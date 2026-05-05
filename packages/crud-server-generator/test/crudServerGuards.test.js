@@ -117,6 +117,50 @@ test("template createRepository builds mutable JSON:API input documents for writ
   });
 });
 
+test("template createRepository returns null for successful deletes", async () => {
+  const calls = [];
+  const api = {
+    resources: {
+      customers: {
+        async delete(params, context) {
+          calls.push({ params, context });
+        }
+      }
+    }
+  };
+  const knex = {
+    async transaction(work) {
+      return work("trx");
+    }
+  };
+
+  const repository = createRepository({ api, knex });
+  const result = await repository.deleteDocumentById("7", {
+    trx: "trx-1",
+    context: {
+      visibilityContext: {
+        visibility: "workspace",
+        scopeOwnerId: "7"
+      }
+    }
+  });
+
+  assert.equal(result, null);
+  assert.deepEqual(calls[0], {
+    params: {
+      id: "7",
+      transaction: "trx-1",
+      simplified: false
+    },
+    context: {
+      visibilityContext: {
+        visibility: "workspace",
+        scopeOwnerId: "7"
+      }
+    }
+  });
+});
+
 test("template createService turns missing resource records into 404 errors", async () => {
   const service = createService({
     customersRepository: {
@@ -136,6 +180,45 @@ test("template createService turns missing resource records into 404 errors", as
   await assert.rejects(
     () => service.patchDocumentById("7", { name: "Merc" }, {}),
     (error) => error?.status === 404 && error?.message === "Document not found."
+  );
+});
+
+test("template createService returns delete results unchanged", async () => {
+  const service = createService({
+    customersRepository: {
+      async deleteDocumentById(recordId, options) {
+        return {
+          recordId,
+          options,
+          deleted: true
+        };
+      }
+    }
+  });
+
+  assert.deepEqual(
+    await service.deleteDocumentById("7", {
+      trx: "trx-1",
+      context: {
+        visibilityContext: {
+          visibility: "workspace",
+          scopeOwnerId: "7"
+        }
+      }
+    }),
+    {
+      recordId: "7",
+      options: {
+        trx: "trx-1",
+        context: {
+          visibilityContext: {
+            visibility: "workspace",
+            scopeOwnerId: "7"
+          }
+        }
+      },
+      deleted: true
+    }
   );
 });
 

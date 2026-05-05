@@ -1040,6 +1040,9 @@ test("crud service template preserves JSON:API output and emits entity ids from 
   assert.match(templateSource, /returnJsonApiDocument\(await \$\{option:namespace\|camel\}Repository\.queryDocuments\(query, \{/);
   assert.match(templateSource, /async function patchDocumentById\(recordId, payload = \{\}, options = \{\}\)/);
   assert.match(templateSource, /returnJsonApiDocument\(return404IfNotFound\(await \$\{option:namespace\|camel\}Repository\.patchDocumentById\(recordId, payload, \{/);
+  assert.match(templateSource, /async function deleteDocumentById\(recordId, options = \{\}\)/);
+  assert.match(templateSource, /return \$\{option:namespace\|camel\}Repository\.deleteDocumentById\(recordId, \{/);
+  assert.doesNotMatch(templateSource, /return404IfNotFound\(await \$\{option:namespace\|camel\}Repository\.deleteDocumentById/);
   assert.match(templateSource, /return Object\.freeze\(\{/);
   assert.match(templateSource, /export \{ createService \};/);
 });
