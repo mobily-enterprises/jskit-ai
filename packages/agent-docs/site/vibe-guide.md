@@ -157,3 +157,95 @@ Pick the simple track if you want:
 - fewer surfaces to reason about
 
 If you are unsure, pick the workspace-enabled track. It is the one the rest of the hands-on Quickstart flows assume.
+
+## After bootstrap: keep the app sane
+
+If you are going to hand the repo to an AI agent and let it iterate, keep these rules explicit from day one.
+
+### 1. Use JSKIT commands first, not hand-made topology
+
+- Install baseline capabilities with `jskit add package ...` and `jskit add bundle ...`.
+- For substantial non-CRUD backend work, scaffold a real feature package with `jskit generate feature-server-generator scaffold <feature-name>`.
+- For CRUDs, use the CRUD generators instead of hand-building routes, services, and forms from scratch.
+
+If the agent starts inventing file layouts or wiring patterns that JSKIT already has a command for, stop and redirect it back to the CLI.
+
+### 2. Keep `packages/main` boring
+
+`packages/main` should stay glue-only:
+
+- app composition
+- shell wiring
+- config loading
+- provider registration
+
+Substantial domain logic should live in its own local package under `packages/<feature>/`.
+
+If the agent starts adding feature-sized server code directly under `packages/main`, that is drift, not progress.
+
+### 3. Write down the shape before the churn starts
+
+For anything beyond a tiny tweak:
+
+- create or update `.jskit/APP_BLUEPRINT.md`
+- create or update `.jskit/WORKBOARD.md`
+- work one reviewable chunk at a time
+
+That keeps the agent from mixing platform setup, routing decisions, CRUD generation, and business logic in one unreadable burst.
+
+### 4. Make verification part of the loop, not the cleanup
+
+Before accepting a chunk, run the real checks:
+
+```bash
+npm run verify
+```
+
+If the chunk changed user-facing UI, also run a targeted local Playwright flow and record it:
+
+```bash
+npx jskit app verify-ui \
+  --command "npm run verify:ui" \
+  --feature "<short label>" \
+  --auth-mode <mode>
+```
+
+Then run:
+
+```bash
+npx jskit doctor --against origin/main
+```
+
+That gives `doctor` a concrete UI verification receipt tied to the branch delta, not just a vague claim that "the UI was tested."
+
+### 5. Keep hosted CI simple unless you deliberately build more
+
+The default sane baseline for hosted CI is still:
+
+```bash
+npm run verify
+```
+
+Do not assume GitHub Actions should automatically stand up browser auth, seeded data, and app-specific Playwright flows unless you intentionally built that infrastructure for the app.
+
+### 6. Do not use live login flows for normal UI verification
+
+For Playwright, prefer the app's local development auth bootstrap path such as `POST /api/dev-auth/login-as`.
+
+- use seeded local users
+- keep the browser flow deterministic
+- do not depend on a real Supabase login page for normal feature verification
+
+If the app has no good local auth bootstrap path yet, treat that as a testability gap and fix it early.
+
+### 7. Watch for these drift signals
+
+Stop and correct course if the agent starts doing things like:
+
+- growing `packages/main` into a feature package
+- hand-making a new server topology when a JSKIT generator exists
+- changing UI without a recorded Playwright run
+- bypassing `jskit doctor` because "it works locally"
+- mixing data access, service logic, and UI behavior into the same file because it was faster
+
+The point of vibe coding in JSKIT is not to remove structure. It is to move faster while keeping the structure machine-checkable.
