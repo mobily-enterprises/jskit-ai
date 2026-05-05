@@ -5,6 +5,7 @@ import {
 import {
   deepFreeze
 } from "@jskit-ai/kernel/shared/support/deepFreeze";
+import { returnJsonApiData } from "@jskit-ai/http-runtime/shared";
 import {
   assistantConfigResource,
   assistantResource
@@ -120,17 +121,17 @@ const assistantActions = Object.freeze([
       require: "authenticated"
     },
     input: runtimeConversationsListInputValidator,
-    output: assistantResource.operations.conversationsList.output,
+    output: null,
     idempotency: "none",
     audit: {
       actionName: actionIds.conversationsList
     },
     observability: {},
     async execute(input, context, deps) {
-      return deps.chatService.listConversations(input.query, {
+      return returnJsonApiData(await deps.chatService.listConversations(input.query, {
         context,
         input
-      });
+      }));
     }
   },
   {
@@ -143,17 +144,17 @@ const assistantActions = Object.freeze([
       require: "authenticated"
     },
     input: runtimeConversationMessagesListInputValidator,
-    output: assistantResource.operations.conversationMessagesList.output,
+    output: null,
     idempotency: "none",
     audit: {
       actionName: actionIds.conversationMessagesList
     },
     observability: {},
     async execute(input, context, deps) {
-      return deps.chatService.getConversationMessages(input.conversationId, input.query, {
+      return returnJsonApiData(await deps.chatService.getConversationMessages(input.conversationId, input.query, {
         context,
         input
-      });
+      }));
     }
   },
   {
@@ -166,16 +167,16 @@ const assistantActions = Object.freeze([
       require: "authenticated"
     },
     input: settingsReadInputValidator,
-    output: assistantConfigResource.operations.view.output,
+    output: null,
     idempotency: "none",
     audit: {
       actionName: actionIds.settingsRead
     },
     observability: {},
     async execute(input, context, deps) {
-      return deps.assistantConfigService.getSettings(input, {
+      return returnJsonApiData(await deps.assistantConfigService.getSettings(input, {
         context
-      });
+      }));
     }
   },
   {
@@ -188,16 +189,16 @@ const assistantActions = Object.freeze([
       require: "authenticated"
     },
     input: settingsUpdateInputValidator,
-    output: assistantConfigResource.operations.patch.output,
+    output: null,
     idempotency: "optional",
     audit: {
       actionName: actionIds.settingsUpdate
     },
     observability: {},
     async execute(input, context, deps) {
-      return deps.assistantConfigService.updateSettings(input, input.patch, {
+      return returnJsonApiData(await deps.assistantConfigService.updateSettings(input, input.patch, {
         context
-      });
+      }));
     }
   }
 ]);

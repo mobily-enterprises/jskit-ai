@@ -1,5 +1,9 @@
 import { appendQueryString } from "@jskit-ai/kernel/shared/support";
 import {
+  ASSISTANT_CONVERSATIONS_TRANSPORT,
+  ASSISTANT_CONVERSATION_MESSAGES_TRANSPORT,
+  ASSISTANT_SETTINGS_TRANSPORT,
+  ASSISTANT_SETTINGS_UPDATE_TRANSPORT,
   ASSISTANT_STREAM_EVENT_TYPES,
   normalizeAssistantStreamEventType
 } from "../../shared/index.js";
@@ -114,7 +118,10 @@ function createAssistantApi({ request, requestStream, resolveBasePath, resolveSu
 
       return request(
         appendQueryString(`${basePath}/conversations`, params.toString()),
-        requestHeaders ? { headers: requestHeaders } : {}
+        {
+          ...(requestHeaders ? { headers: requestHeaders } : {}),
+          transport: ASSISTANT_CONVERSATIONS_TRANSPORT
+        }
       );
     },
 
@@ -128,7 +135,10 @@ function createAssistantApi({ request, requestStream, resolveBasePath, resolveSu
 
       return request(
         appendQueryString(`${basePath}/conversations/${encodedConversationId}/messages`, params.toString()),
-        requestHeaders ? { headers: requestHeaders } : {}
+        {
+          ...(requestHeaders ? { headers: requestHeaders } : {}),
+          transport: ASSISTANT_CONVERSATION_MESSAGES_TRANSPORT
+        }
       );
     },
 
@@ -138,7 +148,10 @@ function createAssistantApi({ request, requestStream, resolveBasePath, resolveSu
 
       return request(
         `${basePath}/settings`,
-        requestHeaders ? { headers: requestHeaders } : {}
+        {
+          ...(requestHeaders ? { headers: requestHeaders } : {}),
+          transport: ASSISTANT_SETTINGS_TRANSPORT
+        }
       );
     },
 
@@ -151,7 +164,8 @@ function createAssistantApi({ request, requestStream, resolveBasePath, resolveSu
         {
           method: "PATCH",
           ...(requestHeaders ? { headers: requestHeaders } : {}),
-          body: payload
+          body: payload,
+          transport: ASSISTANT_SETTINGS_UPDATE_TRANSPORT
         }
       );
     }

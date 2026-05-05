@@ -291,131 +291,6 @@ function createJsonRestResourceScopeOptions(resource = {}, { writeSerializers = 
   return scopeOptions;
 }
 
-function normalizeJsonApiResourceObject(resource = {}) {
-  const normalizedResource = normalizeJsonRestObject(resource);
-  return {
-    type: normalizeJsonRestText(normalizedResource.type),
-    id: normalizedResource.id == null ? null : String(normalizedResource.id),
-    attributes: normalizeJsonRestObject(normalizedResource.attributes),
-    relationships: normalizeJsonRestObject(normalizedResource.relationships)
-  };
-}
-
-function buildJsonApiIncludedIndex(payload = {}) {
-  const included = Array.isArray(payload?.included) ? payload.included : [];
-  const index = new Map();
-
-  for (const entry of included) {
-    const normalizedEntry = normalizeJsonApiResourceObject(entry);
-    if (!normalizedEntry.type || !normalizedEntry.id) {
-      continue;
-    }
-
-    index.set(`${normalizedEntry.type}:${normalizedEntry.id}`, normalizedEntry);
-  }
-
-  return index;
-}
-
-function simplifyJsonApiRelationshipData(data, { includedIndex = null, seen = null } = {}) {
-  if (Array.isArray(data)) {
-    return data
-      .map((entry) => simplifyJsonApiRelationshipData(entry, { includedIndex, seen }))
-      .filter((entry) => entry != null);
-  }
-
-  if (data == null) {
-    return null;
-  }
-
-  const normalizedReference = normalizeJsonApiResourceObject(data);
-  if (!normalizedReference.id) {
-    return null;
-  }
-
-  const referenceKey =
-    normalizedReference.type && normalizedReference.id
-      ? `${normalizedReference.type}:${normalizedReference.id}`
-      : "";
-  const nextSeen = seen instanceof Set ? new Set(seen) : new Set();
-
-  if (referenceKey) {
-    if (nextSeen.has(referenceKey)) {
-      return {
-        id: normalizedReference.id,
-        ...(normalizedReference.type ? { type: normalizedReference.type } : {})
-      };
-    }
-    nextSeen.add(referenceKey);
-  }
-
-  if (referenceKey && includedIndex instanceof Map && includedIndex.has(referenceKey)) {
-    return simplifyJsonApiResourceObject(includedIndex.get(referenceKey), {
-      includedIndex,
-      seen: nextSeen
-    });
-  }
-
-  return {
-    id: normalizedReference.id,
-    ...(normalizedReference.type ? { type: normalizedReference.type } : {})
-  };
-}
-
-function simplifyJsonApiResourceObject(resource = {}, { includedIndex = null, seen = null } = {}) {
-  const normalizedResource = normalizeJsonApiResourceObject(resource);
-  const resourceKey =
-    normalizedResource.type && normalizedResource.id
-      ? `${normalizedResource.type}:${normalizedResource.id}`
-      : "";
-  const nextSeen = seen instanceof Set ? new Set(seen) : new Set();
-
-  if (resourceKey) {
-    nextSeen.add(resourceKey);
-  }
-
-  const simplified = {
-    ...(normalizedResource.id == null ? {} : { id: normalizedResource.id }),
-    ...normalizedResource.attributes
-  };
-
-  for (const [relationshipKey, relationshipValue] of Object.entries(normalizedResource.relationships)) {
-    if (!relationshipKey || !relationshipValue || !Object.hasOwn(relationshipValue, "data")) {
-      continue;
-    }
-
-    simplified[relationshipKey] = simplifyJsonApiRelationshipData(relationshipValue.data, {
-      includedIndex,
-      seen: nextSeen
-    });
-  }
-
-  return simplified;
-}
-
-function simplifyJsonApiDocument(payload = {}) {
-  const source = normalizeJsonRestObject(payload);
-  const includedIndex = buildJsonApiIncludedIndex(source);
-
-  if (Array.isArray(source.data)) {
-    return source.data.map((entry) => simplifyJsonApiResourceObject(entry, { includedIndex }));
-  }
-
-  if (source.data && typeof source.data === "object") {
-    return simplifyJsonApiResourceObject(source.data, { includedIndex });
-  }
-
-  if (Object.hasOwn(source, "data") && source.data == null) {
-    return null;
-  }
-
-  if (source.meta && typeof source.meta === "object" && !Array.isArray(source.meta)) {
-    return source.meta;
-  }
-
-  return payload;
-}
-
 function createJsonRestContext(context = null) {
   if (!context || typeof context !== "object" || Array.isArray(context)) {
     return {};
@@ -540,7 +415,6 @@ export {
   returnNullWhenJsonRestResourceMissing,
   resolveWorkspaceScopeValue,
   resolveUserScopeValue,
-  simplifyJsonApiDocument,
   createJsonRestApiHost,
   registerJsonRestApiHost
 };

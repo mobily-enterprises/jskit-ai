@@ -6,8 +6,7 @@ import {
 } from "./repositoryUtils.js";
 import {
   createJsonApiInputRecord,
-  createJsonRestContext,
-  simplifyJsonApiDocument
+  createJsonRestContext
 } from "@jskit-ai/json-rest-api-core/server/jsonRestApiHost";
 import { DEFAULT_USER_SETTINGS } from "../../../shared/settings.js";
 
@@ -67,18 +66,16 @@ function createRepository({ api, knex } = {}) {
   const withTransaction = createWithTransaction(knex);
 
   async function queryFirst(filters = {}, options = {}) {
-    const result = await api.resources.userSettings.query(
+    const rows = await api.resources.userSettings.query(
       {
         queryParams: {
           filters
         },
-        transaction: options?.trx || null,
-        simplified: false
+        transaction: options?.trx || null
       },
       createJsonRestContext(options?.context || null)
     );
 
-    const rows = simplifyJsonApiDocument(result);
     return Array.isArray(rows) ? rows[0] || null : null;
   }
 
@@ -112,8 +109,7 @@ function createRepository({ api, knex } = {}) {
               id: normalizedUserId
             }
           ),
-          transaction: options?.trx || null,
-          simplified: false
+          transaction: options?.trx || null
         },
         createJsonRestContext(options?.context || null)
       );
@@ -152,8 +148,7 @@ function createRepository({ api, knex } = {}) {
             id: normalizedUserId
           }
         ),
-        transaction: options?.trx || null,
-        simplified: false
+        transaction: options?.trx || null
       },
       createJsonRestContext(options?.context || null)
     );

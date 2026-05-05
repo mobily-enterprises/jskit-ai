@@ -79,9 +79,16 @@ function createActionRequest({ input = {}, executeAction, file = null }) {
 
 test("console-core boot mounts console routes", async () => {
   const routes = await registerRoutes();
+  const getRoute = findRoute(routes, { method: "GET", path: "/api/console/settings" });
+  const patchRoute = findRoute(routes, { method: "PATCH", path: "/api/console/settings" });
 
-  assert.equal(findRoute(routes, { method: "GET", path: "/api/console/settings" })?.path, "/api/console/settings");
-  assert.equal(findRoute(routes, { method: "PATCH", path: "/api/console/settings" })?.path, "/api/console/settings");
+  assert.equal(getRoute?.path, "/api/console/settings");
+  assert.equal(patchRoute?.path, "/api/console/settings");
+  assert.equal(getRoute?.transport?.kind, "jsonapi-resource");
+  assert.equal(patchRoute?.transport?.kind, "jsonapi-resource");
+  assert.equal(getRoute?.responses?.[200]?.transportSchema?.required?.[0], "data");
+  assert.equal(patchRoute?.advanced?.fastifySchema?.body?.required?.[0], "data");
+  assert.equal(patchRoute?.responses?.[200]?.transportSchema?.required?.[0], "data");
 });
 
 test("console settings route handlers use request.input payloads", async () => {

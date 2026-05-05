@@ -13,50 +13,29 @@ function createKnexStub() {
   });
 }
 
-function toWorkspaceResource(row = {}) {
+function toWorkspaceRow(row = {}) {
   return {
-    type: "workspaces",
     id: String(row.id || ""),
-    attributes: {
-      slug: row.slug,
-      name: row.name,
-      isPersonal: row.isPersonal,
-      avatarUrl: row.avatarUrl,
-      createdAt: row.createdAt,
-      updatedAt: row.updatedAt,
-      deletedAt: row.deletedAt
-    },
-    relationships: {
-      owner: {
-        data: row.ownerUserId == null
-          ? null
-          : {
-              type: "userProfiles",
-              id: String(row.ownerUserId)
-            }
-      }
-    }
+    slug: row.slug,
+    name: row.name,
+    ownerUserId: row.ownerUserId == null ? null : String(row.ownerUserId),
+    isPersonal: row.isPersonal,
+    avatarUrl: row.avatarUrl,
+    createdAt: row.createdAt,
+    updatedAt: row.updatedAt,
+    deletedAt: row.deletedAt
   };
 }
 
-function toWorkspaceMembershipResource(row = {}) {
+function toWorkspaceMembershipRow(row = {}) {
   return {
-    type: "workspaceMemberships",
     id: String(row.id || ""),
-    attributes: {
-      roleSid: row.roleSid,
-      status: row.status,
-      createdAt: row.createdAt,
-      updatedAt: row.updatedAt
-    },
-    relationships: {
-      user: {
-        data: row?.user?.id == null ? null : { type: "userProfiles", id: String(row.user.id) }
-      },
-      workspace: {
-        data: row?.workspace?.id == null ? null : { type: "workspaces", id: String(row.workspace.id) }
-      }
-    }
+    roleSid: row.roleSid,
+    status: row.status,
+    createdAt: row.createdAt,
+    updatedAt: row.updatedAt,
+    user: row?.user?.id == null ? null : { ...row.user, id: String(row.user.id) },
+    workspace: row?.workspace?.id == null ? null : toWorkspaceRow(row.workspace)
   };
 }
 
@@ -80,23 +59,22 @@ function createWorkspacesApiStub({
 
           if (Object.hasOwn(filters, "id")) {
             const row = rowsById.get(String(filters.id)) || null;
-            return { data: row ? [toWorkspaceResource(row)] : [] };
+            return row ? [toWorkspaceRow(row)] : [];
           }
 
           if (Object.hasOwn(filters, "slug")) {
             const row = rowsBySlug.get(String(filters.slug)) || null;
-            return { data: row ? [toWorkspaceResource(row)] : [] };
+            return row ? [toWorkspaceRow(row)] : [];
           }
 
           if (Object.hasOwn(filters, "owner") && Object.hasOwn(filters, "isPersonal")) {
             const rows = personalRowsByOwnerId.get(String(filters.owner)) || [];
-            return { data: rows.map((row) => toWorkspaceResource(row)) };
+            return rows.map((row) => toWorkspaceRow(row));
           }
 
-          return { data: [] };
+          return [];
         },
         async post(payload) {
-          assert.equal(payload?.simplified, false);
           const inputRecord = payload?.inputRecord?.data || {};
           state.postPayload = inputRecord;
           if (insertError) {
@@ -118,10 +96,9 @@ function createWorkspacesApiStub({
           if (row.slug) {
             rowsBySlug.set(row.slug, row);
           }
-          return { data: toWorkspaceResource(row) };
+          return toWorkspaceRow(row);
         },
         async patch(payload) {
-          assert.equal(payload?.simplified, false);
           const inputRecord = payload?.inputRecord?.data || {};
           state.patchPayload = inputRecord;
           const existing = rowsById.get(String(inputRecord.id)) || {
@@ -139,29 +116,21 @@ function createWorkspacesApiStub({
           if (updated.slug) {
             rowsBySlug.set(String(updated.slug), updated);
           }
-          return { data: toWorkspaceResource(updated) };
+          return toWorkspaceRow(updated);
         }
       },
       workspaceMemberships: {
         async query({ queryParams }) {
           const filters = queryParams?.filters || {};
-          const includeWorkspace = Array.isArray(queryParams?.include) && queryParams.include.includes("workspace");
           if (Object.hasOwn(filters, "user") && Object.hasOwn(filters, "status")) {
             const rows = membershipRows.filter((row) => (
               String(row?.user?.id || "") === String(filters.user) &&
               String(row?.status || "") === String(filters.status)
             ));
-            return {
-              data: rows.map((row) => toWorkspaceMembershipResource(row)),
-              included: includeWorkspace
-                ? rows
-                    .filter((row) => row?.workspace?.id != null)
-                    .map((row) => toWorkspaceResource(row.workspace))
-                : []
-            };
+            return rows.map((row) => toWorkspaceMembershipRow(row));
           }
 
-          return { data: [] };
+          return [];
         }
       }
     }

@@ -100,6 +100,8 @@ Local functions
 - `sendPreStreamErrorResponse(reply, error)`
 - `resolveRouteRequestState(request, { resolveCurrentAppConfig = () => ({}), kind = "runtime", requiresWorkspace = false, workspaceScopeSupport = null } = {})`
 - `buildChatStreamActionInput(routeInput = {}, requestBody = {})`
+- `resolveAssistantSettingsRecordId(record = {})`
+- `resolveAssistantConversationMessagesRecordId(record = {})`
 - `registerSettingsRoutes(router, resolveCurrentAppConfig, { requiresWorkspace = false, workspaceScopeSupport = null } = {})`
 - `registerRuntimeRoutes(router, resolveCurrentAppConfig, { requiresWorkspace = false, workspaceScopeSupport = null } = {})`
 

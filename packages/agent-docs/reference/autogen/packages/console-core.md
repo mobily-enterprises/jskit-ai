@@ -31,6 +31,8 @@ Exports
 ### `src/server/consoleSettings/bootConsoleSettingsRoutes.js`
 Exports
 - `bootConsoleSettingsRoutes(app)`
+Local functions
+- `resolveConsoleSettingsRecordId()`
 
 ### `src/server/consoleSettings/consoleService.js`
 Exports

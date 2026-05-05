@@ -1,6 +1,7 @@
 import {
   emptyInputValidator
 } from "@jskit-ai/kernel/shared/actions/actionContributorHelpers";
+import { returnJsonApiData } from "@jskit-ai/http-runtime/shared";
 import { consoleSettingsResource } from "../../shared/resources/consoleSettingsResource.js";
 
 const consoleSettingsActions = Object.freeze([
@@ -14,16 +15,16 @@ const consoleSettingsActions = Object.freeze([
       require: "authenticated"
     },
     input: emptyInputValidator,
-    output: consoleSettingsResource.operations.view.output,
+    output: null,
     idempotency: "none",
     audit: {
       actionName: "console.settings.read"
     },
     observability: {},
     async execute(_input, context, deps) {
-      return deps.consoleSettingsService.getSettings({
+      return returnJsonApiData(await deps.consoleSettingsService.getSettings({
         context
-      });
+      }));
     }
   },
   {
@@ -36,16 +37,16 @@ const consoleSettingsActions = Object.freeze([
       require: "authenticated"
     },
     input: consoleSettingsResource.operations.replace.body,
-    output: consoleSettingsResource.operations.replace.output,
+    output: null,
     idempotency: "optional",
     audit: {
       actionName: "console.settings.update"
     },
     observability: {},
     async execute(input, context, deps) {
-      return deps.consoleSettingsService.updateSettings(input, {
+      return returnJsonApiData(await deps.consoleSettingsService.updateSettings(input, {
         context
-      });
+      }));
     }
   }
 ]);

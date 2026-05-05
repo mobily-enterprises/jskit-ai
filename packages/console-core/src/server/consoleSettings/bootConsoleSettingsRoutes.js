@@ -1,5 +1,9 @@
-import { withStandardErrorResponses } from "@jskit-ai/http-runtime/shared/validators/errorResponses";
+import { createJsonApiResourceRouteContract } from "@jskit-ai/http-runtime/shared/validators/jsonApiRouteTransport";
 import { consoleSettingsResource } from "../../shared/resources/consoleSettingsResource.js";
+
+function resolveConsoleSettingsRecordId() {
+  return "console-settings";
+}
 
 function bootConsoleSettingsRoutes(app) {
   if (!app || typeof app.make !== "function") {
@@ -18,8 +22,12 @@ function bootConsoleSettingsRoutes(app) {
         tags: ["console", "settings"],
         summary: "Get console settings"
       },
-      responses: withStandardErrorResponses({
-        200: consoleSettingsResource.operations.view.output
+      ...createJsonApiResourceRouteContract({
+        requestType: "console-settings",
+        responseType: "console-settings",
+        output: consoleSettingsResource.operations.view.output,
+        outputKind: "record",
+        getRecordId: resolveConsoleSettingsRecordId
       })
     },
     async function (request, reply) {
@@ -40,13 +48,15 @@ function bootConsoleSettingsRoutes(app) {
         tags: ["console", "settings"],
         summary: "Update console settings"
       },
-      body: consoleSettingsResource.operations.replace.body,
-      responses: withStandardErrorResponses(
-        {
-          200: consoleSettingsResource.operations.view.output
-        },
-        { includeValidation400: true }
-      )
+      ...createJsonApiResourceRouteContract({
+        requestType: "console-settings",
+        responseType: "console-settings",
+        body: consoleSettingsResource.operations.replace.body,
+        output: consoleSettingsResource.operations.view.output,
+        outputKind: "record",
+        getRecordId: resolveConsoleSettingsRecordId,
+        includeValidation400: true
+      })
     },
     async function (request, reply) {
       const response = await request.executeAction({
