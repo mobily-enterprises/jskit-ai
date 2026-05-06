@@ -69,6 +69,7 @@ Chunk notes:
 
 - One CRUD is usually one chunk.
 - Platform/auth/shell work may be its own chunk.
+- Prefer vertical slices that produce visible or end-to-end progress the developer can inspect.
 - Each chunk must be independently reviewable and testable.
 
 ## Verification

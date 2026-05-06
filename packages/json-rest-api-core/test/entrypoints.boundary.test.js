@@ -133,6 +133,30 @@ test("createJsonRestApiHost installs normalizeRecordId as the default resource i
   assert.equal(api.vars.normalizeId(7.5), null);
 });
 
+test("createJsonRestApiHost configures the internal json-rest logger at error level", async () => {
+  const fakeKnex = Object.assign(() => {}, {
+    client: {
+      config: {
+        client: "sqlite3"
+      }
+    },
+    async raw() {
+      return [
+        {
+          version: "3.35.5"
+        }
+      ];
+    },
+    transaction() {}
+  });
+
+  const api = await createJsonRestApiHost({
+    knex: fakeKnex
+  });
+
+  assert.equal(api.options.logging.level, "error");
+});
+
 test("shared query/document helpers build json-rest-api request shapes", () => {
   assert.deepEqual(
     buildJsonRestQueryParams("contacts", {
