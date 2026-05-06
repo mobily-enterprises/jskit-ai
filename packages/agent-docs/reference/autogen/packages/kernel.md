@@ -870,6 +870,7 @@ Local functions
 - `normalizeMethod(method)`
 - `normalizePath(pathname)`
 - `normalizeRouterMiddlewareStack(value, { context = "middleware" } = {})`
+- `normalizeRouteInternal(value, { method = "", path = "" } = {})`
 - `normalizeRouteInput(method, path, optionsOrHandler, maybeHandler)`
 
 ### `server/http/lib/routeRegistration.js`

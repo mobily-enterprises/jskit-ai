@@ -73,6 +73,7 @@ Core rules:
 - For CRUD chunks, creating the server CRUD with `jskit generate crud-server-generator scaffold ...` is the crucial first step even if no CRUD UI will be created yet.
 - Unless a table is already owned by a JSKIT baseline package or is an explicit narrow exception recorded in `.jskit/table-ownership.json`, every persisted app-owned table must have its own server CRUD package created first with `jskit generate crud-server-generator scaffold ...`, even if no CRUD UI will ever exist.
 - Treat that as a hard invariant, not a style preference. If a persisted app-owned table does not have generated CRUD ownership, `jskit doctor` is expected to fail.
+- If the table should be CRUD-owned but should not expose public CRUD HTTP routes yet, use `jskit generate crud-server-generator scaffold ... --internal` rather than dropping to direct knex or a hand-built pseudo-repository.
 - For a CRUD table that `crud-server-generator` will own, do not hand-write a separate migration. Create the real table directly in the database first, then scaffold the server CRUD so JSKIT can install and manage the CRUD migration scaffold itself.
 - Do not generate CRUD UI or hand-build CRUD routes before the server CRUD package and shared resource file exist.
 - `feature-server-generator` is for workflows, orchestration, and other non-CRUD server features. Do not use it as the starting point for ordinary persisted entity tables.

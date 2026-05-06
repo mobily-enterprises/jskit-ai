@@ -27,6 +27,7 @@ Local functions
 - `resolveAllowedValues(schema = {}, fallbackValues = [])`
 - `resolveGlobalScaffoldCache()`
 - `asRecord(value)`
+- `resolveInternalRouteOption(options = {})`
 - `normalizeRequestedOwnershipFilter(value, { strict = false } = {})`
 - `inferOwnershipFilterFromSnapshot(snapshot)`
 - `assertOwnershipColumnsForFilter(snapshot, filter)`
@@ -94,7 +95,7 @@ Local functions
 - `renderObjectSchemaDefinition(lines = [], { mode = "patch" } = {})`
 - `renderActionInputExpressions({ surfaceRequiresWorkspace = true } = {})`
 - `renderRouteValidatorConstants({ surfaceRequiresWorkspace = true } = {})`
-- `buildReplacementsFromSnapshot({ namespace = "", snapshot, resolvedOwnershipFilter, surfaceRequiresWorkspace = true, surfaceId = "" })`
+- `buildReplacementsFromSnapshot({ namespace = "", snapshot, resolvedOwnershipFilter, surfaceRequiresWorkspace = true, surfaceId = "", routeInternal = false })`
 - `resolveCrudGenerationTableName(options = {})`
 - `createCacheKey({ appRoot, options })`
 - `buildCrudTemplateContext(input = {})`
@@ -201,7 +202,7 @@ Exports
 - `resource`
 - `createTemplateServerFixture(options = {})`
 Local functions
-- `buildTemplateReplacements({ surfaceRequiresWorkspace = true, requiresNamedPermissions = surfaceRequiresWorkspace === true, surfaceId = surfaceRequiresWorkspace ? "admin" : "home" } = {})`
+- `buildTemplateReplacements({ surfaceRequiresWorkspace = true, requiresNamedPermissions = surfaceRequiresWorkspace === true, surfaceId = surfaceRequiresWorkspace ? "admin" : "home", routeInternal = false } = {})`
 - `applyTemplateReplacements(sourceText = "", options = {})`
 - `buildResourceStubSource()`
 - `renderServerTemplateFile(targetServerDirectory, fileName, options)`

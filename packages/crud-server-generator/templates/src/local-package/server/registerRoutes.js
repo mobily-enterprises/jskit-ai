@@ -38,6 +38,7 @@ function registerRoutes(
     {
       auth: "required",
       surface: normalizedRouteSurface,
+__JSKIT_CRUD_ROUTE_INTERNAL_LINE__
       visibility: checkRouteVisibility(routeOwnershipFilter),
       meta: {
         tags: ["crud"],
@@ -64,6 +65,7 @@ __JSKIT_CRUD_LIST_ROUTE_INPUT_LINES__
     {
       auth: "required",
       surface: normalizedRouteSurface,
+__JSKIT_CRUD_ROUTE_INTERNAL_LINE__
       visibility: checkRouteVisibility(routeOwnershipFilter),
       meta: {
         tags: ["crud"],
@@ -89,6 +91,7 @@ __JSKIT_CRUD_VIEW_ROUTE_INPUT_LINES__
     {
       auth: "required",
       surface: normalizedRouteSurface,
+__JSKIT_CRUD_ROUTE_INTERNAL_LINE__
       visibility: checkRouteVisibility(routeOwnershipFilter),
       meta: {
         tags: ["crud"],
@@ -114,6 +117,7 @@ __JSKIT_CRUD_CREATE_ROUTE_INPUT_LINES__
     {
       auth: "required",
       surface: normalizedRouteSurface,
+__JSKIT_CRUD_ROUTE_INTERNAL_LINE__
       visibility: checkRouteVisibility(routeOwnershipFilter),
       meta: {
         tags: ["crud"],
@@ -139,6 +143,7 @@ __JSKIT_CRUD_UPDATE_ROUTE_INPUT_LINES__
     {
       auth: "required",
       surface: normalizedRouteSurface,
+__JSKIT_CRUD_ROUTE_INTERNAL_LINE__
       visibility: checkRouteVisibility(routeOwnershipFilter),
       meta: {
         tags: ["crud"],

@@ -56,6 +56,13 @@ export default Object.freeze({
       defaultValue: "",
       promptLabel: "Force overwrite",
       promptHint: "Overwrite generated scaffold files if the namespace package directory already exists."
+    },
+    internal: {
+      required: false,
+      inputType: "flag",
+      defaultValue: "",
+      promptLabel: "Internal HTTP routes",
+      promptHint: "Mark generated CRUD HTTP routes as internal-only so they are not publicly registered."
     }
   },
   optionPolicies: {
@@ -103,7 +110,8 @@ export default Object.freeze({
           "table-name",
           "id-column",
           "directory-prefix",
-          "force"
+          "force",
+          "internal"
         ],
         createTarget: {
           pathTemplate: "packages/${option:namespace|kebab}",
