@@ -83,6 +83,12 @@ function resolveInternalRouteOption(options = {}) {
   if (!Object.prototype.hasOwnProperty.call(options, "internal")) {
     return false;
   }
+  if (options.internal === "" || options.internal === true) {
+    return true;
+  }
+  if (options.internal === false) {
+    return false;
+  }
   return normalizeBoolean(options.internal);
 }
 

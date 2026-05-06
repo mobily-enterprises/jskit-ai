@@ -32,9 +32,16 @@ test("crud-server-generator no longer installs a separate jsonRestResource serve
 
 test("crud-server-generator wires action and role mutations through template context", () => {
   const files = descriptor.mutations?.files || [];
+  const descriptorTemplate = files.find((entry) => entry.from === "templates/src/local-package/package.descriptor.mjs");
   const actionsTemplate = files.find((entry) => entry.from === "templates/src/local-package/server/actions.js");
   const routesTemplate = files.find((entry) => entry.from === "templates/src/local-package/server/registerRoutes.js");
   const roleGrantMutation = (descriptor.mutations?.text || []).find((entry) => entry.file === "config/roles.js");
+
+  assert.ok(descriptorTemplate);
+  assert.deepEqual(descriptorTemplate.templateContext, {
+    entrypoint: "src/server/buildTemplateContext.js",
+    export: "buildTemplateContext"
+  });
 
   assert.ok(actionsTemplate);
   assert.deepEqual(actionsTemplate.templateContext, {

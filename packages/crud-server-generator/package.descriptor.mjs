@@ -202,7 +202,11 @@ export default Object.freeze({
         to: "packages/${option:namespace|kebab}/package.descriptor.mjs",
         reason: "Install app-local CRUD package descriptor.",
         category: "crud",
-        id: "crud-local-package-descriptor-${option:namespace|snake}"
+        id: "crud-local-package-descriptor-${option:namespace|snake}",
+        templateContext: {
+          entrypoint: "src/server/buildTemplateContext.js",
+          export: "buildTemplateContext"
+        }
       },
       {
         from: "templates/src/local-package/server/CrudProvider.js",
