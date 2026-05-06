@@ -1,0 +1,11 @@
+{
+  "name": "@jskit-ai/google-rewarded-core",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    "./shared": "./src/shared/index.js",
+    "./server/actions": "./src/server/actions.js",
+    "./server/requireGoogleRewardedUnlock": "./src/server/support/requireGoogleRewardedUnlock.js"
+  }
+}
