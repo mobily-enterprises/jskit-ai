@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { access, mkdir, readFile, symlink, writeFile } from "node:fs/promises";
+import { access, mkdir, readFile, readdir, symlink, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { Writable } from "node:stream";
 import test from "node:test";
@@ -343,6 +343,30 @@ test("create-app scaffolds the base shell with placeholder replacements", async 
   });
 });
 
+test("create-app scaffolds ai-seed as a single AGENTS file with seed guidance", async () => {
+  await withCreateAppTempDir(async (cwd) => {
+    const result = runCli({ cwd, args: ["seed-app", "--template", "ai-seed"] });
+
+    assert.equal(result.status, 0, result.stderr);
+
+    const appRoot = path.join(cwd, "seed-app");
+    const entries = (await readdir(appRoot)).sort();
+    assert.deepEqual(entries, ["AGENTS.md"]);
+
+    const body = await readFile(path.join(appRoot, "AGENTS.md"), "utf8");
+    assert.match(body, /only a JSKIT seed scaffold/);
+    assert.match(body, /site\/guide\/index\.md/);
+    assert.match(body, /DB_PASSWORD/);
+    assert.match(body, /OPENAI_API_KEY/);
+    assert.match(body, /target database already exists/);
+    assert.match(body, /create-app <app-name> --target \. --force --tenancy-mode <mode>/);
+
+    assert.match(result.stdout, /Created app "seed-app" from template "ai-seed"/);
+    assert.match(result.stdout, /have it read AGENTS\.md/);
+    assert.doesNotMatch(result.stdout, /npm run dev/);
+  });
+});
+
 test("create-app rejects template path traversal names", async () => {
   await withCreateAppTempDir(async (cwd) => {
     const traversalResult = runCli({ cwd, args: ["safe-app", "--template", "../base-shell"] });
@@ -361,6 +385,15 @@ test("base-shell app agent wrapper does not hardcode machine-specific jskit path
   const body = await readFile(wrapperPath, "utf8");
   assert.doesNotMatch(body, /Development\/current\/jskit-ai/);
   assert.match(body, /node_modules\/@jskit-ai\/agent-docs\/templates\/app\/AGENTS\.md/);
+});
+
+test("ai-seed agent instructions do not hardcode machine-specific paths and point to JSKIT docs", async () => {
+  const packageRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
+  const wrapperPath = path.join(packageRoot, "templates/ai-seed/AGENTS.md");
+  const body = await readFile(wrapperPath, "utf8");
+  assert.doesNotMatch(body, /Development\/current\/jskit-ai/);
+  assert.match(body, /github\.com\/mobily-enterprises\/jskit-ai\/blob\/main\/packages\/agent-docs\/site\/guide\/index\.md/);
+  assert.match(body, /AUTH_SUPABASE_PUBLISHABLE_KEY/);
 });
 
 test("create-app interactive flow captures initial bundle selection in guidance", async () => {

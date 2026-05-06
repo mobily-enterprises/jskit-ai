@@ -220,7 +220,9 @@ function printUsage(stream = process.stderr) {
   stream.write("Usage: jskit-create-app [app-name] [options]\n");
   stream.write("\n");
   stream.write("Options:\n");
-  stream.write(`  --template <name>  Template folder under templates/ (default: ${DEFAULT_TEMPLATE})\n`);
+  stream.write(
+    `  --template <name>  Template folder under templates/ (default: ${DEFAULT_TEMPLATE}; use ai-seed for the minimal AI seed flow)\n`
+  );
   stream.write("  --title <text>     App title used for template replacements\n");
   stream.write("  --target <path>    Target directory (default: ./<app-name>)\n");
   stream.write("  --initial-bundles <preset>  Optional bundle preset: none | auth (default: none)\n");
@@ -609,6 +611,9 @@ export async function runCli(
     });
 
     const targetLabel = toRelativeTargetLabel(path.resolve(cwd), result.targetDirectory);
+    const normalizedTemplateName = normalizeTemplatePathSegments(result.template).join("/");
+    const isAiSeedTemplate = normalizedTemplateName === "ai-seed";
+    const wrotePackageJson = result.touchedFiles.includes("package.json");
     if (result.dryRun) {
       stdout.write(
         `[dry-run] Would create app "${result.appName}" from template "${result.template}" at ${targetLabel}.\n`
@@ -625,10 +630,17 @@ export async function runCli(
       stdout.write("\n");
       stdout.write("Next steps:\n");
       stdout.write(`- cd ${shellQuote(targetLabel)}\n`);
-      stdout.write("- npm install\n");
-      stdout.write("- npm run dev\n");
+      if (isAiSeedTemplate) {
+        stdout.write("- hand the repo to your AI agent and have it read AGENTS.md\n");
+        stdout.write(
+          `- once the Stage 1 shape is clear, let it run npx @jskit-ai/create-app ${shellQuote(result.appName)} --target . --force --tenancy-mode <mode>\n`
+        );
+      } else if (wrotePackageJson) {
+        stdout.write("- npm install\n");
+        stdout.write("- npm run dev\n");
+      }
 
-      if (result.selectedSetupCommands.length > 0) {
+      if (!isAiSeedTemplate && result.selectedSetupCommands.length > 0) {
         stdout.write("\n");
         stdout.write(`Initial framework setup commands (${result.initialBundles}):\n`);
         for (const command of result.selectedSetupCommands) {

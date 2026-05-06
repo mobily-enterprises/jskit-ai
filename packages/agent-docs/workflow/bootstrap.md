@@ -40,6 +40,8 @@ Ask setup values plainly:
 - Only ask for setup values that correspond to the modules or packages already chosen for the baseline.
 - When the next package install needs concrete local development values, ask for them directly using the exact env var names or option names.
 - Do not hide behind vague requests for "credentials" or "values after that boundary".
+- If MySQL or Postgres is selected, confirm that the target database already exists before the runtime install, or that the developer has enough local admin or create-database access to create it now.
+- Do not proceed as if `DB_NAME` alone means the database is ready. The actual database must exist before the database runtime install and migration flow can be treated as valid.
 - In this workflow, these are routine setup inputs:
   - If the MySQL runtime is selected: `DB_NAME`, `DB_USER`, `DB_PASSWORD`
   - If the MySQL host or port differs from the local default `127.0.0.1:3306`: `DB_HOST`, `DB_PORT`
