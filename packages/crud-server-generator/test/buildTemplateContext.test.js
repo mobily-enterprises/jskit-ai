@@ -266,6 +266,12 @@ test("resolveInternalRouteOption rejects invalid internal flag values instead of
   );
 });
 
+test("resolveInternalRouteOption treats an empty-string flag presence as true", () => {
+  assert.equal(__testables.resolveInternalRouteOption({ internal: "" }), true);
+  assert.equal(__testables.resolveInternalRouteOption({ internal: "true" }), true);
+  assert.equal(__testables.resolveInternalRouteOption({ internal: "false" }), false);
+});
+
 test("resolveCrudGenerationTableName defaults table-name from namespace", () => {
   assert.equal(
     __testables.resolveCrudGenerationTableName({
