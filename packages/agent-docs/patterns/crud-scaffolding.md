@@ -32,6 +32,18 @@ Meaning of `--internal`:
 - it only suppresses public HTTP CRUD route registration
 - it is not a substitute for ownership columns or action/route permissions
 
+When a weird-custom persistence lane is proposed:
+
+- Treat hand-written repositories for persisted app-owned entity tables as an exception path, not a normal choice.
+- That includes things like:
+  - direct knex instead of generated CRUD ownership
+  - a custom repository/service/provider stack for a normal persisted entity table
+  - inherited-ownership or mixed-visibility workarounds that dodge the standard CRUD ownership model
+- Before taking that path, stop and ask the developer for explicit approval.
+- Record the exact approval and the approved exception in `.jskit/WORKBOARD.md` before coding.
+- If that exception changes the durable architecture rather than only the current chunk, record it in `.jskit/APP_BLUEPRINT.md` too.
+- Without that explicit approval record, do not take the weird-custom persistence path.
+
 Avoid:
 
 - writing a hand migration for a CRUD table that JSKIT CRUD scaffolding is supposed to own

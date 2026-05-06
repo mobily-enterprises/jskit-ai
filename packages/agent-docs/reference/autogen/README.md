@@ -23,6 +23,7 @@ Startup navigation stays in `KERNEL_MAP.md`.
 - [database-runtime-mysql](/packages/agent-docs/reference/autogen/packages/database-runtime-mysql.md)
 - [database-runtime-postgres](/packages/agent-docs/reference/autogen/packages/database-runtime-postgres.md)
 - [feature-server-generator](/packages/agent-docs/reference/autogen/packages/feature-server-generator.md)
+- [google-rewarded-core](/packages/agent-docs/reference/autogen/packages/google-rewarded-core.md)
 - [http-runtime](/packages/agent-docs/reference/autogen/packages/http-runtime.md)
 - [json-rest-api-core](/packages/agent-docs/reference/autogen/packages/json-rest-api-core.md)
 - [kernel](/packages/agent-docs/reference/autogen/packages/kernel.md)
