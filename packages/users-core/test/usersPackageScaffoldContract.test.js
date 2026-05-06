@@ -78,6 +78,9 @@ test("users-core base users package templates stay aligned with non-workspace ap
   assert.doesNotMatch(packageDescriptorSource, /@jskit-ai\/workspaces-core/);
   assert.match(packageDescriptorSource, /@jskit-ai\/json-rest-api-core/);
   assert.match(packageDescriptorSource, /json-rest-api\.core/);
+  assert.match(packageDescriptorSource, /scaffoldShape: "users-core-crud-v1"/);
+  assert.match(packageDescriptorSource, /tableName: "users"/);
+  assert.match(packageDescriptorSource, /provenance: "users-core-template"/);
   assert.doesNotMatch(packageDescriptorSource, /server\/actionIds/);
   assert.match(providerSource, /surface: "home"/);
   assert.doesNotMatch(providerSource, /routeSurfaceRequiresWorkspace/);
@@ -138,6 +141,9 @@ test("users-core workspace users package templates stay aligned with workspace a
   assert.match(packageDescriptorSource, /@jskit-ai\/workspaces-core/);
   assert.match(packageDescriptorSource, /@jskit-ai\/json-rest-api-core/);
   assert.match(packageDescriptorSource, /json-rest-api\.core/);
+  assert.match(packageDescriptorSource, /scaffoldShape: "users-core-crud-v1"/);
+  assert.match(packageDescriptorSource, /tableName: "users"/);
+  assert.match(packageDescriptorSource, /provenance: "users-core-template"/);
   assert.doesNotMatch(packageDescriptorSource, /server\/actionIds/);
   assert.match(providerSource, /surface: "admin"/);
   assert.match(providerSource, /routeSurfaceRequiresWorkspace/);

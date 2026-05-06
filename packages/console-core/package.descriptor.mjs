@@ -36,6 +36,17 @@ export default Object.freeze({
     }
   },
   metadata: {
+    jskit: {
+      tableOwnership: {
+        tables: [
+          {
+            tableName: "console_settings",
+            provenance: "runtime-package",
+            ownerKind: "package-runtime"
+          }
+        ]
+      }
+    },
     apiSummary: {
       surfaces: [
         {

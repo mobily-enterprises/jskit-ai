@@ -18,8 +18,12 @@ test("app agent template includes mandatory JSKIT start and done gates", async (
   assert.match(body, /Active rules from docs:/);
   assert.match(body, /prefer `jskit generate \.\.\.` over creating them from scratch/);
   assert.match(body, /server CRUD with `jskit generate crud-server-generator scaffold/);
+  assert.match(body, /every persisted app-owned table must have its own server CRUD package/);
+  assert.match(body, /`jskit doctor` is expected to fail/);
   assert.match(body, /do not hand-write a separate migration/);
   assert.match(body, /Do not generate CRUD UI or hand-build CRUD routes before the server CRUD package and shared resource file exist/);
+  assert.match(body, /`feature-server-generator` is for workflows, orchestration, and other non-CRUD server features/);
+  assert.match(body, /Keep direct knex minimal and exceptional/);
   assert.match(body, /Plan implementation work as vertical slices/);
   assert.match(body, /Avoid horizontal chunk plans/);
 

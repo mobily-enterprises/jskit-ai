@@ -35,6 +35,18 @@ export default Object.freeze({
     }
   },
   metadata: {
+    jskit: {
+      scaffoldShape: "crud-server-v1",
+      tableOwnership: {
+        tables: [
+          {
+            tableName: __JSKIT_CRUD_TABLE_NAME__,
+            provenance: "crud-server-generator",
+            ownerKind: "crud-package"
+          }
+        ]
+      }
+    },
     apiSummary: {
       surfaces: [
         {

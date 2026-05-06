@@ -7,6 +7,10 @@ import {
   resolveJsonApiTransportTypes
 } from "../validators/jsonApiTransport.js";
 import { encodeJsonApiResourceQueryObject } from "../validators/jsonApiQueryTransport.js";
+import {
+  resolveRelationshipFieldKey,
+  simplifyJsonApiResourceWithRelationshipIds
+} from "../support/jsonApiSimplify.js";
 
 function isRecord(value) {
   return Boolean(value) && typeof value === "object" && !Array.isArray(value);
@@ -98,16 +102,6 @@ function encodeJsonApiResourceQuery(query, transport = null) {
   });
 }
 
-function resolveRelationshipFieldKey(relationshipName = "", lookupFieldMap = null) {
-  const normalizedRelationshipName = normalizeText(relationshipName);
-  const explicitFieldKey = normalizeText(lookupFieldMap?.[normalizedRelationshipName]);
-  if (explicitFieldKey) {
-    return explicitFieldKey;
-  }
-
-  return normalizedRelationshipName ? `${normalizedRelationshipName}Id` : "";
-}
-
 function createIncludedResourceIndex(document = {}) {
   const index = new Map();
 
@@ -135,9 +129,7 @@ function simplifyRelationshipResource(linkage = {}, options = {}) {
   const resourceKey = `${type}:${id}`;
   const includedResource = options.includedResourceIndex?.get(resourceKey);
   if (!includedResource) {
-    return {
-      id
-    };
+    return null;
   }
 
   return simplifyResourceObject(includedResource, options);
@@ -145,10 +137,9 @@ function simplifyRelationshipResource(linkage = {}, options = {}) {
 
 function simplifyResourceObject(resource = {}, options = {}) {
   const normalizedResource = isRecord(resource) ? normalizeObject(resource) : {};
-  const simplified = {
-    id: normalizedResource.id == null ? "" : String(normalizedResource.id),
-    ...(normalizeObject(normalizedResource.attributes))
-  };
+  const simplified = simplifyJsonApiResourceWithRelationshipIds(normalizedResource, {
+    lookupFieldMap: options.lookupFieldMap || null
+  });
   const lookupContainerKey = normalizeText(options.lookupContainerKey, {
     fallback: "lookups"
   });

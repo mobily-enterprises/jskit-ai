@@ -2,6 +2,8 @@ import {
   readdir,
   readFile
 } from "node:fs/promises";
+import { createRequire } from "node:module";
+import { importFreshModuleFromAbsolutePath } from "@jskit-ai/kernel/server/support";
 import {
   ensureArray,
   ensureObject,
@@ -81,12 +83,39 @@ function createHealthCommands(ctx = {}) {
     "useCrudAddEdit"
   ]);
   const FEATURE_SERVER_SCAFFOLD_SHAPE = "feature-server-v1";
+  const CRUD_SERVER_SCAFFOLD_SHAPE = "crud-server-v1";
+  const USERS_CORE_BASELINE_CRUD_SCAFFOLD_SHAPE = "users-core-crud-v1";
   const FEATURE_SERVER_DEFAULT_LANE = "default";
   const FEATURE_SERVER_JSON_REST_MODE = "json-rest";
   const FEATURE_SERVER_PERSISTENT_MODES = new Set([
     "json-rest",
     "custom-knex"
   ]);
+  const TABLE_OWNERSHIP_RELATIVE_PATH = ".jskit/table-ownership.json";
+  const TABLE_OWNERSHIP_VERSION = 1;
+  const TABLE_OWNERSHIP_EXCEPTION_CATEGORIES = new Set([
+    "audit-log",
+    "join-table",
+    "outbox",
+    "projection-cache",
+    "workflow-state"
+  ]);
+  const TABLE_OWNERSHIP_AUXILIARY_INHERITED_OWNER_EXCEPTION_CATEGORIES = new Set([
+    "audit-log",
+    "join-table",
+    "outbox",
+    "projection-cache"
+  ]);
+  const KNEX_SYSTEM_TABLE_NAMES = new Set([
+    "knex_migrations",
+    "knex_migrations_lock"
+  ]);
+  const DIRECT_OWNER_COLUMNS = Object.freeze({
+    user: "user_id",
+    workspace: "workspace_id"
+  });
+  const DIRECT_OWNER_KINDS = Object.freeze(Object.keys(DIRECT_OWNER_COLUMNS));
+  const CRUD_OWNERSHIP_FILTER_LITERAL_PATTERN = /\bownershipFilter\s*:\s*"([A-Za-z_]+)"/u;
   const FEATURE_SERVER_COMPLEX_MARKER_RELATIVE_PATHS = Object.freeze([
     "src/server/inputSchemas.js",
     "src/server/actions.js",
@@ -108,6 +137,13 @@ function createHealthCommands(ctx = {}) {
   ]);
   const MAIN_SERVER_DOMAIN_FILE_PATTERN =
     /^src\/server\/(?!(?:index|MainServiceProvider|loadAppConfig)\.[A-Za-z0-9]+$).+/u;
+  const APP_LOCAL_DIRECT_KNEX_PATTERN_ENTRIES = Object.freeze([
+    { pattern: /\bjskit\.database\.knex\b/u, label: "jskit.database.knex" },
+    { pattern: /\bcreateWithTransaction\s*\(/u, label: "createWithTransaction(...)" },
+    { pattern: /\bknex\s*\(/u, label: "knex(...)" },
+    { pattern: /\bknex\./u, label: "knex." },
+    { pattern: /from\s+["']knex["']/u, label: 'import "knex"' }
+  ]);
 
   function collectDescriptorContainerTokens({ packageId, side, values, issues }) {
     const declaredTokens = new Set();
@@ -545,6 +581,516 @@ function createHealthCommands(ctx = {}) {
     };
   }
 
+  function normalizeJskitMetadata(descriptor = {}) {
+    return ensureObject(ensureObject(ensureObject(descriptor).metadata).jskit);
+  }
+
+  function normalizeOwnedTableEntries(packageEntry) {
+    const packageId = String(packageEntry?.packageId || "").trim();
+    const packagePath = resolvePackageDisplayPath(packageEntry);
+    const metadata = normalizeJskitMetadata(packageEntry?.descriptor);
+    const tableOwnership = ensureObject(metadata.tableOwnership);
+    const normalized = [];
+
+    for (const rawEntry of ensureArray(tableOwnership.tables)) {
+      const entry = ensureObject(rawEntry);
+      const tableName = String(entry.tableName || "").trim().toLowerCase();
+      if (!tableName) {
+        continue;
+      }
+      normalized.push({
+        packageId,
+        packagePath,
+        tableName,
+        provenance: String(entry.provenance || "").trim().toLowerCase(),
+        ownerKind: String(entry.ownerKind || "").trim().toLowerCase()
+      });
+    }
+
+    return normalized;
+  }
+
+  function packageAllowsDirectKnexUsage(packageEntry) {
+    const featureMetadata = normalizeFeatureLaneMetadata(packageEntry?.descriptor);
+    if (
+      featureMetadata.scaffoldShape === FEATURE_SERVER_SCAFFOLD_SHAPE &&
+      featureMetadata.scaffoldMode === "custom-knex" &&
+      featureMetadata.lane === "weird-custom"
+    ) {
+      return true;
+    }
+
+    const jskitMetadata = normalizeJskitMetadata(packageEntry?.descriptor);
+    const scaffoldShape = String(jskitMetadata.scaffoldShape || "").trim();
+    if (
+      scaffoldShape === CRUD_SERVER_SCAFFOLD_SHAPE ||
+      scaffoldShape === USERS_CORE_BASELINE_CRUD_SCAFFOLD_SHAPE
+    ) {
+      return true;
+    }
+
+    return normalizeOwnedTableEntries(packageEntry).some((entry) =>
+      entry.provenance === "crud-server-generator" || entry.provenance === "users-core-template"
+    );
+  }
+
+  function packageRequiresCrudOwnershipProvenance(packageEntry) {
+    const descriptor = ensureObject(packageEntry?.descriptor);
+    const providedCapabilities = ensureArray(ensureObject(descriptor.capabilities).provides)
+      .map((value) => String(value || "").trim())
+      .filter(Boolean);
+    return providedCapabilities.some((value) => value.startsWith("crud."));
+  }
+
+  function normalizeTableOwnershipExceptionEntries(rawValue = {}) {
+    const source = ensureObject(rawValue);
+    const exceptions = [];
+    for (const rawEntry of ensureArray(source.exceptions)) {
+      const entry = ensureObject(rawEntry);
+      const tableName = String(entry.tableName || "").trim().toLowerCase();
+      const category = String(entry.category || "").trim().toLowerCase();
+      const owner = String(entry.owner || "").trim();
+      const reason = String(entry.reason || "").trim();
+      exceptions.push({
+        tableName,
+        category,
+        owner,
+        reason
+      });
+    }
+    return {
+      version: Number(source.version || 0),
+      exceptions
+    };
+  }
+
+  async function loadTableOwnershipExceptionConfig({ appRoot, issues }) {
+    const absolutePath = path.join(appRoot, TABLE_OWNERSHIP_RELATIVE_PATH);
+    if (!(await fileExists(absolutePath))) {
+      return {
+        exists: false,
+        exceptions: []
+      };
+    }
+
+    let parsed = null;
+    try {
+      parsed = JSON.parse(await readFile(absolutePath, "utf8"));
+    } catch (error) {
+      issues.push(
+        `[table-ownership:invalid-exception-file] ${TABLE_OWNERSHIP_RELATIVE_PATH} is not valid JSON: ${error instanceof Error ? error.message : String(error)}`
+      );
+      return {
+        exists: true,
+        exceptions: []
+      };
+    }
+
+    const config = normalizeTableOwnershipExceptionEntries(parsed);
+    if (config.version !== TABLE_OWNERSHIP_VERSION) {
+      issues.push(
+        `[table-ownership:invalid-exception-file] ${TABLE_OWNERSHIP_RELATIVE_PATH} must declare version ${TABLE_OWNERSHIP_VERSION}.`
+      );
+    }
+
+    const seenTables = new Set();
+    for (const entry of config.exceptions) {
+      if (!entry.tableName) {
+        issues.push(
+          `[table-ownership:invalid-exception-file] ${TABLE_OWNERSHIP_RELATIVE_PATH} contains an exception without tableName.`
+        );
+        continue;
+      }
+      if (!TABLE_OWNERSHIP_EXCEPTION_CATEGORIES.has(entry.category)) {
+        issues.push(
+          `[table-ownership:invalid-exception-file] ${TABLE_OWNERSHIP_RELATIVE_PATH} table "${entry.tableName}" must use one of: ${sortStrings([...TABLE_OWNERSHIP_EXCEPTION_CATEGORIES]).join(", ")}.`
+        );
+      }
+      if (!entry.owner) {
+        issues.push(
+          `[table-ownership:invalid-exception-file] ${TABLE_OWNERSHIP_RELATIVE_PATH} table "${entry.tableName}" must include owner.`
+        );
+      }
+      if (!entry.reason) {
+        issues.push(
+          `[table-ownership:invalid-exception-file] ${TABLE_OWNERSHIP_RELATIVE_PATH} table "${entry.tableName}" must include reason.`
+        );
+      }
+      if (seenTables.has(entry.tableName)) {
+        issues.push(
+          `[table-ownership:invalid-exception-file] ${TABLE_OWNERSHIP_RELATIVE_PATH} declares table "${entry.tableName}" more than once.`
+        );
+        continue;
+      }
+      seenTables.add(entry.tableName);
+    }
+
+    return {
+      exists: true,
+      exceptions: config.exceptions
+    };
+  }
+
+  function normalizeKnexRawRows(rawResult = null) {
+    if (Array.isArray(rawResult)) {
+      if (rawResult.length > 0 && Array.isArray(rawResult[0])) {
+        return rawResult[0];
+      }
+      return rawResult;
+    }
+
+    if (Array.isArray(rawResult?.rows)) {
+      return rawResult.rows;
+    }
+
+    return [];
+  }
+
+  function normalizeDbIdentifier(value = "") {
+    return String(value || "").trim().toLowerCase();
+  }
+
+  function setMapValue(map, key, defaultValueFactory) {
+    if (!map.has(key)) {
+      map.set(key, defaultValueFactory());
+    }
+    return map.get(key);
+  }
+
+  async function loadAppKnexConfig(appRoot) {
+    const knexfilePath = path.join(appRoot, "knexfile.js");
+    if (!(await fileExists(knexfilePath))) {
+      return null;
+    }
+
+    const moduleNamespace = await importFreshModuleFromAbsolutePath(knexfilePath);
+    const exported =
+      moduleNamespace?.default ??
+      moduleNamespace?.config ??
+      moduleNamespace;
+    const config =
+      typeof exported === "function"
+        ? await exported()
+        : ensureObject(exported);
+
+    return {
+      config: ensureObject(config),
+      path: knexfilePath
+    };
+  }
+
+  function loadAppKnexFactory(appRoot) {
+    const requireFromApp = createRequire(path.join(appRoot, "package.json"));
+    const moduleValue = requireFromApp("knex");
+    const knexFactory =
+      typeof moduleValue === "function"
+        ? moduleValue
+        : typeof moduleValue?.default === "function"
+          ? moduleValue.default
+          : null;
+    if (!knexFactory) {
+      throw new Error("App-local knex package resolved but did not expose a callable factory.");
+    }
+    return knexFactory;
+  }
+
+  async function resolveLiveDatabaseSchema(appRoot) {
+    const loadedKnexConfig = await loadAppKnexConfig(appRoot);
+    if (!loadedKnexConfig) {
+      return {
+        applicable: false,
+        tableNames: [],
+        columnsByTable: new Map(),
+        foreignKeysByTable: new Map()
+      };
+    }
+
+    const knexFactory = loadAppKnexFactory(appRoot);
+    const knex = knexFactory(loadedKnexConfig.config);
+
+    try {
+      const clientId = String(loadedKnexConfig.config.client || "").trim().toLowerCase();
+      let tableRows = [];
+      let columnRows = [];
+      let foreignKeyRows = [];
+      if (clientId.startsWith("mysql")) {
+        tableRows = normalizeKnexRawRows(await knex.raw(
+          "SELECT TABLE_NAME AS tableName FROM information_schema.TABLES WHERE TABLE_SCHEMA = DATABASE() AND TABLE_TYPE = 'BASE TABLE' ORDER BY TABLE_NAME"
+        ));
+        columnRows = normalizeKnexRawRows(await knex.raw(
+          "SELECT TABLE_NAME AS tableName, COLUMN_NAME AS columnName FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() ORDER BY TABLE_NAME, ORDINAL_POSITION"
+        ));
+        foreignKeyRows = normalizeKnexRawRows(await knex.raw(
+          "SELECT TABLE_NAME AS tableName, COLUMN_NAME AS columnName, REFERENCED_TABLE_NAME AS referencedTableName, REFERENCED_COLUMN_NAME AS referencedColumnName FROM information_schema.KEY_COLUMN_USAGE WHERE TABLE_SCHEMA = DATABASE() AND REFERENCED_TABLE_NAME IS NOT NULL ORDER BY TABLE_NAME, CONSTRAINT_NAME, ORDINAL_POSITION"
+        ));
+      } else if (clientId === "pg" || clientId.startsWith("postgres")) {
+        tableRows = normalizeKnexRawRows(await knex.raw(
+          'SELECT tablename AS "tableName" FROM pg_tables WHERE schemaname = current_schema() ORDER BY tablename'
+        ));
+        columnRows = normalizeKnexRawRows(await knex.raw(
+          'SELECT table_name AS "tableName", column_name AS "columnName" FROM information_schema.columns WHERE table_schema = current_schema() ORDER BY table_name, ordinal_position'
+        ));
+        foreignKeyRows = normalizeKnexRawRows(await knex.raw(
+          'SELECT kcu.table_name AS "tableName", kcu.column_name AS "columnName", ccu.table_name AS "referencedTableName", ccu.column_name AS "referencedColumnName" FROM information_schema.table_constraints tc JOIN information_schema.key_column_usage kcu ON tc.constraint_name = kcu.constraint_name AND tc.table_schema = kcu.table_schema JOIN information_schema.constraint_column_usage ccu ON ccu.constraint_name = tc.constraint_name AND ccu.table_schema = tc.table_schema WHERE tc.constraint_type = \'FOREIGN KEY\' AND tc.table_schema = current_schema() ORDER BY kcu.table_name, kcu.constraint_name, kcu.ordinal_position'
+        ));
+      } else {
+        throw new Error(`Unsupported knex client for doctor table ownership audit: ${clientId || "<empty>"}.`);
+      }
+
+      const tableNames = sortStrings(
+        tableRows
+          .map((row) => normalizeDbIdentifier(
+            ensureObject(row).tableName || ensureObject(row).TABLE_NAME || ensureObject(row).tablename
+          ))
+          .filter(Boolean)
+          .filter((tableName) => !KNEX_SYSTEM_TABLE_NAMES.has(tableName))
+      );
+      const liveTableNameSet = new Set(tableNames);
+      const columnsByTable = new Map();
+      const foreignKeysByTable = new Map();
+
+      for (const tableName of tableNames) {
+        columnsByTable.set(tableName, new Set());
+        foreignKeysByTable.set(tableName, []);
+      }
+
+      for (const rawRow of columnRows) {
+        const row = ensureObject(rawRow);
+        const tableName = normalizeDbIdentifier(row.tableName || row.TABLE_NAME || row.tablename);
+        const columnName = normalizeDbIdentifier(row.columnName || row.COLUMN_NAME || row.columnname);
+        if (!tableName || !columnName || !liveTableNameSet.has(tableName)) {
+          continue;
+        }
+        setMapValue(columnsByTable, tableName, () => new Set()).add(columnName);
+      }
+
+      for (const rawRow of foreignKeyRows) {
+        const row = ensureObject(rawRow);
+        const tableName = normalizeDbIdentifier(row.tableName || row.TABLE_NAME || row.tablename);
+        const columnName = normalizeDbIdentifier(row.columnName || row.COLUMN_NAME || row.columnname);
+        const referencedTableName = normalizeDbIdentifier(
+          row.referencedTableName || row.REFERENCED_TABLE_NAME || row.referencedtablename
+        );
+        const referencedColumnName = normalizeDbIdentifier(
+          row.referencedColumnName || row.REFERENCED_COLUMN_NAME || row.referencedcolumnname
+        );
+        if (!tableName || !referencedTableName || !liveTableNameSet.has(tableName)) {
+          continue;
+        }
+        setMapValue(foreignKeysByTable, tableName, () => []).push({
+          columnName,
+          referencedTableName,
+          referencedColumnName
+        });
+      }
+
+      return {
+        applicable: true,
+        tableNames,
+        columnsByTable,
+        foreignKeysByTable
+      };
+    } finally {
+      if (knex && typeof knex.destroy === "function") {
+        await knex.destroy();
+      }
+    }
+  }
+
+  function collectInstalledOwnedTables({ installedPackageIds = [], packageRegistry, issues }) {
+    const ownersByTable = new Map();
+
+    for (const packageId of ensureArray(installedPackageIds)) {
+      const packageEntry = packageRegistry.get(packageId) || null;
+      if (!packageEntry) {
+        continue;
+      }
+
+      for (const ownershipEntry of normalizeOwnedTableEntries(packageEntry)) {
+        const existing = ownersByTable.get(ownershipEntry.tableName);
+        if (existing) {
+          issues.push(
+            `[table-ownership:duplicate-owner] table "${ownershipEntry.tableName}" is claimed by both ${existing.packagePath} and ${ownershipEntry.packagePath}.`
+          );
+          continue;
+        }
+        ownersByTable.set(ownershipEntry.tableName, ownershipEntry);
+      }
+    }
+
+    return ownersByTable;
+  }
+
+  function normalizeDirectOwnerKinds(columnNames = new Set()) {
+    const normalizedColumns = columnNames instanceof Set ? columnNames : new Set();
+    const ownerKinds = new Set();
+    for (const ownerKind of DIRECT_OWNER_KINDS) {
+      if (normalizedColumns.has(DIRECT_OWNER_COLUMNS[ownerKind])) {
+        ownerKinds.add(ownerKind);
+      }
+    }
+    return ownerKinds;
+  }
+
+  function resolveRequiredOwnerKindsFromOwnershipFilter(ownershipFilter = "") {
+    const normalizedFilter = normalizeDbIdentifier(ownershipFilter);
+    if (normalizedFilter === "user") {
+      return new Set(["user"]);
+    }
+    if (normalizedFilter === "workspace") {
+      return new Set(["workspace"]);
+    }
+    if (normalizedFilter === "workspace_user") {
+      return new Set(["workspace", "user"]);
+    }
+    return new Set();
+  }
+
+  function subtractStringSet(source = new Set(), valuesToSubtract = new Set()) {
+    const result = new Set();
+    const sourceSet = source instanceof Set ? source : new Set();
+    const subtractSet = valuesToSubtract instanceof Set ? valuesToSubtract : new Set();
+    for (const value of sourceSet) {
+      if (!subtractSet.has(value)) {
+        result.add(value);
+      }
+    }
+    return result;
+  }
+
+  function formatOwnerColumns(ownerKinds = new Set()) {
+    const normalizedKinds = ownerKinds instanceof Set ? ownerKinds : new Set();
+    return sortStrings(
+      [...normalizedKinds]
+        .map((ownerKind) => DIRECT_OWNER_COLUMNS[ownerKind] || "")
+        .filter(Boolean)
+    )
+      .map((columnName) => `"${columnName}"`)
+      .join(", ");
+  }
+
+  async function resolveAppLocalCrudOwnershipFilters({ appRoot, appLocalRegistry }) {
+    const ownershipByTable = new Map();
+    const packageEntries = sortStrings([...appLocalRegistry.keys()])
+      .map((packageId) => appLocalRegistry.get(packageId))
+      .filter(Boolean);
+
+    for (const packageEntry of packageEntries) {
+      if (!packageRequiresCrudOwnershipProvenance(packageEntry)) {
+        continue;
+      }
+
+      const providerPath = resolvePrimaryServerProviderPath(packageEntry);
+      if (!providerPath || !(await fileExists(providerPath))) {
+        continue;
+      }
+
+      const sourceText = await readFile(providerPath, "utf8");
+      const match = CRUD_OWNERSHIP_FILTER_LITERAL_PATTERN.exec(sourceText);
+      if (!match) {
+        continue;
+      }
+      const ownershipFilter = normalizeDbIdentifier(match[1]);
+      const requiredOwnerKinds = resolveRequiredOwnerKindsFromOwnershipFilter(ownershipFilter);
+
+      for (const ownershipEntry of normalizeOwnedTableEntries(packageEntry)) {
+        ownershipByTable.set(ownershipEntry.tableName, {
+          tableName: ownershipEntry.tableName,
+          ownershipFilter,
+          requiredOwnerKinds,
+          packagePath: resolvePackageDisplayPath(packageEntry),
+          providerPath: normalizeRelativePath(appRoot, providerPath)
+        });
+      }
+    }
+
+    return ownershipByTable;
+  }
+
+  function resolveReachableOwnerKinds(tableName, {
+    directOwnerKindsByTable,
+    foreignKeysByTable,
+    memo = new Map(),
+    visiting = new Set()
+  } = {}) {
+    const normalizedTableName = normalizeDbIdentifier(tableName);
+    if (!normalizedTableName) {
+      return new Set();
+    }
+    if (memo.has(normalizedTableName)) {
+      return memo.get(normalizedTableName);
+    }
+    if (visiting.has(normalizedTableName)) {
+      return new Set();
+    }
+
+    visiting.add(normalizedTableName);
+    const resolved = new Set(directOwnerKindsByTable.get(normalizedTableName) || []);
+    for (const foreignKey of ensureArray(foreignKeysByTable.get(normalizedTableName))) {
+      const parentTableName = normalizeDbIdentifier(foreignKey?.referencedTableName);
+      if (!parentTableName) {
+        continue;
+      }
+      for (const ownerKind of resolveReachableOwnerKinds(parentTableName, {
+        directOwnerKindsByTable,
+        foreignKeysByTable,
+        memo,
+        visiting
+      })) {
+        resolved.add(ownerKind);
+      }
+    }
+    visiting.delete(normalizedTableName);
+    memo.set(normalizedTableName, resolved);
+    return resolved;
+  }
+
+  function findInheritedOwnerChain(tableName, ownerKind, {
+    directOwnerKindsByTable,
+    foreignKeysByTable
+  } = {}) {
+    const normalizedTableName = normalizeDbIdentifier(tableName);
+    const normalizedOwnerKind = normalizeDbIdentifier(ownerKind);
+    if (!normalizedTableName || !normalizedOwnerKind) {
+      return [];
+    }
+
+    const visited = new Set([normalizedTableName]);
+    const queue = [{
+      tableName: normalizedTableName,
+      path: [normalizedTableName]
+    }];
+
+    while (queue.length > 0) {
+      const current = queue.shift();
+      const currentTableName = normalizeDbIdentifier(current?.tableName);
+      if (!currentTableName) {
+        continue;
+      }
+
+      for (const foreignKey of ensureArray(foreignKeysByTable.get(currentTableName))) {
+        const parentTableName = normalizeDbIdentifier(foreignKey?.referencedTableName);
+        if (!parentTableName || visited.has(parentTableName)) {
+          continue;
+        }
+        const nextPath = [
+          ...ensureArray(current?.path),
+          parentTableName
+        ];
+        if ((directOwnerKindsByTable.get(parentTableName) || new Set()).has(normalizedOwnerKind)) {
+          return nextPath;
+        }
+        visited.add(parentTableName);
+        queue.push({
+          tableName: parentTableName,
+          path: nextPath
+        });
+      }
+    }
+
+    return [];
+  }
+
   function isFeatureLanePersistenceImportSource(sourcePath = "") {
     const normalizedSourcePath = String(sourcePath || "").trim();
     if (!normalizedSourcePath) {
@@ -841,6 +1387,229 @@ function createHealthCommands(ctx = {}) {
       appLocalRegistry,
       warnings
     });
+  }
+
+  async function collectCrudOwnershipMetadataIssues({ appLocalRegistry, issues }) {
+    const packageEntries = sortStrings([...appLocalRegistry.keys()])
+      .map((packageId) => appLocalRegistry.get(packageId))
+      .filter(Boolean);
+
+    for (const packageEntry of packageEntries) {
+      if (!packageRequiresCrudOwnershipProvenance(packageEntry)) {
+        continue;
+      }
+
+      const packagePath = resolvePackageDisplayPath(packageEntry);
+      const metadata = normalizeJskitMetadata(packageEntry?.descriptor);
+      const scaffoldShape = String(metadata.scaffoldShape || "").trim();
+      const ownedTables = normalizeOwnedTableEntries(packageEntry);
+      if (ownedTables.length < 1) {
+        issues.push(
+          `${packagePath}: [crud-ownership:missing-metadata] CRUD package is missing metadata.jskit.tableOwnership.tables. App-owned CRUD tables must be claimed by generator/baseline ownership metadata so doctor can audit live DB tables.`
+        );
+        continue;
+      }
+
+      const allowedProvenances = String(packageEntry?.packageId || "").trim() === "@local/users"
+        ? new Set(["crud-server-generator", "users-core-template"])
+        : new Set(["crud-server-generator"]);
+      if (
+        scaffoldShape &&
+        scaffoldShape !== CRUD_SERVER_SCAFFOLD_SHAPE &&
+        scaffoldShape !== USERS_CORE_BASELINE_CRUD_SCAFFOLD_SHAPE
+      ) {
+        issues.push(
+          `${packagePath}: [crud-ownership:unsupported-shape] CRUD package declares unsupported metadata.jskit.scaffoldShape="${scaffoldShape}". Use crud-server-generator for app-owned CRUDs, or the JSKIT baseline users scaffold where applicable.`
+        );
+      }
+
+      for (const ownedTable of ownedTables) {
+        if (!allowedProvenances.has(ownedTable.provenance)) {
+          issues.push(
+            `${packagePath}: [crud-ownership:unsupported-provenance] table "${ownedTable.tableName}" is claimed with provenance "${ownedTable.provenance || "<empty>"}". App-owned CRUD tables must come from crud-server-generator (or users-core-template for @local/users).`
+          );
+        }
+      }
+    }
+  }
+
+  async function collectAppLocalDirectKnexIssues({ appRoot, appLocalRegistry, issues }) {
+    const packageEntries = sortStrings([...appLocalRegistry.keys()])
+      .map((packageId) => appLocalRegistry.get(packageId))
+      .filter(Boolean);
+
+    for (const packageEntry of packageEntries) {
+      const featureMetadata = normalizeFeatureLaneMetadata(packageEntry?.descriptor);
+      if (featureMetadata.scaffoldShape === FEATURE_SERVER_SCAFFOLD_SHAPE) {
+        continue;
+      }
+      if (packageAllowsDirectKnexUsage(packageEntry)) {
+        continue;
+      }
+
+      const rootDir = String(packageEntry?.rootDir || "").trim();
+      if (!rootDir) {
+        continue;
+      }
+
+      const serverFilePaths = [];
+      await collectAppSourceFiles(path.join(rootDir, "src", "server"), undefined, serverFilePaths);
+      serverFilePaths.sort((left, right) => left.localeCompare(right));
+
+      for (const absolutePath of serverFilePaths) {
+        const sourceText = await readFile(absolutePath, "utf8");
+        const match = findFirstPatternMatch(sourceText, APP_LOCAL_DIRECT_KNEX_PATTERN_ENTRIES);
+        if (!match) {
+          continue;
+        }
+
+        const relativePath = normalizeRelativePath(appRoot, absolutePath);
+        issues.push(
+          `${relativePath}:${match.lineNumber}: [persistence-lane:direct-knex] app-owned runtime code must stay on generated CRUD or internal json-rest-api by default. Direct knex is only allowed in explicit weird-custom feature-server lanes and approved baseline CRUD packages.`
+        );
+      }
+    }
+  }
+
+  async function collectTableOwnershipDoctorIssues({
+    appRoot,
+    installedPackageIds,
+    packageRegistry,
+    appLocalRegistry,
+    issues
+  }) {
+    await collectCrudOwnershipMetadataIssues({
+      appLocalRegistry,
+      issues
+    });
+    await collectAppLocalDirectKnexIssues({
+      appRoot,
+      appLocalRegistry,
+      issues
+    });
+
+    const exceptionConfig = await loadTableOwnershipExceptionConfig({
+      appRoot,
+      issues
+    });
+
+    let liveSchema = null;
+    try {
+      const resolved = await resolveLiveDatabaseSchema(appRoot);
+      if (!resolved.applicable) {
+        return;
+      }
+      liveSchema = resolved;
+    } catch (error) {
+      issues.push(
+        `[table-ownership:db-introspection-unavailable] doctor could not inspect live database tables via knexfile.js: ${error instanceof Error ? error.message : String(error)}`
+      );
+      return;
+    }
+
+    const liveTables = ensureArray(liveSchema?.tableNames);
+    const columnsByTable = liveSchema?.columnsByTable instanceof Map ? liveSchema.columnsByTable : new Map();
+    const foreignKeysByTable = liveSchema?.foreignKeysByTable instanceof Map ? liveSchema.foreignKeysByTable : new Map();
+    const ownedTablesByName = collectInstalledOwnedTables({
+      installedPackageIds,
+      packageRegistry,
+      issues
+    });
+    const crudOwnershipByTable = await resolveAppLocalCrudOwnershipFilters({
+      appRoot,
+      appLocalRegistry
+    });
+    const exceptionEntriesByName = new Map();
+    for (const entry of exceptionConfig.exceptions) {
+      if (entry.tableName) {
+        exceptionEntriesByName.set(entry.tableName, entry);
+      }
+    }
+    const directOwnerKindsByTable = new Map(
+      liveTables.map((tableName) => [
+        tableName,
+        normalizeDirectOwnerKinds(columnsByTable.get(tableName) || new Set())
+      ])
+    );
+    const reachableOwnerKindsMemo = new Map();
+
+    for (const tableName of liveTables) {
+      if (ownedTablesByName.has(tableName)) {
+        if (exceptionEntriesByName.has(tableName)) {
+          issues.push(
+            `[table-ownership:duplicate-exception] table "${tableName}" is both package-owned and listed in ${TABLE_OWNERSHIP_RELATIVE_PATH}. Remove the exception entry.`
+          );
+        }
+        continue;
+      }
+      if (exceptionEntriesByName.has(tableName)) {
+        continue;
+      }
+
+      issues.push(
+        `[table-ownership:missing-owner] live database table "${tableName}" has no declared owner. Create a server CRUD with jskit generate crud-server-generator scaffold ..., or add a narrow explicit exception in ${TABLE_OWNERSHIP_RELATIVE_PATH}.`
+      );
+    }
+
+    for (const tableName of liveTables) {
+      if (!ownedTablesByName.has(tableName) && !exceptionEntriesByName.has(tableName)) {
+        continue;
+      }
+
+      const directOwnerKinds = directOwnerKindsByTable.get(tableName) || new Set();
+      const reachableOwnerKinds = resolveReachableOwnerKinds(tableName, {
+        directOwnerKindsByTable,
+        foreignKeysByTable,
+        memo: reachableOwnerKindsMemo
+      });
+      const inheritedOwnerKinds = subtractStringSet(reachableOwnerKinds, directOwnerKinds);
+      const exceptionEntry = exceptionEntriesByName.get(tableName) || null;
+      const allowsAuxiliaryInheritedOwnership =
+        exceptionEntry &&
+        TABLE_OWNERSHIP_AUXILIARY_INHERITED_OWNER_EXCEPTION_CATEGORIES.has(exceptionEntry.category);
+
+      const crudOwnership = crudOwnershipByTable.get(tableName) || null;
+      if (crudOwnership) {
+        const missingRequiredOwnerKinds = subtractStringSet(crudOwnership.requiredOwnerKinds, directOwnerKinds);
+        if (missingRequiredOwnerKinds.size > 0) {
+          issues.push(
+            `${crudOwnership.providerPath}: [crud-ownership:missing-owner-columns] ownershipFilter "${crudOwnership.ownershipFilter}" requires live table "${tableName}" to carry direct owner column(s) ${formatOwnerColumns(missingRequiredOwnerKinds)}. JSKIT CRUD ownership must be materialized on the row, not recovered through joins.`
+          );
+        }
+      }
+
+      if (inheritedOwnerKinds.size < 1 || allowsAuxiliaryInheritedOwnership) {
+        continue;
+      }
+
+      for (const ownerKind of sortStrings([...inheritedOwnerKinds])) {
+        const inheritedPath = findInheritedOwnerChain(tableName, ownerKind, {
+          directOwnerKindsByTable,
+          foreignKeysByTable
+        });
+        const formattedPath = inheritedPath.length > 1
+          ? inheritedPath.join(" -> ")
+          : tableName;
+        const ownerColumnName = DIRECT_OWNER_COLUMNS[ownerKind];
+        const exceptionSuffix = exceptionEntry
+          ? ` ${TABLE_OWNERSHIP_RELATIVE_PATH} category "${exceptionEntry.category}" does not exempt inherited ownership.`
+          : "";
+        issues.push(
+          `[table-ownership:inherited-owner] live database table "${tableName}" reaches ${ownerKind} ownership only via foreign-key chain ${formattedPath} but lacks direct owner column "${ownerColumnName}". Materialize the owner on the row instead of filtering through parent relationships.${exceptionSuffix}`
+        );
+      }
+    }
+
+    for (const exceptionEntry of exceptionConfig.exceptions) {
+      if (!exceptionEntry.tableName) {
+        continue;
+      }
+      if (!liveTables.includes(exceptionEntry.tableName)) {
+        issues.push(
+          `[table-ownership:stale-exception] ${TABLE_OWNERSHIP_RELATIVE_PATH} declares table "${exceptionEntry.tableName}" but that table does not exist in the live database.`
+        );
+      }
+    }
   }
 
   function hasTopLevelObjectProperty(sourceText = "", propertyName = "") {
@@ -1320,6 +2089,13 @@ function createHealthCommands(ctx = {}) {
       appLocalRegistry,
       issues,
       warnings
+    });
+    await collectTableOwnershipDoctorIssues({
+      appRoot,
+      installedPackageIds: Object.keys(installed),
+      packageRegistry: combinedPackageRegistry,
+      appLocalRegistry,
+      issues
     });
 
     const payload = {

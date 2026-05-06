@@ -33,11 +33,12 @@ For CRUD chunks:
 
 1. Decide the table shape first.
 2. Create the real table directly in the database before scaffolding. `crud-server-generator` reads the live table shape; it does not invent the table for you.
-3. If `crud-server-generator` is going to own the CRUD schema, do not hand-write a separate migration for that CRUD table. The server generator installs and manages the CRUD migration scaffold itself.
-4. Scaffold the server side first with `crud-server-generator`, even if no CRUD UI will be created yet.
-5. Only after the shared resource file exists, scaffold the client side against that resource.
-6. Treat that shared resource file as the canonical CRUD definition. Put field and ownership changes there instead of hand-duplicating derived CRUD validators elsewhere.
-7. Do not guess CRUD operations or screen shape. Ask the developer:
+3. Unless the table is already owned by a JSKIT baseline package or is a narrow explicit exception recorded in `.jskit/table-ownership.json`, every persisted app-owned table must have a server CRUD package. Do not let a new table exist without that ownership decision.
+4. If `crud-server-generator` is going to own the CRUD schema, do not hand-write a separate migration for that CRUD table. The server generator installs and manages the CRUD migration scaffold itself.
+5. Scaffold the server side first with `crud-server-generator`, even if no CRUD UI will be created yet.
+6. Only after the shared resource file exists, scaffold the client side against that resource.
+7. Treat that shared resource file as the canonical CRUD definition. Put field and ownership changes there instead of hand-duplicating derived CRUD validators elsewhere.
+8. Do not guess CRUD operations or screen shape. Ask the developer:
    - which operations are allowed
    - which fields belong in the list view if one exists
    - what the view form should look like
@@ -50,10 +51,12 @@ During implementation:
 - Ask only about overrides, restrictions, or app-specific additions to packaged baseline workflows.
 - Use generated CRUD/UI scaffolds only after the route and ownership model are decided.
 - Do not hand-build CRUD routes, CRUD endpoints, or CRUD page trees before `crud-server-generator` has created the server package and shared resource file.
+- `feature-server-generator` is for non-CRUD workflows and orchestration. Do not use it as the first persistence lane for ordinary entity tables.
 - For app-owned non-CRUD route pages, default to `jskit generate ui-generator page ...` instead of hand-writing both `src/pages/...` and `src/placement.js`.
 - Before hand-writing a route page or placement entry, check `jskit show ui-generator --details` and `jskit list-placements`.
 - If `ui-generator page` applies and you still choose not to use it, stop and explain the exact gap before coding.
 - Keep runtime, UI, and data concerns separated.
+- Keep direct knex exceptional and minimal. Outside generated CRUD packages and explicit weird-custom feature lanes, app-owned runtime code should stay on internal `json-rest-api` seams.
 - Avoid “while I’m here” scope creep unless it is required for correctness.
 - Do not turn a small placeholder or route stub into a copy-polish or blueprint-rewrite task unless the developer asked for that broader work.
 
