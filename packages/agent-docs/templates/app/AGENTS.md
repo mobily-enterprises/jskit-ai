@@ -32,10 +32,10 @@ Before any non-trivial change:
 4. Before editing, print a compact read receipt with:
    - `Read receipt: ...`
    - `Active chunk: ...`
-   - `Generator decision: ...`
+   - `Generator decision: ...` with the exact `jskit` command to run, or the exact generator/placement discovery commands checked and why no generator applies
    - `Relevant patterns: ...`
    - `Active rules from docs: ...`
-5. When files need to be created, prefer `jskit generate ...` over creating them from scratch, even if the generated output will need follow-up adaptation. If not using a generator, say why.
+5. When files need to be created, prefer `jskit generate ...` over creating them from scratch, even if the generated output will need follow-up adaptation. For a new non-CRUD route page or menu-linked screen, default to `jskit generate ui-generator page ...`. If not using a generator, say why.
 6. Do not edit code until the read receipt is printed and the workboard step is complete when it applies.
 
 ## Mandatory Done Gate
@@ -70,6 +70,9 @@ Core rules:
 - Example: if the app is workspace-capable and uses `workspaces-core` plus `workspaces-web`, assume the standard workspace invite flow is part of the baseline package behavior.
 - For baseline package setup, ask plainly for the exact local development values needed for the next install step, but only for the modules or packages that are actually selected.
 - Use the real env var names or option names instead of vague requests for "credentials". Values such as `DB_NAME`, `DB_USER`, `DB_PASSWORD`, `AUTH_SUPABASE_URL`, `AUTH_SUPABASE_PUBLISHABLE_KEY`, and `APP_PUBLIC_URL` are routine setup inputs when the relevant package stack needs them.
+- For CRUD chunks, creating the server CRUD with `jskit generate crud-server-generator scaffold ...` is the crucial first step even if no CRUD UI will be created yet.
+- For a CRUD table that `crud-server-generator` will own, do not hand-write a separate migration. Create the real table directly in the database first, then scaffold the server CRUD so JSKIT can install and manage the CRUD migration scaffold itself.
+- Do not generate CRUD UI or hand-build CRUD routes before the server CRUD package and shared resource file exist.
 - For CRUD chunks, ask the developer which operations are allowed, which fields belong in the list view if one exists, and the intended look of the view and edit/new forms before generating code.
 - Every user-facing screen must pass a Material Design and Vuetify quality review before the chunk is considered done.
 - Any chunk that adds or changes user-facing UI must include a Playwright check that exercises the changed behavior before the chunk is considered done.
@@ -78,7 +81,10 @@ Core rules:
 - In JSKIT apps using the standard auth stack, that means enabling the dev auth bypass in development and using `POST /api/dev-auth/login-as` during Playwright setup.
 - If authenticated UI work has no usable local auth bootstrap path yet, treat that as a testability gap and call it out before the chunk can be considered complete.
 - Do not implement app features before the blueprint has the database, surfaces, ownership model, and route/screen plan written down.
+- Plan implementation work as vertical slices. Each chunk should deliver a user-visible or end-to-end outcome that the developer can recognize in the app or behavior, not just an isolated layer change.
+- Do not churn `.jskit/APP_BLUEPRINT.md` for a small placeholder page or route stub that fits an existing route family unless the durable route/surface plan actually changed. Track request-level movement in `.jskit/WORKBOARD.md` instead.
 - Break planned work into reviewable chunks before implementing. One CRUD is usually one chunk, but auth/platform setup, shell work, and cross-cutting integrations can be their own chunks.
+- Avoid horizontal chunk plans like "all migrations first", "all routes next", or "all UI last" unless platform setup truly forces that order. Prefer slices the developer can inspect as real progress.
 - Do not move to the next chunk until the current chunk has passed implementation, deslop review, JSKIT best-practices review, Material Design/Vuetify review, and verification.
 - If a feature spans more than one chunk, run a final whole-changeset deslop pass, JSKIT pass, Material Design/Vuetify pass, and verification pass after the last chunk.
 - Prefer a fresh review agent for chunk and whole-changeset review when the runtime supports delegation.

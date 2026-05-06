@@ -20,6 +20,9 @@ Before calling a chunk or a whole changeset done, review it in four passes:
    - existing helper/runtime seam available?
    - duplicate local code that should reuse kernel/runtime support?
    - should this have been a package install, generator step, or scaffold extension instead of hand code?
+   - if a generator existed, was the exact `jskit` command used or was the gap documented clearly before hand-coding?
+   - for CRUD work, was `crud-server-generator scaffold` used before any CRUD UI or CRUD route hand-coding?
+   - for CRUD tables owned by JSKIT, did the change avoid a separate hand-written CRUD migration?
    - are surface, route, ownership, and migration choices aligned with JSKIT conventions?
    - package metadata and actual behavior still aligned?
 3. UI standards review

@@ -7,7 +7,9 @@ Chunk rules:
 - One CRUD is usually one chunk.
 - Platform setup, shell/navigation, and cross-cutting integrations may be separate chunks.
 - A chunk must be independently reviewable and testable.
+- Prefer vertical slices. A chunk should usually produce a user-visible or end-to-end outcome, not just a hidden layer-only milestone.
 - If a chunk is too broad to review confidently, split it before coding.
+- Avoid horizontal plans like "database first, then routes, then UI" unless the work is foundational platform setup that genuinely cannot be sliced vertically yet.
 
 For each chunk, follow this order:
 
@@ -18,6 +20,7 @@ For each chunk, follow this order:
    - generator scaffolding
    - custom local code
    - or a combination
+   Record the exact `jskit` commands that will be used if generators or package installs apply.
 4. Implement the smallest correct change.
 5. Deslop the chunk.
 6. Review the chunk against JSKIT reuse and best practices.
@@ -29,11 +32,12 @@ For each chunk, follow this order:
 For CRUD chunks:
 
 1. Decide the table shape first.
-2. If `crud-server-generator` is going to own the CRUD schema, do not hand-write a separate migration for that CRUD table.
-3. Scaffold the server side first with `crud-server-generator`.
-4. Only after the shared resource file exists, scaffold the client side against that resource.
-5. Treat that shared resource file as the canonical CRUD definition. Put field and ownership changes there instead of hand-duplicating derived CRUD validators elsewhere.
-6. Do not guess CRUD operations or screen shape. Ask the developer:
+2. Create the real table directly in the database before scaffolding. `crud-server-generator` reads the live table shape; it does not invent the table for you.
+3. If `crud-server-generator` is going to own the CRUD schema, do not hand-write a separate migration for that CRUD table. The server generator installs and manages the CRUD migration scaffold itself.
+4. Scaffold the server side first with `crud-server-generator`, even if no CRUD UI will be created yet.
+5. Only after the shared resource file exists, scaffold the client side against that resource.
+6. Treat that shared resource file as the canonical CRUD definition. Put field and ownership changes there instead of hand-duplicating derived CRUD validators elsewhere.
+7. Do not guess CRUD operations or screen shape. Ask the developer:
    - which operations are allowed
    - which fields belong in the list view if one exists
    - what the view form should look like
@@ -45,8 +49,13 @@ During implementation:
 - If a selected JSKIT package already ships the required baseline workflow, install and verify that workflow before inventing custom code around it.
 - Ask only about overrides, restrictions, or app-specific additions to packaged baseline workflows.
 - Use generated CRUD/UI scaffolds only after the route and ownership model are decided.
+- Do not hand-build CRUD routes, CRUD endpoints, or CRUD page trees before `crud-server-generator` has created the server package and shared resource file.
+- For app-owned non-CRUD route pages, default to `jskit generate ui-generator page ...` instead of hand-writing both `src/pages/...` and `src/placement.js`.
+- Before hand-writing a route page or placement entry, check `jskit show ui-generator --details` and `jskit list-placements`.
+- If `ui-generator page` applies and you still choose not to use it, stop and explain the exact gap before coding.
 - Keep runtime, UI, and data concerns separated.
 - Avoid “while I’m here” scope creep unless it is required for correctness.
+- Do not turn a small placeholder or route stub into a copy-polish or blueprint-rewrite task unless the developer asked for that broader work.
 
 After the last chunk:
 

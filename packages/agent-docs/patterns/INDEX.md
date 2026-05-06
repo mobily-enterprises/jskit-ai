@@ -14,8 +14,12 @@ How to use it:
   - `placements.md`
 - surfaces, app/admin/home/console, "which surface", route ownership, placement visibility
   - `surfaces.md`
+- page, route page, placeholder page, screen stub, menu-linked page, `ui-generator page`, `list-placements`
+  - `page-scaffolding.md`
 - child crud, nested crud, embedded list, subroute, separate page, parent/child layout
   - `child-cruds.md`
+- crud scaffold, crud server, crud ui, table creation, migrations, `crud-server-generator`, `crud-ui-generator`
+  - `crud-scaffolding.md`
 - CRUD links, record placeholders, `paths.page()`, `resolveViewUrl`, `resolveEditUrl`, `resolveParams`
   - `crud-links.md`
 - `definePage`, redirect, child redirect, settings landing, `redirectToChild`
@@ -37,7 +41,9 @@ How to use it:
 
 - [placements.md](./placements.md)
 - [surfaces.md](./surfaces.md)
+- [page-scaffolding.md](./page-scaffolding.md)
 - [child-cruds.md](./child-cruds.md)
+- [crud-scaffolding.md](./crud-scaffolding.md)
 - [crud-links.md](./crud-links.md)
 - [page-redirects.md](./page-redirects.md)
 - [live-actions.md](./live-actions.md)

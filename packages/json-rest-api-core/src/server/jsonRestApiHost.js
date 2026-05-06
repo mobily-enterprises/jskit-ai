@@ -370,7 +370,9 @@ async function createJsonRestApiHost({ knex }) {
 
   const api = new Api({
     name: "jskit-internal-json-rest-api",
-    logLevel: "error"
+    logging: {
+      level: "error"
+    }
   });
 
   await api.use(RestApiPlugin, {
