@@ -111,7 +111,6 @@ Local functions
 - `isRecord(value)`
 - `normalizeTransportKind(transport = null)`
 - `defaultEncodeAttributes(body = {})`
-- `resolveRelationshipFieldKey(relationshipName = "", lookupFieldMap = null)`
 - `createIncludedResourceIndex(document = {})`
 - `simplifyRelationshipResource(linkage = {}, options = {})`
 - `simplifyResourceObject(resource = {}, options = {})`
@@ -200,6 +199,11 @@ Exports
 - `isRecord`
 - `normalizeFieldErrors(value)`
 - `resolveFieldErrors(value = null)`
+
+### `src/shared/support/jsonApiSimplify.js`
+Exports
+- `resolveRelationshipFieldKey(relationshipName = "", lookupFieldMap = null)`
+- `simplifyJsonApiResourceWithRelationshipIds(resource = {}, { lookupFieldMap = null } = {})`
 
 ### `src/shared/validators/command.js`
 Exports
