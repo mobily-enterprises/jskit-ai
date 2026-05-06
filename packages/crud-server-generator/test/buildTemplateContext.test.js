@@ -235,6 +235,37 @@ test("resolveOwnershipFilterForGeneration rejects explicit ownership filters whe
   );
 });
 
+test("buildReplacementsFromSnapshot renders an internal route line only when requested", () => {
+  const snapshot = createSnapshot();
+
+  const publicReplacements = __testables.buildReplacementsFromSnapshot({
+    namespace: "customers",
+    snapshot,
+    resolvedOwnershipFilter: "workspace_user",
+    surfaceRequiresWorkspace: true,
+    surfaceId: "admin",
+    routeInternal: false
+  });
+  const internalReplacements = __testables.buildReplacementsFromSnapshot({
+    namespace: "customers",
+    snapshot,
+    resolvedOwnershipFilter: "workspace_user",
+    surfaceRequiresWorkspace: true,
+    surfaceId: "admin",
+    routeInternal: true
+  });
+
+  assert.equal(publicReplacements.__JSKIT_CRUD_ROUTE_INTERNAL_LINE__, "");
+  assert.equal(internalReplacements.__JSKIT_CRUD_ROUTE_INTERNAL_LINE__, "      internal: true,");
+});
+
+test("resolveInternalRouteOption rejects invalid internal flag values instead of silently generating public routes", () => {
+  assert.throws(
+    () => __testables.resolveInternalRouteOption({ internal: "maybe" }),
+    /Boolean field must be true or false/
+  );
+});
+
 test("resolveCrudGenerationTableName defaults table-name from namespace", () => {
   assert.equal(
     __testables.resolveCrudGenerationTableName({

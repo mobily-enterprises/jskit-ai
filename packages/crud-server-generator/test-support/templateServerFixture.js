@@ -17,7 +17,8 @@ const CRUD_NAMESPACE = Object.freeze({
 function buildTemplateReplacements({
   surfaceRequiresWorkspace = true,
   requiresNamedPermissions = surfaceRequiresWorkspace === true,
-  surfaceId = surfaceRequiresWorkspace ? "admin" : "home"
+  surfaceId = surfaceRequiresWorkspace ? "admin" : "home",
+  routeInternal = false
 } = {}) {
   const routeWorkspaceSupportImports = surfaceRequiresWorkspace
     ? [
@@ -141,6 +142,7 @@ function buildTemplateReplacements({
     ["__JSKIT_CRUD_ROUTE_SURFACE_REQUIRES_WORKSPACE__", String(surfaceRequiresWorkspace === true)],
     ["__JSKIT_CRUD_ROUTE_BASE__", JSON.stringify(surfaceRequiresWorkspace ? "/w/:workspaceSlug" : "/")],
     ["__JSKIT_CRUD_ROUTE_WORKSPACE_SUPPORT_IMPORTS__", routeWorkspaceSupportImports],
+    ["__JSKIT_CRUD_ROUTE_INTERNAL_LINE__", routeInternal === true ? "      internal: true," : ""],
     ["__JSKIT_CRUD_ROUTE_CONTRACTS_RESOURCE_ARGS__", surfaceRequiresWorkspace ? ",\n  routeParamsValidator" : ""],
     ["__JSKIT_CRUD_ROUTE_VALIDATOR_CONSTANTS__", surfaceRequiresWorkspace
       ? [

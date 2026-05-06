@@ -15,6 +15,7 @@ import {
   loadAppConfigFromModuleUrl,
   resolveRequiredAppRoot
 } from "@jskit-ai/kernel/server/support";
+import { normalizeBoolean } from "@jskit-ai/kernel/shared/support/normalize";
 import { normalizeCrudLookupNamespace } from "@jskit-ai/kernel/shared/support/crudLookup";
 import { toCamelCase, toSnakeCase } from "@jskit-ai/kernel/shared/support/stringCase";
 import descriptor from "../../package.descriptor.mjs";
@@ -76,6 +77,13 @@ function asRecord(value) {
     return {};
   }
   return value;
+}
+
+function resolveInternalRouteOption(options = {}) {
+  if (!Object.prototype.hasOwnProperty.call(options, "internal")) {
+    return false;
+  }
+  return normalizeBoolean(options.internal);
 }
 
 function normalizeRequestedOwnershipFilter(value, { strict = false } = {}) {
@@ -1823,7 +1831,8 @@ function buildReplacementsFromSnapshot({
   snapshot,
   resolvedOwnershipFilter,
   surfaceRequiresWorkspace = true,
-  surfaceId = ""
+  surfaceId = "",
+  routeInternal = false
 }) {
   const requiresNamedPermissions = surfaceRequiresWorkspace === true;
   const scaffoldColumns = resolveScaffoldColumns(snapshot);
@@ -1888,6 +1897,7 @@ function buildReplacementsFromSnapshot({
     __JSKIT_CRUD_ROUTE_WORKSPACE_SUPPORT_IMPORTS__: renderRouteWorkspaceSupportImports({
       surfaceRequiresWorkspace
     }),
+    __JSKIT_CRUD_ROUTE_INTERNAL_LINE__: routeInternal === true ? "      internal: true," : "",
     __JSKIT_CRUD_ROUTE_CONTRACTS_RESOURCE_ARGS__: surfaceRequiresWorkspace ? ",\n  routeParamsValidator" : "",
     __JSKIT_CRUD_ROUTE_VALIDATOR_CONSTANTS__: renderRouteValidatorConstants({
       surfaceRequiresWorkspace
@@ -1969,7 +1979,8 @@ function createCacheKey({ appRoot, options }) {
       surface: normalizeText(options?.surface),
       ownershipFilter: normalizeText(options?.["ownership-filter"]),
       tableName: normalizeText(options?.["table-name"]),
-      idColumn: normalizeText(options?.["id-column"])
+      idColumn: normalizeText(options?.["id-column"]),
+      internal: resolveInternalRouteOption(options)
     }
   };
 
@@ -2010,13 +2021,15 @@ async function buildCrudTemplateContext(input = {}) {
     options,
     surface: resolvedSurface
   });
+  const routeInternal = resolveInternalRouteOption(options);
 
   return buildReplacementsFromSnapshot({
     namespace,
     snapshot,
     resolvedOwnershipFilter,
     surfaceRequiresWorkspace,
-    surfaceId: resolvedSurface
+    surfaceId: resolvedSurface,
+    routeInternal
   });
 }
 
@@ -2058,7 +2071,8 @@ const __testables = Object.freeze({
   renderActionInputExpressions,
   renderRouteValidatorConstants,
   renderRouteParamsValidatorLine,
-  renderRouteInputLines
+  renderRouteInputLines,
+  resolveInternalRouteOption
 });
 
 export {

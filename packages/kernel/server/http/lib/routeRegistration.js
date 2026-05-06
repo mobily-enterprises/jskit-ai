@@ -310,15 +310,16 @@ function registerRoutes(
   }
 
   const normalizedRoutes = normalizeArray(routes);
+  const publicRoutes = normalizedRoutes.filter((route) => route?.internal !== true);
   const policyApplier = typeof applyRoutePolicy === "function" ? applyRoutePolicy : defaultApplyRoutePolicy;
   const fallbackHandler = typeof missingHandler === "function" ? missingHandler : defaultMissingHandler;
   const runtimeMiddlewareConfig = normalizeRuntimeMiddlewareConfig(middleware);
 
-  if (normalizedRoutes.some((route) => routeRequiresJsonApiContentTypeParser(route))) {
+  if (publicRoutes.some((route) => routeRequiresJsonApiContentTypeParser(route))) {
     registerJsonApiContentTypeParser(fastify);
   }
 
-  for (const route of normalizedRoutes) {
+  for (const route of publicRoutes) {
     const routeTransport = normalizeRouteTransport(route?.transport, {
       context: `Route ${String(route?.method || "<unknown>")} ${String(route?.path || "<unknown>")} transport`,
       ErrorType: RouteRegistrationError
@@ -407,7 +408,7 @@ function registerRoutes(
   }
 
   return {
-    routeCount: normalizedRoutes.length
+    routeCount: publicRoutes.length
   };
 }
 

@@ -262,6 +262,22 @@ npx jskit generate crud-server-generator scaffold \
 
 This creates an app-local package under `packages/contacts/`.
 
+If the table should be CRUD-owned now but should **not** expose public HTTP CRUD routes yet, add:
+
+```bash
+--internal
+```
+
+That keeps the generated repository, service, actions, provider, shared resource, and CRUD migration ownership chain exactly the same. The only difference is that the generated HTTP CRUD routes are marked internal, so the public HTTP runtime does not register them.
+
+Use that when:
+
+- other server modules need a proper CRUD-backed table and shared resource contract
+- you want to avoid direct knex
+- you are not ready to expose list/view/create/update/delete URLs yet
+
+Do **not** use `--internal` as a substitute for ownership or permissions design. It is only about whether the public HTTP CRUD routes exist.
+
 Before generating anything, decide these with the developer:
 
 - which operations are allowed for this CRUD

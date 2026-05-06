@@ -35,6 +35,18 @@ function normalizeRouterMiddlewareStack(value, { context = "middleware" } = {}) 
   });
 }
 
+function normalizeRouteInternal(value, { method = "", path = "" } = {}) {
+  if (value == null) {
+    return false;
+  }
+  if (typeof value !== "boolean") {
+    throw new RouteDefinitionError(
+      `Route ${String(method || "<unknown>")} ${String(path || "<unknown>")} internal must be a boolean.`
+    );
+  }
+  return value;
+}
+
 function normalizeRouteInput(method, path, optionsOrHandler, maybeHandler) {
   const options =
     typeof optionsOrHandler === "function"
@@ -108,6 +120,10 @@ class HttpRouter {
       auth: resolvedOptions.auth,
       contextPolicy: resolvedOptions.contextPolicy,
       surface: resolvedOptions.surface,
+      internal: normalizeRouteInternal(resolvedOptions.internal, {
+        method: input.method,
+        path: input.path
+      }),
       visibility: resolvedOptions.visibility,
       permission: resolvedOptions.permission,
       ownerParam: resolvedOptions.ownerParam,
@@ -186,9 +202,11 @@ class HttpRouter {
     const itemPath = `/${resourceName}/:${idParam}`;
 
     const methods = normalizeObject(controller);
-    const middleware = normalizeRouterMiddlewareStack(options.middleware, {
-      context: `resource ${resourceName} middleware`
-    });
+    const routeOptions = {
+      ...normalizeObject(options)
+    };
+    delete routeOptions.idParam;
+    delete routeOptions.apiOnly;
 
     const requireMethod = (methodName) => {
       const handler = methods[methodName];
@@ -198,15 +216,15 @@ class HttpRouter {
       return handler;
     };
 
-    this.get(basePath, { middleware }, requireMethod("index"));
+    this.get(basePath, routeOptions, requireMethod("index"));
     if (!options.apiOnly) {
-      this.get(`${basePath}/create`, { middleware }, requireMethod("create"));
-      this.get(`${itemPath}/edit`, { middleware }, requireMethod("edit"));
+      this.get(`${basePath}/create`, routeOptions, requireMethod("create"));
+      this.get(`${itemPath}/edit`, routeOptions, requireMethod("edit"));
     }
-    this.post(basePath, { middleware }, requireMethod("store"));
-    this.get(itemPath, { middleware }, requireMethod("show"));
-    this.put(itemPath, { middleware }, requireMethod("update"));
-    this.delete(itemPath, { middleware }, requireMethod("destroy"));
+    this.post(basePath, routeOptions, requireMethod("store"));
+    this.get(itemPath, routeOptions, requireMethod("show"));
+    this.put(itemPath, routeOptions, requireMethod("update"));
+    this.delete(itemPath, routeOptions, requireMethod("destroy"));
   }
 
   list() {

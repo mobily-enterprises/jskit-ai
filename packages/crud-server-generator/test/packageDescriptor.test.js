@@ -16,8 +16,10 @@ test("crud-server-generator surface option validates against enabled surface ids
     descriptor.options?.["table-name"]?.defaultFromOptionTemplate,
     "${option:namespace}"
   );
+  assert.equal(descriptor.options?.internal?.inputType, "flag");
   assert.equal(descriptor.metadata?.generatorSubcommands?.scaffold?.optionNames?.includes("surface"), true);
   assert.equal(descriptor.metadata?.generatorSubcommands?.scaffold?.optionNames?.includes("force"), true);
+  assert.equal(descriptor.metadata?.generatorSubcommands?.scaffold?.optionNames?.includes("internal"), true);
   assert.equal(descriptor.metadata?.generatorSubcommands?.scaffold?.createTarget?.pathTemplate, "packages/${option:namespace|kebab}");
 });
 

@@ -107,6 +107,35 @@ So if the CRUD resolves to:
 
 This is why ownership is such a foundational choice. It becomes part of the generated server contract, not just the database shape.
 
+### `--internal` changes HTTP exposure, not CRUD ownership
+
+`crud-server-generator scaffold` also supports:
+
+```bash
+--internal
+```
+
+That flag does **not** change:
+
+- the generated repository
+- the generated service
+- the shared resource contract
+- the ownership filter
+- the generated actions
+
+It changes only one thing:
+
+- the generated CRUD HTTP routes are marked internal, so the public HTTP runtime does not register them
+
+This is useful when the entity should already be CRUD-owned but should not have public CRUD URLs yet.
+
+So the distinction is:
+
+- ownership answers "who owns and can see the rows?"
+- `--internal` answers "do the public HTTP CRUD routes exist right now?"
+
+That is why `--internal` is not a permissions shortcut and not a UI setting. It is a server-route exposure choice on top of the same CRUD ownership model.
+
 ### Ownership controls which owner columns are expected
 
 The repository layer ultimately applies visibility through the standard owner columns:

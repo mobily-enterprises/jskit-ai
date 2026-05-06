@@ -506,6 +506,77 @@ test("registerHttpRuntime passes app context so request scope is available", asy
   assert.equal(fastify.setErrorHandlerCalls, 1);
 });
 
+test("createRouter preserves explicit internal route flags", () => {
+  const router = createRouter();
+
+  router.get(
+    "/internal-only",
+    {
+      internal: true
+    },
+    async (_request, reply) => {
+      reply.code(204).send();
+    }
+  );
+
+  const [route] = router.list();
+  assert.equal(route?.internal, true);
+});
+
+test("registerHttpRuntime skips internal routes from public HTTP registration", () => {
+  const app = createApplication();
+  const fastify = createFastifyStub();
+  const router = createRouter();
+
+  router.get(
+    "/internal-only",
+    {
+      internal: true
+    },
+    async (_request, reply) => {
+      reply.code(200).send({ hidden: true });
+    }
+  );
+  router.get("/public-route", async (_request, reply) => {
+    reply.code(200).send({ ok: true });
+  });
+
+  app.instance("jskit.fastify", fastify);
+  app.instance("jskit.http.router", router);
+
+  const registration = registerHttpRuntime(app);
+  assert.equal(registration.routeCount, 1);
+  assert.equal(fastify.routes.length, 1);
+  assert.equal(fastify.routes[0].url, "/public-route");
+});
+
+test("registerHttpRuntime skips internal routes generated through router apiResource helpers", () => {
+  const app = createApplication();
+  const fastify = createFastifyStub();
+  const router = createRouter();
+
+  router.apiResource(
+    "widgets",
+    {
+      index: async (_request, reply) => reply.code(200).send({ ok: true }),
+      store: async (_request, reply) => reply.code(201).send({ ok: true }),
+      show: async (_request, reply) => reply.code(200).send({ ok: true }),
+      update: async (_request, reply) => reply.code(200).send({ ok: true }),
+      destroy: async (_request, reply) => reply.code(204).send()
+    },
+    {
+      internal: true
+    }
+  );
+
+  app.instance("jskit.fastify", fastify);
+  app.instance("jskit.http.router", router);
+
+  const registration = registerHttpRuntime(app);
+  assert.equal(registration.routeCount, 0);
+  assert.equal(fastify.routes.length, 0);
+});
+
 test("registerHttpRuntime installs API error handling once by default", () => {
   const app = createApplication();
   const fastify = createFastifyStub();

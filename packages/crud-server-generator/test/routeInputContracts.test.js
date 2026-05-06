@@ -9,12 +9,17 @@ const nonWorkspaceFixture = await createTemplateServerFixture({
   surfaceRequiresWorkspace: false,
   requiresNamedPermissions: false
 });
+const internalFixture = await createTemplateServerFixture({
+  routeInternal: true
+});
 const { registerRoutes: registerWorkspaceRoutes } = await workspaceFixture.importServerModule("registerRoutes.js");
 const { registerRoutes: registerNonWorkspaceRoutes } = await nonWorkspaceFixture.importServerModule("registerRoutes.js");
+const { registerRoutes: registerInternalRoutes } = await internalFixture.importServerModule("registerRoutes.js");
 
 after(async () => {
   await workspaceFixture.cleanup();
   await nonWorkspaceFixture.cleanup();
+  await internalFixture.cleanup();
 });
 
 function createReplyDouble() {
@@ -435,4 +440,35 @@ test("crud view route forwards include query input", async () => {
     recordId: 7,
     include: "vetId"
   });
+});
+
+test("crud routes mark every generated HTTP route as internal when requested", () => {
+  const registeredRoutes = [];
+  const router = {
+    register(method, path, route, handler) {
+      registeredRoutes.push({
+        method,
+        path,
+        route,
+        handler
+      });
+    }
+  };
+  const app = {
+    make(token) {
+      if (token !== "jskit.http.router") {
+        throw new Error(`Unexpected token: ${String(token)}`);
+      }
+      return router;
+    }
+  };
+
+  registerInternalRoutes(app, {
+    routeRelativePath: "/customers"
+  });
+
+  assert.equal(registeredRoutes.length, 5);
+  for (const route of registeredRoutes) {
+    assert.equal(route.route.internal, true);
+  }
 });
