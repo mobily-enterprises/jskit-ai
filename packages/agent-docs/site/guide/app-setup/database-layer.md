@@ -31,6 +31,8 @@ If you are already continuing from the previous chapter, you are already in the 
 <DocsTerminalTip label="MySQL" title="Create The Database First">
 Before installing the database runtime, make sure a real MySQL database already exists and that you know its connection details.
 
+If you are using the `ai-seed` flow, this should already have been resolved during the seed-stage conversation. Do not promote the app scaffold or move into the runtime install step while the database is still hypothetical.
+
 At minimum, keep these ready:
 
 - host

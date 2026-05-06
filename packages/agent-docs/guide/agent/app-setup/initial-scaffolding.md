@@ -14,17 +14,63 @@ npm install
 
 The first command creates a new folder called `exampleapp` and fills it with JSKIT's base shell template. The `exampleapp` name is used in a few template replacements, such as the package name and the browser title. The `--tenancy-mode none` flag tells JSKIT to start with the smallest routing model. In this mode, the app is not workspace-aware (more of this later in the guide, when multihoming is introduced). That keeps the first scaffold easier to read because there is no workspace slug handling yet.
 
-If you are working with an AI agent and want the agent to explain the platform options after the scaffold exists, there is also a safe guided path:
+If you are working with an AI agent and want the agent to drive the initial JSKIT setup conversation, there is now a dedicated seed path:
 
 ```bash
-npx @jskit-ai/create-app exampleapp
+npx @jskit-ai/create-app exampleapp --template ai-seed
 cd exampleapp
+```
+
+That seed writes only `AGENTS.md`. It is not a runnable app yet. The agent should use that file to ask the Stage 1 platform questions first, make sure the chosen MySQL or Postgres database already exists or can be created with the developer's local admin access, and then promote the same directory into the real scaffold with:
+
+```bash
+npx @jskit-ai/create-app exampleapp --target . --force --tenancy-mode <mode>
 npm install
 ```
 
-That produces the same minimal scaffold shape, but without writing an explicit `config.tenancyMode` line yet. The important rule is that this does **not** mean tenancy is already decided. Before installing tenancy-sensitive packages such as `workspaces-core` or `workspaces-web`, the agent still needs to finish the Stage 1 platform conversation and then write the chosen tenancy into `config/public.js`. If workspace packages are installed while the app is still effectively on `none`, you fall into the recovery path described later in the multi-homing chapter.
+After that promotion, the overwritten app `AGENTS.md` becomes the source of truth for the normal JSKIT workflow.
 
-After creating the scaffolding (which comes with a package.json file), you will need to run `npm install` to install dependencies.
+After creating the real app scaffolding (the base shell, not the seed wrapper), you will need to run `npm install` to install dependencies.
+
+If you already know you want a small non-workspace baseline right after the scaffold, this is the shortest reproducible path:
+
+```bash
+SUPABASE_URL=...
+SUPABASE_KEY=...
+DB_HOST=127.0.0.1
+DB_PORT=3306
+DB_NAME=exampleapp
+DB_USER=...
+DB_PASSWORD=...
+
+npx @jskit-ai/create-app exampleapp --tenancy-mode none
+cd exampleapp
+npm install
+
+npx jskit add package shell-web
+
+npx jskit add package auth-provider-supabase-core \
+  --auth-supabase-url "$SUPABASE_URL" \
+  --auth-supabase-publishable-key "$SUPABASE_KEY" \
+  --app-public-url "http://localhost:5173"
+
+npx jskit add bundle auth-base
+
+npx jskit add package database-runtime-mysql \
+  --db-host "$DB_HOST" \
+  --db-port "$DB_PORT" \
+  --db-name "$DB_NAME" \
+  --db-user "$DB_USER" \
+  --db-password "$DB_PASSWORD"
+
+npx jskit add package users-web
+npx jskit add package console-web
+
+npm install
+npm run db:migrate
+```
+
+If you want the larger workspace-enabled stack with the first assistant already configured, use [Quickstart](/guide/app-setup/quickstart) instead.
 
 **Try Bash Completion!**
 

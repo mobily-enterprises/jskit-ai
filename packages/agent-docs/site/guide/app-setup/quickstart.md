@@ -39,6 +39,8 @@ DB_USER=...
 DB_PASSWORD=...
 ```
 
+Before continuing, make sure the MySQL database already exists and that the chosen `DB_USER` / `DB_PASSWORD` can connect to it. If the database does not exist yet, create it first or use a local MySQL account with enough privileges to create it before the runtime install step.
+
 Then run the exact sequence below:
 
 ```bash
