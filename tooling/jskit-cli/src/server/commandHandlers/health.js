@@ -603,7 +603,9 @@ function createHealthCommands(ctx = {}) {
         packagePath,
         tableName,
         provenance: String(entry.provenance || "").trim().toLowerCase(),
-        ownerKind: String(entry.ownerKind || "").trim().toLowerCase()
+        ownerKind: String(entry.ownerKind || "").trim().toLowerCase(),
+        providerEntrypoint: String(entry.providerEntrypoint || "").trim(),
+        ownershipFilter: normalizeDbIdentifier(entry.ownershipFilter)
       });
     }
 
@@ -969,7 +971,7 @@ function createHealthCommands(ctx = {}) {
       .join(", ");
   }
 
-  async function resolveAppLocalCrudOwnershipFilters({ appRoot, appLocalRegistry }) {
+  async function resolveAppLocalCrudOwnershipFilters({ appRoot, appLocalRegistry, issues }) {
     const ownershipByTable = new Map();
     const packageEntries = sortStrings([...appLocalRegistry.keys()])
       .map((packageId) => appLocalRegistry.get(packageId))
@@ -980,26 +982,73 @@ function createHealthCommands(ctx = {}) {
         continue;
       }
 
-      const providerPath = resolvePrimaryServerProviderPath(packageEntry);
-      if (!providerPath || !(await fileExists(providerPath))) {
-        continue;
-      }
+      const serverProviderEntries = resolveServerProviderEntries(packageEntry);
+      const providerInfoByEntrypoint = new Map();
+      for (const providerEntry of serverProviderEntries) {
+        if (!(await fileExists(providerEntry.absolutePath))) {
+          continue;
+        }
 
-      const sourceText = await readFile(providerPath, "utf8");
-      const match = CRUD_OWNERSHIP_FILTER_LITERAL_PATTERN.exec(sourceText);
-      if (!match) {
-        continue;
+        const sourceText = await readFile(providerEntry.absolutePath, "utf8");
+        const match = CRUD_OWNERSHIP_FILTER_LITERAL_PATTERN.exec(sourceText);
+        if (!match) {
+          continue;
+        }
+
+        const ownershipFilter = normalizeDbIdentifier(match[1]);
+        providerInfoByEntrypoint.set(providerEntry.entrypoint, {
+          providerPath: normalizeRelativePath(appRoot, providerEntry.absolutePath),
+          ownershipFilter,
+          requiredOwnerKinds: resolveRequiredOwnerKindsFromOwnershipFilter(ownershipFilter)
+        });
       }
-      const ownershipFilter = normalizeDbIdentifier(match[1]);
-      const requiredOwnerKinds = resolveRequiredOwnerKindsFromOwnershipFilter(ownershipFilter);
 
       for (const ownershipEntry of normalizeOwnedTableEntries(packageEntry)) {
+        const descriptorPath = `${resolvePackageDisplayPath(packageEntry)}/package.descriptor.mjs`;
+        let providerInfo = null;
+        if (ownershipEntry.providerEntrypoint) {
+          providerInfo = providerInfoByEntrypoint.get(ownershipEntry.providerEntrypoint) || null;
+          if (!providerInfo) {
+            issues.push(
+              `${descriptorPath}: [crud-ownership:provider-unresolved] table "${ownershipEntry.tableName}" points at providerEntrypoint "${ownershipEntry.providerEntrypoint}" but doctor could not resolve an ownershipFilter from that provider. Make sure the file exists and declares a literal CRUD_MODULE_CONFIG.ownershipFilter.`
+            );
+          }
+        } else if (serverProviderEntries.length === 1) {
+          providerInfo = providerInfoByEntrypoint.get(serverProviderEntries[0].entrypoint) || null;
+          if (!providerInfo) {
+            issues.push(
+              `${descriptorPath}: [crud-ownership:provider-unresolved] table "${ownershipEntry.tableName}" relies on the package's only server provider, but doctor could not resolve a literal CRUD_MODULE_CONFIG.ownershipFilter from "${serverProviderEntries[0].entrypoint}".`
+            );
+          }
+        } else if (serverProviderEntries.length > 1) {
+          issues.push(
+            `${descriptorPath}: [crud-ownership:missing-provider-entrypoint] table "${ownershipEntry.tableName}" is claimed by a multi-provider CRUD package but does not declare metadata.jskit.tableOwnership.tables[].providerEntrypoint. Point it at the owning provider so doctor can verify the real ownershipFilter.`
+          );
+        }
+
+        if (
+          ownershipEntry.ownershipFilter &&
+          providerInfo?.ownershipFilter &&
+          ownershipEntry.ownershipFilter !== providerInfo.ownershipFilter
+        ) {
+          issues.push(
+            `${providerInfo.providerPath}: [crud-ownership:ownership-filter-mismatch] metadata declares ownershipFilter "${ownershipEntry.ownershipFilter}" for live table "${ownershipEntry.tableName}" but provider code uses "${providerInfo.ownershipFilter}". Update the provider or metadata so doctor verifies the real contract.`
+          );
+        }
+
+        const ownershipFilter = providerInfo?.ownershipFilter || "";
+        if (!ownershipFilter) {
+          continue;
+        }
+
         ownershipByTable.set(ownershipEntry.tableName, {
           tableName: ownershipEntry.tableName,
           ownershipFilter,
-          requiredOwnerKinds,
+          requiredOwnerKinds: providerInfo?.requiredOwnerKinds || new Set(),
           packagePath: resolvePackageDisplayPath(packageEntry),
-          providerPath: normalizeRelativePath(appRoot, providerPath)
+          providerPath:
+            providerInfo?.providerPath ||
+            normalizeRelativePath(appRoot, resolvePrimaryServerProviderPath(packageEntry))
         });
       }
     }
@@ -1147,6 +1196,29 @@ function createHealthCommands(ctx = {}) {
     }
 
     return "";
+  }
+
+  function resolveServerProviderEntries(packageEntry) {
+    const rootDir = String(packageEntry?.rootDir || "").trim();
+    if (!rootDir) {
+      return [];
+    }
+
+    const providers = ensureArray(ensureObject(ensureObject(packageEntry?.descriptor).runtime).server?.providers);
+    const resolved = [];
+    for (const rawProvider of providers) {
+      const provider = ensureObject(rawProvider);
+      const entrypoint = String(provider.entrypoint || "").trim();
+      if (!entrypoint || entrypoint.includes("*")) {
+        continue;
+      }
+      resolved.push({
+        entrypoint,
+        absolutePath: path.resolve(rootDir, entrypoint)
+      });
+    }
+
+    return resolved;
   }
 
   function resolvePackageDisplayPath(packageEntry) {
@@ -1517,7 +1589,8 @@ function createHealthCommands(ctx = {}) {
     });
     const crudOwnershipByTable = await resolveAppLocalCrudOwnershipFilters({
       appRoot,
-      appLocalRegistry
+      appLocalRegistry,
+      issues
     });
     const exceptionEntriesByName = new Map();
     for (const entry of exceptionConfig.exceptions) {
