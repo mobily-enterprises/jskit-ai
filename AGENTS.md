@@ -1,5 +1,11 @@
 # Repository Notes
 
+## New File Guard
+
+- Before creating any new file, stop and ask the user for approval.
+- New test files may be created without approval when needed for verification or regression coverage.
+- Especially never create persistence files by hand without approval.
+
 ## Distributed Agent Docs
 
 - The human guide under `packages/agent-docs/site/guide/` is the source of truth.
@@ -39,6 +45,9 @@ When asked to create or refresh distributed agent docs:
 
 - `packages/agent-docs/patterns/INDEX.md` is the keyword index for recurring JSKIT implementation heuristics and workflow traps.
 - When a request involves JSKIT UI, routing, surfaces, CRUDs, filters, placements, live actions, or similar implementation details, scan the pattern index for matching keywords and read only the relevant pattern files.
+- Prefer the highest-level existing JSKIT `use*` client composable that fits, especially `useCrudList()`, `useCrudView()`, `useCrudAddEdit()`, `useList()`, `useView()`, `useAddEdit()`, `useCommand()`, and `useEndpointResource()`, instead of inventing custom local request helpers or bespoke command flows.
+- For collection UIs, prefer standard list elements and list runtimes over custom “submit the whole list” command patterns when the normal list/add-edit seams fit.
+- When building those elements, the normal end state should be a slim `use***()` composable call plus the template, with at most one or two small local helpers. Avoid building large local orchestration layers around standard JSKIT seams.
 - When editing the generated JSON:API CRUD route/service/repository flow, read the CRUD generator service/repository templates and `packages/crud-server-generator/test/crudService.test.js` first. Those files are the enforced contract for `Document` / `Documents` method names, forwarded options, 404 behavior, and tagged JSON:API document results.
 - Page and surface extension goes through placements. Do not invent alternate page-extension seams (custom registries, tags, injection-only hooks, provider-owned section systems) unless the user explicitly asks for a new pattern.
 - Keep `AGENTS.md` short. Add recurring JSKIT heuristics to `packages/agent-docs/patterns/`, not as one-off bullets here.
