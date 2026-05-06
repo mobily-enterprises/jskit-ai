@@ -1,5 +1,10 @@
 # Repository Notes
 
+## New File Guard
+
+- Before creating any new file, stop and ask the user for approval.
+- Especially never create persistence files by hand without approval.
+
 ## Distributed Agent Docs
 
 - The human guide under `packages/agent-docs/site/guide/` is the source of truth.
