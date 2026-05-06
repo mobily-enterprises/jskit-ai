@@ -1,6 +1,6 @@
 {
   "name": "@jskit-ai/workspaces-web",
-  "version": "0.1.37",
+  "version": "0.1.39",
   "type": "module",
   "scripts": {
     "test": "node --test"
@@ -15,12 +15,12 @@
   "dependencies": {
     "@tanstack/vue-query": "5.92.12",
     "@mdi/js": "^7.4.47",
-    "@jskit-ai/http-runtime": "0.1.60",
-    "@jskit-ai/kernel": "0.1.61",
-    "@jskit-ai/shell-web": "0.1.60",
-    "@jskit-ai/users-core": "0.1.71",
-    "@jskit-ai/users-web": "0.1.76",
-    "@jskit-ai/workspaces-core": "0.1.37",
+    "@jskit-ai/http-runtime": "0.1.62",
+    "@jskit-ai/kernel": "0.1.63",
+    "@jskit-ai/shell-web": "0.1.62",
+    "@jskit-ai/users-core": "0.1.73",
+    "@jskit-ai/users-web": "0.1.78",
+    "@jskit-ai/workspaces-core": "0.1.39",
     "vuetify": "^4.0.0"
   },
   "peerDependencies": {
