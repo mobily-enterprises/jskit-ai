@@ -37,4 +37,7 @@ test("workflow and patterns require CRUD server scaffolding before CRUD UI or ha
   assert.match(pattern, /do not hand-write a separate CRUD migration/);
   assert.match(pattern, /Do not scaffold CRUD UI, hand-build CRUD routes, or hand-build CRUD endpoints before the server CRUD package and shared resource file exist/);
   assert.match(pattern, /`feature-server-generator` is not the default lane for ordinary persisted entities/);
+  assert.match(pattern, /Before taking that path, stop and ask the developer for explicit approval/);
+  assert.match(pattern, /Record the exact approval and the approved exception in `.jskit\/WORKBOARD.md` before coding/);
+  assert.match(pattern, /Without that explicit approval record, do not take the weird-custom persistence path/);
 });

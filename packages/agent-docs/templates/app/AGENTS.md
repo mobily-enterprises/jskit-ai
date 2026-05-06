@@ -78,6 +78,7 @@ Core rules:
 - Do not generate CRUD UI or hand-build CRUD routes before the server CRUD package and shared resource file exist.
 - `feature-server-generator` is for workflows, orchestration, and other non-CRUD server features. Do not use it as the starting point for ordinary persisted entity tables.
 - Keep direct knex minimal and exceptional. Outside generated CRUD packages and explicit weird-custom feature lanes, app-owned runtime code should use internal `json-rest-api` seams instead of talking to knex directly.
+- If you believe a weird-custom repository or persistence lane is necessary, stop and ask the developer first. Record the exact approval and the approved exception in `.jskit/WORKBOARD.md` before coding, and also in `.jskit/APP_BLUEPRINT.md` if it changes the durable architecture.
 - For CRUD chunks, ask the developer which operations are allowed, which fields belong in the list view if one exists, and the intended look of the view and edit/new forms before generating code.
 - Every user-facing screen must pass a Material Design and Vuetify quality review before the chunk is considered done.
 - Any chunk that adds or changes user-facing UI must include a Playwright check that exercises the changed behavior before the chunk is considered done.
