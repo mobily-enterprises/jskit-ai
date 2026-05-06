@@ -71,8 +71,12 @@ Core rules:
 - For baseline package setup, ask plainly for the exact local development values needed for the next install step, but only for the modules or packages that are actually selected.
 - Use the real env var names or option names instead of vague requests for "credentials". Values such as `DB_NAME`, `DB_USER`, `DB_PASSWORD`, `AUTH_SUPABASE_URL`, `AUTH_SUPABASE_PUBLISHABLE_KEY`, and `APP_PUBLIC_URL` are routine setup inputs when the relevant package stack needs them.
 - For CRUD chunks, creating the server CRUD with `jskit generate crud-server-generator scaffold ...` is the crucial first step even if no CRUD UI will be created yet.
+- Unless a table is already owned by a JSKIT baseline package or is an explicit narrow exception recorded in `.jskit/table-ownership.json`, every persisted app-owned table must have its own server CRUD package created first with `jskit generate crud-server-generator scaffold ...`, even if no CRUD UI will ever exist.
+- Treat that as a hard invariant, not a style preference. If a persisted app-owned table does not have generated CRUD ownership, `jskit doctor` is expected to fail.
 - For a CRUD table that `crud-server-generator` will own, do not hand-write a separate migration. Create the real table directly in the database first, then scaffold the server CRUD so JSKIT can install and manage the CRUD migration scaffold itself.
 - Do not generate CRUD UI or hand-build CRUD routes before the server CRUD package and shared resource file exist.
+- `feature-server-generator` is for workflows, orchestration, and other non-CRUD server features. Do not use it as the starting point for ordinary persisted entity tables.
+- Keep direct knex minimal and exceptional. Outside generated CRUD packages and explicit weird-custom feature lanes, app-owned runtime code should use internal `json-rest-api` seams instead of talking to knex directly.
 - For CRUD chunks, ask the developer which operations are allowed, which fields belong in the list view if one exists, and the intended look of the view and edit/new forms before generating code.
 - Every user-facing screen must pass a Material Design and Vuetify quality review before the chunk is considered done.
 - Any chunk that adds or changes user-facing UI must include a Playwright check that exercises the changed behavior before the chunk is considered done.

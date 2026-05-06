@@ -42,6 +42,27 @@ export default Object.freeze({
     }
   },
   metadata: {
+    jskit: {
+      tableOwnership: {
+        tables: [
+          {
+            tableName: "assistant_config",
+            provenance: "runtime-package",
+            ownerKind: "package-runtime"
+          },
+          {
+            tableName: "assistant_conversations",
+            provenance: "runtime-package",
+            ownerKind: "package-runtime"
+          },
+          {
+            tableName: "assistant_messages",
+            provenance: "runtime-package",
+            ownerKind: "package-runtime"
+          }
+        ]
+      }
+    },
     apiSummary: {
       surfaces: [
         {

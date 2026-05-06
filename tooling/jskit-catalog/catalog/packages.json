@@ -480,6 +480,27 @@
           }
         },
         "metadata": {
+          "jskit": {
+            "tableOwnership": {
+              "tables": [
+                {
+                  "tableName": "assistant_config",
+                  "provenance": "runtime-package",
+                  "ownerKind": "package-runtime"
+                },
+                {
+                  "tableName": "assistant_conversations",
+                  "provenance": "runtime-package",
+                  "ownerKind": "package-runtime"
+                },
+                {
+                  "tableName": "assistant_messages",
+                  "provenance": "runtime-package",
+                  "ownerKind": "package-runtime"
+                }
+              ]
+            }
+          },
           "apiSummary": {
             "surfaces": [
               {
@@ -1159,6 +1180,17 @@
           }
         },
         "metadata": {
+          "jskit": {
+            "tableOwnership": {
+              "tables": [
+                {
+                  "tableName": "console_settings",
+                  "provenance": "runtime-package",
+                  "ownerKind": "package-runtime"
+                }
+              ]
+            }
+          },
           "apiSummary": {
             "surfaces": [
               {
@@ -4208,6 +4240,17 @@
           }
         },
         "metadata": {
+          "jskit": {
+            "tableOwnership": {
+              "tables": [
+                {
+                  "tableName": "user_settings",
+                  "provenance": "runtime-package",
+                  "ownerKind": "package-runtime"
+                }
+              ]
+            }
+          },
           "apiSummary": {
             "surfaces": [
               {
@@ -4914,6 +4957,32 @@
           }
         },
         "metadata": {
+          "jskit": {
+            "tableOwnership": {
+              "tables": [
+                {
+                  "tableName": "workspaces",
+                  "provenance": "runtime-package",
+                  "ownerKind": "package-runtime"
+                },
+                {
+                  "tableName": "workspace_memberships",
+                  "provenance": "runtime-package",
+                  "ownerKind": "package-runtime"
+                },
+                {
+                  "tableName": "workspace_settings",
+                  "provenance": "runtime-package",
+                  "ownerKind": "package-runtime"
+                },
+                {
+                  "tableName": "workspace_invites",
+                  "provenance": "runtime-package",
+                  "ownerKind": "package-runtime"
+                }
+              ]
+            }
+          },
           "apiSummary": {
             "surfaces": [
               {

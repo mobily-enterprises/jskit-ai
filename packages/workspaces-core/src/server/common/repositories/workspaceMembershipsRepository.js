@@ -289,16 +289,13 @@ function createRepository({ api, knex } = {}) {
       return [];
     }
 
-    const rows = await queryMemberships(
-      {
-        user: normalizedUserId,
-        status: "active"
-      },
-      options
-    );
+    const rows = await queryMemberships({
+      user: normalizedUserId,
+      status: "active"
+    }, options);
 
     return rows
-      .map((row) => normalizeDbRecordId(row?.workspace?.id || row?.workspaceId, { fallback: null }))
+      .map((row) => normalizeDbRecordId(row?.workspaceId, { fallback: null }))
       .filter(Boolean);
   }
 

@@ -173,6 +173,40 @@ test("simplifyJsonApiDocument keeps flat-record behavior for resource and collec
   );
 });
 
+test("simplifyJsonApiDocument preserves single-relationship foreign key ids without lookup hydration", () => {
+  assert.deepEqual(
+    simplifyJsonApiDocument({
+      data: {
+        type: "workspace-memberships",
+        id: "11",
+        attributes: {
+          status: "active"
+        },
+        relationships: {
+          workspace: {
+            data: {
+              type: "workspaces",
+              id: "7"
+            }
+          },
+          user: {
+            data: {
+              type: "userProfiles",
+              id: "9"
+            }
+          }
+        }
+      }
+    }),
+    {
+      id: "11",
+      status: "active",
+      workspaceId: "7",
+      userId: "9"
+    }
+  );
+});
+
 test("createJsonApiErrorDocumentFromFailure maps field errors and validation issues to JSON:API errors", () => {
   assert.deepEqual(
     createJsonApiErrorDocumentFromFailure({

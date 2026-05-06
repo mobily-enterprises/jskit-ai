@@ -34,6 +34,32 @@ export default Object.freeze({
     }
   },
   metadata: {
+    jskit: {
+      tableOwnership: {
+        tables: [
+          {
+            tableName: "workspaces",
+            provenance: "runtime-package",
+            ownerKind: "package-runtime"
+          },
+          {
+            tableName: "workspace_memberships",
+            provenance: "runtime-package",
+            ownerKind: "package-runtime"
+          },
+          {
+            tableName: "workspace_settings",
+            provenance: "runtime-package",
+            ownerKind: "package-runtime"
+          },
+          {
+            tableName: "workspace_invites",
+            provenance: "runtime-package",
+            ownerKind: "package-runtime"
+          }
+        ]
+      }
+    },
     apiSummary: {
       surfaces: [
         {

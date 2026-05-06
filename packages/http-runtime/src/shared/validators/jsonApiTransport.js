@@ -1,4 +1,5 @@
 import { normalizeArray, normalizeObject, normalizeText } from "@jskit-ai/kernel/shared/support/normalize";
+import { simplifyJsonApiResourceWithRelationshipIds } from "../support/jsonApiSimplify.js";
 
 const JSON_API_CONTENT_TYPE = "application/vnd.api+json";
 
@@ -441,11 +442,7 @@ function createJsonApiErrorDocumentFromFailure({
 }
 
 function simplifyJsonApiResourceObject(resource = {}) {
-  const normalized = normalizeJsonApiResourceObject(resource);
-  return {
-    id: normalized.id == null ? "" : normalized.id,
-    ...(normalized.attributes || {})
-  };
+  return simplifyJsonApiResourceWithRelationshipIds(normalizeJsonApiResourceObject(resource));
 }
 
 function simplifyJsonApiDocument(payload = {}) {

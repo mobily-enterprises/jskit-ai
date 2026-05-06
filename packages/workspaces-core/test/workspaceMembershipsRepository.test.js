@@ -72,11 +72,24 @@ function createWorkspaceMembershipsApiStub({
           }
 
           if (Object.hasOwn(filters, "user") && Object.hasOwn(filters, "status")) {
+            const includeWorkspace = Array.isArray(queryParams?.include) && queryParams.include.includes("workspace");
             const rows = [...rowByComposite.values()].filter((row) => (
               String(row?.user?.id || "") === String(filters.user) &&
               String(row?.status || "") === String(filters.status)
             ));
-            return asCollectionDocument(rows.map((row) => toWorkspaceMembershipRow(row)));
+            return asCollectionDocument(rows.map((row) => {
+              if (includeWorkspace) {
+                return toWorkspaceMembershipRow(row);
+              }
+
+              return {
+                ...toWorkspaceMembershipRow({
+                  ...row,
+                  workspace: null
+                }),
+                workspaceId: row?.workspace?.id == null ? null : String(row.workspace.id)
+              };
+            }));
           }
 
           return asCollectionDocument([]);
@@ -251,7 +264,7 @@ test("workspaceMembershipsRepository.listActiveWorkspaceIdsByUserId returns norm
     createdAt: "2026-03-09 00:26:35.710",
     updatedAt: "2026-03-10 00:26:35.710"
   };
-  const { api } = createWorkspaceMembershipsApiStub({
+  const { api, state } = createWorkspaceMembershipsApiStub({
     rowByComposite: new Map([["7:9", membershipRow]])
   });
   const repository = createRepository({ api, knex: createKnexStub() });
@@ -259,4 +272,12 @@ test("workspaceMembershipsRepository.listActiveWorkspaceIdsByUserId returns norm
   const workspaceIds = await repository.listActiveWorkspaceIdsByUserId("9");
 
   assert.deepEqual(workspaceIds, ["7"]);
+  assert.deepEqual(state.queryCalls, [
+    {
+      filters: {
+        user: "9",
+        status: "active"
+      }
+    }
+  ]);
 });

@@ -236,6 +236,57 @@ test("request decodes json:api relationship includes into JSKIT lookups and fore
   });
 });
 
+test("request keeps relationship foreign-key fields even when related resources are not included", async () => {
+  const fetchImpl = async () =>
+    mockResponse({
+      contentType: "application/vnd.api+json",
+      data: {
+        data: {
+          type: "pets",
+          id: "729900",
+          attributes: {
+            name: "Daisy"
+          },
+          relationships: {
+            contact: {
+              data: {
+                type: "contacts",
+                id: "552252"
+              }
+            },
+            breed: {
+              data: {
+                type: "breeds",
+                id: "2"
+              }
+            }
+          }
+        }
+      }
+    });
+
+  const client = createHttpClient({ fetchImpl });
+  const payload = await client.request("/api/pets/729900", {
+    method: "GET",
+    transport: {
+      kind: "jsonapi-resource",
+      responseType: "pets",
+      responseKind: "record",
+      lookupFieldMap: {
+        contact: "contactId",
+        breed: "breedId"
+      }
+    }
+  });
+
+  assert.deepEqual(payload, {
+    id: "729900",
+    name: "Daisy",
+    contactId: "552252",
+    breedId: "2"
+  });
+});
+
 test("request recursively decodes nested included relationships for collection-style lookups", async () => {
   const fetchImpl = async () =>
     mockResponse({

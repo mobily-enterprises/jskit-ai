@@ -33,6 +33,7 @@ Scoping rules:
 - Make the generator plan concrete. Name the exact `jskit` commands expected for the chunk, not just a package or a general idea.
 - For non-CRUD route page work, check `jskit show ui-generator --details` and `jskit list-placements` before deciding that custom page or placement code is necessary.
 - For CRUD work, make the server-first plan explicit. Name the exact `jskit generate crud-server-generator scaffold ...` command before any CRUD UI plan.
+- Before accepting a new persisted app-owned table, decide whether it is CRUD-owned or a narrow explicit exception. If it is not already owned by a JSKIT baseline package, the default answer should be server CRUD ownership.
 - If a CRUD will be owned by `crud-server-generator`, plan around a real table that already exists in the database. Do not plan a separate hand-written CRUD migration for that table.
 - Decide ownership early; do not treat it as a UI-only detail.
 - If Stage 1 platform choices are still provisional, finish them before installing tenancy-sensitive runtime packages.

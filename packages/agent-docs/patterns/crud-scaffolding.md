@@ -17,14 +17,17 @@ Check first:
 Rules:
 
 - For a CRUD-backed entity, start with `jskit generate crud-server-generator scaffold ...`.
+- Unless the table is already owned by a JSKIT baseline package or is an explicit narrow exception recorded in `.jskit/table-ownership.json`, every persisted app-owned table must go through that server CRUD step first.
 - That server scaffold is the crucial first step even if no CRUD UI will be created yet.
 - Create the real table directly in the database before scaffolding. `crud-server-generator` reads the live table shape.
 - If `crud-server-generator` is going to own the CRUD, do not hand-write a separate CRUD migration for that table. The generator installs and manages the CRUD migration scaffold itself.
 - Do not scaffold CRUD UI, hand-build CRUD routes, or hand-build CRUD endpoints before the server CRUD package and shared resource file exist.
 - Treat the generated shared resource file as the canonical CRUD contract for later UI scaffolding and CRUD behavior changes.
+- `feature-server-generator` is not the default lane for ordinary persisted entities. Use it for workflows or orchestration that sit on top of CRUD-owned tables, or for rare explicit non-CRUD exceptions.
 
 Avoid:
 
 - writing a hand migration for a CRUD table that JSKIT CRUD scaffolding is supposed to own
 - starting with `crud-ui-generator` before the server scaffold exists
 - hand-building CRUD routes or validators that duplicate the generated server resource contract
+- letting a new app-owned table exist in the live database without either generated CRUD ownership or a documented `.jskit/table-ownership.json` exception

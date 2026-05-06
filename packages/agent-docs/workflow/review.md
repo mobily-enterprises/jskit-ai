@@ -23,6 +23,8 @@ Before calling a chunk or a whole changeset done, review it in four passes:
    - if a generator existed, was the exact `jskit` command used or was the gap documented clearly before hand-coding?
    - for CRUD work, was `crud-server-generator scaffold` used before any CRUD UI or CRUD route hand-coding?
    - for CRUD tables owned by JSKIT, did the change avoid a separate hand-written CRUD migration?
+   - does every live app-owned table now have either declared generated/package CRUD ownership or an explicit narrow `.jskit/table-ownership.json` exception?
+   - is any direct app-owned knex usage limited to generated CRUD packages or explicit weird-custom feature lanes?
    - are surface, route, ownership, and migration choices aligned with JSKIT conventions?
    - package metadata and actual behavior still aligned?
 3. UI standards review
