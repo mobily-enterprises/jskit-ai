@@ -15,18 +15,12 @@ import {
   assertCapacitorShellInstalled,
   collectAndroidSdkComponentIssues,
   collectAndroidNativeShellIdentityIssues,
-  ensureMobileConfigStub,
   ensureAndroidManifestDeepLinks,
   ensureAndroidNativeShellIdentity,
   renderManagedMobileFile,
   resolveAndroidSdkDetails,
   resolveInstalledMobileConfig
 } from "./mobileShellSupport.js";
-import {
-  discoverLocalPackageMap,
-  resolveLocalRepoRoot
-} from "./appCommands/shared.js";
-
 const CAPACITOR_RUNTIME_PACKAGE_ID = "@jskit-ai/mobile-capacitor";
 const MOBILE_NOTES_RELATIVE_PATH = path.join(".jskit", "mobile-capacitor.md");
 
@@ -70,84 +64,6 @@ async function collectManagedMobileFileDriftIssues({
       );
     }
   }
-}
-
-function collectDeclaredLocalRepoPackagePaths(packageJson = {}, packageMap = new Map()) {
-  const sections = [
-    packageJson?.dependencies,
-    packageJson?.devDependencies,
-    packageJson?.optionalDependencies,
-    packageJson?.peerDependencies
-  ];
-  const collected = [];
-  const seen = new Set();
-
-  for (const section of sections) {
-    if (!section || typeof section !== "object" || Array.isArray(section)) {
-      continue;
-    }
-
-    for (const packageName of Object.keys(section)) {
-      const normalizedPackageName = String(packageName || "").trim();
-      if (!normalizedPackageName.startsWith("@jskit-ai/")) {
-        continue;
-      }
-
-      const packageDirName = normalizedPackageName.slice("@jskit-ai/".length);
-      const sourcePath = packageMap.get(packageDirName);
-      if (!sourcePath || seen.has(sourcePath)) {
-        continue;
-      }
-
-      seen.add(sourcePath);
-      collected.push(sourcePath);
-    }
-  }
-
-  return collected;
-}
-
-function collectDeclaredExternalPackageSpecs(packageJson = {}, packageMap = new Map()) {
-  const sections = [
-    packageJson?.dependencies,
-    packageJson?.devDependencies,
-    packageJson?.optionalDependencies
-  ];
-  const collected = [];
-  const seen = new Set();
-
-  for (const section of sections) {
-    if (!section || typeof section !== "object" || Array.isArray(section)) {
-      continue;
-    }
-
-    for (const packageName of Object.keys(section).sort((left, right) => left.localeCompare(right))) {
-      const normalizedPackageName = String(packageName || "").trim();
-      const versionSpec = String(section[packageName] || "").trim();
-      if (!normalizedPackageName || !versionSpec) {
-        continue;
-      }
-      if (versionSpec.startsWith("file:") || versionSpec.startsWith("workspace:")) {
-        continue;
-      }
-
-      if (normalizedPackageName.startsWith("@jskit-ai/")) {
-        const packageDirName = normalizedPackageName.slice("@jskit-ai/".length);
-        if (packageMap.has(packageDirName)) {
-          continue;
-        }
-      }
-
-      const spec = `${normalizedPackageName}@${versionSpec}`;
-      if (seen.has(spec)) {
-        continue;
-      }
-      seen.add(spec);
-      collected.push(spec);
-    }
-  }
-
-  return collected;
 }
 
 async function collectMissingInstalledDependencyNames(ctx, appRoot = "", packageJson = {}) {
@@ -260,6 +176,185 @@ function isValidHttpOrHttpsUrl(value = "") {
   }
 }
 
+function normalizeInlineOptions(options = {}) {
+  return options?.inlineOptions && typeof options.inlineOptions === "object" ? options.inlineOptions : {};
+}
+
+function parsePortNumber(rawValue, {
+  createCliError,
+  optionLabel = "--port"
+} = {}) {
+  const normalizedValue = String(rawValue || "").trim();
+  if (!normalizedValue) {
+    return 0;
+  }
+
+  const numericValue = Number(normalizedValue);
+  if (!Number.isInteger(numericValue) || numericValue < 1 || numericValue > 65535) {
+    throw createCliError(`${optionLabel} must be an integer between 1 and 65535.`);
+  }
+
+  return numericValue;
+}
+
+function parseAdbDeviceList(output = "") {
+  return String(output || "")
+    .split(/\r?\n/u)
+    .map((line) => String(line || "").trim())
+    .filter((line) => line && line !== "List of devices attached")
+    .map((line) => {
+      const match = /^(\S+)\s+(\S+)(?:\s+(.*))?$/u.exec(line);
+      if (!match) {
+        return null;
+      }
+      return Object.freeze({
+        serial: String(match[1] || "").trim(),
+        state: String(match[2] || "").trim(),
+        details: String(match[3] || "").trim()
+      });
+    })
+    .filter(Boolean);
+}
+
+function resolveAdbReversePort({
+  mobileConfig = null,
+  explicitPort = "",
+  createCliError
+} = {}) {
+  const parsedExplicitPort = parsePortNumber(explicitPort, {
+    createCliError,
+    optionLabel: "--port"
+  });
+  if (parsedExplicitPort > 0) {
+    return parsedExplicitPort;
+  }
+
+  const apiBaseUrl = String(mobileConfig?.apiBaseUrl || "").trim();
+  if (!apiBaseUrl) {
+    throw createCliError("config.mobile.apiBaseUrl is required to infer the adb reverse port. Pass --port to override it.");
+  }
+
+  let parsedUrl = null;
+  try {
+    parsedUrl = new URL(apiBaseUrl);
+  } catch {
+    throw createCliError("config.mobile.apiBaseUrl must be a valid absolute URL to infer the adb reverse port.");
+  }
+
+  const hostname = String(parsedUrl.hostname || "").trim().toLowerCase();
+  const isLoopbackHost =
+    hostname === "127.0.0.1" ||
+    hostname === "localhost" ||
+    hostname === "::1" ||
+    hostname === "[::1]";
+  if (!isLoopbackHost) {
+    throw createCliError(
+      `config.mobile.apiBaseUrl points at "${apiBaseUrl}", which is not a loopback host. Pass --port explicitly if you still need adb reverse.`
+    );
+  }
+
+  const port = Number(parsedUrl.port || "");
+  if (!Number.isInteger(port) || port < 1 || port > 65535) {
+    throw createCliError(
+      `config.mobile.apiBaseUrl "${apiBaseUrl}" must include an explicit port so jskit mobile tunnel android can infer adb reverse.`
+    );
+  }
+
+  return port;
+}
+
+async function runCapturedBinary(binaryName, args = [], {
+  cwd = process.cwd(),
+  env = {},
+  createCliError,
+  notFoundMessage = ""
+} = {}) {
+  const spawnedEnv = {
+    ...process.env,
+    ...env
+  };
+
+  return await new Promise((resolve, reject) => {
+    const child = spawn(binaryName, Array.isArray(args) ? args : [], {
+      cwd,
+      env: spawnedEnv,
+      stdio: ["ignore", "pipe", "pipe"]
+    });
+
+    let stdout = "";
+    let stderr = "";
+
+    child.stdout?.on("data", (chunk) => {
+      stdout += String(chunk || "");
+    });
+    child.stderr?.on("data", (chunk) => {
+      stderr += String(chunk || "");
+    });
+
+    child.on("error", (error) => {
+      if (error?.code === "ENOENT") {
+        reject(createCliError(notFoundMessage || `Could not find "${binaryName}" on PATH.`));
+        return;
+      }
+      reject(error);
+    });
+
+    child.on("exit", (code) => {
+      if (code === 0) {
+        resolve(Object.freeze({
+          stdout,
+          stderr
+        }));
+        return;
+      }
+      const renderedArgs = Array.isArray(args) ? args.join(" ") : "";
+      const errorMessage = stderr.trim() || stdout.trim() || `${binaryName} ${renderedArgs}`.trim();
+      reject(createCliError(`${binaryName}${renderedArgs ? ` ${renderedArgs}` : ""} failed: ${errorMessage}`));
+    });
+  });
+}
+
+async function listVisibleAndroidDevices({
+  ctx,
+  appRoot
+} = {}) {
+  const result = await runCapturedBinary("adb", ["devices", "-l"], {
+    cwd: appRoot,
+    createCliError: ctx.createCliError,
+    notFoundMessage: 'Could not find "adb" on PATH. Install Android platform-tools first.'
+  });
+  return parseAdbDeviceList(result.stdout);
+}
+
+async function resolveAndroidDeviceTarget({
+  ctx,
+  appRoot,
+  explicitTarget = "",
+  commandLabel = "this mobile command"
+} = {}) {
+  const devices = await listVisibleAndroidDevices({
+    ctx,
+    appRoot
+  });
+  if (devices.length < 1) {
+    throw ctx.createCliError(`No Android devices are visible to adb. Run jskit mobile devices android before ${commandLabel}.`);
+  }
+
+  const normalizedExplicitTarget = String(explicitTarget || "").trim();
+  const selectedDevice = normalizedExplicitTarget
+    ? devices.find((device) => device.serial === normalizedExplicitTarget) || null
+    : devices[0];
+
+  if (!selectedDevice) {
+    throw ctx.createCliError(`Android device "${normalizedExplicitTarget}" is not visible to adb. Run jskit mobile devices android first.`);
+  }
+  if (selectedDevice.state !== "device") {
+    throw ctx.createCliError(`Android device "${selectedDevice.serial}" is currently "${selectedDevice.state}", not ready for ${commandLabel}.`);
+  }
+
+  return selectedDevice;
+}
+
 async function resolveInstalledMobileConfigForCommand({
   appRoot,
   createCliError
@@ -332,46 +427,17 @@ async function runMobileAppInstall({
   appRoot,
   stdout,
   stderr,
-  dryRun = false
+  dryRun = false,
+  devlinks = false
 } = {}) {
   const {
     path: pathModule,
     loadAppPackageJson
   } = ctx;
-  const repoRoot = await resolveLocalRepoRoot({
-    appRoot
-  });
   const { packageJson } = await loadAppPackageJson(appRoot);
   const packageScripts = packageJson?.scripts && typeof packageJson.scripts === "object" ? packageJson.scripts : {};
 
-  if (!repoRoot) {
-    await runLocalBinary("npm", ["install"], {
-      appRoot,
-      stderr,
-      stdout,
-      pathModule,
-      createCliError: ctx.createCliError,
-      dryRun
-    });
-    return;
-  }
-
-  const packageMap = await discoverLocalPackageMap(repoRoot);
-  const localRepoPackagePaths = collectDeclaredLocalRepoPackagePaths(packageJson, packageMap);
-  const externalPackageSpecs = collectDeclaredExternalPackageSpecs(packageJson, packageMap);
-  if (localRepoPackagePaths.length < 1 && externalPackageSpecs.length < 1) {
-    await runLocalBinary("npm", ["install"], {
-      appRoot,
-      stderr,
-      stdout,
-      pathModule,
-      createCliError: ctx.createCliError,
-      dryRun
-    });
-    return;
-  }
-
-  await runLocalBinary("npm", ["install", "--no-save", ...externalPackageSpecs, ...localRepoPackagePaths], {
+  await runLocalBinary("npm", ["install"], {
     appRoot,
     stderr,
     stdout,
@@ -380,7 +446,7 @@ async function runMobileAppInstall({
     dryRun
   });
 
-  if (Object.prototype.hasOwnProperty.call(packageScripts, "devlinks")) {
+  if (devlinks === true && Object.prototype.hasOwnProperty.call(packageScripts, "devlinks")) {
     await runLocalBinary("npm", ["run", "--if-present", "devlinks"], {
       appRoot,
       stderr,
@@ -441,45 +507,24 @@ async function refreshManagedMobileFiles({
       appRoot,
       stdout,
       stderr,
-      dryRun: false
+      dryRun: false,
+      devlinks: options?.devlinks === true
     });
   }
 }
 
 async function runMobileAddCapacitorCommand({
-  ctx,
   commandAdd,
   appRoot,
   options = {},
   stdout,
   stderr
 }) {
-  const {
-    fileExists,
-    path: pathModule,
-    loadAppPackageJson
-  } = ctx;
-  const { packageJson } = await loadAppPackageJson(appRoot);
-  const addedConfigStub = await ensureMobileConfigStub({
-    ctx,
-    appRoot,
-    packageJson,
-    dryRun: options?.dryRun === true,
-    stdout
-  });
-
-  if (options?.dryRun === true && addedConfigStub) {
-    stdout.write(
-      "[dry-run] mobile package install preview stops after the config.mobile stub because rendered Capacitor files depend on those values.\n"
-    );
-    return 0;
-  }
-
-  await commandAdd({
+  return await commandAdd({
     positional: ["package", CAPACITOR_RUNTIME_PACKAGE_ID],
     options: {
       ...options,
-      runNpmInstall: false,
+      runNpmInstall: true,
       inlineOptions: {}
     },
     cwd: appRoot,
@@ -488,44 +533,6 @@ async function runMobileAddCapacitorCommand({
       stderr
     }
   });
-
-  if (options?.dryRun === true) {
-    return 0;
-  }
-
-  await runMobileAppInstall({
-    ctx,
-    appRoot,
-    stdout,
-    stderr,
-    dryRun: false
-  });
-
-  const androidDirectoryPath = pathModule.join(appRoot, "android");
-  if (await fileExists(androidDirectoryPath)) {
-    stdout.write("[mobile] android/ already exists. Skipping cap add android.\n");
-  } else {
-    await runLocalBinary("cap", ["add", "android"], {
-      appRoot,
-      stderr,
-      stdout,
-      pathModule,
-      createCliError: ctx.createCliError
-    });
-    stdout.write("[mobile] Added Android shell with Capacitor CLI.\n");
-  }
-
-  await ensureAndroidManifestDeepLinks({
-    ctx,
-    appRoot,
-    stdout
-  });
-  await ensureAndroidNativeShellIdentity({
-    ctx,
-    appRoot,
-    stdout
-  });
-  return 0;
 }
 
 async function runMobileSyncAndroidCommand({
@@ -602,6 +609,8 @@ async function runMobileRunAndroidCommand({
   const {
     path: pathModule
   } = ctx;
+  const inlineOptions = normalizeInlineOptions(options);
+  const target = String(inlineOptions.target || "").trim();
   const mobileConfig = await resolveInstalledMobileConfigForCommand({
     appRoot,
     createCliError: ctx.createCliError
@@ -662,12 +671,13 @@ async function runMobileRunAndroidCommand({
     }
   }
 
-  await runLocalBinary("cap", ["run", "android"], {
+  await runCapRunAndroidCommand({
+    ctx,
     appRoot,
-    stderr,
-    stdout,
     pathModule,
-    createCliError: ctx.createCliError,
+    target,
+    stdout,
+    stderr,
     dryRun: options?.dryRun === true
   });
 
@@ -677,6 +687,30 @@ async function runMobileRunAndroidCommand({
 
   stdout.write("[mobile] Ran the Android shell via Capacitor.\n");
   return 0;
+}
+
+async function runCapRunAndroidCommand({
+  ctx,
+  appRoot,
+  pathModule,
+  target = "",
+  stdout,
+  stderr,
+  dryRun = false
+} = {}) {
+  const capRunArgs = ["run", "android"];
+  if (target) {
+    capRunArgs.push("--target", target);
+  }
+
+  await runLocalBinary("cap", capRunArgs, {
+    appRoot,
+    stderr,
+    stdout,
+    pathModule,
+    createCliError: ctx.createCliError,
+    dryRun
+  });
 }
 
 async function runMobileBuildAndroidCommand({
@@ -841,6 +875,184 @@ async function runMobileDoctorCommand({
   return 0;
 }
 
+async function runMobileDevicesAndroidCommand({
+  ctx,
+  appRoot,
+  stdout
+}) {
+  const devices = await listVisibleAndroidDevices({
+    ctx,
+    appRoot
+  });
+
+  if (devices.length < 1) {
+    stdout.write("No Android devices visible to adb.\n");
+    return 0;
+  }
+
+  stdout.write("Android devices:\n");
+  for (const device of devices) {
+    const detailSuffix = device.details ? ` ${device.details}` : "";
+    stdout.write(`- ${device.serial} ${device.state}${detailSuffix}\n`);
+  }
+  return 0;
+}
+
+async function runMobileTunnelAndroidCommand({
+  ctx,
+  appRoot,
+  options = {},
+  stdout
+}) {
+  const inlineOptions = normalizeInlineOptions(options);
+  const target = String(inlineOptions.target || "").trim();
+
+  const mobileConfig = await resolveInstalledMobileConfigForCommand({
+    appRoot,
+    createCliError: ctx.createCliError
+  });
+  const port = resolveAdbReversePort({
+    mobileConfig,
+    explicitPort: inlineOptions.port,
+    createCliError: ctx.createCliError
+  });
+
+  const matchingDevice = await resolveAndroidDeviceTarget({
+    ctx,
+    appRoot,
+    explicitTarget: target,
+    commandLabel: "adb reverse"
+  });
+
+  await runCapturedBinary("adb", ["-s", matchingDevice.serial, "reverse", `tcp:${port}`, `tcp:${port}`], {
+    cwd: appRoot,
+    createCliError: ctx.createCliError,
+    notFoundMessage: 'Could not find "adb" on PATH. Install Android platform-tools first.'
+  });
+  const reverseListResult = await runCapturedBinary("adb", ["-s", matchingDevice.serial, "reverse", "--list"], {
+    cwd: appRoot,
+    createCliError: ctx.createCliError,
+    notFoundMessage: 'Could not find "adb" on PATH. Install Android platform-tools first.'
+  });
+
+  stdout.write(`Android reverse tunnel ready for ${matchingDevice.serial}: tcp:${port} -> tcp:${port}\n`);
+  const reverseLines = String(reverseListResult.stdout || "")
+    .split(/\r?\n/u)
+    .map((line) => String(line || "").trim())
+    .filter(Boolean);
+  if (reverseLines.length > 0) {
+    stdout.write("adb reverse --list:\n");
+    for (const line of reverseLines) {
+      stdout.write(`- ${line}\n`);
+    }
+  }
+  return 0;
+}
+
+async function runMobileRestartAndroidCommand({
+  ctx,
+  appRoot,
+  options = {},
+  stdout
+}) {
+  const inlineOptions = normalizeInlineOptions(options);
+  const target = String(inlineOptions.target || "").trim();
+
+  const mobileConfig = await resolveInstalledMobileConfigForCommand({
+    appRoot,
+    createCliError: ctx.createCliError
+  });
+  const packageName =
+    String(mobileConfig?.android?.packageName || "").trim() ||
+    String(mobileConfig?.appId || "").trim();
+  if (!packageName) {
+    throw ctx.createCliError("config.mobile.android.packageName or config.mobile.appId is required to restart the Android shell.");
+  }
+
+  const matchingDevice = await resolveAndroidDeviceTarget({
+    ctx,
+    appRoot,
+    explicitTarget: target,
+    commandLabel: "restart"
+  });
+
+  await runCapturedBinary("adb", ["-s", matchingDevice.serial, "shell", "pm", "clear", packageName], {
+    cwd: appRoot,
+    createCliError: ctx.createCliError,
+    notFoundMessage: 'Could not find "adb" on PATH. Install Android platform-tools first.'
+  });
+  await runCapturedBinary("adb", ["-s", matchingDevice.serial, "shell", "am", "force-stop", packageName], {
+    cwd: appRoot,
+    createCliError: ctx.createCliError,
+    notFoundMessage: 'Could not find "adb" on PATH. Install Android platform-tools first.'
+  });
+  await runCapturedBinary("adb", ["-s", matchingDevice.serial, "shell", "am", "start", "-W", "-n", `${packageName}/.MainActivity`], {
+    cwd: appRoot,
+    createCliError: ctx.createCliError,
+    notFoundMessage: 'Could not find "adb" on PATH. Install Android platform-tools first.'
+  });
+
+  stdout.write(`Android app restarted on ${matchingDevice.serial}: ${packageName}\n`);
+  return 0;
+}
+
+async function runMobileDevAndroidCommand({
+  ctx,
+  commandAdd,
+  appRoot,
+  options = {},
+  stdout,
+  stderr
+}) {
+  const inlineOptions = normalizeInlineOptions(options);
+  const selectedDevice = await resolveAndroidDeviceTarget({
+    ctx,
+    appRoot,
+    explicitTarget: inlineOptions.target,
+    commandLabel: "the local Android dev flow"
+  });
+
+  stdout.write(`[mobile] Using Android device: ${selectedDevice.serial}\n`);
+  stdout.write("[mobile] Building and syncing the Android shell:\n");
+  stdout.write("[mobile]   npx jskit mobile sync android\n");
+  await runMobileSyncAndroidCommand({
+    ctx,
+    commandAdd,
+    appRoot,
+    options,
+    stdout,
+    stderr
+  });
+
+  stdout.write(`[mobile] Installing and launching the app on ${selectedDevice.serial}:\n`);
+  stdout.write(`[mobile]   npx jskit mobile run android --target ${selectedDevice.serial}\n`);
+  await runCapRunAndroidCommand({
+    ctx,
+    appRoot,
+    pathModule: ctx.path,
+    target: selectedDevice.serial,
+    stdout,
+    stderr,
+    dryRun: false
+  });
+
+  stdout.write(`[mobile] Creating the adb reverse tunnel on ${selectedDevice.serial}:\n`);
+  stdout.write(`[mobile]   npx jskit mobile tunnel android --target ${selectedDevice.serial}\n`);
+  await runMobileTunnelAndroidCommand({
+    ctx,
+    appRoot,
+    options: {
+      inlineOptions: {
+        target: selectedDevice.serial
+      }
+    },
+    stdout,
+    stderr
+  });
+
+  return 0;
+}
+
 function createMobileCommands(ctx = {}, { commandAdd } = {}) {
   const {
     createCliError,
@@ -897,6 +1109,90 @@ function createMobileCommands(ctx = {}, { commandAdd } = {}) {
     }
 
     const appRoot = await resolveAppRootFromCwd(cwd);
+
+    if (definition.name === "devices") {
+      if (secondToken !== "android") {
+        throw createCliError(`jskit mobile devices currently supports only "android".`, {
+          renderUsage: () => renderMobileHelp(stderr, definition)
+        });
+      }
+      if (remainingPositionals.length > 0) {
+        throw createCliError(`Unexpected positional arguments for jskit mobile devices: ${remainingPositionals.join(" ")}`, {
+          renderUsage: () => renderMobileHelp(stderr, definition)
+        });
+      }
+
+      return runMobileDevicesAndroidCommand({
+        ctx,
+        appRoot,
+        stdout,
+        stderr
+      });
+    }
+
+    if (definition.name === "dev") {
+      if (secondToken !== "android") {
+        throw createCliError(`jskit mobile dev currently supports only "android".`, {
+          renderUsage: () => renderMobileHelp(stderr, definition)
+        });
+      }
+      if (remainingPositionals.length > 0) {
+        throw createCliError(`Unexpected positional arguments for jskit mobile dev: ${remainingPositionals.join(" ")}`, {
+          renderUsage: () => renderMobileHelp(stderr, definition)
+        });
+      }
+
+      return runMobileDevAndroidCommand({
+        ctx,
+        commandAdd,
+        appRoot,
+        options,
+        stdout,
+        stderr
+      });
+    }
+
+    if (definition.name === "tunnel") {
+      if (secondToken !== "android") {
+        throw createCliError(`jskit mobile tunnel currently supports only "android".`, {
+          renderUsage: () => renderMobileHelp(stderr, definition)
+        });
+      }
+      if (remainingPositionals.length > 0) {
+        throw createCliError(`Unexpected positional arguments for jskit mobile tunnel: ${remainingPositionals.join(" ")}`, {
+          renderUsage: () => renderMobileHelp(stderr, definition)
+        });
+      }
+
+      return runMobileTunnelAndroidCommand({
+        ctx,
+        appRoot,
+        options,
+        stdout,
+        stderr
+      });
+    }
+
+    if (definition.name === "restart") {
+      if (secondToken !== "android") {
+        throw createCliError(`jskit mobile restart currently supports only "android".`, {
+          renderUsage: () => renderMobileHelp(stderr, definition)
+        });
+      }
+      if (remainingPositionals.length > 0) {
+        throw createCliError(`Unexpected positional arguments for jskit mobile restart: ${remainingPositionals.join(" ")}`, {
+          renderUsage: () => renderMobileHelp(stderr, definition)
+        });
+      }
+
+      return runMobileRestartAndroidCommand({
+        ctx,
+        appRoot,
+        options,
+        stdout,
+        stderr
+      });
+    }
 
     if (definition.name === "add") {
       if (secondToken !== "capacitor") {

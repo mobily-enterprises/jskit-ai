@@ -1,7 +1,7 @@
 export default Object.freeze({
   packageVersion: 1,
   packageId: "@jskit-ai/mobile-capacitor",
-  version: "0.1.0",
+  version: "0.1.2",
   kind: "runtime",
   description: "Thin Capacitor client integration for JSKIT mobile-shell launch routing and auth callback completion.",
   dependsOn: [
@@ -23,6 +23,19 @@ export default Object.freeze({
           export: "MobileCapacitorClientProvider"
         }
       ]
+    }
+  },
+  lifecycle: {
+    install: {
+      prepare: {
+        entrypoint: "src/server/buildTemplateContext.js",
+        export: "prepareInstallHook"
+      },
+      finalize: {
+        entrypoint: "src/server/buildTemplateContext.js",
+        export: "finalizeInstallHook",
+        managesNpmInstall: true
+      }
     }
   },
   metadata: {
@@ -49,8 +62,8 @@ export default Object.freeze({
         "@capacitor/app": "^7.1.0",
         "@capacitor/browser": "^7.0.1",
         "@capacitor/core": "^7.4.3",
-        "@jskit-ai/kernel": "0.1.63",
-        "@jskit-ai/shell-web": "0.1.62"
+        "@jskit-ai/kernel": "0.1.65",
+        "@jskit-ai/shell-web": "0.1.64"
       },
       dev: {
         "@capacitor/cli": "^7.4.3"
@@ -58,7 +71,11 @@ export default Object.freeze({
     },
     packageJson: {
       scripts: {
+        "mobile:dev:android": "jskit mobile dev android",
+        "mobile:devices:android": "jskit mobile devices android",
         "mobile:sync:android": "jskit mobile sync android",
+        "mobile:tunnel:android": "jskit mobile tunnel android",
+        "mobile:restart:android": "jskit mobile restart android",
         "mobile:run:android": "jskit mobile run android",
         "mobile:build:web": "npm run build",
         "mobile:build:android": "jskit mobile build android"

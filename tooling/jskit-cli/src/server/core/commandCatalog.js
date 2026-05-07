@@ -1,6 +1,7 @@
 const OPTION_FLAG_LABELS = Object.freeze({
   dryRun: "--dry-run",
   runNpmInstall: "--run-npm-install",
+  devlinks: "--devlinks",
   full: "--full",
   expanded: "--expanded",
   details: "--details",
@@ -182,12 +183,13 @@ const COMMAND_DESCRIPTORS = Object.freeze({
     defaults: Object.freeze([
       "The first supported flow is jskit mobile add capacitor.",
       "Use jskit mobile <subcommand> help for subcommand-specific usage.",
-      "--dry-run is accepted by jskit mobile add/sync/run/build."
+      "--dry-run is accepted by jskit mobile add/sync/run/build.",
+      "--devlinks runs npm run --if-present devlinks after install/sync maintenance for development-only relinking."
     ]),
     fullUse: "jskit mobile <subcommand> [help] [--dry-run] [--<option> <value>...]",
     showHelpOnBareInvocation: true,
     handlerName: "commandMobile",
-    allowedFlagKeys: Object.freeze(["dryRun"]),
+    allowedFlagKeys: Object.freeze(["dryRun", "devlinks"]),
     inlineOptionMode: "delegate",
     allowedValueOptionNames: Object.freeze([]),
     canDelegateInlineOptions: (positional = []) => Array.isArray(positional) && positional.length > 0
@@ -212,13 +214,14 @@ const COMMAND_DESCRIPTORS = Object.freeze({
       "No npm install runs unless --run-npm-install is passed.",
       "Short ids resolve to @jskit-ai/<id> when available.",
       "Running without args lists bundles and runtime packages.",
-      "Existing matching version is skipped unless options force reapply."
+      "Existing matching version is skipped unless options force reapply.",
+      "--devlinks runs npm run --if-present devlinks after install when the app defines that script."
     ]),
     fullUse:
-      "jskit add <package|bundle> <id> [--<option> <value>...] [--dry-run] [--run-npm-install] [--json] [--verbose]",
+      "jskit add <package|bundle> <id> [--<option> <value>...] [--dry-run] [--run-npm-install] [--devlinks] [--json] [--verbose]",
     showHelpOnBareInvocation: false,
     handlerName: "commandAdd",
-    allowedFlagKeys: Object.freeze(["dryRun", "runNpmInstall", "json", "verbose"]),
+    allowedFlagKeys: Object.freeze(["dryRun", "runNpmInstall", "devlinks", "json", "verbose"]),
     inlineOptionMode: "delegate",
     allowedValueOptionNames: Object.freeze([]),
     canDelegateInlineOptions: canDelegateAddInlineOptions

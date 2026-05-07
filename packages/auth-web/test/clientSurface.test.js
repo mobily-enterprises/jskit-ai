@@ -73,6 +73,23 @@ test("auth-web client provider registers a mobile auth callback completion token
   assert.match(providerSource, /completeOAuthCallbackFromUrl/);
 });
 
+test("default login view owns the viewport and becomes a full-screen mobile screen", () => {
+  const viewPath = fileURLToPath(new URL("../src/client/views/DefaultLoginView.vue", import.meta.url));
+  const viewSource = readFileSync(viewPath, "utf8");
+
+  assert.match(viewSource, /import\s+\{\s*useDisplay\s*\}\s+from\s+"vuetify";/);
+  assert.match(viewSource, /useDisplay\(\{\s*mobileBreakpoint:\s*960\s*\}\)/);
+  assert.doesNotMatch(viewSource, /<v-main\b/);
+  assert.match(viewSource, /login-screen--mobile/);
+  assert.match(viewSource, /login-shell--mobile/);
+  assert.match(viewSource, /auth-card--mobile/);
+  assert.match(viewSource, /auth-content--mobile/);
+  assert.match(viewSource, /:elevation="isMobileViewport \? 0 : 1"/);
+  assert.match(viewSource, /:border="!isMobileViewport"/);
+  assert.match(viewSource, /\.login-screen\s*\{[\s\S]*position:\s*fixed;/);
+  assert.match(viewSource, /\.login-screen\s*\{[\s\S]*inset:\s*0;/);
+});
+
 test("auth-web package exports only minimal client runtime/view subpaths", () => {
   const packageJson = JSON.parse(readFileSync(fileURLToPath(new URL("../package.json", import.meta.url)), "utf8"));
   const exportsMap = packageJson && typeof packageJson === "object" ? packageJson.exports : {};

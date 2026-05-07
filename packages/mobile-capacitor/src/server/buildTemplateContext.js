@@ -1,4 +1,5 @@
 import path from "node:path";
+import { readdir, rm } from "node:fs/promises";
 import { loadAppConfigFromAppRoot, resolveMobileConfig } from "@jskit-ai/kernel/server/support";
 import { normalizeText } from "@jskit-ai/kernel/shared/support/normalize";
 
@@ -55,6 +56,20 @@ function buildAppLinkDomainsValue(appLinkDomains = []) {
   return domains.join(", ");
 }
 
+async function directoryContainsAnyFiles(directoryPath = "") {
+  const entries = await readdir(directoryPath, { withFileTypes: true });
+  for (const entry of entries) {
+    const absoluteChildPath = path.join(directoryPath, entry.name);
+    if (entry.isFile() || entry.isSymbolicLink()) {
+      return true;
+    }
+    if (entry.isDirectory() && await directoryContainsAnyFiles(absoluteChildPath)) {
+      return true;
+    }
+  }
+  return false;
+}
+
 async function buildTemplateContext({ appRoot } = {}) {
   const mergedConfig = await loadAppConfigFromAppRoot({
     appRoot: path.resolve(String(appRoot || ""))
@@ -103,4 +118,114 @@ async function buildTemplateContext({ appRoot } = {}) {
   };
 }
 
-export { buildTemplateContext };
+async function prepareInstallHook({
+  appRoot,
+  appPackageJson = {},
+  io,
+  dryRun = false,
+  helpers = {}
+} = {}) {
+  const ensureManagedMobileConfig = helpers?.ensureManagedMobileConfig;
+  if (typeof ensureManagedMobileConfig !== "function") {
+    throw new Error("install hook helpers.ensureManagedMobileConfig is required.");
+  }
+
+  const addedConfigStub = await ensureManagedMobileConfig({
+    dryRun
+  });
+  if (dryRun === true && addedConfigStub) {
+    return {
+      stopInstall: true,
+      touchedFiles: ["config/public.js"],
+      stopMessage:
+        "[dry-run] mobile package install preview stops after the config.mobile stub because rendered Capacitor files depend on those values."
+    };
+  }
+
+  return {};
+}
+
+async function finalizeInstallHook({
+  appRoot,
+  io,
+  dryRun = false,
+  skipManagedFinalize = false,
+  helpers = {}
+} = {}) {
+  if (skipManagedFinalize === true) {
+    return {};
+  }
+
+  const installAppDependencies = helpers?.installAppDependencies;
+  const runProjectBinary = helpers?.runProjectBinary;
+  const helperFileExists = helpers?.fileExists;
+  const collectShellInstallIssues = helpers?.collectCapacitorShellInstallIssues;
+  const ensureDeepLinks = helpers?.ensureAndroidManifestDeepLinks;
+  const ensureNativeShellIdentity = helpers?.ensureAndroidNativeShellIdentity;
+  if (typeof installAppDependencies !== "function") {
+    throw new Error("install hook helpers.installAppDependencies is required.");
+  }
+  if (typeof runProjectBinary !== "function") {
+    throw new Error("install hook helpers.runProjectBinary is required.");
+  }
+  if (typeof helperFileExists !== "function") {
+    throw new Error("install hook helpers.fileExists is required.");
+  }
+  if (typeof collectShellInstallIssues !== "function") {
+    throw new Error("install hook helpers.collectCapacitorShellInstallIssues is required.");
+  }
+  if (typeof ensureDeepLinks !== "function") {
+    throw new Error("install hook helpers.ensureAndroidManifestDeepLinks is required.");
+  }
+  if (typeof ensureNativeShellIdentity !== "function") {
+    throw new Error("install hook helpers.ensureAndroidNativeShellIdentity is required.");
+  }
+
+  await installAppDependencies({
+    dryRun
+  });
+
+  const androidDirectoryPath = path.join(appRoot, "android");
+  const shellInstallIssues = await collectShellInstallIssues();
+  if (shellInstallIssues.length < 1) {
+    io?.stdout?.write("[mobile] Android shell is already installed. Skipping cap add android.\n");
+  } else {
+    if (await helperFileExists(androidDirectoryPath)) {
+      io?.stdout?.write("[mobile] Android shell is partial or stale. Reprovisioning it with Capacitor CLI because these artifacts are missing:\n");
+      for (const issue of shellInstallIssues) {
+        io?.stdout?.write(`- ${issue}\n`);
+      }
+      const androidDirectoryHasFiles = await directoryContainsAnyFiles(androidDirectoryPath);
+      if (!androidDirectoryHasFiles) {
+        io?.stdout?.write("[mobile] android/ exists but contains no files. Removing the empty partial shell before reprovisioning.\n");
+        if (!dryRun) {
+          await rm(androidDirectoryPath, { recursive: true, force: true });
+        }
+      } else {
+        throw new Error(
+          "android/ exists but the Capacitor shell is incomplete. JSKIT will not delete a non-empty native tree automatically. Remove android/ and rerun the install."
+        );
+      }
+    } else {
+      io?.stdout?.write("[mobile] Android shell is not installed yet. Provisioning it with Capacitor CLI.\n");
+    }
+    await runProjectBinary("cap", ["add", "android"], {
+      explanation: "[mobile] Provisioning Android shell with Capacitor CLI:",
+      dryRun
+    });
+    if (!dryRun) {
+      io?.stdout?.write("[mobile] Added Android shell with Capacitor CLI.\n");
+    }
+  }
+  await ensureDeepLinks({
+    dryRun
+  });
+  await ensureNativeShellIdentity({
+    dryRun
+  });
+  return {
+    touchedFiles: ["android"]
+  };
+}
+
+export { buildTemplateContext, prepareInstallHook, finalizeInstallHook };

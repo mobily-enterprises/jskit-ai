@@ -1,6 +1,6 @@
 {
   "name": "@jskit-ai/mobile-capacitor",
-  "version": "0.1.0",
+  "version": "0.1.2",
   "type": "module",
   "scripts": {
     "test": "node --test"
@@ -12,6 +12,6 @@
   },
   "dependencies": {
     "@capacitor/browser": "^7.0.1",
-    "@jskit-ai/kernel": "0.1.63"
+    "@jskit-ai/kernel": "0.1.65"
   }
 }

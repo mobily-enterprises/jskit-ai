@@ -14,10 +14,11 @@ import {
 } from "../core/commandCatalog.js";
 
 const WRAPPER_COMMANDS = new Set(["npx", "jsx"]);
-const KNOWN_GENERATE_FLAG_OPTIONS = Object.freeze(["dry-run", "run-npm-install", "json", "verbose"]);
+const KNOWN_GENERATE_FLAG_OPTIONS = Object.freeze(["dry-run", "run-npm-install", "devlinks", "json", "verbose"]);
 const BOOLEAN_OPTION_NAMES = new Set([
   "dry-run",
   "run-npm-install",
+  "devlinks",
   "full",
   "expanded",
   "details",
@@ -747,6 +748,7 @@ function buildCommandOptionMeta(command = "", catalogModule) {
     const labels = {
       dryRun: "dry-run",
       runNpmInstall: "run-npm-install",
+      devlinks: "devlinks",
       full: "full",
       expanded: "expanded",
       details: "details",

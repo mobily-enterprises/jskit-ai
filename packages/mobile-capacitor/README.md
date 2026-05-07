@@ -10,7 +10,8 @@ glue needed for:
 - deep-link normalization into normal JSKIT routes
 - auth callback completion on `/auth/login`
 - Android shell file rendering from `config.mobile`
-- `jskit mobile` add/sync/run/build/doctor commands
+- `jskit mobile` add/sync/run/build/doctor/devices/tunnel/restart commands
+- `jskit mobile` add/sync/run/build/doctor/devices/tunnel/restart/dev commands
 
 ## Stage 1 Scope
 
@@ -129,13 +130,40 @@ Notes:
 
 ## Command Contract
 
+Install path:
+
+- canonical package install:
+  - `jskit add package @jskit-ai/mobile-capacitor`
+- convenience alias:
+  - `jskit mobile add capacitor`
+- both paths now use the same package-owned install hooks:
+  - seed `config.mobile` when missing
+  - install Capacitor dependencies
+  - provision `android/` with `cap add android` when needed
+  - refresh the managed Android shell identity/deep-link files
+
 `jskit mobile add capacitor`
 
 - installs `@jskit-ai/mobile-capacitor`
 - installs the required Capacitor packages
 - adds managed npm scripts
+- seeds `config.mobile` with working JSKIT local-dev defaults when it is missing
 - renders managed config files
 - runs `cap add android` if `android/` does not exist
+
+`jskit mobile devices android`
+
+- runs `adb devices -l`
+- prints the Android targets currently visible to adb
+
+`jskit mobile dev android [--target <device-id>]`
+
+- runs the standard local-phone sequence in one command:
+  - `jskit mobile sync android`
+  - `jskit mobile run android --target <device-id>`
+  - `jskit mobile tunnel android --target <device-id>`
+- prints each step and the full command before it runs
+- if `--target` is omitted, uses the first Android device from `adb devices -l`
 
 `jskit mobile sync android`
 
@@ -144,7 +172,19 @@ Notes:
 - builds the web app
 - runs `cap sync android`
 
-`jskit mobile run android`
+`jskit mobile tunnel android --target <device-id>`
+
+- resolves the loopback port from `config.mobile.apiBaseUrl`, or uses `--port`
+- runs `adb -s <device-id> reverse tcp:<port> tcp:<port>`
+- prints `adb reverse --list` so the active tunnel is visible
+
+`jskit mobile restart android --target <device-id>`
+
+- clears app data with `pm clear`
+- force-stops the Android app
+- cold-starts `MainActivity`
+
+`jskit mobile run android [--target <device-id>]`
 
 - in `bundled` mode:
   - runs the normal sync flow first
@@ -152,6 +192,7 @@ Notes:
   - refreshes managed config files
   - syncs the Android shell without rebuilding bundled assets
 - then runs `cap run android`
+- forwards `--target` to Capacitor when you want a specific attached phone/emulator
 
 `jskit mobile build android`
 
@@ -258,6 +299,22 @@ Minimum real-device or emulator QA for a Stage 1 app:
 - login returns through the custom scheme to `/auth/login`
 - intended destination resumes after OAuth
 - workspace routes open through deep links
+
+## Local Phone Development
+
+When `config.mobile.apiBaseUrl` points at a local loopback server like
+`http://127.0.0.1:3000`, the phone cannot reach your laptop directly. The
+required JSKIT workflow is:
+
+1. run the local backend
+2. `jskit mobile sync android`
+3. install or launch the shell
+4. `jskit mobile tunnel android --target <device-id>`
+5. `jskit mobile restart android --target <device-id>` when you need a clean
+   signed-out state
+
+If `config.mobile.apiBaseUrl` points at a real remote `https://...` backend,
+the reverse tunnel is not needed.
 - an unknown app deep link is handed to the normal router/404 path without
   crashing the shell
 - Android back button navigates back or exits cleanly at the app root

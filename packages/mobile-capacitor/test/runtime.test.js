@@ -8,7 +8,6 @@ import { createMobileCapacitorRuntime } from "../src/client/runtime/mobileCapaci
 import {
   createCapacitorAwareFetch,
   isCapacitorApiRequestTarget,
-  normalizeCapacitorApiRequestSourceUrl,
   resolveCapacitorAbsoluteHttpUrl
 } from "../src/client/runtime/apiRequestClient.js";
 import {
@@ -128,25 +127,10 @@ test("resolveCapacitorAbsoluteHttpUrl resolves relative API URLs against apiBase
 test("isCapacitorApiRequestTarget only rewrites known server endpoints", () => {
   assert.equal(isCapacitorApiRequestTarget("/api/session"), true);
   assert.equal(isCapacitorApiRequestTarget("/socket.io/?EIO=4"), true);
-  assert.equal(isCapacitorApiRequestTarget("https://localhost/api/session"), true);
-  assert.equal(isCapacitorApiRequestTarget("https://localhost/socket.io/?EIO=4"), true);
+  assert.equal(isCapacitorApiRequestTarget("https://localhost/api/session"), false);
+  assert.equal(isCapacitorApiRequestTarget("https://localhost/socket.io/?EIO=4"), false);
   assert.equal(isCapacitorApiRequestTarget("/assets/index.js"), false);
   assert.equal(isCapacitorApiRequestTarget("assets/index.js"), false);
-});
-
-test("normalizeCapacitorApiRequestSourceUrl strips the local shell origin before rewrite", () => {
-  assert.equal(
-    normalizeCapacitorApiRequestSourceUrl("https://localhost/api/session?full=1"),
-    "/api/session?full=1"
-  );
-  assert.equal(
-    normalizeCapacitorApiRequestSourceUrl("http://127.0.0.1:5173/socket.io/?EIO=4&transport=polling"),
-    "/socket.io/?EIO=4&transport=polling"
-  );
-  assert.equal(
-    normalizeCapacitorApiRequestSourceUrl("https://api.example.com/api/session"),
-    "https://api.example.com/api/session"
-  );
 });
 
 test("createCapacitorAwareFetch rewrites relative API requests inside the shell", async () => {
@@ -186,43 +170,6 @@ test("createCapacitorAwareFetch rewrites relative API requests inside the shell"
     },
     {
       url: "/assets/index.js",
-      options: undefined
-    }
-  ]);
-});
-
-test("createCapacitorAwareFetch rewrites absolute local-shell API requests inside the shell", async () => {
-  const calls = [];
-  const wrappedFetch = createCapacitorAwareFetch({
-    fetchImpl: async (url, options) => {
-      calls.push({
-        url,
-        options
-      });
-      return {
-        ok: true
-      };
-    },
-    adapter: {
-      available: true
-    },
-    apiBaseUrl: "http://127.0.0.1:3000"
-  });
-
-  await wrappedFetch("https://localhost/api/session?full=1", {
-    method: "GET"
-  });
-  await wrappedFetch("https://localhost/socket.io/?EIO=4&transport=polling");
-
-  assert.deepEqual(calls, [
-    {
-      url: "http://127.0.0.1:3000/api/session?full=1",
-      options: {
-        method: "GET"
-      }
-    },
-    {
-      url: "http://127.0.0.1:3000/socket.io/?EIO=4&transport=polling",
       options: undefined
     }
   ]);

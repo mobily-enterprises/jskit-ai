@@ -2,7 +2,6 @@ const API_ROUTE_PREFIXES = Object.freeze([
   "/api",
   "/socket.io"
 ]);
-const LOCAL_SHELL_HOSTS = new Set(["localhost", "127.0.0.1", "[::1]"]);
 
 function parseAbsoluteHttpUrl(url = "", {
   apiBaseUrl = "",
@@ -59,29 +58,10 @@ function resolveCapacitorAbsoluteHttpUrl(url = "", apiBaseUrl = "", messages = {
 
 function isCapacitorApiRequestTarget(url = "") {
   const normalizedUrl = String(url || "").trim();
-  if (normalizedUrl.startsWith("/")) {
-    return API_ROUTE_PREFIXES.some((prefix) => normalizedUrl === prefix || normalizedUrl.startsWith(`${prefix}/`));
-  }
-
-  let parsedUrl = null;
-  try {
-    parsedUrl = new URL(normalizedUrl);
-  } catch {
+  if (!normalizedUrl.startsWith("/")) {
     return false;
   }
-
-  const protocol = String(parsedUrl.protocol || "").toLowerCase();
-  if (protocol !== "http:" && protocol !== "https:") {
-    return false;
-  }
-
-  const hostname = String(parsedUrl.hostname || "").trim().toLowerCase();
-  if (!LOCAL_SHELL_HOSTS.has(hostname)) {
-    return false;
-  }
-
-  const pathname = String(parsedUrl.pathname || "").trim();
-  return API_ROUTE_PREFIXES.some((prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`));
+  return API_ROUTE_PREFIXES.some((prefix) => normalizedUrl === prefix || normalizedUrl.startsWith(`${prefix}/`));
 }
 
 function normalizeFetchInput(input = "") {
@@ -139,8 +119,7 @@ function createCapacitorAwareFetch({
       return fetchImpl(input, init);
     }
 
-    const sourceUrl = normalizeCapacitorApiRequestSourceUrl(normalizedInput.rawUrl);
-    const resolvedUrl = resolveCapacitorAbsoluteHttpUrl(sourceUrl, apiBaseUrl, {
+    const resolvedUrl = resolveCapacitorAbsoluteHttpUrl(normalizedInput.rawUrl, apiBaseUrl, {
       emptyUrlMessage: "Capacitor API request URL is required.",
       missingApiBaseUrlMessage: "config.mobile.apiBaseUrl is required for Capacitor API requests.",
       invalidUrlProtocolMessage: "Capacitor API request URL must use http or https."
@@ -150,30 +129,8 @@ function createCapacitorAwareFetch({
   };
 }
 
-function normalizeCapacitorApiRequestSourceUrl(url = "") {
-  const normalizedUrl = String(url || "").trim();
-  if (!normalizedUrl) {
-    return normalizedUrl;
-  }
-  if (normalizedUrl.startsWith("/")) {
-    return normalizedUrl;
-  }
-
-  try {
-    const parsedUrl = new URL(normalizedUrl);
-    const protocol = String(parsedUrl.protocol || "").toLowerCase();
-    const hostname = String(parsedUrl.hostname || "").trim().toLowerCase();
-    if ((protocol === "http:" || protocol === "https:") && LOCAL_SHELL_HOSTS.has(hostname)) {
-      return `${parsedUrl.pathname || "/"}${parsedUrl.search || ""}${parsedUrl.hash || ""}`;
-    }
-  } catch {}
-
-  return normalizedUrl;
-}
-
 export {
   createCapacitorAwareFetch,
   isCapacitorApiRequestTarget,
-  normalizeCapacitorApiRequestSourceUrl,
   resolveCapacitorAbsoluteHttpUrl
 };

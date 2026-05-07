@@ -103,11 +103,23 @@ function humanizeAppName(value = "") {
 }
 
 function slugifyForIdentifier(value = "") {
-  return String(value || "")
-    .trim()
-    .toLowerCase()
-    .replace(/^@/u, "")
-    .replace(/[^a-z0-9]+/gu, "")
+  const normalizedValue = String(value || "").trim().toLowerCase();
+  if (!normalizedValue) {
+    return "exampleapp";
+  }
+
+  const packageLeaf = normalizedValue.split("/").filter(Boolean).pop() || normalizedValue;
+  const rawParts = packageLeaf
+    .replace(/[^a-z0-9]+/gu, " ")
+    .split(/\s+/u)
+    .map((entry) => entry.trim())
+    .filter(Boolean);
+  const genericSuffixParts = new Set(["app", "mobile", "web", "site", "client"]);
+  const filteredParts = rawParts.filter((entry) => !genericSuffixParts.has(entry));
+  const candidateParts = filteredParts.length > 0 ? filteredParts : rawParts;
+
+  return candidateParts
+    .join("")
     .replace(/^([0-9]+)/u, "")
     || "exampleapp";
 }
@@ -116,7 +128,7 @@ function buildManagedMobileConfigStub({ packageJson = {} } = {}) {
   const packageName = String(packageJson?.name || "").trim();
   const packageVersion = String(packageJson?.version || "").trim() || "0.1.0";
   const scheme = slugifyForIdentifier(packageName);
-  const appId = `com.example.${scheme}`;
+  const appId = `ai.jskit.${scheme}`;
   const appName = humanizeAppName(packageName);
 
   return [
@@ -128,7 +140,7 @@ function buildManagedMobileConfigStub({ packageJson = {} } = {}) {
     `  appName: ${JSON.stringify(appName)},`,
     '  assetMode: "bundled",',
     '  devServerUrl: "",',
-    '  apiBaseUrl: "https://api.example.com",',
+    '  apiBaseUrl: "http://127.0.0.1:3000",',
     "  auth: {",
     '    callbackPath: "/auth/login",',
     `    customScheme: ${JSON.stringify(scheme)},`,
@@ -600,11 +612,23 @@ function injectManagedDeepLinkBlock(manifestSource = "", managedBlock = "") {
 }
 
 async function assertCapacitorShellInstalled({ ctx, appRoot }) {
+  const missingPaths = await collectCapacitorShellInstallIssues({
+    ctx,
+    appRoot
+  });
+
+  if (missingPaths.length > 0) {
+    throw ctx.createCliError(
+      `Capacitor Android shell is not installed for this app. Missing: ${missingPaths.join(", ")}. Run jskit mobile add capacitor first.`
+    );
+  }
+}
+
+async function collectCapacitorShellInstallIssues({ ctx, appRoot } = {}) {
   const {
     fileExists,
     path: pathModule,
-    normalizeRelativePath,
-    createCliError
+    normalizeRelativePath
   } = ctx;
   const missingPaths = [];
 
@@ -618,11 +642,25 @@ async function assertCapacitorShellInstalled({ ctx, appRoot }) {
     missingPaths.push(normalizeRelativePath(appRoot, androidDirectoryPath));
   }
 
-  if (missingPaths.length > 0) {
-    throw createCliError(
-      `Capacitor Android shell is not installed for this app. Missing: ${missingPaths.join(", ")}. Run jskit mobile add capacitor first.`
-    );
+  const requiredAndroidPaths = [
+    ANDROID_MANIFEST_RELATIVE_PATH,
+    ANDROID_APP_BUILD_GRADLE_RELATIVE_PATH,
+    ANDROID_VARIABLES_RELATIVE_PATH,
+    ANDROID_STRINGS_RELATIVE_PATH
+  ];
+  for (const relativePath of requiredAndroidPaths) {
+    const absolutePath = pathModule.join(appRoot, relativePath);
+    if (!(await fileExists(absolutePath))) {
+      missingPaths.push(normalizeRelativePath(appRoot, absolutePath));
+    }
   }
+
+  const mainActivityEntry = await resolveAndroidMainActivityEntry(appRoot);
+  if (!mainActivityEntry) {
+    missingPaths.push("Android MainActivity source file");
+  }
+
+  return missingPaths;
 }
 
 async function ensureAndroidManifestDeepLinks({
@@ -879,6 +917,7 @@ export {
   resolveAndroidSdkDetails,
   collectAndroidSdkComponentIssues,
   assertAndroidSdkConfigured,
+  collectCapacitorShellInstallIssues,
   ensureMobileConfigStub,
   buildManagedDeepLinkIntentFilterBlock,
   injectManagedDeepLinkBlock,
