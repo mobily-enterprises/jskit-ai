@@ -22,7 +22,7 @@ Installed contract:
 Owned artifacts:
 
 - `capacitor.config.json`
-- `android/` after `jskit add package @jskit-ai/mobile-capacitor` or `jskit mobile add capacitor` runs `cap add android`
+- `android/` after `jskit add package @jskit-ai/mobile-capacitor` runs `cap add android`
 - `android/app/src/main/AndroidManifest.xml` managed deep-link intent filter for the custom scheme
 
 Managed commands:
@@ -30,7 +30,6 @@ Managed commands:
 - `jskit add package @jskit-ai/mobile-capacitor`
 - `jskit mobile dev android [--target <device-id>]`
 - `jskit mobile devices android`
-- `jskit mobile add capacitor`
 - `jskit mobile sync android`
 - `jskit mobile tunnel android --target <device-id>`
 - `jskit mobile restart android --target <device-id>`

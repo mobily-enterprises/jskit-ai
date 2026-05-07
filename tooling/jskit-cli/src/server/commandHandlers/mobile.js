@@ -118,6 +118,12 @@ function renderMobileHelp(stream, definition = null) {
     lines.push("");
     lines.push(color.heading("2) Subcommands"));
     for (const entry of listMobileCommandDefinitions()) {
+      if (entry.name === "dev") {
+        lines.push(
+          `   - ${color.item(entry.name)}: Shortcut to run ${color.emphasis("sync")}, ${color.emphasis("tunnel")}, ${color.emphasis("run")} in this order`
+        );
+        continue;
+      }
       lines.push(`   - ${color.item(entry.name)}: ${entry.summary}`);
     }
     lines.push("");
@@ -402,7 +408,7 @@ async function runLocalBinary(binaryName, args = [], {
       if (error?.code === "ENOENT") {
         reject(
           createCliError(
-            `Could not find local "${binaryName}" in node_modules/.bin. Re-run jskit mobile add capacitor after npm install succeeds.`
+            `Could not find local "${binaryName}" in node_modules/.bin. Re-run jskit add package @jskit-ai/mobile-capacitor after npm install succeeds.`
           )
         );
         return;
@@ -511,28 +517,6 @@ async function refreshManagedMobileFiles({
       devlinks: options?.devlinks === true
     });
   }
-}
-
-async function runMobileAddCapacitorCommand({
-  commandAdd,
-  appRoot,
-  options = {},
-  stdout,
-  stderr
-}) {
-  return await commandAdd({
-    positional: ["package", CAPACITOR_RUNTIME_PACKAGE_ID],
-    options: {
-      ...options,
-      runNpmInstall: true,
-      inlineOptions: {}
-    },
-    cwd: appRoot,
-    io: {
-      stdout,
-      stderr
-    }
-  });
 }
 
 async function runMobileSyncAndroidCommand({
@@ -1024,18 +1008,6 @@ async function runMobileDevAndroidCommand({
     stderr
   });
 
-  stdout.write(`[mobile] Installing and launching the app on ${selectedDevice.serial}:\n`);
-  stdout.write(`[mobile]   npx jskit mobile run android --target ${selectedDevice.serial}\n`);
-  await runCapRunAndroidCommand({
-    ctx,
-    appRoot,
-    pathModule: ctx.path,
-    target: selectedDevice.serial,
-    stdout,
-    stderr,
-    dryRun: false
-  });
-
   stdout.write(`[mobile] Creating the adb reverse tunnel on ${selectedDevice.serial}:\n`);
   stdout.write(`[mobile]   npx jskit mobile tunnel android --target ${selectedDevice.serial}\n`);
   await runMobileTunnelAndroidCommand({
@@ -1048,6 +1020,18 @@ async function runMobileDevAndroidCommand({
     },
     stdout,
     stderr
+  });
+
+  stdout.write(`[mobile] Installing and launching the app on ${selectedDevice.serial}:\n`);
+  stdout.write(`[mobile]   npx jskit mobile run android --target ${selectedDevice.serial}\n`);
+  await runCapRunAndroidCommand({
+    ctx,
+    appRoot,
+    pathModule: ctx.path,
+    target: selectedDevice.serial,
+    stdout,
+    stderr,
+    dryRun: false
   });
 
   return 0;
@@ -1187,28 +1171,6 @@ function createMobileCommands(ctx = {}, { commandAdd } = {}) {
 
       return runMobileRestartAndroidCommand({
         ctx,
-        appRoot,
-        options,
-        stdout,
-        stderr
-      });
-    }
-
-    if (definition.name === "add") {
-      if (secondToken !== "capacitor") {
-        throw createCliError(`jskit mobile add currently supports only "capacitor".`, {
-          renderUsage: () => renderMobileHelp(stderr, definition)
-        });
-      }
-      if (remainingPositionals.length > 0) {
-        throw createCliError(`Unexpected positional arguments for jskit mobile add: ${remainingPositionals.join(" ")}`, {
-          renderUsage: () => renderMobileHelp(stderr, definition)
-        });
-      }
-
-      return runMobileAddCapacitorCommand({
-        ctx,
-        commandAdd,
         appRoot,
         options,
         stdout,

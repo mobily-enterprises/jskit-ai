@@ -2,7 +2,7 @@
 
 This guide is the main hands-on path through JSKIT.
 
-It now starts with a fast reproducible Quickstart, then steps back to the smaller scaffold-first chapters that explain how the app is assembled piece by piece. After that, it introduces the database-backed users layer, expands into console and workspace-aware app structure, and adds a small `App extras` section for optional runtime packages such as realtime and assistant. Finally, the guide breaks out generator-specific workflows into their own section.
+It now starts with a fast reproducible Quickstart, then steps back to the smaller scaffold-first chapters that explain how the app is assembled piece by piece. After that, it introduces the database-backed users layer, expands into console and workspace-aware app structure, and adds a small `App extras` section for optional runtime packages such as the Android Capacitor shell, realtime, and assistant. Finally, the guide breaks out generator-specific workflows into their own section.
 
 ## Table of Contents
 
@@ -20,6 +20,7 @@ It now starts with a fast reproducible Quickstart, then steps back to the smalle
 
 ### App Extras
 
+- [Mobile Capacitor](/guide/app-extras/mobile-capacitor)
 - [Realtime](/guide/app-extras/realtime)
 - [Assistant](/guide/app-extras/assistant)
 
@@ -34,6 +35,6 @@ It now starts with a fast reproducible Quickstart, then steps back to the smalle
 
 - Start with `Quickstart` if you want the fastest route to a real workspace-enabled app and the first page-extension patterns.
 - Start with the rest of `App Setup` if you want to understand the base scaffold layer by layer.
-- Use `App Extras` once the base app structure is in place and you want optional runtime packages.
+- Use `App Extras` once the base app structure is in place and you want optional runtime packages such as the Android shell, realtime, or assistant.
 - Jump into `Generators` if you already understand the runtime packages and want app-owned scaffolding workflows.
 - Inside `Generators`, read `CRUD Generators` before `Advanced CRUDs`: the first chapter teaches the workflow, and the second explains the generated anatomy and customization points.

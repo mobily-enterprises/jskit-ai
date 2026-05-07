@@ -116,6 +116,8 @@ Exports
 Local functions
 - `normalizePackageKind(rawValue, descriptorPath)`
 - `validateFileMutationShape(descriptor, descriptorPath)`
+- `validateLifecycleHookSpec(spec = {}, descriptorPath, label = "lifecycle hook")`
+- `validateLifecycleShape(descriptor, descriptorPath)`
 
 ### `src/server/cliRuntime/ioAndMigrations.js`
 Exports
@@ -166,12 +168,12 @@ Exports
 
 ### `src/server/cliRuntime/mutations/fileMutations.js`
 Exports
-- `applyFileMutations(packageEntry, appRoot, preparedMutations, managedFiles, managedMigrations, touchedFiles, warnings = [], existingManagedFiles = [], { reapplyManagedAppFiles = false } = {})`
+- `applyFileMutations(packageEntry, appRoot, preparedMutations, managedFiles, managedMigrations, touchedFiles, warnings = [], existingManagedFiles = [], { dryRun = false, reapplyManagedAppFiles = false } = {})`
 - `prepareFileMutations(packageEntry, options, appRoot, fileMutations, existingManagedFiles = [])`
 
 ### `src/server/cliRuntime/mutations/installMigrationMutation.js`
 Exports
-- `applyInstallMigrationMutation({ packageEntry, preparedMutation, appRoot, managedMigrations, managedMigrationById, touchedFiles, warnings } = {})`
+- `applyInstallMigrationMutation({ packageEntry, preparedMutation, appRoot, managedMigrations, managedMigrationById, touchedFiles, warnings, dryRun = false } = {})`
 
 ### `src/server/cliRuntime/mutations/mutationPathUtils.js`
 Exports
@@ -194,7 +196,7 @@ Exports
 
 ### `src/server/cliRuntime/mutations/textMutations.js`
 Exports
-- `applyTextMutations(packageEntry, appRoot, textMutations, options, managedText, touchedFiles)`
+- `applyTextMutations(packageEntry, appRoot, textMutations, options, managedText, touchedFiles, { dryRun = false } = {})`
 - `partitionPreFileConfigTextMutations(textMutations = [])`
 - `resolvePositioningMutations(descriptorMutations = {})`
 Local functions
@@ -219,9 +221,9 @@ Local functions
 ### `src/server/cliRuntime/packageInstallFlow.js`
 Exports
 - `adoptAppLocalPackageDependencies({ appRoot, appPackageJson, lock })`
-- `applyPackageInstall({ packageEntry, packageOptions, appRoot, appPackageJson, lock, packageRegistry, touchedFiles, reportTemplateFetchStatus = null })`
-- `applyPackageMigrationsOnly({ packageEntry, packageOptions, appRoot, lock, touchedFiles })`
-- `applyPackagePositioning({ packageEntry, packageOptions, appRoot, lock, touchedFiles })`
+- `applyPackageInstall({ packageEntry, packageOptions, appRoot, appPackageJson, lock, packageRegistry, touchedFiles, reportTemplateFetchStatus = null, dryRun = false })`
+- `applyPackageMigrationsOnly({ packageEntry, packageOptions, appRoot, lock, touchedFiles, dryRun = false })`
+- `applyPackagePositioning({ packageEntry, packageOptions, appRoot, lock, touchedFiles, dryRun = false })`
 Local functions
 - `createManagedRecordBase(packageEntry, options)`
 - `cloneManagedMap(value = {})`
@@ -338,10 +340,10 @@ Exports
 - `normalizeViteDevProxyConfig(value = {}, { context = "vite proxy config" } = {})`
 - `resolveViteDevProxyConfigAbsolutePath(appRoot)`
 - `loadViteDevProxyConfig(appRoot, { context = "vite proxy config" } = {})`
-- `writeViteDevProxyConfig(appRoot, config = {}, touchedFiles = null)`
+- `writeViteDevProxyConfig(appRoot, config = {}, touchedFiles = null, { dryRun = false } = {})`
 - `normalizeViteProxyMutationRecord(value = {})`
-- `applyViteMutations(packageEntry, appRoot, viteMutations, options, managedVite, touchedFiles)`
-- `removeManagedViteProxyEntries({ appRoot, packageId, managedViteChanges = {}, touchedFiles = null } = {})`
+- `applyViteMutations(packageEntry, appRoot, viteMutations, options, managedVite, touchedFiles, { dryRun = false } = {})`
+- `removeManagedViteProxyEntries({ appRoot, packageId, managedViteChanges = {}, touchedFiles = null, dryRun = false } = {})`
 
 ### `src/server/commandHandlers/app.js`
 Exports
@@ -439,6 +441,82 @@ Local functions
 - `resolveDescriptorFromLockEntry({ appRoot = "", packageId = "", installedPackageEntry = {} } = {})`
 - `collectProviderSourceFiles(rootPath = "")`
 
+### `src/server/commandHandlers/mobile.js`
+Exports
+- `createMobileCommands(ctx = {}, { commandAdd } = {})`
+Local functions
+- `collectManagedMobileFileDriftIssues({ ctx, appRoot, issues = [] } = {})`
+- `collectMissingInstalledDependencyNames(ctx, appRoot = "", packageJson = {})`
+- `renderMobileHelp(stream, definition = null)`
+- `isValidHttpOrHttpsUrl(value = "")`
+- `normalizeInlineOptions(options = {})`
+- `parsePortNumber(rawValue, { createCliError, optionLabel = "--port" } = {})`
+- `parseAdbDeviceList(output = "")`
+- `resolveAdbReversePort({ mobileConfig = null, explicitPort = "", createCliError } = {})`
+- `runCapturedBinary(binaryName, args = [], { cwd = process.cwd(), env = {}, createCliError, notFoundMessage = "" } = {})`
+- `listVisibleAndroidDevices({ ctx, appRoot } = {})`
+- `resolveAndroidDeviceTarget({ ctx, appRoot, explicitTarget = "", commandLabel = "this mobile command" } = {})`
+- `resolveInstalledMobileConfigForCommand({ appRoot, createCliError } = {})`
+- `runLocalBinary(binaryName, args = [], { appRoot, cwd = appRoot, env = {}, stderr, stdout, pathModule, createCliError, dryRun = false } = {})`
+- `runMobileAppInstall({ ctx, appRoot, stdout, stderr, dryRun = false, devlinks = false } = {})`
+- `refreshManagedMobileFiles({ ctx, commandAdd, appRoot, options = {}, stdout, stderr } = {})`
+- `runMobileSyncAndroidCommand({ ctx, commandAdd, appRoot, options = {}, stdout, stderr })`
+- `runMobileRunAndroidCommand({ ctx, commandAdd, appRoot, options = {}, stdout, stderr })`
+- `runCapRunAndroidCommand({ ctx, appRoot, pathModule, target = "", stdout, stderr, dryRun = false } = {})`
+- `runMobileBuildAndroidCommand({ ctx, commandAdd, appRoot, options = {}, stdout, stderr })`
+- `runMobileDoctorCommand({ ctx, appRoot, stdout })`
+- `runMobileDevicesAndroidCommand({ ctx, appRoot, stdout })`
+- `runMobileTunnelAndroidCommand({ ctx, appRoot, options = {}, stdout })`
+- `runMobileRestartAndroidCommand({ ctx, appRoot, options = {}, stdout })`
+- `runMobileDevAndroidCommand({ ctx, commandAdd, appRoot, options = {}, stdout, stderr })`
+
+### `src/server/commandHandlers/mobileCommandCatalog.js`
+Exports
+- `MOBILE_COMMAND_DEFINITIONS`
+- `listMobileCommandDefinitions()`
+- `resolveMobileCommandDefinition(rawName = "")`
+- `buildMobileCommandOptionMeta(subcommandName = "")`
+
+### `src/server/commandHandlers/mobileShellSupport.js`
+Exports
+- `CAPACITOR_CONFIG_FILE`
+- `ANDROID_DIRECTORY_NAME`
+- `ANDROID_MANIFEST_RELATIVE_PATH`
+- `buildManagedMobileConfigStub({ packageJson = {} } = {})`
+- `resolveInstalledMobileConfig(appRoot = "")`
+- `resolveAndroidSdkDetails({ appRoot = "" } = {})`
+- `collectAndroidSdkComponentIssues({ appRoot = "", sdkRoot = "" } = {})`
+- `assertAndroidSdkConfigured({ ctx, appRoot } = {})`
+- `collectCapacitorShellInstallIssues({ ctx, appRoot } = {})`
+- `ensureMobileConfigStub({ ctx, appRoot, packageJson = {}, dryRun = false, stdout } = {})`
+- `buildManagedDeepLinkIntentFilterBlock(mobileConfig = {})`
+- `injectManagedDeepLinkBlock(manifestSource = "", managedBlock = "")`
+- `assertCapacitorShellInstalled({ ctx, appRoot })`
+- `ensureAndroidManifestDeepLinks({ ctx, appRoot, dryRun = false, stdout } = {})`
+- `collectAndroidNativeShellIdentityIssues({ ctx, appRoot } = {})`
+- `ensureAndroidNativeShellIdentity({ ctx, appRoot, dryRun = false, stdout } = {})`
+- `renderManagedMobileFile({ appRoot, relativeTargetPath, packageId = CAPACITOR_RUNTIME_PACKAGE_ID } = {})`
+Local functions
+- `normalizeRelativePosixPath(pathValue = "")`
+- `escapeRegExp(value = "")`
+- `pathExists(targetPath = "")`
+- `humanizeAppName(value = "")`
+- `slugifyForIdentifier(value = "")`
+- `parseAndroidSdkDirFromLocalProperties(source = "")`
+- `buildAndroidNativeConfig(mobileConfig = {})`
+- `replaceRequiredPattern(source = "", pattern, replacement, label = "pattern")`
+- `escapeXmlText(value = "")`
+- `replaceXmlStringValue(source = "", stringName = "", value = "")`
+- `renderAndroidVariablesGradleSource(source = "", nativeConfig = {})`
+- `renderAndroidAppBuildGradleSource(source = "", nativeConfig = {})`
+- `renderAndroidStringsSource(source = "", nativeConfig = {})`
+- `renderAndroidMainActivitySource(source = "", packageName = "", extension = ".java")`
+- `listFilesRecursively(rootDirectoryPath = "")`
+- `resolveAndroidMainActivityEntry(appRoot = "")`
+- `shouldAllowAndroidCleartextTraffic(mobileConfig = {})`
+- `renderAndroidManifestApplicationTrafficPolicy(manifestSource = "", mobileConfig = {})`
+- `renderManagedAndroidManifest(manifestSource = "", mobileConfig = {})`
+
 ### `src/server/commandHandlers/package.js`
 Exports
 - `createPackageCommands(ctx = {})`
@@ -448,6 +526,13 @@ Exports
 - `runPackageAddCommand(ctx = {}, { positional, options, cwd, io })`
 Local functions
 - `collectPlacementComponentTokensFromManagedRecords(installedPackageRecords = [])`
+- `renderWrappedShellCommand(binaryName, args = [], { maxWidth = 100, continuationIndent = " " } = {})`
+- `runLocalProjectBinary(binaryName, args = [], { appRoot, io, pathModule = path, createCliError, explanation = "", dryRun = false } = {})`
+- `installAppDependenciesForHook({ appRoot, appPackageJson, io, pathModule = path, createCliError, dryRun = false, runDevlinks = false } = {})`
+- `validateHookResult(result = {}, { packageId = "", hookLabel = "" } = {})`
+- `loadInstallHook({ packageEntry, appRoot, hookSpec, hookLabel = "" } = {})`
+- `createInstallHookHelpers({ ctx, appRoot, io, appPackageJson, commandOptions = {} } = {})`
+- `invokeInstallHook({ packageEntry, appRoot, hookSpec, hookLabel, hookContext, createCliError } = {})`
 
 ### `src/server/commandHandlers/packageCommands/create.js`
 Exports

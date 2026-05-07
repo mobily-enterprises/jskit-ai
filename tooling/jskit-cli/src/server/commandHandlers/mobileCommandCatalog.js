@@ -1,26 +1,4 @@
 const MOBILE_COMMAND_DEFINITIONS = Object.freeze({
-  add: Object.freeze({
-    name: "add",
-    summary: "Install Capacitor mobile-shell support into the current app.",
-    usage: "jskit mobile add capacitor [--dry-run] [--devlinks]",
-    options: Object.freeze([
-      Object.freeze({
-        label: "--devlinks",
-        description: "Run npm run --if-present devlinks after install for local development relinking."
-      }),
-      Object.freeze({
-        label: "--dry-run",
-        description: "Preview the package install and generated files without mutating package.json, lockfiles, or app files."
-      })
-    ]),
-    defaults: Object.freeze([
-      "Installs @jskit-ai/mobile-capacitor plus the required Capacitor packages.",
-      "Renders capacitor.config.json and .jskit/mobile-capacitor.md from config.mobile.",
-      "Runs npm install and then cap add android unless --dry-run is used.",
-      "Use --devlinks only when you want npm run devlinks to relink the app after install.",
-      "If android/ already exists, the Capacitor CLI add step is skipped."
-    ])
-  }),
   sync: Object.freeze({
     name: "sync",
     summary: "Build the JSKIT web client and sync the Android Capacitor shell.",
@@ -38,7 +16,7 @@ const MOBILE_COMMAND_DEFINITIONS = Object.freeze({
     defaults: Object.freeze([
       "Runs npm run build so dist/ matches the current JSKIT web client.",
       "Runs cap sync android after the frontend build succeeds.",
-      "Requires capacitor.config.json and android/ from jskit mobile add capacitor."
+      "Requires capacitor.config.json and android/ from jskit add package @jskit-ai/mobile-capacitor."
     ])
   }),
   run: Object.freeze({
@@ -62,7 +40,7 @@ const MOBILE_COMMAND_DEFINITIONS = Object.freeze({
   }),
   dev: Object.freeze({
     name: "dev",
-    summary: "Run the local Android phone workflow: sync, install/run, then create the adb reverse tunnel.",
+    summary: "Shortcut to run sync, tunnel, run in this order.",
     usage: "jskit mobile dev android [--target <device-id>]",
     options: Object.freeze([
       Object.freeze({
@@ -71,9 +49,9 @@ const MOBILE_COMMAND_DEFINITIONS = Object.freeze({
       })
     ]),
     defaults: Object.freeze([
-      "Runs jskit mobile sync android first.",
-      "Runs jskit mobile run android --target <device-id> without re-syncing a second time.",
-      "Runs jskit mobile tunnel android --target <device-id> last so local backend traffic reaches your laptop."
+      "jskit mobile sync android",
+      "jskit mobile tunnel android",
+      "jskit mobile run android"
     ])
   }),
   devices: Object.freeze({
@@ -146,8 +124,25 @@ const MOBILE_COMMAND_DEFINITIONS = Object.freeze({
 });
 
 function listMobileCommandDefinitions() {
+  const order = new Map([
+    ["dev", 0],
+    ["sync", 1],
+    ["tunnel", 2],
+    ["run", 3],
+    ["restart", 4],
+    ["build", 5],
+    ["devices", 6],
+    ["doctor", 7]
+  ]);
   return Object.values(MOBILE_COMMAND_DEFINITIONS)
-    .sort((left, right) => left.name.localeCompare(right.name));
+    .sort((left, right) => {
+      const leftOrder = order.get(left.name) ?? Number.MAX_SAFE_INTEGER;
+      const rightOrder = order.get(right.name) ?? Number.MAX_SAFE_INTEGER;
+      if (leftOrder !== rightOrder) {
+        return leftOrder - rightOrder;
+      }
+      return left.name.localeCompare(right.name);
+    });
 }
 
 function resolveMobileCommandDefinition(rawName = "") {
@@ -168,7 +163,7 @@ function buildMobileCommandOptionMeta(subcommandName = "") {
     return optionMeta;
   }
 
-  if (definition.name === "add" || definition.name === "sync" || definition.name === "run" || definition.name === "build") {
+  if (definition.name === "sync" || definition.name === "run" || definition.name === "build") {
     optionMeta["dry-run"] = { inputType: "flag" };
   }
   if (definition.name === "run") {

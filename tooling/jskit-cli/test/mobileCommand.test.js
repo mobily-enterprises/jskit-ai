@@ -343,293 +343,49 @@ async function prepareFakeAndroidSdk(sdkRoot) {
 
 test("jskit mobile help reflects the implemented file names and dry-run scope", async () => {
   await withTempDir(async (cwd) => {
-    const addHelp = runCli({
+    const mobileHelp = runCli({
       cwd,
-      args: ["mobile", "add", "help"]
+      args: ["mobile", "help"]
+    });
+    const syncHelp = runCli({
+      cwd,
+      args: ["mobile", "sync", "help"]
     });
     const runHelp = runCli({
       cwd,
       args: ["mobile", "run", "help"]
     });
 
-    assert.equal(addHelp.status, 0);
+    assert.equal(mobileHelp.status, 0);
+    assert.equal(syncHelp.status, 0);
     assert.equal(runHelp.status, 0);
-    assert.match(String(addHelp.stdout || ""), /capacitor\.config\.json/u);
-    assert.doesNotMatch(String(addHelp.stdout || ""), /capacitor\.config\.ts/u);
+    assert.match(
+      String(mobileHelp.stdout || ""),
+      /- dev: Shortcut to run sync, tunnel, run in this order[\s\S]*- sync:[\s\S]*- tunnel:[\s\S]*- run:/u
+    );
+    assert.doesNotMatch(String(mobileHelp.stdout || ""), /jskit mobile sync android[\s\S]*jskit mobile tunnel android[\s\S]*jskit mobile run android/u);
+    assert.match(String(syncHelp.stdout || ""), /capacitor\.config\.json/u);
+    assert.doesNotMatch(String(syncHelp.stdout || ""), /capacitor\.config\.ts/u);
     assert.match(String(runHelp.stdout || ""), /--dry-run/u);
     assert.match(String(runHelp.stdout || ""), /--target <device-id>/u);
   });
 });
 
-test("jskit mobile add capacitor installs the package, renders config files, and provisions android", async () => {
+test("jskit mobile add capacitor is no longer supported", async () => {
   await withTempDir(async (cwd) => {
     const appRoot = path.join(cwd, "app");
-    const binDir = path.join(cwd, "bin");
-    const logPath = path.join(cwd, "commands.log");
-
-    await createMobileReadyApp(appRoot, {
-      assetMode: "dev_server",
-      devServerUrl: "http://10.0.2.2:5173"
-    });
-    await installFakeCommand(
-      binDir,
-      "npm",
-      `#!/usr/bin/env node
-const fs = require("node:fs");
-fs.appendFileSync(process.env.TEST_LOG_PATH, ["npm", ...process.argv.slice(2)].join(" ") + "\\n");
-`
-    );
-    await writeExecutable(
-      path.join(appRoot, "node_modules", ".bin", "cap"),
-      `#!/usr/bin/env node
-const fs = require("node:fs");
-const path = require("node:path");
-fs.appendFileSync(process.env.TEST_LOG_PATH, ["cap", ...process.argv.slice(2)].join(" ") + "\\n");
-if (process.argv[2] === "add" && process.argv[3] === "android") {
-  const manifestPath = path.join(process.cwd(), "android", "app", "src", "main", "AndroidManifest.xml");
-  const buildGradlePath = path.join(process.cwd(), "android", "app", "build.gradle");
-  const stringsPath = path.join(process.cwd(), "android", "app", "src", "main", "res", "values", "strings.xml");
-  const mainActivityPath = path.join(process.cwd(), "android", "app", "src", "main", "java", "com", "example", "mobile", "MainActivity.java");
-  const variablesGradlePath = path.join(process.cwd(), "android", "variables.gradle");
-  fs.mkdirSync(path.dirname(manifestPath), { recursive: true });
-  fs.mkdirSync(path.dirname(buildGradlePath), { recursive: true });
-  fs.mkdirSync(path.dirname(stringsPath), { recursive: true });
-  fs.mkdirSync(path.dirname(mainActivityPath), { recursive: true });
-  fs.writeFileSync(manifestPath, ${JSON.stringify(DEFAULT_ANDROID_MANIFEST)}, "utf8");
-  fs.writeFileSync(buildGradlePath, ${JSON.stringify(buildSeedAndroidAppBuildGradle())}, "utf8");
-  fs.writeFileSync(stringsPath, ${JSON.stringify(buildSeedAndroidStringsXml())}, "utf8");
-  fs.writeFileSync(mainActivityPath, ${JSON.stringify(buildSeedMainActivityJava())}, "utf8");
-  fs.writeFileSync(variablesGradlePath, ${JSON.stringify(DEFAULT_ANDROID_VARIABLES_GRADLE)}, "utf8");
-}
-`
-    );
-
-    const result = runCli({
-      cwd: appRoot,
-      args: ["mobile", "add", "capacitor"],
-      env: buildTestEnv(binDir, logPath)
-    });
-
-    assert.equal(result.status, 0, String(result.stderr || ""));
-
-    const packageJson = JSON.parse(await readFile(path.join(appRoot, "package.json"), "utf8"));
-    assert.equal(packageJson.dependencies["@capacitor/core"], "^7.4.3");
-    assert.equal(packageJson.dependencies["@capacitor/android"], "^7.4.3");
-    assert.equal(packageJson.dependencies["@capacitor/app"], "^7.1.0");
-    assert.equal(packageJson.dependencies["@jskit-ai/mobile-capacitor"], "0.x");
-    assert.equal(packageJson.devDependencies["@capacitor/cli"], "^7.4.3");
-    assert.equal(packageJson.scripts["mobile:dev:android"], "jskit mobile dev android");
-    assert.equal(packageJson.scripts["mobile:devices:android"], "jskit mobile devices android");
-    assert.equal(packageJson.scripts["mobile:sync:android"], "jskit mobile sync android");
-    assert.equal(packageJson.scripts["mobile:tunnel:android"], "jskit mobile tunnel android");
-    assert.equal(packageJson.scripts["mobile:restart:android"], "jskit mobile restart android");
-    assert.equal(packageJson.scripts["mobile:run:android"], "jskit mobile run android");
-    assert.equal(packageJson.scripts["mobile:build:web"], "npm run build");
-    assert.equal(packageJson.scripts["mobile:build:android"], "jskit mobile build android");
-
-    const capacitorConfig = JSON.parse(await readFile(path.join(appRoot, "capacitor.config.json"), "utf8"));
-    assert.equal(capacitorConfig.appId, "com.example.mobile");
-    assert.equal(capacitorConfig.appName, "Example Mobile");
-    assert.equal(capacitorConfig.webDir, "dist");
-    assert.equal(capacitorConfig.server.url, "http://10.0.2.2:5173/");
-    assert.equal(capacitorConfig.server.cleartext, true);
-    assert.equal(capacitorConfig.plugins.CapacitorHttp.enabled, true);
-
-    const notesSource = await readFile(path.join(appRoot, ".jskit", "mobile-capacitor.md"), "utf8");
-    assert.match(notesSource, /strategy: `capacitor`/);
-    assert.match(notesSource, /custom scheme: `examplemobile`/);
-    assert.match(notesSource, /app link domains: `mobile\.example\.test`/);
-
-    const manifestSource = await readFile(
-      path.join(appRoot, "android", "app", "src", "main", "AndroidManifest.xml"),
-      "utf8"
-    );
-    assert.match(manifestSource, /jskit-mobile-capacitor:deep-links:start/);
-    assert.match(manifestSource, /android:scheme="examplemobile"/);
-    assert.match(manifestSource, /android:usesCleartextTraffic="true"/u);
-
-    const buildGradleSource = await readFile(path.join(appRoot, "android", "app", "build.gradle"), "utf8");
-    assert.match(buildGradleSource, /namespace "com\.example\.mobile"/u);
-    assert.match(buildGradleSource, /applicationId "com\.example\.mobile"/u);
-    assert.match(buildGradleSource, /versionName "1\.0\.0"/u);
-
-    const stringsSource = await readFile(
-      path.join(appRoot, "android", "app", "src", "main", "res", "values", "strings.xml"),
-      "utf8"
-    );
-    assert.match(stringsSource, /<string name="custom_url_scheme">examplemobile<\/string>/u);
-
-    const variablesGradleSource = await readFile(path.join(appRoot, "android", "variables.gradle"), "utf8");
-    assert.match(variablesGradleSource, /minSdkVersion = 26/u);
-
-    const mainActivitySource = await readFile(
-      path.join(appRoot, "android", "app", "src", "main", "java", "com", "example", "mobile", "MainActivity.java"),
-      "utf8"
-    );
-    assert.match(mainActivitySource, /^package com\.example\.mobile;/mu);
-
-    const lock = JSON.parse(await readFile(path.join(appRoot, ".jskit", "lock.json"), "utf8"));
-    assert.ok(lock.installedPackages["@jskit-ai/mobile-capacitor"]);
-
-    const logLines = (await readFile(logPath, "utf8")).split(/\r?\n/u).filter(Boolean);
-    assert.deepEqual(logLines, [
-      "npm install",
-      "cap add android"
-    ]);
-  });
-});
-
-test("jskit mobile add capacitor --dry-run previews without writing files or running npm/cap", async () => {
-  await withTempDir(async (cwd) => {
-    const appRoot = path.join(cwd, "app");
-    const binDir = path.join(cwd, "bin");
-    const logPath = path.join(cwd, "commands.log");
 
     await createMobileReadyApp(appRoot);
-    await installFakeCommand(
-      binDir,
-      "npm",
-      `#!/usr/bin/env node
-const fs = require("node:fs");
-fs.appendFileSync(process.env.TEST_LOG_PATH, ["npm", ...process.argv.slice(2)].join(" ") + "\\n");
-`
-    );
-    await writeExecutable(
-      path.join(appRoot, "node_modules", ".bin", "cap"),
-      `#!/usr/bin/env node
-const fs = require("node:fs");
-fs.appendFileSync(process.env.TEST_LOG_PATH, ["cap", ...process.argv.slice(2)].join(" ") + "\\n");
-`
-    );
 
     const result = runCli({
       cwd: appRoot,
-      args: ["mobile", "add", "capacitor", "--dry-run"],
-      env: buildTestEnv(binDir, logPath)
+      args: ["mobile", "add", "capacitor"]
     });
 
-    assert.equal(result.status, 0, String(result.stderr || ""));
-    await assert.rejects(() => readFile(path.join(appRoot, "capacitor.config.json"), "utf8"));
-    await assert.rejects(() => readFile(path.join(appRoot, ".jskit", "mobile-capacitor.md"), "utf8"));
-    await assert.rejects(() => readFile(logPath, "utf8"));
-  });
-});
-
-test("jskit mobile add capacitor appends a managed mobile config stub when config.mobile is missing", async () => {
-  await withTempDir(async (cwd) => {
-    const appRoot = path.join(cwd, "app");
-    const binDir = path.join(cwd, "bin");
-    const logPath = path.join(cwd, "commands.log");
-
-    await createMobileReadyApp(appRoot, {
-      includeMobileConfig: false
-    });
-    await installFakeCommand(
-      binDir,
-      "npm",
-      `#!/usr/bin/env node
-const fs = require("node:fs");
-fs.appendFileSync(process.env.TEST_LOG_PATH, ["npm", ...process.argv.slice(2)].join(" ") + "\\n");
-`
-    );
-    await writeExecutable(
-      path.join(appRoot, "node_modules", ".bin", "cap"),
-      `#!/usr/bin/env node
-const fs = require("node:fs");
-const path = require("node:path");
-fs.appendFileSync(process.env.TEST_LOG_PATH, ["cap", ...process.argv.slice(2)].join(" ") + "\\n");
-if (process.argv[2] === "add" && process.argv[3] === "android") {
-  const manifestPath = path.join(process.cwd(), "android", "app", "src", "main", "AndroidManifest.xml");
-  const buildGradlePath = path.join(process.cwd(), "android", "app", "build.gradle");
-  const stringsPath = path.join(process.cwd(), "android", "app", "src", "main", "res", "values", "strings.xml");
-  const mainActivityPath = path.join(process.cwd(), "android", "app", "src", "main", "java", "com", "example", "mobile", "MainActivity.java");
-  const variablesGradlePath = path.join(process.cwd(), "android", "variables.gradle");
-  fs.mkdirSync(path.dirname(manifestPath), { recursive: true });
-  fs.mkdirSync(path.dirname(buildGradlePath), { recursive: true });
-  fs.mkdirSync(path.dirname(stringsPath), { recursive: true });
-  fs.mkdirSync(path.dirname(mainActivityPath), { recursive: true });
-  fs.writeFileSync(manifestPath, ${JSON.stringify(DEFAULT_ANDROID_MANIFEST)}, "utf8");
-  fs.writeFileSync(buildGradlePath, ${JSON.stringify(buildSeedAndroidAppBuildGradle())}, "utf8");
-  fs.writeFileSync(stringsPath, ${JSON.stringify(buildSeedAndroidStringsXml())}, "utf8");
-  fs.writeFileSync(mainActivityPath, ${JSON.stringify(buildSeedMainActivityJava())}, "utf8");
-  fs.writeFileSync(variablesGradlePath, ${JSON.stringify(DEFAULT_ANDROID_VARIABLES_GRADLE)}, "utf8");
-}
-`
-    );
-
-    const result = runCli({
-      cwd: appRoot,
-      args: ["mobile", "add", "capacitor"],
-      env: buildTestEnv(binDir, logPath)
-    });
-
-    assert.equal(result.status, 0, String(result.stderr || ""));
-    const publicConfigSource = await readFile(path.join(appRoot, "config", "public.js"), "utf8");
-    assert.match(publicConfigSource, /jskit-mobile-capacitor:config:start/u);
-    assert.match(publicConfigSource, /config\.mobile = \{/u);
-    assert.match(publicConfigSource, /appId: "ai\.jskit\.example"/u);
-    assert.match(publicConfigSource, /apiBaseUrl: "http:\/\/127\.0\.0\.1:3000"/u);
-    assert.match(publicConfigSource, /customScheme: "example"/u);
-  });
-});
-
-test("jskit mobile add capacitor runs devlinks after npm install only when --devlinks is passed", async () => {
-  await withTempDir(async (cwd) => {
-    const appRoot = path.join(cwd, "app");
-    const binDir = path.join(cwd, "bin");
-    const logPath = path.join(cwd, "commands.log");
-
-    await createMobileReadyApp(appRoot, {
-      includeDevlinksScript: true
-    });
-    await installFakeCommand(
-      binDir,
-      "npm",
-      `#!/usr/bin/env node
-const fs = require("node:fs");
-fs.appendFileSync(process.env.TEST_LOG_PATH, ["npm", ...process.argv.slice(2)].join(" ") + "\\n");
-`
-    );
-    await writeExecutable(
-      path.join(appRoot, "node_modules", ".bin", "cap"),
-      `#!/usr/bin/env node
-const fs = require("node:fs");
-const path = require("node:path");
-fs.appendFileSync(process.env.TEST_LOG_PATH, ["cap", ...process.argv.slice(2)].join(" ") + "\\n");
-if (process.argv[2] === "add" && process.argv[3] === "android") {
-  const manifestPath = path.join(process.cwd(), "android", "app", "src", "main", "AndroidManifest.xml");
-  const buildGradlePath = path.join(process.cwd(), "android", "app", "build.gradle");
-  const stringsPath = path.join(process.cwd(), "android", "app", "src", "main", "res", "values", "strings.xml");
-  const mainActivityPath = path.join(process.cwd(), "android", "app", "src", "main", "java", "com", "example", "mobile", "MainActivity.java");
-  const variablesGradlePath = path.join(process.cwd(), "android", "variables.gradle");
-  fs.mkdirSync(path.dirname(manifestPath), { recursive: true });
-  fs.mkdirSync(path.dirname(buildGradlePath), { recursive: true });
-  fs.mkdirSync(path.dirname(stringsPath), { recursive: true });
-  fs.mkdirSync(path.dirname(mainActivityPath), { recursive: true });
-  fs.writeFileSync(manifestPath, ${JSON.stringify(DEFAULT_ANDROID_MANIFEST)}, "utf8");
-  fs.writeFileSync(buildGradlePath, ${JSON.stringify(buildSeedAndroidAppBuildGradle())}, "utf8");
-  fs.writeFileSync(stringsPath, ${JSON.stringify(buildSeedAndroidStringsXml())}, "utf8");
-  fs.writeFileSync(mainActivityPath, ${JSON.stringify(buildSeedMainActivityJava())}, "utf8");
-  fs.writeFileSync(variablesGradlePath, ${JSON.stringify(DEFAULT_ANDROID_VARIABLES_GRADLE)}, "utf8");
-}
-`
-    );
-
-    const result = runCli({
-      cwd: appRoot,
-      args: ["mobile", "add", "capacitor", "--devlinks"],
-      env: buildTestEnv(binDir, logPath, {
-        JSKIT_REPO_ROOT: "/home/merc/Development/current/jskit-ai"
-      })
-    });
-
-    assert.equal(result.status, 0, String(result.stderr || ""));
-    const logLines = (await readFile(logPath, "utf8")).split(/\r?\n/u).filter(Boolean);
-    assert.deepEqual(logLines, [
-      "npm install",
-      "npm run --if-present devlinks",
-      "cap add android"
-    ]);
+    assert.equal(result.status, 1);
+    assert.match(String(result.stderr || ""), /Unknown mobile subcommand: add/u);
+    assert.match(String(result.stderr || ""), /jskit mobile <subcommand>/u);
+    assert.doesNotMatch(String(result.stderr || ""), /- add:/u);
   });
 });
 
@@ -860,26 +616,6 @@ if (process.argv[2] === "add" && process.argv[3] === "android") {
       "npm install",
       "cap add android"
     ]);
-  });
-});
-
-test("jskit mobile add capacitor --dry-run previews the managed config stub when config.mobile is missing", async () => {
-  await withTempDir(async (cwd) => {
-    const appRoot = path.join(cwd, "app");
-
-    await createMobileReadyApp(appRoot, {
-      includeMobileConfig: false
-    });
-
-    const result = runCli({
-      cwd: appRoot,
-      args: ["mobile", "add", "capacitor", "--dry-run"]
-    });
-
-    assert.equal(result.status, 0, String(result.stderr || ""));
-    const publicConfigSource = await readFile(path.join(appRoot, "config", "public.js"), "utf8");
-    assert.doesNotMatch(publicConfigSource, /jskit-mobile-capacitor:config:start/u);
-    assert.match(String(result.stdout || ""), /append managed mobile config/u);
   });
 });
 
@@ -1282,18 +1018,18 @@ if (process.argv[2] === "-s" && process.argv[4] === "reverse" && process.argv[5]
     assert.match(String(result.stdout || ""), /Using Android device: 8ADX0QUH3/u);
     assert.match(String(result.stdout || ""), /Building and syncing the Android shell:/u);
     assert.match(String(result.stdout || ""), /npx jskit mobile sync android/u);
-    assert.match(String(result.stdout || ""), /npx jskit mobile run android --target 8ADX0QUH3/u);
     assert.match(String(result.stdout || ""), /npx jskit mobile tunnel android --target 8ADX0QUH3/u);
+    assert.match(String(result.stdout || ""), /npx jskit mobile run android --target 8ADX0QUH3/u);
     const logLines = (await readFile(logPath, "utf8")).split(/\r?\n/u).filter(Boolean);
     assert.deepEqual(logLines, [
       "adb devices -l",
       "npm install",
       "npm run build",
       "cap sync android",
-      "cap run android --target 8ADX0QUH3",
       "adb devices -l",
       "adb -s 8ADX0QUH3 reverse tcp:3000 tcp:3000",
-      "adb -s 8ADX0QUH3 reverse --list"
+      "adb -s 8ADX0QUH3 reverse --list",
+      "cap run android --target 8ADX0QUH3"
     ]);
   });
 });
@@ -1373,10 +1109,10 @@ if (process.argv[2] === "-s" && process.argv[4] === "reverse" && process.argv[5]
       "npm install",
       "npm run build",
       "cap sync android",
-      "cap run android --target chosen-device",
       "adb devices -l",
       "adb -s chosen-device reverse tcp:3000 tcp:3000",
-      "adb -s chosen-device reverse --list"
+      "adb -s chosen-device reverse --list",
+      "cap run android --target chosen-device"
     ]);
   });
 });

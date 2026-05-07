@@ -220,13 +220,13 @@ packages/mobile-capacitor/
 #### TODO
 
 - [x] Add:
-  - [x] `jskit mobile add capacitor`
+  - [x] `jskit add package @jskit-ai/mobile-capacitor`
   - [x] `jskit mobile sync android`
   - [x] `jskit mobile run android`
   - [x] `jskit mobile build android`
   - [x] `jskit mobile doctor`
 
-#### `jskit mobile add capacitor`
+#### `jskit add package @jskit-ai/mobile-capacitor`
 
 - [x] Install:
   - [x] `@capacitor/core`

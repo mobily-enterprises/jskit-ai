@@ -619,7 +619,7 @@ async function assertCapacitorShellInstalled({ ctx, appRoot }) {
 
   if (missingPaths.length > 0) {
     throw ctx.createCliError(
-      `Capacitor Android shell is not installed for this app. Missing: ${missingPaths.join(", ")}. Run jskit mobile add capacitor first.`
+      `Capacitor Android shell is not installed for this app. Missing: ${missingPaths.join(", ")}. Run jskit add package @jskit-ai/mobile-capacitor first.`
     );
   }
 }
@@ -678,7 +678,7 @@ async function ensureAndroidManifestDeepLinks({
   const manifestPath = pathModule.join(appRoot, ANDROID_MANIFEST_RELATIVE_PATH);
   if (!(await fileExists(manifestPath))) {
     throw createCliError(
-      `Capacitor Android shell is missing ${normalizeRelativePath(appRoot, manifestPath)}. Run jskit mobile add capacitor first.`
+      `Capacitor Android shell is missing ${normalizeRelativePath(appRoot, manifestPath)}. Run jskit add package @jskit-ai/mobile-capacitor first.`
     );
   }
 
@@ -783,7 +783,7 @@ async function ensureAndroidNativeShellIdentity({
     const absolutePath = pathModule.join(appRoot, relativePath);
     if (!(await fileExists(absolutePath))) {
       throw createCliError(
-        `Capacitor Android shell is missing ${normalizeRelativePath(appRoot, absolutePath)}. Run jskit mobile add capacitor first.`
+        `Capacitor Android shell is missing ${normalizeRelativePath(appRoot, absolutePath)}. Run jskit add package @jskit-ai/mobile-capacitor first.`
       );
     }
     const currentSource = await readFile(absolutePath, "utf8");
@@ -807,7 +807,7 @@ async function ensureAndroidNativeShellIdentity({
 
   const mainActivityEntry = await resolveAndroidMainActivityEntry(appRoot);
   if (!mainActivityEntry) {
-    throw createCliError("Capacitor Android shell is missing MainActivity.java or MainActivity.kt. Run jskit mobile add capacitor first.");
+    throw createCliError("Capacitor Android shell is missing MainActivity.java or MainActivity.kt. Run jskit add package @jskit-ai/mobile-capacitor first.");
   }
 
   const currentMainActivitySource = await readFile(mainActivityEntry.absolutePath, "utf8");
