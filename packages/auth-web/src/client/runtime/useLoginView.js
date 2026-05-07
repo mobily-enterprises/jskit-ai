@@ -2,6 +2,7 @@ import { onMounted } from "vue";
 import { useQueryClient } from "@tanstack/vue-query";
 import { useShellWebErrorRuntime } from "@jskit-ai/shell-web/client/error";
 import { useWebPlacementContext } from "@jskit-ai/shell-web/client/placement";
+import { useAuthOAuthLaunchClient } from "./inject.js";
 import { useLoginViewState } from "../composables/loginView/useLoginViewState.js";
 import { useLoginViewValidation } from "../composables/loginView/useLoginViewValidation.js";
 import { useLoginViewActions } from "../composables/loginView/useLoginViewActions.js";
@@ -10,6 +11,9 @@ function useLoginView() {
   const { context: placementContext } = useWebPlacementContext();
   const queryClient = useQueryClient();
   const errorRuntime = useShellWebErrorRuntime();
+  const oauthLaunchClient = useAuthOAuthLaunchClient({
+    required: true
+  });
 
   const state = useLoginViewState({ placementContext });
   const validation = useLoginViewValidation({ state });
@@ -17,7 +21,8 @@ function useLoginView() {
     state,
     validation,
     queryClient,
-    errorRuntime
+    errorRuntime,
+    oauthLaunchClient
   });
 
   onMounted(actions.initializeOnMounted);

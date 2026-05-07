@@ -35,7 +35,15 @@ const PRE_FILE_CONFIG_MUTATION_TARGETS = new Set([
   "config/server.js"
 ]);
 
-async function applyTextMutations(packageEntry, appRoot, textMutations, options, managedText, touchedFiles) {
+async function applyTextMutations(
+  packageEntry,
+  appRoot,
+  textMutations,
+  options,
+  managedText,
+  touchedFiles,
+  { dryRun = false } = {}
+) {
   for (const mutation of textMutations) {
     const when = normalizeMutationWhen(mutation?.when);
     const configContext = when?.config ? await loadMutationWhenConfigContext(appRoot) : {};
@@ -69,8 +77,10 @@ async function applyTextMutations(packageEntry, appRoot, textMutations, options,
       const resolvedValue = interpolateOptionValue(mutation?.value || "", options, packageEntry.packageId, resolvedKey);
       const upserted = upsertEnvValue(previousContent, resolvedKey, resolvedValue);
 
-      await mkdir(path.dirname(absoluteFile), { recursive: true });
-      await writeFile(absoluteFile, upserted.content, "utf8");
+      if (!dryRun) {
+        await mkdir(path.dirname(absoluteFile), { recursive: true });
+        await writeFile(absoluteFile, upserted.content, "utf8");
+      }
 
       const recordKey = `${relativeFile}::${String(mutation?.id || resolvedKey)}`;
       managedText[recordKey] = {
@@ -136,8 +146,10 @@ async function applyTextMutations(packageEntry, appRoot, textMutations, options,
         continue;
       }
 
-      await mkdir(path.dirname(absoluteFile), { recursive: true });
-      await writeFile(absoluteFile, appended.content, "utf8");
+      if (!dryRun) {
+        await mkdir(path.dirname(absoluteFile), { recursive: true });
+        await writeFile(absoluteFile, appended.content, "utf8");
+      }
 
       const recordKey = `${relativeFile}::${mutationId}`;
       managedText[recordKey] = {

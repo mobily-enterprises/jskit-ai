@@ -319,7 +319,8 @@ async function runPackageAddCommand(ctx = {}, { positional, options, cwd, io }) 
       lock,
       packageRegistry: combinedPackageRegistry,
       touchedFiles,
-      reportTemplateFetchStatus
+      reportTemplateFetchStatus,
+      dryRun: options.dryRun === true
     });
     installedPackageRecords.push(managedRecord);
   }

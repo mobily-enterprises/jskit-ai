@@ -14,6 +14,7 @@
     "./client/views/DefaultSignOutView": "./src/client/views/DefaultSignOutView.vue",
     "./client/runtime/authGuardRuntime": "./src/client/runtime/authGuardRuntime.js",
     "./client/runtime/authHttpClient": "./src/client/runtime/authHttpClient.js",
+    "./client/runtime/oauthCallbackRuntime": "./src/client/runtime/oauthCallbackRuntime.js",
     "./client/runtime/useSignOut": "./src/client/runtime/useSignOut.js"
   },
   "dependencies": {

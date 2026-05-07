@@ -167,6 +167,31 @@ const COMMAND_DESCRIPTORS = Object.freeze({
     allowedValueOptionNames: Object.freeze([]),
     canDelegateInlineOptions: (positional = []) => Array.isArray(positional) && positional.length > 0
   }),
+  mobile: Object.freeze({
+    command: "mobile",
+    aliases: Object.freeze([]),
+    showInOverview: true,
+    summary: "Run JSKIT-managed mobile-shell helpers.",
+    minimalUse: "jskit mobile add capacitor",
+    parameters: Object.freeze([
+      Object.freeze({
+        name: "<subcommand>",
+        description: "add (more mobile helpers will live here as Stage 1 expands)."
+      })
+    ]),
+    defaults: Object.freeze([
+      "The first supported flow is jskit mobile add capacitor.",
+      "Use jskit mobile <subcommand> help for subcommand-specific usage.",
+      "--dry-run is accepted by jskit mobile add/sync/run/build."
+    ]),
+    fullUse: "jskit mobile <subcommand> [help] [--dry-run] [--<option> <value>...]",
+    showHelpOnBareInvocation: true,
+    handlerName: "commandMobile",
+    allowedFlagKeys: Object.freeze(["dryRun"]),
+    inlineOptionMode: "delegate",
+    allowedValueOptionNames: Object.freeze([]),
+    canDelegateInlineOptions: (positional = []) => Array.isArray(positional) && positional.length > 0
+  }),
   add: Object.freeze({
     command: "add",
     aliases: Object.freeze([]),

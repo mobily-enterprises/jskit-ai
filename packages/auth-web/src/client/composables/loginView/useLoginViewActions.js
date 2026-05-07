@@ -5,17 +5,14 @@ import { authLoginPasswordCommand } from "@jskit-ai/auth-core/shared/commands/au
 import { authLoginOtpRequestCommand } from "@jskit-ai/auth-core/shared/commands/authLoginOtpRequestCommand";
 import { authLoginOtpVerifyCommand } from "@jskit-ai/auth-core/shared/commands/authLoginOtpVerifyCommand";
 import { authLoginOAuthStartCommand } from "@jskit-ai/auth-core/shared/commands/authLoginOAuthStartCommand";
-import { authLoginOAuthCompleteCommand } from "@jskit-ai/auth-core/shared/commands/authLoginOAuthCompleteCommand";
 import { authPasswordResetRequestCommand } from "@jskit-ai/auth-core/shared/commands/authPasswordResetRequestCommand";
 import { AUTH_PATHS, buildAuthOauthStartPath } from "@jskit-ai/auth-core/shared/authPaths";
 import { authHttpRequest } from "../../runtime/authHttpClient.js";
+import { completeOAuthCallbackFromCurrentLocation } from "../../runtime/oauthCallbackRuntime.js";
 import { normalizeAuthReturnToPath } from "../../lib/returnToPath.js";
 import { normalizeEmailAddress } from "./identityHelpers.js";
 import { readRememberedAccountHint } from "./rememberedAccountStorage.js";
-import {
-  stripOAuthParamsFromLocation,
-  readOAuthCallbackParamsFromLocation
-} from "./oauthCallbackUrl.js";
+import { stripOAuthParamsFromLocation } from "./oauthCallbackUrl.js";
 import { ensureCommandSectionValid } from "./validationHelpers.js";
 import { resolveRegisterCompletionState } from "./registerCompletion.js";
 
@@ -25,7 +22,8 @@ export function useLoginViewActions({
   state,
   validation,
   queryClient,
-  errorRuntime
+  errorRuntime,
+  oauthLaunchClient = null
 } = {}) {
   function reportAuthFeedback({
     message,
@@ -229,78 +227,46 @@ export function useLoginViewActions({
     await completeLogin();
   }
 
-  function buildOAuthCompletePayload({ callbackParams, provider, hasSessionPair }) {
-    const payload = {};
-    if (provider) {
-      payload.provider = provider;
-    }
-    if (callbackParams.code) {
-      payload.code = callbackParams.code;
-    }
-    if (hasSessionPair) {
-      payload.accessToken = callbackParams.accessToken;
-      payload.refreshToken = callbackParams.refreshToken;
-    }
-    return payload;
-  }
-
   async function handleOAuthCallbackIfPresent() {
-    const callbackParams = readOAuthCallbackParamsFromLocation();
-    if (!callbackParams) {
+    const callbackResult = await completeOAuthCallbackFromCurrentLocation({
+      fallbackReturnTo: state.requestedReturnTo.value,
+      allowedReturnToOrigins: state.allowedReturnToOrigins.value,
+      defaultProvider: resolveDefaultOAuthProvider(),
+      request,
+      refreshSession
+    });
+
+    if (callbackResult.handled !== true) {
       return false;
     }
 
-    state.requestedReturnTo.value = normalizeAuthReturnToPath(callbackParams.returnTo, state.requestedReturnTo.value, {
-      allowedOrigins: state.allowedReturnToOrigins.value
-    });
-
-    const provider = String(callbackParams.provider || resolveDefaultOAuthProvider() || "")
-      .trim()
-      .toLowerCase();
-    const oauthError = callbackParams.errorCode;
-    const oauthErrorDescription = callbackParams.errorDescription;
-    const hasSessionPair = callbackParams.hasSessionPair === true;
-
-    if (!provider && !hasSessionPair) {
-      setErrorMessage("OAuth provider is missing from callback.", "auth-web.default-login-view:oauth-missing-provider");
-      stripOAuthParamsFromLocation();
-      return true;
-    }
-
-    if (oauthError) {
-      setErrorMessage(oauthErrorDescription || oauthError, "auth-web.default-login-view:oauth-callback-error");
-      stripOAuthParamsFromLocation();
-      return true;
-    }
+    state.requestedReturnTo.value = normalizeAuthReturnToPath(
+      callbackResult.returnTo,
+      state.requestedReturnTo.value,
+      {
+        allowedOrigins: state.allowedReturnToOrigins.value
+      }
+    );
 
     state.loading.value = true;
     clearTransientMessages();
 
     try {
-      const payload = buildOAuthCompletePayload({
-        callbackParams,
-        provider,
-        hasSessionPair
-      });
-      ensureCommandSectionValid(
-        authLoginOAuthCompleteCommand,
-        "body",
-        payload,
-        "Invalid OAuth callback payload."
-      );
+      if (callbackResult.completed !== true) {
+        throw new Error(callbackResult.errorMessage || "Unable to complete OAuth sign-in.");
+      }
 
-      const oauthResult = await request(AUTH_PATHS.OAUTH_COMPLETE, {
-        method: "POST",
-        body: payload
-      });
       state.applyRememberedAccountPreference({
-        email: oauthResult?.email || state.email.value,
-        displayName: oauthResult?.username || oauthResult?.email || state.email.value,
+        email: callbackResult.oauthResult?.email || state.email.value,
+        displayName:
+          callbackResult.oauthResult?.username || callbackResult.oauthResult?.email || state.email.value,
         shouldRemember: state.rememberAccountOnDevice.value !== false
       });
 
       stripOAuthParamsFromLocation();
-      await completeLogin();
+      if (typeof window === "object" && window.location) {
+        window.location.replace(state.requestedReturnTo.value);
+      }
     } catch (error) {
       setErrorMessage(String(error?.message || "Unable to complete OAuth sign-in."));
       stripOAuthParamsFromLocation();
@@ -426,9 +392,9 @@ export function useLoginViewActions({
     return undefined;
   }
 
-  function startOAuthSignIn(providerId) {
+  async function startOAuthSignIn(providerId) {
     const provider = String(providerId || "").trim().toLowerCase();
-    if (!provider || typeof window !== "object" || !window.location) {
+    if (!provider) {
       return;
     }
 
@@ -458,7 +424,16 @@ export function useLoginViewActions({
 
     const params = new URLSearchParams(queryPayload);
     const oauthStartPath = buildAuthOauthStartPath(provider);
-    window.location.assign(`${oauthStartPath}?${params.toString()}`);
+    try {
+      if (!oauthLaunchClient || typeof oauthLaunchClient.open !== "function") {
+        throw new Error("OAuth launch client is unavailable.");
+      }
+      await oauthLaunchClient.open({
+        url: `${oauthStartPath}?${params.toString()}`
+      });
+    } catch (error) {
+      setErrorMessage(String(error?.message || "Unable to start OAuth sign-in."));
+    }
   }
 
   async function initializeOnMounted() {

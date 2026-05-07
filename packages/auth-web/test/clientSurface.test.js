@@ -65,6 +65,14 @@ test("auth-web runtime/useLoginView composes login view state, validation, and a
   assert.match(runtimeUseLoginViewSource, /export\s+\{\s*useLoginView\s*\};/);
 });
 
+test("auth-web client provider registers a mobile auth callback completion token", () => {
+  const providerPath = fileURLToPath(new URL("../src/client/providers/AuthWebClientProvider.js", import.meta.url));
+  const providerSource = readFileSync(providerPath, "utf8");
+
+  assert.match(providerSource, /auth\.mobile-callback\.client/);
+  assert.match(providerSource, /completeOAuthCallbackFromUrl/);
+});
+
 test("auth-web package exports only minimal client runtime/view subpaths", () => {
   const packageJson = JSON.parse(readFileSync(fileURLToPath(new URL("../package.json", import.meta.url)), "utf8"));
   const exportsMap = packageJson && typeof packageJson === "object" ? packageJson.exports : {};
@@ -84,6 +92,10 @@ test("auth-web package exports only minimal client runtime/view subpaths", () =>
   assert.equal(
     exportsMap["./client/runtime/authHttpClient"],
     "./src/client/runtime/authHttpClient.js"
+  );
+  assert.equal(
+    exportsMap["./client/runtime/oauthCallbackRuntime"],
+    "./src/client/runtime/oauthCallbackRuntime.js"
   );
   assert.equal(exportsMap["./client/runtime/useSignOut"], "./src/client/runtime/useSignOut.js");
   assert.equal(exportsMap["./client/composables/useDefaultLoginView"], undefined);

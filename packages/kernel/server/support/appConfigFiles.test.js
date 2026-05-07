@@ -4,7 +4,7 @@ import path from "node:path";
 import os from "node:os";
 import test from "node:test";
 import { pathToFileURL } from "node:url";
-import { loadAppConfigFromModuleUrl } from "./appConfigFiles.js";
+import { loadAppConfigFromAppRoot, loadAppConfigFromModuleUrl } from "./appConfigFiles.js";
 
 async function createModuleUrlAt(absolutePath) {
   await mkdir(path.dirname(absolutePath), { recursive: true });
@@ -28,6 +28,30 @@ test("loadAppConfigFromModuleUrl merges public and server config", async () => {
     shared: "server"
   });
   assert.equal(Object.isFrozen(loaded), true);
+});
+
+test("loadAppConfigFromAppRoot merges public and server config", async () => {
+  const tempRoot = await mkdtemp(path.join(os.tmpdir(), "kernel-app-config-"));
+  const appRoot = path.join(tempRoot, "app");
+  await mkdir(path.join(appRoot, "config"), { recursive: true });
+  await writeFile(path.join(appRoot, "config", "public.js"), "export const config = { a: 1, shared: 'public' };", "utf8");
+  await writeFile(path.join(appRoot, "config", "server.js"), "export const config = { b: 2, shared: 'server' };", "utf8");
+
+  const loaded = await loadAppConfigFromAppRoot({ appRoot });
+
+  assert.deepEqual(loaded, {
+    a: 1,
+    b: 2,
+    shared: "server"
+  });
+  assert.equal(Object.isFrozen(loaded), true);
+});
+
+test("loadAppConfigFromAppRoot requires an explicit appRoot", async () => {
+  await assert.rejects(
+    loadAppConfigFromAppRoot({ appRoot: "" }),
+    /requires appRoot/
+  );
 });
 
 test("loadAppConfigFromModuleUrl tolerates missing server config", async () => {

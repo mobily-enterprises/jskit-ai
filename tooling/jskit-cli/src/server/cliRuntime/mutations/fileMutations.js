@@ -198,6 +198,7 @@ async function applyFileMutations(
   warnings = [],
   existingManagedFiles = [],
   {
+    dryRun = false,
     reapplyManagedAppFiles = false
   } = {}
 ) {
@@ -224,18 +225,19 @@ async function applyFileMutations(
   for (const preparedMutation of ensureArray(preparedMutations)) {
     const mutation = ensureObject(preparedMutation.mutation);
     const operation = String(preparedMutation.operation || "").trim() || "copy-file";
-    if (operation === "install-migration") {
-      await applyInstallMigrationMutation({
-        packageEntry,
-        preparedMutation,
-        appRoot,
-        managedMigrations,
-        managedMigrationById,
-        touchedFiles,
-        warnings
-      });
-      continue;
-    }
+      if (operation === "install-migration") {
+        await applyInstallMigrationMutation({
+          packageEntry,
+          preparedMutation,
+          appRoot,
+          managedMigrations,
+          managedMigrationById,
+          touchedFiles,
+          warnings,
+          dryRun
+        });
+        continue;
+      }
 
     const renderedSourceContent = String(preparedMutation.renderedSourceContent || "");
     const renderedSourceBuffer = Buffer.from(renderedSourceContent, "utf8");
@@ -280,8 +282,10 @@ async function applyFileMutations(
         continue;
       }
 
-      await mkdir(path.dirname(targetPath), { recursive: true });
-      await writeFile(targetPath, renderedSourceContent, "utf8");
+      if (!dryRun) {
+        await mkdir(path.dirname(targetPath), { recursive: true });
+        await writeFile(targetPath, renderedSourceContent, "utf8");
+      }
 
       managedFiles.push({
         path: relativeTargetPath,

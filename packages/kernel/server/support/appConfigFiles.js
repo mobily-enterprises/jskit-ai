@@ -39,17 +39,20 @@ async function loadConfigModuleAtPath(absolutePath) {
   return normalizeConfigObject(loadedModule?.config);
 }
 
-async function loadAppConfigFromModuleUrl({
-  moduleUrl = import.meta.url,
+async function loadAppConfigFromAppRoot({
+  appRoot = "",
   publicConfigRelativePath = PUBLIC_CONFIG_RELATIVE_PATH,
   serverConfigRelativePath = SERVER_CONFIG_RELATIVE_PATH
 } = {}) {
-  const appRoot = await resolveAppRootFromModuleUrl(moduleUrl, {
-    publicConfigRelativePath
-  });
+  const normalizedAppRootInput = String(appRoot || "").trim();
+  if (!normalizedAppRootInput) {
+    throw new Error("loadAppConfigFromAppRoot requires appRoot.");
+  }
+  const normalizedAppRoot = path.resolve(normalizedAppRootInput);
+
   const [publicConfig, serverConfig] = await Promise.all([
-    loadConfigModuleAtPath(path.join(appRoot, publicConfigRelativePath)),
-    loadConfigModuleAtPath(path.join(appRoot, serverConfigRelativePath))
+    loadConfigModuleAtPath(path.join(normalizedAppRoot, publicConfigRelativePath)),
+    loadConfigModuleAtPath(path.join(normalizedAppRoot, serverConfigRelativePath))
   ]);
 
   return Object.freeze({
@@ -58,4 +61,19 @@ async function loadAppConfigFromModuleUrl({
   });
 }
 
-export { loadAppConfigFromModuleUrl };
+async function loadAppConfigFromModuleUrl({
+  moduleUrl = import.meta.url,
+  publicConfigRelativePath = PUBLIC_CONFIG_RELATIVE_PATH,
+  serverConfigRelativePath = SERVER_CONFIG_RELATIVE_PATH
+} = {}) {
+  const appRoot = await resolveAppRootFromModuleUrl(moduleUrl, {
+    publicConfigRelativePath
+  });
+  return loadAppConfigFromAppRoot({
+    appRoot,
+    publicConfigRelativePath,
+    serverConfigRelativePath
+  });
+}
+
+export { loadAppConfigFromAppRoot, loadAppConfigFromModuleUrl };

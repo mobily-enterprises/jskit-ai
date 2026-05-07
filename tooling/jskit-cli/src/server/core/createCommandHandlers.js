@@ -3,6 +3,7 @@ import { createListCommands } from "../commandHandlers/list.js";
 import { createShowCommand } from "../commandHandlers/show.js";
 import { createPackageCommands } from "../commandHandlers/package.js";
 import { createAppCommands } from "../commandHandlers/app.js";
+import { createMobileCommands } from "../commandHandlers/mobile.js";
 import { createHealthCommands } from "../commandHandlers/health.js";
 import { createCompletionCommands } from "../commandHandlers/completion.js";
 
@@ -25,6 +26,7 @@ function createCommandHandlers(deps = {}) {
     commandRemove
   } = createPackageCommands(commandContext);
   const { commandApp } = createAppCommands(commandContext);
+  const { commandMobile } = createMobileCommands(commandContext, { commandAdd });
   const { commandDoctor, commandLintDescriptors } = createHealthCommands(commandContext);
   const { commandCompletion } = createCompletionCommands(commandContext);
 
@@ -35,6 +37,7 @@ function createCommandHandlers(deps = {}) {
     commandCompletion,
     commandShow,
     commandApp,
+    commandMobile,
     commandCreate,
     commandAdd,
     commandGenerate,
