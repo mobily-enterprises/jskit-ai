@@ -18,17 +18,36 @@ const normalizedMessage = computed(() => String(props.message || "").trim() || "
 </script>
 
 <template>
-  <v-card rounded="lg" elevation="1" border>
-    <v-card-item>
-      <template #prepend>
-        <v-icon :icon="mdiAlertCircleOutline" color="error" />
-      </template>
-      <v-card-title class="text-h5">Unavailable</v-card-title>
-      <v-card-subtitle>{{ normalizedSurfaceLabel }} surface.</v-card-subtitle>
-    </v-card-item>
-    <v-divider />
-    <v-card-text class="d-flex flex-column ga-4">
-      <p class="text-medium-emphasis mb-0">{{ normalizedMessage }}</p>
-    </v-card-text>
-  </v-card>
+  <v-sheet rounded="lg" border class="workspace-unavailable-panel">
+    <div class="workspace-unavailable-panel__header">
+      <v-icon :icon="mdiAlertCircleOutline" color="error" />
+      <div>
+        <h1 class="workspace-unavailable-panel__title">Unavailable</h1>
+        <p class="text-body-2 text-medium-emphasis mb-0">{{ normalizedSurfaceLabel }} surface.</p>
+      </div>
+    </div>
+    <p class="text-body-2 text-medium-emphasis mb-0">{{ normalizedMessage }}</p>
+  </v-sheet>
 </template>
+
+<style scoped>
+.workspace-unavailable-panel {
+  display: grid;
+  gap: 1rem;
+  padding: 1rem;
+}
+
+.workspace-unavailable-panel__header {
+  align-items: flex-start;
+  display: flex;
+  gap: 0.75rem;
+}
+
+.workspace-unavailable-panel__title {
+  font-size: clamp(1.35rem, 2vw, 1.85rem);
+  font-weight: 650;
+  letter-spacing: -0.02em;
+  line-height: 1.15;
+  margin: 0 0 0.25rem;
+}
+</style>

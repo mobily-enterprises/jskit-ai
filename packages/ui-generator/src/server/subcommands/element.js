@@ -26,11 +26,25 @@ const DEFAULT_ELEMENT_PLACEMENT = "shell.status";
 
 function renderElementComponentSource(elementName = "") {
   return `<template>
-  <section class="pa-4">
-    <h2 class="text-h6 mb-2">${elementName}</h2>
-    <p class="text-body-2 text-medium-emphasis">Replace this scaffold with your UI element implementation.</p>
+  <section class="generated-element-panel">
+    <div>
+      <p class="text-caption text-medium-emphasis mb-1">Status</p>
+      <h2 class="text-subtitle-1 font-weight-medium mb-0">${elementName}</h2>
+    </div>
+    <v-chip color="primary" variant="tonal" size="small">Ready</v-chip>
   </section>
 </template>
+
+<style scoped>
+.generated-element-panel {
+  align-items: center;
+  display: flex;
+  gap: 0.75rem;
+  justify-content: space-between;
+  min-height: 48px;
+  min-width: 0;
+}
+</style>
 `;
 }
 

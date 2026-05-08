@@ -58,6 +58,7 @@ test("workspaces-web admin settings template exposes surface-derived settings ou
 
   assert.match(source, /target="admin-settings:primary-menu"/);
   assert.doesNotMatch(source, /default-link-component-token/);
+  assert.doesNotMatch(source, /<v-card\b/);
   assert.match(source, /<RouterView \/>/);
 });
 
@@ -80,6 +81,20 @@ test("workspaces-web installs an app-owned account invites section wrapper", asy
   });
 });
 
+test("workspaces-web settings components use direct panels instead of card scaffolds", async () => {
+  for (const relativePath of [
+    path.join("templates", "src", "components", "WorkspaceNotFoundCard.vue"),
+    path.join("src", "client", "components", "WorkspaceProfileClientElement.vue"),
+    path.join("src", "client", "components", "WorkspaceSettingsFieldsClientElement.vue"),
+    path.join("src", "client", "components", "WorkspacesClientElement.vue"),
+    path.join("src", "client", "components", "AccountSettingsInvitesSection.vue")
+  ]) {
+    const source = await readFile(path.join(PACKAGE_DIR, relativePath), "utf8");
+
+    assert.doesNotMatch(source, /<v-card\b|v-card-title|v-card-subtitle/);
+  }
+});
+
 test("workspaces-web installs an account invites cue scaffold that reads placement runtime state", async () => {
   const source = await readFile(
     path.join(PACKAGE_DIR, "templates", "packages", "main", "src", "client", "components", "AccountPendingInvitesCue.vue"),
@@ -99,14 +114,33 @@ test("workspaces-web installs an account invites cue scaffold that reads placeme
   });
 });
 
-test("workspaces-web admin settings index template is a simple developer-owned stub", async () => {
+test("workspaces-web admin settings index template renders real workspace settings controls", async () => {
   const source = await readFile(
     path.join(PACKAGE_DIR, "templates", "src", "pages", "admin", "workspace", "settings", "index.vue"),
     "utf8"
   );
 
-  assert.match(source, /definePage/);
-  assert.match(source, /your_child_segment/);
+  assert.match(source, /@jskit-ai\/workspaces-web\/client\/components\/WorkspaceSettingsClientElement/);
+  assert.match(source, /<WorkspaceSettingsClientElement \/>/);
+  assert.doesNotMatch(source, /your_child_segment|To redirect this settings shell/);
+});
+
+test("workspaces-web starter surfaces avoid instructional placeholder copy", async () => {
+  const appSource = await readFile(
+    path.join(PACKAGE_DIR, "templates", "src", "surfaces", "app", "index.vue"),
+    "utf8"
+  );
+  const adminSource = await readFile(
+    path.join(PACKAGE_DIR, "templates", "src", "surfaces", "admin", "index.vue"),
+    "utf8"
+  );
+
+  assert.match(appSource, /No workspace activity yet/);
+  assert.match(adminSource, /Manage members and workspace settings/);
+  assert.match(adminSource, /to="\.\/members"/);
+  assert.match(adminSource, /to="\.\/workspace\/settings"/);
+  assert.doesNotMatch(appSource, /Replace this page|Primary in-workspace surface/);
+  assert.doesNotMatch(adminSource, /Use this area|Privileged workspace workflows/);
 });
 
 test("workspaces-web descriptor metadata advertises admin settings outlets", () => {

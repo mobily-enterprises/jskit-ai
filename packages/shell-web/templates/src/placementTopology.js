@@ -11,6 +11,10 @@ const menuLinkRenderers = Object.freeze({
   link: "local.main.ui.surface-aware-menu-link-item"
 });
 
+const bottomNavLinkRenderers = Object.freeze({
+  link: "local.main.ui.tab-link-item"
+});
+
 addPlacementTopology({
   id: "shell.primary-nav",
   description: "Primary top-level navigation for the current surface.",
@@ -18,8 +22,8 @@ addPlacementTopology({
   default: true,
   variants: {
     compact: {
-      outlet: "shell-layout:primary-menu",
-      renderers: menuLinkRenderers
+      outlet: "shell-layout:primary-bottom-nav",
+      renderers: bottomNavLinkRenderers
     },
     medium: {
       outlet: "shell-layout:primary-menu",

@@ -896,6 +896,21 @@ function buildListRowColumns(fields = []) {
     .join("\n");
 }
 
+function buildListCardFields(fields = []) {
+  return (Array.isArray(fields) ? fields : [])
+    .map((field) => {
+      const valueExpression = isLookupField(field)
+        ? `records.resolveFieldDisplay(record, ${toLookupDisplayFieldExpression(field)})`
+        : toAccessorExpression("record", field.key);
+
+      return `              <div class="ui-generator-list-card__field">
+                <span class="ui-generator-list-card__field-label">${escapeHtml(field.label)}</span>
+                <span class="ui-generator-list-card__field-value">{{ formatListCardValue(${valueExpression}) }}</span>
+              </div>`;
+    })
+    .join("\n");
+}
+
 function buildViewColumns(fields = []) {
   return (Array.isArray(fields) ? fields : [])
     .map((field) => {
@@ -1069,6 +1084,7 @@ export {
   resolveNearestParentRouteParamKey,
   buildListHeaderColumns,
   buildListRowColumns,
+  buildListCardFields,
   buildViewColumns,
   buildFormColumns,
   resolveRecordIdFieldKey,

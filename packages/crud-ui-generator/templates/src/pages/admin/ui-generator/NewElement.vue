@@ -1,40 +1,41 @@
 <template>
   <section class="ui-generator-new-element d-flex flex-column ga-4">
-    <v-card rounded="lg" elevation="1" border>
-      <v-card-item>
-        <div class="d-flex align-center ga-3 flex-wrap w-100">
-          <div>
-            <v-card-title class="px-0">New __JSKIT_UI_RESOURCE_SINGULAR_TITLE__</v-card-title>
-            <v-card-subtitle class="px-0">Create a new __JSKIT_UI_RESOURCE_SINGULAR_TITLE__.</v-card-subtitle>
-          </div>
-          <v-spacer />
-          <v-btn v-if="UI_LIST_URL" color="primary" variant="outlined" :to="formRuntime.addEdit.resolveParams(UI_LIST_URL)">
-            Cancel
-          </v-btn>
-          <v-btn
-            color="primary"
-            variant="flat"
-            :loading="formRuntime.addEdit.isSaving"
-            :disabled="formRuntime.addEdit.isSubmitDisabled"
-            @click="formRuntime.addEdit.submit"
-          >
-            Save __JSKIT_UI_RESOURCE_SINGULAR_TITLE__
-          </v-btn>
-        </div>
-      </v-card-item>
-      <v-divider />
-      <v-card-text class="pt-4">
-        <p v-if="formRuntime.addEdit.loadError" class="text-body-2 text-medium-emphasis mb-0">
+    <header class="ui-generator-form-header">
+      <div class="ui-generator-form-header__copy">
+        <p class="text-overline text-medium-emphasis mb-1">New record</p>
+        <h1 class="ui-generator-form-header__title">New __JSKIT_UI_RESOURCE_SINGULAR_TITLE__</h1>
+        <p class="text-body-2 text-medium-emphasis mb-0">Create a __JSKIT_UI_RESOURCE_SINGULAR_TITLE__ record.</p>
+      </div>
+      <div class="ui-generator-form-header__actions">
+        <v-btn v-if="UI_LIST_URL" color="primary" variant="outlined" :to="formRuntime.addEdit.resolveParams(UI_LIST_URL)">
+          Cancel
+        </v-btn>
+        <v-btn
+          color="primary"
+          variant="flat"
+          :loading="formRuntime.addEdit.isSaving"
+          :disabled="formRuntime.addEdit.isSubmitDisabled"
+          @click="formRuntime.addEdit.submit"
+        >
+          Save __JSKIT_UI_RESOURCE_SINGULAR_TITLE__
+        </v-btn>
+      </div>
+    </header>
+
+    <v-sheet rounded="lg" border class="ui-generator-form-panel">
+      <div v-if="formRuntime.addEdit.loadError" class="ui-generator-form-state">
+        <h2 class="text-h6 mb-2">Unable to prepare __JSKIT_UI_RESOURCE_SINGULAR_TITLE__</h2>
+        <p class="text-body-2 text-medium-emphasis mb-0">
           {{ formRuntime.addEdit.loadError }}
         </p>
-        <v-form v-else @submit.prevent="formRuntime.addEdit.submit" novalidate>
-          <v-row>
-            <!-- jskit:crud-ui-fields:new -->
+      </div>
+      <v-form v-else class="pa-4" @submit.prevent="formRuntime.addEdit.submit" novalidate>
+        <v-row class="ui-generator-form-fields">
+          <!-- jskit:crud-ui-fields:new -->
 __JSKIT_UI_CREATE_FORM_COLUMNS_DIRECT__
-          </v-row>
-        </v-form>
-      </v-card-text>
-    </v-card>
+        </v-row>
+      </v-form>
+    </v-sheet>
   </section>
 </template>
 
@@ -98,3 +99,61 @@ function resolveFieldErrors(fieldKey) {
   return formRuntime.resolveFieldErrors(fieldKey);
 }
 </script>
+
+<style scoped>
+.ui-generator-form-header {
+  align-items: flex-start;
+  display: flex;
+  gap: 1rem;
+  justify-content: space-between;
+}
+
+.ui-generator-form-header__copy {
+  min-width: 0;
+}
+
+.ui-generator-form-header__title {
+  font-size: clamp(1.35rem, 2vw, 1.85rem);
+  font-weight: 650;
+  letter-spacing: -0.02em;
+  line-height: 1.15;
+  margin: 0 0 0.35rem;
+}
+
+.ui-generator-form-header__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  justify-content: flex-end;
+}
+
+.ui-generator-form-panel {
+  overflow: hidden;
+}
+
+.ui-generator-form-state {
+  margin-inline: auto;
+  max-width: 30rem;
+  padding: 3rem 1.25rem;
+  text-align: center;
+}
+
+.ui-generator-form-fields :deep(.v-col) {
+  min-width: 0;
+}
+
+@media (max-width: 960px) {
+  .ui-generator-form-header {
+    flex-direction: column;
+  }
+
+  .ui-generator-form-header__actions {
+    width: 100%;
+  }
+
+  .ui-generator-form-header__actions :deep(.v-btn) {
+    min-height: 48px;
+    flex: 1 1 10rem;
+  }
+}
+</style>

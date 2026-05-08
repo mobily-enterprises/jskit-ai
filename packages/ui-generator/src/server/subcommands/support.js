@@ -1,9 +1,16 @@
 import path from "node:path";
 import {
+  importFreshModuleFromAbsolutePath,
   resolveRequiredAppRoot,
   toPosixPath
 } from "@jskit-ai/kernel/server/support";
-import { normalizeShellOutletTargetId } from "@jskit-ai/kernel/shared/support/shellLayoutTargets";
+import {
+  PLACEMENT_LAYOUT_CLASSES,
+  normalizePlacementOwnerId,
+  normalizePlacementTopologyDefinition,
+  normalizeSemanticPlacementId,
+  normalizeShellOutletTargetId
+} from "@jskit-ai/kernel/shared/support/shellLayoutTargets";
 import { normalizeText } from "@jskit-ai/kernel/shared/support/normalize";
 import { toCamelCase, toSnakeCase } from "@jskit-ai/kernel/shared/support/stringCase";
 
@@ -208,36 +215,130 @@ function insertBeforeClassDeclaration(source = "", line = "", { className = "", 
   };
 }
 
-function findScriptBlock(source = "") {
+function findScriptSetupBlock(source = "") {
   const sourceText = String(source || "");
-  let firstMatch = null;
-
   for (const match of sourceText.matchAll(SCRIPT_TAG_PATTERN)) {
-    if (!firstMatch) {
-      firstMatch = match;
+    const attributesSource = String(match[1] || "");
+    if (!SCRIPT_SETUP_ATTRIBUTE_PATTERN.test(attributesSource)) {
+      continue;
     }
 
-    const attributesSource = String(match[1] || "");
-    if (SCRIPT_SETUP_ATTRIBUTE_PATTERN.test(attributesSource)) {
-      return Object.freeze({
-        index: match.index,
-        source: String(match[0] || ""),
-        attributesSource,
-        content: String(match[2] || "")
-      });
-    }
+    return Object.freeze({
+      index: match.index,
+      source: String(match[0] || ""),
+      attributesSource,
+      content: String(match[2] || "")
+    });
   }
 
-  if (!firstMatch) {
+  return null;
+}
+
+function insertScriptSetupBlock(source = "", content = "") {
+  const sourceText = String(source || "");
+  const normalizedContent = String(content || "").trim();
+  if (!normalizedContent) {
+    return {
+      changed: false,
+      content: sourceText
+    };
+  }
+
+  const scriptSetupBlock = `<script setup>\n${normalizedContent}\n</script>\n`;
+  let insertionIndex = 0;
+  for (const match of sourceText.matchAll(/<route\b[^>]*>[\s\S]*?<\/route>\s*/gi)) {
+    insertionIndex = match.index + String(match[0] || "").length;
+  }
+  const separator = insertionIndex > 0 ? "\n" : "";
+  return {
+    changed: true,
+    content: `${sourceText.slice(0, insertionIndex)}${separator}${scriptSetupBlock}\n${sourceText.slice(insertionIndex)}`
+  };
+}
+
+async function loadPlacementTopologyDefinitionFromPath(topologyPath = {}, { context = "ui-generator topology" } = {}) {
+  const moduleNamespace = await importFreshModuleFromAbsolutePath(topologyPath.absolutePath);
+  const exported = moduleNamespace?.default;
+  const resolved = typeof exported === "function" ? exported() : exported;
+  return normalizePlacementTopologyDefinition(resolved, {
+    context
+  });
+}
+
+function normalizeExpectedTopologyVariantTargets(variantTargets = null) {
+  if (!variantTargets || typeof variantTargets !== "object" || Array.isArray(variantTargets)) {
     return null;
   }
 
-  return Object.freeze({
-    index: firstMatch.index,
-    source: String(firstMatch[0] || ""),
-    attributesSource: String(firstMatch[1] || ""),
-    content: String(firstMatch[2] || "")
-  });
+  const targets = {};
+  for (const layoutClass of PLACEMENT_LAYOUT_CLASSES) {
+    const target = normalizeShellOutletTargetId(variantTargets[layoutClass]);
+    if (target) {
+      targets[layoutClass] = target;
+    }
+  }
+
+  return Object.keys(targets).length > 0 ? Object.freeze(targets) : null;
+}
+
+function describeTopologyVariantTargets(variantTargets = {}) {
+  return PLACEMENT_LAYOUT_CLASSES
+    .map((layoutClass) => {
+      const target = normalizeShellOutletTargetId(variantTargets?.[layoutClass]);
+      return target ? `${layoutClass}:${target}` : "";
+    })
+    .filter(Boolean)
+    .join(", ");
+}
+
+function placementMatchesExpectedVariantTargets(placement = {}, expectedVariantTargets = null) {
+  if (!expectedVariantTargets) {
+    return true;
+  }
+
+  const variants = placement?.variants && typeof placement.variants === "object" ? placement.variants : {};
+  return Object.entries(expectedVariantTargets).every(([layoutClass, expectedTarget]) =>
+    normalizeShellOutletTargetId(variants?.[layoutClass]?.outlet) === expectedTarget
+  );
+}
+
+async function appendTopologyBlockIfPlacementMissing({
+  topologyPath = {},
+  source = "",
+  marker = "",
+  block = "",
+  placementId = "",
+  owner = "",
+  variantTargets = null,
+  context = "ui-generator topology"
+} = {}) {
+  const normalizedPlacementId = normalizeSemanticPlacementId(placementId);
+  const normalizedOwner = normalizePlacementOwnerId(owner);
+  if (!normalizedPlacementId) {
+    throw new Error(`${context} requires semantic placement id in "area.slot" format.`);
+  }
+
+  const topology = await loadPlacementTopologyDefinitionFromPath(topologyPath, { context });
+  const existingPlacement = (Array.isArray(topology.placements) ? topology.placements : []).find(
+    (placement) => placement.id === normalizedPlacementId && (placement.owner || "") === normalizedOwner
+  );
+  if (existingPlacement) {
+    const expectedVariantTargets = normalizeExpectedTopologyVariantTargets(variantTargets);
+    if (!placementMatchesExpectedVariantTargets(existingPlacement, expectedVariantTargets)) {
+      const ownerLabel = normalizedOwner ? ` for owner "${normalizedOwner}"` : "";
+      throw new Error(
+        `${context} semantic placement "${normalizedPlacementId}"${ownerLabel} already exists with different outlet mapping. ` +
+        `Existing: ${describeTopologyVariantTargets(existingPlacement.variants)}. ` +
+        `Requested: ${describeTopologyVariantTargets(expectedVariantTargets)}.`
+      );
+    }
+    return {
+      changed: false,
+      content: String(source || "")
+    };
+  }
+
+  return appendBlockIfMarkerMissing(source, marker, block);
 }
 
 function parseTagAttributes(attributesSource = "") {
@@ -279,7 +380,9 @@ export {
   appendBlockIfMarkerMissing,
   insertImportIfMissing,
   insertBeforeClassDeclaration,
-  findScriptBlock,
+  findScriptSetupBlock,
+  insertScriptSetupBlock,
+  appendTopologyBlockIfPlacementMissing,
   parseTagAttributes,
   indentBlock
 };

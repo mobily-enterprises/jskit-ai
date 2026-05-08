@@ -273,6 +273,78 @@ test("template list action strips workspaceSlug before calling the service", asy
   });
 });
 
+test("template write actions strip workspaceSlug before calling the service", async () => {
+  const actions = createActions({ surface: "admin" });
+  const createAction = actions.find((action) => action.id === "crud.customers.create");
+  const updateAction = actions.find((action) => action.id === "crud.customers.update");
+  const calls = [];
+
+  await createAction.execute(
+    {
+      workspaceSlug: "acme",
+      name: "Merc"
+    },
+    { visibilityContext: { visibility: "workspace", scopeOwnerId: "7" } },
+    {
+      customersService: {
+        async createDocument(payload, options) {
+          calls.push({ kind: "create", payload, options });
+          return { kind: "document", value: { data: { id: "1" } } };
+        }
+      }
+    }
+  );
+
+  await updateAction.execute(
+    {
+      workspaceSlug: "acme",
+      recordId: "7",
+      name: "Changed"
+    },
+    { visibilityContext: { visibility: "workspace", scopeOwnerId: "7" } },
+    {
+      customersService: {
+        async patchDocumentById(recordId, patch, options) {
+          calls.push({ kind: "update", recordId, patch, options });
+          return { kind: "document", value: { data: { id: recordId } } };
+        }
+      }
+    }
+  );
+
+  assert.deepEqual(calls, [
+    {
+      kind: "create",
+      payload: {
+        name: "Merc"
+      },
+      options: {
+        context: {
+          visibilityContext: {
+            visibility: "workspace",
+            scopeOwnerId: "7"
+          }
+        }
+      }
+    },
+    {
+      kind: "update",
+      recordId: "7",
+      patch: {
+        name: "Changed"
+      },
+      options: {
+        context: {
+          visibilityContext: {
+            visibility: "workspace",
+            scopeOwnerId: "7"
+          }
+        }
+      }
+    }
+  ]);
+});
+
 test("template createActions omits workspace validators for non-workspace generation", () => {
   const actions = createNonWorkspaceActions({ surface: "home" });
 

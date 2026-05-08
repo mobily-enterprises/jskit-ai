@@ -1,5 +1,5 @@
 <template>
-  <section class="workspace-settings-client-element">
+  <section class="workspace-settings-client-element d-flex flex-column ga-4">
     <WorkspaceProfileClientElement @saved="handleFormSaved" />
     <WorkspaceSettingsFieldsClientElement @saved="handleFormSaved" />
   </section>

@@ -111,9 +111,31 @@ test("users-web package-owned account settings host is fully placement-backed", 
   );
 
   assert.match(source, /useAccountSettingsSections/);
+  assert.match(source, /settings-panel__header/);
+  assert.doesNotMatch(source, /<v-card\b|v-card-title|v-card-subtitle/);
   assert.doesNotMatch(source, /AccountSettingsProfileSection/);
   assert.doesNotMatch(source, /AccountSettingsPreferencesSection/);
   assert.doesNotMatch(source, /AccountSettingsNotificationsSection/);
+});
+
+test("users-web profile form element uses a direct panel instead of card scaffolding", async () => {
+  const source = await readFile(path.join(PACKAGE_DIR, "src", "client", "components", "ProfileClientElement.vue"), "utf8");
+
+  assert.match(source, /profile-client-panel__body/);
+  assert.doesNotMatch(source, /<v-card\b|v-card-title|v-card-subtitle|v-card-text|v-card-item/);
+});
+
+test("users-web account settings section templates use direct settings panels", async () => {
+  for (const relativePath of [
+    path.join("templates", "src", "components", "account", "settings", "AccountSettingsProfileSection.vue"),
+    path.join("templates", "src", "components", "account", "settings", "AccountSettingsPreferencesSection.vue"),
+    path.join("templates", "src", "components", "account", "settings", "AccountSettingsNotificationsSection.vue")
+  ]) {
+    const source = await readFile(path.join(PACKAGE_DIR, relativePath), "utf8");
+
+    assert.match(source, /account-settings-section/);
+    assert.doesNotMatch(source, /<v-card\b|v-card-title|v-card-subtitle/);
+  }
 });
 
 test("users-web descriptor metadata advertises home cog outlet and standard home settings placements", () => {

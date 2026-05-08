@@ -3,13 +3,14 @@ import { normalizeText } from "@jskit-ai/kernel/shared/support/normalize";
 import {
   DEFAULT_COMPONENT_DIRECTORY,
   DEFAULT_SUBPAGES_POSITION,
+  SUBPAGES_LINK_COMPONENT_TOKEN,
   deriveDefaultSubpagesHost,
   resolvePageTargetDetails,
   upgradePageFileToSubpages
 } from "./pageSupport.js";
 import {
   PLACEMENT_TOPOLOGY_FILE,
-  appendBlockIfMarkerMissing,
+  appendTopologyBlockIfPlacementMissing,
   requireSinglePositionalTargetFile,
   resolvePathWithinApp,
   resolveOutletTargetId,
@@ -42,19 +43,19 @@ function renderSectionNavTopologyBlock({
     "    compact: {\n" +
     `      outlet: "${target}",\n` +
     "      renderers: {\n" +
-    `        link: "local.main.ui.surface-aware-menu-link-item"\n` +
+    `        link: "${SUBPAGES_LINK_COMPONENT_TOKEN}"\n` +
     "      }\n" +
     "    },\n" +
     "    medium: {\n" +
     `      outlet: "${target}",\n` +
     "      renderers: {\n" +
-    `        link: "local.main.ui.surface-aware-menu-link-item"\n` +
+    `        link: "${SUBPAGES_LINK_COMPONENT_TOKEN}"\n` +
     "      }\n" +
     "    },\n" +
     "    expanded: {\n" +
     `      outlet: "${target}",\n` +
     "      renderers: {\n" +
-    `        link: "local.main.ui.surface-aware-menu-link-item"\n` +
+    `        link: "${SUBPAGES_LINK_COMPONENT_TOKEN}"\n` +
     "      }\n" +
     "    }\n" +
     "  }\n" +
@@ -99,6 +100,33 @@ async function runGeneratorSubcommand({
   });
   const outletTarget = resolveSubpagesOutletTarget(options, pageTarget);
 
+  const topologyPath = resolvePathWithinApp(appRoot, PLACEMENT_TOPOLOGY_FILE, {
+    context: "ui-generator add-subpages"
+  });
+  const owner = resolveOutletOwner(outletTarget.id);
+  const topologyMarker = `jskit:ui-generator.topology:page.section-nav:${owner}`;
+  const topologySource = await readFile(topologyPath.absolutePath, "utf8");
+  const expectedVariantTargets = {
+    compact: outletTarget.id,
+    medium: outletTarget.id,
+    expanded: outletTarget.id
+  };
+  const topologyApplied = await appendTopologyBlockIfPlacementMissing({
+    topologyPath,
+    source: topologySource,
+    marker: topologyMarker,
+    block: renderSectionNavTopologyBlock({
+      marker: topologyMarker,
+      owner,
+      surface: pageTarget.surfaceId,
+      target: outletTarget.id
+    }),
+    placementId: "page.section-nav",
+    owner,
+    variantTargets: expectedVariantTargets,
+    context: "ui-generator add-subpages"
+  });
+
   const result = await upgradePageFileToSubpages({
     appRoot,
     targetFile,
@@ -110,22 +138,6 @@ async function runGeneratorSubcommand({
     dryRun
   });
 
-  const topologyPath = resolvePathWithinApp(appRoot, PLACEMENT_TOPOLOGY_FILE, {
-    context: "ui-generator add-subpages"
-  });
-  const owner = resolveOutletOwner(outletTarget.id);
-  const topologyMarker = `jskit:ui-generator.topology:page.section-nav:${owner}`;
-  const topologySource = await readFile(topologyPath.absolutePath, "utf8");
-  const topologyApplied = appendBlockIfMarkerMissing(
-    topologySource,
-    topologyMarker,
-    renderSectionNavTopologyBlock({
-      marker: topologyMarker,
-      owner,
-      surface: result.surfaceId,
-      target: outletTarget.id
-    })
-  );
   const touchedFiles = new Set(result.touchedFiles);
   if (topologyApplied.changed) {
     if (dryRun !== true) {

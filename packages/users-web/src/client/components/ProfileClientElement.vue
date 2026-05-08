@@ -1,19 +1,18 @@
 <template>
   <section :class="rootClasses" :data-testid="uiTestIds.root">
-    <v-card
-      class="profile-client-card"
+    <v-sheet
+      class="profile-client-panel"
       :class="uiClasses.card"
       :rounded="resolvedVariant.surface === 'plain' ? '0' : 'lg'"
       :elevation="0"
       :border="resolvedVariant.surface !== 'plain'"
-      :variant="resolvedVariant.surface === 'plain' ? 'text' : undefined"
       :data-testid="uiTestIds.card"
     >
-      <v-card-item v-if="resolvedFeatures.header">
-        <v-card-title class="text-subtitle-1">{{ copyText.title }}</v-card-title>
-      </v-card-item>
+      <div v-if="resolvedFeatures.header" class="profile-client-panel__header">
+        <h2 class="text-subtitle-1 mb-0">{{ copyText.title }}</h2>
+      </div>
       <v-divider v-if="resolvedFeatures.header" />
-      <v-card-text>
+      <div class="profile-client-panel__body">
         <slot name="form-before" :state="state" :actions="actions" />
 
         <v-form @submit.prevent="onSubmitProfile" novalidate>
@@ -81,8 +80,8 @@
         </v-form>
 
         <slot name="footer-extra" :state="state" :actions="actions" />
-      </v-card-text>
-    </v-card>
+      </div>
+    </v-sheet>
   </section>
 </template>
 
@@ -222,12 +221,20 @@ async function onAvatarRemove() {
 </script>
 
 <style scoped>
-.profile-client-element--layout-compact :deep(.v-card-item),
-.profile-client-element--layout-compact :deep(.v-card-text) {
+.profile-client-panel__header {
+  padding: 1rem 1rem 0.75rem;
+}
+
+.profile-client-panel__body {
+  padding: 1rem;
+}
+
+.profile-client-element--layout-compact .profile-client-panel__header,
+.profile-client-element--layout-compact .profile-client-panel__body {
   padding-block: 0.72rem;
 }
 
-.profile-client-element--surface-plain .profile-client-card {
+.profile-client-element--surface-plain .profile-client-panel {
   box-shadow: none;
   border-width: 0;
 }

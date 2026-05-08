@@ -1,7 +1,10 @@
 import { computed, unref } from "vue";
 import { useRoute } from "vue-router";
 import { resolveCrudJsonApiTransport } from "../crud/crudJsonApiTransportSupport.js";
-import { resolveLookupFieldDisplayValue } from "../crud/crudLookupFieldLabelSupport.js";
+import {
+  resolveLookupFieldDisplayValue,
+  resolveRecordTitle
+} from "../crud/crudLookupFieldLabelSupport.js";
 import { resolveCrudBoundValues } from "../crud/crudBindingSupport.js";
 import { resolveCrudListParentDescriptor } from "../internal/crudListParentTitleSupport.js";
 import {
@@ -81,6 +84,7 @@ function useCrudList({
   });
 
   records.resolveFieldDisplay = resolveLookupFieldDisplayValue;
+  records.resolveRecordTitle = resolveRecordTitle;
   return records;
 }
 

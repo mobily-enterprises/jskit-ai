@@ -44,14 +44,23 @@ Local functions
 - `applyScriptImports(source = "")`
 - `createOutletBlock({ target = "" } = {})`
 - `resolveOutletOwner(target = "")`
-- `resolveSemanticPlacementOption(options = {})`
-- `resolveSemanticPlacementOwner({ placementId = "", targetId = "", owner = "" } = {})`
+- `resolveSemanticPlacementOption(options = {}, { context = "ui-generator outlet" } = {})`
+- `resolveOptionalSemanticPlacementOption(options = {}, { context = "ui-generator outlet" } = {})`
+- `resolveVariantOwners(variantTargets = {})`
+- `resolveSemanticPlacementOwner({ placementId = "", targetId = "", variantTargets = null, owner = "", context = "ui-generator outlet" } = {})`
+- `resolveTopologyKind(options = {}, { context = "ui-generator outlet", defaultKind = "", required = false } = {})`
+- `resolveTopologyVariantTargets(options = {}, { context = "ui-generator topology", fallbackTarget = "" } = {})`
+- `hasTopologyOptions(options = {})`
 - `resolveTopologySurfaces(options = {})`
 - `renderTopologyOwnerLine(owner = "")`
 - `renderLinkRendererBlock(rendererToken = "")`
-- `renderOutletTopologyBlock({ marker = "", placementId = "", owner = "", surfaces = ["*"], description = "", target = "", rendererToken = "" } = {})`
+- `renderTopologyVariantBlock({ layoutClass = "", target = "", kind = "", rendererToken = "" } = {})`
+- `renderOutletTopologyBlock({ marker = "", placementId = "", owner = "", surfaces = ["*"], description = "", target = "", variantTargets = null, kind = "link", rendererToken = "" } = {})`
 - `findLastTemplateCloseTag(source = "")`
 - `applyOutletTemplateBlock(source = "", { target = "" } = {})`
+- `prepareTopologyBlock({ appRoot, topologyPath = null, context = "ui-generator topology", placementId = "", owner = "", surfaces = ["*"], description = "", target = "", variantTargets = null, kind = "", rendererToken = "" } = {})`
+- `applyTopologyBlock(options = {})`
+- `runTopologySubcommand({ appRoot, options = {}, dryRun = false } = {})`
 
 ### `src/server/subcommands/page.js`
 Exports
@@ -101,9 +110,16 @@ Exports
 - `appendBlockIfMarkerMissing(source = "", marker = "", block = "")`
 - `insertImportIfMissing(source = "", importLine = "")`
 - `insertBeforeClassDeclaration(source = "", line = "", { className = "", contextFile = "" } = {})`
-- `findScriptBlock(source = "")`
+- `findScriptSetupBlock(source = "")`
+- `insertScriptSetupBlock(source = "", content = "")`
+- `appendTopologyBlockIfPlacementMissing({ topologyPath = {}, source = "", marker = "", block = "", placementId = "", owner = "", variantTargets = null, context = "ui-generator topology" } = {})`
 - `parseTagAttributes(attributesSource = "")`
 - `indentBlock(source = "", indent = "")`
+Local functions
+- `loadPlacementTopologyDefinitionFromPath(topologyPath = {}, { context = "ui-generator topology" } = {})`
+- `normalizeExpectedTopologyVariantTargets(variantTargets = null)`
+- `describeTopologyVariantTargets(variantTargets = {})`
+- `placementMatchesExpectedVariantTargets(placement = {}, expectedVariantTargets = null)`
 
 ### root
 

@@ -42,6 +42,10 @@ export default Object.freeze({
           summary: "Exports the default account invites section component used by multihoming installs."
         },
         {
+          subpath: "./client/components/WorkspaceSettingsClientElement",
+          summary: "Exports the workspace settings client element used by the workspace admin settings starter page."
+        },
+        {
           subpath: "./client/providers/WorkspacesWebClientProvider",
           summary: "Exports workspaces-web client provider class."
         },

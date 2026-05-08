@@ -10,6 +10,7 @@
     "./client/components/AccountSettingsInvitesSection": "./src/client/components/AccountSettingsInvitesSection.vue",
     "./client/providers/WorkspacesWebClientProvider": "./src/client/providers/WorkspacesWebClientProvider.js",
     "./client/components/WorkspaceMembersClientElement": "./src/client/components/WorkspaceMembersClientElement.vue",
+    "./client/components/WorkspaceSettingsClientElement": "./src/client/components/WorkspaceSettingsClientElement.vue",
     "./client/composables/useWorkspaceRouteContext": "./src/client/composables/useWorkspaceRouteContext.js"
   },
   "dependencies": {

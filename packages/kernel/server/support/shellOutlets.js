@@ -70,7 +70,13 @@ function normalizeAppRouteOutletTarget({
   });
 }
 
-function discoverRouteMetaOutletTargetsFromVueSource(source = "", { context = "shell layout" } = {}) {
+function discoverRouteMetaOutletTargetsFromVueSource(
+  source = "",
+  {
+    context = "shell layout",
+    enforceSingleDefault = true
+  } = {}
+) {
   const sourceText = String(source || "");
   const resolvedContext = normalizeText(context) || "shell layout";
   const targetById = new Map();
@@ -113,12 +119,14 @@ function discoverRouteMetaOutletTargetsFromVueSource(source = "", { context = "s
         throw new Error(`${resolvedContext} contains duplicate route meta placement target "${normalizedTarget.id}".`);
       }
       if (normalizedTarget.default === true) {
-        if (defaultTargetId && defaultTargetId !== normalizedTarget.id) {
+        if (enforceSingleDefault === true && defaultTargetId && defaultTargetId !== normalizedTarget.id) {
           throw new Error(
             `${resolvedContext} defines multiple default route meta placement targets: "${defaultTargetId}" and "${normalizedTarget.id}".`
           );
         }
-        defaultTargetId = normalizedTarget.id;
+        if (!defaultTargetId) {
+          defaultTargetId = normalizedTarget.id;
+        }
       }
       targetById.set(normalizedTarget.id, normalizedTarget);
     }
@@ -422,9 +430,14 @@ async function resolveSemanticPlacementTargetFromApp({
   throw new Error(`${resolvedContext} could not resolve a default semantic placement target.`);
 }
 
-async function discoverShellOutletTargetsFromApp({ appRoot, sourceRoot = "src" } = {}) {
+async function collectAppSourceShellOutletTargets({
+  appRoot,
+  sourceRoot = "src",
+  enforceSingleDefault = true,
+  context = "discoverShellOutletTargetsFromApp"
+} = {}) {
   const resolvedAppRoot = resolveRequiredAppRoot(appRoot, {
-    context: "discoverShellOutletTargetsFromApp"
+    context
   });
 
   const sourceDirectory = path.resolve(resolvedAppRoot, String(sourceRoot || "src"));
@@ -442,12 +455,14 @@ async function discoverShellOutletTargetsFromApp({ appRoot, sourceRoot = "src" }
 
     const discoveredShellOutlets = source.includes("<ShellOutlet")
       ? discoverShellOutletTargetsFromVueSource(source, {
-          context: relativePath
+          context: relativePath,
+          enforceSingleDefault
         })
       : { targets: [], defaultTargetId: "" };
     const discoveredRouteMetaOutlets = source.includes("<route")
       ? discoverRouteMetaOutletTargetsFromVueSource(source, {
-          context: relativePath
+          context: relativePath,
+          enforceSingleDefault
         })
       : { targets: [], defaultTargetId: "" };
     const discoveredTargets = [
@@ -473,17 +488,36 @@ async function discoverShellOutletTargetsFromApp({ appRoot, sourceRoot = "src" }
       normalizeShellOutletTargetId(discoveredRouteMetaOutlets.defaultTargetId)
     ].filter(Boolean);
     for (const discoveredDefaultTargetId of discoveredDefaultTargetIds) {
-      if (defaultTargetId && discoveredDefaultTargetId !== defaultTargetId) {
+      if (enforceSingleDefault === true && defaultTargetId && discoveredDefaultTargetId !== defaultTargetId) {
         throw new Error(
           `Multiple default ShellOutlet targets found in app source: "${defaultTargetId}" (${defaultTargetSource}) and ` +
           `"${discoveredDefaultTargetId}" (${relativePath}).`
         );
       }
 
-      defaultTargetId = discoveredDefaultTargetId;
-      defaultTargetSource = relativePath;
+      if (!defaultTargetId) {
+        defaultTargetId = discoveredDefaultTargetId;
+        defaultTargetSource = relativePath;
+      }
     }
   }
+
+  return Object.freeze({
+    resolvedAppRoot,
+    targetById,
+    defaultTargetId
+  });
+}
+
+async function discoverShellOutletTargetsFromApp({ appRoot, sourceRoot = "src" } = {}) {
+  const discoveredAppTargets = await collectAppSourceShellOutletTargets({
+    appRoot,
+    sourceRoot,
+    enforceSingleDefault: true,
+    context: "discoverShellOutletTargetsFromApp"
+  });
+  const resolvedAppRoot = discoveredAppTargets.resolvedAppRoot;
+  const targetById = new Map(discoveredAppTargets.targetById);
 
   const packageTargets = await collectInstalledPackageOutletTargets(resolvedAppRoot);
   for (const target of packageTargets) {
@@ -496,13 +530,34 @@ async function discoverShellOutletTargetsFromApp({ appRoot, sourceRoot = "src" }
   const normalizedTargets = targets.map((target) =>
     Object.freeze({
       ...target,
-      default: target.id === defaultTargetId
+      default: target.id === discoveredAppTargets.defaultTargetId
     })
   );
 
   return Object.freeze({
     targets: Object.freeze(normalizedTargets),
-    defaultTargetId
+    defaultTargetId: discoveredAppTargets.defaultTargetId
+  });
+}
+
+async function discoverShellOutletSourcePathsFromApp({ appRoot, sourceRoot = "src" } = {}) {
+  const discoveredAppTargets = await collectAppSourceShellOutletTargets({
+    appRoot,
+    sourceRoot,
+    enforceSingleDefault: false,
+    context: "discoverShellOutletSourcePathsFromApp"
+  });
+  const targetById = new Map(discoveredAppTargets.targetById);
+
+  const packageTargets = await collectInstalledPackageOutletTargets(discoveredAppTargets.resolvedAppRoot);
+  for (const target of packageTargets) {
+    if (!targetById.has(target.id)) {
+      targetById.set(target.id, target);
+    }
+  }
+
+  return Object.freeze({
+    targets: Object.freeze([...targetById.values()].sort((left, right) => left.id.localeCompare(right.id)))
   });
 }
 
@@ -550,6 +605,7 @@ async function resolveShellOutletPlacementTargetFromApp({ appRoot, placement = "
 
 export {
   discoverPlacementTopologyFromApp,
+  discoverShellOutletSourcePathsFromApp,
   discoverShellOutletTargetsFromApp,
   resolveSemanticPlacementTargetFromApp,
   resolveShellOutletPlacementTargetFromApp

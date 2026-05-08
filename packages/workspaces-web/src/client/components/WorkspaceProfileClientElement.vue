@@ -1,11 +1,11 @@
 <template>
-  <v-card class="mb-4" rounded="lg" elevation="1" border>
-    <v-card-item>
-      <v-card-title class="text-h6">Workspace profile</v-card-title>
-      <v-card-subtitle>Name and avatar used across the workspace.</v-card-subtitle>
-    </v-card-item>
-    <v-divider />
-    <v-card-text class="pt-4">
+  <v-sheet rounded="lg" border class="workspace-profile-panel">
+    <header class="workspace-profile-panel__header">
+      <h2 class="workspace-profile-panel__title">Workspace profile</h2>
+      <p class="text-body-2 text-medium-emphasis mb-0">Name and avatar used across the workspace.</p>
+    </header>
+
+    <div class="workspace-profile-panel__body">
       <template v-if="showSkeleton">
         <v-skeleton-loader type="text@2, list-item-two-line@3, button" />
       </template>
@@ -62,8 +62,8 @@
           </v-row>
         </v-form>
       </template>
-    </v-card-text>
-  </v-card>
+    </div>
+  </v-sheet>
 </template>
 
 <script setup>
@@ -110,3 +110,30 @@ const addEdit = useAddEdit({
 
 const showSkeleton = computed(() => Boolean(addEdit.isInitialLoading));
 </script>
+
+<style scoped>
+.workspace-profile-panel {
+  overflow: hidden;
+}
+
+.workspace-profile-panel__header {
+  padding: 1rem 1rem 0;
+}
+
+.workspace-profile-panel__title {
+  font-size: 1rem;
+  font-weight: 650;
+  line-height: 1.2;
+  margin: 0 0 0.25rem;
+}
+
+.workspace-profile-panel__body {
+  padding: 1rem;
+}
+
+@media (max-width: 640px) {
+  .workspace-profile-panel__body :deep(.v-btn) {
+    min-height: 48px;
+  }
+}
+</style>

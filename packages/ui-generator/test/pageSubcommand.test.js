@@ -141,7 +141,9 @@ test("ui-generator page subcommand creates an index page from an explicit target
     assert.equal(result.summary, 'Generated UI page "/practice" at src/pages/w/[workspaceSlug]/admin/practice/index.vue.');
 
     const pageSource = await readFile(path.join(appRoot, toPagePath(targetFile)), "utf8");
-    assert.match(pageSource, /<h1 class="text-h5 mb-2">Practice<\/h1>/);
+    assert.match(pageSource, /<h1 class="generated-page-screen__title">Practice<\/h1>/);
+    assert.match(pageSource, /No Practice activity yet/);
+    assert.doesNotMatch(pageSource, /Replace this scaffold|Use this area|This is your page/);
 
     const placementSource = await readFile(path.join(appRoot, "src", "placement.js"), "utf8");
     assert.match(placementSource, /id: "ui-generator\.page\.admin\.practice\.link"/);
@@ -165,7 +167,8 @@ test("ui-generator page subcommand creates a file route and derives label from t
     assert.deepEqual(result.touchedFiles, [toPagePath(targetFile), "src/placement.js"]);
 
     const pageSource = await readFile(path.join(appRoot, toPagePath(targetFile)), "utf8");
-    assert.match(pageSource, /<h1 class="text-h5 mb-2">Contact Id<\/h1>/);
+    assert.match(pageSource, /<h1 class="generated-page-screen__title">Contact Id<\/h1>/);
+    assert.match(pageSource, /No Contact Id activity yet/);
 
     const placementSource = await readFile(path.join(appRoot, "src", "placement.js"), "utf8");
     assert.match(placementSource, /scopedSuffix: "\/contacts\/\[contactId\]"/);
@@ -489,7 +492,7 @@ test("ui-generator page subcommand overwrites an existing page when --force is p
     assert.equal(result.summary, 'Regenerated UI page "/practice" at src/pages/w/[workspaceSlug]/admin/practice/index.vue.');
 
     const pageSource = await readFile(path.join(appRoot, toPagePath(targetFile)), "utf8");
-    assert.match(pageSource, /<h1 class="text-h5 mb-2">Practice<\/h1>/);
+    assert.match(pageSource, /<h1 class="generated-page-screen__title">Practice<\/h1>/);
     assert.doesNotMatch(pageSource, /custom practice page/);
   });
 });

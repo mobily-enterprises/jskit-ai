@@ -235,7 +235,7 @@ Local functions
 Exports
 - `PLACEMENT_LAYOUT_CLASSES`
 - `describeShellOutletTargets(targets = [])`
-- `discoverShellOutletTargetsFromVueSource(source = "", { context = "shell layout" } = {})`
+- `discoverShellOutletTargetsFromVueSource(source = "", { context = "shell layout", enforceSingleDefault = true } = {})`
 - `findShellOutletTargetById(targets = [], targetId = "")`
 - `normalizePlacementKind(value = "")`
 - `normalizePlacementLayoutClass(value = "")`

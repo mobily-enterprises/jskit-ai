@@ -51,6 +51,44 @@ test("shell-web home settings template exposes surface-derived settings outlets"
   assert.match(source, /<RouterView \/>/);
 });
 
+test("shell-web shell layout registers navigation at the app layout level", async () => {
+  for (const relativePath of [
+    path.join("src", "client", "components", "ShellLayout.vue"),
+    path.join("templates", "src", "components", "ShellLayout.vue")
+  ]) {
+    const source = await readFile(path.join(PACKAGE_DIR, relativePath), "utf8");
+
+    assert.doesNotMatch(source, /<v-layout\b/);
+    assert.doesNotMatch(source, /overflow-hidden/);
+    assert.doesNotMatch(source, /min-height:\s*72vh/);
+    assert.match(source, /ShellRouteTransition/);
+    assert.match(source, /<ShellRouteTransition>[\s\S]*<slot \/>[\s\S]*<\/ShellRouteTransition>/);
+    assert.match(source, /<v-bottom-navigation[\s\S]*target="shell-layout:primary-bottom-nav"/);
+    assert.match(source, /padding:\s*0\.75rem 1rem calc\(1rem \+ env\(safe-area-inset-bottom, 0px\)\)/);
+  }
+});
+
+test("shell-web route transition keeps mobile route motion placement-driven", async () => {
+  const source = await readFile(
+    path.join(PACKAGE_DIR, "src", "client", "components", "ShellRouteTransition.vue"),
+    "utf8"
+  );
+
+  assert.match(source, /target:\s*\{[\s\S]*default:\s*"shell-layout:primary-bottom-nav"/);
+  assert.match(source, /semanticTarget:\s*\{[\s\S]*default:\s*"shell\.primary-nav"/);
+  assert.match(source, /placementRuntime\s*\.\s*getPlacements/);
+  assert.match(source, /useRouter\(\)/);
+  assert.match(source, /swipeEnabled:\s*\{[\s\S]*default:\s*true/);
+  assert.match(source, /window\.addEventListener\("pointerdown", handlePointerDown/);
+  assert.match(source, /document\.documentElement\.classList\.toggle\("shell-route-swipe-enabled", enabled\)/);
+  assert.match(source, /navigateBySwipe\(deltaX < 0 \? 1 : -1\)/);
+  assert.match(source, /router\.push\(nextEntry\.href\)/);
+  assert.match(source, /isSwipeIgnoredTarget/);
+  assert.match(source, /touch-action:\s*pan-y/);
+  assert.match(source, /transitionDirection\.value = nextIndex > previousIndex \? "forward" : "reverse"/);
+  assert.match(source, /prefers-reduced-motion:\s*reduce/);
+});
+
 test("shell-web settings landing page redirects to the starter child page", async () => {
   const source = await readFile(path.join(PACKAGE_DIR, "templates", "src", "pages", "home", "settings", "index.vue"), "utf8");
 
@@ -59,7 +97,7 @@ test("shell-web settings landing page redirects to the starter child page", asyn
   assert.match(source, /redirectToChild\("general"\)/);
 });
 
-test("shell-web settings general child page exposes a tiny browser-local drawer preference", async () => {
+test("shell-web settings general child page exposes an adaptive drawer preference", async () => {
   const source = await readFile(
     path.join(PACKAGE_DIR, "templates", "src", "pages", "home", "settings", "general", "index.vue"),
     "utf8"
@@ -68,11 +106,12 @@ test("shell-web settings general child page exposes a tiny browser-local drawer 
   assert.match(source, /useShellLayoutState/);
   assert.match(source, /drawerDefaultOpen/);
   assert.match(source, /setDrawerDefaultOpen/);
-  assert.match(source, /Open navigation drawer by default/);
-  assert.match(source, /live in this browser only/);
+  assert.match(source, /Phone layouts keep primary navigation in the bottom bar/);
+  assert.match(source, /Open drawer by default on wider screens/);
+  assert.doesNotMatch(source, /live in this browser only|tiny example|starter settings/);
 });
 
-test("shell-web placement template seeds default Home and Settings drawer navigation", async () => {
+test("shell-web placement template seeds default Home and Settings adaptive navigation", async () => {
   const source = await readFile(path.join(PACKAGE_DIR, "templates", "src", "placement.js"), "utf8");
 
   assert.match(source, /id: "shell-web\.home\.menu\.home"/);
@@ -92,7 +131,18 @@ test("shell-web placement template seeds default Home and Settings drawer naviga
   assert.doesNotMatch(source, /to: "\.\/general"/);
 });
 
-test("shell-web descriptor metadata advertises home settings outlets, default drawer links, and installs the scaffold page", () => {
+test("shell-web descriptor metadata advertises adaptive shell outlets, default links, and installs the scaffold page", () => {
+  assert.deepEqual(
+    readOutlets("shell-layout:primary-bottom-nav"),
+    [
+      {
+        target: "shell-layout:primary-bottom-nav",
+        surfaces: ["*"],
+        source: "src/client/components/ShellLayout.vue"
+      }
+    ]
+  );
+
   assert.deepEqual(
     readOutlets("home-settings:primary-menu"),
     [
@@ -142,6 +192,12 @@ test("shell-web descriptor metadata advertises home settings outlets, default dr
   );
 
   assert.equal(readTopology("shell.primary-nav").length, 1);
+  assert.equal(readTopology("shell.primary-nav")[0]?.variants?.compact?.outlet, "shell-layout:primary-bottom-nav");
+  assert.equal(
+    readTopology("shell.primary-nav")[0]?.variants?.compact?.renderers?.link,
+    "local.main.ui.tab-link-item"
+  );
+  assert.equal(readTopology("shell.primary-nav")[0]?.variants?.medium?.outlet, "shell-layout:primary-menu");
   assert.equal(readTopology("page.section-nav", "home-settings").length, 1);
 
   assert.deepEqual(findFileMutation("shell-web-page-home-settings-shell"), {
@@ -175,11 +231,12 @@ test("shell-web descriptor metadata advertises home settings outlets, default dr
   });
 });
 
-test("shell-web home starter page relies on drawer navigation instead of dead feature buttons", async () => {
+test("shell-web home starter page relies on adaptive shell navigation instead of dead feature buttons", async () => {
   const source = await readFile(path.join(PACKAGE_DIR, "templates", "src", "pages", "home", "index.vue"), "utf8");
 
-  assert.match(source, /Use the navigation drawer to move around the shell\./);
-  assert.doesNotMatch(source, /\/home\/settings/);
+  assert.match(source, /Core services are available\./);
+  assert.match(source, /to="\/home\/settings\/general"/);
+  assert.doesNotMatch(source, /Use bottom navigation|Replace this content|Main public surface/);
   assert.doesNotMatch(source, /\/console/);
   assert.doesNotMatch(source, /\/auth\/signout/);
 });

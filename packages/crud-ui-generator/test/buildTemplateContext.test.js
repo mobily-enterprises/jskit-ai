@@ -393,6 +393,10 @@ test("buildUiTemplateContext derives CRUD placeholders from the explicit target-
     assert.doesNotMatch(context.__JSKIT_UI_LIST_ROW_COLUMNS__, /record\.id/);
     assert.match(context.__JSKIT_UI_LIST_HEADER_COLUMNS__, /First Name/);
     assert.match(context.__JSKIT_UI_LIST_ROW_COLUMNS__, /record\.firstName/);
+    assert.match(context.__JSKIT_UI_LIST_CARD_FIELDS__, /ui-generator-list-card__field-label">First Name/);
+    assert.match(context.__JSKIT_UI_LIST_CARD_FIELDS__, /formatListCardValue\(record\.firstName\)/);
+    assert.match(context.__JSKIT_UI_LIST_CARD_FIELDS__, /ui-generator-list-card__field-label">Email/);
+    assert.equal(context.__JSKIT_UI_LIST_TITLE_FALLBACK_FIELD_KEY__, "\"firstName\"");
     assert.match(context.__JSKIT_UI_VIEW_COLUMNS__, /view\.record\?\.firstName/);
     assert.match(context.__JSKIT_UI_CREATE_FORM_COLUMNS__, /formState\.firstName/);
     assert.match(context.__JSKIT_UI_EDIT_FORM_COLUMNS__, /formState\.email/);
@@ -838,27 +842,53 @@ test("crud ui templates derive JSON:API transport from the shared CRUD resource"
   const editWrapperTemplateSource = await readFile(path.join(templateRoot, "EditWrapperElement.vue"), "utf8");
 
   assert.match(listTemplateSource, /resource: uiResource,/);
+  assert.match(listTemplateSource, /ui-generator-list-cards d-md-none/);
+  assert.match(listTemplateSource, /ui-generator-list-table d-none d-md-block/);
+  assert.match(listTemplateSource, /class="ui-generator-list-fab d-md-none"/);
+  assert.match(listTemplateSource, /No __JSKIT_UI_RESOURCE_PLURAL_TITLE__ yet/);
+  assert.match(listTemplateSource, /Unable to load __JSKIT_UI_RESOURCE_PLURAL_TITLE__/);
+  assert.match(listTemplateSource, /resolveListRecordTitle\(record\)/);
+  assert.match(listTemplateSource, /formatListCardValue/);
+  assert.doesNotMatch(listTemplateSource, /No records yet|Manage __JSKIT|Replace this scaffold/);
   assert.doesNotMatch(listTemplateSource, /const UI_LIST_TRANSPORT = Object\.freeze\(\{/);
   assert.doesNotMatch(listTemplateSource, /transport:\s*UI_LIST_TRANSPORT,/);
 
   assert.match(viewTemplateSource, /import \{ resource as uiResource \} from/);
   assert.match(viewTemplateSource, /resource: uiResource,/);
+  assert.match(viewTemplateSource, /ui-generator-view-header/);
+  assert.match(viewTemplateSource, /ui-generator-view-panel/);
+  assert.match(viewTemplateSource, /Record unavailable/);
+  assert.doesNotMatch(viewTemplateSource, /<v-card\b|View and manage this/);
   assert.doesNotMatch(viewTemplateSource, /const UI_VIEW_TRANSPORT = Object\.freeze\(\{/);
   assert.doesNotMatch(viewTemplateSource, /transport:\s*UI_VIEW_TRANSPORT,/);
 
   assert.match(newTemplateSource, /resource: uiResource,/);
+  assert.match(newTemplateSource, /ui-generator-form-header/);
+  assert.match(newTemplateSource, /ui-generator-form-panel/);
+  assert.match(newTemplateSource, /Unable to prepare __JSKIT_UI_RESOURCE_SINGULAR_TITLE__/);
+  assert.doesNotMatch(newTemplateSource, /<v-card\b|<v-card-title/);
   assert.doesNotMatch(newTemplateSource, /const UI_CREATE_TRANSPORT = Object\.freeze\(\{/);
   assert.doesNotMatch(newTemplateSource, /transport:\s*UI_CREATE_TRANSPORT,/);
 
   assert.match(editTemplateSource, /resource: uiResource,/);
+  assert.match(editTemplateSource, /ui-generator-form-header/);
+  assert.match(editTemplateSource, /ui-generator-form-panel/);
+  assert.match(editTemplateSource, /Unable to load __JSKIT_UI_RESOURCE_SINGULAR_TITLE__/);
+  assert.doesNotMatch(editTemplateSource, /<v-card\b|<v-card-title/);
   assert.doesNotMatch(editTemplateSource, /const UI_EDIT_TRANSPORT = Object\.freeze\(\{/);
   assert.doesNotMatch(editTemplateSource, /transport:\s*UI_EDIT_TRANSPORT,/);
 
   assert.match(newWrapperTemplateSource, /resource: uiResource,/);
+  assert.doesNotMatch(newWrapperTemplateSource, /<v-card\b/);
   assert.doesNotMatch(newWrapperTemplateSource, /const UI_CREATE_TRANSPORT = Object\.freeze\(\{/);
   assert.doesNotMatch(newWrapperTemplateSource, /transport:\s*UI_CREATE_TRANSPORT,/);
 
   assert.match(editWrapperTemplateSource, /resource: uiResource,/);
+  assert.doesNotMatch(editWrapperTemplateSource, /<v-card\b/);
   assert.doesNotMatch(editWrapperTemplateSource, /const UI_EDIT_TRANSPORT = Object\.freeze\(\{/);
   assert.doesNotMatch(editWrapperTemplateSource, /transport:\s*UI_EDIT_TRANSPORT,/);
+
+  assert.doesNotMatch(newTemplateSource, /Replace this scaffold|Use this area|This page is ready/);
+  assert.doesNotMatch(editTemplateSource, /Replace this scaffold|Use this area|This page is ready/);
+  assert.doesNotMatch(viewTemplateSource, /Replace this scaffold|Use this area|This page is ready/);
 });

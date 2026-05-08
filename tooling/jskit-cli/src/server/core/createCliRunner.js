@@ -7,6 +7,7 @@ import {
 import path from "node:path";
 import {
   discoverPlacementTopologyFromApp,
+  discoverShellOutletSourcePathsFromApp,
   discoverShellOutletTargetsFromApp
 } from "@jskit-ai/kernel/server/support";
 import { createCliError } from "../shared/cliError.js";
@@ -149,6 +150,7 @@ const commandHandlers = createCommandHandlers(
     removeManagedViteProxyEntries,
     hashBuffer,
     rm,
+    discoverShellOutletSourcePathsFromApp,
     discoverShellOutletTargetsFromApp,
     discoverPlacementTopologyFromApp
   })

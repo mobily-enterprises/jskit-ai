@@ -19,13 +19,14 @@ import {
   resolvePathWithinApp,
   insertImportIfMissing,
   insertBeforeClassDeclaration,
-  findScriptBlock,
+  findScriptSetupBlock,
+  insertScriptSetupBlock,
   indentBlock
 } from "./support.js";
 
 const DEFAULT_SUBPAGES_POSITION = "sub-pages";
 const SECTION_CONTAINER_SHELL_COMPONENT = "SectionContainerShell";
-const SUBPAGES_LINK_COMPONENT_TOKEN = "local.main.ui.surface-aware-menu-link-item";
+const SUBPAGES_LINK_COMPONENT_TOKEN = "local.main.ui.tab-link-item";
 const DEFAULT_MENU_COMPONENT_DIRECTORY = path.join(DEFAULT_COMPONENT_DIRECTORY, "menus");
 const SUBPAGES_LINK_COMPONENT_DEFINITION = findLocalLinkItemDefinition(SUBPAGES_LINK_COMPONENT_TOKEN);
 
@@ -35,7 +36,6 @@ if (!SUBPAGES_LINK_COMPONENT_DEFINITION) {
 
 const SUBPAGES_LINK_COMPONENT = SUBPAGES_LINK_COMPONENT_DEFINITION.componentName;
 
-const ROUTE_TAG_PATTERN = /<route\b[^>]*>[\s\S]*?<\/route>\s*/gi;
 const TEMPLATE_TOKEN_PATTERN = /<\/?template\b[^>]*>/gi;
 const SHELL_OUTLET_TAG_PATTERN = /<ShellOutlet\b[^>]*\/?>\s*/gi;
 const ROUTER_VIEW_TAG_PATTERN = /<RouterView\b/i;
@@ -49,11 +49,38 @@ function trimEdgeBlankLines(source = "") {
 
 function renderPlainPageSource(pageTitle = "") {
   return `<template>
-  <section class="pa-4">
-    <h1 class="text-h5 mb-2">${pageTitle}</h1>
-    <p class="text-body-2 text-medium-emphasis">Replace this scaffold with your page implementation.</p>
+  <section class="generated-page-screen d-flex flex-column ga-4">
+    <header>
+      <p class="text-overline text-medium-emphasis mb-1">Screen</p>
+      <h1 class="generated-page-screen__title">${pageTitle}</h1>
+    </header>
+
+    <v-sheet rounded="lg" border class="generated-page-screen__empty-state">
+      <h2 class="text-h6 mb-2">No ${pageTitle} activity yet</h2>
+      <p class="text-body-2 text-medium-emphasis mb-0">
+        Activity and actions for this screen will appear here.
+      </p>
+    </v-sheet>
   </section>
 </template>
+
+<style scoped>
+.generated-page-screen__title {
+  font-size: clamp(1.35rem, 2vw, 1.85rem);
+  font-weight: 650;
+  letter-spacing: -0.02em;
+  line-height: 1.15;
+  margin: 0;
+}
+
+.generated-page-screen__empty-state {
+  margin-inline: auto;
+  max-width: 34rem;
+  padding: 2rem 1.25rem;
+  text-align: center;
+  width: 100%;
+}
+</style>
 `;
 }
 
@@ -81,41 +108,50 @@ const hasTabs = computed(() => Boolean(slots.tabs));
 
 <template>
   <section class="section-container-shell d-flex flex-column ga-4">
-    <v-card rounded="lg" elevation="1" border>
-      <v-card-item v-if="hasHeading">
-        <v-card-title v-if="resolvedTitle" class="px-0">{{ resolvedTitle }}</v-card-title>
-        <v-card-subtitle v-if="resolvedSubtitle" class="px-0">{{ resolvedSubtitle }}</v-card-subtitle>
-      </v-card-item>
-      <template v-if="hasTabs">
-        <v-divider v-if="hasHeading" />
-        <v-card-text class="section-container-shell__tabs">
-          <slot name="tabs" />
-        </v-card-text>
-      </template>
-    </v-card>
+    <header v-if="hasHeading" class="section-container-shell__heading">
+      <h1 v-if="resolvedTitle" class="section-container-shell__title">{{ resolvedTitle }}</h1>
+      <p v-if="resolvedSubtitle" class="text-body-2 text-medium-emphasis mb-0">{{ resolvedSubtitle }}</p>
+    </header>
+
+    <v-sheet v-if="hasTabs" rounded="lg" border class="section-container-shell__nav">
+      <slot name="tabs" />
+    </v-sheet>
 
     <slot />
   </section>
 </template>
 
 <style scoped>
-.section-container-shell__tabs {
-  display: flex;
+.section-container-shell__heading {
+  min-width: 0;
+}
+
+.section-container-shell__title {
+  font-size: clamp(1.35rem, 2vw, 1.85rem);
+  font-weight: 650;
+  letter-spacing: -0.02em;
+  line-height: 1.15;
+  margin: 0 0 0.35rem;
+}
+
+.section-container-shell__nav {
   align-items: center;
+  display: flex;
   gap: 0.5rem;
   overflow-x: auto;
-  padding: 0.75rem;
+  padding: 0.5rem;
   scrollbar-width: thin;
 }
 
-.section-container-shell__tabs :deep(.tab-link-item) {
+.section-container-shell__nav :deep(.tab-link-item) {
   flex: 0 0 auto;
+  min-height: 48px;
 }
 
 @media (max-width: 640px) {
-  .section-container-shell__tabs {
+  .section-container-shell__nav {
     gap: 0.375rem;
-    padding: 0.5rem;
+    margin-inline: -0.25rem;
   }
 }
 </style>
@@ -332,7 +368,7 @@ function renderSubpagesTemplate({
 
 function applySubpagesScriptImports(source = "", { sectionContainerComponentImportPath = "" } = {}) {
   const sourceText = String(source || "");
-  const scriptBlock = findScriptBlock(sourceText);
+  const scriptBlock = findScriptSetupBlock(sourceText);
 
   const importLines = [
     "import ShellOutlet from \"@jskit-ai/shell-web/client/components/ShellOutlet\";",
@@ -341,16 +377,7 @@ function applySubpagesScriptImports(source = "", { sectionContainerComponentImpo
   ];
 
   if (!scriptBlock) {
-    const scriptSetupBlock = `<script setup>\n${importLines.join("\n")}\n</script>\n`;
-    let insertionIndex = 0;
-    for (const match of sourceText.matchAll(ROUTE_TAG_PATTERN)) {
-      insertionIndex = match.index + String(match[0] || "").length;
-    }
-    const separator = insertionIndex > 0 ? "\n" : "";
-    return {
-      changed: true,
-      content: `${sourceText.slice(0, insertionIndex)}${separator}${scriptSetupBlock}\n${sourceText.slice(insertionIndex)}`
-    };
+    return insertScriptSetupBlock(sourceText, importLines.join("\n"));
   }
 
   let nextScriptContent = scriptBlock.content;
