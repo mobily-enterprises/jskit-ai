@@ -17,7 +17,7 @@ function setClientAppConfig(source = {}) {
   return normalized;
 }
 
-function createAppDouble({ surfaceRuntime = null } = {}) {
+function createAppDouble({ surfaceRuntime = null, queryClient = null } = {}) {
   const singletons = new Map();
   const singletonInstances = new Map();
   const provided = [];
@@ -64,6 +64,9 @@ function createAppDouble({ surfaceRuntime = null } = {}) {
       if (token === "jskit.client.surface.runtime") {
         return Boolean(surfaceRuntime);
       }
+      if (token === "jskit.client.query-client") {
+        return Boolean(queryClient);
+      }
       return singletons.has(token) || singletonInstances.has(token);
     },
     make(token) {
@@ -75,6 +78,9 @@ function createAppDouble({ surfaceRuntime = null } = {}) {
       }
       if (token === "jskit.client.surface.runtime" && surfaceRuntime) {
         return surfaceRuntime;
+      }
+      if (token === "jskit.client.query-client" && queryClient) {
+        return queryClient;
       }
       if (singletonInstances.has(token)) {
         return singletonInstances.get(token);
@@ -163,6 +169,7 @@ test("shell web client provider binds runtime and injects it into Vue app", asyn
     assert.equal(app.singletons.has("runtime.web-placement.client"), true);
     assert.equal(app.singletons.has("runtime.web-error.client"), true);
     assert.equal(app.singletons.has("runtime.web-error.presentation-store.client"), true);
+    assert.equal(app.singletons.has("runtime.web-refresh.client"), true);
 
     await provider.boot(app);
     assert.equal(app.plugins.length, 0);
@@ -170,6 +177,7 @@ test("shell web client provider binds runtime and injects it into Vue app", asyn
     const providedByKey = new Map(app.provided.map((entry) => [entry.key, entry.value]));
 
     assert.equal(providedByKey.has("jskit.shell-web.runtime.web-placement.client"), true);
+    assert.equal(providedByKey.has("jskit.shell-web.runtime.web-refresh.client"), true);
     assert.equal(providedByKey.has("jskit.shell-web.runtime.web-error.client"), true);
     assert.equal(providedByKey.has("jskit.shell-web.runtime.web-error.presentation-store.client"), true);
 
@@ -183,6 +191,9 @@ test("shell web client provider binds runtime and injects it into Vue app", asyn
     assert.equal(typeof errorRuntime.report, "function");
     assert.equal(typeof errorRuntime.configure, "function");
 
+    const refreshRuntime = providedByKey.get("jskit.shell-web.runtime.web-refresh.client");
+    assert.equal(typeof refreshRuntime.refresh, "function");
+
     const errorStore = providedByKey.get("jskit.shell-web.runtime.web-error.presentation-store.client");
     assert.equal(typeof errorStore.getState, "function");
     assert.equal(typeof errorStore.present, "function");
@@ -192,6 +203,33 @@ test("shell web client provider binds runtime and injects it into Vue app", asyn
     assert.equal(typeof errorPresentationStore.present, "function");
     errorStore.present("banner", { message: "Hello" });
     assert.equal(errorPresentationStore.channels.banner[0].message, "Hello");
+  });
+});
+
+test("shell refresh runtime refreshes bootstrap and active pull-refresh queries", async () => {
+  await withFetchStub({ surfaceAccess: { home: true } }, async () => {
+    const refetchCalls = [];
+    const queryClient = {
+      async refetchQueries(filters = {}, options = {}) {
+        refetchCalls.push({ filters, options });
+      }
+    };
+    const app = createAppDouble({ queryClient });
+    const provider = new ShellWebClientProvider();
+    provider.register(app);
+
+    const refreshRuntime = app.make("runtime.web-refresh.client");
+    const result = await refreshRuntime.refresh("test-refresh");
+
+    assert.equal(result.reason, "test-refresh");
+    assert.equal(result.bootstrapRefreshed, true);
+    assert.equal(result.queriesRefetched, true);
+    assert.equal(refetchCalls.length, 1);
+    assert.equal(refetchCalls[0].filters.type, "active");
+    assert.equal(refetchCalls[0].options.throwOnError, false);
+    assert.equal(refetchCalls[0].filters.predicate({ meta: { jskit: { refreshOnPull: true } } }), true);
+    assert.equal(refetchCalls[0].filters.predicate({ meta: { jskit: { refreshOnPull: false } } }), false);
+    assert.equal(refetchCalls[0].filters.predicate({ meta: {} }), false);
   });
 });
 

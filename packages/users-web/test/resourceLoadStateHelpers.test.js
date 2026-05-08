@@ -1,7 +1,10 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { ref } from "vue";
-import { hasResolvedQueryData } from "../src/client/composables/support/resourceLoadStateHelpers.js";
+import {
+  hasResolvedQueryData,
+  mergeQueryMeta
+} from "../src/client/composables/support/resourceLoadStateHelpers.js";
 
 test("hasResolvedQueryData returns true when the query succeeded", () => {
   const query = {
@@ -36,4 +39,35 @@ test("hasResolvedQueryData returns false when query and payload are unresolved",
     query,
     data: ref(null)
   }), false);
+});
+
+test("mergeQueryMeta preserves caller metadata while adding JSKIT refresh policy", () => {
+  assert.deepEqual(
+    mergeQueryMeta(
+      {
+        staleTime: 1000,
+        meta: {
+          owner: "contacts",
+          jskit: {
+            feature: "list"
+          }
+        }
+      },
+      {
+        jskit: {
+          refreshOnPull: true
+        }
+      }
+    ),
+    {
+      staleTime: 1000,
+      meta: {
+        owner: "contacts",
+        jskit: {
+          feature: "list",
+          refreshOnPull: true
+        }
+      }
+    }
+  );
 });

@@ -25,9 +25,18 @@
     <v-sheet rounded="lg" border class="ui-generator-form-panel">
       <div v-if="formRuntime.addEdit.loadError" class="ui-generator-form-state">
         <h2 class="text-h6 mb-2">Unable to prepare __JSKIT_UI_RESOURCE_SINGULAR_TITLE__</h2>
-        <p class="text-body-2 text-medium-emphasis mb-0">
+        <p class="text-body-2 text-medium-emphasis mb-4">
           {{ formRuntime.addEdit.loadError }}
         </p>
+        <v-btn
+          v-if="formRuntime.addEdit.canRetryLoad"
+          color="primary"
+          variant="tonal"
+          :loading="formRuntime.addEdit.isFetching"
+          @click="formRuntime.addEdit.refresh"
+        >
+          Retry
+        </v-btn>
       </div>
       <v-form v-else class="pa-4" @submit.prevent="formRuntime.addEdit.submit" novalidate>
         <v-row class="ui-generator-form-fields">
@@ -163,6 +172,10 @@ function resolveFieldErrors(fieldKey) {
   .ui-generator-form-header__actions :deep(.v-btn) {
     min-height: 48px;
     flex: 1 1 10rem;
+  }
+
+  .ui-generator-form-state :deep(.v-btn) {
+    min-height: 48px;
   }
 }
 </style>

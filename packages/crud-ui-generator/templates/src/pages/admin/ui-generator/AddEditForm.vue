@@ -22,9 +22,18 @@
     <v-sheet rounded="lg" border class="ui-generator-add-edit-form__panel">
       <div v-if="addEdit.loadError" class="ui-generator-add-edit-form__state">
         <h2 class="text-h6 mb-2">Unable to load form</h2>
-        <p class="text-body-2 text-medium-emphasis mb-0">
+        <p class="text-body-2 text-medium-emphasis mb-4">
           {{ addEdit.loadError }}
         </p>
+        <v-btn
+          v-if="addEdit.canRetryLoad"
+          color="primary"
+          variant="tonal"
+          :loading="addEdit.isFetching"
+          @click="addEdit.refresh"
+        >
+          Retry
+        </v-btn>
       </div>
       <template v-else-if="formRuntime.showFormSkeleton">
         <div class="pa-4">
@@ -161,6 +170,10 @@ function resolveCancelTo(target) {
   .ui-generator-add-edit-form__actions :deep(.v-btn) {
     min-height: 48px;
     flex: 1 1 10rem;
+  }
+
+  .ui-generator-add-edit-form__state :deep(.v-btn) {
+    min-height: 48px;
   }
 }
 </style>

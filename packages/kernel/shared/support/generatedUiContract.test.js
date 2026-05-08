@@ -154,6 +154,9 @@ test("generated UI source contract accepts compact-first CRUD detail structure",
   <section class="generated-ui-screen generated-ui-screen--operator">
     <header class="ui-generator-form-header"></header>
     <v-sheet class="ui-generator-form-panel">
+      <div v-if="addEdit.loadError">
+        <v-btn @click="addEdit.refresh">Retry</v-btn>
+      </div>
       <v-row class="ui-generator-form-fields"></v-row>
     </v-sheet>
   </section>

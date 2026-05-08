@@ -986,6 +986,7 @@ test("crud ui templates derive JSON:API transport from the shared CRUD resource"
   assert.match(viewTemplateSource, /ui-generator-view-header/);
   assert.match(viewTemplateSource, /ui-generator-view-panel/);
   assert.match(viewTemplateSource, /Record unavailable/);
+  assert.match(viewTemplateSource, /@click="view\.refresh"/);
   assert.doesNotMatch(viewTemplateSource, /<v-card\b|View and manage this/);
   assert.doesNotMatch(viewTemplateSource, /const UI_VIEW_TRANSPORT = Object\.freeze\(\{/);
   assert.doesNotMatch(viewTemplateSource, /transport:\s*UI_VIEW_TRANSPORT,/);
@@ -995,6 +996,8 @@ test("crud ui templates derive JSON:API transport from the shared CRUD resource"
   assert.match(newTemplateSource, /ui-generator-form-header/);
   assert.match(newTemplateSource, /ui-generator-form-panel/);
   assert.match(newTemplateSource, /Unable to prepare __JSKIT_UI_RESOURCE_SINGULAR_TITLE__/);
+  assert.match(newTemplateSource, /formRuntime\.addEdit\.canRetryLoad/);
+  assert.match(newTemplateSource, /@click="formRuntime\.addEdit\.refresh"/);
   assert.doesNotMatch(newTemplateSource, /<v-card\b|<v-card-title/);
   assert.doesNotMatch(newTemplateSource, /const UI_CREATE_TRANSPORT = Object\.freeze\(\{/);
   assert.doesNotMatch(newTemplateSource, /transport:\s*UI_CREATE_TRANSPORT,/);
@@ -1004,12 +1007,16 @@ test("crud ui templates derive JSON:API transport from the shared CRUD resource"
   assert.match(editTemplateSource, /ui-generator-form-header/);
   assert.match(editTemplateSource, /ui-generator-form-panel/);
   assert.match(editTemplateSource, /Unable to load __JSKIT_UI_RESOURCE_SINGULAR_TITLE__/);
+  assert.match(editTemplateSource, /formRuntime\.addEdit\.canRetryLoad/);
+  assert.match(editTemplateSource, /@click="formRuntime\.addEdit\.refresh"/);
   assert.doesNotMatch(editTemplateSource, /<v-card\b|<v-card-title/);
   assert.doesNotMatch(editTemplateSource, /const UI_EDIT_TRANSPORT = Object\.freeze\(\{/);
   assert.doesNotMatch(editTemplateSource, /transport:\s*UI_EDIT_TRANSPORT,/);
 
   assert.match(addEditFormTemplateSource, /generated-ui-screen generated-ui-screen--operator ui-generator-add-edit-form/);
   assert.match(addEditFormTemplateSource, /--generated-ui-screen-title-size/);
+  assert.match(addEditFormTemplateSource, /addEdit\.canRetryLoad/);
+  assert.match(addEditFormTemplateSource, /@click="addEdit\.refresh"/);
 
   assert.match(newWrapperTemplateSource, /resource: uiResource,/);
   assert.doesNotMatch(newWrapperTemplateSource, /<v-card\b/);

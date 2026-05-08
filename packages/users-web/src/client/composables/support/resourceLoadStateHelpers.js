@@ -7,4 +7,36 @@ function hasResolvedQueryData({ query = null, data = null } = {}) {
   return querySucceeded || hasDataPayload;
 }
 
-export { hasResolvedQueryData };
+function mergeQueryMeta(queryOptions = null, meta = {}) {
+  const sourceOptions =
+    queryOptions && typeof queryOptions === "object" && !Array.isArray(queryOptions) ? queryOptions : {};
+  const sourceMeta =
+    sourceOptions.meta && typeof sourceOptions.meta === "object" && !Array.isArray(sourceOptions.meta)
+      ? sourceOptions.meta
+      : {};
+  const sourceJskitMeta =
+    sourceMeta.jskit && typeof sourceMeta.jskit === "object" && !Array.isArray(sourceMeta.jskit)
+      ? sourceMeta.jskit
+      : {};
+  const nextJskitMeta =
+    meta.jskit && typeof meta.jskit === "object" && !Array.isArray(meta.jskit)
+      ? meta.jskit
+      : {};
+
+  return {
+    ...sourceOptions,
+    meta: {
+      ...sourceMeta,
+      ...meta,
+      jskit: {
+        ...sourceJskitMeta,
+        ...nextJskitMeta
+      }
+    }
+  };
+}
+
+export {
+  hasResolvedQueryData,
+  mergeQueryMeta
+};

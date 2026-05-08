@@ -235,6 +235,11 @@ const GENERATED_UI_SOURCE_CONTRACT_PROFILES = Object.freeze({
         id: "crud-detail-tap-targets",
         pattern: /min-height:\s*48px/,
         message: "Generated CRUD detail actions need 48px tap targets on compact layouts."
+      }),
+      Object.freeze({
+        id: "crud-detail-load-retry",
+        pattern: /loadError[\s\S]*(?:view|addEdit|formRuntime\.addEdit)\.refresh/,
+        message: "Generated CRUD detail load errors must expose an inline retry action."
       })
     ])
   }),

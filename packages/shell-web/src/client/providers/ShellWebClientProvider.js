@@ -186,6 +186,132 @@ function applyAppErrorConfig(errorRuntime, errorConfig = {}) {
   errorRuntime.assertBootReady();
 }
 
+function isPullRefreshQuery(query = null) {
+  const meta = isRecord(query?.meta) ? query.meta : {};
+  if (meta.jskitRefresh === "pull") {
+    return true;
+  }
+
+  return isRecord(meta.jskit) && meta.jskit.refreshOnPull === true;
+}
+
+function createShellRefreshRuntime({
+  app,
+  logger = null
+} = {}) {
+  if (!app || typeof app.has !== "function" || typeof app.make !== "function") {
+    throw new Error("createShellRefreshRuntime requires application has()/make().");
+  }
+
+  const runtimeLogger = logger || createSharedProviderLogger(app);
+  let refreshQueue = Promise.resolve(null);
+
+  async function refreshBootstrap(reason) {
+    if (!app.has("runtime.web-bootstrap.client")) {
+      return false;
+    }
+
+    const bootstrapRuntime = app.make("runtime.web-bootstrap.client");
+    if (!bootstrapRuntime || typeof bootstrapRuntime.refresh !== "function") {
+      return false;
+    }
+
+    await bootstrapRuntime.refresh(reason);
+    return true;
+  }
+
+  async function refetchPullQueries() {
+    if (!app.has("jskit.client.query-client")) {
+      return false;
+    }
+
+    const queryClient = app.make("jskit.client.query-client");
+    if (!queryClient || typeof queryClient.refetchQueries !== "function") {
+      return false;
+    }
+
+    await queryClient.refetchQueries(
+      {
+        type: "active",
+        predicate: isPullRefreshQuery
+      },
+      {
+        throwOnError: false
+      }
+    );
+    return true;
+  }
+
+  function reportRefreshFailure(error) {
+    runtimeLogger.warn(
+      {
+        error: String(error?.message || error || "unknown error")
+      },
+      "Shell refresh failed."
+    );
+
+    if (!app.has("runtime.web-error.client")) {
+      return;
+    }
+
+    const errorRuntime = app.make("runtime.web-error.client");
+    if (!errorRuntime || typeof errorRuntime.report !== "function") {
+      return;
+    }
+
+    errorRuntime.report({
+      source: "shell-web.refresh",
+      message: "Unable to refresh. Check the connection and try again.",
+      severity: "error",
+      channel: "banner",
+      dedupeKey: "shell-web.refresh.failed",
+      dedupeWindowMs: 2000,
+      action: {
+        label: "Retry",
+        dismissOnRun: true,
+        handler() {
+          void refresh("retry");
+        }
+      }
+    });
+  }
+
+  async function performRefresh(reason = "manual") {
+    const normalizedReason = String(reason || "manual").trim() || "manual";
+    try {
+      const [bootstrapRefreshed, queriesRefetched] = await Promise.all([
+        refreshBootstrap(normalizedReason),
+        refetchPullQueries()
+      ]);
+
+      return Object.freeze({
+        reason: normalizedReason,
+        bootstrapRefreshed,
+        queriesRefetched
+      });
+    } catch (error) {
+      reportRefreshFailure(error);
+      return Object.freeze({
+        reason: normalizedReason,
+        bootstrapRefreshed: false,
+        queriesRefetched: false,
+        error
+      });
+    }
+  }
+
+  function refresh(reason = "manual") {
+    refreshQueue = refreshQueue
+      .catch(() => null)
+      .then(() => performRefresh(reason));
+    return refreshQueue;
+  }
+
+  return Object.freeze({
+    refresh
+  });
+}
+
 function installVueErrorBridge(vueApp, errorRuntime, logger) {
   if (!vueApp || !isRecord(vueApp.config)) {
     return;
@@ -301,6 +427,12 @@ class ShellWebClientProvider {
         logger
       })
     );
+    app.singleton("runtime.web-refresh.client", (scope) =>
+      createShellRefreshRuntime({
+        app: scope,
+        logger
+      })
+    );
     app.singleton("runtime.web-error.presentation-store.client", () => createErrorPresentationStore());
     app.singleton("runtime.web-error.client", (scope) =>
       createErrorRuntime({
@@ -372,9 +504,11 @@ class ShellWebClientProvider {
       throw new Error("ShellWebClientProvider requires Pinia installed in the client app.");
     }
     const errorPresentationStore = app.make("runtime.web-error.presentation-store.client");
+    const refreshRuntime = app.make("runtime.web-refresh.client");
     useShellErrorPresentationStore(pinia).attachRuntimeStore(errorPresentationStore);
 
     vueApp.provide("jskit.shell-web.runtime.web-placement.client", placementRuntime);
+    vueApp.provide("jskit.shell-web.runtime.web-refresh.client", refreshRuntime);
     vueApp.provide("jskit.shell-web.runtime.web-error.client", errorRuntime);
     vueApp.provide(
       "jskit.shell-web.runtime.web-error.presentation-store.client",

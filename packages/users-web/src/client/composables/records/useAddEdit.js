@@ -163,9 +163,29 @@ function useAddEdit({
   );
   const loadError = operationScope.loadError(endpointResource.loadError);
   const isLoading = operationScope.isLoading(endpointResource.isLoading);
+  const canRetryLoad = computed(() => Boolean(readEnabled !== false && endpointResource?.reload));
+
+  async function refresh() {
+    if (!canRetryLoad.value) {
+      return null;
+    }
+
+    return endpointResource.reload();
+  }
+
   setupOperationErrorReporting({
     source: `${placementSource}.load`,
-    loadError
+    loadError,
+    dedupeWindowMs: 0,
+    loadActionFactory: () => canRetryLoad.value
+      ? {
+        label: "Retry",
+        dismissOnRun: true,
+        handler() {
+          void refresh();
+        }
+      }
+      : null
   });
 
   return proxyRefs({
@@ -177,13 +197,14 @@ function useAddEdit({
     isRefetching,
     isFieldLocked,
     isSubmitDisabled,
+    canRetryLoad,
     isLoading,
     isSaving: addEdit.saving,
     fieldErrors: addEdit.fieldErrors,
     message: addEdit.message,
     messageType: addEdit.messageType,
     submit: addEdit.submit,
-    refresh: endpointResource.reload,
+    refresh,
     resource: endpointResource,
     recordId: addEditUiRuntime.recordId,
     listUrl: addEditUiRuntime.listUrl,
