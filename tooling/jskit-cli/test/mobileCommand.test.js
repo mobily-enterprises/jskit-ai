@@ -7,6 +7,7 @@ import { createCliRunner } from "../../testUtils/runCli.js";
 import { withTempDir } from "../../testUtils/tempDir.mjs";
 import {
   buildManagedDeepLinkIntentFilterBlock,
+  ensureMobileConfigStub,
   injectManagedDeepLinkBlock
 } from "../src/server/commandHandlers/mobileShellSupport.js";
 
@@ -464,6 +465,63 @@ if (process.argv[2] === "add" && process.argv[3] === "android") {
       "npm install",
       "cap add android"
     ]);
+  });
+});
+
+test("mobile config seeding replaces the fresh disabled create-app placeholder", async () => {
+  await withTempDir(async (cwd) => {
+    const appRoot = path.join(cwd, "app");
+    await createMobileReadyApp(appRoot, {
+      includeMobileConfig: false
+    });
+
+    const publicConfigPath = path.join(appRoot, "config", "public.js");
+    await writeFile(
+      publicConfigPath,
+      `${await readFile(publicConfigPath, "utf8")}
+config.mobile = {
+  enabled: false,
+  strategy: "",
+  appId: "",
+  appName: "",
+  assetMode: "bundled",
+  devServerUrl: "",
+  apiBaseUrl: "",
+  auth: {
+    callbackPath: "/auth/login",
+    customScheme: "",
+    appLinkDomains: []
+  },
+  android: {
+    packageName: "",
+    minSdk: 26,
+    targetSdk: 35,
+    versionCode: 1,
+    versionName: "1.0.0"
+  }
+};
+`,
+      "utf8"
+    );
+
+    const appended = await ensureMobileConfigStub({
+      ctx: {
+        normalizeRelativePath(root, filePath) {
+          return path.relative(root, filePath);
+        }
+      },
+      appRoot,
+      packageJson: {
+        name: "example-mobile-app",
+        version: "0.1.0"
+      }
+    });
+
+    assert.equal(appended, true);
+    const publicConfigSource = await readFile(publicConfigPath, "utf8");
+    assert.match(publicConfigSource, /jskit-mobile-capacitor:config:start/u);
+    assert.match(publicConfigSource, /enabled: true/u);
+    assert.match(publicConfigSource, /apiBaseUrl: "http:\/\/127\.0\.0\.1:3000"/u);
   });
 });
 

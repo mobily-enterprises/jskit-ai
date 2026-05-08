@@ -12,7 +12,10 @@ async function buildTemplateContext({ appRoot, options } = {}) {
   const settingsSurface = resolveSurfaceDefinition(appConfig, options?.["settings-surface"], "settings-surface");
   const configScope = normalizeConfigScope(options?.["config-scope"]);
 
-  assertAssistantSurfaceIsAvailable(appConfig, runtimeSurface.id);
+  assertAssistantSurfaceIsAvailable(appConfig, runtimeSurface.id, {
+    settingsSurfaceId: settingsSurface.id,
+    configScope
+  });
 
   if (configScope === "workspace" && runtimeSurface.requiresWorkspace !== true) {
     throw new Error(

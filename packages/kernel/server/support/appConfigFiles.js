@@ -1,6 +1,7 @@
 import path from "node:path";
-import { fileURLToPath, pathToFileURL } from "node:url";
+import { fileURLToPath } from "node:url";
 import { fileExists } from "../../internal/node/fileSystem.js";
+import { importFreshModuleFromAbsolutePath } from "./importFreshModuleFromAbsolutePath.js";
 
 const PUBLIC_CONFIG_RELATIVE_PATH = "config/public.js";
 const SERVER_CONFIG_RELATIVE_PATH = "config/server.js";
@@ -35,7 +36,7 @@ async function loadConfigModuleAtPath(absolutePath) {
     return {};
   }
 
-  const loadedModule = await import(pathToFileURL(absolutePath).href);
+  const loadedModule = await importFreshModuleFromAbsolutePath(absolutePath);
   return normalizeConfigObject(loadedModule?.config);
 }
 

@@ -487,6 +487,7 @@ Exports
 - `ANDROID_DIRECTORY_NAME`
 - `ANDROID_MANIFEST_RELATIVE_PATH`
 - `buildManagedMobileConfigStub({ packageJson = {} } = {})`
+- `isEmptyDisabledMobileConfigPlaceholder(mobileConfig = {})`
 - `resolveInstalledMobileConfig(appRoot = "")`
 - `resolveAndroidSdkDetails({ appRoot = "" } = {})`
 - `collectAndroidSdkComponentIssues({ appRoot = "", sdkRoot = "" } = {})`

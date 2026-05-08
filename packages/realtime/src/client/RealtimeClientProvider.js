@@ -10,6 +10,18 @@ const REALTIME_RUNTIME_CLIENT_API = Object.freeze({
   disconnectSocketIoClient
 });
 
+function isCapacitorRuntimeAvailable(app) {
+  if (!app || typeof app.has !== "function" || typeof app.make !== "function") {
+    return false;
+  }
+  if (app.has("mobile.capacitor.adapter.client") !== true) {
+    return false;
+  }
+
+  const adapter = app.make("mobile.capacitor.adapter.client");
+  return adapter?.available === true;
+}
+
 function resolveRealtimeClientConfig(app) {
   const appConfig = normalizeObject(getClientAppConfig());
   const env = app && typeof app.has === "function" && app.has("jskit.client.env") ? normalizeObject(app.make("jskit.client.env")) : {};
@@ -18,7 +30,9 @@ function resolveRealtimeClientConfig(app) {
   const mobileConfig = resolveMobileConfig({
     mobile: normalizeObject(appConfig.mobile)
   });
-  const url = normalizeText(realtimeClient.url || (mobileConfig.enabled === true ? mobileConfig.apiBaseUrl : ""));
+  const url = normalizeText(
+    realtimeClient.url || (mobileConfig.enabled === true && isCapacitorRuntimeAvailable(app) ? mobileConfig.apiBaseUrl : "")
+  );
   const options = normalizeObject(realtimeClient.options);
   const explicitDebugEnabled =
     typeof realtimeClient.debug === "boolean"

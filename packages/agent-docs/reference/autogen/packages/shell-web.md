@@ -267,6 +267,7 @@ Local functions
 ### `src/client/providers/ShellWebClientProvider.js`
 Exports
 - `ShellWebClientProvider`
+- `resolveAppPlacementTopologyExport(exported, logger)`
 Local functions
 - `createShellWebQueryClient()`
 - `isMissingDynamicModule(error, moduleSpecifier)`

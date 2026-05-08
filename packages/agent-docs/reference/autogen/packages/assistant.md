@@ -54,7 +54,7 @@ Exports
 - `normalizeConfigScope(value = "")`
 - `loadAppConfig(appRoot = "")`
 - `resolveSurfaceDefinition(appConfig = {}, surfaceId = "", optionName = "surface")`
-- `assertAssistantSurfaceIsAvailable(appConfig = {}, surfaceId = "")`
+- `assertAssistantSurfaceIsAvailable(appConfig = {}, surfaceId = "", expected = {})`
 - `resolveAiConfigPrefix(surfaceId = "", explicitPrefix = "")`
 
 ### templates

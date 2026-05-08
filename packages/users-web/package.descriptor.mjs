@@ -3,7 +3,7 @@ import { HOME_COG_OUTLET } from "./src/shared/toolsOutletContracts.js";
 export default Object.freeze({
   packageVersion: 1,
   packageId: "@jskit-ai/users-web",
-  version: "0.1.80",
+  version: "0.1.81",
   kind: "runtime",
   description: "Users web module: account/profile UI plus shared users web widgets.",
   dependsOn: [
@@ -235,12 +235,12 @@ export default Object.freeze({
       runtime: {
         "@tanstack/vue-query": "5.92.12",
         "@mdi/js": "^7.4.47",
-        "@jskit-ai/http-runtime": "0.1.64",
-        "@jskit-ai/realtime": "0.1.64",
-        "@jskit-ai/kernel": "0.1.65",
-        "@jskit-ai/shell-web": "0.1.64",
-        "@jskit-ai/uploads-image-web": "0.1.43",
-        "@jskit-ai/users-core": "0.1.75",
+        "@jskit-ai/http-runtime": "0.1.65",
+        "@jskit-ai/realtime": "0.1.65",
+        "@jskit-ai/kernel": "0.1.66",
+        "@jskit-ai/shell-web": "0.1.65",
+        "@jskit-ai/uploads-image-web": "0.1.44",
+        "@jskit-ai/users-core": "0.1.76",
         vuetify: "^4.0.0"
       },
       dev: {}

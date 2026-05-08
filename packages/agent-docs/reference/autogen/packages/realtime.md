@@ -42,6 +42,7 @@ Local functions
 Exports
 - `RealtimeClientProvider`
 Local functions
+- `isCapacitorRuntimeAvailable(app)`
 - `resolveRealtimeClientConfig(app)`
 
 ### `src/client/runtime.js`

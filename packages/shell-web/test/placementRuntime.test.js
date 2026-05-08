@@ -108,6 +108,43 @@ test("web placement runtime resolves semantic targets through topology variants"
   assert.equal(mediumEntries[0].componentToken, "component.menu");
 });
 
+test("web placement runtime accepts append-only topology objects", () => {
+  const app = createAppStub({
+    tokens: {
+      "component.menu": () => null
+    }
+  });
+
+  const runtime = createWebPlacementRuntime({ app });
+  runtime.replacePlacementTopology({
+    placements: [
+      semanticTopologyEntry({
+        id: "shell.primary-nav",
+        compactRenderer: "component.menu",
+        mediumRenderer: "component.menu",
+        expandedRenderer: "component.menu"
+      })
+    ]
+  });
+  runtime.replacePlacements([
+    definePlacement({
+      id: "test.home",
+      target: "shell.primary-nav",
+      kind: "link",
+      surfaces: ["app"],
+      order: 10
+    })
+  ]);
+  runtime.setContext(createPlacementContext());
+
+  const entries = runtime.getPlacements({
+    surface: "app",
+    target: "shell-layout:primary-menu",
+    layoutClass: "expanded"
+  });
+  assert.deepEqual(entries.map((entry) => entry.id), ["test.home"]);
+});
+
 test("web placement runtime filters by surface/host/position, resolves component tokens, and sorts by order", () => {
   const app = createAppStub({
     tokens: {

@@ -93,21 +93,7 @@ async function loadAppPlacementTopology(logger) {
   try {
     const moduleNamespace = await import("/src/placementTopology.js");
     const exported = moduleNamespace?.default;
-    const resolved = typeof exported === "function" ? exported() : exported;
-    if (Array.isArray(resolved)) {
-      return resolved;
-    }
-    if (resolved && typeof resolved === "object") {
-      return [resolved];
-    }
-
-    logger.warn(
-      {
-        module: APP_PLACEMENT_TOPOLOGY_MODULE_SPECIFIER,
-        exportedType: typeof exported
-      },
-      "App placement topology module default export did not resolve to an object or array; using empty topology."
-    );
+    return resolveAppPlacementTopologyExport(exported, logger);
   } catch (error) {
     if (isMissingDynamicModule(error, APP_PLACEMENT_TOPOLOGY_MODULE_SPECIFIER)) {
       return [];
@@ -122,6 +108,25 @@ async function loadAppPlacementTopology(logger) {
     );
   }
 
+  return [];
+}
+
+function resolveAppPlacementTopologyExport(exported, logger) {
+  const resolved = typeof exported === "function" ? exported() : exported;
+  if (Array.isArray(resolved)) {
+    return resolved;
+  }
+  if (resolved && typeof resolved === "object") {
+    return resolved;
+  }
+
+  logger.warn(
+    {
+      module: APP_PLACEMENT_TOPOLOGY_MODULE_SPECIFIER,
+      exportedType: typeof exported
+    },
+    "App placement topology module default export did not resolve to an object or array; using empty topology."
+  );
   return [];
 }
 
@@ -402,5 +407,6 @@ class ShellWebClientProvider {
 }
 
 export {
-  ShellWebClientProvider
+  ShellWebClientProvider,
+  resolveAppPlacementTopologyExport
 };

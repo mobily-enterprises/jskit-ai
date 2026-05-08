@@ -248,7 +248,7 @@ test("RealtimeClientProvider registers runtime realtime client api", () => {
   assert.equal(typeof api.disconnectSocketIoClient, "function");
 });
 
-test("RealtimeClientProvider uses mobile.apiBaseUrl when realtimeClient.url is unset", () => {
+test("RealtimeClientProvider uses mobile.apiBaseUrl only inside the Capacitor runtime", () => {
   const previousAppConfig = globalThis[CLIENT_APP_CONFIG_GLOBAL_KEY];
   const calls = [];
   const socket = {
@@ -265,6 +265,9 @@ test("RealtimeClientProvider uses mobile.apiBaseUrl when realtimeClient.url is u
     });
 
     const app = createSingletonApp();
+    app.instance("mobile.capacitor.adapter.client", {
+      available: true
+    });
     app.instance("runtime.realtime.client", {
       createSocketIoClient(input = {}) {
         calls.push(input);
@@ -280,6 +283,53 @@ test("RealtimeClientProvider uses mobile.apiBaseUrl when realtimeClient.url is u
     assert.deepEqual(calls, [
       {
         url: "http://127.0.0.1:3000",
+        options: {}
+      }
+    ]);
+  } finally {
+    if (previousAppConfig === undefined) {
+      delete globalThis[CLIENT_APP_CONFIG_GLOBAL_KEY];
+    } else {
+      globalThis[CLIENT_APP_CONFIG_GLOBAL_KEY] = previousAppConfig;
+    }
+  }
+});
+
+test("RealtimeClientProvider keeps web socket connections URL-less when mobile is installed outside Capacitor", () => {
+  const previousAppConfig = globalThis[CLIENT_APP_CONFIG_GLOBAL_KEY];
+  const calls = [];
+  const socket = {
+    on() {},
+    off() {},
+    disconnect() {}
+  };
+  try {
+    setClientAppConfig({
+      mobile: {
+        enabled: true,
+        apiBaseUrl: "http://127.0.0.1:3000"
+      }
+    });
+
+    const app = createSingletonApp();
+    app.instance("mobile.capacitor.adapter.client", {
+      available: false
+    });
+    app.instance("runtime.realtime.client", {
+      createSocketIoClient(input = {}) {
+        calls.push(input);
+        return socket;
+      },
+      disconnectSocketIoClient() {}
+    });
+
+    const provider = new RealtimeClientProvider();
+    provider.register(app);
+
+    assert.equal(app.make("runtime.realtime.client.socket"), socket);
+    assert.deepEqual(calls, [
+      {
+        url: "",
         options: {}
       }
     ]);

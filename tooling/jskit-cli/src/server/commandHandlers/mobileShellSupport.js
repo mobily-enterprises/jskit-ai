@@ -158,6 +158,18 @@ function buildManagedMobileConfigStub({ packageJson = {} } = {}) {
   ].join("\n");
 }
 
+function isEmptyDisabledMobileConfigPlaceholder(mobileConfig = {}) {
+  return (
+    mobileConfig?.enabled !== true &&
+    !String(mobileConfig?.strategy || "").trim() &&
+    !String(mobileConfig?.appId || "").trim() &&
+    !String(mobileConfig?.appName || "").trim() &&
+    !String(mobileConfig?.apiBaseUrl || "").trim() &&
+    !String(mobileConfig?.auth?.customScheme || "").trim() &&
+    !String(mobileConfig?.android?.packageName || "").trim()
+  );
+}
+
 function parseAndroidSdkDirFromLocalProperties(source = "") {
   const lines = String(source || "").split(/\r?\n/u);
   for (const line of lines) {
@@ -489,8 +501,18 @@ async function ensureMobileConfigStub({
   } = ctx;
   const publicConfigPath = path.join(appRoot, PUBLIC_CONFIG_RELATIVE_PATH);
   const currentSource = await readFile(publicConfigPath, "utf8");
-  if (/\bconfig\.mobile\b|\bmobile\s*:/u.test(currentSource)) {
+  if (
+    currentSource.includes(MANAGED_MOBILE_CONFIG_START_MARKER) &&
+    currentSource.includes(MANAGED_MOBILE_CONFIG_END_MARKER)
+  ) {
     return false;
+  }
+  if (/\bconfig\.mobile\b|\bmobile\s*:/u.test(currentSource)) {
+    const mergedConfig = await loadAppConfigFromAppRoot({ appRoot });
+    const mobileConfig = resolveMobileConfig({ mobile: mergedConfig.mobile });
+    if (!isEmptyDisabledMobileConfigPlaceholder(mobileConfig)) {
+      return false;
+    }
   }
 
   const stubSource = buildManagedMobileConfigStub({
@@ -913,6 +935,7 @@ export {
   ANDROID_DIRECTORY_NAME,
   ANDROID_MANIFEST_RELATIVE_PATH,
   buildManagedMobileConfigStub,
+  isEmptyDisabledMobileConfigPlaceholder,
   resolveInstalledMobileConfig,
   resolveAndroidSdkDetails,
   collectAndroidSdkComponentIssues,
