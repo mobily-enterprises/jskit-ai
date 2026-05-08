@@ -123,6 +123,7 @@ const resolvedIcon = computed(() =>
 <style scoped>
 .tab-link-item {
   flex: 0 0 auto;
+  min-height: 48px;
 }
 
 .tab-link-item__label {

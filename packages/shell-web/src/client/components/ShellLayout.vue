@@ -96,6 +96,10 @@ onMounted(() => {
   window.addEventListener("pointermove", handlePullPointerMove, { capture: true, passive: false });
   window.addEventListener("pointerup", handlePullPointerEnd, { capture: true, passive: true });
   window.addEventListener("pointercancel", handlePullPointerCancel, { capture: true, passive: true });
+  window.addEventListener("touchstart", handlePullTouchStart, { capture: true, passive: true });
+  window.addEventListener("touchmove", handlePullTouchMove, { capture: true, passive: false });
+  window.addEventListener("touchend", handlePullTouchEnd, { capture: true, passive: true });
+  window.addEventListener("touchcancel", handlePullTouchCancel, { capture: true, passive: true });
 });
 
 onBeforeUnmount(() => {
@@ -107,6 +111,10 @@ onBeforeUnmount(() => {
   window.removeEventListener("pointermove", handlePullPointerMove, { capture: true });
   window.removeEventListener("pointerup", handlePullPointerEnd, { capture: true });
   window.removeEventListener("pointercancel", handlePullPointerCancel, { capture: true });
+  window.removeEventListener("touchstart", handlePullTouchStart, { capture: true });
+  window.removeEventListener("touchmove", handlePullTouchMove, { capture: true });
+  window.removeEventListener("touchend", handlePullTouchEnd, { capture: true });
+  window.removeEventListener("touchcancel", handlePullTouchCancel, { capture: true });
 });
 
 function handlePullPointerDown(event) {
@@ -117,9 +125,10 @@ function handlePullPointerDown(event) {
 
   activePull = {
     pointerId: event.pointerId,
+    touchIdentifier: null,
     startX: event.clientX,
     startY: event.clientY,
-    cancelled: false
+    pointerCancelled: false
   };
 }
 
@@ -128,8 +137,75 @@ function handlePullPointerMove(event) {
     return;
   }
 
-  const deltaX = event.clientX - activePull.startX;
-  const deltaY = event.clientY - activePull.startY;
+  updatePullGesture(event.clientX, event.clientY, event);
+}
+
+function handlePullPointerEnd(event) {
+  if (!activePull || event.pointerId !== activePull.pointerId) {
+    return;
+  }
+
+  finishPullGesture();
+}
+
+function handlePullPointerCancel(event) {
+  if (!activePull || event.pointerId !== activePull.pointerId) {
+    return;
+  }
+
+  activePull.pointerId = null;
+  activePull.pointerCancelled = true;
+}
+
+function handlePullTouchStart(event) {
+  if (activePull || !canStartTouchPullRefresh(event)) {
+    return;
+  }
+
+  const touch = event.touches?.[0] || null;
+  if (!touch) {
+    return;
+  }
+
+  activePull = {
+    pointerId: null,
+    touchIdentifier: touch.identifier,
+    startX: touch.clientX,
+    startY: touch.clientY,
+    pointerCancelled: false
+  };
+}
+
+function handlePullTouchMove(event) {
+  const touch = findActiveTouch(event.touches);
+  if (!activePull || !touch) {
+    return;
+  }
+
+  updatePullGesture(touch.clientX, touch.clientY, event);
+}
+
+function handlePullTouchEnd(event) {
+  if (!activePull || !touchListIncludesActiveTouch(event.changedTouches)) {
+    return;
+  }
+
+  finishPullGesture();
+}
+
+function handlePullTouchCancel(event) {
+  if (activePull && touchListIncludesActiveTouch(event.changedTouches)) {
+    cancelPullRefresh();
+  }
+}
+
+function updatePullGesture(clientX, clientY, event) {
+  if (!activePull) {
+    return;
+  }
+
+  const deltaX = clientX - activePull.startX;
+  const deltaY = clientY - activePull.startY;
   const absX = Math.abs(deltaX);
 
   if (deltaY < -4 || (absX > 24 && absX > deltaY * 1.15)) {
@@ -141,15 +217,13 @@ function handlePullPointerMove(event) {
     return;
   }
 
-  event.preventDefault();
+  if (event?.cancelable) {
+    event.preventDefault();
+  }
   pullDistance.value = Math.min(PULL_REFRESH_MAX_DISTANCE, Math.round(deltaY * 0.55));
 }
 
-function handlePullPointerEnd(event) {
-  if (!activePull || event.pointerId !== activePull.pointerId) {
-    return;
-  }
-
+function finishPullGesture() {
   const shouldRefresh = pullDistance.value >= PULL_REFRESH_TRIGGER_DISTANCE;
   activePull = null;
 
@@ -159,12 +233,6 @@ function handlePullPointerEnd(event) {
   }
 
   void refreshFromPullGesture();
-}
-
-function handlePullPointerCancel(event) {
-  if (activePull && event.pointerId === activePull.pointerId) {
-    cancelPullRefresh();
-  }
 }
 
 function cancelPullRefresh() {
@@ -192,13 +260,26 @@ async function refreshFromPullGesture() {
 
 function canStartPullRefresh(event) {
   return Boolean(
+    canStartPullRefreshFromTarget(event.target) &&
+    isPrimaryTouchPointer(event)
+  );
+}
+
+function canStartTouchPullRefresh(event) {
+  return Boolean(
+    event?.touches?.length === 1 &&
+    canStartPullRefreshFromTarget(event.target)
+  );
+}
+
+function canStartPullRefreshFromTarget(target) {
+  return Boolean(
     isCompactLayout.value &&
     refreshRuntime &&
     typeof refreshRuntime.refresh === "function" &&
     !pullRefreshing.value &&
-    isPrimaryTouchPointer(event) &&
     isAtPageTop() &&
-    !isPullRefreshIgnoredTarget(event.target)
+    !isPullRefreshIgnoredTarget(target)
   );
 }
 
@@ -235,6 +316,36 @@ function isPullRefreshIgnoredTarget(target) {
       ].join(",")
     )
   );
+}
+
+function findActiveTouch(touchList) {
+  if (!activePull || !touchList || touchList.length < 1) {
+    return null;
+  }
+
+  if (activePull.touchIdentifier === null && touchList.length === 1) {
+    return touchList[0];
+  }
+
+  for (const touch of touchList) {
+    if (touch.identifier === activePull.touchIdentifier) {
+      return touch;
+    }
+  }
+
+  return null;
+}
+
+function touchListIncludesActiveTouch(touchList) {
+  if (!activePull) {
+    return false;
+  }
+
+  if (activePull.touchIdentifier === null) {
+    return !touchList || touchList.length <= 1;
+  }
+
+  return Boolean(findActiveTouch(touchList));
 }
 </script>
 

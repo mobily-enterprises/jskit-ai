@@ -75,6 +75,7 @@ test("shell-web shell layout registers navigation at the app layout level", asyn
   assert.match(source, /data-testid="jskit-shell-supporting-side-panel"/);
   assert.match(source, /inject\("jskit\.shell-web\.runtime\.web-refresh\.client", null\)/);
   assert.match(source, /window\.addEventListener\("pointerdown", handlePullPointerDown/);
+  assert.match(source, /window\.addEventListener\("touchmove", handlePullTouchMove/);
   assert.match(source, /refreshRuntime\.refresh\("pull-to-refresh"\)/);
   assert.match(source, /data-testid="jskit-shell-pull-refresh"/);
   assert.match(source, /target="shell-layout:primary-menu"[\s\S]*default/);
@@ -98,6 +99,15 @@ test("shell-web error host uses one explicit close affordance for banner errors"
   assert.match(source, /:icon="resolveSeverityIcon\(entry\.severity\)"/);
   assert.match(source, /closable[\s\S]*@click:close="dismiss\(entry\)"/);
   assert.doesNotMatch(source, /mdi-close/);
+});
+
+test("shell-web error host keeps snackbar color stable while closing", async () => {
+  const source = await readFile(path.join(PACKAGE_DIR, "src", "client", "components", "ShellErrorHost.vue"), "utf8");
+
+  assert.match(source, /displayedSnackbarEntry/);
+  assert.match(source, /@after-leave="onSnackbarAfterLeave"/);
+  assert.match(source, /:color="displayedSnackbarEntry \? resolveSeverityColor\(displayedSnackbarEntry\.severity\) : undefined"/);
+  assert.doesNotMatch(source, /resolveSeverityColor\(snackbarEntry\?\.severity\)/);
 });
 
 test("shell-web error template uses intent-driven default presentation", async () => {

@@ -206,7 +206,7 @@ test("shell web client provider binds runtime and injects it into Vue app", asyn
   });
 });
 
-test("shell refresh runtime refreshes bootstrap and active pull-refresh queries", async () => {
+test("shell refresh runtime refreshes bootstrap and active queries by default", async () => {
   await withFetchStub({ surfaceAccess: { home: true } }, async () => {
     const refetchCalls = [];
     const queryClient = {
@@ -227,9 +227,12 @@ test("shell refresh runtime refreshes bootstrap and active pull-refresh queries"
     assert.equal(refetchCalls.length, 1);
     assert.equal(refetchCalls[0].filters.type, "active");
     assert.equal(refetchCalls[0].options.throwOnError, false);
+    assert.equal(refetchCalls[0].filters.predicate({}), true);
+    assert.equal(refetchCalls[0].filters.predicate({ meta: {} }), true);
     assert.equal(refetchCalls[0].filters.predicate({ meta: { jskit: { refreshOnPull: true } } }), true);
+    assert.equal(refetchCalls[0].filters.predicate({ meta: { jskitRefresh: "pull" } }), true);
     assert.equal(refetchCalls[0].filters.predicate({ meta: { jskit: { refreshOnPull: false } } }), false);
-    assert.equal(refetchCalls[0].filters.predicate({ meta: {} }), false);
+    assert.equal(refetchCalls[0].filters.predicate({ meta: { jskitRefresh: false } }), false);
   });
 });
 

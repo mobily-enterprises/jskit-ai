@@ -61,7 +61,10 @@ const resource = defineCrudResource({
   namespace: "workspace",
   tableName: "workspaces",
   searchSchema: {
-    id: { type: "id", actualField: "id" }
+    id: { type: "id", actualField: "id" },
+    slug: { type: "string", actualField: "slug", filterOperator: "=" },
+    owner: { type: "id", actualField: "owner_user_id", filterOperator: "=" },
+    isPersonal: { type: "boolean", actualField: "is_personal", filterOperator: "=" }
   },
   schema: {
     slug: {

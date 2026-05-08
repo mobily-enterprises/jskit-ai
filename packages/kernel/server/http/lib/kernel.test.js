@@ -14,8 +14,12 @@ function createFastifyStub() {
     setErrorHandlerCalls: 0,
     errorHandler: null,
     contentTypeParsers: new Map(),
+    hooks: {},
     route(definition) {
       routes.push(definition);
+    },
+    addHook(name, handler) {
+      this.hooks[name] = handler;
     },
     setErrorHandler(handler) {
       this.errorHandler = handler;

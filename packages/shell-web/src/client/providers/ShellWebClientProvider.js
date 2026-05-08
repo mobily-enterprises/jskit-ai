@@ -191,8 +191,12 @@ function isPullRefreshQuery(query = null) {
   if (meta.jskitRefresh === "pull") {
     return true;
   }
+  if (meta.jskitRefresh === false) {
+    return false;
+  }
 
-  return isRecord(meta.jskit) && meta.jskit.refreshOnPull === true;
+  const jskitMeta = isRecord(meta.jskit) ? meta.jskit : {};
+  return jskitMeta.refreshOnPull !== false;
 }
 
 function createShellRefreshRuntime({

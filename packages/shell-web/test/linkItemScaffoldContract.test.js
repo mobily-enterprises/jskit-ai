@@ -157,6 +157,7 @@ test("shell-web generic link items support the expected shared route and icon be
   assert.match(shellTabSource, /resolveMenuLinkIcon/);
   assert.match(shellTabSource, /<v-btn/);
   assert.match(shellTabSource, /stacked/);
+  assert.match(shellTabSource, /min-height:\s*48px/);
   assert.match(shellTabSource, /<v-icon v-if="resolvedIcon" :icon="resolvedIcon" \/>/);
 });
 

@@ -557,6 +557,10 @@ test("buildReplacementsFromSnapshot renders inline field relation metadata from 
     replacements.__JSKIT_CRUD_RESOURCE_SCHEMA_PROPERTIES__,
     /relation: \{ kind: "lookup", namespace: "customer-categories", valueKey: "id" \}.*belongsTo: "customerCategories".*as: "vet".*ui: \{ formControl: "autocomplete" \}/s
   );
+  assert.match(
+    replacements.__JSKIT_CRUD_RESOURCE_SEARCH_SCHEMA_LINES__,
+    /vetId: \{ type: "id", actualField: "vet_id", filterOperator: "=" \}/
+  );
   assert.match(replacements.__JSKIT_CRUD_MIGRATION_FOREIGN_KEY_LINES__, /table\.foreign\(\["vet_id"\]/);
 });
 

@@ -2,7 +2,13 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import { AppError, isAppError } from "./errors.js";
-import { registerApiErrorHandler, registerJsonApiContentTypeParser, registerRequestLoggingHooks } from "./fastifyBootstrap.js";
+import {
+  normalizeBodylessContentTypeHeader,
+  registerApiErrorHandler,
+  registerBodylessContentTypeNormalizer,
+  registerJsonApiContentTypeParser,
+  registerRequestLoggingHooks
+} from "./fastifyBootstrap.js";
 
 function createFastifyStub() {
   return {
@@ -273,6 +279,46 @@ test("registerJsonApiContentTypeParser installs the JSON:API media type parser o
   assert.equal(fastify.hasContentTypeParser("application/vnd.api+json"), true);
   assert.equal(registerJsonApiContentTypeParser(fastify), false);
   assert.equal(fastify.contentTypeParsers.size, 1);
+});
+
+test("normalizeBodylessContentTypeHeader strips meaningless content type from empty requests", () => {
+  const request = {
+    headers: {
+      "content-type": "text/plain;charset=UTF-8"
+    }
+  };
+
+  assert.equal(normalizeBodylessContentTypeHeader(request), true);
+  assert.deepEqual(request.headers, {});
+});
+
+test("normalizeBodylessContentTypeHeader keeps content type when a body is declared", () => {
+  const request = {
+    headers: {
+      "content-type": "text/plain;charset=UTF-8",
+      "content-length": "12"
+    }
+  };
+
+  assert.equal(normalizeBodylessContentTypeHeader(request), false);
+  assert.equal(request.headers["content-type"], "text/plain;charset=UTF-8");
+});
+
+test("registerBodylessContentTypeNormalizer installs the request hook once", async () => {
+  const fastify = createFastifyStub();
+  assert.equal(registerBodylessContentTypeNormalizer(fastify), true);
+  assert.equal(registerBodylessContentTypeNormalizer(fastify), false);
+
+  const request = {
+    headers: {
+      "content-type": "text/plain;charset=UTF-8",
+      "content-length": "0"
+    }
+  };
+  await fastify.hooks.onRequest(request);
+  assert.deepEqual(request.headers, {
+    "content-length": "0"
+  });
 });
 
 test("registerRequestLoggingHooks uses configured default surface when getSurface is absent", async () => {

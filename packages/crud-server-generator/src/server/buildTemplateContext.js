@@ -1036,6 +1036,8 @@ function renderJsonRestSchemaPropertyLines(columns = [], { fieldContractEntries 
 }
 
 function renderJsonRestSearchSchemaLines(columns = []) {
+  const exactFilterKeys = new Set();
+  const exactFilterLines = [];
   const searchableStringKeys = (Array.isArray(columns) ? columns : [])
     .filter((column) =>
       normalizeText(column?.typeKind).toLowerCase() === "string" &&
@@ -1050,6 +1052,29 @@ function renderJsonRestSearchSchemaLines(columns = []) {
   const lines = [
     '    id: { type: "id", actualField: "id" },'
   ];
+
+  for (const column of Array.isArray(columns) ? columns : []) {
+    const key = normalizeText(column?.key);
+    if (
+      !key ||
+      exactFilterKeys.has(key) ||
+      column?.isOwnerColumn === true ||
+      column?.isIdColumn === true ||
+      column?.isCreatedAtColumn === true ||
+      column?.isUpdatedAtColumn === true ||
+      column?.isForeignIdColumn !== true
+    ) {
+      continue;
+    }
+
+    const actualField = normalizeText(column?.name) || key;
+    exactFilterKeys.add(key);
+    exactFilterLines.push(
+      `    ${renderObjectPropertyKey(key)}: { type: "id", actualField: ${JSON.stringify(actualField)}, filterOperator: "=" },`
+    );
+  }
+
+  lines.push(...exactFilterLines);
 
   if (searchableStringKeys.length > 0) {
     lines.push(
