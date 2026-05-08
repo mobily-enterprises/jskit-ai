@@ -163,13 +163,14 @@ const workspaceInvitesEnabled = computed(() => bootstrapModel.workspaceInvitesEn
 
 const isBootstrapping = computed(() => Boolean(bootstrapView.isLoading));
 const isRefreshingBootstrap = computed(() => Boolean(bootstrapView.isRefetching));
+const bootstrapLoadError = computed(() => String(bootstrapView.loadError || "").trim());
 const canCreateWorkspace = computed(() => bootstrapModel.workspaceAllowSelfCreate === true);
 const isCreatingWorkspace = computed(() => Boolean(createWorkspaceCommand.isRunning.value));
 
 function reportFeedback({
   message,
   severity = "error",
-  channel = "banner",
+  channel = "",
   dedupeKey = ""
 } = {}) {
   const normalizedMessage = String(message || "").trim();
@@ -180,6 +181,7 @@ function reportFeedback({
   errorRuntime.report({
     source: "users-web.workspaces-view",
     message: normalizedMessage,
+    intent: "action-feedback",
     severity,
     channel,
     dedupeKey: dedupeKey || `users-web.workspaces-view:${severity}:${normalizedMessage}`,
@@ -233,7 +235,6 @@ async function openWorkspace(workspaceSlug) {
     reportFeedback({
       message: "Workspace surface is not configured.",
       severity: "error",
-      channel: "banner",
       dedupeKey: "users-web.workspaces-view:workspace-surface-missing"
     });
     return;
@@ -258,7 +259,6 @@ async function openWorkspace(workspaceSlug) {
     reportFeedback({
       message: String(error?.message || "Unable to open workspace."),
       severity: "error",
-      channel: "banner",
       dedupeKey: `users-web.workspaces-view:open-workspace:${normalizedSlug}`
     });
   } finally {
@@ -301,7 +301,6 @@ async function respondToInvite(invite, decision) {
     reportFeedback({
       message: "Invitation refused.",
       severity: "success",
-      channel: "snackbar",
       dedupeKey: `users-web.workspaces-view:invite-refused:${token}`
     });
   } catch (error) {
@@ -310,7 +309,6 @@ async function respondToInvite(invite, decision) {
         error?.message || (normalizedDecision === "accept" ? "Unable to accept invite." : "Unable to refuse invite.")
       ),
       severity: "error",
-      channel: "banner",
       dedupeKey: `users-web.workspaces-view:invite-${normalizedDecision}:${token}`
     });
   } finally {
@@ -341,7 +339,6 @@ async function createWorkspace() {
     reportFeedback({
       message: "Workspace name is required.",
       severity: "error",
-      channel: "banner",
       dedupeKey: "users-web.workspaces-view:create-workspace-name-required"
     });
     return;
@@ -361,10 +358,13 @@ async function createWorkspace() {
     reportFeedback({
       message: String(error?.message || "Unable to create workspace."),
       severity: "error",
-      channel: "banner",
       dedupeKey: "users-web.workspaces-view:create-workspace-error"
     });
   }
+}
+
+async function refreshBootstrap() {
+  return bootstrapView.refresh();
 }
 
 watch(
@@ -414,6 +414,18 @@ watch(
               <template v-if="isBootstrapping">
                 <v-skeleton-loader type="text, list-item-avatar-two-line@3" />
               </template>
+              <div v-else-if="bootstrapLoadError" class="workspaces-view__state">
+                <h2 class="text-h6 mb-2">Unable to load workspaces</h2>
+                <p class="text-body-2 text-medium-emphasis mb-4">{{ bootstrapLoadError }}</p>
+                <v-btn
+                  color="primary"
+                  variant="tonal"
+                  :loading="isRefreshingBootstrap"
+                  @click="refreshBootstrap"
+                >
+                  Retry
+                </v-btn>
+              </div>
               <template v-else>
                 <div class="text-subtitle-2 mb-2">Your workspaces</div>
                 <template v-if="workspaceItems.length === 0">
@@ -563,6 +575,13 @@ watch(
 
 .workspaces-view__body {
   padding: 1rem;
+}
+
+.workspaces-view__state {
+  margin-inline: auto;
+  max-width: 30rem;
+  padding: 2rem 1rem;
+  text-align: center;
 }
 
 @media (max-width: 640px) {

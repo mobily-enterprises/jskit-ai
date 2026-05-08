@@ -20,7 +20,7 @@ Ask first:
 Default JSKIT client pattern:
 1. Generated CRUD list pages include a page-local `listFilters.js` file next to `index.vue`.
 2. Put client filter definitions in that file with `defineCrudListFilters(...)`.
-3. The generated `index.vue` already builds `useCrudListFilters(listFilters)`, passes `filterRuntime.queryParams` into `useCrudList(...)`, and renders `CrudListFilterSurface`.
+3. The generated `index.vue` passes `listFilters` into `useCrudListScreen(...)`; the shared list screen builds `useCrudListFilters(listFilters)`, passes `filterRuntime.queryParams` into the list request, and renders `CrudListFilterSurface`.
 4. If `listFilters` is empty, the filter surface renders nothing and the page behaves like a normal searchable list.
 5. The AI/app author is responsible for ensuring the server accepts and applies the query params declared in `listFilters.js`.
 6. For lookup-backed filters, use `useCrudListFilterLookups(...)` when the page needs remote options or readable chip labels.
@@ -28,6 +28,8 @@ Default JSKIT client pattern:
 Generated client shape:
 - `src/pages/<surface>/<resource>/listFilters.js`
 - `const listFilters = defineCrudListFilters({ ... })`
+- `useCrudListScreen({ ..., listFilters })`
+- shared screen runtime owns:
 - `const filterRuntime = useCrudListFilters(listFilters)`
 - `queryParams: filterRuntime.queryParams`
 - `<CrudListFilterSurface :filters="listFilters" :runtime="filterRuntime" />`
@@ -91,7 +93,8 @@ Avoid:
 Good shape:
 - `src/pages/home/customers/listFilters.js`
 - `const listFilters = defineCrudListFilters({ status: { type: "enum", ... } })`
-- generated page uses `queryParams: filterRuntime.queryParams`
+- generated page passes `listFilters` into `useCrudListScreen(...)`
+- shared screen runtime passes `filterRuntime.queryParams` into the list request
 - `packages/receivals/src/shared/receivalListFilters.js`
 - `createCrudListFilters(RECEIVAL_LIST_FILTER_DEFINITIONS, ...)`
 - `const listFilters = useCrudListFilters(RECEIVAL_LIST_FILTER_DEFINITIONS, { presets: [...] })`

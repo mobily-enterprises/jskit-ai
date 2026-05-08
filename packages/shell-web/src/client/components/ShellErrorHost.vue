@@ -70,8 +70,8 @@ function runAction(entry) {
       source: "shell-web.error-host.action",
       message: "Error action failed.",
       cause: error,
-      severity: "error",
-      channel: "dialog"
+      intent: "blocking",
+      severity: "error"
     });
   }
 

@@ -79,6 +79,18 @@ const activeTab = computed({
           <v-skeleton-loader type="text@2, list-item-two-line@4" class="mb-4" />
           <v-skeleton-loader type="text@2, paragraph, button" />
         </template>
+        <div v-else-if="runtime.settingsLoadError.value" class="settings-panel__state">
+          <h2 class="text-h6 mb-2">Unable to load account settings</h2>
+          <p class="text-body-2 text-medium-emphasis mb-4">{{ runtime.settingsLoadError.value }}</p>
+          <v-btn
+            color="primary"
+            variant="tonal"
+            :loading="runtime.refreshingSettings.value"
+            @click="runtime.refreshSettings"
+          >
+            Retry
+          </v-btn>
+        </div>
         <template v-else-if="sections.length < 1">
           <p class="text-body-2 text-medium-emphasis mb-0">No account settings sections are registered.</p>
         </template>
@@ -139,6 +151,13 @@ const activeTab = computed({
 
 .settings-panel__body {
   padding: 1rem;
+}
+
+.settings-panel__state {
+  margin-inline: auto;
+  max-width: 30rem;
+  padding: 2rem 1rem;
+  text-align: center;
 }
 
 .settings-section-list {

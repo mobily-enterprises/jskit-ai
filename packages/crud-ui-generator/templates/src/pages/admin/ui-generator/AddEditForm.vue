@@ -1,22 +1,9 @@
 <template>
   <CrudAddEditScreen
-    :screen="screen"
-    :resolve-lookup-items="resolveLookupItems"
-    :resolve-lookup-loading="resolveLookupLoading"
-    :resolve-lookup-search="resolveLookupSearch"
-    :set-lookup-search="setLookupSearch"
+    :screen="props.screen"__JSKIT_UI_SHARED_LOOKUP_FORM_PROPS__
   >
     <template
-      #fields="{
-        mode,
-        formState,
-        addEdit,
-        resolveFieldErrors,
-        resolveLookupItems,
-        resolveLookupLoading,
-        resolveLookupSearch,
-        setLookupSearch
-      }"
+      #fields="__JSKIT_UI_SHARED_FORM_SLOT_PROPS__"
     >
       <template v-if="mode === 'new'">
         <!-- jskit:crud-ui-fields:new -->
@@ -33,26 +20,11 @@ __JSKIT_UI_EDIT_FORM_COLUMNS__
 <script setup>
 import CrudAddEditScreen from "@jskit-ai/users-web/client/components/CrudAddEditScreen";
 
-defineProps({
+const props = defineProps({
   screen: {
     type: Object,
     required: true
-  },
-  resolveLookupItems: {
-    type: Function,
-    default: null
-  },
-  resolveLookupLoading: {
-    type: Function,
-    default: null
-  },
-  resolveLookupSearch: {
-    type: Function,
-    default: null
-  },
-  setLookupSearch: {
-    type: Function,
-    default: null
   }
+__JSKIT_UI_FORM_LOOKUP_PROP_DEFS__
 });
 </script>

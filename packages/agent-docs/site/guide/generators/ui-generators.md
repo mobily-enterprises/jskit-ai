@@ -262,7 +262,7 @@ The route page is still a normal page file. What changes is the inferred placeme
 - no parent host found -> shell/menu entry
 - nearest parent host found -> child link inside that host
 
-So JSKIT is not switching to a different generator. It is switching the inferred placement behavior because the route tree now has a routed host above the new page.
+So JSKIT is not switching to a different generator. The route tree has a routed host above the new page, so the inferred placement behavior follows that host.
 
 ### Making a child page the default landing route
 
@@ -451,13 +451,13 @@ This is different from `page` in a very important way:
 
 So if the thing you are adding should live *inside* an existing shell region, not at its own route, `placed-element` is the right command.
 
-By default, the element goes into:
+By default, the element targets the semantic status placement:
 
 ```text
-shell-layout:top-right
+shell.status
 ```
 
-That is why this is such a good command for widgets, status panels, and compact shell extensions.
+That is why this is such a good command for widgets, status panels, and compact shell extensions. The default shell topology maps `shell.status` to the concrete shell status outlet for each layout class.
 
 ### When `--surface` matters
 
@@ -484,25 +484,27 @@ A practical example is:
 npx jskit generate ui-generator placed-element \
   --name "Ops Panel" \
   --surface admin \
-  --placement shell-layout:top-right
+  --placement shell.status
 ```
 
-`shell-layout:top-right` can exist across several surfaces. If your app has several enabled surfaces, `--surface admin` tells JSKIT which one this element is actually meant for.
+`shell.status` can be global across several surfaces. If your app has several enabled surfaces, `--surface admin` tells JSKIT which one this element is actually meant for.
 
 So the rule of thumb is:
 
-- page-owned outlet target -> surface is often inferable
-- shared shell target in a multi-surface app -> pass `--surface`
+- page-owned semantic placement target -> surface is often inferable
+- shared shell semantic placement in a multi-surface app -> pass `--surface`
 
 ### `--placement`
 
-Use `--placement` when the default target `shell-layout:top-right` is not what you want.
+Use `--placement` when the default target `shell.status` is not what you want.
 
 This is the option that answers:
 
 - *where should this element render?*
 
 In practice, it is the first override you will use for `placed-element`.
+
+`--placement` expects a semantic placement id such as `shell.status`, `shell.global-actions`, or `settings.sections`. Concrete `host:position` outlets are exposed through topology, not used as normal placed-element authoring targets.
 
 ### `--path`
 
@@ -697,4 +699,4 @@ That is why the commands fit together cleanly:
 - `page` can then create nested child routes under those hosts
 - `placed-element` and `outlet` handle the non-routed side of the same UI system
 
-Once the UI you want is no longer just page structure and starts needing real database-backed list/view/new/edit behavior, move to the CRUD generators chapter.
+Once the UI you want needs real database-backed list/view/new/edit behavior instead of only page structure, move to the CRUD generators chapter.

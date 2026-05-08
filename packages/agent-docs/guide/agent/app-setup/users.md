@@ -42,7 +42,7 @@ This is the first chapter where the migration step is not just "nice to have."
 - `AUTH_PROFILE_MODE=users` into `.env`
 - real users/account schema migrations into `migrations/`
 
-That means the app is now expected to use the persistent users-backed profile sync service. If you skip `npm run db:migrate`, the code and routes are installed, but the required tables are still missing.
+That means the app is expected to use the persistent users-backed profile sync service. If you skip `npm run db:migrate`, the code and routes are installed, but the required tables are still missing.
 
 So the correct flow is:
 
@@ -57,24 +57,24 @@ Most of the time, step 3 is not needed because `jskit add package users-web` alr
 - `jskit migrations changed` writes or refreshes JSKIT-managed migration files in `migrations/`
 - `npm run db:migrate` actually applies pending migrations to MySQL
 
-## What changes now
+## What `users-web` adds
 
 This chapter is the real transition from "authentication exists" to "the app knows about users."
 
 ### Authentication becomes users-backed
 
-In the database chapter, JSKIT still used the standalone in-memory profile mirror. After installing `users-web`, that changes. JSKIT now expects to synchronize authenticated users into real JSKIT tables.
+In the database chapter, JSKIT used the standalone in-memory profile mirror. After installing `users-web`, JSKIT expects to synchronize authenticated users into real JSKIT tables.
 
 That is the biggest architectural change in this chapter.
 
 - Supabase still owns the real auth identity and session
-- JSKIT now also owns a persistent users/account data model in MySQL
+- JSKIT owns a persistent users/account data model in MySQL
 
-So after this chapter, a signed-in user is no longer only "someone Supabase knows about." They are also a persistent JSKIT-side user with settings and profile state in the app database.
+So after this chapter, a signed-in user is not only "someone Supabase knows about." They are also a persistent JSKIT-side user with settings and profile state in the app database.
 
 ### The app gets an authenticated account surface
 
-The app now has a new authenticated surface at `/account`.
+The app has an authenticated surface at `/account`.
 
 This is where the starter account settings UI lives. It already has real sections for:
 
@@ -84,17 +84,17 @@ This is where the starter account settings UI lives. It already has real section
 
 Later chapters can extend this account screen with more sections. For example, the multi-homing chapter adds workspace invitation UI through `workspaces-web`, not through `users-web` itself.
 
-The important point is that this is no longer just a placeholder route. It is the first app-owned screen that assumes there is a real persistent user model behind it.
+The important point is that this is a real account route, not a placeholder. It is the first app-owned screen that assumes there is a persistent user model behind it.
 
 ### The shell changes for signed-in users
 
 Once a user is signed in, the shell becomes noticeably richer.
 
 - the profile menu gets a `Settings` entry that leads to `/account`
-- the home surface gets a small users tools widget in the top-right area
-- the auth bootstrap payload now includes persistent user settings instead of only the fallback mirror data
+- the home surface gets a small users tools widget in `shell.status`
+- the auth bootstrap payload includes persistent user settings instead of only the fallback mirror data
 
-So this chapter is also the first one where logging in changes more than just "guest vs signed in." It now changes what persistent user-facing surfaces the app can expose.
+So this chapter is also the first one where logging in changes more than just "guest vs signed in." It changes what persistent user-facing surfaces the app can expose.
 
 ## What to look at in the browser
 
@@ -107,17 +107,17 @@ npm run server
 
 Then sign in through `http://localhost:5173/auth/login`.
 
-After a successful sign-in, you should notice three concrete differences compared with the previous chapter:
+After a successful sign-in, check these concrete differences compared with the previous chapter:
 
-- the profile menu now contains `Settings`
-- the top-right area now also has a small users tools widget
-- `/account` now exists and is authenticated
+- the profile menu contains `Settings`
+- `shell.status` includes the users tools widget
+- `/account` exists and is authenticated
 
 This is the first chapter where the app starts to feel like it has a real user model behind it.
 
 ## What `users-web` adds to the app
 
-The most interesting files now are spread across config, migrations, routing, and the app-owned account UI.
+The most interesting files are spread across config, migrations, routing, and the app-owned account UI.
 
 ### `.env` flips auth into users mode
 
@@ -239,18 +239,18 @@ src/components/account/settings/
 
 Those three section components stay app-owned so you can reshape the actual UI freely.
 
-The host itself now lives in `users-web` and resolves every account section through the semantic `settings.sections` placement with owner `account-settings`, including the default `profile`, `preferences`, and `notifications` entries.
+The host itself lives in `users-web` and resolves every account section through the semantic `settings.sections` placement with owner `account-settings`, including the default `profile`, `preferences`, and `notifications` entries.
 
 So the screen follows the same rule as the rest of JSKIT UI: sections are added by placement rather than being hardcoded into an app-owned host component.
 
-That is worth noticing because the guide has now reached a new level of scaffolding:
+That is worth noticing because this is a higher level of scaffolding:
 
 - earlier chapters mostly introduced shells and routes
 - this chapter introduces app-owned leaf section UI while the generic section host stays in the package
 
 ## Under the hood
 
-### Why auth now behaves differently
+### Why auth uses the users layer
 
 In the previous chapter, auth still defaulted to the standalone profile sync fallback. The core logic in `AuthSupabaseServiceProvider` looks like this:
 
@@ -268,7 +268,7 @@ if (authProfileMode === AUTH_PROFILE_MODE_USERS) {
 }
 ```
 
-The important part is no longer hypothetical.
+The important part is concrete.
 
 After `users-web`:
 
@@ -276,9 +276,9 @@ After `users-web`:
 - `users-core` supplies the users-backed sync service
 - the migrations supply the required tables
 
-So auth now has everything it needs to stop using the fallback mirror and start using the persistent users-backed one.
+So auth has everything it needs to stop using the fallback mirror and start using the persistent users-backed one.
 
-That is the true point of this chapter. The app is no longer just authenticated. It now has a real users layer.
+That is the true point of this chapter. The app is not just authenticated. It has a real users layer.
 
 ### `users-core` also owns the profile-sync lifecycle registry
 
@@ -361,7 +361,7 @@ This chapter is where the app stopped treating signed-in people as only Supabase
 
 That is why this chapter feels bigger than a normal page install. It changes both the browser experience and the server-side meaning of "a signed-in user."
 
-At the end of this chapter, the app now has:
+At the end of this chapter, the app has:
 
 - real JSKIT-side `users` and `user_settings` tables
 - a real authenticated `/account` surface

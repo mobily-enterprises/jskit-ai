@@ -92,7 +92,7 @@ This is the most important idea in the chapter.
 
 The account surface only requires authentication. The console surface requires a specific access flag: `console_owner`.
 
-That means the guide now has two different kinds of authenticated routes:
+That means the guide has two different kinds of authenticated routes:
 
 - normal authenticated routes such as `/account`
 - privileged authenticated routes such as `/console`
@@ -163,7 +163,7 @@ This is the first clear example in the guide of a surface guarded by a named fla
 
 ### The starter console routes are app-owned
 
-After the previous chapter, the app now has:
+After the previous chapter, the app has:
 
 ```text
 src/pages/console.vue
@@ -308,7 +308,7 @@ That stricter access model is the key idea to keep:
 - `/account` is for any signed-in user
 - `/console` is only for the console owner
 
-So the app now has both:
+So the app has both:
 
 - a normal authenticated user area
 - a privileged operator area with its own server-side ownership check

@@ -34,5 +34,6 @@ What to do now:
    `npx @jskit-ai/create-app <app-name> --target . --force --tenancy-mode <mode>`
    Use the current directory name as `<app-name>` unless the developer explicitly wants a different app name.
 9. After that, run `npm install`.
-10. Then stop, re-read the overwritten `AGENTS.md`, and continue with the normal JSKIT app workflow from that file. Do not rely on memory from the seed stage.
-11. Do not install JSKIT runtime packages until the new app `AGENTS.md` has been re-read.
+10. If this app is being tested against a local JSKIT checkout with linked packages, run `npm run devlinks` immediately after `npm install`.
+11. Then stop, re-read the overwritten `AGENTS.md`, and continue with the normal JSKIT app workflow from that file. Do not rely on memory from the seed stage.
+12. Do not install JSKIT runtime packages until the new app `AGENTS.md` has been re-read.

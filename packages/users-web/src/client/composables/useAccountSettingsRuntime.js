@@ -127,7 +127,7 @@ function useAccountSettingsRuntime() {
   function reportAccountFeedback({
     message,
     severity = "error",
-    channel = "banner",
+    channel = "",
     dedupeKey = ""
   } = {}) {
     const normalizedMessage = String(message || "").trim();
@@ -138,6 +138,7 @@ function useAccountSettingsRuntime() {
     errorRuntime.report({
       source: "users-web.account-settings-runtime",
       message: normalizedMessage,
+      intent: "action-feedback",
       severity,
       channel,
       dedupeKey: dedupeKey || `users-web.account-settings-runtime:${severity}:${normalizedMessage}`,
@@ -301,6 +302,12 @@ function useAccountSettingsRuntime() {
 
   const loadingSettings = computed(() => Boolean(settingsView.isLoading));
   const refreshingSettings = computed(() => Boolean(settingsView.isRefetching));
+  const settingsLoadError = computed(() => String(settingsView.loadError || "").trim());
+
+  async function refreshSettings() {
+    return settingsView.refresh();
+  }
+
   async function submitProfile() {
     await profileAddEdit.submit();
   }
@@ -384,6 +391,8 @@ function useAccountSettingsRuntime() {
     backNavigationTarget,
     loadingSettings,
     refreshingSettings,
+    settingsLoadError,
+    refreshSettings,
     profile,
     preferences,
     notifications

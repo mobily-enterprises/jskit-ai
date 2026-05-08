@@ -83,14 +83,15 @@ In the current scaffold, those scripts are intentionally thin:
 
 That is a deliberate design choice.
 
-The app keeps the handy `npm run` names, but the real maintenance policy now lives in the installed CLI package instead of copied shell scripts inside the app. That means if JSKIT later changes how package updates, local linking, or baseline verification should work, apps can pick up the new behavior by updating `@jskit-ai/jskit-cli` instead of hand-editing frozen scaffold files.
+The app keeps the handy `npm run` names, but the real maintenance policy lives in the installed CLI package instead of copied shell scripts inside the app. That means if JSKIT later changes how package updates, local linking, or baseline verification should work, apps can pick up the new behavior by updating `@jskit-ai/jskit-cli` instead of hand-editing frozen scaffold files.
 
 This gives you a clean ownership split:
 
 - app-owned scripts still describe how *this app* runs, builds, and tests
+- `npm run devlinks` re-applies local checkout links after `npm install` when you are testing an app against this monorepo
 - JSKIT-owned wrapper scripts delegate framework maintenance to `jskit app ...`
 
-That split is worth keeping in mind through the rest of the guide. When you see `npm run verify`, that is now shorthand for "run the app's JSKIT baseline verification policy, then any app-specific extra verification hook".
+That split is worth keeping in mind through the rest of the guide. When you see `npm run verify`, read it as "run the app's JSKIT baseline verification policy, then any app-specific extra verification hook".
 
 The starter scaffold also includes `.github/workflows/verify.yml`. That workflow is intentionally conservative: it runs `npm run verify` and does not assume that every app can stand up full browser, auth, seed-data, and database verification inside hosted CI.
 
@@ -518,6 +519,12 @@ npm install
 ```
 
 `jskit add` changes the app. `npm install` downloads the dependencies that the changed app now requires.
+
+If the app is being tested against a local JSKIT checkout with linked packages, run the local-link wrapper again after every `npm install`:
+
+```bash
+npm run devlinks
+```
 
 ### `add bundle`
 

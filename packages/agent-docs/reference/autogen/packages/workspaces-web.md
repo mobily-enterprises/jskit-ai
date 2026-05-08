@@ -89,6 +89,7 @@ Local functions
 - `normalizeInvites(entries)`
 - `latestPage(pages)`
 - `applyWorkspaceSettingsPolicy(payload = {})`
+- `refreshLoad()`
 - `submitInvite()`
 - `submitRevokeInvite(inviteId)`
 - `submitMemberRoleUpdate(member, roleSid)`
@@ -103,7 +104,7 @@ Exports
 - None
 Local functions
 - `normalizePendingInvite(entry)`
-- `reportFeedback({ message, severity = "error", channel = "banner", dedupeKey = "" } = {})`
+- `reportFeedback({ message, severity = "error", channel = "", dedupeKey = "" } = {})`
 - `workspaceInitials(workspace)`
 - `workspaceAvatarStyle(workspace)`
 - `workspaceHomePath(workspaceSlug)`
@@ -112,6 +113,7 @@ Local functions
 - `acceptInvite(invite)`
 - `refuseInvite(invite)`
 - `createWorkspace()`
+- `refreshBootstrap()`
 
 ### `src/client/components/WorkspaceSettingsClientElement.vue`
 Exports

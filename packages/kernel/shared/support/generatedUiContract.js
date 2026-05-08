@@ -43,7 +43,7 @@ const GENERATED_UI_NAVIGATION_ROLE_OPTION = Object.freeze({
   inputType: "text",
   validationType: "enum",
   allowedValues: GENERATED_UI_NAVIGATION_ROLE_VALUES,
-  defaultValue: GENERATED_UI_NAVIGATION_ROLE_DEFAULT,
+  defaultValue: "",
   promptLabel: "Navigation role",
   promptHint: "Product navigation role for generated links. When omitted, dynamic detail and workflow routes create no nav link; primary uses normal inference, secondary maps to shell.secondary-nav, utility maps to shell.global-actions, and detail/workflow/none force no nav link."
 });

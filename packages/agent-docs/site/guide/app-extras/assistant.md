@@ -512,7 +512,7 @@ npm run dev
 npm run server
 ```
 
-After sign-in, the app should now expose these assistant routes:
+After sign-in, the app should expose these assistant routes:
 
 - `/console/assistant`
 - `/w/your-personal-slug/admin/assistant`
@@ -591,7 +591,7 @@ That is what lets one app host several assistants at once without their AI setti
 
 ### `.env` gains one AI block per assistant surface
 
-The app now gets env keys such as:
+The app gets env keys such as:
 
 ```dotenv
 CONSOLE_ASSISTANT_AI_PROVIDER=openai

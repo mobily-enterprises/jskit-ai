@@ -122,16 +122,16 @@ UI_EDIT_FORM_FIELDS.push({ key: "firstName", component: "text" });
     const editSource = await readFile(path.join(appRoot, editFile), "utf8");
     assert.match(
       editSource,
-      /<v-autocomplete[\s\S]*resolveLookupItems\('vetId', \{ selectedValue: formState\.vetId, selectedRecord: addEdit\.resource\.data \}\)/
+      /<v-autocomplete[\s\S]*fieldLookupItems\('vetId', \{ selectedValue: formState\.vetId, selectedRecord: addEdit\.resource\.data \}\)/
     );
-    assert.match(editSource, /:items="resolveLookupItems\('vetId', \{ selectedValue: formState\.vetId, selectedRecord: addEdit\.resource\.data \}\)"/);
+    assert.match(editSource, /:items="fieldLookupItems\('vetId', \{ selectedValue: formState\.vetId, selectedRecord: addEdit\.resource\.data \}\)"/);
     assert.match(
       editSource,
-      /\n {18}:items="resolveLookupItems\('vetId', \{ selectedValue: formState\.vetId, selectedRecord: addEdit\.resource\.data \}\)"\n {18}:search="resolveLookupSearch\('vetId'\)"\n {18}@update:search="setLookupSearch\('vetId', \$event\)"\n {18}item-title="label"\n {18}item-value="value"\n {18}no-filter/
+      /\n {12}:items="fieldLookupItems\('vetId', \{ selectedValue: formState\.vetId, selectedRecord: addEdit\.resource\.data \}\)"\n {12}:search="fieldLookupSearch\('vetId'\)"\n {12}@update:search="setFieldLookupSearch\('vetId', \$event\)"\n {12}item-title="label"\n {12}item-value="value"\n {12}no-filter/
     );
-    assert.match(editSource, /:search="resolveLookupSearch\('vetId'\)"/);
-    assert.match(editSource, /@update:search="setLookupSearch\('vetId', \$event\)"/);
-    assert.match(editSource, /:loading="resolveLookupLoading\('vetId'\)"/);
+    assert.match(editSource, /:search="fieldLookupSearch\('vetId'\)"/);
+    assert.match(editSource, /@update:search="setFieldLookupSearch\('vetId', \$event\)"/);
+    assert.match(editSource, /:loading="fieldLookupLoading\('vetId'\)"/);
     assert.match(editSource, /UI_EDIT_FORM_FIELDS\.push\(\{[\s\S]*"key": "vetId"/);
 
     const second = await runGeneratorSubcommand({
@@ -196,7 +196,7 @@ UI_EDIT_FORM_FIELDS.push({ key: "firstName", component: "text" });
     const addEditFormSource = await readFile(path.join(appRoot, addEditFormFile), "utf8");
     assert.match(
       addEditFormSource,
-      /<v-autocomplete[\s\S]*resolveLookupItems\('vetId', \{ selectedValue: formState\.vetId, selectedRecord: addEdit\.resource\.data \}\)/
+      /<v-autocomplete[\s\S]*fieldLookupItems\('vetId', \{ selectedValue: formState\.vetId, selectedRecord: addEdit\.resource\.data \}\)/
     );
 
     const addEditFieldsSource = await readFile(path.join(appRoot, addEditFieldsFile), "utf8");
@@ -278,7 +278,7 @@ const UI_EDIT_FORM_FIELDS = [];
     });
 
     const addEditFormSource = await readFile(path.join(appRoot, addEditFormFile), "utf8");
-    assert.equal((addEditFormSource.match(/resolveLookupItems\('vetId'/g) || []).length, 2);
+    assert.equal((addEditFormSource.match(/fieldLookupItems\('vetId'/g) || []).length, 2);
 
     const addEditFieldsSource = await readFile(path.join(appRoot, addEditFieldsFile), "utf8");
     assert.match(addEditFieldsSource, /UI_CREATE_FORM_FIELDS\.push\(\{[\s\S]*"key": "vetId"/);

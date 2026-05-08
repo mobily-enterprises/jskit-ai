@@ -381,8 +381,7 @@ export default Object.freeze({
         file: "src/placement.js",
         position: "bottom",
         skipIfContains: "__JSKIT_UI_MENU_MARKER__",
-        value:
-          "\n// __JSKIT_UI_MENU_MARKER__\n{\n  addPlacement({\n    id: \"__JSKIT_UI_MENU_PLACEMENT_ID__\",\n    target: \"__JSKIT_UI_MENU_PLACEMENT_TARGET__\",\n__JSKIT_UI_MENU_OWNER_LINE__    kind: \"link\",\n    surfaces: [\"__JSKIT_UI_SURFACE_ID__\"],\n    order: 155,\n    props: {\n      label: \"__JSKIT_UI_MENU_LABEL__\",\n      icon: \"__JSKIT_UI_MENU_ICON__\",\n      surface: \"__JSKIT_UI_SURFACE_ID__\",\n      scopedSuffix: \"__JSKIT_UI_MENU_WORKSPACE_SUFFIX__\",\n      unscopedSuffix: \"__JSKIT_UI_MENU_NON_WORKSPACE_SUFFIX__\",\n__JSKIT_UI_MENU_TO_PROP_LINE__    },\n__JSKIT_UI_MENU_WHEN_LINE__  });\n}\n",
+        value: "__JSKIT_UI_MENU_APPEND_BLOCK__",
         reason: "Append generated CRUD list-page placement.",
         category: "crud-ui-generator",
         id: "crud-ui-placement-menu",
@@ -391,16 +390,8 @@ export default Object.freeze({
           export: "buildUiTemplateContext"
         },
         when: {
-          all: [
-            {
-              option: "operations",
-              in: ["list"]
-            },
-            {
-              option: "navigation-role",
-              notIn: ["detail", "workflow", "none"]
-            }
-          ]
+          option: "operations",
+          in: ["list"]
         }
       }
     ]

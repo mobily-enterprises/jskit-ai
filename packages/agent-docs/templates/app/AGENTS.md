@@ -63,6 +63,7 @@ Core rules:
   - `Not doing: ...`
 - Keep that checkpoint compact. Do not expand it into a long preamble unless the developer asks for detail.
 - Reuse existing JSKIT helpers and runtime seams before adding new local helpers.
+- If `npm install` is run while the app is using local JSKIT checkout links, run `npm run devlinks` immediately afterward.
 - A freshly scaffolded JSKIT app can still be in Stage 1. If the app was just created and platform decisions are not settled yet, continue with the initialize workflow before adding runtime packages.
 - Do not treat a missing `config.tenancyMode` line or an untouched minimal scaffold as a final tenancy decision.
 - Do not install tenancy-sensitive packages until Stage 1 decisions are complete and the chosen tenancy is written into `config/public.js`.

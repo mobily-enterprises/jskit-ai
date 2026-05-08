@@ -28,7 +28,7 @@ Ask explicitly about:
 
 - route pages
 - menu entries
-- top-left/top-right widgets
+- semantic shell widgets such as `shell.identity`, `shell.status`, and `shell.global-actions`
 - settings pages
 - CRUD screens
 - helper components that only make sense on one surface

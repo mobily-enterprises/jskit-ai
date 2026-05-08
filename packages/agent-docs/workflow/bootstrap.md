@@ -54,6 +54,7 @@ Baseline expectations after initialization:
 - create the app scaffold
 - install the baseline runtime packages in the documented order
 - install dependencies
+- run `npm run devlinks` immediately after `npm install` when the app is using local JSKIT checkout links
 - run database migrations when the chosen package set requires them
 - use the standard packaged workflows that come with those packages unless the blueprint records an override
 - leave the app in a reproducible, verified baseline state

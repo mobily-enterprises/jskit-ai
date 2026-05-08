@@ -262,8 +262,8 @@ function createShellRefreshRuntime({
     errorRuntime.report({
       source: "shell-web.refresh",
       message: "Unable to refresh. Check the connection and try again.",
+      intent: "app-recoverable",
       severity: "error",
-      channel: "banner",
       dedupeKey: "shell-web.refresh.failed",
       dedupeWindowMs: 2000,
       action: {
@@ -325,8 +325,8 @@ function installVueErrorBridge(vueApp, errorRuntime, logger) {
         source: "shell-web.vue.error-handler",
         message: String(error?.message || "Unexpected UI error."),
         cause: error,
+        intent: "blocking",
         severity: "error",
-        channel: "dialog",
         details: {
           info: String(info || "")
         }
@@ -363,8 +363,8 @@ function installRouterErrorBridge(app, errorRuntime, logger) {
         source: "shell-web.router.on-error",
         message: String(error?.message || "Navigation failed."),
         cause: error,
+        intent: "app-recoverable",
         severity: "error",
-        channel: "banner",
         dedupeKey: String(error?.message || "navigation-failed"),
         dedupeWindowMs: 2000
       });
