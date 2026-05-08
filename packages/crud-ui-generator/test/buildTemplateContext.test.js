@@ -930,6 +930,7 @@ test("crud ui templates derive JSON:API transport from the shared CRUD resource"
   const templateRoot = path.resolve(testDirectory, "..", "templates", "src", "pages", "admin", "ui-generator");
 
   const listTemplateSource = await readFile(path.join(templateRoot, "ListElement.vue"), "utf8");
+  const listFiltersTemplateSource = await readFile(path.join(templateRoot, "listFilters.js"), "utf8");
   const viewTemplateSource = await readFile(path.join(templateRoot, "ViewElement.vue"), "utf8");
   const newTemplateSource = await readFile(path.join(templateRoot, "NewElement.vue"), "utf8");
   const editTemplateSource = await readFile(path.join(templateRoot, "EditElement.vue"), "utf8");
@@ -953,6 +954,12 @@ test("crud ui templates derive JSON:API transport from the shared CRUD resource"
   }
 
   assert.match(listTemplateSource, /resource: uiResource,/);
+  assert.match(listTemplateSource, /import CrudListFilterSurface from "@jskit-ai\/users-web\/client\/components\/CrudListFilterSurface"/);
+  assert.match(listTemplateSource, /import \{ useCrudListFilters \} from "@jskit-ai\/users-web\/client\/composables\/useCrudListFilters"/);
+  assert.match(listTemplateSource, /import \{ listFilters \} from "\.\/listFilters\.js"/);
+  assert.match(listTemplateSource, /const filterRuntime = useCrudListFilters\(listFilters\);/);
+  assert.match(listTemplateSource, /queryParams: filterRuntime\.queryParams/);
+  assert.match(listTemplateSource, /<CrudListFilterSurface[\s\S]*:filters="listFilters"[\s\S]*:runtime="filterRuntime"/);
   assert.match(listTemplateSource, /generated-ui-screen generated-ui-screen--operator ui-generator-list-element/);
   assert.match(listTemplateSource, /--generated-ui-screen-title-size/);
   assert.match(listTemplateSource, /ui-generator-list-cards d-md-none/);
@@ -970,6 +977,8 @@ test("crud ui templates derive JSON:API transport from the shared CRUD resource"
   assert.doesNotMatch(listTemplateSource, /No records yet|Manage __JSKIT|Replace this scaffold|<v-data-table\b/);
   assert.doesNotMatch(listTemplateSource, /const UI_LIST_TRANSPORT = Object\.freeze\(\{/);
   assert.doesNotMatch(listTemplateSource, /transport:\s*UI_LIST_TRANSPORT,/);
+  assert.match(listFiltersTemplateSource, /defineCrudListFilters/);
+  assert.match(listFiltersTemplateSource, /const listFilters = defineCrudListFilters\(\{\}\);/);
 
   assert.match(viewTemplateSource, /import \{ resource as uiResource \} from/);
   assert.match(viewTemplateSource, /resource: uiResource,/);

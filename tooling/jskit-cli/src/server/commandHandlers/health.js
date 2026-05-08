@@ -1825,8 +1825,12 @@ function createHealthCommands(ctx = {}) {
     return false;
   }
 
-  function isSharedListFiltersImportSource(sourcePath = "") {
-    return /(^|\/)shared\/[^/'"]*ListFilters(?:\.[A-Za-z0-9]+)?$/u.test(String(sourcePath || "").trim());
+  function isListFiltersImportSource(sourcePath = "") {
+    const normalizedSource = String(sourcePath || "").trim();
+    return (
+      /(^|\/)shared\/[^/'"]*ListFilters(?:\.[A-Za-z0-9]+)?$/u.test(normalizedSource) ||
+      /^\.\/listFilters\.[A-Za-z0-9]+$/u.test(normalizedSource)
+    );
   }
 
   function findCallSites(sourceText = "", calleeName = "") {
@@ -1872,22 +1876,22 @@ function createHealthCommands(ctx = {}) {
 
         if (!firstArgument || firstArgument.startsWith("{")) {
           issues.push(
-            `${relativePath}:${lineNumber}: [filters:shared-definition] do not inline structured filter definitions in ${calleeName}(...). Put them in packages/<crud>/src/shared/<crud>ListFilters.js and import that shared module.`
+            `${relativePath}:${lineNumber}: [filters:shared-definition] do not inline structured filter definitions in ${calleeName}(...). Put them in listFilters.js or packages/<crud>/src/shared/<crud>ListFilters.js and import that module.`
           );
           continue;
         }
 
         if (!/^[A-Za-z_$][\w$]*$/u.test(firstArgument)) {
           issues.push(
-            `${relativePath}:${lineNumber}: [filters:shared-definition] ${calleeName}(...) must receive a definitions symbol imported from a CRUD shared *ListFilters module, not an ad-hoc expression.`
+            `${relativePath}:${lineNumber}: [filters:shared-definition] ${calleeName}(...) must receive a definitions symbol imported from listFilters.js or a CRUD shared *ListFilters module, not an ad-hoc expression.`
           );
           continue;
         }
 
         const importSource = importBindings.get(firstArgument) || "";
-        if (!isSharedListFiltersImportSource(importSource)) {
+        if (!isListFiltersImportSource(importSource)) {
           issues.push(
-            `${relativePath}:${lineNumber}: [filters:shared-definition] ${calleeName}(${firstArgument}, ...) must use definitions imported from a CRUD shared *ListFilters module. Found ${importSource ? `import source "${importSource}"` : "a local symbol"} instead.`
+            `${relativePath}:${lineNumber}: [filters:shared-definition] ${calleeName}(${firstArgument}, ...) must use definitions imported from listFilters.js or a CRUD shared *ListFilters module. Found ${importSource ? `import source "${importSource}"` : "a local symbol"} instead.`
           );
         }
       }

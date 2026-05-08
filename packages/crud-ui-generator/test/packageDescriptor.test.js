@@ -47,3 +47,16 @@ test("crud-ui-generator placement scaffold includes an explicit stock icon prop"
   );
   assert.match(String(placementMutation?.value || ""), /icon: "__JSKIT_UI_MENU_ICON__"/);
 });
+
+test("crud-ui-generator installs page-local list filter definition seam for list pages", () => {
+  const filterMutation = descriptor?.mutations?.files?.find(
+    (entry) => String(entry?.id || "").trim() === "crud-ui-page-list-filters-${option:target-root|snake}"
+  );
+
+  assert.equal(filterMutation?.from, "templates/src/pages/admin/ui-generator/listFilters.js");
+  assert.equal(filterMutation?.to, "src/pages/${option:target-root|trim}/listFilters.js");
+  assert.deepEqual(filterMutation?.when, {
+    option: "operations",
+    in: ["list"]
+  });
+});

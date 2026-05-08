@@ -1004,27 +1004,33 @@ Important limits:
 
 For the agent-facing quick rule, see `patterns/crud-repository-mapping.md`.
 
-### Pattern 3: structured list filters from one shared definition
+### Pattern 3: client-side structured list filters
 
-This is the default pattern once a CRUD list needs real filters.
+Generated CRUD list pages include a client-side filter seam by default. The generated page imports `./listFilters.js`, builds `useCrudListFilters(listFilters)`, passes `filterRuntime.queryParams` into `useCrudList(...)`, and renders `CrudListFilterSurface`.
+
+If `listFilters.js` is empty, the filter surface renders nothing.
+
+Use this first when adding filters. The server still needs explicit support for any query params you declare; JSKIT does not infer server filter semantics from the UI.
 
 Do not hand-build:
 
 - one filter shape in the page
-- a second filter shape in `listQueryValidators.js`
-- and a third filter shape in `repository.js`
+- custom chip/reset/query-param state
+- a second copy of the same client filter definitions
 
 Instead:
 
-1. define the filters once in a shared CRUD-package module
-2. build the server runtime from that definition with `createCrudListFilters(...)`
-3. choose the route/action invalid-value contract explicitly on each structured filter field with `createCrudListFilterQueryField(...)`
-4. build the client runtime from that same definition with `useCrudListFilters(...)`
+1. edit the generated page-local `listFilters.js`
+2. let the generated page wire `filterRuntime.queryParams` into `useCrudList(...)`
+3. let `CrudListFilterSurface` render controls, chips, clear-one, and clear-all behavior
+4. add explicit server support separately for the same query params
 
-For example, a shared filter-definition module can look like this:
+For example, a generated page-local filter-definition module can look like this:
 
 ```js
-export const CONTACTS_LIST_FILTER_DEFINITIONS = Object.freeze({
+import { defineCrudListFilters } from "@jskit-ai/users-web/client/filters";
+
+const listFilters = defineCrudListFilters({
   onlyStaff: {
     type: "flag",
     label: "Staff"
@@ -1038,30 +1044,34 @@ export const CONTACTS_LIST_FILTER_DEFINITIONS = Object.freeze({
     label: "Archived"
   }
 });
+
+export { listFilters };
 ```
 
 #### Exact file checklist
 
 For a generated CRUD, treat this as the concrete file plan:
 
+- edit `src/pages/.../contacts/listFilters.js`
+- make sure the matching server route/action/repository code already accepts and applies the declared query params
+
+If the filter contract should be shared with server code, promote it into a CRUD package module and import it from both sides:
+
 - create `packages/contacts/src/shared/contactListFilters.js`
 - update `packages/contacts/src/server/registerRoutes.js` so the list route query validator lists structured filter params explicitly with `createCrudListFilterQueryField(...)`, unless you already extracted list-query composition into `packages/contacts/src/server/listQueryValidators.js`
 - update `packages/contacts/src/server/actions.js` so the list action input validator includes that same explicit contract choice
 - update `packages/contacts/src/server/repository.js` so the list query path builds the `createCrudListFilters(...)` runtime and calls `applyQuery(...)`
-- update the app-owned list page or list-runtime composable, usually under `src/pages/.../contacts/` or `src/composables/...`, so it builds `useCrudListFilters(...)`, passes `queryParams` into `useCrudList(...)`, and renders chips / reset behavior from that runtime
-
-The only file in that list that is normally **new** is the shared module:
-
-- `packages/contacts/src/shared/contactListFilters.js`
-
-The others are normally edits to the generated CRUD package and the app-owned page layer that already exist.
 
 #### Client side
 
-Build the filter runtime directly from the shared definitions:
+Generated CRUD list pages already have this shape:
 
 ```js
-const listFilters = useCrudListFilters(CONTACTS_LIST_FILTER_DEFINITIONS);
+import CrudListFilterSurface from "@jskit-ai/users-web/client/components/CrudListFilterSurface";
+import { useCrudListFilters } from "@jskit-ai/users-web/client/composables/useCrudListFilters";
+import { listFilters } from "./listFilters.js";
+
+const filterRuntime = useCrudListFilters(listFilters);
 
 const records = useCrudList({
   resource: uiResource,
@@ -1070,7 +1080,7 @@ const records = useCrudList({
     enabled: true,
     mode: "query"
   },
-  queryParams: listFilters.queryParams,
+  queryParams: filterRuntime.queryParams,
   syncToRoute: {
     enabled: true,
     search: true,
@@ -1080,18 +1090,25 @@ const records = useCrudList({
 });
 ```
 
+```vue
+<CrudListFilterSurface
+  :filters="listFilters"
+  :runtime="filterRuntime"
+/>
+```
+
 That gives you, from one place:
 
-- `listFilters.values`
-- `listFilters.queryParams`
-- `listFilters.presets`
-- `listFilters.activeChips`
-- `listFilters.hasActiveFilters`
-- `listFilters.clearChip(...)`
-- `listFilters.clearFilters()`
-- `listFilters.toggle(...)` for flag filters
-- `listFilters.applyPreset(...)`
-- `listFilters.matchesPreset(...)`
+- `filterRuntime.values`
+- `filterRuntime.queryParams`
+- `filterRuntime.presets`
+- `filterRuntime.activeChips`
+- `filterRuntime.hasActiveFilters`
+- `filterRuntime.clearChip(...)`
+- `filterRuntime.clearFilters()`
+- `filterRuntime.toggle(...)` for flag filters
+- `filterRuntime.applyPreset(...)`
+- `filterRuntime.matchesPreset(...)`
 
 So the same runtime owns:
 
@@ -1245,13 +1262,13 @@ async function list(query = {}, callOptions = {}) {
 
 #### Best practices
 
-- Put the filter definitions in the CRUD package, not the page. Both server and client need them.
+- Keep client-only filters in the generated page-local `listFilters.js`. Move definitions into a CRUD package only when server code or another page needs to share them.
 - Keep the filter keys identical all the way through: definition key, query param key, and repository meaning.
 - Prefer `createCrudListFilterQueryField(...)` plus `createCrudListFilterQuerySchema(...)` at route/action boundaries so accepted structured-filter params stay visible in app code.
 - Use `type: "presence"` for null/not-null filters such as assigned vs unassigned storage. Do not model those as custom enums plus `applyQuery(...)` overrides unless the SQL semantics are genuinely different from `whereNotNull(...)` / `whereNull(...)`.
 - Use `createCrudListFilters(...)` unless the list semantics are truly unusual.
 - Use `q` for free-text and explicit query params for structured filters.
-- Run `jskit doctor` after wiring filters. It flags inline/local filter-definition objects passed into `useCrudListFilters(...)` or `createCrudListFilters(...)`.
+- Run `jskit doctor` after wiring filters. It flags inline filter-definition objects passed into `useCrudListFilters(...)` or `createCrudListFilters(...)`.
 
 ### Pattern 4: lookup-backed structured filters
 
@@ -1263,7 +1280,7 @@ This is the next real-world step: filters like `supplierContactId`, `locationId`
 
 The right pattern is:
 
-1. keep the lookup filter in the shared definitions
+1. keep the lookup filter in `listFilters.js` or in shared definitions when server code also imports it
 2. use `useCrudListFilters(...)` for state, chips, and query params
 3. use `useCrudListFilterLookups(...)` for option loading and label resolution
 

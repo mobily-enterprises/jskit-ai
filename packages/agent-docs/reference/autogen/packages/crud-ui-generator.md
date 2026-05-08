@@ -163,6 +163,10 @@ Local functions
 - `resolveListRecordTitle(record)`
 - `formatListCardValue(value)`
 
+### `templates/src/pages/admin/ui-generator/listFilters.js`
+Exports
+- `listFilters`
+
 ### `templates/src/pages/admin/ui-generator/NewElement.vue`
 Exports
 - None
