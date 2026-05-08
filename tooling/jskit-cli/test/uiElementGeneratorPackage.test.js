@@ -110,6 +110,7 @@ function shellPlacement(id, outlet) {
 
 shellPlacement("shell.primary-nav", "shell-layout:primary-menu");
 shellPlacement("shell.secondary-nav", "shell-layout:secondary-menu");
+shellPlacement("shell.global-actions", "shell-layout:top-right");
 shellPlacement("shell.status", "shell-layout:top-right");
 
 addPlacementTopology({

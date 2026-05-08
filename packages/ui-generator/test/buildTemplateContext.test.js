@@ -90,6 +90,12 @@ async function writePlacementTopology(appRoot, entries = []) {
       surfaces: ["*"],
       outlet: "shell-layout:top-right",
       linkRenderer: "local.main.ui.surface-aware-menu-link-item"
+    }),
+    renderTopologyEntry({
+      id: "shell.global-actions",
+      surfaces: ["*"],
+      outlet: "shell-layout:top-right",
+      linkRenderer: "local.main.ui.surface-aware-menu-link-item"
     })
   ];
   await writeFileInApp(
@@ -182,6 +188,31 @@ test("buildUiPageTemplateContext supports explicit link placement override", asy
       }
     });
     assert.equal(context.__JSKIT_UI_LINK_PLACEMENT_TARGET__, "shell.status");
+    assert.equal(context.__JSKIT_UI_LINK_COMPONENT_TOKEN__, "");
+  });
+});
+
+test("buildUiPageTemplateContext maps utility navigation role to global actions", async () => {
+  await withTempApp(async (appRoot) => {
+    await writeConfig(
+      appRoot,
+      `export const config = {
+  surfaceDefinitions: {
+    admin: { id: "admin", pagesRoot: "admin", enabled: true }
+  }
+};
+`
+    );
+    await writeShellLayout(appRoot);
+
+    const context = await buildUiPageTemplateContext({
+      appRoot,
+      targetFile: "admin/help/index.vue",
+      options: {
+        "navigation-role": "utility"
+      }
+    });
+    assert.equal(context.__JSKIT_UI_LINK_PLACEMENT_TARGET__, "shell.global-actions");
     assert.equal(context.__JSKIT_UI_LINK_COMPONENT_TOKEN__, "");
   });
 });

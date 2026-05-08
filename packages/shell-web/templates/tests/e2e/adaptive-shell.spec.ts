@@ -18,6 +18,12 @@ async function expectNoHorizontalOverflow(page) {
   expect(metrics.scrollWidth).toBeLessThanOrEqual(metrics.clientWidth + 1);
 }
 
+async function expectGeneratedScreenContract(page) {
+  const screen = page.locator(".generated-ui-screen").first();
+
+  await expect(screen).toBeVisible();
+}
+
 async function isElementVisibleInViewport(page, testId: string) {
   return page.getByTestId(testId).evaluate((element) => {
     const rect = element.getBoundingClientRect();
@@ -41,6 +47,7 @@ test.describe("generated adaptive shell smoke", () => {
       await page.setViewportSize({ width: viewport.width, height: viewport.height });
       await page.goto(`${BASE_URL}${SMOKE_PATH}`);
       await expect(page.locator("body")).toBeVisible();
+      await expectGeneratedScreenContract(page);
       await expectNoHorizontalOverflow(page);
 
       if (viewport.name === "compact") {

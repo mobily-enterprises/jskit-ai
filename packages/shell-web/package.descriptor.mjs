@@ -175,6 +175,31 @@ export default Object.freeze({
               }
             },
             {
+              id: "shell.global-actions",
+              description: "Global surface actions that should stay outside primary navigation.",
+              surfaces: ["*"],
+              variants: {
+                compact: {
+                  outlet: "shell-layout:top-right",
+                  renderers: {
+                    link: "local.main.ui.surface-aware-menu-link-item"
+                  }
+                },
+                medium: {
+                  outlet: "shell-layout:top-right",
+                  renderers: {
+                    link: "local.main.ui.surface-aware-menu-link-item"
+                  }
+                },
+                expanded: {
+                  outlet: "shell-layout:top-right",
+                  renderers: {
+                    link: "local.main.ui.surface-aware-menu-link-item"
+                  }
+                }
+              }
+            },
+            {
               id: "page.section-nav",
               owner: "home-settings",
               description: "Navigation between child pages in the home settings section.",

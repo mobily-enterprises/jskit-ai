@@ -26,6 +26,22 @@ async function expectGeneratedScreenContract(page) {
   await expect(screen.locator("h1").first()).toBeVisible();
 }
 
+async function expectVisibleTapTargets(page) {
+  const targetHeights = await page.locator("a[href], button, [role='button'], .v-btn, .v-list-item").evaluateAll(
+    (elements) => elements
+      .filter((element) => {
+        const rect = element.getBoundingClientRect();
+        const style = window.getComputedStyle(element);
+        return style.display !== "none" && style.visibility !== "hidden" && rect.width > 0 && rect.height > 0;
+      })
+      .map((element) => element.getBoundingClientRect().height)
+  );
+
+  for (const height of targetHeights) {
+    expect(height).toBeGreaterThanOrEqual(48);
+  }
+}
+
 test.describe("generated base app responsive smoke", () => {
   for (const viewport of viewports) {
     test(`${viewport.name} home route renders without horizontal overflow`, async ({ page }) => {
@@ -34,6 +50,7 @@ test.describe("generated base app responsive smoke", () => {
       await expect(page.locator("body")).toBeVisible();
       await expect(page.getByText("Home base")).toBeVisible();
       await expectGeneratedScreenContract(page);
+      await expectVisibleTapTargets(page);
       await expectNoHorizontalOverflow(page);
     });
   }

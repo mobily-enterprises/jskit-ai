@@ -56,12 +56,24 @@ watch(
 </script>
 
 <template>
-  <v-app-bar border density="comfortable" elevation="0" class="bg-surface">
-    <v-app-bar-nav-icon aria-label="Toggle navigation menu" @click="toggleDrawer" />
+  <v-app-bar
+    border
+    :density="isCompactLayout ? 'compact' : 'comfortable'"
+    elevation="0"
+    class="shell-layout__app-bar bg-surface"
+    data-testid="jskit-shell-app-bar"
+  >
+    <v-app-bar-nav-icon
+      class="shell-layout__nav-toggle"
+      aria-label="Toggle navigation menu"
+      @click="toggleDrawer"
+    />
 
     <slot name="top-left" :surface="resolvedSurface">
-      <div class="d-flex align-center ga-2">
-        <v-chip color="primary" size="small" label>{{ resolvedSurfaceLabel }}</v-chip>
+      <div class="shell-layout__top-left d-flex align-center ga-2">
+        <v-chip class="shell-layout__surface-chip" color="primary" size="small" label>
+          {{ resolvedSurfaceLabel }}
+        </v-chip>
         <ShellOutlet target="shell-layout:top-left" />
       </div>
     </slot>
@@ -69,7 +81,7 @@ watch(
     <v-spacer />
 
     <slot name="top-right" :surface="resolvedSurface">
-      <div class="d-flex align-center ga-2">
+      <div class="shell-layout__top-right d-flex align-center ga-2">
         <ShellOutlet target="shell-layout:top-right" />
       </div>
     </slot>
@@ -129,6 +141,20 @@ watch(
   padding: 0.75rem 1rem calc(1rem + env(safe-area-inset-bottom, 0px));
 }
 
+.shell-layout__top-left,
+.shell-layout__top-right {
+  min-width: 0;
+}
+
+.shell-layout__top-right {
+  max-width: min(45vw, 18rem);
+  overflow: hidden;
+}
+
+.shell-layout__surface-chip {
+  max-width: 12rem;
+}
+
 .shell-layout__title {
   margin-bottom: 0.25rem;
 }
@@ -140,5 +166,15 @@ watch(
 .shell-layout__bottom-nav {
   border-top: 1px solid rgba(var(--v-border-color), var(--v-border-opacity));
   padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+
+@media (max-width: 640px) {
+  .shell-layout__surface-chip {
+    max-width: 8rem;
+  }
+
+  .shell-layout__top-right {
+    max-width: 40vw;
+  }
 }
 </style>
