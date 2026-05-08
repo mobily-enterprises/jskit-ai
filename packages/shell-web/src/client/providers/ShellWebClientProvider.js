@@ -1,11 +1,8 @@
 import { getClientAppConfig } from "@jskit-ai/kernel/client";
 import {
-  isRecord,
-  shouldRetryTransientQueryFailure,
-  transientQueryRetryDelay
+  isRecord
 } from "@jskit-ai/kernel/shared/support";
 import { createProviderLogger as createSharedProviderLogger } from "@jskit-ai/kernel/shared/support/providerLogger";
-import { QueryClient, VueQueryPlugin } from "@tanstack/vue-query";
 import {
   createDefaultErrorPolicy
 } from "../error/policy.js";
@@ -32,19 +29,6 @@ import { resolveBootstrapErrorStatusCode } from "../bootstrap/bootstrapErrorStat
 const APP_PLACEMENT_MODULE_SPECIFIER = "/src/placement.js";
 const APP_PLACEMENT_TOPOLOGY_MODULE_SPECIFIER = "/src/placementTopology.js";
 const APP_ERROR_MODULE_SPECIFIER = "/src/error.js";
-
-function createShellWebQueryClient() {
-  return new QueryClient({
-    defaultOptions: {
-      queries: {
-        refetchOnWindowFocus: false,
-        refetchOnReconnect: true,
-        retry: shouldRetryTransientQueryFailure,
-        retryDelay: transientQueryRetryDelay
-      }
-    }
-  });
-}
 
 function isMissingDynamicModule(error, moduleSpecifier) {
   const message = String(error?.message || error || "");
@@ -317,7 +301,6 @@ class ShellWebClientProvider {
         logger
       })
     );
-    app.singleton("shell.web.query-client", () => createShellWebQueryClient());
     app.singleton("runtime.web-error.presentation-store.client", () => createErrorPresentationStore());
     app.singleton("runtime.web-error.client", (scope) =>
       createErrorRuntime({
@@ -391,9 +374,6 @@ class ShellWebClientProvider {
     const errorPresentationStore = app.make("runtime.web-error.presentation-store.client");
     useShellErrorPresentationStore(pinia).attachRuntimeStore(errorPresentationStore);
 
-    vueApp.use(VueQueryPlugin, {
-      queryClient: app.make("shell.web.query-client")
-    });
     vueApp.provide("jskit.shell-web.runtime.web-placement.client", placementRuntime);
     vueApp.provide("jskit.shell-web.runtime.web-error.client", errorRuntime);
     vueApp.provide(

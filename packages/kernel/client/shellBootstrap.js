@@ -109,6 +109,7 @@ async function bootstrapClientShellApp({
   appConfig = {},
   appPlugins = [],
   pinia = null,
+  queryClient = null,
   router,
   bootClientModules,
   surfaceRuntime,
@@ -161,6 +162,7 @@ async function bootstrapClientShellApp({
   const clientBootstrap = await bootClientModules({
     app,
     pinia,
+    queryClient,
     router,
     surfaceRuntime,
     surfaceMode,

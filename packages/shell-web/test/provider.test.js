@@ -165,9 +165,7 @@ test("shell web client provider binds runtime and injects it into Vue app", asyn
     assert.equal(app.singletons.has("runtime.web-error.presentation-store.client"), true);
 
     await provider.boot(app);
-    assert.equal(app.plugins.length, 1);
-    assert.equal(typeof app.plugins[0].plugin.install, "function");
-    assert.equal(typeof app.plugins[0].options?.queryClient, "object");
+    assert.equal(app.plugins.length, 0);
 
     const providedByKey = new Map(app.provided.map((entry) => [entry.key, entry.value]));
 

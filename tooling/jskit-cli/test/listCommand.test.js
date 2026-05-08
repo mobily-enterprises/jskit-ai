@@ -179,6 +179,17 @@ test("list-placements shows semantic topology by default", async () => {
 </template>
 `
     );
+    await writeVueFile(
+      appRoot,
+      "src/pages/home/settings.vue",
+      `<template>
+  <section>
+    <ShellOutlet target="home-settings:primary-menu" />
+    <RouterView />
+  </section>
+</template>
+`
+    );
     await writePlacementTopology(
       appRoot,
       `export default {
@@ -189,9 +200,20 @@ test("list-placements shows semantic topology by default", async () => {
       surfaces: ["*"],
       default: true,
       variants: {
-        compact: { outlet: "shell-layout:primary-menu" },
-        medium: { outlet: "shell-layout:primary-menu" },
-        expanded: { outlet: "shell-layout:primary-menu" }
+        compact: { outlet: "shell-layout:primary-menu", renderers: { link: "local.main.ui.surface-aware-menu-link-item" } },
+        medium: { outlet: "shell-layout:primary-menu", renderers: { link: "local.main.ui.surface-aware-menu-link-item" } },
+        expanded: { outlet: "shell-layout:primary-menu", renderers: { link: "local.main.ui.surface-aware-menu-link-item" } }
+      }
+    },
+    {
+      id: "page.section-nav",
+      owner: "home-settings",
+      description: "Home settings child pages.",
+      surfaces: ["home"],
+      variants: {
+        compact: { outlet: "home-settings:primary-menu", renderers: { link: "local.main.ui.surface-aware-menu-link-item" } },
+        medium: { outlet: "home-settings:primary-menu", renderers: { link: "local.main.ui.surface-aware-menu-link-item" } },
+        expanded: { outlet: "home-settings:primary-menu", renderers: { link: "local.main.ui.surface-aware-menu-link-item" } }
       }
     },
     {
@@ -227,10 +249,115 @@ test("list-placements shows semantic topology by default", async () => {
     assert.equal(result.status, 0, String(result.stderr || ""));
     const stdout = String(result.stdout || "");
     assert.match(stdout, /Available placements:/);
+    assert.match(stdout, /Semantic placement targets are the stable IDs you should author against/);
+    assert.match(stdout, /Navigation link placements/);
+    assert.match(stdout, /Format: npx jskit generate ui-generator page <page-file> --name "Label" --link-placement <placement>/);
+    assert.match(stdout, /Example: npx jskit generate ui-generator page admin\/reports\/index\.vue --name "Reports" --link-placement admin\.tools-menu/);
+    assert.match(stdout, /shell\.primary-nav \(default\): Primary shell navigation\./);
+    assert.match(stdout, /Owner-scoped navigation link placements/);
+    assert.match(stdout, /Format: npx jskit generate ui-generator page <host-path>\/<page>\/index\.vue --name "Label"/);
+    assert.match(stdout, /Example: npx jskit generate ui-generator page home\/settings\/profile\/index\.vue --name "Profile"/);
+    assert.doesNotMatch(stdout, /--link-placement page\.section-nav/);
+    assert.match(stdout, /page\.section-nav \[owner:home-settings\] -> home\/settings\/<page>\/index\.vue: Home settings child pages\./);
+    assert.match(stdout, /Component, widget, and section placements/);
+    assert.match(stdout, /Format: npx jskit generate ui-generator placed-element --name "Widget Name" --placement <placement>/);
+    assert.match(stdout, /shell\.status: Shell status widgets\./);
+    assert.doesNotMatch(stdout, /Owner-scoped component and section placements/);
+    assert.doesNotMatch(stdout, /compact -> shell-layout:primary-menu/);
+    assert.doesNotMatch(stdout, /medium -> shell-layout:primary-menu/);
+    assert.doesNotMatch(stdout, /expanded -> shell-layout:primary-menu/);
+    assert.doesNotMatch(stdout, /admin-toolbox:widgets/);
+  });
+});
+
+test("list-placements --details shows semantic topology layout mappings", async () => {
+  await withTempDir(async (cwd) => {
+    const appRoot = path.join(cwd, "list-placements-details-app");
+    await createMinimalApp(appRoot, { name: "list-placements-details-app" });
+    await writePlacementTopology(
+      appRoot,
+      `export default {
+  placements: [
+    {
+      id: "shell.primary-nav",
+      description: "Primary shell navigation.",
+      surfaces: ["*"],
+      default: true,
+      variants: {
+        compact: { outlet: "shell-layout:primary-menu", renderers: { link: "local.main.ui.surface-aware-menu-link-item" } },
+        medium: { outlet: "shell-layout:primary-menu", renderers: { link: "local.main.ui.surface-aware-menu-link-item" } },
+        expanded: { outlet: "shell-layout:primary-menu", renderers: { link: "local.main.ui.surface-aware-menu-link-item" } }
+      }
+    }
+  ]
+};
+`
+    );
+
+    const result = runCli({
+      cwd: appRoot,
+      args: ["list-placements", "--details"]
+    });
+
+    assert.equal(result.status, 0, String(result.stderr || ""));
+    const stdout = String(result.stdout || "");
+    assert.match(stdout, /Available placements:/);
     assert.match(stdout, /shell\.primary-nav \(default\): Primary shell navigation\./);
     assert.match(stdout, /compact -> shell-layout:primary-menu/);
+    assert.match(stdout, /medium -> shell-layout:primary-menu/);
+    assert.match(stdout, /expanded -> shell-layout:primary-menu/);
+  });
+});
+
+test("list-placements separates owner-scoped component placements", async () => {
+  await withTempDir(async (cwd) => {
+    const appRoot = path.join(cwd, "list-placements-owner-components-app");
+    await createMinimalApp(appRoot, { name: "list-placements-owner-components-app" });
+    await writePlacementTopology(
+      appRoot,
+      `export default {
+  placements: [
+    {
+      id: "settings.sections",
+      owner: "account-settings",
+      description: "Account settings sections.",
+      surfaces: ["account"],
+      variants: {
+        compact: { outlet: "account-settings:sections" },
+        medium: { outlet: "account-settings:sections" },
+        expanded: { outlet: "account-settings:sections" }
+      }
+    },
+    {
+      id: "shell.status",
+      description: "Shell status widgets.",
+      surfaces: ["*"],
+      variants: {
+        compact: { outlet: "shell-layout:top-right" },
+        medium: { outlet: "shell-layout:top-right" },
+        expanded: { outlet: "shell-layout:top-right" }
+      }
+    }
+  ]
+};
+`
+    );
+
+    const result = runCli({
+      cwd: appRoot,
+      args: ["list-placements"]
+    });
+
+    assert.equal(result.status, 0, String(result.stderr || ""));
+    const stdout = String(result.stdout || "");
+    assert.match(stdout, /Component, widget, and section placements/);
     assert.match(stdout, /shell\.status: Shell status widgets\./);
-    assert.doesNotMatch(stdout, /admin-toolbox:widgets/);
+    assert.match(stdout, /Owner-scoped component and section placements/);
+    assert.match(
+      stdout,
+      /Example: npx jskit generate ui-generator placed-element --name "Security Section" --placement settings\.sections --owner account-settings/
+    );
+    assert.match(stdout, /settings\.sections \[owner:account-settings\]: Account settings sections\./);
   });
 });
 
@@ -378,9 +505,9 @@ test("list-placements includes installed package metadata topology", async () =>
               description: "Workspace tools menu.",
               surfaces: ["admin"],
               variants: {
-                compact: { outlet: "workspace-tools:primary-menu" },
-                medium: { outlet: "workspace-tools:primary-menu" },
-                expanded: { outlet: "workspace-tools:primary-menu" }
+                compact: { outlet: "workspace-tools:primary-menu", renderers: { link: "local.main.ui.surface-aware-menu-link-item" } },
+                medium: { outlet: "workspace-tools:primary-menu", renderers: { link: "local.main.ui.surface-aware-menu-link-item" } },
+                expanded: { outlet: "workspace-tools:primary-menu", renderers: { link: "local.main.ui.surface-aware-menu-link-item" } }
               }
             }
           ]
@@ -403,7 +530,7 @@ test("list-placements includes installed package metadata topology", async () =>
       stdout,
       /workspace\.tools-menu: Workspace tools menu\./
     );
-    assert.match(stdout, /compact -> workspace-tools:primary-menu/);
+    assert.doesNotMatch(stdout, /compact -> workspace-tools:primary-menu/);
   });
 });
 

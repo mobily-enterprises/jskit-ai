@@ -14,6 +14,9 @@ const REGISTER_MAIN_CLIENT_COMPONENT_PATTERN = /registerMainClientComponent\(\s*
 const LINK_ITEM_TOKEN_SUFFIX = "link-item";
 const JSKIT_SCOPE_PREFIX = "@jskit-ai/";
 const FEATURE_SERVER_GENERATOR_PACKAGE_ID = "@jskit-ai/feature-server-generator";
+const PLACEMENT_LAYOUT_CLASSES = Object.freeze(["compact", "medium", "expanded"]);
+const PLACEMENT_KIND_COMPONENT = "component";
+const PLACEMENT_KIND_LINK = "link";
 const PROVIDER_SOURCE_EXTENSIONS = new Set([".js", ".mjs", ".cjs", ".ts", ".tsx"]);
 const READ_FILE_IGNORE_ERROR_CODES = new Set(["ENOENT", "ENOTDIR", "EISDIR", "EACCES", "EPERM"]);
 const READ_DIRECTORY_IGNORE_ERROR_CODES = new Set(["ENOENT", "ENOTDIR", "EACCES", "EPERM"]);
@@ -80,6 +83,271 @@ function resolveGeneratorQuickStartRows(packageEntry = {}, { limit = 3 } = {}) {
 
 function isLinkItemToken(token = "") {
   return String(token || "").trim().toLowerCase().endsWith(LINK_ITEM_TOKEN_SUFFIX);
+}
+
+function collectPlacementRendererKinds(placementTarget = {}) {
+  const kinds = new Set();
+  const variants = ensureObject(placementTarget.variants);
+  for (const layoutClass of PLACEMENT_LAYOUT_CLASSES) {
+    const variant = ensureObject(variants[layoutClass]);
+    const renderers = ensureObject(variant.renderers);
+    for (const kind of Object.keys(renderers)) {
+      const normalizedKind = String(kind || "").trim();
+      if (normalizedKind) {
+        kinds.add(normalizedKind);
+      }
+    }
+  }
+  if (kinds.size < 1) {
+    kinds.add(PLACEMENT_KIND_COMPONENT);
+  }
+  return sortStrings([...kinds]);
+}
+
+function collectPlacementConcreteOutlets(placementTarget = {}) {
+  const outlets = new Set();
+  const variants = ensureObject(placementTarget.variants);
+  for (const layoutClass of PLACEMENT_LAYOUT_CLASSES) {
+    const variant = ensureObject(variants[layoutClass]);
+    const outlet = String(variant.outlet || "").trim();
+    if (outlet) {
+      outlets.add(outlet);
+    }
+  }
+  return sortStrings([...outlets]);
+}
+
+function classifyPlacementTarget(placementTarget = {}) {
+  const owner = String(placementTarget.owner || "").trim();
+  const kinds = collectPlacementRendererKinds(placementTarget);
+  const acceptsLinks = kinds.includes(PLACEMENT_KIND_LINK);
+  const acceptsComponents = kinds.includes(PLACEMENT_KIND_COMPONENT);
+
+  if (acceptsLinks && acceptsComponents) {
+    return owner ? "ownerMixed" : "mixed";
+  }
+  if (acceptsLinks) {
+    return owner ? "ownerLinks" : "links";
+  }
+  return owner ? "ownerComponents" : "components";
+}
+
+function createConcreteTargetSourcePathMap(concreteTargets = []) {
+  const sourcePathByTarget = new Map();
+  for (const concreteTarget of ensureArray(concreteTargets)) {
+    const target = String(ensureObject(concreteTarget).id || "").trim();
+    const sourcePath = String(ensureObject(concreteTarget).sourcePath || "").trim();
+    if (target && sourcePath && !sourcePathByTarget.has(target)) {
+      sourcePathByTarget.set(target, sourcePath);
+    }
+  }
+  return sourcePathByTarget;
+}
+
+function resolveChildPagePatternFromHostSourcePath(sourcePath = "") {
+  const normalizedPath = String(sourcePath || "").replaceAll("\\", "/").trim();
+  if (!normalizedPath.startsWith("src/pages/")) {
+    return "";
+  }
+  const pagePath = normalizedPath.slice("src/pages/".length);
+  if (pagePath.endsWith("/index.vue")) {
+    const hostPath = pagePath.slice(0, -"/index.vue".length);
+    return hostPath ? `${hostPath}/<page>/index.vue` : "<page>/index.vue";
+  }
+  if (pagePath.endsWith(".vue")) {
+    const hostPath = pagePath.slice(0, -".vue".length);
+    return hostPath ? `${hostPath}/<page>/index.vue` : "<page>/index.vue";
+  }
+  return "";
+}
+
+function resolveOwnerScopedChildPagePattern(placementTarget = {}, concreteSourcePathByTarget = new Map()) {
+  const outlets = collectPlacementConcreteOutlets(placementTarget);
+  for (const outlet of outlets) {
+    const childPagePattern = resolveChildPagePatternFromHostSourcePath(
+      concreteSourcePathByTarget.get(outlet) || ""
+    );
+    if (childPagePattern) {
+      return childPagePattern;
+    }
+  }
+  return "";
+}
+
+function createPlacementTargetSummary(placementTarget = {}, color, { concreteSourcePathByTarget = new Map() } = {}) {
+  const placementId = String(placementTarget.id || "").trim();
+  const owner = String(placementTarget.owner || "").trim();
+  const ownerLabel = owner ? color.dim(` [owner:${owner}]`) : "";
+  const defaultLabel = placementTarget.default === true ? color.installed(" (default)") : "";
+  const description = String(placementTarget.description || "").trim();
+  const childPagePattern = owner
+    ? resolveOwnerScopedChildPagePattern(placementTarget, concreteSourcePathByTarget)
+    : "";
+  const childPagePatternLabel = childPagePattern ? ` -> ${color.dim(childPagePattern)}` : "";
+  const descriptionSuffix = description ? `: ${description}` : "";
+  return `- ${color.item(placementId)}${ownerLabel}${defaultLabel}${childPagePatternLabel}${descriptionSuffix}`;
+}
+
+function appendPlacementLayoutDetails(lines, placementTarget = {}, color) {
+  const variants = ensureObject(placementTarget.variants);
+  for (const layoutClass of PLACEMENT_LAYOUT_CLASSES) {
+    const variant = ensureObject(variants[layoutClass]);
+    const outlet = String(variant.outlet || "").trim();
+    if (outlet) {
+      lines.push(`  ${layoutClass} -> ${color.dim(outlet)}`);
+    }
+  }
+}
+
+function formatPlacementGuidanceLine(line = "", color) {
+  const guidanceLine = String(line || "").trim();
+  const labelMatch = /^([^:]+):\s*(.*)$/u.exec(guidanceLine);
+  if (!labelMatch) {
+    return `  ${color.dim(guidanceLine)}`;
+  }
+  const label = String(labelMatch[1] || "").trim();
+  const value = String(labelMatch[2] || "").trim();
+  const renderedLabel = color.installed(`${label}:`);
+  const renderedValue = value ? ` ${color.provider(value)}` : "";
+  return `  ${renderedLabel}${renderedValue}`;
+}
+
+function appendPlacementGroup(lines, {
+  color,
+  title = "",
+  description = "",
+  guidance = [],
+  targets = [],
+  concreteSourcePathByTarget = new Map(),
+  showLayoutDetails = false
+} = {}) {
+  const placementTargets = ensureArray(targets);
+  if (placementTargets.length < 1) {
+    return;
+  }
+  if (lines.length > 1) {
+    lines.push("");
+  }
+  lines.push(color.heading(title));
+  if (description) {
+    lines.push(description);
+  }
+  const guidanceLines = ensureArray(guidance).map((value) => String(value || "").trim()).filter(Boolean);
+  for (const guidanceLine of guidanceLines) {
+    lines.push(formatPlacementGuidanceLine(guidanceLine, color));
+  }
+  for (const placementTarget of placementTargets) {
+    lines.push(createPlacementTargetSummary(placementTarget, color, { concreteSourcePathByTarget }));
+    if (showLayoutDetails) {
+      appendPlacementLayoutDetails(lines, placementTarget, color);
+    }
+  }
+}
+
+function appendSemanticPlacementGroups(lines, {
+  color,
+  semanticPlacements = [],
+  concreteTargets = [],
+  hostPathLookupError = null,
+  showLayoutDetails = false
+} = {}) {
+  const concreteSourcePathByTarget = createConcreteTargetSourcePathMap(concreteTargets);
+  const groupedTargets = {
+    links: [],
+    ownerLinks: [],
+    components: [],
+    ownerComponents: [],
+    mixed: [],
+    ownerMixed: []
+  };
+
+  for (const placementTarget of ensureArray(semanticPlacements)) {
+    const groupKey = classifyPlacementTarget(placementTarget);
+    if (groupedTargets[groupKey]) {
+      groupedTargets[groupKey].push(placementTarget);
+    }
+  }
+
+  appendPlacementGroup(lines, {
+    color,
+    title: "Navigation link placements",
+    guidance: [
+      'Format: npx jskit generate ui-generator page <page-file> --name "Label" --link-placement <placement>',
+      'Example: npx jskit generate ui-generator page admin/reports/index.vue --name "Reports" --link-placement admin.tools-menu'
+    ],
+    targets: groupedTargets.links,
+    concreteSourcePathByTarget,
+    showLayoutDetails
+  });
+
+  appendPlacementGroup(lines, {
+    color,
+    title: "Owner-scoped navigation link placements",
+    guidance: [
+      'Format: npx jskit generate ui-generator page <host-path>/<page>/index.vue --name "Label"',
+      'Example: npx jskit generate ui-generator page home/settings/profile/index.vue --name "Profile"',
+      hostPathLookupError
+        ? `Host path lookup failed: ${String(hostPathLookupError?.message || hostPathLookupError).trim()}`
+        : ""
+    ],
+    targets: groupedTargets.ownerLinks,
+    concreteSourcePathByTarget,
+    showLayoutDetails
+  });
+
+  appendPlacementGroup(lines, {
+    color,
+    title: "Component, widget, and section placements",
+    guidance: [
+      'Format: npx jskit generate ui-generator placed-element --name "Widget Name" --placement <placement>',
+      'Example: npx jskit generate ui-generator placed-element --name "Connection Status" --placement shell.status'
+    ],
+    targets: groupedTargets.components,
+    concreteSourcePathByTarget,
+    showLayoutDetails
+  });
+
+  appendPlacementGroup(lines, {
+    color,
+    title: "Owner-scoped component and section placements",
+    guidance: [
+      'Format: npx jskit generate ui-generator placed-element --name "Section Name" --placement <placement> --owner <owner>',
+      'Example: npx jskit generate ui-generator placed-element --name "Security Section" --placement settings.sections --owner account-settings'
+    ],
+    targets: groupedTargets.ownerComponents,
+    concreteSourcePathByTarget,
+    showLayoutDetails
+  });
+
+  appendPlacementGroup(lines, {
+    color,
+    title: "Mixed-kind placements",
+    description: "These topology entries accept more than one semantic kind. Choose the generator by what you are adding.",
+    guidance: [
+      'Link format: npx jskit generate ui-generator page <page-file> --name "Label" --link-placement <placement>',
+      'Component format: npx jskit generate ui-generator placed-element --name "Widget Name" --placement <placement>',
+      'Link example: npx jskit generate ui-generator page admin/reports/index.vue --name "Reports" --link-placement <placement>',
+      'Component example: npx jskit generate ui-generator placed-element --name "Ops Panel" --placement <placement>'
+    ],
+    targets: groupedTargets.mixed,
+    concreteSourcePathByTarget,
+    showLayoutDetails
+  });
+
+  appendPlacementGroup(lines, {
+    color,
+    title: "Owner-scoped mixed-kind placements",
+    description: "These owner-scoped entries accept more than one semantic kind. Include the owner when adding manual placement entries.",
+    guidance: [
+      'Link format: npx jskit generate ui-generator page <host-path>/<page>/index.vue --name "Label"',
+      'Component format: npx jskit generate ui-generator placed-element --name "Widget Name" --placement <placement> --owner <owner>',
+      'Link example: npx jskit generate ui-generator page home/settings/profile/index.vue --name "Profile"',
+      'Component example: npx jskit generate ui-generator placed-element --name "Security Section" --placement <placement> --owner <owner>'
+    ],
+    targets: groupedTargets.ownerMixed,
+    concreteSourcePathByTarget,
+    showLayoutDetails
+  });
 }
 
 async function readFileIfExists(filePath = "") {
@@ -439,6 +707,8 @@ function createListCommands(ctx = {}) {
     const showConcreteOnly = options.concrete === true && options.all !== true;
     const showConcrete = options.concrete === true || options.all === true;
     const showSemantic = showConcreteOnly !== true;
+    const showLayoutDetails = options.details === true;
+    const shouldLookupHostPaths = showSemantic && options.json !== true;
     const discoveredTopology = await discoverPlacementTopologyFromApp({ appRoot });
     const semanticPlacements = ensureArray(discoveredTopology.placements)
       .map((entry) => ensureObject(entry))
@@ -450,12 +720,21 @@ function createListCommands(ctx = {}) {
         }
         return String(left.owner || "").localeCompare(String(right.owner || ""));
       });
-    const discoveredConcrete = showConcrete
-      ? await discoverShellOutletTargetsFromApp({
-        appRoot,
-        sourceRoot: "src"
-      })
-      : { targets: [] };
+    let hostPathLookupError = null;
+    let discoveredConcrete = { targets: [] };
+    if (showConcrete || shouldLookupHostPaths) {
+      try {
+        discoveredConcrete = await discoverShellOutletTargetsFromApp({
+          appRoot,
+          sourceRoot: "src"
+        });
+      } catch (error) {
+        if (showConcrete) {
+          throw error;
+        }
+        hostPathLookupError = error;
+      }
+    }
     const concreteTargets = ensureArray(discoveredConcrete.targets)
       .map((entry) => ensureObject(entry))
       .filter((entry) => String(entry.id || "").trim())
@@ -490,26 +769,17 @@ function createListCommands(ctx = {}) {
     const lines = [];
     if (showSemantic) {
       lines.push(color.heading("Available placements:"));
+      lines.push("Semantic placement targets are the stable IDs you should author against. Use --concrete only for low-level ShellOutlet recipients.");
       if (semanticPlacements.length < 1) {
         lines.push("- none");
       } else {
-        for (const placementTarget of semanticPlacements) {
-          const placementId = String(placementTarget.id || "").trim();
-          const owner = String(placementTarget.owner || "").trim();
-          const ownerLabel = owner ? color.dim(` [owner:${owner}]`) : "";
-          const defaultLabel = placementTarget.default === true ? color.installed(" (default)") : "";
-          const description = String(placementTarget.description || "").trim();
-          const descriptionSuffix = description ? `: ${description}` : "";
-          lines.push(`- ${color.item(placementId)}${ownerLabel}${defaultLabel}${descriptionSuffix}`);
-          const variants = ensureObject(placementTarget.variants);
-          for (const layoutClass of ["compact", "medium", "expanded"]) {
-            const variant = ensureObject(variants[layoutClass]);
-            const outlet = String(variant.outlet || "").trim();
-            if (outlet) {
-              lines.push(`  ${layoutClass} -> ${color.dim(outlet)}`);
-            }
-          }
-        }
+        appendSemanticPlacementGroups(lines, {
+          color,
+          semanticPlacements,
+          concreteTargets,
+          hostPathLookupError,
+          showLayoutDetails
+        });
       }
     }
 

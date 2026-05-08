@@ -269,7 +269,6 @@ Exports
 - `ShellWebClientProvider`
 - `resolveAppPlacementTopologyExport(exported, logger)`
 Local functions
-- `createShellWebQueryClient()`
 - `isMissingDynamicModule(error, moduleSpecifier)`
 - `loadAppPlacementDefinitions(logger)`
 - `loadAppPlacementTopology(logger)`

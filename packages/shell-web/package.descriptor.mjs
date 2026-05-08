@@ -51,8 +51,7 @@ export default Object.freeze({
           "runtime.web-placement.client",
           "runtime.web-bootstrap.client",
           "runtime.web-error.client",
-          "runtime.web-error.presentation-store.client",
-          "shell.web.query-client"
+          "runtime.web-error.presentation-store.client"
         ]
       }
     },
@@ -232,9 +231,7 @@ export default Object.freeze({
     dependencies: {
       runtime: {
         "@mdi/js": "^7.4.47",
-        "@tanstack/vue-query": "^5.90.5",
-        "@jskit-ai/kernel": "0.1.66",
-        "vuetify": "^4.0.0"
+        "@jskit-ai/kernel": "0.1.66"
       },
       dev: {}
     },

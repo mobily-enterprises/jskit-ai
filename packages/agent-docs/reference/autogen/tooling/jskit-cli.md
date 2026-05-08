@@ -440,6 +440,16 @@ Local functions
 - `resolveGeneratorDescription(packageEntry = {})`
 - `resolveGeneratorQuickStartRows(packageEntry = {}, { limit = 3 } = {})`
 - `isLinkItemToken(token = "")`
+- `collectPlacementRendererKinds(placementTarget = {})`
+- `collectPlacementConcreteOutlets(placementTarget = {})`
+- `classifyPlacementTarget(placementTarget = {})`
+- `createConcreteTargetSourcePathMap(concreteTargets = [])`
+- `resolveChildPagePatternFromHostSourcePath(sourcePath = "")`
+- `resolveOwnerScopedChildPagePattern(placementTarget = {}, concreteSourcePathByTarget = new Map())`
+- `createPlacementTargetSummary(placementTarget = {}, color, { concreteSourcePathByTarget = new Map() } = {})`
+- `appendPlacementLayoutDetails(lines, placementTarget = {}, color)`
+- `appendPlacementGroup(lines, { color, title = "", description = "", guidance = [], targets = [], concreteSourcePathByTarget = new Map(), showLayoutDetails = false } = {})`
+- `appendSemanticPlacementGroups(lines, { color, semanticPlacements = [], concreteTargets = [], hostPathLookupError = null, showLayoutDetails = false } = {})`
 - `readFileIfExists(filePath = "")`
 - `resolveDescriptorFromLockEntry({ appRoot = "", packageId = "", installedPackageEntry = {} } = {})`
 - `collectProviderSourceFiles(rootPath = "")`
