@@ -3,15 +3,7 @@
     :screen="screen"__JSKIT_UI_CREATE_LOOKUP_FORM_PROPS__
   >
     <template
-      #fields="{
-        formState,
-        addEdit,
-        resolveFieldErrors,
-        resolveLookupItems,
-        resolveLookupLoading,
-        resolveLookupSearch,
-        setLookupSearch
-      }"
+      #fields="__JSKIT_UI_CREATE_FORM_SLOT_PROPS__"
     >
       <!-- jskit:crud-ui-fields:new -->
 __JSKIT_UI_CREATE_FORM_COLUMNS_DIRECT__

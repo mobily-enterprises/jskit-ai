@@ -22,7 +22,7 @@ test("generated UI navigation role metadata is descriptor-ready", () => {
   );
   assert.equal(GENERATED_UI_NAVIGATION_ROLE_OPTION.validationType, "enum");
   assert.deepEqual(GENERATED_UI_NAVIGATION_ROLE_OPTION.allowedValues, GENERATED_UI_NAVIGATION_ROLE_VALUES);
-  assert.equal(GENERATED_UI_NAVIGATION_ROLE_OPTION.defaultValue, "primary");
+  assert.equal(GENERATED_UI_NAVIGATION_ROLE_OPTION.defaultValue, "");
 });
 
 test("generated UI surface profiles map app, operator, and settings density", () => {

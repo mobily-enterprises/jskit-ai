@@ -166,23 +166,35 @@ The most important parts look like this:
     "build": "vite build",
     "build:all": "vite build",
     "build:home": "VITE_SURFACE=home vite build",
+    "preview": "vite preview",
+    "lint": "eslint .",
     "test": "node --test",
     "test:client": "vitest run tests/client",
+    "test:e2e": "playwright test tests/e2e",
     "verify": "jskit app verify && npm run --if-present verify:app",
     "release": "jskit app release",
     "jskit:update": "jskit app update-packages"
   },
   "dependencies": {
     "@local/main": "file:packages/main",
+    "@fastify/static": "^9.1.1",
     "@jskit-ai/kernel": "0.x",
+    "@tanstack/vue-query": "^5.90.5",
     "@jskit-ai/http-runtime": "0.x",
     "fastify": "^5.7.4",
+    "json-rest-schema": "^1.0.13",
     "pinia": "^3.0.4",
     "vue": "^3.5.13",
+    "vue-router": "^5.0.4",
     "vuetify": "^4.0.0"
   },
   "devDependencies": {
+    "@jskit-ai/agent-docs": "0.x",
+    "@jskit-ai/config-eslint": "0.x",
     "@jskit-ai/jskit-cli": "0.x",
+    "@playwright/test": "^1.57.0",
+    "@vitejs/plugin-vue": "^5.2.1",
+    "eslint": "^9.39.1",
     "vite": "^6.1.0",
     "vitest": "^4.0.18"
   }
@@ -191,7 +203,7 @@ The most important parts look like this:
 
 There are two details worth noticing immediately. The dependency on `@local/main` points at `file:packages/main`, which means your app already contains its own local JSKIT package. The maintenance scripts are also useful to notice early, because they show an important ownership boundary in JSKIT.
 
-`verify`, `jskit:update`, `devlinks`, and `release` are intentionally thin wrappers. They stay in `package.json` because they are convenient app-local shortcuts, but the real implementation now lives in `jskit app ...`, not in copied scaffold scripts.
+`verify`, `jskit:update`, `devlinks`, and `release` are intentionally thin wrappers. They stay in `package.json` because they are convenient app-local shortcuts, but the real implementation lives in `jskit app ...`, not in copied scaffold scripts.
 
 That matters because JSKIT maintenance policy changes over time. If the scaffold copied a large shell script into every app, existing apps would freeze the old behavior forever. By delegating to `jskit app verify`, `jskit app update-packages`, `jskit app link-local-packages`, and `jskit app release`, the app keeps the nice `npm run` shortcuts while the maintained behavior stays in the installed CLI package.
 
@@ -257,6 +269,7 @@ The important part looks like this:
 ```js
 import { createApp } from "vue";
 import { createPinia } from "pinia";
+import { QueryClient, VueQueryPlugin } from "@tanstack/vue-query";
 import { createRouter, createWebHistory } from "vue-router/auto";
 import { routes } from "vue-router/auto-routes";
 import "vuetify/styles";
@@ -265,6 +278,10 @@ import * as components from "vuetify/components";
 import * as directives from "vuetify/directives";
 import { aliases as mdiAliases, mdi } from "vuetify/iconsets/mdi-svg";
 import { createSurfaceRuntime } from "@jskit-ai/kernel/shared/surface/runtime";
+import {
+  shouldRetryTransientQueryFailure,
+  transientQueryRetryDelay
+} from "@jskit-ai/kernel/shared/support";
 import {
   bootstrapClientShellApp,
   createShellRouter
@@ -308,13 +325,28 @@ const vuetify = createVuetify({
   }
 });
 const pinia = createPinia();
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      refetchOnWindowFocus: false,
+      refetchOnReconnect: true,
+      retry: shouldRetryTransientQueryFailure,
+      retryDelay: transientQueryRetryDelay
+    }
+  }
+});
 
 void bootstrapClientShellApp({
   createApp,
   rootComponent: App,
   appConfig: config,
-  appPlugins: [pinia, vuetify],
+  appPlugins: [
+    pinia,
+    [VueQueryPlugin, { queryClient }],
+    vuetify
+  ],
   pinia,
+  queryClient,
   router,
   bootClientModules: bootInstalledClientModules,
   surfaceRuntime,
@@ -326,7 +358,7 @@ void bootstrapClientShellApp({
 });
 ```
 
-The flow is simple once you read it in order: config in, runtime in memory, router built from that runtime, UI plugin installed, app bootstrapped.
+The flow is simple once you read it in order: config in, runtime in memory, router built from that runtime, app-owned Vue plugins created once, app bootstrapped. Pinia, Vue Query, the router, and Vuetify are owned by the base app bootstrap so runtime packages share the same instances instead of carrying independent copies.
 
 <DocsInDepth title="In depth" preview-height="15rem">
 
@@ -766,7 +798,7 @@ That is why you saw `@jskit-ai/kernel` and `@jskit-ai/http-runtime` earlier in `
 
 ### Other files and options
 
-The remaining files are easier to understand once you know the core pieces above. `vite.config.mjs` configures the frontend build and the `/api` proxy used during development. `index.html` is the HTML shell Vite uses to mount Vue. `tests/` contains basic smoke tests so the app has a verification path from day one. The `scripts/` directory is now much smaller than it used to be, because JSKIT maintenance helpers such as `verify`, `jskit:update`, `devlinks`, and `release` are package-owned CLI commands rather than copied app scripts.
+The remaining files are easier to understand once you know the core pieces above. `vite.config.mjs` configures the frontend build and the `/api` proxy used during development. `index.html` is the HTML shell Vite uses to mount Vue. `tests/` contains basic smoke tests so the app has a verification path from day one. The `scripts/` directory is intentionally small because JSKIT maintenance helpers such as `verify`, `jskit:update`, `devlinks`, and `release` are package-owned CLI commands rather than copied app scripts.
 
 The `create-app` command also accepts a few other flags that are useful without changing the basic meaning of this chapter's setup. `--title <text>` lets you replace the browser title and other template text with a friendlier app name. `--target <path>` lets you choose a different output directory instead of the default `./exampleapp`. `--tenancy-mode <mode>` can seed `none`, `personal`, or `workspaces`; for this chapter we intentionally use `none` so the first scaffold stays small and non-workspace. `--force` allows writing into a non-empty target directory when you know that is what you want. `--dry-run` prints the planned file writes without touching the filesystem, which is useful when you want to inspect what the generator would do. `-h` or `--help` prints the command help.
 

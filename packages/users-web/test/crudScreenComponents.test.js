@@ -38,6 +38,13 @@ test("CRUD screen components own generated list/view/form chrome centrally", asy
   assert.match(addEditSource, /<slot[\s\S]*name="fields"/);
 });
 
+test("account settings load state exposes a local retry action", async () => {
+  const source = await readComponent("AccountSettingsClientElement.vue");
+
+  assert.match(source, /settingsLoadError/);
+  assert.match(source, /@click="runtime\.refreshSettings"/);
+});
+
 test("CRUD screen composables are importable package APIs", async () => {
   const [
     listModule,

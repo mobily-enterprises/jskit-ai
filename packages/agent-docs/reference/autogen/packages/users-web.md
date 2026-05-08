@@ -270,7 +270,7 @@ Exports
 ### `src/client/composables/runtime/operationUiHelpers.js`
 Exports
 - `setupRouteChangeCleanup({ enabled = true, route = null, feedback = null, fieldBag = null } = {})`
-- `setupOperationErrorReporting({ enabled = true, source = "users-web.operation", loadError = null, notFoundError = null, loadActionFactory = null, notFoundActionFactory = null, loadChannel = "banner", notFoundChannel = "banner", loadSeverity = "error", notFoundSeverity = "warning", dedupeWindowMs = 2000 } = {})`
+- `setupOperationErrorReporting({ enabled = true, source = "users-web.operation", loadError = null, notFoundError = null, loadActionFactory = null, notFoundActionFactory = null, loadChannel = "", notFoundChannel = "", loadSeverity = "error", notFoundSeverity = "warning", dedupeWindowMs = 2000 } = {})`
 Local functions
 - `normalizeMessage(value)`
 
@@ -309,7 +309,7 @@ Local functions
 
 ### `src/client/composables/runtime/useUiFeedback.js`
 Exports
-- `useUiFeedback({ initialType = "success", source = "users-web.ui-feedback", successChannel = "snackbar", errorChannel = "banner", dedupeWindowMs = 2000 } = {})`
+- `useUiFeedback({ initialType = "success", source = "users-web.ui-feedback", successChannel = "", errorChannel = "", dedupeWindowMs = 2000 } = {})`
 
 ### `src/client/composables/runtime/useViewCore.js`
 Exports

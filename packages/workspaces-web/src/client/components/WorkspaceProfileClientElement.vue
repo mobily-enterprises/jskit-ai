@@ -10,9 +10,18 @@
         <v-skeleton-loader type="text@2, list-item-two-line@3, button" />
       </template>
 
-      <p v-else-if="addEdit.loadError" class="text-body-2 text-medium-emphasis mb-4">
-        {{ addEdit.loadError }}
-      </p>
+      <div v-else-if="addEdit.loadError" class="workspace-profile-panel__state">
+        <p class="text-body-2 text-medium-emphasis mb-4">{{ addEdit.loadError }}</p>
+        <v-btn
+          v-if="addEdit.canRetryLoad"
+          color="primary"
+          variant="tonal"
+          :loading="addEdit.isFetching"
+          @click="addEdit.refresh"
+        >
+          Retry
+        </v-btn>
+      </div>
 
       <p v-else-if="!addEdit.canView" class="text-body-2 text-medium-emphasis mb-4">
         You do not have permission to view workspace profile.
@@ -129,6 +138,13 @@ const showSkeleton = computed(() => Boolean(addEdit.isInitialLoading));
 
 .workspace-profile-panel__body {
   padding: 1rem;
+}
+
+.workspace-profile-panel__state {
+  margin-inline: auto;
+  max-width: 30rem;
+  padding: 1.5rem 1rem;
+  text-align: center;
 }
 
 @media (max-width: 640px) {

@@ -334,6 +334,58 @@ function hasLookupFormFields(fields = []) {
   return (Array.isArray(fields) ? fields : []).some((field) => normalizeText(field?.component).toLowerCase() === "lookup");
 }
 
+function hasLookupDisplayFields(fields = []) {
+  return (Array.isArray(fields) ? fields : []).some((field) => normalizeText(field?.relation?.kind).toLowerCase() === "lookup");
+}
+
+function buildListCardSlotProps(fields = []) {
+  const normalizedFields = Array.isArray(fields) ? fields : [];
+  if (normalizedFields.length < 1) {
+    return "{}";
+  }
+
+  const props = ["record"];
+  if (hasLookupDisplayFields(normalizedFields)) {
+    props.push("records");
+  }
+  props.push("formatListCardValue");
+  return `{ ${props.join(", ")} }`;
+}
+
+function buildListRowSlotProps(fields = []) {
+  const normalizedFields = Array.isArray(fields) ? fields : [];
+  if (normalizedFields.length < 1) {
+    return "{}";
+  }
+
+  const props = ["record"];
+  if (hasLookupDisplayFields(normalizedFields)) {
+    props.push("records");
+  }
+  return `{ ${props.join(", ")} }`;
+}
+
+function buildCrudFieldsSlotProps(fields = [], { includeMode = false } = {}) {
+  const props = [];
+  if (includeMode) {
+    props.push("mode");
+  }
+
+  props.push("formState", "addEdit", "resolveFieldErrors");
+  if (hasLookupFormFields(fields)) {
+    props.push(
+      "resolveLookupItems: fieldLookupItems",
+      "resolveLookupLoading: fieldLookupLoading",
+      "resolveLookupSearch: fieldLookupSearch",
+      "setLookupSearch: setFieldLookupSearch"
+    );
+  }
+
+  return `{
+        ${props.join(",\n        ")}
+      }`;
+}
+
 function buildLookupImportLine(fields = []) {
   return hasLookupFormFields(fields)
     ? 'import { createCrudLookupFieldRuntime } from "@jskit-ai/users-web/client/composables/crudLookupFieldRuntime";'
@@ -370,16 +422,17 @@ const {
 `;
 }
 
-function buildLookupFormProps(fields = []) {
+function buildLookupFormProps(fields = [], { sourcePrefix = "" } = {}) {
   if (!hasLookupFormFields(fields)) {
     return "";
   }
 
+  const prefix = String(sourcePrefix || "");
   return `
-    :resolve-lookup-items="resolveLookupItems"
-    :resolve-lookup-loading="resolveLookupLoading"
-    :resolve-lookup-search="resolveLookupSearch"
-    :set-lookup-search="setLookupSearch"`;
+    :resolve-lookup-items="${prefix}resolveLookupItems"
+    :resolve-lookup-loading="${prefix}resolveLookupLoading"
+    :resolve-lookup-search="${prefix}resolveLookupSearch"
+    :set-lookup-search="${prefix}setLookupSearch"`;
 }
 
 function buildLookupFormPropDefinitions({ createFields = [], editFields = [] } = {}) {
@@ -524,6 +577,44 @@ function resolveMenuOwnerLine(owner = "") {
   return `    owner: ${JSON.stringify(normalizedOwner)},\n`;
 }
 
+function buildMenuAppendBlock({
+  hasListOperation = false,
+  menuMarker = "",
+  pageLinkTarget = null,
+  pageTarget = {}
+} = {}) {
+  const placementId = String(pageLinkTarget?.pageTarget?.placementId || "");
+  const placementTarget = String(pageLinkTarget?.placementTarget?.id || "");
+  if (!hasListOperation || !placementId || !placementTarget) {
+    return "";
+  }
+
+  const surfaceId = String(pageTarget?.surfaceId || "");
+  const routeUrlSuffix = String(pageLinkTarget?.pageTarget?.routeUrlSuffix || "");
+  const menuToPropLine = resolveMenuToPropLine(pageLinkTarget?.linkTo || "");
+  const whenLine = String(pageLinkTarget?.whenLine || "");
+
+  return `
+// ${menuMarker}
+{
+  addPlacement({
+    id: ${JSON.stringify(placementId)},
+    target: ${JSON.stringify(placementTarget)},
+${resolveMenuOwnerLine(pageLinkTarget?.placementTarget?.owner || "")}    kind: "link",
+    surfaces: [${JSON.stringify(surfaceId)}],
+    order: 155,
+    props: {
+      label: ${JSON.stringify(pageTarget?.defaultName || "")},
+      icon: ${JSON.stringify(DEFAULT_GENERATED_LINK_ICON)},
+      surface: ${JSON.stringify(surfaceId)},
+      scopedSuffix: ${JSON.stringify(routeUrlSuffix)},
+      unscopedSuffix: ${JSON.stringify(routeUrlSuffix)},
+${menuToPropLine}    },
+${whenLine}  });
+}
+`;
+}
+
 function resolveCrudRelativePath(namespace = "") {
   return `/${requireCrudNamespace(namespace, {
     context: "crud-ui-generator resource namespace"
@@ -550,7 +641,7 @@ function buildListHeadingTitleSetup({
   }
 
   return `const parentTitle = useCrudListParentTitle({
-  listRuntime: records,
+  listRuntime,
   resource: uiResource,
   adapter: UI_OPERATION_ADAPTER || undefined,
   recordIdParam: UI_RECORD_ID_PARAM,
@@ -714,6 +805,7 @@ async function buildUiTemplateContext({ appRoot, options } = {}) {
     : "";
   const createFormColumns = buildFormColumns(createFields);
   const editFormColumns = buildFormColumns(editFields);
+  const sharedFormFields = Object.freeze([...createFields, ...editFields]);
   const listCopy = buildCrudListCopy(resourceLabels);
 
   return {
@@ -742,6 +834,8 @@ async function buildUiTemplateContext({ appRoot, options } = {}) {
     __JSKIT_UI_LIST_HEADER_COLUMNS__: buildListHeaderColumns(listFields),
     __JSKIT_UI_LIST_ROW_COLUMNS__: buildListRowColumns(listFields),
     __JSKIT_UI_LIST_CARD_FIELDS__: buildListCardFields(listFields),
+    __JSKIT_UI_LIST_CARD_SLOT_PROPS__: buildListCardSlotProps(listFields),
+    __JSKIT_UI_LIST_ROW_SLOT_PROPS__: buildListRowSlotProps(listFields),
     __JSKIT_UI_LIST_TITLE_FALLBACK_FIELD_KEY__: JSON.stringify(listTitleFallbackFieldKey),
     __JSKIT_UI_LIST_REALTIME_EVENTS__: JSON.stringify(listRealtimeEvents),
     __JSKIT_UI_LIST_RECORD_ID_EXPR__: resolveRecordIdExpression(recordIdFields),
@@ -765,6 +859,9 @@ async function buildUiTemplateContext({ appRoot, options } = {}) {
     __JSKIT_UI_EDIT_FORM_COLUMNS__: editFormColumns,
     __JSKIT_UI_CREATE_FORM_COLUMNS_DIRECT__: rewriteGeneratedBlockIndent(createFormColumns, { trimPrefix: "  " }),
     __JSKIT_UI_EDIT_FORM_COLUMNS_DIRECT__: rewriteGeneratedBlockIndent(editFormColumns, { trimPrefix: "  " }),
+    __JSKIT_UI_CREATE_FORM_SLOT_PROPS__: buildCrudFieldsSlotProps(createFields),
+    __JSKIT_UI_EDIT_FORM_SLOT_PROPS__: buildCrudFieldsSlotProps(editFields),
+    __JSKIT_UI_SHARED_FORM_SLOT_PROPS__: buildCrudFieldsSlotProps(sharedFormFields, { includeMode: true }),
     __JSKIT_UI_CREATE_FORM_FIELDS__: JSON.stringify(createFields),
     __JSKIT_UI_EDIT_FORM_FIELDS__: JSON.stringify(editFields),
     __JSKIT_UI_CREATE_FORM_FIELD_PUSH_LINES__: renderObjectPushLines("UI_CREATE_FORM_FIELDS", createFields),
@@ -783,6 +880,7 @@ async function buildUiTemplateContext({ appRoot, options } = {}) {
     }),
     __JSKIT_UI_CREATE_LOOKUP_FORM_PROPS__: buildLookupFormProps(createFields),
     __JSKIT_UI_EDIT_LOOKUP_FORM_PROPS__: buildLookupFormProps(editFields),
+    __JSKIT_UI_SHARED_LOOKUP_FORM_PROPS__: buildLookupFormProps(sharedFormFields, { sourcePrefix: "props." }),
     __JSKIT_UI_FORM_LOOKUP_PROP_DEFS__: buildLookupFormPropDefinitions({
       createFields,
       editFields
@@ -796,7 +894,13 @@ async function buildUiTemplateContext({ appRoot, options } = {}) {
     __JSKIT_UI_MENU_NON_WORKSPACE_SUFFIX__: String(pageLinkTarget?.pageTarget?.routeUrlSuffix || ""),
     __JSKIT_UI_MENU_WHEN_LINE__: String(pageLinkTarget?.whenLine || ""),
     __JSKIT_UI_MENU_TO_PROP_LINE__: resolveMenuToPropLine(pageLinkTarget?.linkTo || ""),
-    __JSKIT_UI_MENU_LABEL__: pageTarget.defaultName
+    __JSKIT_UI_MENU_LABEL__: pageTarget.defaultName,
+    __JSKIT_UI_MENU_APPEND_BLOCK__: buildMenuAppendBlock({
+      hasListOperation,
+      menuMarker,
+      pageLinkTarget,
+      pageTarget
+    })
   };
 }
 

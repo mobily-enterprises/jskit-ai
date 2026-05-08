@@ -233,6 +233,30 @@ test("shell refresh runtime refreshes bootstrap and active pull-refresh queries"
   });
 });
 
+test("shell refresh runtime reports recoverable retry errors as banners", async () => {
+  await withFetchStub({ surfaceAccess: { home: true } }, async () => {
+    const queryClient = {
+      async refetchQueries() {
+        throw new Error("Network unavailable");
+      }
+    };
+    const app = createAppDouble({ queryClient });
+    const provider = new ShellWebClientProvider();
+    provider.register(app);
+
+    const refreshRuntime = app.make("runtime.web-refresh.client");
+    const result = await refreshRuntime.refresh("test-refresh");
+
+    assert.equal(result.error instanceof Error, true);
+
+    const errorStore = app.make("runtime.web-error.presentation-store.client");
+    const state = errorStore.getState();
+    assert.equal(state.channels.banner.length, 1);
+    assert.equal(state.channels.banner[0].message, "Unable to refresh. Check the connection and try again.");
+    assert.equal(state.channels.banner[0].action.label, "Retry");
+  });
+});
+
 test("shell web client provider resolves surface config from client app config", async () => {
   setClientAppConfig({
     tenancyMode: "workspaces",

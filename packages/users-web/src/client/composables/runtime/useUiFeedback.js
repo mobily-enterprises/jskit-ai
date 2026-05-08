@@ -5,8 +5,8 @@ import { toUiErrorMessage } from "../support/errorMessageHelpers.js";
 function useUiFeedback({
   initialType = "success",
   source = "users-web.ui-feedback",
-  successChannel = "snackbar",
-  errorChannel = "banner",
+  successChannel = "",
+  errorChannel = "",
   dedupeWindowMs = 2000
 } = {}) {
   const message = ref("");
@@ -55,6 +55,7 @@ function useUiFeedback({
     errorRuntime.report({
       source: normalizedSource,
       message: normalizedMessage,
+      intent: "action-feedback",
       severity: "success",
       channel: successChannel,
       dedupeKey: `${normalizedSource}:success:${normalizedMessage}`,
@@ -73,6 +74,7 @@ function useUiFeedback({
       source: normalizedSource,
       message: message.value,
       cause: errorValue || null,
+      intent: "action-feedback",
       severity: "error",
       channel: errorChannel,
       dedupeKey: `${normalizedSource}:error:${message.value}`,

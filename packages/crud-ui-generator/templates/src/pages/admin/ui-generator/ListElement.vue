@@ -10,7 +10,7 @@
     empty-title="__JSKIT_UI_LIST_EMPTY_TITLE__"
     empty-body="__JSKIT_UI_LIST_EMPTY_BODY__"
   >
-    <template #card-fields="{ record, records, formatListCardValue }">
+    <template #card-fields="__JSKIT_UI_LIST_CARD_SLOT_PROPS__">
 __JSKIT_UI_LIST_CARD_FIELDS__
       <!-- jskit:crud-ui-fields:list-card -->
     </template>
@@ -20,7 +20,7 @@ __JSKIT_UI_LIST_HEADER_COLUMNS__
       <!-- jskit:crud-ui-fields:list-header -->
     </template>
 
-    <template #table-row="{ record, records }">
+    <template #table-row="__JSKIT_UI_LIST_ROW_SLOT_PROPS__">
 __JSKIT_UI_LIST_ROW_COLUMNS__
       <!-- jskit:crud-ui-fields:list-row -->
     </template>
@@ -63,7 +63,7 @@ const screen = useCrudListScreen({
   routeQueryBlacklist: UI_ROUTE_QUERY_BLACKLIST,
   fallbackLoadError: "Unable to load records."
 });
-const records = screen.records;
+const listRuntime = screen.records;
 
 __JSKIT_UI_LIST_HEADING_TITLE_SETUP__
 </script>

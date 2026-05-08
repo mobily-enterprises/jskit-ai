@@ -80,7 +80,7 @@ const repositoryRuntime = createCrudResourceRuntime(resource, {
 });
 ```
 
-What CRUD core now does for you:
+What CRUD core does for you:
 - default select columns include only column-backed output fields
 - create/update write payloads serialize standard writable `date-time` fields centrally
 - create/update write payloads also apply any explicit field write serializers centrally

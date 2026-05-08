@@ -100,6 +100,15 @@ test("shell-web error host uses one explicit close affordance for banner errors"
   assert.doesNotMatch(source, /mdi-close/);
 });
 
+test("shell-web error template uses intent-driven default presentation", async () => {
+  const source = await readFile(path.join(PACKAGE_DIR, "templates", "src", "error.js"), "utf8");
+
+  assert.match(source, /resourceLoadChannel:\s*"silent"/);
+  assert.match(source, /actionFeedbackChannel:\s*"snackbar"/);
+  assert.match(source, /appRecoverableChannel:\s*"banner"/);
+  assert.match(source, /blockingChannel:\s*"dialog"/);
+});
+
 test("shell-web installs generated adaptive shell Playwright smoke coverage", async () => {
   const source = await readFile(path.join(PACKAGE_DIR, "templates", "tests", "e2e", "adaptive-shell.spec.ts"), "utf8");
   const helperSource = await readFile(path.join(PACKAGE_DIR, "src", "test", "adaptiveShellSmoke.js"), "utf8");

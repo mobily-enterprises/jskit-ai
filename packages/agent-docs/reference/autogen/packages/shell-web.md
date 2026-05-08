@@ -123,16 +123,18 @@ Exports
 Exports
 - `ERROR_CHANNELS`
 - `ERROR_SEVERITIES`
+- `ERROR_INTENTS`
 - `isRecord`
 - `normalizeText(value, fallback = "")`
 - `normalizeChannel(value, fallback = "")`
 - `normalizeSeverity(value, fallback = "error")`
+- `normalizeErrorIntent(value, fallback = "")`
 - `normalizeNonNegativeInteger(value, fallback = 0)`
 - `normalizeAction(value)`
 
 ### `src/client/error/policy.js`
 Exports
-- `createDefaultErrorPolicy({ defaultChannel = "snackbar", unauthorizedChannel = "banner", serverErrorChannel = "dialog", defaultSeverity = "error" } = {})`
+- `createDefaultErrorPolicy({ defaultChannel = "snackbar", resourceLoadChannel = "silent", actionFeedbackChannel = "snackbar", appRecoverableChannel = "banner", blockingChannel = "dialog", defaultSeverity = "error" } = {})`
 
 ### `src/client/error/presentationDefaults.js`
 Exports

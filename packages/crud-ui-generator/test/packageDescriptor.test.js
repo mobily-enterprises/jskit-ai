@@ -29,23 +29,24 @@ test("crud-ui-generator navigation-role option exposes product-aware placement m
     descriptor.options?.["navigation-role"]?.allowedValues,
     ["primary", "secondary", "utility", "detail", "workflow", "none"]
   );
-  assert.equal(descriptor.options?.["navigation-role"]?.defaultValue, "primary");
+  assert.equal(descriptor.options?.["navigation-role"]?.defaultValue, "");
   assert.equal(descriptor.metadata?.generatorSubcommands?.crud?.optionNames?.includes("navigation-role"), true);
 
   const placementMutation = descriptor?.mutations?.text?.find(
     (entry) => String(entry?.id || "").trim() === "crud-ui-placement-menu"
   );
-  assert.deepEqual(placementMutation?.when?.all?.[1], {
-    option: "navigation-role",
-    notIn: ["detail", "workflow", "none"]
+  assert.deepEqual(placementMutation?.when, {
+    option: "operations",
+    in: ["list"]
   });
+  assert.equal(placementMutation?.value, "__JSKIT_UI_MENU_APPEND_BLOCK__");
 });
 
-test("crud-ui-generator placement scaffold includes an explicit stock icon prop", () => {
+test("crud-ui-generator placement scaffold is rendered by template context", () => {
   const placementMutation = descriptor?.mutations?.text?.find(
     (entry) => String(entry?.id || "").trim() === "crud-ui-placement-menu"
   );
-  assert.match(String(placementMutation?.value || ""), /icon: "__JSKIT_UI_MENU_ICON__"/);
+  assert.equal(placementMutation?.value, "__JSKIT_UI_MENU_APPEND_BLOCK__");
 });
 
 test("crud-ui-generator installs page-local list filter definition seam for list pages", () => {

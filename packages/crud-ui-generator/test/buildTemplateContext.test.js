@@ -393,6 +393,7 @@ test("buildUiTemplateContext derives CRUD placeholders from the explicit target-
     assert.equal(context.__JSKIT_UI_PARENT_TITLE_MODE__, "contextual");
     assert.match(context.__JSKIT_UI_LIST_PARENT_TITLE_IMPORT_LINE__, /useCrudListParentTitle/);
     assert.match(context.__JSKIT_UI_LIST_HEADING_TITLE_SETUP__, /Customers for /);
+    assert.match(context.__JSKIT_UI_LIST_HEADING_TITLE_SETUP__, /listRuntime,\n {2}resource: uiResource/);
     assert.equal(context.__JSKIT_UI_FORM_COMPONENT_FILE__, "CrudAddEditForm.vue");
     assert.equal(context.__JSKIT_UI_FORM_FIELDS_FILE__, "CrudAddEditFormFields.js");
     assert.equal(context.__JSKIT_UI_SURFACE_ID__, "admin");
@@ -505,10 +506,10 @@ test("buildUiTemplateContext indents direct-page form columns without changing s
       options: createOptions()
     });
 
-    assert.match(context.__JSKIT_UI_CREATE_FORM_COLUMNS__, /^ {14}<v-col/m);
-    assert.match(context.__JSKIT_UI_EDIT_FORM_COLUMNS__, /^ {14}<v-col/m);
-    assert.match(context.__JSKIT_UI_CREATE_FORM_COLUMNS_DIRECT__, /^ {12}<v-col/m);
-    assert.match(context.__JSKIT_UI_EDIT_FORM_COLUMNS_DIRECT__, /^ {12}<v-col/m);
+    assert.match(context.__JSKIT_UI_CREATE_FORM_COLUMNS__, /^ {8}<v-col/m);
+    assert.match(context.__JSKIT_UI_EDIT_FORM_COLUMNS__, /^ {8}<v-col/m);
+    assert.match(context.__JSKIT_UI_CREATE_FORM_COLUMNS_DIRECT__, /^ {6}<v-col/m);
+    assert.match(context.__JSKIT_UI_EDIT_FORM_COLUMNS_DIRECT__, /^ {6}<v-col/m);
   });
 });
 
@@ -531,6 +532,8 @@ test("buildUiTemplateContext includes lookup runtime placeholders when form fiel
     assert.match(context.__JSKIT_UI_EDIT_LOOKUP_RUNTIME_SETUP__, /resolveLookupItems/);
     assert.match(context.__JSKIT_UI_CREATE_LOOKUP_FORM_PROPS__, /resolve-lookup-items/);
     assert.match(context.__JSKIT_UI_EDIT_LOOKUP_FORM_PROPS__, /resolve-lookup-items/);
+    assert.match(context.__JSKIT_UI_CREATE_FORM_SLOT_PROPS__, /resolveLookupItems: fieldLookupItems/);
+    assert.match(context.__JSKIT_UI_CREATE_FORM_COLUMNS__, /fieldLookupItems\('serviceId'/);
     assert.match(context.__JSKIT_UI_FORM_LOOKUP_PROP_DEFS__, /resolveLookupItems/);
   });
 });
@@ -789,6 +792,8 @@ test("buildUiTemplateContext honors explicit link-placement override", async () 
 
     assert.equal(context.__JSKIT_UI_MENU_PLACEMENT_TARGET__, "shell.secondary-nav");
     assert.equal(context.__JSKIT_UI_MENU_OWNER_LINE__, "");
+    assert.match(context.__JSKIT_UI_MENU_APPEND_BLOCK__, /target: "shell.secondary-nav"/);
+    assert.match(context.__JSKIT_UI_MENU_APPEND_BLOCK__, /icon: "mdi-view-list-outline"/);
   });
 });
 
@@ -838,6 +843,7 @@ test("buildUiTemplateContext supports no-link navigation roles for detail or wor
     assert.equal(context.__JSKIT_UI_MENU_PLACEMENT_ID__, "");
     assert.equal(context.__JSKIT_UI_MENU_PLACEMENT_TARGET__, "");
     assert.equal(context.__JSKIT_UI_MENU_MARKER__, "jskit:crud-ui-generator.page.link:admin:/customers");
+    assert.equal(context.__JSKIT_UI_MENU_APPEND_BLOCK__, "");
   });
 });
 
@@ -855,6 +861,7 @@ test("buildUiTemplateContext infers no-link navigation for dynamic nested list r
     assert.equal(context.__JSKIT_UI_MENU_PLACEMENT_ID__, "");
     assert.equal(context.__JSKIT_UI_MENU_PLACEMENT_TARGET__, "");
     assert.equal(context.__JSKIT_UI_MENU_MARKER__, "jskit:crud-ui-generator.page.link:admin:/customers/[customerId]/orders");
+    assert.equal(context.__JSKIT_UI_MENU_APPEND_BLOCK__, "");
   });
 });
 
@@ -962,15 +969,15 @@ test("crud ui templates derive JSON:API transport from the shared CRUD resource"
   assert.match(listTemplateSource, /const screen = useCrudListScreen\(\{/);
   assert.match(listTemplateSource, /listFilters,/);
   assert.match(listTemplateSource, /listBulkActions,/);
-  assert.match(listTemplateSource, /#card-fields="\{ record, records, formatListCardValue \}"/);
+  assert.match(listTemplateSource, /#card-fields="__JSKIT_UI_LIST_CARD_SLOT_PROPS__"/);
   assert.match(listTemplateSource, /#table-header/);
-  assert.match(listTemplateSource, /#table-row="\{ record, records \}"/);
+  assert.match(listTemplateSource, /#table-row="__JSKIT_UI_LIST_ROW_SLOT_PROPS__"/);
   assert.match(listTemplateSource, /__JSKIT_UI_LIST_EMPTY_TITLE__/);
   assert.match(listTemplateSource, /__JSKIT_UI_LIST_EMPTY_BODY__/);
   assert.match(listTemplateSource, /__JSKIT_UI_LIST_LOAD_ERROR_TITLE__/);
   assert.match(listTemplateSource, /__JSKIT_UI_LIST_LOAD_ERROR_BODY__/);
   assert.match(listTemplateSource, /__JSKIT_UI_LIST_CREATE_LABEL__/);
-  assert.match(listTemplateSource, /formatListCardValue/);
+  assert.match(listTemplateSource, /__JSKIT_UI_LIST_CARD_FIELDS__/);
   assert.doesNotMatch(listTemplateSource, /CrudListBulkActionSurface|CrudListFilterSurface|useCrudListBulkActions|useCrudListFilters/);
   assert.doesNotMatch(listTemplateSource, /No records yet|Manage __JSKIT|Replace this scaffold|<v-data-table\b/);
   assert.doesNotMatch(listTemplateSource, /const UI_LIST_TRANSPORT = Object\.freeze\(\{/);

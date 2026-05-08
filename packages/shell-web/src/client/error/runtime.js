@@ -2,6 +2,7 @@ import {
   isRecord,
   normalizeAction,
   normalizeChannel,
+  normalizeErrorIntent,
   normalizeNonNegativeInteger,
   normalizeSeverity,
   normalizeText
@@ -43,6 +44,7 @@ function normalizeErrorEvent(rawEvent = {}) {
     source: normalizeText(source.source, "app"),
     message: normalizeText(userMessage || runtimeMessage, "Request failed."),
     userMessage,
+    intent: normalizeErrorIntent(source.intent || source.kind),
     severity: normalizeSeverity(source.severity, "error"),
     channel: normalizeChannel(source.channel),
     presenterId: normalizeText(source.presenterId),

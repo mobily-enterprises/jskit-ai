@@ -49,11 +49,11 @@ Installing `database-runtime-mysql` gives the app three important things right a
 
 ### A real database runtime
 
-The server can now build a real Knex client from environment variables. That gives later packages a standard way to ask for a database connection instead of each package inventing its own wiring.
+The server can build a real Knex client from environment variables. That gives later packages a standard way to ask for a database connection instead of each package inventing its own wiring.
 
 ### A migration workflow
 
-The app now gets three new scripts in `package.json`:
+The app gets three database scripts in `package.json`:
 
 ```json
 {
@@ -561,7 +561,7 @@ The three new scripts are also worth reading carefully:
 
 They are not special JSKIT commands. They are ordinary project scripts, which makes them easy to run in any environment.
 
-### `.env` now owns the database connection settings
+### `.env` owns the database connection settings
 
 The package install also writes the database settings into `.env`:
 
@@ -583,7 +583,7 @@ This matters because the generic runtime is written to support more than one dri
 
 ### `knexfile.js` is for migration commands, not normal page code
 
-The migration scripts in `package.json` work because the app now has a top-level `knexfile.js`:
+The migration scripts in `package.json` work because the app has a top-level `knexfile.js`:
 
 ```js
 import path from "node:path";
@@ -747,7 +747,7 @@ The new `migrations/` directory can look almost silly at first because it only c
 
 It means:
 
-- the app now has a migration system
+- the app has a migration system
 - the app does **not** yet have a schema of its own
 
 That is exactly the right state at this stage of the guide.
@@ -758,9 +758,9 @@ The database runtime chapter should give the app a database foundation first. Th
 
 This chapter did not make the app feel dramatically different in the browser, but it changed the server foundation in an important way.
 
-- the app now has a real JSKIT database runtime
-- the app now has a standard Knex migration workflow
-- the app now has a place for future schema files
+- the app has a real JSKIT database runtime
+- the app has a standard Knex migration workflow
+- the app has a place for future schema files
 
 But just as importantly, this chapter also defined what has **not** changed yet:
 

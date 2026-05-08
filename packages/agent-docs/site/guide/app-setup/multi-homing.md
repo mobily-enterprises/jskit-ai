@@ -156,7 +156,7 @@ npx jskit show @jskit-ai/workspaces-web --details
 
 That output makes the package feel much less mysterious, because it shows the exact workspace shell contributions, settings outlets, client tokens, app-owned file writes, and capability requirements before you mutate the app.
 
-## What changes now
+## What workspaces add
 
 This chapter is where the app stops being a collection of global surfaces and starts supporting workspace-dependent ones.
 
@@ -200,13 +200,13 @@ That is why this chapter feels larger than the previous ones. It is not just add
 
 ### The shell and account surface gain workspace-aware controls
 
-The placement registry now grows a workspace selector in the top-left of the shell, a pending-invites cue in the top-right area, and workspace tools in the admin shell. The workspaces package also plugs an `Invites` section into the existing `/account` settings screen through the account-settings extension seam that `users-web` exposes.
+The placement registry gets a workspace selector in `shell.identity`, pending-invites and workspace tools in `shell.status`, and an `Invites` section in the existing `/account` settings screen through the account-settings extension seam that `users-web` exposes. The default shell topology maps identity/status placements to the visible shell chrome.
 
 That means the shell itself starts adapting to workspace context.
 
-- on any authenticated surface, the shell can now expose a workspace selector
-- signed-in users can now see a pending-invites cue without `users-web` owning that workspace feature
-- on admin workspace surfaces, the shell can also expose workspace-specific tools and settings
+- on any authenticated surface, the shell can expose a workspace selector
+- signed-in users can see a pending-invites cue without `users-web` owning that workspace feature
+- on admin workspace surfaces, the shell can expose workspace-specific tools and settings
 
 This is the first time the guide shows the shell reacting not just to authentication state, but to workspace state as well.
 
@@ -232,7 +232,7 @@ This is also important to notice:
 
 The new workspace surfaces are added on top of the existing app, not instead of it.
 
-That is exactly what multi-homing should feel like. The app now has both:
+That is exactly what multi-homing should feel like. The app has both:
 
 - global surfaces
 - workspace-scoped surfaces
@@ -246,7 +246,7 @@ npm run dev
 npm run server
 ```
 
-After you sign in, the app now has the routing structure needed for workspace-aware paths such as:
+After you sign in, the app has the routing structure needed for workspace-aware paths such as:
 
 ```text
 /w/your-personal-slug
@@ -259,11 +259,11 @@ At this stage of the guide, the starter workspace pages are still intentionally 
 
 The most important new visible ideas are:
 
-- a workspace slug now appears in the route
+- a workspace slug appears in the route
 - the shell can expose workspace selection and workspace tools
 - workspace-dependent surfaces can show a dedicated unavailable-state card when the requested workspace cannot be resolved
 
-First, even the old global `/home` surface now reacts to workspace state. The selector in the top-left and the invites cue in the top-right come from placement entries and workspace bootstrap context, not from the `home` page itself.
+First, even the global `/home` surface reacts to workspace state. The selector and invites cue come from semantic placement entries and workspace bootstrap context, not from the `home` page itself.
 
 <figure class="docs-browser-shot">
   <div class="docs-browser-shot__bar">
@@ -280,7 +280,7 @@ First, even the old global `/home` surface now reacts to workspace state. The se
   />
 </figure>
 
-Then open your personal workspace route. The page itself is deliberately light. `src/pages/w/[workspaceSlug]/index.vue` mostly exists to prove that the `app` surface is now real and ready to host later modules.
+Then open your personal workspace route. The page itself is deliberately light. `src/pages/w/[workspaceSlug]/index.vue` mostly exists to prove that the `app` surface is real and ready to host later modules.
 
 <figure class="docs-browser-shot">
   <div class="docs-browser-shot__bar">
@@ -297,7 +297,7 @@ Then open your personal workspace route. The page itself is deliberately light. 
   />
 </figure>
 
-Next open the admin surface for the same workspace. This is the matching pattern on the admin side: `src/pages/w/[workspaceSlug]/admin.vue` is the shell wrapper, `src/pages/w/[workspaceSlug]/admin/index.vue` is the starter page, and the top-right workspace tools button is coming from placements rather than being hand-built into that page file.
+Next open the admin surface for the same workspace. This is the matching pattern on the admin side: `src/pages/w/[workspaceSlug]/admin.vue` is the shell wrapper, `src/pages/w/[workspaceSlug]/admin/index.vue` is the starter page, and the workspace tools button is coming from placements rather than being hand-built into that page file.
 
 <figure class="docs-browser-shot">
   <div class="docs-browser-shot__bar">
@@ -384,7 +384,7 @@ config.workspaceInvitations = {
 };
 ```
 
-Those lines are the public contract that tells both client and server, "this app is workspace-aware now."
+Those lines are the public contract that tells both client and server that this app is workspace-aware.
 
 ### `config/surfaceAccessPolicies.js` gains `workspace_member`
 
@@ -405,7 +405,7 @@ That is the core idea of multi-homing in JSKIT:
 - the server resolves that workspace
 - access depends on whether the current user belongs to it
 
-### The migrations now include workspace schema
+### The migrations include workspace schema
 
 After `workspaces-core`, the migration directory grows again with files such as:
 
@@ -422,7 +422,7 @@ That is why the chapter needs another `npm run db:migrate`. Without those tables
 
 ### The route tree gains workspace-dependent pages
 
-The app now gets:
+The app gets:
 
 ```text
 src/pages/w/[workspaceSlug].vue
@@ -736,13 +736,13 @@ addPlacement({
 });
 ```
 
-That one block explains a lot of the new shell behavior.
+That one block explains a lot of the workspace shell behavior.
 
-- the authenticated profile menu can now switch into workspace surfaces
-- the top-left area now has a workspace selector
-- the top-right area can show a pending-invites cue
-- the admin surface gets workspace tools in the top-right area
-- the admin workspace settings menu is now another nested placement host with both `Settings` and `Members`
+- the authenticated profile menu can switch into workspace surfaces
+- `shell.identity` carries the workspace selector
+- `shell.status` can show a pending-invites cue
+- the admin surface gets workspace tools through `shell.status`
+- the admin workspace settings menu is another nested placement host with both `Settings` and `Members`
 
 If you want to add your own app-owned page into that top cog menu, first ask JSKIT which semantic placements exist:
 
@@ -750,7 +750,7 @@ If you want to add your own app-owned page into that top cog menu, first ask JSK
 npx jskit list-placements
 ```
 
-In a workspace-enabled app, that list now includes:
+In a workspace-enabled app, that list includes:
 
 ```text
 - admin.tools-menu: Admin surface tools menu actions.
@@ -773,7 +773,7 @@ That command creates `src/pages/w/[workspaceSlug]/admin/catalogue/index.vue` and
 
 You also do **not** need a renderer flag here. `admin.tools-menu` defines its link renderer in topology, so JSKIT resolves that when it renders the placement entry.
 
-So the placement system from the shell chapter is still doing the same job as before. The app just has a richer routing and tenancy context now.
+So the placement system from the shell chapter is doing the same job with a richer routing and tenancy context.
 
 ### The local client provider gets one more app-owned token
 
@@ -819,7 +819,7 @@ registerProfileSyncLifecycleContributor(app, "workspaces.core.profileSyncLifecyc
 
 That means the workspace package does not need to patch auth directly to learn that a user was added. It listens through the `users-core` lifecycle registry instead.
 
-For this chapter's `tenancyMode = "personal"` setup, that contributor now does real work. When an authenticated JSKIT user is synchronized from auth, `workspaces-core` ensures that user's personal workspace exists.
+For this chapter's `tenancyMode = "personal"` setup, that contributor does real work. When an authenticated JSKIT user is synchronized from auth, `workspaces-core` ensures that user's personal workspace exists.
 
 That detail matters for the retrofit path described earlier in this chapter. If the app started on `none`, then later switched to `personal`, the first sign-in after that switch still needs to backfill the personal workspace for the already-existing user record. The lifecycle contributor handles that because the workspace provision step is idempotent.
 
@@ -865,9 +865,9 @@ Before:
 After:
 
 - global surfaces still exist
-- workspace-scoped surfaces now exist too
+- workspace-scoped surfaces exist too
 - the shell can navigate between workspaces
-- access to some surfaces now depends on workspace membership
+- access to some surfaces depends on workspace membership
 
 That is why multi-homing deserves its own chapter. It is not just another feature package. It is the moment the app becomes tenancy-aware.
 
@@ -875,11 +875,11 @@ That is why multi-homing deserves its own chapter. It is not just another featur
 
 This chapter is the real routing and tenancy pivot in the guide.
 
-- the app now uses `tenancyMode = "personal"`
+- the app uses `tenancyMode = "personal"`
 - `workspaces-core` added the persistent schema and server runtime for workspaces
 - `workspaces-web` added the first workspace-scoped surfaces, shell controls, and the workspace-owned account invites extension
 
-At the end of this chapter, the app now has both:
+At the end of this chapter, the app has both:
 
 - global surfaces such as `home`, `auth`, `account`, and `console`
 - workspace-scoped surfaces such as `/w/[workspaceSlug]` and `/w/[workspaceSlug]/admin`
@@ -889,7 +889,7 @@ That is the most important mental shift to keep:
 - earlier chapters added features inside one global app shell
 - this chapter changed the topology of the app itself
 
-From here on, later modules are no longer only adding pages or widgets. They can add features inside either:
+From here on, later modules can add features inside either:
 
 - the global surfaces
 - the workspace-specific surfaces

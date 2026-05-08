@@ -116,6 +116,20 @@ test("workspaces-web settings components use direct panels instead of card scaff
   }
 });
 
+test("workspaces-web resource load states expose local retry actions", async () => {
+  const expectations = new Map([
+    ["src/client/components/WorkspaceProfileClientElement.vue", /addEdit\.canRetryLoad[\s\S]*@click="addEdit\.refresh"/],
+    ["src/client/components/WorkspaceSettingsFieldsClientElement.vue", /addEdit\.canRetryLoad[\s\S]*@click="addEdit\.refresh"/],
+    ["src/client/components/WorkspacesClientElement.vue", /bootstrapLoadError[\s\S]*@click="refreshBootstrap"/],
+    ["src/client/components/WorkspaceMembersClientElement.vue", /canRetryLoad[\s\S]*@click="refreshLoad"/]
+  ]);
+
+  for (const [relativePath, pattern] of expectations) {
+    const source = await readFile(path.join(PACKAGE_DIR, relativePath), "utf8");
+    assert.match(source, pattern, `${relativePath} must expose a local retry action for load errors.`);
+  }
+});
+
 test("workspaces-web installs an account invites cue scaffold that reads placement runtime state", async () => {
   const source = await readFile(
     path.join(PACKAGE_DIR, "templates", "packages", "main", "src", "client", "components", "AccountPendingInvitesCue.vue"),

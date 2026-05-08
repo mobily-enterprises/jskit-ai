@@ -38,9 +38,13 @@ Local functions
 - `filterDisplayFields(selectedFieldKeys, fields)`
 - `rewriteGeneratedBlockIndent(source = "", { trimPrefix = "", addPrefix = "" } = {})`
 - `hasLookupFormFields(fields = [])`
+- `hasLookupDisplayFields(fields = [])`
+- `buildListCardSlotProps(fields = [])`
+- `buildListRowSlotProps(fields = [])`
+- `buildCrudFieldsSlotProps(fields = [], { includeMode = false } = {})`
 - `buildLookupImportLine(fields = [])`
 - `buildLookupRuntimeSetup(fields = [], { formFieldsVariable = "", resourceNamespace = "", mode = "" } = {})`
-- `buildLookupFormProps(fields = [])`
+- `buildLookupFormProps(fields = [], { sourcePrefix = "" } = {})`
 - `buildLookupFormPropDefinitions({ createFields = [], editFields = [] } = {})`
 - `filterDefaultHiddenListFields(selectedFieldKeys, fields, { recordIdFieldKey = "" } = {})`
 - `ensureFields(fields, fallbackFields = createFieldDefinitions({}))`
@@ -51,6 +55,7 @@ Local functions
 - `resolveNavigationInferenceRoutePath(pageTarget = {})`
 - `resolveMenuToPropLine(linkTo = "")`
 - `resolveMenuOwnerLine(owner = "")`
+- `buildMenuAppendBlock({ hasListOperation = false, menuMarker = "", pageLinkTarget = null, pageTarget = {} } = {})`
 - `resolveCrudRelativePath(namespace = "")`
 - `buildListParentTitleImportLine(parentTitleMode = "contextual")`
 - `buildListHeadingTitleSetup({ parentTitleMode = "contextual", resourceNamespace = "", routeTitle = "Records" } = {})`

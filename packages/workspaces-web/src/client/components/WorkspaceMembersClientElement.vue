@@ -1,8 +1,17 @@
 <template>
   <section class="workspace-members-page">
-    <p v-if="loadError" class="text-body-2 text-medium-emphasis mb-4">
-      {{ loadError }}
-    </p>
+    <div v-if="loadError" class="workspace-members-page__state">
+      <p class="text-body-2 text-medium-emphasis mb-4">{{ loadError }}</p>
+      <v-btn
+        v-if="canRetryLoad"
+        color="primary"
+        variant="tonal"
+        :loading="isRetryingLoad"
+        @click="refreshLoad"
+      >
+        Retry
+      </v-btn>
+    </div>
 
     <MembersAdminClientElement
       v-else
@@ -38,7 +47,6 @@ import { useView } from "@jskit-ai/users-web/client/composables/useView";
 import { usePaths } from "@jskit-ai/users-web/client/composables/usePaths";
 import { useAccess } from "@jskit-ai/users-web/client/composables/useAccess";
 import { useUiFeedback } from "@jskit-ai/users-web/client/composables/runtime/useUiFeedback";
-import { useShellWebErrorRuntime } from "@jskit-ai/shell-web/client/error";
 import { useWorkspaceRouteContext } from "../composables/useWorkspaceRouteContext.js";
 import { createWorkspaceRealtimeMatcher } from "../support/realtimeWorkspace.js";
 import { buildWorkspaceQueryKey } from "../support/workspaceQueryKeys.js";
@@ -75,7 +83,6 @@ const removeMemberUserId = ref("");
 
 const { route, currentSurfaceId, workspaceSlugFromRoute } = useWorkspaceRouteContext();
 const usersPaths = usePaths();
-const errorRuntime = useShellWebErrorRuntime();
 const OWNERSHIP_WORKSPACE = ROUTE_VISIBILITY_WORKSPACE;
 
 const hasRouteWorkspaceSlug = computed(() => Boolean(workspaceSlugFromRoute.value));
@@ -423,26 +430,43 @@ const loadError = computed(() => {
     return "Workspace slug is required in the URL.";
   }
 
-  return access.bootstrapError.value;
+  return (
+    access.bootstrapError.value ||
+    workspaceSettingsView.loadError ||
+    workspaceRolesView.loadError ||
+    workspaceMembersList.loadError ||
+    workspaceInvitesList.loadError ||
+    ""
+  );
 });
-
-watch(
-  loadError,
-  (nextLoadError) => {
-    if (!nextLoadError) {
-      return;
-    }
-    errorRuntime.report({
-      source: "users-web.workspace-members-view",
-      severity: "error",
-      channel: "banner",
-      message: String(nextLoadError || "Unable to load workspace members."),
-      dedupeKey: `users-web.workspace-members-view:bootstrap:${nextLoadError}`,
-      dedupeWindowMs: 3000
-    });
-  },
-  { immediate: true }
+const canRetryLoad = computed(() => Boolean(hasRouteWorkspaceSlug.value && !access.bootstrapError.value));
+const isRetryingLoad = computed(() =>
+  Boolean(
+    workspaceSettingsView.isFetching ||
+    workspaceRolesView.isFetching ||
+    workspaceMembersList.isFetching ||
+    workspaceInvitesList.isFetching
+  )
 );
+
+async function refreshLoad() {
+  if (!canRetryLoad.value) {
+    return;
+  }
+
+  const jobs = [];
+  if (canInviteMembers.value) {
+    jobs.push(workspaceSettingsView.refresh());
+  }
+  if (canInviteMembers.value || canViewMembers.value) {
+    jobs.push(workspaceRolesView.refresh());
+  }
+  if (canViewMembers.value) {
+    jobs.push(workspaceMembersList.reload());
+    jobs.push(workspaceInvitesList.reload());
+  }
+  await Promise.all(jobs);
+}
 
 const actions = Object.freeze({
   submitInvite,
@@ -523,17 +547,6 @@ watch(
 );
 
 watch(
-  () => workspaceMembersList.loadError,
-  (nextLoadError) => {
-    if (!nextLoadError) {
-      membersFeedback.clear();
-      return;
-    }
-    membersFeedback.error(null, nextLoadError);
-  }
-);
-
-watch(
   () => workspaceInvitesList.items,
   (nextInvites) => {
     collections.invites = Array.isArray(nextInvites) ? [...nextInvites] : [];
@@ -551,17 +564,6 @@ watch(
     applyRoleCatalog(payload);
   },
   { immediate: true }
-);
-
-watch(
-  () => workspaceInvitesList.loadError,
-  (nextLoadError) => {
-    if (!nextLoadError) {
-      teamFeedback.clear();
-      return;
-    }
-    teamFeedback.error(null, nextLoadError);
-  }
 );
 
 watch(
@@ -671,3 +673,18 @@ async function submitRemoveMember(member) {
   }
 }
 </script>
+
+<style scoped>
+.workspace-members-page__state {
+  margin-inline: auto;
+  max-width: 30rem;
+  padding: 2rem 1rem;
+  text-align: center;
+}
+
+@media (max-width: 640px) {
+  .workspace-members-page__state :deep(.v-btn) {
+    min-height: 48px;
+  }
+}
+</style>
