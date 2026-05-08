@@ -97,6 +97,7 @@ function useView({
     readMethod,
     readQuery: requestQueryRuntime.requestQuery,
     transport,
+    refreshOnPull: true,
     fallbackLoadError
   });
 

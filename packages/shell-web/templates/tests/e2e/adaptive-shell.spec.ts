@@ -24,6 +24,37 @@ async function expectGeneratedScreenContract(page) {
   await expect(screen).toBeVisible();
 }
 
+async function pullToRefresh(page) {
+  await page.evaluate(() => {
+    window.scrollTo(0, 0);
+  });
+  await page.dispatchEvent("body", "pointerdown", {
+    pointerId: 41,
+    pointerType: "touch",
+    isPrimary: true,
+    button: 0,
+    clientX: 180,
+    clientY: 90
+  });
+  await page.dispatchEvent("body", "pointermove", {
+    pointerId: 41,
+    pointerType: "touch",
+    isPrimary: true,
+    button: 0,
+    clientX: 184,
+    clientY: 250
+  });
+  await expect(page.getByTestId("jskit-shell-pull-refresh")).toBeVisible();
+  await page.dispatchEvent("body", "pointerup", {
+    pointerId: 41,
+    pointerType: "touch",
+    isPrimary: true,
+    button: 0,
+    clientX: 184,
+    clientY: 250
+  });
+}
+
 async function isElementVisibleInViewport(page, testId: string) {
   return page.getByTestId(testId).evaluate((element) => {
     const rect = element.getBoundingClientRect();
@@ -51,6 +82,13 @@ test.describe("generated adaptive shell smoke", () => {
       await expectNoHorizontalOverflow(page);
 
       if (viewport.name === "compact") {
+        let bootstrapRequests = 0;
+        await page.route("**/api/bootstrap**", async (route) => {
+          bootstrapRequests += 1;
+          await route.continue();
+        });
+        const bootstrapRequestsBeforePull = bootstrapRequests;
+
         await expect(page.getByTestId("jskit-shell-bottom-nav")).toBeVisible();
         expect(await isElementVisibleInViewport(page, "jskit-shell-drawer")).toBe(false);
 
@@ -61,6 +99,9 @@ test.describe("generated adaptive shell smoke", () => {
         for (const height of navButtonHeights) {
           expect(height).toBeGreaterThanOrEqual(48);
         }
+
+        await pullToRefresh(page);
+        await expect.poll(() => bootstrapRequests).toBeGreaterThan(bootstrapRequestsBeforePull);
       } else {
         await expect(page.getByTestId("jskit-shell-drawer")).toBeVisible();
       }

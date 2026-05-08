@@ -36,9 +36,28 @@
     <v-sheet rounded="lg" border class="ui-generator-view-panel">
       <div v-if="view.loadError || view.isNotFound" class="ui-generator-view-state">
         <h2 class="text-h6 mb-2">Record unavailable</h2>
-        <p class="text-body-2 text-medium-emphasis mb-0">
+        <p class="text-body-2 text-medium-emphasis mb-4">
           {{ view.loadError || "This __JSKIT_UI_RESOURCE_SINGULAR_TITLE__ could not be found." }}
         </p>
+        <div class="ui-generator-view-state__actions">
+          <v-btn
+            v-if="view.loadError"
+            color="primary"
+            variant="tonal"
+            :loading="view.isFetching"
+            @click="view.refresh"
+          >
+            Retry
+          </v-btn>
+          <v-btn
+            v-else-if="UI_LIST_URL"
+            color="primary"
+            variant="tonal"
+            :to="{ path: view.resolveParams(UI_LIST_URL), query: $route.query }"
+          >
+            Back to __JSKIT_UI_RESOURCE_PLURAL_TITLE__
+          </v-btn>
+        </div>
       </div>
 
       <template v-else-if="view.isLoading">
@@ -148,6 +167,13 @@ const view = useCrudView({
   text-align: center;
 }
 
+.ui-generator-view-state__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  justify-content: center;
+}
+
 .ui-generator-view-fields :deep(.v-col) {
   min-width: 0;
 }
@@ -164,6 +190,10 @@ const view = useCrudView({
   .ui-generator-view-header__actions :deep(.v-btn) {
     min-height: 48px;
     flex: 1 1 10rem;
+  }
+
+  .ui-generator-view-state__actions :deep(.v-btn) {
+    min-height: 48px;
   }
 }
 </style>

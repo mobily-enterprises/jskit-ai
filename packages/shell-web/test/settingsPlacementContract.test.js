@@ -70,12 +70,26 @@ test("shell-web shell layout registers navigation at the app layout level", asyn
     assert.match(source, /:density="isCompactLayout \? 'compact' : 'comfortable'"/);
     assert.match(source, /shell-layout__top-right[\s\S]*max-width:\s*min\(45vw, 18rem\)/);
     assert.match(source, /<v-bottom-navigation[\s\S]*target="shell-layout:primary-bottom-nav"/);
+    assert.match(source, /inject\("jskit\.shell-web\.runtime\.web-refresh\.client", null\)/);
+    assert.match(source, /window\.addEventListener\("pointerdown", handlePullPointerDown/);
+    assert.match(source, /refreshRuntime\.refresh\("pull-to-refresh"\)/);
+    assert.match(source, /data-testid="jskit-shell-pull-refresh"/);
     assert.match(source, /target="shell-layout:primary-menu"[\s\S]*default/);
     assert.doesNotMatch(source, /target="shell-layout:primary-bottom-nav"[\s\S]*default/);
     assert.match(source, /data-testid="jskit-shell-drawer"/);
     assert.match(source, /data-testid="jskit-shell-bottom-nav"/);
     assert.match(source, /padding:\s*0\.75rem 1rem calc\(1rem \+ env\(safe-area-inset-bottom, 0px\)\)/);
   }
+});
+
+test("shell-web error host uses one explicit close affordance for banner errors", async () => {
+  const source = await readFile(path.join(PACKAGE_DIR, "src", "client", "components", "ShellErrorHost.vue"), "utf8");
+
+  assert.match(source, /function resolveSeverityIcon/);
+  assert.match(source, /mdi-alert-outline/);
+  assert.match(source, /:icon="resolveSeverityIcon\(entry\.severity\)"/);
+  assert.match(source, /closable[\s\S]*@click:close="dismiss\(entry\)"/);
+  assert.doesNotMatch(source, /mdi-close/);
 });
 
 test("shell-web installs generated adaptive shell Playwright smoke coverage", async () => {

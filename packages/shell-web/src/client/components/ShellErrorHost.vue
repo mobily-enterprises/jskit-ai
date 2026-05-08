@@ -26,6 +26,20 @@ function resolveSeverityColor(severity = "error") {
   return "error";
 }
 
+function resolveSeverityIcon(severity = "error") {
+  const normalized = String(severity || "error").trim().toLowerCase();
+  if (normalized === "info") {
+    return "mdi-information-outline";
+  }
+  if (normalized === "success") {
+    return "mdi-check-circle-outline";
+  }
+  if (normalized === "warning") {
+    return "mdi-alert-outline";
+  }
+  return "mdi-alert-outline";
+}
+
 function resolveTimeout(entry) {
   if (!entry) {
     return -1;
@@ -87,6 +101,7 @@ function onDialogModelValue(nextValue) {
           v-for="entry in bannerEntries"
           :key="entry.id"
           :type="resolveSeverityColor(entry.severity)"
+          :icon="resolveSeverityIcon(entry.severity)"
           variant="elevated"
           density="comfortable"
           rounded="lg"
