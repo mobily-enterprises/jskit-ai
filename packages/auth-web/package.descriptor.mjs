@@ -246,13 +246,11 @@ export default Object.freeze({
   "mutations": {
     "dependencies": {
       "runtime": {
-        "@tanstack/vue-query": "5.92.12",
         "@mdi/js": "^7.4.47",
         "@jskit-ai/auth-core": "0.1.65",
         "@jskit-ai/http-runtime": "0.1.65",
         "@jskit-ai/kernel": "0.1.66",
-        "@jskit-ai/shell-web": "0.1.65",
-        "vuetify": "^4.0.0"
+        "@jskit-ai/shell-web": "0.1.65"
       },
       "dev": {}
     },

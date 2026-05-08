@@ -14,6 +14,7 @@ const CLIENT_BOOTSTRAP_VIRTUAL_ID = "virtual:jskit-client-bootstrap";
 const CLIENT_BOOTSTRAP_RESOLVED_ID = `\0${CLIENT_BOOTSTRAP_VIRTUAL_ID}`;
 const CLIENT_RUNTIME_DEDUPE_SPECIFIERS = Object.freeze([
   "@tanstack/vue-query",
+  "pinia",
   "vue",
   "vue-router",
   "vuetify"

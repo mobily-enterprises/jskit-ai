@@ -1,5 +1,6 @@
 import { createApp } from "vue";
 import { createPinia } from "pinia";
+import { QueryClient, VueQueryPlugin } from "@tanstack/vue-query";
 import { createRouter, createWebHistory } from "vue-router/auto";
 import { routes } from "vue-router/auto-routes";
 import "vuetify/styles";
@@ -11,6 +12,10 @@ import App from "./App.vue";
 import NotFoundView from "./views/NotFound.vue";
 import { bootInstalledClientModules } from "virtual:jskit-client-bootstrap";
 import { createSurfaceRuntime } from "@jskit-ai/kernel/shared/surface/runtime";
+import {
+  shouldRetryTransientQueryFailure,
+  transientQueryRetryDelay
+} from "@jskit-ai/kernel/shared/support";
 import {
   bootstrapClientShellApp,
   createShellRouter
@@ -51,13 +56,28 @@ const vuetify = createVuetify({
   }
 });
 const pinia = createPinia();
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      refetchOnWindowFocus: false,
+      refetchOnReconnect: true,
+      retry: shouldRetryTransientQueryFailure,
+      retryDelay: transientQueryRetryDelay
+    }
+  }
+});
 
 void bootstrapClientShellApp({
   createApp,
   rootComponent: App,
   appConfig: config,
-  appPlugins: [pinia, vuetify],
+  appPlugins: [
+    pinia,
+    [VueQueryPlugin, { queryClient }],
+    vuetify
+  ],
   pinia,
+  queryClient,
   router,
   bootClientModules: bootInstalledClientModules,
   surfaceRuntime,

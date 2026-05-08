@@ -317,14 +317,16 @@ const COMMAND_DESCRIPTORS = Object.freeze({
     minimalUse: "jskit list-placements",
     parameters: Object.freeze([]),
     defaults: Object.freeze([
-      "Shows semantic placement targets from app placement topology by default.",
+      "Shows semantic placement targets from app placement topology grouped by authoring model.",
+      "Default output includes the generator command pattern for adding to each group.",
+      "Use --details to include compact, medium, and expanded layout outlet mappings.",
       "Use --concrete to inspect low-level ShellOutlet recipients.",
       "Use --all to show both semantic placements and concrete recipients."
     ]),
-    fullUse: "jskit list-placements [--concrete] [--all] [--json]",
+    fullUse: "jskit list-placements [--details] [--concrete] [--all] [--json]",
     showHelpOnBareInvocation: false,
     handlerName: "commandListPlacements",
-    allowedFlagKeys: Object.freeze(["concrete", "all", "json"]),
+    allowedFlagKeys: Object.freeze(["details", "concrete", "all", "json"]),
     inlineOptionMode: "none",
     allowedValueOptionNames: Object.freeze([])
   }),

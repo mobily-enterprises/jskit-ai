@@ -404,12 +404,10 @@
               "@jskit-ai/resource-core": "0.1.11",
               "@jskit-ai/resource-crud-core": "0.1.11",
               "@jskit-ai/users-core": "0.1.76",
-              "@tanstack/vue-query": "^5.90.5",
               "dompurify": "^3.3.3",
               "json-rest-schema": "1.x.x",
               "marked": "^17.0.4",
-              "openai": "^6.22.0",
-              "vuetify": "^4.0.0"
+              "openai": "^6.22.0"
             },
             "dev": {}
           },
@@ -530,9 +528,7 @@
               "@jskit-ai/kernel": "0.1.66",
               "@jskit-ai/shell-web": "0.1.65",
               "@jskit-ai/users-core": "0.1.76",
-              "@jskit-ai/users-web": "0.1.81",
-              "@tanstack/vue-query": "^5.90.5",
-              "vuetify": "^4.0.0"
+              "@jskit-ai/users-web": "0.1.81"
             },
             "dev": {}
           },
@@ -1088,13 +1084,11 @@
         "mutations": {
           "dependencies": {
             "runtime": {
-              "@tanstack/vue-query": "5.92.12",
               "@mdi/js": "^7.4.47",
               "@jskit-ai/auth-core": "0.1.65",
               "@jskit-ai/http-runtime": "0.1.65",
               "@jskit-ai/kernel": "0.1.66",
-              "@jskit-ai/shell-web": "0.1.65",
-              "vuetify": "^4.0.0"
+              "@jskit-ai/shell-web": "0.1.65"
             },
             "dev": {}
           },
@@ -3818,8 +3812,7 @@
                 "runtime.web-placement.client",
                 "runtime.web-bootstrap.client",
                 "runtime.web-error.client",
-                "runtime.web-error.presentation-store.client",
-                "shell.web.query-client"
+                "runtime.web-error.presentation-store.client"
               ]
             }
           },
@@ -4025,9 +4018,7 @@
           "dependencies": {
             "runtime": {
               "@mdi/js": "^7.4.47",
-              "@tanstack/vue-query": "^5.90.5",
-              "@jskit-ai/kernel": "0.1.66",
-              "vuetify": "^4.0.0"
+              "@jskit-ai/kernel": "0.1.66"
             },
             "dev": {}
           },
@@ -5432,15 +5423,13 @@
         "mutations": {
           "dependencies": {
             "runtime": {
-              "@tanstack/vue-query": "5.92.12",
               "@mdi/js": "^7.4.47",
               "@jskit-ai/http-runtime": "0.1.65",
               "@jskit-ai/realtime": "0.1.65",
               "@jskit-ai/kernel": "0.1.66",
               "@jskit-ai/shell-web": "0.1.65",
               "@jskit-ai/uploads-image-web": "0.1.44",
-              "@jskit-ai/users-core": "0.1.76",
-              "vuetify": "^4.0.0"
+              "@jskit-ai/users-core": "0.1.76"
             },
             "dev": {}
           },
@@ -6186,8 +6175,7 @@
           "dependencies": {
             "runtime": {
               "@jskit-ai/workspaces-core": "0.1.42",
-              "@jskit-ai/users-web": "0.1.81",
-              "vuetify": "^4.0.0"
+              "@jskit-ai/users-web": "0.1.81"
             },
             "dev": {}
           },

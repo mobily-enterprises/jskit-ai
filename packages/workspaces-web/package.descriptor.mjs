@@ -228,8 +228,7 @@ export default Object.freeze({
     dependencies: {
       runtime: {
         "@jskit-ai/workspaces-core": "0.1.42",
-        "@jskit-ai/users-web": "0.1.81",
-        "vuetify": "^4.0.0"
+        "@jskit-ai/users-web": "0.1.81"
       },
       dev: {}
     },

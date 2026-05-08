@@ -86,6 +86,7 @@ test("bootstrapClientShellApp boots modules, reinstalls fallback route, and moun
   const surfaceRuntime = createSurfaceRuntimeFixture();
   const plugin = { name: "vuetify-like-plugin" };
   const pinia = { id: "pinia-instance" };
+  const queryClient = { id: "query-client-instance" };
   const fallbackRoute = {
     name: "not-found",
     path: "/:pathMatch(.*)*",
@@ -142,11 +143,13 @@ test("bootstrapClientShellApp boots modules, reinstalls fallback route, and moun
     },
     appPlugins: [plugin],
     pinia,
+    queryClient,
     router,
     bootClientModules: async (context) => {
       calls.push("bootClientModules");
       assert.equal(context.app, app);
       assert.equal(context.pinia, pinia);
+      assert.equal(context.queryClient, queryClient);
       assert.equal(context.router, router);
       assert.equal(typeof context.logger.debug, "function");
       return {

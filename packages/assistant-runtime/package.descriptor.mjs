@@ -101,9 +101,7 @@ export default Object.freeze({
         "@jskit-ai/kernel": "0.1.66",
         "@jskit-ai/shell-web": "0.1.65",
         "@jskit-ai/users-core": "0.1.76",
-        "@jskit-ai/users-web": "0.1.81",
-        "@tanstack/vue-query": "^5.90.5",
-        "vuetify": "^4.0.0"
+        "@jskit-ai/users-web": "0.1.81"
       },
       dev: {}
     },

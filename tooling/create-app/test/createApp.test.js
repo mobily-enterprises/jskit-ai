@@ -155,6 +155,7 @@ test("create-app scaffolds the base shell with placeholder replacements", async 
       false
     );
     assert.equal(packageJson.dependencies.pinia, "^3.0.4");
+    assert.equal(packageJson.dependencies["@tanstack/vue-query"], "^5.90.5");
     await assert.rejects(access(path.join(appRoot, "scripts/copy-local-packages.sh")), /ENOENT/);
     await assert.rejects(access(path.join(appRoot, "scripts/link-local-jskit-packages.sh")), /ENOENT/);
     await assert.rejects(access(path.join(appRoot, "scripts/release.sh")), /ENOENT/);
@@ -196,6 +197,7 @@ test("create-app scaffolds the base shell with placeholder replacements", async 
     const mainJs = await readFile(path.join(appRoot, "src/main.js"), "utf8");
     assert.match(mainJs, /import App from "\.\/App\.vue";/);
     assert.match(mainJs, /import \{ createPinia \} from "pinia";/);
+    assert.match(mainJs, /import \{ QueryClient, VueQueryPlugin \} from "@tanstack\/vue-query";/);
     assert.match(mainJs, /import NotFoundView from "\.\/views\/NotFound\.vue";/);
     assert.match(mainJs, /import \{ bootInstalledClientModules \} from "virtual:jskit-client-bootstrap";/);
     assert.doesNotMatch(mainJs, /@\/modules\/client-modules\.js/);
@@ -208,8 +210,10 @@ test("create-app scaffolds the base shell with placeholder replacements", async 
     assert.match(mainJs, /createRouter, createWebHistory/);
     assert.match(mainJs, /bootClientModules:\s*bootInstalledClientModules/);
     assert.match(mainJs, /const pinia = createPinia\(\);/);
-    assert.match(mainJs, /appPlugins:\s*\[pinia,\s*vuetify\]/);
-    assert.match(mainJs, /appPlugins:\s*\[pinia,\s*vuetify\],[\s\S]*?\bpinia,\s*router,/);
+    assert.match(mainJs, /const queryClient = new QueryClient\(/);
+    assert.match(mainJs, /\[VueQueryPlugin,\s*\{ queryClient \}\]/);
+    assert.match(mainJs, /appPlugins:[\s\S]*?pinia,[\s\S]*?\[VueQueryPlugin,\s*\{ queryClient \}\],[\s\S]*?vuetify/);
+    assert.match(mainJs, /\bpinia,[\s\S]*?\bqueryClient,[\s\S]*?\brouter,/);
     assert.match(mainJs, /fallbackRoute/);
 
     await assert.rejects(access(path.join(appRoot, "config/surfaces.js")), /ENOENT/);
@@ -336,6 +340,7 @@ test("create-app scaffolds the base shell with placeholder replacements", async 
     assert.doesNotMatch(viteConfig, /function reparentNestedChildrenToIndexOwners\(rootRoute\)/);
     assert.doesNotMatch(viteConfig, /^\s*beforeWriteFiles:\s*reparentNestedChildrenToIndexOwners/m);
     assert.match(viteConfig, /nestedChildren deprecated/);
+    assert.doesNotMatch(viteConfig, /dedupe:\s*\[/);
 
     assert.doesNotMatch(result.stdout, /Then add framework capabilities:/);
     assert.doesNotMatch(result.stdout, /npx jskit add package auth-provider-supabase-core/);
