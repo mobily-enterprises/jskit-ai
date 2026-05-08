@@ -1,5 +1,5 @@
 <script setup>
-import { computed } from "vue";
+import { computed, ref, watch } from "vue";
 import {
   useShellWebErrorRuntime
 } from "../error/inject.js";
@@ -8,9 +8,57 @@ import { useShellErrorPresentationStore } from "../stores/useShellErrorPresentat
 const runtime = useShellWebErrorRuntime();
 const store = useShellErrorPresentationStore();
 
-const snackbarEntry = computed(() => store.channels.snackbar[0] || null);
+const snackbarEntries = computed(() => store.channels.snackbar || []);
 const bannerEntries = computed(() => store.channels.banner || []);
 const dialogEntry = computed(() => store.channels.dialog[0] || null);
+const displayedSnackbarEntry = ref(null);
+const snackbarOpen = ref(false);
+
+function isSameSnackbarEntry(left = null, right = null) {
+  return Boolean(left?.id && right?.id && left.id === right.id);
+}
+
+function hasSnackbarEntry(entry = null) {
+  if (!entry?.id) {
+    return false;
+  }
+
+  return snackbarEntries.value.some((candidate) => isSameSnackbarEntry(candidate, entry));
+}
+
+function openNextSnackbarEntry() {
+  const nextEntry = snackbarEntries.value[0] || null;
+  if (!nextEntry) {
+    displayedSnackbarEntry.value = null;
+    snackbarOpen.value = false;
+    return;
+  }
+
+  displayedSnackbarEntry.value = nextEntry;
+  snackbarOpen.value = true;
+}
+
+watch(
+  snackbarEntries,
+  (entries) => {
+    const currentEntry = displayedSnackbarEntry.value;
+    if (!currentEntry) {
+      openNextSnackbarEntry();
+      return;
+    }
+
+    const matchingEntry = entries.find((entry) => isSameSnackbarEntry(entry, currentEntry)) || null;
+    if (matchingEntry) {
+      displayedSnackbarEntry.value = matchingEntry;
+      return;
+    }
+
+    snackbarOpen.value = false;
+  },
+  {
+    immediate: true
+  }
+);
 
 function resolveSeverityColor(severity = "error") {
   const normalized = String(severity || "error").trim().toLowerCase();
@@ -81,8 +129,9 @@ function runAction(entry) {
 }
 
 function onSnackbarModelValue(nextValue) {
-  if (nextValue === false && snackbarEntry.value) {
-    dismiss(snackbarEntry.value);
+  if (nextValue === false && displayedSnackbarEntry.value) {
+    snackbarOpen.value = false;
+    dismiss(displayedSnackbarEntry.value);
   }
 }
 
@@ -90,6 +139,14 @@ function onDialogModelValue(nextValue) {
   if (nextValue === false && dialogEntry.value && dialogEntry.value.persist !== true) {
     dismiss(dialogEntry.value);
   }
+}
+
+function onSnackbarAfterLeave() {
+  if (hasSnackbarEntry(displayedSnackbarEntry.value)) {
+    return;
+  }
+
+  openNextSnackbarEntry();
 }
 </script>
 
@@ -128,28 +185,29 @@ function onDialogModelValue(nextValue) {
     </div>
 
     <v-snackbar
-      :model-value="Boolean(snackbarEntry)"
+      :model-value="snackbarOpen"
       location="bottom end"
-      :timeout="resolveTimeout(snackbarEntry)"
-      :color="resolveSeverityColor(snackbarEntry?.severity)"
+      :timeout="resolveTimeout(displayedSnackbarEntry)"
+      :color="displayedSnackbarEntry ? resolveSeverityColor(displayedSnackbarEntry.severity) : undefined"
       @update:model-value="onSnackbarModelValue"
+      @after-leave="onSnackbarAfterLeave"
     >
-      <span v-if="snackbarEntry">{{ snackbarEntry.message }}</span>
+      <span v-if="displayedSnackbarEntry">{{ displayedSnackbarEntry.message }}</span>
 
       <template #actions>
         <v-btn
-          v-if="snackbarEntry?.action"
+          v-if="displayedSnackbarEntry?.action"
           variant="text"
           size="small"
-          @click="runAction(snackbarEntry)"
+          @click="runAction(displayedSnackbarEntry)"
         >
-          {{ snackbarEntry.action.label }}
+          {{ displayedSnackbarEntry.action.label }}
         </v-btn>
         <v-btn
-          v-if="snackbarEntry"
+          v-if="displayedSnackbarEntry"
           variant="text"
           size="small"
-          @click="dismiss(snackbarEntry)"
+          @click="dismiss(displayedSnackbarEntry)"
         >
           Dismiss
         </v-btn>

@@ -5,6 +5,7 @@ import { resolveDefaultSurfaceId } from "../support/appConfig.js";
 
 const JSON_API_CONTENT_TYPE = "application/vnd.api+json";
 const JSON_API_CONTENT_TYPE_PARSER_MARKER = Symbol.for("jskit.fastify.jsonApiContentTypeParserRegistered");
+const BODYLESS_CONTENT_TYPE_NORMALIZER_MARKER = Symbol.for("jskit.fastify.bodylessContentTypeNormalizerRegistered");
 
 function resolveLoggerLevel({ configuredLevel = "", nodeEnv = "development", allowedLevels = [] } = {}) {
   const normalizedConfiguredLevel = String(configuredLevel || "")
@@ -80,6 +81,64 @@ function registerJsonApiContentTypeParser(fastify) {
 
   fastify.addContentTypeParser(JSON_API_CONTENT_TYPE, { parseAs: "string" }, parser);
   fastify[JSON_API_CONTENT_TYPE_PARSER_MARKER] = true;
+  return true;
+}
+
+function hasHeaderValue(headers = {}, key = "") {
+  return String(headers?.[key] ?? "").trim().length > 0;
+}
+
+function hasRequestBody(headers = {}) {
+  const transferEncoding = String(headers?.["transfer-encoding"] ?? "").trim();
+  if (transferEncoding) {
+    return true;
+  }
+
+  const contentLengthHeader = String(headers?.["content-length"] ?? "").trim();
+  if (!contentLengthHeader) {
+    return false;
+  }
+
+  const contentLength = Number(contentLengthHeader);
+  if (!Number.isFinite(contentLength)) {
+    return true;
+  }
+
+  return contentLength > 0;
+}
+
+function normalizeBodylessContentTypeHeader(request = null) {
+  const headers = request?.headers;
+  if (!headers || typeof headers !== "object" || Array.isArray(headers)) {
+    return false;
+  }
+
+  if (!hasHeaderValue(headers, "content-type") && !hasHeaderValue(headers, "Content-Type")) {
+    return false;
+  }
+
+  if (hasRequestBody(headers)) {
+    return false;
+  }
+
+  delete headers["content-type"];
+  delete headers["Content-Type"];
+  return true;
+}
+
+function registerBodylessContentTypeNormalizer(fastify) {
+  if (!fastify || typeof fastify.addHook !== "function") {
+    throw new TypeError("registerBodylessContentTypeNormalizer requires a Fastify instance.");
+  }
+
+  if (fastify[BODYLESS_CONTENT_TYPE_NORMALIZER_MARKER]) {
+    return false;
+  }
+
+  fastify.addHook("onRequest", async (request) => {
+    normalizeBodylessContentTypeHeader(request);
+  });
+  fastify[BODYLESS_CONTENT_TYPE_NORMALIZER_MARKER] = true;
   return true;
 }
 
@@ -483,6 +542,8 @@ export {
   resolveLoggerLevel,
   createFastifyLoggerOptions,
   registerJsonApiContentTypeParser,
+  normalizeBodylessContentTypeHeader,
+  registerBodylessContentTypeNormalizer,
   registerRequestLoggingHooks,
   registerApiErrorHandler,
   ensureApiErrorHandling,

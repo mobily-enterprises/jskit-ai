@@ -101,6 +101,15 @@ test("shell-web error host uses one explicit close affordance for banner errors"
   assert.doesNotMatch(source, /mdi-close/);
 });
 
+test("shell-web error host keeps snackbar color stable while closing", async () => {
+  const source = await readFile(path.join(PACKAGE_DIR, "src", "client", "components", "ShellErrorHost.vue"), "utf8");
+
+  assert.match(source, /displayedSnackbarEntry/);
+  assert.match(source, /@after-leave="onSnackbarAfterLeave"/);
+  assert.match(source, /:color="displayedSnackbarEntry \? resolveSeverityColor\(displayedSnackbarEntry\.severity\) : undefined"/);
+  assert.doesNotMatch(source, /resolveSeverityColor\(snackbarEntry\?\.severity\)/);
+});
+
 test("shell-web error template uses intent-driven default presentation", async () => {
   const source = await readFile(path.join(PACKAGE_DIR, "templates", "src", "error.js"), "utf8");
 
