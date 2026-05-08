@@ -349,11 +349,11 @@ test("jskit mobile help reflects the implemented file names and dry-run scope", 
     });
     const syncHelp = runCli({
       cwd,
-      args: ["mobile", "sync", "help"]
+      args: ["mobile", "android", "sync", "help"]
     });
     const runHelp = runCli({
       cwd,
-      args: ["mobile", "run", "help"]
+      args: ["mobile", "android", "run", "help"]
     });
 
     assert.equal(mobileHelp.status, 0);
@@ -361,9 +361,9 @@ test("jskit mobile help reflects the implemented file names and dry-run scope", 
     assert.equal(runHelp.status, 0);
     assert.match(
       String(mobileHelp.stdout || ""),
-      /- dev: Shortcut to run sync, tunnel, run in this order[\s\S]*- sync:[\s\S]*- tunnel:[\s\S]*- run:/u
+      /- android[\s\S]*- dev: Shortcut to run sync, tunnel, run in this order[\s\S]*- sync:[\s\S]*- tunnel:[\s\S]*- run:/u
     );
-    assert.doesNotMatch(String(mobileHelp.stdout || ""), /jskit mobile sync android[\s\S]*jskit mobile tunnel android[\s\S]*jskit mobile run android/u);
+    assert.doesNotMatch(String(mobileHelp.stdout || ""), /jskit mobile android sync[\s\S]*jskit mobile android tunnel[\s\S]*jskit mobile android run/u);
     assert.match(String(syncHelp.stdout || ""), /capacitor\.config\.json/u);
     assert.doesNotMatch(String(syncHelp.stdout || ""), /capacitor\.config\.ts/u);
     assert.match(String(runHelp.stdout || ""), /--dry-run/u);
@@ -383,8 +383,8 @@ test("jskit mobile add capacitor is no longer supported", async () => {
     });
 
     assert.equal(result.status, 1);
-    assert.match(String(result.stderr || ""), /Unknown mobile subcommand: add/u);
-    assert.match(String(result.stderr || ""), /jskit mobile <subcommand>/u);
+    assert.match(String(result.stderr || ""), /Unknown mobile platform: add/u);
+    assert.match(String(result.stderr || ""), /jskit mobile <platform> <subcommand>/u);
     assert.doesNotMatch(String(result.stderr || ""), /- add:/u);
   });
 });
@@ -619,7 +619,7 @@ if (process.argv[2] === "add" && process.argv[3] === "android") {
   });
 });
 
-test("jskit mobile sync android builds the app and syncs the Android shell", async () => {
+test("jskit mobile android sync builds the app and syncs the Android shell", async () => {
   await withTempDir(async (cwd) => {
     const appRoot = path.join(cwd, "app");
     const binDir = path.join(cwd, "bin");
@@ -659,7 +659,7 @@ if (process.argv[2] === "sync" && process.argv[3] === "android") {
 
     const result = runCli({
       cwd: appRoot,
-      args: ["mobile", "sync", "android"],
+      args: ["mobile", "android", "sync"],
       env: buildTestEnv(binDir, logPath)
     });
 
@@ -687,7 +687,7 @@ if (process.argv[2] === "sync" && process.argv[3] === "android") {
   });
 });
 
-test("jskit mobile sync android refreshes stale managed shell files from config.mobile", async () => {
+test("jskit mobile android sync refreshes stale managed shell files from config.mobile", async () => {
   await withTempDir(async (cwd) => {
     const appRoot = path.join(cwd, "app");
     const binDir = path.join(cwd, "bin");
@@ -728,7 +728,7 @@ fs.appendFileSync(process.env.TEST_LOG_PATH, ["cap", ...process.argv.slice(2)].j
 
     const result = runCli({
       cwd: appRoot,
-      args: ["mobile", "sync", "android"],
+      args: ["mobile", "android", "sync"],
       env: buildTestEnv(binDir, logPath)
     });
 
@@ -775,7 +775,7 @@ fs.appendFileSync(process.env.TEST_LOG_PATH, ["cap", ...process.argv.slice(2)].j
   });
 });
 
-test("jskit mobile sync android enables Android cleartext traffic when apiBaseUrl uses http", async () => {
+test("jskit mobile android sync enables Android cleartext traffic when apiBaseUrl uses http", async () => {
   await withTempDir(async (cwd) => {
     const appRoot = path.join(cwd, "app");
     const binDir = path.join(cwd, "bin");
@@ -816,7 +816,7 @@ fs.appendFileSync(process.env.TEST_LOG_PATH, ["cap", ...process.argv.slice(2)].j
 
     const result = runCli({
       cwd: appRoot,
-      args: ["mobile", "sync", "android"],
+      args: ["mobile", "android", "sync"],
       env: buildTestEnv(binDir, logPath)
     });
 
@@ -829,7 +829,7 @@ fs.appendFileSync(process.env.TEST_LOG_PATH, ["cap", ...process.argv.slice(2)].j
   });
 });
 
-test("jskit mobile sync android --dry-run previews commands without building or syncing", async () => {
+test("jskit mobile android sync --dry-run previews commands without building or syncing", async () => {
   await withTempDir(async (cwd) => {
     const appRoot = path.join(cwd, "app");
     const binDir = path.join(cwd, "bin");
@@ -855,7 +855,7 @@ fs.appendFileSync(process.env.TEST_LOG_PATH, ["cap", ...process.argv.slice(2)].j
 
     const result = runCli({
       cwd: appRoot,
-      args: ["mobile", "sync", "android", "--dry-run"],
+      args: ["mobile", "android", "sync", "--dry-run"],
       env: buildTestEnv(binDir, logPath)
     });
 
@@ -867,7 +867,7 @@ fs.appendFileSync(process.env.TEST_LOG_PATH, ["cap", ...process.argv.slice(2)].j
   });
 });
 
-test("jskit mobile devices android lists adb-visible Android targets", async () => {
+test("jskit mobile android devices lists adb-visible Android targets", async () => {
   await withTempDir(async (cwd) => {
     const appRoot = path.join(cwd, "app");
     const binDir = path.join(cwd, "bin");
@@ -889,7 +889,7 @@ if (process.argv[2] === "devices" && process.argv[3] === "-l") {
 
     const result = runCli({
       cwd: appRoot,
-      args: ["mobile", "devices", "android"],
+      args: ["mobile", "android", "devices"],
       env: buildTestEnv(binDir, logPath)
     });
 
@@ -903,7 +903,7 @@ if (process.argv[2] === "devices" && process.argv[3] === "-l") {
   });
 });
 
-test("jskit mobile tunnel android infers the reverse port from config.mobile.apiBaseUrl and uses the first device when --target is omitted", async () => {
+test("jskit mobile android tunnel infers the reverse port from config.mobile.apiBaseUrl and uses the first device when --target is omitted", async () => {
   await withTempDir(async (cwd) => {
     const appRoot = path.join(cwd, "app");
     const binDir = path.join(cwd, "bin");
@@ -931,7 +931,7 @@ if (process.argv[2] === "-s" && process.argv[4] === "reverse" && process.argv[5]
 
     const result = runCli({
       cwd: appRoot,
-      args: ["mobile", "tunnel", "android"],
+      args: ["mobile", "android", "tunnel"],
       env: buildTestEnv(binDir, logPath)
     });
 
@@ -947,7 +947,7 @@ if (process.argv[2] === "-s" && process.argv[4] === "reverse" && process.argv[5]
   });
 });
 
-test("jskit mobile dev android uses the first adb device when --target is omitted", async () => {
+test("jskit mobile android dev uses the first adb device when --target is omitted", async () => {
   await withTempDir(async (cwd) => {
     const appRoot = path.join(cwd, "app");
     const binDir = path.join(cwd, "bin");
@@ -1008,7 +1008,7 @@ if (process.argv[2] === "-s" && process.argv[4] === "reverse" && process.argv[5]
 
     const result = runCli({
       cwd: appRoot,
-      args: ["mobile", "dev", "android"],
+      args: ["mobile", "android", "dev"],
       env: buildTestEnv(binDir, logPath, {
         ANDROID_HOME: sdkRoot
       })
@@ -1017,9 +1017,9 @@ if (process.argv[2] === "-s" && process.argv[4] === "reverse" && process.argv[5]
     assert.equal(result.status, 0, String(result.stderr || ""));
     assert.match(String(result.stdout || ""), /Using Android device: 8ADX0QUH3/u);
     assert.match(String(result.stdout || ""), /Building and syncing the Android shell:/u);
-    assert.match(String(result.stdout || ""), /npx jskit mobile sync android/u);
-    assert.match(String(result.stdout || ""), /npx jskit mobile tunnel android --target 8ADX0QUH3/u);
-    assert.match(String(result.stdout || ""), /npx jskit mobile run android --target 8ADX0QUH3/u);
+    assert.match(String(result.stdout || ""), /npx jskit mobile android sync/u);
+    assert.match(String(result.stdout || ""), /npx jskit mobile android tunnel --target 8ADX0QUH3/u);
+    assert.match(String(result.stdout || ""), /npx jskit mobile android run --target 8ADX0QUH3/u);
     const logLines = (await readFile(logPath, "utf8")).split(/\r?\n/u).filter(Boolean);
     assert.deepEqual(logLines, [
       "adb devices -l",
@@ -1034,7 +1034,7 @@ if (process.argv[2] === "-s" && process.argv[4] === "reverse" && process.argv[5]
   });
 });
 
-test("jskit mobile dev android respects an explicit --target override", async () => {
+test("jskit mobile android dev respects an explicit --target override", async () => {
   await withTempDir(async (cwd) => {
     const appRoot = path.join(cwd, "app");
     const binDir = path.join(cwd, "bin");
@@ -1095,7 +1095,7 @@ if (process.argv[2] === "-s" && process.argv[4] === "reverse" && process.argv[5]
 
     const result = runCli({
       cwd: appRoot,
-      args: ["mobile", "dev", "android", "--target", "chosen-device"],
+      args: ["mobile", "android", "dev", "--target", "chosen-device"],
       env: buildTestEnv(binDir, logPath, {
         ANDROID_HOME: sdkRoot
       })
@@ -1117,7 +1117,7 @@ if (process.argv[2] === "-s" && process.argv[4] === "reverse" && process.argv[5]
   });
 });
 
-test("jskit mobile restart android clears app data and cold-starts MainActivity on the first device when --target is omitted", async () => {
+test("jskit mobile android restart clears app data and cold-starts MainActivity on the first device when --target is omitted", async () => {
   await withTempDir(async (cwd) => {
     const appRoot = path.join(cwd, "app");
     const binDir = path.join(cwd, "bin");
@@ -1142,7 +1142,7 @@ if (process.argv[2] === "devices" && process.argv[3] === "-l") {
 
     const result = runCli({
       cwd: appRoot,
-      args: ["mobile", "restart", "android"],
+      args: ["mobile", "android", "restart"],
       env: buildTestEnv(binDir, logPath)
     });
 
@@ -1158,7 +1158,7 @@ if (process.argv[2] === "devices" && process.argv[3] === "-l") {
   });
 });
 
-test("jskit mobile run android syncs bundled apps before launching the Android shell", async () => {
+test("jskit mobile android run syncs bundled apps before launching the Android shell", async () => {
   await withTempDir(async (cwd) => {
     const appRoot = path.join(cwd, "app");
     const binDir = path.join(cwd, "bin");
@@ -1200,7 +1200,7 @@ if (process.argv[2] === "sync" && process.argv[3] === "android") {
 
     const result = runCli({
       cwd: appRoot,
-      args: ["mobile", "run", "android"],
+      args: ["mobile", "android", "run"],
       env: buildTestEnv(binDir, logPath, {
         ANDROID_HOME: sdkRoot
       })
@@ -1217,7 +1217,7 @@ if (process.argv[2] === "sync" && process.argv[3] === "android") {
   });
 });
 
-test("jskit mobile run android uses the configured dev server without rebuilding bundled assets", async () => {
+test("jskit mobile android run uses the configured dev server without rebuilding bundled assets", async () => {
   await withTempDir(async (cwd) => {
     const appRoot = path.join(cwd, "app");
     const binDir = path.join(cwd, "bin");
@@ -1253,7 +1253,7 @@ fs.appendFileSync(process.env.TEST_LOG_PATH, ["cap", ...process.argv.slice(2)].j
 
     const result = runCli({
       cwd: appRoot,
-      args: ["mobile", "run", "android"],
+      args: ["mobile", "android", "run"],
       env: buildTestEnv(binDir, logPath, {
         ANDROID_HOME: sdkRoot
       })
@@ -1269,7 +1269,7 @@ fs.appendFileSync(process.env.TEST_LOG_PATH, ["cap", ...process.argv.slice(2)].j
   });
 });
 
-test("jskit mobile run android forwards --target to cap run android", async () => {
+test("jskit mobile android run forwards --target to cap run android", async () => {
   await withTempDir(async (cwd) => {
     const appRoot = path.join(cwd, "app");
     const binDir = path.join(cwd, "bin");
@@ -1311,7 +1311,7 @@ if (process.argv[2] === "sync" && process.argv[3] === "android") {
 
     const result = runCli({
       cwd: appRoot,
-      args: ["mobile", "run", "android", "--target", "8ADX0QUH3"],
+      args: ["mobile", "android", "run", "--target", "8ADX0QUH3"],
       env: buildTestEnv(binDir, logPath, {
         ANDROID_HOME: sdkRoot
       })
@@ -1328,7 +1328,7 @@ if (process.argv[2] === "sync" && process.argv[3] === "android") {
   });
 });
 
-test("jskit mobile build android runs the release Gradle bundle task for bundled assets", async () => {
+test("jskit mobile android build runs the release Gradle bundle task for bundled assets", async () => {
   await withTempDir(async (cwd) => {
     const appRoot = path.join(cwd, "app");
     const binDir = path.join(cwd, "bin");
@@ -1373,7 +1373,7 @@ fs.appendFileSync(process.env.TEST_LOG_PATH, ["cap", ...process.argv.slice(2)].j
 
     const result = runCli({
       cwd: appRoot,
-      args: ["mobile", "build", "android"],
+      args: ["mobile", "android", "build"],
       env: buildTestEnv(binDir, logPath, {
         ANDROID_HOME: sdkRoot
       })
@@ -1390,7 +1390,7 @@ fs.appendFileSync(process.env.TEST_LOG_PATH, ["cap", ...process.argv.slice(2)].j
   });
 });
 
-test("jskit mobile doctor validates the managed shell files", async () => {
+test("jskit mobile android doctor validates the managed shell files", async () => {
   await withTempDir(async (cwd) => {
     const appRoot = path.join(cwd, "app");
     const sdkRoot = path.join(cwd, "android-sdk");
@@ -1421,7 +1421,7 @@ test("jskit mobile doctor validates the managed shell files", async () => {
 
     const result = runCli({
       cwd: appRoot,
-      args: ["mobile", "doctor"],
+      args: ["mobile", "android", "doctor"],
       env: {
         ...process.env,
         ANDROID_HOME: sdkRoot
@@ -1433,7 +1433,7 @@ test("jskit mobile doctor validates the managed shell files", async () => {
   });
 });
 
-test("jskit mobile doctor reports stale managed mobile-shell files", async () => {
+test("jskit mobile android doctor reports stale managed mobile-shell files", async () => {
   await withTempDir(async (cwd) => {
     const appRoot = path.join(cwd, "app");
     const sdkRoot = path.join(cwd, "android-sdk");
@@ -1464,7 +1464,7 @@ test("jskit mobile doctor reports stale managed mobile-shell files", async () =>
 
     const result = runCli({
       cwd: appRoot,
-      args: ["mobile", "doctor"],
+      args: ["mobile", "android", "doctor"],
       env: {
         ...process.env,
         ANDROID_HOME: sdkRoot
@@ -1478,7 +1478,7 @@ test("jskit mobile doctor reports stale managed mobile-shell files", async () =>
   });
 });
 
-test("jskit mobile doctor reports missing Android SDK components for the generated shell", async () => {
+test("jskit mobile android doctor reports missing Android SDK components for the generated shell", async () => {
   await withTempDir(async (cwd) => {
     const appRoot = path.join(cwd, "app");
     const sdkRoot = path.join(cwd, "android-sdk");
@@ -1497,7 +1497,7 @@ test("jskit mobile doctor reports missing Android SDK components for the generat
 
     const result = runCli({
       cwd: appRoot,
-      args: ["mobile", "doctor"],
+      args: ["mobile", "android", "doctor"],
       env: {
         ...process.env,
         ANDROID_HOME: sdkRoot
@@ -1510,7 +1510,7 @@ test("jskit mobile doctor reports missing Android SDK components for the generat
   });
 });
 
-test("jskit mobile doctor reports invalid mobile config instead of silently falling back", async () => {
+test("jskit mobile android doctor reports invalid mobile config instead of silently falling back", async () => {
   await withTempDir(async (cwd) => {
     const appRoot = path.join(cwd, "app");
 
@@ -1520,7 +1520,7 @@ test("jskit mobile doctor reports invalid mobile config instead of silently fall
 
     const result = runCli({
       cwd: appRoot,
-      args: ["mobile", "doctor"]
+      args: ["mobile", "android", "doctor"]
     });
 
     assert.equal(result.status, 1, "doctor should fail when config.mobile is invalid");
@@ -1531,7 +1531,7 @@ test("jskit mobile doctor reports invalid mobile config instead of silently fall
   });
 });
 
-test("jskit mobile doctor reports missing devServerUrl for dev-server apps", async () => {
+test("jskit mobile android doctor reports missing devServerUrl for dev-server apps", async () => {
   await withTempDir(async (cwd) => {
     const appRoot = path.join(cwd, "app");
     const sdkRoot = path.join(cwd, "android-sdk");
@@ -1564,7 +1564,7 @@ test("jskit mobile doctor reports missing devServerUrl for dev-server apps", asy
 
     const result = runCli({
       cwd: appRoot,
-      args: ["mobile", "doctor"],
+      args: ["mobile", "android", "doctor"],
       env: {
         ...process.env,
         ANDROID_HOME: sdkRoot

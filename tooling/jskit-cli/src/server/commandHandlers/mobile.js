@@ -60,7 +60,7 @@ async function collectManagedMobileFileDriftIssues({
     }
     if (currentContent !== expectedContent) {
       issues.push(
-        `${normalizeRelativePath(appRoot, absolutePath)} is stale and no longer matches config.mobile. Re-run jskit mobile sync android to refresh managed mobile-shell files.`
+        `${normalizeRelativePath(appRoot, absolutePath)} is stale and no longer matches config.mobile. Re-run jskit mobile android sync to refresh managed mobile-shell files.`
       );
     }
   }
@@ -106,30 +106,53 @@ async function collectMissingInstalledDependencyNames(ctx, appRoot = "", package
   return missing;
 }
 
-function renderMobileHelp(stream, definition = null) {
+function renderAndroidMobileCommandList(lines, color) {
+  for (const entry of listMobileCommandDefinitions()) {
+    if (entry.name === "dev") {
+      lines.push(
+        `     - ${color.item(entry.name)}: Shortcut to run ${color.emphasis("sync")}, ${color.emphasis("tunnel")}, ${color.emphasis("run")} in this order`
+      );
+      continue;
+    }
+    lines.push(`     - ${color.item(entry.name)}: ${entry.summary}`);
+  }
+}
+
+function renderMobileHelp(stream, definition = null, platform = "") {
   const color = createColorFormatter(stream);
   const lines = [];
 
-  if (!definition) {
+  if (!definition && !platform) {
     lines.push(`Command: ${color.emphasis("mobile")}`);
     lines.push("");
     lines.push(color.heading("1) Minimal use"));
-    lines.push("   jskit mobile <subcommand>");
+    lines.push("   jskit mobile <platform> <subcommand>");
     lines.push("");
-    lines.push(color.heading("2) Subcommands"));
-    for (const entry of listMobileCommandDefinitions()) {
-      if (entry.name === "dev") {
-        lines.push(
-          `   - ${color.item(entry.name)}: Shortcut to run ${color.emphasis("sync")}, ${color.emphasis("tunnel")}, ${color.emphasis("run")} in this order`
-        );
-        continue;
-      }
-      lines.push(`   - ${color.item(entry.name)}: ${entry.summary}`);
-    }
+    lines.push(color.heading("2) Platforms"));
+    lines.push(`   - ${color.item("android")}`);
+    renderAndroidMobileCommandList(lines, color);
     lines.push("");
     lines.push(color.heading("3) Notes"));
     lines.push("   - Mobile helpers are for the Stage 1 Android Capacitor shell flow.");
-    lines.push("   - Use jskit mobile <subcommand> help for subcommand-specific usage.");
+    lines.push("   - Use jskit mobile <platform> help for platform-specific usage.");
+    writeWrappedLines({
+      stdout: stream,
+      lines
+    });
+    return;
+  }
+
+  if (!definition) {
+    lines.push(`Mobile platform: ${color.emphasis(platform)}`);
+    lines.push("");
+    lines.push(color.heading("1) Minimal use"));
+    lines.push(`   jskit mobile ${platform} <subcommand>`);
+    lines.push("");
+    lines.push(color.heading("2) Subcommands"));
+    renderAndroidMobileCommandList(lines, color);
+    lines.push("");
+    lines.push(color.heading("3) Notes"));
+    lines.push(`   - Use jskit mobile ${platform} <subcommand> help for subcommand-specific usage.`);
     writeWrappedLines({
       stdout: stream,
       lines
@@ -262,7 +285,7 @@ function resolveAdbReversePort({
   const port = Number(parsedUrl.port || "");
   if (!Number.isInteger(port) || port < 1 || port > 65535) {
     throw createCliError(
-      `config.mobile.apiBaseUrl "${apiBaseUrl}" must include an explicit port so jskit mobile tunnel android can infer adb reverse.`
+      `config.mobile.apiBaseUrl "${apiBaseUrl}" must include an explicit port so jskit mobile android tunnel can infer adb reverse.`
     );
   }
 
@@ -343,7 +366,7 @@ async function resolveAndroidDeviceTarget({
     appRoot
   });
   if (devices.length < 1) {
-    throw ctx.createCliError(`No Android devices are visible to adb. Run jskit mobile devices android before ${commandLabel}.`);
+    throw ctx.createCliError(`No Android devices are visible to adb. Run jskit mobile android devices before ${commandLabel}.`);
   }
 
   const normalizedExplicitTarget = String(explicitTarget || "").trim();
@@ -352,7 +375,7 @@ async function resolveAndroidDeviceTarget({
     : devices[0];
 
   if (!selectedDevice) {
-    throw ctx.createCliError(`Android device "${normalizedExplicitTarget}" is not visible to adb. Run jskit mobile devices android first.`);
+    throw ctx.createCliError(`Android device "${normalizedExplicitTarget}" is not visible to adb. Run jskit mobile android devices first.`);
   }
   if (selectedDevice.state !== "device") {
     throw ctx.createCliError(`Android device "${selectedDevice.serial}" is currently "${selectedDevice.state}", not ready for ${commandLabel}.`);
@@ -722,7 +745,7 @@ async function runMobileBuildAndroidCommand({
 
   if (mobileConfig.assetMode !== "bundled") {
     throw createCliError(
-      'jskit mobile build android requires config.mobile.assetMode="bundled" so the release shell does not depend on a live dev server.'
+      'jskit mobile android build requires config.mobile.assetMode="bundled" so the release shell does not depend on a live dev server.'
     );
   }
 
@@ -998,7 +1021,7 @@ async function runMobileDevAndroidCommand({
 
   stdout.write(`[mobile] Using Android device: ${selectedDevice.serial}\n`);
   stdout.write("[mobile] Building and syncing the Android shell:\n");
-  stdout.write("[mobile]   npx jskit mobile sync android\n");
+  stdout.write("[mobile]   npx jskit mobile android sync\n");
   await runMobileSyncAndroidCommand({
     ctx,
     commandAdd,
@@ -1009,7 +1032,7 @@ async function runMobileDevAndroidCommand({
   });
 
   stdout.write(`[mobile] Creating the adb reverse tunnel on ${selectedDevice.serial}:\n`);
-  stdout.write(`[mobile]   npx jskit mobile tunnel android --target ${selectedDevice.serial}\n`);
+  stdout.write(`[mobile]   npx jskit mobile android tunnel --target ${selectedDevice.serial}\n`);
   await runMobileTunnelAndroidCommand({
     ctx,
     appRoot,
@@ -1023,7 +1046,7 @@ async function runMobileDevAndroidCommand({
   });
 
   stdout.write(`[mobile] Installing and launching the app on ${selectedDevice.serial}:\n`);
-  stdout.write(`[mobile]   npx jskit mobile run android --target ${selectedDevice.serial}\n`);
+  stdout.write(`[mobile]   npx jskit mobile android run --target ${selectedDevice.serial}\n`);
   await runCapRunAndroidCommand({
     ctx,
     appRoot,
@@ -1050,7 +1073,8 @@ function createMobileCommands(ctx = {}, { commandAdd } = {}) {
   async function commandMobile({ positional = [], options = {}, cwd = "", stdout, stderr }) {
     const firstToken = String(positional[0] || "").trim();
     const secondToken = String(positional[1] || "").trim();
-    const remainingPositionals = positional.slice(2);
+    const thirdToken = String(positional[2] || "").trim();
+    const remainingPositionals = positional.slice(3);
 
     if (!firstToken) {
       renderMobileHelp(stdout);
@@ -1058,19 +1082,31 @@ function createMobileCommands(ctx = {}, { commandAdd } = {}) {
     }
 
     if (firstToken === "help") {
-      renderMobileHelp(stdout, resolveMobileCommandDefinition(secondToken));
+      renderMobileHelp(stdout);
       return 0;
     }
 
-    const definition = resolveMobileCommandDefinition(firstToken);
-    if (!definition) {
-      throw createCliError(`Unknown mobile subcommand: ${firstToken}.`, {
+    const platform = firstToken;
+    if (platform !== "android") {
+      throw createCliError(`Unknown mobile platform: ${platform}.`, {
         renderUsage: () => renderMobileHelp(stderr)
       });
     }
 
-    if (secondToken === "help") {
-      renderMobileHelp(stdout, definition);
+    if (!secondToken || secondToken === "help") {
+      renderMobileHelp(stdout, null, platform);
+      return 0;
+    }
+
+    const definition = resolveMobileCommandDefinition(secondToken);
+    if (!definition) {
+      throw createCliError(`Unknown mobile ${platform} subcommand: ${secondToken}.`, {
+        renderUsage: () => renderMobileHelp(stderr, null, platform)
+      });
+    }
+
+    if (thirdToken === "help") {
+      renderMobileHelp(stdout, definition, platform);
       return 0;
     }
 
@@ -1080,14 +1116,14 @@ function createMobileCommands(ctx = {}, { commandAdd } = {}) {
     const unknownInlineOptionNames = inlineOptionNames.filter((optionName) => !supportedOptionNames.has(optionName));
     if (unknownInlineOptionNames.length > 0) {
       throw createCliError(
-        `Unknown option${unknownInlineOptionNames.length === 1 ? "" : "s"} for jskit mobile ${definition.name}: ${unknownInlineOptionNames.map((optionName) => `--${optionName}`).join(", ")}.`,
+        `Unknown option${unknownInlineOptionNames.length === 1 ? "" : "s"} for jskit mobile ${platform} ${definition.name}: ${unknownInlineOptionNames.map((optionName) => `--${optionName}`).join(", ")}.`,
         {
           renderUsage: () => renderMobileHelp(stderr, definition)
         }
       );
     }
     if (options?.dryRun === true && !supportedOptionNames.has("dry-run")) {
-      throw createCliError(`Unknown option for jskit mobile ${definition.name}: --dry-run.`, {
+      throw createCliError(`Unknown option for jskit mobile ${platform} ${definition.name}: --dry-run.`, {
         renderUsage: () => renderMobileHelp(stderr, definition)
       });
     }
@@ -1095,13 +1131,8 @@ function createMobileCommands(ctx = {}, { commandAdd } = {}) {
     const appRoot = await resolveAppRootFromCwd(cwd);
 
     if (definition.name === "devices") {
-      if (secondToken !== "android") {
-        throw createCliError(`jskit mobile devices currently supports only "android".`, {
-          renderUsage: () => renderMobileHelp(stderr, definition)
-        });
-      }
-      if (remainingPositionals.length > 0) {
-        throw createCliError(`Unexpected positional arguments for jskit mobile devices: ${remainingPositionals.join(" ")}`, {
+      if (thirdToken || remainingPositionals.length > 0) {
+        throw createCliError(`Unexpected positional arguments for jskit mobile ${platform} devices: ${[thirdToken, ...remainingPositionals].filter(Boolean).join(" ")}`, {
           renderUsage: () => renderMobileHelp(stderr, definition)
         });
       }
@@ -1115,13 +1146,8 @@ function createMobileCommands(ctx = {}, { commandAdd } = {}) {
     }
 
     if (definition.name === "dev") {
-      if (secondToken !== "android") {
-        throw createCliError(`jskit mobile dev currently supports only "android".`, {
-          renderUsage: () => renderMobileHelp(stderr, definition)
-        });
-      }
-      if (remainingPositionals.length > 0) {
-        throw createCliError(`Unexpected positional arguments for jskit mobile dev: ${remainingPositionals.join(" ")}`, {
+      if (thirdToken || remainingPositionals.length > 0) {
+        throw createCliError(`Unexpected positional arguments for jskit mobile ${platform} dev: ${[thirdToken, ...remainingPositionals].filter(Boolean).join(" ")}`, {
           renderUsage: () => renderMobileHelp(stderr, definition)
         });
       }
@@ -1137,13 +1163,8 @@ function createMobileCommands(ctx = {}, { commandAdd } = {}) {
     }
 
     if (definition.name === "tunnel") {
-      if (secondToken !== "android") {
-        throw createCliError(`jskit mobile tunnel currently supports only "android".`, {
-          renderUsage: () => renderMobileHelp(stderr, definition)
-        });
-      }
-      if (remainingPositionals.length > 0) {
-        throw createCliError(`Unexpected positional arguments for jskit mobile tunnel: ${remainingPositionals.join(" ")}`, {
+      if (thirdToken || remainingPositionals.length > 0) {
+        throw createCliError(`Unexpected positional arguments for jskit mobile ${platform} tunnel: ${[thirdToken, ...remainingPositionals].filter(Boolean).join(" ")}`, {
           renderUsage: () => renderMobileHelp(stderr, definition)
         });
       }
@@ -1158,13 +1179,8 @@ function createMobileCommands(ctx = {}, { commandAdd } = {}) {
     }
 
     if (definition.name === "restart") {
-      if (secondToken !== "android") {
-        throw createCliError(`jskit mobile restart currently supports only "android".`, {
-          renderUsage: () => renderMobileHelp(stderr, definition)
-        });
-      }
-      if (remainingPositionals.length > 0) {
-        throw createCliError(`Unexpected positional arguments for jskit mobile restart: ${remainingPositionals.join(" ")}`, {
+      if (thirdToken || remainingPositionals.length > 0) {
+        throw createCliError(`Unexpected positional arguments for jskit mobile ${platform} restart: ${[thirdToken, ...remainingPositionals].filter(Boolean).join(" ")}`, {
           renderUsage: () => renderMobileHelp(stderr, definition)
         });
       }
@@ -1179,13 +1195,8 @@ function createMobileCommands(ctx = {}, { commandAdd } = {}) {
     }
 
     if (definition.name === "sync") {
-      if (secondToken !== "android") {
-        throw createCliError(`jskit mobile sync currently supports only "android".`, {
-          renderUsage: () => renderMobileHelp(stderr, definition)
-        });
-      }
-      if (remainingPositionals.length > 0) {
-        throw createCliError(`Unexpected positional arguments for jskit mobile sync: ${remainingPositionals.join(" ")}`, {
+      if (thirdToken || remainingPositionals.length > 0) {
+        throw createCliError(`Unexpected positional arguments for jskit mobile ${platform} sync: ${[thirdToken, ...remainingPositionals].filter(Boolean).join(" ")}`, {
           renderUsage: () => renderMobileHelp(stderr, definition)
         });
       }
@@ -1201,13 +1212,8 @@ function createMobileCommands(ctx = {}, { commandAdd } = {}) {
     }
 
     if (definition.name === "run") {
-      if (secondToken !== "android") {
-        throw createCliError(`jskit mobile run currently supports only "android".`, {
-          renderUsage: () => renderMobileHelp(stderr, definition)
-        });
-      }
-      if (remainingPositionals.length > 0) {
-        throw createCliError(`Unexpected positional arguments for jskit mobile run: ${remainingPositionals.join(" ")}`, {
+      if (thirdToken || remainingPositionals.length > 0) {
+        throw createCliError(`Unexpected positional arguments for jskit mobile ${platform} run: ${[thirdToken, ...remainingPositionals].filter(Boolean).join(" ")}`, {
           renderUsage: () => renderMobileHelp(stderr, definition)
         });
       }
@@ -1223,13 +1229,8 @@ function createMobileCommands(ctx = {}, { commandAdd } = {}) {
     }
 
     if (definition.name === "build") {
-      if (secondToken !== "android") {
-        throw createCliError(`jskit mobile build currently supports only "android".`, {
-          renderUsage: () => renderMobileHelp(stderr, definition)
-        });
-      }
-      if (remainingPositionals.length > 0) {
-        throw createCliError(`Unexpected positional arguments for jskit mobile build: ${remainingPositionals.join(" ")}`, {
+      if (thirdToken || remainingPositionals.length > 0) {
+        throw createCliError(`Unexpected positional arguments for jskit mobile ${platform} build: ${[thirdToken, ...remainingPositionals].filter(Boolean).join(" ")}`, {
           renderUsage: () => renderMobileHelp(stderr, definition)
         });
       }
@@ -1245,8 +1246,8 @@ function createMobileCommands(ctx = {}, { commandAdd } = {}) {
     }
 
     if (definition.name === "doctor") {
-      if (secondToken) {
-        throw createCliError(`Unexpected positional arguments for jskit mobile doctor: ${[secondToken, ...remainingPositionals].join(" ")}`, {
+      if (thirdToken || remainingPositionals.length > 0) {
+        throw createCliError(`Unexpected positional arguments for jskit mobile ${platform} doctor: ${[thirdToken, ...remainingPositionals].filter(Boolean).join(" ")}`, {
           renderUsage: () => renderMobileHelp(stderr, definition)
         });
       }

@@ -71,14 +71,14 @@ export default Object.freeze({
     },
     packageJson: {
       scripts: {
-        "mobile:dev:android": "jskit mobile dev android",
-        "mobile:devices:android": "jskit mobile devices android",
-        "mobile:sync:android": "jskit mobile sync android",
-        "mobile:tunnel:android": "jskit mobile tunnel android",
-        "mobile:restart:android": "jskit mobile restart android",
-        "mobile:run:android": "jskit mobile run android",
+        "mobile:dev:android": "jskit mobile android dev",
+        "mobile:devices:android": "jskit mobile android devices",
+        "mobile:sync:android": "jskit mobile android sync",
+        "mobile:tunnel:android": "jskit mobile android tunnel",
+        "mobile:restart:android": "jskit mobile android restart",
+        "mobile:run:android": "jskit mobile android run",
         "mobile:build:web": "npm run build",
-        "mobile:build:android": "jskit mobile build android"
+        "mobile:build:android": "jskit mobile android build"
       }
     },
     procfile: {},

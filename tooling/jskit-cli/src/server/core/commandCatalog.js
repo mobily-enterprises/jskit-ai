@@ -173,8 +173,12 @@ const COMMAND_DESCRIPTORS = Object.freeze({
     aliases: Object.freeze([]),
     showInOverview: true,
     summary: "Run JSKIT-managed mobile-shell helpers.",
-    minimalUse: "jskit mobile dev android",
+    minimalUse: "jskit mobile android dev",
     parameters: Object.freeze([
+      Object.freeze({
+        name: "<platform>",
+        description: "Currently only android is supported."
+      }),
       Object.freeze({
         name: "<subcommand>",
         description: "dev | devices | sync | tunnel | restart | run | build | doctor."
@@ -182,11 +186,11 @@ const COMMAND_DESCRIPTORS = Object.freeze({
     ]),
     defaults: Object.freeze([
       "Install the shell first with jskit add package @jskit-ai/mobile-capacitor.",
-      "Use jskit mobile <subcommand> help for subcommand-specific usage.",
-      "--dry-run is accepted by jskit mobile sync/run/build.",
-      "--devlinks runs npm run --if-present devlinks after sync maintenance for development-only relinking."
+      "Use jskit mobile <platform> help for platform-specific usage.",
+      "--dry-run is accepted by jskit mobile android sync/run/build.",
+      "--devlinks runs npm run --if-present devlinks after jskit mobile android sync maintenance for development-only relinking."
     ]),
-    fullUse: "jskit mobile <subcommand> [help] [--dry-run] [--<option> <value>...]",
+    fullUse: "jskit mobile <platform> <subcommand> [help] [--dry-run] [--<option> <value>...]",
     showHelpOnBareInvocation: true,
     handlerName: "commandMobile",
     allowedFlagKeys: Object.freeze(["dryRun", "devlinks"]),

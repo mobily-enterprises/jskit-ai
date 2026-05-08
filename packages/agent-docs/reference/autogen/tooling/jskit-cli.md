@@ -447,7 +447,8 @@ Exports
 Local functions
 - `collectManagedMobileFileDriftIssues({ ctx, appRoot, issues = [] } = {})`
 - `collectMissingInstalledDependencyNames(ctx, appRoot = "", packageJson = {})`
-- `renderMobileHelp(stream, definition = null)`
+- `renderAndroidMobileCommandList(lines, color)`
+- `renderMobileHelp(stream, definition = null, platform = "")`
 - `isValidHttpOrHttpsUrl(value = "")`
 - `normalizeInlineOptions(options = {})`
 - `parsePortNumber(rawValue, { createCliError, optionLabel = "--port" } = {})`

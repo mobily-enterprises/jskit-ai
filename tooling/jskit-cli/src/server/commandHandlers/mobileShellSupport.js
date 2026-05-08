@@ -722,7 +722,7 @@ async function collectAndroidNativeShellIdentityIssues({ ctx, appRoot } = {}) {
     const expectedSource = renderer(currentSource, nativeConfig);
     if (currentSource !== expectedSource) {
       issues.push(
-        `${normalizeRelativePath(appRoot, absolutePath)} is stale and no longer matches config.mobile. Re-run jskit mobile sync android to refresh the Android shell.`
+        `${normalizeRelativePath(appRoot, absolutePath)} is stale and no longer matches config.mobile. Re-run jskit mobile android sync to refresh the Android shell.`
       );
     }
   };
@@ -757,7 +757,7 @@ async function collectAndroidNativeShellIdentityIssues({ ctx, appRoot } = {}) {
     currentMainActivitySource !== expectedMainActivitySource
   ) {
     issues.push(
-      `${normalizeRelativePath(appRoot, mainActivityEntry.absolutePath)} is stale and no longer matches config.mobile. Re-run jskit mobile sync android to refresh the Android shell.`
+      `${normalizeRelativePath(appRoot, mainActivityEntry.absolutePath)} is stale and no longer matches config.mobile. Re-run jskit mobile android sync to refresh the Android shell.`
     );
   }
 

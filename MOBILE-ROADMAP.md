@@ -193,7 +193,6 @@ It should not own:
 ```txt
 packages/mobile-capacitor/
   package.descriptor.mjs
-  README.md
   src/
     client/
       index.js
@@ -221,10 +220,10 @@ packages/mobile-capacitor/
 
 - [x] Add:
   - [x] `jskit add package @jskit-ai/mobile-capacitor`
-  - [x] `jskit mobile sync android`
-  - [x] `jskit mobile run android`
-  - [x] `jskit mobile build android`
-  - [x] `jskit mobile doctor`
+  - [x] `jskit mobile android sync`
+  - [x] `jskit mobile android run`
+  - [x] `jskit mobile android build`
+  - [x] `jskit mobile android doctor`
 
 #### `jskit add package @jskit-ai/mobile-capacitor`
 
@@ -243,7 +242,7 @@ packages/mobile-capacitor/
 - [x] Boot the mobile runtime through the normal JSKIT client provider path instead of an app-local import hook.
 - [x] Add `.jskit/mobile-capacitor.md`.
 
-#### `jskit mobile sync android`
+#### `jskit mobile android sync`
 
 - [x] Run the correct JSKIT frontend build.
 - [x] Copy built assets into the Capacitor web dir.
@@ -253,13 +252,13 @@ packages/mobile-capacitor/
 - [ ] Consider selected-surface or all-surface bundle strategies later only if
       the whole-app bundle proves too heavy.
 
-#### `jskit mobile run android`
+#### `jskit mobile android run`
 
 - [x] If `assetMode=dev_server`, use the live dev server.
 - [x] Otherwise sync bundled assets first.
 - [x] Run `npx cap run android`.
 
-#### `jskit mobile build android`
+#### `jskit mobile android build`
 
 - [x] Build production web assets.
 - [x] Sync Android.

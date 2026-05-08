@@ -2,7 +2,7 @@ const MOBILE_COMMAND_DEFINITIONS = Object.freeze({
   sync: Object.freeze({
     name: "sync",
     summary: "Build the JSKIT web client and sync the Android Capacitor shell.",
-    usage: "jskit mobile sync android [--dry-run] [--devlinks]",
+    usage: "jskit mobile android sync [--dry-run] [--devlinks]",
     options: Object.freeze([
       Object.freeze({
         label: "--devlinks",
@@ -22,7 +22,7 @@ const MOBILE_COMMAND_DEFINITIONS = Object.freeze({
   run: Object.freeze({
     name: "run",
     summary: "Launch the Android Capacitor shell for the current app.",
-    usage: "jskit mobile run android [--target <device-id>] [--dry-run]",
+    usage: "jskit mobile android run [--target <device-id>] [--dry-run]",
     options: Object.freeze([
       Object.freeze({
         label: "--target <device-id>",
@@ -41,7 +41,7 @@ const MOBILE_COMMAND_DEFINITIONS = Object.freeze({
   dev: Object.freeze({
     name: "dev",
     summary: "Shortcut to run sync, tunnel, run in this order.",
-    usage: "jskit mobile dev android [--target <device-id>]",
+    usage: "jskit mobile android dev [--target <device-id>]",
     options: Object.freeze([
       Object.freeze({
         label: "--target <device-id>",
@@ -49,15 +49,15 @@ const MOBILE_COMMAND_DEFINITIONS = Object.freeze({
       })
     ]),
     defaults: Object.freeze([
-      "jskit mobile sync android",
-      "jskit mobile tunnel android",
-      "jskit mobile run android"
+      "jskit mobile android sync",
+      "jskit mobile android tunnel",
+      "jskit mobile android run"
     ])
   }),
   devices: Object.freeze({
     name: "devices",
     summary: "List Android devices currently visible to adb.",
-    usage: "jskit mobile devices android",
+    usage: "jskit mobile android devices",
     options: Object.freeze([]),
     defaults: Object.freeze([
       "Runs adb devices -l and prints the currently connected Android targets."
@@ -66,7 +66,7 @@ const MOBILE_COMMAND_DEFINITIONS = Object.freeze({
   tunnel: Object.freeze({
     name: "tunnel",
     summary: "Create and verify an adb reverse tunnel for local Android testing.",
-    usage: "jskit mobile tunnel android [--target <device-id>] [--port <port>]",
+    usage: "jskit mobile android tunnel [--target <device-id>] [--port <port>]",
     options: Object.freeze([
       Object.freeze({
         label: "--target <device-id>",
@@ -85,7 +85,7 @@ const MOBILE_COMMAND_DEFINITIONS = Object.freeze({
   restart: Object.freeze({
     name: "restart",
     summary: "Clear app data and cold-start the Android shell on a chosen device.",
-    usage: "jskit mobile restart android [--target <device-id>]",
+    usage: "jskit mobile android restart [--target <device-id>]",
     options: Object.freeze([
       Object.freeze({
         label: "--target <device-id>",
@@ -100,7 +100,7 @@ const MOBILE_COMMAND_DEFINITIONS = Object.freeze({
   build: Object.freeze({
     name: "build",
     summary: "Build a release Android App Bundle for the current app.",
-    usage: "jskit mobile build android [--dry-run]",
+    usage: "jskit mobile android build [--dry-run]",
     options: Object.freeze([
       Object.freeze({
         label: "--dry-run",
@@ -115,7 +115,7 @@ const MOBILE_COMMAND_DEFINITIONS = Object.freeze({
   doctor: Object.freeze({
     name: "doctor",
     summary: "Validate the Android Capacitor shell wiring for the current app.",
-    usage: "jskit mobile doctor",
+    usage: "jskit mobile android doctor",
     options: Object.freeze([]),
     defaults: Object.freeze([
       "Checks config.mobile, capacitor.config.json, android/, and the managed AndroidManifest deep-link filter."

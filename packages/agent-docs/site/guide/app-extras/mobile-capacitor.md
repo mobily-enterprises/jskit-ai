@@ -30,7 +30,7 @@ That command:
 After that, run:
 
 ```bash
-npx jskit mobile doctor
+npx jskit mobile android doctor
 ```
 
 If doctor passes, the app is ready for the normal mobile workflow.
@@ -53,7 +53,7 @@ The end state should be:
 - `adb devices -l` works
 - `java -version` works
 - `javac -version` works
-- `npx jskit mobile doctor` passes
+- `npx jskit mobile android doctor` passes
 :::
 
 If you installed Android Studio, its bundled JDK is often the easiest working
@@ -75,7 +75,7 @@ PORT=3000 npm run server
 Then use the all-in-one command:
 
 ```bash
-npx jskit mobile dev android
+npx jskit mobile android dev
 ```
 
 This is the one-stop shop for local Android phone testing.
@@ -83,31 +83,31 @@ This is the one-stop shop for local Android phone testing.
 It runs these commands in this exact order:
 
 ```bash
-npx jskit mobile sync android
-npx jskit mobile tunnel android
-npx jskit mobile run android
+npx jskit mobile android sync
+npx jskit mobile android tunnel
+npx jskit mobile android run
 ```
 
-That first step is important: for bundled apps, `npx jskit mobile sync android` runs `npm run build` first and then runs `cap sync android`. So yes, `npx jskit mobile dev android` does build the app before it installs/runs the Android shell.
+That first step is important: for bundled apps, `npx jskit mobile android sync` runs `npm run build` first and then runs `cap sync android`. So yes, `npx jskit mobile android dev` does build the app before it installs/runs the Android shell.
 
 If more than one Android device is attached:
 
 ```bash
-npx jskit mobile devices android
-npx jskit mobile dev android --target <device-id>
+npx jskit mobile android devices
+npx jskit mobile android dev --target <device-id>
 ```
 
 That is the shortest path.
 
 ## Manual commands
 
-If you want to run the steps yourself instead of using `mobile dev android`,
+If you want to run the steps yourself instead of using `mobile android dev`,
 these are the commands that matter.
 
 ### List devices
 
 ```bash
-npx jskit mobile devices android
+npx jskit mobile android devices
 ```
 
 Prints the Android devices currently visible to `adb`.
@@ -115,7 +115,7 @@ Prints the Android devices currently visible to `adb`.
 ### Sync the Android shell
 
 ```bash
-npx jskit mobile sync android
+npx jskit mobile android sync
 ```
 
 This:
@@ -127,13 +127,13 @@ This:
 ### Create the local tunnel
 
 ```bash
-npx jskit mobile tunnel android
+npx jskit mobile android tunnel
 ```
 
 If you want a specific device:
 
 ```bash
-npx jskit mobile tunnel android --target <device-id>
+npx jskit mobile android tunnel --target <device-id>
 ```
 
 This command creates the `adb reverse` tunnel that lets the phone reach your
@@ -142,13 +142,13 @@ laptop's local backend.
 ### Install and run the app
 
 ```bash
-npx jskit mobile run android
+npx jskit mobile android run
 ```
 
 Or:
 
 ```bash
-npx jskit mobile run android --target <device-id>
+npx jskit mobile android run --target <device-id>
 ```
 
 This launches the Android shell through Capacitor.
@@ -156,13 +156,13 @@ This launches the Android shell through Capacitor.
 ### Restart cleanly
 
 ```bash
-npx jskit mobile restart android
+npx jskit mobile android restart
 ```
 
 Or:
 
 ```bash
-npx jskit mobile restart android --target <device-id>
+npx jskit mobile android restart --target <device-id>
 ```
 
 This:
@@ -177,21 +177,21 @@ Use it when you want a clean signed-out state.
 
 These are the mobile commands the package adds:
 
-- `jskit mobile devices android`
+- `jskit mobile android devices`
   - list visible Android devices
-- `jskit mobile doctor`
+- `jskit mobile android doctor`
   - validate config, shell files, SDK, and host readiness
-- `jskit mobile dev android`
+- `jskit mobile android dev`
   - run the standard local-phone development flow
-- `jskit mobile sync android`
+- `jskit mobile android sync`
   - rebuild and sync the Android shell
-- `jskit mobile tunnel android`
+- `jskit mobile android tunnel`
   - create and verify the `adb reverse` tunnel
-- `jskit mobile run android`
+- `jskit mobile android run`
   - launch the Android shell
-- `jskit mobile restart android`
+- `jskit mobile android restart`
   - clear app data and cold-start the app
-- `jskit mobile build android`
+- `jskit mobile android build`
   - build the Android release bundle
 
 ## The default local-dev setup
@@ -230,21 +230,21 @@ Once the package is installed, the normal loop is:
 
 ```bash
 PORT=3000 npm run server
-npx jskit mobile dev android
+npx jskit mobile android dev
 ```
 
 If you want to rerun steps manually, a predictable sequence is:
 
 ```bash
-npx jskit mobile sync android
-npx jskit mobile tunnel android
-npx jskit mobile run android
+npx jskit mobile android sync
+npx jskit mobile android tunnel
+npx jskit mobile android run
 ```
 
 And if you need a clean state afterward:
 
 ```bash
-npx jskit mobile restart android
+npx jskit mobile android restart
 ```
 
 ## Behind the scenes
@@ -270,7 +270,7 @@ The UI still comes from the JSKIT web client.
 Stage 1 mobile does not turn JSKIT into a native UI framework. It packages the
 web app into a Capacitor Android shell.
 
-That is why `jskit mobile sync android` still builds the web app first.
+That is why `jskit mobile android sync` still builds the web app first.
 
 ### Managed files
 
@@ -286,7 +286,7 @@ The package manages:
   - `MainActivity.java` or `MainActivity.kt`
 - the managed deep-link block in `AndroidManifest.xml`
 
-`jskit mobile sync android` is expected to refresh those files from
+`jskit mobile android sync` is expected to refresh those files from
 `config.mobile`.
 
 ### Why the tunnel exists
@@ -308,7 +308,7 @@ That bridge is:
 adb reverse tcp:3000 tcp:3000
 ```
 
-`jskit mobile tunnel android` wraps that and shows `adb reverse --list`
+`jskit mobile android tunnel` wraps that and shows `adb reverse --list`
 afterward so you can see the active mapping.
 
 ### What happens to URLs
@@ -358,7 +358,7 @@ Deep links and auth completion are normalized back into the normal JSKIT router.
 
 ### What `doctor` is actually checking
 
-`jskit mobile doctor` is the preflight command for this whole lane.
+`jskit mobile android doctor` is the preflight command for this whole lane.
 
 It checks:
 

@@ -28,14 +28,14 @@ Owned artifacts:
 Managed commands:
 
 - `jskit add package @jskit-ai/mobile-capacitor`
-- `jskit mobile dev android [--target <device-id>]`
-- `jskit mobile devices android`
-- `jskit mobile sync android`
-- `jskit mobile tunnel android --target <device-id>`
-- `jskit mobile restart android --target <device-id>`
-- `jskit mobile run android [--target <device-id>]`
-- `jskit mobile build android`
-- `jskit mobile doctor`
+- `jskit mobile android dev [--target <device-id>]`
+- `jskit mobile android devices`
+- `jskit mobile android sync`
+- `jskit mobile android tunnel --target <device-id>`
+- `jskit mobile android restart --target <device-id>`
+- `jskit mobile android run [--target <device-id>]`
+- `jskit mobile android build`
+- `jskit mobile android doctor`
 
 Current Stage 1 limits:
 
