@@ -9,6 +9,11 @@ export { default as AuthProfileWidget } from "./views/AuthProfileWidget.vue";
 export { default as AuthProfileMenuLinkItem } from "./views/AuthProfileMenuLinkItem.vue";
 export { useAuthStore } from "./stores/useAuthStore.js";
 export { useAuthGuardRuntime } from "./runtime/inject.js";
+export {
+  completeOAuthCallbackFromCurrentLocation,
+  completeOAuthCallbackFromUrl,
+  readOAuthCallbackParamsFromUrl
+} from "./runtime/oauthCallbackRuntime.js";
 
 const routeComponents = Object.freeze({
   "auth-login": DefaultLoginView,

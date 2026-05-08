@@ -338,6 +338,10 @@ Exports
 - `normalizeRecordId(value, { fallback = null } = {})`
 - `normalizeOpaqueId(value, { fallback = null } = {})`
 - `normalizeOneOf(value, allowedValues = [], fallback = "")`
+- `normalizeMobileAssetMode(value = "", { fallback = "bundled" } = {})`
+- `normalizeMobileCallbackPath(value = "", { fallback = "/auth/login" } = {})`
+- `normalizeMobileConfig(source = {})`
+- `normalizeMobileStrategy(value = "", { fallback = "" } = {})`
 - `ensureNonEmptyText(value, label = "value")`
 
 ### `shared/support/permissions.js`
@@ -606,6 +610,8 @@ Exports
 - `CLIENT_APP_CONFIG_GLOBAL_KEY`
 - `setClientAppConfig(source = {})`
 - `getClientAppConfig()`
+- `resolveMobileConfig(appConfig = getClientAppConfig())`
+- `resolveClientAssetMode(appConfig = getClientAppConfig())`
 Local functions
 - `normalizeClientAppConfig(source = {})`
 
@@ -623,6 +629,10 @@ Exports
 ### `client/index.js`
 Exports
 - `getClientAppConfig`
+- `resolveMobileConfig`
+- `resolveClientAssetMode`
+- `normalizeIncomingAppUrl`
+- `registerMobileLaunchRouting`
 - `resolveClientBootstrapDebugEnabled`
 - `createShellRouter`
 - `bootstrapClientShellApp`
@@ -632,6 +642,16 @@ Exports
 Exports
 - `createStructuredLogger(logger = console)`
 - `summarizeRouterRoutes(router)`
+
+### `client/mobileLaunchRouting.js`
+Exports
+- `normalizeIncomingAppUrl(url = "", mobileConfig = {}, { currentOrigin = "", allowedHttpOrigins = [] } = {})`
+- `registerMobileLaunchRouting({ router, mobileConfig = {}, getInitialLaunchUrl = async () => "", subscribeToLaunchUrls = () => () => {}, resolveTargetPath = null, currentOrigin = typeof window === "object" && window?.location ? String(window.location.origin || "") : "", allowedHttpOrigins = [], logger = null } = {})`
+Local functions
+- `buildNormalizedRoutePath(pathname = "/", search = "", hash = "")`
+- `normalizeResolvedRoutePath(value = "", fallback = "")`
+- `normalizeAllowedHttpOrigins({ mobileConfig = {}, currentOrigin = "", allowedHttpOrigins = [] } = {})`
+- `normalizeCustomSchemeRoutePath(parsedUrl)`
 
 ### `client/moduleBootstrap.js`
 Exports
@@ -665,7 +685,7 @@ Exports
 - `resolveClientBootstrapDebugEnabled({ env = {}, debugEnabled = undefined, debugEnvKey = "VITE_JSKIT_CLIENT_DEBUG" } = {})`
 - `createClientBootstrapLogger({ env = {}, logger = console, debugEnabled = undefined, debugEnvKey = "VITE_JSKIT_CLIENT_DEBUG" } = {})`
 - `createSurfaceShellRouter({ createRouter, history, routes = [], surfaceRuntime, surfaceMode, fallbackRoute = null, notFoundComponent = null, guard = false } = {})`
-- `bootstrapClientShellApp({ createApp, rootComponent, appConfig = {}, appPlugins = [], pinia = null, router, bootClientModules, surfaceRuntime, surfaceMode, env = {}, fallbackRoute = null, logger = console, createBootstrapLogger = null, debugEnabled = undefined, debugEnvKey = "VITE_JSKIT_CLIENT_DEBUG", debugMessage = "Client modules bootstrapped before router install.", onAfterModulesBootstrapped = null, mountSelector = "#app" } = {})`
+- `bootstrapClientShellApp({ createApp, rootComponent, appConfig = {}, appPlugins = [], pinia = null, router, bootClientModules, surfaceRuntime, surfaceMode, env = {}, fallbackRoute = null, logger = console, createBootstrapLogger = null, debugEnabled = undefined, debugEnvKey = "VITE_JSKIT_CLIENT_DEBUG", debugMessage = "Client modules bootstrapped before router install.", onAfterModulesBootstrapped = null, onAfterRouterReady = null, mountSelector = "#app" } = {})`
 Local functions
 - `installAppPlugins(app, appPlugins = [])`
 
@@ -1275,9 +1295,17 @@ Exports
 - `resolveAppConfig(scope = null)`
 - `normalizeDefaultSurfaceId(value, { fallback = "" } = {})`
 - `resolveDefaultSurfaceId(scope = null, { defaultSurfaceId = "" } = {})`
+- `resolveMobileConfig(source = null)`
+- `resolveClientAssetMode(source = null)`
+- `resolveMobileCallbackUrls(source = null, { appPublicUrl = "" } = {})`
+Local functions
+- `buildWebCallbackUrl(appPublicUrl = "", callbackPath = "")`
+- `buildMobileCallbackUrl(customScheme = "", callbackPath = "")`
+- `buildAppLinkCallbackUrls(appLinkDomains = [], callbackPath = "")`
 
 ### `server/support/appConfigFiles.js`
 Exports
+- `loadAppConfigFromAppRoot({ appRoot = "", publicConfigRelativePath = PUBLIC_CONFIG_RELATIVE_PATH, serverConfigRelativePath = SERVER_CONFIG_RELATIVE_PATH } = {})`
 - `loadAppConfigFromModuleUrl({ moduleUrl = import.meta.url, publicConfigRelativePath = PUBLIC_CONFIG_RELATIVE_PATH, serverConfigRelativePath = SERVER_CONFIG_RELATIVE_PATH } = {})`
 Local functions
 - `normalizeConfigObject(value)`
@@ -1298,6 +1326,10 @@ Local functions
 Exports
 - `symlinkSafeRequire`
 - `resolveAppConfig`
+- `resolveMobileConfig`
+- `resolveClientAssetMode`
+- `resolveMobileCallbackUrls`
+- `loadAppConfigFromAppRoot`
 - `loadAppConfigFromModuleUrl`
 - `importFreshModuleFromAbsolutePath`
 - `resolveRequiredAppRoot`

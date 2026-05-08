@@ -1,7 +1,10 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { createPinia } from "pinia";
-import { AUTH_GUARD_RUNTIME_INJECTION_KEY } from "../src/client/runtime/inject.js";
+import {
+  AUTH_GUARD_RUNTIME_INJECTION_KEY,
+  AUTH_OAUTH_LAUNCH_CLIENT_INJECTION_KEY
+} from "../src/client/runtime/inject.js";
 import { bootAuthClientProvider } from "../src/client/providers/bootAuthClientProvider.js";
 import { useAuthStore } from "../src/client/stores/useAuthStore.js";
 
@@ -56,7 +59,7 @@ function createAuthRuntimeStub(initialState = {}) {
   };
 }
 
-function createAppDouble({ authGuardRuntime, bootstrapRuntime = null } = {}) {
+function createAppDouble({ authGuardRuntime, bootstrapRuntime = null, oauthLaunchClient = null } = {}) {
   const singletons = new Map();
   const singletonInstances = new Map();
   const provided = [];
@@ -90,6 +93,9 @@ function createAppDouble({ authGuardRuntime, bootstrapRuntime = null } = {}) {
       }
       if (token === "runtime.web-bootstrap.client") {
         return Boolean(bootstrapRuntime);
+      }
+      if (token === "auth.oauth-launch.client") {
+        return Boolean(oauthLaunchClient);
       }
       return singletons.has(token) || singletonInstances.has(token);
     },
@@ -130,6 +136,9 @@ function createAppDouble({ authGuardRuntime, bootstrapRuntime = null } = {}) {
       if (token === "runtime.web-bootstrap.client") {
         return bootstrapRuntime;
       }
+      if (token === "auth.oauth-launch.client") {
+        return oauthLaunchClient;
+      }
       if (singletonInstances.has(token)) {
         return singletonInstances.get(token);
       }
@@ -168,6 +177,7 @@ test("auth web client boot binds explicit Pinia store state and raw runtime inje
 
   const providedByKey = new Map(app.provided.map((entry) => [entry.key, entry.value]));
   assert.equal(providedByKey.get(AUTH_GUARD_RUNTIME_INJECTION_KEY), authGuardRuntime);
+  assert.equal(typeof providedByKey.get(AUTH_OAUTH_LAUNCH_CLIENT_INJECTION_KEY)?.open, "function");
 });
 
 test("auth web client boot refreshes shared bootstrap runtime on auth changes", async () => {
@@ -195,4 +205,36 @@ test("auth web client boot refreshes shared bootstrap runtime on auth changes", 
   });
 
   assert.deepEqual(refreshCalls, ["auth.state"]);
+});
+
+test("auth web client boot prefers an explicitly registered OAuth launch client", async () => {
+  const authGuardRuntime = createAuthRuntimeStub({
+    authenticated: false
+  });
+  const launchCalls = [];
+  const oauthLaunchClient = {
+    async open(input = {}) {
+      launchCalls.push(input);
+      return true;
+    }
+  };
+  const app = createAppDouble({
+    authGuardRuntime,
+    oauthLaunchClient
+  });
+
+  await bootAuthClientProvider(app);
+
+  const providedByKey = new Map(app.provided.map((entry) => [entry.key, entry.value]));
+  const injectedLaunchClient = providedByKey.get(AUTH_OAUTH_LAUNCH_CLIENT_INJECTION_KEY);
+  assert.equal(injectedLaunchClient, oauthLaunchClient);
+
+  await injectedLaunchClient.open({
+    url: "/api/oauth/google/start?returnTo=%2Fw%2Facme"
+  });
+  assert.deepEqual(launchCalls, [
+    {
+      url: "/api/oauth/google/start?returnTo=%2Fw%2Facme"
+    }
+  ]);
 });

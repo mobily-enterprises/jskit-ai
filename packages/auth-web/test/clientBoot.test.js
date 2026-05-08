@@ -8,6 +8,7 @@ test("auth-web client index defines provider-based client routes surface", () =>
 
   assert.equal(source.includes('export { useAuthStore } from "./stores/useAuthStore.js";'), true);
   assert.equal(source.includes('export { useAuthGuardRuntime } from "./runtime/inject.js";'), true);
+  assert.equal(source.includes('export {\n  completeOAuthCallbackFromCurrentLocation,\n  completeOAuthCallbackFromUrl,\n  readOAuthCallbackParamsFromUrl\n} from "./runtime/oauthCallbackRuntime.js";'), true);
   assert.equal(source.includes('export { useAuth } from "./composables/useAuth.js";'), false);
   assert.equal(source.includes("const routeComponents = Object.freeze({"), true);
   assert.equal(source.includes('"auth-login": DefaultLoginView'), true);

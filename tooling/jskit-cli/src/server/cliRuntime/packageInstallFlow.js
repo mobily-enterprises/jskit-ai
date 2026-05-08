@@ -146,7 +146,8 @@ async function applyPackagePositioning({
   packageOptions,
   appRoot,
   lock,
-  touchedFiles
+  touchedFiles,
+  dryRun = false
 }) {
   const existingInstall = ensureObject(lock.installedPackages[packageEntry.packageId]);
   if (Object.keys(existingInstall).length < 1) {
@@ -196,7 +197,10 @@ async function applyPackagePositioning({
       [],
       touchedFiles,
       [],
-      nextManaged.files
+      nextManaged.files,
+      {
+        dryRun
+      }
     );
   }
   if (positioningMutations.text.length > 0) {
@@ -206,7 +210,10 @@ async function applyPackagePositioning({
       positioningMutations.text,
       packageOptions,
       appliedManagedText,
-      touchedFiles
+      touchedFiles,
+      {
+        dryRun
+      }
     );
   }
 
@@ -250,7 +257,8 @@ async function applyPackageMigrationsOnly({
   packageOptions,
   appRoot,
   lock,
-  touchedFiles
+  touchedFiles,
+  dryRun = false
 }) {
   const existingInstall = ensureObject(lock.installedPackages[packageEntry.packageId]);
   if (Object.keys(existingInstall).length < 1) {
@@ -303,7 +311,10 @@ async function applyPackageMigrationsOnly({
       nextManaged.migrations,
       touchedFiles,
       mutationWarnings,
-      nextManaged.files
+      nextManaged.files,
+      {
+        dryRun
+      }
     );
   }
 
@@ -333,7 +344,8 @@ async function applyPackageInstall({
   lock,
   packageRegistry,
   touchedFiles,
-  reportTemplateFetchStatus = null
+  reportTemplateFetchStatus = null,
+  dryRun = false
 }) {
   const existingInstall = ensureObject(lock.installedPackages[packageEntry.packageId]);
   const existingManaged = ensureObject(existingInstall.managed);
@@ -376,7 +388,10 @@ async function applyPackageInstall({
       preFileTextMutations,
       packageOptions,
       managedRecord.managed.text,
-      touchedFiles
+      touchedFiles,
+      {
+        dryRun
+      }
     );
   }
 
@@ -391,7 +406,8 @@ async function applyPackageInstall({
     appRoot,
     packageId: packageEntry.packageId,
     managedViteChanges: ensureObject(existingManaged.vite),
-    touchedFiles
+    touchedFiles,
+    dryRun
   });
 
   const mutationDependencies = ensureObject(mutations.dependencies);
@@ -499,15 +515,16 @@ async function applyPackageInstall({
     packageEntryForMutations,
     appRoot,
     preparedFileMutations,
-    managedRecord.managed.files,
-    managedRecord.managed.migrations,
-    touchedFiles,
-    mutationWarnings,
-    ensureArray(existingManaged.files),
-    {
-      reapplyManagedAppFiles: Object.keys(existingInstall).length > 0
-    }
-  );
+      managedRecord.managed.files,
+      managedRecord.managed.migrations,
+      touchedFiles,
+      mutationWarnings,
+      ensureArray(existingManaged.files),
+      {
+        dryRun,
+        reapplyManagedAppFiles: Object.keys(existingInstall).length > 0
+      }
+    );
 
   await applyTextMutations(
     packageEntryForMutations,
@@ -515,7 +532,10 @@ async function applyPackageInstall({
     postFileTextMutations,
     packageOptions,
     managedRecord.managed.text,
-    touchedFiles
+    touchedFiles,
+    {
+      dryRun
+    }
   );
 
   await applyViteMutations(
@@ -524,7 +544,10 @@ async function applyPackageInstall({
     ensureObject(mutations.vite),
     packageOptions,
     managedRecord.managed.vite,
-    touchedFiles
+    touchedFiles,
+    {
+      dryRun
+    }
   );
 
   mutationWarnings.push(...await collectInstallWarnings({

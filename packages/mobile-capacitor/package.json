@@ -1,0 +1,17 @@
+{
+  "name": "@jskit-ai/mobile-capacitor",
+  "version": "0.1.2",
+  "type": "module",
+  "scripts": {
+    "test": "node --test"
+  },
+  "exports": {
+    "./client": "./src/client/index.js",
+    "./client/runtime/mobileCapacitorRuntime": "./src/client/runtime/mobileCapacitorRuntime.js",
+    "./client/runtime/globalCapacitorAppAdapter": "./src/client/runtime/globalCapacitorAppAdapter.js"
+  },
+  "dependencies": {
+    "@capacitor/browser": "^7.0.1",
+    "@jskit-ai/kernel": "0.1.65"
+  }
+}

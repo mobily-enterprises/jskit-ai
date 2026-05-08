@@ -1,6 +1,6 @@
 {
   "name": "@jskit-ai/google-rewarded-web",
-  "version": "0.1.0",
+  "version": "0.1.2",
   "private": true,
   "type": "module",
   "exports": {

@@ -61,6 +61,54 @@ function validateFileMutationShape(descriptor, descriptorPath) {
   }
 }
 
+function validateLifecycleHookSpec(spec = {}, descriptorPath, label = "lifecycle hook") {
+  const normalized = ensureObject(spec);
+  if (Object.keys(normalized).length < 1) {
+    return null;
+  }
+
+  const entrypoint = String(normalized.entrypoint || "").trim();
+  if (!entrypoint) {
+    throw createCliError(`Invalid package descriptor at ${descriptorPath}: ${label} requires "entrypoint".`);
+  }
+
+  const exportName = String(normalized.export || "").trim() || "default";
+  return {
+    ...normalized,
+    entrypoint,
+    export: exportName
+  };
+}
+
+function validateLifecycleShape(descriptor, descriptorPath) {
+  const lifecycle = ensureObject(ensureObject(descriptor).lifecycle);
+  const install = ensureObject(lifecycle.install);
+  if (Object.keys(install).length < 1) {
+    return lifecycle;
+  }
+
+  const prepare = validateLifecycleHookSpec(install.prepare, descriptorPath, "lifecycle.install.prepare");
+  const finalize = validateLifecycleHookSpec(install.finalize, descriptorPath, "lifecycle.install.finalize");
+
+  if (install.finalize && typeof install.finalize === "object") {
+    const managesNpmInstall = install.finalize.managesNpmInstall;
+    if (typeof managesNpmInstall !== "undefined" && typeof managesNpmInstall !== "boolean") {
+      throw createCliError(
+        `Invalid package descriptor at ${descriptorPath}: lifecycle.install.finalize.managesNpmInstall must be boolean when provided.`
+      );
+    }
+  }
+
+  return {
+    ...lifecycle,
+    install: {
+      ...install,
+      ...(prepare ? { prepare } : {}),
+      ...(finalize ? { finalize } : {})
+    }
+  };
+}
+
 function validatePackageDescriptorShape(descriptor, descriptorPath) {
   const normalized = ensureObject(descriptor);
   const packageId = String(normalized.packageId || "").trim();
@@ -85,9 +133,11 @@ function validatePackageDescriptorShape(descriptor, descriptorPath) {
   }
 
   validateFileMutationShape(normalized, descriptorPath);
+  const lifecycle = validateLifecycleShape(normalized, descriptorPath);
 
   return {
     ...normalized,
+    lifecycle,
     kind: normalizePackageKind(normalized.kind, descriptorPath)
   };
 }
@@ -115,11 +165,13 @@ function validateAppLocalPackageDescriptorShape(descriptor, descriptorPath, { ex
   }
 
   validateFileMutationShape(normalized, descriptorPath);
+  const lifecycle = validateLifecycleShape(normalized, descriptorPath);
 
   return {
     ...normalized,
     packageId,
     version,
+    lifecycle,
     kind: normalizePackageKind(normalized.kind, descriptorPath)
   };
 }

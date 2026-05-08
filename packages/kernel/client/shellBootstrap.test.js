@@ -168,6 +168,9 @@ test("bootstrapClientShellApp boots modules, reinstalls fallback route, and moun
     },
     onAfterModulesBootstrapped(context) {
       calls.push(`after:${context.clientBootstrap.routeCount}`);
+    },
+    onAfterRouterReady(context) {
+      calls.push(`router-ready:${context.clientBootstrap.routeCount}`);
     }
   });
 
@@ -185,4 +188,5 @@ test("bootstrapClientShellApp boots modules, reinstalls fallback route, and moun
   assert.equal(calls.includes("add:not-found"), true);
   assert.equal(calls.includes("isReady"), true);
   assert.equal(calls.includes("after:3"), true);
+  assert.equal(calls.includes("router-ready:3"), true);
 });

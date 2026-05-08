@@ -7,6 +7,29 @@ export type ClientLogger = {
 };
 
 export function getClientAppConfig(): Readonly<Record<string, any>>;
+export function resolveMobileConfig(appConfig?: Record<string, any>): Readonly<Record<string, any>>;
+export function resolveClientAssetMode(appConfig?: Record<string, any>): string;
+export function normalizeIncomingAppUrl(
+  url?: string,
+  mobileConfig?: Record<string, any>,
+  options?: {
+    currentOrigin?: string;
+    allowedHttpOrigins?: string[];
+  }
+): string;
+export function registerMobileLaunchRouting(options?: {
+  router: any;
+  mobileConfig?: Record<string, any>;
+  getInitialLaunchUrl?: () => Promise<string> | string;
+  subscribeToLaunchUrls?: (handler: (url: string) => void) => (() => void) | void;
+  currentOrigin?: string;
+  allowedHttpOrigins?: string[];
+  logger?: ClientLogger;
+}): Readonly<{
+  initialize: () => Promise<string>;
+  dispose: () => void;
+  applyIncomingUrl: (url?: string, reason?: string) => Promise<string>;
+}>;
 
 export function resolveClientBootstrapDebugEnabled(options?: {
   env?: Record<string, any>;
@@ -52,6 +75,7 @@ export function bootstrapClientShellApp(options?: {
   debugEnvKey?: string;
   debugMessage?: string;
   onAfterModulesBootstrapped?: (context: any) => void | Promise<void>;
+  onAfterRouterReady?: (context: any) => void | Promise<void>;
   mountSelector?: string;
 }): Promise<
   Readonly<{

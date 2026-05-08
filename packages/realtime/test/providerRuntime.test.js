@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { createServer } from "node:http";
 import { installServiceRegistrationApi } from "@jskit-ai/kernel/server/runtime";
+import { CLIENT_APP_CONFIG_GLOBAL_KEY, setClientAppConfig } from "../../kernel/client/appConfig.js";
 
 import { RealtimeServiceProvider } from "../src/server/RealtimeServiceProvider.js";
 import { RealtimeClientProvider } from "../src/client/RealtimeClientProvider.js";
@@ -245,6 +246,50 @@ test("RealtimeClientProvider registers runtime realtime client api", () => {
   const api = app.make("runtime.realtime.client");
   assert.equal(typeof api.createSocketIoClient, "function");
   assert.equal(typeof api.disconnectSocketIoClient, "function");
+});
+
+test("RealtimeClientProvider uses mobile.apiBaseUrl when realtimeClient.url is unset", () => {
+  const previousAppConfig = globalThis[CLIENT_APP_CONFIG_GLOBAL_KEY];
+  const calls = [];
+  const socket = {
+    on() {},
+    off() {},
+    disconnect() {}
+  };
+  try {
+    setClientAppConfig({
+      mobile: {
+        enabled: true,
+        apiBaseUrl: "http://127.0.0.1:3000"
+      }
+    });
+
+    const app = createSingletonApp();
+    app.instance("runtime.realtime.client", {
+      createSocketIoClient(input = {}) {
+        calls.push(input);
+        return socket;
+      },
+      disconnectSocketIoClient() {}
+    });
+
+    const provider = new RealtimeClientProvider();
+    provider.register(app);
+
+    assert.equal(app.make("runtime.realtime.client.socket"), socket);
+    assert.deepEqual(calls, [
+      {
+        url: "http://127.0.0.1:3000",
+        options: {}
+      }
+    ]);
+  } finally {
+    if (previousAppConfig === undefined) {
+      delete globalThis[CLIENT_APP_CONFIG_GLOBAL_KEY];
+    } else {
+      globalThis[CLIENT_APP_CONFIG_GLOBAL_KEY] = previousAppConfig;
+    }
+  }
 });
 
 test("RealtimeClientProvider boots socket listeners and disconnects on shutdown", async () => {

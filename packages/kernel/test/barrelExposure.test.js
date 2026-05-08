@@ -83,7 +83,11 @@ const BARREL_EXPECTATIONS = Object.freeze([
       "bootstrapClientShellApp",
       "createComponentInteractionEmitter",
       "createShellRouter",
+      "resolveClientAssetMode",
       "getClientAppConfig",
+      "normalizeIncomingAppUrl",
+      "registerMobileLaunchRouting",
+      "resolveMobileConfig",
       "resolveClientBootstrapDebugEnabled"
     ])
   }),

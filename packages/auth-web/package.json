@@ -1,6 +1,6 @@
 {
   "name": "@jskit-ai/auth-web",
-  "version": "0.1.64",
+  "version": "0.1.66",
   "type": "module",
   "scripts": {
     "test": "node --test"
@@ -14,17 +14,18 @@
     "./client/views/DefaultSignOutView": "./src/client/views/DefaultSignOutView.vue",
     "./client/runtime/authGuardRuntime": "./src/client/runtime/authGuardRuntime.js",
     "./client/runtime/authHttpClient": "./src/client/runtime/authHttpClient.js",
+    "./client/runtime/oauthCallbackRuntime": "./src/client/runtime/oauthCallbackRuntime.js",
     "./client/runtime/useSignOut": "./src/client/runtime/useSignOut.js"
   },
   "dependencies": {
     "@tanstack/vue-query": "^5.90.5",
-    "@jskit-ai/auth-core": "0.1.62",
+    "@jskit-ai/auth-core": "0.1.64",
     "@mdi/js": "^7.4.47",
-    "@jskit-ai/kernel": "0.1.63",
-    "@jskit-ai/shell-web": "0.1.62",
+    "@jskit-ai/kernel": "0.1.65",
+    "@jskit-ai/shell-web": "0.1.64",
     "pinia": "^3.0.4",
     "vuetify": "^4.0.0",
-    "@jskit-ai/http-runtime": "0.1.62"
+    "@jskit-ai/http-runtime": "0.1.64"
   },
   "peerDependencies": {
     "vue": "^3.5.13",

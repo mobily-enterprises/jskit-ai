@@ -121,6 +121,7 @@ async function bootstrapClientShellApp({
   debugEnvKey = "VITE_JSKIT_CLIENT_DEBUG",
   debugMessage = "Client modules bootstrapped before router install.",
   onAfterModulesBootstrapped = null,
+  onAfterRouterReady = null,
   mountSelector = "#app"
 } = {}) {
   if (typeof createApp !== "function") {
@@ -215,6 +216,20 @@ async function bootstrapClientShellApp({
   app.use(router);
   if (typeof router.isReady === "function") {
     await router.isReady();
+  }
+  if (typeof onAfterRouterReady === "function") {
+    await onAfterRouterReady(
+      Object.freeze({
+        app,
+        router,
+        clientBootstrap,
+        surfaceRuntime,
+        surfaceMode,
+        env: isRecord(env) ? { ...env } : {},
+        logger: bootstrapLogger,
+        debugEnabled: isDebugEnabled
+      })
+    );
   }
   app.mount(mountSelector);
 
