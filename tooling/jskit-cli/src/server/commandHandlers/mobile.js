@@ -1,6 +1,6 @@
 import path from "node:path";
 import { spawn } from "node:child_process";
-import { readFile } from "node:fs/promises";
+import { readFile, writeFile } from "node:fs/promises";
 import {
   createColorFormatter,
   writeWrappedLines
@@ -23,6 +23,10 @@ import {
 } from "./mobileShellSupport.js";
 const CAPACITOR_RUNTIME_PACKAGE_ID = "@jskit-ai/mobile-capacitor";
 const MOBILE_NOTES_RELATIVE_PATH = path.join(".jskit", "mobile-capacitor.md");
+const MANAGED_MOBILE_FILE_RELATIVE_PATHS = Object.freeze([
+  "capacitor.config.json",
+  MOBILE_NOTES_RELATIVE_PATH
+]);
 
 async function collectManagedMobileFileDriftIssues({
   ctx,
@@ -34,12 +38,7 @@ async function collectManagedMobileFileDriftIssues({
     path: pathModule,
     normalizeRelativePath
   } = ctx;
-  const managedRelativePaths = [
-    "capacitor.config.json",
-    MOBILE_NOTES_RELATIVE_PATH
-  ];
-
-  for (const relativePath of managedRelativePaths) {
+  for (const relativePath of MANAGED_MOBILE_FILE_RELATIVE_PATHS) {
     const absolutePath = pathModule.join(appRoot, relativePath);
     if (!(await fileExists(absolutePath))) {
       continue;
@@ -64,46 +63,6 @@ async function collectManagedMobileFileDriftIssues({
       );
     }
   }
-}
-
-async function collectMissingInstalledDependencyNames(ctx, appRoot = "", packageJson = {}) {
-  const {
-    fileExists,
-    path: pathModule
-  } = ctx;
-  const sections = [
-    packageJson?.dependencies,
-    packageJson?.devDependencies,
-    packageJson?.optionalDependencies
-  ];
-  const missing = [];
-  const seen = new Set();
-
-  for (const section of sections) {
-    if (!section || typeof section !== "object" || Array.isArray(section)) {
-      continue;
-    }
-
-    for (const packageName of Object.keys(section).sort((left, right) => left.localeCompare(right))) {
-      const normalizedPackageName = String(packageName || "").trim();
-      if (!normalizedPackageName || seen.has(normalizedPackageName)) {
-        continue;
-      }
-      seen.add(normalizedPackageName);
-
-      const packageJsonPath = pathModule.join(
-        appRoot,
-        "node_modules",
-        ...normalizedPackageName.split("/"),
-        "package.json"
-      );
-      if (!(await fileExists(packageJsonPath))) {
-        missing.push(normalizedPackageName);
-      }
-    }
-  }
-
-  return missing;
 }
 
 function renderAndroidMobileCommandList(lines, color) {
@@ -429,9 +388,13 @@ async function runLocalBinary(binaryName, args = [], {
 
     child.on("error", (error) => {
       if (error?.code === "ENOENT") {
+        const installHint =
+          binaryName === "cap"
+            ? ` Run npm install after adding ${CAPACITOR_RUNTIME_PACKAGE_ID}, then rerun this command.`
+            : "";
         reject(
           createCliError(
-            `Could not find local "${binaryName}" in node_modules/.bin. Re-run jskit add package @jskit-ai/mobile-capacitor after npm install succeeds.`
+            `Could not find local "${binaryName}" in node_modules/.bin.${installHint}`
           )
         );
         return;
@@ -451,100 +414,93 @@ async function runLocalBinary(binaryName, args = [], {
   });
 }
 
-async function runMobileAppInstall({
+function hasPackageDependency(packageJson = {}, packageId = "") {
+  const sections = [
+    packageJson?.dependencies,
+    packageJson?.devDependencies,
+    packageJson?.optionalDependencies
+  ];
+  return sections.some((section) => (
+    section &&
+    typeof section === "object" &&
+    !Array.isArray(section) &&
+    Object.prototype.hasOwnProperty.call(section, packageId)
+  ));
+}
+
+async function readJsonFileForMobileCommand(filePath = "", label = "", createCliError) {
+  try {
+    return JSON.parse(await readFile(filePath, "utf8"));
+  } catch (error) {
+    const message = String(error?.message || error || "unknown error");
+    throw createCliError(`Could not read ${label}: ${message}`);
+  }
+}
+
+async function assertMobileRuntimePackageInstalled({
   ctx,
-  appRoot,
-  stdout,
-  stderr,
-  dryRun = false,
-  devlinks = false
+  appRoot
 } = {}) {
   const {
     path: pathModule,
-    loadAppPackageJson
+    createCliError
   } = ctx;
-  const { packageJson } = await loadAppPackageJson(appRoot);
-  const packageScripts = packageJson?.scripts && typeof packageJson.scripts === "object" ? packageJson.scripts : {};
+  const packageJsonPath = pathModule.join(appRoot, "package.json");
+  const lockPath = pathModule.join(appRoot, ".jskit", "lock.json");
+  const packageJson = await readJsonFileForMobileCommand(packageJsonPath, "package.json", createCliError);
+  const lock = await readJsonFileForMobileCommand(lockPath, ".jskit/lock.json", createCliError);
+  const hasDependency = hasPackageDependency(packageJson, CAPACITOR_RUNTIME_PACKAGE_ID);
+  const hasLockRecord = Boolean(lock?.installedPackages?.[CAPACITOR_RUNTIME_PACKAGE_ID]);
 
-  await runLocalBinary("npm", ["install"], {
-    appRoot,
-    stderr,
-    stdout,
-    pathModule,
-    createCliError: ctx.createCliError,
-    dryRun
-  });
-
-  if (devlinks === true && Object.prototype.hasOwnProperty.call(packageScripts, "devlinks")) {
-    await runLocalBinary("npm", ["run", "--if-present", "devlinks"], {
-      appRoot,
-      stderr,
-      stdout,
-      pathModule,
-      createCliError: ctx.createCliError,
-      dryRun
-    });
+  if (!hasDependency || !hasLockRecord) {
+    throw createCliError(
+      `Mobile Capacitor runtime package is not installed for this app. Run jskit add package ${CAPACITOR_RUNTIME_PACKAGE_ID} first.`
+    );
   }
 }
 
 async function refreshManagedMobileFiles({
   ctx,
-  commandAdd,
   appRoot,
   options = {},
-  stdout,
-  stderr
+  stdout
 } = {}) {
   const {
-    path: pathModule
+    fileExists,
+    path: pathModule,
+    normalizeRelativePath,
+    createCliError
   } = ctx;
-  const packageJsonPath = pathModule.join(appRoot, "package.json");
-  const packageJsonBefore = await readFile(packageJsonPath, "utf8");
-  let capturedStdout = "";
-  await commandAdd({
-    positional: ["package", CAPACITOR_RUNTIME_PACKAGE_ID],
-    options: {
-      ...options,
-      forceReapplyTarget: true,
-      runNpmInstall: false,
-      inlineOptions: {}
-    },
-    cwd: appRoot,
-    io: {
-      stdout: {
-        write(chunk) {
-          capturedStdout += String(chunk || "");
-        }
-      },
-      stderr
+
+  for (const relativePath of MANAGED_MOBILE_FILE_RELATIVE_PATHS) {
+    const absolutePath = pathModule.join(appRoot, relativePath);
+    if (!(await fileExists(absolutePath))) {
+      throw createCliError(
+        `Managed mobile file is missing: ${normalizeRelativePath(appRoot, absolutePath)}. Run jskit add package ${CAPACITOR_RUNTIME_PACKAGE_ID} first.`
+      );
     }
-  });
-  const packageJsonAfter = await readFile(packageJsonPath, "utf8");
-  const parsedPackageJsonAfter = JSON.parse(packageJsonAfter);
-  const missingInstalledDependencies = await collectMissingInstalledDependencyNames(ctx, appRoot, parsedPackageJsonAfter);
 
-  if (!/Touched files \(0\):/u.test(capturedStdout)) {
-    stdout.write(capturedStdout);
-  }
-
-  if (
-    options?.dryRun !== true &&
-    (packageJsonAfter !== packageJsonBefore || missingInstalledDependencies.length > 0)
-  ) {
-    await runMobileAppInstall({
-      ctx,
+    const currentSource = await readFile(absolutePath, "utf8");
+    const nextSource = await renderManagedMobileFile({
       appRoot,
-      stdout,
-      stderr,
-      dryRun: false,
-      devlinks: options?.devlinks === true
+      relativeTargetPath: relativePath
     });
+    if (nextSource === currentSource) {
+      continue;
+    }
+
+    if (options?.dryRun === true) {
+      stdout?.write(`[dry-run] refresh ${normalizeRelativePath(appRoot, absolutePath)}\n`);
+      continue;
+    }
+
+    await writeFile(absolutePath, nextSource, "utf8");
+    stdout?.write(`[mobile] Refreshed ${normalizeRelativePath(appRoot, absolutePath)}.\n`);
   }
 }
 
 async function runMobileSyncAndroidCommand({
   ctx,
-  commandAdd,
   appRoot,
   options = {},
   stdout,
@@ -554,18 +510,19 @@ async function runMobileSyncAndroidCommand({
     path: pathModule
   } = ctx;
 
-  await refreshManagedMobileFiles({
+  await assertMobileRuntimePackageInstalled({
     ctx,
-    commandAdd,
-    appRoot,
-    options,
-    stdout,
-    stderr
+    appRoot
   });
-
   await assertCapacitorShellInstalled({
     ctx,
     appRoot
+  });
+  await refreshManagedMobileFiles({
+    ctx,
+    appRoot,
+    options,
+    stdout
   });
   await ensureAndroidNativeShellIdentity({
     ctx,
@@ -607,7 +564,6 @@ async function runMobileSyncAndroidCommand({
 
 async function runMobileRunAndroidCommand({
   ctx,
-  commandAdd,
   appRoot,
   options = {},
   stdout,
@@ -632,25 +588,25 @@ async function runMobileRunAndroidCommand({
   if (mobileConfig.assetMode === "bundled") {
     await runMobileSyncAndroidCommand({
       ctx,
-      commandAdd,
       appRoot,
       options,
       stdout,
       stderr
     });
   } else {
-    await refreshManagedMobileFiles({
+    await assertMobileRuntimePackageInstalled({
       ctx,
-      commandAdd,
-      appRoot,
-      options,
-      stdout,
-      stderr
+      appRoot
     });
-
     await assertCapacitorShellInstalled({
       ctx,
       appRoot
+    });
+    await refreshManagedMobileFiles({
+      ctx,
+      appRoot,
+      options,
+      stdout
     });
     await ensureAndroidNativeShellIdentity({
       ctx,
@@ -722,7 +678,6 @@ async function runCapRunAndroidCommand({
 
 async function runMobileBuildAndroidCommand({
   ctx,
-  commandAdd,
   appRoot,
   options = {},
   stdout,
@@ -751,7 +706,6 @@ async function runMobileBuildAndroidCommand({
 
   await runMobileSyncAndroidCommand({
     ctx,
-    commandAdd,
     appRoot,
     options,
     stdout,
@@ -1005,7 +959,6 @@ async function runMobileRestartAndroidCommand({
 
 async function runMobileDevAndroidCommand({
   ctx,
-  commandAdd,
   appRoot,
   options = {},
   stdout,
@@ -1024,7 +977,6 @@ async function runMobileDevAndroidCommand({
   stdout.write("[mobile]   npx jskit mobile android sync\n");
   await runMobileSyncAndroidCommand({
     ctx,
-    commandAdd,
     appRoot,
     options,
     stdout,
@@ -1060,15 +1012,11 @@ async function runMobileDevAndroidCommand({
   return 0;
 }
 
-function createMobileCommands(ctx = {}, { commandAdd } = {}) {
+function createMobileCommands(ctx = {}) {
   const {
     createCliError,
     resolveAppRootFromCwd
   } = ctx;
-
-  if (typeof commandAdd !== "function") {
-    throw new TypeError("createMobileCommands requires commandAdd().");
-  }
 
   async function commandMobile({ positional = [], options = {}, cwd = "", stdout, stderr }) {
     const firstToken = String(positional[0] || "").trim();
@@ -1154,7 +1102,6 @@ function createMobileCommands(ctx = {}, { commandAdd } = {}) {
 
       return runMobileDevAndroidCommand({
         ctx,
-        commandAdd,
         appRoot,
         options,
         stdout,
@@ -1203,7 +1150,6 @@ function createMobileCommands(ctx = {}, { commandAdd } = {}) {
 
       return runMobileSyncAndroidCommand({
         ctx,
-        commandAdd,
         appRoot,
         options,
         stdout,
@@ -1220,7 +1166,6 @@ function createMobileCommands(ctx = {}, { commandAdd } = {}) {
 
       return runMobileRunAndroidCommand({
         ctx,
-        commandAdd,
         appRoot,
         options,
         stdout,
@@ -1237,7 +1182,6 @@ function createMobileCommands(ctx = {}, { commandAdd } = {}) {
 
       return runMobileBuildAndroidCommand({
         ctx,
-        commandAdd,
         appRoot,
         options,
         stdout,

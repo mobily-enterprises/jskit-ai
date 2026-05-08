@@ -130,7 +130,7 @@ If you run the status command immediately after this chapter:
 npm run db:migrate:status
 ```
 
-you should still see that there are no completed migrations and no pending migration files yet. The runtime and the Knex wiring exist now, but no package has added real schema files until the next chapter.
+you should still see that there are no completed migrations and no pending migration files yet. The runtime and the Knex wiring exist at this point, but no package has added real schema files until the next chapter.
 
 ### A place for future schema files
 
@@ -145,7 +145,7 @@ That is the key idea of this chapter:
 
 This chapter is the right place to make one distinction very explicit.
 
-There are now two different migration-related layers in the app:
+The app has two different migration-related layers:
 
 - JSKIT-managed migration files on disk
 - Knex actually applying those files to the database
@@ -228,7 +228,7 @@ import {
 } from "@jskit-ai/database-runtime/shared";
 ```
 
-This is worth calling out now because the database layer is not only "Knex plus migrations".
+This is worth calling out here because the database layer is not only "Knex plus migrations".
 
 It also gives your later repositories and services a standard persistence toolbox so every package does not have to solve the same problems differently. The main point is consistency:
 
@@ -685,7 +685,7 @@ It is not the main runtime API that your app code imports during a request. It i
 npm run db:migrate
 ```
 
-So there are really two separate database entry points now:
+So there are really two separate database entry points:
 
 - `knexfile.js` for migration commands
 - the JSKIT server provider runtime for application code
@@ -752,7 +752,7 @@ At first glance it can feel strange that the database layer is installed but the
 
 The reason is simple:
 
-- the runtime is now available
+- the runtime is available
 - but almost no installed package is using it yet
 
 Right now:
@@ -796,7 +796,7 @@ So the auth layer keeps behaving the same way it did before:
 - JSKIT still mirrors just enough profile data locally
 - that JSKIT-side mirror is still not persistent yet
 
-The database runtime is now ready, but the users layer that will actually use it has not been installed yet.
+The database runtime is ready, but the users layer that will actually use it has not been installed yet.
 
 ### Why the empty `migrations/` directory is important
 
@@ -828,5 +828,5 @@ But just as importantly, this chapter also defined what has **not** changed yet:
 So the right mental model at the end of this chapter is:
 
 - Supabase already handles real authentication
-- MySQL is now wired up and ready
+- MySQL is wired up and ready
 - the persistent JSKIT-side user model arrives in the next chapter

@@ -12,7 +12,7 @@ npm install
 
 The first command creates a new folder called `exampleapp` and fills it with JSKIT's base shell template. The `exampleapp` name is used in a few template replacements, such as the package name and the browser title. The `--tenancy-mode none` flag tells JSKIT to start with the smallest routing model. In this mode, the app is not workspace-aware (more of this later in the guide, when multihoming is introduced). That keeps the first scaffold easier to read because there is no workspace slug handling yet.
 
-If you are working with an AI agent and want the agent to drive the initial JSKIT setup conversation, there is now a dedicated seed path:
+If you are working with an AI agent and want the agent to drive the initial JSKIT setup conversation, use the dedicated seed path:
 
 ```bash
 npx @jskit-ai/create-app exampleapp --template ai-seed

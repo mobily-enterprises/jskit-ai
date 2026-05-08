@@ -25,7 +25,7 @@ npm run db:migrate
 - `console-core` owns the console schema, owner check, bootstrap flag, and API routes
 - `console-web` owns the console surface scaffold, settings shell, and menu placement
 
-So the console is a real vertical slice now. The users packages no longer know about it.
+The console is a real vertical slice. The users packages do not own it.
 
 ## What the console is for
 
@@ -70,7 +70,7 @@ Then sign in.
 
 Once you are authenticated, two things matter:
 
-- the app now knows who you are as a persistent JSKIT user
+- the app knows who you are as a persistent JSKIT user
 - the console bootstrap logic can determine whether you are the console owner
 
 Open:

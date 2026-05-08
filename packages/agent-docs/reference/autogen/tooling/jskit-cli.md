@@ -460,10 +460,9 @@ Local functions
 
 ### `src/server/commandHandlers/mobile.js`
 Exports
-- `createMobileCommands(ctx = {}, { commandAdd } = {})`
+- `createMobileCommands(ctx = {})`
 Local functions
 - `collectManagedMobileFileDriftIssues({ ctx, appRoot, issues = [] } = {})`
-- `collectMissingInstalledDependencyNames(ctx, appRoot = "", packageJson = {})`
 - `renderAndroidMobileCommandList(lines, color)`
 - `renderMobileHelp(stream, definition = null, platform = "")`
 - `isValidHttpOrHttpsUrl(value = "")`
@@ -476,17 +475,19 @@ Local functions
 - `resolveAndroidDeviceTarget({ ctx, appRoot, explicitTarget = "", commandLabel = "this mobile command" } = {})`
 - `resolveInstalledMobileConfigForCommand({ appRoot, createCliError } = {})`
 - `runLocalBinary(binaryName, args = [], { appRoot, cwd = appRoot, env = {}, stderr, stdout, pathModule, createCliError, dryRun = false } = {})`
-- `runMobileAppInstall({ ctx, appRoot, stdout, stderr, dryRun = false, devlinks = false } = {})`
-- `refreshManagedMobileFiles({ ctx, commandAdd, appRoot, options = {}, stdout, stderr } = {})`
-- `runMobileSyncAndroidCommand({ ctx, commandAdd, appRoot, options = {}, stdout, stderr })`
-- `runMobileRunAndroidCommand({ ctx, commandAdd, appRoot, options = {}, stdout, stderr })`
+- `hasPackageDependency(packageJson = {}, packageId = "")`
+- `readJsonFileForMobileCommand(filePath = "", label = "", createCliError)`
+- `assertMobileRuntimePackageInstalled({ ctx, appRoot } = {})`
+- `refreshManagedMobileFiles({ ctx, appRoot, options = {}, stdout } = {})`
+- `runMobileSyncAndroidCommand({ ctx, appRoot, options = {}, stdout, stderr })`
+- `runMobileRunAndroidCommand({ ctx, appRoot, options = {}, stdout, stderr })`
 - `runCapRunAndroidCommand({ ctx, appRoot, pathModule, target = "", stdout, stderr, dryRun = false } = {})`
-- `runMobileBuildAndroidCommand({ ctx, commandAdd, appRoot, options = {}, stdout, stderr })`
+- `runMobileBuildAndroidCommand({ ctx, appRoot, options = {}, stdout, stderr })`
 - `runMobileDoctorCommand({ ctx, appRoot, stdout })`
 - `runMobileDevicesAndroidCommand({ ctx, appRoot, stdout })`
 - `runMobileTunnelAndroidCommand({ ctx, appRoot, options = {}, stdout })`
 - `runMobileRestartAndroidCommand({ ctx, appRoot, options = {}, stdout })`
-- `runMobileDevAndroidCommand({ ctx, commandAdd, appRoot, options = {}, stdout, stderr })`
+- `runMobileDevAndroidCommand({ ctx, appRoot, options = {}, stdout, stderr })`
 
 ### `src/server/commandHandlers/mobileCommandCatalog.js`
 Exports
