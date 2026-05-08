@@ -70,6 +70,12 @@ const DEFAULT_LIST_HIDDEN_FIELD_KEYS = new Set(["createdAt", "updatedAt"]);
 const DEFAULT_FORM_COMPONENT_FILE = "CrudAddEditForm.vue";
 const DEFAULT_FORM_FIELDS_FILE = "CrudAddEditFormFields.js";
 const DEFAULT_GENERATED_LINK_ICON = "mdi-view-list-outline";
+const NAVIGATION_ROLE_VALUES = Object.freeze(["primary", "secondary", "utility", "detail", "workflow", "none"]);
+const NAVIGATION_ROLE_LINK_PLACEMENTS = Object.freeze({
+  secondary: "shell.secondary-nav",
+  utility: "shell.global-actions"
+});
+const NO_LINK_NAVIGATION_ROLES = new Set(["detail", "workflow", "none"]);
 
 function splitTextIntoWords(value = "") {
   const normalized = String(value || "")
@@ -158,6 +164,18 @@ function toTitleFromKebab(value = "", fallback = "") {
   return wordsToTitle(words);
 }
 
+function buildCrudListCopy(resourceLabels = {}) {
+  const pluralTitle = normalizeText(resourceLabels.pluralTitle) || "Records";
+  const singularTitle = normalizeText(resourceLabels.singularTitle) || "Record";
+  return Object.freeze({
+    loadErrorTitle: `Unable to load ${pluralTitle}`,
+    loadErrorBody: "Check the connection and try again.",
+    emptyTitle: `No ${pluralTitle} yet`,
+    emptyBody: `Create the first ${singularTitle} to start using this workflow.`,
+    createLabel: `New ${singularTitle}`
+  });
+}
+
 function normalizeRelativeAppPath(value = "") {
   return String(value || "")
     .replaceAll("\\", "/")
@@ -241,6 +259,38 @@ function parseParentTitleOption(options) {
   }
 
   return parentTitleMode;
+}
+
+function normalizeNavigationRole(value = "") {
+  const normalizedRole = normalizeText(value).toLowerCase();
+  if (!normalizedRole) {
+    return "primary";
+  }
+  if (!NAVIGATION_ROLE_VALUES.includes(normalizedRole)) {
+    throw new Error(`navigation-role must be one of: ${NAVIGATION_ROLE_VALUES.join(", ")}.`);
+  }
+  return normalizedRole;
+}
+
+function shouldCreateNavigationLink(options = {}) {
+  const role = normalizeNavigationRole(options?.["navigation-role"]);
+  const linkPlacement = normalizeText(options?.["link-placement"]);
+  if (NO_LINK_NAVIGATION_ROLES.has(role)) {
+    if (linkPlacement) {
+      throw new Error(`navigation-role "${role}" cannot be combined with --link-placement.`);
+    }
+    return false;
+  }
+  return true;
+}
+
+function resolveNavigationRoleLinkPlacement(options = {}) {
+  const explicitPlacement = normalizeText(options?.["link-placement"]);
+  if (explicitPlacement) {
+    return explicitPlacement;
+  }
+  const role = normalizeNavigationRole(options?.["navigation-role"]);
+  return NAVIGATION_ROLE_LINK_PLACEMENTS[role] || "";
 }
 
 function validateDisplayFieldsForOperation(selectedFieldKeys, fields, operationName) {
@@ -656,12 +706,12 @@ async function buildUiTemplateContext({ appRoot, options } = {}) {
     ? resolveViewTitleFallbackFieldKey(listFieldsAll, { recordIdFieldKey: listRecordIdFieldKey })
     : "";
 
-  const pageLinkTarget = hasListOperation
+  const pageLinkTarget = hasListOperation && shouldCreateNavigationLink(options)
     ? await resolvePageLinkTargetDetails({
       appRoot,
       pageTarget,
       targetFile: listTargetFile,
-      placement: options?.["link-placement"],
+      placement: resolveNavigationRoleLinkPlacement(options),
       context: "crud-ui-generator"
     })
     : null;
@@ -670,6 +720,7 @@ async function buildUiTemplateContext({ appRoot, options } = {}) {
     : "";
   const createFormColumns = buildFormColumns(createFields);
   const editFormColumns = buildFormColumns(editFields);
+  const listCopy = buildCrudListCopy(resourceLabels);
 
   return {
     __JSKIT_UI_RESOURCE_IMPORT_PATH__: `/${normalizeRelativeAppPath(options?.["resource-file"])}`,
@@ -678,6 +729,11 @@ async function buildUiTemplateContext({ appRoot, options } = {}) {
     __JSKIT_UI_RESOURCE_NAMESPACE__: resourceNamespace,
     __JSKIT_UI_RESOURCE_SINGULAR_TITLE__: resourceLabels.singularTitle,
     __JSKIT_UI_RESOURCE_PLURAL_TITLE__: resourceLabels.pluralTitle,
+    __JSKIT_UI_LIST_LOAD_ERROR_TITLE__: listCopy.loadErrorTitle,
+    __JSKIT_UI_LIST_LOAD_ERROR_BODY__: listCopy.loadErrorBody,
+    __JSKIT_UI_LIST_EMPTY_TITLE__: listCopy.emptyTitle,
+    __JSKIT_UI_LIST_EMPTY_BODY__: listCopy.emptyBody,
+    __JSKIT_UI_LIST_CREATE_LABEL__: listCopy.createLabel,
     __JSKIT_UI_ROUTE_TITLE__: pageTarget.defaultName,
     __JSKIT_UI_PARENT_TITLE_MODE__: parentTitleMode,
     __JSKIT_UI_LIST_PARENT_TITLE_IMPORT_LINE__: buildListParentTitleImportLine(parentTitleMode),

@@ -321,7 +321,7 @@ test("generate @jskit-ai/crud-ui-generator crud scaffolds CRUD pages at an expli
     assert.equal(await fileExists(paths.addEditFormFieldsPath), true);
 
     const listPageSource = await readFile(paths.listPagePath, "utf8");
-    assert.match(listPageSource, /Manage Customers\./);
+    assert.match(listPageSource, /Search, review, and update Customers from this screen\./);
     assert.match(listPageSource, /import \{ resource as uiResource \} from "\/packages\/customers\/src\/shared\/customerResource\.js";/);
     assert.match(listPageSource, /const UI_LIST_API_URL = "\/customers";/);
     assert.match(listPageSource, /const UI_RECORD_ID_PARAM = "customerId";/);
@@ -711,7 +711,7 @@ test("generate @jskit-ai/crud-ui-generator allows an empty existing target root 
     assert.equal(result.status, 0, String(result.stderr || ""));
 
     const listPageSource = await readFile(path.join(appRoot, "src/pages/admin/products/index.vue"), "utf8");
-    assert.match(listPageSource, /Manage Customers\./);
+    assert.match(listPageSource, /Search, review, and update Customers from this screen\./);
   });
 });
 
@@ -737,7 +737,7 @@ test("generate @jskit-ai/crud-ui-generator overwrites existing generated files w
     });
 
     const listPageSource = await readFile(path.join(appRoot, "src/pages/admin/products/index.vue"), "utf8");
-    assert.match(listPageSource, /Manage Customers\./);
+    assert.match(listPageSource, /Search, review, and update Customers from this screen\./);
     assert.doesNotMatch(listPageSource, /custom products page/);
   });
 });
@@ -765,7 +765,7 @@ test("generate @jskit-ai/crud-ui-generator accepts route roots with a src/pages 
 
     assert.equal(result.status, 0, String(result.stderr || ""));
     const listPageSource = await readFile(path.join(appRoot, "src/pages/admin/products/index.vue"), "utf8");
-    assert.match(listPageSource, /Manage Customers\./);
+    assert.match(listPageSource, /Search, review, and update Customers from this screen\./);
   });
 });
 

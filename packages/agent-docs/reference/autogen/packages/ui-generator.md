@@ -17,6 +17,9 @@ Use this on demand; do not load the full index at startup.
 ### `src/server/buildTemplateContext.js`
 Exports
 - `buildUiPageTemplateContext({ appRoot, targetFile = "", options = {} } = {})`
+- `normalizeNavigationRole(value = "")`
+- `resolveNavigationRoleLinkPlacement(options = {})`
+- `shouldCreateNavigationLink(options = {})`
 Local functions
 - `resolveLinkToPropLine(linkTo = "")`
 - `resolveOwnerLine(owner = "")`

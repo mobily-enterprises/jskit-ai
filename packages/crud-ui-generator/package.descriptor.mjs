@@ -66,6 +66,15 @@ export default Object.freeze({
       promptLabel: "Link placement",
       promptHint: "Optional semantic target override for the generated list-page link placement (format: area.slot)."
     },
+    "navigation-role": {
+      required: false,
+      inputType: "text",
+      validationType: "enum",
+      allowedValues: ["primary", "secondary", "utility", "detail", "workflow", "none"],
+      defaultValue: "primary",
+      promptLabel: "Navigation role",
+      promptHint: "Product navigation role for the generated CRUD list link. primary uses normal inference, secondary maps to shell.secondary-nav, utility maps to shell.global-actions, and detail/workflow/none create no nav link."
+    },
     namespace: {
       required: false,
       inputType: "text",
@@ -110,6 +119,7 @@ export default Object.freeze({
           "display-fields",
           "id-param",
           "parent-title",
+          "navigation-role",
           "link-placement",
           "namespace",
           "force"
@@ -365,8 +375,16 @@ export default Object.freeze({
           export: "buildUiTemplateContext"
         },
         when: {
-          option: "operations",
-          in: ["list"]
+          all: [
+            {
+              option: "operations",
+              in: ["list"]
+            },
+            {
+              option: "navigation-role",
+              notIn: ["detail", "workflow", "none"]
+            }
+          ]
         }
       }
     ]

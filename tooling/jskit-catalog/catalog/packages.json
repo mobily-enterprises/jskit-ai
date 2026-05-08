@@ -1942,6 +1942,22 @@
             "promptLabel": "Link placement",
             "promptHint": "Optional semantic target override for the generated list-page link placement (format: area.slot)."
           },
+          "navigation-role": {
+            "required": false,
+            "inputType": "text",
+            "validationType": "enum",
+            "allowedValues": [
+              "primary",
+              "secondary",
+              "utility",
+              "detail",
+              "workflow",
+              "none"
+            ],
+            "defaultValue": "primary",
+            "promptLabel": "Navigation role",
+            "promptHint": "Product navigation role for the generated CRUD list link. primary uses normal inference, secondary maps to shell.secondary-nav, utility maps to shell.global-actions, and detail/workflow/none create no nav link."
+          },
           "namespace": {
             "required": false,
             "inputType": "text",
@@ -1988,6 +2004,7 @@
                 "display-fields",
                 "id-param",
                 "parent-title",
+                "navigation-role",
                 "link-placement",
                 "namespace",
                 "force"
@@ -2272,9 +2289,21 @@
                 "export": "buildUiTemplateContext"
               },
               "when": {
-                "option": "operations",
-                "in": [
-                  "list"
+                "all": [
+                  {
+                    "option": "operations",
+                    "in": [
+                      "list"
+                    ]
+                  },
+                  {
+                    "option": "navigation-role",
+                    "notIn": [
+                      "detail",
+                      "workflow",
+                      "none"
+                    ]
+                  }
                 ]
               }
             }
@@ -4210,6 +4239,14 @@
               "reason": "Install shell-driven general settings child page with a tiny browser-local shell preference example.",
               "category": "shell-web",
               "id": "shell-web-page-home-settings-general"
+            },
+            {
+              "from": "templates/tests/e2e/adaptive-shell.spec.ts",
+              "to": "tests/e2e/adaptive-shell.spec.ts",
+              "ownership": "app",
+              "reason": "Install compact/medium/expanded Playwright smoke coverage for the adaptive shell.",
+              "category": "shell-web",
+              "id": "shell-web-test-adaptive-shell-smoke"
             }
           ]
         }
@@ -4370,6 +4407,22 @@
             "promptLabel": "Link placement",
             "promptHint": "Optional semantic target for the generated page link placement (format: area.slot)."
           },
+          "navigation-role": {
+            "required": false,
+            "inputType": "text",
+            "validationType": "enum",
+            "allowedValues": [
+              "primary",
+              "secondary",
+              "utility",
+              "detail",
+              "workflow",
+              "none"
+            ],
+            "defaultValue": "primary",
+            "promptLabel": "Navigation role",
+            "promptHint": "Product navigation role for generated page links. primary uses normal inference, secondary maps to shell.secondary-nav, utility maps to shell.global-actions, and detail/workflow/none create no nav link."
+          },
           "link-to": {
             "required": false,
             "inputType": "text",
@@ -4457,6 +4510,7 @@
               ],
               "optionNames": [
                 "name",
+                "navigation-role",
                 "link-placement",
                 "link-to",
                 "force"
@@ -4558,7 +4612,7 @@
                     "npx jskit generate ui-generator add-subpages \\",
                     "  admin/customers/[customerId]/index.vue \\",
                     "  --title \"Customer\" \\",
-                    "  --subtitle \"View and manage this customer.\""
+                    "  --subtitle \"Customer profile and activity.\""
                   ]
                 },
                 {
@@ -6061,6 +6115,10 @@
               {
                 "subpath": "./client/components/AccountSettingsInvitesSection",
                 "summary": "Exports the default account invites section component used by multihoming installs."
+              },
+              {
+                "subpath": "./client/components/WorkspaceSettingsClientElement",
+                "summary": "Exports the workspace settings client element used by the workspace admin settings starter page."
               },
               {
                 "subpath": "./client/providers/WorkspacesWebClientProvider",

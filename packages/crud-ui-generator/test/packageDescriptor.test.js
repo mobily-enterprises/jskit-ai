@@ -23,6 +23,24 @@ test("crud-ui-generator parent-title option exposes structured enum metadata", (
   assert.equal(descriptor.metadata?.generatorSubcommands?.crud?.optionNames?.includes("parent-title"), true);
 });
 
+test("crud-ui-generator navigation-role option exposes product-aware placement metadata", () => {
+  assert.equal(descriptor.options?.["navigation-role"]?.validationType, "enum");
+  assert.deepEqual(
+    descriptor.options?.["navigation-role"]?.allowedValues,
+    ["primary", "secondary", "utility", "detail", "workflow", "none"]
+  );
+  assert.equal(descriptor.options?.["navigation-role"]?.defaultValue, "primary");
+  assert.equal(descriptor.metadata?.generatorSubcommands?.crud?.optionNames?.includes("navigation-role"), true);
+
+  const placementMutation = descriptor?.mutations?.text?.find(
+    (entry) => String(entry?.id || "").trim() === "crud-ui-placement-menu"
+  );
+  assert.deepEqual(placementMutation?.when?.all?.[1], {
+    option: "navigation-role",
+    notIn: ["detail", "workflow", "none"]
+  });
+});
+
 test("crud-ui-generator placement scaffold includes an explicit stock icon prop", () => {
   const placementMutation = descriptor?.mutations?.text?.find(
     (entry) => String(entry?.id || "").trim() === "crud-ui-placement-menu"

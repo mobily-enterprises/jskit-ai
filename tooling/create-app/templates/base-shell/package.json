@@ -23,6 +23,7 @@
     "lint": "eslint .",
     "test": "node --test",
     "test:client": "vitest run tests/client",
+    "test:e2e": "playwright test tests/e2e",
     "verify": "jskit app verify && npm run --if-present verify:app",
     "release": "jskit app release",
     "jskit:update": "jskit app update-packages"
@@ -44,6 +45,7 @@
     "@jskit-ai/agent-docs": "0.x",
     "@jskit-ai/config-eslint": "0.x",
     "@jskit-ai/jskit-cli": "0.x",
+    "@playwright/test": "^1.57.0",
     "@vitejs/plugin-vue": "^5.2.1",
     "eslint": "^9.39.1",
     "vite": "^6.1.0",

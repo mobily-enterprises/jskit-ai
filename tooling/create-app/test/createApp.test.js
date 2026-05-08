@@ -144,6 +144,7 @@ test("create-app scaffolds the base shell with placeholder replacements", async 
     assert.equal(packageJson.scripts.server, "node ./bin/server.js");
     assert.equal(packageJson.scripts.start, "node ./bin/server.js");
     assert.equal(packageJson.scripts.devlinks, "jskit app link-local-packages");
+    assert.equal(packageJson.scripts["test:e2e"], "playwright test tests/e2e");
     assert.equal(packageJson.scripts.verify, "jskit app verify && npm run --if-present verify:app");
     assert.equal(packageJson.scripts.release, "jskit app release");
     assert.equal(packageJson.scripts["jskit:update"], "jskit app update-packages");
@@ -156,6 +157,7 @@ test("create-app scaffolds the base shell with placeholder replacements", async 
     );
     assert.equal(packageJson.dependencies.pinia, "^3.0.4");
     assert.equal(packageJson.dependencies["@tanstack/vue-query"], "^5.90.5");
+    assert.equal(packageJson.devDependencies["@playwright/test"], "^1.57.0");
     await assert.rejects(access(path.join(appRoot, "scripts/copy-local-packages.sh")), /ENOENT/);
     await assert.rejects(access(path.join(appRoot, "scripts/link-local-jskit-packages.sh")), /ENOENT/);
     await assert.rejects(access(path.join(appRoot, "scripts/release.sh")), /ENOENT/);
@@ -193,6 +195,12 @@ test("create-app scaffolds the base shell with placeholder replacements", async 
 
     const clientSmoke = await readFile(path.join(appRoot, "tests/client/smoke.vitest.js"), "utf8");
     assert.match(clientSmoke, /sample-app client smoke/);
+    const e2eSmoke = await readFile(path.join(appRoot, "tests/e2e/base-shell.spec.ts"), "utf8");
+    assert.match(e2eSmoke, /generated base app responsive smoke/);
+    assert.match(e2eSmoke, /390/);
+    assert.match(e2eSmoke, /768/);
+    assert.match(e2eSmoke, /1280/);
+    assert.match(e2eSmoke, /scrollWidth/);
 
     const mainJs = await readFile(path.join(appRoot, "src/main.js"), "utf8");
     assert.match(mainJs, /import App from "\.\/App\.vue";/);
@@ -329,7 +337,9 @@ test("create-app scaffolds the base shell with placeholder replacements", async 
     await assert.rejects(access(path.join(appRoot, "src/pages/index.vue")), /ENOENT/);
     const homeView = await readFile(path.join(appRoot, "src/pages/home/index.vue"), "utf8");
     assert.doesNotMatch(homeView, /@jskit-ai\/shell-web/);
-    assert.match(homeView, /welcome/);
+    assert.match(homeView, /home-start-screen/);
+    assert.match(homeView, /Core app runtime is ready/);
+    assert.doesNotMatch(homeView, /<v-card\b|Start by adding packages/);
     assert.doesNotMatch(homeView, /const appTitle =/);
     await assert.rejects(access(path.join(appRoot, "src/pages/console.vue")), /ENOENT/);
     await assert.rejects(access(path.join(appRoot, "src/pages/console/index.vue")), /ENOENT/);
@@ -564,7 +574,8 @@ test("create-app applies explicit app title when --title is provided", async () 
     await assert.rejects(access(path.join(appRoot, "src/pages/index.vue")), /ENOENT/);
     const homeView = await readFile(path.join(appRoot, "src/pages/home/index.vue"), "utf8");
     assert.doesNotMatch(homeView, /@jskit-ai\/shell-web/);
-    assert.match(homeView, /welcome/);
+    assert.match(homeView, /home-start-screen/);
+    assert.doesNotMatch(homeView, /<v-card\b|Start by adding packages/);
   });
 });
 
@@ -667,7 +678,10 @@ test("fresh app CRUD scaffolds encode explicit M3 action hierarchy and stable se
     assert.doesNotMatch(placementSource, /to: "\.\/general"/);
 
     assert.match(listPageSource, /<v-btn color="primary" variant="tonal" :loading="records\.isFetching"/);
-    assert.match(listPageSource, /<v-btn v-if="UI_NEW_URL" color="primary" variant="flat"/);
+    assert.match(listPageSource, /v-if="listPrimaryAction"[\s\S]*color="primary"[\s\S]*variant="flat"[\s\S]*New Customer/);
+    assert.match(listPageSource, /v-if="listPrimaryAction"[\s\S]*class="ui-generator-list-fab d-md-none"/);
+    assert.match(listPageSource, /No Customers yet/);
+    assert.match(listPageSource, /Create the first Customer to start using this workflow\./);
     assert.match(listPageSource, /size="small"[\s\S]*color="primary"[\s\S]*variant="outlined"[\s\S]*>\s*Open/);
     assert.match(listPageSource, /size="small"[\s\S]*color="primary"[\s\S]*variant="tonal"[\s\S]*>\s*Edit/);
     assert.match(listPageSource, /<v-btn color="primary" variant="outlined" :loading="records\.isLoadingMore"/);

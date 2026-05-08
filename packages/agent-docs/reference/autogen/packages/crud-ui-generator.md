@@ -25,12 +25,16 @@ Local functions
 - `toSingularKebab(value = "")`
 - `toPluralKebab(value = "")`
 - `toTitleFromKebab(value = "", fallback = "")`
+- `buildCrudListCopy(resourceLabels = {})`
 - `normalizeRelativeAppPath(value = "")`
 - `requireTargetRootOption(options = {})`
 - `resolveListTargetFile(targetRoot = "")`
 - `parseOperationsOption(options)`
 - `parseDisplayFieldsOption(options)`
 - `parseParentTitleOption(options)`
+- `normalizeNavigationRole(value = "")`
+- `shouldCreateNavigationLink(options = {})`
+- `resolveNavigationRoleLinkPlacement(options = {})`
 - `validateDisplayFieldsForOperation(selectedFieldKeys, fields, operationName)`
 - `filterDisplayFields(selectedFieldKeys, fields)`
 - `rewriteGeneratedBlockIndent(source = "", { trimPrefix = "", addPrefix = "" } = {})`

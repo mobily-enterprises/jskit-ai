@@ -17,7 +17,7 @@
           variant="flat"
           :to="listPrimaryAction"
         >
-          New __JSKIT_UI_RESOURCE_SINGULAR_TITLE__
+          __JSKIT_UI_LIST_CREATE_LABEL__
         </v-btn>
       </div>
     </header>
@@ -47,18 +47,16 @@
         <v-progress-linear v-if="records.isRefetching" indeterminate />
 
         <div v-if="records.loadError" class="ui-generator-list-state">
-          <h2 class="text-h6 mb-2">Unable to load __JSKIT_UI_RESOURCE_PLURAL_TITLE__</h2>
-          <p class="text-body-2 text-medium-emphasis mb-4">Check the connection and try again.</p>
+          <h2 class="text-h6 mb-2">__JSKIT_UI_LIST_LOAD_ERROR_TITLE__</h2>
+          <p class="text-body-2 text-medium-emphasis mb-4">__JSKIT_UI_LIST_LOAD_ERROR_BODY__</p>
           <v-btn color="primary" variant="tonal" :loading="records.isFetching" @click="records.reload">Retry</v-btn>
         </div>
 
         <div v-else-if="records.items.length < 1" class="ui-generator-list-state">
-          <h2 class="text-h6 mb-2">No __JSKIT_UI_RESOURCE_PLURAL_TITLE__ yet</h2>
-          <p class="text-body-2 text-medium-emphasis mb-4">
-            Create the first __JSKIT_UI_RESOURCE_SINGULAR_TITLE__ to start using this workflow.
-          </p>
+          <h2 class="text-h6 mb-2">__JSKIT_UI_LIST_EMPTY_TITLE__</h2>
+          <p class="text-body-2 text-medium-emphasis mb-4">__JSKIT_UI_LIST_EMPTY_BODY__</p>
           <v-btn v-if="listPrimaryAction" color="primary" variant="flat" :to="listPrimaryAction">
-            New __JSKIT_UI_RESOURCE_SINGULAR_TITLE__
+            __JSKIT_UI_LIST_CREATE_LABEL__
           </v-btn>
         </div>
 

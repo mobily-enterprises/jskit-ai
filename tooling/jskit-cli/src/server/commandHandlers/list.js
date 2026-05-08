@@ -203,6 +203,35 @@ function appendPlacementLayoutDetails(lines, placementTarget = {}, color) {
   }
 }
 
+function collectMappedConcreteOutletIds(semanticPlacements = []) {
+  const mapped = new Set();
+  for (const placementTarget of ensureArray(semanticPlacements)) {
+    const variants = ensureObject(placementTarget.variants);
+    for (const layoutClass of PLACEMENT_LAYOUT_CLASSES) {
+      const variant = ensureObject(variants[layoutClass]);
+      const outlet = String(variant.outlet || "").trim();
+      if (outlet) {
+        mapped.add(outlet);
+      }
+    }
+  }
+  return mapped;
+}
+
+function resolveUnmappedConcreteTargets({
+  semanticPlacements = [],
+  concreteTargets = []
+} = {}) {
+  const mappedConcreteOutletIds = collectMappedConcreteOutletIds(semanticPlacements);
+  return ensureArray(concreteTargets)
+    .map((entry) => ensureObject(entry))
+    .filter((entry) => {
+      const id = String(entry.id || "").trim();
+      return id && !mappedConcreteOutletIds.has(id);
+    })
+    .sort((left, right) => String(left.id || "").localeCompare(String(right.id || "")));
+}
+
 function formatPlacementGuidanceLine(line = "", color) {
   const guidanceLine = String(line || "").trim();
   const labelMatch = /^([^:]+):\s*(.*)$/u.exec(guidanceLine);
@@ -245,6 +274,35 @@ function appendPlacementGroup(lines, {
     if (showLayoutDetails) {
       appendPlacementLayoutDetails(lines, placementTarget, color);
     }
+  }
+}
+
+function appendUnmappedConcreteTargetWarnings(lines, {
+  color,
+  concreteTargets = []
+} = {}) {
+  const targets = ensureArray(concreteTargets);
+  if (targets.length < 1) {
+    return;
+  }
+
+  if (lines.length > 1) {
+    lines.push("");
+  }
+  lines.push(color.heading("Unmapped concrete outlets:"));
+  lines.push(
+    "These concrete ShellOutlet recipients are discoverable but are not reached by semantic topology. Add a semantic mapping or keep them private/internal."
+  );
+  lines.push(
+    color.dim(
+      "Format: npx jskit generate ui-generator topology --placement <area.slot> --kind <link|component> --compact-target <host:position> --medium-target <host:position> --expanded-target <host:position>"
+    )
+  );
+  for (const placementTarget of targets) {
+    const placementId = String(placementTarget.id || "").trim();
+    const sourcePath = String(placementTarget.sourcePath || "").trim();
+    const sourceLabel = sourcePath ? ` ${color.dim(`[${sourcePath}]`)}` : "";
+    lines.push(`- ${color.item(placementId)}${sourceLabel}`);
   }
 }
 
@@ -711,7 +769,7 @@ function createListCommands(ctx = {}) {
     const showConcrete = options.concrete === true || options.all === true;
     const showSemantic = showConcreteOnly !== true;
     const showLayoutDetails = options.details === true;
-    const shouldLookupHostPaths = showSemantic && options.json !== true;
+    const shouldLookupHostPaths = showSemantic;
     const discoveredTopology = await discoverPlacementTopologyFromApp({ appRoot });
     const semanticPlacements = ensureArray(discoveredTopology.placements)
       .map((entry) => ensureObject(entry))
@@ -739,6 +797,12 @@ function createListCommands(ctx = {}) {
       .map((entry) => ensureObject(entry))
       .filter((entry) => String(entry.id || "").trim())
       .sort((left, right) => String(left.id || "").localeCompare(String(right.id || "")));
+    const unmappedConcreteTargets = showSemantic
+      ? resolveUnmappedConcreteTargets({
+        semanticPlacements,
+        concreteTargets
+      })
+      : [];
 
     if (options.json) {
       const payload = {
@@ -759,7 +823,12 @@ function createListCommands(ctx = {}) {
             default: placementTarget.default === true,
             sourcePath: String(placementTarget.sourcePath || "").trim()
           }))
-          : []
+          : [],
+        unmappedConcretePlacements: unmappedConcreteTargets.map((placementTarget) => ({
+          target: String(placementTarget.id || "").trim(),
+          default: placementTarget.default === true,
+          sourcePath: String(placementTarget.sourcePath || "").trim()
+        }))
       };
       stdout.write(`${JSON.stringify(payload, null, 2)}\n`);
       return 0;
@@ -780,6 +849,10 @@ function createListCommands(ctx = {}) {
           showLayoutDetails
         });
       }
+      appendUnmappedConcreteTargetWarnings(lines, {
+        color,
+        concreteTargets: unmappedConcreteTargets
+      });
     }
 
     if (showConcrete) {

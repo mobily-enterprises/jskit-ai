@@ -767,7 +767,9 @@ test("generate @jskit-ai/ui-generator placed-element overwrites an existing comp
     assert.equal(result.status, 0, String(result.stderr || ""));
 
     const componentSource = await readFile(componentPath, "utf8");
-    assert.match(componentSource, /<h2 class="text-h6 mb-2">Ops Panel<\/h2>/);
+    assert.match(componentSource, /<section class="generated-element-panel">/);
+    assert.match(componentSource, /<h2 class="text-subtitle-1 font-weight-medium mb-0">Ops Panel<\/h2>/);
+    assert.match(componentSource, /min-height:\s*48px/);
   });
 });
 
