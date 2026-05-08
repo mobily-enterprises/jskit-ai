@@ -119,7 +119,8 @@ function createRepository({ api, knex } = {}) {
         workspace: normalizedWorkspaceId,
         user: normalizedUserId
       },
-      options
+      options,
+      { include: ["workspace", "user"] }
     );
 
     return normalizeMembershipRecord(rows[0] || null);
@@ -289,13 +290,17 @@ function createRepository({ api, knex } = {}) {
       return [];
     }
 
-    const rows = await queryMemberships({
-      user: normalizedUserId,
-      status: "active"
-    }, options);
+    const rows = await queryMemberships(
+      {
+        user: normalizedUserId,
+        status: "active"
+      },
+      options,
+      { include: ["workspace"] }
+    );
 
     return rows
-      .map((row) => normalizeDbRecordId(row?.workspaceId, { fallback: null }))
+      .map((row) => normalizeDbRecordId(row?.workspace?.id || row?.workspaceId, { fallback: null }))
       .filter(Boolean);
   }
 

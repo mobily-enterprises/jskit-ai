@@ -75,6 +75,7 @@ test("shell-web shell layout registers navigation at the app layout level", asyn
   assert.match(source, /data-testid="jskit-shell-supporting-side-panel"/);
   assert.match(source, /inject\("jskit\.shell-web\.runtime\.web-refresh\.client", null\)/);
   assert.match(source, /window\.addEventListener\("pointerdown", handlePullPointerDown/);
+  assert.match(source, /window\.addEventListener\("touchmove", handlePullTouchMove/);
   assert.match(source, /refreshRuntime\.refresh\("pull-to-refresh"\)/);
   assert.match(source, /data-testid="jskit-shell-pull-refresh"/);
   assert.match(source, /target="shell-layout:primary-menu"[\s\S]*default/);

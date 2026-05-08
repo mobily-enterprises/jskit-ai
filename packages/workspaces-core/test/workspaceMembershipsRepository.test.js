@@ -24,12 +24,10 @@ function asCollectionDocument(rows = []) {
 function toWorkspaceMembershipRow(row = {}) {
   return {
     id: String(row.id || ""),
-    workspaceId: row?.workspace?.id == null ? null : String(row.workspace.id),
     workspace: row?.workspace?.id == null ? null : {
       ...row.workspace,
       id: String(row.workspace.id)
     },
-    userId: row?.user?.id == null ? null : String(row.user.id),
     user: row?.user?.id == null
       ? null
       : {
@@ -63,8 +61,16 @@ function createWorkspaceMembershipsApiStub({
           const includeUser = Array.isArray(queryParams?.include) && queryParams.include.includes("user");
 
           if (Object.hasOwn(filters, "workspace") && Object.hasOwn(filters, "user")) {
+            const includeWorkspace = Array.isArray(queryParams?.include) && queryParams.include.includes("workspace");
+            const includeUser = Array.isArray(queryParams?.include) && queryParams.include.includes("user");
             const row = rowByComposite.get(`${filters.workspace}:${filters.user}`) || null;
-            return asCollectionDocument(row ? [toWorkspaceMembershipRow(row)] : []);
+            return asCollectionDocument(row
+              ? [toWorkspaceMembershipRow({
+                  ...row,
+                  workspace: includeWorkspace ? row.workspace : null,
+                  user: includeUser ? row.user : null
+                })]
+              : []);
           }
 
           if (Object.hasOwn(filters, "workspace") && Object.hasOwn(filters, "status") && includeUser) {
@@ -86,8 +92,7 @@ function createWorkspaceMembershipsApiStub({
                 ...toWorkspaceMembershipRow({
                   ...row,
                   workspace: null
-                }),
-                workspaceId: row?.workspace?.id == null ? null : String(row.workspace.id)
+                })
               };
             }));
           }
@@ -277,7 +282,8 @@ test("workspaceMembershipsRepository.listActiveWorkspaceIdsByUserId returns norm
       filters: {
         user: "9",
         status: "active"
-      }
+      },
+      include: ["workspace"]
     }
   ]);
 });
