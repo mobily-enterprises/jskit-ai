@@ -1,7 +1,10 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { createPinia } from "pinia";
-import { ShellWebClientProvider } from "../src/client/providers/ShellWebClientProvider.js";
+import {
+  ShellWebClientProvider,
+  resolveAppPlacementTopologyExport
+} from "../src/client/providers/ShellWebClientProvider.js";
 import { useShellErrorPresentationStore } from "../src/client/stores/useShellErrorPresentationStore.js";
 const CLIENT_APP_CONFIG_GLOBAL_KEY = "__JSKIT_CLIENT_APP_CONFIG__";
 
@@ -124,6 +127,32 @@ async function withFetchImplementation(fetchImplementation, callback) {
     }
   }
 }
+
+test("shell web client provider preserves append-only placement topology object exports", () => {
+  const warnings = [];
+  const topology = {
+    placements: [
+      {
+        id: "shell.primary-nav",
+        surfaces: ["*"],
+        variants: {
+          compact: { outlet: "shell-layout:primary-menu" },
+          medium: { outlet: "shell-layout:primary-menu" },
+          expanded: { outlet: "shell-layout:primary-menu" }
+        }
+      }
+    ]
+  };
+
+  const resolved = resolveAppPlacementTopologyExport(topology, {
+    warn(payload, message) {
+      warnings.push({ payload, message });
+    }
+  });
+
+  assert.equal(resolved, topology);
+  assert.deepEqual(warnings, []);
+});
 
 test("shell web client provider binds runtime and injects it into Vue app", async () => {
   await withFetchStub({ surfaceAccess: {} }, async () => {

@@ -332,10 +332,10 @@ The placement entry is just a normal shell link:
 ```js
 addPlacement({
   id: "ui-generator.page.home.reports.link",
-  target: "shell-layout:primary-menu",
+  target: "shell.primary-nav",
+  kind: "link",
   surfaces: ["home"],
   order: 155,
-  componentToken: "local.main.ui.surface-aware-menu-link-item",
   props: {
     label: "Reports",
     surface: "home",
@@ -403,10 +403,10 @@ To hide the `Reports` menu entry until the user is logged in, update the placeme
 ```js
 addPlacement({
   id: "ui-generator.page.home.reports.link",
-  target: "shell-layout:primary-menu",
+  target: "shell.primary-nav",
+  kind: "link",
   surfaces: ["home"],
   order: 155,
-  componentToken: "local.main.ui.surface-aware-menu-link-item",
   props: {
     label: "Reports",
     surface: "home",
@@ -619,7 +619,8 @@ Authentication also becomes visible in the shell through `src/placement.js`:
 ```js
 addPlacement({
   id: "auth.profile.widget",
-  target: "shell-layout:top-right",
+  target: "shell.status",
+  kind: "component",
   surfaces: ["*"],
   order: 1000,
   componentToken: "auth.web.profile.widget"
@@ -627,10 +628,10 @@ addPlacement({
 
 addPlacement({
   id: "auth.profile.menu.sign-in",
-  target: "auth-profile-menu:primary-menu",
+  target: "auth.profile-menu",
+  kind: "link",
   surfaces: ["*"],
   order: 200,
-  componentToken: "auth.web.profile.menu.link-item",
   props: {
     label: "Sign in",
     to: "/auth/login"
@@ -640,10 +641,10 @@ addPlacement({
 
 addPlacement({
   id: "auth.profile.menu.sign-out",
-  target: "auth-profile-menu:primary-menu",
+  target: "auth.profile-menu",
+  kind: "link",
   surfaces: ["*"],
   order: 1000,
-  componentToken: "auth.web.profile.menu.link-item",
   props: {
     label: "Sign out",
     to: "/auth/signout"

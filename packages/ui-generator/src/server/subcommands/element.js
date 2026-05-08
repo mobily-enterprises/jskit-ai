@@ -3,7 +3,7 @@ import { mkdir, readFile, writeFile } from "node:fs/promises";
 import {
   listSurfacePageRoots,
   resolveBestSurfaceMatchFromPageFile,
-  resolveShellOutletPlacementTargetFromApp,
+  resolveSemanticPlacementTargetFromApp,
   toPosixPath
 } from "@jskit-ai/kernel/server/support";
 import { normalizeSurfaceId } from "@jskit-ai/kernel/shared/surface";
@@ -22,7 +22,7 @@ import {
   insertBeforeClassDeclaration
 } from "./support.js";
 
-const DEFAULT_ELEMENT_PLACEMENT = "shell-layout:top-right";
+const DEFAULT_ELEMENT_PLACEMENT = "shell.status";
 
 function renderElementComponentSource(elementName = "") {
   return `<template>
@@ -41,14 +41,28 @@ async function resolvePlacedElementSurface({
   context = "ui-generator placed-element"
 } = {}) {
   const explicitSurface = normalizeSurfaceId(surface);
+  const placementSurfaces = Array.isArray(placementTarget?.surfaces)
+    ? placementTarget.surfaces.map((entry) => normalizeSurfaceId(entry)).filter(Boolean)
+    : [];
+  const isPlacementGlobal = placementSurfaces.length < 1 || placementSurfaces.includes("*");
+  const concreteSourcePath = normalizeText(placementTarget?.sourcePath).startsWith("src/")
+    ? normalizeText(placementTarget?.sourcePath)
+    : "";
   const inferredSurfaceMatch = await resolveBestSurfaceMatchFromPageFile(
-    String(placementTarget?.sourcePath || ""),
+    concreteSourcePath,
     await listSurfacePageRoots(appRoot, { context }),
     { context }
   );
-  const inferredSurface = normalizeSurfaceId(inferredSurfaceMatch?.surfaceId);
+  const inferredSurface =
+    normalizeSurfaceId(inferredSurfaceMatch?.surfaceId) ||
+    (placementSurfaces.length === 1 && !isPlacementGlobal ? placementSurfaces[0] : "");
 
   if (explicitSurface) {
+    if (!isPlacementGlobal && placementSurfaces.length > 0 && !placementSurfaces.includes(explicitSurface)) {
+      throw new Error(
+        `${context} target "${normalizeText(placementTarget?.id) || "<unknown>"}" is not available on surface "${explicitSurface}".`
+      );
+    }
     if (inferredSurface && explicitSurface !== inferredSurface) {
       throw new Error(
         `${context} target "${normalizeText(placementTarget?.id) || "<unknown>"}" belongs to surface "${inferredSurface}", ` +
@@ -89,7 +103,7 @@ async function runGeneratorSubcommand({
   if (Array.isArray(args) && args.length > 0) {
     throw new Error("ui-generator placed-element does not accept positional arguments.");
   }
-  rejectUnexpectedOptions(options, ["name", "surface", "path", "placement", "force"], {
+  rejectUnexpectedOptions(options, ["name", "surface", "path", "placement", "owner", "force"], {
     context: "ui-generator placed-element"
   });
 
@@ -115,10 +129,11 @@ async function runGeneratorSubcommand({
     context: "ui-generator placed-element"
   });
   const componentToken = `local.main.ui.element.${elementNameKebab}`;
-  const placementTarget = await resolveShellOutletPlacementTargetFromApp({
+  const placementTarget = await resolveSemanticPlacementTargetFromApp({
     appRoot,
     context: "ui-generator",
-    placement: options?.placement || DEFAULT_ELEMENT_PLACEMENT
+    placement: options?.placement || DEFAULT_ELEMENT_PLACEMENT,
+    owner: options?.owner
   });
   const surface = await resolvePlacedElementSurface({
     appRoot,
@@ -179,12 +194,15 @@ async function runGeneratorSubcommand({
 
   const placementSource = await readFile(placementPath.absolutePath, "utf8");
   const placementMarker = `jskit:ui-generator.element:${surface}:${elementNameKebab}`;
+  const ownerLine = placementTarget.owner ? `    owner: "${placementTarget.owner}",\n` : "";
   const placementBlock =
     `// ${placementMarker}\n` +
     "{\n" +
     "  addPlacement({\n" +
     `    id: "ui-generator.element.${elementNameKebab}",\n` +
     `    target: "${placementTarget.id}",\n` +
+    ownerLine +
+    `    kind: "component",\n` +
     `    surfaces: ["${surface}"],\n` +
     "    order: 155,\n" +
     `    componentToken: "${componentToken}"\n` +

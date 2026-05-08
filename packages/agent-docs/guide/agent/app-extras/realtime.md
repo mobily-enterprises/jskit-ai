@@ -166,7 +166,8 @@ The package appends this placement:
 ```js
 addPlacement({
   id: "realtime.connection.indicator",
-  target: "shell-layout:top-right",
+  target: "shell.status",
+  kind: "component",
   surfaces: ["*"],
   order: 950,
   componentToken: "realtime.web.connection.indicator"

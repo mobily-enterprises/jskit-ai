@@ -7,10 +7,6 @@ const props = defineProps({
     type: String,
     required: true
   },
-  defaultLinkComponentToken: {
-    type: String,
-    default: ""
-  },
   icon: {
     type: String,
     default: mdiCogOutline
@@ -48,10 +44,7 @@ const props = defineProps({
     </template>
 
     <v-list :min-width="props.minWidth" density="comfortable" class="py-1">
-      <ShellOutlet
-        :target="props.target"
-        :default-link-component-token="props.defaultLinkComponentToken"
-      />
+      <ShellOutlet :target="props.target" />
     </v-list>
   </v-menu>
 </template>

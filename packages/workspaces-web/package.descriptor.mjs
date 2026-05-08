@@ -1,7 +1,7 @@
 export default Object.freeze({
   packageVersion: 1,
   packageId: "@jskit-ai/workspaces-web",
-  version: "0.1.41",
+  version: "0.1.42",
   kind: "runtime",
   description: "Workspace web module: workspace selector, tools widget, workspace surfaces, and members/settings UI.",
   dependsOn: [
@@ -69,39 +69,93 @@ export default Object.freeze({
         outlets: [
           {
             target: "admin-settings:primary-menu",
-            defaultLinkComponentToken: "local.main.ui.surface-aware-menu-link-item",
             surfaces: ["admin"],
             source: "templates/src/pages/admin/workspace/settings.vue"
           },
           {
             target: "admin-cog:primary-menu",
-            defaultLinkComponentToken: "local.main.ui.surface-aware-menu-link-item",
             surfaces: ["admin"],
             source: "src/client/components/UsersWorkspaceToolsWidget.vue"
           }
         ],
+        topology: {
+          placements: [
+            {
+              id: "page.section-nav",
+              owner: "admin-settings",
+              description: "Navigation between workspace admin settings child pages.",
+              surfaces: ["admin"],
+              variants: {
+                compact: {
+                  outlet: "admin-settings:primary-menu",
+                  renderers: {
+                    link: "local.main.ui.surface-aware-menu-link-item"
+                  }
+                },
+                medium: {
+                  outlet: "admin-settings:primary-menu",
+                  renderers: {
+                    link: "local.main.ui.surface-aware-menu-link-item"
+                  }
+                },
+                expanded: {
+                  outlet: "admin-settings:primary-menu",
+                  renderers: {
+                    link: "local.main.ui.surface-aware-menu-link-item"
+                  }
+                }
+              }
+            },
+            {
+              id: "admin.tools-menu",
+              description: "Admin surface tools menu actions.",
+              surfaces: ["admin"],
+              variants: {
+                compact: {
+                  outlet: "admin-cog:primary-menu",
+                  renderers: {
+                    link: "local.main.ui.surface-aware-menu-link-item"
+                  }
+                },
+                medium: {
+                  outlet: "admin-cog:primary-menu",
+                  renderers: {
+                    link: "local.main.ui.surface-aware-menu-link-item"
+                  }
+                },
+                expanded: {
+                  outlet: "admin-cog:primary-menu",
+                  renderers: {
+                    link: "local.main.ui.surface-aware-menu-link-item"
+                  }
+                }
+              }
+            }
+          ]
+        },
         contributions: [
           {
             id: "workspaces.workspace.menu.app",
-            target: "shell-layout:primary-menu",
+            target: "shell.primary-nav",
+            kind: "link",
             surfaces: ["app"],
             order: 50,
-            componentToken: "local.main.ui.surface-aware-menu-link-item",
             when: "auth.authenticated === true",
             source: "mutations.text#workspaces-web-placement-block"
           },
           {
             id: "workspaces.workspace.menu.admin",
-            target: "shell-layout:primary-menu",
+            target: "shell.primary-nav",
+            kind: "link",
             surfaces: ["admin"],
             order: 60,
-            componentToken: "local.main.ui.surface-aware-menu-link-item",
             when: "auth.authenticated === true",
             source: "mutations.text#workspaces-web-placement-block"
           },
           {
             id: "workspaces.profile.menu.surface-switch",
-            target: "auth-profile-menu:primary-menu",
+            target: "auth.profile-menu",
+            kind: "component",
             surfaces: ["*"],
             order: 100,
             componentToken: "workspaces.web.profile.menu.surface-switch-item",
@@ -110,7 +164,8 @@ export default Object.freeze({
           },
           {
             id: "workspaces.workspace.selector",
-            target: "shell-layout:top-left",
+            target: "shell.identity",
+            kind: "component",
             surfaces: ["*"],
             order: 200,
             componentToken: "workspaces.web.workspace.selector",
@@ -119,7 +174,8 @@ export default Object.freeze({
           },
           {
             id: "workspaces.account.invites.cue",
-            target: "shell-layout:top-right",
+            target: "shell.status",
+            kind: "component",
             surfaces: ["*"],
             order: 850,
             componentToken: "local.main.account.pending-invites.cue",
@@ -128,7 +184,9 @@ export default Object.freeze({
           },
           {
             id: "workspaces.account.settings.invites",
-            target: "account-settings:sections",
+            target: "settings.sections",
+            owner: "account-settings",
+            kind: "component",
             surfaces: ["account"],
             order: 400,
             componentToken: "local.main.account-settings.section.invites",
@@ -137,7 +195,8 @@ export default Object.freeze({
           },
           {
             id: "workspaces.workspace.tools.widget",
-            target: "shell-layout:top-right",
+            target: "shell.status",
+            kind: "component",
             surfaces: ["admin"],
             order: 900,
             componentToken: "workspaces.web.workspace.tools.widget",
@@ -145,7 +204,8 @@ export default Object.freeze({
           },
           {
             id: "workspaces.workspace.menu.workspace-settings",
-            target: "admin-cog:primary-menu",
+            target: "admin.tools-menu",
+            kind: "component",
             surfaces: ["admin"],
             order: 100,
             componentToken: "workspaces.web.workspace-settings.menu-item",
@@ -153,7 +213,8 @@ export default Object.freeze({
           },
           {
             id: "workspaces.workspace.menu.members",
-            target: "admin-cog:primary-menu",
+            target: "admin.tools-menu",
+            kind: "component",
             surfaces: ["admin"],
             order: 200,
             componentToken: "workspaces.web.workspace-members.menu-item",
@@ -166,8 +227,8 @@ export default Object.freeze({
   mutations: {
     dependencies: {
       runtime: {
-        "@jskit-ai/workspaces-core": "0.1.41",
-        "@jskit-ai/users-web": "0.1.80",
+        "@jskit-ai/workspaces-core": "0.1.42",
+        "@jskit-ai/users-web": "0.1.81",
         "vuetify": "^4.0.0"
       },
       dev: {}
@@ -310,7 +371,7 @@ export default Object.freeze({
         position: "bottom",
         skipIfContains: "id: \"workspaces.profile.menu.surface-switch\"",
         value:
-          "\naddPlacement({\n  id: \"workspaces.profile.menu.surface-switch\",\n  target: \"auth-profile-menu:primary-menu\",\n  surfaces: [\"*\"],\n  order: 100,\n  componentToken: \"workspaces.web.profile.menu.surface-switch-item\",\n  when: ({ auth }) => auth?.authenticated === true\n});\n",
+          "\naddPlacement({\n  id: \"workspaces.profile.menu.surface-switch\",\n  target: \"auth.profile-menu\",\n  kind: \"component\",\n  surfaces: [\"*\"],\n  order: 100,\n  componentToken: \"workspaces.web.profile.menu.surface-switch-item\",\n  when: ({ auth }) => auth?.authenticated === true\n});\n",
         reason: "Append workspaces-web profile surface switch placement into app-owned placement registry.",
         category: "workspaces-web",
         id: "workspaces-web-profile-surface-switch-placement",
@@ -324,10 +385,24 @@ export default Object.freeze({
         file: "src/placement.js",
         position: "bottom",
         skipIfContains: "id: \"workspaces.workspace.selector\"",
-        value: "\naddPlacement({\n  id: \"workspaces.workspace.menu.app\",\n  target: \"shell-layout:primary-menu\",\n  surfaces: [\"app\"],\n  order: 50,\n  componentToken: \"local.main.ui.surface-aware-menu-link-item\",\n  props: {\n    label: \"Home\",\n    surface: \"app\",\n    scopedSuffix: \"/\",\n    unscopedSuffix: \"/\",\n    exact: true\n  },\n  when: ({ auth }) => auth?.authenticated === true\n});\n\naddPlacement({\n  id: \"workspaces.workspace.menu.admin\",\n  target: \"shell-layout:primary-menu\",\n  surfaces: [\"admin\"],\n  order: 60,\n  componentToken: \"local.main.ui.surface-aware-menu-link-item\",\n  props: {\n    label: \"Home\",\n    surface: \"admin\",\n    scopedSuffix: \"/\",\n    unscopedSuffix: \"/\",\n    exact: true\n  },\n  when: ({ auth }) => auth?.authenticated === true\n});\n\naddPlacement({\n  id: \"workspaces.workspace.selector\",\n  target: \"shell-layout:top-left\",\n  surfaces: [\"*\"],\n  order: 200,\n  componentToken: \"workspaces.web.workspace.selector\",\n  props: {\n    allowOnNonWorkspaceSurface: true,\n    targetSurfaceId: \"app\"\n  },\n  when: ({ auth }) => auth?.authenticated === true\n});\n\naddPlacement({\n  id: \"workspaces.account.invites.cue\",\n  target: \"shell-layout:top-right\",\n  surfaces: [\"*\"],\n  order: 850,\n  componentToken: \"local.main.account.pending-invites.cue\",\n  when: ({ auth }) => auth?.authenticated === true\n});\n\naddPlacement({\n  id: \"workspaces.workspace.tools.widget\",\n  target: \"shell-layout:top-right\",\n  surfaces: [\"admin\"],\n  order: 900,\n  componentToken: \"workspaces.web.workspace.tools.widget\"\n});\n\naddPlacement({\n  id: \"workspaces.workspace.menu.workspace-settings\",\n  target: \"admin-cog:primary-menu\",\n  surfaces: [\"admin\"],\n  order: 100,\n  componentToken: \"workspaces.web.workspace-settings.menu-item\"\n});\n\naddPlacement({\n  id: \"workspaces.workspace.menu.members\",\n  target: \"admin-cog:primary-menu\",\n  surfaces: [\"admin\"],\n  order: 200,\n  componentToken: \"workspaces.web.workspace-members.menu-item\"\n});\n",
+        value: "\naddPlacement({\n  id: \"workspaces.workspace.menu.app\",\n  target: \"shell.primary-nav\",\n  kind: \"link\",\n  surfaces: [\"app\"],\n  order: 50,\n  props: {\n    label: \"Home\",\n    surface: \"app\",\n    scopedSuffix: \"/\",\n    unscopedSuffix: \"/\",\n    exact: true\n  },\n  when: ({ auth }) => auth?.authenticated === true\n});\n\naddPlacement({\n  id: \"workspaces.workspace.menu.admin\",\n  target: \"shell.primary-nav\",\n  kind: \"link\",\n  surfaces: [\"admin\"],\n  order: 60,\n  props: {\n    label: \"Home\",\n    surface: \"admin\",\n    scopedSuffix: \"/\",\n    unscopedSuffix: \"/\",\n    exact: true\n  },\n  when: ({ auth }) => auth?.authenticated === true\n});\n\naddPlacement({\n  id: \"workspaces.workspace.selector\",\n  target: \"shell.identity\",\n  kind: \"component\",\n  surfaces: [\"*\"],\n  order: 200,\n  componentToken: \"workspaces.web.workspace.selector\",\n  props: {\n    allowOnNonWorkspaceSurface: true,\n    targetSurfaceId: \"app\"\n  },\n  when: ({ auth }) => auth?.authenticated === true\n});\n\naddPlacement({\n  id: \"workspaces.account.invites.cue\",\n  target: \"shell.status\",\n  kind: \"component\",\n  surfaces: [\"*\"],\n  order: 850,\n  componentToken: \"local.main.account.pending-invites.cue\",\n  when: ({ auth }) => auth?.authenticated === true\n});\n\naddPlacement({\n  id: \"workspaces.workspace.tools.widget\",\n  target: \"shell.status\",\n  kind: \"component\",\n  surfaces: [\"admin\"],\n  order: 900,\n  componentToken: \"workspaces.web.workspace.tools.widget\"\n});\n\naddPlacement({\n  id: \"workspaces.workspace.menu.workspace-settings\",\n  target: \"admin.tools-menu\",\n  kind: \"component\",\n  surfaces: [\"admin\"],\n  order: 100,\n  componentToken: \"workspaces.web.workspace-settings.menu-item\"\n});\n\naddPlacement({\n  id: \"workspaces.workspace.menu.members\",\n  target: \"admin.tools-menu\",\n  kind: \"component\",\n  surfaces: [\"admin\"],\n  order: 200,\n  componentToken: \"workspaces.web.workspace-members.menu-item\"\n});\n",
         reason: "Append workspace placement entries into app-owned placement registry.",
         category: "workspaces-web",
         id: "workspaces-web-placement-block",
+        when: {
+          config: "tenancyMode",
+          in: ["personal", "workspaces"]
+        }
+      },
+      {
+        op: "append-text",
+        file: "src/placementTopology.js",
+        position: "bottom",
+        skipIfContains: "id: \"admin.tools-menu\"",
+        value: "\naddPlacementTopology({\n  id: \"page.section-nav\",\n  owner: \"admin-settings\",\n  description: \"Navigation between workspace admin settings child pages.\",\n  surfaces: [\"admin\"],\n  variants: {\n    compact: {\n      outlet: \"admin-settings:primary-menu\",\n      renderers: {\n        link: \"local.main.ui.surface-aware-menu-link-item\"\n      }\n    },\n    medium: {\n      outlet: \"admin-settings:primary-menu\",\n      renderers: {\n        link: \"local.main.ui.surface-aware-menu-link-item\"\n      }\n    },\n    expanded: {\n      outlet: \"admin-settings:primary-menu\",\n      renderers: {\n        link: \"local.main.ui.surface-aware-menu-link-item\"\n      }\n    }\n  }\n});\n\naddPlacementTopology({\n  id: \"admin.tools-menu\",\n  description: \"Admin surface tools menu actions.\",\n  surfaces: [\"admin\"],\n  variants: {\n    compact: {\n      outlet: \"admin-cog:primary-menu\",\n      renderers: {\n        link: \"local.main.ui.surface-aware-menu-link-item\"\n      }\n    },\n    medium: {\n      outlet: \"admin-cog:primary-menu\",\n      renderers: {\n        link: \"local.main.ui.surface-aware-menu-link-item\"\n      }\n    },\n    expanded: {\n      outlet: \"admin-cog:primary-menu\",\n      renderers: {\n        link: \"local.main.ui.surface-aware-menu-link-item\"\n      }\n    }\n  }\n});\n",
+        reason: "Append workspaces-web admin semantic topology into app-owned placement topology.",
+        category: "workspaces-web",
+        id: "workspaces-web-admin-placement-topology",
         when: {
           config: "tenancyMode",
           in: ["personal", "workspaces"]
@@ -339,7 +414,7 @@ export default Object.freeze({
         position: "bottom",
         skipIfContains: "id: \"workspaces.account.settings.invites\"",
         value:
-          "\naddPlacement({\n  id: \"workspaces.account.settings.invites\",\n  target: \"account-settings:sections\",\n  surfaces: [\"account\"],\n  order: 400,\n  componentToken: \"local.main.account-settings.section.invites\",\n  props: {\n    title: \"Invites\",\n    value: \"invites\",\n    usesSharedRuntime: false\n  },\n  when: ({ auth, workspaceInvitesEnabled }) => auth?.authenticated === true && workspaceInvitesEnabled === true\n});\n",
+          "\naddPlacement({\n  id: \"workspaces.account.settings.invites\",\n  target: \"settings.sections\",\n  owner: \"account-settings\",\n  kind: \"component\",\n  surfaces: [\"account\"],\n  order: 400,\n  componentToken: \"local.main.account-settings.section.invites\",\n  props: {\n    title: \"Invites\",\n    value: \"invites\",\n    usesSharedRuntime: false\n  },\n  when: ({ auth, workspaceInvitesEnabled }) => auth?.authenticated === true && workspaceInvitesEnabled === true\n});\n",
         reason: "Append workspaces-web account settings invites section placement into app-owned placement registry.",
         category: "workspaces-web",
         id: "workspaces-web-account-settings-placement",

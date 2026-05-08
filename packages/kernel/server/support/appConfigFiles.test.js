@@ -47,6 +47,21 @@ test("loadAppConfigFromAppRoot merges public and server config", async () => {
   assert.equal(Object.isFrozen(loaded), true);
 });
 
+test("loadAppConfigFromAppRoot re-reads config changes within the same process", async () => {
+  const tempRoot = await mkdtemp(path.join(os.tmpdir(), "kernel-app-config-"));
+  const appRoot = path.join(tempRoot, "app");
+  const publicConfigPath = path.join(appRoot, "config", "public.js");
+  await mkdir(path.dirname(publicConfigPath), { recursive: true });
+  await writeFile(publicConfigPath, "export const config = { mobile: { enabled: false } };", "utf8");
+
+  const firstLoaded = await loadAppConfigFromAppRoot({ appRoot });
+  await writeFile(publicConfigPath, "export const config = { mobile: { enabled: true } };", "utf8");
+  const secondLoaded = await loadAppConfigFromAppRoot({ appRoot });
+
+  assert.equal(firstLoaded.mobile.enabled, false);
+  assert.equal(secondLoaded.mobile.enabled, true);
+});
+
 test("loadAppConfigFromAppRoot requires an explicit appRoot", async () => {
   await assert.rejects(
     loadAppConfigFromAppRoot({ appRoot: "" }),

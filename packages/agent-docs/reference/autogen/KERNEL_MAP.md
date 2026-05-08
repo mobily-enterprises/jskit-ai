@@ -233,14 +233,26 @@ Local functions
 
 ### `support/shellLayoutTargets.js`
 Exports
+- `PLACEMENT_LAYOUT_CLASSES`
 - `describeShellOutletTargets(targets = [])`
 - `discoverShellOutletTargetsFromVueSource(source = "", { context = "shell layout" } = {})`
 - `findShellOutletTargetById(targets = [], targetId = "")`
+- `normalizePlacementKind(value = "")`
+- `normalizePlacementLayoutClass(value = "")`
+- `normalizePlacementOwnerId(value = "")`
+- `normalizePlacementSurfaceId(value = "")`
+- `normalizePlacementSurfaces(value)`
+- `normalizePlacementTopologyDefinition(value = {}, { context = "placement topology" } = {})`
+- `normalizePlacementTopologyEntry(value = {}, { context = "placement topology" } = {})`
+- `normalizePlacementTopologyVariant(value = {}, { context = "placement topology variant" } = {})`
+- `normalizeSemanticPlacementId(value = "")`
 - `normalizeShellOutletTargetId(value = "")`
 - `normalizeShellOutletTargetRecord(value = {}, { context = "shell layout" } = {})`
+- `resolvePlacementTargetReference(value = "")`
 - `resolveShellOutletTargetParts({ target = "" } = {})`
 Local functions
 - `parseTagAttributes(attributesSource = "")`
+- `normalizePlacementRenderers(value = {})`
 - `isDefaultAttributeEnabled(value)`
 
 ### `support/sorting.js`

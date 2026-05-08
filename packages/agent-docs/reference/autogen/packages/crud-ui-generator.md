@@ -46,6 +46,7 @@ Local functions
 - `resolveResourceLabels(namespace = "", pageTarget = {})`
 - `resolveTargetRootRelativeRoutePath(pageTarget = {})`
 - `resolveMenuToPropLine(linkTo = "")`
+- `resolveMenuOwnerLine(owner = "")`
 - `resolveCrudRelativePath(namespace = "")`
 - `buildListParentTitleImportLine(parentTitleMode = "contextual")`
 - `buildListHeadingTitleSetup({ parentTitleMode = "contextual", resourceNamespace = "", routeTitle = "Records" } = {})`

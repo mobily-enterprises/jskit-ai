@@ -32,6 +32,119 @@ function createPlacementContext() {
   };
 }
 
+function semanticTopologyEntry({
+  id = "shell.primary-nav",
+  owner = "",
+  surfaces = ["*"],
+  compact = "shell-layout:primary-menu",
+  medium = "shell-layout:primary-menu",
+  expanded = "shell-layout:primary-menu",
+  compactRenderer = "component.menu",
+  mediumRenderer = "component.menu",
+  expandedRenderer = "component.menu"
+} = {}) {
+  const createVariant = (outlet, renderer) => ({
+    outlet,
+    renderers: renderer ? { link: renderer } : {}
+  });
+  return {
+    id,
+    owner,
+    surfaces,
+    variants: {
+      compact: createVariant(compact, compactRenderer),
+      medium: createVariant(medium, mediumRenderer),
+      expanded: createVariant(expanded, expandedRenderer)
+    }
+  };
+}
+
+test("web placement runtime resolves semantic targets through topology variants", () => {
+  const app = createAppStub({
+    tokens: {
+      "component.bottom": () => null,
+      "component.menu": () => null
+    }
+  });
+
+  const runtime = createWebPlacementRuntime({ app });
+  runtime.replacePlacementTopology([
+    semanticTopologyEntry({
+      id: "shell.primary-nav",
+      compact: "shell-layout:bottom-nav",
+      medium: "shell-layout:primary-menu",
+      expanded: "shell-layout:primary-menu",
+      compactRenderer: "component.bottom",
+      mediumRenderer: "component.menu",
+      expandedRenderer: "component.menu"
+    })
+  ]);
+  runtime.replacePlacements([
+    definePlacement({
+      id: "test.home",
+      target: "shell.primary-nav",
+      kind: "link",
+      surfaces: ["app"],
+      order: 10
+    })
+  ]);
+  runtime.setContext(createPlacementContext());
+
+  const compactEntries = runtime.getPlacements({
+    surface: "app",
+    target: "shell-layout:bottom-nav",
+    layoutClass: "compact"
+  });
+  assert.deepEqual(compactEntries.map((entry) => entry.id), ["test.home"]);
+  assert.equal(compactEntries[0].semanticTarget, "shell.primary-nav");
+  assert.equal(compactEntries[0].componentToken, "component.bottom");
+
+  const mediumEntries = runtime.getPlacements({
+    surface: "app",
+    target: "shell-layout:primary-menu",
+    layoutClass: "medium"
+  });
+  assert.deepEqual(mediumEntries.map((entry) => entry.id), ["test.home"]);
+  assert.equal(mediumEntries[0].componentToken, "component.menu");
+});
+
+test("web placement runtime accepts append-only topology objects", () => {
+  const app = createAppStub({
+    tokens: {
+      "component.menu": () => null
+    }
+  });
+
+  const runtime = createWebPlacementRuntime({ app });
+  runtime.replacePlacementTopology({
+    placements: [
+      semanticTopologyEntry({
+        id: "shell.primary-nav",
+        compactRenderer: "component.menu",
+        mediumRenderer: "component.menu",
+        expandedRenderer: "component.menu"
+      })
+    ]
+  });
+  runtime.replacePlacements([
+    definePlacement({
+      id: "test.home",
+      target: "shell.primary-nav",
+      kind: "link",
+      surfaces: ["app"],
+      order: 10
+    })
+  ]);
+  runtime.setContext(createPlacementContext());
+
+  const entries = runtime.getPlacements({
+    surface: "app",
+    target: "shell-layout:primary-menu",
+    layoutClass: "expanded"
+  });
+  assert.deepEqual(entries.map((entry) => entry.id), ["test.home"]);
+});
+
 test("web placement runtime filters by surface/host/position, resolves component tokens, and sorts by order", () => {
   const app = createAppStub({
     tokens: {
@@ -48,21 +161,24 @@ test("web placement runtime filters by surface/host/position, resolves component
       target: "shell-layout:primary-menu",
       surfaces: ["app"],
       order: 30,
-      componentToken: "component.menu"
+      componentToken: "component.menu",
+      internal: true
     }),
     definePlacement({
       id: "test.profile",
       target: "shell-layout:top-right",
       surfaces: ["*"],
       order: 20,
-      componentToken: "component.profile"
+      componentToken: "component.profile",
+      internal: true
     }),
     definePlacement({
       id: "test.alerts",
       target: "shell-layout:top-right",
       surfaces: ["app"],
       order: 10,
-      componentToken: "component.alerts"
+      componentToken: "component.alerts",
+      internal: true
     })
   ]);
   runtime.setContext(createPlacementContext());
@@ -93,14 +209,16 @@ test("web placement runtime preserves source order when placements share the sam
       target: "home-settings:primary-menu",
       surfaces: ["app"],
       order: 155,
-      componentToken: "component.beta"
+      componentToken: "component.beta",
+      internal: true
     }),
     definePlacement({
       id: "test.alpha",
       target: "home-settings:primary-menu",
       surfaces: ["app"],
       order: 155,
-      componentToken: "component.alpha"
+      componentToken: "component.alpha",
+      internal: true
     })
   ]);
   runtime.setContext(createPlacementContext());
@@ -129,6 +247,7 @@ test("web placement runtime applies context contributors and placement when() pr
       target: "auth-profile-menu:primary-menu",
       surfaces: ["*"],
       componentToken: "component.guest",
+      internal: true,
       when: ({ auth }) => !Boolean(auth?.authenticated)
     }),
     definePlacement({
@@ -136,6 +255,7 @@ test("web placement runtime applies context contributors and placement when() pr
       target: "auth-profile-menu:primary-menu",
       surfaces: ["*"],
       componentToken: "component.authenticated",
+      internal: true,
       when: ({ auth }) => Boolean(auth?.authenticated)
     })
   ]);
@@ -165,6 +285,7 @@ test("web placement runtime uses runtime context and local context overrides con
       target: "auth-profile-menu:primary-menu",
       surfaces: ["*"],
       componentToken: "component.allowed",
+      internal: true,
       when: ({ auth }) => Boolean(auth?.authenticated)
     })
   ]);
@@ -224,13 +345,15 @@ test("web placement runtime rejects duplicate placement ids", () => {
         id: "dup.entry",
         target: "shell-layout:top-right",
         surfaces: ["*"],
-        componentToken: "component.a"
+        componentToken: "component.a",
+        internal: true
       }),
       definePlacement({
         id: "dup.entry",
         target: "shell-layout:primary-menu",
         surfaces: ["*"],
-        componentToken: "component.b"
+        componentToken: "component.b",
+        internal: true
       })
     ]);
   }, /Duplicate placement id/);
@@ -271,13 +394,15 @@ test("web placement runtime skips throwing component tokens and logs resolution 
       id: "bad",
       target: "shell-layout:top-right",
       surfaces: ["*"],
-      componentToken: "component.bad"
+      componentToken: "component.bad",
+      internal: true
     }),
     definePlacement({
       id: "good",
       target: "shell-layout:top-right",
       surfaces: ["*"],
-      componentToken: "component.good"
+      componentToken: "component.good",
+      internal: true
     })
   ]);
 
@@ -323,7 +448,8 @@ test("web placement runtime clears failed token cache when placements are replac
       id: "toggle",
       target: "shell-layout:top-right",
       surfaces: ["*"],
-      componentToken: "component.toggle"
+      componentToken: "component.toggle",
+      internal: true
     })
   ]);
 
@@ -339,7 +465,8 @@ test("web placement runtime clears failed token cache when placements are replac
       id: "toggle",
       target: "shell-layout:top-right",
       surfaces: ["*"],
-      componentToken: "component.toggle"
+      componentToken: "component.toggle",
+      internal: true
     })
   ]);
 
@@ -362,21 +489,24 @@ test("web placement runtime follows explicit surface targeting without role indi
       target: "shell-layout:top-right",
       surfaces: ["*"],
       order: 10,
-      componentToken: "component.global"
+      componentToken: "component.global",
+      internal: true
     }),
     definePlacement({
       id: "app.link",
       target: "shell-layout:top-right",
       surfaces: ["app"],
       order: 20,
-      componentToken: "component.app"
+      componentToken: "component.app",
+      internal: true
     }),
     definePlacement({
       id: "admin.link",
       target: "shell-layout:top-right",
       surfaces: ["admin"],
       order: 30,
-      componentToken: "component.admin"
+      componentToken: "component.admin",
+      internal: true
     })
   ]);
   runtime.setContext(createPlacementContext());

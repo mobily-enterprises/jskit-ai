@@ -6,6 +6,7 @@ import {
   ref
 } from "vue";
 import { useRoute } from "vue-router";
+import { useDisplay } from "vuetify";
 import { useWebPlacementContext, useWebPlacementRuntime } from "../placement/inject.js";
 import { resolveRuntimePathname } from "../placement/pathname.js";
 import {
@@ -25,10 +26,6 @@ const props = defineProps({
   context: {
     type: Object,
     default: () => ({})
-  },
-  defaultLinkComponentToken: {
-    type: String,
-    default: ""
   }
 });
 
@@ -37,6 +34,13 @@ try {
   route = useRoute();
 } catch {
   route = null;
+}
+
+let display = null;
+try {
+  display = useDisplay();
+} catch {
+  display = null;
 }
 
 const placementRuntime = useWebPlacementRuntime();
@@ -82,11 +86,37 @@ const resolvedTargetId = computed(() => {
   return String(props.target || "").trim();
 });
 
+const resolvedLayoutClass = computed(() => {
+  const displayName = String(display?.name?.value || "").trim().toLowerCase();
+  if (displayName === "xs" || displayName === "sm") {
+    return "compact";
+  }
+  if (displayName === "md") {
+    return "medium";
+  }
+  if (displayName === "lg" || displayName === "xl" || displayName === "xxl") {
+    return "expanded";
+  }
+
+  const viewportWidth =
+    typeof window === "object" && window?.innerWidth
+      ? Number(window.innerWidth)
+      : 0;
+  if (viewportWidth > 0 && viewportWidth < 600) {
+    return "compact";
+  }
+  if (viewportWidth > 0 && viewportWidth < 1280) {
+    return "medium";
+  }
+  return "expanded";
+});
+
 const placements = computed(() => {
   void revision.value;
   return placementRuntime.getPlacements({
     surface: resolvedSurface.value,
     target: resolvedTargetId.value,
+    layoutClass: resolvedLayoutClass.value,
     context: props.context
   });
 });

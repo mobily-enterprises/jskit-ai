@@ -478,16 +478,13 @@ That command does two things:
 - it creates `src/pages/w/[workspaceSlug]/admin/workspace/settings/billing/index.vue`
 - it also appends the matching workspace settings menu entry into `src/placement.js`
 
-The reason JSKIT can wire that link automatically is that the workspace settings shell already exposes a named placement outlet with a default link renderer:
+The reason JSKIT can wire that link automatically is that the workspace settings shell already exposes a concrete outlet and topology maps it to semantic section navigation:
 
 ```vue
-<ShellOutlet
-  target="admin-settings:primary-menu"
-  default-link-component-token="local.main.ui.surface-aware-menu-link-item"
-/>
+<ShellOutlet target="admin-settings:primary-menu" />
 ```
 
-`target="admin-settings:primary-menu"` tells the generator which settings menu host owns those child links. `default-link-component-token="local.main.ui.surface-aware-menu-link-item"` tells it which local menu-link component to use unless you override it. So a page generated under `w/[workspaceSlug]/admin/workspace/settings/...` automatically lands in the left-side workspace settings menu without you hand-writing the placement entry.
+The route host lets the generator infer `page.section-nav` with owner `admin-settings`. `src/placementTopology.js` then maps that semantic placement to `admin-settings:primary-menu` and supplies the link renderer for compact, medium, and expanded layouts. So a page generated under `w/[workspaceSlug]/admin/workspace/settings/...` automatically lands in the left-side workspace settings menu without you hand-writing the placement entry.
 
 ### Workspace pages are prepared for missing-workspace states
 
@@ -677,7 +674,8 @@ The workspace packages append a new block of placements:
 ```js
 addPlacement({
   id: "workspaces.profile.menu.surface-switch",
-  target: "auth-profile-menu:primary-menu",
+  target: "auth.profile-menu",
+  kind: "component",
   surfaces: ["*"],
   order: 100,
   componentToken: "workspaces.web.profile.menu.surface-switch-item",
@@ -686,7 +684,8 @@ addPlacement({
 
 addPlacement({
   id: "workspaces.workspace.selector",
-  target: "shell-layout:top-left",
+  target: "shell.identity",
+  kind: "component",
   surfaces: ["*"],
   order: 200,
   componentToken: "workspaces.web.workspace.selector",
@@ -701,7 +700,8 @@ addPlacement({
 
 addPlacement({
   id: "workspaces.account.invites.cue",
-  target: "shell-layout:top-right",
+  target: "shell.status",
+  kind: "component",
   surfaces: ["*"],
   order: 850,
   componentToken: "local.main.account.pending-invites.cue",
@@ -710,7 +710,8 @@ addPlacement({
 
 addPlacement({
   id: "workspaces.workspace.tools.widget",
-  target: "shell-layout:top-right",
+  target: "shell.status",
+  kind: "component",
   surfaces: ["admin"],
   order: 900,
   componentToken: "workspaces.web.workspace.tools.widget"
@@ -718,7 +719,8 @@ addPlacement({
 
 addPlacement({
   id: "workspaces.workspace.menu.workspace-settings",
-  target: "admin-cog:primary-menu",
+  target: "admin.tools-menu",
+  kind: "component",
   surfaces: ["admin"],
   order: 100,
   componentToken: "workspaces.web.workspace-settings.menu-item"
@@ -726,7 +728,8 @@ addPlacement({
 
 addPlacement({
   id: "workspaces.workspace.menu.members",
-  target: "admin-cog:primary-menu",
+  target: "admin.tools-menu",
+  kind: "component",
   surfaces: ["admin"],
   order: 200,
   componentToken: "workspaces.web.workspace-members.menu-item"
@@ -741,7 +744,7 @@ That one block explains a lot of the new shell behavior.
 - the admin surface gets workspace tools in the top-right area
 - the admin workspace settings menu is now another nested placement host with both `Settings` and `Members`
 
-If you want to add your own app-owned page into that top cog menu, first ask JSKIT which placement targets exist:
+If you want to add your own app-owned page into that top cog menu, first ask JSKIT which semantic placements exist:
 
 ```bash
 npx jskit list-placements
@@ -750,25 +753,25 @@ npx jskit list-placements
 In a workspace-enabled app, that list now includes:
 
 ```text
-- admin-cog:primary-menu [package:@jskit-ai/workspaces-web:src/client/components/UsersWorkspaceToolsWidget.vue]
+- admin.tools-menu: Admin surface tools menu actions.
 ```
 
-If you want more context than the raw target list, `npx jskit show @jskit-ai/workspaces-web --details` also shows that same outlet plus the default `Settings` and `Members` entries already targeting it.
+If you want the underlying outlet inventory, use `npx jskit list-placements --concrete`. If you want more package context, `npx jskit show @jskit-ai/workspaces-web --details` also shows the topology plus the default `Settings` and `Members` entries already targeting it.
 
-Once you know the outlet id, generate the page like this:
+Once you know the semantic placement id, generate the page like this:
 
 ```bash
 npx jskit generate ui-generator page \
   w/[workspaceSlug]/admin/catalogue/index.vue \
   --name "Catalogue" \
-  --link-placement admin-cog:primary-menu
+  --link-placement admin.tools-menu
 ```
 
 That command creates `src/pages/w/[workspaceSlug]/admin/catalogue/index.vue` and appends the matching link entry into `src/placement.js`.
 
-`--link-placement` is necessary here because this route is just a normal `admin` page. It is **not** a child page under a local host like `w/[workspaceSlug]/admin/workspace/settings.vue`, so the generator has no nested settings outlet to infer automatically. If you omit `--link-placement`, the new page link falls back to the app's default shell menu outlet instead of the cog menu.
+`--link-placement` is necessary here because this route is just a normal `admin` page. It is **not** a child page under a local host like `w/[workspaceSlug]/admin/workspace/settings.vue`, so the generator has no nested settings placement to infer automatically. If you omit `--link-placement`, the new page link falls back to the app's default `shell.primary-nav` placement instead of the cog menu.
 
-You also do **not** need `--link-component-token` here. `admin-cog:primary-menu` already declares `local.main.ui.surface-aware-menu-link-item` as its default link renderer, so JSKIT reuses that automatically when it writes the placement entry.
+You also do **not** need a renderer flag here. `admin.tools-menu` defines its link renderer in topology, so JSKIT resolves that when it renders the placement entry.
 
 So the placement system from the shell chapter is still doing the same job as before. The app just has a richer routing and tenancy context now.
 

@@ -1,7 +1,7 @@
 export default Object.freeze({
   packageVersion: 1,
   packageId: "@jskit-ai/shell-web",
-  version: "0.1.64",
+  version: "0.1.65",
   kind: "runtime",
   description: "Web shell layout runtime with outlet-based placement contributions.",
   dependsOn: [],
@@ -71,46 +71,157 @@ export default Object.freeze({
           },
           {
             target: "shell-layout:primary-menu",
-            defaultLinkComponentToken: "local.main.ui.surface-aware-menu-link-item",
             surfaces: ["*"],
             source: "src/client/components/ShellLayout.vue"
           },
           {
             target: "shell-layout:secondary-menu",
-            defaultLinkComponentToken: "local.main.ui.surface-aware-menu-link-item",
             surfaces: ["*"],
             source: "src/client/components/ShellLayout.vue"
           },
           {
             target: "home-settings:primary-menu",
-            defaultLinkComponentToken: "local.main.ui.surface-aware-menu-link-item",
             surfaces: ["home"],
             source: "templates/src/pages/home/settings.vue"
           }
         ],
+        topology: {
+          placements: [
+            {
+              id: "shell.primary-nav",
+              description: "Primary top-level navigation for the current surface.",
+              surfaces: ["*"],
+              default: true,
+              variants: {
+                compact: {
+                  outlet: "shell-layout:primary-menu",
+                  renderers: {
+                    link: "local.main.ui.surface-aware-menu-link-item"
+                  }
+                },
+                medium: {
+                  outlet: "shell-layout:primary-menu",
+                  renderers: {
+                    link: "local.main.ui.surface-aware-menu-link-item"
+                  }
+                },
+                expanded: {
+                  outlet: "shell-layout:primary-menu",
+                  renderers: {
+                    link: "local.main.ui.surface-aware-menu-link-item"
+                  }
+                }
+              }
+            },
+            {
+              id: "shell.status",
+              description: "Surface status, connection, and utility indicators.",
+              surfaces: ["*"],
+              variants: {
+                compact: {
+                  outlet: "shell-layout:top-right"
+                },
+                medium: {
+                  outlet: "shell-layout:top-right"
+                },
+                expanded: {
+                  outlet: "shell-layout:top-right"
+                }
+              }
+            },
+            {
+              id: "shell.secondary-nav",
+              description: "Secondary navigation for lower-priority shell links.",
+              surfaces: ["*"],
+              variants: {
+                compact: {
+                  outlet: "shell-layout:secondary-menu",
+                  renderers: {
+                    link: "local.main.ui.surface-aware-menu-link-item"
+                  }
+                },
+                medium: {
+                  outlet: "shell-layout:secondary-menu",
+                  renderers: {
+                    link: "local.main.ui.surface-aware-menu-link-item"
+                  }
+                },
+                expanded: {
+                  outlet: "shell-layout:secondary-menu",
+                  renderers: {
+                    link: "local.main.ui.surface-aware-menu-link-item"
+                  }
+                }
+              }
+            },
+            {
+              id: "shell.identity",
+              description: "Current user, workspace, and surface identity controls.",
+              surfaces: ["*"],
+              variants: {
+                compact: {
+                  outlet: "shell-layout:top-left"
+                },
+                medium: {
+                  outlet: "shell-layout:top-left"
+                },
+                expanded: {
+                  outlet: "shell-layout:top-left"
+                }
+              }
+            },
+            {
+              id: "page.section-nav",
+              owner: "home-settings",
+              description: "Navigation between child pages in the home settings section.",
+              surfaces: ["home"],
+              variants: {
+                compact: {
+                  outlet: "home-settings:primary-menu",
+                  renderers: {
+                    link: "local.main.ui.surface-aware-menu-link-item"
+                  }
+                },
+                medium: {
+                  outlet: "home-settings:primary-menu",
+                  renderers: {
+                    link: "local.main.ui.surface-aware-menu-link-item"
+                  }
+                },
+                expanded: {
+                  outlet: "home-settings:primary-menu",
+                  renderers: {
+                    link: "local.main.ui.surface-aware-menu-link-item"
+                  }
+                }
+              }
+            }
+          ]
+        },
         contributions: [
           {
             id: "shell-web.home.menu.home",
-            target: "shell-layout:primary-menu",
+            target: "shell.primary-nav",
+            kind: "link",
             surfaces: ["home"],
             order: 50,
-            componentToken: "local.main.ui.surface-aware-menu-link-item",
             source: "templates/src/placement.js"
           },
           {
             id: "shell-web.home.menu.settings",
-            target: "shell-layout:primary-menu",
+            target: "shell.primary-nav",
+            kind: "link",
             surfaces: ["home"],
             order: 100,
-            componentToken: "local.main.ui.surface-aware-menu-link-item",
             source: "templates/src/placement.js"
           },
           {
             id: "shell-web.home.settings.general",
-            target: "home-settings:primary-menu",
+            target: "page.section-nav",
+            owner: "home-settings",
+            kind: "link",
             surfaces: ["home"],
             order: 100,
-            componentToken: "local.main.ui.surface-aware-menu-link-item",
             source: "templates/src/placement.js"
           }
         ]
@@ -122,7 +233,7 @@ export default Object.freeze({
       runtime: {
         "@mdi/js": "^7.4.47",
         "@tanstack/vue-query": "^5.90.5",
-        "@jskit-ai/kernel": "0.1.65",
+        "@jskit-ai/kernel": "0.1.66",
         "vuetify": "^4.0.0"
       },
       dev: {}
@@ -253,6 +364,14 @@ export default Object.freeze({
         reason: "Install app-owned placement registry scaffold used by shell-web placement runtime.",
         category: "shell-web",
         id: "shell-web-placement-registry"
+      },
+      {
+        from: "templates/src/placementTopology.js",
+        to: "src/placementTopology.js",
+        ownership: "app",
+        reason: "Install app-owned semantic placement topology used by shell-web placement runtime.",
+        category: "shell-web",
+        id: "shell-web-placement-topology"
       },
       {
         from: "templates/src/pages/home.vue",

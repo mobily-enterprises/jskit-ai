@@ -8,13 +8,15 @@ import {
   describeShellOutletTargets,
   discoverShellOutletTargetsFromVueSource,
   findShellOutletTargetById,
+  normalizePlacementTopologyDefinition,
+  normalizeSemanticPlacementId,
   normalizeShellOutletTargetId,
   normalizeShellOutletTargetRecord
 } from "../../shared/support/shellLayoutTargets.js";
-import { loadAppConfigFromModuleUrl } from "./appConfigFiles.js";
 
 const VUE_DISCOVERY_IGNORED_ERROR_CODES = new Set(["ENOENT", "ENOTDIR", "EACCES", "EPERM"]);
 const LOCK_FILE_RELATIVE_PATH = ".jskit/lock.json";
+const PLACEMENT_TOPOLOGY_RELATIVE_PATH = "src/placementTopology.js";
 const ROUTE_TAG_PATTERN = /<route\b([^>]*)>([\s\S]*?)<\/route>/g;
 const ATTRIBUTE_PATTERN = /([:@]?[A-Za-z_][A-Za-z0-9_-]*)(?:\s*=\s*(?:"([^"]*)"|'([^']*)'))?/g;
 
@@ -218,46 +220,6 @@ function normalizePackageOutletTarget({
   });
 }
 
-async function loadOutletDefaultOverrides(appRoot = "") {
-  const resolvedAppRoot = resolveRequiredAppRoot(appRoot, {
-    context: "discoverShellOutletTargetsFromApp"
-  });
-  let appConfig = {};
-  try {
-    appConfig = normalizeObject(
-      await loadAppConfigFromModuleUrl({
-        moduleUrl: pathToFileURL(path.join(resolvedAppRoot, "config", "public.js")).href
-      })
-    );
-  } catch {
-    return {};
-  }
-  return normalizeObject(normalizeObject(appConfig.ui).outletDefaults);
-}
-
-function applyOutletDefaultOverrides(target = {}, outletDefaultOverrides = {}) {
-  const targetRecord = normalizeObject(target);
-  const outletTargetId = normalizeShellOutletTargetId(targetRecord.id);
-  if (!outletTargetId) {
-    return targetRecord;
-  }
-
-  const overrideRecord = outletDefaultOverrides?.[outletTargetId];
-  const normalizedOverrideToken =
-    typeof overrideRecord === "string"
-      ? normalizeText(overrideRecord)
-      : normalizeText(normalizeObject(overrideRecord).linkComponentToken) ||
-        normalizeText(normalizeObject(overrideRecord)["link-component-token"]);
-  if (!normalizedOverrideToken) {
-    return targetRecord;
-  }
-
-  return Object.freeze({
-    ...targetRecord,
-    defaultLinkComponentToken: normalizedOverrideToken
-  });
-}
-
 async function collectInstalledPackageOutletTargets(appRoot) {
   const installedPackageStates = await readInstalledPackageStates(appRoot);
   const packageIds = Object.keys(installedPackageStates).sort((left, right) => left.localeCompare(right));
@@ -290,11 +252,180 @@ async function collectInstalledPackageOutletTargets(appRoot) {
   return targets;
 }
 
+function withTopologySource(placement = {}, sourcePath = "") {
+  return Object.freeze({
+    ...placement,
+    sourcePath
+  });
+}
+
+async function loadAppPlacementTopology(appRoot) {
+  const topologyPath = path.resolve(appRoot, PLACEMENT_TOPOLOGY_RELATIVE_PATH);
+  try {
+    await readFile(topologyPath, "utf8");
+  } catch (error) {
+    const errorCode = normalizeText(error?.code).toUpperCase();
+    if (errorCode === "ENOENT" || errorCode === "ENOTDIR") {
+      return [];
+    }
+    throw error;
+  }
+
+  let moduleNamespace = null;
+  try {
+    moduleNamespace = await import(pathToFileURL(topologyPath).href);
+  } catch (error) {
+    throw new Error(
+      `Could not load ${PLACEMENT_TOPOLOGY_RELATIVE_PATH}: ${String(error?.message || error || "unknown error")}`
+    );
+  }
+
+  const exported = moduleNamespace?.default;
+  const resolved = typeof exported === "function" ? exported() : exported;
+  const normalized = normalizePlacementTopologyDefinition(resolved, {
+    context: PLACEMENT_TOPOLOGY_RELATIVE_PATH
+  });
+  return normalized.placements.map((placement) => withTopologySource(placement, PLACEMENT_TOPOLOGY_RELATIVE_PATH));
+}
+
+async function collectInstalledPackagePlacementTopology(appRoot) {
+  const installedPackageStates = await readInstalledPackageStates(appRoot);
+  const packageIds = Object.keys(installedPackageStates).sort((left, right) => left.localeCompare(right));
+  const placements = [];
+
+  for (const packageId of packageIds) {
+    const installedPackageState = normalizeObject(installedPackageStates[packageId]);
+    const descriptorRecord = await loadInstalledPackageDescriptor({
+      appRoot,
+      packageId,
+      installedPackageState
+    });
+    const descriptor = normalizeObject(descriptorRecord.descriptor);
+    const metadata = normalizeObject(descriptor.metadata);
+    const ui = normalizeObject(metadata.ui);
+    const placementsMeta = normalizeObject(ui.placements);
+    const topology = placementsMeta.topology;
+    if (!topology) {
+      continue;
+    }
+
+    const normalized = normalizePlacementTopologyDefinition(topology, {
+      context: `package:${packageId}:metadata.ui.placements.topology`
+    });
+    for (const placement of normalized.placements) {
+      placements.push(
+        withTopologySource(
+          placement,
+          `package:${packageId}${descriptorRecord.descriptorPath ? `:${toPosixPath(descriptorRecord.descriptorPath)}` : ""}`
+        )
+      );
+    }
+  }
+
+  return placements;
+}
+
+async function discoverPlacementTopologyFromApp({ appRoot } = {}) {
+  const resolvedAppRoot = resolveRequiredAppRoot(appRoot, {
+    context: "discoverPlacementTopologyFromApp"
+  });
+  const appPlacements = await loadAppPlacementTopology(resolvedAppRoot);
+  const packagePlacements = await collectInstalledPackagePlacementTopology(resolvedAppRoot);
+  const placementByKey = new Map();
+
+  for (const placement of [...packagePlacements, ...appPlacements]) {
+    const key = `${placement.id}::${placement.owner || ""}`;
+    placementByKey.set(key, placement);
+  }
+
+  return Object.freeze({
+    placements: Object.freeze(
+      [...placementByKey.values()].sort((left, right) => {
+        const idCompare = left.id.localeCompare(right.id);
+        if (idCompare !== 0) {
+          return idCompare;
+        }
+        return String(left.owner || "").localeCompare(String(right.owner || ""));
+      })
+    )
+  });
+}
+
+function findSemanticPlacementById(placements = [], { id = "", owner = "", surface = "" } = {}) {
+  const normalizedId = normalizeSemanticPlacementId(id);
+  const normalizedOwner = normalizeText(owner).toLowerCase();
+  const normalizedSurface = normalizeText(surface).toLowerCase();
+  if (!normalizedId) {
+    return null;
+  }
+
+  return (Array.isArray(placements) ? placements : []).find((placement) => {
+    if (placement.id !== normalizedId) {
+      return false;
+    }
+    if (normalizedOwner && placement.owner !== normalizedOwner) {
+      return false;
+    }
+    if (!normalizedOwner && placement.owner) {
+      return false;
+    }
+    const surfaces = Array.isArray(placement.surfaces) ? placement.surfaces : ["*"];
+    return !normalizedSurface || surfaces.includes("*") || surfaces.includes(normalizedSurface);
+  }) || null;
+}
+
+async function resolveSemanticPlacementTargetFromApp({
+  appRoot,
+  placement = "",
+  owner = "",
+  surface = "",
+  context = "ui-generator"
+} = {}) {
+  const resolvedContext = normalizeText(context) || "ui-generator";
+  const topology = await discoverPlacementTopologyFromApp({ appRoot });
+  const placements = Array.isArray(topology.placements) ? topology.placements : [];
+  if (placements.length < 1) {
+    throw new Error(`${resolvedContext} could not find semantic placement topology in ${PLACEMENT_TOPOLOGY_RELATIVE_PATH}.`);
+  }
+
+  const requestedPlacement = normalizeText(placement);
+  if (requestedPlacement) {
+    const requestedId = normalizeSemanticPlacementId(requestedPlacement);
+    if (!requestedId) {
+      throw new Error(`${resolvedContext} option "placement" must be a semantic target in "area.slot" format.`);
+    }
+    const match = findSemanticPlacementById(placements, {
+      id: requestedId,
+      owner,
+      surface
+    }) || (owner
+      ? findSemanticPlacementById(placements, {
+          id: requestedId,
+          owner: "",
+          surface
+        })
+      : null);
+    if (!match) {
+      throw new Error(`${resolvedContext} semantic placement "${requestedId}" is not declared in app placement topology.`);
+    }
+    return match;
+  }
+
+  const defaultPlacement =
+    placements.find((entry) => entry.default === true && (!surface || entry.surfaces.includes("*") || entry.surfaces.includes(surface))) ||
+    placements.find((entry) => !entry.owner && (!surface || entry.surfaces.includes("*") || entry.surfaces.includes(surface))) ||
+    null;
+  if (defaultPlacement) {
+    return defaultPlacement;
+  }
+
+  throw new Error(`${resolvedContext} could not resolve a default semantic placement target.`);
+}
+
 async function discoverShellOutletTargetsFromApp({ appRoot, sourceRoot = "src" } = {}) {
   const resolvedAppRoot = resolveRequiredAppRoot(appRoot, {
     context: "discoverShellOutletTargetsFromApp"
   });
-  const outletDefaultOverrides = await loadOutletDefaultOverrides(resolvedAppRoot);
 
   const sourceDirectory = path.resolve(resolvedAppRoot, String(sourceRoot || "src"));
   const targetById = new Map();
@@ -363,10 +494,10 @@ async function discoverShellOutletTargetsFromApp({ appRoot, sourceRoot = "src" }
 
   const targets = [...targetById.values()].sort((left, right) => left.id.localeCompare(right.id));
   const normalizedTargets = targets.map((target) =>
-    applyOutletDefaultOverrides({
+    Object.freeze({
       ...target,
       default: target.id === defaultTargetId
-    }, outletDefaultOverrides)
+    })
   );
 
   return Object.freeze({
@@ -418,6 +549,8 @@ async function resolveShellOutletPlacementTargetFromApp({ appRoot, placement = "
 }
 
 export {
+  discoverPlacementTopologyFromApp,
   discoverShellOutletTargetsFromApp,
+  resolveSemanticPlacementTargetFromApp,
   resolveShellOutletPlacementTargetFromApp
 };

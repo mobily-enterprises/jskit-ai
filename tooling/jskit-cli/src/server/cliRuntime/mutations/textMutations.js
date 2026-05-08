@@ -113,6 +113,13 @@ async function applyTextMutations(
       const previous = await readFileBufferIfExists(absoluteFile);
       const previousContent = previous.exists ? previous.buffer.toString("utf8") : "";
       const mutationId = String(mutation?.id || "").trim() || "append-text";
+      const interpolatedSkipChecks = normalizeSkipChecks(mutation?.skipIfContains)
+        .map((entry) => interpolateOptionValue(entry, options, packageEntry.packageId, `${mutationId}.skipIfContains`))
+        .filter((entry) => String(entry || "").trim().length > 0);
+      if (interpolatedSkipChecks.some((pattern) => previousContent.includes(String(pattern)))) {
+        continue;
+      }
+
       const resolvedSnippet = interpolateOptionValue(snippet, options, packageEntry.packageId, mutationId);
       const templateContextReplacements = await resolveTemplateContextReplacementsForMutation({
         packageEntry,
@@ -126,8 +133,7 @@ async function applyTextMutations(
       const renderedSnippet = templateContextReplacements
         ? applyTemplateContextReplacements(resolvedSnippet, templateContextReplacements)
         : resolvedSnippet;
-      const skipChecks = normalizeSkipChecks(mutation?.skipIfContains)
-        .map((entry) => interpolateOptionValue(entry, options, packageEntry.packageId, `${mutationId}.skipIfContains`))
+      const skipChecks = interpolatedSkipChecks
         .map((entry) => {
           if (!templateContextReplacements) {
             return entry;

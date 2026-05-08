@@ -8,6 +8,23 @@ import { runGeneratorSubcommand } from "../src/server/subcommands/outlet.js";
 async function withTempApp(run) {
   const appRoot = await mkdtemp(path.join(tmpdir(), "ui-generator-outlet-"));
   try {
+    await mkdir(path.join(appRoot, "src"), { recursive: true });
+    await writeFile(
+      path.join(appRoot, "src", "placementTopology.js"),
+      `const placements = [];
+
+function addPlacementTopology(value = {}) {
+  placements.push(value);
+}
+
+export { addPlacementTopology };
+
+export default function getPlacementTopology() {
+  return { placements };
+}
+`,
+      "utf8"
+    );
     return await run(appRoot);
   } finally {
     await rm(appRoot, { recursive: true, force: true });
@@ -40,24 +57,32 @@ import { computed } from "vue";
       subcommand: "outlet",
       args: [targetFile],
       options: {
-        target: "contact-view:sub-pages"
+        target: "contact-view:sub-pages",
+        placement: "page.section-nav"
       }
     });
 
-    assert.deepEqual(result.touchedFiles, [targetFile]);
+    assert.deepEqual(result.touchedFiles, [targetFile, "src/placementTopology.js"]);
 
     const output = await readFile(targetPath, "utf8");
     assert.match(output, /import ShellOutlet from "@jskit-ai\/shell-web\/client\/components\/ShellOutlet";/);
     assert.match(output, /<ShellOutlet target="contact-view:sub-pages" \/>/);
     assert.doesNotMatch(output, /RouterView/);
     assert.doesNotMatch(output, /jskit:ui-generator\.outlet:/);
+    const topologySource = await readFile(path.join(appRoot, "src", "placementTopology.js"), "utf8");
+    assert.match(topologySource, /id: "page\.section-nav"/);
+    assert.match(topologySource, /owner: "contact-view"/);
+    assert.match(topologySource, /compact: \{/);
+    assert.match(topologySource, /medium: \{/);
+    assert.match(topologySource, /expanded: \{/);
 
     const rerun = await runGeneratorSubcommand({
       appRoot,
       subcommand: "outlet",
       args: [targetFile],
       options: {
-        target: "contact-view:sub-pages"
+        target: "contact-view:sub-pages",
+        placement: "page.section-nav"
       }
     });
 
@@ -91,7 +116,8 @@ import ShellOutlet from "@jskit-ai/shell-web/client/components/ShellOutlet";
       subcommand: "outlet",
       args: [targetFile],
       options: {
-        target: "contact-view:sub-pages"
+        target: "contact-view:sub-pages",
+        placement: "page.section-nav"
       }
     });
 
@@ -124,7 +150,8 @@ test("ui-generator outlet creates script setup when missing", async () => {
       subcommand: "outlet",
       args: [targetFile],
       options: {
-        target: "contact-view:sub-pages"
+        target: "contact-view:sub-pages",
+        placement: "page.section-nav"
       }
     });
 
@@ -161,7 +188,8 @@ test("ui-generator outlet inserts generated script after existing route block", 
       subcommand: "outlet",
       args: [targetFile],
       options: {
-        target: "contact-view:sub-pages"
+        target: "contact-view:sub-pages",
+        placement: "page.section-nav"
       }
     });
 
@@ -203,7 +231,8 @@ test("ui-generator outlet keeps indentation when injected into nested template b
       subcommand: "outlet",
       args: [targetFile],
       options: {
-        target: "contact-view:sub-pages"
+        target: "contact-view:sub-pages",
+        placement: "page.section-nav"
       }
     });
 
@@ -229,6 +258,7 @@ test("ui-generator outlet rejects unsupported options", async () => {
       args: [targetFile],
       options: {
         target: "contact-view:sub-pages",
+        placement: "page.section-nav",
         bogus: "routed"
       }
       }),
@@ -250,7 +280,8 @@ test("ui-generator outlet supports explicit target host:position", async () => {
       subcommand: "outlet",
       args: [targetFile],
       options: {
-        target: "customer-view:summary-actions"
+        target: "customer-view:summary-actions",
+        placement: "page.actions"
       }
     });
 
@@ -272,9 +303,10 @@ test("ui-generator outlet rejects non-vue target files without changing them", a
       runGeneratorSubcommand({
         appRoot,
         subcommand: "outlet",
-        args: [targetFile],
-        options: {
-          target: "vet-view:sub-pages"
+      args: [targetFile],
+      options: {
+          target: "vet-view:sub-pages",
+          placement: "page.section-nav"
         }
       }),
       /ui-generator outlet target file must be an existing Vue SFC \(\.vue\): src\/pages\/w\/\[workspaceSlug\]\/admin\/practice\/vets\/_components\/VetAddEditFormFields\.js\./
@@ -297,9 +329,10 @@ test("ui-generator outlet validates target format", async () => {
       runGeneratorSubcommand({
         appRoot,
         subcommand: "outlet",
-        args: [targetFile],
-        options: {
-          target: "customer-view:"
+      args: [targetFile],
+      options: {
+          target: "customer-view:",
+          placement: "page.actions"
         }
       }),
       /ui-generator outlet option "target" must be a target in "host:position" format\./

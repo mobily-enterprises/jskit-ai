@@ -22,6 +22,34 @@ function findTextMutation(id) {
     : null;
 }
 
+function readOutlets(target = "") {
+  const outlets = descriptor?.metadata?.ui?.placements?.outlets;
+  const normalizedTarget = String(target || "").trim();
+  return Array.isArray(outlets)
+    ? outlets.filter((entry) => String(entry?.target || "").trim() === normalizedTarget)
+    : [];
+}
+
+function findTopology(id, owner = "") {
+  const placements = descriptor?.metadata?.ui?.placements?.topology?.placements;
+  const normalizedId = String(id || "").trim();
+  const normalizedOwner = String(owner || "").trim();
+  return Array.isArray(placements)
+    ? placements.find((entry) => {
+        const entryId = String(entry?.id || "").trim();
+        const entryOwner = String(entry?.owner || "").trim();
+        return entryId === normalizedId && entryOwner === normalizedOwner;
+      }) || null
+    : null;
+}
+
+function findContribution(id) {
+  const contributions = descriptor?.metadata?.ui?.placements?.contributions;
+  return Array.isArray(contributions)
+    ? contributions.find((entry) => String(entry?.id || "").trim() === id) || null
+    : null;
+}
+
 test("console-web installs console surface scripts and files", () => {
   assert.deepEqual(descriptor?.mutations?.packageJson?.scripts, {
     "server:console": "SERVER_SURFACE=console node ./bin/server.js",
@@ -82,6 +110,49 @@ test("console-web wires console surface policy into app config", () => {
     /surfaceAccess\?\.consoleowner === true && surface !== "console"/
   );
   assert.equal(findTextMutation("console-web-console-settings-placement")?.file, "src/placement.js");
+  assert.equal(findTextMutation("console-web-settings-placement-topology")?.file, "src/placementTopology.js");
+  assert.deepEqual(readOutlets("console-settings:primary-menu"), [
+    {
+      target: "console-settings:primary-menu",
+      surfaces: ["console"],
+      source: "templates/src/pages/console/settings.vue"
+    }
+  ]);
+  assert.deepEqual(findTopology("page.section-nav", "console-settings"), {
+    id: "page.section-nav",
+    owner: "console-settings",
+    description: "Navigation between console settings child pages.",
+    surfaces: ["console"],
+    variants: {
+      compact: {
+        outlet: "console-settings:primary-menu",
+        renderers: {
+          link: "local.main.ui.surface-aware-menu-link-item"
+        }
+      },
+      medium: {
+        outlet: "console-settings:primary-menu",
+        renderers: {
+          link: "local.main.ui.surface-aware-menu-link-item"
+        }
+      },
+      expanded: {
+        outlet: "console-settings:primary-menu",
+        renderers: {
+          link: "local.main.ui.surface-aware-menu-link-item"
+        }
+      }
+    }
+  });
+  assert.deepEqual(findContribution("console.web.menu.settings"), {
+    id: "console.web.menu.settings",
+    target: "shell.primary-nav",
+    kind: "link",
+    surfaces: ["console"],
+    order: 100,
+    when: "auth.authenticated === true",
+    source: "mutations.text#console-web-console-settings-placement"
+  });
 });
 
 test("console-web console templates stay shell-driven", async () => {
@@ -94,7 +165,7 @@ test("console-web console templates stay shell-driven", async () => {
   assert.match(wrapperSource, /"surface": "console"/);
   assert.match(indexSource, /Operations Console/);
   assert.match(settingsSource, /target="console-settings:primary-menu"/);
-  assert.match(settingsSource, /default-link-component-token="local\.main\.ui\.surface-aware-menu-link-item"/);
+  assert.doesNotMatch(settingsSource, /default-link-component-token/);
   assert.match(settingsSource, /<RouterView \/>/);
   assert.match(settingsIndexSource, /definePage/);
   assert.match(settingsIndexSource, /your_child_segment/);

@@ -19,11 +19,14 @@ Exports
 - `buildUiPageTemplateContext({ appRoot, targetFile = "", options = {} } = {})`
 Local functions
 - `resolveLinkToPropLine(linkTo = "")`
+- `resolveOwnerLine(owner = "")`
 
 ### `src/server/subcommands/addSubpages.js`
 Exports
 - `runGeneratorSubcommand({ appRoot, subcommand = "", args = [], options = {}, dryRun = false } = {})`
 Local functions
+- `resolveOutletOwner(target = "")`
+- `renderSectionNavTopologyBlock({ marker = "", owner = "", surface = "", target = "" } = {})`
 - `resolveSubpagesOutletTarget(options = {}, pageTarget = {})`
 
 ### `src/server/subcommands/element.js`
@@ -40,6 +43,13 @@ Local functions
 - `hasShellOutletTarget(source = "", { target = "" } = {})`
 - `applyScriptImports(source = "")`
 - `createOutletBlock({ target = "" } = {})`
+- `resolveOutletOwner(target = "")`
+- `resolveSemanticPlacementOption(options = {})`
+- `resolveSemanticPlacementOwner({ placementId = "", targetId = "", owner = "" } = {})`
+- `resolveTopologySurfaces(options = {})`
+- `renderTopologyOwnerLine(owner = "")`
+- `renderLinkRendererBlock(rendererToken = "")`
+- `renderOutletTopologyBlock({ marker = "", placementId = "", owner = "", surfaces = ["*"], description = "", target = "", rendererToken = "" } = {})`
 - `findLastTemplateCloseTag(source = "")`
 - `applyOutletTemplateBlock(source = "", { target = "" } = {})`
 
@@ -79,6 +89,7 @@ Exports
 - `DEFAULT_COMPONENT_DIRECTORY`
 - `MAIN_CLIENT_PROVIDER_FILE`
 - `PLACEMENT_FILE`
+- `PLACEMENT_TOPOLOGY_FILE`
 - `toKebabCase(value = "")`
 - `toPascalCase(value = "")`
 - `requireOption(options = {}, optionName = "", { context = "ui-generator" } = {})`

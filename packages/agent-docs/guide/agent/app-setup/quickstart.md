@@ -85,9 +85,7 @@ npx jskit generate assistant page \
 npx jskit generate assistant settings-page \
   console/settings/admin-assistant/index.vue \
   --surface admin \
-  --name "Admin Assistant" \
-  --link-placement console-settings:primary-menu \
-  --link-component-token local.main.ui.surface-aware-menu-link-item
+  --name "Admin Assistant"
 
 npm install
 npm run db:migrate
@@ -154,7 +152,7 @@ First list the available placement destinations:
 npx jskit list-placements
 ```
 
-In a workspace-enabled app, that output includes `admin-cog:primary-menu`.
+In a workspace-enabled app, that output includes the semantic `admin.tools-menu` placement.
 
 Then generate the page:
 
@@ -162,7 +160,7 @@ Then generate the page:
 npx jskit generate ui-generator page \
   w/[workspaceSlug]/admin/catalogue/index.vue \
   --name "Catalogue" \
-  --link-placement admin-cog:primary-menu
+  --link-placement admin.tools-menu
 ```
 
 `--link-placement` is necessary here because this is just a normal `admin` page. It is not a child page under a local route host that already owns a nested outlet.
@@ -183,13 +181,10 @@ Because this page is not under a more specific local host, JSKIT falls back to t
 
 The workspace settings pages in Step 2 auto-linked into the settings menu for two reasons:
 
-1. The parent host already exposes a named outlet:
+1. The parent host already exposes a concrete outlet:
 
 ```vue
-<ShellOutlet
-  target="admin-settings:primary-menu"
-  default-link-component-token="local.main.ui.surface-aware-menu-link-item"
-/>
+<ShellOutlet target="admin-settings:primary-menu" />
 ```
 
 2. Your generated pages live under that host route:
@@ -200,12 +195,14 @@ w/[workspaceSlug]/admin/workspace/settings/...
 
 So JSKIT can infer both:
 
-- the placement target: `admin-settings:primary-menu`
-- the default link renderer: `local.main.ui.surface-aware-menu-link-item`
+- the semantic placement target: `page.section-nav`
+- the placement owner: `admin-settings`
 
-That is why the simple settings-page commands do not need `--link-placement` or `--link-component-token`.
+The renderer comes from `src/placementTopology.js`, where `page.section-nav` maps to the concrete `admin-settings:primary-menu` outlet for each layout class.
 
-The admin cog example is different. `w/[workspaceSlug]/admin/catalogue/index.vue` is just a normal admin page, so there is no local nested outlet to infer. That is why you must pass `--link-placement admin-cog:primary-menu` there.
+That is why the simple settings-page commands do not need `--link-placement`.
+
+The admin cog example is different. `w/[workspaceSlug]/admin/catalogue/index.vue` is just a normal admin page, so there is no local nested host to infer. That is why you must pass `--link-placement admin.tools-menu` there.
 
 If you want a little more context than the raw destination list, this is also useful:
 

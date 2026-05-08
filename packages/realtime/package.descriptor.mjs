@@ -1,7 +1,7 @@
 export default Object.freeze({
   packageVersion: 1,
   packageId: "@jskit-ai/realtime",
-  version: "0.1.64",
+  version: "0.1.65",
   kind: "runtime",
   description: "Thin, generic realtime runtime wrappers for socket.io server and client.",
   options: {
@@ -81,7 +81,8 @@ export default Object.freeze({
         contributions: [
           {
             id: "realtime.connection.indicator",
-            target: "shell-layout:top-right",
+            target: "shell.status",
+            kind: "component",
             surfaces: ["*"],
             order: 950,
             componentToken: "realtime.web.connection.indicator",
@@ -94,7 +95,7 @@ export default Object.freeze({
   mutations: {
     dependencies: {
       runtime: {
-        "@jskit-ai/kernel": "0.1.65",
+        "@jskit-ai/kernel": "0.1.66",
         "@socket.io/redis-adapter": "^8.3.0",
         "redis": "^5.8.2",
         "socket.io": "^4.8.3",
@@ -133,7 +134,7 @@ export default Object.freeze({
         position: "bottom",
         skipIfContains: "id: \"realtime.connection.indicator\"",
         value:
-          "\naddPlacement({\n  id: \"realtime.connection.indicator\",\n  target: \"shell-layout:top-right\",\n  surfaces: [\"*\"],\n  order: 950,\n  componentToken: \"realtime.web.connection.indicator\"\n});\n",
+          "\naddPlacement({\n  id: \"realtime.connection.indicator\",\n  target: \"shell.status\",\n  kind: \"component\",\n  surfaces: [\"*\"],\n  order: 950,\n  componentToken: \"realtime.web.connection.indicator\"\n});\n",
         reason: "Append realtime connection indicator placement into app-owned placement registry.",
         category: "realtime-web",
         id: "realtime-placement-indicator"

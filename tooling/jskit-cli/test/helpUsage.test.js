@@ -182,10 +182,9 @@ test("jskit generate ui-generator outlet help prints outlet-specific usage", () 
   const stdout = String(result.stdout || "");
   assert.match(stdout, /Generator subcommand help: @jskit-ai\/ui-generator outlet/);
   assert.match(stdout, /Long:/);
-  assert.match(stdout, /A ShellOutlet creates a named placement target inside a Vue file\./);
-  assert.match(stdout, /`jskit list-placements` will discover it and show its `target`\./);
-  assert.match(stdout, /`ui-generator placed-element`/);
-  assert.match(stdout, /Notes \(1\):/);
+  assert.match(stdout, /A ShellOutlet creates a concrete placement recipient inside a Vue file\./);
+  assert.match(stdout, /appends the semantic topology mapping for that outlet/);
+  assert.match(stdout, /Notes \(2\):/);
   assert.doesNotMatch(stdout, /RouterView or SectionContainerShell/);
   assert.match(stdout, /target-file/);
   assert.match(stdout, /--target/);
@@ -211,14 +210,14 @@ test("jskit generate ui-generator page help includes link options", () => {
   assert.match(stdout, /child pages\s+belong under `index\/\.\.\.`/);
   assert.match(stdout, /target-file \[required\]: Vue page file relative to src\/pages\/\. It must\s+resolve to a configured\s+surface\./);
   assert.match(stdout, /--link-placement/);
-  assert.match(stdout, /--link-component-token/);
+  assert.doesNotMatch(stdout, /--link-component-token/);
   assert.match(stdout, /--link-to/);
   assertHelpExamples(stdout, [
     /admin\/reports\/index\.vue/,
     /admin\/customers\/\[customerId\]\/index\/notes\/index\.vue/
   ]);
   assert.match(stdout, /Notes \(3\):/);
-  assert.match(stdout, /link component token, and props\.to are\s+inferred automatically/);
+  assert.match(stdout, /semantic placement and props\.to are\s+inferred\s+automatically/);
   assert.match(stdout, /target page file already exists, rerun with --force/);
 });
 
@@ -244,7 +243,7 @@ test("jskit generate ui-generator placed-element help includes common and advanc
   assert.equal(result.status, 0, String(result.stderr || ""));
   const stdout = String(result.stdout || "");
   assert.match(stdout, /Generator subcommand help: @jskit-ai\/ui-generator placed-element/);
-  assert.match(stdout, /If --placement is omitted, the placed element is added at shell-layout:top-right\./);
+  assert.match(stdout, /If --placement is omitted, the placed element is added at shell\.status\./);
   assert.match(stdout, /--name/);
   assert.match(stdout, /--surface/);
   assert.match(stdout, /--force/);

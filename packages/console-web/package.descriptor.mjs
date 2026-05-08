@@ -1,7 +1,7 @@
 export default Object.freeze({
   packageVersion: 1,
   packageId: "@jskit-ai/console-web",
-  version: "0.1.33",
+  version: "0.1.34",
   kind: "runtime",
   description: "Authenticated console surface scaffold and surface policy wiring.",
   dependsOn: [
@@ -43,27 +43,56 @@ export default Object.freeze({
         outlets: [
           {
             target: "console-settings:primary-menu",
-            defaultLinkComponentToken: "local.main.ui.surface-aware-menu-link-item",
             surfaces: ["console"],
             source: "templates/src/pages/console/settings.vue"
           }
         ],
+        topology: {
+          placements: [
+            {
+              id: "page.section-nav",
+              owner: "console-settings",
+              description: "Navigation between console settings child pages.",
+              surfaces: ["console"],
+              variants: {
+                compact: {
+                  outlet: "console-settings:primary-menu",
+                  renderers: {
+                    link: "local.main.ui.surface-aware-menu-link-item"
+                  }
+                },
+                medium: {
+                  outlet: "console-settings:primary-menu",
+                  renderers: {
+                    link: "local.main.ui.surface-aware-menu-link-item"
+                  }
+                },
+                expanded: {
+                  outlet: "console-settings:primary-menu",
+                  renderers: {
+                    link: "local.main.ui.surface-aware-menu-link-item"
+                  }
+                }
+              }
+            }
+          ]
+        },
         contributions: [
           {
             id: "console.web.profile.menu.console",
-            target: "auth-profile-menu:primary-menu",
+            target: "auth.profile-menu",
+            kind: "link",
             surfaces: ["*"],
             order: 600,
-            componentToken: "auth.web.profile.menu.link-item",
             when: "auth.authenticated === true && surfaceAccess.consoleowner === true && surface !== \"console\"",
             source: "mutations.text#console-web-profile-menu-console-placement"
           },
           {
             id: "console.web.menu.settings",
-            target: "shell-layout:primary-menu",
+            target: "shell.primary-nav",
+            kind: "link",
             surfaces: ["console"],
             order: 100,
-            componentToken: "local.main.ui.menu-link-item",
             when: "auth.authenticated === true",
             source: "mutations.text#console-web-console-settings-placement"
           }
@@ -74,9 +103,9 @@ export default Object.freeze({
   mutations: {
     dependencies: {
       runtime: {
-        "@jskit-ai/auth-web": "0.1.66",
-        "@jskit-ai/console-core": "0.1.28",
-        "@jskit-ai/shell-web": "0.1.64",
+        "@jskit-ai/auth-web": "0.1.67",
+        "@jskit-ai/console-core": "0.1.29",
+        "@jskit-ai/shell-web": "0.1.65",
       },
       dev: {}
     },
@@ -154,7 +183,7 @@ export default Object.freeze({
         position: "bottom",
         skipIfContains: "id: \"console.web.profile.menu.console\"",
         value:
-          "\naddPlacement({\n  id: \"console.web.profile.menu.console\",\n  target: \"auth-profile-menu:primary-menu\",\n  surfaces: [\"*\"],\n  order: 600,\n  componentToken: \"auth.web.profile.menu.link-item\",\n  props: {\n    label: \"Go to console\",\n    to: \"/console\",\n    icon: \"mdi-console-network-outline\"\n  },\n  when: ({ auth, surfaceAccess, surface }) => {\n    return auth?.authenticated === true && surfaceAccess?.consoleowner === true && surface !== \"console\";\n  }\n});\n",
+          "\naddPlacement({\n  id: \"console.web.profile.menu.console\",\n  target: \"auth.profile-menu\",\n  kind: \"link\",\n  surfaces: [\"*\"],\n  order: 600,\n  props: {\n    label: \"Go to console\",\n    to: \"/console\",\n    icon: \"mdi-console-network-outline\"\n  },\n  when: ({ auth, surfaceAccess, surface }) => {\n    return auth?.authenticated === true && surfaceAccess?.consoleowner === true && surface !== \"console\";\n  }\n});\n",
         reason: "Append owner-only console navigation entry into the authenticated profile menu outside the console surface.",
         category: "console-web",
         id: "console-web-profile-menu-console-placement"
@@ -165,10 +194,21 @@ export default Object.freeze({
         position: "bottom",
         skipIfContains: "id: \"console.web.menu.settings\"",
         value:
-          "\naddPlacement({\n  id: \"console.web.menu.settings\",\n  target: \"shell-layout:primary-menu\",\n  surfaces: [\"console\"],\n  order: 100,\n  componentToken: \"local.main.ui.menu-link-item\",\n  props: {\n    label: \"Settings\",\n    to: \"/console/settings\",\n    icon: \"mdi-cog-outline\"\n  },\n  when: ({ auth }) => auth?.authenticated === true\n});\n",
+          "\naddPlacement({\n  id: \"console.web.menu.settings\",\n  target: \"shell.primary-nav\",\n  kind: \"link\",\n  surfaces: [\"console\"],\n  order: 100,\n  props: {\n    label: \"Settings\",\n    to: \"/console/settings\",\n    icon: \"mdi-cog-outline\"\n  },\n  when: ({ auth }) => auth?.authenticated === true\n});\n",
         reason: "Append console-web settings menu placement into app-owned placement registry.",
         category: "console-web",
         id: "console-web-console-settings-placement"
+      },
+      {
+        op: "append-text",
+        file: "src/placementTopology.js",
+        position: "bottom",
+        skipIfContains: "owner: \"console-settings\"",
+        value:
+          "\naddPlacementTopology({\n  id: \"page.section-nav\",\n  owner: \"console-settings\",\n  description: \"Navigation between console settings child pages.\",\n  surfaces: [\"console\"],\n  variants: {\n    compact: {\n      outlet: \"console-settings:primary-menu\",\n      renderers: {\n        link: \"local.main.ui.surface-aware-menu-link-item\"\n      }\n    },\n    medium: {\n      outlet: \"console-settings:primary-menu\",\n      renderers: {\n        link: \"local.main.ui.surface-aware-menu-link-item\"\n      }\n    },\n    expanded: {\n      outlet: \"console-settings:primary-menu\",\n      renderers: {\n        link: \"local.main.ui.surface-aware-menu-link-item\"\n      }\n    }\n  }\n});\n",
+        reason: "Append console settings semantic topology into app-owned placement topology.",
+        category: "console-web",
+        id: "console-web-settings-placement-topology"
       }
     ]
   }

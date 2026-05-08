@@ -1,7 +1,7 @@
 export default Object.freeze({
   packageVersion: 1,
   packageId: "@jskit-ai/crud-ui-generator",
-  version: "0.1.48",
+  version: "0.1.49",
   kind: "generator",
   description: "Generate CRUD route trees from resource validators at an explicit route root relative to src/pages/.",
   options: {
@@ -64,15 +64,7 @@ export default Object.freeze({
       inputType: "text",
       defaultValue: "",
       promptLabel: "Link placement",
-      promptHint: "Optional target override for the generated list-page link placement (format: host:position)."
-    },
-    "link-component-token": {
-      required: false,
-      inputType: "text",
-      defaultValue: "",
-      promptLabel: "Link component token",
-      promptHint:
-        "Optional component token override for the generated list-page link placement (example: local.main.ui.tab-link-item)."
+      promptHint: "Optional semantic target override for the generated list-page link placement (format: area.slot)."
     },
     namespace: {
       required: false,
@@ -119,7 +111,6 @@ export default Object.freeze({
           "id-param",
           "parent-title",
           "link-placement",
-          "link-component-token",
           "namespace",
           "force"
         ],
@@ -180,7 +171,7 @@ export default Object.freeze({
   mutations: {
     dependencies: {
       runtime: {
-        "@jskit-ai/users-web": "0.1.80"
+        "@jskit-ai/users-web": "0.1.81"
       },
       dev: {}
     },
@@ -365,7 +356,7 @@ export default Object.freeze({
         position: "bottom",
         skipIfContains: "__JSKIT_UI_MENU_MARKER__",
         value:
-          "\n// __JSKIT_UI_MENU_MARKER__\n{\n  addPlacement({\n    id: \"__JSKIT_UI_MENU_PLACEMENT_ID__\",\n    target: \"__JSKIT_UI_MENU_PLACEMENT_TARGET__\",\n    surfaces: [\"__JSKIT_UI_SURFACE_ID__\"],\n    order: 155,\n    componentToken: \"__JSKIT_UI_MENU_COMPONENT_TOKEN__\",\n    props: {\n      label: \"__JSKIT_UI_MENU_LABEL__\",\n      icon: \"__JSKIT_UI_MENU_ICON__\",\n      surface: \"__JSKIT_UI_SURFACE_ID__\",\n      scopedSuffix: \"__JSKIT_UI_MENU_WORKSPACE_SUFFIX__\",\n      unscopedSuffix: \"__JSKIT_UI_MENU_NON_WORKSPACE_SUFFIX__\",\n__JSKIT_UI_MENU_TO_PROP_LINE__    },\n__JSKIT_UI_MENU_WHEN_LINE__  });\n}\n",
+          "\n// __JSKIT_UI_MENU_MARKER__\n{\n  addPlacement({\n    id: \"__JSKIT_UI_MENU_PLACEMENT_ID__\",\n    target: \"__JSKIT_UI_MENU_PLACEMENT_TARGET__\",\n__JSKIT_UI_MENU_OWNER_LINE__    kind: \"link\",\n    surfaces: [\"__JSKIT_UI_SURFACE_ID__\"],\n    order: 155,\n    props: {\n      label: \"__JSKIT_UI_MENU_LABEL__\",\n      icon: \"__JSKIT_UI_MENU_ICON__\",\n      surface: \"__JSKIT_UI_SURFACE_ID__\",\n      scopedSuffix: \"__JSKIT_UI_MENU_WORKSPACE_SUFFIX__\",\n      unscopedSuffix: \"__JSKIT_UI_MENU_NON_WORKSPACE_SUFFIX__\",\n__JSKIT_UI_MENU_TO_PROP_LINE__    },\n__JSKIT_UI_MENU_WHEN_LINE__  });\n}\n",
         reason: "Append generated CRUD list-page placement.",
         category: "crud-ui-generator",
         id: "crud-ui-placement-menu",

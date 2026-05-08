@@ -344,8 +344,8 @@ The placement sections are often the most useful part of `show --details`.
 
 For `@jskit-ai/workspaces-web`, the detailed output shows placement contributions such as:
 
-- the workspace selector in `shell-layout:top-left`
-- the pending invites cue in `shell-layout:top-right`
+- the workspace selector in `shell.identity`
+- the pending invites cue in `shell.status`
 - the workspace tools widget on the `admin` surface
 - the `Members` and workspace settings menu entries
 
@@ -353,9 +353,10 @@ That lets you answer a very concrete question before installing anything:
 
 - *what will change in the shell if I add this package?*
 
-It also shows placement outlets, such as:
+It also shows semantic placement topology, such as:
 
-- `admin-settings:primary-menu`
+- `page.section-nav` with owner `admin-settings`
+- `admin.tools-menu`
 
 which helps you understand where later app-owned pages or settings links can attach.
 

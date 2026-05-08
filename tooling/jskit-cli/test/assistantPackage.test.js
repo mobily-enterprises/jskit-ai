@@ -77,6 +77,74 @@ export default function getPlacements() {
   );
 
   await writeFile(
+    path.join(appRoot, "src", "placementTopology.js"),
+    `const placements = [];
+
+function addPlacementTopology(value = {}) {
+  placements.push(value);
+}
+
+addPlacementTopology({
+  id: "shell.primary-nav",
+  description: "Primary shell navigation.",
+  surfaces: ["*"],
+  default: true,
+  variants: {
+    compact: {
+      outlet: "shell-layout:primary-menu",
+      renderers: {
+        link: "local.main.ui.surface-aware-menu-link-item"
+      }
+    },
+    medium: {
+      outlet: "shell-layout:primary-menu",
+      renderers: {
+        link: "local.main.ui.surface-aware-menu-link-item"
+      }
+    },
+    expanded: {
+      outlet: "shell-layout:primary-menu",
+      renderers: {
+        link: "local.main.ui.surface-aware-menu-link-item"
+      }
+    }
+  }
+});
+
+addPlacementTopology({
+  id: "page.section-nav",
+  owner: "admin-settings",
+  description: "Admin settings section navigation.",
+  surfaces: ["admin"],
+  variants: {
+    compact: {
+      outlet: "admin-settings:sub-pages",
+      renderers: {
+        link: "local.main.ui.surface-aware-menu-link-item"
+      }
+    },
+    medium: {
+      outlet: "admin-settings:sub-pages",
+      renderers: {
+        link: "local.main.ui.surface-aware-menu-link-item"
+      }
+    },
+    expanded: {
+      outlet: "admin-settings:sub-pages",
+      renderers: {
+        link: "local.main.ui.surface-aware-menu-link-item"
+      }
+    }
+  }
+});
+
+export { addPlacementTopology };
+export default { placements };
+`,
+    "utf8"
+  );
+
+  await writeFile(
     path.join(appRoot, "src", "components", "ShellLayout.vue"),
     `<template>
   <div>
@@ -84,7 +152,6 @@ export default function getPlacements() {
     <ShellOutlet
       target="shell-layout:primary-menu"
       default
-      default-link-component-token="local.main.ui.surface-aware-menu-link-item"
     />
   </div>
 </template>
@@ -255,7 +322,8 @@ test("generate @jskit-ai/assistant settings-page scaffolds a settings page at an
 
     const placementSource = await readFile(path.join(appRoot, "src/placement.js"), "utf8");
     assert.match(placementSource, /jskit:assistant\.settings-page\.link:admin:\/settings\/assistant:console/);
-    assert.match(placementSource, /target: "admin-settings:sub-pages"/);
+    assert.match(placementSource, /target: "page\.section-nav"/);
+    assert.match(placementSource, /owner: "admin-settings"/);
     assert.match(placementSource, /to: "\.\/assistant"/);
   });
 });

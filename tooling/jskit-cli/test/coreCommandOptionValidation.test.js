@@ -18,7 +18,7 @@ test("list-placements rejects unsupported value options and prints command help"
   const stderr = String(result.stderr || "");
   assert.match(stderr, /Unknown option for command list-placements: --prefix\./);
   assert.match(stderr, /Command: list-placements/);
-  assert.match(stderr, /jskit list-placements \[--json\]/);
+  assert.match(stderr, /jskit list-placements \[--concrete] \[--all] \[--json\]/);
 });
 
 test("show rejects unsupported flags and prints command help", () => {

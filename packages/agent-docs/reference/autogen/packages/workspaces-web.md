@@ -321,7 +321,6 @@ Exports
 
 ### `src/shared/toolsOutletContracts.js`
 Exports
-- `DEFAULT_COG_LINK_COMPONENT_TOKEN`
 - `ADMIN_COG_OUTLET`
 
 ### templates

@@ -108,7 +108,8 @@ That is where things such as:
 - `label`
 - `order`
 - `icon`
-- a custom `componentToken`
+- `owner`
+- `surfaces`
 
 normally get adjusted.
 
@@ -160,21 +161,12 @@ Use this when the generated page link should go somewhere other than the generat
 Typical reasons:
 
 - you want the page in a different shell menu
-- you want the page link inside a specific existing outlet
+- you want the page link inside a specific existing semantic placement
 - you do not want the link to land in the normal top-level menu
 
 For example, if a page should appear in a settings menu rather than the shell drawer, `--link-placement` is the override that says so.
 
-#### `--link-component-token`
-
-Use this when the page link should render with a different link component than the default inferred one.
-
-In practice, this often means:
-
-- using a tab-style link instead of a normal menu link
-- using a local custom link token for a special shell section
-
-This matters most once you start targeting non-default outlets. A settings or tab host may want a different link renderer than the main shell drawer.
+The value should normally be semantic, such as `shell.primary-nav`, `page.section-nav`, or another `area.slot` placement from `jskit list-placements`. Concrete `host:position` outlets remain an escape hatch, not the default authoring path.
 
 #### `--link-to`
 
@@ -345,12 +337,13 @@ But the placement it wrote was **not** another top-level shell link.
 Instead, it targeted the host outlet:
 
 ```text
-reports:sub-pages
+page.section-nav
 ```
 
-and used the tab-link renderer with:
+with the host owner and relative route:
 
 ```js
+owner: "reports",
 to: "./exports"
 ```
 
@@ -360,7 +353,7 @@ That is exactly the behavior you want:
 - `Exports` becomes a child tab under it
 - the child route renders under the parent instead of becoming another top-level menu entry
 
-This is also why `--link-placement`, `--link-component-token`, and `--link-to` are often unnecessary in the default nested case. Once the host exists, JSKIT already knows the likely child placement target, link renderer, and relative `to` value.
+This is also why `--link-placement` and `--link-to` are often unnecessary in the default nested case. Once the host exists, JSKIT already knows the likely semantic placement, owner, and relative `to` value. The link renderer comes from `src/placementTopology.js`.
 
 ## Nested pages under a file-route host
 
@@ -547,13 +540,15 @@ In the verified throwaway app, after generating `Alerts Widget`, I ran:
 ```bash
 npx jskit generate ui-generator outlet \
   src/components/AlertsWidgetElement.vue \
-  --target alerts-widget:actions
+  --target alerts-widget:actions \
+  --placement page.actions
 ```
 
-That command touched only one file:
+That command touched the Vue file and the topology file:
 
 ```text
 src/components/AlertsWidgetElement.vue
+src/placementTopology.js
 ```
 
 and injected:
@@ -576,13 +571,16 @@ Use `outlet` when you want:
 - later content to be targetable there
 - no routed child-page behavior
 
-After adding the outlet, `npx jskit list-placements` showed the new target immediately:
+After adding the outlet, `npx jskit list-placements` showed the new semantic placement immediately:
 
 ```text
-- alerts-widget:actions [src/components/AlertsWidgetElement.vue]
+- page.actions: ...
+- compact -> alerts-widget:actions
+- medium -> alerts-widget:actions
+- expanded -> alerts-widget:actions
 ```
 
-So `outlet` is the smallest possible way to make a Vue file part of the placement topology.
+So `outlet` is the smallest possible way to add a concrete recipient and expose it through the public placement topology in the same change.
 
 ### When `outlet` is the smaller correct tool
 
@@ -603,7 +601,7 @@ That is why `outlet` is often the better choice for:
 
 If you do **not** need `RouterView` and you do **not** need child routes, `outlet` is usually the cleaner tool.
 
-### Choosing a good custom `--target`
+### Choosing a good custom `--target` and `--placement`
 
 `--target` should be meaningful to humans, not just syntactically valid.
 
@@ -626,11 +624,19 @@ custom-area:slot1
 
 because the meaningful target name will later show up in:
 
-- `jskit list-placements`
-- placement entries
+- `jskit list-placements --concrete`
+- topology mappings
 - future generator commands
 
 So the target should describe the UI seam you are creating, not just satisfy the `host:position` format.
+
+`--placement` is the public authoring target that other entries should use. It should be semantic, such as:
+
+```text
+page.actions
+```
+
+Adding an outlet without adding a semantic mapping would leave a low-level recipient that normal generators and humans will not discover by default.
 
 ## `add-subpages` versus `outlet`
 

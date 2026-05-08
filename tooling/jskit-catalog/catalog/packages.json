@@ -6,11 +6,11 @@
   "packages": [
     {
       "packageId": "@jskit-ai/assistant",
-      "version": "0.1.74",
+      "version": "0.1.75",
       "descriptor": {
         "packageVersion": 1,
         "packageId": "@jskit-ai/assistant",
-        "version": "0.1.74",
+        "version": "0.1.75",
         "kind": "generator",
         "description": "Install assistant runtime/config for one surface and scaffold assistant pages at explicit target files.",
         "options": {
@@ -58,14 +58,7 @@
             "inputType": "text",
             "defaultValue": "",
             "promptLabel": "Link placement",
-            "promptHint": "Optional target for the generated page link placement (format: host:position)."
-          },
-          "link-component-token": {
-            "required": false,
-            "inputType": "text",
-            "defaultValue": "",
-            "promptLabel": "Link component token",
-            "promptHint": "Optional component token override for the generated page link placement."
+            "promptHint": "Optional semantic target for the generated page link placement (format: area.slot)."
           },
           "link-to": {
             "required": false,
@@ -185,7 +178,6 @@
               "optionNames": [
                 "name",
                 "link-placement",
-                "link-component-token",
                 "link-to",
                 "force"
               ],
@@ -208,7 +200,7 @@
                     "npx jskit generate assistant page \\",
                     "  admin/ops/copilot/index.vue \\",
                     "  --name \"Copilot\" \\",
-                    "  --link-placement shell-layout:top-right"
+                    "  --link-placement shell.status"
                   ]
                 }
               ]
@@ -229,7 +221,6 @@
                 "surface",
                 "name",
                 "link-placement",
-                "link-component-token",
                 "link-to",
                 "force"
               ],
@@ -356,11 +347,11 @@
     },
     {
       "packageId": "@jskit-ai/assistant-core",
-      "version": "0.1.41",
+      "version": "0.1.42",
       "descriptor": {
         "packageVersion": 1,
         "packageId": "@jskit-ai/assistant-core",
-        "version": "0.1.41",
+        "version": "0.1.42",
         "kind": "runtime",
         "description": "Reusable assistant client/server/shared primitives without surface-specific routes or settings ownership.",
         "dependsOn": [
@@ -408,11 +399,11 @@
         "mutations": {
           "dependencies": {
             "runtime": {
-              "@jskit-ai/http-runtime": "0.1.64",
-              "@jskit-ai/kernel": "0.1.65",
-              "@jskit-ai/resource-core": "0.1.10",
-              "@jskit-ai/resource-crud-core": "0.1.10",
-              "@jskit-ai/users-core": "0.1.75",
+              "@jskit-ai/http-runtime": "0.1.65",
+              "@jskit-ai/kernel": "0.1.66",
+              "@jskit-ai/resource-core": "0.1.11",
+              "@jskit-ai/resource-crud-core": "0.1.11",
+              "@jskit-ai/users-core": "0.1.76",
               "@tanstack/vue-query": "^5.90.5",
               "dompurify": "^3.3.3",
               "json-rest-schema": "1.x.x",
@@ -433,11 +424,11 @@
     },
     {
       "packageId": "@jskit-ai/assistant-runtime",
-      "version": "0.1.36",
+      "version": "0.1.37",
       "descriptor": {
         "packageVersion": 1,
         "packageId": "@jskit-ai/assistant-runtime",
-        "version": "0.1.36",
+        "version": "0.1.37",
         "kind": "runtime",
         "description": "Shared assistant runtime with per-surface assistant registration.",
         "dependsOn": [
@@ -533,13 +524,13 @@
         "mutations": {
           "dependencies": {
             "runtime": {
-              "@jskit-ai/assistant-core": "0.1.41",
-              "@jskit-ai/database-runtime": "0.1.65",
-              "@jskit-ai/http-runtime": "0.1.64",
-              "@jskit-ai/kernel": "0.1.65",
-              "@jskit-ai/shell-web": "0.1.64",
-              "@jskit-ai/users-core": "0.1.75",
-              "@jskit-ai/users-web": "0.1.80",
+              "@jskit-ai/assistant-core": "0.1.42",
+              "@jskit-ai/database-runtime": "0.1.66",
+              "@jskit-ai/http-runtime": "0.1.65",
+              "@jskit-ai/kernel": "0.1.66",
+              "@jskit-ai/shell-web": "0.1.65",
+              "@jskit-ai/users-core": "0.1.76",
+              "@jskit-ai/users-web": "0.1.81",
               "@tanstack/vue-query": "^5.90.5",
               "vuetify": "^4.0.0"
             },
@@ -596,11 +587,11 @@
     },
     {
       "packageId": "@jskit-ai/auth-core",
-      "version": "0.1.64",
+      "version": "0.1.65",
       "descriptor": {
         "packageVersion": 1,
         "packageId": "@jskit-ai/auth-core",
-        "version": "0.1.64",
+        "version": "0.1.65",
         "kind": "runtime",
         "dependsOn": [
           "@jskit-ai/value-app-config-shared"
@@ -668,7 +659,7 @@
         "mutations": {
           "dependencies": {
             "runtime": {
-              "@jskit-ai/kernel": "0.1.65",
+              "@jskit-ai/kernel": "0.1.66",
               "@fastify/cookie": "^11.0.2",
               "@fastify/csrf-protection": "^7.1.0",
               "@fastify/rate-limit": "^10.3.0"
@@ -686,11 +677,11 @@
     },
     {
       "packageId": "@jskit-ai/auth-provider-supabase-core",
-      "version": "0.1.64",
+      "version": "0.1.65",
       "descriptor": {
         "packageVersion": 1,
         "packageId": "@jskit-ai/auth-provider-supabase-core",
-        "version": "0.1.64",
+        "version": "0.1.65",
         "kind": "runtime",
         "options": {
           "auth-supabase-url": {
@@ -772,8 +763,8 @@
         "mutations": {
           "dependencies": {
             "runtime": {
-              "@jskit-ai/auth-core": "0.1.64",
-              "@jskit-ai/kernel": "0.1.65",
+              "@jskit-ai/auth-core": "0.1.65",
+              "@jskit-ai/kernel": "0.1.66",
               "dotenv": "^16.4.5",
               "@supabase/supabase-js": "^2.57.4",
               "jose": "^6.1.0"
@@ -838,11 +829,11 @@
     },
     {
       "packageId": "@jskit-ai/auth-web",
-      "version": "0.1.66",
+      "version": "0.1.67",
       "descriptor": {
         "packageVersion": 1,
         "packageId": "@jskit-ai/auth-web",
-        "version": "0.1.66",
+        "version": "0.1.67",
         "kind": "runtime",
         "description": "Auth web module: Fastify auth routes plus web login/sign-out scaffolds.",
         "dependsOn": [
@@ -1019,17 +1010,48 @@
               "outlets": [
                 {
                   "target": "auth-profile-menu:primary-menu",
-                  "defaultLinkComponentToken": "auth.web.profile.menu.link-item",
                   "surfaces": [
                     "*"
                   ],
                   "source": "src/client/views/AuthProfileWidget.vue"
                 }
               ],
+              "topology": {
+                "placements": [
+                  {
+                    "id": "auth.profile-menu",
+                    "description": "Authenticated profile menu actions.",
+                    "surfaces": [
+                      "*"
+                    ],
+                    "variants": {
+                      "compact": {
+                        "outlet": "auth-profile-menu:primary-menu",
+                        "renderers": {
+                          "link": "auth.web.profile.menu.link-item"
+                        }
+                      },
+                      "medium": {
+                        "outlet": "auth-profile-menu:primary-menu",
+                        "renderers": {
+                          "link": "auth.web.profile.menu.link-item"
+                        }
+                      },
+                      "expanded": {
+                        "outlet": "auth-profile-menu:primary-menu",
+                        "renderers": {
+                          "link": "auth.web.profile.menu.link-item"
+                        }
+                      }
+                    }
+                  }
+                ]
+              },
               "contributions": [
                 {
                   "id": "auth.profile.widget",
-                  "target": "shell-layout:top-right",
+                  "target": "shell.status",
+                  "kind": "component",
                   "surfaces": [
                     "*"
                   ],
@@ -1039,23 +1061,23 @@
                 },
                 {
                   "id": "auth.profile.menu.sign-in",
-                  "target": "auth-profile-menu:primary-menu",
+                  "target": "auth.profile-menu",
+                  "kind": "link",
                   "surfaces": [
                     "*"
                   ],
                   "order": 200,
-                  "componentToken": "auth.web.profile.menu.link-item",
                   "when": "auth.authenticated !== true",
                   "source": "mutations.text#auth-web-placement-block"
                 },
                 {
                   "id": "auth.profile.menu.sign-out",
-                  "target": "auth-profile-menu:primary-menu",
+                  "target": "auth.profile-menu",
+                  "kind": "link",
                   "surfaces": [
                     "*"
                   ],
                   "order": 1000,
-                  "componentToken": "auth.web.profile.menu.link-item",
                   "when": "auth.authenticated === true",
                   "source": "mutations.text#auth-web-placement-block"
                 }
@@ -1068,10 +1090,10 @@
             "runtime": {
               "@tanstack/vue-query": "5.92.12",
               "@mdi/js": "^7.4.47",
-              "@jskit-ai/auth-core": "0.1.64",
-              "@jskit-ai/http-runtime": "0.1.64",
-              "@jskit-ai/kernel": "0.1.65",
-              "@jskit-ai/shell-web": "0.1.64",
+              "@jskit-ai/auth-core": "0.1.65",
+              "@jskit-ai/http-runtime": "0.1.65",
+              "@jskit-ai/kernel": "0.1.66",
+              "@jskit-ai/shell-web": "0.1.65",
               "vuetify": "^4.0.0"
             },
             "dev": {}
@@ -1130,10 +1152,20 @@
               "file": "src/placement.js",
               "position": "bottom",
               "skipIfContains": "id: \"auth.profile.widget\"",
-              "value": "\naddPlacement({\n  id: \"auth.profile.widget\",\n  target: \"shell-layout:top-right\",\n  surfaces: [\"*\"],\n  order: 1000,\n  componentToken: \"auth.web.profile.widget\"\n});\n\naddPlacement({\n  id: \"auth.profile.menu.sign-in\",\n  target: \"auth-profile-menu:primary-menu\",\n  surfaces: [\"*\"],\n  order: 200,\n  componentToken: \"auth.web.profile.menu.link-item\",\n  props: {\n    label: \"Sign in\",\n    to: \"/auth/login\"\n  },\n  when: ({ auth }) => auth?.authenticated !== true\n});\n\naddPlacement({\n  id: \"auth.profile.menu.sign-out\",\n  target: \"auth-profile-menu:primary-menu\",\n  surfaces: [\"*\"],\n  order: 1000,\n  componentToken: \"auth.web.profile.menu.link-item\",\n  props: {\n    label: \"Sign out\",\n    to: \"/auth/signout\"\n  },\n  when: ({ auth }) => auth?.authenticated === true\n});\n",
+              "value": "\naddPlacement({\n  id: \"auth.profile.widget\",\n  target: \"shell.status\",\n  kind: \"component\",\n  surfaces: [\"*\"],\n  order: 1000,\n  componentToken: \"auth.web.profile.widget\"\n});\n\naddPlacement({\n  id: \"auth.profile.menu.sign-in\",\n  target: \"auth.profile-menu\",\n  kind: \"link\",\n  surfaces: [\"*\"],\n  order: 200,\n  props: {\n    label: \"Sign in\",\n    to: \"/auth/login\"\n  },\n  when: ({ auth }) => auth?.authenticated !== true\n});\n\naddPlacement({\n  id: \"auth.profile.menu.sign-out\",\n  target: \"auth.profile-menu\",\n  kind: \"link\",\n  surfaces: [\"*\"],\n  order: 1000,\n  props: {\n    label: \"Sign out\",\n    to: \"/auth/signout\"\n  },\n  when: ({ auth }) => auth?.authenticated === true\n});\n",
               "reason": "Append auth profile placement entries into app-owned placement registry.",
               "category": "auth-web",
               "id": "auth-web-placement-block"
+            },
+            {
+              "op": "append-text",
+              "file": "src/placementTopology.js",
+              "position": "bottom",
+              "skipIfContains": "id: \"auth.profile-menu\"",
+              "value": "\naddPlacementTopology({\n  id: \"auth.profile-menu\",\n  description: \"Authenticated profile menu actions.\",\n  surfaces: [\"*\"],\n  variants: {\n    compact: {\n      outlet: \"auth-profile-menu:primary-menu\",\n      renderers: {\n        link: \"auth.web.profile.menu.link-item\"\n      }\n    },\n    medium: {\n      outlet: \"auth-profile-menu:primary-menu\",\n      renderers: {\n        link: \"auth.web.profile.menu.link-item\"\n      }\n    },\n    expanded: {\n      outlet: \"auth-profile-menu:primary-menu\",\n      renderers: {\n        link: \"auth.web.profile.menu.link-item\"\n      }\n    }\n  }\n});\n",
+              "reason": "Append auth profile menu topology into the app-owned placement topology.",
+              "category": "auth-web",
+              "id": "auth-web-profile-menu-topology"
             }
           ]
         }
@@ -1141,11 +1173,11 @@
     },
     {
       "packageId": "@jskit-ai/console-core",
-      "version": "0.1.28",
+      "version": "0.1.29",
       "descriptor": {
         "packageVersion": 1,
         "packageId": "@jskit-ai/console-core",
-        "version": "0.1.28",
+        "version": "0.1.29",
         "kind": "runtime",
         "description": "Console runtime: console settings schema, bootstrap flags, actions, and HTTP routes.",
         "dependsOn": [
@@ -1229,12 +1261,12 @@
         "mutations": {
           "dependencies": {
             "runtime": {
-              "@jskit-ai/auth-core": "0.1.64",
-              "@jskit-ai/database-runtime": "0.1.65",
-              "@jskit-ai/http-runtime": "0.1.64",
-              "@jskit-ai/kernel": "0.1.65",
-              "@jskit-ai/resource-crud-core": "0.1.10",
-              "@jskit-ai/users-core": "0.1.75"
+              "@jskit-ai/auth-core": "0.1.65",
+              "@jskit-ai/database-runtime": "0.1.66",
+              "@jskit-ai/http-runtime": "0.1.65",
+              "@jskit-ai/kernel": "0.1.66",
+              "@jskit-ai/resource-crud-core": "0.1.11",
+              "@jskit-ai/users-core": "0.1.76"
             },
             "dev": {}
           },
@@ -1259,11 +1291,11 @@
     },
     {
       "packageId": "@jskit-ai/console-web",
-      "version": "0.1.33",
+      "version": "0.1.34",
       "descriptor": {
         "packageVersion": 1,
         "packageId": "@jskit-ai/console-web",
-        "version": "0.1.33",
+        "version": "0.1.34",
         "kind": "runtime",
         "description": "Authenticated console surface scaffold and surface policy wiring.",
         "dependsOn": [
@@ -1305,33 +1337,64 @@
               "outlets": [
                 {
                   "target": "console-settings:primary-menu",
-                  "defaultLinkComponentToken": "local.main.ui.surface-aware-menu-link-item",
                   "surfaces": [
                     "console"
                   ],
                   "source": "templates/src/pages/console/settings.vue"
                 }
               ],
+              "topology": {
+                "placements": [
+                  {
+                    "id": "page.section-nav",
+                    "owner": "console-settings",
+                    "description": "Navigation between console settings child pages.",
+                    "surfaces": [
+                      "console"
+                    ],
+                    "variants": {
+                      "compact": {
+                        "outlet": "console-settings:primary-menu",
+                        "renderers": {
+                          "link": "local.main.ui.surface-aware-menu-link-item"
+                        }
+                      },
+                      "medium": {
+                        "outlet": "console-settings:primary-menu",
+                        "renderers": {
+                          "link": "local.main.ui.surface-aware-menu-link-item"
+                        }
+                      },
+                      "expanded": {
+                        "outlet": "console-settings:primary-menu",
+                        "renderers": {
+                          "link": "local.main.ui.surface-aware-menu-link-item"
+                        }
+                      }
+                    }
+                  }
+                ]
+              },
               "contributions": [
                 {
                   "id": "console.web.profile.menu.console",
-                  "target": "auth-profile-menu:primary-menu",
+                  "target": "auth.profile-menu",
+                  "kind": "link",
                   "surfaces": [
                     "*"
                   ],
                   "order": 600,
-                  "componentToken": "auth.web.profile.menu.link-item",
                   "when": "auth.authenticated === true && surfaceAccess.consoleowner === true && surface !== \"console\"",
                   "source": "mutations.text#console-web-profile-menu-console-placement"
                 },
                 {
                   "id": "console.web.menu.settings",
-                  "target": "shell-layout:primary-menu",
+                  "target": "shell.primary-nav",
+                  "kind": "link",
                   "surfaces": [
                     "console"
                   ],
                   "order": 100,
-                  "componentToken": "local.main.ui.menu-link-item",
                   "when": "auth.authenticated === true",
                   "source": "mutations.text#console-web-console-settings-placement"
                 }
@@ -1342,9 +1405,9 @@
         "mutations": {
           "dependencies": {
             "runtime": {
-              "@jskit-ai/auth-web": "0.1.66",
-              "@jskit-ai/console-core": "0.1.28",
-              "@jskit-ai/shell-web": "0.1.64"
+              "@jskit-ai/auth-web": "0.1.67",
+              "@jskit-ai/console-core": "0.1.29",
+              "@jskit-ai/shell-web": "0.1.65"
             },
             "dev": {}
           },
@@ -1420,7 +1483,7 @@
               "file": "src/placement.js",
               "position": "bottom",
               "skipIfContains": "id: \"console.web.profile.menu.console\"",
-              "value": "\naddPlacement({\n  id: \"console.web.profile.menu.console\",\n  target: \"auth-profile-menu:primary-menu\",\n  surfaces: [\"*\"],\n  order: 600,\n  componentToken: \"auth.web.profile.menu.link-item\",\n  props: {\n    label: \"Go to console\",\n    to: \"/console\",\n    icon: \"mdi-console-network-outline\"\n  },\n  when: ({ auth, surfaceAccess, surface }) => {\n    return auth?.authenticated === true && surfaceAccess?.consoleowner === true && surface !== \"console\";\n  }\n});\n",
+              "value": "\naddPlacement({\n  id: \"console.web.profile.menu.console\",\n  target: \"auth.profile-menu\",\n  kind: \"link\",\n  surfaces: [\"*\"],\n  order: 600,\n  props: {\n    label: \"Go to console\",\n    to: \"/console\",\n    icon: \"mdi-console-network-outline\"\n  },\n  when: ({ auth, surfaceAccess, surface }) => {\n    return auth?.authenticated === true && surfaceAccess?.consoleowner === true && surface !== \"console\";\n  }\n});\n",
               "reason": "Append owner-only console navigation entry into the authenticated profile menu outside the console surface.",
               "category": "console-web",
               "id": "console-web-profile-menu-console-placement"
@@ -1430,10 +1493,20 @@
               "file": "src/placement.js",
               "position": "bottom",
               "skipIfContains": "id: \"console.web.menu.settings\"",
-              "value": "\naddPlacement({\n  id: \"console.web.menu.settings\",\n  target: \"shell-layout:primary-menu\",\n  surfaces: [\"console\"],\n  order: 100,\n  componentToken: \"local.main.ui.menu-link-item\",\n  props: {\n    label: \"Settings\",\n    to: \"/console/settings\",\n    icon: \"mdi-cog-outline\"\n  },\n  when: ({ auth }) => auth?.authenticated === true\n});\n",
+              "value": "\naddPlacement({\n  id: \"console.web.menu.settings\",\n  target: \"shell.primary-nav\",\n  kind: \"link\",\n  surfaces: [\"console\"],\n  order: 100,\n  props: {\n    label: \"Settings\",\n    to: \"/console/settings\",\n    icon: \"mdi-cog-outline\"\n  },\n  when: ({ auth }) => auth?.authenticated === true\n});\n",
               "reason": "Append console-web settings menu placement into app-owned placement registry.",
               "category": "console-web",
               "id": "console-web-console-settings-placement"
+            },
+            {
+              "op": "append-text",
+              "file": "src/placementTopology.js",
+              "position": "bottom",
+              "skipIfContains": "owner: \"console-settings\"",
+              "value": "\naddPlacementTopology({\n  id: \"page.section-nav\",\n  owner: \"console-settings\",\n  description: \"Navigation between console settings child pages.\",\n  surfaces: [\"console\"],\n  variants: {\n    compact: {\n      outlet: \"console-settings:primary-menu\",\n      renderers: {\n        link: \"local.main.ui.surface-aware-menu-link-item\"\n      }\n    },\n    medium: {\n      outlet: \"console-settings:primary-menu\",\n      renderers: {\n        link: \"local.main.ui.surface-aware-menu-link-item\"\n      }\n    },\n    expanded: {\n      outlet: \"console-settings:primary-menu\",\n      renderers: {\n        link: \"local.main.ui.surface-aware-menu-link-item\"\n      }\n    }\n  }\n});\n",
+              "reason": "Append console settings semantic topology into app-owned placement topology.",
+              "category": "console-web",
+              "id": "console-web-settings-placement-topology"
             }
           ]
         }
@@ -1441,11 +1514,11 @@
     },
     {
       "packageId": "@jskit-ai/crud-core",
-      "version": "0.1.73",
+      "version": "0.1.74",
       "descriptor": {
         "packageVersion": 1,
         "packageId": "@jskit-ai/crud-core",
-        "version": "0.1.73",
+        "version": "0.1.74",
         "kind": "runtime",
         "description": "Shared CRUD helpers used by CRUD modules.",
         "dependsOn": [
@@ -1474,7 +1547,7 @@
         "mutations": {
           "dependencies": {
             "runtime": {
-              "@jskit-ai/crud-core": "0.1.73"
+              "@jskit-ai/crud-core": "0.1.74"
             },
             "dev": {}
           },
@@ -1488,11 +1561,11 @@
     },
     {
       "packageId": "@jskit-ai/crud-server-generator",
-      "version": "0.1.73",
+      "version": "0.1.74",
       "descriptor": {
         "packageVersion": 1,
         "packageId": "@jskit-ai/crud-server-generator",
-        "version": "0.1.73",
+        "version": "0.1.74",
         "kind": "generator",
         "description": "CRUD server generator with routes, actions, and persistence scaffolding.",
         "options": {
@@ -1659,14 +1732,14 @@
         "mutations": {
           "dependencies": {
             "runtime": {
-              "@jskit-ai/auth-core": "0.1.64",
-              "@jskit-ai/crud-core": "0.1.73",
-              "@jskit-ai/database-runtime": "0.1.65",
-              "@jskit-ai/http-runtime": "0.1.64",
-              "@jskit-ai/json-rest-api-core": "0.1.10",
-              "@jskit-ai/kernel": "0.1.65",
-              "@jskit-ai/realtime": "0.1.64",
-              "@jskit-ai/resource-crud-core": "0.1.10",
+              "@jskit-ai/auth-core": "0.1.65",
+              "@jskit-ai/crud-core": "0.1.74",
+              "@jskit-ai/database-runtime": "0.1.66",
+              "@jskit-ai/http-runtime": "0.1.65",
+              "@jskit-ai/json-rest-api-core": "0.1.11",
+              "@jskit-ai/kernel": "0.1.66",
+              "@jskit-ai/realtime": "0.1.65",
+              "@jskit-ai/resource-crud-core": "0.1.11",
               "@local/${option:namespace|kebab}": "file:packages/${option:namespace|kebab}"
             },
             "dev": {}
@@ -1798,11 +1871,11 @@
     },
     {
       "packageId": "@jskit-ai/crud-ui-generator",
-      "version": "0.1.48",
+      "version": "0.1.49",
       "descriptor": {
         "packageVersion": 1,
         "packageId": "@jskit-ai/crud-ui-generator",
-        "version": "0.1.48",
+        "version": "0.1.49",
         "kind": "generator",
         "description": "Generate CRUD route trees from resource validators at an explicit route root relative to src/pages/.",
         "options": {
@@ -1873,14 +1946,7 @@
             "inputType": "text",
             "defaultValue": "",
             "promptLabel": "Link placement",
-            "promptHint": "Optional target override for the generated list-page link placement (format: host:position)."
-          },
-          "link-component-token": {
-            "required": false,
-            "inputType": "text",
-            "defaultValue": "",
-            "promptLabel": "Link component token",
-            "promptHint": "Optional component token override for the generated list-page link placement (example: local.main.ui.tab-link-item)."
+            "promptHint": "Optional semantic target override for the generated list-page link placement (format: area.slot)."
           },
           "namespace": {
             "required": false,
@@ -1929,7 +1995,6 @@
                 "id-param",
                 "parent-title",
                 "link-placement",
-                "link-component-token",
                 "namespace",
                 "force"
               ],
@@ -1992,7 +2057,7 @@
         "mutations": {
           "dependencies": {
             "runtime": {
-              "@jskit-ai/users-web": "0.1.80"
+              "@jskit-ai/users-web": "0.1.81"
             },
             "dev": {}
           },
@@ -2204,7 +2269,7 @@
               "file": "src/placement.js",
               "position": "bottom",
               "skipIfContains": "__JSKIT_UI_MENU_MARKER__",
-              "value": "\n// __JSKIT_UI_MENU_MARKER__\n{\n  addPlacement({\n    id: \"__JSKIT_UI_MENU_PLACEMENT_ID__\",\n    target: \"__JSKIT_UI_MENU_PLACEMENT_TARGET__\",\n    surfaces: [\"__JSKIT_UI_SURFACE_ID__\"],\n    order: 155,\n    componentToken: \"__JSKIT_UI_MENU_COMPONENT_TOKEN__\",\n    props: {\n      label: \"__JSKIT_UI_MENU_LABEL__\",\n      icon: \"__JSKIT_UI_MENU_ICON__\",\n      surface: \"__JSKIT_UI_SURFACE_ID__\",\n      scopedSuffix: \"__JSKIT_UI_MENU_WORKSPACE_SUFFIX__\",\n      unscopedSuffix: \"__JSKIT_UI_MENU_NON_WORKSPACE_SUFFIX__\",\n__JSKIT_UI_MENU_TO_PROP_LINE__    },\n__JSKIT_UI_MENU_WHEN_LINE__  });\n}\n",
+              "value": "\n// __JSKIT_UI_MENU_MARKER__\n{\n  addPlacement({\n    id: \"__JSKIT_UI_MENU_PLACEMENT_ID__\",\n    target: \"__JSKIT_UI_MENU_PLACEMENT_TARGET__\",\n__JSKIT_UI_MENU_OWNER_LINE__    kind: \"link\",\n    surfaces: [\"__JSKIT_UI_SURFACE_ID__\"],\n    order: 155,\n    props: {\n      label: \"__JSKIT_UI_MENU_LABEL__\",\n      icon: \"__JSKIT_UI_MENU_ICON__\",\n      surface: \"__JSKIT_UI_SURFACE_ID__\",\n      scopedSuffix: \"__JSKIT_UI_MENU_WORKSPACE_SUFFIX__\",\n      unscopedSuffix: \"__JSKIT_UI_MENU_NON_WORKSPACE_SUFFIX__\",\n__JSKIT_UI_MENU_TO_PROP_LINE__    },\n__JSKIT_UI_MENU_WHEN_LINE__  });\n}\n",
               "reason": "Append generated CRUD list-page placement.",
               "category": "crud-ui-generator",
               "id": "crud-ui-placement-menu",
@@ -2225,11 +2290,11 @@
     },
     {
       "packageId": "@jskit-ai/database-runtime",
-      "version": "0.1.65",
+      "version": "0.1.66",
       "descriptor": {
         "packageVersion": 1,
         "packageId": "@jskit-ai/database-runtime",
-        "version": "0.1.65",
+        "version": "0.1.66",
         "kind": "runtime",
         "dependsOn": [
           "@jskit-ai/kernel"
@@ -2286,7 +2351,7 @@
         "mutations": {
           "dependencies": {
             "runtime": {
-              "@jskit-ai/kernel": "0.1.65",
+              "@jskit-ai/kernel": "0.1.66",
               "dotenv": "^16.4.5",
               "knex": "^3.1.0"
             },
@@ -2321,11 +2386,11 @@
     },
     {
       "packageId": "@jskit-ai/database-runtime-mysql",
-      "version": "0.1.64",
+      "version": "0.1.65",
       "descriptor": {
         "packageVersion": 1,
         "packageId": "@jskit-ai/database-runtime-mysql",
-        "version": "0.1.64",
+        "version": "0.1.65",
         "kind": "runtime",
         "options": {
           "db-host": {
@@ -2415,7 +2480,7 @@
         "mutations": {
           "dependencies": {
             "runtime": {
-              "@jskit-ai/database-runtime": "0.1.65",
+              "@jskit-ai/database-runtime": "0.1.66",
               "mysql2": "^3.11.2"
             },
             "dev": {}
@@ -2486,11 +2551,11 @@
     },
     {
       "packageId": "@jskit-ai/database-runtime-postgres",
-      "version": "0.1.64",
+      "version": "0.1.65",
       "descriptor": {
         "packageVersion": 1,
         "packageId": "@jskit-ai/database-runtime-postgres",
-        "version": "0.1.64",
+        "version": "0.1.65",
         "kind": "runtime",
         "options": {
           "db-host": {
@@ -2580,7 +2645,7 @@
         "mutations": {
           "dependencies": {
             "runtime": {
-              "@jskit-ai/database-runtime": "0.1.65",
+              "@jskit-ai/database-runtime": "0.1.66",
               "pg": "^8.13.1"
             },
             "dev": {}
@@ -2651,11 +2716,11 @@
     },
     {
       "packageId": "@jskit-ai/feature-server-generator",
-      "version": "0.1.7",
+      "version": "0.1.8",
       "descriptor": {
         "packageVersion": 1,
         "packageId": "@jskit-ai/feature-server-generator",
-        "version": "0.1.7",
+        "version": "0.1.8",
         "kind": "generator",
         "description": "Scaffold substantial non-CRUD server feature packages with provider, actions, service, and optional persistence seams.",
         "options": {
@@ -2819,10 +2884,10 @@
         "mutations": {
           "dependencies": {
             "runtime": {
-              "@jskit-ai/database-runtime": "0.1.65",
-              "@jskit-ai/database-runtime-mysql": "0.1.64",
-              "@jskit-ai/json-rest-api-core": "0.1.10",
-              "@jskit-ai/kernel": "0.1.65",
+              "@jskit-ai/database-runtime": "0.1.66",
+              "@jskit-ai/database-runtime-mysql": "0.1.65",
+              "@jskit-ai/json-rest-api-core": "0.1.11",
+              "@jskit-ai/kernel": "0.1.66",
               "json-rest-schema": "1.x.x",
               "@local/${option:feature-name|kebab}": "file:packages/${option:feature-name|kebab}"
             },
@@ -2935,11 +3000,11 @@
     },
     {
       "packageId": "@jskit-ai/google-rewarded-core",
-      "version": "0.1.2",
+      "version": "0.1.3",
       "descriptor": {
         "packageVersion": 1,
         "packageId": "@jskit-ai/google-rewarded-core",
-        "version": "0.1.2",
+        "version": "0.1.3",
         "kind": "runtime",
         "description": "Google rewarded workflow runtime plus internal CRUD providers for rules, provider configs, watch sessions, and unlock receipts.",
         "dependsOn": [
@@ -3066,14 +3131,14 @@
         "mutations": {
           "dependencies": {
             "runtime": {
-              "@jskit-ai/auth-core": "0.1.64",
-              "@jskit-ai/crud-core": "0.1.73",
-              "@jskit-ai/database-runtime": "0.1.65",
-              "@jskit-ai/http-runtime": "0.1.64",
-              "@jskit-ai/json-rest-api-core": "0.1.10",
-              "@jskit-ai/kernel": "0.1.65",
-              "@jskit-ai/resource-crud-core": "0.1.10",
-              "@jskit-ai/workspaces-core": "0.1.41"
+              "@jskit-ai/auth-core": "0.1.65",
+              "@jskit-ai/crud-core": "0.1.74",
+              "@jskit-ai/database-runtime": "0.1.66",
+              "@jskit-ai/http-runtime": "0.1.65",
+              "@jskit-ai/json-rest-api-core": "0.1.11",
+              "@jskit-ai/kernel": "0.1.66",
+              "@jskit-ai/resource-crud-core": "0.1.11",
+              "@jskit-ai/workspaces-core": "0.1.42"
             },
             "dev": {}
           },
@@ -3125,11 +3190,11 @@
     },
     {
       "packageId": "@jskit-ai/google-rewarded-web",
-      "version": "0.1.2",
+      "version": "0.1.3",
       "descriptor": {
         "packageVersion": 1,
         "packageId": "@jskit-ai/google-rewarded-web",
-        "version": "0.1.2",
+        "version": "0.1.3",
         "kind": "runtime",
         "description": "Google rewarded client runtime with a fullscreen gate host and GPT orchestration.",
         "dependsOn": [
@@ -3176,10 +3241,10 @@
         "mutations": {
           "dependencies": {
             "runtime": {
-              "@jskit-ai/google-rewarded-core": "0.1.2",
-              "@jskit-ai/http-runtime": "0.1.64",
-              "@jskit-ai/kernel": "0.1.65",
-              "@jskit-ai/shell-web": "0.1.64"
+              "@jskit-ai/google-rewarded-core": "0.1.3",
+              "@jskit-ai/http-runtime": "0.1.65",
+              "@jskit-ai/kernel": "0.1.66",
+              "@jskit-ai/shell-web": "0.1.65"
             },
             "dev": {}
           },
@@ -3197,11 +3262,11 @@
     },
     {
       "packageId": "@jskit-ai/http-runtime",
-      "version": "0.1.64",
+      "version": "0.1.65",
       "descriptor": {
         "packageVersion": 1,
         "packageId": "@jskit-ai/http-runtime",
-        "version": "0.1.64",
+        "version": "0.1.65",
         "kind": "runtime",
         "dependsOn": [],
         "capabilities": {
@@ -3267,7 +3332,7 @@
         "mutations": {
           "dependencies": {
             "runtime": {
-              "@jskit-ai/kernel": "0.1.65"
+              "@jskit-ai/kernel": "0.1.66"
             },
             "dev": {}
           },
@@ -3281,11 +3346,11 @@
     },
     {
       "packageId": "@jskit-ai/json-rest-api-core",
-      "version": "0.1.10",
+      "version": "0.1.11",
       "descriptor": {
         "packageVersion": 1,
         "packageId": "@jskit-ai/json-rest-api-core",
-        "version": "0.1.10",
+        "version": "0.1.11",
         "kind": "runtime",
         "description": "Shared internal json-rest-api host runtime for JSKIT server packages.",
         "dependsOn": [
@@ -3345,11 +3410,11 @@
     },
     {
       "packageId": "@jskit-ai/mobile-capacitor",
-      "version": "0.1.2",
+      "version": "0.1.3",
       "descriptor": {
         "packageVersion": 1,
         "packageId": "@jskit-ai/mobile-capacitor",
-        "version": "0.1.2",
+        "version": "0.1.3",
         "kind": "runtime",
         "description": "Thin Capacitor client integration for JSKIT mobile-shell launch routing and auth callback completion.",
         "dependsOn": [
@@ -3412,8 +3477,8 @@
               "@capacitor/app": "^7.1.0",
               "@capacitor/browser": "^7.0.1",
               "@capacitor/core": "^7.4.3",
-              "@jskit-ai/kernel": "0.1.65",
-              "@jskit-ai/shell-web": "0.1.64"
+              "@jskit-ai/kernel": "0.1.66",
+              "@jskit-ai/shell-web": "0.1.65"
             },
             "dev": {
               "@capacitor/cli": "^7.4.3"
@@ -3465,11 +3530,11 @@
     },
     {
       "packageId": "@jskit-ai/realtime",
-      "version": "0.1.64",
+      "version": "0.1.65",
       "descriptor": {
         "packageVersion": 1,
         "packageId": "@jskit-ai/realtime",
-        "version": "0.1.64",
+        "version": "0.1.65",
         "kind": "runtime",
         "description": "Thin, generic realtime runtime wrappers for socket.io server and client.",
         "options": {
@@ -3549,7 +3614,8 @@
               "contributions": [
                 {
                   "id": "realtime.connection.indicator",
-                  "target": "shell-layout:top-right",
+                  "target": "shell.status",
+                  "kind": "component",
                   "surfaces": [
                     "*"
                   ],
@@ -3564,7 +3630,7 @@
         "mutations": {
           "dependencies": {
             "runtime": {
-              "@jskit-ai/kernel": "0.1.65",
+              "@jskit-ai/kernel": "0.1.66",
               "@socket.io/redis-adapter": "^8.3.0",
               "redis": "^5.8.2",
               "socket.io": "^4.8.3",
@@ -3602,7 +3668,7 @@
               "file": "src/placement.js",
               "position": "bottom",
               "skipIfContains": "id: \"realtime.connection.indicator\"",
-              "value": "\naddPlacement({\n  id: \"realtime.connection.indicator\",\n  target: \"shell-layout:top-right\",\n  surfaces: [\"*\"],\n  order: 950,\n  componentToken: \"realtime.web.connection.indicator\"\n});\n",
+              "value": "\naddPlacement({\n  id: \"realtime.connection.indicator\",\n  target: \"shell.status\",\n  kind: \"component\",\n  surfaces: [\"*\"],\n  order: 950,\n  componentToken: \"realtime.web.connection.indicator\"\n});\n",
               "reason": "Append realtime connection indicator placement into app-owned placement registry.",
               "category": "realtime-web",
               "id": "realtime-placement-indicator"
@@ -3613,11 +3679,11 @@
     },
     {
       "packageId": "@jskit-ai/resource-core",
-      "version": "0.1.10",
+      "version": "0.1.11",
       "descriptor": {
         "packageVersion": 1,
         "packageId": "@jskit-ai/resource-core",
-        "version": "0.1.10",
+        "version": "0.1.11",
         "kind": "runtime",
         "description": "Generic resource-definition helpers and schema-definition normalization.",
         "dependsOn": [
@@ -3640,7 +3706,7 @@
         "mutations": {
           "dependencies": {
             "runtime": {
-              "@jskit-ai/resource-core": "0.1.10"
+              "@jskit-ai/resource-core": "0.1.11"
             },
             "dev": {}
           },
@@ -3655,11 +3721,11 @@
     },
     {
       "packageId": "@jskit-ai/resource-crud-core",
-      "version": "0.1.10",
+      "version": "0.1.11",
       "descriptor": {
         "packageVersion": 1,
         "packageId": "@jskit-ai/resource-crud-core",
-        "version": "0.1.10",
+        "version": "0.1.11",
         "kind": "runtime",
         "description": "CRUD-specific resource-definition helpers and namespace support.",
         "dependsOn": [
@@ -3683,7 +3749,7 @@
         "mutations": {
           "dependencies": {
             "runtime": {
-              "@jskit-ai/resource-crud-core": "0.1.10"
+              "@jskit-ai/resource-crud-core": "0.1.11"
             },
             "dev": {}
           },
@@ -3698,11 +3764,11 @@
     },
     {
       "packageId": "@jskit-ai/shell-web",
-      "version": "0.1.64",
+      "version": "0.1.65",
       "descriptor": {
         "packageVersion": 1,
         "packageId": "@jskit-ai/shell-web",
-        "version": "0.1.64",
+        "version": "0.1.65",
         "kind": "runtime",
         "description": "Web shell layout runtime with outlet-based placement contributions.",
         "dependsOn": [],
@@ -3776,7 +3842,6 @@
                 },
                 {
                   "target": "shell-layout:primary-menu",
-                  "defaultLinkComponentToken": "local.main.ui.surface-aware-menu-link-item",
                   "surfaces": [
                     "*"
                   ],
@@ -3784,7 +3849,6 @@
                 },
                 {
                   "target": "shell-layout:secondary-menu",
-                  "defaultLinkComponentToken": "local.main.ui.surface-aware-menu-link-item",
                   "surfaces": [
                     "*"
                   ],
@@ -3792,42 +3856,165 @@
                 },
                 {
                   "target": "home-settings:primary-menu",
-                  "defaultLinkComponentToken": "local.main.ui.surface-aware-menu-link-item",
                   "surfaces": [
                     "home"
                   ],
                   "source": "templates/src/pages/home/settings.vue"
                 }
               ],
+              "topology": {
+                "placements": [
+                  {
+                    "id": "shell.primary-nav",
+                    "description": "Primary top-level navigation for the current surface.",
+                    "surfaces": [
+                      "*"
+                    ],
+                    "default": true,
+                    "variants": {
+                      "compact": {
+                        "outlet": "shell-layout:primary-menu",
+                        "renderers": {
+                          "link": "local.main.ui.surface-aware-menu-link-item"
+                        }
+                      },
+                      "medium": {
+                        "outlet": "shell-layout:primary-menu",
+                        "renderers": {
+                          "link": "local.main.ui.surface-aware-menu-link-item"
+                        }
+                      },
+                      "expanded": {
+                        "outlet": "shell-layout:primary-menu",
+                        "renderers": {
+                          "link": "local.main.ui.surface-aware-menu-link-item"
+                        }
+                      }
+                    }
+                  },
+                  {
+                    "id": "shell.status",
+                    "description": "Surface status, connection, and utility indicators.",
+                    "surfaces": [
+                      "*"
+                    ],
+                    "variants": {
+                      "compact": {
+                        "outlet": "shell-layout:top-right"
+                      },
+                      "medium": {
+                        "outlet": "shell-layout:top-right"
+                      },
+                      "expanded": {
+                        "outlet": "shell-layout:top-right"
+                      }
+                    }
+                  },
+                  {
+                    "id": "shell.secondary-nav",
+                    "description": "Secondary navigation for lower-priority shell links.",
+                    "surfaces": [
+                      "*"
+                    ],
+                    "variants": {
+                      "compact": {
+                        "outlet": "shell-layout:secondary-menu",
+                        "renderers": {
+                          "link": "local.main.ui.surface-aware-menu-link-item"
+                        }
+                      },
+                      "medium": {
+                        "outlet": "shell-layout:secondary-menu",
+                        "renderers": {
+                          "link": "local.main.ui.surface-aware-menu-link-item"
+                        }
+                      },
+                      "expanded": {
+                        "outlet": "shell-layout:secondary-menu",
+                        "renderers": {
+                          "link": "local.main.ui.surface-aware-menu-link-item"
+                        }
+                      }
+                    }
+                  },
+                  {
+                    "id": "shell.identity",
+                    "description": "Current user, workspace, and surface identity controls.",
+                    "surfaces": [
+                      "*"
+                    ],
+                    "variants": {
+                      "compact": {
+                        "outlet": "shell-layout:top-left"
+                      },
+                      "medium": {
+                        "outlet": "shell-layout:top-left"
+                      },
+                      "expanded": {
+                        "outlet": "shell-layout:top-left"
+                      }
+                    }
+                  },
+                  {
+                    "id": "page.section-nav",
+                    "owner": "home-settings",
+                    "description": "Navigation between child pages in the home settings section.",
+                    "surfaces": [
+                      "home"
+                    ],
+                    "variants": {
+                      "compact": {
+                        "outlet": "home-settings:primary-menu",
+                        "renderers": {
+                          "link": "local.main.ui.surface-aware-menu-link-item"
+                        }
+                      },
+                      "medium": {
+                        "outlet": "home-settings:primary-menu",
+                        "renderers": {
+                          "link": "local.main.ui.surface-aware-menu-link-item"
+                        }
+                      },
+                      "expanded": {
+                        "outlet": "home-settings:primary-menu",
+                        "renderers": {
+                          "link": "local.main.ui.surface-aware-menu-link-item"
+                        }
+                      }
+                    }
+                  }
+                ]
+              },
               "contributions": [
                 {
                   "id": "shell-web.home.menu.home",
-                  "target": "shell-layout:primary-menu",
+                  "target": "shell.primary-nav",
+                  "kind": "link",
                   "surfaces": [
                     "home"
                   ],
                   "order": 50,
-                  "componentToken": "local.main.ui.surface-aware-menu-link-item",
                   "source": "templates/src/placement.js"
                 },
                 {
                   "id": "shell-web.home.menu.settings",
-                  "target": "shell-layout:primary-menu",
+                  "target": "shell.primary-nav",
+                  "kind": "link",
                   "surfaces": [
                     "home"
                   ],
                   "order": 100,
-                  "componentToken": "local.main.ui.surface-aware-menu-link-item",
                   "source": "templates/src/placement.js"
                 },
                 {
                   "id": "shell-web.home.settings.general",
-                  "target": "home-settings:primary-menu",
+                  "target": "page.section-nav",
+                  "owner": "home-settings",
+                  "kind": "link",
                   "surfaces": [
                     "home"
                   ],
                   "order": 100,
-                  "componentToken": "local.main.ui.surface-aware-menu-link-item",
                   "source": "templates/src/placement.js"
                 }
               ]
@@ -3839,7 +4026,7 @@
             "runtime": {
               "@mdi/js": "^7.4.47",
               "@tanstack/vue-query": "^5.90.5",
-              "@jskit-ai/kernel": "0.1.65",
+              "@jskit-ai/kernel": "0.1.66",
               "vuetify": "^4.0.0"
             },
             "dev": {}
@@ -3972,6 +4159,14 @@
               "id": "shell-web-placement-registry"
             },
             {
+              "from": "templates/src/placementTopology.js",
+              "to": "src/placementTopology.js",
+              "ownership": "app",
+              "reason": "Install app-owned semantic placement topology used by shell-web placement runtime.",
+              "category": "shell-web",
+              "id": "shell-web-placement-topology"
+            },
+            {
               "from": "templates/src/pages/home.vue",
               "toSurface": "home",
               "toSurfaceRoot": true,
@@ -4024,11 +4219,11 @@
     },
     {
       "packageId": "@jskit-ai/storage-runtime",
-      "version": "0.1.64",
+      "version": "0.1.65",
       "descriptor": {
         "packageVersion": 1,
         "packageId": "@jskit-ai/storage-runtime",
-        "version": "0.1.64",
+        "version": "0.1.65",
         "kind": "runtime",
         "dependsOn": [
           "@jskit-ai/kernel"
@@ -4077,7 +4272,7 @@
         "mutations": {
           "dependencies": {
             "runtime": {
-              "@jskit-ai/kernel": "0.1.65",
+              "@jskit-ai/kernel": "0.1.66",
               "unstorage": "^1.17.3"
             },
             "dev": {}
@@ -4093,11 +4288,11 @@
     },
     {
       "packageId": "@jskit-ai/ui-generator",
-      "version": "0.1.48",
+      "version": "0.1.49",
       "descriptor": {
         "packageVersion": 1,
         "packageId": "@jskit-ai/ui-generator",
-        "version": "0.1.48",
+        "version": "0.1.49",
         "kind": "generator",
         "description": "Create non-CRUD pages, reusable UI elements, and subpage hosts.",
         "options": {
@@ -4135,21 +4330,35 @@
             "inputType": "text",
             "defaultValue": "",
             "promptLabel": "Placement target",
-            "promptHint": "Optional target for placed-element placement (format: host:position, default: shell-layout:top-right)."
+            "promptHint": "Semantic placement target for placed-element and outlet mapping (format: area.slot, default for placed-element: shell.status)."
+          },
+          "owner": {
+            "required": false,
+            "inputType": "text",
+            "defaultValue": "",
+            "promptLabel": "Placement owner",
+            "promptHint": "Optional owner id for semantic topology mappings. Page/settings placements default to the outlet host."
+          },
+          "description": {
+            "required": false,
+            "inputType": "text",
+            "defaultValue": "",
+            "promptLabel": "Description",
+            "promptHint": "Optional description for generated semantic topology mappings."
+          },
+          "link-renderer": {
+            "required": false,
+            "inputType": "text",
+            "defaultValue": "local.main.ui.surface-aware-menu-link-item",
+            "promptLabel": "Link renderer",
+            "promptHint": "Default link renderer token for generated topology variants."
           },
           "link-placement": {
             "required": false,
             "inputType": "text",
             "defaultValue": "",
             "promptLabel": "Link placement",
-            "promptHint": "Optional target for the generated page link placement (format: host:position)."
-          },
-          "link-component-token": {
-            "required": false,
-            "inputType": "text",
-            "defaultValue": "",
-            "promptLabel": "Link component token",
-            "promptHint": "Optional component token override for the generated page link placement (example: local.main.ui.tab-link-item)."
+            "promptHint": "Optional semantic target for the generated page link placement (format: area.slot)."
           },
           "link-to": {
             "required": false,
@@ -4218,12 +4427,11 @@
               "optionNames": [
                 "name",
                 "link-placement",
-                "link-component-token",
                 "link-to",
                 "force"
               ],
               "notes": [
-                "If a nearest parent subpages target is found, placement, link component token, and props.to are inferred automatically.",
+                "If a nearest parent subpages target is found, semantic placement and props.to are inferred automatically.",
                 "If the parent target page is index.vue, child pages belong under index/...",
                 "If the target page file already exists, rerun with --force to overwrite it."
               ],
@@ -4257,13 +4465,14 @@
                 "surface",
                 "path",
                 "placement",
+                "owner",
                 "force"
               ],
               "requiredOptionNames": [
                 "name"
               ],
               "notes": [
-                "If --placement is omitted, the placed element is added at shell-layout:top-right.",
+                "If --placement is omitted, the placed element is added at shell.status.",
                 "If the placement target belongs to a page-owned outlet, JSKIT infers the surface automatically.",
                 "If the target is shared and the app has multiple enabled surfaces, pass --surface explicitly.",
                 "If the component file already exists, rerun with --force to overwrite it."
@@ -4283,7 +4492,7 @@
                     "  --name \"Ops Panel\" \\",
                     "  --surface admin \\",
                     "  --path src/widgets \\",
-                    "  --placement shell-layout:top-right \\",
+                    "  --placement shell.status \\",
                     "  --force"
                   ]
                 }
@@ -4340,9 +4549,9 @@
               "export": "runGeneratorSubcommand",
               "description": "Inject a generic ShellOutlet block into an existing Vue page/component.",
               "longDescription": [
-                "A ShellOutlet creates a named placement target inside a Vue file. That target is what other parts of JSKIT render into later.",
-                "After an outlet exists, `jskit list-placements` will discover it and show its `target`. That makes the outlet visible to humans and to generators that need a placement destination.",
-                "Commands that create placed UI, such as `ui-generator placed-element`, and commands that add page links can then target that outlet by writing placement entries that point at the same target."
+                "A ShellOutlet creates a concrete placement recipient inside a Vue file.",
+                "The command also appends the semantic topology mapping for that outlet, so `jskit list-placements` exposes the public `area.slot` placement instead of leaving the concrete recipient unused.",
+                "Generated topology includes compact, medium, and expanded variants. By default all three point at the inserted outlet; hand-edit `src/placementTopology.js` if the adaptive layout uses different concrete outlets."
               ],
               "positionalArgs": [
                 {
@@ -4352,13 +4561,20 @@
                 }
               ],
               "optionNames": [
-                "target"
+                "target",
+                "placement",
+                "owner",
+                "surface",
+                "description",
+                "link-renderer"
               ],
               "requiredOptionNames": [
-                "target"
+                "target",
+                "placement"
               ],
               "notes": [
-                "Use --target host:position."
+                "Use --target host:position for the concrete outlet and --placement area.slot for the public semantic placement.",
+                "The generated topology maps compact, medium, and expanded to the new concrete outlet."
               ],
               "examples": [
                 {
@@ -4366,7 +4582,8 @@
                   "lines": [
                     "npx jskit generate ui-generator outlet \\",
                     "  src/components/ContactSummaryCard.vue \\",
-                    "  --target contact-view:sub-pages"
+                    "  --target contact-view:sub-pages \\",
+                    "  --placement page.section-nav"
                   ]
                 },
                 {
@@ -4374,7 +4591,9 @@
                   "lines": [
                     "npx jskit generate ui-generator outlet \\",
                     "  src/pages/admin/customers/[customerId]/index.vue \\",
-                    "  --target customer-view:summary-actions"
+                    "  --target customer-view:summary-actions \\",
+                    "  --placement page.actions \\",
+                    "  --surface admin"
                   ]
                 }
               ]
@@ -4396,7 +4615,7 @@
         "mutations": {
           "dependencies": {
             "runtime": {
-              "@jskit-ai/users-web": "0.1.80"
+              "@jskit-ai/users-web": "0.1.81"
             },
             "dev": {}
           },
@@ -4411,11 +4630,11 @@
     },
     {
       "packageId": "@jskit-ai/uploads-image-web",
-      "version": "0.1.43",
+      "version": "0.1.44",
       "descriptor": {
         "packageVersion": 1,
         "packageId": "@jskit-ai/uploads-image-web",
-        "version": "0.1.43",
+        "version": "0.1.44",
         "kind": "runtime",
         "description": "Reusable client-side image upload runtime with pre-upload image editing.",
         "dependsOn": [
@@ -4479,7 +4698,7 @@
         "mutations": {
           "dependencies": {
             "runtime": {
-              "@jskit-ai/uploads-runtime": "0.1.43",
+              "@jskit-ai/uploads-runtime": "0.1.44",
               "@uppy/compressor": "^3.1.0",
               "@uppy/core": "^5.2.0",
               "@uppy/dashboard": "^5.1.1",
@@ -4499,11 +4718,11 @@
     },
     {
       "packageId": "@jskit-ai/uploads-runtime",
-      "version": "0.1.43",
+      "version": "0.1.44",
       "descriptor": {
         "packageVersion": 1,
         "packageId": "@jskit-ai/uploads-runtime",
-        "version": "0.1.43",
+        "version": "0.1.44",
         "kind": "runtime",
         "description": "Reusable upload runtime primitives for multipart parsing, policy validation, and blob storage.",
         "dependsOn": [
@@ -4573,7 +4792,7 @@
           "dependencies": {
             "runtime": {
               "@fastify/multipart": "^9.4.0",
-              "@jskit-ai/kernel": "0.1.65"
+              "@jskit-ai/kernel": "0.1.66"
             },
             "dev": {}
           },
@@ -4588,11 +4807,11 @@
     },
     {
       "packageId": "@jskit-ai/users-core",
-      "version": "0.1.75",
+      "version": "0.1.76",
       "descriptor": {
         "packageVersion": 1,
         "packageId": "@jskit-ai/users-core",
-        "version": "0.1.75",
+        "version": "0.1.76",
         "kind": "runtime",
         "description": "Users/account runtime plus HTTP routes for account features.",
         "dependsOn": [
@@ -4733,16 +4952,16 @@
         "mutations": {
           "dependencies": {
             "runtime": {
-              "@jskit-ai/auth-core": "0.1.64",
-              "@jskit-ai/crud-core": "0.1.73",
-              "@jskit-ai/database-runtime": "0.1.65",
-              "@jskit-ai/http-runtime": "0.1.64",
-              "@jskit-ai/json-rest-api-core": "0.1.10",
-              "@jskit-ai/kernel": "0.1.65",
-              "@jskit-ai/resource-core": "0.1.10",
-              "@jskit-ai/resource-crud-core": "0.1.10",
+              "@jskit-ai/auth-core": "0.1.65",
+              "@jskit-ai/crud-core": "0.1.74",
+              "@jskit-ai/database-runtime": "0.1.66",
+              "@jskit-ai/http-runtime": "0.1.65",
+              "@jskit-ai/json-rest-api-core": "0.1.11",
+              "@jskit-ai/kernel": "0.1.66",
+              "@jskit-ai/resource-core": "0.1.11",
+              "@jskit-ai/resource-crud-core": "0.1.11",
               "@local/users": "file:packages/users",
-              "@jskit-ai/uploads-runtime": "0.1.43"
+              "@jskit-ai/uploads-runtime": "0.1.44"
             },
             "dev": {}
           },
@@ -4959,11 +5178,11 @@
     },
     {
       "packageId": "@jskit-ai/users-web",
-      "version": "0.1.80",
+      "version": "0.1.81",
       "descriptor": {
         "packageVersion": 1,
         "packageId": "@jskit-ai/users-web",
-        "version": "0.1.80",
+        "version": "0.1.81",
         "kind": "runtime",
         "description": "Users web module: account/profile UI plus shared users web widgets.",
         "dependsOn": [
@@ -5072,7 +5291,6 @@
               "outlets": [
                 {
                   "target": "home-cog:primary-menu",
-                  "defaultLinkComponentToken": "local.main.ui.surface-aware-menu-link-item",
                   "surfaces": [
                     "home"
                   ],
@@ -5086,21 +5304,72 @@
                   "source": "src/client/components/AccountSettingsClientElement.vue"
                 }
               ],
+              "topology": {
+                "placements": [
+                  {
+                    "id": "home.tools-menu",
+                    "description": "Home surface tools menu actions.",
+                    "surfaces": [
+                      "home"
+                    ],
+                    "variants": {
+                      "compact": {
+                        "outlet": "home-cog:primary-menu",
+                        "renderers": {
+                          "link": "local.main.ui.surface-aware-menu-link-item"
+                        }
+                      },
+                      "medium": {
+                        "outlet": "home-cog:primary-menu",
+                        "renderers": {
+                          "link": "local.main.ui.surface-aware-menu-link-item"
+                        }
+                      },
+                      "expanded": {
+                        "outlet": "home-cog:primary-menu",
+                        "renderers": {
+                          "link": "local.main.ui.surface-aware-menu-link-item"
+                        }
+                      }
+                    }
+                  },
+                  {
+                    "id": "settings.sections",
+                    "owner": "account-settings",
+                    "description": "Account settings content sections.",
+                    "surfaces": [
+                      "account"
+                    ],
+                    "variants": {
+                      "compact": {
+                        "outlet": "account-settings:sections"
+                      },
+                      "medium": {
+                        "outlet": "account-settings:sections"
+                      },
+                      "expanded": {
+                        "outlet": "account-settings:sections"
+                      }
+                    }
+                  }
+                ]
+              },
               "contributions": [
                 {
                   "id": "users.profile.menu.settings",
-                  "target": "auth-profile-menu:primary-menu",
+                  "target": "auth.profile-menu",
+                  "kind": "link",
                   "surfaces": [
                     "*"
                   ],
                   "order": 500,
-                  "componentToken": "auth.web.profile.menu.link-item",
                   "when": "auth.authenticated === true",
                   "source": "mutations.text#users-web-profile-settings-placement"
                 },
                 {
                   "id": "users.home.tools.widget",
-                  "target": "shell-layout:top-right",
+                  "target": "shell.status",
+                  "kind": "component",
                   "surfaces": [
                     "home"
                   ],
@@ -5111,18 +5380,20 @@
                 },
                 {
                   "id": "users.home.menu.settings",
-                  "target": "home-cog:primary-menu",
+                  "target": "home.tools-menu",
+                  "kind": "link",
                   "surfaces": [
                     "home"
                   ],
                   "order": 100,
-                  "componentToken": "local.main.ui.surface-aware-menu-link-item",
                   "when": "auth.authenticated === true",
                   "source": "mutations.text#users-web-home-tools-placement"
                 },
                 {
                   "id": "users.account.settings.profile",
-                  "target": "account-settings:sections",
+                  "target": "settings.sections",
+                  "owner": "account-settings",
+                  "kind": "component",
                   "surfaces": [
                     "account"
                   ],
@@ -5132,7 +5403,9 @@
                 },
                 {
                   "id": "users.account.settings.preferences",
-                  "target": "account-settings:sections",
+                  "target": "settings.sections",
+                  "owner": "account-settings",
+                  "kind": "component",
                   "surfaces": [
                     "account"
                   ],
@@ -5142,7 +5415,9 @@
                 },
                 {
                   "id": "users.account.settings.notifications",
-                  "target": "account-settings:sections",
+                  "target": "settings.sections",
+                  "owner": "account-settings",
+                  "kind": "component",
                   "surfaces": [
                     "account"
                   ],
@@ -5159,12 +5434,12 @@
             "runtime": {
               "@tanstack/vue-query": "5.92.12",
               "@mdi/js": "^7.4.47",
-              "@jskit-ai/http-runtime": "0.1.64",
-              "@jskit-ai/realtime": "0.1.64",
-              "@jskit-ai/kernel": "0.1.65",
-              "@jskit-ai/shell-web": "0.1.64",
-              "@jskit-ai/uploads-image-web": "0.1.43",
-              "@jskit-ai/users-core": "0.1.75",
+              "@jskit-ai/http-runtime": "0.1.65",
+              "@jskit-ai/realtime": "0.1.65",
+              "@jskit-ai/kernel": "0.1.66",
+              "@jskit-ai/shell-web": "0.1.65",
+              "@jskit-ai/uploads-image-web": "0.1.44",
+              "@jskit-ai/users-core": "0.1.76",
               "vuetify": "^4.0.0"
             },
             "dev": {}
@@ -5223,7 +5498,7 @@
               "file": "src/placement.js",
               "position": "bottom",
               "skipIfContains": "id: \"users.profile.menu.settings\"",
-              "value": "\naddPlacement({\n  id: \"users.profile.menu.settings\",\n  target: \"auth-profile-menu:primary-menu\",\n  surfaces: [\"*\"],\n  order: 500,\n  componentToken: \"auth.web.profile.menu.link-item\",\n  props: {\n    label: \"Settings\",\n    to: \"/account\"\n  },\n  when: ({ auth }) => auth?.authenticated === true\n});\n",
+              "value": "\naddPlacement({\n  id: \"users.profile.menu.settings\",\n  target: \"auth.profile-menu\",\n  kind: \"link\",\n  surfaces: [\"*\"],\n  order: 500,\n  props: {\n    label: \"Settings\",\n    to: \"/account\"\n  },\n  when: ({ auth }) => auth?.authenticated === true\n});\n",
               "reason": "Append users-web profile settings menu placement into app-owned placement registry.",
               "category": "users-web",
               "id": "users-web-profile-settings-placement"
@@ -5233,20 +5508,40 @@
               "file": "src/placement.js",
               "position": "bottom",
               "skipIfContains": "id: \"users.home.tools.widget\"",
-              "value": "\naddPlacement({\n  id: \"users.home.tools.widget\",\n  target: \"shell-layout:top-right\",\n  surfaces: [\"home\"],\n  order: 900,\n  componentToken: \"users.web.home.tools.widget\",\n  when: ({ auth }) => auth?.authenticated === true\n});\n\naddPlacement({\n  id: \"users.home.menu.settings\",\n  target: \"home-cog:primary-menu\",\n  surfaces: [\"home\"],\n  order: 100,\n  componentToken: \"local.main.ui.surface-aware-menu-link-item\",\n  props: {\n    label: \"Settings\",\n    surface: \"home\",\n    scopedSuffix: \"/settings\",\n    unscopedSuffix: \"/settings\"\n  },\n  when: ({ auth }) => auth?.authenticated === true\n});\n",
+              "value": "\naddPlacement({\n  id: \"users.home.tools.widget\",\n  target: \"shell.status\",\n  kind: \"component\",\n  surfaces: [\"home\"],\n  order: 900,\n  componentToken: \"users.web.home.tools.widget\",\n  when: ({ auth }) => auth?.authenticated === true\n});\n\naddPlacement({\n  id: \"users.home.menu.settings\",\n  target: \"home.tools-menu\",\n  kind: \"link\",\n  surfaces: [\"home\"],\n  order: 100,\n  props: {\n    label: \"Settings\",\n    surface: \"home\",\n    scopedSuffix: \"/settings\",\n    unscopedSuffix: \"/settings\"\n  },\n  when: ({ auth }) => auth?.authenticated === true\n});\n",
               "reason": "Append users-web home tools widget and settings menu placements into app-owned placement registry.",
               "category": "users-web",
               "id": "users-web-home-tools-placement"
             },
             {
               "op": "append-text",
+              "file": "src/placementTopology.js",
+              "position": "bottom",
+              "skipIfContains": "id: \"home.tools-menu\"",
+              "value": "\naddPlacementTopology({\n  id: \"home.tools-menu\",\n  description: \"Home surface tools menu actions.\",\n  surfaces: [\"home\"],\n  variants: {\n    compact: {\n      outlet: \"home-cog:primary-menu\",\n      renderers: {\n        link: \"local.main.ui.surface-aware-menu-link-item\"\n      }\n    },\n    medium: {\n      outlet: \"home-cog:primary-menu\",\n      renderers: {\n        link: \"local.main.ui.surface-aware-menu-link-item\"\n      }\n    },\n    expanded: {\n      outlet: \"home-cog:primary-menu\",\n      renderers: {\n        link: \"local.main.ui.surface-aware-menu-link-item\"\n      }\n    }\n  }\n});\n",
+              "reason": "Append users-web home tools semantic topology into app-owned placement topology.",
+              "category": "users-web",
+              "id": "users-web-home-tools-topology"
+            },
+            {
+              "op": "append-text",
               "file": "src/placement.js",
               "position": "bottom",
               "skipIfContains": "id: \"users.account.settings.profile\"",
-              "value": "\naddPlacement({\n  id: \"users.account.settings.profile\",\n  target: \"account-settings:sections\",\n  surfaces: [\"account\"],\n  order: 100,\n  componentToken: \"local.main.account-settings.section.profile\",\n  props: {\n    title: \"Profile\",\n    value: \"profile\",\n    usesSharedRuntime: true\n  }\n});\n\naddPlacement({\n  id: \"users.account.settings.preferences\",\n  target: \"account-settings:sections\",\n  surfaces: [\"account\"],\n  order: 200,\n  componentToken: \"local.main.account-settings.section.preferences\",\n  props: {\n    title: \"Preferences\",\n    value: \"preferences\",\n    usesSharedRuntime: true\n  }\n});\n\naddPlacement({\n  id: \"users.account.settings.notifications\",\n  target: \"account-settings:sections\",\n  surfaces: [\"account\"],\n  order: 300,\n  componentToken: \"local.main.account-settings.section.notifications\",\n  props: {\n    title: \"Notifications\",\n    value: \"notifications\",\n    usesSharedRuntime: true\n  }\n});\n",
+              "value": "\naddPlacement({\n  id: \"users.account.settings.profile\",\n  target: \"settings.sections\",\n  owner: \"account-settings\",\n  kind: \"component\",\n  surfaces: [\"account\"],\n  order: 100,\n  componentToken: \"local.main.account-settings.section.profile\",\n  props: {\n    title: \"Profile\",\n    value: \"profile\",\n    usesSharedRuntime: true\n  }\n});\n\naddPlacement({\n  id: \"users.account.settings.preferences\",\n  target: \"settings.sections\",\n  owner: \"account-settings\",\n  kind: \"component\",\n  surfaces: [\"account\"],\n  order: 200,\n  componentToken: \"local.main.account-settings.section.preferences\",\n  props: {\n    title: \"Preferences\",\n    value: \"preferences\",\n    usesSharedRuntime: true\n  }\n});\n\naddPlacement({\n  id: \"users.account.settings.notifications\",\n  target: \"settings.sections\",\n  owner: \"account-settings\",\n  kind: \"component\",\n  surfaces: [\"account\"],\n  order: 300,\n  componentToken: \"local.main.account-settings.section.notifications\",\n  props: {\n    title: \"Notifications\",\n    value: \"notifications\",\n    usesSharedRuntime: true\n  }\n});\n",
               "reason": "Append users-web account settings section placements into the app-owned placement registry.",
               "category": "users-web",
               "id": "users-web-account-settings-sections-placement"
+            },
+            {
+              "op": "append-text",
+              "file": "src/placementTopology.js",
+              "position": "bottom",
+              "skipIfContains": "id: \"settings.sections\"",
+              "value": "\naddPlacementTopology({\n  id: \"settings.sections\",\n  owner: \"account-settings\",\n  description: \"Account settings content sections.\",\n  surfaces: [\"account\"],\n  variants: {\n    compact: {\n      outlet: \"account-settings:sections\"\n    },\n    medium: {\n      outlet: \"account-settings:sections\"\n    },\n    expanded: {\n      outlet: \"account-settings:sections\"\n    }\n  }\n});\n",
+              "reason": "Append users-web account settings semantic topology into app-owned placement topology.",
+              "category": "users-web",
+              "id": "users-web-account-settings-topology"
             },
             {
               "op": "append-text",
@@ -5314,11 +5609,11 @@
     },
     {
       "packageId": "@jskit-ai/workspaces-core",
-      "version": "0.1.41",
+      "version": "0.1.42",
       "descriptor": {
         "packageVersion": 1,
         "packageId": "@jskit-ai/workspaces-core",
-        "version": "0.1.41",
+        "version": "0.1.42",
         "kind": "runtime",
         "description": "Workspace tenancy runtime plus HTTP routes, role catalog, and workspace config scaffolding.",
         "dependsOn": [
@@ -5459,10 +5754,10 @@
         "mutations": {
           "dependencies": {
             "runtime": {
-              "@jskit-ai/json-rest-api-core": "0.1.10",
-              "@jskit-ai/resource-core": "0.1.10",
-              "@jskit-ai/resource-crud-core": "0.1.10",
-              "@jskit-ai/users-core": "0.1.75"
+              "@jskit-ai/json-rest-api-core": "0.1.11",
+              "@jskit-ai/resource-core": "0.1.11",
+              "@jskit-ai/resource-crud-core": "0.1.11",
+              "@jskit-ai/users-core": "0.1.76"
             },
             "dev": {}
           },
@@ -5634,11 +5929,11 @@
     },
     {
       "packageId": "@jskit-ai/workspaces-web",
-      "version": "0.1.41",
+      "version": "0.1.42",
       "descriptor": {
         "packageVersion": 1,
         "packageId": "@jskit-ai/workspaces-web",
-        "version": "0.1.41",
+        "version": "0.1.42",
         "kind": "runtime",
         "description": "Workspace web module: workspace selector, tools widget, workspace surfaces, and members/settings UI.",
         "dependsOn": [
@@ -5706,7 +6001,6 @@
               "outlets": [
                 {
                   "target": "admin-settings:primary-menu",
-                  "defaultLinkComponentToken": "local.main.ui.surface-aware-menu-link-item",
                   "surfaces": [
                     "admin"
                   ],
@@ -5714,39 +6008,98 @@
                 },
                 {
                   "target": "admin-cog:primary-menu",
-                  "defaultLinkComponentToken": "local.main.ui.surface-aware-menu-link-item",
                   "surfaces": [
                     "admin"
                   ],
                   "source": "src/client/components/UsersWorkspaceToolsWidget.vue"
                 }
               ],
+              "topology": {
+                "placements": [
+                  {
+                    "id": "page.section-nav",
+                    "owner": "admin-settings",
+                    "description": "Navigation between workspace admin settings child pages.",
+                    "surfaces": [
+                      "admin"
+                    ],
+                    "variants": {
+                      "compact": {
+                        "outlet": "admin-settings:primary-menu",
+                        "renderers": {
+                          "link": "local.main.ui.surface-aware-menu-link-item"
+                        }
+                      },
+                      "medium": {
+                        "outlet": "admin-settings:primary-menu",
+                        "renderers": {
+                          "link": "local.main.ui.surface-aware-menu-link-item"
+                        }
+                      },
+                      "expanded": {
+                        "outlet": "admin-settings:primary-menu",
+                        "renderers": {
+                          "link": "local.main.ui.surface-aware-menu-link-item"
+                        }
+                      }
+                    }
+                  },
+                  {
+                    "id": "admin.tools-menu",
+                    "description": "Admin surface tools menu actions.",
+                    "surfaces": [
+                      "admin"
+                    ],
+                    "variants": {
+                      "compact": {
+                        "outlet": "admin-cog:primary-menu",
+                        "renderers": {
+                          "link": "local.main.ui.surface-aware-menu-link-item"
+                        }
+                      },
+                      "medium": {
+                        "outlet": "admin-cog:primary-menu",
+                        "renderers": {
+                          "link": "local.main.ui.surface-aware-menu-link-item"
+                        }
+                      },
+                      "expanded": {
+                        "outlet": "admin-cog:primary-menu",
+                        "renderers": {
+                          "link": "local.main.ui.surface-aware-menu-link-item"
+                        }
+                      }
+                    }
+                  }
+                ]
+              },
               "contributions": [
                 {
                   "id": "workspaces.workspace.menu.app",
-                  "target": "shell-layout:primary-menu",
+                  "target": "shell.primary-nav",
+                  "kind": "link",
                   "surfaces": [
                     "app"
                   ],
                   "order": 50,
-                  "componentToken": "local.main.ui.surface-aware-menu-link-item",
                   "when": "auth.authenticated === true",
                   "source": "mutations.text#workspaces-web-placement-block"
                 },
                 {
                   "id": "workspaces.workspace.menu.admin",
-                  "target": "shell-layout:primary-menu",
+                  "target": "shell.primary-nav",
+                  "kind": "link",
                   "surfaces": [
                     "admin"
                   ],
                   "order": 60,
-                  "componentToken": "local.main.ui.surface-aware-menu-link-item",
                   "when": "auth.authenticated === true",
                   "source": "mutations.text#workspaces-web-placement-block"
                 },
                 {
                   "id": "workspaces.profile.menu.surface-switch",
-                  "target": "auth-profile-menu:primary-menu",
+                  "target": "auth.profile-menu",
+                  "kind": "component",
                   "surfaces": [
                     "*"
                   ],
@@ -5757,7 +6110,8 @@
                 },
                 {
                   "id": "workspaces.workspace.selector",
-                  "target": "shell-layout:top-left",
+                  "target": "shell.identity",
+                  "kind": "component",
                   "surfaces": [
                     "*"
                   ],
@@ -5768,7 +6122,8 @@
                 },
                 {
                   "id": "workspaces.account.invites.cue",
-                  "target": "shell-layout:top-right",
+                  "target": "shell.status",
+                  "kind": "component",
                   "surfaces": [
                     "*"
                   ],
@@ -5779,7 +6134,9 @@
                 },
                 {
                   "id": "workspaces.account.settings.invites",
-                  "target": "account-settings:sections",
+                  "target": "settings.sections",
+                  "owner": "account-settings",
+                  "kind": "component",
                   "surfaces": [
                     "account"
                   ],
@@ -5790,7 +6147,8 @@
                 },
                 {
                   "id": "workspaces.workspace.tools.widget",
-                  "target": "shell-layout:top-right",
+                  "target": "shell.status",
+                  "kind": "component",
                   "surfaces": [
                     "admin"
                   ],
@@ -5800,7 +6158,8 @@
                 },
                 {
                   "id": "workspaces.workspace.menu.workspace-settings",
-                  "target": "admin-cog:primary-menu",
+                  "target": "admin.tools-menu",
+                  "kind": "component",
                   "surfaces": [
                     "admin"
                   ],
@@ -5810,7 +6169,8 @@
                 },
                 {
                   "id": "workspaces.workspace.menu.members",
-                  "target": "admin-cog:primary-menu",
+                  "target": "admin.tools-menu",
+                  "kind": "component",
                   "surfaces": [
                     "admin"
                   ],
@@ -5825,8 +6185,8 @@
         "mutations": {
           "dependencies": {
             "runtime": {
-              "@jskit-ai/workspaces-core": "0.1.41",
-              "@jskit-ai/users-web": "0.1.80",
+              "@jskit-ai/workspaces-core": "0.1.42",
+              "@jskit-ai/users-web": "0.1.81",
               "vuetify": "^4.0.0"
             },
             "dev": {}
@@ -5995,7 +6355,7 @@
               "file": "src/placement.js",
               "position": "bottom",
               "skipIfContains": "id: \"workspaces.profile.menu.surface-switch\"",
-              "value": "\naddPlacement({\n  id: \"workspaces.profile.menu.surface-switch\",\n  target: \"auth-profile-menu:primary-menu\",\n  surfaces: [\"*\"],\n  order: 100,\n  componentToken: \"workspaces.web.profile.menu.surface-switch-item\",\n  when: ({ auth }) => auth?.authenticated === true\n});\n",
+              "value": "\naddPlacement({\n  id: \"workspaces.profile.menu.surface-switch\",\n  target: \"auth.profile-menu\",\n  kind: \"component\",\n  surfaces: [\"*\"],\n  order: 100,\n  componentToken: \"workspaces.web.profile.menu.surface-switch-item\",\n  when: ({ auth }) => auth?.authenticated === true\n});\n",
               "reason": "Append workspaces-web profile surface switch placement into app-owned placement registry.",
               "category": "workspaces-web",
               "id": "workspaces-web-profile-surface-switch-placement",
@@ -6012,7 +6372,7 @@
               "file": "src/placement.js",
               "position": "bottom",
               "skipIfContains": "id: \"workspaces.workspace.selector\"",
-              "value": "\naddPlacement({\n  id: \"workspaces.workspace.menu.app\",\n  target: \"shell-layout:primary-menu\",\n  surfaces: [\"app\"],\n  order: 50,\n  componentToken: \"local.main.ui.surface-aware-menu-link-item\",\n  props: {\n    label: \"Home\",\n    surface: \"app\",\n    scopedSuffix: \"/\",\n    unscopedSuffix: \"/\",\n    exact: true\n  },\n  when: ({ auth }) => auth?.authenticated === true\n});\n\naddPlacement({\n  id: \"workspaces.workspace.menu.admin\",\n  target: \"shell-layout:primary-menu\",\n  surfaces: [\"admin\"],\n  order: 60,\n  componentToken: \"local.main.ui.surface-aware-menu-link-item\",\n  props: {\n    label: \"Home\",\n    surface: \"admin\",\n    scopedSuffix: \"/\",\n    unscopedSuffix: \"/\",\n    exact: true\n  },\n  when: ({ auth }) => auth?.authenticated === true\n});\n\naddPlacement({\n  id: \"workspaces.workspace.selector\",\n  target: \"shell-layout:top-left\",\n  surfaces: [\"*\"],\n  order: 200,\n  componentToken: \"workspaces.web.workspace.selector\",\n  props: {\n    allowOnNonWorkspaceSurface: true,\n    targetSurfaceId: \"app\"\n  },\n  when: ({ auth }) => auth?.authenticated === true\n});\n\naddPlacement({\n  id: \"workspaces.account.invites.cue\",\n  target: \"shell-layout:top-right\",\n  surfaces: [\"*\"],\n  order: 850,\n  componentToken: \"local.main.account.pending-invites.cue\",\n  when: ({ auth }) => auth?.authenticated === true\n});\n\naddPlacement({\n  id: \"workspaces.workspace.tools.widget\",\n  target: \"shell-layout:top-right\",\n  surfaces: [\"admin\"],\n  order: 900,\n  componentToken: \"workspaces.web.workspace.tools.widget\"\n});\n\naddPlacement({\n  id: \"workspaces.workspace.menu.workspace-settings\",\n  target: \"admin-cog:primary-menu\",\n  surfaces: [\"admin\"],\n  order: 100,\n  componentToken: \"workspaces.web.workspace-settings.menu-item\"\n});\n\naddPlacement({\n  id: \"workspaces.workspace.menu.members\",\n  target: \"admin-cog:primary-menu\",\n  surfaces: [\"admin\"],\n  order: 200,\n  componentToken: \"workspaces.web.workspace-members.menu-item\"\n});\n",
+              "value": "\naddPlacement({\n  id: \"workspaces.workspace.menu.app\",\n  target: \"shell.primary-nav\",\n  kind: \"link\",\n  surfaces: [\"app\"],\n  order: 50,\n  props: {\n    label: \"Home\",\n    surface: \"app\",\n    scopedSuffix: \"/\",\n    unscopedSuffix: \"/\",\n    exact: true\n  },\n  when: ({ auth }) => auth?.authenticated === true\n});\n\naddPlacement({\n  id: \"workspaces.workspace.menu.admin\",\n  target: \"shell.primary-nav\",\n  kind: \"link\",\n  surfaces: [\"admin\"],\n  order: 60,\n  props: {\n    label: \"Home\",\n    surface: \"admin\",\n    scopedSuffix: \"/\",\n    unscopedSuffix: \"/\",\n    exact: true\n  },\n  when: ({ auth }) => auth?.authenticated === true\n});\n\naddPlacement({\n  id: \"workspaces.workspace.selector\",\n  target: \"shell.identity\",\n  kind: \"component\",\n  surfaces: [\"*\"],\n  order: 200,\n  componentToken: \"workspaces.web.workspace.selector\",\n  props: {\n    allowOnNonWorkspaceSurface: true,\n    targetSurfaceId: \"app\"\n  },\n  when: ({ auth }) => auth?.authenticated === true\n});\n\naddPlacement({\n  id: \"workspaces.account.invites.cue\",\n  target: \"shell.status\",\n  kind: \"component\",\n  surfaces: [\"*\"],\n  order: 850,\n  componentToken: \"local.main.account.pending-invites.cue\",\n  when: ({ auth }) => auth?.authenticated === true\n});\n\naddPlacement({\n  id: \"workspaces.workspace.tools.widget\",\n  target: \"shell.status\",\n  kind: \"component\",\n  surfaces: [\"admin\"],\n  order: 900,\n  componentToken: \"workspaces.web.workspace.tools.widget\"\n});\n\naddPlacement({\n  id: \"workspaces.workspace.menu.workspace-settings\",\n  target: \"admin.tools-menu\",\n  kind: \"component\",\n  surfaces: [\"admin\"],\n  order: 100,\n  componentToken: \"workspaces.web.workspace-settings.menu-item\"\n});\n\naddPlacement({\n  id: \"workspaces.workspace.menu.members\",\n  target: \"admin.tools-menu\",\n  kind: \"component\",\n  surfaces: [\"admin\"],\n  order: 200,\n  componentToken: \"workspaces.web.workspace-members.menu-item\"\n});\n",
               "reason": "Append workspace placement entries into app-owned placement registry.",
               "category": "workspaces-web",
               "id": "workspaces-web-placement-block",
@@ -6026,10 +6386,27 @@
             },
             {
               "op": "append-text",
+              "file": "src/placementTopology.js",
+              "position": "bottom",
+              "skipIfContains": "id: \"admin.tools-menu\"",
+              "value": "\naddPlacementTopology({\n  id: \"page.section-nav\",\n  owner: \"admin-settings\",\n  description: \"Navigation between workspace admin settings child pages.\",\n  surfaces: [\"admin\"],\n  variants: {\n    compact: {\n      outlet: \"admin-settings:primary-menu\",\n      renderers: {\n        link: \"local.main.ui.surface-aware-menu-link-item\"\n      }\n    },\n    medium: {\n      outlet: \"admin-settings:primary-menu\",\n      renderers: {\n        link: \"local.main.ui.surface-aware-menu-link-item\"\n      }\n    },\n    expanded: {\n      outlet: \"admin-settings:primary-menu\",\n      renderers: {\n        link: \"local.main.ui.surface-aware-menu-link-item\"\n      }\n    }\n  }\n});\n\naddPlacementTopology({\n  id: \"admin.tools-menu\",\n  description: \"Admin surface tools menu actions.\",\n  surfaces: [\"admin\"],\n  variants: {\n    compact: {\n      outlet: \"admin-cog:primary-menu\",\n      renderers: {\n        link: \"local.main.ui.surface-aware-menu-link-item\"\n      }\n    },\n    medium: {\n      outlet: \"admin-cog:primary-menu\",\n      renderers: {\n        link: \"local.main.ui.surface-aware-menu-link-item\"\n      }\n    },\n    expanded: {\n      outlet: \"admin-cog:primary-menu\",\n      renderers: {\n        link: \"local.main.ui.surface-aware-menu-link-item\"\n      }\n    }\n  }\n});\n",
+              "reason": "Append workspaces-web admin semantic topology into app-owned placement topology.",
+              "category": "workspaces-web",
+              "id": "workspaces-web-admin-placement-topology",
+              "when": {
+                "config": "tenancyMode",
+                "in": [
+                  "personal",
+                  "workspaces"
+                ]
+              }
+            },
+            {
+              "op": "append-text",
               "file": "src/placement.js",
               "position": "bottom",
               "skipIfContains": "id: \"workspaces.account.settings.invites\"",
-              "value": "\naddPlacement({\n  id: \"workspaces.account.settings.invites\",\n  target: \"account-settings:sections\",\n  surfaces: [\"account\"],\n  order: 400,\n  componentToken: \"local.main.account-settings.section.invites\",\n  props: {\n    title: \"Invites\",\n    value: \"invites\",\n    usesSharedRuntime: false\n  },\n  when: ({ auth, workspaceInvitesEnabled }) => auth?.authenticated === true && workspaceInvitesEnabled === true\n});\n",
+              "value": "\naddPlacement({\n  id: \"workspaces.account.settings.invites\",\n  target: \"settings.sections\",\n  owner: \"account-settings\",\n  kind: \"component\",\n  surfaces: [\"account\"],\n  order: 400,\n  componentToken: \"local.main.account-settings.section.invites\",\n  props: {\n    title: \"Invites\",\n    value: \"invites\",\n    usesSharedRuntime: false\n  },\n  when: ({ auth, workspaceInvitesEnabled }) => auth?.authenticated === true && workspaceInvitesEnabled === true\n});\n",
               "reason": "Append workspaces-web account settings invites section placement into app-owned placement registry.",
               "category": "workspaces-web",
               "id": "workspaces-web-account-settings-placement",

@@ -84,7 +84,7 @@ test("buildTemplateContext rejects workspace config scope for a non-workspace as
   });
 });
 
-test("buildTemplateContext rejects duplicate assistant surfaces already configured in public config", async () => {
+test("buildTemplateContext accepts an already-configured matching assistant surface", async () => {
   await withTempApp(async (appRoot) => {
     await writeFile(
       path.join(appRoot, "config", "public.js"),
@@ -104,13 +104,48 @@ test("buildTemplateContext rejects duplicate assistant surfaces already configur
       "utf8"
     );
 
+    const context = await buildTemplateContext({
+      appRoot,
+      options: {
+        surface: "app",
+        "settings-surface": "console",
+        "config-scope": "global"
+      }
+    });
+
+    assert.equal(context.__ASSISTANT_SETTINGS_SURFACE_ID__, "console");
+    assert.equal(context.__ASSISTANT_CONFIG_SCOPE__, "global");
+  });
+});
+
+test("buildTemplateContext rejects conflicting assistant surfaces already configured in public config", async () => {
+  await withTempApp(async (appRoot) => {
+    await writeFile(
+      path.join(appRoot, "config", "public.js"),
+      `export const config = {
+  surfaceDefinitions: {
+    app: { id: "app", enabled: true, requiresWorkspace: false, accessPolicyId: "authenticated" },
+    admin: { id: "admin", enabled: true, requiresWorkspace: true, accessPolicyId: "workspace_member" },
+    console: { id: "console", enabled: true, requiresWorkspace: false, accessPolicyId: "console_owner" }
+  },
+  assistantSurfaces: {
+    app: {
+      settingsSurfaceId: "console",
+      configScope: "global"
+    }
+  }
+};
+`,
+      "utf8"
+    );
+
     await assert.rejects(
       () =>
         buildTemplateContext({
           appRoot,
           options: {
             surface: "app",
-            "settings-surface": "console",
+            "settings-surface": "admin",
             "config-scope": "global"
           }
         }),

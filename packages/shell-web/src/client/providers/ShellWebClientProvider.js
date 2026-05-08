@@ -30,6 +30,7 @@ import { resolveBootstrapErrorStatusCode } from "../bootstrap/bootstrapErrorStat
 
 // Keep this constant for diagnostics, but keep import() below as a literal string so Vite can statically analyze it.
 const APP_PLACEMENT_MODULE_SPECIFIER = "/src/placement.js";
+const APP_PLACEMENT_TOPOLOGY_MODULE_SPECIFIER = "/src/placementTopology.js";
 const APP_ERROR_MODULE_SPECIFIER = "/src/error.js";
 
 function createShellWebQueryClient() {
@@ -85,6 +86,47 @@ async function loadAppPlacementDefinitions(logger) {
     );
   }
 
+  return [];
+}
+
+async function loadAppPlacementTopology(logger) {
+  try {
+    const moduleNamespace = await import("/src/placementTopology.js");
+    const exported = moduleNamespace?.default;
+    return resolveAppPlacementTopologyExport(exported, logger);
+  } catch (error) {
+    if (isMissingDynamicModule(error, APP_PLACEMENT_TOPOLOGY_MODULE_SPECIFIER)) {
+      return [];
+    }
+
+    logger.warn(
+      {
+        module: APP_PLACEMENT_TOPOLOGY_MODULE_SPECIFIER,
+        error: String(error?.message || error || "unknown error")
+      },
+      "Failed to load app placement topology module; using empty topology."
+    );
+  }
+
+  return [];
+}
+
+function resolveAppPlacementTopologyExport(exported, logger) {
+  const resolved = typeof exported === "function" ? exported() : exported;
+  if (Array.isArray(resolved)) {
+    return resolved;
+  }
+  if (resolved && typeof resolved === "object") {
+    return resolved;
+  }
+
+  logger.warn(
+    {
+      module: APP_PLACEMENT_TOPOLOGY_MODULE_SPECIFIER,
+      exportedType: typeof exported
+    },
+    "App placement topology module default export did not resolve to an object or array; using empty topology."
+  );
   return [];
 }
 
@@ -297,6 +339,10 @@ class ShellWebClientProvider {
     const logger = createSharedProviderLogger(isRecord(app) ? app : null);
     const placementRuntime = app.make("runtime.web-placement.client");
     if (placementRuntime && typeof placementRuntime.replacePlacements === "function") {
+      const placementTopology = await loadAppPlacementTopology(logger);
+      if (typeof placementRuntime.replacePlacementTopology === "function") {
+        placementRuntime.replacePlacementTopology(placementTopology, { source: APP_PLACEMENT_TOPOLOGY_MODULE_SPECIFIER });
+      }
       const placements = await loadAppPlacementDefinitions(logger);
       placementRuntime.replacePlacements(placements, { source: APP_PLACEMENT_MODULE_SPECIFIER });
       const appConfig = getClientAppConfig();
@@ -361,5 +407,6 @@ class ShellWebClientProvider {
 }
 
 export {
-  ShellWebClientProvider
+  ShellWebClientProvider,
+  resolveAppPlacementTopologyExport
 };

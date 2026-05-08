@@ -49,11 +49,25 @@ function resolveSurfaceDefinition(appConfig = {}, surfaceId = "", optionName = "
   });
 }
 
-function assertAssistantSurfaceIsAvailable(appConfig = {}, surfaceId = "") {
+function assertAssistantSurfaceIsAvailable(appConfig = {}, surfaceId = "", expected = {}) {
   const assistantSurfaces =
     appConfig && typeof appConfig.assistantSurfaces === "object" && !Array.isArray(appConfig.assistantSurfaces)
       ? appConfig.assistantSurfaces
       : {};
+  const existingSurface = assistantSurfaces[surfaceId];
+  if (!existingSurface) {
+    return;
+  }
+
+  const expectedSettingsSurfaceId = normalizeSurfaceId(expected?.settingsSurfaceId);
+  const expectedConfigScope = normalizeConfigScope(expected?.configScope);
+  const existingSettingsSurfaceId = normalizeSurfaceId(existingSurface?.settingsSurfaceId);
+  const existingConfigScope = normalizeConfigScope(existingSurface?.configScope);
+
+  if (existingSettingsSurfaceId === expectedSettingsSurfaceId && existingConfigScope === expectedConfigScope) {
+    return;
+  }
+
   if (assistantSurfaces[surfaceId]) {
     throw new Error(`assistant generator surface "${surfaceId}" already has an assistant configured in config/public.js.`);
   }

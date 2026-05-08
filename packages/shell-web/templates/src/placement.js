@@ -13,10 +13,10 @@ export default function getPlacements() {
 
 addPlacement({
   id: "shell-web.home.menu.home",
-  target: "shell-layout:primary-menu",
+  target: "shell.primary-nav",
+  kind: "link",
   surfaces: ["home"],
   order: 50,
-  componentToken: "local.main.ui.surface-aware-menu-link-item",
   props: {
     label: "Home",
     surface: "home",
@@ -28,10 +28,10 @@ addPlacement({
 
 addPlacement({
   id: "shell-web.home.menu.settings",
-  target: "shell-layout:primary-menu",
+  target: "shell.primary-nav",
+  kind: "link",
   surfaces: ["home"],
   order: 100,
-  componentToken: "local.main.ui.surface-aware-menu-link-item",
   props: {
     label: "Settings",
     surface: "home",
@@ -42,10 +42,11 @@ addPlacement({
 
 addPlacement({
   id: "shell-web.home.settings.general",
-  target: "home-settings:primary-menu",
+  target: "page.section-nav",
+  owner: "home-settings",
+  kind: "link",
   surfaces: ["home"],
   order: 100,
-  componentToken: "local.main.ui.surface-aware-menu-link-item",
   props: {
     label: "General",
     surface: "home",
