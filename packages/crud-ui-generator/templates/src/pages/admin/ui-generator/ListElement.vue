@@ -36,6 +36,10 @@
           class="ui-generator-list-search"
           :loading="records.isSearchDebouncing"
         />
+        <CrudListFilterSurface
+          :filters="listFilters"
+          :runtime="filterRuntime"
+        />
       </div>
 
       <template v-if="records.showListSkeleton">
@@ -168,8 +172,11 @@ __JSKIT_UI_LIST_ROW_COLUMNS__
 <script setup>
 import { computed } from "vue";
 __JSKIT_UI_LIST_PARENT_TITLE_IMPORT_LINE__
+import CrudListFilterSurface from "@jskit-ai/users-web/client/components/CrudListFilterSurface";
 import { useCrudList } from "@jskit-ai/users-web/client/composables/useCrudList";
+import { useCrudListFilters } from "@jskit-ai/users-web/client/composables/useCrudListFilters";
 import { resource as uiResource } from "__JSKIT_UI_RESOURCE_IMPORT_PATH__";
+import { listFilters } from "./listFilters.js";
 
 const UI_OPERATION_ADAPTER = null;
 const UI_RECORD_ID_PARAM = "__JSKIT_UI_RECORD_ID_PARAM__";
@@ -180,6 +187,7 @@ const UI_NEW_URL = __JSKIT_UI_LIST_PAGE_NEW_URL__;
 const UI_RECORD_CHANGED_EVENTS = __JSKIT_UI_LIST_REALTIME_EVENTS__;
 const UI_ROUTE_QUERY_BLACKLIST = Object.freeze(["include", "cursor", "limit"]);
 const UI_LIST_TITLE_FALLBACK_FIELD_KEY = __JSKIT_UI_LIST_TITLE_FALLBACK_FIELD_KEY__;
+const filterRuntime = useCrudListFilters(listFilters);
 
 const records = useCrudList({
   adapter: UI_OPERATION_ADAPTER || undefined,
@@ -196,6 +204,7 @@ const records = useCrudList({
     enabled: true,
     mode: "query"
   },
+  queryParams: filterRuntime.queryParams,
   syncToRoute: {
     enabled: true,
     mode: "replace",

@@ -190,6 +190,16 @@ const GENERATED_UI_SOURCE_CONTRACT_PROFILES = Object.freeze({
         id: "crud-list-tap-targets",
         pattern: /min-height:\s*48px/,
         message: "Generated CRUD lists need 48px tap targets."
+      }),
+      Object.freeze({
+        id: "crud-list-filter-surface",
+        pattern: /CrudListFilterSurface/,
+        message: "Generated CRUD lists need the shared client-side filter surface seam."
+      }),
+      Object.freeze({
+        id: "crud-list-filter-query-params",
+        pattern: /queryParams:\s*filterRuntime\.queryParams/,
+        message: "Generated CRUD lists must wire declared filters into list query params."
       })
     ])
   }),

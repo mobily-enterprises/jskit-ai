@@ -70,6 +70,8 @@ test("shell-web shell layout registers navigation at the app layout level", asyn
     assert.match(source, /:density="isCompactLayout \? 'compact' : 'comfortable'"/);
     assert.match(source, /shell-layout__top-right[\s\S]*max-width:\s*min\(45vw, 18rem\)/);
     assert.match(source, /<v-bottom-navigation[\s\S]*target="shell-layout:primary-bottom-nav"/);
+    assert.match(source, /target="shell-layout:primary-menu"[\s\S]*default/);
+    assert.doesNotMatch(source, /target="shell-layout:primary-bottom-nav"[\s\S]*default/);
     assert.match(source, /data-testid="jskit-shell-drawer"/);
     assert.match(source, /data-testid="jskit-shell-bottom-nav"/);
     assert.match(source, /padding:\s*0\.75rem 1rem calc\(1rem \+ env\(safe-area-inset-bottom, 0px\)\)/);

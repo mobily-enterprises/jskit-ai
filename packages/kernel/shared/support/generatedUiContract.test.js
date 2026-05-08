@@ -185,6 +185,7 @@ test("generated UI source contract accepts compact-first CRUD list structure", (
   assert.doesNotThrow(() => assertGeneratedUiSourceContract(
     `<template>
   <section class="generated-ui-screen generated-ui-screen--operator">
+    <CrudListFilterSurface :filters="listFilters" :runtime="filterRuntime" />
     <div class="ui-generator-list-cards d-md-none">
       <v-menu>Actions</v-menu>
     </div>
@@ -193,6 +194,12 @@ test("generated UI source contract accepts compact-first CRUD list structure", (
     <h2>__JSKIT_UI_LIST_LOAD_ERROR_TITLE__</h2>
   </section>
 </template>
+
+<script setup>
+const records = useCrudList({
+  queryParams: filterRuntime.queryParams
+});
+</script>
 
 <style scoped>
 .generated-ui-screen {

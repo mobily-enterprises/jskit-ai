@@ -8,7 +8,9 @@
   "exports": {
     "./client": "./src/client/index.js",
     "./client/components/AccountSettingsClientElement": "./src/client/components/AccountSettingsClientElement.vue",
+    "./client/components/CrudListFilterSurface": "./src/client/components/CrudListFilterSurface.vue",
     "./client/account-settings/sections": "./src/client/account-settings/sections.js",
+    "./client/filters": "./src/client/filters.js",
     "./client/composables/useAddEdit": "./src/client/composables/records/useAddEdit.js",
     "./client/composables/useAccess": "./src/client/composables/useAccess.js",
     "./client/composables/useCommand": "./src/client/composables/useCommand.js",

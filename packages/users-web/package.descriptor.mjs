@@ -51,6 +51,14 @@ export default Object.freeze({
           summary: "Exports the package-owned account settings host that renders placement-backed account sections."
         },
         {
+          subpath: "./client/components/CrudListFilterSurface",
+          summary: "Exports the adaptive CRUD list filter surface for generated list pages."
+        },
+        {
+          subpath: "./client/filters",
+          summary: "Exports client-side CRUD list filter definition helpers."
+        },
+        {
           subpath: "./client/components/ProfileClientElement",
           summary: "Exports profile settings client element scaffold component."
         },

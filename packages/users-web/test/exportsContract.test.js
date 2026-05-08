@@ -16,7 +16,9 @@ test("users-web exports are explicit and aligned with production/template usage"
     requiredExports: [
       "./client",
       "./client/components/AccountSettingsClientElement",
+      "./client/components/CrudListFilterSurface",
       "./client/account-settings/sections",
+      "./client/filters",
       "./client/composables/useAddEdit",
       "./client/composables/useCommand",
       "./client/composables/useEndpointResource",

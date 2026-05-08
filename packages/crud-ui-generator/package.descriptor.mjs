@@ -200,6 +200,17 @@ export default Object.freeze({
         }
       },
       {
+        from: "templates/src/pages/admin/ui-generator/listFilters.js",
+        to: "src/pages/${option:target-root|trim}/listFilters.js",
+        reason: "Install generated client-side list filter definitions.",
+        category: "crud-ui-generator",
+        id: "crud-ui-page-list-filters-${option:target-root|snake}",
+        when: {
+          option: "operations",
+          in: ["list"]
+        }
+      },
+      {
         from: "templates/src/pages/admin/ui-generator/ViewElement.vue",
         to: "src/pages/${option:target-root|trim}/[${option:id-param|trim}]/index.vue",
         reason: "Install generated view page.",
