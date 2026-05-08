@@ -3,6 +3,7 @@ import path from "node:path";
 import test from "node:test";
 import { readFile } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
+import { assertGeneratedUiSourceContract } from "@jskit-ai/kernel/shared/support/generatedUiContract";
 import descriptor from "../package.descriptor.mjs";
 
 const TEST_DIRECTORY = path.dirname(fileURLToPath(import.meta.url));
@@ -56,6 +57,22 @@ test("workspaces-web admin settings template exposes surface-derived settings ou
     "utf8"
   );
 
+  assertGeneratedUiSourceContract(source, {
+    forbidCardShell: true,
+    sourceName: "admin/workspace/settings.vue",
+    requiredPatterns: [
+      {
+        id: "admin-settings-outlet",
+        pattern: /target="admin-settings:primary-menu"/,
+        message: "Admin settings shell needs the semantic settings outlet host."
+      },
+      {
+        id: "admin-settings-router-view",
+        pattern: /<RouterView \/>/,
+        message: "Admin settings shell needs to host child settings routes."
+      }
+    ]
+  });
   assert.match(source, /target="admin-settings:primary-menu"/);
   assert.doesNotMatch(source, /default-link-component-token/);
   assert.doesNotMatch(source, /<v-card\b/);
@@ -91,6 +108,10 @@ test("workspaces-web settings components use direct panels instead of card scaff
   ]) {
     const source = await readFile(path.join(PACKAGE_DIR, relativePath), "utf8");
 
+    assertGeneratedUiSourceContract(source, {
+      forbidCardShell: true,
+      sourceName: relativePath
+    });
     assert.doesNotMatch(source, /<v-card\b|v-card-title|v-card-subtitle/);
   }
 });
@@ -135,6 +156,33 @@ test("workspaces-web starter surfaces avoid instructional placeholder copy", asy
     "utf8"
   );
 
+  assertGeneratedUiSourceContract(appSource, {
+    forbidCardShell: true,
+    sourceName: "workspaces app surface",
+    requiredPatterns: [
+      {
+        id: "workspace-app-empty-state",
+        pattern: /No workspace activity yet/,
+        message: "Workspace app surface needs a product-shaped empty state."
+      }
+    ]
+  });
+  assertGeneratedUiSourceContract(adminSource, {
+    forbidCardShell: true,
+    sourceName: "workspaces admin surface",
+    requiredPatterns: [
+      {
+        id: "workspace-admin-member-link",
+        pattern: /to="\.\/members"/,
+        message: "Workspace admin surface needs a direct members action."
+      },
+      {
+        id: "workspace-admin-settings-link",
+        pattern: /to="\.\/workspace\/settings"/,
+        message: "Workspace admin surface needs a direct settings action."
+      }
+    ]
+  });
   assert.match(appSource, /No workspace activity yet/);
   assert.match(adminSource, /Manage members and workspace settings/);
   assert.match(adminSource, /to="\.\/members"/);

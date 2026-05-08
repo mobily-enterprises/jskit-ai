@@ -3,6 +3,7 @@ import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { tmpdir } from "node:os";
 import test from "node:test";
+import { assertGeneratedUiSourceContract } from "@jskit-ai/kernel/shared/support/generatedUiContract";
 import { runGeneratorSubcommand } from "../src/server/subcommands/page.js";
 
 async function withTempApp(run) {
@@ -148,6 +149,12 @@ test("ui-generator page subcommand creates an index page from an explicit target
     assert.equal(result.summary, 'Generated UI page "/practice" at src/pages/w/[workspaceSlug]/admin/practice/index.vue.');
 
     const pageSource = await readFile(path.join(appRoot, toPagePath(targetFile)), "utf8");
+    assertGeneratedUiSourceContract(pageSource, {
+      profile: "page",
+      sourceName: targetFile
+    });
+    assert.match(pageSource, /generated-ui-screen generated-ui-screen--operator generated-page-screen/);
+    assert.match(pageSource, /<p class="text-overline text-medium-emphasis mb-1">Workspace tool<\/p>/);
     assert.match(pageSource, /<h1 class="generated-page-screen__title">Practice<\/h1>/);
     assert.match(pageSource, /<v-sheet rounded="lg" border class="generated-page-screen__empty-state">/);
     assert.match(pageSource, /No Practice activity yet/);
@@ -222,7 +229,7 @@ test("ui-generator page subcommand rejects no-link navigation roles with link pl
   });
 });
 
-test("ui-generator page subcommand creates a file route and derives label from the file path", async () => {
+test("ui-generator page subcommand treats dynamic file routes as detail pages by default", async () => {
   await withTempApp(async (appRoot) => {
     await writeAppFixture(appRoot);
 
@@ -234,11 +241,33 @@ test("ui-generator page subcommand creates a file route and derives label from t
       options: {}
     });
 
-    assert.deepEqual(result.touchedFiles, [toPagePath(targetFile), "src/placement.js"]);
+    assert.deepEqual(result.touchedFiles, [toPagePath(targetFile)]);
 
     const pageSource = await readFile(path.join(appRoot, toPagePath(targetFile)), "utf8");
+    assert.match(pageSource, /generated-ui-screen generated-ui-screen--operator generated-page-screen/);
     assert.match(pageSource, /<h1 class="generated-page-screen__title">Contact Id<\/h1>/);
     assert.match(pageSource, /No Contact Id activity yet/);
+
+    const placementSource = await readFile(path.join(appRoot, "src", "placement.js"), "utf8");
+    assert.doesNotMatch(placementSource, /ui-generator\.page\.admin\.contacts\.contact-id\.link/);
+  });
+});
+
+test("ui-generator page subcommand allows explicit primary navigation for dynamic routes", async () => {
+  await withTempApp(async (appRoot) => {
+    await writeAppFixture(appRoot);
+
+    const targetFile = "w/[workspaceSlug]/admin/contacts/[contactId].vue";
+    const result = await runGeneratorSubcommand({
+      appRoot,
+      subcommand: "page",
+      args: [targetFile],
+      options: {
+        "navigation-role": "primary"
+      }
+    });
+
+    assert.deepEqual(result.touchedFiles, [toPagePath(targetFile), "src/placement.js"]);
 
     const placementSource = await readFile(path.join(appRoot, "src", "placement.js"), "utf8");
     assert.match(placementSource, /scopedSuffix: "\/contacts\/\[contactId\]"/);

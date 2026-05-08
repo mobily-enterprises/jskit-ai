@@ -3,6 +3,7 @@ import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { tmpdir } from "node:os";
 import test from "node:test";
+import { assertGeneratedUiSourceContract } from "@jskit-ai/kernel/shared/support/generatedUiContract";
 import { runGeneratorSubcommand } from "../src/server/subcommands/element.js";
 
 async function withTempApp(run) {
@@ -176,6 +177,10 @@ test("ui-generator placed-element subcommand creates component and outlet placem
     assert.match(providerSource, /registerMainClientComponent\("local\.main\.ui\.element\.ops-panel", \(\) => OpsPanelElement\);/);
 
     const componentSource = await readFile(path.join(appRoot, "src", "components", "OpsPanelElement.vue"), "utf8");
+    assertGeneratedUiSourceContract(componentSource, {
+      profile: "placed-element",
+      sourceName: "OpsPanelElement.vue"
+    });
     assert.match(componentSource, /class="generated-element-panel"/);
     assert.match(componentSource, /<h2 class="text-subtitle-1 font-weight-medium mb-0">Ops Panel<\/h2>/);
     assert.match(componentSource, /<v-chip color="primary" variant="tonal" size="small">Ready<\/v-chip>/);

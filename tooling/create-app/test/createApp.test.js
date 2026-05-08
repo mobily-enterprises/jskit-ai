@@ -201,6 +201,8 @@ test("create-app scaffolds the base shell with placeholder replacements", async 
     assert.match(e2eSmoke, /768/);
     assert.match(e2eSmoke, /1280/);
     assert.match(e2eSmoke, /scrollWidth/);
+    assert.match(e2eSmoke, /expectGeneratedScreenContract/);
+    assert.match(e2eSmoke, /\.generated-ui-screen/);
 
     const mainJs = await readFile(path.join(appRoot, "src/main.js"), "utf8");
     assert.match(mainJs, /import App from "\.\/App\.vue";/);
@@ -337,9 +339,12 @@ test("create-app scaffolds the base shell with placeholder replacements", async 
     await assert.rejects(access(path.join(appRoot, "src/pages/index.vue")), /ENOENT/);
     const homeView = await readFile(path.join(appRoot, "src/pages/home/index.vue"), "utf8");
     assert.doesNotMatch(homeView, /@jskit-ai\/shell-web/);
+    assert.match(homeView, /generated-ui-screen generated-ui-screen--app home-start-screen/);
+    assert.match(homeView, /--generated-ui-screen-title-size/);
     assert.match(homeView, /home-start-screen/);
-    assert.match(homeView, /Core app runtime is ready/);
-    assert.doesNotMatch(homeView, /<v-card\b|Start by adding packages/);
+    assert.match(homeView, /Home base/);
+    assert.match(homeView, /No activity yet/);
+    assert.doesNotMatch(homeView, /<v-card\b|Start by adding packages|Generate a page|install a package|Add product packages/);
     assert.doesNotMatch(homeView, /const appTitle =/);
     await assert.rejects(access(path.join(appRoot, "src/pages/console.vue")), /ENOENT/);
     await assert.rejects(access(path.join(appRoot, "src/pages/console/index.vue")), /ENOENT/);
@@ -574,8 +579,11 @@ test("create-app applies explicit app title when --title is provided", async () 
     await assert.rejects(access(path.join(appRoot, "src/pages/index.vue")), /ENOENT/);
     const homeView = await readFile(path.join(appRoot, "src/pages/home/index.vue"), "utf8");
     assert.doesNotMatch(homeView, /@jskit-ai\/shell-web/);
+    assert.match(homeView, /generated-ui-screen generated-ui-screen--app home-start-screen/);
+    assert.match(homeView, /--generated-ui-screen-title-size/);
     assert.match(homeView, /home-start-screen/);
-    assert.doesNotMatch(homeView, /<v-card\b|Start by adding packages/);
+    assert.match(homeView, /No activity yet/);
+    assert.doesNotMatch(homeView, /<v-card\b|Start by adding packages|Generate a page|install a package|Add product packages/);
   });
 });
 

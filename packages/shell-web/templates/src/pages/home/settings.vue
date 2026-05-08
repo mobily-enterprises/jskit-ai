@@ -4,7 +4,7 @@ import { RouterView } from "vue-router";
 </script>
 
 <template>
-  <section class="settings-shell d-flex flex-column ga-4">
+  <section class="generated-ui-screen generated-ui-screen--settings settings-shell d-flex flex-column ga-4">
     <header>
       <p class="text-overline text-medium-emphasis mb-1">Settings</p>
       <h1 class="settings-shell__title">Home settings</h1>
@@ -28,8 +28,13 @@ import { RouterView } from "vue-router";
 </template>
 
 <style scoped>
+.generated-ui-screen {
+  --generated-ui-screen-title-size: clamp(1.35rem, 2vw, 1.85rem);
+  --generated-ui-screen-panel-padding: 1rem;
+}
+
 .settings-shell__title {
-  font-size: clamp(1.35rem, 2vw, 1.85rem);
+  font-size: var(--generated-ui-screen-title-size);
   font-weight: 650;
   letter-spacing: -0.02em;
   line-height: 1.15;
@@ -44,7 +49,7 @@ import { RouterView } from "vue-router";
   display: grid;
   gap: 1rem;
   grid-template-columns: minmax(12rem, 16rem) minmax(0, 1fr);
-  padding: 1rem;
+  padding: var(--generated-ui-screen-panel-padding);
 }
 
 .settings-shell__content {

@@ -8,38 +8,42 @@ Generated JSKIT apps should feel like real adaptive apps by default, not framewo
 
 ## Current Scope
 
-- [ ] Centralize navigation role behavior beyond per-generator helpers.
-- [ ] Improve product-aware navigation inference and CLI prompting.
-- [ ] Audit generated/package UI templates for placeholder or instructional live-page copy.
-- [ ] Formalize surface density rules for app, admin, console, and settings screens.
-- [ ] Add shared typography/density primitives or generator support helpers where they reduce duplication.
-- [ ] Enforce "no cards inside cards" for generated page architecture while preserving intentional tool/dialog cards.
+- [x] Centralize navigation role behavior beyond per-generator helpers.
+- [x] Improve product-aware navigation inference and CLI prompting.
+- [x] Audit generated/package UI templates for placeholder or instructional live-page copy.
+- [x] Formalize surface density rules for app, admin, console, and settings screens.
+- [x] Add shared typography/density primitives or generator support helpers where they reduce duplication.
+- [x] Enforce "no cards inside cards" for generated page architecture while preserving intentional tool/dialog cards.
 - [ ] Expand UI verification from shell smoke coverage to generator-pattern smoke coverage.
-- [ ] Centralize the JSKIT design contract and make tests consume it.
+- [x] Centralize the JSKIT design contract and make tests consume it.
 
 ## Work Slices
 
-- [ ] Slice 1: create the central contract/support seam and move navigation-role constants into it.
-- [ ] Slice 2: wire `ui-generator` and `crud-ui-generator` to the shared contract.
-- [ ] Slice 3: add template/content contract scans for placeholder copy, card-shell misuse, and missing responsive hooks.
-- [ ] Slice 4: audit package templates that ship live UI and classify intentional cards.
-- [ ] Slice 5: add generator-level Playwright smoke templates for page and CRUD patterns.
-- [ ] Slice 6: update distributed agent docs and regenerated references/catalog outputs.
+- [x] Slice 1: create the central contract/support seam and move navigation-role constants into it.
+- [x] Slice 2: wire `ui-generator` and `crud-ui-generator` to the shared contract.
+- [x] Slice 3: add template/content contract scans for placeholder copy, card-shell misuse, and missing responsive hooks.
+- [x] Slice 4: audit package templates that ship live UI and classify intentional cards.
+- [x] Slice 5a: extend generated app Playwright smoke coverage to assert the generated screen contract.
+- [ ] Slice 5b: add full generator-level Playwright fixtures for page and CRUD patterns.
+- [x] Slice 6: update distributed agent docs and regenerated references/catalog outputs.
 
 ## Verification Checklist
 
-- [ ] `npm run lint`
-- [ ] `npm run check:runtime-deps`
-- [ ] `npm run jskit -- lint-descriptors`
-- [ ] `npm run catalog:build`
-- [ ] `npm run agent-docs:build`
-- [ ] `npm test --workspace @jskit-ai/ui-generator`
-- [ ] `npm test --workspace @jskit-ai/crud-ui-generator`
-- [ ] `npm test --workspace @jskit-ai/shell-web`
-- [ ] `npm test --workspace @jskit-ai/jskit-cli`
-- [ ] `npm test --workspace @jskit-ai/create-app`
-- [ ] `npm test --workspace @jskit-ai/agent-docs`
-- [ ] `git diff --check`
+- [x] `npm run lint`
+- [x] `npm run check:runtime-deps`
+- [x] `npm run jskit -- lint-descriptors`
+- [x] `npm run catalog:build`
+- [x] `npm run agent-docs:build`
+- [x] `npm test --workspace @jskit-ai/kernel`
+- [x] `npm test --workspace @jskit-ai/ui-generator`
+- [x] `npm test --workspace @jskit-ai/crud-ui-generator`
+- [x] `npm test --workspace @jskit-ai/shell-web`
+- [x] `npm test --workspace @jskit-ai/users-web`
+- [x] `npm test --workspace @jskit-ai/workspaces-web`
+- [x] `npm test --workspace @jskit-ai/jskit-cli`
+- [x] `npm test --workspace @jskit-ai/create-app`
+- [x] `npm test --workspace @jskit-ai/agent-docs`
+- [x] `git diff --check`
 
 ## Notes
 
@@ -47,3 +51,4 @@ Generated JSKIT apps should feel like real adaptive apps by default, not framewo
 - Do not turn the contract into runtime business logic; it is generator and template policy.
 - Do not remove intentional cards from specialist UI components just to satisfy a broad scan.
 - Keep generated files deterministic and update catalog/agent-doc outputs when descriptors or exported symbols change.
+- Kernel shared UI contract must stay surface-id agnostic. Concrete mappings like admin/console to operator profile belong in generators or package templates.
