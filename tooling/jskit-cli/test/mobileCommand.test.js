@@ -8,7 +8,8 @@ import { withTempDir } from "../../testUtils/tempDir.mjs";
 import {
   buildManagedDeepLinkIntentFilterBlock,
   ensureMobileConfigStub,
-  injectManagedDeepLinkBlock
+  injectManagedDeepLinkBlock,
+  renderManagedMobileFile
 } from "../src/server/commandHandlers/mobileShellSupport.js";
 
 const CLI_PATH = fileURLToPath(new URL("../bin/jskit.js", import.meta.url));
@@ -252,6 +253,7 @@ async function markPackageAsInstalled(appRoot, packageId, version = "0.1.0") {
 }
 
 async function seedInstalledCapacitorShell(appRoot, {
+  markPackage = true,
   appId = "com.example.mobile",
   appName = "Example Mobile",
   androidPackageName = appId,
@@ -266,6 +268,7 @@ async function seedInstalledCapacitorShell(appRoot, {
   const manifestPath = path.join(appRoot, "android", "app", "src", "main", "AndroidManifest.xml");
   const buildGradlePath = path.join(appRoot, "android", "app", "build.gradle");
   const stringsPath = path.join(appRoot, "android", "app", "src", "main", "res", "values", "strings.xml");
+  const notesPath = path.join(appRoot, ".jskit", "mobile-capacitor.md");
   const mainActivityPath = path.join(
     appRoot,
     "android",
@@ -277,6 +280,9 @@ async function seedInstalledCapacitorShell(appRoot, {
     "MainActivity.java"
   );
   const variablesGradlePath = path.join(appRoot, "android", "variables.gradle");
+  if (markPackage === true) {
+    await markPackageAsInstalled(appRoot, "@jskit-ai/mobile-capacitor");
+  }
   await mkdir(path.dirname(manifestPath), { recursive: true });
   const capacitorConfig = {
     appId,
@@ -300,6 +306,15 @@ async function seedInstalledCapacitorShell(appRoot, {
     )}\n`,
     "utf8"
   );
+  await mkdir(path.dirname(notesPath), { recursive: true });
+  let notesSource = "# Mobile Capacitor\n\nThis placeholder test fixture is used when config.mobile is intentionally invalid.\n";
+  try {
+    notesSource = await renderManagedMobileFile({
+      appRoot,
+      relativeTargetPath: ".jskit/mobile-capacitor.md"
+    });
+  } catch {}
+  await writeFile(notesPath, notesSource, "utf8");
   await mkdir(path.dirname(buildGradlePath), { recursive: true });
   await mkdir(path.dirname(stringsPath), { recursive: true });
   await mkdir(path.dirname(mainActivityPath), { recursive: true });
@@ -685,6 +700,7 @@ test("jskit mobile android sync builds the app and syncs the Android shell", asy
 
     await createMobileReadyApp(appRoot);
     await seedInstalledCapacitorShell(appRoot);
+    const packageJsonBefore = await readFile(path.join(appRoot, "package.json"), "utf8");
     await installFakeCommand(
       binDir,
       "npm",
@@ -726,12 +742,10 @@ if (process.argv[2] === "sync" && process.argv[3] === "android") {
       await readFile(path.join(appRoot, "dist", "index.html"), "utf8"),
       "<html></html>\n"
     );
-    const packageJson = JSON.parse(await readFile(path.join(appRoot, "package.json"), "utf8"));
-    assert.equal(packageJson.dependencies["@capacitor/browser"], "^7.0.1");
+    assert.equal(await readFile(path.join(appRoot, "package.json"), "utf8"), packageJsonBefore);
 
     const logLines = (await readFile(logPath, "utf8")).split(/\r?\n/u).filter(Boolean);
     assert.deepEqual(logLines, [
-      "npm install",
       "npm run build",
       "cap sync android"
     ]);
@@ -742,6 +756,47 @@ if (process.argv[2] === "sync" && process.argv[3] === "android") {
     );
     assert.match(manifestSource, /jskit-mobile-capacitor:deep-links:start/);
     assert.match(manifestSource, /android:scheme="examplemobile"/);
+  });
+});
+
+test("jskit mobile android sync fails before command execution when the mobile package was not added", async () => {
+  await withTempDir(async (cwd) => {
+    const appRoot = path.join(cwd, "app");
+    const binDir = path.join(cwd, "bin");
+    const logPath = path.join(cwd, "commands.log");
+
+    await createMobileReadyApp(appRoot);
+    await seedInstalledCapacitorShell(appRoot, {
+      markPackage: false
+    });
+    await installFakeCommand(
+      binDir,
+      "npm",
+      `#!/usr/bin/env node
+const fs = require("node:fs");
+fs.appendFileSync(process.env.TEST_LOG_PATH, ["npm", ...process.argv.slice(2)].join(" ") + "\\n");
+`
+    );
+    await writeExecutable(
+      path.join(appRoot, "node_modules", ".bin", "cap"),
+      `#!/usr/bin/env node
+const fs = require("node:fs");
+fs.appendFileSync(process.env.TEST_LOG_PATH, ["cap", ...process.argv.slice(2)].join(" ") + "\\n");
+`
+    );
+
+    const result = runCli({
+      cwd: appRoot,
+      args: ["mobile", "android", "sync"],
+      env: buildTestEnv(binDir, logPath)
+    });
+
+    assert.equal(result.status, 1);
+    assert.match(
+      String(result.stderr || ""),
+      /Run jskit add package @jskit-ai\/mobile-capacitor first/u
+    );
+    await assert.rejects(() => readFile(logPath, "utf8"));
   });
 });
 
@@ -1081,7 +1136,6 @@ if (process.argv[2] === "-s" && process.argv[4] === "reverse" && process.argv[5]
     const logLines = (await readFile(logPath, "utf8")).split(/\r?\n/u).filter(Boolean);
     assert.deepEqual(logLines, [
       "adb devices -l",
-      "npm install",
       "npm run build",
       "cap sync android",
       "adb devices -l",
@@ -1164,7 +1218,6 @@ if (process.argv[2] === "-s" && process.argv[4] === "reverse" && process.argv[5]
     const logLines = (await readFile(logPath, "utf8")).split(/\r?\n/u).filter(Boolean);
     assert.deepEqual(logLines, [
       "adb devices -l",
-      "npm install",
       "npm run build",
       "cap sync android",
       "adb devices -l",
@@ -1267,7 +1320,6 @@ if (process.argv[2] === "sync" && process.argv[3] === "android") {
     assert.equal(result.status, 0, String(result.stderr || ""));
     const logLines = (await readFile(logPath, "utf8")).split(/\r?\n/u).filter(Boolean);
     assert.deepEqual(logLines, [
-      "npm install",
       "npm run build",
       "cap sync android",
       "cap run android"
@@ -1320,7 +1372,6 @@ fs.appendFileSync(process.env.TEST_LOG_PATH, ["cap", ...process.argv.slice(2)].j
     assert.equal(result.status, 0, String(result.stderr || ""));
     const logLines = (await readFile(logPath, "utf8")).split(/\r?\n/u).filter(Boolean);
     assert.deepEqual(logLines, [
-      "npm install",
       "cap sync android",
       "cap run android"
     ]);
@@ -1378,7 +1429,6 @@ if (process.argv[2] === "sync" && process.argv[3] === "android") {
     assert.equal(result.status, 0, String(result.stderr || ""));
     const logLines = (await readFile(logPath, "utf8")).split(/\r?\n/u).filter(Boolean);
     assert.deepEqual(logLines, [
-      "npm install",
       "npm run build",
       "cap sync android",
       "cap run android --target 8ADX0QUH3"
@@ -1440,7 +1490,6 @@ fs.appendFileSync(process.env.TEST_LOG_PATH, ["cap", ...process.argv.slice(2)].j
     assert.equal(result.status, 0, String(result.stderr || ""));
     const logLines = (await readFile(logPath, "utf8")).split(/\r?\n/u).filter(Boolean);
     assert.deepEqual(logLines, [
-      "npm install",
       "npm run build",
       "cap sync android",
       "gradlew bundleRelease"

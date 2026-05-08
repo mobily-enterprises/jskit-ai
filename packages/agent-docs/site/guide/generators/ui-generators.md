@@ -95,7 +95,7 @@ The important default is this:
 - if JSKIT sees no nearer routed host, the new page gets a normal shell/menu placement
 - if JSKIT does see a nearer routed host, the new page gets linked into that host instead
 
-Open the app and you now have a real `/reports` page plus a real shell link for it.
+Open the app to see a real `/reports` page plus a real shell link for it.
 
 ### Customizing the generated menu link
 
@@ -232,7 +232,7 @@ After the command, the page gains three important pieces:
 - a `ShellOutlet` for the child-page tabs
 - `RouterView`
 
-That means the page can now keep rendering shared content while child routes render underneath it.
+That lets the page keep rendering shared content while child routes render underneath it.
 
 This is the first big distinction in this chapter:
 

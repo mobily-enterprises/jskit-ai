@@ -506,7 +506,7 @@ npx jskit add package shell-web
 npm install
 ```
 
-`jskit add` changes the app. `npm install` downloads the dependencies that the changed app now requires.
+`jskit add` changes the app. `npm install` downloads the dependencies that the changed app requires.
 
 If the app is being tested against a local JSKIT checkout with linked packages, run the local-link wrapper again after every `npm install`:
 
@@ -707,7 +707,7 @@ That is a different job from:
 
 Those commands can all pass while JSKIT-managed state is still inconsistent. `doctor` is the command that checks that JSKIT's own view of the app still makes sense.
 
-That is exactly why the starter scaffold now routes `npm run verify` through `jskit app verify`.
+That is exactly why the starter scaffold routes `npm run verify` through `jskit app verify`.
 
 It belongs there because JSKIT apps are not only source trees. They also have:
 
@@ -739,7 +739,7 @@ Good times to run it manually include:
 
 One important nuance: `doctor` is checking for broken JSKIT ownership and visibility, not trying to stop you from editing app-owned files. For example, a managed file that still exists but whose contents changed is normally fine. The problem is when JSKIT expects a managed file to exist and it is gone, or when the installed package state no longer resolves cleanly.
 
-There is one intentional exception now for user-facing UI work.
+There is one intentional exception for user-facing UI work.
 
 If the current git working tree has changed UI files under the app's normal UI paths, `doctor` expects a matching `.jskit/verification/ui.json` receipt. The intended way to create that receipt is:
 
@@ -969,7 +969,7 @@ Good fits include:
 - a custom integration package that talks to one external API
 - app-specific auth or policy behavior
 - a local runtime package that owns both client and server behavior for one feature area
-- a package that starts small now but may later grow providers, shared helpers, and routes
+- a package that starts small but may later grow providers, shared helpers, and routes
 
 Use a generator when the problem is already understood well enough that JSKIT can scaffold the feature shape for you.
 

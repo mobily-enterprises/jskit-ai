@@ -36,6 +36,9 @@ npx jskit mobile android doctor
 ```
 
 If doctor passes, the app is ready for the normal mobile workflow.
+The `jskit mobile android ...` commands expect the mobile runtime package to be
+installed in `package.json` and recorded in `.jskit/lock.json`; they do not
+install `@jskit-ai/mobile-capacitor` for you.
 
 ## What you need on your machine
 
@@ -126,6 +129,10 @@ This:
 - builds the JSKIT web app into `dist/`
 - runs `cap sync android`
 
+The refresh step requires the managed files from the package install to exist.
+If `capacitor.config.json` or `.jskit/mobile-capacitor.md` is missing, install
+the package again with `npx jskit add package @jskit-ai/mobile-capacitor`.
+
 ### Create the local tunnel
 
 ```bash
@@ -177,7 +184,7 @@ Use it when you want a clean signed-out state.
 
 ## The command set
 
-These are the mobile commands the package adds:
+These are the CLI mobile commands used by the package workflow:
 
 - `jskit mobile android devices`
   - list visible Android devices
@@ -288,8 +295,8 @@ The package manages:
   - `MainActivity.java` or `MainActivity.kt`
 - the managed deep-link block in `AndroidManifest.xml`
 
-`jskit mobile android sync` is expected to refresh those files from
-`config.mobile`.
+After the package is installed, `jskit mobile android sync` refreshes those
+managed files from `config.mobile`.
 
 ### Why the tunnel exists
 
