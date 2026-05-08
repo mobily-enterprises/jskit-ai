@@ -152,13 +152,13 @@ test("generated UI source contract accepts compact-first CRUD detail structure",
   assert.doesNotThrow(() => assertGeneratedUiSourceContract(
     `<template>
   <section class="generated-ui-screen generated-ui-screen--operator">
-    <header class="ui-generator-form-header"></header>
-    <v-sheet class="ui-generator-form-panel">
-      <div v-if="addEdit.loadError">
-        <v-btn @click="addEdit.refresh">Retry</v-btn>
-      </div>
-      <v-row class="ui-generator-form-fields"></v-row>
-    </v-sheet>
+	    <header class="ui-generator-form-header"></header>
+	    <v-sheet class="ui-generator-form-panel">
+	      <div v-if="addEdit.loadError">
+	        <v-btn @click="addEdit.refresh">Retry</v-btn>
+	      </div>
+	      <v-row class="ui-generator-form-fields"></v-row>
+	    </v-sheet>
   </section>
 </template>
 
@@ -188,6 +188,8 @@ test("generated UI source contract accepts compact-first CRUD list structure", (
   assert.doesNotThrow(() => assertGeneratedUiSourceContract(
     `<template>
   <section class="generated-ui-screen generated-ui-screen--operator">
+    <CrudListBulkActionSurface :runtime="bulkActions" />
+    <v-checkbox-btn v-if="bulkActions.hasActions.value" />
     <CrudListFilterSurface :filters="listFilters" :runtime="filterRuntime" />
     <div class="ui-generator-list-cards d-md-none">
       <v-menu>Actions</v-menu>

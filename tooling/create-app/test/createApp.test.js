@@ -671,6 +671,10 @@ test("fresh app CRUD scaffolds encode explicit M3 action hierarchy and stable se
 
     const placementSource = await readFile(path.join(appRoot, "src", "placement.js"), "utf8");
     const listPageSource = await readFile(path.join(appRoot, "src/pages/home/settings/customers/index.vue"), "utf8");
+    const listBulkActionsSource = await readFile(
+      path.join(appRoot, "src/pages/home/settings/customers/listBulkActions.js"),
+      "utf8"
+    );
     const listFiltersSource = await readFile(path.join(appRoot, "src/pages/home/settings/customers/listFilters.js"), "utf8");
     const viewPageSource = await readFile(path.join(appRoot, "src/pages/home/settings/customers/[customerId]/index.vue"), "utf8");
     const newPageSource = await readFile(path.join(appRoot, "src/pages/home/settings/customers/new.vue"), "utf8");
@@ -689,6 +693,8 @@ test("fresh app CRUD scaffolds encode explicit M3 action hierarchy and stable se
     assert.doesNotMatch(placementSource, /to: "\.\/general"/);
 
     assert.match(listPageSource, /<v-btn color="primary" variant="tonal" :loading="records\.isFetching"/);
+    assert.match(listPageSource, /CrudListBulkActionSurface/);
+    assert.match(listPageSource, /bulkActions\.hasActions\.value/);
     assert.match(listPageSource, /CrudListFilterSurface/);
     assert.match(listPageSource, /queryParams: filterRuntime\.queryParams/);
     assert.match(listPageSource, /v-if="listPrimaryAction"[\s\S]*color="primary"[\s\S]*variant="flat"[\s\S]*New Customer/);
@@ -698,6 +704,7 @@ test("fresh app CRUD scaffolds encode explicit M3 action hierarchy and stable se
     assert.match(listPageSource, /size="small"[\s\S]*color="primary"[\s\S]*variant="outlined"[\s\S]*>\s*Open/);
     assert.match(listPageSource, /size="small"[\s\S]*color="primary"[\s\S]*variant="tonal"[\s\S]*>\s*Edit/);
     assert.match(listPageSource, /<v-btn color="primary" variant="outlined" :loading="records\.isLoadingMore"/);
+    assert.match(listBulkActionsSource, /const listBulkActions = defineCrudListBulkActions\(\[\]\);/);
     assert.match(listFiltersSource, /const listFilters = defineCrudListFilters\(\{\}\);/);
 
     assert.match(viewPageSource, /v-if="UI_LIST_URL"[\s\S]*color="primary"[\s\S]*variant="outlined"/);

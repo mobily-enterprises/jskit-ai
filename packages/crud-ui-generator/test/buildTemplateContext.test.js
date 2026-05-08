@@ -930,6 +930,7 @@ test("crud ui templates derive JSON:API transport from the shared CRUD resource"
   const templateRoot = path.resolve(testDirectory, "..", "templates", "src", "pages", "admin", "ui-generator");
 
   const listTemplateSource = await readFile(path.join(templateRoot, "ListElement.vue"), "utf8");
+  const listBulkActionsTemplateSource = await readFile(path.join(templateRoot, "listBulkActions.js"), "utf8");
   const listFiltersTemplateSource = await readFile(path.join(templateRoot, "listFilters.js"), "utf8");
   const viewTemplateSource = await readFile(path.join(templateRoot, "ViewElement.vue"), "utf8");
   const newTemplateSource = await readFile(path.join(templateRoot, "NewElement.vue"), "utf8");
@@ -954,11 +955,17 @@ test("crud ui templates derive JSON:API transport from the shared CRUD resource"
   }
 
   assert.match(listTemplateSource, /resource: uiResource,/);
+  assert.match(listTemplateSource, /import CrudListBulkActionSurface from "@jskit-ai\/users-web\/client\/components\/CrudListBulkActionSurface"/);
   assert.match(listTemplateSource, /import CrudListFilterSurface from "@jskit-ai\/users-web\/client\/components\/CrudListFilterSurface"/);
+  assert.match(listTemplateSource, /import \{ useCrudListBulkActions \} from "@jskit-ai\/users-web\/client\/composables\/useCrudListBulkActions"/);
   assert.match(listTemplateSource, /import \{ useCrudListFilters \} from "@jskit-ai\/users-web\/client\/composables\/useCrudListFilters"/);
+  assert.match(listTemplateSource, /import \{ listBulkActions \} from "\.\/listBulkActions\.js"/);
   assert.match(listTemplateSource, /import \{ listFilters \} from "\.\/listFilters\.js"/);
+  assert.match(listTemplateSource, /const bulkActions = useCrudListBulkActions\(listBulkActions,/);
   assert.match(listTemplateSource, /const filterRuntime = useCrudListFilters\(listFilters\);/);
   assert.match(listTemplateSource, /queryParams: filterRuntime\.queryParams/);
+  assert.match(listTemplateSource, /<CrudListBulkActionSurface :runtime="bulkActions" \/>/);
+  assert.match(listTemplateSource, /bulkActions\.hasActions\.value/);
   assert.match(listTemplateSource, /<CrudListFilterSurface[\s\S]*:filters="listFilters"[\s\S]*:runtime="filterRuntime"/);
   assert.match(listTemplateSource, /generated-ui-screen generated-ui-screen--operator ui-generator-list-element/);
   assert.match(listTemplateSource, /--generated-ui-screen-title-size/);
@@ -979,6 +986,8 @@ test("crud ui templates derive JSON:API transport from the shared CRUD resource"
   assert.doesNotMatch(listTemplateSource, /transport:\s*UI_LIST_TRANSPORT,/);
   assert.match(listFiltersTemplateSource, /defineCrudListFilters/);
   assert.match(listFiltersTemplateSource, /const listFilters = defineCrudListFilters\(\{\}\);/);
+  assert.match(listBulkActionsTemplateSource, /defineCrudListBulkActions/);
+  assert.match(listBulkActionsTemplateSource, /const listBulkActions = defineCrudListBulkActions\(\[\]\);/);
 
   assert.match(viewTemplateSource, /import \{ resource as uiResource \} from/);
   assert.match(viewTemplateSource, /resource: uiResource,/);

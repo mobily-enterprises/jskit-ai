@@ -41,6 +41,7 @@
           :runtime="filterRuntime"
         />
       </div>
+      <CrudListBulkActionSurface :runtime="bulkActions" />
 
       <template v-if="records.showListSkeleton">
         <div class="pa-4">
@@ -74,6 +75,13 @@
               class="ui-generator-list-card"
             >
               <div class="ui-generator-list-card__header">
+                <v-checkbox-btn
+                  v-if="bulkActions.hasActions.value"
+                  :model-value="bulkActions.isRecordSelected(record, index)"
+                  :aria-label="`Select ${resolveListRecordTitle(record)}`"
+                  class="ui-generator-list-card__select"
+                  @update:model-value="bulkActions.setRecordSelected(record, index, $event)"
+                />
                 <div class="min-w-0">
                   <div class="ui-generator-list-card__title">{{ resolveListRecordTitle(record) }}</div>
                   <div class="text-caption text-medium-emphasis">
@@ -111,6 +119,17 @@ __JSKIT_UI_LIST_CARD_FIELDS__
             <v-table density="comfortable">
               <thead>
                 <tr>
+                  <th v-if="bulkActions.hasActions.value" class="ui-generator-list-table__select">
+                    <v-checkbox-btn
+                      :model-value="bulkActions.allVisibleSelected(records.items)"
+                      :indeterminate="
+                        bulkActions.someVisibleSelected(records.items) &&
+                        !bulkActions.allVisibleSelected(records.items)
+                      "
+                      aria-label="Select visible rows"
+                      @update:model-value="bulkActions.setVisibleSelected(records.items, $event)"
+                    />
+                  </th>
 __JSKIT_UI_LIST_HEADER_COLUMNS__
                   <!-- jskit:crud-ui-fields:list-header -->
                   <th v-if="UI_VIEW_URL" class="text-right" />
@@ -119,6 +138,13 @@ __JSKIT_UI_LIST_HEADER_COLUMNS__
               </thead>
               <tbody>
                 <tr v-for="(record, index) in records.items" :key="records.resolveRowKey(record, index)">
+                  <td v-if="bulkActions.hasActions.value" class="ui-generator-list-table__select">
+                    <v-checkbox-btn
+                      :model-value="bulkActions.isRecordSelected(record, index)"
+                      :aria-label="`Select ${resolveListRecordTitle(record)}`"
+                      @update:model-value="bulkActions.setRecordSelected(record, index, $event)"
+                    />
+                  </td>
 __JSKIT_UI_LIST_ROW_COLUMNS__
                   <!-- jskit:crud-ui-fields:list-row -->
                   <td v-if="UI_VIEW_URL" class="text-right">
@@ -172,10 +198,13 @@ __JSKIT_UI_LIST_ROW_COLUMNS__
 <script setup>
 import { computed } from "vue";
 __JSKIT_UI_LIST_PARENT_TITLE_IMPORT_LINE__
+import CrudListBulkActionSurface from "@jskit-ai/users-web/client/components/CrudListBulkActionSurface";
 import CrudListFilterSurface from "@jskit-ai/users-web/client/components/CrudListFilterSurface";
 import { useCrudList } from "@jskit-ai/users-web/client/composables/useCrudList";
+import { useCrudListBulkActions } from "@jskit-ai/users-web/client/composables/useCrudListBulkActions";
 import { useCrudListFilters } from "@jskit-ai/users-web/client/composables/useCrudListFilters";
 import { resource as uiResource } from "__JSKIT_UI_RESOURCE_IMPORT_PATH__";
+import { listBulkActions } from "./listBulkActions.js";
 import { listFilters } from "./listFilters.js";
 
 const UI_OPERATION_ADAPTER = null;
@@ -223,6 +252,14 @@ const records = useCrudList({
         events: UI_RECORD_CHANGED_EVENTS
       }
     : null
+});
+
+const bulkActions = useCrudListBulkActions(listBulkActions, {
+  resolveRecordId: (record, index) => records.resolveRowKey(record, index),
+  resolveContext: () => ({
+    records,
+    reload: records.reload
+  })
 });
 
 __JSKIT_UI_LIST_HEADING_TITLE_SETUP__
@@ -323,6 +360,12 @@ function formatListCardValue(value) {
   justify-content: space-between;
 }
 
+.ui-generator-list-card__select {
+  flex: 0 0 auto;
+  margin-inline-start: -0.35rem;
+  margin-top: -0.35rem;
+}
+
 .ui-generator-list-card__title {
   font-size: 1rem;
   font-weight: 650;
@@ -357,6 +400,10 @@ function formatListCardValue(value) {
 
 .ui-generator-list-table {
   overflow-x: auto;
+}
+
+.ui-generator-list-table__select {
+  width: 3rem;
 }
 
 .ui-generator-list-fab {

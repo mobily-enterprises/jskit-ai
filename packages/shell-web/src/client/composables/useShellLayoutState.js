@@ -25,7 +25,12 @@ function toSurfaceLabel(surfaceId = "") {
 
 function useShellLayoutState(props = {}) {
   const shellLayoutStore = useShellLayoutStore();
-  const { drawerDefaultOpen, drawerOpen } = storeToRefs(shellLayoutStore);
+  const {
+    drawerDefaultOpen,
+    drawerOpen,
+    supportingContentOpen,
+    supportingContentTitle
+  } = storeToRefs(shellLayoutStore);
   let route = null;
   try {
     route = useRoute();
@@ -83,8 +88,13 @@ function useShellLayoutState(props = {}) {
   return Object.freeze({
     drawerDefaultOpen,
     drawerOpen,
+    supportingContentOpen,
+    supportingContentTitle,
     setDrawerDefaultOpen: shellLayoutStore.setDrawerDefaultOpen,
     setDrawerOpen: shellLayoutStore.setDrawerOpen,
+    setSupportingContentOpen: shellLayoutStore.setSupportingContentOpen,
+    openSupportingContent: shellLayoutStore.openSupportingContent,
+    closeSupportingContent: shellLayoutStore.closeSupportingContent,
     toggleDrawer,
     resolvedSurface,
     resolvedSurfaceLabel

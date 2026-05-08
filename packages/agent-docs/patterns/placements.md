@@ -21,7 +21,7 @@ Mental model:
 - `src/placement.js` answers "what is being placed?"
 - `src/placementTopology.js` answers "where does this semantic placement render for compact, medium, and expanded layouts?"
 - `<ShellOutlet target="host:position" />` is the concrete recipient rendered by Vue.
-- Semantic ids use dot notation, for example `shell.primary-nav`, `shell.status`, `page.section-nav`, `settings.sections`.
+- Semantic ids use dot notation, for example `shell.primary-nav`, `shell.status`, `page.section-nav`, `page.supporting-content`, `settings.sections`.
 - Concrete outlet ids use colon notation, for example `shell-layout:primary-menu`, `shell-layout:top-right`, `home-settings:primary-menu`.
 - Authoring should target semantic placements by default. Concrete outlets are an advanced escape hatch.
 
@@ -71,6 +71,7 @@ CLI and generators:
 - `ui-generator add-subpages` upgrades a page into a routed child-page host and appends a `page.section-nav` topology entry for the generated concrete outlet.
 - `ui-generator outlet` injects a plain concrete `ShellOutlet` and appends the semantic topology mapping in the same command.
 - `ui-generator page` and `crud-ui-generator crud` accept `--navigation-role` so detail, workflow, and utility routes do not accidentally become primary navigation.
+- `page.supporting-content` is the default semantic place for supporting detail/content overlays. The default shell maps it to a closed compact bottom sheet and a closed medium/expanded side panel.
 - When adding a public concrete outlet by hand, add its semantic topology mapping in the same change.
 - If `jskit list-placements` reports unmapped concrete outlets, either add semantic topology for them or keep those outlets private/internal.
 
@@ -83,6 +84,7 @@ Rules:
 - If the request is really about where a link appears, check the placement `target`, `owner`, `surfaces`, `order`, and `when` fields before changing UI markup.
 - Placement targets should be semantic by default, such as `shell.primary-nav` or `page.section-nav`; concrete `host:position` outlets are the advanced escape hatch.
 - Renderer choice for semantic `kind: "link"` placements belongs in topology, not in each placement entry.
+- Supporting detail content should target `page.supporting-content` rather than generating per-page bottom-sheet markup.
 - Adding a public concrete `ShellOutlet` should happen with a matching semantic topology entry in the same change.
 
 Avoid:

@@ -111,6 +111,23 @@ addPlacementTopology({
 });
 
 addPlacementTopology({
+  id: "page.supporting-content",
+  description: "Supporting page content that opens as a bottom sheet on compact layouts and a side panel on wider layouts.",
+  surfaces: ["*"],
+  variants: {
+    compact: {
+      outlet: "shell-layout:supporting-bottom-sheet"
+    },
+    medium: {
+      outlet: "shell-layout:supporting-side-panel"
+    },
+    expanded: {
+      outlet: "shell-layout:supporting-side-panel"
+    }
+  }
+});
+
+addPlacementTopology({
   id: "page.section-nav",
   owner: "home-settings",
   description: "Navigation between child pages in the home settings section.",

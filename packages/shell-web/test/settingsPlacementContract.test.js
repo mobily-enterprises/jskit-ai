@@ -70,6 +70,10 @@ test("shell-web shell layout registers navigation at the app layout level", asyn
     assert.match(source, /:density="isCompactLayout \? 'compact' : 'comfortable'"/);
     assert.match(source, /shell-layout__top-right[\s\S]*max-width:\s*min\(45vw, 18rem\)/);
     assert.match(source, /<v-bottom-navigation[\s\S]*target="shell-layout:primary-bottom-nav"/);
+    assert.match(source, /<v-bottom-sheet[\s\S]*target="shell-layout:supporting-bottom-sheet"/);
+    assert.match(source, /target="shell-layout:supporting-side-panel"/);
+    assert.match(source, /data-testid="jskit-shell-supporting-bottom-sheet"/);
+    assert.match(source, /data-testid="jskit-shell-supporting-side-panel"/);
     assert.match(source, /inject\("jskit\.shell-web\.runtime\.web-refresh\.client", null\)/);
     assert.match(source, /window\.addEventListener\("pointerdown", handlePullPointerDown/);
     assert.match(source, /refreshRuntime\.refresh\("pull-to-refresh"\)/);
@@ -181,6 +185,9 @@ test("shell-web placement topology seeds global actions as a semantic shell plac
   assert.match(source, /description: "Global surface actions that should stay outside primary navigation\."/);
   assert.match(source, /outlet: "shell-layout:top-right"/);
   assert.match(source, /renderers: menuLinkRenderers/);
+  assert.match(source, /id: "page\.supporting-content"/);
+  assert.match(source, /outlet: "shell-layout:supporting-bottom-sheet"/);
+  assert.match(source, /outlet: "shell-layout:supporting-side-panel"/);
 });
 
 test("shell-web descriptor metadata advertises adaptive shell outlets, default links, and installs the scaffold page", () => {
@@ -189,6 +196,28 @@ test("shell-web descriptor metadata advertises adaptive shell outlets, default l
     [
       {
         target: "shell-layout:primary-bottom-nav",
+        surfaces: ["*"],
+        source: "src/client/components/ShellLayout.vue"
+      }
+    ]
+  );
+
+  assert.deepEqual(
+    readOutlets("shell-layout:supporting-bottom-sheet"),
+    [
+      {
+        target: "shell-layout:supporting-bottom-sheet",
+        surfaces: ["*"],
+        source: "src/client/components/ShellLayout.vue"
+      }
+    ]
+  );
+
+  assert.deepEqual(
+    readOutlets("shell-layout:supporting-side-panel"),
+    [
+      {
+        target: "shell-layout:supporting-side-panel",
         surfaces: ["*"],
         source: "src/client/components/ShellLayout.vue"
       }
@@ -257,6 +286,15 @@ test("shell-web descriptor metadata advertises adaptive shell outlets, default l
     "local.main.ui.surface-aware-menu-link-item"
   );
   assert.equal(readTopology("page.section-nav", "home-settings").length, 1);
+  assert.equal(readTopology("page.supporting-content").length, 1);
+  assert.equal(
+    readTopology("page.supporting-content")[0]?.variants?.compact?.outlet,
+    "shell-layout:supporting-bottom-sheet"
+  );
+  assert.equal(
+    readTopology("page.supporting-content")[0]?.variants?.expanded?.outlet,
+    "shell-layout:supporting-side-panel"
+  );
 
   assert.deepEqual(findFileMutation("shell-web-page-home-settings-shell"), {
     from: "templates/src/pages/home/settings.vue",

@@ -16,8 +16,10 @@ test("users-web exports are explicit and aligned with production/template usage"
     requiredExports: [
       "./client",
       "./client/components/AccountSettingsClientElement",
+      "./client/components/CrudListBulkActionSurface",
       "./client/components/CrudListFilterSurface",
       "./client/account-settings/sections",
+      "./client/bulkActions",
       "./client/filters",
       "./client/composables/useAddEdit",
       "./client/composables/useCommand",
@@ -26,6 +28,7 @@ test("users-web exports are explicit and aligned with production/template usage"
       "./client/composables/usePaths",
       "./client/composables/useView",
       "./client/composables/useCrudAddEdit",
+      "./client/composables/useCrudListBulkActions",
       "./client/composables/useCrudListFilterLookups",
       "./client/composables/useCrudListFilters",
       "./client/composables/useCrudList",

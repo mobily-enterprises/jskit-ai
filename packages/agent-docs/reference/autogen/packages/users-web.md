@@ -28,12 +28,27 @@ Exports
 - `createUsersBootstrapUserHandler()`
 - `registerUsersBootstrapPayloadHandlers(app)`
 
+### `src/client/bulkActions.js`
+Exports
+- `defineCrudListBulkActions(actions = [])`
+Local functions
+- `normalizeCrudListBulkAction(rawAction = {}, index = 0)`
+
 ### `src/client/components/AccountSettingsClientElement.vue`
 Exports
 - None
 Local functions
 - `normalizeSection(value)`
 - `readRouteSection()`
+
+### `src/client/components/CrudListBulkActionSurface.vue`
+Exports
+- None
+Local functions
+- `clearSelection()`
+- `execute(action = {})`
+- `isActionDisabled(action = {})`
+- `isActionExecuting(action = {})`
 
 ### `src/client/components/CrudListFilterSurface.vue`
 Exports
@@ -255,7 +270,7 @@ Exports
 Exports
 - `buildEndpointReadRequestOptions({ method = "GET", query = null, transport = null } = {})`
 - `buildEndpointWriteRequestOptions({ method = "PATCH", body = undefined, options = null, transport = null } = {})`
-- `useEndpointResource({ queryKey, path = "", enabled = true, client = usersWebHttpClient, readMethod = "GET", writeMethod = "PATCH", readQuery = null, transport = null, queryOptions = null, mutationOptions = null, fallbackLoadError = "Unable to load resource.", fallbackSaveError = "Unable to save resource." } = {})`
+- `useEndpointResource({ queryKey, path = "", enabled = true, client = usersWebHttpClient, readMethod = "GET", writeMethod = "PATCH", readQuery = null, transport = null, refreshOnPull = false, queryOptions = null, mutationOptions = null, fallbackLoadError = "Unable to load resource.", fallbackSaveError = "Unable to save resource." } = {})`
 Local functions
 - `resolveRequestQuery(value = null)`
 
@@ -346,6 +361,7 @@ Exports
 ### `src/client/composables/support/resourceLoadStateHelpers.js`
 Exports
 - `hasResolvedQueryData({ query = null, data = null } = {})`
+- `mergeQueryMeta(queryOptions = null, meta = {})`
 
 ### `src/client/composables/support/routeTemplateHelpers.js`
 Exports
@@ -396,6 +412,13 @@ Exports
 ### `src/client/composables/useCommand.js`
 Exports
 - `useCommand({ ownershipFilter = ROUTE_VISIBILITY_WORKSPACE, surfaceId = "", access = "auto", apiSuffix = "", runPermissions = [], writeMethod = "POST", transport = null, placementSource = "users-web.command", fallbackRunError = "Unable to complete action.", fieldErrorKeys = [], clearOnRouteChange = true, model, input, buildRawPayload, buildCommandPayload, buildCommandOptions, onRunSuccess, onRunError, suppressSuccessMessage = false, messages = {}, realtime = null } = {})`
+
+### `src/client/composables/useCrudListBulkActions.js`
+Exports
+- `useCrudListBulkActions(actions = [], { resolveRecordId = null, resolveContext = null } = {})`
+Local functions
+- `normalizeSelectedId(value = "")`
+- `resolveActionKey(actionOrKey = "")`
 
 ### `src/client/composables/useCrudListFilterLookups.js`
 Exports
@@ -479,6 +502,7 @@ Exports
 Exports
 - `UsersWebClientProvider`
 - `AccountSettingsClientElement`
+- `CrudListBulkActionSurface`
 - `CrudListFilterSurface`
 - `clientProviders`
 

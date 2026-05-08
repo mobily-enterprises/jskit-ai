@@ -51,8 +51,16 @@ export default Object.freeze({
           summary: "Exports the package-owned account settings host that renders placement-backed account sections."
         },
         {
+          subpath: "./client/components/CrudListBulkActionSurface",
+          summary: "Exports the adaptive CRUD list bulk-action surface for generated list pages."
+        },
+        {
           subpath: "./client/components/CrudListFilterSurface",
           summary: "Exports the adaptive CRUD list filter surface for generated list pages."
+        },
+        {
+          subpath: "./client/bulkActions",
+          summary: "Exports client-side CRUD list bulk-action definition helpers."
         },
         {
           subpath: "./client/filters",
@@ -85,6 +93,10 @@ export default Object.freeze({
         {
           subpath: "./client/composables/useCrudListFilterLookups",
           summary: "Exports lookup-backed CRUD list filter helper for remote autocomplete filters."
+        },
+        {
+          subpath: "./client/composables/useCrudListBulkActions",
+          summary: "Exports selected-record state and execution runtime for generated CRUD list bulk actions."
         },
         {
           subpath: "./client/composables/useView",
