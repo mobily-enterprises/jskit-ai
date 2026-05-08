@@ -3,6 +3,7 @@ import path from "node:path";
 import test from "node:test";
 import { readFile } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
+import { assertGeneratedUiSourceContract } from "@jskit-ai/kernel/shared/support/generatedUiContract";
 import descriptor from "../package.descriptor.mjs";
 
 const TEST_DIRECTORY = path.dirname(fileURLToPath(import.meta.url));
@@ -110,6 +111,22 @@ test("users-web package-owned account settings host is fully placement-backed", 
     "utf8"
   );
 
+  assertGeneratedUiSourceContract(source, {
+    forbidCardShell: true,
+    sourceName: "AccountSettingsClientElement.vue",
+    requiredPatterns: [
+      {
+        id: "account-settings-header",
+        pattern: /settings-panel__header/,
+        message: "Account settings host needs a direct settings panel header."
+      },
+      {
+        id: "account-settings-sections",
+        pattern: /useAccountSettingsSections/,
+        message: "Account settings host must remain placement-backed."
+      }
+    ]
+  });
   assert.match(source, /useAccountSettingsSections/);
   assert.match(source, /settings-panel__header/);
   assert.doesNotMatch(source, /<v-card\b|v-card-title|v-card-subtitle/);
@@ -121,6 +138,17 @@ test("users-web package-owned account settings host is fully placement-backed", 
 test("users-web profile form element uses a direct panel instead of card scaffolding", async () => {
   const source = await readFile(path.join(PACKAGE_DIR, "src", "client", "components", "ProfileClientElement.vue"), "utf8");
 
+  assertGeneratedUiSourceContract(source, {
+    forbidCardShell: true,
+    sourceName: "ProfileClientElement.vue",
+    requiredPatterns: [
+      {
+        id: "profile-panel-body",
+        pattern: /profile-client-panel__body/,
+        message: "Profile editor needs a direct panel body."
+      }
+    ]
+  });
   assert.match(source, /profile-client-panel__body/);
   assert.doesNotMatch(source, /<v-card\b|v-card-title|v-card-subtitle|v-card-text|v-card-item/);
 });
@@ -133,6 +161,17 @@ test("users-web account settings section templates use direct settings panels", 
   ]) {
     const source = await readFile(path.join(PACKAGE_DIR, relativePath), "utf8");
 
+    assertGeneratedUiSourceContract(source, {
+      forbidCardShell: true,
+      sourceName: relativePath,
+      requiredPatterns: [
+        {
+          id: "account-settings-section",
+          pattern: /account-settings-section/,
+          message: "Account settings sections need the direct section panel primitive."
+        }
+      ]
+    });
     assert.match(source, /account-settings-section/);
     assert.doesNotMatch(source, /<v-card\b|v-card-title|v-card-subtitle/);
   }

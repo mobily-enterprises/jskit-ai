@@ -42,6 +42,7 @@
     "./shared/support/crudListFilters": "./shared/support/crudListFilters.js",
     "./shared/support/crudFieldContract": "./shared/support/crudFieldContract.js",
     "./shared/support/crudLookup": "./shared/support/crudLookup.js",
+    "./shared/support/generatedUiContract": "./shared/support/generatedUiContract.js",
     "./shared/support/deepFreeze": "./shared/support/deepFreeze.js",
     "./shared/support/listenerSet": "./shared/support/listenerSet.js",
     "./shared/support/shellLayoutTargets": "./shared/support/shellLayoutTargets.js",

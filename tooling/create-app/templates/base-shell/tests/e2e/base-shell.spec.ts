@@ -18,13 +18,22 @@ async function expectNoHorizontalOverflow(page) {
   expect(metrics.scrollWidth).toBeLessThanOrEqual(metrics.clientWidth + 1);
 }
 
+async function expectGeneratedScreenContract(page) {
+  const screen = page.locator(".generated-ui-screen").first();
+
+  await expect(screen).toBeVisible();
+  await expect(screen).toHaveClass(/generated-ui-screen--app/u);
+  await expect(screen.locator("h1").first()).toBeVisible();
+}
+
 test.describe("generated base app responsive smoke", () => {
   for (const viewport of viewports) {
     test(`${viewport.name} home route renders without horizontal overflow`, async ({ page }) => {
       await page.setViewportSize({ width: viewport.width, height: viewport.height });
       await page.goto(`${BASE_URL}${SMOKE_PATH}`);
       await expect(page.locator("body")).toBeVisible();
-      await expect(page.getByText("Starter app")).toBeVisible();
+      await expect(page.getByText("Home base")).toBeVisible();
+      await expectGeneratedScreenContract(page);
       await expectNoHorizontalOverflow(page);
     });
   }

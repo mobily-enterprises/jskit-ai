@@ -8,6 +8,10 @@ import {
 } from "@jskit-ai/kernel/server/support";
 import { normalizeText } from "@jskit-ai/kernel/shared/support/normalize";
 import {
+  resolveGeneratedUiNavigationRoleLinkPlacement,
+  shouldCreateGeneratedUiNavigationLink
+} from "@jskit-ai/kernel/shared/support/generatedUiContract";
+import {
   loadResourceDefinition,
   requireOperation,
   resolveOperationRealtimeEvents,
@@ -70,12 +74,6 @@ const DEFAULT_LIST_HIDDEN_FIELD_KEYS = new Set(["createdAt", "updatedAt"]);
 const DEFAULT_FORM_COMPONENT_FILE = "CrudAddEditForm.vue";
 const DEFAULT_FORM_FIELDS_FILE = "CrudAddEditFormFields.js";
 const DEFAULT_GENERATED_LINK_ICON = "mdi-view-list-outline";
-const NAVIGATION_ROLE_VALUES = Object.freeze(["primary", "secondary", "utility", "detail", "workflow", "none"]);
-const NAVIGATION_ROLE_LINK_PLACEMENTS = Object.freeze({
-  secondary: "shell.secondary-nav",
-  utility: "shell.global-actions"
-});
-const NO_LINK_NAVIGATION_ROLES = new Set(["detail", "workflow", "none"]);
 
 function splitTextIntoWords(value = "") {
   const normalized = String(value || "")
@@ -261,36 +259,18 @@ function parseParentTitleOption(options) {
   return parentTitleMode;
 }
 
-function normalizeNavigationRole(value = "") {
-  const normalizedRole = normalizeText(value).toLowerCase();
-  if (!normalizedRole) {
-    return "primary";
-  }
-  if (!NAVIGATION_ROLE_VALUES.includes(normalizedRole)) {
-    throw new Error(`navigation-role must be one of: ${NAVIGATION_ROLE_VALUES.join(", ")}.`);
-  }
-  return normalizedRole;
+function shouldCreateNavigationLink(options = {}, inferenceContext = {}) {
+  return shouldCreateGeneratedUiNavigationLink(options, {
+    dynamicRoutePolicy: "any",
+    routePath: inferenceContext?.routePath
+  });
 }
 
-function shouldCreateNavigationLink(options = {}) {
-  const role = normalizeNavigationRole(options?.["navigation-role"]);
-  const linkPlacement = normalizeText(options?.["link-placement"]);
-  if (NO_LINK_NAVIGATION_ROLES.has(role)) {
-    if (linkPlacement) {
-      throw new Error(`navigation-role "${role}" cannot be combined with --link-placement.`);
-    }
-    return false;
-  }
-  return true;
-}
-
-function resolveNavigationRoleLinkPlacement(options = {}) {
-  const explicitPlacement = normalizeText(options?.["link-placement"]);
-  if (explicitPlacement) {
-    return explicitPlacement;
-  }
-  const role = normalizeNavigationRole(options?.["navigation-role"]);
-  return NAVIGATION_ROLE_LINK_PLACEMENTS[role] || "";
+function resolveNavigationRoleLinkPlacement(options = {}, inferenceContext = {}) {
+  return resolveGeneratedUiNavigationRoleLinkPlacement(options, {
+    dynamicRoutePolicy: "any",
+    routePath: inferenceContext?.routePath
+  });
 }
 
 function validateDisplayFieldsForOperation(selectedFieldKeys, fields, operationName) {
@@ -519,6 +499,16 @@ function resolveTargetRootRelativeRoutePath(pageTarget = {}) {
   return visibleRouteSegments.length > 0 ? `/${visibleRouteSegments.join("/")}` : "/";
 }
 
+function resolveNavigationInferenceRoutePath(pageTarget = {}) {
+  const visibleRouteSegments = Array.isArray(pageTarget?.visibleRouteSegments)
+    ? pageTarget.visibleRouteSegments.map((entry) => normalizeText(entry)).filter(Boolean)
+    : [];
+  if (visibleRouteSegments.length > 0) {
+    return `/${visibleRouteSegments.join("/")}`;
+  }
+  return String(pageTarget?.routeUrlSuffix || "");
+}
+
 function resolveMenuToPropLine(linkTo = "") {
   if (!linkTo) {
     return "";
@@ -706,12 +696,16 @@ async function buildUiTemplateContext({ appRoot, options } = {}) {
     ? resolveViewTitleFallbackFieldKey(listFieldsAll, { recordIdFieldKey: listRecordIdFieldKey })
     : "";
 
-  const pageLinkTarget = hasListOperation && shouldCreateNavigationLink(options)
+  const pageLinkTarget = hasListOperation && shouldCreateNavigationLink(options, {
+    routePath: resolveNavigationInferenceRoutePath(pageTarget)
+  })
     ? await resolvePageLinkTargetDetails({
       appRoot,
       pageTarget,
       targetFile: listTargetFile,
-      placement: resolveNavigationRoleLinkPlacement(options),
+      placement: resolveNavigationRoleLinkPlacement(options, {
+        routePath: resolveNavigationInferenceRoutePath(pageTarget)
+      }),
       context: "crud-ui-generator"
     })
     : null;

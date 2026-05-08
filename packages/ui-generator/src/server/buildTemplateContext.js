@@ -2,15 +2,13 @@ import {
   resolvePageLinkTargetDetails,
   resolvePageTargetDetails
 } from "@jskit-ai/kernel/server/support";
-import { normalizeText } from "@jskit-ai/kernel/shared/support/normalize";
+import {
+  normalizeGeneratedUiNavigationRole,
+  resolveGeneratedUiNavigationRoleLinkPlacement,
+  shouldCreateGeneratedUiNavigationLink
+} from "@jskit-ai/kernel/shared/support/generatedUiContract";
 
 const DEFAULT_GENERATED_LINK_ICON = "mdi-view-list-outline";
-const NAVIGATION_ROLE_VALUES = Object.freeze(["primary", "secondary", "utility", "detail", "workflow", "none"]);
-const NAVIGATION_ROLE_LINK_PLACEMENTS = Object.freeze({
-  secondary: "shell.secondary-nav",
-  utility: "shell.global-actions"
-});
-const NO_LINK_NAVIGATION_ROLES = new Set(["detail", "workflow", "none"]);
 
 function resolveLinkToPropLine(linkTo = "") {
   if (!linkTo) {
@@ -26,37 +24,25 @@ function resolveOwnerLine(owner = "") {
   return `    owner: ${JSON.stringify(owner)},\n`;
 }
 
-function normalizeNavigationRole(value = "") {
-  const normalizedRole = normalizeText(value).toLowerCase();
-  if (!normalizedRole) {
-    return "primary";
+function resolveNavigationInferenceRoutePath(pageTarget = {}) {
+  const routeSegments = Array.isArray(pageTarget?.visibleRouteSegments)
+    ? pageTarget.visibleRouteSegments.map((entry) => String(entry || "").trim()).filter(Boolean)
+    : [];
+  if (routeSegments.length > 0) {
+    return `/${routeSegments.join("/")}`;
   }
-  if (!NAVIGATION_ROLE_VALUES.includes(normalizedRole)) {
-    throw new Error(`navigation-role must be one of: ${NAVIGATION_ROLE_VALUES.join(", ")}.`);
-  }
-  return normalizedRole;
+  return String(pageTarget?.routeUrlSuffix || "");
 }
 
-function shouldCreateNavigationLink(options = {}) {
-  const role = normalizeNavigationRole(options?.["navigation-role"]);
-  const linkPlacement = String(options?.["link-placement"] || "").trim();
-  const linkTo = String(options?.["link-to"] || "").trim();
-  if (NO_LINK_NAVIGATION_ROLES.has(role)) {
-    if (linkPlacement || linkTo) {
-      throw new Error(`navigation-role "${role}" cannot be combined with --link-placement or --link-to.`);
-    }
-    return false;
-  }
-  return true;
+function shouldCreateNavigationLink(options = {}, inferenceContext = {}) {
+  return shouldCreateGeneratedUiNavigationLink(options, {
+    allowLinkTo: true,
+    routePath: inferenceContext?.routePath
+  });
 }
 
-function resolveNavigationRoleLinkPlacement(options = {}) {
-  const explicitPlacement = String(options?.["link-placement"] || "").trim();
-  if (explicitPlacement) {
-    return explicitPlacement;
-  }
-  const role = normalizeNavigationRole(options?.["navigation-role"]);
-  return NAVIGATION_ROLE_LINK_PLACEMENTS[role] || "";
+function resolveNavigationRoleLinkPlacement(options = {}, inferenceContext = {}) {
+  return resolveGeneratedUiNavigationRoleLinkPlacement(options, inferenceContext);
 }
 
 async function buildUiPageTemplateContext({
@@ -74,7 +60,9 @@ async function buildUiPageTemplateContext({
     pageTarget,
     targetFile,
     context: "ui-generator page",
-    placement: resolveNavigationRoleLinkPlacement(options),
+    placement: resolveNavigationRoleLinkPlacement(options, {
+      routePath: resolveNavigationInferenceRoutePath(pageTarget)
+    }),
     linkTo: options?.["link-to"]
   });
 
@@ -93,7 +81,8 @@ async function buildUiPageTemplateContext({
 
 export {
   buildUiPageTemplateContext,
-  normalizeNavigationRole,
+  normalizeGeneratedUiNavigationRole as normalizeNavigationRole,
+  resolveNavigationInferenceRoutePath,
   resolveNavigationRoleLinkPlacement,
   shouldCreateNavigationLink
 };

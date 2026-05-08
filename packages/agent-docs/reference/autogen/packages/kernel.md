@@ -288,6 +288,35 @@ Exports
 Exports
 - `formatDateTime(value, { fallback = "unknown" } = {})`
 
+### `shared/support/generatedUiContract.js`
+Exports
+- `GENERATED_UI_FORBIDDEN_CARD_SHELL_PATTERNS`
+- `GENERATED_UI_FORBIDDEN_LIVE_COPY_PATTERNS`
+- `GENERATED_UI_NAVIGATION_ROLE_DEFAULT`
+- `GENERATED_UI_NAVIGATION_ROLE_LINK_PLACEMENTS`
+- `GENERATED_UI_NAVIGATION_ROLE_OPTION`
+- `GENERATED_UI_NAVIGATION_ROLE_VALUES`
+- `GENERATED_UI_NO_LINK_NAVIGATION_ROLES`
+- `GENERATED_UI_SOURCE_CONTRACT_PROFILES`
+- `GENERATED_UI_SURFACE_PROFILES`
+- `assertGeneratedUiSourceContract(source = "", options = {})`
+- `buildGeneratedUiScreenClassName(baseClassName = "", { surfaceProfile = "" } = {})`
+- `collectGeneratedUiSourceContractIssues(source = "", { profile = "", forbidLiveCopy = undefined, forbidCardShell = undefined, forbiddenPatterns = [], requiredPatterns = [] } = {})`
+- `inferGeneratedUiNavigationRole(options = {}, { dynamicRoutePolicy = "leaf", routePath = "" } = {})`
+- `isGeneratedUiNoLinkNavigationRole(value = "")`
+- `normalizeGeneratedUiNavigationRole(value = "")`
+- `resolveGeneratedUiSurfaceProfile(surfaceProfile = "")`
+- `resolveGeneratedUiNavigationRoleLinkPlacement(options = {}, inferenceContext = {})`
+- `shouldCreateGeneratedUiNavigationLink(options = {}, { allowLinkTo = false, dynamicRoutePolicy = "leaf", routePath = "" } = {})`
+Local functions
+- `matchesGeneratedUiContractPattern(source = "", pattern)`
+- `normalizeGeneratedUiContractPattern(patternEntry = {}, fallbackMessage = "")`
+- `normalizeGeneratedUiContractPatternList(patternEntries = [], fallbackMessage = "")`
+- `resolveGeneratedUiSourceContractProfile(profile = "")`
+- `hasExplicitGeneratedUiNavigationRole(options = {})`
+- `normalizeGeneratedUiRouteSegments(routePath = "")`
+- `isGeneratedUiDynamicRouteSegment(routeSegment = "")`
+
 ### `shared/support/index.js`
 Exports
 - `isRecord`

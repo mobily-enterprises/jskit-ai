@@ -15,7 +15,7 @@ const drawerDefaultOpenModel = computed({
 </script>
 
 <template>
-  <section class="d-flex flex-column ga-4">
+  <section class="generated-ui-screen generated-ui-screen--settings settings-general-screen d-flex flex-column ga-4">
     <div>
       <h2 class="text-h6 mb-2">Navigation</h2>
       <p class="text-body-2 text-medium-emphasis mb-0">
@@ -32,3 +32,9 @@ const drawerDefaultOpenModel = computed({
     />
   </section>
 </template>
+
+<style scoped>
+.settings-general-screen :deep(.v-switch) {
+  min-height: 48px;
+}
+</style>

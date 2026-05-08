@@ -1,3 +1,5 @@
+import { GENERATED_UI_NAVIGATION_ROLE_OPTION } from "@jskit-ai/kernel/shared/support/generatedUiContract";
+
 export default Object.freeze({
   packageVersion: 1,
   packageId: "@jskit-ai/crud-ui-generator",
@@ -66,15 +68,7 @@ export default Object.freeze({
       promptLabel: "Link placement",
       promptHint: "Optional semantic target override for the generated list-page link placement (format: area.slot)."
     },
-    "navigation-role": {
-      required: false,
-      inputType: "text",
-      validationType: "enum",
-      allowedValues: ["primary", "secondary", "utility", "detail", "workflow", "none"],
-      defaultValue: "primary",
-      promptLabel: "Navigation role",
-      promptHint: "Product navigation role for the generated CRUD list link. primary uses normal inference, secondary maps to shell.secondary-nav, utility maps to shell.global-actions, and detail/workflow/none create no nav link."
-    },
+    "navigation-role": GENERATED_UI_NAVIGATION_ROLE_OPTION,
     namespace: {
       required: false,
       inputType: "text",

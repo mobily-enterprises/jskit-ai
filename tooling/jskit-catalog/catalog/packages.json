@@ -1956,7 +1956,7 @@
             ],
             "defaultValue": "primary",
             "promptLabel": "Navigation role",
-            "promptHint": "Product navigation role for the generated CRUD list link. primary uses normal inference, secondary maps to shell.secondary-nav, utility maps to shell.global-actions, and detail/workflow/none create no nav link."
+            "promptHint": "Product navigation role for generated links. When omitted, dynamic detail and workflow routes create no nav link; primary uses normal inference, secondary maps to shell.secondary-nav, utility maps to shell.global-actions, and detail/workflow/none force no nav link."
           },
           "namespace": {
             "required": false,
@@ -4421,7 +4421,7 @@
             ],
             "defaultValue": "primary",
             "promptLabel": "Navigation role",
-            "promptHint": "Product navigation role for generated page links. primary uses normal inference, secondary maps to shell.secondary-nav, utility maps to shell.global-actions, and detail/workflow/none create no nav link."
+            "promptHint": "Product navigation role for generated links. When omitted, dynamic detail and workflow routes create no nav link; primary uses normal inference, secondary maps to shell.secondary-nav, utility maps to shell.global-actions, and detail/workflow/none force no nav link."
           },
           "link-to": {
             "required": false,

@@ -32,9 +32,8 @@ Local functions
 - `parseOperationsOption(options)`
 - `parseDisplayFieldsOption(options)`
 - `parseParentTitleOption(options)`
-- `normalizeNavigationRole(value = "")`
-- `shouldCreateNavigationLink(options = {})`
-- `resolveNavigationRoleLinkPlacement(options = {})`
+- `shouldCreateNavigationLink(options = {}, inferenceContext = {})`
+- `resolveNavigationRoleLinkPlacement(options = {}, inferenceContext = {})`
 - `validateDisplayFieldsForOperation(selectedFieldKeys, fields, operationName)`
 - `filterDisplayFields(selectedFieldKeys, fields)`
 - `rewriteGeneratedBlockIndent(source = "", { trimPrefix = "", addPrefix = "" } = {})`
@@ -49,6 +48,7 @@ Local functions
 - `resolveResourceNamespace(resource = {}, pageTarget = {}, options = {})`
 - `resolveResourceLabels(namespace = "", pageTarget = {})`
 - `resolveTargetRootRelativeRoutePath(pageTarget = {})`
+- `resolveNavigationInferenceRoutePath(pageTarget = {})`
 - `resolveMenuToPropLine(linkTo = "")`
 - `resolveMenuOwnerLine(owner = "")`
 - `resolveCrudRelativePath(namespace = "")`

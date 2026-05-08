@@ -14,6 +14,10 @@ import {
 } from "@jskit-ai/shell-web/server/support/localLinkItemScaffolds";
 import { normalizeText } from "@jskit-ai/kernel/shared/support/normalize";
 import {
+  buildGeneratedUiScreenClassName,
+  resolveGeneratedUiSurfaceProfile
+} from "@jskit-ai/kernel/shared/support/generatedUiContract";
+import {
   DEFAULT_COMPONENT_DIRECTORY,
   MAIN_CLIENT_PROVIDER_FILE,
   resolvePathWithinApp,
@@ -29,6 +33,7 @@ const SECTION_CONTAINER_SHELL_COMPONENT = "SectionContainerShell";
 const SUBPAGES_LINK_COMPONENT_TOKEN = "local.main.ui.tab-link-item";
 const DEFAULT_MENU_COMPONENT_DIRECTORY = path.join(DEFAULT_COMPONENT_DIRECTORY, "menus");
 const SUBPAGES_LINK_COMPONENT_DEFINITION = findLocalLinkItemDefinition(SUBPAGES_LINK_COMPONENT_TOKEN);
+const OPERATOR_SURFACE_IDS = new Set(["admin", "console"]);
 
 if (!SUBPAGES_LINK_COMPONENT_DEFINITION) {
   throw new Error(`ui-generator add-subpages could not resolve ${SUBPAGES_LINK_COMPONENT_TOKEN} scaffold definition.`);
@@ -41,32 +46,72 @@ const SHELL_OUTLET_TAG_PATTERN = /<ShellOutlet\b[^>]*\/?>\s*/gi;
 const ROUTER_VIEW_TAG_PATTERN = /<RouterView\b/i;
 const ROUTER_VIEW_LINE_PATTERN = /^\s*<RouterView(?:\s[^>]*)?\s*\/>\s*$/gm;
 
+function resolveGeneratedPageSurfaceProfile({
+  surfaceId = "",
+  routePath = ""
+} = {}) {
+  const routeSegments = normalizeText(routePath)
+    .replaceAll("\\", "/")
+    .split("/")
+    .map((entry) => normalizeText(entry).toLowerCase())
+    .filter(Boolean);
+  if (routeSegments.includes("settings")) {
+    return "settings";
+  }
+  if (OPERATOR_SURFACE_IDS.has(normalizeText(surfaceId).toLowerCase())) {
+    return "operator";
+  }
+  return "task";
+}
+
 function trimEdgeBlankLines(source = "") {
   return String(source || "")
     .replace(/^\s*\n/, "")
     .replace(/\n\s*$/, "");
 }
 
-function renderPlainPageSource(pageTitle = "") {
+function renderPlainPageSource(pageTitle = "", {
+  surfaceId = "",
+  routePath = ""
+} = {}) {
+  const surfaceProfileId = resolveGeneratedPageSurfaceProfile({ surfaceId, routePath });
+  const surfaceProfile = resolveGeneratedUiSurfaceProfile(surfaceProfileId);
+  const screenClass = buildGeneratedUiScreenClassName("generated-page-screen d-flex flex-column ga-4", {
+    surfaceProfile: surfaceProfileId
+  });
   return `<template>
-  <section class="generated-page-screen d-flex flex-column ga-4">
+  <section class="${screenClass}">
     <header>
-      <p class="text-overline text-medium-emphasis mb-1">Screen</p>
+      <p class="text-overline text-medium-emphasis mb-1">${surfaceProfile.titleLabel}</p>
       <h1 class="generated-page-screen__title">${pageTitle}</h1>
     </header>
 
     <v-sheet rounded="lg" border class="generated-page-screen__empty-state">
       <h2 class="text-h6 mb-2">No ${pageTitle} activity yet</h2>
       <p class="text-body-2 text-medium-emphasis mb-0">
-        Activity and actions for this screen will appear here.
+        ${surfaceProfile.emptyStateBody}
       </p>
     </v-sheet>
   </section>
 </template>
 
 <style scoped>
+.generated-ui-screen {
+  --generated-ui-screen-title-size: clamp(1.35rem, 2vw, 1.85rem);
+  --generated-ui-screen-panel-padding: 2rem 1.25rem;
+  --generated-ui-screen-panel-align: center;
+}
+
+.generated-ui-screen--operator {
+  --generated-ui-screen-panel-padding: 1.5rem 1rem;
+}
+
+.generated-ui-screen--settings {
+  --generated-ui-screen-panel-padding: 1.5rem 1rem;
+}
+
 .generated-page-screen__title {
-  font-size: clamp(1.35rem, 2vw, 1.85rem);
+  font-size: var(--generated-ui-screen-title-size);
   font-weight: 650;
   letter-spacing: -0.02em;
   line-height: 1.15;
@@ -76,8 +121,8 @@ function renderPlainPageSource(pageTitle = "") {
 .generated-page-screen__empty-state {
   margin-inline: auto;
   max-width: 34rem;
-  padding: 2rem 1.25rem;
-  text-align: center;
+  padding: var(--generated-ui-screen-panel-padding);
+  text-align: var(--generated-ui-screen-panel-align);
   width: 100%;
 }
 </style>

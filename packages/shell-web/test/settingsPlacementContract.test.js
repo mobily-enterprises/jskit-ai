@@ -3,6 +3,7 @@ import path from "node:path";
 import test from "node:test";
 import { readFile } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
+import { assertGeneratedUiSourceContract } from "@jskit-ai/kernel/shared/support/generatedUiContract";
 import descriptor from "../package.descriptor.mjs";
 
 const TEST_DIRECTORY = path.dirname(fileURLToPath(import.meta.url));
@@ -47,6 +48,8 @@ test("shell-web home settings template exposes surface-derived settings outlets"
   const source = await readFile(path.join(PACKAGE_DIR, "templates", "src", "pages", "home", "settings.vue"), "utf8");
 
   assert.match(source, /target="home-settings:primary-menu"/);
+  assert.match(source, /generated-ui-screen generated-ui-screen--settings settings-shell/);
+  assert.match(source, /--generated-ui-screen-title-size/);
   assert.doesNotMatch(source, /default-link-component-token/);
   assert.match(source, /<RouterView \/>/);
 });
@@ -73,6 +76,10 @@ test("shell-web shell layout registers navigation at the app layout level", asyn
 test("shell-web installs generated adaptive shell Playwright smoke coverage", async () => {
   const source = await readFile(path.join(PACKAGE_DIR, "templates", "tests", "e2e", "adaptive-shell.spec.ts"), "utf8");
 
+  assertGeneratedUiSourceContract(source, {
+    profile: "responsive-smoke",
+    sourceName: "adaptive-shell.spec.ts"
+  });
   assert.match(source, /generated adaptive shell smoke/);
   assert.match(source, /390/);
   assert.match(source, /768/);
@@ -119,10 +126,12 @@ test("shell-web settings general child page exposes an adaptive drawer preferenc
   );
 
   assert.match(source, /useShellLayoutState/);
+  assert.match(source, /generated-ui-screen generated-ui-screen--settings settings-general-screen/);
   assert.match(source, /drawerDefaultOpen/);
   assert.match(source, /setDrawerDefaultOpen/);
   assert.match(source, /Phone layouts keep primary navigation in the bottom bar/);
   assert.match(source, /Open drawer by default on wider screens/);
+  assert.match(source, /min-height:\s*48px/);
   assert.doesNotMatch(source, /live in this browser only|tiny example|starter settings/);
 });
 
@@ -258,6 +267,12 @@ test("shell-web descriptor metadata advertises adaptive shell outlets, default l
 test("shell-web home starter page relies on adaptive shell navigation instead of dead feature buttons", async () => {
   const source = await readFile(path.join(PACKAGE_DIR, "templates", "src", "pages", "home", "index.vue"), "utf8");
 
+  assertGeneratedUiSourceContract(source, {
+    profile: "shell-home",
+    sourceName: "shell-web home/index.vue"
+  });
+  assert.match(source, /generated-ui-screen generated-ui-screen--app home-surface-screen/);
+  assert.match(source, /--generated-ui-screen-title-size/);
   assert.match(source, /Core services are available\./);
   assert.match(source, /to="\/home\/settings\/general"/);
   assert.doesNotMatch(source, /Use bottom navigation|Replace this content|Main public surface/);

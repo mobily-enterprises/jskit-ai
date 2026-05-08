@@ -1,5 +1,5 @@
 <template>
-  <section class="ui-generator-edit-element d-flex flex-column ga-4">
+  <section class="generated-ui-screen generated-ui-screen--operator ui-generator-edit-element d-flex flex-column ga-4">
     <header class="ui-generator-form-header">
       <div class="ui-generator-form-header__copy">
         <p class="text-overline text-medium-emphasis mb-1">Edit record</p>
@@ -129,6 +129,15 @@ function resolveFieldErrors(fieldKey) {
 </script>
 
 <style scoped>
+.generated-ui-screen {
+  --generated-ui-screen-title-size: clamp(1.35rem, 2vw, 1.85rem);
+  --generated-ui-screen-state-padding: 2.5rem 1.25rem;
+}
+
+.generated-ui-screen--operator {
+  --generated-ui-screen-state-padding: 2rem 1rem;
+}
+
 .ui-generator-form-header {
   align-items: flex-start;
   display: flex;
@@ -141,7 +150,7 @@ function resolveFieldErrors(fieldKey) {
 }
 
 .ui-generator-form-header__title {
-  font-size: clamp(1.35rem, 2vw, 1.85rem);
+  font-size: var(--generated-ui-screen-title-size);
   font-weight: 650;
   letter-spacing: -0.02em;
   line-height: 1.15;
@@ -162,7 +171,7 @@ function resolveFieldErrors(fieldKey) {
 .ui-generator-form-state {
   margin-inline: auto;
   max-width: 30rem;
-  padding: 3rem 1.25rem;
+  padding: var(--generated-ui-screen-state-padding);
   text-align: center;
 }
 

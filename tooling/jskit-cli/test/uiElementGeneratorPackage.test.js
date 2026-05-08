@@ -340,7 +340,7 @@ test("generate @jskit-ai/ui-generator with no subcommand shows generator help wi
   });
 });
 
-test("generate @jskit-ai/ui-generator page creates an explicit file-route target", async () => {
+test("generate @jskit-ai/ui-generator page creates an explicit detail file-route target without nav by default", async () => {
   await withTempDir(async (cwd) => {
     const appRoot = path.join(cwd, "ui-element-generator-file-page");
     await createMinimalApp(appRoot, { name: "ui-element-generator-file-page" });
@@ -368,8 +368,7 @@ test("generate @jskit-ai/ui-generator page creates an explicit file-route target
     assert.match(pageSource, /Contact/);
 
     const placementSource = await readFile(placementPath, "utf8");
-    assert.match(placementSource, /scopedSuffix: "\/contacts\/\[contactId\]"/);
-    assert.match(placementSource, /id: "ui-generator\.page\.admin\.contacts\.contact-id\.link"/);
+    assert.doesNotMatch(placementSource, /ui-generator\.page\.admin\.contacts\.contact-id\.link/);
   });
 });
 

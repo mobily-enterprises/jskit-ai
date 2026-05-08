@@ -28,7 +28,7 @@ const health = computed(() => {
 </script>
 
 <template>
-  <section class="home-surface-screen d-flex flex-column ga-4">
+  <section class="generated-ui-screen generated-ui-screen--app home-surface-screen d-flex flex-column ga-4">
     <header class="home-surface-screen__header">
       <div>
         <p class="text-overline text-medium-emphasis mb-1">Home</p>
@@ -55,6 +55,11 @@ const health = computed(() => {
 </template>
 
 <style scoped>
+.generated-ui-screen {
+  --generated-ui-screen-title-size: clamp(1.5rem, 2.5vw, 2.25rem);
+  --generated-ui-screen-panel-padding: 1rem;
+}
+
 .home-surface-screen__header {
   align-items: flex-start;
   display: flex;
@@ -63,7 +68,7 @@ const health = computed(() => {
 }
 
 .home-surface-screen__title {
-  font-size: clamp(1.5rem, 2.5vw, 2.25rem);
+  font-size: var(--generated-ui-screen-title-size);
   font-weight: 700;
   letter-spacing: -0.03em;
   line-height: 1.1;
@@ -75,7 +80,7 @@ const health = computed(() => {
   display: flex;
   flex-wrap: wrap;
   gap: 1rem;
-  padding: 1rem;
+  padding: var(--generated-ui-screen-panel-padding);
 }
 
 .home-surface-screen__status {

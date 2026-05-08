@@ -3,6 +3,7 @@ import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { normalizeBoolean, normalizeText } from "@jskit-ai/kernel/shared/support/normalize";
 import {
   buildUiPageTemplateContext,
+  resolveNavigationInferenceRoutePath,
   shouldCreateNavigationLink
 } from "../buildTemplateContext.js";
 import {
@@ -79,6 +80,7 @@ async function runGeneratorSubcommand({
     : false;
   const pageFilePath = pageTarget.targetFilePath.absolutePath;
   const pageRelativePath = pageTarget.targetFilePath.relativePath;
+  const navigationInferenceRoutePath = resolveNavigationInferenceRoutePath(pageTarget);
 
   const touchedFiles = new Set();
   let pageAlreadyExisted = true;
@@ -94,7 +96,9 @@ async function runGeneratorSubcommand({
     );
   }
 
-  const shouldCreateLink = shouldCreateNavigationLink(options);
+  const shouldCreateLink = shouldCreateNavigationLink(options, {
+    routePath: navigationInferenceRoutePath
+  });
   const placementContext = shouldCreateLink
     ? await buildUiPageTemplateContext({
       appRoot: pageTarget.appRoot,
@@ -125,7 +129,14 @@ async function runGeneratorSubcommand({
   if (!pageAlreadyExisted || forceOverwrite) {
     if (dryRun !== true) {
       await mkdir(path.dirname(pageFilePath), { recursive: true });
-      await writeFile(pageFilePath, renderPlainPageSource(pageLabel), "utf8");
+      await writeFile(
+        pageFilePath,
+        renderPlainPageSource(pageLabel, {
+          surfaceId: pageTarget.surfaceId,
+          routePath: navigationInferenceRoutePath
+        }),
+        "utf8"
+      );
     }
     touchedFiles.add(pageRelativePath);
   }

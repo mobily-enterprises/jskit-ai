@@ -17,9 +17,10 @@ Use this on demand; do not load the full index at startup.
 ### `src/server/buildTemplateContext.js`
 Exports
 - `buildUiPageTemplateContext({ appRoot, targetFile = "", options = {} } = {})`
-- `normalizeNavigationRole(value = "")`
-- `resolveNavigationRoleLinkPlacement(options = {})`
-- `shouldCreateNavigationLink(options = {})`
+- `normalizeNavigationRole`
+- `resolveNavigationInferenceRoutePath(pageTarget = {})`
+- `resolveNavigationRoleLinkPlacement(options = {}, inferenceContext = {})`
+- `shouldCreateNavigationLink(options = {}, inferenceContext = {})`
 Local functions
 - `resolveLinkToPropLine(linkTo = "")`
 - `resolveOwnerLine(owner = "")`
@@ -81,11 +82,12 @@ Exports
 - `resolvePageTargetDetails`
 - `resolveNearestParentSubpagesHost`
 - `deriveDefaultSubpagesHost`
-- `renderPlainPageSource(pageTitle = "")`
+- `renderPlainPageSource(pageTitle = "", { surfaceId = "", routePath = "" } = {})`
 - `ensureSubpagesSupportScaffold({ appRoot, componentDirectory = DEFAULT_COMPONENT_DIRECTORY, dryRun = false } = {})`
 - `applySubpagesUpgradeToPageSource(source = "", { target = "", title = "", subtitle = "", sectionContainerComponentImportPath = "/src/components/SectionContainerShell.vue", preserveExistingContent = true } = {})`
 - `upgradePageFileToSubpages({ appRoot, targetFile, target = "", title = "", subtitle = "", componentDirectory = DEFAULT_COMPONENT_DIRECTORY, preserveExistingContent = true, dryRun = false } = {})`
 Local functions
+- `resolveGeneratedPageSurfaceProfile({ surfaceId = "", routePath = "" } = {})`
 - `trimEdgeBlankLines(source = "")`
 - `renderSectionContainerShellSource()`
 - `findTemplateBlock(source = "")`

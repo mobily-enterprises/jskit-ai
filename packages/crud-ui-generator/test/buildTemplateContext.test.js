@@ -4,6 +4,7 @@ import { tmpdir } from "node:os";
 import path from "node:path";
 import test from "node:test";
 import { fileURLToPath } from "node:url";
+import { assertGeneratedUiSourceContract } from "@jskit-ai/kernel/shared/support/generatedUiContract";
 import { buildUiTemplateContext } from "../src/server/buildTemplateContext.js";
 
 const JSON_REST_SCHEMA_PACKAGE_DIR = path.dirname(
@@ -818,6 +819,23 @@ test("buildUiTemplateContext supports no-link navigation roles for detail or wor
   });
 });
 
+test("buildUiTemplateContext infers no-link navigation for dynamic nested list routes", async () => {
+  await withTempApp(async (appRoot) => {
+    await writeResource(appRoot, RESOURCE_FILE, FULL_RESOURCE_SOURCE);
+
+    const context = await buildUiTemplateContext({
+      appRoot,
+      options: createOptions({
+        "target-root": "admin/customers/[customerId]/orders"
+      })
+    });
+
+    assert.equal(context.__JSKIT_UI_MENU_PLACEMENT_ID__, "");
+    assert.equal(context.__JSKIT_UI_MENU_PLACEMENT_TARGET__, "");
+    assert.equal(context.__JSKIT_UI_MENU_MARKER__, "jskit:crud-ui-generator.page.link:admin:/customers/[customerId]/orders");
+  });
+});
+
 test("buildUiTemplateContext rejects no-link navigation roles with explicit link-placement", async () => {
   await withTempApp(async (appRoot) => {
     await writeResource(appRoot, RESOURCE_FILE, FULL_RESOURCE_SOURCE);
@@ -893,10 +911,28 @@ test("crud ui templates derive JSON:API transport from the shared CRUD resource"
   const viewTemplateSource = await readFile(path.join(templateRoot, "ViewElement.vue"), "utf8");
   const newTemplateSource = await readFile(path.join(templateRoot, "NewElement.vue"), "utf8");
   const editTemplateSource = await readFile(path.join(templateRoot, "EditElement.vue"), "utf8");
+  const addEditFormTemplateSource = await readFile(path.join(templateRoot, "AddEditForm.vue"), "utf8");
   const newWrapperTemplateSource = await readFile(path.join(templateRoot, "NewWrapperElement.vue"), "utf8");
   const editWrapperTemplateSource = await readFile(path.join(templateRoot, "EditWrapperElement.vue"), "utf8");
 
+  assertGeneratedUiSourceContract(listTemplateSource, {
+    profile: "crud-list",
+    sourceName: "ListElement.vue"
+  });
+  for (const [sourceName, source] of [
+    ["ViewElement.vue", viewTemplateSource],
+    ["NewElement.vue", newTemplateSource],
+    ["EditElement.vue", editTemplateSource]
+  ]) {
+    assertGeneratedUiSourceContract(source, {
+      profile: "crud-detail",
+      sourceName
+    });
+  }
+
   assert.match(listTemplateSource, /resource: uiResource,/);
+  assert.match(listTemplateSource, /generated-ui-screen generated-ui-screen--operator ui-generator-list-element/);
+  assert.match(listTemplateSource, /--generated-ui-screen-title-size/);
   assert.match(listTemplateSource, /ui-generator-list-cards d-md-none/);
   assert.match(listTemplateSource, /ui-generator-list-table d-none d-md-block/);
   assert.match(listTemplateSource, /class="ui-generator-list-fab d-md-none"/);
@@ -915,6 +951,7 @@ test("crud ui templates derive JSON:API transport from the shared CRUD resource"
 
   assert.match(viewTemplateSource, /import \{ resource as uiResource \} from/);
   assert.match(viewTemplateSource, /resource: uiResource,/);
+  assert.match(viewTemplateSource, /generated-ui-screen generated-ui-screen--operator ui-generator-view-element/);
   assert.match(viewTemplateSource, /ui-generator-view-header/);
   assert.match(viewTemplateSource, /ui-generator-view-panel/);
   assert.match(viewTemplateSource, /Record unavailable/);
@@ -923,6 +960,7 @@ test("crud ui templates derive JSON:API transport from the shared CRUD resource"
   assert.doesNotMatch(viewTemplateSource, /transport:\s*UI_VIEW_TRANSPORT,/);
 
   assert.match(newTemplateSource, /resource: uiResource,/);
+  assert.match(newTemplateSource, /generated-ui-screen generated-ui-screen--operator ui-generator-new-element/);
   assert.match(newTemplateSource, /ui-generator-form-header/);
   assert.match(newTemplateSource, /ui-generator-form-panel/);
   assert.match(newTemplateSource, /Unable to prepare __JSKIT_UI_RESOURCE_SINGULAR_TITLE__/);
@@ -931,12 +969,16 @@ test("crud ui templates derive JSON:API transport from the shared CRUD resource"
   assert.doesNotMatch(newTemplateSource, /transport:\s*UI_CREATE_TRANSPORT,/);
 
   assert.match(editTemplateSource, /resource: uiResource,/);
+  assert.match(editTemplateSource, /generated-ui-screen generated-ui-screen--operator ui-generator-edit-element/);
   assert.match(editTemplateSource, /ui-generator-form-header/);
   assert.match(editTemplateSource, /ui-generator-form-panel/);
   assert.match(editTemplateSource, /Unable to load __JSKIT_UI_RESOURCE_SINGULAR_TITLE__/);
   assert.doesNotMatch(editTemplateSource, /<v-card\b|<v-card-title/);
   assert.doesNotMatch(editTemplateSource, /const UI_EDIT_TRANSPORT = Object\.freeze\(\{/);
   assert.doesNotMatch(editTemplateSource, /transport:\s*UI_EDIT_TRANSPORT,/);
+
+  assert.match(addEditFormTemplateSource, /generated-ui-screen generated-ui-screen--operator ui-generator-add-edit-form/);
+  assert.match(addEditFormTemplateSource, /--generated-ui-screen-title-size/);
 
   assert.match(newWrapperTemplateSource, /resource: uiResource,/);
   assert.doesNotMatch(newWrapperTemplateSource, /<v-card\b/);
