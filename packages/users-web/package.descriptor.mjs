@@ -51,12 +51,24 @@ export default Object.freeze({
           summary: "Exports the package-owned account settings host that renders placement-backed account sections."
         },
         {
+          subpath: "./client/components/CrudAddEditScreen",
+          summary: "Exports the package-owned CRUD add/edit screen shell used by generated form pages."
+        },
+        {
           subpath: "./client/components/CrudListBulkActionSurface",
           summary: "Exports the adaptive CRUD list bulk-action surface for generated list pages."
         },
         {
           subpath: "./client/components/CrudListFilterSurface",
           summary: "Exports the adaptive CRUD list filter surface for generated list pages."
+        },
+        {
+          subpath: "./client/components/CrudListScreen",
+          summary: "Exports the package-owned CRUD list screen shell used by generated list pages."
+        },
+        {
+          subpath: "./client/components/CrudViewScreen",
+          summary: "Exports the package-owned CRUD view screen shell used by generated detail pages."
         },
         {
           subpath: "./client/bulkActions",
@@ -95,12 +107,24 @@ export default Object.freeze({
           summary: "Exports lookup-backed CRUD list filter helper for remote autocomplete filters."
         },
         {
+          subpath: "./client/composables/useCrudAddEditScreen",
+          summary: "Exports the package-owned add/edit screen runtime for generated form pages."
+        },
+        {
           subpath: "./client/composables/useCrudListBulkActions",
           summary: "Exports selected-record state and execution runtime for generated CRUD list bulk actions."
         },
         {
+          subpath: "./client/composables/useCrudListScreen",
+          summary: "Exports the package-owned list screen runtime for generated list pages."
+        },
+        {
           subpath: "./client/composables/useView",
           summary: "Exports read/view operation composable."
+        },
+        {
+          subpath: "./client/composables/useCrudViewScreen",
+          summary: "Exports the package-owned view screen runtime for generated detail pages."
         },
         {
           subpath: "./client/composables/usePagedCollection",

@@ -380,18 +380,7 @@ Exports
 
 ### `templates/src/components/ShellLayout.vue`
 Exports
-- None
-Local functions
-- `handlePullPointerDown(event)`
-- `handlePullPointerMove(event)`
-- `handlePullPointerEnd(event)`
-- `handlePullPointerCancel(event)`
-- `cancelPullRefresh()`
-- `refreshFromPullGesture()`
-- `canStartPullRefresh(event)`
-- `isPrimaryTouchPointer(event)`
-- `isAtPageTop()`
-- `isPullRefreshIgnoredTarget(target)`
+- `default`
 
 ### `templates/src/error.js`
 Exports

@@ -328,10 +328,10 @@ test("generate @jskit-ai/crud-ui-generator crud scaffolds CRUD pages at an expli
     const listPageSource = await readFile(paths.listPagePath, "utf8");
     assert.match(listPageSource, /Search, review, and update Customers from this screen\./);
     assert.match(listPageSource, /import \{ resource as uiResource \} from "\/packages\/customers\/src\/shared\/customerResource\.js";/);
-    assert.match(listPageSource, /CrudListBulkActionSurface/);
-    assert.match(listPageSource, /bulkActions\.hasActions\.value/);
-    assert.match(listPageSource, /CrudListFilterSurface/);
-    assert.match(listPageSource, /queryParams: filterRuntime\.queryParams/);
+    assert.match(listPageSource, /CrudListScreen/);
+    assert.match(listPageSource, /useCrudListScreen/);
+    assert.match(listPageSource, /listBulkActions/);
+    assert.match(listPageSource, /listFilters/);
     assert.match(listPageSource, /const UI_LIST_API_URL = "\/customers";/);
     assert.match(listPageSource, /const UI_RECORD_ID_PARAM = "customerId";/);
     assert.match(listPageSource, /"ui-generator", "customers", "list"/);

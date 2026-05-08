@@ -692,32 +692,27 @@ test("fresh app CRUD scaffolds encode explicit M3 action hierarchy and stable se
     assert.doesNotMatch(placementSource, /to: "\.\/customers"/);
     assert.doesNotMatch(placementSource, /to: "\.\/general"/);
 
-    assert.match(listPageSource, /<v-btn color="primary" variant="tonal" :loading="records\.isFetching"/);
-    assert.match(listPageSource, /CrudListBulkActionSurface/);
-    assert.match(listPageSource, /bulkActions\.hasActions\.value/);
-    assert.match(listPageSource, /CrudListFilterSurface/);
-    assert.match(listPageSource, /queryParams: filterRuntime\.queryParams/);
-    assert.match(listPageSource, /v-if="listPrimaryAction"[\s\S]*color="primary"[\s\S]*variant="flat"[\s\S]*New Customer/);
-    assert.match(listPageSource, /v-if="listPrimaryAction"[\s\S]*class="ui-generator-list-fab d-md-none"/);
+    assert.match(listPageSource, /CrudListScreen/);
+    assert.match(listPageSource, /useCrudListScreen/);
+    assert.match(listPageSource, /listBulkActions/);
+    assert.match(listPageSource, /listFilters/);
+    assert.match(listPageSource, /create-label="New Customer"/);
     assert.match(listPageSource, /No Customers yet/);
     assert.match(listPageSource, /Create the first Customer to start using this workflow\./);
-    assert.match(listPageSource, /size="small"[\s\S]*color="primary"[\s\S]*variant="outlined"[\s\S]*>\s*Open/);
-    assert.match(listPageSource, /size="small"[\s\S]*color="primary"[\s\S]*variant="tonal"[\s\S]*>\s*Edit/);
-    assert.match(listPageSource, /<v-btn color="primary" variant="outlined" :loading="records\.isLoadingMore"/);
     assert.match(listBulkActionsSource, /const listBulkActions = defineCrudListBulkActions\(\[\]\);/);
     assert.match(listFiltersSource, /const listFilters = defineCrudListFilters\(\{\}\);/);
 
-    assert.match(viewPageSource, /v-if="UI_LIST_URL"[\s\S]*color="primary"[\s\S]*variant="outlined"/);
-    assert.match(viewPageSource, /v-if="UI_EDIT_URL"[\s\S]*color="primary"[\s\S]*variant="flat"/);
+    assert.match(viewPageSource, /CrudViewScreen/);
+    assert.match(viewPageSource, /useCrudViewScreen/);
 
     assert.match(newPageSource, /<CrudAddEditForm/);
-    assert.match(newPageSource, /:cancel-to="UI_CANCEL_URL"/);
+    assert.match(newPageSource, /:screen="screen"/);
 
     assert.match(editPageSource, /<CrudAddEditForm/);
-    assert.match(editPageSource, /:cancel-to="cancelTo"/);
+    assert.match(editPageSource, /:screen="screen"/);
 
-    assert.match(addEditFormSource, /<v-btn v-if="cancelTo" color="primary" variant="outlined"/);
-    assert.match(addEditFormSource, /color="primary"[\s\S]*variant="flat"[\s\S]*:loading="addEdit\.isSaving"/);
+    assert.match(addEditFormSource, /CrudAddEditScreen/);
+    assert.match(addEditFormSource, /#fields=/);
   });
 });
 

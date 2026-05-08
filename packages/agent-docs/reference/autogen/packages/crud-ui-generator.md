@@ -137,9 +137,6 @@ Local functions
 ### `templates/src/pages/admin/ui-generator/AddEditForm.vue`
 Exports
 - None
-Local functions
-- `resolveFieldErrors(fieldKey)`
-- `resolveCancelTo(target)`
 
 ### `templates/src/pages/admin/ui-generator/AddEditFormFields.js`
 Exports
@@ -149,8 +146,6 @@ Exports
 ### `templates/src/pages/admin/ui-generator/EditElement.vue`
 Exports
 - None
-Local functions
-- `resolveFieldErrors(fieldKey)`
 
 ### `templates/src/pages/admin/ui-generator/EditWrapperElement.vue`
 Exports
@@ -163,9 +158,6 @@ Exports
 ### `templates/src/pages/admin/ui-generator/ListElement.vue`
 Exports
 - None
-Local functions
-- `resolveListRecordTitle(record)`
-- `formatListCardValue(value)`
 
 ### `templates/src/pages/admin/ui-generator/listFilters.js`
 Exports
@@ -174,8 +166,6 @@ Exports
 ### `templates/src/pages/admin/ui-generator/NewElement.vue`
 Exports
 - None
-Local functions
-- `resolveFieldErrors(fieldKey)`
 
 ### `templates/src/pages/admin/ui-generator/NewWrapperElement.vue`
 Exports

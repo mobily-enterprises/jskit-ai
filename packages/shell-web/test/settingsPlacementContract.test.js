@@ -55,35 +55,39 @@ test("shell-web home settings template exposes surface-derived settings outlets"
 });
 
 test("shell-web shell layout registers navigation at the app layout level", async () => {
-  for (const relativePath of [
-    path.join("src", "client", "components", "ShellLayout.vue"),
-    path.join("templates", "src", "components", "ShellLayout.vue")
-  ]) {
-    const source = await readFile(path.join(PACKAGE_DIR, relativePath), "utf8");
+  const source = await readFile(path.join(PACKAGE_DIR, "src", "client", "components", "ShellLayout.vue"), "utf8");
 
-    assert.doesNotMatch(source, /<v-layout\b/);
-    assert.doesNotMatch(source, /overflow-hidden/);
-    assert.doesNotMatch(source, /min-height:\s*72vh/);
-    assert.match(source, /ShellRouteTransition/);
-    assert.match(source, /<ShellRouteTransition>[\s\S]*<slot \/>[\s\S]*<\/ShellRouteTransition>/);
-    assert.match(source, /data-testid="jskit-shell-app-bar"/);
-    assert.match(source, /:density="isCompactLayout \? 'compact' : 'comfortable'"/);
-    assert.match(source, /shell-layout__top-right[\s\S]*max-width:\s*min\(45vw, 18rem\)/);
-    assert.match(source, /<v-bottom-navigation[\s\S]*target="shell-layout:primary-bottom-nav"/);
-    assert.match(source, /<v-bottom-sheet[\s\S]*target="shell-layout:supporting-bottom-sheet"/);
-    assert.match(source, /target="shell-layout:supporting-side-panel"/);
-    assert.match(source, /data-testid="jskit-shell-supporting-bottom-sheet"/);
-    assert.match(source, /data-testid="jskit-shell-supporting-side-panel"/);
-    assert.match(source, /inject\("jskit\.shell-web\.runtime\.web-refresh\.client", null\)/);
-    assert.match(source, /window\.addEventListener\("pointerdown", handlePullPointerDown/);
-    assert.match(source, /refreshRuntime\.refresh\("pull-to-refresh"\)/);
-    assert.match(source, /data-testid="jskit-shell-pull-refresh"/);
-    assert.match(source, /target="shell-layout:primary-menu"[\s\S]*default/);
-    assert.doesNotMatch(source, /target="shell-layout:primary-bottom-nav"[\s\S]*default/);
-    assert.match(source, /data-testid="jskit-shell-drawer"/);
-    assert.match(source, /data-testid="jskit-shell-bottom-nav"/);
-    assert.match(source, /padding:\s*0\.75rem 1rem calc\(1rem \+ env\(safe-area-inset-bottom, 0px\)\)/);
-  }
+  assert.doesNotMatch(source, /<v-layout\b/);
+  assert.doesNotMatch(source, /overflow-hidden/);
+  assert.doesNotMatch(source, /min-height:\s*72vh/);
+  assert.match(source, /ShellRouteTransition/);
+  assert.match(source, /<ShellRouteTransition>[\s\S]*<slot \/>[\s\S]*<\/ShellRouteTransition>/);
+  assert.match(source, /data-testid="jskit-shell-app-bar"/);
+  assert.match(source, /:density="isCompactLayout \? 'compact' : 'comfortable'"/);
+  assert.match(source, /shell-layout__surface-label/);
+  assert.doesNotMatch(source, /shell-layout__surface-chip/);
+  assert.doesNotMatch(source, /<v-chip[^>]*resolvedSurfaceLabel/);
+  assert.match(source, /shell-layout__top-right[\s\S]*max-width:\s*min\(45vw, 18rem\)/);
+  assert.match(source, /<v-bottom-navigation[\s\S]*target="shell-layout:primary-bottom-nav"/);
+  assert.match(source, /<v-bottom-sheet[\s\S]*target="shell-layout:supporting-bottom-sheet"/);
+  assert.match(source, /target="shell-layout:supporting-side-panel"/);
+  assert.match(source, /data-testid="jskit-shell-supporting-bottom-sheet"/);
+  assert.match(source, /data-testid="jskit-shell-supporting-side-panel"/);
+  assert.match(source, /inject\("jskit\.shell-web\.runtime\.web-refresh\.client", null\)/);
+  assert.match(source, /window\.addEventListener\("pointerdown", handlePullPointerDown/);
+  assert.match(source, /refreshRuntime\.refresh\("pull-to-refresh"\)/);
+  assert.match(source, /data-testid="jskit-shell-pull-refresh"/);
+  assert.match(source, /target="shell-layout:primary-menu"[\s\S]*default/);
+  assert.doesNotMatch(source, /target="shell-layout:primary-bottom-nav"[\s\S]*default/);
+  assert.match(source, /data-testid="jskit-shell-drawer"/);
+  assert.match(source, /data-testid="jskit-shell-bottom-nav"/);
+  assert.match(source, /padding:\s*0\.75rem 1rem calc\(1rem \+ env\(safe-area-inset-bottom, 0px\)\)/);
+
+  const template = await readFile(path.join(PACKAGE_DIR, "templates", "src", "components", "ShellLayout.vue"), "utf8");
+
+  assert.match(template, /PackageShellLayout from "@jskit-ai\/shell-web\/client\/components\/ShellLayout"/);
+  assert.match(template, /h\(PackageShellLayout, attrs, slots\)/);
+  assert.doesNotMatch(template, /ShellOutlet|ShellRouteTransition|useShellLayoutState|pointerdown|v-navigation-drawer|v-bottom-navigation/);
 });
 
 test("shell-web error host uses one explicit close affordance for banner errors", async () => {
@@ -98,19 +102,25 @@ test("shell-web error host uses one explicit close affordance for banner errors"
 
 test("shell-web installs generated adaptive shell Playwright smoke coverage", async () => {
   const source = await readFile(path.join(PACKAGE_DIR, "templates", "tests", "e2e", "adaptive-shell.spec.ts"), "utf8");
+  const helperSource = await readFile(path.join(PACKAGE_DIR, "src", "test", "adaptiveShellSmoke.js"), "utf8");
 
-  assertGeneratedUiSourceContract(source, {
+  assertGeneratedUiSourceContract(helperSource, {
     profile: "responsive-smoke",
-    sourceName: "adaptive-shell.spec.ts"
+    sourceName: "adaptiveShellSmoke.js"
   });
-  assert.match(source, /generated adaptive shell smoke/);
-  assert.match(source, /390/);
-  assert.match(source, /768/);
-  assert.match(source, /1280/);
-  assert.match(source, /jskit-shell-bottom-nav/);
-  assert.match(source, /jskit-shell-drawer/);
-  assert.match(source, /scrollWidth/);
-  assert.match(source, /toBeGreaterThanOrEqual\(48\)/);
+  assert.match(source, /runAdaptiveShellSmoke/);
+  assert.match(source, /@jskit-ai\/shell-web\/test\/adaptiveShellSmoke/);
+  assert.match(helperSource, /generated adaptive shell smoke/);
+  assert.match(helperSource, /390/);
+  assert.match(helperSource, /768/);
+  assert.match(helperSource, /1280/);
+  assert.match(helperSource, /jskit-shell-bottom-nav/);
+  assert.match(helperSource, /jskit-shell-drawer/);
+  assert.match(helperSource, /scrollWidth/);
+  assert.match(helperSource, /toBeGreaterThanOrEqual\(48\)/);
+
+  const packageJson = JSON.parse(await readFile(path.join(PACKAGE_DIR, "package.json"), "utf8"));
+  assert.equal(packageJson?.exports?.["./test/adaptiveShellSmoke"], "./src/test/adaptiveShellSmoke.js");
 });
 
 test("shell-web route transition keeps mobile route motion placement-driven", async () => {

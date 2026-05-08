@@ -41,6 +41,13 @@ Local functions
 - `normalizeSection(value)`
 - `readRouteSection()`
 
+### `src/client/components/CrudAddEditScreen.vue`
+Exports
+- None
+Local functions
+- `resolveFieldErrors(fieldKey)`
+- `resolveCancelTo(target = cancelTo.value)`
+
 ### `src/client/components/CrudListBulkActionSurface.vue`
 Exports
 - None
@@ -58,6 +65,19 @@ Local functions
 - `placeholder(filter = {}, fallback = "")`
 - `clearChip(chip = {})`
 - `clearFilters()`
+
+### `src/client/components/CrudListScreen.vue`
+Exports
+- None
+Local functions
+- `resolveListRecordTitle(record)`
+- `formatListCardValue(value)`
+- `resolveViewLocation(record)`
+- `resolveEditLocation(record)`
+
+### `src/client/components/CrudViewScreen.vue`
+Exports
+- None
 
 ### `src/client/components/ProfileClientElement.vue`
 Exports
@@ -413,6 +433,12 @@ Exports
 Exports
 - `useCommand({ ownershipFilter = ROUTE_VISIBILITY_WORKSPACE, surfaceId = "", access = "auto", apiSuffix = "", runPermissions = [], writeMethod = "POST", transport = null, placementSource = "users-web.command", fallbackRunError = "Unable to complete action.", fieldErrorKeys = [], clearOnRouteChange = true, model, input, buildRawPayload, buildCommandPayload, buildCommandOptions, onRunSuccess, onRunError, suppressSuccessMessage = false, messages = {}, realtime = null } = {})`
 
+### `src/client/composables/useCrudAddEditScreen.js`
+Exports
+- `useCrudAddEditScreen({ screen = null, mode = "new", title = "", subtitle = "", saveLabel = "Save", cancelTo = "", resource = null, operationName = "", formFields = [], addEditOptions = {}, saveSuccess = {}, fieldBinding = null, createModel = null, buildPayload = null, mapPayloadToModel = null, input = null, preserveCancelQuery = false } = {})`
+Local functions
+- `normalizeProvidedScreen(screen = null)`
+
 ### `src/client/composables/useCrudListBulkActions.js`
 Exports
 - `useCrudListBulkActions(actions = [], { resolveRecordId = null, resolveContext = null } = {})`
@@ -443,6 +469,16 @@ Exports
 - `useCrudListParentTitle({ listRuntime = null, resource = {}, adapter = null, recordIdParam = "recordId", queryKeyPrefix = ["users-web", "crud-list-parent-title"], placementSource = "users-web.crud-list-parent-title", fallbackLoadError = "Unable to load parent record.", notFoundMessage = "Parent record not found.", route = null, viewRuntimeFactory = useView } = {})`
 Local functions
 - `normalizeQueryKeyPrefix(value = [])`
+
+### `src/client/composables/useCrudListScreen.js`
+Exports
+- `useCrudListScreen({ adapter = null, resource = null, resourceNamespace = "resource", apiSuffix = "", recordIdParam = "recordId", recordIdSelector = null, titleFallbackFieldKey = "", viewUrlTemplate = "", editUrlTemplate = "", newUrlTemplate = "", recordChangedEvents = [], listFilters = {}, listBulkActions = [], routeQueryBlacklist = Object.freeze(["include", "cursor", "limit"]), fallbackLoadError = "Unable to load records." } = {})`
+Local functions
+- `formatCrudListCardValue(value)`
+
+### `src/client/composables/useCrudViewScreen.js`
+Exports
+- `useCrudViewScreen({ adapter = null, resource = null, resourceNamespace = "resource", apiUrlTemplate = "", recordIdParam = "recordId", titleFallbackFieldKey = "", listUrlTemplate = "", editUrlTemplate = "", recordChangedEvent = "", fallbackLoadError = "Unable to load record.", notFoundMessage = "Record not found." } = {})`
 
 ### `src/client/composables/usePagedCollection.js`
 Exports
@@ -502,8 +538,11 @@ Exports
 Exports
 - `UsersWebClientProvider`
 - `AccountSettingsClientElement`
+- `CrudAddEditScreen`
 - `CrudListBulkActionSurface`
 - `CrudListFilterSurface`
+- `CrudListScreen`
+- `CrudViewScreen`
 - `clientProviders`
 
 ### `src/client/lib/bootstrap.js`

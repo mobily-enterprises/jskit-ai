@@ -151,32 +151,17 @@ test("generated UI source contract flags placeholder copy and missing profile ho
 test("generated UI source contract accepts compact-first CRUD detail structure", () => {
   assert.doesNotThrow(() => assertGeneratedUiSourceContract(
     `<template>
-  <section class="generated-ui-screen generated-ui-screen--operator">
-	    <header class="ui-generator-form-header"></header>
-	    <v-sheet class="ui-generator-form-panel">
-	      <div v-if="addEdit.loadError">
-	        <v-btn @click="addEdit.refresh">Retry</v-btn>
-	      </div>
-	      <v-row class="ui-generator-form-fields"></v-row>
-	    </v-sheet>
-  </section>
+  <CrudAddEditScreen :screen="screen">
+    <template #fields="{ formState, addEdit, resolveFieldErrors }"></template>
+  </CrudAddEditScreen>
 </template>
 
-<style scoped>
-.generated-ui-screen {
-  --generated-ui-screen-title-size: clamp(1.35rem, 2vw, 1.85rem);
-}
-
-.ui-generator-form-fields :deep(.v-col) {
-  min-width: 0;
-}
-
-@media (max-width: 640px) {
-  .ui-generator-form-actions :deep(.v-btn) {
-    min-height: 48px;
-  }
-}
-</style>`,
+<script setup>
+const screen = useCrudAddEditScreen({
+  title: "New Customer",
+  resource: uiResource
+});
+</script>`,
     {
       profile: "crud-detail",
       sourceName: "NewElement.vue"
@@ -187,34 +172,24 @@ test("generated UI source contract accepts compact-first CRUD detail structure",
 test("generated UI source contract accepts compact-first CRUD list structure", () => {
   assert.doesNotThrow(() => assertGeneratedUiSourceContract(
     `<template>
-  <section class="generated-ui-screen generated-ui-screen--operator">
-    <CrudListBulkActionSurface :runtime="bulkActions" />
-    <v-checkbox-btn v-if="bulkActions.hasActions.value" />
-    <CrudListFilterSurface :filters="listFilters" :runtime="filterRuntime" />
-    <div class="ui-generator-list-cards d-md-none">
-      <v-menu>Actions</v-menu>
-    </div>
-    <div class="ui-generator-list-table d-none d-md-block"></div>
-    <h2>__JSKIT_UI_LIST_EMPTY_TITLE__</h2>
-    <h2>__JSKIT_UI_LIST_LOAD_ERROR_TITLE__</h2>
-  </section>
+  <CrudListScreen
+    :screen="screen"
+    empty-title="__JSKIT_UI_LIST_EMPTY_TITLE__"
+    load-error-title="__JSKIT_UI_LIST_LOAD_ERROR_TITLE__"
+  >
+    <template #card-fields="{ record, records, formatListCardValue }"></template>
+    <template #table-header></template>
+    <template #table-row="{ record, records }"></template>
+  </CrudListScreen>
 </template>
 
 <script setup>
-const records = useCrudList({
-  queryParams: filterRuntime.queryParams
+const screen = useCrudListScreen({
+  resource: uiResource,
+  listFilters,
+  listBulkActions
 });
-</script>
-
-<style scoped>
-.generated-ui-screen {
-  --generated-ui-screen-title-size: clamp(1.35rem, 2vw, 1.85rem);
-}
-
-.ui-generator-list-header__actions :deep(.v-btn) {
-  min-height: 48px;
-}
-</style>`,
+</script>`,
     {
       profile: "crud-list",
       sourceName: "ListElement.vue"

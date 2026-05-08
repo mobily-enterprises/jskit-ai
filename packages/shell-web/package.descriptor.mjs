@@ -43,6 +43,10 @@ export default Object.freeze({
         {
           subpath: "./client/bootstrap",
           summary: "Exports the shared client bootstrap handler registry used to extend /api/bootstrap handling."
+        },
+        {
+          subpath: "./test/adaptiveShellSmoke",
+          summary: "Exports reusable Playwright smoke coverage for generated adaptive shell layouts."
         }
       ],
       containerTokens: {

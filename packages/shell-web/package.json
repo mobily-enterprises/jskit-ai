@@ -21,7 +21,8 @@
     "./client/components/ShellSurfaceAwareMenuLinkItem": "./src/client/components/ShellSurfaceAwareMenuLinkItem.vue",
     "./client/components/ShellTabLinkItem": "./src/client/components/ShellTabLinkItem.vue",
     "./client/composables/useShellLayoutState": "./src/client/composables/useShellLayoutState.js",
-    "./client/providers/ShellWebClientProvider": "./src/client/providers/ShellWebClientProvider.js"
+    "./client/providers/ShellWebClientProvider": "./src/client/providers/ShellWebClientProvider.js",
+    "./test/adaptiveShellSmoke": "./src/test/adaptiveShellSmoke.js"
   },
   "dependencies": {
     "@mdi/js": "^7.4.47",

@@ -1,16 +1,11 @@
 <template>
   <CrudAddEditForm
-    mode="new"
-    :form-runtime="formRuntime"
-    title="New __JSKIT_UI_RESOURCE_SINGULAR_TITLE__"
-    subtitle="Create a new __JSKIT_UI_RESOURCE_SINGULAR_TITLE__."
-    save-label="Save __JSKIT_UI_RESOURCE_SINGULAR_TITLE__"
-    :cancel-to="UI_CANCEL_URL"__JSKIT_UI_CREATE_LOOKUP_FORM_PROPS__
+    :screen="screen"__JSKIT_UI_CREATE_LOOKUP_FORM_PROPS__
   />
 </template>
 
 <script setup>
-import { useCrudAddEdit } from "@jskit-ai/users-web/client/composables/useCrudAddEdit";
+import { useCrudAddEditScreen } from "@jskit-ai/users-web/client/composables/useCrudAddEditScreen";
 __JSKIT_UI_CREATE_LOOKUP_IMPORT_LINE__
 import { resource as uiResource } from "__JSKIT_UI_RESOURCE_IMPORT_PATH__";
 import CrudAddEditForm from "./_components/__JSKIT_UI_FORM_COMPONENT_FILE__";
@@ -29,7 +24,12 @@ const UI_RECORD_CHANGED_EVENT = __JSKIT_UI_RECORD_CHANGED_EVENT__;
 
 __JSKIT_UI_CREATE_LOOKUP_RUNTIME_SETUP__
 
-const formRuntime = useCrudAddEdit({
+const screen = useCrudAddEditScreen({
+  mode: "new",
+  title: "New __JSKIT_UI_RESOURCE_SINGULAR_TITLE__",
+  subtitle: "Create a new __JSKIT_UI_RESOURCE_SINGULAR_TITLE__.",
+  saveLabel: "Save __JSKIT_UI_RESOURCE_SINGULAR_TITLE__",
+  cancelTo: UI_CANCEL_URL,
   resource: uiResource,
   operationName: "create",
   formFields: UI_CREATE_FORM_FIELDS,
