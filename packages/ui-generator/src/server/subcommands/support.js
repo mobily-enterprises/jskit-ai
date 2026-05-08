@@ -10,6 +10,7 @@ import { toCamelCase, toSnakeCase } from "@jskit-ai/kernel/shared/support/string
 const DEFAULT_COMPONENT_DIRECTORY = "src/components";
 const MAIN_CLIENT_PROVIDER_FILE = "packages/main/src/client/providers/MainClientProvider.js";
 const PLACEMENT_FILE = "src/placement.js";
+const PLACEMENT_TOPOLOGY_FILE = "src/placementTopology.js";
 const SCRIPT_TAG_PATTERN = /<script\b([^>]*)>([\s\S]*?)<\/script>/gi;
 const SCRIPT_SETUP_ATTRIBUTE_PATTERN = /\bsetup\b/i;
 const ATTRIBUTE_PATTERN = /([:@]?[A-Za-z_][A-Za-z0-9_-]*)(?:\s*=\s*(?:"([^"]*)"|'([^']*)'))?/g;
@@ -266,6 +267,7 @@ export {
   DEFAULT_COMPONENT_DIRECTORY,
   MAIN_CLIENT_PROVIDER_FILE,
   PLACEMENT_FILE,
+  PLACEMENT_TOPOLOGY_FILE,
   toKebabCase,
   toPascalCase,
   requireOption,

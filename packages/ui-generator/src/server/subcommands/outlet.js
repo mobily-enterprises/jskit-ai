@@ -1,6 +1,13 @@
 import { readFile, writeFile } from "node:fs/promises";
 import { normalizeText } from "@jskit-ai/kernel/shared/support/normalize";
 import {
+  normalizePlacementOwnerId,
+  normalizePlacementSurfaceId,
+  normalizeSemanticPlacementId
+} from "@jskit-ai/kernel/shared/support/shellLayoutTargets";
+import {
+  PLACEMENT_TOPOLOGY_FILE,
+  appendBlockIfMarkerMissing,
   requireSinglePositionalTargetFile,
   rejectUnexpectedOptions,
   resolveOutletTargetId,
@@ -75,6 +82,96 @@ function createOutletBlock({ target = "" } = {}) {
   return `<ShellOutlet target="${target}" />`;
 }
 
+function resolveOutletOwner(target = "") {
+  const normalizedTarget = normalizeText(target);
+  const separatorIndex = normalizedTarget.indexOf(":");
+  if (separatorIndex <= 0) {
+    return "";
+  }
+  return normalizedTarget.slice(0, separatorIndex);
+}
+
+function resolveSemanticPlacementOption(options = {}) {
+  const placementId = normalizeSemanticPlacementId(options?.placement);
+  if (!placementId) {
+    throw new Error('ui-generator outlet requires --placement in semantic "area.slot" format.');
+  }
+  return placementId;
+}
+
+function resolveSemanticPlacementOwner({ placementId = "", targetId = "", owner = "" } = {}) {
+  const explicitOwner = normalizePlacementOwnerId(owner);
+  if (explicitOwner) {
+    return explicitOwner;
+  }
+  if (placementId.startsWith("page.") || placementId.startsWith("settings.")) {
+    return resolveOutletOwner(targetId);
+  }
+  return "";
+}
+
+function resolveTopologySurfaces(options = {}) {
+  const surface = normalizePlacementSurfaceId(options?.surface);
+  if (surface) {
+    return [surface];
+  }
+  return ["*"];
+}
+
+function renderTopologyOwnerLine(owner = "") {
+  if (!owner) {
+    return "";
+  }
+  return `  owner: "${owner}",\n`;
+}
+
+function renderLinkRendererBlock(rendererToken = "") {
+  const normalizedRendererToken = normalizeText(rendererToken) || "local.main.ui.surface-aware-menu-link-item";
+  return (
+    "      renderers: {\n" +
+    `        link: "${normalizedRendererToken}"\n` +
+    "      }\n"
+  );
+}
+
+function renderOutletTopologyBlock({
+  marker = "",
+  placementId = "",
+  owner = "",
+  surfaces = ["*"],
+  description = "",
+  target = "",
+  rendererToken = ""
+} = {}) {
+  const descriptionLine = normalizeText(description)
+    ? `  description: ${JSON.stringify(normalizeText(description))},\n`
+    : "";
+  const rendererBlock = renderLinkRendererBlock(rendererToken);
+  return (
+    `// ${marker}\n` +
+    "addPlacementTopology({\n" +
+    `  id: "${placementId}",\n` +
+    renderTopologyOwnerLine(owner) +
+    descriptionLine +
+    `  surfaces: ${JSON.stringify(surfaces)},\n` +
+    "  variants: {\n" +
+    "    compact: {\n" +
+    `      outlet: "${target}",\n` +
+    rendererBlock +
+    "    },\n" +
+    "    medium: {\n" +
+    `      outlet: "${target}",\n` +
+    rendererBlock +
+    "    },\n" +
+    "    expanded: {\n" +
+    `      outlet: "${target}",\n` +
+    rendererBlock +
+    "    }\n" +
+    "  }\n" +
+    "});\n"
+  );
+}
+
 function findLastTemplateCloseTag(source = "") {
   const sourceText = String(source || "");
   let lastMatch = null;
@@ -123,7 +220,7 @@ async function runGeneratorSubcommand({
     throw new Error(`Unsupported ui-generator subcommand: ${normalizedSubcommand || "<empty>"}.`);
   }
   const targetFile = requireSinglePositionalTargetFile(args, { context: "ui-generator outlet" });
-  rejectUnexpectedOptions(options, ["target"], {
+  rejectUnexpectedOptions(options, ["target", "placement", "owner", "surface", "description", "link-renderer"], {
     context: "ui-generator outlet"
   });
 
@@ -132,6 +229,13 @@ async function runGeneratorSubcommand({
     optionName: "target"
   });
   const targetId = outletTarget.id;
+  const placementId = resolveSemanticPlacementOption(options);
+  const owner = resolveSemanticPlacementOwner({
+    placementId,
+    targetId,
+    owner: options?.owner
+  });
+  const surfaces = resolveTopologySurfaces(options);
 
   const targetFilePath = resolvePathWithinApp(appRoot, targetFile, {
     context: "ui-generator outlet"
@@ -162,11 +266,41 @@ async function runGeneratorSubcommand({
     await writeFile(targetFilePath.absolutePath, scriptApplied.content, "utf8");
   }
 
+  const topologyPath = resolvePathWithinApp(appRoot, PLACEMENT_TOPOLOGY_FILE, {
+    context: "ui-generator outlet"
+  });
+  const topologyMarker = `jskit:ui-generator.topology:${placementId}:${owner || "global"}`;
+  const topologySource = await readFile(topologyPath.absolutePath, "utf8");
+  const topologyApplied = appendBlockIfMarkerMissing(
+    topologySource,
+    topologyMarker,
+    renderOutletTopologyBlock({
+      marker: topologyMarker,
+      placementId,
+      owner,
+      surfaces,
+      description: options?.description,
+      target: targetId,
+      rendererToken: options?.["link-renderer"]
+    })
+  );
+  if (topologyApplied.changed && dryRun !== true) {
+    await writeFile(topologyPath.absolutePath, topologyApplied.content, "utf8");
+  }
+
+  const touchedFiles = new Set();
+  if (changed) {
+    touchedFiles.add(targetFilePath.relativePath);
+  }
+  if (topologyApplied.changed) {
+    touchedFiles.add(topologyPath.relativePath);
+  }
+
   return {
-    touchedFiles: changed ? [targetFilePath.relativePath] : [],
-    summary: changed
-      ? `Injected outlet "${targetId}" into ${targetFilePath.relativePath}.`
-      : `Outlet "${targetId}" is already present in ${targetFilePath.relativePath}.`
+    touchedFiles: [...touchedFiles].sort((left, right) => left.localeCompare(right)),
+    summary: touchedFiles.size > 0
+      ? `Injected outlet "${targetId}" and mapped semantic placement "${placementId}"${owner ? ` for owner "${owner}"` : ""}.`
+      : `Outlet "${targetId}" and semantic placement "${placementId}" are already present.`
   };
 }
 

@@ -30,7 +30,7 @@ async function runGeneratorSubcommand({
   }
 
   const targetFile = requireSinglePositionalTargetFile(args, { context: "assistant page" });
-  rejectUnexpectedOptions(options, ["name", "link-placement", "link-component-token", "link-to", "force"], {
+  rejectUnexpectedOptions(options, ["name", "link-placement", "link-to", "force"], {
     context: "assistant page"
   });
   const forceOverwrite = Object.prototype.hasOwnProperty.call(options, "force")

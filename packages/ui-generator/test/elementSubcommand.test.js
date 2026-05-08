@@ -14,6 +14,39 @@ async function withTempApp(run) {
   }
 }
 
+function renderTopologyEntry({
+  id = "",
+  owner = "",
+  surfaces = ["*"],
+  defaultPlacement = false,
+  outlet = "",
+  linkRenderer = ""
+} = {}) {
+  const ownerLine = owner ? `    owner: "${owner}",\n` : "";
+  const defaultLine = defaultPlacement ? "    default: true,\n" : "";
+  const rendererLines = linkRenderer
+    ? `,
+      renderers: {
+        link: "${linkRenderer}"
+      }`
+    : "";
+  return `  {
+    id: "${id}",
+${ownerLine}    surfaces: ${JSON.stringify(surfaces)},
+${defaultLine}    variants: {
+      compact: {
+        outlet: "${outlet}"${rendererLines}
+      },
+      medium: {
+        outlet: "${outlet}"${rendererLines}
+      },
+      expanded: {
+        outlet: "${outlet}"${rendererLines}
+      }
+    }
+  }`;
+}
+
 async function writeAppFixture(appRoot) {
   await mkdir(path.join(appRoot, "config"), { recursive: true });
   await mkdir(path.join(appRoot, "src", "components"), { recursive: true });
@@ -43,11 +76,39 @@ async function writeAppFixture(appRoot) {
     <ShellOutlet
       target="shell-layout:primary-menu"
       default
-      default-link-component-token="local.main.ui.surface-aware-menu-link-item"
     />
     <ShellOutlet target="shell-layout:top-right" />
   </div>
 </template>
+`,
+    "utf8"
+  );
+  await writeFile(
+    path.join(appRoot, "src", "placementTopology.js"),
+    `export default {
+  placements: [
+${[
+  renderTopologyEntry({
+    id: "shell.primary-nav",
+    surfaces: ["*"],
+    defaultPlacement: true,
+    outlet: "shell-layout:primary-menu",
+    linkRenderer: "local.main.ui.surface-aware-menu-link-item"
+  }),
+  renderTopologyEntry({
+    id: "shell.status",
+    surfaces: ["*"],
+    outlet: "shell-layout:top-right"
+  }),
+  renderTopologyEntry({
+    id: "settings.sections",
+    owner: "admin-settings",
+    surfaces: ["admin"],
+    outlet: "admin-settings:forms"
+  })
+].join(",\n")}
+  ]
+};
 `,
     "utf8"
   );
@@ -116,7 +177,8 @@ test("ui-generator placed-element subcommand creates component and outlet placem
 
     const placementSource = await readFile(path.join(appRoot, "src", "placement.js"), "utf8");
     assert.match(placementSource, /id: "ui-generator\.element\.ops-panel"/);
-    assert.match(placementSource, /target: "shell-layout:top-right"/);
+    assert.match(placementSource, /target: "shell\.status"/);
+    assert.match(placementSource, /kind: "component"/);
     assert.match(placementSource, /componentToken: "local\.main\.ui\.element\.ops-panel"/);
   });
 });
@@ -131,16 +193,16 @@ test("ui-generator placed-element subcommand supports explicit placement overrid
       options: {
         name: "Ops Panel",
         surface: "admin",
-        placement: "shell-layout:primary-menu"
+        placement: "shell.primary-nav"
       }
     });
 
     const placementSource = await readFile(path.join(appRoot, "src", "placement.js"), "utf8");
-    assert.match(placementSource, /target: "shell-layout:primary-menu"/);
+    assert.match(placementSource, /target: "shell\.primary-nav"/);
   });
 });
 
-test("ui-generator placed-element infers surface from a page-owned placement target", async () => {
+test("ui-generator placed-element infers surface from an owner-scoped semantic placement", async () => {
   await withTempApp(async (appRoot) => {
     await writeAppFixture(appRoot);
 
@@ -149,12 +211,14 @@ test("ui-generator placed-element infers surface from a page-owned placement tar
       subcommand: "placed-element",
       options: {
         name: "Ops Panel",
-        placement: "admin-settings:forms"
+        placement: "settings.sections",
+        owner: "admin-settings"
       }
     });
 
     const placementSource = await readFile(path.join(appRoot, "src", "placement.js"), "utf8");
-    assert.match(placementSource, /target: "admin-settings:forms"/);
+    assert.match(placementSource, /target: "settings\.sections"/);
+    assert.match(placementSource, /owner: "admin-settings"/);
     assert.match(placementSource, /surfaces: \["admin"\]/);
   });
 });
@@ -172,7 +236,7 @@ test("ui-generator placed-element infers the only enabled surface for shared she
     });
 
     const placementSource = await readFile(path.join(appRoot, "src", "placement.js"), "utf8");
-    assert.match(placementSource, /target: "shell-layout:top-right"/);
+    assert.match(placementSource, /target: "shell\.status"/);
     assert.match(placementSource, /surfaces: \["admin"\]/);
   });
 });
@@ -210,7 +274,7 @@ test("ui-generator placed-element requires explicit surface when a shared shell 
             name: "Ops Panel"
           }
         }),
-      /could not infer a surface for placement target "shell-layout:top-right". Pass --surface explicitly/
+      /could not infer a surface for placement target "shell.status". Pass --surface explicitly/
     );
   });
 });
@@ -226,11 +290,12 @@ test("ui-generator placed-element rejects explicit surfaces that conflict with p
           subcommand: "placed-element",
           options: {
             name: "Ops Panel",
-            placement: "admin-settings:forms",
+            placement: "settings.sections",
+            owner: "admin-settings",
             surface: "console"
           }
         }),
-      /target "admin-settings:forms" belongs to surface "admin", so --surface console is invalid/
+      /target "settings.sections" is not available on surface "console"/
     );
   });
 });

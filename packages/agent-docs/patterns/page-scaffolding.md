@@ -18,8 +18,9 @@ Rules:
 
 - Default to `jskit generate ui-generator page ...` for a new app-owned non-CRUD route page.
 - Let the generator create both the page file and the matching `src/placement.js` entry, then adapt the generated output if needed.
-- If the page link belongs in a non-default outlet, discover the outlet first with `jskit list-placements` and pass `--link-placement`.
-- If the page sits under an existing routed host, check whether `ui-generator page` can infer the correct child placement before writing a custom link by hand.
+- If the page link belongs in a non-default semantic slot, discover the public placement first with `jskit list-placements` and pass `--link-placement`.
+- If you need the concrete outlet inventory, use `jskit list-placements --concrete`; do not target concrete outlets by default.
+- If the page sits under an existing routed host, check whether `ui-generator page` can infer the correct `page.section-nav` owner before writing a custom link by hand.
 - If you do not use `ui-generator page`, state exactly why the generator does not fit before editing code.
 - For a small placeholder route inside an existing route family, update the workboard rather than rewriting the blueprint unless the durable route or surface plan changed.
 

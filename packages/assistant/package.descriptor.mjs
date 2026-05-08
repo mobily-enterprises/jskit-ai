@@ -49,14 +49,7 @@ export default Object.freeze({
       inputType: "text",
       defaultValue: "",
       promptLabel: "Link placement",
-      promptHint: "Optional target for the generated page link placement (format: host:position)."
-    },
-    "link-component-token": {
-      required: false,
-      inputType: "text",
-      defaultValue: "",
-      promptLabel: "Link component token",
-      promptHint: "Optional component token override for the generated page link placement."
+      promptHint: "Optional semantic target for the generated page link placement (format: area.slot)."
     },
     "link-to": {
       required: false,
@@ -169,7 +162,7 @@ export default Object.freeze({
             descriptionKey: "page-target-file"
           }
         ],
-        optionNames: ["name", "link-placement", "link-component-token", "link-to", "force"],
+        optionNames: ["name", "link-placement", "link-to", "force"],
         notes: [
           "The target file decides where the page lives.",
           "Page-link placement follows the same inference rules as ui-generator page.",
@@ -189,7 +182,7 @@ export default Object.freeze({
               "npx jskit generate assistant page \\",
               "  admin/ops/copilot/index.vue \\",
               "  --name \"Copilot\" \\",
-              "  --link-placement shell-layout:top-right"
+              "  --link-placement shell.status"
             ]
           }
         ]
@@ -206,7 +199,7 @@ export default Object.freeze({
             descriptionKey: "page-target-file"
           }
         ],
-        optionNames: ["surface", "name", "link-placement", "link-component-token", "link-to", "force"],
+        optionNames: ["surface", "name", "link-placement", "link-to", "force"],
         requiredOptionNames: ["surface"],
         notes: [
           "The target file decides where the settings page lives.",

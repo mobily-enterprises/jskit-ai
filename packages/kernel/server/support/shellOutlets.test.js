@@ -99,7 +99,6 @@ test("discoverShellOutletTargetsFromApp includes installed package placement out
         outlets: [
           {
             target: "admin-cog:primary-menu",
-            defaultLinkComponentToken: "local.main.ui.surface-aware-menu-link-item",
             source: "src/client/components/UsersWorkspaceToolsWidget.vue"
           }
         ]
@@ -118,7 +117,6 @@ test("discoverShellOutletTargetsFromApp includes installed package placement out
     assert.deepEqual(discovered.targets[0], {
       id: "admin-cog:primary-menu",
       default: false,
-      defaultLinkComponentToken: "local.main.ui.surface-aware-menu-link-item",
       sourcePath: "package:@example/users-web:src/client/components/UsersWorkspaceToolsWidget.vue",
       sourcePackageId: "@example/users-web"
     });
@@ -129,68 +127,6 @@ test("discoverShellOutletTargetsFromApp includes installed package placement out
       context: "ui-generator"
     });
     assert.equal(target.id, "admin-cog:primary-menu");
-  });
-});
-
-test("discoverShellOutletTargetsFromApp applies app config default-link overrides by target id", async () => {
-  await withTempApp(async (appRoot) => {
-    await writeFileInApp(
-      appRoot,
-      "config/public.js",
-      `export const config = {
-  ui: {
-    outletDefaults: {
-      "admin-cog:primary-menu": {
-        linkComponentToken: "local.main.ui.surface-aware-menu-link-item"
-      }
-    }
-  }
-};
-`
-    );
-    await writeFileInApp(
-      appRoot,
-      ".jskit/lock.json",
-      `${JSON.stringify(
-        {
-          lockVersion: 1,
-          installedPackages: {
-            "@example/users-web": {
-              packageId: "@example/users-web",
-              source: {
-                type: "npm-installed-package",
-                descriptorPath: "node_modules/@example/users-web/package.descriptor.mjs"
-              }
-            }
-          }
-        },
-        null,
-        2
-      )}\n`
-    );
-    await writeFileInApp(
-      appRoot,
-      "node_modules/@example/users-web/package.descriptor.mjs",
-      `export default {
-  packageId: "@example/users-web",
-  metadata: {
-    ui: {
-      placements: {
-        outlets: [
-          {
-            target: "admin-cog:primary-menu",
-            defaultLinkComponentToken: "local.main.ui.surface-aware-menu-link-item"
-          }
-        ]
-      }
-    }
-  }
-};
-`
-    );
-
-    const discovered = await discoverShellOutletTargetsFromApp({ appRoot });
-    assert.equal(discovered.targets[0].defaultLinkComponentToken, "local.main.ui.surface-aware-menu-link-item");
   });
 });
 
@@ -223,13 +159,11 @@ test("discoverShellOutletTargetsFromApp returns targets with sourcePath and defa
       {
         id: "admin-toolbox:widgets",
         default: true,
-        defaultLinkComponentToken: "",
         sourcePath: "src/pages/admin/toolbox/index.vue"
       },
       {
         id: "shell-layout:primary-menu",
         default: false,
-        defaultLinkComponentToken: "",
         sourcePath: "src/components/ShellLayout.vue"
       }
     ]);
@@ -266,7 +200,6 @@ test("discoverShellOutletTargetsFromApp discovers route meta placement outlets",
       {
         id: "contact-tools:sub-pages",
         default: false,
-        defaultLinkComponentToken: "",
         sourcePath: "src/pages/w/[workspaceSlug]/admin/contacts/[contactId]/contact-tools.vue"
       }
     ]);

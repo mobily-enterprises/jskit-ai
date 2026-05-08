@@ -24,6 +24,18 @@ function readContributions(target = "") {
     : [];
 }
 
+function readTopology(id = "", owner = "") {
+  const placements = descriptor?.metadata?.ui?.placements?.topology?.placements;
+  const normalizedId = String(id || "").trim();
+  const normalizedOwner = String(owner || "").trim();
+  return Array.isArray(placements)
+    ? placements.filter((entry) =>
+        String(entry?.id || "").trim() === normalizedId &&
+        String(entry?.owner || "").trim() === normalizedOwner
+      )
+    : [];
+}
+
 function findFileMutation(id) {
   const files = descriptor?.mutations?.files;
   return Array.isArray(files)
@@ -35,7 +47,7 @@ test("shell-web home settings template exposes surface-derived settings outlets"
   const source = await readFile(path.join(PACKAGE_DIR, "templates", "src", "pages", "home", "settings.vue"), "utf8");
 
   assert.match(source, /target="home-settings:primary-menu"/);
-  assert.match(source, /default-link-component-token="local\.main\.ui\.surface-aware-menu-link-item"/);
+  assert.doesNotMatch(source, /default-link-component-token/);
   assert.match(source, /<RouterView \/>/);
 });
 
@@ -64,7 +76,8 @@ test("shell-web placement template seeds default Home and Settings drawer naviga
   const source = await readFile(path.join(PACKAGE_DIR, "templates", "src", "placement.js"), "utf8");
 
   assert.match(source, /id: "shell-web\.home\.menu\.home"/);
-  assert.match(source, /target: "shell-layout:primary-menu"/);
+  assert.match(source, /target: "shell\.primary-nav"/);
+  assert.match(source, /kind: "link"/);
   assert.match(source, /surfaces: \["home"\]/);
   assert.match(source, /label: "Home"/);
   assert.match(source, /unscopedSuffix: "\/"/);
@@ -72,7 +85,8 @@ test("shell-web placement template seeds default Home and Settings drawer naviga
   assert.match(source, /label: "Settings"/);
   assert.match(source, /unscopedSuffix: "\/settings"/);
   assert.match(source, /id: "shell-web\.home\.settings\.general"/);
-  assert.match(source, /target: "home-settings:primary-menu"/);
+  assert.match(source, /target: "page\.section-nav"/);
+  assert.match(source, /owner: "home-settings"/);
   assert.match(source, /label: "General"/);
   assert.match(source, /unscopedSuffix: "\/settings\/general"/);
   assert.doesNotMatch(source, /to: "\.\/general"/);
@@ -84,7 +98,6 @@ test("shell-web descriptor metadata advertises home settings outlets, default dr
     [
       {
         target: "home-settings:primary-menu",
-        defaultLinkComponentToken: "local.main.ui.surface-aware-menu-link-item",
         surfaces: ["home"],
         source: "templates/src/pages/home/settings.vue"
       }
@@ -92,40 +105,44 @@ test("shell-web descriptor metadata advertises home settings outlets, default dr
   );
 
   assert.deepEqual(
-    readContributions("shell-layout:primary-menu"),
+    readContributions("shell.primary-nav"),
     [
       {
         id: "shell-web.home.menu.home",
-        target: "shell-layout:primary-menu",
+        target: "shell.primary-nav",
+        kind: "link",
         surfaces: ["home"],
         order: 50,
-        componentToken: "local.main.ui.surface-aware-menu-link-item",
         source: "templates/src/placement.js"
       },
       {
         id: "shell-web.home.menu.settings",
-        target: "shell-layout:primary-menu",
+        target: "shell.primary-nav",
+        kind: "link",
         surfaces: ["home"],
         order: 100,
-        componentToken: "local.main.ui.surface-aware-menu-link-item",
         source: "templates/src/placement.js"
       }
     ]
   );
 
   assert.deepEqual(
-    readContributions("home-settings:primary-menu"),
+    readContributions("page.section-nav"),
     [
       {
         id: "shell-web.home.settings.general",
-        target: "home-settings:primary-menu",
+        target: "page.section-nav",
+        owner: "home-settings",
+        kind: "link",
         surfaces: ["home"],
         order: 100,
-        componentToken: "local.main.ui.surface-aware-menu-link-item",
         source: "templates/src/placement.js"
       }
     ]
   );
+
+  assert.equal(readTopology("shell.primary-nav").length, 1);
+  assert.equal(readTopology("page.section-nav", "home-settings").length, 1);
 
   assert.deepEqual(findFileMutation("shell-web-page-home-settings-shell"), {
     from: "templates/src/pages/home/settings.vue",

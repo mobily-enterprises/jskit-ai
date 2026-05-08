@@ -6,7 +6,6 @@ import { ADMIN_COG_OUTLET } from "../../shared/toolsOutletContracts.js";
 <template>
   <ShellOutletMenuWidget
     :target="ADMIN_COG_OUTLET.target"
-    :default-link-component-token="ADMIN_COG_OUTLET.defaultLinkComponentToken"
     :aria-label="ADMIN_COG_OUTLET.ariaLabel"
   />
 </template>

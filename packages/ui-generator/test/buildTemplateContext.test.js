@@ -35,10 +35,71 @@ async function writeShellLayout(appRoot, source = "") {
     <ShellOutlet
       target="shell-layout:primary-menu"
       default
-      default-link-component-token="local.main.ui.surface-aware-menu-link-item"
     />
   </div>
 </template>
+`
+  );
+  await writePlacementTopology(appRoot);
+}
+
+function renderTopologyVariant(outlet, { linkRenderer = "" } = {}) {
+  const rendererLines = linkRenderer
+    ? `,
+      renderers: {
+        link: "${linkRenderer}"
+      }`
+    : "";
+  return `{
+      outlet: "${outlet}"${rendererLines}
+    }`;
+}
+
+function renderTopologyEntry({
+  id = "",
+  owner = "",
+  surfaces = ["*"],
+  defaultPlacement = false,
+  outlet = "",
+  linkRenderer = ""
+} = {}) {
+  const ownerLine = owner ? `    owner: "${owner}",\n` : "";
+  const defaultLine = defaultPlacement ? "    default: true,\n" : "";
+  return `  {
+    id: "${id}",
+${ownerLine}    surfaces: ${JSON.stringify(surfaces)},
+${defaultLine}    variants: {
+      compact: ${renderTopologyVariant(outlet, { linkRenderer })},
+      medium: ${renderTopologyVariant(outlet, { linkRenderer })},
+      expanded: ${renderTopologyVariant(outlet, { linkRenderer })}
+    }
+  }`;
+}
+
+async function writePlacementTopology(appRoot, entries = []) {
+  const defaultEntries = [
+    renderTopologyEntry({
+      id: "shell.primary-nav",
+      surfaces: ["*"],
+      defaultPlacement: true,
+      outlet: "shell-layout:primary-menu",
+      linkRenderer: "local.main.ui.surface-aware-menu-link-item"
+    }),
+    renderTopologyEntry({
+      id: "shell.status",
+      surfaces: ["*"],
+      outlet: "shell-layout:top-right",
+      linkRenderer: "local.main.ui.surface-aware-menu-link-item"
+    })
+  ];
+  await writeFileInApp(
+    appRoot,
+    "src/placementTopology.js",
+    `export default {
+  placements: [
+${[...defaultEntries, ...entries].join(",\n")}
+  ]
+};
 `
   );
 }
@@ -61,8 +122,9 @@ test("buildUiPageTemplateContext resolves link placement from default app ShellO
       targetFile: "admin/reports/index.vue",
       options: {}
     });
-    assert.equal(context.__JSKIT_UI_LINK_PLACEMENT_TARGET__, "shell-layout:primary-menu");
-    assert.equal(context.__JSKIT_UI_LINK_COMPONENT_TOKEN__, "local.main.ui.surface-aware-menu-link-item");
+    assert.equal(context.__JSKIT_UI_LINK_PLACEMENT_TARGET__, "shell.primary-nav");
+    assert.equal(context.__JSKIT_UI_LINK_OWNER_LINE__, "");
+    assert.equal(context.__JSKIT_UI_LINK_COMPONENT_TOKEN__, "");
     assert.equal(context.__JSKIT_UI_LINK_WORKSPACE_SUFFIX__, "/reports");
     assert.equal(context.__JSKIT_UI_LINK_NON_WORKSPACE_SUFFIX__, "/reports");
     assert.equal(context.__JSKIT_UI_LINK_WHEN_LINE__, "");
@@ -116,15 +178,15 @@ test("buildUiPageTemplateContext supports explicit link placement override", asy
       appRoot,
       targetFile: "admin/reports/index.vue",
       options: {
-        "link-placement": "shell-layout:top-right"
+        "link-placement": "shell.status"
       }
     });
-    assert.equal(context.__JSKIT_UI_LINK_PLACEMENT_TARGET__, "shell-layout:top-right");
-    assert.equal(context.__JSKIT_UI_LINK_COMPONENT_TOKEN__, "local.main.ui.surface-aware-menu-link-item");
+    assert.equal(context.__JSKIT_UI_LINK_PLACEMENT_TARGET__, "shell.status");
+    assert.equal(context.__JSKIT_UI_LINK_COMPONENT_TOKEN__, "");
   });
 });
 
-test("buildUiPageTemplateContext supports explicit package outlet link placement", async () => {
+test("buildUiPageTemplateContext supports explicit package semantic link placement", async () => {
   await withTempApp(async (appRoot) => {
     await writeConfig(
       appRoot,
@@ -136,6 +198,22 @@ test("buildUiPageTemplateContext supports explicit package outlet link placement
 `
     );
     await writeShellLayout(appRoot);
+    await writePlacementTopology(appRoot, [
+      renderTopologyEntry({
+        id: "page.section-nav",
+        owner: "catalog",
+        surfaces: ["admin"],
+        outlet: "catalog:sub-pages",
+        linkRenderer: "local.main.ui.surface-aware-menu-link-item"
+      }),
+      renderTopologyEntry({
+        id: "page.section-nav",
+        owner: "catalog-products",
+        surfaces: ["admin"],
+        outlet: "catalog-products:sub-pages",
+        linkRenderer: "local.main.ui.surface-aware-menu-link-item"
+      })
+    ]);
     await writeFileInApp(
       appRoot,
       ".jskit/lock.json",
@@ -164,13 +242,34 @@ test("buildUiPageTemplateContext supports explicit package outlet link placement
   metadata: {
     ui: {
       placements: {
-        outlets: [
+        topology: {
+          placements: [
           {
-            target: "admin-cog:primary-menu",
-            defaultLinkComponentToken: "local.main.ui.surface-aware-menu-link-item",
-            source: "src/client/components/UsersWorkspaceToolsWidget.vue"
+            id: "admin.tools-menu",
+            surfaces: ["admin"],
+            variants: {
+              compact: {
+                outlet: "admin-cog:primary-menu",
+                renderers: {
+                  link: "local.main.ui.surface-aware-menu-link-item"
+                }
+              },
+              medium: {
+                outlet: "admin-cog:primary-menu",
+                renderers: {
+                  link: "local.main.ui.surface-aware-menu-link-item"
+                }
+              },
+              expanded: {
+                outlet: "admin-cog:primary-menu",
+                renderers: {
+                  link: "local.main.ui.surface-aware-menu-link-item"
+                }
+              }
+            }
           }
         ]
+        }
       }
     }
   }
@@ -182,10 +281,10 @@ test("buildUiPageTemplateContext supports explicit package outlet link placement
       appRoot,
       targetFile: "admin/reports/index.vue",
       options: {
-        "link-placement": "admin-cog:primary-menu"
+        "link-placement": "admin.tools-menu"
       }
     });
-    assert.equal(context.__JSKIT_UI_LINK_PLACEMENT_TARGET__, "admin-cog:primary-menu");
+    assert.equal(context.__JSKIT_UI_LINK_PLACEMENT_TARGET__, "admin.tools-menu");
   });
 });
 
@@ -200,15 +299,21 @@ test("buildUiPageTemplateContext suppresses inferred relative link-to for surfac
 };
 `
     );
+    await writePlacementTopology(appRoot, [
+      renderTopologyEntry({
+        id: "page.section-nav",
+        owner: "home-settings",
+        surfaces: ["home"],
+        outlet: "home-settings:primary-menu",
+        linkRenderer: "local.main.ui.surface-aware-menu-link-item"
+      })
+    ]);
     await writeFileInApp(
       appRoot,
       "src/pages/home/settings.vue",
       `<template>
   <section>
-    <ShellOutlet
-      target="home-settings:primary-menu"
-      default-link-component-token="local.main.ui.surface-aware-menu-link-item"
-    />
+    <ShellOutlet target="home-settings:primary-menu" />
     <RouterView />
   </section>
 </template>
@@ -221,13 +326,14 @@ test("buildUiPageTemplateContext suppresses inferred relative link-to for surfac
       options: {}
     });
 
-    assert.equal(context.__JSKIT_UI_LINK_PLACEMENT_TARGET__, "home-settings:primary-menu");
-    assert.equal(context.__JSKIT_UI_LINK_COMPONENT_TOKEN__, "local.main.ui.surface-aware-menu-link-item");
+    assert.equal(context.__JSKIT_UI_LINK_PLACEMENT_TARGET__, "page.section-nav");
+    assert.equal(context.__JSKIT_UI_LINK_OWNER_LINE__, "    owner: \"home-settings\",\n");
+    assert.equal(context.__JSKIT_UI_LINK_COMPONENT_TOKEN__, "");
     assert.equal(context.__JSKIT_UI_LINK_TO_PROP_LINE__, "");
   });
 });
 
-test("buildUiPageTemplateContext supports explicit link component token and link-to", async () => {
+test("buildUiPageTemplateContext supports explicit semantic placement and link-to", async () => {
   await withTempApp(async (appRoot) => {
     await writeConfig(
       appRoot,
@@ -244,12 +350,12 @@ test("buildUiPageTemplateContext supports explicit link component token and link
       appRoot,
       targetFile: "admin/contacts/[contactId]/index/notes/index.vue",
       options: {
-        "link-placement": "shell-layout:top-right",
-        "link-component-token": "local.main.ui.tab-link-item",
+        "link-placement": "shell.status",
         "link-to": "./notes"
       }
     });
-    assert.equal(context.__JSKIT_UI_LINK_COMPONENT_TOKEN__, "local.main.ui.tab-link-item");
+    assert.equal(context.__JSKIT_UI_LINK_PLACEMENT_TARGET__, "shell.status");
+    assert.equal(context.__JSKIT_UI_LINK_COMPONENT_TOKEN__, "");
     assert.equal(context.__JSKIT_UI_LINK_ICON__, "mdi-view-list-outline");
     assert.equal(context.__JSKIT_UI_LINK_WORKSPACE_SUFFIX__, "/contacts/[contactId]/notes");
     assert.equal(context.__JSKIT_UI_LINK_NON_WORKSPACE_SUFFIX__, "/contacts/[contactId]/notes");
@@ -294,6 +400,15 @@ test("buildUiPageTemplateContext infers subpage link placement, tab token, and l
 `
     );
     await writeShellLayout(appRoot);
+    await writePlacementTopology(appRoot, [
+      renderTopologyEntry({
+        id: "page.section-nav",
+        owner: "contact-view",
+        surfaces: ["admin"],
+        outlet: "contact-view:sub-pages",
+        linkRenderer: "local.main.ui.surface-aware-menu-link-item"
+      })
+    ]);
     await writeFileInApp(
       appRoot,
       "src/pages/admin/contacts/[contactId].vue",
@@ -314,8 +429,9 @@ test("buildUiPageTemplateContext infers subpage link placement, tab token, and l
       options: {}
     });
 
-    assert.equal(context.__JSKIT_UI_LINK_PLACEMENT_TARGET__, "contact-view:sub-pages");
-    assert.equal(context.__JSKIT_UI_LINK_COMPONENT_TOKEN__, "local.main.ui.surface-aware-menu-link-item");
+    assert.equal(context.__JSKIT_UI_LINK_PLACEMENT_TARGET__, "page.section-nav");
+    assert.equal(context.__JSKIT_UI_LINK_OWNER_LINE__, "    owner: \"contact-view\",\n");
+    assert.equal(context.__JSKIT_UI_LINK_COMPONENT_TOKEN__, "");
     assert.equal(context.__JSKIT_UI_LINK_ICON__, "mdi-view-list-outline");
     assert.equal(context.__JSKIT_UI_LINK_TO_PROP_LINE__, "      to: \"./notes\",\n");
   });
@@ -333,6 +449,15 @@ test("buildUiPageTemplateContext inherits a file-route parent host for deeper de
 `
     );
     await writeShellLayout(appRoot);
+    await writePlacementTopology(appRoot, [
+      renderTopologyEntry({
+        id: "page.section-nav",
+        owner: "contact-view",
+        surfaces: ["admin"],
+        outlet: "contact-view:sub-pages",
+        linkRenderer: "local.main.ui.surface-aware-menu-link-item"
+      })
+    ]);
     await writeFileInApp(
       appRoot,
       "src/pages/admin/contacts/[contactId].vue",
@@ -353,8 +478,8 @@ test("buildUiPageTemplateContext inherits a file-route parent host for deeper de
       options: {}
     });
 
-    assert.equal(context.__JSKIT_UI_LINK_PLACEMENT_TARGET__, "contact-view:sub-pages");
-    assert.equal(context.__JSKIT_UI_LINK_COMPONENT_TOKEN__, "local.main.ui.surface-aware-menu-link-item");
+    assert.equal(context.__JSKIT_UI_LINK_PLACEMENT_TARGET__, "page.section-nav");
+    assert.equal(context.__JSKIT_UI_LINK_COMPONENT_TOKEN__, "");
     assert.equal(context.__JSKIT_UI_LINK_TO_PROP_LINE__, "      to: \"./notes/history\",\n");
   });
 });
@@ -371,6 +496,15 @@ test("buildUiPageTemplateContext infers subpage link placement from an index-rou
 `
     );
     await writeShellLayout(appRoot);
+    await writePlacementTopology(appRoot, [
+      renderTopologyEntry({
+        id: "page.section-nav",
+        owner: "catalog",
+        surfaces: ["admin"],
+        outlet: "catalog:sub-pages",
+        linkRenderer: "local.main.ui.surface-aware-menu-link-item"
+      })
+    ]);
     await writeFileInApp(
       appRoot,
       "src/pages/admin/catalog/index.vue",
@@ -391,8 +525,9 @@ test("buildUiPageTemplateContext infers subpage link placement from an index-rou
       options: {}
     });
 
-    assert.equal(context.__JSKIT_UI_LINK_PLACEMENT_TARGET__, "catalog:sub-pages");
-    assert.equal(context.__JSKIT_UI_LINK_COMPONENT_TOKEN__, "local.main.ui.surface-aware-menu-link-item");
+    assert.equal(context.__JSKIT_UI_LINK_PLACEMENT_TARGET__, "page.section-nav");
+    assert.equal(context.__JSKIT_UI_LINK_OWNER_LINE__, "    owner: \"catalog\",\n");
+    assert.equal(context.__JSKIT_UI_LINK_COMPONENT_TOKEN__, "");
     assert.equal(context.__JSKIT_UI_LINK_ICON__, "mdi-view-list-outline");
     assert.equal(context.__JSKIT_UI_LINK_TO_PROP_LINE__, "      to: \"./products\",\n");
   });
@@ -410,6 +545,22 @@ test("buildUiPageTemplateContext finds the nearest index-route parent host", asy
 `
     );
     await writeShellLayout(appRoot);
+    await writePlacementTopology(appRoot, [
+      renderTopologyEntry({
+        id: "page.section-nav",
+        owner: "catalog",
+        surfaces: ["admin"],
+        outlet: "catalog:sub-pages",
+        linkRenderer: "local.main.ui.surface-aware-menu-link-item"
+      }),
+      renderTopologyEntry({
+        id: "page.section-nav",
+        owner: "catalog-products",
+        surfaces: ["admin"],
+        outlet: "catalog-products:sub-pages",
+        linkRenderer: "local.main.ui.surface-aware-menu-link-item"
+      })
+    ]);
     await writeFileInApp(
       appRoot,
       "src/pages/admin/catalog/index.vue",
@@ -443,8 +594,9 @@ test("buildUiPageTemplateContext finds the nearest index-route parent host", asy
       options: {}
     });
 
-    assert.equal(context.__JSKIT_UI_LINK_PLACEMENT_TARGET__, "catalog-products:sub-pages");
-    assert.equal(context.__JSKIT_UI_LINK_COMPONENT_TOKEN__, "local.main.ui.surface-aware-menu-link-item");
+    assert.equal(context.__JSKIT_UI_LINK_PLACEMENT_TARGET__, "page.section-nav");
+    assert.equal(context.__JSKIT_UI_LINK_OWNER_LINE__, "    owner: \"catalog-products\",\n");
+    assert.equal(context.__JSKIT_UI_LINK_COMPONENT_TOKEN__, "");
     assert.equal(context.__JSKIT_UI_LINK_TO_PROP_LINE__, "      to: \"./variants\",\n");
   });
 });
@@ -461,6 +613,15 @@ test("buildUiPageTemplateContext infers subpage link placement from an index rou
 `
     );
     await writeShellLayout(appRoot);
+    await writePlacementTopology(appRoot, [
+      renderTopologyEntry({
+        id: "page.section-nav",
+        owner: "customer-view",
+        surfaces: ["admin"],
+        outlet: "customer-view:sub-pages",
+        linkRenderer: "local.main.ui.surface-aware-menu-link-item"
+      })
+    ]);
     await writeFileInApp(
       appRoot,
       "src/pages/admin/customers/[customerId]/index.vue",
@@ -481,8 +642,9 @@ test("buildUiPageTemplateContext infers subpage link placement from an index rou
       options: {}
     });
 
-    assert.equal(context.__JSKIT_UI_LINK_PLACEMENT_TARGET__, "customer-view:sub-pages");
-    assert.equal(context.__JSKIT_UI_LINK_COMPONENT_TOKEN__, "local.main.ui.surface-aware-menu-link-item");
+    assert.equal(context.__JSKIT_UI_LINK_PLACEMENT_TARGET__, "page.section-nav");
+    assert.equal(context.__JSKIT_UI_LINK_OWNER_LINE__, "    owner: \"customer-view\",\n");
+    assert.equal(context.__JSKIT_UI_LINK_COMPONENT_TOKEN__, "");
     assert.equal(context.__JSKIT_UI_LINK_TO_PROP_LINE__, "      to: \"./pets\",\n");
     assert.equal(context.__JSKIT_UI_LINK_WORKSPACE_SUFFIX__, "/customers/[customerId]/pets");
   });
@@ -641,7 +803,7 @@ test("buildUiPageTemplateContext validates link placement format", async () => {
             "link-placement": "invalid-placement"
           }
         }),
-      /option "placement" must be a target in "host:position" format/
+      /option "placement" must be a semantic target in "area.slot" format/
     );
   });
 });

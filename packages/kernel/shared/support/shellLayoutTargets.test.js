@@ -22,7 +22,6 @@ test("discoverShellOutletTargetsFromVueSource resolves legal targets and one def
       <ShellOutlet
         target="shell-layout:primary-menu"
         default
-        default-link-component-token="local.main.ui.surface-aware-menu-link-item"
       />
       <ShellOutlet target="shell-layout:secondary-menu" />
     </template>
@@ -37,7 +36,6 @@ test("discoverShellOutletTargetsFromVueSource resolves legal targets and one def
     discovered.targets.map((entry) => entry.id),
     ["shell-layout:top-left", "shell-layout:primary-menu", "shell-layout:secondary-menu"]
   );
-  assert.equal(discovered.targets[1].defaultLinkComponentToken, "local.main.ui.surface-aware-menu-link-item");
   assert.equal(
     describeShellOutletTargets(discovered.targets),
     "shell-layout:top-left, shell-layout:primary-menu, shell-layout:secondary-menu"

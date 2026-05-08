@@ -27,6 +27,67 @@ async function linkTestPackage(appRoot, packageName, packageDir) {
   await symlink(packageDir, targetPath, "dir");
 }
 
+function renderTopologyVariant(outlet, { linkRenderer = "" } = {}) {
+  const rendererLines = linkRenderer
+    ? `,
+      renderers: {
+        link: "${linkRenderer}"
+      }`
+    : "";
+  return `{
+      outlet: "${outlet}"${rendererLines}
+    }`;
+}
+
+function renderTopologyEntry({
+  id = "",
+  owner = "",
+  surfaces = ["*"],
+  defaultPlacement = false,
+  outlet = "",
+  linkRenderer = ""
+} = {}) {
+  const ownerLine = owner ? `    owner: "${owner}",\n` : "";
+  const defaultLine = defaultPlacement ? "    default: true,\n" : "";
+  return `  {
+    id: "${id}",
+${ownerLine}    surfaces: ${JSON.stringify(surfaces)},
+${defaultLine}    variants: {
+      compact: ${renderTopologyVariant(outlet, { linkRenderer })},
+      medium: ${renderTopologyVariant(outlet, { linkRenderer })},
+      expanded: ${renderTopologyVariant(outlet, { linkRenderer })}
+    }
+  }`;
+}
+
+async function writePlacementTopology(appRoot, entries = []) {
+  const defaultEntries = [
+    renderTopologyEntry({
+      id: "shell.primary-nav",
+      surfaces: ["*"],
+      defaultPlacement: true,
+      outlet: "shell-layout:primary-menu",
+      linkRenderer: "local.main.ui.surface-aware-menu-link-item"
+    }),
+    renderTopologyEntry({
+      id: "shell.secondary-nav",
+      surfaces: ["*"],
+      outlet: "shell-layout:secondary-menu",
+      linkRenderer: "local.main.ui.surface-aware-menu-link-item"
+    })
+  ];
+  await writeFile(
+    path.join(appRoot, "src", "placementTopology.js"),
+    `export default {
+  placements: [
+${[...defaultEntries, ...entries].join(",\n")}
+  ]
+};
+`,
+    "utf8"
+  );
+}
+
 async function withTempApp(run) {
   const appRoot = await mkdtemp(path.join(tmpdir(), "crud-ui-generator-"));
   try {
@@ -54,17 +115,14 @@ async function withTempApp(run) {
     <ShellOutlet
       target="shell-layout:primary-menu"
       default
-      default-link-component-token="local.main.ui.surface-aware-menu-link-item"
     />
-    <ShellOutlet
-      target="shell-layout:secondary-menu"
-      default-link-component-token="local.main.ui.surface-aware-menu-link-item"
-    />
+    <ShellOutlet target="shell-layout:secondary-menu" />
   </div>
 </template>
 `,
       "utf8"
     );
+    await writePlacementTopology(appRoot);
     return await run(appRoot);
   } finally {
     await rm(appRoot, { recursive: true, force: true });
@@ -614,8 +672,8 @@ test("buildUiTemplateContext resolves list placement from the app default shell 
     });
 
     assert.equal(context.__JSKIT_UI_MENU_PLACEMENT_ID__, "ui-generator.page.admin.customers.link");
-    assert.equal(context.__JSKIT_UI_MENU_PLACEMENT_TARGET__, "shell-layout:primary-menu");
-    assert.equal(context.__JSKIT_UI_MENU_COMPONENT_TOKEN__, "local.main.ui.surface-aware-menu-link-item");
+    assert.equal(context.__JSKIT_UI_MENU_PLACEMENT_TARGET__, "shell.primary-nav");
+    assert.equal(context.__JSKIT_UI_MENU_OWNER_LINE__, "");
     assert.equal(context.__JSKIT_UI_MENU_WORKSPACE_SUFFIX__, "/customers");
     assert.equal(context.__JSKIT_UI_MENU_NON_WORKSPACE_SUFFIX__, "/customers");
     assert.equal(context.__JSKIT_UI_MENU_TO_PROP_LINE__, "");
@@ -627,6 +685,15 @@ test("buildUiTemplateContext resolves list placement from the app default shell 
 test("buildUiTemplateContext infers tab placement and relative link-to from the nearest parent subpages host", async () => {
   await withTempApp(async (appRoot) => {
     await writeResource(appRoot, RESOURCE_FILE, FULL_RESOURCE_SOURCE);
+    await writePlacementTopology(appRoot, [
+      renderTopologyEntry({
+        id: "page.section-nav",
+        owner: "catalog",
+        surfaces: ["admin"],
+        outlet: "catalog:sub-pages",
+        linkRenderer: "local.main.ui.surface-aware-menu-link-item"
+      })
+    ]);
     await writeFileInApp(
       appRoot,
       "src/pages/admin/catalog/index.vue",
@@ -648,8 +715,8 @@ test("buildUiTemplateContext infers tab placement and relative link-to from the 
       })
     });
 
-    assert.equal(context.__JSKIT_UI_MENU_PLACEMENT_TARGET__, "catalog:sub-pages");
-    assert.equal(context.__JSKIT_UI_MENU_COMPONENT_TOKEN__, "local.main.ui.surface-aware-menu-link-item");
+    assert.equal(context.__JSKIT_UI_MENU_PLACEMENT_TARGET__, "page.section-nav");
+    assert.equal(context.__JSKIT_UI_MENU_OWNER_LINE__, "    owner: \"catalog\",\n");
     assert.equal(context.__JSKIT_UI_MENU_ICON__, "mdi-view-list-outline");
     assert.equal(context.__JSKIT_UI_MENU_TO_PROP_LINE__, "      to: \"./products\",\n");
     assert.equal(context.__JSKIT_UI_MENU_WORKSPACE_SUFFIX__, "/catalog/products");
@@ -659,15 +726,21 @@ test("buildUiTemplateContext infers tab placement and relative link-to from the 
 test("buildUiTemplateContext prefers an outlet-declared default link token and omits fragile relative to output", async () => {
   await withTempApp(async (appRoot) => {
     await writeResource(appRoot, RESOURCE_FILE, FULL_RESOURCE_SOURCE);
+    await writePlacementTopology(appRoot, [
+      renderTopologyEntry({
+        id: "page.section-nav",
+        owner: "admin-settings",
+        surfaces: ["admin"],
+        outlet: "admin-settings:primary-menu",
+        linkRenderer: "local.main.ui.surface-aware-menu-link-item"
+      })
+    ]);
     await writeFileInApp(
       appRoot,
       "src/pages/admin/settings.vue",
       `<template>
   <section>
-    <ShellOutlet
-      target="admin-settings:primary-menu"
-      default-link-component-token="local.main.ui.surface-aware-menu-link-item"
-    />
+    <ShellOutlet target="admin-settings:primary-menu" />
     <RouterView />
   </section>
 </template>
@@ -681,8 +754,8 @@ test("buildUiTemplateContext prefers an outlet-declared default link token and o
       })
     });
 
-    assert.equal(context.__JSKIT_UI_MENU_PLACEMENT_TARGET__, "admin-settings:primary-menu");
-    assert.equal(context.__JSKIT_UI_MENU_COMPONENT_TOKEN__, "local.main.ui.surface-aware-menu-link-item");
+    assert.equal(context.__JSKIT_UI_MENU_PLACEMENT_TARGET__, "page.section-nav");
+    assert.equal(context.__JSKIT_UI_MENU_OWNER_LINE__, "    owner: \"admin-settings\",\n");
     assert.equal(context.__JSKIT_UI_MENU_TO_PROP_LINE__, "");
   });
 });
@@ -694,12 +767,12 @@ test("buildUiTemplateContext honors explicit link-placement override", async () 
     const context = await buildUiTemplateContext({
       appRoot,
       options: createOptions({
-        "link-placement": "shell-layout:secondary-menu"
+        "link-placement": "shell.secondary-nav"
       })
     });
 
-    assert.equal(context.__JSKIT_UI_MENU_PLACEMENT_TARGET__, "shell-layout:secondary-menu");
-    assert.equal(context.__JSKIT_UI_MENU_COMPONENT_TOKEN__, "local.main.ui.surface-aware-menu-link-item");
+    assert.equal(context.__JSKIT_UI_MENU_PLACEMENT_TARGET__, "shell.secondary-nav");
+    assert.equal(context.__JSKIT_UI_MENU_OWNER_LINE__, "");
   });
 });
 

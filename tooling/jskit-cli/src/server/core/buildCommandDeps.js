@@ -54,7 +54,8 @@ function createCommandHandlerDeps(deps = {}) {
     removeManagedViteProxyEntries: deps.removeManagedViteProxyEntries,
     hashBuffer: deps.hashBuffer,
     rm: deps.rm,
-    discoverShellOutletTargetsFromApp: deps.discoverShellOutletTargetsFromApp
+    discoverShellOutletTargetsFromApp: deps.discoverShellOutletTargetsFromApp,
+    discoverPlacementTopologyFromApp: deps.discoverPlacementTopologyFromApp
   };
 }
 

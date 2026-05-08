@@ -397,14 +397,26 @@ Local functions
 
 ### `shared/support/shellLayoutTargets.js`
 Exports
+- `PLACEMENT_LAYOUT_CLASSES`
 - `describeShellOutletTargets(targets = [])`
 - `discoverShellOutletTargetsFromVueSource(source = "", { context = "shell layout" } = {})`
 - `findShellOutletTargetById(targets = [], targetId = "")`
+- `normalizePlacementKind(value = "")`
+- `normalizePlacementLayoutClass(value = "")`
+- `normalizePlacementOwnerId(value = "")`
+- `normalizePlacementSurfaceId(value = "")`
+- `normalizePlacementSurfaces(value)`
+- `normalizePlacementTopologyDefinition(value = {}, { context = "placement topology" } = {})`
+- `normalizePlacementTopologyEntry(value = {}, { context = "placement topology" } = {})`
+- `normalizePlacementTopologyVariant(value = {}, { context = "placement topology variant" } = {})`
+- `normalizeSemanticPlacementId(value = "")`
 - `normalizeShellOutletTargetId(value = "")`
 - `normalizeShellOutletTargetRecord(value = {}, { context = "shell layout" } = {})`
+- `resolvePlacementTargetReference(value = "")`
 - `resolveShellOutletTargetParts({ target = "" } = {})`
 Local functions
 - `parseTagAttributes(attributesSource = "")`
+- `normalizePlacementRenderers(value = {})`
 - `isDefaultAttributeEnabled(value)`
 
 ### `shared/support/sorting.js`
@@ -1344,7 +1356,9 @@ Exports
 - `deriveDefaultSubpagesHost`
 - `resolveNearestParentSubpagesHost`
 - `resolvePageLinkTargetDetails`
+- `discoverPlacementTopologyFromApp`
 - `discoverShellOutletTargetsFromApp`
+- `resolveSemanticPlacementTargetFromApp`
 - `resolveShellOutletPlacementTargetFromApp`
 
 ### `server/support/pageTargets.js`
@@ -1358,7 +1372,7 @@ Exports
 - `resolvePageTargetDetails({ appRoot, targetFile = "", context = "page target" } = {})`
 - `deriveDefaultSubpagesHost(pageTarget = {})`
 - `resolveNearestParentSubpagesHost({ appRoot, pageTarget = {}, context = "page target" } = {})`
-- `resolvePageLinkTargetDetails({ appRoot, targetFile = "", pageTarget = null, placement = "", componentToken = "", linkTo = "", defaultComponentToken = DEFAULT_PAGE_LINK_COMPONENT_TOKEN, subpageComponentToken = DEFAULT_SUBPAGE_LINK_COMPONENT_TOKEN, context = "page target" } = {})`
+- `resolvePageLinkTargetDetails({ appRoot, targetFile = "", pageTarget = null, placement = "", componentToken = "", linkTo = "", context = "page target" } = {})`
 Local functions
 - `normalizeRelativeFilePath(value = "")`
 - `validateVueTargetFile(relativePath = "", { context = "page target" } = {})`
@@ -1383,10 +1397,12 @@ Local functions
 - `buildParentPageFileCandidates(pageTarget = {}, ancestorRoute = {})`
 - `resolveSubpagesHostTargetFromPageSource(source = "")`
 - `normalizePlacementTargetId(target = {})`
+- `resolveConcreteTargetOwner(target = "")`
+- `topologyPlacementTargetsConcreteOutlet(placement = {}, target = "")`
+- `resolveSemanticPlacementTargetForConcreteOutlet({ appRoot, concreteTarget = "", surface = "" } = {})`
 - `resolveRelativeLinkToFromParent(pageTarget = {}, parentHost = null)`
 - `resolveRelativeLinkToFromNearestIndexOwner(pageTarget = {})`
-- `resolveInferredPageLinkTo({ explicitLinkTo = "", pageTarget = {}, parentHost = null, placementTarget = null, suppressImplicitRelativeLinks = false } = {})`
-- `resolveInferredPageLinkComponentToken({ explicitComponentToken = "", parentHost = null, placementTarget = null, defaultComponentToken = DEFAULT_PAGE_LINK_COMPONENT_TOKEN, subpageComponentToken = DEFAULT_SUBPAGE_LINK_COMPONENT_TOKEN } = {})`
+- `resolveInferredPageLinkTo({ explicitLinkTo = "", pageTarget = {}, parentHost = null, preservesRelativeSubpageLinks = false, suppressImplicitRelativeLinks = false } = {})`
 - `renderPageLinkWhenLine(pageTarget = {})`
 
 ### `server/support/path.js`
@@ -1401,7 +1417,9 @@ Exports
 
 ### `server/support/shellOutlets.js`
 Exports
+- `discoverPlacementTopologyFromApp({ appRoot } = {})`
 - `discoverShellOutletTargetsFromApp({ appRoot, sourceRoot = "src" } = {})`
+- `resolveSemanticPlacementTargetFromApp({ appRoot, placement = "", owner = "", surface = "", context = "ui-generator" } = {})`
 - `resolveShellOutletPlacementTargetFromApp({ appRoot, placement = "", context = "ui-generator" } = {})`
 Local functions
 - `parseTagAttributes(attributesSource = "")`
@@ -1411,9 +1429,11 @@ Local functions
 - `collectVueFilePaths(rootDirectoryPath)`
 - `readInstalledPackageStates(appRoot)`
 - `normalizePackageOutletTarget({ packageId = "", outlet = {}, descriptorPath = "" } = {})`
-- `loadOutletDefaultOverrides(appRoot = "")`
-- `applyOutletDefaultOverrides(target = {}, outletDefaultOverrides = {})`
 - `collectInstalledPackageOutletTargets(appRoot)`
+- `withTopologySource(placement = {}, sourcePath = "")`
+- `loadAppPlacementTopology(appRoot)`
+- `collectInstalledPackagePlacementTopology(appRoot)`
+- `findSemanticPlacementById(placements = [], { id = "", owner = "", surface = "" } = {})`
 
 ### `server/support/SupportCoreServiceProvider.js`
 Exports

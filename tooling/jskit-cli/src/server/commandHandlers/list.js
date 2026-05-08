@@ -177,6 +177,7 @@ function createListCommands(ctx = {}) {
     loadBundleRegistry,
     loadAppLocalPackageRegistry,
     resolveInstalledNodeModulePackageEntry,
+    discoverPlacementTopologyFromApp,
     discoverShellOutletTargetsFromApp,
     normalizePlacementContributions,
     resolvePackageKind
@@ -435,39 +436,99 @@ function createListCommands(ctx = {}) {
 
   async function commandListPlacements({ options, cwd, stdout }) {
     const appRoot = await resolveAppRootFromCwd(cwd);
-    const discoveredPlacements = await discoverShellOutletTargetsFromApp({
-      appRoot,
-      sourceRoot: "src"
-    });
-    const placementTargets = ensureArray(discoveredPlacements.targets)
+    const showConcreteOnly = options.concrete === true && options.all !== true;
+    const showConcrete = options.concrete === true || options.all === true;
+    const showSemantic = showConcreteOnly !== true;
+    const discoveredTopology = await discoverPlacementTopologyFromApp({ appRoot });
+    const semanticPlacements = ensureArray(discoveredTopology.placements)
+      .map((entry) => ensureObject(entry))
+      .filter((entry) => String(entry.id || "").trim())
+      .sort((left, right) => {
+        const idCompare = String(left.id || "").localeCompare(String(right.id || ""));
+        if (idCompare !== 0) {
+          return idCompare;
+        }
+        return String(left.owner || "").localeCompare(String(right.owner || ""));
+      });
+    const discoveredConcrete = showConcrete
+      ? await discoverShellOutletTargetsFromApp({
+        appRoot,
+        sourceRoot: "src"
+      })
+      : { targets: [] };
+    const concreteTargets = ensureArray(discoveredConcrete.targets)
       .map((entry) => ensureObject(entry))
       .filter((entry) => String(entry.id || "").trim())
       .sort((left, right) => String(left.id || "").localeCompare(String(right.id || "")));
 
     if (options.json) {
       const payload = {
-        placements: placementTargets.map((placementTarget) => ({
-          target: String(placementTarget.id || "").trim(),
-          default: placementTarget.default === true,
-          sourcePath: String(placementTarget.sourcePath || "").trim()
-        }))
+        placements: showSemantic
+          ? semanticPlacements.map((placementTarget) => ({
+            target: String(placementTarget.id || "").trim(),
+            owner: String(placementTarget.owner || "").trim(),
+            default: placementTarget.default === true,
+            description: String(placementTarget.description || "").trim(),
+            surfaces: ensureArray(placementTarget.surfaces).map((entry) => String(entry || "").trim()).filter(Boolean),
+            variants: ensureObject(placementTarget.variants),
+            sourcePath: String(placementTarget.sourcePath || "").trim()
+          }))
+          : [],
+        concretePlacements: showConcrete
+          ? concreteTargets.map((placementTarget) => ({
+            target: String(placementTarget.id || "").trim(),
+            default: placementTarget.default === true,
+            sourcePath: String(placementTarget.sourcePath || "").trim()
+          }))
+          : []
       };
       stdout.write(`${JSON.stringify(payload, null, 2)}\n`);
       return 0;
     }
 
     const color = createColorFormatter(stdout);
-    const lines = [color.heading("Available placements:")];
-    if (placementTargets.length < 1) {
-      lines.push("- none");
-    } else {
-      for (const placementTarget of placementTargets) {
-        const placementId = String(placementTarget.id || "").trim();
-        const sourcePath = String(placementTarget.sourcePath || "").trim();
-        const isDefault = placementTarget.default === true;
-        const defaultLabel = isDefault ? color.installed(" (default)") : "";
-        const sourceLabel = sourcePath ? ` ${color.dim(`[${sourcePath}]`)}` : "";
-        lines.push(`- ${color.item(placementId)}${defaultLabel}${sourceLabel}`);
+    const lines = [];
+    if (showSemantic) {
+      lines.push(color.heading("Available placements:"));
+      if (semanticPlacements.length < 1) {
+        lines.push("- none");
+      } else {
+        for (const placementTarget of semanticPlacements) {
+          const placementId = String(placementTarget.id || "").trim();
+          const owner = String(placementTarget.owner || "").trim();
+          const ownerLabel = owner ? color.dim(` [owner:${owner}]`) : "";
+          const defaultLabel = placementTarget.default === true ? color.installed(" (default)") : "";
+          const description = String(placementTarget.description || "").trim();
+          const descriptionSuffix = description ? `: ${description}` : "";
+          lines.push(`- ${color.item(placementId)}${ownerLabel}${defaultLabel}${descriptionSuffix}`);
+          const variants = ensureObject(placementTarget.variants);
+          for (const layoutClass of ["compact", "medium", "expanded"]) {
+            const variant = ensureObject(variants[layoutClass]);
+            const outlet = String(variant.outlet || "").trim();
+            if (outlet) {
+              lines.push(`  ${layoutClass} -> ${color.dim(outlet)}`);
+            }
+          }
+        }
+      }
+    }
+
+    if (showConcrete) {
+      if (lines.length > 0) {
+        lines.push("");
+      }
+      lines.push(color.heading("Available concrete outlets:"));
+      if (concreteTargets.length < 1) {
+        lines.push("- none");
+      } else {
+        for (const placementTarget of concreteTargets) {
+          const placementId = String(placementTarget.id || "").trim();
+          const sourcePath = String(placementTarget.sourcePath || "").trim();
+          const isDefault = placementTarget.default === true;
+          const defaultLabel = isDefault ? color.installed(" (default)") : "";
+          const sourceLabel = sourcePath ? ` ${color.dim(`[${sourcePath}]`)}` : "";
+          lines.push(`- ${color.item(placementId)}${defaultLabel}${sourceLabel}`);
+        }
       }
     }
 

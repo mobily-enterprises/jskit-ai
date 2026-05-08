@@ -475,6 +475,14 @@ function resolveMenuToPropLine(linkTo = "") {
   return `      to: ${JSON.stringify(linkTo)},\n`;
 }
 
+function resolveMenuOwnerLine(owner = "") {
+  const normalizedOwner = normalizeText(owner);
+  if (!normalizedOwner) {
+    return "";
+  }
+  return `    owner: ${JSON.stringify(normalizedOwner)},\n`;
+}
+
 function resolveCrudRelativePath(namespace = "") {
   return `/${requireCrudNamespace(namespace, {
     context: "crud-ui-generator resource namespace"
@@ -650,7 +658,6 @@ async function buildUiTemplateContext({ appRoot, options } = {}) {
       pageTarget,
       targetFile: listTargetFile,
       placement: options?.["link-placement"],
-      componentToken: options?.["link-component-token"],
       context: "crud-ui-generator"
     })
     : null;
@@ -727,7 +734,7 @@ async function buildUiTemplateContext({ appRoot, options } = {}) {
     __JSKIT_UI_MENU_MARKER__: menuMarker,
     __JSKIT_UI_MENU_PLACEMENT_ID__: String(pageLinkTarget?.pageTarget?.placementId || ""),
     __JSKIT_UI_MENU_PLACEMENT_TARGET__: String(pageLinkTarget?.placementTarget?.id || ""),
-    __JSKIT_UI_MENU_COMPONENT_TOKEN__: String(pageLinkTarget?.componentToken || ""),
+    __JSKIT_UI_MENU_OWNER_LINE__: resolveMenuOwnerLine(pageLinkTarget?.placementTarget?.owner || ""),
     __JSKIT_UI_MENU_ICON__: DEFAULT_GENERATED_LINK_ICON,
     __JSKIT_UI_MENU_WORKSPACE_SUFFIX__: String(pageLinkTarget?.pageTarget?.routeUrlSuffix || ""),
     __JSKIT_UI_MENU_NON_WORKSPACE_SUFFIX__: String(pageLinkTarget?.pageTarget?.routeUrlSuffix || ""),

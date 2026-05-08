@@ -179,7 +179,7 @@ This follows the same route-owner pattern the guide has already shown on `home` 
 - `src/pages/console/settings.vue` is the nested settings shell
 - `src/pages/console/settings/index.vue` is the initial developer-owned stub
 
-That last file is intentionally empty, because later modules are expected to add real console settings sections into the `console-settings:primary-menu` outlet.
+That last file is intentionally empty, because later modules are expected to add real console settings sections through `page.section-nav` with owner `console-settings`.
 
 ### `src/placement.js` wires the first console menu entry
 
@@ -188,10 +188,10 @@ The starter placement block is:
 ```js
 addPlacement({
   id: "console.web.menu.settings",
-  target: "shell-layout:primary-menu",
+  target: "shell.primary-nav",
+  kind: "link",
   surfaces: ["console"],
   order: 100,
-  componentToken: "local.main.ui.menu-link-item",
   props: {
     label: "Settings",
     to: "/console/settings",

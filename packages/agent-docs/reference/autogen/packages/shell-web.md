@@ -184,6 +184,8 @@ Local functions
 ### `src/client/placement/index.js`
 Exports
 - `createPlacementRegistry`
+- `definePlacement`
+- `definePlacementTopology`
 - `useWebPlacementContext`
 - `resolveRuntimePathname`
 - `readPlacementSurfaceConfig`
@@ -220,7 +222,10 @@ Local functions
 - `debugLog(message, payload = null)`
 - `createRuntimeLogger(logger)`
 - `normalizePlacementList(placements, context = {})`
+- `normalizeTopologyList(topology, context = {})`
 - `matchesSurface(placementSurfaces, requestedSurface)`
+- `resolveTopologyPlacement(topologyEntries = [], placement = {}, requestedSurface = WEB_PLACEMENT_SURFACE_ANY)`
+- `resolveRenderablePlacement({ placement = {}, topologyEntries = [], requestedSurface = WEB_PLACEMENT_SURFACE_ANY, requestedTarget = "", requestedLayoutClass = "compact" } = {})`
 - `resolveContextContributors(app, baseContext = {}, logger)`
 - `resolvePlacementComponent(app, placement, logger, missingTokens, invalidComponentTokens, failedTokens)`
 - `shouldIncludePlacement(placement, placementContext, logger)`
@@ -253,6 +258,8 @@ Exports
 - `normalizePlacementSurfaces(value, { strict = false, source = "placement" } = {})`
 - `normalizePlacementDefinition(value, { strict = false, source = "placement" } = {})`
 - `definePlacement(value = {})`
+- `definePlacementTopology(value = {})`
+- `normalizeSemanticPlacementId`
 Local functions
 - `isValidSurfaceIdToken(value = "")`
 - `toInteger(value, fallback = 1000)`
@@ -264,6 +271,7 @@ Local functions
 - `createShellWebQueryClient()`
 - `isMissingDynamicModule(error, moduleSpecifier)`
 - `loadAppPlacementDefinitions(logger)`
+- `loadAppPlacementTopology(logger)`
 - `createErrorConfigToolkit(errorRuntime)`
 - `loadAppErrorConfig(logger, errorRuntime)`
 - `applyAppErrorConfig(errorRuntime, errorConfig = {})`
@@ -372,6 +380,11 @@ Exports
 Exports
 - `addPlacement`
 - `getPlacements()`
+
+### `templates/src/placementTopology.js`
+Exports
+- `addPlacementTopology(value = {})`
+- `default`
 
 ### root
 

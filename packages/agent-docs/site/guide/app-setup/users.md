@@ -227,10 +227,10 @@ The placement registry also becomes more interesting:
 ```js
 addPlacement({
   id: "users.profile.menu.settings",
-  target: "auth-profile-menu:primary-menu",
+  target: "auth.profile-menu",
+  kind: "link",
   surfaces: ["*"],
   order: 500,
-  componentToken: "auth.web.profile.menu.link-item",
   props: {
     label: "Settings",
     to: "/account"
@@ -286,7 +286,7 @@ src/components/account/settings/
 
 Those three section components stay app-owned so you can reshape the actual UI freely.
 
-The host itself now lives in `users-web` and resolves every account section through the `account-settings:sections` placement target, including the default `profile`, `preferences`, and `notifications` entries.
+The host itself now lives in `users-web` and resolves every account section through the semantic `settings.sections` placement with owner `account-settings`, including the default `profile`, `preferences`, and `notifications` entries.
 
 So the screen follows the same rule as the rest of JSKIT UI: sections are added by placement rather than being hardcoded into an app-owned host component.
 

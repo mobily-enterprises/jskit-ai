@@ -653,8 +653,10 @@ test("fresh app CRUD scaffolds encode explicit M3 action hierarchy and stable se
       "utf8"
     );
 
-    assert.match(placementSource, /target: "home-settings:primary-menu"/);
-    assert.match(placementSource, /componentToken: "local\.main\.ui\.surface-aware-menu-link-item"/);
+    assert.match(placementSource, /target: "page\.section-nav"/);
+    assert.match(placementSource, /owner: "home-settings"/);
+    assert.match(placementSource, /kind: "link"/);
+    assert.doesNotMatch(placementSource, /componentToken: "local\.main\.ui\.surface-aware-menu-link-item"/);
     assert.match(placementSource, /scopedSuffix: "\/settings\/customers"/);
     assert.doesNotMatch(placementSource, /to: "\.\/customers"/);
     assert.doesNotMatch(placementSource, /to: "\.\/general"/);
@@ -770,7 +772,8 @@ test("workspaces-web workspace tenancy mode installs workspace surfaces and wrap
     assert.match(placement, /id:\s*"workspaces\.account\.invites\.cue"/);
     assert.match(placement, /componentToken:\s*"local\.main\.account\.pending-invites\.cue"/);
     assert.match(placement, /id:\s*"workspaces\.account\.settings\.invites"/);
-    assert.match(placement, /target:\s*"account-settings:sections"/);
+    assert.match(placement, /target:\s*"settings\.sections"/);
+    assert.match(placement, /owner:\s*"account-settings"/);
     assert.match(placement, /componentToken:\s*"local\.main\.account-settings\.section\.invites"/);
     assert.match(mainClientProvider, /import AccountPendingInvitesCue from "\.\.\/components\/AccountPendingInvitesCue\.vue";/);
     assert.match(

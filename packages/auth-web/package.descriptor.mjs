@@ -178,15 +178,44 @@ export default Object.freeze({
         "outlets": [
           {
             "target": "auth-profile-menu:primary-menu",
-            "defaultLinkComponentToken": "auth.web.profile.menu.link-item",
             "surfaces": ["*"],
             "source": "src/client/views/AuthProfileWidget.vue"
           }
         ],
+        "topology": {
+          "placements": [
+            {
+              "id": "auth.profile-menu",
+              "description": "Authenticated profile menu actions.",
+              "surfaces": ["*"],
+              "variants": {
+                "compact": {
+                  "outlet": "auth-profile-menu:primary-menu",
+                  "renderers": {
+                    "link": "auth.web.profile.menu.link-item"
+                  }
+                },
+                "medium": {
+                  "outlet": "auth-profile-menu:primary-menu",
+                  "renderers": {
+                    "link": "auth.web.profile.menu.link-item"
+                  }
+                },
+                "expanded": {
+                  "outlet": "auth-profile-menu:primary-menu",
+                  "renderers": {
+                    "link": "auth.web.profile.menu.link-item"
+                  }
+                }
+              }
+            }
+          ]
+        },
         "contributions": [
           {
             "id": "auth.profile.widget",
-            "target": "shell-layout:top-right",
+            "target": "shell.status",
+            "kind": "component",
             "surfaces": ["*"],
             "order": 1000,
             "componentToken": "auth.web.profile.widget",
@@ -194,19 +223,19 @@ export default Object.freeze({
           },
           {
             "id": "auth.profile.menu.sign-in",
-            "target": "auth-profile-menu:primary-menu",
+            "target": "auth.profile-menu",
+            "kind": "link",
             "surfaces": ["*"],
             "order": 200,
-            "componentToken": "auth.web.profile.menu.link-item",
             "when": "auth.authenticated !== true",
             "source": "mutations.text#auth-web-placement-block"
           },
           {
             "id": "auth.profile.menu.sign-out",
-            "target": "auth-profile-menu:primary-menu",
+            "target": "auth.profile-menu",
+            "kind": "link",
             "surfaces": ["*"],
             "order": 1000,
-            "componentToken": "auth.web.profile.menu.link-item",
             "when": "auth.authenticated === true",
             "source": "mutations.text#auth-web-placement-block"
           }
@@ -281,10 +310,20 @@ export default Object.freeze({
         "file": "src/placement.js",
         "position": "bottom",
         "skipIfContains": "id: \"auth.profile.widget\"",
-        "value": "\naddPlacement({\n  id: \"auth.profile.widget\",\n  target: \"shell-layout:top-right\",\n  surfaces: [\"*\"],\n  order: 1000,\n  componentToken: \"auth.web.profile.widget\"\n});\n\naddPlacement({\n  id: \"auth.profile.menu.sign-in\",\n  target: \"auth-profile-menu:primary-menu\",\n  surfaces: [\"*\"],\n  order: 200,\n  componentToken: \"auth.web.profile.menu.link-item\",\n  props: {\n    label: \"Sign in\",\n    to: \"/auth/login\"\n  },\n  when: ({ auth }) => auth?.authenticated !== true\n});\n\naddPlacement({\n  id: \"auth.profile.menu.sign-out\",\n  target: \"auth-profile-menu:primary-menu\",\n  surfaces: [\"*\"],\n  order: 1000,\n  componentToken: \"auth.web.profile.menu.link-item\",\n  props: {\n    label: \"Sign out\",\n    to: \"/auth/signout\"\n  },\n  when: ({ auth }) => auth?.authenticated === true\n});\n",
+        "value": "\naddPlacement({\n  id: \"auth.profile.widget\",\n  target: \"shell.status\",\n  kind: \"component\",\n  surfaces: [\"*\"],\n  order: 1000,\n  componentToken: \"auth.web.profile.widget\"\n});\n\naddPlacement({\n  id: \"auth.profile.menu.sign-in\",\n  target: \"auth.profile-menu\",\n  kind: \"link\",\n  surfaces: [\"*\"],\n  order: 200,\n  props: {\n    label: \"Sign in\",\n    to: \"/auth/login\"\n  },\n  when: ({ auth }) => auth?.authenticated !== true\n});\n\naddPlacement({\n  id: \"auth.profile.menu.sign-out\",\n  target: \"auth.profile-menu\",\n  kind: \"link\",\n  surfaces: [\"*\"],\n  order: 1000,\n  props: {\n    label: \"Sign out\",\n    to: \"/auth/signout\"\n  },\n  when: ({ auth }) => auth?.authenticated === true\n});\n",
         "reason": "Append auth profile placement entries into app-owned placement registry.",
         "category": "auth-web",
         "id": "auth-web-placement-block"
+      },
+      {
+        "op": "append-text",
+        "file": "src/placementTopology.js",
+        "position": "bottom",
+        "skipIfContains": "id: \"auth.profile-menu\"",
+        "value": "\naddPlacementTopology({\n  id: \"auth.profile-menu\",\n  description: \"Authenticated profile menu actions.\",\n  surfaces: [\"*\"],\n  variants: {\n    compact: {\n      outlet: \"auth-profile-menu:primary-menu\",\n      renderers: {\n        link: \"auth.web.profile.menu.link-item\"\n      }\n    },\n    medium: {\n      outlet: \"auth-profile-menu:primary-menu\",\n      renderers: {\n        link: \"auth.web.profile.menu.link-item\"\n      }\n    },\n    expanded: {\n      outlet: \"auth-profile-menu:primary-menu\",\n      renderers: {\n        link: \"auth.web.profile.menu.link-item\"\n      }\n    }\n  }\n});\n",
+        "reason": "Append auth profile menu topology into the app-owned placement topology.",
+        "category": "auth-web",
+        "id": "auth-web-profile-menu-topology"
       }
     ]
   }

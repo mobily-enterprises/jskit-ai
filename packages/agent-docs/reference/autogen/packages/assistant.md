@@ -27,6 +27,7 @@ Exports
 - `renderAssistantPageSummary(pageTarget = {}, { pageAlreadyExisted = false, pageOverwritten = false } = {})`
 Local functions
 - `resolveLinkToPropLine(linkTo = "")`
+- `resolveOwnerLine(owner = "")`
 - `resolveTemplateFilePath(relativePath = "")`
 
 ### `src/server/subcommands/page.js`

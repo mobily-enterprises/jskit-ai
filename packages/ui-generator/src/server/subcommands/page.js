@@ -20,15 +20,20 @@ function renderPageLinkPlacementBlock({
   label = "",
   surface = ""
 } = {}) {
+  const componentTokenLine = context.__JSKIT_UI_LINK_COMPONENT_TOKEN__
+    ? `    componentToken: "${context.__JSKIT_UI_LINK_COMPONENT_TOKEN__}",\n`
+    : "";
   return (
     `// ${marker}\n` +
     "{\n" +
     "  addPlacement({\n" +
     `    id: "${context.__JSKIT_UI_LINK_PLACEMENT_ID__}",\n` +
     `    target: "${context.__JSKIT_UI_LINK_PLACEMENT_TARGET__}",\n` +
+    `${context.__JSKIT_UI_LINK_OWNER_LINE__}` +
+    `    kind: "link",\n` +
     `    surfaces: ["${surface}"],\n` +
     "    order: 155,\n" +
-    `    componentToken: "${context.__JSKIT_UI_LINK_COMPONENT_TOKEN__}",\n` +
+    componentTokenLine +
     "    props: {\n" +
     `      label: "${label}",\n` +
     `      icon: "${context.__JSKIT_UI_LINK_ICON__}",\n` +
@@ -56,7 +61,7 @@ async function runGeneratorSubcommand({
   const targetFile = requireSinglePositionalTargetFile(args, { context: "ui-generator page" });
   rejectUnexpectedOptions(
     options,
-    ["name", "link-placement", "link-component-token", "link-to", "force"],
+    ["name", "link-placement", "link-to", "force"],
     { context: "ui-generator page" }
   );
 

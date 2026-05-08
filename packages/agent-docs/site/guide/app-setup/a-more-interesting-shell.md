@@ -94,7 +94,7 @@ Open `http://localhost:5173/home/settings` in the browser to see that nested set
 
 The most important new idea in `shell-web` is that the app now has _specific, named places_ where UI can be inserted later. JSKIT calls those places _placements_. In practice, this means later packages or generators do not have to rewrite the whole shell every time they want to add a menu entry, a widget, or a settings section.
 
-Start by asking JSKIT what placement targets already exist:
+Start by asking JSKIT what public placement targets already exist:
 
 ```bash
 npx jskit list-placements
@@ -104,16 +104,25 @@ In a fresh `shell-web` app, the result looks like this:
 
 ```text
 Available placements:
-- home-settings:primary-menu [src/pages/home/settings.vue]
-- shell-layout:primary-menu (default) [src/components/ShellLayout.vue]
-- shell-layout:secondary-menu [src/components/ShellLayout.vue]
-- shell-layout:top-left [src/components/ShellLayout.vue]
-- shell-layout:top-right [src/components/ShellLayout.vue]
+- shell.primary-nav (default): Primary top-level navigation for the current surface.
+  - compact -> shell-layout:primary-menu
+  - medium -> shell-layout:primary-menu
+  - expanded -> shell-layout:primary-menu
+- page.section-nav [owner:home-settings]: Navigation between child pages in the home settings section.
+  - compact -> home-settings:primary-menu
+  - medium -> home-settings:primary-menu
+  - expanded -> home-settings:primary-menu
 ```
 
-This command lists placement targets, not the content inside them. That is why the output is about target names and source files. Later, when you place things into the shell, this list stays the same unless you add or remove a `ShellOutlet` in source.
+This command lists semantic placements, not the content inside them. Later, when you place things into the shell, this list stays stable unless the public placement topology changes.
 
-Those target names come from real `ShellOutlet` elements in the app. See `src/components/ShellLayout.vue`:
+The concrete outlets still exist, but they are implementation details. If you need to inspect them directly, use:
+
+```bash
+npx jskit list-placements --concrete
+```
+
+Those concrete target names come from real `ShellOutlet` elements in the app. See `src/components/ShellLayout.vue`:
 
 ```html
 ...
@@ -124,27 +133,20 @@ Those target names come from real `ShellOutlet` elements in the app. See `src/co
 <ShellOutlet
   target="shell-layout:primary-menu"
   default
-  default-link-component-token="local.main.ui.surface-aware-menu-link-item"
 />
 ...
-<ShellOutlet
-  target="shell-layout:secondary-menu"
-  default-link-component-token="local.main.ui.surface-aware-menu-link-item"
-/>
+<ShellOutlet target="shell-layout:secondary-menu" />
 ```
 
 And the settings page introduces its own nested outlet in `src/pages/home/settings.vue`:
 
 ```html
-<ShellOutlet
-  target="home-settings:primary-menu"
-  default-link-component-token="local.main.ui.surface-aware-menu-link-item"
-/>
+<ShellOutlet target="home-settings:primary-menu" />
 ```
 
 That nested example matters. It shows that the shell is not the only place that can host placements. A page inside the shell can define its own insertion point too. That is how JSKIT can later build menus inside sections such as settings without rewriting the whole shell.
 
-Just as importantly, `shell-web` already uses that placement system itself. The starter app is not only exposing placement targets; it is also seeding real placement entries into them. The drawer gets `Home` and `Settings`, and the nested settings menu gets `General`. That is why the shell already feels real before you generate anything of your own.
+Just as importantly, `shell-web` already uses that placement system itself. The starter app is not only exposing semantic placement targets; it is also seeding real placement entries into them. The drawer gets `Home` and `Settings`, and the nested settings menu gets `General`. That is why the shell already feels real before you generate anything of your own.
 
 The shell also ships with a few app-owned component tokens that it can use as default link renderers. You can inspect those too:
 
@@ -175,7 +177,7 @@ To add a small UI element to the shell itself:
 npx jskit generate ui-generator placed-element --name "Alerts Widget"
 ```
 
-That command creates a Vue component under `src/components/` (in this case `src/components/AlertsWidgetElement.vue`), registers a new local token for it, and adds a placement entry targeting `shell-layout:top-right`. After running it, refresh the home page in the browser. The shell now has a real app-owned widget living inside one of its named placement targets.
+That command creates a Vue component under `src/components/` (in this case `src/components/AlertsWidgetElement.vue`), registers a new local token for it, and adds a placement entry targeting `shell.status`. After running it, refresh the home page in the browser. The shell now has a real app-owned widget living inside one of its named placement targets.
 
 <figure class="docs-browser-shot">
   <div class="docs-browser-shot__bar">
@@ -198,13 +200,13 @@ In this app, there is no need to pass `--surface`: since the app only has one en
 
 The settings host uses the same placement machinery, but the normal way to grow it is not by dropping a free-standing widget there. The more interesting case is adding a child page and letting JSKIT wire the menu entry for you.
 
-The source path in the `list-placements` output helps you reason about where child pages belong. When you see:
+The owner in the `list-placements` output helps you reason about where child pages belong. When you see:
 
 ```text
-- home-settings:primary-menu [src/pages/home/settings.vue]
+- page.section-nav [owner:home-settings]
 ```
 
-you know that the outlet lives in the settings host page. So if you want a child page to appear in that menu, you should create it under that part of the route tree instead of treating the menu like a generic widget area. For example, `src/pages/home/settings/profile/index.vue` belongs to that settings section, so JSKIT can wire its preferred menu entry into `home-settings:primary-menu` automatically.
+you know that the semantic placement is owned by the settings host page. So if you want a child page to appear in that menu, you should create it under that part of the route tree instead of treating the menu like a generic widget area. For example, `src/pages/home/settings/profile/index.vue` belongs to that settings section, so JSKIT can wire its preferred menu entry into `page.section-nav` with owner `home-settings` automatically.
 
 
 Now use the settings host the way it is normally meant to be used: add a real child page under it.
@@ -213,7 +215,7 @@ Now use the settings host the way it is normally meant to be used: add a real ch
 npx jskit generate ui-generator page home/settings/profile/index.vue --name "Profile"
 ```
 
-This is a more interesting example than the widget case. JSKIT creates the page file, notices that `src/pages/home/settings.vue` owns the `home-settings:primary-menu` outlet, and adds the preferred menu entry there automatically. You do not have to write that placement entry by hand.
+This is a more interesting example than the widget case. JSKIT creates the page file, notices that `src/pages/home/settings.vue` owns the settings section navigation, and adds the preferred semantic menu entry there automatically. You do not have to write that placement entry by hand.
 
 Open `/home/settings/profile` in the browser. The settings shell now shows a second real child page and a second real menu entry created by the same page-generation command. `General` was already there from `shell-web`; `Profile` is the first additional settings page you add yourself. This is the important part of the chapter: the exact same placement system works both at the top shell level and inside a page-owned nested outlet.
 
@@ -238,7 +240,7 @@ Now add a second sibling page:
 npx jskit generate ui-generator page home/settings/notifications/index.vue --name "Notifications"
 ```
 
-Open `/home/settings/notifications` in the browser. You now get a third settings menu entry without touching `settings.vue`, without writing a second menu component, and without hand-editing `src/placement.js`. JSKIT appends another placement entry targeting the same `home-settings:primary-menu` outlet, so the links simply stack in the menu for free.
+Open `/home/settings/notifications` in the browser. You now get a third settings menu entry without touching `settings.vue`, without writing a second menu component, and without hand-editing `src/placement.js`. JSKIT appends another placement entry targeting the same `page.section-nav` owner, so the links simply stack in the menu for free.
 
 The order is also easy to reason about:
 
@@ -278,7 +280,7 @@ definePage({
 });
 ```
 
-This is why the `home-settings:primary-menu` outlet from `list-placements` is such a useful clue: it tells you which page is acting as the host.
+This is why the `page.section-nav` owner from `list-placements` is such a useful clue: it tells you which page is acting as the host.
 
 Even an `index.vue` page can have children. If you want an index page to stay visible while child routes render underneath it, put those children under an `index/` directory such as `src/pages/home/settings/profile/index/details.vue`.
 </DocsTerminalTip>
@@ -296,8 +298,10 @@ In placement metadata, raw `mdi-*` strings are acceptable because the shell menu
 ```js
 addPlacement({
   id: "home.settings.profile.link",
-  target: "home-settings:primary-menu",
-  componentToken: "local.main.ui.surface-aware-menu-link-item",
+  target: "page.section-nav",
+  owner: "home-settings",
+  kind: "link",
+  surfaces: ["home"],
   props: {
     label: "Profile",
     to: "./profile",
@@ -471,10 +475,10 @@ After the `shell-web` install plus the `placed-element` and `page` commands from
 ```js
 addPlacement({
   id: "shell-web.home.menu.home",
-  target: "shell-layout:primary-menu",
-  surfaces: ["*"],
+  target: "shell.primary-nav",
+  kind: "link",
+  surfaces: ["home"],
   order: 50,
-  componentToken: "local.main.ui.surface-aware-menu-link-item",
   props: {
     label: "Home",
     surface: "home",
@@ -486,10 +490,10 @@ addPlacement({
 
 addPlacement({
   id: "shell-web.home.menu.settings",
-  target: "shell-layout:primary-menu",
+  target: "shell.primary-nav",
+  kind: "link",
   surfaces: ["home"],
   order: 100,
-  componentToken: "local.main.ui.surface-aware-menu-link-item",
   props: {
     label: "Settings",
     surface: "home",
@@ -500,10 +504,11 @@ addPlacement({
 
 addPlacement({
   id: "shell-web.home.settings.general",
-  target: "home-settings:primary-menu",
+  target: "page.section-nav",
+  owner: "home-settings",
+  kind: "link",
   surfaces: ["home"],
   order: 100,
-  componentToken: "local.main.ui.surface-aware-menu-link-item",
   props: {
     label: "General",
     surface: "home",
@@ -515,7 +520,8 @@ addPlacement({
 
 addPlacement({
   id: "ui-generator.element.alerts-widget",
-  target: "shell-layout:top-right",
+  target: "shell.status",
+  kind: "component",
   surfaces: ["home"],
   order: 155,
   componentToken: "local.main.ui.element.alerts-widget"
@@ -523,10 +529,11 @@ addPlacement({
 
 addPlacement({
   id: "ui-generator.page.home.settings.profile.link",
-  target: "home-settings:primary-menu",
+  target: "page.section-nav",
+  owner: "home-settings",
+  kind: "link",
   surfaces: ["home"],
   order: 155,
-  componentToken: "local.main.ui.surface-aware-menu-link-item",
   props: {
     label: "Profile",
     surface: "home",
@@ -538,10 +545,11 @@ addPlacement({
 
 addPlacement({
   id: "ui-generator.page.home.settings.notifications.link",
-  target: "home-settings:primary-menu",
+  target: "page.section-nav",
+  owner: "home-settings",
+  kind: "link",
   surfaces: ["home"],
   order: 155,
-  componentToken: "local.main.ui.surface-aware-menu-link-item",
   props: {
     label: "Notifications",
     surface: "home",
@@ -554,13 +562,15 @@ addPlacement({
 
 That snippet shows the full placement contract clearly:
 
-- the target says where the UI should go
-- the component token says what should render that entry
+- the target says which semantic placement should receive the entry
+- the owner disambiguates page-owned semantic placements such as `page.section-nav`
+- `kind: "link"` lets topology choose the concrete link renderer for the current layout
+- component placements still provide their own `componentToken`
 - `props.to` tells the generated menu link which child route to open
 - `props.icon`, when you add one, belongs to menu metadata rather than direct Vuetify icon rendering
 - the surface list says where it is active
 - lower `order` values come first
-- when multiple entries target the same outlet with the same order, the shell keeps their source order
+- when multiple entries target the same semantic placement with the same order, the shell keeps their source order
 
 That is why the settings menu now shows `General` first, followed by `Profile` and `Notifications`: `General` is seeded by `shell-web` with a lower order, while the two generated pages share the same later order and keep their source order.
 
@@ -705,10 +715,7 @@ The important host file is still `src/pages/home/settings.vue`:
 
 ```vue
 <v-list nav density="comfortable" rounded="lg" border>
-  <ShellOutlet
-    target="home-settings:primary-menu"
-    default-link-component-token="local.main.ui.surface-aware-menu-link-item"
-  />
+  <ShellOutlet target="home-settings:primary-menu" />
 </v-list>
 
 <RouterView />
@@ -720,7 +727,7 @@ The starter shell now uses a real child-page structure right away:
 
 - `src/pages/home/settings/index.vue` is only a redirect into the first child page
 - `src/pages/home/settings/general/index.vue` is the first real settings page
-- `src/placement.js` already seeds a `General` link into `home-settings:primary-menu`
+- `src/placement.js` already seeds a `General` link into `page.section-nav` with owner `home-settings`
 
 When you need that landing redirect yourself, use the same helper pattern:
 

@@ -82,6 +82,8 @@ Local functions
 - `discoverGenerators(appRoot)`
 - `discoverRuntimePackages(appRoot)`
 - `extractMatches(source = "", patterns = [])`
+- `discoverSemanticPlacementTargets(appRoot)`
+- `discoverConcretePlacementTargets(appRoot)`
 - `discoverComponentTokens(appRoot)`
 - `isRouteLikeRelativePath(relativePath = "")`
 - `discoverPagesRelativeDirectories(appRoot)`
@@ -264,6 +266,7 @@ Local functions
 Exports
 - `normalizePlacementContributions(value)`
 - `normalizePlacementOutlets(value)`
+- `normalizePlacementTopology(value, { context = "package placement topology" } = {})`
 
 ### `src/server/cliRuntime/packageIntrospection/providerBindingIntrospection.js`
 Exports

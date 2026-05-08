@@ -3,6 +3,10 @@ import { pathToFileURL } from "node:url";
 import { access, readdir, readFile } from "node:fs/promises";
 import { buildCrudFieldContractMap } from "@jskit-ai/kernel/shared/support/crudFieldContract";
 import {
+  discoverPlacementTopologyFromApp,
+  discoverShellOutletTargetsFromApp
+} from "@jskit-ai/kernel/server/support";
+import {
   buildAppCommandOptionMeta,
   listAppCommandDefinitions
 } from "../commandHandlers/appCommandCatalog.js";
@@ -370,6 +374,37 @@ async function discoverPlacementTargets(appRoot) {
   return uniqueSorted(placementValues);
 }
 
+async function discoverSemanticPlacementTargets(appRoot) {
+  try {
+    const topology = await discoverPlacementTopologyFromApp({ appRoot });
+    return uniqueSorted(
+      (Array.isArray(topology?.placements) ? topology.placements : [])
+        .map((placement) => normalizeText(placement?.id))
+        .filter(Boolean)
+    );
+  } catch {
+    const topologyPath = path.join(appRoot, "src", "placementTopology.js");
+    if (!(await pathExists(topologyPath))) {
+      return [];
+    }
+    const source = await readFile(topologyPath, "utf8");
+    return uniqueSorted(extractMatches(source, [/\bid\s*:\s*["']([^"':]+(?:\.[^"':]+)+)["']/g]));
+  }
+}
+
+async function discoverConcretePlacementTargets(appRoot) {
+  try {
+    const discovered = await discoverShellOutletTargetsFromApp({ appRoot });
+    return uniqueSorted(
+      (Array.isArray(discovered?.targets) ? discovered.targets : [])
+        .map((target) => normalizeText(target?.id || target?.target))
+        .filter(Boolean)
+    );
+  } catch {
+    return discoverPlacementTargets(appRoot);
+  }
+}
+
 async function discoverComponentTokens(appRoot) {
   const tokens = [];
   for (const filePath of [
@@ -391,7 +426,6 @@ async function discoverComponentTokens(appRoot) {
     const source = await readFile(filePath, "utf8");
     tokens.push(...extractMatches(source, [
       /\bcomponentToken\s*:\s*["']([^"']+)["']/g,
-      /\bdefault-link-component-token\s*=\s*["']([^"']+)["']/g,
       /registerMainClientComponent\(\s*["']([^"']+)["']/g
     ]));
   }
@@ -590,9 +624,11 @@ async function completeOptionValue({
 
   if (normalizedOptionName === "resource-file") {
     suggestions = await discoverResourceFiles(appRoot);
-  } else if (["link-placement", "placement", "target"].includes(normalizedOptionName)) {
-    suggestions = await discoverPlacementTargets(appRoot);
-  } else if (normalizedOptionName === "link-component-token") {
+  } else if (["link-placement", "placement"].includes(normalizedOptionName)) {
+    suggestions = await discoverSemanticPlacementTargets(appRoot);
+  } else if (normalizedOptionName === "target") {
+    suggestions = await discoverConcretePlacementTargets(appRoot);
+  } else if (normalizedOptionName === "link-renderer") {
     suggestions = await discoverComponentTokens(appRoot);
   } else if (normalizedOptionName === "surface") {
     suggestions = await discoverSurfaces(appRoot);

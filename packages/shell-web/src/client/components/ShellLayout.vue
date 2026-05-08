@@ -52,13 +52,9 @@ const { drawerOpen, toggleDrawer, resolvedSurface, resolvedSurfaceLabel } = useS
           <ShellOutlet
             target="shell-layout:primary-menu"
             default
-            default-link-component-token="local.main.ui.surface-aware-menu-link-item"
           />
           <v-divider class="my-2" />
-          <ShellOutlet
-            target="shell-layout:secondary-menu"
-            default-link-component-token="local.main.ui.surface-aware-menu-link-item"
-          />
+          <ShellOutlet target="shell-layout:secondary-menu" />
         </v-list>
       </slot>
     </v-navigation-drawer>

@@ -313,7 +313,7 @@ function renderSubpagesTemplate({
     "<template>",
     renderSectionContainerOpenTag({ title, subtitle }),
     "    <template #tabs>",
-    `      <ShellOutlet target="${normalizedTarget}" default-link-component-token="${SUBPAGES_LINK_COMPONENT_TOKEN}" />`,
+    `      <ShellOutlet target="${normalizedTarget}" />`,
     "    </template>"
   ];
 

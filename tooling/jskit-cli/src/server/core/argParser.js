@@ -23,6 +23,7 @@ function parseArgs(argv, { createCliError } = {}) {
         verbose: false,
         json: false,
         all: false,
+        concrete: false,
         help: true,
         inlineOptions: {}
       },
@@ -49,6 +50,7 @@ function parseArgs(argv, { createCliError } = {}) {
     verbose: false,
     json: false,
     all: false,
+    concrete: false,
     help: false,
     inlineOptions: {}
   };
@@ -105,6 +107,10 @@ function parseArgs(argv, { createCliError } = {}) {
     }
     if (token === "--all") {
       options.all = true;
+      continue;
+    }
+    if (token === "--concrete") {
+      options.concrete = true;
       continue;
     }
     if (token === "--help" || token === "-h") {

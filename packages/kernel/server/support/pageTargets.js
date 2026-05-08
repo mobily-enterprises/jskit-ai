@@ -14,7 +14,10 @@ import {
   findShellOutletTargetById,
   normalizeShellOutletTargetId
 } from "../../shared/support/shellLayoutTargets.js";
-import { resolveShellOutletPlacementTargetFromApp } from "./shellOutlets.js";
+import {
+  discoverPlacementTopologyFromApp,
+  resolveSemanticPlacementTargetFromApp
+} from "./shellOutlets.js";
 import { resolveRequiredAppRoot, toPosixPath } from "./path.js";
 import { loadAppConfigFromModuleUrl } from "./appConfigFiles.js";
 
@@ -562,6 +565,48 @@ function normalizePlacementTargetId(target = {}) {
   return normalizeShellOutletTargetId(target?.id || target?.target || target);
 }
 
+function resolveConcreteTargetOwner(target = "") {
+  const normalizedTarget = normalizeShellOutletTargetId(target);
+  if (!normalizedTarget) {
+    return "";
+  }
+  return normalizedTarget.slice(0, normalizedTarget.indexOf(":"));
+}
+
+function topologyPlacementTargetsConcreteOutlet(placement = {}, target = "") {
+  const normalizedTarget = normalizeShellOutletTargetId(target);
+  if (!normalizedTarget) {
+    return false;
+  }
+  const variants = placement?.variants && typeof placement.variants === "object" ? placement.variants : {};
+  return Object.values(variants).some((variant) => normalizeShellOutletTargetId(variant?.outlet) === normalizedTarget);
+}
+
+async function resolveSemanticPlacementTargetForConcreteOutlet({
+  appRoot,
+  concreteTarget = "",
+  surface = ""
+} = {}) {
+  const normalizedConcreteTarget = normalizeShellOutletTargetId(concreteTarget);
+  if (!normalizedConcreteTarget) {
+    return null;
+  }
+
+  const topology = await discoverPlacementTopologyFromApp({ appRoot });
+  const owner = resolveConcreteTargetOwner(normalizedConcreteTarget);
+  const normalizedSurface = normalizeSurfaceId(surface);
+  return (Array.isArray(topology.placements) ? topology.placements : []).find((placement) => {
+    if (!topologyPlacementTargetsConcreteOutlet(placement, normalizedConcreteTarget)) {
+      return false;
+    }
+    if (placement.owner && placement.owner !== owner) {
+      return false;
+    }
+    const surfaces = Array.isArray(placement.surfaces) ? placement.surfaces : ["*"];
+    return !normalizedSurface || surfaces.includes("*") || surfaces.includes(normalizedSurface);
+  }) || null;
+}
+
 function resolveRelativeLinkToFromParent(pageTarget = {}, parentHost = null) {
   const childSegments = Array.isArray(pageTarget?.visibleRouteSegments) ? pageTarget.visibleRouteSegments : [];
   const parentSegments = Array.isArray(parentHost?.visibleRouteSegments) ? parentHost.visibleRouteSegments : [];
@@ -598,7 +643,7 @@ function resolveInferredPageLinkTo({
   explicitLinkTo = "",
   pageTarget = {},
   parentHost = null,
-  placementTarget = null,
+  preservesRelativeSubpageLinks = false,
   suppressImplicitRelativeLinks = false
 } = {}) {
   const normalizedExplicitLinkTo = normalizeText(explicitLinkTo);
@@ -609,14 +654,10 @@ function resolveInferredPageLinkTo({
     return "";
   }
 
-  const parentTargetId = normalizePlacementTargetId(parentHost);
-  const placementTargetId = normalizePlacementTargetId(placementTarget);
-  if (parentTargetId && parentTargetId === placementTargetId) {
-    if (parentHost?.isSectionSubpagesHost === true) {
-      const inferredLinkTo = resolveRelativeLinkToFromParent(pageTarget, parentHost);
-      if (inferredLinkTo) {
-        return inferredLinkTo;
-      }
+  if (preservesRelativeSubpageLinks === true && parentHost?.isSectionSubpagesHost === true) {
+    const inferredLinkTo = resolveRelativeLinkToFromParent(pageTarget, parentHost);
+    if (inferredLinkTo) {
+      return inferredLinkTo;
     }
   }
 
@@ -625,36 +666,6 @@ function resolveInferredPageLinkTo({
     return inferredLinkTo;
   }
   return "";
-}
-
-function resolveInferredPageLinkComponentToken({
-  explicitComponentToken = "",
-  parentHost = null,
-  placementTarget = null,
-  defaultComponentToken = DEFAULT_PAGE_LINK_COMPONENT_TOKEN,
-  subpageComponentToken = DEFAULT_SUBPAGE_LINK_COMPONENT_TOKEN
-} = {}) {
-  const normalizedExplicitToken = normalizeText(explicitComponentToken);
-  if (normalizedExplicitToken) {
-    return normalizedExplicitToken;
-  }
-
-  const normalizedPlacementTargetDefaultToken = normalizeText(placementTarget?.defaultLinkComponentToken);
-  if (normalizedPlacementTargetDefaultToken) {
-    return normalizedPlacementTargetDefaultToken;
-  }
-
-  const parentTargetId = normalizePlacementTargetId(parentHost);
-  const placementTargetId = normalizePlacementTargetId(placementTarget);
-  if (
-    parentHost?.isSectionSubpagesHost === true &&
-    parentTargetId &&
-    parentTargetId === placementTargetId
-  ) {
-    return normalizeText(subpageComponentToken) || DEFAULT_SUBPAGE_LINK_COMPONENT_TOKEN;
-  }
-
-  return normalizeText(defaultComponentToken) || DEFAULT_PAGE_LINK_COMPONENT_TOKEN;
 }
 
 function renderPageLinkWhenLine(pageTarget = {}) {
@@ -672,8 +683,6 @@ async function resolvePageLinkTargetDetails({
   placement = "",
   componentToken = "",
   linkTo = "",
-  defaultComponentToken = DEFAULT_PAGE_LINK_COMPONENT_TOKEN,
-  subpageComponentToken = DEFAULT_SUBPAGE_LINK_COMPONENT_TOKEN,
   context = "page target"
 } = {}) {
   const resolvedPageTarget = pageTarget || await resolvePageTargetDetails({
@@ -686,39 +695,49 @@ async function resolvePageLinkTargetDetails({
     pageTarget: resolvedPageTarget,
     context
   });
-  const placementTarget = await resolveShellOutletPlacementTargetFromApp({
-    appRoot: resolvedPageTarget.appRoot,
-    context,
-    placement: normalizeText(placement) || parentHost?.id || ""
-  });
-  const resolvedComponentToken = resolveInferredPageLinkComponentToken({
-    explicitComponentToken: componentToken,
-    parentHost,
-    placementTarget,
-    defaultComponentToken,
-    subpageComponentToken
-  });
   const parentTargetId = normalizePlacementTargetId(parentHost);
-  const placementTargetId = normalizePlacementTargetId(placementTarget);
+  let placementTarget = null;
+  const explicitPlacement = normalizeText(placement);
+  if (explicitPlacement) {
+    placementTarget = await resolveSemanticPlacementTargetFromApp({
+      appRoot: resolvedPageTarget.appRoot,
+      context,
+      placement: explicitPlacement,
+      owner: parentTargetId ? resolveConcreteTargetOwner(parentTargetId) : "",
+      surface: resolvedPageTarget.surfaceId
+    });
+  } else if (parentTargetId) {
+    placementTarget = await resolveSemanticPlacementTargetForConcreteOutlet({
+      appRoot: resolvedPageTarget.appRoot,
+      concreteTarget: parentTargetId,
+      surface: resolvedPageTarget.surfaceId,
+      context
+    });
+  }
+  if (!placementTarget) {
+    placementTarget = await resolveSemanticPlacementTargetFromApp({
+      appRoot: resolvedPageTarget.appRoot,
+      context,
+      surface: resolvedPageTarget.surfaceId
+    });
+  }
   const preservesRelativeSubpageLinks =
     parentHost?.isSectionSubpagesHost === true &&
     Boolean(parentTargetId) &&
-    parentTargetId === placementTargetId;
+    topologyPlacementTargetsConcreteOutlet(placementTarget, parentTargetId);
 
   return Object.freeze({
     pageTarget: resolvedPageTarget,
     parentHost,
     placementTarget,
-    componentToken: resolvedComponentToken,
+    componentToken: normalizeText(componentToken),
     whenLine: renderPageLinkWhenLine(resolvedPageTarget),
     linkTo: resolveInferredPageLinkTo({
       explicitLinkTo: linkTo,
       pageTarget: resolvedPageTarget,
       parentHost,
-      placementTarget,
-      suppressImplicitRelativeLinks:
-        resolvedComponentToken === (normalizeText(defaultComponentToken) || DEFAULT_PAGE_LINK_COMPONENT_TOKEN) &&
-        preservesRelativeSubpageLinks !== true
+      preservesRelativeSubpageLinks,
+      suppressImplicitRelativeLinks: preservesRelativeSubpageLinks !== true
     })
   });
 }

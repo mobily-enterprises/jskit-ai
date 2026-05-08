@@ -45,6 +45,10 @@ async function writeVueFile(appRoot, relativePath, source) {
   await writeFile(absolutePath, source, "utf8");
 }
 
+async function writePlacementTopology(appRoot, source) {
+  await writeVueFile(appRoot, "src/placementTopology.js", source);
+}
+
 test("list packages shows installed local packages section for lock-only package ids", async () => {
   await withTempDir(async (cwd) => {
     const appRoot = path.join(cwd, "list-local-packages-app");
@@ -160,10 +164,80 @@ test("list packages does not include generator package ids", async () => {
   });
 });
 
-test("list-placements discovers shell outlets from app Vue files", async () => {
+test("list-placements shows semantic topology by default", async () => {
   await withTempDir(async (cwd) => {
     const appRoot = path.join(cwd, "list-placements-app");
     await createMinimalApp(appRoot, { name: "list-placements-app" });
+    await writeVueFile(
+      appRoot,
+      "src/components/ShellLayout.vue",
+      `<template>
+  <div>
+    <ShellOutlet target="shell-layout:primary-menu" default />
+    <ShellOutlet target="shell-layout:top-right" />
+  </div>
+</template>
+`
+    );
+    await writePlacementTopology(
+      appRoot,
+      `export default {
+  placements: [
+    {
+      id: "shell.primary-nav",
+      description: "Primary shell navigation.",
+      surfaces: ["*"],
+      default: true,
+      variants: {
+        compact: { outlet: "shell-layout:primary-menu" },
+        medium: { outlet: "shell-layout:primary-menu" },
+        expanded: { outlet: "shell-layout:primary-menu" }
+      }
+    },
+    {
+      id: "shell.status",
+      description: "Shell status widgets.",
+      surfaces: ["*"],
+      variants: {
+        compact: { outlet: "shell-layout:top-right" },
+        medium: { outlet: "shell-layout:top-right" },
+        expanded: { outlet: "shell-layout:top-right" }
+      }
+    }
+  ]
+};
+`
+    );
+    await writeVueFile(
+      appRoot,
+      "src/pages/admin/toolbox/index.vue",
+      `<template>
+  <section>
+    <ShellOutlet target="admin-toolbox:widgets" />
+  </section>
+</template>
+`
+    );
+
+    const result = runCli({
+      cwd: appRoot,
+      args: ["list-placements"]
+    });
+
+    assert.equal(result.status, 0, String(result.stderr || ""));
+    const stdout = String(result.stdout || "");
+    assert.match(stdout, /Available placements:/);
+    assert.match(stdout, /shell\.primary-nav \(default\): Primary shell navigation\./);
+    assert.match(stdout, /compact -> shell-layout:primary-menu/);
+    assert.match(stdout, /shell\.status: Shell status widgets\./);
+    assert.doesNotMatch(stdout, /admin-toolbox:widgets/);
+  });
+});
+
+test("list-placements --concrete discovers shell outlets from app Vue files", async () => {
+  await withTempDir(async (cwd) => {
+    const appRoot = path.join(cwd, "list-placements-concrete-app");
+    await createMinimalApp(appRoot, { name: "list-placements-concrete-app" });
     await writeVueFile(
       appRoot,
       "src/components/ShellLayout.vue",
@@ -188,19 +262,20 @@ test("list-placements discovers shell outlets from app Vue files", async () => {
 
     const result = runCli({
       cwd: appRoot,
-      args: ["list-placements"]
+      args: ["list-placements", "--concrete"]
     });
 
     assert.equal(result.status, 0, String(result.stderr || ""));
     const stdout = String(result.stdout || "");
-    assert.match(stdout, /Available placements:/);
+    assert.match(stdout, /Available concrete outlets:/);
     assert.match(stdout, /shell-layout:primary-menu \(default\) \[src\/components\/ShellLayout\.vue\]/);
     assert.match(stdout, /shell-layout:top-right \[src\/components\/ShellLayout\.vue\]/);
     assert.match(stdout, /admin-toolbox:widgets \[src\/pages\/admin\/toolbox\/index\.vue\]/);
+    assert.doesNotMatch(stdout, /Available placements:/);
   });
 });
 
-test("list-placements --json returns structured placement targets", async () => {
+test("list-placements --json returns structured semantic placement targets", async () => {
   await withTempDir(async (cwd) => {
     const appRoot = path.join(cwd, "list-placements-json-app");
     await createMinimalApp(appRoot, { name: "list-placements-json-app" });
@@ -214,6 +289,25 @@ test("list-placements --json returns structured placement targets", async () => 
 </template>
 `
     );
+    await writePlacementTopology(
+      appRoot,
+      `export default {
+  placements: [
+    {
+      id: "shell.primary-nav",
+      description: "Primary shell navigation.",
+      surfaces: ["*"],
+      default: true,
+      variants: {
+        compact: { outlet: "shell-layout:primary-menu" },
+        medium: { outlet: "shell-layout:primary-menu" },
+        expanded: { outlet: "shell-layout:primary-menu" }
+      }
+    }
+  ]
+};
+`
+    );
 
     const result = runCli({
       cwd: appRoot,
@@ -224,15 +318,24 @@ test("list-placements --json returns structured placement targets", async () => 
     const payload = JSON.parse(String(result.stdout || "{}"));
     assert.deepEqual(payload.placements, [
       {
-        target: "shell-layout:primary-menu",
+        target: "shell.primary-nav",
+        owner: "",
         default: true,
-        sourcePath: "src/components/ShellLayout.vue"
+        description: "Primary shell navigation.",
+        surfaces: ["*"],
+        variants: {
+          compact: { outlet: "shell-layout:primary-menu", renderers: {} },
+          medium: { outlet: "shell-layout:primary-menu", renderers: {} },
+          expanded: { outlet: "shell-layout:primary-menu", renderers: {} }
+        },
+        sourcePath: "src/placementTopology.js"
       }
     ]);
+    assert.deepEqual(payload.concretePlacements, []);
   });
 });
 
-test("list-placements includes installed package metadata outlets", async () => {
+test("list-placements includes installed package metadata topology", async () => {
   await withTempDir(async (cwd) => {
     const appRoot = path.join(cwd, "list-placements-package-outlets-app");
     await createMinimalApp(appRoot, {
@@ -267,7 +370,21 @@ test("list-placements includes installed package metadata outlets", async () => 
       placements: {
         outlets: [
           { target: "workspace-tools:primary-menu", source: "src/client/components/UsersWorkspaceToolsWidget.vue" }
-        ]
+        ],
+        topology: {
+          placements: [
+            {
+              id: "workspace.tools-menu",
+              description: "Workspace tools menu.",
+              surfaces: ["admin"],
+              variants: {
+                compact: { outlet: "workspace-tools:primary-menu" },
+                medium: { outlet: "workspace-tools:primary-menu" },
+                expanded: { outlet: "workspace-tools:primary-menu" }
+              }
+            }
+          ]
+        }
       }
     }
   }
@@ -284,12 +401,13 @@ test("list-placements includes installed package metadata outlets", async () => 
     const stdout = String(result.stdout || "");
     assert.match(
       stdout,
-      /workspace-tools:primary-menu \[package:@example\/users-web:src\/client\/components\/UsersWorkspaceToolsWidget\.vue\]/
+      /workspace\.tools-menu: Workspace tools menu\./
     );
+    assert.match(stdout, /compact -> workspace-tools:primary-menu/);
   });
 });
 
-test("list-placements discovers route meta placement outlets", async () => {
+test("list-placements --concrete discovers route meta placement outlets", async () => {
   await withTempDir(async (cwd) => {
     const appRoot = path.join(cwd, "list-placements-container-outlet-app");
     await createMinimalApp(appRoot, { name: "list-placements-container-outlet-app" });
@@ -318,7 +436,7 @@ test("list-placements discovers route meta placement outlets", async () => {
 
     const result = runCli({
       cwd: appRoot,
-      args: ["list-placements"]
+      args: ["list-placements", "--concrete"]
     });
 
     assert.equal(result.status, 0, String(result.stderr || ""));

@@ -317,14 +317,14 @@ const COMMAND_DESCRIPTORS = Object.freeze({
     minimalUse: "jskit list-placements",
     parameters: Object.freeze([]),
     defaults: Object.freeze([
-      "Discovers placement outlets from app Vue ShellOutlet tags and route meta.",
-      "Includes placement outlets contributed by installed package metadata.",
-      "Shows plain text by default; use --json for structured output."
+      "Shows semantic placement targets from app placement topology by default.",
+      "Use --concrete to inspect low-level ShellOutlet recipients.",
+      "Use --all to show both semantic placements and concrete recipients."
     ]),
-    fullUse: "jskit list-placements [--json]",
+    fullUse: "jskit list-placements [--concrete] [--all] [--json]",
     showHelpOnBareInvocation: false,
     handlerName: "commandListPlacements",
-    allowedFlagKeys: Object.freeze(["json"]),
+    allowedFlagKeys: Object.freeze(["concrete", "all", "json"]),
     inlineOptionMode: "none",
     allowedValueOptionNames: Object.freeze([])
   }),
