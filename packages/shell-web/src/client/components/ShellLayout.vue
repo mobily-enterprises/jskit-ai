@@ -254,9 +254,9 @@ function isPullRefreshIgnoredTarget(target) {
 
     <slot name="top-left" :surface="resolvedSurface">
       <div class="shell-layout__top-left d-flex align-center ga-2">
-        <v-chip class="shell-layout__surface-chip" color="primary" size="small" label>
+        <span class="shell-layout__surface-label">
           {{ resolvedSurfaceLabel }}
-        </v-chip>
+        </span>
         <ShellOutlet target="shell-layout:top-left" />
       </div>
     </slot>
@@ -384,8 +384,17 @@ function isPullRefreshIgnoredTarget(target) {
   overflow: hidden;
 }
 
-.shell-layout__surface-chip {
+.shell-layout__surface-label {
+  color: rgb(var(--v-theme-on-surface));
+  display: block;
+  font-size: 0.95rem;
+  font-weight: 650;
+  letter-spacing: -0.01em;
+  line-height: 1.2;
   max-width: 12rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .shell-layout__title {
@@ -456,7 +465,7 @@ function isPullRefreshIgnoredTarget(target) {
 }
 
 @media (max-width: 640px) {
-  .shell-layout__surface-chip {
+  .shell-layout__surface-label {
     max-width: 8rem;
   }
 

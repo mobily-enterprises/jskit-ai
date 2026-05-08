@@ -152,39 +152,39 @@ const GENERATED_UI_SOURCE_CONTRACT_PROFILES = Object.freeze({
     ]),
     requiredPatterns: Object.freeze([
       Object.freeze({
-        id: "operator-surface-profile",
-        pattern: /generated-ui-screen--operator/,
-        message: "Generated CRUD lists must use the operator surface density profile."
+        id: "crud-list-package-screen",
+        pattern: /CrudListScreen/,
+        message: "Generated CRUD lists must delegate package-owned layout to CrudListScreen."
       }),
       Object.freeze({
-        id: "shared-title-density",
-        pattern: /--generated-ui-screen-title-size/,
-        message: "Generated CRUD lists must use shared title density variables."
+        id: "crud-list-screen-runtime",
+        pattern: /useCrudListScreen/,
+        message: "Generated CRUD lists must use the package-owned list screen runtime."
       }),
       Object.freeze({
-        id: "compact-list-cards",
-        pattern: /d-md-none/,
-        message: "Generated CRUD lists need compact card/list presentation."
+        id: "crud-list-card-slot",
+        pattern: /#card-fields/,
+        message: "Generated CRUD lists must keep resource card fields in a thin slot."
       }),
       Object.freeze({
-        id: "expanded-list-table",
-        pattern: /d-none\s+d-md-block/,
-        message: "Generated CRUD lists need a separate medium/expanded table presentation."
+        id: "crud-list-table-header-slot",
+        pattern: /#table-header/,
+        message: "Generated CRUD lists must keep resource table headers in a thin slot."
       }),
       Object.freeze({
-        id: "compact-row-actions",
-        pattern: /<v-menu\b[\s\S]*Actions/,
-        message: "Generated CRUD row actions should collapse into an overflow menu on compact layouts."
+        id: "crud-list-table-row-slot",
+        pattern: /#table-row/,
+        message: "Generated CRUD lists must keep resource table rows in a thin slot."
       }),
       Object.freeze({
-        id: "crud-list-bulk-actions",
-        pattern: /CrudListBulkActionSurface/,
-        message: "Generated CRUD lists need the shared client-side bulk action seam."
+        id: "crud-list-bulk-config",
+        pattern: /listBulkActions/,
+        message: "Generated CRUD lists must expose bulk actions through resource-local config."
       }),
       Object.freeze({
-        id: "crud-list-selection-mode",
-        pattern: /bulkActions\.hasActions\.value/,
-        message: "Generated CRUD list selection controls must stay hidden until bulk actions are declared."
+        id: "crud-list-filter-config",
+        pattern: /listFilters/,
+        message: "Generated CRUD lists must expose filters through resource-local config."
       }),
       Object.freeze({
         id: "crud-list-empty-state",
@@ -195,21 +195,6 @@ const GENERATED_UI_SOURCE_CONTRACT_PROFILES = Object.freeze({
         id: "crud-list-error-state",
         pattern: /__JSKIT_UI_LIST_LOAD_ERROR_TITLE__/,
         message: "Generated CRUD lists need resource-shaped load error copy."
-      }),
-      Object.freeze({
-        id: "crud-list-tap-targets",
-        pattern: /min-height:\s*48px/,
-        message: "Generated CRUD lists need 48px tap targets."
-      }),
-      Object.freeze({
-        id: "crud-list-filter-surface",
-        pattern: /CrudListFilterSurface/,
-        message: "Generated CRUD lists need the shared client-side filter surface seam."
-      }),
-      Object.freeze({
-        id: "crud-list-filter-query-params",
-        pattern: /queryParams:\s*filterRuntime\.queryParams/,
-        message: "Generated CRUD lists must wire declared filters into list query params."
       })
     ])
   }),
@@ -217,39 +202,29 @@ const GENERATED_UI_SOURCE_CONTRACT_PROFILES = Object.freeze({
     forbidCardShell: true,
     requiredPatterns: Object.freeze([
       Object.freeze({
-        id: "operator-surface-profile",
-        pattern: /generated-ui-screen--operator/,
-        message: "Generated CRUD detail screens must use the operator surface density profile."
+        id: "crud-detail-package-screen",
+        pattern: /Crud(?:View|AddEdit)Screen/,
+        message: "Generated CRUD detail screens must delegate package-owned layout to a CRUD screen component."
       }),
       Object.freeze({
-        id: "shared-title-density",
-        pattern: /--generated-ui-screen-title-size/,
-        message: "Generated CRUD detail screens must use shared title density variables."
+        id: "crud-detail-screen-runtime",
+        pattern: /useCrud(?:View|AddEdit)Screen/,
+        message: "Generated CRUD detail screens must use the package-owned detail screen runtime."
       }),
       Object.freeze({
-        id: "crud-detail-panel",
-        pattern: /ui-generator-(?:view|form)-panel/,
-        message: "Generated CRUD detail screens need a direct sheet panel."
+        id: "crud-detail-fields-slot",
+        pattern: /#fields/,
+        message: "Generated CRUD detail screens must keep resource fields in a thin slot."
       }),
       Object.freeze({
-        id: "crud-detail-header",
-        pattern: /ui-generator-(?:view|form)-header/,
-        message: "Generated CRUD detail screens need a direct page header."
+        id: "crud-detail-resource",
+        pattern: /resource:\s*uiResource/,
+        message: "Generated CRUD detail screens must pass the shared resource contract into the screen runtime."
       }),
       Object.freeze({
-        id: "crud-detail-responsive-form-grid",
-        pattern: /ui-generator-(?:view|form)-fields[\s\S]*:deep\(\.v-col\)/,
-        message: "Generated CRUD detail screens need compact-first field columns."
-      }),
-      Object.freeze({
-        id: "crud-detail-tap-targets",
-        pattern: /min-height:\s*48px/,
-        message: "Generated CRUD detail actions need 48px tap targets on compact layouts."
-      }),
-      Object.freeze({
-        id: "crud-detail-load-retry",
-        pattern: /loadError[\s\S]*(?:view|addEdit|formRuntime\.addEdit)\.refresh/,
-        message: "Generated CRUD detail load errors must expose an inline retry action."
+        id: "crud-detail-title",
+        pattern: /(?:title\s*:|resource-singular-title=)/,
+        message: "Generated CRUD detail screens must provide resource-shaped screen title metadata."
       })
     ])
   }),
