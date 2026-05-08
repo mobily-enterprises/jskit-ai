@@ -66,6 +66,9 @@ test("shell-web shell layout registers navigation at the app layout level", asyn
     assert.doesNotMatch(source, /min-height:\s*72vh/);
     assert.match(source, /ShellRouteTransition/);
     assert.match(source, /<ShellRouteTransition>[\s\S]*<slot \/>[\s\S]*<\/ShellRouteTransition>/);
+    assert.match(source, /data-testid="jskit-shell-app-bar"/);
+    assert.match(source, /:density="isCompactLayout \? 'compact' : 'comfortable'"/);
+    assert.match(source, /shell-layout__top-right[\s\S]*max-width:\s*min\(45vw, 18rem\)/);
     assert.match(source, /<v-bottom-navigation[\s\S]*target="shell-layout:primary-bottom-nav"/);
     assert.match(source, /data-testid="jskit-shell-drawer"/);
     assert.match(source, /data-testid="jskit-shell-bottom-nav"/);
@@ -155,6 +158,15 @@ test("shell-web placement template seeds default Home and Settings adaptive navi
   assert.doesNotMatch(source, /to: "\.\/general"/);
 });
 
+test("shell-web placement topology seeds global actions as a semantic shell placement", async () => {
+  const source = await readFile(path.join(PACKAGE_DIR, "templates", "src", "placementTopology.js"), "utf8");
+
+  assert.match(source, /id: "shell\.global-actions"/);
+  assert.match(source, /description: "Global surface actions that should stay outside primary navigation\."/);
+  assert.match(source, /outlet: "shell-layout:top-right"/);
+  assert.match(source, /renderers: menuLinkRenderers/);
+});
+
 test("shell-web descriptor metadata advertises adaptive shell outlets, default links, and installs the scaffold page", () => {
   assert.deepEqual(
     readOutlets("shell-layout:primary-bottom-nav"),
@@ -222,6 +234,12 @@ test("shell-web descriptor metadata advertises adaptive shell outlets, default l
     "local.main.ui.tab-link-item"
   );
   assert.equal(readTopology("shell.primary-nav")[0]?.variants?.medium?.outlet, "shell-layout:primary-menu");
+  assert.equal(readTopology("shell.global-actions").length, 1);
+  assert.equal(readTopology("shell.global-actions")[0]?.variants?.compact?.outlet, "shell-layout:top-right");
+  assert.equal(
+    readTopology("shell.global-actions")[0]?.variants?.compact?.renderers?.link,
+    "local.main.ui.surface-aware-menu-link-item"
+  );
   assert.equal(readTopology("page.section-nav", "home-settings").length, 1);
 
   assert.deepEqual(findFileMutation("shell-web-page-home-settings-shell"), {

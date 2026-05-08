@@ -124,6 +124,11 @@ const GENERATED_UI_SOURCE_CONTRACT_PROFILES = Object.freeze({
         id: "page-responsive-title-type",
         pattern: /--generated-ui-screen-title-size/,
         message: "Generated pages need shared responsive title typography."
+      }),
+      Object.freeze({
+        id: "page-compact-rules",
+        pattern: /@media\s*\(max-width:\s*640px\)/,
+        message: "Generated pages need explicit compact-width layout rules."
       })
     ])
   }),
@@ -210,6 +215,16 @@ const GENERATED_UI_SOURCE_CONTRACT_PROFILES = Object.freeze({
         id: "crud-detail-header",
         pattern: /ui-generator-(?:view|form)-header/,
         message: "Generated CRUD detail screens need a direct page header."
+      }),
+      Object.freeze({
+        id: "crud-detail-responsive-form-grid",
+        pattern: /ui-generator-(?:view|form)-fields[\s\S]*:deep\(\.v-col\)/,
+        message: "Generated CRUD detail screens need compact-first field columns."
+      }),
+      Object.freeze({
+        id: "crud-detail-tap-targets",
+        pattern: /min-height:\s*48px/,
+        message: "Generated CRUD detail actions need 48px tap targets on compact layouts."
       })
     ])
   }),
@@ -235,6 +250,16 @@ const GENERATED_UI_SOURCE_CONTRACT_PROFILES = Object.freeze({
         id: "overflow-check",
         pattern: /scrollWidth/,
         message: "Generated UI smoke tests must check horizontal overflow."
+      }),
+      Object.freeze({
+        id: "tap-target-check",
+        pattern: /toBeGreaterThanOrEqual\(48\)/,
+        message: "Generated UI smoke tests must check compact tap targets."
+      }),
+      Object.freeze({
+        id: "screen-contract-check",
+        pattern: /generated-ui-screen/,
+        message: "Generated UI smoke tests must verify the generated screen contract."
       })
     ])
   }),

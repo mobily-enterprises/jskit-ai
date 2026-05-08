@@ -142,9 +142,43 @@ test("generated UI source contract flags placeholder copy and missing profile ho
       "shared-screen-class",
       "page-screen-title",
       "page-empty-state-sheet",
-      "page-responsive-title-type"
+      "page-responsive-title-type",
+      "page-compact-rules"
     ]
   );
+});
+
+test("generated UI source contract accepts compact-first CRUD detail structure", () => {
+  assert.doesNotThrow(() => assertGeneratedUiSourceContract(
+    `<template>
+  <section class="generated-ui-screen generated-ui-screen--operator">
+    <header class="ui-generator-form-header"></header>
+    <v-sheet class="ui-generator-form-panel">
+      <v-row class="ui-generator-form-fields"></v-row>
+    </v-sheet>
+  </section>
+</template>
+
+<style scoped>
+.generated-ui-screen {
+  --generated-ui-screen-title-size: clamp(1.35rem, 2vw, 1.85rem);
+}
+
+.ui-generator-form-fields :deep(.v-col) {
+  min-width: 0;
+}
+
+@media (max-width: 640px) {
+  .ui-generator-form-actions :deep(.v-btn) {
+    min-height: 48px;
+  }
+}
+</style>`,
+    {
+      profile: "crud-detail",
+      sourceName: "NewElement.vue"
+    }
+  ));
 });
 
 test("generated UI source contract accepts compact-first CRUD list structure", () => {
@@ -178,7 +212,7 @@ test("generated UI source contract accepts compact-first CRUD list structure", (
 
 test("generated UI responsive smoke profile requires compact medium expanded checks", () => {
   assert.throws(
-    () => assertGeneratedUiSourceContract("const width = 390;", {
+    () => assertGeneratedUiSourceContract("const width = 390; const selector = 'generated-ui-screen';", {
       profile: "responsive-smoke",
       sourceName: "tests/e2e/example.spec.ts"
     }),

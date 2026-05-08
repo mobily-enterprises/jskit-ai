@@ -75,6 +75,12 @@ async function writePlacementTopology(appRoot, entries = []) {
       surfaces: ["*"],
       outlet: "shell-layout:secondary-menu",
       linkRenderer: "local.main.ui.surface-aware-menu-link-item"
+    }),
+    renderTopologyEntry({
+      id: "shell.global-actions",
+      surfaces: ["*"],
+      outlet: "shell-layout:top-right",
+      linkRenderer: "local.main.ui.surface-aware-menu-link-item"
     })
   ];
   await writeFile(
@@ -798,6 +804,22 @@ test("buildUiTemplateContext maps secondary navigation role to shell.secondary-n
     });
 
     assert.equal(context.__JSKIT_UI_MENU_PLACEMENT_TARGET__, "shell.secondary-nav");
+    assert.equal(context.__JSKIT_UI_MENU_OWNER_LINE__, "");
+  });
+});
+
+test("buildUiTemplateContext maps utility navigation role to shell.global-actions", async () => {
+  await withTempApp(async (appRoot) => {
+    await writeResource(appRoot, RESOURCE_FILE, FULL_RESOURCE_SOURCE);
+
+    const context = await buildUiTemplateContext({
+      appRoot,
+      options: createOptions({
+        "navigation-role": "utility"
+      })
+    });
+
+    assert.equal(context.__JSKIT_UI_MENU_PLACEMENT_TARGET__, "shell.global-actions");
     assert.equal(context.__JSKIT_UI_MENU_OWNER_LINE__, "");
   });
 });

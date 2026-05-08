@@ -202,6 +202,8 @@ test("create-app scaffolds the base shell with placeholder replacements", async 
     assert.match(e2eSmoke, /1280/);
     assert.match(e2eSmoke, /scrollWidth/);
     assert.match(e2eSmoke, /expectGeneratedScreenContract/);
+    assert.match(e2eSmoke, /expectVisibleTapTargets/);
+    assert.match(e2eSmoke, /toBeGreaterThanOrEqual\(48\)/);
     assert.match(e2eSmoke, /\.generated-ui-screen/);
 
     const mainJs = await readFile(path.join(appRoot, "src/main.js"), "utf8");

@@ -91,6 +91,26 @@ addPlacementTopology({
 });
 
 addPlacementTopology({
+  id: "shell.global-actions",
+  description: "Global surface actions that should stay outside primary navigation.",
+  surfaces: ["*"],
+  variants: {
+    compact: {
+      outlet: "shell-layout:top-right",
+      renderers: menuLinkRenderers
+    },
+    medium: {
+      outlet: "shell-layout:top-right",
+      renderers: menuLinkRenderers
+    },
+    expanded: {
+      outlet: "shell-layout:top-right",
+      renderers: menuLinkRenderers
+    }
+  }
+});
+
+addPlacementTopology({
   id: "page.section-nav",
   owner: "home-settings",
   description: "Navigation between child pages in the home settings section.",

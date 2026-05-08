@@ -125,6 +125,12 @@ function renderPlainPageSource(pageTitle = "", {
   text-align: var(--generated-ui-screen-panel-align);
   width: 100%;
 }
+
+@media (max-width: 640px) {
+  .generated-ui-screen {
+    --generated-ui-screen-panel-padding: 1.25rem 1rem;
+  }
+}
 </style>
 `;
 }

@@ -68,6 +68,12 @@ async function writePlacementTopology(appRoot, entries = []) {
       linkRenderer: "local.main.ui.surface-aware-menu-link-item"
     }),
     renderTopologyEntry({
+      id: "shell.global-actions",
+      surfaces: ["*"],
+      outlet: "shell-layout:top-right",
+      linkRenderer: "local.main.ui.surface-aware-menu-link-item"
+    }),
+    renderTopologyEntry({
       id: "shell.secondary-nav",
       surfaces: ["*"],
       outlet: "shell-layout:secondary-menu",
@@ -184,6 +190,27 @@ test("ui-generator page subcommand maps secondary navigation role to shell.secon
 
     const placementSource = await readFile(path.join(appRoot, "src", "placement.js"), "utf8");
     assert.match(placementSource, /target: "shell\.secondary-nav"/);
+    assert.match(placementSource, /kind: "link"/);
+  });
+});
+
+test("ui-generator page subcommand maps utility navigation role to shell.global-actions", async () => {
+  await withTempApp(async (appRoot) => {
+    await writeAppFixture(appRoot);
+
+    const targetFile = "w/[workspaceSlug]/admin/help/index.vue";
+    await runGeneratorSubcommand({
+      appRoot,
+      subcommand: "page",
+      args: [targetFile],
+      options: {
+        name: "Help",
+        "navigation-role": "utility"
+      }
+    });
+
+    const placementSource = await readFile(path.join(appRoot, "src", "placement.js"), "utf8");
+    assert.match(placementSource, /target: "shell\.global-actions"/);
     assert.match(placementSource, /kind: "link"/);
   });
 });
