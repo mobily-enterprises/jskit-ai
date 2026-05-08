@@ -64,8 +64,23 @@ test("shell-web shell layout registers navigation at the app layout level", asyn
     assert.match(source, /ShellRouteTransition/);
     assert.match(source, /<ShellRouteTransition>[\s\S]*<slot \/>[\s\S]*<\/ShellRouteTransition>/);
     assert.match(source, /<v-bottom-navigation[\s\S]*target="shell-layout:primary-bottom-nav"/);
+    assert.match(source, /data-testid="jskit-shell-drawer"/);
+    assert.match(source, /data-testid="jskit-shell-bottom-nav"/);
     assert.match(source, /padding:\s*0\.75rem 1rem calc\(1rem \+ env\(safe-area-inset-bottom, 0px\)\)/);
   }
+});
+
+test("shell-web installs generated adaptive shell Playwright smoke coverage", async () => {
+  const source = await readFile(path.join(PACKAGE_DIR, "templates", "tests", "e2e", "adaptive-shell.spec.ts"), "utf8");
+
+  assert.match(source, /generated adaptive shell smoke/);
+  assert.match(source, /390/);
+  assert.match(source, /768/);
+  assert.match(source, /1280/);
+  assert.match(source, /jskit-shell-bottom-nav/);
+  assert.match(source, /jskit-shell-drawer/);
+  assert.match(source, /scrollWidth/);
+  assert.match(source, /toBeGreaterThanOrEqual\(48\)/);
 });
 
 test("shell-web route transition keeps mobile route motion placement-driven", async () => {
@@ -228,6 +243,15 @@ test("shell-web descriptor metadata advertises adaptive shell outlets, default l
     reason: "Install shell-driven general settings child page with a tiny browser-local shell preference example.",
     category: "shell-web",
     id: "shell-web-page-home-settings-general"
+  });
+
+  assert.deepEqual(findFileMutation("shell-web-test-adaptive-shell-smoke"), {
+    from: "templates/tests/e2e/adaptive-shell.spec.ts",
+    to: "tests/e2e/adaptive-shell.spec.ts",
+    ownership: "app",
+    reason: "Install compact/medium/expanded Playwright smoke coverage for the adaptive shell.",
+    category: "shell-web",
+    id: "shell-web-test-adaptive-shell-smoke"
   });
 });
 

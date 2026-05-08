@@ -377,6 +377,11 @@ test("buildUiTemplateContext derives CRUD placeholders from the explicit target-
     assert.equal(context.__JSKIT_UI_RESOURCE_NAMESPACE__, "customers");
     assert.equal(context.__JSKIT_UI_RESOURCE_SINGULAR_TITLE__, "Customer");
     assert.equal(context.__JSKIT_UI_RESOURCE_PLURAL_TITLE__, "Customers");
+    assert.equal(context.__JSKIT_UI_LIST_LOAD_ERROR_TITLE__, "Unable to load Customers");
+    assert.equal(context.__JSKIT_UI_LIST_LOAD_ERROR_BODY__, "Check the connection and try again.");
+    assert.equal(context.__JSKIT_UI_LIST_EMPTY_TITLE__, "No Customers yet");
+    assert.equal(context.__JSKIT_UI_LIST_EMPTY_BODY__, "Create the first Customer to start using this workflow.");
+    assert.equal(context.__JSKIT_UI_LIST_CREATE_LABEL__, "New Customer");
     assert.equal(context.__JSKIT_UI_ROUTE_TITLE__, "Customers");
     assert.equal(context.__JSKIT_UI_PARENT_TITLE_MODE__, "contextual");
     assert.match(context.__JSKIT_UI_LIST_PARENT_TITLE_IMPORT_LINE__, /useCrudListParentTitle/);
@@ -780,6 +785,56 @@ test("buildUiTemplateContext honors explicit link-placement override", async () 
   });
 });
 
+test("buildUiTemplateContext maps secondary navigation role to shell.secondary-nav", async () => {
+  await withTempApp(async (appRoot) => {
+    await writeResource(appRoot, RESOURCE_FILE, FULL_RESOURCE_SOURCE);
+
+    const context = await buildUiTemplateContext({
+      appRoot,
+      options: createOptions({
+        "navigation-role": "secondary"
+      })
+    });
+
+    assert.equal(context.__JSKIT_UI_MENU_PLACEMENT_TARGET__, "shell.secondary-nav");
+    assert.equal(context.__JSKIT_UI_MENU_OWNER_LINE__, "");
+  });
+});
+
+test("buildUiTemplateContext supports no-link navigation roles for detail or workflow lists", async () => {
+  await withTempApp(async (appRoot) => {
+    await writeResource(appRoot, RESOURCE_FILE, FULL_RESOURCE_SOURCE);
+
+    const context = await buildUiTemplateContext({
+      appRoot,
+      options: createOptions({
+        "navigation-role": "workflow"
+      })
+    });
+
+    assert.equal(context.__JSKIT_UI_MENU_PLACEMENT_ID__, "");
+    assert.equal(context.__JSKIT_UI_MENU_PLACEMENT_TARGET__, "");
+    assert.equal(context.__JSKIT_UI_MENU_MARKER__, "jskit:crud-ui-generator.page.link:admin:/customers");
+  });
+});
+
+test("buildUiTemplateContext rejects no-link navigation roles with explicit link-placement", async () => {
+  await withTempApp(async (appRoot) => {
+    await writeResource(appRoot, RESOURCE_FILE, FULL_RESOURCE_SOURCE);
+
+    await assert.rejects(
+      buildUiTemplateContext({
+        appRoot,
+        options: createOptions({
+          "navigation-role": "none",
+          "link-placement": "shell.secondary-nav"
+        })
+      }),
+      /navigation-role "none" cannot be combined with --link-placement/
+    );
+  });
+});
+
 test("buildUiTemplateContext accepts target-roots with a src/pages prefix", async () => {
   await withTempApp(async (appRoot) => {
     await writeResource(appRoot, RESOURCE_FILE, FULL_RESOURCE_SOURCE);
@@ -845,11 +900,16 @@ test("crud ui templates derive JSON:API transport from the shared CRUD resource"
   assert.match(listTemplateSource, /ui-generator-list-cards d-md-none/);
   assert.match(listTemplateSource, /ui-generator-list-table d-none d-md-block/);
   assert.match(listTemplateSource, /class="ui-generator-list-fab d-md-none"/);
-  assert.match(listTemplateSource, /No __JSKIT_UI_RESOURCE_PLURAL_TITLE__ yet/);
-  assert.match(listTemplateSource, /Unable to load __JSKIT_UI_RESOURCE_PLURAL_TITLE__/);
+  assert.match(listTemplateSource, /<v-menu v-if="UI_VIEW_URL \|\| UI_EDIT_URL"/);
+  assert.match(listTemplateSource, /ui-generator-list-header__actions :deep\(\.v-btn\)[\s\S]*min-height: 48px/);
+  assert.match(listTemplateSource, /__JSKIT_UI_LIST_EMPTY_TITLE__/);
+  assert.match(listTemplateSource, /__JSKIT_UI_LIST_EMPTY_BODY__/);
+  assert.match(listTemplateSource, /__JSKIT_UI_LIST_LOAD_ERROR_TITLE__/);
+  assert.match(listTemplateSource, /__JSKIT_UI_LIST_LOAD_ERROR_BODY__/);
+  assert.match(listTemplateSource, /__JSKIT_UI_LIST_CREATE_LABEL__/);
   assert.match(listTemplateSource, /resolveListRecordTitle\(record\)/);
   assert.match(listTemplateSource, /formatListCardValue/);
-  assert.doesNotMatch(listTemplateSource, /No records yet|Manage __JSKIT|Replace this scaffold/);
+  assert.doesNotMatch(listTemplateSource, /No records yet|Manage __JSKIT|Replace this scaffold|<v-data-table\b/);
   assert.doesNotMatch(listTemplateSource, /const UI_LIST_TRANSPORT = Object\.freeze\(\{/);
   assert.doesNotMatch(listTemplateSource, /transport:\s*UI_LIST_TRANSPORT,/);
 

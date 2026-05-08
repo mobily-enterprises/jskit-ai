@@ -79,6 +79,15 @@ export default Object.freeze({
       promptLabel: "Link placement",
       promptHint: "Optional semantic target for the generated page link placement (format: area.slot)."
     },
+    "navigation-role": {
+      required: false,
+      inputType: "text",
+      validationType: "enum",
+      allowedValues: ["primary", "secondary", "utility", "detail", "workflow", "none"],
+      defaultValue: "primary",
+      promptLabel: "Navigation role",
+      promptHint: "Product navigation role for generated page links. primary uses normal inference, secondary maps to shell.secondary-nav, utility maps to shell.global-actions, and detail/workflow/none create no nav link."
+    },
     "link-to": {
       required: false,
       inputType: "text",
@@ -163,7 +172,7 @@ export default Object.freeze({
             descriptionKey: "page-target-file"
           }
         ],
-        optionNames: ["name", "link-placement", "link-to", "force"],
+        optionNames: ["name", "navigation-role", "link-placement", "link-to", "force"],
         notes: [
           "If a nearest parent subpages target is found, semantic placement and props.to are inferred automatically.",
           "If the parent target page is index.vue, child pages belong under index/...",

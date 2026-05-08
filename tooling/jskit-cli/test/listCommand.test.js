@@ -272,7 +272,9 @@ test("list-placements shows semantic topology by default", async () => {
     assert.doesNotMatch(stdout, /compact -> shell-layout:primary-menu/);
     assert.doesNotMatch(stdout, /medium -> shell-layout:primary-menu/);
     assert.doesNotMatch(stdout, /expanded -> shell-layout:primary-menu/);
-    assert.doesNotMatch(stdout, /admin-toolbox:widgets/);
+    assert.match(stdout, /Unmapped concrete outlets:/);
+    assert.match(stdout, /admin-toolbox:widgets \[src\/pages\/admin\/toolbox\/index\.vue\]/);
+    assert.match(stdout, /generate ui-generator topology --placement <area\.slot>/);
   });
 });
 
@@ -418,6 +420,7 @@ test("list-placements --json returns structured semantic placement targets", asy
       `<template>
   <div>
     <ShellOutlet target="shell-layout:primary-menu" default />
+    <ShellOutlet target="shell-layout:top-right" />
   </div>
 </template>
 `
@@ -465,6 +468,13 @@ test("list-placements --json returns structured semantic placement targets", asy
       }
     ]);
     assert.deepEqual(payload.concretePlacements, []);
+    assert.deepEqual(payload.unmappedConcretePlacements, [
+      {
+        target: "shell-layout:top-right",
+        default: false,
+        sourcePath: "src/components/ShellLayout.vue"
+      }
+    ]);
   });
 });
 

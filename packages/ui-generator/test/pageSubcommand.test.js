@@ -65,6 +65,12 @@ async function writePlacementTopology(appRoot, entries = []) {
       surfaces: ["*"],
       outlet: "shell-layout:top-right",
       linkRenderer: "local.main.ui.surface-aware-menu-link-item"
+    }),
+    renderTopologyEntry({
+      id: "shell.secondary-nav",
+      surfaces: ["*"],
+      outlet: "shell-layout:secondary-menu",
+      linkRenderer: "local.main.ui.surface-aware-menu-link-item"
     })
   ];
   await writeFile(
@@ -104,6 +110,7 @@ async function writeAppFixture(appRoot, { configSource = "" } = {}) {
       default
     />
     <ShellOutlet target="shell-layout:top-right" />
+    <ShellOutlet target="shell-layout:secondary-menu" />
   </div>
 </template>
 `,
@@ -142,13 +149,76 @@ test("ui-generator page subcommand creates an index page from an explicit target
 
     const pageSource = await readFile(path.join(appRoot, toPagePath(targetFile)), "utf8");
     assert.match(pageSource, /<h1 class="generated-page-screen__title">Practice<\/h1>/);
+    assert.match(pageSource, /<v-sheet rounded="lg" border class="generated-page-screen__empty-state">/);
     assert.match(pageSource, /No Practice activity yet/);
-    assert.doesNotMatch(pageSource, /Replace this scaffold|Use this area|This is your page/);
+    assert.doesNotMatch(pageSource, /Replace this scaffold|Use this area|This is your page|<v-card\b|v-card-title/);
 
     const placementSource = await readFile(path.join(appRoot, "src", "placement.js"), "utf8");
     assert.match(placementSource, /id: "ui-generator\.page\.admin\.practice\.link"/);
     assert.match(placementSource, /scopedSuffix: "\/practice"/);
     assert.match(placementSource, /label: "Practice"/);
+  });
+});
+
+test("ui-generator page subcommand maps secondary navigation role to shell.secondary-nav", async () => {
+  await withTempApp(async (appRoot) => {
+    await writeAppFixture(appRoot);
+
+    const targetFile = "w/[workspaceSlug]/admin/reports/index.vue";
+    await runGeneratorSubcommand({
+      appRoot,
+      subcommand: "page",
+      args: [targetFile],
+      options: {
+        name: "Reports",
+        "navigation-role": "secondary"
+      }
+    });
+
+    const placementSource = await readFile(path.join(appRoot, "src", "placement.js"), "utf8");
+    assert.match(placementSource, /target: "shell\.secondary-nav"/);
+    assert.match(placementSource, /kind: "link"/);
+  });
+});
+
+test("ui-generator page subcommand can generate detail pages without navigation placement", async () => {
+  await withTempApp(async (appRoot) => {
+    await writeAppFixture(appRoot);
+
+    const targetFile = "w/[workspaceSlug]/admin/reports/[reportId].vue";
+    const result = await runGeneratorSubcommand({
+      appRoot,
+      subcommand: "page",
+      args: [targetFile],
+      options: {
+        name: "Report",
+        "navigation-role": "detail"
+      }
+    });
+
+    assert.deepEqual(result.touchedFiles, [toPagePath(targetFile)]);
+
+    const placementSource = await readFile(path.join(appRoot, "src", "placement.js"), "utf8");
+    assert.doesNotMatch(placementSource, /ui-generator\.page\.admin\.reports\.report-id\.link/);
+  });
+});
+
+test("ui-generator page subcommand rejects no-link navigation roles with link placement options", async () => {
+  await withTempApp(async (appRoot) => {
+    await writeAppFixture(appRoot);
+
+    await assert.rejects(
+      runGeneratorSubcommand({
+        appRoot,
+        subcommand: "page",
+        args: ["w/[workspaceSlug]/admin/reports/[reportId].vue"],
+        options: {
+          "navigation-role": "detail",
+          "link-placement": "shell.primary-nav"
+        }
+      }),
+      /navigation-role "detail" cannot be combined with --link-placement/
+    );
   });
 });
 

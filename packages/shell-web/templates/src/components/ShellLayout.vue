@@ -79,6 +79,7 @@ watch(
     v-model="drawerOpen"
     border
     class="bg-surface"
+    data-testid="jskit-shell-drawer"
     :temporary="isCompactLayout"
     :permanent="!isCompactLayout"
     :width="248"
@@ -109,6 +110,7 @@ watch(
   <v-bottom-navigation
     v-if="isCompactLayout"
     class="shell-layout__bottom-nav"
+    data-testid="jskit-shell-bottom-nav"
     bg-color="surface"
     color="primary"
     density="comfortable"

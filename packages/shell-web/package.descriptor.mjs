@@ -421,6 +421,14 @@ export default Object.freeze({
         reason: "Install shell-driven general settings child page with a tiny browser-local shell preference example.",
         category: "shell-web",
         id: "shell-web-page-home-settings-general"
+      },
+      {
+        from: "templates/tests/e2e/adaptive-shell.spec.ts",
+        to: "tests/e2e/adaptive-shell.spec.ts",
+        ownership: "app",
+        reason: "Install compact/medium/expanded Playwright smoke coverage for the adaptive shell.",
+        category: "shell-web",
+        id: "shell-web-test-adaptive-shell-smoke"
       }
     ]
   }

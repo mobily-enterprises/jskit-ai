@@ -70,7 +70,9 @@ CLI and generators:
 - If a generated page is under a parent host with a mapped `ShellOutlet`, the generator infers the semantic placement and owner from topology.
 - `ui-generator add-subpages` upgrades a page into a routed child-page host and appends a `page.section-nav` topology entry for the generated concrete outlet.
 - `ui-generator outlet` injects a plain concrete `ShellOutlet` and appends the semantic topology mapping in the same command.
+- `ui-generator page` and `crud-ui-generator crud` accept `--navigation-role` so detail, workflow, and utility routes do not accidentally become primary navigation.
 - When adding a public concrete outlet by hand, add its semantic topology mapping in the same change.
+- If `jskit list-placements` reports unmapped concrete outlets, either add semantic topology for them or keep those outlets private/internal.
 
 Rules:
 

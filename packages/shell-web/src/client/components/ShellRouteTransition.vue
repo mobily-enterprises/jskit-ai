@@ -306,7 +306,6 @@ function handlePointerEnd(event) {
   const deltaY = event.clientY - swipe.startY;
   const elapsed = Math.max(performance.now() - swipe.startTime, 1);
   const absX = Math.abs(deltaX);
-  const absY = Math.abs(deltaY);
   const velocity = absX / elapsed;
 
   if (!isAcceptedSwipe({ deltaX, deltaY, elapsed, velocity })) {

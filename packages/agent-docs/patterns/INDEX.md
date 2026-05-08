@@ -30,6 +30,8 @@ How to use it:
   - `client-requests.md`
 - playwright, browser test, e2e, ui verification, authenticated ui test, test auth, dev login as, dev auth bypass
   - `ui-testing.md`
+- generated UI contract, design contract, navigation roles, density, placeholder copy, card shells
+  - `generated-ui-contract-tracking.md`
 - filter, filters, search facets, chips, date range, enum filter, lookup filter, `useCrudListFilters`, `createCrudListFilters`
   - `filters.md`
 - `searchSchema`, `search: true`, `applyFilter`, server search, query validators, backend filters, internal JSON REST filters
@@ -49,6 +51,7 @@ How to use it:
 - [live-actions.md](./live-actions.md)
 - [client-requests.md](./client-requests.md)
 - [ui-testing.md](./ui-testing.md)
+- [generated-ui-contract-tracking.md](./generated-ui-contract-tracking.md)
 - [filters.md](./filters.md)
 - [server-search.md](./server-search.md)
 - [crud-repository-mapping.md](./crud-repository-mapping.md)

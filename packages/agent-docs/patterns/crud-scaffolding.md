@@ -30,6 +30,8 @@ Rules:
 - Generated CRUD view/new/edit screens should use page headers plus direct sheet panels. Do not use generic card shells as the page architecture.
 - Compact CRUD actions should be reachable without a drawer. Use a mobile-visible primary action or FAB for create flows.
 - Row actions should collapse into an overflow/action menu on compact widths and can be inline on wider layouts.
+- Structured filters should use shared filter definitions and collapse to compact filter controls/sheets when they outgrow simple search. Do not stack dense desktop filter bars on phone widths.
+- Use `--navigation-role` for CRUD list placement intent. Main resources can stay `primary`; nested/detail/workflow CRUD routes should usually be `secondary`, `workflow`, or `none`.
 
 Meaning of `--internal`:
 
