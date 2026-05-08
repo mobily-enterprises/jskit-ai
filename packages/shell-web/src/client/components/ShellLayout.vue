@@ -129,10 +129,7 @@ watch(
     grow
     mandatory
   >
-    <ShellOutlet
-      target="shell-layout:primary-bottom-nav"
-      default
-    />
+    <ShellOutlet target="shell-layout:primary-bottom-nav" />
   </v-bottom-navigation>
 </template>
 
