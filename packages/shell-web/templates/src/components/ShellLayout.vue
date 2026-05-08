@@ -35,6 +35,10 @@ const {
   drawerDefaultOpen,
   drawerOpen,
   setDrawerOpen,
+  supportingContentOpen,
+  supportingContentTitle,
+  setSupportingContentOpen,
+  closeSupportingContent,
   toggleDrawer,
   resolvedSurface,
   resolvedSurfaceLabel
@@ -328,6 +332,41 @@ function isPullRefreshIgnoredTarget(target) {
   >
     <ShellOutlet target="shell-layout:primary-bottom-nav" />
   </v-bottom-navigation>
+
+  <v-bottom-sheet
+    v-if="isCompactLayout"
+    :model-value="supportingContentOpen"
+    @update:model-value="setSupportingContentOpen"
+  >
+    <v-card rounded="t-xl" class="shell-layout__supporting-sheet" data-testid="jskit-shell-supporting-bottom-sheet">
+      <v-card-title class="shell-layout__supporting-title">
+        <span>{{ supportingContentTitle || 'Details' }}</span>
+        <v-btn variant="text" @click="closeSupportingContent">Close</v-btn>
+      </v-card-title>
+      <v-card-text>
+        <ShellOutlet target="shell-layout:supporting-bottom-sheet" />
+      </v-card-text>
+    </v-card>
+  </v-bottom-sheet>
+
+  <v-navigation-drawer
+    v-if="!isCompactLayout"
+    :model-value="supportingContentOpen"
+    border
+    temporary
+    location="right"
+    :width="384"
+    data-testid="jskit-shell-supporting-side-panel"
+    @update:model-value="setSupportingContentOpen"
+  >
+    <div class="shell-layout__supporting-side-panel">
+      <div class="shell-layout__supporting-title">
+        <strong>{{ supportingContentTitle || 'Details' }}</strong>
+        <v-btn variant="text" @click="closeSupportingContent">Close</v-btn>
+      </div>
+      <ShellOutlet target="shell-layout:supporting-side-panel" />
+    </div>
+  </v-navigation-drawer>
 </template>
 
 <style scoped>
@@ -360,6 +399,29 @@ function isPullRefreshIgnoredTarget(target) {
 .shell-layout__bottom-nav {
   border-top: 1px solid rgba(var(--v-border-color), var(--v-border-opacity));
   padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+
+.shell-layout__supporting-sheet {
+  max-height: min(72vh, 40rem);
+  overflow: auto;
+}
+
+.shell-layout__supporting-side-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  padding: 1rem;
+}
+
+.shell-layout__supporting-title {
+  align-items: center;
+  display: flex;
+  gap: 0.75rem;
+  justify-content: space-between;
+}
+
+.shell-layout__supporting-title :deep(.v-btn) {
+  min-height: 48px;
 }
 
 .shell-layout__pull-refresh {

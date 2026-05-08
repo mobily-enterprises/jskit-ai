@@ -1050,6 +1050,45 @@ const listFilters = defineCrudListFilters({
 export { listFilters };
 ```
 
+### Pattern 3B: client-side bulk list actions
+
+Generated CRUD list pages also include a client-side bulk-action seam by default. The generated page imports `./listBulkActions.js`, builds `useCrudListBulkActions(listBulkActions)`, and renders `CrudListBulkActionSurface`.
+
+If `listBulkActions.js` is empty, selection controls and the bulk action bar stay hidden.
+
+Use this first when adding selected-record actions. JSKIT does not invent server operations such as delete, archive, approve, or export; the action definition owns that behavior.
+
+For example:
+
+```js
+import { defineCrudListBulkActions } from "@jskit-ai/users-web/client/bulkActions";
+
+const listBulkActions = defineCrudListBulkActions([
+  {
+    key: "archive",
+    label: "Archive",
+    async run({ selectedIds, clearSelection, reload }) {
+      await archiveContacts(selectedIds);
+      clearSelection();
+      await reload();
+    }
+  }
+]);
+
+export { listBulkActions };
+```
+
+The generated runtime passes action handlers:
+
+- `selectedIds`
+- `ids` as an alias for `selectedIds`
+- `selectedRecords`
+- `clearSelection()`
+- `records`
+- `reload`
+
+Keep bulk action definitions page-local unless another page needs to share them.
+
 #### Exact file checklist
 
 For a generated CRUD, treat this as the concrete file plan:

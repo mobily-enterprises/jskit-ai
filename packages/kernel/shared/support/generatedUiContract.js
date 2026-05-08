@@ -177,6 +177,16 @@ const GENERATED_UI_SOURCE_CONTRACT_PROFILES = Object.freeze({
         message: "Generated CRUD row actions should collapse into an overflow menu on compact layouts."
       }),
       Object.freeze({
+        id: "crud-list-bulk-actions",
+        pattern: /CrudListBulkActionSurface/,
+        message: "Generated CRUD lists need the shared client-side bulk action seam."
+      }),
+      Object.freeze({
+        id: "crud-list-selection-mode",
+        pattern: /bulkActions\.hasActions\.value/,
+        message: "Generated CRUD list selection controls must stay hidden until bulk actions are declared."
+      }),
+      Object.freeze({
         id: "crud-list-empty-state",
         pattern: /__JSKIT_UI_LIST_EMPTY_TITLE__/,
         message: "Generated CRUD lists need resource-shaped empty state copy."

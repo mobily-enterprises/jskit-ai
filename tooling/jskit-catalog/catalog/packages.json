@@ -2108,6 +2108,19 @@
               }
             },
             {
+              "from": "templates/src/pages/admin/ui-generator/listBulkActions.js",
+              "to": "src/pages/${option:target-root|trim}/listBulkActions.js",
+              "reason": "Install generated client-side list bulk action definitions.",
+              "category": "crud-ui-generator",
+              "id": "crud-ui-page-list-bulk-actions-${option:target-root|snake}",
+              "when": {
+                "option": "operations",
+                "in": [
+                  "list"
+                ]
+              }
+            },
+            {
               "from": "templates/src/pages/admin/ui-generator/ViewElement.vue",
               "to": "src/pages/${option:target-root|trim}/[${option:id-param|trim}]/index.vue",
               "reason": "Install generated view page.",
@@ -3897,6 +3910,20 @@
                   "source": "src/client/components/ShellLayout.vue"
                 },
                 {
+                  "target": "shell-layout:supporting-bottom-sheet",
+                  "surfaces": [
+                    "*"
+                  ],
+                  "source": "src/client/components/ShellLayout.vue"
+                },
+                {
+                  "target": "shell-layout:supporting-side-panel",
+                  "surfaces": [
+                    "*"
+                  ],
+                  "source": "src/client/components/ShellLayout.vue"
+                },
+                {
                   "target": "home-settings:primary-menu",
                   "surfaces": [
                     "home"
@@ -4021,6 +4048,24 @@
                         "renderers": {
                           "link": "local.main.ui.surface-aware-menu-link-item"
                         }
+                      }
+                    }
+                  },
+                  {
+                    "id": "page.supporting-content",
+                    "description": "Supporting page content that opens as a bottom sheet on compact layouts and a side panel on wider layouts.",
+                    "surfaces": [
+                      "*"
+                    ],
+                    "variants": {
+                      "compact": {
+                        "outlet": "shell-layout:supporting-bottom-sheet"
+                      },
+                      "medium": {
+                        "outlet": "shell-layout:supporting-side-panel"
+                      },
+                      "expanded": {
+                        "outlet": "shell-layout:supporting-side-panel"
                       }
                     }
                   },
@@ -5415,8 +5460,16 @@
                 "summary": "Exports the package-owned account settings host that renders placement-backed account sections."
               },
               {
+                "subpath": "./client/components/CrudListBulkActionSurface",
+                "summary": "Exports the adaptive CRUD list bulk-action surface for generated list pages."
+              },
+              {
                 "subpath": "./client/components/CrudListFilterSurface",
                 "summary": "Exports the adaptive CRUD list filter surface for generated list pages."
+              },
+              {
+                "subpath": "./client/bulkActions",
+                "summary": "Exports client-side CRUD list bulk-action definition helpers."
               },
               {
                 "subpath": "./client/filters",
@@ -5449,6 +5502,10 @@
               {
                 "subpath": "./client/composables/useCrudListFilterLookups",
                 "summary": "Exports lookup-backed CRUD list filter helper for remote autocomplete filters."
+              },
+              {
+                "subpath": "./client/composables/useCrudListBulkActions",
+                "summary": "Exports selected-record state and execution runtime for generated CRUD list bulk actions."
               },
               {
                 "subpath": "./client/composables/useView",

@@ -156,6 +156,10 @@ Local functions
 Exports
 - None
 
+### `templates/src/pages/admin/ui-generator/listBulkActions.js`
+Exports
+- `listBulkActions`
+
 ### `templates/src/pages/admin/ui-generator/ListElement.vue`
 Exports
 - None

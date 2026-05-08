@@ -84,6 +84,16 @@ export default Object.freeze({
             source: "src/client/components/ShellLayout.vue"
           },
           {
+            target: "shell-layout:supporting-bottom-sheet",
+            surfaces: ["*"],
+            source: "src/client/components/ShellLayout.vue"
+          },
+          {
+            target: "shell-layout:supporting-side-panel",
+            surfaces: ["*"],
+            source: "src/client/components/ShellLayout.vue"
+          },
+          {
             target: "home-settings:primary-menu",
             surfaces: ["home"],
             source: "templates/src/pages/home/settings.vue"
@@ -196,6 +206,22 @@ export default Object.freeze({
                   renderers: {
                     link: "local.main.ui.surface-aware-menu-link-item"
                   }
+                }
+              }
+            },
+            {
+              id: "page.supporting-content",
+              description: "Supporting page content that opens as a bottom sheet on compact layouts and a side panel on wider layouts.",
+              surfaces: ["*"],
+              variants: {
+                compact: {
+                  outlet: "shell-layout:supporting-bottom-sheet"
+                },
+                medium: {
+                  outlet: "shell-layout:supporting-side-panel"
+                },
+                expanded: {
+                  outlet: "shell-layout:supporting-side-panel"
                 }
               }
             },

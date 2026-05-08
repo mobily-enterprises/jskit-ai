@@ -60,3 +60,16 @@ test("crud-ui-generator installs page-local list filter definition seam for list
     in: ["list"]
   });
 });
+
+test("crud-ui-generator installs page-local list bulk action definition seam for list pages", () => {
+  const bulkActionMutation = descriptor?.mutations?.files?.find(
+    (entry) => String(entry?.id || "").trim() === "crud-ui-page-list-bulk-actions-${option:target-root|snake}"
+  );
+
+  assert.equal(bulkActionMutation?.from, "templates/src/pages/admin/ui-generator/listBulkActions.js");
+  assert.equal(bulkActionMutation?.to, "src/pages/${option:target-root|trim}/listBulkActions.js");
+  assert.deepEqual(bulkActionMutation?.when, {
+    option: "operations",
+    in: ["list"]
+  });
+});

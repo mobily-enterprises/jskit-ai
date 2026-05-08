@@ -262,6 +262,7 @@ function resolveGeneratedPaths(appRoot, targetRoot, idParam = "customerId") {
   return {
     generatedRoot,
     listPagePath: path.join(generatedRoot, "index.vue"),
+    listBulkActionsPath: path.join(generatedRoot, "listBulkActions.js"),
     listFiltersPath: path.join(generatedRoot, "listFilters.js"),
     viewPagePath: path.join(generatedRoot, `[${idParam}]`, "index.vue"),
     newPagePath: path.join(generatedRoot, "new.vue"),
@@ -316,6 +317,7 @@ test("generate @jskit-ai/crud-ui-generator crud scaffolds CRUD pages at an expli
 
     const paths = resolveGeneratedPaths(appRoot, "admin/ops/customers-ui");
     assert.equal(await fileExists(paths.listPagePath), true);
+    assert.equal(await fileExists(paths.listBulkActionsPath), true);
     assert.equal(await fileExists(paths.listFiltersPath), true);
     assert.equal(await fileExists(paths.viewPagePath), true);
     assert.equal(await fileExists(paths.newPagePath), true);
@@ -326,6 +328,8 @@ test("generate @jskit-ai/crud-ui-generator crud scaffolds CRUD pages at an expli
     const listPageSource = await readFile(paths.listPagePath, "utf8");
     assert.match(listPageSource, /Search, review, and update Customers from this screen\./);
     assert.match(listPageSource, /import \{ resource as uiResource \} from "\/packages\/customers\/src\/shared\/customerResource\.js";/);
+    assert.match(listPageSource, /CrudListBulkActionSurface/);
+    assert.match(listPageSource, /bulkActions\.hasActions\.value/);
     assert.match(listPageSource, /CrudListFilterSurface/);
     assert.match(listPageSource, /queryParams: filterRuntime\.queryParams/);
     assert.match(listPageSource, /const UI_LIST_API_URL = "\/customers";/);
@@ -343,6 +347,8 @@ test("generate @jskit-ai/crud-ui-generator crud scaffolds CRUD pages at an expli
     assert.match(addEditFormFieldsSource, /crud\.ui\.form-fields\.customers\.new\.v1/);
     const listFiltersSource = await readFile(paths.listFiltersPath, "utf8");
     assert.match(listFiltersSource, /const listFilters = defineCrudListFilters\(\{\}\);/);
+    const listBulkActionsSource = await readFile(paths.listBulkActionsPath, "utf8");
+    assert.match(listBulkActionsSource, /const listBulkActions = defineCrudListBulkActions\(\[\]\);/);
 
     const editPageSource = await readFile(paths.editPagePath, "utf8");
     assert.match(editPageSource, /import CrudAddEditForm from "\.\.\/_components\/CrudAddEditForm\.vue";/);
@@ -370,6 +376,7 @@ test("generate @jskit-ai/crud-ui-generator defaults operations to the full CRUD 
 
     const paths = resolveGeneratedPaths(appRoot, "admin/products");
     assert.equal(await fileExists(paths.listPagePath), true);
+    assert.equal(await fileExists(paths.listBulkActionsPath), true);
     assert.equal(await fileExists(paths.listFiltersPath), true);
     assert.equal(await fileExists(paths.viewPagePath), true);
     assert.equal(await fileExists(paths.newPagePath), true);
@@ -641,6 +648,7 @@ test("generate @jskit-ai/crud-ui-generator list-only scaffolds just the list pag
 
     const paths = resolveGeneratedPaths(appRoot, "admin/ops/customers-ui");
     assert.equal(await fileExists(paths.listPagePath), true);
+    assert.equal(await fileExists(paths.listBulkActionsPath), true);
     assert.equal(await fileExists(paths.listFiltersPath), true);
     assert.equal(await fileExists(paths.viewPagePath), false);
     assert.equal(await fileExists(paths.newPagePath), false);

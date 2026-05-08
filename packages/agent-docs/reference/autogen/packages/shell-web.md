@@ -39,6 +39,7 @@ Exports
 - None
 Local functions
 - `resolveSeverityColor(severity = "error")`
+- `resolveSeverityIcon(severity = "error")`
 - `resolveTimeout(entry)`
 - `dismiss(entry)`
 - `runAction(entry)`
@@ -48,6 +49,17 @@ Local functions
 ### `src/client/components/ShellLayout.vue`
 Exports
 - None
+Local functions
+- `handlePullPointerDown(event)`
+- `handlePullPointerMove(event)`
+- `handlePullPointerEnd(event)`
+- `handlePullPointerCancel(event)`
+- `cancelPullRefresh()`
+- `refreshFromPullGesture()`
+- `canStartPullRefresh(event)`
+- `isPrimaryTouchPointer(event)`
+- `isAtPageTop()`
+- `isPullRefreshIgnoredTarget(target)`
 
 ### `src/client/components/ShellMenuLinkItem.vue`
 Exports
@@ -291,6 +303,8 @@ Local functions
 - `createErrorConfigToolkit(errorRuntime)`
 - `loadAppErrorConfig(logger, errorRuntime)`
 - `applyAppErrorConfig(errorRuntime, errorConfig = {})`
+- `isPullRefreshQuery(query = null)`
+- `createShellRefreshRuntime({ app, logger = null } = {})`
 - `installVueErrorBridge(vueApp, errorRuntime, logger)`
 - `installRouterErrorBridge(app, errorRuntime, logger)`
 
@@ -367,6 +381,17 @@ Exports
 ### `templates/src/components/ShellLayout.vue`
 Exports
 - None
+Local functions
+- `handlePullPointerDown(event)`
+- `handlePullPointerMove(event)`
+- `handlePullPointerEnd(event)`
+- `handlePullPointerCancel(event)`
+- `cancelPullRefresh()`
+- `refreshFromPullGesture()`
+- `canStartPullRefresh(event)`
+- `isPrimaryTouchPointer(event)`
+- `isAtPageTop()`
+- `isPullRefreshIgnoredTarget(target)`
 
 ### `templates/src/error.js`
 Exports

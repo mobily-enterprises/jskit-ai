@@ -65,3 +65,22 @@ test("shell layout store keeps drawer state and default preference in sync", () 
   store.setDrawerOpen(false);
   assert.equal(store.drawerOpen, false);
 });
+
+test("shell layout store keeps supporting content closed until explicitly opened", () => {
+  const pinia = createPinia();
+  const store = useShellLayoutStore(pinia);
+
+  assert.equal(store.supportingContentOpen, false);
+  assert.equal(store.supportingContentTitle, "");
+
+  store.openSupportingContent({ title: "Customer details" });
+  assert.equal(store.supportingContentOpen, true);
+  assert.equal(store.supportingContentTitle, "Customer details");
+
+  store.setSupportingContentOpen(false);
+  assert.equal(store.supportingContentOpen, false);
+  assert.equal(store.supportingContentTitle, "Customer details");
+
+  store.closeSupportingContent();
+  assert.equal(store.supportingContentOpen, false);
+});
