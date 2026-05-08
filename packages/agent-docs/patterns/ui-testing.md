@@ -10,6 +10,8 @@ Use when:
 Rules:
 
 - Any chunk that adds or changes user-facing UI must include a Playwright flow that exercises the changed behavior before the chunk is done.
+- Generator or package template UI changes must be checked at compact phone, tablet-ish medium, and expanded desktop widths.
+- For generated UI, the browser checks should cover horizontal overflow, clipped text, invisible text, duplicate navigation, broken route placement, and tap targets under 48 px.
 - Record that Playwright run with `jskit app verify-ui --command "<playwright command>" --feature "<label>" --auth-mode <mode>`.
 - `jskit doctor` expects `.jskit/verification/ui.json` to match the current dirty UI file set when UI files are changed.
 - For local pre-merge review, follow the recorded Playwright run with `jskit doctor --against <base-ref>` so `doctor` compares against the branch delta instead of only the local dirty worktree.

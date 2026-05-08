@@ -844,11 +844,11 @@ test("generate @jskit-ai/ui-generator add-subpages derives the default target fo
     const pagePath = path.join(appRoot, "src", "pages", "admin", "contacts", "[contactId].vue");
     const providerPath = path.join(appRoot, "packages", "main", "src", "client", "providers", "MainClientProvider.js");
     const sectionShellPath = path.join(appRoot, "src", "components", "SectionContainerShell.vue");
-    const surfaceAwareMenuLinkPath = path.join(appRoot, "src", "components", "menus", "SurfaceAwareMenuLinkItem.vue");
+    const tabLinkPath = path.join(appRoot, "src", "components", "menus", "TabLinkItem.vue");
 
     assert.equal(await fileExists(pagePath), true);
     assert.equal(await fileExists(sectionShellPath), true);
-    assert.equal(await fileExists(surfaceAwareMenuLinkPath), true);
+    assert.equal(await fileExists(tabLinkPath), true);
 
     const pageSource = await readFile(pagePath, "utf8");
     assert.match(pageSource, /<SectionContainerShell/);
@@ -860,14 +860,14 @@ test("generate @jskit-ai/ui-generator add-subpages derives the default target fo
     assert.match(sectionShellSource, /<slot name="tabs" \/>/);
     assert.doesNotMatch(sectionShellSource, /ShellOutlet/);
     assert.equal(
-      await readFile(surfaceAwareMenuLinkPath, "utf8"),
-      await readLocalLinkItemComponentSource("local.main.ui.surface-aware-menu-link-item")
+      await readFile(tabLinkPath, "utf8"),
+      await readLocalLinkItemComponentSource("local.main.ui.tab-link-item")
     );
 
     const providerSource = await readFile(providerPath, "utf8");
     assert.match(
       providerSource,
-      /registerMainClientComponent\("local\.main\.ui\.surface-aware-menu-link-item", \(\) => SurfaceAwareMenuLinkItem\);/
+      /registerMainClientComponent\("local\.main\.ui\.tab-link-item", \(\) => TabLinkItem\);/
     );
   });
 });

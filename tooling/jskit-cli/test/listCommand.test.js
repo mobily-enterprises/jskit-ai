@@ -174,6 +174,7 @@ test("list-placements shows semantic topology by default", async () => {
       `<template>
   <div>
     <ShellOutlet target="shell-layout:primary-menu" default />
+    <ShellOutlet target="shell-layout:primary-bottom-nav" default />
     <ShellOutlet target="shell-layout:top-right" />
   </div>
 </template>
@@ -255,10 +256,15 @@ test("list-placements shows semantic topology by default", async () => {
     assert.match(stdout, /Example: npx jskit generate ui-generator page admin\/reports\/index\.vue --name "Reports" --link-placement admin\.tools-menu/);
     assert.match(stdout, /shell\.primary-nav \(default\): Primary shell navigation\./);
     assert.match(stdout, /Owner-scoped navigation link placements/);
-    assert.match(stdout, /Format: npx jskit generate ui-generator page <host-path>\/<page>\/index\.vue --name "Label"/);
-    assert.match(stdout, /Example: npx jskit generate ui-generator page home\/settings\/profile\/index\.vue --name "Profile"/);
+    assert.match(stdout, /Format: npx jskit generate ui-generator page <host-path>\/<page>\.vue --name "Label"/);
+    assert.match(stdout, /Alternative: npx jskit generate ui-generator page <host-path>\/<page>\/index\.vue --name "Label"/);
+    assert.match(stdout, /Example: npx jskit generate ui-generator page home\/settings\/profile\.vue --name "Profile"/);
     assert.doesNotMatch(stdout, /--link-placement page\.section-nav/);
-    assert.match(stdout, /page\.section-nav \[owner:home-settings\] -> home\/settings\/<page>\/index\.vue: Home settings child pages\./);
+    assert.doesNotMatch(stdout, /Host path lookup failed/);
+    assert.match(
+      stdout,
+      /page\.section-nav \[owner:home-settings\] -> home\/settings\/<page>\.vue or home\/settings\/<page>\/index\.vue: Home settings child pages\./
+    );
     assert.match(stdout, /Component, widget, and section placements/);
     assert.match(stdout, /Format: npx jskit generate ui-generator placed-element --name "Widget Name" --placement <placement>/);
     assert.match(stdout, /shell\.status: Shell status widgets\./);

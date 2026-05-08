@@ -1,21 +1,29 @@
 <template>
   <section class="ui-generator-list-element d-flex flex-column ga-4">
-    <v-card rounded="lg" elevation="1" border>
-      <v-card-item>
-        <div class="d-flex align-center ga-3 flex-wrap w-100">
-          <div>
-            <v-card-title class="px-0">{{ listHeadingTitle }}</v-card-title>
-            <v-card-subtitle class="px-0">Manage __JSKIT_UI_RESOURCE_PLURAL_TITLE__.</v-card-subtitle>
-          </div>
-          <v-spacer />
-          <v-btn color="primary" variant="tonal" :loading="records.isFetching" @click="records.reload">Refresh</v-btn>
-          <v-btn v-if="UI_NEW_URL" color="primary" variant="flat" :to="records.resolveParams(UI_NEW_URL)">
-            New __JSKIT_UI_RESOURCE_SINGULAR_TITLE__
-          </v-btn>
-        </div>
-      </v-card-item>
-      <v-divider />
-      <v-card-text class="pt-4">
+    <header class="ui-generator-list-header">
+      <div class="ui-generator-list-header__copy">
+        <p class="text-overline text-medium-emphasis mb-1">__JSKIT_UI_RESOURCE_PLURAL_TITLE__</p>
+        <h1 class="ui-generator-list-header__title">{{ listHeadingTitle }}</h1>
+        <p class="text-body-2 text-medium-emphasis mb-0">
+          Search, review, and update __JSKIT_UI_RESOURCE_PLURAL_TITLE__ from this screen.
+        </p>
+      </div>
+      <div class="ui-generator-list-header__actions">
+        <v-btn color="primary" variant="tonal" :loading="records.isFetching" @click="records.reload">Refresh</v-btn>
+        <v-btn
+          v-if="listPrimaryAction"
+          class="ui-generator-list-header__primary-action"
+          color="primary"
+          variant="flat"
+          :to="listPrimaryAction"
+        >
+          New __JSKIT_UI_RESOURCE_SINGULAR_TITLE__
+        </v-btn>
+      </div>
+    </header>
+
+    <v-sheet rounded="lg" border class="ui-generator-list-panel">
+      <div class="ui-generator-list-toolbar">
         <v-text-field
           v-if="records.searchEnabled"
           v-model="records.searchQuery"
@@ -25,65 +33,137 @@
           density="comfortable"
           hide-details="auto"
           clearable
-          class="mb-3 ui-generator-list-search"
+          class="ui-generator-list-search"
           :loading="records.isSearchDebouncing"
         />
-        <template v-if="records.showListSkeleton">
+      </div>
+
+      <template v-if="records.showListSkeleton">
+        <div class="pa-4">
           <v-skeleton-loader type="text@2, list-item-two-line@5" />
-        </template>
+        </div>
+      </template>
+      <template v-else>
+        <v-progress-linear v-if="records.isRefetching" indeterminate />
+
+        <div v-if="records.loadError" class="ui-generator-list-state">
+          <h2 class="text-h6 mb-2">Unable to load __JSKIT_UI_RESOURCE_PLURAL_TITLE__</h2>
+          <p class="text-body-2 text-medium-emphasis mb-4">Check the connection and try again.</p>
+          <v-btn color="primary" variant="tonal" :loading="records.isFetching" @click="records.reload">Retry</v-btn>
+        </div>
+
+        <div v-else-if="records.items.length < 1" class="ui-generator-list-state">
+          <h2 class="text-h6 mb-2">No __JSKIT_UI_RESOURCE_PLURAL_TITLE__ yet</h2>
+          <p class="text-body-2 text-medium-emphasis mb-4">
+            Create the first __JSKIT_UI_RESOURCE_SINGULAR_TITLE__ to start using this workflow.
+          </p>
+          <v-btn v-if="listPrimaryAction" color="primary" variant="flat" :to="listPrimaryAction">
+            New __JSKIT_UI_RESOURCE_SINGULAR_TITLE__
+          </v-btn>
+        </div>
+
         <template v-else>
-          <v-progress-linear v-if="records.isRefetching" indeterminate class="mb-3" />
-
-          <div v-if="records.items.length < 1" class="text-center py-6 text-medium-emphasis">
-            No records yet.
+          <div class="ui-generator-list-cards d-md-none">
+            <v-sheet
+              v-for="(record, index) in records.items"
+              :key="records.resolveRowKey(record, index)"
+              rounded="lg"
+              border
+              class="ui-generator-list-card"
+            >
+              <div class="ui-generator-list-card__header">
+                <div class="min-w-0">
+                  <div class="ui-generator-list-card__title">{{ resolveListRecordTitle(record) }}</div>
+                  <div class="text-caption text-medium-emphasis">
+                    {{ records.resolveRowKey(record, index) }}
+                  </div>
+                </div>
+                <v-menu v-if="UI_VIEW_URL || UI_EDIT_URL" location="bottom end">
+                  <template #activator="{ props: menuProps }">
+                    <v-btn v-bind="menuProps" variant="text" size="small">Actions</v-btn>
+                  </template>
+                  <v-list density="compact" min-width="140">
+                    <v-list-item
+                      v-if="UI_VIEW_URL"
+                      title="Open"
+                      :to="{ path: records.resolveViewUrl(record), query: $route.query }"
+                      :disabled="!records.resolveViewUrl(record)"
+                    />
+                    <v-list-item
+                      v-if="UI_EDIT_URL"
+                      title="Edit"
+                      :to="{ path: records.resolveEditUrl(record), query: $route.query }"
+                      :disabled="!records.resolveEditUrl(record)"
+                    />
+                  </v-list>
+                </v-menu>
+              </div>
+              <div class="ui-generator-list-card__fields">
+__JSKIT_UI_LIST_CARD_FIELDS__
+                <!-- jskit:crud-ui-fields:list-card -->
+              </div>
+            </v-sheet>
           </div>
-          <v-table v-else density="comfortable">
-            <thead>
-              <tr>
-__JSKIT_UI_LIST_HEADER_COLUMNS__
-                <!-- jskit:crud-ui-fields:list-header -->
-                <th v-if="UI_VIEW_URL" class="text-right" />
-                <th v-if="UI_EDIT_URL" class="text-right" />
-              </tr>
-            </thead>
-            <tbody>
-              <tr v-for="(record, index) in records.items" :key="records.resolveRowKey(record, index)">
-__JSKIT_UI_LIST_ROW_COLUMNS__
-                <!-- jskit:crud-ui-fields:list-row -->
-                <td v-if="UI_VIEW_URL" class="text-right">
-                  <v-btn
-                    size="small"
-                    color="primary"
-                    variant="outlined"
-                    :to="{ path: records.resolveViewUrl(record), query: $route.query }"
-                    :disabled="!records.resolveViewUrl(record)"
-                  >
-                    Open
-                  </v-btn>
-                </td>
-                <td v-if="UI_EDIT_URL" class="text-right">
-                  <v-btn
-                    size="small"
-                    color="primary"
-                    variant="tonal"
-                    :to="{ path: records.resolveEditUrl(record), query: $route.query }"
-                    :disabled="!records.resolveEditUrl(record)"
-                  >
-                    Edit
-                  </v-btn>
-                </td>
-              </tr>
-            </tbody>
-          </v-table>
 
-          <div v-if="records.hasMore" class="d-flex justify-center pt-4">
-            <v-btn color="primary" variant="outlined" :loading="records.isLoadingMore" @click="records.loadMore">
-              Load more
-            </v-btn>
+          <div class="ui-generator-list-table d-none d-md-block">
+            <v-table density="comfortable">
+              <thead>
+                <tr>
+__JSKIT_UI_LIST_HEADER_COLUMNS__
+                  <!-- jskit:crud-ui-fields:list-header -->
+                  <th v-if="UI_VIEW_URL" class="text-right" />
+                  <th v-if="UI_EDIT_URL" class="text-right" />
+                </tr>
+              </thead>
+              <tbody>
+                <tr v-for="(record, index) in records.items" :key="records.resolveRowKey(record, index)">
+__JSKIT_UI_LIST_ROW_COLUMNS__
+                  <!-- jskit:crud-ui-fields:list-row -->
+                  <td v-if="UI_VIEW_URL" class="text-right">
+                    <v-btn
+                      size="small"
+                      color="primary"
+                      variant="outlined"
+                      :to="{ path: records.resolveViewUrl(record), query: $route.query }"
+                      :disabled="!records.resolveViewUrl(record)"
+                    >
+                      Open
+                    </v-btn>
+                  </td>
+                  <td v-if="UI_EDIT_URL" class="text-right">
+                    <v-btn
+                      size="small"
+                      color="primary"
+                      variant="tonal"
+                      :to="{ path: records.resolveEditUrl(record), query: $route.query }"
+                      :disabled="!records.resolveEditUrl(record)"
+                    >
+                      Edit
+                    </v-btn>
+                  </td>
+                </tr>
+              </tbody>
+            </v-table>
           </div>
         </template>
-      </v-card-text>
-    </v-card>
+
+        <div v-if="records.hasMore" class="d-flex justify-center pa-4">
+          <v-btn color="primary" variant="outlined" :loading="records.isLoadingMore" @click="records.loadMore">
+            Load more
+          </v-btn>
+        </div>
+      </template>
+    </v-sheet>
+
+    <v-btn
+      v-if="listPrimaryAction"
+      class="ui-generator-list-fab d-md-none"
+      color="primary"
+      variant="flat"
+      :to="listPrimaryAction"
+    >
+      New
+    </v-btn>
   </section>
 </template>
 
@@ -101,6 +181,7 @@ const UI_EDIT_URL = __JSKIT_UI_LIST_PAGE_EDIT_URL__;
 const UI_NEW_URL = __JSKIT_UI_LIST_PAGE_NEW_URL__;
 const UI_RECORD_CHANGED_EVENTS = __JSKIT_UI_LIST_REALTIME_EVENTS__;
 const UI_ROUTE_QUERY_BLACKLIST = Object.freeze(["include", "cursor", "limit"]);
+const UI_LIST_TITLE_FALLBACK_FIELD_KEY = __JSKIT_UI_LIST_TITLE_FALLBACK_FIELD_KEY__;
 
 const records = useCrudList({
   adapter: UI_OPERATION_ADAPTER || undefined,
@@ -138,10 +219,156 @@ const records = useCrudList({
 });
 
 __JSKIT_UI_LIST_HEADING_TITLE_SETUP__
+
+const listPrimaryAction = computed(() => (UI_NEW_URL ? records.resolveParams(UI_NEW_URL) : ""));
+
+function resolveListRecordTitle(record) {
+  return records.resolveRecordTitle(record, {
+    fallbackKey: UI_LIST_TITLE_FALLBACK_FIELD_KEY,
+    defaultValue: "__JSKIT_UI_RESOURCE_SINGULAR_TITLE__"
+  });
+}
+
+function formatListCardValue(value) {
+  if (value === null || value === undefined || value === "") {
+    return "-";
+  }
+  if (value === true) {
+    return "Yes";
+  }
+  if (value === false) {
+    return "No";
+  }
+  return value;
+}
 </script>
 
 <style scoped>
+.ui-generator-list-header {
+  align-items: flex-start;
+  display: flex;
+  gap: 1rem;
+  justify-content: space-between;
+}
+
+.ui-generator-list-header__copy {
+  min-width: 0;
+}
+
+.ui-generator-list-header__title {
+  font-size: clamp(1.35rem, 2vw, 1.85rem);
+  font-weight: 650;
+  letter-spacing: -0.02em;
+  line-height: 1.15;
+  margin: 0 0 0.35rem;
+}
+
+.ui-generator-list-header__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  justify-content: flex-end;
+}
+
+.ui-generator-list-panel {
+  overflow: hidden;
+}
+
+.ui-generator-list-toolbar {
+  padding: 1rem;
+}
+
 .ui-generator-list-search {
   max-width: 26rem;
+}
+
+.ui-generator-list-state {
+  margin-inline: auto;
+  max-width: 30rem;
+  padding: 3rem 1.25rem;
+  text-align: center;
+}
+
+.ui-generator-list-cards {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  padding: 0 1rem 1rem;
+}
+
+.ui-generator-list-card {
+  padding: 0.875rem;
+}
+
+.ui-generator-list-card__header {
+  align-items: flex-start;
+  display: flex;
+  gap: 0.75rem;
+  justify-content: space-between;
+}
+
+.ui-generator-list-card__title {
+  font-size: 1rem;
+  font-weight: 650;
+  line-height: 1.25;
+  overflow-wrap: anywhere;
+}
+
+.ui-generator-list-card__fields {
+  display: grid;
+  gap: 0.65rem;
+  margin-top: 0.85rem;
+}
+
+.ui-generator-list-card__field {
+  display: grid;
+  gap: 0.15rem;
+}
+
+.ui-generator-list-card__field-label {
+  color: rgba(var(--v-theme-on-surface), var(--v-medium-emphasis-opacity));
+  font-size: 0.72rem;
+  letter-spacing: 0.04em;
+  line-height: 1.2;
+  text-transform: uppercase;
+}
+
+.ui-generator-list-card__field-value {
+  font-size: 0.95rem;
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+}
+
+.ui-generator-list-table {
+  overflow-x: auto;
+}
+
+.ui-generator-list-fab {
+  bottom: calc(5rem + env(safe-area-inset-bottom, 0px));
+  position: fixed;
+  right: 1rem;
+  z-index: 6;
+}
+
+@media (max-width: 960px) {
+  .ui-generator-list-header {
+    flex-direction: column;
+  }
+
+  .ui-generator-list-header__actions {
+    width: 100%;
+  }
+
+  .ui-generator-list-header__actions :deep(.v-btn) {
+    min-height: 48px;
+  }
+
+  .ui-generator-list-header__primary-action {
+    display: none;
+  }
+
+  .ui-generator-list-search {
+    max-width: none;
+  }
 }
 </style>

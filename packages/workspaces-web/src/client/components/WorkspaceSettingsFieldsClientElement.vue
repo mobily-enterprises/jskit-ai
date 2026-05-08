@@ -1,11 +1,11 @@
 <template>
-  <v-card rounded="lg" elevation="1" border>
-    <v-card-item>
-      <v-card-title class="text-h6">Workspace settings</v-card-title>
-      <v-card-subtitle>These values apply to everyone in this workspace.</v-card-subtitle>
-    </v-card-item>
-    <v-divider />
-    <v-card-text class="pt-4">
+  <v-sheet rounded="lg" border class="workspace-settings-panel">
+    <header class="workspace-settings-panel__header">
+      <h2 class="workspace-settings-panel__title">Workspace settings</h2>
+      <p class="text-body-2 text-medium-emphasis mb-0">These values apply to everyone in this workspace.</p>
+    </header>
+
+    <div class="workspace-settings-panel__body">
       <template v-if="showSkeleton">
         <v-skeleton-loader type="text@2, list-item-two-line@4, button" />
       </template>
@@ -162,8 +162,8 @@
           </v-row>
         </v-form>
       </template>
-    </v-card-text>
-  </v-card>
+    </div>
+  </v-sheet>
 </template>
 
 <script setup>
@@ -259,3 +259,30 @@ const addEdit = useAddEdit({
 
 const showSkeleton = computed(() => Boolean(addEdit.isInitialLoading));
 </script>
+
+<style scoped>
+.workspace-settings-panel {
+  overflow: hidden;
+}
+
+.workspace-settings-panel__header {
+  padding: 1rem 1rem 0;
+}
+
+.workspace-settings-panel__title {
+  font-size: 1rem;
+  font-weight: 650;
+  line-height: 1.2;
+  margin: 0 0 0.25rem;
+}
+
+.workspace-settings-panel__body {
+  padding: 1rem;
+}
+
+@media (max-width: 640px) {
+  .workspace-settings-panel__body :deep(.v-btn) {
+    min-height: 48px;
+  }
+}
+</style>

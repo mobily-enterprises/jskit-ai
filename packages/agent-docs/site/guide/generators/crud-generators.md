@@ -655,7 +655,7 @@ If the contact view page should stay visible while child comment routes render u
 npx jskit generate ui-generator add-subpages \
   w/[workspaceSlug]/admin/contacts/[contactId]/index.vue \
   --title "Contact" \
-  --subtitle "View and manage this contact."
+  --subtitle "Contact activity and notes."
 ```
 
 That is the point where the comments example deliberately overlaps with the `ui-generator` chapter. This pattern needs both:

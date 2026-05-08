@@ -11,6 +11,12 @@ const baseConfig = Object.freeze([
       sourceType: "module"
     },
     rules: {
+      "no-unused-vars": [
+        "error",
+        {
+          ignoreRestSiblings: true
+        }
+      ],
       "no-restricted-imports": [
         "error",
         {

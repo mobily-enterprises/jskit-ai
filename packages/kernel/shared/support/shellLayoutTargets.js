@@ -328,7 +328,13 @@ function normalizeShellOutletTargetRecord(
   });
 }
 
-function discoverShellOutletTargetsFromVueSource(source = "", { context = "shell layout" } = {}) {
+function discoverShellOutletTargetsFromVueSource(
+  source = "",
+  {
+    context = "shell layout",
+    enforceSingleDefault = true
+  } = {}
+) {
   const sourceText = String(source || "");
   const resolvedContext = normalizeText(context) || "shell layout";
   const targetById = new Map();
@@ -347,12 +353,14 @@ function discoverShellOutletTargetsFromVueSource(source = "", { context = "shell
     }
 
     if (normalizedTarget.default) {
-      if (defaultTargetId) {
+      if (enforceSingleDefault === true && defaultTargetId) {
         throw new Error(
           `${resolvedContext} defines multiple default ShellOutlet targets: "${defaultTargetId}" and "${normalizedTarget.id}".`
         );
       }
-      defaultTargetId = normalizedTarget.id;
+      if (!defaultTargetId) {
+        defaultTargetId = normalizedTarget.id;
+      }
     }
 
     targetById.set(normalizedTarget.id, normalizedTarget);

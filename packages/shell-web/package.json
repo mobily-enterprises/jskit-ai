@@ -15,6 +15,7 @@
     "./client/components/ShellLayout": "./src/client/components/ShellLayout.vue",
     "./client/components/ShellOutlet": "./src/client/components/ShellOutlet.vue",
     "./client/components/ShellOutletMenuWidget": "./src/client/components/ShellOutletMenuWidget.vue",
+    "./client/components/ShellRouteTransition": "./src/client/components/ShellRouteTransition.vue",
     "./client/components/ShellErrorHost": "./src/client/components/ShellErrorHost.vue",
     "./client/components/ShellMenuLinkItem": "./src/client/components/ShellMenuLinkItem.vue",
     "./client/components/ShellSurfaceAwareMenuLinkItem": "./src/client/components/ShellSurfaceAwareMenuLinkItem.vue",

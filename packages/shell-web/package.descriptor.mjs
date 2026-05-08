@@ -30,7 +30,7 @@ export default Object.freeze({
       surfaces: [
         {
           subpath: "./client",
-          summary: "Exports shell layout/outlet/outlet-menu/error-host components and ShellWebClientProvider."
+          summary: "Exports shell layout/outlet/outlet-menu/route-transition/error-host components and ShellWebClientProvider."
         },
         {
           subpath: "./client/placement",
@@ -74,6 +74,11 @@ export default Object.freeze({
             source: "src/client/components/ShellLayout.vue"
           },
           {
+            target: "shell-layout:primary-bottom-nav",
+            surfaces: ["*"],
+            source: "src/client/components/ShellLayout.vue"
+          },
+          {
             target: "shell-layout:secondary-menu",
             surfaces: ["*"],
             source: "src/client/components/ShellLayout.vue"
@@ -93,9 +98,9 @@ export default Object.freeze({
               default: true,
               variants: {
                 compact: {
-                  outlet: "shell-layout:primary-menu",
+                  outlet: "shell-layout:primary-bottom-nav",
                   renderers: {
-                    link: "local.main.ui.surface-aware-menu-link-item"
+                    link: "local.main.ui.tab-link-item"
                   }
                 },
                 medium: {

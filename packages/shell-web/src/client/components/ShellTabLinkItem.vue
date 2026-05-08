@@ -38,6 +38,10 @@ const props = defineProps({
   disabled: {
     type: Boolean,
     default: false
+  },
+  exact: {
+    type: Boolean,
+    default: false
   }
 });
 
@@ -101,19 +105,30 @@ const resolvedIcon = computed(() =>
 </script>
 
 <template>
-  <v-list-item
+  <v-btn
     v-if="resolvedTarget.href"
-    class="tab-link-item"
+    class="tab-link-item text-none"
     :to="resolvedTarget.sameOrigin ? resolvedTarget.href : undefined"
     :href="resolvedTarget.sameOrigin ? undefined : resolvedTarget.href"
-    :prepend-icon="resolvedIcon || undefined"
-    :disabled="disabled"
-    :title="label || 'Tab'"
-  />
+    :disabled="props.disabled"
+    :exact="props.exact"
+    min-width="72"
+    stacked
+  >
+    <v-icon v-if="resolvedIcon" :icon="resolvedIcon" />
+    <span class="tab-link-item__label">{{ props.label || "Tab" }}</span>
+  </v-btn>
 </template>
 
 <style scoped>
 .tab-link-item {
   flex: 0 0 auto;
+}
+
+.tab-link-item__label {
+  max-width: 5.5rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 </style>

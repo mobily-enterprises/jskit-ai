@@ -17,6 +17,7 @@ export {
 } from "./pageTargets.js";
 export {
   discoverPlacementTopologyFromApp,
+  discoverShellOutletSourcePathsFromApp,
   discoverShellOutletTargetsFromApp,
   resolveSemanticPlacementTargetFromApp,
   resolveShellOutletPlacementTargetFromApp

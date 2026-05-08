@@ -61,6 +61,21 @@ Exports
 Exports
 - None
 
+### `src/client/components/ShellRouteTransition.vue`
+Exports
+- None
+Local functions
+- `handlePointerDown(event)`
+- `handlePointerMove(event)`
+- `handlePointerEnd(event)`
+- `handlePointerCancel(event)`
+- `navigateBySwipe(offset = 0)`
+- `isAcceptedSwipe({ deltaX = 0, deltaY = 0, elapsed = 1, velocity = null } = {})`
+- `normalizeComparablePathname(value = "")`
+- `pathMatchesNavigationEntry(pathname = "", entry = {})`
+- `isPrimaryPointerEvent(event)`
+- `isSwipeIgnoredTarget(target)`
+
 ### `src/client/components/ShellSurfaceAwareMenuLinkItem.vue`
 Exports
 - None
@@ -143,6 +158,7 @@ Exports
 - `ShellLayout`
 - `ShellOutlet`
 - `ShellOutletMenuWidget`
+- `ShellRouteTransition`
 - `ShellErrorHost`
 - `ShellMenuLinkItem`
 - `ShellSurfaceAwareMenuLinkItem`

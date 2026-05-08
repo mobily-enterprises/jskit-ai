@@ -4,6 +4,7 @@ import path from "node:path";
 import { tmpdir } from "node:os";
 import test from "node:test";
 import {
+  discoverShellOutletSourcePathsFromApp,
   discoverShellOutletTargetsFromApp,
   resolveShellOutletPlacementTargetFromApp
 } from "./shellOutlets.js";
@@ -293,6 +294,36 @@ test("resolveShellOutletPlacementTargetFromApp throws when multiple default outl
         }),
       /Multiple default ShellOutlet targets found in app source/
     );
+  });
+});
+
+test("discoverShellOutletSourcePathsFromApp ignores default conflicts while keeping source paths", async () => {
+  await withTempApp(async (appRoot) => {
+    await writeFileInApp(
+      appRoot,
+      "src/components/ShellLayout.vue",
+      `<template>
+  <div>
+    <ShellOutlet target="shell-layout:primary-menu" default />
+    <ShellOutlet target="shell-layout:primary-bottom-nav" default />
+  </div>
+</template>
+`
+    );
+
+    const discovered = await discoverShellOutletSourcePathsFromApp({ appRoot });
+    assert.deepEqual(discovered.targets, [
+      {
+        id: "shell-layout:primary-bottom-nav",
+        default: true,
+        sourcePath: "src/components/ShellLayout.vue"
+      },
+      {
+        id: "shell-layout:primary-menu",
+        default: true,
+        sourcePath: "src/components/ShellLayout.vue"
+      }
+    ]);
   });
 });
 

@@ -17,8 +17,10 @@ const drawerDefaultOpenModel = computed({
 <template>
   <section class="d-flex flex-column ga-4">
     <div>
-      <h2 class="text-h6 mb-2">General</h2>
-      <p class="text-body-2 text-medium-emphasis mb-0">These starter settings live in this browser only.</p>
+      <h2 class="text-h6 mb-2">Navigation</h2>
+      <p class="text-body-2 text-medium-emphasis mb-0">
+        Choose the default behavior for wider screens. Phone layouts keep primary navigation in the bottom bar.
+      </p>
     </div>
 
     <v-switch
@@ -26,12 +28,7 @@ const drawerDefaultOpenModel = computed({
       color="primary"
       inset
       hide-details="auto"
-      label="Open navigation drawer by default"
+      label="Open drawer by default on wider screens"
     />
-
-    <p class="text-body-2 text-medium-emphasis mb-0">
-      This tiny example exists to prove that shell-level settings can work without auth or a database. Real apps will
-      usually replace it.
-    </p>
   </section>
 </template>

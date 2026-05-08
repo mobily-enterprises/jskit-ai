@@ -399,7 +399,7 @@ Local functions
 Exports
 - `PLACEMENT_LAYOUT_CLASSES`
 - `describeShellOutletTargets(targets = [])`
-- `discoverShellOutletTargetsFromVueSource(source = "", { context = "shell layout" } = {})`
+- `discoverShellOutletTargetsFromVueSource(source = "", { context = "shell layout", enforceSingleDefault = true } = {})`
 - `findShellOutletTargetById(targets = [], targetId = "")`
 - `normalizePlacementKind(value = "")`
 - `normalizePlacementLayoutClass(value = "")`
@@ -1357,6 +1357,7 @@ Exports
 - `resolveNearestParentSubpagesHost`
 - `resolvePageLinkTargetDetails`
 - `discoverPlacementTopologyFromApp`
+- `discoverShellOutletSourcePathsFromApp`
 - `discoverShellOutletTargetsFromApp`
 - `resolveSemanticPlacementTargetFromApp`
 - `resolveShellOutletPlacementTargetFromApp`
@@ -1399,7 +1400,7 @@ Local functions
 - `normalizePlacementTargetId(target = {})`
 - `resolveConcreteTargetOwner(target = "")`
 - `topologyPlacementTargetsConcreteOutlet(placement = {}, target = "")`
-- `resolveSemanticPlacementTargetForConcreteOutlet({ appRoot, concreteTarget = "", surface = "" } = {})`
+- `resolveSemanticPlacementTargetForConcreteOutlet({ appRoot, concreteTarget = "", surface = "", context = "page target" } = {})`
 - `resolveRelativeLinkToFromParent(pageTarget = {}, parentHost = null)`
 - `resolveRelativeLinkToFromNearestIndexOwner(pageTarget = {})`
 - `resolveInferredPageLinkTo({ explicitLinkTo = "", pageTarget = {}, parentHost = null, preservesRelativeSubpageLinks = false, suppressImplicitRelativeLinks = false } = {})`
@@ -1418,6 +1419,7 @@ Exports
 ### `server/support/shellOutlets.js`
 Exports
 - `discoverPlacementTopologyFromApp({ appRoot } = {})`
+- `discoverShellOutletSourcePathsFromApp({ appRoot, sourceRoot = "src" } = {})`
 - `discoverShellOutletTargetsFromApp({ appRoot, sourceRoot = "src" } = {})`
 - `resolveSemanticPlacementTargetFromApp({ appRoot, placement = "", owner = "", surface = "", context = "ui-generator" } = {})`
 - `resolveShellOutletPlacementTargetFromApp({ appRoot, placement = "", context = "ui-generator" } = {})`
@@ -1425,7 +1427,7 @@ Local functions
 - `parseTagAttributes(attributesSource = "")`
 - `isDefaultEnabled(value)`
 - `normalizeAppRouteOutletTarget({ outlet = {}, sourcePath = "" } = {})`
-- `discoverRouteMetaOutletTargetsFromVueSource(source = "", { context = "shell layout" } = {})`
+- `discoverRouteMetaOutletTargetsFromVueSource(source = "", { context = "shell layout", enforceSingleDefault = true } = {})`
 - `collectVueFilePaths(rootDirectoryPath)`
 - `readInstalledPackageStates(appRoot)`
 - `normalizePackageOutletTarget({ packageId = "", outlet = {}, descriptorPath = "" } = {})`
@@ -1434,6 +1436,7 @@ Local functions
 - `loadAppPlacementTopology(appRoot)`
 - `collectInstalledPackagePlacementTopology(appRoot)`
 - `findSemanticPlacementById(placements = [], { id = "", owner = "", surface = "" } = {})`
+- `collectAppSourceShellOutletTargets({ appRoot, sourceRoot = "src", enforceSingleDefault = true, context = "discoverShellOutletTargetsFromApp" } = {})`
 
 ### `server/support/SupportCoreServiceProvider.js`
 Exports

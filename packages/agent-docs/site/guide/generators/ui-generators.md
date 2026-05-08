@@ -373,7 +373,7 @@ Then upgrade that page into a host:
 npx jskit generate ui-generator add-subpages \
   home/contacts/[contactId].vue \
   --title "Contact" \
-  --subtitle "View and manage this contact."
+  --subtitle "Contact activity and notes."
 ```
 
 This time the parent is a file route, not an `index.vue` route.

@@ -74,6 +74,26 @@ test("discoverShellOutletTargetsFromVueSource throws for multiple defaults", () 
   );
 });
 
+test("discoverShellOutletTargetsFromVueSource can collect source hints without enforcing one default", () => {
+  const source = `
+    <template>
+      <ShellOutlet target="shell-layout:primary-menu" default />
+      <ShellOutlet target="shell-layout:primary-bottom-nav" default />
+    </template>
+  `;
+
+  const discovered = discoverShellOutletTargetsFromVueSource(source, {
+    context: "ShellLayout.vue",
+    enforceSingleDefault: false
+  });
+
+  assert.equal(discovered.defaultTargetId, "shell-layout:primary-menu");
+  assert.deepEqual(
+    discovered.targets.map((entry) => entry.id),
+    ["shell-layout:primary-menu", "shell-layout:primary-bottom-nav"]
+  );
+});
+
 test("discoverShellOutletTargetsFromVueSource ignores disabled default markers", () => {
   const source = `
     <template>

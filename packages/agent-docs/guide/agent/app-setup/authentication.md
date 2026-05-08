@@ -332,13 +332,22 @@ addPlacement({
 });
 ```
 
-And the page file itself is a normal page scaffold:
+And the page file itself is a normal generated empty-state screen:
 
 ```vue
 <template>
-  <section class="pa-4">
-    <h1 class="text-h5 mb-2">Reports</h1>
-    <p class="text-body-2 text-medium-emphasis">Replace this scaffold with your page implementation.</p>
+  <section class="generated-page-screen d-flex flex-column ga-4">
+    <header>
+      <p class="text-overline text-medium-emphasis mb-1">Screen</p>
+      <h1 class="generated-page-screen__title">Reports</h1>
+    </header>
+
+    <v-sheet rounded="lg" border class="generated-page-screen__empty-state">
+      <h2 class="text-h6 mb-2">No Reports activity yet</h2>
+      <p class="text-body-2 text-medium-emphasis mb-0">
+        Activity and actions for this screen will appear here.
+      </p>
+    </v-sheet>
   </section>
 </template>
 ```
@@ -364,9 +373,18 @@ To make the route require login, add a route guard block to `src/pages/home/repo
 </route>
 
 <template>
-  <section class="pa-4">
-    <h1 class="text-h5 mb-2">Reports</h1>
-    <p class="text-body-2 text-medium-emphasis">Replace this scaffold with your page implementation.</p>
+  <section class="generated-page-screen d-flex flex-column ga-4">
+    <header>
+      <p class="text-overline text-medium-emphasis mb-1">Screen</p>
+      <h1 class="generated-page-screen__title">Reports</h1>
+    </header>
+
+    <v-sheet rounded="lg" border class="generated-page-screen__empty-state">
+      <h2 class="text-h6 mb-2">No Reports activity yet</h2>
+      <p class="text-body-2 text-medium-emphasis mb-0">
+        Activity and actions for this screen will appear here.
+      </p>
+    </v-sheet>
   </section>
 </template>
 ```
@@ -440,7 +458,7 @@ const auth = useAuthStore();
     </v-alert>
 
     <h1 class="text-h5 mb-2">Home</h1>
-    <p class="text-body-2 text-medium-emphasis">Replace this scaffold with your page implementation.</p>
+    <p class="text-body-2 text-medium-emphasis">Your account session is active on this device.</p>
   </section>
 </template>
 ```
@@ -702,7 +720,7 @@ onBeforeUnmount(() => {
     </v-alert>
 
     <h1 class="text-h5 mb-2">Home</h1>
-    <p class="text-body-2 text-medium-emphasis">Replace this scaffold with your page implementation.</p>
+    <p class="text-body-2 text-medium-emphasis">Your account session is active on this device.</p>
   </section>
 </template>
 ```

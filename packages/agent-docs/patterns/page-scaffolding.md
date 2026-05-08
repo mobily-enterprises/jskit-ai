@@ -23,9 +23,16 @@ Rules:
 - If the page sits under an existing routed host, check whether `ui-generator page` can infer the correct `page.section-nav` owner before writing a custom link by hand.
 - If you do not use `ui-generator page`, state exactly why the generator does not fit before editing code.
 - For a small placeholder route inside an existing route family, update the workboard rather than rewriting the blueprint unless the durable route or surface plan changed.
+- Generated live pages must be usable screens, not instructional scaffolds. Do not ship copy such as "replace this", "use this area", or "this page is ready".
+- Prefer a page header plus a direct `v-sheet` working region. Do not wrap every generated page in a generic `v-card`.
+- If the screen is not implemented yet, use a product-shaped empty state with one clear next action or status, not developer instructions.
+- Primary navigation links belong in semantic placements such as `shell.primary-nav` or `page.section-nav`; do not place every generated route into one drawer by default.
+- Compact layouts must be checked first: no horizontal overflow, no unreachable primary action, and tap targets should be at least 48 px.
 
 Avoid:
 
 - hand-writing both `src/pages/...` and `src/placement.js` for a normal non-CRUD page before checking `ui-generator`
 - treating a small page stub as permission to rewrite marketing copy, route architecture, or blueprint scope
 - claiming that no generator exists without checking the actual `jskit` generator inventory first
+- adding cards inside cards or repeating the page title inside a card title
+- treating Vuetify component defaults as the product architecture

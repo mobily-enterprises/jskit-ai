@@ -164,9 +164,12 @@ test("console-web console templates stay shell-driven", async () => {
   assert.match(wrapperSource, /ShellLayout/);
   assert.match(wrapperSource, /"surface": "console"/);
   assert.match(indexSource, /Operations Console/);
+  assert.match(indexSource, /console-home-screen__panel/);
+  assert.doesNotMatch(indexSource, /<v-card\b|v-card-title|v-card-subtitle/);
   assert.match(settingsSource, /target="console-settings:primary-menu"/);
   assert.doesNotMatch(settingsSource, /default-link-component-token/);
+  assert.doesNotMatch(settingsSource, /<v-card\b/);
   assert.match(settingsSource, /<RouterView \/>/);
-  assert.match(settingsIndexSource, /definePage/);
-  assert.match(settingsIndexSource, /your_child_segment/);
+  assert.match(settingsIndexSource, /No console settings yet/);
+  assert.doesNotMatch(settingsIndexSource, /your_child_segment|To redirect this settings shell/);
 });

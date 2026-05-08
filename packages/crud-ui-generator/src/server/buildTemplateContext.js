@@ -22,6 +22,7 @@ import {
   resolveNearestParentRouteParamKey,
   buildListHeaderColumns,
   buildListRowColumns,
+  buildListCardFields,
   buildViewColumns,
   buildFormColumns,
   resolveRecordIdFieldKey,
@@ -651,6 +652,9 @@ async function buildUiTemplateContext({ appRoot, options } = {}) {
   const viewTitleFallbackFieldKey = hasViewOperation
     ? resolveViewTitleFallbackFieldKey(viewFieldsAll, { recordIdFieldKey })
     : "";
+  const listTitleFallbackFieldKey = hasListOperation
+    ? resolveViewTitleFallbackFieldKey(listFieldsAll, { recordIdFieldKey: listRecordIdFieldKey })
+    : "";
 
   const pageLinkTarget = hasListOperation
     ? await resolvePageLinkTargetDetails({
@@ -687,6 +691,8 @@ async function buildUiTemplateContext({ appRoot, options } = {}) {
     __JSKIT_UI_SURFACE_ID__: pageTarget.surfaceId,
     __JSKIT_UI_LIST_HEADER_COLUMNS__: buildListHeaderColumns(listFields),
     __JSKIT_UI_LIST_ROW_COLUMNS__: buildListRowColumns(listFields),
+    __JSKIT_UI_LIST_CARD_FIELDS__: buildListCardFields(listFields),
+    __JSKIT_UI_LIST_TITLE_FALLBACK_FIELD_KEY__: JSON.stringify(listTitleFallbackFieldKey),
     __JSKIT_UI_LIST_REALTIME_EVENTS__: JSON.stringify(listRealtimeEvents),
     __JSKIT_UI_LIST_RECORD_ID_EXPR__: resolveRecordIdExpression(recordIdFields),
     __JSKIT_UI_VIEW_COLUMNS__: buildViewColumns(viewFields),

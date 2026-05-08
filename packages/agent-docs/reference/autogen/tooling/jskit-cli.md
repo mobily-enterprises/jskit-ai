@@ -448,8 +448,9 @@ Local functions
 - `resolveOwnerScopedChildPagePattern(placementTarget = {}, concreteSourcePathByTarget = new Map())`
 - `createPlacementTargetSummary(placementTarget = {}, color, { concreteSourcePathByTarget = new Map() } = {})`
 - `appendPlacementLayoutDetails(lines, placementTarget = {}, color)`
+- `formatPlacementGuidanceLine(line = "", color)`
 - `appendPlacementGroup(lines, { color, title = "", description = "", guidance = [], targets = [], concreteSourcePathByTarget = new Map(), showLayoutDetails = false } = {})`
-- `appendSemanticPlacementGroups(lines, { color, semanticPlacements = [], concreteTargets = [], hostPathLookupError = null, showLayoutDetails = false } = {})`
+- `appendSemanticPlacementGroups(lines, { color, semanticPlacements = [], concreteTargets = [], showLayoutDetails = false } = {})`
 - `readFileIfExists(filePath = "")`
 - `resolveDescriptorFromLockEntry({ appRoot = "", packageId = "", installedPackageEntry = {} } = {})`
 - `collectProviderSourceFiles(rootPath = "")`

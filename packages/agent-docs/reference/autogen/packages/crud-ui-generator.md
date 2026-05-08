@@ -70,6 +70,7 @@ Exports
 - `resolveNearestParentRouteParamKey(routePath = "", { recordIdParam = "recordId" } = {})`
 - `buildListHeaderColumns(fields = [])`
 - `buildListRowColumns(fields = [])`
+- `buildListCardFields(fields = [])`
 - `buildViewColumns(fields = [])`
 - `buildFormColumns(fields = [])`
 - `resolveRecordIdFieldKey(fields = [])`
@@ -154,6 +155,9 @@ Exports
 ### `templates/src/pages/admin/ui-generator/ListElement.vue`
 Exports
 - None
+Local functions
+- `resolveListRecordTitle(record)`
+- `formatListCardValue(value)`
 
 ### `templates/src/pages/admin/ui-generator/NewElement.vue`
 Exports

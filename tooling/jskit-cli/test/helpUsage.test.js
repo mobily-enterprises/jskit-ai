@@ -183,8 +183,8 @@ test("jskit generate ui-generator outlet help prints outlet-specific usage", () 
   assert.match(stdout, /Generator subcommand help: @jskit-ai\/ui-generator outlet/);
   assert.match(stdout, /Long:/);
   assert.match(stdout, /A ShellOutlet creates a concrete placement recipient inside a Vue file\./);
-  assert.match(stdout, /appends the semantic topology mapping for that outlet/);
-  assert.match(stdout, /Notes \(2\):/);
+  assert.match(stdout, /appends semantic topology for that outlet/);
+  assert.match(stdout, /Notes \(3\):/);
   assert.doesNotMatch(stdout, /RouterView or SectionContainerShell/);
   assert.match(stdout, /target-file/);
   assert.match(stdout, /--target/);

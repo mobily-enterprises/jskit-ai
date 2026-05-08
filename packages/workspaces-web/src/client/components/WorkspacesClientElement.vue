@@ -401,14 +401,13 @@ watch(
 <template>
   <section class="workspaces-view py-6">
     <v-container class="mx-auto" max-width="860">
-      <v-card rounded="lg" border elevation="1">
-        <v-card-item>
-          <v-card-title class="text-h6">You are logged in</v-card-title>
-          <v-card-subtitle>Select a workspace or respond to invitations.</v-card-subtitle>
-        </v-card-item>
-        <v-divider />
+      <v-sheet rounded="lg" border class="workspaces-view__panel">
+        <header class="workspaces-view__header">
+          <h1 class="workspaces-view__title">You are logged in</h1>
+          <p class="text-body-2 text-medium-emphasis mb-0">Select a workspace or respond to invitations.</p>
+        </header>
 
-        <v-card-text class="pt-4">
+        <div class="workspaces-view__body">
           <v-progress-linear v-if="!isBootstrapping && isRefreshingBootstrap" indeterminate class="mb-4" />
           <v-row>
             <v-col cols="12" :md="workspaceInvitesEnabled ? 6 : 12">
@@ -539,8 +538,40 @@ watch(
               </template>
             </v-col>
           </v-row>
-        </v-card-text>
-      </v-card>
+        </div>
+      </v-sheet>
     </v-container>
   </section>
 </template>
+
+<style scoped>
+.workspaces-view__panel {
+  overflow: hidden;
+}
+
+.workspaces-view__header {
+  padding: 1rem 1rem 0;
+}
+
+.workspaces-view__title {
+  font-size: clamp(1.35rem, 2vw, 1.85rem);
+  font-weight: 650;
+  letter-spacing: -0.02em;
+  line-height: 1.15;
+  margin: 0 0 0.35rem;
+}
+
+.workspaces-view__body {
+  padding: 1rem;
+}
+
+@media (max-width: 640px) {
+  .workspaces-view {
+    padding-block: 0.75rem !important;
+  }
+
+  .workspaces-view__body :deep(.v-btn) {
+    min-height: 48px;
+  }
+}
+</style>

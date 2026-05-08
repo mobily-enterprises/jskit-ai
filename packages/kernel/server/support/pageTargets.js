@@ -373,8 +373,8 @@ function buildAncestorRouteContexts(pageTarget = {}) {
 
   for (let visiblePrefixLength = visibleRouteSegments.length - 1; visiblePrefixLength >= 1; visiblePrefixLength -= 1) {
     const parentVisibleSegments = visibleRouteSegments.slice(0, visiblePrefixLength);
-      const actualRouteSegments = [];
-      let collectedVisibleSegments = 0;
+    const actualRouteSegments = [];
+    let collectedVisibleSegments = 0;
 
     for (const segment of routeSegments) {
       actualRouteSegments.push(segment);
@@ -585,7 +585,8 @@ function topologyPlacementTargetsConcreteOutlet(placement = {}, target = "") {
 async function resolveSemanticPlacementTargetForConcreteOutlet({
   appRoot,
   concreteTarget = "",
-  surface = ""
+  surface = "",
+  context = "page target"
 } = {}) {
   const normalizedConcreteTarget = normalizeShellOutletTargetId(concreteTarget);
   if (!normalizedConcreteTarget) {
@@ -595,16 +596,31 @@ async function resolveSemanticPlacementTargetForConcreteOutlet({
   const topology = await discoverPlacementTopologyFromApp({ appRoot });
   const owner = resolveConcreteTargetOwner(normalizedConcreteTarget);
   const normalizedSurface = normalizeSurfaceId(surface);
-  return (Array.isArray(topology.placements) ? topology.placements : []).find((placement) => {
+  const candidates = (Array.isArray(topology.placements) ? topology.placements : []).filter((placement) => {
     if (!topologyPlacementTargetsConcreteOutlet(placement, normalizedConcreteTarget)) {
-      return false;
-    }
-    if (placement.owner && placement.owner !== owner) {
       return false;
     }
     const surfaces = Array.isArray(placement.surfaces) ? placement.surfaces : ["*"];
     return !normalizedSurface || surfaces.includes("*") || surfaces.includes(normalizedSurface);
-  }) || null;
+  });
+
+  const exactOwnerMatches = candidates.filter((placement) => placement.owner && placement.owner === owner);
+  const globalMatches = candidates.filter((placement) => !placement.owner);
+  const selectedMatches = exactOwnerMatches.length > 0 ? exactOwnerMatches : globalMatches;
+  if (selectedMatches.length < 1) {
+    return null;
+  }
+  if (selectedMatches.length === 1) {
+    return selectedMatches[0];
+  }
+
+  const targetLabels = selectedMatches.map((placement) =>
+    placement.owner ? `${placement.id} [owner:${placement.owner}]` : placement.id
+  );
+  throw new Error(
+    `${context} found multiple semantic placements mapped to concrete outlet "${normalizedConcreteTarget}": ` +
+    `${targetLabels.join(", ")}. Pass --link-placement or make the topology mapping unambiguous.`
+  );
 }
 
 function resolveRelativeLinkToFromParent(pageTarget = {}, parentHost = null) {

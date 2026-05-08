@@ -175,6 +175,12 @@ test("ui-generator placed-element subcommand creates component and outlet placem
     assert.match(providerSource, /import OpsPanelElement from "\/src\/components\/OpsPanelElement\.vue";/);
     assert.match(providerSource, /registerMainClientComponent\("local\.main\.ui\.element\.ops-panel", \(\) => OpsPanelElement\);/);
 
+    const componentSource = await readFile(path.join(appRoot, "src", "components", "OpsPanelElement.vue"), "utf8");
+    assert.match(componentSource, /class="generated-element-panel"/);
+    assert.match(componentSource, /<h2 class="text-subtitle-1 font-weight-medium mb-0">Ops Panel<\/h2>/);
+    assert.match(componentSource, /<v-chip color="primary" variant="tonal" size="small">Ready<\/v-chip>/);
+    assert.doesNotMatch(componentSource, /Replace this scaffold|Use this area|This is your page/);
+
     const placementSource = await readFile(path.join(appRoot, "src", "placement.js"), "utf8");
     assert.match(placementSource, /id: "ui-generator\.element\.ops-panel"/);
     assert.match(placementSource, /target: "shell\.status"/);
@@ -350,7 +356,8 @@ test("ui-generator placed-element subcommand overwrites an existing component wh
     ]);
 
     const componentSource = await readFile(path.join(appRoot, "src", "components", "OpsPanelElement.vue"), "utf8");
-    assert.match(componentSource, /<h2 class="text-h6 mb-2">Ops Panel<\/h2>/);
+    assert.match(componentSource, /<h2 class="text-subtitle-1 font-weight-medium mb-0">Ops Panel<\/h2>/);
+    assert.doesNotMatch(componentSource, /custom/);
   });
 });
 

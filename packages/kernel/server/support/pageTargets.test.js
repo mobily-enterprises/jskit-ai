@@ -388,6 +388,149 @@ test("resolvePageLinkTargetDetails prefers an outlet-declared default link token
   });
 });
 
+test("resolvePageLinkTargetDetails infers owner-scoped placement for sibling file-route children", async () => {
+  await withTempApp(async (appRoot) => {
+    await writeConfig(
+      appRoot,
+      `export const config = {
+  surfaceDefinitions: {
+    home: { id: "home", pagesRoot: "home", enabled: true }
+  }
+};
+`
+    );
+    await writePlacementTopology(appRoot, [
+      renderTopologyEntry({
+        id: "page.section-nav",
+        owner: "home-settings",
+        surfaces: ["home"],
+        outlet: "home-settings:primary-menu",
+        linkRenderer: "local.main.ui.surface-aware-menu-link-item"
+      })
+    ]);
+    await writeFileInApp(
+      appRoot,
+      "src/pages/home/settings.vue",
+      `<template>
+  <section>
+    <ShellOutlet target="home-settings:primary-menu" />
+    <RouterView />
+  </section>
+</template>
+`
+    );
+
+    const details = await resolvePageLinkTargetDetails({
+      appRoot,
+      targetFile: "home/settings/profile.vue",
+      context: "page target"
+    });
+
+    assert.equal(details.parentHost?.id, "home-settings:primary-menu");
+    assert.equal(details.placementTarget.id, "page.section-nav");
+    assert.equal(details.placementTarget.owner, "home-settings");
+  });
+});
+
+test("resolvePageLinkTargetDetails prefers owner-scoped topology over a global mapping for the same concrete outlet", async () => {
+  await withTempApp(async (appRoot) => {
+    await writeConfig(
+      appRoot,
+      `export const config = {
+  surfaceDefinitions: {
+    home: { id: "home", pagesRoot: "home", enabled: true }
+  }
+};
+`
+    );
+    await writePlacementTopology(appRoot, [
+      renderTopologyEntry({
+        id: "page.section-nav",
+        surfaces: ["home"],
+        outlet: "home-settings:primary-menu",
+        linkRenderer: "local.main.ui.surface-aware-menu-link-item"
+      }),
+      renderTopologyEntry({
+        id: "page.section-nav",
+        owner: "home-settings",
+        surfaces: ["home"],
+        outlet: "home-settings:primary-menu",
+        linkRenderer: "local.main.ui.surface-aware-menu-link-item"
+      })
+    ]);
+    await writeFileInApp(
+      appRoot,
+      "src/pages/home/settings.vue",
+      `<template>
+  <section>
+    <ShellOutlet target="home-settings:primary-menu" />
+    <RouterView />
+  </section>
+</template>
+`
+    );
+
+    const details = await resolvePageLinkTargetDetails({
+      appRoot,
+      targetFile: "home/settings/profile.vue",
+      context: "page target"
+    });
+
+    assert.equal(details.placementTarget.id, "page.section-nav");
+    assert.equal(details.placementTarget.owner, "home-settings");
+  });
+});
+
+test("resolvePageLinkTargetDetails rejects ambiguous semantic mappings for the same owner outlet", async () => {
+  await withTempApp(async (appRoot) => {
+    await writeConfig(
+      appRoot,
+      `export const config = {
+  surfaceDefinitions: {
+    home: { id: "home", pagesRoot: "home", enabled: true }
+  }
+};
+`
+    );
+    await writePlacementTopology(appRoot, [
+      renderTopologyEntry({
+        id: "page.section-nav",
+        owner: "home-settings",
+        surfaces: ["home"],
+        outlet: "home-settings:primary-menu",
+        linkRenderer: "local.main.ui.surface-aware-menu-link-item"
+      }),
+      renderTopologyEntry({
+        id: "page.actions",
+        owner: "home-settings",
+        surfaces: ["home"],
+        outlet: "home-settings:primary-menu",
+        linkRenderer: "local.main.ui.surface-aware-menu-link-item"
+      })
+    ]);
+    await writeFileInApp(
+      appRoot,
+      "src/pages/home/settings.vue",
+      `<template>
+  <section>
+    <ShellOutlet target="home-settings:primary-menu" />
+    <RouterView />
+  </section>
+</template>
+`
+    );
+
+    await assert.rejects(
+      resolvePageLinkTargetDetails({
+        appRoot,
+        targetFile: "home/settings/profile.vue",
+        context: "page target"
+      }),
+      /found multiple semantic placements mapped to concrete outlet "home-settings:primary-menu": page\.actions \[owner:home-settings\], page\.section-nav \[owner:home-settings\]/
+    );
+  });
+});
+
 test("resolvePageLinkTargetDetails inherits a file-route parent subpages host", async () => {
   await withTempApp(async (appRoot) => {
     await writeConfig(

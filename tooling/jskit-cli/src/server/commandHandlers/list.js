@@ -152,11 +152,15 @@ function resolveChildPagePatternFromHostSourcePath(sourcePath = "") {
   const pagePath = normalizedPath.slice("src/pages/".length);
   if (pagePath.endsWith("/index.vue")) {
     const hostPath = pagePath.slice(0, -"/index.vue".length);
-    return hostPath ? `${hostPath}/<page>/index.vue` : "<page>/index.vue";
+    return hostPath
+      ? `${hostPath}/<page>.vue or ${hostPath}/<page>/index.vue`
+      : "<page>.vue or <page>/index.vue";
   }
   if (pagePath.endsWith(".vue")) {
     const hostPath = pagePath.slice(0, -".vue".length);
-    return hostPath ? `${hostPath}/<page>/index.vue` : "<page>/index.vue";
+    return hostPath
+      ? `${hostPath}/<page>.vue or ${hostPath}/<page>/index.vue`
+      : "<page>.vue or <page>/index.vue";
   }
   return "";
 }
@@ -248,7 +252,6 @@ function appendSemanticPlacementGroups(lines, {
   color,
   semanticPlacements = [],
   concreteTargets = [],
-  hostPathLookupError = null,
   showLayoutDetails = false
 } = {}) {
   const concreteSourcePathByTarget = createConcreteTargetSourcePathMap(concreteTargets);
@@ -284,11 +287,9 @@ function appendSemanticPlacementGroups(lines, {
     color,
     title: "Owner-scoped navigation link placements",
     guidance: [
-      'Format: npx jskit generate ui-generator page <host-path>/<page>/index.vue --name "Label"',
-      'Example: npx jskit generate ui-generator page home/settings/profile/index.vue --name "Profile"',
-      hostPathLookupError
-        ? `Host path lookup failed: ${String(hostPathLookupError?.message || hostPathLookupError).trim()}`
-        : ""
+      'Format: npx jskit generate ui-generator page <host-path>/<page>.vue --name "Label"',
+      'Alternative: npx jskit generate ui-generator page <host-path>/<page>/index.vue --name "Label"',
+      'Example: npx jskit generate ui-generator page home/settings/profile.vue --name "Profile"'
     ],
     targets: groupedTargets.ownerLinks,
     concreteSourcePathByTarget,
@@ -339,9 +340,10 @@ function appendSemanticPlacementGroups(lines, {
     title: "Owner-scoped mixed-kind placements",
     description: "These owner-scoped entries accept more than one semantic kind. Include the owner when adding manual placement entries.",
     guidance: [
-      'Link format: npx jskit generate ui-generator page <host-path>/<page>/index.vue --name "Label"',
+      'Link format: npx jskit generate ui-generator page <host-path>/<page>.vue --name "Label"',
+      'Link alternative: npx jskit generate ui-generator page <host-path>/<page>/index.vue --name "Label"',
       'Component format: npx jskit generate ui-generator placed-element --name "Widget Name" --placement <placement> --owner <owner>',
-      'Link example: npx jskit generate ui-generator page home/settings/profile/index.vue --name "Profile"',
+      'Link example: npx jskit generate ui-generator page home/settings/profile.vue --name "Profile"',
       'Component example: npx jskit generate ui-generator placed-element --name "Security Section" --placement <placement> --owner <owner>'
     ],
     targets: groupedTargets.ownerMixed,
@@ -446,6 +448,7 @@ function createListCommands(ctx = {}) {
     loadAppLocalPackageRegistry,
     resolveInstalledNodeModulePackageEntry,
     discoverPlacementTopologyFromApp,
+    discoverShellOutletSourcePathsFromApp,
     discoverShellOutletTargetsFromApp,
     normalizePlacementContributions,
     resolvePackageKind
@@ -720,20 +723,17 @@ function createListCommands(ctx = {}) {
         }
         return String(left.owner || "").localeCompare(String(right.owner || ""));
       });
-    let hostPathLookupError = null;
     let discoveredConcrete = { targets: [] };
-    if (showConcrete || shouldLookupHostPaths) {
-      try {
-        discoveredConcrete = await discoverShellOutletTargetsFromApp({
-          appRoot,
-          sourceRoot: "src"
-        });
-      } catch (error) {
-        if (showConcrete) {
-          throw error;
-        }
-        hostPathLookupError = error;
-      }
+    if (showConcrete) {
+      discoveredConcrete = await discoverShellOutletTargetsFromApp({
+        appRoot,
+        sourceRoot: "src"
+      });
+    } else if (shouldLookupHostPaths) {
+      discoveredConcrete = await discoverShellOutletSourcePathsFromApp({
+        appRoot,
+        sourceRoot: "src"
+      });
     }
     const concreteTargets = ensureArray(discoveredConcrete.targets)
       .map((entry) => ensureObject(entry))
@@ -777,7 +777,6 @@ function createListCommands(ctx = {}) {
           color,
           semanticPlacements,
           concreteTargets,
-          hostPathLookupError,
           showLayoutDetails
         });
       }

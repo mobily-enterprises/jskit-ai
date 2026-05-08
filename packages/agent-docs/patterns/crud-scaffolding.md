@@ -25,6 +25,11 @@ Rules:
 - Do not scaffold CRUD UI, hand-build CRUD routes, or hand-build CRUD endpoints before the server CRUD package and shared resource file exist.
 - Treat the generated shared resource file as the canonical CRUD contract for later UI scaffolding and CRUD behavior changes.
 - `feature-server-generator` is not the default lane for ordinary persisted entities. Use it for workflows or orchestration that sit on top of CRUD-owned tables, or for rare explicit non-CRUD exceptions.
+- Generated CRUD UI must be compact-first. Lists need searchable cards on compact widths and tables only for medium/expanded layouts.
+- Generated CRUD list screens need real loading, empty, and error states. Empty copy should name the resource, such as "No customers yet", and offer the create action when available.
+- Generated CRUD view/new/edit screens should use page headers plus direct sheet panels. Do not use generic card shells as the page architecture.
+- Compact CRUD actions should be reachable without a drawer. Use a mobile-visible primary action or FAB for create flows.
+- Row actions should collapse into an overflow/action menu on compact widths and can be inline on wider layouts.
 
 Meaning of `--internal`:
 
@@ -38,3 +43,4 @@ Avoid:
 - starting with `crud-ui-generator` before the server scaffold exists
 - hand-building CRUD routes or validators that duplicate the generated server resource contract
 - letting a new app-owned table exist in the live database without either generated CRUD ownership or a documented `.jskit/table-ownership.json` exception
+- accepting table-only CRUD UI as "done" when the route is visible on phone widths

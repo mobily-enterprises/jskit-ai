@@ -84,6 +84,7 @@ function useShellLayoutState(props = {}) {
     drawerDefaultOpen,
     drawerOpen,
     setDrawerDefaultOpen: shellLayoutStore.setDrawerDefaultOpen,
+    setDrawerOpen: shellLayoutStore.setDrawerOpen,
     toggleDrawer,
     resolvedSurface,
     resolvedSurfaceLabel
