@@ -17,13 +17,11 @@
         :border="!isMobileViewport"
       >
         <v-card-text class="auth-content" :class="{ 'auth-content--mobile': isMobileViewport }">
-          <div class="auth-header d-flex align-start justify-space-between ga-3 mb-5">
+          <div v-if="authTitle || authSubtitle" class="auth-header mb-5">
             <div>
-              <p class="auth-kicker">Jskit Workspace</p>
-              <h1 class="auth-title">{{ authTitle }}</h1>
+              <h1 v-if="authTitle" class="auth-title">{{ authTitle }}</h1>
               <p v-if="authSubtitle" class="text-medium-emphasis mb-0">{{ authSubtitle }}</p>
             </div>
-            <v-chip color="primary" size="small" label>Secure</v-chip>
           </div>
 
           <div v-if="!isForgot && !isOtp && !isEmailConfirmationPending" class="mode-switch d-flex ga-2 pa-1 mb-5">
@@ -344,15 +342,6 @@ function toggleConfirmPasswordVisibility() {
 .auth-content--mobile {
   min-height: 100dvh;
   padding: calc(24px + env(safe-area-inset-top, 0px)) 20px calc(32px + env(safe-area-inset-bottom, 0px));
-}
-
-.auth-kicker {
-  margin: 0 0 8px;
-  font-size: 12px;
-  font-weight: 700;
-  letter-spacing: 0.09em;
-  text-transform: uppercase;
-  color: rgba(var(--v-theme-on-surface), 0.72);
 }
 
 .auth-title {

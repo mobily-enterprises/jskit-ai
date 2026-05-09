@@ -6,6 +6,7 @@ import { useAddEdit } from "./useAddEdit.js";
 import {
   resolveCrudBoundValues,
 } from "../crud/crudBindingSupport.js";
+import { resolveOperationRealtimeOptions } from "../useRealtimeQueryInvalidation.js";
 import {
   normalizeCrudFormFields,
   createCrudFormModel,
@@ -64,6 +65,12 @@ function useCrudAddEdit({
       operationName
     }
   );
+  const resolvedRealtime = resolveOperationRealtimeOptions({
+    realtime: normalizedAddEditOptions.realtime,
+    fallbackRealtime: resolvedResource?.operations?.[operationName]?.realtime ||
+      resolvedResource?.operations?.list?.realtime ||
+      null
+  });
   const saveSuccessOptions = normalizeSaveSuccessOptions(saveSuccess);
   const defaultFieldErrorKeys = normalizedFields.map((field) => field.key);
   const providedFieldErrorKeys = normalizeFieldErrorKeys(normalizedAddEditOptions.fieldErrorKeys);
@@ -185,6 +192,7 @@ function useCrudAddEdit({
     input: resolvedInput,
     buildRawPayload: resolveBuildRawPayload,
     mapLoadedToModel: effectiveMapLoadedToModel,
+    realtime: resolvedRealtime,
     onSaveSuccess: handleSaveSuccess
   });
   addEditRuntime = addEdit;

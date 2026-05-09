@@ -8,6 +8,7 @@ import { setupOperationErrorReporting } from "../runtime/operationUiHelpers.js";
 import { createViewUiRuntime } from "../runtime/viewUiRuntime.js";
 import { createRequestQueryRuntime } from "../support/requestQueryRuntimeSupport.js";
 import { resolveRouteParamNamesInOrder } from "../support/routeTemplateHelpers.js";
+import { resolveOperationRealtimeOptions } from "../useRealtimeQueryInvalidation.js";
 
 function useView({
   ownershipFilter = ROUTE_VISIBILITY_WORKSPACE,
@@ -33,7 +34,7 @@ function useView({
   listUrlTemplate = "",
   editUrlTemplate = "",
   includeRecordIdInQueryKey = false,
-  realtime = null,
+  realtime = undefined,
   adapter = null
 } = {}) {
   const route = useRoute();
@@ -63,7 +64,12 @@ function useView({
     permissionSets: {
       view: viewPermissions
     },
-    realtime
+    realtime: resolveOperationRealtimeOptions({
+      realtime,
+      fallbackRealtime: resource?.operations?.view?.realtime ||
+        resource?.operations?.list?.realtime ||
+        null
+    })
   });
   const queryParamsContext = computed(() => {
     return Object.freeze({

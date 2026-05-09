@@ -5,7 +5,7 @@ const OTP_MODE = "otp";
 const EMAIL_CONFIRMATION_MODE = "confirm-email";
 
 const AUTH_TITLE_BY_MODE = Object.freeze({
-  [LOGIN_MODE]: "Welcome",
+  [LOGIN_MODE]: "",
   [REGISTER_MODE]: "Create your account",
   [FORGOT_MODE]: "Reset your password",
   [OTP_MODE]: "Use one-time code",
@@ -13,7 +13,7 @@ const AUTH_TITLE_BY_MODE = Object.freeze({
 });
 
 const AUTH_SUBTITLE_BY_MODE = Object.freeze({
-  [LOGIN_MODE]: "Sign in to continue.",
+  [LOGIN_MODE]: "",
   [REGISTER_MODE]: "Register to access your workspace.",
   [FORGOT_MODE]: "We will send password reset instructions to your email.",
   [OTP_MODE]: "Request a one-time login code and verify it below."

@@ -38,6 +38,9 @@ Exports
 Exports
 - None
 Local functions
+- `isSameSnackbarEntry(left = null, right = null)`
+- `hasSnackbarEntry(entry = null)`
+- `openNextSnackbarEntry()`
 - `resolveSeverityColor(severity = "error")`
 - `resolveSeverityIcon(severity = "error")`
 - `resolveTimeout(entry)`
@@ -45,6 +48,7 @@ Local functions
 - `runAction(entry)`
 - `onSnackbarModelValue(nextValue)`
 - `onDialogModelValue(nextValue)`
+- `onSnackbarAfterLeave()`
 
 ### `src/client/components/ShellLayout.vue`
 Exports
@@ -54,12 +58,22 @@ Local functions
 - `handlePullPointerMove(event)`
 - `handlePullPointerEnd(event)`
 - `handlePullPointerCancel(event)`
+- `handlePullTouchStart(event)`
+- `handlePullTouchMove(event)`
+- `handlePullTouchEnd(event)`
+- `handlePullTouchCancel(event)`
+- `updatePullGesture(clientX, clientY, event)`
+- `finishPullGesture()`
 - `cancelPullRefresh()`
 - `refreshFromPullGesture()`
 - `canStartPullRefresh(event)`
+- `canStartTouchPullRefresh(event)`
+- `canStartPullRefreshFromTarget(target)`
 - `isPrimaryTouchPointer(event)`
 - `isAtPageTop()`
 - `isPullRefreshIgnoredTarget(target)`
+- `findActiveTouch(touchList)`
+- `touchListIncludesActiveTouch(touchList)`
 
 ### `src/client/components/ShellMenuLinkItem.vue`
 Exports

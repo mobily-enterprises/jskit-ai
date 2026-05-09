@@ -1219,6 +1219,8 @@ Exports
 - `resolveLoggerLevel({ configuredLevel = "", nodeEnv = "development", allowedLevels = [] } = {})`
 - `createFastifyLoggerOptions({ configuredLevel = "", nodeEnv = "development", allowedLevels = [], redactPaths = [], redactCensor = "[REDACTED]" } = {})`
 - `registerJsonApiContentTypeParser(fastify)`
+- `normalizeBodylessContentTypeHeader(request = null)`
+- `registerBodylessContentTypeNormalizer(fastify)`
 - `registerRequestLoggingHooks(app, { requestStartedAtSymbol, getPathname, getSurface, observeRequest, enableRequestLogs = true, defaultSurfaceId = "" } = {})`
 - `registerApiErrorHandler(app, { isAppError, onRecordDbError, onCaptureServerError, appErrorLogMessage = "AppError 5xx", unhandledErrorLogMessage = "Unhandled error" } = {})`
 - `ensureApiErrorHandling(app, { fastifyToken = "jskit.fastify", markerToken = "kernel.runtime.apiErrorHandlerRegistered", isAppError: isAppErrorOverride, autoRegister = true, ...handlerOptions } = {})`
@@ -1227,6 +1229,8 @@ Exports
 - `runGracefulShutdown({ signal = "", exitProcess = false, exitCode = 0, timeoutMs = 10_000, appInstance = null, stopBackgroundRuntimes = () => {}, closeDatabase = async () => {}, logger = console } = {})`
 Local functions
 - `createFallbackJsonBodyParser()`
+- `hasHeaderValue(headers = {}, key = "")`
+- `hasRequestBody(headers = {})`
 - `resolveValidationFieldErrors(error)`
 - `resolveRequestRouteTransport(request)`
 - `applyRouteTransportErrorResponse(reply, request, error, { statusCode = 500, normalizedErrorCode = "" } = {})`
