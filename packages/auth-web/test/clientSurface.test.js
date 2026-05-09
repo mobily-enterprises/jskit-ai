@@ -90,6 +90,19 @@ test("default login view owns the viewport and becomes a full-screen mobile scre
   assert.match(viewSource, /\.login-screen\s*\{[\s\S]*inset:\s*0;/);
 });
 
+test("default login view avoids decorative login chrome", () => {
+  const viewPath = fileURLToPath(new URL("../src/client/views/DefaultLoginView.vue", import.meta.url));
+  const constantsPath = fileURLToPath(new URL("../src/client/composables/loginView/constants.js", import.meta.url));
+  const viewSource = readFileSync(viewPath, "utf8");
+  const constantsSource = readFileSync(constantsPath, "utf8");
+
+  assert.match(viewSource, /v-if="authTitle \|\| authSubtitle"/);
+  assert.doesNotMatch(viewSource, /Jskit Workspace|JSKIT WORKSPACE|auth-kicker|>Secure</);
+  assert.match(constantsSource, /\[LOGIN_MODE\]:\s*""/);
+  assert.doesNotMatch(constantsSource, /\[LOGIN_MODE\]:\s*"Welcome"/);
+  assert.doesNotMatch(constantsSource, /\[LOGIN_MODE\]:\s*"Sign in to continue\.?"/);
+});
+
 test("auth-web package exports only minimal client runtime/view subpaths", () => {
   const packageJson = JSON.parse(readFileSync(fileURLToPath(new URL("../package.json", import.meta.url)), "utf8"));
   const exportsMap = packageJson && typeof packageJson === "object" ? packageJson.exports : {};

@@ -576,6 +576,12 @@ function touchListIncludesActiveTouch(touchList) {
 }
 
 @media (max-width: 640px) {
+  .shell-layout__content {
+    padding-inline:
+      calc(1px + env(safe-area-inset-left, 0px))
+      calc(1px + env(safe-area-inset-right, 0px));
+  }
+
   .shell-layout__surface-label {
     max-width: 8rem;
   }

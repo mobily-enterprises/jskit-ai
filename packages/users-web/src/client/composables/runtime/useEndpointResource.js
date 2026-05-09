@@ -4,6 +4,7 @@ import { usersWebHttpClient } from "../../lib/httpClient.js";
 import { asPlainObject } from "../support/scopeHelpers.js";
 import { resolveEnabledRef, resolveTextRef } from "../support/refValueHelpers.js";
 import { toQueryErrorMessage } from "../support/errorMessageHelpers.js";
+import { useOperationRealtime } from "../useRealtimeQueryInvalidation.js";
 import {
   hasResolvedQueryData,
   mergeQueryMeta
@@ -71,6 +72,7 @@ function useEndpointResource({
   readQuery = null,
   transport = null,
   refreshOnPull = false,
+  realtime = null,
   queryOptions = null,
   mutationOptions = null,
   fallbackLoadError = "Unable to load resource.",
@@ -107,6 +109,11 @@ function useEndpointResource({
         }
       })
       : asPlainObject(queryOptions))
+  });
+  const realtimeBinding = useOperationRealtime({
+    realtime,
+    queryKey,
+    enabled: queryEnabled
   });
 
   const mutation = useMutation({
@@ -168,6 +175,7 @@ function useEndpointResource({
     isSaving,
     loadError,
     saveError,
+    realtime: realtimeBinding,
     reload,
     save
   });

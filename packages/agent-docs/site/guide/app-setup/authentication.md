@@ -129,7 +129,7 @@ The small links under the password field are not decoration.
 
 When the user presses `Register`, the form changes in three important ways.
 
-- The title changes from `Welcome` to `Create your account`.
+- The screen shows the `Create your account` title.
 - A `Confirm password` field appears.
 - The main submit button changes from `Sign in` to `Register`.
 

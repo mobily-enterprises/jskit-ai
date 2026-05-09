@@ -12,6 +12,7 @@ import {
   toRouteParamValue
 } from "../support/routeTemplateHelpers.js";
 import { asPlainObject } from "../support/scopeHelpers.js";
+import { resolveOperationRealtimeOptions } from "../useRealtimeQueryInvalidation.js";
 import { useList } from "./useList.js";
 
 function resolveRequestQueryParamsInput(requestQueryParams, context = {}) {
@@ -49,6 +50,7 @@ function useCrudList({
   parentBinding = null,
   recordIdParam = "recordId",
   route = null,
+  realtime = undefined,
   ...listOptions
 } = {}) {
   const sourceRoute = route && typeof route === "object" ? route : useRoute();
@@ -71,6 +73,10 @@ function useCrudList({
     ...listOptions,
     transport: resolveCrudJsonApiTransport(listOptions.transport, resource, {
       mode: "list"
+    }),
+    realtime: resolveOperationRealtimeOptions({
+      realtime,
+      fallbackRealtime: resource?.operations?.list?.realtime || null
     }),
     recordIdParam,
     requestQueryParams(context = {}) {
