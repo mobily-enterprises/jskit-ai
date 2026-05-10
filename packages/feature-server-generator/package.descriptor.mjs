@@ -1,7 +1,7 @@
 export default Object.freeze({
   packageVersion: 1,
   packageId: "@jskit-ai/feature-server-generator",
-  version: "0.1.10",
+  version: "0.1.11",
   kind: "generator",
   description: "Scaffold substantial non-CRUD server feature packages with provider, actions, service, and optional persistence seams.",
   options: {
@@ -153,10 +153,10 @@ export default Object.freeze({
   mutations: {
     dependencies: {
       runtime: {
-        "@jskit-ai/database-runtime": "0.1.68",
-        "@jskit-ai/database-runtime-mysql": "0.1.67",
-        "@jskit-ai/json-rest-api-core": "0.1.13",
-        "@jskit-ai/kernel": "0.1.68",
+        "@jskit-ai/database-runtime": "0.1.69",
+        "@jskit-ai/database-runtime-mysql": "0.1.68",
+        "@jskit-ai/json-rest-api-core": "0.1.14",
+        "@jskit-ai/kernel": "0.1.69",
         "json-rest-schema": "1.x.x",
         "@local/${option:feature-name|kebab}": "file:packages/${option:feature-name|kebab}"
       },
