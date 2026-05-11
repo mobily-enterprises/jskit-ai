@@ -209,6 +209,7 @@ Local functions
 Exports
 - `normalizeMutationExtension(value)`
 - `normalizeTemplateContextRecord(value)`
+- `normalizeDependencyMutationRecord(value)`
 - `normalizeFileMutationRecord(value)`
 - `normalizeMutationWhen(value)`
 - `readObjectPath(source, rawPath)`
@@ -234,6 +235,7 @@ Local functions
 - `isWorkspaceCapableTenancyMode(value = "")`
 - `collectInstallWarnings({ packageEntry, appRoot, appPackageJson })`
 - `resolveManagedSourceRecord(packageEntry, existingInstall = {})`
+- `dependencyMutationUsesWhen(entries = [])`
 
 ### `src/server/cliRuntime/packageIntrospection.js`
 Exports
@@ -678,6 +680,7 @@ Exports
 Local functions
 - `resolveGeneratorSubcommandRows(payload = {})`
 - `resolveOwnershipGuidance(payload = {})`
+- `renderDependencyMutationSpec(versionSpec)`
 
 ### `src/server/core/argParser.js`
 Exports

@@ -52,6 +52,21 @@ function normalizeFileMutationRecord(value) {
   };
 }
 
+function normalizeDependencyMutationRecord(value) {
+  const record = ensureObject(value);
+  if (Object.keys(record).length < 1) {
+    return {
+      version: String(value || ""),
+      when: null
+    };
+  }
+
+  return {
+    version: String(record.version || record.value || "").trim(),
+    when: normalizeMutationWhen(record.when)
+  };
+}
+
 function normalizeMutationWhen(value) {
   const source = ensureObject(value);
   const allConditions = ensureArray(source.all)
@@ -304,6 +319,7 @@ function shouldApplyMutationWhen(
 export {
   normalizeMutationExtension,
   normalizeTemplateContextRecord,
+  normalizeDependencyMutationRecord,
   normalizeFileMutationRecord,
   normalizeMutationWhen,
   readObjectPath,

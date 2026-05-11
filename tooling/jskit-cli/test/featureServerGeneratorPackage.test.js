@@ -136,6 +136,7 @@ test("generate feature-server-generator scaffold supports orchestrator mode with
     const serviceSource = await readFile(path.join(packageRoot, "src", "server", "service.js"), "utf8");
     const routesSource = await readFile(path.join(packageRoot, "src", "server", "registerRoutes.js"), "utf8");
     const descriptorSource = await readFile(path.join(packageRoot, "package.descriptor.mjs"), "utf8");
+    const appPackageJson = JSON.parse(await readFile(path.join(appRoot, "package.json"), "utf8"));
 
     assert.equal(await fileExists(path.join(packageRoot, "src", "server", "repository.js")), false);
     assert.equal(await fileExists(path.join(packageRoot, "src", "server", "registerRoutes.js")), true);
@@ -145,6 +146,12 @@ test("generate feature-server-generator scaffold supports orchestrator mode with
     assert.match(routesSource, /auth: "public"/);
     assert.match(descriptorSource, /scaffoldMode: "orchestrator"/);
     assert.match(descriptorSource, /lane: "default"/);
+    assert.equal(appPackageJson.dependencies["@local/availability-engine"], "file:packages/availability-engine");
+    assert.equal(typeof appPackageJson.dependencies["@jskit-ai/kernel"], "string");
+    assert.equal(appPackageJson.dependencies["json-rest-schema"], "1.x.x");
+    assert.equal(appPackageJson.dependencies["@jskit-ai/json-rest-api-core"], undefined);
+    assert.equal(appPackageJson.dependencies["@jskit-ai/database-runtime"], undefined);
+    assert.equal(appPackageJson.dependencies["@jskit-ai/database-runtime-mysql"], undefined);
   });
 });
 
@@ -171,12 +178,16 @@ test("generate feature-server-generator scaffold supports the explicit custom-kn
     const providerSource = await readFile(path.join(packageRoot, "src", "server", "InvoiceRollupProvider.js"), "utf8");
     const repositorySource = await readFile(path.join(packageRoot, "src", "server", "repository.js"), "utf8");
     const descriptorSource = await readFile(path.join(packageRoot, "package.descriptor.mjs"), "utf8");
+    const appPackageJson = JSON.parse(await readFile(path.join(appRoot, "package.json"), "utf8"));
 
     assert.match(providerSource, /jskit\.database\.knex/);
     assert.match(repositorySource, /createWithTransaction/);
     assert.match(repositorySource, /persistence: "custom-knex"/);
     assert.match(descriptorSource, /scaffoldMode: "custom-knex"/);
     assert.match(descriptorSource, /lane: "weird-custom"/);
+    assert.equal(typeof appPackageJson.dependencies["@jskit-ai/database-runtime"], "string");
+    assert.equal(typeof appPackageJson.dependencies["@jskit-ai/database-runtime-mysql"], "string");
+    assert.equal(appPackageJson.dependencies["@jskit-ai/json-rest-api-core"], undefined);
   });
 });
 
