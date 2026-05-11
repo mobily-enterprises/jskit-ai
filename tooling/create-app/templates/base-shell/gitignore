@@ -2,7 +2,6 @@ node_modules/
 dist/
 coverage/
 test-results/
-.jskit/WORKBOARD.md
 .jskit/verification/
 .env
 .env.*

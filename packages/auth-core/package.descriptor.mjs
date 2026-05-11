@@ -1,7 +1,7 @@
 export default Object.freeze({
   "packageVersion": 1,
   "packageId": "@jskit-ai/auth-core",
-  "version": "0.1.69",
+  "version": "0.1.70",
   "kind": "runtime",
   "dependsOn": [
     "@jskit-ai/value-app-config-shared"
@@ -69,7 +69,7 @@ export default Object.freeze({
   "mutations": {
     "dependencies": {
       "runtime": {
-        "@jskit-ai/kernel": "0.1.70",
+        "@jskit-ai/kernel": "0.1.71",
         "@fastify/cookie": "^11.0.2",
         "@fastify/csrf-protection": "^7.1.0",
         "@fastify/rate-limit": "^10.3.0"

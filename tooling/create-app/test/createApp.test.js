@@ -377,14 +377,14 @@ test("create-app scaffolds ai-seed as a single AGENTS file with seed guidance", 
 
     const body = await readFile(path.join(appRoot, "AGENTS.md"), "utf8");
     assert.match(body, /only a JSKIT seed scaffold/);
-    assert.match(body, /site\/guide\/index\.md/);
-    assert.match(body, /DB_PASSWORD/);
-    assert.match(body, /OPENAI_API_KEY/);
-    assert.match(body, /target database already exists/);
+    assert.match(body, /jskit session/);
+    assert.doesNotMatch(body, /DB_PASSWORD/);
+    assert.doesNotMatch(body, /OPENAI_API_KEY/);
+    assert.doesNotMatch(body, /target database already exists/);
     assert.match(body, /create-app <app-name> --target \. --force --tenancy-mode <mode>/);
 
     assert.match(result.stdout, /Created app "seed-app" from template "ai-seed"/);
-    assert.match(result.stdout, /have it read AGENTS\.md/);
+    assert.match(result.stdout, /use jskit session/);
     assert.doesNotMatch(result.stdout, /npm run dev/);
   });
 });
@@ -406,7 +406,9 @@ test("base-shell app agent wrapper does not hardcode machine-specific jskit path
   const wrapperPath = path.join(packageRoot, "templates/base-shell/AGENTS.md");
   const body = await readFile(wrapperPath, "utf8");
   assert.doesNotMatch(body, /Development\/current\/jskit-ai/);
-  assert.match(body, /node_modules\/@jskit-ai\/agent-docs\/templates\/app\/AGENTS\.md/);
+  assert.match(body, /jskit session create/);
+  assert.match(body, /Do not invent a parallel manual workflow/);
+  assert.doesNotMatch(body, /node_modules\/@jskit-ai\/agent-docs\/templates\/app\/AGENTS\.md/);
 });
 
 test("ai-seed agent instructions do not hardcode machine-specific paths and point to JSKIT docs", async () => {
@@ -414,8 +416,9 @@ test("ai-seed agent instructions do not hardcode machine-specific paths and poin
   const wrapperPath = path.join(packageRoot, "templates/ai-seed/AGENTS.md");
   const body = await readFile(wrapperPath, "utf8");
   assert.doesNotMatch(body, /Development\/current\/jskit-ai/);
-  assert.match(body, /github\.com\/mobily-enterprises\/jskit-ai\/blob\/main\/packages\/agent-docs\/site\/guide\/index\.md/);
-  assert.match(body, /AUTH_SUPABASE_PUBLISHABLE_KEY/);
+  assert.match(body, /jskit session/);
+  assert.doesNotMatch(body, /github\.com\/mobily-enterprises\/jskit-ai\/blob\/main\/packages\/agent-docs\/site\/guide\/index\.md/);
+  assert.doesNotMatch(body, /AUTH_SUPABASE_PUBLISHABLE_KEY/);
 });
 
 test("create-app interactive flow captures initial bundle selection in guidance", async () => {

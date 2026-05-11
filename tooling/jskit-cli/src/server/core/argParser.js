@@ -143,7 +143,7 @@ function parseArgs(argv, { createCliError } = {}) {
       } else {
         const hasNextStringToken = typeof args[0] === "string";
         const nextToken = hasNextStringToken ? String(args[0]) : "";
-        if (hasNextStringToken && !nextToken.startsWith("-")) {
+        if (hasNextStringToken && (!nextToken.startsWith("-") || nextToken === "-")) {
           optionValueRaw = args.shift();
         }
       }
@@ -153,7 +153,7 @@ function parseArgs(argv, { createCliError } = {}) {
       }
       if (typeof optionValueRaw === "string") {
         const optionValue = optionValueRaw.trim();
-        if (!hasInlineValue && optionValue.startsWith("-")) {
+        if (!hasInlineValue && optionValue.startsWith("-") && optionValue !== "-") {
           throw createCliError(`--${optionName} requires a value.`, { showUsage: true });
         }
         options.inlineOptions[optionName] = optionValue;

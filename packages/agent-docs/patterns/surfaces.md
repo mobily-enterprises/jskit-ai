@@ -9,7 +9,7 @@ Use when:
 
 Check first:
 
-- the blueprint surface plan
+- the app blueprint surface plan
 - existing route roots under `src/pages`
 - placement visibility by `surfaces`
 

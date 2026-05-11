@@ -28,7 +28,7 @@ npx @jskit-ai/create-app exampleapp --target . --force --tenancy-mode <mode>
 npm install
 ```
 
-After that promotion, the overwritten app `AGENTS.md` becomes the source of truth for the normal JSKIT workflow.
+After that promotion, the overwritten app `AGENTS.md` stays deliberately small. Use `jskit session` for issue-driven work; session state and prompts live under `.jskit/sessions/` in the target app.
 
 After creating the real app scaffolding (the base shell, not the seed wrapper), you will need to run `npm install` to install dependencies.
 

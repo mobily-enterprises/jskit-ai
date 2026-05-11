@@ -1,11 +1,12 @@
-# App Agent Wrapper
+# App Agent Instructions
 
-Read and follow:
+Use JSKIT sessions for issue work:
 
-- `node_modules/@jskit-ai/agent-docs/templates/app/AGENTS.md`
+- `jskit session`
+- `jskit session create`
+- `jskit session <session_id>`
+- `jskit session <session_id> step`
 
-If that file does not exist yet:
+Follow the step output. Do not invent a parallel manual workflow.
 
-- install dependencies so `node_modules/@jskit-ai/agent-docs/` exists
-- inspect the workspace before assuming a JSKIT app already exists
-- if the workspace is empty and the user wants a new app, start with high-level initialize questions only
+If dependencies are not installed yet, run `npm install`. If this app uses local JSKIT checkout links, run `npm run devlinks` immediately afterward.
