@@ -631,7 +631,7 @@ export async function runCli(
       stdout.write("Next steps:\n");
       stdout.write(`- cd ${shellQuote(targetLabel)}\n`);
       if (isAiSeedTemplate) {
-        stdout.write("- hand the repo to your AI agent and have it read AGENTS.md\n");
+        stdout.write("- use jskit session after the real scaffold exists\n");
         stdout.write(
           `- once the Stage 1 shape is clear, let it run npx @jskit-ai/create-app ${shellQuote(result.appName)} --target . --force --tenancy-mode <mode>\n`
         );

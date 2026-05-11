@@ -1,11 +1,5 @@
 # Repository Notes
 
-## New File Guard
-
-- Before creating any new file, stop and ask the user for approval.
-- New test files may be created without approval when needed for verification or regression coverage.
-- Especially never create persistence files by hand without approval.
-
 ## Distributed Agent Docs
 
 - The human guide under `packages/agent-docs/site/guide/` is the source of truth.
@@ -17,10 +11,15 @@
 - Authored workflow files under these paths are edited directly:
   - `packages/agent-docs/DISTR_AGENT.md`
   - `packages/agent-docs/patterns/`
-  - `packages/agent-docs/workflow/`
   - `packages/agent-docs/templates/`
   - `packages/agent-docs/site/guide/`
   - `packages/agent-docs/skills/`
+
+## Issue Sessions
+
+- Use `jskit session` for issue-driven work. Do not recreate the retired long-form AGENTS workflow or loose workboard/blueprint files.
+- Session truth belongs in `.jskit/sessions/active/<session_id>/` in the target app and should be advanced through `jskit session <id> step`.
+- Keep `AGENTS.md` files short. Project-specific workflow text belongs in session prompt overrides under `.jskit/sessions/prompts/`.
 
 ## Visible Change Checkpoint
 

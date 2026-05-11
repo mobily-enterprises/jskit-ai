@@ -22,6 +22,19 @@ Exports
 Exports
 - None
 
+### `src/server/appBlueprint.js`
+Exports
+- `APP_BLUEPRINT_RELATIVE_PATH`
+- `APP_PROMPT_OVERRIDE_RELATIVE_ROOT`
+- `extractAppBlueprintText(value = "")`
+- `readAppBlueprint({ targetRoot = process.cwd() } = {})`
+- `readTextInputFile(cwd, inputPath)`
+- `renderAppBlueprintPrompt({ targetRoot = process.cwd(), appBrief = "" } = {})`
+- `resolveAppBlueprintPaths(targetRoot = process.cwd())`
+- `writeAppBlueprint({ targetRoot = process.cwd(), appBlueprint = "" } = {})`
+Local functions
+- `readAppPromptTemplate(paths, templateName)`
+
 ### `src/server/cliEntrypoint.js`
 Exports
 - `runCliEntrypoint(runCli, argv = process.argv.slice(2))`
@@ -419,6 +432,15 @@ Exports
 Exports
 - `runAppVerifyUiCommand(ctx = {}, { appRoot = "", options = {}, stdout, stderr })`
 
+### `src/server/commandHandlers/blueprint.js`
+Exports
+- `createBlueprintCommands(ctx = {})`
+Local functions
+- `writeJson(stdout, payload)`
+- `writeBlueprintText(stdout, payload)`
+- `readStream(stream)`
+- `resolveTextInput({ cwd, fileOption, inlineOptions = {}, io = {}, stdinOption = "-", textOption })`
+
 ### `src/server/commandHandlers/completion.js`
 Exports
 - `createCompletionCommands(ctx = {})`
@@ -640,6 +662,18 @@ Local functions
 Exports
 - `runPackageUpdateCommand(ctx = {}, { positional, options, cwd, io }, { runCommandAdd })`
 
+### `src/server/commandHandlers/session.js`
+Exports
+- `createSessionCommands()`
+Local functions
+- `writeJson(stdout, payload)`
+- `writeSessionText(stdout, payload)`
+- `readStream(stream)`
+- `resolveInputFilePath(cwd, filePath)`
+- `resolveTextInput({ codePrefix, fileOption, inlineOptions = {}, io = {}, repairCommand, cwd, stdinOption, textOption, sessionId })`
+- `resolveStepInputs({ inlineOptions = {}, io = {}, cwd, sessionId })`
+- `normalizeStepOptions(inlineOptions = {})`
+
 ### `src/server/commandHandlers/shared.js`
 Exports
 - `createCommandHandlerShared(ctx = {})`
@@ -733,6 +767,136 @@ Local functions
 ### `src/server/index.js`
 Exports
 - `runCli`
+
+### `src/server/sessionRuntime.js`
+Exports
+- `SESSION_STATUS`
+- `STEP_DEFINITIONS`
+- `STEP_IDS`
+- `STEP_PRECONDITION_NAMES`
+- `abandonSession({ targetRoot = process.cwd(), sessionId } = {})`
+- `adoptCodexThreadId({ targetRoot = process.cwd(), sessionId, codexThreadId } = {})`
+- `buildSessionResponse`
+- `buildSessionErrorResponse`
+- `createSession({ targetRoot = process.cwd(), sessionId = "", now = new Date() } = {})`
+- `createSessionId`
+- `extractIssueText(value = "")`
+- `inspectSession({ targetRoot = process.cwd(), sessionId } = {})`
+- `inspectSessionDetails({ targetRoot = process.cwd(), sessionId } = {})`
+- `isValidSessionId`
+- `listSessions({ targetRoot = process.cwd() } = {})`
+- `renderTemplate`
+- `resolveSessionPaths`
+- `runSessionStep({ targetRoot = process.cwd(), sessionId, options = {} } = {})`
+Local functions
+- `invalidSessionIdError(sessionId = "")`
+- `invalidSessionIdResponse({ targetRoot, sessionId })`
+- `existingSessionContext({ targetRoot = process.cwd(), sessionId } = {})`
+- `withExistingSession(input, handler)`
+- `emptySessionDetails(response)`
+- `createWorktree(paths, _options = {}, context = {})`
+- `renderIssuePrompt(paths, options = {})`
+- `draftIssue(paths, options = {})`
+- `titleFromIssue(issueText)`
+- `createIssue(paths, _options = {}, context = {})`
+- `renderImplementationPrompt(paths)`
+- `worktreeStatus(worktree)`
+- `detectChanges(paths)`
+- `commitWorktree(paths, { message, allowNoChanges = false } = {})`
+- `commitImplementation(paths)`
+- `changedFilesFromLastCommit(paths)`
+- `reviewPromptStepId(passNumber)`
+- `renderReviewPrompt(paths, passNumber)`
+- `reviewChangesStepId(passNumber)`
+- `detectAndCommitReviewChanges(paths, passNumber)`
+- `userCheckStepId(passNumber)`
+- `userCheck(paths, passNumber, options = {})`
+- `readPackageJson(root)`
+- `doctorCommandForWorktree(worktree)`
+- `runDoctor(paths)`
+- `pushBranch(paths)`
+- `issueNumberFromUrl(issueUrl)`
+- `createPr(paths)`
+- `mergePr(paths)`
+- `removeWorktree(paths)`
+- `finishSession(paths)`
+- `runNamedPreconditions(paths, names = [])`
+
+### `src/server/sessionRuntime/constants.js`
+Exports
+- `PROMPT_DIRECTORY`
+- `SESSION_ID_PATTERN`
+- `SESSION_STATUS`
+- `STEP_DEFINITIONS`
+- `STEP_IDS`
+- `STEP_LABEL_BY_ID`
+- `SESSION_STATE_RELATIVE_PATH`
+
+### `src/server/sessionRuntime/io.js`
+Exports
+- `fileExists(filePath)`
+- `normalizeText(value)`
+- `readTextIfExists(filePath)`
+- `readTrimmedFile(filePath)`
+- `runCommand(command, args = [], { cwd, env = {}, timeout = 30000 } = {})`
+- `runGit(targetRoot, args = [], options = {})`
+- `runGitInWorktree(worktree, args = [], options = {})`
+- `timestampForReceipt(now = new Date())`
+- `writeTextFile(filePath, value)`
+
+### `src/server/sessionRuntime/paths.js`
+Exports
+- `archiveSession(paths, archive)`
+- `createAvailableSessionId(targetRoot, now = new Date())`
+- `createSessionId(now = new Date())`
+- `isValidSessionId(sessionId = "")`
+- `normalizeSessionId(sessionId = "")`
+- `resolveExistingSessionRoot(paths)`
+- `resolveSessionPaths({ targetRoot, sessionId = "" } = {})`
+- `pathsForExistingSession(paths)`
+Local functions
+- `formatDatePart(value)`
+
+### `src/server/sessionRuntime/preconditions.js`
+Exports
+- `applyPreconditions(paths, checks = [])`
+- `assertGhAuth(targetRoot)`
+- `assertGitCurrentBranch(targetRoot)`
+- `assertGitRepository(targetRoot)`
+- `assertGithubOrigin(targetRoot)`
+- `assertIssueArtifacts(paths)`
+- `assertIssueTextExists(paths)`
+- `assertPrUrlExists(paths)`
+- `assertSessionExists(paths)`
+- `assertTargetRootWritable(targetRoot)`
+- `assertWorktreeExists(paths)`
+- `ensureStudioGitExclude(targetRoot)`
+- `hasWorktree(paths)`
+Local functions
+- `resolveGitCommonDirectory(targetRoot)`
+
+### `src/server/sessionRuntime/promptRenderer.js`
+Exports
+- `readPromptTemplate(targetRoot, name)`
+- `renderPrompt(paths, templateName, values = {})`
+- `renderTemplate(source, values = {})`
+
+### `src/server/sessionRuntime/responses.js`
+Exports
+- `buildSessionErrorResponse({ targetRoot = process.cwd(), sessionId = "", code, message, repairCommand = "", status = SESSION_STATUS.BLOCKED, preconditions = [], errors = undefined } = {})`
+- `buildSessionResponse(paths, { ok = true, errors = [], preconditions = [], prompt = undefined, status = undefined } = {})`
+- `createError({ code, message, repairCommand = "" })`
+- `createPrecondition({ id, ok, message })`
+- `failSession(paths, { code, message, repairCommand = "", preconditions = [], status = SESSION_STATUS.BLOCKED, prompt = "" })`
+- `markCurrentStep(paths, stepId)`
+- `markStatus(paths, status)`
+- `readReceiptSteps(paths)`
+- `readSessionArtifacts(paths)`
+- `writeReceipt(paths, stepId, message)`
+Local functions
+- `readCompletedSteps(sessionRoot)`
+- `resolveNextStep(completedSteps = [])`
+- `buildNextCommand(sessionId, stepId)`
 
 ### `src/server/shared/cliError.js`
 Exports

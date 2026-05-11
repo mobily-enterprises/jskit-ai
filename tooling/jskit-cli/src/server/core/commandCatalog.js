@@ -198,6 +198,89 @@ const COMMAND_DESCRIPTORS = Object.freeze({
     allowedValueOptionNames: Object.freeze([]),
     canDelegateInlineOptions: (positional = []) => Array.isArray(positional) && positional.length > 0
   }),
+  session: Object.freeze({
+    command: "session",
+    aliases: Object.freeze([]),
+    showInOverview: true,
+    summary: "Run file-backed JSKIT issue sessions.",
+    minimalUse: "jskit session create",
+    parameters: Object.freeze([
+      Object.freeze({
+        name: "create | <sessionId>",
+        description: "Create a session, inspect a session, or run a session subcommand."
+      }),
+      Object.freeze({
+        name: "[step|abandon|adopt-codex-thread]",
+        description: "Run the next step, abandon a session, or attach a Codex thread id."
+      })
+    ]),
+    defaults: Object.freeze([
+      "Active session state lives in .jskit/sessions/active/<session_id> under the current target app.",
+      "Session worktrees live in .jskit/sessions/worktrees/<session_id>.",
+      "The session id is timestamp-based and is the primary key.",
+      "Use --json for the stable machine-readable contract consumed by JSKIT AI Studio.",
+      "Use --issue - to read approved issue text from stdin."
+    ]),
+    examples: Object.freeze([
+      Object.freeze({
+        label: "Manual CLI flow",
+        lines: Object.freeze([
+          "jskit session create",
+          "jskit session 2026-05-11_21-42-08 step",
+          "jskit session 2026-05-11_21-42-08 step --prompt \"Fix the customer filters\"",
+          "jskit session 2026-05-11_21-42-08 step --issue -"
+        ])
+      })
+    ]),
+    fullUse:
+      "jskit session [create|<sessionId>] [step|abandon|adopt-codex-thread] [--prompt <text>] [--issue <text>|--issue-file <path>] [--user-check <passed|failed>] [--codex-thread-id <id>] [--json]",
+    showHelpOnBareInvocation: false,
+    handlerName: "commandSession",
+    allowedFlagKeys: Object.freeze(["json"]),
+    inlineOptionMode: "delegate",
+    allowedValueOptionNames: Object.freeze([]),
+    canDelegateInlineOptions: (positional = []) => Array.isArray(positional) && positional.length > 0
+  }),
+  blueprint: Object.freeze({
+    command: "blueprint",
+    aliases: Object.freeze([]),
+    showInOverview: true,
+    summary: "Read, prompt, or set the app-level JSKIT blueprint.",
+    minimalUse: "jskit blueprint",
+    parameters: Object.freeze([
+      Object.freeze({
+        name: "[prompt|set]",
+        description: "Without a subcommand, prints the saved app blueprint. prompt renders the AI prompt; set writes the approved blueprint."
+      })
+    ]),
+    defaults: Object.freeze([
+      "The app blueprint is product-level app state, not a feature-session step.",
+      "The saved blueprint lives at .jskit/APP_BLUEPRINT.md in the current target app.",
+      "Project prompt overrides live at .jskit/prompts/app_blueprint.md.",
+      "Use --json for a stable machine-readable response."
+    ]),
+    examples: Object.freeze([
+      Object.freeze({
+        label: "Manual blueprint flow",
+        lines: Object.freeze([
+          "jskit blueprint prompt --brief \"A field app for customer visits\"",
+          "jskit blueprint set --blueprint -",
+          "jskit blueprint --json"
+        ])
+      })
+    ]),
+    fullUse:
+      "jskit blueprint [prompt|set] [--brief <text>|--brief-file <path>] [--blueprint <text>|--blueprint-file <path>] [--json]",
+    showHelpOnBareInvocation: false,
+    handlerName: "commandBlueprint",
+    allowedFlagKeys: Object.freeze(["json"]),
+    inlineOptionMode: "delegate",
+    allowedValueOptionNames: Object.freeze([]),
+    canDelegateInlineOptions: (positional = []) => {
+      const subcommand = String(Array.isArray(positional) ? positional[0] || "" : "").trim();
+      return subcommand === "prompt" || subcommand === "set";
+    }
+  }),
   add: Object.freeze({
     command: "add",
     aliases: Object.freeze([]),
