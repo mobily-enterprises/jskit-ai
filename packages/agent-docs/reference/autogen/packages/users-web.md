@@ -223,7 +223,7 @@ Local functions
 
 ### `src/client/composables/records/useCrudList.js`
 Exports
-- `useCrudList({ resource = null, requestQueryParams = null, parentBinding = null, recordIdParam = "recordId", route = null, ...listOptions } = {})`
+- `useCrudList({ resource = null, requestQueryParams = null, parentBinding = null, recordIdParam = "recordId", route = null, realtime = undefined, ...listOptions } = {})`
 Local functions
 - `resolveRequestQueryParamsInput(requestQueryParams, context = {})`
 - `resolveCrudParentRequestQueryParams({ resource = {}, route = null, recordIdParam = "recordId" } = {})`
@@ -238,7 +238,7 @@ Exports
 
 ### `src/client/composables/records/useView.js`
 Exports
-- `useView({ ownershipFilter = ROUTE_VISIBILITY_WORKSPACE, surfaceId = "", access = "auto", apiSuffix = "", queryKeyFactory = null, viewPermissions = [], readMethod = "GET", readEnabled = true, transport = null, placementSource = "users-web.view", fallbackLoadError = "Unable to load resource.", notFoundStatuses = [404], notFoundMessage = "Record not found.", model, mapLoadedToModel, requestQueryParams = null, recordIdParam = "recordId", routeParams = null, routeRecordId = null, apiUrlTemplate = "", listUrlTemplate = "", editUrlTemplate = "", includeRecordIdInQueryKey = false, realtime = null, adapter = null } = {})`
+- `useView({ ownershipFilter = ROUTE_VISIBILITY_WORKSPACE, surfaceId = "", access = "auto", apiSuffix = "", queryKeyFactory = null, viewPermissions = [], readMethod = "GET", readEnabled = true, transport = null, placementSource = "users-web.view", fallbackLoadError = "Unable to load resource.", notFoundStatuses = [404], notFoundMessage = "Record not found.", model, mapLoadedToModel, requestQueryParams = null, recordIdParam = "recordId", routeParams = null, routeRecordId = null, apiUrlTemplate = "", listUrlTemplate = "", editUrlTemplate = "", includeRecordIdInQueryKey = false, realtime = undefined, adapter = null } = {})`
 
 ### `src/client/composables/runtime/addEditUiRuntime.js`
 Exports
@@ -290,7 +290,7 @@ Exports
 Exports
 - `buildEndpointReadRequestOptions({ method = "GET", query = null, transport = null } = {})`
 - `buildEndpointWriteRequestOptions({ method = "PATCH", body = undefined, options = null, transport = null } = {})`
-- `useEndpointResource({ queryKey, path = "", enabled = true, client = usersWebHttpClient, readMethod = "GET", writeMethod = "PATCH", readQuery = null, transport = null, refreshOnPull = false, queryOptions = null, mutationOptions = null, fallbackLoadError = "Unable to load resource.", fallbackSaveError = "Unable to save resource." } = {})`
+- `useEndpointResource({ queryKey, path = "", enabled = true, client = usersWebHttpClient, readMethod = "GET", writeMethod = "PATCH", readQuery = null, transport = null, refreshOnPull = false, realtime = null, queryOptions = null, mutationOptions = null, fallbackLoadError = "Unable to load resource.", fallbackSaveError = "Unable to save resource." } = {})`
 Local functions
 - `resolveRequestQuery(value = null)`
 
@@ -501,10 +501,12 @@ Local functions
 
 ### `src/client/composables/useRealtimeQueryInvalidation.js`
 Exports
+- `resolveOperationRealtimeOptions({ realtime = undefined, fallbackRealtime = null } = {})`
 - `useRealtimeQueryInvalidation({ event = "", enabled = true, matches = null, queryKey = null, onEvent = null } = {})`
 - `useOperationRealtime({ realtime = null, queryKey = null, enabled = true } = {})`
 Local functions
 - `normalizeRealtimeOptions(value = {})`
+- `hasRealtimeEventConfig(value = {})`
 - `resolveEnabled(value)`
 - `toQueryKeyList(value)`
 

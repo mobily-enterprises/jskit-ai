@@ -8,7 +8,9 @@ import {
   interpolateOptionValue
 } from "../shared/optionInterpolation.js";
 import {
-  normalizeFileMutationRecord
+  normalizeDependencyMutationRecord,
+  normalizeFileMutationRecord,
+  shouldApplyMutationWhen
 } from "./mutationWhen.js";
 import {
   applyViteMutations,
@@ -139,6 +141,13 @@ function resolveManagedSourceRecord(packageEntry, existingInstall = {}) {
     sourceRecord.descriptorPath = String(packageEntry.descriptorRelativePath).trim();
   }
   return sourceRecord;
+}
+
+function dependencyMutationUsesWhen(entries = []) {
+  return entries.some(([, rawDependencySpec]) => {
+    const dependencySpec = normalizeDependencyMutationRecord(rawDependencySpec);
+    return Boolean(dependencySpec.when);
+  });
 }
 
 async function applyPackagePositioning({
@@ -413,9 +422,28 @@ async function applyPackageInstall({
   const mutationDependencies = ensureObject(mutations.dependencies);
   const runtimeDependencies = ensureObject(mutationDependencies.runtime);
   const devDependencies = ensureObject(mutationDependencies.dev);
+  const runtimeDependencyEntries = Object.entries(runtimeDependencies);
+  const devDependencyEntries = Object.entries(devDependencies);
+  const needsDependencyWhenConfig = dependencyMutationUsesWhen([
+    ...runtimeDependencyEntries,
+    ...devDependencyEntries
+  ]);
+  const dependencyWhenConfigContext = needsDependencyWhenConfig
+    ? await loadMutationWhenConfigContext(appRoot)
+    : {};
   const mutationScripts = ensureObject(ensureObject(mutations.packageJson).scripts);
 
-  for (const [rawDependencyId, rawDependencyVersion] of Object.entries(runtimeDependencies)) {
+  for (const [rawDependencyId, rawDependencySpec] of runtimeDependencyEntries) {
+    const dependencySpec = normalizeDependencyMutationRecord(rawDependencySpec);
+    if (!shouldApplyMutationWhen(dependencySpec.when, {
+      options: packageOptions,
+      configContext: dependencyWhenConfigContext,
+      packageId: packageEntry.packageId,
+      mutationContext: `dependencies.runtime.${rawDependencyId}`
+    })) {
+      continue;
+    }
+
     const dependencyId = interpolateOptionValue(
       rawDependencyId,
       packageOptions,
@@ -423,7 +451,7 @@ async function applyPackageInstall({
       `dependencies.runtime.${rawDependencyId}.id`
     );
     const dependencyVersion = interpolateOptionValue(
-      String(rawDependencyVersion || ""),
+      dependencySpec.version,
       packageOptions,
       packageEntry.packageId,
       `dependencies.runtime.${rawDependencyId}.value`
@@ -447,7 +475,17 @@ async function applyPackageInstall({
     }
   }
 
-  for (const [rawDependencyId, rawDependencyVersion] of Object.entries(devDependencies)) {
+  for (const [rawDependencyId, rawDependencySpec] of devDependencyEntries) {
+    const dependencySpec = normalizeDependencyMutationRecord(rawDependencySpec);
+    if (!shouldApplyMutationWhen(dependencySpec.when, {
+      options: packageOptions,
+      configContext: dependencyWhenConfigContext,
+      packageId: packageEntry.packageId,
+      mutationContext: `dependencies.dev.${rawDependencyId}`
+    })) {
+      continue;
+    }
+
     const dependencyId = interpolateOptionValue(
       rawDependencyId,
       packageOptions,
@@ -455,7 +493,7 @@ async function applyPackageInstall({
       `dependencies.dev.${rawDependencyId}.id`
     );
     const dependencyVersion = interpolateOptionValue(
-      String(rawDependencyVersion || ""),
+      dependencySpec.version,
       packageOptions,
       packageEntry.packageId,
       `dependencies.dev.${rawDependencyId}.value`

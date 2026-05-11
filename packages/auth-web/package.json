@@ -1,6 +1,6 @@
 {
   "name": "@jskit-ai/auth-web",
-  "version": "0.1.70",
+  "version": "0.1.71",
   "type": "module",
   "scripts": {
     "test": "node --test"
@@ -18,11 +18,11 @@
     "./client/runtime/useSignOut": "./src/client/runtime/useSignOut.js"
   },
   "dependencies": {
-    "@jskit-ai/auth-core": "0.1.68",
+    "@jskit-ai/auth-core": "0.1.69",
     "@mdi/js": "^7.4.47",
-    "@jskit-ai/kernel": "0.1.69",
-    "@jskit-ai/shell-web": "0.1.68",
-    "@jskit-ai/http-runtime": "0.1.68"
+    "@jskit-ai/kernel": "0.1.70",
+    "@jskit-ai/shell-web": "0.1.69",
+    "@jskit-ai/http-runtime": "0.1.69"
   },
   "peerDependencies": {
     "@tanstack/vue-query": "^5.90.5",

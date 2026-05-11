@@ -51,3 +51,31 @@ test("feature-server-generator routes mode-specific files through mutation when 
 
   assert.equal(actionIdsTemplate, undefined);
 });
+
+test("feature-server-generator scopes persistence dependencies to persistent modes", () => {
+  const runtimeDependencies = descriptor.mutations?.dependencies?.runtime || {};
+
+  assert.deepEqual(runtimeDependencies["@jskit-ai/json-rest-api-core"], {
+    version: "0.1.14",
+    when: {
+      option: "mode",
+      equals: "json-rest"
+    }
+  });
+  assert.deepEqual(runtimeDependencies["@jskit-ai/database-runtime"], {
+    version: "0.1.69",
+    when: {
+      option: "mode",
+      notEquals: "orchestrator"
+    }
+  });
+  assert.deepEqual(runtimeDependencies["@jskit-ai/database-runtime-mysql"], {
+    version: "0.1.68",
+    when: {
+      option: "mode",
+      notEquals: "orchestrator"
+    }
+  });
+  assert.equal(runtimeDependencies["@jskit-ai/kernel"], "0.1.69");
+  assert.equal(runtimeDependencies["json-rest-schema"], "1.x.x");
+});
