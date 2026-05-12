@@ -1,10 +1,13 @@
 import {
   mkdir,
   readFile,
-  readdir
+  readdir,
+  rmdir
 } from "node:fs/promises";
 import path from "node:path";
 import {
+  PLAN_EXECUTION_CODEX_HANDOFF,
+  REVIEW_EXECUTION_CODEX_HANDOFF,
   SESSION_STATUS,
   STEP_DEFINITIONS,
   STEP_IDS,
@@ -47,8 +50,8 @@ import {
   assertGitCurrentBranch,
   assertGitRepository,
   assertGithubOrigin,
-  assertIssueArtifacts,
   assertIssueTextExists,
+  assertIssueUrlExists,
   assertPrUrlExists,
   assertSessionExists,
   assertTargetRootWritable,
@@ -121,10 +124,31 @@ async function withExistingSession(input, handler) {
   });
 }
 
-function extractIssueText(value = "") {
+function extractMarkedText(value = "", marker = "") {
   const text = normalizeText(value);
-  const match = /\[issue_text\]([\s\S]*?)\[\/issue_text\]/u.exec(text);
-  return normalizeText(match ? match[1] : text);
+  const normalizedMarker = normalizeText(marker);
+  if (!normalizedMarker) {
+    return "";
+  }
+  const pattern = new RegExp(`\\[${normalizedMarker}\\]([\\s\\S]*?)\\[/${normalizedMarker}\\]`, "u");
+  const match = pattern.exec(text);
+  return normalizeText(match ? match[1] : "");
+}
+
+function extractIssueTitle(value = "") {
+  return extractMarkedText(value, "issue_title");
+}
+
+function extractIssueText(value = "") {
+  return extractMarkedText(value, "issue_text") || normalizeText(value);
+}
+
+function extractPlanText(value = "") {
+  return extractMarkedText(value, "plan") || normalizeText(value);
+}
+
+async function writePromptArtifact(paths, fileName, prompt) {
+  await writeTextFile(path.join(paths.sessionRoot, "prompts", fileName), prompt);
 }
 
 async function createSession({
@@ -161,7 +185,6 @@ async function createSession({
 
   await ensureStudioGitExclude(initialPaths.targetRoot);
   await mkdir(initialPaths.sessionRoot, { recursive: true });
-  await mkdir(initialPaths.worktreesRoot, { recursive: true });
   await writeTextFile(path.join(initialPaths.sessionRoot, "transcript.log"), "");
   await markStatus(initialPaths, SESSION_STATUS.PENDING);
   await writeReceipt(initialPaths, "session_created", `Created JSKIT Studio issue session ${initialPaths.sessionId}.`);
@@ -172,14 +195,38 @@ async function createSession({
   });
 }
 
-async function listSessions({ targetRoot = process.cwd() } = {}) {
+const SESSION_ARCHIVE_ROOTS = Object.freeze([
+  "active",
+  "completed",
+  "abandoned"
+]);
+
+function normalizeArchiveFilter(archive = "active") {
+  const requestedArchives = Array.isArray(archive) ? archive : [archive];
+  const normalized = requestedArchives
+    .map((entry) => String(entry || "").trim().toLowerCase())
+    .filter(Boolean);
+  if (normalized.includes("all")) {
+    return SESSION_ARCHIVE_ROOTS;
+  }
+  const allowed = new Set(SESSION_ARCHIVE_ROOTS);
+  const selected = normalized.filter((entry) => allowed.has(entry));
+  return selected.length > 0 ? [...new Set(selected)] : ["active"];
+}
+
+async function listSessions({ targetRoot = process.cwd(), archive = "active" } = {}) {
   const paths = resolveSessionPaths({ targetRoot });
   const sessions = [];
-  const roots = [
-    { archive: "active", root: paths.sessionsRoot },
-    { archive: "completed", root: paths.completedSessionsRoot },
-    { archive: "abandoned", root: paths.abandonedSessionsRoot }
-  ];
+  const rootsByArchive = {
+    abandoned: paths.abandonedSessionsRoot,
+    active: paths.sessionsRoot,
+    completed: paths.completedSessionsRoot
+  };
+  const selectedArchives = normalizeArchiveFilter(archive);
+  const roots = selectedArchives.map((archiveName) => ({
+    archive: archiveName,
+    root: rootsByArchive[archiveName]
+  }));
 
   for (const rootInfo of roots) {
     let entries = [];
@@ -207,6 +254,8 @@ async function listSessions({ targetRoot = process.cwd() } = {}) {
   }
   sessions.sort((left, right) => right.sessionId.localeCompare(left.sessionId));
   return {
+    archive: selectedArchives.length === 1 ? selectedArchives[0] : "mixed",
+    archives: selectedArchives,
     ok: true,
     stepDefinitions: buildStepDefinitions(),
     sessions
@@ -227,7 +276,9 @@ async function inspectSession({
 function emptySessionDetails(response) {
   return {
     ...response,
+    issueTitle: "",
     issueText: "",
+    planText: "",
     receipts: [],
     transcriptLog: ""
   };
@@ -244,18 +295,48 @@ async function inspectSessionDetails({
   const { paths, preconditions } = context;
   const response = await buildSessionResponse(paths, { preconditions });
 
-  const [issueText, receipts, transcriptLog] = await Promise.all([
+  const [issueText, issueTitle, planText, receipts, transcriptLog] = await Promise.all([
     readTextIfExists(path.join(paths.sessionRoot, "issue.md")),
+    readTrimmedFile(path.join(paths.sessionRoot, "issue_title")),
+    readTextIfExists(path.join(paths.sessionRoot, "plan.md")),
     readReceiptSteps(paths),
     readTextIfExists(path.join(paths.sessionRoot, "transcript.log"))
   ]);
 
   return {
     ...response,
+    issueTitle,
     issueText: issueText.trim(),
+    planText: planText.trim(),
     receipts,
     transcriptLog
   };
+}
+
+async function removeEmptyStaleWorktreeDirectory(paths) {
+  try {
+    const entries = await readdir(paths.worktree);
+    if (entries.length > 0) {
+      return {
+        ok: false,
+        message: `Worktree path exists but is not a registered Git worktree: ${paths.worktree}`
+      };
+    }
+    await rmdir(paths.worktree);
+    return {
+      ok: true
+    };
+  } catch (error) {
+    if (error?.code === "ENOENT") {
+      return {
+        ok: true
+      };
+    }
+    return {
+      ok: false,
+      message: `Cannot prepare worktree path ${paths.worktree}: ${error?.message || error}`
+    };
+  }
 }
 
 async function createWorktree(paths, _options = {}, context = {}) {
@@ -268,7 +349,16 @@ async function createWorktree(paths, _options = {}, context = {}) {
     });
   }
 
-  await mkdir(paths.worktreesRoot, { recursive: true });
+  await mkdir(path.dirname(paths.worktree), { recursive: true });
+  const staleWorktree = await removeEmptyStaleWorktreeDirectory(paths);
+  if (!staleWorktree.ok) {
+    return failSession(paths, {
+      code: "worktree_path_blocked",
+      message: staleWorktree.message,
+      repairCommand: `ls -la ${paths.worktree}`,
+      preconditions
+    });
+  }
   const result = await runGit(paths.targetRoot, ["worktree", "add", "-b", paths.branch, paths.worktree, "HEAD"], {
     timeout: 30000
   });
@@ -287,6 +377,63 @@ async function createWorktree(paths, _options = {}, context = {}) {
   });
 }
 
+async function recordDependenciesInstalled(paths, {
+  message = "Installed Node dependencies in the session worktree.",
+  preconditions = []
+} = {}) {
+  await writeReceipt(paths, "dependencies_installed", message);
+  await markStatus(paths, SESSION_STATUS.RUNNING);
+  return buildSessionResponse(paths, {
+    preconditions
+  });
+}
+
+async function installDependencies(paths, _options = {}, context = {}) {
+  const preconditions = context.preconditions || [];
+  const result = await runCommand("npm", ["install"], {
+    cwd: paths.worktree,
+    timeout: 1000 * 60 * 10
+  });
+  if (!result.ok) {
+    return failSession(paths, {
+      code: "dependencies_install_failed",
+      message: result.output || "npm install failed in the session worktree.",
+      repairCommand: `cd ${paths.worktree} && npm install`,
+      preconditions
+    });
+  }
+  return recordDependenciesInstalled(paths, {
+    message: result.output || "Installed Node dependencies in the session worktree.",
+    preconditions
+  });
+}
+
+async function adoptDependenciesInstalled({
+  targetRoot = process.cwd(),
+  sessionId,
+  message = ""
+} = {}) {
+  return withExistingSession({ targetRoot, sessionId }, async (paths, context = {}) => {
+    const artifacts = await readSessionArtifacts(paths);
+    if (artifacts.nextStep !== "dependencies_installed") {
+      return buildSessionResponse(paths, {
+        ok: false,
+        errors: [
+          createError({
+            code: "session_step_mismatch",
+            message: `Cannot record dependencies for ${paths.sessionId}; current step is ${artifacts.nextStep || "complete"}.`
+          })
+        ],
+        preconditions: context.preconditions || []
+      });
+    }
+    return recordDependenciesInstalled(paths, {
+      message,
+      preconditions: context.preconditions || []
+    });
+  });
+}
+
 async function renderIssuePrompt(paths, options = {}) {
   const userInput = normalizeText(options.prompt);
   if (!userInput) {
@@ -299,7 +446,7 @@ async function renderIssuePrompt(paths, options = {}) {
   const prompt = await renderPrompt(paths, "new_issue.md", {
     user_input: userInput
   });
-  await writeTextFile(path.join(paths.sessionRoot, "prompt.md"), prompt);
+  await writePromptArtifact(paths, "issue_draft.md", prompt);
   await writeReceipt(paths, "issue_prompt_rendered", "Rendered the issue drafting prompt.");
   await markStatus(paths, SESSION_STATUS.WAITING_FOR_USER);
   return buildSessionResponse(paths, {
@@ -318,7 +465,9 @@ async function draftIssue(paths, options = {}) {
       repairCommand: `jskit session ${paths.sessionId} step --issue -`
     });
   }
+  const issueTitle = normalizeText(options.issueTitle) || extractIssueTitle(options.issue) || titleFromIssue(issueText);
   await writeTextFile(path.join(paths.sessionRoot, "issue.md"), issueText);
+  await writeTextFile(path.join(paths.sessionRoot, "issue_title"), issueTitle);
   await writeReceipt(paths, "issue_drafted", "Saved approved issue text.");
   await markStatus(paths, SESSION_STATUS.RUNNING);
   return buildSessionResponse(paths);
@@ -335,11 +484,12 @@ function titleFromIssue(issueText) {
 async function createIssue(paths, _options = {}, context = {}) {
   const preconditions = context.preconditions || [];
   const issueText = await readTrimmedFile(path.join(paths.sessionRoot, "issue.md"));
+  const issueTitle = await readTrimmedFile(path.join(paths.sessionRoot, "issue_title")) || titleFromIssue(issueText);
   const result = await runCommand("gh", [
     "issue",
     "create",
     "--title",
-    titleFromIssue(issueText),
+    issueTitle,
     "--body-file",
     path.join(paths.sessionRoot, "issue.md")
   ], {
@@ -363,18 +513,65 @@ async function createIssue(paths, _options = {}, context = {}) {
   });
 }
 
-async function renderImplementationPrompt(paths) {
+async function makePlan(paths, options = {}, context = {}) {
+  const preconditions = context.preconditions || [];
   const issueText = await readTrimmedFile(path.join(paths.sessionRoot, "issue.md"));
+  const issueTitle = await readTrimmedFile(path.join(paths.sessionRoot, "issue_title")) || titleFromIssue(issueText);
   const issueUrl = await readTrimmedFile(path.join(paths.sessionRoot, "issue_url"));
-  const prompt = await renderPrompt(paths, "implement_issue.md", {
-    issue_text: issueText,
-    issue_url: issueUrl
+  const issueNumber = issueNumberFromUrl(issueUrl);
+  const planText = extractPlanText(options.plan);
+
+  if (!planText) {
+    const prompt = await renderPrompt(paths, "plan_issue.md", {
+      issue_file: path.join(paths.sessionRoot, "issue.md"),
+      issue_number: issueNumber,
+      issue_text: issueText,
+      issue_title: issueTitle,
+      issue_title_file: path.join(paths.sessionRoot, "issue_title"),
+      issue_url: issueUrl,
+      plan_file: path.join(paths.sessionRoot, "plan.md"),
+      worktree: paths.worktree
+    });
+    await writePromptArtifact(paths, "plan_request.md", prompt);
+    await markStatus(paths, SESSION_STATUS.WAITING_FOR_USER);
+    return buildSessionResponse(paths, {
+      ok: true,
+      preconditions,
+      prompt,
+      status: SESSION_STATUS.WAITING_FOR_USER
+    });
+  }
+
+  const planPath = path.join(paths.sessionRoot, "plan.md");
+  await writeTextFile(planPath, planText);
+  const commentResult = await runCommand("gh", ["issue", "comment", issueUrl, "--body-file", planPath], {
+    cwd: paths.targetRoot,
+    timeout: 1000 * 60
   });
-  await writeTextFile(path.join(paths.sessionRoot, "prompt.md"), prompt);
-  await writeReceipt(paths, "implementation_prompt_rendered", "Rendered the implementation prompt.");
+  if (!commentResult.ok) {
+    return failSession(paths, {
+      code: "plan_comment_failed",
+      message: commentResult.output || "Failed to comment the implementation plan on the GitHub issue.",
+      repairCommand: `gh issue comment ${issueUrl} --body-file ${planPath}`,
+      preconditions
+    });
+  }
+  const executionPrompt = await renderPrompt(paths, "execute_plan.md", {
+    issue_file: path.join(paths.sessionRoot, "issue.md"),
+    issue_number: issueNumber,
+    issue_title: issueTitle,
+    issue_url: issueUrl,
+    plan_file: planPath,
+    plan_text: planText,
+    worktree: paths.worktree
+  });
+  await writePromptArtifact(paths, "plan_execution.md", executionPrompt);
+  await writeReceipt(paths, "plan_made", `Saved plan and commented on ${issueUrl}.`);
   await markStatus(paths, SESSION_STATUS.WAITING_FOR_USER);
   return buildSessionResponse(paths, {
-    prompt,
+    codex: PLAN_EXECUTION_CODEX_HANDOFF,
+    preconditions,
+    prompt: executionPrompt,
     status: SESSION_STATUS.WAITING_FOR_USER
   });
 }
@@ -396,7 +593,110 @@ async function worktreeStatus(worktree) {
   };
 }
 
-async function detectChanges(paths) {
+async function untrackedFiles(worktree) {
+  const result = await runGitInWorktree(worktree, ["ls-files", "--others", "--exclude-standard", "-z"], {
+    timeout: 15000
+  });
+  if (!result.ok) {
+    return [];
+  }
+  return result.stdout
+    .split("\0")
+    .filter((line) => line.length > 0);
+}
+
+async function untrackedFileDiff(worktree, filePath) {
+  const result = await runGitInWorktree(worktree, [
+    "diff",
+    "--no-color",
+    "--no-ext-diff",
+    "--no-index",
+    "--",
+    "/dev/null",
+    filePath
+  ], {
+    timeout: 15000
+  });
+  if (result.ok || result.exitCode === 1) {
+    return result.stdout;
+  }
+  return "";
+}
+
+async function untrackedFilesDiff(worktree) {
+  const diffs = [];
+  for (const filePath of await untrackedFiles(worktree)) {
+    const diff = await untrackedFileDiff(worktree, filePath);
+    if (diff) {
+      diffs.push(diff);
+    }
+  }
+  return diffs.join("\n");
+}
+
+async function inspectSessionDiff({
+  targetRoot = process.cwd(),
+  sessionId
+} = {}) {
+  return withExistingSession({ targetRoot, sessionId }, async (paths) => {
+    const session = await buildSessionResponse(paths);
+    if (!await hasWorktree(paths)) {
+      return {
+        ...session,
+        ok: false,
+        errors: [
+          createError({
+            code: "worktree_missing",
+            message: "Session worktree is not available for diff inspection."
+          })
+        ],
+        gitStatus: "",
+        hasChanges: false,
+        stagedDiff: "",
+        unstagedDiff: "",
+        untrackedDiff: ""
+      };
+    }
+
+    const [status, unstagedDiff, stagedDiff] = await Promise.all([
+      runGitInWorktree(paths.worktree, ["status", "--porcelain=v1"], { timeout: 15000 }),
+      runGitInWorktree(paths.worktree, ["diff", "--no-color", "--no-ext-diff"], { timeout: 30000 }),
+      runGitInWorktree(paths.worktree, ["diff", "--cached", "--no-color", "--no-ext-diff"], { timeout: 30000 })
+    ]);
+
+    if (!status.ok || !unstagedDiff.ok || !stagedDiff.ok) {
+      return {
+        ...session,
+        ok: false,
+        errors: [
+          createError({
+            code: "session_diff_failed",
+            message: [status, unstagedDiff, stagedDiff].find((result) => !result.ok)?.output ||
+              "Failed to inspect session worktree diff."
+          })
+        ],
+        gitStatus: status.stdout || "",
+        hasChanges: false,
+        stagedDiff: stagedDiff.stdout || "",
+        unstagedDiff: unstagedDiff.stdout || "",
+        untrackedDiff: ""
+      };
+    }
+
+    const untrackedDiff = await untrackedFilesDiff(paths.worktree);
+    return {
+      ...session,
+      gitStatus: status.stdout,
+      hasChanges: Boolean(status.stdout.trim()),
+      stagedDiff: stagedDiff.stdout,
+      unstagedDiff: unstagedDiff.stdout,
+      untrackedDiff,
+      worktree: paths.worktree
+    };
+  });
+}
+
+async function acceptImplementationChanges(paths) {
   const status = await worktreeStatus(paths.worktree);
   if (!status.ok) {
     return failSession(paths, {
@@ -408,11 +708,11 @@ async function detectChanges(paths) {
   if (status.changedFiles.length < 1) {
     return failSession(paths, {
       code: "changes_missing",
-      message: "No worktree changes found. Paste the implementation prompt into Codex and retry after changes exist.",
+      message: "No worktree changes found. Ask Codex to implement the approved plan, inspect the worktree, then accept changes once ready.",
       repairCommand: `jskit session ${paths.sessionId} step`
     });
   }
-  await writeReceipt(paths, "implementation_changes_detected", `Detected ${status.changedFiles.length} changed file entries.`);
+  await writeReceipt(paths, "implementation_changes_accepted", `Accepted ${status.changedFiles.length} changed file entries for commit.`);
   await markStatus(paths, SESSION_STATUS.RUNNING);
   return buildSessionResponse(paths);
 }
@@ -482,83 +782,73 @@ async function changedFilesFromLastCommit(paths) {
   return result.stdout.split(/\r?\n/u).map((line) => line.trim()).filter(Boolean).join("\n");
 }
 
-function reviewPromptStepId(passNumber) {
-  return passNumber === 1
-    ? "initial_review_prompt_rendered"
-    : passNumber === 2
-      ? "followup_review_prompt_rendered"
-      : "final_review_prompt_rendered";
-}
-
-async function renderReviewPrompt(paths, passNumber) {
+async function renderReviewPrompt(paths) {
   const prompt = await renderPrompt(paths, "review_changes.md", {
-    changed_files: await changedFilesFromLastCommit(paths),
-    review_pass: String(passNumber),
-    review_pass_note: passNumber >= 3 ? "This is the final review pass before doctor and PR steps." : ""
+    changed_files: await changedFilesFromLastCommit(paths)
   });
-  await writeTextFile(path.join(paths.sessionRoot, "prompt.md"), prompt);
-  await writeReceipt(paths, reviewPromptStepId(passNumber), `Rendered review prompt pass ${passNumber}.`);
+  await writePromptArtifact(paths, "review.md", prompt);
+  await writeReceipt(paths, "review_prompt_rendered", "Started code review.");
   await markStatus(paths, SESSION_STATUS.WAITING_FOR_USER);
   return buildSessionResponse(paths, {
+    codex: REVIEW_EXECUTION_CODEX_HANDOFF,
     prompt,
     status: SESSION_STATUS.WAITING_FOR_USER
   });
 }
 
-function reviewChangesStepId(passNumber) {
-  return passNumber === 1
-    ? "initial_review_changes_detected"
-    : passNumber === 2
-      ? "followup_review_changes_detected"
-      : "final_review_changes_detected";
-}
-
-async function detectAndCommitReviewChanges(paths, passNumber) {
-  const result = await commitWorktree(paths, {
-    allowNoChanges: true,
-    message: `Apply review pass ${passNumber} for ${paths.sessionId}`
-  });
-  if (!result.ok) {
+async function acceptReviewChanges(paths) {
+  const status = await worktreeStatus(paths.worktree);
+  if (!status.ok) {
     return failSession(paths, {
-      code: "review_commit_failed",
-      message: result.output || `Failed to commit review pass ${passNumber}.`,
+      code: "git_status_failed",
+      message: status.output || "Failed to inspect review changes.",
       repairCommand: `git -C ${paths.worktree} status --short`
     });
   }
-  const message = result.changedFiles?.length
-    ? `Committed review pass ${passNumber} changes.`
-    : `No review pass ${passNumber} changes detected.`;
-  await writeReceipt(paths, reviewChangesStepId(passNumber), message);
+  const message = status.changedFiles.length > 0
+    ? `Accepted ${status.changedFiles.length} review changed file entries for commit.`
+    : "Accepted review with no file changes.";
+  await writeReceipt(paths, "review_changes_accepted", message);
   await markStatus(paths, SESSION_STATUS.RUNNING);
   return buildSessionResponse(paths);
 }
 
-function userCheckStepId(passNumber) {
-  return passNumber === 1
-    ? "initial_user_check_completed"
-    : passNumber === 2
-      ? "followup_user_check_completed"
-      : "final_user_check_completed";
+async function commitReviewChanges(paths) {
+  const result = await commitWorktree(paths, {
+    allowNoChanges: true,
+    message: `Apply review changes for ${paths.sessionId}`
+  });
+  if (!result.ok) {
+    return failSession(paths, {
+      code: "review_commit_failed",
+      message: result.output || "Failed to commit review changes.",
+      repairCommand: `git -C ${paths.worktree} status --short`
+    });
+  }
+  const message = result.changedFiles?.length
+    ? "Committed review changes."
+    : "No review changes detected.";
+  await writeReceipt(paths, "review_changes_committed", message);
+  await markStatus(paths, SESSION_STATUS.RUNNING);
+  return buildSessionResponse(paths);
 }
 
-async function userCheck(paths, passNumber, options = {}) {
+async function userCheck(paths, options = {}) {
   const result = normalizeText(options.userCheck || options["user-check"]).toLowerCase();
   if (result === "passed" || result === "pass" || result === "ok" || result === "yes") {
-    await writeReceipt(paths, userCheckStepId(passNumber), `User confirmed check ${passNumber} passed.`);
+    await writeReceipt(paths, "user_check_completed", "User confirmed check passed.");
     await markStatus(paths, SESSION_STATUS.RUNNING);
     return buildSessionResponse(paths);
   }
   if (result === "failed" || result === "fail" || result === "no") {
     return failSession(paths, {
       code: "user_check_failed",
-      message: `User check ${passNumber} was reported as failed. Continue in Codex, then retry this step with --user-check passed.`,
+      message: "User check was reported as failed. Continue in Codex, then retry this step with --user-check passed.",
       repairCommand: `jskit session ${paths.sessionId} step --user-check passed`
     });
   }
-  const prompt = await renderPrompt(paths, "user_check.md", {
-    review_pass: String(passNumber)
-  });
-  await writeTextFile(path.join(paths.sessionRoot, "prompt.md"), prompt);
+  const prompt = await renderPrompt(paths, "user_check.md");
+  await writePromptArtifact(paths, "user_check.md", prompt);
   await markStatus(paths, SESSION_STATUS.WAITING_FOR_USER);
   return buildSessionResponse(paths, {
     prompt,
@@ -597,7 +887,7 @@ async function runDoctor(paths) {
     const prompt = await renderPrompt(paths, "doctor_failure.md", {
       doctor_output: result.output
     });
-    await writeTextFile(path.join(paths.sessionRoot, "prompt.md"), prompt);
+    await writePromptArtifact(paths, "doctor_failure.md", prompt);
     return failSession(paths, {
       code: "doctor_failed",
       message: "Doctor/verification command failed. Paste the failure prompt into Codex, then rerun this step.",
@@ -610,30 +900,25 @@ async function runDoctor(paths) {
   return buildSessionResponse(paths);
 }
 
-async function pushBranch(paths) {
-  const result = await runGitInWorktree(paths.worktree, ["push", "-u", "origin", "HEAD"], {
-    timeout: 1000 * 60 * 5
-  });
-  if (!result.ok) {
-    return failSession(paths, {
-      code: "branch_push_failed",
-      message: result.output || "Failed to push session branch.",
-      repairCommand: `git -C ${paths.worktree} push -u origin HEAD`
-    });
-  }
-  await writeReceipt(paths, "branch_pushed", `Pushed branch ${paths.branch}.`);
-  await markStatus(paths, SESSION_STATUS.RUNNING);
-  return buildSessionResponse(paths);
-}
-
 function issueNumberFromUrl(issueUrl) {
   const match = /\/issues\/(\d+)(?:\b|$)/u.exec(String(issueUrl || ""));
   return match ? match[1] : "";
 }
 
 async function createPr(paths) {
+  const pushResult = await runGitInWorktree(paths.worktree, ["push", "-u", "origin", "HEAD"], {
+    timeout: 1000 * 60 * 5
+  });
+  if (!pushResult.ok) {
+    return failSession(paths, {
+      code: "branch_push_failed",
+      message: pushResult.output || "Failed to push session branch.",
+      repairCommand: `git -C ${paths.worktree} push -u origin HEAD`
+    });
+  }
   const issueUrl = await readTrimmedFile(path.join(paths.sessionRoot, "issue_url"));
   const issueText = await readTrimmedFile(path.join(paths.sessionRoot, "issue.md"));
+  const issueTitle = await readTrimmedFile(path.join(paths.sessionRoot, "issue_title")) || titleFromIssue(issueText);
   const issueNumber = issueNumberFromUrl(issueUrl);
   const body = [
     issueNumber ? `Closes #${issueNumber}` : "",
@@ -646,7 +931,7 @@ async function createPr(paths) {
     "pr",
     "create",
     "--title",
-    titleFromIssue(issueText),
+    issueTitle,
     "--body-file",
     bodyPath
   ], {
@@ -657,7 +942,7 @@ async function createPr(paths) {
     const prompt = await renderPrompt(paths, "pr_failure.md", {
       doctor_output: result.output
     });
-    await writeTextFile(path.join(paths.sessionRoot, "prompt.md"), prompt);
+    await writePromptArtifact(paths, "pr_create_failure.md", prompt);
     return failSession(paths, {
       code: "pr_create_failed",
       message: result.output || "Failed to create PR.",
@@ -667,42 +952,41 @@ async function createPr(paths) {
   }
   const prUrl = result.stdout.split(/\r?\n/u).map((line) => line.trim()).find(Boolean) || result.stdout;
   await writeTextFile(path.join(paths.sessionRoot, "pr_url"), prUrl);
-  await writeReceipt(paths, "pr_created", `Created PR ${prUrl}.`);
+  await writeReceipt(paths, "pr_created", `Pushed branch ${paths.branch} and created PR ${prUrl}.`);
   await markStatus(paths, SESSION_STATUS.RUNNING);
   return buildSessionResponse(paths);
 }
 
 async function mergePr(paths) {
   const prUrl = await readTrimmedFile(path.join(paths.sessionRoot, "pr_url"));
-  const mergeResult = await runCommand("gh", ["pr", "merge", prUrl, "--merge", "--delete-branch"], {
-    cwd: paths.worktree,
-    timeout: 1000 * 60 * 5
-  });
-  if (!mergeResult.ok) {
-    const prompt = await renderPrompt(paths, "pr_failure.md", {
-      doctor_output: mergeResult.output
-    });
-    await writeTextFile(path.join(paths.sessionRoot, "prompt.md"), prompt);
-    return failSession(paths, {
-      code: "pr_merge_failed",
-      message: mergeResult.output || "Failed to merge PR.",
-      repairCommand: `gh pr merge ${prUrl} --merge --delete-branch`,
-      prompt
-    });
-  }
-  const issueUrl = await readTrimmedFile(path.join(paths.sessionRoot, "issue_url"));
-  if (issueUrl) {
-    await runCommand("gh", ["issue", "close", issueUrl, "--comment", `Merged PR ${prUrl}.`], {
+  const mergeMarkerPath = path.join(paths.sessionRoot, "pr_merge_completed");
+  const mergeAlreadyCompleted = await readTrimmedFile(mergeMarkerPath);
+  if (!mergeAlreadyCompleted) {
+    const mergeResult = await runCommand("gh", ["pr", "merge", prUrl, "--merge", "--delete-branch"], {
       cwd: paths.worktree,
-      timeout: 1000 * 60
+      timeout: 1000 * 60 * 5
     });
+    if (!mergeResult.ok) {
+      const prompt = await renderPrompt(paths, "pr_failure.md", {
+        doctor_output: mergeResult.output
+      });
+      await writePromptArtifact(paths, "pr_merge_failure.md", prompt);
+      return failSession(paths, {
+        code: "pr_merge_failed",
+        message: mergeResult.output || "Failed to merge PR.",
+        repairCommand: `gh pr merge ${prUrl} --merge --delete-branch`,
+        prompt
+      });
+    }
+    const issueUrl = await readTrimmedFile(path.join(paths.sessionRoot, "issue_url"));
+    if (issueUrl) {
+      await runCommand("gh", ["issue", "close", issueUrl, "--comment", `Merged PR ${prUrl}.`], {
+        cwd: paths.worktree,
+        timeout: 1000 * 60
+      });
+    }
+    await writeTextFile(mergeMarkerPath, `${prUrl}\n`);
   }
-  await writeReceipt(paths, "pr_merged", `Merged PR ${prUrl}.`);
-  await markStatus(paths, SESSION_STATUS.RUNNING);
-  return buildSessionResponse(paths);
-}
-
-async function removeWorktree(paths) {
   if (await hasWorktree(paths)) {
     const result = await runGit(paths.targetRoot, ["worktree", "remove", paths.worktree], {
       timeout: 1000 * 60
@@ -715,7 +999,7 @@ async function removeWorktree(paths) {
       });
     }
   }
-  await writeReceipt(paths, "worktree_removed", `Removed worktree ${paths.worktree}.`);
+  await writeReceipt(paths, "pr_merged", `Merged PR ${prUrl} and removed worktree ${paths.worktree}.`);
   await markStatus(paths, SESSION_STATUS.RUNNING);
   return buildSessionResponse(paths);
 }
@@ -748,26 +1032,20 @@ async function finishSession(paths) {
 
 const STEP_RUNNERS = Object.freeze({
   worktree_created: createWorktree,
+  dependencies_installed: installDependencies,
   issue_prompt_rendered: renderIssuePrompt,
   issue_drafted: draftIssue,
   issue_created: createIssue,
-  implementation_prompt_rendered: renderImplementationPrompt,
-  implementation_changes_detected: detectChanges,
+  plan_made: makePlan,
+  implementation_changes_accepted: acceptImplementationChanges,
   implementation_changes_committed: commitImplementation,
-  initial_review_prompt_rendered: (paths) => renderReviewPrompt(paths, 1),
-  initial_review_changes_detected: (paths) => detectAndCommitReviewChanges(paths, 1),
-  initial_user_check_completed: (paths, options) => userCheck(paths, 1, options),
-  followup_review_prompt_rendered: (paths) => renderReviewPrompt(paths, 2),
-  followup_review_changes_detected: (paths) => detectAndCommitReviewChanges(paths, 2),
-  followup_user_check_completed: (paths, options) => userCheck(paths, 2, options),
-  final_review_prompt_rendered: (paths) => renderReviewPrompt(paths, 3),
-  final_review_changes_detected: (paths) => detectAndCommitReviewChanges(paths, 3),
-  final_user_check_completed: (paths, options) => userCheck(paths, 3, options),
+  review_prompt_rendered: renderReviewPrompt,
+  review_changes_accepted: acceptReviewChanges,
+  review_changes_committed: commitReviewChanges,
+  user_check_completed: userCheck,
   doctor_run: runDoctor,
-  branch_pushed: pushBranch,
   pr_created: createPr,
   pr_merged: mergePr,
-  worktree_removed: removeWorktree,
   session_finished: finishSession
 });
 
@@ -776,8 +1054,8 @@ const PRECONDITION_RUNNERS = Object.freeze({
   git_repository: (paths) => assertGitRepository(paths.targetRoot),
   github_auth: (paths) => assertGhAuth(paths.targetRoot),
   github_origin: (paths) => assertGithubOrigin(paths.targetRoot),
-  issue_artifacts: assertIssueArtifacts,
   issue_text_exists: assertIssueTextExists,
+  issue_url_exists: assertIssueUrlExists,
   pr_url_exists: assertPrUrlExists,
   session_exists: assertSessionExists,
   worktree_exists: assertWorktreeExists
@@ -850,10 +1128,18 @@ async function abandonSession({
     }
     const issueUrl = await readTrimmedFile(path.join(paths.sessionRoot, "issue_url"));
     if (issueUrl) {
-      await runCommand("gh", ["issue", "close", issueUrl, "--comment", `Abandoned JSKIT Studio session ${paths.sessionId}.`], {
+      const closeIssueResult = await runCommand("gh", ["issue", "close", issueUrl, "--comment", `Abandoned JSKIT Studio session ${paths.sessionId}.`], {
         cwd: paths.targetRoot,
         timeout: 1000 * 60
       });
+      if (!closeIssueResult.ok) {
+        return failSession(paths, {
+          code: "issue_close_failed",
+          message: closeIssueResult.output || "Failed to close GitHub issue for abandoned session.",
+          repairCommand: `gh issue close ${issueUrl}`,
+          status: SESSION_STATUS.FAILED
+        });
+      }
     }
     if (await hasWorktree(paths)) {
       await runGit(paths.targetRoot, ["worktree", "remove", "--force", paths.worktree], {
@@ -911,17 +1197,22 @@ export {
   STEP_IDS,
   STEP_PRECONDITION_NAMES,
   abandonSession,
+  adoptDependenciesInstalled,
   adoptCodexThreadId,
   buildSessionResponse,
   buildSessionErrorResponse,
   createSession,
   createSessionId,
+  extractIssueTitle,
   extractIssueText,
+  extractPlanText,
   inspectSession,
+  inspectSessionDiff,
   inspectSessionDetails,
   isValidSessionId,
   listSessions,
   renderTemplate,
+  recordDependenciesInstalled,
   resolveSessionPaths,
   runSessionStep
 };

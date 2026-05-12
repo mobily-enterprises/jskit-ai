@@ -68,10 +68,9 @@ function resolveSessionPaths({ targetRoot, sessionId = "" } = {}) {
   const sessionsRoot = path.join(sessionStateRoot, "active");
   const completedSessionsRoot = path.join(sessionStateRoot, "completed");
   const abandonedSessionsRoot = path.join(sessionStateRoot, "abandoned");
-  const worktreesRoot = path.join(sessionStateRoot, "worktrees");
   const normalizedSessionId = sessionId ? normalizeSessionId(sessionId) : "";
   const sessionRoot = normalizedSessionId ? path.join(sessionsRoot, normalizedSessionId) : "";
-  const worktree = normalizedSessionId ? path.join(worktreesRoot, normalizedSessionId) : "";
+  const worktree = normalizedSessionId ? path.join(sessionRoot, "worktree") : "";
   const branch = normalizedSessionId ? `jskit-studio/${normalizedSessionId}` : "";
 
   return Object.freeze({
@@ -85,8 +84,7 @@ function resolveSessionPaths({ targetRoot, sessionId = "" } = {}) {
     sessionsRoot,
     sessionStateRoot,
     targetRoot: normalizedTargetRoot,
-    worktree,
-    worktreesRoot
+    worktree
   });
 }
 

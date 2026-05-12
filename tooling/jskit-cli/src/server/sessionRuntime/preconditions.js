@@ -1,8 +1,7 @@
 import {
   access,
   appendFile,
-  mkdir,
-  stat
+  mkdir
 } from "node:fs/promises";
 import { constants as fsConstants } from "node:fs";
 import path from "node:path";
@@ -22,6 +21,9 @@ import {
 import {
   resolveExistingSessionRoot
 } from "./paths.js";
+import {
+  hasWorktree
+} from "./worktrees.js";
 
 async function assertTargetRootWritable(targetRoot) {
   try {
@@ -236,36 +238,6 @@ async function assertSessionExists(paths) {
   };
 }
 
-async function assertIssueArtifacts(paths) {
-  const [issueText, issueUrl] = await Promise.all([
-    readTrimmedFile(path.join(paths.sessionRoot, "issue.md")),
-    readTrimmedFile(path.join(paths.sessionRoot, "issue_url"))
-  ]);
-  if (issueText && issueUrl) {
-    return {
-      ok: true,
-      precondition: createPrecondition({
-        id: "issue_artifacts",
-        ok: true,
-        message: "Issue text and GitHub issue URL exist."
-      })
-    };
-  }
-  return {
-    ok: false,
-    error: createError({
-      code: "issue_artifacts_missing",
-      message: "Issue text and GitHub issue URL are required.",
-      repairCommand: `jskit session ${paths.sessionId} step`
-    }),
-    precondition: createPrecondition({
-      id: "issue_artifacts",
-      ok: false,
-      message: "Issue text and GitHub issue URL exist."
-    })
-  };
-}
-
 async function assertIssueTextExists(paths) {
   const issueText = await readTrimmedFile(path.join(paths.sessionRoot, "issue.md"));
   if (issueText) {
@@ -293,13 +265,31 @@ async function assertIssueTextExists(paths) {
   };
 }
 
-async function hasWorktree(paths) {
-  try {
-    const stats = await stat(paths.worktree);
-    return stats.isDirectory();
-  } catch {
-    return false;
+async function assertIssueUrlExists(paths) {
+  const issueUrl = await readTrimmedFile(path.join(paths.sessionRoot, "issue_url"));
+  if (issueUrl) {
+    return {
+      ok: true,
+      precondition: createPrecondition({
+        id: "issue_url_exists",
+        ok: true,
+        message: "GitHub issue URL exists."
+      })
+    };
   }
+  return {
+    ok: false,
+    error: createError({
+      code: "issue_url_missing",
+      message: "Cannot create a plan before the GitHub issue exists.",
+      repairCommand: `jskit session ${paths.sessionId} step`
+    }),
+    precondition: createPrecondition({
+      id: "issue_url_exists",
+      ok: false,
+      message: "GitHub issue URL exists."
+    })
+  };
 }
 
 async function assertWorktreeExists(paths) {
@@ -361,8 +351,8 @@ export {
   assertGitCurrentBranch,
   assertGitRepository,
   assertGithubOrigin,
-  assertIssueArtifacts,
   assertIssueTextExists,
+  assertIssueUrlExists,
   assertPrUrlExists,
   assertSessionExists,
   assertTargetRootWritable,

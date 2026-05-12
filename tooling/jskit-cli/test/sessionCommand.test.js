@@ -11,7 +11,9 @@ import {
   STEP_IDS,
   STEP_PRECONDITION_NAMES,
   createSession,
+  extractIssueTitle,
   extractIssueText,
+  extractPlanText,
   inspectSessionDetails,
   runSessionStep
 } from "../src/server/sessionRuntime.js";
@@ -42,6 +44,45 @@ function parseJsonResult(result) {
 function parseJsonFailure(result) {
   assert.notEqual(result.status, 0);
   return JSON.parse(result.stdout);
+}
+
+function runSessionStepJson(cwd, sessionId, {
+  args = [],
+  env = undefined,
+  input = undefined
+} = {}) {
+  return parseJsonResult(runCli({
+    cwd,
+    args: ["session", sessionId, "step", ...args, "--json"],
+    env,
+    input
+  }));
+}
+
+function runSessionStepJsonFailure(cwd, sessionId, {
+  args = [],
+  env = undefined,
+  input = undefined
+} = {}) {
+  return parseJsonFailure(runCli({
+    cwd,
+    args: ["session", sessionId, "step", ...args, "--json"],
+    env,
+    input
+  }));
+}
+
+function advanceCliSessionToIssuePrompt(cwd, sessionId, { env = undefined } = {}) {
+  const worktreePayload = runSessionStepJson(cwd, sessionId, { env });
+  assert.equal(worktreePayload.currentStep, "dependencies_installed");
+  assert.equal(worktreePayload.worktreeReady, true);
+  const promptReadyPayload = runSessionStepJson(cwd, sessionId, { env });
+  assert.equal(promptReadyPayload.currentStep, "issue_prompt_rendered");
+  assert.equal(promptReadyPayload.currentStepAction.input.name, "prompt");
+  return {
+    promptReadyPayload,
+    worktreePayload
+  };
 }
 
 function runGit(cwd, args) {
@@ -150,7 +191,8 @@ test("jskit session create writes file-backed state, receipt, and local git excl
     assert.equal(payload.ok, true);
     assert.match(payload.sessionId, /^\d{4}-\d{2}-\d{2}_\d{2}-\d{2}-\d{2}/);
     assert.equal(payload.sessionRoot, path.join(appRoot, ".jskit", "sessions", "active", payload.sessionId));
-    assert.equal(payload.worktree, path.join(appRoot, ".jskit", "sessions", "worktrees", payload.sessionId));
+    assert.equal(payload.worktree, path.join(payload.sessionRoot, "worktree"));
+    assert.equal(payload.worktreeReady, false);
     assert.equal(payload.currentStep, "worktree_created");
     assert.deepEqual(payload.completedSteps, ["session_created"]);
     assert.deepEqual(payload.stepDefinitions.map((step) => step.id), STEP_IDS);
@@ -198,35 +240,65 @@ test("jskit session JSON exposes JSKIT-owned step UI and Codex handoff contract"
     assert.equal(Object.hasOwn(created.stepDefinitions[0], "preconditions"), false);
     assert.equal(created.codex, null);
 
-    const worktreePayload = parseJsonResult(runCli({ cwd: appRoot, args: ["session", created.sessionId, "step", "--json"] }));
-    assert.equal(worktreePayload.currentStep, "issue_prompt_rendered");
-    assert.equal(worktreePayload.currentStepAction.buttonLabel, "Render issue prompt");
-    assert.equal(worktreePayload.currentStepAction.index, 2);
-    assert.equal(worktreePayload.currentStepAction.input.name, "prompt");
-    assert.equal(worktreePayload.nextCommand, `jskit session ${created.sessionId} step --prompt "<what should change>"`);
+    const { promptReadyPayload, worktreePayload } = advanceCliSessionToIssuePrompt(appRoot, created.sessionId);
+    assert.equal(worktreePayload.currentStepAction.buttonLabel, "Install dependencies");
+    assert.equal(promptReadyPayload.currentStepAction.buttonLabel, "Submit prompt to Codex");
+    assert.equal(promptReadyPayload.currentStepAction.index, 3);
+    assert.equal(promptReadyPayload.currentStepAction.input.name, "prompt");
+    assert.equal(promptReadyPayload.nextCommand, `jskit session ${created.sessionId} step --prompt "<what should change>"`);
 
-    const promptPayload = parseJsonResult(
-      runCli({
-        cwd: appRoot,
-        args: ["session", created.sessionId, "step", "--prompt", "Add account recovery", "--json"]
-      })
-    );
+    const promptPayload = runSessionStepJson(appRoot, created.sessionId, {
+      args: ["--prompt", "Add account recovery"]
+    });
     assert.equal(promptPayload.currentStep, "issue_drafted");
     assert.deepEqual(promptPayload.currentStepAction.input, {
-      extract: "issue_text",
-      formatHint: "markdown",
-      label: "Approved issue text",
-      multiline: true,
-      name: "issue",
-      required: true,
-      type: "text"
+      fields: [
+        {
+          extract: "issue_title",
+          formatHint: "text",
+          label: "Approved issue title",
+          name: "issueTitle",
+          required: true,
+          type: "text"
+        },
+        {
+          extract: "issue_text",
+          formatHint: "markdown",
+          label: "Approved issue body",
+          multiline: true,
+          name: "issue",
+          required: true,
+          type: "text"
+        }
+      ],
+      type: "object"
     });
     assert.deepEqual(promptPayload.codex, {
       expectedOutput: {
         extract: "issue_text",
         field: "issue",
-        formatHint: "markdown"
+        formatHint: "markdown",
+        label: "Issue body",
+        multiline: true,
+        required: true
       },
+      expectedOutputs: [
+        {
+          extract: "issue_title",
+          field: "issueTitle",
+          formatHint: "text",
+          label: "Issue title",
+          required: true
+        },
+        {
+          extract: "issue_text",
+          field: "issue",
+          formatHint: "markdown",
+          label: "Issue body",
+          multiline: true,
+          required: true
+        }
+      ],
       mode: "inject_prompt",
       promptField: "prompt"
     });
@@ -255,12 +327,13 @@ test("jskit session returns JSON failures for unreadable issue files", async () 
     await createGitApp(appRoot);
 
     const created = parseJsonResult(runCli({ cwd: appRoot, args: ["session", "create", "--json"] }));
-    parseJsonResult(runCli({ cwd: appRoot, args: ["session", created.sessionId, "step", "--json"] }));
-    parseJsonResult(runCli({ cwd: appRoot, args: ["session", created.sessionId, "step", "--prompt", "Fix missing state", "--json"] }));
-    const payload = parseJsonFailure(runCli({
-      cwd: appRoot,
-      args: ["session", created.sessionId, "step", "--issue-file", "does-not-exist.md", "--json"]
-    }));
+    advanceCliSessionToIssuePrompt(appRoot, created.sessionId);
+    runSessionStepJson(appRoot, created.sessionId, {
+      args: ["--prompt", "Fix missing state"]
+    });
+    const payload = runSessionStepJsonFailure(appRoot, created.sessionId, {
+      args: ["--issue-file", "does-not-exist.md"]
+    });
 
     assert.equal(payload.ok, false);
     assert.equal(payload.sessionId, created.sessionId);
@@ -298,10 +371,28 @@ test("session ids get deterministic suffixes when two sessions start in the same
   });
 });
 
-test("issue text extraction accepts the codex issue_text wrapper", () => {
+test("issue draft extraction accepts separate codex title and body wrappers", () => {
+  const output = [
+    "Before",
+    "[issue_title]",
+    "Fix navigation",
+    "[/issue_title]",
+    "[issue_text]",
+    "Make it adaptive.",
+    "[/issue_text]",
+    "After"
+  ].join("\n");
+  assert.equal(extractIssueTitle(output), "Fix navigation");
   assert.equal(
-    extractIssueText("Before\n[issue_text]\n# Fix navigation\n\nMake it adaptive.\n[/issue_text]\nAfter"),
-    "# Fix navigation\n\nMake it adaptive."
+    extractIssueText(output),
+    "Make it adaptive."
+  );
+});
+
+test("plan extraction accepts the codex plan wrapper", () => {
+  assert.equal(
+    extractPlanText("Before\n[plan]\n1. Inspect routes.\n2. Add page.\n[/plan]\nAfter"),
+    "1. Inspect routes.\n2. Add page."
   );
 });
 
@@ -359,24 +450,55 @@ test("jskit session step creates worktree and issue prompt", async () => {
     await createGitApp(appRoot);
 
     const created = parseJsonResult(runCli({ cwd: appRoot, args: ["session", "create", "--json"] }));
-    const worktreePayload = parseJsonResult(runCli({ cwd: appRoot, args: ["session", created.sessionId, "step", "--json"] }));
-    assert.equal(worktreePayload.currentStep, "issue_prompt_rendered");
+    const { promptReadyPayload, worktreePayload } = advanceCliSessionToIssuePrompt(appRoot, created.sessionId);
+    assert.equal(promptReadyPayload.currentStep, "issue_prompt_rendered");
     await access(worktreePayload.worktree);
 
-    const promptPayload = parseJsonResult(
-      runCli({
-        cwd: appRoot,
-        args: ["session", created.sessionId, "step", "--prompt", "Add customer search", "--json"]
-      })
-    );
+    const promptPayload = runSessionStepJson(appRoot, created.sessionId, {
+      args: ["--prompt", "Add customer search"]
+    });
     assert.equal(promptPayload.status, "waiting_for_user");
     assert.equal(promptPayload.currentStep, "issue_drafted");
     assert.match(promptPayload.prompt, /Add customer search/);
+    assert.match(promptPayload.prompt, /\[issue_title\]/);
     assert.match(promptPayload.prompt, /\[issue_text\]/);
+    assert.match(
+      await readFile(path.join(promptPayload.sessionRoot, "prompts", "issue_draft.md"), "utf8"),
+      /Add customer search/
+    );
+    await assert.rejects(access(path.join(promptPayload.sessionRoot, "prompt.md")));
 
-    const failure = parseJsonFailure(runCli({ cwd: appRoot, args: ["session", created.sessionId, "step", "--json"] }));
+    const failure = runSessionStepJsonFailure(appRoot, created.sessionId);
     assert.equal(failure.ok, false);
     assert.equal(failure.errors[0].code, "issue_required");
+  });
+});
+
+test("jskit session does not treat a stale empty directory as a worktree", async () => {
+  await withTempDir(async (cwd) => {
+    const appRoot = path.join(cwd, "app");
+    await createGitApp(appRoot);
+
+    const created = parseJsonResult(runCli({ cwd: appRoot, args: ["session", "create", "--json"] }));
+    await mkdir(created.worktree, { recursive: true });
+    await writeFile(
+      path.join(created.sessionRoot, "steps", "worktree_created"),
+      "2026-05-12T00:00:00.000Z\nFalse stale receipt.\n",
+      "utf8"
+    );
+    await writeFile(path.join(created.sessionRoot, "current_step"), "issue_prompt_rendered\n", "utf8");
+
+    const stale = parseJsonResult(runCli({ cwd: appRoot, args: ["session", created.sessionId, "--json"] }));
+    assert.equal(stale.worktreeReady, false);
+    assert.equal(stale.currentStep, "worktree_created");
+    assert.deepEqual(stale.completedSteps, ["session_created"]);
+
+    const repaired = runSessionStepJson(appRoot, created.sessionId);
+    assert.equal(repaired.worktreeReady, true);
+    assert.equal(repaired.currentStep, "dependencies_installed");
+    assert.match(await readFile(path.join(created.worktree, ".git"), "utf8"), /gitdir:/);
+    const dependenciesInstalled = runSessionStepJson(appRoot, created.sessionId);
+    assert.equal(dependenciesInstalled.currentStep, "issue_prompt_rendered");
   });
 });
 
@@ -386,16 +508,13 @@ test("jskit session prompt rendering prefers project overrides", async () => {
     await createGitApp(appRoot);
 
     const created = parseJsonResult(runCli({ cwd: appRoot, args: ["session", "create", "--json"] }));
-    parseJsonResult(runCli({ cwd: appRoot, args: ["session", created.sessionId, "step", "--json"] }));
+    advanceCliSessionToIssuePrompt(appRoot, created.sessionId);
     await mkdir(path.join(appRoot, ".jskit", "sessions", "prompts"), { recursive: true });
     await writeFile(path.join(appRoot, ".jskit", "sessions", "prompts", "new_issue.md"), "Project prompt: {{user_input}} / {{session_id}}", "utf8");
 
-    const promptPayload = parseJsonResult(
-      runCli({
-        cwd: appRoot,
-        args: ["session", created.sessionId, "step", "--prompt", "Add invoices", "--json"]
-      })
-    );
+    const promptPayload = runSessionStepJson(appRoot, created.sessionId, {
+      args: ["--prompt", "Add invoices"]
+    });
 
     assert.equal(promptPayload.prompt, `Project prompt: Add invoices / ${created.sessionId}`);
   });
@@ -407,14 +526,13 @@ test("session details expose issue text, receipts, and passive transcript log fo
     await createGitApp(appRoot);
 
     const created = parseJsonResult(runCli({ cwd: appRoot, args: ["session", "create", "--json"] }));
-    parseJsonResult(runCli({ cwd: appRoot, args: ["session", created.sessionId, "step", "--json"] }));
-    parseJsonResult(runCli({ cwd: appRoot, args: ["session", created.sessionId, "step", "--prompt", "Fix details", "--json"] }));
-    parseJsonResult(
-      runCli({
-        cwd: appRoot,
-        args: ["session", created.sessionId, "step", "--issue", "[issue_text]# Fix details[/issue_text]", "--json"]
-      })
-    );
+    advanceCliSessionToIssuePrompt(appRoot, created.sessionId);
+    runSessionStepJson(appRoot, created.sessionId, {
+      args: ["--prompt", "Fix details"]
+    });
+    runSessionStepJson(appRoot, created.sessionId, {
+      args: ["--issue-title", "Fix details", "--issue", "[issue_text]Make details clearer.[/issue_text]"]
+    });
     await writeFile(path.join(created.sessionRoot, "transcript.log"), "manual transcript\n", "utf8");
 
     const details = await inspectSessionDetails({
@@ -423,18 +541,21 @@ test("session details expose issue text, receipts, and passive transcript log fo
     });
 
     assert.equal(details.ok, true);
-    assert.equal(details.issueText, "# Fix details");
+    assert.equal(details.issueTitle, "Fix details");
+    assert.equal(details.issueText, "Make details clearer.");
     assert.equal(details.transcriptLog, "manual transcript\n");
     assert.deepEqual(details.receipts.map((receipt) => receipt.stepId), [
       "session_created",
       "worktree_created",
+      "dependencies_installed",
       "issue_prompt_rendered",
       "issue_drafted"
     ]);
 
     const cliDetails = parseJsonResult(runCli({ cwd: appRoot, args: ["session", created.sessionId, "--json"] }));
-    assert.equal(cliDetails.issueText, "# Fix details");
-    assert.equal(cliDetails.receipts.length, 4);
+    assert.equal(cliDetails.issueTitle, "Fix details");
+    assert.equal(cliDetails.issueText, "Make details clearer.");
+    assert.equal(cliDetails.receipts.length, 5);
   });
 });
 
@@ -451,22 +572,54 @@ test("jskit session accepts issue text from stdin and creates a GitHub issue wit
       PATH: `${binDir}${path.delimiter}${process.env.PATH || ""}`
     };
     const created = parseJsonResult(runCli({ cwd: appRoot, args: ["session", "create", "--json"], env }));
-    parseJsonResult(runCli({ cwd: appRoot, args: ["session", created.sessionId, "step", "--json"], env }));
-    parseJsonResult(runCli({ cwd: appRoot, args: ["session", created.sessionId, "step", "--prompt", "Fix filters", "--json"], env }));
-    const issueDrafted = parseJsonResult(
-      runCli({
-        cwd: appRoot,
-        args: ["session", created.sessionId, "step", "--issue", "-", "--json"],
-        env,
-        input: "# Fix filters\n\nMake filters useful."
-      })
-    );
+    advanceCliSessionToIssuePrompt(appRoot, created.sessionId, { env });
+    runSessionStepJson(appRoot, created.sessionId, {
+      args: ["--prompt", "Fix filters"],
+      env
+    });
+    const issueDrafted = runSessionStepJson(appRoot, created.sessionId, {
+      args: ["--issue-title", "Fix useful filters", "--issue", "-"],
+      env,
+      input: "Make filters useful."
+    });
     assert.equal(issueDrafted.currentStep, "issue_created");
+    assert.equal(issueDrafted.issueTitle, "Fix useful filters");
+    assert.equal(issueDrafted.issueText, "Make filters useful.");
 
-    const issueCreated = parseJsonResult(runCli({ cwd: appRoot, args: ["session", created.sessionId, "step", "--json"], env }));
+    const issueCreated = runSessionStepJson(appRoot, created.sessionId, { env });
     assert.equal(issueCreated.issueUrl, "https://github.com/example/repo/issues/123");
-    assert.equal(issueCreated.currentStep, "implementation_prompt_rendered");
-    assert.match(await readFile(logPath, "utf8"), /gh issue create --title Fix filters --body-file/);
+    assert.equal(issueCreated.currentStep, "plan_made");
+    assert.equal(issueCreated.prompt, "");
+    assert.equal(issueCreated.currentStepAction.buttonLabel, "Execute plan");
+    assert.match(await readFile(logPath, "utf8"), /gh issue create --title Fix useful filters --body-file/);
+
+    const planPrompt = runSessionStepJson(appRoot, created.sessionId, { env });
+    assert.equal(planPrompt.currentStep, "plan_made");
+    assert.match(planPrompt.prompt, /Create an implementation plan/);
+    assert.match(planPrompt.prompt, /\[plan\]/);
+    assert.match(planPrompt.prompt, /https:\/\/github\.com\/example\/repo\/issues\/123/);
+    assert.match(
+      await readFile(path.join(planPrompt.sessionRoot, "prompts", "plan_request.md"), "utf8"),
+      /Create an implementation plan/
+    );
+
+    const planMade = runSessionStepJson(appRoot, created.sessionId, {
+      args: ["--plan", "[plan]\nInspect filters and update the UI.\n[/plan]"],
+      env
+    });
+    assert.equal(planMade.currentStep, "implementation_changes_accepted");
+    assert.equal(planMade.currentStepAction.buttonLabel, "Accept changes");
+    assert.equal(planMade.currentStepAction.utilityActions[0].kind, "diff");
+    assert.equal(planMade.planText, "Inspect filters and update the UI.");
+    assert.ok(planMade.completedSteps.includes("plan_made"));
+    assert.match(planMade.prompt, /Execute the approved implementation plan/);
+    assert.match(await readFile(path.join(planMade.sessionRoot, "plan.md"), "utf8"), /Inspect filters/);
+    assert.match(
+      await readFile(path.join(planMade.sessionRoot, "prompts", "plan_execution.md"), "utf8"),
+      /Execute the approved implementation plan/
+    );
+    await assert.rejects(access(path.join(planMade.sessionRoot, "prompt.md")));
+    assert.match(await readFile(logPath, "utf8"), /gh issue comment https:\/\/github\.com\/example\/repo\/issues\/123 --body-file/);
   });
 });
 
@@ -492,25 +645,26 @@ process.exit(1);
     };
 
     const created = parseJsonResult(runCli({ cwd: appRoot, args: ["session", "create", "--json"], env }));
-    parseJsonResult(runCli({ cwd: appRoot, args: ["session", created.sessionId, "step", "--json"], env }));
-    parseJsonResult(runCli({ cwd: appRoot, args: ["session", created.sessionId, "step", "--prompt", "Fix auth", "--json"], env }));
-    parseJsonResult(
-      runCli({
-        cwd: appRoot,
-        args: ["session", created.sessionId, "step", "--issue", "[issue_text]# Fix auth[/issue_text]", "--json"],
-        env
-      })
-    );
+    advanceCliSessionToIssuePrompt(appRoot, created.sessionId, { env });
+    runSessionStepJson(appRoot, created.sessionId, {
+      args: ["--prompt", "Fix auth"],
+      env
+    });
+    runSessionStepJson(appRoot, created.sessionId, {
+      args: ["--issue", "[issue_text]# Fix auth[/issue_text]"],
+      env
+    });
 
-    const failure = parseJsonFailure(runCli({ cwd: appRoot, args: ["session", created.sessionId, "step", "--json"], env }));
+    const failure = runSessionStepJsonFailure(appRoot, created.sessionId, { env });
     assert.equal(failure.ok, false);
     assert.equal(failure.status, "blocked");
     assert.equal(failure.currentStep, "issue_created");
     assert.equal(failure.errors[0].code, "github_auth_missing");
     assert.deepEqual(
-      Object.keys(failure).slice(0, 12),
-      ["ok", "sessionId", "status", "currentStep", "completedSteps", "stepDefinitions", "currentStepAction", "codex", "prompt", "nextCommand", "issueUrl", "prUrl"]
+      Object.keys(failure).slice(0, 15),
+      ["ok", "sessionId", "status", "currentStep", "completedSteps", "stepDefinitions", "currentStepAction", "codex", "prompt", "nextCommand", "issueUrl", "issueTitle", "issueText", "planText", "prUrl"]
     );
+    assert.equal(await readFile(path.join(failure.sessionRoot, "issue_title"), "utf8"), "Fix auth\n");
     assert.equal(await readFile(path.join(failure.sessionRoot, "issue.md"), "utf8"), "# Fix auth\n");
   });
 });
@@ -548,44 +702,145 @@ process.exit(1);
     };
 
     const created = parseJsonResult(runCli({ cwd: appRoot, args: ["session", "create", "--json"], env }));
-    parseJsonResult(runCli({ cwd: appRoot, args: ["session", created.sessionId, "step", "--json"], env }));
-    parseJsonResult(runCli({ cwd: appRoot, args: ["session", created.sessionId, "step", "--prompt", "Fix", "--json"], env }));
-    parseJsonResult(runCli({ cwd: appRoot, args: ["session", created.sessionId, "step", "--issue", "# Fix", "--json"], env }));
-    const missingOrigin = parseJsonFailure(runCli({ cwd: appRoot, args: ["session", created.sessionId, "step", "--json"], env }));
+    advanceCliSessionToIssuePrompt(appRoot, created.sessionId, { env });
+    runSessionStepJson(appRoot, created.sessionId, {
+      args: ["--prompt", "Fix"],
+      env
+    });
+    runSessionStepJson(appRoot, created.sessionId, {
+      args: ["--issue", "# Fix"],
+      env
+    });
+    const missingOrigin = runSessionStepJsonFailure(appRoot, created.sessionId, { env });
     assert.equal(missingOrigin.errors[0].code, "github_origin_missing");
 
     const manualRoot = path.join(cwd, "manual");
     await createGitApp(manualRoot);
     const manual = await createSession({ targetRoot: manualRoot });
     await writeStepReceipts(manual.sessionRoot, STEP_IDS.slice(0, 6));
-    const missingWorktree = await runSessionStep({
+    const repairedWorktree = await runSessionStep({
       targetRoot: manualRoot,
       sessionId: manual.sessionId
     });
-    assert.equal(missingWorktree.ok, false);
-    assert.equal(missingWorktree.errors[0].code, "worktree_missing");
+    assert.equal(repairedWorktree.ok, true);
+    assert.equal(repairedWorktree.worktreeReady, true);
 
-    const artifactsRoot = path.join(cwd, "artifacts");
-    await createGitApp(artifactsRoot);
-    const artifacts = await createSession({ targetRoot: artifactsRoot });
-    await writeStepReceipts(artifacts.sessionRoot, STEP_IDS.slice(0, 5));
-    const missingArtifacts = await runSessionStep({
-      targetRoot: artifactsRoot,
-      sessionId: artifacts.sessionId
+    const changesRoot = path.join(cwd, "changes");
+    await createGitApp(changesRoot);
+    const changes = await createSession({ targetRoot: changesRoot });
+    await runSessionStep({
+      targetRoot: changesRoot,
+      sessionId: changes.sessionId
     });
-    assert.equal(missingArtifacts.ok, false);
-    assert.equal(missingArtifacts.errors[0].code, "issue_artifacts_missing");
+    await writeStepReceipts(changes.sessionRoot, STEP_IDS.slice(0, STEP_IDS.indexOf("implementation_changes_accepted")));
+    const missingChanges = await runSessionStep({
+      targetRoot: changesRoot,
+      sessionId: changes.sessionId
+    });
+    assert.equal(missingChanges.ok, false);
+    assert.equal(missingChanges.errors[0].code, "changes_missing");
 
     const prRoot = path.join(cwd, "pr");
     await createGitApp(prRoot);
     const pr = await createSession({ targetRoot: prRoot });
-    await writeStepReceipts(pr.sessionRoot, STEP_IDS.slice(0, 20));
+    await runSessionStep({
+      targetRoot: prRoot,
+      sessionId: pr.sessionId
+    });
+    await writeStepReceipts(pr.sessionRoot, STEP_IDS.slice(0, STEP_IDS.indexOf("pr_merged")));
     const missingPr = await runSessionStep({
       targetRoot: prRoot,
       sessionId: pr.sessionId
     });
     assert.equal(missingPr.ok, false);
     assert.equal(missingPr.errors[0].code, "pr_url_missing");
+  });
+});
+
+test("jskit session maps legacy change-detection receipts to renamed change steps", async () => {
+  await withTempDir(async (cwd) => {
+    const appRoot = path.join(cwd, "legacy");
+    await createGitApp(appRoot);
+
+    const created = await createSession({ targetRoot: appRoot });
+    await runSessionStep({
+      targetRoot: appRoot,
+      sessionId: created.sessionId
+    });
+    await writeStepReceipts(
+      created.sessionRoot,
+      STEP_IDS.slice(0, STEP_IDS.indexOf("implementation_changes_accepted"))
+    );
+    await writeFile(
+      path.join(created.sessionRoot, "steps", "implementation_changes_detected"),
+      "2026-05-11T00:00:00.000Z\nDetected 1 changed file entries.\n",
+      "utf8"
+    );
+    await writeFile(path.join(created.sessionRoot, "current_step"), "implementation_changes_detected\n", "utf8");
+
+    const inspected = parseJsonResult(runCli({ cwd: appRoot, args: ["session", created.sessionId, "--json"] }));
+    assert.equal(inspected.currentStep, "implementation_changes_committed");
+    assert.ok(inspected.completedSteps.includes("implementation_changes_accepted"));
+
+    const details = await inspectSessionDetails({
+      targetRoot: appRoot,
+      sessionId: created.sessionId
+    });
+    assert.ok(details.receipts.some((receipt) => receipt.stepId === "implementation_changes_accepted"));
+
+    const reviewRoot = path.join(cwd, "legacy-review");
+    await createGitApp(reviewRoot);
+    const reviewSession = await createSession({ targetRoot: reviewRoot });
+    await runSessionStep({
+      targetRoot: reviewRoot,
+      sessionId: reviewSession.sessionId
+    });
+    await writeStepReceipts(
+      reviewSession.sessionRoot,
+      STEP_IDS.slice(0, STEP_IDS.indexOf("review_changes_accepted"))
+    );
+    await writeFile(
+      path.join(reviewSession.sessionRoot, "steps", "review_changes_detected"),
+      "2026-05-11T00:00:00.000Z\nNo review changes detected.\n",
+      "utf8"
+    );
+    await writeFile(path.join(reviewSession.sessionRoot, "current_step"), "review_changes_detected\n", "utf8");
+
+    const reviewInspected = parseJsonResult(runCli({ cwd: reviewRoot, args: ["session", reviewSession.sessionId, "--json"] }));
+    assert.equal(reviewInspected.currentStep, "user_check_completed");
+    assert.ok(reviewInspected.completedSteps.includes("review_changes_accepted"));
+    assert.ok(reviewInspected.completedSteps.includes("review_changes_committed"));
+
+    const reviewDetails = await inspectSessionDetails({
+      targetRoot: reviewRoot,
+      sessionId: reviewSession.sessionId
+    });
+    assert.ok(reviewDetails.receipts.some((receipt) => receipt.stepId === "review_changes_committed"));
+  });
+});
+
+test("jskit session diff inspects worktree changes without advancing the session", async () => {
+  await withTempDir(async (cwd) => {
+    const appRoot = path.join(cwd, "app");
+    await createGitApp(appRoot);
+
+    const created = parseJsonResult(runCli({ cwd: appRoot, args: ["session", "create", "--json"] }));
+    const worktreePayload = runSessionStepJson(appRoot, created.sessionId);
+    await writeFile(path.join(worktreePayload.worktree, "package.json"), "{\"name\":\"changed-app\"}\n", "utf8");
+    await writeFile(path.join(worktreePayload.worktree, "feature.txt"), "new file\n", "utf8");
+
+    const diffPayload = parseJsonResult(runCli({ cwd: appRoot, args: ["session", created.sessionId, "diff", "--json"] }));
+    assert.equal(diffPayload.ok, true);
+    assert.equal(diffPayload.currentStep, "dependencies_installed");
+    assert.equal(diffPayload.hasChanges, true);
+    assert.match(diffPayload.gitStatus, /M package\.json/);
+    assert.match(diffPayload.gitStatus, /\?\? feature\.txt/);
+    assert.match(diffPayload.unstagedDiff, /changed-app/);
+    assert.match(diffPayload.untrackedDiff, /feature\.txt/);
+
+    const inspected = parseJsonResult(runCli({ cwd: appRoot, args: ["session", created.sessionId, "--json"] }));
+    assert.equal(inspected.currentStep, "dependencies_installed");
+    assert.deepEqual(inspected.completedSteps, ["session_created", "worktree_created"]);
   });
 });
 
@@ -602,39 +857,75 @@ test("jskit session can execute review loop, doctor, PR, merge, cleanup, and fin
     };
 
     const created = parseJsonResult(runCli({ cwd: appRoot, args: ["session", "create", "--json"], env }));
-    parseJsonResult(runCli({ cwd: appRoot, args: ["session", created.sessionId, "step", "--json"], env }));
-    parseJsonResult(runCli({ cwd: appRoot, args: ["session", created.sessionId, "step", "--prompt", "Add a page", "--json"], env }));
-    parseJsonResult(
-      runCli({
-        cwd: appRoot,
-        args: ["session", created.sessionId, "step", "--issue", "# Add a page", "--json"],
-        env
-      })
-    );
-    parseJsonResult(runCli({ cwd: appRoot, args: ["session", created.sessionId, "step", "--json"], env }));
-    parseJsonResult(runCli({ cwd: appRoot, args: ["session", created.sessionId, "step", "--json"], env }));
+    advanceCliSessionToIssuePrompt(appRoot, created.sessionId, { env });
+    runSessionStepJson(appRoot, created.sessionId, {
+      args: ["--prompt", "Add a page"],
+      env
+    });
+    runSessionStepJson(appRoot, created.sessionId, {
+      args: ["--issue", "# Add a page"],
+      env
+    });
+    const issueCreated = runSessionStepJson(appRoot, created.sessionId, { env });
+    assert.equal(issueCreated.currentStep, "plan_made");
+    const planPrompt = runSessionStepJson(appRoot, created.sessionId, { env });
+    assert.equal(planPrompt.currentStep, "plan_made");
+    assert.match(planPrompt.prompt, /Create an implementation plan/);
+    const planMade = runSessionStepJson(appRoot, created.sessionId, {
+      args: ["--plan", "[plan]\nImplement the page.\n[/plan]"],
+      env
+    });
+    assert.equal(planMade.currentStep, "implementation_changes_accepted");
+    assert.equal(planMade.currentStepAction.buttonLabel, "Accept changes");
+    assert.equal(planMade.codex.autoInject, true);
+    assert.equal(planMade.codex.promptActionLabel, "Execute plan");
+    assert.match(planMade.prompt, /Execute the approved implementation plan/);
+    assert.ok(planMade.completedSteps.includes("plan_made"));
 
     const inspect = parseJsonResult(runCli({ cwd: appRoot, args: ["session", created.sessionId, "--json"], env }));
     await writeFile(path.join(inspect.worktree, "feature.txt"), "hello\\n", "utf8");
-    parseJsonResult(runCli({ cwd: appRoot, args: ["session", created.sessionId, "step", "--json"], env }));
-    parseJsonResult(runCli({ cwd: appRoot, args: ["session", created.sessionId, "step", "--json"], env }));
+    const accepted = runSessionStepJson(appRoot, created.sessionId, { env });
+    assert.equal(accepted.currentStep, "implementation_changes_committed");
+    assert.equal(accepted.prompt, "");
+    assert.ok(accepted.completedSteps.includes("implementation_changes_accepted"));
+    const committed = runSessionStepJson(appRoot, created.sessionId, { env });
+    assert.equal(committed.currentStep, "review_prompt_rendered");
+    assert.equal(committed.prompt, "");
+    assert.equal(committed.currentStepAction.buttonLabel, "Start review");
+    assert.equal(committed.stepDefinitions.find((step) => step.id === "review_prompt_rendered").label, "Review execution");
 
-    for (const pass of [1, 2, 3]) {
-      const review = parseJsonResult(runCli({ cwd: appRoot, args: ["session", created.sessionId, "step", "--json"], env }));
-      assert.match(review.prompt, new RegExp(`Review pass ${pass}`));
-      parseJsonResult(runCli({ cwd: appRoot, args: ["session", created.sessionId, "step", "--json"], env }));
-      const check = parseJsonResult(runCli({ cwd: appRoot, args: ["session", created.sessionId, "step", "--json"], env }));
-      assert.match(check.prompt, new RegExp(`User check ${pass}`));
-      parseJsonResult(runCli({ cwd: appRoot, args: ["session", created.sessionId, "step", "--user-check", "passed", "--json"], env }));
-    }
+    const review = runSessionStepJson(appRoot, created.sessionId, { env });
+    assert.equal(review.currentStep, "review_changes_accepted");
+    assert.equal(review.currentStepAction.buttonLabel, "Accept review changes");
+    assert.equal(review.currentStepAction.utilityActions[0].kind, "diff");
+    assert.equal(review.codex.autoInject, true);
+    assert.equal(review.codex.promptActionLabel, "Start review");
+    assert.match(review.prompt, /Review changes/);
+    assert.match(
+      await readFile(path.join(review.sessionRoot, "prompts", "review.md"), "utf8"),
+      /Review changes/
+    );
+    const reviewAccepted = runSessionStepJson(appRoot, created.sessionId, { env });
+    assert.equal(reviewAccepted.currentStep, "review_changes_committed");
+    assert.ok(reviewAccepted.completedSteps.includes("review_changes_accepted"));
+    const reviewCommitted = runSessionStepJson(appRoot, created.sessionId, { env });
+    assert.equal(reviewCommitted.currentStep, "user_check_completed");
+    assert.ok(reviewCommitted.completedSteps.includes("review_changes_committed"));
+    const check = runSessionStepJson(appRoot, created.sessionId, { env });
+    assert.equal(check.currentStep, "user_check_completed");
+    assert.match(check.prompt, /User check/);
+    runSessionStepJson(appRoot, created.sessionId, {
+      args: ["--user-check", "passed"],
+      env
+    });
 
-    parseJsonResult(runCli({ cwd: appRoot, args: ["session", created.sessionId, "step", "--json"], env }));
-    parseJsonResult(runCli({ cwd: appRoot, args: ["session", created.sessionId, "step", "--json"], env }));
-    const pr = parseJsonResult(runCli({ cwd: appRoot, args: ["session", created.sessionId, "step", "--json"], env }));
+    runSessionStepJson(appRoot, created.sessionId, { env });
+    const pr = runSessionStepJson(appRoot, created.sessionId, { env });
     assert.equal(pr.prUrl, "https://github.com/example/repo/pull/456");
-    parseJsonResult(runCli({ cwd: appRoot, args: ["session", created.sessionId, "step", "--json"], env }));
-    parseJsonResult(runCli({ cwd: appRoot, args: ["session", created.sessionId, "step", "--json"], env }));
-    const finished = parseJsonResult(runCli({ cwd: appRoot, args: ["session", created.sessionId, "step", "--json"], env }));
+    const merged = runSessionStepJson(appRoot, created.sessionId, { env });
+    assert.equal(merged.currentStep, "session_finished");
+    await assert.rejects(access(inspect.worktree));
+    const finished = runSessionStepJson(appRoot, created.sessionId, { env });
 
     assert.equal(finished.status, "finished");
     assert.equal(finished.currentStep, "");
@@ -643,7 +934,14 @@ test("jskit session can execute review loop, doctor, PR, merge, cleanup, and fin
     await access(finished.sessionRoot);
     await assert.rejects(access(path.join(appRoot, ".jskit", "sessions", "active", created.sessionId)));
     const listed = parseJsonResult(runCli({ cwd: appRoot, args: ["session", "--json"], env }));
-    assert.equal(listed.sessions.find((session) => session.sessionId === created.sessionId)?.archive, "completed");
+    assert.equal(listed.archive, "active");
+    assert.equal(listed.sessions.find((session) => session.sessionId === created.sessionId), undefined);
+    const completedList = parseJsonResult(runCli({ cwd: appRoot, args: ["session", "--completed", "--json"], env }));
+    assert.equal(completedList.archive, "completed");
+    assert.equal(completedList.sessions.find((session) => session.sessionId === created.sessionId)?.archive, "completed");
+    const allList = parseJsonResult(runCli({ cwd: appRoot, args: ["session", "--all", "--json"], env }));
+    assert.equal(allList.archive, "mixed");
+    assert.equal(allList.sessions.find((session) => session.sessionId === created.sessionId)?.archive, "completed");
     const log = await readFile(logPath, "utf8");
     assert.match(log, /npm run verify:local/);
     assert.match(log, /gh pr create/);
@@ -674,6 +972,51 @@ test("jskit session abandon closes issue, removes worktree, and marks state aban
     await access(abandoned.sessionRoot);
     await assert.rejects(access(path.join(appRoot, ".jskit", "sessions", "active", created.sessionId)));
     await assert.rejects(access(worktreePayload.worktree));
+    const listed = parseJsonResult(runCli({ cwd: appRoot, args: ["session", "--json"], env }));
+    assert.equal(listed.archive, "active");
+    assert.equal(listed.sessions.find((session) => session.sessionId === created.sessionId), undefined);
+    const abandonedList = parseJsonResult(runCli({ cwd: appRoot, args: ["session", "--abandoned", "--json"], env }));
+    assert.equal(abandonedList.archive, "abandoned");
+    assert.equal(abandonedList.sessions.find((session) => session.sessionId === created.sessionId)?.archive, "abandoned");
+    assert.match(await readFile(logPath, "utf8"), /gh issue close https:\/\/github\.com\/example\/repo\/issues\/999/);
+  });
+});
+
+test("jskit session abandon fails if the related GitHub issue cannot be closed", async () => {
+  await withTempDir(async (cwd) => {
+    const appRoot = path.join(cwd, "app");
+    const binDir = path.join(cwd, "bin");
+    const logPath = path.join(cwd, "commands.log");
+    await createGitApp(appRoot);
+    await installFakeCommand(
+      binDir,
+      "gh",
+      `#!/usr/bin/env node
+const fs = require("node:fs");
+const args = process.argv.slice(2);
+fs.appendFileSync(${JSON.stringify(logPath)}, ["gh", ...args].join(" ") + "\\n");
+if (args[0] === "auth" && args[1] === "status") process.exit(0);
+if (args[0] === "issue" && args[1] === "close") {
+  console.error("close failed");
+  process.exit(1);
+}
+console.error("unexpected gh args", args.join(" "));
+process.exit(1);
+`
+    );
+    const env = {
+      PATH: `${binDir}${path.delimiter}${process.env.PATH || ""}`
+    };
+
+    const created = parseJsonResult(runCli({ cwd: appRoot, args: ["session", "create", "--json"], env }));
+    const worktreePayload = parseJsonResult(runCli({ cwd: appRoot, args: ["session", created.sessionId, "step", "--json"], env }));
+    await writeFile(path.join(worktreePayload.sessionRoot, "issue_url"), "https://github.com/example/repo/issues/999\\n", "utf8");
+
+    const abandoned = parseJsonFailure(runCli({ cwd: appRoot, args: ["session", created.sessionId, "abandon", "--json"], env }));
+    assert.equal(abandoned.errors[0].code, "issue_close_failed");
+    await access(path.join(appRoot, ".jskit", "sessions", "active", created.sessionId));
+    await access(worktreePayload.worktree);
+    await assert.rejects(access(path.join(appRoot, ".jskit", "sessions", "abandoned", created.sessionId)));
     assert.match(await readFile(logPath, "utf8"), /gh issue close https:\/\/github\.com\/example\/repo\/issues\/999/);
   });
 });

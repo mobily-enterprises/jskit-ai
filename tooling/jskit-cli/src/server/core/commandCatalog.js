@@ -9,7 +9,9 @@ const OPTION_FLAG_LABELS = Object.freeze({
   checkDiLabels: "--check-di-labels",
   verbose: "--verbose",
   json: "--json",
-  all: "--all"
+  all: "--all",
+  abandoned: "--abandoned",
+  completed: "--completed"
 });
 
 const PARSED_BOOLEAN_OPTION_KEYS = Object.freeze(Object.keys(OPTION_FLAG_LABELS));
@@ -211,15 +213,18 @@ const COMMAND_DESCRIPTORS = Object.freeze({
       }),
       Object.freeze({
         name: "[step|abandon|adopt-codex-thread]",
-        description: "Run the next step, abandon a session, or attach a Codex thread id."
+        description: "Run the next step, inspect a diff, abandon a session, or attach a Codex thread id."
       })
     ]),
     defaults: Object.freeze([
       "Active session state lives in .jskit/sessions/active/<session_id> under the current target app.",
-      "Session worktrees live in .jskit/sessions/worktrees/<session_id>.",
+      "Session worktrees live in .jskit/sessions/active/<session_id>/worktree.",
       "The session id is timestamp-based and is the primary key.",
+      "Bare list output includes active sessions only; use --abandoned, --completed, or --all for archived sessions.",
       "Use --json for the stable machine-readable contract consumed by JSKIT AI Studio.",
-      "Use --issue - to read approved issue text from stdin."
+      "Use --issue - to read approved issue body from stdin.",
+      "Use --issue-title when the approved issue title is separate from the body.",
+      "Use --plan - to read the approved implementation plan from stdin."
     ]),
     examples: Object.freeze([
       Object.freeze({
@@ -228,15 +233,17 @@ const COMMAND_DESCRIPTORS = Object.freeze({
           "jskit session create",
           "jskit session 2026-05-11_21-42-08 step",
           "jskit session 2026-05-11_21-42-08 step --prompt \"Fix the customer filters\"",
-          "jskit session 2026-05-11_21-42-08 step --issue -"
+          "jskit session 2026-05-11_21-42-08 step --issue-title \"Fix customer filters\" --issue -",
+          "jskit session 2026-05-11_21-42-08 step --plan -",
+          "jskit session 2026-05-11_21-42-08 diff --json"
         ])
       })
     ]),
     fullUse:
-      "jskit session [create|<sessionId>] [step|abandon|adopt-codex-thread] [--prompt <text>] [--issue <text>|--issue-file <path>] [--user-check <passed|failed>] [--codex-thread-id <id>] [--json]",
+      "jskit session [create|<sessionId>] [step|diff|abandon|adopt-codex-thread] [--prompt <text>] [--issue-title <text>|--issue-title-file <path>] [--issue <text>|--issue-file <path>] [--plan <text>|--plan-file <path>] [--user-check <passed|failed>] [--codex-thread-id <id>] [--abandoned|--completed|--all] [--json]",
     showHelpOnBareInvocation: false,
     handlerName: "commandSession",
-    allowedFlagKeys: Object.freeze(["json"]),
+    allowedFlagKeys: Object.freeze(["json", "abandoned", "completed", "all"]),
     inlineOptionMode: "delegate",
     allowedValueOptionNames: Object.freeze([]),
     canDelegateInlineOptions: (positional = []) => Array.isArray(positional) && positional.length > 0

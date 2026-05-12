@@ -1,12 +1,11 @@
 # App Agent Instructions
 
-Use JSKIT sessions for issue work:
+Use JSKIT sessions for issue work.
 
 - `jskit session`
 - `jskit session create`
 - `jskit session <session_id>`
 - `jskit session <session_id> step`
+- `jskit session <session_id> step --json` for tools and UIs
 
-Follow the step output. Do not invent a parallel manual workflow.
-
-If dependencies are not installed yet, run `npm install`. If this app uses local JSKIT checkout links, run `npm run devlinks` immediately afterward.
+Follow the current session step output and prompt. Do not invent a parallel manual issue workflow.
