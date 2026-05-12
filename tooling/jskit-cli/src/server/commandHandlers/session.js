@@ -4,6 +4,7 @@ import {
   adoptCodexThreadId,
   buildSessionErrorResponse,
   createSession,
+  inspectSessionDiff,
   inspectSessionDetails,
   listSessions,
   runSessionStep
@@ -51,6 +52,17 @@ function writeSessionText(stdout, payload) {
     stdout.write("\n");
     stdout.write(payload.prompt);
     stdout.write("\n");
+  }
+  if (payload.gitStatus !== undefined && payload.unstagedDiff !== undefined) {
+    stdout.write("\nGit status:\n");
+    stdout.write(payload.gitStatus || "No changes.");
+    stdout.write("\n");
+    const diff = [payload.stagedDiff, payload.unstagedDiff, payload.untrackedDiff].filter(Boolean).join("\n");
+    if (diff) {
+      stdout.write("\nDiff:\n");
+      stdout.write(diff);
+      stdout.write("\n");
+    }
   }
   if (payload.errors?.length) {
     stdout.write("Errors:\n");
@@ -135,6 +147,21 @@ async function resolveStepInputs({
   cwd,
   sessionId
 }) {
+  const issueTitle = await resolveTextInput({
+    codePrefix: "issue_title",
+    fileOption: "issue-title-file",
+    inlineOptions,
+    io,
+    repairCommand: `jskit session ${sessionId} step --issue-title "<title>" --issue -`,
+    cwd,
+    sessionId,
+    stdinOption: "-",
+    textOption: "issue-title"
+  });
+  if (issueTitle.ok === false) {
+    return issueTitle;
+  }
+
   const issue = await resolveTextInput({
     codePrefix: "issue",
     fileOption: "issue-file",
@@ -150,9 +177,26 @@ async function resolveStepInputs({
     return issue;
   }
 
+  const plan = await resolveTextInput({
+    codePrefix: "plan",
+    fileOption: "plan-file",
+    inlineOptions,
+    io,
+    repairCommand: `jskit session ${sessionId} step --plan -`,
+    cwd,
+    sessionId,
+    stdinOption: "-",
+    textOption: "plan"
+  });
+  if (plan.ok === false) {
+    return plan;
+  }
+
   return {
     issue: issue.value,
-    ok: true
+    issueTitle: issueTitle.value,
+    ok: true,
+    plan: plan.value
   };
 }
 
@@ -162,6 +206,20 @@ function normalizeStepOptions(inlineOptions = {}) {
     prompt: inlineOptions.prompt,
     userCheck: inlineOptions["user-check"] || inlineOptions.userCheck
   };
+}
+
+function resolveListArchiveOption(options = {}) {
+  const archives = [];
+  if (options.abandoned) {
+    archives.push("abandoned");
+  }
+  if (options.completed) {
+    archives.push("completed");
+  }
+  if (options.all) {
+    archives.push("all");
+  }
+  return archives.length > 0 ? archives : "active";
 }
 
 function createSessionCommands() {
@@ -178,7 +236,10 @@ function createSessionCommands() {
       let payload;
 
       if (!first) {
-        payload = await listSessions({ targetRoot: cwd });
+        payload = await listSessions({
+          targetRoot: cwd,
+          archive: resolveListArchiveOption(options)
+        });
       } else if (first === "create") {
         payload = await createSession({ targetRoot: cwd });
       } else if (second === "step") {
@@ -195,11 +256,18 @@ function createSessionCommands() {
               sessionId: first,
               options: {
                 ...normalizeStepOptions(inlineOptions),
-                issue: stepInputs.issue
+                issue: stepInputs.issue,
+                issueTitle: stepInputs.issueTitle,
+                plan: stepInputs.plan
               }
             });
       } else if (second === "abandon") {
         payload = await abandonSession({
+          targetRoot: cwd,
+          sessionId: first
+        });
+      } else if (second === "diff") {
+        payload = await inspectSessionDiff({
           targetRoot: cwd,
           sessionId: first
         });

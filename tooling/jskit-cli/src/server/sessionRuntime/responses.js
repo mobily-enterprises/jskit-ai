@@ -18,6 +18,9 @@ import {
 import {
   pathsForExistingSession
 } from "./paths.js";
+import {
+  hasWorktree
+} from "./worktrees.js";
 
 function createError({
   code,
@@ -43,15 +46,83 @@ function createPrecondition({
   });
 }
 
+const LEGACY_CURRENT_STEP_ID_ALIASES = Object.freeze({
+  implementation_changes_detected: "implementation_changes_accepted",
+  review_changes_detected: "review_changes_accepted"
+});
+
+const LEGACY_COMPLETED_STEP_ID_ALIASES = Object.freeze({
+  implementation_changes_detected: Object.freeze(["implementation_changes_accepted"]),
+  review_changes_detected: Object.freeze(["review_changes_accepted", "review_changes_committed"])
+});
+
+const LEGACY_RECEIPT_STEP_ID_ALIASES = Object.freeze({
+  implementation_changes_detected: "implementation_changes_accepted",
+  review_changes_detected: "review_changes_committed"
+});
+
+function normalizeStepId(stepId) {
+  const normalized = normalizeText(stepId);
+  return LEGACY_CURRENT_STEP_ID_ALIASES[normalized] || normalized;
+}
+
+function completedStepIdsForReceipt(stepId) {
+  const normalized = normalizeText(stepId);
+  return LEGACY_COMPLETED_STEP_ID_ALIASES[normalized] || [normalized];
+}
+
+function receiptStepId(stepId) {
+  const normalized = normalizeText(stepId);
+  return LEGACY_RECEIPT_STEP_ID_ALIASES[normalized] || normalizeStepId(normalized);
+}
+
+function stepIndex(stepId) {
+  return STEP_IDS.indexOf(normalizeStepId(stepId));
+}
+
+function normalizeKnownStepIds(stepIds = []) {
+  return Array.from(
+    new Set(
+      stepIds
+        .flatMap((stepId) => completedStepIdsForReceipt(stepId))
+        .map((stepId) => normalizeText(stepId))
+        .filter((stepId) => STEP_IDS.includes(stepId))
+    )
+  ).sort((left, right) => STEP_IDS.indexOf(left) - STEP_IDS.indexOf(right));
+}
+
+function stepCanExposeStoredPrompt(stepId) {
+  const step = STEP_DEFINITION_BY_ID[normalizeStepId(stepId)];
+  return Boolean(step?.codex || step?.kind === "human_input");
+}
+
+const PROMPT_ARTIFACT_BY_STEP_ID = Object.freeze({
+  issue_drafted: "issue_draft.md",
+  plan_made: "plan_request.md",
+  user_check_completed: "user_check.md"
+});
+
+async function readPromptForStep(paths, stepId) {
+  if (!stepCanExposeStoredPrompt(stepId)) {
+    return "";
+  }
+  const promptArtifact = PROMPT_ARTIFACT_BY_STEP_ID[normalizeStepId(stepId)];
+  if (promptArtifact) {
+    const prompt = await readTextIfExists(path.join(paths.sessionRoot, "prompts", promptArtifact));
+    if (prompt) {
+      return prompt;
+    }
+  }
+  return readTextIfExists(path.join(paths.sessionRoot, "prompt.md"));
+}
+
 async function readCompletedSteps(sessionRoot) {
   const stepsRoot = path.join(sessionRoot, "steps");
   try {
     const entries = await readdir(stepsRoot, { withFileTypes: true });
-    return entries
+    return normalizeKnownStepIds(entries
       .filter((entry) => entry.isFile())
-      .map((entry) => entry.name)
-      .filter((entry) => STEP_IDS.includes(entry))
-      .sort((left, right) => STEP_IDS.indexOf(left) - STEP_IDS.indexOf(right));
+      .map((entry) => entry.name));
   } catch {
     return [];
   }
@@ -61,12 +132,32 @@ async function readReceiptSteps(paths) {
   const stepsRoot = path.join(paths.sessionRoot, "steps");
   try {
     const entries = await readdir(stepsRoot, { withFileTypes: true });
-    const stepNames = entries
+    const knownStepRows = new Map();
+    const unknownStepRows = [];
+    entries
       .filter((entry) => entry.isFile())
       .map((entry) => entry.name)
+      .forEach((receiptName) => {
+        const stepId = receiptStepId(receiptName);
+        if (STEP_IDS.includes(stepId)) {
+          if (!knownStepRows.has(stepId) || receiptName === stepId) {
+            knownStepRows.set(stepId, {
+              receiptName,
+              stepId
+            });
+          }
+          return;
+        }
+        unknownStepRows.push({
+          receiptName,
+          stepId
+        });
+      });
+
+    const stepRows = [...knownStepRows.values(), ...unknownStepRows]
       .sort((left, right) => {
-        const leftIndex = STEP_IDS.indexOf(left);
-        const rightIndex = STEP_IDS.indexOf(right);
+        const leftIndex = stepIndex(left.stepId);
+        const rightIndex = stepIndex(right.stepId);
         if (leftIndex >= 0 && rightIndex >= 0) {
           return leftIndex - rightIndex;
         }
@@ -76,12 +167,12 @@ async function readReceiptSteps(paths) {
         if (rightIndex >= 0) {
           return 1;
         }
-        return left.localeCompare(right);
+        return left.stepId.localeCompare(right.stepId);
       });
 
-    return Promise.all(stepNames.map(async (stepId) => ({
+    return Promise.all(stepRows.map(async ({ receiptName, stepId }) => ({
       label: STEP_LABEL_BY_ID[stepId] || stepId,
-      receipt: (await readTextIfExists(path.join(stepsRoot, stepId))).trim(),
+      receipt: (await readTextIfExists(path.join(stepsRoot, receiptName))).trim(),
       stepId
     })));
   } catch {
@@ -113,7 +204,8 @@ function publicStepDefinition(step, index) {
     index,
     input: cloneContractValue(step.input),
     kind: step.kind,
-    label: step.label
+    label: step.label,
+    utilityActions: cloneContractValue(step.utilityActions || [])
   };
 }
 
@@ -132,7 +224,8 @@ function buildCurrentStepAction(stepId) {
     index: STEP_IDS.indexOf(step.id),
     input: cloneContractValue(step.input),
     kind: step.kind,
-    stepId: step.id
+    stepId: step.id,
+    utilityActions: cloneContractValue(step.utilityActions || [])
   };
 }
 
@@ -142,28 +235,51 @@ function buildCodexHandoff(stepId) {
 }
 
 async function readSessionArtifacts(paths) {
-  const [status, currentStep, issueUrl, prUrl, prompt, issueText, codexThreadId] = await Promise.all([
+  const [status, rawCurrentStep, issueUrl, prUrl, issueText, issueTitle, planText, codexThreadId] = await Promise.all([
     readTrimmedFile(path.join(paths.sessionRoot, "status")),
     readTrimmedFile(path.join(paths.sessionRoot, "current_step")),
     readTrimmedFile(path.join(paths.sessionRoot, "issue_url")),
     readTrimmedFile(path.join(paths.sessionRoot, "pr_url")),
-    readTextIfExists(path.join(paths.sessionRoot, "prompt.md")),
     readTextIfExists(path.join(paths.sessionRoot, "issue.md")),
+    readTrimmedFile(path.join(paths.sessionRoot, "issue_title")),
+    readTextIfExists(path.join(paths.sessionRoot, "plan.md")),
     readTrimmedFile(path.join(paths.sessionRoot, "codex_thread_id"))
   ]);
-  const completedSteps = await readCompletedSteps(paths.sessionRoot);
+  const currentStep = normalizeStepId(rawCurrentStep);
+  const worktreeReady = await hasWorktree(paths);
+  let completedSteps = await readCompletedSteps(paths.sessionRoot);
+  const worktreeRemovalCompleted = completedSteps.includes("pr_merged") ||
+    completedSteps.includes("worktree_removed");
+  const worktreeReceiptInvalid = !worktreeReady &&
+    completedSteps.includes("worktree_created") &&
+    !worktreeRemovalCompleted &&
+    status !== SESSION_STATUS.FINISHED &&
+    status !== SESSION_STATUS.ABANDONED;
+  if (worktreeReceiptInvalid) {
+    completedSteps = completedSteps.filter((stepId) => !["worktree_created", "dependencies_installed"].includes(stepId));
+  }
   const nextStep = resolveNextStep(completedSteps);
+  const currentStepIndex = stepIndex(currentStep);
+  const nextStepIndex = stepIndex(nextStep);
+  const effectiveCurrentStep = nextStep &&
+    (completedSteps.includes(currentStep) || currentStepIndex < 0 || currentStepIndex > nextStepIndex)
+    ? nextStep
+    : currentStep || nextStep;
+  const prompt = await readPromptForStep(paths, effectiveCurrentStep);
 
   return {
     codexThreadId,
     completedSteps,
-    currentStep: currentStep || nextStep,
+    currentStep: effectiveCurrentStep,
+    issueTitle,
     issueText: issueText.trim(),
     issueUrl,
     nextStep,
     prUrl,
+    planText: planText.trim(),
     prompt: prompt.trim(),
-    status: status || SESSION_STATUS.PENDING
+    status: status || SESSION_STATUS.PENDING,
+    worktreeReady
   };
 }
 
@@ -176,6 +292,7 @@ function buildNextCommand(sessionId, stepId) {
 }
 
 async function buildSessionResponse(paths, {
+  codex = undefined,
   ok = true,
   errors = [],
   preconditions = [],
@@ -186,7 +303,9 @@ async function buildSessionResponse(paths, {
   const artifacts = responsePaths.sessionRoot ? await readSessionArtifacts(responsePaths) : {};
   const resolvedStatus = status || artifacts.status || (ok ? SESSION_STATUS.PENDING : SESSION_STATUS.BLOCKED);
   const currentStep = artifacts.currentStep || artifacts.nextStep || "";
-  const responsePrompt = typeof prompt === "string" ? prompt : artifacts.prompt || "";
+  const responsePrompt = typeof prompt === "string"
+    ? prompt
+    : stepCanExposeStoredPrompt(currentStep) ? artifacts.prompt || "" : "";
 
   return {
     ok: ok === true,
@@ -196,16 +315,20 @@ async function buildSessionResponse(paths, {
     completedSteps: artifacts.completedSteps || [],
     stepDefinitions: buildStepDefinitions(),
     currentStepAction: buildCurrentStepAction(currentStep),
-    codex: buildCodexHandoff(currentStep),
+    codex: codex === undefined ? buildCodexHandoff(currentStep) : cloneContractValue(codex),
     prompt: responsePrompt,
     nextCommand: buildNextCommand(paths.sessionId || "", currentStep),
     issueUrl: artifacts.issueUrl || "",
+    issueTitle: artifacts.issueTitle || "",
+    issueText: artifacts.issueText || "",
+    planText: artifacts.planText || "",
     prUrl: artifacts.prUrl || "",
     preconditions,
     errors,
     archive: responsePaths.archive || (resolvedStatus === SESSION_STATUS.FINISHED ? "completed" : resolvedStatus === SESSION_STATUS.ABANDONED ? "abandoned" : "active"),
     sessionRoot: responsePaths.sessionRoot || "",
     worktree: paths.worktree || "",
+    worktreeReady: artifacts.worktreeReady === true,
     branch: paths.branch || "",
     codexThreadId: artifacts.codexThreadId || ""
   };
@@ -243,6 +366,9 @@ function buildSessionErrorResponse({
     codex: null,
     prompt: "",
     nextCommand: "",
+    issueTitle: "",
+    issueText: "",
+    planText: "",
     issueUrl: "",
     prUrl: "",
     preconditions,
@@ -250,6 +376,7 @@ function buildSessionErrorResponse({
     archive: "",
     sessionRoot: "",
     worktree: "",
+    worktreeReady: false,
     branch: "",
     codexThreadId: "",
     targetRoot: normalizedTargetRoot

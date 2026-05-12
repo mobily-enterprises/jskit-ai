@@ -13,7 +13,7 @@
 
 - [x] Add a package-owned session runtime, probably under JSKIT CLI/server code first, with clean exports for Studio later.
 - [x] Store active state in `<target-root>/.jskit/sessions/active/<session_id>/`.
-- [x] Store worktrees in `<target-root>/.jskit/sessions/worktrees/<session_id>/`.
+- [x] Store worktrees in `<target-root>/.jskit/sessions/active/<session_id>/worktree`.
 - [x] Use timestamp ids as primary ids, e.g. `2026-05-11_21-42-08`.
 - [x] Store Codex thread ids only as optional metadata in `codex_thread_id`.
 - [x] Add local exclude entry `.jskit/sessions/` to `<target-root>/.git/info/exclude`.
@@ -123,7 +123,7 @@
 - [x] `issue_drafted`: accept issue text, store `issue.md`.
 - [x] `issue_created`: call `gh issue create`, store `issue_url`.
 - [x] `implementation_prompt_rendered`: render implementation prompt with issue URL and issue text.
-- [x] `implementation_changes_detected`: verify worktree has changes.
+- [x] `implementation_changes_accepted`: verify and accept worktree changes.
 - [x] `implementation_changes_committed`: commit current worktree changes.
 - [x] `initial_review_prompt_rendered`: render review prompt.
 - [x] `initial_review_changes_detected`: detect and commit review changes, or accept no changes.

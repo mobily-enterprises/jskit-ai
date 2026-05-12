@@ -1,7 +1,7 @@
 export default Object.freeze({
   packageVersion: 1,
   packageId: "@jskit-ai/resource-core",
-  version: "0.1.16",
+  version: "0.1.17",
   kind: "runtime",
   description: "Generic resource-definition helpers and schema-definition normalization.",
   dependsOn: [
@@ -22,7 +22,7 @@ export default Object.freeze({
   mutations: {
     dependencies: {
       runtime: {
-        "@jskit-ai/resource-core": "0.1.16"
+        "@jskit-ai/resource-core": "0.1.17"
       },
       dev: {}
     },

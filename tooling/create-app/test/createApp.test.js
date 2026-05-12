@@ -407,7 +407,9 @@ test("base-shell app agent wrapper does not hardcode machine-specific jskit path
   const body = await readFile(wrapperPath, "utf8");
   assert.doesNotMatch(body, /Development\/current\/jskit-ai/);
   assert.match(body, /jskit session create/);
-  assert.match(body, /Do not invent a parallel manual workflow/);
+  assert.match(body, /Do not invent a parallel manual issue workflow/);
+  assert.doesNotMatch(body, /optional agent docs/);
+  assert.doesNotMatch(body, /If dependencies are not installed yet/);
   assert.doesNotMatch(body, /node_modules\/@jskit-ai\/agent-docs\/templates\/app\/AGENTS\.md/);
 });
 

@@ -673,6 +673,7 @@ Local functions
 - `resolveTextInput({ codePrefix, fileOption, inlineOptions = {}, io = {}, repairCommand, cwd, stdinOption, textOption, sessionId })`
 - `resolveStepInputs({ inlineOptions = {}, io = {}, cwd, sessionId })`
 - `normalizeStepOptions(inlineOptions = {})`
+- `resolveListArchiveOption(options = {})`
 
 ### `src/server/commandHandlers/shared.js`
 Exports
@@ -780,11 +781,14 @@ Exports
 - `buildSessionErrorResponse`
 - `createSession({ targetRoot = process.cwd(), sessionId = "", now = new Date() } = {})`
 - `createSessionId`
+- `extractIssueTitle(value = "")`
 - `extractIssueText(value = "")`
+- `extractPlanText(value = "")`
 - `inspectSession({ targetRoot = process.cwd(), sessionId } = {})`
+- `inspectSessionDiff({ targetRoot = process.cwd(), sessionId } = {})`
 - `inspectSessionDetails({ targetRoot = process.cwd(), sessionId } = {})`
 - `isValidSessionId`
-- `listSessions({ targetRoot = process.cwd() } = {})`
+- `listSessions({ targetRoot = process.cwd(), archive = "active" } = {})`
 - `renderTemplate`
 - `resolveSessionPaths`
 - `runSessionStep({ targetRoot = process.cwd(), sessionId, options = {} } = {})`
@@ -793,32 +797,33 @@ Local functions
 - `invalidSessionIdResponse({ targetRoot, sessionId })`
 - `existingSessionContext({ targetRoot = process.cwd(), sessionId } = {})`
 - `withExistingSession(input, handler)`
+- `extractMarkedText(value = "", marker = "")`
+- `normalizeArchiveFilter(archive = "active")`
 - `emptySessionDetails(response)`
+- `removeEmptyStaleWorktreeDirectory(paths)`
 - `createWorktree(paths, _options = {}, context = {})`
 - `renderIssuePrompt(paths, options = {})`
 - `draftIssue(paths, options = {})`
 - `titleFromIssue(issueText)`
 - `createIssue(paths, _options = {}, context = {})`
-- `renderImplementationPrompt(paths)`
+- `makePlan(paths, options = {}, context = {})`
 - `worktreeStatus(worktree)`
-- `detectChanges(paths)`
+- `untrackedFiles(worktree)`
+- `untrackedFileDiff(worktree, filePath)`
+- `untrackedFilesDiff(worktree)`
+- `acceptImplementationChanges(paths)`
 - `commitWorktree(paths, { message, allowNoChanges = false } = {})`
 - `commitImplementation(paths)`
 - `changedFilesFromLastCommit(paths)`
-- `reviewPromptStepId(passNumber)`
-- `renderReviewPrompt(paths, passNumber)`
-- `reviewChangesStepId(passNumber)`
-- `detectAndCommitReviewChanges(paths, passNumber)`
-- `userCheckStepId(passNumber)`
-- `userCheck(paths, passNumber, options = {})`
+- `renderReviewPrompt(paths)`
+- `detectAndCommitReviewChanges(paths)`
+- `userCheck(paths, options = {})`
 - `readPackageJson(root)`
 - `doctorCommandForWorktree(worktree)`
 - `runDoctor(paths)`
-- `pushBranch(paths)`
 - `issueNumberFromUrl(issueUrl)`
 - `createPr(paths)`
 - `mergePr(paths)`
-- `removeWorktree(paths)`
 - `finishSession(paths)`
 - `runNamedPreconditions(paths, names = [])`
 
@@ -827,10 +832,15 @@ Exports
 - `PROMPT_DIRECTORY`
 - `SESSION_ID_PATTERN`
 - `SESSION_STATUS`
+- `STEP_DEFINITION_BY_ID`
 - `STEP_DEFINITIONS`
 - `STEP_IDS`
 - `STEP_LABEL_BY_ID`
+- `STEP_PRECONDITION_NAMES`
 - `SESSION_STATE_RELATIVE_PATH`
+Local functions
+- `codexHandoff(expectedOutput)`
+- `defineStep({ buttonLabel, codex = undefined, description, id, input = INPUT_NONE, kind = "automatic", label, nextCommandTemplate = "jskit session {{session_id}} step", preconditions = [], utilityActions = [] })`
 
 ### `src/server/sessionRuntime/io.js`
 Exports
@@ -864,14 +874,14 @@ Exports
 - `assertGitCurrentBranch(targetRoot)`
 - `assertGitRepository(targetRoot)`
 - `assertGithubOrigin(targetRoot)`
-- `assertIssueArtifacts(paths)`
 - `assertIssueTextExists(paths)`
+- `assertIssueUrlExists(paths)`
 - `assertPrUrlExists(paths)`
 - `assertSessionExists(paths)`
 - `assertTargetRootWritable(targetRoot)`
 - `assertWorktreeExists(paths)`
 - `ensureStudioGitExclude(targetRoot)`
-- `hasWorktree(paths)`
+- `hasWorktree`
 Local functions
 - `resolveGitCommonDirectory(targetRoot)`
 
@@ -885,6 +895,7 @@ Exports
 Exports
 - `buildSessionErrorResponse({ targetRoot = process.cwd(), sessionId = "", code, message, repairCommand = "", status = SESSION_STATUS.BLOCKED, preconditions = [], errors = undefined } = {})`
 - `buildSessionResponse(paths, { ok = true, errors = [], preconditions = [], prompt = undefined, status = undefined } = {})`
+- `buildStepDefinitions()`
 - `createError({ code, message, repairCommand = "" })`
 - `createPrecondition({ id, ok, message })`
 - `failSession(paths, { code, message, repairCommand = "", preconditions = [], status = SESSION_STATUS.BLOCKED, prompt = "" })`
@@ -894,9 +905,22 @@ Exports
 - `readSessionArtifacts(paths)`
 - `writeReceipt(paths, stepId, message)`
 Local functions
+- `normalizeStepId(stepId)`
+- `stepIndex(stepId)`
+- `normalizeKnownStepIds(stepIds = [])`
+- `stepCanExposeStoredPrompt(stepId)`
 - `readCompletedSteps(sessionRoot)`
 - `resolveNextStep(completedSteps = [])`
+- `cloneContractValue(value)`
+- `publicStepDefinition(step, index)`
+- `buildCurrentStepAction(stepId)`
+- `buildCodexHandoff(stepId)`
 - `buildNextCommand(sessionId, stepId)`
+
+### `src/server/sessionRuntime/worktrees.js`
+Exports
+- `hasWorktree(paths = {})`
+- `parseGitWorktreeList(output = "")`
 
 ### `src/server/shared/cliError.js`
 Exports

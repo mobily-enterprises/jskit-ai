@@ -16,14 +16,61 @@ const SESSION_STATE_RELATIVE_PATH = ".jskit/sessions";
 const PROMPT_DIRECTORY = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "prompts");
 
 const INPUT_NONE = Object.freeze({ type: "none" });
+const ISSUE_TITLE_INPUT = Object.freeze({
+  extract: "issue_title",
+  formatHint: "text",
+  label: "Approved issue title",
+  name: "issueTitle",
+  required: true,
+  type: "text"
+});
 const ISSUE_TEXT_INPUT = Object.freeze({
   extract: "issue_text",
   formatHint: "markdown",
-  label: "Approved issue text",
+  label: "Approved issue body",
   multiline: true,
   name: "issue",
   required: true,
   type: "text"
+});
+const ISSUE_DRAFT_INPUT = Object.freeze({
+  fields: Object.freeze([
+    ISSUE_TITLE_INPUT,
+    ISSUE_TEXT_INPUT
+  ]),
+  type: "object"
+});
+const ISSUE_TITLE_OUTPUT = Object.freeze({
+  extract: "issue_title",
+  field: "issueTitle",
+  formatHint: "text",
+  label: "Issue title",
+  required: true
+});
+const ISSUE_TEXT_OUTPUT = Object.freeze({
+  extract: "issue_text",
+  field: "issue",
+  formatHint: "markdown",
+  label: "Issue body",
+  multiline: true,
+  required: true
+});
+const PLAN_INPUT = Object.freeze({
+  extract: "plan",
+  formatHint: "markdown",
+  label: "Approved plan",
+  multiline: true,
+  name: "plan",
+  required: true,
+  type: "text"
+});
+const PLAN_OUTPUT = Object.freeze({
+  extract: "plan",
+  field: "plan",
+  formatHint: "markdown",
+  label: "Plan",
+  multiline: true,
+  required: true
 });
 const USER_CHECK_INPUT = Object.freeze({
   label: "User check result",
@@ -35,18 +82,29 @@ const USER_CHECK_INPUT = Object.freeze({
   required: true,
   type: "choice"
 });
-const CODEX_WORKTREE_OUTPUT = Object.freeze({
-  field: "worktree",
-  formatHint: "git_changes"
-});
-
-function codexHandoff(expectedOutput) {
+function codexHandoff(expectedOutput, {
+  autoInject = false,
+  promptActionLabel = ""
+} = {}) {
+  const expectedOutputs = Object.freeze(Array.isArray(expectedOutput) ? [...expectedOutput] : [expectedOutput]);
   return Object.freeze({
-    expectedOutput,
+    ...(autoInject ? { autoInject: true } : {}),
+    expectedOutput: expectedOutputs[expectedOutputs.length - 1] || null,
+    expectedOutputs,
     mode: "inject_prompt",
-    promptField: "prompt"
+    promptField: "prompt",
+    ...(promptActionLabel ? { promptActionLabel } : {})
   });
 }
+
+const PLAN_EXECUTION_CODEX_HANDOFF = codexHandoff([], {
+  autoInject: true,
+  promptActionLabel: "Execute plan"
+});
+const REVIEW_EXECUTION_CODEX_HANDOFF = codexHandoff([], {
+  autoInject: true,
+  promptActionLabel: "Start review"
+});
 
 function defineStep({
   buttonLabel,
@@ -57,7 +115,8 @@ function defineStep({
   kind = "automatic",
   label,
   nextCommandTemplate = "jskit session {{session_id}} step",
-  preconditions = []
+  preconditions = [],
+  utilityActions = []
 }) {
   return Object.freeze({
     buttonLabel,
@@ -68,27 +127,35 @@ function defineStep({
     kind,
     label,
     nextCommandTemplate,
-    preconditions: Object.freeze([...preconditions])
+    preconditions: Object.freeze([...preconditions]),
+    utilityActions: Object.freeze([...utilityActions])
   });
 }
 
 const STEP_DEFINITIONS = Object.freeze([
   defineStep({
     buttonLabel: "Create session",
-    description: "Create the filesystem-backed session state.",
+    description: "Create the filesystem-backed session record.",
     id: "session_created",
     label: "Session created"
   }),
   defineStep({
     buttonLabel: "Create worktree",
-    description: "Create the isolated session worktree and branch.",
+    description: "Create the isolated branch and worktree for this session.",
     id: "worktree_created",
     label: "Worktree created",
     preconditions: ["session_exists", "git_repository", "git_current_branch"]
   }),
   defineStep({
-    buttonLabel: "Render issue prompt",
-    description: "Render the prompt Codex should use to draft the GitHub issue.",
+    buttonLabel: "Install dependencies",
+    description: "Install Node dependencies inside the session worktree before Codex starts.",
+    id: "dependencies_installed",
+    label: "Dependencies installed",
+    preconditions: ["session_exists", "worktree_exists"]
+  }),
+  defineStep({
+    buttonLabel: "Submit prompt to Codex",
+    description: "Capture the initial change request and send it to Codex to draft a GitHub issue.",
     id: "issue_prompt_rendered",
     input: Object.freeze({
       label: "What should change?",
@@ -99,20 +166,19 @@ const STEP_DEFINITIONS = Object.freeze([
       type: "text"
     }),
     kind: "human_input",
-    label: "Issue prompt rendered",
+    label: "Initial issue prompt",
     nextCommandTemplate: "jskit session {{session_id}} step --prompt \"<what should change>\"",
     preconditions: ["session_exists"]
   }),
   defineStep({
-    buttonLabel: "Save issue text",
-    codex: codexHandoff(Object.freeze({
-      extract: "issue_text",
-      field: "issue",
-      formatHint: "markdown"
-    })),
-    description: "Save the approved issue text produced by Codex.",
+    buttonLabel: "Save issue draft",
+    codex: codexHandoff([
+      ISSUE_TITLE_OUTPUT,
+      ISSUE_TEXT_OUTPUT
+    ]),
+    description: "Save the approved issue title and body drafted by Codex.",
     id: "issue_drafted",
-    input: ISSUE_TEXT_INPUT,
+    input: ISSUE_DRAFT_INPUT,
     kind: "codex_output",
     label: "Issue drafted",
     nextCommandTemplate: "jskit session {{session_id}} step --issue -",
@@ -120,113 +186,83 @@ const STEP_DEFINITIONS = Object.freeze([
   }),
   defineStep({
     buttonLabel: "Create GitHub issue",
-    description: "Create the GitHub issue with gh.",
+    description: "Create the GitHub issue from the approved draft.",
     id: "issue_created",
     label: "Issue created",
     preconditions: ["session_exists", "issue_text_exists", "github_auth", "github_origin"]
   }),
   defineStep({
-    buttonLabel: "Render implementation prompt",
-    description: "Render the prompt Codex should use to implement the approved issue.",
-    id: "implementation_prompt_rendered",
-    kind: "codex_prompt",
-    label: "Implementation prompt rendered",
-    preconditions: ["session_exists", "issue_artifacts"]
+    buttonLabel: "Execute plan",
+    codex: codexHandoff(PLAN_OUTPUT),
+    description: "Save the approved implementation plan, comment it on the GitHub issue, and submit it to Codex.",
+    id: "plan_made",
+    input: PLAN_INPUT,
+    kind: "codex_output",
+    label: "Plan execution",
+    nextCommandTemplate: "jskit session {{session_id}} step --plan -",
+    preconditions: ["session_exists", "issue_text_exists", "issue_url_exists", "worktree_exists"]
   }),
   defineStep({
-    buttonLabel: "Detect implementation changes",
-    codex: codexHandoff(CODEX_WORKTREE_OUTPUT),
-    description: "Confirm that Codex changed files in the session worktree.",
-    id: "implementation_changes_detected",
-    kind: "codex_output",
-    label: "Changes detected",
-    preconditions: ["session_exists", "worktree_exists"]
+    buttonLabel: "Accept changes",
+    description: "Review the worktree diff and accept the changes as ready to commit.",
+    id: "implementation_changes_accepted",
+    kind: "user_check",
+    label: "Changes accepted",
+    preconditions: ["session_exists", "worktree_exists"],
+    utilityActions: Object.freeze([
+      Object.freeze({
+        id: "session_diff",
+        kind: "diff",
+        label: "Review changes",
+        nextCommandTemplate: "jskit session {{session_id}} diff"
+      })
+    ])
   }),
   defineStep({
     buttonLabel: "Commit implementation",
-    description: "Commit the implementation changes in the session worktree.",
+    description: "Commit the accepted implementation changes in the session worktree.",
     id: "implementation_changes_committed",
     label: "Changes committed",
     preconditions: ["session_exists", "worktree_exists"]
   }),
   defineStep({
-    buttonLabel: "Render review prompt 1",
-    description: "Render the first Codex review prompt for the committed changes.",
-    id: "initial_review_prompt_rendered",
+    buttonLabel: "Start review",
+    description: "Submit the code review prompt to Codex for the committed changes.",
+    id: "review_prompt_rendered",
     kind: "codex_prompt",
-    label: "Review prompt rendered 1",
+    label: "Review execution",
     preconditions: ["session_exists", "worktree_exists"]
   }),
   defineStep({
-    buttonLabel: "Detect review changes 1",
-    codex: codexHandoff(CODEX_WORKTREE_OUTPUT),
-    description: "Commit any changes Codex made after the first review pass.",
-    id: "initial_review_changes_detected",
-    kind: "codex_output",
-    label: "Review changes detected 1",
+    buttonLabel: "Accept review changes",
+    description: "Review the post-review worktree diff and accept it as ready to commit.",
+    id: "review_changes_accepted",
+    kind: "user_check",
+    label: "Review changes accepted",
+    preconditions: ["session_exists", "worktree_exists"],
+    utilityActions: Object.freeze([
+      Object.freeze({
+        id: "session_diff",
+        kind: "diff",
+        label: "Review changes",
+        nextCommandTemplate: "jskit session {{session_id}} diff"
+      })
+    ])
+  }),
+  defineStep({
+    buttonLabel: "Commit review changes",
+    description: "Commit accepted review changes, or record that no review changes were needed.",
+    id: "review_changes_committed",
+    label: "Review changes committed",
     preconditions: ["session_exists", "worktree_exists"]
   }),
   defineStep({
-    buttonLabel: "Save user check 1",
-    description: "Record whether the first user check passed.",
-    id: "initial_user_check_completed",
+    buttonLabel: "Save user check",
+    description: "Record whether the user’s manual check passed.",
+    id: "user_check_completed",
     input: USER_CHECK_INPUT,
     kind: "user_check",
-    label: "User check 1",
-    nextCommandTemplate: "jskit session {{session_id}} step --user-check passed",
-    preconditions: ["session_exists"]
-  }),
-  defineStep({
-    buttonLabel: "Render review prompt 2",
-    description: "Render the second Codex review prompt for the committed changes.",
-    id: "followup_review_prompt_rendered",
-    kind: "codex_prompt",
-    label: "Review prompt rendered 2",
-    preconditions: ["session_exists", "worktree_exists"]
-  }),
-  defineStep({
-    buttonLabel: "Detect review changes 2",
-    codex: codexHandoff(CODEX_WORKTREE_OUTPUT),
-    description: "Commit any changes Codex made after the second review pass.",
-    id: "followup_review_changes_detected",
-    kind: "codex_output",
-    label: "Review changes detected 2",
-    preconditions: ["session_exists", "worktree_exists"]
-  }),
-  defineStep({
-    buttonLabel: "Save user check 2",
-    description: "Record whether the second user check passed.",
-    id: "followup_user_check_completed",
-    input: USER_CHECK_INPUT,
-    kind: "user_check",
-    label: "User check 2",
-    nextCommandTemplate: "jskit session {{session_id}} step --user-check passed",
-    preconditions: ["session_exists"]
-  }),
-  defineStep({
-    buttonLabel: "Render final review prompt",
-    description: "Render the final Codex review prompt before verification and PR.",
-    id: "final_review_prompt_rendered",
-    kind: "codex_prompt",
-    label: "Review prompt rendered 3",
-    preconditions: ["session_exists", "worktree_exists"]
-  }),
-  defineStep({
-    buttonLabel: "Detect final review changes",
-    codex: codexHandoff(CODEX_WORKTREE_OUTPUT),
-    description: "Commit any changes Codex made after the final review pass.",
-    id: "final_review_changes_detected",
-    kind: "codex_output",
-    label: "Review changes detected 3",
-    preconditions: ["session_exists", "worktree_exists"]
-  }),
-  defineStep({
-    buttonLabel: "Save final user check",
-    description: "Record whether the final user check passed.",
-    id: "final_user_check_completed",
-    input: USER_CHECK_INPUT,
-    kind: "user_check",
-    label: "User check 3",
+    label: "User check",
     nextCommandTemplate: "jskit session {{session_id}} step --user-check passed",
     preconditions: ["session_exists"]
   }),
@@ -234,36 +270,22 @@ const STEP_DEFINITIONS = Object.freeze([
     buttonLabel: "Run verification",
     description: "Run the project verification command in the session worktree.",
     id: "doctor_run",
-    label: "Doctor run",
+    label: "Verification run",
     preconditions: ["session_exists", "worktree_exists"]
   }),
   defineStep({
-    buttonLabel: "Push branch",
-    description: "Push the session branch to origin.",
-    id: "branch_pushed",
-    label: "Branch pushed",
-    preconditions: ["session_exists", "worktree_exists"]
-  }),
-  defineStep({
-    buttonLabel: "Create PR",
-    description: "Create a GitHub pull request for the session branch.",
+    buttonLabel: "Push branch and create PR",
+    description: "Push the session branch to origin and create a GitHub pull request.",
     id: "pr_created",
-    label: "PR created",
+    label: "Branch pushed, PR created",
     preconditions: ["session_exists", "worktree_exists"]
   }),
   defineStep({
-    buttonLabel: "Merge PR",
-    description: "Merge the pull request and close the GitHub issue.",
+    buttonLabel: "Merge PR and remove worktree",
+    description: "Merge the pull request, close the GitHub issue, and remove the session worktree.",
     id: "pr_merged",
-    label: "PR merged",
-    preconditions: ["session_exists", "pr_url_exists"]
-  }),
-  defineStep({
-    buttonLabel: "Remove worktree",
-    description: "Remove the session worktree after the PR has merged.",
-    id: "worktree_removed",
-    label: "Worktree removed",
-    preconditions: ["session_exists"]
+    label: "PR merged, worktree removed",
+    preconditions: ["session_exists", "pr_url_exists", "worktree_exists"]
   }),
   defineStep({
     buttonLabel: "Finish session",
@@ -292,5 +314,7 @@ export {
   STEP_IDS,
   STEP_LABEL_BY_ID,
   STEP_PRECONDITION_NAMES,
+  PLAN_EXECUTION_CODEX_HANDOFF,
+  REVIEW_EXECUTION_CODEX_HANDOFF,
   SESSION_STATE_RELATIVE_PATH
 };
