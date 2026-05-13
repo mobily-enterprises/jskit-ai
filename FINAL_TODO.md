@@ -769,6 +769,7 @@ Goal: update Studio only after JSKIT JSON supports the workflow.
 
 - [ ] A user can start a session from Studio and never manually copy prompts unless they choose manual mode.
 - [ ] The session asks for detailed issue information before planning.
+- [ ] The accepted details are saved as `plan_details.md`.
 - [ ] CRUD details are captured before planning when relevant.
 - [ ] Issue category and UI impact are saved and visible.
 - [ ] The plan reads plan details, blueprint, helper map, and decisions.
@@ -779,7 +780,9 @@ Goal: update Studio only after JSKIT JSON supports the workflow.
 - [ ] Failed checks are repairable without arbitrary state jumping.
 - [ ] The blueprint is updated before final verification and PR creation.
 - [ ] Final report is created and commented on the GitHub issue.
+- [ ] GitHub issue comments are idempotent on rerun.
 - [ ] Helper map still updates inside PR creation.
+- [ ] Mutating repair/review/UI steps cannot leave unowned dirty changes before advancing.
 - [ ] Studio renders all new state from JSKIT JSON.
 - [ ] Completed sessions archive all important artifacts.
 - [ ] Old long AGENTS/workboard workflow does not come back.
