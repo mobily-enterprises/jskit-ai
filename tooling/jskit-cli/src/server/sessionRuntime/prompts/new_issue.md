@@ -2,13 +2,14 @@ Create a GitHub issue from this user request:
 
 {{user_input}}
 
-First inspect the local app enough to understand the request in context. This issue-drafting step is read-only.
+First inspect the local app enough to understand the request in context. App setup has already passed before this prompt is rendered; treat this as a ready JSKIT app. This issue-drafting step is read-only.
 
 Allowed inspection:
 
 - Read files with commands such as `pwd`, `ls`, `find`, `rg`, `cat`, `sed`, and `git status`.
-- Read package.json, config, .jskit metadata, routes, packages, source files, and any saved app blueprint when available.
-- Classify the current app state as empty, non_jskit_repo, partial_jskit_app, or jskit_app before assuming ordinary feature work is possible.
+- Read package.json, `.jskit/lock.json`, config, routes, packages, source files, `.jskit/APP_BLUEPRINT.md`, and `.jskit/helper-map.md` when available.
+- Use non-mutating JSKIT inspection commands when available and relevant: `jskit list`, `jskit show <package> --details`, and `jskit list-placements`.
+- If the filesystem contradicts a ready JSKIT app, stop and report that app setup must be rerun. Do not draft a recovery issue inside this session.
 
 Do not run workflow, repair, or mutation commands during issue drafting:
 
@@ -21,7 +22,6 @@ Draft an implementation-ready issue, not a broad product essay.
 
 Preserve these JSKIT boundaries:
 
-- If the app is empty or a partial JSKIT app, the issue should be about bootstrap or recovery before feature implementation.
 - If platform choices are still provisional, make the issue resolve those choices before installing tenancy-sensitive packages.
 - Do not ask the developer to redesign standard JSKIT package-owned workflows from scratch. Treat selected package workflows as defaults unless the request asks for overrides, restrictions, or custom additions.
 - For persisted app-owned data, prefer generated/package ownership over direct hand-built persistence. A new ordinary table should usually become a server CRUD-owned entity before CRUD UI or route work.

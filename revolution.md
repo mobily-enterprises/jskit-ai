@@ -1,5 +1,7 @@
 # JSKIT Session Revolution Plan
 
+Current tracker: `FINAL_TODO.md` is the active implementation checklist for the post-Studio session workflow. This file records the original revolution milestone and remains useful background, but new work should be tracked in `FINAL_TODO.md`.
+
 ## Core Direction
 
 - [x] Define the new source of truth: `jskit session` becomes the only supported issue workflow contract.

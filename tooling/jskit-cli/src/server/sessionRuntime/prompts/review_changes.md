@@ -1,5 +1,7 @@
 Review changes for session {{session_id}}.
 
+Review pass: {{review_pass_number}} of {{review_pass_limit}}.
+
 Changed files from the latest commit:
 
 {{changed_files}}
@@ -42,4 +44,4 @@ Use four passes:
 
 Do not create commits, branches, pull requests, merges, or worktree cleanup yourself. JSKIT session owns those steps.
 
-When finished, report findings ordered by severity, fixes made, changed files, checks run, and anything still unverified. If there are no important findings, say so explicitly and list residual risk.
+When finished, report findings ordered by severity, fixes made, changed files, checks run, and anything still unverified. If important findings remain after this pass, say exactly what remains so JSKIT Studio can request another review pass. If there are no important findings, say so explicitly and list residual risk.

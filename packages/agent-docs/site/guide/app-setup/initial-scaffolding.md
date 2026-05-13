@@ -28,6 +28,19 @@ npm install
 
 After that promotion, the overwritten app `AGENTS.md` stays deliberately small. Use `jskit session` for issue-driven work; session state and prompts live under `.jskit/sessions/` in the target app.
 
+Issue sessions are executable workflow state, not prose instructions. The important durable files are:
+
+- `issue.md` and `issue_title` for the approved GitHub issue.
+- `plan_details.md` for the confirmed implementation details gathered before planning.
+- `plan.md` for the approved implementation plan.
+- `agent_decisions.md` for concise decisions and why they were made.
+- `.jskit/APP_BLUEPRINT.md` for durable app/product/architecture memory that grows across issues.
+- `review_passes/`, `checks/`, `ui_checks/`, and `command_log.jsonl` for review, verification, UI check, and command receipts.
+
+The Deep UI Check steps use the saved issue classification: server-only work can be skipped with a receipt, possible UI work can be skipped only with an explicit reason, and definite UI work must run. If the User Check fails, JSKIT starts a new cycle under `cycles/cycle_###/` and cycle-scoped receipts under `steps/cycle_###/`; do not delete older cycle receipts.
+
+Studio and other tools should read `jskit session <session_id> --json` rather than scraping those files directly. Manual agents should follow the current `jskit session <session_id> step` output and avoid recreating the old workboard workflow.
+
 After creating the real app scaffolding (the base shell, not the seed wrapper), you will need to run `npm install` to install dependencies.
 
 If you already know you want a small non-workspace baseline right after the scaffold, this is the shortest reproducible path:

@@ -1,6 +1,20 @@
 User check for session {{session_id}}.
 
+Issue: {{issue_url}}
+Issue title: {{issue_title}}
+Issue body file: {{issue_file}}
+Plan details file (`plan_details.md`): {{plan_details_file}}
+Plan file (`plan.md`): {{plan_file}}
+
 The code should already be built or runnable according to the implementation instructions.
+
+Confirmed plan details:
+
+{{plan_details_text}}
+
+Approved plan:
+
+{{plan_text}}
 
 Ask the user to test the changed behavior in the app and report whether it works as intended. Be specific about the user-visible behavior, route, command, or workflow to inspect.
 

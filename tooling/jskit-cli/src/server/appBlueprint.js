@@ -28,7 +28,7 @@ function resolveAppBlueprintPaths(targetRoot = process.cwd()) {
 function extractAppBlueprintText(value = "") {
   const text = normalizeText(value);
   const match = /\[app_blueprint\]([\s\S]*?)\[\/app_blueprint\]/u.exec(text);
-  return normalizeText(match ? match[1] : text);
+  return normalizeText(match ? match[1] : "");
 }
 
 async function readAppPromptTemplate(paths, templateName) {
