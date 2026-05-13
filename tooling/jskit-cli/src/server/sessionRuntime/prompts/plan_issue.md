@@ -8,7 +8,7 @@ Issue title file: {{issue_title_file}}
 Plan file to create: {{plan_file}}
 Worktree: {{worktree}}
 
-Read the issue and inspect the local app before planning. Use the issue files, package.json, .jskit metadata, config, packages, routes, generated references, package docs, and any saved app blueprint when available.
+Read the issue and inspect the local app before planning. Use the issue files, package.json, .jskit metadata, config, packages, routes, generated references, package docs, any saved app blueprint, and `.jskit/helper-map.md` when available.
 
 Start by identifying the app state and the implementation lane:
 
@@ -31,6 +31,7 @@ Planning rules:
 - Do not hand-build CRUD routes, CRUD endpoints, or CRUD page trees before the server CRUD package and shared resource file exist.
 - `feature-server-generator` is for non-CRUD workflows and orchestration, not ordinary persisted entity tables.
 - Keep runtime, UI, and data concerns separated.
+- Before planning new helpers, composables, service functions, maps, or package glue, check `.jskit/helper-map.md` when it exists and prefer existing entries.
 - Keep direct knex exceptional and minimal. Prefer internal json-rest-api seams outside generated CRUD packages and explicit weird-custom feature lanes.
 - For package-owned baseline workflows, plan to install and verify the baseline before inventing custom code around it.
 - For user-facing UI, include Material/Vuetify quality expectations and a Playwright verification path.

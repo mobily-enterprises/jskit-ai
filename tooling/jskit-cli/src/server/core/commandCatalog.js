@@ -288,6 +288,44 @@ const COMMAND_DESCRIPTORS = Object.freeze({
       return subcommand === "prompt" || subcommand === "set";
     }
   }),
+  "helper-map": Object.freeze({
+    command: "helper-map",
+    aliases: Object.freeze([]),
+    showInOverview: true,
+    summary: "Read or update the generated app helper map.",
+    minimalUse: "jskit helper-map update",
+    parameters: Object.freeze([
+      Object.freeze({
+        name: "[update]",
+        description: "Without a subcommand, prints the saved helper map. update refreshes .jskit/helper-map files."
+      })
+    ]),
+    defaults: Object.freeze([
+      "The helper map is generated app state, not a hand-maintained workflow file.",
+      "The JSON file lives at .jskit/helper-map.json and the readable map lives at .jskit/helper-map.md.",
+      "Use the map before adding helpers, composables, service functions, maps, or package glue.",
+      "Use --json for a stable machine-readable response."
+    ]),
+    examples: Object.freeze([
+      Object.freeze({
+        label: "Refresh helper map",
+        lines: Object.freeze([
+          "jskit helper-map update",
+          "jskit helper-map --json"
+        ])
+      })
+    ]),
+    fullUse: "jskit helper-map [update] [--json]",
+    showHelpOnBareInvocation: false,
+    handlerName: "commandHelperMap",
+    allowedFlagKeys: Object.freeze(["json"]),
+    inlineOptionMode: "delegate",
+    allowedValueOptionNames: Object.freeze([]),
+    canDelegateInlineOptions: (positional = []) => {
+      const subcommand = String(Array.isArray(positional) ? positional[0] || "" : "").trim();
+      return subcommand === "update";
+    }
+  }),
   add: Object.freeze({
     command: "add",
     aliases: Object.freeze([]),

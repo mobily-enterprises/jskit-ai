@@ -2,7 +2,20 @@ Create a GitHub issue from this user request:
 
 {{user_input}}
 
-First inspect the local app enough to understand the request in context. Use package.json, config, .jskit metadata, routes, packages, and any saved app blueprint when available. Classify the current app state as empty, non_jskit_repo, partial_jskit_app, or jskit_app before assuming ordinary feature work is possible.
+First inspect the local app enough to understand the request in context. This issue-drafting step is read-only.
+
+Allowed inspection:
+
+- Read files with commands such as `pwd`, `ls`, `find`, `rg`, `cat`, `sed`, and `git status`.
+- Read package.json, config, .jskit metadata, routes, packages, source files, and any saved app blueprint when available.
+- Classify the current app state as empty, non_jskit_repo, partial_jskit_app, or jskit_app before assuming ordinary feature work is possible.
+
+Do not run workflow, repair, or mutation commands during issue drafting:
+
+- Do not run `jskit session`, `jskit session step`, or any command that advances a JSKIT session.
+- Do not run `gh`, `git add`, `git commit`, `git push`, `npm install`, generators, tests, verification, devlinks, or doctor commands.
+- Do not try to fix missing PATH entries or missing command shims. If a tool is unavailable, continue with read-only file inspection.
+- Do not edit files.
 
 Draft an implementation-ready issue, not a broad product essay.
 

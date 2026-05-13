@@ -46,34 +46,8 @@ function createPrecondition({
   });
 }
 
-const LEGACY_CURRENT_STEP_ID_ALIASES = Object.freeze({
-  implementation_changes_detected: "implementation_changes_accepted",
-  review_changes_detected: "review_changes_accepted"
-});
-
-const LEGACY_COMPLETED_STEP_ID_ALIASES = Object.freeze({
-  implementation_changes_detected: Object.freeze(["implementation_changes_accepted"]),
-  review_changes_detected: Object.freeze(["review_changes_accepted", "review_changes_committed"])
-});
-
-const LEGACY_RECEIPT_STEP_ID_ALIASES = Object.freeze({
-  implementation_changes_detected: "implementation_changes_accepted",
-  review_changes_detected: "review_changes_committed"
-});
-
 function normalizeStepId(stepId) {
-  const normalized = normalizeText(stepId);
-  return LEGACY_CURRENT_STEP_ID_ALIASES[normalized] || normalized;
-}
-
-function completedStepIdsForReceipt(stepId) {
-  const normalized = normalizeText(stepId);
-  return LEGACY_COMPLETED_STEP_ID_ALIASES[normalized] || [normalized];
-}
-
-function receiptStepId(stepId) {
-  const normalized = normalizeText(stepId);
-  return LEGACY_RECEIPT_STEP_ID_ALIASES[normalized] || normalizeStepId(normalized);
+  return normalizeText(stepId);
 }
 
 function stepIndex(stepId) {
@@ -84,7 +58,6 @@ function normalizeKnownStepIds(stepIds = []) {
   return Array.from(
     new Set(
       stepIds
-        .flatMap((stepId) => completedStepIdsForReceipt(stepId))
         .map((stepId) => normalizeText(stepId))
         .filter((stepId) => STEP_IDS.includes(stepId))
     )
@@ -98,7 +71,9 @@ function stepCanExposeStoredPrompt(stepId) {
 
 const PROMPT_ARTIFACT_BY_STEP_ID = Object.freeze({
   issue_drafted: "issue_draft.md",
+  plan_executed: "plan_execution.md",
   plan_made: "plan_request.md",
+  plan_fine_tuning: "plan_fine_tuning.md",
   user_check_completed: "user_check.md"
 });
 
@@ -138,7 +113,7 @@ async function readReceiptSteps(paths) {
       .filter((entry) => entry.isFile())
       .map((entry) => entry.name)
       .forEach((receiptName) => {
-        const stepId = receiptStepId(receiptName);
+        const stepId = normalizeStepId(receiptName);
         if (STEP_IDS.includes(stepId)) {
           if (!knownStepRows.has(stepId) || receiptName === stepId) {
             knownStepRows.set(stepId, {

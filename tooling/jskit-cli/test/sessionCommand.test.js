@@ -118,10 +118,12 @@ async function createGitApp(root, { withRemote = false } = {}) {
   runGit(root, ["config", "user.email", "test@example.com"]);
   runGit(root, ["add", "package.json"]);
   runGit(root, ["commit", "-m", "Initial commit"]);
+  runGit(root, ["branch", "-M", "main"]);
   if (withRemote) {
     const remoteRoot = path.join(path.dirname(root), "github.com", "example", "repo.git");
     runGit(path.dirname(root), ["init", "--bare", remoteRoot]);
     runGit(root, ["remote", "add", "origin", remoteRoot]);
+    runGit(root, ["push", "-u", "origin", "main"]);
   }
 }
 
@@ -145,6 +147,7 @@ async function installFakeGh(binDir, logPath) {
     binDir,
     "gh",
     `#!/usr/bin/env node
+const childProcess = require("node:child_process");
 const fs = require("node:fs");
 const args = process.argv.slice(2);
 fs.appendFileSync(${JSON.stringify(logPath)}, ["gh", ...args].join(" ") + "\\n");
@@ -158,7 +161,31 @@ if (args[0] === "pr" && args[1] === "create") {
   console.log("https://github.com/example/repo/pull/456");
   process.exit(0);
 }
-if (args[0] === "pr" && args[1] === "merge") process.exit(0);
+if (args[0] === "pr" && args[1] === "view") {
+  console.log(JSON.stringify({ baseRefName: "main", state: "OPEN", mergedAt: "", url: args[2] }));
+  process.exit(0);
+}
+if (args[0] === "pr" && args[1] === "merge") {
+  const git = (gitArgs) => childProcess.spawnSync("git", gitArgs, {
+    cwd: process.cwd(),
+    encoding: "utf8"
+  });
+  git(["fetch", "origin"]);
+  const branches = git(["branch", "-r", "--format=%(refname:short)"]).stdout
+    .split(/\\r?\\n/u)
+    .map((line) => line.trim())
+    .filter(Boolean);
+  const sessionBranch = branches.find((branch) => branch.startsWith("origin/jskit-studio/"));
+  if (sessionBranch) {
+    const rev = git(["rev-parse", sessionBranch]).stdout.trim();
+    const push = git(["push", "origin", rev + ":refs/heads/main"]);
+    if (push.status !== 0) {
+      console.error(push.stderr || push.stdout);
+      process.exit(push.status || 1);
+    }
+  }
+  process.exit(0);
+}
 console.error("unexpected gh args", args.join(" "));
 process.exit(1);
 `
@@ -242,7 +269,7 @@ test("jskit session JSON exposes JSKIT-owned step UI and Codex handoff contract"
 
     const { promptReadyPayload, worktreePayload } = advanceCliSessionToIssuePrompt(appRoot, created.sessionId);
     assert.equal(worktreePayload.currentStepAction.buttonLabel, "Install dependencies");
-    assert.equal(promptReadyPayload.currentStepAction.buttonLabel, "Submit prompt to Codex");
+    assert.equal(promptReadyPayload.currentStepAction.buttonLabel, "Set initial prompt");
     assert.equal(promptReadyPayload.currentStepAction.index, 3);
     assert.equal(promptReadyPayload.currentStepAction.input.name, "prompt");
     assert.equal(promptReadyPayload.nextCommand, `jskit session ${created.sessionId} step --prompt "<what should change>"`);
@@ -460,6 +487,9 @@ test("jskit session step creates worktree and issue prompt", async () => {
     assert.equal(promptPayload.status, "waiting_for_user");
     assert.equal(promptPayload.currentStep, "issue_drafted");
     assert.match(promptPayload.prompt, /Add customer search/);
+    assert.match(promptPayload.prompt, /This issue-drafting step is read-only/);
+    assert.match(promptPayload.prompt, /Do not run `jskit session`/);
+    assert.match(promptPayload.prompt, /Do not run `gh`, `git add`, `git commit`, `git push`, `npm install`/);
     assert.match(promptPayload.prompt, /\[issue_title\]/);
     assert.match(promptPayload.prompt, /\[issue_text\]/);
     assert.match(
@@ -590,7 +620,7 @@ test("jskit session accepts issue text from stdin and creates a GitHub issue wit
     assert.equal(issueCreated.issueUrl, "https://github.com/example/repo/issues/123");
     assert.equal(issueCreated.currentStep, "plan_made");
     assert.equal(issueCreated.prompt, "");
-    assert.equal(issueCreated.currentStepAction.buttonLabel, "Execute plan");
+    assert.equal(issueCreated.currentStepAction.buttonLabel, "Save plan");
     assert.match(await readFile(logPath, "utf8"), /gh issue create --title Fix useful filters --body-file/);
 
     const planPrompt = runSessionStepJson(appRoot, created.sessionId, { env });
@@ -607,18 +637,38 @@ test("jskit session accepts issue text from stdin and creates a GitHub issue wit
       args: ["--plan", "[plan]\nInspect filters and update the UI.\n[/plan]"],
       env
     });
-    assert.equal(planMade.currentStep, "implementation_changes_accepted");
-    assert.equal(planMade.currentStepAction.buttonLabel, "Accept changes");
-    assert.equal(planMade.currentStepAction.utilityActions[0].kind, "diff");
+    assert.equal(planMade.currentStep, "plan_executed");
+    assert.equal(planMade.currentStepAction.buttonLabel, "Get Codex to execute plan");
     assert.equal(planMade.planText, "Inspect filters and update the UI.");
     assert.ok(planMade.completedSteps.includes("plan_made"));
-    assert.match(planMade.prompt, /Execute the approved implementation plan/);
+    assert.equal(planMade.prompt, "");
     assert.match(await readFile(path.join(planMade.sessionRoot, "plan.md"), "utf8"), /Inspect filters/);
+
+    const executed = runSessionStepJson(appRoot, created.sessionId, { env });
+    assert.equal(executed.currentStep, "plan_fine_tuning");
+    assert.equal(executed.currentStepAction.buttonLabel, "Get Codex to fine tune plan");
+    assert.equal(executed.codex.autoInject, true);
+    assert.equal(executed.codex.promptActionLabel, "Get Codex to execute plan");
+    assert.ok(executed.completedSteps.includes("plan_executed"));
+    assert.match(executed.prompt, /Execute the approved implementation plan/);
     assert.match(
-      await readFile(path.join(planMade.sessionRoot, "prompts", "plan_execution.md"), "utf8"),
+      await readFile(path.join(executed.sessionRoot, "prompts", "plan_execution.md"), "utf8"),
       /Execute the approved implementation plan/
     );
-    await assert.rejects(access(path.join(planMade.sessionRoot, "prompt.md")));
+
+    const fineTuning = runSessionStepJson(appRoot, created.sessionId, { env });
+    assert.equal(fineTuning.currentStep, "implementation_changes_accepted");
+    assert.equal(fineTuning.currentStepAction.buttonLabel, "Accept changes");
+    assert.equal(fineTuning.currentStepAction.utilityActions[0].kind, "diff");
+    assert.equal(fineTuning.codex.autoInject, true);
+    assert.equal(fineTuning.codex.promptActionLabel, "Get Codex to fine tune plan");
+    assert.ok(fineTuning.completedSteps.includes("plan_fine_tuning"));
+    assert.match(fineTuning.prompt, /Fine-tune the implementation/);
+    assert.match(
+      await readFile(path.join(fineTuning.sessionRoot, "prompts", "plan_fine_tuning.md"), "utf8"),
+      /Fine-tune the implementation/
+    );
+    await assert.rejects(access(path.join(fineTuning.sessionRoot, "prompt.md")));
     assert.match(await readFile(logPath, "utf8"), /gh issue comment https:\/\/github\.com\/example\/repo\/issues\/123 --body-file/);
   });
 });
@@ -757,68 +807,6 @@ process.exit(1);
   });
 });
 
-test("jskit session maps legacy change-detection receipts to renamed change steps", async () => {
-  await withTempDir(async (cwd) => {
-    const appRoot = path.join(cwd, "legacy");
-    await createGitApp(appRoot);
-
-    const created = await createSession({ targetRoot: appRoot });
-    await runSessionStep({
-      targetRoot: appRoot,
-      sessionId: created.sessionId
-    });
-    await writeStepReceipts(
-      created.sessionRoot,
-      STEP_IDS.slice(0, STEP_IDS.indexOf("implementation_changes_accepted"))
-    );
-    await writeFile(
-      path.join(created.sessionRoot, "steps", "implementation_changes_detected"),
-      "2026-05-11T00:00:00.000Z\nDetected 1 changed file entries.\n",
-      "utf8"
-    );
-    await writeFile(path.join(created.sessionRoot, "current_step"), "implementation_changes_detected\n", "utf8");
-
-    const inspected = parseJsonResult(runCli({ cwd: appRoot, args: ["session", created.sessionId, "--json"] }));
-    assert.equal(inspected.currentStep, "implementation_changes_committed");
-    assert.ok(inspected.completedSteps.includes("implementation_changes_accepted"));
-
-    const details = await inspectSessionDetails({
-      targetRoot: appRoot,
-      sessionId: created.sessionId
-    });
-    assert.ok(details.receipts.some((receipt) => receipt.stepId === "implementation_changes_accepted"));
-
-    const reviewRoot = path.join(cwd, "legacy-review");
-    await createGitApp(reviewRoot);
-    const reviewSession = await createSession({ targetRoot: reviewRoot });
-    await runSessionStep({
-      targetRoot: reviewRoot,
-      sessionId: reviewSession.sessionId
-    });
-    await writeStepReceipts(
-      reviewSession.sessionRoot,
-      STEP_IDS.slice(0, STEP_IDS.indexOf("review_changes_accepted"))
-    );
-    await writeFile(
-      path.join(reviewSession.sessionRoot, "steps", "review_changes_detected"),
-      "2026-05-11T00:00:00.000Z\nNo review changes detected.\n",
-      "utf8"
-    );
-    await writeFile(path.join(reviewSession.sessionRoot, "current_step"), "review_changes_detected\n", "utf8");
-
-    const reviewInspected = parseJsonResult(runCli({ cwd: reviewRoot, args: ["session", reviewSession.sessionId, "--json"] }));
-    assert.equal(reviewInspected.currentStep, "user_check_completed");
-    assert.ok(reviewInspected.completedSteps.includes("review_changes_accepted"));
-    assert.ok(reviewInspected.completedSteps.includes("review_changes_committed"));
-
-    const reviewDetails = await inspectSessionDetails({
-      targetRoot: reviewRoot,
-      sessionId: reviewSession.sessionId
-    });
-    assert.ok(reviewDetails.receipts.some((receipt) => receipt.stepId === "review_changes_committed"));
-  });
-});
-
 test("jskit session diff inspects worktree changes without advancing the session", async () => {
   await withTempDir(async (cwd) => {
     const appRoot = path.join(cwd, "app");
@@ -875,15 +863,35 @@ test("jskit session can execute review loop, doctor, PR, merge, cleanup, and fin
       args: ["--plan", "[plan]\nImplement the page.\n[/plan]"],
       env
     });
-    assert.equal(planMade.currentStep, "implementation_changes_accepted");
-    assert.equal(planMade.currentStepAction.buttonLabel, "Accept changes");
-    assert.equal(planMade.codex.autoInject, true);
-    assert.equal(planMade.codex.promptActionLabel, "Execute plan");
-    assert.match(planMade.prompt, /Execute the approved implementation plan/);
+    assert.equal(planMade.currentStep, "plan_executed");
+    assert.equal(planMade.currentStepAction.buttonLabel, "Get Codex to execute plan");
+    assert.equal(planMade.prompt, "");
     assert.ok(planMade.completedSteps.includes("plan_made"));
+    const executed = runSessionStepJson(appRoot, created.sessionId, { env });
+    assert.equal(executed.currentStep, "plan_fine_tuning");
+    assert.equal(executed.currentStepAction.buttonLabel, "Get Codex to fine tune plan");
+    assert.equal(executed.codex.autoInject, true);
+    assert.equal(executed.codex.promptActionLabel, "Get Codex to execute plan");
+    assert.match(executed.prompt, /Execute the approved implementation plan/);
+    assert.ok(executed.completedSteps.includes("plan_executed"));
+    const fineTuning = runSessionStepJson(appRoot, created.sessionId, { env });
+    assert.equal(fineTuning.currentStep, "implementation_changes_accepted");
+    assert.equal(fineTuning.currentStepAction.buttonLabel, "Accept changes");
+    assert.equal(fineTuning.codex.autoInject, true);
+    assert.equal(fineTuning.codex.promptActionLabel, "Get Codex to fine tune plan");
+    assert.match(fineTuning.prompt, /Fine-tune the implementation/);
+    assert.ok(fineTuning.completedSteps.includes("plan_fine_tuning"));
 
     const inspect = parseJsonResult(runCli({ cwd: appRoot, args: ["session", created.sessionId, "--json"], env }));
     await writeFile(path.join(inspect.worktree, "feature.txt"), "hello\\n", "utf8");
+    await mkdir(path.join(inspect.worktree, "src", "lib"), {
+      recursive: true
+    });
+    await writeFile(
+      path.join(inspect.worktree, "src", "lib", "formatFeatureTitle.js"),
+      "export function formatFeatureTitle(value) {\n  return String(value).trim();\n}\n",
+      "utf8"
+    );
     const accepted = runSessionStepJson(appRoot, created.sessionId, { env });
     assert.equal(accepted.currentStep, "implementation_changes_committed");
     assert.equal(accepted.prompt, "");
@@ -922,8 +930,16 @@ test("jskit session can execute review loop, doctor, PR, merge, cleanup, and fin
     runSessionStepJson(appRoot, created.sessionId, { env });
     const pr = runSessionStepJson(appRoot, created.sessionId, { env });
     assert.equal(pr.prUrl, "https://github.com/example/repo/pull/456");
+    const helperMap = JSON.parse(await readFile(path.join(inspect.worktree, ".jskit", "helper-map.json"), "utf8"));
+    assert.ok(helperMap.app.files.some((file) => {
+      return file.path === "src/lib/formatFeatureTitle.js" &&
+        file.exports.some((symbol) => symbol.name === "formatFeatureTitle");
+    }));
+    assert.match(runGit(inspect.worktree, ["log", "--oneline", "--max-count=3"]), /Update JSKIT helper map/);
     const merged = runSessionStepJson(appRoot, created.sessionId, { env });
     assert.equal(merged.currentStep, "session_finished");
+    assert.equal(await readFile(path.join(appRoot, "feature.txt"), "utf8"), "hello\\n");
+    assert.match(await readFile(path.join(appRoot, ".jskit", "helper-map.md"), "utf8"), /formatFeatureTitle/);
     await assert.rejects(access(inspect.worktree));
     const finished = runSessionStepJson(appRoot, created.sessionId, { env });
 
@@ -945,8 +961,107 @@ test("jskit session can execute review loop, doctor, PR, merge, cleanup, and fin
     const log = await readFile(logPath, "utf8");
     assert.match(log, /npm run verify:local/);
     assert.match(log, /gh pr create/);
+    assert.match(log, /gh pr view https:\/\/github\.com\/example\/repo\/pull\/456 --json state,mergedAt,url,baseRefName/);
     assert.match(log, /gh pr merge https:\/\/github\.com\/example\/repo\/pull\/456 --merge --delete-branch/);
     assert.match(log, /gh issue comment https:\/\/github\.com\/example\/repo\/issues\/123 --body-file/);
+  });
+});
+
+test("jskit session treats an already-merged PR as merged and removes the worktree", async () => {
+  await withTempDir(async (cwd) => {
+    const appRoot = path.join(cwd, "app");
+    const binDir = path.join(cwd, "bin");
+    const logPath = path.join(cwd, "commands.log");
+    await createGitApp(appRoot, { withRemote: true });
+    await installFakeCommand(
+      binDir,
+      "gh",
+      `#!/usr/bin/env node
+const fs = require("node:fs");
+const args = process.argv.slice(2);
+fs.appendFileSync(${JSON.stringify(logPath)}, ["gh", ...args].join(" ") + "\\n");
+if (args[0] === "auth" && args[1] === "status") process.exit(0);
+if (args[0] === "issue" && args[1] === "close") process.exit(0);
+if (args[0] === "pr" && args[1] === "view") {
+  console.log(JSON.stringify({ baseRefName: "main", state: "MERGED", mergedAt: "2026-05-12T16:22:32Z", url: args[2] }));
+  process.exit(0);
+}
+if (args[0] === "pr" && args[1] === "merge") {
+  console.error("merge should not run for an already-merged PR");
+  process.exit(1);
+}
+console.error("unexpected gh args", args.join(" "));
+process.exit(1);
+`
+    );
+    const env = {
+      PATH: `${binDir}${path.delimiter}${process.env.PATH || ""}`
+    };
+
+    const created = parseJsonResult(runCli({ cwd: appRoot, args: ["session", "create", "--json"], env }));
+    const worktreePayload = parseJsonResult(runCli({ cwd: appRoot, args: ["session", created.sessionId, "step", "--json"], env }));
+    await writeStepReceipts(
+      worktreePayload.sessionRoot,
+      STEP_IDS.slice(0, STEP_IDS.indexOf("pr_merged"))
+    );
+    await writeFile(path.join(worktreePayload.sessionRoot, "issue_url"), "https://github.com/example/repo/issues/123\n", "utf8");
+    await writeFile(path.join(worktreePayload.sessionRoot, "pr_url"), "https://github.com/example/repo/pull/456\n", "utf8");
+
+    const merged = parseJsonResult(runCli({ cwd: appRoot, args: ["session", created.sessionId, "step", "--json"], env }));
+    assert.equal(merged.currentStep, "session_finished");
+    assert.ok(merged.completedSteps.includes("pr_merged"));
+    await assert.rejects(access(worktreePayload.worktree));
+    const log = await readFile(logPath, "utf8");
+    assert.match(log, /gh pr view https:\/\/github\.com\/example\/repo\/pull\/456 --json state,mergedAt,url,baseRefName/);
+    assert.doesNotMatch(log, /gh pr merge/);
+    assert.match(log, /gh issue close https:\/\/github\.com\/example\/repo\/issues\/123/);
+  });
+});
+
+test("jskit session blocks PR merge cleanup when the target root is dirty", async () => {
+  await withTempDir(async (cwd) => {
+    const appRoot = path.join(cwd, "app");
+    const binDir = path.join(cwd, "bin");
+    const logPath = path.join(cwd, "commands.log");
+    await createGitApp(appRoot, { withRemote: true });
+    await installFakeCommand(
+      binDir,
+      "gh",
+      `#!/usr/bin/env node
+const fs = require("node:fs");
+const args = process.argv.slice(2);
+fs.appendFileSync(${JSON.stringify(logPath)}, ["gh", ...args].join(" ") + "\\n");
+if (args[0] === "auth" && args[1] === "status") process.exit(0);
+if (args[0] === "pr" && args[1] === "view") {
+  console.log(JSON.stringify({ baseRefName: "main", state: "MERGED", mergedAt: "2026-05-12T16:22:32Z", url: args[2] }));
+  process.exit(0);
+}
+console.error("unexpected gh args", args.join(" "));
+process.exit(1);
+`
+    );
+    const env = {
+      PATH: `${binDir}${path.delimiter}${process.env.PATH || ""}`
+    };
+
+    const created = parseJsonResult(runCli({ cwd: appRoot, args: ["session", "create", "--json"], env }));
+    const worktreePayload = parseJsonResult(runCli({ cwd: appRoot, args: ["session", created.sessionId, "step", "--json"], env }));
+    await writeStepReceipts(
+      worktreePayload.sessionRoot,
+      STEP_IDS.slice(0, STEP_IDS.indexOf("pr_merged"))
+    );
+    await writeFile(path.join(worktreePayload.sessionRoot, "issue_url"), "https://github.com/example/repo/issues/123\n", "utf8");
+    await writeFile(path.join(worktreePayload.sessionRoot, "pr_url"), "https://github.com/example/repo/pull/456\n", "utf8");
+    await writeFile(path.join(appRoot, "local-change.txt"), "dirty\n", "utf8");
+
+    const blocked = parseJsonFailure(runCli({ cwd: appRoot, args: ["session", created.sessionId, "step", "--json"], env }));
+    assert.equal(blocked.errors[0].code, "target_root_dirty");
+    await access(worktreePayload.worktree);
+    await assert.rejects(access(path.join(worktreePayload.sessionRoot, "steps", "pr_merged")));
+    const log = await readFile(logPath, "utf8");
+    assert.match(log, /gh pr view https:\/\/github\.com\/example\/repo\/pull\/456 --json state,mergedAt,url,baseRefName/);
+    assert.doesNotMatch(log, /gh pr merge/);
+    assert.doesNotMatch(log, /gh issue close/);
   });
 });
 

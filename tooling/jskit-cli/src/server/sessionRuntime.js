@@ -7,6 +7,7 @@ import {
 import path from "node:path";
 import {
   PLAN_EXECUTION_CODEX_HANDOFF,
+  PLAN_FINE_TUNING_CODEX_HANDOFF,
   REVIEW_EXECUTION_CODEX_HANDOFF,
   SESSION_STATUS,
   STEP_DEFINITIONS,
@@ -52,6 +53,7 @@ import {
   assertGithubOrigin,
   assertIssueTextExists,
   assertIssueUrlExists,
+  assertPlanTextExists,
   assertPrUrlExists,
   assertSessionExists,
   assertTargetRootWritable,
@@ -63,6 +65,10 @@ import {
   renderPrompt,
   renderTemplate
 } from "./sessionRuntime/promptRenderer.js";
+import {
+  HELPER_MAP_JSON_RELATIVE_PATH,
+  HELPER_MAP_MARKDOWN_RELATIVE_PATH
+} from "./helperMapPaths.js";
 
 function invalidSessionIdError(sessionId = "") {
   return createError({
@@ -556,6 +562,21 @@ async function makePlan(paths, options = {}, context = {}) {
       preconditions
     });
   }
+  await writeReceipt(paths, "plan_made", `Saved plan and commented on ${issueUrl}.`);
+  await markStatus(paths, SESSION_STATUS.RUNNING);
+  return buildSessionResponse(paths, {
+    preconditions
+  });
+}
+
+async function renderPlanExecutionPrompt(paths, _options = {}, context = {}) {
+  const preconditions = context.preconditions || [];
+  const issueText = await readTrimmedFile(path.join(paths.sessionRoot, "issue.md"));
+  const issueTitle = await readTrimmedFile(path.join(paths.sessionRoot, "issue_title")) || titleFromIssue(issueText);
+  const issueUrl = await readTrimmedFile(path.join(paths.sessionRoot, "issue_url"));
+  const issueNumber = issueNumberFromUrl(issueUrl);
+  const planPath = path.join(paths.sessionRoot, "plan.md");
+  const planText = await readTrimmedFile(planPath);
   const executionPrompt = await renderPrompt(paths, "execute_plan.md", {
     issue_file: path.join(paths.sessionRoot, "issue.md"),
     issue_number: issueNumber,
@@ -566,12 +587,40 @@ async function makePlan(paths, options = {}, context = {}) {
     worktree: paths.worktree
   });
   await writePromptArtifact(paths, "plan_execution.md", executionPrompt);
-  await writeReceipt(paths, "plan_made", `Saved plan and commented on ${issueUrl}.`);
+  await writeReceipt(paths, "plan_executed", "Started plan execution with Codex.");
   await markStatus(paths, SESSION_STATUS.WAITING_FOR_USER);
   return buildSessionResponse(paths, {
     codex: PLAN_EXECUTION_CODEX_HANDOFF,
     preconditions,
     prompt: executionPrompt,
+    status: SESSION_STATUS.WAITING_FOR_USER
+  });
+}
+
+async function renderPlanFineTuningPrompt(paths, _options = {}, context = {}) {
+  const preconditions = context.preconditions || [];
+  const issueText = await readTrimmedFile(path.join(paths.sessionRoot, "issue.md"));
+  const issueTitle = await readTrimmedFile(path.join(paths.sessionRoot, "issue_title")) || titleFromIssue(issueText);
+  const issueUrl = await readTrimmedFile(path.join(paths.sessionRoot, "issue_url"));
+  const issueNumber = issueNumberFromUrl(issueUrl);
+  const planPath = path.join(paths.sessionRoot, "plan.md");
+  const planText = await readTrimmedFile(planPath);
+  const fineTuningPrompt = await renderPrompt(paths, "fine_tune_plan.md", {
+    issue_file: path.join(paths.sessionRoot, "issue.md"),
+    issue_number: issueNumber,
+    issue_title: issueTitle,
+    issue_url: issueUrl,
+    plan_file: planPath,
+    plan_text: planText,
+    worktree: paths.worktree
+  });
+  await writePromptArtifact(paths, "plan_fine_tuning.md", fineTuningPrompt);
+  await writeReceipt(paths, "plan_fine_tuning", "Started plan fine tuning with Codex.");
+  await markStatus(paths, SESSION_STATUS.WAITING_FOR_USER);
+  return buildSessionResponse(paths, {
+    codex: PLAN_FINE_TUNING_CODEX_HANDOFF,
+    preconditions,
+    prompt: fineTuningPrompt,
     status: SESSION_STATUS.WAITING_FOR_USER
   });
 }
@@ -905,7 +954,262 @@ function issueNumberFromUrl(issueUrl) {
   return match ? match[1] : "";
 }
 
+function parseJsonObject(value) {
+  try {
+    const parsed = JSON.parse(String(value || ""));
+    return parsed && typeof parsed === "object" && !Array.isArray(parsed) ? parsed : null;
+  } catch {
+    return null;
+  }
+}
+
+async function readPrState(paths, prUrl) {
+  const result = await runCommand("gh", ["pr", "view", prUrl, "--json", "state,mergedAt,url,baseRefName"], {
+    cwd: paths.targetRoot,
+    timeout: 1000 * 60
+  });
+  if (!result.ok) {
+    return {
+      ok: false,
+      output: result.output
+    };
+  }
+  const payload = parseJsonObject(result.stdout);
+  return {
+    baseRefName: normalizeText(payload?.baseRefName),
+    mergedAt: payload?.mergedAt || "",
+    ok: Boolean(payload),
+    output: result.output,
+    state: String(payload?.state || "").toUpperCase(),
+    url: payload?.url || prUrl
+  };
+}
+
+function prStateIsMerged(prState) {
+  return Boolean(prState?.ok && prState.state === "MERGED");
+}
+
+async function currentTargetBranch(targetRoot) {
+  const result = await runGit(targetRoot, ["branch", "--show-current"], {
+    timeout: 15000
+  });
+  return result.ok ? normalizeText(result.stdout) : "";
+}
+
+async function assertTargetRootCleanForBaseUpdate(paths) {
+  const status = await runGit(paths.targetRoot, ["status", "--porcelain=v1"], {
+    timeout: 15000
+  });
+  if (!status.ok) {
+    return failSession(paths, {
+      code: "target_root_status_failed",
+      message: status.output || "Failed to inspect target root git status before updating the local base branch.",
+      repairCommand: `git -C ${paths.targetRoot} status --short`
+    });
+  }
+  if (status.stdout.trim()) {
+    return failSession(paths, {
+      code: "target_root_dirty",
+      message: "Target root has uncommitted changes; JSKIT cannot update the local base branch after merging the PR.",
+      repairCommand: `git -C ${paths.targetRoot} status --short`
+    });
+  }
+  return null;
+}
+
+async function assertTargetRootCanUpdateBase(paths, branch) {
+  const cleanFailure = await assertTargetRootCleanForBaseUpdate(paths);
+  if (cleanFailure) {
+    return cleanFailure;
+  }
+
+  const currentBranch = await currentTargetBranch(paths.targetRoot);
+  if (currentBranch !== branch) {
+    return failSession(paths, {
+      code: "target_branch_mismatch",
+      message: `Target root is on branch ${currentBranch || "(detached)"}, but the merged PR targets ${branch}. JSKIT will not merge origin/${branch} into the wrong branch.`,
+      repairCommand: `git -C ${paths.targetRoot} switch ${branch} && git -C ${paths.targetRoot} pull --ff-only origin ${branch}`
+    });
+  }
+
+  return null;
+}
+
+async function assertTargetBaseCanFastForward(paths, branch) {
+  const branchFailure = await assertTargetRootCanUpdateBase(paths, branch);
+  if (branchFailure) {
+    return branchFailure;
+  }
+
+  const fetchResult = await runGit(paths.targetRoot, ["fetch", "origin"], {
+    timeout: 1000 * 60 * 5
+  });
+  if (!fetchResult.ok) {
+    return failSession(paths, {
+      code: "target_fetch_failed",
+      message: fetchResult.output || `Failed to fetch origin before checking local ${branch}.`,
+      repairCommand: `git -C ${paths.targetRoot} fetch origin`
+    });
+  }
+
+  const remoteBranch = `origin/${branch}`;
+  const remoteExists = await runGit(paths.targetRoot, ["rev-parse", "--verify", remoteBranch], {
+    timeout: 15000
+  });
+  if (!remoteExists.ok) {
+    return failSession(paths, {
+      code: "target_remote_branch_missing",
+      message: `Remote base branch ${remoteBranch} does not exist; JSKIT cannot safely update local ${branch} after merge.`,
+      repairCommand: `git -C ${paths.targetRoot} fetch origin`
+    });
+  }
+
+  const ancestor = await runGit(paths.targetRoot, ["merge-base", "--is-ancestor", branch, remoteBranch], {
+    timeout: 15000
+  });
+  if (!ancestor.ok) {
+    return failSession(paths, {
+      code: "target_branch_not_fast_forwardable",
+      message: `Local ${branch} is not an ancestor of ${remoteBranch}; JSKIT will not merge the PR while the local base branch has diverged.`,
+      repairCommand: `git -C ${paths.targetRoot} pull --ff-only origin ${branch}`
+    });
+  }
+
+  return null;
+}
+
+async function updateLocalBaseBranch(paths, baseBranch = "") {
+  const branch = normalizeText(baseBranch) || await currentTargetBranch(paths.targetRoot);
+  if (!branch) {
+    return failSession(paths, {
+      code: "target_branch_missing",
+      message: "Target root is not on a named branch; JSKIT cannot update the local base branch after merging the PR.",
+      repairCommand: `git -C ${paths.targetRoot} branch --show-current`
+    });
+  }
+
+  const branchFailure = await assertTargetRootCanUpdateBase(paths, branch);
+  if (branchFailure) {
+    return branchFailure;
+  }
+
+  const fetchResult = await runGit(paths.targetRoot, ["fetch", "origin"], {
+    timeout: 1000 * 60 * 5
+  });
+  if (!fetchResult.ok) {
+    return failSession(paths, {
+      code: "target_fetch_failed",
+      message: fetchResult.output || `Failed to fetch origin before updating local ${branch}.`,
+      repairCommand: `git -C ${paths.targetRoot} fetch origin`
+    });
+  }
+
+  const pullResult = await runGit(paths.targetRoot, ["pull", "--ff-only", "origin", branch], {
+    timeout: 1000 * 60 * 5
+  });
+  if (!pullResult.ok) {
+    return failSession(paths, {
+      code: "target_pull_failed",
+      message: pullResult.output || `Failed to fast-forward local ${branch} after merging the PR.`,
+      repairCommand: `git -C ${paths.targetRoot} pull --ff-only origin ${branch}`
+    });
+  }
+
+  await writeTextFile(path.join(paths.sessionRoot, "local_base_updated"), `${branch}\n${pullResult.output}\n`);
+  return null;
+}
+
+async function updateHelperMapBeforePr(paths) {
+  let helperMapPayload;
+  try {
+    const { updateHelperMap } = await import("./helperMap.js");
+    helperMapPayload = await updateHelperMap({
+      targetRoot: paths.worktree
+    });
+  } catch (error) {
+    return {
+      ok: false,
+      code: "helper_map_update_failed",
+      message: String(error?.message || error),
+      repairCommand: `git -C ${paths.worktree} status --short`
+    };
+  }
+
+  const statusResult = await runGitInWorktree(paths.worktree, [
+    "status",
+    "--porcelain=v1",
+    "--",
+    HELPER_MAP_JSON_RELATIVE_PATH,
+    HELPER_MAP_MARKDOWN_RELATIVE_PATH
+  ], {
+    timeout: 15000
+  });
+  if (!statusResult.ok) {
+    return {
+      ok: false,
+      code: "helper_map_status_failed",
+      message: statusResult.output || "Failed to inspect helper-map Git status.",
+      repairCommand: `git -C ${paths.worktree} status --short -- ${HELPER_MAP_JSON_RELATIVE_PATH} ${HELPER_MAP_MARKDOWN_RELATIVE_PATH}`
+    };
+  }
+
+  if (!statusResult.stdout.trim()) {
+    return {
+      ok: true,
+      changed: false,
+      message: "Helper map already up to date."
+    };
+  }
+
+  const addResult = await runGitInWorktree(paths.worktree, [
+    "add",
+    HELPER_MAP_JSON_RELATIVE_PATH,
+    HELPER_MAP_MARKDOWN_RELATIVE_PATH
+  ], {
+    timeout: 15000
+  });
+  if (!addResult.ok) {
+    return {
+      ok: false,
+      code: "helper_map_add_failed",
+      message: addResult.output || "Failed to stage helper-map files.",
+      repairCommand: `git -C ${paths.worktree} add ${HELPER_MAP_JSON_RELATIVE_PATH} ${HELPER_MAP_MARKDOWN_RELATIVE_PATH}`
+    };
+  }
+
+  const commitResult = await runGitInWorktree(paths.worktree, [
+    "commit",
+    "-m",
+    `Update JSKIT helper map for ${paths.sessionId}`
+  ], {
+    timeout: 1000 * 60
+  });
+  if (!commitResult.ok) {
+    return {
+      ok: false,
+      code: "helper_map_commit_failed",
+      message: commitResult.output || "Failed to commit helper-map update.",
+      repairCommand: `git -C ${paths.worktree} commit -m "Update JSKIT helper map for ${paths.sessionId}"`
+    };
+  }
+
+  return {
+    ok: true,
+    changed: true,
+    message: `Updated helper map at ${path.relative(paths.worktree, helperMapPayload.helperMapMarkdownPath)}.`
+  };
+}
+
 async function createPr(paths) {
+  const helperMapResult = await updateHelperMapBeforePr(paths);
+  if (!helperMapResult.ok) {
+    return failSession(paths, {
+      code: helperMapResult.code,
+      message: helperMapResult.message,
+      repairCommand: helperMapResult.repairCommand
+    });
+  }
+
   const pushResult = await runGitInWorktree(paths.worktree, ["push", "-u", "origin", "HEAD"], {
     timeout: 1000 * 60 * 5
   });
@@ -952,7 +1256,7 @@ async function createPr(paths) {
   }
   const prUrl = result.stdout.split(/\r?\n/u).map((line) => line.trim()).find(Boolean) || result.stdout;
   await writeTextFile(path.join(paths.sessionRoot, "pr_url"), prUrl);
-  await writeReceipt(paths, "pr_created", `Pushed branch ${paths.branch} and created PR ${prUrl}.`);
+  await writeReceipt(paths, "pr_created", `Pushed branch ${paths.branch} and created PR ${prUrl}. ${helperMapResult.message}`);
   await markStatus(paths, SESSION_STATUS.RUNNING);
   return buildSessionResponse(paths);
 }
@@ -960,20 +1264,40 @@ async function createPr(paths) {
 async function mergePr(paths) {
   const prUrl = await readTrimmedFile(path.join(paths.sessionRoot, "pr_url"));
   const mergeMarkerPath = path.join(paths.sessionRoot, "pr_merge_completed");
+  const baseBranchPath = path.join(paths.sessionRoot, "pr_base_branch");
   const mergeAlreadyCompleted = await readTrimmedFile(mergeMarkerPath);
+  let baseBranch = await readTrimmedFile(baseBranchPath);
   if (!mergeAlreadyCompleted) {
-    const mergeResult = await runCommand("gh", ["pr", "merge", prUrl, "--merge", "--delete-branch"], {
-      cwd: paths.worktree,
-      timeout: 1000 * 60 * 5
-    });
-    if (!mergeResult.ok) {
+    const existingPrState = await readPrState(paths, prUrl);
+    baseBranch = existingPrState.baseRefName || baseBranch || await currentTargetBranch(paths.targetRoot);
+    if (baseBranch) {
+      await writeTextFile(baseBranchPath, `${baseBranch}\n`);
+    }
+    const baseFailure = await assertTargetBaseCanFastForward(paths, baseBranch);
+    if (baseFailure) {
+      return baseFailure;
+    }
+    let prMerged = prStateIsMerged(existingPrState);
+    let mergeResult = null;
+    if (!prMerged) {
+      mergeResult = await runCommand("gh", ["pr", "merge", prUrl, "--merge", "--delete-branch"], {
+        cwd: paths.targetRoot,
+        timeout: 1000 * 60 * 5
+      });
+      if (!mergeResult.ok) {
+        prMerged = prStateIsMerged(await readPrState(paths, prUrl));
+      } else {
+        prMerged = true;
+      }
+    }
+    if (!prMerged) {
       const prompt = await renderPrompt(paths, "pr_failure.md", {
-        doctor_output: mergeResult.output
+        doctor_output: mergeResult?.output || existingPrState.output
       });
       await writePromptArtifact(paths, "pr_merge_failure.md", prompt);
       return failSession(paths, {
         code: "pr_merge_failed",
-        message: mergeResult.output || "Failed to merge PR.",
+        message: mergeResult?.output || existingPrState.output || "Failed to merge PR.",
         repairCommand: `gh pr merge ${prUrl} --merge --delete-branch`,
         prompt
       });
@@ -981,11 +1305,15 @@ async function mergePr(paths) {
     const issueUrl = await readTrimmedFile(path.join(paths.sessionRoot, "issue_url"));
     if (issueUrl) {
       await runCommand("gh", ["issue", "close", issueUrl, "--comment", `Merged PR ${prUrl}.`], {
-        cwd: paths.worktree,
+        cwd: paths.targetRoot,
         timeout: 1000 * 60
       });
     }
     await writeTextFile(mergeMarkerPath, `${prUrl}\n`);
+  }
+  const updateFailure = await updateLocalBaseBranch(paths, baseBranch);
+  if (updateFailure) {
+    return updateFailure;
   }
   if (await hasWorktree(paths)) {
     const result = await runGit(paths.targetRoot, ["worktree", "remove", paths.worktree], {
@@ -999,7 +1327,7 @@ async function mergePr(paths) {
       });
     }
   }
-  await writeReceipt(paths, "pr_merged", `Merged PR ${prUrl} and removed worktree ${paths.worktree}.`);
+  await writeReceipt(paths, "pr_merged", `Merged PR ${prUrl}, updated local ${baseBranch || "base branch"}, and removed worktree ${paths.worktree}.`);
   await markStatus(paths, SESSION_STATUS.RUNNING);
   return buildSessionResponse(paths);
 }
@@ -1037,6 +1365,8 @@ const STEP_RUNNERS = Object.freeze({
   issue_drafted: draftIssue,
   issue_created: createIssue,
   plan_made: makePlan,
+  plan_executed: renderPlanExecutionPrompt,
+  plan_fine_tuning: renderPlanFineTuningPrompt,
   implementation_changes_accepted: acceptImplementationChanges,
   implementation_changes_committed: commitImplementation,
   review_prompt_rendered: renderReviewPrompt,
@@ -1056,6 +1386,7 @@ const PRECONDITION_RUNNERS = Object.freeze({
   github_origin: (paths) => assertGithubOrigin(paths.targetRoot),
   issue_text_exists: assertIssueTextExists,
   issue_url_exists: assertIssueUrlExists,
+  plan_text_exists: assertPlanTextExists,
   pr_url_exists: assertPrUrlExists,
   session_exists: assertSessionExists,
   worktree_exists: assertWorktreeExists

@@ -1,0 +1,7 @@
+const HELPER_MAP_JSON_RELATIVE_PATH = ".jskit/helper-map.json";
+const HELPER_MAP_MARKDOWN_RELATIVE_PATH = ".jskit/helper-map.md";
+
+export {
+  HELPER_MAP_JSON_RELATIVE_PATH,
+  HELPER_MAP_MARKDOWN_RELATIVE_PATH
+};

@@ -99,7 +99,11 @@ function codexHandoff(expectedOutput, {
 
 const PLAN_EXECUTION_CODEX_HANDOFF = codexHandoff([], {
   autoInject: true,
-  promptActionLabel: "Execute plan"
+  promptActionLabel: "Get Codex to execute plan"
+});
+const PLAN_FINE_TUNING_CODEX_HANDOFF = codexHandoff([], {
+  autoInject: true,
+  promptActionLabel: "Get Codex to fine tune plan"
 });
 const REVIEW_EXECUTION_CODEX_HANDOFF = codexHandoff([], {
   autoInject: true,
@@ -154,8 +158,8 @@ const STEP_DEFINITIONS = Object.freeze([
     preconditions: ["session_exists", "worktree_exists"]
   }),
   defineStep({
-    buttonLabel: "Submit prompt to Codex",
-    description: "Capture the initial change request and send it to Codex to draft a GitHub issue.",
+    buttonLabel: "Set initial prompt",
+    description: "Capture the initial change request and prepare the Codex issue-drafting prompt.",
     id: "issue_prompt_rendered",
     input: Object.freeze({
       label: "What should change?",
@@ -192,15 +196,31 @@ const STEP_DEFINITIONS = Object.freeze([
     preconditions: ["session_exists", "issue_text_exists", "github_auth", "github_origin"]
   }),
   defineStep({
-    buttonLabel: "Execute plan",
+    buttonLabel: "Save plan",
     codex: codexHandoff(PLAN_OUTPUT),
-    description: "Save the approved implementation plan, comment it on the GitHub issue, and submit it to Codex.",
+    description: "Save the approved implementation plan and comment it on the GitHub issue.",
     id: "plan_made",
     input: PLAN_INPUT,
     kind: "codex_output",
-    label: "Plan execution",
+    label: "Plan made",
     nextCommandTemplate: "jskit session {{session_id}} step --plan -",
     preconditions: ["session_exists", "issue_text_exists", "issue_url_exists", "worktree_exists"]
+  }),
+  defineStep({
+    buttonLabel: "Get Codex to execute plan",
+    description: "Submit the approved implementation plan to Codex for the first implementation pass.",
+    id: "plan_executed",
+    kind: "codex_prompt",
+    label: "Plan executed",
+    preconditions: ["session_exists", "issue_text_exists", "issue_url_exists", "plan_text_exists", "worktree_exists"]
+  }),
+  defineStep({
+    buttonLabel: "Get Codex to fine tune plan",
+    description: "Submit the current implementation to Codex for refinement after the first implementation pass.",
+    id: "plan_fine_tuning",
+    kind: "codex_prompt",
+    label: "Plan fine tuning",
+    preconditions: ["session_exists", "issue_text_exists", "issue_url_exists", "plan_text_exists", "worktree_exists"]
   }),
   defineStep({
     buttonLabel: "Accept changes",
@@ -281,10 +301,10 @@ const STEP_DEFINITIONS = Object.freeze([
     preconditions: ["session_exists", "worktree_exists"]
   }),
   defineStep({
-    buttonLabel: "Merge PR and remove worktree",
-    description: "Merge the pull request, close the GitHub issue, and remove the session worktree.",
+    buttonLabel: "Merge PR, update base, remove worktree",
+    description: "Merge the pull request, close the GitHub issue, fast-forward the local base branch, and remove the session worktree.",
     id: "pr_merged",
-    label: "PR merged, worktree removed",
+    label: "PR merged, base updated, worktree removed",
     preconditions: ["session_exists", "pr_url_exists", "worktree_exists"]
   }),
   defineStep({
@@ -315,6 +335,7 @@ export {
   STEP_LABEL_BY_ID,
   STEP_PRECONDITION_NAMES,
   PLAN_EXECUTION_CODEX_HANDOFF,
+  PLAN_FINE_TUNING_CODEX_HANDOFF,
   REVIEW_EXECUTION_CODEX_HANDOFF,
   SESSION_STATE_RELATIVE_PATH
 };
