@@ -6,9 +6,14 @@ import { AuthWebServiceProvider } from "../src/server/providers/AuthWebServicePr
 
 function createFastifyStub() {
   const routes = [];
+  const hooks = [];
   return {
+    hooks,
     routes,
     errorHandler: null,
+    addHook(name, handler) {
+      hooks.push({ name, handler });
+    },
     route(definition) {
       routes.push(definition);
     },

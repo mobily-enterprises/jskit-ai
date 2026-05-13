@@ -192,18 +192,118 @@ async function resolveStepInputs({
     return plan;
   }
 
+  const planDetails = await resolveTextInput({
+    codePrefix: "plan_details",
+    fileOption: "plan-details-file",
+    inlineOptions,
+    io,
+    repairCommand: `jskit session ${sessionId} step --plan-details -`,
+    cwd,
+    sessionId,
+    stdinOption: "-",
+    textOption: "plan-details"
+  });
+  if (planDetails.ok === false) {
+    return planDetails;
+  }
+
+  const reworkNotes = await resolveTextInput({
+    codePrefix: "rework_notes",
+    fileOption: "rework-notes-file",
+    inlineOptions,
+    io,
+    repairCommand: `jskit session ${sessionId} step --user-check failed --rework-notes -`,
+    cwd,
+    sessionId,
+    stdinOption: "-",
+    textOption: "rework-notes"
+  });
+  if (reworkNotes.ok === false) {
+    return reworkNotes;
+  }
+
+  const skipReason = await resolveTextInput({
+    codePrefix: "skip_reason",
+    fileOption: "skip-reason-file",
+    inlineOptions,
+    io,
+    repairCommand: `jskit session ${sessionId} step --skip-ui-check --skip-reason "<reason>"`,
+    cwd,
+    sessionId,
+    stdinOption: "-",
+    textOption: "skip-reason"
+  });
+  if (skipReason.ok === false) {
+    return skipReason;
+  }
+
+  const agentDecisions = await resolveTextInput({
+    codePrefix: "agent_decisions",
+    fileOption: "agent-decisions-file",
+    inlineOptions,
+    io,
+    repairCommand: `jskit session ${sessionId} step --agent-decisions -`,
+    cwd,
+    sessionId,
+    stdinOption: "-",
+    textOption: "agent-decisions"
+  });
+  if (agentDecisions.ok === false) {
+    return agentDecisions;
+  }
+
+  const closeReason = await resolveTextInput({
+    codePrefix: "close_reason",
+    fileOption: "close-reason-file",
+    inlineOptions,
+    io,
+    repairCommand: `jskit session ${sessionId} step --close-without-merge --close-reason "<reason>"`,
+    cwd,
+    sessionId,
+    stdinOption: "-",
+    textOption: "close-reason"
+  });
+  if (closeReason.ok === false) {
+    return closeReason;
+  }
+
+  const blueprint = await resolveTextInput({
+    codePrefix: "blueprint",
+    fileOption: "blueprint-file",
+    inlineOptions,
+    io,
+    repairCommand: `jskit session ${sessionId} step --blueprint -`,
+    cwd,
+    sessionId,
+    stdinOption: "-",
+    textOption: "blueprint"
+  });
+  if (blueprint.ok === false) {
+    return blueprint;
+  }
+
   return {
+    agentDecisions: agentDecisions.value,
+    blueprint: blueprint.value,
+    closeReason: closeReason.value,
     issue: issue.value,
     issueTitle: issueTitle.value,
     ok: true,
-    plan: plan.value
+    plan: plan.value,
+    planDetails: planDetails.value,
+    reworkNotes: reworkNotes.value,
+    skipReason: skipReason.value
   };
 }
 
 function normalizeStepOptions(inlineOptions = {}) {
   return {
     ...inlineOptions,
+    closeWithoutMerge: inlineOptions["close-without-merge"] === "true" || inlineOptions.closeWithoutMerge === true,
     prompt: inlineOptions.prompt,
+    reviewFindings: inlineOptions["review-findings"] || inlineOptions.reviewFindings,
+    reviewFindingsRemaining: inlineOptions["review-findings-remaining"] === "true" || inlineOptions.reviewFindingsRemaining === true,
+    skipUiCheck: inlineOptions["skip-ui-check"] === "true" || inlineOptions.skipUiCheck === true,
     userCheck: inlineOptions["user-check"] || inlineOptions.userCheck
   };
 }
@@ -258,7 +358,13 @@ function createSessionCommands() {
                 ...normalizeStepOptions(inlineOptions),
                 issue: stepInputs.issue,
                 issueTitle: stepInputs.issueTitle,
-                plan: stepInputs.plan
+                plan: stepInputs.plan,
+                planDetails: stepInputs.planDetails,
+                reworkNotes: stepInputs.reworkNotes,
+                skipReason: stepInputs.skipReason,
+                agentDecisions: stepInputs.agentDecisions,
+                closeReason: stepInputs.closeReason,
+                blueprint: stepInputs.blueprint
               }
             });
       } else if (second === "abandon") {

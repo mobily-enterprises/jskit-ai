@@ -4,18 +4,24 @@ GitHub issue: {{issue_url}}
 Issue number: {{issue_number}}
 Issue title: {{issue_title}}
 Issue body file: {{issue_file}}
-Plan file: {{plan_file}}
+Plan details file (`plan_details.md`): {{plan_details_file}}
+Plan file (`plan.md`): {{plan_file}}
 Worktree: {{worktree}}
+
+Confirmed plan details:
+
+{{plan_details_text}}
 
 Approved plan:
 
 {{plan_text}}
 
-Implement the plan in the session worktree. Keep the change scoped to the issue and approved plan.
+Implement the plan in the session worktree. Keep the change scoped to the issue, confirmed plan details, and approved plan.
 
 Implementation rules:
 
-- Inspect the current app before editing. Do not assume a JSKIT app shape without checking files.
+- Inspect the current app before editing. App setup has already passed; if required JSKIT app files are missing, report setup failure rather than inventing recovery work.
+- Follow both `{{plan_details_file}}` and `{{plan_file}}`. If they disagree, ask for clarification before changing files.
 - Read `.jskit/helper-map.md` when it exists before creating helpers, composables, service functions, maps, or package glue.
 - Prefer existing JSKIT helpers, app-local helpers, package runtime seams, generated scaffolds, and documented generators over new local helpers.
 - If the plan calls for a generator or package install, use the planned `jskit` command unless inspection proves it does not apply. If you skip a generator, explain the exact gap.
@@ -36,5 +42,12 @@ After making changes:
 - Run the smallest relevant checks you can run safely in the worktree.
 - For changed user-facing UI, run or clearly identify the Playwright verification path. When possible, record UI verification with `jskit app verify-ui --command "<playwright command>" --feature "<label>" --auth-mode <mode>`.
 - Summarize changed files and checks run.
+- If implementation deviated from the approved plan, generator choices, package ownership, helper reuse, UI verification path, or data ownership, include concise decision entries with reasons in this exact marker block:
+
+```text
+[agent_decisions]
+<implementation decisions or "No new decisions.">
+[/agent_decisions]
+```
 
 Do not create commits, branches, issues, pull requests, merges, or worktree cleanup yourself. JSKIT session will handle those steps.

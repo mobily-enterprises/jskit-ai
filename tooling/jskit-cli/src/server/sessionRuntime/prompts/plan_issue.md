@@ -5,14 +5,24 @@ Issue number: {{issue_number}}
 Issue title: {{issue_title}}
 Issue body file: {{issue_file}}
 Issue title file: {{issue_title_file}}
-Plan file to create: {{plan_file}}
+Plan details file (`plan_details.md`): {{plan_details_file}}
+Agent decisions file (`agent_decisions.md`): {{agent_decisions_file}}
+App blueprint file (`.jskit/APP_BLUEPRINT.md`): {{app_blueprint_file}}
+Plan file to create (`plan.md`): {{plan_file}}
 Worktree: {{worktree}}
 
-Read the issue and inspect the local app before planning. Use the issue files, package.json, .jskit metadata, config, packages, routes, generated references, package docs, any saved app blueprint, and `.jskit/helper-map.md` when available.
+Read the issue, confirmed plan details, agent decisions, and local app before planning. Use the issue files, plan details file, package.json, .jskit metadata, config, packages, routes, generated references, package docs, any saved app blueprint, and `.jskit/helper-map.md` when available.
 
-Start by identifying the app state and the implementation lane:
+Confirmed implementation details:
 
-- empty, non_jskit_repo, partial_jskit_app, or jskit_app
+{{plan_details_text}}
+
+Known decisions:
+
+{{agent_decisions_text}}
+
+Start by identifying the implementation lane:
+
 - package install
 - generator scaffolding
 - custom local code
@@ -21,6 +31,7 @@ Start by identifying the app state and the implementation lane:
 Planning rules:
 
 - Keep the plan scoped to the issue. Avoid "while I am here" work.
+- Follow the confirmed plan details and preserve the issue category and UI impact in the plan. If details are insufficient, say exactly what is missing instead of inventing foundational details.
 - Prefer vertical slices that produce visible or end-to-end progress.
 - If the work is too broad to review confidently, split it into clear chunks.
 - Make generator decisions concrete. Name the exact `jskit` commands to run when a generator or package install applies.
@@ -42,10 +53,14 @@ If setup values are needed, ask plainly using exact env var or option names. For
 
 If the issue is not clear enough to plan safely, ask the user concise follow-up questions first.
 
-When the plan is ready, output only the final plan surrounded by these exact markers:
+When the plan is ready, output only the final plan and any new decisions surrounded by these exact markers:
 
 [plan]
 <implementation plan in Markdown>
 [/plan]
 
-Keep the plan concrete and implementation-oriented. Include the likely files or areas to touch, ordered steps, generator commands to consider, review expectations, and checks that should be run.
+[agent_decisions]
+<new planning decisions with reasons, or "No new decisions.">
+[/agent_decisions]
+
+Keep the plan concrete and implementation-oriented. Include the issue category, UI impact, likely files or areas to touch, ordered steps, generator commands to consider, review expectations, and checks that should be run.
