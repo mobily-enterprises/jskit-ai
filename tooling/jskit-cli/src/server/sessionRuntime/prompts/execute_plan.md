@@ -7,12 +7,17 @@ Issue body file: {{issue_file}}
 Plan file: {{plan_file}}
 Worktree: {{worktree}}
 
+Approved plan:
+
+{{plan_text}}
+
 Implement the plan in the session worktree. Keep the change scoped to the issue and approved plan.
 
 Implementation rules:
 
 - Inspect the current app before editing. Do not assume a JSKIT app shape without checking files.
-- Prefer existing JSKIT helpers, package runtime seams, generated scaffolds, and documented generators over new local helpers.
+- Read `.jskit/helper-map.md` when it exists before creating helpers, composables, service functions, maps, or package glue.
+- Prefer existing JSKIT helpers, app-local helpers, package runtime seams, generated scaffolds, and documented generators over new local helpers.
 - If the plan calls for a generator or package install, use the planned `jskit` command unless inspection proves it does not apply. If you skip a generator, explain the exact gap.
 - For non-CRUD route pages, use `jskit generate ui-generator page ...` when it fits instead of hand-writing both route files and placement entries.
 - For CRUD work, scaffold the server side first with `crud-server-generator` before CRUD UI or CRUD route work.

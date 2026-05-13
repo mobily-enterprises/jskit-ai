@@ -292,6 +292,33 @@ async function assertIssueUrlExists(paths) {
   };
 }
 
+async function assertPlanTextExists(paths) {
+  const planText = await readTrimmedFile(path.join(paths.sessionRoot, "plan.md"));
+  if (planText) {
+    return {
+      ok: true,
+      precondition: createPrecondition({
+        id: "plan_text_exists",
+        ok: true,
+        message: "Plan text exists."
+      })
+    };
+  }
+  return {
+    ok: false,
+    error: createError({
+      code: "plan_text_missing",
+      message: "Cannot fine-tune a plan before plan.md exists.",
+      repairCommand: `jskit session ${paths.sessionId} step --plan -`
+    }),
+    precondition: createPrecondition({
+      id: "plan_text_exists",
+      ok: false,
+      message: "Plan text exists."
+    })
+  };
+}
+
 async function assertWorktreeExists(paths) {
   if (await hasWorktree(paths)) {
     return {
@@ -353,6 +380,7 @@ export {
   assertGithubOrigin,
   assertIssueTextExists,
   assertIssueUrlExists,
+  assertPlanTextExists,
   assertPrUrlExists,
   assertSessionExists,
   assertTargetRootWritable,

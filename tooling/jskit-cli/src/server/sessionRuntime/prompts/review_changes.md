@@ -11,6 +11,7 @@ Use four passes:
 1. Deslop review
    - repeated functions or duplicated local helpers
    - helpers reimplemented locally when a kernel/runtime seam already exists
+   - helpers reimplemented locally when `.jskit/helper-map.md` already lists a usable app-local helper or JSKIT export
    - placeholder, fake-complete, or vague UI/copy/code structure
    - dead code, unused props/imports, TODO-shaped gaps, or accidental abstractions
    - missing loading, empty, error, permission, or ownership states
@@ -18,6 +19,7 @@ Use four passes:
    - surface or entity ownership mistakes: public, user, workspace, workspace_user
 2. JSKIT review
    - existing helper/runtime seam available?
+   - was `.jskit/helper-map.md` checked before introducing helper-like code?
    - should this have been a package install, generator step, or scaffold extension instead of hand code?
    - if a generator existed, was the exact `jskit` command used or was the gap documented?
    - for CRUD work, was `crud-server-generator scaffold` used before CRUD UI or CRUD route hand-coding?

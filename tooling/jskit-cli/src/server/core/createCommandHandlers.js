@@ -8,6 +8,7 @@ import { createHealthCommands } from "../commandHandlers/health.js";
 import { createCompletionCommands } from "../commandHandlers/completion.js";
 import { createSessionCommands } from "../commandHandlers/session.js";
 import { createBlueprintCommands } from "../commandHandlers/blueprint.js";
+import { createHelperMapCommands } from "../commandHandlers/helperMap.js";
 
 function createCommandHandlers(deps = {}) {
   const shared = createCommandHandlerShared(deps);
@@ -33,6 +34,7 @@ function createCommandHandlers(deps = {}) {
   const { commandCompletion } = createCompletionCommands(commandContext);
   const { commandSession } = createSessionCommands(commandContext);
   const { commandBlueprint } = createBlueprintCommands(commandContext);
+  const { commandHelperMap } = createHelperMapCommands(commandContext);
 
   return {
     commandList,
@@ -52,7 +54,8 @@ function createCommandHandlers(deps = {}) {
     commandDoctor,
     commandLintDescriptors,
     commandSession,
-    commandBlueprint
+    commandBlueprint,
+    commandHelperMap
   };
 }
 
