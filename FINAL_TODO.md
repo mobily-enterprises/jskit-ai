@@ -425,9 +425,8 @@ Goal: make checks a first-class session concept, not only an afterthought.
 
 - [ ] Add step before review/deslop: `pre_review_checks_run`.
 - [ ] Add step after review/deslop: `post_review_checks_run`.
-- [ ] Decide button labels:
-  - [ ] `Run checks`
-  - [ ] `Run checks again`
+- [ ] Use button label `Run checks` for `pre_review_checks_run`.
+- [ ] Use button label `Run checks again` for `post_review_checks_run`.
 - [ ] Run the smallest relevant automated checks for the current project.
 - [ ] Prefer existing project script order:
   - [ ] `npm run verify:local` if present.
