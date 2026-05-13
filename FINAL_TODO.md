@@ -90,6 +90,15 @@ The final visible issue session should move through this broad sequence:
 - [ ] The execution prompt must tell Codex to follow both `plan.md` and `plan_details.md`.
 - [ ] Any GitHub issue comment for the details step should post the accepted contents of `plan_details.md`.
 
+## App Readiness Boundary
+
+- [ ] Treat app boot/app setup as the owner of empty/non-JSKIT/partial-JSKIT recovery.
+- [ ] Before issue work begins, JSKIT session should verify the target looks like a ready JSKIT app.
+- [ ] If readiness is missing, return a stable blocked error such as `app_setup_required`.
+- [ ] The repair guidance should tell Studio/CLI users to run the app setup flow, not ask Codex to recover the app inside an issue session.
+- [ ] Add tests that a non-ready app blocks before issue prompt rendering.
+- [ ] Add tests that issue prompts no longer ask Codex to plan recovery for empty or partial apps.
+
 ## JSON Contract Additions
 
 - [ ] Add `appReady` or equivalent setup-readiness status if JSKIT session must block before issue work.
@@ -458,6 +467,7 @@ Goal: add a focused UI quality pass for visual/client-impacting work.
 - [ ] If `uiImpact=definite`, require run.
 - [ ] Create prompt `deep_ui_check.md`.
 - [ ] The prompt must inspect changed UI files, routes, components, layouts, and screenshots if available.
+- [ ] Changed UI files should be derived from the session branch diff against the target base branch, not only the latest commit.
 - [ ] The prompt must check:
   - [ ] Material Design quality.
   - [ ] Vuetify best practices.
@@ -525,6 +535,7 @@ Goal: enrich durable app memory issue by issue.
   - [ ] helper map.
   - [ ] package/app metadata.
 - [ ] Prompt updates only durable app/product/architecture memory.
+- [ ] Changed files should be derived from the whole session branch diff against the target base branch.
 - [ ] Prompt must not include session task tracking.
 - [ ] Prompt must not recreate `.jskit/WORKBOARD.md`.
 - [ ] Prompt must not over-expand tiny issues into broad product rewrites.
@@ -591,7 +602,7 @@ Goal: generate a clear final report for the issue before PR/merge completion.
   - [ ] Playwright/verify-ui status.
   - [ ] user check result.
   - [ ] blueprint update status.
-  - [ ] helper map update status.
+  - [ ] helper map status if available, or a note that helper map refresh happens during PR creation.
   - [ ] remaining unverified gaps.
   - [ ] important decisions and why.
 - [ ] Write `final_report.md`.
@@ -680,6 +691,7 @@ Goal: update Studio only after JSKIT JSON supports the workflow.
 - [ ] Add input resolution for `--plan-details`, `--plan-details-file`, and `--plan-details -`.
 - [ ] Add input resolution for `--issue-category`.
 - [ ] Add input resolution for `--ui-impact`.
+- [ ] Add input resolution for conditional UI check override, for example `--skip-ui-check --skip-reason "<reason>"`.
 - [ ] Add input resolution for decision log fragments if needed.
 - [ ] Add input resolution for blueprint update output, for example `--blueprint`, `--blueprint-file`, and `--blueprint -`.
 - [ ] Add extraction helpers:
