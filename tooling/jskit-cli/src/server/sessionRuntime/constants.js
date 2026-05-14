@@ -144,7 +144,8 @@ const JSKIT_STEP_RESULT_CONTRACT = Object.freeze({
   kind: "completion_marker",
   marker: "jskit_step_result",
   missingMarkerBehavior: "resend",
-  required: true
+  required: true,
+  stepField: "step"
 });
 const DESLOP_RESULT_CONTRACT = Object.freeze({
   autoResolvePriorities: Object.freeze(["high", "medium"]),
@@ -152,11 +153,16 @@ const DESLOP_RESULT_CONTRACT = Object.freeze({
   kind: "deslop_result",
   marker: "deslop_result",
   missingMarkerBehavior: "resend",
-  required: true
+  required: true,
+  resolvePrompt: Object.freeze({
+    findingsPlaceholder: "{{findings}}",
+    marker: "resolve_deslop_findings",
+    templateFile: "resolve_deslop_findings.md"
+  })
 });
 
-function fieldResponseContract(expectedOutputs) {
-  const fields = expectedOutputs
+function fieldResponseContract(outputDefinitions) {
+  const fields = outputDefinitions
     .filter((output) => output?.field && output?.extract)
     .map((output) => Object.freeze({
       extract: output.extract,
@@ -164,6 +170,8 @@ function fieldResponseContract(expectedOutputs) {
       formatHint: output.formatHint || "",
       label: output.label || output.field,
       manualEntry: true,
+      ...(output.multiline === true ? { multiline: true } : {}),
+      ...(Array.isArray(output.options) ? { options: Object.freeze(output.options.map((option) => Object.freeze({ ...option }))) } : {}),
       required: output.required !== false
     }));
   return Object.freeze({
@@ -174,24 +182,50 @@ function fieldResponseContract(expectedOutputs) {
   });
 }
 
-function codexHandoff(expectedOutput, {
+function codexHandoff(outputDefinition, {
   autoInject = false,
   promptActionLabel = "",
+  promptIntroText = "",
+  promptWaitingText = "",
   responseContract = undefined
 } = {}) {
-  const expectedOutputs = Object.freeze(Array.isArray(expectedOutput) ? [...expectedOutput] : [expectedOutput]);
+  const outputDefinitions = Object.freeze(Array.isArray(outputDefinition) ? [...outputDefinition] : [outputDefinition]);
   const resolvedResponseContract = responseContract === undefined
-    ? fieldResponseContract(expectedOutputs)
+    ? fieldResponseContract(outputDefinitions)
     : responseContract;
   return Object.freeze({
     ...(autoInject ? { autoInject: true } : {}),
-    expectedOutput: expectedOutputs[expectedOutputs.length - 1] || null,
-    expectedOutputs,
     mode: "inject_prompt",
     promptField: "prompt",
     ...(promptActionLabel ? { promptActionLabel } : {}),
+    ...(promptIntroText ? { promptIntroText } : {}),
+    ...(promptWaitingText ? { promptWaitingText } : {}),
     ...(resolvedResponseContract ? { responseContract: resolvedResponseContract } : {})
   });
+}
+
+function stepAutomationFor({
+  codex = undefined,
+  id,
+  kind,
+  requiresExplicitRun = false
+}) {
+  if (requiresExplicitRun) {
+    return Object.freeze({ mode: "manual" });
+  }
+  if (id === "dependencies_installed") {
+    return Object.freeze({ mode: "terminal" });
+  }
+  if (kind === "automatic") {
+    return Object.freeze({ mode: "immediate" });
+  }
+  if (kind === "codex_prompt" && codex?.autoInject === true) {
+    return Object.freeze({ mode: "codex_prompt" });
+  }
+  if (kind === "codex_output" && codex?.autoInject === true) {
+    return Object.freeze({ mode: "codex_output_prompt" });
+  }
+  return Object.freeze({ mode: "manual" });
 }
 
 const PLAN_EXECUTION_CODEX_HANDOFF = codexHandoff([], {
@@ -205,7 +239,9 @@ const ISSUE_DETAILS_CODEX_HANDOFF = codexHandoff([
   ISSUE_DETAILS_OUTPUT
 ], {
   autoInject: true,
-  promptActionLabel: "Start details conversation"
+  promptActionLabel: "Start details conversation",
+  promptIntroText: "Codex will gather issue details and classify the issue.",
+  promptWaitingText: "Please respond and finalise things with Codex"
 });
 const REVIEW_EXECUTION_CODEX_HANDOFF = codexHandoff([], {
   autoInject: true,
@@ -239,11 +275,20 @@ function defineStep({
   nextCommandTemplate = DEFAULT_NEXT_COMMAND_TEMPLATE,
   preconditions = [],
   requiresExplicitRun = false,
+  submitOptions = {},
+  automation = undefined,
   utilityActions = [],
   displayGroupId = "",
   displayGroupLabel = ""
 }) {
+  const resolvedAutomation = automation || stepAutomationFor({
+    codex,
+    id,
+    kind,
+    requiresExplicitRun
+  });
   return Object.freeze({
+    automation: Object.freeze({ ...resolvedAutomation }),
     buttonLabel,
     codex,
     description,
@@ -256,6 +301,7 @@ function defineStep({
     nextCommandTemplate,
     preconditions: Object.freeze([...preconditions]),
     requiresExplicitRun,
+    submitOptions: Object.freeze({ ...submitOptions }),
     utilityActions: Object.freeze([...utilityActions])
   });
 }
@@ -305,7 +351,8 @@ const STEP_DEFINITIONS = Object.freeze([
       ISSUE_TEXT_OUTPUT
     ], {
       autoInject: true,
-      promptActionLabel: "Get Codex to create issue text"
+      promptActionLabel: "Get Codex to create issue text",
+      promptIntroText: "Codex will create a comprehensive issue."
     }),
     description: "Codex drafts the issue title and body; user reviews or edits them; JSKIT saves the approved draft.",
     id: "issue_drafted",
@@ -340,7 +387,8 @@ const STEP_DEFINITIONS = Object.freeze([
     buttonLabel: "Save plan",
     codex: codexHandoff(PLAN_OUTPUT, {
       autoInject: true,
-      promptActionLabel: "Get Codex to create plan"
+      promptActionLabel: "Get Codex to create plan",
+      promptIntroText: "Codex will create an implementation plan based on the issue."
     }),
     description: "Codex writes an implementation plan for the active cycle; cycle 001 plans from the issue, later cycles plan from user rework notes.",
     id: "plan_made",
@@ -388,12 +436,15 @@ const STEP_DEFINITIONS = Object.freeze([
     kind: "user_check",
     label: "Review/deslop",
     nextCommandTemplate: `${JSKIT_CLI_SHELL_COMMAND} session {{session_id}} step --review-findings-remaining false`,
-    preconditions: ["session_exists", "worktree_exists", "dependencies_installed", "ready_jskit_app", "issue_metadata_exists", "active_cycle_exists", "deep_ui_check_satisfied"]
+    preconditions: ["session_exists", "worktree_exists", "dependencies_installed", "ready_jskit_app", "issue_metadata_exists", "active_cycle_exists", "deep_ui_check_satisfied"],
+    submitOptions: Object.freeze({
+      reviewFindingsRemaining: false
+    })
   }),
   defineStep({
     buttonLabel: "Run automated checks",
     codex: AUTOMATED_CHECK_REPAIR_CODEX_HANDOFF,
-    description: "JSKIT asks Codex to run automated checks in the worktree, fix failures, and report the final result.",
+    description: "JSKIT asks Codex to run the official verification command in the worktree, fix failures, and report the final passing result.",
     id: "automated_checks_run",
     kind: "codex_prompt",
     label: "Automated checks",
@@ -407,7 +458,14 @@ const STEP_DEFINITIONS = Object.freeze([
     kind: "user_check",
     label: "User check",
     nextCommandTemplate: `${JSKIT_CLI_SHELL_COMMAND} session {{session_id}} step --user-check passed`,
-    preconditions: ["session_exists", "worktree_exists", "dependencies_installed", "ready_jskit_app", "issue_metadata_exists", "active_cycle_exists", "automated_checks_passed", "deep_ui_check_satisfied"]
+    preconditions: ["session_exists", "worktree_exists", "dependencies_installed", "ready_jskit_app", "issue_metadata_exists", "active_cycle_exists", "automated_checks_passed", "deep_ui_check_satisfied"],
+    utilityActions: Object.freeze([
+      Object.freeze({
+        id: "session_app_test",
+        kind: "app_test",
+        label: "Test app"
+      })
+    ])
   }),
   defineStep({
     buttonLabel: "Commit accepted changes",
@@ -424,13 +482,6 @@ const STEP_DEFINITIONS = Object.freeze([
     kind: "codex_prompt",
     label: "Blueprint updated",
     preconditions: ["session_exists", "worktree_exists", "dependencies_installed", "ready_jskit_app", "issue_metadata_exists", "active_cycle_exists", "automated_checks_passed", "deep_ui_check_satisfied", "active_cycle_user_check_passed", "accepted_changes_committed"]
-  }),
-  defineStep({
-    buttonLabel: "Run verification",
-    description: "JSKIT runs the final project verification command in the session worktree and records the result.",
-    id: "doctor_run",
-    label: "Verification run",
-    preconditions: ["session_exists", "worktree_exists", "dependencies_installed", "ready_jskit_app", "issue_metadata_exists", "active_cycle_exists", "automated_checks_passed", "deep_ui_check_satisfied", "active_cycle_user_check_passed", "accepted_changes_committed", "blueprint_update_satisfied"]
   }),
   defineStep({
     buttonLabel: "Create final report",
@@ -452,7 +503,10 @@ const STEP_DEFINITIONS = Object.freeze([
     id: "pr_finalized",
     label: "PR finalized, worktree removed",
     preconditions: ["session_exists", "pr_url_exists", "worktree_exists"],
-    requiresExplicitRun: true
+    requiresExplicitRun: true,
+    submitOptions: Object.freeze({
+      mergePr: true
+    })
   }),
   defineStep({
     buttonLabel: "Finish session",

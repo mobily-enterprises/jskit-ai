@@ -15,7 +15,7 @@ Do not run workflow, repair, or mutation commands during issue drafting:
 
 - Do not run `npx --no-install jskit session`, `npx --no-install jskit session step`, or any command that advances a JSKIT session.
 - Do not run `gh`, `git add`, `git commit`, `git push`, `npm install`, generators, tests, verification, devlinks, or doctor commands.
-- Do not try to fix missing PATH entries or missing command shims. If a tool is unavailable, continue with read-only file inspection.
+- Do not try to fix missing PATH entries or missing helper binaries. If a tool is unavailable, continue with read-only file inspection.
 - Do not edit files.
 
 Draft an implementation-ready issue, not a broad product essay.

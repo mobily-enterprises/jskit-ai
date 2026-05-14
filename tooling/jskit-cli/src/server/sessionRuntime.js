@@ -9,6 +9,7 @@ import path from "node:path";
 import {
   BLUEPRINT_CODEX_HANDOFF,
   AUTOMATED_CHECK_REPAIR_CODEX_HANDOFF,
+  CYCLE_STEP_IDS,
   DEEP_UI_CHECK_CODEX_HANDOFF,
   ISSUE_DETAILS_CODEX_HANDOFF,
   PLAN_EXECUTION_CODEX_HANDOFF,
@@ -16,6 +17,7 @@ import {
   REVIEW_EXECUTION_CODEX_HANDOFF,
   SESSION_STATUS,
   SESSION_WORKFLOW_VERSION,
+  STEP_DEFINITION_BY_ID,
   STEP_DEFINITIONS,
   STEP_IDS,
   STEP_PRECONDITION_NAMES
@@ -165,6 +167,15 @@ function extractMarkedText(value = "", marker = "") {
   return normalizeText(matches.length > 0 ? matches[matches.length - 1][1] : "");
 }
 
+function extractMarkedField(value = "", fieldName = "") {
+  const normalizedFieldName = normalizeText(fieldName);
+  if (!normalizedFieldName) {
+    return "";
+  }
+  const pattern = new RegExp(`^\\s*${normalizedFieldName.replace(/[.*+?^${}()|[\]\\]/gu, "\\$&")}\\s*:\\s*(.+)$`, "imu");
+  return normalizeText(pattern.exec(normalizeText(value))?.[1] || "");
+}
+
 function extractIssueTitle(value = "") {
   return extractMarkedText(value, "issue_title");
 }
@@ -209,6 +220,62 @@ function normalizeUiImpact(value = "") {
 
 async function writePromptArtifact(paths, fileName, prompt) {
   await writeTextFile(path.join(paths.sessionRoot, "prompts", fileName), prompt);
+}
+
+async function codexResultPath(paths, stepId) {
+  if (CYCLE_STEP_IDS.includes(stepId)) {
+    const activeCycle = await readActiveCycle(paths);
+    return path.join(cycleRootPath(paths, activeCycle), "codex_results", `${stepId}.md`);
+  }
+  return path.join(paths.sessionRoot, "codex_results", `${stepId}.md`);
+}
+
+function codexResponseContractForStep(stepId) {
+  const contract = STEP_DEFINITION_BY_ID[stepId]?.codex?.responseContract;
+  return contract && typeof contract === "object" && !Array.isArray(contract) ? contract : null;
+}
+
+async function requireCodexStepResult(paths, stepId, result, preconditions = [], contractOverride = null) {
+  const contract = contractOverride || codexResponseContractForStep(stepId);
+  if (contract?.required !== true || !contract.marker) {
+    return null;
+  }
+
+  const source = String(result || "");
+  if (!source.trim()) {
+    return failSession(paths, {
+      code: "codex_result_required",
+      message: `The ${STEP_DEFINITION_BY_ID[stepId]?.label || stepId} step has already produced a Codex prompt. Paste Codex's final marked result with --codex-result - before JSKIT records the receipt.`,
+      repairCommand: `jskit session ${paths.sessionId} step --codex-result -`,
+      preconditions
+    });
+  }
+
+  const markedResult = extractMarkedText(source, contract.marker);
+  if (!markedResult) {
+    return failSession(paths, {
+      code: "codex_result_marker_missing",
+      message: `Codex output for ${STEP_DEFINITION_BY_ID[stepId]?.label || stepId} must include [${contract.marker}]... [/${contract.marker}] before JSKIT can advance.`,
+      repairCommand: `jskit session ${paths.sessionId} step --codex-result -`,
+      preconditions
+    });
+  }
+  const stepField = normalizeText(contract.stepField);
+  if (stepField) {
+    const resultStep = extractMarkedField(markedResult, stepField);
+    if (resultStep !== stepId) {
+      return failSession(paths, {
+        code: "codex_result_step_mismatch",
+        message: `Codex output for ${STEP_DEFINITION_BY_ID[stepId]?.label || stepId} must include ${stepField}: ${stepId} inside [${contract.marker}] before JSKIT can advance.`,
+        repairCommand: `jskit session ${paths.sessionId} step --codex-result -`,
+        preconditions
+      });
+    }
+  }
+
+  await writeTextFile(await codexResultPath(paths, stepId), source);
+  await appendAgentDecisions(paths, extractAgentDecisions(source));
+  return null;
 }
 
 function commandText(command, args = []) {
@@ -1050,11 +1117,15 @@ async function makePlan(paths, options = {}, context = {}) {
   });
 }
 
-async function renderPlanExecutionPrompt(paths, _options = {}, context = {}) {
+async function renderPlanExecutionPrompt(paths, options = {}, context = {}) {
   const preconditions = context.preconditions || [];
   const activeCycle = await readActiveCycle(paths);
   const executionPromptPath = path.join(paths.sessionRoot, "prompts", cyclePlanExecutionPromptFileName(activeCycle));
   if (await fileExists(executionPromptPath)) {
+    const codexResultFailure = await requireCodexStepResult(paths, "plan_executed", options.codexResult, preconditions);
+    if (codexResultFailure) {
+      return codexResultFailure;
+    }
     await writeReceipt(paths, "plan_executed", `Cycle ${activeCycle} plan execution completed by Codex.`);
     await markStatus(paths, SESSION_STATUS.RUNNING);
     return buildSessionResponse(paths, {
@@ -1402,7 +1473,8 @@ async function acceptReviewChanges(paths, options = {}) {
 async function runAutomatedChecks(paths, {
   stepId,
   label
-}) {
+}, options = {}, context = {}) {
+  const preconditions = context.preconditions || [];
   const [command, args] = await doctorCommandForWorktree(paths.worktree);
   const promptFileName = `${stepId}.md`;
   const promptPath = path.join(paths.sessionRoot, "prompts", promptFileName);
@@ -1411,6 +1483,10 @@ async function runAutomatedChecks(paths, {
   const checkCommand = [command, ...args].join(" ");
 
   if (await fileExists(promptPath)) {
+    const codexResultFailure = await requireCodexStepResult(paths, stepId, options.codexResult, preconditions);
+    if (codexResultFailure) {
+      return codexResultFailure;
+    }
     await writeTextFile(
       path.join(checksRoot, `${stepId}.json`),
       `${JSON.stringify({
@@ -1423,7 +1499,9 @@ async function runAutomatedChecks(paths, {
     );
     await writeReceipt(paths, stepId, `${label} completed by Codex: ${checkCommand}.`);
     await markStatus(paths, SESSION_STATUS.RUNNING);
-    return buildSessionResponse(paths);
+    return buildSessionResponse(paths, {
+      preconditions
+    });
   }
 
   const prompt = await renderPrompt(paths, "automated_checks.md", {
@@ -1443,6 +1521,7 @@ async function runAutomatedChecks(paths, {
   await markStatus(paths, SESSION_STATUS.WAITING_FOR_USER);
   return buildSessionResponse(paths, {
     codex: AUTOMATED_CHECK_REPAIR_CODEX_HANDOFF,
+    preconditions,
     prompt,
     status: SESSION_STATUS.WAITING_FOR_USER
   });
@@ -1501,6 +1580,10 @@ async function runDeepUiCheck(paths, {
   const promptFileName = `${stepId}.md`;
   const promptPath = path.join(paths.sessionRoot, "prompts", promptFileName);
   if (await fileExists(promptPath)) {
+    const codexResultFailure = await requireCodexStepResult(paths, stepId, options.codexResult, preconditions);
+    if (codexResultFailure) {
+      return codexResultFailure;
+    }
     await writeReceipt(paths, stepId, `${label} completed by Codex.`);
     await markStatus(paths, SESSION_STATUS.RUNNING);
     return buildSessionResponse(paths, {
@@ -1644,7 +1727,7 @@ async function commitAcceptedChanges(paths, _options = {}, context = {}) {
   });
 }
 
-async function updateBlueprint(paths, _options = {}, context = {}) {
+async function updateBlueprint(paths, options = {}, context = {}) {
   const preconditions = context.preconditions || [];
   const issueText = await readTrimmedFile(path.join(paths.sessionRoot, "issue.md"));
   const issueTitle = await readTrimmedFile(path.join(paths.sessionRoot, "issue_title")) || titleFromIssue(issueText);
@@ -1657,6 +1740,10 @@ async function updateBlueprint(paths, _options = {}, context = {}) {
   const blueprintPromptPath = path.join(paths.sessionRoot, "prompts", "update_blueprint.md");
 
   if (await fileExists(blueprintPromptPath)) {
+    const codexResultFailure = await requireCodexStepResult(paths, "blueprint_updated", options.codexResult, preconditions);
+    if (codexResultFailure) {
+      return codexResultFailure;
+    }
     const changedFiles = await changedFilesInWorktree(paths);
     const unexpectedChanges = changedFiles.filter((file) => file !== ".jskit/APP_BLUEPRINT.md");
     if (unexpectedChanges.length > 0) {
@@ -1753,68 +1840,6 @@ async function doctorCommandForWorktree(worktree) {
     return ["npm", ["run", "verify"]];
   }
   return ["npx", ["--no-install", "jskit", "app", "verify"]];
-}
-
-async function runDoctor(paths) {
-  const repairCommitFailure = await maybeCommitDoctorRepair(paths);
-  if (repairCommitFailure) {
-    return repairCommitFailure;
-  }
-  const [command, args] = await doctorCommandForWorktree(paths.worktree);
-  const result = await runLoggedCommand(paths, "doctor_run", command, args, {
-    cwd: paths.worktree,
-    timeout: 1000 * 60 * 15
-  });
-  await writeTextFile(path.join(paths.sessionRoot, "doctor.log"), result.output);
-  if (!result.ok) {
-    const prompt = await renderPrompt(paths, "doctor_failure.md", {
-      doctor_output: result.output
-    });
-    await writePromptArtifact(paths, "doctor_failure.md", prompt);
-    return failSession(paths, {
-      code: "doctor_failed",
-      message: "Doctor/verification command failed. Paste the failure prompt into Codex, then rerun this step.",
-      repairCommand: `${command} ${args.join(" ")}`,
-      prompt
-    });
-  }
-  await writeReceipt(paths, "doctor_run", `Doctor command passed: ${command} ${args.join(" ")}.`);
-  await markStatus(paths, SESSION_STATUS.RUNNING);
-  return buildSessionResponse(paths);
-}
-
-async function maybeCommitDoctorRepair(paths) {
-  if (!await fileExists(path.join(paths.sessionRoot, "doctor.log")) || await fileExists(path.join(paths.sessionRoot, "steps", "doctor_run"))) {
-    return null;
-  }
-  const status = await worktreeStatus(paths.worktree);
-  if (!status.ok) {
-    return failSession(paths, {
-      code: "git_status_failed",
-      message: status.output || "Failed to inspect verification repair changes.",
-      repairCommand: `git -C ${paths.worktree} status --short`
-    });
-  }
-  if (status.changedFiles.length < 1) {
-    return null;
-  }
-  const result = await commitWorktree(paths, {
-    message: `Verification repairs for ${paths.sessionId}`
-  });
-  if (!result.ok) {
-    return failSession(paths, {
-      code: "doctor_repair_commit_failed",
-      message: result.output || "Failed to commit verification repair changes.",
-      repairCommand: `git -C ${paths.worktree} status --short`
-    });
-  }
-  await writeTextFile(path.join(paths.sessionRoot, "doctor_repair_commit.json"), `${JSON.stringify({
-    changedFiles: result.changedFiles || [],
-    commit: await currentHead(paths),
-    committedAt: timestampForReceipt(),
-    ok: true
-  }, null, 2)}\n`);
-  return null;
 }
 
 async function commitLinesSinceBase(paths) {
@@ -2536,10 +2561,10 @@ const STEP_RUNNERS = Object.freeze({
   issue_details_gathered: saveIssueDetails,
   plan_made: makePlan,
   plan_executed: renderPlanExecutionPrompt,
-  automated_checks_run: (paths) => runAutomatedChecks(paths, {
+  automated_checks_run: (paths, options, context) => runAutomatedChecks(paths, {
     label: "Automated checks",
     stepId: "automated_checks_run"
-  }),
+  }, options, context),
   deep_ui_check_run: (paths, options, context) => runDeepUiCheck(paths, {
     label: "Deep UI check",
     phase: "pre_review",
@@ -2550,7 +2575,6 @@ const STEP_RUNNERS = Object.freeze({
   user_check_completed: userCheck,
   changes_committed: commitAcceptedChanges,
   blueprint_updated: updateBlueprint,
-  doctor_run: runDoctor,
   final_report_created: createFinalReport,
   pr_created: createPr,
   pr_finalized: finalizePr,

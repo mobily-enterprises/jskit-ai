@@ -32,7 +32,7 @@ Implementation rules:
 - Keep direct knex exceptional and minimal. Prefer internal json-rest-api seams outside generated CRUD packages and explicit weird-custom feature lanes.
 - Keep runtime, UI, and data concerns separated.
 - Avoid accidental scope expansion.
-- Do not create old workflow files such as `.jskit/WORKBOARD.md`; the session files and receipts are the workflow record.
+- Do not create `.jskit/WORKBOARD.md`; the session files and receipts are the workflow record.
 - If user-facing UI changes, bring the screen to Material Design and Vuetify quality before calling it done. Include coherent responsive layout, loading, empty, error, disabled, and success states where relevant.
 - If verification needs login, use the app's local development auth bootstrap path rather than a live external auth login.
 

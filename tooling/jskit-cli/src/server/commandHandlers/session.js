@@ -280,9 +280,25 @@ async function resolveStepInputs({
     return closeReason;
   }
 
+  const codexResult = await resolveTextInput({
+    codePrefix: "codex_result",
+    fileOption: "codex-result-file",
+    inlineOptions,
+    io,
+    repairCommand: `jskit session ${sessionId} step --codex-result -`,
+    cwd,
+    sessionId,
+    stdinOption: "-",
+    textOption: "codex-result"
+  });
+  if (codexResult.ok === false) {
+    return codexResult;
+  }
+
   return {
     agentDecisions: agentDecisions.value,
     closeReason: closeReason.value,
+    codexResult: codexResult.value,
     issue: issue.value,
     issueTitle: issueTitle.value,
     ok: true,
@@ -365,7 +381,8 @@ function createSessionCommands() {
                 reworkNotes: stepInputs.reworkNotes,
                 skipReason: stepInputs.skipReason,
                 agentDecisions: stepInputs.agentDecisions,
-                closeReason: stepInputs.closeReason
+                closeReason: stepInputs.closeReason,
+                codexResult: stepInputs.codexResult
               }
             });
       } else if (second === "abandon") {
