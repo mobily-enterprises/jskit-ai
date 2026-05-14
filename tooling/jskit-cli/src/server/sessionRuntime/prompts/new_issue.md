@@ -8,12 +8,12 @@ Allowed inspection:
 
 - Read files with commands such as `pwd`, `ls`, `find`, `rg`, `cat`, `sed`, and `git status`.
 - Read package.json, `.jskit/lock.json`, config, routes, packages, source files, `.jskit/APP_BLUEPRINT.md`, and `.jskit/helper-map.md` when available.
-- Use non-mutating JSKIT inspection commands when available and relevant: `jskit list`, `jskit show <package> --details`, and `jskit list-placements`.
+- Use non-mutating JSKIT inspection commands when available and relevant: `npx --no-install jskit list`, `npx --no-install jskit show <package> --details`, and `npx --no-install jskit list-placements`.
 - If the filesystem contradicts a ready JSKIT app, stop and report that app setup must be rerun. Do not draft a recovery issue inside this session.
 
 Do not run workflow, repair, or mutation commands during issue drafting:
 
-- Do not run `jskit session`, `jskit session step`, or any command that advances a JSKIT session.
+- Do not run `npx --no-install jskit session`, `npx --no-install jskit session step`, or any command that advances a JSKIT session.
 - Do not run `gh`, `git add`, `git commit`, `git push`, `npm install`, generators, tests, verification, devlinks, or doctor commands.
 - Do not try to fix missing PATH entries or missing command shims. If a tool is unavailable, continue with read-only file inspection.
 - Do not edit files.

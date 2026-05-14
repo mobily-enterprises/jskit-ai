@@ -1,6 +1,6 @@
 {
   "name": "@jskit-ai/storage-runtime",
-  "version": "0.1.71",
+  "version": "0.1.72",
   "type": "module",
   "scripts": {
     "test": "node --test"
@@ -10,7 +10,7 @@
     "./server/providers/StorageRuntimeServiceProvider": "./src/server/providers/StorageRuntimeServiceProvider.js"
   },
   "dependencies": {
-    "@jskit-ai/kernel": "0.1.72",
+    "@jskit-ai/kernel": "0.1.73",
     "unstorage": "^1.17.3"
   }
 }

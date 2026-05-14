@@ -1,21 +1,36 @@
 Create an implementation plan for JSKIT session {{session_id}}.
 
+Active cycle: {{active_cycle}}
+Plan source: {{plan_source}}
+
 GitHub issue: {{issue_url}}
 Issue number: {{issue_number}}
 Issue title: {{issue_title}}
 Issue body file: {{issue_file}}
 Issue title file: {{issue_title_file}}
-Plan details file (`plan_details.md`): {{plan_details_file}}
+Issue details file (`issue_details.md`): {{issue_details_file}}
 Agent decisions file (`agent_decisions.md`): {{agent_decisions_file}}
 App blueprint file (`.jskit/APP_BLUEPRINT.md`): {{app_blueprint_file}}
-Plan file to create (`plan.md`): {{plan_file}}
+Plan file JSKIT will write after user approval: {{plan_file}}
 Worktree: {{worktree}}
 
-Read the issue, confirmed plan details, agent decisions, and local app before planning. Use the issue files, plan details file, package.json, .jskit metadata, config, packages, routes, generated references, package docs, any saved app blueprint, and `.jskit/helper-map.md` when available.
+This planning step is read-only. Do not edit files, create session receipts, create or overwrite the plan file, create commits, create branches, create issues, create pull requests, merge, or clean worktrees. JSKIT will save the approved plan to the plan file after the user reviews it.
 
-Confirmed implementation details:
+If Plan source is `issue`, create the plan from the issue and confirmed issue details.
 
-{{plan_details_text}}
+If Plan source is `rework`, create a revised plan from the user's rework request for this cycle. Preserve the original issue constraints, but focus the plan on fixing the reported problem.
+
+Rework request file: {{rework_request_file}}
+
+Rework request:
+
+{{rework_request}}
+
+Read the issue, confirmed issue details, rework request when present, agent decisions, and local app before planning. Use the issue files, issue details file, package.json, .jskit metadata, config, packages, routes, generated references, package docs, any saved app blueprint, and `.jskit/helper-map.md` when available.
+
+Confirmed issue details:
+
+{{issue_details_text}}
 
 Known decisions:
 
@@ -31,12 +46,12 @@ Start by identifying the implementation lane:
 Planning rules:
 
 - Keep the plan scoped to the issue. Avoid "while I am here" work.
-- Follow the confirmed plan details and preserve the issue category and UI impact in the plan. If details are insufficient, say exactly what is missing instead of inventing foundational details.
+- Follow the confirmed issue details and preserve the issue category and UI impact in the plan. If details are insufficient, say exactly what is missing instead of inventing foundational details.
 - Prefer vertical slices that produce visible or end-to-end progress.
 - If the work is too broad to review confidently, split it into clear chunks.
-- Make generator decisions concrete. Name the exact `jskit` commands to run when a generator or package install applies.
-- For non-CRUD route page work, plan to check `jskit show ui-generator --details` and `jskit list-placements` before hand-writing pages or placement entries.
-- For CRUD work, plan server ownership first. Name the `jskit generate crud-server-generator scaffold ...` command before any CRUD UI plan.
+- Make generator decisions concrete. Name the exact `npx --no-install jskit` commands to run when a generator or package install applies.
+- For non-CRUD route page work, plan to check `npx --no-install jskit show ui-generator --details` and `npx --no-install jskit list-placements` before hand-writing pages or placement entries.
+- For CRUD work, plan server ownership first. Name the `npx --no-install jskit generate crud-server-generator scaffold ...` command before any CRUD UI plan.
 - For CRUD-owned tables, plan around the real database table shape. Do not plan a separate hand-written migration for a table that `crud-server-generator` will own.
 - Every persisted app-owned table should have generated/package CRUD ownership unless there is a narrow explicit exception.
 - Do not hand-build CRUD routes, CRUD endpoints, or CRUD page trees before the server CRUD package and shared resource file exist.
@@ -53,7 +68,7 @@ If setup values are needed, ask plainly using exact env var or option names. For
 
 If the issue is not clear enough to plan safely, ask the user concise follow-up questions first.
 
-When the plan is ready, output only the final plan and any new decisions surrounded by these exact markers:
+When the plan is ready, output only the final plan for this cycle and any new decisions surrounded by these exact markers:
 
 [plan]
 <implementation plan in Markdown>

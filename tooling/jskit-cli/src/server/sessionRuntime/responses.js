@@ -2,6 +2,7 @@ import { mkdir, readdir } from "node:fs/promises";
 import path from "node:path";
 import {
   CYCLE_STEP_IDS,
+  JSKIT_CLI_SHELL_COMMAND,
   REVIEW_PASS_LIMIT,
   SESSION_WORKFLOW_VERSION,
   SESSION_STATUS,
@@ -73,7 +74,7 @@ function normalizeKnownStepIds(stepIds = []) {
 
 function stepCanExposeStoredPrompt(stepId) {
   const step = STEP_DEFINITION_BY_ID[normalizeStepId(stepId)];
-  return Boolean(step?.codex || step?.kind === "human_input");
+  return Boolean(step?.codex || step?.kind === "codex_prompt" || step?.kind === "human_input");
 }
 
 const DEFAULT_ACTIVE_CYCLE = "001";
@@ -114,6 +115,18 @@ function cycleStepsRoot(paths, cycle) {
 
 function cycleRoot(paths, cycle) {
   return path.join(paths.sessionRoot, "cycles", cycleDirectoryName(cycle));
+}
+
+function cyclePlanPath(paths, cycle) {
+  return path.join(cycleRoot(paths, cycle), "plan.md");
+}
+
+function cyclePlanPromptFileName(cycle) {
+  return `cycle_${normalizeCycleNumber(cycle)}_plan_request.md`;
+}
+
+function cyclePlanExecutionPromptFileName(cycle) {
+  return `cycle_${normalizeCycleNumber(cycle)}_plan_execution.md`;
 }
 
 function normalizeReviewPassNumber(value = "") {
@@ -160,15 +173,12 @@ async function readReviewPassNumbers(paths) {
 async function readReviewPassInfo(paths, pass) {
   const normalizedPass = normalizeReviewPassNumber(pass);
   const root = reviewPassRoot(paths, normalizedPass);
-  const [prompt, accepted, committed] = await Promise.all([
+  const [prompt, accepted] = await Promise.all([
     parseJsonFileIfExists(path.join(root, "prompt.json")),
-    parseJsonFileIfExists(path.join(root, "accepted.json")),
-    parseJsonFileIfExists(path.join(root, "committed.json"))
+    parseJsonFileIfExists(path.join(root, "accepted.json"))
   ]);
-  const status = committed?.status || accepted?.status || prompt?.status || "unknown";
-  const changedFiles = Array.isArray(committed?.changedFiles)
-    ? committed.changedFiles
-    : Array.isArray(accepted?.changedFiles) ? accepted.changedFiles : [];
+  const status = accepted?.status || prompt?.status || "unknown";
+  const changedFiles = Array.isArray(accepted?.changedFiles) ? accepted.changedFiles : [];
   return {
     pass: normalizedPass,
     label: reviewPassDirectoryName(normalizedPass),
@@ -176,8 +186,8 @@ async function readReviewPassInfo(paths, pass) {
     promptPath: prompt?.promptPath || path.join(root, "prompt.md"),
     acceptedAt: accepted?.acceptedAt || "",
     changedFiles,
-    commit: committed?.commit || "",
-    committedAt: committed?.committedAt || "",
+    commit: "",
+    committedAt: "",
     findingsRemaining: accepted?.findingsRemaining === true,
     maxPasses: REVIEW_PASS_LIMIT
   };
@@ -190,19 +200,29 @@ async function readReviewPasses(paths) {
 
 const PROMPT_ARTIFACT_BY_STEP_ID = Object.freeze({
   issue_drafted: "issue_draft.md",
-  plan_details_gathered: "plan_details.md",
-  plan_executed: "plan_execution.md",
-  plan_made: "plan_request.md",
-  plan_fine_tuning: "plan_fine_tuning.md",
+  issue_details_gathered: "issue_details.md",
+  deep_ui_check_run: "deep_ui_check_run.md",
+  automated_checks_run: "automated_checks_run.md",
   blueprint_updated: "update_blueprint.md",
   user_check_completed: "user_check.md"
 });
+
+async function promptArtifactForStep(paths, stepId) {
+  const normalizedStepId = normalizeStepId(stepId);
+  if (normalizedStepId === "plan_made") {
+    return cyclePlanPromptFileName(await readActiveCycle(paths));
+  }
+  if (normalizedStepId === "plan_executed") {
+    return cyclePlanExecutionPromptFileName(await readActiveCycle(paths));
+  }
+  return PROMPT_ARTIFACT_BY_STEP_ID[normalizedStepId] || "";
+}
 
 async function readPromptForStep(paths, stepId) {
   if (!stepCanExposeStoredPrompt(stepId)) {
     return "";
   }
-  const promptArtifact = PROMPT_ARTIFACT_BY_STEP_ID[normalizeStepId(stepId)];
+  const promptArtifact = await promptArtifactForStep(paths, stepId);
   if (promptArtifact) {
     const prompt = await readTextIfExists(path.join(paths.sessionRoot, "prompts", promptArtifact));
     if (prompt) {
@@ -235,8 +255,7 @@ async function readCompletedSteps(paths) {
 
 const REVIEW_STEP_IDS = Object.freeze([
   "review_prompt_rendered",
-  "review_changes_accepted",
-  "review_changes_committed"
+  "review_changes_accepted"
 ]);
 
 async function applyReviewPassCompletionOverlay(paths, completedSteps = []) {
@@ -250,9 +269,8 @@ async function applyReviewPassCompletionOverlay(paths, completedSteps = []) {
     REVIEW_STEP_IDS.forEach((stepId) => completed.delete(stepId));
     return normalizeKnownStepIds([...completed]);
   }
-  const latestPassNumber = Number.parseInt(latestPass.pass, 10);
-  const latestPassCommitted = latestPass.status === "committed" || latestPass.status === "no_changes";
-  const anotherPassRequired = latestPassCommitted && latestPass.findingsRemaining === true && latestPassNumber < REVIEW_PASS_LIMIT;
+  const latestPassAccepted = latestPass.status === "accepted" || latestPass.status === "no_changes";
+  const anotherPassRequired = latestPassAccepted && latestPass.findingsRemaining === true;
   if (anotherPassRequired) {
     REVIEW_STEP_IDS.forEach((stepId) => completed.delete(stepId));
     return normalizeKnownStepIds([...completed]);
@@ -260,16 +278,9 @@ async function applyReviewPassCompletionOverlay(paths, completedSteps = []) {
   if (latestPass.status === "prompted") {
     completed.add("review_prompt_rendered");
     completed.delete("review_changes_accepted");
-    completed.delete("review_changes_committed");
     return normalizeKnownStepIds([...completed]);
   }
-  if (latestPass.status === "accepted_with_changes" || latestPass.status === "accepted_no_changes") {
-    completed.add("review_prompt_rendered");
-    completed.add("review_changes_accepted");
-    completed.delete("review_changes_committed");
-    return normalizeKnownStepIds([...completed]);
-  }
-  if (latestPass.status === "committed" || latestPass.status === "no_changes") {
+  if (latestPass.status === "accepted" || latestPass.status === "no_changes") {
     REVIEW_STEP_IDS.forEach((stepId) => completed.add(stepId));
   }
   return normalizeKnownStepIds([...completed]);
@@ -285,6 +296,7 @@ async function readCycleInfo(paths, cycle) {
   return {
     cycle: normalizedCycle,
     label: cycleDirectoryName(normalizedCycle),
+    reworkRequest: reworkRequest.trim(),
     reworkRequestPath: reworkRequest ? reworkRequestPath : "",
     status: userCheckPassed ? "passed" : userCheckFailed ? "failed" : "active",
     userCheckResult: userCheckPassed ? "passed" : userCheckFailed ? "failed" : "",
@@ -521,23 +533,34 @@ function buildStepDefinitions() {
 
 function stepIsRetryableWhenBlocked(stepId) {
   return [
-    "pre_review_checks_run",
+    "automated_checks_run",
     "deep_ui_check_run",
-    "post_review_checks_run",
-    "deep_ui_recheck_run",
     "doctor_run"
   ].includes(normalizeStepId(stepId));
 }
 
 function stepIsConditional(stepId) {
   return [
-    "deep_ui_check_run",
-    "deep_ui_recheck_run"
+    "deep_ui_check_run"
   ].includes(normalizeStepId(stepId));
 }
 
+function activeCycleInfoFromArtifacts(artifacts = {}) {
+  const activeCycle = normalizeCycleNumber(artifacts.activeCycle || "");
+  return (artifacts.cycles || []).find((cycle) => cycle?.cycle === activeCycle) || null;
+}
+
+function uiCheckPromptedForStep(artifacts = {}, stepId = "") {
+  const normalizedStepId = normalizeStepId(stepId);
+  return (artifacts.uiChecks || []).some((entry) => {
+    return normalizeStepId(entry?.stepId || "") === normalizedStepId &&
+      normalizeText(entry?.status || "") === "prompted";
+  });
+}
+
 function skipReasonForStep(stepId, artifacts = {}) {
-  if (stepIsConditional(stepId) && artifacts.uiImpact === "none") {
+  const normalizedStepId = normalizeStepId(stepId);
+  if (normalizedStepId === "deep_ui_check_run" && artifacts.uiImpact === "none") {
     return "uiImpact is none.";
   }
   return "";
@@ -548,10 +571,22 @@ function buildCurrentStepAction(stepId, artifacts = {}) {
   if (!step) {
     return null;
   }
+  const activeCycleInfo = activeCycleInfoFromArtifacts(artifacts);
+  const planExecutionPrompted = artifacts.planExecution?.prompted === true;
+  const planExecutionSubmitted = artifacts.planExecution?.submitted === true;
+  const planReworkMode = step.id === "plan_made" && normalizeCycleNumber(artifacts.activeCycle || "") !== "001";
+  const deepUiCheckPrompted = step.id === "deep_ui_check_run" && uiCheckPromptedForStep(artifacts, "deep_ui_check_run");
+  const hasActiveReworkRequest = Boolean(activeCycleInfo?.reworkRequestPath);
+  const promptPhaseButtonLabel = step.kind === "codex_output" &&
+    step.codex?.mode === "inject_prompt" &&
+    !artifacts.prompt
+    ? step.codex.promptActionLabel || ""
+    : "";
+  const buttonLabel = promptPhaseButtonLabel || step.buttonLabel;
   const alternateActions = [];
   if (step.id === "user_check_completed") {
     alternateActions.push({
-      id: "return_to_plan_fine_tuning",
+      id: "return_to_plan_made",
       input: {
         formatHint: "markdown",
         label: "What needs to be reworked?",
@@ -560,13 +595,13 @@ function buildCurrentStepAction(stepId, artifacts = {}) {
         required: true,
         type: "text"
       },
-      label: "Return to Plan fine tuning",
+      label: "Return to Plan made",
       presentation: "exclusive",
       requiredErrorCode: "user_check_failed",
       submitOptions: {
         userCheck: "failed"
       },
-      targetStep: "plan_fine_tuning"
+      targetStep: "plan_made"
     });
   }
   if (step.id === "review_changes_accepted") {
@@ -607,14 +642,47 @@ function buildCurrentStepAction(stepId, artifacts = {}) {
       targetStep: "pr_finalized"
     });
   }
+  const dynamicButtonLabel = (() => {
+    if (step.id === "plan_executed" && planExecutionPrompted && !planExecutionSubmitted) {
+      return "Go to next step";
+    }
+    if (step.id === "deep_ui_check_run" && deepUiCheckPrompted) {
+      return "Go to next step";
+    }
+    if (step.id === "automated_checks_run" && artifacts.prompt) {
+      return "Go to next step";
+    }
+    if (step.id === "plan_made" && planReworkMode && !artifacts.prompt && hasActiveReworkRequest) {
+      return "Get Codex to create revised plan";
+    }
+    return buttonLabel;
+  })();
+  const dynamicDescription = (() => {
+    if (step.id === "plan_executed" && planExecutionPrompted && !planExecutionSubmitted) {
+      return "Codex has the execution prompt. Studio advances when Codex finishes.";
+    }
+    if (step.id === "deep_ui_check_run" && deepUiCheckPrompted) {
+      return "Codex has the Deep UI check prompt. Studio advances when Codex finishes.";
+    }
+    if (step.id === "automated_checks_run" && artifacts.prompt) {
+      return "Codex has the automated-checks prompt. Studio advances when Codex finishes.";
+    }
+    if (step.id === "plan_made" && planReworkMode && hasActiveReworkRequest) {
+      return "Codex writes a revised implementation plan from the user's rework notes for this cycle.";
+    }
+    return step.description;
+  })();
+  const dynamicUtilityActions = (() => {
+    return step.utilityActions || [];
+  })();
   return {
     alternateActions,
-    buttonLabel: step.buttonLabel,
-    description: step.description,
+    buttonLabel: dynamicButtonLabel,
+    description: dynamicDescription,
     index: STEP_IDS.indexOf(step.id),
     input: cloneContractValue(step.input),
     kind: step.kind,
-    label: step.buttonLabel,
+    label: dynamicButtonLabel,
     ...stepRepeatabilityContract(step.id),
     requiredInput: cloneContractValue(step.input),
     requiresExplicitRun: step.requiresExplicitRun === true,
@@ -622,16 +690,17 @@ function buildCurrentStepAction(stepId, artifacts = {}) {
     retryable: artifacts.status === SESSION_STATUS.BLOCKED && stepIsRetryableWhenBlocked(step.id),
     skipReason: skipReasonForStep(step.id, artifacts),
     stepId: step.id,
-    utilityActions: cloneContractValue(step.utilityActions || [])
+    utilityActions: cloneContractValue(dynamicUtilityActions)
   };
 }
 
-function buildCodexHandoff(stepId) {
+function buildCodexHandoff(stepId, _artifacts = {}) {
   const step = STEP_DEFINITION_BY_ID[stepId];
   return step?.codex ? cloneContractValue(step.codex) : null;
 }
 
 async function readSessionArtifacts(paths) {
+  const activeCycle = await readActiveCycle(paths);
   const [
     status,
     rawCurrentStep,
@@ -640,7 +709,7 @@ async function readSessionArtifacts(paths) {
     issueText,
     issueTitle,
     planText,
-    planDetails,
+    issueDetails,
     agentDecisions,
     finalReportText,
     githubCommentsText,
@@ -658,8 +727,8 @@ async function readSessionArtifacts(paths) {
     readTrimmedFile(path.join(paths.sessionRoot, "pr_url")),
     readTextIfExists(path.join(paths.sessionRoot, "issue.md")),
     readTrimmedFile(path.join(paths.sessionRoot, "issue_title")),
-    readTextIfExists(path.join(paths.sessionRoot, "plan.md")),
-    readTextIfExists(path.join(paths.sessionRoot, "plan_details.md")),
+    readTextIfExists(cyclePlanPath(paths, activeCycle)),
+    readTextIfExists(path.join(paths.sessionRoot, "issue_details.md")),
     readTextIfExists(path.join(paths.sessionRoot, "agent_decisions.md")),
     readTextIfExists(path.join(paths.sessionRoot, "final_report.md")),
     readTextIfExists(path.join(paths.sessionRoot, "github_comments.json")),
@@ -668,7 +737,7 @@ async function readSessionArtifacts(paths) {
     readTrimmedFile(path.join(paths.sessionRoot, "base_branch")),
     readTrimmedFile(path.join(paths.sessionRoot, "base_commit")),
     readTextIfExists(path.join(paths.sessionRoot, "issue_metadata.json")),
-    readTextIfExists(path.join(paths.sessionRoot, "steps", "plan_executed")),
+    readTextIfExists(path.join(cycleStepsRoot(paths, activeCycle), "plan_executed")),
     readTextIfExists(path.join(paths.sessionRoot, "pr_outcome.json"))
   ]);
   let issueMetadata = null;
@@ -697,7 +766,6 @@ async function readSessionArtifacts(paths) {
       prOutcome = null;
     }
   }
-  const activeCycle = await readActiveCycle(paths);
   const cycles = await readCycles(paths, activeCycle);
   const checks = await readStructuredChecks(paths);
   const uiChecks = await readStructuredUiChecks(paths);
@@ -706,6 +774,8 @@ async function readSessionArtifacts(paths) {
   const worktreeStatus = await readWorktreeStatus(paths, worktreeReady);
   const commandLogPath = path.join(paths.sessionRoot, "command_log.jsonl");
   const dependencyInstallReceipt = await readTextIfExists(path.join(paths.sessionRoot, "steps", "dependencies_installed"));
+  const planExecutionPromptPath = path.join(paths.sessionRoot, "prompts", cyclePlanExecutionPromptFileName(activeCycle));
+  const planExecutionPromptExists = await fileExists(planExecutionPromptPath);
   const appRootForArtifacts = worktreeReady ? paths.worktree : paths.targetRoot;
   const appReady = await inspectReadyJskitAppRoot(appRootForArtifacts);
   const blueprintPath = path.join(appRootForArtifacts, ".jskit", "APP_BLUEPRINT.md");
@@ -774,12 +844,13 @@ async function readSessionArtifacts(paths) {
     prUrl,
     prOutcome,
     planExecution: {
-      promptPath: planExecutionReceipt.trim() ? path.join(paths.sessionRoot, "prompts", "plan_execution.md") : "",
+      prompted: planExecutionPromptExists,
+      promptPath: planExecutionPromptExists ? planExecutionPromptPath : "",
       receipt: planExecutionReceipt.trim(),
       submitted: Boolean(planExecutionReceipt.trim())
     },
     planText: planText.trim(),
-    planDetails: planDetails.trim(),
+    issueDetails: issueDetails.trim(),
     finalReportText: finalReportText.trim(),
     prompt: prompt.trim(),
     status: status || SESSION_STATUS.PENDING,
@@ -793,7 +864,7 @@ function buildNextCommand(sessionId, stepId) {
   if (!stepId) {
     return "";
   }
-  const template = STEP_DEFINITION_BY_ID[stepId]?.nextCommandTemplate || "jskit session {{session_id}} step";
+  const template = STEP_DEFINITION_BY_ID[stepId]?.nextCommandTemplate || `${JSKIT_CLI_SHELL_COMMAND} session {{session_id}} step`;
   return template.replaceAll("{{session_id}}", sessionId);
 }
 
@@ -846,8 +917,8 @@ async function buildSessionResponse(paths, {
       agentDecisionsLatest: artifacts.agentDecisionsLatest || "",
       planExecution: cloneContractValue(artifacts.planExecution || null),
       planText: artifacts.planText || "",
-      planDetails: artifacts.planDetails || "",
-      planDetailsPath: artifacts.planDetails ? path.join(responsePaths.sessionRoot, "plan_details.md") : "",
+      issueDetails: artifacts.issueDetails || "",
+      issueDetailsPath: artifacts.issueDetails ? path.join(responsePaths.sessionRoot, "issue_details.md") : "",
       finalReportPath: artifacts.finalReportText ? path.join(responsePaths.sessionRoot, "final_report.md") : "",
       finalReportText: artifacts.finalReportText || "",
       helperMapPath: artifacts.helperMapPath || "",
@@ -898,7 +969,7 @@ async function buildSessionResponse(paths, {
     commandLogPath: artifacts.commandLogPath || "",
     stepDefinitions: buildStepDefinitions(),
     currentStepAction: buildCurrentStepAction(currentStep, artifacts),
-    codex: codex === undefined ? buildCodexHandoff(currentStep) : cloneContractValue(codex),
+    codex: codex === undefined ? buildCodexHandoff(currentStep, artifacts) : cloneContractValue(codex),
     prompt: responsePrompt,
     nextCommand: buildNextCommand(paths.sessionId || "", currentStep),
     issueUrl: artifacts.issueUrl || "",
@@ -912,8 +983,8 @@ async function buildSessionResponse(paths, {
     agentDecisionsLatest: artifacts.agentDecisionsLatest || "",
     planExecution: cloneContractValue(artifacts.planExecution || null),
     planText: artifacts.planText || "",
-    planDetails: artifacts.planDetails || "",
-    planDetailsPath: artifacts.planDetails ? path.join(responsePaths.sessionRoot, "plan_details.md") : "",
+    issueDetails: artifacts.issueDetails || "",
+    issueDetailsPath: artifacts.issueDetails ? path.join(responsePaths.sessionRoot, "issue_details.md") : "",
     finalReportPath: artifacts.finalReportText ? path.join(responsePaths.sessionRoot, "final_report.md") : "",
     finalReportText: artifacts.finalReportText || "",
     helperMapPath: artifacts.helperMapPath || "",
@@ -989,8 +1060,8 @@ function buildSessionErrorResponse({
     agentDecisionsLatest: "",
     planExecution: null,
     planText: "",
-    planDetails: "",
-    planDetailsPath: "",
+    issueDetails: "",
+    issueDetailsPath: "",
     finalReportPath: "",
     finalReportText: "",
     helperMapPath: "",

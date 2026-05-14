@@ -5,8 +5,8 @@ GitHub issue: {{issue_url}}
 Issue number: {{issue_number}}
 Issue title: {{issue_title}}
 Issue body file: {{issue_file}}
-Plan details file (`plan_details.md`): {{plan_details_file}}
-Plan file (`plan.md`): {{plan_file}}
+Issue details file (`issue_details.md`): {{issue_details_file}}
+Plan file: {{plan_file}}
 UI impact: {{ui_impact}}
 Worktree: {{worktree}}
 
@@ -28,11 +28,11 @@ Check:
 - route and navigation coherence.
 - consistency with the existing app style.
 
-When clear scoped UI issues exist, fix them in the worktree. Keep fixes limited to the issue, confirmed plan details, and approved plan.
+When clear scoped UI issues exist, fix them in the worktree. Keep fixes limited to the issue, confirmed issue details, and approved plan.
 
 Use Playwright for a meaningful route check when possible. If login is required, use a development-only auth bootstrap path. When possible, record UI verification with:
 
-`jskit app verify-ui --command "<playwright command>" --feature "<label>" --auth-mode <mode>`
+`npx --no-install jskit app verify-ui --command "<playwright command>" --feature "<label>" --auth-mode <mode>`
 
 Do not create commits, branches, issues, pull requests, merges, or worktree cleanup. JSKIT session owns those steps.
 
@@ -43,3 +43,11 @@ If this pass makes UI fixes, intentionally skips UI work after inspection, chang
 <Deep UI decisions or "No new decisions.">
 [/agent_decisions]
 ```
+
+At the very end, include this completion block so Studio knows the step is complete:
+
+[jskit_step_result]
+status: complete
+step: deep_ui_check_run
+summary: Short summary of UI findings, fixes, verification, or why no UI work applied.
+[/jskit_step_result]

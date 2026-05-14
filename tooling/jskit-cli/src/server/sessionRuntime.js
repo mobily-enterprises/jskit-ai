@@ -8,9 +8,10 @@ import {
 import path from "node:path";
 import {
   BLUEPRINT_CODEX_HANDOFF,
+  AUTOMATED_CHECK_REPAIR_CODEX_HANDOFF,
   DEEP_UI_CHECK_CODEX_HANDOFF,
+  ISSUE_DETAILS_CODEX_HANDOFF,
   PLAN_EXECUTION_CODEX_HANDOFF,
-  PLAN_FINE_TUNING_CODEX_HANDOFF,
   REVIEW_PASS_LIMIT,
   REVIEW_EXECUTION_CODEX_HANDOFF,
   SESSION_STATUS,
@@ -59,11 +60,11 @@ import {
 } from "./sessionRuntime/responses.js";
 import {
   applyPreconditions,
+  assertAcceptedChangesCommitted,
   assertActiveCycleExists,
   assertActiveCycleUserCheckPassed,
   assertBlueprintUpdateSatisfied,
   assertDeepUiCheckSatisfied,
-  assertDeepUiRecheckSatisfied,
   assertDependenciesInstalled,
   assertFinalReportExists,
   assertGhAuth,
@@ -73,9 +74,8 @@ import {
   assertIssueMetadataExists,
   assertIssueTextExists,
   assertIssueUrlExists,
-  assertPostReviewChecksPassed,
-  assertPreReviewChecksPassed,
-  assertPlanDetailsExists,
+  assertAutomatedChecksPassed,
+  assertIssueDetailsExists,
   assertPlanTextExists,
   assertPrUrlExists,
   assertReadyJskitApp,
@@ -93,10 +93,6 @@ import {
   HELPER_MAP_JSON_RELATIVE_PATH,
   HELPER_MAP_MARKDOWN_RELATIVE_PATH
 } from "./helperMapPaths.js";
-import {
-  extractAppBlueprintText,
-  writeAppBlueprint
-} from "./appBlueprint.js";
 
 function invalidSessionIdError(sessionId = "") {
   return createError({
@@ -181,8 +177,8 @@ function extractPlanText(value = "") {
   return extractMarkedText(value, "plan") || normalizeText(value);
 }
 
-function extractPlanDetails(value = "") {
-  return extractMarkedText(value, "plan_details");
+function extractIssueDetails(value = "") {
+  return extractMarkedText(value, "issue_details");
 }
 
 function extractIssueCategory(value = "") {
@@ -222,6 +218,32 @@ function commandText(command, args = []) {
       ? value
       : `'${value.replaceAll("'", "'\\''")}'`;
   }).join(" ");
+}
+
+function cycleRootPath(paths, cycle) {
+  return path.join(paths.sessionRoot, "cycles", `cycle_${cycle}`);
+}
+
+function cyclePlanPath(paths, cycle) {
+  return path.join(cycleRootPath(paths, cycle), "plan.md");
+}
+
+function cyclePlanPromptFileName(cycle) {
+  return `cycle_${cycle}_plan_request.md`;
+}
+
+function cyclePlanExecutionPromptFileName(cycle) {
+  return `cycle_${cycle}_plan_execution.md`;
+}
+
+async function readCurrentPlan(paths) {
+  const activeCycle = await readActiveCycle(paths);
+  const planPath = cyclePlanPath(paths, activeCycle);
+  return {
+    activeCycle,
+    planPath,
+    planText: await readTrimmedFile(planPath)
+  };
 }
 
 function commandOutputSummary(output = "") {
@@ -547,11 +569,11 @@ async function inspectSessionDetails({
   }
   const { paths, preconditions } = context;
   const response = await buildSessionResponse(paths, { preconditions });
+  const { planText } = await readCurrentPlan(paths);
 
-  const [issueText, issueTitle, planText, receipts, transcriptLog] = await Promise.all([
+  const [issueText, issueTitle, receipts, transcriptLog] = await Promise.all([
     readTextIfExists(path.join(paths.sessionRoot, "issue.md")),
     readTrimmedFile(path.join(paths.sessionRoot, "issue_title")),
-    readTextIfExists(path.join(paths.sessionRoot, "plan.md")),
     readReceiptSteps(paths),
     readTextIfExists(path.join(paths.sessionRoot, "transcript.log"))
   ]);
@@ -873,25 +895,25 @@ async function createIssue(paths, _options = {}, context = {}) {
   });
 }
 
-async function renderPlanDetailsPrompt(paths, _options = {}, context = {}) {
+async function renderIssueDetailsPrompt(paths, _options = {}, context = {}) {
   const preconditions = context.preconditions || [];
   const issueText = await readTrimmedFile(path.join(paths.sessionRoot, "issue.md"));
   const issueTitle = await readTrimmedFile(path.join(paths.sessionRoot, "issue_title")) || titleFromIssue(issueText);
   const issueUrl = await readTrimmedFile(path.join(paths.sessionRoot, "issue_url"));
   const issueNumber = issueNumberFromUrl(issueUrl);
-  const prompt = await renderPrompt(paths, "plan_details.md", {
+  const prompt = await renderPrompt(paths, "issue_details.md", {
     issue_file: path.join(paths.sessionRoot, "issue.md"),
     issue_number: issueNumber,
     issue_text: issueText,
     issue_title: issueTitle,
     issue_url: issueUrl,
-    plan_details_file: path.join(paths.sessionRoot, "plan_details.md"),
+    issue_details_file: path.join(paths.sessionRoot, "issue_details.md"),
     worktree: paths.worktree
   });
-  await writePromptArtifact(paths, "plan_details.md", prompt);
-  await writeReceipt(paths, "plan_details_prompt_rendered", "Started issue details conversation.");
+  await writePromptArtifact(paths, "issue_details.md", prompt);
   await markStatus(paths, SESSION_STATUS.WAITING_FOR_USER);
   return buildSessionResponse(paths, {
+    codex: ISSUE_DETAILS_CODEX_HANDOFF,
     ok: true,
     preconditions,
     prompt,
@@ -899,43 +921,50 @@ async function renderPlanDetailsPrompt(paths, _options = {}, context = {}) {
   });
 }
 
-async function savePlanDetails(paths, options = {}, context = {}) {
+async function saveIssueDetails(paths, options = {}, context = {}) {
   const preconditions = context.preconditions || [];
-  const source = normalizeText(options.planDetails || options["plan-details"]);
-  const planDetails = extractPlanDetails(source);
-  if (!planDetails) {
+  const source = normalizeText(options.issueDetails || options["issue-details"]);
+  const structuredIssueCategory = normalizeText(options.issueCategory || options["issue-category"]);
+  const structuredUiImpact = normalizeText(options.uiImpact || options["ui-impact"]);
+  const issueDetails = extractIssueDetails(source) || (
+    structuredIssueCategory && structuredUiImpact ? source : ""
+  );
+  if (!source && !structuredIssueCategory && !structuredUiImpact) {
+    return renderIssueDetailsPrompt(paths, options, context);
+  }
+  if (!issueDetails) {
     return failSession(paths, {
-      code: "plan_details_required",
-      message: "The details step requires --plan-details, --plan-details-file, or --plan-details -.",
-      repairCommand: `jskit session ${paths.sessionId} step --plan-details -`,
+      code: "issue_details_required",
+      message: "The details step requires confirmed issue details from Codex or the Studio form.",
+      repairCommand: `jskit session ${paths.sessionId} step --issue-details -`,
       preconditions
     });
   }
 
-  const issueCategory = normalizeIssueCategory(options.issueCategory || options["issue-category"] || extractIssueCategory(source));
-  const uiImpact = normalizeUiImpact(options.uiImpact || options["ui-impact"] || extractUiImpact(source));
+  const issueCategory = normalizeIssueCategory(structuredIssueCategory || extractIssueCategory(source));
+  const uiImpact = normalizeUiImpact(structuredUiImpact || extractUiImpact(source));
   if (!issueCategory) {
     return failSession(paths, {
       code: "issue_category_invalid",
-      message: "Plan details must include [issue_category]client, server, client_server, tooling, or unknown[/issue_category].",
-      repairCommand: `jskit session ${paths.sessionId} step --plan-details -`,
+      message: "Issue details must include [issue_category]client, server, client_server, tooling, or unknown[/issue_category].",
+      repairCommand: `jskit session ${paths.sessionId} step --issue-details -`,
       preconditions
     });
   }
   if (!uiImpact) {
     return failSession(paths, {
       code: "ui_impact_invalid",
-      message: "Plan details must include [ui_impact]none, possible, definite, or unknown[/ui_impact].",
-      repairCommand: `jskit session ${paths.sessionId} step --plan-details -`,
+      message: "Issue details must include [ui_impact]none, possible, definite, or unknown[/ui_impact].",
+      repairCommand: `jskit session ${paths.sessionId} step --issue-details -`,
       preconditions
     });
   }
 
-  await writeTextFile(path.join(paths.sessionRoot, "plan_details.md"), planDetails);
+  await writeTextFile(path.join(paths.sessionRoot, "issue_details.md"), issueDetails);
   await writeIssueMetadata(paths, {
     issueCategory,
     uiImpact,
-    planDetailsPath: path.join(paths.sessionRoot, "plan_details.md")
+    issueDetailsPath: path.join(paths.sessionRoot, "issue_details.md")
   });
 
   const decisions = extractAgentDecisions(source);
@@ -944,21 +973,21 @@ async function savePlanDetails(paths, options = {}, context = {}) {
   const issueUrl = await readTrimmedFile(path.join(paths.sessionRoot, "issue_url"));
   if (issueUrl) {
     const commentResult = await commentOnIssueOnce(paths, {
-      bodyFile: path.join(paths.sessionRoot, "plan_details.md"),
+      bodyFile: path.join(paths.sessionRoot, "issue_details.md"),
       issueUrl,
-      purpose: "plan_details"
+      purpose: "issue_details"
     });
     if (!commentResult.ok) {
       return failSession(paths, {
-        code: "plan_details_comment_failed",
-        message: commentResult.output || "Failed to comment the plan details on the GitHub issue.",
-        repairCommand: `gh issue comment ${issueUrl} --body-file ${path.join(paths.sessionRoot, "plan_details.md")}`,
+        code: "issue_details_comment_failed",
+        message: commentResult.output || "Failed to comment the issue details on the GitHub issue.",
+        repairCommand: `gh issue comment ${issueUrl} --body-file ${path.join(paths.sessionRoot, "issue_details.md")}`,
         preconditions
       });
     }
   }
 
-  await writeReceipt(paths, "plan_details_gathered", "Saved confirmed implementation details and recorded the GitHub issue comment.");
+  await writeReceipt(paths, "issue_details_gathered", "Saved confirmed issue details and recorded the GitHub issue comment.");
   await markStatus(paths, SESSION_STATUS.RUNNING);
   return buildSessionResponse(paths, {
     preconditions
@@ -967,17 +996,23 @@ async function savePlanDetails(paths, options = {}, context = {}) {
 
 async function makePlan(paths, options = {}, context = {}) {
   const preconditions = context.preconditions || [];
+  const activeCycle = await readActiveCycle(paths);
   const issueText = await readTrimmedFile(path.join(paths.sessionRoot, "issue.md"));
   const issueTitle = await readTrimmedFile(path.join(paths.sessionRoot, "issue_title")) || titleFromIssue(issueText);
   const issueUrl = await readTrimmedFile(path.join(paths.sessionRoot, "issue_url"));
   const issueNumber = issueNumberFromUrl(issueUrl);
-  const planDetails = await readTrimmedFile(path.join(paths.sessionRoot, "plan_details.md"));
+  const issueDetails = await readTrimmedFile(path.join(paths.sessionRoot, "issue_details.md"));
   const planText = extractPlanText(options.plan);
   const agentDecisionsPath = path.join(paths.sessionRoot, "agent_decisions.md");
   const agentDecisionsText = await readTextIfExists(agentDecisionsPath);
+  const currentCycleRoot = cycleRootPath(paths, activeCycle);
+  const planPath = cyclePlanPath(paths, activeCycle);
+  const reworkRequestPath = path.join(currentCycleRoot, "rework_request.md");
+  const reworkRequest = await readTextIfExists(reworkRequestPath);
 
   if (!planText) {
     const prompt = await renderPrompt(paths, "plan_issue.md", {
+      active_cycle: activeCycle,
       agent_decisions_file: agentDecisionsPath,
       agent_decisions_text: agentDecisionsText,
       app_blueprint_file: path.join(paths.worktree, ".jskit", "APP_BLUEPRINT.md"),
@@ -987,12 +1022,15 @@ async function makePlan(paths, options = {}, context = {}) {
       issue_title: issueTitle,
       issue_title_file: path.join(paths.sessionRoot, "issue_title"),
       issue_url: issueUrl,
-      plan_details_file: path.join(paths.sessionRoot, "plan_details.md"),
-      plan_details_text: planDetails,
-      plan_file: path.join(paths.sessionRoot, "plan.md"),
+      issue_details_file: path.join(paths.sessionRoot, "issue_details.md"),
+      issue_details_text: issueDetails,
+      plan_file: planPath,
+      plan_source: activeCycle === "001" ? "issue" : "rework",
+      rework_request: reworkRequest,
+      rework_request_file: reworkRequest ? reworkRequestPath : "",
       worktree: paths.worktree
     });
-    await writePromptArtifact(paths, "plan_request.md", prompt);
+    await writePromptArtifact(paths, cyclePlanPromptFileName(activeCycle), prompt);
     await markStatus(paths, SESSION_STATUS.WAITING_FOR_USER);
     return buildSessionResponse(paths, {
       ok: true,
@@ -1002,23 +1040,10 @@ async function makePlan(paths, options = {}, context = {}) {
     });
   }
 
-  const planPath = path.join(paths.sessionRoot, "plan.md");
+  await mkdir(currentCycleRoot, { recursive: true });
   await writeTextFile(planPath, planText);
   await appendAgentDecisions(paths, extractAgentDecisions(options.plan));
-  const commentResult = await commentOnIssueOnce(paths, {
-    bodyFile: planPath,
-    issueUrl,
-    purpose: "plan"
-  });
-  if (!commentResult.ok) {
-    return failSession(paths, {
-      code: "plan_comment_failed",
-      message: commentResult.output || "Failed to comment the implementation plan on the GitHub issue.",
-      repairCommand: `gh issue comment ${issueUrl} --body-file ${planPath}`,
-      preconditions
-    });
-  }
-  await writeReceipt(paths, "plan_made", `Saved plan and recorded the GitHub issue comment for ${issueUrl}.`);
+  await writeReceipt(paths, "plan_made", `Saved cycle ${activeCycle} plan.`);
   await markStatus(paths, SESSION_STATUS.RUNNING);
   return buildSessionResponse(paths, {
     preconditions
@@ -1027,74 +1052,41 @@ async function makePlan(paths, options = {}, context = {}) {
 
 async function renderPlanExecutionPrompt(paths, _options = {}, context = {}) {
   const preconditions = context.preconditions || [];
-  const issueText = await readTrimmedFile(path.join(paths.sessionRoot, "issue.md"));
-  const issueTitle = await readTrimmedFile(path.join(paths.sessionRoot, "issue_title")) || titleFromIssue(issueText);
-  const issueUrl = await readTrimmedFile(path.join(paths.sessionRoot, "issue_url"));
-  const issueNumber = issueNumberFromUrl(issueUrl);
-  const planPath = path.join(paths.sessionRoot, "plan.md");
-  const planText = await readTrimmedFile(planPath);
-  const planDetailsPath = path.join(paths.sessionRoot, "plan_details.md");
-  const planDetails = await readTrimmedFile(planDetailsPath);
-  const executionPrompt = await renderPrompt(paths, "execute_plan.md", {
-    issue_file: path.join(paths.sessionRoot, "issue.md"),
-    issue_number: issueNumber,
-    issue_title: issueTitle,
-    issue_url: issueUrl,
-    plan_details_file: planDetailsPath,
-    plan_details_text: planDetails,
-    plan_file: planPath,
-    plan_text: planText,
-    worktree: paths.worktree
-  });
-  await writePromptArtifact(paths, "plan_execution.md", executionPrompt);
-  await writeReceipt(paths, "plan_executed", "Started plan execution with Codex.");
-  await markStatus(paths, SESSION_STATUS.WAITING_FOR_USER);
-  return buildSessionResponse(paths, {
-    codex: PLAN_EXECUTION_CODEX_HANDOFF,
-    preconditions,
-    prompt: executionPrompt,
-    status: SESSION_STATUS.WAITING_FOR_USER
-  });
-}
-
-async function renderPlanFineTuningPrompt(paths, _options = {}, context = {}) {
-  const preconditions = context.preconditions || [];
   const activeCycle = await readActiveCycle(paths);
+  const executionPromptPath = path.join(paths.sessionRoot, "prompts", cyclePlanExecutionPromptFileName(activeCycle));
+  if (await fileExists(executionPromptPath)) {
+    await writeReceipt(paths, "plan_executed", `Cycle ${activeCycle} plan execution completed by Codex.`);
+    await markStatus(paths, SESSION_STATUS.RUNNING);
+    return buildSessionResponse(paths, {
+      preconditions
+    });
+  }
+
   const issueText = await readTrimmedFile(path.join(paths.sessionRoot, "issue.md"));
   const issueTitle = await readTrimmedFile(path.join(paths.sessionRoot, "issue_title")) || titleFromIssue(issueText);
   const issueUrl = await readTrimmedFile(path.join(paths.sessionRoot, "issue_url"));
   const issueNumber = issueNumberFromUrl(issueUrl);
-  const planPath = path.join(paths.sessionRoot, "plan.md");
-  const planText = await readTrimmedFile(planPath);
-  const planDetailsPath = path.join(paths.sessionRoot, "plan_details.md");
-  const planDetails = await readTrimmedFile(planDetailsPath);
-  const reworkRequestPath = path.join(paths.sessionRoot, "cycles", `cycle_${activeCycle}`, "rework_request.md");
-  const reworkRequest = await readTextIfExists(reworkRequestPath);
-  const agentDecisionsPath = path.join(paths.sessionRoot, "agent_decisions.md");
-  const agentDecisionsText = await readTextIfExists(agentDecisionsPath);
-  const fineTuningPrompt = await renderPrompt(paths, "fine_tune_plan.md", {
-    agent_decisions_file: agentDecisionsPath,
-    agent_decisions_text: agentDecisionsText,
+  const { planPath, planText } = await readCurrentPlan(paths);
+  const issueDetailsPath = path.join(paths.sessionRoot, "issue_details.md");
+  const issueDetails = await readTrimmedFile(issueDetailsPath);
+  const executionPrompt = await renderPrompt(paths, "execute_plan.md", {
     active_cycle: activeCycle,
     issue_file: path.join(paths.sessionRoot, "issue.md"),
     issue_number: issueNumber,
     issue_title: issueTitle,
     issue_url: issueUrl,
-    plan_details_file: planDetailsPath,
-    plan_details_text: planDetails,
+    issue_details_file: issueDetailsPath,
+    issue_details_text: issueDetails,
     plan_file: planPath,
     plan_text: planText,
-    rework_request: reworkRequest,
-    rework_request_file: reworkRequest ? reworkRequestPath : "",
     worktree: paths.worktree
   });
-  await writePromptArtifact(paths, "plan_fine_tuning.md", fineTuningPrompt);
-  await writeReceipt(paths, "plan_fine_tuning", "Started plan fine tuning with Codex.");
+  await writePromptArtifact(paths, cyclePlanExecutionPromptFileName(activeCycle), executionPrompt);
   await markStatus(paths, SESSION_STATUS.WAITING_FOR_USER);
   return buildSessionResponse(paths, {
-    codex: PLAN_FINE_TUNING_CODEX_HANDOFF,
+    codex: PLAN_EXECUTION_CODEX_HANDOFF,
     preconditions,
-    prompt: fineTuningPrompt,
+    prompt: executionPrompt,
     status: SESSION_STATUS.WAITING_FOR_USER
   });
 }
@@ -1219,27 +1211,6 @@ async function inspectSessionDiff({
   });
 }
 
-async function acceptImplementationChanges(paths) {
-  const status = await worktreeStatus(paths.worktree);
-  if (!status.ok) {
-    return failSession(paths, {
-      code: "git_status_failed",
-      message: status.output || "Failed to inspect worktree changes.",
-      repairCommand: `git -C ${paths.worktree} status --short`
-    });
-  }
-  if (status.changedFiles.length < 1) {
-    return failSession(paths, {
-      code: "changes_missing",
-      message: "No worktree changes found. Ask Codex to implement the approved plan, inspect the worktree, then accept changes once ready.",
-      repairCommand: `jskit session ${paths.sessionId} step`
-    });
-  }
-  await writeReceipt(paths, "implementation_changes_accepted", `Accepted ${status.changedFiles.length} changed file entries for commit.`);
-  await markStatus(paths, SESSION_STATUS.RUNNING);
-  return buildSessionResponse(paths);
-}
-
 async function commitWorktree(paths, {
   message,
   allowNoChanges = false
@@ -1281,28 +1252,27 @@ async function commitWorktree(paths, {
   };
 }
 
-async function commitImplementation(paths) {
-  const result = await commitWorktree(paths, {
-    message: `Implement JSKIT session ${paths.sessionId}`
-  });
-  if (!result.ok) {
-    return failSession(paths, {
-      code: "commit_failed",
-      message: result.output || "Failed to commit implementation changes.",
-      repairCommand: `git -C ${paths.worktree} status --short`
-    });
-  }
-  await writeReceipt(paths, "implementation_changes_committed", `Committed implementation changes for ${paths.sessionId}.`);
-  await markStatus(paths, SESSION_STATUS.RUNNING);
-  return buildSessionResponse(paths);
+function uniqueChangedFileList(entries = []) {
+  return [...new Set(entries
+    .flatMap((entry) => String(entry || "").split(/\r?\n/u))
+    .map((line) => line.trim())
+    .filter(Boolean))]
+    .sort((left, right) => left.localeCompare(right));
 }
 
-async function changedFilesFromLastCommit(paths) {
-  const result = await runGitInWorktree(paths.worktree, ["show", "--name-only", "--format=", "HEAD"]);
-  if (!result.ok) {
-    return "";
-  }
-  return result.stdout.split(/\r?\n/u).map((line) => line.trim()).filter(Boolean).join("\n");
+async function changedFilesInWorktree(paths) {
+  const [trackedResult, untrackedResult] = await Promise.all([
+    runGitInWorktree(paths.worktree, ["diff", "--name-only", "HEAD"], {
+      timeout: 15000
+    }),
+    runGitInWorktree(paths.worktree, ["ls-files", "--others", "--exclude-standard"], {
+      timeout: 15000
+    })
+  ]);
+  return uniqueChangedFileList([
+    trackedResult.ok ? trackedResult.stdout : "",
+    untrackedResult.ok ? untrackedResult.stdout : ""
+  ]);
 }
 
 async function changedFilesSinceBase(paths) {
@@ -1314,9 +1284,12 @@ async function changedFilesSinceBase(paths) {
     timeout: 15000
   });
   if (!result.ok) {
-    return "";
+    return (await changedFilesInWorktree(paths)).join("\n");
   }
-  return result.stdout.split(/\r?\n/u).map((line) => line.trim()).filter(Boolean).join("\n");
+  return uniqueChangedFileList([
+    result.stdout,
+    ...(await changedFilesInWorktree(paths))
+  ]).join("\n");
 }
 
 function nextReviewPassNumber(pass = "") {
@@ -1338,11 +1311,10 @@ async function resolveReviewPassForPrompt(paths) {
   if (!latestPass) {
     return "001";
   }
-  if (!["committed", "no_changes"].includes(latestPass.status)) {
+  if (!["accepted", "no_changes"].includes(latestPass.status)) {
     return latestPass.pass;
   }
-  const nextPass = nextReviewPassNumber(latestPass.pass);
-  return Number.parseInt(nextPass, 10) > REVIEW_PASS_LIMIT ? latestPass.pass : nextPass;
+  return nextReviewPassNumber(latestPass.pass);
 }
 
 async function writeReviewPassJson(paths, pass, fileName, payload) {
@@ -1361,8 +1333,9 @@ async function currentHead(paths) {
 async function renderReviewPrompt(paths) {
   const reviewPass = await resolveReviewPassForPrompt(paths);
   await writeCurrentReviewPass(paths, reviewPass);
+  const changedFiles = await changedFilesSinceBase(paths);
   const prompt = await renderPrompt(paths, "review_changes.md", {
-    changed_files: await changedFilesFromLastCommit(paths),
+    changed_files: changedFiles,
     review_pass_limit: String(REVIEW_PASS_LIMIT),
     review_pass_number: reviewPass
   });
@@ -1371,7 +1344,7 @@ async function renderReviewPrompt(paths) {
   await mkdir(passRoot, { recursive: true });
   await writeTextFile(path.join(passRoot, "prompt.md"), prompt);
   await writeReviewPassJson(paths, reviewPass, "prompt.json", {
-    changedFiles: (await changedFilesFromLastCommit(paths)).split(/\r?\n/u).filter(Boolean),
+    changedFiles: changedFiles.split(/\r?\n/u).filter(Boolean),
     maxPasses: REVIEW_PASS_LIMIT,
     pass: reviewPass,
     promptPath: path.join(passRoot, "prompt.md"),
@@ -1388,6 +1361,16 @@ async function renderReviewPrompt(paths) {
 }
 
 async function acceptReviewChanges(paths, options = {}) {
+  const reviewDecisionProvided = Object.hasOwn(options, "reviewFindingsRemaining") ||
+    Object.hasOwn(options, "review-findings-remaining");
+  if (!reviewDecisionProvided) {
+    return failSession(paths, {
+      code: "review_decision_required",
+      message: "Review/deslop requires an explicit decision before it can advance. Use reviewFindingsRemaining true to run another pass, or false when the review loop is done.",
+      repairCommand: `jskit session ${paths.sessionId} step --review-findings-remaining false`
+    });
+  }
+
   const status = await worktreeStatus(paths.worktree);
   if (!status.ok) {
     return failSession(paths, {
@@ -1397,7 +1380,7 @@ async function acceptReviewChanges(paths, options = {}) {
     });
   }
   const message = status.changedFiles.length > 0
-    ? `Accepted ${status.changedFiles.length} review changed file entries for commit.`
+    ? `Accepted ${status.changedFiles.length} review changed file entries.`
     : "Accepted review with no file changes.";
   const reviewPass = await readCurrentReviewPass(paths);
   const findingsRemaining = options.reviewFindingsRemaining === true ||
@@ -1405,41 +1388,13 @@ async function acceptReviewChanges(paths, options = {}) {
   const remainingFindings = normalizeText(options.reviewFindings || options["review-findings"]);
   await writeReviewPassJson(paths, reviewPass, "accepted.json", {
     acceptedAt: timestampForReceipt(),
-    changedFiles: status.changedFiles,
+    changedFiles: status.changedFiles || [],
     findingsRemaining,
     remainingFindings,
     pass: reviewPass,
-    status: status.changedFiles.length > 0 ? "accepted_with_changes" : "accepted_no_changes"
+    status: status.changedFiles?.length ? "accepted" : "no_changes"
   });
   await writeReceipt(paths, "review_changes_accepted", message);
-  await markStatus(paths, SESSION_STATUS.RUNNING);
-  return buildSessionResponse(paths);
-}
-
-async function commitReviewChanges(paths) {
-  const result = await commitWorktree(paths, {
-    allowNoChanges: true,
-    message: `Apply review changes for ${paths.sessionId}`
-  });
-  if (!result.ok) {
-    return failSession(paths, {
-      code: "review_commit_failed",
-      message: result.output || "Failed to commit review changes.",
-      repairCommand: `git -C ${paths.worktree} status --short`
-    });
-  }
-  const message = result.changedFiles?.length
-    ? "Committed review changes."
-    : "No review changes detected.";
-  const reviewPass = await readCurrentReviewPass(paths);
-  await writeReviewPassJson(paths, reviewPass, "committed.json", {
-    changedFiles: result.changedFiles || [],
-    commit: result.changedFiles?.length ? await currentHead(paths) : "",
-    committedAt: timestampForReceipt(),
-    pass: reviewPass,
-    status: result.changedFiles?.length ? "committed" : "no_changes"
-  });
-  await writeReceipt(paths, "review_changes_committed", message);
   await markStatus(paths, SESSION_STATUS.RUNNING);
   return buildSessionResponse(paths);
 }
@@ -1448,111 +1403,49 @@ async function runAutomatedChecks(paths, {
   stepId,
   label
 }) {
-  const repairCommitFailure = await maybeCommitCheckRepair(paths, {
-    label,
-    stepId
-  });
-  if (repairCommitFailure) {
-    return repairCommitFailure;
-  }
   const [command, args] = await doctorCommandForWorktree(paths.worktree);
-  const result = await runLoggedCommand(paths, stepId, command, args, {
-    cwd: paths.worktree,
-    timeout: 1000 * 60 * 15
-  });
+  const promptFileName = `${stepId}.md`;
+  const promptPath = path.join(paths.sessionRoot, "prompts", promptFileName);
   const checksRoot = path.join(paths.sessionRoot, "checks");
   await mkdir(checksRoot, { recursive: true });
-  await writeTextFile(path.join(checksRoot, `${stepId}.log`), result.output);
+  const checkCommand = [command, ...args].join(" ");
+
+  if (await fileExists(promptPath)) {
+    await writeTextFile(
+      path.join(checksRoot, `${stepId}.json`),
+      `${JSON.stringify({
+        command: checkCommand,
+        ok: true,
+        promptPath,
+        status: "completed_by_codex",
+        stepId
+      }, null, 2)}\n`
+    );
+    await writeReceipt(paths, stepId, `${label} completed by Codex: ${checkCommand}.`);
+    await markStatus(paths, SESSION_STATUS.RUNNING);
+    return buildSessionResponse(paths);
+  }
+
+  const prompt = await renderPrompt(paths, "automated_checks.md", {
+    check_command: checkCommand
+  });
+  await writePromptArtifact(paths, promptFileName, prompt);
   await writeTextFile(
     path.join(checksRoot, `${stepId}.json`),
     `${JSON.stringify({
-      command: [command, ...args].join(" "),
-      exitCode: result.exitCode,
-      ok: result.ok === true,
+      command: checkCommand,
+      ok: false,
+      promptPath,
+      status: "prompted",
       stepId
     }, null, 2)}\n`
   );
-  if (!result.ok) {
-    const prompt = await renderPrompt(paths, "doctor_failure.md", {
-      doctor_output: result.output
-    });
-    await writePromptArtifact(paths, `${stepId}_failure.md`, prompt);
-    return failSession(paths, {
-      code: `${stepId}_failed`,
-      message: `${label} failed. Paste the repair prompt into Codex, then rerun this step.`,
-      repairCommand: `${command} ${args.join(" ")}`,
-      prompt
-    });
-  }
-  await writeReceipt(paths, stepId, `${label} passed: ${command} ${args.join(" ")}.`);
-  await markStatus(paths, SESSION_STATUS.RUNNING);
-  return buildSessionResponse(paths);
-}
-
-async function readCheckResult(paths, stepId) {
-  return parseJsonObject(await readTextIfExists(path.join(paths.sessionRoot, "checks", `${stepId}.json`)));
-}
-
-async function maybeCommitCheckRepair(paths, {
-  label,
-  stepId
-}) {
-  const previousResult = await readCheckResult(paths, stepId);
-  if (!previousResult || previousResult.ok !== false) {
-    return null;
-  }
-  const status = await worktreeStatus(paths.worktree);
-  if (!status.ok) {
-    return failSession(paths, {
-      code: "git_status_failed",
-      message: status.output || "Failed to inspect check repair changes.",
-      repairCommand: `git -C ${paths.worktree} status --short`
-    });
-  }
-  if (status.changedFiles.length < 1) {
-    return null;
-  }
-  const result = await commitWorktree(paths, {
-    message: `${label} repairs for ${paths.sessionId}`
+  await markStatus(paths, SESSION_STATUS.WAITING_FOR_USER);
+  return buildSessionResponse(paths, {
+    codex: AUTOMATED_CHECK_REPAIR_CODEX_HANDOFF,
+    prompt,
+    status: SESSION_STATUS.WAITING_FOR_USER
   });
-  if (!result.ok) {
-    return failSession(paths, {
-      code: "check_repair_commit_failed",
-      message: result.output || `Failed to commit ${label} repair changes.`,
-      repairCommand: `git -C ${paths.worktree} status --short`
-    });
-  }
-  await writeTextFile(path.join(paths.sessionRoot, "checks", `${stepId}_repair_commit.json`), `${JSON.stringify({
-    changedFiles: result.changedFiles || [],
-    commit: await currentHead(paths),
-    committedAt: timestampForReceipt(),
-    ok: true,
-    stepId
-  }, null, 2)}\n`);
-  return null;
-}
-
-function uiCheckAcceptStepId(stepId) {
-  return stepId === "deep_ui_recheck_run"
-    ? "deep_ui_recheck_changes_accepted"
-    : "deep_ui_check_changes_accepted";
-}
-
-function uiCheckCommitStepId(stepId) {
-  return stepId === "deep_ui_recheck_run"
-    ? "deep_ui_recheck_changes_committed"
-    : "deep_ui_check_changes_committed";
-}
-
-function uiCheckSourceStepId(stepId) {
-  if (stepId === "deep_ui_recheck_changes_accepted" || stepId === "deep_ui_recheck_changes_committed") {
-    return "deep_ui_recheck_run";
-  }
-  return "deep_ui_check_run";
-}
-
-function uiCheckLabelForStep(stepId) {
-  return stepId === "deep_ui_recheck_run" ? "Deep UI re-check" : "Deep UI check";
 }
 
 async function writeUiCheckJson(paths, fileName, payload) {
@@ -1598,27 +1491,17 @@ async function runDeepUiCheck(paths, {
       stepId,
       uiImpact
     });
-    await writeUiCheckJson(paths, uiCheckAcceptStepId(stepId), {
-      ok: true,
-      phase,
-      reason,
-      sourceStepId: stepId,
-      status: "skipped",
-      stepId: uiCheckAcceptStepId(stepId),
-      uiImpact
-    });
-    await writeUiCheckJson(paths, uiCheckCommitStepId(stepId), {
-      ok: true,
-      phase,
-      reason,
-      sourceStepId: stepId,
-      status: "skipped",
-      stepId: uiCheckCommitStepId(stepId),
-      uiImpact
-    });
     await writeReceipt(paths, stepId, `${label} skipped: ${reason}`);
-    await writeReceipt(paths, uiCheckAcceptStepId(stepId), `${label} changes skipped: ${reason}`);
-    await writeReceipt(paths, uiCheckCommitStepId(stepId), `${label} commit skipped: ${reason}`);
+    await markStatus(paths, SESSION_STATUS.RUNNING);
+    return buildSessionResponse(paths, {
+      preconditions
+    });
+  }
+
+  const promptFileName = `${stepId}.md`;
+  const promptPath = path.join(paths.sessionRoot, "prompts", promptFileName);
+  if (await fileExists(promptPath)) {
+    await writeReceipt(paths, stepId, `${label} completed by Codex.`);
     await markStatus(paths, SESSION_STATUS.RUNNING);
     return buildSessionResponse(paths, {
       preconditions
@@ -1628,6 +1511,7 @@ async function runDeepUiCheck(paths, {
   const issueUrl = await readTrimmedFile(path.join(paths.sessionRoot, "issue_url"));
   const issueText = await readTrimmedFile(path.join(paths.sessionRoot, "issue.md"));
   const issueTitle = await readTrimmedFile(path.join(paths.sessionRoot, "issue_title")) || titleFromIssue(issueText);
+  const { planPath } = await readCurrentPlan(paths);
   const prompt = await renderPrompt(paths, "deep_ui_check.md", {
     changed_files: await changedFilesSinceBase(paths),
     issue_file: path.join(paths.sessionRoot, "issue.md"),
@@ -1635,95 +1519,26 @@ async function runDeepUiCheck(paths, {
     issue_title: issueTitle,
     issue_url: issueUrl,
     phase,
-    plan_details_file: path.join(paths.sessionRoot, "plan_details.md"),
-    plan_file: path.join(paths.sessionRoot, "plan.md"),
+    issue_details_file: path.join(paths.sessionRoot, "issue_details.md"),
+    plan_file: planPath,
     ui_impact: uiImpact,
     worktree: paths.worktree
   });
-  await writePromptArtifact(paths, `${stepId}.md`, prompt);
+  await writePromptArtifact(paths, promptFileName, prompt);
   await writeUiCheckJson(paths, stepId, {
     ok: true,
     phase,
-    promptPath: path.join(paths.sessionRoot, "prompts", `${stepId}.md`),
+    promptPath,
     status: "prompted",
     stepId,
     uiImpact
   });
-  await writeReceipt(paths, stepId, `${label} prompt rendered for uiImpact=${uiImpact}.`);
   await markStatus(paths, SESSION_STATUS.WAITING_FOR_USER);
   return buildSessionResponse(paths, {
     codex: DEEP_UI_CHECK_CODEX_HANDOFF,
     preconditions,
     prompt,
     status: SESSION_STATUS.WAITING_FOR_USER
-  });
-}
-
-async function acceptUiCheckChanges(paths, {
-  stepId
-}, _options = {}, context = {}) {
-  const preconditions = context.preconditions || [];
-  const sourceStepId = uiCheckSourceStepId(stepId);
-  const status = await worktreeStatus(paths.worktree);
-  if (!status.ok) {
-    return failSession(paths, {
-      code: "git_status_failed",
-      message: status.output || "Failed to inspect Deep UI changes.",
-      repairCommand: `git -C ${paths.worktree} status --short`,
-      preconditions
-    });
-  }
-  const label = uiCheckLabelForStep(sourceStepId);
-  await writeUiCheckJson(paths, stepId, {
-    acceptedAt: timestampForReceipt(),
-    changedFiles: status.changedFiles,
-    ok: true,
-    sourceStepId,
-    status: status.changedFiles.length > 0 ? "accepted_with_changes" : "accepted_no_changes",
-    stepId
-  });
-  await writeReceipt(paths, stepId, status.changedFiles.length > 0
-    ? `Accepted ${status.changedFiles.length} ${label} changed file entries for commit.`
-    : `Accepted ${label} with no file changes.`);
-  await markStatus(paths, SESSION_STATUS.RUNNING);
-  return buildSessionResponse(paths, {
-    preconditions
-  });
-}
-
-async function commitUiCheckChanges(paths, {
-  stepId
-}, _options = {}, context = {}) {
-  const preconditions = context.preconditions || [];
-  const sourceStepId = uiCheckSourceStepId(stepId);
-  const label = uiCheckLabelForStep(sourceStepId);
-  const result = await commitWorktree(paths, {
-    allowNoChanges: true,
-    message: `${label} fixes for ${paths.sessionId}`
-  });
-  if (!result.ok) {
-    return failSession(paths, {
-      code: "deep_ui_commit_failed",
-      message: result.output || `Failed to commit ${label} changes.`,
-      repairCommand: `git -C ${paths.worktree} status --short`,
-      preconditions
-    });
-  }
-  await writeUiCheckJson(paths, stepId, {
-    changedFiles: result.changedFiles || [],
-    commit: result.changedFiles?.length ? await currentHead(paths) : "",
-    committedAt: timestampForReceipt(),
-    ok: true,
-    sourceStepId,
-    status: result.changedFiles?.length ? "committed" : "no_changes",
-    stepId
-  });
-  await writeReceipt(paths, stepId, result.changedFiles?.length
-    ? `Committed ${label} changes.`
-    : `${label} needed no file changes.`);
-  await markStatus(paths, SESSION_STATUS.RUNNING);
-  return buildSessionResponse(paths, {
-    preconditions
   });
 }
 
@@ -1747,7 +1562,7 @@ async function userCheck(paths, options = {}) {
         errors: [
           createError({
             code: "user_check_failed",
-            message: "User check failed. Provide rework notes to start a new Plan fine tuning cycle.",
+            message: "User check failed. Provide rework notes to start a new plan cycle.",
             repairCommand: `jskit session ${paths.sessionId} step --user-check failed --rework-notes -`
           })
         ],
@@ -1760,21 +1575,22 @@ async function userCheck(paths, options = {}) {
     await writeCycleReceipt(paths, "cycle_started", `Started rework cycle ${nextCycle}.`, {
       cycle: nextCycle
     });
-    await markCurrentStep(paths, "plan_fine_tuning");
+    await markCurrentStep(paths, "plan_made");
     await markStatus(paths, SESSION_STATUS.RUNNING);
     return buildSessionResponse(paths);
   }
   const issueText = await readTrimmedFile(path.join(paths.sessionRoot, "issue.md"));
   const issueUrl = await readTrimmedFile(path.join(paths.sessionRoot, "issue_url"));
   const issueTitle = await readTrimmedFile(path.join(paths.sessionRoot, "issue_title")) || titleFromIssue(issueText);
+  const { planPath, planText } = await readCurrentPlan(paths);
   const prompt = await renderPrompt(paths, "user_check.md", {
     issue_file: path.join(paths.sessionRoot, "issue.md"),
     issue_title: issueTitle,
     issue_url: issueUrl,
-    plan_details_file: path.join(paths.sessionRoot, "plan_details.md"),
-    plan_details_text: await readTrimmedFile(path.join(paths.sessionRoot, "plan_details.md")),
-    plan_file: path.join(paths.sessionRoot, "plan.md"),
-    plan_text: await readTrimmedFile(path.join(paths.sessionRoot, "plan.md"))
+    issue_details_file: path.join(paths.sessionRoot, "issue_details.md"),
+    issue_details_text: await readTrimmedFile(path.join(paths.sessionRoot, "issue_details.md")),
+    plan_file: planPath,
+    plan_text: planText
   });
   await writePromptArtifact(paths, "user_check.md", prompt);
   await markStatus(paths, SESSION_STATUS.WAITING_FOR_USER);
@@ -1784,96 +1600,138 @@ async function userCheck(paths, options = {}) {
   });
 }
 
-async function updateBlueprint(paths, options = {}, context = {}) {
+async function readAcceptedChangesCommit(paths) {
+  const source = await readTextIfExists(path.join(paths.sessionRoot, "changes_committed.json"));
+  return parseJsonObject(source) || null;
+}
+
+async function commitAcceptedChanges(paths, _options = {}, context = {}) {
   const preconditions = context.preconditions || [];
-  const blueprintSource = normalizeText(options.blueprint);
-  const issueText = await readTrimmedFile(path.join(paths.sessionRoot, "issue.md"));
-  const issueTitle = await readTrimmedFile(path.join(paths.sessionRoot, "issue_title")) || titleFromIssue(issueText);
-  const issueUrl = await readTrimmedFile(path.join(paths.sessionRoot, "issue_url"));
-  const issueNumber = issueNumberFromUrl(issueUrl);
-  const planPath = path.join(paths.sessionRoot, "plan.md");
-  const planDetailsPath = path.join(paths.sessionRoot, "plan_details.md");
-  const agentDecisionsPath = path.join(paths.sessionRoot, "agent_decisions.md");
-  const blueprintPath = path.join(paths.worktree, ".jskit", "APP_BLUEPRINT.md");
+  let commitInfo = await readAcceptedChangesCommit(paths);
 
-  if (!blueprintSource) {
-    const prompt = await renderPrompt(paths, "update_blueprint.md", {
-      agent_decisions_file: agentDecisionsPath,
-      app_blueprint_file: blueprintPath,
-      changed_files: await changedFilesSinceBase(paths),
-      issue_file: path.join(paths.sessionRoot, "issue.md"),
-      issue_number: issueNumber,
-      issue_title: issueTitle,
-      issue_url: issueUrl,
-      plan_details_file: planDetailsPath,
-      plan_file: planPath,
-      worktree: paths.worktree
+  if (!commitInfo?.commit) {
+    const result = await commitWorktree(paths, {
+      message: `Implement JSKIT session ${paths.sessionId}`
     });
-    await writePromptArtifact(paths, "update_blueprint.md", prompt);
-    await markStatus(paths, SESSION_STATUS.WAITING_FOR_USER);
-    return buildSessionResponse(paths, {
-      codex: BLUEPRINT_CODEX_HANDOFF,
-      ok: true,
-      preconditions,
-      prompt,
-      status: SESSION_STATUS.WAITING_FOR_USER
-    });
-  }
-
-  const blueprintText = extractAppBlueprintText(blueprintSource);
-  if (!blueprintText) {
-    return failSession(paths, {
-      code: "app_blueprint_required",
-      message: "The blueprint step requires [app_blueprint]...[/app_blueprint] output.",
-      repairCommand: `jskit session ${paths.sessionId} step --blueprint -`,
-      preconditions
-    });
-  }
-
-  const before = await readTextIfExists(blueprintPath);
-  const result = await writeAppBlueprint({
-    appBlueprint: blueprintSource,
-    targetRoot: paths.worktree
-  });
-  if (!result.ok) {
-    return failSession(paths, {
-      code: result.errors?.[0]?.code || "app_blueprint_write_failed",
-      message: result.errors?.[0]?.message || "Failed to write app blueprint.",
-      repairCommand: result.errors?.[0]?.repairCommand || `jskit session ${paths.sessionId} step --blueprint -`,
-      preconditions
-    });
-  }
-  await appendAgentDecisions(paths, extractAgentDecisions(blueprintSource));
-  if (before.trim() !== blueprintText.trim()) {
-    const addResult = await runGitInWorktree(paths.worktree, ["add", ".jskit/APP_BLUEPRINT.md"], {
-      timeout: 15000
-    });
-    if (!addResult.ok) {
+    if (!result.ok) {
+      if (result.output === "No changes found.") {
+        return failSession(paths, {
+          code: "accepted_changes_missing",
+          message: "No accepted worktree changes found to commit.",
+          repairCommand: `git -C ${paths.worktree} status --short`,
+          preconditions
+        });
+      }
       return failSession(paths, {
-        code: "blueprint_stage_failed",
-        message: addResult.output || "Failed to stage app blueprint update.",
-        repairCommand: `git -C ${paths.worktree} add .jskit/APP_BLUEPRINT.md`,
-        preconditions
-      });
-    }
-    const commitResult = await runGitInWorktree(paths.worktree, ["commit", "-m", `Update app blueprint for ${paths.sessionId}`], {
-      timeout: 1000 * 60
-    });
-    if (!commitResult.ok) {
-      return failSession(paths, {
-        code: "blueprint_commit_failed",
-        message: commitResult.output || "Failed to commit app blueprint update.",
+        code: "accepted_changes_commit_failed",
+        message: result.output || "Failed to commit accepted changes.",
         repairCommand: `git -C ${paths.worktree} status --short`,
         preconditions
       });
     }
-    await writeReceipt(paths, "blueprint_updated", "Updated and committed app blueprint.");
-  } else {
-    await writeReceipt(paths, "blueprint_updated", "App blueprint already up to date.");
+    commitInfo = {
+      changedFiles: result.changedFiles || [],
+      commit: await currentHead(paths),
+      committedAt: timestampForReceipt()
+    };
+    await writeTextFile(path.join(paths.sessionRoot, "changes_committed.json"), `${JSON.stringify(commitInfo, null, 2)}\n`);
   }
+
+  await writeReceipt(paths, "changes_committed", `Committed accepted changes at ${commitInfo.commit || "unknown"}.`);
   await markStatus(paths, SESSION_STATUS.RUNNING);
   return buildSessionResponse(paths, {
     preconditions
+  });
+}
+
+async function updateBlueprint(paths, _options = {}, context = {}) {
+  const preconditions = context.preconditions || [];
+  const issueText = await readTrimmedFile(path.join(paths.sessionRoot, "issue.md"));
+  const issueTitle = await readTrimmedFile(path.join(paths.sessionRoot, "issue_title")) || titleFromIssue(issueText);
+  const issueUrl = await readTrimmedFile(path.join(paths.sessionRoot, "issue_url"));
+  const issueNumber = issueNumberFromUrl(issueUrl);
+  const { planPath } = await readCurrentPlan(paths);
+  const issueDetailsPath = path.join(paths.sessionRoot, "issue_details.md");
+  const agentDecisionsPath = path.join(paths.sessionRoot, "agent_decisions.md");
+  const blueprintPath = path.join(paths.worktree, ".jskit", "APP_BLUEPRINT.md");
+  const blueprintPromptPath = path.join(paths.sessionRoot, "prompts", "update_blueprint.md");
+
+  if (await fileExists(blueprintPromptPath)) {
+    const changedFiles = await changedFilesInWorktree(paths);
+    const unexpectedChanges = changedFiles.filter((file) => file !== ".jskit/APP_BLUEPRINT.md");
+    if (unexpectedChanges.length > 0) {
+      return failSession(paths, {
+        code: "blueprint_unexpected_changes",
+        message: `The blueprint step changed files outside .jskit/APP_BLUEPRINT.md: ${unexpectedChanges.join(", ")}`,
+        repairCommand: `git -C ${paths.worktree} status --short`,
+        preconditions
+      });
+    }
+
+    const blueprintText = await readTrimmedFile(blueprintPath);
+    if (!blueprintText) {
+      return failSession(paths, {
+        code: "app_blueprint_missing_after_update",
+        message: "Codex completed the blueprint step without leaving a non-empty .jskit/APP_BLUEPRINT.md file.",
+        repairCommand: `jskit session ${paths.sessionId} step`,
+        preconditions
+      });
+    }
+
+    if (changedFiles.includes(".jskit/APP_BLUEPRINT.md")) {
+      const addResult = await runGitInWorktree(paths.worktree, ["add", ".jskit/APP_BLUEPRINT.md"], {
+        timeout: 15000
+      });
+      if (!addResult.ok) {
+        return failSession(paths, {
+          code: "blueprint_stage_failed",
+          message: addResult.output || "Failed to stage app blueprint update.",
+          repairCommand: `git -C ${paths.worktree} add .jskit/APP_BLUEPRINT.md`,
+          preconditions
+        });
+      }
+      const commitResult = await runGitInWorktree(paths.worktree, ["commit", "-m", `Update app blueprint for ${paths.sessionId}`], {
+        timeout: 1000 * 60
+      });
+      if (!commitResult.ok) {
+        return failSession(paths, {
+          code: "blueprint_commit_failed",
+          message: commitResult.output || "Failed to commit app blueprint update.",
+          repairCommand: `git -C ${paths.worktree} status --short`,
+          preconditions
+        });
+      }
+      await writeReceipt(paths, "blueprint_updated", "Codex updated and JSKIT committed the app blueprint.");
+    } else {
+      await writeReceipt(paths, "blueprint_updated", "Codex reviewed the app blueprint; no blueprint changes were needed.");
+    }
+    await markStatus(paths, SESSION_STATUS.RUNNING);
+    return buildSessionResponse(paths, {
+      preconditions,
+      status: SESSION_STATUS.RUNNING
+    });
+  }
+
+  const prompt = await renderPrompt(paths, "update_blueprint.md", {
+    agent_decisions_file: agentDecisionsPath,
+    app_blueprint_file: blueprintPath,
+    changed_files: await changedFilesSinceBase(paths),
+    issue_file: path.join(paths.sessionRoot, "issue.md"),
+    issue_number: issueNumber,
+    issue_title: issueTitle,
+    issue_url: issueUrl,
+    issue_details_file: issueDetailsPath,
+    plan_file: planPath,
+    worktree: paths.worktree
+  });
+  await writePromptArtifact(paths, "update_blueprint.md", prompt);
+  await markStatus(paths, SESSION_STATUS.WAITING_FOR_USER);
+  return buildSessionResponse(paths, {
+    codex: BLUEPRINT_CODEX_HANDOFF,
+    ok: true,
+    preconditions,
+    prompt,
+    status: SESSION_STATUS.WAITING_FOR_USER
   });
 }
 
@@ -1894,7 +1752,7 @@ async function doctorCommandForWorktree(worktree) {
   if (scripts.verify) {
     return ["npm", ["run", "verify"]];
   }
-  return ["npx", ["jskit", "app", "verify"]];
+  return ["npx", ["--no-install", "jskit", "app", "verify"]];
 }
 
 async function runDoctor(paths) {
@@ -2023,8 +1881,8 @@ async function createFinalReport(paths, _options = {}, context = {}) {
   const preconditions = context.preconditions || [];
   const issueUrl = await readTrimmedFile(path.join(paths.sessionRoot, "issue_url"));
   const issueTitle = await readTrimmedFile(path.join(paths.sessionRoot, "issue_title"));
-  const planDetails = await readTrimmedFile(path.join(paths.sessionRoot, "plan_details.md"));
-  const planText = await readTrimmedFile(path.join(paths.sessionRoot, "plan.md"));
+  const issueDetails = await readTrimmedFile(path.join(paths.sessionRoot, "issue_details.md"));
+  const { planText } = await readCurrentPlan(paths);
   const agentDecisions = await readTextIfExists(path.join(paths.sessionRoot, "agent_decisions.md"));
   const filesChanged = await changedFilesSinceBase(paths);
   const commits = await commitLinesSinceBase(paths);
@@ -2040,9 +1898,9 @@ async function createFinalReport(paths, _options = {}, context = {}) {
     `Issue: ${issueUrl || "(missing)"}`,
     `Session: ${paths.sessionId}`,
     "",
-    "## Plan Details",
+    "## Issue Details",
     "",
-    planDetails || "No plan details recorded.",
+    issueDetails || "No issue details recorded.",
     "",
     "## Plan",
     "",
@@ -2563,6 +2421,15 @@ async function finalizePr(paths, options = {}) {
   if (closeWithoutMerge) {
     return closePrWithoutMerge(paths, prUrl, options);
   }
+  const mergePr = options.mergePr === true ||
+    normalizeText(options["merge-pr"]).toLowerCase() === "true";
+  if (!mergePr) {
+    return failSession(paths, {
+      code: "pr_finalize_decision_required",
+      message: "Choose whether to merge the PR or finish without merging.",
+      repairCommand: `jskit session ${paths.sessionId} step --merge-pr true`
+    });
+  }
   const mergeMarkerPath = path.join(paths.sessionRoot, "pr_merge_completed");
   const baseBranchPath = path.join(paths.sessionRoot, "pr_base_branch");
   const mergeAlreadyCompleted = await readTrimmedFile(mergeMarkerPath);
@@ -2666,47 +2533,22 @@ const STEP_RUNNERS = Object.freeze({
   issue_prompt_rendered: renderIssuePrompt,
   issue_drafted: draftIssue,
   issue_created: createIssue,
-  plan_details_prompt_rendered: renderPlanDetailsPrompt,
-  plan_details_gathered: savePlanDetails,
+  issue_details_gathered: saveIssueDetails,
   plan_made: makePlan,
   plan_executed: renderPlanExecutionPrompt,
-  plan_fine_tuning: renderPlanFineTuningPrompt,
-  implementation_changes_accepted: acceptImplementationChanges,
-  implementation_changes_committed: commitImplementation,
-  pre_review_checks_run: (paths) => runAutomatedChecks(paths, {
-    label: "Pre-review checks",
-    stepId: "pre_review_checks_run"
+  automated_checks_run: (paths) => runAutomatedChecks(paths, {
+    label: "Automated checks",
+    stepId: "automated_checks_run"
   }),
   deep_ui_check_run: (paths, options, context) => runDeepUiCheck(paths, {
     label: "Deep UI check",
     phase: "pre_review",
     stepId: "deep_ui_check_run"
   }, options, context),
-  deep_ui_check_changes_accepted: (paths, options, context) => acceptUiCheckChanges(paths, {
-    stepId: "deep_ui_check_changes_accepted"
-  }, options, context),
-  deep_ui_check_changes_committed: (paths, options, context) => commitUiCheckChanges(paths, {
-    stepId: "deep_ui_check_changes_committed"
-  }, options, context),
   review_prompt_rendered: renderReviewPrompt,
   review_changes_accepted: acceptReviewChanges,
-  review_changes_committed: commitReviewChanges,
-  post_review_checks_run: (paths) => runAutomatedChecks(paths, {
-    label: "Post-review checks",
-    stepId: "post_review_checks_run"
-  }),
-  deep_ui_recheck_run: (paths, options, context) => runDeepUiCheck(paths, {
-    label: "Deep UI re-check",
-    phase: "post_review",
-    stepId: "deep_ui_recheck_run"
-  }, options, context),
-  deep_ui_recheck_changes_accepted: (paths, options, context) => acceptUiCheckChanges(paths, {
-    stepId: "deep_ui_recheck_changes_accepted"
-  }, options, context),
-  deep_ui_recheck_changes_committed: (paths, options, context) => commitUiCheckChanges(paths, {
-    stepId: "deep_ui_recheck_changes_committed"
-  }, options, context),
   user_check_completed: userCheck,
+  changes_committed: commitAcceptedChanges,
   blueprint_updated: updateBlueprint,
   doctor_run: runDoctor,
   final_report_created: createFinalReport,
@@ -2716,11 +2558,11 @@ const STEP_RUNNERS = Object.freeze({
 });
 
 const PRECONDITION_RUNNERS = Object.freeze({
+  accepted_changes_committed: assertAcceptedChangesCommitted,
   active_cycle_exists: assertActiveCycleExists,
   active_cycle_user_check_passed: assertActiveCycleUserCheckPassed,
   blueprint_update_satisfied: assertBlueprintUpdateSatisfied,
   deep_ui_check_satisfied: assertDeepUiCheckSatisfied,
-  deep_ui_recheck_satisfied: assertDeepUiRecheckSatisfied,
   dependencies_installed: assertDependenciesInstalled,
   final_report_exists: assertFinalReportExists,
   git_current_branch: (paths) => assertGitCurrentBranch(paths.targetRoot),
@@ -2730,9 +2572,8 @@ const PRECONDITION_RUNNERS = Object.freeze({
   issue_metadata_exists: assertIssueMetadataExists,
   issue_text_exists: assertIssueTextExists,
   issue_url_exists: assertIssueUrlExists,
-  post_review_checks_passed: assertPostReviewChecksPassed,
-  pre_review_checks_passed: assertPreReviewChecksPassed,
-  plan_details_exists: assertPlanDetailsExists,
+  automated_checks_passed: assertAutomatedChecksPassed,
+  issue_details_exists: assertIssueDetailsExists,
   plan_text_exists: assertPlanTextExists,
   pr_url_exists: assertPrUrlExists,
   ready_jskit_app: assertReadyJskitApp,
@@ -2898,7 +2739,7 @@ export {
   createSessionId,
   extractIssueTitle,
   extractIssueText,
-  extractPlanDetails,
+  extractIssueDetails,
   extractPlanText,
   inspectSession,
   inspectSessionDiff,

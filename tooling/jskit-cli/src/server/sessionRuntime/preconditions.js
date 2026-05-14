@@ -6,6 +6,7 @@ import {
 import { constants as fsConstants } from "node:fs";
 import path from "node:path";
 import {
+  JSKIT_CLI_SHELL_COMMAND,
   SESSION_STATE_RELATIVE_PATH
 } from "./constants.js";
 import {
@@ -27,6 +28,10 @@ import {
 import {
   inspectReadyJskitAppRoot
 } from "./appReadiness.js";
+
+function jskitCommand(args = "") {
+  return `${JSKIT_CLI_SHELL_COMMAND}${args ? ` ${args}` : ""}`;
+}
 
 async function assertTargetRootWritable(targetRoot) {
   try {
@@ -231,7 +236,7 @@ async function assertSessionExists(paths) {
     error: createError({
       code: "session_missing",
       message: `Session does not exist: ${paths.sessionId}`,
-      repairCommand: "jskit session create"
+      repairCommand: jskitCommand("session create")
     }),
     precondition: createPrecondition({
       id: "session_exists",
@@ -266,7 +271,7 @@ async function assertDependenciesInstalled(paths) {
     error: createError({
       code: "dependencies_not_installed",
       message: "Cannot start issue work until dependencies are installed in the session worktree.",
-      repairCommand: `jskit session ${paths.sessionId} step`
+      repairCommand: jskitCommand(`session ${paths.sessionId} step`)
     }),
     precondition: createPrecondition({
       id: "dependencies_installed",
@@ -348,12 +353,39 @@ async function assertActiveCycleUserCheckPassed(paths) {
     error: createError({
       code: "user_check_not_passed",
       message: "Finalization cannot continue until the active cycle user check has passed.",
-      repairCommand: `jskit session ${paths.sessionId} step --user-check passed`
+      repairCommand: jskitCommand(`session ${paths.sessionId} step --user-check passed`)
     }),
     precondition: createPrecondition({
       id: "active_cycle_user_check_passed",
       ok: false,
       message: "The active cycle user check has passed."
+    })
+  };
+}
+
+async function assertAcceptedChangesCommitted(paths) {
+  const receiptPath = path.join(paths.sessionRoot, "steps", "changes_committed");
+  if (await pathExists(receiptPath)) {
+    return {
+      ok: true,
+      precondition: createPrecondition({
+        id: "accepted_changes_committed",
+        ok: true,
+        message: "Accepted changes have been committed."
+      })
+    };
+  }
+  return {
+    ok: false,
+    error: createError({
+      code: "accepted_changes_not_committed",
+      message: "Accepted changes must be committed before app memory and finalization steps continue.",
+      repairCommand: jskitCommand(`session ${paths.sessionId} step`)
+    }),
+    precondition: createPrecondition({
+      id: "accepted_changes_committed",
+      ok: false,
+      message: "Accepted changes have been committed."
     })
   };
 }
@@ -381,7 +413,7 @@ async function assertActiveCycleStepReceipt(paths, {
     error: createError({
       code,
       message,
-      repairCommand: `jskit session ${paths.sessionId} step`
+      repairCommand: jskitCommand(`session ${paths.sessionId} step`)
     }),
     precondition: createPrecondition({
       id,
@@ -391,21 +423,12 @@ async function assertActiveCycleStepReceipt(paths, {
   };
 }
 
-async function assertPreReviewChecksPassed(paths) {
+async function assertAutomatedChecksPassed(paths) {
   return assertActiveCycleStepReceipt(paths, {
-    code: "pre_review_checks_not_passed",
-    id: "pre_review_checks_passed",
-    message: "Pre-review checks have passed.",
-    stepId: "pre_review_checks_run"
-  });
-}
-
-async function assertPostReviewChecksPassed(paths) {
-  return assertActiveCycleStepReceipt(paths, {
-    code: "post_review_checks_not_passed",
-    id: "post_review_checks_passed",
-    message: "Post-review checks have passed.",
-    stepId: "post_review_checks_run"
+    code: "automated_checks_not_passed",
+    id: "automated_checks_passed",
+    message: "Automated checks have passed.",
+    stepId: "automated_checks_run"
   });
 }
 
@@ -414,16 +437,7 @@ async function assertDeepUiCheckSatisfied(paths) {
     code: "deep_ui_check_not_satisfied",
     id: "deep_ui_check_satisfied",
     message: "Deep UI check is satisfied.",
-    stepId: "deep_ui_check_changes_committed"
-  });
-}
-
-async function assertDeepUiRecheckSatisfied(paths) {
-  return assertActiveCycleStepReceipt(paths, {
-    code: "deep_ui_recheck_not_satisfied",
-    id: "deep_ui_recheck_satisfied",
-    message: "Deep UI re-check is satisfied.",
-    stepId: "deep_ui_recheck_changes_committed"
+    stepId: "deep_ui_check_run"
   });
 }
 
@@ -435,7 +449,7 @@ async function assertIssueMetadataExists(paths) {
       error: createError({
         code: "issue_metadata_missing",
         message: "Cannot continue before issue_metadata.json records the issue category and UI impact.",
-        repairCommand: `jskit session ${paths.sessionId} step --plan-details -`
+        repairCommand: jskitCommand(`session ${paths.sessionId} step --issue-details -`)
       }),
       precondition: createPrecondition({
         id: "issue_metadata_exists",
@@ -471,7 +485,7 @@ async function assertIssueMetadataExists(paths) {
     error: createError({
       code: "issue_metadata_invalid",
       message: "issue_metadata.json must include a valid issueCategory and uiImpact.",
-      repairCommand: `jskit session ${paths.sessionId} step --plan-details -`
+      repairCommand: jskitCommand(`session ${paths.sessionId} step --issue-details -`)
     }),
     precondition: createPrecondition({
       id: "issue_metadata_exists",
@@ -498,7 +512,7 @@ async function assertIssueTextExists(paths) {
     error: createError({
       code: "issue_text_missing",
       message: "Cannot create a GitHub issue before issue.md exists.",
-      repairCommand: `jskit session ${paths.sessionId} step --issue -`
+      repairCommand: jskitCommand(`session ${paths.sessionId} step --issue -`)
     }),
     precondition: createPrecondition({
       id: "issue_text_exists",
@@ -525,7 +539,7 @@ async function assertIssueUrlExists(paths) {
     error: createError({
       code: "issue_url_missing",
       message: "Cannot create a plan before the GitHub issue exists.",
-      repairCommand: `jskit session ${paths.sessionId} step`
+      repairCommand: jskitCommand(`session ${paths.sessionId} step`)
     }),
     precondition: createPrecondition({
       id: "issue_url_exists",
@@ -536,7 +550,9 @@ async function assertIssueUrlExists(paths) {
 }
 
 async function assertPlanTextExists(paths) {
-  const planText = await readTrimmedFile(path.join(paths.sessionRoot, "plan.md"));
+  const activeCycle = await readTrimmedFile(path.join(paths.sessionRoot, "active_cycle"));
+  const planPath = path.join(paths.sessionRoot, "cycles", `cycle_${activeCycle || "001"}`, "plan.md");
+  const planText = await readTrimmedFile(planPath);
   if (planText) {
     return {
       ok: true,
@@ -551,8 +567,8 @@ async function assertPlanTextExists(paths) {
     ok: false,
     error: createError({
       code: "plan_text_missing",
-      message: "Cannot fine-tune a plan before plan.md exists.",
-      repairCommand: `jskit session ${paths.sessionId} step --plan -`
+      message: "Cannot execute a plan before the active cycle plan exists.",
+      repairCommand: jskitCommand(`session ${paths.sessionId} step --plan -`)
     }),
     precondition: createPrecondition({
       id: "plan_text_exists",
@@ -562,29 +578,29 @@ async function assertPlanTextExists(paths) {
   };
 }
 
-async function assertPlanDetailsExists(paths) {
-  const planDetails = await readTrimmedFile(path.join(paths.sessionRoot, "plan_details.md"));
-  if (planDetails) {
+async function assertIssueDetailsExists(paths) {
+  const issueDetails = await readTrimmedFile(path.join(paths.sessionRoot, "issue_details.md"));
+  if (issueDetails) {
     return {
       ok: true,
       precondition: createPrecondition({
-        id: "plan_details_exists",
+        id: "issue_details_exists",
         ok: true,
-        message: "Plan details exist."
+        message: "Issue details exist."
       })
     };
   }
   return {
     ok: false,
     error: createError({
-      code: "plan_details_missing",
-      message: "Cannot create a plan before plan_details.md exists.",
-      repairCommand: `jskit session ${paths.sessionId} step --plan-details -`
+      code: "issue_details_missing",
+      message: "Cannot create a plan before issue_details.md exists.",
+      repairCommand: jskitCommand(`session ${paths.sessionId} step --issue-details -`)
     }),
     precondition: createPrecondition({
-      id: "plan_details_exists",
+      id: "issue_details_exists",
       ok: false,
-      message: "Plan details exist."
+      message: "Issue details exist."
     })
   };
 }
@@ -605,7 +621,7 @@ async function assertBlueprintUpdateSatisfied(paths) {
     error: createError({
       code: "blueprint_update_missing",
       message: "Cannot continue before the blueprint update step is complete.",
-      repairCommand: `jskit session ${paths.sessionId} step --blueprint -`
+      repairCommand: jskitCommand(`session ${paths.sessionId} step`)
     }),
     precondition: createPrecondition({
       id: "blueprint_update_satisfied",
@@ -631,7 +647,7 @@ async function assertFinalReportExists(paths) {
     error: createError({
       code: "final_report_missing",
       message: "Cannot publish the PR before final_report.md exists.",
-      repairCommand: `jskit session ${paths.sessionId} step`
+      repairCommand: jskitCommand(`session ${paths.sessionId} step`)
     }),
     precondition: createPrecondition({
       id: "final_report_exists",
@@ -657,7 +673,7 @@ async function assertWorktreeExists(paths) {
     error: createError({
       code: "worktree_missing",
       message: "Session worktree does not exist.",
-      repairCommand: `jskit session ${paths.sessionId} step`
+      repairCommand: jskitCommand(`session ${paths.sessionId} step`)
     }),
     precondition: createPrecondition({
       id: "worktree_exists",
@@ -684,7 +700,7 @@ async function assertPrUrlExists(paths) {
     error: createError({
       code: "pr_url_missing",
       message: "Cannot merge before pr_url exists.",
-      repairCommand: `jskit session ${paths.sessionId} step`
+      repairCommand: jskitCommand(`session ${paths.sessionId} step`)
     }),
     precondition: createPrecondition({
       id: "pr_url_exists",
@@ -696,11 +712,11 @@ async function assertPrUrlExists(paths) {
 
 export {
   applyPreconditions,
+  assertAcceptedChangesCommitted,
   assertActiveCycleExists,
   assertActiveCycleUserCheckPassed,
   assertBlueprintUpdateSatisfied,
   assertDeepUiCheckSatisfied,
-  assertDeepUiRecheckSatisfied,
   assertDependenciesInstalled,
   assertFinalReportExists,
   assertGhAuth,
@@ -710,9 +726,8 @@ export {
   assertIssueMetadataExists,
   assertIssueTextExists,
   assertIssueUrlExists,
-  assertPostReviewChecksPassed,
-  assertPreReviewChecksPassed,
-  assertPlanDetailsExists,
+  assertAutomatedChecksPassed,
+  assertIssueDetailsExists,
   assertPlanTextExists,
   assertPrUrlExists,
   assertReadyJskitApp,
