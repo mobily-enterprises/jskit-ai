@@ -226,6 +226,7 @@ const COMMAND_DESCRIPTORS = Object.freeze({
       "Use --issue-title when the approved issue title is separate from the body.",
       "Use --issue-details - to read confirmed issue details from stdin.",
       "Use --plan - to read the approved implementation plan from stdin.",
+      "Use --codex-result - after Codex prompt steps to read the final marked Codex result from stdin.",
       "Use --rework-notes - with --user-check failed to start the next plan cycle.",
       "Use --agent-decisions - to append session-local decision log entries from implementation, UI review, verification, or repair phases.",
       "Use --review-findings-remaining true --review-findings \"<findings>\" when an accepted review pass needs another pass.",
@@ -245,6 +246,7 @@ const COMMAND_DESCRIPTORS = Object.freeze({
           "jskit session 2026-05-11_21-42-08 step --issue-title \"Fix customer filters\" --issue -",
           "jskit session 2026-05-11_21-42-08 step --issue-details -",
           "jskit session 2026-05-11_21-42-08 step --plan -",
+          "jskit session 2026-05-11_21-42-08 step --codex-result -",
           "jskit session 2026-05-11_21-42-08 step --agent-decisions -",
           "jskit session 2026-05-11_21-42-08 step --review-findings-remaining true --review-findings \"A helper duplication fix needs another pass\"",
           "jskit session 2026-05-11_21-42-08 step --review-findings-remaining false",
@@ -258,7 +260,7 @@ const COMMAND_DESCRIPTORS = Object.freeze({
       })
     ]),
     fullUse:
-      "jskit session [create|<sessionId>] [step|diff|abandon|adopt-codex-thread] [--prompt <text>] [--issue-title <text>|--issue-title-file <path>] [--issue <text>|--issue-file <path>] [--issue-details <text>|--issue-details-file <path>] [--plan <text>|--plan-file <path>] [--agent-decisions <text>|--agent-decisions-file <path>] [--review-findings-remaining true --review-findings <text>|--review-findings-remaining false] [--skip-ui-check --skip-reason <text>] [--merge-pr true|--close-without-merge --close-reason <text>] [--user-check <passed|failed>] [--rework-notes <text>|--rework-notes-file <path>] [--codex-thread-id <id>] [--abandoned|--completed|--all] [--json]",
+      "jskit session [create|<sessionId>] [step|diff|abandon|adopt-codex-thread] [--prompt <text>] [--issue-title <text>|--issue-title-file <path>] [--issue <text>|--issue-file <path>] [--issue-details <text>|--issue-details-file <path>] [--plan <text>|--plan-file <path>] [--codex-result <text>|--codex-result-file <path>] [--agent-decisions <text>|--agent-decisions-file <path>] [--review-findings-remaining true --review-findings <text>|--review-findings-remaining false] [--skip-ui-check --skip-reason <text>] [--merge-pr true|--close-without-merge --close-reason <text>] [--user-check <passed|failed>] [--rework-notes <text>|--rework-notes-file <path>] [--codex-thread-id <id>] [--abandoned|--completed|--all] [--json]",
     showHelpOnBareInvocation: false,
     handlerName: "commandSession",
     allowedFlagKeys: Object.freeze(["json", "abandoned", "completed", "all"]),

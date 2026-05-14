@@ -32,5 +32,7 @@ Rules:
 When finished, summarize the blueprint result normally, then end with this exact marker:
 
 [jskit_step_result]
-Blueprint updated.
+status: complete
+step: blueprint_updated
+summary: Short summary of blueprint changes, or why no blueprint update was needed.
 [/jskit_step_result]

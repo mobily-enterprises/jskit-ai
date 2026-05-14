@@ -3,6 +3,8 @@ import path from "node:path";
 import {
   CYCLE_STEP_IDS,
   JSKIT_CLI_SHELL_COMMAND,
+  PROMPT_DIRECTORY,
+  REVIEW_EXECUTION_CODEX_HANDOFF,
   REVIEW_PASS_LIMIT,
   SESSION_WORKFLOW_VERSION,
   SESSION_STATUS,
@@ -73,8 +75,14 @@ function normalizeKnownStepIds(stepIds = []) {
 }
 
 function stepCanExposeStoredPrompt(stepId) {
-  const step = STEP_DEFINITION_BY_ID[normalizeStepId(stepId)];
-  return Boolean(step?.codex || step?.kind === "codex_prompt" || step?.kind === "human_input");
+  const normalizedStepId = normalizeStepId(stepId);
+  const step = STEP_DEFINITION_BY_ID[normalizedStepId];
+  return Boolean(
+    normalizedStepId === "review_changes_accepted" ||
+    step?.codex ||
+    step?.kind === "codex_prompt" ||
+    step?.kind === "human_input"
+  );
 }
 
 const DEFAULT_ACTIVE_CYCLE = "001";
@@ -198,6 +206,35 @@ async function readReviewPasses(paths) {
   return Promise.all(passes.map((pass) => readReviewPassInfo(paths, pass)));
 }
 
+const REVIEW_STEP_IDS = Object.freeze([
+  "review_prompt_rendered",
+  "review_changes_accepted"
+]);
+
+function latestReviewPass(artifacts = {}) {
+  const passes = Array.isArray(artifacts.reviewPasses) ? artifacts.reviewPasses : [];
+  return passes.at(-1) || null;
+}
+
+function latestReviewPassIsPrompted(artifacts = {}) {
+  return latestReviewPass(artifacts)?.status === "prompted";
+}
+
+async function readPromptFromAbsolutePath(filePath = "") {
+  return filePath ? readTextIfExists(filePath) : "";
+}
+
+async function readReviewPromptForStep(paths, artifacts = {}) {
+  const latestPass = latestReviewPass(artifacts);
+  if (latestPass?.status === "prompted") {
+    const prompt = await readPromptFromAbsolutePath(latestPass.promptPath);
+    if (prompt) {
+      return prompt;
+    }
+  }
+  return "";
+}
+
 const PROMPT_ARTIFACT_BY_STEP_ID = Object.freeze({
   issue_drafted: "issue_draft.md",
   issue_details_gathered: "issue_details.md",
@@ -218,9 +255,12 @@ async function promptArtifactForStep(paths, stepId) {
   return PROMPT_ARTIFACT_BY_STEP_ID[normalizedStepId] || "";
 }
 
-async function readPromptForStep(paths, stepId) {
+async function readPromptForStep(paths, stepId, artifacts = {}) {
   if (!stepCanExposeStoredPrompt(stepId)) {
     return "";
+  }
+  if (REVIEW_STEP_IDS.includes(normalizeStepId(stepId))) {
+    return readReviewPromptForStep(paths, artifacts);
   }
   const promptArtifact = await promptArtifactForStep(paths, stepId);
   if (promptArtifact) {
@@ -229,7 +269,7 @@ async function readPromptForStep(paths, stepId) {
       return prompt;
     }
   }
-  return readTextIfExists(path.join(paths.sessionRoot, "prompt.md"));
+  return "";
 }
 
 async function readStepFileNames(stepsRoot) {
@@ -252,11 +292,6 @@ async function readCompletedSteps(paths) {
   const cycleStepIds = normalizeKnownStepIds(await readStepFileNames(cycleStepsRoot(paths, activeCycle)));
   return applyReviewPassCompletionOverlay(paths, normalizeKnownStepIds([...globalStepIds, ...cycleStepIds]));
 }
-
-const REVIEW_STEP_IDS = Object.freeze([
-  "review_prompt_rendered",
-  "review_changes_accepted"
-]);
 
 async function applyReviewPassCompletionOverlay(paths, completedSteps = []) {
   const completed = new Set(completedSteps);
@@ -315,7 +350,7 @@ async function readCycles(paths, activeCycle) {
         }
       }
     } catch {
-      // Missing cycle directories are normal for older sessions.
+      // No cycle directory exists until a session enters a repeatable work cycle.
     }
   }
   return Promise.all([...cycles]
@@ -494,6 +529,23 @@ function cloneContractValue(value) {
   );
 }
 
+async function publicCodexContract(codex = null) {
+  if (!codex || typeof codex !== "object" || Array.isArray(codex)) {
+    return null;
+  }
+  const clonedCodex = cloneContractValue(codex);
+  const resolvePrompt = clonedCodex.responseContract?.resolvePrompt;
+  const templateFile = normalizeText(resolvePrompt?.templateFile || "");
+  if (templateFile) {
+    const template = await readTextIfExists(path.join(PROMPT_DIRECTORY, templateFile));
+    clonedCodex.responseContract.resolvePrompt = {
+      ...resolvePrompt,
+      template
+    };
+  }
+  return clonedCodex;
+}
+
 function stepRepeatabilityContract(stepId) {
   if (!CYCLE_STEP_IDS.includes(normalizeStepId(stepId))) {
     return {
@@ -513,6 +565,8 @@ function stepRepeatabilityContract(stepId) {
 
 function publicStepDefinition(step, index) {
   return {
+    automation: cloneContractValue(step.automation || { mode: "manual" }),
+    ...(step.codex ? { codex: cloneContractValue(step.codex) } : {}),
     description: step.description,
     displayGroupId: step.displayGroupId || "",
     displayGroupLabel: step.displayGroupLabel || "",
@@ -523,6 +577,7 @@ function publicStepDefinition(step, index) {
     label: step.label,
     ...stepRepeatabilityContract(step.id),
     requiresExplicitRun: step.requiresExplicitRun === true,
+    submitOptions: cloneContractValue(step.submitOptions || {}),
     utilityActions: cloneContractValue(step.utilityActions || [])
   };
 }
@@ -534,8 +589,7 @@ function buildStepDefinitions() {
 function stepIsRetryableWhenBlocked(stepId) {
   return [
     "automated_checks_run",
-    "deep_ui_check_run",
-    "doctor_run"
+    "deep_ui_check_run"
   ].includes(normalizeStepId(stepId));
 }
 
@@ -607,11 +661,13 @@ function buildCurrentStepAction(stepId, artifacts = {}) {
   if (step.id === "review_changes_accepted") {
     alternateActions.push({
       id: "request_another_review_pass",
+      helpText: "Use this only when important review findings remain. Studio will record these notes and loop back to Codex review.",
       input: {
         formatHint: "markdown",
         label: "What important findings remain?",
         multiline: true,
         name: "reviewFindings",
+        placeholder: "List the specific findings Codex still needs to address.",
         required: true,
         type: "text"
       },
@@ -626,6 +682,7 @@ function buildCurrentStepAction(stepId, artifacts = {}) {
   if (step.id === "pr_finalized") {
     alternateActions.push({
       id: "close_without_merge",
+      helpText: "Leave the PR open, record the reason, and remove the session worktree without merging.",
       input: {
         formatHint: "markdown",
         label: "Why is this session finishing without merge?",
@@ -679,10 +736,13 @@ function buildCurrentStepAction(stepId, artifacts = {}) {
     alternateActions,
     buttonLabel: dynamicButtonLabel,
     description: dynamicDescription,
+    displayGroupId: step.displayGroupId,
+    displayGroupLabel: step.displayGroupLabel,
     index: STEP_IDS.indexOf(step.id),
     input: cloneContractValue(step.input),
     kind: step.kind,
     label: dynamicButtonLabel,
+    automation: cloneContractValue(step.automation || { mode: "manual" }),
     ...stepRepeatabilityContract(step.id),
     requiredInput: cloneContractValue(step.input),
     requiresExplicitRun: step.requiresExplicitRun === true,
@@ -690,13 +750,29 @@ function buildCurrentStepAction(stepId, artifacts = {}) {
     retryable: artifacts.status === SESSION_STATUS.BLOCKED && stepIsRetryableWhenBlocked(step.id),
     skipReason: skipReasonForStep(step.id, artifacts),
     stepId: step.id,
+    submitOptions: cloneContractValue(step.submitOptions || {}),
     utilityActions: cloneContractValue(dynamicUtilityActions)
   };
 }
 
-function buildCodexHandoff(stepId, _artifacts = {}) {
+function rawCodexHandoff(stepId, artifacts = {}) {
+  if (normalizeStepId(stepId) === "review_changes_accepted" && latestReviewPassIsPrompted(artifacts)) {
+    return cloneContractValue(REVIEW_EXECUTION_CODEX_HANDOFF);
+  }
   const step = STEP_DEFINITION_BY_ID[stepId];
-  return step?.codex ? cloneContractValue(step.codex) : null;
+  const codex = step?.codex ? cloneContractValue(step.codex) : null;
+  if (
+    codex &&
+    normalizeStepId(stepId) === "plan_made" &&
+    normalizeCycleNumber(artifacts.activeCycle || "") !== "001"
+  ) {
+    codex.promptIntroText = "Codex will create a revised implementation plan based on the rework notes.";
+  }
+  return codex;
+}
+
+async function buildCodexHandoff(stepId, artifacts = {}) {
+  return publicCodexContract(rawCodexHandoff(stepId, artifacts));
 }
 
 async function readSessionArtifacts(paths) {
@@ -798,7 +874,7 @@ async function readSessionArtifacts(paths) {
     (completedSteps.includes(currentStep) || currentStepIndex < 0 || currentStepIndex > nextStepIndex)
     ? nextStep
     : currentStep || nextStep;
-  const prompt = await readPromptForStep(paths, effectiveCurrentStep);
+  const prompt = await readPromptForStep(paths, effectiveCurrentStep, { reviewPasses });
 
   return {
     codexThreadId,
@@ -969,7 +1045,7 @@ async function buildSessionResponse(paths, {
     commandLogPath: artifacts.commandLogPath || "",
     stepDefinitions: buildStepDefinitions(),
     currentStepAction: buildCurrentStepAction(currentStep, artifacts),
-    codex: codex === undefined ? buildCodexHandoff(currentStep, artifacts) : cloneContractValue(codex),
+    codex: codex === undefined ? await buildCodexHandoff(currentStep, artifacts) : await publicCodexContract(codex),
     prompt: responsePrompt,
     nextCommand: buildNextCommand(paths.sessionId || "", currentStep),
     issueUrl: artifacts.issueUrl || "",
@@ -1120,7 +1196,8 @@ async function failSession(paths, {
   repairCommand = "",
   preconditions = [],
   status = SESSION_STATUS.BLOCKED,
-  prompt = ""
+  prompt = "",
+  codex = undefined
 }) {
   if (paths.sessionRoot && await fileExists(paths.sessionRoot)) {
     await markStatus(paths, status);
@@ -1129,6 +1206,7 @@ async function failSession(paths, {
     ok: false,
     status,
     prompt,
+    codex,
     preconditions,
     errors: [
       createError({
