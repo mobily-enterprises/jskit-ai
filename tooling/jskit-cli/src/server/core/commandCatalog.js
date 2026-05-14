@@ -224,14 +224,16 @@ const COMMAND_DESCRIPTORS = Object.freeze({
       "Use --json for the stable machine-readable contract consumed by JSKIT AI Studio.",
       "Use --issue - to read approved issue body from stdin.",
       "Use --issue-title when the approved issue title is separate from the body.",
-      "Use --plan-details - to read confirmed implementation details from stdin.",
+      "Use --issue-details - to read confirmed issue details from stdin.",
       "Use --plan - to read the approved implementation plan from stdin.",
-      "Use --rework-notes - with --user-check failed to start the allowed rework cycle.",
+      "Use --rework-notes - with --user-check failed to start the next plan cycle.",
       "Use --agent-decisions - to append session-local decision log entries from implementation, UI review, verification, or repair phases.",
       "Use --review-findings-remaining true --review-findings \"<findings>\" when an accepted review pass needs another pass.",
+      "Use --review-findings-remaining false only when the review/deslop loop is done.",
       "Use --skip-ui-check --skip-reason \"<reason>\" only when uiImpact is possible and the Deep UI Check is intentionally skipped.",
+      "Use --merge-pr true at PR finalization to merge the pull request.",
       "Use --close-without-merge --close-reason \"<reason>\" at PR finalization to complete the session without merging.",
-      "Use --blueprint - to accept the tagged app blueprint update."
+      "Run the blueprint step once to render its Codex prompt, then again after Codex updates .jskit/APP_BLUEPRINT.md."
     ]),
     examples: Object.freeze([
       Object.freeze({
@@ -241,12 +243,14 @@ const COMMAND_DESCRIPTORS = Object.freeze({
           "jskit session 2026-05-11_21-42-08 step",
           "jskit session 2026-05-11_21-42-08 step --prompt \"Fix the customer filters\"",
           "jskit session 2026-05-11_21-42-08 step --issue-title \"Fix customer filters\" --issue -",
-          "jskit session 2026-05-11_21-42-08 step --plan-details -",
+          "jskit session 2026-05-11_21-42-08 step --issue-details -",
           "jskit session 2026-05-11_21-42-08 step --plan -",
           "jskit session 2026-05-11_21-42-08 step --agent-decisions -",
           "jskit session 2026-05-11_21-42-08 step --review-findings-remaining true --review-findings \"A helper duplication fix needs another pass\"",
+          "jskit session 2026-05-11_21-42-08 step --review-findings-remaining false",
           "jskit session 2026-05-11_21-42-08 step --skip-ui-check --skip-reason \"No user-facing UI changes\"",
-          "jskit session 2026-05-11_21-42-08 step --blueprint -",
+          "jskit session 2026-05-11_21-42-08 step",
+          "jskit session 2026-05-11_21-42-08 step --merge-pr true",
           "jskit session 2026-05-11_21-42-08 step --close-without-merge --close-reason \"Prototype kept for reference\"",
           "jskit session 2026-05-11_21-42-08 step --user-check failed --rework-notes -",
           "jskit session 2026-05-11_21-42-08 diff --json"
@@ -254,7 +258,7 @@ const COMMAND_DESCRIPTORS = Object.freeze({
       })
     ]),
     fullUse:
-      "jskit session [create|<sessionId>] [step|diff|abandon|adopt-codex-thread] [--prompt <text>] [--issue-title <text>|--issue-title-file <path>] [--issue <text>|--issue-file <path>] [--plan-details <text>|--plan-details-file <path>] [--plan <text>|--plan-file <path>] [--agent-decisions <text>|--agent-decisions-file <path>] [--review-findings-remaining true --review-findings <text>] [--skip-ui-check --skip-reason <text>] [--close-without-merge --close-reason <text>] [--blueprint <text>|--blueprint-file <path>] [--user-check <passed|failed>] [--rework-notes <text>|--rework-notes-file <path>] [--codex-thread-id <id>] [--abandoned|--completed|--all] [--json]",
+      "jskit session [create|<sessionId>] [step|diff|abandon|adopt-codex-thread] [--prompt <text>] [--issue-title <text>|--issue-title-file <path>] [--issue <text>|--issue-file <path>] [--issue-details <text>|--issue-details-file <path>] [--plan <text>|--plan-file <path>] [--agent-decisions <text>|--agent-decisions-file <path>] [--review-findings-remaining true --review-findings <text>|--review-findings-remaining false] [--skip-ui-check --skip-reason <text>] [--merge-pr true|--close-without-merge --close-reason <text>] [--user-check <passed|failed>] [--rework-notes <text>|--rework-notes-file <path>] [--codex-thread-id <id>] [--abandoned|--completed|--all] [--json]",
     showHelpOnBareInvocation: false,
     handlerName: "commandSession",
     allowedFlagKeys: Object.freeze(["json", "abandoned", "completed", "all"]),

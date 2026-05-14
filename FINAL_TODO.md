@@ -47,7 +47,7 @@ The final visible issue session should move through this broad sequence:
 - [x] Issue drafted.
 - [x] GitHub issue created.
 - [x] Get issue details prompt rendered.
-- [x] Plan details gathered.
+- [x] Issue details gathered.
 - [x] Plan made.
 - [x] Plan fine tuning.
 - [x] Implementation changes accepted.
@@ -70,7 +70,7 @@ The final visible issue session should move through this broad sequence:
 
 ## New And Revised Session Artifacts
 
-- [x] Add `.jskit/sessions/active/<session_id>/plan_details.md`.
+- [x] Add `.jskit/sessions/active/<session_id>/issue_details.md`.
 - [x] Add `.jskit/sessions/active/<session_id>/issue_metadata.json`.
 - [x] Add `.jskit/sessions/active/<session_id>/agent_decisions.md`.
 - [x] Add `.jskit/sessions/active/<session_id>/final_report.md`.
@@ -89,13 +89,13 @@ The final visible issue session should move through this broad sequence:
 - [x] Keep `.jskit/helper-map.md` as generated helper/export memory.
 - [x] Make every artifact path appear in `jskit session <id> --json` when it exists.
 
-## Naming Decision: Plan Details
+## Naming Decision: Issue Details
 
-- [x] Use `plan_details.md` as the canonical accepted details file.
+- [x] Use `issue_details.md` as the canonical accepted details file.
 - [x] Treat `Get issue details` as the human-facing step label, because the developer is clarifying the issue with Codex.
 - [x] Do not create a separate long-lived `issue_details.md` unless a compatibility alias is explicitly needed later.
-- [x] The execution prompt must tell Codex to follow both `plan.md` and `plan_details.md`.
-- [x] Any GitHub issue comment for the details step should post the accepted contents of `plan_details.md`.
+- [x] The execution prompt must tell Codex to follow both `plan.md` and `issue_details.md`.
+- [x] Any GitHub issue comment for the details step should post the accepted contents of `issue_details.md`.
 
 ## App Readiness Boundary
 
@@ -126,8 +126,8 @@ Goal: avoid corrupting or misrendering sessions created by an older step graph.
 - [x] Add `activeCycle`.
 - [x] Add `cycles[]` with cycle number, status, rework request path, and user-check result.
 - [x] Add `issueMetadata`.
-- [x] Add `planDetails` as a string.
-- [x] Add `planDetailsPath` as a string.
+- [x] Add `issueDetails` as a string.
+- [x] Add `issueDetailsPath` as a string.
 - [x] Add `issueCategory` with allowed values: `client`, `server`, `client_server`, `tooling`, `unknown`.
 - [x] Add `uiImpact` with allowed values: `none`, `possible`, `definite`, `unknown`.
 - [x] Add `agentDecisionsPath`.
@@ -199,30 +199,29 @@ Goal: make the created GitHub issue a durable session fact that later steps can 
 
 ## New Step: Get Issue Details
 
-Goal: let the developer and Codex talk until no important implementation details are missing, before planning begins.
+Goal: let the developer and Codex talk until no important issue details are missing, before planning begins.
 
 ### Step Shape
 
-- [x] Add JSKIT session steps after `issue_created` and before `plan_made`.
-- [x] Add internal step `plan_details_prompt_rendered`.
-- [x] Use visible label `Get issue details` for `plan_details_prompt_rendered`.
-- [x] Use button label `Start details conversation` for `plan_details_prompt_rendered`.
-- [x] Add internal step `plan_details_gathered`.
-- [x] Use visible label `Plan details gathered` for `plan_details_gathered`.
-- [x] Use button label `Save plan details` for `plan_details_gathered`.
-- [x] Keep both steps visible in CLI JSON; Studio may visually keep the form/conversation within the same details section using JSKIT-provided metadata, not hard-coded step IDs.
-- [x] Set the same JSKIT-owned display group metadata on the prompt-rendered and gathered steps so Studio can render them as one coherent details area without knowing the IDs.
+- [x] Add JSKIT session step after `issue_created` and before `plan_made`.
+- [x] Fold issue-detail prompt rendering into `issue_details_gathered`; do not expose a separate checklist step.
+- [x] Use button label `Start details conversation` from the JSKIT Codex handoff before details are available.
+- [x] Add internal step `issue_details_gathered`.
+- [x] Use visible label `Issue details gathered` for `issue_details_gathered`.
+- [x] Use button label `Save issue details` for `issue_details_gathered`.
+- [x] Keep the details flow as one visible CLI/Studio step; prompt rendering is a phase of `issue_details_gathered`, not a separate timeline item.
+- [x] Keep JSKIT-owned display group metadata on `issue_details_gathered` so Studio can render it as the issue-details area without owning the step ID.
 - [x] Preserve a clean manual CLI flow.
 - [x] Preserve Studio's 1:1 rendering of JSKIT-owned steps.
-- [x] Add prompt artifact path: `prompts/plan_details.md`.
-- [x] Add accepted details file: `plan_details.md`.
+- [x] Add prompt artifact path: `prompts/issue_details.md`.
+- [x] Add accepted details file: `issue_details.md`.
 - [x] Add metadata file: `issue_metadata.json`.
 - [x] Append important decisions to `agent_decisions.md`.
-- [x] Comment accepted plan details on the GitHub issue.
+- [x] Comment accepted issue details on the GitHub issue.
 
 ### Prompt Behavior
 
-- [x] Create `tooling/jskit-cli/src/server/sessionRuntime/prompts/plan_details.md`.
+- [x] Create `tooling/jskit-cli/src/server/sessionRuntime/prompts/issue_details.md`.
 - [x] The prompt must tell Codex: "No stones unturned."
 - [x] Codex must read:
   - [x] GitHub issue URL and issue text.
@@ -233,7 +232,7 @@ Goal: let the developer and Codex talk until no important implementation details
   - [x] `config/public.js`.
   - [x] relevant `src/` and `packages/`.
   - [x] relevant JSKIT package docs or `jskit show ... --details`.
-- [x] Codex must ask follow-up questions until implementation details are complete.
+- [x] Codex must ask follow-up questions until issue details are complete.
 - [x] Codex must ask for final confirmation before emitting final details.
 - [x] Codex must not edit files during this step.
 - [x] Codex must not run mutation commands during this step.
@@ -303,9 +302,9 @@ client | server | client_server | tooling
 none | possible | definite
 [/ui_impact]
 
-[plan_details]
-<confirmed implementation details in Markdown>
-[/plan_details]
+[issue_details]
+<confirmed issue details in Markdown>
+[/issue_details]
 
 [agent_decisions]
 <append-only decision entries with reasons>
@@ -315,14 +314,14 @@ none | possible | definite
 - [x] Add parser helpers for these tags.
 - [x] Validate allowed `issue_category` values.
 - [x] Validate allowed `ui_impact` values.
-- [x] Reject empty `plan_details`.
+- [x] Reject empty `issue_details`.
 - [x] Save `agent_decisions` by appending to session `agent_decisions.md`.
 - [x] Write a receipt when details are saved.
 - [x] Add tests for valid output.
 - [x] Add tests for missing tags.
 - [x] Add tests for invalid category.
 - [x] Add tests for invalid UI impact.
-- [x] Add tests that plan details are commented on the GitHub issue.
+- [x] Add tests that issue details are commented on the GitHub issue.
 
 ## Dependency Install Step
 
@@ -360,11 +359,11 @@ Goal: make the session worktree runnable before Codex starts inspecting or editi
 Goal: rerunning a step must not spam the GitHub issue with duplicate plan/details/final-report comments.
 
 - [x] Store comment metadata in `github_comments.json`.
-- [x] Track comment purpose keys such as `plan_details`, `plan`, and `final_report`.
+- [x] Track comment purpose keys such as `issue_details`, `plan`, and `final_report`.
 - [x] Store comment purpose metadata for later display and duplicate suppression.
 - [x] If a comment already exists for a purpose, update it when supported or skip with a clear receipt.
 - [x] If update is not feasible in V1, skip duplicate comments after the first successful comment and report the stored metadata.
-- [x] Add tests that rerunning plan-details comment does not duplicate the issue comment.
+- [x] Add tests that rerunning issue-details comment does not duplicate the issue comment.
 - [x] Add tests that rerunning plan comment does not duplicate the issue comment.
 - [x] Add tests that rerunning final-report comment does not duplicate the issue comment.
 
@@ -392,7 +391,7 @@ Goal: preserve the why behind important choices without resurrecting a workboard
 
 Goal: produce an implementation plan only after the issue and details are complete.
 
-- [x] Update `plan_issue.md` to read `plan_details.md`.
+- [x] Update `plan_issue.md` to read `issue_details.md`.
 - [x] Update `plan_issue.md` to read `agent_decisions.md`.
 - [x] Update `plan_issue.md` to read `.jskit/APP_BLUEPRINT.md`.
 - [x] Update `plan_issue.md` to read `.jskit/helper-map.md`.
@@ -421,21 +420,21 @@ Goal: produce an implementation plan only after the issue and details are comple
 - [x] Expose JSKIT action metadata that lets Studio label the automated action `Create and submit plan`.
 - [x] Expose whether the accepted plan has already been submitted to Codex for implementation.
 - [x] Ensure this existing behavior is explicit and tested.
-- [x] Add tests that `plan_made` requires `plan_details.md`.
+- [x] Add tests that `plan_made` requires `issue_details.md`.
 - [x] Add tests that plan comment includes the approved plan.
 
 ## Plan Fine Tuning Step
 
 Goal: let the user refine the plan with Codex, then implement in the worktree.
 
-- [x] Update `fine_tune_plan.md` to read `plan_details.md`.
-- [x] Update `fine_tune_plan.md` to explicitly say Codex must follow both `plan.md` and `plan_details.md`.
+- [x] Update `fine_tune_plan.md` to read `issue_details.md`.
+- [x] Update `fine_tune_plan.md` to explicitly say Codex must follow both `plan.md` and `issue_details.md`.
 - [x] Update `fine_tune_plan.md` to read `agent_decisions.md`.
 - [x] Update prompt to preserve user refinements as decision-log entries.
 - [x] Require Codex to append any meaningful implementation deviations to `agent_decisions.md` through tagged output or a session step input.
 - [x] Keep Codex from creating commits, PRs, merges, or worktree cleanup.
 - [x] Keep Codex working only inside the session worktree.
-- [x] Add tests that prompt includes plan details path.
+- [x] Add tests that prompt includes issue details path.
 - [x] Add tests that prompt includes decisions path.
 
 ## Mutation And Commit Model For Repair / Quality Steps
@@ -569,7 +568,7 @@ Goal: add a focused UI quality pass for visual/client-impacting work.
 Goal: keep human verification as a distinct step.
 
 - [x] Keep existing `user_check_completed` step.
-- [x] Update prompt to mention plan details and planned acceptance criteria.
+- [x] Update prompt to mention issue details and planned acceptance criteria.
 - [x] Tell user exactly what route, behavior, command, or workflow to inspect.
 - [x] If user reports pass, write a passed receipt for the active cycle.
 - [x] If user reports failure, write a failed receipt for the active cycle and expose the precise rework action.
@@ -590,8 +589,7 @@ Goal: allow meaningful rework without arbitrary jumping or receipt deletion.
   - [x] `steps/issue_prompt_rendered`
   - [x] `steps/issue_drafted`
   - [x] `steps/issue_created`
-  - [x] `steps/plan_details_prompt_rendered`
-  - [x] `steps/plan_details_gathered`
+  - [x] `steps/issue_details_gathered`
   - [x] `steps/plan_made`
 - [x] Store implementation-and-review receipts under the active cycle:
   - [x] `steps/cycle_001/plan_fine_tuning`
@@ -638,7 +636,7 @@ Goal: enrich durable app memory issue by issue.
 - [x] Prompt reads:
   - [x] current `.jskit/APP_BLUEPRINT.md` if present.
   - [x] issue title/body.
-  - [x] plan details.
+  - [x] issue details.
   - [x] approved plan.
   - [x] agent decisions.
   - [x] changed files.
@@ -684,7 +682,7 @@ Goal: verify the full branch after implementation, review, UI checks, and bluepr
 - [x] Ensure UI receipt expectations are respected when UI files changed.
 - [x] Keep doctor failures repairable.
 - [x] Update doctor failure prompt to mention:
-  - [x] plan details.
+  - [x] issue details.
   - [x] blueprint update.
   - [x] helper map.
   - [x] UI checks.
@@ -705,7 +703,7 @@ Goal: generate a clear final report for the issue before PR/merge completion.
 - [x] Report must include:
   - [x] issue URL.
   - [x] issue title.
-  - [x] plan details summary.
+  - [x] issue details summary.
   - [x] plan summary.
   - [x] files changed.
   - [x] commits.
@@ -764,7 +762,7 @@ Goal: merge safely when requested, allow successful completion without merge, cl
   - [x] base branch and base commit metadata.
   - [x] final report.
   - [x] agent decisions.
-  - [x] plan details.
+  - [x] issue details.
   - [x] GitHub comment metadata.
   - [x] check receipts.
   - [x] UI check receipts.
@@ -777,7 +775,7 @@ Goal: merge safely when requested, allow successful completion without merge, cl
 Goal: update Studio only after JSKIT JSON supports the workflow.
 
 - [x] Do not hard-code new step IDs in Studio beyond generic rendering needs.
-- [x] Render `planDetails`.
+- [x] Render `issueDetails`.
 - [x] Render `issueCategory`.
 - [x] Render `uiImpact`.
 - [x] Render `agentDecisions` card/link.
@@ -797,7 +795,8 @@ Goal: update Studio only after JSKIT JSON supports the workflow.
 - [x] Hide output editor/forms until JSKIT has parsed candidate output for that step.
 - [x] Disable action buttons until `currentStepAction.requiredInput` is satisfied.
 - [x] In `Get issue details`, render the Codex conversation and output form inside the step.
-- [x] In `Plan made`, include plan details context.
+- [x] Treat Codex prompt-render steps and Codex output-save steps separately so starting the details conversation does not look like saving the details.
+- [x] In `Plan made`, include issue details context.
 - [x] In Deep UI Check steps, show run/skip status clearly.
 - [x] Ensure terminal remains below/alongside todo according to current Studio layout.
 - [x] Ensure mobile layout keeps Codex terminal usable and collapsible.
@@ -809,7 +808,7 @@ Goal: update Studio only after JSKIT JSON supports the workflow.
 ## Prompt Inventory
 
 - [x] Update `new_issue.md`.
-- [x] Add `plan_details.md`.
+- [x] Add `issue_details.md`.
 - [x] Update `plan_issue.md`.
 - [x] Update `fine_tune_plan.md`.
 - [x] Add or update `deep_ui_check.md`.
@@ -839,7 +838,7 @@ Goal: keep the useful old agent guidance, but move it into JSKIT-owned prompts a
 
 ## CLI And Parser Work
 
-- [x] Add input resolution for `--plan-details`, `--plan-details-file`, and `--plan-details -`.
+- [x] Add input resolution for `--issue-details`, `--issue-details-file`, and `--issue-details -`.
 - [x] Add input resolution for `--issue-category`.
 - [x] Add input resolution for `--ui-impact`.
 - [x] Add input resolution for conditional UI check override, for example `--skip-ui-check --skip-reason "<reason>"`.
@@ -848,13 +847,13 @@ Goal: keep the useful old agent guidance, but move it into JSKIT-owned prompts a
 - [x] Add extraction helpers:
   - [x] `extractIssueCategory`.
   - [x] `extractUiImpact`.
-  - [x] `extractPlanDetails`.
+  - [x] `extractIssueDetails`.
   - [x] `extractAgentDecisions`.
   - [x] `extractAppBlueprint`.
 - [x] Ensure tagged-output extraction ignores Codex terminal/status chrome and uses complete marker pairs only.
 - [x] If multiple complete tagged blocks exist, define and test whether JSKIT uses the first or latest complete block.
 - [x] Add validators for enum values.
-- [x] Add stable error codes for invalid plan details output.
+- [x] Add stable error codes for invalid issue details output.
 - [x] Add stable error codes for missing classification.
 - [x] Add stable error codes for missing details.
 - [x] Add stable repair commands for each new blocked state.
@@ -864,7 +863,7 @@ Goal: keep the useful old agent guidance, but move it into JSKIT-owned prompts a
 - [x] Add `dependencies_installed`.
 - [x] Add `active_cycle_exists`.
 - [x] Add `active_cycle_user_check_passed` for finalization steps.
-- [x] Add `plan_details_exists`.
+- [x] Add `issue_details_exists`.
 - [x] Add `issue_metadata_exists`.
 - [x] Add `plan_text_exists` if not already present.
 - [x] Add separate preconditions for `pre_review_checks_passed` and `post_review_checks_passed` where needed.
@@ -880,9 +879,9 @@ Goal: keep the useful old agent guidance, but move it into JSKIT-owned prompts a
 - [x] Add support for global one-time text receipts and cycle-scoped text receipts.
 - [x] Add receipt for failed user check in the active cycle.
 - [x] Add receipt for starting a new rework cycle.
-- [x] Add receipt for plan details prompt rendered.
-- [x] Add receipt for plan details saved.
-- [x] Add receipt for plan details commented on issue.
+- [x] Add receipt for issue details prompt rendered.
+- [x] Add receipt for issue details saved.
+- [x] Add receipt for issue details commented on issue.
 - [x] Add receipt for plan commented on issue.
 - [x] Add receipt or metadata for idempotent GitHub comment skip/update.
 - [x] Add receipt for pre-review checks run.
@@ -897,7 +896,7 @@ Goal: keep the useful old agent guidance, but move it into JSKIT-owned prompts a
 
 ## Tests
 
-- [x] Add tests for new plan details tag extraction.
+- [x] Add tests for new issue details tag extraction.
 - [x] Add tests for workflow version creation and unsupported-version blocking.
 - [x] Add tests for dependency installation receipts and JSON.
 - [x] Add tests for base branch/base commit metadata.
@@ -905,11 +904,11 @@ Goal: keep the useful old agent guidance, but move it into JSKIT-owned prompts a
 - [x] Add tests for cycle-scoped receipt reading and current-step calculation.
 - [x] Add tests for issue metadata creation and JSON.
 - [x] Add tests for tagged issue title/body extraction from noisy Codex terminal output.
-- [x] Add tests for plan details CLI stdin handling.
-- [x] Add tests for plan details prompt rendering.
-- [x] Add tests for plan details GitHub comment.
+- [x] Add tests for issue details CLI stdin handling.
+- [x] Add tests for issue details prompt rendering.
+- [x] Add tests for issue details GitHub comment.
 - [x] Add tests for issue classification JSON fields.
-- [x] Add tests for plan requiring plan details.
+- [x] Add tests for plan requiring issue details.
 - [x] Add tests for plan comment on GitHub issue.
 - [x] Add tests for agent decision append behavior.
 - [x] Add tests for repeated review pass bookkeeping.
@@ -941,7 +940,7 @@ Goal: keep the useful old agent guidance, but move it into JSKIT-owned prompts a
 - [x] Update generated command reference through `npm run agent-docs:build`.
 - [x] Update agent docs tests that assert old workflow files are not active.
 - [x] Keep `packages/agent-docs/templates/app/AGENTS.md` tiny.
-- [x] Document the new Get Issue Details / `plan_details.md` flow.
+- [x] Document the new Get Issue Details / `issue_details.md` flow.
 - [x] Document `agent_decisions.md`.
 - [x] Document blueprint enrichment.
 - [x] Document conditional Deep UI Check behavior.
@@ -951,10 +950,10 @@ Goal: keep the useful old agent guidance, but move it into JSKIT-owned prompts a
 
 - [x] A user can start a session from Studio and never manually copy prompts unless they choose manual mode.
 - [x] The session asks for detailed issue information before planning.
-- [x] The accepted details are saved as `plan_details.md`.
+- [x] The accepted details are saved as `issue_details.md`.
 - [x] CRUD details are captured before planning when relevant.
 - [x] Issue category and UI impact are saved and visible.
-- [x] The plan reads plan details, blueprint, helper map, and decisions.
+- [x] The plan reads issue details, blueprint, helper map, and decisions.
 - [x] The approved plan is commented on the GitHub issue.
 - [x] Agent decisions are appended throughout the workflow.
 - [x] Deep UI Check runs for UI-impacting issues and skips cleanly for server-only issues.

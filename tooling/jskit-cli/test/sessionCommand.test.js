@@ -11,7 +11,7 @@ import {
   STEP_IDS,
   STEP_PRECONDITION_NAMES,
   createSession,
-  extractPlanDetails,
+  extractIssueDetails,
   extractIssueTitle,
   extractIssueText,
   extractPlanText,
@@ -73,8 +73,8 @@ const SESSION_CONTRACT_FIELDS = Object.freeze([
   "helperMapPath",
   "issueCategory",
   "issueMetadata",
-  "planDetails",
-  "planDetailsPath",
+  "issueDetails",
+  "issueDetailsPath",
   "planExecution",
   "prOutcome",
   "reviewPasses",
@@ -117,6 +117,16 @@ function runSessionStepJsonFailure(cwd, sessionId, {
   }));
 }
 
+function cyclePlanPath(sessionRoot, cycle = "001") {
+  return path.join(sessionRoot, "cycles", `cycle_${cycle}`, "plan.md");
+}
+
+async function writeCyclePlan(sessionRoot, text, cycle = "001") {
+  const planPath = cyclePlanPath(sessionRoot, cycle);
+  await mkdir(path.dirname(planPath), { recursive: true });
+  await writeFile(planPath, text, "utf8");
+}
+
 function advanceCliSessionToIssuePrompt(cwd, sessionId, { env = undefined } = {}) {
   const worktreePayload = runSessionStepJson(cwd, sessionId, { env });
   assert.equal(worktreePayload.currentStep, "dependencies_installed");
@@ -132,24 +142,29 @@ function advanceCliSessionToIssuePrompt(cwd, sessionId, { env = undefined } = {}
   };
 }
 
-function saveCliSessionPlanDetails(cwd, sessionId, { env = undefined } = {}) {
+function saveCliSessionIssueDetails(cwd, sessionId, { env = undefined } = {}) {
   const detailsPrompt = runSessionStepJson(cwd, sessionId, { env });
-  assert.equal(detailsPrompt.currentStep, "plan_details_gathered");
-  assert.match(detailsPrompt.prompt, /Gather exact implementation details/);
+  assert.equal(detailsPrompt.currentStep, "issue_details_gathered");
+  assert.match(detailsPrompt.prompt, /Gather exact issue details/);
+  assert.match(detailsPrompt.prompt, /\[issue_details_conversation_ready\]/);
+  assert.equal(detailsPrompt.currentStepAction.buttonLabel, "Save issue details");
+  assert.equal(detailsPrompt.codex.autoInject, true);
+  assert.equal(detailsPrompt.codex.promptActionLabel, "Start details conversation");
   const reloadedDetailsPrompt = parseJsonResult(runCli({
     cwd,
     args: ["session", sessionId, "--json"],
     env
   }));
-  assert.equal(reloadedDetailsPrompt.currentStep, "plan_details_gathered");
-  assert.match(reloadedDetailsPrompt.prompt, /Gather exact implementation details/);
+  assert.equal(reloadedDetailsPrompt.currentStep, "issue_details_gathered");
+  assert.match(reloadedDetailsPrompt.prompt, /Gather exact issue details/);
+  assert.match(reloadedDetailsPrompt.prompt, /\[issue_details_conversation_ready\]/);
   const detailsSaved = runSessionStepJson(cwd, sessionId, {
-    args: ["--plan-details", "-"],
+    args: ["--issue-details", "-"],
     env,
-    input: planDetailsOutput()
+    input: issueDetailsOutput()
   });
   assert.equal(detailsSaved.currentStep, "plan_made");
-  assert.equal(detailsSaved.planDetails, "Confirmed details are sufficient to plan the requested change.");
+  assert.equal(detailsSaved.issueDetails, "Confirmed details are sufficient to plan the requested change.");
   assert.equal(detailsSaved.issueMetadata.issueCategory, "client");
   assert.equal(detailsSaved.issueMetadata.uiImpact, "possible");
   assert.equal(detailsSaved.issueCategory, "client");
@@ -232,20 +247,12 @@ async function writeStepReceipts(sessionRoot, stepIds) {
   await mkdir(path.join(sessionRoot, "steps"), { recursive: true });
   const steps = new Set(stepIds);
   const cycleStepIds = new Set([
-    "plan_fine_tuning",
-    "implementation_changes_accepted",
-    "implementation_changes_committed",
-    "pre_review_checks_run",
+    "plan_made",
+    "plan_executed",
+    "automated_checks_run",
     "deep_ui_check_run",
-    "deep_ui_check_changes_accepted",
-    "deep_ui_check_changes_committed",
     "review_prompt_rendered",
     "review_changes_accepted",
-    "review_changes_committed",
-    "post_review_checks_run",
-    "deep_ui_recheck_run",
-    "deep_ui_recheck_changes_accepted",
-    "deep_ui_recheck_changes_committed",
     "user_check_completed"
   ]);
   for (const stepId of stepIds) {
@@ -264,7 +271,7 @@ async function writeStepReceipts(sessionRoot, stepIds) {
       path.join(passRoot, "prompt.json"),
       `${JSON.stringify({
         changedFiles: [],
-        maxPasses: 3,
+        maxPasses: 0,
         pass: "001",
         promptPath: path.join(passRoot, "prompt.md"),
         status: "prompted",
@@ -279,26 +286,11 @@ async function writeStepReceipts(sessionRoot, stepIds) {
     await writeFile(
       path.join(passRoot, "accepted.json"),
       `${JSON.stringify({
-        acceptedAt: "2026-05-11T00:00:00.000Z",
         changedFiles: [],
+        acceptedAt: "2026-05-11T00:00:00.000Z",
         findingsRemaining: false,
         pass: "001",
         remainingFindings: "",
-        status: "accepted_no_changes"
-      }, null, 2)}\n`,
-      "utf8"
-    );
-  }
-  if (steps.has("review_changes_committed")) {
-    const passRoot = path.join(sessionRoot, "review_passes", "pass_001");
-    await mkdir(passRoot, { recursive: true });
-    await writeFile(
-      path.join(passRoot, "committed.json"),
-      `${JSON.stringify({
-        changedFiles: [],
-        commit: "",
-        committedAt: "2026-05-11T00:00:00.000Z",
-        pass: "001",
         status: "no_changes"
       }, null, 2)}\n`,
       "utf8"
@@ -306,12 +298,12 @@ async function writeStepReceipts(sessionRoot, stepIds) {
   }
 }
 
-function planDetailsOutput({
+function issueDetailsOutput({
   category = "client",
   uiImpact = "possible",
   body = "Confirmed details are sufficient to plan the requested change."
 } = {}) {
-  return `[issue_category]\n${category}\n[/issue_category]\n\n[ui_impact]\n${uiImpact}\n[/ui_impact]\n\n[plan_details]\n${body}\n[/plan_details]\n\n[agent_decisions]\n- Use the smallest JSKIT-owned implementation path.\n[/agent_decisions]`;
+  return `[issue_category]\n${category}\n[/issue_category]\n\n[ui_impact]\n${uiImpact}\n[/ui_impact]\n\n[issue_details]\n${body}\n[/issue_details]\n\n[agent_decisions]\n- Use the smallest JSKIT-owned implementation path.\n[/agent_decisions]`;
 }
 
 async function writeIssueMetadata(sessionRoot, {
@@ -322,7 +314,7 @@ async function writeIssueMetadata(sessionRoot, {
     path.join(sessionRoot, "issue_metadata.json"),
     `${JSON.stringify({
       issueCategory: category,
-      planDetailsPath: path.join(sessionRoot, "plan_details.md"),
+      issueDetailsPath: path.join(sessionRoot, "issue_details.md"),
       uiImpact
     }, null, 2)}\n`,
     "utf8"
@@ -429,7 +421,7 @@ test("jskit session create writes file-backed state, receipt, and local git excl
     assert.equal(payload.worktreeReady, false);
     assert.equal(payload.worktreeStatus.status, "missing");
     assert.equal(payload.worktreeStatus.dirty, false);
-    assert.equal(payload.workflowVersion, "2");
+    assert.equal(payload.workflowVersion, "6");
     assert.equal(payload.appReady.ok, true);
     assert.deepEqual(payload.appReady.missing, []);
     assert.equal(payload.dependencyInstall.status, "waiting_for_worktree");
@@ -443,7 +435,7 @@ test("jskit session create writes file-backed state, receipt, and local git excl
     assert.equal(payload.currentStepAction.buttonLabel, "Create worktree");
     assert.equal(await readFile(path.join(appRoot, ".git", "info", "exclude"), "utf8").then((body) => body.includes(".jskit/sessions/")), true);
     assert.equal(await readFile(path.join(payload.sessionRoot, "steps", "session_created"), "utf8").then((body) => body.includes("Created JSKIT Studio issue session")), true);
-    assert.equal(await readFile(path.join(payload.sessionRoot, "workflow_version"), "utf8"), "2\n");
+    assert.equal(await readFile(path.join(payload.sessionRoot, "workflow_version"), "utf8"), "6\n");
     assert.equal(await readFile(path.join(payload.sessionRoot, "active_cycle"), "utf8"), "001\n");
   });
 });
@@ -491,10 +483,10 @@ test("jskit session JSON exposes JSKIT-owned step UI and Codex handoff contract"
     );
     assert.deepEqual(
       {
-        repeatable: created.stepDefinitions.find((step) => step.id === "plan_fine_tuning").repeatable,
-        repeatableGroupId: created.stepDefinitions.find((step) => step.id === "plan_fine_tuning").repeatableGroupId,
-        repeatableGroupLabel: created.stepDefinitions.find((step) => step.id === "plan_fine_tuning").repeatableGroupLabel,
-        repeatableLabel: created.stepDefinitions.find((step) => step.id === "plan_fine_tuning").repeatableLabel
+        repeatable: created.stepDefinitions.find((step) => step.id === "plan_made").repeatable,
+        repeatableGroupId: created.stepDefinitions.find((step) => step.id === "plan_made").repeatableGroupId,
+        repeatableGroupLabel: created.stepDefinitions.find((step) => step.id === "plan_made").repeatableGroupLabel,
+        repeatableLabel: created.stepDefinitions.find((step) => step.id === "plan_made").repeatableLabel
       },
       {
         repeatable: true,
@@ -513,7 +505,12 @@ test("jskit session JSON exposes JSKIT-owned step UI and Codex handoff contract"
     });
     assert.equal(Object.hasOwn(created.stepDefinitions[0], "preconditions"), false);
     assert.equal(created.stepDefinitions.find((step) => step.id === "issue_drafted").requiresExplicitRun, false);
-    assert.equal(created.stepDefinitions.find((step) => step.id === "issue_created").requiresExplicitRun, true);
+    assert.equal(created.stepDefinitions.find((step) => step.id === "issue_created").requiresExplicitRun, false);
+    assert.equal(created.stepDefinitions.find((step) => step.id === "final_report_created").requiresExplicitRun, false);
+    assert.equal(created.stepDefinitions.find((step) => step.id === "pr_created").requiresExplicitRun, false);
+    assert.equal(created.stepDefinitions.find((step) => step.id === "pr_finalized").requiresExplicitRun, true);
+    assert.equal(created.stepDefinitions.find((step) => step.id === "issue_details_gathered").label, "Issue details gathered");
+    assert.equal(created.stepDefinitions.find((step) => step.id === "issue_details_gathered").input.label, "Confirmed issue details");
     assert.equal(created.codex, null);
 
     const { promptReadyPayload, worktreePayload } = advanceCliSessionToIssuePrompt(appRoot, created.sessionId);
@@ -521,7 +518,7 @@ test("jskit session JSON exposes JSKIT-owned step UI and Codex handoff contract"
     assert.equal(promptReadyPayload.currentStepAction.buttonLabel, "Set initial prompt");
     assert.equal(promptReadyPayload.currentStepAction.index, 3);
     assert.equal(promptReadyPayload.currentStepAction.input.name, "prompt");
-    assert.equal(promptReadyPayload.nextCommand, `jskit session ${created.sessionId} step --prompt "<what should change>"`);
+    assert.equal(promptReadyPayload.nextCommand, `npx --no-install jskit session ${created.sessionId} step --prompt "<what should change>"`);
 
     const promptPayload = runSessionStepJson(appRoot, created.sessionId, {
       args: ["--prompt", "Add account recovery"]
@@ -551,6 +548,7 @@ test("jskit session JSON exposes JSKIT-owned step UI and Codex handoff contract"
       type: "object"
     });
     assert.deepEqual(promptPayload.codex, {
+      autoInject: true,
       expectedOutput: {
         extract: "issue_text",
         field: "issue",
@@ -577,6 +575,7 @@ test("jskit session JSON exposes JSKIT-owned step UI and Codex handoff contract"
         }
       ],
       mode: "inject_prompt",
+      promptActionLabel: "Get Codex to create issue text",
       promptField: "prompt"
     });
   });
@@ -718,28 +717,28 @@ test("plan extraction accepts the codex plan wrapper", () => {
   );
 });
 
-test("plan details extraction accepts the codex plan_details wrapper", () => {
+test("issue details extraction accepts the codex issue_details wrapper", () => {
   assert.equal(
-    extractPlanDetails("Before\n[plan_details]\nGathered fields.\n[/plan_details]\nAfter"),
+    extractIssueDetails("Before\n[issue_details]\nGathered fields.\n[/issue_details]\nAfter"),
     "Gathered fields."
   );
-  assert.equal(extractPlanDetails("Gathered fields."), "");
+  assert.equal(extractIssueDetails("Gathered fields."), "");
 });
 
 test("tagged extraction uses the latest complete marker pair and ignores terminal chrome", () => {
   const output = [
     "gpt-5.5 default · /workspace Shell mode",
-    "[plan_details]",
+    "[issue_details]",
     "First draft.",
-    "[/plan_details]",
+    "[/issue_details]",
     "status: thinking",
-    "[plan_details]",
+    "[issue_details]",
     "Final confirmed details.",
-    "[/plan_details]",
-    "[plan_details]",
+    "[/issue_details]",
+    "[issue_details]",
     "Incomplete draft."
   ].join("\n");
-  assert.equal(extractPlanDetails(output), "Final confirmed details.");
+  assert.equal(extractIssueDetails(output), "Final confirmed details.");
 });
 
 test("app blueprint extraction accepts the codex app_blueprint wrapper", () => {
@@ -789,11 +788,11 @@ test("every executable session step declares named preconditions", () => {
   for (const stepId of executableStepIds) {
     assert.ok(STEP_PRECONDITION_NAMES[stepId].length > 0, `${stepId} must declare preconditions`);
   }
-  assert.ok(STEP_PRECONDITION_NAMES.deep_ui_check_run.includes("pre_review_checks_passed"));
+  assert.equal(STEP_PRECONDITION_NAMES.deep_ui_check_run.includes("automated_checks_passed"), false);
   assert.ok(STEP_PRECONDITION_NAMES.review_prompt_rendered.includes("deep_ui_check_satisfied"));
-  assert.ok(STEP_PRECONDITION_NAMES.deep_ui_recheck_run.includes("post_review_checks_passed"));
-  assert.ok(STEP_PRECONDITION_NAMES.user_check_completed.includes("deep_ui_recheck_satisfied"));
-  assert.ok(STEP_PRECONDITION_NAMES.pr_created.includes("post_review_checks_passed"));
+  assert.ok(STEP_PRECONDITION_NAMES.user_check_completed.includes("automated_checks_passed"));
+  assert.ok(STEP_PRECONDITION_NAMES.user_check_completed.includes("deep_ui_check_satisfied"));
+  assert.ok(STEP_PRECONDITION_NAMES.pr_created.includes("deep_ui_check_satisfied"));
 });
 
 test("session prompts reference canonical session artifacts", async () => {
@@ -805,14 +804,17 @@ test("session prompts reference canonical session artifacts", async () => {
   for (const body of Object.values(prompts)) {
     assert.doesNotMatch(body, /workflow\/(?:app-state|bootstrap|scoping|workboard|feature-delivery|review)\.md/);
   }
+  for (const [name, body] of Object.entries(prompts)) {
+    assert.doesNotMatch(body, /`jskit (?:add|app|generate|list|show|session)/u, `${name} must use npx --no-install for shell examples`);
+  }
 
-  assert.match(prompts["plan_details.md"], /plan_details\.md/);
-  assert.match(prompts["plan_issue.md"], /plan_details\.md/);
+  assert.match(prompts["issue_details.md"], /issue_details\.md/);
+  assert.match(prompts["issue_details.md"], /\[issue_details_conversation_ready\]/);
+  assert.match(prompts["plan_issue.md"], /issue_details\.md/);
   assert.match(prompts["plan_issue.md"], /agent_decisions\.md/);
-  assert.match(prompts["execute_plan.md"], /plan_details\.md/);
+  assert.match(prompts["execute_plan.md"], /issue_details\.md/);
   assert.match(prompts["execute_plan.md"], /agent_decisions/);
-  assert.match(prompts["fine_tune_plan.md"], /plan_details\.md/);
-  assert.match(prompts["fine_tune_plan.md"], /agent_decisions\.md/);
+  assert.ok(!Object.hasOwn(prompts, "fine_tune_plan.md"));
   assert.match(prompts["review_changes.md"], /\.jskit\/helper-map\.md/);
   assert.match(prompts["doctor_failure.md"], /agent_decisions\.md/);
   assert.match(prompts["update_blueprint.md"], /\.jskit\/APP_BLUEPRINT\.md/);
@@ -838,8 +840,10 @@ test("jskit session step creates worktree and issue prompt", async () => {
     assert.equal(promptPayload.status, "waiting_for_user");
     assert.equal(promptPayload.currentStep, "issue_drafted");
     assert.match(promptPayload.prompt, /Add customer search/);
+    assert.match(promptPayload.prompt, /^Shell command rule:/);
+    assert.match(promptPayload.prompt, /When running JSKIT CLI commands from the shell, use `npx --no-install jskit \.\.\.`/);
     assert.match(promptPayload.prompt, /This issue-drafting step is read-only/);
-    assert.match(promptPayload.prompt, /Do not run `jskit session`/);
+    assert.match(promptPayload.prompt, /Do not run `npx --no-install jskit session`/);
     assert.match(promptPayload.prompt, /Do not run `gh`, `git add`, `git commit`, `git push`, `npm install`/);
     assert.match(promptPayload.prompt, /\[issue_title\]/);
     assert.match(promptPayload.prompt, /\[issue_text\]/);
@@ -994,7 +998,8 @@ test("jskit session prompt rendering prefers project overrides", async () => {
       args: ["--prompt", "Add invoices"]
     });
 
-    assert.equal(promptPayload.prompt, `Project prompt: Add invoices / ${created.sessionId}`);
+    assert.match(promptPayload.prompt, /^Shell command rule:/);
+    assert.match(promptPayload.prompt, new RegExp(`Project prompt: Add invoices / ${created.sessionId}$`, "u"));
   });
 });
 
@@ -1062,13 +1067,13 @@ test("jskit session accepts issue text from stdin and creates a GitHub issue wit
     });
     assert.equal(issueDrafted.currentStep, "issue_created");
     assert.equal(issueDrafted.currentStepAction.buttonLabel, "Create issue");
-    assert.equal(issueDrafted.currentStepAction.requiresExplicitRun, true);
+    assert.equal(issueDrafted.currentStepAction.requiresExplicitRun, false);
     assert.equal(issueDrafted.issueTitle, "Fix useful filters");
     assert.equal(issueDrafted.issueText, "Make filters useful.");
 
     const issueCreated = runSessionStepJson(appRoot, created.sessionId, { env });
     assert.equal(issueCreated.issueUrl, "https://github.com/example/repo/issues/123");
-    assert.equal(issueCreated.currentStep, "plan_details_prompt_rendered");
+    assert.equal(issueCreated.currentStep, "issue_details_gathered");
     assert.equal(issueCreated.issueMetadata.issueNumber, "123");
     assert.equal(issueCreated.issueMetadata.owner, "example");
     assert.equal(issueCreated.issueMetadata.repository, "repo");
@@ -1076,22 +1081,43 @@ test("jskit session accepts issue text from stdin and creates a GitHub issue wit
     assert.equal(issueCreated.issueMetadata.issueBody, "Make filters useful.");
     assert.equal(issueCreated.prompt, "");
     assert.equal(issueCreated.currentStepAction.buttonLabel, "Start details conversation");
+    assert.equal(issueCreated.codex.promptActionLabel, "Start details conversation");
+    assert.deepEqual(
+      issueCreated.codex.expectedOutputs.find((output) => output.field === "issueCategory").options,
+      [
+        { label: "Client", value: "client" },
+        { label: "Server", value: "server" },
+        { label: "Client and server", value: "client_server" },
+        { label: "Tooling", value: "tooling" },
+        { label: "Unknown", value: "unknown" }
+      ]
+    );
+    assert.deepEqual(
+      issueCreated.codex.expectedOutputs.find((output) => output.field === "uiImpact").options,
+      [
+        { label: "No UI impact", value: "none" },
+        { label: "Possible UI impact", value: "possible" },
+        { label: "Definite UI impact", value: "definite" },
+        { label: "Unknown", value: "unknown" }
+      ]
+    );
     assert.match(await readFile(logPath, "utf8"), /gh issue create --title Fix useful filters --body-file/);
-    const { detailsSaved } = saveCliSessionPlanDetails(appRoot, created.sessionId, { env });
+    const { detailsSaved } = saveCliSessionIssueDetails(appRoot, created.sessionId, { env });
     const decisionLog = await readFile(path.join(detailsSaved.sessionRoot, "agent_decisions.md"), "utf8");
     assert.match(decisionLog, /Issue: https:\/\/github\.com\/example\/repo\/issues\/123/);
     assert.match(decisionLog, /Use the smallest JSKIT-owned implementation path/);
-    assert.equal(detailsSaved.githubComments.plan_details.purpose, "plan_details");
+    assert.equal(detailsSaved.githubComments.issue_details.purpose, "issue_details");
 
     const planPrompt = runSessionStepJson(appRoot, created.sessionId, { env });
     assert.equal(planPrompt.currentStep, "plan_made");
+    assert.equal(planPrompt.codex.autoInject, true);
     assert.match(planPrompt.prompt, /Create an implementation plan/);
     assert.match(planPrompt.prompt, /\[plan\]/);
     assert.match(planPrompt.prompt, /https:\/\/github\.com\/example\/repo\/issues\/123/);
     assert.match(planPrompt.prompt, /Agent decisions file .*agent_decisions\.md/);
     assert.match(planPrompt.prompt, /Make generator decisions concrete/);
     assert.match(
-      await readFile(path.join(planPrompt.sessionRoot, "prompts", "plan_request.md"), "utf8"),
+      await readFile(path.join(planPrompt.sessionRoot, "prompts", "cycle_001_plan_request.md"), "utf8"),
       /Create an implementation plan/
     );
 
@@ -1105,47 +1131,46 @@ test("jskit session accepts issue text from stdin and creates a GitHub issue wit
     assert.ok(planMade.completedSteps.includes("plan_made"));
     assert.equal(planMade.prompt, "");
     assert.equal(planMade.planExecution.submitted, false);
-    assert.equal(planMade.githubComments.plan.purpose, "plan");
-    assert.match(await readFile(path.join(planMade.sessionRoot, "plan.md"), "utf8"), /Inspect filters/);
+    assert.ok(!Object.hasOwn(planMade.githubComments, "plan"));
+    assert.match(await readFile(cyclePlanPath(planMade.sessionRoot), "utf8"), /Inspect filters/);
     assert.match(await readFile(path.join(planMade.sessionRoot, "agent_decisions.md"), "utf8"), /Use the list UI generator only if placements match/);
 
-    const executed = runSessionStepJson(appRoot, created.sessionId, {
+    const executionPrompt = runSessionStepJson(appRoot, created.sessionId, {
       args: ["--agent-decisions", "-"],
       env,
       input: "[agent_decisions]\n- Implementation can reuse the existing filter route without adding a package.\n[/agent_decisions]"
     });
-    assert.equal(executed.currentStep, "plan_fine_tuning");
-    assert.equal(executed.currentStepAction.buttonLabel, "Get Codex to fine tune plan");
-    assert.equal(executed.codex.autoInject, true);
-    assert.equal(executed.codex.promptActionLabel, "Get Codex to execute plan");
-    assert.ok(executed.completedSteps.includes("plan_executed"));
-    assert.equal(executed.planExecution.submitted, true);
-    assert.match(executed.planExecution.promptPath, /plan_execution\.md$/);
-    assert.match(executed.prompt, /Execute the approved implementation plan/);
+    assert.equal(executionPrompt.currentStep, "plan_executed");
+    assert.equal(executionPrompt.currentStepAction.buttonLabel, "Go to next step");
+    assert.deepEqual(executionPrompt.currentStepAction.utilityActions, []);
+    assert.equal(executionPrompt.codex.autoInject, true);
+    assert.equal(executionPrompt.codex.promptActionLabel, "Get Codex to execute plan");
+    assert.equal(executionPrompt.planExecution.prompted, true);
+    assert.equal(executionPrompt.planExecution.submitted, false);
+    assert.match(executionPrompt.planExecution.promptPath, /cycle_001_plan_execution\.md$/);
+    assert.match(executionPrompt.prompt, /Execute the approved implementation plan/);
+    assert.ok(!executionPrompt.completedSteps.includes("plan_executed"));
     assert.match(
-      await readFile(path.join(executed.sessionRoot, "agent_decisions.md"), "utf8"),
+      await readFile(path.join(executionPrompt.sessionRoot, "agent_decisions.md"), "utf8"),
       /Use the smallest JSKIT-owned implementation path[\s\S]*Use the list UI generator only if placements match[\s\S]*Implementation can reuse the existing filter route/
     );
     assert.match(
-      await readFile(path.join(executed.sessionRoot, "prompts", "plan_execution.md"), "utf8"),
+      await readFile(path.join(executionPrompt.sessionRoot, "prompts", "cycle_001_plan_execution.md"), "utf8"),
       /Execute the approved implementation plan/
     );
 
-    const fineTuning = runSessionStepJson(appRoot, created.sessionId, { env });
-    assert.equal(fineTuning.currentStep, "implementation_changes_accepted");
-    assert.equal(fineTuning.currentStepAction.buttonLabel, "Accept changes");
-    assert.equal(fineTuning.currentStepAction.utilityActions[0].kind, "diff");
-    assert.equal(fineTuning.codex.autoInject, true);
-    assert.equal(fineTuning.codex.promptActionLabel, "Get Codex to fine tune plan");
-    assert.ok(fineTuning.completedSteps.includes("plan_fine_tuning"));
-    assert.match(fineTuning.prompt, /Fine-tune the implementation/);
-    assert.match(fineTuning.prompt, /Agent decisions file .*agent_decisions\.md/);
-    assert.match(
-      await readFile(path.join(fineTuning.sessionRoot, "prompts", "plan_fine_tuning.md"), "utf8"),
-      /Fine-tune the implementation/
-    );
-    await assert.rejects(access(path.join(fineTuning.sessionRoot, "prompt.md")));
-    assert.match(await readFile(logPath, "utf8"), /gh issue comment https:\/\/github\.com\/example\/repo\/issues\/123 --body-file/);
+    const executed = runSessionStepJson(appRoot, created.sessionId, { env });
+    assert.equal(executed.currentStep, "deep_ui_check_run");
+    assert.equal(executed.currentStepAction.buttonLabel, "Run Deep UI check");
+    assert.equal(executed.currentStepAction.conditional, true);
+    assert.equal(executed.currentStepAction.skipReason, "");
+    assert.deepEqual(executed.currentStepAction.alternateActions, []);
+    assert.equal(executed.codex.promptActionLabel, "Run Deep UI check");
+    assert.ok(executed.completedSteps.includes("plan_executed"));
+    assert.equal(executed.planExecution.submitted, true);
+    assert.match(executed.planExecution.promptPath, /cycle_001_plan_execution\.md$/);
+    await assert.rejects(access(path.join(executed.sessionRoot, "prompt.md")));
+    assert.doesNotMatch(await readFile(logPath, "utf8"), /gh issue comment https:\/\/github\.com\/example\/repo\/issues\/123 --body-file .*plan/);
   });
 });
 
@@ -1178,25 +1203,25 @@ test("issue creation reuses an existing issue URL without creating duplicates", 
     await writeFile(path.join(created.sessionRoot, "current_step"), "issue_created\n", "utf8");
     const reusedIssue = runSessionStepJson(appRoot, created.sessionId, { env });
     assert.equal(reusedIssue.issueUrl, "https://github.com/example/repo/issues/123");
-    assert.equal(reusedIssue.currentStep, "plan_details_prompt_rendered");
+    assert.equal(reusedIssue.currentStep, "issue_details_gathered");
     assert.equal((await readFile(logPath, "utf8")).match(/gh issue create/g)?.length, 1);
   });
 });
 
-test("plan details output rejects missing required tags and invalid classifications", async () => {
+test("issue details output rejects missing required tags and invalid classifications", async () => {
   await withTempDir(async (cwd) => {
     const cases = [
       {
-        code: "plan_details_required",
+        code: "issue_details_required",
         input: "[issue_category]\nclient\n[/issue_category]\n\n[ui_impact]\npossible\n[/ui_impact]"
       },
       {
         code: "issue_category_invalid",
-        input: planDetailsOutput({ category: "feature" })
+        input: issueDetailsOutput({ category: "feature" })
       },
       {
         code: "ui_impact_invalid",
-        input: planDetailsOutput({ uiImpact: "maybe" })
+        input: issueDetailsOutput({ uiImpact: "maybe" })
       }
     ];
 
@@ -1225,14 +1250,64 @@ test("plan details output rejects missing required tags and invalid classificati
       runSessionStepJson(appRoot, created.sessionId, { env });
 
       const failure = runSessionStepJsonFailure(appRoot, created.sessionId, {
-        args: ["--plan-details", "-"],
+        args: ["--issue-details", "-"],
         env,
         input: testCase.input
       });
 
       assert.equal(failure.errors[0].code, testCase.code);
-      assert.equal(failure.currentStep, "plan_details_gathered");
+      assert.equal(failure.currentStep, "issue_details_gathered");
       assert.equal(failure.ok, false);
+    }
+  });
+});
+
+test("issue details accepts structured Studio fields without wrapper tags", async () => {
+  await withTempDir(async (cwd) => {
+    const appRoot = path.join(cwd, "app");
+    const binDir = path.join(cwd, "bin");
+    const logPath = path.join(cwd, "commands.log");
+    await createGitApp(appRoot);
+    runGit(appRoot, ["remote", "add", "origin", "https://github.com/example/repo.git"]);
+    await installFakeGh(binDir, logPath);
+    const env = {
+      PATH: `${binDir}${path.delimiter}${process.env.PATH || ""}`
+    };
+
+    const created = parseJsonResult(runCli({ cwd: appRoot, args: ["session", "create", "--json"], env }));
+    advanceCliSessionToIssuePrompt(appRoot, created.sessionId, { env });
+    runSessionStepJson(appRoot, created.sessionId, {
+      args: ["--prompt", "Fix details"],
+      env
+    });
+    runSessionStepJson(appRoot, created.sessionId, {
+      args: ["--issue-title", "Fix details", "--issue", "[issue_text]Make details clearer.[/issue_text]"],
+      env
+    });
+    runSessionStepJson(appRoot, created.sessionId, { env });
+    runSessionStepJson(appRoot, created.sessionId, { env });
+
+    const previousPath = process.env.PATH;
+    process.env.PATH = env.PATH;
+    try {
+      const detailsSaved = await runSessionStep({
+        targetRoot: appRoot,
+        sessionId: created.sessionId,
+        options: {
+          issueCategory: "client",
+          issueDetails: "Confirmed details are sufficient to plan the requested change.",
+          uiImpact: "possible"
+        }
+      });
+
+      assert.equal(detailsSaved.ok, true);
+      assert.equal(detailsSaved.currentStep, "plan_made");
+      assert.equal(detailsSaved.issueDetails, "Confirmed details are sufficient to plan the requested change.");
+      assert.equal(detailsSaved.issueCategory, "client");
+      assert.equal(detailsSaved.uiImpact, "possible");
+      assert.equal(detailsSaved.githubComments.issue_details.purpose, "issue_details");
+    } finally {
+      process.env.PATH = previousPath;
     }
   });
 });
@@ -1253,45 +1328,32 @@ test("GitHub issue comments are skipped when purpose metadata already exists", a
     await writeFile(path.join(created.sessionRoot, "issue_url"), "https://github.com/example/repo/issues/123\n", "utf8");
     await writeFile(path.join(created.sessionRoot, "issue_title"), "Fix duplicate comments\n", "utf8");
     await writeFile(path.join(created.sessionRoot, "issue.md"), "Fix duplicate comments.\n", "utf8");
-    await writeStepReceipts(created.sessionRoot, STEP_IDS.slice(0, STEP_IDS.indexOf("plan_details_gathered")));
+    await writeStepReceipts(created.sessionRoot, STEP_IDS.slice(0, STEP_IDS.indexOf("issue_details_gathered")));
     await writeFile(
       path.join(created.sessionRoot, "github_comments.json"),
       `${JSON.stringify({
-        plan_details: {
-          bodyFile: path.join(created.sessionRoot, "plan_details.md"),
+        issue_details: {
+          bodyFile: path.join(created.sessionRoot, "issue_details.md"),
           commentedAt: "2026-05-11T00:00:00.000Z",
           issueUrl: "https://github.com/example/repo/issues/123",
-          purpose: "plan_details"
+          purpose: "issue_details"
         }
       }, null, 2)}\n`,
       "utf8"
     );
 
     const detailsSaved = runSessionStepJson(appRoot, created.sessionId, {
-      args: ["--plan-details", "-"],
+      args: ["--issue-details", "-"],
       env,
-      input: planDetailsOutput()
+      input: issueDetailsOutput()
     });
-    assert.equal(detailsSaved.githubComments.plan_details.purpose, "plan_details");
+    assert.equal(detailsSaved.githubComments.issue_details.purpose, "issue_details");
 
-    await writeFile(
-      path.join(created.sessionRoot, "github_comments.json"),
-      `${JSON.stringify({
-        ...detailsSaved.githubComments,
-        plan: {
-          bodyFile: path.join(created.sessionRoot, "plan.md"),
-          commentedAt: "2026-05-11T00:00:00.000Z",
-          issueUrl: "https://github.com/example/repo/issues/123",
-          purpose: "plan"
-        }
-      }, null, 2)}\n`,
-      "utf8"
-    );
     const planSaved = runSessionStepJson(appRoot, created.sessionId, {
       args: ["--plan", "[plan]\nFix the comments.\n[/plan]"],
       env
     });
-    assert.equal(planSaved.githubComments.plan.purpose, "plan");
+    assert.ok(!Object.hasOwn(planSaved.githubComments, "plan"));
 
     const finalRoot = path.join(cwd, "final-app");
     const finalLogPath = path.join(cwd, "final-commands.log");
@@ -1302,9 +1364,9 @@ test("GitHub issue comments are skipped when purpose metadata already exists", a
     await writeFile(path.join(finalCreated.sessionRoot, "issue_url"), "https://github.com/example/repo/issues/123\n", "utf8");
     await writeFile(path.join(finalCreated.sessionRoot, "issue_title"), "Fix duplicate final report comments\n", "utf8");
     await writeFile(path.join(finalCreated.sessionRoot, "issue.md"), "Fix duplicate final report comments.\n", "utf8");
-    await writeFile(path.join(finalCreated.sessionRoot, "plan_details.md"), "Confirmed details.\n", "utf8");
+    await writeFile(path.join(finalCreated.sessionRoot, "issue_details.md"), "Confirmed details.\n", "utf8");
     await writeIssueMetadata(finalCreated.sessionRoot);
-    await writeFile(path.join(finalCreated.sessionRoot, "plan.md"), "Confirmed plan.\n", "utf8");
+    await writeCyclePlan(finalCreated.sessionRoot, "Confirmed plan.\n");
     await writeFile(
       path.join(finalCreated.sessionRoot, "github_comments.json"),
       `${JSON.stringify({
@@ -1432,7 +1494,7 @@ process.exit(1);
     await writeFile(path.join(metadataSession.sessionRoot, "issue.md"), "Fix metadata.\n", "utf8");
     await writeFile(path.join(metadataSession.sessionRoot, "issue_title"), "Fix metadata\n", "utf8");
     await writeFile(path.join(metadataSession.sessionRoot, "issue_url"), "https://github.com/example/repo/issues/123\n", "utf8");
-    await writeFile(path.join(metadataSession.sessionRoot, "plan_details.md"), "Confirmed details.\n", "utf8");
+    await writeFile(path.join(metadataSession.sessionRoot, "issue_details.md"), "Confirmed details.\n", "utf8");
     await writeStepReceipts(metadataSession.sessionRoot, STEP_IDS.slice(0, STEP_IDS.indexOf("plan_made")));
     const missingMetadata = await runSessionStep({
       targetRoot: metadataRoot,
@@ -1454,10 +1516,10 @@ process.exit(1);
     await writeFile(path.join(cycleSession.sessionRoot, "issue.md"), "Fix cycle.\n", "utf8");
     await writeFile(path.join(cycleSession.sessionRoot, "issue_title"), "Fix cycle\n", "utf8");
     await writeFile(path.join(cycleSession.sessionRoot, "issue_url"), "https://github.com/example/repo/issues/123\n", "utf8");
-    await writeFile(path.join(cycleSession.sessionRoot, "plan_details.md"), "Confirmed details.\n", "utf8");
+    await writeFile(path.join(cycleSession.sessionRoot, "issue_details.md"), "Confirmed details.\n", "utf8");
     await writeIssueMetadata(cycleSession.sessionRoot);
-    await writeFile(path.join(cycleSession.sessionRoot, "plan.md"), "Confirmed plan.\n", "utf8");
-    await writeStepReceipts(cycleSession.sessionRoot, STEP_IDS.slice(0, STEP_IDS.indexOf("plan_fine_tuning")));
+    await writeCyclePlan(cycleSession.sessionRoot, "Confirmed plan.\n");
+    await writeStepReceipts(cycleSession.sessionRoot, STEP_IDS.slice(0, STEP_IDS.indexOf("plan_executed")));
     await rm(path.join(cycleSession.sessionRoot, "active_cycle"));
     const missingActiveCycle = await runSessionStep({
       targetRoot: cycleRoot,
@@ -1476,22 +1538,6 @@ process.exit(1);
     });
     assert.equal(repairedWorktree.ok, true);
     assert.equal(repairedWorktree.worktreeReady, true);
-
-    const changesRoot = path.join(cwd, "changes");
-    await createGitApp(changesRoot);
-    const changes = await createSession({ targetRoot: changesRoot });
-    await runSessionStep({
-      targetRoot: changesRoot,
-      sessionId: changes.sessionId
-    });
-    await writeIssueMetadata(changes.sessionRoot);
-    await writeStepReceipts(changes.sessionRoot, STEP_IDS.slice(0, STEP_IDS.indexOf("implementation_changes_accepted")));
-    const missingChanges = await runSessionStep({
-      targetRoot: changesRoot,
-      sessionId: changes.sessionId
-    });
-    assert.equal(missingChanges.ok, false);
-    assert.equal(missingChanges.errors[0].code, "changes_missing");
 
     const prRoot = path.join(cwd, "pr");
     await createGitApp(prRoot);
@@ -1542,7 +1588,7 @@ test("jskit session diff inspects worktree changes without advancing the session
   });
 });
 
-test("failed user check can start a new plan fine tuning cycle without deleting receipts", async () => {
+test("failed user check can start a new plan cycle without deleting receipts", async () => {
   await withTempDir(async (cwd) => {
     const appRoot = path.join(cwd, "app");
     await createGitApp(appRoot);
@@ -1552,9 +1598,9 @@ test("failed user check can start a new plan fine tuning cycle without deleting 
     await writeFile(path.join(created.sessionRoot, "issue.md"), "Fix the button.\n", "utf8");
     await writeFile(path.join(created.sessionRoot, "issue_title"), "Fix button\n", "utf8");
     await writeFile(path.join(created.sessionRoot, "issue_url"), "https://github.com/example/repo/issues/123\n", "utf8");
-    await writeFile(path.join(created.sessionRoot, "plan_details.md"), "Button should submit the form.\n", "utf8");
+    await writeFile(path.join(created.sessionRoot, "issue_details.md"), "Button should submit the form.\n", "utf8");
     await writeIssueMetadata(created.sessionRoot);
-    await writeFile(path.join(created.sessionRoot, "plan.md"), "Update the button handler.\n", "utf8");
+    await writeCyclePlan(created.sessionRoot, "Update the button handler.\n");
     await writeStepReceipts(created.sessionRoot, STEP_IDS.slice(0, STEP_IDS.indexOf("user_check_completed")));
 
     const failed = runSessionStepJson(appRoot, created.sessionId, {
@@ -1562,9 +1608,12 @@ test("failed user check can start a new plan fine tuning cycle without deleting 
       input: "The button still does not submit."
     });
     assert.equal(failed.activeCycle, "002");
-    assert.equal(failed.currentStep, "plan_fine_tuning");
+    assert.equal(failed.currentStep, "plan_made");
+    assert.equal(failed.currentStepAction.buttonLabel, "Get Codex to create revised plan");
+    assert.equal(failed.planText, "");
     assert.equal(failed.cycles.find((cycle) => cycle.cycle === "001").userCheckResult, "failed");
     assert.equal(failed.cycles.find((cycle) => cycle.cycle === "002").status, "active");
+    assert.equal(failed.cycles.find((cycle) => cycle.cycle === "002").reworkRequest, "The button still does not submit.");
     assert.match(
       await readFile(path.join(created.sessionRoot, "steps", "cycle_001", "user_check_failed"), "utf8"),
       /User reported/
@@ -1575,9 +1624,17 @@ test("failed user check can start a new plan fine tuning cycle without deleting 
     );
 
     const prompt = runSessionStepJson(appRoot, created.sessionId);
-    assert.equal(prompt.currentStep, "implementation_changes_accepted");
+    assert.equal(prompt.currentStep, "plan_made");
+    assert.equal(prompt.currentStepAction.buttonLabel, "Save plan");
+    assert.equal(prompt.codex.autoInject, true);
     assert.match(prompt.prompt, /The button still does not submit/);
     assert.match(prompt.prompt, /Active cycle: 002/);
+    assert.match(prompt.prompt, /Plan source: rework/);
+    const planSaved = runSessionStepJson(appRoot, created.sessionId, {
+      args: ["--plan", "[plan]\nFix the submit handler in the new cycle.\n[/plan]"]
+    });
+    assert.equal(planSaved.currentStep, "plan_executed");
+    assert.match(await readFile(cyclePlanPath(created.sessionRoot, "002"), "utf8"), /submit handler/);
   });
 });
 
@@ -1591,14 +1648,12 @@ test("finalization cannot advance while active-cycle user check is missing or fa
     await writeFile(path.join(created.sessionRoot, "issue.md"), "Fix the missing check.\n", "utf8");
     await writeFile(path.join(created.sessionRoot, "issue_title"), "Fix missing check\n", "utf8");
     await writeFile(path.join(created.sessionRoot, "issue_url"), "https://github.com/example/repo/issues/123\n", "utf8");
-    await writeFile(path.join(created.sessionRoot, "plan_details.md"), "Confirmed details.\n", "utf8");
+    await writeFile(path.join(created.sessionRoot, "issue_details.md"), "Confirmed details.\n", "utf8");
     await writeIssueMetadata(created.sessionRoot);
-    await writeFile(path.join(created.sessionRoot, "plan.md"), "Confirmed plan.\n", "utf8");
+    await writeCyclePlan(created.sessionRoot, "Confirmed plan.\n");
     await writeStepReceipts(created.sessionRoot, STEP_IDS.slice(0, STEP_IDS.indexOf("user_check_completed")));
 
-    const missingCheck = runSessionStepJson(appRoot, created.sessionId, {
-      args: ["--blueprint", "[app_blueprint]\n# Should Not Save\n[/app_blueprint]"]
-    });
+    const missingCheck = runSessionStepJson(appRoot, created.sessionId);
     assert.equal(missingCheck.currentStep, "user_check_completed");
     assert.match(missingCheck.prompt, /User check/);
     await assert.rejects(access(path.join(created.sessionRoot, "steps", "blueprint_updated")));
@@ -1613,63 +1668,40 @@ test("finalization cannot advance while active-cycle user check is missing or fa
   });
 });
 
-test("pre-review and post-review check failures block with retryable action metadata", async () => {
+test("automated checks render a Codex repair loop prompt before recording the receipt", async () => {
   await withTempDir(async (cwd) => {
-    const checkCases = [
-      {
-        expectedCode: "pre_review_checks_run_failed",
-        stepId: "pre_review_checks_run"
-      },
-      {
-        expectedCode: "post_review_checks_run_failed",
-        stepId: "post_review_checks_run"
-      }
-    ];
+    const appRoot = path.join(cwd, "app");
+    await createGitApp(appRoot);
 
-    for (const checkCase of checkCases) {
-      const appRoot = path.join(cwd, checkCase.stepId);
-      await createGitApp(appRoot);
-      const packageJsonPath = path.join(appRoot, "package.json");
-      const packageJson = JSON.parse(await readFile(packageJsonPath, "utf8"));
-      packageJson.scripts["verify:local"] = "node -e \"process.exit(2)\"";
-      await writeFile(packageJsonPath, `${JSON.stringify(packageJson, null, 2)}\n`, "utf8");
-      runGit(appRoot, ["add", "package.json"]);
-      runGit(appRoot, ["commit", "-m", "Make checks fail"]);
+    const created = parseJsonResult(runCli({ cwd: appRoot, args: ["session", "create", "--json"] }));
+    runSessionStepJson(appRoot, created.sessionId);
+    await writeFile(path.join(created.sessionRoot, "issue_url"), "https://github.com/example/repo/issues/123\n", "utf8");
+    await writeFile(path.join(created.sessionRoot, "issue_title"), "Run checks\n", "utf8");
+    await writeFile(path.join(created.sessionRoot, "issue.md"), "Run checks.\n", "utf8");
+    await writeFile(path.join(created.sessionRoot, "issue_details.md"), "Confirmed details.\n", "utf8");
+    await writeIssueMetadata(created.sessionRoot);
+    await writeCyclePlan(created.sessionRoot, "Confirmed plan.\n");
+    await writeStepReceipts(created.sessionRoot, STEP_IDS.slice(0, STEP_IDS.indexOf("automated_checks_run")));
 
-      const created = parseJsonResult(runCli({ cwd: appRoot, args: ["session", "create", "--json"] }));
-      runSessionStepJson(appRoot, created.sessionId);
-      await writeFile(path.join(created.sessionRoot, "issue_url"), "https://github.com/example/repo/issues/123\n", "utf8");
-      await writeFile(path.join(created.sessionRoot, "issue_title"), "Fail checks\n", "utf8");
-      await writeFile(path.join(created.sessionRoot, "issue.md"), "Fail checks.\n", "utf8");
-      await writeFile(path.join(created.sessionRoot, "plan_details.md"), "Confirmed details.\n", "utf8");
-      await writeIssueMetadata(created.sessionRoot);
-      await writeFile(path.join(created.sessionRoot, "plan.md"), "Confirmed plan.\n", "utf8");
-      await writeStepReceipts(created.sessionRoot, STEP_IDS.slice(0, STEP_IDS.indexOf(checkCase.stepId)));
+    const prompted = runSessionStepJson(appRoot, created.sessionId);
+    assert.equal(prompted.currentStep, "automated_checks_run");
+    assert.equal(prompted.currentStepAction.buttonLabel, "Go to next step");
+    assert.equal(prompted.codex.promptActionLabel, "Run automated checks");
+    assert.match(prompted.prompt, /Run automated checks/);
+    assert.match(prompted.prompt, /npm run verify/);
+    assert.ok(!prompted.completedSteps.includes("automated_checks_run"));
+    const promptedCheck = JSON.parse(await readFile(path.join(created.sessionRoot, "checks", "automated_checks_run.json"), "utf8"));
+    assert.equal(promptedCheck.status, "prompted");
 
-      const failed = runSessionStepJsonFailure(appRoot, created.sessionId);
-      assert.equal(failed.errors[0].code, checkCase.expectedCode);
-      assert.equal(failed.currentStep, checkCase.stepId);
-      assert.equal(failed.currentStepAction.retryable, true);
-      assert.match(failed.prompt, /doctor or verification step failed/);
-      await access(path.join(created.sessionRoot, "checks", `${checkCase.stepId}.json`));
-      await assert.rejects(access(path.join(created.sessionRoot, "steps", "cycle_001", checkCase.stepId)));
-
-      const worktreePackageJsonPath = path.join(failed.worktree, "package.json");
-      const worktreePackageJson = JSON.parse(await readFile(worktreePackageJsonPath, "utf8"));
-      worktreePackageJson.scripts["verify:local"] = "node -e \"process.exit(0)\"";
-      await writeFile(worktreePackageJsonPath, `${JSON.stringify(worktreePackageJson, null, 2)}\n`, "utf8");
-      await writeFile(path.join(failed.worktree, `${checkCase.stepId}-repair.txt`), "repair\n", "utf8");
-
-      const repaired = runSessionStepJson(appRoot, created.sessionId);
-      assert.equal(repaired.currentStep, checkCase.stepId === "pre_review_checks_run" ? "deep_ui_check_run" : "deep_ui_recheck_run");
-      assert.ok(repaired.completedSteps.includes(checkCase.stepId));
-      assert.match(runGit(failed.worktree, ["log", "--oneline", "--max-count=1"]), /checks repairs/);
-      await access(path.join(created.sessionRoot, "checks", `${checkCase.stepId}_repair_commit.json`));
-    }
+    const completed = runSessionStepJson(appRoot, created.sessionId);
+    assert.equal(completed.currentStep, "user_check_completed");
+    assert.ok(completed.completedSteps.includes("automated_checks_run"));
+    const completedCheck = JSON.parse(await readFile(path.join(created.sessionRoot, "checks", "automated_checks_run.json"), "utf8"));
+    assert.equal(completedCheck.status, "completed_by_codex");
   });
 });
 
-test("server-only sessions skip both deep UI check steps with structured receipts", async () => {
+test("server-only sessions skip Deep UI check with structured receipts", async () => {
   await withTempDir(async (cwd) => {
     const appRoot = path.join(cwd, "app");
     const binDir = path.join(cwd, "bin");
@@ -1695,9 +1727,9 @@ test("server-only sessions skip both deep UI check steps with structured receipt
     runSessionStepJson(appRoot, created.sessionId, { env });
     runSessionStepJson(appRoot, created.sessionId, { env });
     runSessionStepJson(appRoot, created.sessionId, {
-      args: ["--plan-details", "-"],
+      args: ["--issue-details", "-"],
       env,
-      input: planDetailsOutput({
+      input: issueDetailsOutput({
         body: "Add a server-only health endpoint with no user interface changes.",
         category: "server",
         uiImpact: "none"
@@ -1713,41 +1745,28 @@ test("server-only sessions skip both deep UI check steps with structured receipt
 
     const inspect = parseJsonResult(runCli({ cwd: appRoot, args: ["session", created.sessionId, "--json"], env }));
     await writeFile(path.join(inspect.worktree, "server-health.txt"), "ok\n", "utf8");
-    runSessionStepJson(appRoot, created.sessionId, { env });
-    runSessionStepJson(appRoot, created.sessionId, { env });
-    const preReviewChecks = runSessionStepJson(appRoot, created.sessionId, { env });
-    assert.equal(preReviewChecks.currentStep, "deep_ui_check_run");
-    assert.equal(preReviewChecks.currentStepAction.conditional, true);
-    assert.equal(preReviewChecks.currentStepAction.skipReason, "uiImpact is none.");
-    const skippedPreReviewUi = runSessionStepJson(appRoot, created.sessionId, { env });
-    assert.equal(skippedPreReviewUi.currentStep, "review_prompt_rendered");
-    assert.equal(skippedPreReviewUi.prompt, "");
-    assert.equal(skippedPreReviewUi.uiChecks.find((entry) => entry.stepId === "deep_ui_check_run")?.status, "skipped");
+    const committed = runSessionStepJson(appRoot, created.sessionId, { env });
+    assert.equal(committed.currentStep, "review_prompt_rendered");
+    assert.equal(committed.prompt, "");
+    assert.equal(committed.uiChecks.find((entry) => entry.stepId === "deep_ui_check_run")?.status, "skipped");
 
-    runSessionStepJson(appRoot, created.sessionId, { env });
-    runSessionStepJson(appRoot, created.sessionId, { env });
-    runSessionStepJson(appRoot, created.sessionId, { env });
-    runSessionStepJson(appRoot, created.sessionId, { env });
-    const skippedPostReviewUi = runSessionStepJson(appRoot, created.sessionId, { env });
+    const reviewPrompt = runSessionStepJson(appRoot, created.sessionId, { env });
+    assert.equal(reviewPrompt.currentStep, "review_changes_accepted");
+    const reviewAccepted = runSessionStepJson(appRoot, created.sessionId, {
+      args: ["--review-findings-remaining", "false"],
+      env
+    });
+    assert.equal(reviewAccepted.currentStep, "automated_checks_run");
+    const checkPrompt = runSessionStepJson(appRoot, created.sessionId, { env });
+    assert.equal(checkPrompt.currentStep, "automated_checks_run");
+    assert.match(checkPrompt.prompt, /Run automated checks/);
+    const afterReview = runSessionStepJson(appRoot, created.sessionId, { env });
 
-    assert.equal(skippedPostReviewUi.currentStep, "user_check_completed");
-    assert.equal(skippedPostReviewUi.uiChecks.find((entry) => entry.stepId === "deep_ui_recheck_run")?.status, "skipped");
-    assert.equal(skippedPostReviewUi.uiChecks.length, 6);
+    assert.equal(afterReview.currentStep, "user_check_completed");
+    assert.equal(afterReview.uiChecks.length, 1);
     assert.match(
       await readFile(path.join(created.sessionRoot, "steps", "cycle_001", "deep_ui_check_run"), "utf8"),
       /skipped: uiImpact is none/
-    );
-    assert.match(
-      await readFile(path.join(created.sessionRoot, "steps", "cycle_001", "deep_ui_check_changes_committed"), "utf8"),
-      /commit skipped: uiImpact is none/
-    );
-    assert.match(
-      await readFile(path.join(created.sessionRoot, "steps", "cycle_001", "deep_ui_recheck_run"), "utf8"),
-      /skipped: uiImpact is none/
-    );
-    assert.match(
-      await readFile(path.join(created.sessionRoot, "steps", "cycle_001", "deep_ui_recheck_changes_committed"), "utf8"),
-      /commit skipped: uiImpact is none/
     );
   });
 });
@@ -1778,9 +1797,9 @@ test("possible UI-impact sessions can explicitly skip Deep UI check with a reaso
     runSessionStepJson(appRoot, created.sessionId, { env });
     runSessionStepJson(appRoot, created.sessionId, { env });
     runSessionStepJson(appRoot, created.sessionId, {
-      args: ["--plan-details", "-"],
+      args: ["--issue-details", "-"],
       env,
-      input: planDetailsOutput({
+      input: issueDetailsOutput({
         body: "The route response shape remains unchanged, so no rendered UI path changes.",
         category: "server",
         uiImpact: "possible"
@@ -1796,10 +1815,8 @@ test("possible UI-impact sessions can explicitly skip Deep UI check with a reaso
 
     const inspect = parseJsonResult(runCli({ cwd: appRoot, args: ["session", created.sessionId, "--json"], env }));
     await writeFile(path.join(inspect.worktree, "server-route.txt"), "route\n", "utf8");
-    runSessionStepJson(appRoot, created.sessionId, { env });
-    runSessionStepJson(appRoot, created.sessionId, { env });
-    const checksPassed = runSessionStepJson(appRoot, created.sessionId, { env });
-    assert.equal(checksPassed.currentStep, "deep_ui_check_run");
+    const committed = runSessionStepJson(appRoot, created.sessionId, { env });
+    assert.equal(committed.currentStep, "deep_ui_check_run");
 
     const missingReason = runSessionStepJsonFailure(appRoot, created.sessionId, {
       args: ["--skip-ui-check"],
@@ -1848,9 +1865,9 @@ test("definite UI-impact sessions render the deep UI check prompt", async () => 
     runSessionStepJson(appRoot, created.sessionId, { env });
     runSessionStepJson(appRoot, created.sessionId, { env });
     runSessionStepJson(appRoot, created.sessionId, {
-      args: ["--plan-details", "-"],
+      args: ["--issue-details", "-"],
       env,
-      input: planDetailsOutput({
+      input: issueDetailsOutput({
         body: "Improve visual hierarchy and responsive layout on the home page.",
         category: "client",
         uiImpact: "definite"
@@ -1866,30 +1883,21 @@ test("definite UI-impact sessions render the deep UI check prompt", async () => 
 
     const inspect = parseJsonResult(runCli({ cwd: appRoot, args: ["session", created.sessionId, "--json"], env }));
     await writeFile(path.join(inspect.worktree, "src", "home-ui.txt"), "ui\n", "utf8");
-    runSessionStepJson(appRoot, created.sessionId, { env });
-    runSessionStepJson(appRoot, created.sessionId, { env });
-    const checksPassed = runSessionStepJson(appRoot, created.sessionId, { env });
-    assert.equal(checksPassed.currentStep, "deep_ui_check_run");
-    assert.equal(checksPassed.currentStepAction.conditional, true);
-    assert.equal(checksPassed.currentStepAction.skipReason, "");
-
-    const blockedSkip = runSessionStepJsonFailure(appRoot, created.sessionId, {
-      args: ["--skip-ui-check", "--skip-reason", "Skip requested incorrectly."],
-      env
-    });
-    assert.equal(blockedSkip.errors[0].code, "ui_check_skip_not_allowed");
-
+    const committed = runSessionStepJson(appRoot, created.sessionId, { env });
+    assert.equal(committed.currentStep, "deep_ui_check_run");
+    assert.equal(committed.currentStepAction.conditional, true);
+    assert.equal(committed.currentStepAction.skipReason, "");
+    assert.match(committed.prompt, /Deep UI quality check/);
+    assert.match(committed.prompt, /UI impact: definite/);
+    assert.equal(committed.currentStepAction.buttonLabel, "Go to next step");
+    assert.ok(!committed.completedSteps.includes("deep_ui_check_run"));
+    assert.equal(committed.uiChecks.find((entry) => entry.stepId === "deep_ui_check_run")?.status, "prompted");
+    const promptedInspect = parseJsonResult(runCli({ cwd: appRoot, args: ["session", created.sessionId, "--json"], env }));
+    assert.equal(promptedInspect.codex.promptActionLabel, "Run Deep UI check");
+    assert.equal(promptedInspect.codex.mode, "inject_prompt");
     const deepUi = runSessionStepJson(appRoot, created.sessionId, { env });
-    assert.equal(deepUi.currentStep, "deep_ui_check_changes_accepted");
-    assert.match(deepUi.prompt, /Deep UI quality check/);
-    assert.match(deepUi.prompt, /UI impact: definite/);
-    assert.equal(deepUi.uiChecks.find((entry) => entry.stepId === "deep_ui_check_run")?.status, "prompted");
-    const deepUiAccepted = runSessionStepJson(appRoot, created.sessionId, { env });
-    assert.equal(deepUiAccepted.currentStep, "deep_ui_check_changes_committed");
-    assert.equal(deepUiAccepted.uiChecks.find((entry) => entry.stepId === "deep_ui_check_changes_accepted")?.status, "accepted_no_changes");
-    const deepUiCommitted = runSessionStepJson(appRoot, created.sessionId, { env });
-    assert.equal(deepUiCommitted.currentStep, "review_prompt_rendered");
-    assert.equal(deepUiCommitted.uiChecks.find((entry) => entry.stepId === "deep_ui_check_changes_committed")?.status, "no_changes");
+    assert.equal(deepUi.currentStep, "review_prompt_rendered");
+    assert.ok(deepUi.completedSteps.includes("deep_ui_check_run"));
   });
 });
 
@@ -1910,41 +1918,48 @@ test("review passes can repeat and finish with a no-change pass", async () => {
     await writeFile(path.join(session.sessionRoot, "issue_url"), "https://github.com/example/repo/issues/123\n", "utf8");
     await writeFile(path.join(session.sessionRoot, "issue_title"), "Repeat review\n", "utf8");
     await writeFile(path.join(session.sessionRoot, "issue.md"), "Repeat review passes.\n", "utf8");
-    await writeFile(path.join(session.sessionRoot, "plan_details.md"), "Confirmed details.\n", "utf8");
-    await writeFile(path.join(session.sessionRoot, "plan.md"), "Confirmed plan.\n", "utf8");
+    await writeFile(path.join(session.sessionRoot, "issue_details.md"), "Confirmed details.\n", "utf8");
+    await writeCyclePlan(session.sessionRoot, "Confirmed plan.\n");
     await writeIssueMetadata(session.sessionRoot);
     await writeStepReceipts(session.sessionRoot, STEP_IDS.slice(0, STEP_IDS.indexOf("review_prompt_rendered")));
 
     const firstPrompt = runSessionStepJson(appRoot, created.sessionId, { env });
     assert.equal(firstPrompt.currentStep, "review_changes_accepted");
     assert.equal(firstPrompt.currentReviewPass, "001");
+    const missingDecision = runSessionStepJsonFailure(appRoot, created.sessionId, { env });
+    assert.equal(missingDecision.currentStep, "review_changes_accepted");
+    assert.equal(missingDecision.errors[0].code, "review_decision_required");
     await writeFile(path.join(firstPrompt.worktree, "review-pass-one.txt"), "one\n", "utf8");
     const firstAccepted = runSessionStepJson(appRoot, created.sessionId, {
       args: ["--review-findings-remaining", "true", "--review-findings", "A helper duplication fix needs another pass."],
       env
     });
-    assert.equal(firstAccepted.currentStep, "review_changes_committed");
+    assert.equal(firstAccepted.currentStep, "review_prompt_rendered");
     assert.equal(firstAccepted.reviewPasses[0].findingsRemaining, true);
-    const firstCommitted = runSessionStepJson(appRoot, created.sessionId, { env });
-    assert.equal(firstCommitted.currentStep, "review_prompt_rendered");
-    assert.equal(firstCommitted.reviewPasses[0].status, "committed");
-    assert.match(firstCommitted.reviewPasses[0].commit, /^[0-9a-f]{40}$/u);
+    assert.equal(firstAccepted.reviewPasses[0].status, "accepted");
+    assert.equal(firstAccepted.reviewPasses[0].commit, "");
 
     const secondPrompt = runSessionStepJson(appRoot, created.sessionId, { env });
     assert.equal(secondPrompt.currentStep, "review_changes_accepted");
     assert.equal(secondPrompt.currentReviewPass, "002");
     assert.equal(secondPrompt.reviewPasses.length, 2);
-    const secondAccepted = runSessionStepJson(appRoot, created.sessionId, { env });
-    assert.equal(secondAccepted.currentStep, "review_changes_committed");
-    assert.equal(secondAccepted.reviewPasses[1].status, "accepted_no_changes");
-    const secondCommitted = runSessionStepJson(appRoot, created.sessionId, { env });
-    assert.equal(secondCommitted.currentStep, "post_review_checks_run");
-    assert.equal(secondCommitted.reviewPasses[1].status, "no_changes");
-    assert.equal(secondCommitted.reviewPasses[1].commit, "");
+    const secondAccepted = runSessionStepJson(appRoot, created.sessionId, {
+      args: ["--review-findings-remaining", "false"],
+      env
+    });
+    assert.equal(secondAccepted.currentStep, "automated_checks_run");
+    assert.equal(secondAccepted.reviewPasses[1].status, "accepted");
+    assert.equal(secondAccepted.reviewPasses[1].commit, "");
+    const checkPrompt = runSessionStepJson(appRoot, created.sessionId, { env });
+    assert.equal(checkPrompt.currentStep, "automated_checks_run");
+    assert.match(checkPrompt.prompt, /Run automated checks/);
+    const checked = runSessionStepJson(appRoot, created.sessionId, { env });
+    assert.equal(checked.currentStep, "user_check_completed");
+    assert.ok(checked.completedSteps.includes("automated_checks_run"));
   });
 });
 
-test("review pass repetition stops at the configured pass limit", async () => {
+test("review pass repetition can continue until findings are resolved", async () => {
   await withTempDir(async (cwd) => {
     const appRoot = path.join(cwd, "app");
     const binDir = path.join(cwd, "bin");
@@ -1961,30 +1976,32 @@ test("review pass repetition stops at the configured pass limit", async () => {
     await writeFile(path.join(session.sessionRoot, "issue_url"), "https://github.com/example/repo/issues/123\n", "utf8");
     await writeFile(path.join(session.sessionRoot, "issue_title"), "Max review\n", "utf8");
     await writeFile(path.join(session.sessionRoot, "issue.md"), "Max review passes.\n", "utf8");
-    await writeFile(path.join(session.sessionRoot, "plan_details.md"), "Confirmed details.\n", "utf8");
-    await writeFile(path.join(session.sessionRoot, "plan.md"), "Confirmed plan.\n", "utf8");
+    await writeFile(path.join(session.sessionRoot, "issue_details.md"), "Confirmed details.\n", "utf8");
+    await writeCyclePlan(session.sessionRoot, "Confirmed plan.\n");
     await writeIssueMetadata(session.sessionRoot);
     await writeStepReceipts(session.sessionRoot, STEP_IDS.slice(0, STEP_IDS.indexOf("review_prompt_rendered")));
 
     let payload = null;
-    for (const pass of ["001", "002", "003"]) {
+    for (const pass of ["001", "002", "003", "004"]) {
       const prompted = runSessionStepJson(appRoot, created.sessionId, { env });
       assert.equal(prompted.currentStep, "review_changes_accepted");
       assert.equal(prompted.currentReviewPass, pass);
       await writeFile(path.join(prompted.worktree, `review-pass-${pass}.txt`), `${pass}\n`, "utf8");
-      runSessionStepJson(appRoot, created.sessionId, {
+      payload = runSessionStepJson(appRoot, created.sessionId, {
         args: ["--review-findings-remaining", "true", "--review-findings", `Important findings remain after pass ${pass}.`],
         env
       });
-      payload = runSessionStepJson(appRoot, created.sessionId, { env });
     }
-    assert.equal(payload.currentStep, "post_review_checks_run");
-    assert.equal(payload.reviewPasses.length, 3);
-    assert.equal(payload.reviewPasses[2].findingsRemaining, true);
+    assert.equal(payload.currentStep, "review_prompt_rendered");
+    assert.equal(payload.reviewPasses.length, 4);
+    assert.equal(payload.reviewPasses[3].findingsRemaining, true);
+    const nextPrompt = runSessionStepJson(appRoot, created.sessionId, { env });
+    assert.equal(nextPrompt.currentStep, "review_changes_accepted");
+    assert.equal(nextPrompt.currentReviewPass, "005");
   });
 });
 
-test("blueprint update step handles changed, unchanged, and invalid tagged output", async () => {
+test("blueprint update step renders a Codex prompt then records the edited blueprint", async () => {
   await withTempDir(async (cwd) => {
     const changedRoot = path.join(cwd, "changed");
     await createGitApp(changedRoot);
@@ -1993,18 +2010,22 @@ test("blueprint update step handles changed, unchanged, and invalid tagged outpu
     await writeFile(path.join(changedSession.sessionRoot, "issue_url"), "https://github.com/example/repo/issues/123\n", "utf8");
     await writeFile(path.join(changedSession.sessionRoot, "issue_title"), "Update blueprint\n", "utf8");
     await writeFile(path.join(changedSession.sessionRoot, "issue.md"), "Update blueprint.\n", "utf8");
-    await writeFile(path.join(changedSession.sessionRoot, "plan_details.md"), "Confirmed details.\n", "utf8");
+    await writeFile(path.join(changedSession.sessionRoot, "issue_details.md"), "Confirmed details.\n", "utf8");
     await writeIssueMetadata(changedSession.sessionRoot);
-    await writeFile(path.join(changedSession.sessionRoot, "plan.md"), "Confirmed plan.\n", "utf8");
+    await writeCyclePlan(changedSession.sessionRoot, "Confirmed plan.\n");
     await writeStepReceipts(changedSession.sessionRoot, STEP_IDS.slice(0, STEP_IDS.indexOf("blueprint_updated")));
 
-    const changed = runSessionStepJson(changedRoot, changedSession.sessionId, {
-      args: ["--blueprint", "[app_blueprint]\n# Updated Blueprint\n\nThe app now tracks field work.\n[/app_blueprint]\n[agent_decisions]\n- Keep blueprint concise.\n[/agent_decisions]"]
-    });
+    const prompt = runSessionStepJson(changedRoot, changedSession.sessionId);
+    assert.equal(prompt.currentStep, "blueprint_updated");
+    assert.equal(prompt.currentStepAction.kind, "codex_prompt");
+    assert.equal(prompt.currentStepAction.input.type, "none");
+    assert.match(prompt.prompt, /Edit `.jskit\/APP_BLUEPRINT\.md` directly/);
+
+    await writeFile(path.join(changedWorktree.worktree, ".jskit", "APP_BLUEPRINT.md"), "# Updated Blueprint\n\nThe app now tracks field work.\n", "utf8");
+    const changed = runSessionStepJson(changedRoot, changedSession.sessionId);
     assert.equal(changed.currentStep, "doctor_run");
-    assert.match(await readFile(path.join(changedWorktree.worktree, ".jskit", "APP_BLUEPRINT.md"), "utf8"), /Updated Blueprint/);
     assert.match(runGit(changedWorktree.worktree, ["log", "--oneline", "--max-count=1"]), /Update app blueprint/);
-    assert.match(await readFile(path.join(changedSession.sessionRoot, "agent_decisions.md"), "utf8"), /Keep blueprint concise/);
+    assert.match(await readFile(path.join(changedSession.sessionRoot, "steps", "blueprint_updated"), "utf8"), /committed the app blueprint/);
 
     const unchangedRoot = path.join(cwd, "unchanged");
     await createGitApp(unchangedRoot);
@@ -2016,38 +2037,44 @@ test("blueprint update step handles changed, unchanged, and invalid tagged outpu
     await writeFile(path.join(unchangedSession.sessionRoot, "issue_url"), "https://github.com/example/repo/issues/123\n", "utf8");
     await writeFile(path.join(unchangedSession.sessionRoot, "issue_title"), "Keep blueprint\n", "utf8");
     await writeFile(path.join(unchangedSession.sessionRoot, "issue.md"), "Keep blueprint.\n", "utf8");
-    await writeFile(path.join(unchangedSession.sessionRoot, "plan_details.md"), "Confirmed details.\n", "utf8");
+    await writeFile(path.join(unchangedSession.sessionRoot, "issue_details.md"), "Confirmed details.\n", "utf8");
     await writeIssueMetadata(unchangedSession.sessionRoot);
-    await writeFile(path.join(unchangedSession.sessionRoot, "plan.md"), "Confirmed plan.\n", "utf8");
+    await writeCyclePlan(unchangedSession.sessionRoot, "Confirmed plan.\n");
     await writeStepReceipts(unchangedSession.sessionRoot, STEP_IDS.slice(0, STEP_IDS.indexOf("blueprint_updated")));
 
-    const unchanged = runSessionStepJson(unchangedRoot, unchangedSession.sessionId, {
-      args: ["--blueprint", "[app_blueprint]\n# Existing Blueprint\n\nAlready current.\n[/app_blueprint]"]
-    });
+    const unchangedPrompt = runSessionStepJson(unchangedRoot, unchangedSession.sessionId);
+    assert.equal(unchangedPrompt.currentStep, "blueprint_updated");
+    const unchanged = runSessionStepJson(unchangedRoot, unchangedSession.sessionId);
     assert.equal(unchanged.currentStep, "doctor_run");
     assert.equal(runGit(unchangedWorktree.worktree, ["status", "--porcelain=v1"]), "");
     assert.match(
       await readFile(path.join(unchangedSession.sessionRoot, "steps", "blueprint_updated"), "utf8"),
-      /already up to date/
+      /no blueprint changes were needed/
     );
 
-    const invalidRoot = path.join(cwd, "invalid");
-    await createGitApp(invalidRoot);
-    const invalidSession = parseJsonResult(runCli({ cwd: invalidRoot, args: ["session", "create", "--json"] }));
-    runSessionStepJson(invalidRoot, invalidSession.sessionId);
-    await writeFile(path.join(invalidSession.sessionRoot, "issue_url"), "https://github.com/example/repo/issues/123\n", "utf8");
-    await writeFile(path.join(invalidSession.sessionRoot, "issue_title"), "Invalid blueprint\n", "utf8");
-    await writeFile(path.join(invalidSession.sessionRoot, "issue.md"), "Invalid blueprint.\n", "utf8");
-    await writeFile(path.join(invalidSession.sessionRoot, "plan_details.md"), "Confirmed details.\n", "utf8");
-    await writeIssueMetadata(invalidSession.sessionRoot);
-    await writeFile(path.join(invalidSession.sessionRoot, "plan.md"), "Confirmed plan.\n", "utf8");
-    await writeStepReceipts(invalidSession.sessionRoot, STEP_IDS.slice(0, STEP_IDS.indexOf("blueprint_updated")));
+    const unexpectedRoot = path.join(cwd, "unexpected");
+    await createGitApp(unexpectedRoot);
+    const unexpectedSession = parseJsonResult(runCli({ cwd: unexpectedRoot, args: ["session", "create", "--json"] }));
+    const unexpectedWorktree = runSessionStepJson(unexpectedRoot, unexpectedSession.sessionId);
+    await writeFile(path.join(unexpectedSession.sessionRoot, "issue_url"), "https://github.com/example/repo/issues/123\n", "utf8");
+    await writeFile(path.join(unexpectedSession.sessionRoot, "issue_title"), "Unexpected blueprint\n", "utf8");
+    await writeFile(path.join(unexpectedSession.sessionRoot, "issue.md"), "Unexpected blueprint.\n", "utf8");
+    await writeFile(path.join(unexpectedSession.sessionRoot, "issue_details.md"), "Confirmed details.\n", "utf8");
+    await writeIssueMetadata(unexpectedSession.sessionRoot);
+    await writeCyclePlan(unexpectedSession.sessionRoot, "Confirmed plan.\n");
+    await writeStepReceipts(unexpectedSession.sessionRoot, STEP_IDS.slice(0, STEP_IDS.indexOf("blueprint_updated")));
 
-    const invalid = runSessionStepJsonFailure(invalidRoot, invalidSession.sessionId, {
-      args: ["--blueprint", "No tagged blueprint"]
+    const removedInput = runSessionStepJsonFailure(unexpectedRoot, unexpectedSession.sessionId, {
+      args: ["--blueprint", "[app_blueprint]\n# Should Not Save\n[/app_blueprint]"]
     });
-    assert.equal(invalid.errors[0].code, "app_blueprint_required");
-    assert.equal(invalid.currentStep, "blueprint_updated");
+    assert.equal(removedInput.errors[0].code, "session_blueprint_input_removed");
+
+    runSessionStepJson(unexpectedRoot, unexpectedSession.sessionId);
+    await writeFile(path.join(unexpectedWorktree.worktree, "README.md"), "Unexpected change.\n", "utf8");
+    await writeFile(path.join(unexpectedWorktree.worktree, ".jskit", "APP_BLUEPRINT.md"), "# Updated Blueprint\n", "utf8");
+    const unexpected = runSessionStepJsonFailure(unexpectedRoot, unexpectedSession.sessionId);
+    assert.equal(unexpected.errors[0].code, "blueprint_unexpected_changes");
+    assert.equal(unexpected.currentStep, "blueprint_updated");
   });
 });
 
@@ -2067,9 +2094,9 @@ test("final verification failure keeps the session blocked before PR creation", 
     await writeFile(path.join(created.sessionRoot, "issue_url"), "https://github.com/example/repo/issues/123\n", "utf8");
     await writeFile(path.join(created.sessionRoot, "issue_title"), "Fail verification\n", "utf8");
     await writeFile(path.join(created.sessionRoot, "issue.md"), "Fail verification.\n", "utf8");
-    await writeFile(path.join(created.sessionRoot, "plan_details.md"), "Confirmed details.\n", "utf8");
+    await writeFile(path.join(created.sessionRoot, "issue_details.md"), "Confirmed details.\n", "utf8");
     await writeIssueMetadata(created.sessionRoot);
-    await writeFile(path.join(created.sessionRoot, "plan.md"), "Confirmed plan.\n", "utf8");
+    await writeCyclePlan(created.sessionRoot, "Confirmed plan.\n");
     await writeStepReceipts(created.sessionRoot, STEP_IDS.slice(0, STEP_IDS.indexOf("doctor_run")));
 
     const failed = runSessionStepJsonFailure(appRoot, created.sessionId);
@@ -2117,10 +2144,11 @@ test("jskit session can execute review loop, doctor, PR, merge, cleanup, and fin
       env
     });
     const issueCreated = runSessionStepJson(appRoot, created.sessionId, { env });
-    assert.equal(issueCreated.currentStep, "plan_details_prompt_rendered");
-    saveCliSessionPlanDetails(appRoot, created.sessionId, { env });
+    assert.equal(issueCreated.currentStep, "issue_details_gathered");
+    saveCliSessionIssueDetails(appRoot, created.sessionId, { env });
     const planPrompt = runSessionStepJson(appRoot, created.sessionId, { env });
     assert.equal(planPrompt.currentStep, "plan_made");
+    assert.equal(planPrompt.codex.autoInject, true);
     assert.match(planPrompt.prompt, /Create an implementation plan/);
     const planMade = runSessionStepJson(appRoot, created.sessionId, {
       args: ["--plan", "[plan]\nImplement the page.\n[/plan]"],
@@ -2131,19 +2159,21 @@ test("jskit session can execute review loop, doctor, PR, merge, cleanup, and fin
     assert.equal(planMade.prompt, "");
     assert.ok(planMade.completedSteps.includes("plan_made"));
     const executed = runSessionStepJson(appRoot, created.sessionId, { env });
-    assert.equal(executed.currentStep, "plan_fine_tuning");
-    assert.equal(executed.currentStepAction.buttonLabel, "Get Codex to fine tune plan");
+    assert.equal(executed.currentStep, "plan_executed");
+    assert.equal(executed.currentStepAction.buttonLabel, "Go to next step");
+    assert.deepEqual(executed.currentStepAction.utilityActions, []);
     assert.equal(executed.codex.autoInject, true);
     assert.equal(executed.codex.promptActionLabel, "Get Codex to execute plan");
     assert.match(executed.prompt, /Execute the approved implementation plan/);
-    assert.ok(executed.completedSteps.includes("plan_executed"));
-    const fineTuning = runSessionStepJson(appRoot, created.sessionId, { env });
-    assert.equal(fineTuning.currentStep, "implementation_changes_accepted");
-    assert.equal(fineTuning.currentStepAction.buttonLabel, "Accept changes");
-    assert.equal(fineTuning.codex.autoInject, true);
-    assert.equal(fineTuning.codex.promptActionLabel, "Get Codex to fine tune plan");
-    assert.match(fineTuning.prompt, /Fine-tune the implementation/);
-    assert.ok(fineTuning.completedSteps.includes("plan_fine_tuning"));
+    assert.ok(!executed.completedSteps.includes("plan_executed"));
+    const advancedPastExecution = runSessionStepJson(appRoot, created.sessionId, { env });
+    assert.equal(advancedPastExecution.currentStep, "deep_ui_check_run");
+    assert.equal(advancedPastExecution.currentStepAction.buttonLabel, "Run Deep UI check");
+    assert.equal(advancedPastExecution.currentStepAction.conditional, true);
+    assert.equal(advancedPastExecution.currentStepAction.skipReason, "");
+    assert.equal(advancedPastExecution.codex.promptActionLabel, "Run Deep UI check");
+    assert.equal(advancedPastExecution.prompt, "");
+    assert.ok(advancedPastExecution.completedSteps.includes("plan_executed"));
 
     const inspect = parseJsonResult(runCli({ cwd: appRoot, args: ["session", created.sessionId, "--json"], env }));
     await writeFile(path.join(inspect.worktree, "feature.txt"), "hello\\n", "utf8");
@@ -2156,38 +2186,26 @@ test("jskit session can execute review loop, doctor, PR, merge, cleanup, and fin
       "utf8"
     );
     const accepted = runSessionStepJson(appRoot, created.sessionId, { env });
-    assert.equal(accepted.currentStep, "implementation_changes_committed");
-    assert.equal(accepted.prompt, "");
-    assert.ok(accepted.completedSteps.includes("implementation_changes_accepted"));
-    const committed = runSessionStepJson(appRoot, created.sessionId, { env });
-    assert.equal(committed.currentStep, "pre_review_checks_run");
-    assert.equal(committed.prompt, "");
-    assert.equal(committed.currentStepAction.buttonLabel, "Run checks");
-    const preReview = runSessionStepJson(appRoot, created.sessionId, { env });
-    assert.equal(preReview.currentStep, "deep_ui_check_run");
-    assert.ok(preReview.completedSteps.includes("pre_review_checks_run"));
-    assert.equal(preReview.currentStepAction.buttonLabel, "Run Deep UI check");
+    assert.equal(accepted.currentStep, "deep_ui_check_run");
+    assert.ok(!accepted.completedSteps.includes("deep_ui_check_run"));
+    assert.match(accepted.prompt, /Deep UI quality check/);
+    assert.equal(accepted.codex.promptActionLabel, "Run Deep UI check");
+    assert.equal(accepted.currentStepAction.buttonLabel, "Go to next step");
+    assert.deepEqual(accepted.currentStepAction.utilityActions, []);
     const deepUi = runSessionStepJson(appRoot, created.sessionId, { env });
-    assert.equal(deepUi.currentStep, "deep_ui_check_changes_accepted");
+    assert.equal(deepUi.currentStep, "review_prompt_rendered");
     assert.ok(deepUi.completedSteps.includes("deep_ui_check_run"));
-    assert.match(deepUi.prompt, /Deep UI quality check/);
-    assert.equal(deepUi.codex.promptActionLabel, "Run Deep UI check");
-    assert.equal(committed.stepDefinitions.find((step) => step.id === "review_prompt_rendered").label, "Review execution");
-    const deepUiAccepted = runSessionStepJson(appRoot, created.sessionId, { env });
-    assert.equal(deepUiAccepted.currentStep, "deep_ui_check_changes_committed");
-    assert.ok(deepUiAccepted.completedSteps.includes("deep_ui_check_changes_accepted"));
-    const deepUiCommitted = runSessionStepJson(appRoot, created.sessionId, { env });
-    assert.equal(deepUiCommitted.currentStep, "review_prompt_rendered");
-    assert.ok(deepUiCommitted.completedSteps.includes("deep_ui_check_changes_committed"));
+    assert.equal(deepUi.codex.promptActionLabel, "Run deslop");
+    assert.equal(accepted.stepDefinitions.find((step) => step.id === "review_prompt_rendered").label, "Review/deslop");
 
     const review = runSessionStepJson(appRoot, created.sessionId, { env });
     assert.equal(review.currentStep, "review_changes_accepted");
-    assert.equal(review.currentStepAction.buttonLabel, "Accept review changes");
-    assert.equal(review.currentStepAction.utilityActions[0].kind, "diff");
+    assert.equal(review.currentStepAction.buttonLabel, "I am done");
+    assert.deepEqual(review.currentStepAction.utilityActions, []);
     assert.equal(review.codex.autoInject, true);
-    assert.equal(review.codex.promptActionLabel, "Start review");
+    assert.equal(review.codex.promptActionLabel, "Run deslop");
     assert.match(review.prompt, /Review changes/);
-    assert.match(review.prompt, /Review pass: 001 of 3/);
+    assert.match(review.prompt, /Review pass: 001\./);
     assert.equal(review.currentReviewPass, "001");
     assert.equal(review.reviewPasses.length, 1);
     assert.equal(review.reviewPasses[0].status, "prompted");
@@ -2198,31 +2216,26 @@ test("jskit session can execute review loop, doctor, PR, merge, cleanup, and fin
     );
     assert.match(
       await readFile(path.join(review.sessionRoot, "review_passes", "pass_001", "prompt.md"), "utf8"),
-      /Review pass: 001 of 3/
+      /Review pass: 001\./
     );
     await writeFile(path.join(inspect.worktree, "review-fix.txt"), "reviewed\\n", "utf8");
-    const reviewAccepted = runSessionStepJson(appRoot, created.sessionId, { env });
-    assert.equal(reviewAccepted.currentStep, "review_changes_committed");
+    const reviewAccepted = runSessionStepJson(appRoot, created.sessionId, {
+      args: ["--review-findings-remaining", "false"],
+      env
+    });
+    assert.equal(reviewAccepted.currentStep, "automated_checks_run");
     assert.ok(reviewAccepted.completedSteps.includes("review_changes_accepted"));
-    assert.equal(reviewAccepted.reviewPasses[0].status, "accepted_with_changes");
-    assert.deepEqual(reviewAccepted.reviewPasses[0].changedFiles, ["?? review-fix.txt"]);
-    const reviewCommitted = runSessionStepJson(appRoot, created.sessionId, { env });
-    assert.equal(reviewCommitted.currentStep, "post_review_checks_run");
-    assert.ok(reviewCommitted.completedSteps.includes("review_changes_committed"));
-    assert.equal(reviewCommitted.reviewPasses[0].status, "committed");
-    assert.match(reviewCommitted.reviewPasses[0].commit, /^[0-9a-f]{40}$/u);
-    const postReview = runSessionStepJson(appRoot, created.sessionId, { env });
-    assert.equal(postReview.currentStep, "deep_ui_recheck_run");
-    assert.ok(postReview.completedSteps.includes("post_review_checks_run"));
-    const deepUiRecheck = runSessionStepJson(appRoot, created.sessionId, { env });
-    assert.equal(deepUiRecheck.currentStep, "deep_ui_recheck_changes_accepted");
-    assert.ok(deepUiRecheck.completedSteps.includes("deep_ui_recheck_run"));
-    const deepUiRecheckAccepted = runSessionStepJson(appRoot, created.sessionId, { env });
-    assert.equal(deepUiRecheckAccepted.currentStep, "deep_ui_recheck_changes_committed");
-    assert.ok(deepUiRecheckAccepted.completedSteps.includes("deep_ui_recheck_changes_accepted"));
-    const deepUiRecheckCommitted = runSessionStepJson(appRoot, created.sessionId, { env });
-    assert.equal(deepUiRecheckCommitted.currentStep, "user_check_completed");
-    assert.ok(deepUiRecheckCommitted.completedSteps.includes("deep_ui_recheck_changes_committed"));
+    assert.equal(reviewAccepted.reviewPasses[0].status, "accepted");
+    assert.ok(reviewAccepted.reviewPasses[0].changedFiles.includes("?? review-fix.txt"));
+    assert.equal(reviewAccepted.reviewPasses[0].commit, "");
+    const automatedPrompt = runSessionStepJson(appRoot, created.sessionId, { env });
+    assert.equal(automatedPrompt.currentStep, "automated_checks_run");
+    assert.match(automatedPrompt.prompt, /Run automated checks/);
+    assert.equal(automatedPrompt.codex.autoInject, true);
+    assert.ok(!automatedPrompt.completedSteps.includes("automated_checks_run"));
+    const automatedPassed = runSessionStepJson(appRoot, created.sessionId, { env });
+    assert.equal(automatedPassed.currentStep, "user_check_completed");
+    assert.ok(automatedPassed.completedSteps.includes("automated_checks_run"));
     const check = runSessionStepJson(appRoot, created.sessionId, { env });
     assert.equal(check.currentStep, "user_check_completed");
     assert.match(check.prompt, /User check/);
@@ -2230,15 +2243,20 @@ test("jskit session can execute review loop, doctor, PR, merge, cleanup, and fin
       args: ["--user-check", "passed"],
       env
     });
-    assert.equal(userChecked.currentStep, "blueprint_updated");
+    assert.equal(userChecked.currentStep, "changes_committed");
+
+    const committed = runSessionStepJson(appRoot, created.sessionId, { env });
+    assert.equal(committed.currentStep, "blueprint_updated");
+    assert.ok(committed.completedSteps.includes("changes_committed"));
+    assert.equal(committed.githubComments.accepted_changes_committed, undefined);
+    assert.match(await readFile(path.join(committed.sessionRoot, "changes_committed.json"), "utf8"), /"commit":/u);
+    await assert.rejects(access(path.join(committed.sessionRoot, "changes_committed.md")));
 
     const blueprintPrompt = runSessionStepJson(appRoot, created.sessionId, { env });
     assert.equal(blueprintPrompt.currentStep, "blueprint_updated");
     assert.match(blueprintPrompt.prompt, /Update the durable JSKIT app blueprint/);
-    const blueprintUpdated = runSessionStepJson(appRoot, created.sessionId, {
-      args: ["--blueprint", "[app_blueprint]\n# Session Test App\n\nAdds a simple feature page.\n[/app_blueprint]\n[agent_decisions]\n- Record the simple feature in the blueprint.\n[/agent_decisions]"],
-      env
-    });
+    await writeFile(path.join(inspect.worktree, ".jskit", "APP_BLUEPRINT.md"), "# Session Test App\n\nAdds a simple feature page.\n", "utf8");
+    const blueprintUpdated = runSessionStepJson(appRoot, created.sessionId, { env });
     assert.equal(blueprintUpdated.currentStep, "doctor_run");
     assert.match(await readFile(path.join(inspect.worktree, ".jskit", "APP_BLUEPRINT.md"), "utf8"), /Session Test App/);
 
@@ -2253,10 +2271,13 @@ test("jskit session can execute review loop, doctor, PR, merge, cleanup, and fin
     assert.match(finalReport.finalReportText, /## Command Log/);
     assert.match(finalReport.finalReportText, /## Remaining Unverified Gaps/);
     assert.match(finalReport.finalReportText, /## Decisions/);
-    assert.match(finalReport.finalReportText, /Record the simple feature in the blueprint/);
+    assert.match(finalReport.finalReportText, /Codex updated and JSKIT committed the app blueprint/);
     assert.equal(finalReport.githubComments.final_report.purpose, "final_report");
     const pr = runSessionStepJson(appRoot, created.sessionId, { env });
     assert.equal(pr.prUrl, "https://github.com/example/repo/pull/456");
+    assert.equal(pr.currentStep, "pr_finalized");
+    assert.equal(pr.currentStepAction.buttonLabel, "Merge PR");
+    assert.equal(pr.currentStepAction.requiresExplicitRun, true);
     const helperMap = JSON.parse(await readFile(path.join(inspect.worktree, ".jskit", "helper-map.json"), "utf8"));
     assert.ok(helperMap.app.files.some((file) => {
       return file.path === "src/lib/formatFeatureTitle.js" &&
@@ -2264,7 +2285,12 @@ test("jskit session can execute review loop, doctor, PR, merge, cleanup, and fin
     }));
     assert.match(runGit(inspect.worktree, ["log", "--oneline", "--max-count=3"]), /Update JSKIT helper map/);
     assert.match(runGit(inspect.worktree, ["show", `origin/${pr.branch}:.jskit/helper-map.md`]), /formatFeatureTitle/);
-    const merged = runSessionStepJson(appRoot, created.sessionId, { env });
+    const mergeDecisionRequired = runSessionStepJsonFailure(appRoot, created.sessionId, { env });
+    assert.equal(mergeDecisionRequired.errors[0].code, "pr_finalize_decision_required");
+    const merged = runSessionStepJson(appRoot, created.sessionId, {
+      args: ["--merge-pr", "true"],
+      env
+    });
     assert.equal(merged.currentStep, "session_finished");
     assert.equal(merged.prOutcome.outcome, "merged");
     assert.equal(await readFile(path.join(appRoot, "feature.txt"), "utf8"), "hello\\n");
@@ -2287,19 +2313,18 @@ test("jskit session can execute review loop, doctor, PR, merge, cleanup, and fin
     await access(path.join(finished.sessionRoot, "base_commit"));
     await access(path.join(finished.sessionRoot, "final_report.md"));
     await access(path.join(finished.sessionRoot, "agent_decisions.md"));
-    await access(path.join(finished.sessionRoot, "plan_details.md"));
+    await access(path.join(finished.sessionRoot, "issue_details.md"));
     await access(path.join(finished.sessionRoot, "github_comments.json"));
     await access(path.join(finished.sessionRoot, "pr_outcome.json"));
     await access(path.join(finished.sessionRoot, "command_log.jsonl"));
-    await access(path.join(finished.sessionRoot, "checks", "pre_review_checks_run.json"));
+    await access(path.join(finished.sessionRoot, "checks", "automated_checks_run.json"));
     await access(path.join(finished.sessionRoot, "ui_checks", "deep_ui_check_run.json"));
     await access(path.join(finished.sessionRoot, "review_passes", "pass_001", "prompt.md"));
     await access(path.join(finished.sessionRoot, "review_passes", "pass_001", "accepted.json"));
-    await access(path.join(finished.sessionRoot, "review_passes", "pass_001", "committed.json"));
+    await access(path.join(finished.sessionRoot, "changes_committed.json"));
     await access(path.join(finished.sessionRoot, "prompts", "issue_draft.md"));
     const commandLog = await readFile(path.join(finished.sessionRoot, "command_log.jsonl"), "utf8");
     assert.match(commandLog, /"kind":"dependencies_install"/);
-    assert.match(commandLog, /"kind":"pre_review_checks_run"/);
     assert.match(commandLog, /"kind":"github_pr_create"/);
     assert.match(commandLog, /"kind":"github_pr_merge"/);
     await assert.rejects(access(path.join(appRoot, ".jskit", "sessions", "active", created.sessionId)));
@@ -2342,8 +2367,8 @@ test("jskit session reuses an existing current-branch PR during PR creation", as
     await writeFile(path.join(session.sessionRoot, "issue_url"), "https://github.com/example/repo/issues/123\n", "utf8");
     await writeFile(path.join(session.sessionRoot, "issue_title"), "Reuse existing PR\n", "utf8");
     await writeFile(path.join(session.sessionRoot, "issue.md"), "Reuse an existing branch PR.\n", "utf8");
-    await writeFile(path.join(session.sessionRoot, "plan_details.md"), "Details are complete.\n", "utf8");
-    await writeFile(path.join(session.sessionRoot, "plan.md"), "Plan is approved.\n", "utf8");
+    await writeFile(path.join(session.sessionRoot, "issue_details.md"), "Details are complete.\n", "utf8");
+    await writeCyclePlan(session.sessionRoot, "Plan is approved.\n");
     await writeFile(path.join(session.sessionRoot, "final_report.md"), "# Final Report\n", "utf8");
     await writeIssueMetadata(session.sessionRoot);
     await writeStepReceipts(session.sessionRoot, STEP_IDS.slice(0, STEP_IDS.indexOf("pr_created")));
@@ -2401,7 +2426,9 @@ process.exit(1);
     await writeFile(path.join(worktreePayload.sessionRoot, "pr_url"), "https://github.com/example/repo/pull/456\n", "utf8");
     await writeIssueMetadata(worktreePayload.sessionRoot);
 
-    const merged = parseJsonResult(runCli({ cwd: appRoot, args: ["session", created.sessionId, "step", "--json"], env }));
+    const decisionRequired = parseJsonFailure(runCli({ cwd: appRoot, args: ["session", created.sessionId, "step", "--json"], env }));
+    assert.equal(decisionRequired.errors[0].code, "pr_finalize_decision_required");
+    const merged = parseJsonResult(runCli({ cwd: appRoot, args: ["session", created.sessionId, "step", "--merge-pr", "true", "--json"], env }));
     assert.equal(merged.currentStep, "session_finished");
     assert.ok(merged.completedSteps.includes("pr_finalized"));
     assert.equal(merged.prOutcome.outcome, "merged");
@@ -2450,7 +2477,7 @@ process.exit(1);
     await writeIssueMetadata(worktreePayload.sessionRoot);
     await writeFile(path.join(appRoot, "local-change.txt"), "dirty\n", "utf8");
 
-    const blocked = parseJsonFailure(runCli({ cwd: appRoot, args: ["session", created.sessionId, "step", "--json"], env }));
+    const blocked = parseJsonFailure(runCli({ cwd: appRoot, args: ["session", created.sessionId, "step", "--merge-pr", "true", "--json"], env }));
     assert.equal(blocked.errors[0].code, "target_root_dirty");
     await access(worktreePayload.worktree);
     await assert.rejects(access(path.join(worktreePayload.sessionRoot, "steps", "pr_finalized")));

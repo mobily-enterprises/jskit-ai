@@ -147,6 +147,19 @@ async function resolveStepInputs({
   cwd,
   sessionId
 }) {
+  if (Object.hasOwn(inlineOptions, "blueprint") || Object.hasOwn(inlineOptions, "blueprint-file")) {
+    return {
+      ok: false,
+      payload: buildSessionErrorResponse({
+        targetRoot: cwd,
+        sessionId,
+        code: "session_blueprint_input_removed",
+        message: "The session blueprint step no longer accepts --blueprint input. Run the step to get the Codex prompt, let Codex edit .jskit/APP_BLUEPRINT.md, then run the step again.",
+        repairCommand: `jskit session ${sessionId} step`
+      })
+    };
+  }
+
   const issueTitle = await resolveTextInput({
     codePrefix: "issue_title",
     fileOption: "issue-title-file",
@@ -192,19 +205,19 @@ async function resolveStepInputs({
     return plan;
   }
 
-  const planDetails = await resolveTextInput({
-    codePrefix: "plan_details",
-    fileOption: "plan-details-file",
+  const issueDetails = await resolveTextInput({
+    codePrefix: "issue_details",
+    fileOption: "issue-details-file",
     inlineOptions,
     io,
-    repairCommand: `jskit session ${sessionId} step --plan-details -`,
+    repairCommand: `jskit session ${sessionId} step --issue-details -`,
     cwd,
     sessionId,
     stdinOption: "-",
-    textOption: "plan-details"
+    textOption: "issue-details"
   });
-  if (planDetails.ok === false) {
-    return planDetails;
+  if (issueDetails.ok === false) {
+    return issueDetails;
   }
 
   const reworkNotes = await resolveTextInput({
@@ -267,45 +280,34 @@ async function resolveStepInputs({
     return closeReason;
   }
 
-  const blueprint = await resolveTextInput({
-    codePrefix: "blueprint",
-    fileOption: "blueprint-file",
-    inlineOptions,
-    io,
-    repairCommand: `jskit session ${sessionId} step --blueprint -`,
-    cwd,
-    sessionId,
-    stdinOption: "-",
-    textOption: "blueprint"
-  });
-  if (blueprint.ok === false) {
-    return blueprint;
-  }
-
   return {
     agentDecisions: agentDecisions.value,
-    blueprint: blueprint.value,
     closeReason: closeReason.value,
     issue: issue.value,
     issueTitle: issueTitle.value,
     ok: true,
     plan: plan.value,
-    planDetails: planDetails.value,
+    issueDetails: issueDetails.value,
     reworkNotes: reworkNotes.value,
     skipReason: skipReason.value
   };
 }
 
 function normalizeStepOptions(inlineOptions = {}) {
-  return {
+  const options = {
     ...inlineOptions,
     closeWithoutMerge: inlineOptions["close-without-merge"] === "true" || inlineOptions.closeWithoutMerge === true,
+    mergePr: inlineOptions["merge-pr"] === "true" || inlineOptions.mergePr === true,
     prompt: inlineOptions.prompt,
     reviewFindings: inlineOptions["review-findings"] || inlineOptions.reviewFindings,
-    reviewFindingsRemaining: inlineOptions["review-findings-remaining"] === "true" || inlineOptions.reviewFindingsRemaining === true,
     skipUiCheck: inlineOptions["skip-ui-check"] === "true" || inlineOptions.skipUiCheck === true,
     userCheck: inlineOptions["user-check"] || inlineOptions.userCheck
   };
+  if (Object.hasOwn(inlineOptions, "review-findings-remaining") || Object.hasOwn(inlineOptions, "reviewFindingsRemaining")) {
+    options.reviewFindingsRemaining = inlineOptions["review-findings-remaining"] === "true" ||
+      inlineOptions.reviewFindingsRemaining === true;
+  }
+  return options;
 }
 
 function resolveListArchiveOption(options = {}) {
@@ -359,12 +361,11 @@ function createSessionCommands() {
                 issue: stepInputs.issue,
                 issueTitle: stepInputs.issueTitle,
                 plan: stepInputs.plan,
-                planDetails: stepInputs.planDetails,
+                issueDetails: stepInputs.issueDetails,
                 reworkNotes: stepInputs.reworkNotes,
                 skipReason: stepInputs.skipReason,
                 agentDecisions: stepInputs.agentDecisions,
-                closeReason: stepInputs.closeReason,
-                blueprint: stepInputs.blueprint
+                closeReason: stepInputs.closeReason
               }
             });
       } else if (second === "abandon") {

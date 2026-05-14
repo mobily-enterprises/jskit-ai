@@ -3,14 +3,14 @@ User check for session {{session_id}}.
 Issue: {{issue_url}}
 Issue title: {{issue_title}}
 Issue body file: {{issue_file}}
-Plan details file (`plan_details.md`): {{plan_details_file}}
-Plan file (`plan.md`): {{plan_file}}
+Issue details file (`issue_details.md`): {{issue_details_file}}
+Plan file: {{plan_file}}
 
 The code should already be built or runnable according to the implementation instructions.
 
-Confirmed plan details:
+Confirmed issue details:
 
-{{plan_details_text}}
+{{issue_details_text}}
 
 Approved plan:
 
@@ -22,6 +22,6 @@ If the user finds a problem, diagnose the root cause and fix it in this worktree
 
 If the behavior works, tell the user to run:
 
-jskit session {{session_id}} step --user-check passed
+npx --no-install jskit session {{session_id}} step --user-check passed
 
 Do not commit, push, create a PR, merge, or clean up the worktree yourself. JSKIT session owns those steps.

@@ -1,5 +1,6 @@
 import path from "node:path";
 import {
+  JSKIT_CLI_SHELL_RULE,
   PROMPT_DIRECTORY,
   SESSION_STATE_RELATIVE_PATH
 } from "./constants.js";
@@ -24,9 +25,20 @@ function renderTemplate(source, values = {}) {
   });
 }
 
+function withShellCommandRule(template) {
+  const body = String(template || "").trim();
+  if (!body) {
+    return JSKIT_CLI_SHELL_RULE;
+  }
+  if (body.includes("When running JSKIT CLI commands from the shell")) {
+    return body;
+  }
+  return `${JSKIT_CLI_SHELL_RULE}\n\n---\n\n${body}`;
+}
+
 async function renderPrompt(paths, templateName, values = {}) {
   const template = await readPromptTemplate(paths.targetRoot, templateName);
-  return renderTemplate(template, {
+  return renderTemplate(withShellCommandRule(template), {
     branch: paths.branch,
     session_id: paths.sessionId,
     worktree: paths.worktree,
@@ -37,5 +49,6 @@ async function renderPrompt(paths, templateName, values = {}) {
 export {
   readPromptTemplate,
   renderPrompt,
-  renderTemplate
+  renderTemplate,
+  withShellCommandRule
 };
