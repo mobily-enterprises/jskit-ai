@@ -146,7 +146,7 @@ function saveCliSessionIssueDetails(cwd, sessionId, { env = undefined } = {}) {
   const detailsPrompt = runSessionStepJson(cwd, sessionId, { env });
   assert.equal(detailsPrompt.currentStep, "issue_details_gathered");
   assert.match(detailsPrompt.prompt, /Gather exact issue details/);
-  assert.match(detailsPrompt.prompt, /\[issue_details_conversation_ready\]/);
+  assert.doesNotMatch(detailsPrompt.prompt, /\[issue_details_conversation_ready\]/);
   assert.equal(detailsPrompt.currentStepAction.buttonLabel, "Save issue details");
   assert.equal(detailsPrompt.codex.autoInject, true);
   assert.equal(detailsPrompt.codex.promptActionLabel, "Start details conversation");
@@ -157,7 +157,7 @@ function saveCliSessionIssueDetails(cwd, sessionId, { env = undefined } = {}) {
   }));
   assert.equal(reloadedDetailsPrompt.currentStep, "issue_details_gathered");
   assert.match(reloadedDetailsPrompt.prompt, /Gather exact issue details/);
-  assert.match(reloadedDetailsPrompt.prompt, /\[issue_details_conversation_ready\]/);
+  assert.doesNotMatch(reloadedDetailsPrompt.prompt, /\[issue_details_conversation_ready\]/);
   const detailsSaved = runSessionStepJson(cwd, sessionId, {
     args: ["--issue-details", "-"],
     env,
@@ -576,7 +576,30 @@ test("jskit session JSON exposes JSKIT-owned step UI and Codex handoff contract"
       ],
       mode: "inject_prompt",
       promptActionLabel: "Get Codex to create issue text",
-      promptField: "prompt"
+      promptField: "prompt",
+      responseContract: {
+        fields: [
+          {
+            extract: "issue_title",
+            field: "issueTitle",
+            formatHint: "text",
+            label: "Issue title",
+            manualEntry: true,
+            required: true
+          },
+          {
+            extract: "issue_text",
+            field: "issue",
+            formatHint: "markdown",
+            label: "Issue body",
+            manualEntry: true,
+            required: true
+          }
+        ],
+        kind: "fields",
+        missingMarkerBehavior: "manual_or_resend",
+        required: true
+      }
     });
   });
 });
@@ -809,7 +832,7 @@ test("session prompts reference canonical session artifacts", async () => {
   }
 
   assert.match(prompts["issue_details.md"], /issue_details\.md/);
-  assert.match(prompts["issue_details.md"], /\[issue_details_conversation_ready\]/);
+  assert.doesNotMatch(prompts["issue_details.md"], /\[issue_details_conversation_ready\]/);
   assert.match(prompts["plan_issue.md"], /issue_details\.md/);
   assert.match(prompts["plan_issue.md"], /agent_decisions\.md/);
   assert.match(prompts["execute_plan.md"], /issue_details\.md/);
@@ -1145,6 +1168,13 @@ test("jskit session accepts issue text from stdin and creates a GitHub issue wit
     assert.deepEqual(executionPrompt.currentStepAction.utilityActions, []);
     assert.equal(executionPrompt.codex.autoInject, true);
     assert.equal(executionPrompt.codex.promptActionLabel, "Get Codex to execute plan");
+    assert.deepEqual(executionPrompt.codex.responseContract, {
+      completionBehavior: "auto_advance",
+      kind: "completion_marker",
+      marker: "jskit_step_result",
+      missingMarkerBehavior: "resend",
+      required: true
+    });
     assert.equal(executionPrompt.planExecution.prompted, true);
     assert.equal(executionPrompt.planExecution.submitted, false);
     assert.match(executionPrompt.planExecution.promptPath, /cycle_001_plan_execution\.md$/);
@@ -2204,6 +2234,14 @@ test("jskit session can execute review loop, doctor, PR, merge, cleanup, and fin
     assert.deepEqual(review.currentStepAction.utilityActions, []);
     assert.equal(review.codex.autoInject, true);
     assert.equal(review.codex.promptActionLabel, "Run deslop");
+    assert.deepEqual(review.codex.responseContract, {
+      autoResolvePriorities: ["high", "medium"],
+      completionBehavior: "deslop_loop",
+      kind: "deslop_result",
+      marker: "deslop_result",
+      missingMarkerBehavior: "resend",
+      required: true
+    });
     assert.match(review.prompt, /Review changes/);
     assert.match(review.prompt, /Review pass: 001\./);
     assert.equal(review.currentReviewPass, "001");

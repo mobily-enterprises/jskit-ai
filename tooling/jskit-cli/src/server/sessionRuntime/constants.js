@@ -138,24 +138,66 @@ const USER_CHECK_INPUT = Object.freeze({
   required: true,
   type: "choice"
 });
+
+const JSKIT_STEP_RESULT_CONTRACT = Object.freeze({
+  completionBehavior: "auto_advance",
+  kind: "completion_marker",
+  marker: "jskit_step_result",
+  missingMarkerBehavior: "resend",
+  required: true
+});
+const DESLOP_RESULT_CONTRACT = Object.freeze({
+  autoResolvePriorities: Object.freeze(["high", "medium"]),
+  completionBehavior: "deslop_loop",
+  kind: "deslop_result",
+  marker: "deslop_result",
+  missingMarkerBehavior: "resend",
+  required: true
+});
+
+function fieldResponseContract(expectedOutputs) {
+  const fields = expectedOutputs
+    .filter((output) => output?.field && output?.extract)
+    .map((output) => Object.freeze({
+      extract: output.extract,
+      field: output.field,
+      formatHint: output.formatHint || "",
+      label: output.label || output.field,
+      manualEntry: true,
+      required: output.required !== false
+    }));
+  return Object.freeze({
+    fields: Object.freeze(fields),
+    kind: "fields",
+    missingMarkerBehavior: "manual_or_resend",
+    required: fields.some((field) => field.required)
+  });
+}
+
 function codexHandoff(expectedOutput, {
   autoInject = false,
-  promptActionLabel = ""
+  promptActionLabel = "",
+  responseContract = undefined
 } = {}) {
   const expectedOutputs = Object.freeze(Array.isArray(expectedOutput) ? [...expectedOutput] : [expectedOutput]);
+  const resolvedResponseContract = responseContract === undefined
+    ? fieldResponseContract(expectedOutputs)
+    : responseContract;
   return Object.freeze({
     ...(autoInject ? { autoInject: true } : {}),
     expectedOutput: expectedOutputs[expectedOutputs.length - 1] || null,
     expectedOutputs,
     mode: "inject_prompt",
     promptField: "prompt",
-    ...(promptActionLabel ? { promptActionLabel } : {})
+    ...(promptActionLabel ? { promptActionLabel } : {}),
+    ...(resolvedResponseContract ? { responseContract: resolvedResponseContract } : {})
   });
 }
 
 const PLAN_EXECUTION_CODEX_HANDOFF = codexHandoff([], {
   autoInject: true,
-  promptActionLabel: "Get Codex to execute plan"
+  promptActionLabel: "Get Codex to execute plan",
+  responseContract: JSKIT_STEP_RESULT_CONTRACT
 });
 const ISSUE_DETAILS_CODEX_HANDOFF = codexHandoff([
   ISSUE_CATEGORY_OUTPUT,
@@ -167,19 +209,23 @@ const ISSUE_DETAILS_CODEX_HANDOFF = codexHandoff([
 });
 const REVIEW_EXECUTION_CODEX_HANDOFF = codexHandoff([], {
   autoInject: true,
-  promptActionLabel: "Run deslop"
+  promptActionLabel: "Run deslop",
+  responseContract: DESLOP_RESULT_CONTRACT
 });
 const DEEP_UI_CHECK_CODEX_HANDOFF = codexHandoff([], {
   autoInject: true,
-  promptActionLabel: "Run Deep UI check"
+  promptActionLabel: "Run Deep UI check",
+  responseContract: JSKIT_STEP_RESULT_CONTRACT
 });
 const AUTOMATED_CHECK_REPAIR_CODEX_HANDOFF = codexHandoff([], {
   autoInject: true,
-  promptActionLabel: "Run automated checks"
+  promptActionLabel: "Run automated checks",
+  responseContract: JSKIT_STEP_RESULT_CONTRACT
 });
 const BLUEPRINT_CODEX_HANDOFF = codexHandoff([], {
   autoInject: true,
-  promptActionLabel: "Update blueprint"
+  promptActionLabel: "Update blueprint",
+  responseContract: JSKIT_STEP_RESULT_CONTRACT
 });
 
 function defineStep({

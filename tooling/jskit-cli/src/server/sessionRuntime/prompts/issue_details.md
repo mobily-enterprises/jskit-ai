@@ -15,15 +15,9 @@ No stones unturned:
 - Read `.jskit/APP_BLUEPRINT.md` and `.jskit/helper-map.md` when present.
 - Read package.json, `.jskit/lock.json`, `config/public.js`, relevant `src/`, relevant `packages/`, and relevant package docs or `npx --no-install jskit show ... --details`.
 - Ask follow-up questions until all important issue details are known.
+- Ask the user for whatever is still needed.
 - Ask for final confirmation before emitting final details.
-
-When you are ready to discuss details with the user, output this marker exactly once:
-
-[issue_details_conversation_ready]
-ready
-[/issue_details_conversation_ready]
-
-Then ask the user for whatever is still needed. Do not output the final markers below until the user has confirmed the details.
+- Do not output the final markers below until the user has confirmed the details.
 
 For CRUD or persisted data, confirm entity/table name, fields, field types, nullability, defaults, uniqueness, indexes, relationships, ownership, allowed operations, list/view/form shape, validation, permissions, migration/generator lane, and exact CRUD generator command or exact reason no CRUD generator applies.
 
