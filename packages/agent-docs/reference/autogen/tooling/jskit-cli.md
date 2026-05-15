@@ -859,6 +859,15 @@ Local functions
 - `commandOutputSummary(output = "")`
 - `appendCommandLog(paths, { args = [], command, cwd = "", kind = "command", result } = {})`
 - `runLoggedCommand(paths, kind, command, args = [], options = {})`
+- `readWorktreePackageJson(worktree)`
+- `packageScriptRunArgs(packageManager, scriptName)`
+- `packageScriptCommandForWorktree(worktree, scriptName, { preferredPackageManager = "" } = {})`
+- `sessionPackageScriptEnv(paths, scriptName)`
+- `packageScriptRepairCommand(paths, command, args)`
+- `packageScriptReceiptName(scriptName)`
+- `writeSessionHookReceipt(paths, scriptName, message)`
+- `runOptionalSessionPackageScript(paths, { failureCode, failureMessage, kind, preferredPackageManager = "", preconditions = [], scriptName, timeout = 1000 * 60 * 10 } = {})`
+- `runSessionFinalizationGuard(paths, preconditions = [])`
 - `readIssueMetadata(paths)`
 - `writeIssueMetadata(paths, metadata = {})`
 - `readGithubComments(paths)`
@@ -939,8 +948,11 @@ Local functions
 - `assertTargetRootCleanForBaseUpdate(paths)`
 - `removeSessionWorktree(paths)`
 - `writePrOutcome(paths, outcome)`
+- `mainCheckoutSyncPath(paths)`
+- `writeMainCheckoutSync(paths, payload = {})`
 - `assertTargetRootCanUpdateBase(paths, branch)`
 - `updateLocalBaseBranch(paths, baseBranch = "")`
+- `syncMainCheckout(paths, options = {}, context = {})`
 - `updateHelperMapBeforePr(paths)`
 - `createPr(paths)`
 - `closePrWithoutMerge(paths, prUrl, options = {})`
@@ -1029,6 +1041,7 @@ Exports
 - `assertIssueUrlExists(paths)`
 - `assertAutomatedChecksPassed(paths)`
 - `assertIssueDetailsExists(paths)`
+- `assertMainCheckoutSyncSatisfied(paths)`
 - `assertPlanTextExists(paths)`
 - `assertPrUrlExists(paths)`
 - `assertReadyJskitApp(paths)`
