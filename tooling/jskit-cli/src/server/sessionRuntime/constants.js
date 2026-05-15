@@ -537,11 +537,19 @@ const STEP_DEFINITIONS = Object.freeze([
     })
   }),
   defineStep({
+    buttonLabel: "Sync main checkout",
+    description: "JSKIT fast-forwards the main checkout after a merged PR, or records an explicit skip before cleanup.",
+    id: "main_checkout_synced",
+    label: "Main checkout synced",
+    preconditions: ["session_exists", "worktree_exists"],
+    requiresExplicitRun: true
+  }),
+  defineStep({
     buttonLabel: "Finish session",
-    description: "JSKIT updates the local base branch when needed, removes the session worktree, writes the final receipt, and archives the completed session.",
+    description: "JSKIT removes the session worktree, writes the final receipt, and archives the completed session.",
     id: "session_finished",
     label: "Worktree removed, session finished",
-    preconditions: ["session_exists"]
+    preconditions: ["session_exists", "main_checkout_sync_satisfied"]
   })
 ]);
 

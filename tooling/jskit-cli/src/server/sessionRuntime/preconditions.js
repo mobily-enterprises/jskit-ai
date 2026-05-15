@@ -710,6 +710,33 @@ async function assertPrUrlExists(paths) {
   };
 }
 
+async function assertMainCheckoutSyncSatisfied(paths) {
+  const receiptPath = path.join(paths.sessionRoot, "steps", "main_checkout_synced");
+  if (await pathExists(receiptPath)) {
+    return {
+      ok: true,
+      precondition: createPrecondition({
+        id: "main_checkout_sync_satisfied",
+        ok: true,
+        message: "Main checkout sync has been completed or skipped."
+      })
+    };
+  }
+  return {
+    ok: false,
+    error: createError({
+      code: "main_checkout_sync_required",
+      message: "Main checkout sync must be completed or explicitly skipped before session cleanup.",
+      repairCommand: jskitCommand(`session ${paths.sessionId} step`)
+    }),
+    precondition: createPrecondition({
+      id: "main_checkout_sync_satisfied",
+      ok: false,
+      message: "Main checkout sync has been completed or skipped."
+    })
+  };
+}
+
 export {
   applyPreconditions,
   assertAcceptedChangesCommitted,
@@ -728,6 +755,7 @@ export {
   assertIssueUrlExists,
   assertAutomatedChecksPassed,
   assertIssueDetailsExists,
+  assertMainCheckoutSyncSatisfied,
   assertPlanTextExists,
   assertPrUrlExists,
   assertReadyJskitApp,

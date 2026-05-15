@@ -10,6 +10,7 @@ const APP_ROOT = path.resolve(__dirname, "../..");
 
 const EXPECTED_MANAGED_SCRIPTS = Object.freeze({
   devlinks: "jskit app link-local-packages",
+  postinstall: "bash scripts/devel-link-local-packages-postinstall.sh",
   verify: "jskit app verify && npm run --if-present verify:app",
   release: "jskit app release",
   "jskit:update": "jskit app update-packages"

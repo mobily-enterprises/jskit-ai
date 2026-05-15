@@ -149,6 +149,10 @@ function parseArgs(argv, { createCliError } = {}) {
       options.inlineOptions["skip-merge"] = "true";
       continue;
     }
+    if (token === "--skip-main-sync") {
+      options.inlineOptions["skip-main-sync"] = "true";
+      continue;
+    }
 
     if (token.startsWith("--")) {
       const withoutPrefix = token.slice(2);

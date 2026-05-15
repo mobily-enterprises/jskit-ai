@@ -590,7 +590,8 @@ function buildStepDefinitions() {
 function stepIsRetryableWhenBlocked(stepId) {
   return [
     "automated_checks_run",
-    "deep_ui_check_run"
+    "deep_ui_check_run",
+    "main_checkout_synced"
   ].includes(normalizeStepId(stepId));
 }
 
@@ -695,6 +696,21 @@ function buildCurrentStepAction(stepId, artifacts = {}) {
       targetStep: "pr_finalized"
     });
   }
+  if (step.id === "main_checkout_synced") {
+    alternateActions.push({
+      id: "skip_main_checkout_sync",
+      helpText: "Leave the main checkout untouched and continue with session cleanup.",
+      input: {
+        type: "none"
+      },
+      label: "Skip sync",
+      presentation: "secondary",
+      submitOptions: {
+        skipMainSync: true
+      },
+      targetStep: "main_checkout_synced"
+    });
+  }
   const dynamicButtonLabel = (() => {
     if (step.id === "plan_executed" && planExecutionPrompted && !planExecutionSubmitted) {
       return "Go to next step";
@@ -707,6 +723,9 @@ function buildCurrentStepAction(stepId, artifacts = {}) {
     }
     if (step.id === "plan_made" && planReworkMode && !artifacts.prompt && hasActiveReworkRequest) {
       return "Get Codex to create revised plan";
+    }
+    if (step.id === "main_checkout_synced" && artifacts.prOutcome?.outcome && artifacts.prOutcome.outcome !== "merged") {
+      return "Record no sync needed";
     }
     return buttonLabel;
   })();
@@ -722,6 +741,9 @@ function buildCurrentStepAction(stepId, artifacts = {}) {
     }
     if (step.id === "plan_made" && planReworkMode && hasActiveReworkRequest) {
       return "Codex writes a revised implementation plan from the user's rework notes for this cycle.";
+    }
+    if (step.id === "main_checkout_synced" && artifacts.prOutcome?.outcome && artifacts.prOutcome.outcome !== "merged") {
+      return "The PR was not merged, so JSKIT will record main checkout sync as skipped before cleanup.";
     }
     return step.description;
   })();
@@ -791,7 +813,8 @@ async function readSessionArtifacts(paths) {
     baseCommit,
     issueMetadataText,
     planExecutionReceipt,
-    prOutcomeText
+    prOutcomeText,
+    mainCheckoutSyncText
   ] = await Promise.all([
     readTrimmedFile(path.join(paths.sessionRoot, "status")),
     readTrimmedFile(path.join(paths.sessionRoot, "current_step")),
@@ -810,7 +833,8 @@ async function readSessionArtifacts(paths) {
     readTrimmedFile(path.join(paths.sessionRoot, "base_commit")),
     readTextIfExists(path.join(paths.sessionRoot, "issue_metadata.json")),
     readTextIfExists(path.join(cycleStepsRoot(paths, activeCycle), "plan_executed")),
-    readTextIfExists(path.join(paths.sessionRoot, "pr_outcome.json"))
+    readTextIfExists(path.join(paths.sessionRoot, "pr_outcome.json")),
+    readTextIfExists(path.join(paths.sessionRoot, "main_checkout_sync.json"))
   ]);
   let issueMetadata = null;
   if (issueMetadataText) {
@@ -836,6 +860,15 @@ async function readSessionArtifacts(paths) {
       prOutcome = parsed && typeof parsed === "object" && !Array.isArray(parsed) ? parsed : null;
     } catch {
       prOutcome = null;
+    }
+  }
+  let mainCheckoutSync = null;
+  if (mainCheckoutSyncText) {
+    try {
+      const parsed = JSON.parse(mainCheckoutSyncText);
+      mainCheckoutSync = parsed && typeof parsed === "object" && !Array.isArray(parsed) ? parsed : null;
+    } catch {
+      mainCheckoutSync = null;
     }
   }
   const cycles = await readCycles(paths, activeCycle);
@@ -915,6 +948,7 @@ async function readSessionArtifacts(paths) {
     nextStep,
     prUrl,
     prOutcome,
+    mainCheckoutSync,
     planExecution: {
       prompted: planExecutionPromptExists,
       promptPath: planExecutionPromptExists ? planExecutionPromptPath : "",
@@ -997,6 +1031,7 @@ async function buildSessionResponse(paths, {
       helperMapExists: artifacts.helperMapExists === true,
       prUrl: artifacts.prUrl || "",
       prOutcome: cloneContractValue(artifacts.prOutcome || null),
+      mainCheckoutSync: cloneContractValue(artifacts.mainCheckoutSync || null),
       preconditions,
       errors: [
         createError({
@@ -1063,6 +1098,7 @@ async function buildSessionResponse(paths, {
     helperMapExists: artifacts.helperMapExists === true,
     prUrl: artifacts.prUrl || "",
     prOutcome: cloneContractValue(artifacts.prOutcome || null),
+    mainCheckoutSync: cloneContractValue(artifacts.mainCheckoutSync || null),
     preconditions,
     errors,
     archive: responsePaths.archive || (resolvedStatus === SESSION_STATUS.FINISHED ? "completed" : resolvedStatus === SESSION_STATUS.ABANDONED ? "abandoned" : "active"),

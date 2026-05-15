@@ -80,6 +80,7 @@ import {
   assertIssueUrlExists,
   assertAutomatedChecksPassed,
   assertIssueDetailsExists,
+  assertMainCheckoutSyncSatisfied,
   assertPlanTextExists,
   assertPrUrlExists,
   assertReadyJskitApp,
@@ -97,6 +98,9 @@ import {
   HELPER_MAP_JSON_RELATIVE_PATH,
   HELPER_MAP_MARKDOWN_RELATIVE_PATH
 } from "./helperMapPaths.js";
+
+const SESSION_PROVISION_PACKAGE_SCRIPT = "jskit:provision-session";
+const SESSION_FINALIZATION_GUARD_PACKAGE_SCRIPT = "jskit:finalization-guard";
 
 function invalidSessionIdError(sessionId = "") {
   return createError({
@@ -355,6 +359,125 @@ async function runLoggedCommand(paths, kind, command, args = [], options = {}) {
     result
   });
   return result;
+}
+
+async function readWorktreePackageJson(worktree) {
+  const source = await readTextIfExists(path.join(worktree, "package.json"));
+  if (!source) {
+    return {};
+  }
+  try {
+    const parsed = JSON.parse(source);
+    return parsed && typeof parsed === "object" && !Array.isArray(parsed) ? parsed : {};
+  } catch {
+    return {};
+  }
+}
+
+function packageScriptRunArgs(packageManager, scriptName) {
+  if (packageManager === "pnpm") {
+    return ["pnpm", ["run", scriptName]];
+  }
+  if (packageManager === "yarn") {
+    return ["yarn", ["run", scriptName]];
+  }
+  if (packageManager === "bun") {
+    return ["bun", ["run", scriptName]];
+  }
+  return ["npm", ["run", "--silent", scriptName]];
+}
+
+async function packageScriptCommandForWorktree(worktree, scriptName, {
+  preferredPackageManager = ""
+} = {}) {
+  const packageJson = await readWorktreePackageJson(worktree);
+  const script = packageJson?.scripts?.[scriptName];
+  if (typeof script !== "string" || !normalizeText(script)) {
+    return null;
+  }
+  const packageManager = preferredPackageManager || (await dependencyInstallCommandForWorktree(worktree))[0];
+  const [command, args] = packageScriptRunArgs(packageManager, scriptName);
+  return {
+    args,
+    command
+  };
+}
+
+function sessionPackageScriptEnv(paths, scriptName) {
+  return {
+    JSKIT_SESSION_ID: paths.sessionId,
+    JSKIT_SESSION_PACKAGE_SCRIPT: scriptName,
+    JSKIT_SESSION_ROOT: paths.sessionRoot,
+    JSKIT_TARGET_ROOT: paths.targetRoot,
+    JSKIT_WORKTREE_ROOT: paths.worktree
+  };
+}
+
+function packageScriptRepairCommand(paths, command, args) {
+  return `cd ${paths.worktree} && ${command} ${args.join(" ")}`;
+}
+
+function packageScriptReceiptName(scriptName) {
+  return normalizeText(scriptName).replace(/[^a-zA-Z0-9._-]+/gu, "_");
+}
+
+async function writeSessionHookReceipt(paths, scriptName, message) {
+  await writeTextFile(
+    path.join(paths.sessionRoot, "hooks", packageScriptReceiptName(scriptName)),
+    `${timestampForReceipt()}\n${normalizeText(message) || `${scriptName} completed.`}`
+  );
+}
+
+async function runOptionalSessionPackageScript(paths, {
+  failureCode,
+  failureMessage,
+  kind,
+  preferredPackageManager = "",
+  preconditions = [],
+  scriptName,
+  timeout = 1000 * 60 * 10
+} = {}) {
+  const scriptCommand = await packageScriptCommandForWorktree(paths.worktree, scriptName, {
+    preferredPackageManager
+  });
+  if (!scriptCommand) {
+    return {
+      ok: true,
+      ran: false
+    };
+  }
+  const result = await runLoggedCommand(paths, kind, scriptCommand.command, scriptCommand.args, {
+    cwd: paths.worktree,
+    env: sessionPackageScriptEnv(paths, scriptName),
+    timeout
+  });
+  if (!result.ok) {
+    return {
+      ok: false,
+      response: await failSession(paths, {
+        code: failureCode,
+        message: result.output || failureMessage,
+        preconditions,
+        repairCommand: packageScriptRepairCommand(paths, scriptCommand.command, scriptCommand.args)
+      })
+    };
+  }
+  await writeSessionHookReceipt(paths, scriptName, result.output || `${scriptName} completed.`);
+  return {
+    ok: true,
+    ran: true,
+    result
+  };
+}
+
+async function runSessionFinalizationGuard(paths, preconditions = []) {
+  return runOptionalSessionPackageScript(paths, {
+    failureCode: "session_finalization_guard_failed",
+    failureMessage: `${SESSION_FINALIZATION_GUARD_PACKAGE_SCRIPT} failed in the session worktree.`,
+    kind: "session_finalization_guard",
+    preconditions,
+    scriptName: SESSION_FINALIZATION_GUARD_PACKAGE_SCRIPT
+  });
 }
 
 async function readIssueMetadata(paths) {
@@ -822,8 +945,20 @@ async function installDependencies(paths, _options = {}, context = {}) {
       preconditions
     });
   }
+  const provisionResult = await runOptionalSessionPackageScript(paths, {
+    failureCode: "session_provision_failed",
+    failureMessage: `${SESSION_PROVISION_PACKAGE_SCRIPT} failed in the session worktree.`,
+    kind: "session_provision",
+    preferredPackageManager: command,
+    preconditions,
+    scriptName: SESSION_PROVISION_PACKAGE_SCRIPT
+  });
+  if (!provisionResult.ok) {
+    return provisionResult.response;
+  }
+  const installMessage = result.output || `Installed Node dependencies in the session worktree with ${command} ${args.join(" ")}.`;
   return recordDependenciesInstalled(paths, {
-    message: result.output || `Installed Node dependencies in the session worktree with ${command} ${args.join(" ")}.`,
+    message: provisionResult.ran ? `${installMessage}\n${SESSION_PROVISION_PACKAGE_SCRIPT} completed.` : installMessage,
     preconditions
   });
 }
@@ -1453,10 +1588,15 @@ const STEP_CANCELERS = Object.freeze({
       removeSessionRootFile(paths, "pr_outcome.json")
     ]);
   },
+  main_checkout_synced: async (paths) => {
+    await Promise.all([
+      removeSessionRootFile(paths, "local_base_updated"),
+      removeSessionRootFile(paths, "main_checkout_sync.json")
+    ]);
+  },
   session_finished: async (paths) => {
     await Promise.all([
-      removeSessionRootFile(paths, "final_comment.md"),
-      removeSessionRootFile(paths, "local_base_updated")
+      removeSessionRootFile(paths, "final_comment.md")
     ]);
   }
 });
@@ -2442,6 +2582,17 @@ async function writePrOutcome(paths, outcome) {
   }, null, 2)}\n`);
 }
 
+function mainCheckoutSyncPath(paths) {
+  return path.join(paths.sessionRoot, "main_checkout_sync.json");
+}
+
+async function writeMainCheckoutSync(paths, payload = {}) {
+  await writeTextFile(mainCheckoutSyncPath(paths), `${JSON.stringify({
+    recordedAt: timestampForReceipt(),
+    ...payload
+  }, null, 2)}\n`);
+}
+
 async function assertTargetRootCanUpdateBase(paths, branch) {
   const cleanFailure = await assertTargetRootCleanForBaseUpdate(paths);
   if (cleanFailure) {
@@ -2500,6 +2651,54 @@ async function updateLocalBaseBranch(paths, baseBranch = "") {
 
   await writeTextFile(path.join(paths.sessionRoot, "local_base_updated"), `${branch}\n${pullResult.output}\n`);
   return null;
+}
+
+async function syncMainCheckout(paths, options = {}, context = {}) {
+  const prOutcome = parseJsonObject(await readTextIfExists(path.join(paths.sessionRoot, "pr_outcome.json")));
+  const preconditions = context.preconditions || [];
+  if (!prOutcome?.outcome) {
+    return failSession(paths, {
+      code: "pr_outcome_missing",
+      message: "Cannot sync the main checkout before PR finalization records an outcome.",
+      preconditions,
+      repairCommand: `jskit session ${paths.sessionId} step`
+    });
+  }
+
+  const skipRequested = options.skipMainSync === true ||
+    normalizeText(options["skip-main-sync"]).toLowerCase() === "true";
+  const skipReason = normalizeText(options.skipReason || options["skip-reason"]) ||
+    "User skipped main checkout sync.";
+  if (skipRequested || prOutcome.outcome !== "merged") {
+    const reason = prOutcome.outcome === "merged"
+      ? skipReason
+      : `PR outcome is ${prOutcome.outcome}; no main checkout sync is required.`;
+    await writeMainCheckoutSync(paths, {
+      branch: prOutcome.baseBranch || "",
+      outcome: prOutcome.outcome,
+      reason,
+      status: "skipped"
+    });
+    await writeReceipt(paths, "main_checkout_synced", `Main checkout sync skipped: ${reason}`);
+    await markStatus(paths, SESSION_STATUS.RUNNING);
+    return buildSessionResponse(paths);
+  }
+
+  const baseBranch = prOutcome.baseBranch || await readTrimmedFile(path.join(paths.sessionRoot, "pr_base_branch"));
+  const syncFailure = await updateLocalBaseBranch(paths, baseBranch);
+  if (syncFailure) {
+    return syncFailure;
+  }
+
+  const branch = normalizeText(baseBranch) || await currentTargetBranch(paths.targetRoot);
+  await writeMainCheckoutSync(paths, {
+    branch,
+    outcome: prOutcome.outcome,
+    status: "synced"
+  });
+  await writeReceipt(paths, "main_checkout_synced", `Fast-forwarded target checkout branch ${branch}.`);
+  await markStatus(paths, SESSION_STATUS.RUNNING);
+  return buildSessionResponse(paths);
 }
 
 async function updateHelperMapBeforePr(paths) {
@@ -2762,6 +2961,10 @@ async function finalizePr(paths, options = {}, context = {}) {
     options.skipMerge === true ||
     normalizeText(options["skip-merge"]).toLowerCase() === "true";
   if (closeWithoutMerge) {
+    const guardResult = await runSessionFinalizationGuard(paths, preconditions);
+    if (!guardResult.ok) {
+      return guardResult.response;
+    }
     return closePrWithoutMerge(paths, prUrl, options);
   }
   const mergePr = options.mergePr === true ||
@@ -2773,6 +2976,10 @@ async function finalizePr(paths, options = {}, context = {}) {
       repairCommand: `jskit session ${paths.sessionId} step --merge-pr true`,
       preconditions
     });
+  }
+  const guardResult = await runSessionFinalizationGuard(paths, preconditions);
+  if (!guardResult.ok) {
+    return guardResult.response;
   }
   const mergeMarkerPath = path.join(paths.sessionRoot, "pr_merge_completed");
   const baseBranchPath = path.join(paths.sessionRoot, "pr_base_branch");
@@ -2835,13 +3042,6 @@ async function finishSession(paths) {
   const issueUrl = await readTrimmedFile(path.join(paths.sessionRoot, "issue_url"));
   const codexThreadId = await readTrimmedFile(path.join(paths.sessionRoot, "codex_thread_id"));
   const prOutcome = parseJsonObject(await readTextIfExists(path.join(paths.sessionRoot, "pr_outcome.json")));
-  if (prOutcome?.outcome === "merged") {
-    const baseBranch = prOutcome.baseBranch || await readTrimmedFile(path.join(paths.sessionRoot, "pr_base_branch"));
-    const updateFailure = await updateLocalBaseBranch(paths, baseBranch);
-    if (updateFailure) {
-      return updateFailure;
-    }
-  }
   const removeFailure = await removeSessionWorktree(paths);
   if (removeFailure) {
     return removeFailure;
@@ -2898,6 +3098,7 @@ const STEP_RUNNERS = Object.freeze({
   pr_created: createPr,
   pr_merge_prepared: preparePrMerge,
   pr_finalized: finalizePr,
+  main_checkout_synced: syncMainCheckout,
   session_finished: finishSession
 });
 
@@ -2918,6 +3119,7 @@ const PRECONDITION_RUNNERS = Object.freeze({
   issue_url_exists: assertIssueUrlExists,
   automated_checks_passed: assertAutomatedChecksPassed,
   issue_details_exists: assertIssueDetailsExists,
+  main_checkout_sync_satisfied: assertMainCheckoutSyncSatisfied,
   plan_text_exists: assertPlanTextExists,
   pr_url_exists: assertPrUrlExists,
   ready_jskit_app: assertReadyJskitApp,

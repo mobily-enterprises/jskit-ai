@@ -272,6 +272,17 @@ async function createPackageOnlyGitApp(root) {
   runGit(root, ["commit", "-m", "Initial commit"]);
 }
 
+async function addPackageScripts(root, scripts) {
+  const packageJsonPath = path.join(root, "package.json");
+  const packageJson = JSON.parse(await readFile(packageJsonPath, "utf8"));
+  packageJson.scripts = {
+    ...(packageJson.scripts || {}),
+    ...scripts
+  };
+  await writeFile(packageJsonPath, `${JSON.stringify(packageJson, null, 2)}\n`, "utf8");
+  runGit(root, ["add", "package.json"]);
+}
+
 async function writeStepReceipts(sessionRoot, stepIds) {
   await mkdir(path.join(sessionRoot, "steps"), { recursive: true });
   const steps = new Set(stepIds);
@@ -543,6 +554,9 @@ test("jskit session JSON exposes JSKIT-owned step UI and Codex handoff contract"
     assert.equal(created.stepDefinitions.find((step) => step.id === "pr_finalized").requiresExplicitRun, true);
     assert.equal(created.stepDefinitions.find((step) => step.id === "pr_finalized").label, "PR finalized");
     assert.equal(created.stepDefinitions.find((step) => step.id === "pr_finalized").kind, "automatic");
+    assert.equal(created.stepDefinitions.find((step) => step.id === "main_checkout_synced").requiresExplicitRun, true);
+    assert.equal(created.stepDefinitions.find((step) => step.id === "main_checkout_synced").label, "Main checkout synced");
+    assert.equal(created.stepDefinitions.find((step) => step.id === "main_checkout_synced").kind, "automatic");
     assert.equal(created.stepDefinitions.find((step) => step.id === "issue_details_gathered").label, "Issue details gathered");
     assert.equal(created.stepDefinitions.find((step) => step.id === "issue_details_gathered").input.label, "Confirmed issue details");
     assert.deepEqual(created.stepDefinitions.find((step) => step.id === "dependencies_installed").automation, { mode: "terminal" });
@@ -551,6 +565,7 @@ test("jskit session JSON exposes JSKIT-owned step UI and Codex handoff contract"
     assert.deepEqual(created.stepDefinitions.find((step) => step.id === "plan_executed").automation, { mode: "codex_prompt" });
     assert.deepEqual(created.stepDefinitions.find((step) => step.id === "pr_merge_prepared").automation, { mode: "manual" });
     assert.deepEqual(created.stepDefinitions.find((step) => step.id === "pr_finalized").automation, { mode: "manual" });
+    assert.deepEqual(created.stepDefinitions.find((step) => step.id === "main_checkout_synced").automation, { mode: "manual" });
     assert.equal(created.stepDefinitions.find((step) => step.id === "review_prompt_rendered").codex.responseContract.resolvePrompt.templateFile, "resolve_deslop_findings.md");
     assert.equal(Object.hasOwn(created.stepDefinitions.find((step) => step.id === "pr_merge_prepared").codex, "responseContract"), false);
     assert.equal(created.stepDefinitions.find((step) => step.id === "pr_merge_prepared").utilityActions[0].label, "Get Codex ready to merge PR");
@@ -558,6 +573,7 @@ test("jskit session JSON exposes JSKIT-owned step UI and Codex handoff contract"
     assert.deepEqual(created.stepDefinitions.find((step) => step.id === "review_changes_accepted").submitOptions, { reviewFindingsRemaining: false });
     assert.deepEqual(created.stepDefinitions.find((step) => step.id === "pr_merge_prepared").submitOptions, { continueToMerge: true });
     assert.deepEqual(created.stepDefinitions.find((step) => step.id === "pr_finalized").submitOptions, { mergePr: true });
+    assert.deepEqual(created.stepDefinitions.find((step) => step.id === "main_checkout_synced").submitOptions, {});
     assert.equal(created.codex, null);
 
     const { promptReadyPayload, worktreePayload } = advanceCliSessionToIssuePrompt(appRoot, created.sessionId);
@@ -642,6 +658,95 @@ test("jskit session returns JSON failures for invalid session ids", async () => 
     assert.equal(payload.ok, false);
     assert.equal(payload.sessionId, "invalid");
     assert.equal(payload.errors[0].code, "invalid_session_id");
+  });
+});
+
+test("jskit session runs the optional provisioning package script after dependency install", async () => {
+  await withTempDir(async (cwd) => {
+    const appRoot = path.join(cwd, "app");
+    await createGitApp(appRoot);
+    await mkdir(path.join(appRoot, "scripts"), { recursive: true });
+    await writeFile(
+      path.join(appRoot, "scripts", "provision-session.mjs"),
+      `import { writeFileSync } from "node:fs";
+import path from "node:path";
+
+writeFileSync(path.join(process.env.JSKIT_SESSION_ROOT, "provision-env.json"), JSON.stringify({
+  cwd: process.cwd(),
+  packageScript: process.env.JSKIT_SESSION_PACKAGE_SCRIPT,
+  sessionId: process.env.JSKIT_SESSION_ID,
+  sessionRoot: process.env.JSKIT_SESSION_ROOT,
+  targetRoot: process.env.JSKIT_TARGET_ROOT,
+  worktreeRoot: process.env.JSKIT_WORKTREE_ROOT
+}, null, 2) + "\\n");
+`,
+      "utf8"
+    );
+    await addPackageScripts(appRoot, {
+      "jskit:provision-session": "node ./scripts/provision-session.mjs"
+    });
+    runGit(appRoot, ["add", "scripts/provision-session.mjs"]);
+    runGit(appRoot, ["commit", "-m", "Add session provisioning hook"]);
+
+    const created = parseJsonResult(runCli({
+      cwd: appRoot,
+      args: ["session", "create", "--json"]
+    }));
+    const worktreePayload = runSessionStepJson(appRoot, created.sessionId);
+    assert.equal(worktreePayload.currentStep, "dependencies_installed");
+    const installed = runSessionStepJson(appRoot, created.sessionId);
+
+    assert.equal(installed.currentStep, "issue_prompt_rendered");
+    assert.ok(installed.completedSteps.includes("dependencies_installed"));
+    const provisionEnv = JSON.parse(await readFile(path.join(created.sessionRoot, "provision-env.json"), "utf8"));
+    assert.equal(provisionEnv.cwd, installed.worktree);
+    assert.equal(provisionEnv.packageScript, "jskit:provision-session");
+    assert.equal(provisionEnv.sessionId, created.sessionId);
+    assert.equal(provisionEnv.sessionRoot, created.sessionRoot);
+    assert.equal(provisionEnv.targetRoot, appRoot);
+    assert.equal(provisionEnv.worktreeRoot, installed.worktree);
+    await access(path.join(created.sessionRoot, "hooks", "jskit_provision-session"));
+    const commandLog = await readFile(path.join(created.sessionRoot, "command_log.jsonl"), "utf8");
+    assert.match(commandLog, /"kind":"session_provision"/);
+  });
+});
+
+test("jskit session blocks PR finalization when the optional finalization guard fails", async () => {
+  await withTempDir(async (cwd) => {
+    const appRoot = path.join(cwd, "app");
+    await createGitApp(appRoot);
+    await mkdir(path.join(appRoot, "scripts"), { recursive: true });
+    await writeFile(
+      path.join(appRoot, "scripts", "finalization-guard.mjs"),
+      "process.stderr.write('sibling repo has unpreserved changes\\n'); process.exit(42);\n",
+      "utf8"
+    );
+    await addPackageScripts(appRoot, {
+      "jskit:finalization-guard": "node ./scripts/finalization-guard.mjs"
+    });
+    runGit(appRoot, ["add", "scripts/finalization-guard.mjs"]);
+    runGit(appRoot, ["commit", "-m", "Add finalization guard hook"]);
+
+    const created = parseJsonResult(runCli({
+      cwd: appRoot,
+      args: ["session", "create", "--json"]
+    }));
+    const worktreePayload = runSessionStepJson(appRoot, created.sessionId);
+    await writeStepReceipts(
+      worktreePayload.sessionRoot,
+      STEP_IDS.slice(0, STEP_IDS.indexOf("pr_finalized"))
+    );
+    await writeFile(path.join(worktreePayload.sessionRoot, "pr_url"), "https://github.com/example/repo/pull/456\n", "utf8");
+
+    const blocked = runSessionStepJsonFailure(appRoot, created.sessionId, {
+      args: ["--merge-pr", "true"]
+    });
+    assert.equal(blocked.errors[0].code, "session_finalization_guard_failed");
+    assert.match(blocked.errors[0].message, /unpreserved changes/);
+    await assert.rejects(access(path.join(worktreePayload.sessionRoot, "steps", "pr_finalized")));
+    const commandLog = await readFile(path.join(worktreePayload.sessionRoot, "command_log.jsonl"), "utf8");
+    assert.match(commandLog, /"kind":"session_finalization_guard"/);
+    assert.doesNotMatch(commandLog, /"kind":"github_pr_view"/);
   });
 });
 
@@ -2591,8 +2696,18 @@ test("jskit session can execute review loop, PR, merge, cleanup, and finish", as
       args: ["--merge-pr", "true"],
       env
     });
-    assert.equal(merged.currentStep, "session_finished");
+    assert.equal(merged.currentStep, "main_checkout_synced");
     assert.equal(merged.prOutcome.outcome, "merged");
+    assert.equal(merged.currentStepAction.buttonLabel, "Sync main checkout");
+    assert.equal(merged.currentStepAction.requiresExplicitRun, true);
+    assert.equal(merged.currentStepAction.alternateActions[0].id, "skip_main_checkout_sync");
+    assert.deepEqual(merged.currentStepAction.alternateActions[0].submitOptions, { skipMainSync: true });
+    await access(inspect.worktree);
+    const synced = runSessionStepJson(appRoot, created.sessionId, { env });
+    assert.equal(synced.currentStep, "session_finished");
+    assert.equal(synced.mainCheckoutSync.status, "synced");
+    assert.equal(synced.mainCheckoutSync.branch, "main");
+    assert.ok(synced.completedSteps.includes("main_checkout_synced"));
     await access(inspect.worktree);
     const finished = runSessionStepJson(appRoot, created.sessionId, { env });
     assertSessionContractFields(finished);
@@ -2617,6 +2732,8 @@ test("jskit session can execute review loop, PR, merge, cleanup, and finish", as
     await access(path.join(finished.sessionRoot, "issue_details.md"));
     await access(path.join(finished.sessionRoot, "github_comments.json"));
     await access(path.join(finished.sessionRoot, "pr_outcome.json"));
+    await access(path.join(finished.sessionRoot, "main_checkout_sync.json"));
+    await access(path.join(finished.sessionRoot, "local_base_updated"));
     await access(path.join(finished.sessionRoot, "command_log.jsonl"));
     await access(path.join(finished.sessionRoot, "checks", "automated_checks_run.json"));
     await access(path.join(finished.sessionRoot, "ui_checks", "deep_ui_check_run.json"));
@@ -2629,6 +2746,7 @@ test("jskit session can execute review loop, PR, merge, cleanup, and finish", as
     assert.match(commandLog, /"kind":"github_pr_create"/);
     assert.match(commandLog, /"kind":"github_pr_view"/);
     assert.match(commandLog, /"kind":"github_pr_merge"/);
+    assert.match(commandLog, /"kind":"git_pull_base"/);
     await assert.rejects(access(path.join(appRoot, ".jskit", "sessions", "active", created.sessionId)));
     const listed = parseJsonResult(runCli({ cwd: appRoot, args: ["session", "--json"], env }));
     assert.equal(listed.archive, "active");
@@ -2731,7 +2849,7 @@ process.exit(1);
     const decisionRequired = parseJsonFailure(runCli({ cwd: appRoot, args: ["session", created.sessionId, "step", "--json"], env }));
     assert.equal(decisionRequired.errors[0].code, "pr_finalize_decision_required");
     const merged = parseJsonResult(runCli({ cwd: appRoot, args: ["session", created.sessionId, "step", "--merge-pr", "true", "--json"], env }));
-    assert.equal(merged.currentStep, "session_finished");
+    assert.equal(merged.currentStep, "main_checkout_synced");
     assert.ok(merged.completedSteps.includes("pr_finalized"));
     assert.equal(merged.prOutcome.outcome, "merged");
     await access(worktreePayload.worktree);
@@ -2742,7 +2860,7 @@ process.exit(1);
   });
 });
 
-test("jskit session blocks final cleanup when the target root is dirty", async () => {
+test("jskit session blocks main checkout sync when the target root is dirty", async () => {
   await withTempDir(async (cwd) => {
     const appRoot = path.join(cwd, "app");
     const binDir = path.join(cwd, "bin");
@@ -2780,14 +2898,27 @@ process.exit(1);
     await writeFile(path.join(appRoot, "local-change.txt"), "dirty\n", "utf8");
 
     const merged = parseJsonResult(runCli({ cwd: appRoot, args: ["session", created.sessionId, "step", "--merge-pr", "true", "--json"], env }));
-    assert.equal(merged.currentStep, "session_finished");
+    assert.equal(merged.currentStep, "main_checkout_synced");
     assert.ok(merged.completedSteps.includes("pr_finalized"));
 
     const blocked = parseJsonFailure(runCli({ cwd: appRoot, args: ["session", created.sessionId, "step", "--json"], env }));
     assert.equal(blocked.errors[0].code, "target_root_dirty");
+    assert.equal(blocked.currentStep, "main_checkout_synced");
     await access(worktreePayload.worktree);
     await access(path.join(worktreePayload.sessionRoot, "steps", "pr_finalized"));
+    await assert.rejects(access(path.join(worktreePayload.sessionRoot, "steps", "main_checkout_synced")));
     await assert.rejects(access(path.join(worktreePayload.sessionRoot, "steps", "session_finished")));
+
+    const skipped = parseJsonResult(runCli({ cwd: appRoot, args: ["session", created.sessionId, "step", "--skip-main-sync", "--json"], env }));
+    assert.equal(skipped.currentStep, "session_finished");
+    assert.equal(skipped.mainCheckoutSync.status, "skipped");
+    assert.match(skipped.mainCheckoutSync.reason, /User skipped/);
+    await access(path.join(worktreePayload.sessionRoot, "steps", "main_checkout_synced"));
+
+    const finished = parseJsonResult(runCli({ cwd: appRoot, args: ["session", created.sessionId, "step", "--json"], env }));
+    assert.equal(finished.status, "finished");
+    await assert.rejects(access(worktreePayload.worktree));
+
     const log = await readFile(logPath, "utf8");
     assert.match(log, /gh pr view https:\/\/github\.com\/example\/repo\/pull\/456 --json state,mergedAt,url,baseRefName/);
     assert.doesNotMatch(log, /gh pr merge/);
@@ -2821,10 +2952,17 @@ test("jskit session can finish successfully without merging the PR", async () =>
       args: ["session", created.sessionId, "step", "--skip-merge", "--json"],
       env
     }));
-    assert.equal(closed.currentStep, "session_finished");
+    assert.equal(closed.currentStep, "main_checkout_synced");
     assert.equal(closed.prOutcome.outcome, "closed_without_merge");
     assert.equal(closed.prOutcome.reason, "User skipped merge in JSKIT Studio.");
+    assert.equal(closed.currentStepAction.buttonLabel, "Record no sync needed");
     await access(worktreePayload.worktree);
+
+    const skippedSync = parseJsonResult(runCli({ cwd: appRoot, args: ["session", created.sessionId, "step", "--json"], env }));
+    assert.equal(skippedSync.currentStep, "session_finished");
+    assert.equal(skippedSync.mainCheckoutSync.status, "skipped");
+    assert.equal(skippedSync.mainCheckoutSync.outcome, "closed_without_merge");
+    await access(path.join(worktreePayload.sessionRoot, "steps", "main_checkout_synced"));
 
     const finished = parseJsonResult(runCli({ cwd: appRoot, args: ["session", created.sessionId, "step", "--json"], env }));
     assertSessionContractFields(finished);
