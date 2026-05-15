@@ -1,12 +1,8 @@
-Resolve the listed deslop findings in the current worktree.
+Resolve the important findings from the latest deslop review in this conversation.
 
-Fix only the listed findings. Keep scope tight. Do not create commits, branches, issues, pull requests, merges, or worktree cleanup.
+Fix only those findings. Keep scope tight. Do not create commits, branches, issues, pull requests, merges, or worktree cleanup.
 
 Use existing JSKIT helpers, generators, package seams, and app-local helpers where they fit. Do not introduce helper churn or unrelated refactors while resolving these findings.
-
-[resolve_deslop_findings]
-{{findings}}
-[/resolve_deslop_findings]
 
 When finished:
 

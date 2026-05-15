@@ -16,7 +16,7 @@ Rules:
 - Prefer JSKIT-owned helpers, generators, package seams, agent docs, package descriptors, and documented commands over local hacks.
 - If a failure involves JSKIT architecture, generator ownership, CRUD, surfaces, placements, client/server contracts, or UI verification, read the relevant docs under `node_modules/@jskit-ai/agent-docs/` or `packages/agent-docs/` before repairing it.
 - Use `npx --no-install jskit ...` for JSKIT CLI commands you run directly from the shell.
-- Keep fixes scoped to the current issue, issue details, and active plan.
+- Keep fixes scoped to the current issue and worktree.
 - Do not create commits, branches, issues, pull requests, merges, or worktree cleanup. JSKIT session owns those steps.
 
 When finished, report:
@@ -25,19 +25,4 @@ When finished, report:
 - files changed
 - final check command and result
 - anything still unverified
-
-If the repair records a meaningful verification decision, tradeoff, missing coverage, or root-cause explanation future steps should know, include concise entries with reasons in this exact marker block:
-
-```text
-[agent_decisions]
-<verification or repair decisions, or "No new decisions.">
-[/agent_decisions]
-```
-
-At the very end, include this completion block so Studio knows the step is complete:
-
-[jskit_step_result]
-status: complete
-step: automated_checks_run
-summary: Short summary of the final check command, result, and any repairs.
-[/jskit_step_result]
+- any meaningful verification decision, tradeoff, missing coverage, or root-cause note future steps should know

@@ -212,8 +212,8 @@ const COMMAND_DESCRIPTORS = Object.freeze({
         description: "Create a session, inspect a session, or run a session subcommand."
       }),
       Object.freeze({
-        name: "[step|diff|rewind|abandon|adopt-codex-thread]",
-        description: "Run the next step, inspect a diff, rewind a session, abandon a session, or attach a Codex thread id."
+        name: "[run|next|skip|deslop|resolve-deslop|step|diff|rewind|abandon|adopt-codex-thread]",
+        description: "Run, continue, skip, deslop, inspect a diff, rewind, abandon, or attach a Codex thread id."
       })
     ]),
     defaults: Object.freeze([
@@ -222,17 +222,17 @@ const COMMAND_DESCRIPTORS = Object.freeze({
       "The session id is timestamp-based and is the primary key.",
       "Bare list output includes active sessions only; use --abandoned, --completed, or --all for archived sessions.",
       "Use --json for the stable machine-readable contract consumed by JSKIT AI Studio.",
-      "Use --issue - to read approved issue body from stdin.",
-      "Use --issue-title when the approved issue title is separate from the body.",
-      "Use --issue-details - to read confirmed issue details from stdin.",
-      "Use --plan - to read the approved implementation plan from stdin.",
-      "Use --codex-result - after Codex prompt steps to read the final marked Codex result from stdin.",
-      "Use rewind --step <step_id> to delete a completed step and later JSKIT-owned session artifacts; only plan_made is allowed inside the repeatable cycle.",
-      "Use --rework-notes - with --user-check failed to start the next plan cycle.",
-      "Use --agent-decisions - to append session-local decision log entries from implementation, UI review, verification, or repair phases.",
-      "Use --review-findings-remaining true --review-findings \"<findings>\" when an accepted review pass needs another pass.",
-      "Use --review-findings-remaining false only when the review/deslop loop is done.",
-      "Use --skip-ui-check --skip-reason \"<reason>\" only when uiImpact is possible and the Deep UI Check is intentionally skipped.",
+      "Issue handoff is file-based: Codex writes issue.md under the session root, then the user runs next. Plans stay in the terminal.",
+      "Use run as the readable alias for step when driving a session by hand.",
+      "Use next to continue with the current step's default positive action.",
+      "Use skip to record the current step as skipped and move to the next step.",
+      "Use deslop to run the review/deslop prompt from either review/deslop step.",
+      "Use resolve-deslop to send the explicit resolve prompt. Nothing advances automatically afterward.",
+      "Use rewind <step_id> or rewind --step <step_id> to delete a completed step and later JSKIT-owned session artifacts.",
+      "Use --rework-notes - with --user-check failed to stay on user check and decide where to rewind.",
+      "Use deslop instead of hand-writing --review-findings-remaining true.",
+      "Use next instead of hand-writing --review-findings-remaining false.",
+      "Use skip --skip-reason \"<reason>\" when a step is intentionally skipped.",
       "Use --prepare-merge true at PR merge preparation to render the Codex prep prompt.",
       "Use --continue-to-merge true when the user decides to advance from preparation to merge decision.",
       "Use --merge-pr true at PR finalization to merge the pull request.",
@@ -245,16 +245,12 @@ const COMMAND_DESCRIPTORS = Object.freeze({
         label: "Manual CLI flow",
         lines: Object.freeze([
           "jskit session create",
-          "jskit session 2026-05-11_21-42-08 step",
+          "jskit session 2026-05-11_21-42-08 run",
+          "jskit session 2026-05-11_21-42-08 next",
+          "jskit session 2026-05-11_21-42-08 skip --skip-reason \"Handled outside JSKIT\"",
           "jskit session 2026-05-11_21-42-08 step --prompt \"Fix the customer filters\"",
-          "jskit session 2026-05-11_21-42-08 step --issue-title \"Fix customer filters\" --issue -",
-          "jskit session 2026-05-11_21-42-08 step --issue-details -",
-          "jskit session 2026-05-11_21-42-08 step --plan -",
-          "jskit session 2026-05-11_21-42-08 step --codex-result -",
-          "jskit session 2026-05-11_21-42-08 step --agent-decisions -",
-          "jskit session 2026-05-11_21-42-08 step --review-findings-remaining true --review-findings \"A helper duplication fix needs another pass\"",
-          "jskit session 2026-05-11_21-42-08 step --review-findings-remaining false",
-          "jskit session 2026-05-11_21-42-08 step --skip-ui-check --skip-reason \"No user-facing UI changes\"",
+          "jskit session 2026-05-11_21-42-08 deslop",
+          "jskit session 2026-05-11_21-42-08 resolve-deslop",
           "jskit session 2026-05-11_21-42-08 step",
           "jskit session 2026-05-11_21-42-08 step --prepare-merge true",
           "jskit session 2026-05-11_21-42-08 step --continue-to-merge true",
@@ -262,13 +258,13 @@ const COMMAND_DESCRIPTORS = Object.freeze({
           "jskit session 2026-05-11_21-42-08 step --skip-merge",
           "jskit session 2026-05-11_21-42-08 step --skip-main-sync",
           "jskit session 2026-05-11_21-42-08 step --user-check failed --rework-notes -",
-          "jskit session 2026-05-11_21-42-08 rewind --step plan_made --json",
+          "jskit session 2026-05-11_21-42-08 rewind plan_made --json",
           "jskit session 2026-05-11_21-42-08 diff --json"
         ])
       })
     ]),
     fullUse:
-      "jskit session [create|<sessionId>] [step|diff|rewind|abandon|adopt-codex-thread] [--step <step_id>] [--prompt <text>] [--issue-title <text>|--issue-title-file <path>] [--issue <text>|--issue-file <path>] [--issue-details <text>|--issue-details-file <path>] [--plan <text>|--plan-file <path>] [--codex-result <text>|--codex-result-file <path>] [--agent-decisions <text>|--agent-decisions-file <path>] [--review-findings-remaining true --review-findings <text>|--review-findings-remaining false] [--skip-ui-check --skip-reason <text>] [--prepare-merge true|--continue-to-merge true|--merge-pr true|--skip-merge|--skip-main-sync] [--user-check <passed|failed>] [--rework-notes <text>|--rework-notes-file <path>] [--codex-thread-id <id>] [--abandoned|--completed|--all] [--json]",
+      "jskit session [create|new|<sessionId>] [run|next|skip|deslop|resolve-deslop|step|diff|rewind|abandon|adopt-codex-thread] [step_id] [--step <step_id>] [--prompt <text>] [--review-findings-remaining true|--review-findings-remaining false] [--resolve-deslop true] [--skip-step true|skip --skip-reason <text>] [--prepare-merge true|--continue-to-merge true|--merge-pr true|--skip-merge|--skip-main-sync] [--user-check <passed|failed>] [--rework-notes <text>|--rework-notes-file <path>] [--codex-thread-id <id>] [--abandoned|--completed|--all] [--json]",
     showHelpOnBareInvocation: false,
     handlerName: "commandSession",
     allowedFlagKeys: Object.freeze(["json", "abandoned", "completed", "all"]),

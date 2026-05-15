@@ -13,7 +13,7 @@ Before writing the blueprint, classify the app state if local files are availabl
 - partial_jskit_app
 - jskit_app
 
-Use these markers for a real JSKIT app when they exist:
+Recognize these files as signs of a real JSKIT app when they exist:
 
 - package.json
 - config/public.js
@@ -44,9 +44,4 @@ Cover:
 
 If the brief is ambiguous, state the assumption in the blueprint instead of asking questions. Do not invent detailed feature behavior that the brief does not support.
 
-When the blueprint is ready, output only the final markdown surrounded by these exact markers:
-
-[app_blueprint]
-# App Blueprint
-...
-[/app_blueprint]
+When the blueprint is ready, present the final Markdown starting with `# App Blueprint`.

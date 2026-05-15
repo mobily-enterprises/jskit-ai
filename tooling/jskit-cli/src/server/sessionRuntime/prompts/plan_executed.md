@@ -4,24 +4,14 @@ GitHub issue: {{issue_url}}
 Issue number: {{issue_number}}
 Issue title: {{issue_title}}
 Issue body file: {{issue_file}}
-Issue details file (`issue_details.md`): {{issue_details_file}}
-Plan file: {{plan_file}}
 Worktree: {{worktree}}
 
-Confirmed issue details:
-
-{{issue_details_text}}
-
-Approved plan:
-
-{{plan_text}}
-
-Implement the plan in the session worktree. Keep the change scoped to the issue, confirmed issue details, and approved plan.
+Implement the plan that was just reviewed in this Codex conversation. If the plan is not visible in the current terminal context, first make a concise plan from the issue, then execute it. Keep the change scoped to the issue.
 
 Implementation rules:
 
 - Inspect the current app before editing. App setup has already passed; if required JSKIT app files are missing, report setup failure rather than inventing recovery work.
-- Follow both `{{issue_details_file}}` and `{{plan_file}}`. If they disagree, ask for clarification before changing files.
+- Follow `{{issue_file}}`. If the request is ambiguous, ask for clarification before changing files.
 - Before implementing JSKIT app structure, generators, CRUD, surfaces, placements, app setup, package-owned workflows, or UI verification paths, read the relevant JSKIT agent docs. Start with `node_modules/@jskit-ai/agent-docs/DISTR_AGENT.md`, `node_modules/@jskit-ai/agent-docs/guide/agent/index.md`, and `node_modules/@jskit-ai/agent-docs/patterns/INDEX.md` when present. If working inside the JSKIT monorepo or a devlinked sibling, use `packages/agent-docs/...` as the source-tree equivalent.
 - Read specific pattern docs before touching their lane, such as CRUD scaffolding/repository mapping, page scaffolding, surfaces, placements, client requests, live actions, generated UI contract tracking, and UI testing. Prefer these docs and package descriptors over reverse-engineering framework rules from source files.
 - Read `.jskit/helper-map.md` when it exists before creating helpers, composables, service functions, maps, or package glue.
@@ -34,7 +24,7 @@ Implementation rules:
 - Keep direct knex exceptional and minimal. Prefer internal json-rest-api seams outside generated CRUD packages and explicit weird-custom feature lanes.
 - Keep runtime, UI, and data concerns separated.
 - Avoid accidental scope expansion.
-- Do not create `.jskit/WORKBOARD.md`; the session files and receipts are the workflow record.
+- Do not create `.jskit/WORKBOARD.md`; the session files are the workflow record.
 - If user-facing UI changes, bring the screen to Material Design and Vuetify quality before calling it done. Include coherent responsive layout, loading, empty, error, disabled, and success states where relevant.
 - If verification needs login, use the app's local development auth bootstrap path rather than a live external auth login.
 
@@ -44,21 +34,6 @@ After making changes:
 - Run the smallest relevant checks you can run safely in the worktree.
 - For changed user-facing UI, run or clearly identify the Playwright verification path. When possible, record UI verification with `npx --no-install jskit app verify-ui --command "<playwright command>" --feature "<label>" --auth-mode <mode>`.
 - `npx --no-install jskit app verify-ui` does not start the app server. Before using it for Playwright, make sure the app is reachable. If a local server is needed, inspect `.jskit/config/testrun_command` when present and use the app's documented server command, or start the server explicitly and wait for it before invoking `verify-ui`. Do not first run a bare Playwright command against a stopped server.
-- Summarize changed files and checks run.
-- If implementation deviated from the approved plan, generator choices, package ownership, helper reuse, UI verification path, or data ownership, include concise decision entries with reasons in this exact marker block:
-
-```text
-[agent_decisions]
-<implementation decisions or "No new decisions.">
-[/agent_decisions]
-```
+- Summarize changed files, checks run, and any important implementation decisions or verification gaps in the terminal.
 
 Do not create commits, branches, issues, pull requests, merges, or worktree cleanup yourself. JSKIT session will handle those steps.
-
-At the very end, include this completion block so Studio knows the step is complete:
-
-[jskit_step_result]
-status: complete
-step: plan_executed
-summary: Short summary of what changed and what was checked.
-[/jskit_step_result]

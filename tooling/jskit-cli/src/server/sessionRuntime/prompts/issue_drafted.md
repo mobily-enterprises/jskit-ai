@@ -1,8 +1,11 @@
-Create a GitHub issue from this user request:
+Create a GitHub issue draft from this user request:
 
 {{user_input}}
 
-First inspect the local app enough to understand the request in context. App setup has already passed before this prompt is rendered; treat this as a ready JSKIT app. This issue-drafting step is read-only.
+First inspect the local app enough to understand the request in context. App setup has already passed before this prompt is rendered; treat this as a ready JSKIT app.
+
+Canonical issue file to write: {{issue_file}}
+Canonical issue title file to write: {{issue_title_file}}
 
 Allowed inspection:
 
@@ -17,7 +20,7 @@ Do not run workflow, repair, or mutation commands during issue drafting:
 - Do not run `npx --no-install jskit session`, `npx --no-install jskit session step`, or any command that advances a JSKIT session.
 - Do not run `gh`, `git add`, `git commit`, `git push`, `npm install`, generators, tests, verification, devlinks, or doctor commands.
 - Do not try to fix missing PATH entries or missing helper binaries. If a tool is unavailable, continue with read-only file inspection.
-- Do not edit files.
+- Do not edit app files.
 
 Draft an implementation-ready issue, not a broad product essay.
 
@@ -29,18 +32,14 @@ Preserve these JSKIT boundaries:
 - For non-CRUD app pages, prefer the JSKIT UI generator when it fits.
 - Keep direct knex or low-level runtime work exceptional and explicitly justified.
 - Prefer documented JSKIT guide and pattern docs over reverse-engineering framework architecture from source files. Use source inspection to understand this app and verify details, not as the first source of JSKIT design rules.
-- Do not include workflow bookkeeping such as old workboards in the issue body. JSKIT session state and receipts are the workflow tracker.
+- Do not include workflow bookkeeping such as old workboards in the issue body. JSKIT session state is the workflow tracker.
 
 Ask concise clarifying questions if the request is not specific enough to produce a useful implementation issue. Ask only for details that materially change the ticket.
 
-When the issue is ready, output only the final issue title and body surrounded by these exact markers:
+When the issue is ready:
 
-[issue_title]
-<short issue title>
-[/issue_title]
-
-[issue_text]
-<issue body in Markdown, without repeating the title as a heading>
-[/issue_text]
+- Present the short issue title and issue body in the terminal for the user to review.
+- Write the issue body to `{{issue_file}}`.
+- Write the title only to `{{issue_title_file}}`.
 
 The issue should be concrete, scoped, and implementation-ready. Include acceptance criteria when they are useful.

@@ -3,7 +3,6 @@ import path from "node:path";
 import {
   CYCLE_STEP_IDS,
   JSKIT_CLI_SHELL_COMMAND,
-  PROMPT_DIRECTORY,
   REVIEW_EXECUTION_CODEX_HANDOFF,
   REVIEW_PASS_LIMIT,
   SESSION_WORKFLOW_VERSION,
@@ -19,7 +18,7 @@ import {
   readTextIfExists,
   readTrimmedFile,
   runGitInWorktree,
-  timestampForReceipt,
+  timestampForStepRecord,
   writeTextFile
 } from "./io.js";
 import {
@@ -138,16 +137,12 @@ function cycleRoot(paths, cycle) {
   return path.join(paths.sessionRoot, "cycles", cycleDirectoryName(cycle));
 }
 
-function cyclePlanPath(paths, cycle) {
-  return path.join(cycleRoot(paths, cycle), "plan.md");
-}
-
 function cyclePlanPromptFileName(cycle) {
-  return `cycle_${normalizeCycleNumber(cycle)}_plan_request.md`;
+  return `cycle_${normalizeCycleNumber(cycle)}_plan_made.md`;
 }
 
 function cyclePlanExecutionPromptFileName(cycle) {
-  return `cycle_${normalizeCycleNumber(cycle)}_plan_execution.md`;
+  return `cycle_${normalizeCycleNumber(cycle)}_plan_executed.md`;
 }
 
 function normalizeReviewPassNumber(value = "") {
@@ -204,7 +199,7 @@ async function readReviewPassInfo(paths, pass) {
     pass: normalizedPass,
     label: reviewPassDirectoryName(normalizedPass),
     status,
-    promptPath: prompt?.promptPath || path.join(root, "prompt.md"),
+    promptPath: prompt?.promptPath || path.join(root, "review_prompt_rendered.md"),
     acceptedAt: accepted?.acceptedAt || "",
     changedFiles,
     commit: "",
@@ -249,22 +244,21 @@ async function readReviewPromptForStep(paths, artifacts = {}) {
 }
 
 const PROMPT_ARTIFACT_BY_STEP_ID = Object.freeze({
-  issue_drafted: "issue_draft.md",
-  issue_details_gathered: "issue_details.md",
+  issue_drafted: "issue_drafted.md",
   deep_ui_check_run: "deep_ui_check_run.md",
   automated_checks_run: "automated_checks_run.md",
-  blueprint_updated: "update_blueprint.md",
-  pr_merge_prepared: "prepare_pr_merge.md",
-  user_check_completed: "user_check.md"
+  blueprint_updated: "blueprint_updated.md",
+  pr_merge_prepared: "pr_merge_prepared.md",
+  user_check_completed: "user_check_completed.md"
 });
 
-async function promptArtifactForStep(paths, stepId) {
+function promptArtifactForStep(stepId) {
   const normalizedStepId = normalizeStepId(stepId);
   if (normalizedStepId === "plan_made") {
-    return cyclePlanPromptFileName(await readActiveCycle(paths));
+    return "plan_made.md";
   }
   if (normalizedStepId === "plan_executed") {
-    return cyclePlanExecutionPromptFileName(await readActiveCycle(paths));
+    return "plan_executed.md";
   }
   return PROMPT_ARTIFACT_BY_STEP_ID[normalizedStepId] || "";
 }
@@ -276,12 +270,18 @@ async function readPromptForStep(paths, stepId, artifacts = {}) {
   if (REVIEW_STEP_IDS.includes(normalizeStepId(stepId))) {
     return readReviewPromptForStep(paths, artifacts);
   }
-  const promptArtifact = await promptArtifactForStep(paths, stepId);
+  const promptArtifact = promptArtifactForStep(stepId);
   if (promptArtifact) {
     const prompt = await readTextIfExists(path.join(paths.sessionRoot, "prompts", promptArtifact));
     if (prompt) {
       return prompt;
     }
+  }
+  if (normalizeStepId(stepId) === "plan_made") {
+    return readTextIfExists(path.join(paths.sessionRoot, "prompts", cyclePlanPromptFileName(await readActiveCycle(paths))));
+  }
+  if (normalizeStepId(stepId) === "plan_executed") {
+    return readTextIfExists(path.join(paths.sessionRoot, "prompts", cyclePlanExecutionPromptFileName(await readActiveCycle(paths))));
   }
   return "";
 }
@@ -299,11 +299,18 @@ async function readStepFileNames(stepsRoot) {
 
 async function readCompletedSteps(paths) {
   const stepsRoot = path.join(paths.sessionRoot, "steps");
-  const activeCycle = await readActiveCycle(paths);
   const globalStepIds = normalizeKnownStepIds(
     (await readStepFileNames(stepsRoot)).filter((stepId) => !isCycleStepId(stepId))
   );
-  const cycleStepIds = normalizeKnownStepIds(await readStepFileNames(cycleStepsRoot(paths, activeCycle)));
+  const cycleStepIds = [];
+  try {
+    const entries = await readdir(stepsRoot, { withFileTypes: true });
+    for (const entry of entries.filter((item) => item.isDirectory() && /^cycle_\d+$/u.test(item.name)).sort((left, right) => left.name.localeCompare(right.name))) {
+      cycleStepIds.push(...await readStepFileNames(path.join(stepsRoot, entry.name)));
+    }
+  } catch {
+    // Legacy sessions may not have cycle record directories.
+  }
   return applyReviewPassCompletionOverlay(paths, normalizeKnownStepIds([...globalStepIds, ...cycleStepIds]));
 }
 
@@ -349,7 +356,7 @@ async function readCycleInfo(paths, cycle) {
     reworkRequestPath: reworkRequest ? reworkRequestPath : "",
     status: userCheckPassed ? "passed" : userCheckFailed ? "failed" : "active",
     userCheckResult: userCheckPassed ? "passed" : userCheckFailed ? "failed" : "",
-    userCheckReceipt: (userCheckPassed || userCheckFailed).trim()
+    userCheckRecord: (userCheckPassed || userCheckFailed).trim()
   };
 }
 
@@ -451,7 +458,7 @@ async function readWorktreeStatus(paths, worktreeReady) {
   };
 }
 
-async function readReceiptSteps(paths) {
+async function readStepRecords(paths) {
   const stepsRoot = path.join(paths.sessionRoot, "steps");
   try {
     const entries = await readdir(stepsRoot, { withFileTypes: true });
@@ -460,19 +467,19 @@ async function readReceiptSteps(paths) {
     entries
       .filter((entry) => entry.isFile())
       .map((entry) => entry.name)
-      .forEach((receiptName) => {
-        const stepId = normalizeStepId(receiptName);
+      .forEach((recordName) => {
+        const stepId = normalizeStepId(recordName);
         if (STEP_IDS.includes(stepId)) {
-          if (!knownStepRows.has(stepId) || receiptName === stepId) {
+          if (!knownStepRows.has(stepId) || recordName === stepId) {
             knownStepRows.set(stepId, {
-              receiptName,
+              recordName,
               stepId
             });
           }
           return;
         }
         unknownStepRows.push({
-          receiptName,
+          recordName,
           stepId
         });
       });
@@ -493,14 +500,14 @@ async function readReceiptSteps(paths) {
         return left.stepId.localeCompare(right.stepId);
       });
 
-    const globalReceipts = await Promise.all(stepRows.map(async ({ receiptName, stepId }) => ({
+    const globalRecords = await Promise.all(stepRows.map(async ({ recordName, stepId }) => ({
       cycle: "",
+      details: (await readTextIfExists(path.join(stepsRoot, recordName))).trim(),
       label: STEP_LABEL_BY_ID[stepId] || stepId,
-      receipt: (await readTextIfExists(path.join(stepsRoot, receiptName))).trim(),
       stepId
     })));
 
-    const cycleReceipts = [];
+    const cycleRecords = [];
     const cycleDirectories = entries
       .filter((entry) => entry.isDirectory() && /^cycle_\d+$/u.test(entry.name))
       .map((entry) => entry.name)
@@ -509,18 +516,18 @@ async function readReceiptSteps(paths) {
       const cycle = normalizeCycleNumber(cycleDirectory);
       const cycleRootPath = path.join(stepsRoot, cycleDirectory);
       const cycleStepIds = await readStepFileNames(cycleRootPath);
-      for (const receiptName of cycleStepIds) {
-        const stepId = normalizeStepId(receiptName);
-        cycleReceipts.push({
+      for (const recordName of cycleStepIds) {
+        const stepId = normalizeStepId(recordName);
+        cycleRecords.push({
           cycle,
+          details: (await readTextIfExists(path.join(cycleRootPath, recordName))).trim(),
           label: STEP_LABEL_BY_ID[stepId] || stepId,
-          receipt: (await readTextIfExists(path.join(cycleRootPath, receiptName))).trim(),
           stepId
         });
       }
     }
 
-    return [...globalReceipts, ...cycleReceipts];
+    return [...globalRecords, ...cycleRecords];
   } catch {
     return [];
   }
@@ -584,33 +591,15 @@ async function publicCodexContract(codex = null) {
   if (!codex || typeof codex !== "object" || Array.isArray(codex)) {
     return null;
   }
-  const clonedCodex = cloneContractValue(codex);
-  const resolvePrompt = clonedCodex.responseContract?.resolvePrompt;
-  const templateFile = normalizeText(resolvePrompt?.templateFile || "");
-  if (templateFile) {
-    const template = await readTextIfExists(path.join(PROMPT_DIRECTORY, templateFile));
-    clonedCodex.responseContract.resolvePrompt = {
-      ...resolvePrompt,
-      template
-    };
-  }
-  return clonedCodex;
+  return cloneContractValue(codex);
 }
 
 function stepRepeatabilityContract(stepId) {
-  if (!CYCLE_STEP_IDS.includes(normalizeStepId(stepId))) {
-    return {
-      repeatable: false,
-      repeatableGroupId: "",
-      repeatableGroupLabel: "",
-      repeatableLabel: ""
-    };
-  }
   return {
-    repeatable: true,
-    repeatableGroupId: "rework_cycle",
-    repeatableGroupLabel: "Rework cycle",
-    repeatableLabel: "Cycle step"
+    repeatable: false,
+    repeatableGroupId: "",
+    repeatableGroupLabel: "",
+    repeatableLabel: ""
   };
 }
 
@@ -651,11 +640,6 @@ function stepIsConditional(stepId) {
   ].includes(normalizeStepId(stepId));
 }
 
-function activeCycleInfoFromArtifacts(artifacts = {}) {
-  const activeCycle = normalizeCycleNumber(artifacts.activeCycle || "");
-  return (artifacts.cycles || []).find((cycle) => cycle?.cycle === activeCycle) || null;
-}
-
 function uiCheckPromptedForStep(artifacts = {}, stepId = "") {
   const normalizedStepId = normalizeStepId(stepId);
   return (artifacts.uiChecks || []).some((entry) => {
@@ -665,11 +649,36 @@ function uiCheckPromptedForStep(artifacts = {}, stepId = "") {
 }
 
 function skipReasonForStep(stepId, artifacts = {}) {
-  const normalizedStepId = normalizeStepId(stepId);
-  if (normalizedStepId === "deep_ui_check_run" && artifacts.uiImpact === "none") {
-    return "uiImpact is none.";
-  }
+  void stepId;
+  void artifacts;
   return "";
+}
+
+function stepCanBeSkipped(stepId) {
+  return ![
+    "session_created",
+    "worktree_created",
+    "dependencies_installed",
+    "pr_finalized",
+    "main_checkout_synced",
+    "session_finished"
+  ].includes(normalizeStepId(stepId));
+}
+
+function skipStepAction(step) {
+  return {
+    id: "skip_step",
+    helpText: "Record this step as skipped and move to the next step.",
+    input: {
+      type: "none"
+    },
+    label: "Skip step",
+    presentation: "secondary",
+    submitOptions: {
+      skipStep: true
+    },
+    targetStep: step.id
+  };
 }
 
 function buildCurrentStepAction(stepId, artifacts = {}) {
@@ -677,53 +686,21 @@ function buildCurrentStepAction(stepId, artifacts = {}) {
   if (!step) {
     return null;
   }
-  const activeCycleInfo = activeCycleInfoFromArtifacts(artifacts);
   const planExecutionPrompted = artifacts.planExecution?.prompted === true;
   const planExecutionSubmitted = artifacts.planExecution?.submitted === true;
-  const planReworkMode = step.id === "plan_made" && normalizeCycleNumber(artifacts.activeCycle || "") !== "001";
   const deepUiCheckPrompted = step.id === "deep_ui_check_run" && uiCheckPromptedForStep(artifacts, "deep_ui_check_run");
-  const hasActiveReworkRequest = Boolean(activeCycleInfo?.reworkRequestPath);
-  const promptPhaseButtonLabel = step.kind === "codex_output" &&
-    step.codex?.mode === "inject_prompt" &&
-    !artifacts.prompt
-    ? step.codex.promptActionLabel || ""
-    : "";
-  const buttonLabel = promptPhaseButtonLabel || step.buttonLabel;
   const alternateActions = [];
-  if (step.id === "user_check_completed") {
-    alternateActions.push({
-      id: "return_to_plan_made",
-      input: {
-        formatHint: "markdown",
-        label: "What needs to be reworked?",
-        multiline: true,
-        name: "reworkNotes",
-        required: true,
-        type: "text"
-      },
-      label: "Return to Plan made",
-      presentation: "exclusive",
-      requiredErrorCode: "user_check_failed",
-      submitOptions: {
-        userCheck: "failed"
-      },
-      targetStep: "plan_made"
-    });
+  if (stepCanBeSkipped(step.id)) {
+    alternateActions.push(skipStepAction(step));
   }
   if (step.id === "review_changes_accepted") {
     alternateActions.push({
       id: "request_another_review_pass",
-      helpText: "Use this only when important review findings remain. Studio will record these notes and loop back to Codex review.",
+      helpText: "Run another explicit deslop prompt before continuing.",
       input: {
-        formatHint: "markdown",
-        label: "What important findings remain?",
-        multiline: true,
-        name: "reviewFindings",
-        placeholder: "List the specific findings Codex still needs to address.",
-        required: true,
-        type: "text"
+        type: "none"
       },
-      label: "Run another review pass",
+      label: "Run deslop",
       presentation: "secondary",
       submitOptions: {
         reviewFindingsRemaining: true
@@ -771,26 +748,20 @@ function buildCurrentStepAction(stepId, artifacts = {}) {
     if (step.id === "automated_checks_run" && artifacts.prompt) {
       return "Go to next step";
     }
-    if (step.id === "plan_made" && planReworkMode && !artifacts.prompt && hasActiveReworkRequest) {
-      return "Get Codex to create revised plan";
-    }
     if (step.id === "main_checkout_synced" && artifacts.prOutcome?.outcome && artifacts.prOutcome.outcome !== "merged") {
       return "Record no sync needed";
     }
-    return buttonLabel;
+    return step.buttonLabel;
   })();
   const dynamicDescription = (() => {
     if (step.id === "plan_executed" && planExecutionPrompted && !planExecutionSubmitted) {
       return "Codex has the execution prompt. Review the result, then use Go to next step when ready.";
     }
     if (step.id === "deep_ui_check_run" && deepUiCheckPrompted) {
-      return "Codex has the Deep UI check prompt. Studio advances when Codex finishes.";
+      return "Codex has the Deep UI check prompt. Review the result, then use Go to next step when ready.";
     }
     if (step.id === "automated_checks_run" && artifacts.prompt) {
-      return "Codex has the automated-checks prompt. Studio advances when Codex finishes.";
-    }
-    if (step.id === "plan_made" && planReworkMode && hasActiveReworkRequest) {
-      return "Codex writes a revised implementation plan from the user's rework notes for this cycle.";
+      return "Codex has the automated-checks prompt. Review the result, then use Go to next step when ready.";
     }
     if (step.id === "main_checkout_synced" && artifacts.prOutcome?.outcome && artifacts.prOutcome.outcome !== "merged") {
       return "The PR was not merged, so JSKIT will record main checkout sync as skipped before cleanup.";
@@ -798,6 +769,20 @@ function buildCurrentStepAction(stepId, artifacts = {}) {
     return step.description;
   })();
   const dynamicUtilityActions = (() => {
+    if (step.id === "review_changes_accepted") {
+      return [
+        {
+          id: "resolve_deslop",
+          helpText: "Send Codex the explicit resolve deslop prompt. Nothing advances automatically after it finishes.",
+          kind: "codex_prompt",
+          label: "Resolve deslop",
+          submitOptions: {
+            resolveDeslop: true
+          }
+        },
+        ...(step.utilityActions || [])
+      ];
+    }
     return step.utilityActions || [];
   })();
   return {
@@ -828,15 +813,7 @@ function rawCodexHandoff(stepId, artifacts = {}) {
     return cloneContractValue(REVIEW_EXECUTION_CODEX_HANDOFF);
   }
   const step = STEP_DEFINITION_BY_ID[stepId];
-  const codex = step?.codex ? cloneContractValue(step.codex) : null;
-  if (
-    codex &&
-    normalizeStepId(stepId) === "plan_made" &&
-    normalizeCycleNumber(artifacts.activeCycle || "") !== "001"
-  ) {
-    codex.promptIntroText = "Codex will create a revised implementation plan based on the rework notes.";
-  }
-  return codex;
+  return step?.codex ? cloneContractValue(step.codex) : null;
 }
 
 async function buildCodexHandoff(stepId, artifacts = {}) {
@@ -845,6 +822,8 @@ async function buildCodexHandoff(stepId, artifacts = {}) {
 
 async function readSessionArtifacts(paths) {
   const activeCycle = await readActiveCycle(paths);
+  const globalPlanExecutionRecordPath = path.join(paths.sessionRoot, "steps", "plan_executed");
+  const legacyPlanExecutionRecordPath = path.join(cycleStepsRoot(paths, activeCycle), "plan_executed");
   const [
     status,
     rawCurrentStep,
@@ -852,17 +831,13 @@ async function readSessionArtifacts(paths) {
     prUrl,
     issueText,
     issueTitle,
-    planText,
-    issueDetails,
-    agentDecisions,
     finalReportText,
     githubCommentsText,
     codexThreadId,
     workflowVersion,
     baseBranch,
     baseCommit,
-    issueMetadataText,
-    planExecutionReceipt,
+    planExecutionRecord,
     prOutcomeText,
     mainCheckoutSyncText,
     changesCommittedText
@@ -873,29 +848,17 @@ async function readSessionArtifacts(paths) {
     readTrimmedFile(path.join(paths.sessionRoot, "pr_url")),
     readTextIfExists(path.join(paths.sessionRoot, "issue.md")),
     readTrimmedFile(path.join(paths.sessionRoot, "issue_title")),
-    readTextIfExists(cyclePlanPath(paths, activeCycle)),
-    readTextIfExists(path.join(paths.sessionRoot, "issue_details.md")),
-    readTextIfExists(path.join(paths.sessionRoot, "agent_decisions.md")),
     readTextIfExists(path.join(paths.sessionRoot, "final_report.md")),
     readTextIfExists(path.join(paths.sessionRoot, "github_comments.json")),
     readTrimmedFile(path.join(paths.sessionRoot, "codex_thread_id")),
     readWorkflowVersion(paths),
     readTrimmedFile(path.join(paths.sessionRoot, "base_branch")),
     readTrimmedFile(path.join(paths.sessionRoot, "base_commit")),
-    readTextIfExists(path.join(paths.sessionRoot, "issue_metadata.json")),
-    readTextIfExists(path.join(cycleStepsRoot(paths, activeCycle), "plan_executed")),
+    readTextIfExists(globalPlanExecutionRecordPath).then(async (text) => text || await readTextIfExists(legacyPlanExecutionRecordPath)),
     readTextIfExists(path.join(paths.sessionRoot, "pr_outcome.json")),
     readTextIfExists(path.join(paths.sessionRoot, "main_checkout_sync.json")),
     readTextIfExists(path.join(paths.sessionRoot, "changes_committed.json"))
   ]);
-  let issueMetadata = null;
-  if (issueMetadataText) {
-    try {
-      issueMetadata = JSON.parse(issueMetadataText);
-    } catch {
-      issueMetadata = null;
-    }
-  }
   let githubComments = {};
   if (githubCommentsText) {
     try {
@@ -942,9 +905,13 @@ async function readSessionArtifacts(paths) {
   const worktreeReady = await hasWorktree(paths);
   const worktreeStatus = await readWorktreeStatus(paths, worktreeReady);
   const commandLogPath = path.join(paths.sessionRoot, "command_log.jsonl");
-  const dependencyInstallReceipt = await readTextIfExists(path.join(paths.sessionRoot, "steps", "dependencies_installed"));
-  const planExecutionPromptPath = path.join(paths.sessionRoot, "prompts", cyclePlanExecutionPromptFileName(activeCycle));
-  const planExecutionPromptExists = await fileExists(planExecutionPromptPath);
+  const dependencyInstallRecord = await readTextIfExists(path.join(paths.sessionRoot, "steps", "dependencies_installed"));
+  const planExecutionPromptPath = path.join(paths.sessionRoot, "prompts", "plan_executed.md");
+  const legacyPlanExecutionPromptPath = path.join(paths.sessionRoot, "prompts", cyclePlanExecutionPromptFileName(activeCycle));
+  const planExecutionPromptExists = await fileExists(planExecutionPromptPath) || await fileExists(legacyPlanExecutionPromptPath);
+  const resolvedPlanExecutionPromptPath = await fileExists(planExecutionPromptPath)
+    ? planExecutionPromptPath
+    : legacyPlanExecutionPromptPath;
   const appRootForArtifacts = worktreeReady ? paths.worktree : paths.targetRoot;
   const appReady = await inspectReadyJskitAppRoot(appRootForArtifacts);
   const blueprintPath = path.join(appRootForArtifacts, ".jskit", "APP_BLUEPRINT.md");
@@ -952,12 +919,12 @@ async function readSessionArtifacts(paths) {
   const currentStep = normalizeStepId(rawCurrentStep);
   let completedSteps = await readCompletedSteps(paths);
   const worktreeRemovalCompleted = completedSteps.includes("session_finished");
-  const worktreeReceiptInvalid = !worktreeReady &&
+  const worktreeStepRecordInvalid = !worktreeReady &&
     completedSteps.includes("worktree_created") &&
     !worktreeRemovalCompleted &&
     status !== SESSION_STATUS.FINISHED &&
     status !== SESSION_STATUS.ABANDONED;
-  if (worktreeReceiptInvalid) {
+  if (worktreeStepRecordInvalid) {
     completedSteps = completedSteps.filter((stepId) => !["worktree_created", "dependencies_installed"].includes(stepId));
   }
   const nextStep = resolveNextStep(completedSteps);
@@ -987,25 +954,15 @@ async function readSessionArtifacts(paths) {
     commandLogExists: await fileExists(commandLogPath),
     commandLogPath,
     dependencyInstall: {
-      installed: Boolean(dependencyInstallReceipt.trim()),
-      receipt: dependencyInstallReceipt.trim(),
-      status: dependencyInstallReceipt.trim()
+      installed: Boolean(dependencyInstallRecord.trim()),
+      details: dependencyInstallRecord.trim(),
+      status: dependencyInstallRecord.trim()
         ? "installed"
         : worktreeReady ? "pending" : "waiting_for_worktree"
     },
     helperMapExists: await fileExists(helperMapPath),
     helperMapPath,
     githubComments,
-    issueMetadata,
-    issueCategory: normalizeText(issueMetadata?.issueCategory || ""),
-    uiImpact: normalizeText(issueMetadata?.uiImpact || ""),
-    agentDecisions: agentDecisions.trim(),
-    agentDecisionsLatest: agentDecisions
-      .split(/\r?\n/u)
-      .map((line) => line.trim())
-      .filter((line) => line && !line.startsWith("#") && !line.startsWith("Session:"))
-      .slice(-5)
-      .join("\n"),
     issueTitle,
     issueText: issueText.trim(),
     issueUrl,
@@ -1015,12 +972,10 @@ async function readSessionArtifacts(paths) {
     mainCheckoutSync,
     planExecution: {
       prompted: planExecutionPromptExists,
-      promptPath: planExecutionPromptExists ? planExecutionPromptPath : "",
-      receipt: planExecutionReceipt.trim(),
-      submitted: Boolean(planExecutionReceipt.trim())
+      promptPath: planExecutionPromptExists ? resolvedPlanExecutionPromptPath : "",
+      details: planExecutionRecord.trim(),
+      submitted: Boolean(planExecutionRecord.trim())
     },
-    planText: planText.trim(),
-    issueDetails: issueDetails.trim(),
     finalReportText: finalReportText.trim(),
     prompt: prompt.trim(),
     status: status || SESSION_STATUS.PENDING,
@@ -1081,16 +1036,8 @@ async function buildSessionResponse(paths, {
       issueUrl: artifacts.issueUrl || "",
       issueTitle: artifacts.issueTitle || "",
       issueText: artifacts.issueText || "",
-      issueMetadata: cloneContractValue(artifacts.issueMetadata || null),
       githubComments: cloneContractValue(artifacts.githubComments || {}),
-      issueCategory: artifacts.issueCategory || "",
-      uiImpact: artifacts.uiImpact || "",
-      agentDecisionsPath: artifacts.agentDecisions ? path.join(responsePaths.sessionRoot, "agent_decisions.md") : "",
-      agentDecisionsLatest: artifacts.agentDecisionsLatest || "",
       planExecution: cloneContractValue(artifacts.planExecution || null),
-      planText: artifacts.planText || "",
-      issueDetails: artifacts.issueDetails || "",
-      issueDetailsPath: artifacts.issueDetails ? path.join(responsePaths.sessionRoot, "issue_details.md") : "",
       finalReportPath: artifacts.finalReportText ? path.join(responsePaths.sessionRoot, "final_report.md") : "",
       finalReportText: artifacts.finalReportText || "",
       helperMapPath: artifacts.helperMapPath || "",
@@ -1150,16 +1097,8 @@ async function buildSessionResponse(paths, {
     issueUrl: artifacts.issueUrl || "",
     issueTitle: artifacts.issueTitle || "",
     issueText: artifacts.issueText || "",
-    issueMetadata: cloneContractValue(artifacts.issueMetadata || null),
     githubComments: cloneContractValue(artifacts.githubComments || {}),
-    issueCategory: artifacts.issueCategory || "",
-    uiImpact: artifacts.uiImpact || "",
-    agentDecisionsPath: artifacts.agentDecisions ? path.join(responsePaths.sessionRoot, "agent_decisions.md") : "",
-    agentDecisionsLatest: artifacts.agentDecisionsLatest || "",
     planExecution: cloneContractValue(artifacts.planExecution || null),
-    planText: artifacts.planText || "",
-    issueDetails: artifacts.issueDetails || "",
-    issueDetailsPath: artifacts.issueDetails ? path.join(responsePaths.sessionRoot, "issue_details.md") : "",
     finalReportPath: artifacts.finalReportText ? path.join(responsePaths.sessionRoot, "final_report.md") : "",
     finalReportText: artifacts.finalReportText || "",
     helperMapPath: artifacts.helperMapPath || "",
@@ -1229,16 +1168,8 @@ function buildSessionErrorResponse({
     nextCommand: "",
     issueTitle: "",
     issueText: "",
-    issueMetadata: null,
     githubComments: {},
-    issueCategory: "",
-    uiImpact: "",
-    agentDecisionsPath: "",
-    agentDecisionsLatest: "",
     planExecution: null,
-    planText: "",
-    issueDetails: "",
-    issueDetailsPath: "",
     finalReportPath: "",
     finalReportText: "",
     helperMapPath: "",
@@ -1268,27 +1199,28 @@ async function markCurrentStep(paths, stepId) {
   await writeTextFile(path.join(paths.sessionRoot, "current_step"), stepId);
 }
 
-async function writeReceipt(paths, stepId, message) {
-  const activeCycle = await readActiveCycle(paths);
-  const root = isCycleStepId(stepId) ? cycleStepsRoot(paths, activeCycle) : path.join(paths.sessionRoot, "steps");
+async function writeStepRecord(paths, stepId, message) {
+  const root = isCycleStepId(stepId)
+    ? cycleStepsRoot(paths, await readActiveCycle(paths))
+    : path.join(paths.sessionRoot, "steps");
   await mkdir(root, { recursive: true });
   await writeTextFile(
     path.join(root, stepId),
-    `${timestampForReceipt()}\n${normalizeText(message) || STEP_LABEL_BY_ID[stepId] || stepId}`
+    `${timestampForStepRecord()}\n${normalizeText(message) || STEP_LABEL_BY_ID[stepId] || stepId}`
   );
   const completedSteps = await readCompletedSteps(paths);
   await markCurrentStep(paths, resolveNextStep(completedSteps));
 }
 
-async function writeCycleReceipt(paths, receiptName, message, {
+async function writeCycleStepRecord(paths, recordName, message, {
   cycle = ""
 } = {}) {
   const activeCycle = normalizeCycleNumber(cycle || await readActiveCycle(paths));
   const root = cycleStepsRoot(paths, activeCycle);
   await mkdir(root, { recursive: true });
   await writeTextFile(
-    path.join(root, normalizeText(receiptName)),
-    `${timestampForReceipt()}\n${normalizeText(message) || normalizeText(receiptName)}`
+    path.join(root, normalizeText(recordName)),
+    `${timestampForStepRecord()}\n${normalizeText(message) || normalizeText(recordName)}`
   );
 }
 
@@ -1331,12 +1263,12 @@ export {
   markStatus,
   normalizeReviewPassNumber,
   readActiveCycle,
-  readReceiptSteps,
+  readStepRecords,
   readReviewPasses,
   readSessionArtifacts,
   reviewPassDirectoryName,
   reviewPassRoot,
   writeActiveCycle,
-  writeCycleReceipt,
-  writeReceipt
+  writeCycleStepRecord,
+  writeStepRecord
 };
