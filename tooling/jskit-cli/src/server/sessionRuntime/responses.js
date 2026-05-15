@@ -731,7 +731,7 @@ function buildCurrentStepAction(stepId, artifacts = {}) {
   })();
   const dynamicDescription = (() => {
     if (step.id === "plan_executed" && planExecutionPrompted && !planExecutionSubmitted) {
-      return "Codex has the execution prompt. Studio advances when Codex finishes.";
+      return "Codex has the execution prompt. Review the result, then use Go to next step when ready.";
     }
     if (step.id === "deep_ui_check_run" && deepUiCheckPrompted) {
       return "Codex has the Deep UI check prompt. Studio advances when Codex finishes.";
