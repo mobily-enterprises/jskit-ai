@@ -71,6 +71,11 @@ const ACCEPTED_CHANGES_NOOP_WARNING = createWarning({
   message: "No accepted worktree changes were found; continuing without a new commit."
 });
 
+function issueNumberFromUrl(issueUrl = "") {
+  const match = /\/issues\/(\d+)(?:\b|$)/u.exec(String(issueUrl || ""));
+  return match ? match[1] : "";
+}
+
 function normalizeStepId(stepId) {
   return normalizeText(stepId);
 }
@@ -715,26 +720,11 @@ function buildCurrentStepAction(stepId, artifacts = {}) {
     });
   }
   const dynamicButtonLabel = (() => {
-    if (issueDefinitionPrompted) {
-      return "Advance step";
-    }
-    if (issueFilePrompted) {
-      return "Advance step";
-    }
     if (step.id === "issue_created" && !artifacts.issueText) {
       return "Create issue file";
     }
     if (step.id === "issue_created" && artifacts.issueText) {
       return "Create GitHub issue";
-    }
-    if (step.id === "plan_executed" && planExecutionPrompted && !planExecutionSubmitted) {
-      return "Advance step";
-    }
-    if (step.id === "deep_ui_check_run" && deepUiCheckPrompted) {
-      return "Advance step";
-    }
-    if (step.id === "automated_checks_run" && artifacts.prompt) {
-      return "Advance step";
     }
     if (step.id === "main_checkout_synced" && artifacts.prOutcome?.outcome && artifacts.prOutcome.outcome !== "merged") {
       return "Record no sync needed";
@@ -828,6 +818,7 @@ async function readSessionArtifacts(paths) {
     status,
     rawCurrentStep,
     issueUrl,
+    issueNumber,
     prUrl,
     issueText,
     issueTitle,
@@ -845,6 +836,7 @@ async function readSessionArtifacts(paths) {
     readTrimmedFile(path.join(paths.sessionRoot, "status")),
     readTrimmedFile(path.join(paths.sessionRoot, "current_step")),
     readTrimmedFile(path.join(paths.sessionRoot, "issue_url")),
+    readTrimmedFile(path.join(paths.sessionRoot, "metadata", "issue_number")),
     readTrimmedFile(path.join(paths.sessionRoot, "pr_url")),
     readTextIfExists(path.join(paths.sessionRoot, "issue.md")),
     readTrimmedFile(path.join(paths.sessionRoot, "issue_title")),
@@ -968,6 +960,7 @@ async function readSessionArtifacts(paths) {
     helperMapExists: await fileExists(helperMapPath),
     helperMapPath,
     githubComments,
+    issueNumber: issueNumber || issueNumberFromUrl(issueUrl),
     issueTitle,
     issueText: issueText.trim(),
     issueUrl,
@@ -1096,6 +1089,7 @@ async function buildSessionResponse(paths, {
       codex: null,
       prompt: "",
       nextCommand: "",
+      issueNumber: artifacts.issueNumber || "",
       issueUrl: artifacts.issueUrl || "",
       issueTitle: artifacts.issueTitle || "",
       issueText: artifacts.issueText || "",
@@ -1158,6 +1152,7 @@ async function buildSessionResponse(paths, {
     codex: codex === undefined ? await buildCodexHandoff(currentStep, artifacts) : await publicCodexContract(codex),
     prompt: responsePrompt,
     nextCommand: buildNextCommand(paths.sessionId || "", currentStep),
+    issueNumber: artifacts.issueNumber || "",
     issueUrl: artifacts.issueUrl || "",
     issueTitle: artifacts.issueTitle || "",
     issueText: artifacts.issueText || "",

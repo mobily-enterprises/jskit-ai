@@ -188,12 +188,12 @@ const STEP_DEFINITIONS = Object.freeze([
     }),
     kind: "human_input",
     label: "Define issue",
-    nextCommandTemplate: `${JSKIT_CLI_SHELL_COMMAND} session {{session_id}} step --prompt "<what should change>"`,
+    nextCommandTemplate: DEFAULT_NEXT_COMMAND_TEMPLATE,
     preconditions: ["session_exists", "worktree_exists", "dependencies_installed", "ready_jskit_app"]
   }),
   defineStep({
     buttonLabel: "Create issue",
-    description: "Codex writes issue.md from the scoped issue; JSKIT creates the GitHub issue after review.",
+    description: "JSKIT renders the issue-file prompt; Codex writes issue.md and issue_title; JSKIT creates the GitHub issue after review.",
     id: "issue_created",
     label: "Create issue",
     preconditions: ["session_exists", "worktree_exists", "dependencies_installed", "ready_jskit_app"],

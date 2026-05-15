@@ -431,6 +431,48 @@ async function commentOnIssueOnce(paths, {
   };
 }
 
+function issueMetadataFromUrl(issueUrl = "") {
+  const match = /^https:\/\/github\.com\/([^/]+)\/([^/]+)\/issues\/(\d+)(?:\b|$)/u.exec(String(issueUrl || "").trim());
+  if (!match) {
+    return {
+      issueNumber: "",
+      issueUrl: normalizeText(issueUrl),
+      owner: "",
+      repository: ""
+    };
+  }
+  return {
+    issueNumber: match[3],
+    issueUrl: normalizeText(issueUrl),
+    owner: match[1],
+    repository: match[2]
+  };
+}
+
+async function writeIssueMetadataFiles(paths, {
+  issueTitle = "",
+  issueUrl = ""
+} = {}) {
+  const issueDetailsPath = path.join(paths.sessionRoot, "issue_details.md");
+  const issueMetadata = issueMetadataFromUrl(issueUrl);
+  const metadataValues = {
+    issue_body_path: path.join(paths.sessionRoot, "issue.md"),
+    issue_number: issueMetadata.issueNumber,
+    issue_owner: issueMetadata.owner,
+    issue_repository: issueMetadata.repository,
+    issue_title: normalizeText(issueTitle),
+    issue_url: issueMetadata.issueUrl
+  };
+  if (await fileExists(issueDetailsPath)) {
+    metadataValues.issue_details_path = issueDetailsPath;
+  }
+  await Promise.all(
+    Object.entries(metadataValues)
+      .filter(([, value]) => normalizeText(value))
+      .map(([name, value]) => writeTextFile(path.join(paths.sessionRoot, "metadata", name), value))
+  );
+}
+
 async function createSession({
   targetRoot = process.cwd(),
   sessionId = "",
@@ -899,6 +941,10 @@ async function createIssue(paths, _options = {}, context = {}) {
     });
   }
   if (existingIssueUrl) {
+    await writeIssueMetadataFiles(paths, {
+      issueTitle,
+      issueUrl: existingIssueUrl
+    });
     if (completeStep) {
       await writeStepRecord(paths, "issue_created", `Reused GitHub issue ${existingIssueUrl}.`);
     }
@@ -938,6 +984,10 @@ async function createIssue(paths, _options = {}, context = {}) {
   }
   const issueUrl = result.stdout.split(/\r?\n/u).map((line) => line.trim()).find(Boolean) || result.stdout;
   await writeTextFile(path.join(paths.sessionRoot, "issue_url"), issueUrl);
+  await writeIssueMetadataFiles(paths, {
+    issueTitle,
+    issueUrl
+  });
   if (completeStep) {
     await writeStepRecord(paths, "issue_created", `Created GitHub issue ${issueUrl}.`);
   }
@@ -3166,6 +3216,10 @@ async function advanceSessionStep({
           repairCommand: `jskit session ${paths.sessionId} create_issue_on_gh`
         });
       }
+      await writeIssueMetadataFiles(paths, {
+        issueTitle: artifacts.issueTitle || titleFromIssue(artifacts.issueText),
+        issueUrl: artifacts.issueUrl
+      });
       await writeStepRecord(paths, "issue_created", `Created GitHub issue ${artifacts.issueUrl}.`);
       await markStatus(paths, SESSION_STATUS.RUNNING);
       return buildSessionResponse(paths);
