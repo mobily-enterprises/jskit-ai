@@ -241,6 +241,7 @@ const PROMPT_ARTIFACT_BY_STEP_ID = Object.freeze({
   deep_ui_check_run: "deep_ui_check_run.md",
   automated_checks_run: "automated_checks_run.md",
   blueprint_updated: "update_blueprint.md",
+  pr_merge_prepared: "prepare_pr_merge.md",
   user_check_completed: "user_check.md"
 });
 
@@ -681,17 +682,12 @@ function buildCurrentStepAction(stepId, artifacts = {}) {
   }
   if (step.id === "pr_finalized") {
     alternateActions.push({
-      id: "close_without_merge",
-      helpText: "Leave the PR open, record the reason, and remove the session worktree without merging.",
+      id: "skip_merge",
+      helpText: "Leave the PR open and record the skipped-merge outcome; final cleanup removes the session worktree.",
       input: {
-        formatHint: "markdown",
-        label: "Why is this session finishing without merge?",
-        multiline: true,
-        name: "closeReason",
-        required: true,
-        type: "text"
+        type: "none"
       },
-      label: "Finish without merge",
+      label: "Skip merge",
       presentation: "secondary",
       submitOptions: {
         closeWithoutMerge: true
@@ -858,7 +854,7 @@ async function readSessionArtifacts(paths) {
   const helperMapPath = path.join(appRootForArtifacts, ".jskit", "helper-map.md");
   const currentStep = normalizeStepId(rawCurrentStep);
   let completedSteps = await readCompletedSteps(paths);
-  const worktreeRemovalCompleted = completedSteps.includes("pr_finalized");
+  const worktreeRemovalCompleted = completedSteps.includes("session_finished");
   const worktreeReceiptInvalid = !worktreeReady &&
     completedSteps.includes("worktree_created") &&
     !worktreeRemovalCompleted &&

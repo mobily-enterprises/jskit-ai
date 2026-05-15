@@ -7,6 +7,7 @@ import {
   inspectSessionDiff,
   inspectSessionDetails,
   listSessions,
+  rewindSession,
   runSessionStep
 } from "../sessionRuntime.js";
 
@@ -270,7 +271,7 @@ async function resolveStepInputs({
     fileOption: "close-reason-file",
     inlineOptions,
     io,
-    repairCommand: `jskit session ${sessionId} step --close-without-merge --close-reason "<reason>"`,
+    repairCommand: `jskit session ${sessionId} step --skip-merge --close-reason "<reason>"`,
     cwd,
     sessionId,
     stdinOption: "-",
@@ -312,7 +313,10 @@ async function resolveStepInputs({
 function normalizeStepOptions(inlineOptions = {}) {
   const options = {
     ...inlineOptions,
-    closeWithoutMerge: inlineOptions["close-without-merge"] === "true" || inlineOptions.closeWithoutMerge === true,
+    closeWithoutMerge: inlineOptions["close-without-merge"] === "true" ||
+      inlineOptions.closeWithoutMerge === true ||
+      inlineOptions["skip-merge"] === "true" ||
+      inlineOptions.skipMerge === true,
     mergePr: inlineOptions["merge-pr"] === "true" || inlineOptions.mergePr === true,
     prompt: inlineOptions.prompt,
     reviewFindings: inlineOptions["review-findings"] || inlineOptions.reviewFindings,
@@ -394,6 +398,12 @@ function createSessionCommands() {
         payload = await inspectSessionDiff({
           targetRoot: cwd,
           sessionId: first
+        });
+      } else if (second === "rewind") {
+        payload = await rewindSession({
+          targetRoot: cwd,
+          sessionId: first,
+          stepId: inlineOptions.step
         });
       } else if (second === "adopt-codex-thread") {
         payload = await adoptCodexThreadId({

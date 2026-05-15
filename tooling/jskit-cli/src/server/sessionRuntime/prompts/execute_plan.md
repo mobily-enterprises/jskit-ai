@@ -41,6 +41,7 @@ After making changes:
 - Review for repeated code, unnecessary helpers, fragmented functions, placeholder work, missing states, broken route wiring, ownership mistakes, and weak JSKIT reuse.
 - Run the smallest relevant checks you can run safely in the worktree.
 - For changed user-facing UI, run or clearly identify the Playwright verification path. When possible, record UI verification with `npx --no-install jskit app verify-ui --command "<playwright command>" --feature "<label>" --auth-mode <mode>`.
+- `npx --no-install jskit app verify-ui` does not start the app server. Before using it for Playwright, make sure the app is reachable. If a local server is needed, inspect `.jskit/config/testrun_command` when present and use the app's documented server command, or start the server explicitly and wait for it before invoking `verify-ui`. Do not first run a bare Playwright command against a stopped server.
 - Summarize changed files and checks run.
 - If implementation deviated from the approved plan, generator choices, package ownership, helper reuse, UI verification path, or data ownership, include concise decision entries with reasons in this exact marker block:
 

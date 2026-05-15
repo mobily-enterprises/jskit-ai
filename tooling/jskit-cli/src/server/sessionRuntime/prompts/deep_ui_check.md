@@ -34,6 +34,8 @@ Use Playwright for a meaningful route check when possible. If login is required,
 
 `npx --no-install jskit app verify-ui --command "<playwright command>" --feature "<label>" --auth-mode <mode>`
 
+Important: `npx --no-install jskit app verify-ui` does not start the app server. Before running it, make sure the app is reachable by Playwright. If a local server is needed, inspect `.jskit/config/testrun_command` when present and use the app's documented server command, or start the server explicitly and wait for it before invoking `verify-ui`. Do not first run a bare Playwright command against a stopped server.
+
 Do not create commits, branches, issues, pull requests, merges, or worktree cleanup. JSKIT session owns those steps.
 
 If this pass makes UI fixes, intentionally skips UI work after inspection, changes a design direction, or leaves a meaningful UI verification gap, include concise decision entries with reasons in this exact marker block:

@@ -51,6 +51,7 @@ Use four passes:
    - run the smallest relevant verification commands for the changed scope
    - any changed user-facing UI should be exercised with Playwright when possible
    - UI verification should normally be recorded through `npx --no-install jskit app verify-ui`
+   - `npx --no-install jskit app verify-ui` does not start the app server; if Playwright needs a local server, inspect `.jskit/config/testrun_command` when present and start or wrap the documented server command before invoking `verify-ui`
    - if login is required, use the chosen local test-auth path instead of live external auth
    - if there is no usable local auth bootstrap path, record it as a blocking testability gap
 

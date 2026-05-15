@@ -16,6 +16,7 @@ import {
   extractIssueText,
   extractPlanText,
   inspectSessionDetails,
+  rewindSession,
   runSessionStep
 } from "../src/server/sessionRuntime.js";
 import {
@@ -114,6 +115,26 @@ function runSessionStepJsonFailure(cwd, sessionId, {
     args: ["session", sessionId, "step", ...args, "--json"],
     env,
     input
+  }));
+}
+
+function rewindSessionJson(cwd, sessionId, stepId, {
+  env = undefined
+} = {}) {
+  return parseJsonResult(runCli({
+    cwd,
+    args: ["session", sessionId, "rewind", "--step", stepId, "--json"],
+    env
+  }));
+}
+
+function rewindSessionJsonFailure(cwd, sessionId, stepId, {
+  env = undefined
+} = {}) {
+  return parseJsonFailure(runCli({
+    cwd,
+    args: ["session", sessionId, "rewind", "--step", stepId, "--json"],
+    env
   }));
 }
 
@@ -516,16 +537,26 @@ test("jskit session JSON exposes JSKIT-owned step UI and Codex handoff contract"
     assert.equal(created.stepDefinitions.find((step) => step.id === "issue_created").requiresExplicitRun, false);
     assert.equal(created.stepDefinitions.find((step) => step.id === "final_report_created").requiresExplicitRun, false);
     assert.equal(created.stepDefinitions.find((step) => step.id === "pr_created").requiresExplicitRun, false);
+    assert.equal(created.stepDefinitions.find((step) => step.id === "pr_merge_prepared").requiresExplicitRun, true);
+    assert.equal(created.stepDefinitions.find((step) => step.id === "pr_merge_prepared").label, "PR merge prepared");
+    assert.equal(created.stepDefinitions.find((step) => step.id === "pr_merge_prepared").kind, "automatic");
     assert.equal(created.stepDefinitions.find((step) => step.id === "pr_finalized").requiresExplicitRun, true);
+    assert.equal(created.stepDefinitions.find((step) => step.id === "pr_finalized").label, "PR finalized");
+    assert.equal(created.stepDefinitions.find((step) => step.id === "pr_finalized").kind, "automatic");
     assert.equal(created.stepDefinitions.find((step) => step.id === "issue_details_gathered").label, "Issue details gathered");
     assert.equal(created.stepDefinitions.find((step) => step.id === "issue_details_gathered").input.label, "Confirmed issue details");
     assert.deepEqual(created.stepDefinitions.find((step) => step.id === "dependencies_installed").automation, { mode: "terminal" });
     assert.deepEqual(created.stepDefinitions.find((step) => step.id === "issue_created").automation, { mode: "immediate" });
     assert.deepEqual(created.stepDefinitions.find((step) => step.id === "issue_drafted").automation, { mode: "codex_output_prompt" });
     assert.deepEqual(created.stepDefinitions.find((step) => step.id === "plan_executed").automation, { mode: "codex_prompt" });
+    assert.deepEqual(created.stepDefinitions.find((step) => step.id === "pr_merge_prepared").automation, { mode: "manual" });
     assert.deepEqual(created.stepDefinitions.find((step) => step.id === "pr_finalized").automation, { mode: "manual" });
     assert.equal(created.stepDefinitions.find((step) => step.id === "review_prompt_rendered").codex.responseContract.resolvePrompt.templateFile, "resolve_deslop_findings.md");
+    assert.equal(Object.hasOwn(created.stepDefinitions.find((step) => step.id === "pr_merge_prepared").codex, "responseContract"), false);
+    assert.equal(created.stepDefinitions.find((step) => step.id === "pr_merge_prepared").utilityActions[0].label, "Get Codex ready to merge PR");
+    assert.deepEqual(created.stepDefinitions.find((step) => step.id === "pr_merge_prepared").utilityActions[0].submitOptions, { prepareMerge: true });
     assert.deepEqual(created.stepDefinitions.find((step) => step.id === "review_changes_accepted").submitOptions, { reviewFindingsRemaining: false });
+    assert.deepEqual(created.stepDefinitions.find((step) => step.id === "pr_merge_prepared").submitOptions, { continueToMerge: true });
     assert.deepEqual(created.stepDefinitions.find((step) => step.id === "pr_finalized").submitOptions, { mergePr: true });
     assert.equal(created.codex, null);
 
@@ -611,6 +642,154 @@ test("jskit session returns JSON failures for invalid session ids", async () => 
     assert.equal(payload.ok, false);
     assert.equal(payload.sessionId, "invalid");
     assert.equal(payload.errors[0].code, "invalid_session_id");
+  });
+});
+
+test("jskit session rewind deletes target and later normal-step artifacts", async () => {
+  await withTempDir(async (cwd) => {
+    const appRoot = path.join(cwd, "app");
+    await createGitApp(appRoot);
+
+    const created = parseJsonResult(runCli({
+      cwd: appRoot,
+      args: ["session", "create", "--json"]
+    }));
+    advanceCliSessionToIssuePrompt(appRoot, created.sessionId);
+    const prompted = runSessionStepJson(appRoot, created.sessionId, {
+      args: ["--prompt", "Add session rewind"]
+    });
+    assert.equal(prompted.currentStep, "issue_drafted");
+
+    const rewound = rewindSessionJson(appRoot, created.sessionId, "dependencies_installed");
+    assert.equal(rewound.ok, true);
+    assert.equal(rewound.status, "pending");
+    assert.equal(rewound.currentStep, "dependencies_installed");
+    assert.deepEqual(rewound.completedSteps, ["session_created", "worktree_created"]);
+    assert.equal(rewound.dependencyInstall.installed, false);
+    assert.equal(rewound.dependencyInstall.status, "pending");
+    assert.equal(rewound.prompt, "");
+    assert.equal(rewound.currentStepAction.stepId, "dependencies_installed");
+
+    await assert.rejects(access(path.join(rewound.sessionRoot, "steps", "dependencies_installed")));
+    await assert.rejects(access(path.join(rewound.sessionRoot, "steps", "issue_prompt_rendered")));
+    await assert.rejects(access(path.join(rewound.sessionRoot, "prompts", "issue_draft.md")));
+  });
+});
+
+test("jskit session rewind to plan_made clears cycle and rework state", async () => {
+  await withTempDir(async (cwd) => {
+    const appRoot = path.join(cwd, "app");
+    await createGitApp(appRoot);
+
+    const created = parseJsonResult(runCli({
+      cwd: appRoot,
+      args: ["session", "create", "--json"]
+    }));
+    advanceCliSessionToIssuePrompt(appRoot, created.sessionId);
+    const sessionRoot = created.sessionRoot;
+    await writeFile(path.join(sessionRoot, "issue.md"), "Issue body.\n", "utf8");
+    await writeFile(path.join(sessionRoot, "issue_title"), "Issue title\n", "utf8");
+    await writeFile(path.join(sessionRoot, "issue_url"), "https://github.com/example/repo/issues/123\n", "utf8");
+    await writeFile(path.join(sessionRoot, "issue_details.md"), "Issue details.\n", "utf8");
+    await writeIssueMetadata(sessionRoot, {
+      category: "client",
+      uiImpact: "possible"
+    });
+    await writeStepReceipts(sessionRoot, [
+      "issue_prompt_rendered",
+      "issue_drafted",
+      "issue_created",
+      "issue_details_gathered",
+      "plan_made",
+      "plan_executed",
+      "deep_ui_check_run",
+      "review_prompt_rendered",
+      "review_changes_accepted",
+      "automated_checks_run",
+      "user_check_completed",
+      "changes_committed",
+      "final_report_created"
+    ]);
+    await writeCyclePlan(sessionRoot, "Cycle 001 plan.\n", "001");
+    await writeCyclePlan(sessionRoot, "Cycle 002 plan.\n", "002");
+    await mkdir(path.join(sessionRoot, "steps", "cycle_002"), { recursive: true });
+    await writeFile(path.join(sessionRoot, "steps", "cycle_002", "plan_made"), "2026-05-11T00:00:00.000Z\nplan_made\n", "utf8");
+    await writeFile(path.join(sessionRoot, "steps", "cycle_002", "cycle_started"), "2026-05-11T00:00:00.000Z\ncycle_started\n", "utf8");
+    await writeFile(path.join(sessionRoot, "active_cycle"), "002\n", "utf8");
+    await mkdir(path.join(sessionRoot, "prompts"), { recursive: true });
+    await writeFile(path.join(sessionRoot, "prompts", "cycle_002_plan_request.md"), "Cycle 002 prompt.\n", "utf8");
+    await mkdir(path.join(sessionRoot, "checks"), { recursive: true });
+    await writeFile(path.join(sessionRoot, "checks", "automated_checks_run.json"), "{\"stepId\":\"automated_checks_run\"}\n", "utf8");
+    await mkdir(path.join(sessionRoot, "ui_checks"), { recursive: true });
+    await writeFile(path.join(sessionRoot, "ui_checks", "deep_ui_check_run.json"), "{\"stepId\":\"deep_ui_check_run\"}\n", "utf8");
+    await mkdir(path.join(sessionRoot, "cycles", "cycle_002"), { recursive: true });
+    await writeFile(path.join(sessionRoot, "cycles", "cycle_002", "rework_request.md"), "Fix the result.\n", "utf8");
+    await writeFile(path.join(sessionRoot, "changes_committed.json"), "{\"commit\":\"abc123\"}\n", "utf8");
+    await writeFile(path.join(sessionRoot, "final_report.md"), "Final report.\n", "utf8");
+
+    const rewound = await rewindSession({
+      targetRoot: appRoot,
+      sessionId: created.sessionId,
+      stepId: "plan_made"
+    });
+    assert.equal(rewound.ok, true);
+    assert.equal(rewound.status, "pending");
+    assert.equal(rewound.currentStep, "plan_made");
+    assert.equal(rewound.currentStepAction.stepId, "plan_made");
+    assert.equal(rewound.activeCycle, "001");
+    assert.deepEqual(rewound.cycles.map((cycle) => cycle.cycle), ["001"]);
+    assert.deepEqual(rewound.checks, []);
+    assert.deepEqual(rewound.uiChecks, []);
+    assert.deepEqual(rewound.reviewPasses, []);
+    assert.equal(rewound.planText, "");
+    assert.equal(rewound.prompt, "");
+    assert.deepEqual(rewound.completedSteps, [
+      "session_created",
+      "worktree_created",
+      "dependencies_installed",
+      "issue_prompt_rendered",
+      "issue_drafted",
+      "issue_created",
+      "issue_details_gathered"
+    ]);
+
+    await assert.rejects(access(path.join(sessionRoot, "steps", "cycle_001")));
+    await assert.rejects(access(path.join(sessionRoot, "steps", "cycle_002")));
+    await assert.rejects(access(path.join(sessionRoot, "cycles", "cycle_001")));
+    await assert.rejects(access(path.join(sessionRoot, "cycles", "cycle_002")));
+    await assert.rejects(access(path.join(sessionRoot, "checks")));
+    await assert.rejects(access(path.join(sessionRoot, "ui_checks")));
+    await assert.rejects(access(path.join(sessionRoot, "review_passes")));
+    await assert.rejects(access(path.join(sessionRoot, "changes_committed.json")));
+    await assert.rejects(access(path.join(sessionRoot, "final_report.md")));
+    assert.equal(await readFile(path.join(sessionRoot, "issue_details.md"), "utf8"), "Issue details.\n");
+  });
+});
+
+test("jskit session rewind rejects disallowed, incomplete, and closed targets without mutation", async () => {
+  await withTempDir(async (cwd) => {
+    const appRoot = path.join(cwd, "app");
+    await createGitApp(appRoot);
+
+    const created = parseJsonResult(runCli({
+      cwd: appRoot,
+      args: ["session", "create", "--json"]
+    }));
+    advanceCliSessionToIssuePrompt(appRoot, created.sessionId);
+    const sessionRoot = created.sessionRoot;
+    await writeStepReceipts(sessionRoot, ["plan_made", "plan_executed"]);
+
+    const disallowed = rewindSessionJsonFailure(appRoot, created.sessionId, "plan_executed");
+    assert.equal(disallowed.errors[0].code, "rewind_step_not_allowed");
+    assert.equal(await readFile(path.join(sessionRoot, "steps", "cycle_001", "plan_executed"), "utf8").then((body) => body.includes("plan_executed")), true);
+
+    const incomplete = rewindSessionJsonFailure(appRoot, created.sessionId, "issue_created");
+    assert.equal(incomplete.errors[0].code, "rewind_step_not_completed");
+
+    await writeFile(path.join(sessionRoot, "status"), "finished\n", "utf8");
+    const closed = rewindSessionJsonFailure(appRoot, created.sessionId, "dependencies_installed");
+    assert.equal(closed.errors[0].code, "session_closed_read_only");
+    await access(path.join(sessionRoot, "steps", "dependencies_installed"));
   });
 });
 
@@ -831,11 +1010,15 @@ test("session prompts reference canonical session artifacts", async () => {
   assert.match(prompts["plan_issue.md"], /agent_decisions\.md/);
   assert.match(prompts["execute_plan.md"], /issue_details\.md/);
   assert.match(prompts["execute_plan.md"], /agent_decisions/);
+  assert.match(prompts["execute_plan.md"], /verify-ui` does not start the app server/);
   assert.ok(!Object.hasOwn(prompts, "fine_tune_plan.md"));
   assert.match(prompts["review_changes.md"], /\.jskit\/helper-map\.md/);
+  assert.match(prompts["review_changes.md"], /verify-ui` does not start the app server/);
+  assert.match(prompts["deep_ui_check.md"], /verify-ui` does not start the app server/);
   assert.match(prompts["resolve_deslop_findings.md"], /\[resolve_deslop_findings\]/);
   assert.match(prompts["update_blueprint.md"], /\.jskit\/APP_BLUEPRINT\.md/);
   assert.match(prompts["update_blueprint.md"], /agent_decisions\.md/);
+  assert.match(prompts["prepare_pr_merge.md"], /Do not merge the pull request/);
 });
 
 test("jskit session step creates worktree and issue prompt", async () => {
@@ -2367,9 +2550,11 @@ test("jskit session can execute review loop, PR, merge, cleanup, and finish", as
     assert.equal(finalReport.githubComments.final_report.purpose, "final_report");
     const pr = runSessionStepJson(appRoot, created.sessionId, { env });
     assert.equal(pr.prUrl, "https://github.com/example/repo/pull/456");
-    assert.equal(pr.currentStep, "pr_finalized");
-    assert.equal(pr.currentStepAction.buttonLabel, "Merge PR");
+    assert.equal(pr.currentStep, "pr_merge_prepared");
+    assert.equal(pr.currentStepAction.buttonLabel, "Continue to merge");
     assert.equal(pr.currentStepAction.requiresExplicitRun, true);
+    assert.equal(pr.currentStepAction.utilityActions[0].id, "prepare_pr_merge");
+    assert.equal(pr.currentStepAction.utilityActions[0].label, "Get Codex ready to merge PR");
     const helperMap = JSON.parse(await readFile(path.join(inspect.worktree, ".jskit", "helper-map.json"), "utf8"));
     assert.ok(helperMap.app.files.some((file) => {
       return file.path === "src/lib/formatFeatureTitle.js" &&
@@ -2377,6 +2562,29 @@ test("jskit session can execute review loop, PR, merge, cleanup, and finish", as
     }));
     assert.match(runGit(inspect.worktree, ["log", "--oneline", "--max-count=3"]), /Update JSKIT helper map/);
     assert.match(runGit(inspect.worktree, ["show", `origin/${pr.branch}:.jskit/helper-map.md`]), /formatFeatureTitle/);
+    const prepareDecisionRequired = runSessionStepJsonFailure(appRoot, created.sessionId, { env });
+    assert.equal(prepareDecisionRequired.errors[0].code, "pr_merge_prepare_decision_required");
+    const mergePrepPrompt = runSessionStepJson(appRoot, created.sessionId, {
+      args: ["--prepare-merge", "true"],
+      env
+    });
+    assert.equal(mergePrepPrompt.currentStep, "pr_merge_prepared");
+    assert.equal(mergePrepPrompt.status, "waiting_for_user");
+    assert.match(mergePrepPrompt.prompt, /Prepare the JSKIT session pull request for merge/);
+    assert.doesNotMatch(mergePrepPrompt.prompt, /\[jskit_step_result\]/);
+    assert.equal(Object.hasOwn(mergePrepPrompt.codex, "responseContract"), false);
+    await access(inspect.worktree);
+    await assert.rejects(access(path.join(pr.sessionRoot, "steps", "pr_merge_prepared")));
+    const mergeDecision = runSessionStepJson(appRoot, created.sessionId, {
+      args: ["--continue-to-merge", "true"],
+      env
+    });
+    assert.equal(mergeDecision.currentStep, "pr_finalized");
+    assert.equal(mergeDecision.currentStepAction.buttonLabel, "Merge PR");
+    assert.equal(mergeDecision.currentStepAction.alternateActions[0].id, "skip_merge");
+    assert.equal(mergeDecision.currentStepAction.alternateActions[0].label, "Skip merge");
+    assert.deepEqual(mergeDecision.currentStepAction.alternateActions[0].input, { type: "none" });
+    await access(path.join(pr.sessionRoot, "steps", "pr_merge_prepared"));
     const mergeDecisionRequired = runSessionStepJsonFailure(appRoot, created.sessionId, { env });
     assert.equal(mergeDecisionRequired.errors[0].code, "pr_finalize_decision_required");
     const merged = runSessionStepJson(appRoot, created.sessionId, {
@@ -2385,11 +2593,12 @@ test("jskit session can execute review loop, PR, merge, cleanup, and finish", as
     });
     assert.equal(merged.currentStep, "session_finished");
     assert.equal(merged.prOutcome.outcome, "merged");
+    await access(inspect.worktree);
+    const finished = runSessionStepJson(appRoot, created.sessionId, { env });
+    assertSessionContractFields(finished);
     assert.equal(await readFile(path.join(appRoot, "feature.txt"), "utf8"), "hello\\n");
     assert.match(await readFile(path.join(appRoot, ".jskit", "helper-map.md"), "utf8"), /formatFeatureTitle/);
     await assert.rejects(access(inspect.worktree));
-    const finished = runSessionStepJson(appRoot, created.sessionId, { env });
-    assertSessionContractFields(finished);
 
     assert.equal(finished.status, "finished");
     assert.equal(finished.currentStep, "");
@@ -2418,6 +2627,7 @@ test("jskit session can execute review loop, PR, merge, cleanup, and finish", as
     const commandLog = await readFile(path.join(finished.sessionRoot, "command_log.jsonl"), "utf8");
     assert.match(commandLog, /"kind":"dependencies_install"/);
     assert.match(commandLog, /"kind":"github_pr_create"/);
+    assert.match(commandLog, /"kind":"github_pr_view"/);
     assert.match(commandLog, /"kind":"github_pr_merge"/);
     await assert.rejects(access(path.join(appRoot, ".jskit", "sessions", "active", created.sessionId)));
     const listed = parseJsonResult(runCli({ cwd: appRoot, args: ["session", "--json"], env }));
@@ -2433,6 +2643,7 @@ test("jskit session can execute review loop, PR, merge, cleanup, and finish", as
     assert.match(log, /gh pr create/);
     assert.match(log, /gh pr view https:\/\/github\.com\/example\/repo\/pull\/456 --json state,mergedAt,url,baseRefName/);
     assert.match(log, /gh pr merge https:\/\/github\.com\/example\/repo\/pull\/456 --merge --delete-branch/);
+    assert.match(log, /gh issue close https:\/\/github\.com\/example\/repo\/issues\/123/);
     assert.match(log, /gh issue comment https:\/\/github\.com\/example\/repo\/issues\/123 --body-file/);
   });
 });
@@ -2465,7 +2676,7 @@ test("jskit session reuses an existing current-branch PR during PR creation", as
     await writeStepReceipts(session.sessionRoot, STEP_IDS.slice(0, STEP_IDS.indexOf("pr_created")));
 
     const pr = runSessionStepJson(appRoot, created.sessionId, { env });
-    assert.equal(pr.currentStep, "pr_finalized");
+    assert.equal(pr.currentStep, "pr_merge_prepared");
     assert.equal(pr.prUrl, existingPrUrl);
     assert.match(await readFile(path.join(session.sessionRoot, "steps", "pr_created"), "utf8"), /reused existing PR/);
     const log = await readFile(logPath, "utf8");
@@ -2476,7 +2687,7 @@ test("jskit session reuses an existing current-branch PR during PR creation", as
   });
 });
 
-test("jskit session treats an already-merged PR as merged and removes the worktree", async () => {
+test("jskit session treats an already-merged PR as merged before final cleanup", async () => {
   await withTempDir(async (cwd) => {
     const appRoot = path.join(cwd, "app");
     const binDir = path.join(cwd, "bin");
@@ -2523,7 +2734,7 @@ process.exit(1);
     assert.equal(merged.currentStep, "session_finished");
     assert.ok(merged.completedSteps.includes("pr_finalized"));
     assert.equal(merged.prOutcome.outcome, "merged");
-    await assert.rejects(access(worktreePayload.worktree));
+    await access(worktreePayload.worktree);
     const log = await readFile(logPath, "utf8");
     assert.match(log, /gh pr view https:\/\/github\.com\/example\/repo\/pull\/456 --json state,mergedAt,url,baseRefName/);
     assert.doesNotMatch(log, /gh pr merge/);
@@ -2531,7 +2742,7 @@ process.exit(1);
   });
 });
 
-test("jskit session blocks PR merge cleanup when the target root is dirty", async () => {
+test("jskit session blocks final cleanup when the target root is dirty", async () => {
   await withTempDir(async (cwd) => {
     const appRoot = path.join(cwd, "app");
     const binDir = path.join(cwd, "bin");
@@ -2568,14 +2779,19 @@ process.exit(1);
     await writeIssueMetadata(worktreePayload.sessionRoot);
     await writeFile(path.join(appRoot, "local-change.txt"), "dirty\n", "utf8");
 
-    const blocked = parseJsonFailure(runCli({ cwd: appRoot, args: ["session", created.sessionId, "step", "--merge-pr", "true", "--json"], env }));
+    const merged = parseJsonResult(runCli({ cwd: appRoot, args: ["session", created.sessionId, "step", "--merge-pr", "true", "--json"], env }));
+    assert.equal(merged.currentStep, "session_finished");
+    assert.ok(merged.completedSteps.includes("pr_finalized"));
+
+    const blocked = parseJsonFailure(runCli({ cwd: appRoot, args: ["session", created.sessionId, "step", "--json"], env }));
     assert.equal(blocked.errors[0].code, "target_root_dirty");
     await access(worktreePayload.worktree);
-    await assert.rejects(access(path.join(worktreePayload.sessionRoot, "steps", "pr_finalized")));
+    await access(path.join(worktreePayload.sessionRoot, "steps", "pr_finalized"));
+    await assert.rejects(access(path.join(worktreePayload.sessionRoot, "steps", "session_finished")));
     const log = await readFile(logPath, "utf8");
     assert.match(log, /gh pr view https:\/\/github\.com\/example\/repo\/pull\/456 --json state,mergedAt,url,baseRefName/);
     assert.doesNotMatch(log, /gh pr merge/);
-    assert.doesNotMatch(log, /gh issue close/);
+    assert.match(log, /gh issue close https:\/\/github\.com\/example\/repo\/issues\/123/);
   });
 });
 
@@ -2600,28 +2816,22 @@ test("jskit session can finish successfully without merging the PR", async () =>
     await writeFile(path.join(worktreePayload.sessionRoot, "pr_url"), "https://github.com/example/repo/pull/456\n", "utf8");
     await writeIssueMetadata(worktreePayload.sessionRoot);
 
-    const missingReason = parseJsonFailure(runCli({
-      cwd: appRoot,
-      args: ["session", created.sessionId, "step", "--close-without-merge", "--json"],
-      env
-    }));
-    assert.equal(missingReason.errors[0].code, "close_without_merge_reason_required");
-
     const closed = parseJsonResult(runCli({
       cwd: appRoot,
-      args: ["session", created.sessionId, "step", "--close-without-merge", "--close-reason", "Prototype not approved for merge.", "--json"],
+      args: ["session", created.sessionId, "step", "--skip-merge", "--json"],
       env
     }));
     assert.equal(closed.currentStep, "session_finished");
     assert.equal(closed.prOutcome.outcome, "closed_without_merge");
-    assert.equal(closed.prOutcome.reason, "Prototype not approved for merge.");
-    await assert.rejects(access(worktreePayload.worktree));
+    assert.equal(closed.prOutcome.reason, "User skipped merge in JSKIT Studio.");
+    await access(worktreePayload.worktree);
 
     const finished = parseJsonResult(runCli({ cwd: appRoot, args: ["session", created.sessionId, "step", "--json"], env }));
     assertSessionContractFields(finished);
     assert.equal(finished.status, "finished");
     assert.equal(finished.archive, "completed");
     assert.equal(finished.prOutcome.outcome, "closed_without_merge");
+    await assert.rejects(access(worktreePayload.worktree));
 
     const log = await readFile(logPath, "utf8");
     assert.match(log, /gh pr comment https:\/\/github\.com\/example\/repo\/pull\/456 --body JSKIT session/);
