@@ -13,6 +13,7 @@ import path from "node:path";
 import {
   BLUEPRINT_CODEX_HANDOFF,
   AUTOMATED_CHECK_REPAIR_CODEX_HANDOFF,
+  DEPENDENCIES_INSTALL_RESULT_FILE,
 	  DEEP_UI_CHECK_CODEX_HANDOFF,
 	  ISSUE_DEFINITION_CODEX_HANDOFF,
 	  ISSUE_FILE_CODEX_HANDOFF,
@@ -618,6 +619,7 @@ async function removeEmptyStaleWorktreeDirectory(paths) {
 
 async function createWorktree(paths, _options = {}, context = {}) {
   const preconditions = context.preconditions || [];
+  const completeStep = context.completeStep !== false;
   const [baseBranchResult, baseCommitResult] = await Promise.all([
     runGit(paths.targetRoot, ["branch", "--show-current"], { timeout: 15000 }),
     runGit(paths.targetRoot, ["rev-parse", "--verify", "HEAD"], { timeout: 15000 })
@@ -631,7 +633,9 @@ async function createWorktree(paths, _options = {}, context = {}) {
     if (baseCommit && !await readTrimmedFile(path.join(paths.sessionRoot, "base_commit"))) {
       await writeTextFile(path.join(paths.sessionRoot, "base_commit"), `${baseCommit}\n`);
     }
-    await writeStepRecord(paths, "worktree_created", `Reused existing worktree ${paths.worktree}.`);
+    if (completeStep) {
+      await writeStepRecord(paths, "worktree_created", `Reused existing worktree ${paths.worktree}.`);
+    }
     await markStatus(paths, SESSION_STATUS.RUNNING);
     return buildSessionResponse(paths, {
       preconditions
@@ -666,7 +670,9 @@ async function createWorktree(paths, _options = {}, context = {}) {
   if (baseCommit) {
     await writeTextFile(path.join(paths.sessionRoot, "base_commit"), `${baseCommit}\n`);
   }
-  await writeStepRecord(paths, "worktree_created", `Created worktree ${paths.worktree} on branch ${paths.branch}.`);
+  if (completeStep) {
+    await writeStepRecord(paths, "worktree_created", `Created worktree ${paths.worktree} on branch ${paths.branch}.`);
+  }
   await markStatus(paths, SESSION_STATUS.RUNNING);
   return buildSessionResponse(paths, {
     preconditions
@@ -678,6 +684,20 @@ async function recordDependenciesInstalled(paths, {
   preconditions = []
 } = {}) {
   await writeStepRecord(paths, "dependencies_installed", message);
+  await markStatus(paths, SESSION_STATUS.RUNNING);
+  return buildSessionResponse(paths, {
+    preconditions
+  });
+}
+
+async function recordDependencyInstallResult(paths, {
+  message = "Installed Node dependencies in the session worktree.",
+  preconditions = []
+} = {}) {
+  await writeTextFile(
+    path.join(paths.sessionRoot, DEPENDENCIES_INSTALL_RESULT_FILE),
+    `${timestampForStepRecord()}\n${normalizeText(message) || "Installed Node dependencies in the session worktree."}`
+  );
   await markStatus(paths, SESSION_STATUS.RUNNING);
   return buildSessionResponse(paths, {
     preconditions
@@ -742,6 +762,7 @@ async function dependencyInstallCommandForWorktree(worktree) {
 
 async function installDependencies(paths, _options = {}, context = {}) {
   const preconditions = context.preconditions || [];
+  const completeStep = context.completeStep !== false;
   const [command, args] = await dependencyInstallCommandForWorktree(paths.worktree);
   const result = await runLoggedCommand(paths, "dependencies_install", command, args, {
     cwd: paths.worktree,
@@ -763,7 +784,8 @@ async function installDependencies(paths, _options = {}, context = {}) {
     return provisionResult.response;
   }
   const installMessage = result.output || `Installed Node dependencies in the session worktree with ${command} ${args.join(" ")}.`;
-  return recordDependenciesInstalled(paths, {
+  const recorder = completeStep ? recordDependenciesInstalled : recordDependencyInstallResult;
+  return recorder(paths, {
     message: provisionResult.ran ? `${installMessage}\n${SESSION_PROVISION_PACKAGE_SCRIPT} completed.` : installMessage,
     preconditions
   });
@@ -798,7 +820,7 @@ async function adoptDependenciesInstalled({
     const hookMessage = provisionResult.ran
       ? `${normalizeText(message) || "Installed Node dependencies in the session worktree."}\n${SESSION_PROVISION_PACKAGE_SCRIPT} completed.`
       : message;
-    return recordDependenciesInstalled(paths, {
+    return recordDependencyInstallResult(paths, {
       message: hookMessage,
       preconditions
     });
@@ -858,6 +880,7 @@ function titleFromIssue(issueText) {
 
 async function createIssue(paths, _options = {}, context = {}) {
   const preconditions = context.preconditions || [];
+  const completeStep = context.completeStep !== false;
   const existingIssueUrl = await readTrimmedFile(path.join(paths.sessionRoot, "issue_url"));
   const issueText = await readTrimmedFile(path.join(paths.sessionRoot, "issue.md"));
   const issueTitle = await readTrimmedFile(path.join(paths.sessionRoot, "issue_title")) || titleFromIssue(issueText);
@@ -876,7 +899,9 @@ async function createIssue(paths, _options = {}, context = {}) {
     });
   }
   if (existingIssueUrl) {
-    await writeStepRecord(paths, "issue_created", `Reused GitHub issue ${existingIssueUrl}.`);
+    if (completeStep) {
+      await writeStepRecord(paths, "issue_created", `Reused GitHub issue ${existingIssueUrl}.`);
+    }
     await markStatus(paths, SESSION_STATUS.RUNNING);
     return buildSessionResponse(paths, {
       preconditions
@@ -913,7 +938,9 @@ async function createIssue(paths, _options = {}, context = {}) {
   }
   const issueUrl = result.stdout.split(/\r?\n/u).map((line) => line.trim()).find(Boolean) || result.stdout;
   await writeTextFile(path.join(paths.sessionRoot, "issue_url"), issueUrl);
-  await writeStepRecord(paths, "issue_created", `Created GitHub issue ${issueUrl}.`);
+  if (completeStep) {
+    await writeStepRecord(paths, "issue_created", `Created GitHub issue ${issueUrl}.`);
+  }
   await markStatus(paths, SESSION_STATUS.RUNNING);
   return buildSessionResponse(paths, {
     preconditions
@@ -2953,6 +2980,204 @@ async function runNamedPreconditions(paths, names = []) {
   );
 }
 
+function sessionStepError(paths, {
+  code,
+  message,
+  repairCommand = ""
+} = {}) {
+  return buildSessionResponse(paths, {
+    ok: false,
+    errors: [
+      createError({
+        code,
+        message,
+        repairCommand
+      })
+    ]
+  });
+}
+
+async function createIssueFileAction(paths, options = {}, context = {}) {
+  const issueText = await readTrimmedFile(path.join(paths.sessionRoot, "issue.md"));
+  if (issueText) {
+    return sessionStepError(paths, {
+      code: "issue_file_already_exists",
+      message: "issue.md already exists for this session.",
+      repairCommand: `jskit session ${paths.sessionId} create_issue_on_gh`
+    });
+  }
+  return createIssue(paths, options, context);
+}
+
+async function createGithubIssueAction(paths, options = {}, context = {}) {
+  const issueText = await readTrimmedFile(path.join(paths.sessionRoot, "issue.md"));
+  if (!issueText) {
+    return sessionStepError(paths, {
+      code: "issue_file_missing",
+      message: "Cannot create the GitHub issue until issue.md exists.",
+      repairCommand: `jskit session ${paths.sessionId} create_issue_file`
+    });
+  }
+  return createIssue(paths, options, context);
+}
+
+const STEP_ACTION_RUNNERS = Object.freeze({
+  worktree_created: Object.freeze({
+    create_worktree: createWorktree
+  }),
+  dependencies_installed: Object.freeze({
+    run_npm_install: installDependencies
+  }),
+  issue_prompt_rendered: Object.freeze({
+    define_issue: renderIssuePrompt
+  }),
+  issue_created: Object.freeze({
+    create_issue_file: createIssueFileAction,
+    create_issue_on_gh: createGithubIssueAction
+  })
+});
+
+async function runSessionStepAction({
+  targetRoot = process.cwd(),
+  sessionId,
+  action,
+  options = {}
+} = {}) {
+  return withExistingSession({ targetRoot, sessionId }, async (paths) => {
+    const artifacts = await readSessionArtifacts(paths);
+    if (artifacts.status === SESSION_STATUS.FINISHED || artifacts.status === SESSION_STATUS.ABANDONED) {
+      return buildSessionResponse(paths, {
+        ok: true,
+        status: artifacts.status
+      });
+    }
+    if (artifacts.workflowVersion !== SESSION_WORKFLOW_VERSION) {
+      return buildSessionResponse(paths, {
+        ok: false,
+        errors: [
+          createError({
+            code: "unsupported_workflow_version",
+            message: `Session ${paths.sessionId} uses workflow version ${artifacts.workflowVersion || "unknown"}, but this JSKIT runtime expects ${SESSION_WORKFLOW_VERSION}.`
+          })
+        ],
+        status: SESSION_STATUS.BLOCKED
+      });
+    }
+    const nextStep = artifacts.nextStep;
+    const runner = STEP_ACTION_RUNNERS[nextStep]?.[normalizeText(action)];
+    if (typeof runner !== "function") {
+      return sessionStepError(paths, {
+        code: "session_action_not_available",
+        message: `Action ${normalizeText(action) || "(missing)"} is not available while the current step is ${nextStep || "complete"}.`,
+        repairCommand: `jskit session ${paths.sessionId}`
+      });
+    }
+    const stepPreconditions = await runNamedPreconditions(paths, STEP_PRECONDITION_NAMES[nextStep] || ["session_exists"]);
+    if (!stepPreconditions.ok) {
+      return sessionStepError(paths, {
+        ...stepPreconditions.error,
+        repairCommand: stepPreconditions.error?.repairCommand || `jskit session ${paths.sessionId}`
+      });
+    }
+    return runner(paths, options, {
+      completeStep: false,
+      preconditions: stepPreconditions.preconditions
+    });
+  });
+}
+
+async function advanceSessionStep({
+  targetRoot = process.cwd(),
+  sessionId
+} = {}) {
+  return withExistingSession({ targetRoot, sessionId }, async (paths) => {
+    const artifacts = await readSessionArtifacts(paths);
+    if (artifacts.status === SESSION_STATUS.FINISHED || artifacts.status === SESSION_STATUS.ABANDONED) {
+      return buildSessionResponse(paths, {
+        ok: true,
+        status: artifacts.status
+      });
+    }
+    if (artifacts.workflowVersion !== SESSION_WORKFLOW_VERSION) {
+      return buildSessionResponse(paths, {
+        ok: false,
+        errors: [
+          createError({
+            code: "unsupported_workflow_version",
+            message: `Session ${paths.sessionId} uses workflow version ${artifacts.workflowVersion || "unknown"}, but this JSKIT runtime expects ${SESSION_WORKFLOW_VERSION}.`
+          })
+        ],
+        status: SESSION_STATUS.BLOCKED
+      });
+    }
+    const nextStep = artifacts.nextStep;
+    if (!nextStep) {
+      return finishSession(paths);
+    }
+    if (nextStep === "worktree_created") {
+      if (!await hasWorktree(paths)) {
+        return sessionStepError(paths, {
+          code: "worktree_not_created",
+          message: "Cannot move to the next step until the session worktree exists.",
+          repairCommand: `jskit session ${paths.sessionId} create_worktree`
+        });
+      }
+      await writeStepRecord(paths, "worktree_created", `Session worktree is ready at ${paths.worktree}.`);
+      await markStatus(paths, SESSION_STATUS.RUNNING);
+      return buildSessionResponse(paths);
+    }
+    if (nextStep === "dependencies_installed") {
+      const installResult = await readTextIfExists(path.join(paths.sessionRoot, DEPENDENCIES_INSTALL_RESULT_FILE));
+      if (!installResult.trim()) {
+        return sessionStepError(paths, {
+          code: "dependencies_not_installed",
+          message: "Cannot move to the next step until dependencies have been installed in the session worktree.",
+          repairCommand: `jskit session ${paths.sessionId} run_npm_install`
+        });
+      }
+      return recordDependenciesInstalled(paths, {
+        message: installResult.trim()
+      });
+    }
+    if (nextStep === "issue_prompt_rendered") {
+      if (!artifacts.prompt) {
+        return sessionStepError(paths, {
+          code: "issue_prompt_missing",
+          message: "Cannot move to the next step until the issue-definition prompt has been created.",
+          repairCommand: `jskit session ${paths.sessionId} define_issue --prompt "<what should change>"`
+        });
+      }
+      await writeStepRecord(paths, "issue_prompt_rendered", "Issue scoped in Codex terminal.");
+      await markStatus(paths, SESSION_STATUS.RUNNING);
+      return buildSessionResponse(paths);
+    }
+    if (nextStep === "issue_created") {
+      if (!artifacts.issueText) {
+        return sessionStepError(paths, {
+          code: "issue_file_missing",
+          message: "Cannot move to the next step until issue.md exists.",
+          repairCommand: `jskit session ${paths.sessionId} create_issue_file`
+        });
+      }
+      if (!artifacts.issueUrl) {
+        return sessionStepError(paths, {
+          code: "issue_url_missing",
+          message: "Cannot move to the next step until the GitHub issue exists.",
+          repairCommand: `jskit session ${paths.sessionId} create_issue_on_gh`
+        });
+      }
+      await writeStepRecord(paths, "issue_created", `Created GitHub issue ${artifacts.issueUrl}.`);
+      await markStatus(paths, SESSION_STATUS.RUNNING);
+      return buildSessionResponse(paths);
+    }
+    return sessionStepError(paths, {
+      code: "session_step_not_ready",
+      message: `Current step ${nextStep} is not ready to advance.`,
+      repairCommand: `jskit session ${paths.sessionId}`
+    });
+  });
+}
+
 async function runSessionStep({
   targetRoot = process.cwd(),
   sessionId,
@@ -3096,6 +3321,7 @@ export {
   STEP_IDS,
   STEP_PRECONDITION_NAMES,
   abandonSession,
+  advanceSessionStep,
   adoptDependenciesInstalled,
   adoptCodexThreadId,
   buildSessionResponse,
@@ -3113,5 +3339,6 @@ export {
   recordDependenciesInstalled,
   rewindSession,
   resolveSessionPaths,
-  runSessionStep
+  runSessionStep,
+  runSessionStepAction
 };

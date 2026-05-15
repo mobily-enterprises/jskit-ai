@@ -212,8 +212,8 @@ const COMMAND_DESCRIPTORS = Object.freeze({
         description: "Create a session, inspect a session, or run a session subcommand."
       }),
       Object.freeze({
-        name: "[run|next|skip|deslop|resolve-deslop|step|diff|rewind|abandon|adopt-codex-thread]",
-        description: "Run, continue, skip, deslop, inspect a diff, rewind, abandon, or attach a Codex thread id."
+        name: "[step|create_worktree|run_npm_install|define_issue|create_issue_file|create_issue_on_gh|next|skip|deslop|resolve-deslop|diff|rewind|abandon|adopt-codex-thread]",
+        description: "Inspect, run an explicit step command, continue, skip, deslop, inspect a diff, rewind, abandon, or attach a Codex thread id."
       })
     ]),
     defaults: Object.freeze([
@@ -223,8 +223,9 @@ const COMMAND_DESCRIPTORS = Object.freeze({
       "Bare list output includes active sessions only; use --abandoned, --completed, or --all for archived sessions.",
       "Use --json for the stable machine-readable contract consumed by JSKIT AI Studio.",
       "Issue handoff is file-based: Codex writes issue.md under the session root, then the user runs next. Plans stay in the terminal.",
-      "Use run as the readable alias for step when driving a session by hand.",
-      "Use next to continue with the current step's default positive action.",
+      "Use step to inspect the current step without running its work.",
+      "Use explicit step commands such as create_worktree, run_npm_install, define_issue, create_issue_file, and create_issue_on_gh to do the current step's work.",
+      "Use next to move to the next step after the current step's required work/result exists.",
       "Use skip to record the current step as skipped and move to the next step.",
       "Use deslop to run the review/deslop prompt from either review/deslop step.",
       "Use resolve-deslop to send the explicit resolve review/deslop prompt. Nothing advances automatically afterward.",
@@ -245,10 +246,15 @@ const COMMAND_DESCRIPTORS = Object.freeze({
         label: "Manual CLI flow",
         lines: Object.freeze([
           "jskit session create",
-          "jskit session 2026-05-11_21-42-08 run",
+          "jskit session 2026-05-11_21-42-08 step",
+          "jskit session 2026-05-11_21-42-08 create_worktree",
           "jskit session 2026-05-11_21-42-08 next",
+          "jskit session 2026-05-11_21-42-08 run_npm_install",
+          "jskit session 2026-05-11_21-42-08 next",
+          "jskit session 2026-05-11_21-42-08 define_issue --prompt \"Fix the customer filters\"",
           "jskit session 2026-05-11_21-42-08 skip --skip-reason \"Handled outside JSKIT\"",
-          "jskit session 2026-05-11_21-42-08 step --prompt \"Fix the customer filters\"",
+          "jskit session 2026-05-11_21-42-08 create_issue_file",
+          "jskit session 2026-05-11_21-42-08 create_issue_on_gh",
           "jskit session 2026-05-11_21-42-08 deslop",
           "jskit session 2026-05-11_21-42-08 resolve-deslop",
           "jskit session 2026-05-11_21-42-08 step",
@@ -264,7 +270,7 @@ const COMMAND_DESCRIPTORS = Object.freeze({
       })
     ]),
     fullUse:
-      "jskit session [create|new|<sessionId>] [run|next|skip|deslop|resolve-deslop|step|diff|rewind|abandon|adopt-codex-thread] [step_id] [--step <step_id>] [--prompt <text>] [--review-findings-remaining true|--review-findings-remaining false] [--resolve-deslop true] [--skip-step true|skip --skip-reason <text>] [--prepare-merge true|--continue-to-merge true|--merge-pr true|--skip-merge|--skip-main-sync] [--user-check <passed|failed>] [--rework-notes <text>|--rework-notes-file <path>] [--codex-thread-id <id>] [--abandoned|--completed|--all] [--json]",
+      "jskit session [create|new|<sessionId>] [step|create_worktree|run_npm_install|define_issue|create_issue_file|create_issue_on_gh|next|skip|deslop|resolve-deslop|diff|rewind|abandon|adopt-codex-thread] [step_id] [--step <step_id>] [--prompt <text>] [--review-findings-remaining true|--review-findings-remaining false] [--resolve-deslop true] [--skip-step true|skip --skip-reason <text>] [--prepare-merge true|--continue-to-merge true|--merge-pr true|--skip-merge|--skip-main-sync] [--user-check <passed|failed>] [--rework-notes <text>|--rework-notes-file <path>] [--codex-thread-id <id>] [--abandoned|--completed|--all] [--json]",
     showHelpOnBareInvocation: false,
     handlerName: "commandSession",
     allowedFlagKeys: Object.freeze(["json", "abandoned", "completed", "all"]),

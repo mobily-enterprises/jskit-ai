@@ -14,10 +14,11 @@ const SESSION_STATUS = Object.freeze({
 const SESSION_ID_PATTERN = /^\d{4}-\d{2}-\d{2}_\d{2}-\d{2}-\d{2}(?:-[a-z0-9]{4})?$/u;
 const SESSION_STATE_RELATIVE_PATH = ".jskit/sessions";
 const SESSION_WORKFLOW_VERSION = "7";
+const DEPENDENCIES_INSTALL_RESULT_FILE = "dependencies_install_result";
 const REVIEW_PASS_LIMIT = 0;
 const PROMPT_DIRECTORY = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "prompts");
 const JSKIT_CLI_SHELL_COMMAND = "npx --no-install jskit";
-const DEFAULT_NEXT_COMMAND_TEMPLATE = `${JSKIT_CLI_SHELL_COMMAND} session {{session_id}} step`;
+const DEFAULT_NEXT_COMMAND_TEMPLATE = `${JSKIT_CLI_SHELL_COMMAND} session {{session_id}} next`;
 
 const INPUT_NONE = Object.freeze({ type: "none" });
 const USER_CHECK_INPUT = Object.freeze({
@@ -368,6 +369,7 @@ export {
   SESSION_ID_PATTERN,
   SESSION_STATUS,
   SESSION_WORKFLOW_VERSION,
+  DEPENDENCIES_INSTALL_RESULT_FILE,
   REVIEW_PASS_LIMIT,
   CYCLE_STEP_IDS,
   STEP_DEFINITION_BY_ID,

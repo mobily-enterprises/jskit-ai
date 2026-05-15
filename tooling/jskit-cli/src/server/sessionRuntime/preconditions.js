@@ -271,7 +271,7 @@ async function assertDependenciesInstalled(paths) {
     error: createError({
       code: "dependencies_not_installed",
       message: "Cannot start issue work until dependencies are installed in the session worktree.",
-      repairCommand: jskitCommand(`session ${paths.sessionId} step`)
+      repairCommand: jskitCommand(`session ${paths.sessionId} run_npm_install`)
     }),
     precondition: createPrecondition({
       id: "dependencies_installed",
@@ -571,7 +571,7 @@ async function assertWorktreeExists(paths) {
     error: createError({
       code: "worktree_missing",
       message: "Session worktree does not exist.",
-      repairCommand: jskitCommand(`session ${paths.sessionId} step`)
+      repairCommand: jskitCommand(`session ${paths.sessionId} create_worktree`)
     }),
     precondition: createPrecondition({
       id: "worktree_exists",

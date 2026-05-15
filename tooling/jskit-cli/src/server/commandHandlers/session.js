@@ -1,6 +1,7 @@
 import { readFile } from "node:fs/promises";
 import {
   abandonSession,
+  advanceSessionStep,
   adoptCodexThreadId,
   buildSessionErrorResponse,
   createSession,
@@ -8,7 +9,8 @@ import {
   inspectSessionDetails,
   listSessions,
   rewindSession,
-  runSessionStep
+  runSessionStep,
+  runSessionStepAction
 } from "../sessionRuntime.js";
 
 function writeJson(stdout, payload) {
@@ -76,6 +78,12 @@ function writeSessionText(stdout, payload) {
   }
   if (payload.nextCommand) {
     stdout.write(`Next: ${payload.nextCommand}\n`);
+  }
+  if (payload.actionCommands?.length) {
+    stdout.write("Available commands:\n");
+    for (const command of payload.actionCommands) {
+      stdout.write(`- ${command.command}\n`);
+    }
   }
 }
 
@@ -283,24 +291,9 @@ async function runNextSessionStep({
   cwd,
   sessionId
 }) {
-  const details = await inspectSessionDetails({
+  return advanceSessionStep({
     targetRoot: cwd,
     sessionId
-  });
-  if (details.ok === false) {
-    return details;
-  }
-  const submitOptions = details.currentStepAction?.submitOptions &&
-    typeof details.currentStepAction.submitOptions === "object" &&
-    !Array.isArray(details.currentStepAction.submitOptions)
-    ? details.currentStepAction.submitOptions
-    : {};
-  return runSessionStep({
-    targetRoot: cwd,
-    sessionId,
-    options: {
-      ...submitOptions
-    }
   });
 }
 
@@ -379,12 +372,32 @@ function createSessionCommands() {
         });
       } else if (first === "create" || first === "new") {
         payload = await createSession({ targetRoot: cwd });
-      } else if (second === "step" || second === "run") {
-        payload = await runSessionStepCommand({
-          cwd,
-          inlineOptions,
-          io,
+      } else if (second === "step") {
+        payload = await inspectSessionDetails({
+          targetRoot: cwd,
           sessionId: first
+        });
+      } else if (second === "run") {
+        const details = await inspectSessionDetails({
+          targetRoot: cwd,
+          sessionId: first
+        });
+        payload = {
+          ...details,
+          ok: false,
+          errors: [
+            {
+              code: "explicit_session_action_required",
+              message: "Generic run is not a session action. Use one of the available step commands, then run next."
+            }
+          ]
+        };
+      } else if (["create_worktree", "run_npm_install", "define_issue", "create_issue_file", "create_issue_on_gh"].includes(second)) {
+        payload = await runSessionStepAction({
+          action: second,
+          targetRoot: cwd,
+          sessionId: first,
+          options: normalizeStepOptions(inlineOptions)
         });
       } else if (second === "next") {
         payload = await runNextSessionStep({

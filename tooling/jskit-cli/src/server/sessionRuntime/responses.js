@@ -2,6 +2,7 @@ import { mkdir, readdir } from "node:fs/promises";
 import path from "node:path";
 import {
   CYCLE_STEP_IDS,
+  DEPENDENCIES_INSTALL_RESULT_FILE,
   ISSUE_FILE_CODEX_HANDOFF,
   ISSUE_DEFINITION_CODEX_HANDOFF,
   JSKIT_CLI_SHELL_COMMAND,
@@ -905,6 +906,7 @@ async function readSessionArtifacts(paths) {
   const worktreeStatus = await readWorktreeStatus(paths, worktreeReady);
   const commandLogPath = path.join(paths.sessionRoot, "command_log.jsonl");
   const dependencyInstallRecord = await readTextIfExists(path.join(paths.sessionRoot, "steps", "dependencies_installed"));
+  const dependencyInstallResult = await readTextIfExists(path.join(paths.sessionRoot, DEPENDENCIES_INSTALL_RESULT_FILE));
   const planExecutionPromptPath = path.join(paths.sessionRoot, "prompts", "plan_executed.md");
   const legacyPlanExecutionPromptPath = path.join(paths.sessionRoot, "prompts", cyclePlanExecutionPromptFileName(activeCycle));
   const planExecutionPromptExists = await fileExists(planExecutionPromptPath) || await fileExists(legacyPlanExecutionPromptPath);
@@ -934,6 +936,8 @@ async function readSessionArtifacts(paths) {
     ? nextStep
     : currentStep || nextStep;
   const prompt = await readPromptForStep(paths, effectiveCurrentStep, { reviewPasses });
+  const dependencyInstallDetails = dependencyInstallRecord.trim() || dependencyInstallResult.trim();
+  const dependencyInstallReady = Boolean(dependencyInstallRecord.trim() || dependencyInstallResult.trim());
 
   return {
     codexThreadId,
@@ -954,9 +958,11 @@ async function readSessionArtifacts(paths) {
     commandLogPath,
     dependencyInstall: {
       installed: Boolean(dependencyInstallRecord.trim()),
-      details: dependencyInstallRecord.trim(),
+      ready: dependencyInstallReady,
+      details: dependencyInstallDetails,
       status: dependencyInstallRecord.trim()
         ? "installed"
+        : dependencyInstallResult.trim() ? "ready_to_advance"
         : worktreeReady ? "pending" : "waiting_for_worktree"
     },
     helperMapExists: await fileExists(helperMapPath),
@@ -989,8 +995,66 @@ function buildNextCommand(sessionId, stepId) {
   if (!stepId) {
     return "";
   }
-  const template = STEP_DEFINITION_BY_ID[stepId]?.nextCommandTemplate || `${JSKIT_CLI_SHELL_COMMAND} session {{session_id}} step`;
+  const template = STEP_DEFINITION_BY_ID[stepId]?.nextCommandTemplate || `${JSKIT_CLI_SHELL_COMMAND} session {{session_id}} next`;
   return template.replaceAll("{{session_id}}", sessionId);
+}
+
+function buildStepActionCommands(sessionId, stepId, artifacts = {}) {
+  const commandBase = `${JSKIT_CLI_SHELL_COMMAND} session ${sessionId}`;
+  if (stepId === "worktree_created") {
+    return artifacts.worktreeReady === true
+      ? []
+      : [
+          {
+            command: `${commandBase} create_worktree`,
+            id: "create_worktree",
+            label: "Create worktree"
+          }
+        ];
+  }
+  if (stepId === "dependencies_installed") {
+    return artifacts.dependencyInstall?.ready === true
+      ? []
+      : [
+          {
+            command: `${commandBase} run_npm_install`,
+            id: "run_npm_install",
+            label: "Run npm install"
+          }
+        ];
+  }
+  if (stepId === "issue_prompt_rendered") {
+    return artifacts.prompt
+      ? []
+      : [
+          {
+            command: `${commandBase} define_issue --prompt "<what should change>"`,
+            id: "define_issue",
+            label: "Define issue"
+          }
+        ];
+  }
+  if (stepId === "issue_created") {
+    if (!artifacts.issueText) {
+      return [
+        {
+          command: `${commandBase} create_issue_file`,
+          id: "create_issue_file",
+          label: "Create issue file"
+        }
+      ];
+    }
+    if (!artifacts.issueUrl) {
+      return [
+        {
+          command: `${commandBase} create_issue_on_gh`,
+          id: "create_issue_on_gh",
+          label: "Create issue on GH"
+        }
+      ];
+    }
+  }
+  return [];
 }
 
 async function buildSessionResponse(paths, {
@@ -1090,6 +1154,7 @@ async function buildSessionResponse(paths, {
     commandLogPath: artifacts.commandLogPath || "",
     stepDefinitions: buildStepDefinitions(),
     currentStepAction: buildCurrentStepAction(currentStep, artifacts),
+    actionCommands: buildStepActionCommands(paths.sessionId || "", currentStep, artifacts),
     codex: codex === undefined ? await buildCodexHandoff(currentStep, artifacts) : await publicCodexContract(codex),
     prompt: responsePrompt,
     nextCommand: buildNextCommand(paths.sessionId || "", currentStep),
