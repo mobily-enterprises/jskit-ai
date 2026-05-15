@@ -212,8 +212,8 @@ const COMMAND_DESCRIPTORS = Object.freeze({
         description: "Create a session, inspect a session, or run a session subcommand."
       }),
       Object.freeze({
-        name: "[step|abandon|adopt-codex-thread]",
-        description: "Run the next step, inspect a diff, abandon a session, or attach a Codex thread id."
+        name: "[step|diff|rewind|abandon|adopt-codex-thread]",
+        description: "Run the next step, inspect a diff, rewind a session, abandon a session, or attach a Codex thread id."
       })
     ]),
     defaults: Object.freeze([
@@ -227,13 +227,16 @@ const COMMAND_DESCRIPTORS = Object.freeze({
       "Use --issue-details - to read confirmed issue details from stdin.",
       "Use --plan - to read the approved implementation plan from stdin.",
       "Use --codex-result - after Codex prompt steps to read the final marked Codex result from stdin.",
+      "Use rewind --step <step_id> to delete a completed step and later JSKIT-owned session artifacts; only plan_made is allowed inside the repeatable cycle.",
       "Use --rework-notes - with --user-check failed to start the next plan cycle.",
       "Use --agent-decisions - to append session-local decision log entries from implementation, UI review, verification, or repair phases.",
       "Use --review-findings-remaining true --review-findings \"<findings>\" when an accepted review pass needs another pass.",
       "Use --review-findings-remaining false only when the review/deslop loop is done.",
       "Use --skip-ui-check --skip-reason \"<reason>\" only when uiImpact is possible and the Deep UI Check is intentionally skipped.",
+      "Use --prepare-merge true at PR merge preparation to render the Codex prep prompt.",
+      "Use --continue-to-merge true when the user decides to advance from preparation to merge decision.",
       "Use --merge-pr true at PR finalization to merge the pull request.",
-      "Use --close-without-merge --close-reason \"<reason>\" at PR finalization to complete the session without merging.",
+      "Use --skip-merge at PR finalization to complete the session without merging.",
       "Run the blueprint step once to render its Codex prompt, then again after Codex updates .jskit/APP_BLUEPRINT.md."
     ]),
     examples: Object.freeze([
@@ -252,15 +255,18 @@ const COMMAND_DESCRIPTORS = Object.freeze({
           "jskit session 2026-05-11_21-42-08 step --review-findings-remaining false",
           "jskit session 2026-05-11_21-42-08 step --skip-ui-check --skip-reason \"No user-facing UI changes\"",
           "jskit session 2026-05-11_21-42-08 step",
+          "jskit session 2026-05-11_21-42-08 step --prepare-merge true",
+          "jskit session 2026-05-11_21-42-08 step --continue-to-merge true",
           "jskit session 2026-05-11_21-42-08 step --merge-pr true",
-          "jskit session 2026-05-11_21-42-08 step --close-without-merge --close-reason \"Prototype kept for reference\"",
+          "jskit session 2026-05-11_21-42-08 step --skip-merge",
           "jskit session 2026-05-11_21-42-08 step --user-check failed --rework-notes -",
+          "jskit session 2026-05-11_21-42-08 rewind --step plan_made --json",
           "jskit session 2026-05-11_21-42-08 diff --json"
         ])
       })
     ]),
     fullUse:
-      "jskit session [create|<sessionId>] [step|diff|abandon|adopt-codex-thread] [--prompt <text>] [--issue-title <text>|--issue-title-file <path>] [--issue <text>|--issue-file <path>] [--issue-details <text>|--issue-details-file <path>] [--plan <text>|--plan-file <path>] [--codex-result <text>|--codex-result-file <path>] [--agent-decisions <text>|--agent-decisions-file <path>] [--review-findings-remaining true --review-findings <text>|--review-findings-remaining false] [--skip-ui-check --skip-reason <text>] [--merge-pr true|--close-without-merge --close-reason <text>] [--user-check <passed|failed>] [--rework-notes <text>|--rework-notes-file <path>] [--codex-thread-id <id>] [--abandoned|--completed|--all] [--json]",
+      "jskit session [create|<sessionId>] [step|diff|rewind|abandon|adopt-codex-thread] [--step <step_id>] [--prompt <text>] [--issue-title <text>|--issue-title-file <path>] [--issue <text>|--issue-file <path>] [--issue-details <text>|--issue-details-file <path>] [--plan <text>|--plan-file <path>] [--codex-result <text>|--codex-result-file <path>] [--agent-decisions <text>|--agent-decisions-file <path>] [--review-findings-remaining true --review-findings <text>|--review-findings-remaining false] [--skip-ui-check --skip-reason <text>] [--prepare-merge true|--continue-to-merge true|--merge-pr true|--skip-merge] [--user-check <passed|failed>] [--rework-notes <text>|--rework-notes-file <path>] [--codex-thread-id <id>] [--abandoned|--completed|--all] [--json]",
     showHelpOnBareInvocation: false,
     handlerName: "commandSession",
     allowedFlagKeys: Object.freeze(["json", "abandoned", "completed", "all"]),

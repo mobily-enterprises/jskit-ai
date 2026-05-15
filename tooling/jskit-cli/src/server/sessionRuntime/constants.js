@@ -263,6 +263,12 @@ const BLUEPRINT_CODEX_HANDOFF = codexHandoff([], {
   promptActionLabel: "Update blueprint",
   responseContract: JSKIT_STEP_RESULT_CONTRACT
 });
+const PR_MERGE_PREP_CODEX_HANDOFF = codexHandoff([], {
+  autoInject: true,
+  promptActionLabel: "Get Codex ready to merge PR",
+  promptWaitingText: "Codex is preparing the PR for merge. Continue only when you decide the PR is ready.",
+  responseContract: null
+});
 
 function defineStep({
   buttonLabel,
@@ -498,10 +504,32 @@ const STEP_DEFINITIONS = Object.freeze([
     preconditions: ["session_exists", "worktree_exists", "dependencies_installed", "ready_jskit_app", "issue_metadata_exists", "active_cycle_exists", "automated_checks_passed", "deep_ui_check_satisfied", "active_cycle_user_check_passed", "accepted_changes_committed", "blueprint_update_satisfied", "final_report_exists"]
   }),
   defineStep({
+    buttonLabel: "Continue to merge",
+    codex: PR_MERGE_PREP_CODEX_HANDOFF,
+    description: "User can ask Codex to prepare the pull request for merge, then explicitly continue to the merge decision.",
+    id: "pr_merge_prepared",
+    label: "PR merge prepared",
+    preconditions: ["session_exists", "pr_url_exists", "worktree_exists"],
+    requiresExplicitRun: true,
+    submitOptions: Object.freeze({
+      continueToMerge: true
+    }),
+    utilityActions: Object.freeze([
+      Object.freeze({
+        id: "prepare_pr_merge",
+        kind: "codex_prompt",
+        label: "Get Codex ready to merge PR",
+        submitOptions: Object.freeze({
+          prepareMerge: true
+        })
+      })
+    ])
+  }),
+  defineStep({
     buttonLabel: "Merge PR",
-    description: "User chooses whether JSKIT merges the pull request or finishes without merge; JSKIT then removes the session worktree.",
+    description: "User chooses whether JSKIT merges the pull request or skips merge; JSKIT records the PR outcome.",
     id: "pr_finalized",
-    label: "PR finalized, worktree removed",
+    label: "PR finalized",
     preconditions: ["session_exists", "pr_url_exists", "worktree_exists"],
     requiresExplicitRun: true,
     submitOptions: Object.freeze({
@@ -510,9 +538,9 @@ const STEP_DEFINITIONS = Object.freeze([
   }),
   defineStep({
     buttonLabel: "Finish session",
-    description: "JSKIT writes the final receipt and archives the completed session.",
+    description: "JSKIT updates the local base branch when needed, removes the session worktree, writes the final receipt, and archives the completed session.",
     id: "session_finished",
-    label: "Session finished",
+    label: "Worktree removed, session finished",
     preconditions: ["session_exists"]
   })
 ]);
@@ -553,6 +581,7 @@ export {
   DEEP_UI_CHECK_CODEX_HANDOFF,
   AUTOMATED_CHECK_REPAIR_CODEX_HANDOFF,
   BLUEPRINT_CODEX_HANDOFF,
+  PR_MERGE_PREP_CODEX_HANDOFF,
   JSKIT_CLI_SHELL_COMMAND,
   JSKIT_CLI_SHELL_RULE,
   SESSION_STATE_RELATIVE_PATH

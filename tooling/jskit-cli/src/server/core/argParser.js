@@ -145,6 +145,10 @@ function parseArgs(argv, { createCliError } = {}) {
       options.inlineOptions["close-without-merge"] = "true";
       continue;
     }
+    if (token === "--skip-merge") {
+      options.inlineOptions["skip-merge"] = "true";
+      continue;
+    }
 
     if (token.startsWith("--")) {
       const withoutPrefix = token.slice(2);

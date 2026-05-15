@@ -3,6 +3,7 @@ import {
   mkdir,
   readFile,
   readdir,
+  rm,
   rmdir
 } from "node:fs/promises";
 import path from "node:path";
@@ -13,6 +14,7 @@ import {
   DEEP_UI_CHECK_CODEX_HANDOFF,
   ISSUE_DETAILS_CODEX_HANDOFF,
   PLAN_EXECUTION_CODEX_HANDOFF,
+  PR_MERGE_PREP_CODEX_HANDOFF,
   REVIEW_PASS_LIMIT,
   REVIEW_EXECUTION_CODEX_HANDOFF,
   SESSION_STATUS,
@@ -1282,6 +1284,328 @@ async function inspectSessionDiff({
   });
 }
 
+const FIRST_REWINDABLE_STEP_ID = "dependencies_installed";
+const CYCLE_REWIND_TARGET_STEP_ID = "plan_made";
+const REWIND_CLOSED_STATUSES = Object.freeze([
+  SESSION_STATUS.ABANDONED,
+  SESSION_STATUS.FINISHED
+]);
+
+async function removeSessionPath(paths, ...parts) {
+  await rm(path.join(paths.sessionRoot, ...parts), {
+    force: true,
+    recursive: true
+  });
+}
+
+async function removeSessionRootFile(paths, fileName) {
+  await removeSessionPath(paths, fileName);
+}
+
+async function removePromptArtifact(paths, fileName) {
+  await removeSessionPath(paths, "prompts", fileName);
+}
+
+async function removeGlobalCodexResult(paths, stepId) {
+  await removeSessionPath(paths, "codex_results", `${stepId}.md`);
+}
+
+async function removeGithubCommentPurpose(paths, purpose) {
+  const comments = await readGithubComments(paths);
+  if (!Object.hasOwn(comments, purpose)) {
+    return;
+  }
+  delete comments[purpose];
+  if (Object.keys(comments).length === 0) {
+    await removeSessionRootFile(paths, "github_comments.json");
+    return;
+  }
+  await writeGithubComments(paths, comments);
+}
+
+async function removeIssueDetailsMetadata(paths) {
+  const metadata = await readIssueMetadata(paths);
+  if (Object.keys(metadata).length === 0) {
+    return;
+  }
+  delete metadata.issueCategory;
+  delete metadata.issueDetailsPath;
+  delete metadata.uiImpact;
+  if (Object.keys(metadata).length === 0) {
+    await removeSessionRootFile(paths, "issue_metadata.json");
+    return;
+  }
+  await writeTextFile(path.join(paths.sessionRoot, "issue_metadata.json"), `${JSON.stringify(metadata, null, 2)}\n`);
+}
+
+async function removeCycleDirectories(paths) {
+  for (const rootName of ["steps", "cycles"]) {
+    const root = path.join(paths.sessionRoot, rootName);
+    let entries = [];
+    try {
+      entries = await readdir(root, { withFileTypes: true });
+    } catch {
+      entries = [];
+    }
+    await Promise.all(entries
+      .filter((entry) => entry.isDirectory() && /^cycle_\d+$/u.test(entry.name))
+      .map((entry) => rm(path.join(root, entry.name), {
+        force: true,
+        recursive: true
+      })));
+  }
+}
+
+async function removeCyclePromptArtifacts(paths) {
+  const promptsRoot = path.join(paths.sessionRoot, "prompts");
+  let entries = [];
+  try {
+    entries = await readdir(promptsRoot, { withFileTypes: true });
+  } catch {
+    entries = [];
+  }
+  const cyclePromptPattern = /^cycle_\d+_(?:plan_request|plan_execution)\.md$/u;
+  const cyclePromptFiles = entries
+    .filter((entry) => entry.isFile() && cyclePromptPattern.test(entry.name))
+    .map((entry) => entry.name);
+  await Promise.all([
+    ...cyclePromptFiles.map((fileName) => removePromptArtifact(paths, fileName)),
+    removePromptArtifact(paths, "automated_checks_run.md"),
+    removePromptArtifact(paths, "deep_ui_check_run.md"),
+    removePromptArtifact(paths, "review.md"),
+    removePromptArtifact(paths, "user_check.md")
+  ]);
+}
+
+async function cancelAllCycleState(paths) {
+  await Promise.all([
+    removeCycleDirectories(paths),
+    removeCyclePromptArtifacts(paths),
+    removeSessionPath(paths, "checks"),
+    removeSessionPath(paths, "ui_checks"),
+    removeSessionPath(paths, "review_passes")
+  ]);
+  await writeActiveCycle(paths, "001");
+}
+
+const STEP_CANCELERS = Object.freeze({
+  dependencies_installed: async () => {},
+  issue_prompt_rendered: async (paths) => {
+    await removePromptArtifact(paths, "issue_draft.md");
+  },
+  issue_drafted: async (paths) => {
+    await Promise.all([
+      removeSessionRootFile(paths, "issue.md"),
+      removeSessionRootFile(paths, "issue_title")
+    ]);
+  },
+  issue_created: async (paths) => {
+    await Promise.all([
+      removeSessionRootFile(paths, "issue_url"),
+      removeSessionRootFile(paths, "issue_metadata.json")
+    ]);
+  },
+  issue_details_gathered: async (paths) => {
+    await Promise.all([
+      removePromptArtifact(paths, "issue_details.md"),
+      removeSessionRootFile(paths, "issue_details.md"),
+      removeGithubCommentPurpose(paths, "issue_details"),
+      removeIssueDetailsMetadata(paths)
+    ]);
+  },
+  plan_made: cancelAllCycleState,
+  plan_executed: cancelAllCycleState,
+  deep_ui_check_run: cancelAllCycleState,
+  review_prompt_rendered: cancelAllCycleState,
+  review_changes_accepted: cancelAllCycleState,
+  automated_checks_run: cancelAllCycleState,
+  user_check_completed: cancelAllCycleState,
+  changes_committed: async (paths) => {
+    await removeSessionRootFile(paths, "changes_committed.json");
+  },
+  blueprint_updated: async (paths) => {
+    await Promise.all([
+      removePromptArtifact(paths, "update_blueprint.md"),
+      removeGlobalCodexResult(paths, "blueprint_updated")
+    ]);
+  },
+  final_report_created: async (paths) => {
+    await Promise.all([
+      removeSessionRootFile(paths, "final_report.md"),
+      removeGithubCommentPurpose(paths, "final_report")
+    ]);
+  },
+  pr_created: async (paths) => {
+    await Promise.all([
+      removePromptArtifact(paths, "pr_create_failure.md"),
+      removeSessionRootFile(paths, "pr_body.md"),
+      removeSessionRootFile(paths, "pr_url")
+    ]);
+  },
+  pr_merge_prepared: async (paths) => {
+    await removePromptArtifact(paths, "prepare_pr_merge.md");
+  },
+  pr_finalized: async (paths) => {
+    await Promise.all([
+      removePromptArtifact(paths, "pr_merge_failure.md"),
+      removeSessionRootFile(paths, "pr_base_branch"),
+      removeSessionRootFile(paths, "pr_merge_completed"),
+      removeSessionRootFile(paths, "pr_outcome.json")
+    ]);
+  },
+  session_finished: async (paths) => {
+    await Promise.all([
+      removeSessionRootFile(paths, "final_comment.md"),
+      removeSessionRootFile(paths, "local_base_updated")
+    ]);
+  }
+});
+
+function targetRequiresCycleReset(stepId) {
+  const targetIndex = STEP_IDS.indexOf(stepId);
+  const planIndex = STEP_IDS.indexOf(CYCLE_REWIND_TARGET_STEP_ID);
+  return targetIndex >= 0 && targetIndex <= planIndex;
+}
+
+function targetIsAllowedRewindStep(stepId) {
+  if (!STEP_IDS.includes(stepId)) {
+    return false;
+  }
+  if (stepId === "session_created" || stepId === "worktree_created") {
+    return false;
+  }
+  if (CYCLE_STEP_IDS.includes(stepId)) {
+    return stepId === CYCLE_REWIND_TARGET_STEP_ID;
+  }
+  return STEP_IDS.indexOf(stepId) >= STEP_IDS.indexOf(FIRST_REWINDABLE_STEP_ID);
+}
+
+function deletedStepIdsForRewindTarget(stepId) {
+  const targetIndex = STEP_IDS.indexOf(stepId);
+  return targetIndex < 0 ? [] : STEP_IDS.slice(targetIndex);
+}
+
+async function removeReceiptsForDeletedSteps(paths, deletedStepIds) {
+  await Promise.all(deletedStepIds
+    .filter((stepId) => !CYCLE_STEP_IDS.includes(stepId))
+    .map((stepId) => removeSessionPath(paths, "steps", stepId)));
+}
+
+async function cancelDeletedStepArtifacts(paths, deletedStepIds, {
+  cycleReset = false
+} = {}) {
+  const cancelerIds = cycleReset
+    ? deletedStepIds.filter((stepId) => !CYCLE_STEP_IDS.includes(stepId)).concat(CYCLE_REWIND_TARGET_STEP_ID)
+    : deletedStepIds;
+  const calledCycleCancel = new Set();
+  for (const stepId of cancelerIds) {
+    const canceler = STEP_CANCELERS[stepId];
+    if (typeof canceler !== "function") {
+      continue;
+    }
+    if (CYCLE_STEP_IDS.includes(stepId)) {
+      if (calledCycleCancel.has(CYCLE_REWIND_TARGET_STEP_ID)) {
+        continue;
+      }
+      calledCycleCancel.add(CYCLE_REWIND_TARGET_STEP_ID);
+    }
+    await canceler(paths);
+  }
+}
+
+async function rewindSession({
+  targetRoot = process.cwd(),
+  sessionId,
+  stepId
+} = {}) {
+  return withExistingSession({ targetRoot, sessionId }, async (paths) => {
+    const artifacts = await readSessionArtifacts(paths);
+    const normalizedStepId = normalizeText(stepId);
+    const currentStatus = artifacts.status || SESSION_STATUS.PENDING;
+
+    if (paths.archive && paths.archive !== "active") {
+      return buildSessionResponse(paths, {
+        ok: false,
+        errors: [
+          createError({
+            code: "session_archived_read_only",
+            message: `Session ${paths.sessionId} is archived and cannot be rewound.`
+          })
+        ],
+        status: currentStatus
+      });
+    }
+
+    if (REWIND_CLOSED_STATUSES.includes(currentStatus)) {
+      return buildSessionResponse(paths, {
+        ok: false,
+        errors: [
+          createError({
+            code: "session_closed_read_only",
+            message: `Session ${paths.sessionId} is ${currentStatus} and cannot be rewound.`
+          })
+        ],
+        status: currentStatus
+      });
+    }
+
+    if (artifacts.workflowVersion !== SESSION_WORKFLOW_VERSION) {
+      return buildSessionResponse(paths, {
+        ok: false,
+        errors: [
+          createError({
+            code: "unsupported_workflow_version",
+            message: `Session ${paths.sessionId} uses workflow version ${artifacts.workflowVersion || "unknown"}, but this JSKIT runtime expects ${SESSION_WORKFLOW_VERSION}.`
+          })
+        ],
+        status: SESSION_STATUS.BLOCKED
+      });
+    }
+
+    if (!targetIsAllowedRewindStep(normalizedStepId)) {
+      const cycleHint = CYCLE_STEP_IDS.includes(normalizedStepId)
+        ? " Only Plan made can be used as a cycle rewind target; it resets all cycle/rework state."
+        : "";
+      return buildSessionResponse(paths, {
+        ok: false,
+        errors: [
+          createError({
+            code: "rewind_step_not_allowed",
+            message: `Cannot rewind session ${paths.sessionId} to ${normalizedStepId || "(missing)"}.${cycleHint}`
+          })
+        ],
+        status: currentStatus
+      });
+    }
+
+    if (!artifacts.completedSteps.includes(normalizedStepId)) {
+      return buildSessionResponse(paths, {
+        ok: false,
+        errors: [
+          createError({
+            code: "rewind_step_not_completed",
+            message: `Cannot rewind session ${paths.sessionId} to ${normalizedStepId} because that step is not completed.`
+          })
+        ],
+        status: currentStatus
+      });
+    }
+
+    const deletedStepIds = deletedStepIdsForRewindTarget(normalizedStepId);
+    const cycleReset = targetRequiresCycleReset(normalizedStepId);
+    await removeReceiptsForDeletedSteps(paths, deletedStepIds);
+    await cancelDeletedStepArtifacts(paths, deletedStepIds, { cycleReset });
+    if (cycleReset) {
+      await writeActiveCycle(paths, "001");
+    }
+    await markCurrentStep(paths, normalizedStepId);
+    await markStatus(paths, SESSION_STATUS.PENDING);
+    return buildSessionResponse(paths, {
+      status: SESSION_STATUS.PENDING
+    });
+  });
+}
+
 async function commitWorktree(paths, {
   message,
   allowNoChanges = false
@@ -2136,50 +2460,6 @@ async function assertTargetRootCanUpdateBase(paths, branch) {
   return null;
 }
 
-async function assertTargetBaseCanFastForward(paths, branch) {
-  const branchFailure = await assertTargetRootCanUpdateBase(paths, branch);
-  if (branchFailure) {
-    return branchFailure;
-  }
-
-  const fetchResult = await runLoggedCommand(paths, "git_fetch_origin", "git", ["fetch", "origin"], {
-    cwd: paths.targetRoot,
-    timeout: 1000 * 60 * 5
-  });
-  if (!fetchResult.ok) {
-    return failSession(paths, {
-      code: "target_fetch_failed",
-      message: fetchResult.output || `Failed to fetch origin before checking local ${branch}.`,
-      repairCommand: `git -C ${paths.targetRoot} fetch origin`
-    });
-  }
-
-  const remoteBranch = `origin/${branch}`;
-  const remoteExists = await runGit(paths.targetRoot, ["rev-parse", "--verify", remoteBranch], {
-    timeout: 15000
-  });
-  if (!remoteExists.ok) {
-    return failSession(paths, {
-      code: "target_remote_branch_missing",
-      message: `Remote base branch ${remoteBranch} does not exist; JSKIT cannot safely update local ${branch} after merge.`,
-      repairCommand: `git -C ${paths.targetRoot} fetch origin`
-    });
-  }
-
-  const ancestor = await runGit(paths.targetRoot, ["merge-base", "--is-ancestor", branch, remoteBranch], {
-    timeout: 15000
-  });
-  if (!ancestor.ok) {
-    return failSession(paths, {
-      code: "target_branch_not_fast_forwardable",
-      message: `Local ${branch} is not an ancestor of ${remoteBranch}; JSKIT will not merge the PR while the local base branch has diverged.`,
-      repairCommand: `git -C ${paths.targetRoot} pull --ff-only origin ${branch}`
-    });
-  }
-
-  return null;
-}
-
 async function updateLocalBaseBranch(paths, baseBranch = "") {
   const branch = normalizeText(baseBranch) || await currentTargetBranch(paths.targetRoot);
   if (!branch) {
@@ -2380,14 +2660,7 @@ async function createPr(paths) {
 }
 
 async function closePrWithoutMerge(paths, prUrl, options = {}) {
-  const reason = normalizeText(options.closeReason || options["close-reason"]);
-  if (!reason) {
-    return failSession(paths, {
-      code: "close_without_merge_reason_required",
-      message: "Finishing without merging requires --close-reason.",
-      repairCommand: `jskit session ${paths.sessionId} step --close-without-merge --close-reason "<reason>"`
-    });
-  }
+  const reason = normalizeText(options.closeReason || options["close-reason"]) || "User skipped merge in JSKIT Studio.";
   const prState = await readPrState(paths, prUrl);
   if (!prState.ok) {
     return failSession(paths, {
@@ -2423,10 +2696,6 @@ async function closePrWithoutMerge(paths, prUrl, options = {}) {
       timeout: 1000 * 60
     });
   }
-  const removeFailure = await removeSessionWorktree(paths);
-  if (removeFailure) {
-    return removeFailure;
-  }
   await writePrOutcome(paths, {
     issueUrl,
     outcome: "closed_without_merge",
@@ -2434,15 +2703,64 @@ async function closePrWithoutMerge(paths, prUrl, options = {}) {
     prState: prState.state,
     reason
   });
-  await writeReceipt(paths, "pr_finalized", `Finished without merging PR ${prUrl}; PR left open and worktree removed ${paths.worktree}. Reason: ${reason}`);
+  await writeReceipt(paths, "pr_finalized", `Finished without merging PR ${prUrl}; PR left open. Reason: ${reason}`);
   await markStatus(paths, SESSION_STATUS.RUNNING);
   return buildSessionResponse(paths);
 }
 
-async function finalizePr(paths, options = {}) {
+async function preparePrMerge(paths, options = {}, context = {}) {
+  const preconditions = context.preconditions || [];
+  const prepareMerge = options.prepareMerge === true ||
+    normalizeText(options["prepare-merge"]).toLowerCase() === "true";
+  const continueToMerge = options.continueToMerge === true ||
+    normalizeText(options["continue-to-merge"]).toLowerCase() === "true";
+
+  if (prepareMerge) {
+    const prUrl = await readTrimmedFile(path.join(paths.sessionRoot, "pr_url"));
+    const baseBranch = await readTrimmedFile(path.join(paths.sessionRoot, "pr_base_branch")) ||
+      await readTrimmedFile(path.join(paths.sessionRoot, "base_branch")) ||
+      await currentTargetBranch(paths.targetRoot);
+    const prompt = await renderPrompt(paths, "prepare_pr_merge.md", {
+      base_branch: baseBranch,
+      final_report_file: path.join(paths.sessionRoot, "final_report.md"),
+      issue_url: await readTrimmedFile(path.join(paths.sessionRoot, "issue_url")),
+      pr_url: prUrl,
+      target_root: paths.targetRoot
+    });
+    await writePromptArtifact(paths, "prepare_pr_merge.md", prompt);
+    await markStatus(paths, SESSION_STATUS.WAITING_FOR_USER);
+    return buildSessionResponse(paths, {
+      codex: PR_MERGE_PREP_CODEX_HANDOFF,
+      ok: true,
+      preconditions,
+      prompt,
+      status: SESSION_STATUS.WAITING_FOR_USER
+    });
+  }
+
+  if (!continueToMerge) {
+    return failSession(paths, {
+      code: "pr_merge_prepare_decision_required",
+      message: "Choose whether to ask Codex to prepare the PR for merge or continue to the merge decision.",
+      repairCommand: `jskit session ${paths.sessionId} step --continue-to-merge true`,
+      preconditions
+    });
+  }
+
+  await writeReceipt(paths, "pr_merge_prepared", "User continued from PR merge preparation to the merge decision.");
+  await markStatus(paths, SESSION_STATUS.RUNNING);
+  return buildSessionResponse(paths, {
+    preconditions
+  });
+}
+
+async function finalizePr(paths, options = {}, context = {}) {
+  const preconditions = context.preconditions || [];
   const prUrl = await readTrimmedFile(path.join(paths.sessionRoot, "pr_url"));
   const closeWithoutMerge = options.closeWithoutMerge === true ||
-    normalizeText(options["close-without-merge"]).toLowerCase() === "true";
+    normalizeText(options["close-without-merge"]).toLowerCase() === "true" ||
+    options.skipMerge === true ||
+    normalizeText(options["skip-merge"]).toLowerCase() === "true";
   if (closeWithoutMerge) {
     return closePrWithoutMerge(paths, prUrl, options);
   }
@@ -2451,8 +2769,9 @@ async function finalizePr(paths, options = {}) {
   if (!mergePr) {
     return failSession(paths, {
       code: "pr_finalize_decision_required",
-      message: "Choose whether to merge the PR or finish without merging.",
-      repairCommand: `jskit session ${paths.sessionId} step --merge-pr true`
+      message: "Choose whether to merge the PR or skip merge.",
+      repairCommand: `jskit session ${paths.sessionId} step --merge-pr true`,
+      preconditions
     });
   }
   const mergeMarkerPath = path.join(paths.sessionRoot, "pr_merge_completed");
@@ -2464,10 +2783,6 @@ async function finalizePr(paths, options = {}) {
     baseBranch = existingPrState.baseRefName || baseBranch || await currentTargetBranch(paths.targetRoot);
     if (baseBranch) {
       await writeTextFile(baseBranchPath, `${baseBranch}\n`);
-    }
-    const baseFailure = await assertTargetBaseCanFastForward(paths, baseBranch);
-    if (baseFailure) {
-      return baseFailure;
     }
     let prMerged = prStateIsMerged(existingPrState);
     let mergeResult = null;
@@ -2491,6 +2806,7 @@ async function finalizePr(paths, options = {}) {
         code: "pr_merge_failed",
         message: mergeResult?.output || existingPrState.output || "Failed to merge PR.",
         repairCommand: `gh pr merge ${prUrl} --merge --delete-branch`,
+        preconditions,
         prompt
       });
     }
@@ -2509,15 +2825,7 @@ async function finalizePr(paths, options = {}) {
     });
     await writeTextFile(mergeMarkerPath, `${prUrl}\n`);
   }
-  const updateFailure = await updateLocalBaseBranch(paths, baseBranch);
-  if (updateFailure) {
-    return updateFailure;
-  }
-  const removeFailure = await removeSessionWorktree(paths);
-  if (removeFailure) {
-    return removeFailure;
-  }
-  await writeReceipt(paths, "pr_finalized", `Merged PR ${prUrl}, updated local ${baseBranch || "base branch"}, and removed worktree ${paths.worktree}.`);
+  await writeReceipt(paths, "pr_finalized", `Merged PR ${prUrl}.`);
   await markStatus(paths, SESSION_STATUS.RUNNING);
   return buildSessionResponse(paths);
 }
@@ -2527,6 +2835,17 @@ async function finishSession(paths) {
   const issueUrl = await readTrimmedFile(path.join(paths.sessionRoot, "issue_url"));
   const codexThreadId = await readTrimmedFile(path.join(paths.sessionRoot, "codex_thread_id"));
   const prOutcome = parseJsonObject(await readTextIfExists(path.join(paths.sessionRoot, "pr_outcome.json")));
+  if (prOutcome?.outcome === "merged") {
+    const baseBranch = prOutcome.baseBranch || await readTrimmedFile(path.join(paths.sessionRoot, "pr_base_branch"));
+    const updateFailure = await updateLocalBaseBranch(paths, baseBranch);
+    if (updateFailure) {
+      return updateFailure;
+    }
+  }
+  const removeFailure = await removeSessionWorktree(paths);
+  if (removeFailure) {
+    return removeFailure;
+  }
   const prompt = await renderPrompt(paths, "final_comment.md", {
     codex_thread_id: codexThreadId,
     issue_url: issueUrl,
@@ -2543,7 +2862,7 @@ async function finishSession(paths) {
       timeout: 1000 * 60
     });
   }
-  await writeReceipt(paths, "session_finished", `Finished session ${paths.sessionId} with PR outcome ${prOutcome?.outcome || "unknown"}.`);
+  await writeReceipt(paths, "session_finished", `Removed worktree ${paths.worktree} and finished session ${paths.sessionId} with PR outcome ${prOutcome?.outcome || "unknown"}.`);
   await markStatus(paths, SESSION_STATUS.FINISHED);
   await markCurrentStep(paths, "");
   const archivedPaths = await archiveSession(paths, "completed");
@@ -2577,6 +2896,7 @@ const STEP_RUNNERS = Object.freeze({
   blueprint_updated: updateBlueprint,
   final_report_created: createFinalReport,
   pr_created: createPr,
+  pr_merge_prepared: preparePrMerge,
   pr_finalized: finalizePr,
   session_finished: finishSession
 });
@@ -2772,6 +3092,7 @@ export {
   listSessions,
   renderTemplate,
   recordDependenciesInstalled,
+  rewindSession,
   resolveSessionPaths,
   runSessionStep
 };

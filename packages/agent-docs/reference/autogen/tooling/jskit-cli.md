@@ -831,6 +831,7 @@ Exports
 - `listSessions({ targetRoot = process.cwd(), archive = "active" } = {})`
 - `renderTemplate`
 - `recordDependenciesInstalled(paths, { message = "Installed Node dependencies in the session worktree.", preconditions = [] } = {})`
+- `rewindSession({ targetRoot = process.cwd(), sessionId, stepId } = {})`
 - `resolveSessionPaths`
 - `runSessionStep({ targetRoot = process.cwd(), sessionId, options = {} } = {})`
 Local functions
@@ -888,6 +889,20 @@ Local functions
 - `untrackedFiles(worktree)`
 - `untrackedFileDiff(worktree, filePath)`
 - `untrackedFilesDiff(worktree)`
+- `removeSessionPath(paths, ...parts)`
+- `removeSessionRootFile(paths, fileName)`
+- `removePromptArtifact(paths, fileName)`
+- `removeGlobalCodexResult(paths, stepId)`
+- `removeGithubCommentPurpose(paths, purpose)`
+- `removeIssueDetailsMetadata(paths)`
+- `removeCycleDirectories(paths)`
+- `removeCyclePromptArtifacts(paths)`
+- `cancelAllCycleState(paths)`
+- `targetRequiresCycleReset(stepId)`
+- `targetIsAllowedRewindStep(stepId)`
+- `deletedStepIdsForRewindTarget(stepId)`
+- `removeReceiptsForDeletedSteps(paths, deletedStepIds)`
+- `cancelDeletedStepArtifacts(paths, deletedStepIds, { cycleReset = false } = {})`
 - `commitWorktree(paths, { message, allowNoChanges = false } = {})`
 - `uniqueChangedFileList(entries = [])`
 - `changedFilesInWorktree(paths)`
@@ -925,12 +940,12 @@ Local functions
 - `removeSessionWorktree(paths)`
 - `writePrOutcome(paths, outcome)`
 - `assertTargetRootCanUpdateBase(paths, branch)`
-- `assertTargetBaseCanFastForward(paths, branch)`
 - `updateLocalBaseBranch(paths, baseBranch = "")`
 - `updateHelperMapBeforePr(paths)`
 - `createPr(paths)`
 - `closePrWithoutMerge(paths, prUrl, options = {})`
-- `finalizePr(paths, options = {})`
+- `preparePrMerge(paths, options = {}, context = {})`
+- `finalizePr(paths, options = {}, context = {})`
 - `finishSession(paths)`
 - `runNamedPreconditions(paths, names = [])`
 
@@ -960,6 +975,7 @@ Exports
 - `DEEP_UI_CHECK_CODEX_HANDOFF`
 - `AUTOMATED_CHECK_REPAIR_CODEX_HANDOFF`
 - `BLUEPRINT_CODEX_HANDOFF`
+- `PR_MERGE_PREP_CODEX_HANDOFF`
 - `JSKIT_CLI_SHELL_COMMAND`
 - `JSKIT_CLI_SHELL_RULE`
 - `SESSION_STATE_RELATIVE_PATH`
