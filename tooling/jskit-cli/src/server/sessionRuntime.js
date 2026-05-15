@@ -13,8 +13,10 @@ import path from "node:path";
 import {
   BLUEPRINT_CODEX_HANDOFF,
   AUTOMATED_CHECK_REPAIR_CODEX_HANDOFF,
-  DEEP_UI_CHECK_CODEX_HANDOFF,
-  PLAN_CODEX_HANDOFF,
+	  DEEP_UI_CHECK_CODEX_HANDOFF,
+	  ISSUE_DEFINITION_CODEX_HANDOFF,
+	  ISSUE_FILE_CODEX_HANDOFF,
+	  PLAN_CODEX_HANDOFF,
   PLAN_EXECUTION_CODEX_HANDOFF,
   PR_MERGE_PREP_CODEX_HANDOFF,
   REVIEW_PASS_LIMIT,
@@ -805,6 +807,13 @@ async function adoptDependenciesInstalled({
 
 async function renderIssuePrompt(paths, options = {}) {
   const userInput = normalizeText(options.prompt);
+  const promptPath = path.join(paths.sessionRoot, "prompts", "issue_prompt_rendered.md");
+  const existingPrompt = await readTextIfExists(promptPath);
+  if (existingPrompt && !userInput) {
+    await writeStepRecord(paths, "issue_prompt_rendered", "Issue scoped in Codex terminal.");
+    await markStatus(paths, SESSION_STATUS.RUNNING);
+    return buildSessionResponse(paths);
+  }
   if (!userInput) {
     return failSession(paths, {
       code: "prompt_required",
@@ -812,37 +821,17 @@ async function renderIssuePrompt(paths, options = {}) {
       repairCommand: `jskit session ${paths.sessionId} step --prompt "<what should change>"`
     });
   }
-  const prompt = await renderPrompt(paths, "issue_drafted.md", {
-    issue_file: path.join(paths.sessionRoot, "issue.md"),
-    issue_title_file: path.join(paths.sessionRoot, "issue_title"),
+  const prompt = await renderPrompt(paths, "issue_prompt_rendered.md", {
     user_input: userInput
   });
-  await writePromptArtifact(paths, "issue_drafted.md", prompt);
-  await writeStepRecord(paths, "issue_prompt_rendered", "Rendered the issue drafting prompt.");
+  await writePromptArtifact(paths, "issue_prompt_rendered.md", prompt);
   await markStatus(paths, SESSION_STATUS.WAITING_FOR_USER);
   return buildSessionResponse(paths, {
+    codex: ISSUE_DEFINITION_CODEX_HANDOFF,
     ok: true,
     prompt,
     status: SESSION_STATUS.WAITING_FOR_USER
   });
-}
-
-async function draftIssue(paths, _options = {}) {
-  const issuePath = path.join(paths.sessionRoot, "issue.md");
-  const issueText = await readTrimmedFile(issuePath);
-  if (!issueText) {
-    return failSession(paths, {
-      code: "issue_file_missing",
-      message: `Codex must write the approved issue draft to ${issuePath} before this step can continue.`,
-      repairCommand: `cat > ${issuePath}`
-    });
-  }
-  const issueTitlePath = path.join(paths.sessionRoot, "issue_title");
-  const issueTitle = await readTrimmedFile(issueTitlePath) || titleFromIssue(issueText);
-  await writeTextFile(issueTitlePath, `${issueTitle}\n`);
-  await writeStepRecord(paths, "issue_drafted", "Recorded issue.md.");
-  await markStatus(paths, SESSION_STATUS.RUNNING);
-  return buildSessionResponse(paths);
 }
 
 function titleFromIssue(issueText) {
@@ -858,11 +847,35 @@ async function createIssue(paths, _options = {}, context = {}) {
   const existingIssueUrl = await readTrimmedFile(path.join(paths.sessionRoot, "issue_url"));
   const issueText = await readTrimmedFile(path.join(paths.sessionRoot, "issue.md"));
   const issueTitle = await readTrimmedFile(path.join(paths.sessionRoot, "issue_title")) || titleFromIssue(issueText);
+  if (!issueText) {
+    const prompt = await renderPrompt(paths, "issue_created.md", {
+      issue_file: path.join(paths.sessionRoot, "issue.md"),
+      issue_title_file: path.join(paths.sessionRoot, "issue_title")
+    });
+    await writePromptArtifact(paths, "issue_created.md", prompt);
+    await markStatus(paths, SESSION_STATUS.WAITING_FOR_USER);
+    return buildSessionResponse(paths, {
+      codex: ISSUE_FILE_CODEX_HANDOFF,
+      ok: true,
+      prompt,
+      status: SESSION_STATUS.WAITING_FOR_USER
+    });
+  }
   if (existingIssueUrl) {
     await writeStepRecord(paths, "issue_created", `Reused GitHub issue ${existingIssueUrl}.`);
     await markStatus(paths, SESSION_STATUS.RUNNING);
     return buildSessionResponse(paths, {
       preconditions
+    });
+  }
+  const githubPreconditions = await runNamedPreconditions(paths, ["github_auth", "github_origin"]);
+  if (!githubPreconditions.ok) {
+    return failSession(paths, {
+      ...githubPreconditions.error,
+      preconditions: [
+        ...preconditions,
+        ...githubPreconditions.preconditions
+      ]
     });
   }
   const result = await runLoggedCommand(paths, "github_issue_create", "gh", [
@@ -1199,16 +1212,13 @@ async function removePlanExecutionArtifacts(paths) {
 const STEP_CANCELERS = Object.freeze({
   dependencies_installed: async () => {},
   issue_prompt_rendered: async (paths) => {
-    await removePromptArtifact(paths, "issue_drafted.md");
-  },
-  issue_drafted: async (paths) => {
-    await Promise.all([
-      removeSessionRootFile(paths, "issue.md"),
-      removeSessionRootFile(paths, "issue_title")
-    ]);
+    await removePromptArtifact(paths, "issue_prompt_rendered.md");
   },
   issue_created: async (paths) => {
     await Promise.all([
+      removePromptArtifact(paths, "issue_created.md"),
+      removeSessionRootFile(paths, "issue.md"),
+      removeSessionRootFile(paths, "issue_title"),
       removeSessionRootFile(paths, "issue_url")
     ]);
   },
@@ -2185,9 +2195,6 @@ async function writeSkippedReviewPass(paths, reason) {
 }
 
 async function writeSkippedStepArtifacts(paths, stepId, reason) {
-  if (stepId === "issue_drafted") {
-    await writeSkippedIssueDraft(paths, reason);
-  }
   if (stepId === "issue_created") {
     await writeSkippedIssueDraft(paths, reason);
     await writeTextIfMissing(path.join(paths.sessionRoot, "issue_url"), `skipped://${paths.sessionId}/issue\n`);
@@ -2875,7 +2882,6 @@ const STEP_RUNNERS = Object.freeze({
   worktree_created: createWorktree,
   dependencies_installed: installDependencies,
   issue_prompt_rendered: renderIssuePrompt,
-  issue_drafted: draftIssue,
   issue_created: createIssue,
   plan_made: makePlan,
   plan_executed: renderPlanExecutionPrompt,

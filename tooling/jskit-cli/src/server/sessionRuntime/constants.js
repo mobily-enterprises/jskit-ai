@@ -40,18 +40,18 @@ const USER_CHECK_INPUT = Object.freeze({
 });
 
 function codexHandoff({
-  autoInject = false,
   promptActionLabel = "",
   promptIntroText = "",
-  promptWaitingText = ""
+  promptWaitingText = "",
+  sendPrompt = false
 } = {}) {
   return Object.freeze({
-    ...(autoInject ? { autoInject: true } : {}),
     mode: "inject_prompt",
     promptField: "prompt",
     ...(promptActionLabel ? { promptActionLabel } : {}),
     ...(promptIntroText ? { promptIntroText } : {}),
-    ...(promptWaitingText ? { promptWaitingText } : {})
+    ...(promptWaitingText ? { promptWaitingText } : {}),
+    ...(sendPrompt ? { sendPrompt: true } : {})
   });
 }
 
@@ -70,48 +70,52 @@ function stepAutomationFor({
   if (kind === "automatic") {
     return Object.freeze({ mode: "manual" });
   }
-  if (kind === "codex_prompt" && codex?.autoInject === true) {
+  if (kind === "codex_prompt" && codex?.sendPrompt === true) {
     return Object.freeze({ mode: "codex_prompt" });
   }
   return Object.freeze({ mode: "manual" });
 }
 
-const ISSUE_DRAFT_CODEX_HANDOFF = codexHandoff({
-  autoInject: true,
-  promptActionLabel: "Start issue draft"
+const ISSUE_DEFINITION_CODEX_HANDOFF = codexHandoff({
+  promptActionLabel: "Define issue",
+  sendPrompt: true
+});
+const ISSUE_FILE_CODEX_HANDOFF = codexHandoff({
+  promptActionLabel: "Create issue file",
+  sendPrompt: true
 });
 const PLAN_CODEX_HANDOFF = codexHandoff({
-  autoInject: true,
-  promptActionLabel: "Start plan"
+  promptActionLabel: "Start plan",
+  sendPrompt: true
 });
 const PLAN_EXECUTION_CODEX_HANDOFF = codexHandoff({
-  autoInject: true,
-  promptActionLabel: "Get Codex to execute plan"
+  promptActionLabel: "Get Codex to execute plan",
+  sendPrompt: true
 });
 const REVIEW_EXECUTION_CODEX_HANDOFF = codexHandoff({
-  autoInject: true,
-  promptActionLabel: "Run deslop"
+  promptActionLabel: "Run deslop",
+  sendPrompt: true
 });
 const RESOLVE_DESLOP_CODEX_HANDOFF = codexHandoff({
-  autoInject: true,
-  promptActionLabel: "Resolve deslop"
+  promptActionLabel: "Resolve deslop",
+  sendPrompt: true
 });
 const DEEP_UI_CHECK_CODEX_HANDOFF = codexHandoff({
-  autoInject: true,
-  promptActionLabel: "Run Deep UI check"
+  promptActionLabel: "Run Deep UI check",
+  sendPrompt: true
 });
 const AUTOMATED_CHECK_REPAIR_CODEX_HANDOFF = codexHandoff({
-  autoInject: true,
-  promptActionLabel: "Run automated checks"
+  promptActionLabel: "Run automated checks",
+  sendPrompt: true
 });
 const BLUEPRINT_CODEX_HANDOFF = codexHandoff({
-  autoInject: true,
-  promptActionLabel: "Update blueprint"
+  promptActionLabel: "Update blueprint",
+  sendPrompt: true
 });
 const PR_MERGE_PREP_CODEX_HANDOFF = codexHandoff({
-  autoInject: true,
   promptActionLabel: "Get Codex ready to merge PR",
-  promptWaitingText: "Codex is preparing the PR for merge. Continue only when you decide the PR is ready."
+  promptWaitingText: "Codex is preparing the PR for merge. Continue only when you decide the PR is ready.",
+  sendPrompt: true
 });
 
 function defineStep({
@@ -178,8 +182,8 @@ const STEP_DEFINITIONS = Object.freeze([
     preconditions: ["session_exists", "worktree_exists"]
   }),
   defineStep({
-    buttonLabel: "Set initial prompt",
-    description: "User describes the requested change; JSKIT records it and prepares the Codex issue-drafting prompt.",
+    buttonLabel: "Send prompt",
+    description: "User describes the requested change; Codex helps scope and define the issue in the terminal.",
     id: "issue_prompt_rendered",
     input: Object.freeze({
       label: "What should change?",
@@ -190,26 +194,16 @@ const STEP_DEFINITIONS = Object.freeze([
       type: "text"
     }),
     kind: "human_input",
-    label: "Initial issue prompt",
+    label: "Define the issue",
     nextCommandTemplate: `${JSKIT_CLI_SHELL_COMMAND} session {{session_id}} step --prompt "<what should change>"`,
     preconditions: ["session_exists", "worktree_exists", "dependencies_installed", "ready_jskit_app"]
   }),
   defineStep({
-    buttonLabel: "Record issue draft",
-    codex: ISSUE_DRAFT_CODEX_HANDOFF,
-    description: "Codex drafts the issue in the terminal and writes the canonical session issue.md file; JSKIT records it when the user continues.",
-    id: "issue_drafted",
-    kind: "codex_prompt",
-    label: "Issue drafted",
-    nextCommandTemplate: `${JSKIT_CLI_SHELL_COMMAND} session {{session_id}} next`,
-    preconditions: ["session_exists", "worktree_exists", "dependencies_installed", "ready_jskit_app"]
-  }),
-  defineStep({
     buttonLabel: "Create issue",
-    description: "JSKIT creates the GitHub issue from the approved draft and records the issue URL.",
+    description: "Codex writes issue.md from the scoped issue; JSKIT creates the GitHub issue after review.",
     id: "issue_created",
     label: "Issue created",
-    preconditions: ["session_exists", "worktree_exists", "dependencies_installed", "ready_jskit_app", "issue_text_exists", "github_auth", "github_origin"],
+    preconditions: ["session_exists", "worktree_exists", "dependencies_installed", "ready_jskit_app"],
     requiresExplicitRun: false
   }),
   defineStep({
@@ -389,7 +383,8 @@ export {
   STEP_IDS,
   STEP_LABEL_BY_ID,
   STEP_PRECONDITION_NAMES,
-  ISSUE_DRAFT_CODEX_HANDOFF,
+  ISSUE_DEFINITION_CODEX_HANDOFF,
+  ISSUE_FILE_CODEX_HANDOFF,
   PLAN_CODEX_HANDOFF,
   PLAN_EXECUTION_CODEX_HANDOFF,
   REVIEW_EXECUTION_CODEX_HANDOFF,

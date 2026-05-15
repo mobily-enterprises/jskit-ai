@@ -2,6 +2,8 @@ import { mkdir, readdir } from "node:fs/promises";
 import path from "node:path";
 import {
   CYCLE_STEP_IDS,
+  ISSUE_FILE_CODEX_HANDOFF,
+  ISSUE_DEFINITION_CODEX_HANDOFF,
   JSKIT_CLI_SHELL_COMMAND,
   REVIEW_EXECUTION_CODEX_HANDOFF,
   REVIEW_PASS_LIMIT,
@@ -244,7 +246,8 @@ async function readReviewPromptForStep(paths, artifacts = {}) {
 }
 
 const PROMPT_ARTIFACT_BY_STEP_ID = Object.freeze({
-  issue_drafted: "issue_drafted.md",
+  issue_prompt_rendered: "issue_prompt_rendered.md",
+  issue_created: "issue_created.md",
   deep_ui_check_run: "deep_ui_check_run.md",
   automated_checks_run: "automated_checks_run.md",
   blueprint_updated: "blueprint_updated.md",
@@ -688,6 +691,8 @@ function buildCurrentStepAction(stepId, artifacts = {}) {
   }
   const planExecutionPrompted = artifacts.planExecution?.prompted === true;
   const planExecutionSubmitted = artifacts.planExecution?.submitted === true;
+  const issueDefinitionPrompted = step.id === "issue_prompt_rendered" && Boolean(artifacts.prompt);
+  const issueFilePrompted = step.id === "issue_created" && Boolean(artifacts.prompt) && !artifacts.issueText;
   const deepUiCheckPrompted = step.id === "deep_ui_check_run" && uiCheckPromptedForStep(artifacts, "deep_ui_check_run");
   const alternateActions = [];
   if (stepCanBeSkipped(step.id)) {
@@ -739,6 +744,18 @@ function buildCurrentStepAction(stepId, artifacts = {}) {
     });
   }
   const dynamicButtonLabel = (() => {
+    if (issueDefinitionPrompted) {
+      return "Next step";
+    }
+    if (issueFilePrompted) {
+      return "Next step";
+    }
+    if (step.id === "issue_created" && !artifacts.issueText) {
+      return "Create issue file";
+    }
+    if (step.id === "issue_created" && artifacts.issueText) {
+      return "Create GitHub issue";
+    }
     if (step.id === "plan_executed" && planExecutionPrompted && !planExecutionSubmitted) {
       return "Go to next step";
     }
@@ -754,6 +771,12 @@ function buildCurrentStepAction(stepId, artifacts = {}) {
     return step.buttonLabel;
   })();
   const dynamicDescription = (() => {
+    if (issueDefinitionPrompted) {
+      return "Codex has the issue-definition prompt. Continue after the issue is scoped clearly enough.";
+    }
+    if (issueFilePrompted) {
+      return "Codex has the issue-file prompt. Review issue.md and issue_title, then continue when ready.";
+    }
     if (step.id === "plan_executed" && planExecutionPrompted && !planExecutionSubmitted) {
       return "Codex has the execution prompt. Review the result, then use Go to next step when ready.";
     }
@@ -792,12 +815,12 @@ function buildCurrentStepAction(stepId, artifacts = {}) {
     displayGroupId: step.displayGroupId,
     displayGroupLabel: step.displayGroupLabel,
     index: STEP_IDS.indexOf(step.id),
-    input: cloneContractValue(step.input),
-    kind: step.kind,
+    input: cloneContractValue(issueDefinitionPrompted || issueFilePrompted ? { type: "none" } : step.input),
+    kind: issueDefinitionPrompted || issueFilePrompted ? "codex_prompt" : step.kind,
     label: dynamicButtonLabel,
-    automation: cloneContractValue(step.automation || { mode: "manual" }),
+    automation: cloneContractValue(issueDefinitionPrompted || issueFilePrompted ? { mode: "codex_prompt" } : step.automation || { mode: "manual" }),
     ...stepRepeatabilityContract(step.id),
-    requiredInput: cloneContractValue(step.input),
+    requiredInput: cloneContractValue(issueDefinitionPrompted || issueFilePrompted ? { type: "none" } : step.input),
     requiresExplicitRun: step.requiresExplicitRun === true,
     conditional: stepIsConditional(step.id),
     retryable: artifacts.status === SESSION_STATUS.BLOCKED && stepIsRetryableWhenBlocked(step.id),
@@ -809,6 +832,12 @@ function buildCurrentStepAction(stepId, artifacts = {}) {
 }
 
 function rawCodexHandoff(stepId, artifacts = {}) {
+  if (normalizeStepId(stepId) === "issue_prompt_rendered" && artifacts.prompt) {
+    return cloneContractValue(ISSUE_DEFINITION_CODEX_HANDOFF);
+  }
+  if (normalizeStepId(stepId) === "issue_created" && artifacts.prompt && !artifacts.issueText) {
+    return cloneContractValue(ISSUE_FILE_CODEX_HANDOFF);
+  }
   if (normalizeStepId(stepId) === "review_changes_accepted" && latestReviewPassIsPrompted(artifacts)) {
     return cloneContractValue(REVIEW_EXECUTION_CODEX_HANDOFF);
   }
