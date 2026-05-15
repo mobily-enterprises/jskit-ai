@@ -821,13 +821,7 @@ async function renderIssuePrompt(paths, options = {}) {
       repairCommand: `jskit session ${paths.sessionId} step --prompt "<what should change>"`
     });
   }
-  const contextFile = path.join(paths.sessionRoot, "prompts", "issue_prompt_context.md");
-  const contextPrompt = await renderPrompt(paths, "issue_prompt_context.md", {
-    user_input: userInput
-  });
-  await writePromptArtifact(paths, "issue_prompt_context.md", contextPrompt);
   const prompt = await renderPrompt(paths, "issue_prompt_rendered.md", {
-    context_file: contextFile,
     user_input: userInput
   });
   await writePromptArtifact(paths, "issue_prompt_rendered.md", prompt);
@@ -1218,10 +1212,7 @@ async function removePlanExecutionArtifacts(paths) {
 const STEP_CANCELERS = Object.freeze({
   dependencies_installed: async () => {},
   issue_prompt_rendered: async (paths) => {
-    await Promise.all([
-      removePromptArtifact(paths, "issue_prompt_rendered.md"),
-      removePromptArtifact(paths, "issue_prompt_context.md")
-    ]);
+    await removePromptArtifact(paths, "issue_prompt_rendered.md");
   },
   issue_created: async (paths) => {
     await Promise.all([
