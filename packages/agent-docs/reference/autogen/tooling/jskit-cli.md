@@ -868,6 +868,7 @@ Local functions
 - `writeSessionHookReceipt(paths, scriptName, message)`
 - `runOptionalSessionPackageScript(paths, { failureCode, failureMessage, kind, preferredPackageManager = "", preconditions = [], scriptName, timeout = 1000 * 60 * 10 } = {})`
 - `runSessionFinalizationGuard(paths, preconditions = [])`
+- `runSessionProvisioningHook(paths, { preferredPackageManager = "", preconditions = [] } = {})`
 - `readIssueMetadata(paths)`
 - `writeIssueMetadata(paths, metadata = {})`
 - `readGithubComments(paths)`
