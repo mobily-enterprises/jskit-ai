@@ -392,7 +392,18 @@ function createSessionCommands() {
             }
           ]
         };
-      } else if (["create_worktree", "run_npm_install", "define_issue", "create_issue_file", "create_issue_on_gh"].includes(second)) {
+      } else if ([
+        "create_worktree",
+        "run_npm_install",
+        "define_issue",
+        "create_issue_file",
+        "create_issue_on_gh",
+        "make_plan",
+        "execute_plan",
+        "run_deep_ui_check",
+        "run_automated_checks",
+        "update_blueprint"
+      ].includes(second)) {
         payload = await runSessionStepAction({
           action: second,
           targetRoot: cwd,

@@ -14,10 +14,10 @@ import {
   BLUEPRINT_CODEX_HANDOFF,
   AUTOMATED_CHECK_REPAIR_CODEX_HANDOFF,
   DEPENDENCIES_INSTALL_RESULT_FILE,
-	  DEEP_UI_CHECK_CODEX_HANDOFF,
-	  ISSUE_DEFINITION_CODEX_HANDOFF,
-	  ISSUE_FILE_CODEX_HANDOFF,
-	  PLAN_CODEX_HANDOFF,
+  DEEP_UI_CHECK_CODEX_HANDOFF,
+  ISSUE_DEFINITION_CODEX_HANDOFF,
+  ISSUE_FILE_CODEX_HANDOFF,
+  PLAN_CODEX_HANDOFF,
   PLAN_EXECUTION_CODEX_HANDOFF,
   PR_MERGE_PREP_CODEX_HANDOFF,
   REVIEW_PASS_LIMIT,
@@ -186,6 +186,22 @@ function extractIssueText(value = "") {
 
 async function writePromptArtifact(paths, fileName, prompt) {
   await writeTextFile(path.join(paths.sessionRoot, "prompts", fileName), prompt);
+}
+
+async function promptActionResponse(paths, {
+  codex,
+  preconditions = [],
+  promptPath
+} = {}) {
+  const prompt = await readTextIfExists(promptPath);
+  await markStatus(paths, SESSION_STATUS.WAITING_FOR_USER);
+  return buildSessionResponse(paths, {
+    codex,
+    ok: true,
+    preconditions,
+    prompt,
+    status: SESSION_STATUS.WAITING_FOR_USER
+  });
 }
 
 function commandText(command, args = []) {
@@ -927,18 +943,7 @@ async function createIssue(paths, _options = {}, context = {}) {
   const issueText = await readTrimmedFile(path.join(paths.sessionRoot, "issue.md"));
   const issueTitle = await readTrimmedFile(path.join(paths.sessionRoot, "issue_title")) || titleFromIssue(issueText);
   if (!issueText) {
-    const prompt = await renderPrompt(paths, "issue_created.md", {
-      issue_file: path.join(paths.sessionRoot, "issue.md"),
-      issue_title_file: path.join(paths.sessionRoot, "issue_title")
-    });
-    await writePromptArtifact(paths, "issue_created.md", prompt);
-    await markStatus(paths, SESSION_STATUS.WAITING_FOR_USER);
-    return buildSessionResponse(paths, {
-      codex: ISSUE_FILE_CODEX_HANDOFF,
-      ok: true,
-      prompt,
-      status: SESSION_STATUS.WAITING_FOR_USER
-    });
+    return renderIssueFilePrompt(paths, context);
   }
   if (existingIssueUrl) {
     await writeIssueMetadataFiles(paths, {
@@ -997,6 +1002,23 @@ async function createIssue(paths, _options = {}, context = {}) {
   });
 }
 
+async function renderIssueFilePrompt(paths, context = {}) {
+  const preconditions = context.preconditions || [];
+  const prompt = await renderPrompt(paths, "issue_created.md", {
+    issue_file: path.join(paths.sessionRoot, "issue.md"),
+    issue_title_file: path.join(paths.sessionRoot, "issue_title")
+  });
+  await writePromptArtifact(paths, "issue_created.md", prompt);
+  await markStatus(paths, SESSION_STATUS.WAITING_FOR_USER);
+  return buildSessionResponse(paths, {
+    codex: ISSUE_FILE_CODEX_HANDOFF,
+    ok: true,
+    preconditions,
+    prompt,
+    status: SESSION_STATUS.WAITING_FOR_USER
+  });
+}
+
 async function makePlan(paths, _options = {}, context = {}) {
   const preconditions = context.preconditions || [];
   const issueText = await readTrimmedFile(path.join(paths.sessionRoot, "issue.md"));
@@ -1005,6 +1027,13 @@ async function makePlan(paths, _options = {}, context = {}) {
   const issueNumber = issueNumberFromUrl(issueUrl);
   const promptPath = path.join(paths.sessionRoot, "prompts", "plan_made.md");
   if (await fileExists(promptPath)) {
+    if (context.completeStep === false) {
+      return promptActionResponse(paths, {
+        codex: PLAN_CODEX_HANDOFF,
+        preconditions,
+        promptPath
+      });
+    }
     await writeStepRecord(paths, "plan_made", "Plan reviewed in Codex terminal.");
     await markStatus(paths, SESSION_STATUS.RUNNING);
     return buildSessionResponse(paths, {
@@ -1037,6 +1066,13 @@ async function renderPlanExecutionPrompt(paths, _options = {}, context = {}) {
   const preconditions = context.preconditions || [];
   const executionPromptPath = path.join(paths.sessionRoot, "prompts", "plan_executed.md");
   if (await fileExists(executionPromptPath)) {
+    if (context.completeStep === false) {
+      return promptActionResponse(paths, {
+        codex: PLAN_EXECUTION_CODEX_HANDOFF,
+        preconditions,
+        promptPath: executionPromptPath
+      });
+    }
     await writeStepRecord(paths, "plan_executed", "Plan execution completed by Codex.");
     await markStatus(paths, SESSION_STATUS.RUNNING);
     return buildSessionResponse(paths, {
@@ -1821,6 +1857,13 @@ async function runAutomatedChecks(paths, {
   const checkCommand = [command, ...args].join(" ");
 
   if (await fileExists(promptPath)) {
+    if (context.completeStep === false) {
+      return promptActionResponse(paths, {
+        codex: AUTOMATED_CHECK_REPAIR_CODEX_HANDOFF,
+        preconditions,
+        promptPath
+      });
+    }
     await writeTextFile(
       path.join(checksRoot, `${stepId}.json`),
       `${JSON.stringify({
@@ -1876,6 +1919,13 @@ async function runDeepUiCheck(paths, {
   const promptFileName = `${stepId}.md`;
   const promptPath = path.join(paths.sessionRoot, "prompts", promptFileName);
   if (await fileExists(promptPath)) {
+    if (context.completeStep === false) {
+      return promptActionResponse(paths, {
+        codex: DEEP_UI_CHECK_CODEX_HANDOFF,
+        preconditions,
+        promptPath
+      });
+    }
     await writeStepRecord(paths, stepId, `${label} completed by Codex.`);
     await markStatus(paths, SESSION_STATUS.RUNNING);
     return buildSessionResponse(paths, {
@@ -2008,6 +2058,13 @@ async function updateBlueprint(paths, _options = {}, context = {}) {
   const blueprintPromptPath = path.join(paths.sessionRoot, "prompts", "blueprint_updated.md");
 
   if (await fileExists(blueprintPromptPath)) {
+    if (context.completeStep === false) {
+      return promptActionResponse(paths, {
+        codex: BLUEPRINT_CODEX_HANDOFF,
+        preconditions,
+        promptPath: blueprintPromptPath
+      });
+    }
     const changedFiles = await changedFilesInWorktree(paths);
     const unexpectedChanges = await unexpectedBlueprintStepChanges(paths, changedFiles);
     if (unexpectedChanges.length > 0) {
@@ -2998,6 +3055,14 @@ const STEP_RUNNERS = Object.freeze({
   session_finished: finishSession
 });
 
+const PROMPT_REVIEW_STEP_ARTIFACTS = Object.freeze({
+  automated_checks_run: "automated_checks_run.md",
+  blueprint_updated: "blueprint_updated.md",
+  deep_ui_check_run: "deep_ui_check_run.md",
+  plan_executed: "plan_executed.md",
+  plan_made: "plan_made.md"
+});
+
 const PRECONDITION_RUNNERS = Object.freeze({
   accepted_changes_committed: assertAcceptedChangesCommitted,
   active_cycle_exists: assertActiveCycleExists,
@@ -3048,15 +3113,8 @@ function sessionStepError(paths, {
 }
 
 async function createIssueFileAction(paths, options = {}, context = {}) {
-  const issueText = await readTrimmedFile(path.join(paths.sessionRoot, "issue.md"));
-  if (issueText) {
-    return sessionStepError(paths, {
-      code: "issue_file_already_exists",
-      message: "issue.md already exists for this session.",
-      repairCommand: `jskit session ${paths.sessionId} create_issue_on_gh`
-    });
-  }
-  return createIssue(paths, options, context);
+  void options;
+  return renderIssueFilePrompt(paths, context);
 }
 
 async function createGithubIssueAction(paths, options = {}, context = {}) {
@@ -3084,6 +3142,28 @@ const STEP_ACTION_RUNNERS = Object.freeze({
   issue_created: Object.freeze({
     create_issue_file: createIssueFileAction,
     create_issue_on_gh: createGithubIssueAction
+  }),
+  plan_made: Object.freeze({
+    make_plan: makePlan
+  }),
+  plan_executed: Object.freeze({
+    execute_plan: renderPlanExecutionPrompt
+  }),
+  deep_ui_check_run: Object.freeze({
+    run_deep_ui_check: (paths, options, context) => runDeepUiCheck(paths, {
+      label: "Run deep UI check",
+      phase: "pre_review",
+      stepId: "deep_ui_check_run"
+    }, options, context)
+  }),
+  automated_checks_run: Object.freeze({
+    run_automated_checks: (paths, options, context) => runAutomatedChecks(paths, {
+      label: "Run automated checks",
+      stepId: "automated_checks_run"
+    }, options, context)
+  }),
+  blueprint_updated: Object.freeze({
+    update_blueprint: updateBlueprint
   })
 });
 
@@ -3223,6 +3303,28 @@ async function advanceSessionStep({
       await writeStepRecord(paths, "issue_created", `Created GitHub issue ${artifacts.issueUrl}.`);
       await markStatus(paths, SESSION_STATUS.RUNNING);
       return buildSessionResponse(paths);
+    }
+    const promptArtifact = PROMPT_REVIEW_STEP_ARTIFACTS[nextStep];
+    if (promptArtifact) {
+      const promptPath = path.join(paths.sessionRoot, "prompts", promptArtifact);
+      if (!await fileExists(promptPath)) {
+        return sessionStepError(paths, {
+          code: "session_step_not_ready",
+          message: `Current step ${nextStep} is not ready to advance.`,
+          repairCommand: `jskit session ${paths.sessionId} step`
+        });
+      }
+      const runner = STEP_RUNNERS[nextStep];
+      const stepPreconditions = await runNamedPreconditions(paths, STEP_PRECONDITION_NAMES[nextStep] || ["session_exists"]);
+      if (!stepPreconditions.ok) {
+        return sessionStepError(paths, {
+          ...stepPreconditions.error,
+          repairCommand: stepPreconditions.error?.repairCommand || `jskit session ${paths.sessionId}`
+        });
+      }
+      return runner(paths, {}, {
+        preconditions: stepPreconditions.preconditions
+      });
     }
     return sessionStepError(paths, {
       code: "session_step_not_ready",

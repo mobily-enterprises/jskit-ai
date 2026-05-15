@@ -671,7 +671,7 @@ function buildCurrentStepAction(stepId, artifacts = {}) {
   const planExecutionPrompted = artifacts.planExecution?.prompted === true;
   const planExecutionSubmitted = artifacts.planExecution?.submitted === true;
   const issueDefinitionPrompted = step.id === "issue_prompt_rendered" && Boolean(artifacts.prompt);
-  const issueFilePrompted = step.id === "issue_created" && Boolean(artifacts.prompt) && !artifacts.issueText;
+  const issueFilePromptAction = step.id === "issue_created";
   const deepUiCheckPrompted = step.id === "deep_ui_check_run" && uiCheckPromptedForStep(artifacts, "deep_ui_check_run");
   const alternateActions = [];
   if (step.id === "review_changes_accepted") {
@@ -724,7 +724,7 @@ function buildCurrentStepAction(stepId, artifacts = {}) {
       return "Create issue file";
     }
     if (step.id === "issue_created" && artifacts.issueText) {
-      return "Create GitHub issue";
+      return "Create issue file";
     }
     if (step.id === "main_checkout_synced" && artifacts.prOutcome?.outcome && artifacts.prOutcome.outcome !== "merged") {
       return "Record no sync needed";
@@ -735,17 +735,17 @@ function buildCurrentStepAction(stepId, artifacts = {}) {
     if (issueDefinitionPrompted) {
       return "Codex has the issue-definition prompt. Continue after the issue is scoped clearly enough.";
     }
-    if (issueFilePrompted) {
+    if (issueFilePromptAction && artifacts.prompt) {
       return "Codex has the issue-file prompt. Review issue.md and issue_title, then continue when ready.";
     }
     if (step.id === "plan_executed" && planExecutionPrompted && !planExecutionSubmitted) {
-      return "Codex has the execution prompt. Review the result, then use Advance step when ready.";
+      return "Codex has the execution prompt. Review the result, then use Next when ready.";
     }
     if (step.id === "deep_ui_check_run" && deepUiCheckPrompted) {
-      return "Codex has the run deep UI check prompt. Review the result, then use Advance step when ready.";
+      return "Codex has the run deep UI check prompt. Review the result, then use Next when ready.";
     }
     if (step.id === "automated_checks_run" && artifacts.prompt) {
-      return "Codex has the run automated checks prompt. Review the result, then use Advance step when ready.";
+      return "Codex has the run automated checks prompt. Review the result, then use Next when ready.";
     }
     if (step.id === "main_checkout_synced" && artifacts.prOutcome?.outcome && artifacts.prOutcome.outcome !== "merged") {
       return "The PR was not merged, so JSKIT will record main checkout sync as skipped before cleanup.";
@@ -776,12 +776,12 @@ function buildCurrentStepAction(stepId, artifacts = {}) {
     displayGroupId: step.displayGroupId,
     displayGroupLabel: step.displayGroupLabel,
     index: STEP_IDS.indexOf(step.id),
-    input: cloneContractValue(issueDefinitionPrompted || issueFilePrompted ? { type: "none" } : step.input),
-    kind: issueDefinitionPrompted || issueFilePrompted ? "codex_prompt" : step.kind,
+    input: cloneContractValue(issueDefinitionPrompted || issueFilePromptAction ? { type: "none" } : step.input),
+    kind: issueDefinitionPrompted || issueFilePromptAction ? "codex_prompt" : step.kind,
     label: dynamicButtonLabel,
-    automation: cloneContractValue(issueDefinitionPrompted || issueFilePrompted ? { mode: "codex_prompt" } : step.automation || { mode: "manual" }),
+    automation: cloneContractValue(issueDefinitionPrompted || issueFilePromptAction ? { mode: "codex_prompt" } : step.automation || { mode: "manual" }),
     ...stepRepeatabilityContract(step.id),
-    requiredInput: cloneContractValue(issueDefinitionPrompted || issueFilePrompted ? { type: "none" } : step.input),
+    requiredInput: cloneContractValue(issueDefinitionPrompted || issueFilePromptAction ? { type: "none" } : step.input),
     requiresExplicitRun: step.requiresExplicitRun === true,
     conditional: stepIsConditional(step.id),
     retryable: artifacts.status === SESSION_STATUS.BLOCKED && stepIsRetryableWhenBlocked(step.id),
@@ -796,7 +796,7 @@ function rawCodexHandoff(stepId, artifacts = {}) {
   if (normalizeStepId(stepId) === "issue_prompt_rendered" && artifacts.prompt) {
     return cloneContractValue(ISSUE_DEFINITION_CODEX_HANDOFF);
   }
-  if (normalizeStepId(stepId) === "issue_created" && artifacts.prompt && !artifacts.issueText) {
+  if (normalizeStepId(stepId) === "issue_created" && artifacts.prompt) {
     return cloneContractValue(ISSUE_FILE_CODEX_HANDOFF);
   }
   if (normalizeStepId(stepId) === "review_changes_accepted" && latestReviewPassIsPrompted(artifacts)) {
@@ -984,8 +984,21 @@ async function readSessionArtifacts(paths) {
   };
 }
 
-function buildNextCommand(sessionId, stepId) {
+function stepCanExposeNextCommand(stepId, artifacts = {}) {
   if (!stepId) {
+    return false;
+  }
+  if (stepId === "worktree_created") {
+    return artifacts.worktreeReady === true;
+  }
+  if (stepId === "dependencies_installed") {
+    return artifacts.dependencyInstall?.ready === true;
+  }
+  return true;
+}
+
+function buildNextCommand(sessionId, stepId, artifacts = {}) {
+  if (!stepCanExposeNextCommand(stepId, artifacts)) {
     return "";
   }
   const template = STEP_DEFINITION_BY_ID[stepId]?.nextCommandTemplate || `${JSKIT_CLI_SHELL_COMMAND} session {{session_id}} next`;
@@ -1028,17 +1041,19 @@ function buildStepActionCommands(sessionId, stepId, artifacts = {}) {
         ];
   }
   if (stepId === "issue_created") {
+    const commands = [
+      {
+        command: `${commandBase} create_issue_file`,
+        id: "create_issue_file",
+        label: "Create issue file"
+      }
+    ];
     if (!artifacts.issueText) {
-      return [
-        {
-          command: `${commandBase} create_issue_file`,
-          id: "create_issue_file",
-          label: "Create issue file"
-        }
-      ];
+      return commands;
     }
     if (!artifacts.issueUrl) {
       return [
+        ...commands,
         {
           command: `${commandBase} create_issue_on_gh`,
           id: "create_issue_on_gh",
@@ -1046,6 +1061,52 @@ function buildStepActionCommands(sessionId, stepId, artifacts = {}) {
         }
       ];
     }
+    return commands;
+  }
+  if (stepId === "plan_made") {
+    return [
+      {
+        command: `${commandBase} make_plan`,
+        id: "make_plan",
+        label: "Make plan"
+      }
+    ];
+  }
+  if (stepId === "plan_executed") {
+    return [
+      {
+        command: `${commandBase} execute_plan`,
+        id: "execute_plan",
+        label: "Execute plan"
+      }
+    ];
+  }
+  if (stepId === "deep_ui_check_run") {
+    return [
+      {
+        command: `${commandBase} run_deep_ui_check`,
+        id: "run_deep_ui_check",
+        label: "Run deep UI check"
+      }
+    ];
+  }
+  if (stepId === "automated_checks_run") {
+    return [
+      {
+        command: `${commandBase} run_automated_checks`,
+        id: "run_automated_checks",
+        label: "Run automated checks"
+      }
+    ];
+  }
+  if (stepId === "blueprint_updated") {
+    return [
+      {
+        command: `${commandBase} update_blueprint`,
+        id: "update_blueprint",
+        label: "Update blueprint"
+      }
+    ];
   }
   return [];
 }
@@ -1151,7 +1212,7 @@ async function buildSessionResponse(paths, {
     actionCommands: buildStepActionCommands(paths.sessionId || "", currentStep, artifacts),
     codex: codex === undefined ? await buildCodexHandoff(currentStep, artifacts) : await publicCodexContract(codex),
     prompt: responsePrompt,
-    nextCommand: buildNextCommand(paths.sessionId || "", currentStep),
+    nextCommand: buildNextCommand(paths.sessionId || "", currentStep, artifacts),
     issueNumber: artifacts.issueNumber || "",
     issueUrl: artifacts.issueUrl || "",
     issueTitle: artifacts.issueTitle || "",
