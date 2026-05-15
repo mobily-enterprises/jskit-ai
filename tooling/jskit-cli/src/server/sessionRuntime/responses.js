@@ -657,33 +657,6 @@ function skipReasonForStep(stepId, artifacts = {}) {
   return "";
 }
 
-function stepCanBeSkipped(stepId) {
-  return ![
-    "session_created",
-    "worktree_created",
-    "dependencies_installed",
-    "pr_finalized",
-    "main_checkout_synced",
-    "session_finished"
-  ].includes(normalizeStepId(stepId));
-}
-
-function skipStepAction(step) {
-  return {
-    id: "skip_step",
-    helpText: "Record this step as skipped and move to the next step.",
-    input: {
-      type: "none"
-    },
-    label: "Skip step",
-    presentation: "secondary",
-    submitOptions: {
-      skipStep: true
-    },
-    targetStep: step.id
-  };
-}
-
 function buildCurrentStepAction(stepId, artifacts = {}) {
   const step = STEP_DEFINITION_BY_ID[stepId];
   if (!step) {
@@ -695,9 +668,6 @@ function buildCurrentStepAction(stepId, artifacts = {}) {
   const issueFilePrompted = step.id === "issue_created" && Boolean(artifacts.prompt) && !artifacts.issueText;
   const deepUiCheckPrompted = step.id === "deep_ui_check_run" && uiCheckPromptedForStep(artifacts, "deep_ui_check_run");
   const alternateActions = [];
-  if (stepCanBeSkipped(step.id)) {
-    alternateActions.push(skipStepAction(step));
-  }
   if (step.id === "review_changes_accepted") {
     alternateActions.push({
       id: "request_another_review_pass",

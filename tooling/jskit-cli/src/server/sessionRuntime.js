@@ -2260,7 +2260,7 @@ async function writeSkippedStepArtifacts(paths, stepId, reason) {
 }
 
 async function skipCurrentStep(paths, stepId, options = {}) {
-  if (["session_created", "worktree_created", "dependencies_installed", "session_finished"].includes(stepId)) {
+  if (["session_created", "worktree_created", "dependencies_installed", "issue_prompt_rendered", "session_finished"].includes(stepId)) {
     return failSession(paths, {
       code: "session_step_skip_not_allowed",
       message: `Step ${stepId} cannot be skipped.`,
