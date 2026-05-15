@@ -120,7 +120,7 @@ test("create-app scaffolds the base shell with placeholder replacements", async 
     assert.equal(packageJson.name, "sample-app");
     assert.equal(packageJson.scripts.preinstall, undefined);
     assert.equal(packageJson.scripts["verdaccio:reset:publish"], undefined);
-    assert.equal(packageJson.scripts.postinstall, "bash scripts/devel-link-local-packages-postinstall.sh");
+    assert.equal(packageJson.scripts.postinstall, undefined);
     assert.equal(packageJson.scripts["dev:all"], "vite");
     assert.equal(packageJson.scripts["dev:home"], "VITE_SURFACE=home vite");
     assert.equal(packageJson.scripts["dev:console"], undefined);
@@ -158,10 +158,7 @@ test("create-app scaffolds the base shell with placeholder replacements", async 
     assert.equal(packageJson.dependencies.pinia, "^3.0.4");
     assert.equal(packageJson.dependencies["@tanstack/vue-query"], "^5.90.5");
     assert.equal(packageJson.devDependencies["@playwright/test"], "^1.57.0");
-    const devlinkPostinstall = await readFile(path.join(appRoot, "scripts/devel-link-local-packages-postinstall.sh"), "utf8");
-    assert.match(devlinkPostinstall, /JSKIT_DEVLINKS is not set; skipping local JSKIT package links/);
-    assert.match(devlinkPostinstall, /npx --no-install jskit app link-local-packages --repo-root "\$repo_root"/);
-    assert.doesNotMatch(devlinkPostinstall, /Development\/current\/jskit-ai/);
+    await assert.rejects(access(path.join(appRoot, "scripts/devel-link-local-packages-postinstall.sh")), /ENOENT/);
     await assert.rejects(access(path.join(appRoot, "scripts/copy-local-packages.sh")), /ENOENT/);
     await assert.rejects(access(path.join(appRoot, "scripts/link-local-jskit-packages.sh")), /ENOENT/);
     await assert.rejects(access(path.join(appRoot, "scripts/release.sh")), /ENOENT/);
