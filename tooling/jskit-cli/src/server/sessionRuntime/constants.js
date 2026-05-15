@@ -17,19 +17,11 @@ const SESSION_WORKFLOW_VERSION = "7";
 const REVIEW_PASS_LIMIT = 0;
 const PROMPT_DIRECTORY = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "prompts");
 const JSKIT_CLI_SHELL_COMMAND = "npx --no-install jskit";
-const JSKIT_CLI_SHELL_RULE = [
-  "Shell command rule:",
-  "",
-  `- When running JSKIT CLI commands from the shell, use \`${JSKIT_CLI_SHELL_COMMAND} ...\`.`,
-  "- Do not run bare `jskit ...` unless you are inside an npm script where `node_modules/.bin` is on PATH.",
-  "- Do not run `npx jskit ...` without `--no-install`; it may fetch packages instead of using this app's installed CLI.",
-  "- If `npx --no-install jskit ...` is unavailable, continue with filesystem inspection when possible and report that the local JSKIT CLI is missing."
-].join("\n");
 const DEFAULT_NEXT_COMMAND_TEMPLATE = `${JSKIT_CLI_SHELL_COMMAND} session {{session_id}} step`;
 
 const INPUT_NONE = Object.freeze({ type: "none" });
 const USER_CHECK_INPUT = Object.freeze({
-  label: "User check result",
+  label: "Choose user check result",
   name: "userCheck",
   options: Object.freeze([
     Object.freeze({ label: "Passed", value: "passed" }),
@@ -85,23 +77,23 @@ const ISSUE_FILE_CODEX_HANDOFF = codexHandoff({
   sendPrompt: true
 });
 const PLAN_CODEX_HANDOFF = codexHandoff({
-  promptActionLabel: "Start plan",
+  promptActionLabel: "Make plan",
   sendPrompt: true
 });
 const PLAN_EXECUTION_CODEX_HANDOFF = codexHandoff({
-  promptActionLabel: "Get Codex to execute plan",
+  promptActionLabel: "Execute plan",
   sendPrompt: true
 });
 const REVIEW_EXECUTION_CODEX_HANDOFF = codexHandoff({
-  promptActionLabel: "Run deslop",
+  promptActionLabel: "Run review/deslop",
   sendPrompt: true
 });
 const RESOLVE_DESLOP_CODEX_HANDOFF = codexHandoff({
-  promptActionLabel: "Resolve deslop",
+  promptActionLabel: "Resolve review/deslop",
   sendPrompt: true
 });
 const DEEP_UI_CHECK_CODEX_HANDOFF = codexHandoff({
-  promptActionLabel: "Run Deep UI check",
+  promptActionLabel: "Run deep UI check",
   sendPrompt: true
 });
 const AUTOMATED_CHECK_REPAIR_CODEX_HANDOFF = codexHandoff({
@@ -113,7 +105,7 @@ const BLUEPRINT_CODEX_HANDOFF = codexHandoff({
   sendPrompt: true
 });
 const PR_MERGE_PREP_CODEX_HANDOFF = codexHandoff({
-  promptActionLabel: "Get Codex ready to merge PR",
+  promptActionLabel: "Prepare PR merge",
   promptWaitingText: "Codex is preparing the PR for merge. Continue only when you decide the PR is ready.",
   sendPrompt: true
 });
@@ -165,24 +157,24 @@ const STEP_DEFINITIONS = Object.freeze([
     buttonLabel: "Create session",
     description: "JSKIT creates the filesystem-backed session record.",
     id: "session_created",
-    label: "Session created"
+    label: "Create session"
   }),
   defineStep({
     buttonLabel: "Create worktree",
     description: "JSKIT creates the isolated Git branch and session worktree where Codex will work.",
     id: "worktree_created",
-    label: "Worktree created",
+    label: "Create worktree",
     preconditions: ["session_exists", "git_repository", "git_current_branch"]
   }),
   defineStep({
-    buttonLabel: "Start",
+    buttonLabel: "Install dependencies",
     description: "JSKIT installs Node dependencies inside the session worktree before Codex starts.",
     id: "dependencies_installed",
-    label: "Dependencies installed",
+    label: "Install dependencies",
     preconditions: ["session_exists", "worktree_exists"]
   }),
   defineStep({
-    buttonLabel: "Send prompt",
+    buttonLabel: "Define issue",
     description: "User describes the requested change; Codex helps scope and define the issue in the terminal.",
     id: "issue_prompt_rendered",
     input: Object.freeze({
@@ -194,7 +186,7 @@ const STEP_DEFINITIONS = Object.freeze([
       type: "text"
     }),
     kind: "human_input",
-    label: "Define the issue",
+    label: "Define issue",
     nextCommandTemplate: `${JSKIT_CLI_SHELL_COMMAND} session {{session_id}} step --prompt "<what should change>"`,
     preconditions: ["session_exists", "worktree_exists", "dependencies_installed", "ready_jskit_app"]
   }),
@@ -202,53 +194,53 @@ const STEP_DEFINITIONS = Object.freeze([
     buttonLabel: "Create issue",
     description: "Codex writes issue.md from the scoped issue; JSKIT creates the GitHub issue after review.",
     id: "issue_created",
-    label: "Issue created",
+    label: "Create issue",
     preconditions: ["session_exists", "worktree_exists", "dependencies_installed", "ready_jskit_app"],
     requiresExplicitRun: false
   }),
   defineStep({
-    buttonLabel: "Record plan",
+    buttonLabel: "Make plan",
     codex: PLAN_CODEX_HANDOFF,
     description: "Codex writes the plan in the terminal; JSKIT records it when the user continues.",
     id: "plan_made",
     kind: "codex_prompt",
-    label: "Plan made",
+    label: "Make plan",
     nextCommandTemplate: `${JSKIT_CLI_SHELL_COMMAND} session {{session_id}} next`,
     preconditions: ["session_exists", "worktree_exists", "dependencies_installed", "ready_jskit_app", "issue_text_exists", "issue_url_exists"]
   }),
   defineStep({
-    buttonLabel: "Get Codex to execute plan",
+    buttonLabel: "Execute plan",
     codex: PLAN_EXECUTION_CODEX_HANDOFF,
     description: "JSKIT sends the plan to Codex; Codex implements it; the user advances after reviewing completion.",
     id: "plan_executed",
     kind: "codex_prompt",
-    label: "Plan executed",
+    label: "Execute plan",
     preconditions: ["session_exists", "worktree_exists", "dependencies_installed", "ready_jskit_app", "issue_text_exists", "issue_url_exists"]
   }),
   defineStep({
-    buttonLabel: "Run Deep UI check",
+    buttonLabel: "Run deep UI check",
     codex: DEEP_UI_CHECK_CODEX_HANDOFF,
     description: "JSKIT asks Codex for a focused UI quality pass when the issue affects UI, or records an explicit skip when it does not.",
     id: "deep_ui_check_run",
     kind: "codex_prompt",
-    label: "Deep UI check run",
+    label: "Run deep UI check",
     preconditions: ["session_exists", "worktree_exists", "dependencies_installed", "ready_jskit_app"]
   }),
   defineStep({
-    buttonLabel: "Run deslop",
+    buttonLabel: "Run review/deslop",
     codex: REVIEW_EXECUTION_CODEX_HANDOFF,
     description: "JSKIT sends the current implementation to Codex for a review/deslop pass; the user decides whether to resolve findings, run deslop again, or continue.",
     id: "review_prompt_rendered",
     kind: "codex_prompt",
-    label: "Review/deslop",
+    label: "Run review/deslop",
     preconditions: ["session_exists", "worktree_exists", "dependencies_installed", "ready_jskit_app", "deep_ui_check_satisfied"]
   }),
   defineStep({
-    buttonLabel: "I am done",
+    buttonLabel: "Accept review/deslop",
     description: "User chooses whether to resolve the last deslop result, run deslop again, or continue.",
     id: "review_changes_accepted",
     kind: "user_check",
-    label: "Review/deslop",
+    label: "Accept review/deslop",
     nextCommandTemplate: `${JSKIT_CLI_SHELL_COMMAND} session {{session_id}} step --review-findings-remaining false`,
     preconditions: ["session_exists", "worktree_exists", "dependencies_installed", "ready_jskit_app", "deep_ui_check_satisfied"],
     submitOptions: Object.freeze({
@@ -261,16 +253,16 @@ const STEP_DEFINITIONS = Object.freeze([
     description: "JSKIT asks Codex to run the official verification command in the worktree, fix failures, and report the final passing result.",
     id: "automated_checks_run",
     kind: "codex_prompt",
-    label: "Automated checks",
+    label: "Run automated checks",
     preconditions: ["session_exists", "worktree_exists", "dependencies_installed", "ready_jskit_app", "deep_ui_check_satisfied"]
   }),
   defineStep({
-    buttonLabel: "Save user check",
+    buttonLabel: "Complete user check",
     description: "User manually checks the result; if it fails, rewind to the step that should be redone.",
     id: "user_check_completed",
     input: USER_CHECK_INPUT,
     kind: "user_check",
-    label: "User check",
+    label: "Complete user check",
     nextCommandTemplate: `${JSKIT_CLI_SHELL_COMMAND} session {{session_id}} step --user-check passed`,
     preconditions: ["session_exists", "worktree_exists", "dependencies_installed", "ready_jskit_app", "automated_checks_passed", "deep_ui_check_satisfied"],
     utilityActions: Object.freeze([
@@ -287,36 +279,36 @@ const STEP_DEFINITIONS = Object.freeze([
     description: "JSKIT asks Codex to update durable app memory from the accepted work; Codex edits .jskit/APP_BLUEPRINT.md; JSKIT records the update for the accepted-work commit.",
     id: "blueprint_updated",
     kind: "codex_prompt",
-    label: "Blueprint updated",
+    label: "Update blueprint",
     preconditions: ["session_exists", "worktree_exists", "dependencies_installed", "ready_jskit_app", "automated_checks_passed", "deep_ui_check_satisfied", "user_check_passed"]
   }),
   defineStep({
-    buttonLabel: "Commit accepted changes",
+    buttonLabel: "Commit changes",
     description: "JSKIT commits the accepted session changes, including durable app memory updates, in the session worktree.",
     id: "changes_committed",
-    label: "Changes committed",
+    label: "Commit changes",
     preconditions: ["session_exists", "worktree_exists", "dependencies_installed", "ready_jskit_app", "issue_url_exists", "github_auth", "automated_checks_passed", "deep_ui_check_satisfied", "user_check_passed", "blueprint_update_satisfied"]
   }),
   defineStep({
     buttonLabel: "Create final report",
     description: "JSKIT creates the deterministic final session report and comments it on the GitHub issue.",
     id: "final_report_created",
-    label: "Final report created",
+    label: "Create final report",
     preconditions: ["session_exists", "worktree_exists", "dependencies_installed", "ready_jskit_app", "automated_checks_passed", "deep_ui_check_satisfied", "user_check_passed", "blueprint_update_satisfied", "accepted_changes_committed"]
   }),
   defineStep({
-    buttonLabel: "Push branch and create PR",
+    buttonLabel: "Create PR",
     description: "JSKIT pushes the session branch to origin, creates or reuses the GitHub pull request, and records the PR URL.",
     id: "pr_created",
-    label: "Branch pushed, PR created",
+    label: "Create PR",
     preconditions: ["session_exists", "worktree_exists", "dependencies_installed", "ready_jskit_app", "automated_checks_passed", "deep_ui_check_satisfied", "user_check_passed", "accepted_changes_committed", "blueprint_update_satisfied", "final_report_exists"]
   }),
   defineStep({
-    buttonLabel: "Continue to merge",
+    buttonLabel: "Open merge decision",
     codex: PR_MERGE_PREP_CODEX_HANDOFF,
     description: "User can ask Codex to prepare the pull request for merge, then explicitly continue to the merge decision.",
     id: "pr_merge_prepared",
-    label: "PR merge prepared",
+    label: "Prepare PR merge",
     preconditions: ["session_exists", "pr_url_exists", "worktree_exists"],
     requiresExplicitRun: true,
     submitOptions: Object.freeze({
@@ -326,7 +318,7 @@ const STEP_DEFINITIONS = Object.freeze([
       Object.freeze({
         id: "prepare_pr_merge",
         kind: "codex_prompt",
-        label: "Get Codex ready to merge PR",
+        label: "Prepare PR merge",
         submitOptions: Object.freeze({
           prepareMerge: true
         })
@@ -337,7 +329,7 @@ const STEP_DEFINITIONS = Object.freeze([
     buttonLabel: "Merge PR",
     description: "User chooses whether JSKIT merges the pull request or skips merge; JSKIT records the PR outcome.",
     id: "pr_finalized",
-    label: "PR finalized",
+    label: "Finalize PR",
     preconditions: ["session_exists", "pr_url_exists", "worktree_exists"],
     requiresExplicitRun: true,
     submitOptions: Object.freeze({
@@ -348,7 +340,7 @@ const STEP_DEFINITIONS = Object.freeze([
     buttonLabel: "Sync main checkout",
     description: "JSKIT fast-forwards the main checkout after a merged PR, or records an explicit skip before cleanup.",
     id: "main_checkout_synced",
-    label: "Main checkout synced",
+    label: "Sync main checkout",
     preconditions: ["session_exists", "worktree_exists"],
     requiresExplicitRun: true
   }),
@@ -356,7 +348,7 @@ const STEP_DEFINITIONS = Object.freeze([
     buttonLabel: "Finish session",
     description: "JSKIT removes the session worktree and archives the completed session.",
     id: "session_finished",
-    label: "Worktree removed, session finished",
+    label: "Finish session",
     preconditions: ["session_exists", "main_checkout_sync_satisfied"]
   })
 ]);
@@ -394,6 +386,5 @@ export {
   BLUEPRINT_CODEX_HANDOFF,
   PR_MERGE_PREP_CODEX_HANDOFF,
   JSKIT_CLI_SHELL_COMMAND,
-  JSKIT_CLI_SHELL_RULE,
   SESSION_STATE_RELATIVE_PATH
 };

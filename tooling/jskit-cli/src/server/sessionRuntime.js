@@ -1685,7 +1685,7 @@ async function acceptReviewChanges(paths, options = {}, context = {}) {
   if (!reviewDecisionProvided) {
     return failSession(paths, {
       code: "review_decision_required",
-      message: "Review/deslop requires an explicit decision: resolve deslop, run deslop again, or continue.",
+      message: "Accept review/deslop requires an explicit decision: resolve review/deslop, run review/deslop again, or continue.",
       repairCommand: `jskit session ${paths.sessionId} step --review-findings-remaining false`
     });
   }
@@ -1834,7 +1834,7 @@ async function userCheck(paths, options = {}) {
       warnings: [
         {
           code: "user_check_failed",
-          message: "User check failed. Rewind to the step that should be redone."
+          message: "Complete user check failed. Rewind to the step that should be redone."
         }
       ]
     });
@@ -2886,11 +2886,11 @@ const STEP_RUNNERS = Object.freeze({
   plan_made: makePlan,
   plan_executed: renderPlanExecutionPrompt,
   automated_checks_run: (paths, options, context) => runAutomatedChecks(paths, {
-    label: "Automated checks",
+    label: "Run automated checks",
     stepId: "automated_checks_run"
   }, options, context),
   deep_ui_check_run: (paths, options, context) => runDeepUiCheck(paths, {
-    label: "Deep UI check",
+    label: "Run deep UI check",
     phase: "pre_review",
     stepId: "deep_ui_check_run"
   }, options, context),

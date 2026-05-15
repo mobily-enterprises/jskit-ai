@@ -1,4 +1,4 @@
-User check for session {{session_id}}.
+Complete user check for session {{session_id}}.
 
 Issue: {{issue_url}}
 Issue title: {{issue_title}}

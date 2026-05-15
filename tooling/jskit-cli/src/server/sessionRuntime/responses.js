@@ -701,11 +701,11 @@ function buildCurrentStepAction(stepId, artifacts = {}) {
   if (step.id === "review_changes_accepted") {
     alternateActions.push({
       id: "request_another_review_pass",
-      helpText: "Run another explicit deslop prompt before continuing.",
+      helpText: "Run another explicit review/deslop prompt before continuing.",
       input: {
         type: "none"
       },
-      label: "Run deslop",
+      label: "Run review/deslop",
       presentation: "secondary",
       submitOptions: {
         reviewFindingsRemaining: true
@@ -745,10 +745,10 @@ function buildCurrentStepAction(stepId, artifacts = {}) {
   }
   const dynamicButtonLabel = (() => {
     if (issueDefinitionPrompted) {
-      return "Next step";
+      return "Advance step";
     }
     if (issueFilePrompted) {
-      return "Next step";
+      return "Advance step";
     }
     if (step.id === "issue_created" && !artifacts.issueText) {
       return "Create issue file";
@@ -757,13 +757,13 @@ function buildCurrentStepAction(stepId, artifacts = {}) {
       return "Create GitHub issue";
     }
     if (step.id === "plan_executed" && planExecutionPrompted && !planExecutionSubmitted) {
-      return "Go to next step";
+      return "Advance step";
     }
     if (step.id === "deep_ui_check_run" && deepUiCheckPrompted) {
-      return "Go to next step";
+      return "Advance step";
     }
     if (step.id === "automated_checks_run" && artifacts.prompt) {
-      return "Go to next step";
+      return "Advance step";
     }
     if (step.id === "main_checkout_synced" && artifacts.prOutcome?.outcome && artifacts.prOutcome.outcome !== "merged") {
       return "Record no sync needed";
@@ -778,13 +778,13 @@ function buildCurrentStepAction(stepId, artifacts = {}) {
       return "Codex has the issue-file prompt. Review issue.md and issue_title, then continue when ready.";
     }
     if (step.id === "plan_executed" && planExecutionPrompted && !planExecutionSubmitted) {
-      return "Codex has the execution prompt. Review the result, then use Go to next step when ready.";
+      return "Codex has the execution prompt. Review the result, then use Advance step when ready.";
     }
     if (step.id === "deep_ui_check_run" && deepUiCheckPrompted) {
-      return "Codex has the Deep UI check prompt. Review the result, then use Go to next step when ready.";
+      return "Codex has the run deep UI check prompt. Review the result, then use Advance step when ready.";
     }
     if (step.id === "automated_checks_run" && artifacts.prompt) {
-      return "Codex has the automated-checks prompt. Review the result, then use Go to next step when ready.";
+      return "Codex has the run automated checks prompt. Review the result, then use Advance step when ready.";
     }
     if (step.id === "main_checkout_synced" && artifacts.prOutcome?.outcome && artifacts.prOutcome.outcome !== "merged") {
       return "The PR was not merged, so JSKIT will record main checkout sync as skipped before cleanup.";
@@ -796,9 +796,9 @@ function buildCurrentStepAction(stepId, artifacts = {}) {
       return [
         {
           id: "resolve_deslop",
-          helpText: "Send Codex the explicit resolve deslop prompt. Nothing advances automatically after it finishes.",
+          helpText: "Send Codex the explicit resolve review/deslop prompt. Nothing advances automatically after it finishes.",
           kind: "codex_prompt",
-          label: "Resolve deslop",
+          label: "Resolve review/deslop",
           submitOptions: {
             resolveDeslop: true
           }

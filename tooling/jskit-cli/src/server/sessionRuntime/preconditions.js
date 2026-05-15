@@ -435,7 +435,7 @@ async function assertAutomatedChecksPassed(paths) {
   return assertActiveCycleStepRecord(paths, {
     code: "automated_checks_not_passed",
     id: "automated_checks_passed",
-    message: "Automated checks have passed.",
+    message: "Run automated checks completed successfully.",
     stepId: "automated_checks_run"
   });
 }
