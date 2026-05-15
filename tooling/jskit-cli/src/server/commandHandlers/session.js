@@ -320,6 +320,7 @@ function normalizeStepOptions(inlineOptions = {}) {
     mergePr: inlineOptions["merge-pr"] === "true" || inlineOptions.mergePr === true,
     prompt: inlineOptions.prompt,
     reviewFindings: inlineOptions["review-findings"] || inlineOptions.reviewFindings,
+    skipMainSync: inlineOptions["skip-main-sync"] === "true" || inlineOptions.skipMainSync === true,
     skipUiCheck: inlineOptions["skip-ui-check"] === "true" || inlineOptions.skipUiCheck === true,
     userCheck: inlineOptions["user-check"] || inlineOptions.userCheck
   };
