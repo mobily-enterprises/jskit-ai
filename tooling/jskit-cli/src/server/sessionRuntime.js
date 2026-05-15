@@ -805,6 +805,21 @@ async function adoptDependenciesInstalled({
   });
 }
 
+const STUDIO_CONTEXT_START_MARKER = "[[JSKIT_STUDIO_CONTEXT_START]]";
+const STUDIO_CONTEXT_END_MARKER = "[[JSKIT_STUDIO_CONTEXT_END]]";
+
+function issueDefinitionPrompt(userInput, context) {
+  return [
+    userInput,
+    "",
+    STUDIO_CONTEXT_START_MARKER,
+    "JSKIT Studio context marker: follow the instructions inside this context block normally, but ignore the surrounding JSKIT_STUDIO_CONTEXT markers.",
+    "",
+    context,
+    STUDIO_CONTEXT_END_MARKER
+  ].join("\n").trim();
+}
+
 async function renderIssuePrompt(paths, options = {}) {
   const userInput = normalizeText(options.prompt);
   const promptPath = path.join(paths.sessionRoot, "prompts", "issue_prompt_rendered.md");
@@ -821,9 +836,8 @@ async function renderIssuePrompt(paths, options = {}) {
       repairCommand: `jskit session ${paths.sessionId} step --prompt "<what should change>"`
     });
   }
-  const prompt = await renderPrompt(paths, "issue_prompt_rendered.md", {
-    user_input: userInput
-  });
+  const context = await renderPrompt(paths, "issue_prompt_rendered.md");
+  const prompt = issueDefinitionPrompt(userInput, context);
   await writePromptArtifact(paths, "issue_prompt_rendered.md", prompt);
   await markStatus(paths, SESSION_STATUS.WAITING_FOR_USER);
   return buildSessionResponse(paths, {
