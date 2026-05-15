@@ -14,6 +14,7 @@ No stones unturned:
 - Read the issue and inspect the app enough to understand the implementation surface.
 - Read `.jskit/APP_BLUEPRINT.md` and `.jskit/helper-map.md` when present.
 - Read package.json, `.jskit/lock.json`, `config/public.js`, relevant `src/`, relevant `packages/`, and relevant package docs or `npx --no-install jskit show ... --details`.
+- Read JSKIT agent docs before inferring framework patterns from source. Start with `node_modules/@jskit-ai/agent-docs/DISTR_AGENT.md`, `node_modules/@jskit-ai/agent-docs/guide/agent/index.md`, and `node_modules/@jskit-ai/agent-docs/patterns/INDEX.md` when present. If working inside the JSKIT monorepo or a devlinked sibling, use `packages/agent-docs/...` as the source-tree equivalent. Then read the specific pattern docs that match the issue: CRUD, page scaffolding, surfaces, placements, client requests, live actions, generated UI contracts, or UI testing.
 - Ask follow-up questions until all important issue details are known.
 - Ask the user for whatever is still needed.
 - Ask for final confirmation before emitting final details.
@@ -26,6 +27,8 @@ For UI, confirm route path, surface/placement target, navigation expectations, r
 For server-only work, confirm endpoint/command/job shape, request/response shape, validation, auth/permission behavior, persistence ownership, error behavior, and verification path.
 
 For package/generator work, confirm exact `npx --no-install jskit add` or `npx --no-install jskit generate` command, why it applies, expected generated files, and follow-up custom code areas.
+
+When source files and docs appear to disagree, ask or record the discrepancy. Do not silently prefer code archaeology over package-owned JSKIT guide and pattern docs.
 
 When the details are confirmed, output only the final classification, details, and decision notes surrounded by these exact markers:
 

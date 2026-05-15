@@ -16,6 +16,8 @@ Changed files since the session base:
 
 Run a focused UI quality pass for the current worktree. If this is not UI-impacting after inspection, say exactly why and do not edit files. If the issue touches UI, inspect the changed routes, views, components, placements, layouts, and styles.
 
+Before changing user-facing JSKIT UI, read the relevant JSKIT agent docs when available: `node_modules/@jskit-ai/agent-docs/patterns/ui-testing.md`, `node_modules/@jskit-ai/agent-docs/patterns/page-scaffolding.md`, `node_modules/@jskit-ai/agent-docs/patterns/placements.md`, and `node_modules/@jskit-ai/agent-docs/patterns/surfaces.md`. If working inside the JSKIT monorepo or a devlinked sibling, use the equivalent `packages/agent-docs/...` paths.
+
 Check:
 
 - Material Design quality.

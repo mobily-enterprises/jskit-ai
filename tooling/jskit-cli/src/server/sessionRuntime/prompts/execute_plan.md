@@ -22,6 +22,8 @@ Implementation rules:
 
 - Inspect the current app before editing. App setup has already passed; if required JSKIT app files are missing, report setup failure rather than inventing recovery work.
 - Follow both `{{issue_details_file}}` and `{{plan_file}}`. If they disagree, ask for clarification before changing files.
+- Before implementing JSKIT app structure, generators, CRUD, surfaces, placements, app setup, package-owned workflows, or UI verification paths, read the relevant JSKIT agent docs. Start with `node_modules/@jskit-ai/agent-docs/DISTR_AGENT.md`, `node_modules/@jskit-ai/agent-docs/guide/agent/index.md`, and `node_modules/@jskit-ai/agent-docs/patterns/INDEX.md` when present. If working inside the JSKIT monorepo or a devlinked sibling, use `packages/agent-docs/...` as the source-tree equivalent.
+- Read specific pattern docs before touching their lane, such as CRUD scaffolding/repository mapping, page scaffolding, surfaces, placements, client requests, live actions, generated UI contract tracking, and UI testing. Prefer these docs and package descriptors over reverse-engineering framework rules from source files.
 - Read `.jskit/helper-map.md` when it exists before creating helpers, composables, service functions, maps, or package glue.
 - Prefer existing JSKIT helpers, app-local helpers, package runtime seams, generated scaffolds, and documented generators over new local helpers.
 - If the plan calls for a generator or package install, use the planned `npx --no-install jskit` command unless inspection proves it does not apply. If you skip a generator, explain the exact gap.

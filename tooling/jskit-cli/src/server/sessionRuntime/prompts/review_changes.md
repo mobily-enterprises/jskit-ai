@@ -32,6 +32,7 @@ Use four passes:
    - broken flows, missing route wiring, missing migrations, or stale generated metadata
    - surface or entity ownership mistakes: public, user, workspace, workspace_user
 2. JSKIT review
+   - were relevant `@jskit-ai/agent-docs` guide or pattern docs consulted before inferring JSKIT architecture from source?
    - existing helper/runtime seam available?
    - was `.jskit/helper-map.md` checked before introducing helper-like code?
    - should this have been a package install, generator step, or scaffold extension instead of hand code?

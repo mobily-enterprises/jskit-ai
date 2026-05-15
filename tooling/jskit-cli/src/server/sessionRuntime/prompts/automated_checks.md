@@ -13,7 +13,8 @@ Run the command in the session worktree. If it fails, diagnose the root cause, f
 Rules:
 
 - Fix the underlying cause. Do not remove checks, weaken verification, or hide failures to make the command pass.
-- Prefer JSKIT-owned helpers, generators, package seams, and documented commands over local hacks.
+- Prefer JSKIT-owned helpers, generators, package seams, agent docs, package descriptors, and documented commands over local hacks.
+- If a failure involves JSKIT architecture, generator ownership, CRUD, surfaces, placements, client/server contracts, or UI verification, read the relevant docs under `node_modules/@jskit-ai/agent-docs/` or `packages/agent-docs/` before repairing it.
 - Use `npx --no-install jskit ...` for JSKIT CLI commands you run directly from the shell.
 - Keep fixes scoped to the current issue, issue details, and active plan.
 - Do not create commits, branches, issues, pull requests, merges, or worktree cleanup. JSKIT session owns those steps.

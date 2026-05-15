@@ -28,6 +28,10 @@ Rework request:
 
 Read the issue, confirmed issue details, rework request when present, agent decisions, and local app before planning. Use the issue files, issue details file, package.json, .jskit metadata, config, packages, routes, generated references, package docs, any saved app blueprint, and `.jskit/helper-map.md` when available.
 
+Before deriving JSKIT architecture from source files, read the package-owned agent docs that apply to this work. Start with `node_modules/@jskit-ai/agent-docs/DISTR_AGENT.md`, `node_modules/@jskit-ai/agent-docs/guide/agent/index.md`, and `node_modules/@jskit-ai/agent-docs/patterns/INDEX.md` when present. If the worktree is the JSKIT monorepo or a devlinked sibling, use the equivalent `packages/agent-docs/...` paths. Then read the specific pattern docs needed for the lane, such as `patterns/crud-scaffolding.md`, `patterns/crud-repository-mapping.md`, `patterns/page-scaffolding.md`, `patterns/placements.md`, `patterns/surfaces.md`, `patterns/client-requests.md`, `patterns/live-actions.md`, `patterns/generated-ui-contract-tracking.md`, or `patterns/ui-testing.md`.
+
+If these docs are unavailable, continue with app inspection and say that the agent docs were unavailable. Do not compensate by inventing framework rules from isolated source files.
+
 Confirmed issue details:
 
 {{issue_details_text}}
@@ -50,6 +54,7 @@ Planning rules:
 - Prefer vertical slices that produce visible or end-to-end progress.
 - If the work is too broad to review confidently, split it into clear chunks.
 - Make generator decisions concrete. Name the exact `npx --no-install jskit` commands to run when a generator or package install applies.
+- Base JSKIT lane and generator decisions on the agent docs and package descriptors first, then verify against the local codebase.
 - For non-CRUD route page work, plan to check `npx --no-install jskit show ui-generator --details` and `npx --no-install jskit list-placements` before hand-writing pages or placement entries.
 - For CRUD work, plan server ownership first. Name the `npx --no-install jskit generate crud-server-generator scaffold ...` command before any CRUD UI plan.
 - For CRUD-owned tables, plan around the real database table shape. Do not plan a separate hand-written migration for a table that `crud-server-generator` will own.

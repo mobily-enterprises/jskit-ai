@@ -1165,15 +1165,22 @@ test("session prompts reference canonical session artifacts", async () => {
   }
 
   assert.match(prompts["issue_details.md"], /issue_details\.md/);
+  assert.match(prompts["issue_details.md"], /@jskit-ai\/agent-docs/);
   assert.doesNotMatch(prompts["issue_details.md"], /\[issue_details_conversation_ready\]/);
+  assert.match(prompts["new_issue.md"], /@jskit-ai\/agent-docs/);
   assert.match(prompts["plan_issue.md"], /issue_details\.md/);
   assert.match(prompts["plan_issue.md"], /agent_decisions\.md/);
+  assert.match(prompts["plan_issue.md"], /patterns\/INDEX\.md/);
   assert.match(prompts["execute_plan.md"], /issue_details\.md/);
   assert.match(prompts["execute_plan.md"], /agent_decisions/);
+  assert.match(prompts["execute_plan.md"], /@jskit-ai\/agent-docs/);
   assert.match(prompts["execute_plan.md"], /verify-ui` does not start the app server/);
   assert.ok(!Object.hasOwn(prompts, "fine_tune_plan.md"));
   assert.match(prompts["review_changes.md"], /\.jskit\/helper-map\.md/);
+  assert.match(prompts["review_changes.md"], /@jskit-ai\/agent-docs/);
   assert.match(prompts["review_changes.md"], /verify-ui` does not start the app server/);
+  assert.match(prompts["automated_checks.md"], /@jskit-ai\/agent-docs/);
+  assert.match(prompts["deep_ui_check.md"], /@jskit-ai\/agent-docs/);
   assert.match(prompts["deep_ui_check.md"], /verify-ui` does not start the app server/);
   assert.match(prompts["resolve_deslop_findings.md"], /\[resolve_deslop_findings\]/);
   assert.match(prompts["update_blueprint.md"], /\.jskit\/APP_BLUEPRINT\.md/);
