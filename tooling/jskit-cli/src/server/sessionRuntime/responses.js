@@ -56,6 +56,19 @@ function createPrecondition({
   });
 }
 
+function createWarning({
+  code,
+  message,
+  repairCommand = ""
+}) {
+  return createError({ code, message, repairCommand });
+}
+
+const ACCEPTED_CHANGES_NOOP_WARNING = createWarning({
+  code: "accepted_changes_noop",
+  message: "No accepted worktree changes were found; continuing without a new commit."
+});
+
 function normalizeStepId(stepId) {
   return normalizeText(stepId);
 }
@@ -530,6 +543,43 @@ function cloneContractValue(value) {
   );
 }
 
+function normalizeWarning(warning) {
+  if (typeof warning === "string") {
+    return createWarning({
+      code: "session_warning",
+      message: warning
+    });
+  }
+  if (!warning || typeof warning !== "object" || Array.isArray(warning)) {
+    return null;
+  }
+  return createWarning({
+    code: warning.code || "session_warning",
+    message: warning.message || "",
+    repairCommand: warning.repairCommand || ""
+  });
+}
+
+function mergeWarnings(...warningLists) {
+  const merged = [];
+  const seen = new Set();
+  for (const warnings of warningLists) {
+    for (const warning of Array.isArray(warnings) ? warnings : []) {
+      const normalized = normalizeWarning(warning);
+      if (!normalized?.message) {
+        continue;
+      }
+      const key = `${normalized.code}\n${normalized.message}`;
+      if (seen.has(key)) {
+        continue;
+      }
+      seen.add(key);
+      merged.push(normalized);
+    }
+  }
+  return merged;
+}
+
 async function publicCodexContract(codex = null) {
   if (!codex || typeof codex !== "object" || Array.isArray(codex)) {
     return null;
@@ -814,7 +864,8 @@ async function readSessionArtifacts(paths) {
     issueMetadataText,
     planExecutionReceipt,
     prOutcomeText,
-    mainCheckoutSyncText
+    mainCheckoutSyncText,
+    changesCommittedText
   ] = await Promise.all([
     readTrimmedFile(path.join(paths.sessionRoot, "status")),
     readTrimmedFile(path.join(paths.sessionRoot, "current_step")),
@@ -834,7 +885,8 @@ async function readSessionArtifacts(paths) {
     readTextIfExists(path.join(paths.sessionRoot, "issue_metadata.json")),
     readTextIfExists(path.join(cycleStepsRoot(paths, activeCycle), "plan_executed")),
     readTextIfExists(path.join(paths.sessionRoot, "pr_outcome.json")),
-    readTextIfExists(path.join(paths.sessionRoot, "main_checkout_sync.json"))
+    readTextIfExists(path.join(paths.sessionRoot, "main_checkout_sync.json")),
+    readTextIfExists(path.join(paths.sessionRoot, "changes_committed.json"))
   ]);
   let issueMetadata = null;
   if (issueMetadataText) {
@@ -871,6 +923,18 @@ async function readSessionArtifacts(paths) {
       mainCheckoutSync = null;
     }
   }
+  let acceptedChangesCommit = null;
+  if (changesCommittedText) {
+    try {
+      const parsed = JSON.parse(changesCommittedText);
+      acceptedChangesCommit = parsed && typeof parsed === "object" && !Array.isArray(parsed) ? parsed : null;
+    } catch {
+      acceptedChangesCommit = null;
+    }
+  }
+  const warnings = acceptedChangesCommit?.noChanges === true
+    ? [ACCEPTED_CHANGES_NOOP_WARNING]
+    : [];
   const cycles = await readCycles(paths, activeCycle);
   const checks = await readStructuredChecks(paths);
   const uiChecks = await readStructuredUiChecks(paths);
@@ -960,6 +1024,7 @@ async function readSessionArtifacts(paths) {
     finalReportText: finalReportText.trim(),
     prompt: prompt.trim(),
     status: status || SESSION_STATUS.PENDING,
+    warnings,
     workflowVersion,
     worktreeReady,
     worktreeStatus
@@ -980,7 +1045,8 @@ async function buildSessionResponse(paths, {
   errors = [],
   preconditions = [],
   prompt = undefined,
-  status = undefined
+  status = undefined,
+  warnings = []
 } = {}) {
   const responsePaths = paths.sessionId ? await pathsForExistingSession(paths) : paths;
   const artifacts = responsePaths.sessionRoot ? await readSessionArtifacts(responsePaths) : {};
@@ -1039,6 +1105,7 @@ async function buildSessionResponse(paths, {
           message: `Session ${paths.sessionId || ""} uses workflow version ${artifacts.workflowVersion || "missing"}, but this JSKIT runtime expects ${SESSION_WORKFLOW_VERSION}.`
         })
       ],
+      warnings: [],
       archive: responsePaths.archive || "active",
       sessionRoot: responsePaths.sessionRoot || "",
       worktree: paths.worktree || "",
@@ -1052,6 +1119,7 @@ async function buildSessionResponse(paths, {
   const responsePrompt = typeof prompt === "string"
     ? prompt
     : stepCanExposeStoredPrompt(currentStep) ? artifacts.prompt || "" : "";
+  const responseWarnings = mergeWarnings(artifacts.warnings || [], warnings);
 
   return {
     ok: ok === true,
@@ -1101,6 +1169,7 @@ async function buildSessionResponse(paths, {
     mainCheckoutSync: cloneContractValue(artifacts.mainCheckoutSync || null),
     preconditions,
     errors,
+    warnings: responseWarnings,
     archive: responsePaths.archive || (resolvedStatus === SESSION_STATUS.FINISHED ? "completed" : resolvedStatus === SESSION_STATUS.ABANDONED ? "abandoned" : "active"),
     sessionRoot: responsePaths.sessionRoot || "",
     worktree: paths.worktree || "",
@@ -1179,6 +1248,7 @@ function buildSessionErrorResponse({
     prOutcome: null,
     preconditions,
     errors: errorList,
+    warnings: [],
     archive: "",
     sessionRoot: "",
     worktree: "",

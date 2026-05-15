@@ -1,4 +1,7 @@
 import {
+  createHash
+} from "node:crypto";
+import {
   appendFile,
   mkdir,
   readFile,
@@ -1581,6 +1584,7 @@ const STEP_CANCELERS = Object.freeze({
   blueprint_updated: async (paths) => {
     await Promise.all([
       removePromptArtifact(paths, "update_blueprint.md"),
+      removeSessionRootFile(paths, BLUEPRINT_BASELINE_FILE),
       removeGlobalCodexResult(paths, "blueprint_updated")
     ]);
   },
@@ -1828,6 +1832,79 @@ async function changedFilesInWorktree(paths) {
     trackedResult.ok ? trackedResult.stdout : "",
     untrackedResult.ok ? untrackedResult.stdout : ""
   ]);
+}
+
+const BLUEPRINT_RELATIVE_PATH = ".jskit/APP_BLUEPRINT.md";
+const BLUEPRINT_BASELINE_FILE = "blueprint_update_baseline.json";
+
+function blueprintBaselinePath(paths) {
+  return path.join(paths.sessionRoot, BLUEPRINT_BASELINE_FILE);
+}
+
+function isBlueprintRelativePath(filePath = "") {
+  return normalizeText(filePath) === BLUEPRINT_RELATIVE_PATH;
+}
+
+function nonBlueprintChangedFiles(files = []) {
+  return files.filter((file) => !isBlueprintRelativePath(file));
+}
+
+async function hashWorktreeFile(paths, filePath) {
+  try {
+    const buffer = await readFile(path.join(paths.worktree, filePath));
+    return createHash("sha256").update(buffer).digest("hex");
+  } catch {
+    return "missing";
+  }
+}
+
+async function buildDirtyFileSnapshot(paths, files = []) {
+  const entries = await Promise.all(nonBlueprintChangedFiles(files).map(async (file) => [
+    file,
+    await hashWorktreeFile(paths, file)
+  ]));
+  return Object.fromEntries(entries);
+}
+
+async function writeBlueprintBaseline(paths) {
+  const changedFiles = await changedFilesInWorktree(paths);
+  const snapshot = await buildDirtyFileSnapshot(paths, changedFiles);
+  const payload = {
+    changedFiles: Object.keys(snapshot).sort((left, right) => left.localeCompare(right)),
+    files: snapshot,
+    recordedAt: timestampForReceipt()
+  };
+  await writeTextFile(blueprintBaselinePath(paths), `${JSON.stringify(payload, null, 2)}\n`);
+  return payload;
+}
+
+async function readBlueprintBaseline(paths) {
+  return parseJsonObject(await readTextIfExists(blueprintBaselinePath(paths))) || null;
+}
+
+async function unexpectedBlueprintStepChanges(paths, changedFiles = []) {
+  const baseline = await readBlueprintBaseline(paths);
+  if (!baseline?.files || typeof baseline.files !== "object" || Array.isArray(baseline.files)) {
+    return nonBlueprintChangedFiles(changedFiles);
+  }
+  const baselineFiles = baseline.files;
+  const currentFiles = new Set(nonBlueprintChangedFiles(changedFiles));
+  const candidates = new Set([
+    ...Object.keys(baselineFiles),
+    ...currentFiles
+  ]);
+  const unexpected = [];
+  for (const file of [...candidates].sort((left, right) => left.localeCompare(right))) {
+    if (!Object.prototype.hasOwnProperty.call(baselineFiles, file)) {
+      unexpected.push(file);
+      continue;
+    }
+    const currentHash = await hashWorktreeFile(paths, file);
+    if (currentHash !== baselineFiles[file]) {
+      unexpected.push(file);
+    }
+  }
+  return unexpected;
 }
 
 async function changedFilesSinceBase(paths) {
@@ -2178,17 +2255,10 @@ async function commitAcceptedChanges(paths, _options = {}, context = {}) {
 
   if (!commitInfo?.commit) {
     const result = await commitWorktree(paths, {
+      allowNoChanges: true,
       message: `Implement JSKIT session ${paths.sessionId}`
     });
     if (!result.ok) {
-      if (result.output === "No changes found.") {
-        return failSession(paths, {
-          code: "accepted_changes_missing",
-          message: "No accepted worktree changes found to commit.",
-          repairCommand: `git -C ${paths.worktree} status --short`,
-          preconditions
-        });
-      }
       return failSession(paths, {
         code: "accepted_changes_commit_failed",
         message: result.output || "Failed to commit accepted changes.",
@@ -2199,15 +2269,30 @@ async function commitAcceptedChanges(paths, _options = {}, context = {}) {
     commitInfo = {
       changedFiles: result.changedFiles || [],
       commit: await currentHead(paths),
-      committedAt: timestampForReceipt()
+      committedAt: timestampForReceipt(),
+      noChanges: (result.changedFiles || []).length < 1
     };
     await writeTextFile(path.join(paths.sessionRoot, "changes_committed.json"), `${JSON.stringify(commitInfo, null, 2)}\n`);
   }
 
-  await writeReceipt(paths, "changes_committed", `Committed accepted changes at ${commitInfo.commit || "unknown"}.`);
+  const warnings = [];
+  if (commitInfo.noChanges === true) {
+    warnings.push({
+      code: "accepted_changes_noop",
+      message: "No accepted worktree changes were found; continuing without a new commit."
+    });
+  }
+  await writeReceipt(
+    paths,
+    "changes_committed",
+    commitInfo.noChanges === true
+      ? "No accepted worktree changes were found; continued without a new commit."
+      : `Committed accepted changes at ${commitInfo.commit || "unknown"}.`
+  );
   await markStatus(paths, SESSION_STATUS.RUNNING);
   return buildSessionResponse(paths, {
-    preconditions
+    preconditions,
+    warnings
   });
 }
 
@@ -2220,7 +2305,7 @@ async function updateBlueprint(paths, options = {}, context = {}) {
   const { planPath } = await readCurrentPlan(paths);
   const issueDetailsPath = path.join(paths.sessionRoot, "issue_details.md");
   const agentDecisionsPath = path.join(paths.sessionRoot, "agent_decisions.md");
-  const blueprintPath = path.join(paths.worktree, ".jskit", "APP_BLUEPRINT.md");
+  const blueprintPath = path.join(paths.worktree, BLUEPRINT_RELATIVE_PATH);
   const blueprintPromptPath = path.join(paths.sessionRoot, "prompts", "update_blueprint.md");
 
   if (await fileExists(blueprintPromptPath)) {
@@ -2229,11 +2314,11 @@ async function updateBlueprint(paths, options = {}, context = {}) {
       return codexResultFailure;
     }
     const changedFiles = await changedFilesInWorktree(paths);
-    const unexpectedChanges = changedFiles.filter((file) => file !== ".jskit/APP_BLUEPRINT.md");
+    const unexpectedChanges = await unexpectedBlueprintStepChanges(paths, changedFiles);
     if (unexpectedChanges.length > 0) {
       return failSession(paths, {
         code: "blueprint_unexpected_changes",
-        message: `The blueprint step changed files outside .jskit/APP_BLUEPRINT.md: ${unexpectedChanges.join(", ")}`,
+        message: `The blueprint step changed files outside ${BLUEPRINT_RELATIVE_PATH}: ${unexpectedChanges.join(", ")}`,
         repairCommand: `git -C ${paths.worktree} status --short`,
         preconditions
       });
@@ -2249,30 +2334,8 @@ async function updateBlueprint(paths, options = {}, context = {}) {
       });
     }
 
-    if (changedFiles.includes(".jskit/APP_BLUEPRINT.md")) {
-      const addResult = await runGitInWorktree(paths.worktree, ["add", ".jskit/APP_BLUEPRINT.md"], {
-        timeout: 15000
-      });
-      if (!addResult.ok) {
-        return failSession(paths, {
-          code: "blueprint_stage_failed",
-          message: addResult.output || "Failed to stage app blueprint update.",
-          repairCommand: `git -C ${paths.worktree} add .jskit/APP_BLUEPRINT.md`,
-          preconditions
-        });
-      }
-      const commitResult = await runGitInWorktree(paths.worktree, ["commit", "-m", `Update app blueprint for ${paths.sessionId}`], {
-        timeout: 1000 * 60
-      });
-      if (!commitResult.ok) {
-        return failSession(paths, {
-          code: "blueprint_commit_failed",
-          message: commitResult.output || "Failed to commit app blueprint update.",
-          repairCommand: `git -C ${paths.worktree} status --short`,
-          preconditions
-        });
-      }
-      await writeReceipt(paths, "blueprint_updated", "Codex updated and JSKIT committed the app blueprint.");
+    if (changedFiles.includes(BLUEPRINT_RELATIVE_PATH)) {
+      await writeReceipt(paths, "blueprint_updated", "Codex updated the app blueprint; JSKIT will include it in the accepted changes commit.");
     } else {
       await writeReceipt(paths, "blueprint_updated", "Codex reviewed the app blueprint; no blueprint changes were needed.");
     }
@@ -2283,6 +2346,7 @@ async function updateBlueprint(paths, options = {}, context = {}) {
     });
   }
 
+  await writeBlueprintBaseline(paths);
   const prompt = await renderPrompt(paths, "update_blueprint.md", {
     agent_decisions_file: agentDecisionsPath,
     app_blueprint_file: blueprintPath,

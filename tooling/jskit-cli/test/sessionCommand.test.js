@@ -2467,9 +2467,9 @@ test("blueprint update step renders a Codex prompt then records the edited bluep
       args: codexResultArgs(),
       input: codexStepResult("blueprint_updated")
     });
-    assert.equal(changed.currentStep, "final_report_created");
-    assert.match(runGit(changedWorktree.worktree, ["log", "--oneline", "--max-count=1"]), /Update app blueprint/);
-    assert.match(await readFile(path.join(changedSession.sessionRoot, "steps", "blueprint_updated"), "utf8"), /committed the app blueprint/);
+    assert.equal(changed.currentStep, "changes_committed");
+    assert.match(runGit(changedWorktree.worktree, ["status", "--porcelain=v1"]), /\.jskit\/APP_BLUEPRINT\.md/);
+    assert.match(await readFile(path.join(changedSession.sessionRoot, "steps", "blueprint_updated"), "utf8"), /include it in the accepted changes commit/);
 
     const unchangedRoot = path.join(cwd, "unchanged");
     await createGitApp(unchangedRoot);
@@ -2492,12 +2492,28 @@ test("blueprint update step renders a Codex prompt then records the edited bluep
       args: codexResultArgs(),
       input: codexStepResult("blueprint_updated")
     });
-    assert.equal(unchanged.currentStep, "final_report_created");
+    assert.equal(unchanged.currentStep, "changes_committed");
     assert.equal(runGit(unchangedWorktree.worktree, ["status", "--porcelain=v1"]), "");
     assert.match(
       await readFile(path.join(unchangedSession.sessionRoot, "steps", "blueprint_updated"), "utf8"),
       /no blueprint changes were needed/
     );
+    const binDir = path.join(cwd, "bin-blueprint-noop");
+    const logPath = path.join(cwd, "blueprint-noop-commands.log");
+    await installFakeGh(binDir, logPath);
+    const noopCommit = runSessionStepJson(unchangedRoot, unchangedSession.sessionId, {
+      env: {
+        PATH: `${binDir}:${process.env.PATH}`
+      }
+    });
+    assert.equal(noopCommit.currentStep, "final_report_created");
+    assert.equal(noopCommit.warnings[0].code, "accepted_changes_noop");
+    assert.match(await readFile(path.join(unchangedSession.sessionRoot, "changes_committed.json"), "utf8"), /"noChanges": true/);
+    const reloadedNoopCommit = parseJsonResult(runCli({
+      cwd: unchangedRoot,
+      args: ["session", unchangedSession.sessionId, "--json"]
+    }));
+    assert.equal(reloadedNoopCommit.warnings[0].code, "accepted_changes_noop");
 
     const unexpectedRoot = path.join(cwd, "unexpected");
     await createGitApp(unexpectedRoot);
@@ -2684,14 +2700,7 @@ test("jskit session can execute review loop, PR, merge, cleanup, and finish", as
       args: ["--user-check", "passed"],
       env
     });
-    assert.equal(userChecked.currentStep, "changes_committed");
-
-    const committed = runSessionStepJson(appRoot, created.sessionId, { env });
-    assert.equal(committed.currentStep, "blueprint_updated");
-    assert.ok(committed.completedSteps.includes("changes_committed"));
-    assert.equal(committed.githubComments.accepted_changes_committed, undefined);
-    assert.match(await readFile(path.join(committed.sessionRoot, "changes_committed.json"), "utf8"), /"commit":/u);
-    await assert.rejects(access(path.join(committed.sessionRoot, "changes_committed.md")));
+    assert.equal(userChecked.currentStep, "blueprint_updated");
 
     const blueprintPrompt = runSessionStepJson(appRoot, created.sessionId, { env });
     assert.equal(blueprintPrompt.currentStep, "blueprint_updated");
@@ -2702,8 +2711,15 @@ test("jskit session can execute review loop, PR, merge, cleanup, and finish", as
       env,
       input: codexStepResult("blueprint_updated")
     });
-    assert.equal(blueprintUpdated.currentStep, "final_report_created");
+    assert.equal(blueprintUpdated.currentStep, "changes_committed");
     assert.match(await readFile(path.join(inspect.worktree, ".jskit", "APP_BLUEPRINT.md"), "utf8"), /Session Test App/);
+
+    const committed = runSessionStepJson(appRoot, created.sessionId, { env });
+    assert.equal(committed.currentStep, "final_report_created");
+    assert.ok(committed.completedSteps.includes("changes_committed"));
+    assert.equal(committed.githubComments.accepted_changes_committed, undefined);
+    assert.match(await readFile(path.join(committed.sessionRoot, "changes_committed.json"), "utf8"), /"commit":/u);
+    await assert.rejects(access(path.join(committed.sessionRoot, "changes_committed.md")));
 
     const finalReport = runSessionStepJson(appRoot, created.sessionId, { env });
     assert.equal(finalReport.currentStep, "pr_created");
@@ -2714,7 +2730,7 @@ test("jskit session can execute review loop, PR, merge, cleanup, and finish", as
     assert.match(finalReport.finalReportText, /## Command Log/);
     assert.match(finalReport.finalReportText, /## Remaining Unverified Gaps/);
     assert.match(finalReport.finalReportText, /## Decisions/);
-    assert.match(finalReport.finalReportText, /Codex updated and JSKIT committed the app blueprint/);
+    assert.match(finalReport.finalReportText, /Codex updated the app blueprint/);
     assert.equal(finalReport.githubComments.final_report.purpose, "final_report");
     const pr = runSessionStepJson(appRoot, created.sessionId, { env });
     assert.equal(pr.prUrl, "https://github.com/example/repo/pull/456");

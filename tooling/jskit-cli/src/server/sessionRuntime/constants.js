@@ -478,27 +478,27 @@ const STEP_DEFINITIONS = Object.freeze([
     ])
   }),
   defineStep({
-    buttonLabel: "Commit accepted changes",
-    description: "JSKIT commits the user-accepted session changes in the session worktree.",
-    id: "changes_committed",
-    label: "Changes committed",
-    preconditions: ["session_exists", "worktree_exists", "dependencies_installed", "ready_jskit_app", "issue_metadata_exists", "issue_url_exists", "github_auth", "active_cycle_exists", "automated_checks_passed", "deep_ui_check_satisfied", "active_cycle_user_check_passed"]
-  }),
-  defineStep({
     buttonLabel: "Update blueprint",
     codex: BLUEPRINT_CODEX_HANDOFF,
-    description: "JSKIT asks Codex to update durable app memory from the accepted work; Codex edits .jskit/APP_BLUEPRINT.md; JSKIT records and commits the update.",
+    description: "JSKIT asks Codex to update durable app memory from the accepted work; Codex edits .jskit/APP_BLUEPRINT.md; JSKIT records the update for the accepted-work commit.",
     id: "blueprint_updated",
     kind: "codex_prompt",
     label: "Blueprint updated",
-    preconditions: ["session_exists", "worktree_exists", "dependencies_installed", "ready_jskit_app", "issue_metadata_exists", "active_cycle_exists", "automated_checks_passed", "deep_ui_check_satisfied", "active_cycle_user_check_passed", "accepted_changes_committed"]
+    preconditions: ["session_exists", "worktree_exists", "dependencies_installed", "ready_jskit_app", "issue_metadata_exists", "active_cycle_exists", "automated_checks_passed", "deep_ui_check_satisfied", "active_cycle_user_check_passed"]
+  }),
+  defineStep({
+    buttonLabel: "Commit accepted changes",
+    description: "JSKIT commits the accepted session changes, including durable app memory updates, in the session worktree.",
+    id: "changes_committed",
+    label: "Changes committed",
+    preconditions: ["session_exists", "worktree_exists", "dependencies_installed", "ready_jskit_app", "issue_metadata_exists", "issue_url_exists", "github_auth", "active_cycle_exists", "automated_checks_passed", "deep_ui_check_satisfied", "active_cycle_user_check_passed", "blueprint_update_satisfied"]
   }),
   defineStep({
     buttonLabel: "Create final report",
     description: "JSKIT creates the deterministic final session report and comments it on the GitHub issue.",
     id: "final_report_created",
     label: "Final report created",
-    preconditions: ["session_exists", "worktree_exists", "dependencies_installed", "ready_jskit_app", "issue_metadata_exists", "active_cycle_exists", "automated_checks_passed", "deep_ui_check_satisfied", "active_cycle_user_check_passed", "accepted_changes_committed", "blueprint_update_satisfied"]
+    preconditions: ["session_exists", "worktree_exists", "dependencies_installed", "ready_jskit_app", "issue_metadata_exists", "active_cycle_exists", "automated_checks_passed", "deep_ui_check_satisfied", "active_cycle_user_check_passed", "blueprint_update_satisfied", "accepted_changes_committed"]
   }),
   defineStep({
     buttonLabel: "Push branch and create PR",

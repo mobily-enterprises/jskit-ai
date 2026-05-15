@@ -379,7 +379,7 @@ async function assertAcceptedChangesCommitted(paths) {
     ok: false,
     error: createError({
       code: "accepted_changes_not_committed",
-      message: "Accepted changes must be committed before app memory and finalization steps continue.",
+      message: "Accepted changes must be committed before finalization steps continue.",
       repairCommand: jskitCommand(`session ${paths.sessionId} step`)
     }),
     precondition: createPrecondition({

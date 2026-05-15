@@ -916,6 +916,14 @@ Local functions
 - `commitWorktree(paths, { message, allowNoChanges = false } = {})`
 - `uniqueChangedFileList(entries = [])`
 - `changedFilesInWorktree(paths)`
+- `blueprintBaselinePath(paths)`
+- `isBlueprintRelativePath(filePath = "")`
+- `nonBlueprintChangedFiles(files = [])`
+- `hashWorktreeFile(paths, filePath)`
+- `buildDirtyFileSnapshot(paths, files = [])`
+- `writeBlueprintBaseline(paths)`
+- `readBlueprintBaseline(paths)`
+- `unexpectedBlueprintStepChanges(paths, changedFiles = [])`
 - `changedFilesSinceBase(paths)`
 - `nextReviewPassNumber(pass = "")`
 - `readCurrentReviewPass(paths)`
@@ -1067,7 +1075,7 @@ Exports
 ### `src/server/sessionRuntime/responses.js`
 Exports
 - `buildSessionErrorResponse({ targetRoot = process.cwd(), sessionId = "", code, message, repairCommand = "", status = SESSION_STATUS.BLOCKED, preconditions = [], errors = undefined } = {})`
-- `buildSessionResponse(paths, { codex = undefined, ok = true, errors = [], preconditions = [], prompt = undefined, status = undefined } = {})`
+- `buildSessionResponse(paths, { codex = undefined, ok = true, errors = [], preconditions = [], prompt = undefined, status = undefined, warnings = [] } = {})`
 - `buildStepDefinitions()`
 - `createError({ code, message, repairCommand = "" })`
 - `createPrecondition({ id, ok, message })`
@@ -1085,6 +1093,7 @@ Exports
 - `writeCycleReceipt(paths, receiptName, message, { cycle = "" } = {})`
 - `writeReceipt(paths, stepId, message)`
 Local functions
+- `createWarning({ code, message, repairCommand = "" })`
 - `normalizeStepId(stepId)`
 - `stepIndex(stepId)`
 - `normalizeKnownStepIds(stepIds = [])`
@@ -1117,6 +1126,8 @@ Local functions
 - `readWorktreeStatus(paths, worktreeReady)`
 - `resolveNextStep(completedSteps = [])`
 - `cloneContractValue(value)`
+- `normalizeWarning(warning)`
+- `mergeWarnings(...warningLists)`
 - `publicCodexContract(codex = null)`
 - `stepRepeatabilityContract(stepId)`
 - `publicStepDefinition(step, index)`
