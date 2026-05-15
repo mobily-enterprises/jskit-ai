@@ -480,6 +480,20 @@ async function runSessionFinalizationGuard(paths, preconditions = []) {
   });
 }
 
+async function runSessionProvisioningHook(paths, {
+  preferredPackageManager = "",
+  preconditions = []
+} = {}) {
+  return runOptionalSessionPackageScript(paths, {
+    failureCode: "session_provision_failed",
+    failureMessage: `${SESSION_PROVISION_PACKAGE_SCRIPT} failed in the session worktree.`,
+    kind: "session_provision",
+    preferredPackageManager,
+    preconditions,
+    scriptName: SESSION_PROVISION_PACKAGE_SCRIPT
+  });
+}
+
 async function readIssueMetadata(paths) {
   const source = await readTextIfExists(path.join(paths.sessionRoot, "issue_metadata.json"));
   if (!source) {
@@ -945,13 +959,9 @@ async function installDependencies(paths, _options = {}, context = {}) {
       preconditions
     });
   }
-  const provisionResult = await runOptionalSessionPackageScript(paths, {
-    failureCode: "session_provision_failed",
-    failureMessage: `${SESSION_PROVISION_PACKAGE_SCRIPT} failed in the session worktree.`,
-    kind: "session_provision",
+  const provisionResult = await runSessionProvisioningHook(paths, {
     preferredPackageManager: command,
-    preconditions,
-    scriptName: SESSION_PROVISION_PACKAGE_SCRIPT
+    preconditions
   });
   if (!provisionResult.ok) {
     return provisionResult.response;
@@ -969,6 +979,7 @@ async function adoptDependenciesInstalled({
   message = ""
 } = {}) {
   return withExistingSession({ targetRoot, sessionId }, async (paths, context = {}) => {
+    const preconditions = context.preconditions || [];
     const artifacts = await readSessionArtifacts(paths);
     if (artifacts.nextStep !== "dependencies_installed") {
       return buildSessionResponse(paths, {
@@ -979,12 +990,21 @@ async function adoptDependenciesInstalled({
             message: `Cannot record dependencies for ${paths.sessionId}; current step is ${artifacts.nextStep || "complete"}.`
           })
         ],
-        preconditions: context.preconditions || []
+        preconditions
       });
     }
+    const provisionResult = await runSessionProvisioningHook(paths, {
+      preconditions
+    });
+    if (!provisionResult.ok) {
+      return provisionResult.response;
+    }
+    const receiptMessage = provisionResult.ran
+      ? `${normalizeText(message) || "Installed Node dependencies in the session worktree."}\n${SESSION_PROVISION_PACKAGE_SCRIPT} completed.`
+      : message;
     return recordDependenciesInstalled(paths, {
-      message,
-      preconditions: context.preconditions || []
+      message: receiptMessage,
+      preconditions
     });
   });
 }

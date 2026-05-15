@@ -10,6 +10,7 @@ import {
   STEP_DEFINITIONS,
   STEP_IDS,
   STEP_PRECONDITION_NAMES,
+  adoptDependenciesInstalled,
   createSession,
   extractIssueDetails,
   extractIssueTitle,
@@ -708,6 +709,60 @@ writeFileSync(path.join(process.env.JSKIT_SESSION_ROOT, "provision-env.json"), J
     await access(path.join(created.sessionRoot, "hooks", "jskit_provision-session"));
     const commandLog = await readFile(path.join(created.sessionRoot, "command_log.jsonl"), "utf8");
     assert.match(commandLog, /"kind":"session_provision"/);
+  });
+});
+
+test("jskit session runs the optional provisioning package script when terminal dependencies are adopted", async () => {
+  await withTempDir(async (cwd) => {
+    const appRoot = path.join(cwd, "app");
+    await createGitApp(appRoot);
+    await mkdir(path.join(appRoot, "scripts"), { recursive: true });
+    await writeFile(
+      path.join(appRoot, "scripts", "provision-session.mjs"),
+      `import { writeFileSync } from "node:fs";
+import path from "node:path";
+
+writeFileSync(path.join(process.env.JSKIT_SESSION_ROOT, "adopt-provision-env.json"), JSON.stringify({
+  cwd: process.cwd(),
+  packageScript: process.env.JSKIT_SESSION_PACKAGE_SCRIPT,
+  sessionId: process.env.JSKIT_SESSION_ID,
+  targetRoot: process.env.JSKIT_TARGET_ROOT,
+  worktreeRoot: process.env.JSKIT_WORKTREE_ROOT
+}, null, 2) + "\\n");
+`,
+      "utf8"
+    );
+    await addPackageScripts(appRoot, {
+      "jskit:provision-session": "node ./scripts/provision-session.mjs"
+    });
+    runGit(appRoot, ["add", "scripts/provision-session.mjs"]);
+    runGit(appRoot, ["commit", "-m", "Add session provisioning hook"]);
+
+    const created = parseJsonResult(runCli({
+      cwd: appRoot,
+      args: ["session", "create", "--json"]
+    }));
+    const worktreePayload = runSessionStepJson(appRoot, created.sessionId);
+    assert.equal(worktreePayload.currentStep, "dependencies_installed");
+
+    const adopted = await adoptDependenciesInstalled({
+      targetRoot: appRoot,
+      sessionId: created.sessionId,
+      message: "Adopted terminal install."
+    });
+
+    assert.equal(adopted.currentStep, "issue_prompt_rendered");
+    assert.ok(adopted.completedSteps.includes("dependencies_installed"));
+    const provisionEnv = JSON.parse(await readFile(path.join(created.sessionRoot, "adopt-provision-env.json"), "utf8"));
+    assert.equal(provisionEnv.cwd, adopted.worktree);
+    assert.equal(provisionEnv.packageScript, "jskit:provision-session");
+    assert.equal(provisionEnv.sessionId, created.sessionId);
+    assert.equal(provisionEnv.targetRoot, appRoot);
+    assert.equal(provisionEnv.worktreeRoot, adopted.worktree);
+    await access(path.join(created.sessionRoot, "hooks", "jskit_provision-session"));
+    const receipt = await readFile(path.join(created.sessionRoot, "steps", "dependencies_installed"), "utf8");
+    assert.match(receipt, /Adopted terminal install\./);
+    assert.match(receipt, /jskit:provision-session completed\./);
   });
 });
 
