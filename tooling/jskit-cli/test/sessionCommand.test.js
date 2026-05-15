@@ -1509,11 +1509,12 @@ test("jskit session accepts issue text from stdin and creates a GitHub issue wit
     });
     assert.equal(executionPrompt.currentStep, "plan_executed");
     assert.equal(executionPrompt.currentStepAction.buttonLabel, "Go to next step");
+    assert.match(executionPrompt.currentStepAction.description, /use Go to next step when ready/);
     assert.deepEqual(executionPrompt.currentStepAction.utilityActions, []);
     assert.equal(executionPrompt.codex.autoInject, true);
     assert.equal(executionPrompt.codex.promptActionLabel, "Get Codex to execute plan");
     assert.deepEqual(executionPrompt.codex.responseContract, {
-      completionBehavior: "auto_advance",
+      completionBehavior: "manual_advance",
       kind: "completion_marker",
       marker: "jskit_step_result",
       missingMarkerBehavior: "resend",

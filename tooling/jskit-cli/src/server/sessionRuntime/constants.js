@@ -147,6 +147,10 @@ const JSKIT_STEP_RESULT_CONTRACT = Object.freeze({
   required: true,
   stepField: "step"
 });
+const MANUAL_JSKIT_STEP_RESULT_CONTRACT = Object.freeze({
+  ...JSKIT_STEP_RESULT_CONTRACT,
+  completionBehavior: "manual_advance"
+});
 const DESLOP_RESULT_CONTRACT = Object.freeze({
   autoResolvePriorities: Object.freeze(["high", "medium"]),
   completionBehavior: "deslop_loop",
@@ -231,7 +235,7 @@ function stepAutomationFor({
 const PLAN_EXECUTION_CODEX_HANDOFF = codexHandoff([], {
   autoInject: true,
   promptActionLabel: "Get Codex to execute plan",
-  responseContract: JSKIT_STEP_RESULT_CONTRACT
+  responseContract: MANUAL_JSKIT_STEP_RESULT_CONTRACT
 });
 const ISSUE_DETAILS_CODEX_HANDOFF = codexHandoff([
   ISSUE_CATEGORY_OUTPUT,
@@ -407,7 +411,7 @@ const STEP_DEFINITIONS = Object.freeze([
   defineStep({
     buttonLabel: "Get Codex to execute plan",
     codex: PLAN_EXECUTION_CODEX_HANDOFF,
-    description: "JSKIT sends the active cycle plan to Codex; Codex implements it; Studio advances when Codex finishes.",
+    description: "JSKIT sends the active cycle plan to Codex; Codex implements it; the user advances after reviewing completion.",
     id: "plan_executed",
     kind: "codex_prompt",
     label: "Plan executed",
