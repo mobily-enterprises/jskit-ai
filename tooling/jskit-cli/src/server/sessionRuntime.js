@@ -900,11 +900,18 @@ function issueDefinitionPrompt(userInput, context) {
   ].join("\n").trim();
 }
 
-async function renderIssuePrompt(paths, options = {}) {
+async function renderIssuePrompt(paths, options = {}, context = {}) {
   const userInput = normalizeText(options.prompt);
   const promptPath = path.join(paths.sessionRoot, "prompts", "issue_prompt_rendered.md");
   const existingPrompt = await readTextIfExists(promptPath);
   if (existingPrompt && !userInput) {
+    if (context.completeStep === false) {
+      return promptActionResponse(paths, {
+        codex: ISSUE_DEFINITION_CODEX_HANDOFF,
+        preconditions: context.preconditions || [],
+        promptPath
+      });
+    }
     await writeStepRecord(paths, "issue_prompt_rendered", "Issue scoped in Codex terminal.");
     await markStatus(paths, SESSION_STATUS.RUNNING);
     return buildSessionResponse(paths);
@@ -916,8 +923,8 @@ async function renderIssuePrompt(paths, options = {}) {
       repairCommand: `jskit session ${paths.sessionId} step --prompt "<what should change>"`
     });
   }
-  const context = await renderPrompt(paths, "issue_prompt_rendered.md");
-  const prompt = issueDefinitionPrompt(userInput, context);
+  const promptContext = await renderPrompt(paths, "issue_prompt_rendered.md");
+  const prompt = issueDefinitionPrompt(userInput, promptContext);
   await writePromptArtifact(paths, "issue_prompt_rendered.md", prompt);
   await markStatus(paths, SESSION_STATUS.WAITING_FOR_USER);
   return buildSessionResponse(paths, {
@@ -938,12 +945,32 @@ function titleFromIssue(issueText) {
 
 async function createIssue(paths, _options = {}, context = {}) {
   const preconditions = context.preconditions || [];
+  const issueText = await readTrimmedFile(path.join(paths.sessionRoot, "issue.md"));
+  if (!issueText) {
+    return renderIssueFilePrompt(paths, context);
+  }
+  if (context.completeStep === false) {
+    return renderIssueFilePrompt(paths, context);
+  }
+  await writeStepRecord(paths, "issue_created", "Issue files are ready for review and submission.");
+  await markStatus(paths, SESSION_STATUS.RUNNING);
+  return buildSessionResponse(paths, {
+    preconditions
+  });
+}
+
+async function submitIssue(paths, _options = {}, context = {}) {
+  const preconditions = context.preconditions || [];
   const completeStep = context.completeStep !== false;
   const existingIssueUrl = await readTrimmedFile(path.join(paths.sessionRoot, "issue_url"));
   const issueText = await readTrimmedFile(path.join(paths.sessionRoot, "issue.md"));
   const issueTitle = await readTrimmedFile(path.join(paths.sessionRoot, "issue_title")) || titleFromIssue(issueText);
   if (!issueText) {
-    return renderIssueFilePrompt(paths, context);
+    return sessionStepError(paths, {
+      code: "issue_file_missing",
+      message: "Cannot create the GitHub issue until issue.md exists.",
+      repairCommand: `jskit session ${paths.sessionId} create_issue_file`
+    });
   }
   if (existingIssueUrl) {
     await writeIssueMetadataFiles(paths, {
@@ -951,7 +978,7 @@ async function createIssue(paths, _options = {}, context = {}) {
       issueUrl: existingIssueUrl
     });
     if (completeStep) {
-      await writeStepRecord(paths, "issue_created", `Reused GitHub issue ${existingIssueUrl}.`);
+      await writeStepRecord(paths, "issue_submitted", `Reused GitHub issue ${existingIssueUrl}.`);
     }
     await markStatus(paths, SESSION_STATUS.RUNNING);
     return buildSessionResponse(paths, {
@@ -994,7 +1021,7 @@ async function createIssue(paths, _options = {}, context = {}) {
     issueUrl
   });
   if (completeStep) {
-    await writeStepRecord(paths, "issue_created", `Created GitHub issue ${issueUrl}.`);
+    await writeStepRecord(paths, "issue_submitted", `Created GitHub issue ${issueUrl}.`);
   }
   await markStatus(paths, SESSION_STATUS.RUNNING);
   return buildSessionResponse(paths, {
@@ -1345,8 +1372,19 @@ const STEP_CANCELERS = Object.freeze({
     await Promise.all([
       removePromptArtifact(paths, "issue_created.md"),
       removeSessionRootFile(paths, "issue.md"),
-      removeSessionRootFile(paths, "issue_title"),
-      removeSessionRootFile(paths, "issue_url")
+      removeSessionRootFile(paths, "issue_title")
+    ]);
+  },
+  issue_submitted: async (paths) => {
+    await Promise.all([
+      removeSessionRootFile(paths, "issue_url"),
+      removeSessionPath(paths, "metadata", "issue_body_path"),
+      removeSessionPath(paths, "metadata", "issue_details_path"),
+      removeSessionPath(paths, "metadata", "issue_number"),
+      removeSessionPath(paths, "metadata", "issue_owner"),
+      removeSessionPath(paths, "metadata", "issue_repository"),
+      removeSessionPath(paths, "metadata", "issue_title"),
+      removeSessionPath(paths, "metadata", "issue_url")
     ]);
   },
   plan_made: removePlanArtifacts,
@@ -2345,6 +2383,8 @@ async function writeSkippedReviewPass(paths, reason) {
 async function writeSkippedStepArtifacts(paths, stepId, reason) {
   if (stepId === "issue_created") {
     await writeSkippedIssueDraft(paths, reason);
+  }
+  if (stepId === "issue_submitted") {
     await writeTextIfMissing(path.join(paths.sessionRoot, "issue_url"), `skipped://${paths.sessionId}/issue\n`);
   }
   if (stepId === "deep_ui_check_run") {
@@ -3031,6 +3071,7 @@ const STEP_RUNNERS = Object.freeze({
   dependencies_installed: installDependencies,
   issue_prompt_rendered: renderIssuePrompt,
   issue_created: createIssue,
+  issue_submitted: submitIssue,
   plan_made: makePlan,
   plan_executed: renderPlanExecutionPrompt,
   automated_checks_run: (paths, options, context) => runAutomatedChecks(paths, {
@@ -3126,7 +3167,7 @@ async function createGithubIssueAction(paths, options = {}, context = {}) {
       repairCommand: `jskit session ${paths.sessionId} create_issue_file`
     });
   }
-  return createIssue(paths, options, context);
+  return submitIssue(paths, options, context);
 }
 
 const STEP_ACTION_RUNNERS = Object.freeze({
@@ -3140,7 +3181,9 @@ const STEP_ACTION_RUNNERS = Object.freeze({
     define_issue: renderIssuePrompt
   }),
   issue_created: Object.freeze({
-    create_issue_file: createIssueFileAction,
+    create_issue_file: createIssueFileAction
+  }),
+  issue_submitted: Object.freeze({
     create_issue_on_gh: createGithubIssueAction
   }),
   plan_made: Object.freeze({
@@ -3289,6 +3332,11 @@ async function advanceSessionStep({
           repairCommand: `jskit session ${paths.sessionId} create_issue_file`
         });
       }
+      await writeStepRecord(paths, "issue_created", "Issue files are ready for review and submission.");
+      await markStatus(paths, SESSION_STATUS.RUNNING);
+      return buildSessionResponse(paths);
+    }
+    if (nextStep === "issue_submitted") {
       if (!artifacts.issueUrl) {
         return sessionStepError(paths, {
           code: "issue_url_missing",
@@ -3300,7 +3348,7 @@ async function advanceSessionStep({
         issueTitle: artifacts.issueTitle || titleFromIssue(artifacts.issueText),
         issueUrl: artifacts.issueUrl
       });
-      await writeStepRecord(paths, "issue_created", `Created GitHub issue ${artifacts.issueUrl}.`);
+      await writeStepRecord(paths, "issue_submitted", `Created GitHub issue ${artifacts.issueUrl}.`);
       await markStatus(paths, SESSION_STATUS.RUNNING);
       return buildSessionResponse(paths);
     }

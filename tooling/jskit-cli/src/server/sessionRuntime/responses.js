@@ -320,7 +320,11 @@ async function readCompletedSteps(paths) {
   } catch {
     // Legacy sessions may not have cycle record directories.
   }
-  return applyReviewPassCompletionOverlay(paths, normalizeKnownStepIds([...globalStepIds, ...cycleStepIds]));
+  const completed = new Set(await applyReviewPassCompletionOverlay(paths, normalizeKnownStepIds([...globalStepIds, ...cycleStepIds])));
+  if (completed.has("issue_created") && !completed.has("issue_submitted") && await readTrimmedFile(path.join(paths.sessionRoot, "issue_url"))) {
+    completed.add("issue_submitted");
+  }
+  return normalizeKnownStepIds([...completed]);
 }
 
 async function applyReviewPassCompletionOverlay(paths, completedSteps = []) {
@@ -672,6 +676,7 @@ function buildCurrentStepAction(stepId, artifacts = {}) {
   const planExecutionSubmitted = artifacts.planExecution?.submitted === true;
   const issueDefinitionPrompted = step.id === "issue_prompt_rendered" && Boolean(artifacts.prompt);
   const issueFilePromptAction = step.id === "issue_created";
+  const issueSubmissionAction = step.id === "issue_submitted";
   const deepUiCheckPrompted = step.id === "deep_ui_check_run" && uiCheckPromptedForStep(artifacts, "deep_ui_check_run");
   const alternateActions = [];
   if (step.id === "review_changes_accepted") {
@@ -723,8 +728,8 @@ function buildCurrentStepAction(stepId, artifacts = {}) {
     if (step.id === "issue_created" && !artifacts.issueText) {
       return "Create issue file";
     }
-    if (step.id === "issue_created" && artifacts.issueText) {
-      return "Create issue file";
+    if (step.id === "issue_submitted") {
+      return "Create issue on GH";
     }
     if (step.id === "main_checkout_synced" && artifacts.prOutcome?.outcome && artifacts.prOutcome.outcome !== "merged") {
       return "Record no sync needed";
@@ -737,6 +742,9 @@ function buildCurrentStepAction(stepId, artifacts = {}) {
     }
     if (issueFilePromptAction && artifacts.prompt) {
       return "Codex has the issue-file prompt. Review issue.md and issue_title, then continue when ready.";
+    }
+    if (issueSubmissionAction && artifacts.issueUrl) {
+      return "The GitHub issue has been created. Continue when ready.";
     }
     if (step.id === "plan_executed" && planExecutionPrompted && !planExecutionSubmitted) {
       return "Codex has the execution prompt. Review the result, then use Next when ready.";
@@ -994,6 +1002,18 @@ function stepCanExposeNextCommand(stepId, artifacts = {}) {
   if (stepId === "dependencies_installed") {
     return artifacts.dependencyInstall?.ready === true;
   }
+  if (stepId === "issue_prompt_rendered") {
+    return Boolean(artifacts.prompt);
+  }
+  if (stepId === "issue_created") {
+    return Boolean(artifacts.issueText);
+  }
+  if (stepId === "issue_submitted") {
+    return Boolean(artifacts.issueUrl);
+  }
+  if (["automated_checks_run", "blueprint_updated", "deep_ui_check_run", "plan_executed", "plan_made"].includes(stepId)) {
+    return Boolean(artifacts.prompt);
+  }
   return true;
 }
 
@@ -1030,38 +1050,33 @@ function buildStepActionCommands(sessionId, stepId, artifacts = {}) {
         ];
   }
   if (stepId === "issue_prompt_rendered") {
-    return artifacts.prompt
-      ? []
-      : [
-          {
-            command: `${commandBase} define_issue --prompt "<what should change>"`,
-            id: "define_issue",
-            label: "Define issue"
-          }
-        ];
+    return [
+      {
+        command: `${commandBase} define_issue --prompt "<what should change>"`,
+        id: "define_issue",
+        label: "Define issue"
+      }
+    ];
   }
   if (stepId === "issue_created") {
-    const commands = [
+    return [
       {
         command: `${commandBase} create_issue_file`,
         id: "create_issue_file",
         label: "Create issue file"
       }
     ];
-    if (!artifacts.issueText) {
-      return commands;
-    }
-    if (!artifacts.issueUrl) {
-      return [
-        ...commands,
-        {
-          command: `${commandBase} create_issue_on_gh`,
-          id: "create_issue_on_gh",
-          label: "Create issue on GH"
-        }
-      ];
-    }
-    return commands;
+  }
+  if (stepId === "issue_submitted") {
+    return artifacts.issueUrl
+      ? []
+      : [
+          {
+            command: `${commandBase} create_issue_on_gh`,
+            id: "create_issue_on_gh",
+            label: "Create issue on GH"
+          }
+        ];
   }
   if (stepId === "plan_made") {
     return [
