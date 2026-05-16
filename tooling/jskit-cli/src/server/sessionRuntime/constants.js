@@ -13,123 +13,16 @@ const SESSION_STATUS = Object.freeze({
 
 const SESSION_ID_PATTERN = /^\d{4}-\d{2}-\d{2}_\d{2}-\d{2}-\d{2}(?:-[a-z0-9]{4})?$/u;
 const SESSION_STATE_RELATIVE_PATH = ".jskit/sessions";
-const SESSION_WORKFLOW_VERSION = "6";
+const SESSION_WORKFLOW_VERSION = "7";
+const DEPENDENCIES_INSTALL_RESULT_FILE = "dependencies_install_result";
 const REVIEW_PASS_LIMIT = 0;
 const PROMPT_DIRECTORY = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "prompts");
 const JSKIT_CLI_SHELL_COMMAND = "npx --no-install jskit";
-const JSKIT_CLI_SHELL_RULE = [
-  "Shell command rule:",
-  "",
-  `- When running JSKIT CLI commands from the shell, use \`${JSKIT_CLI_SHELL_COMMAND} ...\`.`,
-  "- Do not run bare `jskit ...` unless you are inside an npm script where `node_modules/.bin` is on PATH.",
-  "- Do not run `npx jskit ...` without `--no-install`; it may fetch packages instead of using this app's installed CLI.",
-  "- If `npx --no-install jskit ...` is unavailable, continue with filesystem inspection when possible and report that the local JSKIT CLI is missing."
-].join("\n");
-const DEFAULT_NEXT_COMMAND_TEMPLATE = `${JSKIT_CLI_SHELL_COMMAND} session {{session_id}} step`;
+const DEFAULT_NEXT_COMMAND_TEMPLATE = `${JSKIT_CLI_SHELL_COMMAND} session {{session_id}} next`;
 
 const INPUT_NONE = Object.freeze({ type: "none" });
-const ISSUE_TITLE_INPUT = Object.freeze({
-  extract: "issue_title",
-  formatHint: "text",
-  label: "Approved issue title",
-  name: "issueTitle",
-  required: true,
-  type: "text"
-});
-const ISSUE_TEXT_INPUT = Object.freeze({
-  extract: "issue_text",
-  formatHint: "markdown",
-  label: "Approved issue body",
-  multiline: true,
-  name: "issue",
-  required: true,
-  type: "text"
-});
-const ISSUE_DRAFT_INPUT = Object.freeze({
-  fields: Object.freeze([
-    ISSUE_TITLE_INPUT,
-    ISSUE_TEXT_INPUT
-  ]),
-  type: "object"
-});
-const ISSUE_TITLE_OUTPUT = Object.freeze({
-  extract: "issue_title",
-  field: "issueTitle",
-  formatHint: "text",
-  label: "Issue title",
-  required: true
-});
-const ISSUE_TEXT_OUTPUT = Object.freeze({
-  extract: "issue_text",
-  field: "issue",
-  formatHint: "markdown",
-  label: "Issue body",
-  multiline: true,
-  required: true
-});
-const PLAN_INPUT = Object.freeze({
-  extract: "plan",
-  formatHint: "markdown",
-  label: "Approved plan",
-  multiline: true,
-  name: "plan",
-  required: true,
-  type: "text"
-});
-const PLAN_OUTPUT = Object.freeze({
-  extract: "plan",
-  field: "plan",
-  formatHint: "markdown",
-  label: "Plan",
-  multiline: true,
-  required: true
-});
-const ISSUE_DETAILS_INPUT = Object.freeze({
-  extract: "issue_details",
-  formatHint: "markdown",
-  label: "Confirmed issue details",
-  multiline: true,
-  name: "issueDetails",
-  required: true,
-  type: "text"
-});
-const ISSUE_DETAILS_OUTPUT = Object.freeze({
-  extract: "issue_details",
-  field: "issueDetails",
-  formatHint: "markdown",
-  label: "Issue details",
-  multiline: true,
-  required: true
-});
-const ISSUE_CATEGORY_OUTPUT = Object.freeze({
-  extract: "issue_category",
-  field: "issueCategory",
-  formatHint: "text",
-  label: "Issue category",
-  options: Object.freeze([
-    Object.freeze({ label: "Client", value: "client" }),
-    Object.freeze({ label: "Server", value: "server" }),
-    Object.freeze({ label: "Client and server", value: "client_server" }),
-    Object.freeze({ label: "Tooling", value: "tooling" }),
-    Object.freeze({ label: "Unknown", value: "unknown" })
-  ]),
-  required: true
-});
-const UI_IMPACT_OUTPUT = Object.freeze({
-  extract: "ui_impact",
-  field: "uiImpact",
-  formatHint: "text",
-  label: "UI impact",
-  options: Object.freeze([
-    Object.freeze({ label: "No UI impact", value: "none" }),
-    Object.freeze({ label: "Possible UI impact", value: "possible" }),
-    Object.freeze({ label: "Definite UI impact", value: "definite" }),
-    Object.freeze({ label: "Unknown", value: "unknown" })
-  ]),
-  required: true
-});
 const USER_CHECK_INPUT = Object.freeze({
-  label: "User check result",
+  label: "Choose user check result",
   name: "userCheck",
   options: Object.freeze([
     Object.freeze({ label: "Passed", value: "passed" }),
@@ -139,72 +32,19 @@ const USER_CHECK_INPUT = Object.freeze({
   type: "choice"
 });
 
-const JSKIT_STEP_RESULT_CONTRACT = Object.freeze({
-  completionBehavior: "auto_advance",
-  kind: "completion_marker",
-  marker: "jskit_step_result",
-  missingMarkerBehavior: "resend",
-  required: true,
-  stepField: "step"
-});
-const MANUAL_JSKIT_STEP_RESULT_CONTRACT = Object.freeze({
-  ...JSKIT_STEP_RESULT_CONTRACT,
-  completionBehavior: "manual_advance"
-});
-const DESLOP_RESULT_CONTRACT = Object.freeze({
-  autoResolvePriorities: Object.freeze(["high", "medium"]),
-  completionBehavior: "deslop_loop",
-  kind: "deslop_result",
-  marker: "deslop_result",
-  missingMarkerBehavior: "resend",
-  required: true,
-  resolvePrompt: Object.freeze({
-    findingsPlaceholder: "{{findings}}",
-    marker: "resolve_deslop_findings",
-    templateFile: "resolve_deslop_findings.md"
-  })
-});
-
-function fieldResponseContract(outputDefinitions) {
-  const fields = outputDefinitions
-    .filter((output) => output?.field && output?.extract)
-    .map((output) => Object.freeze({
-      extract: output.extract,
-      field: output.field,
-      formatHint: output.formatHint || "",
-      label: output.label || output.field,
-      manualEntry: true,
-      ...(output.multiline === true ? { multiline: true } : {}),
-      ...(Array.isArray(output.options) ? { options: Object.freeze(output.options.map((option) => Object.freeze({ ...option }))) } : {}),
-      required: output.required !== false
-    }));
-  return Object.freeze({
-    fields: Object.freeze(fields),
-    kind: "fields",
-    missingMarkerBehavior: "manual_or_resend",
-    required: fields.some((field) => field.required)
-  });
-}
-
-function codexHandoff(outputDefinition, {
-  autoInject = false,
+function codexHandoff({
   promptActionLabel = "",
   promptIntroText = "",
   promptWaitingText = "",
-  responseContract = undefined
+  sendPrompt = false
 } = {}) {
-  const outputDefinitions = Object.freeze(Array.isArray(outputDefinition) ? [...outputDefinition] : [outputDefinition]);
-  const resolvedResponseContract = responseContract === undefined
-    ? fieldResponseContract(outputDefinitions)
-    : responseContract;
   return Object.freeze({
-    ...(autoInject ? { autoInject: true } : {}),
     mode: "inject_prompt",
     promptField: "prompt",
     ...(promptActionLabel ? { promptActionLabel } : {}),
     ...(promptIntroText ? { promptIntroText } : {}),
     ...(promptWaitingText ? { promptWaitingText } : {}),
-    ...(resolvedResponseContract ? { responseContract: resolvedResponseContract } : {})
+    ...(sendPrompt ? { sendPrompt: true } : {})
   });
 }
 
@@ -221,57 +61,58 @@ function stepAutomationFor({
     return Object.freeze({ mode: "terminal" });
   }
   if (kind === "automatic") {
-    return Object.freeze({ mode: "immediate" });
+    return Object.freeze({ mode: "manual" });
   }
-  if (kind === "codex_prompt" && codex?.autoInject === true) {
+  if (kind === "codex_prompt" && codex?.sendPrompt === true) {
     return Object.freeze({ mode: "codex_prompt" });
-  }
-  if (kind === "codex_output" && codex?.autoInject === true) {
-    return Object.freeze({ mode: "codex_output_prompt" });
   }
   return Object.freeze({ mode: "manual" });
 }
 
-const PLAN_EXECUTION_CODEX_HANDOFF = codexHandoff([], {
-  autoInject: true,
-  promptActionLabel: "Get Codex to execute plan",
-  responseContract: MANUAL_JSKIT_STEP_RESULT_CONTRACT
+const ISSUE_DEFINITION_CODEX_HANDOFF = codexHandoff({
+  promptActionLabel: "Define issue",
+  sendPrompt: true
 });
-const ISSUE_DETAILS_CODEX_HANDOFF = codexHandoff([
-  ISSUE_CATEGORY_OUTPUT,
-  UI_IMPACT_OUTPUT,
-  ISSUE_DETAILS_OUTPUT
-], {
-  autoInject: true,
-  promptActionLabel: "Start details conversation",
-  promptIntroText: "Codex will gather issue details and classify the issue.",
-  promptWaitingText: "Please respond and finalise things with Codex"
+const ISSUE_FILE_CODEX_HANDOFF = codexHandoff({
+  promptActionLabel: "Create issue file",
+  sendPrompt: true
 });
-const REVIEW_EXECUTION_CODEX_HANDOFF = codexHandoff([], {
-  autoInject: true,
+const PLAN_CODEX_HANDOFF = codexHandoff({
+  promptActionLabel: "Make plan",
+  sendPrompt: true
+});
+const PLAN_EXECUTION_CODEX_HANDOFF = codexHandoff({
+  promptActionLabel: "Execute plan",
+  sendPrompt: true
+});
+const REVIEW_EXECUTION_CODEX_HANDOFF = codexHandoff({
   promptActionLabel: "Run deslop",
-  responseContract: DESLOP_RESULT_CONTRACT
+  sendPrompt: true
 });
-const DEEP_UI_CHECK_CODEX_HANDOFF = codexHandoff([], {
-  autoInject: true,
-  promptActionLabel: "Run Deep UI check",
-  responseContract: JSKIT_STEP_RESULT_CONTRACT
+const RESOLVE_DESLOP_CODEX_HANDOFF = codexHandoff({
+  promptActionLabel: "Resolve deslop",
+  sendPrompt: true
 });
-const AUTOMATED_CHECK_REPAIR_CODEX_HANDOFF = codexHandoff([], {
-  autoInject: true,
+const DEEP_UI_CHECK_CODEX_HANDOFF = codexHandoff({
+  promptActionLabel: "Run deep UI check",
+  sendPrompt: true
+});
+const AUTOMATED_CHECK_REPAIR_CODEX_HANDOFF = codexHandoff({
   promptActionLabel: "Run automated checks",
-  responseContract: JSKIT_STEP_RESULT_CONTRACT
+  sendPrompt: true
 });
-const BLUEPRINT_CODEX_HANDOFF = codexHandoff([], {
-  autoInject: true,
+const BLUEPRINT_CODEX_HANDOFF = codexHandoff({
   promptActionLabel: "Update blueprint",
-  responseContract: JSKIT_STEP_RESULT_CONTRACT
+  sendPrompt: true
 });
-const PR_MERGE_PREP_CODEX_HANDOFF = codexHandoff([], {
-  autoInject: true,
-  promptActionLabel: "Get Codex ready to merge PR",
+const PR_FILE_CODEX_HANDOFF = codexHandoff({
+  promptActionLabel: "Create PR file",
+  sendPrompt: true
+});
+const PR_MERGE_PREP_CODEX_HANDOFF = codexHandoff({
+  promptActionLabel: "Prepare PR merge",
   promptWaitingText: "Codex is preparing the PR for merge. Continue only when you decide the PR is ready.",
-  responseContract: null
+  sendPrompt: true
 });
 
 function defineStep({
@@ -318,28 +159,24 @@ function defineStep({
 
 const STEP_DEFINITIONS = Object.freeze([
   defineStep({
-    buttonLabel: "Create session",
-    description: "JSKIT creates the filesystem-backed session record and initial receipt.",
-    id: "session_created",
-    label: "Session created"
-  }),
-  defineStep({
     buttonLabel: "Create worktree",
     description: "JSKIT creates the isolated Git branch and session worktree where Codex will work.",
     id: "worktree_created",
-    label: "Worktree created",
+    label: "Create worktree",
     preconditions: ["session_exists", "git_repository", "git_current_branch"]
   }),
   defineStep({
     buttonLabel: "Install dependencies",
     description: "JSKIT installs Node dependencies inside the session worktree before Codex starts.",
     id: "dependencies_installed",
-    label: "Dependencies installed",
+    label: "Install dependencies",
     preconditions: ["session_exists", "worktree_exists"]
   }),
   defineStep({
-    buttonLabel: "Set initial prompt",
-    description: "User describes the requested change; JSKIT records it and prepares the Codex issue-drafting prompt.",
+    buttonLabel: "Define issue",
+    description: "User describes the requested change; Codex helps scope and define the issue in the terminal.",
+    displayGroupId: "define_create_issue",
+    displayGroupLabel: "Define issue and create file",
     id: "issue_prompt_rendered",
     input: Object.freeze({
       label: "What should change?",
@@ -350,103 +187,73 @@ const STEP_DEFINITIONS = Object.freeze([
       type: "text"
     }),
     kind: "human_input",
-    label: "Initial issue prompt",
-    nextCommandTemplate: `${JSKIT_CLI_SHELL_COMMAND} session {{session_id}} step --prompt "<what should change>"`,
+    label: "Define issue",
+    nextCommandTemplate: DEFAULT_NEXT_COMMAND_TEMPLATE,
     preconditions: ["session_exists", "worktree_exists", "dependencies_installed", "ready_jskit_app"]
   }),
   defineStep({
-    buttonLabel: "Finalise issue",
-    codex: codexHandoff([
-      ISSUE_TITLE_OUTPUT,
-      ISSUE_TEXT_OUTPUT
-    ], {
-      autoInject: true,
-      promptActionLabel: "Get Codex to create issue text",
-      promptIntroText: "Codex will create a comprehensive issue."
-    }),
-    description: "Codex drafts the issue title and body; user reviews or edits them; JSKIT saves the approved draft.",
-    id: "issue_drafted",
-    input: ISSUE_DRAFT_INPUT,
-    kind: "codex_output",
-    label: "Issue drafted",
-    nextCommandTemplate: `${JSKIT_CLI_SHELL_COMMAND} session {{session_id}} step --issue -`,
-    preconditions: ["session_exists", "worktree_exists", "dependencies_installed", "ready_jskit_app"]
-  }),
-  defineStep({
-    buttonLabel: "Create issue",
-    description: "JSKIT creates the GitHub issue from the approved draft and records the issue URL.",
+    buttonLabel: "Create issue file",
+    description: "JSKIT renders the issue-file prompt; Codex writes issue.md and issue_title for review.",
+    displayGroupId: "define_create_issue",
+    displayGroupLabel: "Define issue and create file",
     id: "issue_created",
-    label: "Issue created",
-    preconditions: ["session_exists", "worktree_exists", "dependencies_installed", "ready_jskit_app", "issue_text_exists", "github_auth", "github_origin"],
+    label: "Create issue file",
+    preconditions: ["session_exists", "worktree_exists", "dependencies_installed", "ready_jskit_app"],
     requiresExplicitRun: false
   }),
   defineStep({
-    buttonLabel: "Save issue details",
-    codex: ISSUE_DETAILS_CODEX_HANDOFF,
-    description: "Codex finalises with user issue details and classification; user reviews or edits final outcome; JSKIT saves the confirmed details.",
-    displayGroupId: "issue_details",
-    displayGroupLabel: "Get issue details",
-    id: "issue_details_gathered",
-    input: ISSUE_DETAILS_INPUT,
-    kind: "codex_output",
-    label: "Issue details gathered",
-    nextCommandTemplate: `${JSKIT_CLI_SHELL_COMMAND} session {{session_id}} step --issue-details -`,
+    buttonLabel: "Create issue on GH",
+    description: "JSKIT creates the GitHub issue from the reviewed issue files and records the issue metadata.",
+    id: "issue_submitted",
+    label: "Edit and submit issue",
+    preconditions: ["session_exists", "worktree_exists", "dependencies_installed", "ready_jskit_app", "issue_text_exists"],
+    requiresExplicitRun: false
+  }),
+  defineStep({
+    buttonLabel: "Make plan",
+    codex: PLAN_CODEX_HANDOFF,
+    description: "Codex writes the plan in the terminal; JSKIT records it when the user continues.",
+    id: "plan_made",
+    kind: "codex_prompt",
+    label: "Make plan",
+    nextCommandTemplate: `${JSKIT_CLI_SHELL_COMMAND} session {{session_id}} next`,
     preconditions: ["session_exists", "worktree_exists", "dependencies_installed", "ready_jskit_app", "issue_text_exists", "issue_url_exists"]
   }),
   defineStep({
-    buttonLabel: "Save plan",
-    codex: codexHandoff(PLAN_OUTPUT, {
-      autoInject: true,
-      promptActionLabel: "Get Codex to create plan",
-      promptIntroText: "Codex will create an implementation plan based on the issue."
-    }),
-    description: "Codex writes an implementation plan for the active cycle; cycle 001 plans from the issue, later cycles plan from user rework notes.",
-    id: "plan_made",
-    input: PLAN_INPUT,
-    kind: "codex_output",
-    label: "Plan made",
-    nextCommandTemplate: `${JSKIT_CLI_SHELL_COMMAND} session {{session_id}} step --plan -`,
-    preconditions: ["session_exists", "worktree_exists", "dependencies_installed", "ready_jskit_app", "issue_text_exists", "issue_url_exists", "issue_details_exists", "issue_metadata_exists", "active_cycle_exists"]
-  }),
-  defineStep({
-    buttonLabel: "Get Codex to execute plan",
+    buttonLabel: "Execute plan",
     codex: PLAN_EXECUTION_CODEX_HANDOFF,
-    description: "JSKIT sends the active cycle plan to Codex; Codex implements it; the user advances after reviewing completion.",
+    description: "JSKIT sends the plan to Codex; Codex implements it; the user advances after reviewing completion.",
     id: "plan_executed",
     kind: "codex_prompt",
-    label: "Plan executed",
-    preconditions: ["session_exists", "worktree_exists", "dependencies_installed", "ready_jskit_app", "issue_text_exists", "issue_url_exists", "issue_details_exists", "issue_metadata_exists", "active_cycle_exists", "plan_text_exists"]
+    label: "Execute plan",
+    preconditions: ["session_exists", "worktree_exists", "dependencies_installed", "ready_jskit_app", "issue_text_exists", "issue_url_exists"]
   }),
   defineStep({
-    buttonLabel: "Run Deep UI check",
+    buttonLabel: "Run deep UI check",
     codex: DEEP_UI_CHECK_CODEX_HANDOFF,
-    description: "JSKIT asks Codex for a focused UI quality pass when the issue affects UI, or records a skip receipt when it does not.",
+    description: "JSKIT can ask Codex for a focused UI quality pass; use Next to continue without one.",
     id: "deep_ui_check_run",
     kind: "codex_prompt",
-    label: "Deep UI check run",
-    preconditions: ["session_exists", "worktree_exists", "dependencies_installed", "ready_jskit_app", "issue_metadata_exists", "active_cycle_exists"]
+    label: "Run deep UI check",
+    preconditions: ["session_exists", "worktree_exists", "dependencies_installed", "ready_jskit_app"]
   }),
   defineStep({
     buttonLabel: "Run deslop",
     codex: REVIEW_EXECUTION_CODEX_HANDOFF,
-    description: "JSKIT sends the current implementation to Codex for a review/deslop pass; Codex reports findings and applies the selected cleanup.",
-    displayGroupId: "review_deslop",
-    displayGroupLabel: "Review/deslop",
+    description: "JSKIT sends the current implementation to Codex for a review/deslop pass; the user decides whether to resolve findings, run deslop again, or continue.",
     id: "review_prompt_rendered",
     kind: "codex_prompt",
-    label: "Review/deslop",
-    preconditions: ["session_exists", "worktree_exists", "dependencies_installed", "ready_jskit_app", "issue_metadata_exists", "active_cycle_exists", "deep_ui_check_satisfied"]
+    label: "Run deslop",
+    preconditions: ["session_exists", "worktree_exists", "dependencies_installed", "ready_jskit_app", "deep_ui_check_satisfied"]
   }),
   defineStep({
-    buttonLabel: "I am done",
-    description: "User confirms the review/deslop loop is done; JSKIT records the loop result without committing yet.",
-    displayGroupId: "review_deslop",
-    displayGroupLabel: "Review/deslop",
+    buttonLabel: "Accept review/deslop",
+    description: "User chooses whether to resolve the last deslop result, run deslop again, or continue.",
     id: "review_changes_accepted",
     kind: "user_check",
-    label: "Review/deslop",
+    label: "Accept review/deslop",
     nextCommandTemplate: `${JSKIT_CLI_SHELL_COMMAND} session {{session_id}} step --review-findings-remaining false`,
-    preconditions: ["session_exists", "worktree_exists", "dependencies_installed", "ready_jskit_app", "issue_metadata_exists", "active_cycle_exists", "deep_ui_check_satisfied"],
+    preconditions: ["session_exists", "worktree_exists", "dependencies_installed", "ready_jskit_app", "deep_ui_check_satisfied"],
     submitOptions: Object.freeze({
       reviewFindingsRemaining: false
     })
@@ -454,21 +261,21 @@ const STEP_DEFINITIONS = Object.freeze([
   defineStep({
     buttonLabel: "Run automated checks",
     codex: AUTOMATED_CHECK_REPAIR_CODEX_HANDOFF,
-    description: "JSKIT asks Codex to run the official verification command in the worktree, fix failures, and report the final passing result.",
+    description: "JSKIT can ask Codex to run the official verification command in the worktree; use Next to continue without one.",
     id: "automated_checks_run",
     kind: "codex_prompt",
-    label: "Automated checks",
-    preconditions: ["session_exists", "worktree_exists", "dependencies_installed", "ready_jskit_app", "issue_metadata_exists", "active_cycle_exists", "deep_ui_check_satisfied"]
+    label: "Run automated checks",
+    preconditions: ["session_exists", "worktree_exists", "dependencies_installed", "ready_jskit_app", "deep_ui_check_satisfied"]
   }),
   defineStep({
-    buttonLabel: "Save user check",
-    description: "User manually checks the result; JSKIT records pass or collects rework notes for another plan cycle.",
+    buttonLabel: "Complete user check",
+    description: "User manually checks the result; if it fails, rewind to the step that should be redone.",
     id: "user_check_completed",
     input: USER_CHECK_INPUT,
     kind: "user_check",
-    label: "User check",
+    label: "Complete user check",
     nextCommandTemplate: `${JSKIT_CLI_SHELL_COMMAND} session {{session_id}} step --user-check passed`,
-    preconditions: ["session_exists", "worktree_exists", "dependencies_installed", "ready_jskit_app", "issue_metadata_exists", "active_cycle_exists", "automated_checks_passed", "deep_ui_check_satisfied"],
+    preconditions: ["session_exists", "worktree_exists", "dependencies_installed", "ready_jskit_app", "automated_checks_passed", "deep_ui_check_satisfied"],
     utilityActions: Object.freeze([
       Object.freeze({
         id: "session_app_test",
@@ -483,76 +290,52 @@ const STEP_DEFINITIONS = Object.freeze([
     description: "JSKIT asks Codex to update durable app memory from the accepted work; Codex edits .jskit/APP_BLUEPRINT.md; JSKIT records the update for the accepted-work commit.",
     id: "blueprint_updated",
     kind: "codex_prompt",
-    label: "Blueprint updated",
-    preconditions: ["session_exists", "worktree_exists", "dependencies_installed", "ready_jskit_app", "issue_metadata_exists", "active_cycle_exists", "automated_checks_passed", "deep_ui_check_satisfied", "active_cycle_user_check_passed"]
+    label: "Update blueprint",
+    preconditions: ["session_exists", "worktree_exists", "dependencies_installed", "ready_jskit_app", "automated_checks_passed", "deep_ui_check_satisfied", "user_check_passed"]
   }),
   defineStep({
-    buttonLabel: "Commit accepted changes",
+    buttonLabel: "Commit changes",
     description: "JSKIT commits the accepted session changes, including durable app memory updates, in the session worktree.",
     id: "changes_committed",
-    label: "Changes committed",
-    preconditions: ["session_exists", "worktree_exists", "dependencies_installed", "ready_jskit_app", "issue_metadata_exists", "issue_url_exists", "github_auth", "active_cycle_exists", "automated_checks_passed", "deep_ui_check_satisfied", "active_cycle_user_check_passed", "blueprint_update_satisfied"]
+    label: "Commit changes",
+    preconditions: ["session_exists", "worktree_exists", "dependencies_installed", "ready_jskit_app", "issue_url_exists", "github_auth", "automated_checks_passed", "deep_ui_check_satisfied", "user_check_passed", "blueprint_update_satisfied"]
   }),
   defineStep({
-    buttonLabel: "Create final report",
-    description: "JSKIT creates the deterministic final session report and comments it on the GitHub issue.",
+    buttonLabel: "Create PR file",
+    codex: PR_FILE_CODEX_HANDOFF,
+    description: "JSKIT renders the PR-file prompt; Codex writes pull_request.md for review.",
     id: "final_report_created",
-    label: "Final report created",
-    preconditions: ["session_exists", "worktree_exists", "dependencies_installed", "ready_jskit_app", "issue_metadata_exists", "active_cycle_exists", "automated_checks_passed", "deep_ui_check_satisfied", "active_cycle_user_check_passed", "blueprint_update_satisfied", "accepted_changes_committed"]
+    kind: "codex_prompt",
+    label: "Create PR file",
+    preconditions: ["session_exists", "worktree_exists", "dependencies_installed", "ready_jskit_app", "automated_checks_passed", "deep_ui_check_satisfied", "user_check_passed", "blueprint_update_satisfied", "accepted_changes_committed"]
   }),
   defineStep({
-    buttonLabel: "Push branch and create PR",
-    description: "JSKIT pushes the session branch to origin, creates or reuses the GitHub pull request, and records the PR URL.",
+    buttonLabel: "Create PR on GH",
+    description: "JSKIT creates the GitHub pull request from the reviewed pull_request.md and records the PR URL.",
     id: "pr_created",
-    label: "Branch pushed, PR created",
-    preconditions: ["session_exists", "worktree_exists", "dependencies_installed", "ready_jskit_app", "issue_metadata_exists", "active_cycle_exists", "automated_checks_passed", "deep_ui_check_satisfied", "active_cycle_user_check_passed", "accepted_changes_committed", "blueprint_update_satisfied", "final_report_exists"]
+    label: "Edit and create PR",
+    preconditions: ["session_exists", "worktree_exists", "dependencies_installed", "ready_jskit_app", "automated_checks_passed", "deep_ui_check_satisfied", "user_check_passed", "accepted_changes_committed", "blueprint_update_satisfied", "pull_request_file_exists"]
   }),
   defineStep({
-    buttonLabel: "Continue to merge",
+    buttonLabel: "Merge",
     codex: PR_MERGE_PREP_CODEX_HANDOFF,
-    description: "User can ask Codex to prepare the pull request for merge, then explicitly continue to the merge decision.",
+    description: "Prepare the pull request for merge, merge it, or use Next to continue without merging.",
     id: "pr_merge_prepared",
-    label: "PR merge prepared",
-    preconditions: ["session_exists", "pr_url_exists", "worktree_exists"],
-    requiresExplicitRun: true,
-    submitOptions: Object.freeze({
-      continueToMerge: true
-    }),
-    utilityActions: Object.freeze([
-      Object.freeze({
-        id: "prepare_pr_merge",
-        kind: "codex_prompt",
-        label: "Get Codex ready to merge PR",
-        submitOptions: Object.freeze({
-          prepareMerge: true
-        })
-      })
-    ])
-  }),
-  defineStep({
-    buttonLabel: "Merge PR",
-    description: "User chooses whether JSKIT merges the pull request or skips merge; JSKIT records the PR outcome.",
-    id: "pr_finalized",
-    label: "PR finalized",
-    preconditions: ["session_exists", "pr_url_exists", "worktree_exists"],
-    requiresExplicitRun: true,
-    submitOptions: Object.freeze({
-      mergePr: true
-    })
+    label: "Merge PR",
+    preconditions: ["session_exists", "worktree_exists"]
   }),
   defineStep({
     buttonLabel: "Sync main checkout",
-    description: "JSKIT fast-forwards the main checkout after a merged PR, or records an explicit skip before cleanup.",
+    description: "JSKIT fast-forwards the main checkout after a merged PR. If the PR was not merged, use Next to record that no sync was needed.",
     id: "main_checkout_synced",
-    label: "Main checkout synced",
-    preconditions: ["session_exists", "worktree_exists"],
-    requiresExplicitRun: true
+    label: "Sync main checkout",
+    preconditions: ["session_exists", "worktree_exists"]
   }),
   defineStep({
-    buttonLabel: "Finish session",
-    description: "JSKIT removes the session worktree, writes the final receipt, and archives the completed session.",
+    buttonLabel: "Finish",
+    description: "Congratulations! Finish the session by removing the session worktree and archiving the completed session.",
     id: "session_finished",
-    label: "Worktree removed, session finished",
+    label: "Congratulations!",
     preconditions: ["session_exists", "main_checkout_sync_satisfied"]
   })
 ]);
@@ -560,19 +343,9 @@ const STEP_DEFINITIONS = Object.freeze([
 const STEP_IDS = Object.freeze(STEP_DEFINITIONS.map((step) => step.id));
 const STEP_LABEL_BY_ID = Object.freeze(Object.fromEntries(STEP_DEFINITIONS.map((step) => [step.id, step.label])));
 const STEP_DEFINITION_BY_ID = Object.freeze(Object.fromEntries(STEP_DEFINITIONS.map((step) => [step.id, step])));
-const CYCLE_STEP_IDS = Object.freeze([
-  "plan_made",
-  "plan_executed",
-  "deep_ui_check_run",
-  "review_prompt_rendered",
-  "review_changes_accepted",
-  "automated_checks_run",
-  "user_check_completed"
-]);
+const CYCLE_STEP_IDS = Object.freeze([]);
 const STEP_PRECONDITION_NAMES = Object.freeze(Object.fromEntries(
-  STEP_DEFINITIONS
-    .filter((step) => step.id !== "session_created")
-    .map((step) => [step.id, step.preconditions])
+  STEP_DEFINITIONS.map((step) => [step.id, step.preconditions])
 ));
 
 export {
@@ -580,6 +353,7 @@ export {
   SESSION_ID_PATTERN,
   SESSION_STATUS,
   SESSION_WORKFLOW_VERSION,
+  DEPENDENCIES_INSTALL_RESULT_FILE,
   REVIEW_PASS_LIMIT,
   CYCLE_STEP_IDS,
   STEP_DEFINITION_BY_ID,
@@ -587,14 +361,17 @@ export {
   STEP_IDS,
   STEP_LABEL_BY_ID,
   STEP_PRECONDITION_NAMES,
-  ISSUE_DETAILS_CODEX_HANDOFF,
+  ISSUE_DEFINITION_CODEX_HANDOFF,
+  ISSUE_FILE_CODEX_HANDOFF,
+  PLAN_CODEX_HANDOFF,
   PLAN_EXECUTION_CODEX_HANDOFF,
   REVIEW_EXECUTION_CODEX_HANDOFF,
+  RESOLVE_DESLOP_CODEX_HANDOFF,
   DEEP_UI_CHECK_CODEX_HANDOFF,
   AUTOMATED_CHECK_REPAIR_CODEX_HANDOFF,
   BLUEPRINT_CODEX_HANDOFF,
+  PR_FILE_CODEX_HANDOFF,
   PR_MERGE_PREP_CODEX_HANDOFF,
   JSKIT_CLI_SHELL_COMMAND,
-  JSKIT_CLI_SHELL_RULE,
   SESSION_STATE_RELATIVE_PATH
 };

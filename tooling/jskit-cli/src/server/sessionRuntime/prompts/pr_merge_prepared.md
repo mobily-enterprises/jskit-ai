@@ -7,9 +7,9 @@ Branch: {{branch}}
 Base branch: {{base_branch}}
 Pull request: {{pr_url}}
 Issue: {{issue_url}}
-Final report: {{final_report_file}}
+Pull request file: {{pull_request_file}}
 
-Your job is to get the pull request into a state where the user can decide whether to press the JSKIT Merge PR button.
+Your job is to do whatever is needed, within the session scope, to get the pull request into a state where the user can press the JSKIT Merge button.
 
 Required boundaries:
 
@@ -17,6 +17,6 @@ Required boundaries:
 - Resolve merge conflicts or failing checks if the fix is clear and in scope.
 - Commit and push any preparation changes to the session branch.
 - Do not merge the pull request.
-- Do not remove the worktree, archive the session, update the local base branch, or write JSKIT receipts. JSKIT owns deterministic cleanup after the user decides.
+- Do not remove the worktree, archive the session, update the local base branch, or write JSKIT session state. JSKIT owns deterministic cleanup after the user decides.
 
 When you are done, summarize what you checked, what changed, and whether you believe the PR is ready for the user to merge.

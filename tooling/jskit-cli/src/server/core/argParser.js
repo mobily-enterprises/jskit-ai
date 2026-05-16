@@ -137,10 +137,6 @@ function parseArgs(argv, { createCliError } = {}) {
       options.inlineOptions.install = "true";
       continue;
     }
-    if (token === "--skip-ui-check") {
-      options.inlineOptions["skip-ui-check"] = "true";
-      continue;
-    }
     if (token === "--close-without-merge") {
       options.inlineOptions["close-without-merge"] = "true";
       continue;

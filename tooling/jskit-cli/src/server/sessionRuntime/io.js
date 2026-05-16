@@ -10,7 +10,7 @@ function normalizeText(value) {
   return String(value || "").trim();
 }
 
-function timestampForReceipt(now = new Date()) {
+function timestampForStepRecord(now = new Date()) {
   return now.toISOString();
 }
 
@@ -92,6 +92,6 @@ export {
   runCommand,
   runGit,
   runGitInWorktree,
-  timestampForReceipt,
+  timestampForStepRecord,
   writeTextFile
 };

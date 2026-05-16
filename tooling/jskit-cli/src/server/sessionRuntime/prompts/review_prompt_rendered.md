@@ -6,9 +6,9 @@ Changed files in the current session worktree:
 
 {{changed_files}}
 
-Review the current worktree changes, but do not silently fix everything you find unless Studio explicitly asks you to resolve selected findings.
+Review the current worktree changes, but do not silently fix everything you find unless the user explicitly sends the resolve deslop prompt.
 
-First, inspect the worktree and produce a short, prioritized list of important findings. The answer should be conversational and useful for the user to read. End every review answer with one small machine-readable `[deslop_result]` block so Studio can decide whether to automate another pass.
+Inspect the worktree and produce a short, prioritized list of important findings. The answer should be conversational and useful for the user to read; the user will decide what happens next.
 
 Use priorities this way:
 
@@ -16,7 +16,7 @@ Use priorities this way:
 - `medium`: maintainability, meaningful duplication, missing required state, weak JSKIT reuse, important verification gap, or visible UI quality issue inside the requested scope.
 - `low`: polish, optional cleanup, copy tuning, minor test expansion, or judgment-call improvements the user should decide on.
 
-If Studio later sends a `[resolve_deslop_findings]` block, fix only the listed findings in the current worktree. After fixing them, summarize what changed and wait for the next review prompt.
+If the user later sends the resolve deslop prompt, fix the important findings from this deslop review in the current worktree. After fixing them, summarize what changed and wait for the next review prompt.
 
 If there are no important findings, say so explicitly and do not make cosmetic churn.
 
@@ -59,28 +59,3 @@ Use four passes:
 Do not create commits, branches, pull requests, merges, or worktree cleanup yourself. JSKIT session owns those steps.
 
 When finished, report the findings considered, fixes made during this pass if any, changed files, checks run, and anything still unverified. If there are no important findings, say so explicitly and list residual risk.
-
-At the very end of each review answer, include this block. Keep it plain text, not JSON:
-
-[deslop_result]
-priority: high | medium | low
-category: bug | maintainability | jskit | ui | verification | content | other
-title: Short finding title
-files:
-- path/to/file
-reason: Why this matters
-recommended_action: What should be done
-
-priority: low
-category: other
-title: Another optional finding
-files:
-- path/to/file
-reason: Why this is optional
-recommended_action: What the user may choose to do
-[/deslop_result]
-
-If there are no findings, return an empty result block:
-
-[deslop_result]
-[/deslop_result]

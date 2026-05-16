@@ -2,8 +2,10 @@ import { mkdir, readdir } from "node:fs/promises";
 import path from "node:path";
 import {
   CYCLE_STEP_IDS,
+  DEPENDENCIES_INSTALL_RESULT_FILE,
+  ISSUE_FILE_CODEX_HANDOFF,
+  ISSUE_DEFINITION_CODEX_HANDOFF,
   JSKIT_CLI_SHELL_COMMAND,
-  PROMPT_DIRECTORY,
   REVIEW_EXECUTION_CODEX_HANDOFF,
   REVIEW_PASS_LIMIT,
   SESSION_WORKFLOW_VERSION,
@@ -19,7 +21,7 @@ import {
   readTextIfExists,
   readTrimmedFile,
   runGitInWorktree,
-  timestampForReceipt,
+  timestampForStepRecord,
   writeTextFile
 } from "./io.js";
 import {
@@ -68,6 +70,11 @@ const ACCEPTED_CHANGES_NOOP_WARNING = createWarning({
   code: "accepted_changes_noop",
   message: "No accepted worktree changes were found; continuing without a new commit."
 });
+
+function issueNumberFromUrl(issueUrl = "") {
+  const match = /\/issues\/(\d+)(?:\b|$)/u.exec(String(issueUrl || ""));
+  return match ? match[1] : "";
+}
 
 function normalizeStepId(stepId) {
   return normalizeText(stepId);
@@ -126,28 +133,12 @@ async function readActiveCycle(paths) {
   return normalizeCycleNumber(cycle || DEFAULT_ACTIVE_CYCLE);
 }
 
-async function writeActiveCycle(paths, cycle) {
-  await writeTextFile(path.join(paths.sessionRoot, "active_cycle"), `${normalizeCycleNumber(cycle)}\n`);
-}
-
 function cycleStepsRoot(paths, cycle) {
   return path.join(paths.sessionRoot, "steps", cycleDirectoryName(cycle));
 }
 
 function cycleRoot(paths, cycle) {
   return path.join(paths.sessionRoot, "cycles", cycleDirectoryName(cycle));
-}
-
-function cyclePlanPath(paths, cycle) {
-  return path.join(cycleRoot(paths, cycle), "plan.md");
-}
-
-function cyclePlanPromptFileName(cycle) {
-  return `cycle_${normalizeCycleNumber(cycle)}_plan_request.md`;
-}
-
-function cyclePlanExecutionPromptFileName(cycle) {
-  return `cycle_${normalizeCycleNumber(cycle)}_plan_execution.md`;
 }
 
 function normalizeReviewPassNumber(value = "") {
@@ -204,7 +195,7 @@ async function readReviewPassInfo(paths, pass) {
     pass: normalizedPass,
     label: reviewPassDirectoryName(normalizedPass),
     status,
-    promptPath: prompt?.promptPath || path.join(root, "prompt.md"),
+    promptPath: prompt?.promptPath || path.join(root, "review_prompt_rendered"),
     acceptedAt: accepted?.acceptedAt || "",
     changedFiles,
     commit: "",
@@ -248,40 +239,12 @@ async function readReviewPromptForStep(paths, artifacts = {}) {
   return "";
 }
 
-const PROMPT_ARTIFACT_BY_STEP_ID = Object.freeze({
-  issue_drafted: "issue_draft.md",
-  issue_details_gathered: "issue_details.md",
-  deep_ui_check_run: "deep_ui_check_run.md",
-  automated_checks_run: "automated_checks_run.md",
-  blueprint_updated: "update_blueprint.md",
-  pr_merge_prepared: "prepare_pr_merge.md",
-  user_check_completed: "user_check.md"
-});
-
-async function promptArtifactForStep(paths, stepId) {
-  const normalizedStepId = normalizeStepId(stepId);
-  if (normalizedStepId === "plan_made") {
-    return cyclePlanPromptFileName(await readActiveCycle(paths));
-  }
-  if (normalizedStepId === "plan_executed") {
-    return cyclePlanExecutionPromptFileName(await readActiveCycle(paths));
-  }
-  return PROMPT_ARTIFACT_BY_STEP_ID[normalizedStepId] || "";
-}
-
 async function readPromptForStep(paths, stepId, artifacts = {}) {
   if (!stepCanExposeStoredPrompt(stepId)) {
     return "";
   }
   if (REVIEW_STEP_IDS.includes(normalizeStepId(stepId))) {
     return readReviewPromptForStep(paths, artifacts);
-  }
-  const promptArtifact = await promptArtifactForStep(paths, stepId);
-  if (promptArtifact) {
-    const prompt = await readTextIfExists(path.join(paths.sessionRoot, "prompts", promptArtifact));
-    if (prompt) {
-      return prompt;
-    }
   }
   return "";
 }
@@ -299,11 +262,18 @@ async function readStepFileNames(stepsRoot) {
 
 async function readCompletedSteps(paths) {
   const stepsRoot = path.join(paths.sessionRoot, "steps");
-  const activeCycle = await readActiveCycle(paths);
   const globalStepIds = normalizeKnownStepIds(
     (await readStepFileNames(stepsRoot)).filter((stepId) => !isCycleStepId(stepId))
   );
-  const cycleStepIds = normalizeKnownStepIds(await readStepFileNames(cycleStepsRoot(paths, activeCycle)));
+  const cycleStepIds = [];
+  try {
+    const entries = await readdir(stepsRoot, { withFileTypes: true });
+    for (const entry of entries.filter((item) => item.isDirectory() && /^cycle_\d+$/u.test(item.name)).sort((left, right) => left.name.localeCompare(right.name))) {
+      cycleStepIds.push(...await readStepFileNames(path.join(stepsRoot, entry.name)));
+    }
+  } catch {
+    // Legacy sessions may not have cycle record directories.
+  }
   return applyReviewPassCompletionOverlay(paths, normalizeKnownStepIds([...globalStepIds, ...cycleStepIds]));
 }
 
@@ -315,18 +285,12 @@ async function applyReviewPassCompletionOverlay(paths, completedSteps = []) {
   const reviewPasses = await readReviewPasses(paths);
   const latestPass = reviewPasses.at(-1);
   if (!latestPass) {
-    REVIEW_STEP_IDS.forEach((stepId) => completed.delete(stepId));
     return normalizeKnownStepIds([...completed]);
   }
   const latestPassAccepted = latestPass.status === "accepted" || latestPass.status === "no_changes";
   const anotherPassRequired = latestPassAccepted && latestPass.findingsRemaining === true;
   if (anotherPassRequired) {
     REVIEW_STEP_IDS.forEach((stepId) => completed.delete(stepId));
-    return normalizeKnownStepIds([...completed]);
-  }
-  if (latestPass.status === "prompted") {
-    completed.add("review_prompt_rendered");
-    completed.delete("review_changes_accepted");
     return normalizeKnownStepIds([...completed]);
   }
   if (latestPass.status === "accepted" || latestPass.status === "no_changes") {
@@ -340,7 +304,7 @@ async function readCycleInfo(paths, cycle) {
   const root = cycleRoot(paths, normalizedCycle);
   const userCheckPassed = await readTextIfExists(path.join(cycleStepsRoot(paths, normalizedCycle), "user_check_completed"));
   const userCheckFailed = await readTextIfExists(path.join(cycleStepsRoot(paths, normalizedCycle), "user_check_failed"));
-  const reworkRequestPath = path.join(root, "rework_request.md");
+  const reworkRequestPath = path.join(root, "rework_request");
   const reworkRequest = await readTextIfExists(reworkRequestPath);
   return {
     cycle: normalizedCycle,
@@ -349,7 +313,7 @@ async function readCycleInfo(paths, cycle) {
     reworkRequestPath: reworkRequest ? reworkRequestPath : "",
     status: userCheckPassed ? "passed" : userCheckFailed ? "failed" : "active",
     userCheckResult: userCheckPassed ? "passed" : userCheckFailed ? "failed" : "",
-    userCheckReceipt: (userCheckPassed || userCheckFailed).trim()
+    userCheckRecord: (userCheckPassed || userCheckFailed).trim()
   };
 }
 
@@ -451,7 +415,7 @@ async function readWorktreeStatus(paths, worktreeReady) {
   };
 }
 
-async function readReceiptSteps(paths) {
+async function readStepRecords(paths) {
   const stepsRoot = path.join(paths.sessionRoot, "steps");
   try {
     const entries = await readdir(stepsRoot, { withFileTypes: true });
@@ -460,19 +424,19 @@ async function readReceiptSteps(paths) {
     entries
       .filter((entry) => entry.isFile())
       .map((entry) => entry.name)
-      .forEach((receiptName) => {
-        const stepId = normalizeStepId(receiptName);
+      .forEach((recordName) => {
+        const stepId = normalizeStepId(recordName);
         if (STEP_IDS.includes(stepId)) {
-          if (!knownStepRows.has(stepId) || receiptName === stepId) {
+          if (!knownStepRows.has(stepId) || recordName === stepId) {
             knownStepRows.set(stepId, {
-              receiptName,
+              recordName,
               stepId
             });
           }
           return;
         }
         unknownStepRows.push({
-          receiptName,
+          recordName,
           stepId
         });
       });
@@ -493,14 +457,14 @@ async function readReceiptSteps(paths) {
         return left.stepId.localeCompare(right.stepId);
       });
 
-    const globalReceipts = await Promise.all(stepRows.map(async ({ receiptName, stepId }) => ({
+    const globalRecords = await Promise.all(stepRows.map(async ({ recordName, stepId }) => ({
       cycle: "",
+      details: (await readTextIfExists(path.join(stepsRoot, recordName))).trim(),
       label: STEP_LABEL_BY_ID[stepId] || stepId,
-      receipt: (await readTextIfExists(path.join(stepsRoot, receiptName))).trim(),
       stepId
     })));
 
-    const cycleReceipts = [];
+    const cycleRecords = [];
     const cycleDirectories = entries
       .filter((entry) => entry.isDirectory() && /^cycle_\d+$/u.test(entry.name))
       .map((entry) => entry.name)
@@ -509,18 +473,18 @@ async function readReceiptSteps(paths) {
       const cycle = normalizeCycleNumber(cycleDirectory);
       const cycleRootPath = path.join(stepsRoot, cycleDirectory);
       const cycleStepIds = await readStepFileNames(cycleRootPath);
-      for (const receiptName of cycleStepIds) {
-        const stepId = normalizeStepId(receiptName);
-        cycleReceipts.push({
+      for (const recordName of cycleStepIds) {
+        const stepId = normalizeStepId(recordName);
+        cycleRecords.push({
           cycle,
+          details: (await readTextIfExists(path.join(cycleRootPath, recordName))).trim(),
           label: STEP_LABEL_BY_ID[stepId] || stepId,
-          receipt: (await readTextIfExists(path.join(cycleRootPath, receiptName))).trim(),
           stepId
         });
       }
     }
 
-    return [...globalReceipts, ...cycleReceipts];
+    return [...globalRecords, ...cycleRecords];
   } catch {
     return [];
   }
@@ -584,33 +548,15 @@ async function publicCodexContract(codex = null) {
   if (!codex || typeof codex !== "object" || Array.isArray(codex)) {
     return null;
   }
-  const clonedCodex = cloneContractValue(codex);
-  const resolvePrompt = clonedCodex.responseContract?.resolvePrompt;
-  const templateFile = normalizeText(resolvePrompt?.templateFile || "");
-  if (templateFile) {
-    const template = await readTextIfExists(path.join(PROMPT_DIRECTORY, templateFile));
-    clonedCodex.responseContract.resolvePrompt = {
-      ...resolvePrompt,
-      template
-    };
-  }
-  return clonedCodex;
+  return cloneContractValue(codex);
 }
 
 function stepRepeatabilityContract(stepId) {
-  if (!CYCLE_STEP_IDS.includes(normalizeStepId(stepId))) {
-    return {
-      repeatable: false,
-      repeatableGroupId: "",
-      repeatableGroupLabel: "",
-      repeatableLabel: ""
-    };
-  }
   return {
-    repeatable: true,
-    repeatableGroupId: "rework_cycle",
-    repeatableGroupLabel: "Rework cycle",
-    repeatableLabel: "Cycle step"
+    repeatable: false,
+    repeatableGroupId: "",
+    repeatableGroupLabel: "",
+    repeatableLabel: ""
   };
 }
 
@@ -645,17 +591,6 @@ function stepIsRetryableWhenBlocked(stepId) {
   ].includes(normalizeStepId(stepId));
 }
 
-function stepIsConditional(stepId) {
-  return [
-    "deep_ui_check_run"
-  ].includes(normalizeStepId(stepId));
-}
-
-function activeCycleInfoFromArtifacts(artifacts = {}) {
-  const activeCycle = normalizeCycleNumber(artifacts.activeCycle || "");
-  return (artifacts.cycles || []).find((cycle) => cycle?.cycle === activeCycle) || null;
-}
-
 function uiCheckPromptedForStep(artifacts = {}, stepId = "") {
   const normalizedStepId = normalizeStepId(stepId);
   return (artifacts.uiChecks || []).some((entry) => {
@@ -665,10 +600,8 @@ function uiCheckPromptedForStep(artifacts = {}, stepId = "") {
 }
 
 function skipReasonForStep(stepId, artifacts = {}) {
-  const normalizedStepId = normalizeStepId(stepId);
-  if (normalizedStepId === "deep_ui_check_run" && artifacts.uiImpact === "none") {
-    return "uiImpact is none.";
-  }
+  void stepId;
+  void artifacts;
   return "";
 }
 
@@ -677,53 +610,27 @@ function buildCurrentStepAction(stepId, artifacts = {}) {
   if (!step) {
     return null;
   }
-  const activeCycleInfo = activeCycleInfoFromArtifacts(artifacts);
   const planExecutionPrompted = artifacts.planExecution?.prompted === true;
   const planExecutionSubmitted = artifacts.planExecution?.submitted === true;
-  const planReworkMode = step.id === "plan_made" && normalizeCycleNumber(artifacts.activeCycle || "") !== "001";
+  const issueDefinitionPrompted = step.id === "issue_prompt_rendered" && artifacts.issueDefinitionRequested === true;
+  const issueFilePromptAction = step.id === "issue_created";
+  const issueSubmissionAction = step.id === "issue_submitted";
+  const pullRequestFileAction = step.id === "final_report_created";
+  const prSubmissionAction = step.id === "pr_created";
   const deepUiCheckPrompted = step.id === "deep_ui_check_run" && uiCheckPromptedForStep(artifacts, "deep_ui_check_run");
-  const hasActiveReworkRequest = Boolean(activeCycleInfo?.reworkRequestPath);
-  const promptPhaseButtonLabel = step.kind === "codex_output" &&
-    step.codex?.mode === "inject_prompt" &&
-    !artifacts.prompt
-    ? step.codex.promptActionLabel || ""
-    : "";
-  const buttonLabel = promptPhaseButtonLabel || step.buttonLabel;
+  const automatedChecksPrompted = step.id === "automated_checks_run" && (artifacts.checks || []).some((entry) => {
+    return normalizeStepId(entry?.stepId || "") === "automated_checks_run" &&
+      normalizeText(entry?.status || "") === "prompted";
+  });
   const alternateActions = [];
-  if (step.id === "user_check_completed") {
-    alternateActions.push({
-      id: "return_to_plan_made",
-      input: {
-        formatHint: "markdown",
-        label: "What needs to be reworked?",
-        multiline: true,
-        name: "reworkNotes",
-        required: true,
-        type: "text"
-      },
-      label: "Return to Plan made",
-      presentation: "exclusive",
-      requiredErrorCode: "user_check_failed",
-      submitOptions: {
-        userCheck: "failed"
-      },
-      targetStep: "plan_made"
-    });
-  }
   if (step.id === "review_changes_accepted") {
     alternateActions.push({
       id: "request_another_review_pass",
-      helpText: "Use this only when important review findings remain. Studio will record these notes and loop back to Codex review.",
+      helpText: "Run another explicit deslop prompt before continuing.",
       input: {
-        formatHint: "markdown",
-        label: "What important findings remain?",
-        multiline: true,
-        name: "reviewFindings",
-        placeholder: "List the specific findings Codex still needs to address.",
-        required: true,
-        type: "text"
+        type: "none"
       },
-      label: "Run another review pass",
+      label: "Run deslop",
       presentation: "secondary",
       submitOptions: {
         reviewFindingsRemaining: true
@@ -731,73 +638,75 @@ function buildCurrentStepAction(stepId, artifacts = {}) {
       targetStep: "review_prompt_rendered"
     });
   }
-  if (step.id === "pr_finalized") {
-    alternateActions.push({
-      id: "skip_merge",
-      helpText: "Leave the PR open and record the skipped-merge outcome; final cleanup removes the session worktree.",
-      input: {
-        type: "none"
-      },
-      label: "Skip merge",
-      presentation: "secondary",
-      submitOptions: {
-        closeWithoutMerge: true
-      },
-      targetStep: "pr_finalized"
-    });
-  }
-  if (step.id === "main_checkout_synced") {
-    alternateActions.push({
-      id: "skip_main_checkout_sync",
-      helpText: "Leave the main checkout untouched and continue with session cleanup.",
-      input: {
-        type: "none"
-      },
-      label: "Skip sync",
-      presentation: "secondary",
-      submitOptions: {
-        skipMainSync: true
-      },
-      targetStep: "main_checkout_synced"
-    });
-  }
   const dynamicButtonLabel = (() => {
-    if (step.id === "plan_executed" && planExecutionPrompted && !planExecutionSubmitted) {
-      return "Go to next step";
+    if (step.id === "issue_created" && !artifacts.issueText) {
+      return "Create issue file";
     }
-    if (step.id === "deep_ui_check_run" && deepUiCheckPrompted) {
-      return "Go to next step";
+    if (step.id === "issue_submitted") {
+      return "Create issue on GH";
     }
-    if (step.id === "automated_checks_run" && artifacts.prompt) {
-      return "Go to next step";
+    if (step.id === "pr_created") {
+      return "Create PR on GH";
     }
-    if (step.id === "plan_made" && planReworkMode && !artifacts.prompt && hasActiveReworkRequest) {
-      return "Get Codex to create revised plan";
+    if (step.id === "pr_merge_prepared") {
+      return "Merge";
     }
     if (step.id === "main_checkout_synced" && artifacts.prOutcome?.outcome && artifacts.prOutcome.outcome !== "merged") {
-      return "Record no sync needed";
+      return "Sync main checkout";
     }
-    return buttonLabel;
+    return step.buttonLabel;
   })();
   const dynamicDescription = (() => {
+    if (issueDefinitionPrompted) {
+      return "Codex has the issue-definition prompt. Continue after the issue is scoped clearly enough.";
+    }
+    if (issueFilePromptAction && artifacts.issueFileRequested) {
+      return "Codex has the issue-file prompt. Review issue.md and issue_title, then continue when ready.";
+    }
+    if (issueSubmissionAction && artifacts.issueUrl) {
+      return "The GitHub issue has been created. Continue when ready.";
+    }
+    if (pullRequestFileAction && artifacts.pullRequestFileRequested) {
+      return "Codex has the PR-file prompt. Review pull_request.md, then continue when ready.";
+    }
+    if (prSubmissionAction && artifacts.prUrl) {
+      return "The GitHub pull request has been created. Continue when ready.";
+    }
+    if (step.id === "pr_merge_prepared" && artifacts.prOutcome?.outcome === "merged") {
+      return "The pull request was merged. Use Next when ready.";
+    }
     if (step.id === "plan_executed" && planExecutionPrompted && !planExecutionSubmitted) {
-      return "Codex has the execution prompt. Review the result, then use Go to next step when ready.";
+      return "Codex has the execution prompt. Review the result, then use Next when ready.";
     }
     if (step.id === "deep_ui_check_run" && deepUiCheckPrompted) {
-      return "Codex has the Deep UI check prompt. Studio advances when Codex finishes.";
+      return "Codex has the run deep UI check prompt. Review the result, then use Next when ready.";
     }
-    if (step.id === "automated_checks_run" && artifacts.prompt) {
-      return "Codex has the automated-checks prompt. Studio advances when Codex finishes.";
-    }
-    if (step.id === "plan_made" && planReworkMode && hasActiveReworkRequest) {
-      return "Codex writes a revised implementation plan from the user's rework notes for this cycle.";
+    if (step.id === "automated_checks_run" && automatedChecksPrompted) {
+      return "Codex has the run automated checks prompt. Review the result, then use Next when ready.";
     }
     if (step.id === "main_checkout_synced" && artifacts.prOutcome?.outcome && artifacts.prOutcome.outcome !== "merged") {
-      return "The PR was not merged, so JSKIT will record main checkout sync as skipped before cleanup.";
+      return "Main checkout sync is only available after a successful merge. Use Next to continue.";
+    }
+    if (step.id === "main_checkout_synced" && artifacts.mainCheckoutSync?.status === "synced") {
+      return "The main checkout has been synced. Use Next when ready.";
     }
     return step.description;
   })();
   const dynamicUtilityActions = (() => {
+    if (step.id === "review_prompt_rendered" || step.id === "review_changes_accepted") {
+      return [
+        {
+          id: "resolve_deslop",
+          helpText: "Send Codex the explicit resolve deslop prompt. Nothing advances automatically after it finishes.",
+          kind: "codex_prompt",
+          label: "Resolve deslop",
+          submitOptions: {
+            actionCommand: "resolve_deslop"
+          }
+        },
+        ...(step.utilityActions || [])
+      ];
+    }
     return step.utilityActions || [];
   })();
   return {
@@ -807,14 +716,13 @@ function buildCurrentStepAction(stepId, artifacts = {}) {
     displayGroupId: step.displayGroupId,
     displayGroupLabel: step.displayGroupLabel,
     index: STEP_IDS.indexOf(step.id),
-    input: cloneContractValue(step.input),
-    kind: step.kind,
+    input: cloneContractValue(issueDefinitionPrompted || issueFilePromptAction || pullRequestFileAction ? { type: "none" } : step.input),
+    kind: issueDefinitionPrompted || issueFilePromptAction || pullRequestFileAction ? "codex_prompt" : step.kind,
     label: dynamicButtonLabel,
-    automation: cloneContractValue(step.automation || { mode: "manual" }),
+    automation: cloneContractValue(issueDefinitionPrompted || issueFilePromptAction || pullRequestFileAction ? { mode: "codex_prompt" } : step.automation || { mode: "manual" }),
     ...stepRepeatabilityContract(step.id),
-    requiredInput: cloneContractValue(step.input),
+    requiredInput: cloneContractValue(issueDefinitionPrompted || issueFilePromptAction || pullRequestFileAction ? { type: "none" } : step.input),
     requiresExplicitRun: step.requiresExplicitRun === true,
-    conditional: stepIsConditional(step.id),
     retryable: artifacts.status === SESSION_STATUS.BLOCKED && stepIsRetryableWhenBlocked(step.id),
     skipReason: skipReasonForStep(step.id, artifacts),
     stepId: step.id,
@@ -824,19 +732,17 @@ function buildCurrentStepAction(stepId, artifacts = {}) {
 }
 
 function rawCodexHandoff(stepId, artifacts = {}) {
+  if (normalizeStepId(stepId) === "issue_prompt_rendered" && artifacts.issueDefinitionRequested) {
+    return cloneContractValue(ISSUE_DEFINITION_CODEX_HANDOFF);
+  }
+  if (normalizeStepId(stepId) === "issue_created" && artifacts.issueFileRequested) {
+    return cloneContractValue(ISSUE_FILE_CODEX_HANDOFF);
+  }
   if (normalizeStepId(stepId) === "review_changes_accepted" && latestReviewPassIsPrompted(artifacts)) {
     return cloneContractValue(REVIEW_EXECUTION_CODEX_HANDOFF);
   }
   const step = STEP_DEFINITION_BY_ID[stepId];
-  const codex = step?.codex ? cloneContractValue(step.codex) : null;
-  if (
-    codex &&
-    normalizeStepId(stepId) === "plan_made" &&
-    normalizeCycleNumber(artifacts.activeCycle || "") !== "001"
-  ) {
-    codex.promptIntroText = "Codex will create a revised implementation plan based on the rework notes.";
-  }
-  return codex;
+  return step?.codex ? cloneContractValue(step.codex) : null;
 }
 
 async function buildCodexHandoff(stepId, artifacts = {}) {
@@ -845,24 +751,30 @@ async function buildCodexHandoff(stepId, artifacts = {}) {
 
 async function readSessionArtifacts(paths) {
   const activeCycle = await readActiveCycle(paths);
+  const globalPlanExecutionRecordPath = path.join(paths.sessionRoot, "steps", "plan_executed");
+  const legacyPlanExecutionRecordPath = path.join(cycleStepsRoot(paths, activeCycle), "plan_executed");
   const [
     status,
     rawCurrentStep,
     issueUrl,
+    issueNumber,
     prUrl,
     issueText,
     issueTitle,
-    planText,
-    issueDetails,
-    agentDecisions,
     finalReportText,
+    pullRequestText,
     githubCommentsText,
     codexThreadId,
     workflowVersion,
     baseBranch,
     baseCommit,
-    issueMetadataText,
-    planExecutionReceipt,
+    planExecutionRecord,
+    issueDefinitionRequested,
+    issueFileRequested,
+    pullRequestFileRequested,
+    makePlanRequested,
+    blueprintUpdateRequested,
+    executePlanRequested,
     prOutcomeText,
     mainCheckoutSyncText,
     changesCommittedText
@@ -870,32 +782,28 @@ async function readSessionArtifacts(paths) {
     readTrimmedFile(path.join(paths.sessionRoot, "status")),
     readTrimmedFile(path.join(paths.sessionRoot, "current_step")),
     readTrimmedFile(path.join(paths.sessionRoot, "issue_url")),
+    readTrimmedFile(path.join(paths.sessionRoot, "metadata", "issue_number")),
     readTrimmedFile(path.join(paths.sessionRoot, "pr_url")),
     readTextIfExists(path.join(paths.sessionRoot, "issue.md")),
     readTrimmedFile(path.join(paths.sessionRoot, "issue_title")),
-    readTextIfExists(cyclePlanPath(paths, activeCycle)),
-    readTextIfExists(path.join(paths.sessionRoot, "issue_details.md")),
-    readTextIfExists(path.join(paths.sessionRoot, "agent_decisions.md")),
-    readTextIfExists(path.join(paths.sessionRoot, "final_report.md")),
+    readTextIfExists(path.join(paths.sessionRoot, "final_report")),
+    readTextIfExists(path.join(paths.sessionRoot, "pull_request.md")),
     readTextIfExists(path.join(paths.sessionRoot, "github_comments.json")),
     readTrimmedFile(path.join(paths.sessionRoot, "codex_thread_id")),
     readWorkflowVersion(paths),
     readTrimmedFile(path.join(paths.sessionRoot, "base_branch")),
     readTrimmedFile(path.join(paths.sessionRoot, "base_commit")),
-    readTextIfExists(path.join(paths.sessionRoot, "issue_metadata.json")),
-    readTextIfExists(path.join(cycleStepsRoot(paths, activeCycle), "plan_executed")),
+    readTextIfExists(globalPlanExecutionRecordPath).then(async (text) => text || await readTextIfExists(legacyPlanExecutionRecordPath)),
+    readTrimmedFile(path.join(paths.sessionRoot, "metadata", "issue_prompt_rendered_requested")),
+    readTrimmedFile(path.join(paths.sessionRoot, "metadata", "issue_created_requested")),
+    readTrimmedFile(path.join(paths.sessionRoot, "metadata", "pull_request_file_requested")),
+    readTrimmedFile(path.join(paths.sessionRoot, "metadata", "make_plan_requested")),
+    readTrimmedFile(path.join(paths.sessionRoot, "metadata", "blueprint_updated_requested")),
+    readTrimmedFile(path.join(paths.sessionRoot, "metadata", "execute_plan_requested")),
     readTextIfExists(path.join(paths.sessionRoot, "pr_outcome.json")),
     readTextIfExists(path.join(paths.sessionRoot, "main_checkout_sync.json")),
     readTextIfExists(path.join(paths.sessionRoot, "changes_committed.json"))
   ]);
-  let issueMetadata = null;
-  if (issueMetadataText) {
-    try {
-      issueMetadata = JSON.parse(issueMetadataText);
-    } catch {
-      issueMetadata = null;
-    }
-  }
   let githubComments = {};
   if (githubCommentsText) {
     try {
@@ -942,9 +850,8 @@ async function readSessionArtifacts(paths) {
   const worktreeReady = await hasWorktree(paths);
   const worktreeStatus = await readWorktreeStatus(paths, worktreeReady);
   const commandLogPath = path.join(paths.sessionRoot, "command_log.jsonl");
-  const dependencyInstallReceipt = await readTextIfExists(path.join(paths.sessionRoot, "steps", "dependencies_installed"));
-  const planExecutionPromptPath = path.join(paths.sessionRoot, "prompts", cyclePlanExecutionPromptFileName(activeCycle));
-  const planExecutionPromptExists = await fileExists(planExecutionPromptPath);
+  const dependencyInstallRecord = await readTextIfExists(path.join(paths.sessionRoot, "steps", "dependencies_installed"));
+  const dependencyInstallResult = await readTextIfExists(path.join(paths.sessionRoot, DEPENDENCIES_INSTALL_RESULT_FILE));
   const appRootForArtifacts = worktreeReady ? paths.worktree : paths.targetRoot;
   const appReady = await inspectReadyJskitAppRoot(appRootForArtifacts);
   const blueprintPath = path.join(appRootForArtifacts, ".jskit", "APP_BLUEPRINT.md");
@@ -952,12 +859,12 @@ async function readSessionArtifacts(paths) {
   const currentStep = normalizeStepId(rawCurrentStep);
   let completedSteps = await readCompletedSteps(paths);
   const worktreeRemovalCompleted = completedSteps.includes("session_finished");
-  const worktreeReceiptInvalid = !worktreeReady &&
+  const worktreeStepRecordInvalid = !worktreeReady &&
     completedSteps.includes("worktree_created") &&
     !worktreeRemovalCompleted &&
     status !== SESSION_STATUS.FINISHED &&
     status !== SESSION_STATUS.ABANDONED;
-  if (worktreeReceiptInvalid) {
+  if (worktreeStepRecordInvalid) {
     completedSteps = completedSteps.filter((stepId) => !["worktree_created", "dependencies_installed"].includes(stepId));
   }
   const nextStep = resolveNextStep(completedSteps);
@@ -968,6 +875,8 @@ async function readSessionArtifacts(paths) {
     ? nextStep
     : currentStep || nextStep;
   const prompt = await readPromptForStep(paths, effectiveCurrentStep, { reviewPasses });
+  const dependencyInstallDetails = dependencyInstallRecord.trim() || dependencyInstallResult.trim();
+  const dependencyInstallReady = Boolean(dependencyInstallRecord.trim() || dependencyInstallResult.trim());
 
   return {
     codexThreadId,
@@ -987,40 +896,40 @@ async function readSessionArtifacts(paths) {
     commandLogExists: await fileExists(commandLogPath),
     commandLogPath,
     dependencyInstall: {
-      installed: Boolean(dependencyInstallReceipt.trim()),
-      receipt: dependencyInstallReceipt.trim(),
-      status: dependencyInstallReceipt.trim()
+      installed: Boolean(dependencyInstallRecord.trim()),
+      ready: dependencyInstallReady,
+      details: dependencyInstallDetails,
+      status: dependencyInstallRecord.trim()
         ? "installed"
+        : dependencyInstallResult.trim() ? "ready_to_advance"
         : worktreeReady ? "pending" : "waiting_for_worktree"
     },
     helperMapExists: await fileExists(helperMapPath),
     helperMapPath,
     githubComments,
-    issueMetadata,
-    issueCategory: normalizeText(issueMetadata?.issueCategory || ""),
-    uiImpact: normalizeText(issueMetadata?.uiImpact || ""),
-    agentDecisions: agentDecisions.trim(),
-    agentDecisionsLatest: agentDecisions
-      .split(/\r?\n/u)
-      .map((line) => line.trim())
-      .filter((line) => line && !line.startsWith("#") && !line.startsWith("Session:"))
-      .slice(-5)
-      .join("\n"),
+    issueNumber: issueNumber || issueNumberFromUrl(issueUrl),
     issueTitle,
     issueText: issueText.trim(),
     issueUrl,
     nextStep,
+    pullRequestPath: path.join(paths.sessionRoot, "pull_request.md"),
+    pullRequestText: pullRequestText.trim(),
     prUrl,
     prOutcome,
     mainCheckoutSync,
+    acceptedChangesCommit,
+    issueDefinitionRequested: Boolean(issueDefinitionRequested.trim()),
+    issueFileRequested: Boolean(issueFileRequested.trim()),
+    pullRequestFileRequested: Boolean(pullRequestFileRequested.trim()),
+    makePlanRequested: Boolean(makePlanRequested.trim()),
+    blueprintUpdateRequested: Boolean(blueprintUpdateRequested.trim()),
+    executePlanRequested: Boolean(executePlanRequested.trim()),
     planExecution: {
-      prompted: planExecutionPromptExists,
-      promptPath: planExecutionPromptExists ? planExecutionPromptPath : "",
-      receipt: planExecutionReceipt.trim(),
-      submitted: Boolean(planExecutionReceipt.trim())
+      prompted: Boolean(executePlanRequested.trim()),
+      promptPath: "",
+      details: planExecutionRecord.trim(),
+      submitted: Boolean(planExecutionRecord.trim())
     },
-    planText: planText.trim(),
-    issueDetails: issueDetails.trim(),
     finalReportText: finalReportText.trim(),
     prompt: prompt.trim(),
     status: status || SESSION_STATUS.PENDING,
@@ -1031,12 +940,242 @@ async function readSessionArtifacts(paths) {
   };
 }
 
-function buildNextCommand(sessionId, stepId) {
+function stepCanExposeNextCommand(stepId, artifacts = {}) {
   if (!stepId) {
+    return false;
+  }
+  if (stepId === "worktree_created") {
+    return artifacts.worktreeReady === true;
+  }
+  if (stepId === "dependencies_installed") {
+    return artifacts.dependencyInstall?.ready === true;
+  }
+  if (stepId === "issue_prompt_rendered") {
+    return Boolean(artifacts.issueText);
+  }
+  if (stepId === "issue_created") {
+    return Boolean(artifacts.issueText);
+  }
+  if (stepId === "issue_submitted") {
+    return Boolean(artifacts.issueUrl);
+  }
+  if (stepId === "changes_committed") {
+    return Boolean(artifacts.acceptedChangesCommit?.commit);
+  }
+  if (stepId === "final_report_created") {
+    return Boolean(artifacts.pullRequestText);
+  }
+  if (stepId === "session_finished") {
+    return false;
+  }
+  if (stepId === "plan_made") {
+    return artifacts.makePlanRequested === true;
+  }
+  if (stepId === "plan_executed") {
+    return artifacts.executePlanRequested === true;
+  }
+  return true;
+}
+
+function buildNextCommand(sessionId, stepId, artifacts = {}) {
+  if (!stepCanExposeNextCommand(stepId, artifacts)) {
     return "";
   }
-  const template = STEP_DEFINITION_BY_ID[stepId]?.nextCommandTemplate || `${JSKIT_CLI_SHELL_COMMAND} session {{session_id}} step`;
+  const template = STEP_DEFINITION_BY_ID[stepId]?.nextCommandTemplate || `${JSKIT_CLI_SHELL_COMMAND} session {{session_id}} next`;
   return template.replaceAll("{{session_id}}", sessionId);
+}
+
+function buildStepActionCommands(sessionId, stepId, artifacts = {}) {
+  const commandBase = `${JSKIT_CLI_SHELL_COMMAND} session ${sessionId}`;
+  if (stepId === "worktree_created") {
+    return artifacts.worktreeReady === true
+      ? []
+      : [
+          {
+            command: `${commandBase} create_worktree`,
+            id: "create_worktree",
+            label: "Create worktree"
+          }
+        ];
+  }
+  if (stepId === "dependencies_installed") {
+    return artifacts.dependencyInstall?.ready === true
+      ? []
+      : [
+          {
+            command: `${commandBase} run_npm_install`,
+            id: "run_npm_install",
+            label: "Run npm install"
+          }
+        ];
+  }
+  if (stepId === "issue_prompt_rendered") {
+    return [
+      {
+        command: `${commandBase} define_issue --prompt "<what should change>"`,
+        id: "define_issue",
+        label: "Define issue"
+      },
+      ...(artifacts.issueDefinitionRequested
+        ? [
+            {
+              command: `${commandBase} create_issue_file`,
+              id: "create_issue_file",
+              label: "Create issue file"
+            }
+          ]
+        : [])
+    ];
+  }
+  if (stepId === "issue_created") {
+    return [
+      {
+        command: `${commandBase} create_issue_file`,
+        id: "create_issue_file",
+        label: "Create issue file"
+      }
+    ];
+  }
+  if (stepId === "issue_submitted") {
+    return artifacts.issueUrl
+      ? []
+      : [
+          {
+            command: `${commandBase} create_issue_on_gh`,
+            id: "create_issue_on_gh",
+            label: "Create issue on GH"
+          }
+        ];
+  }
+  if (stepId === "plan_made") {
+    return [
+      {
+        command: `${commandBase} make_plan`,
+        id: "make_plan",
+        label: "Make plan"
+      }
+    ];
+  }
+  if (stepId === "plan_executed") {
+    return [
+      {
+        command: `${commandBase} execute_plan`,
+        id: "execute_plan",
+        label: "Execute plan"
+      }
+    ];
+  }
+  if (stepId === "deep_ui_check_run") {
+    return [
+      {
+        command: `${commandBase} run_deep_ui_check`,
+        id: "run_deep_ui_check",
+        label: "Run deep UI check"
+      }
+    ];
+  }
+  if (stepId === "automated_checks_run") {
+    return [
+      {
+        command: `${commandBase} run_automated_checks`,
+        id: "run_automated_checks",
+        label: "Run automated checks"
+      }
+    ];
+  }
+  if (stepId === "review_prompt_rendered") {
+    return [
+      {
+        command: `${commandBase} deslop`,
+        id: "deslop",
+        label: "Run deslop"
+      },
+      {
+        command: `${commandBase} resolve-deslop`,
+        id: "resolve_deslop",
+        label: "Resolve deslop"
+      }
+    ];
+  }
+  if (stepId === "blueprint_updated") {
+    return [
+      {
+        command: `${commandBase} update_blueprint`,
+        id: "update_blueprint",
+        label: "Update blueprint"
+      }
+    ];
+  }
+  if (stepId === "changes_committed") {
+    return artifacts.acceptedChangesCommit?.commit
+      ? []
+      : [
+          {
+            command: `${commandBase} commit_changes`,
+            id: "commit_changes",
+            label: "Commit changes"
+          }
+        ];
+  }
+  if (stepId === "final_report_created") {
+    return artifacts.pullRequestText
+      ? []
+      : [
+          {
+            command: `${commandBase} create_pull_request_file`,
+            id: "create_pull_request_file",
+            label: "Create PR file"
+          }
+        ];
+  }
+  if (stepId === "pr_created") {
+    return artifacts.prUrl
+      ? []
+      : [
+          {
+            command: `${commandBase} create_pr_on_gh`,
+            id: "create_pr_on_gh",
+            label: "Create PR on GH"
+          }
+        ];
+  }
+  if (stepId === "pr_merge_prepared") {
+    return artifacts.prOutcome?.outcome === "merged" || !artifacts.prUrl
+      ? []
+      : [
+          {
+            command: `${commandBase} prepare_for_merge`,
+            id: "prepare_for_merge",
+            label: "Prepare for merge"
+          },
+          {
+            command: `${commandBase} merge_pr`,
+            id: "merge_pr",
+            label: "Merge"
+          }
+        ];
+  }
+  if (stepId === "main_checkout_synced") {
+    return artifacts.prUrl && artifacts.prOutcome?.outcome === "merged" && !artifacts.mainCheckoutSync?.status
+      ? [
+          {
+            command: `${commandBase} sync_main_checkout`,
+            id: "sync_main_checkout",
+            label: "Sync main checkout"
+          }
+        ]
+      : [];
+  }
+  if (stepId === "session_finished") {
+    return [
+      {
+        command: `${commandBase} finish_session`,
+        id: "finish_session",
+        label: "Finish"
+      }
+    ];
+  }
+  return [];
 }
 
 async function buildSessionResponse(paths, {
@@ -1078,26 +1217,28 @@ async function buildSessionResponse(paths, {
       codex: null,
       prompt: "",
       nextCommand: "",
+      issueDefinitionRequested: artifacts.issueDefinitionRequested === true,
+      issueFileRequested: artifacts.issueFileRequested === true,
+      issueNumber: artifacts.issueNumber || "",
       issueUrl: artifacts.issueUrl || "",
       issueTitle: artifacts.issueTitle || "",
       issueText: artifacts.issueText || "",
-      issueMetadata: cloneContractValue(artifacts.issueMetadata || null),
+      pullRequestFileRequested: artifacts.pullRequestFileRequested === true,
+      pullRequestPath: artifacts.pullRequestPath || "",
+      pullRequestText: artifacts.pullRequestText || "",
       githubComments: cloneContractValue(artifacts.githubComments || {}),
-      issueCategory: artifacts.issueCategory || "",
-      uiImpact: artifacts.uiImpact || "",
-      agentDecisionsPath: artifacts.agentDecisions ? path.join(responsePaths.sessionRoot, "agent_decisions.md") : "",
-      agentDecisionsLatest: artifacts.agentDecisionsLatest || "",
+      makePlanRequested: artifacts.makePlanRequested === true,
+      blueprintUpdateRequested: artifacts.blueprintUpdateRequested === true,
+      executePlanRequested: artifacts.executePlanRequested === true,
       planExecution: cloneContractValue(artifacts.planExecution || null),
-      planText: artifacts.planText || "",
-      issueDetails: artifacts.issueDetails || "",
-      issueDetailsPath: artifacts.issueDetails ? path.join(responsePaths.sessionRoot, "issue_details.md") : "",
-      finalReportPath: artifacts.finalReportText ? path.join(responsePaths.sessionRoot, "final_report.md") : "",
+      finalReportPath: artifacts.finalReportText ? path.join(responsePaths.sessionRoot, "final_report") : "",
       finalReportText: artifacts.finalReportText || "",
       helperMapPath: artifacts.helperMapPath || "",
       helperMapExists: artifacts.helperMapExists === true,
       prUrl: artifacts.prUrl || "",
       prOutcome: cloneContractValue(artifacts.prOutcome || null),
       mainCheckoutSync: cloneContractValue(artifacts.mainCheckoutSync || null),
+      acceptedChangesCommit: cloneContractValue(artifacts.acceptedChangesCommit || null),
       preconditions,
       errors: [
         createError({
@@ -1144,29 +1285,32 @@ async function buildSessionResponse(paths, {
     commandLogPath: artifacts.commandLogPath || "",
     stepDefinitions: buildStepDefinitions(),
     currentStepAction: buildCurrentStepAction(currentStep, artifacts),
+    actionCommands: buildStepActionCommands(paths.sessionId || "", currentStep, artifacts),
     codex: codex === undefined ? await buildCodexHandoff(currentStep, artifacts) : await publicCodexContract(codex),
     prompt: responsePrompt,
-    nextCommand: buildNextCommand(paths.sessionId || "", currentStep),
+    nextCommand: buildNextCommand(paths.sessionId || "", currentStep, artifacts),
+    issueDefinitionRequested: artifacts.issueDefinitionRequested === true,
+    issueFileRequested: artifacts.issueFileRequested === true,
+    issueNumber: artifacts.issueNumber || "",
     issueUrl: artifacts.issueUrl || "",
     issueTitle: artifacts.issueTitle || "",
     issueText: artifacts.issueText || "",
-    issueMetadata: cloneContractValue(artifacts.issueMetadata || null),
+    pullRequestFileRequested: artifacts.pullRequestFileRequested === true,
+    pullRequestPath: artifacts.pullRequestPath || "",
+    pullRequestText: artifacts.pullRequestText || "",
     githubComments: cloneContractValue(artifacts.githubComments || {}),
-    issueCategory: artifacts.issueCategory || "",
-    uiImpact: artifacts.uiImpact || "",
-    agentDecisionsPath: artifacts.agentDecisions ? path.join(responsePaths.sessionRoot, "agent_decisions.md") : "",
-    agentDecisionsLatest: artifacts.agentDecisionsLatest || "",
+    makePlanRequested: artifacts.makePlanRequested === true,
+    blueprintUpdateRequested: artifacts.blueprintUpdateRequested === true,
+    executePlanRequested: artifacts.executePlanRequested === true,
     planExecution: cloneContractValue(artifacts.planExecution || null),
-    planText: artifacts.planText || "",
-    issueDetails: artifacts.issueDetails || "",
-    issueDetailsPath: artifacts.issueDetails ? path.join(responsePaths.sessionRoot, "issue_details.md") : "",
-    finalReportPath: artifacts.finalReportText ? path.join(responsePaths.sessionRoot, "final_report.md") : "",
+    finalReportPath: artifacts.finalReportText ? path.join(responsePaths.sessionRoot, "final_report") : "",
     finalReportText: artifacts.finalReportText || "",
     helperMapPath: artifacts.helperMapPath || "",
     helperMapExists: artifacts.helperMapExists === true,
     prUrl: artifacts.prUrl || "",
     prOutcome: cloneContractValue(artifacts.prOutcome || null),
     mainCheckoutSync: cloneContractValue(artifacts.mainCheckoutSync || null),
+    acceptedChangesCommit: cloneContractValue(artifacts.acceptedChangesCommit || null),
     preconditions,
     errors,
     warnings: responseWarnings,
@@ -1229,16 +1373,11 @@ function buildSessionErrorResponse({
     nextCommand: "",
     issueTitle: "",
     issueText: "",
-    issueMetadata: null,
+    pullRequestFileRequested: false,
+    pullRequestPath: "",
+    pullRequestText: "",
     githubComments: {},
-    issueCategory: "",
-    uiImpact: "",
-    agentDecisionsPath: "",
-    agentDecisionsLatest: "",
     planExecution: null,
-    planText: "",
-    issueDetails: "",
-    issueDetailsPath: "",
     finalReportPath: "",
     finalReportText: "",
     helperMapPath: "",
@@ -1268,27 +1407,28 @@ async function markCurrentStep(paths, stepId) {
   await writeTextFile(path.join(paths.sessionRoot, "current_step"), stepId);
 }
 
-async function writeReceipt(paths, stepId, message) {
-  const activeCycle = await readActiveCycle(paths);
-  const root = isCycleStepId(stepId) ? cycleStepsRoot(paths, activeCycle) : path.join(paths.sessionRoot, "steps");
+async function writeStepRecord(paths, stepId, message) {
+  const root = isCycleStepId(stepId)
+    ? cycleStepsRoot(paths, await readActiveCycle(paths))
+    : path.join(paths.sessionRoot, "steps");
   await mkdir(root, { recursive: true });
   await writeTextFile(
     path.join(root, stepId),
-    `${timestampForReceipt()}\n${normalizeText(message) || STEP_LABEL_BY_ID[stepId] || stepId}`
+    `${timestampForStepRecord()}\n${normalizeText(message) || STEP_LABEL_BY_ID[stepId] || stepId}`
   );
   const completedSteps = await readCompletedSteps(paths);
   await markCurrentStep(paths, resolveNextStep(completedSteps));
 }
 
-async function writeCycleReceipt(paths, receiptName, message, {
+async function writeCycleStepRecord(paths, recordName, message, {
   cycle = ""
 } = {}) {
   const activeCycle = normalizeCycleNumber(cycle || await readActiveCycle(paths));
   const root = cycleStepsRoot(paths, activeCycle);
   await mkdir(root, { recursive: true });
   await writeTextFile(
-    path.join(root, normalizeText(receiptName)),
-    `${timestampForReceipt()}\n${normalizeText(message) || normalizeText(receiptName)}`
+    path.join(root, normalizeText(recordName)),
+    `${timestampForStepRecord()}\n${normalizeText(message) || normalizeText(recordName)}`
   );
 }
 
@@ -1331,12 +1471,11 @@ export {
   markStatus,
   normalizeReviewPassNumber,
   readActiveCycle,
-  readReceiptSteps,
+  readStepRecords,
   readReviewPasses,
   readSessionArtifacts,
   reviewPassDirectoryName,
   reviewPassRoot,
-  writeActiveCycle,
-  writeCycleReceipt,
-  writeReceipt
+  writeCycleStepRecord,
+  writeStepRecord
 };

@@ -3,6 +3,15 @@ import js from "@eslint/js";
 const SOURCE_FILES = "**/*.{js,mjs,cjs,vue}";
 
 const baseConfig = Object.freeze([
+  {
+    ignores: [
+      ".jskit/**",
+      "coverage/**",
+      "dist/**",
+      "node_modules/**",
+      "test-results/**"
+    ]
+  },
   js.configs.recommended,
   {
     files: [SOURCE_FILES],

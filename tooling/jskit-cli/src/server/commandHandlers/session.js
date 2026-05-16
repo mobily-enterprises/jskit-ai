@@ -1,6 +1,7 @@
 import { readFile } from "node:fs/promises";
 import {
   abandonSession,
+  advanceSessionStep,
   adoptCodexThreadId,
   buildSessionErrorResponse,
   createSession,
@@ -8,7 +9,8 @@ import {
   inspectSessionDetails,
   listSessions,
   rewindSession,
-  runSessionStep
+  runSessionStep,
+  runSessionStepAction
 } from "../sessionRuntime.js";
 
 function writeJson(stdout, payload) {
@@ -76,6 +78,12 @@ function writeSessionText(stdout, payload) {
   }
   if (payload.nextCommand) {
     stdout.write(`Next: ${payload.nextCommand}\n`);
+  }
+  if (payload.actionCommands?.length) {
+    stdout.write("Available commands:\n");
+    for (const command of payload.actionCommands) {
+      stdout.write(`- ${command.command}\n`);
+    }
   }
 }
 
@@ -161,66 +169,6 @@ async function resolveStepInputs({
     };
   }
 
-  const issueTitle = await resolveTextInput({
-    codePrefix: "issue_title",
-    fileOption: "issue-title-file",
-    inlineOptions,
-    io,
-    repairCommand: `jskit session ${sessionId} step --issue-title "<title>" --issue -`,
-    cwd,
-    sessionId,
-    stdinOption: "-",
-    textOption: "issue-title"
-  });
-  if (issueTitle.ok === false) {
-    return issueTitle;
-  }
-
-  const issue = await resolveTextInput({
-    codePrefix: "issue",
-    fileOption: "issue-file",
-    inlineOptions,
-    io,
-    repairCommand: `jskit session ${sessionId} step --issue -`,
-    cwd,
-    sessionId,
-    stdinOption: "-",
-    textOption: "issue"
-  });
-  if (issue.ok === false) {
-    return issue;
-  }
-
-  const plan = await resolveTextInput({
-    codePrefix: "plan",
-    fileOption: "plan-file",
-    inlineOptions,
-    io,
-    repairCommand: `jskit session ${sessionId} step --plan -`,
-    cwd,
-    sessionId,
-    stdinOption: "-",
-    textOption: "plan"
-  });
-  if (plan.ok === false) {
-    return plan;
-  }
-
-  const issueDetails = await resolveTextInput({
-    codePrefix: "issue_details",
-    fileOption: "issue-details-file",
-    inlineOptions,
-    io,
-    repairCommand: `jskit session ${sessionId} step --issue-details -`,
-    cwd,
-    sessionId,
-    stdinOption: "-",
-    textOption: "issue-details"
-  });
-  if (issueDetails.ok === false) {
-    return issueDetails;
-  }
-
   const reworkNotes = await resolveTextInput({
     codePrefix: "rework_notes",
     fileOption: "rework-notes-file",
@@ -241,7 +189,7 @@ async function resolveStepInputs({
     fileOption: "skip-reason-file",
     inlineOptions,
     io,
-    repairCommand: `jskit session ${sessionId} step --skip-ui-check --skip-reason "<reason>"`,
+    repairCommand: `jskit session ${sessionId} skip --skip-reason "<reason>"`,
     cwd,
     sessionId,
     stdinOption: "-",
@@ -251,60 +199,8 @@ async function resolveStepInputs({
     return skipReason;
   }
 
-  const agentDecisions = await resolveTextInput({
-    codePrefix: "agent_decisions",
-    fileOption: "agent-decisions-file",
-    inlineOptions,
-    io,
-    repairCommand: `jskit session ${sessionId} step --agent-decisions -`,
-    cwd,
-    sessionId,
-    stdinOption: "-",
-    textOption: "agent-decisions"
-  });
-  if (agentDecisions.ok === false) {
-    return agentDecisions;
-  }
-
-  const closeReason = await resolveTextInput({
-    codePrefix: "close_reason",
-    fileOption: "close-reason-file",
-    inlineOptions,
-    io,
-    repairCommand: `jskit session ${sessionId} step --skip-merge --close-reason "<reason>"`,
-    cwd,
-    sessionId,
-    stdinOption: "-",
-    textOption: "close-reason"
-  });
-  if (closeReason.ok === false) {
-    return closeReason;
-  }
-
-  const codexResult = await resolveTextInput({
-    codePrefix: "codex_result",
-    fileOption: "codex-result-file",
-    inlineOptions,
-    io,
-    repairCommand: `jskit session ${sessionId} step --codex-result -`,
-    cwd,
-    sessionId,
-    stdinOption: "-",
-    textOption: "codex-result"
-  });
-  if (codexResult.ok === false) {
-    return codexResult;
-  }
-
   return {
-    agentDecisions: agentDecisions.value,
-    closeReason: closeReason.value,
-    codexResult: codexResult.value,
-    issue: issue.value,
-    issueTitle: issueTitle.value,
     ok: true,
-    plan: plan.value,
-    issueDetails: issueDetails.value,
     reworkNotes: reworkNotes.value,
     skipReason: skipReason.value
   };
@@ -313,15 +209,14 @@ async function resolveStepInputs({
 function normalizeStepOptions(inlineOptions = {}) {
   const options = {
     ...inlineOptions,
-    closeWithoutMerge: inlineOptions["close-without-merge"] === "true" ||
-      inlineOptions.closeWithoutMerge === true ||
-      inlineOptions["skip-merge"] === "true" ||
-      inlineOptions.skipMerge === true,
     mergePr: inlineOptions["merge-pr"] === "true" || inlineOptions.mergePr === true,
     prompt: inlineOptions.prompt,
     reviewFindings: inlineOptions["review-findings"] || inlineOptions.reviewFindings,
-    skipMainSync: inlineOptions["skip-main-sync"] === "true" || inlineOptions.skipMainSync === true,
-    skipUiCheck: inlineOptions["skip-ui-check"] === "true" || inlineOptions.skipUiCheck === true,
+    resolveDeslop: inlineOptions["resolve-deslop"] === "true" || inlineOptions.resolveDeslop === true,
+    skipStep: inlineOptions["skip-step"] === "true" ||
+      inlineOptions.skipStep === true ||
+      inlineOptions.skip === true ||
+      inlineOptions.skip === "true",
     userCheck: inlineOptions["user-check"] || inlineOptions.userCheck
   };
   if (Object.hasOwn(inlineOptions, "review-findings-remaining") || Object.hasOwn(inlineOptions, "reviewFindingsRemaining")) {
@@ -345,6 +240,96 @@ function resolveListArchiveOption(options = {}) {
   return archives.length > 0 ? archives : "active";
 }
 
+async function runSessionStepCommand({
+  cwd,
+  inlineOptions = {},
+  io = {},
+  sessionId
+}) {
+  const stepInputs = await resolveStepInputs({
+    inlineOptions,
+    io,
+    cwd,
+    sessionId
+  });
+  return stepInputs.ok === false
+    ? stepInputs.payload
+    : runSessionStep({
+        targetRoot: cwd,
+        sessionId,
+        options: {
+          ...normalizeStepOptions(inlineOptions),
+          reworkNotes: stepInputs.reworkNotes,
+          skipReason: stepInputs.skipReason
+        }
+      });
+}
+
+async function runNextSessionStep({
+  cwd,
+  sessionId
+}) {
+  return advanceSessionStep({
+    targetRoot: cwd,
+    sessionId
+  });
+}
+
+async function runSkipSessionStep({
+  cwd,
+  inlineOptions = {},
+  io = {},
+  sessionId
+}) {
+  return runSessionStepCommand({
+    cwd,
+    inlineOptions: {
+      ...inlineOptions,
+      skipStep: true
+    },
+    io,
+    sessionId
+  });
+}
+
+async function runDeslopSessionStep({
+  cwd,
+  sessionId
+}) {
+  const details = await inspectSessionDetails({
+    targetRoot: cwd,
+    sessionId
+  });
+  if (details.ok === false) {
+    return details;
+  }
+  if (details.currentStep === "review_changes_accepted") {
+    const accepted = await runSessionStep({
+      targetRoot: cwd,
+      sessionId,
+      options: {
+        reviewFindingsRemaining: true
+      }
+    });
+    if (accepted.ok === false) {
+      return accepted;
+    }
+  } else if (details.currentStep !== "review_prompt_rendered") {
+    return buildSessionErrorResponse({
+      targetRoot: cwd,
+      sessionId,
+      code: "deslop_not_current_step",
+      message: `Cannot run deslop while current step is ${details.currentStep || "done"}.`,
+      repairCommand: `jskit session ${sessionId}`
+    });
+  }
+  return runSessionStep({
+    targetRoot: cwd,
+    sessionId,
+    options: {}
+  });
+}
+
 function createSessionCommands() {
   return {
     async commandSession({
@@ -354,7 +339,7 @@ function createSessionCommands() {
       stdout,
       io = {}
     } = {}) {
-      const [first, second] = positional;
+      const [first, second, third] = positional;
       const inlineOptions = options.inlineOptions || {};
       let payload;
 
@@ -363,33 +348,79 @@ function createSessionCommands() {
           targetRoot: cwd,
           archive: resolveListArchiveOption(options)
         });
-      } else if (first === "create") {
+      } else if (first === "create" || first === "new") {
         payload = await createSession({ targetRoot: cwd });
       } else if (second === "step") {
-        const stepInputs = await resolveStepInputs({
-          inlineOptions,
-          io,
+        payload = await inspectSessionDetails({
+          targetRoot: cwd,
+          sessionId: first
+        });
+      } else if (second === "run") {
+        const details = await inspectSessionDetails({
+          targetRoot: cwd,
+          sessionId: first
+        });
+        payload = {
+          ...details,
+          ok: false,
+          errors: [
+            {
+              code: "explicit_session_action_required",
+              message: "Generic run is not a session action. Use one of the available step commands, then run next."
+            }
+          ]
+        };
+      } else if ([
+        "create_worktree",
+        "run_npm_install",
+        "define_issue",
+        "create_issue_file",
+        "create_issue_on_gh",
+        "make_plan",
+        "execute_plan",
+        "run_deep_ui_check",
+        "run_automated_checks",
+        "update_blueprint",
+        "commit_changes",
+        "create_pull_request_file",
+        "create_pr_on_gh",
+        "prepare_for_merge",
+        "merge_pr",
+        "sync_main_checkout",
+        "finish_session"
+      ].includes(second)) {
+        payload = await runSessionStepAction({
+          action: second,
+          targetRoot: cwd,
+          sessionId: first,
+          options: normalizeStepOptions(inlineOptions)
+        });
+      } else if (second === "next") {
+        payload = await runNextSessionStep({
           cwd,
           sessionId: first
         });
-        payload = stepInputs.ok === false
-          ? stepInputs.payload
-          : await runSessionStep({
-              targetRoot: cwd,
-              sessionId: first,
-              options: {
-                ...normalizeStepOptions(inlineOptions),
-                issue: stepInputs.issue,
-                issueTitle: stepInputs.issueTitle,
-                plan: stepInputs.plan,
-                issueDetails: stepInputs.issueDetails,
-                reworkNotes: stepInputs.reworkNotes,
-                skipReason: stepInputs.skipReason,
-                agentDecisions: stepInputs.agentDecisions,
-                closeReason: stepInputs.closeReason,
-                codexResult: stepInputs.codexResult
-              }
-            });
+      } else if (second === "skip") {
+        payload = await runSkipSessionStep({
+          cwd,
+          inlineOptions,
+          io,
+          sessionId: first
+        });
+      } else if (second === "deslop") {
+        payload = await runDeslopSessionStep({
+          cwd,
+          sessionId: first
+        });
+      } else if (second === "resolve-deslop") {
+        payload = await runSessionStepAction({
+          action: "resolve_deslop",
+          targetRoot: cwd,
+          sessionId: first,
+          options: {
+            resolveDeslop: true
+          }
+        });
       } else if (second === "abandon") {
         payload = await abandonSession({
           targetRoot: cwd,
@@ -404,7 +435,7 @@ function createSessionCommands() {
         payload = await rewindSession({
           targetRoot: cwd,
           sessionId: first,
-          stepId: inlineOptions.step
+          stepId: inlineOptions.step || third
         });
       } else if (second === "adopt-codex-thread") {
         payload = await adoptCodexThreadId({
