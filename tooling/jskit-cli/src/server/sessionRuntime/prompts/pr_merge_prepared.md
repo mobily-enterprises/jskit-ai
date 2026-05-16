@@ -9,7 +9,7 @@ Pull request: {{pr_url}}
 Issue: {{issue_url}}
 Pull request file: {{pull_request_file}}
 
-Your job is to get the pull request into a state where the user can decide whether to press the JSKIT Merge PR button.
+Your job is to do whatever is needed, within the session scope, to get the pull request into a state where the user can press the JSKIT Merge button.
 
 Required boundaries:
 

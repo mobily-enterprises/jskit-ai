@@ -317,51 +317,25 @@ const STEP_DEFINITIONS = Object.freeze([
     preconditions: ["session_exists", "worktree_exists", "dependencies_installed", "ready_jskit_app", "automated_checks_passed", "deep_ui_check_satisfied", "user_check_passed", "accepted_changes_committed", "blueprint_update_satisfied", "pull_request_file_exists"]
   }),
   defineStep({
-    buttonLabel: "Open merge decision",
+    buttonLabel: "Merge",
     codex: PR_MERGE_PREP_CODEX_HANDOFF,
-    description: "User can ask Codex to prepare the pull request for merge, then explicitly continue to the merge decision.",
+    description: "Prepare the pull request for merge, merge it, or use Next to continue without merging.",
     id: "pr_merge_prepared",
-    label: "Prepare PR merge",
-    preconditions: ["session_exists", "pr_url_exists", "worktree_exists"],
-    requiresExplicitRun: true,
-    submitOptions: Object.freeze({
-      continueToMerge: true
-    }),
-    utilityActions: Object.freeze([
-      Object.freeze({
-        id: "prepare_pr_merge",
-        kind: "codex_prompt",
-        label: "Prepare PR merge",
-        submitOptions: Object.freeze({
-          prepareMerge: true
-        })
-      })
-    ])
-  }),
-  defineStep({
-    buttonLabel: "Merge PR",
-    description: "User chooses whether JSKIT merges the pull request or skips merge; JSKIT records the PR outcome.",
-    id: "pr_finalized",
-    label: "Finalize PR",
-    preconditions: ["session_exists", "pr_url_exists", "worktree_exists"],
-    requiresExplicitRun: true,
-    submitOptions: Object.freeze({
-      mergePr: true
-    })
+    label: "Merge PR",
+    preconditions: ["session_exists", "worktree_exists"]
   }),
   defineStep({
     buttonLabel: "Sync main checkout",
-    description: "JSKIT fast-forwards the main checkout after a merged PR, or records an explicit skip before cleanup.",
+    description: "JSKIT fast-forwards the main checkout after a merged PR. If the PR was not merged, use Next to record that no sync was needed.",
     id: "main_checkout_synced",
     label: "Sync main checkout",
-    preconditions: ["session_exists", "worktree_exists"],
-    requiresExplicitRun: true
+    preconditions: ["session_exists", "worktree_exists"]
   }),
   defineStep({
-    buttonLabel: "Finish session",
-    description: "JSKIT removes the session worktree and archives the completed session.",
+    buttonLabel: "Finish",
+    description: "Congratulations! Finish the session by removing the session worktree and archiving the completed session.",
     id: "session_finished",
-    label: "Finish session",
+    label: "Congratulations!",
     preconditions: ["session_exists", "main_checkout_sync_satisfied"]
   })
 ]);

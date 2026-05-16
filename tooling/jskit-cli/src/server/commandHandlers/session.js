@@ -199,23 +199,7 @@ async function resolveStepInputs({
     return skipReason;
   }
 
-  const closeReason = await resolveTextInput({
-    codePrefix: "close_reason",
-    fileOption: "close-reason-file",
-    inlineOptions,
-    io,
-    repairCommand: `jskit session ${sessionId} step --skip-merge --close-reason "<reason>"`,
-    cwd,
-    sessionId,
-    stdinOption: "-",
-    textOption: "close-reason"
-  });
-  if (closeReason.ok === false) {
-    return closeReason;
-  }
-
   return {
-    closeReason: closeReason.value,
     ok: true,
     reworkNotes: reworkNotes.value,
     skipReason: skipReason.value
@@ -225,10 +209,6 @@ async function resolveStepInputs({
 function normalizeStepOptions(inlineOptions = {}) {
   const options = {
     ...inlineOptions,
-    closeWithoutMerge: inlineOptions["close-without-merge"] === "true" ||
-      inlineOptions.closeWithoutMerge === true ||
-      inlineOptions["skip-merge"] === "true" ||
-      inlineOptions.skipMerge === true,
     mergePr: inlineOptions["merge-pr"] === "true" || inlineOptions.mergePr === true,
     prompt: inlineOptions.prompt,
     reviewFindings: inlineOptions["review-findings"] || inlineOptions.reviewFindings,
@@ -237,7 +217,6 @@ function normalizeStepOptions(inlineOptions = {}) {
       inlineOptions.skipStep === true ||
       inlineOptions.skip === true ||
       inlineOptions.skip === "true",
-    skipMainSync: inlineOptions["skip-main-sync"] === "true" || inlineOptions.skipMainSync === true,
     userCheck: inlineOptions["user-check"] || inlineOptions.userCheck
   };
   if (Object.hasOwn(inlineOptions, "review-findings-remaining") || Object.hasOwn(inlineOptions, "reviewFindingsRemaining")) {
@@ -281,8 +260,7 @@ async function runSessionStepCommand({
         options: {
           ...normalizeStepOptions(inlineOptions),
           reworkNotes: stepInputs.reworkNotes,
-          skipReason: stepInputs.skipReason,
-          closeReason: stepInputs.closeReason
+          skipReason: stepInputs.skipReason
         }
       });
 }
@@ -405,7 +383,11 @@ function createSessionCommands() {
         "update_blueprint",
         "commit_changes",
         "create_pull_request_file",
-        "create_pr_on_gh"
+        "create_pr_on_gh",
+        "prepare_for_merge",
+        "merge_pr",
+        "sync_main_checkout",
+        "finish_session"
       ].includes(second)) {
         payload = await runSessionStepAction({
           action: second,

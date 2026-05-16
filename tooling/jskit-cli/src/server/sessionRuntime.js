@@ -1377,10 +1377,8 @@ const STEP_CANCELERS = Object.freeze({
     ]);
   },
   pr_merge_prepared: async (paths) => {
-    await removePromptArtifact(paths, "pr_merge_prepared");
-  },
-  pr_finalized: async (paths) => {
     await Promise.all([
+      removePromptArtifact(paths, "pr_merge_prepared"),
       removePromptArtifact(paths, "pr_merge_failure"),
       removeSessionRootFile(paths, "pr_base_branch"),
       removeSessionRootFile(paths, "pr_merge_completed"),
@@ -2286,9 +2284,6 @@ async function writeSkippedStepArtifacts(paths, stepId, reason) {
     await writeTextIfMissing(path.join(paths.sessionRoot, "pr_url"), `skipped://${paths.sessionId}/pr\n`);
   }
   if (stepId === "pr_merge_prepared") {
-    await writeTextIfMissing(path.join(paths.sessionRoot, "pr_merge_prepared"), `${reason}\n`);
-  }
-  if (stepId === "pr_finalized") {
     const prUrl = await readTrimmedFile(path.join(paths.sessionRoot, "pr_url"));
     await writePrOutcome(paths, {
       outcome: "skipped",
@@ -2506,36 +2501,33 @@ async function updateLocalBaseBranch(paths, baseBranch = "") {
 }
 
 async function syncMainCheckout(paths, options = {}, context = {}) {
+  const prUrl = await readTrimmedFile(path.join(paths.sessionRoot, "pr_url"));
   const prOutcome = parseJsonObject(await readTextIfExists(path.join(paths.sessionRoot, "pr_outcome.json")));
   const preconditions = context.preconditions || [];
+  const completeStep = context.completeStep !== false;
+  if (!prUrl) {
+    return sessionStepError(paths, {
+      code: "pr_url_missing",
+      message: "Cannot sync the main checkout until the GitHub pull request exists.",
+      repairCommand: `jskit session ${paths.sessionId} create_pr_on_gh`
+    });
+  }
   if (!prOutcome?.outcome) {
-    return failSession(paths, {
+    return sessionStepError(paths, {
       code: "pr_outcome_missing",
-      message: "Cannot sync the main checkout before PR finalization records an outcome.",
-      preconditions,
-      repairCommand: `jskit session ${paths.sessionId} step`
+      message: "Cannot sync the main checkout before the PR merge step records an outcome.",
+      repairCommand: `jskit session ${paths.sessionId} next`
     });
   }
 
-  const skipRequested = options.skipMainSync === true ||
-    normalizeText(options["skip-main-sync"]).toLowerCase() === "true";
-  const skipReason = normalizeText(options.skipReason || options["skip-reason"]) ||
-    "User skipped main checkout sync.";
-  if (skipRequested || prOutcome.outcome !== "merged") {
-    const reason = prOutcome.outcome === "merged"
-      ? skipReason
-      : `PR outcome is ${prOutcome.outcome}; no main checkout sync is required.`;
-    await writeMainCheckoutSync(paths, {
-      branch: prOutcome.baseBranch || "",
-      outcome: prOutcome.outcome,
-      reason,
-      status: "skipped"
+  void options;
+  if (prOutcome.outcome !== "merged") {
+    return sessionStepError(paths, {
+      code: "main_checkout_sync_unavailable",
+      message: `Cannot sync the main checkout because the PR outcome is ${prOutcome.outcome}.`,
+      repairCommand: `jskit session ${paths.sessionId} next`
     });
-    await writeStepRecord(paths, "main_checkout_synced", `Main checkout sync skipped: ${reason}`);
-    await markStatus(paths, SESSION_STATUS.RUNNING);
-    return buildSessionResponse(paths);
   }
-
   const baseBranch = prOutcome.baseBranch || await readTrimmedFile(path.join(paths.sessionRoot, "pr_base_branch"));
   const syncFailure = await updateLocalBaseBranch(paths, baseBranch);
   if (syncFailure) {
@@ -2548,9 +2540,13 @@ async function syncMainCheckout(paths, options = {}, context = {}) {
     outcome: prOutcome.outcome,
     status: "synced"
   });
-  await writeStepRecord(paths, "main_checkout_synced", `Fast-forwarded target checkout branch ${branch}.`);
+  if (completeStep) {
+    await writeStepRecord(paths, "main_checkout_synced", `Fast-forwarded target checkout branch ${branch}.`);
+  }
   await markStatus(paths, SESSION_STATUS.RUNNING);
-  return buildSessionResponse(paths);
+  return buildSessionResponse(paths, {
+    preconditions
+  });
 }
 
 async function updateHelperMapBeforePr(paths) {
@@ -2737,122 +2733,56 @@ async function createPr(paths, _options = {}, context = {}) {
   });
 }
 
-async function closePrWithoutMerge(paths, prUrl, options = {}) {
-  const reason = normalizeText(options.closeReason || options["close-reason"]) || "User skipped merge in JSKIT Studio.";
-  const prState = await readPrState(paths, prUrl);
-  if (!prState.ok) {
-    return failSession(paths, {
-      code: "pr_state_failed",
-      message: prState.output || "Failed to inspect PR before closing without merge.",
-      repairCommand: `gh pr view ${prUrl} --json state,mergedAt,url,baseRefName`
-    });
-  }
-  if (prStateIsMerged(prState)) {
-    return failSession(paths, {
-      code: "pr_already_merged",
-      message: "Cannot finish without merging because the PR is already merged.",
-      repairCommand: `jskit session ${paths.sessionId} step`
-    });
-  }
-  if (!prStateIsClosed(prState)) {
-    const commentResult = await runLoggedCommand(paths, "github_pr_comment", "gh", ["pr", "comment", prUrl, "--body", `JSKIT session ${paths.sessionId} finished without merging. Reason: ${reason}`], {
-      cwd: paths.targetRoot,
-      timeout: 1000 * 60
-    });
-    if (!commentResult.ok) {
-      return failSession(paths, {
-        code: "pr_comment_failed",
-        message: commentResult.output || "Failed to comment on PR before finishing without merge.",
-        repairCommand: `gh pr comment ${prUrl} --body "<reason>"`
-      });
-    }
-  }
-  const issueUrl = await readTrimmedFile(path.join(paths.sessionRoot, "issue_url"));
-  if (issueUrl) {
-    await runLoggedCommand(paths, "github_issue_comment", "gh", ["issue", "comment", issueUrl, "--body", `JSKIT session ${paths.sessionId} finished without merging PR ${prUrl}. Reason: ${reason}`], {
-      cwd: paths.targetRoot,
-      timeout: 1000 * 60
-    });
-  }
-  await writePrOutcome(paths, {
-    issueUrl,
-    outcome: "closed_without_merge",
-    prUrl,
-    prState: prState.state,
-    reason
-  });
-  await writeStepRecord(paths, "pr_finalized", `Finished without merging PR ${prUrl}; PR left open. Reason: ${reason}`);
-  await markStatus(paths, SESSION_STATUS.RUNNING);
-  return buildSessionResponse(paths);
-}
-
 async function preparePrMerge(paths, options = {}, context = {}) {
   const preconditions = context.preconditions || [];
-  const prepareMerge = options.prepareMerge === true ||
-    normalizeText(options["prepare-merge"]).toLowerCase() === "true";
-  const continueToMerge = options.continueToMerge === true ||
-    normalizeText(options["continue-to-merge"]).toLowerCase() === "true";
-
-  if (prepareMerge) {
-    const prUrl = await readTrimmedFile(path.join(paths.sessionRoot, "pr_url"));
-    const baseBranch = await readTrimmedFile(path.join(paths.sessionRoot, "pr_base_branch")) ||
-      await readTrimmedFile(path.join(paths.sessionRoot, "base_branch")) ||
-      await currentTargetBranch(paths.targetRoot);
-    const prompt = await renderPrompt(paths, "pr_merge_prepared.md", {
-      base_branch: baseBranch,
-      issue_url: await readTrimmedFile(path.join(paths.sessionRoot, "issue_url")),
-      pull_request_file: path.join(paths.sessionRoot, "pull_request.md"),
-      pr_url: prUrl,
-      target_root: paths.targetRoot
-    });
-    await writePromptArtifact(paths, "pr_merge_prepared", prompt);
-    await markStatus(paths, SESSION_STATUS.WAITING_FOR_USER);
-    return buildSessionResponse(paths, {
-      codex: PR_MERGE_PREP_CODEX_HANDOFF,
-      ok: true,
-      preconditions,
-      prompt,
-      status: SESSION_STATUS.WAITING_FOR_USER
+  void options;
+  const prUrl = await readTrimmedFile(path.join(paths.sessionRoot, "pr_url"));
+  if (!prUrl) {
+    return sessionStepError(paths, {
+      code: "pr_url_missing",
+      message: "Cannot prepare the pull request for merge until the GitHub pull request exists.",
+      repairCommand: `jskit session ${paths.sessionId} create_pr_on_gh`
     });
   }
-
-  if (!continueToMerge) {
-    return failSession(paths, {
-      code: "pr_merge_prepare_decision_required",
-      message: "Choose whether to ask Codex to prepare the PR for merge or continue to the merge decision.",
-      repairCommand: `jskit session ${paths.sessionId} step --continue-to-merge true`,
-      preconditions
-    });
-  }
-
-  await writeStepRecord(paths, "pr_merge_prepared", "User continued from PR merge preparation to the merge decision.");
-  await markStatus(paths, SESSION_STATUS.RUNNING);
+  const baseBranch = await readTrimmedFile(path.join(paths.sessionRoot, "pr_base_branch")) ||
+    await readTrimmedFile(path.join(paths.sessionRoot, "base_branch")) ||
+    await currentTargetBranch(paths.targetRoot);
+  const prompt = await renderPrompt(paths, "pr_merge_prepared.md", {
+    base_branch: baseBranch,
+    issue_url: await readTrimmedFile(path.join(paths.sessionRoot, "issue_url")),
+    pull_request_file: path.join(paths.sessionRoot, "pull_request.md"),
+    pr_url: prUrl,
+    target_root: paths.targetRoot
+  });
+  await writePromptArtifact(paths, "pr_merge_prepared", prompt);
+  await markStatus(paths, SESSION_STATUS.WAITING_FOR_USER);
   return buildSessionResponse(paths, {
-    preconditions
+    codex: PR_MERGE_PREP_CODEX_HANDOFF,
+    ok: true,
+    preconditions,
+    prompt,
+    status: SESSION_STATUS.WAITING_FOR_USER
   });
 }
 
 async function finalizePr(paths, options = {}, context = {}) {
   const preconditions = context.preconditions || [];
+  const completeStep = context.completeStep !== false;
   const prUrl = await readTrimmedFile(path.join(paths.sessionRoot, "pr_url"));
-  const closeWithoutMerge = options.closeWithoutMerge === true ||
-    normalizeText(options["close-without-merge"]).toLowerCase() === "true" ||
-    options.skipMerge === true ||
-    normalizeText(options["skip-merge"]).toLowerCase() === "true";
-  if (closeWithoutMerge) {
-    const guardResult = await runSessionFinalizationGuard(paths, preconditions);
-    if (!guardResult.ok) {
-      return guardResult.response;
-    }
-    return closePrWithoutMerge(paths, prUrl, options);
-  }
   const mergePr = options.mergePr === true ||
     normalizeText(options["merge-pr"]).toLowerCase() === "true";
+  if (!prUrl) {
+    return sessionStepError(paths, {
+      code: "pr_url_missing",
+      message: "Cannot merge the pull request until the GitHub pull request exists.",
+      repairCommand: `jskit session ${paths.sessionId} create_pr_on_gh`
+    });
+  }
   if (!mergePr) {
     return failSession(paths, {
       code: "pr_finalize_decision_required",
       message: "Choose whether to merge the PR or skip merge.",
-      repairCommand: `jskit session ${paths.sessionId} step --merge-pr true`,
+      repairCommand: `jskit session ${paths.sessionId} merge_pr`,
       preconditions
     });
   }
@@ -2911,9 +2841,13 @@ async function finalizePr(paths, options = {}, context = {}) {
     });
     await writeTextFile(mergeMarkerPath, `${prUrl}\n`);
   }
-  await writeStepRecord(paths, "pr_finalized", `Merged PR ${prUrl}.`);
+  if (completeStep) {
+    await writeStepRecord(paths, "pr_merge_prepared", `Merged PR ${prUrl}.`);
+  }
   await markStatus(paths, SESSION_STATUS.RUNNING);
-  return buildSessionResponse(paths);
+  return buildSessionResponse(paths, {
+    preconditions
+  });
 }
 
 async function finishSession(paths) {
@@ -2974,7 +2908,6 @@ const STEP_RUNNERS = Object.freeze({
   final_report_created: createPullRequestFile,
   pr_created: createPr,
   pr_merge_prepared: preparePrMerge,
-  pr_finalized: finalizePr,
   main_checkout_synced: syncMainCheckout,
   session_finished: finishSession
 });
@@ -3108,6 +3041,19 @@ const STEP_ACTION_RUNNERS = Object.freeze({
   }),
   pr_created: Object.freeze({
     create_pr_on_gh: createPr
+  }),
+  pr_merge_prepared: Object.freeze({
+    merge_pr: (paths, options, context) => finalizePr(paths, {
+      ...options,
+      mergePr: true
+    }, context),
+    prepare_for_merge: preparePrMerge
+  }),
+  main_checkout_synced: Object.freeze({
+    sync_main_checkout: syncMainCheckout
+  }),
+  session_finished: Object.freeze({
+    finish_session: finishSession
   })
 });
 
@@ -3458,13 +3404,6 @@ async function advanceSessionStep({
       });
     }
     if (nextStep === "pr_created") {
-      if (!artifacts.prUrl) {
-        return sessionStepError(paths, {
-          code: "pr_url_missing",
-          message: "Cannot move to the next step until the GitHub pull request exists.",
-          repairCommand: `jskit session ${paths.sessionId} create_pr_on_gh`
-        });
-      }
       const stepPreconditions = await runNamedPreconditions(paths, STEP_PRECONDITION_NAMES[nextStep] || ["session_exists"]);
       if (!stepPreconditions.ok) {
         return sessionStepError(paths, {
@@ -3472,10 +3411,85 @@ async function advanceSessionStep({
           repairCommand: stepPreconditions.error?.repairCommand || `jskit session ${paths.sessionId}`
         });
       }
-      await writeStepRecord(paths, "pr_created", `Created GitHub pull request ${artifacts.prUrl}.`);
+      await writeStepRecord(
+        paths,
+        "pr_created",
+        artifacts.prUrl
+          ? `Created GitHub pull request ${artifacts.prUrl}.`
+          : "Continued without creating a GitHub pull request."
+      );
       await markStatus(paths, SESSION_STATUS.RUNNING);
       return buildSessionResponse(paths, {
         preconditions: stepPreconditions.preconditions
+      });
+    }
+    if (nextStep === "pr_merge_prepared") {
+      const stepPreconditions = await runNamedPreconditions(paths, STEP_PRECONDITION_NAMES[nextStep] || ["session_exists"]);
+      if (!stepPreconditions.ok) {
+        return sessionStepError(paths, {
+          ...stepPreconditions.error,
+          repairCommand: stepPreconditions.error?.repairCommand || `jskit session ${paths.sessionId}`
+        });
+      }
+      let prOutcome = artifacts.prOutcome || parseJsonObject(await readTextIfExists(path.join(paths.sessionRoot, "pr_outcome.json")));
+      if (!prOutcome?.outcome) {
+        prOutcome = {
+          outcome: "skipped",
+          prUrl: artifacts.prUrl || await readTrimmedFile(path.join(paths.sessionRoot, "pr_url")),
+          reason: "User continued without merging the pull request."
+        };
+        await writePrOutcome(paths, prOutcome);
+      }
+      await writeStepRecord(
+        paths,
+        "pr_merge_prepared",
+        prOutcome.outcome === "merged"
+          ? `Merged PR ${prOutcome.prUrl || artifacts.prUrl || "unknown"}.`
+          : `Merge PR skipped: ${prOutcome.reason || `PR outcome is ${prOutcome.outcome}.`}`
+      );
+      await markStatus(paths, SESSION_STATUS.RUNNING);
+      return buildSessionResponse(paths, {
+        preconditions: stepPreconditions.preconditions
+      });
+    }
+    if (nextStep === "main_checkout_synced") {
+      const stepPreconditions = await runNamedPreconditions(paths, STEP_PRECONDITION_NAMES[nextStep] || ["session_exists"]);
+      if (!stepPreconditions.ok) {
+        return sessionStepError(paths, {
+          ...stepPreconditions.error,
+          repairCommand: stepPreconditions.error?.repairCommand || `jskit session ${paths.sessionId}`
+        });
+      }
+      let mainCheckoutSync = artifacts.mainCheckoutSync || parseJsonObject(await readTextIfExists(path.join(paths.sessionRoot, "main_checkout_sync.json")));
+      if (!mainCheckoutSync?.status) {
+        const prOutcome = artifacts.prOutcome || parseJsonObject(await readTextIfExists(path.join(paths.sessionRoot, "pr_outcome.json"))) || {};
+        const reason = prOutcome.outcome === "merged"
+          ? "User skipped main checkout sync."
+          : prOutcome.outcome
+            ? `PR outcome is ${prOutcome.outcome}; no main checkout sync is required.`
+            : "The pull request was not merged; no main checkout sync is required.";
+        mainCheckoutSync = {
+          branch: prOutcome.baseBranch || "",
+          outcome: prOutcome.outcome || "skipped",
+          reason,
+          status: "skipped"
+        };
+        await writeMainCheckoutSync(paths, mainCheckoutSync);
+      }
+      const message = mainCheckoutSync.status === "synced"
+        ? `Fast-forwarded target checkout branch ${mainCheckoutSync.branch || "unknown"}.`
+        : `Main checkout sync skipped: ${mainCheckoutSync.reason || "No sync was required."}`;
+      await writeStepRecord(paths, "main_checkout_synced", message);
+      await markStatus(paths, SESSION_STATUS.RUNNING);
+      return buildSessionResponse(paths, {
+        preconditions: stepPreconditions.preconditions
+      });
+    }
+    if (nextStep === "session_finished") {
+      return sessionStepError(paths, {
+        code: "finish_session_required",
+        message: "Use the Finish action to complete and archive the session.",
+        repairCommand: `jskit session ${paths.sessionId} finish_session`
       });
     }
     return sessionStepError(paths, {

@@ -642,36 +642,6 @@ function buildCurrentStepAction(stepId, artifacts = {}) {
       targetStep: "review_prompt_rendered"
     });
   }
-  if (step.id === "pr_finalized") {
-    alternateActions.push({
-      id: "skip_merge",
-      helpText: "Leave the PR open and record the skipped-merge outcome; final cleanup removes the session worktree.",
-      input: {
-        type: "none"
-      },
-      label: "Skip merge",
-      presentation: "secondary",
-      submitOptions: {
-        closeWithoutMerge: true
-      },
-      targetStep: "pr_finalized"
-    });
-  }
-  if (step.id === "main_checkout_synced") {
-    alternateActions.push({
-      id: "skip_main_checkout_sync",
-      helpText: "Leave the main checkout untouched and continue with session cleanup.",
-      input: {
-        type: "none"
-      },
-      label: "Skip sync",
-      presentation: "secondary",
-      submitOptions: {
-        skipMainSync: true
-      },
-      targetStep: "main_checkout_synced"
-    });
-  }
   const dynamicButtonLabel = (() => {
     if (step.id === "issue_created" && !artifacts.issueText) {
       return "Create issue file";
@@ -682,8 +652,11 @@ function buildCurrentStepAction(stepId, artifacts = {}) {
     if (step.id === "pr_created") {
       return "Create PR on GH";
     }
+    if (step.id === "pr_merge_prepared") {
+      return "Merge";
+    }
     if (step.id === "main_checkout_synced" && artifacts.prOutcome?.outcome && artifacts.prOutcome.outcome !== "merged") {
-      return "Record no sync needed";
+      return "Sync main checkout";
     }
     return step.buttonLabel;
   })();
@@ -703,6 +676,9 @@ function buildCurrentStepAction(stepId, artifacts = {}) {
     if (prSubmissionAction && artifacts.prUrl) {
       return "The GitHub pull request has been created. Continue when ready.";
     }
+    if (step.id === "pr_merge_prepared" && artifacts.prOutcome?.outcome === "merged") {
+      return "The pull request was merged. Use Next when ready.";
+    }
     if (step.id === "plan_executed" && planExecutionPrompted && !planExecutionSubmitted) {
       return "Codex has the execution prompt. Review the result, then use Next when ready.";
     }
@@ -713,7 +689,10 @@ function buildCurrentStepAction(stepId, artifacts = {}) {
       return "Codex has the run automated checks prompt. Review the result, then use Next when ready.";
     }
     if (step.id === "main_checkout_synced" && artifacts.prOutcome?.outcome && artifacts.prOutcome.outcome !== "merged") {
-      return "The PR was not merged, so JSKIT will record main checkout sync as skipped before cleanup.";
+      return "Main checkout sync is only available after a successful merge. Use Next to continue.";
+    }
+    if (step.id === "main_checkout_synced" && artifacts.mainCheckoutSync?.status === "synced") {
+      return "The main checkout has been synced. Use Next when ready.";
     }
     return step.description;
   })();
@@ -990,8 +969,8 @@ function stepCanExposeNextCommand(stepId, artifacts = {}) {
   if (stepId === "final_report_created") {
     return Boolean(artifacts.pullRequestText);
   }
-  if (stepId === "pr_created") {
-    return Boolean(artifacts.prUrl);
+  if (stepId === "session_finished") {
+    return false;
   }
   if (stepId === "plan_made") {
     return artifacts.makePlanRequested === true;
@@ -1163,6 +1142,42 @@ function buildStepActionCommands(sessionId, stepId, artifacts = {}) {
             label: "Create PR on GH"
           }
         ];
+  }
+  if (stepId === "pr_merge_prepared") {
+    return artifacts.prOutcome?.outcome === "merged" || !artifacts.prUrl
+      ? []
+      : [
+          {
+            command: `${commandBase} prepare_for_merge`,
+            id: "prepare_for_merge",
+            label: "Prepare for merge"
+          },
+          {
+            command: `${commandBase} merge_pr`,
+            id: "merge_pr",
+            label: "Merge"
+          }
+        ];
+  }
+  if (stepId === "main_checkout_synced") {
+    return artifacts.prUrl && artifacts.prOutcome?.outcome === "merged" && !artifacts.mainCheckoutSync?.status
+      ? [
+          {
+            command: `${commandBase} sync_main_checkout`,
+            id: "sync_main_checkout",
+            label: "Sync main checkout"
+          }
+        ]
+      : [];
+  }
+  if (stepId === "session_finished") {
+    return [
+      {
+        command: `${commandBase} finish_session`,
+        id: "finish_session",
+        label: "Finish"
+      }
+    ];
   }
   return [];
 }
