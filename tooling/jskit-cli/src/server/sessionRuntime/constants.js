@@ -178,7 +178,7 @@ const STEP_DEFINITIONS = Object.freeze([
     buttonLabel: "Define issue",
     description: "User describes the requested change; Codex helps scope and define the issue in the terminal.",
     displayGroupId: "define_create_issue",
-    displayGroupLabel: "Define and create issue",
+    displayGroupLabel: "Define issue and create file",
     id: "issue_prompt_rendered",
     input: Object.freeze({
       label: "What should change?",
@@ -197,7 +197,7 @@ const STEP_DEFINITIONS = Object.freeze([
     buttonLabel: "Create issue file",
     description: "JSKIT renders the issue-file prompt; Codex writes issue.md and issue_title for review.",
     displayGroupId: "define_create_issue",
-    displayGroupLabel: "Define and create issue",
+    displayGroupLabel: "Define issue and create file",
     id: "issue_created",
     label: "Create issue file",
     preconditions: ["session_exists", "worktree_exists", "dependencies_installed", "ready_jskit_app"],
@@ -207,7 +207,7 @@ const STEP_DEFINITIONS = Object.freeze([
     buttonLabel: "Create issue on GH",
     description: "JSKIT creates the GitHub issue from the reviewed issue files and records the issue metadata.",
     id: "issue_submitted",
-    label: "Submit issue",
+    label: "Edit and submit issue",
     preconditions: ["session_exists", "worktree_exists", "dependencies_installed", "ready_jskit_app", "issue_text_exists"],
     requiresExplicitRun: false
   }),
