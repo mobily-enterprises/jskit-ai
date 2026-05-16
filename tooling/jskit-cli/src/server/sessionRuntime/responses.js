@@ -274,11 +274,7 @@ async function readCompletedSteps(paths) {
   } catch {
     // Legacy sessions may not have cycle record directories.
   }
-  const completed = new Set(await applyReviewPassCompletionOverlay(paths, normalizeKnownStepIds([...globalStepIds, ...cycleStepIds])));
-  if (completed.has("issue_created") && !completed.has("issue_submitted") && await readTrimmedFile(path.join(paths.sessionRoot, "issue_url"))) {
-    completed.add("issue_submitted");
-  }
-  return normalizeKnownStepIds([...completed]);
+  return applyReviewPassCompletionOverlay(paths, normalizeKnownStepIds([...globalStepIds, ...cycleStepIds]));
 }
 
 async function applyReviewPassCompletionOverlay(paths, completedSteps = []) {
