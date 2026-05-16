@@ -1003,7 +1003,7 @@ function stepCanExposeNextCommand(stepId, artifacts = {}) {
     return artifacts.dependencyInstall?.ready === true;
   }
   if (stepId === "issue_prompt_rendered") {
-    return Boolean(artifacts.prompt);
+    return Boolean(artifacts.issueText);
   }
   if (stepId === "issue_created") {
     return Boolean(artifacts.issueText);
@@ -1055,7 +1055,16 @@ function buildStepActionCommands(sessionId, stepId, artifacts = {}) {
         command: `${commandBase} define_issue --prompt "<what should change>"`,
         id: "define_issue",
         label: "Define issue"
-      }
+      },
+      ...(artifacts.prompt
+        ? [
+            {
+              command: `${commandBase} create_issue_file`,
+              id: "create_issue_file",
+              label: "Create issue file"
+            }
+          ]
+        : [])
     ];
   }
   if (stepId === "issue_created") {

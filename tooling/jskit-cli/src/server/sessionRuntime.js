@@ -3155,6 +3155,18 @@ function sessionStepError(paths, {
 
 async function createIssueFileAction(paths, options = {}, context = {}) {
   void options;
+  const artifacts = await readSessionArtifacts(paths);
+  if (artifacts.nextStep === "issue_prompt_rendered") {
+    if (!artifacts.prompt) {
+      return sessionStepError(paths, {
+        code: "issue_prompt_missing",
+        message: "Cannot create the issue-file prompt until the issue-definition prompt has been created.",
+        repairCommand: `jskit session ${paths.sessionId} define_issue --prompt "<what should change>"`
+      });
+    }
+    await writeStepRecord(paths, "issue_prompt_rendered", "Issue scoped in Codex terminal.");
+    await markStatus(paths, SESSION_STATUS.RUNNING);
+  }
   return renderIssueFilePrompt(paths, context);
 }
 
@@ -3178,6 +3190,7 @@ const STEP_ACTION_RUNNERS = Object.freeze({
     run_npm_install: installDependencies
   }),
   issue_prompt_rendered: Object.freeze({
+    create_issue_file: createIssueFileAction,
     define_issue: renderIssuePrompt
   }),
   issue_created: Object.freeze({
@@ -3321,6 +3334,9 @@ async function advanceSessionStep({
         });
       }
       await writeStepRecord(paths, "issue_prompt_rendered", "Issue scoped in Codex terminal.");
+      if (artifacts.issueText) {
+        await writeStepRecord(paths, "issue_created", "Issue files are ready for review and submission.");
+      }
       await markStatus(paths, SESSION_STATUS.RUNNING);
       return buildSessionResponse(paths);
     }
