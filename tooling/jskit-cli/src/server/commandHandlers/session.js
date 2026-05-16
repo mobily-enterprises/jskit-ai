@@ -402,7 +402,10 @@ function createSessionCommands() {
         "execute_plan",
         "run_deep_ui_check",
         "run_automated_checks",
-        "update_blueprint"
+        "update_blueprint",
+        "commit_changes",
+        "create_pull_request_file",
+        "create_pr_on_gh"
       ].includes(second)) {
         payload = await runSessionStepAction({
           action: second,
@@ -428,7 +431,8 @@ function createSessionCommands() {
           sessionId: first
         });
       } else if (second === "resolve-deslop") {
-        payload = await runSessionStep({
+        payload = await runSessionStepAction({
+          action: "resolve_deslop",
           targetRoot: cwd,
           sessionId: first,
           options: {

@@ -7,7 +7,7 @@ Branch: {{branch}}
 Base branch: {{base_branch}}
 Pull request: {{pr_url}}
 Issue: {{issue_url}}
-Final report: {{final_report_file}}
+Pull request file: {{pull_request_file}}
 
 Your job is to get the pull request into a state where the user can decide whether to press the JSKIT Merge PR button.
 

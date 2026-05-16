@@ -529,28 +529,28 @@ async function assertBlueprintUpdateSatisfied(paths) {
   };
 }
 
-async function assertFinalReportExists(paths) {
-  if (await pathExists(path.join(paths.sessionRoot, "final_report.md"))) {
+async function assertPullRequestFileExists(paths) {
+  if (await pathExists(path.join(paths.sessionRoot, "pull_request.md"))) {
     return {
       ok: true,
       precondition: createPrecondition({
-        id: "final_report_exists",
+        id: "pull_request_file_exists",
         ok: true,
-        message: "Final report exists."
+        message: "Pull request draft exists."
       })
     };
   }
   return {
     ok: false,
     error: createError({
-      code: "final_report_missing",
-      message: "Cannot publish the PR before final_report.md exists.",
-      repairCommand: jskitCommand(`session ${paths.sessionId} step`)
+      code: "pull_request_file_missing",
+      message: "Cannot publish the PR before pull_request.md exists.",
+      repairCommand: jskitCommand(`session ${paths.sessionId} create_pull_request_file`)
     }),
     precondition: createPrecondition({
-      id: "final_report_exists",
+      id: "pull_request_file_exists",
       ok: false,
-      message: "Final report exists."
+      message: "Pull request draft exists."
     })
   };
 }
@@ -644,7 +644,7 @@ export {
   assertBlueprintUpdateSatisfied,
   assertDeepUiCheckSatisfied,
   assertDependenciesInstalled,
-  assertFinalReportExists,
+  assertPullRequestFileExists,
   assertGhAuth,
   assertGitCurrentBranch,
   assertGitRepository,

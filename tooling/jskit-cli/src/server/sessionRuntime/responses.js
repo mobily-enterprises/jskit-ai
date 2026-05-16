@@ -289,18 +289,12 @@ async function applyReviewPassCompletionOverlay(paths, completedSteps = []) {
   const reviewPasses = await readReviewPasses(paths);
   const latestPass = reviewPasses.at(-1);
   if (!latestPass) {
-    REVIEW_STEP_IDS.forEach((stepId) => completed.delete(stepId));
     return normalizeKnownStepIds([...completed]);
   }
   const latestPassAccepted = latestPass.status === "accepted" || latestPass.status === "no_changes";
   const anotherPassRequired = latestPassAccepted && latestPass.findingsRemaining === true;
   if (anotherPassRequired) {
     REVIEW_STEP_IDS.forEach((stepId) => completed.delete(stepId));
-    return normalizeKnownStepIds([...completed]);
-  }
-  if (latestPass.status === "prompted") {
-    completed.add("review_prompt_rendered");
-    completed.delete("review_changes_accepted");
     return normalizeKnownStepIds([...completed]);
   }
   if (latestPass.status === "accepted" || latestPass.status === "no_changes") {
@@ -601,12 +595,6 @@ function stepIsRetryableWhenBlocked(stepId) {
   ].includes(normalizeStepId(stepId));
 }
 
-function stepIsConditional(stepId) {
-  return [
-    "deep_ui_check_run"
-  ].includes(normalizeStepId(stepId));
-}
-
 function uiCheckPromptedForStep(artifacts = {}, stepId = "") {
   const normalizedStepId = normalizeStepId(stepId);
   return (artifacts.uiChecks || []).some((entry) => {
@@ -631,16 +619,22 @@ function buildCurrentStepAction(stepId, artifacts = {}) {
   const issueDefinitionPrompted = step.id === "issue_prompt_rendered" && artifacts.issueDefinitionRequested === true;
   const issueFilePromptAction = step.id === "issue_created";
   const issueSubmissionAction = step.id === "issue_submitted";
-  const deepUiCheckPrompted = step.id === "deep_ui_check_run" && artifacts.deepUiCheckRequested === true;
+  const pullRequestFileAction = step.id === "final_report_created";
+  const prSubmissionAction = step.id === "pr_created";
+  const deepUiCheckPrompted = step.id === "deep_ui_check_run" && uiCheckPromptedForStep(artifacts, "deep_ui_check_run");
+  const automatedChecksPrompted = step.id === "automated_checks_run" && (artifacts.checks || []).some((entry) => {
+    return normalizeStepId(entry?.stepId || "") === "automated_checks_run" &&
+      normalizeText(entry?.status || "") === "prompted";
+  });
   const alternateActions = [];
   if (step.id === "review_changes_accepted") {
     alternateActions.push({
       id: "request_another_review_pass",
-      helpText: "Run another explicit review/deslop prompt before continuing.",
+      helpText: "Run another explicit deslop prompt before continuing.",
       input: {
         type: "none"
       },
-      label: "Run review/deslop",
+      label: "Run deslop",
       presentation: "secondary",
       submitOptions: {
         reviewFindingsRemaining: true
@@ -685,6 +679,9 @@ function buildCurrentStepAction(stepId, artifacts = {}) {
     if (step.id === "issue_submitted") {
       return "Create issue on GH";
     }
+    if (step.id === "pr_created") {
+      return "Create PR on GH";
+    }
     if (step.id === "main_checkout_synced" && artifacts.prOutcome?.outcome && artifacts.prOutcome.outcome !== "merged") {
       return "Record no sync needed";
     }
@@ -700,13 +697,19 @@ function buildCurrentStepAction(stepId, artifacts = {}) {
     if (issueSubmissionAction && artifacts.issueUrl) {
       return "The GitHub issue has been created. Continue when ready.";
     }
+    if (pullRequestFileAction && artifacts.pullRequestFileRequested) {
+      return "Codex has the PR-file prompt. Review pull_request.md, then continue when ready.";
+    }
+    if (prSubmissionAction && artifacts.prUrl) {
+      return "The GitHub pull request has been created. Continue when ready.";
+    }
     if (step.id === "plan_executed" && planExecutionPrompted && !planExecutionSubmitted) {
       return "Codex has the execution prompt. Review the result, then use Next when ready.";
     }
     if (step.id === "deep_ui_check_run" && deepUiCheckPrompted) {
       return "Codex has the run deep UI check prompt. Review the result, then use Next when ready.";
     }
-    if (step.id === "automated_checks_run" && artifacts.automatedChecksRequested) {
+    if (step.id === "automated_checks_run" && automatedChecksPrompted) {
       return "Codex has the run automated checks prompt. Review the result, then use Next when ready.";
     }
     if (step.id === "main_checkout_synced" && artifacts.prOutcome?.outcome && artifacts.prOutcome.outcome !== "merged") {
@@ -715,15 +718,15 @@ function buildCurrentStepAction(stepId, artifacts = {}) {
     return step.description;
   })();
   const dynamicUtilityActions = (() => {
-    if (step.id === "review_changes_accepted") {
+    if (step.id === "review_prompt_rendered" || step.id === "review_changes_accepted") {
       return [
         {
           id: "resolve_deslop",
-          helpText: "Send Codex the explicit resolve review/deslop prompt. Nothing advances automatically after it finishes.",
+          helpText: "Send Codex the explicit resolve deslop prompt. Nothing advances automatically after it finishes.",
           kind: "codex_prompt",
-          label: "Resolve review/deslop",
+          label: "Resolve deslop",
           submitOptions: {
-            resolveDeslop: true
+            actionCommand: "resolve_deslop"
           }
         },
         ...(step.utilityActions || [])
@@ -738,14 +741,13 @@ function buildCurrentStepAction(stepId, artifacts = {}) {
     displayGroupId: step.displayGroupId,
     displayGroupLabel: step.displayGroupLabel,
     index: STEP_IDS.indexOf(step.id),
-    input: cloneContractValue(issueDefinitionPrompted || issueFilePromptAction ? { type: "none" } : step.input),
-    kind: issueDefinitionPrompted || issueFilePromptAction ? "codex_prompt" : step.kind,
+    input: cloneContractValue(issueDefinitionPrompted || issueFilePromptAction || pullRequestFileAction ? { type: "none" } : step.input),
+    kind: issueDefinitionPrompted || issueFilePromptAction || pullRequestFileAction ? "codex_prompt" : step.kind,
     label: dynamicButtonLabel,
-    automation: cloneContractValue(issueDefinitionPrompted || issueFilePromptAction ? { mode: "codex_prompt" } : step.automation || { mode: "manual" }),
+    automation: cloneContractValue(issueDefinitionPrompted || issueFilePromptAction || pullRequestFileAction ? { mode: "codex_prompt" } : step.automation || { mode: "manual" }),
     ...stepRepeatabilityContract(step.id),
-    requiredInput: cloneContractValue(issueDefinitionPrompted || issueFilePromptAction ? { type: "none" } : step.input),
+    requiredInput: cloneContractValue(issueDefinitionPrompted || issueFilePromptAction || pullRequestFileAction ? { type: "none" } : step.input),
     requiresExplicitRun: step.requiresExplicitRun === true,
-    conditional: stepIsConditional(step.id),
     retryable: artifacts.status === SESSION_STATUS.BLOCKED && stepIsRetryableWhenBlocked(step.id),
     skipReason: skipReasonForStep(step.id, artifacts),
     stepId: step.id,
@@ -785,6 +787,7 @@ async function readSessionArtifacts(paths) {
     issueText,
     issueTitle,
     finalReportText,
+    pullRequestText,
     githubCommentsText,
     codexThreadId,
     workflowVersion,
@@ -793,9 +796,8 @@ async function readSessionArtifacts(paths) {
     planExecutionRecord,
     issueDefinitionRequested,
     issueFileRequested,
+    pullRequestFileRequested,
     makePlanRequested,
-    deepUiCheckRequested,
-    automatedChecksRequested,
     blueprintUpdateRequested,
     executePlanRequested,
     prOutcomeText,
@@ -810,6 +812,7 @@ async function readSessionArtifacts(paths) {
     readTextIfExists(path.join(paths.sessionRoot, "issue.md")),
     readTrimmedFile(path.join(paths.sessionRoot, "issue_title")),
     readTextIfExists(path.join(paths.sessionRoot, "final_report")),
+    readTextIfExists(path.join(paths.sessionRoot, "pull_request.md")),
     readTextIfExists(path.join(paths.sessionRoot, "github_comments.json")),
     readTrimmedFile(path.join(paths.sessionRoot, "codex_thread_id")),
     readWorkflowVersion(paths),
@@ -818,9 +821,8 @@ async function readSessionArtifacts(paths) {
     readTextIfExists(globalPlanExecutionRecordPath).then(async (text) => text || await readTextIfExists(legacyPlanExecutionRecordPath)),
     readTrimmedFile(path.join(paths.sessionRoot, "metadata", "issue_prompt_rendered_requested")),
     readTrimmedFile(path.join(paths.sessionRoot, "metadata", "issue_created_requested")),
+    readTrimmedFile(path.join(paths.sessionRoot, "metadata", "pull_request_file_requested")),
     readTrimmedFile(path.join(paths.sessionRoot, "metadata", "make_plan_requested")),
-    readTrimmedFile(path.join(paths.sessionRoot, "metadata", "deep_ui_check_run_requested")),
-    readTrimmedFile(path.join(paths.sessionRoot, "metadata", "automated_checks_run_requested")),
     readTrimmedFile(path.join(paths.sessionRoot, "metadata", "blueprint_updated_requested")),
     readTrimmedFile(path.join(paths.sessionRoot, "metadata", "execute_plan_requested")),
     readTextIfExists(path.join(paths.sessionRoot, "pr_outcome.json")),
@@ -935,14 +937,16 @@ async function readSessionArtifacts(paths) {
     issueText: issueText.trim(),
     issueUrl,
     nextStep,
+    pullRequestPath: path.join(paths.sessionRoot, "pull_request.md"),
+    pullRequestText: pullRequestText.trim(),
     prUrl,
     prOutcome,
     mainCheckoutSync,
+    acceptedChangesCommit,
     issueDefinitionRequested: Boolean(issueDefinitionRequested.trim()),
     issueFileRequested: Boolean(issueFileRequested.trim()),
+    pullRequestFileRequested: Boolean(pullRequestFileRequested.trim()),
     makePlanRequested: Boolean(makePlanRequested.trim()),
-    deepUiCheckRequested: Boolean(deepUiCheckRequested.trim()),
-    automatedChecksRequested: Boolean(automatedChecksRequested.trim()),
     blueprintUpdateRequested: Boolean(blueprintUpdateRequested.trim()),
     executePlanRequested: Boolean(executePlanRequested.trim()),
     planExecution: {
@@ -980,20 +984,20 @@ function stepCanExposeNextCommand(stepId, artifacts = {}) {
   if (stepId === "issue_submitted") {
     return Boolean(artifacts.issueUrl);
   }
+  if (stepId === "changes_committed") {
+    return Boolean(artifacts.acceptedChangesCommit?.commit);
+  }
+  if (stepId === "final_report_created") {
+    return Boolean(artifacts.pullRequestText);
+  }
+  if (stepId === "pr_created") {
+    return Boolean(artifacts.prUrl);
+  }
   if (stepId === "plan_made") {
     return artifacts.makePlanRequested === true;
   }
   if (stepId === "plan_executed") {
     return artifacts.executePlanRequested === true;
-  }
-  if (stepId === "deep_ui_check_run") {
-    return artifacts.deepUiCheckRequested === true;
-  }
-  if (stepId === "automated_checks_run") {
-    return artifacts.automatedChecksRequested === true;
-  }
-  if (stepId === "blueprint_updated") {
-    return artifacts.blueprintUpdateRequested === true;
   }
   return true;
 }
@@ -1104,6 +1108,20 @@ function buildStepActionCommands(sessionId, stepId, artifacts = {}) {
       }
     ];
   }
+  if (stepId === "review_prompt_rendered") {
+    return [
+      {
+        command: `${commandBase} deslop`,
+        id: "deslop",
+        label: "Run deslop"
+      },
+      {
+        command: `${commandBase} resolve-deslop`,
+        id: "resolve_deslop",
+        label: "Resolve deslop"
+      }
+    ];
+  }
   if (stepId === "blueprint_updated") {
     return [
       {
@@ -1112,6 +1130,39 @@ function buildStepActionCommands(sessionId, stepId, artifacts = {}) {
         label: "Update blueprint"
       }
     ];
+  }
+  if (stepId === "changes_committed") {
+    return artifacts.acceptedChangesCommit?.commit
+      ? []
+      : [
+          {
+            command: `${commandBase} commit_changes`,
+            id: "commit_changes",
+            label: "Commit changes"
+          }
+        ];
+  }
+  if (stepId === "final_report_created") {
+    return artifacts.pullRequestText
+      ? []
+      : [
+          {
+            command: `${commandBase} create_pull_request_file`,
+            id: "create_pull_request_file",
+            label: "Create PR file"
+          }
+        ];
+  }
+  if (stepId === "pr_created") {
+    return artifacts.prUrl
+      ? []
+      : [
+          {
+            command: `${commandBase} create_pr_on_gh`,
+            id: "create_pr_on_gh",
+            label: "Create PR on GH"
+          }
+        ];
   }
   return [];
 }
@@ -1161,10 +1212,11 @@ async function buildSessionResponse(paths, {
       issueUrl: artifacts.issueUrl || "",
       issueTitle: artifacts.issueTitle || "",
       issueText: artifacts.issueText || "",
+      pullRequestFileRequested: artifacts.pullRequestFileRequested === true,
+      pullRequestPath: artifacts.pullRequestPath || "",
+      pullRequestText: artifacts.pullRequestText || "",
       githubComments: cloneContractValue(artifacts.githubComments || {}),
       makePlanRequested: artifacts.makePlanRequested === true,
-      deepUiCheckRequested: artifacts.deepUiCheckRequested === true,
-      automatedChecksRequested: artifacts.automatedChecksRequested === true,
       blueprintUpdateRequested: artifacts.blueprintUpdateRequested === true,
       executePlanRequested: artifacts.executePlanRequested === true,
       planExecution: cloneContractValue(artifacts.planExecution || null),
@@ -1175,6 +1227,7 @@ async function buildSessionResponse(paths, {
       prUrl: artifacts.prUrl || "",
       prOutcome: cloneContractValue(artifacts.prOutcome || null),
       mainCheckoutSync: cloneContractValue(artifacts.mainCheckoutSync || null),
+      acceptedChangesCommit: cloneContractValue(artifacts.acceptedChangesCommit || null),
       preconditions,
       errors: [
         createError({
@@ -1231,10 +1284,11 @@ async function buildSessionResponse(paths, {
     issueUrl: artifacts.issueUrl || "",
     issueTitle: artifacts.issueTitle || "",
     issueText: artifacts.issueText || "",
+    pullRequestFileRequested: artifacts.pullRequestFileRequested === true,
+    pullRequestPath: artifacts.pullRequestPath || "",
+    pullRequestText: artifacts.pullRequestText || "",
     githubComments: cloneContractValue(artifacts.githubComments || {}),
     makePlanRequested: artifacts.makePlanRequested === true,
-    deepUiCheckRequested: artifacts.deepUiCheckRequested === true,
-    automatedChecksRequested: artifacts.automatedChecksRequested === true,
     blueprintUpdateRequested: artifacts.blueprintUpdateRequested === true,
     executePlanRequested: artifacts.executePlanRequested === true,
     planExecution: cloneContractValue(artifacts.planExecution || null),
@@ -1245,6 +1299,7 @@ async function buildSessionResponse(paths, {
     prUrl: artifacts.prUrl || "",
     prOutcome: cloneContractValue(artifacts.prOutcome || null),
     mainCheckoutSync: cloneContractValue(artifacts.mainCheckoutSync || null),
+    acceptedChangesCommit: cloneContractValue(artifacts.acceptedChangesCommit || null),
     preconditions,
     errors,
     warnings: responseWarnings,
@@ -1307,6 +1362,9 @@ function buildSessionErrorResponse({
     nextCommand: "",
     issueTitle: "",
     issueText: "",
+    pullRequestFileRequested: false,
+    pullRequestPath: "",
+    pullRequestText: "",
     githubComments: {},
     planExecution: null,
     finalReportPath: "",

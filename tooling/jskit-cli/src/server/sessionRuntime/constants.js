@@ -86,11 +86,11 @@ const PLAN_EXECUTION_CODEX_HANDOFF = codexHandoff({
   sendPrompt: true
 });
 const REVIEW_EXECUTION_CODEX_HANDOFF = codexHandoff({
-  promptActionLabel: "Run review/deslop",
+  promptActionLabel: "Run deslop",
   sendPrompt: true
 });
 const RESOLVE_DESLOP_CODEX_HANDOFF = codexHandoff({
-  promptActionLabel: "Resolve review/deslop",
+  promptActionLabel: "Resolve deslop",
   sendPrompt: true
 });
 const DEEP_UI_CHECK_CODEX_HANDOFF = codexHandoff({
@@ -103,6 +103,10 @@ const AUTOMATED_CHECK_REPAIR_CODEX_HANDOFF = codexHandoff({
 });
 const BLUEPRINT_CODEX_HANDOFF = codexHandoff({
   promptActionLabel: "Update blueprint",
+  sendPrompt: true
+});
+const PR_FILE_CODEX_HANDOFF = codexHandoff({
+  promptActionLabel: "Create PR file",
   sendPrompt: true
 });
 const PR_MERGE_PREP_CODEX_HANDOFF = codexHandoff({
@@ -227,19 +231,19 @@ const STEP_DEFINITIONS = Object.freeze([
   defineStep({
     buttonLabel: "Run deep UI check",
     codex: DEEP_UI_CHECK_CODEX_HANDOFF,
-    description: "JSKIT asks Codex for a focused UI quality pass when the issue affects UI, or records an explicit skip when it does not.",
+    description: "JSKIT can ask Codex for a focused UI quality pass; use Next to continue without one.",
     id: "deep_ui_check_run",
     kind: "codex_prompt",
     label: "Run deep UI check",
     preconditions: ["session_exists", "worktree_exists", "dependencies_installed", "ready_jskit_app"]
   }),
   defineStep({
-    buttonLabel: "Run review/deslop",
+    buttonLabel: "Run deslop",
     codex: REVIEW_EXECUTION_CODEX_HANDOFF,
     description: "JSKIT sends the current implementation to Codex for a review/deslop pass; the user decides whether to resolve findings, run deslop again, or continue.",
     id: "review_prompt_rendered",
     kind: "codex_prompt",
-    label: "Run review/deslop",
+    label: "Run deslop",
     preconditions: ["session_exists", "worktree_exists", "dependencies_installed", "ready_jskit_app", "deep_ui_check_satisfied"]
   }),
   defineStep({
@@ -257,7 +261,7 @@ const STEP_DEFINITIONS = Object.freeze([
   defineStep({
     buttonLabel: "Run automated checks",
     codex: AUTOMATED_CHECK_REPAIR_CODEX_HANDOFF,
-    description: "JSKIT asks Codex to run the official verification command in the worktree, fix failures, and report the final passing result.",
+    description: "JSKIT can ask Codex to run the official verification command in the worktree; use Next to continue without one.",
     id: "automated_checks_run",
     kind: "codex_prompt",
     label: "Run automated checks",
@@ -297,18 +301,20 @@ const STEP_DEFINITIONS = Object.freeze([
     preconditions: ["session_exists", "worktree_exists", "dependencies_installed", "ready_jskit_app", "issue_url_exists", "github_auth", "automated_checks_passed", "deep_ui_check_satisfied", "user_check_passed", "blueprint_update_satisfied"]
   }),
   defineStep({
-    buttonLabel: "Create final report",
-    description: "JSKIT creates the deterministic final session report and comments it on the GitHub issue.",
+    buttonLabel: "Create PR file",
+    codex: PR_FILE_CODEX_HANDOFF,
+    description: "JSKIT renders the PR-file prompt; Codex writes pull_request.md for review.",
     id: "final_report_created",
-    label: "Create final report",
+    kind: "codex_prompt",
+    label: "Create PR file",
     preconditions: ["session_exists", "worktree_exists", "dependencies_installed", "ready_jskit_app", "automated_checks_passed", "deep_ui_check_satisfied", "user_check_passed", "blueprint_update_satisfied", "accepted_changes_committed"]
   }),
   defineStep({
-    buttonLabel: "Create PR",
-    description: "JSKIT pushes the session branch to origin, creates or reuses the GitHub pull request, and records the PR URL.",
+    buttonLabel: "Create PR on GH",
+    description: "JSKIT creates the GitHub pull request from the reviewed pull_request.md and records the PR URL.",
     id: "pr_created",
-    label: "Create PR",
-    preconditions: ["session_exists", "worktree_exists", "dependencies_installed", "ready_jskit_app", "automated_checks_passed", "deep_ui_check_satisfied", "user_check_passed", "accepted_changes_committed", "blueprint_update_satisfied", "final_report_exists"]
+    label: "Edit and create PR",
+    preconditions: ["session_exists", "worktree_exists", "dependencies_installed", "ready_jskit_app", "automated_checks_passed", "deep_ui_check_satisfied", "user_check_passed", "accepted_changes_committed", "blueprint_update_satisfied", "pull_request_file_exists"]
   }),
   defineStep({
     buttonLabel: "Open merge decision",
@@ -390,6 +396,7 @@ export {
   DEEP_UI_CHECK_CODEX_HANDOFF,
   AUTOMATED_CHECK_REPAIR_CODEX_HANDOFF,
   BLUEPRINT_CODEX_HANDOFF,
+  PR_FILE_CODEX_HANDOFF,
   PR_MERGE_PREP_CODEX_HANDOFF,
   JSKIT_CLI_SHELL_COMMAND,
   SESSION_STATE_RELATIVE_PATH
