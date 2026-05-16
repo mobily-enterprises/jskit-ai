@@ -155,12 +155,6 @@ function defineStep({
 
 const STEP_DEFINITIONS = Object.freeze([
   defineStep({
-    buttonLabel: "Create session",
-    description: "JSKIT creates the filesystem-backed session record.",
-    id: "session_created",
-    label: "Create session"
-  }),
-  defineStep({
     buttonLabel: "Create worktree",
     description: "JSKIT creates the isolated Git branch and session worktree where Codex will work.",
     id: "worktree_created",
@@ -371,9 +365,7 @@ const STEP_LABEL_BY_ID = Object.freeze(Object.fromEntries(STEP_DEFINITIONS.map((
 const STEP_DEFINITION_BY_ID = Object.freeze(Object.fromEntries(STEP_DEFINITIONS.map((step) => [step.id, step])));
 const CYCLE_STEP_IDS = Object.freeze([]);
 const STEP_PRECONDITION_NAMES = Object.freeze(Object.fromEntries(
-  STEP_DEFINITIONS
-    .filter((step) => step.id !== "session_created")
-    .map((step) => [step.id, step.preconditions])
+  STEP_DEFINITIONS.map((step) => [step.id, step.preconditions])
 ));
 
 export {

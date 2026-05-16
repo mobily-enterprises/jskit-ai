@@ -64,7 +64,6 @@ import {
   readReviewPasses,
   readSessionArtifacts,
   reviewPassRoot,
-  writeActiveCycle,
   writeStepRecord
 } from "./sessionRuntime/responses.js";
 import {
@@ -186,22 +185,6 @@ function extractIssueText(value = "") {
 
 async function writePromptArtifact(paths, fileName, prompt) {
   await writeTextFile(path.join(paths.sessionRoot, "prompts", fileName), prompt);
-}
-
-async function promptActionResponse(paths, {
-  codex,
-  preconditions = [],
-  promptPath
-} = {}) {
-  const prompt = await readTextIfExists(promptPath);
-  await markStatus(paths, SESSION_STATUS.WAITING_FOR_USER);
-  return buildSessionResponse(paths, {
-    codex,
-    ok: true,
-    preconditions,
-    prompt,
-    status: SESSION_STATUS.WAITING_FOR_USER
-  });
 }
 
 function commandText(command, args = []) {
@@ -469,7 +452,6 @@ async function writeIssueMetadataFiles(paths, {
   issueTitle = "",
   issueUrl = ""
 } = {}) {
-  const issueDetailsPath = path.join(paths.sessionRoot, "issue_details.md");
   const issueMetadata = issueMetadataFromUrl(issueUrl);
   const metadataValues = {
     issue_body_path: path.join(paths.sessionRoot, "issue.md"),
@@ -479,9 +461,6 @@ async function writeIssueMetadataFiles(paths, {
     issue_title: normalizeText(issueTitle),
     issue_url: issueMetadata.issueUrl
   };
-  if (await fileExists(issueDetailsPath)) {
-    metadataValues.issue_details_path = issueDetailsPath;
-  }
   await Promise.all(
     Object.entries(metadataValues)
       .filter(([, value]) => normalizeText(value))
@@ -525,9 +504,8 @@ async function createSession({
   await mkdir(initialPaths.sessionRoot, { recursive: true });
   await writeTextFile(path.join(initialPaths.sessionRoot, "transcript.log"), "");
   await writeTextFile(path.join(initialPaths.sessionRoot, "workflow_version"), `${SESSION_WORKFLOW_VERSION}\n`);
-  await writeActiveCycle(initialPaths, "001");
   await markStatus(initialPaths, SESSION_STATUS.PENDING);
-  await writeStepRecord(initialPaths, "session_created", `Created JSKIT Studio issue session ${initialPaths.sessionId}.`);
+  await markCurrentStep(initialPaths, "worktree_created");
 
   return buildSessionResponse(initialPaths, {
     ok: true,
@@ -902,16 +880,8 @@ function issueDefinitionPrompt(userInput, context) {
 
 async function renderIssuePrompt(paths, options = {}, context = {}) {
   const userInput = normalizeText(options.prompt);
-  const promptPath = path.join(paths.sessionRoot, "prompts", "issue_prompt_rendered.md");
-  const existingPrompt = await readTextIfExists(promptPath);
-  if (existingPrompt && !userInput) {
-    if (context.completeStep === false) {
-      return promptActionResponse(paths, {
-        codex: ISSUE_DEFINITION_CODEX_HANDOFF,
-        preconditions: context.preconditions || [],
-        promptPath
-      });
-    }
+  const issueDefinitionSentinelPath = path.join(paths.sessionRoot, "metadata", "issue_prompt_rendered_requested");
+  if (!userInput && context.completeStep !== false && await fileExists(issueDefinitionSentinelPath)) {
     await writeStepRecord(paths, "issue_prompt_rendered", "Issue scoped in Codex terminal.");
     await markStatus(paths, SESSION_STATUS.RUNNING);
     return buildSessionResponse(paths);
@@ -925,7 +895,7 @@ async function renderIssuePrompt(paths, options = {}, context = {}) {
   }
   const promptContext = await renderPrompt(paths, "issue_prompt_rendered.md");
   const prompt = issueDefinitionPrompt(userInput, promptContext);
-  await writePromptArtifact(paths, "issue_prompt_rendered.md", prompt);
+  await writeTextFile(issueDefinitionSentinelPath, "true\n");
   await markStatus(paths, SESSION_STATUS.WAITING_FOR_USER);
   return buildSessionResponse(paths, {
     codex: ISSUE_DEFINITION_CODEX_HANDOFF,
@@ -1031,11 +1001,12 @@ async function submitIssue(paths, _options = {}, context = {}) {
 
 async function renderIssueFilePrompt(paths, context = {}) {
   const preconditions = context.preconditions || [];
+  const issueFileSentinelPath = path.join(paths.sessionRoot, "metadata", "issue_created_requested");
   const prompt = await renderPrompt(paths, "issue_created.md", {
     issue_file: path.join(paths.sessionRoot, "issue.md"),
     issue_title_file: path.join(paths.sessionRoot, "issue_title")
   });
-  await writePromptArtifact(paths, "issue_created.md", prompt);
+  await writeTextFile(issueFileSentinelPath, "true\n");
   await markStatus(paths, SESSION_STATUS.WAITING_FOR_USER);
   return buildSessionResponse(paths, {
     codex: ISSUE_FILE_CODEX_HANDOFF,
@@ -1048,19 +1019,12 @@ async function renderIssueFilePrompt(paths, context = {}) {
 
 async function makePlan(paths, _options = {}, context = {}) {
   const preconditions = context.preconditions || [];
+  const makePlanSentinelPath = path.join(paths.sessionRoot, "metadata", "make_plan_requested");
   const issueText = await readTrimmedFile(path.join(paths.sessionRoot, "issue.md"));
   const issueTitle = await readTrimmedFile(path.join(paths.sessionRoot, "issue_title")) || titleFromIssue(issueText);
   const issueUrl = await readTrimmedFile(path.join(paths.sessionRoot, "issue_url"));
   const issueNumber = issueNumberFromUrl(issueUrl);
-  const promptPath = path.join(paths.sessionRoot, "prompts", "plan_made.md");
-  if (await fileExists(promptPath)) {
-    if (context.completeStep === false) {
-      return promptActionResponse(paths, {
-        codex: PLAN_CODEX_HANDOFF,
-        preconditions,
-        promptPath
-      });
-    }
+  if (context.completeStep !== false && await fileExists(makePlanSentinelPath)) {
     await writeStepRecord(paths, "plan_made", "Plan reviewed in Codex terminal.");
     await markStatus(paths, SESSION_STATUS.RUNNING);
     return buildSessionResponse(paths, {
@@ -1068,7 +1032,7 @@ async function makePlan(paths, _options = {}, context = {}) {
     });
   }
 
-  const prompt = await renderPrompt(paths, "plan_made.md", {
+  const prompt = await renderPrompt(paths, "make_plan.md", {
     app_blueprint_file: path.join(paths.worktree, ".jskit", "APP_BLUEPRINT.md"),
     issue_file: path.join(paths.sessionRoot, "issue.md"),
     issue_number: issueNumber,
@@ -1078,7 +1042,7 @@ async function makePlan(paths, _options = {}, context = {}) {
     issue_url: issueUrl,
     worktree: paths.worktree
   });
-  await writePromptArtifact(paths, "plan_made.md", prompt);
+  await writeTextFile(makePlanSentinelPath, "true\n");
   await markStatus(paths, SESSION_STATUS.WAITING_FOR_USER);
   return buildSessionResponse(paths, {
     codex: PLAN_CODEX_HANDOFF,
@@ -1091,15 +1055,8 @@ async function makePlan(paths, _options = {}, context = {}) {
 
 async function renderPlanExecutionPrompt(paths, _options = {}, context = {}) {
   const preconditions = context.preconditions || [];
-  const executionPromptPath = path.join(paths.sessionRoot, "prompts", "plan_executed.md");
-  if (await fileExists(executionPromptPath)) {
-    if (context.completeStep === false) {
-      return promptActionResponse(paths, {
-        codex: PLAN_EXECUTION_CODEX_HANDOFF,
-        preconditions,
-        promptPath: executionPromptPath
-      });
-    }
+  const executePlanSentinelPath = path.join(paths.sessionRoot, "metadata", "execute_plan_requested");
+  if (context.completeStep !== false && await fileExists(executePlanSentinelPath)) {
     await writeStepRecord(paths, "plan_executed", "Plan execution completed by Codex.");
     await markStatus(paths, SESSION_STATUS.RUNNING);
     return buildSessionResponse(paths, {
@@ -1118,7 +1075,7 @@ async function renderPlanExecutionPrompt(paths, _options = {}, context = {}) {
     issue_url: issueUrl,
     worktree: paths.worktree
   });
-  await writePromptArtifact(paths, "plan_executed.md", executionPrompt);
+  await writeTextFile(executePlanSentinelPath, "true\n");
   await markStatus(paths, SESSION_STATUS.WAITING_FOR_USER);
   return buildSessionResponse(paths, {
     codex: PLAN_EXECUTION_CODEX_HANDOFF,
@@ -1270,7 +1227,7 @@ async function removePromptArtifact(paths, fileName) {
 }
 
 async function removeGlobalCodexResult(paths, stepId) {
-  await removeSessionPath(paths, "codex_results", `${stepId}.md`);
+  await removeSessionPath(paths, "codex_results", stepId);
 }
 
 async function removeCycleCodexResults(paths, stepId) {
@@ -1284,7 +1241,7 @@ async function removeCycleCodexResults(paths, stepId) {
     cycleDirectories = [];
   }
   await Promise.all(cycleDirectories.map((cycleDirectory) => {
-    return removeSessionPath(paths, "cycles", cycleDirectory, "codex_results", `${stepId}.md`);
+    return removeSessionPath(paths, "cycles", cycleDirectory, "codex_results", stepId);
   }));
 }
 
@@ -1326,39 +1283,13 @@ async function removeCycleDirectories(paths) {
   }
 }
 
-async function removeCyclePromptArtifacts(paths) {
-  const promptsRoot = path.join(paths.sessionRoot, "prompts");
-  let entries = [];
-  try {
-    entries = await readdir(promptsRoot, { withFileTypes: true });
-  } catch {
-    entries = [];
-  }
-  const cyclePromptPattern = /^cycle_\d+_(?:plan_made|plan_executed)\.md$/u;
-  const cyclePromptFiles = entries
-    .filter((entry) => entry.isFile() && cyclePromptPattern.test(entry.name))
-    .map((entry) => entry.name);
-  await Promise.all([
-    ...cyclePromptFiles.map((fileName) => removePromptArtifact(paths, fileName)),
-    removePromptArtifact(paths, "automated_checks_run.md"),
-    removePromptArtifact(paths, "deep_ui_check_run.md"),
-    removePromptArtifact(paths, "review_prompt_rendered.md"),
-    removePromptArtifact(paths, "user_check_completed.md")
-  ]);
-}
-
 async function removePlanArtifacts(paths) {
-  await Promise.all([
-    removePromptArtifact(paths, "plan_made.md"),
-    removeCycleDirectories(paths),
-    removeCyclePromptArtifacts(paths)
-  ]);
-  await writeActiveCycle(paths, "001");
+  await removeSessionPath(paths, "metadata", "make_plan_requested");
 }
 
 async function removePlanExecutionArtifacts(paths) {
   await Promise.all([
-    removePromptArtifact(paths, "plan_executed.md"),
+    removeSessionPath(paths, "metadata", "execute_plan_requested"),
     removeCodexResult(paths, "plan_executed")
   ]);
 }
@@ -1366,11 +1297,11 @@ async function removePlanExecutionArtifacts(paths) {
 const STEP_CANCELERS = Object.freeze({
   dependencies_installed: async () => {},
   issue_prompt_rendered: async (paths) => {
-    await removePromptArtifact(paths, "issue_prompt_rendered.md");
+    await removeSessionPath(paths, "metadata", "issue_prompt_rendered_requested");
   },
   issue_created: async (paths) => {
     await Promise.all([
-      removePromptArtifact(paths, "issue_created.md"),
+      removeSessionPath(paths, "metadata", "issue_created_requested"),
       removeSessionRootFile(paths, "issue.md"),
       removeSessionRootFile(paths, "issue_title")
     ]);
@@ -1391,14 +1322,14 @@ const STEP_CANCELERS = Object.freeze({
   plan_executed: removePlanExecutionArtifacts,
   deep_ui_check_run: async (paths) => {
     await Promise.all([
-      removePromptArtifact(paths, "deep_ui_check_run.md"),
+      removeSessionPath(paths, "metadata", "deep_ui_check_run_requested"),
       removeSessionPath(paths, "ui_checks"),
       removeCodexResult(paths, "deep_ui_check_run")
     ]);
   },
   review_prompt_rendered: async (paths) => {
     await Promise.all([
-      removePromptArtifact(paths, "review_prompt_rendered.md"),
+      removePromptArtifact(paths, "review_prompt_rendered"),
       removeSessionPath(paths, "review_passes"),
       removeCodexResult(paths, "review_prompt_rendered")
     ]);
@@ -1408,14 +1339,14 @@ const STEP_CANCELERS = Object.freeze({
   },
   automated_checks_run: async (paths) => {
     await Promise.all([
-      removePromptArtifact(paths, "automated_checks_run.md"),
+      removeSessionPath(paths, "metadata", "automated_checks_run_requested"),
       removeSessionPath(paths, "checks"),
       removeCodexResult(paths, "automated_checks_run")
     ]);
   },
   user_check_completed: async (paths) => {
     await Promise.all([
-      removePromptArtifact(paths, "user_check_completed.md"),
+      removePromptArtifact(paths, "user_check_completed"),
       removeSessionPath(paths, "steps", "user_check_failed")
     ]);
   },
@@ -1424,30 +1355,30 @@ const STEP_CANCELERS = Object.freeze({
   },
   blueprint_updated: async (paths) => {
     await Promise.all([
-      removePromptArtifact(paths, "blueprint_updated.md"),
+      removeSessionPath(paths, "metadata", "blueprint_updated_requested"),
       removeSessionRootFile(paths, BLUEPRINT_BASELINE_FILE),
       removeCodexResult(paths, "blueprint_updated")
     ]);
   },
   final_report_created: async (paths) => {
     await Promise.all([
-      removeSessionRootFile(paths, "final_report.md"),
+      removeSessionRootFile(paths, "final_report"),
       removeGithubCommentPurpose(paths, "final_report")
     ]);
   },
   pr_created: async (paths) => {
     await Promise.all([
-      removePromptArtifact(paths, "pr_create_failure.md"),
+      removePromptArtifact(paths, "pr_create_failure"),
       removeSessionRootFile(paths, "pr_body.md"),
       removeSessionRootFile(paths, "pr_url")
     ]);
   },
   pr_merge_prepared: async (paths) => {
-    await removePromptArtifact(paths, "pr_merge_prepared.md");
+    await removePromptArtifact(paths, "pr_merge_prepared");
   },
   pr_finalized: async (paths) => {
     await Promise.all([
-      removePromptArtifact(paths, "pr_merge_failure.md"),
+      removePromptArtifact(paths, "pr_merge_failure"),
       removeSessionRootFile(paths, "pr_base_branch"),
       removeSessionRootFile(paths, "pr_merge_completed"),
       removeSessionRootFile(paths, "pr_outcome.json")
@@ -1461,7 +1392,7 @@ const STEP_CANCELERS = Object.freeze({
   },
   session_finished: async (paths) => {
     await Promise.all([
-      removeSessionRootFile(paths, "final_comment.md")
+      removeSessionRootFile(paths, "final_comment")
     ]);
   }
 });
@@ -1470,7 +1401,7 @@ function targetIsAllowedRewindStep(stepId) {
   if (!STEP_IDS.includes(stepId)) {
     return false;
   }
-  if (stepId === "session_created" || stepId === "worktree_created") {
+  if (stepId === "worktree_created") {
     return false;
   }
   return STEP_IDS.indexOf(stepId) >= STEP_IDS.indexOf(FIRST_REWINDABLE_STEP_ID);
@@ -1795,14 +1726,14 @@ async function renderReviewPrompt(paths) {
     review_pass_number: reviewPass
   });
   const passRoot = reviewPassRoot(paths, reviewPass);
-  await writePromptArtifact(paths, "review_prompt_rendered.md", prompt);
+  await writePromptArtifact(paths, "review_prompt_rendered", prompt);
   await mkdir(passRoot, { recursive: true });
-  await writeTextFile(path.join(passRoot, "review_prompt_rendered.md"), prompt);
+  await writeTextFile(path.join(passRoot, "review_prompt_rendered"), prompt);
   await writeReviewPassJson(paths, reviewPass, "prompt.json", {
     changedFiles: changedFiles.split(/\r?\n/u).filter(Boolean),
     maxPasses: REVIEW_PASS_LIMIT,
     pass: reviewPass,
-    promptPath: path.join(passRoot, "review_prompt_rendered.md"),
+    promptPath: path.join(passRoot, "review_prompt_rendered"),
     status: "prompted",
     startedAt: timestampForStepRecord()
   });
@@ -1819,11 +1750,11 @@ async function renderResolveDeslopPrompt(paths, context = {}) {
   const preconditions = context.preconditions || [];
   const reviewPass = await readCurrentReviewPass(paths);
   const prompt = await renderPrompt(paths, "review_changes_accepted_resolve.md", {});
-  await writePromptArtifact(paths, "review_changes_accepted_resolve.md", prompt);
+  await writePromptArtifact(paths, "review_changes_accepted_resolve", prompt);
   if (reviewPass) {
     await writeReviewPassJson(paths, reviewPass, "resolve_prompt.json", {
       pass: reviewPass,
-      promptPath: path.join(paths.sessionRoot, "prompts", "review_changes_accepted_resolve.md"),
+      promptPath: path.join(paths.sessionRoot, "prompts", "review_changes_accepted_resolve"),
       status: "resolve_prompted",
       startedAt: timestampForStepRecord()
     });
@@ -1888,26 +1819,17 @@ async function runAutomatedChecks(paths, {
 }, _options = {}, context = {}) {
   const preconditions = context.preconditions || [];
   const [command, args] = await doctorCommandForWorktree(paths.worktree);
-  const promptFileName = `${stepId}.md`;
-  const promptPath = path.join(paths.sessionRoot, "prompts", promptFileName);
   const checksRoot = path.join(paths.sessionRoot, "checks");
   await mkdir(checksRoot, { recursive: true });
   const checkCommand = [command, ...args].join(" ");
+  const automatedChecksSentinelPath = path.join(paths.sessionRoot, "metadata", "automated_checks_run_requested");
 
-  if (await fileExists(promptPath)) {
-    if (context.completeStep === false) {
-      return promptActionResponse(paths, {
-        codex: AUTOMATED_CHECK_REPAIR_CODEX_HANDOFF,
-        preconditions,
-        promptPath
-      });
-    }
+  if (context.completeStep !== false && await fileExists(automatedChecksSentinelPath)) {
     await writeTextFile(
       path.join(checksRoot, `${stepId}.json`),
       `${JSON.stringify({
         command: checkCommand,
         ok: true,
-        promptPath,
         status: "completed_by_codex",
         stepId
       }, null, 2)}\n`
@@ -1922,13 +1844,12 @@ async function runAutomatedChecks(paths, {
   const prompt = await renderPrompt(paths, "automated_checks_run.md", {
     check_command: checkCommand
   });
-  await writePromptArtifact(paths, promptFileName, prompt);
+  await writeTextFile(automatedChecksSentinelPath, "true\n");
   await writeTextFile(
     path.join(checksRoot, `${stepId}.json`),
     `${JSON.stringify({
       command: checkCommand,
       ok: false,
-      promptPath,
       status: "prompted",
       stepId
     }, null, 2)}\n`
@@ -1954,16 +1875,8 @@ async function runDeepUiCheck(paths, {
   phase
 }, _options = {}, context = {}) {
   const preconditions = context.preconditions || [];
-  const promptFileName = `${stepId}.md`;
-  const promptPath = path.join(paths.sessionRoot, "prompts", promptFileName);
-  if (await fileExists(promptPath)) {
-    if (context.completeStep === false) {
-      return promptActionResponse(paths, {
-        codex: DEEP_UI_CHECK_CODEX_HANDOFF,
-        preconditions,
-        promptPath
-      });
-    }
+  const deepUiCheckSentinelPath = path.join(paths.sessionRoot, "metadata", "deep_ui_check_run_requested");
+  if (context.completeStep !== false && await fileExists(deepUiCheckSentinelPath)) {
     await writeStepRecord(paths, stepId, `${label} completed by Codex.`);
     await markStatus(paths, SESSION_STATUS.RUNNING);
     return buildSessionResponse(paths, {
@@ -1983,11 +1896,10 @@ async function runDeepUiCheck(paths, {
     phase,
     worktree: paths.worktree
   });
-  await writePromptArtifact(paths, promptFileName, prompt);
+  await writeTextFile(deepUiCheckSentinelPath, "true\n");
   await writeUiCheckJson(paths, stepId, {
     ok: true,
     phase,
-    promptPath,
     status: "prompted",
     stepId
   });
@@ -2026,7 +1938,7 @@ async function userCheck(paths, options = {}) {
     issue_title: issueTitle,
     issue_url: issueUrl
   });
-  await writePromptArtifact(paths, "user_check_completed.md", prompt);
+  await writePromptArtifact(paths, "user_check_completed", prompt);
   await markStatus(paths, SESSION_STATUS.WAITING_FOR_USER);
   return buildSessionResponse(paths, {
     prompt,
@@ -2093,16 +2005,9 @@ async function updateBlueprint(paths, _options = {}, context = {}) {
   const issueUrl = await readTrimmedFile(path.join(paths.sessionRoot, "issue_url"));
   const issueNumber = issueNumberFromUrl(issueUrl);
   const blueprintPath = path.join(paths.worktree, BLUEPRINT_RELATIVE_PATH);
-  const blueprintPromptPath = path.join(paths.sessionRoot, "prompts", "blueprint_updated.md");
+  const blueprintSentinelPath = path.join(paths.sessionRoot, "metadata", "blueprint_updated_requested");
 
-  if (await fileExists(blueprintPromptPath)) {
-    if (context.completeStep === false) {
-      return promptActionResponse(paths, {
-        codex: BLUEPRINT_CODEX_HANDOFF,
-        preconditions,
-        promptPath: blueprintPromptPath
-      });
-    }
+  if (context.completeStep !== false && await fileExists(blueprintSentinelPath)) {
     const changedFiles = await changedFilesInWorktree(paths);
     const unexpectedChanges = await unexpectedBlueprintStepChanges(paths, changedFiles);
     if (unexpectedChanges.length > 0) {
@@ -2146,7 +2051,7 @@ async function updateBlueprint(paths, _options = {}, context = {}) {
     issue_url: issueUrl,
     worktree: paths.worktree
   });
-  await writePromptArtifact(paths, "blueprint_updated.md", prompt);
+  await writeTextFile(blueprintSentinelPath, "true\n");
   await markStatus(paths, SESSION_STATUS.WAITING_FOR_USER);
   return buildSessionResponse(paths, {
     codex: BLUEPRINT_CODEX_HANDOFF,
@@ -2294,7 +2199,7 @@ async function createFinalReport(paths, _options = {}, context = {}) {
     "",
     ""
   ].join("\n");
-  const reportPath = path.join(paths.sessionRoot, "final_report.md");
+  const reportPath = path.join(paths.sessionRoot, "final_report");
   await writeTextFile(reportPath, report);
   if (issueUrl) {
     const commentResult = await commentOnIssueOnce(paths, {
@@ -2421,7 +2326,7 @@ async function writeSkippedStepArtifacts(paths, stepId, reason) {
   }
   if (stepId === "final_report_created") {
     await writeTextIfMissing(
-      path.join(paths.sessionRoot, "final_report.md"),
+      path.join(paths.sessionRoot, "final_report"),
       `# Final Report: ${paths.sessionId}\n\nFinal report step skipped.\n\n${reason}\n`
     );
   }
@@ -2448,7 +2353,7 @@ async function writeSkippedStepArtifacts(paths, stepId, reason) {
 }
 
 async function skipCurrentStep(paths, stepId, options = {}) {
-  if (["session_created", "worktree_created", "dependencies_installed", "issue_prompt_rendered", "session_finished"].includes(stepId)) {
+  if (["worktree_created", "dependencies_installed", "issue_prompt_rendered", "session_finished"].includes(stepId)) {
     return failSession(paths, {
       code: "session_step_skip_not_allowed",
       message: `Step ${stepId} cannot be skipped.`,
@@ -2838,7 +2743,7 @@ async function createPr(paths) {
     const prompt = await renderPrompt(paths, "pr_failure.md", {
       doctor_output: result.output
     });
-    await writePromptArtifact(paths, "pr_create_failure.md", prompt);
+    await writePromptArtifact(paths, "pr_create_failure", prompt);
     return failSession(paths, {
       code: "pr_create_failed",
       message: result.output || "Failed to create PR.",
@@ -2916,12 +2821,12 @@ async function preparePrMerge(paths, options = {}, context = {}) {
       await currentTargetBranch(paths.targetRoot);
     const prompt = await renderPrompt(paths, "pr_merge_prepared.md", {
       base_branch: baseBranch,
-      final_report_file: path.join(paths.sessionRoot, "final_report.md"),
+      final_report_file: path.join(paths.sessionRoot, "final_report"),
       issue_url: await readTrimmedFile(path.join(paths.sessionRoot, "issue_url")),
       pr_url: prUrl,
       target_root: paths.targetRoot
     });
-    await writePromptArtifact(paths, "pr_merge_prepared.md", prompt);
+    await writePromptArtifact(paths, "pr_merge_prepared", prompt);
     await markStatus(paths, SESSION_STATUS.WAITING_FOR_USER);
     return buildSessionResponse(paths, {
       codex: PR_MERGE_PREP_CODEX_HANDOFF,
@@ -3003,7 +2908,7 @@ async function finalizePr(paths, options = {}, context = {}) {
       const prompt = await renderPrompt(paths, "pr_failure.md", {
         doctor_output: mergeResult?.output || existingPrState.output
       });
-      await writePromptArtifact(paths, "pr_merge_failure.md", prompt);
+      await writePromptArtifact(paths, "pr_merge_failure", prompt);
       return failSession(paths, {
         code: "pr_merge_failed",
         message: mergeResult?.output || existingPrState.output || "Failed to merge PR.",
@@ -3050,9 +2955,10 @@ async function finishSession(paths) {
     session_id: paths.sessionId,
     transcript_log: path.join(paths.completedSessionRoot, "transcript.log")
   });
-  await writeTextFile(path.join(paths.sessionRoot, "final_comment.md"), prompt);
+  const finalCommentPath = path.join(paths.sessionRoot, "final_comment");
+  await writeTextFile(finalCommentPath, prompt);
   if (issueUrl) {
-    await runLoggedCommand(paths, "github_issue_comment", "gh", ["issue", "comment", issueUrl, "--body-file", path.join(paths.sessionRoot, "final_comment.md")], {
+    await runLoggedCommand(paths, "github_issue_comment", "gh", ["issue", "comment", issueUrl, "--body-file", finalCommentPath], {
       cwd: paths.targetRoot,
       timeout: 1000 * 60
     });
@@ -3094,14 +3000,6 @@ const STEP_RUNNERS = Object.freeze({
   pr_finalized: finalizePr,
   main_checkout_synced: syncMainCheckout,
   session_finished: finishSession
-});
-
-const PROMPT_REVIEW_STEP_ARTIFACTS = Object.freeze({
-  automated_checks_run: "automated_checks_run.md",
-  blueprint_updated: "blueprint_updated.md",
-  deep_ui_check_run: "deep_ui_check_run.md",
-  plan_executed: "plan_executed.md",
-  plan_made: "plan_made.md"
 });
 
 const PRECONDITION_RUNNERS = Object.freeze({
@@ -3157,7 +3055,7 @@ async function createIssueFileAction(paths, options = {}, context = {}) {
   void options;
   const artifacts = await readSessionArtifacts(paths);
   if (artifacts.nextStep === "issue_prompt_rendered") {
-    if (!artifacts.prompt) {
+    if (!artifacts.issueDefinitionRequested) {
       return sessionStepError(paths, {
         code: "issue_prompt_missing",
         message: "Cannot create the issue-file prompt until the issue-definition prompt has been created.",
@@ -3326,17 +3224,22 @@ async function advanceSessionStep({
       });
     }
     if (nextStep === "issue_prompt_rendered") {
-      if (!artifacts.prompt) {
+      if (!artifacts.issueDefinitionRequested) {
         return sessionStepError(paths, {
           code: "issue_prompt_missing",
           message: "Cannot move to the next step until the issue-definition prompt has been created.",
           repairCommand: `jskit session ${paths.sessionId} define_issue --prompt "<what should change>"`
         });
       }
-      await writeStepRecord(paths, "issue_prompt_rendered", "Issue scoped in Codex terminal.");
-      if (artifacts.issueText) {
-        await writeStepRecord(paths, "issue_created", "Issue files are ready for review and submission.");
+      if (!artifacts.issueText) {
+        return sessionStepError(paths, {
+          code: "issue_file_missing",
+          message: "Cannot move to the next step until issue.md exists.",
+          repairCommand: `jskit session ${paths.sessionId} create_issue_file`
+        });
       }
+      await writeStepRecord(paths, "issue_prompt_rendered", "Issue scoped in Codex terminal.");
+      await writeStepRecord(paths, "issue_created", "Issue files are ready for review and submission.");
       await markStatus(paths, SESSION_STATUS.RUNNING);
       return buildSessionResponse(paths);
     }
@@ -3368,17 +3271,14 @@ async function advanceSessionStep({
       await markStatus(paths, SESSION_STATUS.RUNNING);
       return buildSessionResponse(paths);
     }
-    const promptArtifact = PROMPT_REVIEW_STEP_ARTIFACTS[nextStep];
-    if (promptArtifact) {
-      const promptPath = path.join(paths.sessionRoot, "prompts", promptArtifact);
-      if (!await fileExists(promptPath)) {
+    if (nextStep === "plan_made") {
+      if (!artifacts.makePlanRequested) {
         return sessionStepError(paths, {
           code: "session_step_not_ready",
-          message: `Current step ${nextStep} is not ready to advance.`,
-          repairCommand: `jskit session ${paths.sessionId} step`
+          message: "Current step plan_made is not ready to advance.",
+          repairCommand: `jskit session ${paths.sessionId} make_plan`
         });
       }
-      const runner = STEP_RUNNERS[nextStep];
       const stepPreconditions = await runNamedPreconditions(paths, STEP_PRECONDITION_NAMES[nextStep] || ["session_exists"]);
       if (!stepPreconditions.ok) {
         return sessionStepError(paths, {
@@ -3386,7 +3286,90 @@ async function advanceSessionStep({
           repairCommand: stepPreconditions.error?.repairCommand || `jskit session ${paths.sessionId}`
         });
       }
-      return runner(paths, {}, {
+      return makePlan(paths, {}, {
+        preconditions: stepPreconditions.preconditions
+      });
+    }
+    if (nextStep === "plan_executed") {
+      if (!artifacts.executePlanRequested) {
+        return sessionStepError(paths, {
+          code: "session_step_not_ready",
+          message: "Current step plan_executed is not ready to advance.",
+          repairCommand: `jskit session ${paths.sessionId} execute_plan`
+        });
+      }
+      const stepPreconditions = await runNamedPreconditions(paths, STEP_PRECONDITION_NAMES[nextStep] || ["session_exists"]);
+      if (!stepPreconditions.ok) {
+        return sessionStepError(paths, {
+          ...stepPreconditions.error,
+          repairCommand: stepPreconditions.error?.repairCommand || `jskit session ${paths.sessionId}`
+        });
+      }
+      return renderPlanExecutionPrompt(paths, {}, {
+        preconditions: stepPreconditions.preconditions
+      });
+    }
+    if (nextStep === "deep_ui_check_run") {
+      if (!artifacts.deepUiCheckRequested) {
+        return sessionStepError(paths, {
+          code: "session_step_not_ready",
+          message: "Current step deep_ui_check_run is not ready to advance.",
+          repairCommand: `jskit session ${paths.sessionId} run_deep_ui_check`
+        });
+      }
+      const stepPreconditions = await runNamedPreconditions(paths, STEP_PRECONDITION_NAMES[nextStep] || ["session_exists"]);
+      if (!stepPreconditions.ok) {
+        return sessionStepError(paths, {
+          ...stepPreconditions.error,
+          repairCommand: stepPreconditions.error?.repairCommand || `jskit session ${paths.sessionId}`
+        });
+      }
+      return runDeepUiCheck(paths, {
+        label: "Run deep UI check",
+        phase: "pre_review",
+        stepId: "deep_ui_check_run"
+      }, {}, {
+        preconditions: stepPreconditions.preconditions
+      });
+    }
+    if (nextStep === "automated_checks_run") {
+      if (!artifacts.automatedChecksRequested) {
+        return sessionStepError(paths, {
+          code: "session_step_not_ready",
+          message: "Current step automated_checks_run is not ready to advance.",
+          repairCommand: `jskit session ${paths.sessionId} run_automated_checks`
+        });
+      }
+      const stepPreconditions = await runNamedPreconditions(paths, STEP_PRECONDITION_NAMES[nextStep] || ["session_exists"]);
+      if (!stepPreconditions.ok) {
+        return sessionStepError(paths, {
+          ...stepPreconditions.error,
+          repairCommand: stepPreconditions.error?.repairCommand || `jskit session ${paths.sessionId}`
+        });
+      }
+      return runAutomatedChecks(paths, {
+        label: "Run automated checks",
+        stepId: "automated_checks_run"
+      }, {}, {
+        preconditions: stepPreconditions.preconditions
+      });
+    }
+    if (nextStep === "blueprint_updated") {
+      if (!artifacts.blueprintUpdateRequested) {
+        return sessionStepError(paths, {
+          code: "session_step_not_ready",
+          message: "Current step blueprint_updated is not ready to advance.",
+          repairCommand: `jskit session ${paths.sessionId} update_blueprint`
+        });
+      }
+      const stepPreconditions = await runNamedPreconditions(paths, STEP_PRECONDITION_NAMES[nextStep] || ["session_exists"]);
+      if (!stepPreconditions.ok) {
+        return sessionStepError(paths, {
+          ...stepPreconditions.error,
+          repairCommand: stepPreconditions.error?.repairCommand || `jskit session ${paths.sessionId}`
+        });
+      }
+      return updateBlueprint(paths, {}, {
         preconditions: stepPreconditions.preconditions
       });
     }
@@ -3426,13 +3409,6 @@ async function runSessionStep({
     const nextStep = artifacts.nextStep;
     if (!nextStep) {
       return finishSession(paths);
-    }
-    if (nextStep === "session_created") {
-      return failSession(paths, {
-        code: "session_not_initialized",
-        message: "Session exists but is missing its creation state.",
-        repairCommand: "jskit session create"
-      });
     }
     const runner = STEP_RUNNERS[nextStep];
     if (typeof runner !== "function") {

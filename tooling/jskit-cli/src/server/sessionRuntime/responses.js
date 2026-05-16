@@ -133,24 +133,12 @@ async function readActiveCycle(paths) {
   return normalizeCycleNumber(cycle || DEFAULT_ACTIVE_CYCLE);
 }
 
-async function writeActiveCycle(paths, cycle) {
-  await writeTextFile(path.join(paths.sessionRoot, "active_cycle"), `${normalizeCycleNumber(cycle)}\n`);
-}
-
 function cycleStepsRoot(paths, cycle) {
   return path.join(paths.sessionRoot, "steps", cycleDirectoryName(cycle));
 }
 
 function cycleRoot(paths, cycle) {
   return path.join(paths.sessionRoot, "cycles", cycleDirectoryName(cycle));
-}
-
-function cyclePlanPromptFileName(cycle) {
-  return `cycle_${normalizeCycleNumber(cycle)}_plan_made.md`;
-}
-
-function cyclePlanExecutionPromptFileName(cycle) {
-  return `cycle_${normalizeCycleNumber(cycle)}_plan_executed.md`;
 }
 
 function normalizeReviewPassNumber(value = "") {
@@ -207,7 +195,7 @@ async function readReviewPassInfo(paths, pass) {
     pass: normalizedPass,
     label: reviewPassDirectoryName(normalizedPass),
     status,
-    promptPath: prompt?.promptPath || path.join(root, "review_prompt_rendered.md"),
+    promptPath: prompt?.promptPath || path.join(root, "review_prompt_rendered"),
     acceptedAt: accepted?.acceptedAt || "",
     changedFiles,
     commit: "",
@@ -251,46 +239,12 @@ async function readReviewPromptForStep(paths, artifacts = {}) {
   return "";
 }
 
-const PROMPT_ARTIFACT_BY_STEP_ID = Object.freeze({
-  issue_prompt_rendered: "issue_prompt_rendered.md",
-  issue_created: "issue_created.md",
-  deep_ui_check_run: "deep_ui_check_run.md",
-  automated_checks_run: "automated_checks_run.md",
-  blueprint_updated: "blueprint_updated.md",
-  pr_merge_prepared: "pr_merge_prepared.md",
-  user_check_completed: "user_check_completed.md"
-});
-
-function promptArtifactForStep(stepId) {
-  const normalizedStepId = normalizeStepId(stepId);
-  if (normalizedStepId === "plan_made") {
-    return "plan_made.md";
-  }
-  if (normalizedStepId === "plan_executed") {
-    return "plan_executed.md";
-  }
-  return PROMPT_ARTIFACT_BY_STEP_ID[normalizedStepId] || "";
-}
-
 async function readPromptForStep(paths, stepId, artifacts = {}) {
   if (!stepCanExposeStoredPrompt(stepId)) {
     return "";
   }
   if (REVIEW_STEP_IDS.includes(normalizeStepId(stepId))) {
     return readReviewPromptForStep(paths, artifacts);
-  }
-  const promptArtifact = promptArtifactForStep(stepId);
-  if (promptArtifact) {
-    const prompt = await readTextIfExists(path.join(paths.sessionRoot, "prompts", promptArtifact));
-    if (prompt) {
-      return prompt;
-    }
-  }
-  if (normalizeStepId(stepId) === "plan_made") {
-    return readTextIfExists(path.join(paths.sessionRoot, "prompts", cyclePlanPromptFileName(await readActiveCycle(paths))));
-  }
-  if (normalizeStepId(stepId) === "plan_executed") {
-    return readTextIfExists(path.join(paths.sessionRoot, "prompts", cyclePlanExecutionPromptFileName(await readActiveCycle(paths))));
   }
   return "";
 }
@@ -360,7 +314,7 @@ async function readCycleInfo(paths, cycle) {
   const root = cycleRoot(paths, normalizedCycle);
   const userCheckPassed = await readTextIfExists(path.join(cycleStepsRoot(paths, normalizedCycle), "user_check_completed"));
   const userCheckFailed = await readTextIfExists(path.join(cycleStepsRoot(paths, normalizedCycle), "user_check_failed"));
-  const reworkRequestPath = path.join(root, "rework_request.md");
+  const reworkRequestPath = path.join(root, "rework_request");
   const reworkRequest = await readTextIfExists(reworkRequestPath);
   return {
     cycle: normalizedCycle,
@@ -674,10 +628,10 @@ function buildCurrentStepAction(stepId, artifacts = {}) {
   }
   const planExecutionPrompted = artifacts.planExecution?.prompted === true;
   const planExecutionSubmitted = artifacts.planExecution?.submitted === true;
-  const issueDefinitionPrompted = step.id === "issue_prompt_rendered" && Boolean(artifacts.prompt);
+  const issueDefinitionPrompted = step.id === "issue_prompt_rendered" && artifacts.issueDefinitionRequested === true;
   const issueFilePromptAction = step.id === "issue_created";
   const issueSubmissionAction = step.id === "issue_submitted";
-  const deepUiCheckPrompted = step.id === "deep_ui_check_run" && uiCheckPromptedForStep(artifacts, "deep_ui_check_run");
+  const deepUiCheckPrompted = step.id === "deep_ui_check_run" && artifacts.deepUiCheckRequested === true;
   const alternateActions = [];
   if (step.id === "review_changes_accepted") {
     alternateActions.push({
@@ -740,7 +694,7 @@ function buildCurrentStepAction(stepId, artifacts = {}) {
     if (issueDefinitionPrompted) {
       return "Codex has the issue-definition prompt. Continue after the issue is scoped clearly enough.";
     }
-    if (issueFilePromptAction && artifacts.prompt) {
+    if (issueFilePromptAction && artifacts.issueFileRequested) {
       return "Codex has the issue-file prompt. Review issue.md and issue_title, then continue when ready.";
     }
     if (issueSubmissionAction && artifacts.issueUrl) {
@@ -752,7 +706,7 @@ function buildCurrentStepAction(stepId, artifacts = {}) {
     if (step.id === "deep_ui_check_run" && deepUiCheckPrompted) {
       return "Codex has the run deep UI check prompt. Review the result, then use Next when ready.";
     }
-    if (step.id === "automated_checks_run" && artifacts.prompt) {
+    if (step.id === "automated_checks_run" && artifacts.automatedChecksRequested) {
       return "Codex has the run automated checks prompt. Review the result, then use Next when ready.";
     }
     if (step.id === "main_checkout_synced" && artifacts.prOutcome?.outcome && artifacts.prOutcome.outcome !== "merged") {
@@ -801,10 +755,10 @@ function buildCurrentStepAction(stepId, artifacts = {}) {
 }
 
 function rawCodexHandoff(stepId, artifacts = {}) {
-  if (normalizeStepId(stepId) === "issue_prompt_rendered" && artifacts.prompt) {
+  if (normalizeStepId(stepId) === "issue_prompt_rendered" && artifacts.issueDefinitionRequested) {
     return cloneContractValue(ISSUE_DEFINITION_CODEX_HANDOFF);
   }
-  if (normalizeStepId(stepId) === "issue_created" && artifacts.prompt) {
+  if (normalizeStepId(stepId) === "issue_created" && artifacts.issueFileRequested) {
     return cloneContractValue(ISSUE_FILE_CODEX_HANDOFF);
   }
   if (normalizeStepId(stepId) === "review_changes_accepted" && latestReviewPassIsPrompted(artifacts)) {
@@ -837,6 +791,13 @@ async function readSessionArtifacts(paths) {
     baseBranch,
     baseCommit,
     planExecutionRecord,
+    issueDefinitionRequested,
+    issueFileRequested,
+    makePlanRequested,
+    deepUiCheckRequested,
+    automatedChecksRequested,
+    blueprintUpdateRequested,
+    executePlanRequested,
     prOutcomeText,
     mainCheckoutSyncText,
     changesCommittedText
@@ -848,13 +809,20 @@ async function readSessionArtifacts(paths) {
     readTrimmedFile(path.join(paths.sessionRoot, "pr_url")),
     readTextIfExists(path.join(paths.sessionRoot, "issue.md")),
     readTrimmedFile(path.join(paths.sessionRoot, "issue_title")),
-    readTextIfExists(path.join(paths.sessionRoot, "final_report.md")),
+    readTextIfExists(path.join(paths.sessionRoot, "final_report")),
     readTextIfExists(path.join(paths.sessionRoot, "github_comments.json")),
     readTrimmedFile(path.join(paths.sessionRoot, "codex_thread_id")),
     readWorkflowVersion(paths),
     readTrimmedFile(path.join(paths.sessionRoot, "base_branch")),
     readTrimmedFile(path.join(paths.sessionRoot, "base_commit")),
     readTextIfExists(globalPlanExecutionRecordPath).then(async (text) => text || await readTextIfExists(legacyPlanExecutionRecordPath)),
+    readTrimmedFile(path.join(paths.sessionRoot, "metadata", "issue_prompt_rendered_requested")),
+    readTrimmedFile(path.join(paths.sessionRoot, "metadata", "issue_created_requested")),
+    readTrimmedFile(path.join(paths.sessionRoot, "metadata", "make_plan_requested")),
+    readTrimmedFile(path.join(paths.sessionRoot, "metadata", "deep_ui_check_run_requested")),
+    readTrimmedFile(path.join(paths.sessionRoot, "metadata", "automated_checks_run_requested")),
+    readTrimmedFile(path.join(paths.sessionRoot, "metadata", "blueprint_updated_requested")),
+    readTrimmedFile(path.join(paths.sessionRoot, "metadata", "execute_plan_requested")),
     readTextIfExists(path.join(paths.sessionRoot, "pr_outcome.json")),
     readTextIfExists(path.join(paths.sessionRoot, "main_checkout_sync.json")),
     readTextIfExists(path.join(paths.sessionRoot, "changes_committed.json"))
@@ -907,12 +875,6 @@ async function readSessionArtifacts(paths) {
   const commandLogPath = path.join(paths.sessionRoot, "command_log.jsonl");
   const dependencyInstallRecord = await readTextIfExists(path.join(paths.sessionRoot, "steps", "dependencies_installed"));
   const dependencyInstallResult = await readTextIfExists(path.join(paths.sessionRoot, DEPENDENCIES_INSTALL_RESULT_FILE));
-  const planExecutionPromptPath = path.join(paths.sessionRoot, "prompts", "plan_executed.md");
-  const legacyPlanExecutionPromptPath = path.join(paths.sessionRoot, "prompts", cyclePlanExecutionPromptFileName(activeCycle));
-  const planExecutionPromptExists = await fileExists(planExecutionPromptPath) || await fileExists(legacyPlanExecutionPromptPath);
-  const resolvedPlanExecutionPromptPath = await fileExists(planExecutionPromptPath)
-    ? planExecutionPromptPath
-    : legacyPlanExecutionPromptPath;
   const appRootForArtifacts = worktreeReady ? paths.worktree : paths.targetRoot;
   const appReady = await inspectReadyJskitAppRoot(appRootForArtifacts);
   const blueprintPath = path.join(appRootForArtifacts, ".jskit", "APP_BLUEPRINT.md");
@@ -976,9 +938,16 @@ async function readSessionArtifacts(paths) {
     prUrl,
     prOutcome,
     mainCheckoutSync,
+    issueDefinitionRequested: Boolean(issueDefinitionRequested.trim()),
+    issueFileRequested: Boolean(issueFileRequested.trim()),
+    makePlanRequested: Boolean(makePlanRequested.trim()),
+    deepUiCheckRequested: Boolean(deepUiCheckRequested.trim()),
+    automatedChecksRequested: Boolean(automatedChecksRequested.trim()),
+    blueprintUpdateRequested: Boolean(blueprintUpdateRequested.trim()),
+    executePlanRequested: Boolean(executePlanRequested.trim()),
     planExecution: {
-      prompted: planExecutionPromptExists,
-      promptPath: planExecutionPromptExists ? resolvedPlanExecutionPromptPath : "",
+      prompted: Boolean(executePlanRequested.trim()),
+      promptPath: "",
       details: planExecutionRecord.trim(),
       submitted: Boolean(planExecutionRecord.trim())
     },
@@ -1011,8 +980,20 @@ function stepCanExposeNextCommand(stepId, artifacts = {}) {
   if (stepId === "issue_submitted") {
     return Boolean(artifacts.issueUrl);
   }
-  if (["automated_checks_run", "blueprint_updated", "deep_ui_check_run", "plan_executed", "plan_made"].includes(stepId)) {
-    return Boolean(artifacts.prompt);
+  if (stepId === "plan_made") {
+    return artifacts.makePlanRequested === true;
+  }
+  if (stepId === "plan_executed") {
+    return artifacts.executePlanRequested === true;
+  }
+  if (stepId === "deep_ui_check_run") {
+    return artifacts.deepUiCheckRequested === true;
+  }
+  if (stepId === "automated_checks_run") {
+    return artifacts.automatedChecksRequested === true;
+  }
+  if (stepId === "blueprint_updated") {
+    return artifacts.blueprintUpdateRequested === true;
   }
   return true;
 }
@@ -1056,7 +1037,7 @@ function buildStepActionCommands(sessionId, stepId, artifacts = {}) {
         id: "define_issue",
         label: "Define issue"
       },
-      ...(artifacts.prompt
+      ...(artifacts.issueDefinitionRequested
         ? [
             {
               command: `${commandBase} create_issue_file`,
@@ -1174,13 +1155,20 @@ async function buildSessionResponse(paths, {
       codex: null,
       prompt: "",
       nextCommand: "",
+      issueDefinitionRequested: artifacts.issueDefinitionRequested === true,
+      issueFileRequested: artifacts.issueFileRequested === true,
       issueNumber: artifacts.issueNumber || "",
       issueUrl: artifacts.issueUrl || "",
       issueTitle: artifacts.issueTitle || "",
       issueText: artifacts.issueText || "",
       githubComments: cloneContractValue(artifacts.githubComments || {}),
+      makePlanRequested: artifacts.makePlanRequested === true,
+      deepUiCheckRequested: artifacts.deepUiCheckRequested === true,
+      automatedChecksRequested: artifacts.automatedChecksRequested === true,
+      blueprintUpdateRequested: artifacts.blueprintUpdateRequested === true,
+      executePlanRequested: artifacts.executePlanRequested === true,
       planExecution: cloneContractValue(artifacts.planExecution || null),
-      finalReportPath: artifacts.finalReportText ? path.join(responsePaths.sessionRoot, "final_report.md") : "",
+      finalReportPath: artifacts.finalReportText ? path.join(responsePaths.sessionRoot, "final_report") : "",
       finalReportText: artifacts.finalReportText || "",
       helperMapPath: artifacts.helperMapPath || "",
       helperMapExists: artifacts.helperMapExists === true,
@@ -1237,13 +1225,20 @@ async function buildSessionResponse(paths, {
     codex: codex === undefined ? await buildCodexHandoff(currentStep, artifacts) : await publicCodexContract(codex),
     prompt: responsePrompt,
     nextCommand: buildNextCommand(paths.sessionId || "", currentStep, artifacts),
+    issueDefinitionRequested: artifacts.issueDefinitionRequested === true,
+    issueFileRequested: artifacts.issueFileRequested === true,
     issueNumber: artifacts.issueNumber || "",
     issueUrl: artifacts.issueUrl || "",
     issueTitle: artifacts.issueTitle || "",
     issueText: artifacts.issueText || "",
     githubComments: cloneContractValue(artifacts.githubComments || {}),
+    makePlanRequested: artifacts.makePlanRequested === true,
+    deepUiCheckRequested: artifacts.deepUiCheckRequested === true,
+    automatedChecksRequested: artifacts.automatedChecksRequested === true,
+    blueprintUpdateRequested: artifacts.blueprintUpdateRequested === true,
+    executePlanRequested: artifacts.executePlanRequested === true,
     planExecution: cloneContractValue(artifacts.planExecution || null),
-    finalReportPath: artifacts.finalReportText ? path.join(responsePaths.sessionRoot, "final_report.md") : "",
+    finalReportPath: artifacts.finalReportText ? path.join(responsePaths.sessionRoot, "final_report") : "",
     finalReportText: artifacts.finalReportText || "",
     helperMapPath: artifacts.helperMapPath || "",
     helperMapExists: artifacts.helperMapExists === true,
@@ -1412,7 +1407,6 @@ export {
   readSessionArtifacts,
   reviewPassDirectoryName,
   reviewPassRoot,
-  writeActiveCycle,
   writeCycleStepRecord,
   writeStepRecord
 };
