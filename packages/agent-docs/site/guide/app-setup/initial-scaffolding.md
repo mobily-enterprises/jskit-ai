@@ -303,8 +303,6 @@ import { createRouter, createWebHistory } from "vue-router/auto";
 import { routes } from "vue-router/auto-routes";
 import "vuetify/styles";
 import { createVuetify } from "vuetify";
-import * as components from "vuetify/components";
-import * as directives from "vuetify/directives";
 import { aliases as mdiAliases, mdi } from "vuetify/iconsets/mdi-svg";
 import { createSurfaceRuntime } from "@jskit-ai/kernel/shared/surface/runtime";
 import {
@@ -342,8 +340,6 @@ const { router, fallbackRoute } = createShellRouter({
 });
 
 const vuetify = createVuetify({
-  components,
-  directives,
   theme: {
     defaultTheme: "light"
   },
@@ -438,7 +434,7 @@ In the starter app, with only `home`, this is almost boring. It mostly means:
 
 In the plain starter scaffold there are still no package-defined client stores to use yet. Pinia is already there so later packages can add them without changing the app bootstrap. In the next chapters, `shell-web` adds shell stores such as `useShellLayoutStore()`, and `auth-web` later adds `useAuthStore()`.
 
-`createVuetify(...)` is the ordinary UI plugin setup. There is nothing especially JSKIT-specific there; it just makes Vuetify components, directives, theme settings, and icon aliases available to the app before the router is mounted.
+`createVuetify(...)` is the ordinary UI plugin setup. There is nothing especially JSKIT-specific there; it configures theme settings and icon aliases before the router is mounted. Vuetify components are auto-imported by `vite-plugin-vuetify`, so the scaffold does not register the full Vuetify component namespace in the client bundle.
 
 `bootInstalledClientModules` is the extension seam, meaning "this is the point where later-installed JSKIT packages get to join client startup". The confusing part is that it is not a normal file in your app. In `src/main.js` you import it from:
 

@@ -238,7 +238,7 @@ Exports
 
 ### `src/client/composables/records/useView.js`
 Exports
-- `useView({ ownershipFilter = ROUTE_VISIBILITY_WORKSPACE, surfaceId = "", access = "auto", apiSuffix = "", queryKeyFactory = null, viewPermissions = [], readMethod = "GET", readEnabled = true, transport = null, placementSource = "users-web.view", fallbackLoadError = "Unable to load resource.", notFoundStatuses = [404], notFoundMessage = "Record not found.", model, mapLoadedToModel, requestQueryParams = null, recordIdParam = "recordId", routeParams = null, routeRecordId = null, apiUrlTemplate = "", listUrlTemplate = "", editUrlTemplate = "", includeRecordIdInQueryKey = false, realtime = undefined, adapter = null } = {})`
+- `useView({ resource = null, ownershipFilter = ROUTE_VISIBILITY_WORKSPACE, surfaceId = "", access = "auto", apiSuffix = "", queryKeyFactory = null, viewPermissions = [], readMethod = "GET", readEnabled = true, transport = null, placementSource = "users-web.view", fallbackLoadError = "Unable to load resource.", notFoundStatuses = [404], notFoundMessage = "Record not found.", model, mapLoadedToModel, requestQueryParams = null, recordIdParam = "recordId", routeParams = null, routeRecordId = null, apiUrlTemplate = "", listUrlTemplate = "", editUrlTemplate = "", includeRecordIdInQueryKey = false, realtime = undefined, adapter = null } = {})`
 
 ### `src/client/composables/runtime/addEditUiRuntime.js`
 Exports

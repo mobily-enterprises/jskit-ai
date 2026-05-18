@@ -682,6 +682,10 @@ Local functions
 - `resolveStepInputs({ inlineOptions = {}, io = {}, cwd, sessionId })`
 - `normalizeStepOptions(inlineOptions = {})`
 - `resolveListArchiveOption(options = {})`
+- `runSessionStepCommand({ cwd, inlineOptions = {}, io = {}, sessionId })`
+- `runNextSessionStep({ cwd, sessionId })`
+- `runSkipSessionStep({ cwd, inlineOptions = {}, io = {}, sessionId })`
+- `runDeslopSessionStep({ cwd, sessionId })`
 
 ### `src/server/commandHandlers/shared.js`
 Exports
@@ -814,6 +818,7 @@ Exports
 - `STEP_IDS`
 - `STEP_PRECONDITION_NAMES`
 - `abandonSession({ targetRoot = process.cwd(), sessionId } = {})`
+- `advanceSessionStep({ targetRoot = process.cwd(), sessionId } = {})`
 - `adoptDependenciesInstalled({ targetRoot = process.cwd(), sessionId, message = "" } = {})`
 - `adoptCodexThreadId({ targetRoot = process.cwd(), sessionId, codexThreadId } = {})`
 - `buildSessionResponse`
@@ -822,8 +827,6 @@ Exports
 - `createSessionId`
 - `extractIssueTitle(value = "")`
 - `extractIssueText(value = "")`
-- `extractIssueDetails(value = "")`
-- `extractPlanText(value = "")`
 - `inspectSession({ targetRoot = process.cwd(), sessionId } = {})`
 - `inspectSessionDiff({ targetRoot = process.cwd(), sessionId } = {})`
 - `inspectSessionDetails({ targetRoot = process.cwd(), sessionId } = {})`
@@ -834,28 +837,16 @@ Exports
 - `rewindSession({ targetRoot = process.cwd(), sessionId, stepId } = {})`
 - `resolveSessionPaths`
 - `runSessionStep({ targetRoot = process.cwd(), sessionId, options = {} } = {})`
+- `runSessionStepAction({ targetRoot = process.cwd(), sessionId, action, options = {} } = {})`
 Local functions
 - `invalidSessionIdError(sessionId = "")`
 - `invalidSessionIdResponse({ targetRoot, sessionId })`
 - `existingSessionContext({ targetRoot = process.cwd(), sessionId } = {})`
 - `withExistingSession(input, handler)`
 - `extractMarkedText(value = "", marker = "")`
-- `extractMarkedField(value = "", fieldName = "")`
-- `extractIssueCategory(value = "")`
-- `extractUiImpact(value = "")`
-- `extractAgentDecisions(value = "")`
-- `normalizeIssueCategory(value = "")`
-- `normalizeUiImpact(value = "")`
 - `writePromptArtifact(paths, fileName, prompt)`
-- `codexResultPath(paths, stepId)`
-- `codexResponseContractForStep(stepId)`
-- `requireCodexStepResult(paths, stepId, result, preconditions = [], contractOverride = null)`
 - `commandText(command, args = [])`
 - `cycleRootPath(paths, cycle)`
-- `cyclePlanPath(paths, cycle)`
-- `cyclePlanPromptFileName(cycle)`
-- `cyclePlanExecutionPromptFileName(cycle)`
-- `readCurrentPlan(paths)`
 - `commandOutputSummary(output = "")`
 - `appendCommandLog(paths, { args = [], command, cwd = "", kind = "command", result } = {})`
 - `runLoggedCommand(paths, kind, command, args = [], options = {})`
@@ -864,37 +855,33 @@ Local functions
 - `packageScriptCommandForWorktree(worktree, scriptName, { preferredPackageManager = "" } = {})`
 - `sessionPackageScriptEnv(paths, scriptName)`
 - `packageScriptRepairCommand(paths, command, args)`
-- `packageScriptReceiptName(scriptName)`
-- `writeSessionHookReceipt(paths, scriptName, message)`
+- `packageScriptRecordName(scriptName)`
+- `writeSessionHookRecord(paths, scriptName, message)`
 - `runOptionalSessionPackageScript(paths, { failureCode, failureMessage, kind, preferredPackageManager = "", preconditions = [], scriptName, timeout = 1000 * 60 * 10 } = {})`
 - `runSessionFinalizationGuard(paths, preconditions = [])`
 - `runSessionProvisioningHook(paths, { preferredPackageManager = "", preconditions = [] } = {})`
-- `readIssueMetadata(paths)`
-- `writeIssueMetadata(paths, metadata = {})`
 - `readGithubComments(paths)`
 - `writeGithubComments(paths, comments = {})`
 - `commentOnIssueOnce(paths, { bodyFile, issueUrl, purpose })`
-- `appendAgentDecisions(paths, decisions = "")`
-- `appendAgentDecisionsInput(paths, options = {})`
-- `recordIssueInAgentDecisions(paths, issueUrl = "")`
 - `issueMetadataFromUrl(issueUrl = "")`
-- `nextCycleNumber(cycle = "001")`
+- `writeIssueMetadataFiles(paths, { issueTitle = "", issueUrl = "" } = {})`
 - `normalizeArchiveFilter(archive = "active")`
 - `emptySessionDetails(response)`
 - `removeEmptyStaleWorktreeDirectory(paths)`
 - `createWorktree(paths, _options = {}, context = {})`
+- `recordDependencyInstallResult(paths, { message = "Installed Node dependencies in the session worktree.", preconditions = [] } = {})`
 - `parsePackageManager(value = "")`
 - `hasWorktreeFile(worktree, fileName)`
 - `dependencyInstallCommandForWorktree(worktree)`
 - `installDependencies(paths, _options = {}, context = {})`
-- `renderIssuePrompt(paths, options = {})`
-- `draftIssue(paths, options = {})`
+- `issueDefinitionPrompt(userInput, context)`
+- `renderIssuePrompt(paths, options = {}, context = {})`
 - `titleFromIssue(issueText)`
 - `createIssue(paths, _options = {}, context = {})`
-- `renderIssueDetailsPrompt(paths, _options = {}, context = {})`
-- `saveIssueDetails(paths, options = {}, context = {})`
-- `makePlan(paths, options = {}, context = {})`
-- `renderPlanExecutionPrompt(paths, options = {}, context = {})`
+- `submitIssue(paths, _options = {}, context = {})`
+- `renderIssueFilePrompt(paths, context = {})`
+- `makePlan(paths, _options = {}, context = {})`
+- `renderPlanExecutionPrompt(paths, _options = {}, context = {})`
 - `worktreeStatus(worktree)`
 - `untrackedFiles(worktree)`
 - `untrackedFileDiff(worktree, filePath)`
@@ -903,16 +890,16 @@ Local functions
 - `removeSessionRootFile(paths, fileName)`
 - `removePromptArtifact(paths, fileName)`
 - `removeGlobalCodexResult(paths, stepId)`
+- `removeCycleCodexResults(paths, stepId)`
+- `removeCodexResult(paths, stepId)`
 - `removeGithubCommentPurpose(paths, purpose)`
-- `removeIssueDetailsMetadata(paths)`
 - `removeCycleDirectories(paths)`
-- `removeCyclePromptArtifacts(paths)`
-- `cancelAllCycleState(paths)`
-- `targetRequiresCycleReset(stepId)`
+- `removePlanArtifacts(paths)`
+- `removePlanExecutionArtifacts(paths)`
 - `targetIsAllowedRewindStep(stepId)`
 - `deletedStepIdsForRewindTarget(stepId)`
-- `removeReceiptsForDeletedSteps(paths, deletedStepIds)`
-- `cancelDeletedStepArtifacts(paths, deletedStepIds, { cycleReset = false } = {})`
+- `removeStepRecordsForDeletedSteps(paths, deletedStepIds)`
+- `cancelDeletedStepArtifacts(paths, deletedStepIds)`
 - `commitWorktree(paths, { message, allowNoChanges = false } = {})`
 - `uniqueChangedFileList(entries = [])`
 - `changedFilesInWorktree(paths)`
@@ -932,23 +919,34 @@ Local functions
 - `writeReviewPassJson(paths, pass, fileName, payload)`
 - `currentHead(paths)`
 - `renderReviewPrompt(paths)`
-- `acceptReviewChanges(paths, options = {})`
-- `runAutomatedChecks(paths, { stepId, label }, options = {}, context = {})`
+- `renderResolveDeslopPrompt(paths, context = {})`
+- `acceptReviewChanges(paths, options = {}, context = {})`
+- `runAutomatedChecks(paths, { stepId }, _options = {}, context = {})`
 - `writeUiCheckJson(paths, fileName, payload)`
-- `runDeepUiCheck(paths, { stepId, label, phase }, options = {}, context = {})`
+- `runDeepUiCheck(paths, { stepId, phase }, _options = {}, context = {})`
 - `userCheck(paths, options = {})`
 - `readAcceptedChangesCommit(paths)`
 - `commitAcceptedChanges(paths, _options = {}, context = {})`
-- `updateBlueprint(paths, options = {}, context = {})`
+- `updateBlueprint(paths, _options = {}, context = {})`
 - `readPackageJson(root)`
 - `doctorCommandForWorktree(worktree)`
 - `commitLinesSinceBase(paths)`
 - `readCheckSummaries(paths)`
 - `readUiCheckSummaries(paths)`
 - `readReviewPassSummaries(paths)`
-- `createFinalReport(paths, _options = {}, context = {})`
+- `renderPullRequestFilePrompt(paths, context = {})`
+- `createPullRequestFile(paths, _options = {}, context = {})`
 - `issueNumberFromUrl(issueUrl)`
 - `parseJsonObject(value)`
+- `booleanOption(options = {}, ...names)`
+- `skipStepRequested(options = {})`
+- `skipStepReason(options = {}, stepId = "")`
+- `writeJsonFile(filePath, payload)`
+- `writeTextIfMissing(filePath, value)`
+- `writeSkippedIssueDraft(paths, reason)`
+- `writeSkippedReviewPass(paths, reason)`
+- `writeSkippedStepArtifacts(paths, stepId, reason)`
+- `skipCurrentStep(paths, stepId, options = {})`
 - `readPrState(paths, prUrl)`
 - `readCurrentBranchPrState(paths)`
 - `prStateIsMerged(prState)`
@@ -963,12 +961,14 @@ Local functions
 - `updateLocalBaseBranch(paths, baseBranch = "")`
 - `syncMainCheckout(paths, options = {}, context = {})`
 - `updateHelperMapBeforePr(paths)`
-- `createPr(paths)`
-- `closePrWithoutMerge(paths, prUrl, options = {})`
+- `createPr(paths, _options = {}, context = {})`
 - `preparePrMerge(paths, options = {}, context = {})`
 - `finalizePr(paths, options = {}, context = {})`
 - `finishSession(paths)`
 - `runNamedPreconditions(paths, names = [])`
+- `sessionStepError(paths, { code, message, repairCommand = "" } = {})`
+- `createIssueFileAction(paths, options = {}, context = {})`
+- `createGithubIssueAction(paths, options = {}, context = {})`
 
 ### `src/server/sessionRuntime/appReadiness.js`
 Exports
@@ -983,6 +983,7 @@ Exports
 - `SESSION_ID_PATTERN`
 - `SESSION_STATUS`
 - `SESSION_WORKFLOW_VERSION`
+- `DEPENDENCIES_INSTALL_RESULT_FILE`
 - `REVIEW_PASS_LIMIT`
 - `CYCLE_STEP_IDS`
 - `STEP_DEFINITION_BY_ID`
@@ -990,19 +991,21 @@ Exports
 - `STEP_IDS`
 - `STEP_LABEL_BY_ID`
 - `STEP_PRECONDITION_NAMES`
-- `ISSUE_DETAILS_CODEX_HANDOFF`
+- `ISSUE_DEFINITION_CODEX_HANDOFF`
+- `ISSUE_FILE_CODEX_HANDOFF`
+- `PLAN_CODEX_HANDOFF`
 - `PLAN_EXECUTION_CODEX_HANDOFF`
 - `REVIEW_EXECUTION_CODEX_HANDOFF`
+- `RESOLVE_DESLOP_CODEX_HANDOFF`
 - `DEEP_UI_CHECK_CODEX_HANDOFF`
 - `AUTOMATED_CHECK_REPAIR_CODEX_HANDOFF`
 - `BLUEPRINT_CODEX_HANDOFF`
+- `PR_FILE_CODEX_HANDOFF`
 - `PR_MERGE_PREP_CODEX_HANDOFF`
 - `JSKIT_CLI_SHELL_COMMAND`
-- `JSKIT_CLI_SHELL_RULE`
 - `SESSION_STATE_RELATIVE_PATH`
 Local functions
-- `fieldResponseContract(outputDefinitions)`
-- `codexHandoff(outputDefinition, { autoInject = false, promptActionLabel = "", promptIntroText = "", promptWaitingText = "", responseContract = undefined } = {})`
+- `codexHandoff({ promptActionLabel = "", promptIntroText = "", promptWaitingText = "", sendPrompt = false } = {})`
 - `stepAutomationFor({ codex = undefined, id, kind, requiresExplicitRun = false })`
 - `defineStep({ buttonLabel, codex = undefined, description, id, input = INPUT_NONE, kind = "automatic", label, nextCommandTemplate = DEFAULT_NEXT_COMMAND_TEMPLATE, preconditions = [], requiresExplicitRun = false, submitOptions = {}, automation = undefined, utilityActions = [], displayGroupId = "", displayGroupLabel = "" })`
 
@@ -1015,7 +1018,7 @@ Exports
 - `runCommand(command, args = [], { cwd, env = {}, timeout = 30000 } = {})`
 - `runGit(targetRoot, args = [], options = {})`
 - `runGitInWorktree(worktree, args = [], options = {})`
-- `timestampForReceipt(now = new Date())`
+- `timestampForStepRecord(now = new Date())`
 - `writeTextFile(filePath, value)`
 
 ### `src/server/sessionRuntime/paths.js`
@@ -1037,21 +1040,19 @@ Exports
 - `assertAcceptedChangesCommitted(paths)`
 - `assertActiveCycleExists(paths)`
 - `assertActiveCycleUserCheckPassed(paths)`
+- `assertUserCheckPassed(paths)`
 - `assertBlueprintUpdateSatisfied(paths)`
 - `assertDeepUiCheckSatisfied(paths)`
 - `assertDependenciesInstalled(paths)`
-- `assertFinalReportExists(paths)`
+- `assertPullRequestFileExists(paths)`
 - `assertGhAuth(targetRoot)`
 - `assertGitCurrentBranch(targetRoot)`
 - `assertGitRepository(targetRoot)`
 - `assertGithubOrigin(targetRoot)`
-- `assertIssueMetadataExists(paths)`
 - `assertIssueTextExists(paths)`
 - `assertIssueUrlExists(paths)`
 - `assertAutomatedChecksPassed(paths)`
-- `assertIssueDetailsExists(paths)`
 - `assertMainCheckoutSyncSatisfied(paths)`
-- `assertPlanTextExists(paths)`
 - `assertPrUrlExists(paths)`
 - `assertReadyJskitApp(paths)`
 - `assertSessionExists(paths)`
@@ -1063,14 +1064,13 @@ Local functions
 - `jskitCommand(args = "")`
 - `resolveGitCommonDirectory(targetRoot)`
 - `pathExists(filePath)`
-- `assertActiveCycleStepReceipt(paths, { code, id, message, stepId })`
+- `assertActiveCycleStepRecord(paths, { code, id, message, stepId })`
 
 ### `src/server/sessionRuntime/promptRenderer.js`
 Exports
 - `readPromptTemplate(targetRoot, name)`
 - `renderPrompt(paths, templateName, values = {})`
 - `renderTemplate(source, values = {})`
-- `withShellCommandRule(template)`
 
 ### `src/server/sessionRuntime/responses.js`
 Exports
@@ -1084,16 +1084,16 @@ Exports
 - `markStatus(paths, status)`
 - `normalizeReviewPassNumber(value = "")`
 - `readActiveCycle(paths)`
-- `readReceiptSteps(paths)`
+- `readStepRecords(paths)`
 - `readReviewPasses(paths)`
 - `readSessionArtifacts(paths)`
 - `reviewPassDirectoryName(pass = DEFAULT_REVIEW_PASS)`
 - `reviewPassRoot(paths, pass)`
-- `writeActiveCycle(paths, cycle)`
-- `writeCycleReceipt(paths, receiptName, message, { cycle = "" } = {})`
-- `writeReceipt(paths, stepId, message)`
+- `writeCycleStepRecord(paths, recordName, message, { cycle = "" } = {})`
+- `writeStepRecord(paths, stepId, message)`
 Local functions
 - `createWarning({ code, message, repairCommand = "" })`
+- `issueNumberFromUrl(issueUrl = "")`
 - `normalizeStepId(stepId)`
 - `stepIndex(stepId)`
 - `normalizeKnownStepIds(stepIds = [])`
@@ -1104,9 +1104,6 @@ Local functions
 - `readWorkflowVersion(paths)`
 - `cycleStepsRoot(paths, cycle)`
 - `cycleRoot(paths, cycle)`
-- `cyclePlanPath(paths, cycle)`
-- `cyclePlanPromptFileName(cycle)`
-- `cyclePlanExecutionPromptFileName(cycle)`
 - `parseJsonFileIfExists(filePath)`
 - `readReviewPassNumbers(paths)`
 - `readReviewPassInfo(paths, pass)`
@@ -1114,7 +1111,6 @@ Local functions
 - `latestReviewPassIsPrompted(artifacts = {})`
 - `readPromptFromAbsolutePath(filePath = "")`
 - `readReviewPromptForStep(paths, artifacts = {})`
-- `promptArtifactForStep(paths, stepId)`
 - `readPromptForStep(paths, stepId, artifacts = {})`
 - `readStepFileNames(stepsRoot)`
 - `readCompletedSteps(paths)`
@@ -1132,14 +1128,14 @@ Local functions
 - `stepRepeatabilityContract(stepId)`
 - `publicStepDefinition(step, index)`
 - `stepIsRetryableWhenBlocked(stepId)`
-- `stepIsConditional(stepId)`
-- `activeCycleInfoFromArtifacts(artifacts = {})`
 - `uiCheckPromptedForStep(artifacts = {}, stepId = "")`
 - `skipReasonForStep(stepId, artifacts = {})`
 - `buildCurrentStepAction(stepId, artifacts = {})`
 - `rawCodexHandoff(stepId, artifacts = {})`
 - `buildCodexHandoff(stepId, artifacts = {})`
-- `buildNextCommand(sessionId, stepId)`
+- `stepCanExposeNextCommand(stepId, artifacts = {})`
+- `buildNextCommand(sessionId, stepId, artifacts = {})`
+- `buildStepActionCommands(sessionId, stepId, artifacts = {})`
 
 ### `src/server/sessionRuntime/worktrees.js`
 Exports
