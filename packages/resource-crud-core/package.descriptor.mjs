@@ -1,7 +1,7 @@
 export default Object.freeze({
   packageVersion: 1,
   packageId: "@jskit-ai/resource-crud-core",
-  version: "0.1.25",
+  version: "0.1.26",
   kind: "runtime",
   description: "CRUD-specific resource-definition helpers and namespace support.",
   dependsOn: [
@@ -23,7 +23,7 @@ export default Object.freeze({
   mutations: {
     dependencies: {
       runtime: {
-        "@jskit-ai/resource-crud-core": "0.1.25"
+        "@jskit-ai/resource-crud-core": "0.1.26"
       },
       dev: {}
     },

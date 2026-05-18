@@ -11,6 +11,7 @@ import { resolveRouteParamNamesInOrder } from "../support/routeTemplateHelpers.j
 import { resolveOperationRealtimeOptions } from "../useRealtimeQueryInvalidation.js";
 
 function useView({
+  resource = null,
   ownershipFilter = ROUTE_VISIBILITY_WORKSPACE,
   surfaceId = "",
   access = "auto",
@@ -96,7 +97,7 @@ function useView({
   });
   const canView = operationScope.permissionGate("view");
 
-  const resource = useEndpointResource({
+  const endpointResource = useEndpointResource({
     queryKey: requestQueryRuntime.queryKey,
     path: operationScope.apiPath,
     enabled: operationScope.queryCanRun(canView),
@@ -108,7 +109,7 @@ function useView({
   });
 
   const view = useViewCore({
-    resource,
+    resource: endpointResource,
     model,
     canView,
     mapLoadedToModel,
@@ -148,7 +149,7 @@ function useView({
     notFoundError: view.notFoundError,
     loadError,
     refresh: view.refresh,
-    resource
+    resource: endpointResource
   });
 }
 
