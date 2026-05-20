@@ -15,7 +15,7 @@ Preferred execution mode:
 
 ## Read First
 
-Use the current `jskit session` review prompt as the source of truth when the review is part of a session.
+Use the user request, current diff, and app-local instructions as the source of truth for the review scope.
 
 Read these on demand:
 
@@ -24,19 +24,12 @@ Read these on demand:
 - `../../guide/agent/index.md`
 - `../../site/guide/index.md` when compressed guidance is ambiguous
 
-Inspect app-local session files when they exist:
-
-- `.jskit/sessions/active/<session_id>/prompt.md`
-- `.jskit/sessions/active/<session_id>/issue.md`
-
 ## Review target
 
 Determine whether the target is:
 
 - the current chunk
 - or the whole changeset
-
-Use the active `jskit session` state to determine the current pass when available.
 
 ## Required passes
 

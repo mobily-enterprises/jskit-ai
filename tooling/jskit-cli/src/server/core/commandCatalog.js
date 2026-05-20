@@ -9,9 +9,7 @@ const OPTION_FLAG_LABELS = Object.freeze({
   checkDiLabels: "--check-di-labels",
   verbose: "--verbose",
   json: "--json",
-  all: "--all",
-  abandoned: "--abandoned",
-  completed: "--completed"
+  all: "--all"
 });
 
 const PARSED_BOOLEAN_OPTION_KEYS = Object.freeze(Object.keys(OPTION_FLAG_LABELS));
@@ -200,94 +198,6 @@ const COMMAND_DESCRIPTORS = Object.freeze({
     allowedValueOptionNames: Object.freeze([]),
     canDelegateInlineOptions: (positional = []) => Array.isArray(positional) && positional.length > 0
   }),
-  session: Object.freeze({
-    command: "session",
-    aliases: Object.freeze([]),
-    showInOverview: true,
-    summary: "Run file-backed JSKIT issue sessions.",
-    minimalUse: "jskit session create",
-    parameters: Object.freeze([
-      Object.freeze({
-        name: "create | <sessionId>",
-        description: "Create a session, inspect a session, or run a session subcommand."
-      }),
-      Object.freeze({
-        name: "[step|create_worktree|run_npm_install|define_issue|create_issue_file|create_issue_on_gh|make_plan|execute_plan|run_deep_ui_check|run_automated_checks|update_blueprint|commit_changes|create_pull_request_file|create_pr_on_gh|prepare_for_merge|merge_pr|sync_main_checkout|finish_session|next|skip|deslop|resolve-deslop|diff|rewind|abandon|adopt-codex-thread]",
-        description: "Inspect, run an explicit step command, continue, skip, deslop, inspect a diff, rewind, abandon, or attach a Codex thread id."
-      })
-    ]),
-    defaults: Object.freeze([
-      "Active session state lives in .jskit/sessions/active/<session_id> under the current target app.",
-      "Session worktrees live in .jskit/sessions/active/<session_id>/worktree.",
-      "The session id is timestamp-based and is the primary key.",
-      "Bare list output includes active sessions only; use --abandoned, --completed, or --all for archived sessions.",
-      "Use --json for the stable machine-readable contract consumed by JSKIT AI Studio.",
-      "Issue handoff is file-based: Codex writes issue.md under the session root, then the user runs next. Plans stay in the terminal.",
-      "Use step to inspect the current step without running its work.",
-      "Use explicit step commands such as create_worktree, run_npm_install, define_issue, create_issue_file, create_issue_on_gh, make_plan, execute_plan, run_deep_ui_check, run_automated_checks, update_blueprint, commit_changes, create_pull_request_file, create_pr_on_gh, prepare_for_merge, merge_pr, sync_main_checkout, and finish_session to do the current step's work.",
-      "Use next to move to the next step after the current step's required work/result exists.",
-      "Use skip to record the current step as skipped and move to the next step.",
-      "Use deslop to run the review/deslop prompt from either review/deslop step.",
-      "Use resolve-deslop to send the explicit resolve review/deslop prompt. Nothing advances automatically afterward.",
-      "Use rewind <step_id> or rewind --step <step_id> to delete a completed step and later JSKIT-owned session artifacts.",
-      "Use --rework-notes - with --user-check failed to stay on user check and decide where to rewind.",
-      "Use deslop instead of hand-writing --review-findings-remaining true.",
-      "Use next instead of hand-writing --review-findings-remaining false.",
-      "Use skip --skip-reason \"<reason>\" when a step is intentionally skipped.",
-      "Use prepare_for_merge at Merge PR to render the Codex prep prompt.",
-      "Use merge_pr at Merge PR to attempt the GitHub merge.",
-      "Use sync_main_checkout at Sync main checkout after a successful merge.",
-      "Use finish_session at Congratulations! to archive the completed session.",
-      "Run the blueprint step once to render its Codex prompt, then again after Codex updates .jskit/APP_BLUEPRINT.md."
-    ]),
-    examples: Object.freeze([
-      Object.freeze({
-        label: "Manual CLI flow",
-        lines: Object.freeze([
-          "jskit session create",
-          "jskit session 2026-05-11_21-42-08 step",
-          "jskit session 2026-05-11_21-42-08 create_worktree",
-          "jskit session 2026-05-11_21-42-08 next",
-          "jskit session 2026-05-11_21-42-08 run_npm_install",
-          "jskit session 2026-05-11_21-42-08 next",
-          "jskit session 2026-05-11_21-42-08 define_issue --prompt \"Fix the customer filters\"",
-          "jskit session 2026-05-11_21-42-08 skip --skip-reason \"Handled outside JSKIT\"",
-          "jskit session 2026-05-11_21-42-08 create_issue_file",
-          "jskit session 2026-05-11_21-42-08 next",
-          "jskit session 2026-05-11_21-42-08 create_issue_on_gh",
-          "jskit session 2026-05-11_21-42-08 next",
-          "jskit session 2026-05-11_21-42-08 make_plan",
-          "jskit session 2026-05-11_21-42-08 next",
-          "jskit session 2026-05-11_21-42-08 execute_plan",
-          "jskit session 2026-05-11_21-42-08 deslop",
-          "jskit session 2026-05-11_21-42-08 resolve-deslop",
-          "jskit session 2026-05-11_21-42-08 commit_changes",
-          "jskit session 2026-05-11_21-42-08 next",
-          "jskit session 2026-05-11_21-42-08 create_pull_request_file",
-          "jskit session 2026-05-11_21-42-08 next",
-          "jskit session 2026-05-11_21-42-08 create_pr_on_gh",
-          "jskit session 2026-05-11_21-42-08 next",
-          "jskit session 2026-05-11_21-42-08 prepare_for_merge",
-          "jskit session 2026-05-11_21-42-08 merge_pr",
-          "jskit session 2026-05-11_21-42-08 next",
-          "jskit session 2026-05-11_21-42-08 sync_main_checkout",
-          "jskit session 2026-05-11_21-42-08 next",
-          "jskit session 2026-05-11_21-42-08 finish_session",
-          "jskit session 2026-05-11_21-42-08 step --user-check failed --rework-notes -",
-          "jskit session 2026-05-11_21-42-08 rewind plan_made --json",
-          "jskit session 2026-05-11_21-42-08 diff --json"
-        ])
-      })
-    ]),
-    fullUse:
-      "jskit session [create|new|<sessionId>] [step|create_worktree|run_npm_install|define_issue|create_issue_file|create_issue_on_gh|make_plan|execute_plan|run_deep_ui_check|run_automated_checks|update_blueprint|commit_changes|create_pull_request_file|create_pr_on_gh|prepare_for_merge|merge_pr|sync_main_checkout|finish_session|next|skip|deslop|resolve-deslop|diff|rewind|abandon|adopt-codex-thread] [step_id] [--step <step_id>] [--prompt <text>] [--review-findings-remaining true|--review-findings-remaining false] [--resolve-deslop true] [--skip-step true|skip --skip-reason <text>] [--user-check <passed|failed>] [--rework-notes <text>|--rework-notes-file <path>] [--codex-thread-id <id>] [--abandoned|--completed|--all] [--json]",
-    showHelpOnBareInvocation: false,
-    handlerName: "commandSession",
-    allowedFlagKeys: Object.freeze(["json", "abandoned", "completed", "all"]),
-    inlineOptionMode: "delegate",
-    allowedValueOptionNames: Object.freeze([]),
-    canDelegateInlineOptions: (positional = []) => Array.isArray(positional) && positional.length > 0
-  }),
   blueprint: Object.freeze({
     command: "blueprint",
     aliases: Object.freeze([]),
@@ -301,7 +211,7 @@ const COMMAND_DESCRIPTORS = Object.freeze({
       })
     ]),
     defaults: Object.freeze([
-      "The app blueprint is product-level app state, not a feature-session step.",
+      "The app blueprint is product-level app state, not a feature delivery step.",
       "The saved blueprint lives at .jskit/APP_BLUEPRINT.md in the current target app.",
       "Project prompt overrides live at .jskit/prompts/app_blueprint.md.",
       "Use --json for a stable machine-readable response."

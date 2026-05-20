@@ -8,18 +8,11 @@
 - Generated package outputs under these paths are build artifacts:
   - `packages/agent-docs/reference/autogen/`
   - `packages/agent-docs/guide/agent/`
-- Authored workflow files under these paths are edited directly:
-  - `packages/agent-docs/DISTR_AGENT.md`
+- Authored agent documentation under these paths is edited directly:
   - `packages/agent-docs/patterns/`
   - `packages/agent-docs/templates/`
   - `packages/agent-docs/site/guide/`
   - `packages/agent-docs/skills/`
-
-## Issue Sessions
-
-- Use `jskit session` for issue-driven work. Do not recreate the retired long-form AGENTS workflow or loose workboard/blueprint files.
-- Session truth belongs in `.jskit/sessions/active/<session_id>/` in the target app and should be advanced through `jskit session <id> step`.
-- Keep `AGENTS.md` files short. Project-specific workflow text belongs in session prompt overrides under `.jskit/sessions/prompts/`.
 
 ## Visible Change Checkpoint
 

@@ -4,7 +4,7 @@ App brief:
 
 {{app_brief}}
 
-Produce a concise but useful app-level blueprint. It must describe product intent, platform choices, and architectural boundaries. It must not become an implementation workboard for one issue.
+Produce a concise but useful app-level blueprint. It must describe product intent, platform choices, and architectural boundaries. It must not become an implementation task list for one issue.
 
 Before writing the blueprint, classify the app state if local files are available:
 

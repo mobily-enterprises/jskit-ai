@@ -15,7 +15,6 @@ data/
 *.swp
 .jscpd/*
 !.jscpd/baseline.json
-.jskit/WORKBOARD.md
 docs/.vitepress/cache/
 docs/.vitepress/dist/
 packages/agent-docs/site/.vitepress/cache/

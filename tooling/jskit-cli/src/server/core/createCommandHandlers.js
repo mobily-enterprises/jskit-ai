@@ -6,7 +6,6 @@ import { createAppCommands } from "../commandHandlers/app.js";
 import { createMobileCommands } from "../commandHandlers/mobile.js";
 import { createHealthCommands } from "../commandHandlers/health.js";
 import { createCompletionCommands } from "../commandHandlers/completion.js";
-import { createSessionCommands } from "../commandHandlers/session.js";
 import { createBlueprintCommands } from "../commandHandlers/blueprint.js";
 import { createHelperMapCommands } from "../commandHandlers/helperMap.js";
 
@@ -32,7 +31,6 @@ function createCommandHandlers(deps = {}) {
   const { commandMobile } = createMobileCommands(commandContext, { commandAdd });
   const { commandDoctor, commandLintDescriptors } = createHealthCommands(commandContext);
   const { commandCompletion } = createCompletionCommands(commandContext);
-  const { commandSession } = createSessionCommands(commandContext);
   const { commandBlueprint } = createBlueprintCommands(commandContext);
   const { commandHelperMap } = createHelperMapCommands(commandContext);
 
@@ -53,7 +51,6 @@ function createCommandHandlers(deps = {}) {
     commandRemove,
     commandDoctor,
     commandLintDescriptors,
-    commandSession,
     commandBlueprint,
     commandHelperMap
   };

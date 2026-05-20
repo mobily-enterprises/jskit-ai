@@ -9,4 +9,4 @@ Keep this stage minimal:
 - Run `npm install`.
 - If local JSKIT checkout links are used, run `npm run devlinks` immediately afterward.
 
-After the real scaffold exists, use `jskit session` for issue work. Do not continue from this seed file as a workflow source of truth.
+After the real scaffold exists, follow the generated app `AGENTS.md` and JSKIT agent docs. Do not continue from this seed file as a workflow source of truth.
