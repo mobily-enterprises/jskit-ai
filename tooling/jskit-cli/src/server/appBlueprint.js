@@ -1,20 +1,42 @@
-import { mkdir, readFile } from "node:fs/promises";
+import { constants as fsConstants } from "node:fs";
+import { access, mkdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
-import {
-  PROMPT_DIRECTORY
-} from "./sessionRuntime/constants.js";
-import {
-  fileExists,
-  normalizeText,
-  readTextIfExists,
-  writeTextFile
-} from "./sessionRuntime/io.js";
-import {
-  renderTemplate
-} from "./sessionRuntime/promptRenderer.js";
+import { fileURLToPath } from "node:url";
 
 const APP_BLUEPRINT_RELATIVE_PATH = ".jskit/APP_BLUEPRINT.md";
 const APP_PROMPT_OVERRIDE_RELATIVE_ROOT = ".jskit/prompts";
+const APP_BLUEPRINT_PROMPT_DIRECTORY = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "prompts");
+
+function normalizeText(value) {
+  return String(value || "").trim();
+}
+
+async function fileExists(filePath) {
+  try {
+    await access(filePath, fsConstants.F_OK);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+async function readTextIfExists(filePath) {
+  if (!filePath || !(await fileExists(filePath))) {
+    return "";
+  }
+  return readFile(filePath, "utf8");
+}
+
+async function writeTextFile(filePath, value) {
+  await mkdir(path.dirname(filePath), { recursive: true });
+  await writeFile(filePath, `${String(value || "").replace(/\s*$/u, "")}\n`, "utf8");
+}
+
+function renderTemplate(source, values = {}) {
+  return String(source || "").replace(/\{\{\s*([A-Za-z0-9_]+)\s*\}\}/gu, (_match, key) => {
+    return String(values[key] ?? "");
+  });
+}
 
 function resolveAppBlueprintPaths(targetRoot = process.cwd()) {
   const normalizedTargetRoot = path.resolve(normalizeText(targetRoot) || process.cwd());
@@ -37,7 +59,7 @@ async function readAppPromptTemplate(paths, templateName) {
   if (await fileExists(overridePath)) {
     return readTextIfExists(overridePath);
   }
-  return readTextIfExists(path.join(PROMPT_DIRECTORY, normalizedName));
+  return readTextIfExists(path.join(APP_BLUEPRINT_PROMPT_DIRECTORY, normalizedName));
 }
 
 async function renderAppBlueprintPrompt({ targetRoot = process.cwd(), appBrief = "" } = {}) {
@@ -116,6 +138,7 @@ async function readTextInputFile(cwd, inputPath) {
 
 export {
   APP_BLUEPRINT_RELATIVE_PATH,
+  APP_BLUEPRINT_PROMPT_DIRECTORY,
   APP_PROMPT_OVERRIDE_RELATIVE_ROOT,
   extractAppBlueprintText,
   readAppBlueprint,

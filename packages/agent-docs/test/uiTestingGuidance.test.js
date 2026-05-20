@@ -9,8 +9,6 @@ const packageRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "
 test("review skill no longer depends on removed workflow docs", async () => {
   const skill = await readFile(path.join(packageRoot, "skills/jskit-review/SKILL.md"), "utf8");
 
-  assert.match(skill, /jskit session/);
-  assert.match(skill, /\.jskit\/sessions\/active\/<session_id>\/prompt\.md/);
+  assert.match(skill, /current diff/);
   assert.doesNotMatch(skill, /\.\.\/\.\.\/workflow\//);
-  assert.doesNotMatch(skill, /WORKBOARD/);
 });

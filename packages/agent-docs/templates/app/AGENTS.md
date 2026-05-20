@@ -1,13 +1,10 @@
 # App Agent Instructions
 
-Use JSKIT sessions for issue work.
+Use the JSKIT agent docs and the local app scaffold as the source of truth for app work.
 
-Use:
+Recommended references:
 
-- `jskit session`
-- `jskit session create`
-- `jskit session <session_id>`
-- `jskit session <session_id> step`
-- `jskit session <session_id> step --json` for tools and UIs
+- `node_modules/@jskit-ai/agent-docs/guide/agent/index.md`
+- `node_modules/@jskit-ai/agent-docs/patterns/INDEX.md`
 
-Follow the current session step output and prompt. Do not invent a parallel manual issue workflow.
+Keep changes scoped to the user request and verify runtime behavior with tests or explicit checks.
