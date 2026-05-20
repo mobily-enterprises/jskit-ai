@@ -1,4 +1,7 @@
 import {
+  createHash
+} from "node:crypto";
+import {
   mkdir,
   readFile,
   readdir,
@@ -20,7 +23,7 @@ const {
   ScriptTarget
 } = tsMorph;
 
-const HELPER_MAP_SCHEMA_VERSION = 1;
+const HELPER_MAP_SCHEMA_VERSION = 2;
 const CODE_EXTENSIONS = new Set([".cjs", ".js", ".jsx", ".mjs", ".ts", ".tsx", ".vue"]);
 const APP_SCAN_ROOTS = Object.freeze(["src", "packages", "config", "server", "scripts"]);
 const EXCLUDED_DIR_NAMES = new Set([
@@ -48,6 +51,12 @@ async function pathExists(filePath) {
 
 async function readJsonFile(filePath) {
   return JSON.parse(await readFile(filePath, "utf8"));
+}
+
+async function readFileHash(filePath) {
+  return createHash("sha256")
+    .update(await readFile(filePath))
+    .digest("hex");
 }
 
 function normalizePackageDependencies(packageJson = {}) {
@@ -277,11 +286,75 @@ function flattenPackageExports(exportsField) {
   });
 }
 
-async function collectJskitPackageExports(targetRoot, packageJson = {}) {
+async function packageExportTargetRecords(packageRoot, exportTargets = []) {
+  const records = [];
+  for (const exportTarget of exportTargets) {
+    const normalizedTarget = exportTarget.target.replace(/^\.\//u, "");
+    const targetPath = path.join(packageRoot, normalizedTarget);
+    const ext = path.extname(targetPath);
+    if (!CODE_EXTENSIONS.has(ext) || !await pathExists(targetPath)) {
+      continue;
+    }
+    records.push({
+      absolutePath: targetPath,
+      hash: await readFileHash(targetPath),
+      subpath: exportTarget.subpath,
+      target: normalizedTarget.split(path.sep).join("/")
+    });
+  }
+  return records;
+}
+
+function packageExportFingerprint({
+  installedPackageJson = {},
+  packageName = "",
+  targetRecords = []
+} = {}) {
+  return createHash("sha256")
+    .update(JSON.stringify({
+      name: packageName,
+      version: installedPackageJson.version || "",
+      targets: targetRecords.map((record) => ({
+        hash: record.hash,
+        subpath: record.subpath,
+        target: record.target
+      }))
+    }))
+    .digest("hex");
+}
+
+function cachedPackageExports(previousPackagesByName = new Map(), packageName = "", fingerprint = "") {
+  const previous = previousPackagesByName.get(packageName);
+  if (
+    !previous ||
+    previous.installed !== true ||
+    previous.fingerprint !== fingerprint ||
+    !Array.isArray(previous.exports)
+  ) {
+    return null;
+  }
+  return {
+    name: previous.name,
+    version: previous.version || "",
+    fingerprint: previous.fingerprint,
+    installed: true,
+    exports: previous.exports
+  };
+}
+
+function previousPackageMap(previousMap = null) {
+  return new Map(
+    (Array.isArray(previousMap?.jskitPackages) ? previousMap.jskitPackages : [])
+      .map((packageEntry) => [packageEntry.name, packageEntry])
+      .filter(([name]) => name)
+  );
+}
+
+async function collectJskitPackageExports(targetRoot, packageJson = {}, previousMap = null) {
   const packageNames = normalizePackageDependencies(packageJson)
     .filter((name) => name.startsWith("@jskit-ai/"));
   const packages = [];
-  const project = createExportAnalysisProject();
+  const previousPackagesByName = previousPackageMap(previousMap);
 
   for (const packageName of packageNames) {
     const packageRoot = path.join(targetRoot, "node_modules", ...packageName.split("/"));
@@ -297,21 +370,28 @@ async function collectJskitPackageExports(targetRoot, packageJson = {}) {
 
     const installedPackageJson = await readJsonFile(packageJsonPath);
     const exportTargets = flattenPackageExports(installedPackageJson.exports || {});
+    const targetRecords = await packageExportTargetRecords(packageRoot, exportTargets);
+    const fingerprint = packageExportFingerprint({
+      installedPackageJson,
+      packageName,
+      targetRecords
+    });
+    const cachedEntry = cachedPackageExports(previousPackagesByName, packageName, fingerprint);
+    if (cachedEntry) {
+      packages.push(cachedEntry);
+      continue;
+    }
+
+    const project = createExportAnalysisProject();
     const exports = [];
-    for (const exportTarget of exportTargets) {
-      const normalizedTarget = exportTarget.target.replace(/^\.\//u, "");
-      const targetPath = path.join(packageRoot, normalizedTarget);
-      const ext = path.extname(targetPath);
-      if (!CODE_EXTENSIONS.has(ext) || !await pathExists(targetPath)) {
-        continue;
-      }
+    for (const targetRecord of targetRecords) {
       const sourceFile = await addCodeFileToProject(project, {
-        absolutePath: targetPath,
-        relativePath: normalizedTarget
+        absolutePath: targetRecord.absolutePath,
+        relativePath: targetRecord.target
       });
       exports.push({
-        subpath: exportTarget.subpath,
-        target: normalizedTarget.split(path.sep).join("/"),
+        subpath: targetRecord.subpath,
+        target: targetRecord.target,
         exports: sourceFile ? extractExportedSymbols(sourceFile) : []
       });
     }
@@ -319,6 +399,7 @@ async function collectJskitPackageExports(targetRoot, packageJson = {}) {
     packages.push({
       name: packageName,
       version: installedPackageJson.version || "",
+      fingerprint,
       installed: true,
       exports
     });
@@ -383,7 +464,7 @@ function renderHelperMapMarkdown(map) {
   return `${lines.join("\n").replace(/\n{3,}/gu, "\n\n").trimEnd()}\n`;
 }
 
-async function buildHelperMap({ targetRoot }) {
+async function buildHelperMap({ targetRoot, previousMap = null }) {
   const packageJsonPath = path.join(targetRoot, "package.json");
   const packageJson = await readJsonFile(packageJsonPath);
   const map = {
@@ -396,7 +477,7 @@ async function buildHelperMap({ targetRoot }) {
     app: {
       files: await collectAppExports(targetRoot)
     },
-    jskitPackages: await collectJskitPackageExports(targetRoot, packageJson)
+    jskitPackages: await collectJskitPackageExports(targetRoot, packageJson, previousMap)
   };
   return {
     ok: true,
@@ -430,12 +511,17 @@ async function readHelperMap({ targetRoot }) {
 }
 
 async function updateHelperMap({ targetRoot }) {
-  const payload = await buildHelperMap({ targetRoot });
+  const helperMapJsonPath = path.join(targetRoot, HELPER_MAP_JSON_RELATIVE_PATH);
+  const currentJson = await pathExists(helperMapJsonPath)
+    ? await readFile(helperMapJsonPath, "utf8")
+    : "";
+  const previousMap = currentJson ? JSON.parse(currentJson) : null;
+  const payload = await buildHelperMap({
+    previousMap,
+    targetRoot
+  });
   const markdown = renderHelperMapMarkdown(payload.map);
   const json = `${JSON.stringify(payload.map, null, 2)}\n`;
-  const currentJson = await pathExists(payload.helperMapJsonPath)
-    ? await readFile(payload.helperMapJsonPath, "utf8")
-    : "";
   const currentMarkdown = await pathExists(payload.helperMapMarkdownPath)
     ? await readFile(payload.helperMapMarkdownPath, "utf8")
     : "";
