@@ -97,6 +97,7 @@ test("jskit helper-map update writes deterministic app and package helper maps",
     assert.equal(updated.ok, true);
     assert.equal(updated.changed, true);
     assert.equal(updated.map.generatedBy, "jskit helper-map update");
+    assert.equal(updated.map.schemaVersion, 2);
     assert.ok(updated.map.app.files.some((file) => {
       return file.path === "src/lib/formatTitle.js" &&
         file.exports.some((symbol) => symbol.name === "formatTitle" && symbol.kind === "function");
@@ -110,6 +111,7 @@ test("jskit helper-map update writes deterministic app and package helper maps",
         file.exports.some((symbol) => symbol.name === "useHomePageTitle" && symbol.role === "composable");
     }));
     assert.equal(updated.map.jskitPackages[0].name, "@jskit-ai/sample-runtime");
+    assert.match(updated.map.jskitPackages[0].fingerprint, /^[a-f0-9]{64}$/u);
     assert.ok(updated.map.jskitPackages[0].exports.some((entry) => {
       return entry.exports.some((symbol) => symbol.name === "createSampleRuntime");
     }));
@@ -125,6 +127,28 @@ test("jskit helper-map update writes deterministic app and package helper maps",
       args: ["helper-map", "update", "--json"]
     }));
     assert.equal(second.changed, false);
+
+    await writeFile(
+      path.join(appRoot, "node_modules", "@jskit-ai", "sample-runtime", "helpers.js"),
+      [
+        "export const sampleMap = new Map();",
+        "export function buildSampleHelper() {",
+        "  return sampleMap;",
+        "}",
+        ""
+      ].join("\n"),
+      "utf8"
+    );
+
+    const packageExportChanged = parseJsonResult(runCli({
+      cwd: appRoot,
+      args: ["helper-map", "update", "--json"]
+    }));
+    assert.equal(packageExportChanged.changed, true);
+    assert.ok(packageExportChanged.map.jskitPackages[0].exports.some((entry) => {
+      return entry.subpath === "./helpers" &&
+        entry.exports.some((symbol) => symbol.name === "buildSampleHelper" && symbol.kind === "function");
+    }));
 
     const read = parseJsonResult(runCli({
       cwd: appRoot,
