@@ -104,7 +104,7 @@ test("jskit helper-map update writes deterministic app and package helper maps",
     }));
     assert.ok(updated.map.app.files.some((file) => {
       return file.path === "src/lib/index.js" &&
-        file.exports.some((symbol) => symbol.name === "normalizeHelperName" && symbol.kind === "function");
+        file.exports.some((symbol) => symbol.name === "normalizeHelperName" && symbol.kind === "export");
     }));
     assert.ok(updated.map.app.files.some((file) => {
       return file.path === "src/pages/home.vue" &&
