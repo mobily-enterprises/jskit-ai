@@ -282,7 +282,7 @@ Local functions
 - `resolveRouteTypes(value = {})`
 - `resolveEmbeddedAttributesTransportSchema(definition, { context = "JSON:API resource", defaultMode = "replace", removeId = false, removeKeys = [] } = {})`
 - `normalizeRelationshipSchemaEntries(entries = [])`
-- `createJsonApiRelationshipDataSchema(relationshipType = "", { nullable = false } = {})`
+- `createJsonApiRelationshipDataSchema(relationshipType = "", { many = false, nullable = false } = {})`
 - `createJsonApiRelationshipsTransportSchema(entries = [], { includeRequired = false } = {})`
 - `createJsonApiMetaSuccessTransportSchema({ meta } = {})`
 - `defaultRecordTypeResolver(type)`

@@ -6,6 +6,7 @@ import {
   composeSchemaDefinitions,
   recordIdParamsValidator
 } from "@jskit-ai/kernel/shared/validators";
+import { resolveCrudResourceScopeName } from "@jskit-ai/kernel/shared/support/crudLookup";
 import {
   createCrudCursorPaginationQueryValidator,
   listSearchQueryValidator as defaultListSearchQueryValidator,
@@ -33,25 +34,127 @@ function resolveJsonApiRelationshipEntries(definition = null) {
   for (const [fieldKey, fieldDefinition] of Object.entries(resolveSchemaFieldDefinitions(definition))) {
     const normalizedFieldDefinition = isRecord(fieldDefinition) ? fieldDefinition : {};
     const relationshipType = String(normalizedFieldDefinition.belongsTo || "").trim();
-    if (!relationshipType) {
+    if (relationshipType) {
+      const relationshipName = String(normalizedFieldDefinition.as || fieldKey || "").trim();
+      if (!relationshipName) {
+        continue;
+      }
+
+      entries.push(Object.freeze({
+        attributeKey: fieldKey,
+        relationshipName,
+        relationshipType,
+        required: normalizedFieldDefinition.required === true,
+        nullable: normalizedFieldDefinition.nullable === true
+      }));
       continue;
     }
 
-    const relationshipName = String(normalizedFieldDefinition.as || fieldKey || "").trim();
-    if (!relationshipName) {
+    const relation = isRecord(normalizedFieldDefinition.relation)
+      ? normalizedFieldDefinition.relation
+      : {};
+    if (String(relation.kind || "").trim().toLowerCase() !== "collection") {
+      continue;
+    }
+
+    const collectionRelationshipType = resolveCrudResourceScopeName(
+      relation.target || relation.targetResource || relation.namespace || relation.apiPath
+    );
+    if (!collectionRelationshipType) {
+      continue;
+    }
+
+    const collectionRelationshipName = String(
+      relation.as || normalizedFieldDefinition.as || fieldKey || ""
+    ).trim();
+    if (!collectionRelationshipName) {
       continue;
     }
 
     entries.push(Object.freeze({
       attributeKey: fieldKey,
-      relationshipName,
-      relationshipType,
+      relationshipName: collectionRelationshipName,
+      relationshipType: collectionRelationshipType,
+      many: true,
       required: normalizedFieldDefinition.required === true,
       nullable: normalizedFieldDefinition.nullable === true
     }));
   }
 
   return Object.freeze(entries);
+}
+
+function readOwnValue(source = {}, key = "") {
+  if (isRecord(source) && Object.hasOwn(source, key)) {
+    return {
+      found: true,
+      value: source[key]
+    };
+  }
+
+  return {
+    found: false,
+    value: undefined
+  };
+}
+
+function resolveLookupContainer(record = {}, lookupContainerKey = "") {
+  const normalizedLookupContainerKey = String(lookupContainerKey || "").trim();
+  if (!normalizedLookupContainerKey || !isRecord(record?.[normalizedLookupContainerKey])) {
+    return {};
+  }
+
+  return record[normalizedLookupContainerKey];
+}
+
+function resolveRelationshipValueSource(record = {}, entry = {}, {
+  lookupContainerKey = "",
+  preferLookup = false
+} = {}) {
+  const lookups = resolveLookupContainer(record, lookupContainerKey);
+  const lookupValueByAttributeKey = readOwnValue(lookups, entry.attributeKey);
+  const lookupValue = lookupValueByAttributeKey.found
+    ? lookupValueByAttributeKey
+    : readOwnValue(lookups, entry.relationshipName);
+  const recordValue = readOwnValue(record, entry.attributeKey);
+
+  if (preferLookup) {
+    return lookupValue.found ? lookupValue : recordValue;
+  }
+
+  return recordValue.found ? recordValue : lookupValue;
+}
+
+function normalizeLookupId(value) {
+  if (value == null) {
+    return null;
+  }
+
+  const normalized = String(value).trim();
+  return normalized || null;
+}
+
+function normalizeRelationshipIdentifierId(value = null) {
+  if (isRecord(value)) {
+    if (isRecord(value.data)) {
+      return normalizeLookupId(value.data.id);
+    }
+    return normalizeLookupId(value.id);
+  }
+
+  return normalizeLookupId(value);
+}
+
+function createRelationshipIdentifier(entry = {}, value = null) {
+  const id = normalizeRelationshipIdentifierId(value);
+  if (!id) {
+    return null;
+  }
+
+  return {
+    type: entry.relationshipType,
+    id
+  };
 }
 
 function createRecordAttributesResolver(definition = null, {
@@ -91,7 +194,9 @@ function createRecordAttributesResolver(definition = null, {
   };
 }
 
-function createRecordRelationshipsResolver(definition = null) {
+function createRecordRelationshipsResolver(definition = null, {
+  lookupContainerKey = ""
+} = {}) {
   const relationshipEntries = resolveJsonApiRelationshipEntries(definition);
   if (relationshipEntries.length < 1) {
     return null;
@@ -105,18 +210,27 @@ function createRecordRelationshipsResolver(definition = null) {
     const relationships = {};
 
     for (const entry of relationshipEntries) {
-      if (!Object.hasOwn(record, entry.attributeKey)) {
+      const relationshipSource = resolveRelationshipValueSource(record, entry, {
+        lookupContainerKey,
+        preferLookup: entry.many === true
+      });
+      if (!relationshipSource.found) {
         continue;
       }
 
-      const value = record[entry.attributeKey];
+      const value = relationshipSource.value;
+      if (entry.many === true) {
+        const items = Array.isArray(value) ? value : [];
+        relationships[entry.relationshipName] = {
+          data: items
+            .map((item) => createRelationshipIdentifier(entry, item))
+            .filter(Boolean)
+        };
+        continue;
+      }
+
       relationships[entry.relationshipName] = {
-        data: value == null || (typeof value === "string" && value.trim() === "")
-          ? null
-          : {
-              type: entry.relationshipType,
-              id: String(value)
-            }
+        data: createRelationshipIdentifier(entry, value)
       };
     }
 
@@ -145,7 +259,16 @@ function createRequestRelationshipMapper(definition = null) {
       const data = relationship.data;
 
       if (data == null) {
-        mapped[entry.attributeKey] = null;
+        mapped[entry.attributeKey] = entry.many === true ? [] : null;
+        continue;
+      }
+
+      if (entry.many === true) {
+        mapped[entry.attributeKey] = Array.isArray(data)
+          ? data
+              .map((item) => normalizeRelationshipIdentifierId(item))
+              .filter(Boolean)
+          : [];
         continue;
       }
 
@@ -165,15 +288,6 @@ function resolveOutputAttributeExcludeKeys(resource = {}) {
 
 function resolveLookupContainerKey(resource = {}) {
   return String(resource?.contract?.lookup?.containerKey || "").trim();
-}
-
-function normalizeLookupId(value) {
-  if (value == null) {
-    return null;
-  }
-
-  const normalized = String(value).trim();
-  return normalized || null;
 }
 
 function normalizeIncludedLookupRecord(source = null, fallbackId = null) {
@@ -224,6 +338,41 @@ function normalizeIncludedLookupRecord(source = null, fallbackId = null) {
   };
 }
 
+function appendIncludedRelationshipResource({
+  included = [],
+  seen = new Set(),
+  entry = {},
+  lookupRecord = null,
+  fallbackId = null
+} = {}) {
+  const normalizedLookupRecord = normalizeIncludedLookupRecord(lookupRecord, fallbackId);
+  const includedId = normalizeLookupId(normalizedLookupRecord?.id ?? fallbackId);
+  if (!normalizedLookupRecord || !includedId) {
+    return;
+  }
+
+  const resourceKey = `${entry.relationshipType}:${includedId}`;
+  if (seen.has(resourceKey)) {
+    return;
+  }
+  seen.add(resourceKey);
+
+  const attributes = {
+    ...normalizedLookupRecord
+  };
+  delete attributes.id;
+  delete attributes.type;
+  delete attributes.relationships;
+  delete attributes.links;
+  delete attributes.meta;
+
+  included.push(createJsonApiResourceObject({
+    type: entry.relationshipType,
+    id: includedId,
+    attributes
+  }));
+}
+
 function createLookupIncludedResolver(definition = null, {
   lookupContainerKey = ""
 } = {}) {
@@ -254,36 +403,33 @@ function createLookupIncludedResolver(definition = null, {
         : {};
 
       for (const entry of relationshipEntries) {
+        if (entry.many === true) {
+          const relationshipSource = resolveRelationshipValueSource(record, entry, {
+            lookupContainerKey: normalizedLookupContainerKey,
+            preferLookup: true
+          });
+          const lookupRecords = Array.isArray(relationshipSource.value) ? relationshipSource.value : [];
+          for (const lookupRecord of lookupRecords) {
+            appendIncludedRelationshipResource({
+              included,
+              seen,
+              entry,
+              lookupRecord,
+              fallbackId: lookupRecord?.id
+            });
+          }
+          continue;
+        }
+
         const relationshipId = normalizeLookupId(record[entry.attributeKey]);
-        const lookupRecord = normalizeIncludedLookupRecord(
-          sourceLookups[entry.attributeKey] ?? sourceLookups[entry.relationshipName],
-          relationshipId
-        );
-        const includedId = normalizeLookupId(lookupRecord?.id ?? relationshipId);
-        if (!lookupRecord || !includedId) {
-          continue;
-        }
-
-        const resourceKey = `${entry.relationshipType}:${includedId}`;
-        if (seen.has(resourceKey)) {
-          continue;
-        }
-        seen.add(resourceKey);
-
-        const attributes = {
-          ...lookupRecord
-        };
-        delete attributes.id;
-        delete attributes.type;
-        delete attributes.relationships;
-        delete attributes.links;
-        delete attributes.meta;
-
-        included.push(createJsonApiResourceObject({
-          type: entry.relationshipType,
-          id: includedId,
-          attributes
-        }));
+        const lookupRecord = sourceLookups[entry.attributeKey] ?? sourceLookups[entry.relationshipName];
+        appendIncludedRelationshipResource({
+          included,
+          seen,
+          entry,
+          lookupRecord,
+          fallbackId: relationshipId
+        });
       }
     }
 
@@ -329,15 +475,21 @@ function createCrudJsonApiRouteContracts({
   const viewRecordAttributes = createRecordAttributesResolver(viewOutput, {
     excludeKeys: outputAttributeExcludeKeys
   });
-  const viewRecordRelationships = createRecordRelationshipsResolver(viewOutput);
+  const viewRecordRelationships = createRecordRelationshipsResolver(viewOutput, {
+    lookupContainerKey
+  });
   const createRecordAttributes = createRecordAttributesResolver(createOutput, {
     excludeKeys: outputAttributeExcludeKeys
   });
-  const createRecordRelationships = createRecordRelationshipsResolver(createOutput);
+  const createRecordRelationships = createRecordRelationshipsResolver(createOutput, {
+    lookupContainerKey
+  });
   const patchRecordAttributes = createRecordAttributesResolver(patchOutput, {
     excludeKeys: outputAttributeExcludeKeys
   });
-  const patchRecordRelationships = createRecordRelationshipsResolver(patchOutput);
+  const patchRecordRelationships = createRecordRelationshipsResolver(patchOutput, {
+    lookupContainerKey
+  });
   const createRequestRelationships = createRequestRelationshipMapper(createBody);
   const patchRequestRelationships = createRequestRelationshipMapper(patchBody);
   const viewIncluded = createLookupIncludedResolver(viewOutput, {

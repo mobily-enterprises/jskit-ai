@@ -1,7 +1,7 @@
 export default Object.freeze({
   packageVersion: 1,
   packageId: "@jskit-ai/shell-web",
-  version: "0.1.82",
+  version: "0.1.84",
   kind: "runtime",
   description: "Web shell layout runtime with outlet-based placement contributions.",
   dependsOn: [],
@@ -291,7 +291,7 @@ export default Object.freeze({
     dependencies: {
       runtime: {
         "@mdi/js": "^7.4.47",
-        "@jskit-ai/kernel": "0.1.83"
+        "@jskit-ai/kernel": "0.1.85"
       },
       dev: {}
     },

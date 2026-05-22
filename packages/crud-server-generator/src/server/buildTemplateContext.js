@@ -16,7 +16,10 @@ import {
   resolveRequiredAppRoot
 } from "@jskit-ai/kernel/server/support";
 import { normalizeBoolean } from "@jskit-ai/kernel/shared/support/normalize";
-import { normalizeCrudLookupNamespace } from "@jskit-ai/kernel/shared/support/crudLookup";
+import {
+  normalizeCrudLookupNamespace,
+  resolveCrudResourceScopeName
+} from "@jskit-ai/kernel/shared/support/crudLookup";
 import { toCamelCase, toSnakeCase } from "@jskit-ai/kernel/shared/support/stringCase";
 import descriptor from "../../package.descriptor.mjs";
 
@@ -885,12 +888,7 @@ function renderCanonicalResourceSchemaPropertyLines(columns = [], { fieldContrac
 }
 
 function resolveJsonRestRelationshipScopeName(fieldContractEntry = null) {
-  const namespace = normalizeText(fieldContractEntry?.relation?.namespace);
-  if (!namespace) {
-    return "";
-  }
-
-  return toCamelCase(namespace.replace(/\//g, "-"));
+  return resolveCrudResourceScopeName(fieldContractEntry?.relation?.namespace);
 }
 
 function resolveJsonRestRelationshipAlias(column = null) {
@@ -1967,7 +1965,7 @@ function buildReplacementsFromSnapshot({
     __JSKIT_CRUD_RESOURCE_SEARCH_SCHEMA_LINES__: resourceSearchSchemaLines,
     __JSKIT_CRUD_RESOURCE_DEFAULT_SORT__: resourceDefaultSortLiteral,
     __JSKIT_CRUD_RESOURCE_AUTOFILTER__: JSON.stringify(resolvedOwnershipFilter),
-    __JSKIT_CRUD_JSONREST_SCOPE_NAME__: JSON.stringify(toCamelCase(namespace)),
+    __JSKIT_CRUD_JSONREST_SCOPE_NAME__: JSON.stringify(resolveCrudResourceScopeName(namespace)),
     __JSKIT_CRUD_JSONREST_AUTOFILTER__: JSON.stringify(resolvedOwnershipFilter),
     __JSKIT_CRUD_JSONREST_SEARCH_SCHEMA_LINES__: jsonRestSearchSchemaLines,
     __JSKIT_CRUD_JSONREST_SCHEMA_PROPERTIES__: jsonRestSchemaPropertyLines,

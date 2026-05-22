@@ -20,7 +20,8 @@ const {
   ModuleKind,
   ModuleResolutionKind,
   Project,
-  ScriptTarget
+  ScriptTarget,
+  ts
 } = tsMorph;
 
 const HELPER_MAP_SCHEMA_VERSION = 2;
@@ -98,37 +99,6 @@ function createExportAnalysisProject() {
   });
 }
 
-function kindFromDeclaration(declaration, exportName = "") {
-  if (exportName === "default") {
-    return "default";
-  }
-  switch (declaration.getKindName()) {
-    case "ClassDeclaration":
-      return "class";
-    case "EnumDeclaration":
-      return "enum";
-    case "FunctionDeclaration":
-    case "FunctionExpression":
-    case "MethodDeclaration":
-      return "function";
-    case "InterfaceDeclaration":
-      return "interface";
-    case "TypeAliasDeclaration":
-      return "type";
-    case "VariableDeclaration": {
-      const initializer = typeof declaration.getInitializer === "function"
-        ? declaration.getInitializer()
-        : null;
-      const initializerKind = initializer?.getKindName?.() || "";
-      return initializerKind === "ArrowFunction" || initializerKind === "FunctionExpression"
-        ? "function"
-        : "value";
-    }
-    default:
-      return "export";
-  }
-}
-
 function addSymbol(symbols, symbol) {
   if (!symbol.name) {
     return;
@@ -144,14 +114,116 @@ function addSymbol(symbols, symbol) {
   });
 }
 
+function compilerNodeHasModifier(node, modifierKind) {
+  return Array.isArray(node?.modifiers) && node.modifiers.some((modifier) => modifier.kind === modifierKind);
+}
+
+function exportedDeclarationName(node) {
+  if (compilerNodeHasModifier(node, ts.SyntaxKind.DefaultKeyword)) {
+    return "default";
+  }
+  return String(node?.name?.text || node?.name?.escapedText || "").trim();
+}
+
+function addExportedDeclarationSymbol(symbols, node, kind = "export") {
+  const name = exportedDeclarationName(node);
+  if (!name) {
+    return;
+  }
+  addSymbol(symbols, {
+    kind: name === "default" ? "default" : kind,
+    name
+  });
+}
+
+function bindingNameTexts(bindingName, names = []) {
+  if (!bindingName) {
+    return names;
+  }
+  if (ts.isIdentifier(bindingName)) {
+    names.push(String(bindingName.text || ""));
+    return names;
+  }
+  if (ts.isObjectBindingPattern(bindingName) || ts.isArrayBindingPattern(bindingName)) {
+    for (const element of bindingName.elements || []) {
+      if (element.name) {
+        bindingNameTexts(element.name, names);
+      }
+    }
+  }
+  return names;
+}
+
+function addVariableStatementExports(symbols, statement) {
+  if (!compilerNodeHasModifier(statement, ts.SyntaxKind.ExportKeyword)) {
+    return;
+  }
+  for (const declaration of statement.declarationList?.declarations || []) {
+    for (const name of bindingNameTexts(declaration.name)) {
+      addSymbol(symbols, {
+        kind: declaration.initializer &&
+          (ts.isArrowFunction(declaration.initializer) || ts.isFunctionExpression(declaration.initializer))
+          ? "function"
+          : "value",
+        name
+      });
+    }
+  }
+}
+
+function addNamedExportSymbols(symbols, exportClause) {
+  if (!exportClause) {
+    return;
+  }
+  if (ts.isNamespaceExport(exportClause)) {
+    addSymbol(symbols, {
+      kind: "export",
+      name: String(exportClause.name?.text || "")
+    });
+    return;
+  }
+  if (!ts.isNamedExports(exportClause)) {
+    return;
+  }
+  for (const specifier of exportClause.elements || []) {
+    addSymbol(symbols, {
+      kind: "export",
+      name: String(specifier.name?.text || "")
+    });
+  }
+}
+
 function extractExportedSymbols(sourceFile) {
   const symbols = new Map();
-  for (const [name, declarations] of sourceFile.getExportedDeclarations()) {
-    for (const declaration of declarations) {
+  for (const statement of sourceFile.compilerNode.statements || []) {
+    if (ts.isExportDeclaration(statement)) {
+      addNamedExportSymbols(symbols, statement.exportClause);
+      continue;
+    }
+    if (ts.isExportAssignment(statement)) {
       addSymbol(symbols, {
-        name,
-        kind: kindFromDeclaration(declaration, name)
+        kind: "default",
+        name: "default"
       });
+      continue;
+    }
+    if (ts.isVariableStatement(statement)) {
+      addVariableStatementExports(symbols, statement);
+      continue;
+    }
+    if (!compilerNodeHasModifier(statement, ts.SyntaxKind.ExportKeyword)) {
+      continue;
+    }
+    if (ts.isFunctionDeclaration(statement)) {
+      addExportedDeclarationSymbol(symbols, statement, "function");
+    } else if (ts.isClassDeclaration(statement)) {
+      addExportedDeclarationSymbol(symbols, statement, "class");
+    } else if (ts.isInterfaceDeclaration(statement)) {
+      addExportedDeclarationSymbol(symbols, statement, "interface");
+    } else if (ts.isTypeAliasDeclaration(statement)) {
+      addExportedDeclarationSymbol(symbols, statement, "type");
+    } else if (ts.isEnumDeclaration(statement)) {
+      addExportedDeclarationSymbol(symbols, statement, "enum");
     }
   }
 

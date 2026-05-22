@@ -1,4 +1,5 @@
 import { normalizeText } from "./normalize.js";
+import { toCamelCase } from "./stringCase.js";
 import { normalizePathname } from "../surface/paths.js";
 import {
   buildCrudFieldContractMap,
@@ -32,6 +33,15 @@ function resolveCrudLookupApiPathFromNamespace(value = "") {
   }
 
   return `/${normalizedNamespace}`;
+}
+
+function resolveCrudResourceScopeName(value = "") {
+  const normalizedNamespace = normalizeCrudLookupNamespace(value);
+  if (!normalizedNamespace) {
+    return "";
+  }
+
+  return toCamelCase(normalizedNamespace.replace(/\//g, "-"));
 }
 
 function normalizeCrudLookupContainerKey(
@@ -170,6 +180,7 @@ export {
   normalizeCrudLookupApiPath,
   normalizeCrudLookupNamespace,
   resolveCrudLookupApiPathFromNamespace,
+  resolveCrudResourceScopeName,
   normalizeCrudLookupContainerKey,
   resolveCrudLookupContainerKey,
   resolveCrudLookupFieldKeys,

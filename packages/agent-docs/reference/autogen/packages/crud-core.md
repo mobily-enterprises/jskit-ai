@@ -300,13 +300,19 @@ Local functions
 - `isRecord(value)`
 - `resolveSchemaFieldDefinitions(definition = null)`
 - `resolveJsonApiRelationshipEntries(definition = null)`
+- `readOwnValue(source = {}, key = "")`
+- `resolveLookupContainer(record = {}, lookupContainerKey = "")`
+- `resolveRelationshipValueSource(record = {}, entry = {}, { lookupContainerKey = "", preferLookup = false } = {})`
+- `normalizeLookupId(value)`
+- `normalizeRelationshipIdentifierId(value = null)`
+- `createRelationshipIdentifier(entry = {}, value = null)`
 - `createRecordAttributesResolver(definition = null, { excludeKeys = [] } = {})`
-- `createRecordRelationshipsResolver(definition = null)`
+- `createRecordRelationshipsResolver(definition = null, { lookupContainerKey = "" } = {})`
 - `createRequestRelationshipMapper(definition = null)`
 - `resolveOutputAttributeExcludeKeys(resource = {})`
 - `resolveLookupContainerKey(resource = {})`
-- `normalizeLookupId(value)`
 - `normalizeIncludedLookupRecord(source = null, fallbackId = null)`
+- `appendIncludedRelationshipResource({ included = [], seen = new Set(), entry = {}, lookupRecord = null, fallbackId = null } = {})`
 - `createLookupIncludedResolver(definition = null, { lookupContainerKey = "" } = {})`
 
 ### `src/server/serviceEvents.js`
