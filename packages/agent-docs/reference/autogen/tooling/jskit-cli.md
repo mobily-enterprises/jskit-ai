@@ -770,24 +770,34 @@ Local functions
 Exports
 - `HELPER_MAP_JSON_RELATIVE_PATH`
 - `HELPER_MAP_MARKDOWN_RELATIVE_PATH`
-- `buildHelperMap({ targetRoot })`
+- `buildHelperMap({ targetRoot, previousMap = null })`
 - `readHelperMap({ targetRoot })`
 - `updateHelperMap({ targetRoot })`
 Local functions
 - `pathExists(filePath)`
 - `readJsonFile(filePath)`
+- `readFileHash(filePath)`
 - `normalizePackageDependencies(packageJson = {})`
 - `classifySymbol(name = "")`
 - `createExportAnalysisProject()`
-- `kindFromDeclaration(declaration, exportName = "")`
 - `addSymbol(symbols, symbol)`
+- `compilerNodeHasModifier(node, modifierKind)`
+- `exportedDeclarationName(node)`
+- `addExportedDeclarationSymbol(symbols, node, kind = "export")`
+- `bindingNameTexts(bindingName, names = [])`
+- `addVariableStatementExports(symbols, statement)`
+- `addNamedExportSymbols(symbols, exportClause)`
 - `extractExportedSymbols(sourceFile)`
 - `extractVueScriptSource(source = "", filePath = "")`
 - `addCodeFileToProject(project, file)`
 - `walkCodeFiles(rootPath, relativeRoot = "")`
 - `collectAppExports(targetRoot)`
 - `flattenPackageExports(exportsField)`
-- `collectJskitPackageExports(targetRoot, packageJson = {})`
+- `packageExportTargetRecords(packageRoot, exportTargets = [])`
+- `packageExportFingerprint({ installedPackageJson = {}, packageName = "", targetRecords = [] } = {})`
+- `cachedPackageExports(previousPackagesByName = new Map(), packageName = "", fingerprint = "")`
+- `previousPackageMap(previousMap = null)`
+- `collectJskitPackageExports(targetRoot, packageJson = {}, previousMap = null)`
 - `renderExportList(symbols = [])`
 - `renderHelperMapMarkdown(map)`
 

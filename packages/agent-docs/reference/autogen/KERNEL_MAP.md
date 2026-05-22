@@ -106,6 +106,7 @@ Exports
 - `normalizeCrudLookupApiPath(value = "")`
 - `normalizeCrudLookupNamespace(value = "")`
 - `resolveCrudLookupApiPathFromNamespace(value = "")`
+- `resolveCrudResourceScopeName(value = "")`
 - `normalizeCrudLookupContainerKey(value, { defaultValue = DEFAULT_CRUD_LOOKUP_CONTAINER_KEY, context = "crud lookup container key" } = {})`
 - `resolveCrudLookupContainerKey(resource = {}, options = {})`
 - `resolveCrudLookupFieldKeys(resource = {}, { allowKeys = [] } = {})`
