@@ -1,6 +1,6 @@
 {
   "name": "@jskit-ai/create-app",
-  "version": "0.1.92",
+  "version": "0.1.93",
   "description": "Scaffold minimal JSKIT app shells.",
   "type": "module",
   "files": [

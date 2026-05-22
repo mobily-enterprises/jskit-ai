@@ -6,6 +6,7 @@ import {
   normalizeCrudLookupApiPath,
   normalizeCrudLookupNamespace,
   resolveCrudLookupApiPathFromNamespace,
+  resolveCrudResourceScopeName,
   normalizeCrudLookupContainerKey,
   resolveCrudLookupContainerKey,
   resolveCrudParentFilterKeys,
@@ -58,6 +59,13 @@ test("resolveCrudLookupApiPathFromNamespace maps namespace to api path", () => {
   assert.equal(resolveCrudLookupApiPathFromNamespace("vets"), "/vets");
   assert.equal(resolveCrudLookupApiPathFromNamespace("/customer-categories"), "/customer-categories");
   assert.equal(resolveCrudLookupApiPathFromNamespace(""), "");
+});
+
+test("resolveCrudResourceScopeName maps namespace and api path values to json-rest-api scope names", () => {
+  assert.equal(resolveCrudResourceScopeName("pets"), "pets");
+  assert.equal(resolveCrudResourceScopeName("/customer-categories"), "customerCategories");
+  assert.equal(resolveCrudResourceScopeName("/workspace/pets"), "workspacePets");
+  assert.equal(resolveCrudResourceScopeName(""), "");
 });
 
 test("normalizeCrudLookupContainerKey defaults to canonical value", () => {

@@ -247,6 +247,7 @@ function normalizeRelationshipSchemaEntries(entries = []) {
       relationshipName,
       relationshipType,
       attributeKey,
+      many: source.many === true,
       required: source.required === true,
       nullable: source.nullable === true
     }));
@@ -256,6 +257,7 @@ function normalizeRelationshipSchemaEntries(entries = []) {
 }
 
 function createJsonApiRelationshipDataSchema(relationshipType = "", {
+  many = false,
   nullable = false
 } = {}) {
   const normalizedRelationshipType = normalizeText(relationshipType);
@@ -270,14 +272,20 @@ function createJsonApiRelationshipDataSchema(relationshipType = "", {
         }
       }
     : JSON_API_RESOURCE_IDENTIFIER_SCHEMA;
+  const linkageSchema = many
+    ? {
+        type: "array",
+        items: resourceIdentifierSchema
+      }
+    : resourceIdentifierSchema;
 
   return {
     anyOf: nullable
       ? [
-          resourceIdentifierSchema,
+          linkageSchema,
           { type: "null" }
         ]
-      : [resourceIdentifierSchema]
+      : [linkageSchema]
   };
 }
 
@@ -299,6 +307,7 @@ function createJsonApiRelationshipsTransportSchema(entries = [], {
       required: ["data"],
       properties: {
         data: createJsonApiRelationshipDataSchema(entry.relationshipType, {
+          many: entry.many,
           nullable: entry.nullable
         })
       }
