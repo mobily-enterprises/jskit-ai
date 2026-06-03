@@ -24,6 +24,7 @@ import {
   normalizeMenuLinkPathname,
   resolveMenuLinkTarget
 } from "../support/menuLinkTarget.js";
+import { resolveShellRouteTransitionKey } from "../support/routeTransitionKey.js";
 
 const props = defineProps({
   enabled: {
@@ -232,7 +233,16 @@ const routeTransitionName = computed(() => {
   return "";
 });
 
-const routeTransitionKey = computed(() => normalizeComparablePathname(route?.path || route?.fullPath || "/") || "/");
+const routeTransitionKey = computed(() => {
+  const routePathKey = routeTransitionName.value
+    ? normalizeComparablePathname(route?.path || route?.fullPath || "/")
+    : "";
+  return resolveShellRouteTransitionKey({
+    routePathKey,
+    routeTransitionName: routeTransitionName.value,
+    surfaceId: currentSurfaceId.value
+  });
+});
 
 const swipeNavigationEnabled = computed(() =>
   Boolean(
@@ -409,7 +419,12 @@ function isSwipeIgnoredTarget(target) {
 <style scoped>
 .shell-route-transition {
   --shell-route-transition-distance: 100%;
+  align-items: stretch;
   --shell-route-transition-opacity: 1;
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  min-height: 0;
   overflow-x: clip;
   position: relative;
 }
@@ -420,6 +435,10 @@ function isSwipeIgnoredTarget(target) {
 
 .shell-route-transition__pane {
   background: rgb(var(--v-theme-background));
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  min-height: 0;
   width: 100%;
 }
 
