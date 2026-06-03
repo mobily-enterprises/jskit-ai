@@ -164,7 +164,7 @@ const hasTabs = computed(() => Boolean(slots.tabs));
       <p v-if="resolvedSubtitle" class="text-body-2 text-medium-emphasis mb-0">{{ resolvedSubtitle }}</p>
     </header>
 
-    <v-sheet v-if="hasTabs" rounded="lg" border class="section-container-shell__nav">
+    <v-sheet v-if="hasTabs" rounded="lg" class="section-container-shell__nav">
       <slot name="tabs" />
     </v-sheet>
 
@@ -188,9 +188,9 @@ const hasTabs = computed(() => Boolean(slots.tabs));
 .section-container-shell__nav {
   align-items: center;
   display: flex;
-  gap: 0.5rem;
+  gap: 0.375rem;
   overflow-x: auto;
-  padding: 0.5rem;
+  padding: 0.375rem;
   scrollbar-width: thin;
 }
 

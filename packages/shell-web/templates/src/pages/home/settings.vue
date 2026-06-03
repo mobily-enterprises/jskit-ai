@@ -14,7 +14,7 @@ import { RouterView } from "vue-router";
     <v-sheet rounded="lg" border class="settings-shell__panel">
       <div class="settings-shell__body">
         <nav class="settings-shell__nav" aria-label="Home settings sections">
-          <v-list nav density="comfortable" rounded="lg" border>
+          <v-list nav density="compact" rounded="lg">
             <ShellOutlet target="home-settings:primary-menu" />
           </v-list>
         </nav>
@@ -53,7 +53,31 @@ import { RouterView } from "vue-router";
 }
 
 .settings-shell__content {
+  border-left: 1px solid rgba(var(--v-theme-on-surface), 0.18);
   min-width: 0;
+  padding-left: 1rem;
+}
+
+.settings-shell__nav :deep(.v-list) {
+  padding: 0.35rem;
+}
+
+.settings-shell__nav :deep(.v-list-item) {
+  min-height: 48px;
+  padding-inline: 0.6rem 0.7rem;
+}
+
+.settings-shell__nav :deep(.v-list-item__prepend) {
+  margin-inline-end: 0;
+}
+
+.settings-shell__nav :deep(.v-list-item__spacer) {
+  min-width: 0.5rem;
+  width: 0.5rem;
+}
+
+.settings-shell__nav :deep(.v-list-item-title) {
+  line-height: 1.2;
 }
 
 @media (max-width: 960px) {
@@ -71,6 +95,11 @@ import { RouterView } from "vue-router";
   .settings-shell__nav :deep(.v-list-item) {
     flex: 0 0 auto;
     min-height: 48px;
+  }
+
+  .settings-shell__content {
+    border-left: 0;
+    padding-left: 0;
   }
 }
 </style>
