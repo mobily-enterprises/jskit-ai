@@ -57,8 +57,22 @@ export default defineConfig({
   test: {
     include: ["tests/client/**/*.vitest.js"]
   },
+  optimizeDeps: {
+    entries: [
+      "index.html",
+      "src/**/*.{js,ts,vue}"
+    ]
+  },
   server: {
     port: devPort,
+    warmup: {
+      clientFiles: [
+        "src/main.{js,ts}",
+        "src/router/**/*.{js,ts}",
+        "src/pages/**/*.{js,ts,vue}",
+        "src/components/**/*.{js,ts,vue}"
+      ]
+    },
     proxy: {
       "/api": {
         target: apiProxyTarget,

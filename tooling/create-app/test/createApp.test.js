@@ -359,6 +359,12 @@ test("create-app scaffolds the base shell with placeholder replacements", async 
     assert.doesNotMatch(viteConfig, /^\s*beforeWriteFiles:\s*reparentNestedChildrenToIndexOwners/m);
     assert.match(viteConfig, /nestedChildren deprecated/);
     assert.doesNotMatch(viteConfig, /dedupe:\s*\[/);
+    assert.match(viteConfig, /optimizeDeps:\s*\{/);
+    assert.match(viteConfig, /entries:\s*\[/);
+    assert.match(viteConfig, /"src\/\*\*\/\*\.\{js,ts,vue\}"/);
+    assert.match(viteConfig, /warmup:\s*\{/);
+    assert.match(viteConfig, /clientFiles:\s*\[/);
+    assert.match(viteConfig, /"src\/pages\/\*\*\/\*\.\{js,ts,vue\}"/);
 
     assert.doesNotMatch(result.stdout, /Then add framework capabilities:/);
     assert.doesNotMatch(result.stdout, /npx jskit add package auth-provider-supabase-core/);
