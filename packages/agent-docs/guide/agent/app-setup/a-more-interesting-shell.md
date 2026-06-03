@@ -211,9 +211,11 @@ There are two different paths to keep straight:
 1. placement and menu metadata such as `src/placement.js`
 2. direct Vuetify icon props inside normal `.vue` components
 
-In placement metadata, raw `mdi-*` strings are acceptable because the shell menu runtime normalizes them before Vuetify renders the icon. A menu entry like this is fine:
+For placement metadata, prefer importing app-specific icons from `@mdi/js` in the placement file itself. The shell menu runtime accepts the resolved SVG path value and passes it through to Vuetify:
 
 ```js
+import { mdiAccountCircleOutline } from "@mdi/js";
+
 addPlacement({
   id: "home.settings.profile.link",
   target: "page.section-nav",
@@ -223,18 +225,18 @@ addPlacement({
   props: {
     label: "Profile",
     to: "./profile",
-    icon: "mdi-account-circle-outline"
+    icon: mdiAccountCircleOutline
   }
 });
 ```
 
-But do not copy that same string into a normal Vue component:
+Do not copy raw `mdi-*` strings into a normal Vue component:
 
 ```vue
 <v-list-item prepend-icon="mdi-account-circle-outline" />
 ```
 
-JSKIT apps use Vuetify's SVG MDI renderer, so direct Vue icon props should use an `@mdi/js` path or a Vuetify alias instead:
+JSKIT apps use Vuetify's SVG MDI renderer, so direct Vue icon props should use the same `@mdi/js` path or a Vuetify alias instead:
 
 ```vue
 <script setup>
@@ -246,7 +248,8 @@ import { mdiAccountCircleOutline } from "@mdi/js";
 
 So the practical rule is:
 
-- editing `src/placement.js` or other shell menu metadata: `mdi-*` strings are fine
+- editing `src/placement.js` or other shell menu metadata: import app-specific icons from `@mdi/js` and pass the constant
+- raw `mdi-*` metadata strings are only safe for shell-web's small core normalized icon map
 - editing a normal `.vue` file: use `@mdi/js` or a Vuetify alias such as `$close`
 
 Later in the guide, `jskit doctor` will help catch the second mistake automatically.
