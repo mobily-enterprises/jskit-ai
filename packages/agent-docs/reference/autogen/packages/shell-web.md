@@ -353,6 +353,12 @@ Local functions
 - `isRelativeMenuLinkTarget(target = "")`
 - `surfaceRequiresWorkspaceFromPlacementContext(contextValue = null, surfaceId = "")`
 
+### `src/client/support/routeTransitionKey.js`
+Exports
+- `resolveShellRouteTransitionKey({ routePathKey = "", routeTransitionName = "", surfaceId = "" } = {})`
+Local functions
+- `normalizeText(value = "")`
+
 ### `src/server/support/localLinkItemScaffolds.js`
 Exports
 - `LOCAL_LINK_ITEM_COMPONENT_DEFINITIONS`
