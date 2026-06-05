@@ -194,7 +194,7 @@ Local functions
 Exports
 - `buildSupabaseServerClientOptions(options = {})`
 Local functions
-- `resolveRealtimeTransport({ nativeWebSocket = globalThis.WebSocket, fallbackTransport = WebSocket } = {})`
+- `resolveRealtimeTransport(options = {})`
 
 ### `src/server/lib/test-utils.js`
 Exports
