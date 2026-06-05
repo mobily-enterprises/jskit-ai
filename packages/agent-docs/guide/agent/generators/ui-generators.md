@@ -100,20 +100,23 @@ normally get adjusted.
 
 The important icon rule is this:
 
-- inside `src/placement.js` menu metadata, raw `mdi-*` strings are fine
-- inside normal Vue component props, they are not
+- inside `src/placement.js` menu metadata, import app-specific icons from `@mdi/js` and pass the path constant
+- only use raw `mdi-*` strings for the small set of shell-web core icons that JSKIT normalizes
+- inside normal Vue component props, use the same `@mdi/js` path constants or a Vuetify alias
 
 So this is a valid menu-placement customization:
 
 ```js
+import { mdiChartBoxOutline } from "@mdi/js";
+
 props: {
   label: "Reports",
   to: "/reports",
-  icon: "mdi-chart-box-outline"
+  icon: mdiChartBoxOutline
 }
 ```
 
-But if you later open the generated page file itself and add a Vuetify icon to the template, switch back to `@mdi/js`:
+If you later open the generated page file itself and add a Vuetify icon to the template, use the same `@mdi/js` pattern:
 
 ```vue
 <script setup>
@@ -123,7 +126,7 @@ import { mdiChartBoxOutline } from "@mdi/js";
 <v-icon :icon="mdiChartBoxOutline" />
 ```
 
-This split matters because JSKIT's shell menu components normalize menu metadata icons for you, while direct Vue icon props go straight to Vuetify.
+This keeps icon imports local and tree-shakeable. Do not import the whole `@mdi/js` namespace just to look up icon names dynamically.
 
 ## What `page` is really good at
 

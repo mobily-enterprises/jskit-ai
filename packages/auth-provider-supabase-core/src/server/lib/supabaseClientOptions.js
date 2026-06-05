@@ -1,9 +1,11 @@
 import WebSocket from "ws";
 
-function resolveRealtimeTransport({
-  nativeWebSocket = globalThis.WebSocket,
-  fallbackTransport = WebSocket
-} = {}) {
+function resolveRealtimeTransport(options = {}) {
+  const nativeWebSocket = Object.hasOwn(options, "nativeWebSocket")
+    ? options.nativeWebSocket
+    : globalThis.WebSocket;
+  const { fallbackTransport = WebSocket } = options;
+
   if (typeof nativeWebSocket === "function") {
     return null;
   }

@@ -13,7 +13,7 @@ import { RouterView } from "vue-router";
 
     <v-sheet rounded="lg" border class="settings-shell__panel">
       <nav class="settings-shell__nav" aria-label="Console settings sections">
-        <v-list nav density="comfortable" class="settings-shell__nav-list">
+        <v-list nav density="compact" class="settings-shell__nav-list">
           <ShellOutlet target="console-settings:primary-menu" />
         </v-list>
       </nav>
@@ -41,11 +41,31 @@ import { RouterView } from "vue-router";
 }
 
 .settings-shell__nav-list {
-  padding: 0;
+  padding: 0.35rem;
+}
+
+.settings-shell__nav-list :deep(.v-list-item) {
+  min-height: 48px;
+  padding-inline: 0.6rem 0.7rem;
+}
+
+.settings-shell__nav-list :deep(.v-list-item__prepend) {
+  margin-inline-end: 0;
+}
+
+.settings-shell__nav-list :deep(.v-list-item__spacer) {
+  min-width: 0.5rem;
+  width: 0.5rem;
+}
+
+.settings-shell__nav-list :deep(.v-list-item-title) {
+  line-height: 1.2;
 }
 
 .settings-shell__content {
+  border-left: 1px solid rgba(var(--v-theme-on-surface), 0.18);
   min-width: 0;
+  padding-left: 1rem;
 }
 
 @media (max-width: 960px) {
@@ -59,12 +79,17 @@ import { RouterView } from "vue-router";
 
   .settings-shell__nav-list {
     display: flex;
-    gap: 0.5rem;
+    gap: 0.25rem;
     min-width: max-content;
   }
 
   .settings-shell__nav-list :deep(.v-list-item) {
     min-height: 48px;
+  }
+
+  .settings-shell__content {
+    border-left: 0;
+    padding-left: 0;
   }
 }
 </style>

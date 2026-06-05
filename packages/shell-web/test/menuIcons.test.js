@@ -4,6 +4,7 @@ import test from "node:test";
 import { readFile } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
 import {
+  mdiAccountKeyOutline,
   mdiCogOutline,
   mdiConsoleNetworkOutline,
   mdiViewListOutline
@@ -27,6 +28,10 @@ test("shell-web resolves supported explicit mdi metadata icons from a finite map
 
 test("shell-web leaves unknown explicit mdi metadata icons unchanged", () => {
   assert.equal(resolveMenuLinkIcon({ icon: "mdi-not-a-real-supported-icon" }), "mdi-not-a-real-supported-icon");
+});
+
+test("shell-web accepts imported @mdi/js path constants as explicit menu icons", () => {
+  assert.equal(resolveMenuLinkIcon({ icon: mdiAccountKeyOutline }), mdiAccountKeyOutline);
 });
 
 test("shell-web menu icon resolution does not import the full mdi namespace", async () => {

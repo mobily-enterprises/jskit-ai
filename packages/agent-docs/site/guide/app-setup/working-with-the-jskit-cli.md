@@ -698,13 +698,15 @@ That last check is narrower than it sounds. `doctor` is looking for the broken c
 <v-icon icon="mdi-paw" />
 ```
 
-It does not flag the normal menu-metadata case in `src/placement.js`, where a shell menu link may still use:
+It does not flag `src/placement.js` menu metadata because shell menu links normalize a small core icon map and also accept imported `@mdi/js` path constants. For app-specific icons, prefer a local import:
 
 ```js
-icon: "mdi-cog-outline"
+import { mdiPaw } from "@mdi/js";
+
+icon: mdiPaw
 ```
 
-because the shell runtime normalizes that metadata before Vuetify renders it. So if you see a `doctor` icon warning, the fix is usually "switch this Vue component to `@mdi/js`", not "remove every `mdi-*` string from the app."
+So if you see a `doctor` icon warning, the fix is usually "switch this Vue component to `@mdi/js`", not "centralize every icon in the app."
 
 In other words, `doctor` helps catch drift between:
 

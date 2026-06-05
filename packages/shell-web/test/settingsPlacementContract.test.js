@@ -5,6 +5,7 @@ import { readFile } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
 import { assertGeneratedUiSourceContract } from "@jskit-ai/kernel/shared/support/generatedUiContract";
 import descriptor from "../package.descriptor.mjs";
+import { resolveShellRouteTransitionKey } from "../src/client/support/routeTransitionKey.js";
 
 const TEST_DIRECTORY = path.dirname(fileURLToPath(import.meta.url));
 const PACKAGE_DIR = path.resolve(TEST_DIRECTORY, "..");
@@ -159,8 +160,52 @@ test("shell-web route transition keeps mobile route motion placement-driven", as
   assert.match(source, /router\.push\(nextEntry\.href\)/);
   assert.match(source, /isSwipeIgnoredTarget/);
   assert.match(source, /touch-action:\s*pan-y/);
+  assert.match(source, /\.shell-route-transition\s*\{[\s\S]*display:\s*flex/);
+  assert.match(source, /\.shell-route-transition\s*\{[\s\S]*min-height:\s*0/);
+  assert.match(source, /\.shell-route-transition__pane\s*\{[\s\S]*flex:\s*1 1 auto/);
+  assert.match(source, /\.shell-route-transition__pane\s*\{[\s\S]*min-height:\s*0/);
   assert.match(source, /transitionDirection\.value = nextIndex > previousIndex \? "forward" : "reverse"/);
+  assert.match(
+    source,
+    /const routeTransitionKey = computed\(\(\) => \{[\s\S]*const routePathKey = routeTransitionName\.value[\s\S]*normalizeComparablePathname\(route\?\.path \|\| route\?\.fullPath \|\| "\/"\)[\s\S]*resolveShellRouteTransitionKey\(\{[\s\S]*routeTransitionName: routeTransitionName\.value,[\s\S]*surfaceId: currentSurfaceId\.value[\s\S]*\}\);[\s\S]*\}\);/
+  );
   assert.match(source, /prefers-reduced-motion:\s*reduce/);
+});
+
+test("shell-web route transition key preserves no-motion surfaces and animated path transitions", () => {
+  const previewSurfaceKey = "surface:vibe64-preview";
+  assert.equal(
+    resolveShellRouteTransitionKey({
+      routeTransitionName: "",
+      routePathKey: "/preview",
+      surfaceId: "vibe64-preview"
+    }),
+    previewSurfaceKey
+  );
+  assert.equal(
+    resolveShellRouteTransitionKey({
+      routeTransitionName: "",
+      routePathKey: "/preview/dashboard",
+      surfaceId: "vibe64-preview"
+    }),
+    previewSurfaceKey
+  );
+  assert.equal(
+    resolveShellRouteTransitionKey({
+      routeTransitionName: "shell-route-slide-forward",
+      routePathKey: "/dashboard",
+      surfaceId: "home"
+    }),
+    "/dashboard"
+  );
+  assert.equal(
+    resolveShellRouteTransitionKey({
+      routeTransitionName: "",
+      routePathKey: "/dashboard",
+      surfaceId: "*"
+    }),
+    "stable"
+  );
 });
 
 test("shell-web settings landing page redirects to the starter child page", async () => {
