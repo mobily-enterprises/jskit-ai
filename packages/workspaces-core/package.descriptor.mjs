@@ -65,6 +65,14 @@ export default Object.freeze({
         {
           subpath: "./server",
           summary: "Exports the workspace runtime provider and workspace route registration surface."
+        },
+        {
+          subpath: "./shared/resources/workspaceResource",
+          summary: "Exports the workspace resource contract for app-owned workspace pages."
+        },
+        {
+          subpath: "./shared/resources/workspaceSettingsResource",
+          summary: "Exports the workspace settings resource contract for app-owned workspace settings pages."
         }
       ],
       containerTokens: {

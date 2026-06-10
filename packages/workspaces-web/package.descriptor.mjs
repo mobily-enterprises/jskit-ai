@@ -1,9 +1,9 @@
 export default Object.freeze({
   packageVersion: 1,
   packageId: "@jskit-ai/workspaces-web",
-  version: "0.1.61",
+  version: "0.1.62",
   kind: "runtime",
-  description: "Workspace web module: workspace selector, tools widget, workspace surfaces, and members/settings UI.",
+  description: "Workspace web module: workspace selector, tools widget, workspace surfaces, members UI, and settings hosts.",
   dependsOn: [
     "@jskit-ai/workspaces-core",
     "@jskit-ai/users-web"
@@ -40,10 +40,6 @@ export default Object.freeze({
         {
           subpath: "./client/components/AccountSettingsInvitesSection",
           summary: "Exports the default account invites section component used by multihoming installs."
-        },
-        {
-          subpath: "./client/components/WorkspaceSettingsClientElement",
-          summary: "Exports the workspace settings client element used by the workspace admin settings starter page."
         },
         {
           subpath: "./client/providers/WorkspacesWebClientProvider",

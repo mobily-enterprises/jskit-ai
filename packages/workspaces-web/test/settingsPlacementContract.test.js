@@ -101,8 +101,6 @@ test("workspaces-web installs an app-owned account invites section wrapper", asy
 test("workspaces-web settings components use direct panels instead of card scaffolds", async () => {
   for (const relativePath of [
     path.join("templates", "src", "components", "WorkspaceNotFoundCard.vue"),
-    path.join("src", "client", "components", "WorkspaceProfileClientElement.vue"),
-    path.join("src", "client", "components", "WorkspaceSettingsFieldsClientElement.vue"),
     path.join("src", "client", "components", "WorkspacesClientElement.vue"),
     path.join("src", "client", "components", "AccountSettingsInvitesSection.vue")
   ]) {
@@ -118,8 +116,6 @@ test("workspaces-web settings components use direct panels instead of card scaff
 
 test("workspaces-web resource load states expose local retry actions", async () => {
   const expectations = new Map([
-    ["src/client/components/WorkspaceProfileClientElement.vue", /addEdit\.canRetryLoad[\s\S]*@click="addEdit\.refresh"/],
-    ["src/client/components/WorkspaceSettingsFieldsClientElement.vue", /addEdit\.canRetryLoad[\s\S]*@click="addEdit\.refresh"/],
     ["src/client/components/WorkspacesClientElement.vue", /bootstrapLoadError[\s\S]*@click="refreshBootstrap"/],
     ["src/client/components/WorkspaceMembersClientElement.vue", /canRetryLoad[\s\S]*@click="refreshLoad"/]
   ]);
@@ -149,14 +145,25 @@ test("workspaces-web installs an account invites cue scaffold that reads placeme
   });
 });
 
-test("workspaces-web admin settings index template renders real workspace settings controls", async () => {
+test("workspaces-web admin settings index template is an app-owned landing slot", async () => {
   const source = await readFile(
     path.join(PACKAGE_DIR, "templates", "src", "pages", "admin", "workspace", "settings", "index.vue"),
     "utf8"
   );
 
-  assert.match(source, /@jskit-ai\/workspaces-web\/client\/components\/WorkspaceSettingsClientElement/);
-  assert.match(source, /<WorkspaceSettingsClientElement \/>/);
+  assertGeneratedUiSourceContract(source, {
+    forbidCardShell: true,
+    sourceName: "admin/workspace/settings/index.vue",
+    requiredPatterns: [
+      {
+        id: "app-owned-settings-landing",
+        pattern: /No settings sections yet/,
+        message: "Workspace settings index needs a product-shaped app-owned landing state."
+      }
+    ]
+  });
+  assert.doesNotMatch(source, /@jskit-ai\/workspaces-web\/client\/components\/WorkspaceSettingsClientElement/);
+  assert.doesNotMatch(source, /<WorkspaceSettingsClientElement \/>/);
   assert.doesNotMatch(source, /your_child_segment|To redirect this settings shell/);
 });
 

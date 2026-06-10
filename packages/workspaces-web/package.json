@@ -1,6 +1,6 @@
 {
   "name": "@jskit-ai/workspaces-web",
-  "version": "0.1.61",
+  "version": "0.1.62",
   "type": "module",
   "scripts": {
     "test": "node --test"
@@ -10,7 +10,6 @@
     "./client/components/AccountSettingsInvitesSection": "./src/client/components/AccountSettingsInvitesSection.vue",
     "./client/providers/WorkspacesWebClientProvider": "./src/client/providers/WorkspacesWebClientProvider.js",
     "./client/components/WorkspaceMembersClientElement": "./src/client/components/WorkspaceMembersClientElement.vue",
-    "./client/components/WorkspaceSettingsClientElement": "./src/client/components/WorkspaceSettingsClientElement.vue",
     "./client/composables/useWorkspaceRouteContext": "./src/client/composables/useWorkspaceRouteContext.js"
   },
   "dependencies": {
