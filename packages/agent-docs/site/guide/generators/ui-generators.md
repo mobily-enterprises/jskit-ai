@@ -25,14 +25,11 @@ To get back to the same starting point as the end of the shell chapter, run:
 npx @jskit-ai/create-app exampleapp --tenancy-mode none
 cd exampleapp
 npm install
-
-npx jskit add package shell-web
-npm install
 ```
 
 If you are already continuing from the earlier guide chapters, you are already in the right place and can skip that setup.
 
-One important detail before we start: `ui-generator` is a CLI tool, not a runtime package you add to the app. The runtime package that makes these examples meaningful is `shell-web`, because that is what gives the app real surfaces, placements, and nested shell structure.
+One important detail before we start: `ui-generator` is a CLI tool, not a runtime package you add to the app. The default scaffold already includes `shell-web`, which is the runtime package that makes these examples meaningful by giving the app real surfaces, placements, and nested shell structure.
 
 ## `ui-generator` `@jskit-ai/ui-generator` `(0.1.22)`
 

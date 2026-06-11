@@ -151,6 +151,8 @@ test("create-app scaffolds the base shell with placeholder replacements", async 
     assert.equal(packageJson.dependencies["@local/main"], "file:packages/main");
     assert.equal(packageJson.dependencies["@fastify/static"], "^9.1.1");
     assert.match(packageJson.dependencies["@jskit-ai/http-runtime"], /^\d+\.x$/);
+    assert.equal(packageJson.dependencies["@mdi/js"], "^7.4.47");
+    assert.match(packageJson.dependencies["@jskit-ai/shell-web"], /^\d+\.x$/);
     assert.equal(
       Object.keys(packageJson.dependencies).some((entry) => entry.includes("type-provider") && entry.includes("fastify")),
       false
@@ -198,6 +200,7 @@ test("create-app scaffolds the base shell with placeholder replacements", async 
     assert.match(clientSmoke, /sample-app client smoke/);
     const e2eSmoke = await readFile(path.join(appRoot, "tests/e2e/base-shell.spec.ts"), "utf8");
     assert.match(e2eSmoke, /generated base app responsive smoke/);
+    assert.match(e2eSmoke, /Ready/);
     assert.match(e2eSmoke, /390/);
     assert.match(e2eSmoke, /768/);
     assert.match(e2eSmoke, /1280/);
@@ -259,6 +262,7 @@ test("create-app scaffolds the base shell with placeholder replacements", async 
     assert.doesNotMatch(serverJs, /defaultProfile:\s*"app"/);
 
     const appVue = await readFile(path.join(appRoot, "src/App.vue"), "utf8");
+    assert.match(appVue, /ShellErrorHost/);
     assert.match(appVue, /<RouterView \/>/);
 
     const localMainPackageJson = JSON.parse(
@@ -323,9 +327,15 @@ test("create-app scaffolds the base shell with placeholder replacements", async 
     );
     assert.match(localMainClientProvider, /class MainClientProvider/);
     assert.match(localMainClientProvider, /static id = "local\.main\.client";/);
+    assert.match(localMainClientProvider, /import MenuLinkItem from "\/src\/components\/menus\/MenuLinkItem\.vue";/);
+    assert.match(localMainClientProvider, /import SurfaceAwareMenuLinkItem from "\/src\/components\/menus\/SurfaceAwareMenuLinkItem\.vue";/);
+    assert.match(localMainClientProvider, /import TabLinkItem from "\/src\/components\/menus\/TabLinkItem\.vue";/);
     assert.match(localMainClientProvider, /function registerMainClientComponent/);
     assert.match(localMainClientProvider, /mainClientComponents\.push\(\{ token, resolveComponent \}\);/);
     assert.match(localMainClientProvider, /for \(const \{ token, resolveComponent \} of mainClientComponents\)/);
+    assert.match(localMainClientProvider, /registerMainClientComponent\("local\.main\.ui\.menu-link-item", \(\) => MenuLinkItem\);/);
+    assert.match(localMainClientProvider, /registerMainClientComponent\("local\.main\.ui\.surface-aware-menu-link-item", \(\) => SurfaceAwareMenuLinkItem\);/);
+    assert.match(localMainClientProvider, /registerMainClientComponent\("local\.main\.ui\.tab-link-item", \(\) => TabLinkItem\);/);
     assert.doesNotMatch(localMainClientProvider, /String\(componentToken \|\| ""\)\.trim\(\)/);
     assert.doesNotMatch(localMainClientProvider, /Object\.freeze\(\{\s*token,\s*resolveComponent\s*\}\)/);
     assert.doesNotMatch(localMainClientProvider, /requires application singleton/);
@@ -335,20 +345,35 @@ test("create-app scaffolds the base shell with placeholder replacements", async 
     assert.equal(lockfile.installedPackages["@local/main"].source.type, "local-package");
     assert.equal(lockfile.installedPackages["@local/main"].source.packagePath, "packages/main");
     assert.equal(lockfile.installedPackages["@local/main"].source.descriptorPath, "packages/main/package.descriptor.mjs");
+    assert.ok(lockfile.installedPackages["@jskit-ai/shell-web"]);
+    assert.equal(lockfile.installedPackages["@jskit-ai/shell-web"].source.type, "catalog");
+    assert.equal(
+      lockfile.installedPackages["@jskit-ai/shell-web"].managed.packageJson.dependencies["@jskit-ai/shell-web"].value,
+      "0.x"
+    );
 
     const notFoundView = await readFile(path.join(appRoot, "src/views/NotFound.vue"), "utf8");
     assert.match(notFoundView, /The page you requested does not exist\./);
 
     await assert.rejects(access(path.join(appRoot, "src/pages/index.vue")), /ENOENT/);
     const homeView = await readFile(path.join(appRoot, "src/pages/home/index.vue"), "utf8");
-    assert.doesNotMatch(homeView, /@jskit-ai\/shell-web/);
-    assert.match(homeView, /generated-ui-screen generated-ui-screen--app home-start-screen/);
+    assert.match(homeView, /generated-ui-screen generated-ui-screen--app home-surface-screen/);
     assert.match(homeView, /--generated-ui-screen-title-size/);
-    assert.match(homeView, /home-start-screen/);
-    assert.match(homeView, /Home base/);
-    assert.match(homeView, /No activity yet/);
+    assert.match(homeView, /home-surface-screen/);
+    assert.match(homeView, /Ready/);
+    assert.match(homeView, /Core services are available\./);
     assert.doesNotMatch(homeView, /<v-card\b|Start by adding packages|Generate a page|install a package|Add product packages/);
     assert.doesNotMatch(homeView, /const appTitle =/);
+    await access(path.join(appRoot, "src/components/ShellLayout.vue"));
+    await access(path.join(appRoot, "src/components/menus/MenuLinkItem.vue"));
+    await access(path.join(appRoot, "src/components/menus/SurfaceAwareMenuLinkItem.vue"));
+    await access(path.join(appRoot, "src/components/menus/TabLinkItem.vue"));
+    await access(path.join(appRoot, "src/error.js"));
+    await access(path.join(appRoot, "src/placement.js"));
+    await access(path.join(appRoot, "src/placementTopology.js"));
+    await access(path.join(appRoot, "src/pages/home/settings.vue"));
+    await access(path.join(appRoot, "src/pages/home/settings/general/index.vue"));
+    await access(path.join(appRoot, "tests/e2e/adaptive-shell.spec.ts"));
     await assert.rejects(access(path.join(appRoot, "src/pages/console.vue")), /ENOENT/);
     await assert.rejects(access(path.join(appRoot, "src/pages/console/index.vue")), /ENOENT/);
     await assert.rejects(access(path.join(appRoot, "src/pages/app.vue")), /ENOENT/);
@@ -590,16 +615,15 @@ test("create-app applies explicit app title when --title is provided", async () 
 
     await assert.rejects(access(path.join(appRoot, "src/pages/index.vue")), /ENOENT/);
     const homeView = await readFile(path.join(appRoot, "src/pages/home/index.vue"), "utf8");
-    assert.doesNotMatch(homeView, /@jskit-ai\/shell-web/);
-    assert.match(homeView, /generated-ui-screen generated-ui-screen--app home-start-screen/);
+    assert.match(homeView, /generated-ui-screen generated-ui-screen--app home-surface-screen/);
     assert.match(homeView, /--generated-ui-screen-title-size/);
-    assert.match(homeView, /home-start-screen/);
-    assert.match(homeView, /No activity yet/);
+    assert.match(homeView, /home-surface-screen/);
+    assert.match(homeView, /Core services are available\./);
     assert.doesNotMatch(homeView, /<v-card\b|Start by adding packages|Generate a page|install a package|Add product packages/);
   });
 });
 
-test("generated shell-only app passes jskit doctor and keeps minimal Procfile", async () => {
+test("generated default shell app passes jskit doctor and keeps minimal Procfile", async () => {
   await withCreateAppTempDir(async (cwd) => {
     const createResult = runCli({ cwd, args: ["shell-only-app"] });
     assert.equal(createResult.status, 0, createResult.stderr);
@@ -615,14 +639,6 @@ test("generated shell-only app passes jskit doctor and keeps minimal Procfile", 
     await assert.rejects(access(path.join(appRoot, "src/pages/admin.vue")), /ENOENT/);
     await assert.rejects(access(path.join(appRoot, "src/pages/console.vue")), /ENOENT/);
 
-    const addShellWebResult = runJskit({
-      cwd: appRoot,
-      args: ["add", "package", "shell-web"]
-    });
-    assert.equal(addShellWebResult.status, 0, addShellWebResult.stderr);
-
-    await assert.rejects(access(path.join(appRoot, "src/pages/app.vue")), /ENOENT/);
-    await assert.rejects(access(path.join(appRoot, "src/pages/admin.vue")), /ENOENT/);
     const homeWrapper = await readFile(path.join(appRoot, "src/pages/home.vue"), "utf8");
     const mainClientProvider = await readFile(
       path.join(appRoot, "packages/main/src/client/providers/MainClientProvider.js"),
@@ -649,18 +665,45 @@ test("generated shell-only app passes jskit doctor and keeps minimal Procfile", 
   });
 });
 
-test("fresh app CRUD scaffolds encode explicit M3 action hierarchy and stable settings links", async () => {
+test("create-app minimal mode keeps the bare scaffold and can still install shell-web", async () => {
   await withCreateAppTempDir(async (cwd) => {
-    const createResult = runCli({ cwd, args: ["crud-ui-hierarchy-app"] });
+    const createResult = runCli({ cwd, args: ["minimal-app", "--minimal"] });
     assert.equal(createResult.status, 0, createResult.stderr);
 
-    const appRoot = path.join(cwd, "crud-ui-hierarchy-app");
+    const appRoot = path.join(cwd, "minimal-app");
+    const packageJsonBefore = JSON.parse(await readFile(path.join(appRoot, "package.json"), "utf8"));
+    assert.equal(packageJsonBefore.dependencies["@jskit-ai/shell-web"], undefined);
+    const homeViewBefore = await readFile(path.join(appRoot, "src/pages/home/index.vue"), "utf8");
+    assert.match(homeViewBefore, /home-start-screen/);
+    assert.match(homeViewBefore, /Home base/);
+    await assert.rejects(access(path.join(appRoot, "src/components/ShellLayout.vue")), /ENOENT/);
 
     const addShellWebResult = runJskit({
       cwd: appRoot,
       args: ["add", "package", "shell-web"]
     });
     assert.equal(addShellWebResult.status, 0, addShellWebResult.stderr);
+
+    const packageJsonAfter = JSON.parse(await readFile(path.join(appRoot, "package.json"), "utf8"));
+    const lockfile = JSON.parse(await readFile(path.join(appRoot, ".jskit/lock.json"), "utf8"));
+    const appVue = await readFile(path.join(appRoot, "src/App.vue"), "utf8");
+    const homeViewAfter = await readFile(path.join(appRoot, "src/pages/home/index.vue"), "utf8");
+
+    assert.match(packageJsonAfter.dependencies["@jskit-ai/shell-web"], /^\d+\.x$/);
+    assert.ok(lockfile.installedPackages["@jskit-ai/shell-web"]);
+    assert.match(appVue, /ShellErrorHost/);
+    assert.match(homeViewAfter, /home-surface-screen/);
+    await access(path.join(appRoot, "src/components/ShellLayout.vue"));
+    await access(path.join(appRoot, "tests/e2e/adaptive-shell.spec.ts"));
+  });
+});
+
+test("fresh app CRUD scaffolds encode explicit M3 action hierarchy and stable settings links", async () => {
+  await withCreateAppTempDir(async (cwd) => {
+    const createResult = runCli({ cwd, args: ["crud-ui-hierarchy-app"] });
+    assert.equal(createResult.status, 0, createResult.stderr);
+
+    const appRoot = path.join(cwd, "crud-ui-hierarchy-app");
 
     await writeCrudCustomerResource(appRoot);
 
@@ -850,7 +893,7 @@ test("workspaces-web workspace tenancy mode installs workspace surfaces and wrap
   });
 });
 
-test("generated app supports shell + auth progressive installation", async () => {
+test("generated default shell app supports auth progressive installation", async () => {
   await withCreateAppTempDir(async (cwd) => {
     const createResult = runCli({ cwd, args: ["shell-auth-app"] });
     assert.equal(createResult.status, 0, createResult.stderr);

@@ -28,7 +28,7 @@ The easiest way to understand `jskit` is to separate it from the other tools in 
 
 That separation is crucial.
 
-When you run a command such as `npx jskit add package shell-web`, JSKIT updates app-owned files and records what it changed. It does **not** replace npm, Vite, or Knex.
+When you run a command such as `npx jskit add package auth-provider-supabase-core`, JSKIT updates app-owned files and records what it changed. It does **not** replace npm, Vite, or Knex.
 
 The most important record of that managed state lives here:
 
@@ -476,7 +476,7 @@ This is not required, but it is genuinely useful once you start using commands s
 The install command comes in two main forms:
 
 ```bash
-npx jskit add package shell-web
+npx jskit add package auth-provider-supabase-core
 npx jskit add bundle auth-base
 ```
 
@@ -487,22 +487,22 @@ Those two examples look similar, but they do different things.
 Use this when you know the exact runtime package you want:
 
 ```bash
-npx jskit add package shell-web
+npx jskit add package users-web
 ```
 
-This is the command the next chapter uses.
+This is the shape of the package install commands used throughout the rest of the guide.
 
 Important defaults:
 
-- short ids such as `shell-web` resolve to `@jskit-ai/shell-web` when available
+- short ids such as `users-web` resolve to `@jskit-ai/users-web` when available
 - JSKIT records the install in `.jskit/lock.json`
 - JSKIT rewrites app-owned managed files as needed
 - npm install does **not** run unless you ask for it with `--run-npm-install`
 
-That last point is why the normal guide flow is still:
+That last point is why the normal guide flow after adding a runtime package is still:
 
 ```bash
-npx jskit add package shell-web
+npx jskit add package users-web
 npm install
 ```
 
@@ -1079,4 +1079,4 @@ And then keep one more distinction in your head:
 
 That is the mental model the rest of the guide assumes.
 
-The next chapter goes back to the normal hands-on flow and uses that model immediately by installing `shell-web`.
+The next chapter goes back to the normal hands-on flow and uses that model while inspecting the shell that default apps already include.

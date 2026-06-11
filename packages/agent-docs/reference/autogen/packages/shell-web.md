@@ -308,21 +308,26 @@ Local functions
 - `isValidSurfaceIdToken(value = "")`
 - `toInteger(value, fallback = 1000)`
 
+### `src/client/providers/appModuleLoadFailure.js`
+Exports
+- `isMissingDynamicModule(error, moduleSpecifier)`
+- `notifyDynamicImportFailure(asyncModuleRecoveryRuntime, error, { label = "App module" } = {})`
+
 ### `src/client/providers/ShellWebClientProvider.js`
 Exports
 - `ShellWebClientProvider`
 - `resolveAppPlacementTopologyExport(exported, logger)`
 Local functions
-- `isMissingDynamicModule(error, moduleSpecifier)`
-- `loadAppPlacementDefinitions(logger)`
-- `loadAppPlacementTopology(logger)`
+- `loadAppPlacementDefinitions(logger, asyncModuleRecoveryRuntime = null)`
+- `loadAppPlacementTopology(logger, asyncModuleRecoveryRuntime = null)`
 - `createErrorConfigToolkit(errorRuntime)`
-- `loadAppErrorConfig(logger, errorRuntime)`
+- `loadAppErrorConfig(logger, errorRuntime, asyncModuleRecoveryRuntime = null)`
 - `applyAppErrorConfig(errorRuntime, errorConfig = {})`
 - `isPullRefreshQuery(query = null)`
 - `createShellRefreshRuntime({ app, logger = null } = {})`
 - `installVueErrorBridge(vueApp, errorRuntime, logger)`
 - `installRouterErrorBridge(app, errorRuntime, logger)`
+- `createShellAsyncModuleRecoveryRuntime({ app, logger = null } = {})`
 
 ### `src/client/runtime/bootstrapRuntime.js`
 Exports

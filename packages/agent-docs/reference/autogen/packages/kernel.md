@@ -657,6 +657,19 @@ Exports
 Local functions
 - `normalizeClientAppConfig(source = {})`
 
+### `client/asyncModuleRecovery.js`
+Exports
+- `createAsyncModuleRecoveryState({ label = "App module", message = "", retry = null } = {})`
+- `dismissAsyncModuleRecovery(state)`
+- `dynamicImportErrorMessage(error = null, { label = "App module", stale = isDynamicImportError(error) } = {})`
+- `guardedReloadApp({ browserWindow = typeof window !== "undefined" ? window : null, fetchFn = typeof fetch === "function" ? fetch : null, state = null, label = "App", message = "The app cannot reload because the app server is not reachable. Restart the server, then click Retry or Reload." } = {})`
+- `installAsyncModuleRecoveryHandlers({ router = null, state, label = "App module", onNotify = null, windowObject = typeof window !== "undefined" ? window : null } = {})`
+- `isDynamicImportError(error = null)`
+- `notifyAsyncModuleLoadError(state, error = null, { label = "App module", message = "", retry = null, stale = isDynamicImportError(error) } = {})`
+Local functions
+- `isRecord(value)`
+- `errorText(error = null)`
+
 ### `client/componentInteraction.js`
 Exports
 - `createComponentInteractionEmitter(emit)`
@@ -673,6 +686,13 @@ Exports
 - `getClientAppConfig`
 - `resolveMobileConfig`
 - `resolveClientAssetMode`
+- `createAsyncModuleRecoveryState`
+- `dismissAsyncModuleRecovery`
+- `dynamicImportErrorMessage`
+- `guardedReloadApp`
+- `installAsyncModuleRecoveryHandlers`
+- `isDynamicImportError`
+- `notifyAsyncModuleLoadError`
 - `normalizeIncomingAppUrl`
 - `registerMobileLaunchRouting`
 - `resolveClientBootstrapDebugEnabled`

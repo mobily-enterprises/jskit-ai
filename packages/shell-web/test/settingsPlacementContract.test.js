@@ -38,6 +38,11 @@ function readTopology(id = "", owner = "") {
     : [];
 }
 
+function readClientContainerTokens() {
+  const tokens = descriptor?.metadata?.apiSummary?.containerTokens?.client;
+  return Array.isArray(tokens) ? tokens : [];
+}
+
 function findFileMutation(id) {
   const files = descriptor?.mutations?.files;
   return Array.isArray(files)
@@ -265,6 +270,15 @@ test("shell-web placement topology seeds global actions as a semantic shell plac
 });
 
 test("shell-web descriptor metadata advertises adaptive shell outlets, default links, and installs the scaffold page", () => {
+  assert.deepEqual(readClientContainerTokens(), [
+    "runtime.web-placement.client",
+    "runtime.web-bootstrap.client",
+    "runtime.web-refresh.client",
+    "runtime.web-async-module-recovery.client",
+    "runtime.web-error.client",
+    "runtime.web-error.presentation-store.client"
+  ]);
+
   assert.deepEqual(
     readOutlets("shell-layout:primary-bottom-nav"),
     [
