@@ -1,6 +1,11 @@
 import { createSchema } from "json-rest-schema";
 import { deepFreeze } from "@jskit-ai/kernel/shared/support/deepFreeze";
 import {
+  AUTH_DENIED_CODE_MAX_LENGTH,
+  AUTH_DENIED_CODE_PATTERN,
+  AUTH_DENIED_MESSAGE_MAX_LENGTH
+} from "../authDenied.js";
+import {
   AUTH_ACCESS_TOKEN_MAX_LENGTH,
   AUTH_EMAIL_MAX_LENGTH,
   AUTH_EMAIL_MIN_LENGTH,
@@ -209,6 +214,22 @@ const oauthProviderCatalogEntryOutputValidator = deepFreeze({
   mode: "replace"
 });
 
+const authDeniedOutputSchema = createSchema({
+  code: {
+    type: "string",
+    required: true,
+    minLength: 2,
+    maxLength: AUTH_DENIED_CODE_MAX_LENGTH,
+    pattern: AUTH_DENIED_CODE_PATTERN
+  },
+  message: {
+    type: "string",
+    required: true,
+    minLength: 1,
+    maxLength: AUTH_DENIED_MESSAGE_MAX_LENGTH
+  }
+});
+
 const sessionOutputSchema = createSchema({
   authenticated: { type: "boolean", required: true },
   username: { type: "string", required: false, minLength: 1, maxLength: 120 },
@@ -221,6 +242,11 @@ const sessionOutputSchema = createSchema({
       minLength: 1,
       maxLength: 200
     }
+  },
+  authDenied: {
+    type: "object",
+    required: false,
+    schema: authDeniedOutputSchema
   },
   csrfToken: { type: "string", required: true, minLength: 1 },
   oauthProviders: {
@@ -306,6 +332,7 @@ export {
   devLoginAsOutputValidator,
   logoutOutputValidator,
   oauthProviderCatalogEntryOutputValidator,
+  authDeniedOutputSchema,
   sessionOutputValidator,
   sessionUnavailableOutputValidator,
   createCommandMessages

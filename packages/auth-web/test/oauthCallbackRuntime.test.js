@@ -138,6 +138,52 @@ test("completeOAuthCallbackFromUrl fails when the refreshed session is still una
   assert.equal(result.errorMessage, "Login succeeded but the session is not active yet. Please retry.");
 });
 
+test("completeOAuthCallbackFromUrl maps allowlist auth denial to a clear message", async () => {
+  const result = await completeOAuthCallbackFromUrl({
+    url: "/auth/login?oauthProvider=google&code=abc",
+    request: async () => ({
+      username: "Ada"
+    }),
+    refreshSession: async () => ({
+      authenticated: false,
+      authDenied: {
+        code: "not_allowlisted",
+        message: "This account is not allowed to access this application."
+      }
+    })
+  });
+
+  assert.equal(result.handled, true);
+  assert.equal(result.completed, false);
+  assert.equal(
+    result.errorMessage,
+    "Sign-in succeeded, but this account is not allowed to access this application."
+  );
+});
+
+test("completeOAuthCallbackFromUrl maps blocked auth denial to a clear message", async () => {
+  const result = await completeOAuthCallbackFromUrl({
+    url: "/auth/login?oauthProvider=google&code=abc",
+    request: async () => ({
+      username: "Ada"
+    }),
+    refreshSession: async () => ({
+      authenticated: false,
+      authDenied: {
+        code: "blocked",
+        message: "This account has been blocked from accessing this application."
+      }
+    })
+  });
+
+  assert.equal(result.handled, true);
+  assert.equal(result.completed, false);
+  assert.equal(
+    result.errorMessage,
+    "Sign-in succeeded, but this account has been blocked from accessing this application."
+  );
+});
+
 test("completeOAuthCallbackFromCurrentLocation reads from window.location.href", async () => {
   const originalWindow = globalThis.window;
   globalThis.window = {

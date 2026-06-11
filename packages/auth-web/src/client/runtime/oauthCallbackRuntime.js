@@ -1,4 +1,5 @@
 import { authLoginOAuthCompleteCommand } from "@jskit-ai/auth-core/shared/commands/authLoginOAuthCompleteCommand";
+import { resolveAuthDeniedLoginMessage } from "@jskit-ai/auth-core/shared/authDenied";
 import {
   OAUTH_QUERY_PARAM_PROVIDER,
   OAUTH_QUERY_PARAM_RETURN_TO
@@ -148,6 +149,10 @@ async function completeOAuthCallbackFromUrl({
     });
     const session = await refreshSession();
     if (!session?.authenticated) {
+      const authDeniedMessage = resolveAuthDeniedLoginMessage(session?.authDenied);
+      if (authDeniedMessage) {
+        throw new Error(authDeniedMessage);
+      }
       throw new Error("Login succeeded but the session is not active yet. Please retry.");
     }
 

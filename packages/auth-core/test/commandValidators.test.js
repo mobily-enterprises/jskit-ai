@@ -104,6 +104,9 @@ test("auth session and oauth start commands expose explicit nested response sche
   assert.equal(sessionResponseSchema.properties.oauthProviders.items["x-json-rest-schema"]?.castType, "object");
   assert.equal(Array.isArray(sessionResponseSchema.properties.oauthProviders.items.allOf), true);
   assert.match(sessionResponseSchema.properties.oauthProviders.items.allOf[0]?.$ref || "", /^#\/definitions\//);
+  assert.equal(sessionResponseSchema.properties.authDenied["x-json-rest-schema"]?.castType, "object");
+  assert.equal(Array.isArray(sessionResponseSchema.properties.authDenied.allOf), true);
+  assert.match(sessionResponseSchema.properties.authDenied.allOf[0]?.$ref || "", /^#\/definitions\//);
   assert.equal(Array.isArray(sessionUnavailableSchema.properties.oauthDefaultProvider.anyOf), true);
   assert.equal(oauthStartResponseSchema.properties.provider.type, "string");
   assert.equal(oauthStartResponseSchema.properties.returnTo.type, "string");
