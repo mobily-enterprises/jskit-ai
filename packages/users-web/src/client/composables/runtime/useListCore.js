@@ -3,6 +3,7 @@ import { usersWebHttpClient } from "../../lib/httpClient.js";
 import { asPlainObject } from "../support/scopeHelpers.js";
 import { resolveEnabledRef, resolveTextRef } from "../support/refValueHelpers.js";
 import { usePagedCollection } from "../usePagedCollection.js";
+import { mergeRequestRecoveryQueryMeta } from "../support/resourceLoadStateHelpers.js";
 
 const DEFAULT_LIST_LIMIT = 20;
 
@@ -47,6 +48,10 @@ function resolveRequestOptionsObject(value = null) {
   return asPlainObject(source);
 }
 
+function resolveListRequestMethod(requestOptions = null) {
+  return String(resolveRequestOptionsObject(requestOptions).method || "GET").toUpperCase();
+}
+
 function useListCore({
   queryKey,
   path = "",
@@ -58,6 +63,8 @@ function useListCore({
   selectItems,
   requestOptions = null,
   queryOptions = null,
+  requestRecovery = null,
+  requestRecoveryLabel = "List",
   fallbackLoadError = "Unable to load list."
 } = {}) {
   if (!client || typeof client.request !== "function") {
@@ -88,7 +95,10 @@ function useListCore({
     },
     getNextPageParam,
     selectItems,
-    queryOptions,
+    queryOptions: mergeRequestRecoveryQueryMeta(queryOptions, requestRecovery, {
+      label: requestRecoveryLabel,
+      method: resolveListRequestMethod(requestOptions)
+    }),
     fallbackLoadError
   });
 

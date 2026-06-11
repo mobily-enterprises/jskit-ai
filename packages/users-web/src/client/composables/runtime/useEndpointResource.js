@@ -7,7 +7,8 @@ import { toQueryErrorMessage } from "../support/errorMessageHelpers.js";
 import { useOperationRealtime } from "../useRealtimeQueryInvalidation.js";
 import {
   hasResolvedQueryData,
-  mergeQueryMeta
+  mergeQueryMeta,
+  mergeRequestRecoveryQueryMeta
 } from "../support/resourceLoadStateHelpers.js";
 
 function buildEndpointReadRequestOptions({
@@ -75,6 +76,8 @@ function useEndpointResource({
   realtime = null,
   queryOptions = null,
   mutationOptions = null,
+  requestRecovery = null,
+  requestRecoveryLabel = "Request",
   fallbackLoadError = "Unable to load resource.",
   fallbackSaveError = "Unable to save resource."
 } = {}) {
@@ -102,13 +105,20 @@ function useEndpointResource({
       });
     },
     enabled: queryEnabled,
-    ...(refreshOnPull
-      ? mergeQueryMeta(asPlainObject(queryOptions), {
-        jskit: {
-          refreshOnPull: true
-        }
-      })
-      : asPlainObject(queryOptions))
+    ...mergeRequestRecoveryQueryMeta(
+      refreshOnPull
+        ? mergeQueryMeta(asPlainObject(queryOptions), {
+          jskit: {
+            refreshOnPull: true
+          }
+        })
+        : asPlainObject(queryOptions),
+      requestRecovery,
+      {
+        label: requestRecoveryLabel,
+        method: readMethod
+      }
+    )
   });
   const realtimeBinding = useOperationRealtime({
     realtime,

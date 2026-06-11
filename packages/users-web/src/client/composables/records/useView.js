@@ -21,6 +21,8 @@ function useView({
   readMethod = "GET",
   readEnabled = true,
   transport = null,
+  requestRecovery = null,
+  requestRecoveryLabel = "Resource",
   placementSource = "users-web.view",
   fallbackLoadError = "Unable to load resource.",
   notFoundStatuses = [404],
@@ -104,6 +106,8 @@ function useView({
     readMethod,
     readQuery: requestQueryRuntime.requestQuery,
     transport,
+    requestRecovery,
+    requestRecoveryLabel,
     refreshOnPull: true,
     fallbackLoadError
   });

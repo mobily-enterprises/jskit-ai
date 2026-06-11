@@ -61,6 +61,7 @@ const screen = useCrudListScreen({
   listFilters,
   listBulkActions,
   routeQueryBlacklist: UI_ROUTE_QUERY_BLACKLIST,
+  requestRecoveryLabel: "__JSKIT_UI_RESOURCE_PLURAL_TITLE__",
   fallbackLoadError: "Unable to load records."
 });
 const listRuntime = screen.records;

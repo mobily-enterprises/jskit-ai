@@ -36,6 +36,7 @@ const screen = useCrudViewScreen({
   listUrlTemplate: UI_LIST_URL,
   editUrlTemplate: UI_EDIT_URL,
   recordChangedEvent: UI_RECORD_CHANGED_EVENT,
+  requestRecoveryLabel: "__JSKIT_UI_RESOURCE_SINGULAR_TITLE__",
   fallbackLoadError: "Unable to load record.",
   notFoundMessage: "Record not found."
 });

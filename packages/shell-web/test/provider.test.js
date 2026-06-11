@@ -371,13 +371,21 @@ test("shell request recovery reports active query transport failures with retry 
     const provider = new ShellWebClientProvider();
     provider.register(app);
     await provider.boot(app);
+    const reportEvents = [];
+    app.make("runtime.web-error.client").subscribe((event = {}) => {
+      reportEvents.push(event);
+    });
 
     const failedQuery = {
       queryHash: "[\"project-access\"]",
       queryKey: ["project-access"],
       meta: {
         jskit: {
-          requestRecoveryLabel: "Project access"
+          requestRecoveryLabel: "Project access",
+          requestRecoverySource: "project-access.panel",
+          requestRecoveryDedupeKey: "project-access",
+          requestRecoveryMethod: "GET",
+          requestRecoveryDedupeWindowMs: 100
         }
       },
       state: {
@@ -403,6 +411,9 @@ test("shell request recovery reports active query transport failures with retry 
       "Project access could not reach the server or network. Check the connection and try again."
     );
     assert.equal(state.channels.banner[0].action.label, "Retry");
+    assert.equal(state.channels.banner[0].dedupeKey, "project-access");
+    assert.equal(reportEvents[0]?.result?.event?.source, "project-access.panel");
+    assert.equal(reportEvents[0]?.result?.decision?.dedupeWindowMs, 100);
 
     await state.channels.banner[0].action.handler();
     assert.equal(refetchCalls.length, 1);
@@ -414,6 +425,55 @@ test("shell request recovery reports active query transport failures with retry 
     assert.deepEqual(refetchCalls[0].options, {
       throwOnError: false
     });
+  });
+});
+
+test("shell request recovery ignores query transport failures without a safe read method", async () => {
+  await withFetchStub({ surfaceAccess: {} }, async () => {
+    const queryCache = createQueryCacheDouble();
+    const queryClient = {
+      getQueryCache() {
+        return queryCache;
+      },
+      async refetchQueries() {}
+    };
+    const app = createAppDouble({ queryClient });
+    const provider = new ShellWebClientProvider();
+    provider.register(app);
+    await provider.boot(app);
+
+    for (const [queryKey, meta] of [
+      [["unmarked"], {}],
+      [["unsafe"], {
+        jskit: {
+          requestRecoveryMethod: "POST"
+        }
+      }]
+    ]) {
+      queryCache.emit({
+        type: "updated",
+        query: {
+          queryHash: JSON.stringify(queryKey),
+          queryKey,
+          meta,
+          state: {
+            status: "error",
+            fetchStatus: "idle",
+            error: {
+              status: 0,
+              message: "Network request failed."
+            },
+            errorUpdateCount: 1
+          },
+          isActive() {
+            return true;
+          }
+        }
+      });
+    }
+
+    const errorStore = app.make("runtime.web-error.presentation-store.client");
+    assert.equal(errorStore.getState().channels.banner.length, 0);
   });
 });
 
@@ -433,10 +493,15 @@ test("shell request recovery ignores ordinary active query validation failures",
 
     queryCache.emit({
       type: "updated",
-      query: {
-        queryHash: "[\"project-access\"]",
-        queryKey: ["project-access"],
-        state: {
+        query: {
+          queryHash: "[\"project-access\"]",
+          queryKey: ["project-access"],
+          meta: {
+            jskit: {
+              requestRecoveryMethod: "GET"
+            }
+          },
+          state: {
           status: "error",
           fetchStatus: "idle",
           error: {

@@ -46,6 +46,8 @@ function useList({
   transport = null,
   requestOptions,
   queryOptions,
+  requestRecovery,
+  requestRecoveryLabel = "List",
   realtime = null,
   adapter = null,
   recordIdParam = "recordId",
@@ -228,6 +230,8 @@ function useList({
     selectItems,
     requestOptions: listRequestOptions,
     queryOptions,
+    requestRecovery,
+    requestRecoveryLabel,
     fallbackLoadError
   });
   const routeSyncHydrated = ref(routeSyncConfig.enabled !== true);
