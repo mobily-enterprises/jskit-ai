@@ -1,0 +1,621 @@
+import {
+  createHash
+} from "node:crypto";
+import {
+  mkdir,
+  readFile,
+  readdir,
+  stat,
+  writeFile
+} from "node:fs/promises";
+import path from "node:path";
+import { compileScript, parse as parseVueSfc } from "@vue/compiler-sfc";
+import tsMorph from "ts-morph";
+import {
+  HELPER_MAP_JSON_RELATIVE_PATH,
+  HELPER_MAP_MARKDOWN_RELATIVE_PATH
+} from "./helperMapPaths.js";
+
+const {
+  ModuleKind,
+  ModuleResolutionKind,
+  Project,
+  ScriptTarget,
+  ts
+} = tsMorph;
+
+const HELPER_MAP_SCHEMA_VERSION = 2;
+const CODE_EXTENSIONS = new Set([".cjs", ".js", ".jsx", ".mjs", ".ts", ".tsx", ".vue"]);
+const APP_SCAN_ROOTS = Object.freeze(["src", "packages", "config", "server", "scripts"]);
+const EXCLUDED_DIR_NAMES = new Set([
+  ".git",
+  ".jskit",
+  ".npm-cache",
+  "coverage",
+  "dist",
+  "node_modules"
+]);
+const HELPER_NAME_PATTERN =
+  /^(assert|build|coerce|create|ensure|extract|format|get|has|is|list|load|make|map|normalize|parse|read|render|resolve|run|serialize|to|update|use|validate|write)[A-Z_]/u;
+
+async function pathExists(filePath) {
+  try {
+    await stat(filePath);
+    return true;
+  } catch (error) {
+    if (error && error.code === "ENOENT") {
+      return false;
+    }
+    throw error;
+  }
+}
+
+async function readJsonFile(filePath) {
+  return JSON.parse(await readFile(filePath, "utf8"));
+}
+
+async function readFileHash(filePath) {
+  return createHash("sha256")
+    .update(await readFile(filePath))
+    .digest("hex");
+}
+
+function normalizePackageDependencies(packageJson = {}) {
+  const dependencies = {
+    ...(packageJson.dependencies || {}),
+    ...(packageJson.devDependencies || {}),
+    ...(packageJson.peerDependencies || {}),
+    ...(packageJson.optionalDependencies || {})
+  };
+  return Object.keys(dependencies).sort((left, right) => left.localeCompare(right));
+}
+
+function classifySymbol(name = "") {
+  if (!name || name === "default") {
+    return "default";
+  }
+  if (/^use[A-Z]/u.test(name)) {
+    return "composable";
+  }
+  if (/^[A-Z]/u.test(name)) {
+    return "component_or_class";
+  }
+  if (HELPER_NAME_PATTERN.test(name)) {
+    return "helper";
+  }
+  return "export";
+}
+
+function createExportAnalysisProject() {
+  return new Project({
+    skipAddingFilesFromTsConfig: true,
+    compilerOptions: {
+      allowJs: true,
+      checkJs: false,
+      module: ModuleKind.ESNext,
+      moduleResolution: ModuleResolutionKind.NodeNext,
+      target: ScriptTarget.ESNext
+    }
+  });
+}
+
+function addSymbol(symbols, symbol) {
+  if (!symbol.name) {
+    return;
+  }
+  const key = `${symbol.name}:${symbol.kind}`;
+  if (symbols.has(key)) {
+    return;
+  }
+  symbols.set(key, {
+    name: symbol.name,
+    kind: symbol.kind,
+    role: classifySymbol(symbol.name)
+  });
+}
+
+function compilerNodeHasModifier(node, modifierKind) {
+  return Array.isArray(node?.modifiers) && node.modifiers.some((modifier) => modifier.kind === modifierKind);
+}
+
+function exportedDeclarationName(node) {
+  if (compilerNodeHasModifier(node, ts.SyntaxKind.DefaultKeyword)) {
+    return "default";
+  }
+  return String(node?.name?.text || node?.name?.escapedText || "").trim();
+}
+
+function addExportedDeclarationSymbol(symbols, node, kind = "export") {
+  const name = exportedDeclarationName(node);
+  if (!name) {
+    return;
+  }
+  addSymbol(symbols, {
+    kind: name === "default" ? "default" : kind,
+    name
+  });
+}
+
+function bindingNameTexts(bindingName, names = []) {
+  if (!bindingName) {
+    return names;
+  }
+  if (ts.isIdentifier(bindingName)) {
+    names.push(String(bindingName.text || ""));
+    return names;
+  }
+  if (ts.isObjectBindingPattern(bindingName) || ts.isArrayBindingPattern(bindingName)) {
+    for (const element of bindingName.elements || []) {
+      if (element.name) {
+        bindingNameTexts(element.name, names);
+      }
+    }
+  }
+  return names;
+}
+
+function addVariableStatementExports(symbols, statement) {
+  if (!compilerNodeHasModifier(statement, ts.SyntaxKind.ExportKeyword)) {
+    return;
+  }
+  for (const declaration of statement.declarationList?.declarations || []) {
+    for (const name of bindingNameTexts(declaration.name)) {
+      addSymbol(symbols, {
+        kind: declaration.initializer &&
+          (ts.isArrowFunction(declaration.initializer) || ts.isFunctionExpression(declaration.initializer))
+          ? "function"
+          : "value",
+        name
+      });
+    }
+  }
+}
+
+function addNamedExportSymbols(symbols, exportClause) {
+  if (!exportClause) {
+    return;
+  }
+  if (ts.isNamespaceExport(exportClause)) {
+    addSymbol(symbols, {
+      kind: "export",
+      name: String(exportClause.name?.text || "")
+    });
+    return;
+  }
+  if (!ts.isNamedExports(exportClause)) {
+    return;
+  }
+  for (const specifier of exportClause.elements || []) {
+    addSymbol(symbols, {
+      kind: "export",
+      name: String(specifier.name?.text || "")
+    });
+  }
+}
+
+function extractExportedSymbols(sourceFile) {
+  const symbols = new Map();
+  for (const statement of sourceFile.compilerNode.statements || []) {
+    if (ts.isExportDeclaration(statement)) {
+      addNamedExportSymbols(symbols, statement.exportClause);
+      continue;
+    }
+    if (ts.isExportAssignment(statement)) {
+      addSymbol(symbols, {
+        kind: "default",
+        name: "default"
+      });
+      continue;
+    }
+    if (ts.isVariableStatement(statement)) {
+      addVariableStatementExports(symbols, statement);
+      continue;
+    }
+    if (!compilerNodeHasModifier(statement, ts.SyntaxKind.ExportKeyword)) {
+      continue;
+    }
+    if (ts.isFunctionDeclaration(statement)) {
+      addExportedDeclarationSymbol(symbols, statement, "function");
+    } else if (ts.isClassDeclaration(statement)) {
+      addExportedDeclarationSymbol(symbols, statement, "class");
+    } else if (ts.isInterfaceDeclaration(statement)) {
+      addExportedDeclarationSymbol(symbols, statement, "interface");
+    } else if (ts.isTypeAliasDeclaration(statement)) {
+      addExportedDeclarationSymbol(symbols, statement, "type");
+    } else if (ts.isEnumDeclaration(statement)) {
+      addExportedDeclarationSymbol(symbols, statement, "enum");
+    }
+  }
+
+  return [...symbols.values()].sort((left, right) => {
+    const byName = left.name.localeCompare(right.name);
+    return byName || left.kind.localeCompare(right.kind);
+  });
+}
+
+function extractVueScriptSource(source = "", filePath = "") {
+  const parsed = parseVueSfc(source, {
+    filename: filePath
+  });
+  if (parsed.errors.length > 0) {
+    throw new Error(parsed.errors.map((error) => error.message || String(error)).join("; "));
+  }
+  const descriptor = parsed.descriptor;
+  if (descriptor.scriptSetup) {
+    return compileScript(descriptor, {
+      id: filePath
+    }).content;
+  }
+  if (descriptor.script) {
+    return descriptor.script.content;
+  }
+  return "";
+}
+
+async function addCodeFileToProject(project, file) {
+  if (path.extname(file.absolutePath) !== ".vue") {
+    return project.addSourceFileAtPath(file.absolutePath);
+  }
+  const source = extractVueScriptSource(await readFile(file.absolutePath, "utf8"), file.absolutePath);
+  if (!source.trim()) {
+    return null;
+  }
+  return project.createSourceFile(`${file.absolutePath}.ts`, source, {
+    overwrite: true
+  });
+}
+
+async function walkCodeFiles(rootPath, relativeRoot = "") {
+  const entries = await readdir(rootPath, {
+    withFileTypes: true
+  });
+  const files = [];
+  for (const entry of entries.sort((left, right) => left.name.localeCompare(right.name))) {
+    if (EXCLUDED_DIR_NAMES.has(entry.name)) {
+      continue;
+    }
+    const absolutePath = path.join(rootPath, entry.name);
+    const relativePath = path.join(relativeRoot, entry.name).split(path.sep).join("/");
+    if (entry.isDirectory()) {
+      files.push(...await walkCodeFiles(absolutePath, relativePath));
+      continue;
+    }
+    if (!entry.isFile() || !CODE_EXTENSIONS.has(path.extname(entry.name))) {
+      continue;
+    }
+    files.push({
+      absolutePath,
+      relativePath
+    });
+  }
+  return files;
+}
+
+async function collectAppExports(targetRoot) {
+  const scanFiles = [];
+  for (const scanRoot of APP_SCAN_ROOTS) {
+    const rootPath = path.join(targetRoot, scanRoot);
+    if (await pathExists(rootPath)) {
+      scanFiles.push(...await walkCodeFiles(rootPath, scanRoot));
+    }
+  }
+
+  const project = createExportAnalysisProject();
+  const files = [];
+  for (const file of scanFiles.sort((left, right) => left.relativePath.localeCompare(right.relativePath))) {
+    const sourceFile = await addCodeFileToProject(project, file);
+    if (!sourceFile) {
+      continue;
+    }
+    const symbols = extractExportedSymbols(sourceFile);
+    if (symbols.length === 0) {
+      continue;
+    }
+    files.push({
+      path: file.relativePath,
+      exports: symbols
+    });
+  }
+  return files;
+}
+
+function flattenPackageExports(exportsField) {
+  const targets = new Map();
+
+  function addTarget(subpath, target) {
+    if (!target || target.includes("*")) {
+      return;
+    }
+    targets.set(`${subpath}:${target}`, {
+      subpath,
+      target
+    });
+  }
+
+  function collect(value, subpath = ".") {
+    if (typeof value === "string") {
+      addTarget(subpath, value);
+      return;
+    }
+    if (!value || Array.isArray(value) || typeof value !== "object") {
+      return;
+    }
+    const entries = Object.entries(value);
+    const hasSubpathKeys = entries.some(([key]) => key.startsWith("."));
+    for (const [key, nested] of entries) {
+      if (key.startsWith(".")) {
+        collect(nested, key);
+      } else {
+        collect(nested, hasSubpathKeys ? subpath : subpath || ".");
+      }
+    }
+  }
+
+  collect(exportsField, ".");
+  return [...targets.values()].sort((left, right) => {
+    const bySubpath = left.subpath.localeCompare(right.subpath);
+    return bySubpath || left.target.localeCompare(right.target);
+  });
+}
+
+async function packageExportTargetRecords(packageRoot, exportTargets = []) {
+  const records = [];
+  for (const exportTarget of exportTargets) {
+    const normalizedTarget = exportTarget.target.replace(/^\.\//u, "");
+    const targetPath = path.join(packageRoot, normalizedTarget);
+    const ext = path.extname(targetPath);
+    if (!CODE_EXTENSIONS.has(ext) || !await pathExists(targetPath)) {
+      continue;
+    }
+    records.push({
+      absolutePath: targetPath,
+      hash: await readFileHash(targetPath),
+      subpath: exportTarget.subpath,
+      target: normalizedTarget.split(path.sep).join("/")
+    });
+  }
+  return records;
+}
+
+function packageExportFingerprint({
+  installedPackageJson = {},
+  packageName = "",
+  targetRecords = []
+} = {}) {
+  return createHash("sha256")
+    .update(JSON.stringify({
+      name: packageName,
+      version: installedPackageJson.version || "",
+      targets: targetRecords.map((record) => ({
+        hash: record.hash,
+        subpath: record.subpath,
+        target: record.target
+      }))
+    }))
+    .digest("hex");
+}
+
+function cachedPackageExports(previousPackagesByName = new Map(), packageName = "", fingerprint = "") {
+  const previous = previousPackagesByName.get(packageName);
+  if (
+    !previous ||
+    previous.installed !== true ||
+    previous.fingerprint !== fingerprint ||
+    !Array.isArray(previous.exports)
+  ) {
+    return null;
+  }
+  return {
+    name: previous.name,
+    version: previous.version || "",
+    fingerprint: previous.fingerprint,
+    installed: true,
+    exports: previous.exports
+  };
+}
+
+function previousPackageMap(previousMap = null) {
+  return new Map(
+    (Array.isArray(previousMap?.jskitPackages) ? previousMap.jskitPackages : [])
+      .map((packageEntry) => [packageEntry.name, packageEntry])
+      .filter(([name]) => name)
+  );
+}
+
+async function collectJskitPackageExports(targetRoot, packageJson = {}, previousMap = null) {
+  const packageNames = normalizePackageDependencies(packageJson)
+    .filter((name) => name.startsWith("@jskit-ai/"));
+  const packages = [];
+  const previousPackagesByName = previousPackageMap(previousMap);
+
+  for (const packageName of packageNames) {
+    const packageRoot = path.join(targetRoot, "node_modules", ...packageName.split("/"));
+    const packageJsonPath = path.join(packageRoot, "package.json");
+    if (!await pathExists(packageJsonPath)) {
+      packages.push({
+        name: packageName,
+        installed: false,
+        exports: []
+      });
+      continue;
+    }
+
+    const installedPackageJson = await readJsonFile(packageJsonPath);
+    const exportTargets = flattenPackageExports(installedPackageJson.exports || {});
+    const targetRecords = await packageExportTargetRecords(packageRoot, exportTargets);
+    const fingerprint = packageExportFingerprint({
+      installedPackageJson,
+      packageName,
+      targetRecords
+    });
+    const cachedEntry = cachedPackageExports(previousPackagesByName, packageName, fingerprint);
+    if (cachedEntry) {
+      packages.push(cachedEntry);
+      continue;
+    }
+
+    const project = createExportAnalysisProject();
+    const exports = [];
+    for (const targetRecord of targetRecords) {
+      const sourceFile = await addCodeFileToProject(project, {
+        absolutePath: targetRecord.absolutePath,
+        relativePath: targetRecord.target
+      });
+      exports.push({
+        subpath: targetRecord.subpath,
+        target: targetRecord.target,
+        exports: sourceFile ? extractExportedSymbols(sourceFile) : []
+      });
+    }
+
+    packages.push({
+      name: packageName,
+      version: installedPackageJson.version || "",
+      fingerprint,
+      installed: true,
+      exports
+    });
+  }
+
+  return packages;
+}
+
+function renderExportList(symbols = []) {
+  if (symbols.length === 0) {
+    return "    - no exported symbols detected";
+  }
+  return symbols
+    .map((symbol) => `    - ${symbol.name} (${symbol.kind}, ${symbol.role})`)
+    .join("\n");
+}
+
+function renderHelperMapMarkdown(map) {
+  const lines = [
+    "# JSKIT Helper Map",
+    "",
+    "Generated by `jskit helper-map update`. Read this before adding new helpers, composables, service functions, maps, or package glue.",
+    "",
+    `Root package: ${map.rootPackage.name || "unknown"}`,
+    "",
+    "## App-local exports",
+    ""
+  ];
+
+  if (map.app.files.length === 0) {
+    lines.push("No app-local exported helpers or symbols detected.", "");
+  } else {
+    for (const file of map.app.files) {
+      lines.push(`- ${file.path}`, renderExportList(file.exports), "");
+    }
+  }
+
+  lines.push("## Direct JSKIT package exports", "");
+  if (map.jskitPackages.length === 0) {
+    lines.push("No direct `@jskit-ai/*` dependencies were found.", "");
+  } else {
+    for (const packageEntry of map.jskitPackages) {
+      if (!packageEntry.installed) {
+        lines.push(`- ${packageEntry.name}: not installed in node_modules`, "");
+        continue;
+      }
+      lines.push(`- ${packageEntry.name}@${packageEntry.version || "unknown"}`);
+      if (packageEntry.exports.length === 0) {
+        lines.push("    - no exported code files detected");
+      } else {
+        for (const exportEntry of packageEntry.exports) {
+          lines.push(`    - ${exportEntry.subpath} -> ${exportEntry.target}`);
+          for (const symbol of exportEntry.exports) {
+            lines.push(`      - ${symbol.name} (${symbol.kind}, ${symbol.role})`);
+          }
+        }
+      }
+      lines.push("");
+    }
+  }
+
+  return `${lines.join("\n").replace(/\n{3,}/gu, "\n\n").trimEnd()}\n`;
+}
+
+async function buildHelperMap({ targetRoot, previousMap = null }) {
+  const packageJsonPath = path.join(targetRoot, "package.json");
+  const packageJson = await readJsonFile(packageJsonPath);
+  const map = {
+    schemaVersion: HELPER_MAP_SCHEMA_VERSION,
+    generatedBy: "jskit helper-map update",
+    rootPackage: {
+      name: packageJson.name || "",
+      version: packageJson.version || ""
+    },
+    app: {
+      files: await collectAppExports(targetRoot)
+    },
+    jskitPackages: await collectJskitPackageExports(targetRoot, packageJson, previousMap)
+  };
+  return {
+    ok: true,
+    map,
+    helperMapJsonPath: path.join(targetRoot, HELPER_MAP_JSON_RELATIVE_PATH),
+    helperMapMarkdownPath: path.join(targetRoot, HELPER_MAP_MARKDOWN_RELATIVE_PATH)
+  };
+}
+
+async function readHelperMap({ targetRoot }) {
+  const helperMapJsonPath = path.join(targetRoot, HELPER_MAP_JSON_RELATIVE_PATH);
+  const helperMapMarkdownPath = path.join(targetRoot, HELPER_MAP_MARKDOWN_RELATIVE_PATH);
+  if (!await pathExists(helperMapJsonPath)) {
+    return {
+      ok: true,
+      exists: false,
+      helperMapJsonPath,
+      helperMapMarkdownPath,
+      map: null,
+      markdown: ""
+    };
+  }
+  return {
+    ok: true,
+    exists: true,
+    helperMapJsonPath,
+    helperMapMarkdownPath,
+    map: await readJsonFile(helperMapJsonPath),
+    markdown: await pathExists(helperMapMarkdownPath) ? await readFile(helperMapMarkdownPath, "utf8") : ""
+  };
+}
+
+async function updateHelperMap({ targetRoot }) {
+  const helperMapJsonPath = path.join(targetRoot, HELPER_MAP_JSON_RELATIVE_PATH);
+  const currentJson = await pathExists(helperMapJsonPath)
+    ? await readFile(helperMapJsonPath, "utf8")
+    : "";
+  const previousMap = currentJson ? JSON.parse(currentJson) : null;
+  const payload = await buildHelperMap({
+    previousMap,
+    targetRoot
+  });
+  const markdown = renderHelperMapMarkdown(payload.map);
+  const json = `${JSON.stringify(payload.map, null, 2)}\n`;
+  const currentMarkdown = await pathExists(payload.helperMapMarkdownPath)
+    ? await readFile(payload.helperMapMarkdownPath, "utf8")
+    : "";
+  const changed = currentJson !== json || currentMarkdown !== markdown;
+  if (changed) {
+    await mkdir(path.dirname(payload.helperMapJsonPath), {
+      recursive: true
+    });
+    await writeFile(payload.helperMapJsonPath, json, "utf8");
+    await writeFile(payload.helperMapMarkdownPath, markdown, "utf8");
+  }
+  return {
+    ...payload,
+    changed,
+    markdown
+  };
+}
+
+export {
+  HELPER_MAP_JSON_RELATIVE_PATH,
+  HELPER_MAP_MARKDOWN_RELATIVE_PATH,
+  buildHelperMap,
+  readHelperMap,
+  updateHelperMap
+};

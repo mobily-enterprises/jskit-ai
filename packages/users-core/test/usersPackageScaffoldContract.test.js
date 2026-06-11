@@ -96,6 +96,7 @@ test("users-core base users package templates stay aligned with non-workspace ap
   assert.match(repositorySource, /async function getDocumentById\(recordId, options = \{\}\)/);
   assert.match(repositorySource, /returnNullWhenJsonRestResourceMissing/);
   assert.doesNotMatch(actionsSource, /workspaceSlugParamsValidator/);
+  assert.doesNotMatch(actionsSource, /delete query\.workspaceSlug/);
   assert.doesNotMatch(actionsSource, /requireActionSurface/);
   assert.match(actionsSource, /orderBy: resource\.defaultSort/);
   assert.match(actionsSource, /output: null/);
@@ -154,6 +155,7 @@ test("users-core workspace users package templates stay aligned with workspace a
   assert.match(providerSource, /createJsonRestResourceScopeOptions/);
   assert.match(providerSource, /addResourceIfMissing\(\s*api,\s*"users",\s*createJsonRestResourceScopeOptions\(resource,/s);
   assert.match(actionsSource, /workspaceSlugParamsValidator/);
+  assert.match(actionsSource, /delete query\.workspaceSlug/);
   assert.doesNotMatch(actionsSource, /requireActionSurface/);
   assert.match(actionsSource, /orderBy: resource\.defaultSort/);
   assert.match(actionsSource, /usersService\.queryDocuments/);

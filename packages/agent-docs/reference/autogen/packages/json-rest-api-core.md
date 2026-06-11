@@ -42,6 +42,7 @@ Local functions
 - `normalizeJsonRestText(value, { fallback = "" } = {})`
 - `normalizeJsonRestObject(value)`
 - `normalizeJsonRestList(value)`
+- `resolveJsonRestCollectionRelationships(resource = {})`
 - `extractJsonApiInputRelationships(attributes = {}, resource = null, relationships = null)`
 
 ### root

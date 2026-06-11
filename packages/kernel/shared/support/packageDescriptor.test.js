@@ -70,6 +70,32 @@ test("resolveDescriptorPathForInstalledPackage resolves descriptor using source.
   }
 });
 
+test("resolveDescriptorPathForInstalledPackage resolves descriptor from ancestor node_modules", async () => {
+  const installRoot = await createFixtureRoot("kernel-package-descriptor-hoisted-");
+  try {
+    const appRoot = path.join(installRoot, "node_modules", "@example", "app");
+    const descriptorPath = path.join(
+      installRoot,
+      "node_modules",
+      "@jskit-ai",
+      "shell-web",
+      "package.descriptor.mjs"
+    );
+    await mkdir(appRoot, { recursive: true });
+    await writeDescriptorFile(descriptorPath, "export default { packageId: \"@jskit-ai/shell-web\" };\n");
+
+    const resolvedDescriptorPath = await resolveDescriptorPathForInstalledPackage({
+      appRoot,
+      packageId: "@jskit-ai/shell-web",
+      installedPackageState: {},
+      required: true
+    });
+    assert.equal(resolvedDescriptorPath, descriptorPath);
+  } finally {
+    await rm(installRoot, { recursive: true, force: true });
+  }
+});
+
 test("resolveDescriptorPathForInstalledPackage resolves descriptor using jskit-cli descriptorPath fallback", async () => {
   const appRoot = await createFixtureRoot("kernel-package-descriptor-jskit-root-");
   try {

@@ -5,13 +5,13 @@ const invites = useAccountSettingsInvitesSectionRuntime();
 </script>
 
 <template>
-  <v-card rounded="lg" elevation="0" border>
-    <v-card-item>
-      <v-card-title class="text-subtitle-1">Invitations</v-card-title>
-      <v-card-subtitle>Accept or refuse workspace invitations.</v-card-subtitle>
-    </v-card-item>
-    <v-divider />
-    <v-card-text>
+  <v-sheet rounded="lg" border class="account-invites-section">
+    <header class="account-invites-section__header">
+      <h2 class="account-invites-section__title">Invitations</h2>
+      <p class="text-body-2 text-medium-emphasis mb-0">Accept or refuse workspace invitations.</p>
+    </header>
+
+    <div class="account-invites-section__body">
       <template v-if="invites.isLoading.value">
         <v-skeleton-loader type="text@2, list-item-two-line@3" />
       </template>
@@ -67,6 +67,33 @@ const invites = useAccountSettingsInvitesSectionRuntime();
           </v-list-item>
         </v-list>
       </template>
-    </v-card-text>
-  </v-card>
+    </div>
+  </v-sheet>
 </template>
+
+<style scoped>
+.account-invites-section {
+  overflow: hidden;
+}
+
+.account-invites-section__header {
+  padding: 1rem 1rem 0;
+}
+
+.account-invites-section__title {
+  font-size: 1rem;
+  font-weight: 650;
+  line-height: 1.2;
+  margin: 0 0 0.25rem;
+}
+
+.account-invites-section__body {
+  padding: 1rem;
+}
+
+@media (max-width: 640px) {
+  .account-invites-section__body :deep(.v-btn) {
+    min-height: 48px;
+  }
+}
+</style>

@@ -14,6 +14,7 @@ function parseArgs(argv, { createCliError } = {}) {
       options: {
         dryRun: false,
         runNpmInstall: false,
+        devlinks: false,
         full: false,
         expanded: false,
         details: false,
@@ -22,6 +23,7 @@ function parseArgs(argv, { createCliError } = {}) {
         verbose: false,
         json: false,
         all: false,
+        concrete: false,
         help: true,
         inlineOptions: {}
       },
@@ -39,6 +41,7 @@ function parseArgs(argv, { createCliError } = {}) {
   const options = {
     dryRun: false,
     runNpmInstall: false,
+    devlinks: false,
     full: false,
     expanded: false,
     details: false,
@@ -47,6 +50,7 @@ function parseArgs(argv, { createCliError } = {}) {
     verbose: false,
     json: false,
     all: false,
+    concrete: false,
     help: false,
     inlineOptions: {}
   };
@@ -67,6 +71,10 @@ function parseArgs(argv, { createCliError } = {}) {
     }
     if (token === "--run-npm-install") {
       options.runNpmInstall = true;
+      continue;
+    }
+    if (token === "--devlinks") {
+      options.devlinks = true;
       continue;
     }
     if (token === "--full") {
@@ -101,6 +109,10 @@ function parseArgs(argv, { createCliError } = {}) {
       options.all = true;
       continue;
     }
+    if (token === "--concrete") {
+      options.concrete = true;
+      continue;
+    }
     if (token === "--help" || token === "-h") {
       options.help = true;
       continue;
@@ -111,6 +123,18 @@ function parseArgs(argv, { createCliError } = {}) {
     }
     if (token === "--install") {
       options.inlineOptions.install = "true";
+      continue;
+    }
+    if (token === "--close-without-merge") {
+      options.inlineOptions["close-without-merge"] = "true";
+      continue;
+    }
+    if (token === "--skip-merge") {
+      options.inlineOptions["skip-merge"] = "true";
+      continue;
+    }
+    if (token === "--skip-main-sync") {
+      options.inlineOptions["skip-main-sync"] = "true";
       continue;
     }
 
@@ -131,7 +155,7 @@ function parseArgs(argv, { createCliError } = {}) {
       } else {
         const hasNextStringToken = typeof args[0] === "string";
         const nextToken = hasNextStringToken ? String(args[0]) : "";
-        if (hasNextStringToken && !nextToken.startsWith("-")) {
+        if (hasNextStringToken && (!nextToken.startsWith("-") || nextToken === "-")) {
           optionValueRaw = args.shift();
         }
       }
@@ -141,7 +165,7 @@ function parseArgs(argv, { createCliError } = {}) {
       }
       if (typeof optionValueRaw === "string") {
         const optionValue = optionValueRaw.trim();
-        if (!hasInlineValue && optionValue.startsWith("-")) {
+        if (!hasInlineValue && optionValue.startsWith("-") && optionValue !== "-") {
           throw createCliError(`--${optionName} requires a value.`, { showUsage: true });
         }
         options.inlineOptions[optionName] = optionValue;

@@ -1,7 +1,10 @@
 import { computed, unref } from "vue";
 import { useRoute } from "vue-router";
 import { resolveCrudJsonApiTransport } from "../crud/crudJsonApiTransportSupport.js";
-import { resolveLookupFieldDisplayValue } from "../crud/crudLookupFieldLabelSupport.js";
+import {
+  resolveLookupFieldDisplayValue,
+  resolveRecordTitle
+} from "../crud/crudLookupFieldLabelSupport.js";
 import { resolveCrudBoundValues } from "../crud/crudBindingSupport.js";
 import { resolveCrudListParentDescriptor } from "../internal/crudListParentTitleSupport.js";
 import {
@@ -9,6 +12,7 @@ import {
   toRouteParamValue
 } from "../support/routeTemplateHelpers.js";
 import { asPlainObject } from "../support/scopeHelpers.js";
+import { resolveOperationRealtimeOptions } from "../useRealtimeQueryInvalidation.js";
 import { useList } from "./useList.js";
 
 function resolveRequestQueryParamsInput(requestQueryParams, context = {}) {
@@ -46,6 +50,7 @@ function useCrudList({
   parentBinding = null,
   recordIdParam = "recordId",
   route = null,
+  realtime = undefined,
   ...listOptions
 } = {}) {
   const sourceRoute = route && typeof route === "object" ? route : useRoute();
@@ -69,6 +74,10 @@ function useCrudList({
     transport: resolveCrudJsonApiTransport(listOptions.transport, resource, {
       mode: "list"
     }),
+    realtime: resolveOperationRealtimeOptions({
+      realtime,
+      fallbackRealtime: resource?.operations?.list?.realtime || null
+    }),
     recordIdParam,
     requestQueryParams(context = {}) {
       const baseRequestQueryParams = resolveRequestQueryParamsInput(requestQueryParams, context);
@@ -81,6 +90,7 @@ function useCrudList({
   });
 
   records.resolveFieldDisplay = resolveLookupFieldDisplayValue;
+  records.resolveRecordTitle = resolveRecordTitle;
   return records;
 }
 

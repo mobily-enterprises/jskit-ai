@@ -1,6 +1,6 @@
 {
   "name": "@jskit-ai/kernel",
-  "version": "0.1.63",
+  "version": "0.1.89",
   "type": "module",
   "dependencies": {
     "json-rest-schema": "1.x.x"
@@ -13,6 +13,10 @@
     "./client": {
       "types": "./client/index.d.ts",
       "default": "./client/index.js"
+    },
+    "./client/asyncModuleRecovery": {
+      "types": "./client/asyncModuleRecovery.d.ts",
+      "default": "./client/asyncModuleRecovery.js"
     },
     "./client/pageRedirects": {
       "types": "./client/pageRedirects.d.ts",
@@ -42,6 +46,7 @@
     "./shared/support/crudListFilters": "./shared/support/crudListFilters.js",
     "./shared/support/crudFieldContract": "./shared/support/crudFieldContract.js",
     "./shared/support/crudLookup": "./shared/support/crudLookup.js",
+    "./shared/support/generatedUiContract": "./shared/support/generatedUiContract.js",
     "./shared/support/deepFreeze": "./shared/support/deepFreeze.js",
     "./shared/support/listenerSet": "./shared/support/listenerSet.js",
     "./shared/support/shellLayoutTargets": "./shared/support/shellLayoutTargets.js",

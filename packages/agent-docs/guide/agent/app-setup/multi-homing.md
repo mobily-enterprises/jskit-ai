@@ -63,7 +63,7 @@ npx jskit show @jskit-ai/workspaces-web --details
 
 That output makes the package feel much less mysterious, because it shows the exact workspace shell contributions, settings outlets, client tokens, app-owned file writes, and capability requirements before you mutate the app.
 
-## What changes now
+## What workspaces add
 
 This chapter is where the app stops being a collection of global surfaces and starts supporting workspace-dependent ones.
 
@@ -107,13 +107,13 @@ That is why this chapter feels larger than the previous ones. It is not just add
 
 ### The shell and account surface gain workspace-aware controls
 
-The placement registry now grows a workspace selector in the top-left of the shell, a pending-invites cue in the top-right area, and workspace tools in the admin shell. The workspaces package also plugs an `Invites` section into the existing `/account` settings screen through the account-settings extension seam that `users-web` exposes.
+The placement registry gets a workspace selector in `shell.identity`, pending-invites and workspace tools in `shell.status`, and an `Invites` section in the existing `/account` settings screen through the account-settings extension seam that `users-web` exposes. The default shell topology maps identity/status placements to the visible shell chrome.
 
 That means the shell itself starts adapting to workspace context.
 
-- on any authenticated surface, the shell can now expose a workspace selector
-- signed-in users can now see a pending-invites cue without `users-web` owning that workspace feature
-- on admin workspace surfaces, the shell can also expose workspace-specific tools and settings
+- on any authenticated surface, the shell can expose a workspace selector
+- signed-in users can see a pending-invites cue without `users-web` owning that workspace feature
+- on admin workspace surfaces, the shell can expose workspace-specific tools and settings
 
 This is the first time the guide shows the shell reacting not just to authentication state, but to workspace state as well.
 
@@ -139,7 +139,7 @@ This is also important to notice:
 
 The new workspace surfaces are added on top of the existing app, not instead of it.
 
-That is exactly what multi-homing should feel like. The app now has both:
+That is exactly what multi-homing should feel like. The app has both:
 
 - global surfaces
 - workspace-scoped surfaces
@@ -153,7 +153,7 @@ npm run dev
 npm run server
 ```
 
-After you sign in, the app now has the routing structure needed for workspace-aware paths such as:
+After you sign in, the app has the routing structure needed for workspace-aware paths such as:
 
 ```text
 /w/your-personal-slug
@@ -166,15 +166,15 @@ At this stage of the guide, the starter workspace pages are still intentionally 
 
 The most important new visible ideas are:
 
-- a workspace slug now appears in the route
+- a workspace slug appears in the route
 - the shell can expose workspace selection and workspace tools
 - workspace-dependent surfaces can show a dedicated unavailable-state card when the requested workspace cannot be resolved
 
-First, even the old global `/home` surface now reacts to workspace state. The selector in the top-left and the invites cue in the top-right come from placement entries and workspace bootstrap context, not from the `home` page itself.
+First, even the global `/home` surface reacts to workspace state. The selector and invites cue come from semantic placement entries and workspace bootstrap context, not from the `home` page itself.
 
-Then open your personal workspace route. The page itself is deliberately light. `src/pages/w/[workspaceSlug]/index.vue` mostly exists to prove that the `app` surface is now real and ready to host later modules.
+Then open your personal workspace route. The page itself is deliberately light. `src/pages/w/[workspaceSlug]/index.vue` mostly exists to prove that the `app` surface is real and ready to host later modules.
 
-Next open the admin surface for the same workspace. This is the matching pattern on the admin side: `src/pages/w/[workspaceSlug]/admin.vue` is the shell wrapper, `src/pages/w/[workspaceSlug]/admin/index.vue` is the starter page, and the top-right workspace tools button is coming from placements rather than being hand-built into that page file.
+Next open the admin surface for the same workspace. This is the matching pattern on the admin side: `src/pages/w/[workspaceSlug]/admin.vue` is the shell wrapper, `src/pages/w/[workspaceSlug]/admin/index.vue` is the starter page, and the workspace tools button is coming from placements rather than being hand-built into that page file.
 
 Finally open the nested workspace settings route. This is useful to inspect because it shows the container pattern most clearly. `src/pages/w/[workspaceSlug]/admin/workspace/settings.vue` owns the section frame and the child outlet, while the actual settings sub-pages can keep arriving later under that shell.
 
@@ -231,7 +231,7 @@ config.workspaceInvitations = {
 };
 ```
 
-Those lines are the public contract that tells both client and server, "this app is workspace-aware now."
+Those lines are the public contract that tells both client and server that this app is workspace-aware.
 
 ### `config/surfaceAccessPolicies.js` gains `workspace_member`
 
@@ -252,7 +252,7 @@ That is the core idea of multi-homing in JSKIT:
 - the server resolves that workspace
 - access depends on whether the current user belongs to it
 
-### The migrations now include workspace schema
+### The migrations include workspace schema
 
 After `workspaces-core`, the migration directory grows again with files such as:
 
@@ -269,7 +269,7 @@ That is why the chapter needs another `npm run db:migrate`. Without those tables
 
 ### The route tree gains workspace-dependent pages
 
-The app now gets:
+The app gets:
 
 ```text
 src/pages/w/[workspaceSlug].vue
@@ -325,16 +325,13 @@ That command does two things:
 - it creates `src/pages/w/[workspaceSlug]/admin/workspace/settings/billing/index.vue`
 - it also appends the matching workspace settings menu entry into `src/placement.js`
 
-The reason JSKIT can wire that link automatically is that the workspace settings shell already exposes a named placement outlet with a default link renderer:
+The reason JSKIT can wire that link automatically is that the workspace settings shell already exposes a concrete outlet and topology maps it to semantic section navigation:
 
 ```vue
-<ShellOutlet
-  target="admin-settings:primary-menu"
-  default-link-component-token="local.main.ui.surface-aware-menu-link-item"
-/>
+<ShellOutlet target="admin-settings:primary-menu" />
 ```
 
-`target="admin-settings:primary-menu"` tells the generator which settings menu host owns those child links. `default-link-component-token="local.main.ui.surface-aware-menu-link-item"` tells it which local menu-link component to use unless you override it. So a page generated under `w/[workspaceSlug]/admin/workspace/settings/...` automatically lands in the left-side workspace settings menu without you hand-writing the placement entry.
+The route host lets the generator infer `page.section-nav` with owner `admin-settings`. `src/placementTopology.js` then maps that semantic placement to `admin-settings:primary-menu` and supplies the link renderer for compact, medium, and expanded layouts. So a page generated under `w/[workspaceSlug]/admin/workspace/settings/...` automatically lands in the left-side workspace settings menu without you hand-writing the placement entry.
 
 ### Workspace pages are prepared for missing-workspace states
 
@@ -513,7 +510,7 @@ The other returned values are there for more advanced cases.
 - `placementContext` matters when a page needs to read the current shell/bootstrap context directly, for example available workspaces or current permissions already in the shell state.
 - `mergePlacementContext` is for pages that need to push refreshed workspace data back into the shell runtime after a fetch or save.
 
-That second case is real, but it is more advanced. It is what packaged elements such as the workspace settings client use when they need the shell's current workspace badge, selector state, or permissions to refresh after a change.
+That second case is real, but it is more advanced. It is available for app-owned workspace pages that intentionally need to push refreshed workspace state back into shell-visible context after a save.
 
 For normal custom page code, you usually do **not** start there. Start with `workspaceSlugFromRoute`.
 
@@ -524,7 +521,8 @@ The workspace packages append a new block of placements:
 ```js
 addPlacement({
   id: "workspaces.profile.menu.surface-switch",
-  target: "auth-profile-menu:primary-menu",
+  target: "auth.profile-menu",
+  kind: "component",
   surfaces: ["*"],
   order: 100,
   componentToken: "workspaces.web.profile.menu.surface-switch-item",
@@ -533,7 +531,8 @@ addPlacement({
 
 addPlacement({
   id: "workspaces.workspace.selector",
-  target: "shell-layout:top-left",
+  target: "shell.identity",
+  kind: "component",
   surfaces: ["*"],
   order: 200,
   componentToken: "workspaces.web.workspace.selector",
@@ -548,7 +547,8 @@ addPlacement({
 
 addPlacement({
   id: "workspaces.account.invites.cue",
-  target: "shell-layout:top-right",
+  target: "shell.status",
+  kind: "component",
   surfaces: ["*"],
   order: 850,
   componentToken: "local.main.account.pending-invites.cue",
@@ -557,7 +557,8 @@ addPlacement({
 
 addPlacement({
   id: "workspaces.workspace.tools.widget",
-  target: "shell-layout:top-right",
+  target: "shell.status",
+  kind: "component",
   surfaces: ["admin"],
   order: 900,
   componentToken: "workspaces.web.workspace.tools.widget"
@@ -565,7 +566,8 @@ addPlacement({
 
 addPlacement({
   id: "workspaces.workspace.menu.workspace-settings",
-  target: "admin-cog:primary-menu",
+  target: "admin.tools-menu",
+  kind: "component",
   surfaces: ["admin"],
   order: 100,
   componentToken: "workspaces.web.workspace-settings.menu-item"
@@ -573,51 +575,53 @@ addPlacement({
 
 addPlacement({
   id: "workspaces.workspace.menu.members",
-  target: "admin-cog:primary-menu",
+  target: "admin.tools-menu",
+  kind: "component",
   surfaces: ["admin"],
   order: 200,
   componentToken: "workspaces.web.workspace-members.menu-item"
 });
 ```
 
-That one block explains a lot of the new shell behavior.
+That one block explains a lot of the workspace shell behavior.
 
-- the authenticated profile menu can now switch into workspace surfaces
-- the top-left area now has a workspace selector
-- the top-right area can show a pending-invites cue
-- the admin surface gets workspace tools in the top-right area
-- the admin workspace settings menu is now another nested placement host with both `Settings` and `Members`
+- the authenticated profile menu can switch into workspace surfaces
+- `shell.identity` carries the workspace selector
+- `shell.status` can show a pending-invites cue
+- the admin surface gets workspace tools through `shell.status`
+- the admin surface gets a workspace tools menu with `Settings` and `Members`
+- the workspace settings shell exposes its own nested menu host for app-owned settings child pages
 
-If you want to add your own app-owned page into that top cog menu, first ask JSKIT which placement targets exist:
+If you want to add your own app-owned page into that top cog menu, first ask JSKIT which semantic placements exist:
 
 ```bash
 npx jskit list-placements
 ```
 
-In a workspace-enabled app, that list now includes:
+In a workspace-enabled app, that list includes:
 
 ```text
-- admin-cog:primary-menu [package:@jskit-ai/workspaces-web:src/client/components/UsersWorkspaceToolsWidget.vue]
+- admin.tools-menu: Admin surface tools menu actions.
 ```
 
-If you want more context than the raw target list, `npx jskit show @jskit-ai/workspaces-web --details` also shows that same outlet plus the default `Settings` and `Members` entries already targeting it.
+If you want the underlying outlet inventory, use `npx jskit list-placements --concrete`. If you want more package context, `npx jskit show @jskit-ai/workspaces-web --details` also shows the topology plus the default `Settings` and `Members` entries already targeting it.
 
-Once you know the outlet id, generate the page like this:
+Once you know the semantic placement id, generate the page like this:
 
 ```bash
 npx jskit generate ui-generator page \
   w/[workspaceSlug]/admin/catalogue/index.vue \
   --name "Catalogue" \
-  --link-placement admin-cog:primary-menu
+  --link-placement admin.tools-menu
 ```
 
 That command creates `src/pages/w/[workspaceSlug]/admin/catalogue/index.vue` and appends the matching link entry into `src/placement.js`.
 
-`--link-placement` is necessary here because this route is just a normal `admin` page. It is **not** a child page under a local host like `w/[workspaceSlug]/admin/workspace/settings.vue`, so the generator has no nested settings outlet to infer automatically. If you omit `--link-placement`, the new page link falls back to the app's default shell menu outlet instead of the cog menu.
+`--link-placement` is necessary here because this route is just a normal `admin` page. It is **not** a child page under a local host like `w/[workspaceSlug]/admin/workspace/settings.vue`, so the generator has no nested settings placement to infer automatically. If you omit `--link-placement`, the new page link falls back to the app's default `shell.primary-nav` placement instead of the cog menu.
 
-You also do **not** need `--link-component-token` here. `admin-cog:primary-menu` already declares `local.main.ui.surface-aware-menu-link-item` as its default link renderer, so JSKIT reuses that automatically when it writes the placement entry.
+You also do **not** need a renderer flag here. `admin.tools-menu` defines its link renderer in topology, so JSKIT resolves that when it renders the placement entry.
 
-So the placement system from the shell chapter is still doing the same job as before. The app just has a richer routing and tenancy context now.
+So the placement system from the shell chapter is doing the same job with a richer routing and tenancy context.
 
 ### The local client provider gets one more app-owned token
 
@@ -663,7 +667,7 @@ registerProfileSyncLifecycleContributor(app, "workspaces.core.profileSyncLifecyc
 
 That means the workspace package does not need to patch auth directly to learn that a user was added. It listens through the `users-core` lifecycle registry instead.
 
-For this chapter's `tenancyMode = "personal"` setup, that contributor now does real work. When an authenticated JSKIT user is synchronized from auth, `workspaces-core` ensures that user's personal workspace exists.
+For this chapter's `tenancyMode = "personal"` setup, that contributor does real work. When an authenticated JSKIT user is synchronized from auth, `workspaces-core` ensures that user's personal workspace exists.
 
 That detail matters for the retrofit path described earlier in this chapter. If the app started on `none`, then later switched to `personal`, the first sign-in after that switch still needs to backfill the personal workspace for the already-existing user record. The lifecycle contributor handles that because the workspace provision step is idempotent.
 
@@ -709,9 +713,9 @@ Before:
 After:
 
 - global surfaces still exist
-- workspace-scoped surfaces now exist too
+- workspace-scoped surfaces exist too
 - the shell can navigate between workspaces
-- access to some surfaces now depends on workspace membership
+- access to some surfaces depends on workspace membership
 
 That is why multi-homing deserves its own chapter. It is not just another feature package. It is the moment the app becomes tenancy-aware.
 
@@ -719,11 +723,11 @@ That is why multi-homing deserves its own chapter. It is not just another featur
 
 This chapter is the real routing and tenancy pivot in the guide.
 
-- the app now uses `tenancyMode = "personal"`
+- the app uses `tenancyMode = "personal"`
 - `workspaces-core` added the persistent schema and server runtime for workspaces
 - `workspaces-web` added the first workspace-scoped surfaces, shell controls, and the workspace-owned account invites extension
 
-At the end of this chapter, the app now has both:
+At the end of this chapter, the app has both:
 
 - global surfaces such as `home`, `auth`, `account`, and `console`
 - workspace-scoped surfaces such as `/w/[workspaceSlug]` and `/w/[workspaceSlug]/admin`
@@ -733,7 +737,7 @@ That is the most important mental shift to keep:
 - earlier chapters added features inside one global app shell
 - this chapter changed the topology of the app itself
 
-From here on, later modules are no longer only adding pages or widgets. They can add features inside either:
+From here on, later modules can add features inside either:
 
 - the global surfaces
 - the workspace-specific surfaces

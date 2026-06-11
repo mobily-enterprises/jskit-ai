@@ -1,7 +1,7 @@
 import { createSocketIoClient, disconnectSocketIoClient } from "./runtime.js";
 import { normalizeObject, normalizeText } from "@jskit-ai/kernel/shared/support/normalize";
 import { createProviderLogger as createSharedProviderLogger } from "@jskit-ai/kernel/shared/support/providerLogger";
-import { resolveClientBootstrapDebugEnabled } from "@jskit-ai/kernel/client";
+import { getClientAppConfig, resolveClientBootstrapDebugEnabled, resolveMobileConfig } from "@jskit-ai/kernel/client";
 import RealtimeConnectionIndicator from "./components/RealtimeConnectionIndicator.js";
 import { resolveRealtimeClientListeners } from "./listeners.js";
 
@@ -10,12 +10,29 @@ const REALTIME_RUNTIME_CLIENT_API = Object.freeze({
   disconnectSocketIoClient
 });
 
+function isCapacitorRuntimeAvailable(app) {
+  if (!app || typeof app.has !== "function" || typeof app.make !== "function") {
+    return false;
+  }
+  if (app.has("mobile.capacitor.adapter.client") !== true) {
+    return false;
+  }
+
+  const adapter = app.make("mobile.capacitor.adapter.client");
+  return adapter?.available === true;
+}
+
 function resolveRealtimeClientConfig(app) {
-  const appConfig = app && typeof app.has === "function" && app.has("appConfig") ? normalizeObject(app.make("appConfig")) : {};
+  const appConfig = normalizeObject(getClientAppConfig());
   const env = app && typeof app.has === "function" && app.has("jskit.client.env") ? normalizeObject(app.make("jskit.client.env")) : {};
   const realtime = normalizeObject(appConfig.realtime);
   const realtimeClient = normalizeObject(appConfig.realtimeClient);
-  const url = normalizeText(realtimeClient.url);
+  const mobileConfig = resolveMobileConfig({
+    mobile: normalizeObject(appConfig.mobile)
+  });
+  const url = normalizeText(
+    realtimeClient.url || (mobileConfig.enabled === true && isCapacitorRuntimeAvailable(app) ? mobileConfig.apiBaseUrl : "")
+  );
   const options = normalizeObject(realtimeClient.options);
   const explicitDebugEnabled =
     typeof realtimeClient.debug === "boolean"

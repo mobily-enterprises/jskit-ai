@@ -290,6 +290,26 @@ test("createJsonRestResourceScopeOptions clones canonical resource metadata and 
             required: false
           })
         })
+      }),
+      pets: Object.freeze({
+        type: "array",
+        relation: Object.freeze({
+          kind: "collection",
+          namespace: "pets",
+          foreignKey: "contactId"
+        }),
+        operations: Object.freeze({
+          output: Object.freeze({
+            required: false
+          })
+        })
+      })
+    }),
+    relationships: Object.freeze({
+      auditEvents: Object.freeze({
+        type: "hasMany",
+        target: "auditEvents",
+        foreignKey: "contactId"
       })
     }),
     operations: Object.freeze({
@@ -314,10 +334,23 @@ test("createJsonRestResourceScopeOptions clones canonical resource metadata and 
   assert.equal(result.schema.createdAt.storage.serialize(null), null);
   assert.equal(result.schema.createdAt.storage.writeSerializer, undefined);
   assert.equal(result.schema.bookingSteps.virtual, true);
+  assert.equal(result.schema.pets.virtual, true);
   assert.equal(result.normalizeId, normalizeId);
   assert.equal(result.schema.name.maxLength, 190);
   assert.equal(result.schema.name.operations.output.required, true);
   assert.equal(result.operations.view.method, "GET");
+  assert.deepEqual(result.relationships, {
+    pets: {
+      type: "hasMany",
+      target: "pets",
+      foreignKey: "contactId"
+    },
+    auditEvents: {
+      type: "hasMany",
+      target: "auditEvents",
+      foreignKey: "contactId"
+    }
+  });
 
   result.schema.createdAt.indexed = true;
   assert.equal(source.schema.createdAt.indexed, undefined);

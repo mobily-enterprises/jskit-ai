@@ -1,18 +1,13 @@
 <template>
   <CrudAddEditForm
-    mode="edit"
-    :form-runtime="formRuntime"
-    title="Edit __JSKIT_UI_RESOURCE_SINGULAR_TITLE__"
-    subtitle="Update the selected __JSKIT_UI_RESOURCE_SINGULAR_TITLE__."
-    save-label="Save changes"
-    :cancel-to="cancelTo"__JSKIT_UI_EDIT_LOOKUP_FORM_PROPS__
+    :screen="screen"__JSKIT_UI_EDIT_LOOKUP_FORM_PROPS__
   />
 </template>
 
 <script setup>
 import { computed } from "vue";
 import { useRoute } from "vue-router";
-import { useCrudAddEdit } from "@jskit-ai/users-web/client/composables/useCrudAddEdit";
+import { useCrudAddEditScreen } from "@jskit-ai/users-web/client/composables/useCrudAddEditScreen";
 __JSKIT_UI_EDIT_LOOKUP_IMPORT_LINE__
 import { resource as uiResource } from "__JSKIT_UI_RESOURCE_IMPORT_PATH__";
 import CrudAddEditForm from "../_components/__JSKIT_UI_FORM_COMPONENT_FILE__";
@@ -42,7 +37,13 @@ const routeRecordId = computed(() => {
 
 __JSKIT_UI_EDIT_LOOKUP_RUNTIME_SETUP__
 
-const formRuntime = useCrudAddEdit({
+const screen = useCrudAddEditScreen({
+  mode: "edit",
+  title: "Edit __JSKIT_UI_RESOURCE_SINGULAR_TITLE__",
+  subtitle: "Update the selected __JSKIT_UI_RESOURCE_SINGULAR_TITLE__.",
+  saveLabel: "Save changes",
+  cancelTo: UI_CANCEL_URL,
+  preserveCancelQuery: true,
   resource: uiResource,
   operationName: "patch",
   formFields: UI_EDIT_FORM_FIELDS,
@@ -75,17 +76,5 @@ const formRuntime = useCrudAddEdit({
     invalidateQueryKey: ["ui-generator", "__JSKIT_UI_RESOURCE_NAMESPACE__"],
     listUrlTemplate: UI_LIST_URL
   }
-});
-
-const cancelTo = computed(() => {
-  const resolvedPath = formRuntime.addEdit.resolveParams(UI_CANCEL_URL);
-  if (!resolvedPath) {
-    return "";
-  }
-
-  return {
-    path: resolvedPath,
-    query: route.query
-  };
 });
 </script>

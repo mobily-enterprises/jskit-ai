@@ -7,13 +7,13 @@ test("placement registry stores unique entries and builds immutable array", () =
 
   const firstAdded = registry.addPlacement({
     id: "example.profile",
-    target: "shell-layout:top-right",
+    target: "shell.status",
     surfaces: ["*"],
     componentToken: "example.profile.component"
   });
   const duplicateAdded = registry.addPlacement({
     id: "example.profile",
-    target: "shell-layout:top-right",
+    target: "shell.status",
     surfaces: ["*"],
     componentToken: "example.profile.component.duplicate"
   });
@@ -33,7 +33,7 @@ test("placement registry accepts explicit non-global surface ids", () => {
 
   const added = registry.addPlacement({
     id: "example.admin",
-    target: "shell-layout:top-right",
+    target: "shell.status",
     surfaces: ["admin"],
     componentToken: "example.admin.component"
   });

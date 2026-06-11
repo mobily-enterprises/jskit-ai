@@ -2,6 +2,9 @@ import {
   ensureArray,
   ensureObject
 } from "../../shared/collectionUtils.js";
+import {
+  normalizeDependencyMutationRecord
+} from "../../cliRuntime/mutationWhen.js";
 import { createShowRenderHelpers } from "./renderHelpers.js";
 import { writePackageExportsSection } from "./renderPackageExports.js";
 import { writeCapabilitiesSections } from "./renderPackageCapabilities.js";
@@ -33,6 +36,12 @@ function resolveGeneratorSubcommandRows(payload = {}) {
 
 function resolveOwnershipGuidance(payload = {}) {
   return ensureObject(ensureObject(ensureObject(payload.metadata).jskit).ownershipGuidance);
+}
+
+function renderDependencyMutationSpec(versionSpec) {
+  const dependencySpec = normalizeDependencyMutationRecord(versionSpec);
+  const whenSuffix = dependencySpec.when ? ` when ${JSON.stringify(dependencySpec.when)}` : "";
+  return `${dependencySpec.version}${whenSuffix}`.trim();
 }
 
 function renderPackagePayloadText({
@@ -255,7 +264,7 @@ function renderPackagePayloadText({
       wrapWidth,
       items: runtimeMutationEntries.map(([dependencyId, versionSpec]) => {
         const dependencyText = String(dependencyId);
-        const versionText = String(versionSpec);
+        const versionText = renderDependencyMutationSpec(versionSpec);
         return {
           text: `${dependencyText} ${versionText}`,
           rendered: `${color.item(dependencyText)} ${color.installed(versionText)}`
@@ -325,7 +334,7 @@ function renderPackagePayloadText({
       wrapWidth,
       items: devMutationEntries.map(([dependencyId, versionSpec]) => {
         const dependencyText = String(dependencyId);
-        const versionText = String(versionSpec);
+        const versionText = renderDependencyMutationSpec(versionSpec);
         return {
           text: `${dependencyText} ${versionText}`,
           rendered: `${color.item(dependencyText)} ${color.installed(versionText)}`

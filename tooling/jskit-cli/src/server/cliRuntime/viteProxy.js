@@ -144,14 +144,16 @@ async function loadViteDevProxyConfig(appRoot, { context = "vite proxy config" }
   });
 }
 
-async function writeViteDevProxyConfig(appRoot, config = {}, touchedFiles = null) {
+async function writeViteDevProxyConfig(appRoot, config = {}, touchedFiles = null, { dryRun = false } = {}) {
   const absolutePath = resolveViteDevProxyConfigAbsolutePath(appRoot);
   const relativePath = normalizeRelativePath(appRoot, absolutePath);
   const normalizedConfig = normalizeViteDevProxyConfig(config);
 
   if (normalizedConfig.entries.length < 1) {
     if (await fileExists(absolutePath)) {
-      await rm(absolutePath);
+      if (!dryRun) {
+        await rm(absolutePath);
+      }
       if (touchedFiles && typeof touchedFiles.add === "function") {
         touchedFiles.add(relativePath);
       }
@@ -159,7 +161,9 @@ async function writeViteDevProxyConfig(appRoot, config = {}, touchedFiles = null
     return;
   }
 
-  await writeJsonFile(absolutePath, normalizedConfig);
+  if (!dryRun) {
+    await writeJsonFile(absolutePath, normalizedConfig);
+  }
   if (touchedFiles && typeof touchedFiles.add === "function") {
     touchedFiles.add(relativePath);
   }
@@ -181,7 +185,15 @@ function normalizeViteProxyMutationRecord(value = {}) {
   });
 }
 
-async function applyViteMutations(packageEntry, appRoot, viteMutations, options, managedVite, touchedFiles) {
+async function applyViteMutations(
+  packageEntry,
+  appRoot,
+  viteMutations,
+  options,
+  managedVite,
+  touchedFiles,
+  { dryRun = false } = {}
+) {
   const mutations = ensureArray(ensureObject(viteMutations).proxy).map((entry) => normalizeViteProxyMutationRecord(entry));
   if (mutations.length < 1) {
     return;
@@ -291,10 +303,16 @@ async function applyViteMutations(packageEntry, appRoot, viteMutations, options,
     return;
   }
 
-  await writeViteDevProxyConfig(appRoot, nextConfig, touchedFiles);
+  await writeViteDevProxyConfig(appRoot, nextConfig, touchedFiles, { dryRun });
 }
 
-async function removeManagedViteProxyEntries({ appRoot, packageId, managedViteChanges = {}, touchedFiles = null } = {}) {
+async function removeManagedViteProxyEntries({
+  appRoot,
+  packageId,
+  managedViteChanges = {},
+  touchedFiles = null,
+  dryRun = false
+} = {}) {
   const managedChanges = Object.values(ensureObject(managedViteChanges))
     .map((entry) => ensureObject(entry))
     .filter((entry) => String(entry.op || "").trim() === "upsert-vite-proxy");
@@ -339,7 +357,7 @@ async function removeManagedViteProxyEntries({ appRoot, packageId, managedViteCh
     return;
   }
 
-  await writeViteDevProxyConfig(appRoot, nextConfig, touchedFiles);
+  await writeViteDevProxyConfig(appRoot, nextConfig, touchedFiles, { dryRun });
 }
 
 export {

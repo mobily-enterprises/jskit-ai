@@ -3,6 +3,7 @@ import path from "node:path";
 import test from "node:test";
 import { readFile } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
+import { assertGeneratedUiSourceContract } from "@jskit-ai/kernel/shared/support/generatedUiContract";
 import descriptor from "../package.descriptor.mjs";
 
 const TEST_DIRECTORY = path.dirname(fileURLToPath(import.meta.url));
@@ -14,6 +15,19 @@ function readOutlets(host = "") {
   return Array.isArray(outlets)
     ? outlets.filter((entry) => String(entry?.target || "").trim() === normalizedTarget)
     : [];
+}
+
+function findTopology(id, owner = "") {
+  const placements = descriptor?.metadata?.ui?.placements?.topology?.placements;
+  const normalizedId = String(id || "").trim();
+  const normalizedOwner = String(owner || "").trim();
+  return Array.isArray(placements)
+    ? placements.find((entry) => {
+        const entryId = String(entry?.id || "").trim();
+        const entryOwner = String(entry?.owner || "").trim();
+        return entryId === normalizedId && entryOwner === normalizedOwner;
+      }) || null
+    : null;
 }
 
 function findContribution(id) {
@@ -77,7 +91,8 @@ test("users-web home tools widget exposes home-cog outlet", async () => {
   assert.match(source, /import \{ HOME_COG_OUTLET \} from "\.\.\/\.\.\/shared\/toolsOutletContracts\.js";/);
   assert.match(source, /<ShellOutletMenuWidget/);
   assert.match(source, /:target="HOME_COG_OUTLET\.target"/);
-  assert.match(source, /:default-link-component-token="HOME_COG_OUTLET\.defaultLinkComponentToken"/);
+  assert.match(source, /:aria-label="HOME_COG_OUTLET\.ariaLabel"/);
+  assert.doesNotMatch(source, /default-link-component-token/);
 });
 
 test("users-web account page template uses the package-owned account settings host", async () => {
@@ -96,10 +111,70 @@ test("users-web package-owned account settings host is fully placement-backed", 
     "utf8"
   );
 
+  assertGeneratedUiSourceContract(source, {
+    forbidCardShell: true,
+    sourceName: "AccountSettingsClientElement.vue",
+    requiredPatterns: [
+      {
+        id: "account-settings-header",
+        pattern: /settings-panel__header/,
+        message: "Account settings host needs a direct settings panel header."
+      },
+      {
+        id: "account-settings-sections",
+        pattern: /useAccountSettingsSections/,
+        message: "Account settings host must remain placement-backed."
+      }
+    ]
+  });
   assert.match(source, /useAccountSettingsSections/);
+  assert.match(source, /settings-panel__header/);
+  assert.doesNotMatch(source, /<v-card\b|v-card-title|v-card-subtitle/);
   assert.doesNotMatch(source, /AccountSettingsProfileSection/);
   assert.doesNotMatch(source, /AccountSettingsPreferencesSection/);
   assert.doesNotMatch(source, /AccountSettingsNotificationsSection/);
+});
+
+test("users-web profile form element uses a direct panel instead of card scaffolding", async () => {
+  const source = await readFile(path.join(PACKAGE_DIR, "src", "client", "components", "ProfileClientElement.vue"), "utf8");
+
+  assertGeneratedUiSourceContract(source, {
+    forbidCardShell: true,
+    sourceName: "ProfileClientElement.vue",
+    requiredPatterns: [
+      {
+        id: "profile-panel-body",
+        pattern: /profile-client-panel__body/,
+        message: "Profile editor needs a direct panel body."
+      }
+    ]
+  });
+  assert.match(source, /profile-client-panel__body/);
+  assert.doesNotMatch(source, /<v-card\b|v-card-title|v-card-subtitle|v-card-text|v-card-item/);
+});
+
+test("users-web account settings section templates use direct settings panels", async () => {
+  for (const relativePath of [
+    path.join("templates", "src", "components", "account", "settings", "AccountSettingsProfileSection.vue"),
+    path.join("templates", "src", "components", "account", "settings", "AccountSettingsPreferencesSection.vue"),
+    path.join("templates", "src", "components", "account", "settings", "AccountSettingsNotificationsSection.vue")
+  ]) {
+    const source = await readFile(path.join(PACKAGE_DIR, relativePath), "utf8");
+
+    assertGeneratedUiSourceContract(source, {
+      forbidCardShell: true,
+      sourceName: relativePath,
+      requiredPatterns: [
+        {
+          id: "account-settings-section",
+          pattern: /account-settings-section/,
+          message: "Account settings sections need the direct section panel primitive."
+        }
+      ]
+    });
+    assert.match(source, /account-settings-section/);
+    assert.doesNotMatch(source, /<v-card\b|v-card-title|v-card-subtitle/);
+  }
 });
 
 test("users-web descriptor metadata advertises home cog outlet and standard home settings placements", () => {
@@ -108,7 +183,6 @@ test("users-web descriptor metadata advertises home cog outlet and standard home
     [
       {
         target: "home-cog:primary-menu",
-        defaultLinkComponentToken: "local.main.ui.surface-aware-menu-link-item",
         surfaces: ["home"],
         source: "src/client/components/UsersHomeToolsWidget.vue"
       }
@@ -124,18 +198,61 @@ test("users-web descriptor metadata advertises home cog outlet and standard home
       }
     ]
   );
+  assert.deepEqual(findTopology("home.tools-menu"), {
+    id: "home.tools-menu",
+    description: "Home surface tools menu actions.",
+    surfaces: ["home"],
+    variants: {
+      compact: {
+        outlet: "home-cog:primary-menu",
+        renderers: {
+          link: "local.main.ui.surface-aware-menu-link-item"
+        }
+      },
+      medium: {
+        outlet: "home-cog:primary-menu",
+        renderers: {
+          link: "local.main.ui.surface-aware-menu-link-item"
+        }
+      },
+      expanded: {
+        outlet: "home-cog:primary-menu",
+        renderers: {
+          link: "local.main.ui.surface-aware-menu-link-item"
+        }
+      }
+    }
+  });
+  assert.deepEqual(findTopology("settings.sections", "account-settings"), {
+    id: "settings.sections",
+    owner: "account-settings",
+    description: "Account settings content sections.",
+    surfaces: ["account"],
+    variants: {
+      compact: {
+        outlet: "account-settings:sections"
+      },
+      medium: {
+        outlet: "account-settings:sections"
+      },
+      expanded: {
+        outlet: "account-settings:sections"
+      }
+    }
+  });
 
   expectContribution("users.profile.menu.settings", {
-    target: "auth-profile-menu:primary-menu",
+    target: "auth.profile-menu",
+    kind: "link",
     surfaces: ["*"],
     order: 500,
-    componentToken: "auth.web.profile.menu.link-item",
     when: "auth.authenticated === true",
     source: "mutations.text#users-web-profile-settings-placement"
   });
 
   expectContribution("users.home.tools.widget", {
-    target: "shell-layout:top-right",
+    target: "shell.status",
+    kind: "component",
     surfaces: ["home"],
     order: 900,
     componentToken: "users.web.home.tools.widget",
@@ -144,30 +261,36 @@ test("users-web descriptor metadata advertises home cog outlet and standard home
   });
 
   expectContribution("users.home.menu.settings", {
-    target: "home-cog:primary-menu",
+    target: "home.tools-menu",
+    kind: "link",
     surfaces: ["home"],
     order: 100,
-    componentToken: "local.main.ui.surface-aware-menu-link-item",
     when: "auth.authenticated === true",
     source: "mutations.text#users-web-home-tools-placement"
   });
   assert.equal(findContribution("users.home.settings.general"), null);
   expectContribution("users.account.settings.profile", {
-    target: "account-settings:sections",
+    target: "settings.sections",
+    owner: "account-settings",
+    kind: "component",
     surfaces: ["account"],
     order: 100,
     componentToken: "local.main.account-settings.section.profile",
     source: "mutations.text#users-web-account-settings-sections-placement"
   });
   expectContribution("users.account.settings.preferences", {
-    target: "account-settings:sections",
+    target: "settings.sections",
+    owner: "account-settings",
+    kind: "component",
     surfaces: ["account"],
     order: 200,
     componentToken: "local.main.account-settings.section.preferences",
     source: "mutations.text#users-web-account-settings-sections-placement"
   });
   expectContribution("users.account.settings.notifications", {
-    target: "account-settings:sections",
+    target: "settings.sections",
+    owner: "account-settings",
+    kind: "component",
     surfaces: ["account"],
     order: 300,
     componentToken: "local.main.account-settings.section.notifications",
@@ -182,18 +305,23 @@ test("users-web descriptor metadata advertises home cog outlet and standard home
       'id: "users.home.tools.widget"',
       'componentToken: "users.web.home.tools.widget"',
       'id: "users.home.menu.settings"',
-      'target: "home-cog:primary-menu"',
-      'componentToken: "local.main.ui.surface-aware-menu-link-item"',
+      'target: "home.tools-menu"',
+      'kind: "link"',
       'scopedSuffix: "/settings"',
       'unscopedSuffix: "/settings"'
     ]
   });
+  assert.equal(findTextMutation("users-web-home-tools-topology")?.file, "src/placementTopology.js");
+  assert.match(findTextMutation("users-web-home-tools-topology")?.value || "", /id: "home\.tools-menu"/);
+  assert.match(findTextMutation("users-web-home-tools-topology")?.value || "", /outlet: "home-cog:primary-menu"/);
   expectTextMutation("users-web-account-settings-sections-placement", {
     reason: "Append users-web account settings section placements into the app-owned placement registry.",
     category: "users-web",
     skipIfContains: 'id: "users.account.settings.profile"',
     snippets: [
       'id: "users.account.settings.profile"',
+      'target: "settings.sections"',
+      'owner: "account-settings"',
       'componentToken: "local.main.account-settings.section.profile"',
       'value: "profile"',
       'id: "users.account.settings.preferences"',
@@ -204,6 +332,10 @@ test("users-web descriptor metadata advertises home cog outlet and standard home
       'value: "notifications"'
     ]
   });
+  assert.equal(findTextMutation("users-web-account-settings-topology")?.file, "src/placementTopology.js");
+  assert.match(findTextMutation("users-web-account-settings-topology")?.value || "", /id: "settings\.sections"/);
+  assert.match(findTextMutation("users-web-account-settings-topology")?.value || "", /owner: "account-settings"/);
+  assert.match(findTextMutation("users-web-account-settings-topology")?.value || "", /outlet: "account-settings:sections"/);
 
   expectTextMutation("users-web-profile-settings-placement", {
     reason: "Append users-web profile settings menu placement into app-owned placement registry.",
@@ -211,8 +343,8 @@ test("users-web descriptor metadata advertises home cog outlet and standard home
     skipIfContains: 'id: "users.profile.menu.settings"',
     snippets: [
       'id: "users.profile.menu.settings"',
-      'target: "auth-profile-menu:primary-menu"',
-      'componentToken: "auth.web.profile.menu.link-item"',
+      'target: "auth.profile-menu"',
+      'kind: "link"',
       'label: "Settings"',
       'to: "/account"'
     ]

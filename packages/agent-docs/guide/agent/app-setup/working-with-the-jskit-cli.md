@@ -28,7 +28,7 @@ The easiest way to understand `jskit` is to separate it from the other tools in 
 
 That separation is crucial.
 
-When you run a command such as `npx jskit add package shell-web`, JSKIT updates app-owned files and records what it changed. It does **not** replace npm, Vite, or Knex.
+When you run a command such as `npx jskit add package auth-provider-supabase-core`, JSKIT updates app-owned files and records what it changed. It does **not** replace npm, Vite, or Knex.
 
 The most important record of that managed state lives here:
 
@@ -71,14 +71,15 @@ In the current scaffold, those scripts are intentionally thin:
 
 That is a deliberate design choice.
 
-The app keeps the handy `npm run` names, but the real maintenance policy now lives in the installed CLI package instead of copied shell scripts inside the app. That means if JSKIT later changes how package updates, local linking, or baseline verification should work, apps can pick up the new behavior by updating `@jskit-ai/jskit-cli` instead of hand-editing frozen scaffold files.
+The app keeps the handy `npm run` names, but the real maintenance policy lives in the installed CLI package instead of copied shell scripts inside the app. That means if JSKIT later changes how package updates, local linking, or baseline verification should work, apps can pick up the new behavior by updating `@jskit-ai/jskit-cli` instead of hand-editing frozen scaffold files.
 
 This gives you a clean ownership split:
 
 - app-owned scripts still describe how *this app* runs, builds, and tests
+- `npm run devlinks` re-applies local checkout links after `npm install` when you are testing an app against this monorepo
 - JSKIT-owned wrapper scripts delegate framework maintenance to `jskit app ...`
 
-That split is worth keeping in mind through the rest of the guide. When you see `npm run verify`, that is now shorthand for "run the app's JSKIT baseline verification policy, then any app-specific extra verification hook".
+That split is worth keeping in mind through the rest of the guide. When you see `npm run verify`, read it as "run the app's JSKIT baseline verification policy, then any app-specific extra verification hook".
 
 The starter scaffold also includes `.github/workflows/verify.yml`. That workflow is intentionally conservative: it runs `npm run verify` and does not assume that every app can stand up full browser, auth, seed-data, and database verification inside hosted CI.
 
@@ -332,8 +333,8 @@ The placement sections are often the most useful part of `show --details`.
 
 For `@jskit-ai/workspaces-web`, the detailed output shows placement contributions such as:
 
-- the workspace selector in `shell-layout:top-left`
-- the pending invites cue in `shell-layout:top-right`
+- the workspace selector in `shell.identity`
+- the pending invites cue in `shell.status`
 - the workspace tools widget on the `admin` surface
 - the `Members` and workspace settings menu entries
 
@@ -341,9 +342,10 @@ That lets you answer a very concrete question before installing anything:
 
 - *what will change in the shell if I add this package?*
 
-It also shows placement outlets, such as:
+It also shows semantic placement topology, such as:
 
-- `admin-settings:primary-menu`
+- `page.section-nav` with owner `admin-settings`
+- `admin.tools-menu`
 
 which helps you understand where later app-owned pages or settings links can attach.
 
@@ -474,7 +476,7 @@ This is not required, but it is genuinely useful once you start using commands s
 The install command comes in two main forms:
 
 ```bash
-npx jskit add package shell-web
+npx jskit add package auth-provider-supabase-core
 npx jskit add bundle auth-base
 ```
 
@@ -485,26 +487,32 @@ Those two examples look similar, but they do different things.
 Use this when you know the exact runtime package you want:
 
 ```bash
-npx jskit add package shell-web
+npx jskit add package users-web
 ```
 
-This is the command the next chapter uses.
+This is the shape of the package install commands used throughout the rest of the guide.
 
 Important defaults:
 
-- short ids such as `shell-web` resolve to `@jskit-ai/shell-web` when available
+- short ids such as `users-web` resolve to `@jskit-ai/users-web` when available
 - JSKIT records the install in `.jskit/lock.json`
 - JSKIT rewrites app-owned managed files as needed
 - npm install does **not** run unless you ask for it with `--run-npm-install`
 
-That last point is why the normal guide flow is still:
+That last point is why the normal guide flow after adding a runtime package is still:
 
 ```bash
-npx jskit add package shell-web
+npx jskit add package users-web
 npm install
 ```
 
-`jskit add` changes the app. `npm install` downloads the dependencies that the changed app now requires.
+`jskit add` changes the app. `npm install` downloads the dependencies that the changed app requires.
+
+If the app is being tested against a local JSKIT checkout with linked packages, run the local-link wrapper again after every `npm install`:
+
+```bash
+npm run devlinks
+```
 
 ### `add bundle`
 
@@ -678,13 +686,15 @@ That last check is narrower than it sounds. `doctor` is looking for the broken c
 <v-icon icon="mdi-paw" />
 ```
 
-It does not flag the normal menu-metadata case in `src/placement.js`, where a shell menu link may still use:
+It does not flag `src/placement.js` menu metadata because shell menu links normalize a small core icon map and also accept imported `@mdi/js` path constants. For app-specific icons, prefer a local import:
 
 ```js
-icon: "mdi-cog-outline"
+import { mdiPaw } from "@mdi/js";
+
+icon: mdiPaw
 ```
 
-because the shell runtime normalizes that metadata before Vuetify renders it. So if you see a `doctor` icon warning, the fix is usually "switch this Vue component to `@mdi/js`", not "remove every `mdi-*` string from the app."
+So if you see a `doctor` icon warning, the fix is usually "switch this Vue component to `@mdi/js`", not "centralize every icon in the app."
 
 In other words, `doctor` helps catch drift between:
 
@@ -699,7 +709,7 @@ That is a different job from:
 
 Those commands can all pass while JSKIT-managed state is still inconsistent. `doctor` is the command that checks that JSKIT's own view of the app still makes sense.
 
-That is exactly why the starter scaffold now routes `npm run verify` through `jskit app verify`.
+That is exactly why the starter scaffold routes `npm run verify` through `jskit app verify`.
 
 It belongs there because JSKIT apps are not only source trees. They also have:
 
@@ -731,7 +741,7 @@ Good times to run it manually include:
 
 One important nuance: `doctor` is checking for broken JSKIT ownership and visibility, not trying to stop you from editing app-owned files. For example, a managed file that still exists but whose contents changed is normally fine. The problem is when JSKIT expects a managed file to exist and it is gone, or when the installed package state no longer resolves cleanly.
 
-There is one intentional exception now for user-facing UI work.
+There is one intentional exception for user-facing UI work.
 
 If the current git working tree has changed UI files under the app's normal UI paths, `doctor` expects a matching `.jskit/verification/ui.json` receipt. The intended way to create that receipt is:
 
@@ -961,7 +971,7 @@ Good fits include:
 - a custom integration package that talks to one external API
 - app-specific auth or policy behavior
 - a local runtime package that owns both client and server behavior for one feature area
-- a package that starts small now but may later grow providers, shared helpers, and routes
+- a package that starts small but may later grow providers, shared helpers, and routes
 
 Use a generator when the problem is already understood well enough that JSKIT can scaffold the feature shape for you.
 
@@ -1069,4 +1079,4 @@ And then keep one more distinction in your head:
 
 That is the mental model the rest of the guide assumes.
 
-The next chapter goes back to the normal hands-on flow and uses that model immediately by installing `shell-web`.
+The next chapter goes back to the normal hands-on flow and uses that model while inspecting the shell that default apps already include.

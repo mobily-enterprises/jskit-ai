@@ -16,7 +16,10 @@ import {
   resolveRequiredAppRoot
 } from "@jskit-ai/kernel/server/support";
 import { normalizeBoolean } from "@jskit-ai/kernel/shared/support/normalize";
-import { normalizeCrudLookupNamespace } from "@jskit-ai/kernel/shared/support/crudLookup";
+import {
+  normalizeCrudLookupNamespace,
+  resolveCrudResourceScopeName
+} from "@jskit-ai/kernel/shared/support/crudLookup";
 import { toCamelCase, toSnakeCase } from "@jskit-ai/kernel/shared/support/stringCase";
 import descriptor from "../../package.descriptor.mjs";
 
@@ -81,6 +84,12 @@ function asRecord(value) {
 
 function resolveInternalRouteOption(options = {}) {
   if (!Object.prototype.hasOwnProperty.call(options, "internal")) {
+    return false;
+  }
+  if (options.internal === "" || options.internal === true) {
+    return true;
+  }
+  if (options.internal === false) {
     return false;
   }
   return normalizeBoolean(options.internal);
@@ -879,12 +888,7 @@ function renderCanonicalResourceSchemaPropertyLines(columns = [], { fieldContrac
 }
 
 function resolveJsonRestRelationshipScopeName(fieldContractEntry = null) {
-  const namespace = normalizeText(fieldContractEntry?.relation?.namespace);
-  if (!namespace) {
-    return "";
-  }
-
-  return toCamelCase(namespace.replace(/\//g, "-"));
+  return resolveCrudResourceScopeName(fieldContractEntry?.relation?.namespace);
 }
 
 function resolveJsonRestRelationshipAlias(column = null) {
@@ -1030,6 +1034,8 @@ function renderJsonRestSchemaPropertyLines(columns = [], { fieldContractEntries 
 }
 
 function renderJsonRestSearchSchemaLines(columns = []) {
+  const exactFilterKeys = new Set();
+  const exactFilterLines = [];
   const searchableStringKeys = (Array.isArray(columns) ? columns : [])
     .filter((column) =>
       normalizeText(column?.typeKind).toLowerCase() === "string" &&
@@ -1044,6 +1050,29 @@ function renderJsonRestSearchSchemaLines(columns = []) {
   const lines = [
     '    id: { type: "id", actualField: "id" },'
   ];
+
+  for (const column of Array.isArray(columns) ? columns : []) {
+    const key = normalizeText(column?.key);
+    if (
+      !key ||
+      exactFilterKeys.has(key) ||
+      column?.isOwnerColumn === true ||
+      column?.isIdColumn === true ||
+      column?.isCreatedAtColumn === true ||
+      column?.isUpdatedAtColumn === true ||
+      column?.isForeignIdColumn !== true
+    ) {
+      continue;
+    }
+
+    const actualField = normalizeText(column?.name) || key;
+    exactFilterKeys.add(key);
+    exactFilterLines.push(
+      `    ${renderObjectPropertyKey(key)}: { type: "id", actualField: ${JSON.stringify(actualField)}, filterOperator: "=" },`
+    );
+  }
+
+  lines.push(...exactFilterLines);
 
   if (searchableStringKeys.length > 0) {
     lines.push(
@@ -1936,7 +1965,7 @@ function buildReplacementsFromSnapshot({
     __JSKIT_CRUD_RESOURCE_SEARCH_SCHEMA_LINES__: resourceSearchSchemaLines,
     __JSKIT_CRUD_RESOURCE_DEFAULT_SORT__: resourceDefaultSortLiteral,
     __JSKIT_CRUD_RESOURCE_AUTOFILTER__: JSON.stringify(resolvedOwnershipFilter),
-    __JSKIT_CRUD_JSONREST_SCOPE_NAME__: JSON.stringify(toCamelCase(namespace)),
+    __JSKIT_CRUD_JSONREST_SCOPE_NAME__: JSON.stringify(resolveCrudResourceScopeName(namespace)),
     __JSKIT_CRUD_JSONREST_AUTOFILTER__: JSON.stringify(resolvedOwnershipFilter),
     __JSKIT_CRUD_JSONREST_SEARCH_SCHEMA_LINES__: jsonRestSearchSchemaLines,
     __JSKIT_CRUD_JSONREST_SCHEMA_PROPERTIES__: jsonRestSchemaPropertyLines,

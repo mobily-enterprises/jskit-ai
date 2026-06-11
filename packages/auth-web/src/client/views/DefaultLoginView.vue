@@ -1,15 +1,27 @@
 <template>
-  <v-main class="login-main">
-    <v-container class="fill-height d-flex align-center justify-center py-8">
-      <v-card class="auth-card" rounded="lg" elevation="1" border>
-        <v-card-text class="pa-7">
-          <div class="auth-header d-flex align-start justify-space-between ga-3 mb-5">
+  <div class="login-screen" :class="{ 'login-screen--mobile': isMobileViewport }">
+    <v-container
+      fluid
+      class="login-shell fill-height d-flex"
+      :class="[
+        isMobileViewport
+          ? 'login-shell--mobile align-stretch justify-stretch pa-0'
+          : 'align-center justify-center py-8'
+      ]"
+    >
+      <v-card
+        class="auth-card"
+        :class="{ 'auth-card--mobile': isMobileViewport }"
+        :rounded="isMobileViewport ? false : 'lg'"
+        :elevation="isMobileViewport ? 0 : 1"
+        :border="!isMobileViewport"
+      >
+        <v-card-text class="auth-content" :class="{ 'auth-content--mobile': isMobileViewport }">
+          <div v-if="authTitle || authSubtitle" class="auth-header mb-5">
             <div>
-              <p class="auth-kicker">Jskit Workspace</p>
-              <h1 class="auth-title">{{ authTitle }}</h1>
+              <h1 v-if="authTitle" class="auth-title">{{ authTitle }}</h1>
               <p v-if="authSubtitle" class="text-medium-emphasis mb-0">{{ authSubtitle }}</p>
             </div>
-            <v-chip color="primary" size="small" label>Secure</v-chip>
           </div>
 
           <div v-if="!isForgot && !isOtp && !isEmailConfirmationPending" class="mode-switch d-flex ga-2 pa-1 mb-5">
@@ -199,13 +211,14 @@
         </v-card-text>
       </v-card>
     </v-container>
-  </v-main>
+  </div>
 </template>
 
 <script setup>
 import { onMounted } from "vue";
 import { useQueryClient } from "@tanstack/vue-query";
 import { mdiEye, mdiEyeOff } from "@mdi/js";
+import { useDisplay } from "vuetify";
 import { useShellWebErrorRuntime } from "@jskit-ai/shell-web/client/error";
 import { useWebPlacementContext } from "@jskit-ai/shell-web/client/placement";
 import { useLoginViewState } from "../composables/loginView/useLoginViewState.js";
@@ -217,6 +230,7 @@ const {
 } = useWebPlacementContext();
 const queryClient = useQueryClient();
 const errorRuntime = useShellWebErrorRuntime();
+const { mobile: isMobileViewport } = useDisplay({ mobileBreakpoint: 960 });
 
 const state = useLoginViewState({ placementContext });
 const validation = useLoginViewValidation({ state });
@@ -290,22 +304,44 @@ function toggleConfirmPasswordVisibility() {
 </script>
 
 <style scoped>
-.login-main {
+.login-screen {
+  position: fixed;
+  inset: 0;
+  z-index: 1;
+  overflow-y: auto;
+  min-height: 100dvh;
   background-color: rgb(var(--v-theme-background));
   background-image: radial-gradient(circle at 15% 12%, rgba(var(--v-theme-primary), 0.14), transparent 32%);
+}
+
+.login-screen--mobile {
+  background-image: none;
+}
+
+.login-shell {
+  min-height: 100dvh;
+}
+
+.login-shell--mobile {
+  width: 100%;
 }
 
 .auth-card {
   width: min(520px, 100%);
 }
 
-.auth-kicker {
-  margin: 0 0 8px;
-  font-size: 12px;
-  font-weight: 700;
-  letter-spacing: 0.09em;
-  text-transform: uppercase;
-  color: rgba(var(--v-theme-on-surface), 0.72);
+.auth-card--mobile {
+  width: 100%;
+  min-height: 100dvh;
+}
+
+.auth-content {
+  padding: 28px;
+}
+
+.auth-content--mobile {
+  min-height: 100dvh;
+  padding: calc(24px + env(safe-area-inset-top, 0px)) 20px calc(32px + env(safe-area-inset-bottom, 0px));
 }
 
 .auth-title {
@@ -361,10 +397,6 @@ function toggleConfirmPasswordVisibility() {
 }
 
 @media (max-width: 959px) {
-  .auth-content {
-    padding: 24px 20px;
-  }
-
   .auth-title {
     font-size: 26px;
   }

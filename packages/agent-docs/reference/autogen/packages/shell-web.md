@@ -14,6 +14,17 @@ Use this on demand; do not load the full index at startup.
 
 ### src
 
+### `src/client/asyncModuleRecovery/index.js`
+Exports
+- `SHELL_ASYNC_MODULE_RECOVERY_RUNTIME_KEY`
+- `useShellAsyncModuleRecoveryRuntime`
+
+### `src/client/asyncModuleRecovery/inject.js`
+Exports
+- `SHELL_ASYNC_MODULE_RECOVERY_RUNTIME_KEY`
+- `isShellAsyncModuleRecoveryRuntime(value)`
+- `useShellAsyncModuleRecoveryRuntime()`
+
 ### `src/client/bootstrap/bootstrapErrorStatus.js`
 Exports
 - `resolveBootstrapErrorStatusCode(error)`
@@ -38,16 +49,42 @@ Exports
 Exports
 - None
 Local functions
+- `isSameSnackbarEntry(left = null, right = null)`
+- `hasSnackbarEntry(entry = null)`
+- `openNextSnackbarEntry()`
 - `resolveSeverityColor(severity = "error")`
+- `resolveSeverityIcon(severity = "error")`
 - `resolveTimeout(entry)`
 - `dismiss(entry)`
 - `runAction(entry)`
 - `onSnackbarModelValue(nextValue)`
 - `onDialogModelValue(nextValue)`
+- `onSnackbarAfterLeave()`
 
 ### `src/client/components/ShellLayout.vue`
 Exports
 - None
+Local functions
+- `handlePullPointerDown(event)`
+- `handlePullPointerMove(event)`
+- `handlePullPointerEnd(event)`
+- `handlePullPointerCancel(event)`
+- `handlePullTouchStart(event)`
+- `handlePullTouchMove(event)`
+- `handlePullTouchEnd(event)`
+- `handlePullTouchCancel(event)`
+- `updatePullGesture(clientX, clientY, event)`
+- `finishPullGesture()`
+- `cancelPullRefresh()`
+- `refreshFromPullGesture()`
+- `canStartPullRefresh(event)`
+- `canStartTouchPullRefresh(event)`
+- `canStartPullRefreshFromTarget(target)`
+- `isPrimaryTouchPointer(event)`
+- `isAtPageTop()`
+- `isPullRefreshIgnoredTarget(target)`
+- `findActiveTouch(touchList)`
+- `touchListIncludesActiveTouch(touchList)`
 
 ### `src/client/components/ShellMenuLinkItem.vue`
 Exports
@@ -60,6 +97,21 @@ Exports
 ### `src/client/components/ShellOutletMenuWidget.vue`
 Exports
 - None
+
+### `src/client/components/ShellRouteTransition.vue`
+Exports
+- None
+Local functions
+- `handlePointerDown(event)`
+- `handlePointerMove(event)`
+- `handlePointerEnd(event)`
+- `handlePointerCancel(event)`
+- `navigateBySwipe(offset = 0)`
+- `isAcceptedSwipe({ deltaX = 0, deltaY = 0, elapsed = 1, velocity = null } = {})`
+- `normalizeComparablePathname(value = "")`
+- `pathMatchesNavigationEntry(pathname = "", entry = {})`
+- `isPrimaryPointerEvent(event)`
+- `isSwipeIgnoredTarget(target)`
 
 ### `src/client/components/ShellSurfaceAwareMenuLinkItem.vue`
 Exports
@@ -96,16 +148,18 @@ Exports
 Exports
 - `ERROR_CHANNELS`
 - `ERROR_SEVERITIES`
+- `ERROR_INTENTS`
 - `isRecord`
 - `normalizeText(value, fallback = "")`
 - `normalizeChannel(value, fallback = "")`
 - `normalizeSeverity(value, fallback = "error")`
+- `normalizeErrorIntent(value, fallback = "")`
 - `normalizeNonNegativeInteger(value, fallback = 0)`
 - `normalizeAction(value)`
 
 ### `src/client/error/policy.js`
 Exports
-- `createDefaultErrorPolicy({ defaultChannel = "snackbar", unauthorizedChannel = "banner", serverErrorChannel = "dialog", defaultSeverity = "error" } = {})`
+- `createDefaultErrorPolicy({ defaultChannel = "snackbar", resourceLoadChannel = "silent", actionFeedbackChannel = "snackbar", appRecoverableChannel = "banner", blockingChannel = "dialog", defaultSeverity = "error" } = {})`
 
 ### `src/client/error/presentationDefaults.js`
 Exports
@@ -143,6 +197,7 @@ Exports
 - `ShellLayout`
 - `ShellOutlet`
 - `ShellOutletMenuWidget`
+- `ShellRouteTransition`
 - `ShellErrorHost`
 - `ShellMenuLinkItem`
 - `ShellSurfaceAwareMenuLinkItem`
@@ -150,6 +205,12 @@ Exports
 - `useShellLayoutState`
 - `useShellLayoutStore`
 - `useShellErrorPresentationStore`
+- `SHELL_ASYNC_MODULE_RECOVERY_RUNTIME_KEY`
+- `useShellAsyncModuleRecoveryRuntime`
+- `SHELL_REQUEST_RECOVERY_RUNTIME_KEY`
+- `isRecoverableRequestError`
+- `requestRecoveryMessage`
+- `useShellRequestRecoveryRuntime`
 - `BOOTSTRAP_PAYLOAD_HANDLER_TAG`
 - `registerBootstrapPayloadHandler`
 - `resolveBootstrapPayloadHandlers`
@@ -184,6 +245,8 @@ Local functions
 ### `src/client/placement/index.js`
 Exports
 - `createPlacementRegistry`
+- `definePlacement`
+- `definePlacementTopology`
 - `useWebPlacementContext`
 - `resolveRuntimePathname`
 - `readPlacementSurfaceConfig`
@@ -220,7 +283,10 @@ Local functions
 - `debugLog(message, payload = null)`
 - `createRuntimeLogger(logger)`
 - `normalizePlacementList(placements, context = {})`
+- `normalizeTopologyList(topology, context = {})`
 - `matchesSurface(placementSurfaces, requestedSurface)`
+- `resolveTopologyPlacement(topologyEntries = [], placement = {}, requestedSurface = WEB_PLACEMENT_SURFACE_ANY)`
+- `resolveRenderablePlacement({ placement = {}, topologyEntries = [], requestedSurface = WEB_PLACEMENT_SURFACE_ANY, requestedTarget = "", requestedLayoutClass = "compact" } = {})`
 - `resolveContextContributors(app, baseContext = {}, logger)`
 - `resolvePlacementComponent(app, placement, logger, missingTokens, invalidComponentTokens, failedTokens)`
 - `shouldIncludePlacement(placement, placementContext, logger)`
@@ -253,22 +319,66 @@ Exports
 - `normalizePlacementSurfaces(value, { strict = false, source = "placement" } = {})`
 - `normalizePlacementDefinition(value, { strict = false, source = "placement" } = {})`
 - `definePlacement(value = {})`
+- `definePlacementTopology(value = {})`
+- `normalizeSemanticPlacementId`
 Local functions
 - `isValidSurfaceIdToken(value = "")`
 - `toInteger(value, fallback = 1000)`
 
+### `src/client/providers/appModuleLoadFailure.js`
+Exports
+- `isMissingDynamicModule(error, moduleSpecifier)`
+- `notifyDynamicImportFailure(asyncModuleRecoveryRuntime, error, { label = "App module" } = {})`
+
 ### `src/client/providers/ShellWebClientProvider.js`
 Exports
 - `ShellWebClientProvider`
+- `resolveAppPlacementTopologyExport(exported, logger)`
 Local functions
-- `createShellWebQueryClient()`
-- `isMissingDynamicModule(error, moduleSpecifier)`
-- `loadAppPlacementDefinitions(logger)`
+- `loadAppPlacementDefinitions(logger, asyncModuleRecoveryRuntime = null)`
+- `loadAppPlacementTopology(logger, asyncModuleRecoveryRuntime = null)`
 - `createErrorConfigToolkit(errorRuntime)`
-- `loadAppErrorConfig(logger, errorRuntime)`
+- `loadAppErrorConfig(logger, errorRuntime, asyncModuleRecoveryRuntime = null)`
 - `applyAppErrorConfig(errorRuntime, errorConfig = {})`
+- `isPullRefreshQuery(query = null)`
+- `createShellRefreshRuntime({ app, logger = null } = {})`
 - `installVueErrorBridge(vueApp, errorRuntime, logger)`
 - `installRouterErrorBridge(app, errorRuntime, logger)`
+- `createShellAsyncModuleRecoveryRuntime({ app, logger = null } = {})`
+
+### `src/client/requestRecovery/index.js`
+Exports
+- `SHELL_REQUEST_RECOVERY_RUNTIME_KEY`
+- `useShellRequestRecoveryRuntime`
+- `isRecoverableRequestError`
+- `requestRecoveryMessage`
+
+### `src/client/requestRecovery/inject.js`
+Exports
+- `SHELL_REQUEST_RECOVERY_RUNTIME_KEY`
+- `isShellRequestRecoveryRuntime(value)`
+- `useShellRequestRecoveryRuntime()`
+
+### `src/client/requestRecovery/runtime.js`
+Exports
+- `createShellRequestRecoveryRuntime({ app, logger = null } = {})`
+- `isRecoverableRequestError(error = null)`
+- `requestRecoveryMessage(error = null, { label = "Request", message = "" } = {})`
+Local functions
+- `normalizeText(value, fallback = "")`
+- `errorMessage(error = null)`
+- `errorCode(error = null)`
+- `errorName(error = null)`
+- `normalizeRequestErrorStatus(error = null)`
+- `isCanceledRequestError(error = null)`
+- `resolveQueryMeta(query = null)`
+- `isRequestRecoveryDisabled(query = null)`
+- `resolveQueryRecoveryLabel(query = null)`
+- `isActiveQuery(query = null)`
+- `recoverableQueryError(query = null)`
+- `createQueryRetry(queryClient, query = null)`
+- `resolveQueryHash(query = null)`
+- `installRecoverableQueryObserver({ app, runtime, logger } = {})`
 
 ### `src/client/runtime/bootstrapRuntime.js`
 Exports
@@ -298,6 +408,12 @@ Local functions
 - `interpolateBracketParams(pathTemplate = "", params = {})`
 - `isRelativeMenuLinkTarget(target = "")`
 - `surfaceRequiresWorkspaceFromPlacementContext(contextValue = null, surfaceId = "")`
+
+### `src/client/support/routeTransitionKey.js`
+Exports
+- `resolveShellRouteTransitionKey({ routePathKey = "", routeTransitionName = "", surfaceId = "" } = {})`
+Local functions
+- `normalizeText(value = "")`
 
 ### `src/server/support/localLinkItemScaffolds.js`
 Exports
@@ -342,7 +458,7 @@ Exports
 
 ### `templates/src/components/ShellLayout.vue`
 Exports
-- None
+- `default`
 
 ### `templates/src/error.js`
 Exports
@@ -372,6 +488,11 @@ Exports
 Exports
 - `addPlacement`
 - `getPlacements()`
+
+### `templates/src/placementTopology.js`
+Exports
+- `addPlacementTopology(value = {})`
+- `default`
 
 ### root
 

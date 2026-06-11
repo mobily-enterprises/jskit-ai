@@ -1,6 +1,6 @@
 # A more interesting shell
 
-In the first chapter, the app was intentionally plain. That was useful because it let us see the smallest possible JSKIT scaffold without too many moving parts. In this chapter, we install `shell-web`, which is the package that turns that bare starting point into a real shell: a layout, navigation outlets, a first settings area, and a proper app-level error host.
+In the first chapter, the app started with `shell-web` already installed. That is the normal JSKIT starting point: a real layout, navigation outlets, a first settings area, and a proper app-level error host.
 
 This still is not authentication, not database work, and not multi-surface routing. The app remains small. But it starts to look and behave like something you could actually grow.
 
@@ -16,42 +16,29 @@ npm install
 
 If you are already continuing from the previous chapter, you are already in the right place and can skip that setup.
 
-## Installing `shell-web`
+## Running the shell
 
 From inside `exampleapp`, run:
-
-```bash
-npx jskit add package shell-web
-npm install
-```
-
-
-`jskit add` rewrites part of the scaffold and records the installed runtime package in `.jskit/lock.json`. The following `npm install` is what actually downloads the new package and its supporting dependencies.
-
-To see the result, run:
 
 ```bash
 npm run dev
 npm run server
 ```
 
-This time you really want both processes running. The new home page fetches `/api/health`, so the browser-facing dev server on port `5173` expects the backend on port `3000` to be alive as well.
+You want both processes running. The starter home page fetches `/api/health`, so the browser-facing dev server on port `5173` expects the backend on port `3000` to be alive as well.
 
-<DocsTerminalTip label="Important" title="Install It Early">
-`shell-web` is not just adding new files. It also **claims and replaces part of the original scaffold** so the app can switch from the plain starter layout to the real shell layout.
+<DocsTerminalTip label="Minimal" title="Adding `shell-web` To A Bare Scaffold">
+The normal `create-app` template already has `shell-web`. If you deliberately created the bare scaffold with `--minimal` or `--template minimal-shell`, install the shell before you personalize the files it claims:
 
-That replacement is intentionally strict: `shell-web` only takes over scaffold files if they are still **exactly** the same as the files that `create-app` originally wrote. If you have already edited those starter files, `shell-web` refuses to claim them instead of overwriting your work.
+```bash
+npx jskit add package shell-web
+npm install
+```
 
-That is why the intended flow is:
-
-1. scaffold the app
-2. install `shell-web`
-3. start personalizing the shell
-
-If you build directly on top of the plain scaffold first and only try to add `shell-web` later, the install may fail because those app-owned files no longer match the untouched scaffold baseline.
+That install is intentionally strict: `shell-web` only takes over scaffold files if they are still **exactly** the same as the files that `create-app --minimal` originally wrote. If you have already edited those starter files, `shell-web` refuses to claim them instead of overwriting your work.
 </DocsTerminalTip>
 
-Open `http://localhost:5173/` in the browser. The app still lands in the `home` surface, but that surface is no longer just a card in the middle of the page. It is wrapped in a real shell with an app bar, a navigation drawer, and a settings route at `/home/settings`.
+Open `http://localhost:5173/` in the browser. The app lands in the `home` surface inside a real shell with an app bar, a navigation drawer, and a settings route at `/home/settings`.
 
 <figure class="docs-browser-shot">
   <div class="docs-browser-shot__bar">
@@ -64,13 +51,13 @@ Open `http://localhost:5173/` in the browser. The app still lands in the `home` 
   </div>
   <img
     src="/images/guide/a-more-interesting-shell/a-more-interesting-shell-home.png"
-    alt="Example app after installing shell-web, showing the shell layout and starter home page"
+    alt="Example app with the default shell layout and starter home page"
   />
 </figure>
 
-Two important things have changed compared with the older starter shell.
+Two shell pieces are worth noticing first.
 
-- Navigation now lives in the drawer itself. `Home` and `Settings` are real shell menu entries from the start.
+- Navigation lives in the drawer itself. `Home` and `Settings` are real shell menu entries from the start.
 - `Settings` is already a real nested section. Opening `/home/settings` redirects to `/home/settings/general`, and the left-side menu already contains a starter `General` entry.
 
 Open `http://localhost:5173/home/settings` in the browser to see that nested settings shell immediately:
@@ -86,34 +73,43 @@ Open `http://localhost:5173/home/settings` in the browser to see that nested set
   </div>
   <img
     src="/images/guide/a-more-interesting-shell/a-more-interesting-shell-settings-general.png"
-    alt="Example app home settings page after installing shell-web, showing the seeded General child page and nested settings menu"
+    alt="Example app home settings page with the seeded General child page and nested settings menu"
   />
 </figure>
 
 ## Module features
 
-The most important new idea in `shell-web` is that the app now has _specific, named places_ where UI can be inserted later. JSKIT calls those places _placements_. In practice, this means later packages or generators do not have to rewrite the whole shell every time they want to add a menu entry, a widget, or a settings section.
+The most important idea in `shell-web` is that the app has _specific, named places_ where UI can be inserted later. JSKIT calls those places _placements_. In practice, this means later packages or generators do not have to rewrite the whole shell every time they want to add a menu entry, a widget, or a settings section.
 
-Start by asking JSKIT what placement targets already exist:
+Start by asking JSKIT what public placement targets already exist:
 
 ```bash
 npx jskit list-placements
 ```
 
-In a fresh `shell-web` app, the result looks like this:
+In a fresh `shell-web` app, the result includes entries like these:
 
 ```text
 Available placements:
-- home-settings:primary-menu [src/pages/home/settings.vue]
-- shell-layout:primary-menu (default) [src/components/ShellLayout.vue]
-- shell-layout:secondary-menu [src/components/ShellLayout.vue]
-- shell-layout:top-left [src/components/ShellLayout.vue]
-- shell-layout:top-right [src/components/ShellLayout.vue]
+- shell.primary-nav (default): Primary top-level navigation for the current surface.
+  - compact -> shell-layout:primary-bottom-nav
+  - medium -> shell-layout:primary-menu
+  - expanded -> shell-layout:primary-menu
+- page.section-nav [owner:home-settings]: Navigation between child pages in the home settings section.
+  - compact -> home-settings:primary-menu
+  - medium -> home-settings:primary-menu
+  - expanded -> home-settings:primary-menu
 ```
 
-This command lists placement targets, not the content inside them. That is why the output is about target names and source files. Later, when you place things into the shell, this list stays the same unless you add or remove a `ShellOutlet` in source.
+This command lists semantic placements, not the content inside them. Later, when you place things into the shell, this list stays stable unless the public placement topology changes.
 
-Those target names come from real `ShellOutlet` elements in the app. See `src/components/ShellLayout.vue`:
+The concrete outlets still exist, but they are implementation details. If you need to inspect them directly, use:
+
+```bash
+npx jskit list-placements --concrete
+```
+
+Those concrete target names come from real `ShellOutlet` elements in the app. See `src/components/ShellLayout.vue`:
 
 ```html
 ...
@@ -124,27 +120,25 @@ Those target names come from real `ShellOutlet` elements in the app. See `src/co
 <ShellOutlet
   target="shell-layout:primary-menu"
   default
-  default-link-component-token="local.main.ui.surface-aware-menu-link-item"
 />
 ...
-<ShellOutlet
-  target="shell-layout:secondary-menu"
-  default-link-component-token="local.main.ui.surface-aware-menu-link-item"
-/>
+<ShellOutlet target="shell-layout:secondary-menu" />
+...
+<ShellOutlet target="shell-layout:primary-bottom-nav" />
+...
+<ShellOutlet target="shell-layout:supporting-bottom-sheet" />
+<ShellOutlet target="shell-layout:supporting-side-panel" />
 ```
 
 And the settings page introduces its own nested outlet in `src/pages/home/settings.vue`:
 
 ```html
-<ShellOutlet
-  target="home-settings:primary-menu"
-  default-link-component-token="local.main.ui.surface-aware-menu-link-item"
-/>
+<ShellOutlet target="home-settings:primary-menu" />
 ```
 
 That nested example matters. It shows that the shell is not the only place that can host placements. A page inside the shell can define its own insertion point too. That is how JSKIT can later build menus inside sections such as settings without rewriting the whole shell.
 
-Just as importantly, `shell-web` already uses that placement system itself. The starter app is not only exposing placement targets; it is also seeding real placement entries into them. The drawer gets `Home` and `Settings`, and the nested settings menu gets `General`. That is why the shell already feels real before you generate anything of your own.
+Just as importantly, `shell-web` uses that placement system itself. The starter app exposes semantic placement targets and seeds real placement entries into them. `Home` and `Settings` land in primary navigation, and `General` lands in the nested settings menu. The shell is exercising the same extension contract that later package and generator output uses.
 
 The shell also ships with a few app-owned component tokens that it can use as default link renderers. You can inspect those too:
 
@@ -162,9 +156,9 @@ Showing link-item tokens only (token must end with "link-item"). Tip: use --all 
 - local.main.ui.tab-link-item [app:packages/main/src/client/providers/MainClientProvider.js]
 ```
 
-So before we add anything of our own, the shell already knows about three local link-item tokens. They are app-owned components registered by the local package, and the shell uses them when an outlet needs to render links or tabs.
+The shell knows about three local link-item tokens. They are app-owned components registered by the local package, and topology uses them when an outlet needs to render links or tabs.
 
-At this point the shell is already using placements itself. The next step is to add one of our own.
+At this point the shell is using placements itself. The next step is to add one of our own.
 
 
 ### Adding generic elements directly
@@ -175,7 +169,7 @@ To add a small UI element to the shell itself:
 npx jskit generate ui-generator placed-element --name "Alerts Widget"
 ```
 
-That command creates a Vue component under `src/components/` (in this case `src/components/AlertsWidgetElement.vue`), registers a new local token for it, and adds a placement entry targeting `shell-layout:top-right`. After running it, refresh the home page in the browser. The shell now has a real app-owned widget living inside one of its named placement targets.
+That command creates a Vue component under `src/components/` (in this case `src/components/AlertsWidgetElement.vue`), registers a local token for it, and adds a placement entry targeting `shell.status`. After running it, refresh the home page in the browser. The shell renders the app-owned widget inside one of its named placement targets.
 
 <figure class="docs-browser-shot">
   <div class="docs-browser-shot__bar">
@@ -198,13 +192,13 @@ In this app, there is no need to pass `--surface`: since the app only has one en
 
 The settings host uses the same placement machinery, but the normal way to grow it is not by dropping a free-standing widget there. The more interesting case is adding a child page and letting JSKIT wire the menu entry for you.
 
-The source path in the `list-placements` output helps you reason about where child pages belong. When you see:
+The owner in the `list-placements` output helps you reason about where child pages belong. When you see:
 
 ```text
-- home-settings:primary-menu [src/pages/home/settings.vue]
+- page.section-nav [owner:home-settings]
 ```
 
-you know that the outlet lives in the settings host page. So if you want a child page to appear in that menu, you should create it under that part of the route tree instead of treating the menu like a generic widget area. For example, `src/pages/home/settings/profile/index.vue` belongs to that settings section, so JSKIT can wire its preferred menu entry into `home-settings:primary-menu` automatically.
+you know that the semantic placement is owned by the settings host page. So if you want a child page to appear in that menu, you should create it under that part of the route tree instead of treating the menu like a generic widget area. For example, `src/pages/home/settings/profile/index.vue` belongs to that settings section, so JSKIT can wire its preferred menu entry into `page.section-nav` with owner `home-settings` automatically.
 
 
 Now use the settings host the way it is normally meant to be used: add a real child page under it.
@@ -213,9 +207,9 @@ Now use the settings host the way it is normally meant to be used: add a real ch
 npx jskit generate ui-generator page home/settings/profile/index.vue --name "Profile"
 ```
 
-This is a more interesting example than the widget case. JSKIT creates the page file, notices that `src/pages/home/settings.vue` owns the `home-settings:primary-menu` outlet, and adds the preferred menu entry there automatically. You do not have to write that placement entry by hand.
+This is a more interesting example than the widget case. JSKIT creates the page file, notices that `src/pages/home/settings.vue` owns the settings section navigation, and adds the preferred semantic menu entry there automatically. You do not have to write that placement entry by hand.
 
-Open `/home/settings/profile` in the browser. The settings shell now shows a second real child page and a second real menu entry created by the same page-generation command. `General` was already there from `shell-web`; `Profile` is the first additional settings page you add yourself. This is the important part of the chapter: the exact same placement system works both at the top shell level and inside a page-owned nested outlet.
+Open `/home/settings/profile` in the browser. The settings shell shows a second real child page and a second real menu entry created by the same page-generation command. `General` comes from `shell-web`; `Profile` is the first additional settings page you add yourself. This is the important part of the chapter: the exact same placement system works both at the top shell level and inside a page-owned nested outlet.
 
 <figure class="docs-browser-shot">
   <div class="docs-browser-shot__bar">
@@ -232,13 +226,13 @@ Open `/home/settings/profile` in the browser. The settings shell now shows a sec
   />
 </figure>
 
-Now add a second sibling page:
+Add a second sibling page:
 
 ```bash
 npx jskit generate ui-generator page home/settings/notifications/index.vue --name "Notifications"
 ```
 
-Open `/home/settings/notifications` in the browser. You now get a third settings menu entry without touching `settings.vue`, without writing a second menu component, and without hand-editing `src/placement.js`. JSKIT appends another placement entry targeting the same `home-settings:primary-menu` outlet, so the links simply stack in the menu for free.
+Open `/home/settings/notifications` in the browser. You get a third settings menu entry without touching `settings.vue`, without writing a second menu component, and without hand-editing `src/placement.js`. JSKIT appends another placement entry targeting the same `page.section-nav` owner, so the links stack in the menu for free.
 
 The order is also easy to reason about:
 
@@ -264,7 +258,7 @@ The order is also easy to reason about:
 In JSKIT's file-based routing, a page file can act as a layout if it renders a `RouterView`.
 
 - `src/pages/home/settings.vue` owns the settings shell and wraps its child routes.
-- `src/pages/home/settings/index.vue` is now just a redirect, so `/home/settings` lands on `/home/settings/general`.
+- `src/pages/home/settings/index.vue` is just a redirect, so `/home/settings` lands on `/home/settings/general`.
 - `src/pages/home/settings/general/index.vue` is the first real child page created by the starter shell.
 - `src/pages/home/settings/profile/index.vue` becomes `/home/settings/profile` and still renders inside the layout from `settings.vue`.
 
@@ -278,7 +272,7 @@ definePage({
 });
 ```
 
-This is why the `home-settings:primary-menu` outlet from `list-placements` is such a useful clue: it tells you which page is acting as the host.
+This is why the `page.section-nav` owner from `list-placements` is such a useful clue: it tells you which page is acting as the host.
 
 Even an `index.vue` page can have children. If you want an index page to stay visible while child routes render underneath it, put those children under an `index/` directory such as `src/pages/home/settings/profile/index/details.vue`.
 </DocsTerminalTip>
@@ -291,28 +285,32 @@ There are two different paths to keep straight:
 1. placement and menu metadata such as `src/placement.js`
 2. direct Vuetify icon props inside normal `.vue` components
 
-In placement metadata, raw `mdi-*` strings are acceptable because the shell menu runtime normalizes them before Vuetify renders the icon. A menu entry like this is fine:
+For placement metadata, prefer importing app-specific icons from `@mdi/js` in the placement file itself. The shell menu runtime accepts the resolved SVG path value and passes it through to Vuetify:
 
 ```js
+import { mdiAccountCircleOutline } from "@mdi/js";
+
 addPlacement({
   id: "home.settings.profile.link",
-  target: "home-settings:primary-menu",
-  componentToken: "local.main.ui.surface-aware-menu-link-item",
+  target: "page.section-nav",
+  owner: "home-settings",
+  kind: "link",
+  surfaces: ["home"],
   props: {
     label: "Profile",
     to: "./profile",
-    icon: "mdi-account-circle-outline"
+    icon: mdiAccountCircleOutline
   }
 });
 ```
 
-But do not copy that same string into a normal Vue component:
+Do not copy raw `mdi-*` strings into a normal Vue component:
 
 ```vue
 <v-list-item prepend-icon="mdi-account-circle-outline" />
 ```
 
-JSKIT apps use Vuetify's SVG MDI renderer, so direct Vue icon props should use an `@mdi/js` path or a Vuetify alias instead:
+JSKIT apps use Vuetify's SVG MDI renderer, so direct Vue icon props should use the same `@mdi/js` path or a Vuetify alias instead:
 
 ```vue
 <script setup>
@@ -324,7 +322,8 @@ import { mdiAccountCircleOutline } from "@mdi/js";
 
 So the practical rule is:
 
-- editing `src/placement.js` or other shell menu metadata: `mdi-*` strings are fine
+- editing `src/placement.js` or other shell menu metadata: import app-specific icons from `@mdi/js` and pass the constant
+- raw `mdi-*` metadata strings are only safe for shell-web's small core normalized icon map
 - editing a normal `.vue` file: use `@mdi/js` or a Vuetify alias such as `$close`
 
 Later in the guide, `jskit doctor` will help catch the second mistake automatically.
@@ -333,13 +332,13 @@ Later in the guide, `jskit doctor` will help catch the second mistake automatica
 
 ### Component tokens
 
-If you rerun the token listing now, you will see that only the widget command created a new app-owned component token:
+If you rerun the token listing, the widget command is the only command in this chapter that created an app-owned component token:
 
 ```bash
 npx jskit list-component-tokens --all --prefix local.main.
 ```
 
-The output now includes:
+The output includes:
 
 ```text
 - local.main.ui.element.alerts-widget
@@ -362,9 +361,9 @@ So the shell story in this chapter is:
 
 That is the first real example of JSKIT behaving like an extension system rather than just a scaffold generator.
 
-## What `shell-web` changes in the app
+## What `shell-web` owns in the app
 
-The most interesting files now look roughly like this:
+The most interesting files look roughly like this:
 
 ```text
 src/
@@ -392,35 +391,34 @@ src/
           index.vue
 ```
 
-This chapter is the first time the scaffold starts to feel layered instead of flat.
+This chapter is where the default scaffold starts to feel layered instead of flat.
 
 ### `package.json` and `.jskit/lock.json`
 
-The first file worth reopening is still `package.json`. After `shell-web`, the most important new dependency entries are:
+The first file worth reopening is still `package.json`. Because the default app includes `shell-web`, the important shell dependency entries are already present:
 
 ```json
 {
   "dependencies": {
     "@jskit-ai/shell-web": "0.x",
-    "@tanstack/vue-query": "^5.90.5",
     "@mdi/js": "^7.4.47"
   }
 }
 ```
 
-The important part is not just that `@jskit-ai/shell-web` appears. The package also brings in Vue Query and icon data because the starter shell now includes a live health check and shell-specific UI elements.
+The important part is not just that `@jskit-ai/shell-web` appears. The package brings in shell runtime code and icon data; Vue Query is already owned by the base app bootstrap so every client package uses the same query client.
 
 It is also worth noticing what does **not** happen here. The `placed-element` and `page` commands from this chapter mutate app-owned files, but they do not add a permanent runtime dependency to `package.json`. They are tooling actions, not runtime package installs.
 
-The lock file becomes more interesting too. In the first chapter, `.jskit/lock.json` only knew about `@local/main`. Now it also records `@jskit-ai/shell-web` and the exact files and text mutations that package introduced.
+The lock file records this too. In a default app, `.jskit/lock.json` already records `@local/main`, `@jskit-ai/shell-web`, and the exact files and text mutations that the shell package owns.
 
-That is worth noticing because this is the first chapter where JSKIT is no longer just scaffolding a base app. It is now applying a runtime package that owns concrete changes in your app tree.
+That is worth noticing because the default scaffold is not just copied files. It starts with a JSKIT-managed runtime package that owns concrete changes in your app tree.
 
 ### The `home` surface gets a real wrapper
 
 The surface itself did not change. `home` is still the same surface defined in `config/public.js`. What changed is the page tree inside it.
 
-Before `shell-web`, `src/pages/home.vue` was only a tiny route owner with a `RouterView`. After installing `shell-web`, it becomes:
+In the shell-web scaffold, `src/pages/home.vue` is more than a tiny route owner with a `RouterView`. It wraps the surface in the app-owned shell layout:
 
 ```vue
 <route lang="json">
@@ -445,11 +443,11 @@ import { RouterView } from "vue-router";
 </template>
 ```
 
-That one change explains a lot. The `home` surface is no longer just a place where pages live. It is now a shell-wrapped surface. Every child page under `src/pages/home/` renders inside that app-owned `ShellLayout`.
+That one change explains a lot. The `home` surface is a shell-wrapped surface. Every child page under `src/pages/home/` renders inside that app-owned `ShellLayout`.
 
-### `src/placement.js` becomes the placement registry
+### `src/placement.js` is the placement registry
 
-After installing `shell-web`, the app gets a placement registry file:
+The app has a placement registry file:
 
 ```js
 import { createPlacementRegistry } from "@jskit-ai/shell-web/client/placement";
@@ -466,15 +464,15 @@ export default function getPlacements() {
 
 That file is the app-owned seam for placements. `shell-web` owns the runtime that can render placements, but the app owns the registry source that lists what should appear in those targets.
 
-After the `shell-web` install plus the `placed-element` and `page` commands from this chapter, the bottom of the file now contains real placement entries:
+After the scaffold's shell entries plus the `placed-element` and `page` commands from this chapter, the bottom of the file contains real placement entries:
 
 ```js
 addPlacement({
   id: "shell-web.home.menu.home",
-  target: "shell-layout:primary-menu",
-  surfaces: ["*"],
+  target: "shell.primary-nav",
+  kind: "link",
+  surfaces: ["home"],
   order: 50,
-  componentToken: "local.main.ui.surface-aware-menu-link-item",
   props: {
     label: "Home",
     surface: "home",
@@ -486,10 +484,10 @@ addPlacement({
 
 addPlacement({
   id: "shell-web.home.menu.settings",
-  target: "shell-layout:primary-menu",
+  target: "shell.primary-nav",
+  kind: "link",
   surfaces: ["home"],
   order: 100,
-  componentToken: "local.main.ui.surface-aware-menu-link-item",
   props: {
     label: "Settings",
     surface: "home",
@@ -500,10 +498,11 @@ addPlacement({
 
 addPlacement({
   id: "shell-web.home.settings.general",
-  target: "home-settings:primary-menu",
+  target: "page.section-nav",
+  owner: "home-settings",
+  kind: "link",
   surfaces: ["home"],
   order: 100,
-  componentToken: "local.main.ui.surface-aware-menu-link-item",
   props: {
     label: "General",
     surface: "home",
@@ -515,7 +514,8 @@ addPlacement({
 
 addPlacement({
   id: "ui-generator.element.alerts-widget",
-  target: "shell-layout:top-right",
+  target: "shell.status",
+  kind: "component",
   surfaces: ["home"],
   order: 155,
   componentToken: "local.main.ui.element.alerts-widget"
@@ -523,10 +523,11 @@ addPlacement({
 
 addPlacement({
   id: "ui-generator.page.home.settings.profile.link",
-  target: "home-settings:primary-menu",
+  target: "page.section-nav",
+  owner: "home-settings",
+  kind: "link",
   surfaces: ["home"],
   order: 155,
-  componentToken: "local.main.ui.surface-aware-menu-link-item",
   props: {
     label: "Profile",
     surface: "home",
@@ -538,10 +539,11 @@ addPlacement({
 
 addPlacement({
   id: "ui-generator.page.home.settings.notifications.link",
-  target: "home-settings:primary-menu",
+  target: "page.section-nav",
+  owner: "home-settings",
+  kind: "link",
   surfaces: ["home"],
   order: 155,
-  componentToken: "local.main.ui.surface-aware-menu-link-item",
   props: {
     label: "Notifications",
     surface: "home",
@@ -554,15 +556,17 @@ addPlacement({
 
 That snippet shows the full placement contract clearly:
 
-- the target says where the UI should go
-- the component token says what should render that entry
+- the target says which semantic placement should receive the entry
+- the owner disambiguates page-owned semantic placements such as `page.section-nav`
+- `kind: "link"` lets topology choose the concrete link renderer for the current layout
+- component placements still provide their own `componentToken`
 - `props.to` tells the generated menu link which child route to open
 - `props.icon`, when you add one, belongs to menu metadata rather than direct Vuetify icon rendering
 - the surface list says where it is active
 - lower `order` values come first
-- when multiple entries target the same outlet with the same order, the shell keeps their source order
+- when multiple entries target the same semantic placement with the same order, the shell keeps their source order
 
-That is why the settings menu now shows `General` first, followed by `Profile` and `Notifications`: `General` is seeded by `shell-web` with a lower order, while the two generated pages share the same later order and keep their source order.
+That is why the settings menu shows `General` first, followed by `Profile` and `Notifications`: `General` is seeded by `shell-web` with a lower order, while the two generated pages share the same later order and keep their source order.
 
 So the shell itself remains stable. What changes is the registry that feeds it.
 
@@ -570,7 +574,7 @@ So the shell itself remains stable. What changes is the registry that feeds it.
 
 The placement registry only points at tokens. Those tokens still need to resolve to real Vue components somewhere. That happens in the app-local client provider in `packages/main/src/client/providers/MainClientProvider.js`.
 
-After the `shell-web` install and the `Alerts Widget` generator command, that file contains registrations like these:
+After the scaffold's shell registrations and the `Alerts Widget` generator command, that file contains registrations like these:
 
 ```js
 import AlertsWidgetElement from "/src/components/AlertsWidgetElement.vue";
@@ -582,7 +586,7 @@ registerMainClientComponent("local.main.ui.surface-aware-menu-link-item", () => 
 registerMainClientComponent("local.main.ui.tab-link-item", () => TabLinkItem);
 ```
 
-This is the same app-local provider seam from the previous chapter, but now you can see why it matters. The provider is what lets the placement runtime resolve app-owned components by token instead of hard-coding imports inside the shell runtime.
+This is the same app-local provider seam from the previous chapter, and this chapter shows why it matters. The provider is what lets the placement runtime resolve app-owned components by token instead of hard-coding imports inside the shell runtime.
 
 The `Profile` and `Notifications` pages did not need to add another provider registration because they reuse the existing `local.main.ui.surface-aware-menu-link-item` token for their menu entries.
 
@@ -594,17 +598,9 @@ So the flow is:
 
 That is why the placement system feels dynamic even though the app still owns all of the concrete Vue files.
 
-### `App.vue` and `error.js` now support shell-level errors
+### `App.vue` and `error.js` provide shell-level errors
 
-The top-level app root changes too. `src/App.vue` is no longer just:
-
-```vue
-<v-app>
-  <RouterView />
-</v-app>
-```
-
-It now also includes a shell error host:
+The top-level app root includes the normal route outlet and the shell error host:
 
 ```vue
 <script setup>
@@ -620,31 +616,89 @@ import ShellErrorHost from "@jskit-ai/shell-web/client/components/ShellErrorHost
 </template>
 ```
 
-That host is backed by the new app-owned `src/error.js` file:
+That host is backed by the app-owned `src/error.js` file:
 
 ```js
 import { createDefaultErrorPolicy } from "@jskit-ai/shell-web/client/error";
 
 export default Object.freeze({
   defaultPresenterId: "material.snackbar",
-  policy: createDefaultErrorPolicy(),
+  policy: createDefaultErrorPolicy({
+    resourceLoadChannel: "silent",
+    actionFeedbackChannel: "snackbar",
+    appRecoverableChannel: "banner",
+    blockingChannel: "dialog"
+  }),
   presenters: []
 });
 ```
 
 The idea is the same as with placements: `shell-web` provides the runtime, but the app owns the configuration file that the runtime reads.
 
-### The home page is no longer static
+The default error policy is intent-based. Runtime code reports what kind of error happened and the app-owned policy decides the presentation:
 
-`src/pages/home/index.vue` is also more interesting now. It is no longer just a welcome card. It uses Vue Query to fetch `/api/health` and display the result in the UI.
+- `resource-load` uses `silent`; the screen keeps the load message and retry action local.
+- `action-feedback` uses `snackbar`; saves, commands, and other user-triggered actions report through one lightweight feedback channel.
+- `app-recoverable` uses `banner`; shell refresh and recoverable navigation failures stay visible without blocking the app.
+- `blocking` uses `dialog`; unexpected UI failures and other blocking errors require explicit attention.
 
-That is why this chapter is the point where running both `npm run dev` and `npm run server` stops feeling optional. The page now expects the backend to be alive.
+When app code catches a dynamic import failure itself, report it through the shell async module recovery runtime so it uses the same reload banner as router chunk failures:
 
-This matters because it is the first tiny example of the frontend and backend participating in the same shell. The request itself is simple, but the behavior is more realistic than the empty starter card from the previous chapter.
+```js
+import { useShellAsyncModuleRecoveryRuntime } from "@jskit-ai/shell-web/client/asyncModuleRecovery";
+
+const asyncModuleRecovery = useShellAsyncModuleRecoveryRuntime();
+
+try {
+  await import("@xterm/xterm");
+} catch (error) {
+  asyncModuleRecovery?.notify(error, {
+    label: "Terminal"
+  });
+}
+```
+
+`useShellAsyncModuleRecoveryRuntime()` returns `null` when the shell runtime is not available in the current Vue context. That lets app-owned components use optional chaining instead of duplicating shell-web's internal injection token.
+
+Use the narrow `@jskit-ai/shell-web/client/asyncModuleRecovery` subpath for this runtime, especially from modules that are imported by Node-mode Vitest suites. The aggregate `@jskit-ai/shell-web/client` barrel also exports the composable for normal Vite app code, but that barrel includes `.vue` component exports and can require Vue SFC handling in tests.
+
+Request connectivity failures use a separate shell recovery path. Generated apps already configure TanStack Query to retry transient failures with capped backoff. `shell-web` then observes the app's `jskit.client.query-client` and, when an active query finishes in a transport failure such as `Network request failed.` or `Failed to fetch`, reports an `app-recoverable` banner with a `Retry` action that refetches that exact query. Normal HTTP validation and application errors stay local to the screen.
+
+Imperative app code only needs the public runtime when it catches a request failure outside the standard query/resource composables:
+
+```js
+import { useShellRequestRecoveryRuntime } from "@jskit-ai/shell-web/client/requestRecovery";
+
+const requestRecovery = useShellRequestRecoveryRuntime();
+
+async function loadProjectAccess() {
+  try {
+    return await fetch("/api/project-access");
+  } catch (error) {
+    requestRecovery?.report(error, {
+      label: "Project access",
+      retry: loadProjectAccess
+    });
+    throw error;
+  }
+}
+```
+
+`useShellRequestRecoveryRuntime()` returns `null` when the shell runtime is not available in the current Vue context. Use the narrow `@jskit-ai/shell-web/client/requestRecovery` subpath for the same reason as async module recovery: it avoids pulling `.vue` component exports into Node-mode test suites.
+
+For query-backed screens, the default is automatic. Set `meta: { jskit: { requestRecovery: false } }` only when a query deliberately owns its entire connectivity recovery UI. Set `meta: { jskit: { requestRecoveryLabel: "Project access" } }` when the default `Request` label is too generic.
+
+### The home page talks to the backend
+
+`src/pages/home/index.vue` uses Vue Query to fetch `/api/health` and display the result in the UI.
+
+That is why this chapter keeps running both `npm run dev` and `npm run server`. The page expects the backend to be alive.
+
+This matters because it is a tiny example of the frontend and backend participating in the same shell. The request itself is simple, but it proves the shell can surface runtime status instead of only rendering static chrome.
 
 ### The first client stores appear
 
-This is also the first chapter where an installed package starts exposing app-facing Pinia stores. `shell-web` exports these two:
+`shell-web` also exposes app-facing Pinia stores:
 
 ```js
 import {
@@ -686,10 +740,10 @@ The same store also exposes the live drawer state through `drawerOpen`, plus `se
 
 You do not need either store very often in this chapter, because `shell-web` already mounts the shell and error host for you. The starter `General` settings page uses the higher-level `useShellLayoutState()` helper instead of talking to `useShellLayoutStore()` directly, because that helper combines the store-backed drawer state with the current route and surface context that `ShellLayout` also needs.
 
-That distinction is worth noticing early:
+That distinction is worth noticing:
 
 - runtime services still do the operational work
-- Pinia stores are now the normal Vue-facing shared-state surface
+- Pinia stores are the normal Vue-facing shared-state surface
 
 ### The first settings route appears
 
@@ -705,10 +759,7 @@ The important host file is still `src/pages/home/settings.vue`:
 
 ```vue
 <v-list nav density="comfortable" rounded="lg" border>
-  <ShellOutlet
-    target="home-settings:primary-menu"
-    default-link-component-token="local.main.ui.surface-aware-menu-link-item"
-  />
+  <ShellOutlet target="home-settings:primary-menu" />
 </v-list>
 
 <RouterView />
@@ -716,11 +767,11 @@ The important host file is still `src/pages/home/settings.vue`:
 
 This file matters for the same reason as `ShellLayout.vue`: it creates another named extension point instead of hard-coding a finished settings UI. The difference is that this one lives inside a page, not at the top shell level.
 
-The starter shell now uses a real child-page structure right away:
+The starter shell uses a real child-page structure right away:
 
 - `src/pages/home/settings/index.vue` is only a redirect into the first child page
 - `src/pages/home/settings/general/index.vue` is the first real settings page
-- `src/placement.js` already seeds a `General` link into `home-settings:primary-menu`
+- `src/placement.js` already seeds a `General` link into `page.section-nav` with owner `home-settings`
 
 When you need that landing redirect yourself, use the same helper pattern:
 
@@ -747,6 +798,6 @@ The app is still structurally simple. `shell-web` just makes that simple app beh
 
 ## Summary
 
-After this chapter, the app is still small, but it is no longer flat. `shell-web` adds an app-owned shell layout, a placement registry, a shell error host, menu-link tokens in the local client provider, real drawer navigation, and the first nested settings section under `home`.
+After this chapter, the app is still small, but you have inspected the shell shape it starts with. `shell-web` provides an app-owned shell layout, a placement registry, a shell error host, menu-link tokens in the local client provider, real drawer navigation, and the first nested settings section under `home`.
 
 More importantly, this chapter is where placements stop being theory. The shell already uses them for `Home`, `Settings`, and the starter `General` settings page. Then you inspect the available targets, place real UI into the outer shell, and add more child settings pages that automatically land in the nested settings menu. That is the first real example of JSKIT working as an extension system rather than just a scaffold generator.

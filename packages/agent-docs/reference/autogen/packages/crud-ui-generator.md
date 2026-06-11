@@ -25,19 +25,26 @@ Local functions
 - `toSingularKebab(value = "")`
 - `toPluralKebab(value = "")`
 - `toTitleFromKebab(value = "", fallback = "")`
+- `buildCrudListCopy(resourceLabels = {})`
 - `normalizeRelativeAppPath(value = "")`
 - `requireTargetRootOption(options = {})`
 - `resolveListTargetFile(targetRoot = "")`
 - `parseOperationsOption(options)`
 - `parseDisplayFieldsOption(options)`
 - `parseParentTitleOption(options)`
+- `shouldCreateNavigationLink(options = {}, inferenceContext = {})`
+- `resolveNavigationRoleLinkPlacement(options = {}, inferenceContext = {})`
 - `validateDisplayFieldsForOperation(selectedFieldKeys, fields, operationName)`
 - `filterDisplayFields(selectedFieldKeys, fields)`
 - `rewriteGeneratedBlockIndent(source = "", { trimPrefix = "", addPrefix = "" } = {})`
 - `hasLookupFormFields(fields = [])`
+- `hasLookupDisplayFields(fields = [])`
+- `buildListCardSlotProps(fields = [])`
+- `buildListRowSlotProps(fields = [])`
+- `buildCrudFieldsSlotProps(fields = [], { includeMode = false } = {})`
 - `buildLookupImportLine(fields = [])`
 - `buildLookupRuntimeSetup(fields = [], { formFieldsVariable = "", resourceNamespace = "", mode = "" } = {})`
-- `buildLookupFormProps(fields = [])`
+- `buildLookupFormProps(fields = [], { sourcePrefix = "" } = {})`
 - `buildLookupFormPropDefinitions({ createFields = [], editFields = [] } = {})`
 - `filterDefaultHiddenListFields(selectedFieldKeys, fields, { recordIdFieldKey = "" } = {})`
 - `ensureFields(fields, fallbackFields = createFieldDefinitions({}))`
@@ -45,7 +52,10 @@ Local functions
 - `resolveResourceNamespace(resource = {}, pageTarget = {}, options = {})`
 - `resolveResourceLabels(namespace = "", pageTarget = {})`
 - `resolveTargetRootRelativeRoutePath(pageTarget = {})`
+- `resolveNavigationInferenceRoutePath(pageTarget = {})`
 - `resolveMenuToPropLine(linkTo = "")`
+- `resolveMenuOwnerLine(owner = "")`
+- `buildMenuAppendBlock({ hasListOperation = false, menuMarker = "", pageLinkTarget = null, pageTarget = {} } = {})`
 - `resolveCrudRelativePath(namespace = "")`
 - `buildListParentTitleImportLine(parentTitleMode = "contextual")`
 - `buildListHeadingTitleSetup({ parentTitleMode = "contextual", resourceNamespace = "", routeTitle = "Records" } = {})`
@@ -69,6 +79,7 @@ Exports
 - `resolveNearestParentRouteParamKey(routePath = "", { recordIdParam = "recordId" } = {})`
 - `buildListHeaderColumns(fields = [])`
 - `buildListRowColumns(fields = [])`
+- `buildListCardFields(fields = [])`
 - `buildViewColumns(fields = [])`
 - `buildFormColumns(fields = [])`
 - `resolveRecordIdFieldKey(fields = [])`
@@ -131,9 +142,6 @@ Local functions
 ### `templates/src/pages/admin/ui-generator/AddEditForm.vue`
 Exports
 - None
-Local functions
-- `resolveFieldErrors(fieldKey)`
-- `resolveCancelTo(target)`
 
 ### `templates/src/pages/admin/ui-generator/AddEditFormFields.js`
 Exports
@@ -143,22 +151,26 @@ Exports
 ### `templates/src/pages/admin/ui-generator/EditElement.vue`
 Exports
 - None
-Local functions
-- `resolveFieldErrors(fieldKey)`
 
 ### `templates/src/pages/admin/ui-generator/EditWrapperElement.vue`
 Exports
 - None
 
+### `templates/src/pages/admin/ui-generator/listBulkActions.js`
+Exports
+- `listBulkActions`
+
 ### `templates/src/pages/admin/ui-generator/ListElement.vue`
 Exports
 - None
 
+### `templates/src/pages/admin/ui-generator/listFilters.js`
+Exports
+- `listFilters`
+
 ### `templates/src/pages/admin/ui-generator/NewElement.vue`
 Exports
 - None
-Local functions
-- `resolveFieldErrors(fieldKey)`
 
 ### `templates/src/pages/admin/ui-generator/NewWrapperElement.vue`
 Exports

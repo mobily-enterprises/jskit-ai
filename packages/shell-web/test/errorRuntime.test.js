@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+import { createDefaultErrorPolicy } from "../src/client/error/policy.js";
 import { createErrorRuntime } from "../src/client/error/runtime.js";
 
 function createPresenter(id, {
@@ -24,6 +25,47 @@ function createPresenter(id, {
     }
   });
 }
+
+test("default error policy maps intent to presentation instead of status alone", () => {
+  const policy = createDefaultErrorPolicy();
+
+  assert.equal(policy({ intent: "resource-load", message: "Load failed" }).channel, "silent");
+  assert.equal(policy({ intent: "action-feedback", message: "Save failed" }).channel, "snackbar");
+  assert.equal(policy({ intent: "app-recoverable", message: "Offline" }).channel, "banner");
+  assert.equal(policy({ intent: "blocking", message: "Fatal" }).channel, "dialog");
+  assert.equal(policy({ blocking: true, message: "Fatal" }).channel, "dialog");
+  assert.equal(policy({ status: 500, message: "Server failed" }).channel, "snackbar");
+  assert.equal(
+    policy({ intent: "resource-load", channel: "banner", message: "Load failed" }).channel,
+    "banner"
+  );
+});
+
+test("error runtime treats resource load errors as silent by default", () => {
+  const calls = [];
+  const runtime = createErrorRuntime({
+    presenters: [
+      createPresenter("module.presenter", { calls })
+    ],
+    moduleDefaultPresenterId: "module.presenter"
+  });
+
+  const result = runtime.report({
+    kind: "resource-load",
+    message: "Unable to load records.",
+    status: 500,
+    action: {
+      label: "Retry",
+      handler() {}
+    }
+  });
+
+  assert.equal(result.skipped, true);
+  assert.equal(result.reason, "silent");
+  assert.equal(result.event.intent, "resource-load");
+  assert.equal(result.decision.channel, "silent");
+  assert.equal(calls.length, 0);
+});
 
 test("error runtime prefers policy presenter over app and module defaults", () => {
   const calls = [];

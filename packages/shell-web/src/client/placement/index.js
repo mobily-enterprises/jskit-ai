@@ -3,6 +3,11 @@ export {
 } from "./registry.js";
 
 export {
+  definePlacement,
+  definePlacementTopology
+} from "./validators.js";
+
+export {
   useWebPlacementContext
 } from "./inject.js";
 

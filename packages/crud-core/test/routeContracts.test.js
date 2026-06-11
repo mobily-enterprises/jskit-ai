@@ -244,6 +244,26 @@ test("createCrudJsonApiRouteContracts builds default CRUD JSON:API contracts", a
     }
   ]);
 
+  const lookupOnlyRelationshipDocument = contracts.viewRouteContract.transport.response(returnJsonApiData({
+    id: "contact-3",
+    name: "Charlie",
+    lookups: {
+      owner: {
+        id: "user-8",
+        name: "User Eight"
+      }
+    }
+  }));
+
+  assert.deepEqual(lookupOnlyRelationshipDocument.data.relationships, {
+    owner: {
+      data: {
+        type: "userProfiles",
+        id: "user-8"
+      }
+    }
+  });
+
   const listResponseDocument = contracts.listRouteContract.transport.response(returnJsonApiData({
     items: [
       {
@@ -282,6 +302,112 @@ test("createCrudJsonApiRouteContracts builds default CRUD JSON:API contracts", a
       }
     }
   ]);
+});
+
+test("createCrudJsonApiRouteContracts serializes collection relationships from hydrated lookups", () => {
+  const output = createSchemaDefinition({
+    id: {
+      type: "string",
+      required: true
+    },
+    name: {
+      type: "string",
+      required: true
+    },
+    pets: {
+      type: "array",
+      required: false,
+      relation: {
+        kind: "collection",
+        namespace: "pets",
+        foreignKey: "contactId"
+      }
+    },
+    lookups: {
+      type: "object",
+      required: false
+    }
+  }, "replace");
+  const body = createSchemaDefinition({
+    name: {
+      type: "string",
+      required: true
+    }
+  }, "create");
+  const contracts = createCrudJsonApiRouteContracts({
+    resource: {
+      namespace: "contacts",
+      contract: {
+        lookup: {
+          containerKey: "lookups"
+        }
+      },
+      operations: {
+        view: { output },
+        create: { body, output },
+        patch: { body, output }
+      }
+    }
+  });
+
+  const responseDocument = contracts.viewRouteContract.transport.response(returnJsonApiData({
+    id: "contact-1",
+    name: "Alice",
+    lookups: {
+      pets: [
+        {
+          id: "pet-1",
+          name: "Ada",
+          contactId: "contact-1"
+        },
+        {
+          id: "pet-2",
+          name: "Bert",
+          contactId: "contact-1"
+        }
+      ]
+    }
+  }));
+  const resourceSchema = contracts.viewRouteContract.responses[200].transportSchema.definitions.contactsSuccessResource;
+  const relationshipDataSchema = resourceSchema.properties.relationships.properties.pets.properties.data;
+
+  assert.deepEqual(responseDocument.data.attributes, {
+    name: "Alice"
+  });
+  assert.deepEqual(responseDocument.data.relationships, {
+    pets: {
+      data: [
+        {
+          type: "pets",
+          id: "pet-1"
+        },
+        {
+          type: "pets",
+          id: "pet-2"
+        }
+      ]
+    }
+  });
+  assert.deepEqual(responseDocument.included, [
+    {
+      type: "pets",
+      id: "pet-1",
+      attributes: {
+        name: "Ada",
+        contactId: "contact-1"
+      }
+    },
+    {
+      type: "pets",
+      id: "pet-2",
+      attributes: {
+        name: "Bert",
+        contactId: "contact-1"
+      }
+    }
+  ]);
+  assert.equal(relationshipDataSchema.anyOf[0].type, "array");
+  assert.equal(relationshipDataSchema.anyOf[0].items.properties.type.const, "pets");
 });
 
 test("createCrudJsonApiRouteContracts falls back to recordId params when no route params validator is provided", () => {

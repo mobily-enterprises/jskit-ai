@@ -61,8 +61,53 @@ test("doctor flags inline structured filter definitions in page files", async ()
     assert.equal(payload.issues.length, 1);
     assert.match(
       String(payload.issues[0] || ""),
-      /src\/pages\/home\/contacts\/index\.vue:2: \[filters:shared-definition\] do not inline structured filter definitions in useCrudListFilters\(\.\.\.\)/
+      /src\/pages\/home\/contacts\/index\.vue:2: \[filters:shared-definition\] do not inline structured filter definitions in useCrudListFilters\(\.\.\.\)\. Put them in listFilters\.js or packages\/<crud>\/src\/shared\/<crud>ListFilters\.js/
     );
+  });
+});
+
+test("doctor accepts generated page-local listFilters modules", async () => {
+  await withTempDir(async (cwd) => {
+    const appRoot = path.join(cwd, "doctor-page-local-filter-contract-app");
+    await createMinimalApp(appRoot, { name: "doctor-page-local-filter-contract-app" });
+
+    await mkdir(path.join(appRoot, "src", "pages", "home", "contacts"), { recursive: true });
+    await writeFile(
+      path.join(appRoot, "src", "pages", "home", "contacts", "listFilters.js"),
+      [
+        "import { defineCrudListFilters } from \"@jskit-ai/users-web/client/filters\";",
+        "",
+        "const listFilters = defineCrudListFilters({});",
+        "",
+        "export { listFilters };"
+      ].join("\n"),
+      "utf8"
+    );
+    await writeFile(
+      path.join(appRoot, "src", "pages", "home", "contacts", "index.vue"),
+      [
+        "<script setup>",
+        "import { listFilters } from \"./listFilters.js\";",
+        "",
+        "const filterRuntime = useCrudListFilters(listFilters);",
+        "const records = useCrudList({",
+        "  queryParams: filterRuntime.queryParams",
+        "});",
+        "",
+        "void records;",
+        "</script>"
+      ].join("\n"),
+      "utf8"
+    );
+
+    const doctorResult = runCli({
+      cwd: appRoot,
+      args: ["doctor", "--json"]
+    });
+
+    assert.equal(doctorResult.status, 0, String(doctorResult.stderr || ""));
+    const payload = JSON.parse(String(doctorResult.stdout || "{}"));
+    assert.deepEqual(payload.issues, []);
   });
 });
 

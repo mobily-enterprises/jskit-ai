@@ -35,7 +35,15 @@ const PRE_FILE_CONFIG_MUTATION_TARGETS = new Set([
   "config/server.js"
 ]);
 
-async function applyTextMutations(packageEntry, appRoot, textMutations, options, managedText, touchedFiles) {
+async function applyTextMutations(
+  packageEntry,
+  appRoot,
+  textMutations,
+  options,
+  managedText,
+  touchedFiles,
+  { dryRun = false } = {}
+) {
   for (const mutation of textMutations) {
     const when = normalizeMutationWhen(mutation?.when);
     const configContext = when?.config ? await loadMutationWhenConfigContext(appRoot) : {};
@@ -69,8 +77,10 @@ async function applyTextMutations(packageEntry, appRoot, textMutations, options,
       const resolvedValue = interpolateOptionValue(mutation?.value || "", options, packageEntry.packageId, resolvedKey);
       const upserted = upsertEnvValue(previousContent, resolvedKey, resolvedValue);
 
-      await mkdir(path.dirname(absoluteFile), { recursive: true });
-      await writeFile(absoluteFile, upserted.content, "utf8");
+      if (!dryRun) {
+        await mkdir(path.dirname(absoluteFile), { recursive: true });
+        await writeFile(absoluteFile, upserted.content, "utf8");
+      }
 
       const recordKey = `${relativeFile}::${String(mutation?.id || resolvedKey)}`;
       managedText[recordKey] = {
@@ -103,6 +113,13 @@ async function applyTextMutations(packageEntry, appRoot, textMutations, options,
       const previous = await readFileBufferIfExists(absoluteFile);
       const previousContent = previous.exists ? previous.buffer.toString("utf8") : "";
       const mutationId = String(mutation?.id || "").trim() || "append-text";
+      const interpolatedSkipChecks = normalizeSkipChecks(mutation?.skipIfContains)
+        .map((entry) => interpolateOptionValue(entry, options, packageEntry.packageId, `${mutationId}.skipIfContains`))
+        .filter((entry) => String(entry || "").trim().length > 0);
+      if (interpolatedSkipChecks.some((pattern) => previousContent.includes(String(pattern)))) {
+        continue;
+      }
+
       const resolvedSnippet = interpolateOptionValue(snippet, options, packageEntry.packageId, mutationId);
       const templateContextReplacements = await resolveTemplateContextReplacementsForMutation({
         packageEntry,
@@ -116,8 +133,7 @@ async function applyTextMutations(packageEntry, appRoot, textMutations, options,
       const renderedSnippet = templateContextReplacements
         ? applyTemplateContextReplacements(resolvedSnippet, templateContextReplacements)
         : resolvedSnippet;
-      const skipChecks = normalizeSkipChecks(mutation?.skipIfContains)
-        .map((entry) => interpolateOptionValue(entry, options, packageEntry.packageId, `${mutationId}.skipIfContains`))
+      const skipChecks = interpolatedSkipChecks
         .map((entry) => {
           if (!templateContextReplacements) {
             return entry;
@@ -136,8 +152,10 @@ async function applyTextMutations(packageEntry, appRoot, textMutations, options,
         continue;
       }
 
-      await mkdir(path.dirname(absoluteFile), { recursive: true });
-      await writeFile(absoluteFile, appended.content, "utf8");
+      if (!dryRun) {
+        await mkdir(path.dirname(absoluteFile), { recursive: true });
+        await writeFile(absoluteFile, appended.content, "utf8");
+      }
 
       const recordKey = `${relativeFile}::${mutationId}`;
       managedText[recordKey] = {

@@ -7,6 +7,7 @@ import { createCliError } from "./cliError.js";
 import { shellQuote } from "./cliEntrypoint.js";
 
 const DEFAULT_TEMPLATE = "base-shell";
+const MINIMAL_TEMPLATE = "minimal-shell";
 const DEFAULT_INITIAL_BUNDLES = "none";
 const INITIAL_BUNDLE_PRESETS = new Set(["none", "auth"]);
 const TENANCY_MODES = new Set(["none", "personal", "workspaces"]);
@@ -128,6 +129,11 @@ function parseCliArgs(argv) {
       continue;
     }
 
+    if (arg === "--minimal") {
+      options.template = MINIMAL_TEMPLATE;
+      continue;
+    }
+
     if (arg === "--template") {
       const { value, nextIndex } = parseOptionWithValue(args, index, "--template");
       options.template = value;
@@ -221,8 +227,9 @@ function printUsage(stream = process.stderr) {
   stream.write("\n");
   stream.write("Options:\n");
   stream.write(
-    `  --template <name>  Template folder under templates/ (default: ${DEFAULT_TEMPLATE}; use ai-seed for the minimal AI seed flow)\n`
+    `  --template <name>  Template folder under templates/ (default: ${DEFAULT_TEMPLATE}; use minimal-shell for the bare scaffold or ai-seed for the AI seed flow)\n`
   );
+  stream.write("  --minimal          Use the bare minimal-shell template instead of the default shell-web app scaffold\n");
   stream.write("  --title <text>     App title used for template replacements\n");
   stream.write("  --target <path>    Target directory (default: ./<app-name>)\n");
   stream.write("  --initial-bundles <preset>  Optional bundle preset: none | auth (default: none)\n");
@@ -631,7 +638,7 @@ export async function runCli(
       stdout.write("Next steps:\n");
       stdout.write(`- cd ${shellQuote(targetLabel)}\n`);
       if (isAiSeedTemplate) {
-        stdout.write("- hand the repo to your AI agent and have it read AGENTS.md\n");
+        stdout.write("- follow the generated AGENTS.md after the real scaffold exists\n");
         stdout.write(
           `- once the Stage 1 shape is clear, let it run npx @jskit-ai/create-app ${shellQuote(result.appName)} --target . --force --tenancy-mode <mode>\n`
         );

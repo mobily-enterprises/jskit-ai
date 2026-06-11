@@ -8,7 +8,9 @@ import {
   interpolateOptionValue
 } from "../shared/optionInterpolation.js";
 import {
-  normalizeFileMutationRecord
+  normalizeDependencyMutationRecord,
+  normalizeFileMutationRecord,
+  shouldApplyMutationWhen
 } from "./mutationWhen.js";
 import {
   applyViteMutations,
@@ -141,12 +143,20 @@ function resolveManagedSourceRecord(packageEntry, existingInstall = {}) {
   return sourceRecord;
 }
 
+function dependencyMutationUsesWhen(entries = []) {
+  return entries.some(([, rawDependencySpec]) => {
+    const dependencySpec = normalizeDependencyMutationRecord(rawDependencySpec);
+    return Boolean(dependencySpec.when);
+  });
+}
+
 async function applyPackagePositioning({
   packageEntry,
   packageOptions,
   appRoot,
   lock,
-  touchedFiles
+  touchedFiles,
+  dryRun = false
 }) {
   const existingInstall = ensureObject(lock.installedPackages[packageEntry.packageId]);
   if (Object.keys(existingInstall).length < 1) {
@@ -196,7 +206,10 @@ async function applyPackagePositioning({
       [],
       touchedFiles,
       [],
-      nextManaged.files
+      nextManaged.files,
+      {
+        dryRun
+      }
     );
   }
   if (positioningMutations.text.length > 0) {
@@ -206,7 +219,10 @@ async function applyPackagePositioning({
       positioningMutations.text,
       packageOptions,
       appliedManagedText,
-      touchedFiles
+      touchedFiles,
+      {
+        dryRun
+      }
     );
   }
 
@@ -250,7 +266,8 @@ async function applyPackageMigrationsOnly({
   packageOptions,
   appRoot,
   lock,
-  touchedFiles
+  touchedFiles,
+  dryRun = false
 }) {
   const existingInstall = ensureObject(lock.installedPackages[packageEntry.packageId]);
   if (Object.keys(existingInstall).length < 1) {
@@ -303,7 +320,10 @@ async function applyPackageMigrationsOnly({
       nextManaged.migrations,
       touchedFiles,
       mutationWarnings,
-      nextManaged.files
+      nextManaged.files,
+      {
+        dryRun
+      }
     );
   }
 
@@ -333,7 +353,8 @@ async function applyPackageInstall({
   lock,
   packageRegistry,
   touchedFiles,
-  reportTemplateFetchStatus = null
+  reportTemplateFetchStatus = null,
+  dryRun = false
 }) {
   const existingInstall = ensureObject(lock.installedPackages[packageEntry.packageId]);
   const existingManaged = ensureObject(existingInstall.managed);
@@ -376,7 +397,10 @@ async function applyPackageInstall({
       preFileTextMutations,
       packageOptions,
       managedRecord.managed.text,
-      touchedFiles
+      touchedFiles,
+      {
+        dryRun
+      }
     );
   }
 
@@ -391,15 +415,35 @@ async function applyPackageInstall({
     appRoot,
     packageId: packageEntry.packageId,
     managedViteChanges: ensureObject(existingManaged.vite),
-    touchedFiles
+    touchedFiles,
+    dryRun
   });
 
   const mutationDependencies = ensureObject(mutations.dependencies);
   const runtimeDependencies = ensureObject(mutationDependencies.runtime);
   const devDependencies = ensureObject(mutationDependencies.dev);
+  const runtimeDependencyEntries = Object.entries(runtimeDependencies);
+  const devDependencyEntries = Object.entries(devDependencies);
+  const needsDependencyWhenConfig = dependencyMutationUsesWhen([
+    ...runtimeDependencyEntries,
+    ...devDependencyEntries
+  ]);
+  const dependencyWhenConfigContext = needsDependencyWhenConfig
+    ? await loadMutationWhenConfigContext(appRoot)
+    : {};
   const mutationScripts = ensureObject(ensureObject(mutations.packageJson).scripts);
 
-  for (const [rawDependencyId, rawDependencyVersion] of Object.entries(runtimeDependencies)) {
+  for (const [rawDependencyId, rawDependencySpec] of runtimeDependencyEntries) {
+    const dependencySpec = normalizeDependencyMutationRecord(rawDependencySpec);
+    if (!shouldApplyMutationWhen(dependencySpec.when, {
+      options: packageOptions,
+      configContext: dependencyWhenConfigContext,
+      packageId: packageEntry.packageId,
+      mutationContext: `dependencies.runtime.${rawDependencyId}`
+    })) {
+      continue;
+    }
+
     const dependencyId = interpolateOptionValue(
       rawDependencyId,
       packageOptions,
@@ -407,7 +451,7 @@ async function applyPackageInstall({
       `dependencies.runtime.${rawDependencyId}.id`
     );
     const dependencyVersion = interpolateOptionValue(
-      String(rawDependencyVersion || ""),
+      dependencySpec.version,
       packageOptions,
       packageEntry.packageId,
       `dependencies.runtime.${rawDependencyId}.value`
@@ -431,7 +475,17 @@ async function applyPackageInstall({
     }
   }
 
-  for (const [rawDependencyId, rawDependencyVersion] of Object.entries(devDependencies)) {
+  for (const [rawDependencyId, rawDependencySpec] of devDependencyEntries) {
+    const dependencySpec = normalizeDependencyMutationRecord(rawDependencySpec);
+    if (!shouldApplyMutationWhen(dependencySpec.when, {
+      options: packageOptions,
+      configContext: dependencyWhenConfigContext,
+      packageId: packageEntry.packageId,
+      mutationContext: `dependencies.dev.${rawDependencyId}`
+    })) {
+      continue;
+    }
+
     const dependencyId = interpolateOptionValue(
       rawDependencyId,
       packageOptions,
@@ -439,7 +493,7 @@ async function applyPackageInstall({
       `dependencies.dev.${rawDependencyId}.id`
     );
     const dependencyVersion = interpolateOptionValue(
-      String(rawDependencyVersion || ""),
+      dependencySpec.version,
       packageOptions,
       packageEntry.packageId,
       `dependencies.dev.${rawDependencyId}.value`
@@ -499,15 +553,16 @@ async function applyPackageInstall({
     packageEntryForMutations,
     appRoot,
     preparedFileMutations,
-    managedRecord.managed.files,
-    managedRecord.managed.migrations,
-    touchedFiles,
-    mutationWarnings,
-    ensureArray(existingManaged.files),
-    {
-      reapplyManagedAppFiles: Object.keys(existingInstall).length > 0
-    }
-  );
+      managedRecord.managed.files,
+      managedRecord.managed.migrations,
+      touchedFiles,
+      mutationWarnings,
+      ensureArray(existingManaged.files),
+      {
+        dryRun,
+        reapplyManagedAppFiles: Object.keys(existingInstall).length > 0
+      }
+    );
 
   await applyTextMutations(
     packageEntryForMutations,
@@ -515,7 +570,10 @@ async function applyPackageInstall({
     postFileTextMutations,
     packageOptions,
     managedRecord.managed.text,
-    touchedFiles
+    touchedFiles,
+    {
+      dryRun
+    }
   );
 
   await applyViteMutations(
@@ -524,7 +582,10 @@ async function applyPackageInstall({
     ensureObject(mutations.vite),
     packageOptions,
     managedRecord.managed.vite,
-    touchedFiles
+    touchedFiles,
+    {
+      dryRun
+    }
   );
 
   mutationWarnings.push(...await collectInstallWarnings({

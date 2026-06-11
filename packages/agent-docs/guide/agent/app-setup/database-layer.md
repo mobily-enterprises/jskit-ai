@@ -49,11 +49,11 @@ Installing `database-runtime-mysql` gives the app three important things right a
 
 ### A real database runtime
 
-The server can now build a real Knex client from environment variables. That gives later packages a standard way to ask for a database connection instead of each package inventing its own wiring.
+The server can build a real Knex client from environment variables. That gives later packages a standard way to ask for a database connection instead of each package inventing its own wiring.
 
 ### A migration workflow
 
-The app now gets three new scripts in `package.json`:
+The app gets three database scripts in `package.json`:
 
 ```json
 {
@@ -73,7 +73,7 @@ If you run the status command immediately after this chapter:
 npm run db:migrate:status
 ```
 
-you should still see that there are no completed migrations and no pending migration files yet. The runtime and the Knex wiring exist now, but no package has added real schema files until the next chapter.
+you should still see that there are no completed migrations and no pending migration files yet. The runtime and the Knex wiring exist at this point, but no package has added real schema files until the next chapter.
 
 ### A place for future schema files
 
@@ -88,7 +88,7 @@ That is the key idea of this chapter:
 
 This chapter is the right place to make one distinction very explicit.
 
-There are now two different migration-related layers in the app:
+The app has two different migration-related layers:
 
 - JSKIT-managed migration files on disk
 - Knex actually applying those files to the database
@@ -171,7 +171,7 @@ import {
 } from "@jskit-ai/database-runtime/shared";
 ```
 
-This is worth calling out now because the database layer is not only "Knex plus migrations".
+This is worth calling out here because the database layer is not only "Knex plus migrations".
 
 It also gives your later repositories and services a standard persistence toolbox so every package does not have to solve the same problems differently. The main point is consistency:
 
@@ -561,7 +561,7 @@ The three new scripts are also worth reading carefully:
 
 They are not special JSKIT commands. They are ordinary project scripts, which makes them easy to run in any environment.
 
-### `.env` now owns the database connection settings
+### `.env` owns the database connection settings
 
 The package install also writes the database settings into `.env`:
 
@@ -583,7 +583,7 @@ This matters because the generic runtime is written to support more than one dri
 
 ### `knexfile.js` is for migration commands, not normal page code
 
-The migration scripts in `package.json` work because the app now has a top-level `knexfile.js`:
+The migration scripts in `package.json` work because the app has a top-level `knexfile.js`:
 
 ```js
 import path from "node:path";
@@ -628,7 +628,7 @@ It is not the main runtime API that your app code imports during a request. It i
 npm run db:migrate
 ```
 
-So there are really two separate database entry points now:
+So there are really two separate database entry points:
 
 - `knexfile.js` for migration commands
 - the JSKIT server provider runtime for application code
@@ -695,7 +695,7 @@ At first glance it can feel strange that the database layer is installed but the
 
 The reason is simple:
 
-- the runtime is now available
+- the runtime is available
 - but almost no installed package is using it yet
 
 Right now:
@@ -739,7 +739,7 @@ So the auth layer keeps behaving the same way it did before:
 - JSKIT still mirrors just enough profile data locally
 - that JSKIT-side mirror is still not persistent yet
 
-The database runtime is now ready, but the users layer that will actually use it has not been installed yet.
+The database runtime is ready, but the users layer that will actually use it has not been installed yet.
 
 ### Why the empty `migrations/` directory is important
 
@@ -747,7 +747,7 @@ The new `migrations/` directory can look almost silly at first because it only c
 
 It means:
 
-- the app now has a migration system
+- the app has a migration system
 - the app does **not** yet have a schema of its own
 
 That is exactly the right state at this stage of the guide.
@@ -758,9 +758,9 @@ The database runtime chapter should give the app a database foundation first. Th
 
 This chapter did not make the app feel dramatically different in the browser, but it changed the server foundation in an important way.
 
-- the app now has a real JSKIT database runtime
-- the app now has a standard Knex migration workflow
-- the app now has a place for future schema files
+- the app has a real JSKIT database runtime
+- the app has a standard Knex migration workflow
+- the app has a place for future schema files
 
 But just as importantly, this chapter also defined what has **not** changed yet:
 
@@ -771,5 +771,5 @@ But just as importantly, this chapter also defined what has **not** changed yet:
 So the right mental model at the end of this chapter is:
 
 - Supabase already handles real authentication
-- MySQL is now wired up and ready
+- MySQL is wired up and ready
 - the persistent JSKIT-side user model arrives in the next chapter

@@ -1,5 +1,11 @@
-import { AUTH_GUARD_RUNTIME_INJECTION_KEY } from "../runtime/inject.js";
+import {
+  AUTH_GUARD_RUNTIME_INJECTION_KEY,
+  AUTH_OAUTH_LAUNCH_CLIENT_INJECTION_KEY
+} from "../runtime/inject.js";
+import { createBrowserOAuthLaunchClient } from "../runtime/oauthLaunchClient.js";
 import { useAuthStore } from "../stores/useAuthStore.js";
+
+const AUTH_OAUTH_LAUNCH_CLIENT_TOKEN = "auth.oauth-launch.client";
 
 async function bootAuthClientProvider(app) {
   if (!app || typeof app.make !== "function" || typeof app.has !== "function") {
@@ -33,7 +39,11 @@ async function bootAuthClientProvider(app) {
     return;
   }
 
+  const oauthLaunchClient = app.has(AUTH_OAUTH_LAUNCH_CLIENT_TOKEN)
+    ? app.make(AUTH_OAUTH_LAUNCH_CLIENT_TOKEN)
+    : createBrowserOAuthLaunchClient();
   vueApp.provide(AUTH_GUARD_RUNTIME_INJECTION_KEY, authGuardRuntime);
+  vueApp.provide(AUTH_OAUTH_LAUNCH_CLIENT_INJECTION_KEY, oauthLaunchClient);
 }
 
 export { bootAuthClientProvider };

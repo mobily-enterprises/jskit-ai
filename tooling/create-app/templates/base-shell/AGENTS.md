@@ -1,11 +1,10 @@
-# App Agent Wrapper
+# App Agent Instructions
 
-Read and follow:
+Use the JSKIT agent docs and the local app scaffold as the source of truth for app work.
 
-- `node_modules/@jskit-ai/agent-docs/templates/app/AGENTS.md`
+Recommended references:
 
-If that file does not exist yet:
+- `node_modules/@jskit-ai/agent-docs/guide/agent/index.md`
+- `node_modules/@jskit-ai/agent-docs/patterns/INDEX.md`
 
-- install dependencies so `node_modules/@jskit-ai/agent-docs/` exists
-- inspect the workspace before assuming a JSKIT app already exists
-- if the workspace is empty and the user wants a new app, start with high-level initialize questions only
+Keep changes scoped to the user request and verify runtime behavior with tests or explicit checks.

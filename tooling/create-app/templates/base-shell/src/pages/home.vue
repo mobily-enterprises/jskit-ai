@@ -8,6 +8,13 @@
 }
 </route>
 
+<script setup>
+import ShellLayout from "@/components/ShellLayout.vue";
+import { RouterView } from "vue-router";
+</script>
+
 <template>
-  <RouterView />
+  <ShellLayout title="" subtitle="">
+    <RouterView />
+  </ShellLayout>
 </template>

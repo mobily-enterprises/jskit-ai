@@ -51,7 +51,7 @@ const APP_COMMAND_DEFINITIONS = Object.freeze({
     options: Object.freeze([
       Object.freeze({
         label: "--command <shell-command>",
-        description: "Targeted Playwright command to run, for example: npx playwright test tests/e2e/contacts.spec.ts -g filters."
+        description: "Targeted UI verification command to run. If it uses Playwright against a local app, the command/environment must start or reuse a reachable app server first."
       }),
       Object.freeze({
         label: "--feature <label>",
@@ -68,6 +68,7 @@ const APP_COMMAND_DEFINITIONS = Object.freeze({
     ]),
     defaults: Object.freeze([
       "Requires a git working tree so the receipt can record the currently changed UI files.",
+      "Does not start the app server; make --command self-contained for UI tests that need one.",
       "Writes .jskit/verification/ui.json after the command succeeds.",
       "Doctor expects the receipt to match the current dirty UI file set, or the same --against <base-ref> delta when used."
     ])

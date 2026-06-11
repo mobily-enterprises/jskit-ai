@@ -23,8 +23,7 @@ description: Why JSKIT-AI works unusually well with AI agents.
     <span>predictable structure</span>
     <span>function indexes</span>
     <span>agents instructions</span>
-    <span>blueprints</span>
-    <span>workboards</span>
+    <span>app blueprints</span>
     <span>deslop</span>
     <span>review gates</span>
   </div>
@@ -77,10 +76,10 @@ description: Why JSKIT-AI works unusually well with AI agents.
     </article>
     <article class="why-jskit-ai-ready-card">
       <p class="why-jskit-card-label">D</p>
-      <h2>Blueprint + workboard memory</h2>
+      <h2>App blueprint memory</h2>
       <p>
-        The agent is pushed to write down the app blueprint and the current workboard, so important
-        decisions do not disappear into chat history.
+        The app blueprint command turns the app brief into durable product context, so major
+        product decisions do not disappear into chat history.
       </p>
     </article>
     <article class="why-jskit-ai-ready-card">

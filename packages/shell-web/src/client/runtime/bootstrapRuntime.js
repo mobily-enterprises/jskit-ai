@@ -50,6 +50,14 @@ function createShellBootstrapRuntime({
   let initialized = false;
   let refreshQueue = Promise.resolve();
 
+  function requestRecoveryRuntime() {
+    if (!app.has("runtime.web-request-recovery.client")) {
+      return null;
+    }
+    const runtime = app.make("runtime.web-request-recovery.client");
+    return runtime && typeof runtime.report === "function" ? runtime : null;
+  }
+
   async function resolveBootstrapRequest(reason = "manual") {
     const handlers = resolveBootstrapPayloadHandlers(app);
     let request = {
@@ -162,6 +170,12 @@ function createShellBootstrapRuntime({
       return applyBootstrapPayload(payload, reason, request);
     } catch (error) {
       await applyBootstrapError(error, reason, request);
+      requestRecoveryRuntime()?.report?.(error, {
+        label: "App data",
+        retry: () => refresh(reason),
+        source: "shell-web.bootstrap",
+        dedupeKey: `shell-web.bootstrap.${String(reason || "manual").trim() || "manual"}.request-failed`
+      });
       runtimeLogger.warn(
         {
           reason,

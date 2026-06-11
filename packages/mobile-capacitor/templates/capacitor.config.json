@@ -1,0 +1,10 @@
+{
+  "appId": "__JSKIT_MOBILE_CAPACITOR_APP_ID__",
+  "appName": "__JSKIT_MOBILE_CAPACITOR_APP_NAME__",
+  "webDir": "__JSKIT_MOBILE_CAPACITOR_WEB_DIR__"__JSKIT_MOBILE_CAPACITOR_SERVER_BLOCK__,
+  "plugins": {
+    "CapacitorHttp": {
+      "enabled": true
+    }
+  }
+}

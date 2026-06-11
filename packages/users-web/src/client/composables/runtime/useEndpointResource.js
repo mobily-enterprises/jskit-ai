@@ -4,7 +4,11 @@ import { usersWebHttpClient } from "../../lib/httpClient.js";
 import { asPlainObject } from "../support/scopeHelpers.js";
 import { resolveEnabledRef, resolveTextRef } from "../support/refValueHelpers.js";
 import { toQueryErrorMessage } from "../support/errorMessageHelpers.js";
-import { hasResolvedQueryData } from "../support/resourceLoadStateHelpers.js";
+import { useOperationRealtime } from "../useRealtimeQueryInvalidation.js";
+import {
+  hasResolvedQueryData,
+  mergeQueryMeta
+} from "../support/resourceLoadStateHelpers.js";
 
 function buildEndpointReadRequestOptions({
   method = "GET",
@@ -67,6 +71,8 @@ function useEndpointResource({
   writeMethod = "PATCH",
   readQuery = null,
   transport = null,
+  refreshOnPull = false,
+  realtime = null,
   queryOptions = null,
   mutationOptions = null,
   fallbackLoadError = "Unable to load resource.",
@@ -96,7 +102,18 @@ function useEndpointResource({
       });
     },
     enabled: queryEnabled,
-    ...(asPlainObject(queryOptions))
+    ...(refreshOnPull
+      ? mergeQueryMeta(asPlainObject(queryOptions), {
+        jskit: {
+          refreshOnPull: true
+        }
+      })
+      : asPlainObject(queryOptions))
+  });
+  const realtimeBinding = useOperationRealtime({
+    realtime,
+    queryKey,
+    enabled: queryEnabled
   });
 
   const mutation = useMutation({
@@ -158,6 +175,7 @@ function useEndpointResource({
     isSaving,
     loadError,
     saveError,
+    realtime: realtimeBinding,
     reload,
     save
   });

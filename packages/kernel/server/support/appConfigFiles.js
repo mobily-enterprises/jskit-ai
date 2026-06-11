@@ -1,6 +1,7 @@
 import path from "node:path";
-import { fileURLToPath, pathToFileURL } from "node:url";
+import { fileURLToPath } from "node:url";
 import { fileExists } from "../../internal/node/fileSystem.js";
+import { importFreshModuleFromAbsolutePath } from "./importFreshModuleFromAbsolutePath.js";
 
 const PUBLIC_CONFIG_RELATIVE_PATH = "config/public.js";
 const SERVER_CONFIG_RELATIVE_PATH = "config/server.js";
@@ -35,8 +36,30 @@ async function loadConfigModuleAtPath(absolutePath) {
     return {};
   }
 
-  const loadedModule = await import(pathToFileURL(absolutePath).href);
+  const loadedModule = await importFreshModuleFromAbsolutePath(absolutePath);
   return normalizeConfigObject(loadedModule?.config);
+}
+
+async function loadAppConfigFromAppRoot({
+  appRoot = "",
+  publicConfigRelativePath = PUBLIC_CONFIG_RELATIVE_PATH,
+  serverConfigRelativePath = SERVER_CONFIG_RELATIVE_PATH
+} = {}) {
+  const normalizedAppRootInput = String(appRoot || "").trim();
+  if (!normalizedAppRootInput) {
+    throw new Error("loadAppConfigFromAppRoot requires appRoot.");
+  }
+  const normalizedAppRoot = path.resolve(normalizedAppRootInput);
+
+  const [publicConfig, serverConfig] = await Promise.all([
+    loadConfigModuleAtPath(path.join(normalizedAppRoot, publicConfigRelativePath)),
+    loadConfigModuleAtPath(path.join(normalizedAppRoot, serverConfigRelativePath))
+  ]);
+
+  return Object.freeze({
+    ...publicConfig,
+    ...serverConfig
+  });
 }
 
 async function loadAppConfigFromModuleUrl({
@@ -47,15 +70,11 @@ async function loadAppConfigFromModuleUrl({
   const appRoot = await resolveAppRootFromModuleUrl(moduleUrl, {
     publicConfigRelativePath
   });
-  const [publicConfig, serverConfig] = await Promise.all([
-    loadConfigModuleAtPath(path.join(appRoot, publicConfigRelativePath)),
-    loadConfigModuleAtPath(path.join(appRoot, serverConfigRelativePath))
-  ]);
-
-  return Object.freeze({
-    ...publicConfig,
-    ...serverConfig
+  return loadAppConfigFromAppRoot({
+    appRoot,
+    publicConfigRelativePath,
+    serverConfigRelativePath
   });
 }
 
-export { loadAppConfigFromModuleUrl };
+export { loadAppConfigFromAppRoot, loadAppConfigFromModuleUrl };

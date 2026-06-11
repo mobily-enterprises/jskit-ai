@@ -4,6 +4,7 @@ import { tmpdir } from "node:os";
 import path from "node:path";
 import test from "node:test";
 import { fileURLToPath } from "node:url";
+import { assertGeneratedUiSourceContract } from "@jskit-ai/kernel/shared/support/generatedUiContract";
 import { buildUiTemplateContext } from "../src/server/buildTemplateContext.js";
 
 const JSON_REST_SCHEMA_PACKAGE_DIR = path.dirname(
@@ -25,6 +26,73 @@ async function linkTestPackage(appRoot, packageName, packageDir) {
   await mkdir(nodeModulesDir, { recursive: true });
   await mkdir(path.dirname(targetPath), { recursive: true });
   await symlink(packageDir, targetPath, "dir");
+}
+
+function renderTopologyVariant(outlet, { linkRenderer = "" } = {}) {
+  const rendererLines = linkRenderer
+    ? `,
+      renderers: {
+        link: "${linkRenderer}"
+      }`
+    : "";
+  return `{
+      outlet: "${outlet}"${rendererLines}
+    }`;
+}
+
+function renderTopologyEntry({
+  id = "",
+  owner = "",
+  surfaces = ["*"],
+  defaultPlacement = false,
+  outlet = "",
+  linkRenderer = ""
+} = {}) {
+  const ownerLine = owner ? `    owner: "${owner}",\n` : "";
+  const defaultLine = defaultPlacement ? "    default: true,\n" : "";
+  return `  {
+    id: "${id}",
+${ownerLine}    surfaces: ${JSON.stringify(surfaces)},
+${defaultLine}    variants: {
+      compact: ${renderTopologyVariant(outlet, { linkRenderer })},
+      medium: ${renderTopologyVariant(outlet, { linkRenderer })},
+      expanded: ${renderTopologyVariant(outlet, { linkRenderer })}
+    }
+  }`;
+}
+
+async function writePlacementTopology(appRoot, entries = []) {
+  const defaultEntries = [
+    renderTopologyEntry({
+      id: "shell.primary-nav",
+      surfaces: ["*"],
+      defaultPlacement: true,
+      outlet: "shell-layout:primary-menu",
+      linkRenderer: "local.main.ui.surface-aware-menu-link-item"
+    }),
+    renderTopologyEntry({
+      id: "shell.secondary-nav",
+      surfaces: ["*"],
+      outlet: "shell-layout:secondary-menu",
+      linkRenderer: "local.main.ui.surface-aware-menu-link-item"
+    }),
+    renderTopologyEntry({
+      id: "shell.global-actions",
+      surfaces: ["*"],
+      outlet: "shell-layout:top-right",
+      linkRenderer: "local.main.ui.surface-aware-menu-link-item"
+    })
+  ];
+  await writeFile(
+    path.join(appRoot, "src", "placementTopology.js"),
+    `export default {
+  placements: [
+${[...defaultEntries, ...entries].join(",\n")}
+  ]
+};
+`,
+    "utf8"
+  );
 }
 
 async function withTempApp(run) {
@@ -54,17 +122,14 @@ async function withTempApp(run) {
     <ShellOutlet
       target="shell-layout:primary-menu"
       default
-      default-link-component-token="local.main.ui.surface-aware-menu-link-item"
     />
-    <ShellOutlet
-      target="shell-layout:secondary-menu"
-      default-link-component-token="local.main.ui.surface-aware-menu-link-item"
-    />
+    <ShellOutlet target="shell-layout:secondary-menu" />
   </div>
 </template>
 `,
       "utf8"
     );
+    await writePlacementTopology(appRoot);
     return await run(appRoot);
   } finally {
     await rm(appRoot, { recursive: true, force: true });
@@ -319,10 +384,16 @@ test("buildUiTemplateContext derives CRUD placeholders from the explicit target-
     assert.equal(context.__JSKIT_UI_RESOURCE_NAMESPACE__, "customers");
     assert.equal(context.__JSKIT_UI_RESOURCE_SINGULAR_TITLE__, "Customer");
     assert.equal(context.__JSKIT_UI_RESOURCE_PLURAL_TITLE__, "Customers");
+    assert.equal(context.__JSKIT_UI_LIST_LOAD_ERROR_TITLE__, "Unable to load Customers");
+    assert.equal(context.__JSKIT_UI_LIST_LOAD_ERROR_BODY__, "Check the connection and try again.");
+    assert.equal(context.__JSKIT_UI_LIST_EMPTY_TITLE__, "No Customers yet");
+    assert.equal(context.__JSKIT_UI_LIST_EMPTY_BODY__, "Create the first Customer to start using this workflow.");
+    assert.equal(context.__JSKIT_UI_LIST_CREATE_LABEL__, "New Customer");
     assert.equal(context.__JSKIT_UI_ROUTE_TITLE__, "Customers");
     assert.equal(context.__JSKIT_UI_PARENT_TITLE_MODE__, "contextual");
     assert.match(context.__JSKIT_UI_LIST_PARENT_TITLE_IMPORT_LINE__, /useCrudListParentTitle/);
     assert.match(context.__JSKIT_UI_LIST_HEADING_TITLE_SETUP__, /Customers for /);
+    assert.match(context.__JSKIT_UI_LIST_HEADING_TITLE_SETUP__, /listRuntime,\n {2}resource: uiResource/);
     assert.equal(context.__JSKIT_UI_FORM_COMPONENT_FILE__, "CrudAddEditForm.vue");
     assert.equal(context.__JSKIT_UI_FORM_FIELDS_FILE__, "CrudAddEditFormFields.js");
     assert.equal(context.__JSKIT_UI_SURFACE_ID__, "admin");
@@ -335,6 +406,10 @@ test("buildUiTemplateContext derives CRUD placeholders from the explicit target-
     assert.doesNotMatch(context.__JSKIT_UI_LIST_ROW_COLUMNS__, /record\.id/);
     assert.match(context.__JSKIT_UI_LIST_HEADER_COLUMNS__, /First Name/);
     assert.match(context.__JSKIT_UI_LIST_ROW_COLUMNS__, /record\.firstName/);
+    assert.match(context.__JSKIT_UI_LIST_CARD_FIELDS__, /ui-generator-list-card__field-label">First Name/);
+    assert.match(context.__JSKIT_UI_LIST_CARD_FIELDS__, /formatListCardValue\(record\.firstName\)/);
+    assert.match(context.__JSKIT_UI_LIST_CARD_FIELDS__, /ui-generator-list-card__field-label">Email/);
+    assert.equal(context.__JSKIT_UI_LIST_TITLE_FALLBACK_FIELD_KEY__, "\"firstName\"");
     assert.match(context.__JSKIT_UI_VIEW_COLUMNS__, /view\.record\?\.firstName/);
     assert.match(context.__JSKIT_UI_CREATE_FORM_COLUMNS__, /formState\.firstName/);
     assert.match(context.__JSKIT_UI_EDIT_FORM_COLUMNS__, /formState\.email/);
@@ -431,10 +506,10 @@ test("buildUiTemplateContext indents direct-page form columns without changing s
       options: createOptions()
     });
 
-    assert.match(context.__JSKIT_UI_CREATE_FORM_COLUMNS__, /^ {14}<v-col/m);
-    assert.match(context.__JSKIT_UI_EDIT_FORM_COLUMNS__, /^ {14}<v-col/m);
-    assert.match(context.__JSKIT_UI_CREATE_FORM_COLUMNS_DIRECT__, /^ {12}<v-col/m);
-    assert.match(context.__JSKIT_UI_EDIT_FORM_COLUMNS_DIRECT__, /^ {12}<v-col/m);
+    assert.match(context.__JSKIT_UI_CREATE_FORM_COLUMNS__, /^ {8}<v-col/m);
+    assert.match(context.__JSKIT_UI_EDIT_FORM_COLUMNS__, /^ {8}<v-col/m);
+    assert.match(context.__JSKIT_UI_CREATE_FORM_COLUMNS_DIRECT__, /^ {6}<v-col/m);
+    assert.match(context.__JSKIT_UI_EDIT_FORM_COLUMNS_DIRECT__, /^ {6}<v-col/m);
   });
 });
 
@@ -457,6 +532,8 @@ test("buildUiTemplateContext includes lookup runtime placeholders when form fiel
     assert.match(context.__JSKIT_UI_EDIT_LOOKUP_RUNTIME_SETUP__, /resolveLookupItems/);
     assert.match(context.__JSKIT_UI_CREATE_LOOKUP_FORM_PROPS__, /resolve-lookup-items/);
     assert.match(context.__JSKIT_UI_EDIT_LOOKUP_FORM_PROPS__, /resolve-lookup-items/);
+    assert.match(context.__JSKIT_UI_CREATE_FORM_SLOT_PROPS__, /resolveLookupItems: fieldLookupItems/);
+    assert.match(context.__JSKIT_UI_CREATE_FORM_COLUMNS__, /fieldLookupItems\('serviceId'/);
     assert.match(context.__JSKIT_UI_FORM_LOOKUP_PROP_DEFS__, /resolveLookupItems/);
   });
 });
@@ -614,8 +691,8 @@ test("buildUiTemplateContext resolves list placement from the app default shell 
     });
 
     assert.equal(context.__JSKIT_UI_MENU_PLACEMENT_ID__, "ui-generator.page.admin.customers.link");
-    assert.equal(context.__JSKIT_UI_MENU_PLACEMENT_TARGET__, "shell-layout:primary-menu");
-    assert.equal(context.__JSKIT_UI_MENU_COMPONENT_TOKEN__, "local.main.ui.surface-aware-menu-link-item");
+    assert.equal(context.__JSKIT_UI_MENU_PLACEMENT_TARGET__, "shell.primary-nav");
+    assert.equal(context.__JSKIT_UI_MENU_OWNER_LINE__, "");
     assert.equal(context.__JSKIT_UI_MENU_WORKSPACE_SUFFIX__, "/customers");
     assert.equal(context.__JSKIT_UI_MENU_NON_WORKSPACE_SUFFIX__, "/customers");
     assert.equal(context.__JSKIT_UI_MENU_TO_PROP_LINE__, "");
@@ -627,6 +704,15 @@ test("buildUiTemplateContext resolves list placement from the app default shell 
 test("buildUiTemplateContext infers tab placement and relative link-to from the nearest parent subpages host", async () => {
   await withTempApp(async (appRoot) => {
     await writeResource(appRoot, RESOURCE_FILE, FULL_RESOURCE_SOURCE);
+    await writePlacementTopology(appRoot, [
+      renderTopologyEntry({
+        id: "page.section-nav",
+        owner: "catalog",
+        surfaces: ["admin"],
+        outlet: "catalog:sub-pages",
+        linkRenderer: "local.main.ui.surface-aware-menu-link-item"
+      })
+    ]);
     await writeFileInApp(
       appRoot,
       "src/pages/admin/catalog/index.vue",
@@ -648,8 +734,8 @@ test("buildUiTemplateContext infers tab placement and relative link-to from the 
       })
     });
 
-    assert.equal(context.__JSKIT_UI_MENU_PLACEMENT_TARGET__, "catalog:sub-pages");
-    assert.equal(context.__JSKIT_UI_MENU_COMPONENT_TOKEN__, "local.main.ui.surface-aware-menu-link-item");
+    assert.equal(context.__JSKIT_UI_MENU_PLACEMENT_TARGET__, "page.section-nav");
+    assert.equal(context.__JSKIT_UI_MENU_OWNER_LINE__, "    owner: \"catalog\",\n");
     assert.equal(context.__JSKIT_UI_MENU_ICON__, "mdi-view-list-outline");
     assert.equal(context.__JSKIT_UI_MENU_TO_PROP_LINE__, "      to: \"./products\",\n");
     assert.equal(context.__JSKIT_UI_MENU_WORKSPACE_SUFFIX__, "/catalog/products");
@@ -659,15 +745,21 @@ test("buildUiTemplateContext infers tab placement and relative link-to from the 
 test("buildUiTemplateContext prefers an outlet-declared default link token and omits fragile relative to output", async () => {
   await withTempApp(async (appRoot) => {
     await writeResource(appRoot, RESOURCE_FILE, FULL_RESOURCE_SOURCE);
+    await writePlacementTopology(appRoot, [
+      renderTopologyEntry({
+        id: "page.section-nav",
+        owner: "admin-settings",
+        surfaces: ["admin"],
+        outlet: "admin-settings:primary-menu",
+        linkRenderer: "local.main.ui.surface-aware-menu-link-item"
+      })
+    ]);
     await writeFileInApp(
       appRoot,
       "src/pages/admin/settings.vue",
       `<template>
   <section>
-    <ShellOutlet
-      target="admin-settings:primary-menu"
-      default-link-component-token="local.main.ui.surface-aware-menu-link-item"
-    />
+    <ShellOutlet target="admin-settings:primary-menu" />
     <RouterView />
   </section>
 </template>
@@ -681,8 +773,8 @@ test("buildUiTemplateContext prefers an outlet-declared default link token and o
       })
     });
 
-    assert.equal(context.__JSKIT_UI_MENU_PLACEMENT_TARGET__, "admin-settings:primary-menu");
-    assert.equal(context.__JSKIT_UI_MENU_COMPONENT_TOKEN__, "local.main.ui.surface-aware-menu-link-item");
+    assert.equal(context.__JSKIT_UI_MENU_PLACEMENT_TARGET__, "page.section-nav");
+    assert.equal(context.__JSKIT_UI_MENU_OWNER_LINE__, "    owner: \"admin-settings\",\n");
     assert.equal(context.__JSKIT_UI_MENU_TO_PROP_LINE__, "");
   });
 });
@@ -694,12 +786,99 @@ test("buildUiTemplateContext honors explicit link-placement override", async () 
     const context = await buildUiTemplateContext({
       appRoot,
       options: createOptions({
-        "link-placement": "shell-layout:secondary-menu"
+        "link-placement": "shell.secondary-nav"
       })
     });
 
-    assert.equal(context.__JSKIT_UI_MENU_PLACEMENT_TARGET__, "shell-layout:secondary-menu");
-    assert.equal(context.__JSKIT_UI_MENU_COMPONENT_TOKEN__, "local.main.ui.surface-aware-menu-link-item");
+    assert.equal(context.__JSKIT_UI_MENU_PLACEMENT_TARGET__, "shell.secondary-nav");
+    assert.equal(context.__JSKIT_UI_MENU_OWNER_LINE__, "");
+    assert.match(context.__JSKIT_UI_MENU_APPEND_BLOCK__, /target: "shell.secondary-nav"/);
+    assert.match(context.__JSKIT_UI_MENU_APPEND_BLOCK__, /icon: "mdi-view-list-outline"/);
+  });
+});
+
+test("buildUiTemplateContext maps secondary navigation role to shell.secondary-nav", async () => {
+  await withTempApp(async (appRoot) => {
+    await writeResource(appRoot, RESOURCE_FILE, FULL_RESOURCE_SOURCE);
+
+    const context = await buildUiTemplateContext({
+      appRoot,
+      options: createOptions({
+        "navigation-role": "secondary"
+      })
+    });
+
+    assert.equal(context.__JSKIT_UI_MENU_PLACEMENT_TARGET__, "shell.secondary-nav");
+    assert.equal(context.__JSKIT_UI_MENU_OWNER_LINE__, "");
+  });
+});
+
+test("buildUiTemplateContext maps utility navigation role to shell.global-actions", async () => {
+  await withTempApp(async (appRoot) => {
+    await writeResource(appRoot, RESOURCE_FILE, FULL_RESOURCE_SOURCE);
+
+    const context = await buildUiTemplateContext({
+      appRoot,
+      options: createOptions({
+        "navigation-role": "utility"
+      })
+    });
+
+    assert.equal(context.__JSKIT_UI_MENU_PLACEMENT_TARGET__, "shell.global-actions");
+    assert.equal(context.__JSKIT_UI_MENU_OWNER_LINE__, "");
+  });
+});
+
+test("buildUiTemplateContext supports no-link navigation roles for detail or workflow lists", async () => {
+  await withTempApp(async (appRoot) => {
+    await writeResource(appRoot, RESOURCE_FILE, FULL_RESOURCE_SOURCE);
+
+    const context = await buildUiTemplateContext({
+      appRoot,
+      options: createOptions({
+        "navigation-role": "workflow"
+      })
+    });
+
+    assert.equal(context.__JSKIT_UI_MENU_PLACEMENT_ID__, "");
+    assert.equal(context.__JSKIT_UI_MENU_PLACEMENT_TARGET__, "");
+    assert.equal(context.__JSKIT_UI_MENU_MARKER__, "jskit:crud-ui-generator.page.link:admin:/customers");
+    assert.equal(context.__JSKIT_UI_MENU_APPEND_BLOCK__, "");
+  });
+});
+
+test("buildUiTemplateContext infers no-link navigation for dynamic nested list routes", async () => {
+  await withTempApp(async (appRoot) => {
+    await writeResource(appRoot, RESOURCE_FILE, FULL_RESOURCE_SOURCE);
+
+    const context = await buildUiTemplateContext({
+      appRoot,
+      options: createOptions({
+        "target-root": "admin/customers/[customerId]/orders"
+      })
+    });
+
+    assert.equal(context.__JSKIT_UI_MENU_PLACEMENT_ID__, "");
+    assert.equal(context.__JSKIT_UI_MENU_PLACEMENT_TARGET__, "");
+    assert.equal(context.__JSKIT_UI_MENU_MARKER__, "jskit:crud-ui-generator.page.link:admin:/customers/[customerId]/orders");
+    assert.equal(context.__JSKIT_UI_MENU_APPEND_BLOCK__, "");
+  });
+});
+
+test("buildUiTemplateContext rejects no-link navigation roles with explicit link-placement", async () => {
+  await withTempApp(async (appRoot) => {
+    await writeResource(appRoot, RESOURCE_FILE, FULL_RESOURCE_SOURCE);
+
+    await assert.rejects(
+      buildUiTemplateContext({
+        appRoot,
+        options: createOptions({
+          "navigation-role": "none",
+          "link-placement": "shell.secondary-nav"
+        })
+      }),
+      /navigation-role "none" cannot be combined with --link-placement/
+    );
   });
 });
 
@@ -758,34 +937,106 @@ test("crud ui templates derive JSON:API transport from the shared CRUD resource"
   const templateRoot = path.resolve(testDirectory, "..", "templates", "src", "pages", "admin", "ui-generator");
 
   const listTemplateSource = await readFile(path.join(templateRoot, "ListElement.vue"), "utf8");
+  const listBulkActionsTemplateSource = await readFile(path.join(templateRoot, "listBulkActions.js"), "utf8");
+  const listFiltersTemplateSource = await readFile(path.join(templateRoot, "listFilters.js"), "utf8");
   const viewTemplateSource = await readFile(path.join(templateRoot, "ViewElement.vue"), "utf8");
   const newTemplateSource = await readFile(path.join(templateRoot, "NewElement.vue"), "utf8");
   const editTemplateSource = await readFile(path.join(templateRoot, "EditElement.vue"), "utf8");
+  const addEditFormTemplateSource = await readFile(path.join(templateRoot, "AddEditForm.vue"), "utf8");
   const newWrapperTemplateSource = await readFile(path.join(templateRoot, "NewWrapperElement.vue"), "utf8");
   const editWrapperTemplateSource = await readFile(path.join(templateRoot, "EditWrapperElement.vue"), "utf8");
 
+  assertGeneratedUiSourceContract(listTemplateSource, {
+    profile: "crud-list",
+    sourceName: "ListElement.vue"
+  });
+  for (const [sourceName, source] of [
+    ["ViewElement.vue", viewTemplateSource],
+    ["NewElement.vue", newTemplateSource],
+    ["EditElement.vue", editTemplateSource]
+  ]) {
+    assertGeneratedUiSourceContract(source, {
+      profile: "crud-detail",
+      sourceName
+    });
+  }
+
   assert.match(listTemplateSource, /resource: uiResource,/);
+  assert.match(listTemplateSource, /import CrudListScreen from "@jskit-ai\/users-web\/client\/components\/CrudListScreen"/);
+  assert.match(listTemplateSource, /import \{ useCrudListScreen \} from "@jskit-ai\/users-web\/client\/composables\/useCrudListScreen"/);
+  assert.match(listTemplateSource, /import \{ listBulkActions \} from "\.\/listBulkActions\.js"/);
+  assert.match(listTemplateSource, /import \{ listFilters \} from "\.\/listFilters\.js"/);
+  assert.match(listTemplateSource, /const screen = useCrudListScreen\(\{/);
+  assert.match(listTemplateSource, /listFilters,/);
+  assert.match(listTemplateSource, /listBulkActions,/);
+  assert.match(listTemplateSource, /#card-fields="__JSKIT_UI_LIST_CARD_SLOT_PROPS__"/);
+  assert.match(listTemplateSource, /#table-header/);
+  assert.match(listTemplateSource, /#table-row="__JSKIT_UI_LIST_ROW_SLOT_PROPS__"/);
+  assert.match(listTemplateSource, /__JSKIT_UI_LIST_EMPTY_TITLE__/);
+  assert.match(listTemplateSource, /__JSKIT_UI_LIST_EMPTY_BODY__/);
+  assert.match(listTemplateSource, /__JSKIT_UI_LIST_LOAD_ERROR_TITLE__/);
+  assert.match(listTemplateSource, /__JSKIT_UI_LIST_LOAD_ERROR_BODY__/);
+  assert.match(listTemplateSource, /__JSKIT_UI_LIST_CREATE_LABEL__/);
+  assert.match(listTemplateSource, /__JSKIT_UI_LIST_CARD_FIELDS__/);
+  assert.doesNotMatch(listTemplateSource, /CrudListBulkActionSurface|CrudListFilterSurface|useCrudListBulkActions|useCrudListFilters/);
+  assert.doesNotMatch(listTemplateSource, /No records yet|Manage __JSKIT|Replace this scaffold|<v-data-table\b/);
   assert.doesNotMatch(listTemplateSource, /const UI_LIST_TRANSPORT = Object\.freeze\(\{/);
   assert.doesNotMatch(listTemplateSource, /transport:\s*UI_LIST_TRANSPORT,/);
+  assert.match(listFiltersTemplateSource, /defineCrudListFilters/);
+  assert.match(listFiltersTemplateSource, /const listFilters = defineCrudListFilters\(\{\}\);/);
+  assert.match(listBulkActionsTemplateSource, /defineCrudListBulkActions/);
+  assert.match(listBulkActionsTemplateSource, /const listBulkActions = defineCrudListBulkActions\(\[\]\);/);
 
   assert.match(viewTemplateSource, /import \{ resource as uiResource \} from/);
   assert.match(viewTemplateSource, /resource: uiResource,/);
+  assert.match(viewTemplateSource, /import CrudViewScreen from "@jskit-ai\/users-web\/client\/components\/CrudViewScreen"/);
+  assert.match(viewTemplateSource, /import \{ useCrudViewScreen \} from "@jskit-ai\/users-web\/client\/composables\/useCrudViewScreen"/);
+  assert.match(viewTemplateSource, /const screen = useCrudViewScreen\(\{/);
+  assert.match(viewTemplateSource, /#fields="\{ view \}"/);
+  assert.doesNotMatch(viewTemplateSource, /<v-card\b|View and manage this/);
   assert.doesNotMatch(viewTemplateSource, /const UI_VIEW_TRANSPORT = Object\.freeze\(\{/);
   assert.doesNotMatch(viewTemplateSource, /transport:\s*UI_VIEW_TRANSPORT,/);
 
   assert.match(newTemplateSource, /resource: uiResource,/);
+  assert.match(newTemplateSource, /import CrudAddEditScreen from "@jskit-ai\/users-web\/client\/components\/CrudAddEditScreen"/);
+  assert.match(newTemplateSource, /import \{ useCrudAddEditScreen \} from "@jskit-ai\/users-web\/client\/composables\/useCrudAddEditScreen"/);
+  assert.match(newTemplateSource, /const screen = useCrudAddEditScreen\(\{/);
+  assert.match(newTemplateSource, /#fields=/);
+  assert.doesNotMatch(newTemplateSource, /<v-card\b|<v-card-title/);
   assert.doesNotMatch(newTemplateSource, /const UI_CREATE_TRANSPORT = Object\.freeze\(\{/);
   assert.doesNotMatch(newTemplateSource, /transport:\s*UI_CREATE_TRANSPORT,/);
 
   assert.match(editTemplateSource, /resource: uiResource,/);
+  assert.match(editTemplateSource, /import CrudAddEditScreen from "@jskit-ai\/users-web\/client\/components\/CrudAddEditScreen"/);
+  assert.match(editTemplateSource, /import \{ useCrudAddEditScreen \} from "@jskit-ai\/users-web\/client\/composables\/useCrudAddEditScreen"/);
+  assert.match(editTemplateSource, /const screen = useCrudAddEditScreen\(\{/);
+  assert.match(editTemplateSource, /preserveCancelQuery: true/);
+  assert.match(editTemplateSource, /#fields=/);
+  assert.doesNotMatch(editTemplateSource, /<v-card\b|<v-card-title/);
   assert.doesNotMatch(editTemplateSource, /const UI_EDIT_TRANSPORT = Object\.freeze\(\{/);
   assert.doesNotMatch(editTemplateSource, /transport:\s*UI_EDIT_TRANSPORT,/);
 
+  assert.match(addEditFormTemplateSource, /import CrudAddEditScreen from "@jskit-ai\/users-web\/client\/components\/CrudAddEditScreen"/);
+  assert.match(addEditFormTemplateSource, /<CrudAddEditScreen/);
+  assert.match(addEditFormTemplateSource, /#fields=/);
+  assert.doesNotMatch(addEditFormTemplateSource, /generated-ui-screen|ui-generator-add-edit-form__header|<v-sheet/);
+
   assert.match(newWrapperTemplateSource, /resource: uiResource,/);
+  assert.match(newWrapperTemplateSource, /import \{ useCrudAddEditScreen \} from "@jskit-ai\/users-web\/client\/composables\/useCrudAddEditScreen"/);
+  assert.match(newWrapperTemplateSource, /:screen="screen"/);
+  assert.doesNotMatch(newWrapperTemplateSource, /<v-card\b/);
   assert.doesNotMatch(newWrapperTemplateSource, /const UI_CREATE_TRANSPORT = Object\.freeze\(\{/);
   assert.doesNotMatch(newWrapperTemplateSource, /transport:\s*UI_CREATE_TRANSPORT,/);
 
   assert.match(editWrapperTemplateSource, /resource: uiResource,/);
+  assert.match(editWrapperTemplateSource, /import \{ useCrudAddEditScreen \} from "@jskit-ai\/users-web\/client\/composables\/useCrudAddEditScreen"/);
+  assert.match(editWrapperTemplateSource, /:screen="screen"/);
+  assert.match(editWrapperTemplateSource, /preserveCancelQuery: true/);
+  assert.doesNotMatch(editWrapperTemplateSource, /<v-card\b/);
   assert.doesNotMatch(editWrapperTemplateSource, /const UI_EDIT_TRANSPORT = Object\.freeze\(\{/);
   assert.doesNotMatch(editWrapperTemplateSource, /transport:\s*UI_EDIT_TRANSPORT,/);
+
+  assert.doesNotMatch(newTemplateSource, /Replace this scaffold|Use this area|This page is ready/);
+  assert.doesNotMatch(editTemplateSource, /Replace this scaffold|Use this area|This page is ready/);
+  assert.doesNotMatch(viewTemplateSource, /Replace this scaffold|Use this area|This page is ready/);
 });

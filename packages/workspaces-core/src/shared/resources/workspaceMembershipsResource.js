@@ -5,7 +5,10 @@ const workspaceMembershipsResource = defineCrudResource({
   namespace: "workspaceMemberships",
   tableName: "workspace_memberships",
   searchSchema: {
-    id: { type: "id", actualField: "id" }
+    id: { type: "id", actualField: "id" },
+    workspace: { type: "id", actualField: "workspace_id", filterOperator: "=" },
+    user: { type: "id", actualField: "user_id", filterOperator: "=" },
+    status: { type: "string", actualField: "status", filterOperator: "=" }
   },
   schema: {
     workspaceId: {

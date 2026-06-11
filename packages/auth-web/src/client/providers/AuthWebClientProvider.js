@@ -2,9 +2,11 @@ import DefaultLoginView from "../views/DefaultLoginView.vue";
 import AuthProfileWidget from "../views/AuthProfileWidget.vue";
 import AuthProfileMenuLinkItem from "../views/AuthProfileMenuLinkItem.vue";
 import { createAuthGuardRuntime } from "../runtime/authGuardRuntime.js";
+import { completeOAuthCallbackFromUrl } from "../runtime/oauthCallbackRuntime.js";
 import { useLoginView } from "../runtime/useLoginView.js";
 import { bootAuthClientProvider } from "./bootAuthClientProvider.js";
 import { resolveSurfaceNavigationTargetFromPlacementContext } from "@jskit-ai/shell-web/client/placement";
+import { resolveAllowedReturnToOriginsFromPlacementContext } from "../lib/returnToPath.js";
 
 class AuthWebClientProvider {
   static id = "auth.web.client";
@@ -18,6 +20,27 @@ class AuthWebClientProvider {
     app.singleton("auth.login.useLoginView", () => useLoginView);
     app.singleton("auth.web.profile.widget", () => AuthProfileWidget);
     app.singleton("auth.web.profile.menu.link-item", () => AuthProfileMenuLinkItem);
+    app.singleton("auth.mobile-callback.client", () =>
+      Object.freeze({
+        async completeFromUrl({
+          url = "",
+          fallbackReturnTo = "/",
+          placementContext = null,
+          defaultProvider = "",
+          request = undefined,
+          refreshSession = async () => null
+        } = {}) {
+          return completeOAuthCallbackFromUrl({
+            url,
+            fallbackReturnTo,
+            allowedReturnToOrigins: resolveAllowedReturnToOriginsFromPlacementContext(placementContext),
+            defaultProvider,
+            ...(typeof request === "function" ? { request } : {}),
+            refreshSession
+          });
+        }
+      })
+    );
     app.singleton("runtime.auth-guard.client", () => {
       if (!app.has("runtime.web-placement.client")) {
         throw new Error("AuthWebClientProvider requires shell-web placement runtime.");

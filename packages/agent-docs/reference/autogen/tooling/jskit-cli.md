@@ -22,6 +22,25 @@ Exports
 Exports
 - None
 
+### `src/server/appBlueprint.js`
+Exports
+- `APP_BLUEPRINT_RELATIVE_PATH`
+- `APP_BLUEPRINT_PROMPT_DIRECTORY`
+- `APP_PROMPT_OVERRIDE_RELATIVE_ROOT`
+- `extractAppBlueprintText(value = "")`
+- `readAppBlueprint({ targetRoot = process.cwd() } = {})`
+- `readTextInputFile(cwd, inputPath)`
+- `renderAppBlueprintPrompt({ targetRoot = process.cwd(), appBrief = "" } = {})`
+- `resolveAppBlueprintPaths(targetRoot = process.cwd())`
+- `writeAppBlueprint({ targetRoot = process.cwd(), appBlueprint = "" } = {})`
+Local functions
+- `normalizeText(value)`
+- `fileExists(filePath)`
+- `readTextIfExists(filePath)`
+- `writeTextFile(filePath, value)`
+- `renderTemplate(source, values = {})`
+- `readAppPromptTemplate(paths, templateName)`
+
 ### `src/server/cliEntrypoint.js`
 Exports
 - `runCliEntrypoint(runCli, argv = process.argv.slice(2))`
@@ -82,6 +101,8 @@ Local functions
 - `discoverGenerators(appRoot)`
 - `discoverRuntimePackages(appRoot)`
 - `extractMatches(source = "", patterns = [])`
+- `discoverSemanticPlacementTargets(appRoot)`
+- `discoverConcretePlacementTargets(appRoot)`
 - `discoverComponentTokens(appRoot)`
 - `isRouteLikeRelativePath(relativePath = "")`
 - `discoverPagesRelativeDirectories(appRoot)`
@@ -116,6 +137,8 @@ Exports
 Local functions
 - `normalizePackageKind(rawValue, descriptorPath)`
 - `validateFileMutationShape(descriptor, descriptorPath)`
+- `validateLifecycleHookSpec(spec = {}, descriptorPath, label = "lifecycle hook")`
+- `validateLifecycleShape(descriptor, descriptorPath)`
 
 ### `src/server/cliRuntime/ioAndMigrations.js`
 Exports
@@ -166,12 +189,12 @@ Exports
 
 ### `src/server/cliRuntime/mutations/fileMutations.js`
 Exports
-- `applyFileMutations(packageEntry, appRoot, preparedMutations, managedFiles, managedMigrations, touchedFiles, warnings = [], existingManagedFiles = [], { reapplyManagedAppFiles = false } = {})`
+- `applyFileMutations(packageEntry, appRoot, preparedMutations, managedFiles, managedMigrations, touchedFiles, warnings = [], existingManagedFiles = [], { dryRun = false, reapplyManagedAppFiles = false } = {})`
 - `prepareFileMutations(packageEntry, options, appRoot, fileMutations, existingManagedFiles = [])`
 
 ### `src/server/cliRuntime/mutations/installMigrationMutation.js`
 Exports
-- `applyInstallMigrationMutation({ packageEntry, preparedMutation, appRoot, managedMigrations, managedMigrationById, touchedFiles, warnings } = {})`
+- `applyInstallMigrationMutation({ packageEntry, preparedMutation, appRoot, managedMigrations, managedMigrationById, touchedFiles, warnings, dryRun = false } = {})`
 
 ### `src/server/cliRuntime/mutations/mutationPathUtils.js`
 Exports
@@ -194,7 +217,7 @@ Exports
 
 ### `src/server/cliRuntime/mutations/textMutations.js`
 Exports
-- `applyTextMutations(packageEntry, appRoot, textMutations, options, managedText, touchedFiles)`
+- `applyTextMutations(packageEntry, appRoot, textMutations, options, managedText, touchedFiles, { dryRun = false } = {})`
 - `partitionPreFileConfigTextMutations(textMutations = [])`
 - `resolvePositioningMutations(descriptorMutations = {})`
 Local functions
@@ -205,6 +228,7 @@ Local functions
 Exports
 - `normalizeMutationExtension(value)`
 - `normalizeTemplateContextRecord(value)`
+- `normalizeDependencyMutationRecord(value)`
 - `normalizeFileMutationRecord(value)`
 - `normalizeMutationWhen(value)`
 - `readObjectPath(source, rawPath)`
@@ -219,9 +243,9 @@ Local functions
 ### `src/server/cliRuntime/packageInstallFlow.js`
 Exports
 - `adoptAppLocalPackageDependencies({ appRoot, appPackageJson, lock })`
-- `applyPackageInstall({ packageEntry, packageOptions, appRoot, appPackageJson, lock, packageRegistry, touchedFiles, reportTemplateFetchStatus = null })`
-- `applyPackageMigrationsOnly({ packageEntry, packageOptions, appRoot, lock, touchedFiles })`
-- `applyPackagePositioning({ packageEntry, packageOptions, appRoot, lock, touchedFiles })`
+- `applyPackageInstall({ packageEntry, packageOptions, appRoot, appPackageJson, lock, packageRegistry, touchedFiles, reportTemplateFetchStatus = null, dryRun = false })`
+- `applyPackageMigrationsOnly({ packageEntry, packageOptions, appRoot, lock, touchedFiles, dryRun = false })`
+- `applyPackagePositioning({ packageEntry, packageOptions, appRoot, lock, touchedFiles, dryRun = false })`
 Local functions
 - `createManagedRecordBase(packageEntry, options)`
 - `cloneManagedMap(value = {})`
@@ -230,6 +254,7 @@ Local functions
 - `isWorkspaceCapableTenancyMode(value = "")`
 - `collectInstallWarnings({ packageEntry, appRoot, appPackageJson })`
 - `resolveManagedSourceRecord(packageEntry, existingInstall = {})`
+- `dependencyMutationUsesWhen(entries = [])`
 
 ### `src/server/cliRuntime/packageIntrospection.js`
 Exports
@@ -262,6 +287,7 @@ Local functions
 Exports
 - `normalizePlacementContributions(value)`
 - `normalizePlacementOutlets(value)`
+- `normalizePlacementTopology(value, { context = "package placement topology" } = {})`
 
 ### `src/server/cliRuntime/packageIntrospection/providerBindingIntrospection.js`
 Exports
@@ -338,10 +364,10 @@ Exports
 - `normalizeViteDevProxyConfig(value = {}, { context = "vite proxy config" } = {})`
 - `resolveViteDevProxyConfigAbsolutePath(appRoot)`
 - `loadViteDevProxyConfig(appRoot, { context = "vite proxy config" } = {})`
-- `writeViteDevProxyConfig(appRoot, config = {}, touchedFiles = null)`
+- `writeViteDevProxyConfig(appRoot, config = {}, touchedFiles = null, { dryRun = false } = {})`
 - `normalizeViteProxyMutationRecord(value = {})`
-- `applyViteMutations(packageEntry, appRoot, viteMutations, options, managedVite, touchedFiles)`
-- `removeManagedViteProxyEntries({ appRoot, packageId, managedViteChanges = {}, touchedFiles = null } = {})`
+- `applyViteMutations(packageEntry, appRoot, viteMutations, options, managedVite, touchedFiles, { dryRun = false } = {})`
+- `removeManagedViteProxyEntries({ appRoot, packageId, managedViteChanges = {}, touchedFiles = null, dryRun = false } = {})`
 
 ### `src/server/commandHandlers/app.js`
 Exports
@@ -412,6 +438,15 @@ Exports
 Exports
 - `runAppVerifyUiCommand(ctx = {}, { appRoot = "", options = {}, stdout, stderr })`
 
+### `src/server/commandHandlers/blueprint.js`
+Exports
+- `createBlueprintCommands(ctx = {})`
+Local functions
+- `writeJson(stdout, payload)`
+- `writeBlueprintText(stdout, payload)`
+- `readStream(stream)`
+- `resolveTextInput({ cwd, fileOption, inlineOptions = {}, io = {}, stdinOption = "-", textOption })`
+
 ### `src/server/commandHandlers/completion.js`
 Exports
 - `createCompletionCommands(ctx = {})`
@@ -424,6 +459,14 @@ Local functions
 Exports
 - `createHealthCommands(ctx = {})`
 
+### `src/server/commandHandlers/helperMap.js`
+Exports
+- `createHelperMapCommands(ctx = {})`
+Local functions
+- `writeJson(stdout, payload)`
+- `writeErrors(stdout, payload)`
+- `writeHelperMapText(stdout, payload)`
+
 ### `src/server/commandHandlers/list.js`
 Exports
 - `createListCommands(ctx = {})`
@@ -435,9 +478,102 @@ Local functions
 - `resolveGeneratorDescription(packageEntry = {})`
 - `resolveGeneratorQuickStartRows(packageEntry = {}, { limit = 3 } = {})`
 - `isLinkItemToken(token = "")`
+- `collectPlacementRendererKinds(placementTarget = {})`
+- `collectPlacementConcreteOutlets(placementTarget = {})`
+- `classifyPlacementTarget(placementTarget = {})`
+- `createConcreteTargetSourcePathMap(concreteTargets = [])`
+- `resolveChildPagePatternFromHostSourcePath(sourcePath = "")`
+- `resolveOwnerScopedChildPagePattern(placementTarget = {}, concreteSourcePathByTarget = new Map())`
+- `createPlacementTargetSummary(placementTarget = {}, color, { concreteSourcePathByTarget = new Map() } = {})`
+- `appendPlacementLayoutDetails(lines, placementTarget = {}, color)`
+- `collectMappedConcreteOutletIds(semanticPlacements = [])`
+- `resolveUnmappedConcreteTargets({ semanticPlacements = [], concreteTargets = [] } = {})`
+- `formatPlacementGuidanceLine(line = "", color)`
+- `appendPlacementGroup(lines, { color, title = "", description = "", guidance = [], targets = [], concreteSourcePathByTarget = new Map(), showLayoutDetails = false } = {})`
+- `appendUnmappedConcreteTargetWarnings(lines, { color, concreteTargets = [] } = {})`
+- `appendSemanticPlacementGroups(lines, { color, semanticPlacements = [], concreteTargets = [], showLayoutDetails = false } = {})`
 - `readFileIfExists(filePath = "")`
 - `resolveDescriptorFromLockEntry({ appRoot = "", packageId = "", installedPackageEntry = {} } = {})`
 - `collectProviderSourceFiles(rootPath = "")`
+
+### `src/server/commandHandlers/mobile.js`
+Exports
+- `createMobileCommands(ctx = {})`
+Local functions
+- `collectManagedMobileFileDriftIssues({ ctx, appRoot, issues = [] } = {})`
+- `renderAndroidMobileCommandList(lines, color)`
+- `renderMobileHelp(stream, definition = null, platform = "")`
+- `isValidHttpOrHttpsUrl(value = "")`
+- `normalizeInlineOptions(options = {})`
+- `parsePortNumber(rawValue, { createCliError, optionLabel = "--port" } = {})`
+- `parseAdbDeviceList(output = "")`
+- `resolveAdbReversePort({ mobileConfig = null, explicitPort = "", createCliError } = {})`
+- `runCapturedBinary(binaryName, args = [], { cwd = process.cwd(), env = {}, createCliError, notFoundMessage = "" } = {})`
+- `listVisibleAndroidDevices({ ctx, appRoot } = {})`
+- `resolveAndroidDeviceTarget({ ctx, appRoot, explicitTarget = "", commandLabel = "this mobile command" } = {})`
+- `resolveInstalledMobileConfigForCommand({ appRoot, createCliError } = {})`
+- `runLocalBinary(binaryName, args = [], { appRoot, cwd = appRoot, env = {}, stderr, stdout, pathModule, createCliError, dryRun = false } = {})`
+- `hasPackageDependency(packageJson = {}, packageId = "")`
+- `readJsonFileForMobileCommand(filePath = "", label = "", createCliError)`
+- `assertMobileRuntimePackageInstalled({ ctx, appRoot } = {})`
+- `refreshManagedMobileFiles({ ctx, appRoot, options = {}, stdout } = {})`
+- `runMobileSyncAndroidCommand({ ctx, appRoot, options = {}, stdout, stderr })`
+- `runMobileRunAndroidCommand({ ctx, appRoot, options = {}, stdout, stderr })`
+- `runCapRunAndroidCommand({ ctx, appRoot, pathModule, target = "", stdout, stderr, dryRun = false } = {})`
+- `runMobileBuildAndroidCommand({ ctx, appRoot, options = {}, stdout, stderr })`
+- `runMobileDoctorCommand({ ctx, appRoot, stdout })`
+- `runMobileDevicesAndroidCommand({ ctx, appRoot, stdout })`
+- `runMobileTunnelAndroidCommand({ ctx, appRoot, options = {}, stdout })`
+- `runMobileRestartAndroidCommand({ ctx, appRoot, options = {}, stdout })`
+- `runMobileDevAndroidCommand({ ctx, appRoot, options = {}, stdout, stderr })`
+
+### `src/server/commandHandlers/mobileCommandCatalog.js`
+Exports
+- `MOBILE_COMMAND_DEFINITIONS`
+- `listMobileCommandDefinitions()`
+- `resolveMobileCommandDefinition(rawName = "")`
+- `buildMobileCommandOptionMeta(subcommandName = "")`
+
+### `src/server/commandHandlers/mobileShellSupport.js`
+Exports
+- `CAPACITOR_CONFIG_FILE`
+- `ANDROID_DIRECTORY_NAME`
+- `ANDROID_MANIFEST_RELATIVE_PATH`
+- `buildManagedMobileConfigStub({ packageJson = {} } = {})`
+- `isEmptyDisabledMobileConfigPlaceholder(mobileConfig = {})`
+- `resolveInstalledMobileConfig(appRoot = "")`
+- `resolveAndroidSdkDetails({ appRoot = "" } = {})`
+- `collectAndroidSdkComponentIssues({ appRoot = "", sdkRoot = "" } = {})`
+- `assertAndroidSdkConfigured({ ctx, appRoot } = {})`
+- `collectCapacitorShellInstallIssues({ ctx, appRoot } = {})`
+- `ensureMobileConfigStub({ ctx, appRoot, packageJson = {}, dryRun = false, stdout } = {})`
+- `buildManagedDeepLinkIntentFilterBlock(mobileConfig = {})`
+- `injectManagedDeepLinkBlock(manifestSource = "", managedBlock = "")`
+- `assertCapacitorShellInstalled({ ctx, appRoot })`
+- `ensureAndroidManifestDeepLinks({ ctx, appRoot, dryRun = false, stdout } = {})`
+- `collectAndroidNativeShellIdentityIssues({ ctx, appRoot } = {})`
+- `ensureAndroidNativeShellIdentity({ ctx, appRoot, dryRun = false, stdout } = {})`
+- `renderManagedMobileFile({ appRoot, relativeTargetPath, packageId = CAPACITOR_RUNTIME_PACKAGE_ID } = {})`
+Local functions
+- `normalizeRelativePosixPath(pathValue = "")`
+- `escapeRegExp(value = "")`
+- `pathExists(targetPath = "")`
+- `humanizeAppName(value = "")`
+- `slugifyForIdentifier(value = "")`
+- `parseAndroidSdkDirFromLocalProperties(source = "")`
+- `buildAndroidNativeConfig(mobileConfig = {})`
+- `replaceRequiredPattern(source = "", pattern, replacement, label = "pattern")`
+- `escapeXmlText(value = "")`
+- `replaceXmlStringValue(source = "", stringName = "", value = "")`
+- `renderAndroidVariablesGradleSource(source = "", nativeConfig = {})`
+- `renderAndroidAppBuildGradleSource(source = "", nativeConfig = {})`
+- `renderAndroidStringsSource(source = "", nativeConfig = {})`
+- `renderAndroidMainActivitySource(source = "", packageName = "", extension = ".java")`
+- `listFilesRecursively(rootDirectoryPath = "")`
+- `resolveAndroidMainActivityEntry(appRoot = "")`
+- `shouldAllowAndroidCleartextTraffic(mobileConfig = {})`
+- `renderAndroidManifestApplicationTrafficPolicy(manifestSource = "", mobileConfig = {})`
+- `renderManagedAndroidManifest(manifestSource = "", mobileConfig = {})`
 
 ### `src/server/commandHandlers/package.js`
 Exports
@@ -448,6 +584,13 @@ Exports
 - `runPackageAddCommand(ctx = {}, { positional, options, cwd, io })`
 Local functions
 - `collectPlacementComponentTokensFromManagedRecords(installedPackageRecords = [])`
+- `renderWrappedShellCommand(binaryName, args = [], { maxWidth = 100, continuationIndent = " " } = {})`
+- `runLocalProjectBinary(binaryName, args = [], { appRoot, io, pathModule = path, createCliError, explanation = "", dryRun = false } = {})`
+- `installAppDependenciesForHook({ appRoot, appPackageJson, io, pathModule = path, createCliError, dryRun = false, runDevlinks = false } = {})`
+- `validateHookResult(result = {}, { packageId = "", hookLabel = "" } = {})`
+- `loadInstallHook({ packageEntry, appRoot, hookSpec, hookLabel = "" } = {})`
+- `createInstallHookHelpers({ ctx, appRoot, io, appPackageJson, commandOptions = {} } = {})`
+- `invokeInstallHook({ packageEntry, appRoot, hookSpec, hookLabel, hookContext, createCliError } = {})`
 
 ### `src/server/commandHandlers/packageCommands/create.js`
 Exports
@@ -573,6 +716,7 @@ Exports
 Local functions
 - `resolveGeneratorSubcommandRows(payload = {})`
 - `resolveOwnershipGuidance(payload = {})`
+- `renderDependencyMutationSpec(versionSpec)`
 
 ### `src/server/core/argParser.js`
 Exports
@@ -621,6 +765,46 @@ Local functions
 - `writeHelpLines(stream, lines = [])`
 - `printTopLevelHelp(stream = process.stderr)`
 - `printCommandHelp(stream = process.stderr, command = "")`
+
+### `src/server/helperMap.js`
+Exports
+- `HELPER_MAP_JSON_RELATIVE_PATH`
+- `HELPER_MAP_MARKDOWN_RELATIVE_PATH`
+- `buildHelperMap({ targetRoot, previousMap = null })`
+- `readHelperMap({ targetRoot })`
+- `updateHelperMap({ targetRoot })`
+Local functions
+- `pathExists(filePath)`
+- `readJsonFile(filePath)`
+- `readFileHash(filePath)`
+- `normalizePackageDependencies(packageJson = {})`
+- `classifySymbol(name = "")`
+- `createExportAnalysisProject()`
+- `addSymbol(symbols, symbol)`
+- `compilerNodeHasModifier(node, modifierKind)`
+- `exportedDeclarationName(node)`
+- `addExportedDeclarationSymbol(symbols, node, kind = "export")`
+- `bindingNameTexts(bindingName, names = [])`
+- `addVariableStatementExports(symbols, statement)`
+- `addNamedExportSymbols(symbols, exportClause)`
+- `extractExportedSymbols(sourceFile)`
+- `extractVueScriptSource(source = "", filePath = "")`
+- `addCodeFileToProject(project, file)`
+- `walkCodeFiles(rootPath, relativeRoot = "")`
+- `collectAppExports(targetRoot)`
+- `flattenPackageExports(exportsField)`
+- `packageExportTargetRecords(packageRoot, exportTargets = [])`
+- `packageExportFingerprint({ installedPackageJson = {}, packageName = "", targetRecords = [] } = {})`
+- `cachedPackageExports(previousPackagesByName = new Map(), packageName = "", fingerprint = "")`
+- `previousPackageMap(previousMap = null)`
+- `collectJskitPackageExports(targetRoot, packageJson = {}, previousMap = null)`
+- `renderExportList(symbols = [])`
+- `renderHelperMapMarkdown(map)`
+
+### `src/server/helperMapPaths.js`
+Exports
+- `HELPER_MAP_JSON_RELATIVE_PATH`
+- `HELPER_MAP_MARKDOWN_RELATIVE_PATH`
 
 ### `src/server/index.js`
 Exports

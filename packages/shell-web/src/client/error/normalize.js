@@ -5,6 +5,7 @@ import {
 
 const ERROR_CHANNELS = Object.freeze(["snackbar", "banner", "dialog", "silent"]);
 const ERROR_SEVERITIES = Object.freeze(["info", "success", "warning", "error", "critical"]);
+const ERROR_INTENTS = Object.freeze(["resource-load", "action-feedback", "app-recoverable", "blocking"]);
 
 function normalizeText(value, fallback = "") {
   return normalizeKernelText(value, {
@@ -32,6 +33,20 @@ function normalizeSeverity(value, fallback = "error") {
   }
 
   return "error";
+}
+
+function normalizeErrorIntent(value, fallback = "") {
+  const normalized = normalizeText(value).toLowerCase();
+  if (ERROR_INTENTS.includes(normalized)) {
+    return normalized;
+  }
+
+  const normalizedFallback = normalizeText(fallback).toLowerCase();
+  if (ERROR_INTENTS.includes(normalizedFallback)) {
+    return normalizedFallback;
+  }
+
+  return "";
 }
 
 function normalizeNonNegativeInteger(value, fallback = 0) {
@@ -67,10 +82,12 @@ function normalizeAction(value) {
 export {
   ERROR_CHANNELS,
   ERROR_SEVERITIES,
+  ERROR_INTENTS,
   isRecord,
   normalizeText,
   normalizeChannel,
   normalizeSeverity,
+  normalizeErrorIntent,
   normalizeNonNegativeInteger,
   normalizeAction
 };

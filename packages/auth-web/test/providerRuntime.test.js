@@ -6,9 +6,14 @@ import { AuthWebServiceProvider } from "../src/server/providers/AuthWebServicePr
 
 function createFastifyStub() {
   const routes = [];
+  const hooks = [];
   return {
+    hooks,
     routes,
     errorHandler: null,
+    addHook(name, handler) {
+      hooks.push({ name, handler });
+    },
     route(definition) {
       routes.push(definition);
     },
@@ -23,6 +28,9 @@ function createReplyStub() {
     sent: false,
     statusCode: null,
     payload: null,
+    async generateCsrf() {
+      return "csrf-test";
+    },
     code(value) {
       this.statusCode = value;
       return this;
@@ -217,4 +225,63 @@ test("auth route provider does not resolve authService during boot", async () =>
   await loginRoute.handler({ body: { email: "ada@example.com", password: "pass" } }, loginReply);
   assert.equal(loginReply.statusCode, 200);
   assert.equal(authServiceResolutions, 1);
+});
+
+test("auth session route exposes denial reason when policy clears a rejected authenticated session", async () => {
+  const events = [];
+  const fastify = createFastifyStub();
+  const app = createApplication();
+  const httpRuntime = createHttpRuntime({ app, fastify });
+
+  const authService = {
+    writeSessionCookies() {
+      events.push({ type: "writeSession" });
+    },
+    clearSessionCookies() {
+      events.push({ type: "clearSession" });
+    },
+    getOAuthProviderCatalog() {
+      return { providers: [], defaultProvider: "" };
+    }
+  };
+
+  app.instance("authService", authService);
+  app.instance("actionExecutor", {
+    async execute({ actionId }) {
+      if (actionId === "auth.session.read") {
+        return {
+          authenticated: false,
+          clearSession: true,
+          transientFailure: false,
+          authDenied: {
+            code: "not_allowlisted",
+            message: "This account is not allowed to access this application."
+          }
+        };
+      }
+      return {};
+    }
+  });
+
+  class MockAuthProvider {
+    static id = "auth.provider";
+  }
+
+  await app.start({ providers: [MockAuthProvider, AuthWebServiceProvider, AuthRouteServiceProvider] });
+
+  const registration = httpRuntime.registerRoutes();
+  assert.equal(registration.routeCount > 0, true);
+
+  const sessionRoute = fastify.routes.find((route) => route.method === "GET" && route.url === "/api/session");
+  assert.ok(sessionRoute);
+  const sessionReply = createReplyStub();
+  await sessionRoute.handler({}, sessionReply);
+
+  assert.equal(sessionReply.statusCode, 200);
+  assert.equal(sessionReply.payload.authenticated, false);
+  assert.deepEqual(sessionReply.payload.authDenied, {
+    code: "not_allowlisted",
+    message: "This account is not allowed to access this application."
+  });
+  assert.deepEqual(events, [{ type: "clearSession" }]);
 });

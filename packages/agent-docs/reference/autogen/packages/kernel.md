@@ -270,6 +270,7 @@ Exports
 - `normalizeCrudLookupApiPath(value = "")`
 - `normalizeCrudLookupNamespace(value = "")`
 - `resolveCrudLookupApiPathFromNamespace(value = "")`
+- `resolveCrudResourceScopeName(value = "")`
 - `normalizeCrudLookupContainerKey(value, { defaultValue = DEFAULT_CRUD_LOOKUP_CONTAINER_KEY, context = "crud lookup container key" } = {})`
 - `resolveCrudLookupContainerKey(resource = {}, options = {})`
 - `resolveCrudLookupFieldKeys(resource = {}, { allowKeys = [] } = {})`
@@ -287,6 +288,35 @@ Exports
 ### `shared/support/formatDateTime.js`
 Exports
 - `formatDateTime(value, { fallback = "unknown" } = {})`
+
+### `shared/support/generatedUiContract.js`
+Exports
+- `GENERATED_UI_FORBIDDEN_CARD_SHELL_PATTERNS`
+- `GENERATED_UI_FORBIDDEN_LIVE_COPY_PATTERNS`
+- `GENERATED_UI_NAVIGATION_ROLE_DEFAULT`
+- `GENERATED_UI_NAVIGATION_ROLE_LINK_PLACEMENTS`
+- `GENERATED_UI_NAVIGATION_ROLE_OPTION`
+- `GENERATED_UI_NAVIGATION_ROLE_VALUES`
+- `GENERATED_UI_NO_LINK_NAVIGATION_ROLES`
+- `GENERATED_UI_SOURCE_CONTRACT_PROFILES`
+- `GENERATED_UI_SURFACE_PROFILES`
+- `assertGeneratedUiSourceContract(source = "", options = {})`
+- `buildGeneratedUiScreenClassName(baseClassName = "", { surfaceProfile = "" } = {})`
+- `collectGeneratedUiSourceContractIssues(source = "", { profile = "", forbidLiveCopy = undefined, forbidCardShell = undefined, forbiddenPatterns = [], requiredPatterns = [] } = {})`
+- `inferGeneratedUiNavigationRole(options = {}, { dynamicRoutePolicy = "leaf", routePath = "" } = {})`
+- `isGeneratedUiNoLinkNavigationRole(value = "")`
+- `normalizeGeneratedUiNavigationRole(value = "")`
+- `resolveGeneratedUiSurfaceProfile(surfaceProfile = "")`
+- `resolveGeneratedUiNavigationRoleLinkPlacement(options = {}, inferenceContext = {})`
+- `shouldCreateGeneratedUiNavigationLink(options = {}, { allowLinkTo = false, dynamicRoutePolicy = "leaf", routePath = "" } = {})`
+Local functions
+- `matchesGeneratedUiContractPattern(source = "", pattern)`
+- `normalizeGeneratedUiContractPattern(patternEntry = {}, fallbackMessage = "")`
+- `normalizeGeneratedUiContractPatternList(patternEntries = [], fallbackMessage = "")`
+- `resolveGeneratedUiSourceContractProfile(profile = "")`
+- `hasExplicitGeneratedUiNavigationRole(options = {})`
+- `normalizeGeneratedUiRouteSegments(routePath = "")`
+- `isGeneratedUiDynamicRouteSegment(routeSegment = "")`
 
 ### `shared/support/index.js`
 Exports
@@ -338,6 +368,10 @@ Exports
 - `normalizeRecordId(value, { fallback = null } = {})`
 - `normalizeOpaqueId(value, { fallback = null } = {})`
 - `normalizeOneOf(value, allowedValues = [], fallback = "")`
+- `normalizeMobileAssetMode(value = "", { fallback = "bundled" } = {})`
+- `normalizeMobileCallbackPath(value = "", { fallback = "/auth/login" } = {})`
+- `normalizeMobileConfig(source = {})`
+- `normalizeMobileStrategy(value = "", { fallback = "" } = {})`
 - `ensureNonEmptyText(value, label = "value")`
 
 ### `shared/support/permissions.js`
@@ -393,14 +427,26 @@ Local functions
 
 ### `shared/support/shellLayoutTargets.js`
 Exports
+- `PLACEMENT_LAYOUT_CLASSES`
 - `describeShellOutletTargets(targets = [])`
-- `discoverShellOutletTargetsFromVueSource(source = "", { context = "shell layout" } = {})`
+- `discoverShellOutletTargetsFromVueSource(source = "", { context = "shell layout", enforceSingleDefault = true } = {})`
 - `findShellOutletTargetById(targets = [], targetId = "")`
+- `normalizePlacementKind(value = "")`
+- `normalizePlacementLayoutClass(value = "")`
+- `normalizePlacementOwnerId(value = "")`
+- `normalizePlacementSurfaceId(value = "")`
+- `normalizePlacementSurfaces(value)`
+- `normalizePlacementTopologyDefinition(value = {}, { context = "placement topology" } = {})`
+- `normalizePlacementTopologyEntry(value = {}, { context = "placement topology" } = {})`
+- `normalizePlacementTopologyVariant(value = {}, { context = "placement topology variant" } = {})`
+- `normalizeSemanticPlacementId(value = "")`
 - `normalizeShellOutletTargetId(value = "")`
 - `normalizeShellOutletTargetRecord(value = {}, { context = "shell layout" } = {})`
+- `resolvePlacementTargetReference(value = "")`
 - `resolveShellOutletTargetParts({ target = "" } = {})`
 Local functions
 - `parseTagAttributes(attributesSource = "")`
+- `normalizePlacementRenderers(value = {})`
 - `isDefaultAttributeEnabled(value)`
 
 ### `shared/support/sorting.js`
@@ -606,8 +652,23 @@ Exports
 - `CLIENT_APP_CONFIG_GLOBAL_KEY`
 - `setClientAppConfig(source = {})`
 - `getClientAppConfig()`
+- `resolveMobileConfig(appConfig = getClientAppConfig())`
+- `resolveClientAssetMode(appConfig = getClientAppConfig())`
 Local functions
 - `normalizeClientAppConfig(source = {})`
+
+### `client/asyncModuleRecovery.js`
+Exports
+- `createAsyncModuleRecoveryState({ label = "App module", message = "", retry = null } = {})`
+- `dismissAsyncModuleRecovery(state)`
+- `dynamicImportErrorMessage(error = null, { label = "App module", stale = isDynamicImportError(error) } = {})`
+- `guardedReloadApp({ browserWindow = typeof window !== "undefined" ? window : null, fetchFn = typeof fetch === "function" ? fetch : null, state = null, label = "App", message = "The app cannot reload because the app server is not reachable. Restart the server, then click Retry or Reload." } = {})`
+- `installAsyncModuleRecoveryHandlers({ router = null, state, label = "App module", onNotify = null, windowObject = typeof window !== "undefined" ? window : null } = {})`
+- `isDynamicImportError(error = null)`
+- `notifyAsyncModuleLoadError(state, error = null, { label = "App module", message = "", retry = null, stale = isDynamicImportError(error) } = {})`
+Local functions
+- `isRecord(value)`
+- `errorText(error = null)`
 
 ### `client/componentInteraction.js`
 Exports
@@ -623,6 +684,17 @@ Exports
 ### `client/index.js`
 Exports
 - `getClientAppConfig`
+- `resolveMobileConfig`
+- `resolveClientAssetMode`
+- `createAsyncModuleRecoveryState`
+- `dismissAsyncModuleRecovery`
+- `dynamicImportErrorMessage`
+- `guardedReloadApp`
+- `installAsyncModuleRecoveryHandlers`
+- `isDynamicImportError`
+- `notifyAsyncModuleLoadError`
+- `normalizeIncomingAppUrl`
+- `registerMobileLaunchRouting`
 - `resolveClientBootstrapDebugEnabled`
 - `createShellRouter`
 - `bootstrapClientShellApp`
@@ -633,9 +705,19 @@ Exports
 - `createStructuredLogger(logger = console)`
 - `summarizeRouterRoutes(router)`
 
+### `client/mobileLaunchRouting.js`
+Exports
+- `normalizeIncomingAppUrl(url = "", mobileConfig = {}, { currentOrigin = "", allowedHttpOrigins = [] } = {})`
+- `registerMobileLaunchRouting({ router, mobileConfig = {}, getInitialLaunchUrl = async () => "", subscribeToLaunchUrls = () => () => {}, resolveTargetPath = null, currentOrigin = typeof window === "object" && window?.location ? String(window.location.origin || "") : "", allowedHttpOrigins = [], logger = null } = {})`
+Local functions
+- `buildNormalizedRoutePath(pathname = "/", search = "", hash = "")`
+- `normalizeResolvedRoutePath(value = "", fallback = "")`
+- `normalizeAllowedHttpOrigins({ mobileConfig = {}, currentOrigin = "", allowedHttpOrigins = [] } = {})`
+- `normalizeCustomSchemeRoutePath(parsedUrl)`
+
 ### `client/moduleBootstrap.js`
 Exports
-- `bootClientModules({ clientModules = [], app, pinia = null, router, surfaceRuntime, surfaceMode, env, logger = console } = {})`
+- `bootClientModules({ clientModules = [], app, pinia = null, queryClient = null, router, surfaceRuntime, surfaceMode, env, logger = console } = {})`
 Local functions
 - `normalizePackageId(value)`
 - `toRouteSnapshot(route)`
@@ -652,7 +734,7 @@ Local functions
 - `assertRoutesDeclaredInDescriptor({ packageId, source, normalizedRoutes = [], descriptorRouteDeclarations = null } = {})`
 - `resolveDescriptorClientRoutes({ packageId, descriptorUiRoutes = [], routeComponents = {}, logger = null } = {})`
 - `normalizeClientModuleEntries(clientModules)`
-- `createClientRuntimeApp({ profile = "client", app, pinia = null, router, env, logger, surfaceRuntime, surfaceMode } = {})`
+- `createClientRuntimeApp({ profile = "client", app, pinia = null, queryClient = null, router, env, logger, surfaceRuntime, surfaceMode } = {})`
 
 ### `client/pageRedirects.js`
 Exports
@@ -665,7 +747,7 @@ Exports
 - `resolveClientBootstrapDebugEnabled({ env = {}, debugEnabled = undefined, debugEnvKey = "VITE_JSKIT_CLIENT_DEBUG" } = {})`
 - `createClientBootstrapLogger({ env = {}, logger = console, debugEnabled = undefined, debugEnvKey = "VITE_JSKIT_CLIENT_DEBUG" } = {})`
 - `createSurfaceShellRouter({ createRouter, history, routes = [], surfaceRuntime, surfaceMode, fallbackRoute = null, notFoundComponent = null, guard = false } = {})`
-- `bootstrapClientShellApp({ createApp, rootComponent, appConfig = {}, appPlugins = [], pinia = null, router, bootClientModules, surfaceRuntime, surfaceMode, env = {}, fallbackRoute = null, logger = console, createBootstrapLogger = null, debugEnabled = undefined, debugEnvKey = "VITE_JSKIT_CLIENT_DEBUG", debugMessage = "Client modules bootstrapped before router install.", onAfterModulesBootstrapped = null, mountSelector = "#app" } = {})`
+- `bootstrapClientShellApp({ createApp, rootComponent, appConfig = {}, appPlugins = [], pinia = null, queryClient = null, router, bootClientModules, surfaceRuntime, surfaceMode, env = {}, fallbackRoute = null, logger = console, createBootstrapLogger = null, debugEnabled = undefined, debugEnvKey = "VITE_JSKIT_CLIENT_DEBUG", debugMessage = "Client modules bootstrapped before router install.", onAfterModulesBootstrapped = null, onAfterRouterReady = null, mountSelector = "#app" } = {})`
 Local functions
 - `installAppPlugins(app, appPlugins = [])`
 
@@ -1158,6 +1240,8 @@ Exports
 - `resolveLoggerLevel({ configuredLevel = "", nodeEnv = "development", allowedLevels = [] } = {})`
 - `createFastifyLoggerOptions({ configuredLevel = "", nodeEnv = "development", allowedLevels = [], redactPaths = [], redactCensor = "[REDACTED]" } = {})`
 - `registerJsonApiContentTypeParser(fastify)`
+- `normalizeBodylessContentTypeHeader(request = null)`
+- `registerBodylessContentTypeNormalizer(fastify)`
 - `registerRequestLoggingHooks(app, { requestStartedAtSymbol, getPathname, getSurface, observeRequest, enableRequestLogs = true, defaultSurfaceId = "" } = {})`
 - `registerApiErrorHandler(app, { isAppError, onRecordDbError, onCaptureServerError, appErrorLogMessage = "AppError 5xx", unhandledErrorLogMessage = "Unhandled error" } = {})`
 - `ensureApiErrorHandling(app, { fastifyToken = "jskit.fastify", markerToken = "kernel.runtime.apiErrorHandlerRegistered", isAppError: isAppErrorOverride, autoRegister = true, ...handlerOptions } = {})`
@@ -1166,6 +1250,8 @@ Exports
 - `runGracefulShutdown({ signal = "", exitProcess = false, exitCode = 0, timeoutMs = 10_000, appInstance = null, stopBackgroundRuntimes = () => {}, closeDatabase = async () => {}, logger = console } = {})`
 Local functions
 - `createFallbackJsonBodyParser()`
+- `hasHeaderValue(headers = {}, key = "")`
+- `hasRequestBody(headers = {})`
 - `resolveValidationFieldErrors(error)`
 - `resolveRequestRouteTransport(request)`
 - `applyRouteTransportErrorResponse(reply, request, error, { statusCode = 500, normalizedErrorCode = "" } = {})`
@@ -1275,9 +1361,17 @@ Exports
 - `resolveAppConfig(scope = null)`
 - `normalizeDefaultSurfaceId(value, { fallback = "" } = {})`
 - `resolveDefaultSurfaceId(scope = null, { defaultSurfaceId = "" } = {})`
+- `resolveMobileConfig(source = null)`
+- `resolveClientAssetMode(source = null)`
+- `resolveMobileCallbackUrls(source = null, { appPublicUrl = "" } = {})`
+Local functions
+- `buildWebCallbackUrl(appPublicUrl = "", callbackPath = "")`
+- `buildMobileCallbackUrl(customScheme = "", callbackPath = "")`
+- `buildAppLinkCallbackUrls(appLinkDomains = [], callbackPath = "")`
 
 ### `server/support/appConfigFiles.js`
 Exports
+- `loadAppConfigFromAppRoot({ appRoot = "", publicConfigRelativePath = PUBLIC_CONFIG_RELATIVE_PATH, serverConfigRelativePath = SERVER_CONFIG_RELATIVE_PATH } = {})`
 - `loadAppConfigFromModuleUrl({ moduleUrl = import.meta.url, publicConfigRelativePath = PUBLIC_CONFIG_RELATIVE_PATH, serverConfigRelativePath = SERVER_CONFIG_RELATIVE_PATH } = {})`
 Local functions
 - `normalizeConfigObject(value)`
@@ -1298,6 +1392,10 @@ Local functions
 Exports
 - `symlinkSafeRequire`
 - `resolveAppConfig`
+- `resolveMobileConfig`
+- `resolveClientAssetMode`
+- `resolveMobileCallbackUrls`
+- `loadAppConfigFromAppRoot`
 - `loadAppConfigFromModuleUrl`
 - `importFreshModuleFromAbsolutePath`
 - `resolveRequiredAppRoot`
@@ -1312,7 +1410,10 @@ Exports
 - `deriveDefaultSubpagesHost`
 - `resolveNearestParentSubpagesHost`
 - `resolvePageLinkTargetDetails`
+- `discoverPlacementTopologyFromApp`
+- `discoverShellOutletSourcePathsFromApp`
 - `discoverShellOutletTargetsFromApp`
+- `resolveSemanticPlacementTargetFromApp`
 - `resolveShellOutletPlacementTargetFromApp`
 
 ### `server/support/pageTargets.js`
@@ -1326,7 +1427,7 @@ Exports
 - `resolvePageTargetDetails({ appRoot, targetFile = "", context = "page target" } = {})`
 - `deriveDefaultSubpagesHost(pageTarget = {})`
 - `resolveNearestParentSubpagesHost({ appRoot, pageTarget = {}, context = "page target" } = {})`
-- `resolvePageLinkTargetDetails({ appRoot, targetFile = "", pageTarget = null, placement = "", componentToken = "", linkTo = "", defaultComponentToken = DEFAULT_PAGE_LINK_COMPONENT_TOKEN, subpageComponentToken = DEFAULT_SUBPAGE_LINK_COMPONENT_TOKEN, context = "page target" } = {})`
+- `resolvePageLinkTargetDetails({ appRoot, targetFile = "", pageTarget = null, placement = "", componentToken = "", linkTo = "", context = "page target" } = {})`
 Local functions
 - `normalizeRelativeFilePath(value = "")`
 - `validateVueTargetFile(relativePath = "", { context = "page target" } = {})`
@@ -1351,10 +1452,12 @@ Local functions
 - `buildParentPageFileCandidates(pageTarget = {}, ancestorRoute = {})`
 - `resolveSubpagesHostTargetFromPageSource(source = "")`
 - `normalizePlacementTargetId(target = {})`
+- `resolveConcreteTargetOwner(target = "")`
+- `topologyPlacementTargetsConcreteOutlet(placement = {}, target = "")`
+- `resolveSemanticPlacementTargetForConcreteOutlet({ appRoot, concreteTarget = "", surface = "", context = "page target" } = {})`
 - `resolveRelativeLinkToFromParent(pageTarget = {}, parentHost = null)`
 - `resolveRelativeLinkToFromNearestIndexOwner(pageTarget = {})`
-- `resolveInferredPageLinkTo({ explicitLinkTo = "", pageTarget = {}, parentHost = null, placementTarget = null, suppressImplicitRelativeLinks = false } = {})`
-- `resolveInferredPageLinkComponentToken({ explicitComponentToken = "", parentHost = null, placementTarget = null, defaultComponentToken = DEFAULT_PAGE_LINK_COMPONENT_TOKEN, subpageComponentToken = DEFAULT_SUBPAGE_LINK_COMPONENT_TOKEN } = {})`
+- `resolveInferredPageLinkTo({ explicitLinkTo = "", pageTarget = {}, parentHost = null, preservesRelativeSubpageLinks = false, suppressImplicitRelativeLinks = false } = {})`
 - `renderPageLinkWhenLine(pageTarget = {})`
 
 ### `server/support/path.js`
@@ -1369,19 +1472,25 @@ Exports
 
 ### `server/support/shellOutlets.js`
 Exports
+- `discoverPlacementTopologyFromApp({ appRoot } = {})`
+- `discoverShellOutletSourcePathsFromApp({ appRoot, sourceRoot = "src" } = {})`
 - `discoverShellOutletTargetsFromApp({ appRoot, sourceRoot = "src" } = {})`
+- `resolveSemanticPlacementTargetFromApp({ appRoot, placement = "", owner = "", surface = "", context = "ui-generator" } = {})`
 - `resolveShellOutletPlacementTargetFromApp({ appRoot, placement = "", context = "ui-generator" } = {})`
 Local functions
 - `parseTagAttributes(attributesSource = "")`
 - `isDefaultEnabled(value)`
 - `normalizeAppRouteOutletTarget({ outlet = {}, sourcePath = "" } = {})`
-- `discoverRouteMetaOutletTargetsFromVueSource(source = "", { context = "shell layout" } = {})`
+- `discoverRouteMetaOutletTargetsFromVueSource(source = "", { context = "shell layout", enforceSingleDefault = true } = {})`
 - `collectVueFilePaths(rootDirectoryPath)`
 - `readInstalledPackageStates(appRoot)`
 - `normalizePackageOutletTarget({ packageId = "", outlet = {}, descriptorPath = "" } = {})`
-- `loadOutletDefaultOverrides(appRoot = "")`
-- `applyOutletDefaultOverrides(target = {}, outletDefaultOverrides = {})`
 - `collectInstalledPackageOutletTargets(appRoot)`
+- `withTopologySource(placement = {}, sourcePath = "")`
+- `loadAppPlacementTopology(appRoot)`
+- `collectInstalledPackagePlacementTopology(appRoot)`
+- `findSemanticPlacementById(placements = [], { id = "", owner = "", surface = "" } = {})`
+- `collectAppSourceShellOutletTargets({ appRoot, sourceRoot = "src", enforceSingleDefault = true, context = "discoverShellOutletTargetsFromApp" } = {})`
 
 ### `server/support/SupportCoreServiceProvider.js`
 Exports
@@ -1444,5 +1553,6 @@ Exports
 - `loadInstalledPackageDescriptor({ appRoot, packageId, installedPackageState, required = false })`
 - `resolveDescriptorPathForInstalledPackage({ appRoot, packageId, installedPackageState, required = false })`
 Local functions
+- `resolveNodeModulesDescriptorCandidatePaths({ appRoot, packageId })`
 - `resolveDescriptorCandidatePaths({ appRoot, packageId, installedPackageState })`
 - `normalizeDescriptorPayload(descriptorModule)`

@@ -106,6 +106,7 @@ Exports
 - `normalizeCrudLookupApiPath(value = "")`
 - `normalizeCrudLookupNamespace(value = "")`
 - `resolveCrudLookupApiPathFromNamespace(value = "")`
+- `resolveCrudResourceScopeName(value = "")`
 - `normalizeCrudLookupContainerKey(value, { defaultValue = DEFAULT_CRUD_LOOKUP_CONTAINER_KEY, context = "crud lookup container key" } = {})`
 - `resolveCrudLookupContainerKey(resource = {}, options = {})`
 - `resolveCrudLookupFieldKeys(resource = {}, { allowKeys = [] } = {})`
@@ -123,6 +124,35 @@ Exports
 ### `support/formatDateTime.js`
 Exports
 - `formatDateTime(value, { fallback = "unknown" } = {})`
+
+### `support/generatedUiContract.js`
+Exports
+- `GENERATED_UI_FORBIDDEN_CARD_SHELL_PATTERNS`
+- `GENERATED_UI_FORBIDDEN_LIVE_COPY_PATTERNS`
+- `GENERATED_UI_NAVIGATION_ROLE_DEFAULT`
+- `GENERATED_UI_NAVIGATION_ROLE_LINK_PLACEMENTS`
+- `GENERATED_UI_NAVIGATION_ROLE_OPTION`
+- `GENERATED_UI_NAVIGATION_ROLE_VALUES`
+- `GENERATED_UI_NO_LINK_NAVIGATION_ROLES`
+- `GENERATED_UI_SOURCE_CONTRACT_PROFILES`
+- `GENERATED_UI_SURFACE_PROFILES`
+- `assertGeneratedUiSourceContract(source = "", options = {})`
+- `buildGeneratedUiScreenClassName(baseClassName = "", { surfaceProfile = "" } = {})`
+- `collectGeneratedUiSourceContractIssues(source = "", { profile = "", forbidLiveCopy = undefined, forbidCardShell = undefined, forbiddenPatterns = [], requiredPatterns = [] } = {})`
+- `inferGeneratedUiNavigationRole(options = {}, { dynamicRoutePolicy = "leaf", routePath = "" } = {})`
+- `isGeneratedUiNoLinkNavigationRole(value = "")`
+- `normalizeGeneratedUiNavigationRole(value = "")`
+- `resolveGeneratedUiSurfaceProfile(surfaceProfile = "")`
+- `resolveGeneratedUiNavigationRoleLinkPlacement(options = {}, inferenceContext = {})`
+- `shouldCreateGeneratedUiNavigationLink(options = {}, { allowLinkTo = false, dynamicRoutePolicy = "leaf", routePath = "" } = {})`
+Local functions
+- `matchesGeneratedUiContractPattern(source = "", pattern)`
+- `normalizeGeneratedUiContractPattern(patternEntry = {}, fallbackMessage = "")`
+- `normalizeGeneratedUiContractPatternList(patternEntries = [], fallbackMessage = "")`
+- `resolveGeneratedUiSourceContractProfile(profile = "")`
+- `hasExplicitGeneratedUiNavigationRole(options = {})`
+- `normalizeGeneratedUiRouteSegments(routePath = "")`
+- `isGeneratedUiDynamicRouteSegment(routeSegment = "")`
 
 ### `support/index.js`
 Exports
@@ -174,6 +204,10 @@ Exports
 - `normalizeRecordId(value, { fallback = null } = {})`
 - `normalizeOpaqueId(value, { fallback = null } = {})`
 - `normalizeOneOf(value, allowedValues = [], fallback = "")`
+- `normalizeMobileAssetMode(value = "", { fallback = "bundled" } = {})`
+- `normalizeMobileCallbackPath(value = "", { fallback = "/auth/login" } = {})`
+- `normalizeMobileConfig(source = {})`
+- `normalizeMobileStrategy(value = "", { fallback = "" } = {})`
 - `ensureNonEmptyText(value, label = "value")`
 
 ### `support/permissions.js`
@@ -229,14 +263,26 @@ Local functions
 
 ### `support/shellLayoutTargets.js`
 Exports
+- `PLACEMENT_LAYOUT_CLASSES`
 - `describeShellOutletTargets(targets = [])`
-- `discoverShellOutletTargetsFromVueSource(source = "", { context = "shell layout" } = {})`
+- `discoverShellOutletTargetsFromVueSource(source = "", { context = "shell layout", enforceSingleDefault = true } = {})`
 - `findShellOutletTargetById(targets = [], targetId = "")`
+- `normalizePlacementKind(value = "")`
+- `normalizePlacementLayoutClass(value = "")`
+- `normalizePlacementOwnerId(value = "")`
+- `normalizePlacementSurfaceId(value = "")`
+- `normalizePlacementSurfaces(value)`
+- `normalizePlacementTopologyDefinition(value = {}, { context = "placement topology" } = {})`
+- `normalizePlacementTopologyEntry(value = {}, { context = "placement topology" } = {})`
+- `normalizePlacementTopologyVariant(value = {}, { context = "placement topology variant" } = {})`
+- `normalizeSemanticPlacementId(value = "")`
 - `normalizeShellOutletTargetId(value = "")`
 - `normalizeShellOutletTargetRecord(value = {}, { context = "shell layout" } = {})`
+- `resolvePlacementTargetReference(value = "")`
 - `resolveShellOutletTargetParts({ target = "" } = {})`
 Local functions
 - `parseTagAttributes(attributesSource = "")`
+- `normalizePlacementRenderers(value = {})`
 - `isDefaultAttributeEnabled(value)`
 
 ### `support/sorting.js`

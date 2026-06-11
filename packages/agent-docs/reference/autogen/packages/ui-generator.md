@@ -17,13 +17,20 @@ Use this on demand; do not load the full index at startup.
 ### `src/server/buildTemplateContext.js`
 Exports
 - `buildUiPageTemplateContext({ appRoot, targetFile = "", options = {} } = {})`
+- `normalizeNavigationRole`
+- `resolveNavigationInferenceRoutePath(pageTarget = {})`
+- `resolveNavigationRoleLinkPlacement(options = {}, inferenceContext = {})`
+- `shouldCreateNavigationLink(options = {}, inferenceContext = {})`
 Local functions
 - `resolveLinkToPropLine(linkTo = "")`
+- `resolveOwnerLine(owner = "")`
 
 ### `src/server/subcommands/addSubpages.js`
 Exports
 - `runGeneratorSubcommand({ appRoot, subcommand = "", args = [], options = {}, dryRun = false } = {})`
 Local functions
+- `resolveOutletOwner(target = "")`
+- `renderSectionNavTopologyBlock({ marker = "", owner = "", surface = "", target = "" } = {})`
 - `resolveSubpagesOutletTarget(options = {}, pageTarget = {})`
 
 ### `src/server/subcommands/element.js`
@@ -40,8 +47,24 @@ Local functions
 - `hasShellOutletTarget(source = "", { target = "" } = {})`
 - `applyScriptImports(source = "")`
 - `createOutletBlock({ target = "" } = {})`
+- `resolveOutletOwner(target = "")`
+- `resolveSemanticPlacementOption(options = {}, { context = "ui-generator outlet" } = {})`
+- `resolveOptionalSemanticPlacementOption(options = {}, { context = "ui-generator outlet" } = {})`
+- `resolveVariantOwners(variantTargets = {})`
+- `resolveSemanticPlacementOwner({ placementId = "", targetId = "", variantTargets = null, owner = "", context = "ui-generator outlet" } = {})`
+- `resolveTopologyKind(options = {}, { context = "ui-generator outlet", defaultKind = "", required = false } = {})`
+- `resolveTopologyVariantTargets(options = {}, { context = "ui-generator topology", fallbackTarget = "" } = {})`
+- `hasTopologyOptions(options = {})`
+- `resolveTopologySurfaces(options = {})`
+- `renderTopologyOwnerLine(owner = "")`
+- `renderLinkRendererBlock(rendererToken = "")`
+- `renderTopologyVariantBlock({ layoutClass = "", target = "", kind = "", rendererToken = "" } = {})`
+- `renderOutletTopologyBlock({ marker = "", placementId = "", owner = "", surfaces = ["*"], description = "", target = "", variantTargets = null, kind = "link", rendererToken = "" } = {})`
 - `findLastTemplateCloseTag(source = "")`
 - `applyOutletTemplateBlock(source = "", { target = "" } = {})`
+- `prepareTopologyBlock({ appRoot, topologyPath = null, context = "ui-generator topology", placementId = "", owner = "", surfaces = ["*"], description = "", target = "", variantTargets = null, kind = "", rendererToken = "" } = {})`
+- `applyTopologyBlock(options = {})`
+- `runTopologySubcommand({ appRoot, options = {}, dryRun = false } = {})`
 
 ### `src/server/subcommands/page.js`
 Exports
@@ -59,11 +82,12 @@ Exports
 - `resolvePageTargetDetails`
 - `resolveNearestParentSubpagesHost`
 - `deriveDefaultSubpagesHost`
-- `renderPlainPageSource(pageTitle = "")`
+- `renderPlainPageSource(pageTitle = "", { surfaceId = "", routePath = "" } = {})`
 - `ensureSubpagesSupportScaffold({ appRoot, componentDirectory = DEFAULT_COMPONENT_DIRECTORY, dryRun = false } = {})`
 - `applySubpagesUpgradeToPageSource(source = "", { target = "", title = "", subtitle = "", sectionContainerComponentImportPath = "/src/components/SectionContainerShell.vue", preserveExistingContent = true } = {})`
 - `upgradePageFileToSubpages({ appRoot, targetFile, target = "", title = "", subtitle = "", componentDirectory = DEFAULT_COMPONENT_DIRECTORY, preserveExistingContent = true, dryRun = false } = {})`
 Local functions
+- `resolveGeneratedPageSurfaceProfile({ surfaceId = "", routePath = "" } = {})`
 - `trimEdgeBlankLines(source = "")`
 - `renderSectionContainerShellSource()`
 - `findTemplateBlock(source = "")`
@@ -79,6 +103,7 @@ Exports
 - `DEFAULT_COMPONENT_DIRECTORY`
 - `MAIN_CLIENT_PROVIDER_FILE`
 - `PLACEMENT_FILE`
+- `PLACEMENT_TOPOLOGY_FILE`
 - `toKebabCase(value = "")`
 - `toPascalCase(value = "")`
 - `requireOption(options = {}, optionName = "", { context = "ui-generator" } = {})`
@@ -90,9 +115,16 @@ Exports
 - `appendBlockIfMarkerMissing(source = "", marker = "", block = "")`
 - `insertImportIfMissing(source = "", importLine = "")`
 - `insertBeforeClassDeclaration(source = "", line = "", { className = "", contextFile = "" } = {})`
-- `findScriptBlock(source = "")`
+- `findScriptSetupBlock(source = "")`
+- `insertScriptSetupBlock(source = "", content = "")`
+- `appendTopologyBlockIfPlacementMissing({ topologyPath = {}, source = "", marker = "", block = "", placementId = "", owner = "", variantTargets = null, context = "ui-generator topology" } = {})`
 - `parseTagAttributes(attributesSource = "")`
 - `indentBlock(source = "", indent = "")`
+Local functions
+- `loadPlacementTopologyDefinitionFromPath(topologyPath = {}, { context = "ui-generator topology" } = {})`
+- `normalizeExpectedTopologyVariantTargets(variantTargets = null)`
+- `describeTopologyVariantTargets(variantTargets = {})`
+- `placementMatchesExpectedVariantTargets(placement = {}, expectedVariantTargets = null)`
 
 ### root
 

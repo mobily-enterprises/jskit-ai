@@ -1,7 +1,9 @@
+import { GENERATED_UI_NAVIGATION_ROLE_OPTION } from "@jskit-ai/kernel/shared/support/generatedUiContract";
+
 export default Object.freeze({
   packageVersion: 1,
   packageId: "@jskit-ai/ui-generator",
-  version: "0.1.46",
+  version: "0.1.72",
   kind: "generator",
   description: "Create non-CRUD pages, reusable UI elements, and subpage hosts.",
   options: {
@@ -40,23 +42,46 @@ export default Object.freeze({
       inputType: "text",
       defaultValue: "",
       promptLabel: "Placement target",
-      promptHint: "Optional target for placed-element placement (format: host:position, default: shell-layout:top-right)."
+      promptHint: "Semantic placement target for placed-element, outlet, and topology mapping (format: area.slot, default for placed-element: shell.status)."
+    },
+    kind: {
+      required: false,
+      inputType: "text",
+      validationType: "enum",
+      allowedValues: ["component", "link"],
+      defaultValue: "",
+      promptLabel: "Placement kind",
+      promptHint: "Use component for componentToken-backed entries, or link when topology should provide a link renderer."
+    },
+    owner: {
+      required: false,
+      inputType: "text",
+      defaultValue: "",
+      promptLabel: "Placement owner",
+      promptHint: "Optional owner id for semantic topology mappings. Page/settings placements default to the outlet host."
+    },
+    description: {
+      required: false,
+      inputType: "text",
+      defaultValue: "",
+      promptLabel: "Description",
+      promptHint: "Optional description for generated semantic topology mappings."
+    },
+    "link-renderer": {
+      required: false,
+      inputType: "text",
+      defaultValue: "local.main.ui.surface-aware-menu-link-item",
+      promptLabel: "Link renderer",
+      promptHint: "Default link renderer token for generated topology variants."
     },
     "link-placement": {
       required: false,
       inputType: "text",
       defaultValue: "",
       promptLabel: "Link placement",
-      promptHint: "Optional target for the generated page link placement (format: host:position)."
+      promptHint: "Optional semantic target for the generated page link placement (format: area.slot)."
     },
-    "link-component-token": {
-      required: false,
-      inputType: "text",
-      defaultValue: "",
-      promptLabel: "Link component token",
-      promptHint:
-        "Optional component token override for the generated page link placement (example: local.main.ui.tab-link-item)."
-    },
+    "navigation-role": GENERATED_UI_NAVIGATION_ROLE_OPTION,
     "link-to": {
       required: false,
       inputType: "text",
@@ -70,7 +95,28 @@ export default Object.freeze({
       inputType: "text",
       defaultValue: "",
       promptLabel: "Outlet target",
-      promptHint: "Used by add-subpages and outlet. Must be a target in host:position format."
+      promptHint: "Used by add-subpages, outlet, and topology. Must be a target in host:position format. For topology, maps all layouts unless layout-specific targets are provided."
+    },
+    "compact-target": {
+      required: false,
+      inputType: "text",
+      defaultValue: "",
+      promptLabel: "Compact outlet target",
+      promptHint: "Concrete outlet used by topology for compact layouts, in host:position format."
+    },
+    "medium-target": {
+      required: false,
+      inputType: "text",
+      defaultValue: "",
+      promptLabel: "Medium outlet target",
+      promptHint: "Concrete outlet used by topology for medium layouts, in host:position format."
+    },
+    "expanded-target": {
+      required: false,
+      inputType: "text",
+      defaultValue: "",
+      promptLabel: "Expanded outlet target",
+      promptHint: "Concrete outlet used by topology for expanded layouts, in host:position format."
     },
     title: {
       required: false,
@@ -120,9 +166,9 @@ export default Object.freeze({
             descriptionKey: "page-target-file"
           }
         ],
-        optionNames: ["name", "link-placement", "link-component-token", "link-to", "force"],
+        optionNames: ["name", "navigation-role", "link-placement", "link-to", "force"],
         notes: [
-          "If a nearest parent subpages target is found, placement, link component token, and props.to are inferred automatically.",
+          "If a nearest parent subpages target is found, semantic placement and props.to are inferred automatically.",
           "If the parent target page is index.vue, child pages belong under index/...",
           "If the target page file already exists, rerun with --force to overwrite it."
         ],
@@ -151,10 +197,10 @@ export default Object.freeze({
         entrypoint: "src/server/subcommands/element.js",
         export: "runGeneratorSubcommand",
         description: "Create a Vue component file under the chosen component directory (default: src/components) and add a placement entry that renders it.",
-        optionNames: ["name", "surface", "path", "placement", "force"],
+        optionNames: ["name", "surface", "path", "placement", "owner", "force"],
         requiredOptionNames: ["name"],
         notes: [
-          "If --placement is omitted, the placed element is added at shell-layout:top-right.",
+          "If --placement is omitted, the placed element is added at shell.status.",
           "If the placement target belongs to a page-owned outlet, JSKIT infers the surface automatically.",
           "If the target is shared and the app has multiple enabled surfaces, pass --surface explicitly.",
           "If the component file already exists, rerun with --force to overwrite it."
@@ -174,7 +220,7 @@ export default Object.freeze({
               "  --name \"Ops Panel\" \\",
               "  --surface admin \\",
               "  --path src/widgets \\",
-              "  --placement shell-layout:top-right \\",
+              "  --placement shell.status \\",
               "  --force"
             ]
           }
@@ -204,7 +250,7 @@ export default Object.freeze({
               "npx jskit generate ui-generator add-subpages \\",
               "  admin/customers/[customerId]/index.vue \\",
               "  --title \"Customer\" \\",
-              "  --subtitle \"View and manage this customer.\""
+              "  --subtitle \"Customer profile and activity.\""
             ]
           },
           {
@@ -226,9 +272,9 @@ export default Object.freeze({
         export: "runGeneratorSubcommand",
         description: "Inject a generic ShellOutlet block into an existing Vue page/component.",
         longDescription: [
-          "A ShellOutlet creates a named placement target inside a Vue file. That target is what other parts of JSKIT render into later.",
-          "After an outlet exists, `jskit list-placements` will discover it and show its `target`. That makes the outlet visible to humans and to generators that need a placement destination.",
-          "Commands that create placed UI, such as `ui-generator placed-element`, and commands that add page links can then target that outlet by writing placement entries that point at the same target."
+          "A ShellOutlet creates a concrete placement recipient inside a Vue file.",
+          "If --placement is provided, the command also appends semantic topology for that outlet, so `jskit list-placements` exposes the public `area.slot` placement.",
+          "If --placement is omitted, the command only injects the concrete outlet. Use this before `ui-generator topology` when compact, medium, and expanded should map to different outlets."
         ],
         positionalArgs: [
           {
@@ -237,10 +283,12 @@ export default Object.freeze({
             descriptionKey: "existing-vue-sfc-target-file"
           }
         ],
-        optionNames: ["target"],
+        optionNames: ["target", "placement", "owner", "surface", "description", "kind", "link-renderer", "compact-target", "medium-target", "expanded-target"],
         requiredOptionNames: ["target"],
         notes: [
-          "Use --target host:position."
+          "Use --target host:position for the concrete outlet and --placement area.slot for the public semantic placement.",
+          "Omit --placement when you only want to add the concrete destination.",
+          "When --placement is present, the generated topology maps compact, medium, and expanded to the new concrete outlet unless layout-specific targets are provided."
         ],
         examples: [
           {
@@ -248,7 +296,8 @@ export default Object.freeze({
             lines: [
               "npx jskit generate ui-generator outlet \\",
               "  src/components/ContactSummaryCard.vue \\",
-              "  --target contact-view:sub-pages"
+              "  --target contact-view:sub-pages \\",
+              "  --placement page.section-nav"
             ]
           },
           {
@@ -256,7 +305,51 @@ export default Object.freeze({
             lines: [
               "npx jskit generate ui-generator outlet \\",
               "  src/pages/admin/customers/[customerId]/index.vue \\",
-              "  --target customer-view:summary-actions"
+              "  --target customer-view:summary-actions \\",
+              "  --placement page.actions \\",
+              "  --surface admin"
+            ]
+          }
+        ]
+      },
+      topology: {
+        requiresShellWeb: true,
+        entrypoint: "src/server/subcommands/outlet.js",
+        export: "runGeneratorSubcommand",
+        description: "Append semantic placement topology that maps compact, medium, and expanded layouts to concrete outlets.",
+        longDescription: [
+          "Use this after adding one or more concrete ShellOutlet destinations.",
+          "The command writes only `src/placementTopology.js`; it does not inject Vue outlets.",
+          "Use --kind component for componentToken-backed elements. Use --kind link when topology should provide the standard link renderer."
+        ],
+        optionNames: ["placement", "kind", "target", "compact-target", "medium-target", "expanded-target", "owner", "surface", "description", "link-renderer"],
+        requiredOptionNames: ["placement", "kind"],
+        notes: [
+          "Use --target host:position when all layout classes should render in the same outlet.",
+          "Use --compact-target, --medium-target, and --expanded-target when layout classes should render in different outlets.",
+          "For page.* and settings.* placements, pass --owner if the layout targets use different outlet hosts."
+        ],
+        examples: [
+          {
+            label: "Component placement with adaptive outlets",
+            lines: [
+              "npx jskit generate ui-generator topology \\",
+              "  --placement reports.actions \\",
+              "  --kind component \\",
+              "  --compact-target reports:bottom-actions \\",
+              "  --medium-target reports:toolbar-actions \\",
+              "  --expanded-target reports:side-actions \\",
+              "  --surface admin"
+            ]
+          },
+          {
+            label: "Link placement using one outlet for every layout",
+            lines: [
+              "npx jskit generate ui-generator topology \\",
+              "  --placement page.section-nav \\",
+              "  --kind link \\",
+              "  --target report-view:sub-pages \\",
+              "  --surface admin"
             ]
           }
         ]
@@ -278,7 +371,7 @@ export default Object.freeze({
   mutations: {
     dependencies: {
       runtime: {
-        "@jskit-ai/users-web": "0.1.78"
+        "@jskit-ai/users-web": "0.1.104"
       },
       dev: {}
     },

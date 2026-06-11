@@ -1,5 +1,10 @@
 import { isRecord, normalizeText } from "@jskit-ai/kernel/shared/support/normalize";
-import { normalizeShellOutletTargetId } from "@jskit-ai/kernel/shared/support/shellLayoutTargets";
+import {
+  normalizePlacementKind,
+  normalizePlacementTopologyDefinition,
+  normalizeSemanticPlacementId,
+  resolvePlacementTargetReference
+} from "@jskit-ai/kernel/shared/support/shellLayoutTargets";
 
 const WEB_PLACEMENT_SURFACE_ANY = "*";
 
@@ -57,13 +62,13 @@ function toInteger(value, fallback = 1000) {
 }
 
 function normalizePlacementTarget(value, { strict = false, source = "placement" } = {}) {
-  const normalized = normalizeShellOutletTargetId(String(value || "").toLowerCase());
-  if (normalized) {
-    return normalized;
+  const reference = resolvePlacementTargetReference(String(value || "").toLowerCase());
+  if (reference?.id) {
+    return reference.id;
   }
 
   if (strict) {
-    throw new TypeError(`${source} requires target in "host:position" format.`);
+    throw new TypeError(`${source} requires semantic target in "area.slot" format or internal concrete target in "host:position" format.`);
   }
   return "";
 }
@@ -132,8 +137,19 @@ function normalizePlacementDefinition(value, { strict = false, source = "placeme
     return null;
   }
 
+  const targetReference = resolvePlacementTargetReference(target);
+  const internal = value.internal === true;
+  if (targetReference?.type === "concrete" && internal !== true) {
+    if (strict) {
+      throw new TypeError(`${source} "${id}" targets concrete outlet "${target}" without internal: true.`);
+    }
+    return null;
+  }
+
+  const owner = normalizeText(value.owner).toLowerCase();
+  const kind = normalizePlacementKind(value.kind) || (normalizeText(value.componentToken) ? "component" : "link");
   const componentToken = normalizeText(value.componentToken);
-  if (!componentToken) {
+  if (kind === "component" && !componentToken) {
     if (strict) {
       throw new TypeError(`${source} "${id}" requires componentToken.`);
     }
@@ -150,12 +166,16 @@ function normalizePlacementDefinition(value, { strict = false, source = "placeme
   return Object.freeze({
     id,
     target,
+    targetType: targetReference?.type || "",
+    owner,
+    kind,
     surfaces,
     order: toInteger(value.order, 1000),
     componentToken,
     props,
     when,
-    enabled: value.enabled !== false
+    enabled: value.enabled !== false,
+    internal
   });
 }
 
@@ -163,6 +183,12 @@ function definePlacement(value = {}) {
   return normalizePlacementDefinition(value, {
     strict: true,
     source: "placement contribution"
+  });
+}
+
+function definePlacementTopology(value = {}) {
+  return normalizePlacementTopologyDefinition(value, {
+    context: "placement topology"
   });
 }
 
@@ -174,5 +200,7 @@ export {
   normalizePlacementTarget,
   normalizePlacementSurfaces,
   normalizePlacementDefinition,
-  definePlacement
+  definePlacement,
+  definePlacementTopology,
+  normalizeSemanticPlacementId
 };

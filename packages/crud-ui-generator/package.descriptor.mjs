@@ -1,7 +1,9 @@
+import { GENERATED_UI_NAVIGATION_ROLE_OPTION } from "@jskit-ai/kernel/shared/support/generatedUiContract";
+
 export default Object.freeze({
   packageVersion: 1,
   packageId: "@jskit-ai/crud-ui-generator",
-  version: "0.1.46",
+  version: "0.1.72",
   kind: "generator",
   description: "Generate CRUD route trees from resource validators at an explicit route root relative to src/pages/.",
   options: {
@@ -64,16 +66,9 @@ export default Object.freeze({
       inputType: "text",
       defaultValue: "",
       promptLabel: "Link placement",
-      promptHint: "Optional target override for the generated list-page link placement (format: host:position)."
+      promptHint: "Optional semantic target override for the generated list-page link placement (format: area.slot)."
     },
-    "link-component-token": {
-      required: false,
-      inputType: "text",
-      defaultValue: "",
-      promptLabel: "Link component token",
-      promptHint:
-        "Optional component token override for the generated list-page link placement (example: local.main.ui.tab-link-item)."
-    },
+    "navigation-role": GENERATED_UI_NAVIGATION_ROLE_OPTION,
     namespace: {
       required: false,
       inputType: "text",
@@ -118,8 +113,8 @@ export default Object.freeze({
           "display-fields",
           "id-param",
           "parent-title",
+          "navigation-role",
           "link-placement",
-          "link-component-token",
           "namespace",
           "force"
         ],
@@ -180,7 +175,7 @@ export default Object.freeze({
   mutations: {
     dependencies: {
       runtime: {
-        "@jskit-ai/users-web": "0.1.78"
+        "@jskit-ai/users-web": "0.1.104"
       },
       dev: {}
     },
@@ -199,6 +194,28 @@ export default Object.freeze({
           entrypoint: "src/server/buildTemplateContext.js",
           export: "buildUiTemplateContext"
         },
+        when: {
+          option: "operations",
+          in: ["list"]
+        }
+      },
+      {
+        from: "templates/src/pages/admin/ui-generator/listFilters.js",
+        to: "src/pages/${option:target-root|trim}/listFilters.js",
+        reason: "Install generated client-side list filter definitions.",
+        category: "crud-ui-generator",
+        id: "crud-ui-page-list-filters-${option:target-root|snake}",
+        when: {
+          option: "operations",
+          in: ["list"]
+        }
+      },
+      {
+        from: "templates/src/pages/admin/ui-generator/listBulkActions.js",
+        to: "src/pages/${option:target-root|trim}/listBulkActions.js",
+        reason: "Install generated client-side list bulk action definitions.",
+        category: "crud-ui-generator",
+        id: "crud-ui-page-list-bulk-actions-${option:target-root|snake}",
         when: {
           option: "operations",
           in: ["list"]
@@ -364,8 +381,7 @@ export default Object.freeze({
         file: "src/placement.js",
         position: "bottom",
         skipIfContains: "__JSKIT_UI_MENU_MARKER__",
-        value:
-          "\n// __JSKIT_UI_MENU_MARKER__\n{\n  addPlacement({\n    id: \"__JSKIT_UI_MENU_PLACEMENT_ID__\",\n    target: \"__JSKIT_UI_MENU_PLACEMENT_TARGET__\",\n    surfaces: [\"__JSKIT_UI_SURFACE_ID__\"],\n    order: 155,\n    componentToken: \"__JSKIT_UI_MENU_COMPONENT_TOKEN__\",\n    props: {\n      label: \"__JSKIT_UI_MENU_LABEL__\",\n      icon: \"__JSKIT_UI_MENU_ICON__\",\n      surface: \"__JSKIT_UI_SURFACE_ID__\",\n      scopedSuffix: \"__JSKIT_UI_MENU_WORKSPACE_SUFFIX__\",\n      unscopedSuffix: \"__JSKIT_UI_MENU_NON_WORKSPACE_SUFFIX__\",\n__JSKIT_UI_MENU_TO_PROP_LINE__    },\n__JSKIT_UI_MENU_WHEN_LINE__  });\n}\n",
+        value: "__JSKIT_UI_MENU_APPEND_BLOCK__",
         reason: "Append generated CRUD list-page placement.",
         category: "crud-ui-generator",
         id: "crud-ui-placement-menu",

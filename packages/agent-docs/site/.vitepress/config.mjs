@@ -40,6 +40,7 @@ export default defineConfig({
         {
           text: "App Extras",
           items: [
+            { text: "Mobile Capacitor", link: "/guide/app-extras/mobile-capacitor" },
             { text: "Realtime", link: "/guide/app-extras/realtime" },
             { text: "Assistant", link: "/guide/app-extras/assistant" }
           ]

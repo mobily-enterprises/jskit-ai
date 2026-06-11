@@ -3,7 +3,7 @@ import { HOME_COG_OUTLET } from "./src/shared/toolsOutletContracts.js";
 export default Object.freeze({
   packageVersion: 1,
   packageId: "@jskit-ai/users-web",
-  version: "0.1.78",
+  version: "0.1.104",
   kind: "runtime",
   description: "Users web module: account/profile UI plus shared users web widgets.",
   dependsOn: [
@@ -51,6 +51,34 @@ export default Object.freeze({
           summary: "Exports the package-owned account settings host that renders placement-backed account sections."
         },
         {
+          subpath: "./client/components/CrudAddEditScreen",
+          summary: "Exports the package-owned CRUD add/edit screen shell used by generated form pages."
+        },
+        {
+          subpath: "./client/components/CrudListBulkActionSurface",
+          summary: "Exports the adaptive CRUD list bulk-action surface for generated list pages."
+        },
+        {
+          subpath: "./client/components/CrudListFilterSurface",
+          summary: "Exports the adaptive CRUD list filter surface for generated list pages."
+        },
+        {
+          subpath: "./client/components/CrudListScreen",
+          summary: "Exports the package-owned CRUD list screen shell used by generated list pages."
+        },
+        {
+          subpath: "./client/components/CrudViewScreen",
+          summary: "Exports the package-owned CRUD view screen shell used by generated detail pages."
+        },
+        {
+          subpath: "./client/bulkActions",
+          summary: "Exports client-side CRUD list bulk-action definition helpers."
+        },
+        {
+          subpath: "./client/filters",
+          summary: "Exports client-side CRUD list filter definition helpers."
+        },
+        {
           subpath: "./client/components/ProfileClientElement",
           summary: "Exports profile settings client element scaffold component."
         },
@@ -79,8 +107,24 @@ export default Object.freeze({
           summary: "Exports lookup-backed CRUD list filter helper for remote autocomplete filters."
         },
         {
+          subpath: "./client/composables/useCrudAddEditScreen",
+          summary: "Exports the package-owned add/edit screen runtime for generated form pages."
+        },
+        {
+          subpath: "./client/composables/useCrudListBulkActions",
+          summary: "Exports selected-record state and execution runtime for generated CRUD list bulk actions."
+        },
+        {
+          subpath: "./client/composables/useCrudListScreen",
+          summary: "Exports the package-owned list screen runtime for generated list pages."
+        },
+        {
           subpath: "./client/composables/useView",
           summary: "Exports read/view operation composable."
+        },
+        {
+          subpath: "./client/composables/useCrudViewScreen",
+          summary: "Exports the package-owned view screen runtime for generated detail pages."
         },
         {
           subpath: "./client/composables/usePagedCollection",
@@ -112,7 +156,6 @@ export default Object.freeze({
         outlets: [
           {
             target: HOME_COG_OUTLET.target,
-            defaultLinkComponentToken: HOME_COG_OUTLET.defaultLinkComponentToken,
             surfaces: ["home"],
             source: "src/client/components/UsersHomeToolsWidget.vue"
           },
@@ -122,19 +165,66 @@ export default Object.freeze({
             source: "src/client/components/AccountSettingsClientElement.vue"
           }
         ],
+        topology: {
+          placements: [
+            {
+              id: "home.tools-menu",
+              description: "Home surface tools menu actions.",
+              surfaces: ["home"],
+              variants: {
+                compact: {
+                  outlet: HOME_COG_OUTLET.target,
+                  renderers: {
+                    link: "local.main.ui.surface-aware-menu-link-item"
+                  }
+                },
+                medium: {
+                  outlet: HOME_COG_OUTLET.target,
+                  renderers: {
+                    link: "local.main.ui.surface-aware-menu-link-item"
+                  }
+                },
+                expanded: {
+                  outlet: HOME_COG_OUTLET.target,
+                  renderers: {
+                    link: "local.main.ui.surface-aware-menu-link-item"
+                  }
+                }
+              }
+            },
+            {
+              id: "settings.sections",
+              owner: "account-settings",
+              description: "Account settings content sections.",
+              surfaces: ["account"],
+              variants: {
+                compact: {
+                  outlet: "account-settings:sections"
+                },
+                medium: {
+                  outlet: "account-settings:sections"
+                },
+                expanded: {
+                  outlet: "account-settings:sections"
+                }
+              }
+            }
+          ]
+        },
         contributions: [
           {
             id: "users.profile.menu.settings",
-            target: "auth-profile-menu:primary-menu",
+            target: "auth.profile-menu",
+            kind: "link",
             surfaces: ["*"],
             order: 500,
-            componentToken: "auth.web.profile.menu.link-item",
             when: "auth.authenticated === true",
             source: "mutations.text#users-web-profile-settings-placement"
           },
           {
             id: "users.home.tools.widget",
-            target: "shell-layout:top-right",
+            target: "shell.status",
+            kind: "component",
             surfaces: ["home"],
             order: 900,
             componentToken: "users.web.home.tools.widget",
@@ -143,16 +233,18 @@ export default Object.freeze({
           },
           {
             id: "users.home.menu.settings",
-            target: "home-cog:primary-menu",
+            target: "home.tools-menu",
+            kind: "link",
             surfaces: ["home"],
             order: 100,
-            componentToken: "local.main.ui.surface-aware-menu-link-item",
             when: "auth.authenticated === true",
             source: "mutations.text#users-web-home-tools-placement"
           },
           {
             id: "users.account.settings.profile",
-            target: "account-settings:sections",
+            target: "settings.sections",
+            owner: "account-settings",
+            kind: "component",
             surfaces: ["account"],
             order: 100,
             componentToken: "local.main.account-settings.section.profile",
@@ -160,7 +252,9 @@ export default Object.freeze({
           },
           {
             id: "users.account.settings.preferences",
-            target: "account-settings:sections",
+            target: "settings.sections",
+            owner: "account-settings",
+            kind: "component",
             surfaces: ["account"],
             order: 200,
             componentToken: "local.main.account-settings.section.preferences",
@@ -168,7 +262,9 @@ export default Object.freeze({
           },
           {
             id: "users.account.settings.notifications",
-            target: "account-settings:sections",
+            target: "settings.sections",
+            owner: "account-settings",
+            kind: "component",
             surfaces: ["account"],
             order: 300,
             componentToken: "local.main.account-settings.section.notifications",
@@ -181,15 +277,13 @@ export default Object.freeze({
   mutations: {
     dependencies: {
       runtime: {
-        "@tanstack/vue-query": "5.92.12",
         "@mdi/js": "^7.4.47",
-        "@jskit-ai/http-runtime": "0.1.62",
-        "@jskit-ai/realtime": "0.1.62",
-        "@jskit-ai/kernel": "0.1.63",
-        "@jskit-ai/shell-web": "0.1.62",
-        "@jskit-ai/uploads-image-web": "0.1.41",
-        "@jskit-ai/users-core": "0.1.73",
-        vuetify: "^4.0.0"
+        "@jskit-ai/http-runtime": "0.1.88",
+        "@jskit-ai/realtime": "0.1.88",
+        "@jskit-ai/kernel": "0.1.89",
+        "@jskit-ai/shell-web": "0.1.88",
+        "@jskit-ai/uploads-image-web": "0.1.67",
+        "@jskit-ai/users-core": "0.1.99"
       },
       dev: {}
     },
@@ -249,7 +343,7 @@ export default Object.freeze({
         position: "bottom",
         skipIfContains: "id: \"users.profile.menu.settings\"",
         value:
-          "\naddPlacement({\n  id: \"users.profile.menu.settings\",\n  target: \"auth-profile-menu:primary-menu\",\n  surfaces: [\"*\"],\n  order: 500,\n  componentToken: \"auth.web.profile.menu.link-item\",\n  props: {\n    label: \"Settings\",\n    to: \"/account\"\n  },\n  when: ({ auth }) => auth?.authenticated === true\n});\n",
+          "\naddPlacement({\n  id: \"users.profile.menu.settings\",\n  target: \"auth.profile-menu\",\n  kind: \"link\",\n  surfaces: [\"*\"],\n  order: 500,\n  props: {\n    label: \"Settings\",\n    to: \"/account\"\n  },\n  when: ({ auth }) => auth?.authenticated === true\n});\n",
         reason: "Append users-web profile settings menu placement into app-owned placement registry.",
         category: "users-web",
         id: "users-web-profile-settings-placement"
@@ -260,10 +354,21 @@ export default Object.freeze({
         position: "bottom",
         skipIfContains: "id: \"users.home.tools.widget\"",
         value:
-          "\naddPlacement({\n  id: \"users.home.tools.widget\",\n  target: \"shell-layout:top-right\",\n  surfaces: [\"home\"],\n  order: 900,\n  componentToken: \"users.web.home.tools.widget\",\n  when: ({ auth }) => auth?.authenticated === true\n});\n\naddPlacement({\n  id: \"users.home.menu.settings\",\n  target: \"home-cog:primary-menu\",\n  surfaces: [\"home\"],\n  order: 100,\n  componentToken: \"local.main.ui.surface-aware-menu-link-item\",\n  props: {\n    label: \"Settings\",\n    surface: \"home\",\n    scopedSuffix: \"/settings\",\n    unscopedSuffix: \"/settings\"\n  },\n  when: ({ auth }) => auth?.authenticated === true\n});\n",
+          "\naddPlacement({\n  id: \"users.home.tools.widget\",\n  target: \"shell.status\",\n  kind: \"component\",\n  surfaces: [\"home\"],\n  order: 900,\n  componentToken: \"users.web.home.tools.widget\",\n  when: ({ auth }) => auth?.authenticated === true\n});\n\naddPlacement({\n  id: \"users.home.menu.settings\",\n  target: \"home.tools-menu\",\n  kind: \"link\",\n  surfaces: [\"home\"],\n  order: 100,\n  props: {\n    label: \"Settings\",\n    surface: \"home\",\n    scopedSuffix: \"/settings\",\n    unscopedSuffix: \"/settings\"\n  },\n  when: ({ auth }) => auth?.authenticated === true\n});\n",
         reason: "Append users-web home tools widget and settings menu placements into app-owned placement registry.",
         category: "users-web",
         id: "users-web-home-tools-placement"
+      },
+      {
+        op: "append-text",
+        file: "src/placementTopology.js",
+        position: "bottom",
+        skipIfContains: "id: \"home.tools-menu\"",
+        value:
+          "\naddPlacementTopology({\n  id: \"home.tools-menu\",\n  description: \"Home surface tools menu actions.\",\n  surfaces: [\"home\"],\n  variants: {\n    compact: {\n      outlet: \"home-cog:primary-menu\",\n      renderers: {\n        link: \"local.main.ui.surface-aware-menu-link-item\"\n      }\n    },\n    medium: {\n      outlet: \"home-cog:primary-menu\",\n      renderers: {\n        link: \"local.main.ui.surface-aware-menu-link-item\"\n      }\n    },\n    expanded: {\n      outlet: \"home-cog:primary-menu\",\n      renderers: {\n        link: \"local.main.ui.surface-aware-menu-link-item\"\n      }\n    }\n  }\n});\n",
+        reason: "Append users-web home tools semantic topology into app-owned placement topology.",
+        category: "users-web",
+        id: "users-web-home-tools-topology"
       },
       {
         op: "append-text",
@@ -271,10 +376,21 @@ export default Object.freeze({
         position: "bottom",
         skipIfContains: "id: \"users.account.settings.profile\"",
         value:
-          "\naddPlacement({\n  id: \"users.account.settings.profile\",\n  target: \"account-settings:sections\",\n  surfaces: [\"account\"],\n  order: 100,\n  componentToken: \"local.main.account-settings.section.profile\",\n  props: {\n    title: \"Profile\",\n    value: \"profile\",\n    usesSharedRuntime: true\n  }\n});\n\naddPlacement({\n  id: \"users.account.settings.preferences\",\n  target: \"account-settings:sections\",\n  surfaces: [\"account\"],\n  order: 200,\n  componentToken: \"local.main.account-settings.section.preferences\",\n  props: {\n    title: \"Preferences\",\n    value: \"preferences\",\n    usesSharedRuntime: true\n  }\n});\n\naddPlacement({\n  id: \"users.account.settings.notifications\",\n  target: \"account-settings:sections\",\n  surfaces: [\"account\"],\n  order: 300,\n  componentToken: \"local.main.account-settings.section.notifications\",\n  props: {\n    title: \"Notifications\",\n    value: \"notifications\",\n    usesSharedRuntime: true\n  }\n});\n",
+          "\naddPlacement({\n  id: \"users.account.settings.profile\",\n  target: \"settings.sections\",\n  owner: \"account-settings\",\n  kind: \"component\",\n  surfaces: [\"account\"],\n  order: 100,\n  componentToken: \"local.main.account-settings.section.profile\",\n  props: {\n    title: \"Profile\",\n    value: \"profile\",\n    usesSharedRuntime: true\n  }\n});\n\naddPlacement({\n  id: \"users.account.settings.preferences\",\n  target: \"settings.sections\",\n  owner: \"account-settings\",\n  kind: \"component\",\n  surfaces: [\"account\"],\n  order: 200,\n  componentToken: \"local.main.account-settings.section.preferences\",\n  props: {\n    title: \"Preferences\",\n    value: \"preferences\",\n    usesSharedRuntime: true\n  }\n});\n\naddPlacement({\n  id: \"users.account.settings.notifications\",\n  target: \"settings.sections\",\n  owner: \"account-settings\",\n  kind: \"component\",\n  surfaces: [\"account\"],\n  order: 300,\n  componentToken: \"local.main.account-settings.section.notifications\",\n  props: {\n    title: \"Notifications\",\n    value: \"notifications\",\n    usesSharedRuntime: true\n  }\n});\n",
         reason: "Append users-web account settings section placements into the app-owned placement registry.",
         category: "users-web",
         id: "users-web-account-settings-sections-placement"
+      },
+      {
+        op: "append-text",
+        file: "src/placementTopology.js",
+        position: "bottom",
+        skipIfContains: "id: \"settings.sections\"",
+        value:
+          "\naddPlacementTopology({\n  id: \"settings.sections\",\n  owner: \"account-settings\",\n  description: \"Account settings content sections.\",\n  surfaces: [\"account\"],\n  variants: {\n    compact: {\n      outlet: \"account-settings:sections\"\n    },\n    medium: {\n      outlet: \"account-settings:sections\"\n    },\n    expanded: {\n      outlet: \"account-settings:sections\"\n    }\n  }\n});\n",
+        reason: "Append users-web account settings semantic topology into app-owned placement topology.",
+        category: "users-web",
+        id: "users-web-account-settings-topology"
       },
       {
         op: "append-text",

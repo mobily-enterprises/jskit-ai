@@ -1,6 +1,10 @@
 import assert from "node:assert/strict";
+import { createRequire } from "node:module";
 import test from "node:test";
 import descriptor from "../package.descriptor.mjs";
+
+const require = createRequire(import.meta.url);
+const kernelPackage = require("../../kernel/package.json");
 
 test("feature-server-generator exposes the scaffold primary subcommand contract", () => {
   assert.equal(descriptor.kind, "generator");
@@ -50,4 +54,32 @@ test("feature-server-generator routes mode-specific files through mutation when 
   });
 
   assert.equal(actionIdsTemplate, undefined);
+});
+
+test("feature-server-generator scopes persistence dependencies to persistent modes", () => {
+  const runtimeDependencies = descriptor.mutations?.dependencies?.runtime || {};
+
+  assert.deepEqual(runtimeDependencies["@jskit-ai/json-rest-api-core"], {
+    version: "0.1.14",
+    when: {
+      option: "mode",
+      equals: "json-rest"
+    }
+  });
+  assert.deepEqual(runtimeDependencies["@jskit-ai/database-runtime"], {
+    version: "0.1.69",
+    when: {
+      option: "mode",
+      notEquals: "orchestrator"
+    }
+  });
+  assert.deepEqual(runtimeDependencies["@jskit-ai/database-runtime-mysql"], {
+    version: "0.1.68",
+    when: {
+      option: "mode",
+      notEquals: "orchestrator"
+    }
+  });
+  assert.equal(runtimeDependencies["@jskit-ai/kernel"], kernelPackage.version);
+  assert.equal(runtimeDependencies["json-rest-schema"], "1.x.x");
 });

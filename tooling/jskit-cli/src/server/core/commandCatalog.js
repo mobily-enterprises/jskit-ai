@@ -1,6 +1,7 @@
 const OPTION_FLAG_LABELS = Object.freeze({
   dryRun: "--dry-run",
   runNpmInstall: "--run-npm-install",
+  devlinks: "--devlinks",
   full: "--full",
   expanded: "--expanded",
   details: "--details",
@@ -167,6 +168,114 @@ const COMMAND_DESCRIPTORS = Object.freeze({
     allowedValueOptionNames: Object.freeze([]),
     canDelegateInlineOptions: (positional = []) => Array.isArray(positional) && positional.length > 0
   }),
+  mobile: Object.freeze({
+    command: "mobile",
+    aliases: Object.freeze([]),
+    showInOverview: true,
+    summary: "Run JSKIT-managed mobile-shell helpers.",
+    minimalUse: "jskit mobile android dev",
+    parameters: Object.freeze([
+      Object.freeze({
+        name: "<platform>",
+        description: "Currently only android is supported."
+      }),
+      Object.freeze({
+        name: "<subcommand>",
+        description: "dev | devices | sync | tunnel | restart | run | build | doctor."
+      })
+    ]),
+    defaults: Object.freeze([
+      "Install the shell first with jskit add package @jskit-ai/mobile-capacitor.",
+      "Use jskit mobile <platform> help for platform-specific usage.",
+      "--dry-run is accepted by jskit mobile android sync/run/build.",
+      "--devlinks runs npm run --if-present devlinks after jskit mobile android sync maintenance for development-only relinking."
+    ]),
+    fullUse: "jskit mobile <platform> <subcommand> [help] [--dry-run] [--<option> <value>...]",
+    showHelpOnBareInvocation: true,
+    handlerName: "commandMobile",
+    allowedFlagKeys: Object.freeze(["dryRun", "devlinks"]),
+    inlineOptionMode: "delegate",
+    allowedValueOptionNames: Object.freeze([]),
+    canDelegateInlineOptions: (positional = []) => Array.isArray(positional) && positional.length > 0
+  }),
+  blueprint: Object.freeze({
+    command: "blueprint",
+    aliases: Object.freeze([]),
+    showInOverview: true,
+    summary: "Read, prompt, or set the app-level JSKIT blueprint.",
+    minimalUse: "jskit blueprint",
+    parameters: Object.freeze([
+      Object.freeze({
+        name: "[prompt|set]",
+        description: "Without a subcommand, prints the saved app blueprint. prompt renders the AI prompt; set writes the approved blueprint."
+      })
+    ]),
+    defaults: Object.freeze([
+      "The app blueprint is product-level app state, not a feature delivery step.",
+      "The saved blueprint lives at .jskit/APP_BLUEPRINT.md in the current target app.",
+      "Project prompt overrides live at .jskit/prompts/app_blueprint.md.",
+      "Use --json for a stable machine-readable response."
+    ]),
+    examples: Object.freeze([
+      Object.freeze({
+        label: "Manual blueprint flow",
+        lines: Object.freeze([
+          "jskit blueprint prompt --brief \"A field app for customer visits\"",
+          "jskit blueprint set --blueprint -",
+          "jskit blueprint --json"
+        ])
+      })
+    ]),
+    fullUse:
+      "jskit blueprint [prompt|set] [--brief <text>|--brief-file <path>] [--blueprint <text>|--blueprint-file <path>] [--json]",
+    showHelpOnBareInvocation: false,
+    handlerName: "commandBlueprint",
+    allowedFlagKeys: Object.freeze(["json"]),
+    inlineOptionMode: "delegate",
+    allowedValueOptionNames: Object.freeze([]),
+    canDelegateInlineOptions: (positional = []) => {
+      const subcommand = String(Array.isArray(positional) ? positional[0] || "" : "").trim();
+      return subcommand === "prompt" || subcommand === "set";
+    }
+  }),
+  "helper-map": Object.freeze({
+    command: "helper-map",
+    aliases: Object.freeze([]),
+    showInOverview: true,
+    summary: "Read or update the generated app helper map.",
+    minimalUse: "jskit helper-map update",
+    parameters: Object.freeze([
+      Object.freeze({
+        name: "[update]",
+        description: "Without a subcommand, prints the saved helper map. update refreshes .jskit/helper-map files."
+      })
+    ]),
+    defaults: Object.freeze([
+      "The helper map is generated app state, not a hand-maintained workflow file.",
+      "The JSON file lives at .jskit/helper-map.json and the readable map lives at .jskit/helper-map.md.",
+      "Use the map before adding helpers, composables, service functions, maps, or package glue.",
+      "Use --json for a stable machine-readable response."
+    ]),
+    examples: Object.freeze([
+      Object.freeze({
+        label: "Refresh helper map",
+        lines: Object.freeze([
+          "jskit helper-map update",
+          "jskit helper-map --json"
+        ])
+      })
+    ]),
+    fullUse: "jskit helper-map [update] [--json]",
+    showHelpOnBareInvocation: false,
+    handlerName: "commandHelperMap",
+    allowedFlagKeys: Object.freeze(["json"]),
+    inlineOptionMode: "delegate",
+    allowedValueOptionNames: Object.freeze([]),
+    canDelegateInlineOptions: (positional = []) => {
+      const subcommand = String(Array.isArray(positional) ? positional[0] || "" : "").trim();
+      return subcommand === "update";
+    }
+  }),
   add: Object.freeze({
     command: "add",
     aliases: Object.freeze([]),
@@ -187,13 +296,14 @@ const COMMAND_DESCRIPTORS = Object.freeze({
       "No npm install runs unless --run-npm-install is passed.",
       "Short ids resolve to @jskit-ai/<id> when available.",
       "Running without args lists bundles and runtime packages.",
-      "Existing matching version is skipped unless options force reapply."
+      "Existing matching version is skipped unless options force reapply.",
+      "--devlinks runs npm run --if-present devlinks after install when the app defines that script."
     ]),
     fullUse:
-      "jskit add <package|bundle> <id> [--<option> <value>...] [--dry-run] [--run-npm-install] [--json] [--verbose]",
+      "jskit add <package|bundle> <id> [--<option> <value>...] [--dry-run] [--run-npm-install] [--devlinks] [--json] [--verbose]",
     showHelpOnBareInvocation: false,
     handlerName: "commandAdd",
-    allowedFlagKeys: Object.freeze(["dryRun", "runNpmInstall", "json", "verbose"]),
+    allowedFlagKeys: Object.freeze(["dryRun", "runNpmInstall", "devlinks", "json", "verbose"]),
     inlineOptionMode: "delegate",
     allowedValueOptionNames: Object.freeze([]),
     canDelegateInlineOptions: canDelegateAddInlineOptions
@@ -285,14 +395,16 @@ const COMMAND_DESCRIPTORS = Object.freeze({
     minimalUse: "jskit list-placements",
     parameters: Object.freeze([]),
     defaults: Object.freeze([
-      "Discovers placement outlets from app Vue ShellOutlet tags and route meta.",
-      "Includes placement outlets contributed by installed package metadata.",
-      "Shows plain text by default; use --json for structured output."
+      "Shows semantic placement targets from app placement topology grouped by authoring model.",
+      "Default output includes the generator command pattern for adding to each group.",
+      "Use --details to include compact, medium, and expanded layout outlet mappings.",
+      "Use --concrete to inspect low-level ShellOutlet recipients.",
+      "Use --all to show both semantic placements and concrete recipients."
     ]),
-    fullUse: "jskit list-placements [--json]",
+    fullUse: "jskit list-placements [--details] [--concrete] [--all] [--json]",
     showHelpOnBareInvocation: false,
     handlerName: "commandListPlacements",
-    allowedFlagKeys: Object.freeze(["json"]),
+    allowedFlagKeys: Object.freeze(["details", "concrete", "all", "json"]),
     inlineOptionMode: "none",
     allowedValueOptionNames: Object.freeze([])
   }),

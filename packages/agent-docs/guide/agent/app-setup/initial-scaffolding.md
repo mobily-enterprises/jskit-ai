@@ -2,7 +2,7 @@
 
 # Initial scaffolding
 
-In this first chapter, we are going to create the smallest useful JSKIT app, install its dependencies, run it locally, and read the scaffold it gives us. The goal of this chapter is to explain how to get started with JSKIT and to understand what the generator produced, which files matter, and why the project already has concepts like _surfaces_, a local runtime package, and a server even before we add any real features.
+In this first chapter, we are going to create the smallest useful JSKIT app, install its dependencies, run it locally, and read the scaffold it gives us. The default scaffold already includes `shell-web`, so the app starts with a real shell, placements, settings routes, and the app-level error host. The goal of this chapter is to explain how to get started with JSKIT and to understand what the generator produced, which files matter, and why the project already has concepts like _surfaces_, a local runtime package, and a server even before we add any real features.
 
 Start in a working directory and run:
 
@@ -12,9 +12,9 @@ cd exampleapp
 npm install
 ```
 
-The first command creates a new folder called `exampleapp` and fills it with JSKIT's base shell template. The `exampleapp` name is used in a few template replacements, such as the package name and the browser title. The `--tenancy-mode none` flag tells JSKIT to start with the smallest routing model. In this mode, the app is not workspace-aware (more of this later in the guide, when multihoming is introduced). That keeps the first scaffold easier to read because there is no workspace slug handling yet.
+The first command creates a new folder called `exampleapp` and fills it with JSKIT's default shell-web app template. The `exampleapp` name is used in a few template replacements, such as the package name and the browser title. The `--tenancy-mode none` flag tells JSKIT to start with the smallest routing model. In this mode, the app is not workspace-aware (more of this later in the guide, when multihoming is introduced). That keeps the first scaffold easier to read because there is no workspace slug handling yet.
 
-If you are working with an AI agent and want the agent to drive the initial JSKIT setup conversation, there is now a dedicated seed path:
+If you are working with an AI agent and want the agent to drive the initial JSKIT setup conversation, use the dedicated seed path:
 
 ```bash
 npx @jskit-ai/create-app exampleapp --template ai-seed
@@ -28,9 +28,17 @@ npx @jskit-ai/create-app exampleapp --target . --force --tenancy-mode <mode>
 npm install
 ```
 
-After that promotion, the overwritten app `AGENTS.md` becomes the source of truth for the normal JSKIT workflow.
+After that promotion, the overwritten app `AGENTS.md` stays deliberately small. Use it with the distributed JSKIT agent docs when planning or implementing app changes. The durable app memory lives in `.jskit/APP_BLUEPRINT.md` and should describe product and architecture decisions, not become an implementation task list.
 
-After creating the real app scaffolding (the base shell, not the seed wrapper), you will need to run `npm install` to install dependencies.
+After creating the real app scaffolding (the default shell-web app, not the seed wrapper), you will need to run `npm install` to install dependencies.
+
+If you deliberately need the older bare scaffold, use `--minimal` or `--template minimal-shell`. That is useful for descriptor tests or unusual package-development flows, but it is not the normal starting point for a JSKIT app:
+
+```bash
+npx @jskit-ai/create-app exampleapp --minimal --tenancy-mode none
+```
+
+Minimal apps can still install the standard shell later with `npx jskit add package shell-web`, as long as the starter files it claims have not been edited first.
 
 If you already know you want a small non-workspace baseline right after the scaffold, this is the shortest reproducible path:
 
@@ -46,8 +54,6 @@ DB_PASSWORD=...
 npx @jskit-ai/create-app exampleapp --tenancy-mode none
 cd exampleapp
 npm install
-
-npx jskit add package shell-web
 
 npx jskit add package auth-provider-supabase-core \
   --auth-supabase-url "$SUPABASE_URL" \
@@ -108,21 +114,19 @@ and press Tab, JSKIT will complete that subcommand argument to `package`.
 
 The `jskit` command is central in the use of JSKIT. The autocompletion will help speeding things up.
 
-To see the app in the browser, the quickest path is:
+To see the app in the browser with the starter health check working, run the frontend and backend in two terminals:
 
 ```bash
 npm run dev
 ```
 
-Then open `http://localhost:5173/` in the browser. The starter screen is intentionally plain. That is a good thing. It proves the shell is wired correctly before we start adding packages.
-
-For the very first page, `npm run dev` is enough because the scaffold does not make any real API calls yet. For normal JSKIT development, though, you will usually keep a second terminal open and run the backend as well:
-
 ```bash
 npm run server
 ```
 
-That starts the Fastify server on port `3000`. As soon as you begin adding backend features, the frontend dev server will expect that backend to be there, because the Vite configuration proxies `/api` requests to the local server. A good habit is to treat `npm run dev` as the browser-facing process and `npm run server` as the app runtime behind it.
+Then open `http://localhost:5173/` in the browser. The starter screen is intentionally small. That is a good thing. It proves the shell is wired correctly before we start adding packages.
+
+`npm run server` starts the Fastify server on port `3000`. The default home page already uses the Vite proxy to request `/api/health`, so keep the backend running when you want the starter status to be fully green. A good habit is to treat `npm run dev` as the browser-facing process and `npm run server` as the app runtime behind it.
 
 If you want a fast sanity check that the backend is alive, open `http://localhost:3000/api/health` or request it from the terminal:
 
@@ -166,23 +170,35 @@ The most important parts look like this:
     "build": "vite build",
     "build:all": "vite build",
     "build:home": "VITE_SURFACE=home vite build",
+    "preview": "vite preview",
+    "lint": "eslint .",
     "test": "node --test",
     "test:client": "vitest run tests/client",
+    "test:e2e": "playwright test tests/e2e",
     "verify": "jskit app verify && npm run --if-present verify:app",
     "release": "jskit app release",
     "jskit:update": "jskit app update-packages"
   },
   "dependencies": {
     "@local/main": "file:packages/main",
+    "@fastify/static": "^9.1.1",
     "@jskit-ai/kernel": "0.x",
+    "@tanstack/vue-query": "^5.90.5",
     "@jskit-ai/http-runtime": "0.x",
     "fastify": "^5.7.4",
+    "json-rest-schema": "^1.0.13",
     "pinia": "^3.0.4",
     "vue": "^3.5.13",
+    "vue-router": "^5.0.4",
     "vuetify": "^4.0.0"
   },
   "devDependencies": {
+    "@jskit-ai/agent-docs": "0.x",
+    "@jskit-ai/config-eslint": "0.x",
     "@jskit-ai/jskit-cli": "0.x",
+    "@playwright/test": "^1.57.0",
+    "@vitejs/plugin-vue": "^5.2.1",
+    "eslint": "^9.39.1",
     "vite": "^6.1.0",
     "vitest": "^4.0.18"
   }
@@ -191,7 +207,7 @@ The most important parts look like this:
 
 There are two details worth noticing immediately. The dependency on `@local/main` points at `file:packages/main`, which means your app already contains its own local JSKIT package. The maintenance scripts are also useful to notice early, because they show an important ownership boundary in JSKIT.
 
-`verify`, `jskit:update`, `devlinks`, and `release` are intentionally thin wrappers. They stay in `package.json` because they are convenient app-local shortcuts, but the real implementation now lives in `jskit app ...`, not in copied scaffold scripts.
+`verify`, `jskit:update`, `devlinks`, and `release` are intentionally thin wrappers. They stay in `package.json` because they are convenient app-local shortcuts, but the real implementation lives in `jskit app ...`, not in copied scaffold scripts.
 
 That matters because JSKIT maintenance policy changes over time. If the scaffold copied a large shell script into every app, existing apps would freeze the old behavior forever. By delegating to `jskit app verify`, `jskit app update-packages`, `jskit app link-local-packages`, and `jskit app release`, the app keeps the nice `npm run` shortcuts while the maintained behavior stays in the installed CLI package.
 
@@ -257,14 +273,17 @@ The important part looks like this:
 ```js
 import { createApp } from "vue";
 import { createPinia } from "pinia";
+import { QueryClient, VueQueryPlugin } from "@tanstack/vue-query";
 import { createRouter, createWebHistory } from "vue-router/auto";
 import { routes } from "vue-router/auto-routes";
 import "vuetify/styles";
 import { createVuetify } from "vuetify";
-import * as components from "vuetify/components";
-import * as directives from "vuetify/directives";
 import { aliases as mdiAliases, mdi } from "vuetify/iconsets/mdi-svg";
 import { createSurfaceRuntime } from "@jskit-ai/kernel/shared/surface/runtime";
+import {
+  shouldRetryTransientQueryFailure,
+  transientQueryRetryDelay
+} from "@jskit-ai/kernel/shared/support";
 import {
   bootstrapClientShellApp,
   createShellRouter
@@ -296,8 +315,6 @@ const { router, fallbackRoute } = createShellRouter({
 });
 
 const vuetify = createVuetify({
-  components,
-  directives,
   theme: {
     defaultTheme: "light"
   },
@@ -308,13 +325,28 @@ const vuetify = createVuetify({
   }
 });
 const pinia = createPinia();
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      refetchOnWindowFocus: false,
+      refetchOnReconnect: true,
+      retry: shouldRetryTransientQueryFailure,
+      retryDelay: transientQueryRetryDelay
+    }
+  }
+});
 
 void bootstrapClientShellApp({
   createApp,
   rootComponent: App,
   appConfig: config,
-  appPlugins: [pinia, vuetify],
+  appPlugins: [
+    pinia,
+    [VueQueryPlugin, { queryClient }],
+    vuetify
+  ],
   pinia,
+  queryClient,
   router,
   bootClientModules: bootInstalledClientModules,
   surfaceRuntime,
@@ -326,7 +358,7 @@ void bootstrapClientShellApp({
 });
 ```
 
-The flow is simple once you read it in order: config in, runtime in memory, router built from that runtime, UI plugin installed, app bootstrapped.
+The flow is simple once you read it in order: config in, runtime in memory, router built from that runtime, app-owned Vue plugins created once, app bootstrapped. Pinia, Vue Query, the router, and Vuetify are owned by the base app bootstrap so runtime packages share the same instances instead of carrying independent copies. Passing the same `queryClient` into `bootstrapClientShellApp(...)` also gives `shell-web` the QueryClient it observes for automatic request recovery when transport failures exhaust their normal retries.
 
 <DocsInDepth title="In depth" preview-height="15rem">
 
@@ -355,7 +387,7 @@ surfaceRuntime.listEnabledSurfaceIds(); // ["home"]
 surfaceRuntime.resolveSurfaceFromPathname("/home"); // "home"
 ```
 
-`surfaceMode` is not another surface definition. It is the current viewing mode for the app. In a plain starter app, `VITE_SURFACE` is usually unset, so `surfaceMode` becomes `"all"`, meaning "do not restrict the router to one specific surface". Later, when you run surface-specific profiles, the same runtime can narrow the active routes to just one surface. In the scaffold scripts, `npm run dev:home` is simply setting `VITE_SURFACE=home`, while `npm run dev` and `npm run dev:all` leave the client in unrestricted `"all"` mode.
+`surfaceMode` is not another surface definition. It is the current viewing mode for the app. In a starter app, `VITE_SURFACE` is usually unset, so `surfaceMode` becomes `"all"`, meaning "do not restrict the router to one specific surface". Later, when you run surface-specific profiles, the same runtime can narrow the active routes to just one surface. In the scaffold scripts, `npm run dev:home` is simply setting `VITE_SURFACE=home`, while `npm run dev` and `npm run dev:all` leave the client in unrestricted `"all"` mode.
 
 `createShellRouter(...)` uses that `surfaceRuntime` object to assemble the actual router. Concretely, it does this:
 
@@ -375,9 +407,9 @@ In the starter app, with only `home`, this is almost boring. It mostly means:
 
 `createPinia()` is the standard shared-state layer for the client app. JSKIT installs it from day 0 so later packages can expose Vue-facing stores without each app having to bolt Pinia on afterward.
 
-In the plain starter scaffold there are still no package-defined client stores to use yet. Pinia is already there so later packages can add them without changing the app bootstrap. In the next chapters, `shell-web` adds shell stores such as `useShellLayoutStore()`, and `auth-web` later adds `useAuthStore()`.
+The default scaffold already has the `shell-web` client stores available, such as `useShellLayoutStore()` and the shell error presentation store behind `ShellErrorHost`. Pinia is also there from day 0 so later packages, such as `auth-web`, can add their own stores without changing the app bootstrap.
 
-`createVuetify(...)` is the ordinary UI plugin setup. There is nothing especially JSKIT-specific there; it just makes Vuetify components, directives, theme settings, and icon aliases available to the app before the router is mounted.
+`createVuetify(...)` is the ordinary UI plugin setup. There is nothing especially JSKIT-specific there; it configures theme settings and icon aliases before the router is mounted. Vuetify components are auto-imported by `vite-plugin-vuetify`, so the scaffold does not register the full Vuetify component namespace in the client bundle.
 
 `bootInstalledClientModules` is the extension seam, meaning "this is the point where later-installed JSKIT packages get to join client startup". The confusing part is that it is not a normal file in your app. In `src/main.js` you import it from:
 
@@ -493,7 +525,7 @@ export {
 };
 ```
 
-The important idea is that this provider is not rendering UI directly. It is registering token-addressable client components into the application container. In the base scaffold, that list starts empty. Later package installs and generators can extend this file by adding imports and `registerMainClientComponent(...)` calls for app-owned client components. In other words, this file is the app's local registration seam.
+The important idea is that this provider is not rendering UI directly. It is registering token-addressable client components into the application container. In the default scaffold, the list starts with shell link components that the placement runtime can use for menus and tabs. Later package installs and generators can extend this file by adding imports and `registerMainClientComponent(...)` calls for more app-owned client components. In other words, this file is the app's local registration seam.
 
 ```js
 import MenuLinkItem from "/src/components/menus/MenuLinkItem.vue";
@@ -546,7 +578,7 @@ So the order is:
 2. the generated route record gets a normal `meta` object
 3. JSKIT reads that `meta` during routing
 
-`src/App.vue` is deliberately small. It is only the outer Vuetify app shell and a `RouterView`. That is another pattern you should get used to in JSKIT: the base scaffold stays thin, and most behavior is pushed toward packages, page files, and runtime providers.
+`src/App.vue` is deliberately small. It is the outer Vuetify app shell, the top-level `RouterView`, and `ShellErrorHost`. That is another pattern you should get used to in JSKIT: the app root stays thin, and most behavior is pushed toward packages, page files, and runtime providers.
 
 **Container: App Methods**
 
@@ -658,7 +690,7 @@ async function createServer() {
 
 The health route is built in, but the more important idea is that the server is already prepared to validate HTTP input with Fastify's normal JSON Schema path, load the JSKIT provider runtime from the app itself, and constrain requests by surface.
 
-You will also notice `config/server.js`. In the base shell it is intentionally almost empty. It is there to reserve a clear place for server-side configuration as backend features are added, without pretending the starter app already has server behavior it does not yet need.
+You will also notice `config/server.js`. In the base app it is intentionally almost empty. It is there to reserve a clear place for server-side configuration as backend features are added, without pretending the starter app already has feature-specific server configuration.
 
 The small `server/lib/` directory exists to keep that server boot code tidy. `runtimeEnv.js` reads environment variables such as port and host. `surfaceRuntime.js` builds the same surface runtime that the client uses, so the server and browser agree on what surfaces exist. In the scaffold scripts, `npm run server:home` is simply setting `SERVER_SURFACE=home`, while `npm run server` and `npm run server:all` leave the server unrestricted.
 
@@ -732,7 +764,7 @@ The `.jskit/lock.json` file is also important. Treat it like JSKIT's own lock an
 
 This file is narrower than `package.json`. `package.json` lists every npm dependency the app needs, including plain libraries such as Vue, Fastify, and Vuetify. `.jskit/lock.json` only tracks JSKIT package-install state: which JSKIT runtime packages were installed into the app and which files, text mutations, and dependency entries JSKIT is managing on their behalf.
 
-On a brand-new app, the lock file is telling you that only the local app package is installed so far:
+On a brand-new default app, the lock file is telling you that the app-local package and the standard shell package are installed from the start:
 
 ```json
 {
@@ -746,35 +778,47 @@ On a brand-new app, the lock file is telling you that only the local app package
         "packagePath": "packages/main",
         "descriptorPath": "packages/main/package.descriptor.mjs"
       },
+      "managed": { "...": "..." }
+    },
+    "@jskit-ai/shell-web": {
+      "packageId": "@jskit-ai/shell-web",
+      "source": {
+        "type": "catalog"
+      },
       "managed": {
         "packageJson": {
           "dependencies": {
-            "@local/main": {
-              "value": "file:packages/main"
+            "@jskit-ai/shell-web": {
+              "value": "0.x"
+            },
+            "@mdi/js": {
+              "value": "^7.4.47"
             }
           }
-        }
+        },
+        "files": { "...": "..." },
+        "text": { "...": "..." }
       }
     }
   }
 }
 ```
 
-That is a useful anchor point. Before you add anything else, JSKIT already knows about exactly one runtime package: the one that belongs to your app.
+That is a useful anchor point. Before you add anything else, JSKIT already knows about the runtime package that belongs to your app and the shell runtime package that owns the default shell files, placement config, and error host wiring.
 
-That is why you saw `@jskit-ai/kernel` and `@jskit-ai/http-runtime` earlier in `package.json`, but you do not see them here. They are npm dependencies of the scaffold, but they are not separate JSKIT-installed app packages in this initial state.
+That is why you saw `@jskit-ai/kernel` and `@jskit-ai/http-runtime` earlier in `package.json`, but you do not see them as separate installed packages here. They are npm dependencies of the scaffold, while `.jskit/lock.json` records JSKIT package install state and managed app mutations.
 
 ### Other files and options
 
-The remaining files are easier to understand once you know the core pieces above. `vite.config.mjs` configures the frontend build and the `/api` proxy used during development. `index.html` is the HTML shell Vite uses to mount Vue. `tests/` contains basic smoke tests so the app has a verification path from day one. The `scripts/` directory is now much smaller than it used to be, because JSKIT maintenance helpers such as `verify`, `jskit:update`, `devlinks`, and `release` are package-owned CLI commands rather than copied app scripts.
+The remaining files are easier to understand once you know the core pieces above. `vite.config.mjs` configures the frontend build and the `/api` proxy used during development. `index.html` is the HTML shell Vite uses to mount Vue. `tests/` contains basic smoke tests so the app has a verification path from day one. The `scripts/` directory is intentionally small because JSKIT maintenance helpers such as `verify`, `jskit:update`, `devlinks`, and `release` are package-owned CLI commands rather than copied app scripts.
 
-The `create-app` command also accepts a few other flags that are useful without changing the basic meaning of this chapter's setup. `--title <text>` lets you replace the browser title and other template text with a friendlier app name. `--target <path>` lets you choose a different output directory instead of the default `./exampleapp`. `--tenancy-mode <mode>` can seed `none`, `personal`, or `workspaces`; for this chapter we intentionally use `none` so the first scaffold stays small and non-workspace. `--force` allows writing into a non-empty target directory when you know that is what you want. `--dry-run` prints the planned file writes without touching the filesystem, which is useful when you want to inspect what the generator would do. `-h` or `--help` prints the command help.
+The `create-app` command also accepts a few other flags that are useful without changing the basic meaning of this chapter's setup. `--title <text>` lets you replace the browser title and other template text with a friendlier app name. `--target <path>` lets you choose a different output directory instead of the default `./exampleapp`. `--tenancy-mode <mode>` can seed `none`, `personal`, or `workspaces`; for this chapter we intentionally use `none` so the first scaffold stays small and non-workspace. `--minimal` selects the bare `minimal-shell` template instead of the default shell-web app template. `--force` allows writing into a non-empty target directory when you know that is what you want. `--dry-run` prints the planned file writes without touching the filesystem, which is useful when you want to inspect what the generator would do. `-h` or `--help` prints the command help.
 
-**Next step: Install shell-web before editing the scaffold**
+**Template: Use The Default Shell Unless You Need Minimal**
 
-If the next thing you plan to do is install `shell-web`, do that **before** you start personalizing the starter shell files.
+The default app already includes `shell-web`. Start there for normal JSKIT apps because it gives you placement-aware navigation, settings routes, and shell-level error presentation immediately.
 
-`shell-web` upgrades the plain scaffold by claiming a few app-owned files such as `src/App.vue`, `src/pages/home.vue`, and `src/pages/home/index.vue`. It only does that when those files still match the untouched base scaffold exactly. If you edit them first, `shell-web` will refuse to overwrite your changes.
+Use `--minimal` only when you deliberately need the bare scaffold. If you later add `shell-web` to a minimal app, do it before editing files such as `src/App.vue`, `src/pages/home.vue`, and `src/pages/home/index.vue`, because the package only claims files that still match the untouched minimal baseline exactly.
 
 ## Summary
 

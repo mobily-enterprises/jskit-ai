@@ -262,7 +262,7 @@ npx jskit generate crud-server-generator scaffold \
 
 This creates an app-local package under `packages/contacts/`.
 
-If the table should be CRUD-owned now but should **not** expose public HTTP CRUD routes yet, add:
+If the table should already be CRUD-owned but should **not** expose public HTTP CRUD routes yet, add:
 
 ```bash
 --internal
@@ -322,7 +322,7 @@ npm run devlinks
 
 The same rule applies after later server scaffolds such as `addresses` and `comments`. The UI generator can still read the generated resource file directly, but the app runtime needs the local package install boundary to be completed before the CRUD can boot normally.
 
-For standard CRUDs, that file is now intentionally compact. It uses `defineCrudResource(...)` from `@jskit-ai/resource-crud-core`, authors the canonical `schema` / `searchSchema` / `defaultSort` / `autofilter` shape once, and lets JSKIT derive the standard CRUD operation contracts from it.
+For standard CRUDs, that file is intentionally compact. It uses `defineCrudResource(...)` from `@jskit-ai/resource-crud-core`, authors the canonical `schema` / `searchSchema` / `defaultSort` / `autofilter` shape once, and lets JSKIT derive the standard CRUD operation contracts from it.
 
 ### Step 3: scaffold the UI
 
@@ -498,7 +498,7 @@ It will be the block added for the `w/[workspaceSlug]/admin/contacts/[contactId]
 
 Depending on what outlets already exist in the app, that block may try to place `Addresses` in the shell menu or in the contact subpages outlet. For this example, remove it either way and keep navigation manual from the contact view.
 
-This is an intentional manual cleanup for now:
+This workflow has one intentional manual cleanup:
 
 - keep the routed pages
 - remove the auto menu link
@@ -657,7 +657,7 @@ If the contact view page should stay visible while child comment routes render u
 npx jskit generate ui-generator add-subpages \
   w/[workspaceSlug]/admin/contacts/[contactId]/index.vue \
   --title "Contact" \
-  --subtitle "View and manage this contact."
+  --subtitle "Contact activity and notes."
 ```
 
 That is the point where the comments example deliberately overlaps with the `ui-generator` chapter. This pattern needs both:
@@ -772,4 +772,4 @@ They become one workflow:
 2. scaffold the server/resource package
 3. scaffold only the UI shape that the feature actually needs
 
-The next chapter is [Advanced CRUDs](/guide/generators/advanced-cruds). Read it as the structural follow-on to this one: this chapter teaches how to generate the CRUD, and the next one teaches how to reason about the files you now own.
+The next chapter is [Advanced CRUDs](/guide/generators/advanced-cruds). Read it as the structural follow-on to this one: this chapter teaches how to generate the CRUD, and the next one teaches how to reason about the generated files the app owns.

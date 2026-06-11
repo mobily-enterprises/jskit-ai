@@ -29,6 +29,7 @@ function useCrudView({
   });
   const view = useView({
     ...viewOptions,
+    resource,
     transport: resolveCrudJsonApiTransport(viewOptions.transport, resource, {
       mode: "view"
     }),
