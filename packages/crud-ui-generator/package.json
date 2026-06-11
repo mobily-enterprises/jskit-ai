@@ -1,14 +1,14 @@
 {
   "name": "@jskit-ai/crud-ui-generator",
-  "version": "0.1.73",
+  "version": "0.1.74",
   "type": "module",
   "scripts": {
     "test": "node --test"
   },
   "dependencies": {
-    "@jskit-ai/crud-core": "0.1.98",
-    "@jskit-ai/kernel": "0.1.90",
-    "@jskit-ai/resource-crud-core": "0.1.35"
+    "@jskit-ai/crud-core": "0.1.99",
+    "@jskit-ai/kernel": "0.1.91",
+    "@jskit-ai/resource-crud-core": "0.1.36"
   },
   "exports": {
     "./server/buildTemplateContext": "./src/server/buildTemplateContext.js"
