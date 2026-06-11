@@ -510,7 +510,7 @@ The other returned values are there for more advanced cases.
 - `placementContext` matters when a page needs to read the current shell/bootstrap context directly, for example available workspaces or current permissions already in the shell state.
 - `mergePlacementContext` is for pages that need to push refreshed workspace data back into the shell runtime after a fetch or save.
 
-That second case is real, but it is more advanced. It is what packaged elements such as the workspace settings client use when they need the shell's current workspace badge, selector state, or permissions to refresh after a change.
+That second case is real, but it is more advanced. It is available for app-owned workspace pages that intentionally need to push refreshed workspace state back into shell-visible context after a save.
 
 For normal custom page code, you usually do **not** start there. Start with `workspaceSlugFromRoute`.
 
@@ -589,7 +589,8 @@ That one block explains a lot of the workspace shell behavior.
 - `shell.identity` carries the workspace selector
 - `shell.status` can show a pending-invites cue
 - the admin surface gets workspace tools through `shell.status`
-- the admin workspace settings menu is another nested placement host with both `Settings` and `Members`
+- the admin surface gets a workspace tools menu with `Settings` and `Members`
+- the workspace settings shell exposes its own nested menu host for app-owned settings child pages
 
 If you want to add your own app-owned page into that top cog menu, first ask JSKIT which semantic placements exist:
 
