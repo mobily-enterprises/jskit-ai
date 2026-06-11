@@ -1,6 +1,6 @@
 import { computed, unref } from "vue";
 import { useMutation, useQuery } from "@tanstack/vue-query";
-import { usersWebHttpClient } from "../../lib/httpClient.js";
+import { getUsersWebHttpClient } from "../../lib/httpClient.js";
 import { asPlainObject } from "../support/scopeHelpers.js";
 import { resolveEnabledRef, resolveTextRef } from "../support/refValueHelpers.js";
 import { toQueryErrorMessage } from "../support/errorMessageHelpers.js";
@@ -67,7 +67,7 @@ function useEndpointResource({
   queryKey,
   path = "",
   enabled = true,
-  client = usersWebHttpClient,
+  client = null,
   readMethod = "GET",
   writeMethod = "PATCH",
   readQuery = null,
@@ -81,7 +81,8 @@ function useEndpointResource({
   fallbackLoadError = "Unable to load resource.",
   fallbackSaveError = "Unable to save resource."
 } = {}) {
-  if (!client || typeof client.request !== "function") {
+  const activeClient = client || getUsersWebHttpClient();
+  if (!activeClient || typeof activeClient.request !== "function") {
     throw new TypeError("useEndpointResource requires a client with request().");
   }
 
@@ -96,7 +97,7 @@ function useEndpointResource({
         throw new Error("Resource path is required.");
       }
 
-      return client.request(requestPath, {
+      return activeClient.request(requestPath, {
         ...buildEndpointReadRequestOptions({
           method: readMethod,
           query: readQuery,
@@ -137,7 +138,7 @@ function useEndpointResource({
       const method = String(options.method || writeMethod || "PATCH").toUpperCase();
       const hasBody = Object.hasOwn(options, "body");
       const body = hasBody ? options.body : options.payload;
-      return client.request(
+      return activeClient.request(
         requestPath,
         buildEndpointWriteRequestOptions({
           method,

@@ -69,6 +69,33 @@ test("createTransientRetryHttpClient retries transient GET request failures", as
   });
 });
 
+test("createTransientRetryHttpClient resolves request urls before fetch", async () => {
+  const calls = [];
+  const client = createTransientRetryHttpClient({
+    csrf: {
+      enabled: false
+    },
+    resolveRequestUrl(url) {
+      return url.replace(/^\/api\//u, "/api/app/beepollen/");
+    },
+    fetchImpl: async (url, options) => {
+      calls.push([url, options]);
+      return mockResponse({
+        data: {
+          ok: true
+        }
+      });
+    }
+  });
+
+  const payload = await client.request("/api/vibe64/sessions", {
+    method: "GET"
+  });
+
+  assert.deepEqual(payload, { ok: true });
+  assert.equal(calls[0][0], "/api/app/beepollen/vibe64/sessions");
+});
+
 test("createTransientRetryHttpClient does not retry unsafe transient failures", async () => {
   await withImmediateTimers(async () => {
     let callCount = 0;

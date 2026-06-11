@@ -1,5 +1,5 @@
 import { computed, unref } from "vue";
-import { usersWebHttpClient } from "../../lib/httpClient.js";
+import { getUsersWebHttpClient } from "../../lib/httpClient.js";
 import { asPlainObject } from "../support/scopeHelpers.js";
 import { resolveEnabledRef, resolveTextRef } from "../support/refValueHelpers.js";
 import { usePagedCollection } from "../usePagedCollection.js";
@@ -56,7 +56,7 @@ function useListCore({
   queryKey,
   path = "",
   enabled = true,
-  client = usersWebHttpClient,
+  client = null,
   transport = null,
   initialPageParam = null,
   getNextPageParam,
@@ -67,7 +67,8 @@ function useListCore({
   requestRecoveryLabel = "List",
   fallbackLoadError = "Unable to load list."
 } = {}) {
-  if (!client || typeof client.request !== "function") {
+  const activeClient = client || getUsersWebHttpClient();
+  if (!activeClient || typeof activeClient.request !== "function") {
     throw new TypeError("useListCore requires a client with request().");
   }
 
@@ -84,7 +85,7 @@ function useListCore({
         throw new Error("List path is required.");
       }
 
-      return client.request(
+      return activeClient.request(
         requestPath,
         buildListRequestOptions({
           requestOptions,

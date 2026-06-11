@@ -609,6 +609,44 @@ For JSKIT read-composable screens, the default is automatic. Hand-written TanSta
 
 Writes are different. JSKIT does not automatically replay `POST`, `PATCH`, `PUT`, or `DELETE` after a network failure because the server may already have received the request. Save and command screens keep ownership of mutation state, field errors, conflict handling, and user feedback.
 
+Some apps need API URLs to be scoped by the active route before the browser request is sent. Configure that once at app startup instead of replacing `fetchImpl` in a local transport wrapper:
+
+```js
+import { configureUsersWebHttpClient } from "@jskit-ai/users-web/client/lib/httpClient";
+
+configureUsersWebHttpClient({
+  csrf: {
+    enabled: false
+  },
+  resolveRequestUrl(url, context) {
+    if (!url.startsWith("/api/")) {
+      return url;
+    }
+
+    const projectSlug = readProjectSlugFromAppRoute();
+    return url.replace(/^\/api\//u, `/api/app/${encodeURIComponent(projectSlug)}/`);
+  }
+});
+```
+
+Call `configureUsersWebHttpClient()` before Vue mounts or before JSKIT composables are created. The resolver can close over the app router/store when it needs route data, and the `context` argument carries request details such as `originalUrl`, `method`, `requestOptions`, and whether the request is a stream. After configuration, normal `useEndpointResource()`, `useList()`, `useView()`, `useAddEdit()`, and `useCommand()` calls use the configured client. `resolveRequestUrl` runs after JSKIT adds query strings and before the underlying browser `fetch`, so request recovery metadata, JSON:API transport, credentials, CSRF, and command feedback stay on the standard path.
+
+For packages that create their own client, use the same lower-level hook directly:
+
+```js
+import { createTransientRetryHttpClient } from "@jskit-ai/http-runtime/client";
+
+const studioHttpClient = createTransientRetryHttpClient({
+  credentials: "include",
+  csrf: {
+    enabled: false
+  },
+  resolveRequestUrl(url) {
+    return scopedStudioApiUrl(url);
+  }
+});
+```
+
 ### The home page talks to the backend
 
 `src/pages/home/index.vue` uses Vue Query to fetch `/api/health` and display the result in the UI.

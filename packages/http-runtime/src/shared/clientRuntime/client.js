@@ -33,6 +33,14 @@ function resolveFetch() {
   throw new Error("createHttpClient requires fetchImpl when global fetch is unavailable.");
 }
 
+function normalizeResolvedRequestUrl(value, fallback = "") {
+  if (value === undefined || value === null || value === "") {
+    return fallback;
+  }
+
+  return String(value);
+}
+
 function isObjectBody(value) {
   return Boolean(value) && typeof value === "object" && !(value instanceof FormData);
 }
@@ -164,6 +172,8 @@ async function readNdjsonStream(response, handlers = {}) {
 
 function createHttpClient(options = {}) {
   const configuredFetchImpl = typeof options.fetchImpl === "function" ? options.fetchImpl : null;
+  const configuredResolveRequestUrl =
+    typeof options.resolveRequestUrl === "function" ? options.resolveRequestUrl : null;
   const unsafeMethods = resolveUnsafeMethods(options.unsafeMethods);
   const hooks = options?.hooks && typeof options.hooks === "object" ? options.hooks : {};
 
@@ -189,9 +199,19 @@ function createHttpClient(options = {}) {
 
   async function fetchSessionForCsrf() {
     const activeFetch = configuredFetchImpl || resolveFetch();
+    const requestUrl = await resolveRequestUrl(csrf.sessionPath, {
+      originalUrl: csrf.sessionPath,
+      method: "GET",
+      requestOptions: {
+        method: "GET"
+      },
+      state: null,
+      stream: false,
+      csrfSession: true
+    });
     let response;
     try {
-      response = await activeFetch(csrf.sessionPath, {
+      response = await activeFetch(requestUrl, {
         method: "GET",
         credentials: String(options?.credentials || "same-origin")
       });
@@ -253,6 +273,19 @@ function createHttpClient(options = {}) {
     if (typeof hooks.onSuccess === "function") {
       await hooks.onSuccess(payload);
     }
+  }
+
+  async function resolveRequestUrl(url, context = {}) {
+    const normalizedUrl = String(url || "").trim();
+    if (!configuredResolveRequestUrl) {
+      return normalizedUrl;
+    }
+
+    const resolved = await configuredResolveRequestUrl(normalizedUrl, {
+      ...context,
+      url: normalizedUrl
+    });
+    return normalizeResolvedRequestUrl(resolved, normalizedUrl);
   }
 
   async function maybeRetry({ response, method, state, data, stream }) {
@@ -321,11 +354,19 @@ function createHttpClient(options = {}) {
       ...forwardedRequestOptions
     } = requestOptions && typeof requestOptions === "object" ? requestOptions : {};
     const requestUrl = appendRequestQueryToUrl(url, requestQuery, transport);
+    const resolvedRequestUrl = await resolveRequestUrl(requestUrl, {
+      originalUrl: url,
+      method,
+      requestOptions,
+      state: resolvedState,
+      stream: Boolean(stream),
+      csrfSession: false
+    });
     const headers =
       requestOptions.headers && typeof requestOptions.headers === "object" ? { ...requestOptions.headers } : {};
 
     const decorateHeadersResult = decorateHeaders({
-      url: requestUrl,
+      url: resolvedRequestUrl,
       method,
       headers,
       requestOptions,
@@ -369,7 +410,7 @@ function createHttpClient(options = {}) {
       config,
       state: resolvedState,
       transport,
-      url: requestUrl
+      url: resolvedRequestUrl
     };
   }
 

@@ -56,6 +56,67 @@ test("request serializes json body and injects csrf token for unsafe methods", a
   assert.equal(calls[1][1].body, JSON.stringify({ demo: true }));
 });
 
+test("request resolves request urls after query encoding and before fetch", async () => {
+  const calls = [];
+  const contexts = [];
+  const client = createHttpClient({
+    csrf: {
+      enabled: false
+    },
+    resolveRequestUrl(url, context = {}) {
+      contexts.push({ url, context });
+      return url.replace(/^\/api\//u, "/api/app/beepollen/");
+    },
+    fetchImpl: async (url, options) => {
+      calls.push([url, options]);
+      return mockResponse({
+        data: {
+          ok: true
+        }
+      });
+    }
+  });
+
+  const payload = await client.request("/api/vibe64/sessions", {
+    method: "GET",
+    query: {
+      cursor: "next page"
+    }
+  });
+
+  assert.deepEqual(payload, { ok: true });
+  assert.equal(calls[0][0], "/api/app/beepollen/vibe64/sessions?cursor=next+page");
+  assert.equal(contexts[0].url, "/api/vibe64/sessions?cursor=next+page");
+  assert.equal(contexts[0].context.originalUrl, "/api/vibe64/sessions");
+  assert.equal(contexts[0].context.method, "GET");
+  assert.equal(contexts[0].context.stream, false);
+});
+
+test("requestStream resolves request urls before fetch", async () => {
+  const calls = [];
+  const client = createHttpClient({
+    csrf: {
+      enabled: false
+    },
+    resolveRequestUrl(url) {
+      return url.replace(/^\/api\//u, "/api/app/beepollen/");
+    },
+    fetchImpl: async (url, options) => {
+      calls.push([url, options]);
+      return mockResponse({
+        contentType: "text/plain; charset=utf-8",
+        text: ""
+      });
+    }
+  });
+
+  await client.requestStream("/api/vibe64/events", {
+    method: "GET"
+  });
+
+  assert.equal(calls[0][0], "/api/app/beepollen/vibe64/events");
+});
+
 test("request parses json:api responses as json payloads", async () => {
   const fetchImpl = async () =>
     mockResponse({
