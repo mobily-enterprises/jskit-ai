@@ -27,7 +27,8 @@ function parseArgs(argv) {
     publishConcurrency: Number.isInteger(envPublishConcurrency) && envPublishConcurrency > 0
       ? envPublishConcurrency
       : DEFAULT_PUBLISH_CONCURRENCY,
-    dryRun: false
+    dryRun: false,
+    prepareOnly: false
   };
 
   for (let index = 0; index < argv.length; index += 1) {
@@ -35,6 +36,11 @@ function parseArgs(argv) {
 
     if (argument === "--dry-run") {
       options.dryRun = true;
+      continue;
+    }
+
+    if (argument === "--prepare-only") {
+      options.prepareOnly = true;
       continue;
     }
 
@@ -727,6 +733,9 @@ async function main() {
     process.stdout.write(`- ${packageName}: ${currentVersions.get(packageName)} -> ${nextVersions.get(packageName)}\n`);
   }
   process.stdout.write(`Publish concurrency: ${options.publishConcurrency}\n`);
+  if (options.prepareOnly) {
+    process.stdout.write("Prepare only: yes\n");
+  }
 
   await updateWorkspacePackageJsonFiles(records, publishSet, nextVersions, {
     dryRun: options.dryRun,
@@ -746,6 +755,11 @@ async function main() {
 
   if (options.dryRun) {
     process.stdout.write("Dry-run complete. No files published.\n");
+    return;
+  }
+
+  if (options.prepareOnly) {
+    process.stdout.write("Prepare-only complete. No files published.\n");
     return;
   }
 
