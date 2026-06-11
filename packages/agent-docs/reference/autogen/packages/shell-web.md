@@ -374,6 +374,11 @@ Local functions
 - `resolveQueryMeta(query = null)`
 - `isRequestRecoveryDisabled(query = null)`
 - `resolveQueryRecoveryLabel(query = null)`
+- `resolveQueryRecoverySource(query = null)`
+- `resolveQueryRecoveryDedupeKey(query = null, fallback = "")`
+- `resolveQueryRecoveryDedupeWindowMs(query = null)`
+- `resolveQueryRecoveryMethod(query = null)`
+- `isSafeQueryRecoveryMethod(query = null)`
 - `isActiveQuery(query = null)`
 - `recoverableQueryError(query = null)`
 - `createQueryRetry(queryClient, query = null)`

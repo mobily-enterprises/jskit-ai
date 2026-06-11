@@ -31,6 +31,11 @@ const CANCELED_REQUEST_ERROR_CODES = Object.freeze(new Set([
   "ERR_CANCELED"
 ]));
 
+const SAFE_REQUEST_RECOVERY_METHODS = Object.freeze(new Set([
+  "GET",
+  "HEAD"
+]));
+
 function normalizeText(value, fallback = "") {
   const normalized = String(value || "").trim();
   return normalized || String(fallback || "").trim();
@@ -142,6 +147,56 @@ function resolveQueryRecoveryLabel(query = null) {
   );
 }
 
+function resolveQueryRecoverySource(query = null) {
+  const meta = resolveQueryMeta(query);
+  const jskitMeta = isRecord(meta.jskit) ? meta.jskit : {};
+
+  return normalizeText(
+    jskitMeta.requestRecoverySource ||
+      meta.jskitRequestRecoverySource ||
+      meta.requestRecoverySource,
+    "shell-web.request-recovery.query"
+  );
+}
+
+function resolveQueryRecoveryDedupeKey(query = null, fallback = "") {
+  const meta = resolveQueryMeta(query);
+  const jskitMeta = isRecord(meta.jskit) ? meta.jskit : {};
+
+  return normalizeText(
+    jskitMeta.requestRecoveryDedupeKey ||
+      meta.jskitRequestRecoveryDedupeKey ||
+      meta.requestRecoveryDedupeKey,
+    fallback
+  );
+}
+
+function resolveQueryRecoveryDedupeWindowMs(query = null) {
+  const meta = resolveQueryMeta(query);
+  const jskitMeta = isRecord(meta.jskit) ? meta.jskit : {};
+  const value =
+    jskitMeta.requestRecoveryDedupeWindowMs ??
+      meta.jskitRequestRecoveryDedupeWindowMs ??
+      meta.requestRecoveryDedupeWindowMs;
+
+  return Number.isFinite(Number(value)) ? Math.max(0, Number(value)) : null;
+}
+
+function resolveQueryRecoveryMethod(query = null) {
+  const meta = resolveQueryMeta(query);
+  const jskitMeta = isRecord(meta.jskit) ? meta.jskit : {};
+
+  return normalizeText(
+    jskitMeta.requestRecoveryMethod ||
+      meta.jskitRequestRecoveryMethod ||
+      meta.requestRecoveryMethod
+  ).toUpperCase();
+}
+
+function isSafeQueryRecoveryMethod(query = null) {
+  return SAFE_REQUEST_RECOVERY_METHODS.has(resolveQueryRecoveryMethod(query));
+}
+
 function isActiveQuery(query = null) {
   if (typeof query?.isActive === "function") {
     return Boolean(query.isActive());
@@ -223,7 +278,12 @@ function installRecoverableQueryObserver({
   const reportedErrorUpdateByQueryHash = new Map();
 
   function inspectQuery(query = null) {
-    if (!query || isRequestRecoveryDisabled(query) || !isActiveQuery(query)) {
+    if (
+      !query ||
+      isRequestRecoveryDisabled(query) ||
+      !isSafeQueryRecoveryMethod(query) ||
+      !isActiveQuery(query)
+    ) {
       return;
     }
 
@@ -241,12 +301,19 @@ function installRecoverableQueryObserver({
     }
     reportedErrorUpdateByQueryHash.set(queryHash, reportKey);
 
+    const source = resolveQueryRecoverySource(query);
+    const dedupeKey = resolveQueryRecoveryDedupeKey(
+      query,
+      `shell-web.request-recovery.query.${queryHash}.${errorUpdateCount}`
+    );
+    const dedupeWindowMs = resolveQueryRecoveryDedupeWindowMs(query);
     runtime.report(error, {
       label: resolveQueryRecoveryLabel(query),
       retry: createQueryRetry(queryClient, query),
-      source: "shell-web.request-recovery.query",
+      source,
       stale: query?.state?.data !== undefined,
-      dedupeKey: `shell-web.request-recovery.query.${queryHash}.${errorUpdateCount}`
+      dedupeKey,
+      ...(dedupeWindowMs !== null ? { dedupeWindowMs } : {})
     });
   }
 

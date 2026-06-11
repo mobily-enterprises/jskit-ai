@@ -969,6 +969,7 @@ test("crud ui templates derive JSON:API transport from the shared CRUD resource"
   assert.match(listTemplateSource, /const screen = useCrudListScreen\(\{/);
   assert.match(listTemplateSource, /listFilters,/);
   assert.match(listTemplateSource, /listBulkActions,/);
+  assert.match(listTemplateSource, /requestRecoveryLabel: "__JSKIT_UI_RESOURCE_PLURAL_TITLE__"/);
   assert.match(listTemplateSource, /#card-fields="__JSKIT_UI_LIST_CARD_SLOT_PROPS__"/);
   assert.match(listTemplateSource, /#table-header/);
   assert.match(listTemplateSource, /#table-row="__JSKIT_UI_LIST_ROW_SLOT_PROPS__"/);
@@ -992,6 +993,7 @@ test("crud ui templates derive JSON:API transport from the shared CRUD resource"
   assert.match(viewTemplateSource, /import CrudViewScreen from "@jskit-ai\/users-web\/client\/components\/CrudViewScreen"/);
   assert.match(viewTemplateSource, /import \{ useCrudViewScreen \} from "@jskit-ai\/users-web\/client\/composables\/useCrudViewScreen"/);
   assert.match(viewTemplateSource, /const screen = useCrudViewScreen\(\{/);
+  assert.match(viewTemplateSource, /requestRecoveryLabel: "__JSKIT_UI_RESOURCE_SINGULAR_TITLE__"/);
   assert.match(viewTemplateSource, /#fields="\{ view \}"/);
   assert.doesNotMatch(viewTemplateSource, /<v-card\b|View and manage this/);
   assert.doesNotMatch(viewTemplateSource, /const UI_VIEW_TRANSPORT = Object\.freeze\(\{/);
@@ -1011,6 +1013,7 @@ test("crud ui templates derive JSON:API transport from the shared CRUD resource"
   assert.match(editTemplateSource, /import \{ useCrudAddEditScreen \} from "@jskit-ai\/users-web\/client\/composables\/useCrudAddEditScreen"/);
   assert.match(editTemplateSource, /const screen = useCrudAddEditScreen\(\{/);
   assert.match(editTemplateSource, /preserveCancelQuery: true/);
+  assert.match(editTemplateSource, /requestRecoveryLabel: "__JSKIT_UI_RESOURCE_SINGULAR_TITLE__"/);
   assert.match(editTemplateSource, /#fields=/);
   assert.doesNotMatch(editTemplateSource, /<v-card\b|<v-card-title/);
   assert.doesNotMatch(editTemplateSource, /const UI_EDIT_TRANSPORT = Object\.freeze\(\{/);
@@ -1032,6 +1035,7 @@ test("crud ui templates derive JSON:API transport from the shared CRUD resource"
   assert.match(editWrapperTemplateSource, /import \{ useCrudAddEditScreen \} from "@jskit-ai\/users-web\/client\/composables\/useCrudAddEditScreen"/);
   assert.match(editWrapperTemplateSource, /:screen="screen"/);
   assert.match(editWrapperTemplateSource, /preserveCancelQuery: true/);
+  assert.match(editWrapperTemplateSource, /requestRecoveryLabel: "__JSKIT_UI_RESOURCE_SINGULAR_TITLE__"/);
   assert.doesNotMatch(editWrapperTemplateSource, /<v-card\b/);
   assert.doesNotMatch(editWrapperTemplateSource, /const UI_EDIT_TRANSPORT = Object\.freeze\(\{/);
   assert.doesNotMatch(editWrapperTemplateSource, /transport:\s*UI_EDIT_TRANSPORT,/);

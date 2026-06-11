@@ -30,6 +30,8 @@ function useAddEdit({
   readEnabled = true,
   writeMethod = "PATCH",
   transport = null,
+  requestRecovery = null,
+  requestRecoveryLabel = "Resource",
   placementSource = "users-web.add-edit",
   fallbackLoadError = "Unable to load resource.",
   fallbackSaveError = "Unable to save resource.",
@@ -121,6 +123,8 @@ function useAddEdit({
     writeMethod,
     readQuery: requestQueryRuntime.requestQuery,
     transport,
+    requestRecovery,
+    requestRecoveryLabel,
     fallbackLoadError,
     fallbackSaveError: String(fallbackSaveError || effectiveMessages.saveError || "Unable to save resource.")
   });

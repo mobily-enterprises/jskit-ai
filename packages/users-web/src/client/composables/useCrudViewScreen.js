@@ -12,6 +12,7 @@ function useCrudViewScreen({
   listUrlTemplate = "",
   editUrlTemplate = "",
   recordChangedEvent = "",
+  requestRecoveryLabel = "Record",
   fallbackLoadError = "Unable to load record.",
   notFoundMessage = "Record not found."
 } = {}) {
@@ -31,6 +32,7 @@ function useCrudViewScreen({
       String(workspaceSlug || "")
     ],
     placementSource: `ui-generator.${normalizedResourceNamespace}.view`,
+    requestRecoveryLabel,
     fallbackLoadError,
     notFoundMessage,
     listUrlTemplate,

@@ -680,6 +680,18 @@ Why this is the standard JSKIT shape:
 - The higher-level list, view, add/edit, and command runtimes send requests through the standard HTTP runtime instead of ad hoc request code.
 - The default client runtime uses `usersWebHttpClient`, which already handles credentials and CSRF token behavior.
 - `useEndpointResource()` gives the shared endpoint primitive for loading, saving, and standard load/save error handling. Higher-level runtimes like `useCommand()` and `useAddEdit()` layer UI feedback and field-error behavior on top of that primitive.
+- `shell-web` observes the shared TanStack Query client for recoverable transport failures. Generated CRUD reads and custom reads built with `useEndpointResource()`, `useList()`, `useView()`, or `useAddEdit()` get the shell recovery banner with a Retry action that refetches the failed query.
+- Automatic shell request recovery is only for safe `GET`/`HEAD` read refetches. JSKIT read composables mark Query entries with `jskit.requestRecoveryMethod`, and the shell ignores unmarked or unsafe methods. Do not rely on it to replay `POST`, `PATCH`, `PUT`, or `DELETE`; mutation screens own save state, field errors, and user feedback.
+
+When a custom read needs a better recovery banner label, pass it through the read primitive rather than reporting the failure manually:
+
+```js
+const resource = useEndpointResource({
+  queryKey: ["project-access", projectId],
+  path: `/api/projects/${projectId}/access`,
+  requestRecoveryLabel: "Project access"
+});
+```
 
 If you need a custom scoped endpoint path outside the higher-level runtimes, prefer `usePaths().api(...)` rather than hand-building scoped URLs:
 

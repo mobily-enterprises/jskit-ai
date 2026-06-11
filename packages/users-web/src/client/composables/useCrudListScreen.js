@@ -31,6 +31,7 @@ function useCrudListScreen({
   listFilters = {},
   listBulkActions = [],
   routeQueryBlacklist = Object.freeze(["include", "cursor", "limit"]),
+  requestRecoveryLabel = "Records",
   fallbackLoadError = "Unable to load records."
 } = {}) {
   const filterRuntime = useCrudListFilters(listFilters);
@@ -62,6 +63,7 @@ function useCrudListScreen({
       queryParamBlacklist: routeQueryBlacklist
     },
     placementSource: `ui-generator.${normalizedResourceNamespace}.list`,
+    requestRecoveryLabel,
     fallbackLoadError,
     recordIdParam,
     recordIdSelector,

@@ -68,9 +68,11 @@ Error presentation rules:
 
 - Resource load failures should stay local to the screen with the runtime's `loadError` state and a retry action.
 - Do not force global banners for ordinary list/view/add-edit load failures; the shell error policy treats `resource-load` as `silent` by default.
-- Transport/connectivity failures are different from ordinary resource-load errors. `shell-web` observes the app QueryClient and reports active query failures such as `Network request failed.` or `Failed to fetch` through request recovery with a `Retry` action.
-- For imperative app-caught request failures outside the standard query/resource composables, use `useShellRequestRecoveryRuntime()` from `@jskit-ai/shell-web/client/requestRecovery` and pass a retry callback.
-- Use query meta `jskit.requestRecovery = false` only when a query owns its full connectivity recovery UI, and `jskit.requestRecoveryLabel` when the recovery banner needs a better label.
+- Transport/connectivity failures are different from ordinary resource-load errors. `shell-web` observes the app QueryClient and reports active safe-read query failures such as `Network request failed.` or `Failed to fetch` through request recovery with a `Retry` action that calls `query.refetch()`.
+- User-visible reads should be TanStack Query-backed through `useEndpointResource()`, `useList()`, `useView()`, `useAddEdit()`, or CRUD screen composables. Do not load panel data with raw `fetch(...)` plus manual request recovery reporting.
+- Automatic shell request recovery is for `GET` and `HEAD` read refetches. Do not use it to replay `POST`, `PATCH`, `PUT`, or `DELETE`; saving and command screens own their mutation state and feedback.
+- JSKIT read composables mark their Query entries with `jskit.requestRecoveryMethod`. For hand-written TanStack Query reads outside those composables, set `meta.jskit.requestRecoveryMethod` to `GET` or `HEAD`.
+- Use `requestRecoveryLabel` on JSKIT read composables, or query meta `jskit.requestRecoveryLabel`, when the recovery banner needs a better label. Use `jskit.requestRecovery = false` only when a query owns its full connectivity recovery UI.
 - Use `useUiFeedback()` or `useCommand()` for user-triggered action feedback. Those flows report `action-feedback`, and the app-owned shell error policy decides the channel.
 - Use explicit shell error intents only for exceptional app-level cases: `app-recoverable` for recoverable shell/runtime failures and `blocking` for failures that require user attention.
 
@@ -82,3 +84,4 @@ Avoid:
 - using a lower-level seam when a higher-level routed CRUD or command runtime already fits
 - smuggling query params into `apiUrlTemplate`
 - reporting routine resource load errors through hand-written global snackbar/banner calls
+- calling `useShellRequestRecoveryRuntime().report(...)` from normal panels just to recover an HTTP read

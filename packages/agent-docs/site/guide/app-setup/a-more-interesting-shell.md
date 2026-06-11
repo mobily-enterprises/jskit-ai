@@ -662,31 +662,40 @@ try {
 
 Use the narrow `@jskit-ai/shell-web/client/asyncModuleRecovery` subpath for this runtime, especially from modules that are imported by Node-mode Vitest suites. The aggregate `@jskit-ai/shell-web/client` barrel also exports the composable for normal Vite app code, but that barrel includes `.vue` component exports and can require Vue SFC handling in tests.
 
-Request connectivity failures use a separate shell recovery path. Generated apps already configure TanStack Query to retry transient failures with capped backoff. `shell-web` then observes the app's `jskit.client.query-client` and, when an active query finishes in a transport failure such as `Network request failed.` or `Failed to fetch`, reports an `app-recoverable` banner with a `Retry` action that refetches that exact query. Normal HTTP validation and application errors stay local to the screen.
+Request connectivity failures use a separate shell recovery path. Generated apps already configure TanStack Query to retry transient failures with capped backoff. `shell-web` then observes the app's `jskit.client.query-client` and, when an active safe-read query finishes in a transport failure such as `Network request failed.` or `Failed to fetch`, reports an `app-recoverable` banner with a `Retry` action that refetches that exact query. Normal HTTP validation and application errors stay local to the screen.
 
-Imperative app code only needs the public runtime when it catches a request failure outside the standard query/resource composables:
+That recovery path is intentionally a safe `GET`/`HEAD` read refetch system, not a general HTTP replay system. User-visible reads should go through Query-backed JSKIT primitives such as `useEndpointResource()`, `useList()`, `useView()`, `useAddEdit()`, or generated CRUD screen composables. Those primitives mark Query entries with `jskit.requestRecoveryMethod`, so the shell only offers Retry for safe reads. Do not catch raw `fetch(...)` failures in each panel just to call the shell recovery runtime manually.
+
+For a custom endpoint read, attach the recovery label to the Query-backed resource:
 
 ```js
-import { useShellRequestRecoveryRuntime } from "@jskit-ai/shell-web/client/requestRecovery";
-
-const requestRecovery = useShellRequestRecoveryRuntime();
-
-async function loadProjectAccess() {
-  try {
-    return await fetch("/api/project-access");
-  } catch (error) {
-    requestRecovery?.report(error, {
-      label: "Project access",
-      retry: loadProjectAccess
-    });
-    throw error;
-  }
-}
+const projectAccess = useEndpointResource({
+  queryKey: ["project-access", projectId],
+  path: `/api/projects/${projectId}/access`,
+  requestRecoveryLabel: "Project access"
+});
 ```
 
-`useShellRequestRecoveryRuntime()` returns `null` when the shell runtime is not available in the current Vue context. Use the narrow `@jskit-ai/shell-web/client/requestRecovery` subpath for the same reason as async module recovery: it avoids pulling `.vue` component exports into Node-mode test suites.
+If you need lower-level Query options, the same metadata can live on query meta:
 
-For query-backed screens, the default is automatic. Set `meta: { jskit: { requestRecovery: false } }` only when a query deliberately owns its entire connectivity recovery UI. Set `meta: { jskit: { requestRecoveryLabel: "Project access" } }` when the default `Request` label is too generic.
+```js
+const projectAccess = useEndpointResource({
+  queryKey: ["project-access", projectId],
+  path: `/api/projects/${projectId}/access`,
+  queryOptions: {
+    meta: {
+      jskit: {
+        requestRecoveryLabel: "Project access",
+        requestRecoveryMethod: "GET"
+      }
+    }
+  }
+});
+```
+
+For JSKIT read-composable screens, the default is automatic. Hand-written TanStack Query reads outside those composables must set `meta.jskit.requestRecoveryMethod` to `GET` or `HEAD`; unmarked queries are ignored by the shell recovery observer. Set `meta: { jskit: { requestRecovery: false } }` only when a query deliberately owns its entire connectivity recovery UI.
+
+Writes are different. JSKIT does not automatically replay `POST`, `PATCH`, `PUT`, or `DELETE` after a network failure because the server may already have received the request. Save and command screens keep ownership of mutation state, field errors, conflict handling, and user feedback.
 
 ### The home page talks to the backend
 

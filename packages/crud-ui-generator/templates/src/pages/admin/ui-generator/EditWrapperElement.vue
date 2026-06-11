@@ -60,6 +60,7 @@ const screen = useCrudAddEditScreen({
     ],
     placementSource: "ui-generator.__JSKIT_UI_RESOURCE_NAMESPACE__.edit",
     writeMethod: "PATCH",
+    requestRecoveryLabel: "__JSKIT_UI_RESOURCE_SINGULAR_TITLE__",
     fallbackLoadError: "Unable to load record.",
     fallbackSaveError: "Unable to save record.",
     recordIdParam: UI_RECORD_ID_PARAM,

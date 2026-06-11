@@ -249,3 +249,41 @@ test("endpoint resources invalidate their query key from configured realtime eve
     }
   ]);
 });
+
+test("endpoint resource reads attach request recovery metadata to query options", async () => {
+  const queryClient = new QueryClient();
+  const queryKey = ["project-access", "beepollen"];
+  const app = createSSRApp({
+    setup() {
+      useEndpointResource({
+        queryKey,
+        path: "/api/project-access",
+        client: {
+          async request() {
+            return {};
+          }
+        },
+        requestRecovery: {
+          label: "Project access",
+          source: "project-access.panel",
+          dedupeKey: "project-access"
+        }
+      });
+      return () => h("div");
+    }
+  });
+  app.use(VueQueryPlugin, {
+    queryClient
+  });
+  await renderToString(app);
+
+  const query = queryClient.getQueryCache().find({
+    queryKey
+  });
+  assert.deepEqual(query?.meta?.jskit, {
+    requestRecoveryLabel: "Project access",
+    requestRecoverySource: "project-access.panel",
+    requestRecoveryDedupeKey: "project-access",
+    requestRecoveryMethod: "GET"
+  });
+});
