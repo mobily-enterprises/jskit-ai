@@ -5,8 +5,27 @@ import {
   ShellWebClientProvider,
   resolveAppPlacementTopologyExport
 } from "../src/client/providers/ShellWebClientProvider.js";
+import {
+  isMissingDynamicModule
+} from "../src/client/providers/appModuleLoadFailure.js";
 import { useShellErrorPresentationStore } from "../src/client/stores/useShellErrorPresentationStore.js";
 const CLIENT_APP_CONFIG_GLOBAL_KEY = "__JSKIT_CLIENT_APP_CONFIG__";
+
+async function withTemporaryGlobal(name, value, callback) {
+  const hadPrevious = Object.prototype.hasOwnProperty.call(globalThis, name);
+  const previousValue = globalThis[name];
+  globalThis[name] = value;
+
+  try {
+    return await callback();
+  } finally {
+    if (hadPrevious) {
+      globalThis[name] = previousValue;
+    } else {
+      delete globalThis[name];
+    }
+  }
+}
 
 function setClientAppConfig(source = {}) {
   const normalized =
@@ -17,7 +36,7 @@ function setClientAppConfig(source = {}) {
   return normalized;
 }
 
-function createAppDouble({ surfaceRuntime = null, queryClient = null } = {}) {
+function createAppDouble({ surfaceRuntime = null, queryClient = null, router = null } = {}) {
   const singletons = new Map();
   const singletonInstances = new Map();
   const provided = [];
@@ -67,6 +86,9 @@ function createAppDouble({ surfaceRuntime = null, queryClient = null } = {}) {
       if (token === "jskit.client.query-client") {
         return Boolean(queryClient);
       }
+      if (token === "jskit.client.router") {
+        return Boolean(router);
+      }
       return singletons.has(token) || singletonInstances.has(token);
     },
     make(token) {
@@ -81,6 +103,9 @@ function createAppDouble({ surfaceRuntime = null, queryClient = null } = {}) {
       }
       if (token === "jskit.client.query-client" && queryClient) {
         return queryClient;
+      }
+      if (token === "jskit.client.router" && router) {
+        return router;
       }
       if (singletonInstances.has(token)) {
         return singletonInstances.get(token);
@@ -100,38 +125,45 @@ function createAppDouble({ surfaceRuntime = null, queryClient = null } = {}) {
 }
 
 async function withFetchStub(responsePayload, callback) {
-  const previousFetch = globalThis.fetch;
-  globalThis.fetch = async () => ({
+  return withFetchImplementation(async () => ({
     ok: true,
     async json() {
       return responsePayload;
     }
-  });
-
-  try {
-    return await callback();
-  } finally {
-    if (previousFetch === undefined) {
-      delete globalThis.fetch;
-    } else {
-      globalThis.fetch = previousFetch;
-    }
-  }
+  }), callback);
 }
 
 async function withFetchImplementation(fetchImplementation, callback) {
-  const previousFetch = globalThis.fetch;
-  globalThis.fetch = fetchImplementation;
+  return withTemporaryGlobal("fetch", fetchImplementation, callback);
+}
 
-  try {
-    return await callback();
-  } finally {
-    if (previousFetch === undefined) {
-      delete globalThis.fetch;
-    } else {
-      globalThis.fetch = previousFetch;
+async function withWindowDouble(windowObject, callback) {
+  return withTemporaryGlobal("window", windowObject, callback);
+}
+
+function createWindowDouble({ href = "https://example.test/home" } = {}) {
+  const listeners = new Map();
+  const reloadCalls = [];
+  const location = {
+    href,
+    reload() {
+      reloadCalls.push(location.href);
     }
-  }
+  };
+
+  return {
+    listeners,
+    reloadCalls,
+    location,
+    addEventListener(type, handler) {
+      listeners.set(type, handler);
+    },
+    removeEventListener(type, handler) {
+      if (listeners.get(type) === handler) {
+        listeners.delete(type);
+      }
+    }
+  };
 }
 
 test("shell web client provider preserves append-only placement topology object exports", () => {
@@ -160,6 +192,23 @@ test("shell web client provider preserves append-only placement topology object 
   assert.deepEqual(warnings, []);
 });
 
+test("shell web boot import classifier does not swallow fetched dynamic module failures", () => {
+  assert.equal(
+    isMissingDynamicModule(
+      new Error("Cannot find module '/src/placement.js' imported from /src/main.js"),
+      "/src/placement.js"
+    ),
+    true
+  );
+  assert.equal(
+    isMissingDynamicModule(
+      new Error("Failed to fetch dynamically imported module: http://localhost:5173/src/placement.js?t=123"),
+      "/src/placement.js"
+    ),
+    false
+  );
+});
+
 test("shell web client provider binds runtime and injects it into Vue app", async () => {
   await withFetchStub({ surfaceAccess: {} }, async () => {
     const app = createAppDouble();
@@ -170,6 +219,7 @@ test("shell web client provider binds runtime and injects it into Vue app", asyn
     assert.equal(app.singletons.has("runtime.web-error.client"), true);
     assert.equal(app.singletons.has("runtime.web-error.presentation-store.client"), true);
     assert.equal(app.singletons.has("runtime.web-refresh.client"), true);
+    assert.equal(app.singletons.has("runtime.web-async-module-recovery.client"), true);
 
     await provider.boot(app);
     assert.equal(app.plugins.length, 0);
@@ -179,6 +229,7 @@ test("shell web client provider binds runtime and injects it into Vue app", asyn
     assert.equal(providedByKey.has("jskit.shell-web.runtime.web-placement.client"), true);
     assert.equal(providedByKey.has("jskit.shell-web.runtime.web-refresh.client"), true);
     assert.equal(providedByKey.has("jskit.shell-web.runtime.web-error.client"), true);
+    assert.equal(providedByKey.has("jskit.shell-web.runtime.web-async-module-recovery.client"), true);
     assert.equal(providedByKey.has("jskit.shell-web.runtime.web-error.presentation-store.client"), true);
 
     const placementRuntime = providedByKey.get("jskit.shell-web.runtime.web-placement.client");
@@ -193,6 +244,11 @@ test("shell web client provider binds runtime and injects it into Vue app", asyn
 
     const refreshRuntime = providedByKey.get("jskit.shell-web.runtime.web-refresh.client");
     assert.equal(typeof refreshRuntime.refresh, "function");
+
+    const asyncModuleRecoveryRuntime = providedByKey.get("jskit.shell-web.runtime.web-async-module-recovery.client");
+    assert.equal(typeof asyncModuleRecoveryRuntime.install, "function");
+    assert.equal(typeof asyncModuleRecoveryRuntime.notify, "function");
+    assert.equal(typeof asyncModuleRecoveryRuntime.reload, "function");
 
     const errorStore = providedByKey.get("jskit.shell-web.runtime.web-error.presentation-store.client");
     assert.equal(typeof errorStore.getState, "function");
@@ -257,6 +313,127 @@ test("shell refresh runtime reports recoverable retry errors as banners", async 
     assert.equal(state.channels.banner.length, 1);
     assert.equal(state.channels.banner[0].message, "Unable to refresh. Check the connection and try again.");
     assert.equal(state.channels.banner[0].action.label, "Retry");
+  });
+});
+
+test("shell web client provider reports dynamic import failures through async module recovery", async () => {
+  await withFetchStub({ surfaceAccess: {} }, async () => {
+    const routerErrorHandlers = [];
+    const replacedPaths = [];
+    const router = {
+      onError(handler) {
+        routerErrorHandlers.push(handler);
+        return () => null;
+      },
+      replace(fullPath) {
+        replacedPaths.push(fullPath);
+      }
+    };
+    const app = createAppDouble({ router });
+    const provider = new ShellWebClientProvider();
+    provider.register(app);
+    await provider.boot(app);
+
+    assert.equal(routerErrorHandlers.length, 2);
+
+    const chunkError = new Error("Failed to fetch dynamically imported module: /assets/page.js");
+    for (const handler of routerErrorHandlers) {
+      handler(chunkError, {
+        fullPath: "/app/dashboard"
+      });
+    }
+
+    const errorStore = app.make("runtime.web-error.presentation-store.client");
+    const state = errorStore.getState();
+    assert.equal(state.channels.banner.length, 1);
+    assert.equal(
+      state.channels.banner[0].message,
+      "Page did not download. The app may have been updated, or the network request failed."
+    );
+    assert.equal(state.channels.banner[0].severity, "warning");
+    assert.equal(state.channels.banner[0].action.label, "Reload");
+    assert.deepEqual(replacedPaths, []);
+  });
+});
+
+test("shell web async module recovery reload action checks the document before reloading", async () => {
+  const windowObject = createWindowDouble();
+  await withWindowDouble(windowObject, async () => {
+    const fetchCalls = [];
+    await withFetchImplementation(async (input, init = {}) => {
+      fetchCalls.push({ input, init });
+      return {
+        ok: true,
+        status: 200,
+        async json() {
+          return { surfaceAccess: {} };
+        }
+      };
+    }, async () => {
+      const routerErrorHandlers = [];
+      const router = {
+        onError(handler) {
+          routerErrorHandlers.push(handler);
+          return () => null;
+        },
+        replace() {}
+      };
+      const app = createAppDouble({ router });
+      const provider = new ShellWebClientProvider();
+      provider.register(app);
+      await provider.boot(app);
+
+      const chunkError = new Error("Failed to fetch dynamically imported module: /assets/page.js");
+      routerErrorHandlers[0](chunkError, {
+        fullPath: "/home/settings"
+      });
+
+      const errorStore = app.make("runtime.web-error.presentation-store.client");
+      const banner = errorStore.getState().channels.banner[0];
+      await banner.action.handler();
+
+      assert.deepEqual(windowObject.reloadCalls, ["https://example.test/home"]);
+      const reloadFetch = fetchCalls.find((entry) => entry.input === "https://example.test/home");
+      assert.equal(reloadFetch?.init?.cache, "no-store");
+      assert.equal(reloadFetch?.init?.credentials, "same-origin");
+    });
+  });
+});
+
+test("shell web async module recovery keeps the page alive when reload check fails", async () => {
+  const windowObject = createWindowDouble();
+  await withWindowDouble(windowObject, async () => {
+    await withFetchImplementation(async (input) => {
+      if (input === "https://example.test/home") {
+        throw new TypeError("Failed to fetch");
+      }
+      return {
+        ok: true,
+        status: 200,
+        async json() {
+          return { surfaceAccess: {} };
+        }
+      };
+    }, async () => {
+      const app = createAppDouble();
+      const provider = new ShellWebClientProvider();
+      provider.register(app);
+      await provider.boot(app);
+
+      const recoveryRuntime = app.make("runtime.web-async-module-recovery.client");
+      const reloaded = await recoveryRuntime.reload();
+
+      assert.equal(reloaded, false);
+      assert.deepEqual(windowObject.reloadCalls, []);
+      const errorStore = app.make("runtime.web-error.presentation-store.client");
+      const state = errorStore.getState();
+      assert.equal(state.channels.banner.length, 1);
+      assert.equal(
+        state.channels.banner[0].message,
+        "The app cannot reload because the app server is not reachable. Restart the server, then click Reload."
+      );
+      assert.equal(state.channels.banner[0].action.label, "Reload");
+    });
   });
 });
 

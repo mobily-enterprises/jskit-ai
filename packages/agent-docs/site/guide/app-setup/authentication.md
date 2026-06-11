@@ -10,9 +10,6 @@ To get back to the same starting point as the end of the previous chapter, run:
 npx @jskit-ai/create-app exampleapp --tenancy-mode none
 cd exampleapp
 npm install
-
-npx jskit add package shell-web
-npm install
 ```
 
 If you are already continuing from the previous chapter, you are already in the right place and can skip that setup.

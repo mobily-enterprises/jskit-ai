@@ -1,6 +1,6 @@
 # A more interesting shell
 
-In the first chapter, the app was intentionally plain. That was useful because it let us see the smallest possible JSKIT scaffold without too many moving parts. In this chapter, we install `shell-web`, which is the package that turns that bare starting point into a real shell: a layout, navigation outlets, a first settings area, and a proper app-level error host.
+In the first chapter, the app started with `shell-web` already installed. That is the normal JSKIT starting point: a real layout, navigation outlets, a first settings area, and a proper app-level error host.
 
 This still is not authentication, not database work, and not multi-surface routing. The app remains small. But it starts to look and behave like something you could actually grow.
 
@@ -16,39 +16,26 @@ npm install
 
 If you are already continuing from the previous chapter, you are already in the right place and can skip that setup.
 
-## Installing `shell-web`
+## Running the shell
 
 From inside `exampleapp`, run:
-
-```bash
-npx jskit add package shell-web
-npm install
-```
-
-
-`jskit add` rewrites part of the scaffold and records the installed runtime package in `.jskit/lock.json`. The following `npm install` is what actually downloads the new package and its supporting dependencies.
-
-To see the result, run:
 
 ```bash
 npm run dev
 npm run server
 ```
 
-This time you really want both processes running. The new home page fetches `/api/health`, so the browser-facing dev server on port `5173` expects the backend on port `3000` to be alive as well.
+You want both processes running. The starter home page fetches `/api/health`, so the browser-facing dev server on port `5173` expects the backend on port `3000` to be alive as well.
 
-<DocsTerminalTip label="Important" title="Install It Early">
-`shell-web` is not just adding new files. It also **claims and replaces part of the original scaffold** so the app can switch from the plain starter layout to the real shell layout.
+<DocsTerminalTip label="Minimal" title="Adding `shell-web` To A Bare Scaffold">
+The normal `create-app` template already has `shell-web`. If you deliberately created the bare scaffold with `--minimal` or `--template minimal-shell`, install the shell before you personalize the files it claims:
 
-That replacement is intentionally strict: `shell-web` only takes over scaffold files if they are still **exactly** the same as the files that `create-app` originally wrote. If you have already edited those starter files, `shell-web` refuses to claim them instead of overwriting your work.
+```bash
+npx jskit add package shell-web
+npm install
+```
 
-That is why the intended flow is:
-
-1. scaffold the app
-2. install `shell-web`
-3. start personalizing the shell
-
-If you build directly on top of the plain scaffold first and only try to add `shell-web` later, the install may fail because those app-owned files no longer match the untouched scaffold baseline.
+That install is intentionally strict: `shell-web` only takes over scaffold files if they are still **exactly** the same as the files that `create-app --minimal` originally wrote. If you have already edited those starter files, `shell-web` refuses to claim them instead of overwriting your work.
 </DocsTerminalTip>
 
 Open `http://localhost:5173/` in the browser. The app lands in the `home` surface inside a real shell with an app bar, a navigation drawer, and a settings route at `/home/settings`.
@@ -64,7 +51,7 @@ Open `http://localhost:5173/` in the browser. The app lands in the `home` surfac
   </div>
   <img
     src="/images/guide/a-more-interesting-shell/a-more-interesting-shell-home.png"
-    alt="Example app after installing shell-web, showing the shell layout and starter home page"
+    alt="Example app with the default shell layout and starter home page"
   />
 </figure>
 
@@ -86,7 +73,7 @@ Open `http://localhost:5173/home/settings` in the browser to see that nested set
   </div>
   <img
     src="/images/guide/a-more-interesting-shell/a-more-interesting-shell-settings-general.png"
-    alt="Example app home settings page after installing shell-web, showing the seeded General child page and nested settings menu"
+    alt="Example app home settings page with the seeded General child page and nested settings menu"
   />
 </figure>
 
@@ -374,7 +361,7 @@ So the shell story in this chapter is:
 
 That is the first real example of JSKIT behaving like an extension system rather than just a scaffold generator.
 
-## What `shell-web` changes in the app
+## What `shell-web` owns in the app
 
 The most interesting files look roughly like this:
 
@@ -404,11 +391,11 @@ src/
           index.vue
 ```
 
-This chapter is the first time the scaffold starts to feel layered instead of flat.
+This chapter is where the default scaffold starts to feel layered instead of flat.
 
 ### `package.json` and `.jskit/lock.json`
 
-The first file worth reopening is still `package.json`. After `shell-web`, the most important new dependency entries are:
+The first file worth reopening is still `package.json`. Because the default app includes `shell-web`, the important shell dependency entries are already present:
 
 ```json
 {
@@ -423,15 +410,15 @@ The important part is not just that `@jskit-ai/shell-web` appears. The package b
 
 It is also worth noticing what does **not** happen here. The `placed-element` and `page` commands from this chapter mutate app-owned files, but they do not add a permanent runtime dependency to `package.json`. They are tooling actions, not runtime package installs.
 
-The lock file becomes more interesting too. In the first chapter, `.jskit/lock.json` only knew about `@local/main`. Now it also records `@jskit-ai/shell-web` and the exact files and text mutations that package introduced.
+The lock file records this too. In a default app, `.jskit/lock.json` already records `@local/main`, `@jskit-ai/shell-web`, and the exact files and text mutations that the shell package owns.
 
-That is worth noticing because this is the first chapter where JSKIT applies a runtime package that owns concrete changes in your app tree.
+That is worth noticing because the default scaffold is not just copied files. It starts with a JSKIT-managed runtime package that owns concrete changes in your app tree.
 
 ### The `home` surface gets a real wrapper
 
 The surface itself did not change. `home` is still the same surface defined in `config/public.js`. What changed is the page tree inside it.
 
-Before `shell-web`, `src/pages/home.vue` was only a tiny route owner with a `RouterView`. After installing `shell-web`, it becomes:
+In the shell-web scaffold, `src/pages/home.vue` is more than a tiny route owner with a `RouterView`. It wraps the surface in the app-owned shell layout:
 
 ```vue
 <route lang="json">
@@ -458,9 +445,9 @@ import { RouterView } from "vue-router";
 
 That one change explains a lot. The `home` surface is a shell-wrapped surface. Every child page under `src/pages/home/` renders inside that app-owned `ShellLayout`.
 
-### `src/placement.js` becomes the placement registry
+### `src/placement.js` is the placement registry
 
-After installing `shell-web`, the app gets a placement registry file:
+The app has a placement registry file:
 
 ```js
 import { createPlacementRegistry } from "@jskit-ai/shell-web/client/placement";
@@ -477,7 +464,7 @@ export default function getPlacements() {
 
 That file is the app-owned seam for placements. `shell-web` owns the runtime that can render placements, but the app owns the registry source that lists what should appear in those targets.
 
-After the `shell-web` install plus the `placed-element` and `page` commands from this chapter, the bottom of the file contains real placement entries:
+After the scaffold's shell entries plus the `placed-element` and `page` commands from this chapter, the bottom of the file contains real placement entries:
 
 ```js
 addPlacement({
@@ -587,7 +574,7 @@ So the shell itself remains stable. What changes is the registry that feeds it.
 
 The placement registry only points at tokens. Those tokens still need to resolve to real Vue components somewhere. That happens in the app-local client provider in `packages/main/src/client/providers/MainClientProvider.js`.
 
-After the `shell-web` install and the `Alerts Widget` generator command, that file contains registrations like these:
+After the scaffold's shell registrations and the `Alerts Widget` generator command, that file contains registrations like these:
 
 ```js
 import AlertsWidgetElement from "/src/components/AlertsWidgetElement.vue";
@@ -659,9 +646,9 @@ The default error policy is intent-based. Runtime code reports what kind of erro
 
 `src/pages/home/index.vue` uses Vue Query to fetch `/api/health` and display the result in the UI.
 
-That is why this chapter is the point where running both `npm run dev` and `npm run server` matters. The page expects the backend to be alive.
+That is why this chapter keeps running both `npm run dev` and `npm run server`. The page expects the backend to be alive.
 
-This matters because it is the first tiny example of the frontend and backend participating in the same shell. The request itself is simple, but the behavior is more realistic than the empty starter card from the previous chapter.
+This matters because it is a tiny example of the frontend and backend participating in the same shell. The request itself is simple, but it proves the shell can surface runtime status instead of only rendering static chrome.
 
 ### The first client stores appear
 
@@ -765,6 +752,6 @@ The app is still structurally simple. `shell-web` just makes that simple app beh
 
 ## Summary
 
-After this chapter, the app is still small, but it has a shell shape. `shell-web` adds an app-owned shell layout, a placement registry, a shell error host, menu-link tokens in the local client provider, real drawer navigation, and the first nested settings section under `home`.
+After this chapter, the app is still small, but you have inspected the shell shape it starts with. `shell-web` provides an app-owned shell layout, a placement registry, a shell error host, menu-link tokens in the local client provider, real drawer navigation, and the first nested settings section under `home`.
 
 More importantly, this chapter is where placements stop being theory. The shell already uses them for `Home`, `Settings`, and the starter `General` settings page. Then you inspect the available targets, place real UI into the outer shell, and add more child settings pages that automatically land in the nested settings menu. That is the first real example of JSKIT working as an extension system rather than just a scaffold generator.

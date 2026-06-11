@@ -48,7 +48,7 @@ test.describe("generated base app responsive smoke", () => {
       await page.setViewportSize({ width: viewport.width, height: viewport.height });
       await page.goto(`${BASE_URL}${SMOKE_PATH}`);
       await expect(page.locator("body")).toBeVisible();
-      await expect(page.getByText("Home base")).toBeVisible();
+      await expect(page.getByText("Ready")).toBeVisible();
       await expectGeneratedScreenContract(page);
       await expectVisibleTapTargets(page);
       await expectNoHorizontalOverflow(page);

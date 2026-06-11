@@ -8,7 +8,8 @@ export default Object.freeze({
   capabilities: {
     provides: [
       "runtime.web-placement",
-      "runtime.web-error"
+      "runtime.web-error",
+      "runtime.web-async-module-recovery"
     ],
     requires: []
   },
@@ -54,6 +55,8 @@ export default Object.freeze({
         client: [
           "runtime.web-placement.client",
           "runtime.web-bootstrap.client",
+          "runtime.web-refresh.client",
+          "runtime.web-async-module-recovery.client",
           "runtime.web-error.client",
           "runtime.web-error.presentation-store.client"
         ]

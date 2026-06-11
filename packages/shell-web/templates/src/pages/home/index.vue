@@ -56,7 +56,7 @@ const health = computed(() => {
 
 <style scoped>
 .generated-ui-screen {
-  --generated-ui-screen-title-size: clamp(1.5rem, 2.5vw, 2.25rem);
+  --generated-ui-screen-title-size: 2rem;
   --generated-ui-screen-panel-padding: 1rem;
 }
 
@@ -70,7 +70,7 @@ const health = computed(() => {
 .home-surface-screen__title {
   font-size: var(--generated-ui-screen-title-size);
   font-weight: 700;
-  letter-spacing: -0.03em;
+  letter-spacing: 0;
   line-height: 1.1;
   margin: 0 0 0.4rem;
 }
@@ -90,6 +90,10 @@ const health = computed(() => {
 }
 
 @media (max-width: 640px) {
+  .generated-ui-screen {
+    --generated-ui-screen-title-size: 1.5rem;
+  }
+
   .home-surface-screen__header {
     flex-direction: column;
   }

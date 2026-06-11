@@ -2,7 +2,7 @@
 
 This guide is the main hands-on path through JSKIT.
 
-It starts with a fast reproducible Quickstart, then steps back to the smaller scaffold-first chapters that explain how the app is assembled piece by piece. After that, it introduces the database-backed users layer, expands into console and workspace-aware app structure, and adds a small `App extras` section for optional runtime packages such as the Android Capacitor shell, realtime, and assistant. Finally, the guide breaks out generator-specific workflows into their own section.
+It starts with a fast reproducible Quickstart, then steps back to the scaffold-first chapters that explain the default shell and runtime shape. After that, it introduces the database-backed users layer, expands into console and workspace-aware app structure, and adds a small `App extras` section for optional runtime packages such as the Android Capacitor shell, realtime, and assistant. Finally, the guide breaks out generator-specific workflows into their own section.
 
 ## Table of Contents
 

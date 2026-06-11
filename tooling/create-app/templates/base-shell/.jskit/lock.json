@@ -26,6 +26,235 @@
       },
       "options": {},
       "installedAt": "1970-01-01T00:00:00.000Z"
+    },
+    "@jskit-ai/shell-web": {
+      "packageId": "@jskit-ai/shell-web",
+      "version": "0.1.85",
+      "source": {
+        "type": "catalog",
+        "descriptorPath": "../jskit-catalog/catalog/packages.json#@jskit-ai/shell-web"
+      },
+      "managed": {
+        "packageJson": {
+          "dependencies": {
+            "@mdi/js": {
+              "hadPrevious": false,
+              "previousValue": "",
+              "value": "^7.4.47"
+            },
+            "@jskit-ai/shell-web": {
+              "hadPrevious": false,
+              "previousValue": "",
+              "value": "0.x"
+            }
+          },
+          "devDependencies": {},
+          "scripts": {}
+        },
+        "text": {
+          "packages/main/src/client/providers/MainClientProvider.js::shell-web-main-client-provider-menu-link-item-import": {
+            "file": "packages/main/src/client/providers/MainClientProvider.js",
+            "op": "append-text",
+            "value": "import MenuLinkItem from \"/src/components/menus/MenuLinkItem.vue\";\n",
+            "position": "top",
+            "reason": "Bind app-owned shell menu link-item scaffold into local main client provider imports.",
+            "category": "shell-web",
+            "id": "shell-web-main-client-provider-menu-link-item-import"
+          },
+          "packages/main/src/client/providers/MainClientProvider.js::shell-web-main-client-provider-surface-aware-menu-link-item-import": {
+            "file": "packages/main/src/client/providers/MainClientProvider.js",
+            "op": "append-text",
+            "value": "import SurfaceAwareMenuLinkItem from \"/src/components/menus/SurfaceAwareMenuLinkItem.vue\";\n",
+            "position": "top",
+            "reason": "Bind app-owned shell surface-aware menu link-item scaffold into local main client provider imports.",
+            "category": "shell-web",
+            "id": "shell-web-main-client-provider-surface-aware-menu-link-item-import"
+          },
+          "packages/main/src/client/providers/MainClientProvider.js::shell-web-main-client-provider-tab-link-item-import": {
+            "file": "packages/main/src/client/providers/MainClientProvider.js",
+            "op": "append-text",
+            "value": "import TabLinkItem from \"/src/components/menus/TabLinkItem.vue\";\n",
+            "position": "top",
+            "reason": "Bind app-owned shell tab link-item scaffold into local main client provider imports.",
+            "category": "shell-web",
+            "id": "shell-web-main-client-provider-tab-link-item-import"
+          },
+          "packages/main/src/client/providers/MainClientProvider.js::shell-web-main-client-provider-menu-link-item-register": {
+            "file": "packages/main/src/client/providers/MainClientProvider.js",
+            "op": "append-text",
+            "value": "\nregisterMainClientComponent(\"local.main.ui.menu-link-item\", () => MenuLinkItem);\n",
+            "position": "bottom",
+            "reason": "Bind app-owned shell menu link-item token into local main client provider registry.",
+            "category": "shell-web",
+            "id": "shell-web-main-client-provider-menu-link-item-register"
+          },
+          "packages/main/src/client/providers/MainClientProvider.js::shell-web-main-client-provider-surface-aware-menu-link-item-register": {
+            "file": "packages/main/src/client/providers/MainClientProvider.js",
+            "op": "append-text",
+            "value": "\nregisterMainClientComponent(\"local.main.ui.surface-aware-menu-link-item\", () => SurfaceAwareMenuLinkItem);\n",
+            "position": "bottom",
+            "reason": "Bind app-owned shell surface-aware menu link-item token into local main client provider registry.",
+            "category": "shell-web",
+            "id": "shell-web-main-client-provider-surface-aware-menu-link-item-register"
+          },
+          "packages/main/src/client/providers/MainClientProvider.js::shell-web-main-client-provider-tab-link-item-register": {
+            "file": "packages/main/src/client/providers/MainClientProvider.js",
+            "op": "append-text",
+            "value": "\nregisterMainClientComponent(\"local.main.ui.tab-link-item\", () => TabLinkItem);\n",
+            "position": "bottom",
+            "reason": "Bind app-owned shell tab link-item token into local main client provider registry.",
+            "category": "shell-web",
+            "id": "shell-web-main-client-provider-tab-link-item-register"
+          }
+        },
+        "vite": {},
+        "files": [
+          {
+            "path": "src/App.vue",
+            "hash": "e8ad49df01c665c6453d783ea3b67deda05473870fd29faa039e9a38e28a7f2c",
+            "hadPrevious": true,
+            "previousContentBase64": "PHRlbXBsYXRlPgogIDx2LWFwcD4KICAgIDx2LW1haW4+CiAgICAgIDx2LWNvbnRhaW5lciBjbGFzcz0icHktMTAgcHktbWQtMTQiPgogICAgICAgIDx2LXJvdyBqdXN0aWZ5PSJjZW50ZXIiPgogICAgICAgICAgPHYtY29sIGNvbHM9IjEyIiBzbT0iMTEiIG1kPSIxMCIgbGc9IjgiIHhsPSI3Ij4KICAgICAgICAgICAgPFJvdXRlclZpZXcgLz4KICAgICAgICAgIDwvdi1jb2w+CiAgICAgICAgPC92LXJvdz4KICAgICAgPC92LWNvbnRhaW5lcj4KICAgIDwvdi1tYWluPgogIDwvdi1hcHA+CjwvdGVtcGxhdGU+Cg==",
+            "preserveOnRemove": false,
+            "reason": "Install full-width shell app root with shell-web error host and edge-to-edge layout.",
+            "category": "shell-web",
+            "id": "shell-web-app-root"
+          },
+          {
+            "path": "src/components/ShellLayout.vue",
+            "hash": "0c2c3b5439890e0822dab32b0a740927b7612df1510efe2254cb20d90fd7312c",
+            "hadPrevious": false,
+            "previousContentBase64": "",
+            "preserveOnRemove": false,
+            "reason": "Install app-owned shell layout component so apps can customize structure and slots.",
+            "category": "shell-web",
+            "id": "shell-web-component-shell-layout"
+          },
+          {
+            "path": "src/components/menus/MenuLinkItem.vue",
+            "hash": "91460689ede313da18352c5fd67f99f198433198906b276586c7f60742f042a1",
+            "hadPrevious": false,
+            "previousContentBase64": "",
+            "preserveOnRemove": false,
+            "reason": "Install app-owned shell menu link-item scaffold for local placement customization.",
+            "category": "shell-web",
+            "id": "shell-web-component-menu-link-item"
+          },
+          {
+            "path": "src/components/menus/SurfaceAwareMenuLinkItem.vue",
+            "hash": "63ad9112bf096974a6b268e2c719e9d5522fde179350f56dc640f8902c0e914e",
+            "hadPrevious": false,
+            "previousContentBase64": "",
+            "preserveOnRemove": false,
+            "reason": "Install app-owned surface-aware shell menu link-item scaffold for local placement customization.",
+            "category": "shell-web",
+            "id": "shell-web-component-surface-aware-menu-link-item"
+          },
+          {
+            "path": "src/components/menus/TabLinkItem.vue",
+            "hash": "6fc8405ca0e19516ce762e392733fd39e7c2af85d8483193b4ee52caac76f1f4",
+            "hadPrevious": false,
+            "previousContentBase64": "",
+            "preserveOnRemove": false,
+            "reason": "Install app-owned shell tab link-item scaffold for local placement customization.",
+            "category": "shell-web",
+            "id": "shell-web-component-tab-link-item"
+          },
+          {
+            "path": "src/error.js",
+            "hash": "dd7e2f4e32b83d1227135a0f224bb2c46854fe7fd9714c7cc56cf94f2f1eb55b",
+            "hadPrevious": false,
+            "previousContentBase64": "",
+            "preserveOnRemove": false,
+            "reason": "Install app-owned error runtime policy and presenter config scaffold.",
+            "category": "shell-web",
+            "id": "shell-web-error-config"
+          },
+          {
+            "path": "src/placement.js",
+            "hash": "39ef1011cc96c94e8b1778a199b2222bed9887b066331918633524515ca8b909",
+            "hadPrevious": false,
+            "previousContentBase64": "",
+            "preserveOnRemove": false,
+            "reason": "Install app-owned placement registry scaffold used by shell-web placement runtime.",
+            "category": "shell-web",
+            "id": "shell-web-placement-registry"
+          },
+          {
+            "path": "src/placementTopology.js",
+            "hash": "3e8a515abc359c61f28061c1c3d3df8b810ddc50b4a0c805c093394cc7693ffd",
+            "hadPrevious": false,
+            "previousContentBase64": "",
+            "preserveOnRemove": false,
+            "reason": "Install app-owned semantic placement topology used by shell-web placement runtime.",
+            "category": "shell-web",
+            "id": "shell-web-placement-topology"
+          },
+          {
+            "path": "src/pages/home.vue",
+            "hash": "52e99863be5b81fa9e5813bb10e912b4439446ebdcc5c543e46f223558b355cc",
+            "hadPrevious": true,
+            "previousContentBase64": "PHJvdXRlIGxhbmc9Impzb24iPgp7CiAgIm1ldGEiOiB7CiAgICAianNraXQiOiB7CiAgICAgICJzdXJmYWNlIjogImhvbWUiCiAgICB9CiAgfQp9Cjwvcm91dGU+Cgo8dGVtcGxhdGU+CiAgPFJvdXRlclZpZXcgLz4KPC90ZW1wbGF0ZT4K",
+            "preserveOnRemove": false,
+            "reason": "Install shell-driven home wrapper page.",
+            "category": "shell-web",
+            "id": "shell-web-page-home-wrapper"
+          },
+          {
+            "path": "src/pages/home/index.vue",
+            "hash": "3aff6e5d0430679bb4314af0920724b987e29ba487d5d93eb2a51aa79275f103",
+            "hadPrevious": true,
+            "previousContentBase64": "PHRlbXBsYXRlPgogIDxzZWN0aW9uIGNsYXNzPSJnZW5lcmF0ZWQtdWktc2NyZWVuIGdlbmVyYXRlZC11aS1zY3JlZW4tLWFwcCBob21lLXN0YXJ0LXNjcmVlbiBkLWZsZXggZmxleC1jb2x1bW4gZ2EtNCI+CiAgICA8aGVhZGVyPgogICAgICA8cCBjbGFzcz0idGV4dC1vdmVybGluZSB0ZXh0LW1lZGl1bS1lbXBoYXNpcyBtYi0xIj5Ib21lPC9wPgogICAgICA8aDEgY2xhc3M9ImhvbWUtc3RhcnQtc2NyZWVuX190aXRsZSI+SG9tZSBiYXNlPC9oMT4KICAgICAgPHAgY2xhc3M9InRleHQtYm9keS0yIHRleHQtbWVkaXVtLWVtcGhhc2lzIG1iLTAiPgogICAgICAgIFRoZSBhcHAgcnVudGltZSBpcyBvbmxpbmUgYW5kIHJlYWR5IGZvciB0aGUgZmlyc3QgcmVhbCB3b3JrZmxvdy4KICAgICAgPC9wPgogICAgPC9oZWFkZXI+CgogICAgPHYtc2hlZXQgcm91bmRlZD0ibGciIGJvcmRlciBjbGFzcz0iaG9tZS1zdGFydC1zY3JlZW5fX3BhbmVsIj4KICAgICAgPGgyIGNsYXNzPSJ0ZXh0LWg2IG1iLTIiPk5vIGFjdGl2aXR5IHlldDwvaDI+CiAgICAgIDxwIGNsYXNzPSJ0ZXh0LWJvZHktMiB0ZXh0LW1lZGl1bS1lbXBoYXNpcyBtYi0wIj4KICAgICAgICBSZWNlbnQgd29yaywgc2F2ZWQgcmVjb3JkcywgYW5kIG5leHQgYWN0aW9ucyB3aWxsIGFwcGVhciBoZXJlIG9uY2UgdGhpcyBhcHAgaGFzIGRhdGEuCiAgICAgIDwvcD4KICAgIDwvdi1zaGVldD4KICA8L3NlY3Rpb24+CjwvdGVtcGxhdGU+Cgo8c3R5bGUgc2NvcGVkPgouZ2VuZXJhdGVkLXVpLXNjcmVlbiB7CiAgLS1nZW5lcmF0ZWQtdWktc2NyZWVuLXRpdGxlLXNpemU6IGNsYW1wKDEuNXJlbSwgM3Z3LCAyLjVyZW0pOwogIC0tZ2VuZXJhdGVkLXVpLXNjcmVlbi1wYW5lbC1wYWRkaW5nOiAxcmVtOwp9CgouaG9tZS1zdGFydC1zY3JlZW4gewogIG1hcmdpbi1pbmxpbmU6IGF1dG87CiAgbWF4LXdpZHRoOiA0OHJlbTsKfQoKLmhvbWUtc3RhcnQtc2NyZWVuX190aXRsZSB7CiAgZm9udC1zaXplOiB2YXIoLS1nZW5lcmF0ZWQtdWktc2NyZWVuLXRpdGxlLXNpemUpOwogIGZvbnQtd2VpZ2h0OiA3MDA7CiAgbGV0dGVyLXNwYWNpbmc6IC0wLjAzZW07CiAgbGluZS1oZWlnaHQ6IDEuMDg7CiAgbWFyZ2luOiAwIDAgMC40NXJlbTsKfQoKLmhvbWUtc3RhcnQtc2NyZWVuX19wYW5lbCB7CiAgcGFkZGluZzogdmFyKC0tZ2VuZXJhdGVkLXVpLXNjcmVlbi1wYW5lbC1wYWRkaW5nKTsKfQo8L3N0eWxlPgo=",
+            "preserveOnRemove": false,
+            "reason": "Install shell-driven home surface starter page.",
+            "category": "shell-web",
+            "id": "shell-web-page-home"
+          },
+          {
+            "path": "src/pages/home/settings.vue",
+            "hash": "ebf4f694e3b52bf8f899f78f8211c3350fc48ba3f822d2b68406724e523a7e2a",
+            "hadPrevious": false,
+            "previousContentBase64": "",
+            "preserveOnRemove": false,
+            "reason": "Install shell-driven home settings shell route with section navigation.",
+            "category": "shell-web",
+            "id": "shell-web-page-home-settings-shell"
+          },
+          {
+            "path": "src/pages/home/settings/index.vue",
+            "hash": "e82040354f747a009887df7cf3f2f25911e42959f40d376ba254fa7e8fa69247",
+            "hadPrevious": false,
+            "previousContentBase64": "",
+            "preserveOnRemove": false,
+            "reason": "Install shell-driven home settings redirect so the starter settings shell lands on a real child page.",
+            "category": "shell-web",
+            "id": "shell-web-page-home-settings"
+          },
+          {
+            "path": "src/pages/home/settings/general/index.vue",
+            "hash": "ef2c566a83b707e5e69c9e821caf891f177ee344fa0c6ab7307b3031f618c3bf",
+            "hadPrevious": false,
+            "previousContentBase64": "",
+            "preserveOnRemove": false,
+            "reason": "Install shell-driven general settings child page with a tiny browser-local shell preference example.",
+            "category": "shell-web",
+            "id": "shell-web-page-home-settings-general"
+          },
+          {
+            "path": "tests/e2e/adaptive-shell.spec.ts",
+            "hash": "456cbb65ebd0b97052e4e171bf87081e89b293fe67b9250af2cf876969d4eafd",
+            "hadPrevious": false,
+            "previousContentBase64": "",
+            "preserveOnRemove": false,
+            "reason": "Install compact/medium/expanded Playwright smoke coverage for the adaptive shell.",
+            "category": "shell-web",
+            "id": "shell-web-test-adaptive-shell-smoke"
+          }
+        ],
+        "migrations": []
+      },
+      "options": {},
+      "installedAt": "1970-01-01T00:00:00.000Z",
+      "migrationSyncVersion": "0.1.85"
     }
   }
 }

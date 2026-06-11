@@ -1,5 +1,16 @@
 import { getClientAppConfig } from "@jskit-ai/kernel/client";
 import {
+  createAsyncModuleRecoveryState,
+  guardedReloadApp,
+  installAsyncModuleRecoveryHandlers,
+  isDynamicImportError,
+  notifyAsyncModuleLoadError
+} from "@jskit-ai/kernel/client/asyncModuleRecovery";
+import {
+  isMissingDynamicModule,
+  notifyDynamicImportFailure
+} from "./appModuleLoadFailure.js";
+import {
   isRecord
 } from "@jskit-ai/kernel/shared/support";
 import { createProviderLogger as createSharedProviderLogger } from "@jskit-ai/kernel/shared/support/providerLogger";
@@ -29,18 +40,10 @@ import { resolveBootstrapErrorStatusCode } from "../bootstrap/bootstrapErrorStat
 const APP_PLACEMENT_MODULE_SPECIFIER = "/src/placement.js";
 const APP_PLACEMENT_TOPOLOGY_MODULE_SPECIFIER = "/src/placementTopology.js";
 const APP_ERROR_MODULE_SPECIFIER = "/src/error.js";
+const ASYNC_MODULE_RELOAD_FAILURE_MESSAGE =
+  "The app cannot reload because the app server is not reachable. Restart the server, then click Reload.";
 
-function isMissingDynamicModule(error, moduleSpecifier) {
-  const message = String(error?.message || error || "");
-  return (
-    message.includes(moduleSpecifier) &&
-    (message.includes("Cannot find module") ||
-      message.includes("Failed to fetch dynamically imported module") ||
-      message.includes("ERR_MODULE_NOT_FOUND"))
-  );
-}
-
-async function loadAppPlacementDefinitions(logger) {
+async function loadAppPlacementDefinitions(logger, asyncModuleRecoveryRuntime = null) {
   try {
     const moduleNamespace = await import("/src/placement.js");
     const exported = moduleNamespace?.default;
@@ -60,6 +63,9 @@ async function loadAppPlacementDefinitions(logger) {
     if (isMissingDynamicModule(error, APP_PLACEMENT_MODULE_SPECIFIER)) {
       return [];
     }
+    notifyDynamicImportFailure(asyncModuleRecoveryRuntime, error, {
+      label: "Placement config"
+    });
 
     logger.warn(
       {
@@ -73,7 +79,7 @@ async function loadAppPlacementDefinitions(logger) {
   return [];
 }
 
-async function loadAppPlacementTopology(logger) {
+async function loadAppPlacementTopology(logger, asyncModuleRecoveryRuntime = null) {
   try {
     const moduleNamespace = await import("/src/placementTopology.js");
     const exported = moduleNamespace?.default;
@@ -82,6 +88,9 @@ async function loadAppPlacementTopology(logger) {
     if (isMissingDynamicModule(error, APP_PLACEMENT_TOPOLOGY_MODULE_SPECIFIER)) {
       return [];
     }
+    notifyDynamicImportFailure(asyncModuleRecoveryRuntime, error, {
+      label: "Placement topology"
+    });
 
     logger.warn(
       {
@@ -127,7 +136,7 @@ function createErrorConfigToolkit(errorRuntime) {
   });
 }
 
-async function loadAppErrorConfig(logger, errorRuntime) {
+async function loadAppErrorConfig(logger, errorRuntime, asyncModuleRecoveryRuntime = null) {
   try {
     const moduleNamespace = await import("/src/error.js");
     const exported = moduleNamespace?.default;
@@ -149,6 +158,9 @@ async function loadAppErrorConfig(logger, errorRuntime) {
     if (isMissingDynamicModule(error, APP_ERROR_MODULE_SPECIFIER)) {
       return {};
     }
+    notifyDynamicImportFailure(asyncModuleRecoveryRuntime, error, {
+      label: "Error config"
+    });
 
     logger.warn(
       {
@@ -362,6 +374,10 @@ function installRouterErrorBridge(app, errorRuntime, logger) {
   }
 
   router.onError((error) => {
+    if (isDynamicImportError(error)) {
+      return;
+    }
+
     try {
       errorRuntime.report({
         source: "shell-web.router.on-error",
@@ -381,6 +397,121 @@ function installRouterErrorBridge(app, errorRuntime, logger) {
         "Shell web error runtime failed to report a router error."
       );
     }
+  });
+}
+
+function createShellAsyncModuleRecoveryRuntime({
+  app,
+  logger = null
+} = {}) {
+  if (!app || typeof app.has !== "function" || typeof app.make !== "function") {
+    throw new Error("createShellAsyncModuleRecoveryRuntime requires application has()/make().");
+  }
+
+  const runtimeLogger = logger || createSharedProviderLogger(app);
+  const state = createAsyncModuleRecoveryState();
+  let installedRecovery = null;
+
+  function errorRuntime() {
+    if (!app.has("runtime.web-error.client")) {
+      return null;
+    }
+    const runtime = app.make("runtime.web-error.client");
+    return runtime && typeof runtime.report === "function" ? runtime : null;
+  }
+
+  function report(nextState = state) {
+    const runtime = errorRuntime();
+    if (!runtime) {
+      runtimeLogger.warn(
+        {
+          label: String(nextState?.label || "")
+        },
+        "Async module recovery could not report because the shell error runtime is unavailable."
+      );
+      return null;
+    }
+
+    try {
+      return runtime.report({
+        source: "shell-web.async-module-recovery",
+        message: String(nextState?.message || "A required app module could not load."),
+        cause: nextState?.error || null,
+        intent: "app-recoverable",
+        severity: "warning",
+        dedupeKey: `shell-web.async-module-recovery.${Number(nextState?.attempt || 0)}`,
+        action: {
+          label: "Reload",
+          dismissOnRun: true,
+          handler() {
+            return reload();
+          }
+        }
+      });
+    } catch (error) {
+      runtimeLogger.error(
+        {
+          label: String(nextState?.label || ""),
+          error: String(error?.message || error || "unknown error")
+        },
+        "Async module recovery could not report through the shell error runtime."
+      );
+      return null;
+    }
+  }
+
+  async function reload() {
+    const reloaded = await guardedReloadApp({
+      state,
+      label: "App",
+      message: ASYNC_MODULE_RELOAD_FAILURE_MESSAGE
+    });
+    if (!reloaded) {
+      report(state);
+    }
+    return reloaded;
+  }
+
+  function notify(error = null, {
+    label = "App module",
+    message = "",
+    stale = isDynamicImportError(error)
+  } = {}) {
+    notifyAsyncModuleLoadError(state, error, {
+      label,
+      message,
+      retry: state.retry,
+      stale
+    });
+    return report(state);
+  }
+
+  function install() {
+    if (installedRecovery) {
+      return installedRecovery;
+    }
+
+    installedRecovery = installAsyncModuleRecoveryHandlers({
+      state,
+      label: "App module",
+      router: app.has("jskit.client.router") ? app.make("jskit.client.router") : null,
+      onNotify: report
+    });
+    return installedRecovery;
+  }
+
+  function dispose() {
+    installedRecovery?.dispose?.();
+    installedRecovery = null;
+  }
+
+  return Object.freeze({
+    dispose,
+    install,
+    notify,
+    reload,
+    report,
+    state
   });
 }
 
@@ -437,6 +568,12 @@ class ShellWebClientProvider {
         logger
       })
     );
+    app.singleton("runtime.web-async-module-recovery.client", (scope) =>
+      createShellAsyncModuleRecoveryRuntime({
+        app: scope,
+        logger
+      })
+    );
     app.singleton("runtime.web-error.presentation-store.client", () => createErrorPresentationStore());
     app.singleton("runtime.web-error.client", (scope) =>
       createErrorRuntime({
@@ -456,13 +593,17 @@ class ShellWebClientProvider {
     }
 
     const logger = createSharedProviderLogger(isRecord(app) ? app : null);
+    const errorRuntime = app.make("runtime.web-error.client");
+    const asyncModuleRecoveryRuntime = app.make("runtime.web-async-module-recovery.client");
+    asyncModuleRecoveryRuntime.install();
+
     const placementRuntime = app.make("runtime.web-placement.client");
     if (placementRuntime && typeof placementRuntime.replacePlacements === "function") {
-      const placementTopology = await loadAppPlacementTopology(logger);
+      const placementTopology = await loadAppPlacementTopology(logger, asyncModuleRecoveryRuntime);
       if (typeof placementRuntime.replacePlacementTopology === "function") {
         placementRuntime.replacePlacementTopology(placementTopology, { source: APP_PLACEMENT_TOPOLOGY_MODULE_SPECIFIER });
       }
-      const placements = await loadAppPlacementDefinitions(logger);
+      const placements = await loadAppPlacementDefinitions(logger, asyncModuleRecoveryRuntime);
       placementRuntime.replacePlacements(placements, { source: APP_PLACEMENT_MODULE_SPECIFIER });
       const appConfig = getClientAppConfig();
       const surfaceRuntime = app.has("jskit.client.surface.runtime")
@@ -486,8 +627,7 @@ class ShellWebClientProvider {
       );
     }
 
-    const errorRuntime = app.make("runtime.web-error.client");
-    const errorConfig = await loadAppErrorConfig(logger, errorRuntime);
+    const errorConfig = await loadAppErrorConfig(logger, errorRuntime, asyncModuleRecoveryRuntime);
     applyAppErrorConfig(errorRuntime, errorConfig);
 
     const bootstrapRuntime = app.make("runtime.web-bootstrap.client");
@@ -514,6 +654,7 @@ class ShellWebClientProvider {
     vueApp.provide("jskit.shell-web.runtime.web-placement.client", placementRuntime);
     vueApp.provide("jskit.shell-web.runtime.web-refresh.client", refreshRuntime);
     vueApp.provide("jskit.shell-web.runtime.web-error.client", errorRuntime);
+    vueApp.provide("jskit.shell-web.runtime.web-async-module-recovery.client", asyncModuleRecoveryRuntime);
     vueApp.provide(
       "jskit.shell-web.runtime.web-error.presentation-store.client",
       errorPresentationStore

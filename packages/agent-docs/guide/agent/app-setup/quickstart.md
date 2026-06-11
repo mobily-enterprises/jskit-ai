@@ -50,8 +50,6 @@ npx @jskit-ai/create-app testapp --tenancy-mode personal
 cd testapp
 npm install
 
-npx jskit add package shell-web
-
 npx jskit add package auth-provider-supabase-core \
   --auth-supabase-url "$SUPABASE_URL" \
   --auth-supabase-publishable-key "$SUPABASE_KEY" \
