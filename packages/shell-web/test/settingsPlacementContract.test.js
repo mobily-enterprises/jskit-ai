@@ -148,6 +148,29 @@ test("shell-web installs generated adaptive shell Playwright smoke coverage", as
   assert.equal(packageJson?.exports?.["./test/adaptiveShellSmoke"], "./src/test/adaptiveShellSmoke.js");
 });
 
+test("shell-web exports async module recovery runtime access as a public client API", async () => {
+  const packageJson = JSON.parse(await readFile(path.join(PACKAGE_DIR, "package.json"), "utf8"));
+  const clientIndex = await readFile(path.join(PACKAGE_DIR, "src", "client", "index.js"), "utf8");
+  const recoveryIndex = await readFile(
+    path.join(PACKAGE_DIR, "src", "client", "asyncModuleRecovery", "index.js"),
+    "utf8"
+  );
+  const providerSource = await readFile(
+    path.join(PACKAGE_DIR, "src", "client", "providers", "ShellWebClientProvider.js"),
+    "utf8"
+  );
+
+  assert.equal(
+    packageJson?.exports?.["./client/asyncModuleRecovery"],
+    "./src/client/asyncModuleRecovery/index.js"
+  );
+  assert.match(clientIndex, /useShellAsyncModuleRecoveryRuntime/);
+  assert.match(clientIndex, /SHELL_ASYNC_MODULE_RECOVERY_RUNTIME_KEY/);
+  assert.match(recoveryIndex, /useShellAsyncModuleRecoveryRuntime/);
+  assert.match(recoveryIndex, /SHELL_ASYNC_MODULE_RECOVERY_RUNTIME_KEY/);
+  assert.match(providerSource, /SHELL_ASYNC_MODULE_RECOVERY_RUNTIME_KEY/);
+});
+
 test("shell-web route transition keeps mobile route motion placement-driven", async () => {
   const source = await readFile(
     path.join(PACKAGE_DIR, "src", "client", "components", "ShellRouteTransition.vue"),

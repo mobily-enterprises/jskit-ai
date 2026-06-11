@@ -642,6 +642,24 @@ The default error policy is intent-based. Runtime code reports what kind of erro
 - `app-recoverable` uses `banner`; shell refresh and recoverable navigation failures stay visible without blocking the app.
 - `blocking` uses `dialog`; unexpected UI failures and other blocking errors require explicit attention.
 
+When app code catches a dynamic import failure itself, report it through the shell async module recovery runtime so it uses the same reload banner as router chunk failures:
+
+```js
+import { useShellAsyncModuleRecoveryRuntime } from "@jskit-ai/shell-web/client";
+
+const asyncModuleRecovery = useShellAsyncModuleRecoveryRuntime();
+
+try {
+  await import("@xterm/xterm");
+} catch (error) {
+  asyncModuleRecovery?.notify(error, {
+    label: "Terminal"
+  });
+}
+```
+
+`useShellAsyncModuleRecoveryRuntime()` returns `null` when the shell runtime is not available in the current Vue context. That lets app-owned components use optional chaining instead of duplicating shell-web's internal injection token.
+
 ### The home page talks to the backend
 
 `src/pages/home/index.vue` uses Vue Query to fetch `/api/health` and display the result in the UI.
