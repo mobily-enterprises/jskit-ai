@@ -7,6 +7,7 @@ import { authLoginOtpVerifyCommand } from "@jskit-ai/auth-core/shared/commands/a
 import { authLoginOAuthStartCommand } from "@jskit-ai/auth-core/shared/commands/authLoginOAuthStartCommand";
 import { authPasswordResetRequestCommand } from "@jskit-ai/auth-core/shared/commands/authPasswordResetRequestCommand";
 import { AUTH_PATHS, buildAuthOauthStartPath } from "@jskit-ai/auth-core/shared/authPaths";
+import { resolveAuthDeniedLoginMessage } from "@jskit-ai/auth-core/shared/authDenied";
 import { authHttpRequest } from "../../runtime/authHttpClient.js";
 import { completeOAuthCallbackFromCurrentLocation } from "../../runtime/oauthCallbackRuntime.js";
 import { normalizeAuthReturnToPath } from "../../lib/returnToPath.js";
@@ -136,6 +137,10 @@ export function useLoginViewActions({
   async function completeLogin() {
     const session = await refreshSession();
     if (!session?.authenticated) {
+      const authDeniedMessage = resolveAuthDeniedLoginMessage(session?.authDenied);
+      if (authDeniedMessage) {
+        throw new Error(authDeniedMessage);
+      }
       throw new Error("Login succeeded but the session is not active yet. Please retry.");
     }
     if (typeof window === "object" && window.location) {

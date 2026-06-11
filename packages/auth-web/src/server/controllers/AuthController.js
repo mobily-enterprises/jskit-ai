@@ -1,3 +1,4 @@
+import { normalizeAuthDenied } from "@jskit-ai/auth-core/shared/authDenied";
 import { AUTH_ACTION_IDS } from "../constants/authActionIds.js";
 import { AuthWebService } from "../services/AuthWebService.js";
 
@@ -146,9 +147,11 @@ class AuthController {
     }
 
     if (!authResult.authenticated) {
+      const authDenied = normalizeAuthDenied(authResult.authDenied);
       reply.code(200).send({
         authenticated: false,
         csrfToken,
+        ...(authDenied ? { authDenied } : {}),
         ...oauthCatalogPayload
       });
       return;
