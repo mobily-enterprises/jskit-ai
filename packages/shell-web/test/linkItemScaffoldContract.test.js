@@ -32,8 +32,13 @@ test("shell-web exports generic link-item components for app-owned shell wrapper
   assert.match(clientIndexSource, /ShellMenuLinkItem/);
   assert.match(clientIndexSource, /ShellSurfaceAwareMenuLinkItem/);
   assert.match(clientIndexSource, /ShellTabLinkItem/);
+  assert.match(clientIndexSource, /ShellRouteTransition/);
 
   const packageJson = JSON.parse(await readFile(path.join(PACKAGE_DIR, "package.json"), "utf8"));
+  assert.equal(
+    packageJson?.exports?.["./client/components/ShellRouteTransition"],
+    "./src/client/components/ShellRouteTransition.vue"
+  );
   assert.equal(
     packageJson?.exports?.["./client/components/ShellMenuLinkItem"],
     "./src/client/components/ShellMenuLinkItem.vue"
@@ -150,8 +155,10 @@ test("shell-web generic link items support the expected shared route and icon be
   assert.match(shellSurfaceAwareSource, /:exact="props\.exact"/);
   assert.match(shellTabSource, /icon:\s*\{/);
   assert.match(shellTabSource, /resolveMenuLinkIcon/);
-  assert.match(shellTabSource, /<v-list-item/);
-  assert.match(shellTabSource, /:prepend-icon="resolvedIcon \|\| undefined"/);
+  assert.match(shellTabSource, /<v-btn/);
+  assert.match(shellTabSource, /stacked/);
+  assert.match(shellTabSource, /min-height:\s*48px/);
+  assert.match(shellTabSource, /<v-icon v-if="resolvedIcon" :icon="resolvedIcon" \/>/);
 });
 
 test("shell-web binds the local link-item wrapper tokens into MainClientProvider", () => {

@@ -620,3 +620,93 @@ export { buildTemplateContext };
     assert.match(placementSource, /addPlacement\(\{ target: "shell-layout:primary-menu" \}\);/);
   });
 });
+
+test("add package skips append-text before resolving templateContext when skipIfContains already matches", async () => {
+  await withTempDir(async (cwd) => {
+    const appRoot = path.join(cwd, "template-context-append-skip-app");
+    await createMinimalApp(appRoot, { name: "template-context-append-skip-app" });
+    await mkdir(path.join(appRoot, "src"), { recursive: true });
+    await writeFile(path.join(appRoot, "src", "placement.js"), "// already-present target\n", "utf8");
+
+    const packageRoot = path.join(appRoot, "packages", "template-context-append-skip-feature");
+    await mkdir(path.join(packageRoot, "src", "server"), { recursive: true });
+
+    await writeFile(
+      path.join(packageRoot, "package.json"),
+      `${JSON.stringify(
+        {
+          name: "@demo/template-context-append-skip-feature",
+          version: "0.1.0",
+          type: "module"
+        },
+        null,
+        2
+      )}\n`,
+      "utf8"
+    );
+
+    await writeFile(
+      path.join(packageRoot, "src", "server", "Provider.js"),
+      "class Provider { static id = \"demo.template-context.append-skip\"; register() {} boot() {} }\nexport { Provider };\n",
+      "utf8"
+    );
+
+    await writeFile(
+      path.join(packageRoot, "src", "server", "templateContext.js"),
+      `function buildTemplateContext() {
+  throw new Error("templateContext should not run for skipped append-text mutations.");
+}
+
+export { buildTemplateContext };
+`,
+      "utf8"
+    );
+
+    await writeFile(
+      path.join(packageRoot, "package.descriptor.mjs"),
+      `export default Object.freeze({
+  packageId: "@demo/template-context-append-skip-feature",
+  version: "0.1.0",
+  kind: "runtime",
+  runtime: {
+    server: {
+      providers: [{ entrypoint: "src/server/Provider.js", export: "Provider" }]
+    },
+    client: {
+      providers: []
+    }
+  },
+  mutations: {
+    dependencies: {
+      runtime: {},
+      dev: {}
+    },
+    text: [
+      {
+        op: "append-text",
+        file: "src/placement.js",
+        id: "template-context-append-skip",
+        skipIfContains: "// already-present target",
+        value: "addPlacement({ target: \\"__TARGET__\\" });\\n",
+        templateContext: {
+          entrypoint: "src/server/templateContext.js",
+          export: "buildTemplateContext"
+        }
+      }
+    ]
+  }
+});
+`,
+      "utf8"
+    );
+
+    const addResult = runCli({
+      cwd: appRoot,
+      args: ["add", "package", "@demo/template-context-append-skip-feature"]
+    });
+    assert.equal(addResult.status, 0, String(addResult.stderr || ""));
+
+    const placementSource = await readFile(path.join(appRoot, "src", "placement.js"), "utf8");
+    assert.equal(placementSource, "// already-present target\n");
+  });
+});

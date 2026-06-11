@@ -14,6 +14,31 @@ function normalizeRealtimeOptions(value = {}) {
   return value;
 }
 
+function hasRealtimeEventConfig(value = {}) {
+  const source = normalizeRealtimeOptions(value);
+  return Object.hasOwn(source, "event") || Object.hasOwn(source, "events");
+}
+
+function resolveOperationRealtimeOptions({
+  realtime = undefined,
+  fallbackRealtime = null
+} = {}) {
+  if (realtime === false) {
+    return null;
+  }
+
+  const fallback = normalizeRealtimeOptions(fallbackRealtime);
+  const explicit = realtime == null ? {} : normalizeRealtimeOptions(realtime);
+  if (hasRealtimeEventConfig(explicit) || !hasRealtimeEventConfig(fallback)) {
+    return Object.keys(explicit).length > 0 ? explicit : null;
+  }
+
+  return Object.freeze({
+    ...fallback,
+    ...explicit
+  });
+}
+
 function resolveEnabled(value) {
   if (typeof value === "undefined") {
     return true;
@@ -125,6 +150,7 @@ function useOperationRealtime({
 }
 
 export {
+  resolveOperationRealtimeOptions,
   useRealtimeQueryInvalidation,
   useOperationRealtime
 };

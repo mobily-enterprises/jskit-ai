@@ -36,7 +36,6 @@ npx @jskit-ai/create-app exampleapp --tenancy-mode personal
 cd exampleapp
 npm install
 
-npx jskit add package shell-web
 npx jskit add package auth-provider-supabase-core \
   --auth-supabase-url "$SUPABASE_URL" \
   --auth-supabase-publishable-key "$SUPABASE_KEY" \
@@ -446,7 +445,7 @@ In the `page` subcommand:
 
 - the target file path decides the route location
 - `--name` changes the generated menu label
-- `--link-placement`, `--link-component-token`, and `--link-to` are optional overrides if you want to place the route link somewhere other than the generator's normal inferred target
+- `--link-placement` and `--link-to` are optional overrides if you want to place the route link somewhere other than the generator's normal inferred semantic target
 
 ## Generating the assistant settings pages
 
@@ -455,23 +454,17 @@ Now create the three settings pages:
 ```bash
 npx jskit generate assistant settings-page \
   console/settings/assistant/index.vue \
-  --surface console \
-  --link-placement console-settings:primary-menu \
-  --link-component-token local.main.ui.surface-aware-menu-link-item
+  --surface console
 
 npx jskit generate assistant settings-page \
   console/settings/admin-assistant/index.vue \
   --surface admin \
-  --name "Admin Assistant" \
-  --link-placement console-settings:primary-menu \
-  --link-component-token local.main.ui.surface-aware-menu-link-item
+  --name "Admin Assistant"
 
 npx jskit generate assistant settings-page \
   w/[workspaceSlug]/admin/workspace/settings/app-assistant/index.vue \
   --surface app \
-  --name "App Assistant" \
-  --link-placement admin-settings:primary-menu \
-  --link-component-token local.main.ui.surface-aware-menu-link-item
+  --name "App Assistant"
 ```
 
 This is the part that often trips people up, so read the rule carefully:
@@ -500,19 +493,14 @@ import { AssistantSettingsClientElement } from "@jskit-ai/assistant-runtime/clie
 
 The file path decides where the settings screen is opened. `target-surface-id` decides which assistant it edits.
 
-The extra link options matter here too:
+The inferred placement matters here too:
 
-- `--link-placement`
-  - which settings menu outlet should receive the generated link
-- `--link-component-token`
-  - which link component token should render that menu entry
 - `--name`
   - the label shown for the settings entry
 
-That is why the chapter uses:
+The console settings pages live under the console settings host, so JSKIT infers `page.section-nav` with owner `console-settings`. The workspace settings page lives under the admin workspace settings host, so JSKIT infers `page.section-nav` with owner `admin-settings`.
 
-- `console-settings:primary-menu` for the two console-owned settings screens
-- `admin-settings:primary-menu` for the workspace-admin-owned settings screen
+The concrete outlet and link renderer come from topology. Those settings hosts map `page.section-nav` to their concrete menus in `src/placementTopology.js`, so the commands do not need renderer flags.
 
 ## What to look at in the browser
 
@@ -523,7 +511,7 @@ npm run dev
 npm run server
 ```
 
-After sign-in, the app should now expose these assistant routes:
+After sign-in, the app should expose these assistant routes:
 
 - `/console/assistant`
 - `/w/your-personal-slug/admin/assistant`
@@ -602,7 +590,7 @@ That is what lets one app host several assistants at once without their AI setti
 
 ### `.env` gains one AI block per assistant surface
 
-The app now gets env keys such as:
+The app gets env keys such as:
 
 ```dotenv
 CONSOLE_ASSISTANT_AI_PROVIDER=openai

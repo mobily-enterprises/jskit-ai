@@ -1,0 +1,46 @@
+# Mobile Capacitor
+
+This file is managed by `@jskit-ai/mobile-capacitor`.
+
+Installed contract:
+
+- strategy: `capacitor`
+- asset mode: `__JSKIT_MOBILE_CAPACITOR_ASSET_MODE__`
+- dev server url: `__JSKIT_MOBILE_CAPACITOR_DEV_SERVER_URL__`
+- API base URL: `__JSKIT_MOBILE_CAPACITOR_API_BASE_URL__`
+- auth callback path: `__JSKIT_MOBILE_CAPACITOR_CALLBACK_PATH__`
+- custom scheme: `__JSKIT_MOBILE_CAPACITOR_CUSTOM_SCHEME__`
+- app link domains: `__JSKIT_MOBILE_CAPACITOR_APP_LINK_DOMAINS__`
+- Capacitor app id: `__JSKIT_MOBILE_CAPACITOR_APP_ID__`
+- Capacitor app name: `__JSKIT_MOBILE_CAPACITOR_APP_NAME__`
+- Android package name: `__JSKIT_MOBILE_CAPACITOR_ANDROID_PACKAGE_NAME__`
+- Android min SDK: `__JSKIT_MOBILE_CAPACITOR_ANDROID_MIN_SDK__`
+- Android target SDK: `__JSKIT_MOBILE_CAPACITOR_ANDROID_TARGET_SDK__`
+- Android version code: `__JSKIT_MOBILE_CAPACITOR_ANDROID_VERSION_CODE__`
+- Android version name: `__JSKIT_MOBILE_CAPACITOR_ANDROID_VERSION_NAME__`
+
+Owned artifacts:
+
+- `capacitor.config.json`
+- `android/` after `jskit add package @jskit-ai/mobile-capacitor` runs `cap add android`
+- `android/app/src/main/AndroidManifest.xml` managed deep-link intent filter for the custom scheme
+
+Managed commands:
+
+- `jskit add package @jskit-ai/mobile-capacitor`
+- `jskit mobile android dev [--target <device-id>]`
+- `jskit mobile android devices`
+- `jskit mobile android sync`
+- `jskit mobile android tunnel --target <device-id>`
+- `jskit mobile android restart --target <device-id>`
+- `jskit mobile android run [--target <device-id>]`
+- `jskit mobile android build`
+- `jskit mobile android doctor`
+
+Current Stage 1 limits:
+
+- Android only
+- web assets stay the JSKIT web client
+- OAuth start uses the external browser/custom tab only when the app is running inside the Capacitor shell
+- auth/deep-link handling stays routed through normal JSKIT paths
+- native app-link verification is still out of scope for Stage 1

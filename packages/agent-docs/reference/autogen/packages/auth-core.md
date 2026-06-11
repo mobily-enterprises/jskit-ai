@@ -176,6 +176,18 @@ Exports
 - `AUTH_ACCESS_TOKEN_MAX_LENGTH`
 - `AUTH_REFRESH_TOKEN_MAX_LENGTH`
 
+### `src/shared/authDenied.js`
+Exports
+- `AUTH_DENIED_CODE_MAX_LENGTH`
+- `AUTH_DENIED_CODE_PATTERN`
+- `AUTH_DENIED_CODES`
+- `AUTH_DENIED_DEFAULT_MESSAGES`
+- `AUTH_DENIED_LOGIN_MESSAGES`
+- `AUTH_DENIED_MESSAGE_MAX_LENGTH`
+- `normalizeAuthDenied(input = null)`
+- `normalizeAuthDeniedCode(value = "")`
+- `resolveAuthDeniedLoginMessage(input = null)`
+
 ### `src/shared/authMethods.js`
 Exports
 - `AUTH_METHOD_PASSWORD_ID`
@@ -234,6 +246,7 @@ Exports
 - `devLoginAsOutputValidator`
 - `logoutOutputValidator`
 - `oauthProviderCatalogEntryOutputValidator`
+- `authDeniedOutputSchema`
 - `sessionOutputValidator`
 - `sessionUnavailableOutputValidator`
 - `createCommandMessages({ fields = {}, defaultMessage = "Invalid value." } = {})`
@@ -347,6 +360,11 @@ Exports
 Exports
 - `createApi`
 - `runAuthSignOutFlow`
+- `AUTH_DENIED_CODES`
+- `AUTH_DENIED_DEFAULT_MESSAGES`
+- `AUTH_DENIED_LOGIN_MESSAGES`
+- `normalizeAuthDenied`
+- `resolveAuthDeniedLoginMessage`
 - `AUTH_PATHS`
 - `buildAuthOauthStartPath`
 

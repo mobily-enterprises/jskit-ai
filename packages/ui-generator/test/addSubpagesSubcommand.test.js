@@ -43,6 +43,22 @@ export default function getPlacements() {
     "utf8"
   );
   await writeFile(
+    path.join(appRoot, "src", "placementTopology.js"),
+    `const placements = [];
+
+function addPlacementTopology(value = {}) {
+  placements.push(value);
+}
+
+export { addPlacementTopology };
+
+export default function getPlacementTopology() {
+  return { placements };
+}
+`,
+    "utf8"
+  );
+  await writeFile(
     path.join(appRoot, "packages", "main", "src", "client", "providers", "MainClientProvider.js"),
     `const mainClientComponents = [];
 
@@ -97,20 +113,28 @@ test("ui-generator add-subpages derives the default target from an index-route p
 
     assert.deepEqual(result.touchedFiles, [
       "packages/main/src/client/providers/MainClientProvider.js",
-      "src/components/menus/SurfaceAwareMenuLinkItem.vue",
+      "src/components/menus/TabLinkItem.vue",
       "src/components/SectionContainerShell.vue",
-      `src/pages/${targetFile}`
+      `src/pages/${targetFile}`,
+      "src/placementTopology.js"
     ]);
 
     const pageSource = await readPageFile(appRoot, targetFile);
     assert.match(
       pageSource,
-      /<ShellOutlet target="practice:sub-pages" default-link-component-token="local\.main\.ui\.surface-aware-menu-link-item" \/>/
+      /<ShellOutlet target="practice:sub-pages" \/>/
     );
+    const topologySource = await readFile(path.join(appRoot, "src", "placementTopology.js"), "utf8");
+    assert.match(topologySource, /id: "page\.section-nav"/);
+    assert.match(topologySource, /owner: "practice"/);
+    assert.match(topologySource, /compact: \{/);
+    assert.match(topologySource, /medium: \{/);
+    assert.match(topologySource, /expanded: \{/);
+    assert.match(topologySource, /link: "local\.main\.ui\.tab-link-item"/);
     assert.match(pageSource, /<RouterView \/>/);
     assert.equal(
-      await readFile(path.join(appRoot, "src", "components", "menus", "SurfaceAwareMenuLinkItem.vue"), "utf8"),
-      await readLocalLinkItemComponentSource("local.main.ui.surface-aware-menu-link-item")
+      await readFile(path.join(appRoot, "src", "components", "menus", "TabLinkItem.vue"), "utf8"),
+      await readLocalLinkItemComponentSource("local.main.ui.tab-link-item")
     );
   });
 });
@@ -132,7 +156,7 @@ test("ui-generator add-subpages derives the default target from a dynamic file-r
     const pageSource = await readPageFile(appRoot, targetFile);
     assert.match(
       pageSource,
-      /<ShellOutlet target="contacts-contact-id:sub-pages" default-link-component-token="local\.main\.ui\.surface-aware-menu-link-item" \/>/
+      /<ShellOutlet target="contacts-contact-id:sub-pages" \/>/
     );
   });
 });
@@ -154,7 +178,7 @@ test("ui-generator add-subpages derives the default target from a nested route p
     const pageSource = await readPageFile(appRoot, targetFile);
     assert.match(
       pageSource,
-      /<ShellOutlet target="catalog-products:sub-pages" default-link-component-token="local\.main\.ui\.surface-aware-menu-link-item" \/>/
+      /<ShellOutlet target="catalog-products:sub-pages" \/>/
     );
   });
 });
@@ -199,8 +223,43 @@ test("ui-generator add-subpages supports explicit target host:position", async (
     const pageSource = await readPageFile(appRoot, targetFile);
     assert.match(
       pageSource,
-      /<ShellOutlet target="practice-hub:secondary-tabs" default-link-component-token="local\.main\.ui\.surface-aware-menu-link-item" \/>/
+      /<ShellOutlet target="practice-hub:secondary-tabs" \/>/
     );
+  });
+});
+
+test("ui-generator add-subpages creates script setup instead of adding template imports to normal script", async () => {
+  await withTempApp(async (appRoot) => {
+    await writeAppFixture(appRoot);
+
+    const targetFile = "w/[workspaceSlug]/admin/practice/index.vue";
+    await writePageFile(
+      appRoot,
+      targetFile,
+      `<script>
+export default {
+  name: "PracticePage"
+};
+</script>
+
+<template>
+  <section>Practice</section>
+</template>
+`
+    );
+
+    await runGeneratorSubcommand({
+      appRoot,
+      subcommand: "add-subpages",
+      args: [targetFile],
+      options: {}
+    });
+
+    const pageSource = await readPageFile(appRoot, targetFile);
+    assert.match(pageSource, /<script setup>\nimport ShellOutlet from "@jskit-ai\/shell-web\/client\/components\/ShellOutlet";/);
+    assert.match(pageSource, /import \{ RouterView \} from "vue-router";/);
+    assert.match(pageSource, /import SectionContainerShell from "\/src\/components\/SectionContainerShell\.vue";/);
+    assert.match(pageSource, /<script>\nexport default/);
   });
 });
 
@@ -211,7 +270,7 @@ test("ui-generator add-subpages does not rewrite existing scaffold support compo
     const targetFile = "w/[workspaceSlug]/admin/practice/index.vue";
     await writePageFile(appRoot, targetFile);
     const customSectionShellSource = `<template><section class="custom-shell"><slot /></section></template>\n`;
-    const customSurfaceAwareLinkSource = `<template><button class="custom-surface-aware-link"><slot /></button></template>\n`;
+    const customTabLinkSource = `<template><button class="custom-tab-link"><slot /></button></template>\n`;
     await writeFile(
       path.join(appRoot, "src", "components", "SectionContainerShell.vue"),
       customSectionShellSource,
@@ -219,8 +278,8 @@ test("ui-generator add-subpages does not rewrite existing scaffold support compo
     );
     await mkdir(path.join(appRoot, "src", "components", "menus"), { recursive: true });
     await writeFile(
-      path.join(appRoot, "src", "components", "menus", "SurfaceAwareMenuLinkItem.vue"),
-      customSurfaceAwareLinkSource,
+      path.join(appRoot, "src", "components", "menus", "TabLinkItem.vue"),
+      customTabLinkSource,
       "utf8"
     );
 
@@ -235,16 +294,105 @@ test("ui-generator add-subpages does not rewrite existing scaffold support compo
 
     assert.deepEqual(result.touchedFiles, [
       "packages/main/src/client/providers/MainClientProvider.js",
-      `src/pages/${targetFile}`
+      `src/pages/${targetFile}`,
+      "src/placementTopology.js"
     ]);
     assert.equal(
       await readFile(path.join(appRoot, "src", "components", "SectionContainerShell.vue"), "utf8"),
       customSectionShellSource
     );
     assert.equal(
-      await readFile(path.join(appRoot, "src", "components", "menus", "SurfaceAwareMenuLinkItem.vue"), "utf8"),
-      customSurfaceAwareLinkSource
+      await readFile(path.join(appRoot, "src", "components", "menus", "TabLinkItem.vue"), "utf8"),
+      customTabLinkSource
     );
+  });
+});
+
+test("ui-generator add-subpages validates topology before changing page or support files", async () => {
+  await withTempApp(async (appRoot) => {
+    await writeAppFixture(appRoot);
+
+    const targetFile = "w/[workspaceSlug]/admin/practice/index.vue";
+    const originalPageSource = "<template><section>Practice</section></template>\n";
+    await writePageFile(appRoot, targetFile, originalPageSource);
+    const providerPath = path.join(appRoot, "packages", "main", "src", "client", "providers", "MainClientProvider.js");
+    const originalProviderSource = await readFile(providerPath, "utf8");
+    await writeFile(
+      path.join(appRoot, "src", "placementTopology.js"),
+      `export default {
+  placements: [
+    {
+      id: "page.section-nav",
+      owner: "practice",
+      variants: {}
+    }
+  ]
+};
+`,
+      "utf8"
+    );
+
+    await assert.rejects(
+      runGeneratorSubcommand({
+        appRoot,
+        subcommand: "add-subpages",
+        args: [targetFile],
+        options: {}
+      }),
+      /requires compact topology variant/
+    );
+
+    assert.equal(await readPageFile(appRoot, targetFile), originalPageSource);
+    assert.equal(await readFile(providerPath, "utf8"), originalProviderSource);
+    await assert.rejects(
+      readFile(path.join(appRoot, "src", "components", "SectionContainerShell.vue"), "utf8"),
+      /ENOENT/
+    );
+    await assert.rejects(
+      readFile(path.join(appRoot, "src", "components", "menus", "TabLinkItem.vue"), "utf8"),
+      /ENOENT/
+    );
+  });
+});
+
+test("ui-generator add-subpages rejects existing section-nav topology for a different outlet", async () => {
+  await withTempApp(async (appRoot) => {
+    await writeAppFixture(appRoot);
+
+    const targetFile = "w/[workspaceSlug]/admin/practice/index.vue";
+    const originalPageSource = "<template><section>Practice</section></template>\n";
+    await writePageFile(appRoot, targetFile, originalPageSource);
+    await writeFile(
+      path.join(appRoot, "src", "placementTopology.js"),
+      `export default {
+  placements: [
+    {
+      id: "page.section-nav",
+      owner: "practice",
+      surfaces: ["admin"],
+      variants: {
+        compact: { outlet: "practice:existing-tabs" },
+        medium: { outlet: "practice:existing-tabs" },
+        expanded: { outlet: "practice:existing-tabs" }
+      }
+    }
+  ]
+};
+`,
+      "utf8"
+    );
+
+    await assert.rejects(
+      runGeneratorSubcommand({
+        appRoot,
+        subcommand: "add-subpages",
+        args: [targetFile],
+        options: {}
+      }),
+      /semantic placement "page\.section-nav" for owner "practice" already exists with different outlet mapping/
+    );
+
+    assert.equal(await readPageFile(appRoot, targetFile), originalPageSource);
   });
 });
 
@@ -332,7 +480,7 @@ test("ui-generator add-subpages accepts target files with a src/pages prefix", a
     const pageSource = await readFile(path.join(appRoot, targetFile), "utf8");
     assert.match(
       pageSource,
-      /<ShellOutlet target="practice:sub-pages" default-link-component-token="local\.main\.ui\.surface-aware-menu-link-item" \/>/
+      /<ShellOutlet target="practice:sub-pages" \/>/
     );
     assert.match(pageSource, /<RouterView \/>/);
   });

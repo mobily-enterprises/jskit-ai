@@ -72,6 +72,81 @@ export default function getPlacements() {
   );
 
   await writeFile(
+    path.join(appRoot, "src", "placementTopology.js"),
+    `const placements = [];
+
+function addPlacementTopology(value = {}) {
+  placements.push(value);
+}
+
+function shellPlacement(id, outlet) {
+  addPlacementTopology({
+    id,
+    description: \`\${id} test placement.\`,
+    surfaces: ["*"],
+    default: id === "shell.primary-nav",
+    variants: {
+      compact: {
+        outlet,
+        renderers: {
+          link: "local.main.ui.surface-aware-menu-link-item"
+        }
+      },
+      medium: {
+        outlet,
+        renderers: {
+          link: "local.main.ui.surface-aware-menu-link-item"
+        }
+      },
+      expanded: {
+        outlet,
+        renderers: {
+          link: "local.main.ui.surface-aware-menu-link-item"
+        }
+      }
+    }
+  });
+}
+
+shellPlacement("shell.primary-nav", "shell-layout:primary-menu");
+shellPlacement("shell.secondary-nav", "shell-layout:secondary-menu");
+shellPlacement("shell.global-actions", "shell-layout:top-right");
+shellPlacement("shell.status", "shell-layout:top-right");
+
+addPlacementTopology({
+  id: "page.section-nav",
+  owner: "admin-settings",
+  description: "Admin settings section navigation.",
+  surfaces: ["admin"],
+  variants: {
+    compact: {
+      outlet: "admin-settings:forms",
+      renderers: {
+        link: "local.main.ui.surface-aware-menu-link-item"
+      }
+    },
+    medium: {
+      outlet: "admin-settings:forms",
+      renderers: {
+        link: "local.main.ui.surface-aware-menu-link-item"
+      }
+    },
+    expanded: {
+      outlet: "admin-settings:forms",
+      renderers: {
+        link: "local.main.ui.surface-aware-menu-link-item"
+      }
+    }
+  }
+});
+
+export { addPlacementTopology };
+export default { placements };
+`,
+    "utf8"
+  );
+
+  await writeFile(
     path.join(appRoot, "src", "components", "ShellLayout.vue"),
     `<template>
   <div>
@@ -80,12 +155,8 @@ export default function getPlacements() {
     <ShellOutlet
       target="shell-layout:primary-menu"
       default
-      default-link-component-token="local.main.ui.surface-aware-menu-link-item"
     />
-    <ShellOutlet
-      target="shell-layout:secondary-menu"
-      default-link-component-token="local.main.ui.surface-aware-menu-link-item"
-    />
+    <ShellOutlet target="shell-layout:secondary-menu" />
   </div>
 </template>
 `,
@@ -160,6 +231,11 @@ async function fileExists(absolutePath) {
   }
 }
 
+async function appendPlacementTopology(appRoot, value = "") {
+  const topologyPath = path.join(appRoot, "src", "placementTopology.js");
+  await writeFile(topologyPath, `${await readFile(topologyPath, "utf8")}\n${value}\n`, "utf8");
+}
+
 test("generate @jskit-ai/ui-generator page scaffolds page and menu placement", async () => {
   await withTempDir(async (cwd) => {
     const appRoot = path.join(cwd, "ui-element-generator-default");
@@ -189,21 +265,11 @@ test("generate @jskit-ai/ui-generator page scaffolds page and menu placement", a
 
     const placementSource = await readFile(placementPath, "utf8");
     assert.match(placementSource, /id: "ui-generator\.page\.admin\.reports-dashboard\.link"/);
-    assert.match(placementSource, /target: "shell-layout:primary-menu"/);
-    assert.match(placementSource, /componentToken: "local\.main\.ui\.surface-aware-menu-link-item"/);
+    assert.match(placementSource, /target: "shell\.primary-nav"/);
+    assert.match(placementSource, /kind: "link"/);
+    assert.doesNotMatch(placementSource, /componentToken: "local\.main\.ui\.surface-aware-menu-link-item"/);
     assert.match(placementSource, /scopedSuffix: "\/reports-dashboard"/);
     assert.match(placementSource, /label: "Reports Dashboard"/);
-
-    const localLinkComponentPath = path.join(appRoot, "src", "components", "menus", "SurfaceAwareMenuLinkItem.vue");
-    const providerPath = path.join(appRoot, "packages", "main", "src", "client", "providers", "MainClientProvider.js");
-    assert.equal(await fileExists(localLinkComponentPath), true);
-
-    const providerSource = await readFile(providerPath, "utf8");
-    assert.match(providerSource, /import SurfaceAwareMenuLinkItem from "\/src\/components\/menus\/SurfaceAwareMenuLinkItem\.vue";/);
-    assert.match(
-      providerSource,
-      /registerMainClientComponent\("local\.main\.ui\.surface-aware-menu-link-item", \(\) => SurfaceAwareMenuLinkItem\);/
-    );
   });
 });
 
@@ -275,7 +341,7 @@ test("generate @jskit-ai/ui-generator with no subcommand shows generator help wi
   });
 });
 
-test("generate @jskit-ai/ui-generator page creates an explicit file-route target", async () => {
+test("generate @jskit-ai/ui-generator page creates an explicit detail file-route target without nav by default", async () => {
   await withTempDir(async (cwd) => {
     const appRoot = path.join(cwd, "ui-element-generator-file-page");
     await createMinimalApp(appRoot, { name: "ui-element-generator-file-page" });
@@ -303,8 +369,7 @@ test("generate @jskit-ai/ui-generator page creates an explicit file-route target
     assert.match(pageSource, /Contact/);
 
     const placementSource = await readFile(placementPath, "utf8");
-    assert.match(placementSource, /scopedSuffix: "\/contacts\/\[contactId\]"/);
-    assert.match(placementSource, /id: "ui-generator\.page\.admin\.contacts\.contact-id\.link"/);
+    assert.doesNotMatch(placementSource, /ui-generator\.page\.admin\.contacts\.contact-id\.link/);
   });
 });
 
@@ -382,7 +447,7 @@ test("generate @jskit-ai/ui-generator page overwrites an existing page when --fo
   });
 });
 
-test("generate @jskit-ai/ui-generator page supports link-component-token for index-hosted child pages", async () => {
+test("generate @jskit-ai/ui-generator page supports semantic placement for index-hosted child pages", async () => {
   await withTempDir(async (cwd) => {
     const appRoot = path.join(cwd, "ui-element-generator-index-children");
     await createMinimalApp(appRoot, { name: "ui-element-generator-index-children" });
@@ -398,9 +463,7 @@ test("generate @jskit-ai/ui-generator page supports link-component-token for ind
         "--name",
         "Notes",
         "--link-placement",
-        "shell-layout:secondary-menu",
-        "--link-component-token",
-        "local.main.ui.tab-link-item"
+        "shell.secondary-nav"
       ]
     });
     assert.equal(result.status, 0, String(result.stderr || ""));
@@ -420,10 +483,11 @@ test("generate @jskit-ai/ui-generator page supports link-component-token for ind
     assert.equal(await fileExists(pagePath), true);
 
     const placementSource = await readFile(placementPath, "utf8");
-    assert.match(placementSource, /componentToken: "local\.main\.ui\.tab-link-item"/);
+    assert.match(placementSource, /target: "shell\.secondary-nav"/);
+    assert.match(placementSource, /kind: "link"/);
+    assert.doesNotMatch(placementSource, /componentToken:/);
     assert.match(placementSource, /scopedSuffix: "\/contacts\/\[contactId\]\/notes"/);
     assert.match(placementSource, /unscopedSuffix: "\/contacts\/\[contactId\]\/notes"/);
-    assert.match(placementSource, /to: "\.\/notes"/);
   });
 });
 
@@ -443,9 +507,7 @@ test("generate @jskit-ai/ui-generator page supports explicit link-to override", 
         "--name",
         "Notes",
         "--link-placement",
-        "shell-layout:secondary-menu",
-        "--link-component-token",
-        "local.main.ui.tab-link-item",
+        "shell.secondary-nav",
         "--link-to",
         "./custom-notes"
       ]
@@ -479,6 +541,32 @@ test("generate @jskit-ai/ui-generator page infers subpage link placement from th
 `,
       "utf8"
     );
+    await appendPlacementTopology(appRoot, `addPlacementTopology({
+  id: "page.section-nav",
+  owner: "contact-view",
+  description: "Contact section navigation.",
+  surfaces: ["admin"],
+  variants: {
+    compact: {
+      outlet: "contact-view:sub-pages",
+      renderers: {
+        link: "local.main.ui.surface-aware-menu-link-item"
+      }
+    },
+    medium: {
+      outlet: "contact-view:sub-pages",
+      renderers: {
+        link: "local.main.ui.surface-aware-menu-link-item"
+      }
+    },
+    expanded: {
+      outlet: "contact-view:sub-pages",
+      renderers: {
+        link: "local.main.ui.surface-aware-menu-link-item"
+      }
+    }
+  }
+});`);
 
     const result = runCli({
       cwd: appRoot,
@@ -495,8 +583,9 @@ test("generate @jskit-ai/ui-generator page infers subpage link placement from th
 
     const placementPath = path.join(appRoot, "src", "placement.js");
     const placementSource = await readFile(placementPath, "utf8");
-    assert.match(placementSource, /target: "contact-view:sub-pages"/);
-    assert.match(placementSource, /componentToken: "local\.main\.ui\.surface-aware-menu-link-item"/);
+    assert.match(placementSource, /target: "page\.section-nav"/);
+    assert.match(placementSource, /owner: "contact-view"/);
+    assert.doesNotMatch(placementSource, /componentToken: "local\.main\.ui\.surface-aware-menu-link-item"/);
     assert.match(placementSource, /to: "\.\/notes"/);
   });
 });
@@ -517,9 +606,7 @@ test("generate @jskit-ai/ui-generator page uses path-aware placement IDs for sam
         "--name",
         "One",
         "--link-placement",
-        "shell-layout:secondary-menu",
-        "--link-component-token",
-        "local.main.ui.tab-link-item"
+        "shell.secondary-nav"
       ]
     });
     assert.equal(alphaResult.status, 0, String(alphaResult.stderr || ""));
@@ -534,9 +621,7 @@ test("generate @jskit-ai/ui-generator page uses path-aware placement IDs for sam
         "--name",
         "One",
         "--link-placement",
-        "shell-layout:secondary-menu",
-        "--link-component-token",
-        "local.main.ui.tab-link-item"
+        "shell.secondary-nav"
       ]
     });
     assert.equal(betaResult.status, 0, String(betaResult.stderr || ""));
@@ -589,7 +674,7 @@ test("generate @jskit-ai/ui-generator placed-element scaffolds component token r
 
     const placementSource = await readFile(placementPath, "utf8");
     assert.match(placementSource, /id: "ui-generator\.element\.ops-panel"/);
-    assert.match(placementSource, /target: "shell-layout:top-right"/);
+    assert.match(placementSource, /target: "shell\.status"/);
     assert.match(placementSource, /componentToken: "local\.main\.ui\.element\.ops-panel"/);
   });
 });
@@ -609,14 +694,14 @@ test("generate @jskit-ai/ui-generator placed-element supports explicit placement
         "--name",
         "Ops Panel",
         "--placement",
-        "shell-layout:primary-menu"
+        "shell.secondary-nav"
       ]
     });
     assert.equal(result.status, 0, String(result.stderr || ""));
 
     const placementPath = path.join(appRoot, "src", "placement.js");
     const placementSource = await readFile(placementPath, "utf8");
-    assert.match(placementSource, /target: "shell-layout:primary-menu"/);
+    assert.match(placementSource, /target: "shell\.secondary-nav"/);
   });
 });
 
@@ -682,7 +767,9 @@ test("generate @jskit-ai/ui-generator placed-element overwrites an existing comp
     assert.equal(result.status, 0, String(result.stderr || ""));
 
     const componentSource = await readFile(componentPath, "utf8");
-    assert.match(componentSource, /<h2 class="text-h6 mb-2">Ops Panel<\/h2>/);
+    assert.match(componentSource, /<section class="generated-element-panel">/);
+    assert.match(componentSource, /<h2 class="text-subtitle-1 font-weight-medium mb-0">Ops Panel<\/h2>/);
+    assert.match(componentSource, /min-height:\s*48px/);
   });
 });
 
@@ -759,33 +846,30 @@ test("generate @jskit-ai/ui-generator add-subpages derives the default target fo
     const pagePath = path.join(appRoot, "src", "pages", "admin", "contacts", "[contactId].vue");
     const providerPath = path.join(appRoot, "packages", "main", "src", "client", "providers", "MainClientProvider.js");
     const sectionShellPath = path.join(appRoot, "src", "components", "SectionContainerShell.vue");
-    const surfaceAwareMenuLinkPath = path.join(appRoot, "src", "components", "menus", "SurfaceAwareMenuLinkItem.vue");
+    const tabLinkPath = path.join(appRoot, "src", "components", "menus", "TabLinkItem.vue");
 
     assert.equal(await fileExists(pagePath), true);
     assert.equal(await fileExists(sectionShellPath), true);
-    assert.equal(await fileExists(surfaceAwareMenuLinkPath), true);
+    assert.equal(await fileExists(tabLinkPath), true);
 
     const pageSource = await readFile(pagePath, "utf8");
     assert.match(pageSource, /<SectionContainerShell/);
     assert.match(pageSource, /<template #tabs>/);
-    assert.match(
-      pageSource,
-      /<ShellOutlet target="contacts-contact-id:sub-pages" default-link-component-token="local\.main\.ui\.surface-aware-menu-link-item" \/>/
-    );
+    assert.match(pageSource, /<ShellOutlet target="contacts-contact-id:sub-pages" \/>/);
     assert.match(pageSource, /<RouterView \/>/);
 
     const sectionShellSource = await readFile(sectionShellPath, "utf8");
     assert.match(sectionShellSource, /<slot name="tabs" \/>/);
     assert.doesNotMatch(sectionShellSource, /ShellOutlet/);
     assert.equal(
-      await readFile(surfaceAwareMenuLinkPath, "utf8"),
-      await readLocalLinkItemComponentSource("local.main.ui.surface-aware-menu-link-item")
+      await readFile(tabLinkPath, "utf8"),
+      await readLocalLinkItemComponentSource("local.main.ui.tab-link-item")
     );
 
     const providerSource = await readFile(providerPath, "utf8");
     assert.match(
       providerSource,
-      /registerMainClientComponent\("local\.main\.ui\.surface-aware-menu-link-item", \(\) => SurfaceAwareMenuLinkItem\);/
+      /registerMainClientComponent\("local\.main\.ui\.tab-link-item", \(\) => TabLinkItem\);/
     );
   });
 });

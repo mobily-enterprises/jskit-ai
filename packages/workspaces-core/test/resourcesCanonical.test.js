@@ -55,6 +55,20 @@ test("workspaces-core resources expose messages for all operations", () => {
   }
 });
 
+test("workspaces-core repository filters are declared on canonical resources", () => {
+  assert.deepEqual(Object.keys(workspaceResource.searchSchema), ["id", "slug", "owner", "isPersonal"]);
+  assert.equal(workspaceResource.searchSchema.slug.actualField, "slug");
+  assert.equal(workspaceResource.searchSchema.owner.actualField, "owner_user_id");
+
+  assert.deepEqual(Object.keys(workspaceMembershipsResource.searchSchema), ["id", "workspace", "user", "status"]);
+  assert.equal(workspaceMembershipsResource.searchSchema.workspace.actualField, "workspace_id");
+  assert.equal(workspaceMembershipsResource.searchSchema.user.actualField, "user_id");
+
+  assert.deepEqual(Object.keys(workspaceInvitesResource.searchSchema), ["id", "workspace", "email", "status", "tokenHash"]);
+  assert.equal(workspaceInvitesResource.searchSchema.workspace.actualField, "workspace_id");
+  assert.equal(workspaceInvitesResource.searchSchema.tokenHash.actualField, "token_hash");
+});
+
 test("workspaces-core specialized resource operations expose messages and validators", () => {
   const operationSpecs = [
     { label: "workspaceMembers.rolesList", operation: workspaceMembersResource.operations.rolesList },

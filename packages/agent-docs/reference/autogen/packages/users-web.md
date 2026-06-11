@@ -28,12 +28,56 @@ Exports
 - `createUsersBootstrapUserHandler()`
 - `registerUsersBootstrapPayloadHandlers(app)`
 
+### `src/client/bulkActions.js`
+Exports
+- `defineCrudListBulkActions(actions = [])`
+Local functions
+- `normalizeCrudListBulkAction(rawAction = {}, index = 0)`
+
 ### `src/client/components/AccountSettingsClientElement.vue`
 Exports
 - None
 Local functions
 - `normalizeSection(value)`
 - `readRouteSection()`
+
+### `src/client/components/CrudAddEditScreen.vue`
+Exports
+- None
+Local functions
+- `resolveFieldErrors(fieldKey)`
+- `resolveCancelTo(target = cancelTo.value)`
+
+### `src/client/components/CrudListBulkActionSurface.vue`
+Exports
+- None
+Local functions
+- `clearSelection()`
+- `execute(action = {})`
+- `isActionDisabled(action = {})`
+- `isActionExecuting(action = {})`
+
+### `src/client/components/CrudListFilterSurface.vue`
+Exports
+- None
+Local functions
+- `optionItems(filter = {})`
+- `placeholder(filter = {}, fallback = "")`
+- `clearChip(chip = {})`
+- `clearFilters()`
+
+### `src/client/components/CrudListScreen.vue`
+Exports
+- None
+Local functions
+- `resolveListRecordTitle(record)`
+- `formatListCardValue(value)`
+- `resolveViewLocation(record)`
+- `resolveEditLocation(record)`
+
+### `src/client/components/CrudViewScreen.vue`
+Exports
+- None
 
 ### `src/client/components/ProfileClientElement.vue`
 Exports
@@ -179,7 +223,7 @@ Local functions
 
 ### `src/client/composables/records/useCrudList.js`
 Exports
-- `useCrudList({ resource = null, requestQueryParams = null, parentBinding = null, recordIdParam = "recordId", route = null, ...listOptions } = {})`
+- `useCrudList({ resource = null, requestQueryParams = null, parentBinding = null, recordIdParam = "recordId", route = null, realtime = undefined, ...listOptions } = {})`
 Local functions
 - `resolveRequestQueryParamsInput(requestQueryParams, context = {})`
 - `resolveCrudParentRequestQueryParams({ resource = {}, route = null, recordIdParam = "recordId" } = {})`
@@ -194,7 +238,7 @@ Exports
 
 ### `src/client/composables/records/useView.js`
 Exports
-- `useView({ ownershipFilter = ROUTE_VISIBILITY_WORKSPACE, surfaceId = "", access = "auto", apiSuffix = "", queryKeyFactory = null, viewPermissions = [], readMethod = "GET", readEnabled = true, transport = null, placementSource = "users-web.view", fallbackLoadError = "Unable to load resource.", notFoundStatuses = [404], notFoundMessage = "Record not found.", model, mapLoadedToModel, requestQueryParams = null, recordIdParam = "recordId", routeParams = null, routeRecordId = null, apiUrlTemplate = "", listUrlTemplate = "", editUrlTemplate = "", includeRecordIdInQueryKey = false, realtime = null, adapter = null } = {})`
+- `useView({ resource = null, ownershipFilter = ROUTE_VISIBILITY_WORKSPACE, surfaceId = "", access = "auto", apiSuffix = "", queryKeyFactory = null, viewPermissions = [], readMethod = "GET", readEnabled = true, transport = null, placementSource = "users-web.view", fallbackLoadError = "Unable to load resource.", notFoundStatuses = [404], notFoundMessage = "Record not found.", model, mapLoadedToModel, requestQueryParams = null, recordIdParam = "recordId", routeParams = null, routeRecordId = null, apiUrlTemplate = "", listUrlTemplate = "", editUrlTemplate = "", includeRecordIdInQueryKey = false, realtime = undefined, adapter = null } = {})`
 
 ### `src/client/composables/runtime/addEditUiRuntime.js`
 Exports
@@ -226,7 +270,7 @@ Exports
 ### `src/client/composables/runtime/operationUiHelpers.js`
 Exports
 - `setupRouteChangeCleanup({ enabled = true, route = null, feedback = null, fieldBag = null } = {})`
-- `setupOperationErrorReporting({ enabled = true, source = "users-web.operation", loadError = null, notFoundError = null, loadActionFactory = null, notFoundActionFactory = null, loadChannel = "banner", notFoundChannel = "banner", loadSeverity = "error", notFoundSeverity = "warning", dedupeWindowMs = 2000 } = {})`
+- `setupOperationErrorReporting({ enabled = true, source = "users-web.operation", loadError = null, notFoundError = null, loadActionFactory = null, notFoundActionFactory = null, loadChannel = "", notFoundChannel = "", loadSeverity = "error", notFoundSeverity = "warning", dedupeWindowMs = 2000 } = {})`
 Local functions
 - `normalizeMessage(value)`
 
@@ -246,7 +290,7 @@ Exports
 Exports
 - `buildEndpointReadRequestOptions({ method = "GET", query = null, transport = null } = {})`
 - `buildEndpointWriteRequestOptions({ method = "PATCH", body = undefined, options = null, transport = null } = {})`
-- `useEndpointResource({ queryKey, path = "", enabled = true, client = usersWebHttpClient, readMethod = "GET", writeMethod = "PATCH", readQuery = null, transport = null, queryOptions = null, mutationOptions = null, fallbackLoadError = "Unable to load resource.", fallbackSaveError = "Unable to save resource." } = {})`
+- `useEndpointResource({ queryKey, path = "", enabled = true, client = usersWebHttpClient, readMethod = "GET", writeMethod = "PATCH", readQuery = null, transport = null, refreshOnPull = false, realtime = null, queryOptions = null, mutationOptions = null, fallbackLoadError = "Unable to load resource.", fallbackSaveError = "Unable to save resource." } = {})`
 Local functions
 - `resolveRequestQuery(value = null)`
 
@@ -265,7 +309,7 @@ Local functions
 
 ### `src/client/composables/runtime/useUiFeedback.js`
 Exports
-- `useUiFeedback({ initialType = "success", source = "users-web.ui-feedback", successChannel = "snackbar", errorChannel = "banner", dedupeWindowMs = 2000 } = {})`
+- `useUiFeedback({ initialType = "success", source = "users-web.ui-feedback", successChannel = "", errorChannel = "", dedupeWindowMs = 2000 } = {})`
 
 ### `src/client/composables/runtime/useViewCore.js`
 Exports
@@ -337,6 +381,7 @@ Exports
 ### `src/client/composables/support/resourceLoadStateHelpers.js`
 Exports
 - `hasResolvedQueryData({ query = null, data = null } = {})`
+- `mergeQueryMeta(queryOptions = null, meta = {})`
 
 ### `src/client/composables/support/routeTemplateHelpers.js`
 Exports
@@ -388,6 +433,19 @@ Exports
 Exports
 - `useCommand({ ownershipFilter = ROUTE_VISIBILITY_WORKSPACE, surfaceId = "", access = "auto", apiSuffix = "", runPermissions = [], writeMethod = "POST", transport = null, placementSource = "users-web.command", fallbackRunError = "Unable to complete action.", fieldErrorKeys = [], clearOnRouteChange = true, model, input, buildRawPayload, buildCommandPayload, buildCommandOptions, onRunSuccess, onRunError, suppressSuccessMessage = false, messages = {}, realtime = null } = {})`
 
+### `src/client/composables/useCrudAddEditScreen.js`
+Exports
+- `useCrudAddEditScreen({ screen = null, mode = "new", title = "", subtitle = "", saveLabel = "Save", cancelTo = "", resource = null, operationName = "", formFields = [], addEditOptions = {}, saveSuccess = {}, fieldBinding = null, createModel = null, buildPayload = null, mapPayloadToModel = null, input = null, preserveCancelQuery = false } = {})`
+Local functions
+- `normalizeProvidedScreen(screen = null)`
+
+### `src/client/composables/useCrudListBulkActions.js`
+Exports
+- `useCrudListBulkActions(actions = [], { resolveRecordId = null, resolveContext = null } = {})`
+Local functions
+- `normalizeSelectedId(value = "")`
+- `resolveActionKey(actionOrKey = "")`
+
 ### `src/client/composables/useCrudListFilterLookups.js`
 Exports
 - `useCrudListFilterLookups(definitions = {}, { values = {}, adapter = null, recordIdParam = "recordId", queryKeyPrefix = [], placementSourcePrefix = "", requestQueryParams = {}, labelResolvers = {} } = {})`
@@ -412,6 +470,16 @@ Exports
 Local functions
 - `normalizeQueryKeyPrefix(value = [])`
 
+### `src/client/composables/useCrudListScreen.js`
+Exports
+- `useCrudListScreen({ adapter = null, resource = null, resourceNamespace = "resource", apiSuffix = "", recordIdParam = "recordId", recordIdSelector = null, titleFallbackFieldKey = "", viewUrlTemplate = "", editUrlTemplate = "", newUrlTemplate = "", recordChangedEvents = [], listFilters = {}, listBulkActions = [], routeQueryBlacklist = Object.freeze(["include", "cursor", "limit"]), fallbackLoadError = "Unable to load records." } = {})`
+Local functions
+- `formatCrudListCardValue(value)`
+
+### `src/client/composables/useCrudViewScreen.js`
+Exports
+- `useCrudViewScreen({ adapter = null, resource = null, resourceNamespace = "resource", apiUrlTemplate = "", recordIdParam = "recordId", titleFallbackFieldKey = "", listUrlTemplate = "", editUrlTemplate = "", recordChangedEvent = "", fallbackLoadError = "Unable to load record.", notFoundMessage = "Record not found." } = {})`
+
 ### `src/client/composables/usePagedCollection.js`
 Exports
 - `usePagedCollection({ queryKey, enabled = true, initialPageParam = null, queryFn, getNextPageParam = defaultGetNextPageParam, selectItems = defaultSelectItems, dedupeBy = null, queryOptions = null, fallbackLoadError = "Unable to load list." } = {})`
@@ -433,10 +501,12 @@ Local functions
 
 ### `src/client/composables/useRealtimeQueryInvalidation.js`
 Exports
+- `resolveOperationRealtimeOptions({ realtime = undefined, fallbackRealtime = null } = {})`
 - `useRealtimeQueryInvalidation({ event = "", enabled = true, matches = null, queryKey = null, onEvent = null } = {})`
 - `useOperationRealtime({ realtime = null, queryKey = null, enabled = true } = {})`
 Local functions
 - `normalizeRealtimeOptions(value = {})`
+- `hasRealtimeEventConfig(value = {})`
 - `resolveEnabled(value)`
 - `toQueryKeyList(value)`
 
@@ -450,10 +520,31 @@ Local functions
 Exports
 - `useSurfaceRouteContext()`
 
+### `src/client/filters.js`
+Exports
+- `CRUD_LIST_FILTER_TYPE_FLAG`
+- `CRUD_LIST_FILTER_TYPE_ENUM`
+- `CRUD_LIST_FILTER_TYPE_ENUM_MANY`
+- `CRUD_LIST_FILTER_TYPE_RECORD_ID`
+- `CRUD_LIST_FILTER_TYPE_RECORD_ID_MANY`
+- `CRUD_LIST_FILTER_TYPE_DATE`
+- `CRUD_LIST_FILTER_TYPE_DATE_RANGE`
+- `CRUD_LIST_FILTER_TYPE_NUMBER_RANGE`
+- `CRUD_LIST_FILTER_TYPE_PRESENCE`
+- `CRUD_LIST_FILTER_PRESENCE_PRESENT`
+- `CRUD_LIST_FILTER_PRESENCE_MISSING`
+- `CRUD_LIST_FILTER_PRESENCE_OPTIONS`
+- `defineCrudListFilters`
+
 ### `src/client/index.js`
 Exports
 - `UsersWebClientProvider`
 - `AccountSettingsClientElement`
+- `CrudAddEditScreen`
+- `CrudListBulkActionSurface`
+- `CrudListFilterSurface`
+- `CrudListScreen`
+- `CrudViewScreen`
 - `clientProviders`
 
 ### `src/client/lib/bootstrap.js`
@@ -502,7 +593,6 @@ Exports
 
 ### `src/shared/toolsOutletContracts.js`
 Exports
-- `DEFAULT_COG_LINK_COMPONENT_TOKEN`
 - `HOME_COG_OUTLET`
 
 ### templates

@@ -12,8 +12,8 @@ function setupOperationErrorReporting({
   notFoundError = null,
   loadActionFactory = null,
   notFoundActionFactory = null,
-  loadChannel = "banner",
-  notFoundChannel = "banner",
+  loadChannel = "",
+  notFoundChannel = "",
   loadSeverity = "error",
   notFoundSeverity = "warning",
   dedupeWindowMs = 2000
@@ -27,7 +27,8 @@ function setupOperationErrorReporting({
 
   function watchMessage(value, {
     kind = "load",
-    channel = "banner",
+    channel = "",
+    intent = "resource-load",
     severity = "error",
     actionFactory = null
   } = {}) {
@@ -60,6 +61,7 @@ function setupOperationErrorReporting({
         const reportResult = runtime.report({
           source: normalizedSource,
           message: nextMessage,
+          intent,
           severity,
           channel,
           action,
@@ -83,6 +85,7 @@ function setupOperationErrorReporting({
     watchMessage(loadError, {
       kind: "load",
       channel: loadChannel,
+      intent: "resource-load",
       severity: loadSeverity,
       actionFactory: loadActionFactory
     });
@@ -92,6 +95,7 @@ function setupOperationErrorReporting({
     watchMessage(notFoundError, {
       kind: "not-found",
       channel: notFoundChannel,
+      intent: "resource-load",
       severity: notFoundSeverity,
       actionFactory: notFoundActionFactory
     });

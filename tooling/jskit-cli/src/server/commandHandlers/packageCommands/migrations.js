@@ -99,7 +99,8 @@ async function runPackageMigrationsCommand(ctx = {}, { positional, options, cwd,
       packageOptions: resolvedOptions,
       appRoot,
       lock,
-      touchedFiles
+      touchedFiles,
+      dryRun: options.dryRun === true
     });
     migratedRecords.push(managedRecord);
     for (const warning of ensureArray(ensureObject(managedRecord).warnings)) {

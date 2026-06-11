@@ -186,8 +186,8 @@ description: Why JSKIT-AI is more than a stack.
     <p class="why-jskit-kicker">Discipline</p>
     <h2>AI that builds inside the framework</h2>
     <ul>
-      <li>blueprinting before code</li>
-      <li>workboards for substantial work</li>
+      <li>app blueprint memory</li>
+      <li>scoped verification receipts</li>
       <li>chunked delivery</li>
       <li>deslop passes</li>
       <li>JSKIT audits</li>

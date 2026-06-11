@@ -113,6 +113,7 @@ test("bootClientModules registers descriptor and clientRoutes with providers onl
   const events = [];
   const loginComponent = {};
   const pinia = { id: "pinia-instance" };
+  const queryClient = { id: "query-client-instance" };
   const implicitPinia = { id: "implicit-vue-global-pinia" };
   class ExampleClientProvider {
     static id = "example.client";
@@ -120,6 +121,7 @@ test("bootClientModules registers descriptor and clientRoutes with providers onl
       events.push("register");
       app.instance("example.value", 42);
       app.instance("example.pinia", app.make("jskit.client.pinia"));
+      app.instance("example.queryClient", app.make("jskit.client.query-client"));
     }
     boot() {
       events.push("boot");
@@ -190,6 +192,7 @@ test("bootClientModules registers descriptor and clientRoutes with providers onl
       }
     },
     pinia,
+    queryClient,
     router,
     surfaceRuntime,
     surfaceMode: "all",
@@ -206,6 +209,7 @@ test("bootClientModules registers descriptor and clientRoutes with providers onl
   assert.equal(router.routes[1].component, loginComponent);
   assert.equal(result.runtimeApp.make("example.value"), 42);
   assert.equal(result.runtimeApp.make("example.pinia"), pinia);
+  assert.equal(result.runtimeApp.make("example.queryClient"), queryClient);
   assert.notEqual(result.runtimeApp.make("example.pinia"), implicitPinia);
 });
 

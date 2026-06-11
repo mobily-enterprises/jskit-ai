@@ -1,6 +1,6 @@
 {
   "name": "@jskit-ai/users-web",
-  "version": "0.1.78",
+  "version": "0.1.104",
   "type": "module",
   "scripts": {
     "test": "node --test"
@@ -8,22 +8,33 @@
   "exports": {
     "./client": "./src/client/index.js",
     "./client/components/AccountSettingsClientElement": "./src/client/components/AccountSettingsClientElement.vue",
+    "./client/components/CrudAddEditScreen": "./src/client/components/CrudAddEditScreen.vue",
+    "./client/components/CrudListBulkActionSurface": "./src/client/components/CrudListBulkActionSurface.vue",
+    "./client/components/CrudListFilterSurface": "./src/client/components/CrudListFilterSurface.vue",
+    "./client/components/CrudListScreen": "./src/client/components/CrudListScreen.vue",
+    "./client/components/CrudViewScreen": "./src/client/components/CrudViewScreen.vue",
     "./client/account-settings/sections": "./src/client/account-settings/sections.js",
+    "./client/bulkActions": "./src/client/bulkActions.js",
+    "./client/filters": "./src/client/filters.js",
     "./client/composables/useAddEdit": "./src/client/composables/records/useAddEdit.js",
     "./client/composables/useAccess": "./src/client/composables/useAccess.js",
     "./client/composables/useCommand": "./src/client/composables/useCommand.js",
     "./client/composables/useCrudAddEdit": "./src/client/composables/records/useCrudAddEdit.js",
+    "./client/composables/useCrudAddEditScreen": "./src/client/composables/useCrudAddEditScreen.js",
+    "./client/composables/useCrudListBulkActions": "./src/client/composables/useCrudListBulkActions.js",
     "./client/composables/crudLookupFieldRuntime": "./src/client/composables/crud/crudLookupFieldRuntime.js",
     "./client/composables/useCrudListFilterLookups": "./src/client/composables/useCrudListFilterLookups.js",
     "./client/composables/useCrudListFilters": "./src/client/composables/useCrudListFilters.js",
     "./client/composables/useEndpointResource": "./src/client/composables/runtime/useEndpointResource.js",
     "./client/composables/useList": "./src/client/composables/records/useList.js",
     "./client/composables/useCrudList": "./src/client/composables/records/useCrudList.js",
+    "./client/composables/useCrudListScreen": "./src/client/composables/useCrudListScreen.js",
     "./client/composables/useCrudListParentTitle": "./src/client/composables/useCrudListParentTitle.js",
     "./client/composables/useRealtimeQueryInvalidation": "./src/client/composables/useRealtimeQueryInvalidation.js",
     "./client/composables/useSurfaceRouteContext": "./src/client/composables/useSurfaceRouteContext.js",
     "./client/composables/useView": "./src/client/composables/records/useView.js",
     "./client/composables/useCrudView": "./src/client/composables/records/useCrudView.js",
+    "./client/composables/useCrudViewScreen": "./src/client/composables/useCrudViewScreen.js",
     "./client/composables/usePagedCollection": "./src/client/composables/usePagedCollection.js",
     "./client/composables/usePaths": "./src/client/composables/usePaths.js",
     "./client/composables/runtime/useUiFeedback": "./src/client/composables/runtime/useUiFeedback.js",
@@ -32,18 +43,18 @@
     "./client/support/contractGuards": "./src/client/support/contractGuards.js"
   },
   "dependencies": {
-    "@tanstack/vue-query": "5.92.12",
     "@mdi/js": "^7.4.47",
-    "@jskit-ai/http-runtime": "0.1.62",
-    "@jskit-ai/kernel": "0.1.63",
-    "@jskit-ai/realtime": "0.1.62",
-    "@jskit-ai/shell-web": "0.1.62",
-    "@jskit-ai/uploads-image-web": "0.1.41",
-    "@jskit-ai/users-core": "0.1.73",
-    "vuetify": "^4.0.0"
+    "@jskit-ai/http-runtime": "0.1.88",
+    "@jskit-ai/kernel": "0.1.89",
+    "@jskit-ai/realtime": "0.1.88",
+    "@jskit-ai/shell-web": "0.1.88",
+    "@jskit-ai/uploads-image-web": "0.1.67",
+    "@jskit-ai/users-core": "0.1.99"
   },
   "peerDependencies": {
+    "@tanstack/vue-query": "^5.90.5",
     "vue": "^3.5.13",
-    "vue-router": "^5.0.4"
+    "vue-router": "^5.0.4",
+    "vuetify": "^4.0.0"
   }
 }

@@ -16,6 +16,14 @@ function resolveLinkToPropLine(linkTo = "") {
   return `      to: ${JSON.stringify(linkTo)},\n`;
 }
 
+function resolveOwnerLine(owner = "") {
+  const normalizedOwner = normalizeText(owner);
+  if (!normalizedOwner) {
+    return "";
+  }
+  return `    owner: ${JSON.stringify(normalizedOwner)},\n`;
+}
+
 function resolveTemplateFilePath(relativePath = "") {
   return fileURLToPath(new URL(relativePath, import.meta.url));
 }
@@ -49,7 +57,6 @@ async function resolveAssistantPageGenerationContext({
     targetFile,
     context,
     placement: options?.["link-placement"],
-    componentToken: options?.["link-component-token"],
     linkTo: options?.["link-to"]
   });
 
@@ -57,7 +64,7 @@ async function resolveAssistantPageGenerationContext({
     pageTarget,
     pageLabel: normalizeText(options?.name) || pageTarget.defaultName,
     linkPlacementTarget: String(linkTarget.placementTarget?.id || ""),
-    linkComponentToken: String(linkTarget.componentToken || ""),
+    linkOwnerLine: resolveOwnerLine(linkTarget.placementTarget?.owner || ""),
     linkWorkspaceSuffix: pageTarget.routeUrlSuffix,
     linkNonWorkspaceSuffix: pageTarget.routeUrlSuffix,
     linkWhenLine: String(linkTarget.whenLine || ""),
@@ -76,9 +83,10 @@ function renderAssistantPageLinkPlacementBlock({
     "  addPlacement({\n" +
     `    id: "${String(pageTarget?.placementId || "")}",\n` +
     `    target: "${String(generationContext?.linkPlacementTarget || "")}",\n` +
+    `${String(generationContext?.linkOwnerLine || "")}` +
+    "    kind: \"link\",\n" +
     `    surfaces: ["${String(pageTarget?.surfaceId || "")}"],\n` +
     "    order: 155,\n" +
-    `    componentToken: "${String(generationContext?.linkComponentToken || "")}",\n` +
     "    props: {\n" +
     `      label: "${String(generationContext?.pageLabel || "")}",\n` +
     `      surface: "${String(pageTarget?.surfaceId || "")}",\n` +

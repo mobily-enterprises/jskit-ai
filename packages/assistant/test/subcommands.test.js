@@ -25,6 +25,61 @@ function toPagePath(targetFile = "") {
   return path.join("src/pages", targetFile);
 }
 
+function renderTopologyVariant(outlet, { linkRenderer = "" } = {}) {
+  const rendererLines = linkRenderer
+    ? `,
+      renderers: {
+        link: "${linkRenderer}"
+      }`
+    : "";
+  return `{
+      outlet: "${outlet}"${rendererLines}
+    }`;
+}
+
+function renderTopologyEntry({
+  id = "",
+  owner = "",
+  surfaces = ["*"],
+  defaultPlacement = false,
+  outlet = "",
+  linkRenderer = ""
+} = {}) {
+  const ownerLine = owner ? `    owner: "${owner}",\n` : "";
+  const defaultLine = defaultPlacement ? "    default: true,\n" : "";
+  return `  {
+    id: "${id}",
+${ownerLine}    surfaces: ${JSON.stringify(surfaces)},
+${defaultLine}    variants: {
+      compact: ${renderTopologyVariant(outlet, { linkRenderer })},
+      medium: ${renderTopologyVariant(outlet, { linkRenderer })},
+      expanded: ${renderTopologyVariant(outlet, { linkRenderer })}
+    }
+  }`;
+}
+
+async function writePlacementTopology(appRoot, entries = []) {
+  const defaultEntries = [
+    renderTopologyEntry({
+      id: "shell.primary-nav",
+      surfaces: ["*"],
+      defaultPlacement: true,
+      outlet: "shell-layout:primary-menu",
+      linkRenderer: "local.main.ui.surface-aware-menu-link-item"
+    })
+  ];
+  await writeFileInApp(
+    appRoot,
+    "src/placementTopology.js",
+    `export default {
+  placements: [
+${[...defaultEntries, ...entries].join(",\n")}
+  ]
+};
+`
+  );
+}
+
 async function writeAppFixture(appRoot, { configSource = "" } = {}) {
   await writeFileInApp(
     appRoot,
@@ -73,6 +128,7 @@ export default function getPlacements() {
 }
 `
   );
+  await writePlacementTopology(appRoot);
 }
 
 test("assistant page subcommand creates a runtime page at an explicit target file", async () => {
@@ -96,7 +152,9 @@ test("assistant page subcommand creates a runtime page at an explicit target fil
     const placementSource = await readFile(path.join(appRoot, "src/placement.js"), "utf8");
     assert.match(placementSource, /jskit:assistant\.page\.link:admin:\/ops\/copilot/);
     assert.match(placementSource, /id: "ui-generator\.page\.admin\.ops\.copilot\.link"/);
-    assert.match(placementSource, /target: "shell-layout:primary-menu"/);
+    assert.match(placementSource, /target: "shell\.primary-nav"/);
+    assert.match(placementSource, /kind: "link"/);
+    assert.doesNotMatch(placementSource, /componentToken:/);
     assert.match(placementSource, /label: "Copilot"/);
     assert.match(placementSource, /scopedSuffix: "\/ops\/copilot"/);
   });
@@ -105,6 +163,15 @@ test("assistant page subcommand creates a runtime page at an explicit target fil
 test("assistant settings-page subcommand uses the target assistant surface and infers parent subpage placement", async () => {
   await withTempApp(async (appRoot) => {
     await writeAppFixture(appRoot);
+    await writePlacementTopology(appRoot, [
+      renderTopologyEntry({
+        id: "page.section-nav",
+        owner: "admin-settings",
+        surfaces: ["admin"],
+        outlet: "admin-settings:sub-pages",
+        linkRenderer: "local.main.ui.surface-aware-menu-link-item"
+      })
+    ]);
     await writeFileInApp(
       appRoot,
       "src/pages/w/[workspaceSlug]/admin/settings/index.vue",
@@ -137,8 +204,9 @@ test("assistant settings-page subcommand uses the target assistant surface and i
 
     const placementSource = await readFile(path.join(appRoot, "src/placement.js"), "utf8");
     assert.match(placementSource, /jskit:assistant\.settings-page\.link:admin:\/settings\/assistant:console/);
-    assert.match(placementSource, /target: "admin-settings:sub-pages"/);
-    assert.match(placementSource, /componentToken: "local\.main\.ui\.surface-aware-menu-link-item"/);
+    assert.match(placementSource, /target: "page\.section-nav"/);
+    assert.match(placementSource, /owner: "admin-settings"/);
+    assert.doesNotMatch(placementSource, /componentToken: "local\.main\.ui\.surface-aware-menu-link-item"/);
     assert.match(placementSource, /to: "\.\/assistant"/);
     assert.match(placementSource, /label: "Assistant"/);
   });
@@ -241,6 +309,15 @@ test("assistant page subcommand overwrites an existing page when --force is pass
 test("assistant settings-page subcommand overwrites an existing page when --force is passed", async () => {
   await withTempApp(async (appRoot) => {
     await writeAppFixture(appRoot);
+    await writePlacementTopology(appRoot, [
+      renderTopologyEntry({
+        id: "page.section-nav",
+        owner: "admin-settings",
+        surfaces: ["admin"],
+        outlet: "admin-settings:sub-pages",
+        linkRenderer: "local.main.ui.surface-aware-menu-link-item"
+      })
+    ]);
     await writeFileInApp(
       appRoot,
       "src/pages/w/[workspaceSlug]/admin/settings/index.vue",

@@ -835,7 +835,7 @@ function renderTemplateJsStringLiteral(value) {
 
 function buildListHeaderColumns(fields = []) {
   return (Array.isArray(fields) ? fields : [])
-    .map((field) => `                <th>${escapeHtml(field.label)}</th>`)
+    .map((field) => `      <th>${escapeHtml(field.label)}</th>`)
     .join("\n");
 }
 
@@ -888,10 +888,25 @@ function buildListRowColumns(fields = []) {
   return (Array.isArray(fields) ? fields : [])
     .map((field) => {
       if (isLookupField(field)) {
-        return `                <td>{{ records.resolveFieldDisplay(record, ${toLookupDisplayFieldExpression(field)}) }}</td>`;
+        return `      <td>{{ records.resolveFieldDisplay(record, ${toLookupDisplayFieldExpression(field)}) }}</td>`;
       }
 
-      return `                <td>{{ ${toAccessorExpression("record", field.key)} }}</td>`;
+      return `      <td>{{ ${toAccessorExpression("record", field.key)} }}</td>`;
+    })
+    .join("\n");
+}
+
+function buildListCardFields(fields = []) {
+  return (Array.isArray(fields) ? fields : [])
+    .map((field) => {
+      const valueExpression = isLookupField(field)
+        ? `records.resolveFieldDisplay(record, ${toLookupDisplayFieldExpression(field)})`
+        : toAccessorExpression("record", field.key);
+
+      return `      <div class="ui-generator-list-card__field">
+        <span class="ui-generator-list-card__field-label">${escapeHtml(field.label)}</span>
+        <span class="ui-generator-list-card__field-value">{{ formatListCardValue(${valueExpression}) }}</span>
+      </div>`;
     })
     .join("\n");
 }
@@ -903,10 +918,10 @@ function buildViewColumns(fields = []) {
         ? `view.resolveFieldDisplay(view.record, ${toLookupDisplayFieldExpression(field)})`
         : toOptionalAccessorExpression("view.record", field.key);
 
-      return `            <v-col cols="12" md="6">
-              <div class="text-caption text-medium-emphasis">${escapeHtml(field.label)}</div>
-              <div class="text-body-1">{{ ${valueExpression} }}</div>
-            </v-col>`;
+      return `      <v-col cols="12" md="6">
+        <div class="text-caption text-medium-emphasis">${escapeHtml(field.label)}</div>
+        <div class="text-body-1">{{ ${valueExpression} }}</div>
+      </v-col>`;
     })
     .join("\n");
 }
@@ -929,34 +944,34 @@ function buildFormColumns(fields = []) {
       const fieldErrorExpression = `resolveFieldErrors(${fieldKeyLiteral})`;
       const component = normalizeText(field?.component).toLowerCase();
       if (component === "switch") {
-        return `              <v-col cols="12" md="6">
-                <v-switch
-                  v-model="${formAccessor}"
-                  label="${label}"
-                  color="primary"
-                  hide-details="auto"
-                  :disabled="addEdit.isFieldLocked"
-                  :error-messages="${fieldErrorExpression}"
-                />
-              </v-col>`;
+        return `        <v-col cols="12" md="6">
+          <v-switch
+            v-model="${formAccessor}"
+            label="${label}"
+            color="primary"
+            hide-details="auto"
+            :disabled="addEdit.isFieldLocked"
+            :error-messages="${fieldErrorExpression}"
+          />
+        </v-col>`;
       }
 
       if (component === "select") {
         const selectOptions = Array.isArray(field?.options) ? field.options : [];
-        return `              <v-col cols="12" md="6">
-                <v-select
-                  v-model="${formAccessor}"
-                  label="${label}"
-                  variant="outlined"
-                  density="comfortable"
-                  :items="${serializeTemplateBindingValue(selectOptions)}"
-                  item-title="label"
-                  item-value="value"
-                  :disabled="addEdit.isFieldLocked"
-                  :clearable="${field.nullable === true ? "true" : "false"}"
-                  :error-messages="${fieldErrorExpression}"
-                />
-              </v-col>`;
+        return `        <v-col cols="12" md="6">
+          <v-select
+            v-model="${formAccessor}"
+            label="${label}"
+            variant="outlined"
+            density="comfortable"
+            :items="${serializeTemplateBindingValue(selectOptions)}"
+            item-title="label"
+            item-value="value"
+            :disabled="addEdit.isFieldLocked"
+            :clearable="${field.nullable === true ? "true" : "false"}"
+            :error-messages="${fieldErrorExpression}"
+          />
+        </v-col>`;
       }
 
       if (component === "lookup") {
@@ -964,53 +979,53 @@ function buildFormColumns(fields = []) {
         const useAutocomplete = lookupFormControl !== "select";
         const lookupComponentTag = useAutocomplete ? "v-autocomplete" : "v-select";
         const lookupAttributeLines = [
-          `                  :items="resolveLookupItems(${fieldKeyLiteral}, { selectedValue: ${formAccessor}, selectedRecord: addEdit.resource.data })"`
+          `            :items="fieldLookupItems(${fieldKeyLiteral}, { selectedValue: ${formAccessor}, selectedRecord: addEdit.resource.data })"`
         ];
         if (useAutocomplete) {
           lookupAttributeLines.push(
-            `                  :search="resolveLookupSearch(${fieldKeyLiteral})"`,
-            `                  @update:search="setLookupSearch(${fieldKeyLiteral}, $event)"`
+            `            :search="fieldLookupSearch(${fieldKeyLiteral})"`,
+            `            @update:search="setFieldLookupSearch(${fieldKeyLiteral}, $event)"`
           );
         }
         lookupAttributeLines.push(
-          `                  item-title="label"`,
-          `                  item-value="value"`
+          `            item-title="label"`,
+          `            item-value="value"`
         );
         if (useAutocomplete) {
-          lookupAttributeLines.push("                  no-filter");
+          lookupAttributeLines.push("            no-filter");
         }
-        return `              <v-col cols="12" md="6">
-                <${lookupComponentTag}
-                  v-model="${formAccessor}"
-                  label="${label}"
-                  variant="outlined"
-                  density="comfortable"
-                  autocomplete="off"
+        return `        <v-col cols="12" md="6">
+          <${lookupComponentTag}
+            v-model="${formAccessor}"
+            label="${label}"
+            variant="outlined"
+            density="comfortable"
+            autocomplete="off"
 ${lookupAttributeLines.join("\n")}
-                  :loading="resolveLookupLoading(${fieldKeyLiteral})"
-                  :disabled="addEdit.isFieldLocked"
-                  :clearable="${field.nullable === true ? "true" : "false"}"
-                  :error-messages="${fieldErrorExpression}"
-                />
-              </v-col>`;
+            :loading="fieldLookupLoading(${fieldKeyLiteral})"
+            :disabled="addEdit.isFieldLocked"
+            :clearable="${field.nullable === true ? "true" : "false"}"
+            :error-messages="${fieldErrorExpression}"
+          />
+        </v-col>`;
       }
 
       const inputType = normalizeText(field?.inputType) || "text";
       const maxLength = Number.isInteger(field?.maxLength) && field.maxLength > 0
         ? String(field.maxLength)
         : "undefined";
-      return `              <v-col cols="12" md="6">
-                <v-text-field
-                  v-model="${formAccessor}"
-                  label="${label}"
-                  type="${escapeHtml(inputType)}"
-                  variant="outlined"
-                  density="comfortable"
-                  :maxlength="${maxLength}"
-                  :readonly="addEdit.isFieldLocked"
-                  :error-messages="${fieldErrorExpression}"
-                />
-              </v-col>`;
+      return `        <v-col cols="12" md="6">
+          <v-text-field
+            v-model="${formAccessor}"
+            label="${label}"
+            type="${escapeHtml(inputType)}"
+            variant="outlined"
+            density="comfortable"
+            :maxlength="${maxLength}"
+            :readonly="addEdit.isFieldLocked"
+            :error-messages="${fieldErrorExpression}"
+          />
+        </v-col>`;
     })
     .filter(Boolean)
     .join("\n");
@@ -1069,6 +1084,7 @@ export {
   resolveNearestParentRouteParamKey,
   buildListHeaderColumns,
   buildListRowColumns,
+  buildListCardFields,
   buildViewColumns,
   buildFormColumns,
   resolveRecordIdFieldKey,

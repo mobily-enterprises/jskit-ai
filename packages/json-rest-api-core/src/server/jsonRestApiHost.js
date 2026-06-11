@@ -1,6 +1,7 @@
 import { Api } from "hooked-api";
 import { AutoFilterPlugin, RestApiKnexPlugin, RestApiPlugin } from "json-rest-api";
 import { normalizeRecordId } from "@jskit-ai/kernel/shared/support/normalize";
+import { resolveCrudResourceScopeName } from "@jskit-ai/kernel/shared/support/crudLookup";
 
 const INTERNAL_JSON_REST_API = "internal.json-rest-api";
 
@@ -79,6 +80,12 @@ function cloneJsonRestResourceValue(value, { writeSerializers = {} } = {}) {
       delete next.storage.writeSerializer;
     }
   }
+  if (
+    isPlainJsonRestObject(next.relation) &&
+    normalizeJsonRestText(next.relation.kind).toLowerCase() === "collection"
+  ) {
+    next.virtual = true;
+  }
 
   return next;
 }
@@ -142,6 +149,38 @@ function normalizeJsonRestList(value) {
     .split(",")
     .map((entry) => normalizeJsonRestText(entry))
     .filter(Boolean);
+}
+
+function resolveJsonRestCollectionRelationships(resource = {}) {
+  const resourceSchema = normalizeJsonRestObject(resource?.schema);
+  const relationships = {};
+
+  for (const [fieldName, fieldDefinition] of Object.entries(resourceSchema)) {
+    const normalizedFieldDefinition = normalizeJsonRestObject(fieldDefinition);
+    const relation = normalizeJsonRestObject(normalizedFieldDefinition.relation);
+    if (normalizeJsonRestText(relation.kind).toLowerCase() !== "collection") {
+      continue;
+    }
+
+    const relationshipName = normalizeJsonRestText(relation.as || normalizedFieldDefinition.as, {
+      fallback: fieldName
+    });
+    const target = resolveCrudResourceScopeName(
+      relation.target || relation.targetResource || relation.namespace || relation.apiPath
+    );
+    const foreignKey = normalizeJsonRestText(relation.foreignKey);
+    if (!relationshipName || !target || !foreignKey) {
+      continue;
+    }
+
+    relationships[relationshipName] = {
+      type: "hasMany",
+      target,
+      foreignKey
+    };
+  }
+
+  return relationships;
 }
 
 function buildJsonRestQueryParams(resourceType = "", query = {}, { include = undefined } = {}) {
@@ -292,6 +331,23 @@ function createJsonRestResourceScopeOptions(resource = {}, { writeSerializers = 
   const scopeOptions = cloneJsonRestResourceValue(resource, {
     writeSerializers: normalizeJsonRestObject(writeSerializers)
   });
+  const collectionRelationships = resolveJsonRestCollectionRelationships(scopeOptions);
+  if (Object.keys(collectionRelationships).length > 0) {
+    if (
+      scopeOptions.relationships !== undefined &&
+      scopeOptions.relationships !== null &&
+      !isPlainJsonRestObject(scopeOptions.relationships)
+    ) {
+      throw new TypeError(
+        "json-rest-api resource relationships must be an object when collection relations are derived."
+      );
+    }
+
+    scopeOptions.relationships = {
+      ...collectionRelationships,
+      ...normalizeJsonRestObject(scopeOptions.relationships)
+    };
+  }
 
   if (typeof normalizeId === "function") {
     scopeOptions.normalizeId = normalizeId;

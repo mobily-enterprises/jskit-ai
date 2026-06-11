@@ -5,7 +5,11 @@ const workspaceInvitesResource = defineCrudResource({
   namespace: "workspaceInvites",
   tableName: "workspace_invites",
   searchSchema: {
-    id: { type: "id", actualField: "id" }
+    id: { type: "id", actualField: "id" },
+    workspace: { type: "id", actualField: "workspace_id", filterOperator: "=" },
+    email: { type: "string", actualField: "email", filterOperator: "=" },
+    status: { type: "string", actualField: "status", filterOperator: "=" },
+    tokenHash: { type: "string", actualField: "token_hash", filterOperator: "=" }
   },
   schema: {
     workspaceId: {

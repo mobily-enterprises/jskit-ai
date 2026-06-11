@@ -3,7 +3,11 @@ import {
   ensureObject
 } from "../../shared/collectionUtils.js";
 import {
-  normalizeShellOutletTargetId
+  normalizePlacementKind,
+  normalizePlacementOwnerId,
+  normalizePlacementTopologyDefinition,
+  normalizeShellOutletTargetId,
+  resolvePlacementTargetReference
 } from "@jskit-ai/kernel/shared/support/shellLayoutTargets";
 
 function normalizePlacementOutlets(value) {
@@ -41,22 +45,27 @@ function normalizePlacementContributions(value) {
   for (const entry of ensureArray(value)) {
     const record = ensureObject(entry);
     const id = String(record.id || "").trim();
-    const target = normalizeShellOutletTargetId(record.target);
-    if (!id || !target) {
+    const targetReference = resolvePlacementTargetReference(record.target);
+    if (!id || !targetReference?.id) {
       continue;
     }
 
     const surfaces = [...new Set(ensureArray(record.surfaces).map((item) => String(item || "").trim()).filter(Boolean))];
+    const kind = normalizePlacementKind(record.kind) || (String(record.componentToken || "").trim() ? "component" : "link");
     const componentToken = String(record.componentToken || "").trim();
     const when = String(record.when || "").trim();
     const description = String(record.description || "").trim();
     const source = String(record.source || "").trim();
+    const owner = normalizePlacementOwnerId(record.owner);
     const parsedOrder = Number(record.order);
     const order = Number.isFinite(parsedOrder) ? Math.trunc(parsedOrder) : null;
     contributions.push(
       Object.freeze({
         id,
-        target,
+        target: targetReference.id,
+        targetType: targetReference.type,
+        owner,
+        kind,
         surfaces: Object.freeze(surfaces),
         order,
         componentToken,
@@ -83,7 +92,12 @@ function normalizePlacementContributions(value) {
   );
 }
 
+function normalizePlacementTopology(value, { context = "package placement topology" } = {}) {
+  return normalizePlacementTopologyDefinition(value, { context }).placements;
+}
+
 export {
   normalizePlacementContributions,
-  normalizePlacementOutlets
+  normalizePlacementOutlets,
+  normalizePlacementTopology
 };

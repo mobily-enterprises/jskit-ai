@@ -1,56 +1,21 @@
 <template>
-  <section class="ui-generator-edit-element d-flex flex-column ga-4">
-    <v-card rounded="lg" elevation="1" border>
-      <v-card-item>
-        <div class="d-flex align-center ga-3 flex-wrap w-100">
-          <div>
-            <v-card-title class="px-0">Edit __JSKIT_UI_RESOURCE_SINGULAR_TITLE__</v-card-title>
-            <v-card-subtitle class="px-0">Update the selected __JSKIT_UI_RESOURCE_SINGULAR_TITLE__.</v-card-subtitle>
-          </div>
-          <v-spacer />
-          <v-btn
-            v-if="UI_CANCEL_URL"
-            color="primary"
-            variant="outlined"
-            :to="{ path: formRuntime.addEdit.resolveParams(UI_CANCEL_URL), query: $route.query }"
-          >
-            Cancel
-          </v-btn>
-          <v-btn
-            color="primary"
-            variant="flat"
-            :loading="formRuntime.addEdit.isSaving"
-            :disabled="formRuntime.addEdit.isSubmitDisabled"
-            @click="formRuntime.addEdit.submit"
-          >
-            Save changes
-          </v-btn>
-        </div>
-      </v-card-item>
-      <v-divider />
-      <v-card-text class="pt-4">
-        <p v-if="formRuntime.addEdit.loadError" class="text-body-2 text-medium-emphasis mb-0">
-          {{ formRuntime.addEdit.loadError }}
-        </p>
-        <template v-else-if="formRuntime.showFormSkeleton">
-          <v-skeleton-loader type="text@2, list-item-two-line@4, button" />
-        </template>
-        <v-form v-else @submit.prevent="formRuntime.addEdit.submit" novalidate>
-          <v-progress-linear v-if="formRuntime.addEdit.isRefetching" indeterminate class="mb-4" />
-          <v-row>
-            <!-- jskit:crud-ui-fields:edit -->
+  <CrudAddEditScreen
+    :screen="screen"__JSKIT_UI_EDIT_LOOKUP_FORM_PROPS__
+  >
+    <template
+      #fields="__JSKIT_UI_EDIT_FORM_SLOT_PROPS__"
+    >
+      <!-- jskit:crud-ui-fields:edit -->
 __JSKIT_UI_EDIT_FORM_COLUMNS_DIRECT__
-          </v-row>
-        </v-form>
-      </v-card-text>
-    </v-card>
-  </section>
+    </template>
+  </CrudAddEditScreen>
 </template>
 
 <script setup>
 import { computed } from "vue";
 import { useRoute } from "vue-router";
-import { useCrudAddEdit } from "@jskit-ai/users-web/client/composables/useCrudAddEdit";
+import CrudAddEditScreen from "@jskit-ai/users-web/client/components/CrudAddEditScreen";
+import { useCrudAddEditScreen } from "@jskit-ai/users-web/client/composables/useCrudAddEditScreen";
 __JSKIT_UI_EDIT_LOOKUP_IMPORT_LINE__
 import { resource as uiResource } from "__JSKIT_UI_RESOURCE_IMPORT_PATH__";
 
@@ -83,7 +48,13 @@ const routeRecordId = computed(() => {
 
 __JSKIT_UI_EDIT_LOOKUP_RUNTIME_SETUP__
 
-const formRuntime = useCrudAddEdit({
+const screen = useCrudAddEditScreen({
+  mode: "edit",
+  title: "Edit __JSKIT_UI_RESOURCE_SINGULAR_TITLE__",
+  subtitle: "Update the selected __JSKIT_UI_RESOURCE_SINGULAR_TITLE__.",
+  saveLabel: "Save changes",
+  cancelTo: UI_CANCEL_URL,
+  preserveCancelQuery: true,
   resource: uiResource,
   operationName: "patch",
   formFields: UI_EDIT_FORM_FIELDS,
@@ -117,10 +88,4 @@ const formRuntime = useCrudAddEdit({
     listUrlTemplate: UI_LIST_URL
   }
 });
-const addEdit = formRuntime.addEdit;
-const formState = formRuntime.form;
-
-function resolveFieldErrors(fieldKey) {
-  return formRuntime.resolveFieldErrors(fieldKey);
-}
 </script>

@@ -56,28 +56,41 @@ const activeTab = computed({
 
 <template>
   <section class="settings-view py-2 py-md-4">
-    <v-card class="panel-card" rounded="lg" elevation="1" border>
-      <v-card-item>
-        <v-card-title class="panel-title">Account settings</v-card-title>
-        <v-card-subtitle>Global profile, preferences, notifications, and account controls.</v-card-subtitle>
-        <template #append>
-          <v-btn
-            variant="text"
-            color="secondary"
-            :to="runtime.backNavigationTarget.value.sameOrigin ? runtime.backNavigationTarget.value.href : undefined"
-            :href="runtime.backNavigationTarget.value.sameOrigin ? undefined : runtime.backNavigationTarget.value.href"
-          >
-            Back
-          </v-btn>
-        </template>
-      </v-card-item>
-      <v-divider />
+    <v-sheet class="settings-panel" rounded="lg" border>
+      <header class="settings-panel__header">
+        <div>
+          <h1 class="settings-panel__title">Account settings</h1>
+          <p class="text-body-2 text-medium-emphasis mb-0">
+            Global profile, preferences, notifications, and account controls.
+          </p>
+        </div>
+        <v-btn
+          variant="text"
+          color="secondary"
+          :to="runtime.backNavigationTarget.value.sameOrigin ? runtime.backNavigationTarget.value.href : undefined"
+          :href="runtime.backNavigationTarget.value.sameOrigin ? undefined : runtime.backNavigationTarget.value.href"
+        >
+          Back
+        </v-btn>
+      </header>
 
-      <v-card-text class="pt-4">
+      <div class="settings-panel__body">
         <template v-if="runtime.loadingSettings.value">
           <v-skeleton-loader type="text@2, list-item-two-line@4" class="mb-4" />
           <v-skeleton-loader type="text@2, paragraph, button" />
         </template>
+        <div v-else-if="runtime.settingsLoadError.value" class="settings-panel__state">
+          <h2 class="text-h6 mb-2">Unable to load account settings</h2>
+          <p class="text-body-2 text-medium-emphasis mb-4">{{ runtime.settingsLoadError.value }}</p>
+          <v-btn
+            color="primary"
+            variant="tonal"
+            :loading="runtime.refreshingSettings.value"
+            @click="runtime.refreshSettings"
+          >
+            Retry
+          </v-btn>
+        </div>
         <template v-else-if="sections.length < 1">
           <p class="text-body-2 text-medium-emphasis mb-0">No account settings sections are registered.</p>
         </template>
@@ -109,20 +122,42 @@ const activeTab = computed({
             </v-col>
           </v-row>
         </template>
-      </v-card-text>
-    </v-card>
+      </div>
+    </v-sheet>
   </section>
 </template>
 
 <style scoped>
-.panel-card {
+.settings-panel {
   background-color: rgb(var(--v-theme-surface));
+  overflow: hidden;
 }
 
-.panel-title {
-  font-size: 1rem;
-  font-weight: 600;
-  letter-spacing: 0.01em;
+.settings-panel__header {
+  align-items: flex-start;
+  display: flex;
+  gap: 1rem;
+  justify-content: space-between;
+  padding: 1rem 1rem 0;
+}
+
+.settings-panel__title {
+  font-size: clamp(1.35rem, 2vw, 1.85rem);
+  font-weight: 650;
+  letter-spacing: -0.02em;
+  line-height: 1.15;
+  margin: 0 0 0.35rem;
+}
+
+.settings-panel__body {
+  padding: 1rem;
+}
+
+.settings-panel__state {
+  margin-inline: auto;
+  max-width: 30rem;
+  padding: 2rem 1rem;
+  text-align: center;
 }
 
 .settings-section-list {
@@ -138,5 +173,15 @@ const activeTab = computed({
 :deep(.settings-sections-window .v-window-x-reverse-transition-enter-active),
 :deep(.settings-sections-window .v-window-x-reverse-transition-leave-active) {
   transition: none !important;
+}
+
+@media (max-width: 960px) {
+  .settings-panel__header {
+    flex-direction: column;
+  }
+
+  .settings-panel__header :deep(.v-btn) {
+    min-height: 48px;
+  }
 }
 </style>

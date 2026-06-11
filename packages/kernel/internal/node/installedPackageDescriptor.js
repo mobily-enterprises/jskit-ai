@@ -3,6 +3,26 @@ import { pathToFileURL } from "node:url";
 import { normalizeObject } from "../../shared/support/normalize.js";
 import { fileExists } from "./fileSystem.js";
 
+function resolveNodeModulesDescriptorCandidatePaths({ appRoot, packageId }) {
+  const packageDescriptorPath = path.join(packageId, "package.descriptor.mjs");
+  const candidatePaths = [];
+  let currentRoot = path.resolve(appRoot);
+
+  while (true) {
+    const nodeModulesRoot =
+      path.basename(currentRoot) === "node_modules" ? currentRoot : path.join(currentRoot, "node_modules");
+    candidatePaths.push(path.join(nodeModulesRoot, packageDescriptorPath));
+
+    const parentRoot = path.dirname(currentRoot);
+    if (parentRoot === currentRoot) {
+      break;
+    }
+    currentRoot = parentRoot;
+  }
+
+  return candidatePaths;
+}
+
 function resolveDescriptorCandidatePaths({ appRoot, packageId, installedPackageState }) {
   const normalizedAppRoot = String(appRoot || "").trim();
   if (!normalizedAppRoot) {
@@ -19,9 +39,10 @@ function resolveDescriptorCandidatePaths({ appRoot, packageId, installedPackageS
   const packagePathFromSource = String(source.packagePath || "").trim();
   const jskitRoot = path.join(normalizedAppRoot, "node_modules", "@jskit-ai", "jskit-cli");
 
-  const candidatePaths = [
-    path.resolve(normalizedAppRoot, "node_modules", normalizedPackageId, "package.descriptor.mjs")
-  ];
+  const candidatePaths = resolveNodeModulesDescriptorCandidatePaths({
+    appRoot: normalizedAppRoot,
+    packageId: normalizedPackageId
+  });
   if (packagePathFromSource) {
     candidatePaths.push(path.resolve(normalizedAppRoot, packagePathFromSource, "package.descriptor.mjs"));
   }

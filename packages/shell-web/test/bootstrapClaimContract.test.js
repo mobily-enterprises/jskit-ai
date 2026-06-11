@@ -7,7 +7,7 @@ import descriptor from "../package.descriptor.mjs";
 
 const TEST_DIRECTORY = path.dirname(fileURLToPath(import.meta.url));
 const PACKAGE_DIR = path.resolve(TEST_DIRECTORY, "..");
-const CREATE_APP_TEMPLATE_DIR = path.resolve(PACKAGE_DIR, "..", "..", "tooling", "create-app", "templates", "base-shell");
+const CREATE_APP_TEMPLATE_DIR = path.resolve(PACKAGE_DIR, "..", "..", "tooling", "create-app", "templates", "minimal-shell");
 
 function findFileMutation(id) {
   const files = descriptor?.mutations?.files;
@@ -48,7 +48,7 @@ test("shell-web claims starter shell files as app-owned scaffolds", () => {
   });
 });
 
-test("shell-web expected-existing starter files stay aligned with create-app base-shell", async () => {
+test("shell-web expected-existing starter files stay aligned with create-app minimal-shell", async () => {
   const comparedFiles = [
     "src/App.vue",
     "src/pages/home.vue",

@@ -1,0 +1,191 @@
+const MOBILE_COMMAND_DEFINITIONS = Object.freeze({
+  sync: Object.freeze({
+    name: "sync",
+    summary: "Build the JSKIT web client and sync the Android Capacitor shell.",
+    usage: "jskit mobile android sync [--dry-run] [--devlinks]",
+    options: Object.freeze([
+      Object.freeze({
+        label: "--devlinks",
+        description: "If sync needs to run npm install first, also run npm run --if-present devlinks afterward."
+      }),
+      Object.freeze({
+        label: "--dry-run",
+        description: "Preview the build and Capacitor sync commands without writing dist output or mutating the Android shell."
+      })
+    ]),
+    defaults: Object.freeze([
+      "Runs npm run build so dist/ matches the current JSKIT web client.",
+      "Runs cap sync android after the frontend build succeeds.",
+      "Requires capacitor.config.json and android/ from jskit add package @jskit-ai/mobile-capacitor."
+    ])
+  }),
+  run: Object.freeze({
+    name: "run",
+    summary: "Launch the Android Capacitor shell for the current app.",
+    usage: "jskit mobile android run [--target <device-id>] [--dry-run]",
+    options: Object.freeze([
+      Object.freeze({
+        label: "--target <device-id>",
+        description: "Optional adb device serial forwarded to cap run android --target."
+      }),
+      Object.freeze({
+        label: "--dry-run",
+        description: "Preview the sync/run commands without mutating dist output or launching the Android shell."
+      })
+    ]),
+    defaults: Object.freeze([
+      "Refreshes dist/ and syncs the Android shell before cap run android.",
+      "Dev-server mode still uses the live server URL from config.mobile at runtime."
+    ])
+  }),
+  dev: Object.freeze({
+    name: "dev",
+    summary: "Shortcut to run sync, tunnel, run in this order.",
+    usage: "jskit mobile android dev [--target <device-id>]",
+    options: Object.freeze([
+      Object.freeze({
+        label: "--target <device-id>",
+        description: "Optional adb device serial. If omitted, uses the first device from adb devices -l."
+      })
+    ]),
+    defaults: Object.freeze([
+      "jskit mobile android sync",
+      "jskit mobile android tunnel",
+      "jskit mobile android run"
+    ])
+  }),
+  devices: Object.freeze({
+    name: "devices",
+    summary: "List Android devices currently visible to adb.",
+    usage: "jskit mobile android devices",
+    options: Object.freeze([]),
+    defaults: Object.freeze([
+      "Runs adb devices -l and prints the currently connected Android targets."
+    ])
+  }),
+  tunnel: Object.freeze({
+    name: "tunnel",
+    summary: "Create and verify an adb reverse tunnel for local Android testing.",
+    usage: "jskit mobile android tunnel [--target <device-id>] [--port <port>]",
+    options: Object.freeze([
+      Object.freeze({
+        label: "--target <device-id>",
+        description: "Optional adb device serial. If omitted, uses the first device from adb devices -l."
+      }),
+      Object.freeze({
+        label: "--port <port>",
+        description: "Optional local/backend port. Defaults to the loopback port from config.mobile.apiBaseUrl."
+      })
+    ]),
+    defaults: Object.freeze([
+      "Runs adb -s <target> reverse tcp:<port> tcp:<port>.",
+      "Runs adb -s <target> reverse --list after setup so the active tunnel is visible."
+    ])
+  }),
+  restart: Object.freeze({
+    name: "restart",
+    summary: "Clear app data and cold-start the Android shell on a chosen device.",
+    usage: "jskit mobile android restart [--target <device-id>]",
+    options: Object.freeze([
+      Object.freeze({
+        label: "--target <device-id>",
+        description: "Optional adb device serial. If omitted, uses the first device from adb devices -l."
+      })
+    ]),
+    defaults: Object.freeze([
+      "Runs adb shell pm clear for the configured Android package name.",
+      "Force-stops the app, then cold-starts MainActivity."
+    ])
+  }),
+  build: Object.freeze({
+    name: "build",
+    summary: "Build a release Android App Bundle for the current app.",
+    usage: "jskit mobile android build [--dry-run]",
+    options: Object.freeze([
+      Object.freeze({
+        label: "--dry-run",
+        description: "Preview the sync/build commands without writing dist output or running Gradle."
+      })
+    ]),
+    defaults: Object.freeze([
+      'Requires config.mobile.assetMode to stay on "bundled" for release builds.',
+      "Runs the JSKIT web build, syncs Android, and then executes the Gradle bundleRelease task."
+    ])
+  }),
+  doctor: Object.freeze({
+    name: "doctor",
+    summary: "Validate the Android Capacitor shell wiring for the current app.",
+    usage: "jskit mobile android doctor",
+    options: Object.freeze([]),
+    defaults: Object.freeze([
+      "Checks config.mobile, capacitor.config.json, android/, and the managed AndroidManifest deep-link filter."
+    ])
+  })
+});
+
+function listMobileCommandDefinitions() {
+  const order = new Map([
+    ["dev", 0],
+    ["sync", 1],
+    ["tunnel", 2],
+    ["run", 3],
+    ["restart", 4],
+    ["build", 5],
+    ["devices", 6],
+    ["doctor", 7]
+  ]);
+  return Object.values(MOBILE_COMMAND_DEFINITIONS)
+    .sort((left, right) => {
+      const leftOrder = order.get(left.name) ?? Number.MAX_SAFE_INTEGER;
+      const rightOrder = order.get(right.name) ?? Number.MAX_SAFE_INTEGER;
+      if (leftOrder !== rightOrder) {
+        return leftOrder - rightOrder;
+      }
+      return left.name.localeCompare(right.name);
+    });
+}
+
+function resolveMobileCommandDefinition(rawName = "") {
+  const normalizedName = String(rawName || "").trim();
+  if (!normalizedName) {
+    return null;
+  }
+  return MOBILE_COMMAND_DEFINITIONS[normalizedName] || null;
+}
+
+function buildMobileCommandOptionMeta(subcommandName = "") {
+  const definition = resolveMobileCommandDefinition(subcommandName);
+  const optionMeta = {
+    help: { inputType: "flag" }
+  };
+
+  if (!definition) {
+    return optionMeta;
+  }
+
+  if (definition.name === "sync" || definition.name === "run" || definition.name === "build") {
+    optionMeta["dry-run"] = { inputType: "flag" };
+  }
+  if (definition.name === "run") {
+    optionMeta.target = { inputType: "text" };
+  }
+  if (definition.name === "dev") {
+    optionMeta.target = { inputType: "text" };
+  }
+  if (definition.name === "tunnel") {
+    optionMeta.target = { inputType: "text" };
+    optionMeta.port = { inputType: "text" };
+  }
+  if (definition.name === "restart") {
+    optionMeta.target = { inputType: "text" };
+  }
+
+  return optionMeta;
+}
+
+export {
+  MOBILE_COMMAND_DEFINITIONS,
+  listMobileCommandDefinitions,
+  resolveMobileCommandDefinition,
+  buildMobileCommandOptionMeta
+};

@@ -289,6 +289,8 @@ Exports
 ### `templates/packages/users-workspace/src/server/actions.js`
 Exports
 - `createActions({ surface } = {})`
+Local functions
+- `buildListQuery(input = {})`
 
 ### `templates/packages/users-workspace/src/server/registerRoutes.js`
 Exports

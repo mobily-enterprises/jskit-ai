@@ -12,7 +12,7 @@ function resolveCrudEntityIdFromResult({ result } = {}) {
 }
 
 function resolveCrudJsonApiEntityIdFromResult({ result } = {}) {
-  return normalizeCrudEventEntityId(result?.data?.id);
+  return normalizeCrudEventEntityId(result?.data?.id ?? result?.value?.data?.id);
 }
 
 function resolveCrudEntityIdFromArgs({ args = [] } = {}) {

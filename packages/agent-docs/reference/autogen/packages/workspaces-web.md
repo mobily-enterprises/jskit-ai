@@ -89,21 +89,18 @@ Local functions
 - `normalizeInvites(entries)`
 - `latestPage(pages)`
 - `applyWorkspaceSettingsPolicy(payload = {})`
+- `refreshLoad()`
 - `submitInvite()`
 - `submitRevokeInvite(inviteId)`
 - `submitMemberRoleUpdate(member, roleSid)`
 - `submitRemoveMember(member)`
-
-### `src/client/components/WorkspaceProfileClientElement.vue`
-Exports
-- None
 
 ### `src/client/components/WorkspacesClientElement.vue`
 Exports
 - None
 Local functions
 - `normalizePendingInvite(entry)`
-- `reportFeedback({ message, severity = "error", channel = "banner", dedupeKey = "" } = {})`
+- `reportFeedback({ message, severity = "error", channel = "", dedupeKey = "" } = {})`
 - `workspaceInitials(workspace)`
 - `workspaceAvatarStyle(workspace)`
 - `workspaceHomePath(workspaceSlug)`
@@ -112,26 +109,7 @@ Local functions
 - `acceptInvite(invite)`
 - `refuseInvite(invite)`
 - `createWorkspace()`
-
-### `src/client/components/WorkspaceSettingsClientElement.vue`
-Exports
-- None
-Local functions
-- `toWorkspaceEntrySnapshot(entry = null)`
-- `toWorkspaceListSnapshot(list = [])`
-- `toWorkspaceSettingsSnapshot(settings = null)`
-- `applyShellWorkspaceContext(payload = {})`
-- `handleFormSaved()`
-
-### `src/client/components/WorkspaceSettingsFieldsClientElement.vue`
-Exports
-- None
-
-### `src/client/composables/useBootstrapQuery.js`
-Exports
-- `useBootstrapQuery({ workspaceSlug = "", enabled = true, staleTime = DEFAULT_BOOTSTRAP_STALE_TIME_MS, refetchOnMount = false, refetchOnWindowFocus = false } = {})`
-Local functions
-- `normalizeStaleTime(value, fallback = DEFAULT_BOOTSTRAP_STALE_TIME_MS)`
+- `refreshBootstrap()`
 
 ### `src/client/composables/useWorkspaceRouteContext.js`
 Exports
@@ -321,7 +299,6 @@ Exports
 
 ### `src/shared/toolsOutletContracts.js`
 Exports
-- `DEFAULT_COG_LINK_COMPONENT_TOKEN`
 - `ADMIN_COG_OUTLET`
 
 ### templates

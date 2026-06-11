@@ -25,7 +25,6 @@ npx @jskit-ai/create-app exampleapp --tenancy-mode none
 cd exampleapp
 npm install
 
-npx jskit add package shell-web
 npx jskit add package auth-provider-supabase-core \
   --auth-supabase-url "$SUPABASE_URL" \
   --auth-supabase-publishable-key "$SUPABASE_KEY" \
@@ -59,7 +58,7 @@ npm run db:migrate
 - `console-core` owns the console schema, owner check, bootstrap flag, and API routes
 - `console-web` owns the console surface scaffold, settings shell, and menu placement
 
-So the console is a real vertical slice now. The users packages no longer know about it.
+The console is a real vertical slice. The users packages do not own it.
 
 ## What the console is for
 
@@ -104,7 +103,7 @@ Then sign in.
 
 Once you are authenticated, two things matter:
 
-- the app now knows who you are as a persistent JSKIT user
+- the app knows who you are as a persistent JSKIT user
 - the console bootstrap logic can determine whether you are the console owner
 
 Open:
@@ -126,7 +125,7 @@ This is the most important idea in the chapter.
 
 The account surface only requires authentication. The console surface requires a specific access flag: `console_owner`.
 
-That means the guide now has two different kinds of authenticated routes:
+That means the guide has two different kinds of authenticated routes:
 
 - normal authenticated routes such as `/account`
 - privileged authenticated routes such as `/console`
@@ -197,7 +196,7 @@ This is the first clear example in the guide of a surface guarded by a named fla
 
 ### The starter console routes are app-owned
 
-After the previous chapter, the app now has:
+After the previous chapter, the app has:
 
 ```text
 src/pages/console.vue
@@ -213,7 +212,7 @@ This follows the same route-owner pattern the guide has already shown on `home` 
 - `src/pages/console/settings.vue` is the nested settings shell
 - `src/pages/console/settings/index.vue` is the initial developer-owned stub
 
-That last file is intentionally empty, because later modules are expected to add real console settings sections into the `console-settings:primary-menu` outlet.
+That last file is intentionally empty, because later modules are expected to add real console settings sections through `page.section-nav` with owner `console-settings`.
 
 ### `src/placement.js` wires the first console menu entry
 
@@ -222,10 +221,10 @@ The starter placement block is:
 ```js
 addPlacement({
   id: "console.web.menu.settings",
-  target: "shell-layout:primary-menu",
+  target: "shell.primary-nav",
+  kind: "link",
   surfaces: ["console"],
   order: 100,
-  componentToken: "local.main.ui.menu-link-item",
   props: {
     label: "Settings",
     to: "/console/settings",
@@ -342,7 +341,7 @@ That stricter access model is the key idea to keep:
 - `/account` is for any signed-in user
 - `/console` is only for the console owner
 
-So the app now has both:
+So the app has both:
 
 - a normal authenticated user area
 - a privileged operator area with its own server-side ownership check

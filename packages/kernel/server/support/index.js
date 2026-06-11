@@ -1,6 +1,6 @@
 export { symlinkSafeRequire } from "./symlinkSafeRequire.js";
-export { resolveAppConfig } from "./appConfig.js";
-export { loadAppConfigFromModuleUrl } from "./appConfigFiles.js";
+export { resolveAppConfig, resolveMobileConfig, resolveClientAssetMode, resolveMobileCallbackUrls } from "./appConfig.js";
+export { loadAppConfigFromAppRoot, loadAppConfigFromModuleUrl } from "./appConfigFiles.js";
 export { importFreshModuleFromAbsolutePath } from "./importFreshModuleFromAbsolutePath.js";
 export { resolveRequiredAppRoot, toPosixPath } from "./path.js";
 export {
@@ -16,6 +16,9 @@ export {
   resolvePageLinkTargetDetails
 } from "./pageTargets.js";
 export {
+  discoverPlacementTopologyFromApp,
+  discoverShellOutletSourcePathsFromApp,
   discoverShellOutletTargetsFromApp,
+  resolveSemanticPlacementTargetFromApp,
   resolveShellOutletPlacementTargetFromApp
 } from "./shellOutlets.js";

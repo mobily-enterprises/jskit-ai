@@ -22,7 +22,6 @@ test("discoverShellOutletTargetsFromVueSource resolves legal targets and one def
       <ShellOutlet
         target="shell-layout:primary-menu"
         default
-        default-link-component-token="local.main.ui.surface-aware-menu-link-item"
       />
       <ShellOutlet target="shell-layout:secondary-menu" />
     </template>
@@ -37,7 +36,6 @@ test("discoverShellOutletTargetsFromVueSource resolves legal targets and one def
     discovered.targets.map((entry) => entry.id),
     ["shell-layout:top-left", "shell-layout:primary-menu", "shell-layout:secondary-menu"]
   );
-  assert.equal(discovered.targets[1].defaultLinkComponentToken, "local.main.ui.surface-aware-menu-link-item");
   assert.equal(
     describeShellOutletTargets(discovered.targets),
     "shell-layout:top-left, shell-layout:primary-menu, shell-layout:secondary-menu"
@@ -73,6 +71,26 @@ test("discoverShellOutletTargetsFromVueSource throws for multiple defaults", () 
   assert.throws(
     () => discoverShellOutletTargetsFromVueSource(source, { context: "ShellLayout.vue" }),
     /multiple default ShellOutlet targets/
+  );
+});
+
+test("discoverShellOutletTargetsFromVueSource can collect source hints without enforcing one default", () => {
+  const source = `
+    <template>
+      <ShellOutlet target="shell-layout:primary-menu" default />
+      <ShellOutlet target="shell-layout:primary-bottom-nav" default />
+    </template>
+  `;
+
+  const discovered = discoverShellOutletTargetsFromVueSource(source, {
+    context: "ShellLayout.vue",
+    enforceSingleDefault: false
+  });
+
+  assert.equal(discovered.defaultTargetId, "shell-layout:primary-menu");
+  assert.deepEqual(
+    discovered.targets.map((entry) => entry.id),
+    ["shell-layout:primary-menu", "shell-layout:primary-bottom-nav"]
   );
 });
 

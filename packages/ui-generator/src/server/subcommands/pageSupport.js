@@ -14,20 +14,26 @@ import {
 } from "@jskit-ai/shell-web/server/support/localLinkItemScaffolds";
 import { normalizeText } from "@jskit-ai/kernel/shared/support/normalize";
 import {
+  buildGeneratedUiScreenClassName,
+  resolveGeneratedUiSurfaceProfile
+} from "@jskit-ai/kernel/shared/support/generatedUiContract";
+import {
   DEFAULT_COMPONENT_DIRECTORY,
   MAIN_CLIENT_PROVIDER_FILE,
   resolvePathWithinApp,
   insertImportIfMissing,
   insertBeforeClassDeclaration,
-  findScriptBlock,
+  findScriptSetupBlock,
+  insertScriptSetupBlock,
   indentBlock
 } from "./support.js";
 
 const DEFAULT_SUBPAGES_POSITION = "sub-pages";
 const SECTION_CONTAINER_SHELL_COMPONENT = "SectionContainerShell";
-const SUBPAGES_LINK_COMPONENT_TOKEN = "local.main.ui.surface-aware-menu-link-item";
+const SUBPAGES_LINK_COMPONENT_TOKEN = "local.main.ui.tab-link-item";
 const DEFAULT_MENU_COMPONENT_DIRECTORY = path.join(DEFAULT_COMPONENT_DIRECTORY, "menus");
 const SUBPAGES_LINK_COMPONENT_DEFINITION = findLocalLinkItemDefinition(SUBPAGES_LINK_COMPONENT_TOKEN);
+const OPERATOR_SURFACE_IDS = new Set(["admin", "console"]);
 
 if (!SUBPAGES_LINK_COMPONENT_DEFINITION) {
   throw new Error(`ui-generator add-subpages could not resolve ${SUBPAGES_LINK_COMPONENT_TOKEN} scaffold definition.`);
@@ -35,11 +41,28 @@ if (!SUBPAGES_LINK_COMPONENT_DEFINITION) {
 
 const SUBPAGES_LINK_COMPONENT = SUBPAGES_LINK_COMPONENT_DEFINITION.componentName;
 
-const ROUTE_TAG_PATTERN = /<route\b[^>]*>[\s\S]*?<\/route>\s*/gi;
 const TEMPLATE_TOKEN_PATTERN = /<\/?template\b[^>]*>/gi;
 const SHELL_OUTLET_TAG_PATTERN = /<ShellOutlet\b[^>]*\/?>\s*/gi;
 const ROUTER_VIEW_TAG_PATTERN = /<RouterView\b/i;
 const ROUTER_VIEW_LINE_PATTERN = /^\s*<RouterView(?:\s[^>]*)?\s*\/>\s*$/gm;
+
+function resolveGeneratedPageSurfaceProfile({
+  surfaceId = "",
+  routePath = ""
+} = {}) {
+  const routeSegments = normalizeText(routePath)
+    .replaceAll("\\", "/")
+    .split("/")
+    .map((entry) => normalizeText(entry).toLowerCase())
+    .filter(Boolean);
+  if (routeSegments.includes("settings")) {
+    return "settings";
+  }
+  if (OPERATOR_SURFACE_IDS.has(normalizeText(surfaceId).toLowerCase())) {
+    return "operator";
+  }
+  return "task";
+}
 
 function trimEdgeBlankLines(source = "") {
   return String(source || "")
@@ -47,13 +70,68 @@ function trimEdgeBlankLines(source = "") {
     .replace(/\n\s*$/, "");
 }
 
-function renderPlainPageSource(pageTitle = "") {
+function renderPlainPageSource(pageTitle = "", {
+  surfaceId = "",
+  routePath = ""
+} = {}) {
+  const surfaceProfileId = resolveGeneratedPageSurfaceProfile({ surfaceId, routePath });
+  const surfaceProfile = resolveGeneratedUiSurfaceProfile(surfaceProfileId);
+  const screenClass = buildGeneratedUiScreenClassName("generated-page-screen d-flex flex-column ga-4", {
+    surfaceProfile: surfaceProfileId
+  });
   return `<template>
-  <section class="pa-4">
-    <h1 class="text-h5 mb-2">${pageTitle}</h1>
-    <p class="text-body-2 text-medium-emphasis">Replace this scaffold with your page implementation.</p>
+  <section class="${screenClass}">
+    <header>
+      <p class="text-overline text-medium-emphasis mb-1">${surfaceProfile.titleLabel}</p>
+      <h1 class="generated-page-screen__title">${pageTitle}</h1>
+    </header>
+
+    <v-sheet rounded="lg" border class="generated-page-screen__empty-state">
+      <h2 class="text-h6 mb-2">No ${pageTitle} activity yet</h2>
+      <p class="text-body-2 text-medium-emphasis mb-0">
+        ${surfaceProfile.emptyStateBody}
+      </p>
+    </v-sheet>
   </section>
 </template>
+
+<style scoped>
+.generated-ui-screen {
+  --generated-ui-screen-title-size: clamp(1.35rem, 2vw, 1.85rem);
+  --generated-ui-screen-panel-padding: 2rem 1.25rem;
+  --generated-ui-screen-panel-align: center;
+}
+
+.generated-ui-screen--operator {
+  --generated-ui-screen-panel-padding: 1.5rem 1rem;
+}
+
+.generated-ui-screen--settings {
+  --generated-ui-screen-panel-padding: 1.5rem 1rem;
+}
+
+.generated-page-screen__title {
+  font-size: var(--generated-ui-screen-title-size);
+  font-weight: 650;
+  letter-spacing: -0.02em;
+  line-height: 1.15;
+  margin: 0;
+}
+
+.generated-page-screen__empty-state {
+  margin-inline: auto;
+  max-width: 34rem;
+  padding: var(--generated-ui-screen-panel-padding);
+  text-align: var(--generated-ui-screen-panel-align);
+  width: 100%;
+}
+
+@media (max-width: 640px) {
+  .generated-ui-screen {
+    --generated-ui-screen-panel-padding: 1.25rem 1rem;
+  }
+}
+</style>
 `;
 }
 
@@ -81,41 +159,50 @@ const hasTabs = computed(() => Boolean(slots.tabs));
 
 <template>
   <section class="section-container-shell d-flex flex-column ga-4">
-    <v-card rounded="lg" elevation="1" border>
-      <v-card-item v-if="hasHeading">
-        <v-card-title v-if="resolvedTitle" class="px-0">{{ resolvedTitle }}</v-card-title>
-        <v-card-subtitle v-if="resolvedSubtitle" class="px-0">{{ resolvedSubtitle }}</v-card-subtitle>
-      </v-card-item>
-      <template v-if="hasTabs">
-        <v-divider v-if="hasHeading" />
-        <v-card-text class="section-container-shell__tabs">
-          <slot name="tabs" />
-        </v-card-text>
-      </template>
-    </v-card>
+    <header v-if="hasHeading" class="section-container-shell__heading">
+      <h1 v-if="resolvedTitle" class="section-container-shell__title">{{ resolvedTitle }}</h1>
+      <p v-if="resolvedSubtitle" class="text-body-2 text-medium-emphasis mb-0">{{ resolvedSubtitle }}</p>
+    </header>
+
+    <v-sheet v-if="hasTabs" rounded="lg" class="section-container-shell__nav">
+      <slot name="tabs" />
+    </v-sheet>
 
     <slot />
   </section>
 </template>
 
 <style scoped>
-.section-container-shell__tabs {
-  display: flex;
+.section-container-shell__heading {
+  min-width: 0;
+}
+
+.section-container-shell__title {
+  font-size: clamp(1.35rem, 2vw, 1.85rem);
+  font-weight: 650;
+  letter-spacing: -0.02em;
+  line-height: 1.15;
+  margin: 0 0 0.35rem;
+}
+
+.section-container-shell__nav {
   align-items: center;
-  gap: 0.5rem;
+  display: flex;
+  gap: 0.375rem;
   overflow-x: auto;
-  padding: 0.75rem;
+  padding: 0.375rem;
   scrollbar-width: thin;
 }
 
-.section-container-shell__tabs :deep(.tab-link-item) {
+.section-container-shell__nav :deep(.tab-link-item) {
   flex: 0 0 auto;
+  min-height: 48px;
 }
 
 @media (max-width: 640px) {
-  .section-container-shell__tabs {
+  .section-container-shell__nav {
     gap: 0.375rem;
-    padding: 0.5rem;
+    margin-inline: -0.25rem;
   }
 }
 </style>
@@ -313,7 +400,7 @@ function renderSubpagesTemplate({
     "<template>",
     renderSectionContainerOpenTag({ title, subtitle }),
     "    <template #tabs>",
-    `      <ShellOutlet target="${normalizedTarget}" default-link-component-token="${SUBPAGES_LINK_COMPONENT_TOKEN}" />`,
+    `      <ShellOutlet target="${normalizedTarget}" />`,
     "    </template>"
   ];
 
@@ -332,7 +419,7 @@ function renderSubpagesTemplate({
 
 function applySubpagesScriptImports(source = "", { sectionContainerComponentImportPath = "" } = {}) {
   const sourceText = String(source || "");
-  const scriptBlock = findScriptBlock(sourceText);
+  const scriptBlock = findScriptSetupBlock(sourceText);
 
   const importLines = [
     "import ShellOutlet from \"@jskit-ai/shell-web/client/components/ShellOutlet\";",
@@ -341,16 +428,7 @@ function applySubpagesScriptImports(source = "", { sectionContainerComponentImpo
   ];
 
   if (!scriptBlock) {
-    const scriptSetupBlock = `<script setup>\n${importLines.join("\n")}\n</script>\n`;
-    let insertionIndex = 0;
-    for (const match of sourceText.matchAll(ROUTE_TAG_PATTERN)) {
-      insertionIndex = match.index + String(match[0] || "").length;
-    }
-    const separator = insertionIndex > 0 ? "\n" : "";
-    return {
-      changed: true,
-      content: `${sourceText.slice(0, insertionIndex)}${separator}${scriptSetupBlock}\n${sourceText.slice(insertionIndex)}`
-    };
+    return insertScriptSetupBlock(sourceText, importLines.join("\n"));
   }
 
   let nextScriptContent = scriptBlock.content;

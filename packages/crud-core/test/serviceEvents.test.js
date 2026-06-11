@@ -46,6 +46,16 @@ test("createCrudJsonApiServiceEvents builds JSON:API-aware create/update/delete 
       }
     }
   }), "21");
+  assert.equal(events.createDocument[0].entityId({
+    result: {
+      kind: "document",
+      value: {
+        data: {
+          id: "24"
+        }
+      }
+    }
+  }), "24");
   assert.equal(events.patchDocumentById[0].entityId({
     args: [22]
   }), "22");
@@ -64,5 +74,15 @@ test("service event entity-id helpers normalize ids from args, plain results, an
       }
     }
   }), "14");
+  assert.equal(resolveCrudJsonApiEntityIdFromResult({
+    result: {
+      kind: "document",
+      value: {
+        data: {
+          id: 15
+        }
+      }
+    }
+  }), "15");
   assert.equal(resolveCrudEntityIdFromArgs({ args: ["   "] }), "");
 });

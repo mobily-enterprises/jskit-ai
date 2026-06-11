@@ -26,7 +26,8 @@ async function applyInstallMigrationMutation({
   managedMigrations,
   managedMigrationById,
   touchedFiles,
-  warnings
+  warnings,
+  dryRun = false
 } = {}) {
   const mutation = ensureObject(preparedMutation?.mutation);
   if (mutation.preserveOnRemove === true) {
@@ -81,8 +82,10 @@ async function applyInstallMigrationMutation({
     }
 
     if (!(await fileExists(absolutePath))) {
-      await mkdir(path.dirname(absolutePath), { recursive: true });
-      await writeFile(absolutePath, renderedSourceContent, "utf8");
+      if (!dryRun) {
+        await mkdir(path.dirname(absolutePath), { recursive: true });
+        await writeFile(absolutePath, renderedSourceContent, "utf8");
+      }
       touchedFiles.add(relativePath);
     }
 
@@ -165,8 +168,10 @@ async function applyInstallMigrationMutation({
 
   const relativePath = targetPath.relativePath;
   const absolutePath = targetPath.absolutePath;
-  await mkdir(path.dirname(absolutePath), { recursive: true });
-  await writeFile(absolutePath, renderedSourceContent, "utf8");
+  if (!dryRun) {
+    await mkdir(path.dirname(absolutePath), { recursive: true });
+    await writeFile(absolutePath, renderedSourceContent, "utf8");
+  }
   touchedFiles.add(relativePath);
 
   const nextManagedRecord = {

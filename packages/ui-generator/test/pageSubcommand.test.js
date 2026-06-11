@@ -3,6 +3,7 @@ import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { tmpdir } from "node:os";
 import test from "node:test";
+import { assertGeneratedUiSourceContract } from "@jskit-ai/kernel/shared/support/generatedUiContract";
 import { runGeneratorSubcommand } from "../src/server/subcommands/page.js";
 
 async function withTempApp(run) {
@@ -16,6 +17,79 @@ async function withTempApp(run) {
 
 function toPagePath(targetFile = "") {
   return path.join("src/pages", targetFile);
+}
+
+function renderTopologyVariant(outlet, { linkRenderer = "" } = {}) {
+  const rendererLines = linkRenderer
+    ? `,
+      renderers: {
+        link: "${linkRenderer}"
+      }`
+    : "";
+  return `{
+      outlet: "${outlet}"${rendererLines}
+    }`;
+}
+
+function renderTopologyEntry({
+  id = "",
+  owner = "",
+  surfaces = ["*"],
+  defaultPlacement = false,
+  outlet = "",
+  linkRenderer = ""
+} = {}) {
+  const ownerLine = owner ? `    owner: "${owner}",\n` : "";
+  const defaultLine = defaultPlacement ? "    default: true,\n" : "";
+  return `  {
+    id: "${id}",
+${ownerLine}    surfaces: ${JSON.stringify(surfaces)},
+${defaultLine}    variants: {
+      compact: ${renderTopologyVariant(outlet, { linkRenderer })},
+      medium: ${renderTopologyVariant(outlet, { linkRenderer })},
+      expanded: ${renderTopologyVariant(outlet, { linkRenderer })}
+    }
+  }`;
+}
+
+async function writePlacementTopology(appRoot, entries = []) {
+  const defaultEntries = [
+    renderTopologyEntry({
+      id: "shell.primary-nav",
+      surfaces: ["*"],
+      defaultPlacement: true,
+      outlet: "shell-layout:primary-menu",
+      linkRenderer: "local.main.ui.surface-aware-menu-link-item"
+    }),
+    renderTopologyEntry({
+      id: "shell.status",
+      surfaces: ["*"],
+      outlet: "shell-layout:top-right",
+      linkRenderer: "local.main.ui.surface-aware-menu-link-item"
+    }),
+    renderTopologyEntry({
+      id: "shell.global-actions",
+      surfaces: ["*"],
+      outlet: "shell-layout:top-right",
+      linkRenderer: "local.main.ui.surface-aware-menu-link-item"
+    }),
+    renderTopologyEntry({
+      id: "shell.secondary-nav",
+      surfaces: ["*"],
+      outlet: "shell-layout:secondary-menu",
+      linkRenderer: "local.main.ui.surface-aware-menu-link-item"
+    })
+  ];
+  await writeFile(
+    path.join(appRoot, "src", "placementTopology.js"),
+    `export default {
+  placements: [
+${[...defaultEntries, ...entries].join(",\n")}
+  ]
+};
+`,
+    "utf8"
+  );
 }
 
 async function writeAppFixture(appRoot, { configSource = "" } = {}) {
@@ -41,9 +115,9 @@ async function writeAppFixture(appRoot, { configSource = "" } = {}) {
     <ShellOutlet
       target="shell-layout:primary-menu"
       default
-      default-link-component-token="local.main.ui.surface-aware-menu-link-item"
     />
     <ShellOutlet target="shell-layout:top-right" />
+    <ShellOutlet target="shell-layout:secondary-menu" />
   </div>
 </template>
 `,
@@ -60,6 +134,7 @@ export default function getPlacements() {
 `,
     "utf8"
   );
+  await writePlacementTopology(appRoot);
 }
 
 test("ui-generator page subcommand creates an index page from an explicit target file", async () => {
@@ -80,7 +155,16 @@ test("ui-generator page subcommand creates an index page from an explicit target
     assert.equal(result.summary, 'Generated UI page "/practice" at src/pages/w/[workspaceSlug]/admin/practice/index.vue.');
 
     const pageSource = await readFile(path.join(appRoot, toPagePath(targetFile)), "utf8");
-    assert.match(pageSource, /<h1 class="text-h5 mb-2">Practice<\/h1>/);
+    assertGeneratedUiSourceContract(pageSource, {
+      profile: "page",
+      sourceName: targetFile
+    });
+    assert.match(pageSource, /generated-ui-screen generated-ui-screen--operator generated-page-screen/);
+    assert.match(pageSource, /<p class="text-overline text-medium-emphasis mb-1">Workspace tool<\/p>/);
+    assert.match(pageSource, /<h1 class="generated-page-screen__title">Practice<\/h1>/);
+    assert.match(pageSource, /<v-sheet rounded="lg" border class="generated-page-screen__empty-state">/);
+    assert.match(pageSource, /No Practice activity yet/);
+    assert.doesNotMatch(pageSource, /Replace this scaffold|Use this area|This is your page|<v-card\b|v-card-title/);
 
     const placementSource = await readFile(path.join(appRoot, "src", "placement.js"), "utf8");
     assert.match(placementSource, /id: "ui-generator\.page\.admin\.practice\.link"/);
@@ -89,7 +173,90 @@ test("ui-generator page subcommand creates an index page from an explicit target
   });
 });
 
-test("ui-generator page subcommand creates a file route and derives label from the file path", async () => {
+test("ui-generator page subcommand maps secondary navigation role to shell.secondary-nav", async () => {
+  await withTempApp(async (appRoot) => {
+    await writeAppFixture(appRoot);
+
+    const targetFile = "w/[workspaceSlug]/admin/reports/index.vue";
+    await runGeneratorSubcommand({
+      appRoot,
+      subcommand: "page",
+      args: [targetFile],
+      options: {
+        name: "Reports",
+        "navigation-role": "secondary"
+      }
+    });
+
+    const placementSource = await readFile(path.join(appRoot, "src", "placement.js"), "utf8");
+    assert.match(placementSource, /target: "shell\.secondary-nav"/);
+    assert.match(placementSource, /kind: "link"/);
+  });
+});
+
+test("ui-generator page subcommand maps utility navigation role to shell.global-actions", async () => {
+  await withTempApp(async (appRoot) => {
+    await writeAppFixture(appRoot);
+
+    const targetFile = "w/[workspaceSlug]/admin/help/index.vue";
+    await runGeneratorSubcommand({
+      appRoot,
+      subcommand: "page",
+      args: [targetFile],
+      options: {
+        name: "Help",
+        "navigation-role": "utility"
+      }
+    });
+
+    const placementSource = await readFile(path.join(appRoot, "src", "placement.js"), "utf8");
+    assert.match(placementSource, /target: "shell\.global-actions"/);
+    assert.match(placementSource, /kind: "link"/);
+  });
+});
+
+test("ui-generator page subcommand can generate detail pages without navigation placement", async () => {
+  await withTempApp(async (appRoot) => {
+    await writeAppFixture(appRoot);
+
+    const targetFile = "w/[workspaceSlug]/admin/reports/[reportId].vue";
+    const result = await runGeneratorSubcommand({
+      appRoot,
+      subcommand: "page",
+      args: [targetFile],
+      options: {
+        name: "Report",
+        "navigation-role": "detail"
+      }
+    });
+
+    assert.deepEqual(result.touchedFiles, [toPagePath(targetFile)]);
+
+    const placementSource = await readFile(path.join(appRoot, "src", "placement.js"), "utf8");
+    assert.doesNotMatch(placementSource, /ui-generator\.page\.admin\.reports\.report-id\.link/);
+  });
+});
+
+test("ui-generator page subcommand rejects no-link navigation roles with link placement options", async () => {
+  await withTempApp(async (appRoot) => {
+    await writeAppFixture(appRoot);
+
+    await assert.rejects(
+      runGeneratorSubcommand({
+        appRoot,
+        subcommand: "page",
+        args: ["w/[workspaceSlug]/admin/reports/[reportId].vue"],
+        options: {
+          "navigation-role": "detail",
+          "link-placement": "shell.primary-nav"
+        }
+      }),
+      /navigation-role "detail" cannot be combined with --link-placement/
+    );
+  });
+});
+
+test("ui-generator page subcommand treats dynamic file routes as detail pages by default", async () => {
   await withTempApp(async (appRoot) => {
     await writeAppFixture(appRoot);
 
@@ -101,10 +268,33 @@ test("ui-generator page subcommand creates a file route and derives label from t
       options: {}
     });
 
-    assert.deepEqual(result.touchedFiles, [toPagePath(targetFile), "src/placement.js"]);
+    assert.deepEqual(result.touchedFiles, [toPagePath(targetFile)]);
 
     const pageSource = await readFile(path.join(appRoot, toPagePath(targetFile)), "utf8");
-    assert.match(pageSource, /<h1 class="text-h5 mb-2">Contact Id<\/h1>/);
+    assert.match(pageSource, /generated-ui-screen generated-ui-screen--operator generated-page-screen/);
+    assert.match(pageSource, /<h1 class="generated-page-screen__title">Contact Id<\/h1>/);
+    assert.match(pageSource, /No Contact Id activity yet/);
+
+    const placementSource = await readFile(path.join(appRoot, "src", "placement.js"), "utf8");
+    assert.doesNotMatch(placementSource, /ui-generator\.page\.admin\.contacts\.contact-id\.link/);
+  });
+});
+
+test("ui-generator page subcommand allows explicit primary navigation for dynamic routes", async () => {
+  await withTempApp(async (appRoot) => {
+    await writeAppFixture(appRoot);
+
+    const targetFile = "w/[workspaceSlug]/admin/contacts/[contactId].vue";
+    const result = await runGeneratorSubcommand({
+      appRoot,
+      subcommand: "page",
+      args: [targetFile],
+      options: {
+        "navigation-role": "primary"
+      }
+    });
+
+    assert.deepEqual(result.touchedFiles, [toPagePath(targetFile), "src/placement.js"]);
 
     const placementSource = await readFile(path.join(appRoot, "src", "placement.js"), "utf8");
     assert.match(placementSource, /scopedSuffix: "\/contacts\/\[contactId\]"/);
@@ -153,15 +343,15 @@ test("ui-generator page subcommand supports link placement options", async () =>
       subcommand: "page",
       args: [targetFile],
       options: {
-        "link-placement": "shell-layout:top-right",
-        "link-component-token": "local.main.ui.tab-link-item",
+        "link-placement": "shell.status",
         "link-to": "./notes"
       }
     });
 
     const placementSource = await readFile(path.join(appRoot, "src", "placement.js"), "utf8");
-    assert.match(placementSource, /target: "shell-layout:top-right"/);
-    assert.match(placementSource, /componentToken: "local\.main\.ui\.tab-link-item"/);
+    assert.match(placementSource, /target: "shell\.status"/);
+    assert.match(placementSource, /kind: "link"/);
+    assert.doesNotMatch(placementSource, /componentToken: "local\.main\.ui\.tab-link-item"/);
     assert.match(placementSource, /icon: "mdi-view-list-outline"/);
     assert.match(placementSource, /to: "\.\/notes"/);
   });
@@ -170,6 +360,15 @@ test("ui-generator page subcommand supports link placement options", async () =>
 test("ui-generator page subcommand infers subpage link placement, tab token, and link-to from the nearest parent host", async () => {
   await withTempApp(async (appRoot) => {
     await writeAppFixture(appRoot);
+    await writePlacementTopology(appRoot, [
+      renderTopologyEntry({
+        id: "page.section-nav",
+        owner: "contact-view",
+        surfaces: ["admin"],
+        outlet: "contact-view:sub-pages",
+        linkRenderer: "local.main.ui.surface-aware-menu-link-item"
+      })
+    ]);
 
     const parentFile = "w/[workspaceSlug]/admin/contacts/[contactId].vue";
     await mkdir(path.dirname(path.join(appRoot, toPagePath(parentFile))), { recursive: true });
@@ -196,8 +395,9 @@ test("ui-generator page subcommand infers subpage link placement, tab token, and
     });
 
     const placementSource = await readFile(path.join(appRoot, "src", "placement.js"), "utf8");
-    assert.match(placementSource, /target: "contact-view:sub-pages"/);
-    assert.match(placementSource, /componentToken: "local\.main\.ui\.surface-aware-menu-link-item"/);
+    assert.match(placementSource, /target: "page\.section-nav"/);
+    assert.match(placementSource, /owner: "contact-view"/);
+    assert.doesNotMatch(placementSource, /componentToken: "local\.main\.ui\.surface-aware-menu-link-item"/);
     assert.match(placementSource, /icon: "mdi-view-list-outline"/);
     assert.match(placementSource, /to: "\.\/notes"/);
   });
@@ -206,6 +406,22 @@ test("ui-generator page subcommand infers subpage link placement, tab token, and
 test("ui-generator page subcommand prefers the nearest index-route parent host", async () => {
   await withTempApp(async (appRoot) => {
     await writeAppFixture(appRoot);
+    await writePlacementTopology(appRoot, [
+      renderTopologyEntry({
+        id: "page.section-nav",
+        owner: "catalog",
+        surfaces: ["admin"],
+        outlet: "catalog:sub-pages",
+        linkRenderer: "local.main.ui.surface-aware-menu-link-item"
+      }),
+      renderTopologyEntry({
+        id: "page.section-nav",
+        owner: "catalog-products",
+        surfaces: ["admin"],
+        outlet: "catalog-products:sub-pages",
+        linkRenderer: "local.main.ui.surface-aware-menu-link-item"
+      })
+    ]);
 
     await mkdir(path.join(appRoot, "src/pages/w/[workspaceSlug]/admin/catalog/index/products"), {
       recursive: true
@@ -247,8 +463,9 @@ test("ui-generator page subcommand prefers the nearest index-route parent host",
     });
 
     const placementSource = await readFile(path.join(appRoot, "src", "placement.js"), "utf8");
-    assert.match(placementSource, /target: "catalog-products:sub-pages"/);
-    assert.match(placementSource, /componentToken: "local\.main\.ui\.surface-aware-menu-link-item"/);
+    assert.match(placementSource, /target: "page\.section-nav"/);
+    assert.match(placementSource, /owner: "catalog-products"/);
+    assert.doesNotMatch(placementSource, /componentToken: "local\.main\.ui\.surface-aware-menu-link-item"/);
     assert.match(placementSource, /to: "\.\/variants"/);
   });
 });
@@ -401,7 +618,7 @@ test("ui-generator page subcommand overwrites an existing page when --force is p
     assert.equal(result.summary, 'Regenerated UI page "/practice" at src/pages/w/[workspaceSlug]/admin/practice/index.vue.');
 
     const pageSource = await readFile(path.join(appRoot, toPagePath(targetFile)), "utf8");
-    assert.match(pageSource, /<h1 class="text-h5 mb-2">Practice<\/h1>/);
+    assert.match(pageSource, /<h1 class="generated-page-screen__title">Practice<\/h1>/);
     assert.doesNotMatch(pageSource, /custom practice page/);
   });
 });
@@ -423,7 +640,7 @@ test("ui-generator page subcommand rejects invalid link placement before creatin
           "link-placement": "missing:target"
         }
       }),
-      /ui-generator page option "placement" target "missing:target" is not declared/
+      /ui-generator page option "placement" must be a semantic target in "area.slot" format/
     );
 
     await assert.rejects(readFile(path.join(appRoot, toPagePath(targetFile)), "utf8"), /ENOENT/);
@@ -455,10 +672,10 @@ test("ui-generator page subcommand rejects invalid link placement before overwri
         args: [targetFile],
         options: {
           force: "true",
-          "link-placement": "missing:target"
+          "link-placement": "missing.target"
         }
       }),
-      /ui-generator page option "placement" target "missing:target" is not declared/
+      /ui-generator page semantic placement "missing.target" is not declared/
     );
 
     const pageSource = await readFile(targetPath, "utf8");

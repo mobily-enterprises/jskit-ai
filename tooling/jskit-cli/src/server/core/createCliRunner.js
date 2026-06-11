@@ -5,7 +5,11 @@ import {
   writeFile
 } from "node:fs/promises";
 import path from "node:path";
-import { discoverShellOutletTargetsFromApp } from "@jskit-ai/kernel/server/support";
+import {
+  discoverPlacementTopologyFromApp,
+  discoverShellOutletSourcePathsFromApp,
+  discoverShellOutletTargetsFromApp
+} from "@jskit-ai/kernel/server/support";
 import { createCliError } from "../shared/cliError.js";
 import {
   createColorFormatter,
@@ -146,7 +150,9 @@ const commandHandlers = createCommandHandlers(
     removeManagedViteProxyEntries,
     hashBuffer,
     rm,
-    discoverShellOutletTargetsFromApp
+    discoverShellOutletSourcePathsFromApp,
+    discoverShellOutletTargetsFromApp,
+    discoverPlacementTopologyFromApp
   })
 );
 

@@ -1,4 +1,4 @@
-import { isRecord } from "../shared/support/normalize.js";
+import { isRecord, normalizeMobileConfig } from "../shared/support/normalize.js";
 
 const CLIENT_APP_CONFIG_GLOBAL_KEY = "__JSKIT_CLIENT_APP_CONFIG__";
 const EMPTY_CLIENT_APP_CONFIG = Object.freeze({});
@@ -30,4 +30,18 @@ function getClientAppConfig() {
   return isRecord(appConfig) ? appConfig : EMPTY_CLIENT_APP_CONFIG;
 }
 
-export { CLIENT_APP_CONFIG_GLOBAL_KEY, setClientAppConfig, getClientAppConfig };
+function resolveMobileConfig(appConfig = getClientAppConfig()) {
+  return normalizeMobileConfig(isRecord(appConfig) ? appConfig.mobile : {});
+}
+
+function resolveClientAssetMode(appConfig = getClientAppConfig()) {
+  return resolveMobileConfig(appConfig).assetMode;
+}
+
+export {
+  CLIENT_APP_CONFIG_GLOBAL_KEY,
+  setClientAppConfig,
+  getClientAppConfig,
+  resolveMobileConfig,
+  resolveClientAssetMode
+};

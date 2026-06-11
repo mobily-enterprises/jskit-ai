@@ -28,34 +28,79 @@ const health = computed(() => {
 </script>
 
 <template>
-  <v-card rounded="lg" elevation="1" border>
-    <v-card-item class="home-surface-card__header">
-      <template #prepend>
-        <v-chip color="primary" size="small" label>Home</v-chip>
-      </template>
-      <v-card-title class="text-h5">welcome</v-card-title>
-      <v-card-subtitle>Main public surface</v-card-subtitle>
-    </v-card-item>
-    <v-divider />
-    <v-card-text class="home-surface-card__body d-flex flex-column ga-3">
-      <div class="d-flex flex-wrap ga-3">
-        <v-chip color="secondary" variant="tonal" label>Route: /home</v-chip>
-        <v-chip color="info" variant="tonal" label>Health: {{ health }}</v-chip>
+  <section class="generated-ui-screen generated-ui-screen--app home-surface-screen d-flex flex-column ga-4">
+    <header class="home-surface-screen__header">
+      <div>
+        <p class="text-overline text-medium-emphasis mb-1">Home</p>
+        <h1 class="home-surface-screen__title">Ready</h1>
+        <p class="text-body-2 text-medium-emphasis mb-0">
+          Core services are available.
+        </p>
       </div>
-      <p class="text-medium-emphasis mb-0">
-        This is your primary landing page. Replace this content with your actual product home.
-      </p>
-      <p class="text-body-2 text-medium-emphasis mb-0">Use the navigation drawer to move around the shell.</p>
-    </v-card-text>
-  </v-card>
+      <v-btn color="primary" variant="flat" to="/home/settings/general">Settings</v-btn>
+    </header>
+
+    <v-sheet rounded="lg" border class="home-surface-screen__panel">
+      <div class="home-surface-screen__status">
+        <span class="text-caption text-medium-emphasis">Service health</span>
+        <strong>{{ health }}</strong>
+      </div>
+      <v-divider vertical class="d-none d-sm-block" />
+      <div class="home-surface-screen__status">
+        <span class="text-caption text-medium-emphasis">Route</span>
+        <strong>/home</strong>
+      </div>
+    </v-sheet>
+  </section>
 </template>
 
 <style scoped>
-.home-surface-card__header {
-  padding: 0.875rem 1rem;
+.generated-ui-screen {
+  --generated-ui-screen-title-size: 2rem;
+  --generated-ui-screen-panel-padding: 1rem;
 }
 
-.home-surface-card__body {
-  padding: 0.875rem 1rem 1rem;
+.home-surface-screen__header {
+  align-items: flex-start;
+  display: flex;
+  gap: 1rem;
+  justify-content: space-between;
+}
+
+.home-surface-screen__title {
+  font-size: var(--generated-ui-screen-title-size);
+  font-weight: 700;
+  letter-spacing: 0;
+  line-height: 1.1;
+  margin: 0 0 0.4rem;
+}
+
+.home-surface-screen__panel {
+  align-items: stretch;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem;
+  padding: var(--generated-ui-screen-panel-padding);
+}
+
+.home-surface-screen__status {
+  display: grid;
+  gap: 0.15rem;
+  min-width: 9rem;
+}
+
+@media (max-width: 640px) {
+  .generated-ui-screen {
+    --generated-ui-screen-title-size: 1.5rem;
+  }
+
+  .home-surface-screen__header {
+    flex-direction: column;
+  }
+
+  .home-surface-screen__header :deep(.v-btn) {
+    min-height: 48px;
+    width: 100%;
+  }
 }
 </style>

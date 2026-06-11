@@ -6,7 +6,7 @@ Use when:
 - custom endpoint reads or writes
 - AJAX questions
 - replacing raw `fetch(...)` calls
-- choosing between `useCommand()`, `useList()`, `useView()`, `useAddEdit()`, and `useEndpointResource()`
+- choosing between shared CRUD screens, `useCommand()`, `useList()`, `useView()`, `useAddEdit()`, and `useEndpointResource()`
 
 Rules:
 
@@ -19,21 +19,30 @@ Rules:
 Choose the function like this:
 
 ```js
-// 1. Button/toggle/small mutation
+// 1. Generated CRUD route screen
+const screen = useCrudListScreen({ ... });
+
+// 2. Button/toggle/small mutation
 const command = useCommand({ ... });
 
-// 2. List endpoint
+// 3. List endpoint
 const list = useList({ ... });
 
-// 3. Single-record endpoint
+// 4. Single-record endpoint
 const view = useView({ ... });
 
-// 4. Form save flow
+// 5. Form save flow
 const form = useAddEdit({ ... });
 
-// 5. Truly custom endpoint
+// 6. Truly custom endpoint
 const resource = useEndpointResource({ ... });
 ```
+
+Use the shared CRUD screen wrappers when the route is a generated CRUD page:
+
+- `useCrudListScreen()` plus `CrudListScreen` for list route pages
+- `useCrudViewScreen()` plus `CrudViewScreen` for record view route pages
+- `useCrudAddEditScreen()` plus `CrudAddEditScreen` for generated new/edit route pages
 
 Use the CRUD wrappers when they fit:
 
@@ -55,6 +64,16 @@ Why this is the standard JSKIT shape:
 - Use `requestQueryParams` for endpoint query strings on list, view, and add/edit runtimes.
 - Keep `apiUrlTemplate` path-only. Do not put `?include=...` or other query strings in URL templates.
 
+Error presentation rules:
+
+- Resource load failures should stay local to the screen with the runtime's `loadError` state and a retry action.
+- Do not force global banners for ordinary list/view/add-edit load failures; the shell error policy treats `resource-load` as `silent` by default.
+- Transport/connectivity failures are different from ordinary resource-load errors. `shell-web` observes the app QueryClient and reports active query failures such as `Network request failed.` or `Failed to fetch` through request recovery with a `Retry` action.
+- For imperative app-caught request failures outside the standard query/resource composables, use `useShellRequestRecoveryRuntime()` from `@jskit-ai/shell-web/client/requestRecovery` and pass a retry callback.
+- Use query meta `jskit.requestRecovery = false` only when a query owns its full connectivity recovery UI, and `jskit.requestRecoveryLabel` when the recovery banner needs a better label.
+- Use `useUiFeedback()` or `useCommand()` for user-triggered action feedback. Those flows report `action-feedback`, and the app-owned shell error policy decides the channel.
+- Use explicit shell error intents only for exceptional app-level cases: `app-recoverable` for recoverable shell/runtime failures and `blocking` for failures that require user attention.
+
 Avoid:
 
 - raw `fetch(...)` for standard page or component work
@@ -62,3 +81,4 @@ Avoid:
 - manually concatenating scoped route params into API URLs
 - using a lower-level seam when a higher-level routed CRUD or command runtime already fits
 - smuggling query params into `apiUrlTemplate`
+- reporting routine resource load errors through hand-written global snackbar/banner calls

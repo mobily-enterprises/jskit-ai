@@ -25,14 +25,11 @@ To get back to the same starting point as the end of the shell chapter, run:
 npx @jskit-ai/create-app exampleapp --tenancy-mode none
 cd exampleapp
 npm install
-
-npx jskit add package shell-web
-npm install
 ```
 
 If you are already continuing from the earlier guide chapters, you are already in the right place and can skip that setup.
 
-One important detail before we start: `ui-generator` is a CLI tool, not a runtime package you add to the app. The runtime package that makes these examples meaningful is `shell-web`, because that is what gives the app real surfaces, placements, and nested shell structure.
+One important detail before we start: `ui-generator` is a CLI tool, not a runtime package you add to the app. The default scaffold already includes `shell-web`, which is the runtime package that makes these examples meaningful by giving the app real surfaces, placements, and nested shell structure.
 
 ## `ui-generator` `@jskit-ai/ui-generator` `(0.1.22)`
 
@@ -95,7 +92,7 @@ The important default is this:
 - if JSKIT sees no nearer routed host, the new page gets a normal shell/menu placement
 - if JSKIT does see a nearer routed host, the new page gets linked into that host instead
 
-Open the app and you now have a real `/reports` page plus a real shell link for it.
+Open the app to see a real `/reports` page plus a real shell link for it.
 
 ### Customizing the generated menu link
 
@@ -108,26 +105,30 @@ That is where things such as:
 - `label`
 - `order`
 - `icon`
-- a custom `componentToken`
+- `owner`
+- `surfaces`
 
 normally get adjusted.
 
 The important icon rule is this:
 
-- inside `src/placement.js` menu metadata, raw `mdi-*` strings are fine
-- inside normal Vue component props, they are not
+- inside `src/placement.js` menu metadata, import app-specific icons from `@mdi/js` and pass the path constant
+- only use raw `mdi-*` strings for the small set of shell-web core icons that JSKIT normalizes
+- inside normal Vue component props, use the same `@mdi/js` path constants or a Vuetify alias
 
 So this is a valid menu-placement customization:
 
 ```js
+import { mdiChartBoxOutline } from "@mdi/js";
+
 props: {
   label: "Reports",
   to: "/reports",
-  icon: "mdi-chart-box-outline"
+  icon: mdiChartBoxOutline
 }
 ```
 
-But if you later open the generated page file itself and add a Vuetify icon to the template, switch back to `@mdi/js`:
+If you later open the generated page file itself and add a Vuetify icon to the template, use the same `@mdi/js` pattern:
 
 ```vue
 <script setup>
@@ -137,7 +138,7 @@ import { mdiChartBoxOutline } from "@mdi/js";
 <v-icon :icon="mdiChartBoxOutline" />
 ```
 
-This split matters because JSKIT's shell menu components normalize menu metadata icons for you, while direct Vue icon props go straight to Vuetify.
+This keeps icon imports local and tree-shakeable. Do not import the whole `@mdi/js` namespace just to look up icon names dynamically.
 
 ## What `page` is really good at
 
@@ -160,21 +161,12 @@ Use this when the generated page link should go somewhere other than the generat
 Typical reasons:
 
 - you want the page in a different shell menu
-- you want the page link inside a specific existing outlet
+- you want the page link inside a specific existing semantic placement
 - you do not want the link to land in the normal top-level menu
 
 For example, if a page should appear in a settings menu rather than the shell drawer, `--link-placement` is the override that says so.
 
-#### `--link-component-token`
-
-Use this when the page link should render with a different link component than the default inferred one.
-
-In practice, this often means:
-
-- using a tab-style link instead of a normal menu link
-- using a local custom link token for a special shell section
-
-This matters most once you start targeting non-default outlets. A settings or tab host may want a different link renderer than the main shell drawer.
+The value should normally be semantic, such as `shell.primary-nav`, `page.section-nav`, or another `area.slot` placement from `jskit list-placements`. Concrete `host:position` outlets remain an escape hatch, not the default authoring path.
 
 #### `--link-to`
 
@@ -240,7 +232,7 @@ After the command, the page gains three important pieces:
 - a `ShellOutlet` for the child-page tabs
 - `RouterView`
 
-That means the page can now keep rendering shared content while child routes render underneath it.
+That lets the page keep rendering shared content while child routes render underneath it.
 
 This is the first big distinction in this chapter:
 
@@ -270,7 +262,7 @@ The route page is still a normal page file. What changes is the inferred placeme
 - no parent host found -> shell/menu entry
 - nearest parent host found -> child link inside that host
 
-So JSKIT is not switching to a different generator. It is switching the inferred placement behavior because the route tree now has a routed host above the new page.
+So JSKIT is not switching to a different generator. The route tree has a routed host above the new page, so the inferred placement behavior follows that host.
 
 ### Making a child page the default landing route
 
@@ -345,12 +337,13 @@ But the placement it wrote was **not** another top-level shell link.
 Instead, it targeted the host outlet:
 
 ```text
-reports:sub-pages
+page.section-nav
 ```
 
-and used the tab-link renderer with:
+with the host owner and relative route:
 
 ```js
+owner: "reports",
 to: "./exports"
 ```
 
@@ -360,7 +353,7 @@ That is exactly the behavior you want:
 - `Exports` becomes a child tab under it
 - the child route renders under the parent instead of becoming another top-level menu entry
 
-This is also why `--link-placement`, `--link-component-token`, and `--link-to` are often unnecessary in the default nested case. Once the host exists, JSKIT already knows the likely child placement target, link renderer, and relative `to` value.
+This is also why `--link-placement` and `--link-to` are often unnecessary in the default nested case. Once the host exists, JSKIT already knows the likely semantic placement, owner, and relative `to` value. The link renderer comes from `src/placementTopology.js`.
 
 ## Nested pages under a file-route host
 
@@ -380,7 +373,7 @@ Then upgrade that page into a host:
 npx jskit generate ui-generator add-subpages \
   home/contacts/[contactId].vue \
   --title "Contact" \
-  --subtitle "View and manage this contact."
+  --subtitle "Contact activity and notes."
 ```
 
 This time the parent is a file route, not an `index.vue` route.
@@ -458,13 +451,13 @@ This is different from `page` in a very important way:
 
 So if the thing you are adding should live *inside* an existing shell region, not at its own route, `placed-element` is the right command.
 
-By default, the element goes into:
+By default, the element targets the semantic status placement:
 
 ```text
-shell-layout:top-right
+shell.status
 ```
 
-That is why this is such a good command for widgets, status panels, and compact shell extensions.
+That is why this is such a good command for widgets, status panels, and compact shell extensions. The default shell topology maps `shell.status` to the concrete shell status outlet for each layout class.
 
 ### When `--surface` matters
 
@@ -491,25 +484,27 @@ A practical example is:
 npx jskit generate ui-generator placed-element \
   --name "Ops Panel" \
   --surface admin \
-  --placement shell-layout:top-right
+  --placement shell.status
 ```
 
-`shell-layout:top-right` can exist across several surfaces. If your app has several enabled surfaces, `--surface admin` tells JSKIT which one this element is actually meant for.
+`shell.status` can be global across several surfaces. If your app has several enabled surfaces, `--surface admin` tells JSKIT which one this element is actually meant for.
 
 So the rule of thumb is:
 
-- page-owned outlet target -> surface is often inferable
-- shared shell target in a multi-surface app -> pass `--surface`
+- page-owned semantic placement target -> surface is often inferable
+- shared shell semantic placement in a multi-surface app -> pass `--surface`
 
 ### `--placement`
 
-Use `--placement` when the default target `shell-layout:top-right` is not what you want.
+Use `--placement` when the default target `shell.status` is not what you want.
 
 This is the option that answers:
 
 - *where should this element render?*
 
 In practice, it is the first override you will use for `placed-element`.
+
+`--placement` expects a semantic placement id such as `shell.status`, `shell.global-actions`, or `settings.sections`. Concrete `host:position` outlets are exposed through topology, not used as normal placed-element authoring targets.
 
 ### `--path`
 
@@ -547,13 +542,15 @@ In the verified throwaway app, after generating `Alerts Widget`, I ran:
 ```bash
 npx jskit generate ui-generator outlet \
   src/components/AlertsWidgetElement.vue \
-  --target alerts-widget:actions
+  --target alerts-widget:actions \
+  --placement page.actions
 ```
 
-That command touched only one file:
+That command touched the Vue file and the topology file:
 
 ```text
 src/components/AlertsWidgetElement.vue
+src/placementTopology.js
 ```
 
 and injected:
@@ -576,13 +573,16 @@ Use `outlet` when you want:
 - later content to be targetable there
 - no routed child-page behavior
 
-After adding the outlet, `npx jskit list-placements` showed the new target immediately:
+After adding the outlet, `npx jskit list-placements` showed the new semantic placement immediately:
 
 ```text
-- alerts-widget:actions [src/components/AlertsWidgetElement.vue]
+- page.actions: ...
+- compact -> alerts-widget:actions
+- medium -> alerts-widget:actions
+- expanded -> alerts-widget:actions
 ```
 
-So `outlet` is the smallest possible way to make a Vue file part of the placement topology.
+So `outlet` is the smallest possible way to add a concrete recipient and expose it through the public placement topology in the same change.
 
 ### When `outlet` is the smaller correct tool
 
@@ -603,7 +603,7 @@ That is why `outlet` is often the better choice for:
 
 If you do **not** need `RouterView` and you do **not** need child routes, `outlet` is usually the cleaner tool.
 
-### Choosing a good custom `--target`
+### Choosing a good custom `--target` and `--placement`
 
 `--target` should be meaningful to humans, not just syntactically valid.
 
@@ -626,11 +626,19 @@ custom-area:slot1
 
 because the meaningful target name will later show up in:
 
-- `jskit list-placements`
-- placement entries
+- `jskit list-placements --concrete`
+- topology mappings
 - future generator commands
 
 So the target should describe the UI seam you are creating, not just satisfy the `host:position` format.
+
+`--placement` is the public authoring target that other entries should use. It should be semantic, such as:
+
+```text
+page.actions
+```
+
+Adding an outlet without adding a semantic mapping would leave a low-level recipient that normal generators and humans will not discover by default.
 
 ## `add-subpages` versus `outlet`
 
@@ -691,4 +699,4 @@ That is why the commands fit together cleanly:
 - `page` can then create nested child routes under those hosts
 - `placed-element` and `outlet` handle the non-routed side of the same UI system
 
-Once the UI you want is no longer just page structure and starts needing real database-backed list/view/new/edit behavior, move to the CRUD generators chapter.
+Once the UI you want needs real database-backed list/view/new/edit behavior instead of only page structure, move to the CRUD generators chapter.

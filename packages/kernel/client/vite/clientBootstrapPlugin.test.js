@@ -404,7 +404,7 @@ test("createJskitClientBootstrapPlugin config excludes installed client package 
     assert.equal(Array.isArray(result?.optimizeDeps?.exclude), true);
     assert.deepEqual(result.optimizeDeps.exclude, ["already/excluded"]);
     assert.deepEqual(result.optimizeDeps.include, ["@example/has-client/client", "a"]);
-    assert.deepEqual(result.resolve.dedupe, ["@tanstack/vue-query", "vue", "vue-router", "vuetify"]);
+    assert.deepEqual(result.resolve.dedupe, ["@tanstack/vue-query", "pinia", "vue", "vue-router", "vuetify"]);
   } finally {
     process.chdir(previousCwd);
   }
@@ -469,7 +469,7 @@ test("createJskitClientBootstrapPlugin config excludes local package roots and c
       "@example/local-client/shared"
     ]);
     assert.deepEqual(result.optimizeDeps.include, ["@example/remote-client/client", "mime-match"]);
-    assert.deepEqual(result.resolve.dedupe, ["@tanstack/vue-query", "vue", "vue-router", "vuetify"]);
+    assert.deepEqual(result.resolve.dedupe, ["@tanstack/vue-query", "pinia", "vue", "vue-router", "vuetify"]);
   } finally {
     process.chdir(previousCwd);
   }
@@ -500,7 +500,7 @@ test("createJskitClientBootstrapPlugin config preserves user resolve fields and 
     assert.deepEqual(result.resolve.alias, {
       "@": "/tmp/app/src"
     });
-    assert.deepEqual(result.resolve.dedupe, ["@tanstack/vue-query", "custom-lib", "vue", "vue-router", "vuetify"]);
+    assert.deepEqual(result.resolve.dedupe, ["@tanstack/vue-query", "custom-lib", "pinia", "vue", "vue-router", "vuetify"]);
   } finally {
     process.chdir(previousCwd);
   }

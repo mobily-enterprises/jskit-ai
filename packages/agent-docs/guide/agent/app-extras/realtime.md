@@ -21,13 +21,13 @@ The first command records the runtime package in the app and updates the existin
 
 Unlike the database, users, console, and workspace chapters, this one does **not** need `npm run db:migrate`. `realtime` does not add schema files. It is transport infrastructure, not persistence.
 
-## What changes now
+## What the package adds
 
-Installing `realtime` changes the app in three important ways.
+Installing `realtime` adds three app capabilities.
 
 ### The app gets a realtime transport
 
-The server now mounts a socket.io runtime on the same Fastify server that already serves your JSKIT surfaces. The browser gets a matching socket.io client runtime through the normal client boot process.
+The server mounts a socket.io runtime on the same Fastify server that already serves your JSKIT surfaces. The browser gets a matching socket.io client runtime through the normal client boot process.
 
 That means later modules, or your own app code, can stop thinking only in terms of request/response HTTP flows. They can start publishing live events and listening for them in Vue.
 
@@ -35,7 +35,7 @@ That means later modules, or your own app code, can stop thinking only in terms 
 
 The package also uses the shell scaffolding that already exists.
 
-`realtime` appends a placement entry into `src/placement.js` that targets `shell-layout:top-right`, so the shell starts showing a small status dot without you having to create a new page for it.
+`realtime` appends a placement entry into `src/placement.js` that targets the semantic `shell.status` placement, so the shell shows a small status dot without you having to create a new page for it. In the default shell topology, `shell.status` renders through the concrete `shell-layout:top-right` outlet.
 
 That dot is:
 
@@ -52,7 +52,7 @@ The app already had a browser dev server on `5173` and a backend runtime on `300
 
 So one of the main values of this package is that you do **not** have to hand-edit Vite config just to make socket.io work in local development.
 
-### There are still no new pages
+### There are no realtime pages
 
 This is worth saying clearly because it can otherwise feel surprising.
 
@@ -75,7 +75,7 @@ npm run server
 
 Then open `http://localhost:5173/home`.
 
-The important visible change is in the top-right of the shell. You should now see the realtime status dot alongside the other shell controls.
+The visible check is the shell status area. You should see the realtime status dot alongside the other shell controls.
 
 If the websocket connects successfully, the dot is green. If the backend is unavailable or the socket is reconnecting, the dot is red. Hovering it shows the current status text.
 
@@ -159,14 +159,15 @@ After the install, the app has:
 
 That one entry is what lets the browser dev server proxy websocket traffic correctly during local development.
 
-### `src/placement.js` grows one new shell placement
+### `src/placement.js` includes the shell status placement
 
 The package appends this placement:
 
 ```js
 addPlacement({
   id: "realtime.connection.indicator",
-  target: "shell-layout:top-right",
+  target: "shell.status",
+  kind: "component",
   surfaces: ["*"],
   order: 950,
   componentToken: "realtime.web.connection.indicator"
@@ -215,9 +216,9 @@ That is the right level of abstraction for this package:
 
 ## Summary
 
-This chapter does not make the app look radically different, but it adds an important new capability.
+This chapter does not make the app look radically different, but it adds an important capability.
 
-- the backend can now host a realtime socket server
-- the frontend can now keep one shared websocket connection alive
-- the shell now exposes a live connection indicator
+- the backend hosts a realtime socket server
+- the frontend keeps one shared websocket connection alive
+- the shell exposes a live connection indicator
 - later modules can build live behavior on top of that transport without inventing their own websocket setup

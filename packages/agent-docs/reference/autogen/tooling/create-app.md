@@ -142,6 +142,26 @@ Exports
 Exports
 - None
 
+### `templates/base-shell/src/components/menus/MenuLinkItem.vue`
+Exports
+- None
+
+### `templates/base-shell/src/components/menus/SurfaceAwareMenuLinkItem.vue`
+Exports
+- None
+
+### `templates/base-shell/src/components/menus/TabLinkItem.vue`
+Exports
+- None
+
+### `templates/base-shell/src/components/ShellLayout.vue`
+Exports
+- `default`
+
+### `templates/base-shell/src/error.js`
+Exports
+- None
+
 ### `templates/base-shell/src/main.js`
 Exports
 - None
@@ -154,6 +174,28 @@ Exports
 Exports
 - None
 
+### `templates/base-shell/src/pages/home/settings.vue`
+Exports
+- None
+
+### `templates/base-shell/src/pages/home/settings/general/index.vue`
+Exports
+- None
+
+### `templates/base-shell/src/pages/home/settings/index.vue`
+Exports
+- None
+
+### `templates/base-shell/src/placement.js`
+Exports
+- `addPlacement`
+- `getPlacements()`
+
+### `templates/base-shell/src/placementTopology.js`
+Exports
+- `addPlacementTopology(value = {})`
+- `default`
+
 ### `templates/base-shell/src/views/NotFound.vue`
 Exports
 - None
@@ -165,6 +207,114 @@ Local functions
 - `clientEntry(()`
 
 ### `templates/base-shell/vite.shared.mjs`
+Exports
+- `toPositiveInt(value, fallback)`
+- `loadViteDevProxyEntries({ appRootUrl = import.meta.url, fallbackTarget = "" } = {})`
+
+### `templates/minimal-shell/bin/server.js`
+Exports
+- None
+
+### `templates/minimal-shell/config/public.js`
+Exports
+- `config`
+
+### `templates/minimal-shell/config/server.js`
+Exports
+- `config`
+
+### `templates/minimal-shell/config/surfaceAccessPolicies.js`
+Exports
+- `surfaceAccessPolicies`
+
+### `templates/minimal-shell/eslint.config.mjs`
+Exports
+- None
+
+### `templates/minimal-shell/packages/main/package.descriptor.mjs`
+Exports
+- None
+
+### `templates/minimal-shell/packages/main/src/client/index.js`
+Exports
+- `MainClientProvider`
+- `registerMainClientComponent`
+
+### `templates/minimal-shell/packages/main/src/client/providers/MainClientProvider.js`
+Exports
+- `MainClientProvider`
+- `registerMainClientComponent(token, resolveComponent)`
+
+### `templates/minimal-shell/packages/main/src/server/index.js`
+Exports
+- `MainServiceProvider`
+
+### `templates/minimal-shell/packages/main/src/server/loadAppConfig.js`
+Exports
+- `loadAppConfig({ moduleUrl = import.meta.url } = {})`
+
+### `templates/minimal-shell/packages/main/src/server/MainServiceProvider.js`
+Exports
+- `MainServiceProvider`
+
+### `templates/minimal-shell/packages/main/src/shared/index.js`
+Exports
+- None
+
+### `templates/minimal-shell/packages/main/src/shared/schemas/index.js`
+Exports
+- None
+
+### `templates/minimal-shell/server.js`
+Exports
+- `createServer()`
+- `startServer(options = {})`
+Local functions
+- `toRequestPathname(urlValue)`
+- `isApiPath(pathname)`
+- `hasFileExtension(pathname)`
+- `resolveGlobalUiPaths(runtimeGlobalUiPaths = [])`
+- `resolveStaticFilePath(pathname)`
+- `canServeStaticFile(distRoot, relativePath)`
+
+### `templates/minimal-shell/server/lib/runtimeEnv.js`
+Exports
+- `resolveRuntimeEnv()`
+Local functions
+- `toPort(value, fallback = 3000)`
+- `ensureRuntimeEnvLoaded()`
+
+### `templates/minimal-shell/server/lib/surfaceRuntime.js`
+Exports
+- `surfaceRuntime`
+
+### `templates/minimal-shell/src/App.vue`
+Exports
+- None
+
+### `templates/minimal-shell/src/main.js`
+Exports
+- None
+
+### `templates/minimal-shell/src/pages/home.vue`
+Exports
+- None
+
+### `templates/minimal-shell/src/pages/home/index.vue`
+Exports
+- None
+
+### `templates/minimal-shell/src/views/NotFound.vue`
+Exports
+- None
+
+### `templates/minimal-shell/vite.config.mjs`
+Exports
+- None
+Local functions
+- `clientEntry(()`
+
+### `templates/minimal-shell/vite.shared.mjs`
 Exports
 - `toPositiveInt(value, fallback)`
 - `loadViteDevProxyEntries({ appRootUrl = import.meta.url, fallbackTarget = "" } = {})`

@@ -14,6 +14,9 @@ const REGISTER_MAIN_CLIENT_COMPONENT_PATTERN = /registerMainClientComponent\(\s*
 const LINK_ITEM_TOKEN_SUFFIX = "link-item";
 const JSKIT_SCOPE_PREFIX = "@jskit-ai/";
 const FEATURE_SERVER_GENERATOR_PACKAGE_ID = "@jskit-ai/feature-server-generator";
+const PLACEMENT_LAYOUT_CLASSES = Object.freeze(["compact", "medium", "expanded"]);
+const PLACEMENT_KIND_COMPONENT = "component";
+const PLACEMENT_KIND_LINK = "link";
 const PROVIDER_SOURCE_EXTENSIONS = new Set([".js", ".mjs", ".cjs", ".ts", ".tsx"]);
 const READ_FILE_IGNORE_ERROR_CODES = new Set(["ENOENT", "ENOTDIR", "EISDIR", "EACCES", "EPERM"]);
 const READ_DIRECTORY_IGNORE_ERROR_CODES = new Set(["ENOENT", "ENOTDIR", "EACCES", "EPERM"]);
@@ -80,6 +83,331 @@ function resolveGeneratorQuickStartRows(packageEntry = {}, { limit = 3 } = {}) {
 
 function isLinkItemToken(token = "") {
   return String(token || "").trim().toLowerCase().endsWith(LINK_ITEM_TOKEN_SUFFIX);
+}
+
+function collectPlacementRendererKinds(placementTarget = {}) {
+  const kinds = new Set();
+  const variants = ensureObject(placementTarget.variants);
+  for (const layoutClass of PLACEMENT_LAYOUT_CLASSES) {
+    const variant = ensureObject(variants[layoutClass]);
+    const renderers = ensureObject(variant.renderers);
+    for (const kind of Object.keys(renderers)) {
+      const normalizedKind = String(kind || "").trim();
+      if (normalizedKind) {
+        kinds.add(normalizedKind);
+      }
+    }
+  }
+  if (kinds.size < 1) {
+    kinds.add(PLACEMENT_KIND_COMPONENT);
+  }
+  return sortStrings([...kinds]);
+}
+
+function collectPlacementConcreteOutlets(placementTarget = {}) {
+  const outlets = new Set();
+  const variants = ensureObject(placementTarget.variants);
+  for (const layoutClass of PLACEMENT_LAYOUT_CLASSES) {
+    const variant = ensureObject(variants[layoutClass]);
+    const outlet = String(variant.outlet || "").trim();
+    if (outlet) {
+      outlets.add(outlet);
+    }
+  }
+  return sortStrings([...outlets]);
+}
+
+function classifyPlacementTarget(placementTarget = {}) {
+  const owner = String(placementTarget.owner || "").trim();
+  const kinds = collectPlacementRendererKinds(placementTarget);
+  const acceptsLinks = kinds.includes(PLACEMENT_KIND_LINK);
+  const acceptsComponents = kinds.includes(PLACEMENT_KIND_COMPONENT);
+
+  if (acceptsLinks && acceptsComponents) {
+    return owner ? "ownerMixed" : "mixed";
+  }
+  if (acceptsLinks) {
+    return owner ? "ownerLinks" : "links";
+  }
+  return owner ? "ownerComponents" : "components";
+}
+
+function createConcreteTargetSourcePathMap(concreteTargets = []) {
+  const sourcePathByTarget = new Map();
+  for (const concreteTarget of ensureArray(concreteTargets)) {
+    const target = String(ensureObject(concreteTarget).id || "").trim();
+    const sourcePath = String(ensureObject(concreteTarget).sourcePath || "").trim();
+    if (target && sourcePath && !sourcePathByTarget.has(target)) {
+      sourcePathByTarget.set(target, sourcePath);
+    }
+  }
+  return sourcePathByTarget;
+}
+
+function resolveChildPagePatternFromHostSourcePath(sourcePath = "") {
+  const normalizedPath = String(sourcePath || "").replaceAll("\\", "/").trim();
+  if (!normalizedPath.startsWith("src/pages/")) {
+    return "";
+  }
+  const pagePath = normalizedPath.slice("src/pages/".length);
+  if (pagePath.endsWith("/index.vue")) {
+    const hostPath = pagePath.slice(0, -"/index.vue".length);
+    return hostPath
+      ? `${hostPath}/<page>.vue or ${hostPath}/<page>/index.vue`
+      : "<page>.vue or <page>/index.vue";
+  }
+  if (pagePath.endsWith(".vue")) {
+    const hostPath = pagePath.slice(0, -".vue".length);
+    return hostPath
+      ? `${hostPath}/<page>.vue or ${hostPath}/<page>/index.vue`
+      : "<page>.vue or <page>/index.vue";
+  }
+  return "";
+}
+
+function resolveOwnerScopedChildPagePattern(placementTarget = {}, concreteSourcePathByTarget = new Map()) {
+  const outlets = collectPlacementConcreteOutlets(placementTarget);
+  for (const outlet of outlets) {
+    const childPagePattern = resolveChildPagePatternFromHostSourcePath(
+      concreteSourcePathByTarget.get(outlet) || ""
+    );
+    if (childPagePattern) {
+      return childPagePattern;
+    }
+  }
+  return "";
+}
+
+function createPlacementTargetSummary(placementTarget = {}, color, { concreteSourcePathByTarget = new Map() } = {}) {
+  const placementId = String(placementTarget.id || "").trim();
+  const owner = String(placementTarget.owner || "").trim();
+  const ownerLabel = owner ? color.dim(` [owner:${owner}]`) : "";
+  const defaultLabel = placementTarget.default === true ? color.installed(" (default)") : "";
+  const description = String(placementTarget.description || "").trim();
+  const childPagePattern = owner
+    ? resolveOwnerScopedChildPagePattern(placementTarget, concreteSourcePathByTarget)
+    : "";
+  const childPagePatternLabel = childPagePattern ? ` -> ${color.dim(childPagePattern)}` : "";
+  const descriptionSuffix = description ? `: ${description}` : "";
+  return `- ${color.item(placementId)}${ownerLabel}${defaultLabel}${childPagePatternLabel}${descriptionSuffix}`;
+}
+
+function appendPlacementLayoutDetails(lines, placementTarget = {}, color) {
+  const variants = ensureObject(placementTarget.variants);
+  for (const layoutClass of PLACEMENT_LAYOUT_CLASSES) {
+    const variant = ensureObject(variants[layoutClass]);
+    const outlet = String(variant.outlet || "").trim();
+    if (outlet) {
+      lines.push(`  ${layoutClass} -> ${color.dim(outlet)}`);
+    }
+  }
+}
+
+function collectMappedConcreteOutletIds(semanticPlacements = []) {
+  const mapped = new Set();
+  for (const placementTarget of ensureArray(semanticPlacements)) {
+    const variants = ensureObject(placementTarget.variants);
+    for (const layoutClass of PLACEMENT_LAYOUT_CLASSES) {
+      const variant = ensureObject(variants[layoutClass]);
+      const outlet = String(variant.outlet || "").trim();
+      if (outlet) {
+        mapped.add(outlet);
+      }
+    }
+  }
+  return mapped;
+}
+
+function resolveUnmappedConcreteTargets({
+  semanticPlacements = [],
+  concreteTargets = []
+} = {}) {
+  const mappedConcreteOutletIds = collectMappedConcreteOutletIds(semanticPlacements);
+  return ensureArray(concreteTargets)
+    .map((entry) => ensureObject(entry))
+    .filter((entry) => {
+      const id = String(entry.id || "").trim();
+      return id && !mappedConcreteOutletIds.has(id);
+    })
+    .sort((left, right) => String(left.id || "").localeCompare(String(right.id || "")));
+}
+
+function formatPlacementGuidanceLine(line = "", color) {
+  const guidanceLine = String(line || "").trim();
+  const labelMatch = /^([^:]+):\s*(.*)$/u.exec(guidanceLine);
+  if (!labelMatch) {
+    return `  ${color.dim(guidanceLine)}`;
+  }
+  const label = String(labelMatch[1] || "").trim();
+  const value = String(labelMatch[2] || "").trim();
+  const renderedLabel = color.installed(`${label}:`);
+  const renderedValue = value ? ` ${color.provider(value)}` : "";
+  return `  ${renderedLabel}${renderedValue}`;
+}
+
+function appendPlacementGroup(lines, {
+  color,
+  title = "",
+  description = "",
+  guidance = [],
+  targets = [],
+  concreteSourcePathByTarget = new Map(),
+  showLayoutDetails = false
+} = {}) {
+  const placementTargets = ensureArray(targets);
+  if (placementTargets.length < 1) {
+    return;
+  }
+  if (lines.length > 1) {
+    lines.push("");
+  }
+  lines.push(color.heading(title));
+  if (description) {
+    lines.push(description);
+  }
+  const guidanceLines = ensureArray(guidance).map((value) => String(value || "").trim()).filter(Boolean);
+  for (const guidanceLine of guidanceLines) {
+    lines.push(formatPlacementGuidanceLine(guidanceLine, color));
+  }
+  for (const placementTarget of placementTargets) {
+    lines.push(createPlacementTargetSummary(placementTarget, color, { concreteSourcePathByTarget }));
+    if (showLayoutDetails) {
+      appendPlacementLayoutDetails(lines, placementTarget, color);
+    }
+  }
+}
+
+function appendUnmappedConcreteTargetWarnings(lines, {
+  color,
+  concreteTargets = []
+} = {}) {
+  const targets = ensureArray(concreteTargets);
+  if (targets.length < 1) {
+    return;
+  }
+
+  if (lines.length > 1) {
+    lines.push("");
+  }
+  lines.push(color.heading("Unmapped concrete outlets:"));
+  lines.push(
+    "These concrete ShellOutlet recipients are discoverable but are not reached by semantic topology. Add a semantic mapping or keep them private/internal."
+  );
+  lines.push(
+    color.dim(
+      "Format: npx jskit generate ui-generator topology --placement <area.slot> --kind <link|component> --compact-target <host:position> --medium-target <host:position> --expanded-target <host:position>"
+    )
+  );
+  for (const placementTarget of targets) {
+    const placementId = String(placementTarget.id || "").trim();
+    const sourcePath = String(placementTarget.sourcePath || "").trim();
+    const sourceLabel = sourcePath ? ` ${color.dim(`[${sourcePath}]`)}` : "";
+    lines.push(`- ${color.item(placementId)}${sourceLabel}`);
+  }
+}
+
+function appendSemanticPlacementGroups(lines, {
+  color,
+  semanticPlacements = [],
+  concreteTargets = [],
+  showLayoutDetails = false
+} = {}) {
+  const concreteSourcePathByTarget = createConcreteTargetSourcePathMap(concreteTargets);
+  const groupedTargets = {
+    links: [],
+    ownerLinks: [],
+    components: [],
+    ownerComponents: [],
+    mixed: [],
+    ownerMixed: []
+  };
+
+  for (const placementTarget of ensureArray(semanticPlacements)) {
+    const groupKey = classifyPlacementTarget(placementTarget);
+    if (groupedTargets[groupKey]) {
+      groupedTargets[groupKey].push(placementTarget);
+    }
+  }
+
+  appendPlacementGroup(lines, {
+    color,
+    title: "Navigation link placements",
+    guidance: [
+      'Format: npx jskit generate ui-generator page <page-file> --name "Label" --link-placement <placement>',
+      'Example: npx jskit generate ui-generator page admin/reports/index.vue --name "Reports" --link-placement admin.tools-menu'
+    ],
+    targets: groupedTargets.links,
+    concreteSourcePathByTarget,
+    showLayoutDetails
+  });
+
+  appendPlacementGroup(lines, {
+    color,
+    title: "Owner-scoped navigation link placements",
+    guidance: [
+      'Format: npx jskit generate ui-generator page <host-path>/<page>.vue --name "Label"',
+      'Alternative: npx jskit generate ui-generator page <host-path>/<page>/index.vue --name "Label"',
+      'Example: npx jskit generate ui-generator page home/settings/profile.vue --name "Profile"'
+    ],
+    targets: groupedTargets.ownerLinks,
+    concreteSourcePathByTarget,
+    showLayoutDetails
+  });
+
+  appendPlacementGroup(lines, {
+    color,
+    title: "Component, widget, and section placements",
+    guidance: [
+      'Format: npx jskit generate ui-generator placed-element --name "Widget Name" --placement <placement>',
+      'Example: npx jskit generate ui-generator placed-element --name "Connection Status" --placement shell.status'
+    ],
+    targets: groupedTargets.components,
+    concreteSourcePathByTarget,
+    showLayoutDetails
+  });
+
+  appendPlacementGroup(lines, {
+    color,
+    title: "Owner-scoped component and section placements",
+    guidance: [
+      'Format: npx jskit generate ui-generator placed-element --name "Section Name" --placement <placement> --owner <owner>',
+      'Example: npx jskit generate ui-generator placed-element --name "Security Section" --placement settings.sections --owner account-settings'
+    ],
+    targets: groupedTargets.ownerComponents,
+    concreteSourcePathByTarget,
+    showLayoutDetails
+  });
+
+  appendPlacementGroup(lines, {
+    color,
+    title: "Mixed-kind placements",
+    description: "These topology entries accept more than one semantic kind. Choose the generator by what you are adding.",
+    guidance: [
+      'Link format: npx jskit generate ui-generator page <page-file> --name "Label" --link-placement <placement>',
+      'Component format: npx jskit generate ui-generator placed-element --name "Widget Name" --placement <placement>',
+      'Link example: npx jskit generate ui-generator page admin/reports/index.vue --name "Reports" --link-placement <placement>',
+      'Component example: npx jskit generate ui-generator placed-element --name "Ops Panel" --placement <placement>'
+    ],
+    targets: groupedTargets.mixed,
+    concreteSourcePathByTarget,
+    showLayoutDetails
+  });
+
+  appendPlacementGroup(lines, {
+    color,
+    title: "Owner-scoped mixed-kind placements",
+    description: "These owner-scoped entries accept more than one semantic kind. Include the owner when adding manual placement entries.",
+    guidance: [
+      'Link format: npx jskit generate ui-generator page <host-path>/<page>.vue --name "Label"',
+      'Link alternative: npx jskit generate ui-generator page <host-path>/<page>/index.vue --name "Label"',
+      'Component format: npx jskit generate ui-generator placed-element --name "Widget Name" --placement <placement> --owner <owner>',
+      'Link example: npx jskit generate ui-generator page home/settings/profile.vue --name "Profile"',
+      'Component example: npx jskit generate ui-generator placed-element --name "Security Section" --placement <placement> --owner <owner>'
+    ],
+    targets: groupedTargets.ownerMixed,
+    concreteSourcePathByTarget,
+    showLayoutDetails
+  });
 }
 
 async function readFileIfExists(filePath = "") {
@@ -177,6 +505,8 @@ function createListCommands(ctx = {}) {
     loadBundleRegistry,
     loadAppLocalPackageRegistry,
     resolveInstalledNodeModulePackageEntry,
+    discoverPlacementTopologyFromApp,
+    discoverShellOutletSourcePathsFromApp,
     discoverShellOutletTargetsFromApp,
     normalizePlacementContributions,
     resolvePackageKind
@@ -435,18 +765,66 @@ function createListCommands(ctx = {}) {
 
   async function commandListPlacements({ options, cwd, stdout }) {
     const appRoot = await resolveAppRootFromCwd(cwd);
-    const discoveredPlacements = await discoverShellOutletTargetsFromApp({
-      appRoot,
-      sourceRoot: "src"
-    });
-    const placementTargets = ensureArray(discoveredPlacements.targets)
+    const showConcreteOnly = options.concrete === true && options.all !== true;
+    const showConcrete = options.concrete === true || options.all === true;
+    const showSemantic = showConcreteOnly !== true;
+    const showLayoutDetails = options.details === true;
+    const shouldLookupHostPaths = showSemantic;
+    const discoveredTopology = await discoverPlacementTopologyFromApp({ appRoot });
+    const semanticPlacements = ensureArray(discoveredTopology.placements)
+      .map((entry) => ensureObject(entry))
+      .filter((entry) => String(entry.id || "").trim())
+      .sort((left, right) => {
+        const idCompare = String(left.id || "").localeCompare(String(right.id || ""));
+        if (idCompare !== 0) {
+          return idCompare;
+        }
+        return String(left.owner || "").localeCompare(String(right.owner || ""));
+      });
+    let discoveredConcrete = { targets: [] };
+    if (showConcrete) {
+      discoveredConcrete = await discoverShellOutletTargetsFromApp({
+        appRoot,
+        sourceRoot: "src"
+      });
+    } else if (shouldLookupHostPaths) {
+      discoveredConcrete = await discoverShellOutletSourcePathsFromApp({
+        appRoot,
+        sourceRoot: "src"
+      });
+    }
+    const concreteTargets = ensureArray(discoveredConcrete.targets)
       .map((entry) => ensureObject(entry))
       .filter((entry) => String(entry.id || "").trim())
       .sort((left, right) => String(left.id || "").localeCompare(String(right.id || "")));
+    const unmappedConcreteTargets = showSemantic
+      ? resolveUnmappedConcreteTargets({
+        semanticPlacements,
+        concreteTargets
+      })
+      : [];
 
     if (options.json) {
       const payload = {
-        placements: placementTargets.map((placementTarget) => ({
+        placements: showSemantic
+          ? semanticPlacements.map((placementTarget) => ({
+            target: String(placementTarget.id || "").trim(),
+            owner: String(placementTarget.owner || "").trim(),
+            default: placementTarget.default === true,
+            description: String(placementTarget.description || "").trim(),
+            surfaces: ensureArray(placementTarget.surfaces).map((entry) => String(entry || "").trim()).filter(Boolean),
+            variants: ensureObject(placementTarget.variants),
+            sourcePath: String(placementTarget.sourcePath || "").trim()
+          }))
+          : [],
+        concretePlacements: showConcrete
+          ? concreteTargets.map((placementTarget) => ({
+            target: String(placementTarget.id || "").trim(),
+            default: placementTarget.default === true,
+            sourcePath: String(placementTarget.sourcePath || "").trim()
+          }))
+          : [],
+        unmappedConcretePlacements: unmappedConcreteTargets.map((placementTarget) => ({
           target: String(placementTarget.id || "").trim(),
           default: placementTarget.default === true,
           sourcePath: String(placementTarget.sourcePath || "").trim()
@@ -457,17 +835,42 @@ function createListCommands(ctx = {}) {
     }
 
     const color = createColorFormatter(stdout);
-    const lines = [color.heading("Available placements:")];
-    if (placementTargets.length < 1) {
-      lines.push("- none");
-    } else {
-      for (const placementTarget of placementTargets) {
-        const placementId = String(placementTarget.id || "").trim();
-        const sourcePath = String(placementTarget.sourcePath || "").trim();
-        const isDefault = placementTarget.default === true;
-        const defaultLabel = isDefault ? color.installed(" (default)") : "";
-        const sourceLabel = sourcePath ? ` ${color.dim(`[${sourcePath}]`)}` : "";
-        lines.push(`- ${color.item(placementId)}${defaultLabel}${sourceLabel}`);
+    const lines = [];
+    if (showSemantic) {
+      lines.push(color.heading("Available placements:"));
+      lines.push("Semantic placement targets are the stable IDs you should author against. Use --concrete only for low-level ShellOutlet recipients.");
+      if (semanticPlacements.length < 1) {
+        lines.push("- none");
+      } else {
+        appendSemanticPlacementGroups(lines, {
+          color,
+          semanticPlacements,
+          concreteTargets,
+          showLayoutDetails
+        });
+      }
+      appendUnmappedConcreteTargetWarnings(lines, {
+        color,
+        concreteTargets: unmappedConcreteTargets
+      });
+    }
+
+    if (showConcrete) {
+      if (lines.length > 0) {
+        lines.push("");
+      }
+      lines.push(color.heading("Available concrete outlets:"));
+      if (concreteTargets.length < 1) {
+        lines.push("- none");
+      } else {
+        for (const placementTarget of concreteTargets) {
+          const placementId = String(placementTarget.id || "").trim();
+          const sourcePath = String(placementTarget.sourcePath || "").trim();
+          const isDefault = placementTarget.default === true;
+          const defaultLabel = isDefault ? color.installed(" (default)") : "";
+          const sourceLabel = sourcePath ? ` ${color.dim(`[${sourcePath}]`)}` : "";
+          lines.push(`- ${color.item(placementId)}${defaultLabel}${sourceLabel}`);
+        }
       }
     }
 

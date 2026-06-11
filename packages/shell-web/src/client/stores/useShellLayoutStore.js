@@ -8,6 +8,8 @@ import {
 export const useShellLayoutStore = defineStore("jskit.shell-web.layout", () => {
   const drawerDefaultOpen = ref(readDrawerDefaultOpenPreference());
   const drawerOpen = ref(drawerDefaultOpen.value);
+  const supportingContentOpen = ref(false);
+  const supportingContentTitle = ref("");
 
   function setDrawerDefaultOpen(open) {
     const normalized = Boolean(open);
@@ -24,11 +26,29 @@ export const useShellLayoutStore = defineStore("jskit.shell-web.layout", () => {
     drawerOpen.value = !drawerOpen.value;
   }
 
+  function openSupportingContent({ title = "" } = {}) {
+    supportingContentTitle.value = String(title || "").trim();
+    supportingContentOpen.value = true;
+  }
+
+  function closeSupportingContent() {
+    supportingContentOpen.value = false;
+  }
+
+  function setSupportingContentOpen(open) {
+    supportingContentOpen.value = Boolean(open);
+  }
+
   return {
     drawerDefaultOpen,
     drawerOpen,
+    supportingContentOpen,
+    supportingContentTitle,
     setDrawerDefaultOpen,
     setDrawerOpen,
-    toggleDrawer
+    toggleDrawer,
+    openSupportingContent,
+    closeSupportingContent,
+    setSupportingContentOpen
   };
 });

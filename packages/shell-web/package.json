@@ -1,6 +1,6 @@
 {
   "name": "@jskit-ai/shell-web",
-  "version": "0.1.62",
+  "version": "0.1.88",
   "type": "module",
   "scripts": {
     "test": "node --test"
@@ -9,28 +9,31 @@
     "./client": "./src/client/index.js",
     "./client/error": "./src/client/error/index.js",
     "./client/placement": "./src/client/placement/index.js",
+    "./client/asyncModuleRecovery": "./src/client/asyncModuleRecovery/index.js",
+    "./client/requestRecovery": "./src/client/requestRecovery/index.js",
     "./client/bootstrap": "./src/client/bootstrap/index.js",
     "./server/support/localLinkItemScaffolds": "./src/server/support/localLinkItemScaffolds.js",
     "./client/navigation/linkResolver": "./src/client/navigation/linkResolver.js",
     "./client/components/ShellLayout": "./src/client/components/ShellLayout.vue",
     "./client/components/ShellOutlet": "./src/client/components/ShellOutlet.vue",
     "./client/components/ShellOutletMenuWidget": "./src/client/components/ShellOutletMenuWidget.vue",
+    "./client/components/ShellRouteTransition": "./src/client/components/ShellRouteTransition.vue",
     "./client/components/ShellErrorHost": "./src/client/components/ShellErrorHost.vue",
     "./client/components/ShellMenuLinkItem": "./src/client/components/ShellMenuLinkItem.vue",
     "./client/components/ShellSurfaceAwareMenuLinkItem": "./src/client/components/ShellSurfaceAwareMenuLinkItem.vue",
     "./client/components/ShellTabLinkItem": "./src/client/components/ShellTabLinkItem.vue",
     "./client/composables/useShellLayoutState": "./src/client/composables/useShellLayoutState.js",
-    "./client/providers/ShellWebClientProvider": "./src/client/providers/ShellWebClientProvider.js"
+    "./client/providers/ShellWebClientProvider": "./src/client/providers/ShellWebClientProvider.js",
+    "./test/adaptiveShellSmoke": "./src/test/adaptiveShellSmoke.js"
   },
   "dependencies": {
     "@mdi/js": "^7.4.47",
-    "@tanstack/vue-query": "^5.90.5",
-    "@jskit-ai/kernel": "0.1.63",
-    "pinia": "^3.0.4",
-    "vuetify": "^4.0.0"
+    "@jskit-ai/kernel": "0.1.89"
   },
   "peerDependencies": {
+    "pinia": "^3.0.4",
     "vue": "^3.5.13",
-    "vue-router": "^5.0.4"
+    "vue-router": "^5.0.4",
+    "vuetify": "^4.0.0"
   }
 }

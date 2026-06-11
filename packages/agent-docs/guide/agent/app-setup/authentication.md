@@ -12,9 +12,6 @@ To get back to the same starting point as the end of the previous chapter, run:
 npx @jskit-ai/create-app exampleapp --tenancy-mode none
 cd exampleapp
 npm install
-
-npx jskit add package shell-web
-npm install
 ```
 
 If you are already continuing from the previous chapter, you are already in the right place and can skip that setup.
@@ -83,7 +80,7 @@ npm run server
 
 Then open `http://localhost:5173/auth/login` in the browser.
 
-The login page is now real, and it already contains several different auth modes behind the same card.
+The login page is real, and it already contains several different auth modes behind the same card.
 
 - **Sign in** is the normal email-and-password flow.
 - **Register** creates a new Supabase auth user.
@@ -91,7 +88,7 @@ The login page is now real, and it already contains several different auth modes
 - **Use one-time code** switches to an email OTP login flow.
 - **Remember this account on this device** stores a small local hint in browser storage so the next visit can greet the last-used account and let the user keep that email preselected.
 
-If you go back to `http://localhost:5173/home`, the shell also has a small auth widget in the top-right corner. When you are signed out it shows a guest state and a menu entry that leads to `/auth/login`. After you sign in, the same placement changes to a sign-out menu.
+If you go back to `http://localhost:5173/home`, the shell also has a small auth widget in the status area. When you are signed out it shows a guest state and a menu entry that leads to `/auth/login`. After you sign in, the same placement changes to a sign-out menu.
 
 ## Reading the screen carefully
 
@@ -116,7 +113,7 @@ The small links under the password field are not decoration.
 
 When the user presses `Register`, the form changes in three important ways.
 
-- The title changes from `Welcome` to `Create your account`.
+- The screen shows the `Create your account` title.
 - A `Confirm password` field appears.
 - The main submit button changes from `Sign in` to `Register`.
 
@@ -165,7 +162,7 @@ JSKIT asks Supabase to send OTP login emails only for existing users. In other w
 
 That endpoint asks Supabase to send a password reset email. In this chapter's scaffold, this mode is only the **request** step.
 
-The backend already supports the later recovery endpoints too, but the chapter's simple app does **not** yet scaffold a dedicated app-owned `reset-password` page. So at this stage, the guide should be read as: the screen can request recovery emails now, while the full browser-side password-reset completion UI is still something you would add explicitly in the app.
+The backend already supports the later recovery endpoints too, but the chapter's simple app does **not** yet scaffold a dedicated app-owned `reset-password` page. So at this stage, the guide should be read as: the screen can request recovery emails, while the full browser-side password-reset completion UI is still something you would add explicitly in the app.
 
 ### Remembered account behavior
 
@@ -184,7 +181,7 @@ On the next visit, the card can show a `Welcome back, ...` panel and a `Use anot
 
 The screen is also ready to show OAuth provider buttons, but only if providers are configured.
 
-Right now the chapter's `config.server.js` keeps this empty:
+For this chapter, `config.server.js` keeps this empty:
 
 ```js
 config.auth = {
@@ -319,10 +316,10 @@ The placement entry is just a normal shell link:
 ```js
 addPlacement({
   id: "ui-generator.page.home.reports.link",
-  target: "shell-layout:primary-menu",
+  target: "shell.primary-nav",
+  kind: "link",
   surfaces: ["home"],
   order: 155,
-  componentToken: "local.main.ui.surface-aware-menu-link-item",
   props: {
     label: "Reports",
     surface: "home",
@@ -332,13 +329,22 @@ addPlacement({
 });
 ```
 
-And the page file itself is a normal page scaffold:
+And the page file itself is a normal generated empty-state screen:
 
 ```vue
 <template>
-  <section class="pa-4">
-    <h1 class="text-h5 mb-2">Reports</h1>
-    <p class="text-body-2 text-medium-emphasis">Replace this scaffold with your page implementation.</p>
+  <section class="generated-page-screen d-flex flex-column ga-4">
+    <header>
+      <p class="text-overline text-medium-emphasis mb-1">Screen</p>
+      <h1 class="generated-page-screen__title">Reports</h1>
+    </header>
+
+    <v-sheet rounded="lg" border class="generated-page-screen__empty-state">
+      <h2 class="text-h6 mb-2">No Reports activity yet</h2>
+      <p class="text-body-2 text-medium-emphasis mb-0">
+        Activity and actions for this screen will appear here.
+      </p>
+    </v-sheet>
   </section>
 </template>
 ```
@@ -364,9 +370,18 @@ To make the route require login, add a route guard block to `src/pages/home/repo
 </route>
 
 <template>
-  <section class="pa-4">
-    <h1 class="text-h5 mb-2">Reports</h1>
-    <p class="text-body-2 text-medium-emphasis">Replace this scaffold with your page implementation.</p>
+  <section class="generated-page-screen d-flex flex-column ga-4">
+    <header>
+      <p class="text-overline text-medium-emphasis mb-1">Screen</p>
+      <h1 class="generated-page-screen__title">Reports</h1>
+    </header>
+
+    <v-sheet rounded="lg" border class="generated-page-screen__empty-state">
+      <h2 class="text-h6 mb-2">No Reports activity yet</h2>
+      <p class="text-body-2 text-medium-emphasis mb-0">
+        Activity and actions for this screen will appear here.
+      </p>
+    </v-sheet>
   </section>
 </template>
 ```
@@ -383,17 +398,17 @@ So after login, JSKIT can send the user back to the page they originally asked f
 
 ### Hide the menu entry when signed out
 
-The route is now protected, but the drawer link is still visible. That is expected. Route protection and shell visibility are separate concerns.
+The route is protected, but the drawer link is still visible. That is expected. Route protection and shell visibility are separate concerns.
 
 To hide the `Reports` menu entry until the user is logged in, update the placement entry in `src/placement.js`:
 
 ```js
 addPlacement({
   id: "ui-generator.page.home.reports.link",
-  target: "shell-layout:primary-menu",
+  target: "shell.primary-nav",
+  kind: "link",
   surfaces: ["home"],
   order: 155,
-  componentToken: "local.main.ui.surface-aware-menu-link-item",
   props: {
     label: "Reports",
     surface: "home",
@@ -407,7 +422,7 @@ addPlacement({
 
 The only new part is the `when(...)` line. That predicate is evaluated by the shell placement runtime using the auth context that `auth-web` injects from `/api/session`.
 
-So the behavior now becomes:
+So the behavior becomes:
 
 - signed out:
   - the `Reports` drawer entry disappears
@@ -440,7 +455,7 @@ const auth = useAuthStore();
     </v-alert>
 
     <h1 class="text-h5 mb-2">Home</h1>
-    <p class="text-body-2 text-medium-emphasis">Replace this scaffold with your page implementation.</p>
+    <p class="text-body-2 text-medium-emphasis">Your account session is active on this device.</p>
   </section>
 </template>
 ```
@@ -501,7 +516,7 @@ At this point the guide has shown three distinct layers of client state:
 - `shell-web` adds shell-facing stores such as `useShellLayoutStore()`
 - `auth-web` adds `useAuthStore()` for authentication state
 
-That progression is intentional. Packages keep their operational runtimes internally, but the app-facing shared state they surface to Vue code is now store-based.
+That progression is intentional. Packages keep their operational runtimes internally, but the app-facing shared state they surface to Vue code is store-based.
 
 ## What `auth-base` adds to the app
 
@@ -528,7 +543,7 @@ Three things are worth noticing immediately.
 
 - `auth-provider-supabase-core` is the provider-specific runtime.
 - `auth-web` is the part that adds the web routes and the default auth UI.
-- there is now an `auth` surface-specific dev/build script family, just as `home` already had.
+- there is an `auth` surface-specific dev/build script family, just as `home` already had.
 
 The provider command also writes a new `.env` file:
 
@@ -541,7 +556,7 @@ APP_PUBLIC_URL=http://localhost:5173
 
 This is the bridge between the scaffold and your real Supabase project. `APP_PUBLIC_URL` matters because auth emails and callback flows need to know which browser URL they should return to.
 
-Public routing config changes too. `config/public.js` now has a second surface:
+Public routing config changes too. `config/public.js` has a second surface:
 
 ```js
 config.surfaceDefinitions.auth = {
@@ -568,7 +583,7 @@ config.auth = {
 };
 ```
 
-That small block explains a lot of the default login screen. The stock UI is ready for OAuth providers such as Google, but right now the provider list is empty, so the page only shows the email/password and one-time-code flows. Later, if you enable a provider in Supabase and list it here, the same login screen can expose that button too.
+That small block explains a lot of the default login screen. The stock UI is ready for OAuth providers such as Google, but this chapter keeps the provider list empty, so the page only shows the email/password and one-time-code flows. Later, if you enable a provider in Supabase and list it here, the same login screen can expose that button too.
 
 The auth routes themselves are app-owned wrappers around the module-supplied default views. `src/pages/auth/login.vue` looks like this:
 
@@ -606,7 +621,8 @@ Authentication also becomes visible in the shell through `src/placement.js`:
 ```js
 addPlacement({
   id: "auth.profile.widget",
-  target: "shell-layout:top-right",
+  target: "shell.status",
+  kind: "component",
   surfaces: ["*"],
   order: 1000,
   componentToken: "auth.web.profile.widget"
@@ -614,10 +630,10 @@ addPlacement({
 
 addPlacement({
   id: "auth.profile.menu.sign-in",
-  target: "auth-profile-menu:primary-menu",
+  target: "auth.profile-menu",
+  kind: "link",
   surfaces: ["*"],
   order: 200,
-  componentToken: "auth.web.profile.menu.link-item",
   props: {
     label: "Sign in",
     to: "/auth/login"
@@ -627,10 +643,10 @@ addPlacement({
 
 addPlacement({
   id: "auth.profile.menu.sign-out",
-  target: "auth-profile-menu:primary-menu",
+  target: "auth.profile-menu",
+  kind: "link",
   surfaces: ["*"],
   order: 1000,
-  componentToken: "auth.web.profile.menu.link-item",
   props: {
     label: "Sign out",
     to: "/auth/signout"
@@ -639,7 +655,7 @@ addPlacement({
 });
 ```
 
-This is the shell placement system from the previous chapter doing real work again. `auth-web` does not hard-code a permanent top-right button into `ShellLayout.vue`. Instead, it contributes a widget and two menu entries into named outlets, and those entries react to the current auth state.
+This is the shell placement system from the previous chapter doing real work again. `auth-web` does not hard-code a permanent auth button into `ShellLayout.vue`. Instead, it contributes the profile widget into the semantic `shell.status` placement and contributes sign-in/sign-out links into the semantic `auth.profile-menu` placement. Topology maps those semantic targets to concrete outlets and renderers.
 
 So the auth story in this chapter is spread across clear responsibilities:
 
@@ -701,7 +717,7 @@ onBeforeUnmount(() => {
     </v-alert>
 
     <h1 class="text-h5 mb-2">Home</h1>
-    <p class="text-body-2 text-medium-emphasis">Replace this scaffold with your page implementation.</p>
+    <p class="text-body-2 text-medium-emphasis">Your account session is active on this device.</p>
   </section>
 </template>
 ```
@@ -916,7 +932,7 @@ It is also why the shell widget can react cleanly to auth state without storing 
 
 ### Authenticated Playwright testing with the dev auth bypass
 
-JSKIT now ships a development-only auth bootstrap path specifically so authenticated UI can be verified in Playwright without depending on a real live login flow through Supabase.
+JSKIT ships a development-only auth bootstrap path specifically so authenticated UI can be verified in Playwright without depending on a real live login flow through Supabase.
 
 This is the standard path the agent should use for authenticated browser tests:
 
@@ -1082,6 +1098,6 @@ That is why the confirmation screen in the app should be understood as a **sessi
 
 ## Summary
 
-After this chapter, the app can really authenticate against Supabase. It has a public `auth` surface, a stock login page, a sign-out route, and a shell widget that reflects auth state. The provider-specific values now live in `.env`, and the web auth layer is wired into the same placement and surface system introduced earlier in the guide.
+After this chapter, the app can really authenticate against Supabase. It has a public `auth` surface, a stock login page, a sign-out route, and a shell widget that reflects auth state. The provider-specific values live in `.env`, and the web auth layer is wired into the same placement and surface system introduced earlier in the guide.
 
 Just as importantly, the app is still deliberately incomplete. Authentication exists, but the database-backed user model does not. That separation is useful, because the next layer of the guide can explain users and persistence without having to also explain the first auth setup at the same time.

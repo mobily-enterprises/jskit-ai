@@ -16,7 +16,14 @@ test("users-web exports are explicit and aligned with production/template usage"
     requiredExports: [
       "./client",
       "./client/components/AccountSettingsClientElement",
+      "./client/components/CrudAddEditScreen",
+      "./client/components/CrudListBulkActionSurface",
+      "./client/components/CrudListFilterSurface",
+      "./client/components/CrudListScreen",
+      "./client/components/CrudViewScreen",
       "./client/account-settings/sections",
+      "./client/bulkActions",
+      "./client/filters",
       "./client/composables/useAddEdit",
       "./client/composables/useCommand",
       "./client/composables/useEndpointResource",
@@ -24,10 +31,14 @@ test("users-web exports are explicit and aligned with production/template usage"
       "./client/composables/usePaths",
       "./client/composables/useView",
       "./client/composables/useCrudAddEdit",
+      "./client/composables/useCrudAddEditScreen",
+      "./client/composables/useCrudListBulkActions",
       "./client/composables/useCrudListFilterLookups",
       "./client/composables/useCrudListFilters",
       "./client/composables/useCrudList",
+      "./client/composables/useCrudListScreen",
       "./client/composables/useCrudView",
+      "./client/composables/useCrudViewScreen",
       "./client/lib/httpClient"
     ]
   });

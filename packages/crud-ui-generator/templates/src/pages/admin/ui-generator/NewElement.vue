@@ -1,45 +1,19 @@
 <template>
-  <section class="ui-generator-new-element d-flex flex-column ga-4">
-    <v-card rounded="lg" elevation="1" border>
-      <v-card-item>
-        <div class="d-flex align-center ga-3 flex-wrap w-100">
-          <div>
-            <v-card-title class="px-0">New __JSKIT_UI_RESOURCE_SINGULAR_TITLE__</v-card-title>
-            <v-card-subtitle class="px-0">Create a new __JSKIT_UI_RESOURCE_SINGULAR_TITLE__.</v-card-subtitle>
-          </div>
-          <v-spacer />
-          <v-btn v-if="UI_LIST_URL" color="primary" variant="outlined" :to="formRuntime.addEdit.resolveParams(UI_LIST_URL)">
-            Cancel
-          </v-btn>
-          <v-btn
-            color="primary"
-            variant="flat"
-            :loading="formRuntime.addEdit.isSaving"
-            :disabled="formRuntime.addEdit.isSubmitDisabled"
-            @click="formRuntime.addEdit.submit"
-          >
-            Save __JSKIT_UI_RESOURCE_SINGULAR_TITLE__
-          </v-btn>
-        </div>
-      </v-card-item>
-      <v-divider />
-      <v-card-text class="pt-4">
-        <p v-if="formRuntime.addEdit.loadError" class="text-body-2 text-medium-emphasis mb-0">
-          {{ formRuntime.addEdit.loadError }}
-        </p>
-        <v-form v-else @submit.prevent="formRuntime.addEdit.submit" novalidate>
-          <v-row>
-            <!-- jskit:crud-ui-fields:new -->
+  <CrudAddEditScreen
+    :screen="screen"__JSKIT_UI_CREATE_LOOKUP_FORM_PROPS__
+  >
+    <template
+      #fields="__JSKIT_UI_CREATE_FORM_SLOT_PROPS__"
+    >
+      <!-- jskit:crud-ui-fields:new -->
 __JSKIT_UI_CREATE_FORM_COLUMNS_DIRECT__
-          </v-row>
-        </v-form>
-      </v-card-text>
-    </v-card>
-  </section>
+    </template>
+  </CrudAddEditScreen>
 </template>
 
 <script setup>
-import { useCrudAddEdit } from "@jskit-ai/users-web/client/composables/useCrudAddEdit";
+import CrudAddEditScreen from "@jskit-ai/users-web/client/components/CrudAddEditScreen";
+import { useCrudAddEditScreen } from "@jskit-ai/users-web/client/composables/useCrudAddEditScreen";
 __JSKIT_UI_CREATE_LOOKUP_IMPORT_LINE__
 import { resource as uiResource } from "__JSKIT_UI_RESOURCE_IMPORT_PATH__";
 
@@ -59,7 +33,12 @@ Object.freeze(UI_CREATE_FORM_FIELDS);
 
 __JSKIT_UI_CREATE_LOOKUP_RUNTIME_SETUP__
 
-const formRuntime = useCrudAddEdit({
+const screen = useCrudAddEditScreen({
+  mode: "new",
+  title: "New __JSKIT_UI_RESOURCE_SINGULAR_TITLE__",
+  subtitle: "Create a __JSKIT_UI_RESOURCE_SINGULAR_TITLE__ record.",
+  saveLabel: "Save __JSKIT_UI_RESOURCE_SINGULAR_TITLE__",
+  cancelTo: UI_LIST_URL,
   resource: uiResource,
   operationName: "create",
   formFields: UI_CREATE_FORM_FIELDS,
@@ -91,10 +70,4 @@ const formRuntime = useCrudAddEdit({
     listUrlTemplate: UI_LIST_URL
   }
 });
-const addEdit = formRuntime.addEdit;
-const formState = formRuntime.form;
-
-function resolveFieldErrors(fieldKey) {
-  return formRuntime.resolveFieldErrors(fieldKey);
-}
 </script>

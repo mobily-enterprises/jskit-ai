@@ -16,6 +16,12 @@ const authenticatedPermission = Object.freeze({
   require: "authenticated"
 });
 
+function buildListQuery(input = {}) {
+  const query = { ...(input || {}) };
+  delete query.workspaceSlug;
+  return query;
+}
+
 function createActions({ surface } = {}) {
   return Object.freeze([
     {
@@ -37,8 +43,7 @@ function createActions({ surface } = {}) {
       },
       observability: {},
       async execute(input, context, deps) {
-        const { workspaceSlug, ...query } = input || {};
-        return deps.usersService.queryDocuments(query, {
+        return deps.usersService.queryDocuments(buildListQuery(input), {
           context,
           visibilityContext: context?.visibilityContext
         });

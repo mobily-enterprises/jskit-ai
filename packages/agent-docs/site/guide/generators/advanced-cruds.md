@@ -247,6 +247,8 @@ packages/contacts/
 
 src/pages/w/[workspaceSlug]/admin/contacts/
   index.vue
+  listBulkActions.js
+  listFilters.js
   new.vue
   [contactId]/index.vue
   [contactId]/edit.vue
@@ -437,6 +439,8 @@ src/pages/w/[workspaceSlug]/admin/contacts/
   new.vue
   [contactId]/index.vue
   [contactId]/edit.vue
+  listBulkActions.js
+  listFilters.js
   _components/CrudAddEditForm.vue
   _components/CrudAddEditFormFields.js
 ```
@@ -447,13 +451,13 @@ This is the list-page container.
 
 Its job is usually to:
 
-- call `useCrudList()`
-- bind `records.searchQuery`
-- render list rows
+- call `useCrudListScreen()`
+- pass page-local `listFilters` and `listBulkActions`
+- render the shared `CrudListScreen`
 - resolve list/view/edit/new URLs
 - pass route query state through when navigating deeper
 
-The actual list machinery lives uphill in `users-web` composables and the shared resource contract.
+The actual list machinery lives in `users-web` shared screen composables and the shared resource contract.
 
 ### `[contactId]/index.vue`
 
@@ -461,8 +465,8 @@ This is the view-page container.
 
 Its job is usually to:
 
-- call `useCrudView()`
-- render the selected record
+- call `useCrudViewScreen()`
+- render the shared `CrudViewScreen`
 - resolve "back" and "edit" navigation
 
 Again, the runtime behavior is mostly uphill. The page is a route-level composition layer.
@@ -473,9 +477,9 @@ These are add/edit route wrappers.
 
 They usually:
 
-- call `useCrudAddEdit()`
+- call `useCrudAddEditScreen()`
 - wire lookup runtime for lookup-backed fields
-- hand the form runtime into the shared form component
+- hand the form runtime into the shared `CrudAddEditScreen`
 
 These files are mostly containers. That is deliberate.
 
@@ -733,15 +737,14 @@ The safe mental model is:
 
 ### `_components/CrudAddEditForm.vue`
 
-This is the shared rendering shell for the add/edit form.
+This is the generated field bridge for the shared add/edit screen.
 
 It owns:
 
-- the card/surface layout
-- save/cancel buttons
 - which set of generated form fields is rendered in `new` vs `edit`
+- lookup field prop forwarding into those fields
 
-It does **not** own persistence logic.
+It does **not** own persistence logic or the shared screen chrome. `CrudAddEditScreen` from `users-web` owns the common title, load state, retry action, save/cancel action row, and form surface.
 
 ### `_components/CrudAddEditFormFields.js`
 
@@ -764,8 +767,8 @@ That is navigation wiring, not CRUD logic.
 
 A generated CRUD works because several layers cooperate:
 
-1. the route page calls `useCrudList()`, `useCrudView()`, or `useCrudAddEdit()`
-2. those composables use the shared resource contract and runtime helpers from `users-web`
+1. the route page calls `useCrudListScreen()`, `useCrudViewScreen()`, or `useCrudAddEditScreen()`
+2. those screen composables configure the lower-level list/view/add-edit runtimes from `users-web`
 3. the request hits the HTTP route from `registerRoutes.js`
 4. the route executes an action from `actions.js`
 5. the action delegates to the service in `service.js`
@@ -787,8 +790,9 @@ Use this rule of thumb when deciding where to edit:
 | Change default ordering, searchable fields, or ownership autofilter | `contactResource.js` | The shared resource is the single source of truth for both CRUD contract and internal JSON:API resource config |
 | Change SQL, joins, parent filters, or advanced search | `repository.js` | This is the data-access layer |
 | Add cross-record or domain rules on save/delete | `service.js` | This is business logic |
-| Change page layout and display behavior | the route pages and app-owned composables | This is presentation |
-| Change form field layout and inputs | `_components/CrudAddEditForm.vue` and `CrudAddEditFormFields.js` | This is the generated form layer |
+| Change shared CRUD screen chrome, load states, or retry behavior | `users-web` shared screen components | Generated pages consume the shared screen contract |
+| Change page-specific display behavior | the route pages, generated slots, and app-owned composables | This is presentation |
+| Change form field layout and inputs | `_components/CrudAddEditForm.vue` and `CrudAddEditFormFields.js` | This is the generated form field layer |
 
 ## How mature CRUDs grow
 
@@ -822,10 +826,10 @@ This is the default generated list-page pattern for the `contacts` resource from
 
 #### Client side
 
-Enable query search in the list page:
+The generated list page delegates search wiring to the shared list screen:
 
 ```js
-const records = useCrudList({
+const screen = useCrudListScreen({
   resource: uiResource,
   apiSuffix: "/contacts",
   search: {
@@ -839,14 +843,13 @@ const records = useCrudList({
 });
 ```
 
-Then bind the input:
+Then render the shared screen:
 
 ```vue
-<v-text-field
-  v-model="records.searchQuery"
-  :loading="records.isSearchDebouncing"
-/>
+<CrudListScreen :screen="screen" />
 ```
+
+The shared screen binds the search input and passes the search query into the list request.
 
 The client runtime debounces the search input, writes the query string to `q`, and trims the list back to the first page when search changes.
 
@@ -1004,27 +1007,33 @@ Important limits:
 
 For the agent-facing quick rule, see `patterns/crud-repository-mapping.md`.
 
-### Pattern 3: structured list filters from one shared definition
+### Pattern 3: client-side structured list filters
 
-This is the default pattern once a CRUD list needs real filters.
+Generated CRUD list pages include a client-side filter seam by default. The generated page imports `./listFilters.js` and passes `listFilters` into `useCrudListScreen(...)`. The shared list screen builds the filter runtime, passes the resulting query params into the list request, and renders `CrudListFilterSurface`.
+
+If `listFilters.js` is empty, the filter surface renders nothing.
+
+Use this first when adding filters. The server still needs explicit support for any query params you declare; JSKIT does not infer server filter semantics from the UI.
 
 Do not hand-build:
 
 - one filter shape in the page
-- a second filter shape in `listQueryValidators.js`
-- and a third filter shape in `repository.js`
+- custom chip/reset/query-param state
+- a second copy of the same client filter definitions
 
 Instead:
 
-1. define the filters once in a shared CRUD-package module
-2. build the server runtime from that definition with `createCrudListFilters(...)`
-3. choose the route/action invalid-value contract explicitly on each structured filter field with `createCrudListFilterQueryField(...)`
-4. build the client runtime from that same definition with `useCrudListFilters(...)`
+1. edit the generated page-local `listFilters.js`
+2. let `useCrudListScreen(...)` wire the filter query params into the list request
+3. let `CrudListFilterSurface` render controls, chips, clear-one, and clear-all behavior
+4. add explicit server support separately for the same query params
 
-For example, a shared filter-definition module can look like this:
+For example, a generated page-local filter-definition module can look like this:
 
 ```js
-export const CONTACTS_LIST_FILTER_DEFINITIONS = Object.freeze({
+import { defineCrudListFilters } from "@jskit-ai/users-web/client/filters";
+
+const listFilters = defineCrudListFilters({
   onlyStaff: {
     type: "flag",
     label: "Staff"
@@ -1038,60 +1047,94 @@ export const CONTACTS_LIST_FILTER_DEFINITIONS = Object.freeze({
     label: "Archived"
   }
 });
+
+export { listFilters };
 ```
+
+### Pattern 3B: client-side bulk list actions
+
+Generated CRUD list pages also include a client-side bulk-action seam by default. The generated page imports `./listBulkActions.js` and passes `listBulkActions` into `useCrudListScreen(...)`. The shared list screen builds the bulk-action runtime and renders `CrudListBulkActionSurface`.
+
+If `listBulkActions.js` is empty, selection controls and the bulk action bar stay hidden.
+
+Use this first when adding selected-record actions. JSKIT does not invent server operations such as delete, archive, approve, or export; the action definition owns that behavior.
+
+For example:
+
+```js
+import { defineCrudListBulkActions } from "@jskit-ai/users-web/client/bulkActions";
+
+const listBulkActions = defineCrudListBulkActions([
+  {
+    key: "archive",
+    label: "Archive",
+    async run({ selectedIds, clearSelection, reload }) {
+      await archiveContacts(selectedIds);
+      clearSelection();
+      await reload();
+    }
+  }
+]);
+
+export { listBulkActions };
+```
+
+The generated runtime passes action handlers:
+
+- `selectedIds`
+- `ids` as an alias for `selectedIds`
+- `selectedRecords`
+- `clearSelection()`
+- `records`
+- `reload`
+
+Keep bulk action definitions page-local unless another page needs to share them.
 
 #### Exact file checklist
 
 For a generated CRUD, treat this as the concrete file plan:
 
+- edit `src/pages/.../contacts/listFilters.js`
+- make sure the matching server route/action/repository code already accepts and applies the declared query params
+
+If the filter contract should be shared with server code, promote it into a CRUD package module and import it from both sides:
+
 - create `packages/contacts/src/shared/contactListFilters.js`
 - update `packages/contacts/src/server/registerRoutes.js` so the list route query validator lists structured filter params explicitly with `createCrudListFilterQueryField(...)`, unless you already extracted list-query composition into `packages/contacts/src/server/listQueryValidators.js`
 - update `packages/contacts/src/server/actions.js` so the list action input validator includes that same explicit contract choice
 - update `packages/contacts/src/server/repository.js` so the list query path builds the `createCrudListFilters(...)` runtime and calls `applyQuery(...)`
-- update the app-owned list page or list-runtime composable, usually under `src/pages/.../contacts/` or `src/composables/...`, so it builds `useCrudListFilters(...)`, passes `queryParams` into `useCrudList(...)`, and renders chips / reset behavior from that runtime
-
-The only file in that list that is normally **new** is the shared module:
-
-- `packages/contacts/src/shared/contactListFilters.js`
-
-The others are normally edits to the generated CRUD package and the app-owned page layer that already exist.
 
 #### Client side
 
-Build the filter runtime directly from the shared definitions:
+Generated CRUD list pages pass the page-local filter definitions into the shared list screen:
 
 ```js
-const listFilters = useCrudListFilters(CONTACTS_LIST_FILTER_DEFINITIONS);
+import { listFilters } from "./listFilters.js";
 
-const records = useCrudList({
+const screen = useCrudListScreen({
   resource: uiResource,
   apiSuffix: "/contacts?include=pets",
-  search: {
-    enabled: true,
-    mode: "query"
-  },
-  queryParams: listFilters.queryParams,
-  syncToRoute: {
-    enabled: true,
-    search: true,
-    queryParams: true,
-    queryParamBlacklist: ["include", "cursor", "limit"]
-  }
+  listFilters,
+  routeQueryBlacklist: Object.freeze(["include", "cursor", "limit"])
 });
 ```
 
-That gives you, from one place:
+```vue
+<CrudListScreen :screen="screen" />
+```
 
-- `listFilters.values`
-- `listFilters.queryParams`
-- `listFilters.presets`
-- `listFilters.activeChips`
-- `listFilters.hasActiveFilters`
-- `listFilters.clearChip(...)`
-- `listFilters.clearFilters()`
-- `listFilters.toggle(...)` for flag filters
-- `listFilters.applyPreset(...)`
-- `listFilters.matchesPreset(...)`
+Inside that shared screen runtime, `useCrudListFilters(...)` gives the list:
+
+- `filterRuntime.values`
+- `filterRuntime.queryParams`
+- `filterRuntime.presets`
+- `filterRuntime.activeChips`
+- `filterRuntime.hasActiveFilters`
+- `filterRuntime.clearChip(...)`
+- `filterRuntime.clearFilters()`
+- `filterRuntime.toggle(...)` for flag filters
+- `filterRuntime.applyPreset(...)`
+- `filterRuntime.matchesPreset(...)`
 
 So the same runtime owns:
 
@@ -1245,13 +1288,13 @@ async function list(query = {}, callOptions = {}) {
 
 #### Best practices
 
-- Put the filter definitions in the CRUD package, not the page. Both server and client need them.
+- Keep client-only filters in the generated page-local `listFilters.js`. Move definitions into a CRUD package only when server code or another page needs to share them.
 - Keep the filter keys identical all the way through: definition key, query param key, and repository meaning.
 - Prefer `createCrudListFilterQueryField(...)` plus `createCrudListFilterQuerySchema(...)` at route/action boundaries so accepted structured-filter params stay visible in app code.
 - Use `type: "presence"` for null/not-null filters such as assigned vs unassigned storage. Do not model those as custom enums plus `applyQuery(...)` overrides unless the SQL semantics are genuinely different from `whereNotNull(...)` / `whereNull(...)`.
 - Use `createCrudListFilters(...)` unless the list semantics are truly unusual.
 - Use `q` for free-text and explicit query params for structured filters.
-- Run `jskit doctor` after wiring filters. It flags inline/local filter-definition objects passed into `useCrudListFilters(...)` or `createCrudListFilters(...)`.
+- Run `jskit doctor` after wiring filters. It flags inline filter-definition objects passed into `useCrudListFilters(...)` or `createCrudListFilters(...)`.
 
 ### Pattern 4: lookup-backed structured filters
 
@@ -1263,7 +1306,7 @@ This is the next real-world step: filters like `supplierContactId`, `locationId`
 
 The right pattern is:
 
-1. keep the lookup filter in the shared definitions
+1. keep the lookup filter in `listFilters.js` or in shared definitions when server code also imports it
 2. use `useCrudListFilters(...)` for state, chips, and query params
 3. use `useCrudListFilterLookups(...)` for option loading and label resolution
 

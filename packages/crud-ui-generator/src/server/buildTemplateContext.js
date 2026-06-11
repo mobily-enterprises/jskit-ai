@@ -8,6 +8,10 @@ import {
 } from "@jskit-ai/kernel/server/support";
 import { normalizeText } from "@jskit-ai/kernel/shared/support/normalize";
 import {
+  resolveGeneratedUiNavigationRoleLinkPlacement,
+  shouldCreateGeneratedUiNavigationLink
+} from "@jskit-ai/kernel/shared/support/generatedUiContract";
+import {
   loadResourceDefinition,
   requireOperation,
   resolveOperationRealtimeEvents,
@@ -22,6 +26,7 @@ import {
   resolveNearestParentRouteParamKey,
   buildListHeaderColumns,
   buildListRowColumns,
+  buildListCardFields,
   buildViewColumns,
   buildFormColumns,
   resolveRecordIdFieldKey,
@@ -157,6 +162,18 @@ function toTitleFromKebab(value = "", fallback = "") {
   return wordsToTitle(words);
 }
 
+function buildCrudListCopy(resourceLabels = {}) {
+  const pluralTitle = normalizeText(resourceLabels.pluralTitle) || "Records";
+  const singularTitle = normalizeText(resourceLabels.singularTitle) || "Record";
+  return Object.freeze({
+    loadErrorTitle: `Unable to load ${pluralTitle}`,
+    loadErrorBody: "Check the connection and try again.",
+    emptyTitle: `No ${pluralTitle} yet`,
+    emptyBody: `Create the first ${singularTitle} to start using this workflow.`,
+    createLabel: `New ${singularTitle}`
+  });
+}
+
 function normalizeRelativeAppPath(value = "") {
   return String(value || "")
     .replaceAll("\\", "/")
@@ -242,6 +259,20 @@ function parseParentTitleOption(options) {
   return parentTitleMode;
 }
 
+function shouldCreateNavigationLink(options = {}, inferenceContext = {}) {
+  return shouldCreateGeneratedUiNavigationLink(options, {
+    dynamicRoutePolicy: "any",
+    routePath: inferenceContext?.routePath
+  });
+}
+
+function resolveNavigationRoleLinkPlacement(options = {}, inferenceContext = {}) {
+  return resolveGeneratedUiNavigationRoleLinkPlacement(options, {
+    dynamicRoutePolicy: "any",
+    routePath: inferenceContext?.routePath
+  });
+}
+
 function validateDisplayFieldsForOperation(selectedFieldKeys, fields, operationName) {
   const selectedFields = Array.isArray(selectedFieldKeys) ? selectedFieldKeys : [];
   if (selectedFields.length < 1) {
@@ -303,6 +334,58 @@ function hasLookupFormFields(fields = []) {
   return (Array.isArray(fields) ? fields : []).some((field) => normalizeText(field?.component).toLowerCase() === "lookup");
 }
 
+function hasLookupDisplayFields(fields = []) {
+  return (Array.isArray(fields) ? fields : []).some((field) => normalizeText(field?.relation?.kind).toLowerCase() === "lookup");
+}
+
+function buildListCardSlotProps(fields = []) {
+  const normalizedFields = Array.isArray(fields) ? fields : [];
+  if (normalizedFields.length < 1) {
+    return "{}";
+  }
+
+  const props = ["record"];
+  if (hasLookupDisplayFields(normalizedFields)) {
+    props.push("records");
+  }
+  props.push("formatListCardValue");
+  return `{ ${props.join(", ")} }`;
+}
+
+function buildListRowSlotProps(fields = []) {
+  const normalizedFields = Array.isArray(fields) ? fields : [];
+  if (normalizedFields.length < 1) {
+    return "{}";
+  }
+
+  const props = ["record"];
+  if (hasLookupDisplayFields(normalizedFields)) {
+    props.push("records");
+  }
+  return `{ ${props.join(", ")} }`;
+}
+
+function buildCrudFieldsSlotProps(fields = [], { includeMode = false } = {}) {
+  const props = [];
+  if (includeMode) {
+    props.push("mode");
+  }
+
+  props.push("formState", "addEdit", "resolveFieldErrors");
+  if (hasLookupFormFields(fields)) {
+    props.push(
+      "resolveLookupItems: fieldLookupItems",
+      "resolveLookupLoading: fieldLookupLoading",
+      "resolveLookupSearch: fieldLookupSearch",
+      "setLookupSearch: setFieldLookupSearch"
+    );
+  }
+
+  return `{
+        ${props.join(",\n        ")}
+      }`;
+}
+
 function buildLookupImportLine(fields = []) {
   return hasLookupFormFields(fields)
     ? 'import { createCrudLookupFieldRuntime } from "@jskit-ai/users-web/client/composables/crudLookupFieldRuntime";'
@@ -339,16 +422,17 @@ const {
 `;
 }
 
-function buildLookupFormProps(fields = []) {
+function buildLookupFormProps(fields = [], { sourcePrefix = "" } = {}) {
   if (!hasLookupFormFields(fields)) {
     return "";
   }
 
+  const prefix = String(sourcePrefix || "");
   return `
-    :resolve-lookup-items="resolveLookupItems"
-    :resolve-lookup-loading="resolveLookupLoading"
-    :resolve-lookup-search="resolveLookupSearch"
-    :set-lookup-search="setLookupSearch"`;
+    :resolve-lookup-items="${prefix}resolveLookupItems"
+    :resolve-lookup-loading="${prefix}resolveLookupLoading"
+    :resolve-lookup-search="${prefix}resolveLookupSearch"
+    :set-lookup-search="${prefix}setLookupSearch"`;
 }
 
 function buildLookupFormPropDefinitions({ createFields = [], editFields = [] } = {}) {
@@ -468,11 +552,67 @@ function resolveTargetRootRelativeRoutePath(pageTarget = {}) {
   return visibleRouteSegments.length > 0 ? `/${visibleRouteSegments.join("/")}` : "/";
 }
 
+function resolveNavigationInferenceRoutePath(pageTarget = {}) {
+  const visibleRouteSegments = Array.isArray(pageTarget?.visibleRouteSegments)
+    ? pageTarget.visibleRouteSegments.map((entry) => normalizeText(entry)).filter(Boolean)
+    : [];
+  if (visibleRouteSegments.length > 0) {
+    return `/${visibleRouteSegments.join("/")}`;
+  }
+  return String(pageTarget?.routeUrlSuffix || "");
+}
+
 function resolveMenuToPropLine(linkTo = "") {
   if (!linkTo) {
     return "";
   }
   return `      to: ${JSON.stringify(linkTo)},\n`;
+}
+
+function resolveMenuOwnerLine(owner = "") {
+  const normalizedOwner = normalizeText(owner);
+  if (!normalizedOwner) {
+    return "";
+  }
+  return `    owner: ${JSON.stringify(normalizedOwner)},\n`;
+}
+
+function buildMenuAppendBlock({
+  hasListOperation = false,
+  menuMarker = "",
+  pageLinkTarget = null,
+  pageTarget = {}
+} = {}) {
+  const placementId = String(pageLinkTarget?.pageTarget?.placementId || "");
+  const placementTarget = String(pageLinkTarget?.placementTarget?.id || "");
+  if (!hasListOperation || !placementId || !placementTarget) {
+    return "";
+  }
+
+  const surfaceId = String(pageTarget?.surfaceId || "");
+  const routeUrlSuffix = String(pageLinkTarget?.pageTarget?.routeUrlSuffix || "");
+  const menuToPropLine = resolveMenuToPropLine(pageLinkTarget?.linkTo || "");
+  const whenLine = String(pageLinkTarget?.whenLine || "");
+
+  return `
+// ${menuMarker}
+{
+  addPlacement({
+    id: ${JSON.stringify(placementId)},
+    target: ${JSON.stringify(placementTarget)},
+${resolveMenuOwnerLine(pageLinkTarget?.placementTarget?.owner || "")}    kind: "link",
+    surfaces: [${JSON.stringify(surfaceId)}],
+    order: 155,
+    props: {
+      label: ${JSON.stringify(pageTarget?.defaultName || "")},
+      icon: ${JSON.stringify(DEFAULT_GENERATED_LINK_ICON)},
+      surface: ${JSON.stringify(surfaceId)},
+      scopedSuffix: ${JSON.stringify(routeUrlSuffix)},
+      unscopedSuffix: ${JSON.stringify(routeUrlSuffix)},
+${menuToPropLine}    },
+${whenLine}  });
+}
+`;
 }
 
 function resolveCrudRelativePath(namespace = "") {
@@ -501,7 +641,7 @@ function buildListHeadingTitleSetup({
   }
 
   return `const parentTitle = useCrudListParentTitle({
-  listRuntime: records,
+  listRuntime,
   resource: uiResource,
   adapter: UI_OPERATION_ADAPTER || undefined,
   recordIdParam: UI_RECORD_ID_PARAM,
@@ -643,14 +783,20 @@ async function buildUiTemplateContext({ appRoot, options } = {}) {
   const viewTitleFallbackFieldKey = hasViewOperation
     ? resolveViewTitleFallbackFieldKey(viewFieldsAll, { recordIdFieldKey })
     : "";
+  const listTitleFallbackFieldKey = hasListOperation
+    ? resolveViewTitleFallbackFieldKey(listFieldsAll, { recordIdFieldKey: listRecordIdFieldKey })
+    : "";
 
-  const pageLinkTarget = hasListOperation
+  const pageLinkTarget = hasListOperation && shouldCreateNavigationLink(options, {
+    routePath: resolveNavigationInferenceRoutePath(pageTarget)
+  })
     ? await resolvePageLinkTargetDetails({
       appRoot,
       pageTarget,
       targetFile: listTargetFile,
-      placement: options?.["link-placement"],
-      componentToken: options?.["link-component-token"],
+      placement: resolveNavigationRoleLinkPlacement(options, {
+        routePath: resolveNavigationInferenceRoutePath(pageTarget)
+      }),
       context: "crud-ui-generator"
     })
     : null;
@@ -659,6 +805,8 @@ async function buildUiTemplateContext({ appRoot, options } = {}) {
     : "";
   const createFormColumns = buildFormColumns(createFields);
   const editFormColumns = buildFormColumns(editFields);
+  const sharedFormFields = Object.freeze([...createFields, ...editFields]);
+  const listCopy = buildCrudListCopy(resourceLabels);
 
   return {
     __JSKIT_UI_RESOURCE_IMPORT_PATH__: `/${normalizeRelativeAppPath(options?.["resource-file"])}`,
@@ -667,6 +815,11 @@ async function buildUiTemplateContext({ appRoot, options } = {}) {
     __JSKIT_UI_RESOURCE_NAMESPACE__: resourceNamespace,
     __JSKIT_UI_RESOURCE_SINGULAR_TITLE__: resourceLabels.singularTitle,
     __JSKIT_UI_RESOURCE_PLURAL_TITLE__: resourceLabels.pluralTitle,
+    __JSKIT_UI_LIST_LOAD_ERROR_TITLE__: listCopy.loadErrorTitle,
+    __JSKIT_UI_LIST_LOAD_ERROR_BODY__: listCopy.loadErrorBody,
+    __JSKIT_UI_LIST_EMPTY_TITLE__: listCopy.emptyTitle,
+    __JSKIT_UI_LIST_EMPTY_BODY__: listCopy.emptyBody,
+    __JSKIT_UI_LIST_CREATE_LABEL__: listCopy.createLabel,
     __JSKIT_UI_ROUTE_TITLE__: pageTarget.defaultName,
     __JSKIT_UI_PARENT_TITLE_MODE__: parentTitleMode,
     __JSKIT_UI_LIST_PARENT_TITLE_IMPORT_LINE__: buildListParentTitleImportLine(parentTitleMode),
@@ -680,6 +833,10 @@ async function buildUiTemplateContext({ appRoot, options } = {}) {
     __JSKIT_UI_SURFACE_ID__: pageTarget.surfaceId,
     __JSKIT_UI_LIST_HEADER_COLUMNS__: buildListHeaderColumns(listFields),
     __JSKIT_UI_LIST_ROW_COLUMNS__: buildListRowColumns(listFields),
+    __JSKIT_UI_LIST_CARD_FIELDS__: buildListCardFields(listFields),
+    __JSKIT_UI_LIST_CARD_SLOT_PROPS__: buildListCardSlotProps(listFields),
+    __JSKIT_UI_LIST_ROW_SLOT_PROPS__: buildListRowSlotProps(listFields),
+    __JSKIT_UI_LIST_TITLE_FALLBACK_FIELD_KEY__: JSON.stringify(listTitleFallbackFieldKey),
     __JSKIT_UI_LIST_REALTIME_EVENTS__: JSON.stringify(listRealtimeEvents),
     __JSKIT_UI_LIST_RECORD_ID_EXPR__: resolveRecordIdExpression(recordIdFields),
     __JSKIT_UI_VIEW_COLUMNS__: buildViewColumns(viewFields),
@@ -702,6 +859,9 @@ async function buildUiTemplateContext({ appRoot, options } = {}) {
     __JSKIT_UI_EDIT_FORM_COLUMNS__: editFormColumns,
     __JSKIT_UI_CREATE_FORM_COLUMNS_DIRECT__: rewriteGeneratedBlockIndent(createFormColumns, { trimPrefix: "  " }),
     __JSKIT_UI_EDIT_FORM_COLUMNS_DIRECT__: rewriteGeneratedBlockIndent(editFormColumns, { trimPrefix: "  " }),
+    __JSKIT_UI_CREATE_FORM_SLOT_PROPS__: buildCrudFieldsSlotProps(createFields),
+    __JSKIT_UI_EDIT_FORM_SLOT_PROPS__: buildCrudFieldsSlotProps(editFields),
+    __JSKIT_UI_SHARED_FORM_SLOT_PROPS__: buildCrudFieldsSlotProps(sharedFormFields, { includeMode: true }),
     __JSKIT_UI_CREATE_FORM_FIELDS__: JSON.stringify(createFields),
     __JSKIT_UI_EDIT_FORM_FIELDS__: JSON.stringify(editFields),
     __JSKIT_UI_CREATE_FORM_FIELD_PUSH_LINES__: renderObjectPushLines("UI_CREATE_FORM_FIELDS", createFields),
@@ -720,6 +880,7 @@ async function buildUiTemplateContext({ appRoot, options } = {}) {
     }),
     __JSKIT_UI_CREATE_LOOKUP_FORM_PROPS__: buildLookupFormProps(createFields),
     __JSKIT_UI_EDIT_LOOKUP_FORM_PROPS__: buildLookupFormProps(editFields),
+    __JSKIT_UI_SHARED_LOOKUP_FORM_PROPS__: buildLookupFormProps(sharedFormFields, { sourcePrefix: "props." }),
     __JSKIT_UI_FORM_LOOKUP_PROP_DEFS__: buildLookupFormPropDefinitions({
       createFields,
       editFields
@@ -727,13 +888,19 @@ async function buildUiTemplateContext({ appRoot, options } = {}) {
     __JSKIT_UI_MENU_MARKER__: menuMarker,
     __JSKIT_UI_MENU_PLACEMENT_ID__: String(pageLinkTarget?.pageTarget?.placementId || ""),
     __JSKIT_UI_MENU_PLACEMENT_TARGET__: String(pageLinkTarget?.placementTarget?.id || ""),
-    __JSKIT_UI_MENU_COMPONENT_TOKEN__: String(pageLinkTarget?.componentToken || ""),
+    __JSKIT_UI_MENU_OWNER_LINE__: resolveMenuOwnerLine(pageLinkTarget?.placementTarget?.owner || ""),
     __JSKIT_UI_MENU_ICON__: DEFAULT_GENERATED_LINK_ICON,
     __JSKIT_UI_MENU_WORKSPACE_SUFFIX__: String(pageLinkTarget?.pageTarget?.routeUrlSuffix || ""),
     __JSKIT_UI_MENU_NON_WORKSPACE_SUFFIX__: String(pageLinkTarget?.pageTarget?.routeUrlSuffix || ""),
     __JSKIT_UI_MENU_WHEN_LINE__: String(pageLinkTarget?.whenLine || ""),
     __JSKIT_UI_MENU_TO_PROP_LINE__: resolveMenuToPropLine(pageLinkTarget?.linkTo || ""),
-    __JSKIT_UI_MENU_LABEL__: pageTarget.defaultName
+    __JSKIT_UI_MENU_LABEL__: pageTarget.defaultName,
+    __JSKIT_UI_MENU_APPEND_BLOCK__: buildMenuAppendBlock({
+      hasListOperation,
+      menuMarker,
+      pageLinkTarget,
+      pageTarget
+    })
   };
 }
 

@@ -372,6 +372,50 @@ test("createJsonApiResourceRouteContract models explicit relationship-backed out
   assert.ok(Object.hasOwn(contract.responses["200"].transportSchema.properties, "included"));
 });
 
+test("createJsonApiResourceRouteContract models to-many relationship output fields", () => {
+  const contract = createJsonApiResourceRouteContract({
+    responseType: "contacts",
+    output: {
+      schema: createSchema({
+        id: {
+          type: "string",
+          required: true,
+          minLength: 1
+        },
+        name: {
+          type: "string",
+          required: true,
+          minLength: 1
+        },
+        pets: {
+          type: "array",
+          required: false
+        }
+      }),
+      mode: "replace"
+    },
+    outputKind: "record",
+    outputRelationshipEntries: [
+      {
+        attributeKey: "pets",
+        relationshipName: "pets",
+        relationshipType: "pets",
+        many: true
+      }
+    ]
+  });
+
+  const resourceSchema = contract.responses["200"].transportSchema.definitions.contactsSuccessResource;
+  const attributesSchemaRef = resourceSchema.properties.attributes.allOf[0].$ref;
+  const attributesSchemaName = attributesSchemaRef.replace("#/definitions/", "");
+  const attributesSchema = contract.responses["200"].transportSchema.definitions[attributesSchemaName];
+  const relationshipDataSchema = resourceSchema.properties.relationships.properties.pets.properties.data;
+
+  assert.equal(Object.hasOwn(attributesSchema.properties, "pets"), false);
+  assert.equal(relationshipDataSchema.anyOf[0].type, "array");
+  assert.equal(relationshipDataSchema.anyOf[0].items.properties.type.const, "pets");
+});
+
 test("createJsonApiResourceRouteTransport wraps tagged meta results for meta routes", () => {
   const contract = createJsonApiResourceRouteContract({
     requestType: "password-changes",

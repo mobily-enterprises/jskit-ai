@@ -16,7 +16,9 @@ test("workspaces-core exports are explicit and aligned with production usage", (
     requiredExports: [
       "./server/WorkspacesCoreServiceProvider",
       "./server/validators/routeParamsValidator",
-      "./server/support/workspaceRouteInput"
+      "./server/support/workspaceRouteInput",
+      "./shared/resources/workspaceResource",
+      "./shared/resources/workspaceSettingsResource"
     ]
   });
 

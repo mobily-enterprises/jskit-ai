@@ -35,8 +35,7 @@ function createActions({ surface } = {}) {
       },
       observability: {},
       async execute(input, context, deps) {
-        const { workspaceSlug, ...query } = input || {};
-        return deps.usersService.queryDocuments(query, {
+        return deps.usersService.queryDocuments(input || {}, {
           context,
           visibilityContext: context?.visibilityContext
         });

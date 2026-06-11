@@ -13,10 +13,9 @@ Preferred execution mode:
 - Use the current agent only when delegation is unavailable.
 - The same rule applies to chunk review and whole-changeset review.
 
-## Read first
+## Read First
 
-1. `../../workflow/review.md`
-2. `../../workflow/feature-delivery.md`
+Use the user request, current diff, and app-local instructions as the source of truth for the review scope.
 
 Read these on demand:
 
@@ -25,19 +24,12 @@ Read these on demand:
 - `../../guide/agent/index.md`
 - `../../site/guide/index.md` when compressed guidance is ambiguous
 
-Inspect app-local files when they exist:
-
-- `.jskit/WORKBOARD.md`
-- `.jskit/APP_BLUEPRINT.md`
-
 ## Review target
 
 Determine whether the target is:
 
 - the current chunk
 - or the whole changeset
-
-Use `.jskit/WORKBOARD.md` to determine the active chunk when available.
 
 ## Required passes
 

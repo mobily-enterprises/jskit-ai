@@ -1,4 +1,3 @@
-import * as mdiIcons from "@mdi/js";
 import {
   mdiAccountCircleOutline,
   mdiAccountCogOutline,
@@ -27,6 +26,24 @@ const SURFACE_SWITCH_ICON_BY_ID = Object.freeze({
   console: mdiConsoleNetworkOutline
 });
 
+const SUPPORTED_EXPLICIT_MDI_ICON_BY_NAME = Object.freeze({
+  "mdi-account-circle-outline": mdiAccountCircleOutline,
+  "mdi-account-cog-outline": mdiAccountCogOutline,
+  "mdi-account-group-outline": mdiAccountGroupOutline,
+  "mdi-arrow-right-circle-outline": mdiArrowRightCircleOutline,
+  "mdi-clipboard-list-outline": mdiClipboardListOutline,
+  "mdi-cog-outline": mdiCogOutline,
+  "mdi-console-network-outline": mdiConsoleNetworkOutline,
+  "mdi-folder-outline": mdiFolderOutline,
+  "mdi-home-variant-outline": mdiHomeVariantOutline,
+  "mdi-login": mdiLogin,
+  "mdi-logout": mdiLogout,
+  "mdi-robot-outline": mdiRobotOutline,
+  "mdi-shield-crown-outline": mdiShieldCrownOutline,
+  "mdi-view-dashboard-outline": mdiViewDashboardOutline,
+  "mdi-view-list-outline": mdiViewListOutline
+});
+
 function resolveExplicitIconValue(explicitIcon = "") {
   const normalizedExplicitIcon = normalizeText(explicitIcon);
   if (!normalizedExplicitIcon) {
@@ -37,13 +54,7 @@ function resolveExplicitIconValue(explicitIcon = "") {
     return normalizedExplicitIcon;
   }
 
-  const iconKey = normalizedExplicitIcon
-    .slice("mdi-".length)
-    .split("-")
-    .map((segment) => segment.charAt(0).toUpperCase() + segment.slice(1))
-    .join("");
-  const exportName = `mdi${iconKey}`;
-  const resolvedIcon = mdiIcons[exportName];
+  const resolvedIcon = SUPPORTED_EXPLICIT_MDI_ICON_BY_NAME[normalizedExplicitIcon];
   return typeof resolvedIcon === "string" && resolvedIcon ? resolvedIcon : normalizedExplicitIcon;
 }
 

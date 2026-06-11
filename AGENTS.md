@@ -8,10 +8,8 @@
 - Generated package outputs under these paths are build artifacts:
   - `packages/agent-docs/reference/autogen/`
   - `packages/agent-docs/guide/agent/`
-- Authored workflow files under these paths are edited directly:
-  - `packages/agent-docs/DISTR_AGENT.md`
+- Authored agent documentation under these paths is edited directly:
   - `packages/agent-docs/patterns/`
-  - `packages/agent-docs/workflow/`
   - `packages/agent-docs/templates/`
   - `packages/agent-docs/site/guide/`
   - `packages/agent-docs/skills/`
@@ -39,6 +37,10 @@ When asked to create or refresh distributed agent docs:
 
 - `packages/agent-docs/patterns/INDEX.md` is the keyword index for recurring JSKIT implementation heuristics and workflow traps.
 - When a request involves JSKIT UI, routing, surfaces, CRUDs, filters, placements, live actions, or similar implementation details, scan the pattern index for matching keywords and read only the relevant pattern files.
+- Prefer the highest-level existing JSKIT client composable that fits, especially `useCrudListScreen()`, `useCrudViewScreen()`, `useCrudAddEditScreen()`, `useCrudList()`, `useCrudView()`, `useCrudAddEdit()`, `useList()`, `useView()`, `useAddEdit()`, `useCommand()`, and `useEndpointResource()`, instead of inventing custom local request helpers or bespoke command flows.
+- For collection UIs, prefer standard list elements and list runtimes over custom “submit the whole list” command patterns when the normal list/add-edit seams fit.
+- When building those elements, the normal end state should be a slim `use***()` composable call plus the template, with at most one or two small local helpers. Avoid building large local orchestration layers around standard JSKIT seams.
+- For generated CRUD list/view/form route screens, prefer the shared `users-web` screen composables/components before editing page-local shell chrome.
 - When editing the generated JSON:API CRUD route/service/repository flow, read the CRUD generator service/repository templates and `packages/crud-server-generator/test/crudService.test.js` first. Those files are the enforced contract for `Document` / `Documents` method names, forwarded options, 404 behavior, and tagged JSON:API document results.
 - Page and surface extension goes through placements. Do not invent alternate page-extension seams (custom registries, tags, injection-only hooks, provider-owned section systems) unless the user explicitly asks for a new pattern.
 - Keep `AGENTS.md` short. Add recurring JSKIT heuristics to `packages/agent-docs/patterns/`, not as one-off bullets here.

@@ -550,6 +550,240 @@ test("doctor flags CRUD tables whose ownership filter requires a direct owner co
   });
 });
 
+test("doctor supports multiple CRUD providers in one package when table ownership metadata declares provider entrypoints", async () => {
+  await withTempDir(async (cwd) => {
+    const appRoot = path.join(cwd, "doctor-multi-provider-crud-app");
+    await createMinimalApp(appRoot, { name: "doctor-multi-provider-crud-app" });
+    await installFakeKnex(appRoot, {
+      tables: ["google_rewarded_rules", "google_rewarded_watch_sessions"],
+      columns: {
+        google_rewarded_rules: ["id", "workspace_id"],
+        google_rewarded_watch_sessions: ["id", "workspace_id"]
+      }
+    });
+    await writeKnexfile(appRoot);
+    await writeLockFile(appRoot, ["@local/google-rewarded-core"]);
+
+    await writePackageDescriptor(
+      appRoot,
+      "google-rewarded-core",
+      `export default Object.freeze({
+  packageId: "@local/google-rewarded-core",
+  version: "0.1.0",
+  kind: "runtime",
+  capabilities: {
+    provides: ["crud.google-rewarded-rules", "crud.google-rewarded-watch-sessions"],
+    requires: []
+  },
+  runtime: {
+    server: {
+      providers: [
+        {
+          entrypoint: "src/server/rules/GoogleRewardedRulesProvider.js",
+          export: "GoogleRewardedRulesProvider"
+        },
+        {
+          entrypoint: "src/server/watchSessions/GoogleRewardedWatchSessionsProvider.js",
+          export: "GoogleRewardedWatchSessionsProvider"
+        }
+      ]
+    }
+  },
+  metadata: {
+    jskit: {
+      scaffoldShape: "crud-server-v1",
+      tableOwnership: {
+        tables: [
+          {
+            tableName: "google_rewarded_rules",
+            provenance: "crud-server-generator",
+            ownerKind: "crud-package",
+            providerEntrypoint: "src/server/rules/GoogleRewardedRulesProvider.js",
+            ownershipFilter: "workspace"
+          },
+          {
+            tableName: "google_rewarded_watch_sessions",
+            provenance: "crud-server-generator",
+            ownerKind: "crud-package",
+            providerEntrypoint: "src/server/watchSessions/GoogleRewardedWatchSessionsProvider.js",
+            ownershipFilter: "workspace_user"
+          }
+        ]
+      }
+    }
+  },
+  mutations: {
+    files: []
+  }
+});
+`,
+      {
+        "src/server/rules/GoogleRewardedRulesProvider.js": createCrudProviderStub("workspace", "GoogleRewardedRulesProvider"),
+        "src/server/watchSessions/GoogleRewardedWatchSessionsProvider.js": createCrudProviderStub("workspace_user", "GoogleRewardedWatchSessionsProvider")
+      }
+    );
+
+    const doctorResult = runCli({
+      cwd: appRoot,
+      args: ["doctor", "--json"]
+    });
+
+    assert.equal(doctorResult.status, 1, String(doctorResult.stderr || ""));
+    const payload = JSON.parse(String(doctorResult.stdout || "{}"));
+    assert.match(
+      payload.issues.join("\n"),
+      /GoogleRewardedWatchSessionsProvider\.js: \[crud-ownership:missing-owner-columns\] ownershipFilter "workspace_user" requires live table "google_rewarded_watch_sessions" to carry direct owner column\(s\) "user_id"/
+    );
+    assert.doesNotMatch(payload.issues.join("\n"), /google_rewarded_rules/);
+  });
+});
+
+test("doctor rejects CRUD metadata whose ownership filter drifts from the provider code", async () => {
+  await withTempDir(async (cwd) => {
+    const appRoot = path.join(cwd, "doctor-crud-ownership-filter-mismatch-app");
+    await createMinimalApp(appRoot, { name: "doctor-crud-ownership-filter-mismatch-app" });
+    await installFakeKnex(appRoot, {
+      tables: ["google_rewarded_watch_sessions"],
+      columns: {
+        google_rewarded_watch_sessions: ["id", "workspace_id", "user_id"]
+      }
+    });
+    await writeKnexfile(appRoot);
+    await writeLockFile(appRoot, ["@local/google-rewarded-core"]);
+
+    await writePackageDescriptor(
+      appRoot,
+      "google-rewarded-core",
+      `export default Object.freeze({
+  packageId: "@local/google-rewarded-core",
+  version: "0.1.0",
+  kind: "runtime",
+  capabilities: {
+    provides: ["crud.google-rewarded-watch-sessions"],
+    requires: []
+  },
+  runtime: {
+    server: {
+      providers: [
+        {
+          entrypoint: "src/server/watchSessions/GoogleRewardedWatchSessionsProvider.js",
+          export: "GoogleRewardedWatchSessionsProvider"
+        }
+      ]
+    }
+  },
+  metadata: {
+    jskit: {
+      scaffoldShape: "crud-server-v1",
+      tableOwnership: {
+        tables: [
+          {
+            tableName: "google_rewarded_watch_sessions",
+            provenance: "crud-server-generator",
+            ownerKind: "crud-package",
+            providerEntrypoint: "src/server/watchSessions/GoogleRewardedWatchSessionsProvider.js",
+            ownershipFilter: "workspace"
+          }
+        ]
+      }
+    }
+  },
+  mutations: {
+    files: []
+  }
+});
+`,
+      {
+        "src/server/watchSessions/GoogleRewardedWatchSessionsProvider.js": createCrudProviderStub("workspace_user", "GoogleRewardedWatchSessionsProvider")
+      }
+    );
+
+    const doctorResult = runCli({
+      cwd: appRoot,
+      args: ["doctor", "--json"]
+    });
+
+    assert.equal(doctorResult.status, 1, String(doctorResult.stderr || ""));
+    const payload = JSON.parse(String(doctorResult.stdout || "{}"));
+    assert.match(
+      payload.issues.join("\n"),
+      /GoogleRewardedWatchSessionsProvider\.js: \[crud-ownership:ownership-filter-mismatch\] metadata declares ownershipFilter "workspace" for live table "google_rewarded_watch_sessions" but provider code uses "workspace_user"/
+    );
+    assert.doesNotMatch(payload.issues.join("\n"), /\[crud-ownership:missing-owner-columns\]/);
+  });
+});
+
+test("doctor rejects CRUD metadata when the owning provider cannot be resolved", async () => {
+  await withTempDir(async (cwd) => {
+    const appRoot = path.join(cwd, "doctor-crud-provider-unresolved-app");
+    await createMinimalApp(appRoot, { name: "doctor-crud-provider-unresolved-app" });
+    await installFakeKnex(appRoot, {
+      tables: ["contacts"],
+      columns: {
+        contacts: ["id", "workspace_id"]
+      }
+    });
+    await writeKnexfile(appRoot);
+    await writeLockFile(appRoot, ["@local/contacts"]);
+
+    await writePackageDescriptor(
+      appRoot,
+      "contacts",
+      `export default Object.freeze({
+  packageId: "@local/contacts",
+  version: "0.1.0",
+  kind: "runtime",
+  capabilities: {
+    provides: ["crud.contacts"],
+    requires: []
+  },
+  runtime: {
+    server: {
+      providers: [
+        {
+          entrypoint: "src/server/ContactsProvider.js",
+          export: "ContactsProvider"
+        }
+      ]
+    }
+  },
+  metadata: {
+    jskit: {
+      scaffoldShape: "crud-server-v1",
+      tableOwnership: {
+        tables: [
+          {
+            tableName: "contacts",
+            provenance: "crud-server-generator",
+            ownerKind: "crud-package",
+            providerEntrypoint: "src/server/ContactsProvider.js",
+            ownershipFilter: "workspace"
+          }
+        ]
+      }
+    }
+  },
+  mutations: {
+    files: []
+  }
+});
+`
+    );
+
+    const doctorResult = runCli({
+      cwd: appRoot,
+      args: ["doctor", "--json"]
+    });
+
+    assert.equal(doctorResult.status, 1, String(doctorResult.stderr || ""));
+    const payload = JSON.parse(String(doctorResult.stdout || "{}"));
+    assert.match(
+      payload.issues.join("\n"),
+      /packages\/contacts\/package\.descriptor\.mjs: \[crud-ownership:provider-unresolved\] table "contacts" points at providerEntrypoint "src\/server\/ContactsProvider\.js" but doctor could not resolve an ownershipFilter from that provider/
+    );
+  });
+});
+
 test("doctor flags workflow-state tables that inherit user ownership through parent foreign keys", async () => {
   await withTempDir(async (cwd) => {
     const appRoot = path.join(cwd, "doctor-inherited-owner-workflow-app");

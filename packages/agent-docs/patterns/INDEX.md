@@ -18,7 +18,7 @@ How to use it:
   - `page-scaffolding.md`
 - child crud, nested crud, embedded list, subroute, separate page, parent/child layout
   - `child-cruds.md`
-- crud scaffold, crud server, crud ui, table creation, migrations, `crud-server-generator`, `crud-ui-generator`
+- crud scaffold, crud server, crud ui, table creation, migrations, direct knex, weird-custom persistence, `crud-server-generator`, `crud-ui-generator`
   - `crud-scaffolding.md`
 - CRUD links, record placeholders, `paths.page()`, `resolveViewUrl`, `resolveEditUrl`, `resolveParams`
   - `crud-links.md`
@@ -26,10 +26,12 @@ How to use it:
   - `page-redirects.md`
 - live actions, checkbox, toggle, patch button, inline action, `useCommand()`
   - `live-actions.md`
-- ajax, fetch, API call, request, endpoint, HTTP client, `useList()`, `useView()`, `useAddEdit()`, `useEndpointResource()`, `usersWebHttpClient`
+- ajax, fetch, API call, request, endpoint, HTTP client, `useCrudListScreen()`, `useCrudViewScreen()`, `useCrudAddEditScreen()`, `useList()`, `useView()`, `useAddEdit()`, `useEndpointResource()`, `usersWebHttpClient`
   - `client-requests.md`
 - playwright, browser test, e2e, ui verification, authenticated ui test, test auth, dev login as, dev auth bypass
   - `ui-testing.md`
+- generated UI contract, design contract, navigation roles, density, placeholder copy, card shells, shared CRUD screens
+  - `generated-ui-contract-tracking.md`
 - filter, filters, search facets, chips, date range, enum filter, lookup filter, `useCrudListFilters`, `createCrudListFilters`
   - `filters.md`
 - `searchSchema`, `search: true`, `applyFilter`, server search, query validators, backend filters, internal JSON REST filters
@@ -49,6 +51,7 @@ How to use it:
 - [live-actions.md](./live-actions.md)
 - [client-requests.md](./client-requests.md)
 - [ui-testing.md](./ui-testing.md)
+- [generated-ui-contract-tracking.md](./generated-ui-contract-tracking.md)
 - [filters.md](./filters.md)
 - [server-search.md](./server-search.md)
 - [crud-repository-mapping.md](./crud-repository-mapping.md)

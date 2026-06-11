@@ -1,7 +1,11 @@
 import path from "node:path";
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { normalizeBoolean, normalizeText } from "@jskit-ai/kernel/shared/support/normalize";
-import { buildUiPageTemplateContext } from "../buildTemplateContext.js";
+import {
+  buildUiPageTemplateContext,
+  resolveNavigationInferenceRoutePath,
+  shouldCreateNavigationLink
+} from "../buildTemplateContext.js";
 import {
   PLACEMENT_FILE,
   requireSinglePositionalTargetFile,
@@ -20,15 +24,20 @@ function renderPageLinkPlacementBlock({
   label = "",
   surface = ""
 } = {}) {
+  const componentTokenLine = context.__JSKIT_UI_LINK_COMPONENT_TOKEN__
+    ? `    componentToken: "${context.__JSKIT_UI_LINK_COMPONENT_TOKEN__}",\n`
+    : "";
   return (
     `// ${marker}\n` +
     "{\n" +
     "  addPlacement({\n" +
     `    id: "${context.__JSKIT_UI_LINK_PLACEMENT_ID__}",\n` +
     `    target: "${context.__JSKIT_UI_LINK_PLACEMENT_TARGET__}",\n` +
+    `${context.__JSKIT_UI_LINK_OWNER_LINE__}` +
+    `    kind: "link",\n` +
     `    surfaces: ["${surface}"],\n` +
     "    order: 155,\n" +
-    `    componentToken: "${context.__JSKIT_UI_LINK_COMPONENT_TOKEN__}",\n` +
+    componentTokenLine +
     "    props: {\n" +
     `      label: "${label}",\n` +
     `      icon: "${context.__JSKIT_UI_LINK_ICON__}",\n` +
@@ -56,7 +65,7 @@ async function runGeneratorSubcommand({
   const targetFile = requireSinglePositionalTargetFile(args, { context: "ui-generator page" });
   rejectUnexpectedOptions(
     options,
-    ["name", "link-placement", "link-component-token", "link-to", "force"],
+    ["name", "navigation-role", "link-placement", "link-to", "force"],
     { context: "ui-generator page" }
   );
 
@@ -71,6 +80,7 @@ async function runGeneratorSubcommand({
     : false;
   const pageFilePath = pageTarget.targetFilePath.absolutePath;
   const pageRelativePath = pageTarget.targetFilePath.relativePath;
+  const navigationInferenceRoutePath = resolveNavigationInferenceRoutePath(pageTarget);
 
   const touchedFiles = new Set();
   let pageAlreadyExisted = true;
@@ -86,31 +96,47 @@ async function runGeneratorSubcommand({
     );
   }
 
-  const placementContext = await buildUiPageTemplateContext({
-    appRoot: pageTarget.appRoot,
-    targetFile,
-    options
+  const shouldCreateLink = shouldCreateNavigationLink(options, {
+    routePath: navigationInferenceRoutePath
   });
-  const placementPath = resolvePathWithinApp(pageTarget.appRoot, PLACEMENT_FILE, {
-    context: "ui-generator page"
-  });
-  const placementSource = await readFile(placementPath.absolutePath, "utf8");
-  const placementMarker = `jskit:ui-generator.page.link:${pageTarget.surfaceId}:${pageTarget.routeUrlSuffix}`;
-  const placementApplied = appendBlockIfMarkerMissing(
-    placementSource,
-    placementMarker,
-    renderPageLinkPlacementBlock({
-      marker: placementMarker,
-      context: placementContext,
-      label: pageLabel,
-      surface: pageTarget.surfaceId
+  const placementContext = shouldCreateLink
+    ? await buildUiPageTemplateContext({
+      appRoot: pageTarget.appRoot,
+      targetFile,
+      options
     })
-  );
+    : null;
+  const placementPath = shouldCreateLink
+    ? resolvePathWithinApp(pageTarget.appRoot, PLACEMENT_FILE, {
+      context: "ui-generator page"
+    })
+    : null;
+  const placementSource = placementPath ? await readFile(placementPath.absolutePath, "utf8") : "";
+  const placementMarker = `jskit:ui-generator.page.link:${pageTarget.surfaceId}:${pageTarget.routeUrlSuffix}`;
+  const placementApplied = placementContext
+    ? appendBlockIfMarkerMissing(
+      placementSource,
+      placementMarker,
+      renderPageLinkPlacementBlock({
+        marker: placementMarker,
+        context: placementContext,
+        label: pageLabel,
+        surface: pageTarget.surfaceId
+      })
+    )
+    : { changed: false, content: placementSource };
 
   if (!pageAlreadyExisted || forceOverwrite) {
     if (dryRun !== true) {
       await mkdir(path.dirname(pageFilePath), { recursive: true });
-      await writeFile(pageFilePath, renderPlainPageSource(pageLabel), "utf8");
+      await writeFile(
+        pageFilePath,
+        renderPlainPageSource(pageLabel, {
+          surfaceId: pageTarget.surfaceId,
+          routePath: navigationInferenceRoutePath
+        }),
+        "utf8"
+      );
     }
     touchedFiles.add(pageRelativePath);
   }
@@ -124,7 +150,7 @@ async function runGeneratorSubcommand({
 
   const touchedFileList = [...touchedFiles].sort((left, right) => left.localeCompare(right));
   return {
-    placementComponentTokens: [String(placementContext.__JSKIT_UI_LINK_COMPONENT_TOKEN__ || "").trim()].filter(Boolean),
+    placementComponentTokens: [String(placementContext?.__JSKIT_UI_LINK_COMPONENT_TOKEN__ || "").trim()].filter(Boolean),
     touchedFiles: touchedFileList,
     summary: !pageAlreadyExisted
       ? `Generated UI page "${pageTarget.routeUrlSuffix}" at ${pageRelativePath}.`

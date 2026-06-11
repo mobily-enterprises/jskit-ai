@@ -3,6 +3,7 @@ import { useInfiniteQuery, useQueryClient } from "@tanstack/vue-query";
 import { asPlainObject } from "./support/scopeHelpers.js";
 import { resolveEnabledRef } from "./support/refValueHelpers.js";
 import { toQueryErrorMessage } from "./support/errorMessageHelpers.js";
+import { mergeQueryMeta } from "./support/resourceLoadStateHelpers.js";
 
 function defaultSelectItems(page) {
   return Array.isArray(page?.items) ? page.items : [];
@@ -83,7 +84,11 @@ function usePagedCollection({
     queryFn,
     getNextPageParam: (lastPage, allPages, lastPageParam, allPageParams) =>
       getNextPageParam(lastPage, allPages, lastPageParam, allPageParams),
-    ...(asPlainObject(queryOptions))
+    ...mergeQueryMeta(asPlainObject(queryOptions), {
+      jskit: {
+        refreshOnPull: true
+      }
+    })
   });
 
   const pages = computed(() => {

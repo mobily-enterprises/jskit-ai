@@ -2,6 +2,10 @@ import { DEFAULT_DEBUG_DEPTH, explodePayload } from "./debug.js";
 import { createListenerSubscription } from "@jskit-ai/kernel/shared/support/listenerSet";
 import { isRecord } from "@jskit-ai/kernel/shared/support/normalize";
 import {
+  normalizePlacementLayoutClass,
+  normalizePlacementTopologyDefinition
+} from "@jskit-ai/kernel/shared/support/shellLayoutTargets";
+import {
   isRenderableComponent,
   normalizePlacementDefinition,
   normalizePlacementTarget,
@@ -100,12 +104,107 @@ function normalizePlacementList(placements, context = {}) {
     .map((entry) => entry.placement);
 }
 
+function normalizeTopologyList(topology, context = {}) {
+  if (Array.isArray(topology)) {
+    const normalized = normalizePlacementTopologyDefinition(
+      { placements: topology },
+      {
+        context: context.source || "placement topology"
+      }
+    );
+    return normalizeTopologyList(normalized, context);
+  }
+
+  const candidates = ensureArray(topology);
+  const entries = [];
+  for (const candidate of candidates) {
+    const normalized = normalizePlacementTopologyDefinition(candidate, {
+      context: context.source || "placement topology"
+    });
+    entries.push(...normalized.placements);
+  }
+
+  const byKey = new Map();
+  for (const entry of entries) {
+    const key = `${entry.id}::${entry.owner || ""}`;
+    if (byKey.has(key)) {
+      throw new Error(
+        `Duplicate semantic placement "${entry.id}"${entry.owner ? ` for owner "${entry.owner}"` : ""} in ${context.source || "placement topology"}.`
+      );
+    }
+    byKey.set(key, entry);
+  }
+
+  return Object.freeze([...byKey.values()]);
+}
+
 function matchesSurface(placementSurfaces, requestedSurface) {
   if (requestedSurface === WEB_PLACEMENT_SURFACE_ANY) {
     return true;
   }
   const surfaces = Array.isArray(placementSurfaces) ? placementSurfaces : [WEB_PLACEMENT_SURFACE_ANY];
   return surfaces.includes(WEB_PLACEMENT_SURFACE_ANY) || surfaces.includes(requestedSurface);
+}
+
+function resolveTopologyPlacement(topologyEntries = [], placement = {}, requestedSurface = WEB_PLACEMENT_SURFACE_ANY) {
+  const semanticTarget = String(placement.target || "").trim();
+  const owner = String(placement.owner || "").trim();
+  const matches = topologyEntries.filter((entry) => {
+    if (entry.id !== semanticTarget) {
+      return false;
+    }
+    if (owner && entry.owner !== owner) {
+      return false;
+    }
+    if (!owner && entry.owner) {
+      return false;
+    }
+    return matchesSurface(entry.surfaces, requestedSurface);
+  });
+
+  if (matches.length === 1) {
+    return matches[0];
+  }
+  return null;
+}
+
+function resolveRenderablePlacement({
+  placement = {},
+  topologyEntries = [],
+  requestedSurface = WEB_PLACEMENT_SURFACE_ANY,
+  requestedTarget = "",
+  requestedLayoutClass = "compact"
+} = {}) {
+  if (placement.targetType === "concrete") {
+    if (placement.target !== requestedTarget) {
+      return null;
+    }
+    return placement;
+  }
+
+  const topologyPlacement = resolveTopologyPlacement(topologyEntries, placement, requestedSurface);
+  if (!topologyPlacement) {
+    return null;
+  }
+
+  const variant = topologyPlacement.variants?.[requestedLayoutClass] || null;
+  if (!variant || variant.outlet !== requestedTarget) {
+    return null;
+  }
+
+  const componentToken = String(placement.componentToken || variant.renderers?.[placement.kind] || "").trim();
+  if (!componentToken) {
+    return null;
+  }
+
+  return Object.freeze({
+    ...placement,
+    target: requestedTarget,
+    semanticTarget: placement.target,
+    topologyOwner: topologyPlacement.owner || "",
+    layoutClass: requestedLayoutClass,
+    componentToken
+  });
 }
 
 function resolveContextContributors(app, baseContext = {}, logger) {
@@ -232,6 +331,7 @@ function createWebPlacementRuntime({ app, logger = null } = {}) {
   const listeners = new Set();
   const subscribe = createListenerSubscription(listeners);
   let placementDefinitions = Object.freeze([]);
+  let placementTopology = Object.freeze([]);
   let sharedContext = Object.freeze({});
   let revision = 0;
 
@@ -276,6 +376,22 @@ function createWebPlacementRuntime({ app, logger = null } = {}) {
     });
   }
 
+  function replacePlacementTopology(topology = [], { source = "app placement topology" } = {}) {
+    missingTokens.clear();
+    invalidComponentTokens.clear();
+    failedTokens.clear();
+    placementTopology = normalizeTopologyList(topology, { source });
+    debugLog("replacePlacementTopology", {
+      source,
+      count: placementTopology.length,
+      ids: placementTopology.map((entry) => entry.owner ? `${entry.id}#${entry.owner}` : entry.id)
+    });
+    notify({
+      type: "placement-topology.replaced",
+      source
+    });
+  }
+
   function getContext() {
     return sharedContext;
   }
@@ -308,13 +424,17 @@ function createWebPlacementRuntime({ app, logger = null } = {}) {
     return revision;
   }
 
-  function getPlacements({ surface = WEB_PLACEMENT_SURFACE_ANY, target = "", context = {} } = {}) {
+  function getPlacements({ surface = WEB_PLACEMENT_SURFACE_ANY, target = "", layoutClass = "", context = {} } = {}) {
     const normalizedTarget = normalizePlacementTarget(target, { strict: false });
     if (!normalizedTarget) {
       return Object.freeze([]);
     }
 
     const normalizedSurface = normalizeSurface(surface);
+    const normalizedLayoutClass =
+      normalizePlacementLayoutClass(layoutClass) ||
+      normalizePlacementLayoutClass(sharedContext?.layoutClass) ||
+      "compact";
     const baseContext = isRecord(context) ? { ...context } : {};
     const contextFromRuntime = isRecord(sharedContext) ? sharedContext : {};
     const contextFromContributors = resolveContextContributors(
@@ -323,6 +443,7 @@ function createWebPlacementRuntime({ app, logger = null } = {}) {
         app,
         surface: normalizedSurface,
         target: normalizedTarget,
+        layoutClass: normalizedLayoutClass,
         context: {
           ...contextFromRuntime,
           ...baseContext
@@ -336,44 +457,54 @@ function createWebPlacementRuntime({ app, logger = null } = {}) {
       ...baseContext,
       app,
       surface: normalizedSurface,
-      target: normalizedTarget
+      target: normalizedTarget,
+      layoutClass: normalizedLayoutClass
     };
 
     debugLog("getPlacements:start", {
       surface: normalizedSurface,
       target: normalizedTarget,
+      layoutClass: normalizedLayoutClass,
       contextKeys: Object.keys(baseContext),
       sharedContextKeys: Object.keys(contextFromRuntime),
-      placementCount: placementDefinitions.length
+      placementCount: placementDefinitions.length,
+      topologyCount: placementTopology.length
     });
 
     const matches = [];
     for (const placement of placementDefinitions) {
-      if (placement.target !== normalizedTarget) {
+      const renderablePlacement = resolveRenderablePlacement({
+        placement,
+        topologyEntries: placementTopology,
+        requestedSurface: normalizedSurface,
+        requestedTarget: normalizedTarget,
+        requestedLayoutClass: normalizedLayoutClass
+      });
+      if (!renderablePlacement) {
         continue;
       }
-      const placementSurfaces = Array.isArray(placement.surfaces)
-        ? placement.surfaces
+      const placementSurfaces = Array.isArray(renderablePlacement.surfaces)
+        ? renderablePlacement.surfaces
         : [WEB_PLACEMENT_SURFACE_ANY];
 
       if (!matchesSurface(placementSurfaces, normalizedSurface)) {
         debugLog("getPlacements:skip-surfaces", {
-          placementId: placement.id,
+          placementId: renderablePlacement.id,
           placementSurfaces,
           requestedSurface: normalizedSurface
         });
         continue;
       }
-      if (!shouldIncludePlacement(placement, placementContext, runtimeLogger)) {
+      if (!shouldIncludePlacement(renderablePlacement, placementContext, runtimeLogger)) {
         debugLog("getPlacements:skip-when", {
-          placementId: placement.id
+          placementId: renderablePlacement.id
         });
         continue;
       }
 
       const component = resolvePlacementComponent(
         app,
-        placement,
+        renderablePlacement,
         runtimeLogger,
         missingTokens,
         invalidComponentTokens,
@@ -381,22 +512,22 @@ function createWebPlacementRuntime({ app, logger = null } = {}) {
       );
       if (!component) {
         debugLog("getPlacements:skip-component", {
-          placementId: placement.id,
-          componentToken: placement.componentToken
+          placementId: renderablePlacement.id,
+          componentToken: renderablePlacement.componentToken
         });
         continue;
       }
 
       debugLog("getPlacements:include", {
-        placementId: placement.id,
-        componentToken: placement.componentToken,
+        placementId: renderablePlacement.id,
+        componentToken: renderablePlacement.componentToken,
         placementSurfaces,
-        order: placement.order
+        order: renderablePlacement.order
       });
 
       matches.push(
         Object.freeze({
-          ...placement,
+          ...renderablePlacement,
           component
         })
       );
@@ -405,6 +536,7 @@ function createWebPlacementRuntime({ app, logger = null } = {}) {
     debugLog("getPlacements:done", {
       surface: normalizedSurface,
       target: normalizedTarget,
+      layoutClass: normalizedLayoutClass,
       resultIds: matches.map((entry) => entry.id)
     });
 
@@ -413,6 +545,7 @@ function createWebPlacementRuntime({ app, logger = null } = {}) {
 
   return Object.freeze({
     replacePlacements,
+    replacePlacementTopology,
     getPlacements,
     getContext,
     setContext,

@@ -51,7 +51,7 @@ Local functions
 
 ### `src/client/composables/loginView/useLoginViewActions.js`
 Exports
-- `useLoginViewActions({ state, validation, queryClient, errorRuntime } = {})`
+- `useLoginViewActions({ state, validation, queryClient, errorRuntime, oauthLaunchClient = null } = {})`
 
 ### `src/client/composables/loginView/useLoginViewState.js`
 Exports
@@ -84,6 +84,9 @@ Exports
 - `AuthProfileMenuLinkItem`
 - `useAuthStore`
 - `useAuthGuardRuntime`
+- `completeOAuthCallbackFromCurrentLocation`
+- `completeOAuthCallbackFromUrl`
+- `readOAuthCallbackParamsFromUrl`
 - `routeComponents`
 - `clientProviders`
 
@@ -152,9 +155,25 @@ Exports
 ### `src/client/runtime/inject.js`
 Exports
 - `AUTH_GUARD_RUNTIME_INJECTION_KEY`
+- `AUTH_OAUTH_LAUNCH_CLIENT_INJECTION_KEY`
 - `EMPTY_AUTH_GUARD_STATE`
 - `EMPTY_AUTH_GUARD_RUNTIME`
 - `useAuthGuardRuntime({ required = false } = {})`
+- `useAuthOAuthLaunchClient({ required = false } = {})`
+
+### `src/client/runtime/oauthCallbackRuntime.js`
+Exports
+- `completeOAuthCallbackFromCurrentLocation(options = {})`
+- `completeOAuthCallbackFromUrl({ url = "", fallbackReturnTo = "/", allowedReturnToOrigins = [], defaultProvider = "", request = authHttpRequest, refreshSession = async () => null } = {})`
+- `readOAuthCallbackParamsFromUrl(url = "")`
+Local functions
+- `parseCallbackUrl(url = "")`
+- `buildOAuthCompletePayload({ callbackParams = null, provider = "", hasSessionPair = false } = {})`
+
+### `src/client/runtime/oauthLaunchClient.js`
+Exports
+- `createBrowserOAuthLaunchClient({ location = null } = {})`
+- `isAuthOAuthLaunchClient(value = null)`
 
 ### `src/client/runtime/useLoginView.js`
 Exports

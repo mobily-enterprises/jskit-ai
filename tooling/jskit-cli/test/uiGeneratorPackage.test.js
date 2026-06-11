@@ -74,6 +74,54 @@ export default function getPlacements() {
   );
 
   await writeFile(
+    path.join(appRoot, "src", "placementTopology.js"),
+    `const placements = [];
+
+function addPlacementTopology(value = {}) {
+  placements.push(value);
+}
+
+function shellPlacement(id, outlet) {
+  addPlacementTopology({
+    id,
+    description: \`\${id} test placement.\`,
+    surfaces: ["*"],
+    default: id === "shell.primary-nav",
+    variants: {
+      compact: {
+        outlet,
+        renderers: {
+          link: "local.main.ui.surface-aware-menu-link-item"
+        }
+      },
+      medium: {
+        outlet,
+        renderers: {
+          link: "local.main.ui.surface-aware-menu-link-item"
+        }
+      },
+      expanded: {
+        outlet,
+        renderers: {
+          link: "local.main.ui.surface-aware-menu-link-item"
+        }
+      }
+    }
+  });
+}
+
+shellPlacement("shell.primary-nav", "shell-layout:primary-menu");
+shellPlacement("shell.secondary-nav", "shell-layout:secondary-menu");
+shellPlacement("shell.global-actions", "shell-layout:top-right");
+shellPlacement("shell.status", "shell-layout:top-right");
+
+export { addPlacementTopology };
+export default { placements };
+`,
+    "utf8"
+  );
+
+  await writeFile(
     path.join(appRoot, "src", "components", "ShellLayout.vue"),
     `<template>
   <div>
@@ -82,12 +130,8 @@ export default function getPlacements() {
     <ShellOutlet
       target="shell-layout:primary-menu"
       default
-      default-link-component-token="local.main.ui.surface-aware-menu-link-item"
     />
-    <ShellOutlet
-      target="shell-layout:secondary-menu"
-      default-link-component-token="local.main.ui.surface-aware-menu-link-item"
-    />
+    <ShellOutlet target="shell-layout:secondary-menu" />
   </div>
 </template>
 `,
@@ -218,6 +262,8 @@ function resolveGeneratedPaths(appRoot, targetRoot, idParam = "customerId") {
   return {
     generatedRoot,
     listPagePath: path.join(generatedRoot, "index.vue"),
+    listBulkActionsPath: path.join(generatedRoot, "listBulkActions.js"),
+    listFiltersPath: path.join(generatedRoot, "listFilters.js"),
     viewPagePath: path.join(generatedRoot, `[${idParam}]`, "index.vue"),
     newPagePath: path.join(generatedRoot, "new.vue"),
     editPagePath: path.join(generatedRoot, `[${idParam}]`, "edit.vue"),
@@ -271,6 +317,8 @@ test("generate @jskit-ai/crud-ui-generator crud scaffolds CRUD pages at an expli
 
     const paths = resolveGeneratedPaths(appRoot, "admin/ops/customers-ui");
     assert.equal(await fileExists(paths.listPagePath), true);
+    assert.equal(await fileExists(paths.listBulkActionsPath), true);
+    assert.equal(await fileExists(paths.listFiltersPath), true);
     assert.equal(await fileExists(paths.viewPagePath), true);
     assert.equal(await fileExists(paths.newPagePath), true);
     assert.equal(await fileExists(paths.editPagePath), true);
@@ -278,8 +326,12 @@ test("generate @jskit-ai/crud-ui-generator crud scaffolds CRUD pages at an expli
     assert.equal(await fileExists(paths.addEditFormFieldsPath), true);
 
     const listPageSource = await readFile(paths.listPagePath, "utf8");
-    assert.match(listPageSource, /Manage Customers\./);
+    assert.match(listPageSource, /Search, review, and update Customers from this screen\./);
     assert.match(listPageSource, /import \{ resource as uiResource \} from "\/packages\/customers\/src\/shared\/customerResource\.js";/);
+    assert.match(listPageSource, /CrudListScreen/);
+    assert.match(listPageSource, /useCrudListScreen/);
+    assert.match(listPageSource, /listBulkActions/);
+    assert.match(listPageSource, /listFilters/);
     assert.match(listPageSource, /const UI_LIST_API_URL = "\/customers";/);
     assert.match(listPageSource, /const UI_RECORD_ID_PARAM = "customerId";/);
     assert.match(listPageSource, /"ui-generator", "customers", "list"/);
@@ -293,6 +345,10 @@ test("generate @jskit-ai/crud-ui-generator crud scaffolds CRUD pages at an expli
 
     const addEditFormFieldsSource = await readFile(paths.addEditFormFieldsPath, "utf8");
     assert.match(addEditFormFieldsSource, /crud\.ui\.form-fields\.customers\.new\.v1/);
+    const listFiltersSource = await readFile(paths.listFiltersPath, "utf8");
+    assert.match(listFiltersSource, /const listFilters = defineCrudListFilters\(\{\}\);/);
+    const listBulkActionsSource = await readFile(paths.listBulkActionsPath, "utf8");
+    assert.match(listBulkActionsSource, /const listBulkActions = defineCrudListBulkActions\(\[\]\);/);
 
     const editPageSource = await readFile(paths.editPagePath, "utf8");
     assert.match(editPageSource, /import CrudAddEditForm from "\.\.\/_components\/CrudAddEditForm\.vue";/);
@@ -301,20 +357,10 @@ test("generate @jskit-ai/crud-ui-generator crud scaffolds CRUD pages at an expli
     const placementSource = await readFile(path.join(appRoot, "src", "placement.js"), "utf8");
     assert.match(placementSource, /jskit:crud-ui-generator\.page\.link:admin:\/ops\/customers-ui/);
     assert.match(placementSource, /id: "ui-generator\.page\.admin\.ops\.customers-ui\.link"/);
-    assert.match(placementSource, /target: "shell-layout:primary-menu"/);
-    assert.match(placementSource, /componentToken: "local\.main\.ui\.surface-aware-menu-link-item"/);
+    assert.match(placementSource, /target: "shell\.primary-nav"/);
+    assert.match(placementSource, /kind: "link"/);
+    assert.doesNotMatch(placementSource, /componentToken: "local\.main\.ui\.surface-aware-menu-link-item"/);
     assert.match(placementSource, /scopedSuffix: "\/ops\/customers-ui"/);
-
-    const localLinkComponentPath = path.join(appRoot, "src", "components", "menus", "SurfaceAwareMenuLinkItem.vue");
-    const providerPath = path.join(appRoot, "packages", "main", "src", "client", "providers", "MainClientProvider.js");
-    assert.equal(await fileExists(localLinkComponentPath), true);
-
-    const providerSource = await readFile(providerPath, "utf8");
-    assert.match(providerSource, /import SurfaceAwareMenuLinkItem from "\/src\/components\/menus\/SurfaceAwareMenuLinkItem\.vue";/);
-    assert.match(
-      providerSource,
-      /registerMainClientComponent\("local\.main\.ui\.surface-aware-menu-link-item", \(\) => SurfaceAwareMenuLinkItem\);/
-    );
   });
 });
 
@@ -330,6 +376,8 @@ test("generate @jskit-ai/crud-ui-generator defaults operations to the full CRUD 
 
     const paths = resolveGeneratedPaths(appRoot, "admin/products");
     assert.equal(await fileExists(paths.listPagePath), true);
+    assert.equal(await fileExists(paths.listBulkActionsPath), true);
+    assert.equal(await fileExists(paths.listFiltersPath), true);
     assert.equal(await fileExists(paths.viewPagePath), true);
     assert.equal(await fileExists(paths.newPagePath), true);
     assert.equal(await fileExists(paths.editPagePath), true);
@@ -418,10 +466,7 @@ export { config };
       `<template>
   <section>
     <v-list>
-      <ShellOutlet
-        target="home-settings:primary-menu"
-        default-link-component-token="local.main.ui.surface-aware-menu-link-item"
-      />
+      <ShellOutlet target="home-settings:primary-menu" />
     </v-list>
     <RouterView />
   </section>
@@ -434,6 +479,40 @@ export { config };
       "<template>\n  <div>Settings</div>\n</template>\n",
       "utf8"
     );
+    const topologyPath = path.join(appRoot, "src", "placementTopology.js");
+    await writeFile(
+      topologyPath,
+      `${await readFile(topologyPath, "utf8")}
+
+addPlacementTopology({
+  id: "page.section-nav",
+  owner: "home-settings",
+  description: "Home settings section navigation.",
+  surfaces: ["home"],
+  variants: {
+    compact: {
+      outlet: "home-settings:primary-menu",
+      renderers: {
+        link: "local.main.ui.surface-aware-menu-link-item"
+      }
+    },
+    medium: {
+      outlet: "home-settings:primary-menu",
+      renderers: {
+        link: "local.main.ui.surface-aware-menu-link-item"
+      }
+    },
+    expanded: {
+      outlet: "home-settings:primary-menu",
+      renderers: {
+        link: "local.main.ui.surface-aware-menu-link-item"
+      }
+    }
+  }
+});
+`,
+      "utf8"
+    );
 
     await writeFile(
       path.join(appRoot, "src", "placement.js"),
@@ -443,10 +522,11 @@ export { config };
 {
   addPlacement({
     id: "ui-generator.page.home.settings.pollen-types.link",
-    target: "home-settings:primary-menu",
+    target: "page.section-nav",
+    owner: "home-settings",
+    kind: "link",
     surfaces: ["home"],
     order: 155,
-    componentToken: "local.main.ui.surface-aware-menu-link-item",
     props: {
       label: "Pollen Types",
       surface: "home",
@@ -469,16 +549,10 @@ export default function getPlacements() {
       targetRoot: "home/settings/pollen_types"
     });
 
-    const localLinkComponentPath = path.join(appRoot, "src", "components", "menus", "SurfaceAwareMenuLinkItem.vue");
-    const providerPath = path.join(appRoot, "packages", "main", "src", "client", "providers", "MainClientProvider.js");
-    assert.equal(await fileExists(localLinkComponentPath), true);
-
-    const providerSource = await readFile(providerPath, "utf8");
-    assert.match(providerSource, /import SurfaceAwareMenuLinkItem from "\/src\/components\/menus\/SurfaceAwareMenuLinkItem\.vue";/);
-    assert.match(
-      providerSource,
-      /registerMainClientComponent\("local\.main\.ui\.surface-aware-menu-link-item", \(\) => SurfaceAwareMenuLinkItem\);/
-    );
+    const placementSource = await readFile(path.join(appRoot, "src", "placement.js"), "utf8");
+    assert.equal((placementSource.match(/ui-generator\.page\.home\.settings\.pollen-types\.link/g) || []).length, 1);
+    assert.match(placementSource, /target: "page\.section-nav"/);
+    assert.match(placementSource, /owner: "home-settings"/);
   });
 });
 
@@ -501,14 +575,49 @@ test("generate @jskit-ai/crud-ui-generator infers tab placement and relative to 
 `,
       "utf8"
     );
+    const topologyPath = path.join(appRoot, "src", "placementTopology.js");
+    await writeFile(
+      topologyPath,
+      `${await readFile(topologyPath, "utf8")}
+
+addPlacementTopology({
+  id: "page.section-nav",
+  owner: "catalog",
+  description: "Catalog section navigation.",
+  surfaces: ["admin"],
+  variants: {
+    compact: {
+      outlet: "catalog:sub-pages",
+      renderers: {
+        link: "local.main.ui.surface-aware-menu-link-item"
+      }
+    },
+    medium: {
+      outlet: "catalog:sub-pages",
+      renderers: {
+        link: "local.main.ui.surface-aware-menu-link-item"
+      }
+    },
+    expanded: {
+      outlet: "catalog:sub-pages",
+      renderers: {
+        link: "local.main.ui.surface-aware-menu-link-item"
+      }
+    }
+  }
+});
+`,
+      "utf8"
+    );
 
     await generateCrudUiPackage(appRoot, {
       targetRoot: "admin/catalog/index/products"
     });
 
     const placementSource = await readFile(path.join(appRoot, "src", "placement.js"), "utf8");
-    assert.match(placementSource, /target: "catalog:sub-pages"/);
-    assert.match(placementSource, /componentToken: "local\.main\.ui\.surface-aware-menu-link-item"/);
+    assert.match(placementSource, /target: "page\.section-nav"/);
+    assert.match(placementSource, /owner: "catalog"/);
+    assert.doesNotMatch(placementSource, /componentToken: "local\.main\.ui\.surface-aware-menu-link-item"/);
     assert.match(placementSource, /to: "\.\/products"/);
   });
 });
@@ -520,11 +629,11 @@ test("generate @jskit-ai/crud-ui-generator honors explicit link-placement overri
     await writeCustomerResource(appRoot);
     await generateCrudUiPackage(appRoot, {
       operations: "list",
-      linkPlacement: "shell-layout:secondary-menu"
+      linkPlacement: "shell.secondary-nav"
     });
 
     const placementSource = await readFile(path.join(appRoot, "src", "placement.js"), "utf8");
-    assert.match(placementSource, /target: "shell-layout:secondary-menu"/);
+    assert.match(placementSource, /target: "shell\.secondary-nav"/);
   });
 });
 
@@ -539,6 +648,8 @@ test("generate @jskit-ai/crud-ui-generator list-only scaffolds just the list pag
 
     const paths = resolveGeneratedPaths(appRoot, "admin/ops/customers-ui");
     assert.equal(await fileExists(paths.listPagePath), true);
+    assert.equal(await fileExists(paths.listBulkActionsPath), true);
+    assert.equal(await fileExists(paths.listFiltersPath), true);
     assert.equal(await fileExists(paths.viewPagePath), false);
     assert.equal(await fileExists(paths.newPagePath), false);
     assert.equal(await fileExists(paths.editPagePath), false);
@@ -617,7 +728,7 @@ test("generate @jskit-ai/crud-ui-generator allows an empty existing target root 
     assert.equal(result.status, 0, String(result.stderr || ""));
 
     const listPageSource = await readFile(path.join(appRoot, "src/pages/admin/products/index.vue"), "utf8");
-    assert.match(listPageSource, /Manage Customers\./);
+    assert.match(listPageSource, /Search, review, and update Customers from this screen\./);
   });
 });
 
@@ -643,7 +754,7 @@ test("generate @jskit-ai/crud-ui-generator overwrites existing generated files w
     });
 
     const listPageSource = await readFile(path.join(appRoot, "src/pages/admin/products/index.vue"), "utf8");
-    assert.match(listPageSource, /Manage Customers\./);
+    assert.match(listPageSource, /Search, review, and update Customers from this screen\./);
     assert.doesNotMatch(listPageSource, /custom products page/);
   });
 });
@@ -671,7 +782,7 @@ test("generate @jskit-ai/crud-ui-generator accepts route roots with a src/pages 
 
     assert.equal(result.status, 0, String(result.stderr || ""));
     const listPageSource = await readFile(path.join(appRoot, "src/pages/admin/products/index.vue"), "utf8");
-    assert.match(listPageSource, /Manage Customers\./);
+    assert.match(listPageSource, /Search, review, and update Customers from this screen\./);
   });
 });
 

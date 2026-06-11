@@ -27,6 +27,7 @@ Exports
 - `renderAssistantPageSummary(pageTarget = {}, { pageAlreadyExisted = false, pageOverwritten = false } = {})`
 Local functions
 - `resolveLinkToPropLine(linkTo = "")`
+- `resolveOwnerLine(owner = "")`
 - `resolveTemplateFilePath(relativePath = "")`
 
 ### `src/server/subcommands/page.js`
@@ -53,7 +54,7 @@ Exports
 - `normalizeConfigScope(value = "")`
 - `loadAppConfig(appRoot = "")`
 - `resolveSurfaceDefinition(appConfig = {}, surfaceId = "", optionName = "surface")`
-- `assertAssistantSurfaceIsAvailable(appConfig = {}, surfaceId = "")`
+- `assertAssistantSurfaceIsAvailable(appConfig = {}, surfaceId = "", expected = {})`
 - `resolveAiConfigPrefix(surfaceId = "", explicitPrefix = "")`
 
 ### templates

@@ -10,12 +10,11 @@ const preferences = props.runtime.preferences;
 </script>
 
 <template>
-  <v-card rounded="lg" elevation="0" border>
-    <v-card-item>
-      <v-card-title class="text-subtitle-1">Preferences</v-card-title>
-    </v-card-item>
-    <v-divider />
-    <v-card-text>
+  <v-sheet rounded="lg" border class="account-settings-section">
+    <header class="account-settings-section__header">
+      <h2 class="account-settings-section__title">Preferences</h2>
+    </header>
+    <div class="account-settings-section__body">
       <v-form @submit.prevent="preferences.submit" novalidate>
         <v-row>
           <v-col cols="12" md="4">
@@ -120,6 +119,33 @@ const preferences = props.runtime.preferences;
           Save preferences
         </v-btn>
       </v-form>
-    </v-card-text>
-  </v-card>
+    </div>
+  </v-sheet>
 </template>
+
+<style scoped>
+.account-settings-section {
+  overflow: hidden;
+}
+
+.account-settings-section__header {
+  padding: 1rem 1rem 0;
+}
+
+.account-settings-section__title {
+  font-size: 1rem;
+  font-weight: 650;
+  line-height: 1.2;
+  margin: 0;
+}
+
+.account-settings-section__body {
+  padding: 1rem;
+}
+
+@media (max-width: 640px) {
+  .account-settings-section__body :deep(.v-btn) {
+    min-height: 48px;
+  }
+}
+</style>
