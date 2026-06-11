@@ -10,6 +10,7 @@
     "./client/error": "./src/client/error/index.js",
     "./client/placement": "./src/client/placement/index.js",
     "./client/asyncModuleRecovery": "./src/client/asyncModuleRecovery/index.js",
+    "./client/requestRecovery": "./src/client/requestRecovery/index.js",
     "./client/bootstrap": "./src/client/bootstrap/index.js",
     "./server/support/localLinkItemScaffolds": "./src/server/support/localLinkItemScaffolds.js",
     "./client/navigation/linkResolver": "./src/client/navigation/linkResolver.js",

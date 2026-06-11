@@ -207,6 +207,10 @@ Exports
 - `useShellErrorPresentationStore`
 - `SHELL_ASYNC_MODULE_RECOVERY_RUNTIME_KEY`
 - `useShellAsyncModuleRecoveryRuntime`
+- `SHELL_REQUEST_RECOVERY_RUNTIME_KEY`
+- `isRecoverableRequestError`
+- `requestRecoveryMessage`
+- `useShellRequestRecoveryRuntime`
 - `BOOTSTRAP_PAYLOAD_HANDLER_TAG`
 - `registerBootstrapPayloadHandler`
 - `resolveBootstrapPayloadHandlers`
@@ -341,6 +345,40 @@ Local functions
 - `installVueErrorBridge(vueApp, errorRuntime, logger)`
 - `installRouterErrorBridge(app, errorRuntime, logger)`
 - `createShellAsyncModuleRecoveryRuntime({ app, logger = null } = {})`
+
+### `src/client/requestRecovery/index.js`
+Exports
+- `SHELL_REQUEST_RECOVERY_RUNTIME_KEY`
+- `useShellRequestRecoveryRuntime`
+- `isRecoverableRequestError`
+- `requestRecoveryMessage`
+
+### `src/client/requestRecovery/inject.js`
+Exports
+- `SHELL_REQUEST_RECOVERY_RUNTIME_KEY`
+- `isShellRequestRecoveryRuntime(value)`
+- `useShellRequestRecoveryRuntime()`
+
+### `src/client/requestRecovery/runtime.js`
+Exports
+- `createShellRequestRecoveryRuntime({ app, logger = null } = {})`
+- `isRecoverableRequestError(error = null)`
+- `requestRecoveryMessage(error = null, { label = "Request", message = "" } = {})`
+Local functions
+- `normalizeText(value, fallback = "")`
+- `errorMessage(error = null)`
+- `errorCode(error = null)`
+- `errorName(error = null)`
+- `normalizeRequestErrorStatus(error = null)`
+- `isCanceledRequestError(error = null)`
+- `resolveQueryMeta(query = null)`
+- `isRequestRecoveryDisabled(query = null)`
+- `resolveQueryRecoveryLabel(query = null)`
+- `isActiveQuery(query = null)`
+- `recoverableQueryError(query = null)`
+- `createQueryRetry(queryClient, query = null)`
+- `resolveQueryHash(query = null)`
+- `installRecoverableQueryObserver({ app, runtime, logger } = {})`
 
 ### `src/client/runtime/bootstrapRuntime.js`
 Exports

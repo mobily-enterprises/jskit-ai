@@ -645,7 +645,7 @@ The default error policy is intent-based. Runtime code reports what kind of erro
 When app code catches a dynamic import failure itself, report it through the shell async module recovery runtime so it uses the same reload banner as router chunk failures:
 
 ```js
-import { useShellAsyncModuleRecoveryRuntime } from "@jskit-ai/shell-web/client";
+import { useShellAsyncModuleRecoveryRuntime } from "@jskit-ai/shell-web/client/asyncModuleRecovery";
 
 const asyncModuleRecovery = useShellAsyncModuleRecoveryRuntime();
 
@@ -659,6 +659,34 @@ try {
 ```
 
 `useShellAsyncModuleRecoveryRuntime()` returns `null` when the shell runtime is not available in the current Vue context. That lets app-owned components use optional chaining instead of duplicating shell-web's internal injection token.
+
+Use the narrow `@jskit-ai/shell-web/client/asyncModuleRecovery` subpath for this runtime, especially from modules that are imported by Node-mode Vitest suites. The aggregate `@jskit-ai/shell-web/client` barrel also exports the composable for normal Vite app code, but that barrel includes `.vue` component exports and can require Vue SFC handling in tests.
+
+Request connectivity failures use a separate shell recovery path. Generated apps already configure TanStack Query to retry transient failures with capped backoff. `shell-web` then observes the app's `jskit.client.query-client` and, when an active query finishes in a transport failure such as `Network request failed.` or `Failed to fetch`, reports an `app-recoverable` banner with a `Retry` action that refetches that exact query. Normal HTTP validation and application errors stay local to the screen.
+
+Imperative app code only needs the public runtime when it catches a request failure outside the standard query/resource composables:
+
+```js
+import { useShellRequestRecoveryRuntime } from "@jskit-ai/shell-web/client/requestRecovery";
+
+const requestRecovery = useShellRequestRecoveryRuntime();
+
+async function loadProjectAccess() {
+  try {
+    return await fetch("/api/project-access");
+  } catch (error) {
+    requestRecovery?.report(error, {
+      label: "Project access",
+      retry: loadProjectAccess
+    });
+    throw error;
+  }
+}
+```
+
+`useShellRequestRecoveryRuntime()` returns `null` when the shell runtime is not available in the current Vue context. Use the narrow `@jskit-ai/shell-web/client/requestRecovery` subpath for the same reason as async module recovery: it avoids pulling `.vue` component exports into Node-mode test suites.
+
+For query-backed screens, the default is automatic. Set `meta: { jskit: { requestRecovery: false } }` only when a query deliberately owns its entire connectivity recovery UI. Set `meta: { jskit: { requestRecoveryLabel: "Project access" } }` when the default `Request` label is too generic.
 
 ### The home page talks to the backend
 

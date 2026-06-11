@@ -11,6 +11,9 @@ import {
 import {
   SHELL_ASYNC_MODULE_RECOVERY_RUNTIME_KEY
 } from "../src/client/asyncModuleRecovery/index.js";
+import {
+  SHELL_REQUEST_RECOVERY_RUNTIME_KEY
+} from "../src/client/requestRecovery/index.js";
 import { useShellErrorPresentationStore } from "../src/client/stores/useShellErrorPresentationStore.js";
 const CLIENT_APP_CONFIG_GLOBAL_KEY = "__JSKIT_CLIENT_APP_CONFIG__";
 
@@ -169,6 +172,32 @@ function createWindowDouble({ href = "https://example.test/home" } = {}) {
   };
 }
 
+function createQueryCacheDouble(initialQueries = []) {
+  const listeners = [];
+  const queries = [...initialQueries];
+
+  return {
+    queries,
+    getAll() {
+      return queries;
+    },
+    subscribe(listener) {
+      listeners.push(listener);
+      return () => {
+        const index = listeners.indexOf(listener);
+        if (index >= 0) {
+          listeners.splice(index, 1);
+        }
+      };
+    },
+    emit(event) {
+      for (const listener of [...listeners]) {
+        listener(event);
+      }
+    }
+  };
+}
+
 test("shell web client provider preserves append-only placement topology object exports", () => {
   const warnings = [];
   const topology = {
@@ -223,6 +252,7 @@ test("shell web client provider binds runtime and injects it into Vue app", asyn
     assert.equal(app.singletons.has("runtime.web-error.presentation-store.client"), true);
     assert.equal(app.singletons.has("runtime.web-refresh.client"), true);
     assert.equal(app.singletons.has("runtime.web-async-module-recovery.client"), true);
+    assert.equal(app.singletons.has("runtime.web-request-recovery.client"), true);
 
     await provider.boot(app);
     assert.equal(app.plugins.length, 0);
@@ -233,6 +263,7 @@ test("shell web client provider binds runtime and injects it into Vue app", asyn
     assert.equal(providedByKey.has("jskit.shell-web.runtime.web-refresh.client"), true);
     assert.equal(providedByKey.has("jskit.shell-web.runtime.web-error.client"), true);
     assert.equal(providedByKey.has(SHELL_ASYNC_MODULE_RECOVERY_RUNTIME_KEY), true);
+    assert.equal(providedByKey.has(SHELL_REQUEST_RECOVERY_RUNTIME_KEY), true);
     assert.equal(providedByKey.has("jskit.shell-web.runtime.web-error.presentation-store.client"), true);
 
     const placementRuntime = providedByKey.get("jskit.shell-web.runtime.web-placement.client");
@@ -252,6 +283,11 @@ test("shell web client provider binds runtime and injects it into Vue app", asyn
     assert.equal(typeof asyncModuleRecoveryRuntime.install, "function");
     assert.equal(typeof asyncModuleRecoveryRuntime.notify, "function");
     assert.equal(typeof asyncModuleRecoveryRuntime.reload, "function");
+
+    const requestRecoveryRuntime = providedByKey.get(SHELL_REQUEST_RECOVERY_RUNTIME_KEY);
+    assert.equal(typeof requestRecoveryRuntime.install, "function");
+    assert.equal(typeof requestRecoveryRuntime.report, "function");
+    assert.equal(typeof requestRecoveryRuntime.reload, "function");
 
     const errorStore = providedByKey.get("jskit.shell-web.runtime.web-error.presentation-store.client");
     assert.equal(typeof errorStore.getState, "function");
@@ -316,6 +352,132 @@ test("shell refresh runtime reports recoverable retry errors as banners", async 
     assert.equal(state.channels.banner.length, 1);
     assert.equal(state.channels.banner[0].message, "Unable to refresh. Check the connection and try again.");
     assert.equal(state.channels.banner[0].action.label, "Retry");
+  });
+});
+
+test("shell request recovery reports active query transport failures with retry actions", async () => {
+  await withFetchStub({ surfaceAccess: {} }, async () => {
+    const refetchCalls = [];
+    const queryCache = createQueryCacheDouble();
+    const queryClient = {
+      getQueryCache() {
+        return queryCache;
+      },
+      async refetchQueries(filters = {}, options = {}) {
+        refetchCalls.push({ filters, options });
+      }
+    };
+    const app = createAppDouble({ queryClient });
+    const provider = new ShellWebClientProvider();
+    provider.register(app);
+    await provider.boot(app);
+
+    const failedQuery = {
+      queryHash: "[\"project-access\"]",
+      queryKey: ["project-access"],
+      meta: {
+        jskit: {
+          requestRecoveryLabel: "Project access"
+        }
+      },
+      state: {
+        status: "error",
+        fetchStatus: "idle",
+        error: {
+          status: 0,
+          message: "Network request failed."
+        },
+        errorUpdateCount: 1
+      },
+      isActive() {
+        return true;
+      }
+    };
+    queryCache.emit({ type: "updated", query: failedQuery });
+
+    const errorStore = app.make("runtime.web-error.presentation-store.client");
+    const state = errorStore.getState();
+    assert.equal(state.channels.banner.length, 1);
+    assert.equal(
+      state.channels.banner[0].message,
+      "Project access could not reach the server or network. Check the connection and try again."
+    );
+    assert.equal(state.channels.banner[0].action.label, "Retry");
+
+    await state.channels.banner[0].action.handler();
+    assert.equal(refetchCalls.length, 1);
+    assert.deepEqual(refetchCalls[0].filters, {
+      queryKey: ["project-access"],
+      exact: true,
+      type: "active"
+    });
+    assert.deepEqual(refetchCalls[0].options, {
+      throwOnError: false
+    });
+  });
+});
+
+test("shell request recovery ignores ordinary active query validation failures", async () => {
+  await withFetchStub({ surfaceAccess: {} }, async () => {
+    const queryCache = createQueryCacheDouble();
+    const queryClient = {
+      getQueryCache() {
+        return queryCache;
+      },
+      async refetchQueries() {}
+    };
+    const app = createAppDouble({ queryClient });
+    const provider = new ShellWebClientProvider();
+    provider.register(app);
+    await provider.boot(app);
+
+    queryCache.emit({
+      type: "updated",
+      query: {
+        queryHash: "[\"project-access\"]",
+        queryKey: ["project-access"],
+        state: {
+          status: "error",
+          fetchStatus: "idle",
+          error: {
+            status: 422,
+            message: "Invalid input."
+          },
+          errorUpdateCount: 1
+        },
+        isActive() {
+          return true;
+        }
+      }
+    });
+
+    const errorStore = app.make("runtime.web-error.presentation-store.client");
+    assert.equal(errorStore.getState().channels.banner.length, 0);
+  });
+});
+
+test("shell bootstrap transport failures report through request recovery", async () => {
+  let fetchCalls = 0;
+  await withFetchImplementation(async () => {
+    fetchCalls += 1;
+    throw new TypeError("Failed to fetch");
+  }, async () => {
+    const app = createAppDouble();
+    const provider = new ShellWebClientProvider();
+    provider.register(app);
+    await provider.boot(app);
+
+    const errorStore = app.make("runtime.web-error.presentation-store.client");
+    const state = errorStore.getState();
+    assert.equal(state.channels.banner.length, 1);
+    assert.equal(
+      state.channels.banner[0].message,
+      "App data could not reach the server or network. Check the connection and try again."
+    );
+    assert.equal(state.channels.banner[0].action.label, "Retry");
+
+    await state.channels.banner[0].action.handler();
+    assert.equal(fetchCalls, 2);
   });
 });
 

@@ -9,7 +9,8 @@ export default Object.freeze({
     provides: [
       "runtime.web-placement",
       "runtime.web-error",
-      "runtime.web-async-module-recovery"
+      "runtime.web-async-module-recovery",
+      "runtime.web-request-recovery"
     ],
     requires: []
   },
@@ -42,6 +43,10 @@ export default Object.freeze({
           summary: "Exports default error policy and runtime error reporter hook."
         },
         {
+          subpath: "./client/requestRecovery",
+          summary: "Exports request connectivity recovery classification and runtime access for app-caught request failures."
+        },
+        {
           subpath: "./client/bootstrap",
           summary: "Exports the shared client bootstrap handler registry used to extend /api/bootstrap handling."
         },
@@ -57,6 +62,7 @@ export default Object.freeze({
           "runtime.web-bootstrap.client",
           "runtime.web-refresh.client",
           "runtime.web-async-module-recovery.client",
+          "runtime.web-request-recovery.client",
           "runtime.web-error.client",
           "runtime.web-error.presentation-store.client"
         ]

@@ -22,6 +22,12 @@ export {
   useShellAsyncModuleRecoveryRuntime
 } from "./asyncModuleRecovery/index.js";
 export {
+  SHELL_REQUEST_RECOVERY_RUNTIME_KEY,
+  isRecoverableRequestError,
+  requestRecoveryMessage,
+  useShellRequestRecoveryRuntime
+} from "./requestRecovery/index.js";
+export {
   BOOTSTRAP_PAYLOAD_HANDLER_TAG,
   registerBootstrapPayloadHandler,
   resolveBootstrapPayloadHandlers
