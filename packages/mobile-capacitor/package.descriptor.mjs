@@ -1,7 +1,7 @@
 export default Object.freeze({
   packageVersion: 1,
   packageId: "@jskit-ai/mobile-capacitor",
-  version: "0.1.28",
+  version: "0.1.29",
   kind: "runtime",
   description: "Thin Capacitor client integration for JSKIT mobile-shell launch routing and auth callback completion.",
   dependsOn: [
@@ -62,8 +62,8 @@ export default Object.freeze({
         "@capacitor/app": "^7.1.0",
         "@capacitor/browser": "^7.0.1",
         "@capacitor/core": "^7.4.3",
-        "@jskit-ai/kernel": "0.1.91",
-        "@jskit-ai/shell-web": "0.1.90"
+        "@jskit-ai/kernel": "0.1.92",
+        "@jskit-ai/shell-web": "0.1.91"
       },
       dev: {
         "@capacitor/cli": "^7.4.3"
