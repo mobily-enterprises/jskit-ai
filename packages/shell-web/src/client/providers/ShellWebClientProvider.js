@@ -11,6 +11,9 @@ import {
   notifyDynamicImportFailure
 } from "./appModuleLoadFailure.js";
 import {
+  SHELL_ASYNC_MODULE_RECOVERY_RUNTIME_KEY
+} from "../asyncModuleRecovery/inject.js";
+import {
   isRecord
 } from "@jskit-ai/kernel/shared/support";
 import { createProviderLogger as createSharedProviderLogger } from "@jskit-ai/kernel/shared/support/providerLogger";
@@ -654,7 +657,7 @@ class ShellWebClientProvider {
     vueApp.provide("jskit.shell-web.runtime.web-placement.client", placementRuntime);
     vueApp.provide("jskit.shell-web.runtime.web-refresh.client", refreshRuntime);
     vueApp.provide("jskit.shell-web.runtime.web-error.client", errorRuntime);
-    vueApp.provide("jskit.shell-web.runtime.web-async-module-recovery.client", asyncModuleRecoveryRuntime);
+    vueApp.provide(SHELL_ASYNC_MODULE_RECOVERY_RUNTIME_KEY, asyncModuleRecoveryRuntime);
     vueApp.provide(
       "jskit.shell-web.runtime.web-error.presentation-store.client",
       errorPresentationStore

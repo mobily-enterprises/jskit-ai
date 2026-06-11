@@ -14,6 +14,17 @@ Use this on demand; do not load the full index at startup.
 
 ### src
 
+### `src/client/asyncModuleRecovery/index.js`
+Exports
+- `SHELL_ASYNC_MODULE_RECOVERY_RUNTIME_KEY`
+- `useShellAsyncModuleRecoveryRuntime`
+
+### `src/client/asyncModuleRecovery/inject.js`
+Exports
+- `SHELL_ASYNC_MODULE_RECOVERY_RUNTIME_KEY`
+- `isShellAsyncModuleRecoveryRuntime(value)`
+- `useShellAsyncModuleRecoveryRuntime()`
+
 ### `src/client/bootstrap/bootstrapErrorStatus.js`
 Exports
 - `resolveBootstrapErrorStatusCode(error)`
@@ -194,6 +205,8 @@ Exports
 - `useShellLayoutState`
 - `useShellLayoutStore`
 - `useShellErrorPresentationStore`
+- `SHELL_ASYNC_MODULE_RECOVERY_RUNTIME_KEY`
+- `useShellAsyncModuleRecoveryRuntime`
 - `BOOTSTRAP_PAYLOAD_HANDLER_TAG`
 - `registerBootstrapPayloadHandler`
 - `resolveBootstrapPayloadHandlers`

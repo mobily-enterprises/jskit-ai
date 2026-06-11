@@ -8,6 +8,9 @@ import {
 import {
   isMissingDynamicModule
 } from "../src/client/providers/appModuleLoadFailure.js";
+import {
+  SHELL_ASYNC_MODULE_RECOVERY_RUNTIME_KEY
+} from "../src/client/asyncModuleRecovery/index.js";
 import { useShellErrorPresentationStore } from "../src/client/stores/useShellErrorPresentationStore.js";
 const CLIENT_APP_CONFIG_GLOBAL_KEY = "__JSKIT_CLIENT_APP_CONFIG__";
 
@@ -229,7 +232,7 @@ test("shell web client provider binds runtime and injects it into Vue app", asyn
     assert.equal(providedByKey.has("jskit.shell-web.runtime.web-placement.client"), true);
     assert.equal(providedByKey.has("jskit.shell-web.runtime.web-refresh.client"), true);
     assert.equal(providedByKey.has("jskit.shell-web.runtime.web-error.client"), true);
-    assert.equal(providedByKey.has("jskit.shell-web.runtime.web-async-module-recovery.client"), true);
+    assert.equal(providedByKey.has(SHELL_ASYNC_MODULE_RECOVERY_RUNTIME_KEY), true);
     assert.equal(providedByKey.has("jskit.shell-web.runtime.web-error.presentation-store.client"), true);
 
     const placementRuntime = providedByKey.get("jskit.shell-web.runtime.web-placement.client");
@@ -245,7 +248,7 @@ test("shell web client provider binds runtime and injects it into Vue app", asyn
     const refreshRuntime = providedByKey.get("jskit.shell-web.runtime.web-refresh.client");
     assert.equal(typeof refreshRuntime.refresh, "function");
 
-    const asyncModuleRecoveryRuntime = providedByKey.get("jskit.shell-web.runtime.web-async-module-recovery.client");
+    const asyncModuleRecoveryRuntime = providedByKey.get(SHELL_ASYNC_MODULE_RECOVERY_RUNTIME_KEY);
     assert.equal(typeof asyncModuleRecoveryRuntime.install, "function");
     assert.equal(typeof asyncModuleRecoveryRuntime.notify, "function");
     assert.equal(typeof asyncModuleRecoveryRuntime.reload, "function");

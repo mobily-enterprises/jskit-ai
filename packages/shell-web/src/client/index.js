@@ -18,6 +18,10 @@ export { useShellLayoutState } from "./composables/useShellLayoutState.js";
 export { useShellLayoutStore } from "./stores/useShellLayoutStore.js";
 export { useShellErrorPresentationStore } from "./stores/useShellErrorPresentationStore.js";
 export {
+  SHELL_ASYNC_MODULE_RECOVERY_RUNTIME_KEY,
+  useShellAsyncModuleRecoveryRuntime
+} from "./asyncModuleRecovery/index.js";
+export {
   BOOTSTRAP_PAYLOAD_HANDLER_TAG,
   registerBootstrapPayloadHandler,
   resolveBootstrapPayloadHandlers
