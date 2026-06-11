@@ -68,6 +68,7 @@ Local functions
 - `normalizeMethod(method)`
 - `resolveUnsafeMethods(value)`
 - `resolveFetch()`
+- `normalizeResolvedRequestUrl(value, fallback = "")`
 - `isObjectBody(value)`
 - `isQueryValuePresent(value)`
 - `appendRequestQueryToUrl(url, query = null, transport = null)`

@@ -63,6 +63,8 @@ Why this is the standard JSKIT shape:
 - `useEndpointResource()` is the shared endpoint primitive for loading, saving, and standard load/save error handling. Higher-level runtimes add UI feedback and field-error handling on top.
 - Use `requestQueryParams` for endpoint query strings on list, view, and add/edit runtimes.
 - Keep `apiUrlTemplate` path-only. Do not put `?include=...` or other query strings in URL templates.
+- If an app needs route-aware API URL rewriting, configure the users-web client once with `configureUsersWebHttpClient({ resolveRequestUrl })` before mounting the app. Do not replace `fetchImpl` just to rewrite paths.
+- `resolveRequestUrl` belongs at the HTTP client boundary. It runs after JSKIT encodes query params and before browser `fetch`, so reads, commands, request recovery metadata, JSON:API transport, credentials, and CSRF behavior stay on the standard path.
 
 Error presentation rules:
 
@@ -80,6 +82,7 @@ Avoid:
 
 - raw `fetch(...)` for standard page or component work
 - page-local HTTP helpers that duplicate JSKIT runtime seams
+- custom `fetchImpl` wrappers whose only job is to rewrite `/api/...` URLs
 - manually concatenating scoped route params into API URLs
 - using a lower-level seam when a higher-level routed CRUD or command runtime already fits
 - smuggling query params into `apiUrlTemplate`

@@ -685,6 +685,23 @@ Why this is the standard JSKIT shape:
 - `shell-web` observes the shared TanStack Query client for recoverable transport failures. Generated CRUD reads and custom reads built with `useEndpointResource()`, `useList()`, `useView()`, or `useAddEdit()` get the shell recovery banner with a Retry action that refetches the failed query.
 - Automatic shell request recovery is only for safe `GET`/`HEAD` read refetches. JSKIT read composables mark Query entries with `jskit.requestRecoveryMethod`, and the shell ignores unmarked or unsafe methods. Do not rely on it to replay `POST`, `PATCH`, `PUT`, or `DELETE`; mutation screens own save state, field errors, and user feedback.
 
+When an app needs all JSKIT reads and commands to rewrite API URLs before fetch, configure the users-web HTTP client once instead of passing custom paths or replacing `fetchImpl` in each local helper:
+
+```js
+import { configureUsersWebHttpClient } from "@jskit-ai/users-web/client/lib/httpClient";
+
+configureUsersWebHttpClient({
+  csrf: {
+    enabled: false
+  },
+  resolveRequestUrl(url) {
+    return scopedApiUrlForCurrentRoute(url);
+  }
+});
+```
+
+After that, `useEndpointResource()`, `useList()`, `useView()`, `useAddEdit()`, and `useCommand()` keep their normal call shape. JSKIT still owns Query metadata, request recovery, JSON:API transport, command feedback, credentials, and CSRF behavior. Use `createTransientRetryHttpClient({ resolveRequestUrl })` directly only when a package needs its own separate client instance.
+
 When a custom read needs a better recovery banner label, pass it through the read primitive rather than reporting the failure manually:
 
 ```js

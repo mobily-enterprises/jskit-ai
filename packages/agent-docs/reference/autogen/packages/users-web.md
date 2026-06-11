@@ -212,7 +212,7 @@ Local functions
 
 ### `src/client/composables/records/useAddEdit.js`
 Exports
-- `useAddEdit({ ownershipFilter = ROUTE_VISIBILITY_WORKSPACE, surfaceId = "", access = "auto", resource = null, apiSuffix = "", queryKeyFactory = null, viewPermissions = [], savePermissions = [], readMethod = "GET", readEnabled = true, writeMethod = "PATCH", transport = null, requestRecovery = null, requestRecoveryLabel = "Resource", placementSource = "users-web.add-edit", fallbackLoadError = "Unable to load resource.", fallbackSaveError = "Unable to save resource.", fieldErrorKeys = [], clearOnRouteChange = true, model, input, mapLoadedToModel, buildRawPayload, buildSavePayload, onSaveSuccess, requestQueryParams = null, recordIdParam = "recordId", routeParams = null, routeRecordId = null, apiUrlTemplate = "", viewUrlTemplate = "", listUrlTemplate = "", saveRecordIdSelector = null, messages = {}, realtime = null, adapter = null } = {})`
+- `useAddEdit({ ownershipFilter = ROUTE_VISIBILITY_WORKSPACE, surfaceId = "", access = "auto", resource = null, apiSuffix = "", queryKeyFactory = null, viewPermissions = [], savePermissions = [], readMethod = "GET", readEnabled = true, writeMethod = "PATCH", client = null, transport = null, requestRecovery = null, requestRecoveryLabel = "Resource", placementSource = "users-web.add-edit", fallbackLoadError = "Unable to load resource.", fallbackSaveError = "Unable to save resource.", fieldErrorKeys = [], clearOnRouteChange = true, model, input, mapLoadedToModel, buildRawPayload, buildSavePayload, onSaveSuccess, requestQueryParams = null, recordIdParam = "recordId", routeParams = null, routeRecordId = null, apiUrlTemplate = "", viewUrlTemplate = "", listUrlTemplate = "", saveRecordIdSelector = null, messages = {}, realtime = null, adapter = null } = {})`
 
 ### `src/client/composables/records/useCrudAddEdit.js`
 Exports
@@ -234,11 +234,11 @@ Exports
 
 ### `src/client/composables/records/useList.js`
 Exports
-- `useList({ ownershipFilter = ROUTE_VISIBILITY_WORKSPACE, surfaceId = "", access = "auto", apiSuffix = "", queryKeyFactory = null, viewPermissions = [], readEnabled = true, placementSource = "users-web.list", fallbackLoadError = "Unable to load list.", initialPageParam = null, getNextPageParam, selectItems, transport = null, requestOptions, queryOptions, requestRecovery, requestRecoveryLabel = "List", realtime = null, adapter = null, recordIdParam = "recordId", recordIdSelector = null, viewUrlTemplate = "", editUrlTemplate = "", search = null, queryParams = null, requestQueryParams = null, syncToRoute = false } = {})`
+- `useList({ ownershipFilter = ROUTE_VISIBILITY_WORKSPACE, surfaceId = "", access = "auto", apiSuffix = "", queryKeyFactory = null, viewPermissions = [], readEnabled = true, placementSource = "users-web.list", fallbackLoadError = "Unable to load list.", initialPageParam = null, getNextPageParam, selectItems, client = null, transport = null, requestOptions, queryOptions, requestRecovery, requestRecoveryLabel = "List", realtime = null, adapter = null, recordIdParam = "recordId", recordIdSelector = null, viewUrlTemplate = "", editUrlTemplate = "", search = null, queryParams = null, requestQueryParams = null, syncToRoute = false } = {})`
 
 ### `src/client/composables/records/useView.js`
 Exports
-- `useView({ resource = null, ownershipFilter = ROUTE_VISIBILITY_WORKSPACE, surfaceId = "", access = "auto", apiSuffix = "", queryKeyFactory = null, viewPermissions = [], readMethod = "GET", readEnabled = true, transport = null, requestRecovery = null, requestRecoveryLabel = "Resource", placementSource = "users-web.view", fallbackLoadError = "Unable to load resource.", notFoundStatuses = [404], notFoundMessage = "Record not found.", model, mapLoadedToModel, requestQueryParams = null, recordIdParam = "recordId", routeParams = null, routeRecordId = null, apiUrlTemplate = "", listUrlTemplate = "", editUrlTemplate = "", includeRecordIdInQueryKey = false, realtime = undefined, adapter = null } = {})`
+- `useView({ resource = null, ownershipFilter = ROUTE_VISIBILITY_WORKSPACE, surfaceId = "", access = "auto", apiSuffix = "", queryKeyFactory = null, viewPermissions = [], readMethod = "GET", readEnabled = true, client = null, transport = null, requestRecovery = null, requestRecoveryLabel = "Resource", placementSource = "users-web.view", fallbackLoadError = "Unable to load resource.", notFoundStatuses = [404], notFoundMessage = "Record not found.", model, mapLoadedToModel, requestQueryParams = null, recordIdParam = "recordId", routeParams = null, routeRecordId = null, apiUrlTemplate = "", listUrlTemplate = "", editUrlTemplate = "", includeRecordIdInQueryKey = false, realtime = undefined, adapter = null } = {})`
 
 ### `src/client/composables/runtime/addEditUiRuntime.js`
 Exports
@@ -290,7 +290,7 @@ Exports
 Exports
 - `buildEndpointReadRequestOptions({ method = "GET", query = null, transport = null } = {})`
 - `buildEndpointWriteRequestOptions({ method = "PATCH", body = undefined, options = null, transport = null } = {})`
-- `useEndpointResource({ queryKey, path = "", enabled = true, client = usersWebHttpClient, readMethod = "GET", writeMethod = "PATCH", readQuery = null, transport = null, refreshOnPull = false, realtime = null, queryOptions = null, mutationOptions = null, requestRecovery = null, requestRecoveryLabel = "Request", fallbackLoadError = "Unable to load resource.", fallbackSaveError = "Unable to save resource." } = {})`
+- `useEndpointResource({ queryKey, path = "", enabled = true, client = null, readMethod = "GET", writeMethod = "PATCH", readQuery = null, transport = null, refreshOnPull = false, realtime = null, queryOptions = null, mutationOptions = null, requestRecovery = null, requestRecoveryLabel = "Request", fallbackLoadError = "Unable to load resource.", fallbackSaveError = "Unable to save resource." } = {})`
 Local functions
 - `resolveRequestQuery(value = null)`
 
@@ -303,7 +303,7 @@ Local functions
 ### `src/client/composables/runtime/useListCore.js`
 Exports
 - `buildListRequestOptions({ requestOptions = null, transport = null, pageParam = null } = {})`
-- `useListCore({ queryKey, path = "", enabled = true, client = usersWebHttpClient, transport = null, initialPageParam = null, getNextPageParam, selectItems, requestOptions = null, queryOptions = null, requestRecovery = null, requestRecoveryLabel = "List", fallbackLoadError = "Unable to load list." } = {})`
+- `useListCore({ queryKey, path = "", enabled = true, client = null, transport = null, initialPageParam = null, getNextPageParam, selectItems, requestOptions = null, queryOptions = null, requestRecovery = null, requestRecoveryLabel = "List", fallbackLoadError = "Unable to load list." } = {})`
 Local functions
 - `resolveRequestOptionsObject(value = null)`
 - `resolveListRequestMethod(requestOptions = null)`
@@ -445,7 +445,7 @@ Exports
 
 ### `src/client/composables/useCommand.js`
 Exports
-- `useCommand({ ownershipFilter = ROUTE_VISIBILITY_WORKSPACE, surfaceId = "", access = "auto", apiSuffix = "", runPermissions = [], writeMethod = "POST", transport = null, placementSource = "users-web.command", fallbackRunError = "Unable to complete action.", fieldErrorKeys = [], clearOnRouteChange = true, model, input, buildRawPayload, buildCommandPayload, buildCommandOptions, onRunSuccess, onRunError, suppressSuccessMessage = false, messages = {}, realtime = null } = {})`
+- `useCommand({ ownershipFilter = ROUTE_VISIBILITY_WORKSPACE, surfaceId = "", access = "auto", apiSuffix = "", runPermissions = [], writeMethod = "POST", client = null, transport = null, placementSource = "users-web.command", fallbackRunError = "Unable to complete action.", fieldErrorKeys = [], clearOnRouteChange = true, model, input, buildRawPayload, buildCommandPayload, buildCommandOptions, onRunSuccess, onRunError, suppressSuccessMessage = false, messages = {}, realtime = null } = {})`
 
 ### `src/client/composables/useCrudAddEditScreen.js`
 Exports
@@ -567,7 +567,13 @@ Exports
 
 ### `src/client/lib/httpClient.js`
 Exports
+- `configureUsersWebHttpClient(optionsOrClient = {})`
+- `createUsersWebHttpClient(options = {})`
+- `getUsersWebHttpClient()`
+- `resetUsersWebHttpClientForTests()`
 - `usersWebHttpClient`
+Local functions
+- `normalizeOptions(value = null)`
 
 ### `src/client/lib/permissions.js`
 Exports

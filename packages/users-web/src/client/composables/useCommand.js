@@ -17,6 +17,7 @@ function useCommand({
   apiSuffix = "",
   runPermissions = [],
   writeMethod = "POST",
+  client = null,
   transport = null,
   placementSource = "users-web.command",
   fallbackRunError = "Unable to complete action.",
@@ -52,6 +53,7 @@ function useCommand({
   const resource = useEndpointResource({
     path: operationScope.apiPath,
     enabled: false,
+    client,
     writeMethod,
     transport,
     fallbackSaveError: fallbackRunError

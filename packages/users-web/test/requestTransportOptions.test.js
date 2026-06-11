@@ -9,6 +9,11 @@ import {
   buildEndpointWriteRequestOptions,
   useEndpointResource
 } from "../src/client/composables/runtime/useEndpointResource.js";
+import { useCommand } from "../src/client/composables/useCommand.js";
+import {
+  configureUsersWebHttpClient,
+  resetUsersWebHttpClientForTests
+} from "../src/client/lib/httpClient.js";
 import { buildListRequestOptions } from "../src/client/composables/runtime/useListCore.js";
 import {
   resolveOperationRealtimeOptions
@@ -286,4 +291,115 @@ test("endpoint resource reads attach request recovery metadata to query options"
     requestRecoveryDedupeKey: "project-access",
     requestRecoveryMethod: "GET"
   });
+});
+
+test("endpoint resources use the configured users-web HTTP client by default", async () => {
+  const queryClient = new QueryClient();
+  const calls = [];
+  let resource = null;
+  configureUsersWebHttpClient({
+    csrf: {
+      enabled: false
+    },
+    resolveRequestUrl(url) {
+      return url.replace(/^\/api\//u, "/api/app/beepollen/");
+    },
+    fetchImpl: async (url, options) => {
+      calls.push([url, options]);
+      return {
+        ok: true,
+        status: 200,
+        headers: {
+          get(name) {
+            return String(name || "").toLowerCase() === "content-type"
+              ? "application/json; charset=utf-8"
+              : "";
+          }
+        },
+        async json() {
+          return {
+            ok: true
+          };
+        }
+      };
+    }
+  });
+
+  try {
+    const app = createSSRApp({
+      setup() {
+        resource = useEndpointResource({
+          queryKey: ["vibe64-sessions"],
+          path: "/api/vibe64/sessions"
+        });
+        return () => h("div");
+      }
+    });
+    app.use(VueQueryPlugin, {
+      queryClient
+    });
+    await renderToString(app);
+
+    await resource.reload();
+
+    assert.equal(calls.at(-1)?.[0], "/api/app/beepollen/vibe64/sessions");
+  } finally {
+    resetUsersWebHttpClientForTests();
+  }
+});
+
+test("commands use the configured users-web HTTP client by default", async () => {
+  const queryClient = new QueryClient();
+  const calls = [];
+  let command = null;
+  configureUsersWebHttpClient({
+    csrf: {
+      enabled: false
+    },
+    resolveRequestUrl(url) {
+      return url.replace(/^\/api\//u, "/api/app/beepollen/");
+    },
+    fetchImpl: async (url, options) => {
+      calls.push([url, options]);
+      return {
+        ok: true,
+        status: 200,
+        headers: {
+          get(name) {
+            return String(name || "").toLowerCase() === "content-type"
+              ? "application/json; charset=utf-8"
+              : "";
+          }
+        },
+        async json() {
+          return {
+            ok: true
+          };
+        }
+      };
+    }
+  });
+
+  try {
+    const app = createSSRApp({
+      setup() {
+        command = useCommand({
+          access: "always",
+          apiSuffix: "/vibe64/sessions"
+        });
+        return () => h("div");
+      }
+    });
+    app.use(VueQueryPlugin, {
+      queryClient
+    });
+    await renderToString(app);
+
+    await command.run();
+
+    assert.equal(calls.at(-1)?.[0], "/api/app/beepollen/vibe64/sessions");
+    assert.equal(calls.at(-1)?.[1]?.method, "POST");
+  } finally {
+    resetUsersWebHttpClientForTests();
+  }
 });
