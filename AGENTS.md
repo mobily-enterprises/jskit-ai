@@ -1,5 +1,11 @@
 # Repository Notes
 
+## New File Discipline
+
+- Create new files only when they are required by the current task, produced by documented tooling, or part of an agreed implementation, test, or documentation change.
+- Before adding repo-level guardrail files, persistence files, or durable architecture records by hand, confirm the user approved that lane.
+- For generated outputs, run the documented generator or build command and review the generated diff instead of hand-creating files.
+
 ## Distributed Agent Docs
 
 - The human guide under `packages/agent-docs/site/guide/` is the source of truth.
