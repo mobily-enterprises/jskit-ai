@@ -18,7 +18,7 @@ How to use it:
   - `page-scaffolding.md`
 - child crud, nested crud, embedded list, subroute, separate page, parent/child layout
   - `child-cruds.md`
-- crud scaffold, crud server, crud ui, table creation, migrations, `crud-server-generator`, `crud-ui-generator`
+- crud scaffold, crud server, crud ui, table creation, migrations, direct knex, weird-custom persistence, `crud-server-generator`, `crud-ui-generator`
   - `crud-scaffolding.md`
 - CRUD links, record placeholders, `paths.page()`, `resolveViewUrl`, `resolveEditUrl`, `resolveParams`
   - `crud-links.md`
