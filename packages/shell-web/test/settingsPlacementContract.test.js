@@ -171,6 +171,29 @@ test("shell-web exports async module recovery runtime access as a public client 
   assert.match(providerSource, /SHELL_ASYNC_MODULE_RECOVERY_RUNTIME_KEY/);
 });
 
+test("shell-web exports request recovery runtime access as a public client API", async () => {
+  const packageJson = JSON.parse(await readFile(path.join(PACKAGE_DIR, "package.json"), "utf8"));
+  const clientIndex = await readFile(path.join(PACKAGE_DIR, "src", "client", "index.js"), "utf8");
+  const recoveryIndex = await readFile(
+    path.join(PACKAGE_DIR, "src", "client", "requestRecovery", "index.js"),
+    "utf8"
+  );
+  const providerSource = await readFile(
+    path.join(PACKAGE_DIR, "src", "client", "providers", "ShellWebClientProvider.js"),
+    "utf8"
+  );
+
+  assert.equal(
+    packageJson?.exports?.["./client/requestRecovery"],
+    "./src/client/requestRecovery/index.js"
+  );
+  assert.match(clientIndex, /useShellRequestRecoveryRuntime/);
+  assert.match(clientIndex, /SHELL_REQUEST_RECOVERY_RUNTIME_KEY/);
+  assert.match(recoveryIndex, /useShellRequestRecoveryRuntime/);
+  assert.match(recoveryIndex, /SHELL_REQUEST_RECOVERY_RUNTIME_KEY/);
+  assert.match(providerSource, /SHELL_REQUEST_RECOVERY_RUNTIME_KEY/);
+});
+
 test("shell-web route transition keeps mobile route motion placement-driven", async () => {
   const source = await readFile(
     path.join(PACKAGE_DIR, "src", "client", "components", "ShellRouteTransition.vue"),
@@ -298,6 +321,7 @@ test("shell-web descriptor metadata advertises adaptive shell outlets, default l
     "runtime.web-bootstrap.client",
     "runtime.web-refresh.client",
     "runtime.web-async-module-recovery.client",
+    "runtime.web-request-recovery.client",
     "runtime.web-error.client",
     "runtime.web-error.presentation-store.client"
   ]);

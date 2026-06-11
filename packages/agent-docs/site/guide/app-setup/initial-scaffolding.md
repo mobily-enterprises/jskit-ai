@@ -374,7 +374,7 @@ void bootstrapClientShellApp({
 });
 ```
 
-The flow is simple once you read it in order: config in, runtime in memory, router built from that runtime, app-owned Vue plugins created once, app bootstrapped. Pinia, Vue Query, the router, and Vuetify are owned by the base app bootstrap so runtime packages share the same instances instead of carrying independent copies.
+The flow is simple once you read it in order: config in, runtime in memory, router built from that runtime, app-owned Vue plugins created once, app bootstrapped. Pinia, Vue Query, the router, and Vuetify are owned by the base app bootstrap so runtime packages share the same instances instead of carrying independent copies. Passing the same `queryClient` into `bootstrapClientShellApp(...)` also gives `shell-web` the QueryClient it observes for automatic request recovery when transport failures exhaust their normal retries.
 
 <DocsInDepth title="In depth" preview-height="15rem">
 

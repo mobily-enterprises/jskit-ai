@@ -14,6 +14,12 @@ import {
   SHELL_ASYNC_MODULE_RECOVERY_RUNTIME_KEY
 } from "../asyncModuleRecovery/inject.js";
 import {
+  SHELL_REQUEST_RECOVERY_RUNTIME_KEY
+} from "../requestRecovery/inject.js";
+import {
+  createShellRequestRecoveryRuntime
+} from "../requestRecovery/runtime.js";
+import {
   isRecord
 } from "@jskit-ai/kernel/shared/support";
 import { createProviderLogger as createSharedProviderLogger } from "@jskit-ai/kernel/shared/support/providerLogger";
@@ -577,6 +583,12 @@ class ShellWebClientProvider {
         logger
       })
     );
+    app.singleton("runtime.web-request-recovery.client", (scope) =>
+      createShellRequestRecoveryRuntime({
+        app: scope,
+        logger
+      })
+    );
     app.singleton("runtime.web-error.presentation-store.client", () => createErrorPresentationStore());
     app.singleton("runtime.web-error.client", (scope) =>
       createErrorRuntime({
@@ -598,6 +610,7 @@ class ShellWebClientProvider {
     const logger = createSharedProviderLogger(isRecord(app) ? app : null);
     const errorRuntime = app.make("runtime.web-error.client");
     const asyncModuleRecoveryRuntime = app.make("runtime.web-async-module-recovery.client");
+    const requestRecoveryRuntime = app.make("runtime.web-request-recovery.client");
     asyncModuleRecoveryRuntime.install();
 
     const placementRuntime = app.make("runtime.web-placement.client");
@@ -632,6 +645,7 @@ class ShellWebClientProvider {
 
     const errorConfig = await loadAppErrorConfig(logger, errorRuntime, asyncModuleRecoveryRuntime);
     applyAppErrorConfig(errorRuntime, errorConfig);
+    requestRecoveryRuntime.install();
 
     const bootstrapRuntime = app.make("runtime.web-bootstrap.client");
     if (bootstrapRuntime && typeof bootstrapRuntime.initialize === "function") {
@@ -658,6 +672,7 @@ class ShellWebClientProvider {
     vueApp.provide("jskit.shell-web.runtime.web-refresh.client", refreshRuntime);
     vueApp.provide("jskit.shell-web.runtime.web-error.client", errorRuntime);
     vueApp.provide(SHELL_ASYNC_MODULE_RECOVERY_RUNTIME_KEY, asyncModuleRecoveryRuntime);
+    vueApp.provide(SHELL_REQUEST_RECOVERY_RUNTIME_KEY, requestRecoveryRuntime);
     vueApp.provide(
       "jskit.shell-web.runtime.web-error.presentation-store.client",
       errorPresentationStore

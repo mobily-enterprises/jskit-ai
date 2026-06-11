@@ -68,6 +68,9 @@ Error presentation rules:
 
 - Resource load failures should stay local to the screen with the runtime's `loadError` state and a retry action.
 - Do not force global banners for ordinary list/view/add-edit load failures; the shell error policy treats `resource-load` as `silent` by default.
+- Transport/connectivity failures are different from ordinary resource-load errors. `shell-web` observes the app QueryClient and reports active query failures such as `Network request failed.` or `Failed to fetch` through request recovery with a `Retry` action.
+- For imperative app-caught request failures outside the standard query/resource composables, use `useShellRequestRecoveryRuntime()` from `@jskit-ai/shell-web/client/requestRecovery` and pass a retry callback.
+- Use query meta `jskit.requestRecovery = false` only when a query owns its full connectivity recovery UI, and `jskit.requestRecoveryLabel` when the recovery banner needs a better label.
 - Use `useUiFeedback()` or `useCommand()` for user-triggered action feedback. Those flows report `action-feedback`, and the app-owned shell error policy decides the channel.
 - Use explicit shell error intents only for exceptional app-level cases: `app-recoverable` for recoverable shell/runtime failures and `blocking` for failures that require user attention.
 
