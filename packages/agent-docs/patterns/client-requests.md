@@ -46,6 +46,8 @@ Use the shared CRUD screen wrappers when the route is a generated CRUD page:
 
 Generated screen wrapper extension rules:
 
+- Use `useCrudListScreen({ readEnabled })` for permission-gated generated list reads instead of splitting the page or replacing the shared list screen.
+- Use `useCrudListScreen({ requestQueryParams })` for list includes or other endpoint query params instead of putting query strings in `apiSuffix`.
 - Use `useCrudViewScreen({ requestQueryParams })` for detail includes instead of putting query strings in `apiUrlTemplate`.
 - Use `readEnabled` and `queryKeyFactory` on `useCrudViewScreen()` when the detail read needs the same gating or cache identity control as `useCrudView()`.
 - Use `CrudViewScreen` slots (`before-fields`, `fields`, `after-fields`, `supporting-content`) for page-specific domain sections while keeping shared load/error/retry chrome.
@@ -94,6 +96,6 @@ Avoid:
 - manually concatenating scoped route params into API URLs
 - using a lower-level seam when a higher-level routed CRUD or command runtime already fits
 - smuggling query params into `apiUrlTemplate`
-- replacing `CrudListScreen` or `CrudViewScreen` only to add row actions, synthetic display rows, includes, or domain detail sections
+- replacing `CrudListScreen` or `CrudViewScreen` only to add read gating, row actions, synthetic display rows, includes, or domain detail sections
 - reporting routine resource load errors through hand-written global snackbar/banner calls
 - calling `useShellRequestRecoveryRuntime().report(...)` from normal panels just to recover an HTTP read

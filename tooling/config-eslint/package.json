@@ -1,6 +1,6 @@
 {
   "name": "@jskit-ai/config-eslint",
-  "version": "0.1.93",
+  "version": "0.1.94",
   "description": "Shared flat ESLint presets for JSKIT projects.",
   "type": "module",
   "files": [

@@ -54,8 +54,10 @@ test("CRUD screen composables expose generated page extension inputs", async () 
 
   assert.match(listSource, /listRowActions = \[\]/);
   assert.match(listSource, /syntheticRows = null/);
+  assert.match(listSource, /readEnabled = true/);
   assert.match(listSource, /useCrudListRowActions/);
   assert.match(listSource, /selectableRows/);
+  assert.match(listSource, /readEnabled,\n\s+requestRecoveryLabel/);
 
   assert.match(viewSource, /requestQueryParams = null/);
   assert.match(viewSource, /readEnabled = true/);
