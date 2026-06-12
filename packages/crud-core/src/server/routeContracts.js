@@ -441,16 +441,19 @@ function createCrudJsonApiRouteContracts({
   resource = {},
   routeParamsValidator = null,
   listSearchQueryValidator = defaultListSearchQueryValidator,
-  lookupIncludeQueryValidator = defaultLookupIncludeQueryValidator
+  lookupIncludeQueryValidator = defaultLookupIncludeQueryValidator,
+  listFilterQueryValidator = null
 } = {}) {
   const listCursorPaginationQueryValidator = createCrudCursorPaginationQueryValidator({
     orderBy: resource?.defaultSort
   });
   const listParentFilterQueryValidator = createCrudParentFilterQueryValidator(resource);
+  const resolvedListFilterQueryValidator = listFilterQueryValidator || resource?.contract?.listFilters?.queryValidator || null;
   const listRouteQueryValidator = composeSchemaDefinitions([
     listCursorPaginationQueryValidator,
     listSearchQueryValidator,
     listParentFilterQueryValidator,
+    ...(resolvedListFilterQueryValidator ? [resolvedListFilterQueryValidator] : []),
     lookupIncludeQueryValidator
   ]);
   const recordRouteParamsValidator = routeParamsValidator

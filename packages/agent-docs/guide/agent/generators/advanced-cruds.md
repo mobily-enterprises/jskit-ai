@@ -948,6 +948,7 @@ In JSKIT CRUD:
 - the schema defines the API contract
 - field definitions may also carry storage/lookup/ui metadata
 - the repository runtime owns computed SQL projections
+- internal JSON REST resources can expose SQL-selected query projections through `createJsonRestResourceScopeOptions(...)`
 
 Use these rules:
 
@@ -1018,7 +1019,31 @@ const repositoryRuntime = createCrudResourceRuntime(resource, {
 });
 ```
 
-Once registered there:
+For JSON REST-backed generated CRUD packages, keep the output field virtual in the resource and register the SQL projection at the JSON REST resource boundary:
+
+```js
+await addResourceIfMissing(
+  api,
+  "receivals",
+  createJsonRestResourceScopeOptions(resource, {
+    queryFields: {
+      remainingBatchWeight: {
+        type: "number",
+        select({ knex, column }) {
+          return knex.raw("?? - coalesce(??, 0)", [
+            column("received_weight"),
+            column("processed_weight")
+          ]);
+        }
+      }
+    }
+  })
+);
+```
+
+`createJsonRestResourceScopeOptions(...)` moves matching virtual fields out of the storage schema and into JSON REST `queryFields`, where they are selected for reads and ignored for writes. Prefer the `queryFields` option when the resource module is imported by both server and client code; use `storage.queryProjection` only in server-only resource modules.
+
+For the repository runtime, once registered there:
 
 - generic CRUD `list`
 - generic CRUD `findById`
@@ -1126,14 +1151,16 @@ Keep bulk action definitions page-local unless another page needs to share them.
 For a generated CRUD, treat this as the concrete file plan:
 
 - edit `src/pages/.../contacts/listFilters.js`
-- make sure the matching server route/action/repository code already accepts and applies the declared query params
+- make sure the matching server route/action/repository code accepts and applies the declared query params when filters are server-backed
 
 If the filter contract should be shared with server code, promote it into a CRUD package module and import it from both sides:
 
 - create `packages/contacts/src/shared/contactListFilters.js`
-- update `packages/contacts/src/server/registerRoutes.js` so the list route query validator lists structured filter params explicitly with `createCrudListFilterQueryField(...)`, unless you already extracted list-query composition into `packages/contacts/src/server/listQueryValidators.js`
-- update `packages/contacts/src/server/actions.js` so the list action input validator includes that same explicit contract choice
-- update `packages/contacts/src/server/repository.js` so the list query path builds the `createCrudListFilters(...)` runtime and calls `applyQuery(...)`
+- create `packages/contacts/src/server/contactListFilterContract.js` with `createCrudListFilterContract(...)`
+- update `packages/contacts/src/server/registerRoutes.js` so the list route query validator includes `contactListFilterContract.queryValidator`
+- update `packages/contacts/src/server/actions.js` so the list action input validator includes the same `queryValidator`
+- update the provider's `createJsonRestResourceScopeOptions(...)` call so it merges `searchSchema: contactListFilterContract.jsonRestSearchSchema`
+- update `packages/contacts/src/server/repository.js` so the list query path passes `contactListFilterContract.toJsonRestQuery(query)` into `buildJsonRestQueryParams(...)`
 
 #### Client side
 
@@ -1231,101 +1258,105 @@ Use `mode: "merge"` when a preset should only change one filter group, such as t
 
 #### Server side
 
-Build the server runtime from the same shared definitions:
+Build the server contract from the same shared definitions:
 
 ```js
-const contactsListFiltersRuntime = createCrudListFilters(
+import { createCrudListFilterContract } from "@jskit-ai/crud-core/server/listFilters";
+import { CONTACTS_LIST_FILTER_DEFINITIONS } from "../shared/contactListFilters.js";
+
+const contactListFilterContract = createCrudListFilterContract(
   CONTACTS_LIST_FILTER_DEFINITIONS,
   {
     columns: {
-      onlyStaff: "is_staff",
-      onlyVip: "vip",
+      status: "status",
+      supplierContactId: "supplier_contact_id",
+      arrivalDate: "arrival_datetime",
       onlyArchived: "archived"
-    }
+    },
+    invalidValues: "reject"
   }
 );
+
+export { contactListFilterContract };
 ```
 
-There is no default query-validator mode or route-runtime alias. Keep the filter runtime for repository semantics, but author route/action query params explicitly.
+That one contract gives the server:
 
-Strict contract example:
+- `queryValidator` for route/action input validation
+- `jsonRestSearchSchema` for JSON REST resource registration
+- `toJsonRestQuery(query)` for repository query normalization
+- `applyQuery(...)` when a non-JSON REST repository still needs direct Knex filtering
 
-```js
-const contactsListFilters = CONTACTS_LIST_FILTER_DEFINITIONS;
-
-const contactsListFiltersQueryValidator = {
-  schema: createCrudListFilterQuerySchema({
-    status: createCrudListFilterQueryField(contactsListFilters.status, {
-      invalidValues: "reject"
-    }),
-    arrivalDate: createCrudListFilterQueryField(contactsListFilters.arrivalDate, {
-      invalidValues: "reject"
-    })
-  }),
-  mode: "patch"
-};
-```
-
-Lenient contract example:
-
-```js
-const contactsListFiltersQueryValidator = {
-  schema: createCrudListFilterQuerySchema({
-    status: createCrudListFilterQueryField(CONTACTS_LIST_FILTER_DEFINITIONS.status, {
-      invalidValues: "discard"
-    }),
-    arrivalDate: createCrudListFilterQueryField(CONTACTS_LIST_FILTER_DEFINITIONS.arrivalDate, {
-      invalidValues: "discard"
-    })
-  }),
-  mode: "patch"
-};
-```
-
-Wire the explicit query contract into the list validator and the repository:
+Wire the contract into route and action validators:
 
 ```js
 const listRouteQueryValidator = composeSchemaDefinitions([
   listCursorPaginationQueryValidator,
   listSearchQueryValidator,
-  contactsListFiltersQueryValidator,
   listParentFilterQueryValidator,
+  contactListFilterContract.queryValidator,
   lookupIncludeQueryValidator
 ], {
   mode: "patch"
 });
 ```
 
-Use that same explicit `contactsListFiltersQueryValidator` anywhere else the list query is validated, such as the composed list action input validator if your CRUD package validates query shape at both the route and action boundaries.
+Use the same `contactListFilterContract.queryValidator` anywhere else the list query is validated, such as the composed list action input validator if your CRUD package validates query shape at both the route and action boundaries.
+
+Merge the JSON REST search schema when the provider registers the resource:
+
+```js
+await addResourceIfMissing(
+  api,
+  JSON_REST_SCOPE_NAME,
+  createJsonRestResourceScopeOptions(resource, {
+    searchSchema: contactListFilterContract.jsonRestSearchSchema,
+    writeSerializers: {
+      "datetime-utc": toDatabaseDateTimeUtc
+    }
+  })
+);
+```
+
+Normalize the list query before building JSON REST query params:
+
+```js
+async function queryDocuments(query = {}, options = {}) {
+  return api.resources.contacts.query(
+    {
+      queryParams: buildJsonRestQueryParams(
+        JSON_REST_SCOPE_NAME,
+        contactListFilterContract.toJsonRestQuery(query)
+      ),
+      transaction: options?.trx || null,
+      simplified: false
+    },
+    createJsonRestContext(options?.context || null)
+  );
+}
+```
+
+`enumMany` and `recordIdMany` filters stay arrays. Date and number ranges become internal JSON REST search keys, so callers keep one public query key such as `arrivalDate` while the backend receives precise lower/upper filter operations.
 
 Choose the invalid-value contract deliberately:
 
-- there is no default mode and no fallback alias, so every structured filter field must choose `invalidValues: "reject"` or `invalidValues: "discard"` explicitly
+- `createCrudListFilterContract(...)` defaults to `invalidValues: "reject"` for a strict server boundary
+- set `invalidValues` explicitly when a package is choosing a non-default validation posture
 - use `invalidValues: "reject"` when malformed filter values should fail validation and produce a 400-style contract error
 - use `invalidValues: "discard"` when malformed filter values should be ignored and normalization should drop them
 - route query validation runs before auth, so this choice changes whether malformed unauthenticated requests fail at validation or fall through to auth
 - for normal HTTP CRUD handlers, route-level `discard` means the handler receives already-parsed filter values for the explicit fields you listed, so the action layer will not see those discarded bad values again later
-- the filter runtime is still a deliberate two-phase exception: schema parsing owns query-field values, then `applyQuery(...)` maps those parsed values back through filter keys and SQL semantics
-
-```js
-async function list(query = {}, callOptions = {}) {
-  return crudRepositoryList(repositoryRuntime, knex, query, options, callOptions, {
-    modifyQuery(dbQuery, context = {}) {
-      return contactsListFiltersRuntime.applyQuery(dbQuery, context.query || {});
-    }
-  });
-}
-```
+- the filter contract is still a deliberate two-phase exception: schema parsing owns public query-field values, then `toJsonRestQuery(...)` maps those parsed values to JSON REST filter keys and SQL semantics
 
 #### Best practices
 
 - Keep client-only filters in the generated page-local `listFilters.js`. Move definitions into a CRUD package only when server code or another page needs to share them.
 - Keep the filter keys identical all the way through: definition key, query param key, and repository meaning.
-- Prefer `createCrudListFilterQueryField(...)` plus `createCrudListFilterQuerySchema(...)` at route/action boundaries so accepted structured-filter params stay visible in app code.
+- Prefer `createCrudListFilterContract(...)` for server-backed structured filters so route/action validators, JSON REST search schema, and repository query normalization stay derived from one shared definition.
 - Use `type: "presence"` for null/not-null filters such as assigned vs unassigned storage. Do not model those as custom enums plus `applyQuery(...)` overrides unless the SQL semantics are genuinely different from `whereNotNull(...)` / `whereNull(...)`.
-- Use `createCrudListFilters(...)` unless the list semantics are truly unusual.
+- Use `createCrudListFilters(...)` directly only for non-JSON REST repository code that needs direct Knex filtering without JSON REST registration.
 - Use `q` for free-text and explicit query params for structured filters.
-- Run `jskit doctor` after wiring filters. It flags inline filter-definition objects passed into `useCrudListFilters(...)` or `createCrudListFilters(...)`.
+- Run `jskit doctor` after wiring filters.
 
 ### Pattern 4: lookup-backed structured filters
 
@@ -1456,7 +1487,7 @@ The runtime already handles both together.
 
 #### Server side
 
-Let the generic list search handle `q`, and let your custom validator/repository code handle the structured filters.
+Let the generic list search handle `q`, and let `createCrudListFilterContract(...)` handle the structured route/action validators, JSON REST search schema, and repository query normalization.
 
 #### Best practices
 
@@ -1612,8 +1643,10 @@ Use `scaffold-field` when it fits, then review the generated result. It patches 
 Touch:
 
 - `packages/<crud>/src/shared/<crud>ListFilters.js` and make it the only authored filter-definition module
-- `packages/<crud>/src/server/registerRoutes.js` and `packages/<crud>/src/server/actions.js` so the list validator lists structured filter params explicitly with `createCrudListFilterQueryField(...)`, or `packages/<crud>/src/server/listQueryValidators.js` if you extracted list-query composition there
-- `packages/<crud>/src/server/repository.js` so the list query applies the runtime
+- `packages/<crud>/src/server/<crud>ListFilterContract.js` with `createCrudListFilterContract(...)`
+- `packages/<crud>/src/server/registerRoutes.js` and `packages/<crud>/src/server/actions.js` so list validators include `<crud>ListFilterContract.queryValidator`, or `packages/<crud>/src/server/listQueryValidators.js` if you extracted list-query composition there
+- the provider registration so `createJsonRestResourceScopeOptions(resource, { searchSchema: <crud>ListFilterContract.jsonRestSearchSchema })` merges the JSON REST search schema
+- `packages/<crud>/src/server/repository.js` so the list query calls `<crud>ListFilterContract.toJsonRestQuery(query)` before `buildJsonRestQueryParams(...)`
 - the app-owned list page or list-runtime composable that calls `useCrudList(...)`
 
 If the filter is lookup-backed, touch that same client file again to wire `useCrudListFilterLookups(...)`.

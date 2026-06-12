@@ -249,6 +249,38 @@ test("shared query/document helpers build json-rest-api request shapes", () => {
 
 });
 
+test("buildJsonRestQueryParams preserves structured filter values", () => {
+  assert.deepEqual(
+    buildJsonRestQueryParams("receivals", {
+      status: ["pending", "open", ""],
+      supplierId: [7, " 8 "],
+      availability: true,
+      weight: {
+        min: 12.5,
+        max: " 18 "
+      },
+      emptyList: [],
+      emptyObject: {},
+      emptyText: " ",
+      cursor: "cursor_1"
+    }),
+    {
+      filters: {
+        status: ["pending", "open"],
+        supplierId: [7, "8"],
+        availability: true,
+        weight: {
+          min: 12.5,
+          max: "18"
+        }
+      },
+      page: {
+        after: "cursor_1"
+      }
+    }
+  );
+});
+
 test("createJsonRestResourceScopeOptions clones canonical resource metadata and resolves symbolic write serializers", () => {
   const serializer = (value) => value;
   const normalizeId = (value) => String(value || "").trim() || null;
@@ -354,6 +386,109 @@ test("createJsonRestResourceScopeOptions clones canonical resource metadata and 
 
   result.schema.createdAt.indexed = true;
   assert.equal(source.schema.createdAt.indexed, undefined);
+});
+
+test("createJsonRestResourceScopeOptions maps server query projections into json-rest-api queryFields", () => {
+  const select = ({ knex }) => knex.raw("1");
+  const resource = {
+    namespace: "receivals",
+    schema: {
+      id: { type: "id", primary: true },
+      remainingProcessableWeight: {
+        type: "number",
+        storage: {
+          virtual: true,
+          queryProjection: {
+            sortable: true,
+            select
+          }
+        }
+      },
+      availableCapacityWeight: {
+        type: "number",
+        storage: {
+          virtual: true
+        }
+      }
+    }
+  };
+
+  const result = createJsonRestResourceScopeOptions(resource, {
+    queryFields: {
+      availableCapacityWeight: {
+        type: "number",
+        select
+      }
+    },
+    searchSchema: {
+      status: { type: "string", filterOperator: "=" }
+    }
+  });
+
+  assert.deepEqual(Object.keys(result.schema), ["id"]);
+  assert.equal(result.queryFields.remainingProcessableWeight.type, "number");
+  assert.equal(result.queryFields.remainingProcessableWeight.sortable, true);
+  assert.equal(result.queryFields.remainingProcessableWeight.select, select);
+  assert.equal(result.queryFields.availableCapacityWeight.select, select);
+  assert.deepEqual(result.searchSchema, {
+    status: { type: "string", filterOperator: "=" }
+  });
+  assert.equal(resource.schema.remainingProcessableWeight.storage.virtual, true);
+});
+
+test("createJsonRestResourceScopeOptions rejects query field names for column-backed schema fields", () => {
+  assert.throws(
+    () => createJsonRestResourceScopeOptions({
+      namespace: "receivals",
+      schema: {
+        id: { type: "id", primary: true },
+        status: { type: "string" }
+      }
+    }, {
+      queryFields: {
+        status: {
+          type: "string",
+          select() {}
+        }
+      }
+    }),
+    /query field "status" conflicts with a column-backed schema field/
+  );
+});
+
+test("createJsonRestApiHost installs json-rest-api query projections", async () => {
+  const fakeKnex = Object.assign(() => {}, {
+    client: {
+      config: {
+        client: "sqlite3"
+      }
+    },
+    raw(sql) {
+      if (String(sql || "").includes("sqlite_version")) {
+        return [{ version: "3.35.5" }];
+      }
+      return { sql };
+    },
+    async transaction() {}
+  });
+  const api = await createJsonRestApiHost({ knex: fakeKnex });
+
+  await api.addResource("projectionContacts", {
+    tableName: "projection_contacts",
+    schema: {
+      id: { type: "id", primary: true }
+    },
+    queryFields: {
+      displayName: {
+        type: "string",
+        select({ knex }) {
+          return knex.raw("'Display'");
+        }
+      }
+    }
+  });
+
+  assert.equal(typeof api.resources.projectionContacts.vars.queryFields.displayName.select, "function");
 });
 
 test("returnNullWhenJsonRestResourceMissing only swallows missing-resource errors", async () => {

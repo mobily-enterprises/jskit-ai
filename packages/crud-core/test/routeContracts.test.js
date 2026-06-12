@@ -5,6 +5,7 @@ import {
   validateSchemaPayload
 } from "@jskit-ai/kernel/shared/validators";
 import { returnJsonApiData } from "@jskit-ai/http-runtime/shared/validators/jsonApiResult";
+import { createCrudListFilterContract } from "../src/server/listFilters.js";
 import { createCrudJsonApiRouteContracts } from "../src/server/routeContracts.js";
 
 function createSchemaDefinition(structure = {}, mode = "patch") {
@@ -302,6 +303,57 @@ test("createCrudJsonApiRouteContracts builds default CRUD JSON:API contracts", a
       }
     }
   ]);
+});
+
+test("createCrudJsonApiRouteContracts includes configured list filter validators", async () => {
+  const listFilterContract = createCrudListFilterContract({
+    status: {
+      type: "enumMany",
+      label: "Status",
+      options: [
+        { value: "active", label: "Active" },
+        { value: "archived", label: "Archived" }
+      ]
+    }
+  });
+
+  const contracts = createCrudJsonApiRouteContracts({
+    resource: createCrudResource(),
+    listFilterQueryValidator: listFilterContract.queryValidator
+  });
+
+  assert.deepEqual(await validateSchemaPayload(contracts.listRouteContract.query, {
+    status: ["active", "archived"]
+  }, { phase: "input" }), {
+    status: ["active", "archived"]
+  });
+});
+
+test("createCrudJsonApiRouteContracts reads list filter validators from the resource contract", async () => {
+  const listFilterContract = createCrudListFilterContract({
+    status: {
+      type: "enum",
+      label: "Status",
+      options: [
+        { value: "active", label: "Active" },
+        { value: "archived", label: "Archived" }
+      ]
+    }
+  });
+  const resource = {
+    ...createCrudResource(),
+    contract: {
+      listFilters: listFilterContract
+    }
+  };
+
+  const contracts = createCrudJsonApiRouteContracts({ resource });
+
+  assert.deepEqual(await validateSchemaPayload(contracts.listRouteContract.query, {
+    status: "archived"
+  }, { phase: "input" }), {
+    status: "archived"
+  });
 });
 
 test("createCrudJsonApiRouteContracts serializes collection relationships from hydrated lookups", () => {

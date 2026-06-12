@@ -26,7 +26,7 @@ Exports
 - `buildJsonRestQueryParams(resourceType = "", query = {}, { include = undefined } = {})`
 - `createJsonApiInputRecord(resourceType = "", attributes = {}, { id = null, relationships = null, resource = null } = {})`
 - `createJsonApiRelationship(resourceType = "", id = null)`
-- `createJsonRestResourceScopeOptions(resource = {}, { writeSerializers = {}, normalizeId = null } = {})`
+- `createJsonRestResourceScopeOptions(resource = {}, { writeSerializers = {}, normalizeId = null, searchSchema = null, queryFields = null } = {})`
 - `createJsonRestContext(context = null)`
 - `extractJsonRestCollectionRows(payload = null)`
 - `isJsonRestResourceMissingError(error = null)`
@@ -40,9 +40,13 @@ Local functions
 - `cloneJsonRestResourceValue(value, { writeSerializers = {} } = {})`
 - `normalizeScopeValue(value)`
 - `normalizeJsonRestText(value, { fallback = "" } = {})`
+- `normalizeJsonRestFilterValue(value)`
 - `normalizeJsonRestObject(value)`
 - `normalizeJsonRestList(value)`
 - `resolveJsonRestCollectionRelationships(resource = {})`
+- `normalizeJsonRestQueryField(fieldName = "", fieldDefinition = {}, projectionDefinition = null)`
+- `isJsonRestVirtualField(fieldDefinition = null)`
+- `applyJsonRestQueryFields(scopeOptions = {}, extraQueryFields = {})`
 - `extractJsonApiInputRelationships(attributes = {}, resource = null, relationships = null)`
 
 ### root

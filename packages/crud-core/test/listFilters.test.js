@@ -13,7 +13,9 @@ import {
   CRUD_LIST_FILTER_INVALID_VALUES_DISCARD,
   createCrudListFilterQueryField,
   createCrudListFilterQuerySchema,
-  createCrudListFilters
+  createCrudListFilterJsonRestSearchSchema,
+  createCrudListFilters,
+  createCrudListFilterContract
 } from "../src/server/listFilters.js";
 
 function composeSchemaDefinition(...definitions) {
@@ -28,6 +30,8 @@ test("crud-core exposes createCrudListFilters through the public package export"
   assert.equal(typeof module.createCrudListFilters, "function");
   assert.equal(typeof module.createCrudListFilterQueryField, "function");
   assert.equal(typeof module.createCrudListFilterQuerySchema, "function");
+  assert.equal(typeof module.createCrudListFilterJsonRestSearchSchema, "function");
+  assert.equal(typeof module.createCrudListFilterContract, "function");
   assert.equal(module.CRUD_LIST_FILTER_INVALID_VALUES_REJECT, CRUD_LIST_FILTER_INVALID_VALUES_REJECT);
   assert.equal(module.CRUD_LIST_FILTER_INVALID_VALUES_DISCARD, CRUD_LIST_FILTER_INVALID_VALUES_DISCARD);
 });
@@ -523,6 +527,154 @@ test("createCrudListFilters treats exact range filter values as exact bounds", (
       }
     },
     errors: {}
+  });
+});
+
+test("createCrudListFilterContract builds route validators and JSON REST search schema from one definition", () => {
+  const contract = createCrudListFilterContract(
+    {
+      status: {
+        type: "enumMany",
+        label: "Status",
+        options: [
+          { value: "active", label: "Active" },
+          { value: "archived", label: "Archived" }
+        ]
+      },
+      supplierContactId: {
+        type: "recordIdMany",
+        label: "Supplier"
+      },
+      arrivalDate: {
+        type: "dateRange",
+        label: "Arrival Date"
+      },
+      weight: {
+        type: "numberRange",
+        label: "Weight"
+      },
+      locationAssignment: {
+        type: "presence",
+        label: "Storage"
+      }
+    },
+    {
+      columns: {
+        status: "status",
+        supplierContactId: "supplier_contact_id",
+        arrivalDate: "arrival_datetime",
+        weight: "weight_received",
+        locationAssignment: "location_id"
+      },
+      invalidValues: CRUD_LIST_FILTER_INVALID_VALUES_REJECT
+    }
+  );
+
+  assert.deepEqual(contract.queryValidator.schema.patch({
+    status: ["active", "archived"],
+    supplierContactId: ["7", "4"],
+    arrivalDate: "2026-04-01..2026-04-30",
+    weight: "12.5..18",
+    locationAssignment: "missing"
+  }), {
+    validatedObject: {
+      status: ["active", "archived"],
+      supplierContactId: ["7", "4"],
+      arrivalDate: {
+        from: "2026-04-01",
+        to: "2026-04-30"
+      },
+      weight: {
+        min: 12.5,
+        max: 18
+      },
+      locationAssignment: "missing"
+    },
+    errors: {}
+  });
+
+  assert.equal(contract.jsonRestSearchSchema.status.filterOperator, "in");
+  assert.equal(contract.jsonRestSearchSchema.status.actualField, "status");
+  assert.equal(contract.jsonRestSearchSchema.supplierContactId.filterOperator, "in");
+  assert.equal(contract.jsonRestSearchSchema.__jskit_arrivalDate_from.filterOperator, ">=");
+  assert.equal(contract.jsonRestSearchSchema.__jskit_arrivalDate_toExclusive.filterOperator, "<");
+  assert.equal(contract.jsonRestSearchSchema.__jskit_weight_min.filterOperator, ">=");
+  assert.equal(contract.jsonRestSearchSchema.__jskit_weight_max.filterOperator, "<=");
+  assert.equal(typeof contract.jsonRestSearchSchema.locationAssignment.applyFilter, "function");
+
+  assert.deepEqual(contract.toJsonRestQuery({
+    q: "Merc",
+    status: ["active", "archived"],
+    supplierContactId: ["7", "4"],
+    arrivalDate: "2026-04-01..2026-04-30",
+    weight: "12.5..",
+    locationAssignment: "missing"
+  }), {
+    q: "Merc",
+    status: ["active", "archived"],
+    supplierContactId: ["7", "4"],
+    locationAssignment: "missing",
+    __jskit_arrivalDate_from: "2026-04-01 00:00:00",
+    __jskit_arrivalDate_toExclusive: "2026-05-01 00:00:00",
+    __jskit_weight_min: 12.5
+  });
+
+  const { query, calls } = createQueryDouble();
+  contract.jsonRestSearchSchema.locationAssignment.applyFilter(query, "missing");
+  assert.deepEqual(calls, [["whereNull", "location_id"]]);
+});
+
+test("createCrudListFilterContract defaults route validation to reject invalid values", () => {
+  const contract = createCrudListFilterContract({
+    status: {
+      type: "enum",
+      label: "Status",
+      options: [
+        { value: "active", label: "Active" }
+      ]
+    }
+  });
+
+  assert.deepEqual(contract.queryValidator.schema.patch({
+    status: "unexpected"
+  }), {
+    validatedObject: {
+      status: "unexpected"
+    },
+    errors: {
+      status: {
+        field: "status",
+        code: "TYPE_CAST_FAILED",
+        message: "Value could not be cast to the required type.",
+        params: {}
+      }
+    }
+  });
+});
+
+test("createCrudListFilterJsonRestSearchSchema accepts normalized filter definitions directly", () => {
+  const filters = defineCrudListFilters({
+    status: {
+      type: "enum",
+      label: "Status",
+      options: [
+        { value: "active", label: "Active" }
+      ],
+      meta: {
+        jsonRest: {
+          actualField: "status_sid"
+        }
+      }
+    }
+  });
+
+  assert.deepEqual(createCrudListFilterJsonRestSearchSchema(filters), {
+    status: {
+      type: "string",
+      actualField: "status_sid",
+      filterOperator: "=",
+      enum: ["active"]
+    }
   });
 });
 

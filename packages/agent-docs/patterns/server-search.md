@@ -10,20 +10,21 @@ Core rule:
 - for current JSKIT CRUD apps, the server search contract lives in `resource.searchSchema` on the internal JSON REST path
 - route validators decide which public query keys HTTP callers may send
 - repositories may add internal-only filter keys before forwarding the query to JSON REST
+- structured list filters should use `createCrudListFilterContract(...)` so route/action validators, JSON REST search schema, and repository query normalization are derived from one definition
 
 Fresh generated CRUD repositories already follow this path:
 
 ```js
 return api.resources.contacts.query({
-  queryParams: buildJsonRestQueryParams(RESOURCE_TYPE, query),
+  queryParams: buildJsonRestQueryParams(RESOURCE_TYPE, contactListFilterContract.toJsonRestQuery(query)),
   simplified: false
 }, createJsonRestContext(context));
 ```
 
 The normal layer split is:
 1. `actions.js` / `registerRoutes.js`: accept and validate public query keys
-2. `repository.js`: add internal-only filter keys such as visibility scope
-3. `*Resource.js`: define the backend filter behavior in `searchSchema`
+2. `repository.js`: add internal-only filter keys such as visibility scope, or call `listFilterContract.toJsonRestQuery(query)` for structured filters
+3. provider/resource registration: merge backend filter behavior into JSON REST with `createJsonRestResourceScopeOptions(resource, { searchSchema })`
 
 ## Decision Rules
 
@@ -147,6 +148,26 @@ That means:
 - `q` and the structured filter keys are accepted publicly
 - the repository may still add internal-only keys later
 
+For structured list filters, prefer the generated contract shape:
+
+```js
+const receivalListFilterContract = createCrudListFilterContract(
+  RECEIVAL_LIST_FILTER_DEFINITIONS,
+  {
+    columns: {
+      status: "status",
+      supplierContactId: "supplier_contact_id",
+      arrivalDate: "arrival_datetime"
+    },
+    invalidValues: "reject"
+  }
+);
+```
+
+Use `receivalListFilterContract.queryValidator` at route/action boundaries. Use `receivalListFilterContract.jsonRestSearchSchema` when registering the JSON REST resource. Use `receivalListFilterContract.toJsonRestQuery(query)` before `buildJsonRestQueryParams(...)`.
+
+That contract preserves arrays for `enumMany` and `recordIdMany`, maps range filters to internal JSON REST search keys, and keeps those internal keys out of the public HTTP query contract.
+
 Do not add route validators for:
 - repository-injected internal keys such as `"__viewerAccess"`
 - filters that must never be supplied by the client directly
@@ -197,6 +218,7 @@ function buildScopedQuery(query = {}, context = null) {
 ## Keep These Boundaries Clean
 
 - Put backend filter behavior in `searchSchema`, not in page code.
+- Use `createCrudListFilterContract(...)` for structured list filters before writing custom JSON REST query glue.
 - Put permission checks in the action/service layer, not in `applyFilter`.
 - Put repository-only scoping in the repository, not in route query validation.
 - Do not expose a query key publicly just because the repository uses it internally.
