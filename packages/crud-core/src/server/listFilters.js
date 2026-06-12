@@ -21,6 +21,8 @@ import {
   CRUD_LIST_FILTER_TYPE_DATE_RANGE,
   CRUD_LIST_FILTER_TYPE_NUMBER_RANGE,
   CRUD_LIST_FILTER_TYPE_PRESENCE,
+  CRUD_LIST_FILTER_PRESENCE_PRESENT,
+  CRUD_LIST_FILTER_PRESENCE_MISSING,
   INVALID_CRUD_LIST_FILTER_QUERY_VALUE,
   normalizeCrudListFilterInvalidValues,
   parseCrudListFilterQueryValue
@@ -34,6 +36,7 @@ const NUMBER_FILTER_VALUE_PATTERN_SOURCE = "[+-]?(?:\\d+(?:\\.\\d*)?|\\.\\d+)(?:
 const NUMBER_RANGE_FILTER_PATTERN_SOURCE =
   `^(?:${NUMBER_FILTER_VALUE_PATTERN_SOURCE}(?:\\.\\.(?:${NUMBER_FILTER_VALUE_PATTERN_SOURCE})?)?|\\.\\.${NUMBER_FILTER_VALUE_PATTERN_SOURCE})$`;
 const CRUD_LIST_FILTER_QUERY_TYPE = "crudListFilterQuery";
+const JSON_REST_INTERNAL_FILTER_PREFIX = "__jskit";
 const crudListFilterSchemaFactory = createSchema.createFactory();
 const looseTextTransportSchema = Object.freeze({
   type: "string",
@@ -462,6 +465,276 @@ function normalizeColumnsMap(columns = {}) {
   return Object.freeze(normalized);
 }
 
+function resolveJsonRestFilterActualField(filter = {}, columns = {}) {
+  const meta = isPlainObject(filter.meta?.jsonRest) ? filter.meta.jsonRest : {};
+  return normalizeText(meta.actualField || meta.column || columns[filter.key] || filter.key);
+}
+
+function renderInternalJsonRestFilterKey(filter = {}, suffix = "") {
+  return [
+    JSON_REST_INTERNAL_FILTER_PREFIX,
+    filter.queryKey,
+    suffix
+  ]
+    .map((entry) => normalizeText(entry))
+    .filter(Boolean)
+    .join("_");
+}
+
+function createJsonRestSearchSchemaEntry({
+  type = "string",
+  actualField = "",
+  filterOperator = "=",
+  extra = {}
+} = {}) {
+  return {
+    type,
+    ...(actualField ? { actualField } : {}),
+    ...(filterOperator ? { filterOperator } : {}),
+    ...extra
+  };
+}
+
+function buildJsonRestFilterItemSchema(filter = {}) {
+  if (filter.type === CRUD_LIST_FILTER_TYPE_ENUM_MANY) {
+    return {
+      type: "string",
+      enum: (Array.isArray(filter.options) ? filter.options : []).map((entry) => entry.value)
+    };
+  }
+
+  if (filter.type === CRUD_LIST_FILTER_TYPE_RECORD_ID_MANY) {
+    return cloneTransportSchema(recordIdTransportSchema);
+  }
+
+  return {};
+}
+
+function buildJsonRestSimpleFilterSearchSchemaEntry(filter = {}, { actualField = "" } = {}) {
+  if (filter.type === CRUD_LIST_FILTER_TYPE_FLAG) {
+    return createJsonRestSearchSchemaEntry({
+      type: "boolean",
+      actualField,
+      filterOperator: "="
+    });
+  }
+
+  if (filter.type === CRUD_LIST_FILTER_TYPE_ENUM) {
+    return createJsonRestSearchSchemaEntry({
+      type: "string",
+      actualField,
+      filterOperator: "=",
+      extra: {
+        enum: (Array.isArray(filter.options) ? filter.options : []).map((entry) => entry.value)
+      }
+    });
+  }
+
+  if (filter.type === CRUD_LIST_FILTER_TYPE_ENUM_MANY || filter.type === CRUD_LIST_FILTER_TYPE_RECORD_ID_MANY) {
+    return createJsonRestSearchSchemaEntry({
+      type: "array",
+      actualField,
+      filterOperator: "in",
+      extra: {
+        items: buildJsonRestFilterItemSchema(filter)
+      }
+    });
+  }
+
+  if (filter.type === CRUD_LIST_FILTER_TYPE_RECORD_ID) {
+    return createJsonRestSearchSchemaEntry({
+      type: "id",
+      actualField,
+      filterOperator: "="
+    });
+  }
+
+  return null;
+}
+
+function buildJsonRestRangeFilterSearchSchemaEntries(filter = {}, { actualField = "" } = {}) {
+  if (filter.type === CRUD_LIST_FILTER_TYPE_DATE) {
+    return {
+      [renderInternalJsonRestFilterKey(filter, "from")]: createJsonRestSearchSchemaEntry({
+        type: "dateTime",
+        actualField,
+        filterOperator: ">="
+      }),
+      [renderInternalJsonRestFilterKey(filter, "toExclusive")]: createJsonRestSearchSchemaEntry({
+        type: "dateTime",
+        actualField,
+        filterOperator: "<"
+      })
+    };
+  }
+
+  if (filter.type === CRUD_LIST_FILTER_TYPE_DATE_RANGE) {
+    return {
+      [renderInternalJsonRestFilterKey(filter, "from")]: createJsonRestSearchSchemaEntry({
+        type: "dateTime",
+        actualField,
+        filterOperator: ">="
+      }),
+      [renderInternalJsonRestFilterKey(filter, "toExclusive")]: createJsonRestSearchSchemaEntry({
+        type: "dateTime",
+        actualField,
+        filterOperator: "<"
+      })
+    };
+  }
+
+  if (filter.type === CRUD_LIST_FILTER_TYPE_NUMBER_RANGE) {
+    return {
+      [renderInternalJsonRestFilterKey(filter, "min")]: createJsonRestSearchSchemaEntry({
+        type: "number",
+        actualField,
+        filterOperator: ">="
+      }),
+      [renderInternalJsonRestFilterKey(filter, "max")]: createJsonRestSearchSchemaEntry({
+        type: "number",
+        actualField,
+        filterOperator: "<="
+      })
+    };
+  }
+
+  return {};
+}
+
+function buildJsonRestPresenceFilterSearchSchemaEntry(filter = {}, { actualField = "" } = {}) {
+  return {
+    type: "string",
+    enum: [CRUD_LIST_FILTER_PRESENCE_PRESENT, CRUD_LIST_FILTER_PRESENCE_MISSING],
+    applyFilter(queryBuilder, value) {
+      applyDefaultFilterQuery(queryBuilder, filter, value, actualField);
+    }
+  };
+}
+
+function buildJsonRestCustomFilterSearchSchemaEntry(filter = {}, customApply = null) {
+  return {
+    type: "none",
+    applyFilter(queryBuilder, value) {
+      customApply(queryBuilder, value, {
+        filter,
+        filters: Object.freeze({
+          [filter.key]: value
+        })
+      });
+    }
+  };
+}
+
+function resolveCrudListFilterEntries(value = {}) {
+  if (isPlainObject(value?.filters)) {
+    return Object.values(normalizeObject(value.filters));
+  }
+
+  return Object.values(defineCrudListFilters(value));
+}
+
+function createCrudListFilterJsonRestSearchSchema(runtime = {}, { columns = {}, apply = {} } = {}) {
+  const filterEntries = resolveCrudListFilterEntries(runtime);
+  const normalizedColumns = normalizeColumnsMap(columns);
+  const schema = {};
+
+  for (const filter of filterEntries) {
+    const customApply = typeof apply?.[filter.key] === "function" ? apply[filter.key] : null;
+    if (customApply) {
+      schema[filter.queryKey] = buildJsonRestCustomFilterSearchSchemaEntry(filter, customApply);
+      continue;
+    }
+
+    const actualField = resolveJsonRestFilterActualField(filter, normalizedColumns);
+    if (!actualField) {
+      continue;
+    }
+
+    const simpleEntry = buildJsonRestSimpleFilterSearchSchemaEntry(filter, { actualField });
+    if (simpleEntry) {
+      schema[filter.queryKey] = simpleEntry;
+      continue;
+    }
+
+    if (filter.type === CRUD_LIST_FILTER_TYPE_PRESENCE) {
+      schema[filter.queryKey] = buildJsonRestPresenceFilterSearchSchemaEntry(filter, { actualField });
+      continue;
+    }
+
+    Object.assign(schema, buildJsonRestRangeFilterSearchSchemaEntries(filter, { actualField }));
+  }
+
+  return Object.freeze(schema);
+}
+
+function addJsonRestDateFilterValues(target = {}, filter = {}, value = "") {
+  const nextDate = addDaysToDateFilterValue(value, 1);
+  if (value) {
+    target[renderInternalJsonRestFilterKey(filter, "from")] = `${value} 00:00:00`;
+  }
+  if (nextDate) {
+    target[renderInternalJsonRestFilterKey(filter, "toExclusive")] = `${nextDate} 00:00:00`;
+  }
+}
+
+function addJsonRestFilterValue(target = {}, filter = {}, value) {
+  if (filter.type === CRUD_LIST_FILTER_TYPE_DATE) {
+    addJsonRestDateFilterValues(target, filter, value);
+    return;
+  }
+
+  if (filter.type === CRUD_LIST_FILTER_TYPE_DATE_RANGE) {
+    if (value?.from) {
+      target[renderInternalJsonRestFilterKey(filter, "from")] = `${value.from} 00:00:00`;
+    }
+    if (value?.to) {
+      const nextDate = addDaysToDateFilterValue(value.to, 1);
+      if (nextDate) {
+        target[renderInternalJsonRestFilterKey(filter, "toExclusive")] = `${nextDate} 00:00:00`;
+      }
+    }
+    return;
+  }
+
+  if (filter.type === CRUD_LIST_FILTER_TYPE_NUMBER_RANGE) {
+    if (value?.min != null) {
+      target[renderInternalJsonRestFilterKey(filter, "min")] = value.min;
+    }
+    if (value?.max != null) {
+      target[renderInternalJsonRestFilterKey(filter, "max")] = value.max;
+    }
+    return;
+  }
+
+  target[filter.queryKey] = value;
+}
+
+function normalizeCrudListFilterJsonRestQuery(runtime = {}, query = {}) {
+  const source = normalizeObjectInput(query);
+  const filterEntries = Object.values(normalizeObject(runtime?.filters));
+  const filterQueryKeys = new Set(filterEntries.map((filter) => filter.queryKey));
+  const parsedFilters = typeof runtime.parseQuery === "function"
+    ? runtime.parseQuery(source)
+    : {};
+  const normalized = {};
+
+  for (const [key, value] of Object.entries(source)) {
+    if (!filterQueryKeys.has(key)) {
+      normalized[key] = value;
+    }
+  }
+
+  for (const filter of filterEntries) {
+    if (!Object.hasOwn(parsedFilters, filter.key)) {
+      continue;
+    }
+
+    addJsonRestFilterValue(normalized, filter, parsedFilters[filter.key]);
+  }
+
+  return normalized;
+}
+
 function applyDefaultFilterQuery(queryBuilder, filter = {}, value, column = "") {
   const handler = FILTER_TYPE_SERVER_HANDLERS[filter.type];
   return handler
@@ -529,7 +802,37 @@ function createCrudListFilters(definitions = {}, { columns = {}, apply = {} } = 
   return Object.freeze({
     filters: normalizedFilters,
     createQueryValidator,
+    parseQuery: parseFilterPayload,
+    toJsonRestQuery(query = {}) {
+      return normalizeCrudListFilterJsonRestQuery({
+        filters: normalizedFilters,
+        parseQuery: parseFilterPayload
+      }, query);
+    },
+    jsonRestSearchSchema: createCrudListFilterJsonRestSearchSchema({
+      filters: normalizedFilters
+    }, {
+      columns: normalizedColumns,
+      apply
+    }),
     applyQuery
+  });
+}
+
+function createCrudListFilterContract(definitions = {}, {
+  columns = {},
+  apply = {},
+  invalidValues = CRUD_LIST_FILTER_INVALID_VALUES_REJECT
+} = {}) {
+  const runtime = createCrudListFilters(definitions, { columns, apply });
+  return Object.freeze({
+    filters: runtime.filters,
+    queryValidator: runtime.createQueryValidator({ invalidValues }),
+    createQueryValidator: runtime.createQueryValidator,
+    parseQuery: runtime.parseQuery,
+    toJsonRestQuery: runtime.toJsonRestQuery,
+    jsonRestSearchSchema: runtime.jsonRestSearchSchema,
+    applyQuery: runtime.applyQuery
   });
 }
 
@@ -538,5 +841,7 @@ export {
   CRUD_LIST_FILTER_INVALID_VALUES_DISCARD,
   createCrudListFilterQueryField,
   createCrudListFilterQuerySchema,
-  createCrudListFilters
+  createCrudListFilterJsonRestSearchSchema,
+  createCrudListFilters,
+  createCrudListFilterContract
 };

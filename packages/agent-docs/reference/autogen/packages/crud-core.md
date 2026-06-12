@@ -133,7 +133,9 @@ Exports
 - `CRUD_LIST_FILTER_INVALID_VALUES_DISCARD`
 - `createCrudListFilterQueryField(filterDefinition = {}, { invalidValues = CRUD_LIST_FILTER_INVALID_VALUES_REJECT } = {})`
 - `createCrudListFilterQuerySchema(structure = {})`
+- `createCrudListFilterJsonRestSearchSchema(runtime = {}, { columns = {}, apply = {} } = {})`
 - `createCrudListFilters(definitions = {}, { columns = {}, apply = {} } = {})`
+- `createCrudListFilterContract(definitions = {}, { columns = {}, apply = {}, invalidValues = CRUD_LIST_FILTER_INVALID_VALUES_REJECT } = {})`
 Local functions
 - `cloneTransportSchema(value)`
 - `buildSingleOrMultiTransportSchema(itemSchema)`
@@ -144,6 +146,18 @@ Local functions
 - `buildFilterQuerySchemaDefinition(filterEntries = [], { invalidValues = CRUD_LIST_FILTER_INVALID_VALUES_REJECT } = {})`
 - `projectNormalizedFilterValues(filterEntries = [], source = {}, errors = {})`
 - `normalizeColumnsMap(columns = {})`
+- `resolveJsonRestFilterActualField(filter = {}, columns = {})`
+- `renderInternalJsonRestFilterKey(filter = {}, suffix = "")`
+- `createJsonRestSearchSchemaEntry({ type = "string", actualField = "", filterOperator = "=", extra = {} } = {})`
+- `buildJsonRestFilterItemSchema(filter = {})`
+- `buildJsonRestSimpleFilterSearchSchemaEntry(filter = {}, { actualField = "" } = {})`
+- `buildJsonRestRangeFilterSearchSchemaEntries(filter = {}, { actualField = "" } = {})`
+- `buildJsonRestPresenceFilterSearchSchemaEntry(filter = {}, { actualField = "" } = {})`
+- `buildJsonRestCustomFilterSearchSchemaEntry(filter = {}, customApply = null)`
+- `resolveCrudListFilterEntries(value = {})`
+- `addJsonRestDateFilterValues(target = {}, filter = {}, value = "")`
+- `addJsonRestFilterValue(target = {}, filter = {}, value)`
+- `normalizeCrudListFilterJsonRestQuery(runtime = {}, query = {})`
 - `applyDefaultFilterQuery(queryBuilder, filter = {}, value, column = "")`
 
 ### `src/server/listQueryValidators.js`
@@ -295,7 +309,7 @@ Local functions
 
 ### `src/server/routeContracts.js`
 Exports
-- `createCrudJsonApiRouteContracts({ resource = {}, routeParamsValidator = null, listSearchQueryValidator = defaultListSearchQueryValidator, lookupIncludeQueryValidator = defaultLookupIncludeQueryValidator } = {})`
+- `createCrudJsonApiRouteContracts({ resource = {}, routeParamsValidator = null, listSearchQueryValidator = defaultListSearchQueryValidator, lookupIncludeQueryValidator = defaultLookupIncludeQueryValidator, listFilterQueryValidator = null } = {})`
 Local functions
 - `isRecord(value)`
 - `resolveSchemaFieldDefinitions(definition = null)`

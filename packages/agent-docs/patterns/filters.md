@@ -35,25 +35,30 @@ Generated client shape:
 - `<CrudListFilterSurface :filters="listFilters" :runtime="filterRuntime" />`
 
 Server-side pattern, only when implementing real backend filter semantics:
-1. Put reusable server-aware filter definitions in the CRUD package if the filter contract needs to be shared outside one generated page.
+1. Put reusable filter definitions in the CRUD package if server code or multiple pages need the same contract.
    Example path: `packages/<crud>/src/shared/<crud>ListFilters.js`
-2. Build the server runtime from that module with `createCrudListFilters(...)`.
-3. Build route/action validators explicitly with `createCrudListFilterQueryField(...)` plus `createCrudListFilterQuerySchema(...)`, and use `applyQuery(...)` in the repository. There is no default validator mode or route-runtime alias.
+2. Build a server contract from that module with `createCrudListFilterContract(...)`.
+3. Use the contract's `queryValidator` in route/action input composition.
+4. Pass the contract's `jsonRestSearchSchema` into `createJsonRestResourceScopeOptions(..., { searchSchema })`.
+5. Call `contract.toJsonRestQuery(query)` before `buildJsonRestQueryParams(...)` in the JSON REST repository path.
 
 Exact file checklist:
 - create `packages/<crud>/src/shared/<crud>ListFilters.js`
-- update `packages/<crud>/src/server/registerRoutes.js` and `packages/<crud>/src/server/actions.js` so the list query validator lists structured filter params explicitly with `createCrudListFilterQueryField(...)` inside `createCrudListFilterQuerySchema(...)`, or update `packages/<crud>/src/server/listQueryValidators.js` if that package already extracts list-query composition there
-- update `packages/<crud>/src/server/repository.js` so list queries call the runtime's `applyQuery(...)`
+- create `packages/<crud>/src/server/<crud>ListFilterContract.js` with `createCrudListFilterContract(...)`
+- update `packages/<crud>/src/server/registerRoutes.js` and `packages/<crud>/src/server/actions.js` so the list query validator includes `listFilterContract.queryValidator`
+- update the provider's `createJsonRestResourceScopeOptions(...)` call so `searchSchema: listFilterContract.jsonRestSearchSchema` is merged into the internal JSON REST resource
+- update `packages/<crud>/src/server/repository.js` so list queries pass `listFilterContract.toJsonRestQuery(query)` into `buildJsonRestQueryParams(...)`
 - update the generated page-local `listFilters.js` first; only edit `index.vue` if a specialist lookup label/runtime integration is needed
 - for lookup-backed filters, wire `useCrudListFilterLookups(...)` beside the existing generated filter runtime instead of replacing `CrudListFilterSurface`
 
 Validation mode is part of the contract:
-- there is no default mode and no fallback alias, so every explicit structured filter field must choose `invalidValues: "reject"` or `invalidValues: "discard"` deliberately
+- `createCrudListFilterContract(...)` defaults to `invalidValues: "reject"` for a strict server boundary
+- set `invalidValues` explicitly when a package is choosing a non-default validation posture
 - use `invalidValues: "reject"` when malformed filter values should fail validation and return a 400-style contract error
 - use `invalidValues: "discard"` when malformed filter values should be ignored and normalization should drop them
 - route query validation runs before auth, so this choice affects whether malformed unauthenticated requests fail at validation or fall through to auth
 - for normal HTTP CRUD handlers, route-level `discard` means the action layer receives already-parsed values for those explicit filter fields; do not assume route `discard` plus action `reject` will still reject malformed HTTP query strings later
-- CRUD list filters are still a deliberate two-phase exception: schema parsing owns query-field values, then the server runtime reprojects those parsed values through filter keys and `applyQuery(...)`
+- CRUD list filters are still a deliberate two-phase exception: schema parsing owns public query-field values, then the server contract reprojects parsed values to JSON REST filters with `toJsonRestQuery(...)`
 
 Keep separate:
 - free-text search uses `records.searchQuery` and `q`
@@ -77,18 +82,18 @@ Use runtime presets when:
 
 Put unusual SQL semantics on the server:
 - examples: `pending` meaning `whereNull("ccp1_passed")`, or business-specific status buckets that combine multiple columns
-- implement those in `createCrudListFilters(..., { apply: { ... } })`
+- implement those in `createCrudListFilterContract(..., { apply: { ... } })`
 - do not use custom `apply` just for null/not-null checks when `type: "presence"` fits
 
 Avoid:
 - local filter composables that duplicate the same keys the server already knows about
 - a custom validator shape that does not match the page state
-- hiding accepted structured filter params behind whole-query validator generation when the route/action contract can list them directly
+- hand-rolled route/action validators or repository filters that duplicate `createCrudListFilterContract(...)`
 - hand-rolled preset apply/reset/active-state helpers when `useCrudListFilters(..., { presets })`, `applyPreset(...)`, and `matchesPreset(...)` fit
 - per-screen `useList()` wrappers for lookup-backed filters when `useCrudListFilterLookups(...)` fits
 - editing generated `.vue` files just to add basic filter controls; use the page-local `listFilters.js` seam first
 - overloading `q` with structured filter meaning
-- inline filter-definition objects passed into `useCrudListFilters(...)` or `createCrudListFilters(...)`; keep definitions in a named module
+- inline filter-definition objects passed into `useCrudListFilters(...)`, `createCrudListFilters(...)`, or `createCrudListFilterContract(...)`; keep definitions in a named module
 
 Good shape:
 - `src/pages/home/customers/listFilters.js`
@@ -96,7 +101,9 @@ Good shape:
 - generated page passes `listFilters` into `useCrudListScreen(...)`
 - shared screen runtime passes `filterRuntime.queryParams` into the list request
 - `packages/receivals/src/shared/receivalListFilters.js`
-- `createCrudListFilters(RECEIVAL_LIST_FILTER_DEFINITIONS, ...)`
+- `createCrudListFilterContract(RECEIVAL_LIST_FILTER_DEFINITIONS, { columns, invalidValues: "reject" })`
+- `createJsonRestResourceScopeOptions(resource, { searchSchema: receivalListFilterContract.jsonRestSearchSchema })`
+- `buildJsonRestQueryParams(JSON_REST_SCOPE_NAME, receivalListFilterContract.toJsonRestQuery(query))`
 - `const listFilters = useCrudListFilters(RECEIVAL_LIST_FILTER_DEFINITIONS, { presets: [...] })`
 - `const filterLookups = useCrudListFilterLookups(RECEIVAL_LIST_FILTER_DEFINITIONS, { values: listFilters.values, ... })`
 - `queryParams: listFilters.queryParams`
@@ -108,7 +115,7 @@ Preset contract notes:
 
 Review checks:
 - one filter definition source of truth: generated page-local `listFilters.js` for client-only filters, or a shared CRUD-package module when server code imports the same definitions
-- server validator/repository logic derived from that source, with route/action query params still listed explicitly
+- server validator, JSON REST search schema, and repository query projection derived from that source through `createCrudListFilterContract(...)`
 - client query params/chips/reset logic derived from that source
 - lookup-backed filters use the shared lookup helper, not a page-local mini-framework
 - the two-phase server exception is intentional and documented, not accidental drift

@@ -1,5 +1,5 @@
 import { Api } from "hooked-api";
-import { AutoFilterPlugin, RestApiKnexPlugin, RestApiPlugin } from "json-rest-api";
+import { AutoFilterPlugin, QueryProjectionsPlugin, RestApiKnexPlugin, RestApiPlugin } from "json-rest-api";
 import { normalizeRecordId } from "@jskit-ai/kernel/shared/support/normalize";
 import { resolveCrudResourceScopeName } from "@jskit-ai/kernel/shared/support/crudLookup";
 
@@ -125,6 +125,45 @@ function normalizeJsonRestText(value, { fallback = "" } = {}) {
   return normalized || fallback;
 }
 
+function normalizeJsonRestFilterValue(value) {
+  if (value == null) {
+    return undefined;
+  }
+
+  if (Array.isArray(value)) {
+    const entries = value
+      .map((entry) => normalizeJsonRestFilterValue(entry))
+      .filter((entry) => entry !== undefined);
+    return entries.length > 0 ? entries : undefined;
+  }
+
+  if (isPlainJsonRestObject(value)) {
+    const entries = Object.entries(value)
+      .map(([key, entry]) => [normalizeJsonRestText(key), normalizeJsonRestFilterValue(entry)])
+      .filter(([key, entry]) => key && entry !== undefined);
+    return entries.length > 0 ? Object.fromEntries(entries) : undefined;
+  }
+
+  if (typeof value === "string") {
+    const normalized = normalizeJsonRestText(value);
+    return normalized || undefined;
+  }
+
+  if (typeof value === "number") {
+    return Number.isFinite(value) ? value : undefined;
+  }
+
+  if (typeof value === "bigint") {
+    return String(value);
+  }
+
+  if (typeof value === "boolean") {
+    return value;
+  }
+
+  return undefined;
+}
+
 function normalizeJsonRestObject(value) {
   if (!value || typeof value !== "object" || Array.isArray(value)) {
     return {};
@@ -183,6 +222,99 @@ function resolveJsonRestCollectionRelationships(resource = {}) {
   return relationships;
 }
 
+function normalizeJsonRestQueryField(fieldName = "", fieldDefinition = {}, projectionDefinition = null) {
+  const normalizedFieldName = normalizeJsonRestText(fieldName);
+  const sourceProjection = isPlainJsonRestObject(projectionDefinition)
+    ? projectionDefinition
+    : isPlainJsonRestObject(fieldDefinition?.storage?.queryProjection)
+      ? fieldDefinition.storage.queryProjection
+      : isPlainJsonRestObject(fieldDefinition?.queryProjection)
+        ? fieldDefinition.queryProjection
+        : null;
+  if (!normalizedFieldName || !sourceProjection) {
+    return null;
+  }
+
+  const sourceFieldDefinition = isPlainJsonRestObject(fieldDefinition) ? fieldDefinition : {};
+  const select = typeof sourceProjection.select === "function"
+    ? sourceProjection.select
+    : typeof sourceProjection.project === "function"
+      ? sourceProjection.project
+      : null;
+  const type = normalizeJsonRestText(sourceProjection.type || sourceFieldDefinition.type);
+  return {
+    ...sourceProjection,
+    ...(type ? { type } : {}),
+    ...(select ? { select } : {})
+  };
+}
+
+function isJsonRestVirtualField(fieldDefinition = null) {
+  return fieldDefinition?.virtual === true ||
+    fieldDefinition?.storage?.virtual === true ||
+    Boolean(fieldDefinition?.storage?.queryProjection || fieldDefinition?.queryProjection);
+}
+
+function applyJsonRestQueryFields(scopeOptions = {}, extraQueryFields = {}) {
+  const schema = normalizeJsonRestObject(scopeOptions.schema);
+  const queryFields = {
+    ...normalizeJsonRestObject(scopeOptions.queryFields)
+  };
+
+  for (const [fieldName, fieldDefinition] of Object.entries(schema)) {
+    const queryField = normalizeJsonRestQueryField(fieldName, fieldDefinition);
+    if (!queryField) {
+      continue;
+    }
+
+    queryFields[fieldName] = queryField;
+    delete schema[fieldName];
+  }
+
+  for (const key of Object.keys(queryFields)) {
+    const schemaFieldDefinition = schema[key];
+    if (!schemaFieldDefinition) {
+      continue;
+    }
+    if (!isJsonRestVirtualField(schemaFieldDefinition)) {
+      throw new Error(
+        `json-rest-api query field "${key}" conflicts with a column-backed schema field.`
+      );
+    }
+    delete schema[key];
+  }
+
+  for (const [fieldName, projectionDefinition] of Object.entries(normalizeJsonRestObject(extraQueryFields))) {
+    const key = normalizeJsonRestText(fieldName);
+    if (!key) {
+      continue;
+    }
+
+    const schemaFieldDefinition = schema[key];
+    if (schemaFieldDefinition && !isJsonRestVirtualField(schemaFieldDefinition)) {
+      throw new Error(
+        `json-rest-api query field "${key}" conflicts with a column-backed schema field.`
+      );
+    }
+
+    const queryField = normalizeJsonRestQueryField(key, schemaFieldDefinition, projectionDefinition);
+    if (!queryField) {
+      continue;
+    }
+
+    queryFields[key] = queryField;
+    if (schemaFieldDefinition) {
+      delete schema[key];
+    }
+  }
+
+  if (Object.keys(queryFields).length > 0) {
+    scopeOptions.queryFields = queryFields;
+  } else {
+    delete scopeOptions.queryFields;
+  }
+}
+
 function buildJsonRestQueryParams(resourceType = "", query = {}, { include = undefined } = {}) {
   const normalizedResourceType = normalizeJsonRestText(resourceType);
   const source = normalizeJsonRestObject(query);
@@ -194,8 +326,8 @@ function buildJsonRestQueryParams(resourceType = "", query = {}, { include = und
       continue;
     }
 
-    const normalizedValue = normalizeJsonRestText(rawValue);
-    if (!normalizedValue) {
+    const normalizedValue = normalizeJsonRestFilterValue(rawValue);
+    if (normalizedValue === undefined) {
       continue;
     }
 
@@ -327,10 +459,25 @@ function createJsonApiRelationship(resourceType = "", id = null) {
   };
 }
 
-function createJsonRestResourceScopeOptions(resource = {}, { writeSerializers = {}, normalizeId = null } = {}) {
+function createJsonRestResourceScopeOptions(
+  resource = {},
+  {
+    writeSerializers = {},
+    normalizeId = null,
+    searchSchema = null,
+    queryFields = null
+  } = {}
+) {
   const scopeOptions = cloneJsonRestResourceValue(resource, {
     writeSerializers: normalizeJsonRestObject(writeSerializers)
   });
+  if (isPlainJsonRestObject(searchSchema)) {
+    scopeOptions.searchSchema = {
+      ...normalizeJsonRestObject(scopeOptions.searchSchema),
+      ...searchSchema
+    };
+  }
+  applyJsonRestQueryFields(scopeOptions, queryFields);
   const collectionRelationships = resolveJsonRestCollectionRelationships(scopeOptions);
   if (Object.keys(collectionRelationships).length > 0) {
     if (
@@ -442,6 +589,7 @@ async function createJsonRestApiHost({ knex }) {
     normalizeId: normalizeRecordId
   });
 
+  await api.use(QueryProjectionsPlugin);
   await api.use(RestApiKnexPlugin, { knex });
   await api.use(AutoFilterPlugin, {
     resolvers: {

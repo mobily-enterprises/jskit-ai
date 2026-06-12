@@ -12,8 +12,9 @@ Default JSKIT pattern:
 4. Let generic CRUD runtime handle standard writable `date-time` fields automatically at the DB write seam.
 5. Use `storage.writeSerializer` only for non-default write serialization.
 6. Use `storage: { virtual: true }` for computed output fields.
-7. Register computed SQL projections once in the repository runtime with `virtualFields`.
-8. Let generic CRUD read paths apply those projections automatically.
+7. For `createCrudResourceRuntime(...)` repositories, register computed SQL projections once with `virtualFields`.
+8. For internal JSON REST repositories, register SQL-selected output fields with `createJsonRestResourceScopeOptions(resource, { queryFields })`.
+9. Let generic read paths apply those projections automatically.
 
 Field metadata rules:
 - for a normal override, write:
@@ -80,6 +81,35 @@ const repositoryRuntime = createCrudResourceRuntime(resource, {
 });
 ```
 
+Internal JSON REST pattern:
+- keep the API field in the resource schema as `storage: { virtual: true }`
+- pass server-only SQL projection callbacks through `createJsonRestResourceScopeOptions(...)`
+- keep query projection SQL in the provider/server registration file, not in browser-imported page code
+
+Example:
+
+```js
+await addResourceIfMissing(
+  api,
+  "receivals",
+  createJsonRestResourceScopeOptions(resource, {
+    queryFields: {
+      remainingProcessableWeight: {
+        type: "number",
+        select({ knex, column }) {
+          return knex.raw("?? - coalesce(??, 0)", [
+            column("received_weight"),
+            column("processed_weight")
+          ]);
+        }
+      }
+    }
+  })
+);
+```
+
+If the resource module is server-only, a field may also declare `storage.queryProjection`; `createJsonRestResourceScopeOptions(...)` moves it into JSON REST `queryFields` and removes the virtual field from the storage schema. Prefer the `queryFields` option when the resource module is shared with client code.
+
 What CRUD core does for you:
 - default select columns include only column-backed output fields
 - create/update write payloads serialize standard writable `date-time` fields centrally
@@ -99,5 +129,5 @@ Review checks:
 - standard datetime DB write serialization stays automatic and runtime-owned
 - any non-default DB write serialization lives in `storage.writeSerializer`, not in per-repository hooks
 - computed fields use `storage: { virtual: true }`
-- repository runtime registers matching `virtualFields`
+- repository runtime registers matching `virtualFields`, or the JSON REST provider registers matching `queryFields`
 - no per-method projection duplication when generic CRUD reads already cover the field
