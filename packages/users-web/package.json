@@ -1,6 +1,6 @@
 {
   "name": "@jskit-ai/users-web",
-  "version": "0.1.108",
+  "version": "0.1.109",
   "type": "module",
   "scripts": {
     "test": "node --test"
@@ -16,12 +16,14 @@
     "./client/account-settings/sections": "./src/client/account-settings/sections.js",
     "./client/bulkActions": "./src/client/bulkActions.js",
     "./client/filters": "./src/client/filters.js",
+    "./client/rowActions": "./src/client/rowActions.js",
     "./client/composables/useAddEdit": "./src/client/composables/records/useAddEdit.js",
     "./client/composables/useAccess": "./src/client/composables/useAccess.js",
     "./client/composables/useCommand": "./src/client/composables/useCommand.js",
     "./client/composables/useCrudAddEdit": "./src/client/composables/records/useCrudAddEdit.js",
     "./client/composables/useCrudAddEditScreen": "./src/client/composables/useCrudAddEditScreen.js",
     "./client/composables/useCrudListBulkActions": "./src/client/composables/useCrudListBulkActions.js",
+    "./client/composables/useCrudListRowActions": "./src/client/composables/useCrudListRowActions.js",
     "./client/composables/crudLookupFieldRuntime": "./src/client/composables/crud/crudLookupFieldRuntime.js",
     "./client/composables/useCrudListFilterLookups": "./src/client/composables/useCrudListFilterLookups.js",
     "./client/composables/useCrudListFilters": "./src/client/composables/useCrudListFilters.js",
@@ -44,12 +46,12 @@
   },
   "dependencies": {
     "@mdi/js": "^7.4.47",
-    "@jskit-ai/http-runtime": "0.1.92",
-    "@jskit-ai/kernel": "0.1.93",
-    "@jskit-ai/realtime": "0.1.92",
-    "@jskit-ai/shell-web": "0.1.92",
-    "@jskit-ai/uploads-image-web": "0.1.71",
-    "@jskit-ai/users-core": "0.1.103"
+    "@jskit-ai/http-runtime": "0.1.93",
+    "@jskit-ai/kernel": "0.1.94",
+    "@jskit-ai/realtime": "0.1.93",
+    "@jskit-ai/shell-web": "0.1.93",
+    "@jskit-ai/uploads-image-web": "0.1.72",
+    "@jskit-ai/users-core": "0.1.104"
   },
   "peerDependencies": {
     "@tanstack/vue-query": "^5.90.5",

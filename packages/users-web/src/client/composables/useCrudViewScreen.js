@@ -12,25 +12,31 @@ function useCrudViewScreen({
   listUrlTemplate = "",
   editUrlTemplate = "",
   recordChangedEvent = "",
+  requestQueryParams = null,
+  readEnabled = true,
+  queryKeyFactory = null,
   requestRecoveryLabel = "Record",
   fallbackLoadError = "Unable to load record.",
   notFoundMessage = "Record not found."
 } = {}) {
   const route = useRoute();
   const normalizedResourceNamespace = String(resourceNamespace || "resource").trim() || "resource";
+  const defaultQueryKeyFactory = (surfaceId = "", workspaceSlug = "") => [
+    "ui-generator",
+    normalizedResourceNamespace,
+    "view",
+    String(surfaceId || ""),
+    String(workspaceSlug || "")
+  ];
   const view = useCrudView({
     adapter: adapter || undefined,
     resource,
     apiUrlTemplate,
     recordIdParam,
     includeRecordIdInQueryKey: true,
-    queryKeyFactory: (surfaceId = "", workspaceSlug = "") => [
-      "ui-generator",
-      normalizedResourceNamespace,
-      "view",
-      String(surfaceId || ""),
-      String(workspaceSlug || "")
-    ],
+    queryKeyFactory: typeof queryKeyFactory === "function" ? queryKeyFactory : defaultQueryKeyFactory,
+    requestQueryParams,
+    readEnabled,
     placementSource: `ui-generator.${normalizedResourceNamespace}.view`,
     requestRecoveryLabel,
     fallbackLoadError,

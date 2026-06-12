@@ -1,7 +1,7 @@
 export default Object.freeze({
   packageVersion: 1,
   packageId: "@jskit-ai/users-core",
-  version: "0.1.103",
+  version: "0.1.104",
   kind: "runtime",
   description: "Users/account runtime plus HTTP routes for account features.",
   dependsOn: [
@@ -143,16 +143,16 @@ export default Object.freeze({
   mutations: {
     dependencies: {
       runtime: {
-        "@jskit-ai/auth-core": "0.1.92",
-        "@jskit-ai/crud-core": "0.1.101",
-        "@jskit-ai/database-runtime": "0.1.93",
-        "@jskit-ai/http-runtime": "0.1.92",
-        "@jskit-ai/json-rest-api-core": "0.1.38",
-        "@jskit-ai/kernel": "0.1.93",
-        "@jskit-ai/resource-core": "0.1.38",
-        "@jskit-ai/resource-crud-core": "0.1.38",
+        "@jskit-ai/auth-core": "0.1.93",
+        "@jskit-ai/crud-core": "0.1.102",
+        "@jskit-ai/database-runtime": "0.1.94",
+        "@jskit-ai/http-runtime": "0.1.93",
+        "@jskit-ai/json-rest-api-core": "0.1.39",
+        "@jskit-ai/kernel": "0.1.94",
+        "@jskit-ai/resource-core": "0.1.39",
+        "@jskit-ai/resource-crud-core": "0.1.39",
         "@local/users": "file:packages/users",
-        "@jskit-ai/uploads-runtime": "0.1.71"
+        "@jskit-ai/uploads-runtime": "0.1.72"
       },
       dev: {}
     },
