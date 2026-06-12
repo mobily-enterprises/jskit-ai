@@ -454,7 +454,8 @@ This is the list-page container.
 Its job is usually to:
 
 - call `useCrudListScreen()`
-- pass page-local `listFilters` and `listBulkActions`
+- pass page-local `listFilters`, `listBulkActions`, and `listRowActions` when needed
+- pass `syntheticRows` when the page needs non-CRUD display rows such as an owner/master row
 - render the shared `CrudListScreen`
 - resolve list/view/edit/new URLs
 - pass route query state through when navigating deeper
@@ -470,6 +471,8 @@ Its job is usually to:
 - call `useCrudViewScreen()`
 - render the shared `CrudViewScreen`
 - resolve "back" and "edit" navigation
+- pass read options such as `requestQueryParams`, `readEnabled`, and `queryKeyFactory` when the detail read needs them
+- use the shared view slots for page-specific sections around the generated field list
 
 Again, the runtime behavior is mostly uphill. The page is a route-level composition layer.
 
@@ -822,6 +825,8 @@ Use this rule of thumb when deciding where to edit:
 | Change SQL, joins, parent filters, or advanced search | `repository.js` | This is the data-access layer |
 | Add cross-record or domain rules on save/delete | `service.js` | This is business logic |
 | Change shared CRUD screen chrome, load states, or retry behavior | `users-web` shared screen components | Generated pages consume the shared screen contract |
+| Add per-row commands to a generated list page | page-local `listRowActions.js`, usually calling `useCommand()`-backed composables | The shared list screen renders action chrome; the page owns explicit mutation behavior |
+| Add non-CRUD display rows to a generated list page | route page `syntheticRows` input | Synthetic rows are presentation rows, not repository records |
 | Change page-specific display behavior | the route pages, generated slots, and app-owned composables | This is presentation |
 | Change form field layout and inputs | `_components/CrudAddEditForm.vue` and `CrudAddEditFormFields.js` | This is the generated form field layer |
 
@@ -832,6 +837,7 @@ The baseline generator output is only the start. As the tutorial's `contacts`, `
 - `src/server/listQueryValidators.js` when a list needs extra query filters beyond `q`
 - `src/server/service.test.js` once save/delete rules stop being trivial
 - `packages/contacts/src/shared/contactListFilters.js` when the contacts CRUD gains structured list filters that both server and client should share
+- `src/pages/.../contacts/listRowActions.js` when a generated list needs row-level commands such as Delete, Block, or Unblock
 - `src/composables/addresses/useAddressDisplay.js` when addresses need app-specific display formatting
 - `src/composables/comments/useCommentsListRuntime.js` when an embedded comments list needs local UI state
 
@@ -840,6 +846,55 @@ That is the right direction of growth:
 - server customizations stay in the CRUD package
 - presentation and page-specific UI state stay in app-owned client files
 - shared structured list filters live best in a CRUD-package shared module that both server and client can import
+- shared generated screen chrome stays in `users-web`; adapted pages feed it definitions, slots, and explicit command handlers
+
+### Detail read options and extension slots
+
+Use the shared detail screen first, even when the detail page needs includes or domain sections.
+
+`useCrudViewScreen(...)` accepts the same read-pass-through options that adapted detail pages usually need:
+
+- `requestQueryParams`
+- `readEnabled`
+- `queryKeyFactory`
+
+For example:
+
+```js
+const screen = useCrudViewScreen({
+  resource: drumResource,
+  apiUrlTemplate: "/drums/:recordId",
+  requestQueryParams() {
+    return {
+      include: "drumSpecId,locationId,contents,contents.processingLotId"
+    };
+  }
+});
+```
+
+Render domain sections through `CrudViewScreen` slots instead of replacing the shared load/error/retry chrome:
+
+```vue
+<CrudViewScreen :screen="screen" resource-singular-title="Drum">
+  <template #before-fields="{ view }">
+    <DrumArrivalSummary :drum="view.record" />
+  </template>
+
+  <template #fields="{ view }">
+    <GeneratedDrumFields :record="view.record" />
+  </template>
+
+  <template #after-fields="{ view }">
+    <DrumProvenancePanel :drum="view.record" />
+  </template>
+
+  <template #supporting-content="{ view }">
+    <DrumContentsPanel :drum="view.record" />
+  </template>
+</CrudViewScreen>
+```
+
+The screen still owns loading, not-found, retry, title, back/edit actions, and responsive shell structure. The page owns only the domain panels.
 
 ## Search and filters: the deep dive
 
@@ -1146,11 +1201,96 @@ The generated runtime passes action handlers:
 
 Keep bulk action definitions page-local unless another page needs to share them.
 
+### Pattern 3C: row actions and synthetic display rows
+
+Generated CRUD list pages can keep the shared list screen while adding per-row actions and non-CRUD display rows.
+
+Use row actions for explicit commands on one record. JSKIT renders the action menu in card and table layouts, tracks per-row execution state, and passes the handler enough context to run app-owned commands. It does not invent or auto-replay writes.
+
+For example:
+
+```js
+import { defineCrudListRowActions } from "@jskit-ai/users-web/client/rowActions";
+
+const listRowActions = defineCrudListRowActions([
+  {
+    key: "delete",
+    label: "Delete",
+    color: "error",
+    visible: ({ record }) => record.isOwnerRow !== true,
+    disabled: ({ record }) => record.isOwnerRow === true,
+    loading: ({ record }) => deleteCommand.isRunningFor(record.id),
+    async run({ record, reload }) {
+      await deleteCommand.runFor(record);
+      await reload();
+    }
+  }
+]);
+
+export { listRowActions };
+```
+
+Pass the actions into the generated list screen:
+
+```js
+import { listRowActions } from "./listRowActions.js";
+
+const screen = useCrudListScreen({
+  resource: uiResource,
+  apiSuffix: "/allowed-login-emails",
+  listRowActions
+});
+```
+
+The row-action handler receives:
+
+- `action`
+- `record`
+- `index`
+- `recordId`
+- `records`
+- `reload`
+
+Use `syntheticRows` when the page needs display rows that do not come from the CRUD list response, such as an owner row at the top of an allowlist. An array is prepended by default. Use `{ prepend, append }` when placement matters.
+
+```js
+const ownerRows = computed(() => owner.value
+  ? [
+      {
+        key: "owner",
+        record: {
+          id: owner.value.id,
+          email: owner.value.email,
+          role: "Owner",
+          isOwnerRow: true
+        }
+      }
+    ]
+  : []);
+
+const screen = useCrudListScreen({
+  resource: uiResource,
+  apiSuffix: "/allowed-login-emails",
+  listRowActions,
+  syntheticRows: ownerRows
+});
+```
+
+Synthetic rows:
+
+- render in the same card/table layouts as real rows
+- do not get standard Open/Edit CRUD navigation
+- are excluded from bulk selection by default
+- can still participate in row-action visibility/disabled logic
+
+Use this seam for display rows only. If a row should be persisted, it should come from the CRUD list response.
+
 #### Exact file checklist
 
 For a generated CRUD, treat this as the concrete file plan:
 
 - edit `src/pages/.../contacts/listFilters.js`
+- create `src/pages/.../contacts/listRowActions.js` when the list needs row-level commands
 - make sure the matching server route/action/repository code accepts and applies the declared query params when filters are server-backed
 
 If the filter contract should be shared with server code, promote it into a CRUD package module and import it from both sides:

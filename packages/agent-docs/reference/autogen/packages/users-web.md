@@ -66,6 +66,14 @@ Local functions
 - `clearChip(chip = {})`
 - `clearFilters()`
 
+### `src/client/components/CrudListRecordActionMenu.vue`
+Exports
+- None
+Local functions
+- `isRowActionLoading(action = {})`
+- `isRowActionDisabled(action = {})`
+- `runRowAction(action = {})`
+
 ### `src/client/components/CrudListScreen.vue`
 Exports
 - None
@@ -74,6 +82,12 @@ Local functions
 - `formatListCardValue(value)`
 - `resolveViewLocation(record)`
 - `resolveEditLocation(record)`
+- `hasRowActionsFor(record, index)`
+- `isBulkRowSelected(row = {})`
+- `setBulkRowSelected(row = {}, selected = true)`
+- `allSelectableRowsSelected()`
+- `someSelectableRowsSelected()`
+- `setSelectableRowsSelected(selected = true)`
 
 ### `src/client/components/CrudViewScreen.vue`
 Exports
@@ -484,15 +498,30 @@ Exports
 Local functions
 - `normalizeQueryKeyPrefix(value = [])`
 
+### `src/client/composables/useCrudListRowActions.js`
+Exports
+- `useCrudListRowActions(actions = [], { resolveRecordId = null, resolveContext = null } = {})`
+Local functions
+- `normalizeRowActionKey(actionOrKey = "")`
+- `normalizeRowId(value = "")`
+- `createExecutionKey(actionKey = "", recordId = "", index = 0)`
+- `asContextObject(value = null)`
+
 ### `src/client/composables/useCrudListScreen.js`
 Exports
-- `useCrudListScreen({ adapter = null, resource = null, resourceNamespace = "resource", apiSuffix = "", recordIdParam = "recordId", recordIdSelector = null, titleFallbackFieldKey = "", viewUrlTemplate = "", editUrlTemplate = "", newUrlTemplate = "", recordChangedEvents = [], listFilters = {}, listBulkActions = [], routeQueryBlacklist = Object.freeze(["include", "cursor", "limit"]), requestRecoveryLabel = "Records", fallbackLoadError = "Unable to load records." } = {})`
+- `useCrudListScreen({ adapter = null, resource = null, resourceNamespace = "resource", apiSuffix = "", recordIdParam = "recordId", recordIdSelector = null, titleFallbackFieldKey = "", viewUrlTemplate = "", editUrlTemplate = "", newUrlTemplate = "", recordChangedEvents = [], listFilters = {}, listBulkActions = [], listRowActions = [], syntheticRows = null, routeQueryBlacklist = Object.freeze(["include", "cursor", "limit"]), requestQueryParams = null, requestRecoveryLabel = "Records", fallbackLoadError = "Unable to load records." } = {})`
 Local functions
 - `formatCrudListCardValue(value)`
+- `asList(value = [])`
+- `hasSyntheticRowGroups(value = null)`
+- `normalizeSyntheticDisplayRow(source = null, index = 0, placement = "prepend")`
+- `normalizeSyntheticDisplayRows(value = [], placement = "prepend")`
+- `normalizeSyntheticDisplayRowGroups(syntheticRows = null)`
+- `createCrudListDisplayRow(record = {}, index = 0, records = {})`
 
 ### `src/client/composables/useCrudViewScreen.js`
 Exports
-- `useCrudViewScreen({ adapter = null, resource = null, resourceNamespace = "resource", apiUrlTemplate = "", recordIdParam = "recordId", titleFallbackFieldKey = "", listUrlTemplate = "", editUrlTemplate = "", recordChangedEvent = "", requestRecoveryLabel = "Record", fallbackLoadError = "Unable to load record.", notFoundMessage = "Record not found." } = {})`
+- `useCrudViewScreen({ adapter = null, resource = null, resourceNamespace = "resource", apiUrlTemplate = "", recordIdParam = "recordId", titleFallbackFieldKey = "", listUrlTemplate = "", editUrlTemplate = "", recordChangedEvent = "", requestQueryParams = null, readEnabled = true, queryKeyFactory = null, requestRecoveryLabel = "Record", fallbackLoadError = "Unable to load record.", notFoundMessage = "Record not found." } = {})`
 
 ### `src/client/composables/usePagedCollection.js`
 Exports
@@ -604,6 +633,12 @@ Local functions
 ### `src/client/providers/UsersWebClientProvider.js`
 Exports
 - `UsersWebClientProvider`
+
+### `src/client/rowActions.js`
+Exports
+- `defineCrudListRowActions(actions = [])`
+Local functions
+- `normalizeCrudListRowAction(rawAction = {}, index = 0)`
 
 ### `src/client/support/contractGuards.js`
 Exports

@@ -97,12 +97,18 @@ const resolvedDescription = computed(() =>
       <template v-else>
         <v-progress-linear v-if="view.isRefetching" indeterminate />
         <div class="pa-4">
+          <slot name="before-fields" :view="view" />
           <v-row class="ui-generator-view-fields">
             <slot name="fields" :view="view" />
           </v-row>
+          <slot name="after-fields" :view="view" />
         </div>
       </template>
     </v-sheet>
+
+    <div v-if="$slots['supporting-content']" class="ui-generator-view-supporting-content">
+      <slot name="supporting-content" :view="view" />
+    </div>
   </section>
 </template>
 
@@ -162,6 +168,10 @@ const resolvedDescription = computed(() =>
 }
 
 .ui-generator-view-fields :deep(.v-col) {
+  min-width: 0;
+}
+
+.ui-generator-view-supporting-content {
   min-width: 0;
 }
 

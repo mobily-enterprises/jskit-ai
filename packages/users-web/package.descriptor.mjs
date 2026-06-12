@@ -3,7 +3,7 @@ import { HOME_COG_OUTLET } from "./src/shared/toolsOutletContracts.js";
 export default Object.freeze({
   packageVersion: 1,
   packageId: "@jskit-ai/users-web",
-  version: "0.1.108",
+  version: "0.1.109",
   kind: "runtime",
   description: "Users web module: account/profile UI plus shared users web widgets.",
   dependsOn: [
@@ -79,6 +79,10 @@ export default Object.freeze({
           summary: "Exports client-side CRUD list filter definition helpers."
         },
         {
+          subpath: "./client/rowActions",
+          summary: "Exports client-side CRUD list row-action definition helpers."
+        },
+        {
           subpath: "./client/components/ProfileClientElement",
           summary: "Exports profile settings client element scaffold component."
         },
@@ -113,6 +117,10 @@ export default Object.freeze({
         {
           subpath: "./client/composables/useCrudListBulkActions",
           summary: "Exports selected-record state and execution runtime for generated CRUD list bulk actions."
+        },
+        {
+          subpath: "./client/composables/useCrudListRowActions",
+          summary: "Exports per-record action state and execution runtime for generated CRUD list row actions."
         },
         {
           subpath: "./client/composables/useCrudListScreen",
@@ -278,12 +286,12 @@ export default Object.freeze({
     dependencies: {
       runtime: {
         "@mdi/js": "^7.4.47",
-        "@jskit-ai/http-runtime": "0.1.92",
-        "@jskit-ai/realtime": "0.1.92",
-        "@jskit-ai/kernel": "0.1.93",
-        "@jskit-ai/shell-web": "0.1.92",
-        "@jskit-ai/uploads-image-web": "0.1.71",
-        "@jskit-ai/users-core": "0.1.103"
+        "@jskit-ai/http-runtime": "0.1.93",
+        "@jskit-ai/realtime": "0.1.93",
+        "@jskit-ai/kernel": "0.1.94",
+        "@jskit-ai/shell-web": "0.1.93",
+        "@jskit-ai/uploads-image-web": "0.1.72",
+        "@jskit-ai/users-core": "0.1.104"
       },
       dev: {}
     },

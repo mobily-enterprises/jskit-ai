@@ -3,6 +3,7 @@ import { computed, unref } from "vue";
 import { useRoute } from "vue-router";
 import CrudListBulkActionSurface from "./CrudListBulkActionSurface.vue";
 import CrudListFilterSurface from "./CrudListFilterSurface.vue";
+import CrudListRecordActionMenu from "./CrudListRecordActionMenu.vue";
 
 const props = defineProps({
   screen: {
@@ -46,10 +47,14 @@ const props = defineProps({
 const route = useRoute();
 const records = computed(() => props.screen?.records || {});
 const bulkActions = computed(() => props.screen?.bulkActions || {});
+const rowActions = computed(() => props.screen?.rowActions || {});
 const listFilters = computed(() => props.screen?.listFilters || {});
 const filterRuntime = computed(() => props.screen?.filterRuntime || null);
+const displayRows = computed(() => unref(props.screen?.displayRows) || []);
+const selectableRows = computed(() => unref(props.screen?.selectableRows) || []);
 const listPrimaryAction = computed(() => unref(props.screen?.listPrimaryAction) || "");
 const hasBulkActions = computed(() => Boolean(unref(bulkActions.value?.hasActions)));
+const hasRowActions = computed(() => Boolean(unref(rowActions.value?.hasActions)));
 const hasViewUrl = computed(() => Boolean(props.screen?.hasViewUrl));
 const hasEditUrl = computed(() => Boolean(props.screen?.hasEditUrl));
 const resolvedHeadingTitle = computed(() => String(props.headingTitle || props.titleLabel || "").trim());
@@ -83,6 +88,40 @@ function resolveEditLocation(record) {
     ? records.value.resolveEditUrl(record)
     : "";
   return path ? { path, query: route.query } : null;
+}
+
+function hasRowActionsFor(record, index) {
+  return typeof rowActions.value?.hasVisibleActionsFor === "function" &&
+    rowActions.value.hasVisibleActionsFor(record, index);
+}
+
+function isBulkRowSelected(row = {}) {
+  return typeof bulkActions.value?.isRecordSelected === "function" &&
+    bulkActions.value.isRecordSelected(row.record, row.index);
+}
+
+function setBulkRowSelected(row = {}, selected = true) {
+  if (typeof bulkActions.value?.setRecordSelected !== "function") {
+    return;
+  }
+  bulkActions.value.setRecordSelected(row.record, row.index, selected);
+}
+
+function allSelectableRowsSelected() {
+  return selectableRows.value.length > 0 && selectableRows.value.every((row) => isBulkRowSelected(row));
+}
+
+function someSelectableRowsSelected() {
+  return selectableRows.value.some((row) => isBulkRowSelected(row));
+}
+
+function setSelectableRowsSelected(selected = true) {
+  if (typeof bulkActions.value?.setRecordSelected !== "function") {
+    return;
+  }
+  for (const row of selectableRows.value) {
+    bulkActions.value.setRecordSelected(row.record, row.index, selected);
+  }
 }
 </script>
 
@@ -143,7 +182,7 @@ function resolveEditLocation(record) {
           <v-btn color="primary" variant="tonal" :loading="records.isFetching" @click="records.reload">Retry</v-btn>
         </div>
 
-        <div v-else-if="records.items.length < 1" class="ui-generator-list-state">
+        <div v-else-if="displayRows.length < 1" class="ui-generator-list-state">
           <h2 class="text-h6 mb-2">{{ emptyTitle }}</h2>
           <p class="text-body-2 text-medium-emphasis mb-4">{{ emptyBody }}</p>
           <v-btn v-if="listPrimaryAction" color="primary" variant="flat" :to="listPrimaryAction">
@@ -154,52 +193,44 @@ function resolveEditLocation(record) {
         <template v-else>
           <div class="ui-generator-list-cards d-md-none">
             <v-sheet
-              v-for="(record, index) in records.items"
-              :key="records.resolveRowKey(record, index)"
+              v-for="row in displayRows"
+              :key="row.key"
               rounded="lg"
               border
               class="ui-generator-list-card"
             >
               <div class="ui-generator-list-card__header">
                 <v-checkbox-btn
-                  v-if="hasBulkActions"
-                  :model-value="bulkActions.isRecordSelected(record, index)"
-                  :aria-label="`Select ${resolveListRecordTitle(record)}`"
+                  v-if="hasBulkActions && row.selectable !== false"
+                  :model-value="isBulkRowSelected(row)"
+                  :aria-label="`Select ${resolveListRecordTitle(row.record)}`"
                   class="ui-generator-list-card__select"
-                  @update:model-value="bulkActions.setRecordSelected(record, index, $event)"
+                  @update:model-value="setBulkRowSelected(row, $event)"
                 />
                 <div class="min-w-0">
-                  <div class="ui-generator-list-card__title">{{ resolveListRecordTitle(record) }}</div>
+                  <div class="ui-generator-list-card__title">{{ resolveListRecordTitle(row.record) }}</div>
                   <div class="text-caption text-medium-emphasis">
-                    {{ records.resolveRowKey(record, index) }}
+                    {{ row.recordKey }}
                   </div>
                 </div>
-                <v-menu v-if="hasViewUrl || hasEditUrl" location="bottom end">
-                  <template #activator="{ props: menuProps }">
-                    <v-btn v-bind="menuProps" variant="text" size="small">Actions</v-btn>
-                  </template>
-                  <v-list density="compact" min-width="140">
-                    <v-list-item
-                      v-if="hasViewUrl"
-                      title="Open"
-                      :to="resolveViewLocation(record)"
-                      :disabled="!resolveViewLocation(record)"
-                    />
-                    <v-list-item
-                      v-if="hasEditUrl"
-                      title="Edit"
-                      :to="resolveEditLocation(record)"
-                      :disabled="!resolveEditLocation(record)"
-                    />
-                  </v-list>
-                </v-menu>
+                <CrudListRecordActionMenu
+                  v-if="hasViewUrl || hasEditUrl || hasRowActionsFor(row.record, row.index)"
+                  :record="row.record"
+                  :index="row.index"
+                  :row-actions="rowActions"
+                  :show-view="hasViewUrl && !row.synthetic"
+                  :show-edit="hasEditUrl && !row.synthetic"
+                  :view-location="resolveViewLocation(row.record)"
+                  :edit-location="resolveEditLocation(row.record)"
+                />
               </div>
               <div class="ui-generator-list-card__fields">
                 <slot
                   name="card-fields"
-                  :record="record"
+                  :record="row.record"
                   :records="records"
-                  :index="index"
+                  :index="row.index"
+                  :row="row"
                   :format-list-card-value="formatListCardValue"
                 />
               </div>
@@ -212,51 +243,71 @@ function resolveEditLocation(record) {
                 <tr>
                   <th v-if="hasBulkActions" class="ui-generator-list-table__select">
                     <v-checkbox-btn
-                      :model-value="bulkActions.allVisibleSelected(records.items)"
+                      :model-value="allSelectableRowsSelected()"
                       :indeterminate="
-                        bulkActions.someVisibleSelected(records.items) &&
-                          !bulkActions.allVisibleSelected(records.items)
+                        someSelectableRowsSelected() &&
+                          !allSelectableRowsSelected()
                       "
                       aria-label="Select visible rows"
-                      @update:model-value="bulkActions.setVisibleSelected(records.items, $event)"
+                      @update:model-value="setSelectableRowsSelected($event)"
                     />
                   </th>
                   <slot name="table-header" />
                   <th v-if="hasViewUrl" class="text-right" />
                   <th v-if="hasEditUrl" class="text-right" />
+                  <th v-if="hasRowActions" class="text-right" />
                 </tr>
               </thead>
               <tbody>
-                <tr v-for="(record, index) in records.items" :key="records.resolveRowKey(record, index)">
+                <tr v-for="row in displayRows" :key="row.key">
                   <td v-if="hasBulkActions" class="ui-generator-list-table__select">
                     <v-checkbox-btn
-                      :model-value="bulkActions.isRecordSelected(record, index)"
-                      :aria-label="`Select ${resolveListRecordTitle(record)}`"
-                      @update:model-value="bulkActions.setRecordSelected(record, index, $event)"
+                      v-if="row.selectable !== false"
+                      :model-value="isBulkRowSelected(row)"
+                      :aria-label="`Select ${resolveListRecordTitle(row.record)}`"
+                      @update:model-value="setBulkRowSelected(row, $event)"
                     />
                   </td>
-                  <slot name="table-row" :record="record" :records="records" :index="index" />
+                  <slot
+                    name="table-row"
+                    :record="row.record"
+                    :records="records"
+                    :index="row.index"
+                    :row="row"
+                  />
                   <td v-if="hasViewUrl" class="text-right">
                     <v-btn
+                      v-if="!row.synthetic"
                       size="small"
                       color="primary"
                       variant="outlined"
-                      :to="resolveViewLocation(record)"
-                      :disabled="!resolveViewLocation(record)"
+                      :to="resolveViewLocation(row.record)"
+                      :disabled="!resolveViewLocation(row.record)"
                     >
                       Open
                     </v-btn>
                   </td>
                   <td v-if="hasEditUrl" class="text-right">
                     <v-btn
+                      v-if="!row.synthetic"
                       size="small"
                       color="primary"
                       variant="tonal"
-                      :to="resolveEditLocation(record)"
-                      :disabled="!resolveEditLocation(record)"
+                      :to="resolveEditLocation(row.record)"
+                      :disabled="!resolveEditLocation(row.record)"
                     >
                       Edit
                     </v-btn>
+                  </td>
+                  <td v-if="hasRowActions" class="text-right">
+                    <CrudListRecordActionMenu
+                      v-if="hasRowActionsFor(row.record, row.index)"
+                      :record="row.record"
+                      :index="row.index"
+                      :row-actions="rowActions"
+                      button-label="More"
+                      button-variant="outlined"
+                    />
                   </td>
                 </tr>
               </tbody>
