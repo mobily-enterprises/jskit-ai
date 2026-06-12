@@ -509,7 +509,7 @@ Local functions
 
 ### `src/client/composables/useCrudListScreen.js`
 Exports
-- `useCrudListScreen({ adapter = null, resource = null, resourceNamespace = "resource", apiSuffix = "", recordIdParam = "recordId", recordIdSelector = null, titleFallbackFieldKey = "", viewUrlTemplate = "", editUrlTemplate = "", newUrlTemplate = "", recordChangedEvents = [], listFilters = {}, listBulkActions = [], listRowActions = [], syntheticRows = null, routeQueryBlacklist = Object.freeze(["include", "cursor", "limit"]), requestQueryParams = null, requestRecoveryLabel = "Records", fallbackLoadError = "Unable to load records." } = {})`
+- `useCrudListScreen({ adapter = null, resource = null, resourceNamespace = "resource", apiSuffix = "", recordIdParam = "recordId", recordIdSelector = null, titleFallbackFieldKey = "", viewUrlTemplate = "", editUrlTemplate = "", newUrlTemplate = "", recordChangedEvents = [], listFilters = {}, listBulkActions = [], listRowActions = [], syntheticRows = null, routeQueryBlacklist = Object.freeze(["include", "cursor", "limit"]), requestQueryParams = null, readEnabled = true, requestRecoveryLabel = "Records", fallbackLoadError = "Unable to load records." } = {})`
 Local functions
 - `formatCrudListCardValue(value)`
 - `asList(value = [])`

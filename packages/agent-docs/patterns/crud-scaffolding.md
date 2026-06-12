@@ -28,6 +28,7 @@ Rules:
 - Generated CRUD UI must be compact-first. Lists need searchable cards on compact widths and tables only for medium/expanded layouts.
 - Generated CRUD list screens need real loading, empty, and error states. Empty copy should name the resource, such as "No customers yet", and offer the create action when available.
 - Generated CRUD view/new/edit screens should use page headers plus direct sheet panels. Do not use generic card shells as the page architecture.
+- Permission-gated generated CRUD lists should pass `readEnabled` into `useCrudListScreen(...)` instead of replacing the shared list wrapper.
 - Compact CRUD actions should be reachable without a drawer. Use a mobile-visible primary action or FAB for create flows.
 - Row actions should be declared with `defineCrudListRowActions(...)` in a page-local `listRowActions.js` and passed into `useCrudListScreen(...)`; the shared list screen owns the compact/wide action rendering.
 - Use `syntheticRows` for display-only owner/master rows that should appear inside the shared list layout without becoming CRUD records.

@@ -456,6 +456,7 @@ Its job is usually to:
 - call `useCrudListScreen()`
 - pass page-local `listFilters`, `listBulkActions`, and `listRowActions` when needed
 - pass `syntheticRows` when the page needs non-CRUD display rows such as an owner/master row
+- pass read options such as `requestQueryParams` and `readEnabled` when the list read needs them
 - render the shared `CrudListScreen`
 - resolve list/view/edit/new URLs
 - pass route query state through when navigating deeper
@@ -848,9 +849,35 @@ That is the right direction of growth:
 - shared structured list filters live best in a CRUD-package shared module that both server and client can import
 - shared generated screen chrome stays in `users-web`; adapted pages feed it definitions, slots, and explicit command handlers
 
-### Detail read options and extension slots
+### Shared screen read options and detail slots
 
-Use the shared detail screen first, even when the detail page needs includes or domain sections.
+Use the shared list and detail screens first, even when a page needs includes, permission gating, or domain sections.
+
+`useCrudListScreen(...)` accepts the common list read-pass-through options that adapted list pages usually need:
+
+- `requestQueryParams`
+- `readEnabled`
+
+For example, a permission-gated list can stay on the shared list screen:
+
+```js
+const canReadProjectAccess = computed(() =>
+  access.value?.canManageProjectAccess === true
+);
+
+const screen = useCrudListScreen({
+  resource: projectAccessResource,
+  apiSuffix: "/project-access",
+  readEnabled: canReadProjectAccess,
+  requestQueryParams() {
+    return {
+      include: "userId,roleId"
+    };
+  }
+});
+```
+
+`readEnabled` gates the underlying Query-backed read. The screen still owns load, empty, error, retry, filters, row actions, and responsive list chrome. The page owns only the permission condition.
 
 `useCrudViewScreen(...)` accepts the same read-pass-through options that adapted detail pages usually need:
 

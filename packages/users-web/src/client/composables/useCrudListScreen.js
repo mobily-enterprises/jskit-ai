@@ -118,6 +118,7 @@ function useCrudListScreen({
   syntheticRows = null,
   routeQueryBlacklist = Object.freeze(["include", "cursor", "limit"]),
   requestQueryParams = null,
+  readEnabled = true,
   requestRecoveryLabel = "Records",
   fallbackLoadError = "Unable to load records."
 } = {}) {
@@ -151,6 +152,7 @@ function useCrudListScreen({
     },
     placementSource: `ui-generator.${normalizedResourceNamespace}.list`,
     requestQueryParams,
+    readEnabled,
     requestRecoveryLabel,
     fallbackLoadError,
     recordIdParam,
