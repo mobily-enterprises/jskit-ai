@@ -428,6 +428,64 @@ test("shell request recovery reports active query transport failures with retry 
   });
 });
 
+test("shell request recovery dismisses query presentations after recovery", async () => {
+  await withFetchStub({ surfaceAccess: {} }, async () => {
+    const queryCache = createQueryCacheDouble();
+    const queryClient = {
+      getQueryCache() {
+        return queryCache;
+      },
+      async refetchQueries() {}
+    };
+    const app = createAppDouble({ queryClient });
+    const provider = new ShellWebClientProvider();
+    provider.register(app);
+    await provider.boot(app);
+
+    const query = {
+      queryHash: "[\"project-access\"]",
+      queryKey: ["project-access"],
+      meta: {
+        jskit: {
+          requestRecoveryLabel: "Project access",
+          requestRecoverySource: "project-access.panel",
+          requestRecoveryDedupeKey: "project-access",
+          requestRecoveryMethod: "GET"
+        }
+      },
+      state: {
+        status: "error",
+        fetchStatus: "idle",
+        error: {
+          status: 0,
+          message: "Network request failed."
+        },
+        errorUpdateCount: 1
+      },
+      isActive() {
+        return true;
+      }
+    };
+    queryCache.emit({ type: "updated", query });
+
+    const errorStore = app.make("runtime.web-error.presentation-store.client");
+    assert.equal(errorStore.getState().channels.banner.length, 1);
+
+    query.state = {
+      status: "success",
+      fetchStatus: "idle",
+      data: {
+        ok: true
+      },
+      error: null,
+      errorUpdateCount: 1
+    };
+    queryCache.emit({ type: "updated", query });
+
+    assert.equal(errorStore.getState().channels.banner.length, 0);
+  });
+});
+
 test("shell request recovery ignores query transport failures without a safe read method", async () => {
   await withFetchStub({ surfaceAccess: {} }, async () => {
     const queryCache = createQueryCacheDouble();
