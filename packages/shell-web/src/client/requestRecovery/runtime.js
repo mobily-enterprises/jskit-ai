@@ -277,29 +277,54 @@ function installRecoverableQueryObserver({
 
   const reportedErrorUpdateByQueryHash = new Map();
 
+  function dismissReportedQueryRecovery(queryHash = "") {
+    const reported = reportedErrorUpdateByQueryHash.get(queryHash);
+    if (!reported) {
+      return;
+    }
+
+    reportedErrorUpdateByQueryHash.delete(queryHash);
+    if (reported.presentationId && typeof runtime.dismiss === "function") {
+      runtime.dismiss(reported.presentationId, {
+        presenterId: reported.presenterId
+      });
+    }
+  }
+
+  function dismissReportedQueryRecoveries() {
+    for (const queryHash of [...reportedErrorUpdateByQueryHash.keys()]) {
+      dismissReportedQueryRecovery(queryHash);
+    }
+  }
+
   function inspectQuery(query = null) {
+    const queryHash = resolveQueryHash(query);
     if (
       !query ||
       isRequestRecoveryDisabled(query) ||
       !isSafeQueryRecoveryMethod(query) ||
       !isActiveQuery(query)
     ) {
+      if (queryHash) {
+        dismissReportedQueryRecovery(queryHash);
+      }
       return;
     }
 
     const error = recoverableQueryError(query);
-    const queryHash = resolveQueryHash(query);
     if (!error || !queryHash) {
-      reportedErrorUpdateByQueryHash.delete(queryHash);
+      if (queryHash) {
+        dismissReportedQueryRecovery(queryHash);
+      }
       return;
     }
 
     const errorUpdateCount = Number(query?.state?.errorUpdateCount || 0);
     const reportKey = `${errorUpdateCount}:${errorMessage(error)}`;
-    if (reportedErrorUpdateByQueryHash.get(queryHash) === reportKey) {
+    const reported = reportedErrorUpdateByQueryHash.get(queryHash);
+    if (reported?.reportKey === reportKey) {
       return;
     }
-    reportedErrorUpdateByQueryHash.set(queryHash, reportKey);
 
     const source = resolveQueryRecoverySource(query);
     const dedupeKey = resolveQueryRecoveryDedupeKey(
@@ -307,13 +332,24 @@ function installRecoverableQueryObserver({
       `shell-web.request-recovery.query.${queryHash}.${errorUpdateCount}`
     );
     const dedupeWindowMs = resolveQueryRecoveryDedupeWindowMs(query);
-    runtime.report(error, {
+    const result = runtime.report(error, {
       label: resolveQueryRecoveryLabel(query),
       retry: createQueryRetry(queryClient, query),
       source,
       stale: query?.state?.data !== undefined,
       dedupeKey,
       ...(dedupeWindowMs !== null ? { dedupeWindowMs } : {})
+    });
+
+    const presentationId = normalizeText(result?.presentationId || reported?.presentationId);
+    const presenterId = normalizeText(result?.decision?.presenterId || reported?.presenterId);
+    if (reported?.presentationId && reported.presentationId !== presentationId) {
+      dismissReportedQueryRecovery(queryHash);
+    }
+    reportedErrorUpdateByQueryHash.set(queryHash, {
+      reportKey,
+      presentationId,
+      presenterId
     });
   }
 
@@ -347,7 +383,7 @@ function installRecoverableQueryObserver({
 
   return Object.freeze({
     dispose() {
-      reportedErrorUpdateByQueryHash.clear();
+      dismissReportedQueryRecoveries();
       if (typeof unsubscribe === "function") {
         unsubscribe();
       }
@@ -427,6 +463,14 @@ function createShellRequestRecoveryRuntime({
     };
   }
 
+  function dismiss(presentationId = "", options = {}) {
+    const runtime = errorRuntime();
+    if (!runtime || typeof runtime.dismiss !== "function") {
+      return 0;
+    }
+    return runtime.dismiss(presentationId, options);
+  }
+
   function report(error = null, options = {}) {
     if (!isRecoverableRequestError(error) && options.force !== true) {
       return null;
@@ -496,6 +540,7 @@ function createShellRequestRecoveryRuntime({
   }
 
   const api = Object.freeze({
+    dismiss,
     dispose,
     install,
     isRecoverableRequestError,
