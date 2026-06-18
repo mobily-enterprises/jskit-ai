@@ -82,6 +82,31 @@ test("resolveClientOptimizeExcludeSpecifiers excludes local/app-local package ro
   ]);
 });
 
+test("resolveClientOptimizeExcludeSpecifiers includes descriptor-declared excludes", () => {
+  const exclude = resolveClientOptimizeExcludeSpecifiers([
+    {
+      packageId: "@z/pkg",
+      sourceType: "packages-directory",
+      descriptorUiRoutes: [],
+      descriptorClientOptimizeExcludeSpecifiers: ["@z/pkg/client"]
+    },
+    {
+      packageId: "@a/pkg",
+      sourceType: "local-package",
+      descriptorUiRoutes: [],
+      descriptorClientOptimizeExcludeSpecifiers: ["external-problem-dep"]
+    }
+  ]);
+
+  assert.deepEqual(exclude, [
+    "@a/pkg",
+    "@a/pkg/client",
+    "@a/pkg/shared",
+    "@z/pkg/client",
+    "external-problem-dep"
+  ]);
+});
+
 test("resolveClientOptimizeIncludeSpecifiers includes only non-local package clients", () => {
   const include = resolveClientOptimizeIncludeSpecifiers([
     {
@@ -107,6 +132,27 @@ test("resolveClientOptimizeIncludeSpecifiers includes only non-local package cli
   ]);
 
   assert.deepEqual(include, ["@c/pkg/client", "@z/pkg/client"]);
+});
+
+test("resolveClientOptimizeIncludeSpecifiers omits excluded package clients", () => {
+  const include = resolveClientOptimizeIncludeSpecifiers(
+    [
+      {
+        packageId: "@z/pkg",
+        sourceType: "packages-directory",
+        descriptorUiRoutes: []
+      },
+      {
+        packageId: "@c/pkg",
+        sourceType: "npm",
+        descriptorUiRoutes: [],
+        descriptorClientOptimizeIncludeSpecifiers: ["extra-dep"]
+      }
+    ],
+    ["@z/pkg/client", "extra-dep"]
+  );
+
+  assert.deepEqual(include, ["@c/pkg/client"]);
 });
 
 test("resolveLocalScopeOptimizeExcludeSpecifiers expands @local package ids to root/client/shared", () => {
@@ -405,6 +451,58 @@ test("createJskitClientBootstrapPlugin config excludes installed client package 
     assert.deepEqual(result.optimizeDeps.exclude, ["already/excluded"]);
     assert.deepEqual(result.optimizeDeps.include, ["@example/has-client/client", "a"]);
     assert.deepEqual(result.resolve.dedupe, ["@tanstack/vue-query", "pinia", "vue", "vue-router", "vuetify"]);
+  } finally {
+    process.chdir(previousCwd);
+  }
+});
+
+test("createJskitClientBootstrapPlugin config lets descriptor excludes override automatic client includes", async () => {
+  const tempRoot = await mkdtemp(path.join(os.tmpdir(), "jskit-client-bootstrap-config-descriptor-exclude-"));
+  const previousCwd = process.cwd();
+
+  try {
+    await mkdir(path.join(tempRoot, ".jskit"), { recursive: true });
+    await writeJson(path.join(tempRoot, ".jskit", "lock.json"), {
+      lockVersion: 1,
+      installedPackages: {
+        "@example/app-bound-client": {
+          source: {
+            type: "npm"
+          }
+        }
+      }
+    });
+
+    const packageRoot = path.join(tempRoot, "node_modules", "@example", "app-bound-client");
+    await mkdir(packageRoot, { recursive: true });
+    await writeJson(path.join(packageRoot, "package.json"), {
+      name: "@example/app-bound-client",
+      exports: {
+        "./client": "./src/client/index.js"
+      }
+    });
+    await writeDescriptor(path.join(packageRoot, "package.descriptor.mjs"), {
+      metadata: {
+        client: {
+          optimizeDeps: {
+            include: ["safe-helper"],
+            exclude: ["@example/app-bound-client/client"]
+          }
+        }
+      }
+    });
+
+    process.chdir(tempRoot);
+    const plugin = createJskitClientBootstrapPlugin();
+    const result = await plugin.config({
+      optimizeDeps: {
+        include: ["@example/app-bound-client/client", "user-helper"],
+        exclude: ["user-excluded"]
+      }
+    });
+
+    assert.deepEqual(result.optimizeDeps.exclude, ["@example/app-bound-client/client", "user-excluded"]);
+    assert.deepEqual(result.optimizeDeps.include, ["safe-helper", "user-helper"]);
   } finally {
     process.chdir(previousCwd);
   }

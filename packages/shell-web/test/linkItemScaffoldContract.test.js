@@ -151,8 +151,12 @@ test("shell-web generic link items support the expected shared route and icon be
 
   assert.match(shellMenuSource, /exact:\s*\{/);
   assert.match(shellMenuSource, /:exact="props\.exact"/);
+  assert.match(shellMenuSource, /class="shell-menu-link-item"/);
+  assert.match(shellMenuSource, /min-height:\s*48px/);
   assert.match(shellSurfaceAwareSource, /exact:\s*\{/);
   assert.match(shellSurfaceAwareSource, /:exact="props\.exact"/);
+  assert.match(shellSurfaceAwareSource, /class="shell-menu-link-item"/);
+  assert.match(shellSurfaceAwareSource, /min-height:\s*48px/);
   assert.match(shellTabSource, /icon:\s*\{/);
   assert.match(shellTabSource, /resolveMenuLinkIcon/);
   assert.match(shellTabSource, /<v-btn/);

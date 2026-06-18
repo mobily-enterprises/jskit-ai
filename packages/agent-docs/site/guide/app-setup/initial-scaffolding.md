@@ -174,6 +174,9 @@ The most important parts look like this:
 
 ```json
 {
+  "engines": {
+    "node": "^20.19.0 || ^22.12.0"
+  },
   "scripts": {
     "server": "node ./bin/server.js",
     "server:all": "node ./bin/server.js",
@@ -196,26 +199,26 @@ The most important parts look like this:
   },
   "dependencies": {
     "@local/main": "file:packages/main",
-    "@fastify/static": "^9.1.1",
+    "@fastify/static": "^9.1.3",
     "@jskit-ai/kernel": "0.x",
-    "@tanstack/vue-query": "^5.90.5",
+    "@tanstack/vue-query": "^5.101.0",
     "@jskit-ai/http-runtime": "0.x",
-    "fastify": "^5.7.4",
-    "json-rest-schema": "^1.0.13",
+    "fastify": "^5.8.5",
+    "json-rest-schema": "^1.0.16",
     "pinia": "^3.0.4",
-    "vue": "^3.5.13",
-    "vue-router": "^5.0.4",
-    "vuetify": "^4.0.0"
+    "vue": "^3.5.38",
+    "vue-router": "^5.1.0",
+    "vuetify": "^4.1.2"
   },
   "devDependencies": {
     "@jskit-ai/agent-docs": "0.x",
     "@jskit-ai/config-eslint": "0.x",
     "@jskit-ai/jskit-cli": "0.x",
-    "@playwright/test": "^1.57.0",
-    "@vitejs/plugin-vue": "^5.2.1",
-    "eslint": "^9.39.1",
-    "vite": "^6.1.0",
-    "vitest": "^4.0.18"
+    "@playwright/test": "^1.61.0",
+    "@vitejs/plugin-vue": "^6.0.7",
+    "eslint": "^9.39.4",
+    "vite": "^8.0.16",
+    "vitest": "^4.1.9"
   }
 }
 ```

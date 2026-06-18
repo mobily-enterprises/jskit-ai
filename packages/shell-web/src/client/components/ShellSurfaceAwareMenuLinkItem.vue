@@ -106,6 +106,7 @@ const resolvedIcon = computed(() =>
 <template>
   <v-list-item
     v-if="resolvedTarget.href"
+    class="shell-menu-link-item"
     :title="props.label"
     :to="resolvedTarget.sameOrigin ? resolvedTarget.href : undefined"
     :href="resolvedTarget.sameOrigin ? undefined : resolvedTarget.href"
@@ -114,3 +115,9 @@ const resolvedIcon = computed(() =>
     :exact="props.exact"
   />
 </template>
+
+<style scoped>
+.shell-menu-link-item {
+  min-height: 48px;
+}
+</style>

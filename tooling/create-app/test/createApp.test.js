@@ -118,6 +118,7 @@ test("create-app scaffolds the base shell with placeholder replacements", async 
     const appRoot = path.join(cwd, "sample-app");
     const packageJson = JSON.parse(await readFile(path.join(appRoot, "package.json"), "utf8"));
     assert.equal(packageJson.name, "sample-app");
+    assert.equal(packageJson.engines.node, "^20.19.0 || ^22.12.0");
     assert.equal(packageJson.scripts.preinstall, undefined);
     assert.equal(packageJson.scripts["verdaccio:reset:publish"], undefined);
     assert.equal(packageJson.scripts.postinstall, undefined);
@@ -149,7 +150,7 @@ test("create-app scaffolds the base shell with placeholder replacements", async 
     assert.equal(packageJson.scripts.release, "jskit app release");
     assert.equal(packageJson.scripts["jskit:update"], "jskit app update-packages");
     assert.equal(packageJson.dependencies["@local/main"], "file:packages/main");
-    assert.equal(packageJson.dependencies["@fastify/static"], "^9.1.1");
+    assert.equal(packageJson.dependencies["@fastify/static"], "^9.1.3");
     assert.match(packageJson.dependencies["@jskit-ai/http-runtime"], /^\d+\.x$/);
     assert.equal(packageJson.dependencies["@mdi/js"], "^7.4.47");
     assert.match(packageJson.dependencies["@jskit-ai/shell-web"], /^\d+\.x$/);
@@ -158,8 +159,15 @@ test("create-app scaffolds the base shell with placeholder replacements", async 
       false
     );
     assert.equal(packageJson.dependencies.pinia, "^3.0.4");
-    assert.equal(packageJson.dependencies["@tanstack/vue-query"], "^5.90.5");
-    assert.equal(packageJson.devDependencies["@playwright/test"], "^1.57.0");
+    assert.equal(packageJson.dependencies.vue, "^3.5.38");
+    assert.equal(packageJson.dependencies["vue-router"], "^5.1.0");
+    assert.equal(packageJson.dependencies.vuetify, "^4.1.2");
+    assert.equal(packageJson.dependencies["@tanstack/vue-query"], "^5.101.0");
+    assert.equal(packageJson.devDependencies["@playwright/test"], "^1.61.0");
+    assert.equal(packageJson.devDependencies["@vitejs/plugin-vue"], "^6.0.7");
+    assert.equal(packageJson.devDependencies.eslint, "^9.39.4");
+    assert.equal(packageJson.devDependencies.vite, "^8.0.16");
+    assert.equal(packageJson.devDependencies.vitest, "^4.1.9");
     await assert.rejects(access(path.join(appRoot, "scripts/devel-link-local-packages-postinstall.sh")), /ENOENT/);
     await assert.rejects(access(path.join(appRoot, "scripts/copy-local-packages.sh")), /ENOENT/);
     await assert.rejects(access(path.join(appRoot, "scripts/link-local-jskit-packages.sh")), /ENOENT/);
@@ -672,7 +680,10 @@ test("create-app minimal mode keeps the bare scaffold and can still install shel
 
     const appRoot = path.join(cwd, "minimal-app");
     const packageJsonBefore = JSON.parse(await readFile(path.join(appRoot, "package.json"), "utf8"));
+    assert.equal(packageJsonBefore.engines.node, "^20.19.0 || ^22.12.0");
     assert.equal(packageJsonBefore.dependencies["@jskit-ai/shell-web"], undefined);
+    assert.equal(packageJsonBefore.dependencies["vue-router"], "^5.1.0");
+    assert.equal(packageJsonBefore.devDependencies.vite, "^8.0.16");
     const homeViewBefore = await readFile(path.join(appRoot, "src/pages/home/index.vue"), "utf8");
     assert.match(homeViewBefore, /home-start-screen/);
     assert.match(homeViewBefore, /Home base/);

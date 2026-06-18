@@ -45,7 +45,7 @@ function normalizeDescriptorClientProviders(value) {
   return Object.freeze(providers);
 }
 
-function normalizeDescriptorClientOptimizeIncludeSpecifiers(value) {
+function normalizeDescriptorClientOptimizeSpecifiers(value) {
   return Object.freeze(sortStrings(value));
 }
 
@@ -61,15 +61,14 @@ function normalizeClientDescriptorSections(descriptorValue) {
   return Object.freeze({
     descriptorUiRoutes: normalizeDescriptorUiRoutes(ui.routes),
     descriptorClientProviders: normalizeDescriptorClientProviders(runtimeClient.providers),
-    descriptorClientOptimizeIncludeSpecifiers: normalizeDescriptorClientOptimizeIncludeSpecifiers(
-      optimizeDeps.include
-    )
+    descriptorClientOptimizeIncludeSpecifiers: normalizeDescriptorClientOptimizeSpecifiers(optimizeDeps.include),
+    descriptorClientOptimizeExcludeSpecifiers: normalizeDescriptorClientOptimizeSpecifiers(optimizeDeps.exclude)
   });
 }
 
 export {
   normalizeDescriptorUiRoutes,
   normalizeDescriptorClientProviders,
-  normalizeDescriptorClientOptimizeIncludeSpecifiers,
+  normalizeDescriptorClientOptimizeSpecifiers,
   normalizeClientDescriptorSections
 };
