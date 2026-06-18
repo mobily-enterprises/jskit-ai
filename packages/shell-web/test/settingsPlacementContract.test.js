@@ -316,6 +316,10 @@ test("shell-web placement topology seeds global actions as a semantic shell plac
 });
 
 test("shell-web descriptor metadata advertises adaptive shell outlets, default links, and installs the scaffold page", () => {
+  assert.deepEqual(descriptor?.metadata?.client?.optimizeDeps?.exclude, [
+    "@jskit-ai/shell-web/client"
+  ]);
+
   assert.deepEqual(readClientContainerTokens(), [
     "runtime.web-placement.client",
     "runtime.web-bootstrap.client",

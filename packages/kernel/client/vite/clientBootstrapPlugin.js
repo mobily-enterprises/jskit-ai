@@ -5,7 +5,7 @@ import { normalizeObject } from "../../shared/support/normalize.js";
 import { sortStrings } from "../../shared/support/sorting.js";
 import {
   normalizeDescriptorClientProviders,
-  normalizeDescriptorClientOptimizeIncludeSpecifiers,
+  normalizeDescriptorClientOptimizeSpecifiers,
   normalizeDescriptorUiRoutes,
   normalizeClientDescriptorSections
 } from "../descriptorSections.js";
@@ -67,7 +67,8 @@ async function resolveInstalledClientModules({ appRoot, lockPath }) {
         sourceType: String(installedPackageState?.source?.type || "").trim().toLowerCase(),
         descriptorUiRoutes: descriptorSections.descriptorUiRoutes,
         descriptorClientProviders: descriptorSections.descriptorClientProviders,
-        descriptorClientOptimizeIncludeSpecifiers: descriptorSections.descriptorClientOptimizeIncludeSpecifiers
+        descriptorClientOptimizeIncludeSpecifiers: descriptorSections.descriptorClientOptimizeIncludeSpecifiers,
+        descriptorClientOptimizeExcludeSpecifiers: descriptorSections.descriptorClientOptimizeExcludeSpecifiers
       })
     );
   }
@@ -113,8 +114,11 @@ function normalizeClientModuleDescriptors(value) {
       sourceType,
       descriptorUiRoutes: normalizeDescriptorUiRoutes(record.descriptorUiRoutes),
       descriptorClientProviders: normalizeDescriptorClientProviders(record.descriptorClientProviders),
-      descriptorClientOptimizeIncludeSpecifiers: normalizeDescriptorClientOptimizeIncludeSpecifiers(
+      descriptorClientOptimizeIncludeSpecifiers: normalizeDescriptorClientOptimizeSpecifiers(
         record.descriptorClientOptimizeIncludeSpecifiers
+      ),
+      descriptorClientOptimizeExcludeSpecifiers: normalizeDescriptorClientOptimizeSpecifiers(
+        record.descriptorClientOptimizeExcludeSpecifiers
       )
     });
   }
@@ -158,22 +162,26 @@ function resolveClientOptimizeExcludeSpecifiers(clientModules = []) {
   const moduleDescriptors = normalizeClientModuleDescriptors(clientModules);
   const localSourceTypes = new Set(["local-package", "app-local-package"]);
   return sortStrings(
-    moduleDescriptors
-      .filter((entry) => localSourceTypes.has(entry.sourceType))
-      .flatMap((entry) => [entry.packageId, `${entry.packageId}/shared`, `${entry.packageId}/client`])
+    [
+      ...moduleDescriptors
+        .filter((entry) => localSourceTypes.has(entry.sourceType))
+        .flatMap((entry) => [entry.packageId, `${entry.packageId}/shared`, `${entry.packageId}/client`]),
+      ...moduleDescriptors.flatMap((entry) => entry.descriptorClientOptimizeExcludeSpecifiers || [])
+    ]
   );
 }
 
-function resolveClientOptimizeIncludeSpecifiers(clientModules = []) {
+function resolveClientOptimizeIncludeSpecifiers(clientModules = [], excludeSpecifiers = []) {
   const moduleDescriptors = normalizeClientModuleDescriptors(clientModules);
   const localSourceTypes = new Set(["local-package", "app-local-package"]);
+  const excluded = new Set(sortStrings(excludeSpecifiers));
   return sortStrings(
     [
       ...moduleDescriptors
       .filter((entry) => !localSourceTypes.has(entry.sourceType))
       .map((entry) => `${entry.packageId}/client`),
       ...moduleDescriptors.flatMap((entry) => entry.descriptorClientOptimizeIncludeSpecifiers || [])
-    ]
+    ].filter((specifier) => !excluded.has(specifier))
   );
 }
 
@@ -204,12 +212,12 @@ function createJskitClientBootstrapPlugin({ lockPath = ".jskit/lock.json" } = {}
       });
       const clientExcludeSpecifiers = resolveClientOptimizeExcludeSpecifiers(clientModules);
       const localScopeExcludeSpecifiers = resolveLocalScopeOptimizeExcludeSpecifiers(localScopePackageIds);
-      const clientIncludeSpecifiers = resolveClientOptimizeIncludeSpecifiers(clientModules);
       const userOptimizeDeps = normalizeObject(userConfig.optimizeDeps);
       const userExclude = sortStrings(userOptimizeDeps.exclude);
       const userInclude = sortStrings(userOptimizeDeps.include);
       const exclude = sortStrings([...userExclude, ...clientExcludeSpecifiers, ...localScopeExcludeSpecifiers]);
-      const include = sortStrings([...userInclude, ...clientIncludeSpecifiers]);
+      const clientIncludeSpecifiers = resolveClientOptimizeIncludeSpecifiers(clientModules, exclude);
+      const include = sortStrings([...userInclude, ...clientIncludeSpecifiers].filter((specifier) => !exclude.includes(specifier)));
       const userResolve = normalizeObject(userConfig.resolve);
       const dedupe = resolveClientRuntimeDedupeSpecifiers(userResolve);
 
