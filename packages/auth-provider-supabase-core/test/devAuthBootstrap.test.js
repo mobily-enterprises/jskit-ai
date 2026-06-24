@@ -109,6 +109,47 @@ test("dev auth bootstrap can issue and authenticate a local session without Supa
   assert.equal(authResult.session, null);
 });
 
+test("dev auth bootstrap resolves security status without Supabase", async () => {
+  const authService = createServiceFixture();
+  const loginResult = await authService.devLoginAs(createLocalRequest(), {
+    userId: "7"
+  });
+
+  const securityStatus = await authService.getSecurityStatus(
+    createLocalRequest({
+      cookies: {
+        sb_access_token: loginResult.session.access_token,
+        sb_refresh_token: loginResult.session.refresh_token
+      }
+    })
+  );
+
+  const passwordMethod = securityStatus.authMethods.find((method) => method.id === "password");
+  assert.equal(securityStatus.authPolicy.minimumEnabledMethods, 1);
+  assert.equal(passwordMethod?.configured, true);
+  assert.equal(passwordMethod?.enabled, true);
+});
+
+test("dev auth security status rejects invalid dev sessions without recovery-link errors", async () => {
+  const authService = createServiceFixture();
+
+  await assert.rejects(
+    () =>
+      authService.getSecurityStatus(
+        createLocalRequest({
+          cookies: {
+            sb_access_token: "jskit-dev.invalid"
+          }
+        })
+      ),
+    (error) => {
+      assert.equal(error.statusCode || error.status, 401);
+      assert.equal(error.message, "Authentication required.");
+      return true;
+    }
+  );
+});
+
 test("dev auth bootstrap supports email lookup", async () => {
   const authService = createServiceFixture();
 
