@@ -6,6 +6,7 @@
     "test": "node --test"
   },
   "exports": {
+    "./server/previewUserProvisioning": "./src/server/previewUserProvisioning.js",
     "./server/profileSyncLifecycleContributorRegistry": "./src/server/profileSyncLifecycleContributorRegistry.js",
     "./shared/resources/userProfileResource": "./src/shared/resources/userProfileResource.js",
     "./shared/resources/userSettingsResource": "./src/shared/resources/userSettingsResource.js"

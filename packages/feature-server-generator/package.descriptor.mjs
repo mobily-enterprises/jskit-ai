@@ -174,7 +174,7 @@ export default Object.freeze({
             equals: "json-rest"
           }
         },
-        "@jskit-ai/kernel": "0.1.96",
+        "@jskit-ai/kernel": "0.1.97",
         "json-rest-schema": "1.x.x",
         "@local/${option:feature-name|kebab}": "file:packages/${option:feature-name|kebab}"
       },

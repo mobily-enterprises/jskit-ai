@@ -21,4 +21,14 @@ function cookieOptions(isProduction, maxAge) {
   return options;
 }
 
-export { safeRequestCookies, cookieOptions };
+function cookieClearOptions(isProduction) {
+  return [
+    cookieOptions(isProduction, 0),
+    {
+      ...cookieOptions(isProduction, 0),
+      path: "/api"
+    }
+  ];
+}
+
+export { safeRequestCookies, cookieOptions, cookieClearOptions };

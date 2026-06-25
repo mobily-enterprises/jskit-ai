@@ -198,6 +198,26 @@ Local functions
 Exports
 - `resolveActionUser(context, input)`
 
+### `src/server/previewUserProvisioning.js`
+Exports
+- `DEFAULT_AUTH_PROVIDER`
+- `DEFAULT_DISPLAY_NAME`
+- `DEFAULT_EMAIL`
+- `ensurePreviewUser(db, profileInput = {})`
+- `normalizePreviewUserProfile(profile = {})`
+- `profileFromUserRow(user = {}, fallback = {})`
+Local functions
+- `normalizeText(value = "")`
+- `normalizeLowerText(value = "")`
+- `normalizeUsername(value = "")`
+- `usernameBaseFromEmail(email = "")`
+- `buildUsernameCandidate(baseUsername = "", suffix = 0)`
+- `isDuplicateError(error)`
+- `resolveUniqueUsername(db, baseUsername = "", { excludeUserId = "" } = {})`
+- `findPreviewUser(db, profile = {})`
+- `ensurePreviewUserRow(db, profile = {})`
+- `ensureUserSettings(db, user = {})`
+
 ### `src/server/profileSyncLifecycleContributorRegistry.js`
 Exports
 - `PROFILE_SYNC_LIFECYCLE_CONTRIBUTOR_TAG`

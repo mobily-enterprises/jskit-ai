@@ -2942,7 +2942,7 @@
                   "equals": "json-rest"
                 }
               },
-              "@jskit-ai/kernel": "0.1.96",
+              "@jskit-ai/kernel": "0.1.97",
               "json-rest-schema": "1.x.x",
               "@local/${option:feature-name|kebab}": "file:packages/${option:feature-name|kebab}"
             },
@@ -3819,11 +3819,11 @@
     },
     {
       "packageId": "@jskit-ai/shell-web",
-      "version": "0.1.95",
+      "version": "0.1.96",
       "descriptor": {
         "packageVersion": 1,
         "packageId": "@jskit-ai/shell-web",
-        "version": "0.1.95",
+        "version": "0.1.96",
         "kind": "runtime",
         "description": "Web shell layout runtime with outlet-based placement contributions.",
         "dependsOn": [],
@@ -3850,6 +3850,13 @@
           }
         },
         "metadata": {
+          "client": {
+            "optimizeDeps": {
+              "exclude": [
+                "@jskit-ai/shell-web/client"
+              ]
+            }
+          },
           "apiSummary": {
             "surfaces": [
               {
@@ -4158,7 +4165,7 @@
           "dependencies": {
             "runtime": {
               "@mdi/js": "^7.4.47",
-              "@jskit-ai/kernel": "0.1.96"
+              "@jskit-ai/kernel": "0.1.97"
             },
             "dev": {}
           },

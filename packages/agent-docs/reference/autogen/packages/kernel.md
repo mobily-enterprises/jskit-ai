@@ -678,7 +678,7 @@ Exports
 Exports
 - `normalizeDescriptorUiRoutes(value)`
 - `normalizeDescriptorClientProviders(value)`
-- `normalizeDescriptorClientOptimizeIncludeSpecifiers(value)`
+- `normalizeDescriptorClientOptimizeSpecifiers(value)`
 - `normalizeClientDescriptorSections(descriptorValue)`
 
 ### `client/index.js`
@@ -782,7 +782,7 @@ Exports
 - `CLIENT_BOOTSTRAP_VIRTUAL_ID`
 - `CLIENT_BOOTSTRAP_RESOLVED_ID`
 - `createVirtualModuleSource(clientModules = [])`
-- `resolveClientOptimizeIncludeSpecifiers(clientModules = [])`
+- `resolveClientOptimizeIncludeSpecifiers(clientModules = [], excludeSpecifiers = [])`
 - `resolveClientOptimizeExcludeSpecifiers(clientModules = [])`
 - `resolveLocalScopeOptimizeExcludeSpecifiers(localScopePackageIds = [])`
 - `resolveInstalledClientPackageIds(options)`

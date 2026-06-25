@@ -240,14 +240,22 @@ const authActionsAfterDevLogin = Object.freeze([
     },
     observability: {},
     async execute(_input, context, deps) {
+      let logoutResult = {
+        ok: true,
+        clearSession: true
+      };
+      if (deps.authService && typeof deps.authService.logout === "function") {
+        logoutResult = await deps.authService.logout(requireRequestContext(context, "auth.logout"));
+      }
+
       if (deps.authSessionEventsService && typeof deps.authSessionEventsService.notifySessionChanged === "function") {
         await deps.authSessionEventsService.notifySessionChanged({
           context
         });
       }
       return {
-        ok: true,
-        clearSession: true
+        ok: logoutResult?.ok !== false,
+        clearSession: logoutResult?.clearSession !== false
       };
     }
   },

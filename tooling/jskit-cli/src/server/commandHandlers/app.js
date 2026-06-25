@@ -10,6 +10,7 @@ import {
 } from "./appCommandCatalog.js";
 import { runAppAdoptManagedScriptsCommand } from "./appCommands/adoptManagedScripts.js";
 import { runAppLinkLocalPackagesCommand } from "./appCommands/linkLocalPackages.js";
+import { runAppPreparePreviewUserCommand } from "./appCommands/preparePreviewUser.js";
 import { runAppReleaseCommand } from "./appCommands/release.js";
 import { runAppUpdatePackagesCommand } from "./appCommands/updatePackages.js";
 import { runAppVerifyCommand } from "./appCommands/verify.js";
@@ -150,6 +151,9 @@ function createAppCommands(ctx = {}) {
     }
     if (definition.name === "adopt-managed-scripts") {
       return runAppAdoptManagedScriptsCommand(ctx, { appRoot, options, stdout, stderr });
+    }
+    if (definition.name === "prepare-preview-user") {
+      return runAppPreparePreviewUserCommand(ctx, { appRoot, options, stdout, stderr });
     }
 
     throw createCliError(`Unhandled app subcommand: ${definition.name}.`, {
