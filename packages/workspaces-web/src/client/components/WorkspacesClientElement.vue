@@ -165,7 +165,7 @@ const isBootstrapping = computed(() => Boolean(bootstrapView.isLoading));
 const isRefreshingBootstrap = computed(() => Boolean(bootstrapView.isRefetching));
 const bootstrapLoadError = computed(() => String(bootstrapView.loadError || "").trim());
 const canCreateWorkspace = computed(() => bootstrapModel.workspaceAllowSelfCreate === true);
-const isCreatingWorkspace = computed(() => Boolean(createWorkspaceCommand.isRunning.value));
+const isCreatingWorkspace = computed(() => Boolean(createWorkspaceCommand.isRunning));
 
 function reportFeedback({
   message,

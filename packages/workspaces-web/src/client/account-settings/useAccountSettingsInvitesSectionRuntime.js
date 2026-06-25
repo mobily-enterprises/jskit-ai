@@ -132,7 +132,7 @@ function useAccountSettingsInvitesSectionRuntime() {
   const pendingInvites = computed(() =>
     Array.isArray(pendingInvitesModel.pendingInvites) ? pendingInvitesModel.pendingInvites : []
   );
-  const isResolvingInvite = computed(() => Boolean(redeemInviteCommand.isRunning.value));
+  const isResolvingInvite = computed(() => Boolean(redeemInviteCommand.isRunning));
 
   const { workspaceSurfaceId } = useWorkspaceSurfaceId({
     route,

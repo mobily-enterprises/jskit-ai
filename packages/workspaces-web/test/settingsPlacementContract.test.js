@@ -126,6 +126,42 @@ test("workspaces-web resource load states expose local retry actions", async () 
   }
 });
 
+test("workspaces-web command loading state uses users-web proxyRefs contract", async () => {
+  const expectations = new Map([
+    [
+      "src/client/components/WorkspaceMembersClientElement.vue",
+      [
+        /isCreatingInvite: Boolean\(inviteCreateCommand\.isRunning\)/,
+        /if \(inviteCreateCommand\.isRunning \|\| !canInviteMembers\.value\)/
+      ]
+    ],
+    [
+      "src/client/components/WorkspacesClientElement.vue",
+      [
+        /const isCreatingWorkspace = computed\(\(\) => Boolean\(createWorkspaceCommand\.isRunning\)\)/
+      ]
+    ],
+    [
+      "src/client/account-settings/useAccountSettingsInvitesSectionRuntime.js",
+      [
+        /const isResolvingInvite = computed\(\(\) => Boolean\(redeemInviteCommand\.isRunning\)\)/
+      ]
+    ]
+  ]);
+
+  for (const [relativePath, patterns] of expectations) {
+    const source = await readFile(path.join(PACKAGE_DIR, relativePath), "utf8");
+    assert.doesNotMatch(
+      source,
+      /\.isRunning\.value/,
+      `${relativePath} must not read useCommand().isRunning.value; useCommand returns proxyRefs.`
+    );
+    for (const pattern of patterns) {
+      assert.match(source, pattern, `${relativePath} must expose command loading state to the UI.`);
+    }
+  }
+});
+
 test("workspaces-web installs an account invites cue scaffold that reads placement runtime state", async () => {
   const source = await readFile(
     path.join(PACKAGE_DIR, "templates", "packages", "main", "src", "client", "components", "AccountPendingInvitesCue.vue"),

@@ -413,9 +413,9 @@ const memberRemoveCommand = useCommand({
 
 const status = computed(() => {
   return {
-    isCreatingInvite: Boolean(inviteCreateCommand.isRunning.value),
-    isRevokingInvite: Boolean(revokeInviteCommand.isRunning.value),
-    isRemovingMember: Boolean(memberRemoveCommand.isRunning.value),
+    isCreatingInvite: Boolean(inviteCreateCommand.isRunning),
+    isRevokingInvite: Boolean(revokeInviteCommand.isRunning),
+    isRemovingMember: Boolean(memberRemoveCommand.isRunning),
     hasLoadedWorkspaceSettings: !canInviteMembers.value || !workspaceSettingsView.isLoading,
     hasLoadedMembersList: !canViewMembers.value || !workspaceMembersList.isInitialLoading,
     hasLoadedInviteList: !canViewMembers.value || !workspaceInvitesList.isInitialLoading,
@@ -574,7 +574,7 @@ watch(
 );
 
 async function submitInvite() {
-  if (inviteCreateCommand.isRunning.value || !canInviteMembers.value) {
+  if (inviteCreateCommand.isRunning || !canInviteMembers.value) {
     return;
   }
 
@@ -594,7 +594,7 @@ async function submitInvite() {
 }
 
 async function submitRevokeInvite(inviteId) {
-  if (revokeInviteCommand.isRunning.value || !canRevokeInvites.value) {
+  if (revokeInviteCommand.isRunning || !canRevokeInvites.value) {
     return;
   }
 
@@ -645,7 +645,7 @@ async function submitMemberRoleUpdate(member, roleSid) {
 }
 
 async function submitRemoveMember(member) {
-  if (memberRemoveCommand.isRunning.value || !canManageMembers.value) {
+  if (memberRemoveCommand.isRunning || !canManageMembers.value) {
     return;
   }
 
