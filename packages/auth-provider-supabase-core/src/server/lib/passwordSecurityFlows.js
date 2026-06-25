@@ -32,7 +32,8 @@ function createPasswordSecurityFlows(deps) {
     buildAuthMethodsStatusFromSupabaseUser,
     buildSecurityStatusFromAuthMethodsStatus,
     authMethodPasswordProvider,
-    buildAuthMethodsStatusFromProviderIds
+    buildAuthMethodsStatusFromProviderIds,
+    resolveDevAuthSecurityStatus
   } = deps;
 
   async function requestPasswordReset(payload) {
@@ -314,6 +315,13 @@ function createPasswordSecurityFlows(deps) {
         passwordSetupRequired: false
       });
       return buildSecurityStatusFromAuthMethodsStatus(authMethodsStatus);
+    }
+
+    if (typeof resolveDevAuthSecurityStatus === "function") {
+      const devAuthSecurityStatus = await resolveDevAuthSecurityStatus(request);
+      if (devAuthSecurityStatus) {
+        return devAuthSecurityStatus;
+      }
     }
 
     const current = await resolveCurrentAuthContext(request);

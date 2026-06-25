@@ -373,6 +373,39 @@ function createService(options) {
     };
   }
 
+  function resolveRequestSessionTokens(request) {
+    const cookies = safeRequestCookies(request);
+    return {
+      accessToken: String(cookies[ACCESS_TOKEN_COOKIE] || ""),
+      refreshToken: String(cookies[REFRESH_TOKEN_COOKIE] || "")
+    };
+  }
+
+  async function authenticateDevAuthRequestFromCookies(request, tokens = resolveRequestSessionTokens(request)) {
+    const devAuthResult = await authenticateDevAuthRequest(
+      {
+        request,
+        accessToken: tokens.accessToken,
+        refreshToken: tokens.refreshToken
+      },
+      {
+        config: devAuthConfig,
+        userProfilesRepository
+      }
+    );
+
+    if (!devAuthResult || devAuthResult.authenticated !== true) {
+      return devAuthResult;
+    }
+
+    return {
+      ...devAuthResult,
+      profile: requireAuthenticatedProfile(devAuthResult.profile, {
+        context: "dev auth profile"
+      })
+    };
+  }
+
   function writeSessionCookies(reply, session) {
     const accessToken = String(session?.access_token || "");
     const refreshToken = String(session?.refresh_token || "");
@@ -612,6 +645,25 @@ function createService(options) {
     };
   }
 
+  async function resolveDevAuthSecurityStatus(request) {
+    const devAuthResult = await authenticateDevAuthRequestFromCookies(request);
+    if (!devAuthResult) {
+      return null;
+    }
+
+    if (devAuthResult.authenticated !== true) {
+      throw new AppError(401, "Authentication required.");
+    }
+
+    const passwordSignInPolicy = await resolvePasswordSignInPolicyForUserId(devAuthResult.profile.id);
+    const authMethodsStatus = buildAuthMethodsStatusFromProviderIds([AUTH_METHOD_PASSWORD_PROVIDER], {
+      ...passwordSignInPolicy,
+      oauthProviders: authOAuthProviders
+    });
+
+    return buildSecurityStatusFromAuthMethodsStatus(authMethodsStatus);
+  }
+
   const { register, resendRegisterConfirmation, login, requestOtpLogin, verifyOtpLogin, updateDisplayName } = createAccountFlows({
     ensureConfigured,
     validationError,
@@ -693,34 +745,15 @@ function createService(options) {
       buildAuthMethodsStatusFromProviderIds(providerIds, {
         ...statusOptions,
         oauthProviders: authOAuthProviders
-      })
+      }),
+    resolveDevAuthSecurityStatus
   });
 
   async function authenticateRequest(request) {
-    const cookies = safeRequestCookies(request);
-    const accessToken = String(cookies[ACCESS_TOKEN_COOKIE] || "");
-    const refreshToken = String(cookies[REFRESH_TOKEN_COOKIE] || "");
+    const { accessToken, refreshToken } = resolveRequestSessionTokens(request);
 
-    const devAuthResult = await authenticateDevAuthRequest(
-      {
-        request,
-        accessToken,
-        refreshToken
-      },
-      {
-        config: devAuthConfig,
-        userProfilesRepository
-      }
-    );
+    const devAuthResult = await authenticateDevAuthRequestFromCookies(request, { accessToken, refreshToken });
     if (devAuthResult) {
-      if (devAuthResult.authenticated === true) {
-        return {
-          ...devAuthResult,
-          profile: requireAuthenticatedProfile(devAuthResult.profile, {
-            context: "dev auth profile"
-          })
-        };
-      }
       return devAuthResult;
     }
 
