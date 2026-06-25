@@ -3,7 +3,7 @@ import { HOME_COG_OUTLET } from "./src/shared/toolsOutletContracts.js";
 export default Object.freeze({
   packageVersion: 1,
   packageId: "@jskit-ai/users-web",
-  version: "0.1.111",
+  version: "0.1.112",
   kind: "runtime",
   description: "Users web module: account/profile UI plus shared users web widgets.",
   dependsOn: [
@@ -286,12 +286,12 @@ export default Object.freeze({
     dependencies: {
       runtime: {
         "@mdi/js": "^7.4.47",
-        "@jskit-ai/http-runtime": "0.1.95",
-        "@jskit-ai/realtime": "0.1.95",
-        "@jskit-ai/kernel": "0.1.96",
-        "@jskit-ai/shell-web": "0.1.95",
-        "@jskit-ai/uploads-image-web": "0.1.74",
-        "@jskit-ai/users-core": "0.1.106"
+        "@jskit-ai/http-runtime": "0.1.96",
+        "@jskit-ai/realtime": "0.1.96",
+        "@jskit-ai/kernel": "0.1.98",
+        "@jskit-ai/shell-web": "0.1.97",
+        "@jskit-ai/uploads-image-web": "0.1.75",
+        "@jskit-ai/users-core": "0.1.107"
       },
       dev: {}
     },
