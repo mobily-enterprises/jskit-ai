@@ -36,6 +36,7 @@ Local functions
 Exports
 - `safeRequestCookies(request)`
 - `cookieOptions(isProduction, maxAge)`
+- `cookieClearOptions(isProduction)`
 
 ### `src/server/lib/authenticatedProfile.js`
 Exports

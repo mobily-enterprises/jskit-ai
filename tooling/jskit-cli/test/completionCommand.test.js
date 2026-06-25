@@ -88,7 +88,15 @@ test("completion bash __complete__ lists app subcommands and app-specific option
   assert.equal(subcommandResult.status, 0, String(subcommandResult.stderr || ""));
   assert.deepEqual(
     String(subcommandResult.stdout || "").trim().split(/\r?\n/u).filter(Boolean),
-    ["adopt-managed-scripts", "link-local-packages", "release", "update-packages", "verify", "verify-ui"]
+    [
+      "adopt-managed-scripts",
+      "link-local-packages",
+      "prepare-preview-user",
+      "release",
+      "update-packages",
+      "verify",
+      "verify-ui"
+    ]
   );
 
   const optionResult = runCli({
@@ -119,6 +127,25 @@ test("completion bash __complete__ lists app subcommands and app-specific option
   assert.deepEqual(
     String(verifyUiOptionResult.stdout || "").trim().split(/\r?\n/u).filter(Boolean),
     ["--against", "--auth-mode", "--command", "--feature", "--help"]
+  );
+
+  const previewUserOptionResult = runCli({
+    args: ["completion", "bash", "__complete__", "4", "--", "npx", "jskit", "app", "prepare-preview-user", "--"]
+  });
+
+  assert.equal(previewUserOptionResult.status, 0, String(previewUserOptionResult.stderr || ""));
+  assert.deepEqual(
+    String(previewUserOptionResult.stdout || "").trim().split(/\r?\n/u).filter(Boolean),
+    [
+      "--auth-provider",
+      "--auth-provider-user-sid",
+      "--display-name",
+      "--email",
+      "--ensure-workspace",
+      "--help",
+      "--profile-file",
+      "--username"
+    ]
   );
 
   const verifyOptionResult = runCli({

@@ -137,6 +137,10 @@ function parseArgs(argv, { createCliError } = {}) {
       options.inlineOptions["skip-main-sync"] = "true";
       continue;
     }
+    if (token === "--ensure-workspace") {
+      options.inlineOptions["ensure-workspace"] = "true";
+      continue;
+    }
 
     if (token.startsWith("--")) {
       const withoutPrefix = token.slice(2);

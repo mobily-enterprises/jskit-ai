@@ -41,6 +41,26 @@ function findRoute(routes, method, path) {
   return routes.find((route) => route.method === method && route.path === path) || null;
 }
 
+function assertRecordIdOnlyParamsValidator(actual) {
+  assert.equal(actual?.mode, recordIdParamsValidator.mode);
+  assert.deepEqual(actual?.schema?.structure, recordIdParamsValidator.schema.structure);
+  assert.deepEqual(actual.schema.patch({ recordId: "42" }), {
+    validatedObject: {
+      recordId: "42"
+    },
+    errors: {}
+  });
+
+  const withWorkspaceSlug = actual.schema.patch({
+    recordId: "42",
+    workspaceSlug: "acme"
+  });
+  assert.deepEqual(withWorkspaceSlug.validatedObject, {
+    recordId: "42"
+  });
+  assert.equal(withWorkspaceSlug.errors.workspaceSlug?.code, "FIELD_NOT_ALLOWED");
+}
+
 test("crud routes build flattened create/update action input", async () => {
   const registeredRoutes = [];
   const router = {
@@ -204,9 +224,9 @@ test("crud non-workspace record routes validate only recordId params", () => {
   assert.ok(viewRoute);
   assert.ok(updateRoute);
   assert.ok(deleteRoute);
-  assert.equal(viewRoute.route.params, recordIdParamsValidator);
-  assert.equal(updateRoute.route.params, recordIdParamsValidator);
-  assert.equal(deleteRoute.route.params, recordIdParamsValidator);
+  assertRecordIdOnlyParamsValidator(viewRoute.route.params);
+  assertRecordIdOnlyParamsValidator(updateRoute.route.params);
+  assertRecordIdOnlyParamsValidator(deleteRoute.route.params);
 });
 
 test("crud routes register JSON:API transport contracts and delete replies with 204", async () => {

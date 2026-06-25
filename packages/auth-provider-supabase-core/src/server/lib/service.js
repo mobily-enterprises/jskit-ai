@@ -42,7 +42,7 @@ import {
   findAuthMethodById,
   findLinkedIdentityByProvider
 } from "./authMethodStatus.js";
-import { safeRequestCookies, cookieOptions } from "./authCookies.js";
+import { safeRequestCookies, cookieOptions, cookieClearOptions } from "./authCookies.js";
 import { loadJose, isExpiredJwtError, classifyJwtVerifyError } from "./authJwt.js";
 import { buildDisabledPasswordSecret } from "./authSecrets.js";
 import { createAccountFlows } from "./accountFlows.js";
@@ -55,6 +55,7 @@ import {
   authenticateDevAuthRequest,
   createDevAuthSession,
   ensureDevAuthBootstrapAvailable,
+  isDevAuthToken,
   resolveDevAuthConfig,
   resolveDevAuthProfile
 } from "./devAuthBootstrap.js";
@@ -387,9 +388,49 @@ function createService(options) {
   }
 
   function clearSessionCookies(reply) {
-    const clearOptions = cookieOptions(isProduction, 0);
-    reply.clearCookie(ACCESS_TOKEN_COOKIE, clearOptions);
-    reply.clearCookie(REFRESH_TOKEN_COOKIE, clearOptions);
+    for (const clearOptions of cookieClearOptions(isProduction)) {
+      reply.clearCookie(ACCESS_TOKEN_COOKIE, clearOptions);
+      reply.clearCookie(REFRESH_TOKEN_COOKIE, clearOptions);
+    }
+  }
+
+  async function logout(request) {
+    const cookies = safeRequestCookies(request);
+    const accessToken = String(cookies[ACCESS_TOKEN_COOKIE] || "").trim();
+    const refreshToken = String(cookies[REFRESH_TOKEN_COOKIE] || "").trim();
+
+    if (!accessToken && !refreshToken) {
+      return {
+        ok: true,
+        clearSession: true
+      };
+    }
+
+    if (isDevAuthToken(accessToken) || isDevAuthToken(refreshToken)) {
+      return {
+        ok: true,
+        clearSession: true
+      };
+    }
+
+    ensureConfigured();
+    const supabase = getSupabaseClient();
+    await setSessionFromRequestCookies(request, {
+      supabaseClient: supabase
+    });
+
+    const response = await supabase.auth.signOut({
+      scope: "local"
+    });
+
+    if (response.error) {
+      throw mapAuthError(response.error, Number(response.error?.status || 400));
+    }
+
+    return {
+      ok: true,
+      clearSession: true
+    };
   }
 
   function requireSynchronizedProfile(profile) {
@@ -860,6 +901,7 @@ function createService(options) {
     setPasswordSignInEnabled,
     unlinkProvider,
     signOutOtherSessions,
+    logout,
     getSecurityStatus,
     getSettingsProfileAuthInfo,
     getOAuthProviderCatalog,
@@ -909,6 +951,7 @@ const __testables = {
   findLinkedIdentityByProvider,
   safeRequestCookies,
   cookieOptions,
+  cookieClearOptions,
   isExpiredJwtError,
   classifyJwtVerifyError
 };

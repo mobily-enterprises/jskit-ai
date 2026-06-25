@@ -12,7 +12,10 @@ test("users-core exports are explicit and aligned with production/template usage
   const result = evaluatePackageExportsContract({
     repoRoot: REPO_ROOT,
     packageDir: PACKAGE_DIR,
-    packageId: "@jskit-ai/users-core"
+    packageId: "@jskit-ai/users-core",
+    requiredExports: [
+      "./server/previewUserProvisioning"
+    ]
   });
 
   assert.deepEqual(
