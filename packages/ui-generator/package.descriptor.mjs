@@ -3,7 +3,7 @@ import { GENERATED_UI_NAVIGATION_ROLE_OPTION } from "@jskit-ai/kernel/shared/sup
 export default Object.freeze({
   packageVersion: 1,
   packageId: "@jskit-ai/ui-generator",
-  version: "0.1.79",
+  version: "0.1.80",
   kind: "generator",
   description: "Create non-CRUD pages, reusable UI elements, and subpage hosts.",
   options: {
@@ -371,7 +371,7 @@ export default Object.freeze({
   mutations: {
     dependencies: {
       runtime: {
-        "@jskit-ai/users-web": "0.1.111"
+        "@jskit-ai/users-web": "0.1.112"
       },
       dev: {}
     },
