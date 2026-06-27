@@ -60,6 +60,25 @@ function normalizeServiceEventEntityId(value) {
   return null;
 }
 
+function normalizeServiceEventMetaField(value, { context = "service event meta field" } = {}) {
+  if (value == null) {
+    return null;
+  }
+
+  if (typeof value === "function") {
+    return value;
+  }
+  if (typeof value !== "string") {
+    throw new TypeError(`${context} must be a non-empty string or function.`);
+  }
+
+  const normalized = normalizeText(value);
+  if (!normalized) {
+    throw new TypeError(`${context} must be a non-empty string or function.`);
+  }
+  return normalized;
+}
+
 function normalizeRealtimeDispatch(value, { context = "service event.realtime" } = {}) {
   const source = normalizeObject(value);
   if (Object.keys(source).length < 1) {
@@ -118,6 +137,8 @@ function normalizeServiceEventSpec(entry, { context = "service event" } = {}) {
     entity: normalizeText(source.entity),
     operation: normalizeServiceEventOperation(source.operation, { context }),
     entityId: normalizeServiceEventEntityId(source.entityId),
+    action: normalizeServiceEventMetaField(source.action, { context: `${context}.action` }),
+    reason: normalizeServiceEventMetaField(source.reason, { context: `${context}.reason` }),
     realtime: normalizeRealtimeDispatch(source.realtime, { context: `${context}.realtime` })
   });
 }
@@ -230,6 +251,28 @@ function resolveEventEntityId(spec, state) {
   return state?.result?.id;
 }
 
+function resolveEventMetaField(value, state) {
+  const context = `service metadata.events.${state.methodName}.meta`;
+  if (typeof value === "function") {
+    const resolved = value({
+      result: state.result,
+      args: state.args,
+      options: state.options,
+      methodName: state.methodName,
+      serviceToken: state.serviceToken,
+      event: state.event
+    });
+    if (resolved == null) {
+      return "";
+    }
+    if (typeof resolved !== "string") {
+      throw new TypeError(`${context} field resolver must return a string.`);
+    }
+    return normalizeText(resolved);
+  }
+  return normalizeText(value);
+}
+
 function resolveEventMeta(spec, state) {
   const meta = {
     service: Object.freeze({
@@ -237,6 +280,22 @@ function resolveEventMeta(spec, state) {
       method: state.methodName
     })
   };
+
+  const action = resolveEventMetaField(spec.action, {
+    ...state,
+    event: spec
+  });
+  if (action) {
+    meta.action = action;
+  }
+
+  const reason = resolveEventMetaField(spec.reason, {
+    ...state,
+    event: spec
+  });
+  if (reason) {
+    meta.reason = reason;
+  }
 
   if (spec.realtime) {
     meta.realtime = spec.realtime.payload

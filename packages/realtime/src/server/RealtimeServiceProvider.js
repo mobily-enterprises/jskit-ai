@@ -169,16 +169,32 @@ function buildRealtimeDispatchIndex(registrations = []) {
 
 function mergeRealtimePayload(event, payloadPatch) {
   const basePayload = event && typeof event === "object" && !Array.isArray(event) ? event : {};
+  const action = normalizeText(basePayload?.meta?.action);
+  const reason = normalizeText(basePayload?.meta?.reason);
+  const semanticPatch = {};
+  if (action) {
+    semanticPatch.action = action;
+  }
+  if (reason) {
+    semanticPatch.reason = reason;
+  }
+
   if (payloadPatch == null) {
-    return basePayload;
+    return Object.keys(semanticPatch).length > 0
+      ? {
+          ...semanticPatch,
+          ...basePayload
+        }
+      : basePayload;
   }
   if (!payloadPatch || typeof payloadPatch !== "object" || Array.isArray(payloadPatch)) {
     throw new TypeError("Realtime payload callback must return an object.");
   }
 
-  // Keep canonical domain-event fields authoritative while allowing additive metadata.
+  // Keep canonical domain-event fields and standard lifecycle metadata authoritative.
   return {
     ...payloadPatch,
+    ...semanticPatch,
     ...basePayload
   };
 }

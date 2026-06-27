@@ -93,6 +93,64 @@ test("app.service rejects deprecated permissions metadata", () => {
   );
 });
 
+test("app.service publishes lifecycle action, reason, and realtime payload metadata", async () => {
+  const app = createContainer();
+  const published = [];
+  app.singleton("domainEvents", () => ({
+    async publish(payload) {
+      published.push(payload);
+      return null;
+    }
+  }));
+  installServiceRegistrationApi(app);
+
+  app.service(
+    "test.projects.service",
+    () => ({
+      async closeRuntime() {
+        return {
+          id: "project_acme",
+          action: "runtime-closed",
+          message: "Project is closed."
+        };
+      }
+    }),
+    {
+      events: {
+        closeRuntime: [
+          {
+            type: "entity.changed",
+            source: "vibe64",
+            entity: "project",
+            operation: "updated",
+            action: ({ result }) => result?.action,
+            reason: "user-request",
+            realtime: {
+              event: "vibe64.project.changed",
+              payload: ({ result }) => ({
+                message: result?.message || ""
+              })
+            }
+          }
+        ]
+      }
+    }
+  );
+
+  const service = app.make("test.projects.service");
+  await service.closeRuntime();
+
+  assert.equal(service.serviceEvents.closeRuntime[0].reason, "user-request");
+  assert.equal(typeof service.serviceEvents.closeRuntime[0].action, "function");
+  assert.equal(published.length, 1);
+  assert.equal(published[0].meta?.action, "runtime-closed");
+  assert.equal(published[0].meta?.reason, "user-request");
+  assert.equal(published[0].meta?.realtime?.event, "vibe64.project.changed");
+  assert.deepEqual(published[0].meta?.realtime?.payload, {
+    message: "Project is closed."
+  });
+});
+
 test("resolveServiceRegistrations returns declared service metadata", () => {
   const app = createContainer();
   app.singleton("domainEvents", () => ({
