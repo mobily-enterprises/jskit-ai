@@ -1,6 +1,9 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { createEntityChangePublisher } from "./entityChangeEvents.js";
+import {
+  createEntityChangePublisher,
+  createRealtimeEntityChangePublisher
+} from "./entityChangeEvents.js";
 
 test("entity change publisher emits normalized event payload", async () => {
   const published = [];
@@ -207,5 +210,65 @@ test("entity change publisher does not infer actor scope from scope kind suffix"
     id: "workspace_23"
   });
   assert.equal(payload?.actorId, null);
+  assert.equal(published.length, 1);
+});
+
+test("realtime entity change publisher adds service, semantic, and realtime metadata", async () => {
+  const published = [];
+  const publishProjectChange = createRealtimeEntityChangePublisher({
+    domainEvents: {
+      async publish(payload) {
+        published.push(payload);
+      }
+    },
+    source: "vibe64",
+    entity: "project",
+    event: "vibe64.project.changed",
+    serviceToken: "vibe64.terminals.service",
+    methodName: "projectRuntime"
+  });
+
+  const payload = await publishProjectChange("updated", "project_acme", {
+    action: "runtime-closed",
+    reason: "user-request",
+    payload: {
+      message: "Project is closed.",
+      runtime: {
+        open: false
+      }
+    },
+    options: {
+      context: {
+        actor: {
+          id: "user_17"
+        },
+        visibilityContext: {
+          scopeKind: "workspace",
+          scopeOwnerId: "workspace_23"
+        }
+      }
+    }
+  });
+
+  assert.equal(payload?.source, "vibe64");
+  assert.equal(payload?.entity, "project");
+  assert.equal(payload?.operation, "updated");
+  assert.equal(payload?.entityId, "project_acme");
+  assert.deepEqual(payload?.scope, {
+    kind: "workspace",
+    id: "workspace_23"
+  });
+  assert.equal(payload?.actorId, "user_17");
+  assert.equal(payload?.meta?.service?.token, "vibe64.terminals.service");
+  assert.equal(payload?.meta?.service?.method, "projectRuntime");
+  assert.equal(payload?.meta?.action, "runtime-closed");
+  assert.equal(payload?.meta?.reason, "user-request");
+  assert.equal(payload?.meta?.realtime?.event, "vibe64.project.changed");
+  assert.deepEqual(payload?.meta?.realtime?.payload, {
+    message: "Project is closed.",
+    runtime: {
+      open: false
+    }
+  });
   assert.equal(published.length, 1);
 });

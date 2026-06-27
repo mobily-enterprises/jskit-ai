@@ -29,6 +29,7 @@
     "./server/platform": "./server/platform/index.js",
     "./server/registries": "./server/registries/index.js",
     "./server/runtime": "./server/runtime/index.js",
+    "./server/runtime/entityChangeEvents": "./server/runtime/entityChangeEvents.js",
     "./server/runtime/errors": "./server/runtime/errors.js",
     "./server/runtime/requestUrl": "./server/runtime/requestUrl.js",
     "./server/support": "./server/support/index.js",

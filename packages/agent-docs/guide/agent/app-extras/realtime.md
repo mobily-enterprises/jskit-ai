@@ -124,6 +124,79 @@ So the mental model is:
 - `realtime` gives the app a live transport
 - your own app code, or later packages, decide which events should travel across it
 
+## Publishing server events
+
+Server code should publish realtime lifecycle events through JSKIT's entity-change helpers instead of hand-rolling `domainEvents.publish()` payloads.
+
+Keep `operation` limited to resource invalidation semantics:
+
+- `created`
+- `updated`
+- `deleted`
+
+Use `action` for the domain lifecycle transition, and `reason` only when you need to explain why that transition happened.
+
+For direct publishers, use `createRealtimeEntityChangePublisher()` from `@jskit-ai/kernel/server/runtime/entityChangeEvents`:
+
+```js
+import { createRealtimeEntityChangePublisher } from "@jskit-ai/kernel/server/runtime/entityChangeEvents";
+
+const publishProjectRuntimeChanged = createRealtimeEntityChangePublisher({
+  domainEvents,
+  source: "vibe64",
+  entity: "project",
+  event: "vibe64.project.changed",
+  serviceToken: "vibe64.terminals.service",
+  methodName: "projectRuntime"
+});
+
+await publishProjectRuntimeChanged("updated", projectSlug, {
+  action: "runtime-closed",
+  payload: {
+    message: "Project is closed.",
+    runtime: {
+      open: false
+    }
+  }
+});
+```
+
+The helper emits a normal `entity.changed` domain event with service metadata and `meta.realtime.event`. The realtime bridge uses that service metadata to find the registered socket dispatcher, then emits the socket event with canonical fields such as `source`, `entity`, `operation`, `entityId`, `scope`, and the lifecycle `action`.
+
+For services registered through `app.service()`, declare the same semantics in service metadata:
+
+```js
+app.service(
+  "vibe64.terminals.service",
+  (scope) => createTerminalsService({
+    repository: scope.make("vibe64.repository.terminals")
+  }),
+  {
+    events: {
+      projectRuntime: [
+        {
+          type: "entity.changed",
+          source: "vibe64",
+          entity: "project",
+          operation: "updated",
+          entityId: ({ args }) => args?.[0]?.projectSlug,
+          action: "runtime-closed",
+          realtime: {
+            event: "vibe64.project.changed",
+            payload: ({ result }) => ({
+              message: result?.message || "",
+              runtime: result?.runtime || null
+            })
+          }
+        }
+      ]
+    }
+  }
+);
+```
+
+`action`, `reason`, and `realtime.payload` may be functions when the value depends on the service result or arguments. Do not encode lifecycle names by widening `operation`; keep `operation` truthful for CRUD/resource contracts and put domain-specific lifecycle meaning in metadata.
+
 ## What `realtime` adds to the app
 
 This chapter is small enough that it is worth looking directly at the app-owned files it changes.

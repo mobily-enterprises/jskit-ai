@@ -25,7 +25,9 @@ const EXPORTED_UNUSED_ALLOWLIST = new Set([
   // Used by generated app bootstrap code emitted from kernel client vite plugin.
   "./client/moduleBootstrap",
   // Intentionally retained as an explicit low-level kernel API subpath.
-  "./shared/support/tokens"
+  "./shared/support/tokens",
+  // Public helper API for packages that publish entity-change realtime events.
+  "./server/runtime/entityChangeEvents"
 ]);
 
 function normalizeSlash(value) {

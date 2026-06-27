@@ -1163,6 +1163,7 @@ Local functions
 - `normalizeServiceEventType(value, { context = "service event" } = {})`
 - `normalizeServiceEventOperation(value, { context = "service event" } = {})`
 - `normalizeServiceEventEntityId(value)`
+- `normalizeServiceEventMetaField(value, { context = "service event meta field" } = {})`
 - `normalizeRealtimeDispatch(value, { context = "service event.realtime" } = {})`
 - `normalizeRealtimeAudience(value, { context = "service event.realtime.audience" } = {})`
 - `normalizeServiceEventSpec(entry, { context = "service event" } = {})`
@@ -1171,6 +1172,7 @@ Local functions
 - `resolveMethodOptions(args = [])`
 - `resolveEventOperation(spec, state)`
 - `resolveEventEntityId(spec, state)`
+- `resolveEventMetaField(value, state)`
 - `resolveEventMeta(spec, state)`
 - `createServiceMethodEventPublisher(scope, serviceToken, methodName, specs = [])`
 
@@ -1217,12 +1219,17 @@ Exports
 Exports
 - `resolveDefaultScope(visibilityContext = {}, runtime = {})`
 - `createEntityChangePublisher({ domainEvents, source, entity, scopeResolver = resolveDefaultScope } = {})`
+- `createRealtimeEntityChangePublisher({ domainEvents, source, entity, event, serviceToken, methodName, scopeResolver = resolveDefaultScope } = {})`
 - `createNoopEntityChangePublisher()`
 Local functions
 - `resolveContextScope(context = {})`
 - `resolveVisibilityScope(visibilityContext = {}, runtimeContext = {})`
 - `resolveCommandId(requestMeta = {})`
 - `resolveSourceClientId(requestMeta = {})`
+- `normalizeMetaTextField(source = {}, fieldName = "", { context = "realtime entity change" } = {})`
+- `normalizeRealtimePayload(value, { context = "realtime entity change.payload" } = {})`
+- `createRealtimeEntityChangeMeta({ serviceToken, methodName, event, change = {} } = {})`
+- `resolveRealtimeEntityChangeOptions(change = {}, options = {})`
 
 ### `server/runtime/errors.js`
 Exports

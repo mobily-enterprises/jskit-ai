@@ -615,6 +615,8 @@ test("RealtimeServiceProvider merges custom realtime payload with canonical doma
             source: "workspace",
             entity: "settings",
             operation: "updated",
+            action: "settings-saved",
+            reason: "profile-update",
             realtime: {
               event: "workspace.settings.changed",
               payload: ({ result }) => ({
@@ -670,10 +672,14 @@ test("RealtimeServiceProvider merges custom realtime payload with canonical doma
   assert.equal(emitted.length, 1);
   assert.equal(emitted[0].room, "workspace:11");
   assert.equal(emitted[0].eventName, "workspace.settings.changed");
+  assert.equal(emitted[0].payload?.action, "settings-saved");
+  assert.equal(emitted[0].payload?.reason, "profile-update");
   assert.equal(emitted[0].payload?.workspaceSlug, "acme");
   assert.equal(emitted[0].payload?.source, "workspace");
   assert.equal(emitted[0].payload?.entity, "settings");
   assert.equal(emitted[0].payload?.operation, "updated");
+  assert.equal(emitted[0].payload?.meta?.action, "settings-saved");
+  assert.equal(emitted[0].payload?.meta?.reason, "profile-update");
   assert.equal(emitted[0].payload?.scope?.kind, "workspace");
   assert.equal(emitted[0].payload?.scope?.id, "11");
 });
