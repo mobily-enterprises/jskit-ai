@@ -1,7 +1,7 @@
 export default Object.freeze({
   packageVersion: 1,
   packageId: "@jskit-ai/assistant-runtime",
-  version: "0.1.68",
+  version: "0.1.69",
   kind: "runtime",
   description: "Shared assistant runtime with per-surface assistant registration.",
   dependsOn: [
@@ -95,13 +95,13 @@ export default Object.freeze({
   mutations: {
     dependencies: {
       runtime: {
-        "@jskit-ai/assistant-core": "0.1.73",
-        "@jskit-ai/database-runtime": "0.1.97",
-        "@jskit-ai/http-runtime": "0.1.96",
-        "@jskit-ai/kernel": "0.1.98",
-        "@jskit-ai/shell-web": "0.1.97",
-        "@jskit-ai/users-core": "0.1.107",
-        "@jskit-ai/users-web": "0.1.112"
+        "@jskit-ai/assistant-core": "0.1.74",
+        "@jskit-ai/database-runtime": "0.1.98",
+        "@jskit-ai/http-runtime": "0.1.97",
+        "@jskit-ai/kernel": "0.1.99",
+        "@jskit-ai/shell-web": "0.1.98",
+        "@jskit-ai/users-core": "0.1.108",
+        "@jskit-ai/users-web": "0.1.113"
       },
       dev: {}
     },
