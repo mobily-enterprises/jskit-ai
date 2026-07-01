@@ -39,7 +39,7 @@ This is the first chapter where the migration step is not just "nice to have."
 
 `users-core` writes:
 
-- `AUTH_PROFILE_MODE=users` into `.env`
+- `config.auth.profileMode = "users"` into `config/server.js`
 - real users/account schema migrations into `migrations/`
 
 That means the app is expected to use the persistent users-backed profile sync service. If you skip `npm run db:migrate`, the code and routes are installed, but the required tables are still missing.
@@ -119,12 +119,13 @@ This is the first chapter where the app starts to feel like it has a real user m
 
 The most interesting files are spread across config, migrations, routing, and the app-owned account UI.
 
-### `.env` flips auth into users mode
+### `config/server.js` flips auth into users mode
 
-The most important new line in `.env` is:
+The most important new server-only config line is:
 
-```dotenv
-AUTH_PROFILE_MODE=users
+```js
+config.auth ||= {};
+config.auth.profileMode = "users";
 ```
 
 That one line explains the deepest change in the chapter.
@@ -252,16 +253,16 @@ That is worth noticing because this is a higher level of scaffolding:
 
 ### Why auth uses the users layer
 
-In the previous chapter, auth still defaulted to the standalone profile sync fallback. The core logic in `AuthSupabaseServiceProvider` looks like this:
+In the previous chapter, auth was explicitly configured for the standalone profile sync fallback. The core logic in `AuthSupabaseServiceProvider` looks like this:
 
 ```js
-const authProfileMode = resolveAuthProfileMode(env);
+const authProfileMode = resolveAuthProfileMode(appConfig);
 let userProfileSyncService = fallbackStandaloneProfileSyncService;
 
-if (authProfileMode === AUTH_PROFILE_MODE_USERS) {
+if (authProfileMode === PROFILE_MODE_USERS) {
   if (!scope.has("users.profile.sync.service")) {
     throw new Error(
-      "AuthSupabaseServiceProvider requires users.profile.sync.service when AUTH_PROFILE_MODE=users."
+      "AuthSupabaseServiceProvider requires users.profile.sync.service when config.auth.profileMode is \"users\"."
     );
   }
   userProfileSyncService = scope.make("users.profile.sync.service");
@@ -272,7 +273,7 @@ The important part is concrete.
 
 After `users-web`:
 
-- `.env` sets `AUTH_PROFILE_MODE=users`
+- `config/server.js` sets `config.auth.profileMode = "users"`
 - `users-core` supplies the users-backed sync service
 - the migrations supply the required tables
 

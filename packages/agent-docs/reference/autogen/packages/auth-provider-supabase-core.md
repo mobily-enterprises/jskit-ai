@@ -244,7 +244,7 @@ Local functions
 - `resolveOAuthConfigFromAppConfig(appConfig)`
 - `resolveAllowedReturnToOrigins({ appConfig = {}, appPublicUrl = "" } = {})`
 - `resolveAuthProviderConfig(env, appConfig = {})`
-- `resolveAuthProfileMode(env)`
+- `resolveAuthProfileMode(appConfig = {})`
 - `isDevAuthBypassEnabledForRegistration(env)`
 - `isDevAuthBypassRequested(env)`
 - `createInMemoryUserSettingsRepository()`

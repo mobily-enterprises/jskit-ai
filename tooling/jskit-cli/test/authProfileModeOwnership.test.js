@@ -80,7 +80,7 @@ async function installAuthAndMysql(appRoot) {
   assert.equal(addMysqlDriverResult.status, 0, String(addMysqlDriverResult.stderr || ""));
 }
 
-test("installing users-core sets AUTH_PROFILE_MODE to users", async () => {
+test("installing users-core sets auth profile mode in server config", async () => {
   await withTempDir(async (cwd) => {
     const appRoot = path.join(cwd, "users-profile-mode-app");
     await createMinimalApp(appRoot);
@@ -92,9 +92,17 @@ test("installing users-core sets AUTH_PROFILE_MODE to users", async () => {
     });
     assert.equal(addUsersCoreResult.status, 0, String(addUsersCoreResult.stderr || ""));
 
+    const serverConfigSource = await readFile(path.join(appRoot, "config/server.js"), "utf8");
+    assert.match(serverConfigSource, /config\.auth \|\|= \{\};/);
+    assert.match(serverConfigSource, /config\.auth\.profileMode = "standalone";/);
+    assert.match(serverConfigSource, /config\.auth\.profileMode = "users";/);
+    assert.ok(
+      serverConfigSource.lastIndexOf('config.auth.profileMode = "users";') >
+        serverConfigSource.lastIndexOf('config.auth.profileMode = "standalone";')
+    );
+
     const envSource = await readFile(path.join(appRoot, ".env"), "utf8");
-    assert.match(envSource, /^AUTH_PROFILE_MODE=users$/m);
-    assert.doesNotMatch(envSource, /^AUTH_PROFILE_MODE=standalone$/m);
+    assert.doesNotMatch(envSource, /^AUTH_PROFILE_MODE=/m);
   });
 });
 
