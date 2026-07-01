@@ -1,7 +1,7 @@
 export default Object.freeze({
   packageVersion: 1,
   packageId: "@jskit-ai/users-core",
-  version: "0.1.108",
+  version: "0.1.110",
   kind: "runtime",
   description: "Users/account runtime plus HTTP routes for account features.",
   dependsOn: [
@@ -143,16 +143,16 @@ export default Object.freeze({
   mutations: {
     dependencies: {
       runtime: {
-        "@jskit-ai/auth-core": "0.1.97",
-        "@jskit-ai/crud-core": "0.1.106",
-        "@jskit-ai/database-runtime": "0.1.98",
-        "@jskit-ai/http-runtime": "0.1.97",
-        "@jskit-ai/json-rest-api-core": "0.1.43",
-        "@jskit-ai/kernel": "0.1.99",
-        "@jskit-ai/resource-core": "0.1.43",
-        "@jskit-ai/resource-crud-core": "0.1.43",
+        "@jskit-ai/auth-core": "0.1.99",
+        "@jskit-ai/crud-core": "0.1.108",
+        "@jskit-ai/database-runtime": "0.1.100",
+        "@jskit-ai/http-runtime": "0.1.99",
+        "@jskit-ai/json-rest-api-core": "0.1.45",
+        "@jskit-ai/kernel": "0.1.101",
+        "@jskit-ai/resource-core": "0.1.45",
+        "@jskit-ai/resource-crud-core": "0.1.45",
         "@local/users": "file:packages/users",
-        "@jskit-ai/uploads-runtime": "0.1.76"
+        "@jskit-ai/uploads-runtime": "0.1.78"
       },
       dev: {}
     },
@@ -331,10 +331,11 @@ export default Object.freeze({
     ],
     text: [
       {
-        op: "upsert-env",
-        file: ".env",
-        key: "AUTH_PROFILE_MODE",
-        value: "users",
+        op: "append-text",
+        file: "config/server.js",
+        position: "bottom",
+        skipIfContains: "config.auth.profileMode = \"users\";",
+        value: "\nconfig.auth ||= {};\nconfig.auth.profileMode = \"users\";\n",
         reason: "Enable users-backed auth profile sync when users-core is installed.",
         category: "runtime-config",
         id: "users-core-auth-profile-mode"

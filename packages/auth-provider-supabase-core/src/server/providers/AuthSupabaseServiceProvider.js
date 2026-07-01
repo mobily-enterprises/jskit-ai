@@ -6,9 +6,9 @@ import { createService } from "../lib/service.js";
 import { createStandaloneProfileSyncService } from "../lib/standaloneProfileSyncService.js";
 import { createAuthSessionEventsService } from "../lib/authSessionEventsService.js";
 import { buildAuthActions } from "../lib/actions/auth.contributor.js";
-const AUTH_PROFILE_MODE_STANDALONE = "standalone";
-const AUTH_PROFILE_MODE_USERS = "users";
-const SUPPORTED_AUTH_PROFILE_MODES = Object.freeze([AUTH_PROFILE_MODE_STANDALONE, AUTH_PROFILE_MODE_USERS]);
+const PROFILE_MODE_STANDALONE = "standalone";
+const PROFILE_MODE_USERS = "users";
+const SUPPORTED_PROFILE_MODES = Object.freeze([PROFILE_MODE_STANDALONE, PROFILE_MODE_USERS]);
 const INTERNAL_JSON_REST_API = "internal.json-rest-api";
 
 function splitCsv(value) {
@@ -91,16 +91,16 @@ function resolveAuthProviderConfig(env, appConfig = {}) {
   };
 }
 
-function resolveAuthProfileMode(env) {
-  const source = env && typeof env === "object" ? env : {};
-  const mode = String(source.AUTH_PROFILE_MODE || AUTH_PROFILE_MODE_STANDALONE)
+function resolveAuthProfileMode(appConfig = {}) {
+  const auth = normalizeRecord(normalizeRecord(appConfig).auth);
+  const mode = String(auth.profileMode || PROFILE_MODE_USERS)
     .trim()
     .toLowerCase();
-  if (SUPPORTED_AUTH_PROFILE_MODES.includes(mode)) {
+  if (SUPPORTED_PROFILE_MODES.includes(mode)) {
     return mode;
   }
   throw new Error(
-    `Unsupported AUTH_PROFILE_MODE "${mode}". Supported values: ${SUPPORTED_AUTH_PROFILE_MODES.join(", ")}.`
+    `Unsupported config.auth.profileMode "${mode}". Supported values: ${SUPPORTED_PROFILE_MODES.join(", ")}.`
   );
 }
 
@@ -244,12 +244,12 @@ class AuthSupabaseServiceProvider {
             return null;
           }
         }
-        const authProfileMode = resolveAuthProfileMode(env);
+        const authProfileMode = resolveAuthProfileMode(appConfig);
         let userProfileSyncService = fallbackStandaloneProfileSyncService;
-        if (authProfileMode === AUTH_PROFILE_MODE_USERS) {
+        if (authProfileMode === PROFILE_MODE_USERS) {
           if (!scope.has("users.profile.sync.service")) {
             throw new Error(
-              "AuthSupabaseServiceProvider requires users.profile.sync.service when AUTH_PROFILE_MODE=users."
+              "AuthSupabaseServiceProvider requires users.profile.sync.service when config.auth.profileMode is \"users\"."
             );
           }
           userProfileSyncService = scope.make("users.profile.sync.service");

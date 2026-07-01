@@ -197,11 +197,11 @@ The screen is also ready to show OAuth provider buttons, but only if providers a
 For this chapter, `config.server.js` keeps this empty:
 
 ```js
-config.auth = {
-  oauth: {
-    providers: [],
-    defaultProvider: ""
-  }
+config.auth ||= {};
+config.auth.profileMode = "standalone";
+config.auth.oauth = {
+  providers: [],
+  defaultProvider: ""
 };
 ```
 
@@ -221,11 +221,10 @@ First, configure Google and Supabase:
 Then tell JSKIT to expose the provider in the login UI:
 
 ```js
-config.auth = {
-  oauth: {
-    providers: ["google"],
-    defaultProvider: "google"
-  }
+config.auth ||= {};
+config.auth.oauth = {
+  providers: ["google"],
+  defaultProvider: "google"
 };
 ```
 
@@ -588,15 +587,15 @@ That `requiresAuth: false` line is important. The auth surface must stay public,
 `config/server.js` also gets an auth stub:
 
 ```js
-config.auth = {
-  oauth: {
-    providers: [],
-    defaultProvider: ""
-  }
+config.auth ||= {};
+config.auth.profileMode = "standalone";
+config.auth.oauth = {
+  providers: [],
+  defaultProvider: ""
 };
 ```
 
-That small block explains a lot of the default login screen. The stock UI is ready for OAuth providers such as Google, but this chapter keeps the provider list empty, so the page only shows the email/password and one-time-code flows. Later, if you enable a provider in Supabase and list it here, the same login screen can expose that button too.
+That small block explains a lot of the default login screen and auth profile behavior. `profileMode: "standalone"` keeps this auth-only chapter on the temporary app-side profile mirror. The stock UI is ready for OAuth providers such as Google, but this chapter keeps the provider list empty, so the page only shows the email/password and one-time-code flows. Later, if you enable a provider in Supabase and list it here, the same login screen can expose that button too.
 
 The auth routes themselves are app-owned wrappers around the module-supplied default views. `src/pages/auth/login.vue` looks like this:
 

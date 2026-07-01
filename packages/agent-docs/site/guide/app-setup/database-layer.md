@@ -766,16 +766,16 @@ So the app has gained a new capability, but no visible part of the UI depends on
 
 This is the most important code path to read in this chapter.
 
-Inside `AuthSupabaseServiceProvider`, auth still resolves its profile mode from the environment:
+Inside `AuthSupabaseServiceProvider`, auth resolves its profile mode from server app config:
 
 ```js
-const authProfileMode = resolveAuthProfileMode(env);
+const authProfileMode = resolveAuthProfileMode(appConfig);
 let userProfileSyncService = fallbackStandaloneProfileSyncService;
 
-if (authProfileMode === AUTH_PROFILE_MODE_USERS) {
+if (authProfileMode === PROFILE_MODE_USERS) {
   if (!scope.has("users.profile.sync.service")) {
     throw new Error(
-      "AuthSupabaseServiceProvider requires users.profile.sync.service when AUTH_PROFILE_MODE=users."
+      "AuthSupabaseServiceProvider requires users.profile.sync.service when config.auth.profileMode is \"users\"."
     );
   }
   userProfileSyncService = scope.make("users.profile.sync.service");
@@ -784,9 +784,10 @@ if (authProfileMode === AUTH_PROFILE_MODE_USERS) {
 
 That snippet explains the whole consequence of this chapter.
 
-- The default mode is still `standalone`.
+- The auth provider's server config still sets `config.auth.profileMode = "standalone"`.
+- If `profileMode` is missing entirely, the runtime assumes `users`, but it is not missing in the auth-only scaffold.
 - The fallback service is still the in-memory profile sync service from the previous chapter.
-- Nothing in `database-runtime-mysql` changes `AUTH_PROFILE_MODE`.
+- Nothing in `database-runtime-mysql` changes `config.auth.profileMode`.
 - Nothing in `database-runtime-mysql` provides `users.profile.sync.service`.
 
 So the auth layer keeps behaving the same way it did before:

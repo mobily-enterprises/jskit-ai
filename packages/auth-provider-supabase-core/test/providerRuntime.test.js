@@ -6,8 +6,8 @@ import { ActionRuntimeServiceProvider } from "@jskit-ai/kernel/server/actions";
 import { createProviderClass } from "../../kernel/shared/runtime/application.js";
 import { AuthSupabaseServiceProvider } from "../src/server/providers/AuthSupabaseServiceProvider.js";
 
-function createAppConfigFixture() {
-  return {
+function createAppConfigFixture({ auth = null } = {}) {
+  const config = {
     surfaceModeAll: "all",
     surfaceDefaultId: "home",
     surfaceDefinitions: {
@@ -21,6 +21,10 @@ function createAppConfigFixture() {
       }
     }
   };
+  if (auth && typeof auth === "object") {
+    config.auth = auth;
+  }
+  return config;
 }
 
 function isBootFailureWithCause(error, pattern) {
@@ -31,13 +35,12 @@ function isBootFailureWithCause(error, pattern) {
   );
 }
 
-test("auth supabase provider registers authService and contributes auth actions in users mode", async () => {
+test("auth supabase provider defaults to users mode and contributes auth actions", async () => {
   const app = createApplication();
   app.instance("appConfig", createAppConfigFixture());
   app.instance("jskit.env", {
     AUTH_SUPABASE_URL: "https://example.supabase.co",
     AUTH_SUPABASE_PUBLISHABLE_KEY: "sb_publishable_test_key",
-    AUTH_PROFILE_MODE: "users",
     APP_PUBLIC_URL: "http://localhost:5173",
     NODE_ENV: "test"
   });
@@ -86,11 +89,14 @@ test("auth supabase provider registers authService and contributes auth actions 
 
 test("auth supabase provider registers authService in standalone mode without users.profile.sync.service", async () => {
   const app = createApplication();
-  app.instance("appConfig", createAppConfigFixture());
+  app.instance("appConfig", createAppConfigFixture({
+    auth: {
+      profileMode: "standalone"
+    }
+  }));
   app.instance("jskit.env", {
     AUTH_SUPABASE_URL: "https://example.supabase.co",
     AUTH_SUPABASE_PUBLISHABLE_KEY: "sb_publishable_test_key",
-    AUTH_PROFILE_MODE: "standalone",
     APP_PUBLIC_URL: "http://localhost:5173",
     NODE_ENV: "test"
   });
@@ -112,13 +118,12 @@ test("auth supabase provider registers authService in standalone mode without us
   assert.equal(typeof authService?.login, "function");
 });
 
-test("auth supabase provider requires users.profile.sync.service when AUTH_PROFILE_MODE=users", async () => {
+test("auth supabase provider requires users.profile.sync.service in default users mode", async () => {
   const app = createApplication();
   app.instance("appConfig", createAppConfigFixture());
   app.instance("jskit.env", {
     AUTH_SUPABASE_URL: "https://example.supabase.co",
     AUTH_SUPABASE_PUBLISHABLE_KEY: "sb_publishable_test_key",
-    AUTH_PROFILE_MODE: "users",
     APP_PUBLIC_URL: "http://localhost:5173",
     NODE_ENV: "test"
   });
@@ -136,16 +141,19 @@ test("auth supabase provider requires users.profile.sync.service when AUTH_PROFI
     providers: [ActionRuntimeServiceProvider, AuthSupabaseServiceProvider]
   });
 
-  assert.throws(() => app.make("authService"), /AUTH_PROFILE_MODE=users/);
+  assert.throws(() => app.make("authService"), /config\.auth\.profileMode is "users"/);
 });
 
-test("auth supabase provider rejects unsupported AUTH_PROFILE_MODE values", async () => {
+test("auth supabase provider rejects unsupported config.auth.profileMode values", async () => {
   const app = createApplication();
-  app.instance("appConfig", createAppConfigFixture());
+  app.instance("appConfig", createAppConfigFixture({
+    auth: {
+      profileMode: "invalid"
+    }
+  }));
   app.instance("jskit.env", {
     AUTH_SUPABASE_URL: "https://example.supabase.co",
     AUTH_SUPABASE_PUBLISHABLE_KEY: "sb_publishable_test_key",
-    AUTH_PROFILE_MODE: "invalid",
     APP_PUBLIC_URL: "http://localhost:5173",
     NODE_ENV: "test"
   });
@@ -163,7 +171,7 @@ test("auth supabase provider rejects unsupported AUTH_PROFILE_MODE values", asyn
     providers: [ActionRuntimeServiceProvider, AuthSupabaseServiceProvider]
   });
 
-  assert.throws(() => app.make("authService"), /Unsupported AUTH_PROFILE_MODE/);
+  assert.throws(() => app.make("authService"), /Unsupported config\.auth\.profileMode/);
 });
 
 test("auth supabase provider can boot dev auth without Supabase credentials", async () => {
@@ -172,7 +180,6 @@ test("auth supabase provider can boot dev auth without Supabase credentials", as
   app.instance("jskit.env", {
     AUTH_DEV_BYPASS_ENABLED: "true",
     AUTH_DEV_BYPASS_SECRET: "dev-bootstrap-secret",
-    AUTH_PROFILE_MODE: "users",
     APP_PUBLIC_URL: "http://localhost:5173",
     NODE_ENV: "development"
   });
@@ -224,11 +231,14 @@ test("auth supabase provider can boot dev auth without Supabase credentials", as
 
 test("auth supabase provider applies registered auth service decorators", async () => {
   const app = createApplication();
-  app.instance("appConfig", createAppConfigFixture());
+  app.instance("appConfig", createAppConfigFixture({
+    auth: {
+      profileMode: "standalone"
+    }
+  }));
   app.instance("jskit.env", {
     AUTH_SUPABASE_URL: "https://example.supabase.co",
     AUTH_SUPABASE_PUBLISHABLE_KEY: "sb_publishable_test_key",
-    AUTH_PROFILE_MODE: "standalone",
     APP_PUBLIC_URL: "http://localhost:5173",
     NODE_ENV: "test"
   });
@@ -268,7 +278,6 @@ test("auth supabase provider rejects dev auth bypass in production", async () =>
   app.instance("jskit.env", {
     AUTH_DEV_BYPASS_ENABLED: "true",
     AUTH_DEV_BYPASS_SECRET: "dev-bootstrap-secret",
-    AUTH_PROFILE_MODE: "users",
     APP_PUBLIC_URL: "https://example.com",
     NODE_ENV: "production"
   });
@@ -318,7 +327,6 @@ test("auth supabase provider rejects dev auth bypass without a secret during boo
   app.instance("appConfig", createAppConfigFixture());
   app.instance("jskit.env", {
     AUTH_DEV_BYPASS_ENABLED: "true",
-    AUTH_PROFILE_MODE: "users",
     APP_PUBLIC_URL: "http://localhost:5173",
     NODE_ENV: "development"
   });
@@ -369,7 +377,6 @@ test("auth supabase provider rejects dev auth bypass without internal.repository
   app.instance("jskit.env", {
     AUTH_DEV_BYPASS_ENABLED: "true",
     AUTH_DEV_BYPASS_SECRET: "dev-bootstrap-secret",
-    AUTH_PROFILE_MODE: "users",
     APP_PUBLIC_URL: "http://localhost:5173",
     NODE_ENV: "development"
   });
@@ -440,7 +447,6 @@ test("auth supabase provider defers eager dev auth materialization until json-re
   app.instance("jskit.env", {
     AUTH_DEV_BYPASS_ENABLED: "true",
     AUTH_DEV_BYPASS_SECRET: "dev-bootstrap-secret",
-    AUTH_PROFILE_MODE: "users",
     APP_PUBLIC_URL: "http://localhost:5173",
     NODE_ENV: "development"
   });
@@ -486,6 +492,7 @@ test("auth supabase provider reads oauth providers from appConfig.auth.oauth", a
   app.instance("appConfig", {
     ...createAppConfigFixture(),
     auth: {
+      profileMode: "standalone",
       oauth: {
         providers: ["github"],
         defaultProvider: "github"
@@ -495,7 +502,6 @@ test("auth supabase provider reads oauth providers from appConfig.auth.oauth", a
   app.instance("jskit.env", {
     AUTH_SUPABASE_URL: "https://example.supabase.co",
     AUTH_SUPABASE_PUBLISHABLE_KEY: "sb_publishable_test_key",
-    AUTH_PROFILE_MODE: "standalone",
     APP_PUBLIC_URL: "http://localhost:5173",
     NODE_ENV: "test"
   });
@@ -524,6 +530,7 @@ test("auth supabase provider lets env oauth settings override appConfig.auth.oau
   app.instance("appConfig", {
     ...createAppConfigFixture(),
     auth: {
+      profileMode: "standalone",
       oauth: {
         providers: ["github"],
         defaultProvider: "github"
@@ -535,7 +542,6 @@ test("auth supabase provider lets env oauth settings override appConfig.auth.oau
     AUTH_SUPABASE_PUBLISHABLE_KEY: "sb_publishable_test_key",
     AUTH_OAUTH_PROVIDERS: "google",
     AUTH_OAUTH_DEFAULT_PROVIDER: "google",
-    AUTH_PROFILE_MODE: "standalone",
     APP_PUBLIC_URL: "http://localhost:5173",
     NODE_ENV: "test"
   });
