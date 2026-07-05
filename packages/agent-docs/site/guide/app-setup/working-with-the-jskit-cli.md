@@ -7,7 +7,7 @@ This chapter steps back and treats the CLI as a subject in its own right.
 That matters because `jskit` is not just "the thing that installs packages". It is the tool that helps you:
 
 - discover what JSKIT can do
-- inspect bundles, packages, and generators before using them
+- inspect packages, generators, and any catalog shortcuts before using them
 - apply and re-apply JSKIT-managed mutations to your app
 - keep managed files and lock state healthy
 - create your own app-local runtime packages
@@ -40,7 +40,7 @@ The easiest way to understand `jskit` is to separate it from the other tools in 
 
 That separation is crucial.
 
-When you run a command such as `npx jskit add bundle auth-local`, JSKIT updates app-owned files and records what it changed. It does **not** replace npm, Vite, or Knex.
+When you run a command such as `npx jskit add package auth-provider-local-core`, JSKIT updates app-owned files and records what it changed. It does **not** replace npm, Vite, or Knex.
 
 The most important record of that managed state lives here:
 
@@ -163,9 +163,7 @@ That distinction matters.
 
 #### Bundles
 
-A bundle is a curated install shortcut for several runtime packages that are meant to go together.
-
-In the current catalog, `auth-local` is the obvious example. It is a single bundle id, but it expands to several real runtime packages.
+A bundle is a curated install shortcut for several runtime packages that are meant to go together. Bundles can still appear in the catalog for compatibility and quick inspection, but the guide uses explicit package installs so the real runtime packages stay visible.
 
 #### Runtime packages
 
@@ -200,7 +198,7 @@ npx jskit list generators
 
 Those two commands are especially useful later in the guide, once you already know roughly what kind of thing you are looking for.
 
-If you want bundle members printed inline too, `npx jskit list --full` expands the bundle view. That is useful when you want a quick catalog scan without dropping straight into `show`.
+If you want bundle members printed inline too, `npx jskit list --full` expands the bundle view. That is useful when you are auditing a shortcut, but package ids are still the normal install vocabulary in this guide.
 
 One more detail is worth noticing. In repos that contain local package descriptors, `list packages` can also show app-local or repo-local packages in addition to the published catalog. So `list` is not only a remote catalog browser. It is also a view of what this app can currently see.
 
@@ -220,7 +218,7 @@ And the more useful inspection form is:
 npx jskit show <id> --details
 ```
 
-This command is unusually valuable in JSKIT because packages and bundles do more than "add a dependency". They can:
+This command is unusually valuable in JSKIT because packages and catalog shortcuts do more than "add a dependency". They can:
 
 - provide or require capabilities
 - register runtime providers
@@ -242,39 +240,42 @@ The plain form is useful when you only want to identify something quickly. `--de
 
 There are two especially common cases:
 
-- you found a bundle or package in `jskit list` and want to know what it really does before you install it
+- you found a package or shortcut in `jskit list` and want to know what it really does before you install it
 - you already know a package changed the shell, the runtime graph, or the app tree, and you want to see *how*
 
 That second case matters just as much as the first one. Later in the guide, chapters explain package behavior one feature at a time. `show --details` is the generic command that lets you inspect those same package contracts directly.
 
-### A first example: what does `auth-local` actually install?
+### A first example: inspect the local auth provider
 
 Run:
 
 ```bash
-npx jskit show auth-local --details
+npx jskit show auth-provider-local-core --details
 ```
 
 This output is short, but it already teaches something important:
 
-- `auth-local` is a **bundle**
-- it is not a runtime package by itself
+- `auth-provider-local-core` is a **runtime package**
+- it selects the local auth provider
+- it depends on the provider-neutral `auth-core`
 
-It expands to three real runtime packages:
+The default local auth install uses two direct package commands:
 
-- `@jskit-ai/auth-core`
-- `@jskit-ai/auth-web`
-- `@jskit-ai/auth-provider-local-core`
+```bash
+npx jskit add package auth-provider-local-core
+npx jskit add package auth-web
+```
 
-That is exactly the kind of thing you want to know before you mutate the app. For a bundle, this is often the main question:
+That is exactly the kind of thing you want to know before you mutate the app:
 
-- *what real packages am I about to get?*
+- which package selects the active provider?
+- which package adds the web auth routes and login UI?
 
-`auth-local` is a good example because the bundle name is short and convenient, but the detailed view makes the underlying install explicit. It also helps you keep the mental model straight:
+It also helps you keep the mental model straight:
 
-- bundles are install shortcuts
 - runtime packages are the things that actually provide capabilities
-- provider bundles also select one concrete `auth.provider`
+- `auth-provider-local-core` provides the selected `auth.provider`
+- `auth-web` consumes the selected provider and adds the web surface
 
 ### A richer example: what does `workspaces-web` contribute?
 
@@ -487,14 +488,13 @@ This is not required, but it is genuinely useful once you start using commands s
 
 ## Installing runtime capability: `add`
 
-The install command comes in two main forms:
+The install command you will use most often is:
 
 ```bash
 npx jskit add package users-web
-npx jskit add bundle auth-local
 ```
 
-Those two examples look similar, but they do different things.
+That command installs one runtime package and its dependency chain.
 
 ### `add package`
 
@@ -530,15 +530,9 @@ npm run devlinks
 
 ### `add bundle`
 
-Use this when the catalog already offers a sensible grouped install:
+Bundles are a convenience layer for catalog shortcuts. Prefer package commands in setup docs and normal app work, especially for auth, because provider ownership is clearer when the selected provider package is installed explicitly.
 
-```bash
-npx jskit add bundle auth-local
-```
-
-Bundles are a convenience layer. They save you from having to remember and install several related runtime packages one by one.
-
-This is why `show auth-local --details` is useful first: it lets you see what the bundle will actually install. Lower-level bundles such as `auth-base` can still be useful when you are composing your own provider stack, but they require an installed selected provider such as `auth-provider-local-core` or `auth-provider-supabase-core`.
+If you do use a bundle shortcut, inspect it first with `npx jskit show <bundle-id> --details` so you can see the real packages and capabilities it will install.
 
 ### Generator packages are different
 

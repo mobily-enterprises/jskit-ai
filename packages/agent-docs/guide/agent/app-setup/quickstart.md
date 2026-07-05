@@ -48,7 +48,8 @@ npx @jskit-ai/create-app testapp --tenancy-mode personal
 cd testapp
 npm install
 
-npx jskit add bundle auth-local
+npx jskit add package auth-provider-local-core
+npx jskit add package auth-web
 
 npx jskit add package database-runtime-mysql \
   --db-host "$DB_HOST" \
@@ -82,7 +83,7 @@ npm install
 npm run db:migrate
 ```
 
-Keep authentication deliberately basic while the product is still taking shape. Start with `auth-local`, build the app's core workflows, then add Supabase, OAuth, OTP, provider linking, app-user projection, or workspace/account complexity when the product actually needs those features.
+Keep authentication deliberately basic while the product is still taking shape. Start with the local provider and `auth-web`, build the app's core workflows, then add Supabase, OAuth, OTP, provider linking, app-user projection, or workspace/account complexity when the product actually needs those features.
 
 At this point you have:
 

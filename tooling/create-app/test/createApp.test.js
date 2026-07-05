@@ -402,6 +402,7 @@ test("create-app scaffolds the base shell with placeholder replacements", async 
     assert.doesNotMatch(result.stdout, /Then add framework capabilities:/);
     assert.doesNotMatch(result.stdout, /npx jskit add package auth-provider-supabase-core/);
     assert.doesNotMatch(result.stdout, /npx jskit add bundle auth-base/);
+    assert.doesNotMatch(result.stdout, /npx jskit add bundle auth-local/);
   });
 });
 
@@ -461,7 +462,7 @@ test("ai-seed agent instructions do not hardcode machine-specific paths and poin
   assert.doesNotMatch(body, /AUTH_SUPABASE_PUBLISHABLE_KEY/);
 });
 
-test("create-app interactive flow captures initial bundle selection in guidance", async () => {
+test("create-app interactive flow captures initial auth setup preset in guidance", async () => {
   await withCreateAppTempDir(async (cwd) => {
     const stdoutCapture = createCaptureWritable();
     const stderrCapture = createCaptureWritable();
@@ -500,7 +501,9 @@ test("create-app interactive flow captures initial bundle selection in guidance"
     assert.deepEqual(answers, []);
     assert.ok(askedPrompts.length >= 7);
     assert.match(stdout, /Initial framework setup commands \(auth\):/);
-    assert.match(stdout, /npx jskit add bundle auth-local/);
+    assert.match(stdout, /npx jskit add package auth-provider-local-core/);
+    assert.match(stdout, /npx jskit add package auth-web/);
+    assert.doesNotMatch(stdout, /npx jskit add bundle auth-local/);
     assert.doesNotMatch(stdout, /auth-provider-supabase-core/);
 
     const publicConfig = await readFile(path.join(cwd, "interactive-app/config/public.js"), "utf8");
@@ -914,11 +917,17 @@ test("generated default shell app supports auth progressive installation", async
     const publicConfig = await readFile(publicConfigPath, "utf8");
     await writeFile(publicConfigPath, `${publicConfig}\nconfig.tenancyMode = "workspaces";\n`, "utf8");
 
-    const addAuthResult = runJskit({
+    const addLocalProviderResult = runJskit({
       cwd: appRoot,
-      args: ["add", "bundle", "auth-local"]
+      args: ["add", "package", "auth-provider-local-core"]
     });
-    assert.equal(addAuthResult.status, 0, addAuthResult.stderr);
+    assert.equal(addLocalProviderResult.status, 0, addLocalProviderResult.stderr);
+
+    const addAuthWebResult = runJskit({
+      cwd: appRoot,
+      args: ["add", "package", "auth-web"]
+    });
+    assert.equal(addAuthWebResult.status, 0, addAuthWebResult.stderr);
 
     const doctorResult = runJskit({ cwd: appRoot, args: ["doctor"] });
     assert.equal(doctorResult.status, 0, doctorResult.stderr);

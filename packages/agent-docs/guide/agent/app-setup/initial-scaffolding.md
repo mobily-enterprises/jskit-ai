@@ -53,7 +53,8 @@ npx @jskit-ai/create-app exampleapp --tenancy-mode none
 cd exampleapp
 npm install
 
-npx jskit add bundle auth-local
+npx jskit add package auth-provider-local-core
+npx jskit add package auth-web
 
 npx jskit add package database-runtime-mysql \
   --db-host "$DB_HOST" \

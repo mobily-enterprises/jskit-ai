@@ -18,7 +18,7 @@ If you are already continuing from the previous chapter, you are already in the 
 
 **Default: Start With Local Auth**
 
-The default auth path does not require a Supabase project or a database. It uses `auth-local`, which stores local credentials and sessions in `.jskit/auth/` by default.
+The default auth path does not require a Supabase project or a database. It uses the local provider package, `auth-provider-local-core`, together with `auth-web`. The local provider stores credentials and sessions in `.jskit/auth/` by default.
 
 That is the recommended first step for most apps. After the app's core flow is working, switch to Supabase or add richer auth methods only if the product needs them.
 
@@ -27,11 +27,12 @@ That is the recommended first step for most apps. After the app's core flow is w
 From inside `exampleapp`, run:
 
 ```bash
-npx jskit add bundle auth-local
+npx jskit add package auth-provider-local-core
+npx jskit add package auth-web
 npm install
 ```
 
-`auth-local` installs the provider-neutral auth core, the auth web layer, and the local provider. It gives the app working register, login, logout, session, and password recovery flows without requiring an external auth service.
+These package installs add the provider-neutral auth core, the auth web layer, and the local provider. They give the app working register, login, logout, session, and password recovery flows without requiring an external auth service.
 
 The final `npm install` matters for the same reason it did in the shell chapter: `jskit add` rewrites the scaffold and updates `package.json`, but `npm install` is what actually downloads the newly referenced runtime packages.
 
@@ -468,7 +469,7 @@ At this point the guide has shown three distinct layers of client state:
 
 That progression is intentional. Packages keep their operational runtimes internally, but the app-facing shared state they surface to Vue code is store-based.
 
-## What `auth-local` adds to the app
+## What the local auth install adds to the app
 
 The interesting part of this chapter is that authentication appears in several different layers at once: environment config, public routing config, shell placements, and app-owned view wrappers.
 
@@ -527,7 +528,7 @@ config.surfaceDefinitions.auth = {
 
 That `requiresAuth: false` line is important. The auth surface must stay public, otherwise users would need to be logged in before they could reach the login page.
 
-The local provider does not need an app database profile mode or OAuth config. The stock login UI asks `/api/session` for the active provider capabilities and renders only what the selected provider actually supports. With `auth-local`, that means email/password login, registration, sign-out, session refresh, and password recovery when recovery is configured.
+The local provider does not need an app database profile mode or OAuth config. The stock login UI asks `/api/session` for the active provider capabilities and renders only what the selected provider actually supports. With the local provider, that means email/password login, registration, sign-out, session refresh, and password recovery when recovery is configured.
 
 Later, if you switch to Supabase, the Supabase provider can append the app-owned OAuth visibility config and profile mode settings it needs.
 
