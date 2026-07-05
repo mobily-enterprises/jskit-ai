@@ -8,3 +8,15 @@ export {
   resolveAuthDeniedLoginMessage
 } from "./authDenied.js";
 export { AUTH_PATHS, buildAuthOauthStartPath } from "./authPaths.js";
+export {
+  AUTH_PASSWORD_RECOVERY_DELIVERIES,
+  AUTH_OPTIONAL_OPERATION_FEATURES,
+  normalizeAuthProviderId,
+  normalizeAuthCapabilities,
+  getCapabilityFeature,
+  isAuthOperationSupported
+} from "./authCapabilities.js";
+export {
+  normalizeAuthSecurityStatus,
+  buildSecurityStatusFromAuthMethodsStatus
+} from "./authSecurityStatus.js";

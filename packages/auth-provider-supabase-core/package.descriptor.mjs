@@ -1,7 +1,7 @@
 export default Object.freeze({
   "packageVersion": 1,
   "packageId": "@jskit-ai/auth-provider-supabase-core",
-  "version": "0.1.99",
+  "version": "0.1.100",
   "kind": "runtime",
   "options": {
     "auth-supabase-url": {
@@ -83,8 +83,8 @@ export default Object.freeze({
   "mutations": {
     "dependencies": {
       "runtime": {
-        "@jskit-ai/auth-core": "0.1.99",
-        "@jskit-ai/kernel": "0.1.101",
+        "@jskit-ai/auth-core": "0.1.100",
+        "@jskit-ai/kernel": "0.1.102",
         "dotenv": "^16.4.5",
         "@supabase/supabase-js": "^2.57.4",
         "jose": "^6.1.0"
@@ -138,10 +138,10 @@ export default Object.freeze({
         "file": "config/server.js",
         "position": "bottom",
         "skipIfContains": "config.auth.profileMode =",
-        "value": "\nconfig.auth ||= {};\nconfig.auth.profileMode = \"standalone\";\n",
-        "reason": "Use standalone auth profile sync until a users package enables users-backed sync.",
+        "value": "\nconfig.auth ||= {};\nconfig.auth.profileMode = \"provider\";\n",
+        "reason": "Use provider-owned auth profiles until a users package enables users-backed sync.",
         "category": "runtime-config",
-        "id": "auth-profile-mode-standalone"
+        "id": "auth-profile-mode-provider"
       },
       {
         "op": "append-text",

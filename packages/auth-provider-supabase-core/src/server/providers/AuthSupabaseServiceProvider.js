@@ -1,14 +1,13 @@
 import { resolveAllowedOriginsFromSurfaceDefinitions } from "@jskit-ai/kernel/shared/support/returnToPath";
 import { withActionDefaults } from "@jskit-ai/kernel/shared/actions";
-import { normalizeRecordId } from "@jskit-ai/kernel/shared/support/normalize";
 import { resolveAuthServiceDecorators } from "@jskit-ai/auth-core/server/authServiceDecoratorRegistry";
+import { normalizeEmail } from "@jskit-ai/auth-core/server/utils";
 import { createService } from "../lib/service.js";
-import { createStandaloneProfileSyncService } from "../lib/standaloneProfileSyncService.js";
-import { createAuthSessionEventsService } from "../lib/authSessionEventsService.js";
-import { buildAuthActions } from "../lib/actions/auth.contributor.js";
+import { devLoginAsAction } from "../lib/actions/auth.contributor.js";
+const PROFILE_MODE_PROVIDER = "provider";
 const PROFILE_MODE_STANDALONE = "standalone";
 const PROFILE_MODE_USERS = "users";
-const SUPPORTED_PROFILE_MODES = Object.freeze([PROFILE_MODE_STANDALONE, PROFILE_MODE_USERS]);
+const SUPPORTED_PROFILE_MODES = Object.freeze([PROFILE_MODE_PROVIDER, PROFILE_MODE_STANDALONE, PROFILE_MODE_USERS]);
 const INTERNAL_JSON_REST_API = "internal.json-rest-api";
 
 function splitCsv(value) {
@@ -93,11 +92,11 @@ function resolveAuthProviderConfig(env, appConfig = {}) {
 
 function resolveAuthProfileMode(appConfig = {}) {
   const auth = normalizeRecord(normalizeRecord(appConfig).auth);
-  const mode = String(auth.profileMode || PROFILE_MODE_USERS)
+  const mode = String(auth.profileMode || PROFILE_MODE_PROVIDER)
     .trim()
     .toLowerCase();
   if (SUPPORTED_PROFILE_MODES.includes(mode)) {
-    return mode;
+    return mode === PROFILE_MODE_STANDALONE ? PROFILE_MODE_PROVIDER : mode;
   }
   throw new Error(
     `Unsupported config.auth.profileMode "${mode}". Supported values: ${SUPPORTED_PROFILE_MODES.join(", ")}.`
@@ -116,43 +115,31 @@ function isDevAuthBypassRequested(env) {
   return parseBoolean(env?.AUTH_DEV_BYPASS_ENABLED, false);
 }
 
-function createInMemoryUserSettingsRepository() {
-  const settingsByUserId = new Map();
-
-  function ensure(userId) {
-    const normalizedUserId = normalizeRecordId(userId, { fallback: null });
-    if (!normalizedUserId) {
-      throw new TypeError("User settings require a valid user id.");
-    }
-    if (!settingsByUserId.has(normalizedUserId)) {
-      settingsByUserId.set(normalizedUserId, {
-        userId: normalizedUserId,
-        passwordSignInEnabled: true,
-        passwordSetupRequired: false
-      });
-    }
-    return settingsByUserId.get(normalizedUserId);
-  }
-
+function createProviderIdentityProfileSyncService({ authProviderId = "supabase" } = {}) {
   return Object.freeze({
-    async ensureForUserId(userId) {
-      return { ...ensure(userId) };
+    async findByIdentity() {
+      return null;
     },
-    async updatePasswordSignInEnabled(userId, enabled) {
-      const settings = ensure(userId);
-      settings.passwordSignInEnabled = enabled !== false;
-      return { ...settings };
-    },
-    async updatePasswordSetupRequired(userId, required) {
-      const settings = ensure(userId);
-      settings.passwordSetupRequired = required === true;
-      return { ...settings };
+    async syncIdentityProfile(profileLike) {
+      const source = normalizeRecord(profileLike);
+      const authProvider = String(source.authProvider || authProviderId).trim() || authProviderId;
+      const authProviderUserSid = String(source.authProviderUserSid || "").trim();
+      const email = normalizeEmail(source.email || "");
+      const displayName = String(source.displayName || email.split("@")[0] || "User").trim();
+      if (!authProviderUserSid || !email) {
+        throw new TypeError("Provider identity profile requires authProviderUserSid and email.");
+      }
+      return {
+        id: authProviderUserSid,
+        authProvider,
+        authProviderUserSid,
+        email,
+        displayName,
+        profileSource: "auth-provider"
+      };
     }
   });
 }
-
-const fallbackUserSettingsRepository = createInMemoryUserSettingsRepository();
-const fallbackStandaloneProfileSyncService = createStandaloneProfileSyncService();
 
 function resolveCommonDependencies(scope) {
   const dependencies = {};
@@ -174,6 +161,15 @@ function resolveRuntimeEnv(scope) {
     ...process.env,
     ...envFromDependencies
   };
+}
+
+function assertSelectedAuthProvider(env) {
+  const selectedProvider = String(env?.AUTH_PROVIDER || "").trim().toLowerCase();
+  if (selectedProvider && selectedProvider !== "supabase") {
+    throw new Error(
+      `AUTH_PROVIDER is "${selectedProvider}", but @jskit-ai/auth-provider-supabase-core is installed as the selected auth provider.`
+    );
+  }
 }
 
 function resolveOptionalRepositories(scope) {
@@ -231,104 +227,74 @@ class AuthSupabaseServiceProvider {
       throw new Error("AuthSupabaseServiceProvider requires application singleton()/has()/actions()/service().");
     }
 
-    if (!app.has("authService")) {
-      app.singleton("authService", (scope) => {
-        const env = resolveRuntimeEnv(scope);
-        const appConfig = scope.has("appConfig") ? scope.make("appConfig") : {};
-        const authProvider = resolveAuthProviderConfig(env, appConfig);
-        const repositories = resolveOptionalRepositories(scope);
-        const userSettingsRepository = repositories.userSettingsRepository || fallbackUserSettingsRepository;
-        const devAuthBypassEnabled = parseBoolean(env.AUTH_DEV_BYPASS_ENABLED, false);
-        if (!authProvider.supabaseUrl || !authProvider.supabasePublishableKey) {
-          if (!devAuthBypassEnabled) {
-            return null;
-          }
-        }
-        const authProfileMode = resolveAuthProfileMode(appConfig);
-        let userProfileSyncService = fallbackStandaloneProfileSyncService;
-        if (authProfileMode === PROFILE_MODE_USERS) {
-          if (!scope.has("users.profile.sync.service")) {
-            throw new Error(
-              "AuthSupabaseServiceProvider requires users.profile.sync.service when config.auth.profileMode is \"users\"."
-            );
-          }
-          userProfileSyncService = scope.make("users.profile.sync.service");
-        }
+    assertSelectedAuthProvider(resolveRuntimeEnv(app));
 
-        const authService = createService({
-          authProvider,
-          appPublicUrl: String(env.APP_PUBLIC_URL || "").trim(),
-          authAllowedReturnToOrigins: resolveAllowedReturnToOrigins({
-            appConfig,
-            appPublicUrl: String(env.APP_PUBLIC_URL || "").trim()
-          }),
-          nodeEnv: String(env.NODE_ENV || "development").trim() || "development",
-          userSettingsRepository,
-          userProfileSyncService,
-          userProfilesRepository: repositories.userProfilesRepository || null,
-          devAuthBypassEnabled,
-          devAuthBypassSecret: String(env.AUTH_DEV_BYPASS_SECRET || "").trim(),
-          devAuthAccessTtlSeconds: env.AUTH_DEV_ACCESS_TTL_SECONDS,
-          devAuthRefreshTtlSeconds: env.AUTH_DEV_REFRESH_TTL_SECONDS
-        });
-
-        return applyAuthServiceDecorators(scope, authService);
-      });
+    if (app.has("authService")) {
+      throw new Error("AuthSupabaseServiceProvider cannot register authService because another auth provider already registered it.");
     }
 
-    app.service(
-      "auth.session.events.service",
-      () => createAuthSessionEventsService(),
-      {
-        events: {
-          notifySessionChanged: [
-            {
-              type: "entity.changed",
-              source: "auth",
-              entity: "session",
-              operation: "updated",
-              entityId: ({ result }) => result?.id,
-              realtime: {
-                event: "auth.session.changed",
-                audience: "actor_user"
-              }
-            },
-            {
-              type: "entity.changed",
-              source: "users",
-              entity: "bootstrap",
-              operation: "updated",
-              entityId: ({ result }) => result?.id,
-              realtime: {
-                event: "users.bootstrap.changed",
-                audience: "actor_user"
-              }
-            }
-          ]
+    app.singleton("authService", (scope) => {
+      const env = resolveRuntimeEnv(scope);
+      assertSelectedAuthProvider(env);
+      const appConfig = scope.has("appConfig") ? scope.make("appConfig") : {};
+      const authProvider = resolveAuthProviderConfig(env, appConfig);
+      const repositories = resolveOptionalRepositories(scope);
+      const userSettingsRepository = repositories.userSettingsRepository || null;
+      const devAuthBypassEnabled = parseBoolean(env.AUTH_DEV_BYPASS_ENABLED, false);
+      const authProfileMode = resolveAuthProfileMode(appConfig);
+      let userProfileSyncService = createProviderIdentityProfileSyncService({
+        authProviderId: authProvider.id
+      });
+      let profileProjectionEnabled = false;
+      if (authProfileMode === PROFILE_MODE_USERS) {
+        if (!scope.has("users.profile.sync.service")) {
+          throw new Error(
+            "AuthSupabaseServiceProvider requires users.profile.sync.service when config.auth.profileMode is \"users\"."
+          );
         }
+        userProfileSyncService = scope.make("users.profile.sync.service");
+        profileProjectionEnabled = true;
+      } else if (scope.has("auth.profile.projector")) {
+        userProfileSyncService = scope.make("auth.profile.projector");
+        profileProjectionEnabled = true;
       }
-    );
 
-    app.actions(
-      withActionDefaults(buildAuthActions({
-        includeDevLoginAs: isDevAuthBypassEnabledForRegistration(resolveRuntimeEnv(app))
-      }), {
-        domain: "auth",
-        dependencies: {
-          authService: "authService",
-          authSessionEventsService: "auth.session.events.service"
-        }
-      })
-    );
+      const authService = createService({
+        authProvider,
+        appPublicUrl: String(env.APP_PUBLIC_URL || "").trim(),
+        authAllowedReturnToOrigins: resolveAllowedReturnToOrigins({
+          appConfig,
+          appPublicUrl: String(env.APP_PUBLIC_URL || "").trim()
+        }),
+        nodeEnv: String(env.NODE_ENV || "development").trim() || "development",
+        userSettingsRepository,
+        userProfileSyncService,
+        profileProjectionEnabled,
+        userProfilesRepository: repositories.userProfilesRepository || null,
+        devAuthBypassEnabled,
+        devAuthBypassSecret: String(env.AUTH_DEV_BYPASS_SECRET || "").trim(),
+        devAuthAccessTtlSeconds: env.AUTH_DEV_ACCESS_TTL_SECONDS,
+        devAuthRefreshTtlSeconds: env.AUTH_DEV_REFRESH_TTL_SECONDS
+      });
+
+      return applyAuthServiceDecorators(scope, authService);
+    });
+
+    if (isDevAuthBypassEnabledForRegistration(resolveRuntimeEnv(app))) {
+      app.actions(
+        withActionDefaults([devLoginAsAction], {
+          domain: "auth",
+          dependencies: {
+            authService: "authService"
+          }
+        })
+      );
+    }
   }
 
   boot(app) {
     if (!app || typeof app.make !== "function") {
       throw new Error("AuthSupabaseServiceProvider requires application make().");
-    }
-
-    if (!isDevAuthBypassRequested(resolveRuntimeEnv(app))) {
-      return;
     }
 
     try {

@@ -71,6 +71,7 @@ Local functions
 - `buildCapabilityGraph(packageRegistry)`
 - `createCapabilityPackageDetail(packageId, packageRegistry)`
 - `collectPlannedCapabilityIssues(plannedPackageIds, packageRegistry)`
+- `collectExclusiveCapabilityIssues(plannedPackageIds, packageRegistry)`
 
 ### `src/server/cliRuntime/completion.js`
 Exports
@@ -918,5 +919,9 @@ Exports
 ### bundles
 
 ### `bundles/auth-base/bundle.descriptor.mjs`
+Exports
+- None
+
+### `bundles/auth-local/bundle.descriptor.mjs`
 Exports
 - None

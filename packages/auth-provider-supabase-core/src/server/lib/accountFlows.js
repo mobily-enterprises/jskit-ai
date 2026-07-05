@@ -315,10 +315,14 @@ function createAccountFlows(deps) {
     };
   }
 
-  async function updateDisplayName(request, displayName) {
+  async function updateDisplayName(request, payload = {}) {
     ensureConfigured();
 
-    const normalizedDisplayName = String(displayName || "").trim();
+    const normalizedDisplayName = String(
+      payload && typeof payload === "object" && !Array.isArray(payload)
+        ? payload.displayName
+        : payload
+    ).trim();
     if (!normalizedDisplayName) {
       throw validationError({
         displayName: "Display name is required."

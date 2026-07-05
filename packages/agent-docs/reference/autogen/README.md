@@ -12,6 +12,7 @@ Startup navigation stays in `KERNEL_MAP.md`.
 - [assistant-core](/packages/agent-docs/reference/autogen/packages/assistant-core.md)
 - [assistant-runtime](/packages/agent-docs/reference/autogen/packages/assistant-runtime.md)
 - [auth-core](/packages/agent-docs/reference/autogen/packages/auth-core.md)
+- [auth-provider-local-core](/packages/agent-docs/reference/autogen/packages/auth-provider-local-core.md)
 - [auth-provider-supabase-core](/packages/agent-docs/reference/autogen/packages/auth-provider-supabase-core.md)
 - [auth-web](/packages/agent-docs/reference/autogen/packages/auth-web.md)
 - [console-core](/packages/agent-docs/reference/autogen/packages/console-core.md)

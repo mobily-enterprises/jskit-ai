@@ -80,6 +80,7 @@ Exports
 - `AuthWebClientProvider`
 - `DefaultLoginView`
 - `DefaultSignOutView`
+- `DefaultResetPasswordView`
 - `AuthProfileWidget`
 - `AuthProfileMenuLinkItem`
 - `useAuthStore`
@@ -114,6 +115,12 @@ Exports
 ### `src/client/providers/bootAuthClientProvider.js`
 Exports
 - `bootAuthClientProvider(app)`
+
+### `src/client/runtime/authCallbackUrlParams.js`
+Exports
+- `readAuthCallbackParam(callbackUrlParams, key)`
+- `readAuthCallbackUrlParams(url = "")`
+- `stripAuthCallbackParamsFromUrl(url = "", keys = [])`
 
 ### `src/client/runtime/authGuardRuntime.js`
 Exports
@@ -167,13 +174,19 @@ Exports
 - `completeOAuthCallbackFromUrl({ url = "", fallbackReturnTo = "/", allowedReturnToOrigins = [], defaultProvider = "", request = authHttpRequest, refreshSession = async () => null } = {})`
 - `readOAuthCallbackParamsFromUrl(url = "")`
 Local functions
-- `parseCallbackUrl(url = "")`
 - `buildOAuthCompletePayload({ callbackParams = null, provider = "", hasSessionPair = false } = {})`
 
 ### `src/client/runtime/oauthLaunchClient.js`
 Exports
 - `createBrowserOAuthLaunchClient({ location = null } = {})`
 - `isAuthOAuthLaunchClient(value = null)`
+
+### `src/client/runtime/passwordRecoveryCallbackRuntime.js`
+Exports
+- `PASSWORD_RECOVERY_CALLBACK_PARAM_KEYS`
+- `readPasswordRecoveryCallbackPayloadFromUrl(url = "")`
+- `stripPasswordRecoveryCallbackParamsFromLocation()`
+- `stripPasswordRecoveryCallbackParamsFromUrl(url = "")`
 
 ### `src/client/runtime/useLoginView.js`
 Exports
@@ -211,6 +224,14 @@ Exports
 Local functions
 - `togglePasswordVisibility()`
 - `toggleConfirmPasswordVisibility()`
+
+### `src/client/views/DefaultResetPasswordView.vue`
+Exports
+- None
+Local functions
+- `readRecoveryPayload()`
+- `exchangeRecoveryToken()`
+- `submitReset()`
 
 ### `src/client/views/DefaultSignOutView.vue`
 Exports
@@ -251,6 +272,10 @@ Exports
 Exports
 - None
 
+### `templates/src/pages/auth/reset-password.vue`
+Exports
+- None
+
 ### `templates/src/pages/auth/signout.vue`
 Exports
 - None
@@ -275,6 +300,10 @@ Exports
 - `performSignOutRequest`
 
 ### `templates/src/views/auth/LoginView.vue`
+Exports
+- None
+
+### `templates/src/views/auth/ResetPasswordView.vue`
 Exports
 - None
 

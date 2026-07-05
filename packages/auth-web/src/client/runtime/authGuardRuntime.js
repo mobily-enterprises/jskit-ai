@@ -4,11 +4,13 @@ import { isExternalLinkTarget } from "@jskit-ai/kernel/shared/support/linkPath";
 import { normalizePathname as normalizeSurfacePathname } from "@jskit-ai/kernel/shared/surface/paths";
 import { createListenerSubscription } from "@jskit-ai/kernel/shared/support/listenerSet";
 import { normalizePermissionList } from "@jskit-ai/kernel/shared/support/permissions";
+import { normalizeAuthCapabilities } from "@jskit-ai/auth-core/shared/authCapabilities";
 
 const GLOBAL_GUARD_EVALUATOR_KEY = "__JSKIT_WEB_SHELL_GUARD_EVALUATOR__";
 const AUTH_POLICY_AUTHENTICATED = "authenticated";
 const DEFAULT_SESSION_PATH = AUTH_PATHS.SESSION;
 const DEFAULT_LOGIN_ROUTE = "/auth/login";
+const DEFAULT_RESET_PASSWORD_ROUTE = "/auth/reset-password";
 const DEFAULT_REFRESH_ON_FOREGROUND = false;
 const DEFAULT_REFRESH_ON_RECONNECT = false;
 const DEFAULT_REALTIME_REFRESH_EVENTS = Object.freeze(["users.bootstrap.changed", "auth.session.changed"]);
@@ -38,7 +40,8 @@ const DEFAULT_AUTH_STATE = Object.freeze({
   email: "",
   permissions: Object.freeze([]),
   oauthDefaultProvider: "",
-  oauthProviders: Object.freeze([])
+  oauthProviders: Object.freeze([]),
+  authCapabilities: normalizeAuthCapabilities()
 });
 
 function asGlobalObject() {
@@ -107,6 +110,7 @@ function normalizeAuthState(payload = {}) {
   const username = authenticated ? String(payload.username || "").trim() : "";
   const email = authenticated ? String(payload.email || "").trim().toLowerCase() : "";
   const permissions = authenticated ? Object.freeze(normalizePermissionList(payload.permissions)) : Object.freeze([]);
+  const authCapabilities = normalizeAuthCapabilities(payload.authCapabilities || payload.capabilities || {});
 
   return Object.freeze({
     authenticated,
@@ -114,7 +118,8 @@ function normalizeAuthState(payload = {}) {
     email,
     permissions,
     oauthDefaultProvider,
-    oauthProviders
+    oauthProviders,
+    authCapabilities
   });
 }
 
@@ -307,7 +312,8 @@ function redirectOAuthCallbackToLoginRoute(loginRoute) {
 
   const currentPathname = normalizePathname(window.location.pathname || "", "/");
   const loginPathname = normalizePathname(normalizedLoginRoute, DEFAULT_LOGIN_ROUTE);
-  if (currentPathname === loginPathname) {
+  const resetPasswordPathname = normalizePathname(DEFAULT_RESET_PASSWORD_ROUTE, DEFAULT_RESET_PASSWORD_ROUTE);
+  if (currentPathname === loginPathname || currentPathname === resetPasswordPathname) {
     return false;
   }
 

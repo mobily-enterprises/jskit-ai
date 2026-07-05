@@ -94,11 +94,11 @@ test("installing users-core sets auth profile mode in server config", async () =
 
     const serverConfigSource = await readFile(path.join(appRoot, "config/server.js"), "utf8");
     assert.match(serverConfigSource, /config\.auth \|\|= \{\};/);
-    assert.match(serverConfigSource, /config\.auth\.profileMode = "standalone";/);
+    assert.match(serverConfigSource, /config\.auth\.profileMode = "provider";/);
     assert.match(serverConfigSource, /config\.auth\.profileMode = "users";/);
     assert.ok(
       serverConfigSource.lastIndexOf('config.auth.profileMode = "users";') >
-        serverConfigSource.lastIndexOf('config.auth.profileMode = "standalone";')
+        serverConfigSource.lastIndexOf('config.auth.profileMode = "provider";')
     );
 
     const envSource = await readFile(path.join(appRoot, ".env"), "utf8");

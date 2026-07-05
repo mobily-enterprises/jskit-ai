@@ -1,9 +1,11 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { createApplication } from "@jskit-ai/kernel/_testable";
+import { AuthActionsServiceProvider } from "@jskit-ai/auth-core/server/providers/AuthActionsServiceProvider";
 import { registerAuthServiceDecorator } from "@jskit-ai/auth-core/server/authServiceDecoratorRegistry";
 import { ActionRuntimeServiceProvider } from "@jskit-ai/kernel/server/actions";
 import { createProviderClass } from "../../kernel/shared/runtime/application.js";
+import { AuthProviderServiceProvider } from "../src/server/providers/AuthProviderServiceProvider.js";
 import { AuthSupabaseServiceProvider } from "../src/server/providers/AuthSupabaseServiceProvider.js";
 
 function createAppConfigFixture({ auth = null } = {}) {
@@ -35,7 +37,7 @@ function isBootFailureWithCause(error, pattern) {
   );
 }
 
-test("auth supabase provider defaults to users mode and contributes auth actions", async () => {
+test("auth supabase provider defaults to provider profile mode and contributes auth actions", async () => {
   const app = createApplication();
   app.instance("appConfig", createAppConfigFixture());
   app.instance("jskit.env", {
@@ -69,11 +71,53 @@ test("auth supabase provider defaults to users mode and contributes auth actions
   });
 
   await app.start({
-    providers: [ActionRuntimeServiceProvider, AuthSupabaseServiceProvider]
+    providers: [
+      ActionRuntimeServiceProvider,
+      AuthSupabaseServiceProvider,
+      AuthProviderServiceProvider,
+      AuthActionsServiceProvider
+    ]
   });
 
   const authService = app.make("authService");
   assert.equal(typeof authService?.login, "function");
+  assert.deepEqual(authService.getCapabilities(), {
+    provider: {
+      id: "supabase",
+      label: "Supabase"
+    },
+    features: {
+      password: {
+        login: true,
+        register: true,
+        change: true,
+        methodToggle: false
+      },
+      passwordRecovery: {
+        request: true,
+        complete: true,
+        delivery: "smtp"
+      },
+      otp: {
+        login: true
+      },
+      oauthLogin: {
+        enabled: false,
+        providers: [],
+        defaultProvider: null
+      },
+      emailConfirmation: true,
+      profileUpdate: true,
+      providerLinking: {
+        start: false,
+        unlink: false
+      },
+      securityStatus: true,
+      signOutOtherSessions: true,
+      appProfileProjection: false,
+      devLoginAs: false
+    }
+  });
 
   const actionExecutor = app.make("actionExecutor");
   assert.equal(typeof actionExecutor?.execute, "function");
@@ -111,14 +155,22 @@ test("auth supabase provider registers authService in standalone mode without us
   });
 
   await app.start({
-    providers: [ActionRuntimeServiceProvider, AuthSupabaseServiceProvider]
+    providers: [
+      ActionRuntimeServiceProvider,
+      AuthSupabaseServiceProvider,
+      AuthProviderServiceProvider,
+      AuthActionsServiceProvider
+    ]
   });
 
   const authService = app.make("authService");
   assert.equal(typeof authService?.login, "function");
+  const status = await authService.getSecurityStatus();
+  assert.equal(status.actions.changePassword, true);
+  assert.equal(status.actions.setPasswordEnabled, false);
 });
 
-test("auth supabase provider requires users.profile.sync.service in default users mode", async () => {
+test("auth supabase provider reports password method toggle only with persistent settings repository", async () => {
   const app = createApplication();
   app.instance("appConfig", createAppConfigFixture());
   app.instance("jskit.env", {
@@ -136,12 +188,61 @@ test("auth supabase provider requires users.profile.sync.service in default user
   app.instance("domainEvents", {
     async publish() {}
   });
+  app.instance("internal.repository.user-settings", {
+    async ensureForUserId() {
+      return {
+        passwordSignInEnabled: true,
+        passwordSetupRequired: false
+      };
+    },
+    async updatePasswordSignInEnabled() {
+      return {
+        passwordSignInEnabled: true,
+        passwordSetupRequired: false
+      };
+    }
+  });
 
   await app.start({
     providers: [ActionRuntimeServiceProvider, AuthSupabaseServiceProvider]
   });
 
-  assert.throws(() => app.make("authService"), /config\.auth\.profileMode is "users"/);
+  const authService = app.make("authService");
+  assert.equal(authService.getCapabilities().features.password.methodToggle, true);
+  const status = await authService.getSecurityStatus();
+  assert.equal(status.actions.setPasswordEnabled, true);
+});
+
+test("auth supabase provider requires users.profile.sync.service in explicit users mode", async () => {
+  const app = createApplication();
+  app.instance("appConfig", createAppConfigFixture({
+    auth: {
+      profileMode: "users"
+    }
+  }));
+  app.instance("jskit.env", {
+    AUTH_SUPABASE_URL: "https://example.supabase.co",
+    AUTH_SUPABASE_PUBLISHABLE_KEY: "sb_publishable_test_key",
+    APP_PUBLIC_URL: "http://localhost:5173",
+    NODE_ENV: "test"
+  });
+  app.instance("jskit.logger", {
+    info() {},
+    warn() {},
+    error() {},
+    debug() {}
+  });
+  app.instance("domainEvents", {
+    async publish() {}
+  });
+
+  await assert.rejects(
+    () =>
+      app.start({
+        providers: [ActionRuntimeServiceProvider, AuthSupabaseServiceProvider]
+      }),
+    (error) => isBootFailureWithCause(error, /config\.auth\.profileMode is "users"/)
+  );
 });
 
 test("auth supabase provider rejects unsupported config.auth.profileMode values", async () => {
@@ -167,11 +268,42 @@ test("auth supabase provider rejects unsupported config.auth.profileMode values"
     async publish() {}
   });
 
-  await app.start({
-    providers: [ActionRuntimeServiceProvider, AuthSupabaseServiceProvider]
+  await assert.rejects(
+    () =>
+      app.start({
+        providers: [ActionRuntimeServiceProvider, AuthSupabaseServiceProvider]
+      }),
+    (error) => isBootFailureWithCause(error, /Unsupported config\.auth\.profileMode/)
+  );
+});
+
+test("auth supabase provider rejects AUTH_PROVIDER mismatches", async () => {
+  const app = createApplication();
+  app.instance("appConfig", createAppConfigFixture());
+  app.instance("jskit.env", {
+    AUTH_PROVIDER: "local",
+    AUTH_SUPABASE_URL: "https://example.supabase.co",
+    AUTH_SUPABASE_PUBLISHABLE_KEY: "sb_publishable_test_key",
+    APP_PUBLIC_URL: "http://localhost:5173",
+    NODE_ENV: "test"
+  });
+  app.instance("jskit.logger", {
+    info() {},
+    warn() {},
+    error() {},
+    debug() {}
+  });
+  app.instance("domainEvents", {
+    async publish() {}
   });
 
-  assert.throws(() => app.make("authService"), /Unsupported config\.auth\.profileMode/);
+  await assert.rejects(
+    () =>
+      app.start({
+        providers: [ActionRuntimeServiceProvider, AuthSupabaseServiceProvider]
+      }),
+    (error) => /AUTH_PROVIDER is "local"/.test(String(error.details?.cause?.message || error.message || ""))
+  );
 });
 
 test("auth supabase provider can boot dev auth without Supabase credentials", async () => {
@@ -223,6 +355,12 @@ test("auth supabase provider can boot dev auth without Supabase credentials", as
   assert.equal(typeof authService?.devLoginAs, "function");
   assert.equal(typeof authService?.isDevAuthBootstrapEnabled, "function");
   assert.equal(authService.isDevAuthBootstrapEnabled(), true);
+  const capabilities = authService.getCapabilities();
+  assert.equal(capabilities.features.password.login, false);
+  assert.equal(capabilities.features.passwordRecovery.request, false);
+  assert.equal(capabilities.features.otp.login, false);
+  assert.equal(capabilities.features.signOutOtherSessions, false);
+  assert.equal(capabilities.features.devLoginAs, true);
 
   const actionExecutor = app.make("actionExecutor");
   const definitions = actionExecutor.listDefinitions();

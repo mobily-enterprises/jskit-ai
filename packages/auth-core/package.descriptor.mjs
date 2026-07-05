@@ -1,7 +1,7 @@
 export default Object.freeze({
   "packageVersion": 1,
   "packageId": "@jskit-ai/auth-core",
-  "version": "0.1.99",
+  "version": "0.1.100",
   "kind": "runtime",
   "dependsOn": [
     "@jskit-ai/value-app-config-shared"
@@ -20,6 +20,10 @@ export default Object.freeze({
         {
           "entrypoint": "src/server/providers/AccessCoreServiceProvider.js",
           "export": "AccessCoreServiceProvider"
+        },
+        {
+          "entrypoint": "src/server/providers/AuthActionsServiceProvider.js",
+          "export": "AuthActionsServiceProvider"
         },
         {
           "entrypoint": "src/server/providers/FastifyAuthPolicyServiceProvider.js",
@@ -49,7 +53,7 @@ export default Object.freeze({
         },
         {
           "subpath": "./server",
-          "summary": "Exports server auth access and Fastify auth policy providers plus server auth utility modules."
+          "summary": "Exports server auth access, shared auth action, and Fastify auth policy providers plus server auth utility modules."
         },
         {
           "subpath": "./shared",
@@ -58,7 +62,8 @@ export default Object.freeze({
       ],
       "containerTokens": {
         "server": [
-          "auth.access"
+          "auth.access",
+          "auth.session.events.service"
         ],
         "client": [
           "auth.access.client"
@@ -69,7 +74,7 @@ export default Object.freeze({
   "mutations": {
     "dependencies": {
       "runtime": {
-        "@jskit-ai/kernel": "0.1.101",
+        "@jskit-ai/kernel": "0.1.102",
         "@fastify/cookie": "^11.0.2",
         "@fastify/csrf-protection": "^7.1.0",
         "@fastify/rate-limit": "^10.3.0"

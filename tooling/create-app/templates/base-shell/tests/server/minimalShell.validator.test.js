@@ -27,7 +27,6 @@ const REQUIRED_TOP_LEVEL_ENTRIES = Object.freeze([
   "jsconfig.json",
   "package.json",
   "packages",
-  "scripts",
   "server",
   "server.js",
   "src",

@@ -1,3 +1,4 @@
+import { normalizeAuthCapabilities } from "@jskit-ai/auth-core/shared/authCapabilities";
 import { AUTH_ACTION_IDS } from "../constants/authActionIds.js";
 
 class AuthWebService {
@@ -143,6 +144,15 @@ class AuthWebService {
 
   getOAuthProviderCatalogPayload() {
     const authService = this.resolveAuthService();
+    if (typeof authService.getCapabilities === "function") {
+      const capabilities = normalizeAuthCapabilities(authService.getCapabilities());
+      const oauth = capabilities.features.oauthLogin;
+      return {
+        authCapabilities: capabilities,
+        oauthProviders: oauth.enabled ? oauth.providers : [],
+        oauthDefaultProvider: oauth.enabled ? oauth.defaultProvider : null
+      };
+    }
     const catalog =
       typeof authService.getOAuthProviderCatalog === "function"
         ? authService.getOAuthProviderCatalog()
@@ -156,12 +166,23 @@ class AuthWebService {
           .filter((provider) => provider.id && provider.label)
       : [];
     const defaultProvider = String(catalog?.defaultProvider || "").trim().toLowerCase();
+    const normalizedDefaultProvider = providers.some((provider) => provider.id === defaultProvider)
+      ? defaultProvider
+      : null;
+    const fallbackCapabilities = normalizeAuthCapabilities({
+      features: {
+        oauthLogin: {
+          enabled: providers.length > 0,
+          providers,
+          defaultProvider: normalizedDefaultProvider
+        }
+      }
+    });
 
     return {
+      authCapabilities: fallbackCapabilities,
       oauthProviders: providers,
-      oauthDefaultProvider: providers.some((provider) => provider.id === defaultProvider)
-        ? defaultProvider
-        : null
+      oauthDefaultProvider: normalizedDefaultProvider
     };
   }
 }

@@ -28,7 +28,7 @@ The easiest way to understand `jskit` is to separate it from the other tools in 
 
 That separation is crucial.
 
-When you run a command such as `npx jskit add package auth-provider-supabase-core`, JSKIT updates app-owned files and records what it changed. It does **not** replace npm, Vite, or Knex.
+When you run a command such as `npx jskit add bundle auth-local`, JSKIT updates app-owned files and records what it changed. It does **not** replace npm, Vite, or Knex.
 
 The most important record of that managed state lives here:
 
@@ -153,7 +153,7 @@ That distinction matters.
 
 A bundle is a curated install shortcut for several runtime packages that are meant to go together.
 
-In the current catalog, `auth-base` is the obvious example. It is a single bundle id, but it expands to several real runtime packages.
+In the current catalog, `auth-local` is the obvious example. It is a single bundle id, but it expands to several real runtime packages.
 
 #### Runtime packages
 
@@ -235,32 +235,34 @@ There are two especially common cases:
 
 That second case matters just as much as the first one. Later in the guide, chapters explain package behavior one feature at a time. `show --details` is the generic command that lets you inspect those same package contracts directly.
 
-### A first example: what does `auth-base` actually install?
+### A first example: what does `auth-local` actually install?
 
 Run:
 
 ```bash
-npx jskit show auth-base --details
+npx jskit show auth-local --details
 ```
 
 This output is short, but it already teaches something important:
 
-- `auth-base` is a **bundle**
+- `auth-local` is a **bundle**
 - it is not a runtime package by itself
 
-It expands to two real runtime packages:
+It expands to three real runtime packages:
 
 - `@jskit-ai/auth-core`
 - `@jskit-ai/auth-web`
+- `@jskit-ai/auth-provider-local-core`
 
 That is exactly the kind of thing you want to know before you mutate the app. For a bundle, this is often the main question:
 
 - *what real packages am I about to get?*
 
-`auth-base` is a good example because the bundle name is short and convenient, but the detailed view makes the underlying install explicit. It also helps you keep the mental model straight:
+`auth-local` is a good example because the bundle name is short and convenient, but the detailed view makes the underlying install explicit. It also helps you keep the mental model straight:
 
 - bundles are install shortcuts
 - runtime packages are the things that actually provide capabilities
+- provider bundles also select one concrete `auth.provider`
 
 ### A richer example: what does `workspaces-web` contribute?
 
@@ -476,8 +478,8 @@ This is not required, but it is genuinely useful once you start using commands s
 The install command comes in two main forms:
 
 ```bash
-npx jskit add package auth-provider-supabase-core
-npx jskit add bundle auth-base
+npx jskit add package users-web
+npx jskit add bundle auth-local
 ```
 
 Those two examples look similar, but they do different things.
@@ -519,12 +521,12 @@ npm run devlinks
 Use this when the catalog already offers a sensible grouped install:
 
 ```bash
-npx jskit add bundle auth-base
+npx jskit add bundle auth-local
 ```
 
 Bundles are a convenience layer. They save you from having to remember and install several related runtime packages one by one.
 
-This is why `show auth-base --details` is useful first: it lets you see what the bundle will actually install.
+This is why `show auth-local --details` is useful first: it lets you see what the bundle will actually install. Lower-level bundles such as `auth-base` can still be useful when you are composing your own provider stack, but they require an installed selected provider such as `auth-provider-local-core` or `auth-provider-supabase-core`.
 
 ### Generator packages are different
 

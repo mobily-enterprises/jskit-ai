@@ -1,4 +1,5 @@
 import { inject } from "vue";
+import { normalizeAuthCapabilities } from "@jskit-ai/auth-core/shared/authCapabilities";
 import { isAuthGuardRuntime } from "./authGuardRuntime.js";
 import { createBrowserOAuthLaunchClient, isAuthOAuthLaunchClient } from "./oauthLaunchClient.js";
 
@@ -9,7 +10,8 @@ const EMPTY_AUTH_GUARD_STATE = Object.freeze({
   authenticated: false,
   username: "",
   oauthDefaultProvider: "",
-  oauthProviders: Object.freeze([])
+  oauthProviders: Object.freeze([]),
+  authCapabilities: normalizeAuthCapabilities()
 });
 
 const EMPTY_AUTH_GUARD_RUNTIME = Object.freeze({

@@ -2,7 +2,7 @@
 
 # Database layer
 
-At the end of the previous chapter, the app could already authenticate real users through Supabase, but JSKIT was still using its no-database fallback for the app-side user mirror. In this chapter, we install the MySQL database runtime, add the migration tooling, and explain what that changes immediately and what it still does **not** change yet.
+At the end of the previous chapter, the app could already authenticate real users through the local auth provider, without requiring Supabase or a database. In this chapter, we install the MySQL database runtime, add the migration tooling, and explain what that changes immediately and what it still does **not** change yet.
 
 This chapter is more infrastructural than the previous ones. That is intentional. There is no dramatic new screen in the browser. The important change is that the app gains a real database layer that later packages can depend on.
 
@@ -484,32 +484,31 @@ But the app still does **not** have:
 - workspace tables
 - CRUD tables of its own
 
-That means authentication is still only **partly** database-backed.
+That means the app's account model still is not database-backed.
 
-- Supabase is still the real source of truth for auth users and sessions.
+- local auth is still the real source of truth for auth users and sessions.
 - JSKIT still has a database runtime available.
-- But JSKIT still has **no installed package yet** that tells auth to switch from the standalone in-memory profile mirror to the persistent users-backed one.
+- But JSKIT still has **no installed package yet** that projects auth identities into persistent users/account tables.
 
 So this chapter is an infrastructure step. It makes the database layer available, but it does not yet install the package that uses that layer for persistent JSKIT-side user data.
 
-**Important: Auth Is Still In Standalone Mode**
+**Important: Auth Is Not Users-Backed Yet**
 
 This is the most important thing to keep straight:
 
-- adding `database-runtime-mysql` does **not** automatically make the auth chapter's temporary mirror disappear
+- adding `database-runtime-mysql` does **not** automatically change where auth stores credentials or sessions
 - it also does **not** create JSKIT user rows yet
 
-That only changes later, when a package such as `users-core` is installed and tells auth to use the persistent users-backed profile sync mode.
+That only changes later, when a package such as `users-core` is installed and registers the persistent users-backed `auth.profile.projector`.
 
 So after this chapter the app has a database layer, but authentication still behaves like:
 
-- real Supabase auth
-- temporary JSKIT-side mirror
+- real local auth
+- provider identity in the auth session
 
 not yet:
 
-- real Supabase auth
-- persistent JSKIT-side users layer
+- real local auth plus a persistent JSKIT-side users layer
 
 ## Under the hood
 
@@ -702,43 +701,34 @@ Right now:
 
 - `shell-web` is still a shell/layout package
 - `auth-web` is still a web auth package
-- `auth-provider-supabase-core` is still talking to Supabase for the real auth work
+- `auth-provider-local-core` is still handling credentials and sessions through `auth.local.backend`
 
 So the app has gained a new capability, but no visible part of the UI depends on that capability yet.
 
-### Why auth still uses the standalone profile mirror
+### Why auth is not users-backed yet
 
 This is the most important code path to read in this chapter.
 
-Inside `AuthSupabaseServiceProvider`, auth resolves its profile mode from server app config:
+Inside the local provider, auth only projects provider identities into the app users layer when something registers the provider-neutral `auth.profile.projector` token:
 
 ```js
-const authProfileMode = resolveAuthProfileMode(appConfig);
-let userProfileSyncService = fallbackStandaloneProfileSyncService;
-
-if (authProfileMode === PROFILE_MODE_USERS) {
-  if (!scope.has("users.profile.sync.service")) {
-    throw new Error(
-      "AuthSupabaseServiceProvider requires users.profile.sync.service when config.auth.profileMode is \"users\"."
-    );
-  }
-  userProfileSyncService = scope.make("users.profile.sync.service");
-}
+const profileProjector = scope.has("auth.profile.projector")
+  ? scope.make("auth.profile.projector")
+  : null;
 ```
 
 That snippet explains the whole consequence of this chapter.
 
-- The auth provider's server config still sets `config.auth.profileMode = "standalone"`.
-- If `profileMode` is missing entirely, the runtime assumes `users`, but it is not missing in the auth-only scaffold.
-- The fallback service is still the in-memory profile sync service from the previous chapter.
-- Nothing in `database-runtime-mysql` changes `config.auth.profileMode`.
+- The auth provider can authenticate users without an app database.
+- Nothing in `database-runtime-mysql` registers `auth.profile.projector`.
 - Nothing in `database-runtime-mysql` provides `users.profile.sync.service`.
+- The database runtime only provides the database foundation that later packages can use.
 
 So the auth layer keeps behaving the same way it did before:
 
-- Supabase still owns the real auth user and session
-- JSKIT still mirrors just enough profile data locally
-- that JSKIT-side mirror is still not persistent yet
+- local auth still owns the auth user and session
+- JSKIT can still display the provider identity from the auth session
+- there is still no persistent JSKIT users/account model yet
 
 The database runtime is ready, but the users layer that will actually use it has not been installed yet.
 
@@ -765,12 +755,12 @@ This chapter did not make the app feel dramatically different in the browser, bu
 
 But just as importantly, this chapter also defined what has **not** changed yet:
 
-- auth still uses the standalone JSKIT-side mirror
+- auth still uses the local provider's own backend
 - JSKIT still has no persistent users layer of its own
 - no feature package has started storing real app data yet
 
 So the right mental model at the end of this chapter is:
 
-- Supabase already handles real authentication
+- local auth already handles real authentication
 - MySQL is wired up and ready
 - the persistent JSKIT-side user model arrives in the next chapter

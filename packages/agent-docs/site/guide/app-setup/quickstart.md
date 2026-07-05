@@ -13,7 +13,7 @@ The base flow below gives you:
 - users
 - console
 - MySQL
-- Supabase auth
+- local auth with no external auth service
 - one `admin` assistant configured from `console`
 
 It also shows the first page-extension moves most apps need:
@@ -30,8 +30,6 @@ Set these values first:
 
 ```bash
 OPENAI_API_KEY=...
-SUPABASE_URL=...
-SUPABASE_KEY=...
 DB_HOST=127.0.0.1
 DB_PORT=3306
 DB_NAME=testapp
@@ -48,12 +46,7 @@ npx @jskit-ai/create-app testapp --tenancy-mode personal
 cd testapp
 npm install
 
-npx jskit add package auth-provider-supabase-core \
-  --auth-supabase-url "$SUPABASE_URL" \
-  --auth-supabase-publishable-key "$SUPABASE_KEY" \
-  --app-public-url "http://localhost:5173"
-
-npx jskit add bundle auth-base
+npx jskit add bundle auth-local
 
 npx jskit add package database-runtime-mysql \
   --db-host "$DB_HOST" \
@@ -86,6 +79,8 @@ npx jskit generate assistant settings-page \
 npm install
 npm run db:migrate
 ```
+
+Keep authentication deliberately basic while the product is still taking shape. Start with `auth-local`, build the app's core workflows, then add Supabase, OAuth, OTP, provider linking, app-user projection, or workspace/account complexity when the product actually needs those features.
 
 At this point you have:
 

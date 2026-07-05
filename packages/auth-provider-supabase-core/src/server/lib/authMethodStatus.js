@@ -10,6 +10,7 @@ import {
   buildAuthMethodDefinitions,
   buildOAuthMethodId
 } from "@jskit-ai/auth-core/shared/authMethods";
+import { buildSecurityStatusFromAuthMethodsStatus as buildCoreSecurityStatusFromAuthMethodsStatus } from "@jskit-ai/auth-core/shared/authSecurityStatus";
 
 function normalizeIdentityProviderId(value) {
   return String(value || "")
@@ -168,29 +169,8 @@ function buildAuthMethodsStatusFromSupabaseUser(user, options = {}) {
   return buildAuthMethodsStatusFromProviderIds(collectProviderIdsFromSupabaseUser(user), options);
 }
 
-function buildSecurityStatusFromAuthMethodsStatus(authMethodsStatus) {
-  const minimumEnabledMethods = Number(authMethodsStatus?.minimumEnabledMethods || AUTH_METHOD_MINIMUM_ENABLED);
-  let enabledMethodsCount = 0;
-
-  const storedCount = Number(authMethodsStatus?.enabledMethodsCount);
-  if (Number.isFinite(storedCount)) {
-    enabledMethodsCount = storedCount;
-  } else if (Array.isArray(authMethodsStatus?.methods)) {
-    enabledMethodsCount = countEnabledMethods(authMethodsStatus.methods);
-  }
-
-  return {
-    mfa: {
-      status: "not_enabled",
-      enrolled: false,
-      methods: []
-    },
-    authPolicy: {
-      minimumEnabledMethods,
-      enabledMethodsCount
-    },
-    authMethods: Array.isArray(authMethodsStatus?.methods) ? authMethodsStatus.methods : []
-  };
+function buildSecurityStatusFromAuthMethodsStatus(authMethodsStatus, options = {}) {
+  return buildCoreSecurityStatusFromAuthMethodsStatus(authMethodsStatus, options);
 }
 
 function findAuthMethodById(authMethodsStatus, methodId) {

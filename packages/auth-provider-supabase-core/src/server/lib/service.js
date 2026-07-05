@@ -1,5 +1,7 @@
 import { createClient } from "@supabase/supabase-js";
 import { AppError } from "@jskit-ai/kernel/server/runtime/errors";
+import { normalizeAuthCapabilities } from "@jskit-ai/auth-core/shared/authCapabilities";
+import { normalizeAuthActor, normalizeAuthResult } from "@jskit-ai/auth-core/server/authActor";
 import {
   AUTH_METHOD_PASSWORD_ID,
   AUTH_METHOD_PASSWORD_PROVIDER,
@@ -68,6 +70,8 @@ import {
 
 const ACCESS_TOKEN_COOKIE = "sb_access_token";
 const REFRESH_TOKEN_COOKIE = "sb_refresh_token";
+const RECOVERY_ACCESS_TOKEN_COOKIE = "sb_recovery_access_token";
+const RECOVERY_REFRESH_TOKEN_COOKIE = "sb_recovery_refresh_token";
 const DEFAULT_AUDIENCE = "authenticated";
 const DEFAULT_AUTH_PROVIDER_ID = "supabase";
 const AUTH_PROVIDER_ID_PATTERN = /^[a-z][a-z0-9_-]{1,63}$/;
@@ -108,9 +112,14 @@ function createService(options) {
 
   const supabaseUrl = String(authProvider.supabaseUrl || "").trim();
   const supabasePublishableKey = String(authProvider.supabasePublishableKey || "").trim();
+  const supabaseConfigured = Boolean(supabaseUrl && supabasePublishableKey);
   const userSettingsRepository = options.userSettingsRepository || null;
+  const passwordMethodToggleSupported =
+    typeof userSettingsRepository?.ensureForUserId === "function" &&
+    typeof userSettingsRepository?.updatePasswordSignInEnabled === "function";
   const userProfilesRepository = options.userProfilesRepository || null;
   const userProfileSyncService = options.userProfileSyncService;
+  const profileProjectionEnabled = options.profileProjectionEnabled === true;
   if (
     !userProfileSyncService ||
     typeof userProfileSyncService.syncIdentityProfile !== "function" ||
@@ -156,6 +165,56 @@ function createService(options) {
   const authOAuthProviderIds = authOAuthCatalog.providerIds;
   const authOAuthDefaultProvider = authOAuthCatalog.defaultProvider;
   const authOAuthCatalogResponse = Object.freeze(buildOAuthProviderCatalogResponse(authOAuthCatalog));
+  const capabilities = normalizeAuthCapabilities({
+    provider: {
+      id: authProviderId,
+      label: "Supabase"
+    },
+    features: {
+      password: {
+        login: supabaseConfigured,
+        register: supabaseConfigured,
+        change: supabaseConfigured,
+        methodToggle: supabaseConfigured && passwordMethodToggleSupported
+      },
+      passwordRecovery: {
+        request: supabaseConfigured,
+        complete: supabaseConfigured,
+        delivery: supabaseConfigured ? "smtp" : "disabled"
+      },
+      otp: {
+        login: supabaseConfigured
+      },
+      oauthLogin: {
+        enabled: supabaseConfigured && authOAuthProviders.length > 0,
+        providers: authOAuthCatalogResponse.providers,
+        defaultProvider: authOAuthCatalogResponse.defaultProvider
+      },
+      emailConfirmation: supabaseConfigured,
+      profileUpdate: supabaseConfigured,
+      providerLinking: {
+        start: supabaseConfigured && authOAuthProviders.length > 0,
+        unlink: supabaseConfigured && authOAuthProviders.length > 0
+      },
+      securityStatus: supabaseConfigured || devAuthConfig.enabled === true,
+      signOutOtherSessions: supabaseConfigured,
+      appProfileProjection: profileProjectionEnabled,
+      devLoginAs: devAuthConfig.enabled === true
+    }
+  });
+  const securityStatusActions = Object.freeze({
+    changePassword: true,
+    setPasswordEnabled: capabilities.features.password.methodToggle,
+    linkProvider: capabilities.features.providerLinking.start,
+    unlinkProvider: capabilities.features.providerLinking.unlink,
+    signOutOtherSessions: capabilities.features.signOutOtherSessions
+  });
+
+  function buildProviderSecurityStatus(authMethodsStatus) {
+    return buildSecurityStatusFromAuthMethodsStatus(authMethodsStatus, {
+      actions: securityStatusActions
+    });
+  }
 
   function normalizeOAuthProviderInput(value) {
     return normalizeOAuthProviderInputFromCatalog(value, {
@@ -283,7 +342,22 @@ function createService(options) {
     const accessToken = String(cookies[ACCESS_TOKEN_COOKIE] || "").trim();
     const refreshToken = String(cookies[REFRESH_TOKEN_COOKIE] || "").trim();
 
-    if (!accessToken || !refreshToken) {
+    return setSupabaseSessionFromTokens({ accessToken, refreshToken }, options);
+  }
+
+  async function setRecoverySessionFromRequestCookies(request, options = {}) {
+    const cookies = safeRequestCookies(request);
+    const accessToken = String(cookies[RECOVERY_ACCESS_TOKEN_COOKIE] || "").trim();
+    const refreshToken = String(cookies[RECOVERY_REFRESH_TOKEN_COOKIE] || "").trim();
+
+    return setSupabaseSessionFromTokens({ accessToken, refreshToken }, options);
+  }
+
+  async function setSupabaseSessionFromTokens({ accessToken, refreshToken }, options = {}) {
+    const normalizedAccessToken = String(accessToken || "").trim();
+    const normalizedRefreshToken = String(refreshToken || "").trim();
+
+    if (!normalizedAccessToken || !normalizedRefreshToken) {
       throw new AppError(401, "Authentication required.");
     }
 
@@ -291,8 +365,8 @@ function createService(options) {
     let sessionResponse;
     try {
       sessionResponse = await supabase.auth.setSession({
-        access_token: accessToken,
-        refresh_token: refreshToken
+        access_token: normalizedAccessToken,
+        refresh_token: normalizedRefreshToken
       });
     } catch (error) {
       throw mapRecoveryError(error);
@@ -398,12 +472,12 @@ function createService(options) {
       return devAuthResult;
     }
 
-    return {
+    return withActor({
       ...devAuthResult,
       profile: requireAuthenticatedProfile(devAuthResult.profile, {
         context: "dev auth profile"
       })
-    };
+    });
   }
 
   function writeSessionCookies(reply, session) {
@@ -414,16 +488,23 @@ function createService(options) {
     }
 
     const sessionAccessMaxAge = Number.isFinite(Number(session?.expires_in)) ? Number(session.expires_in) : 3600;
-    const persistentCookieMaxAge = Math.max(Math.floor(sessionAccessMaxAge), PERSISTENT_SESSION_COOKIE_MAX_AGE_SECONDS);
+    const purpose = String(session?.purpose || "normal").trim();
+    const accessCookieName = purpose === "recovery" ? RECOVERY_ACCESS_TOKEN_COOKIE : ACCESS_TOKEN_COOKIE;
+    const refreshCookieName = purpose === "recovery" ? RECOVERY_REFRESH_TOKEN_COOKIE : REFRESH_TOKEN_COOKIE;
+    const cookieMaxAge = purpose === "recovery"
+      ? Math.floor(sessionAccessMaxAge)
+      : Math.max(Math.floor(sessionAccessMaxAge), PERSISTENT_SESSION_COOKIE_MAX_AGE_SECONDS);
 
-    reply.setCookie(ACCESS_TOKEN_COOKIE, accessToken, cookieOptions(isProduction, persistentCookieMaxAge));
-    reply.setCookie(REFRESH_TOKEN_COOKIE, refreshToken, cookieOptions(isProduction, persistentCookieMaxAge));
+    reply.setCookie(accessCookieName, accessToken, cookieOptions(isProduction, cookieMaxAge));
+    reply.setCookie(refreshCookieName, refreshToken, cookieOptions(isProduction, cookieMaxAge));
   }
 
   function clearSessionCookies(reply) {
     for (const clearOptions of cookieClearOptions(isProduction)) {
       reply.clearCookie(ACCESS_TOKEN_COOKIE, clearOptions);
       reply.clearCookie(REFRESH_TOKEN_COOKIE, clearOptions);
+      reply.clearCookie(RECOVERY_ACCESS_TOKEN_COOKIE, clearOptions);
+      reply.clearCookie(RECOVERY_REFRESH_TOKEN_COOKIE, clearOptions);
     }
   }
 
@@ -565,6 +646,44 @@ function createService(options) {
     });
   }
 
+  function buildActorFromProfile(profile) {
+    return normalizeAuthActor(
+      {
+        provider: profile?.authProvider || authProviderId,
+        providerUserId: profile?.authProviderUserSid || profile?.id,
+        email: profile?.email,
+        displayName: profile?.displayName,
+        appUserId: profileProjectionEnabled ? profile?.id : null,
+        profileSource: profile?.profileSource || (profileProjectionEnabled ? "users" : "auth-provider")
+      },
+      {
+        provider: authProviderId,
+        profileSource: profileProjectionEnabled ? "users" : "auth-provider"
+      }
+    );
+  }
+
+  function withActor(result) {
+    if (!result || typeof result !== "object") {
+      return result;
+    }
+    if (result.authenticated !== true && !result.profile) {
+      return result;
+    }
+    const actor = buildActorFromProfile(result.profile);
+    if (!actor) {
+      return result;
+    }
+    return normalizeAuthResult({
+      ...result,
+      actor
+    });
+  }
+
+  function withActorResult(operation) {
+    return async (...args) => withActor(await operation(...args));
+  }
+
   async function syncProfileFromJwtClaims(claims) {
     const supabaseUserId = normalizeProviderUserId(claims?.sub);
     if (!supabaseUserId) {
@@ -661,7 +780,7 @@ function createService(options) {
       oauthProviders: authOAuthProviders
     });
 
-    return buildSecurityStatusFromAuthMethodsStatus(authMethodsStatus);
+    return buildProviderSecurityStatus(authMethodsStatus);
   }
 
   const { register, resendRegisterConfirmation, login, requestOtpLogin, verifyOtpLogin, updateDisplayName } = createAccountFlows({
@@ -703,7 +822,7 @@ function createService(options) {
     buildOAuthMethodId,
     findAuthMethodById,
     findLinkedIdentityByProvider,
-    buildSecurityStatusFromAuthMethodsStatus
+    buildSecurityStatusFromAuthMethodsStatus: buildProviderSecurityStatus
   });
 
   const {
@@ -723,6 +842,7 @@ function createService(options) {
     mapRecoveryError,
     syncProfileFromSupabaseUser,
     setSessionFromRequestCookies,
+    setRecoverySessionFromRequestCookies,
     resolvePasswordSignInPolicyForUserId,
     mapPasswordUpdateError,
     setPasswordSetupRequiredForUserId,
@@ -739,7 +859,7 @@ function createService(options) {
         ...statusOptions,
         oauthProviders: authOAuthProviders
       }),
-    buildSecurityStatusFromAuthMethodsStatus,
+    buildSecurityStatusFromAuthMethodsStatus: buildProviderSecurityStatus,
     authMethodPasswordProvider: AUTH_METHOD_PASSWORD_PROVIDER,
     buildAuthMethodsStatusFromProviderIds: (providerIds, statusOptions = {}) =>
       buildAuthMethodsStatusFromProviderIds(providerIds, {
@@ -773,13 +893,13 @@ function createService(options) {
 
       if (verification.status === "valid") {
         const profile = await syncProfileFromJwtClaims(verification.payload);
-        return {
+        return withActor({
           authenticated: true,
           profile,
           clearSession: false,
           session: null,
           transientFailure: false
-        };
+        });
       }
 
       if (verification.status === "transient") {
@@ -794,13 +914,13 @@ function createService(options) {
       if (verification.status === "invalid") {
         const supabaseVerification = await verifyAccessTokenViaSupabase(accessToken);
         if (supabaseVerification.status === "valid") {
-          return {
+          return withActor({
             authenticated: true,
             profile: supabaseVerification.profile,
             clearSession: false,
             session: null,
             transientFailure: false
-          };
+          });
         }
 
         if (supabaseVerification.status === "transient") {
@@ -875,27 +995,36 @@ function createService(options) {
 
     const profile = await syncProfileFromSupabaseUser(refreshResponse.data.user, refreshResponse.data.user.email);
 
-    return {
+    return withActor({
       authenticated: true,
       profile,
       clearSession: false,
       session: refreshResponse.data.session,
       transientFailure: false
-    };
+    });
   }
 
   function hasAccessTokenCookie(request) {
     const cookies = safeRequestCookies(request);
-    return Boolean(cookies[ACCESS_TOKEN_COOKIE]);
+    return Boolean(cookies[ACCESS_TOKEN_COOKIE] || cookies[RECOVERY_ACCESS_TOKEN_COOKIE]);
   }
 
   function hasSessionCookie(request) {
     const cookies = safeRequestCookies(request);
-    return Boolean(cookies[ACCESS_TOKEN_COOKIE] || cookies[REFRESH_TOKEN_COOKIE]);
+    return Boolean(
+      cookies[ACCESS_TOKEN_COOKIE] ||
+        cookies[REFRESH_TOKEN_COOKIE] ||
+        cookies[RECOVERY_ACCESS_TOKEN_COOKIE] ||
+        cookies[RECOVERY_REFRESH_TOKEN_COOKIE]
+    );
   }
 
   function getOAuthProviderCatalog() {
     return authOAuthCatalogResponse;
+  }
+
+  function getCapabilities() {
+    return capabilities;
   }
 
   function isDevAuthBootstrapEnabled() {
@@ -911,26 +1040,27 @@ function createService(options) {
     const profile = requireAuthenticatedProfile(rawProfile, {
       context: "dev auth profile"
     });
-    return {
+    return withActor({
       profile,
       session: await createDevAuthSession(profile, devAuthConfig)
-    };
+    });
   }
 
   return {
-    register,
+    getCapabilities,
+    register: withActorResult(register),
     resendRegisterConfirmation,
-    login,
+    login: withActorResult(login),
     requestOtpLogin,
-    verifyOtpLogin,
+    verifyOtpLogin: withActorResult(verifyOtpLogin),
     oauthStart,
-    oauthComplete,
+    oauthComplete: withActorResult(oauthComplete),
     startProviderLink,
     requestPasswordReset,
-    completePasswordRecovery,
+    completePasswordRecovery: withActorResult(completePasswordRecovery),
     resetPassword,
-    updateDisplayName,
-    changePassword,
+    updateDisplayName: withActorResult(updateDisplayName),
+    changePassword: withActorResult(changePassword),
     setPasswordSignInEnabled,
     unlinkProvider,
     signOutOtherSessions,

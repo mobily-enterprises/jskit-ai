@@ -1,7 +1,7 @@
 export default Object.freeze({
   "packageVersion": 1,
   "packageId": "@jskit-ai/auth-web",
-  "version": "0.1.101",
+  "version": "0.1.102",
   "kind": "runtime",
   "description": "Auth web module: Fastify auth routes plus web login/sign-out scaffolds.",
   "dependsOn": [
@@ -159,6 +159,19 @@ export default Object.freeze({
           "purpose": "Public sign-out route that clears session then returns to login."
         },
         {
+          "id": "auth.reset-password",
+          "path": "/auth/reset-password",
+          "scope": "surface",
+          "surface": "auth",
+          "name": "auth-reset-password",
+          "componentKey": "auth-reset-password",
+          "autoRegister": false,
+          "guard": {
+            "policy": "public"
+          },
+          "purpose": "Public password reset screen for recovery links."
+        },
+        {
           "id": "auth.default-login",
           "path": "/auth/default-login",
           "scope": "surface",
@@ -247,10 +260,10 @@ export default Object.freeze({
     "dependencies": {
       "runtime": {
         "@mdi/js": "^7.4.47",
-        "@jskit-ai/auth-core": "0.1.99",
-        "@jskit-ai/http-runtime": "0.1.99",
-        "@jskit-ai/kernel": "0.1.101",
-        "@jskit-ai/shell-web": "0.1.100"
+        "@jskit-ai/auth-core": "0.1.100",
+        "@jskit-ai/http-runtime": "0.1.100",
+        "@jskit-ai/kernel": "0.1.102",
+        "@jskit-ai/shell-web": "0.1.101"
       },
       "dev": {}
     },
@@ -278,6 +291,13 @@ export default Object.freeze({
         "id": "auth-view-signout"
       },
       {
+        "from": "templates/src/views/auth/ResetPasswordView.vue",
+        "to": "src/views/auth/ResetPasswordView.vue",
+        "reason": "Install minimal password reset container that renders the module-provided DefaultResetPasswordView by default.",
+        "category": "auth-web",
+        "id": "auth-view-reset-password"
+      },
+      {
         "from": "templates/src/pages/auth/login.vue",
         "to": "src/pages/auth/login.vue",
         "reason": "Provide an auth-surface /auth/login wrapper that renders the package login view.",
@@ -290,6 +310,13 @@ export default Object.freeze({
         "reason": "Provide an auth-surface /auth/signout wrapper that renders the package sign-out view.",
         "category": "auth-web",
         "id": "auth-page-signout"
+      },
+      {
+        "from": "templates/src/pages/auth/reset-password.vue",
+        "to": "src/pages/auth/reset-password.vue",
+        "reason": "Provide an auth-surface /auth/reset-password wrapper that renders the package password reset view.",
+        "category": "auth-web",
+        "id": "auth-page-reset-password"
       }
     ],
     "text": [

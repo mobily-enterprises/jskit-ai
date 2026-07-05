@@ -2,6 +2,8 @@ import path from "node:path";
 import { sortStrings } from "../../../shared/support/sorting.js";
 import { loadInstalledPackageDescriptor } from "../../../internal/node/installedPackageDescriptor.js";
 
+const EXCLUSIVE_CAPABILITIES = Object.freeze(["auth.provider"]);
+
 function normalizeUiRoutePath(pathValue) {
   const rawPath = String(pathValue || "").trim();
   if (!rawPath || !rawPath.startsWith("/") || rawPath.startsWith("//")) {
@@ -158,6 +160,15 @@ function validateDescriptorCapabilities(descriptorEntries, { builtinProvidersByC
           `Package ${descriptorEntry.packageId} requires capability ${normalizedCapabilityId}, but no installed package provides it.`
         );
       }
+    }
+  }
+
+  for (const capabilityId of EXCLUSIVE_CAPABILITIES) {
+    const providers = providersByCapability.get(capabilityId);
+    if (providers && providers.size > 1) {
+      throw new Error(
+        `Capability ${capabilityId} is exclusive, but multiple installed packages provide it: ${sortStrings([...providers]).join(", ")}.`
+      );
     }
   }
 }
