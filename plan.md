@@ -649,7 +649,7 @@ Add `/auth/reset-password` as a provider-neutral route. It should exchange recov
 
 Add package descriptor for `@jskit-ai/auth-provider-local-core`.
 
-Add a convenience bundle:
+Keep any auth convenience bundle as an optional compatibility shortcut, not the recommended install surface:
 
 ```text
 auth-local
@@ -665,8 +665,9 @@ Bundle contents:
 
 Change first-app auth guidance:
 
-- `create-app --initial-bundles auth` installs or prints `npx jskit add bundle auth-local`
+- `create-app --initial-bundles auth` installs or prints package commands for `auth-provider-local-core` and `auth-web`
 - docs should start with local auth
+- docs should show package installs rather than recommending auth bundles
 - Supabase docs become an upgrade/provider swap chapter
 
 The first auth install should be possible without collecting provider keys.
@@ -713,8 +714,8 @@ Rules:
 
 - Supabase package keeps its current public package id.
 - Existing Supabase env vars continue to work.
-- Existing `auth-base` bundle can remain provider-neutral.
-- New `auth-local` bundle is the low-friction first-app path.
+- Existing `auth-base` bundle can remain provider-neutral as a compatibility shortcut.
+- Existing `auth-local` bundle can remain as a shortcut, but package-first install guidance is the low-friction first-app path.
 - provider conflict checks prevent accidentally selecting local and Supabase providers together.
 - explicit provider-switch or migration mode may install multiple concrete provider packages temporarily, but must still expose one selected `auth.provider`.
 - provider-switch documentation must tell users how to remove or migrate the previous provider.
@@ -813,8 +814,8 @@ npm run verify
 18. Add SMTP/dev recovery delivery.
 19. Add `/auth/reset-password` UI in `auth-web`.
 20. Make `auth-web` capability-driven across password, OTP, OAuth, linking, recovery, and security status.
-21. Add `auth-local` bundle and catalog entries.
-22. Update `create-app --initial-bundles auth`.
+21. Keep or add auth bundle catalog entries only as optional shortcuts, not as documented first-app recommendations.
+22. Update `create-app --initial-bundles auth` to print package-first local auth commands.
 23. Update human guide and generated agent docs.
 24. Run focused tests, then full verification.
 

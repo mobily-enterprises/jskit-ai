@@ -54,7 +54,8 @@ function buildInitialSetupCommands(initialBundles) {
 
   const commands = [];
   if (normalizedPreset === "auth") {
-    commands.push("npx jskit add bundle auth-local");
+    commands.push("npx jskit add package auth-provider-local-core");
+    commands.push("npx jskit add package auth-web");
   }
 
   return commands;
@@ -229,7 +230,7 @@ function printUsage(stream = process.stderr) {
   stream.write("  --minimal          Use the bare minimal-shell template instead of the default shell-web app scaffold\n");
   stream.write("  --title <text>     App title used for template replacements\n");
   stream.write("  --target <path>    Target directory (default: ./<app-name>)\n");
-  stream.write("  --initial-bundles <preset>  Optional bundle preset: none | auth (default: none)\n");
+  stream.write("  --initial-bundles <preset>  Optional initial setup preset: none | auth (default: none)\n");
   stream.write("  --tenancy-mode <mode>  Optional config seed: none | personal | workspaces\n");
   stream.write("  --force            Allow writing into a non-empty target directory\n");
   stream.write("  --dry-run          Print planned writes without changing the filesystem\n");
@@ -466,7 +467,7 @@ async function collectInteractiveOptions({
     while (true) {
       const candidate = await askQuestion(
         readline,
-        "Initial bundle preset (none|auth)",
+        "Initial setup preset (none|auth)",
         initialBundles
       );
       try {
