@@ -1,6 +1,6 @@
 {
   "name": "@jskit-ai/auth-core",
-  "version": "0.1.99",
+  "version": "0.1.100",
   "type": "module",
   "scripts": {
     "test": "node --test"
@@ -8,8 +8,13 @@
   "exports": {
     "./server/providers/AccessCoreServiceProvider": "./src/server/providers/AccessCoreServiceProvider.js",
     "./server/providers/FastifyAuthPolicyServiceProvider": "./src/server/providers/FastifyAuthPolicyServiceProvider.js",
+    "./server/providers/AuthActionsServiceProvider": "./src/server/providers/AuthActionsServiceProvider.js",
+    "./server/actions/auth.contributor": "./src/server/actions/auth.contributor.js",
+    "./server/services/authSessionEventsService": "./src/server/services/authSessionEventsService.js",
     "./server/authPolicyContextResolverRegistry": "./src/server/authPolicyContextResolverRegistry.js",
     "./server/authServiceDecoratorRegistry": "./src/server/authServiceDecoratorRegistry.js",
+    "./server/authActor": "./src/server/authActor.js",
+    "./server/unsupportedOperation": "./src/server/unsupportedOperation.js",
     "./server/utils": "./src/server/utils.js",
     "./server/validators": "./src/server/validators.js",
     "./server/inviteTokens": "./src/server/inviteTokens.js",
@@ -26,6 +31,8 @@
     "./shared/authDenied": "./src/shared/authDenied.js",
     "./shared/authPaths": "./src/shared/authPaths.js",
     "./shared/authConstraints": "./src/shared/authConstraints.js",
+    "./shared/authCapabilities": "./src/shared/authCapabilities.js",
+    "./shared/authSecurityStatus": "./src/shared/authSecurityStatus.js",
     "./shared/authMethods": "./src/shared/authMethods.js",
     "./shared/oauthProviders": "./src/shared/oauthProviders.js",
     "./shared/oauthCallbackParams": "./src/shared/oauthCallbackParams.js",
@@ -47,7 +54,7 @@
     "./shared/commands/authSessionReadCommand": "./src/shared/commands/authSessionReadCommand.js"
   },
   "dependencies": {
-    "@jskit-ai/kernel": "0.1.101",
+    "@jskit-ai/kernel": "0.1.102",
     "@fastify/cookie": "^11.0.2",
     "@fastify/csrf-protection": "^7.1.0",
     "@fastify/rate-limit": "^10.3.0",

@@ -8,6 +8,7 @@ import {
 const BUILTIN_CAPABILITY_PROVIDERS = Object.freeze({
   "runtime.actions": Object.freeze(["@jskit-ai/kernel"])
 });
+const EXCLUSIVE_CAPABILITIES = Object.freeze(["auth.provider"]);
 
 function listDeclaredCapabilities(capabilitiesSection, fieldName) {
   const section = ensureObject(capabilitiesSection);
@@ -168,9 +169,39 @@ function collectPlannedCapabilityIssues(plannedPackageIds, packageRegistry) {
   return issues;
 }
 
+function collectExclusiveCapabilityIssues(plannedPackageIds, packageRegistry) {
+  const selectedPackageIds = sortStrings(
+    [...new Set(ensureArray(plannedPackageIds).map((value) => String(value || "").trim()).filter(Boolean))]
+  );
+  const issues = [];
+
+  for (const capabilityId of EXCLUSIVE_CAPABILITIES) {
+    const providers = [];
+    for (const packageId of selectedPackageIds) {
+      const packageEntry = packageRegistry.get(packageId);
+      if (!packageEntry) {
+        continue;
+      }
+      const provides = listDeclaredCapabilities(packageEntry.descriptor.capabilities, "provides");
+      if (provides.includes(capabilityId)) {
+        providers.push(packageId);
+      }
+    }
+    if (providers.length > 1) {
+      issues.push({
+        capabilityId,
+        providers: sortStrings(providers)
+      });
+    }
+  }
+
+  return issues;
+}
+
 function validatePlannedCapabilityClosure(plannedPackageIds, packageRegistry, actionLabel) {
   const issues = collectPlannedCapabilityIssues(plannedPackageIds, packageRegistry);
-  if (issues.length === 0) {
+  const exclusiveIssues = collectExclusiveCapabilityIssues(plannedPackageIds, packageRegistry);
+  if (issues.length === 0 && exclusiveIssues.length === 0) {
     return;
   }
 
@@ -181,6 +212,11 @@ function validatePlannedCapabilityClosure(plannedPackageIds, packageRegistry, ac
       : "";
     lines.push(
       `- ${issue.packageId} requires capability ${issue.capabilityId}, but no selected package provides it.${providersHint}`
+    );
+  }
+  for (const issue of exclusiveIssues) {
+    lines.push(
+      `- capability ${issue.capabilityId} is exclusive, but multiple selected packages provide it: ${issue.providers.join(", ")}.`
     );
   }
 

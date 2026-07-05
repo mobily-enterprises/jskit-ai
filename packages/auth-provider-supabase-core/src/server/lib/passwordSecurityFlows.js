@@ -18,6 +18,7 @@ function createPasswordSecurityFlows(deps) {
     mapRecoveryError,
     syncProfileFromSupabaseUser,
     setSessionFromRequestCookies,
+    setRecoverySessionFromRequestCookies,
     resolvePasswordSignInPolicyForUserId,
     mapPasswordUpdateError,
     setPasswordSetupRequiredForUserId,
@@ -130,7 +131,10 @@ function createPasswordSecurityFlows(deps) {
 
     return {
       profile,
-      session
+      session: {
+        ...session,
+        purpose: "recovery"
+      }
     };
   }
 
@@ -144,7 +148,7 @@ function createPasswordSecurityFlows(deps) {
     const parsed = result.validatedObject;
 
     const supabase = getSupabaseClient();
-    const sessionResponse = await setSessionFromRequestCookies(request, {
+    const sessionResponse = await setRecoverySessionFromRequestCookies(request, {
       supabaseClient: supabase
     });
     const profile = await syncProfileFromSupabaseUser(
@@ -169,6 +173,14 @@ function createPasswordSecurityFlows(deps) {
 
     const updatedProfile = await syncProfileFromSupabaseUser(user, user.email);
     await setPasswordSetupRequiredForUserId(updatedProfile.id, false);
+
+    const signOutResponse = await supabase.auth.signOut({
+      scope: "local"
+    });
+
+    if (signOutResponse.error) {
+      throw mapAuthError(signOutResponse.error, Number(signOutResponse.error?.status || 400));
+    }
   }
 
   async function changePassword(request, payload) {

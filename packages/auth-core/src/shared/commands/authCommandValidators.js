@@ -17,6 +17,7 @@ import {
   AUTH_REFRESH_TOKEN_MAX_LENGTH
 } from "../authConstraints.js";
 import { AUTH_METHOD_IDS, AUTH_METHOD_KINDS } from "../authMethods.js";
+import { AUTH_PASSWORD_RECOVERY_DELIVERIES } from "../authCapabilities.js";
 import { OAUTH_PROVIDER_ID_PATTERN } from "../oauthProviders.js";
 
 const oauthProviderFieldDefinition = deepFreeze({
@@ -230,6 +231,109 @@ const authDeniedOutputSchema = createSchema({
   }
 });
 
+const authCapabilityProviderOutputSchema = createSchema({
+  id: {
+    type: "string",
+    required: true,
+    minLength: 2,
+    maxLength: 64,
+    pattern: "^[a-z][a-z0-9_-]{1,63}$"
+  },
+  label: {
+    type: "string",
+    required: true,
+    minLength: 1,
+    maxLength: 120
+  }
+});
+
+const authPasswordCapabilitiesOutputSchema = createSchema({
+  login: { type: "boolean", required: true },
+  register: { type: "boolean", required: true },
+  change: { type: "boolean", required: true },
+  methodToggle: { type: "boolean", required: true }
+});
+
+const authPasswordRecoveryCapabilitiesOutputSchema = createSchema({
+  request: { type: "boolean", required: true },
+  complete: { type: "boolean", required: true },
+  delivery: {
+    type: "string",
+    required: true,
+    enum: AUTH_PASSWORD_RECOVERY_DELIVERIES
+  }
+});
+
+const authOtpCapabilitiesOutputSchema = createSchema({
+  login: { type: "boolean", required: true }
+});
+
+const authOAuthLoginCapabilitiesOutputSchema = createSchema({
+  enabled: { type: "boolean", required: true },
+  providers: {
+    type: "array",
+    required: true,
+    items: oauthProviderCatalogEntrySchema
+  },
+  defaultProvider: {
+    ...oauthProviderFieldDefinition,
+    required: true,
+    nullable: true
+  }
+});
+
+const authProviderLinkingCapabilitiesOutputSchema = createSchema({
+  start: { type: "boolean", required: true },
+  unlink: { type: "boolean", required: true }
+});
+
+const authCapabilitiesFeaturesOutputSchema = createSchema({
+  password: {
+    type: "object",
+    required: true,
+    schema: authPasswordCapabilitiesOutputSchema
+  },
+  passwordRecovery: {
+    type: "object",
+    required: true,
+    schema: authPasswordRecoveryCapabilitiesOutputSchema
+  },
+  otp: {
+    type: "object",
+    required: true,
+    schema: authOtpCapabilitiesOutputSchema
+  },
+  oauthLogin: {
+    type: "object",
+    required: true,
+    schema: authOAuthLoginCapabilitiesOutputSchema
+  },
+  emailConfirmation: { type: "boolean", required: true },
+  profileUpdate: { type: "boolean", required: true },
+  providerLinking: {
+    type: "object",
+    required: true,
+    schema: authProviderLinkingCapabilitiesOutputSchema
+  },
+  securityStatus: { type: "boolean", required: true },
+  signOutOtherSessions: { type: "boolean", required: true },
+  appProfileProjection: { type: "boolean", required: true },
+  devLoginAs: { type: "boolean", required: true }
+});
+
+const authCapabilitiesOutputSchema = createSchema({
+  provider: {
+    type: "object",
+    required: true,
+    schema: authCapabilityProviderOutputSchema
+  },
+  features: {
+    type: "object",
+    required: true,
+    schema: authCapabilitiesFeaturesOutputSchema
+  }
+});
+
 const sessionOutputSchema = createSchema({
   authenticated: { type: "boolean", required: true },
   username: { type: "string", required: false, minLength: 1, maxLength: 120 },
@@ -247,6 +351,11 @@ const sessionOutputSchema = createSchema({
     type: "object",
     required: false,
     schema: authDeniedOutputSchema
+  },
+  authCapabilities: {
+    type: "object",
+    required: true,
+    schema: authCapabilitiesOutputSchema
   },
   csrfToken: { type: "string", required: true, minLength: 1 },
   oauthProviders: {
@@ -269,6 +378,11 @@ const sessionOutputValidator = deepFreeze({
 const sessionUnavailableOutputSchema = createSchema({
   error: { type: "string", required: true, minLength: 1 },
   csrfToken: { type: "string", required: true, minLength: 1 },
+  authCapabilities: {
+    type: "object",
+    required: true,
+    schema: authCapabilitiesOutputSchema
+  },
   oauthProviders: {
     type: "array",
     required: true,
@@ -333,6 +447,7 @@ export {
   logoutOutputValidator,
   oauthProviderCatalogEntryOutputValidator,
   authDeniedOutputSchema,
+  authCapabilitiesOutputSchema,
   sessionOutputValidator,
   sessionUnavailableOutputValidator,
   createCommandMessages

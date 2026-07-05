@@ -239,7 +239,7 @@ function buildRoutes(controller, { includeDevLoginAs = false } = {}) {
     {
       path: AUTH_PATHS.PASSWORD_RESET,
       method: "POST",
-      auth: "required",
+      auth: "public",
       meta: {
         tags: ["auth"],
         summary: "Set a new password for authenticated recovery session"

@@ -500,8 +500,8 @@ test("create-app interactive flow captures initial bundle selection in guidance"
     assert.deepEqual(answers, []);
     assert.ok(askedPrompts.length >= 7);
     assert.match(stdout, /Initial framework setup commands \(auth\):/);
-    assert.match(stdout, /npx jskit add package auth-provider-supabase-core/);
-    assert.match(stdout, /npx jskit add bundle auth-base/);
+    assert.match(stdout, /npx jskit add bundle auth-local/);
+    assert.doesNotMatch(stdout, /auth-provider-supabase-core/);
 
     const publicConfig = await readFile(path.join(cwd, "interactive-app/config/public.js"), "utf8");
     assert.match(publicConfig, /config\.tenancyMode = "workspaces";/);
@@ -914,25 +914,9 @@ test("generated default shell app supports auth progressive installation", async
     const publicConfig = await readFile(publicConfigPath, "utf8");
     await writeFile(publicConfigPath, `${publicConfig}\nconfig.tenancyMode = "workspaces";\n`, "utf8");
 
-    const addProviderResult = runJskit({
-      cwd: appRoot,
-      args: [
-        "add",
-        "package",
-        "auth-provider-supabase-core",
-        "--auth-supabase-url",
-        "https://example.supabase.co",
-        "--auth-supabase-publishable-key",
-        "sb_publishable_example",
-        "--app-public-url",
-        "http://localhost:5173"
-      ]
-    });
-    assert.equal(addProviderResult.status, 0, addProviderResult.stderr);
-
     const addAuthResult = runJskit({
       cwd: appRoot,
-      args: ["add", "bundle", "auth-base"]
+      args: ["add", "bundle", "auth-local"]
     });
     assert.equal(addAuthResult.status, 0, addAuthResult.stderr);
 
@@ -940,13 +924,13 @@ test("generated default shell app supports auth progressive installation", async
     assert.equal(doctorResult.status, 0, doctorResult.stderr);
 
     const lockfile = JSON.parse(await readFile(path.join(appRoot, ".jskit/lock.json"), "utf8"));
-    assert.ok(lockfile.installedPackages["@jskit-ai/auth-provider-supabase-core"]);
+    assert.ok(lockfile.installedPackages["@jskit-ai/auth-provider-local-core"]);
     assert.ok(lockfile.installedPackages["@jskit-ai/auth-web"]);
     const packageJson = JSON.parse(await readFile(path.join(appRoot, "package.json"), "utf8"));
     assert.equal(packageJson.scripts["server:auth"], "SERVER_SURFACE=auth node ./bin/server.js");
     assert.equal(packageJson.scripts["dev:auth"], "VITE_SURFACE=auth vite");
     assert.equal(packageJson.scripts["build:auth"], "VITE_SURFACE=auth vite build");
-    assert.match(packageJson.dependencies["@jskit-ai/auth-provider-supabase-core"], /^\d+\.x$/);
+    assert.match(packageJson.dependencies["@jskit-ai/auth-provider-local-core"], /^\d+\.x$/);
     assert.match(packageJson.dependencies["@jskit-ai/auth-core"], /^\d+\.x$/);
     assert.match(packageJson.dependencies["@jskit-ai/auth-web"], /^\d+\.x$/);
 

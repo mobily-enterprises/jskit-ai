@@ -35,6 +35,22 @@ Exports
 Exports
 - `runAuthSignOutFlow`
 
+### `src/server/actions/auth.contributor.js`
+Exports
+- `baseAuthActions`
+- `buildAuthActions()`
+- `requireRequestContext(context, actionId)`
+
+### `src/server/authActor.js`
+Exports
+- `createAuthIdentityId(provider, providerUserId)`
+- `normalizeAuthActor(value = {}, options = {})`
+- `buildLegacyProfileFromActor(actorLike)`
+- `normalizeAuthResult(value = {}, options = {})`
+Local functions
+- `normalizeDisplayName(value, email = "")`
+- `normalizeProviderUserId(value)`
+
 ### `src/server/authPolicyContextResolverRegistry.js`
 Exports
 - `AUTH_POLICY_CONTEXT_RESOLVER_TAG`
@@ -86,6 +102,14 @@ Exports
 - `authPolicyPlugin`
 - `withAuthPolicy`
 - `mergeAuthPolicy`
+- `createAuthIdentityId`
+- `normalizeAuthActor`
+- `buildLegacyProfileFromActor`
+- `normalizeAuthResult`
+- `AUTH_OPERATION_UNSUPPORTED_CODE`
+- `createUnsupportedAuthOperationError`
+- `throwUnsupportedAuthOperation`
+- `isUnsupportedAuthOperationError`
 
 ### `src/server/lib/objectUtils.js`
 Exports
@@ -129,6 +153,10 @@ Exports
 Exports
 - `AccessCoreServiceProvider`
 
+### `src/server/providers/AuthActionsServiceProvider.js`
+Exports
+- `AuthActionsServiceProvider`
+
 ### `src/server/providers/FastifyAuthPolicyServiceProvider.js`
 Exports
 - `FastifyAuthPolicyServiceProvider`
@@ -136,6 +164,19 @@ Local functions
 - `parseBoolean(value, fallback = false)`
 - `parseList(value)`
 - `defaultHasPermission({ permission, permissions = [] } = {})`
+
+### `src/server/services/authSessionEventsService.js`
+Exports
+- `createAuthSessionEventsService()`
+Local functions
+- `resolveActorId(context = {})`
+
+### `src/server/unsupportedOperation.js`
+Exports
+- `AUTH_OPERATION_UNSUPPORTED_CODE`
+- `createUnsupportedAuthOperationError(operation, message = "")`
+- `throwUnsupportedAuthOperation(operation, message = "")`
+- `isUnsupportedAuthOperationError(error)`
 
 ### `src/server/utils.js`
 Exports
@@ -162,6 +203,20 @@ Local functions
 ### `src/shared/authApi.js`
 Exports
 - `createApi({ request })`
+
+### `src/shared/authCapabilities.js`
+Exports
+- `AUTH_PASSWORD_RECOVERY_DELIVERIES`
+- `AUTH_OPTIONAL_OPERATION_FEATURES`
+- `normalizeAuthProviderId(value, { fallback = "unknown" } = {})`
+- `normalizeAuthCapabilities(value = {})`
+- `getCapabilityFeature(capabilities, path)`
+- `isAuthOperationSupported(capabilities, operationName)`
+Local functions
+- `normalizeBoolean(value, fallback = false)`
+- `normalizeProviderLabel(value, providerId)`
+- `normalizeOAuthProviderEntries(value)`
+- `normalizeRecoveryDelivery(value, { request = false, complete = false } = {})`
 
 ### `src/shared/authConstraints.js`
 Exports
@@ -215,6 +270,16 @@ Exports
 - `AUTH_PATHS`
 - `buildAuthOauthStartPath(provider)`
 
+### `src/shared/authSecurityStatus.js`
+Exports
+- `normalizeAuthSecurityStatus(value = {})`
+- `buildSecurityStatusFromAuthMethodsStatus(authMethodsStatus, { actions = {} } = {})`
+Local functions
+- `normalizeBoolean(value, fallback = false)`
+- `countEnabledMethods(methods)`
+- `normalizeAuthMethodStatus(entry)`
+- `normalizeSecurityActions(value = {})`
+
 ### `src/shared/commands/authCommandValidators.js`
 Exports
 - `authEmailFieldDefinition`
@@ -247,6 +312,7 @@ Exports
 - `logoutOutputValidator`
 - `oauthProviderCatalogEntryOutputValidator`
 - `authDeniedOutputSchema`
+- `authCapabilitiesOutputSchema`
 - `sessionOutputValidator`
 - `sessionUnavailableOutputValidator`
 - `createCommandMessages({ fields = {}, defaultMessage = "Invalid value." } = {})`
@@ -367,6 +433,14 @@ Exports
 - `resolveAuthDeniedLoginMessage`
 - `AUTH_PATHS`
 - `buildAuthOauthStartPath`
+- `AUTH_PASSWORD_RECOVERY_DELIVERIES`
+- `AUTH_OPTIONAL_OPERATION_FEATURES`
+- `normalizeAuthProviderId`
+- `normalizeAuthCapabilities`
+- `getCapabilityFeature`
+- `isAuthOperationSupported`
+- `normalizeAuthSecurityStatus`
+- `buildSecurityStatusFromAuthMethodsStatus`
 
 ### `src/shared/inputNormalization.js`
 Exports

@@ -2,9 +2,9 @@
 
 # Authentication
 
-At the end of the previous chapter, the app had a real shell, but it still did not know how to sign users in. In this chapter, we connect the app to Supabase Auth, add the stock JSKIT login and sign-out routes, and inspect the files that make authentication visible in the shell.
+At the end of the previous chapter, the app had a real shell, but it still did not know how to sign users in. In this chapter, we add JSKIT's local auth provider, the stock login and sign-out routes, and the files that make authentication visible in the shell.
 
-This chapter still does **not** add the database-backed users layer. That is intentional. It lets us see the authentication pieces clearly before account pages, profile storage, and workspace membership are added later.
+This chapter still does **not** add Supabase or the database-backed users layer. That is intentional. Keep authentication basic until the app's main product workflows exist, then add Supabase, OAuth, OTP, provider linking, profile projection, or workspace/account complexity only when those features are actually needed.
 
 To get back to the same starting point as the end of the previous chapter, run:
 
@@ -16,56 +16,22 @@ npm install
 
 If you are already continuing from the previous chapter, you are already in the right place and can skip that setup.
 
-**Supabase: Create The Project First**
+**Default: Start With Local Auth**
 
-Before installing the auth packages, create a Supabase project and collect the three values JSKIT needs.
+The default auth path does not require a Supabase project or a database. It uses `auth-local`, which stores local credentials and sessions in `.jskit/auth/` by default.
 
-1. In the Supabase dashboard, create a new project in your organization and wait for it to finish provisioning.
-2. Open `Project Settings -> API`. Copy:
-   - the **Project URL**
-   - the **publishable** key
-3. Open `Authentication -> URL Configuration`.
-4. Set **Site URL** to:
-
-```text
-http://localhost:5173
-```
-
-5. Add this local redirect URL:
-
-```text
-http://localhost:5173/auth/login
-```
-
-JSKIT uses the project URL as `AUTH_SUPABASE_URL`, the publishable key as `AUTH_SUPABASE_PUBLISHABLE_KEY`, and the browser address as `APP_PUBLIC_URL`.
-
-Use the **publishable** key here, not the secret key and not a service-role key. If you later run the app on a different host or port, update both Supabase's URL settings and `APP_PUBLIC_URL` to match the real browser URL exactly.
-
-If you are guiding someone interactively, ask plainly for these exact values:
-
-- `AUTH_SUPABASE_URL`
-- `AUTH_SUPABASE_PUBLISHABLE_KEY`
-- whether `APP_PUBLIC_URL` should stay `http://localhost:5173`
-
-Do not hide behind vague language like "send the auth credentials later." In this local guide flow, those are routine setup values for the Supabase auth install step.
+That is the recommended first step for most apps. After the app's core flow is working, switch to Supabase or add richer auth methods only if the product needs them.
 
 ## Installing the auth layer
 
 From inside `exampleapp`, run:
 
 ```bash
-npx jskit add package auth-provider-supabase-core \
-  --auth-supabase-url "https://YOUR-PROJECT.supabase.co" \
-  --auth-supabase-publishable-key "sb_publishable_..." \
-  --app-public-url "http://localhost:5173"
-
-npx jskit add bundle auth-base
+npx jskit add bundle auth-local
 npm install
 ```
 
-The first command is the provider step. It tells JSKIT which authentication backend to use and writes the project-specific values into the app.
-
-The second command adds the web auth layer. `auth-base` is a small bundle, not a black box: in practice it adds `auth-core` and `auth-web`, which together provide the auth routes, the auth surface, and the stock login and sign-out screens.
+`auth-local` installs the provider-neutral auth core, the auth web layer, and the local provider. It gives the app working register, login, logout, session, and password recovery flows without requiring an external auth service.
 
 The final `npm install` matters for the same reason it did in the shell chapter: `jskit add` rewrites the scaffold and updates `package.json`, but `npm install` is what actually downloads the newly referenced runtime packages.
 
@@ -80,12 +46,11 @@ npm run server
 
 Then open `http://localhost:5173/auth/login` in the browser.
 
-The login page is real, and it already contains several different auth modes behind the same card.
+The login page is real and renders only the modes supported by the active provider.
 
 - **Sign in** is the normal email-and-password flow.
-- **Register** creates a new Supabase auth user.
-- **Forgot password?** requests a password reset email.
-- **Use one-time code** switches to an email OTP login flow.
+- **Register** creates a local auth user.
+- **Forgot password?** requests a password reset link when recovery is configured.
 - **Remember this account on this device** stores a small local hint in browser storage so the next visit can greet the last-used account and let the user keep that email preselected.
 
 If you go back to `http://localhost:5173/home`, the shell also has a small auth widget in the status area. When you are signed out it shows a guest state and a menu entry that leads to `/auth/login`. After you sign in, the same placement changes to a sign-out menu.
@@ -107,7 +72,7 @@ This is the first screen you see.
 The small links under the password field are not decoration.
 
 - `Forgot password?` switches the card into password-reset-request mode.
-- `Use one-time code` switches the card into OTP mode.
+- `Use one-time code` switches the card into OTP mode when the active provider supports OTP. The local provider does not show this link.
 
 ### Register mode
 
@@ -117,16 +82,16 @@ When the user presses `Register`, the form changes in three important ways.
 - A `Confirm password` field appears.
 - The main submit button changes from `Sign in` to `Register`.
 
-Pressing `Register` sends a sign-up request to Supabase through `POST /api/register`. JSKIT also sends a starter `display_name` value derived from the email prefix, so a user registering as `alice@example.com` starts with a display name like `alice`.
+Pressing `Register` sends a sign-up request through `POST /api/register`. With the local provider, JSKIT writes the local auth record and creates a session immediately.
 
-What happens next depends on Supabase's email-confirmation settings.
+What happens next depends on the active provider's capabilities.
 
-- If email confirmation is required, Supabase creates the user immediately but does not return a live session. The card then switches to a dedicated confirmation state.
+- If email confirmation is required, the provider creates the user but does not return a live session. The card then switches to a dedicated confirmation state.
 - If email confirmation is not required, the user is registered and signed in immediately.
 
 ### Email-confirmation state
 
-If Supabase requires confirmation, the screen changes again.
+If the active provider requires confirmation, the screen changes again. The local provider does not require email confirmation, so most first apps will not see this mode.
 
 - The mode-switch buttons disappear.
 - The card shows a confirmation message instead of the email/password fields.
@@ -134,11 +99,11 @@ If Supabase requires confirmation, the screen changes again.
 - `Resend confirmation email` calls `POST /api/register/confirmation/resend`.
 - `Back to sign in` returns to the normal login mode.
 
-This matters because a junior developer might otherwise assume registration failed. In reality, the user usually already exists in Supabase at this point; they just do not have an active session yet.
+This matters because a junior developer might otherwise assume registration failed. In reality, the provider may already have created the auth identity; the browser just does not have an active session yet.
 
 ### One-time-code mode
 
-`Use one-time code` changes the form again.
+When a provider supports OTP, `Use one-time code` changes the form again.
 
 - The password field disappears.
 - A `One-time code` field appears.
@@ -150,7 +115,7 @@ Those two buttons do different jobs.
 - `Send one-time code` requests the email through `POST /api/login/otp/request`.
 - `Verify code` submits the code through `POST /api/login/otp/verify`.
 
-JSKIT asks Supabase to send OTP login emails only for existing users. In other words, this flow is for signing in, not for silently creating a new account.
+The local provider does not implement OTP. Supabase and future providers can expose this mode through the same capability contract. In other words, OTP is an opt-in sign-in method, not something the first app needs up front.
 
 ### Password-reset-request mode
 
@@ -160,9 +125,9 @@ JSKIT asks Supabase to send OTP login emails only for existing users. In other w
 - The main button changes to `Send reset instructions`.
 - Submitting this screen calls `POST /api/password/forgot`.
 
-That endpoint asks Supabase to send a password reset email. In this chapter's scaffold, this mode is only the **request** step.
+That endpoint asks the active provider to start password recovery. With the local provider, SMTP is used when configured; otherwise local development can log or return the recovery URL depending on environment settings.
 
-The backend already supports the later recovery endpoints too, but the chapter's simple app does **not** yet scaffold a dedicated app-owned `reset-password` page. So at this stage, the guide should be read as: the screen can request recovery emails, while the full browser-side password-reset completion UI is still something you would add explicitly in the app.
+The recovery link opens `/auth/reset-password`. That page exchanges the recovery token for a short-lived recovery-scoped session, lets the user choose a new password, and then clears the recovery session.
 
 ### Remembered account behavior
 
@@ -179,22 +144,22 @@ On the next visit, the card can show a `Welcome back, ...` panel and a `Use anot
 
 ### OAuth buttons
 
-The screen is also ready to show OAuth provider buttons, but only if providers are configured.
+The screen is also ready to show OAuth provider buttons, but only if the active provider supports OAuth and providers are configured. Local auth intentionally keeps this off.
 
-For this chapter, `config.server.js` keeps this empty:
+For a later Supabase setup, `config.server.js` can keep this empty at first:
 
 ```js
 config.auth ||= {};
-config.auth.profileMode = "standalone";
+config.auth.profileMode = "provider";
 config.auth.oauth = {
   providers: [],
   defaultProvider: ""
 };
 ```
 
-That is why the login card in this chapter does not show buttons like `Continue with Google`.
+That is why the login card does not show buttons like `Continue with Google`.
 
-To turn on Google later, there are two separate setup steps.
+After switching to a provider that supports OAuth, turning on Google has two separate setup steps.
 
 First, configure Google and Supabase:
 
@@ -219,67 +184,53 @@ config.auth.oauth = {
 
 **Important: What Works Without A Database**
 
-Authentication is already real in this chapter because Supabase is still the source of truth for the important auth data:
+Authentication is already real in this chapter because the local provider owns the auth data it needs:
 
-- the real auth user record
-- the password hash and password-reset state
-- the OTP and OAuth flows
-- the access and refresh tokens that JSKIT writes into cookies
+- local auth user records
+- password hashes
+- recovery tokens
+- access and refresh sessions
+- the HTTP-only cookies JSKIT writes for the browser
 
-What is missing is JSKIT's own database-backed users layer. In no-database mode, the auth provider switches to **standalone in-memory fallbacks** for the app-side data it normally mirrors into JSKIT tables.
+What is missing is JSKIT's own database-backed users layer. That is intentional for the first app. Login should not require MySQL, Postgres, Supabase, or a generated users table before the product itself exists.
 
 Concretely, that means:
 
-- JSKIT still creates a local profile mirror for each authenticated Supabase user.
-- But that mirror lives only in the Node process, not in a database table.
-- That temporary mirror stores only a small app-side profile shape:
-  - `id`
-  - `authProvider`
-  - `authProviderUserSid`
-  - `email`
-  - `displayName`
-- JSKIT also keeps a tiny in-memory user-settings record for auth-related flags such as:
-  - `passwordSignInEnabled`
-  - `passwordSetupRequired`
+- JSKIT can register a user.
+- JSKIT can sign that user in and out.
+- JSKIT can read the current session.
+- JSKIT can request and complete password recovery.
+- JSKIT can run without any JSKIT database runtime package.
 
-So the behavior is:
+By default, the local provider stores its runtime state under `.jskit/auth/`:
 
-- register a user -> the real user is created in Supabase
-- sign in -> Supabase still verifies credentials and returns the real session
-- JSKIT then mirrors just enough profile data into memory so the app can work
-- restart the local server -> that JSKIT-side mirror and those fallback settings are cleared
+- `users.passwd`
+- `sessions.passwd`
+- `recovery.passwd`
+- `session.secret`
 
-The browser session is a different thing. In the normal case, a server restart does **not** log the browser out. The browser still has the auth cookies, so on the next request JSKIT can read those cookies, validate or refresh the Supabase session, and rebuild the temporary mirror.
-
-That last point is the important difference. A restart does **not** delete the Supabase user. It does **not** erase the real password. It does **not** erase the real auth session in Supabase itself. What it clears is only the app's temporary in-memory mirror. On the next authenticated request, JSKIT rebuilds that mirror from the Supabase user or token claims.
+Those files are local runtime state, not generated application code. They are ignored by git.
 
 So without a database, you still get:
 
 - real login
 - real logout
 - real registration
-- real password reset requests
-- real OTP and OAuth flows
+- real password reset requests and completions
 - real session cookies
 
 But you do **not** get:
 
 - persistent JSKIT-side user rows
-- persistent JSKIT-side user settings
-- account/profile persistence beyond what Supabase itself stores
+- persistent JSKIT-side account settings
+- OAuth, OTP, or provider linking from the local provider
 - workspace membership, user preferences, or the later users/workspaces data model
 
-Later, when the guide installs `users-web`, auth stops using the standalone fallback and starts resolving `users.profile.sync.service` from `users-core` instead.
+Later, when an app needs the database-backed users layer, `users-core` can provide `auth.profile.projector` through `users.profile.sync.service`.
 
-That service exposes three main functions:
+That service projects a provider identity into the app-owned user/profile model. Local auth, Supabase auth, and future auth providers can all use that same projection seam.
 
-- `findByIdentity(...)` to look up the JSKIT-side user for an auth identity
-- `upsertByIdentity(...)` to create or update the JSKIT-side user record directly
-- `syncIdentityProfile(...)` to run the normal auth-driven synchronization flow
-
-`syncIdentityProfile(...)` is the one auth actually relies on. It is the method that synchronizes the JSKIT-side user record, ensures the related settings row exists through `ensureForUserId(...)`, and then runs any registered post-sync lifecycle contributors.
-
-So this chapter gives you real authentication, but only a temporary app-side user mirror. The full persistent JSKIT user model comes later with the database and users layers.
+So this chapter gives you real authentication, but it deliberately keeps the user model small. The full persistent JSKIT user model comes later with the database and users layers.
 
 ## Using auth in your own app
 
@@ -517,7 +468,7 @@ At this point the guide has shown three distinct layers of client state:
 
 That progression is intentional. Packages keep their operational runtimes internally, but the app-facing shared state they surface to Vue code is store-based.
 
-## What `auth-base` adds to the app
+## What `auth-local` adds to the app
 
 The interesting part of this chapter is that authentication appears in several different layers at once: environment config, public routing config, shell placements, and app-owned view wrappers.
 
@@ -532,7 +483,7 @@ The first new place to inspect is `package.json`:
   },
   "dependencies": {
     "@jskit-ai/auth-core": "0.x",
-    "@jskit-ai/auth-provider-supabase-core": "0.x",
+    "@jskit-ai/auth-provider-local-core": "0.x",
     "@jskit-ai/auth-web": "0.x"
   }
 }
@@ -540,20 +491,25 @@ The first new place to inspect is `package.json`:
 
 Three things are worth noticing immediately.
 
-- `auth-provider-supabase-core` is the provider-specific runtime.
+- `auth-core` owns the provider-neutral contract, shared actions, policy hooks, and capability normalization.
+- `auth-provider-local-core` is the selected provider-specific runtime.
 - `auth-web` is the part that adds the web routes and the default auth UI.
 - there is an `auth` surface-specific dev/build script family, just as `home` already had.
 
-The provider command also writes a new `.env` file:
+The provider package also writes local auth settings into `.env`:
 
 ```dotenv
-AUTH_PROVIDER=supabase
-AUTH_SUPABASE_URL=https://YOUR-PROJECT.supabase.co
-AUTH_SUPABASE_PUBLISHABLE_KEY=sb_publishable_...
-APP_PUBLIC_URL=http://localhost:5173
+AUTH_PROVIDER=local
+AUTH_LOCAL_BACKEND=file
 ```
 
-This is the bridge between the scaffold and your real Supabase project. `APP_PUBLIC_URL` matters because auth emails and callback flows need to know which browser URL they should return to.
+`AUTH_PROVIDER=local` is the selected-provider marker. `AUTH_LOCAL_BACKEND=file` tells the local provider to use its built-in file backend. No database URL, Supabase URL, or provider key is needed for this chapter.
+
+The backend selection is intentionally local-provider-specific. `auth.local.backend` is the public server container token for replacing the file store later; Supabase and other external providers do not use it. A custom local backend must expose a single `withTransaction(callback)` method. JSKIT calls that method for register, login, recovery, password reset, profile update, session revocation, and security operations, and the callback receives transactional `users`, `sessions`, and `recovery` repositories.
+
+The built-in file backend is for low-friction local development, first deploys with one persistent Node instance, and simple apps that accept that storage model. It writes `.jskit/auth/*.passwd` files behind a store-level lock. Do not treat it as horizontally scalable or serverless-safe storage; when the app needs replicated auth storage, register a custom `auth.local.backend` that uses the app's chosen database runtime.
+
+If you later configure local SMTP password recovery, also set `APP_PUBLIC_URL` so reset links point back to the browser URL for this app.
 
 Public routing config changes too. `config/public.js` has a second surface:
 
@@ -571,18 +527,9 @@ config.surfaceDefinitions.auth = {
 
 That `requiresAuth: false` line is important. The auth surface must stay public, otherwise users would need to be logged in before they could reach the login page.
 
-`config/server.js` also gets an auth stub:
+The local provider does not need an app database profile mode or OAuth config. The stock login UI asks `/api/session` for the active provider capabilities and renders only what the selected provider actually supports. With `auth-local`, that means email/password login, registration, sign-out, session refresh, and password recovery when recovery is configured.
 
-```js
-config.auth ||= {};
-config.auth.profileMode = "standalone";
-config.auth.oauth = {
-  providers: [],
-  defaultProvider: ""
-};
-```
-
-That small block explains a lot of the default login screen and auth profile behavior. `profileMode: "standalone"` keeps this auth-only chapter on the temporary app-side profile mirror. The stock UI is ready for OAuth providers such as Google, but this chapter keeps the provider list empty, so the page only shows the email/password and one-time-code flows. Later, if you enable a provider in Supabase and list it here, the same login screen can expose that button too.
+Later, if you switch to Supabase, the Supabase provider can append the app-owned OAuth visibility config and profile mode settings it needs.
 
 The auth routes themselves are app-owned wrappers around the module-supplied default views. `src/pages/auth/login.vue` looks like this:
 
@@ -658,9 +605,8 @@ This is the shell placement system from the previous chapter doing real work aga
 
 So the auth story in this chapter is spread across clear responsibilities:
 
-- `.env` tells the provider runtime which Supabase project to talk to
+- `.env` selects the local provider and its backend
 - `config/public.js` declares an `auth` surface
-- `config/server.js` exposes app-owned OAuth visibility settings
 - `src/pages/auth/*` gives the app real public auth routes
 - `src/placement.js` makes auth visible in the shell
 
@@ -731,24 +677,23 @@ For ordinary Vue component code there is usually no advantage to writing it this
 
 ### Who actually talks to whom
 
-The most important thing to understand is that the browser usually talks to **your app**, and your app talks to **Supabase**.
+The most important thing to understand is that the browser talks to **your app**, and the app talks to the **selected auth provider** through the provider-neutral `authService` contract.
 
-For the normal email-and-password flow, the browser does **not** call Supabase directly. It posts to the app's own API routes such as `/api/login`. The JSKIT server then calls Supabase, receives the Supabase session, and turns that into HTTP-only cookies.
+With the local provider, the selected provider is in the same Node process. It verifies passwords, writes sessions, and stores local auth state through `auth.local.backend`. The default backend writes the `.jskit/auth/*.passwd` files; a custom backend can use a database later without changing the login UI or the shared auth routes.
 
-That means there are really three actors in play:
+That means there are two actors in the first-app flow:
 
 - the browser, which renders the login screen and submits forms
-- the JSKIT app server, which owns `/api/login`, `/api/oauth/complete`, `/api/session`, and the cookie-writing step
-- Supabase, which owns the real authentication backend, password verification, OAuth exchange, and auth user records
+- the JSKIT app server, which owns `/api/login`, `/api/register`, `/api/password/*`, `/api/session`, the selected provider, and the cookie-writing step
 
-So the mental model should be:
+So the default local mental model is:
 
 ```text
-browser -> JSKIT app -> Supabase
-browser <- JSKIT app <- Supabase
+browser -> JSKIT app -> local auth provider
+browser <- JSKIT app <- local auth provider
 ```
 
-For OAuth there is one extra bounce: the browser is redirected out to Supabase and then back again. But even there, the app still owns the start and completion steps.
+If you later switch to Supabase, the same app routes still exist, but the selected provider implementation delegates to Supabase Auth.
 
 ### Password login: the full round trip
 
@@ -774,20 +719,19 @@ From there, the server-side flow is:
 1. `POST /api/login` hits the route registered by `auth-web`.
 2. `AuthController.login()` receives the request.
 3. `AuthWebService.login()` executes the internal action `auth.login.password`.
-4. The Supabase auth service calls `supabase.auth.signInWithPassword(...)`.
-5. Supabase returns a `user` object and a `session` object.
-6. JSKIT syncs the app-side profile mirror from that Supabase user.
-7. JSKIT writes the access and refresh tokens into HTTP-only cookies.
-8. The API response sent back to the browser is intentionally small.
+4. `auth-core` routes that action to the selected provider's `authService.login(...)`.
+5. The local provider checks the password hash in its backend and creates a session record.
+6. JSKIT writes the access and refresh tokens into HTTP-only cookies.
+7. The API response sent back to the browser is intentionally small.
 
-The important detail is step 7. The browser does **not** receive the raw Supabase session tokens as normal application state. The server writes them into cookies instead:
+The important detail is step 6. The browser does **not** receive raw session tokens as normal application state. The server writes them into HTTP-only cookies instead. With the local provider, those cookies are:
 
-- `sb_access_token`
-- `sb_refresh_token`
+- `jskit_local_access_token`
+- `jskit_local_refresh_token`
 
 Those cookies are HTTP-only and `sameSite: "lax"`, so the browser sends them back automatically on later requests, but normal client-side code cannot read them directly.
 
-The JSON response from `/api/login` is much smaller than the underlying Supabase session object:
+The JSON response from `/api/login` stays small:
 
 ```json
 {
@@ -802,17 +746,17 @@ So the real password-login round trip is:
 
 ```text
 1. browser -> POST /api/login -> JSKIT app
-2. JSKIT app -> supabase.auth.signInWithPassword(...)
-3. Supabase -> JSKIT app: user + session
+2. JSKIT app -> selected auth provider login
+3. selected auth provider -> JSKIT app: profile + session
 4. JSKIT app -> browser: set HTTP-only cookies + { ok, username }
 5. browser -> GET /api/session
-6. JSKIT app -> browser: { authenticated, username, csrfToken, ... }
+6. JSKIT app -> browser: { authenticated, username, csrfToken, authCapabilities, ... }
 7. browser redirects to the requested route
 ```
 
 ### OAuth login: the extra browser bounce
 
-OAuth is the case where the browser really does leave the app briefly, but the app still owns the edges of the flow.
+Local auth does not expose OAuth buttons. If you later switch to Supabase and configure OAuth providers, OAuth is the case where the browser really does leave the app briefly, but the app still owns the edges of the flow.
 
 The first step is still browser -> app. If the login page shows a button such as `Continue with Google`, clicking it does **not** go straight to Supabase. It first goes to:
 
@@ -903,8 +847,8 @@ That is why the login page needs both browser-side logic and server-side routes.
 When the browser calls it, the server:
 
 - reads the auth cookies
-- checks whether the access token still looks valid
-- refreshes the session through Supabase if needed
+- asks the selected provider to authenticate the request
+- refreshes or reissues provider cookies when the provider returns a refreshed session
 - clears invalid cookies if the session is no longer usable
 - returns the auth state the client actually needs
 
@@ -915,6 +859,7 @@ The response is shaped roughly like this:
   "authenticated": true,
   "username": "alice",
   "csrfToken": "...",
+  "authCapabilities": { "...": "..." },
   "oauthProviders": [],
   "oauthDefaultProvider": null
 }
@@ -927,11 +872,11 @@ That explains why the login screen and auth guard runtime both care about `/api/
 - which OAuth buttons to render
 - which CSRF token to use for later writes
 
-It is also why the shell widget can react cleanly to auth state without storing raw session tokens in client state. The browser just asks the app for the current session view, and the app derives that from its cookies plus Supabase.
+It is also why the shell widget can react cleanly to auth state without storing raw session tokens in client state. The browser just asks the app for the current session view, and the app derives that from its cookies plus the selected provider.
 
 ### Authenticated Playwright testing with the dev auth bypass
 
-JSKIT ships a development-only auth bootstrap path specifically so authenticated UI can be verified in Playwright without depending on a real live login flow through Supabase.
+JSKIT ships a development-only auth bootstrap path specifically so authenticated UI can be verified in Playwright without depending on a real live login flow through an external auth provider.
 
 This is the standard path the agent should use for authenticated browser tests:
 
@@ -1060,16 +1005,16 @@ That flow is preferable to driving the real sign-in form in feature tests becaus
 - use the local dev auth bypass or another local session bootstrap path
 - exercise the actual changed behavior, not only page load
 
-## What appears in Supabase
+## When you later switch to Supabase
 
-It is important to separate **Supabase auth data** from **JSKIT app-owned data**.
+This chapter does not create anything in Supabase. If you later switch the selected provider from local auth to Supabase, keep separating **Supabase auth data** from **JSKIT app-owned data**.
 
-When a user registers from this screen, Supabase creates a real auth user immediately. According to Supabase's user-management docs, you can see users in two places.
+When a user registers through a Supabase-backed app, Supabase creates a real auth user. According to Supabase's user-management docs, you can see users in two places.
 
 - `Authentication -> Users` in the Supabase dashboard
 - the `auth` schema in the Table Editor
 
-In practice, after someone registers you should expect to see at least these things on the Supabase side.
+In practice, after someone registers against Supabase you should expect to see at least these things on the Supabase side.
 
 - A user row exists in `auth.users`.
 - The email address appears there.
@@ -1079,14 +1024,14 @@ In practice, after someone registers you should expect to see at least these thi
 
 On the Dashboard's `Authentication -> Users` page, that usually means you will see a new user entry with the email address, creation time, last sign-in information once they have signed in, and confirmation state. If you open the user details, you can inspect the auth record more closely.
 
-JSKIT's register flow also sends a starter `display_name` into Supabase user metadata. That means the new user can carry an initial display-name value in provider metadata even before the later database-backed users layer is installed.
+JSKIT's Supabase register flow also sends a starter `display_name` into Supabase user metadata. That means the new user can carry an initial display-name value in provider metadata even before the later database-backed users layer is installed.
 
 This is the key distinction for the chapter.
 
-- Supabase already has a real user record.
-- JSKIT's own mirrored profile/settings store is still the temporary standalone in-memory version.
+- Supabase owns the real auth user record.
+- JSKIT app-owned profile/settings rows are separate and only exist after you install the users/database layer.
 
-So if you restart the local JSKIT server in this chapter, the temporary app-side mirror is rebuilt as users authenticate again, but the actual Supabase auth user is still there because that data lives in Supabase, not in your local Node process.
+So if you restart the local JSKIT server after switching to Supabase, the actual Supabase auth user is still there because that data lives in Supabase, not in your local Node process.
 
 One more subtle point matters here.
 
@@ -1097,6 +1042,6 @@ That is why the confirmation screen in the app should be understood as a **sessi
 
 ## Summary
 
-After this chapter, the app can really authenticate against Supabase. It has a public `auth` surface, a stock login page, a sign-out route, and a shell widget that reflects auth state. The provider-specific values live in `.env`, and the web auth layer is wired into the same placement and surface system introduced earlier in the guide.
+After this chapter, the app can really authenticate without Supabase or a database. It has a public `auth` surface, a stock login page, a sign-out route, and a shell widget that reflects auth state. The selected provider value lives in `.env`, and the web auth layer is wired into the same placement and surface system introduced earlier in the guide.
 
 Just as importantly, the app is still deliberately incomplete. Authentication exists, but the database-backed user model does not. That separation is useful, because the next layer of the guide can explain users and persistence without having to also explain the first auth setup at the same time.

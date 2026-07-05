@@ -24,8 +24,6 @@ In this chapter, we set up three assistants with three different roles:
 To get back to the same starting point as the end of the previous chapter, run:
 
 ```bash
-SUPABASE_URL=...
-SUPABASE_KEY=...
 DB_HOST=127.0.0.1
 DB_PORT=3306
 DB_NAME=exampleapp
@@ -36,11 +34,7 @@ npx @jskit-ai/create-app exampleapp --tenancy-mode personal
 cd exampleapp
 npm install
 
-npx jskit add package auth-provider-supabase-core \
-  --auth-supabase-url "$SUPABASE_URL" \
-  --auth-supabase-publishable-key "$SUPABASE_KEY" \
-  --app-public-url "http://localhost:5173"
-npx jskit add bundle auth-base
+npx jskit add bundle auth-local
 npx jskit add package database-runtime-mysql \
   --db-host "$DB_HOST" \
   --db-port "$DB_PORT" \

@@ -13,6 +13,19 @@ test("auth fastify adapter exports controller/routes backed by shared command va
   assert.ok(authLoginPasswordCommand.operation.body.schema);
 });
 
+test("auth reset route remains public and lets provider validate recovery scope", () => {
+  const controller = new Proxy({}, {
+    get() {
+      return () => {};
+    }
+  });
+  const routes = buildRoutes(controller);
+  const resetRoute = routes.find((route) => route.method === "POST" && route.path === "/api/password/reset");
+
+  assert.ok(resetRoute);
+  assert.equal(resetRoute.auth, "public");
+});
+
 test("auth-web does not contain src/server/schema", () => {
   const testFilePath = fileURLToPath(import.meta.url);
   const packageRoot = path.resolve(path.dirname(testFilePath), "..");

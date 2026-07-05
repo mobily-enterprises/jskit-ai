@@ -149,6 +149,47 @@ test("auth guard runtime redirects callback hashes on non-login routes to /auth/
   }
 });
 
+test("auth guard runtime leaves recovery callback hashes on reset-password route", async () => {
+  const originalWindow = globalThis.window;
+  let redirectedTo = "";
+  globalThis.window = {
+    location: {
+      pathname: "/auth/reset-password",
+      search: "",
+      hash: "#access_token=access&refresh_token=refresh&type=recovery",
+      replace(target) {
+        redirectedTo = String(target || "");
+      }
+    }
+  };
+
+  try {
+    const placementRuntime = createPlacementRuntimeStub();
+    let fetchCalls = 0;
+    const runtime = createAuthGuardRuntime({
+      placementRuntime,
+      fetchImplementation: async () => {
+        fetchCalls += 1;
+        return {
+          ok: true,
+          async json() {
+            return {
+              authenticated: false
+            };
+          }
+        };
+      }
+    });
+
+    const state = await runtime.initialize();
+    assert.equal(state.authenticated, false);
+    assert.equal(fetchCalls, 1);
+    assert.equal(redirectedTo, "");
+  } finally {
+    globalThis.window = originalWindow;
+  }
+});
+
 test("auth guard runtime only updates placement auth context", async () => {
   const placementRuntime = createPlacementRuntimeStub({
     user: {

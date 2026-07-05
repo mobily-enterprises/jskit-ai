@@ -227,6 +227,86 @@ test("auth route provider does not resolve authService during boot", async () =>
   assert.equal(authServiceResolutions, 1);
 });
 
+test("auth session route preserves provider capabilities through response validation", async () => {
+  const fastify = createFastifyStub();
+  const app = createApplication();
+  const httpRuntime = createHttpRuntime({ app, fastify });
+
+  app.instance("authService", {
+    writeSessionCookies() {},
+    clearSessionCookies() {},
+    getCapabilities() {
+      return {
+        provider: {
+          id: "local",
+          label: "Local"
+        },
+        features: {
+          password: {
+            login: true,
+            register: true,
+            change: true,
+            methodToggle: false
+          },
+          passwordRecovery: {
+            request: true,
+            complete: true,
+            delivery: "dev-log"
+          },
+          otp: {
+            login: false
+          },
+          oauthLogin: {
+            enabled: false,
+            providers: [],
+            defaultProvider: null
+          },
+          emailConfirmation: false,
+          profileUpdate: true,
+          providerLinking: {
+            start: false,
+            unlink: false
+          },
+          securityStatus: true,
+          signOutOtherSessions: true,
+          appProfileProjection: false,
+          devLoginAs: false
+        }
+      };
+    }
+  });
+  app.instance("actionExecutor", {
+    async execute({ actionId }) {
+      if (actionId === "auth.session.read") {
+        return {
+          authenticated: false
+        };
+      }
+      return {};
+    }
+  });
+
+  class MockAuthProvider {
+    static id = "auth.provider";
+  }
+
+  await app.start({ providers: [MockAuthProvider, AuthWebServiceProvider, AuthRouteServiceProvider] });
+
+  const registration = httpRuntime.registerRoutes();
+  assert.equal(registration.routeCount > 0, true);
+
+  const sessionRoute = fastify.routes.find((route) => route.method === "GET" && route.url === "/api/session");
+  assert.ok(sessionRoute);
+  const sessionReply = createReplyStub();
+  await sessionRoute.handler({}, sessionReply);
+
+  assert.equal(sessionReply.statusCode, 200);
+  assert.equal(sessionReply.payload.authenticated, false);
+  assert.equal(sessionReply.payload.authCapabilities.provider.id, "local");
+  assert.equal(sessionReply.payload.authCapabilities.features.password.login, true);
+  assert.equal(sessionReply.payload.authCapabilities.features.password.register, true);
+});
+
 test("auth session route exposes denial reason when policy clears a rejected authenticated session", async () => {
   const events = [];
   const fastify = createFastifyStub();

@@ -1,5 +1,9 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+import { createApplication } from "@jskit-ai/kernel/_testable";
+import { ActionRuntimeServiceProvider } from "@jskit-ai/kernel/server/actions";
+import { AccessCoreServiceProvider } from "../src/server/providers/AccessCoreServiceProvider.js";
+import { AuthActionsServiceProvider } from "../src/server/providers/AuthActionsServiceProvider.js";
 import { FastifyAuthPolicyServiceProvider } from "../src/server/providers/FastifyAuthPolicyServiceProvider.js";
 import { AUTH_POLICY_CONTEXT_RESOLVER_TAG } from "../src/server/authPolicyContextResolverRegistry.js";
 import { createFakeFastifyPolicyRuntime } from "../../../tooling/testUtils/fakeFastify.mjs";
@@ -133,4 +137,43 @@ test("FastifyAuthPolicyServiceProvider wires optional auth policy context resolv
   assert.equal(request.workspace?.slug, "acme");
   assert.equal(request.membership?.roleSid, "member");
   assert.deepEqual(request.permissions, ["settings.manage", "projects.read"]);
+});
+
+test("auth-core providers boot without a selected provider and deny protected API requests", async () => {
+  const { fastify, state } = createFakeFastifyPolicyRuntime();
+  const app = createApplication();
+
+  app.instance("appConfig", {
+    surfaceModeAll: "all",
+    surfaceDefaultId: "home",
+    surfaceDefinitions: {
+      home: { id: "home", pagesRoot: "", enabled: true, requiresAuth: false, requiresWorkspace: false }
+    }
+  });
+  app.instance("jskit.fastify", fastify);
+  app.instance("jskit.env", { NODE_ENV: "test" });
+
+  await app.start({
+    providers: [
+      ActionRuntimeServiceProvider,
+      AccessCoreServiceProvider,
+      AuthActionsServiceProvider,
+      FastifyAuthPolicyServiceProvider
+    ]
+  });
+
+  const request = {
+    method: "GET",
+    raw: { url: "/api/protected" },
+    routeOptions: {
+      config: {
+        authPolicy: "required"
+      }
+    }
+  };
+
+  await assert.rejects(
+    () => state.preHandler(request, {}),
+    /Authentication required/
+  );
 });

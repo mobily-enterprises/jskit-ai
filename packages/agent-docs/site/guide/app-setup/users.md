@@ -1,14 +1,14 @@
 # Users
 
-At the end of the previous chapter, the app had a real database runtime, but it still did not have JSKIT's own persistent users layer. Authentication worked, but the app-side profile mirror was still only the temporary fallback from the auth chapter.
+At the end of the previous chapter, the app had a real database runtime, but it still did not have JSKIT's own persistent users layer. Authentication worked, but signed-in people were still only provider identities from the auth layer.
 
-This chapter is where that changes. We install `users-web`, run the new migrations, and let JSKIT start treating authenticated people as persistent app users rather than only as Supabase identities.
+This chapter is where that changes. We install `users-web`, run the new migrations, and let JSKIT start treating authenticated people as persistent app users rather than only as auth-provider identities.
 
 `users-web` sounds like a UI package, but it is actually the point where several layers arrive together:
 
 - the persistent users/account data model from `users-core`
 - the account surface and account settings UI
-- the switch from standalone auth profile sync to users-backed auth profile sync
+- the switch from provider-only auth profiles to users-backed auth profile projection
 
 This is also the first chapter where the difference between "JSKIT wrote migration files into the app" and "Knex applied those files to the database" becomes important in practice.
 
@@ -17,8 +17,6 @@ This is also the first chapter where the difference between "JSKIT wrote migrati
 To get back to the same starting point as the end of the previous chapter, run:
 
 ```bash
-SUPABASE_URL=...
-SUPABASE_KEY=...
 DB_HOST=127.0.0.1
 DB_PORT=3306
 DB_NAME=exampleapp
@@ -29,11 +27,7 @@ npx @jskit-ai/create-app exampleapp --tenancy-mode none
 cd exampleapp
 npm install
 
-npx jskit add package auth-provider-supabase-core \
-  --auth-supabase-url "$SUPABASE_URL" \
-  --auth-supabase-publishable-key "$SUPABASE_KEY" \
-  --app-public-url "http://localhost:5173"
-npx jskit add bundle auth-base
+npx jskit add bundle auth-local
 npx jskit add package database-runtime-mysql \
   --db-host "$DB_HOST" \
   --db-port "$DB_PORT" \
@@ -69,10 +63,11 @@ This is the first chapter where the migration step is not just "nice to have."
 
 `users-core` writes:
 
+- the provider-neutral `auth.profile.projector` service binding through its runtime provider
 - `config.auth.profileMode = "users"` into `config/server.js`
 - real users/account schema migrations into `migrations/`
 
-That means the app is expected to use the persistent users-backed profile sync service. If you skip `npm run db:migrate`, the code and routes are installed, but the required tables are still missing.
+That means the app is expected to project authenticated identities into the persistent users-backed profile sync service. If you skip `npm run db:migrate`, the code and routes are installed, but the required tables are still missing.
 
 So the correct flow is:
 
@@ -94,14 +89,14 @@ This chapter is the real transition from "authentication exists" to "the app kno
 
 ### Authentication becomes users-backed
 
-In the database chapter, JSKIT used the standalone in-memory profile mirror. After installing `users-web`, JSKIT expects to synchronize authenticated users into real JSKIT tables.
+In the database chapter, JSKIT still treated the signed-in person as an auth-provider identity. After installing `users-web`, JSKIT expects to synchronize authenticated users into real JSKIT tables.
 
 That is the biggest architectural change in this chapter.
 
-- Supabase still owns the real auth identity and session
+- the selected auth provider still owns the auth identity and session
 - JSKIT owns a persistent users/account data model in MySQL
 
-So after this chapter, a signed-in user is not only "someone Supabase knows about." They are also a persistent JSKIT-side user with settings and profile state in the app database.
+So after this chapter, a signed-in user is not only "someone the auth provider knows about." They are also a persistent JSKIT-side user with settings and profile state in the app database.
 
 ### The app gets an authenticated account surface
 
@@ -165,20 +160,28 @@ This is the first chapter where the app starts to feel like it has a real user m
 
 The most interesting files are spread across config, migrations, routing, and the app-owned account UI.
 
-### `config/server.js` flips auth into users mode
+### `users-core` projects auth identities into app users
 
-The most important new server-only config line is:
+The most important server-side change is the provider-neutral projector binding from `users-core`:
+
+```js
+if (!app.has("auth.profile.projector")) {
+  app.singleton("auth.profile.projector", (scope) => scope.make("users.profile.sync.service"));
+}
+```
+
+That one binding explains the deepest change in the chapter.
+
+Before this chapter, auth could authenticate a user without creating a persistent app-owned user row. After this chapter, auth providers can call `auth.profile.projector.syncIdentityProfile(...)` and get back a persistent users-backed profile.
+
+`users-core` also writes this server-only config line for Supabase compatibility:
 
 ```js
 config.auth ||= {};
 config.auth.profileMode = "users";
 ```
 
-That one line explains the deepest change in the chapter.
-
-Before this chapter, auth used the standalone fallback profile sync service. After this chapter, auth is told to use the persistent users-backed profile sync flow instead.
-
-That only works because `users-core` also installs the required repositories, services, and tables.
+The local provider uses the token directly. The Supabase provider also understands `config.auth.profileMode = "users"` and resolves the same users-backed sync service. In both cases, this only works because `users-core` installs the required repositories, services, and tables.
 
 ### `migrations/` stops being mostly empty
 
@@ -299,19 +302,19 @@ That is worth noticing because this is a higher level of scaffolding:
 
 ### Why auth uses the users layer
 
-In the previous chapter, auth was explicitly configured for the standalone profile sync fallback. The core logic in `AuthSupabaseServiceProvider` looks like this:
+In the previous chapter, auth did not have a users-backed projector. The core logic in `registerUsersCore()` looks like this:
 
 ```js
-const authProfileMode = resolveAuthProfileMode(appConfig);
-let userProfileSyncService = fallbackStandaloneProfileSyncService;
+app.singleton("users.profile.sync.service", (scope) => {
+  return createAuthProfileSyncService({
+    userProfilesRepository: scope.make("internal.repository.user-profiles"),
+    userSettingsRepository: scope.make("internal.repository.user-settings"),
+    lifecycleContributors: resolveProfileSyncLifecycleContributors(scope)
+  });
+});
 
-if (authProfileMode === PROFILE_MODE_USERS) {
-  if (!scope.has("users.profile.sync.service")) {
-    throw new Error(
-      "AuthSupabaseServiceProvider requires users.profile.sync.service when config.auth.profileMode is \"users\"."
-    );
-  }
-  userProfileSyncService = scope.make("users.profile.sync.service");
+if (!app.has("auth.profile.projector")) {
+  app.singleton("auth.profile.projector", (scope) => scope.make("users.profile.sync.service"));
 }
 ```
 
@@ -319,11 +322,11 @@ The important part is concrete.
 
 After `users-web`:
 
-- `config/server.js` sets `config.auth.profileMode = "users"`
-- `users-core` supplies the users-backed sync service
+- `users-core` supplies `users.profile.sync.service`
+- `users-core` aliases that service as `auth.profile.projector`
 - the migrations supply the required tables
 
-So auth has everything it needs to stop using the fallback mirror and start using the persistent users-backed one.
+So auth has everything it needs to stop returning only provider-owned profile data and start using the persistent users-backed profile.
 
 That is the true point of this chapter. The app is not just authenticated. It has a real users layer.
 
@@ -400,11 +403,11 @@ That is not only a workspace-package concern. The generated `packages/users/...`
 
 ## Summary
 
-This chapter is where the app stopped treating signed-in people as only Supabase identities and started treating them as real JSKIT users.
+This chapter is where the app stopped treating signed-in people as only auth-provider identities and started treating them as real JSKIT users.
 
 - `users-core` installed the persistent users/account schema and server layer
 - `users-web` installed the first real account surface and account settings UI
-- auth switched from the standalone fallback mirror to the users-backed sync flow
+- auth switched from provider-only profile data to the users-backed projection flow
 
 That is why this chapter feels bigger than a normal page install. It changes both the browser experience and the server-side meaning of "a signed-in user."
 

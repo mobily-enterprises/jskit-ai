@@ -7,46 +7,29 @@ import {
 import { AUTH_PATHS } from "@jskit-ai/auth-core/shared/authPaths";
 import { normalizeAuthReturnToPath } from "../lib/returnToPath.js";
 import { authHttpRequest } from "./authHttpClient.js";
+import {
+  readAuthCallbackParam,
+  readAuthCallbackUrlParams
+} from "./authCallbackUrlParams.js";
 import { ensureCommandSectionValid } from "../composables/loginView/validationHelpers.js";
 
-function parseCallbackUrl(url = "") {
-  const normalizedUrl = String(url || "").trim();
-  if (!normalizedUrl) {
-    return null;
-  }
-
-  try {
-    return new URL(normalizedUrl, "https://jskit.invalid");
-  } catch {
-    return null;
-  }
-}
-
 function readOAuthCallbackParamsFromUrl(url = "") {
-  const parsedUrl = parseCallbackUrl(url);
-  if (!parsedUrl) {
+  const callbackUrlParams = readAuthCallbackUrlParams(url);
+  if (!callbackUrlParams) {
     return null;
   }
 
-  const searchParams = new URLSearchParams(parsedUrl.search || "");
-  const hashParams = new URLSearchParams(String(parsedUrl.hash || "").replace(/^#/, ""));
-
-  const code = String(searchParams.get("code") || hashParams.get("code") || "").trim();
-  const accessToken = String(searchParams.get("access_token") || hashParams.get("access_token") || "").trim();
-  const refreshToken = String(searchParams.get("refresh_token") || hashParams.get("refresh_token") || "").trim();
+  const { searchParams } = callbackUrlParams;
+  const code = readAuthCallbackParam(callbackUrlParams, "code");
+  const accessToken = readAuthCallbackParam(callbackUrlParams, "access_token");
+  const refreshToken = readAuthCallbackParam(callbackUrlParams, "refresh_token");
   const errorCode = String(
-    searchParams.get("error") ||
-      hashParams.get("error") ||
-      searchParams.get("errorCode") ||
-      hashParams.get("errorCode") ||
-      ""
+    readAuthCallbackParam(callbackUrlParams, "error") ||
+      readAuthCallbackParam(callbackUrlParams, "errorCode")
   ).trim();
   const errorDescription = String(
-    searchParams.get("error_description") ||
-      hashParams.get("error_description") ||
-      searchParams.get("errorDescription") ||
-      hashParams.get("errorDescription") ||
-      ""
+    readAuthCallbackParam(callbackUrlParams, "error_description") ||
+      readAuthCallbackParam(callbackUrlParams, "errorDescription")
   ).trim();
   const hasSessionPair = Boolean(accessToken && refreshToken);
 

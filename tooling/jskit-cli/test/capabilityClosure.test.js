@@ -53,6 +53,7 @@ test("add bundle auth-base fails when required capabilities have no provider", a
 
     assert.notEqual(result.status, 0);
     assert.match(String(result.stderr || ""), /requires capability auth\.provider/);
+    assert.match(String(result.stderr || ""), /@jskit-ai\/auth-provider-local-core/);
     assert.match(String(result.stderr || ""), /@jskit-ai\/auth-provider-supabase-core/);
   });
 });
@@ -83,5 +84,34 @@ test("add bundle auth-base passes after a provider package is installed", async 
     });
     assert.equal(addBundleResult.status, 0, String(addBundleResult.stderr || ""));
     assert.match(String(addBundleResult.stdout || ""), /Added bundle auth-base\./);
+  });
+});
+
+test("auth provider capability is exclusive", async () => {
+  await withTempDir(async (cwd) => {
+    const appRoot = path.join(cwd, "exclusive-provider-app");
+    await createMinimalApp(appRoot);
+    const addLocalResult = runCli({
+      cwd: appRoot,
+      args: ["add", "package", "auth-provider-local-core"]
+    });
+    assert.equal(addLocalResult.status, 0, String(addLocalResult.stderr || ""));
+
+    const addSupabaseResult = runCli({
+      cwd: appRoot,
+      args: [
+        "add",
+        "package",
+        "auth-provider-supabase-core",
+        "--auth-supabase-url",
+        "https://example.supabase.co",
+        "--auth-supabase-publishable-key",
+        "sb_publishable_example",
+        "--app-public-url",
+        "http://localhost:5173"
+      ]
+    });
+    assert.notEqual(addSupabaseResult.status, 0);
+    assert.match(String(addSupabaseResult.stderr || ""), /capability auth\.provider is exclusive/);
   });
 });

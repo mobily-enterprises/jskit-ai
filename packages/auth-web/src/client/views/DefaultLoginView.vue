@@ -35,7 +35,7 @@
               Sign in
             </v-btn>
             <v-btn
-              v-if="!showRememberedAccount"
+              v-if="!showRememberedAccount && canRegister"
               data-testid="auth-mode-register"
               class="text-none"
               :variant="isRegister ? 'flat' : 'text'"
@@ -59,6 +59,7 @@
                   Go to main screen
                 </v-btn>
                 <v-btn
+                  v-if="canResendEmailConfirmation"
                   class="text-none"
                   variant="outlined"
                   color="secondary"
@@ -86,6 +87,7 @@
               </div>
 
               <v-text-field
+                v-if="!isLogin || canUsePasswordLogin"
                 v-model="email"
                 label="Email"
                 variant="outlined"
@@ -98,7 +100,7 @@
               />
 
               <v-text-field
-                v-if="!isForgot && !isOtp"
+                v-if="(isLogin && canUsePasswordLogin) || isRegister"
                 v-model="password"
                 label="Password"
                 :type="showPassword ? 'text' : 'password'"
@@ -139,13 +141,22 @@
                 class="mb-3"
               />
 
-              <div v-if="isLogin" class="aux-links d-flex justify-end mb-4">
-                <v-btn variant="text" color="secondary" @click="switchMode('forgot')">Forgot password?</v-btn>
-                <v-btn variant="text" color="secondary" @click="switchMode('otp')">Use one-time code</v-btn>
+              <div v-if="isLogin && (canRequestPasswordRecovery || canUseOtp)" class="aux-links d-flex justify-end mb-4">
+                <v-btn
+                  v-if="canRequestPasswordRecovery"
+                  variant="text"
+                  color="secondary"
+                  @click="switchMode('forgot')"
+                >
+                  Forgot password?
+                </v-btn>
+                <v-btn v-if="canUseOtp" variant="text" color="secondary" @click="switchMode('otp')">
+                  Use one-time code
+                </v-btn>
               </div>
 
               <v-checkbox
-                v-if="isLogin || isOtp"
+                v-if="(isLogin && canUsePasswordLogin) || isOtp"
                 v-model="rememberAccountOnDevice"
                 label="Remember this account on this device"
                 density="compact"
@@ -165,7 +176,7 @@
                 </v-btn>
               </div>
 
-              <div v-if="isLogin || isRegister" class="oauth-actions d-grid ga-2 mb-4">
+              <div v-if="canUseOAuth && (isLogin || isRegister)" class="oauth-actions d-grid ga-2 mb-4">
                 <v-btn
                   v-for="provider in oauthProviders"
                   :key="provider.id"
@@ -181,6 +192,7 @@
                 </v-btn>
               </div>
               <v-btn
+                v-if="!isLogin || canUsePasswordLogin"
                 data-testid="auth-submit"
                 block
                 color="primary"
@@ -251,6 +263,12 @@ const {
   isLogin,
   isRegister,
   isEmailConfirmationPending,
+  canUsePasswordLogin,
+  canRegister,
+  canRequestPasswordRecovery,
+  canUseOtp,
+  canUseOAuth,
+  canResendEmailConfirmation,
   emailConfirmationMessage,
   showRememberedAccount,
   switchMode,

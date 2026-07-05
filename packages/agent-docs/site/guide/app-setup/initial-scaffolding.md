@@ -41,8 +41,6 @@ Minimal apps can still install the standard shell later with `npx jskit add pack
 If you already know you want a small non-workspace baseline right after the scaffold, this is the shortest reproducible path:
 
 ```bash
-SUPABASE_URL=...
-SUPABASE_KEY=...
 DB_HOST=127.0.0.1
 DB_PORT=3306
 DB_NAME=exampleapp
@@ -53,12 +51,7 @@ npx @jskit-ai/create-app exampleapp --tenancy-mode none
 cd exampleapp
 npm install
 
-npx jskit add package auth-provider-supabase-core \
-  --auth-supabase-url "$SUPABASE_URL" \
-  --auth-supabase-publishable-key "$SUPABASE_KEY" \
-  --app-public-url "http://localhost:5173"
-
-npx jskit add bundle auth-base
+npx jskit add bundle auth-local
 
 npx jskit add package database-runtime-mysql \
   --db-host "$DB_HOST" \
@@ -73,6 +66,8 @@ npx jskit add package console-web
 npm install
 npm run db:migrate
 ```
+
+The default auth install is intentionally local and simple. Do not start a new app by adding Supabase, OAuth, OTP, provider linking, or a users/profile projection unless that complexity is already part of the app you are building.
 
 If you want the larger workspace-enabled stack with the first assistant already configured, use [Quickstart](/guide/app-setup/quickstart) instead.
 

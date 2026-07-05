@@ -54,10 +54,7 @@ function buildInitialSetupCommands(initialBundles) {
 
   const commands = [];
   if (normalizedPreset === "auth") {
-    commands.push(
-      "npx jskit add package auth-provider-supabase-core --auth-supabase-url \"https://YOUR-PROJECT.supabase.co\" --auth-supabase-publishable-key \"sb_publishable_...\" --app-public-url \"http://localhost:5173\""
-    );
-    commands.push("npx jskit add bundle auth-base");
+    commands.push("npx jskit add bundle auth-local");
   }
 
   return commands;

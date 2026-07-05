@@ -102,6 +102,9 @@ export function useLoginViewValidation({ state } = {}) {
     if (state.loading.value) {
       return false;
     }
+    if (state.isLogin.value && !state.canUsePasswordLogin.value) {
+      return false;
+    }
     if (emailErrorMessages.value.length > 0) {
       return false;
     }

@@ -89,6 +89,13 @@ export function useLoginViewActions({
   }
 
   function applySessionPayload(payload) {
+    if (typeof state.applyCapabilities === "function") {
+      state.applyCapabilities(payload || {});
+    }
+    if (payload?.authCapabilities || payload?.capabilities) {
+      return;
+    }
+
     state.oauthProviders.value = Array.isArray(payload?.oauthProviders)
       ? payload.oauthProviders
           .map((provider) => {

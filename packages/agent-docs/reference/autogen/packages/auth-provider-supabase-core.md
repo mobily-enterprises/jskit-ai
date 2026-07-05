@@ -26,11 +26,7 @@ Local functions
 
 ### `src/server/lib/actions/auth.contributor.js`
 Exports
-- `baseAuthActions`
-- `buildAuthActions({ includeDevLoginAs = false } = {})`
 - `devLoginAsAction`
-Local functions
-- `requireRequestContext(context, actionId)`
 
 ### `src/server/lib/authCookies.js`
 Exports
@@ -75,7 +71,7 @@ Exports
 - `collectProviderIdsFromSupabaseUser(user)`
 - `buildAuthMethodsStatusFromProviderIds(providerIds, options = {})`
 - `buildAuthMethodsStatusFromSupabaseUser(user, options = {})`
-- `buildSecurityStatusFromAuthMethodsStatus(authMethodsStatus)`
+- `buildSecurityStatusFromAuthMethodsStatus(authMethodsStatus, options = {})`
 - `findAuthMethodById(authMethodsStatus, methodId)`
 - `findLinkedIdentityByProvider(user, provider)`
 Local functions
@@ -104,10 +100,6 @@ Exports
 ### `src/server/lib/authSecrets.js`
 Exports
 - `buildDisabledPasswordSecret()`
-
-### `src/server/lib/authSessionEventsService.js`
-Exports
-- `createAuthSessionEventsService()`
 
 ### `src/server/lib/devAuthBootstrap.js`
 Exports
@@ -144,8 +136,6 @@ Exports
 Exports
 - `createService`
 - `__testables`
-- `baseAuthActions`
-- `buildAuthActions`
 - `devLoginAsAction`
 
 ### `src/server/lib/oauthFlows.js`
@@ -247,9 +237,10 @@ Local functions
 - `resolveAuthProfileMode(appConfig = {})`
 - `isDevAuthBypassEnabledForRegistration(env)`
 - `isDevAuthBypassRequested(env)`
-- `createInMemoryUserSettingsRepository()`
+- `createProviderIdentityProfileSyncService({ authProviderId = "supabase" } = {})`
 - `resolveCommonDependencies(scope)`
 - `resolveRuntimeEnv(scope)`
+- `assertSelectedAuthProvider(env)`
 - `resolveOptionalRepositories(scope)`
 - `isDeferredJsonRestBootGap(app, error)`
 - `applyAuthServiceDecorators(scope, authService)`

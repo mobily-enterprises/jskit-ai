@@ -38,8 +38,6 @@ function defaultHasPermission({ permission, permissions = [] } = {}) {
 class FastifyAuthPolicyServiceProvider {
   static id = "auth.policy.fastify";
 
-  static dependsOn = ["auth.provider"];
-
   register(app) {
     if (!app || typeof app.has !== "function") {
       throw new Error("FastifyAuthPolicyServiceProvider requires application has().");
@@ -70,15 +68,18 @@ class FastifyAuthPolicyServiceProvider {
     if (!app || typeof app.make !== "function" || typeof app.has !== "function") {
       throw new Error("FastifyAuthPolicyServiceProvider requires application make()/has().");
     }
-    if (!app.has("authService")) {
-      throw new Error("FastifyAuthPolicyServiceProvider requires authService binding.");
-    }
-
     const env = app.has("jskit.env") ? app.make("jskit.env") : {};
     const fastify = app.make("jskit.fastify");
 
     const pluginDeps = {
       resolveActor: async (request) => {
+        if (!app.has("authService")) {
+          return {
+            authenticated: false,
+            actor: null,
+            transientFailure: false
+          };
+        }
         const authService = app.make("authService");
         if (authService && typeof authService.authenticateRequest === "function") {
           return authService.authenticateRequest(request);

@@ -1,4 +1,5 @@
 import { computed, ref } from "vue";
+import { normalizeAuthCapabilities } from "@jskit-ai/auth-core/shared/authCapabilities";
 import {
   resolveSurfaceIdFromPlacementPathname,
   resolveSurfaceRootPathFromPlacementContext
@@ -40,6 +41,7 @@ export function useLoginViewState({ placementContext } = {}) {
   const rememberAccountOnDevice = ref(true);
   const rememberedAccount = ref(null);
   const useRememberedAccount = ref(false);
+  const authCapabilities = ref(normalizeAuthCapabilities());
   const oauthProviders = ref([]);
   const oauthDefaultProvider = ref("");
   const loading = ref(false);
@@ -55,6 +57,14 @@ export function useLoginViewState({ placementContext } = {}) {
   const isForgot = computed(() => mode.value === FORGOT_MODE);
   const isOtp = computed(() => mode.value === OTP_MODE);
   const isEmailConfirmationPending = computed(() => mode.value === EMAIL_CONFIRMATION_MODE);
+  const canUsePasswordLogin = computed(() => authCapabilities.value.features.password.login === true);
+  const canRegister = computed(() => authCapabilities.value.features.password.register === true);
+  const canRequestPasswordRecovery = computed(
+    () => authCapabilities.value.features.passwordRecovery.request === true
+  );
+  const canUseOtp = computed(() => authCapabilities.value.features.otp.login === true);
+  const canUseOAuth = computed(() => authCapabilities.value.features.oauthLogin.enabled === true);
+  const canResendEmailConfirmation = computed(() => authCapabilities.value.features.emailConfirmation === true);
   const showRememberedAccount = computed(
     () => (isLogin.value || isOtp.value) && useRememberedAccount.value && Boolean(rememberedAccount.value)
   );
@@ -160,6 +170,25 @@ export function useLoginViewState({ placementContext } = {}) {
     clearRememberedAccountState();
   }
 
+  function applyCapabilities(payload = {}) {
+    authCapabilities.value = normalizeAuthCapabilities(payload.authCapabilities || payload.capabilities || {});
+    const oauth = authCapabilities.value.features.oauthLogin;
+    if (oauth.enabled) {
+      oauthProviders.value = oauth.providers;
+      oauthDefaultProvider.value = oauth.defaultProvider || "";
+    } else {
+      oauthProviders.value = [];
+      oauthDefaultProvider.value = "";
+    }
+    if (
+      (mode.value === REGISTER_MODE && !canRegister.value) ||
+      (mode.value === FORGOT_MODE && !canRequestPasswordRecovery.value) ||
+      (mode.value === OTP_MODE && !canUseOtp.value)
+    ) {
+      switchMode(LOGIN_MODE);
+    }
+  }
+
   function switchAccount() {
     clearRememberedAccountHint();
     clearRememberedAccountState();
@@ -172,21 +201,30 @@ export function useLoginViewState({ placementContext } = {}) {
   }
 
   function switchMode(nextMode) {
-    if (nextMode === mode.value) {
+    let resolvedMode = nextMode;
+    if (resolvedMode === REGISTER_MODE && !canRegister.value) {
+      resolvedMode = LOGIN_MODE;
+    } else if (resolvedMode === FORGOT_MODE && !canRequestPasswordRecovery.value) {
+      resolvedMode = LOGIN_MODE;
+    } else if (resolvedMode === OTP_MODE && !canUseOtp.value) {
+      resolvedMode = LOGIN_MODE;
+    }
+
+    if (resolvedMode === mode.value) {
       return;
     }
 
-    mode.value = nextMode;
+    mode.value = resolvedMode;
     resetCredentialFields();
     registerConfirmationResendPending.value = false;
-    if (nextMode !== EMAIL_CONFIRMATION_MODE) {
+    if (resolvedMode !== EMAIL_CONFIRMATION_MODE) {
       pendingEmailConfirmationAddress.value = "";
       pendingEmailConfirmationMessage.value = "";
     }
     clearTransientMessages();
     resetTransientValidationState();
 
-    if (nextMode !== LOGIN_MODE && nextMode !== OTP_MODE) {
+    if (resolvedMode !== LOGIN_MODE && resolvedMode !== OTP_MODE) {
       useRememberedAccount.value = false;
       return;
     }
@@ -225,6 +263,7 @@ export function useLoginViewState({ placementContext } = {}) {
     rememberAccountOnDevice,
     rememberedAccount,
     useRememberedAccount,
+    authCapabilities,
     oauthProviders,
     oauthDefaultProvider,
     loading,
@@ -239,6 +278,12 @@ export function useLoginViewState({ placementContext } = {}) {
     isForgot,
     isOtp,
     isEmailConfirmationPending,
+    canUsePasswordLogin,
+    canRegister,
+    canRequestPasswordRecovery,
+    canUseOtp,
+    canUseOAuth,
+    canResendEmailConfirmation,
     showRememberedAccount,
     rememberedAccountDisplayName,
     rememberedAccountMaskedEmail,
@@ -253,6 +298,7 @@ export function useLoginViewState({ placementContext } = {}) {
     resolveNormalizedEmail,
     applyRememberedAccountHint,
     applyRememberedAccountPreference,
+    applyCapabilities,
     clearTransientMessages,
     switchMode,
     switchAccount,
