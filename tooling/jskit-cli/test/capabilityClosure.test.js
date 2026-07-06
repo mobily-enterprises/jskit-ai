@@ -12,6 +12,7 @@ const runCli = createCliRunner(CLI_PATH);
 async function createMinimalApp(appRoot) {
   await mkdir(appRoot, { recursive: true });
   await mkdir(path.join(appRoot, "config"), { recursive: true });
+  await mkdir(path.join(appRoot, "packages", "main", "src", "client", "providers"), { recursive: true });
   await writeFile(
     path.join(appRoot, "package.json"),
     `${JSON.stringify(
@@ -40,6 +41,25 @@ async function createMinimalApp(appRoot) {
     "utf8"
   );
   await writeFile(path.join(appRoot, "config/server.js"), "export const config = {};\n", "utf8");
+  await writeFile(
+    path.join(appRoot, "packages", "main", "src", "client", "providers", "MainClientProvider.js"),
+    `const mainClientComponents = [];
+
+function registerMainClientComponent(token, resolveComponent) {
+  mainClientComponents.push({ token, resolveComponent });
+}
+
+class MainClientProvider {
+  static id = "local.main.client";
+}
+
+export {
+  MainClientProvider,
+  registerMainClientComponent
+};
+`,
+    "utf8"
+  );
 }
 
 test("add bundle auth-base fails when required capabilities have no provider", async () => {

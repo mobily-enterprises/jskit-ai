@@ -83,7 +83,7 @@ Exports
 - `buildViewColumns(fields = [])`
 - `buildFormColumns(fields = [])`
 - `resolveRecordIdFieldKey(fields = [])`
-- `renderObjectPushLines(arrayName, entries = [])`
+- `renderObjectArrayEntryLines(entries = [], { indent = " " } = {})`
 - `resolveRecordChangedEventName`
 - `resolveRecordIdExpression(fields = [])`
 Local functions
@@ -131,6 +131,10 @@ Local functions
 - `resolveOperationFields(resource, operationName)`
 - `resolveFieldDefinition(fields = [], fieldKey = "")`
 - `insertBeforeAnchor(source, { anchor = "", snippet = "" } = {})`
+- `findMatchingDelimiter(sourceText = "", openIndex = -1, openChar = "[", closeChar = "]")`
+- `resolveAnchorLineIndex(sourceText = "", anchor = "")`
+- `findArrayDeclarationBeforeIndex(sourceText = "", arrayName = "", index = -1)`
+- `insertFormFieldDefinition(source, insertion = {})`
 - `resolveAnchorScopeStart(source = "", { anchorIndex = -1, anchor = "" } = {})`
 - `buildAnchorInsertions(operationName, field)`
 - `resolveGeneratedTargetComment(source = "", commentName = "")`

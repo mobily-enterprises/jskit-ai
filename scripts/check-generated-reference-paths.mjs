@@ -44,9 +44,18 @@ function collectRelativePathReferences(node, location = "descriptor", references
     return references;
   }
 
+  const isSourceImportMutation =
+    location.includes(".mutations.source[") &&
+    String(node.op || "").trim() === "ensure-import";
+
   for (const [key, value] of Object.entries(node)) {
     const nextLocation = `${location}.${key}`;
-    if ((key === "from" || key === "expectedExistingFrom") && typeof value === "string" && String(value).trim()) {
+    if (
+      (key === "from" || key === "expectedExistingFrom") &&
+      !isSourceImportMutation &&
+      typeof value === "string" &&
+      String(value).trim()
+    ) {
       references.push({
         location: nextLocation,
         relativePath: String(value).trim()

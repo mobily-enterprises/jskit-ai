@@ -447,8 +447,9 @@ Local functions
 - `readFormFieldKeys(sourceText = "")`
 - `formatArrayEntry(entrySource = "", indent = " ")`
 - `findFormFieldArrayDeclaration(sourceText = "", arrayName = "")`
+- `findLineRangeContaining(sourceText = "", searchText = "", { afterIndex = -1 } = {})`
 - `findFormFieldPushCalls(sourceText = "", arrayName = "")`
-- `buildArrayContentWithAddedEntries(existingContent = "", entries = [], indent = "")`
+- `buildArrayContentWithAddedEntries(existingContent = "", entries = [], indent = "", { marker = "" } = {})`
 - `applyTextReplacements(sourceText = "", replacements = [])`
 - `collectCrudFormFieldCandidateFiles(appRoot = "")`
 

@@ -154,6 +154,7 @@ async function createMobileReadyApp(appRoot, {
   await mkdir(path.join(appRoot, "config"), { recursive: true });
   await mkdir(path.join(appRoot, ".jskit"), { recursive: true });
   await mkdir(path.join(appRoot, "node_modules", ".bin"), { recursive: true });
+  await mkdir(path.join(appRoot, "packages", "main", "src", "client", "providers"), { recursive: true });
 
   await writeFile(
     path.join(appRoot, "package.json"),
@@ -216,6 +217,25 @@ ${includeMobileConfig ? `,
       versionName: "1.0.0"
     }
   }` : ""}
+};
+`,
+    "utf8"
+  );
+  await writeFile(
+    path.join(appRoot, "packages", "main", "src", "client", "providers", "MainClientProvider.js"),
+    `const mainClientComponents = [];
+
+function registerMainClientComponent(token, resolveComponent) {
+  mainClientComponents.push({ token, resolveComponent });
+}
+
+class MainClientProvider {
+  static id = "local.main.client";
+}
+
+export {
+  MainClientProvider,
+  registerMainClientComponent
 };
 `,
     "utf8"
