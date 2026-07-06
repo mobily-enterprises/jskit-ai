@@ -96,6 +96,7 @@ test("normalizeAuthActor builds the stable actor and legacy profile bridge", () 
   });
 
   assert.deepEqual(actor, {
+    id: "42",
     authIdentityId: "supabase:abc-123",
     provider: "supabase",
     providerUserId: "abc-123",
@@ -123,8 +124,34 @@ test("normalizeAuthActor preserves opaque app user ids", () => {
     profileSource: "users"
   });
 
+  assert.equal(actor.id, "app-user-1");
   assert.equal(actor.appUserId, "app-user-1");
   assert.equal(buildLegacyProfileFromActor(actor).id, "app-user-1");
+});
+
+test("normalizeAuthActor exposes projected app user id as the stable actor id", () => {
+  const actor = normalizeAuthActor({
+    provider: "local",
+    providerUserId: "provider-user-1",
+    email: "local@example.com",
+    appUserId: "app-user-1"
+  });
+
+  assert.equal(actor.id, "app-user-1");
+  assert.equal(actor.appUserId, "app-user-1");
+  assert.equal(actor.providerUserId, "provider-user-1");
+});
+
+test("normalizeAuthActor falls back to provider user id when no app user is projected", () => {
+  const actor = normalizeAuthActor({
+    provider: "local",
+    providerUserId: "provider-user-1",
+    email: "local@example.com"
+  });
+
+  assert.equal(actor.id, "provider-user-1");
+  assert.equal(actor.appUserId, null);
+  assert.equal(actor.providerUserId, "provider-user-1");
 });
 
 test("normalizeAuthSecurityStatus emits policy and legacy authPolicy aliases", () => {

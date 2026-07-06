@@ -39,6 +39,7 @@ function normalizeAuthActor(value = {}, options = {}) {
   const appUserId = normalizeOpaqueId(source.appUserId || source.profileId || source.userProfileId, {
     fallback: null
   });
+  const id = appUserId || providerUserId;
   const authIdentityId = String(source.authIdentityId || createAuthIdentityId(provider, providerUserId)).trim();
 
   if (!providerUserId || !email) {
@@ -46,6 +47,7 @@ function normalizeAuthActor(value = {}, options = {}) {
   }
 
   return Object.freeze({
+    id,
     authIdentityId,
     provider,
     providerUserId,
@@ -61,9 +63,8 @@ function buildLegacyProfileFromActor(actorLike) {
   if (!actor) {
     return null;
   }
-  const id = actor.appUserId || actor.providerUserId || actor.authIdentityId;
   return Object.freeze({
-    id,
+    id: actor.id || actor.appUserId || actor.providerUserId || actor.authIdentityId,
     email: actor.email,
     displayName: actor.displayName,
     authProvider: actor.provider,
