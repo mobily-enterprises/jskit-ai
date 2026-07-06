@@ -1030,7 +1030,7 @@ test("jskit app migrate-source-mutations moves legacy MainClientProvider registr
     assert.equal(dryRunResult.status, 0, String(dryRunResult.stderr || ""));
     assert.match(String(dryRunResult.stdout || ""), /would rewrite packages\/main\/src\/client\/providers\/MainClientProvider\.js/);
     const beforeMigration = await readFile(providerPath, "utf8");
-    assert.match(beforeMigration, /export \{\n  MainClientProvider,\n  registerMainClientComponent\n\};\n\nregisterMainClientComponent/);
+    assert.match(beforeMigration, /export \{\n {2}MainClientProvider,\n {2}registerMainClientComponent\n\};\n\nregisterMainClientComponent/);
 
     const result = runCli({
       cwd: appRoot,
@@ -1048,7 +1048,7 @@ test("jskit app migrate-source-mutations moves legacy MainClientProvider registr
       migrated.indexOf('registerMainClientComponent("local.main.ui.tab-link-item", () => TabLinkItem);') <
         migrated.indexOf("class MainClientProvider")
     );
-    assert.doesNotMatch(migrated, /export \{\n  MainClientProvider,\n  registerMainClientComponent\n\};\n\nregisterMainClientComponent/);
+    assert.doesNotMatch(migrated, /export \{\n {2}MainClientProvider,\n {2}registerMainClientComponent\n\};\n\nregisterMainClientComponent/);
 
     const rerunResult = runCli({
       cwd: appRoot,
@@ -1122,11 +1122,11 @@ test("jskit app migrate-source-mutations folds legacy CRUD form field pushes int
     assert.doesNotMatch(migrated, /UI_EDIT_FORM_FIELDS\.push/);
     assert.match(
       migrated,
-      /const UI_CREATE_FORM_FIELDS = \[\n  \{\n    "key": "firstName"[\s\S]*  \/\/ jskit:crud-ui-form-fields:new\n\];/
+      /const UI_CREATE_FORM_FIELDS = \[\n {2}\{\n {4}"key": "firstName"[\s\S]* {2}\/\/ jskit:crud-ui-form-fields:new\n\];/
     );
     assert.match(
       migrated,
-      /const UI_EDIT_FORM_FIELDS = \[\n  \{\n    "key": "existing"[\s\S]*  \/\/ jskit:crud-ui-form-fields:edit\n\];/
+      /const UI_EDIT_FORM_FIELDS = \[\n {2}\{\n {4}"key": "existing"[\s\S]* {2}\/\/ jskit:crud-ui-form-fields:edit\n\];/
     );
     assert.match(migrated, /"key": "vetId"/);
     assert.equal((migrated.match(/"key": "existing"/g) || []).length, 1);
@@ -1165,8 +1165,8 @@ test("jskit app migrate-source-mutations upgrades legacy provider and CRUD form 
     const formFieldsSource = await readFile(formFieldsPath, "utf8");
     assert.doesNotMatch(formFieldsSource, /\.push\(\{/);
     assert.match(formFieldsSource, /"key": "vetId"/);
-    assert.match(formFieldsSource, /  \/\/ jskit:crud-ui-form-fields:new\n\];/);
-    assert.match(formFieldsSource, /  \/\/ jskit:crud-ui-form-fields:edit\n\];/);
+    assert.match(formFieldsSource, / {2}\/\/ jskit:crud-ui-form-fields:new\n\];/);
+    assert.match(formFieldsSource, / {2}\/\/ jskit:crud-ui-form-fields:edit\n\];/);
   });
 });
 
