@@ -30,7 +30,7 @@ import {
   buildViewColumns,
   buildFormColumns,
   resolveRecordIdFieldKey,
-  renderObjectPushLines,
+  renderObjectArrayEntryLines,
   resolveRecordChangedEventName,
   resolveRecordIdExpression
 } from "./resourceSupport.js";
@@ -864,8 +864,8 @@ async function buildUiTemplateContext({ appRoot, options } = {}) {
     __JSKIT_UI_SHARED_FORM_SLOT_PROPS__: buildCrudFieldsSlotProps(sharedFormFields, { includeMode: true }),
     __JSKIT_UI_CREATE_FORM_FIELDS__: JSON.stringify(createFields),
     __JSKIT_UI_EDIT_FORM_FIELDS__: JSON.stringify(editFields),
-    __JSKIT_UI_CREATE_FORM_FIELD_PUSH_LINES__: renderObjectPushLines("UI_CREATE_FORM_FIELDS", createFields),
-    __JSKIT_UI_EDIT_FORM_FIELD_PUSH_LINES__: renderObjectPushLines("UI_EDIT_FORM_FIELDS", editFields),
+    __JSKIT_UI_CREATE_FORM_FIELD_ARRAY_ENTRIES__: renderObjectArrayEntryLines(createFields),
+    __JSKIT_UI_EDIT_FORM_FIELD_ARRAY_ENTRIES__: renderObjectArrayEntryLines(editFields),
     __JSKIT_UI_CREATE_LOOKUP_IMPORT_LINE__: buildLookupImportLine(createFields),
     __JSKIT_UI_EDIT_LOOKUP_IMPORT_LINE__: buildLookupImportLine(editFields),
     __JSKIT_UI_CREATE_LOOKUP_RUNTIME_SETUP__: buildLookupRuntimeSetup(createFields, {

@@ -183,6 +183,96 @@ export async function ensurePreviewWorkspace(_db, user, profile, options) {
   );
 }
 
+async function writeLegacyMainClientProvider(appRoot) {
+  const providerPath = path.join(appRoot, "packages", "main", "src", "client", "providers", "MainClientProvider.js");
+  await mkdir(path.dirname(providerPath), { recursive: true });
+  await writeFile(
+    providerPath,
+    `import MenuLinkItem from "/src/components/menus/MenuLinkItem.vue";
+import TabLinkItem from "/src/components/menus/TabLinkItem.vue";
+
+const mainClientComponents = [];
+
+function registerMainClientComponent(token, resolveComponent) {
+  mainClientComponents.push({ token, resolveComponent });
+}
+
+class MainClientProvider {
+  static id = "local.main.client";
+
+  register(app) {
+    for (const { token, resolveComponent } of mainClientComponents) {
+      app.singleton(token, resolveComponent);
+    }
+  }
+}
+
+export {
+  MainClientProvider,
+  registerMainClientComponent
+};
+
+registerMainClientComponent("local.main.ui.menu-link-item", () => MenuLinkItem);
+registerMainClientComponent("local.main.ui.tab-link-item", () => TabLinkItem);
+`,
+    "utf8"
+  );
+  return providerPath;
+}
+
+async function writeLegacyCrudFormFields(appRoot) {
+  const formFieldsPath = path.join(
+    appRoot,
+    "src",
+    "pages",
+    "admin",
+    "contacts",
+    "_components",
+    "ContactAddEditFormFields.js"
+  );
+  await mkdir(path.dirname(formFieldsPath), { recursive: true });
+  await writeFile(
+    formFieldsPath,
+    `const UI_CREATE_FORM_FIELDS = [];
+
+// @jskit-contract crud.ui.form-fields.contacts.new.v1
+void UI_CREATE_FORM_FIELDS;
+// jskit:crud-ui-form-fields:new
+UI_CREATE_FORM_FIELDS.push({
+  "key": "firstName",
+  "component": "text",
+  "label": "First Name"
+});
+
+const UI_EDIT_FORM_FIELDS = [
+  {
+    "key": "existing",
+    "component": "text"
+  }
+];
+
+// @jskit-contract crud.ui.form-fields.contacts.edit.v1
+void UI_EDIT_FORM_FIELDS;
+// jskit:crud-ui-form-fields:edit
+UI_EDIT_FORM_FIELDS.push({
+  "key": "vetId",
+  "component": "lookup",
+  "label": "Vet"
+});
+UI_EDIT_FORM_FIELDS.push({
+  "key": "existing",
+  "component": "text"
+});
+Object.freeze(UI_CREATE_FORM_FIELDS);
+Object.freeze(UI_EDIT_FORM_FIELDS);
+
+export { UI_CREATE_FORM_FIELDS, UI_EDIT_FORM_FIELDS };
+`,
+    "utf8"
+  );
+  return formFieldsPath;
+}
+
 function runGit(appRoot, args = []) {
   const result = spawnSync("git", Array.isArray(args) ? args : [], {
     cwd: appRoot,
@@ -924,6 +1014,159 @@ test("jskit app adopt-managed-scripts --force rewrites customized wrappers and r
       release: "jskit app release"
     });
     await assert.rejects(lstat(copiedScriptPath), /ENOENT/);
+  });
+});
+
+test("jskit app migrate-source-mutations moves legacy MainClientProvider registrations before the provider class", async () => {
+  await withTempDir(async (cwd) => {
+    const appRoot = path.join(cwd, "app");
+    await createMinimalApp(appRoot);
+    const providerPath = await writeLegacyMainClientProvider(appRoot);
+
+    const dryRunResult = runCli({
+      cwd: appRoot,
+      args: ["app", "migrate-source-mutations", "--dry-run"]
+    });
+    assert.equal(dryRunResult.status, 0, String(dryRunResult.stderr || ""));
+    assert.match(String(dryRunResult.stdout || ""), /would rewrite packages\/main\/src\/client\/providers\/MainClientProvider\.js/);
+    const beforeMigration = await readFile(providerPath, "utf8");
+    assert.match(beforeMigration, /export \{\n  MainClientProvider,\n  registerMainClientComponent\n\};\n\nregisterMainClientComponent/);
+
+    const result = runCli({
+      cwd: appRoot,
+      args: ["app", "migrate-source-mutations"]
+    });
+    assert.equal(result.status, 0, String(result.stderr || ""));
+    assert.match(String(result.stdout || ""), /rewrote packages\/main\/src\/client\/providers\/MainClientProvider\.js/);
+
+    const migrated = await readFile(providerPath, "utf8");
+    assert.ok(
+      migrated.indexOf('registerMainClientComponent("local.main.ui.menu-link-item", () => MenuLinkItem);') <
+        migrated.indexOf("class MainClientProvider")
+    );
+    assert.ok(
+      migrated.indexOf('registerMainClientComponent("local.main.ui.tab-link-item", () => TabLinkItem);') <
+        migrated.indexOf("class MainClientProvider")
+    );
+    assert.doesNotMatch(migrated, /export \{\n  MainClientProvider,\n  registerMainClientComponent\n\};\n\nregisterMainClientComponent/);
+
+    const rerunResult = runCli({
+      cwd: appRoot,
+      args: ["app", "migrate-source-mutations"]
+    });
+    assert.equal(rerunResult.status, 0, String(rerunResult.stderr || ""));
+    assert.match(String(rerunResult.stdout || ""), /already current/);
+    assert.equal(await readFile(providerPath, "utf8"), migrated);
+  });
+});
+
+test("jskit app migrate-source-mutations removes duplicate legacy registrations", async () => {
+  await withTempDir(async (cwd) => {
+    const appRoot = path.join(cwd, "app");
+    await createMinimalApp(appRoot);
+    const providerPath = await writeLegacyMainClientProvider(appRoot);
+    const source = await readFile(providerPath, "utf8");
+    await writeFile(
+      providerPath,
+      source.replace(
+        "class MainClientProvider",
+        'registerMainClientComponent("local.main.ui.menu-link-item", () => MenuLinkItem);\n\nclass MainClientProvider'
+      ),
+      "utf8"
+    );
+
+    const result = runCli({
+      cwd: appRoot,
+      args: ["app", "migrate-source-mutations"]
+    });
+
+    assert.equal(result.status, 0, String(result.stderr || ""));
+    assert.match(String(result.stdout || ""), /removed 1 duplicate registration/);
+    const migrated = await readFile(providerPath, "utf8");
+    assert.equal(
+      (migrated.match(/registerMainClientComponent\("local\.main\.ui\.menu-link-item"/g) || []).length,
+      1
+    );
+  });
+});
+
+test("jskit app migrate-source-mutations folds legacy CRUD form field pushes into array literals", async () => {
+  await withTempDir(async (cwd) => {
+    const appRoot = path.join(cwd, "app");
+    await createMinimalApp(appRoot);
+    const formFieldsPath = await writeLegacyCrudFormFields(appRoot);
+
+    const dryRunResult = runCli({
+      cwd: appRoot,
+      args: ["app", "migrate-source-mutations", "--dry-run"]
+    });
+    assert.equal(dryRunResult.status, 0, String(dryRunResult.stderr || ""));
+    assert.match(
+      String(dryRunResult.stdout || ""),
+      /would rewrite src\/pages\/admin\/contacts\/_components\/ContactAddEditFormFields\.js: folded 3 form field pushes into array literals and moved 2 form-field markers/
+    );
+    assert.match(await readFile(formFieldsPath, "utf8"), /UI_CREATE_FORM_FIELDS\.push/);
+
+    const result = runCli({
+      cwd: appRoot,
+      args: ["app", "migrate-source-mutations"]
+    });
+    assert.equal(result.status, 0, String(result.stderr || ""));
+    assert.match(
+      String(result.stdout || ""),
+      /rewrote src\/pages\/admin\/contacts\/_components\/ContactAddEditFormFields\.js: folded 3 form field pushes into array literals and moved 2 form-field markers/
+    );
+
+    const migrated = await readFile(formFieldsPath, "utf8");
+    assert.doesNotMatch(migrated, /UI_CREATE_FORM_FIELDS\.push/);
+    assert.doesNotMatch(migrated, /UI_EDIT_FORM_FIELDS\.push/);
+    assert.match(
+      migrated,
+      /const UI_CREATE_FORM_FIELDS = \[\n  \{\n    "key": "firstName"[\s\S]*  \/\/ jskit:crud-ui-form-fields:new\n\];/
+    );
+    assert.match(
+      migrated,
+      /const UI_EDIT_FORM_FIELDS = \[\n  \{\n    "key": "existing"[\s\S]*  \/\/ jskit:crud-ui-form-fields:edit\n\];/
+    );
+    assert.match(migrated, /"key": "vetId"/);
+    assert.equal((migrated.match(/"key": "existing"/g) || []).length, 1);
+
+    const rerunResult = runCli({
+      cwd: appRoot,
+      args: ["app", "migrate-source-mutations"]
+    });
+    assert.equal(rerunResult.status, 0, String(rerunResult.stderr || ""));
+    assert.match(String(rerunResult.stdout || ""), /source files are already current/);
+    assert.equal(await readFile(formFieldsPath, "utf8"), migrated);
+  });
+});
+
+test("jskit app migrate-source-mutations upgrades legacy provider and CRUD form pushes in one run", async () => {
+  await withTempDir(async (cwd) => {
+    const appRoot = path.join(cwd, "app");
+    await createMinimalApp(appRoot);
+    const providerPath = await writeLegacyMainClientProvider(appRoot);
+    const formFieldsPath = await writeLegacyCrudFormFields(appRoot);
+
+    const result = runCli({
+      cwd: appRoot,
+      args: ["app", "migrate-source-mutations"]
+    });
+    assert.equal(result.status, 0, String(result.stderr || ""));
+    assert.match(String(result.stdout || ""), /rewrote packages\/main\/src\/client\/providers\/MainClientProvider\.js/);
+    assert.match(String(result.stdout || ""), /rewrote src\/pages\/admin\/contacts\/_components\/ContactAddEditFormFields\.js/);
+
+    const providerSource = await readFile(providerPath, "utf8");
+    assert.ok(
+      providerSource.indexOf('registerMainClientComponent("local.main.ui.menu-link-item", () => MenuLinkItem);') <
+        providerSource.indexOf("class MainClientProvider")
+    );
+
+    const formFieldsSource = await readFile(formFieldsPath, "utf8");
+    assert.doesNotMatch(formFieldsSource, /\.push\(\{/);
+    assert.match(formFieldsSource, /"key": "vetId"/);
+    assert.match(formFieldsSource, /  \/\/ jskit:crud-ui-form-fields:new\n\];/);
+    assert.match(formFieldsSource, /  \/\/ jskit:crud-ui-form-fields:edit\n\];/);
   });
 });
 

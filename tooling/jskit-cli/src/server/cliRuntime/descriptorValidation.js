@@ -61,6 +61,62 @@ function validateFileMutationShape(descriptor, descriptorPath) {
   }
 }
 
+function validateSourceMutationShape(descriptor, descriptorPath) {
+  const packageId = String(ensureObject(descriptor).packageId || "").trim() || "unknown-package";
+  const mutations = ensureObject(ensureObject(descriptor).mutations);
+  const sourceMutations = ensureArray(mutations.source);
+  const supportedOps = new Set([
+    "ensure-assignment",
+    "ensure-call",
+    "ensure-export-const",
+    "ensure-import"
+  ]);
+
+  for (const rawMutation of sourceMutations) {
+    const mutation = ensureObject(rawMutation);
+    const operation = String(mutation.op || "").trim();
+    const file = String(mutation.file || "").trim();
+    if (!supportedOps.has(operation)) {
+      throw createCliError(
+        `Invalid package descriptor at ${descriptorPath}: source mutation in ${packageId} has unsupported op "${operation}".`
+      );
+    }
+    if (!file) {
+      throw createCliError(
+        `Invalid package descriptor at ${descriptorPath}: source mutation in ${packageId} requires "file".`
+      );
+    }
+    if (operation === "ensure-import") {
+      const hasImportBinding =
+        String(mutation.defaultImport || "").trim() ||
+        String(mutation.namespaceImport || "").trim() ||
+        ensureArray(mutation.namedImports).length > 0;
+      if (!String(mutation.from || "").trim() || !hasImportBinding) {
+        throw createCliError(
+          `Invalid package descriptor at ${descriptorPath}: ensure-import in ${packageId} requires "from" and an import binding.`
+        );
+      }
+    }
+    if (operation === "ensure-call" && !String(mutation.callee || "").trim()) {
+      throw createCliError(
+        `Invalid package descriptor at ${descriptorPath}: ensure-call in ${packageId} requires "callee".`
+      );
+    }
+    if (operation === "ensure-assignment") {
+      if (!String(mutation.target || "").trim() || !String(mutation.value || "").trim()) {
+        throw createCliError(
+          `Invalid package descriptor at ${descriptorPath}: ensure-assignment in ${packageId} requires "target" and "value".`
+        );
+      }
+    }
+    if (operation === "ensure-export-const" && !String(mutation.name || "").trim()) {
+      throw createCliError(
+        `Invalid package descriptor at ${descriptorPath}: ensure-export-const in ${packageId} requires "name".`
+      );
+    }
+  }
+}
+
 function validateLifecycleHookSpec(spec = {}, descriptorPath, label = "lifecycle hook") {
   const normalized = ensureObject(spec);
   if (Object.keys(normalized).length < 1) {
@@ -133,6 +189,7 @@ function validatePackageDescriptorShape(descriptor, descriptorPath) {
   }
 
   validateFileMutationShape(normalized, descriptorPath);
+  validateSourceMutationShape(normalized, descriptorPath);
   const lifecycle = validateLifecycleShape(normalized, descriptorPath);
 
   return {
@@ -165,6 +222,7 @@ function validateAppLocalPackageDescriptorShape(descriptor, descriptorPath, { ex
   }
 
   validateFileMutationShape(normalized, descriptorPath);
+  validateSourceMutationShape(normalized, descriptorPath);
   const lifecycle = validateLifecycleShape(normalized, descriptorPath);
 
   return {

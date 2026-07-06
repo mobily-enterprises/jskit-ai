@@ -36,10 +36,13 @@ import {
 } from "./packageTemplateResolution.js";
 import {
   applyFileMutations,
+  applySourceMutations,
   applyTextMutations,
+  partitionPreFileConfigSourceMutations,
   partitionPreFileConfigTextMutations,
   prepareFileMutations,
-  resolvePositioningMutations
+  resolvePositioningMutations,
+  resolvePositioningSourceMutations
 } from "./mutationApplication.js";
 function createManagedRecordBase(packageEntry, options) {
   const sourceRecord = {
@@ -61,6 +64,7 @@ function createManagedRecordBase(packageEntry, options) {
         scripts: {}
       },
       text: {},
+      source: {},
       vite: {},
       files: [],
       migrations: []
@@ -172,6 +176,7 @@ async function applyPackagePositioning({
       scripts: cloneManagedMap(existingPackageJsonManaged.scripts)
     },
     text: cloneManagedMap(existingManaged.text),
+    source: cloneManagedMap(existingManaged.source),
     vite: cloneManagedMap(existingManaged.vite),
     files: cloneManagedArray(existingManaged.files),
     migrations: cloneManagedArray(existingManaged.migrations)
@@ -188,8 +193,10 @@ async function applyPackagePositioning({
 
   const mutations = ensureObject(packageEntry.descriptor.mutations);
   const positioningMutations = resolvePositioningMutations(mutations);
+  const positioningSourceMutations = resolvePositioningSourceMutations(mutations);
   const appliedManagedFiles = [];
   const appliedManagedText = {};
+  const appliedManagedSource = {};
   const preparedFileMutations = await prepareFileMutations(
     packageEntryForMutations,
     packageOptions,
@@ -225,6 +232,19 @@ async function applyPackagePositioning({
       }
     );
   }
+  if (positioningSourceMutations.length > 0) {
+    await applySourceMutations(
+      packageEntryForMutations,
+      appRoot,
+      positioningSourceMutations,
+      packageOptions,
+      appliedManagedSource,
+      touchedFiles,
+      {
+        dryRun
+      }
+    );
+  }
 
   if (appliedManagedFiles.length > 0) {
     const replacedPaths = new Set(
@@ -243,6 +263,12 @@ async function applyPackagePositioning({
     nextManaged.text = {
       ...nextManaged.text,
       ...appliedManagedText
+    };
+  }
+  if (Object.keys(appliedManagedSource).length > 0) {
+    nextManaged.source = {
+      ...nextManaged.source,
+      ...appliedManagedSource
     };
   }
 
@@ -283,6 +309,7 @@ async function applyPackageMigrationsOnly({
       scripts: cloneManagedMap(existingPackageJsonManaged.scripts)
     },
     text: cloneManagedMap(existingManaged.text),
+    source: cloneManagedMap(existingManaged.source),
     vite: cloneManagedMap(existingManaged.vite),
     files: cloneManagedArray(existingManaged.files),
     migrations: cloneManagedArray(existingManaged.migrations)
@@ -363,6 +390,7 @@ async function applyPackageInstall({
   const mutations = ensureObject(packageEntry.descriptor.mutations);
   const fileMutations = ensureArray(mutations.files);
   const textMutations = ensureArray(mutations.text);
+  const sourceMutations = ensureArray(mutations.source);
   const hasSurfaceTargetedFileMutations = fileMutations.some((mutationValue) =>
     Boolean(normalizeFileMutationRecord(mutationValue).toSurface)
   );
@@ -374,6 +402,15 @@ async function applyPackageInstall({
     : {
         preFileTextMutations: [],
         postFileTextMutations: textMutations
+      };
+  const {
+    preFileSourceMutations,
+    postFileSourceMutations
+  } = hasSurfaceTargetedFileMutations
+    ? partitionPreFileConfigSourceMutations(sourceMutations)
+    : {
+        preFileSourceMutations: [],
+        postFileSourceMutations: sourceMutations
       };
   const templateRoot = await resolvePackageTemplateRoot({
     packageEntry,
@@ -397,6 +434,19 @@ async function applyPackageInstall({
       preFileTextMutations,
       packageOptions,
       managedRecord.managed.text,
+      touchedFiles,
+      {
+        dryRun
+      }
+    );
+  }
+  if (preFileSourceMutations.length > 0) {
+    await applySourceMutations(
+      packageEntryForMutations,
+      appRoot,
+      preFileSourceMutations,
+      packageOptions,
+      managedRecord.managed.source,
       touchedFiles,
       {
         dryRun
@@ -570,6 +620,18 @@ async function applyPackageInstall({
     postFileTextMutations,
     packageOptions,
     managedRecord.managed.text,
+    touchedFiles,
+    {
+      dryRun
+    }
+  );
+
+  await applySourceMutations(
+    packageEntryForMutations,
+    appRoot,
+    postFileSourceMutations,
+    packageOptions,
+    managedRecord.managed.source,
     touchedFiles,
     {
       dryRun

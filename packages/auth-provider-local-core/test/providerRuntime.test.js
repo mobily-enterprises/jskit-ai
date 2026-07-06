@@ -8,9 +8,13 @@ import { ActionRuntimeServiceProvider } from "@jskit-ai/kernel/server/actions";
 import { AuthActionsServiceProvider } from "@jskit-ai/auth-core/server/providers/AuthActionsServiceProvider";
 import { AuthLocalServiceProvider } from "../src/server/providers/AuthLocalServiceProvider.js";
 import { AuthProviderServiceProvider } from "../src/server/providers/AuthProviderServiceProvider.js";
-import { createLocalFileBackend } from "../src/server/lib/fileBackend.js";
-import { createLocalAuthService } from "../src/server/lib/service.js";
-import { hashPassword } from "../src/server/lib/passwords.js";
+import {
+  createLocalAuthService,
+  createLocalFileBackend,
+  hashPassword,
+  normalizePasswordStrategy,
+  verifyPassword
+} from "../src/server/lib/index.js";
 
 function createAppConfigFixture() {
   return {
@@ -46,7 +50,7 @@ function createReplyFixture() {
   };
 }
 
-async function createStartedApp({ profileProjector = null } = {}) {
+async function createStartedApp({ profileProjector = null, profileProjectorFactory = null, passwordStrategy = null } = {}) {
   const storeDir = await fs.mkdtemp(path.join(os.tmpdir(), "jskit-auth-local-"));
   const app = createApplication();
   app.instance("appConfig", createAppConfigFixture());
@@ -68,6 +72,12 @@ async function createStartedApp({ profileProjector = null } = {}) {
   });
   if (profileProjector) {
     app.instance("auth.profile.projector", profileProjector);
+  }
+  if (profileProjectorFactory) {
+    app.singleton("auth.profile.projector", profileProjectorFactory);
+  }
+  if (passwordStrategy) {
+    app.instance("auth.local.passwordStrategy", passwordStrategy);
   }
   await app.start({
     providers: [
@@ -134,6 +144,72 @@ test("local auth provider registers, logs in, reads session, and logs out with f
   assert.match(usersFile, /^user:v1:/);
 });
 
+test("local auth provider resolves a custom password strategy from the container", async () => {
+  const passwordStrategy = {
+    prefix: "strategy",
+    async hashPassword(password) {
+      return {
+        algorithm: "test-password",
+        version: "v1",
+        salt: "",
+        hash: `${this.prefix}-${password}`
+      };
+    },
+    async verifyPassword(password, record) {
+      return record?.algorithm === "test-password" && record?.hash === `${this.prefix}-${password}`;
+    }
+  };
+  const { app } = await createStartedApp({ passwordStrategy });
+  const authService = app.make("authService");
+
+  await authService.register({
+    email: "strategy@example.com",
+    password: "strategy password value",
+    displayName: "Strategy User"
+  });
+
+  const loggedIn = await authService.login({
+    email: "strategy@example.com",
+    password: "strategy password value"
+  });
+
+  assert.equal(loggedIn.actor.email, "strategy@example.com");
+});
+
+test("local auth password strategy supports partial overrides and rejects invalid methods", async () => {
+  const strategy = normalizePasswordStrategy({
+    verifyPassword(password, record) {
+      return record === `legacy:${this.realm}:${password}`;
+    },
+    realm: "users"
+  });
+
+  const defaultHashed = await strategy.hashPassword("new password value");
+  assert.equal(await verifyPassword("new password value", defaultHashed), true);
+  assert.equal(await strategy.verifyPassword("old password value", "legacy:users:old password value"), true);
+
+  assert.throws(
+    () => normalizePasswordStrategy("invalid"),
+    /Local auth password strategy must be an object/
+  );
+  assert.throws(
+    () => normalizePasswordStrategy([]),
+    /Local auth password strategy must be an object/
+  );
+  assert.throws(
+    () => normalizePasswordStrategy({ hashPassword: "invalid" }),
+    /Local auth password strategy hashPassword must be a function/
+  );
+  assert.throws(
+    () => normalizePasswordStrategy({ hashPassword: null }),
+    /Local auth password strategy hashPassword must be a function/
+  );
+  assert.throws(
+    () => normalizePasswordStrategy({ verifyPassword: "invalid" }),
+    /Local auth password strategy verifyPassword must be a function/
+  );
+});
+
 test("local auth login verifies password and creates session in one backend transaction", async () => {
   const password = await hashPassword("current password value");
   let transactions = 0;
@@ -188,6 +264,102 @@ test("local auth login verifies password and creates session in one backend tran
   assert.equal(Boolean(result.session?.access_token), true);
   assert.equal(sessionCreated, true);
   assert.equal(transactions, 1);
+});
+
+test("local auth service accepts a custom strategy for legacy stored password records", async () => {
+  const usersByEmail = new Map([
+    [
+      "legacy@example.com",
+      {
+        id: "usr_legacy",
+        email: "legacy@example.com",
+        displayName: "Legacy User",
+        password: {
+          algorithm: "legacy-bcrypt",
+          hash: "legacy password value"
+        },
+        disabled: false
+      }
+    ]
+  ]);
+  const sessions = [];
+  const backend = {
+    async withTransaction(callback) {
+      const tx = {
+        users: {
+          async findByEmail(email) {
+            return usersByEmail.get(email) || null;
+          },
+          async create(input) {
+            const user = {
+              ...input,
+              disabled: false
+            };
+            usersByEmail.set(user.email, user);
+            return user;
+          }
+        },
+        sessions: {
+          async create(input) {
+            const session = {
+              ...input,
+              createdAt: new Date().toISOString(),
+              revokedAt: ""
+            };
+            sessions.push(session);
+            return session;
+          }
+        }
+      };
+      return callback(tx);
+    }
+  };
+  const passwordStrategy = {
+    async hashPassword(password) {
+      return {
+        algorithm: "test-scrypt",
+        version: "v1",
+        salt: "test",
+        hash: `hashed-${password}`
+      };
+    },
+    async verifyPassword(password, record) {
+      if (record?.algorithm === "legacy-bcrypt") {
+        return record.hash === password;
+      }
+      return record?.algorithm === "test-scrypt" && record.hash === `hashed-${password}`;
+    }
+  };
+  const authService = createLocalAuthService({
+    backend,
+    passwordStrategy,
+    config: {
+      nodeEnv: "test",
+      sessionSecret: "test-secret",
+      appPublicUrl: "http://localhost:5173",
+      smtpConfigured: false,
+      recoveryDevOutput: "disabled"
+    }
+  });
+
+  const legacyLogin = await authService.login({
+    email: "legacy@example.com",
+    password: "legacy password value"
+  });
+  assert.equal(legacyLogin.actor.email, "legacy@example.com");
+
+  await authService.register({
+    email: "new-strategy@example.com",
+    password: "new password value",
+    displayName: "New Strategy"
+  });
+  assert.deepEqual(usersByEmail.get("new-strategy@example.com").password, {
+    algorithm: "test-scrypt",
+    version: "v1",
+    salt: "test",
+    hash: "hashed-new password value"
+  });
+  assert.equal(sessions.length, 2);
 });
 
 test("local auth provider completes recovery through a recovery-scoped session", async () => {
@@ -347,6 +519,42 @@ test("local auth provider changes password through the account-security contract
     password: "new password value"
   });
   assert.equal(login.actor.email, "lin@example.com");
+});
+
+test("local auth provider defers profile projector resolution until projection is needed", async () => {
+  let projectorResolved = 0;
+  let projectionCalls = 0;
+  const { app } = await createStartedApp({
+    profileProjectorFactory: () => {
+      projectorResolved += 1;
+      return {
+        async syncIdentityProfile(profile) {
+          projectionCalls += 1;
+          return {
+            ...profile,
+            id: "app-profile-id",
+            profileSource: "users"
+          };
+        }
+      };
+    }
+  });
+
+  assert.equal(projectorResolved, 0);
+
+  const authService = app.make("authService");
+  assert.equal(authService.getCapabilities().features.appProfileProjection, true);
+  assert.equal(projectorResolved, 0);
+
+  const registered = await authService.register({
+    email: "projector@example.com",
+    password: "projector password value",
+    displayName: "Projector User"
+  });
+
+  assert.equal(projectorResolved, 1);
+  assert.equal(projectionCalls, 1);
+  assert.equal(registered.actor.appUserId, "app-profile-id");
 });
 
 test("local auth provider projects app profile when auth.profile.projector is installed", async () => {

@@ -27,12 +27,12 @@ const UI_LIST_URL = __JSKIT_UI_EDIT_PAGE_LIST_URL__;
 const UI_VIEW_URL = __JSKIT_UI_EDIT_PAGE_VIEW_URL__;
 const UI_CANCEL_URL = UI_VIEW_URL || UI_LIST_URL;
 const UI_RECORD_CHANGED_EVENT = __JSKIT_UI_RECORD_CHANGED_EVENT__;
-const UI_EDIT_FORM_FIELDS = [];
+const UI_EDIT_FORM_FIELDS = [
+__JSKIT_UI_EDIT_FORM_FIELD_ARRAY_ENTRIES__  // jskit:crud-ui-form-fields:edit
+];
 
 // @jskit-contract crud.ui.form-fields.__JSKIT_UI_RESOURCE_NAMESPACE__.edit.v1
 void UI_EDIT_FORM_FIELDS;
-// jskit:crud-ui-form-fields:edit
-__JSKIT_UI_EDIT_FORM_FIELD_PUSH_LINES__
 Object.freeze(UI_EDIT_FORM_FIELDS);
 
 const route = useRoute();

@@ -41,4 +41,41 @@ async function verifyPassword(password, record) {
   return expected.length === actual.length && timingSafeEqual(expected, actual);
 }
 
-export { hashPassword, verifyPassword };
+function normalizePasswordStrategy(strategy = null) {
+  if (!strategy) {
+    return Object.freeze({
+      hashPassword,
+      verifyPassword
+    });
+  }
+
+  if (typeof strategy !== "object" || Array.isArray(strategy)) {
+    throw new TypeError("Local auth password strategy must be an object.");
+  }
+
+  const normalized = strategy;
+  const strategyHashPassword = typeof normalized.hashPassword === "undefined"
+    ? hashPassword
+    : normalized.hashPassword;
+  const strategyVerifyPassword = typeof normalized.verifyPassword === "undefined"
+    ? verifyPassword
+    : normalized.verifyPassword;
+
+  if (typeof strategyHashPassword !== "function") {
+    throw new TypeError("Local auth password strategy hashPassword must be a function.");
+  }
+  if (typeof strategyVerifyPassword !== "function") {
+    throw new TypeError("Local auth password strategy verifyPassword must be a function.");
+  }
+
+  return Object.freeze({
+    async hashPassword(password) {
+      return strategyHashPassword.call(strategy, password);
+    },
+    async verifyPassword(password, record) {
+      return strategyVerifyPassword.call(strategy, password, record);
+    }
+  });
+}
+
+export { hashPassword, verifyPassword, normalizePasswordStrategy };

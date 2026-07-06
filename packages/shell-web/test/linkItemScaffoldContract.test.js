@@ -20,10 +20,10 @@ function findFileMutation(id) {
     : null;
 }
 
-function findTextMutation(id) {
-  const textMutations = descriptor?.mutations?.text;
-  return Array.isArray(textMutations)
-    ? textMutations.find((entry) => String(entry?.id || "").trim() === id) || null
+function findSourceMutation(id) {
+  const sourceMutations = descriptor?.mutations?.source;
+  return Array.isArray(sourceMutations)
+    ? sourceMutations.find((entry) => String(entry?.id || "").trim() === id) || null
     : null;
 }
 
@@ -166,62 +166,59 @@ test("shell-web generic link items support the expected shared route and icon be
 });
 
 test("shell-web binds the local link-item wrapper tokens into MainClientProvider", () => {
-  assert.deepEqual(findTextMutation("shell-web-main-client-provider-menu-link-item-import"), {
-    op: "append-text",
+  assert.deepEqual(findSourceMutation("shell-web-main-client-provider-menu-link-item-import"), {
+    op: "ensure-import",
     file: "packages/main/src/client/providers/MainClientProvider.js",
-    position: "top",
-    skipIfContains: "import MenuLinkItem from \"/src/components/menus/MenuLinkItem.vue\";",
-    value: "import MenuLinkItem from \"/src/components/menus/MenuLinkItem.vue\";\n",
+    defaultImport: "MenuLinkItem",
+    from: "/src/components/menus/MenuLinkItem.vue",
     reason: "Bind app-owned shell menu link-item scaffold into local main client provider imports.",
     category: "shell-web",
     id: "shell-web-main-client-provider-menu-link-item-import"
   });
-  assert.deepEqual(findTextMutation("shell-web-main-client-provider-surface-aware-menu-link-item-import"), {
-    op: "append-text",
+  assert.deepEqual(findSourceMutation("shell-web-main-client-provider-surface-aware-menu-link-item-import"), {
+    op: "ensure-import",
     file: "packages/main/src/client/providers/MainClientProvider.js",
-    position: "top",
-    skipIfContains: "import SurfaceAwareMenuLinkItem from \"/src/components/menus/SurfaceAwareMenuLinkItem.vue\";",
-    value: "import SurfaceAwareMenuLinkItem from \"/src/components/menus/SurfaceAwareMenuLinkItem.vue\";\n",
+    defaultImport: "SurfaceAwareMenuLinkItem",
+    from: "/src/components/menus/SurfaceAwareMenuLinkItem.vue",
     reason: "Bind app-owned shell surface-aware menu link-item scaffold into local main client provider imports.",
     category: "shell-web",
     id: "shell-web-main-client-provider-surface-aware-menu-link-item-import"
   });
-  assert.deepEqual(findTextMutation("shell-web-main-client-provider-tab-link-item-import"), {
-    op: "append-text",
+  assert.deepEqual(findSourceMutation("shell-web-main-client-provider-tab-link-item-import"), {
+    op: "ensure-import",
     file: "packages/main/src/client/providers/MainClientProvider.js",
-    position: "top",
-    skipIfContains: "import TabLinkItem from \"/src/components/menus/TabLinkItem.vue\";",
-    value: "import TabLinkItem from \"/src/components/menus/TabLinkItem.vue\";\n",
+    defaultImport: "TabLinkItem",
+    from: "/src/components/menus/TabLinkItem.vue",
     reason: "Bind app-owned shell tab link-item scaffold into local main client provider imports.",
     category: "shell-web",
     id: "shell-web-main-client-provider-tab-link-item-import"
   });
-  assert.deepEqual(findTextMutation("shell-web-main-client-provider-menu-link-item-register"), {
-    op: "append-text",
+  assert.deepEqual(findSourceMutation("shell-web-main-client-provider-menu-link-item-register"), {
+    op: "ensure-call",
     file: "packages/main/src/client/providers/MainClientProvider.js",
-    position: "bottom",
-    skipIfContains: "registerMainClientComponent(\"local.main.ui.menu-link-item\", () => MenuLinkItem);",
-    value: "\nregisterMainClientComponent(\"local.main.ui.menu-link-item\", () => MenuLinkItem);\n",
+    callee: "registerMainClientComponent",
+    args: ["\"local.main.ui.menu-link-item\"", "() => MenuLinkItem"],
+    beforeClass: "MainClientProvider",
     reason: "Bind app-owned shell menu link-item token into local main client provider registry.",
     category: "shell-web",
     id: "shell-web-main-client-provider-menu-link-item-register"
   });
-  assert.deepEqual(findTextMutation("shell-web-main-client-provider-surface-aware-menu-link-item-register"), {
-    op: "append-text",
+  assert.deepEqual(findSourceMutation("shell-web-main-client-provider-surface-aware-menu-link-item-register"), {
+    op: "ensure-call",
     file: "packages/main/src/client/providers/MainClientProvider.js",
-    position: "bottom",
-    skipIfContains: "registerMainClientComponent(\"local.main.ui.surface-aware-menu-link-item\", () => SurfaceAwareMenuLinkItem);",
-    value: "\nregisterMainClientComponent(\"local.main.ui.surface-aware-menu-link-item\", () => SurfaceAwareMenuLinkItem);\n",
+    callee: "registerMainClientComponent",
+    args: ["\"local.main.ui.surface-aware-menu-link-item\"", "() => SurfaceAwareMenuLinkItem"],
+    beforeClass: "MainClientProvider",
     reason: "Bind app-owned shell surface-aware menu link-item token into local main client provider registry.",
     category: "shell-web",
     id: "shell-web-main-client-provider-surface-aware-menu-link-item-register"
   });
-  assert.deepEqual(findTextMutation("shell-web-main-client-provider-tab-link-item-register"), {
-    op: "append-text",
+  assert.deepEqual(findSourceMutation("shell-web-main-client-provider-tab-link-item-register"), {
+    op: "ensure-call",
     file: "packages/main/src/client/providers/MainClientProvider.js",
-    position: "bottom",
-    skipIfContains: "registerMainClientComponent(\"local.main.ui.tab-link-item\", () => TabLinkItem);",
-    value: "\nregisterMainClientComponent(\"local.main.ui.tab-link-item\", () => TabLinkItem);\n",
+    callee: "registerMainClientComponent",
+    args: ["\"local.main.ui.tab-link-item\"", "() => TabLinkItem"],
+    beforeClass: "MainClientProvider",
     reason: "Bind app-owned shell tab link-item token into local main client provider registry.",
     category: "shell-web",
     id: "shell-web-main-client-provider-tab-link-item-register"

@@ -8,7 +8,7 @@ import { buildSecurityStatusFromAuthMethodsStatus } from "@jskit-ai/auth-core/sh
 import { normalizeAuthActor, normalizeAuthResult } from "@jskit-ai/auth-core/server/authActor";
 import { normalizeEmail } from "@jskit-ai/auth-core/server/utils";
 import { throwUnsupportedAuthOperation } from "@jskit-ai/auth-core/server/unsupportedOperation";
-import { hashPassword, verifyPassword } from "./passwords.js";
+import { normalizePasswordStrategy } from "./passwords.js";
 import { randomToken, sha256Base64url, signToken, verifySignedToken } from "./tokens.js";
 
 const ACCESS_TOKEN_COOKIE = "jskit_local_access_token";
@@ -191,7 +191,7 @@ async function maybeSendRecoveryEmail(config, recoveryUrl, email) {
   });
 }
 
-function createLocalAuthService({ backend, config, profileProjector = null }) {
+function createLocalAuthService({ backend, config, profileProjector = null, passwordStrategy = null }) {
   if (!backend || typeof backend.withTransaction !== "function") {
     throw new Error("Local auth requires auth.local.backend with withTransaction().");
   }
@@ -199,6 +199,7 @@ function createLocalAuthService({ backend, config, profileProjector = null }) {
     throw new Error("Local auth requires a session secret.");
   }
 
+  const passwords = normalizePasswordStrategy(passwordStrategy);
   const isProduction = config.nodeEnv === "production";
   const profileProjectionEnabled = typeof profileProjector?.syncIdentityProfile === "function";
   const recoveryDelivery = config.smtpConfigured
@@ -284,7 +285,7 @@ function createLocalAuthService({ backend, config, profileProjector = null }) {
     const email = validateEmailInput(input.email);
     validatePasswordInput(input.password);
     const displayName = normalizeDisplayName(input.displayName, email);
-    const password = await hashPassword(input.password);
+    const password = await passwords.hashPassword(input.password);
     const result = await backend.withTransaction(async (tx) => {
       const existing = await tx.users.findByEmail(email);
       if (existing) {
@@ -312,7 +313,7 @@ function createLocalAuthService({ backend, config, profileProjector = null }) {
     const password = String(input.password || "");
     return backend.withTransaction(async (tx) => {
       const user = await tx.users.findByEmail(email);
-      if (!user || user.disabled || !(await verifyPassword(password, user.password))) {
+      if (!user || user.disabled || !(await passwords.verifyPassword(password, user.password))) {
         throw new AppError(401, "Invalid email or password.");
       }
       const session = await createSessionForUser(tx, user);
@@ -517,7 +518,7 @@ function createLocalAuthService({ backend, config, profileProjector = null }) {
     if (!payload?.sub || !payload?.sid) {
       throw new AppError(401, "Authentication required.");
     }
-    const password = await hashPassword(input.password);
+    const password = await passwords.hashPassword(input.password);
     await backend.withTransaction(async (tx) => {
       const session = await tx.sessions.findById(String(payload.sid));
       if (!session || session.revokedAt || isExpiredIso(session.expiresAt)) {
@@ -546,13 +547,13 @@ function createLocalAuthService({ backend, config, profileProjector = null }) {
     }
 
     const currentPassword = String(input.currentPassword || "");
-    const password = await hashPassword(input.newPassword);
+    const password = await passwords.hashPassword(input.newPassword);
     await backend.withTransaction(async (tx) => {
       const user = await tx.users.findById(authResult.actor.providerUserId);
       if (!user || user.disabled) {
         throw new AppError(401, "Authentication required.");
       }
-      if (!(await verifyPassword(currentPassword, user.password))) {
+      if (!(await passwords.verifyPassword(currentPassword, user.password))) {
         throw new AppError(401, "Current password is invalid.");
       }
       await tx.users.updatePassword(user.id, password);

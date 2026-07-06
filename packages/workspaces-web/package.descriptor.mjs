@@ -1,7 +1,7 @@
 export default Object.freeze({
   packageVersion: 1,
   packageId: "@jskit-ai/workspaces-web",
-  version: "0.1.79",
+  version: "0.1.80",
   kind: "runtime",
   description: "Workspace web module: workspace selector, tools widget, workspace surfaces, members UI, and settings hosts.",
   dependsOn: [
@@ -227,8 +227,8 @@ export default Object.freeze({
   mutations: {
     dependencies: {
       runtime: {
-        "@jskit-ai/workspaces-core": "0.1.78",
-        "@jskit-ai/users-web": "0.1.117"
+        "@jskit-ai/workspaces-core": "0.1.79",
+        "@jskit-ai/users-web": "0.1.118"
       },
       dev: {}
     },
@@ -421,47 +421,43 @@ export default Object.freeze({
           config: "tenancyMode",
           in: ["personal", "workspaces"]
         }
-      },
+      }
+    ],
+    source: [
       {
-        op: "append-text",
+        op: "ensure-import",
         file: "packages/main/src/client/providers/MainClientProvider.js",
-        position: "top",
-        skipIfContains: "import AccountPendingInvitesCue from \"../components/AccountPendingInvitesCue.vue\";",
-        value: "import AccountPendingInvitesCue from \"../components/AccountPendingInvitesCue.vue\";\n",
+        defaultImport: "AccountPendingInvitesCue",
+        from: "../components/AccountPendingInvitesCue.vue",
         reason: "Bind app-owned account pending invites cue component into local main client provider imports.",
         category: "workspaces-web",
         id: "users-web-main-client-provider-account-invites-import"
       },
       {
-        op: "append-text",
+        op: "ensure-import",
         file: "packages/main/src/client/providers/MainClientProvider.js",
-        position: "top",
-        skipIfContains: "import AccountSettingsInvitesSection from \"../components/AccountSettingsInvitesSection.vue\";",
-        value:
-          "import AccountSettingsInvitesSection from \"../components/AccountSettingsInvitesSection.vue\";\n",
+        defaultImport: "AccountSettingsInvitesSection",
+        from: "../components/AccountSettingsInvitesSection.vue",
         reason: "Bind app-owned account invites section component into local main client provider imports.",
         category: "workspaces-web",
         id: "users-web-main-client-provider-account-settings-section-import"
       },
       {
-        op: "append-text",
+        op: "ensure-call",
         file: "packages/main/src/client/providers/MainClientProvider.js",
-        position: "bottom",
-        skipIfContains: "registerMainClientComponent(\"local.main.account.pending-invites.cue\", () => AccountPendingInvitesCue);",
-        value:
-          "\nregisterMainClientComponent(\"local.main.account.pending-invites.cue\", () => AccountPendingInvitesCue);\n",
+        callee: "registerMainClientComponent",
+        args: ["\"local.main.account.pending-invites.cue\"", "() => AccountPendingInvitesCue"],
+        beforeClass: "MainClientProvider",
         reason: "Bind app-owned account pending invites cue component token into local main client provider registry.",
         category: "workspaces-web",
         id: "users-web-main-client-provider-account-invites-register"
       },
       {
-        op: "append-text",
+        op: "ensure-call",
         file: "packages/main/src/client/providers/MainClientProvider.js",
-        position: "bottom",
-        skipIfContains:
-          "registerMainClientComponent(\"local.main.account-settings.section.invites\", () => AccountSettingsInvitesSection);",
-        value:
-          "\nregisterMainClientComponent(\"local.main.account-settings.section.invites\", () => AccountSettingsInvitesSection);\n",
+        callee: "registerMainClientComponent",
+        args: ["\"local.main.account-settings.section.invites\"", "() => AccountSettingsInvitesSection"],
+        beforeClass: "MainClientProvider",
         reason: "Bind app-owned account invites section component token into local main client provider registry.",
         category: "workspaces-web",
         id: "users-web-main-client-provider-account-settings-section-register"

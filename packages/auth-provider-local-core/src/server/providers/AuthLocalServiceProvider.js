@@ -173,12 +173,24 @@ class AuthLocalServiceProvider {
       const config = resolveConfig(scope);
       const backend = scope.make("auth.local.backend");
       const profileProjector = scope.has("auth.profile.projector")
-        ? scope.make("auth.profile.projector")
+        ? {
+            async syncIdentityProfile(profile) {
+              const projector = scope.make("auth.profile.projector");
+              if (!projector || typeof projector.syncIdentityProfile !== "function") {
+                throw new Error("auth.profile.projector.syncIdentityProfile() must be a function.");
+              }
+              return projector.syncIdentityProfile(profile);
+            }
+          }
+        : null;
+      const passwordStrategy = scope.has("auth.local.passwordStrategy")
+        ? scope.make("auth.local.passwordStrategy")
         : null;
       return createLocalAuthService({
         backend,
         config,
-        profileProjector
+        profileProjector,
+        passwordStrategy
       });
     });
   }

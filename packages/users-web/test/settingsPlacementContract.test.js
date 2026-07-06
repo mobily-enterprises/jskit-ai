@@ -44,6 +44,13 @@ function findTextMutation(id) {
     : null;
 }
 
+function findSourceMutation(id) {
+  const sourceMutations = descriptor?.mutations?.source;
+  return Array.isArray(sourceMutations)
+    ? sourceMutations.find((entry) => String(entry?.id || "").trim() === id) || null
+    : null;
+}
+
 function findFileMutation(id) {
   const fileMutations = descriptor?.mutations?.files;
   return Array.isArray(fileMutations)
@@ -373,73 +380,59 @@ test("users-web descriptor metadata advertises home cog outlet and standard home
     category: "users-web",
     id: "users-web-component-account-settings-notifications"
   });
-  assert.deepEqual(findTextMutation("users-web-main-client-provider-account-settings-profile-import"), {
-    op: "append-text",
+  assert.deepEqual(findSourceMutation("users-web-main-client-provider-account-settings-profile-import"), {
+    op: "ensure-import",
     file: "packages/main/src/client/providers/MainClientProvider.js",
-    position: "top",
-    skipIfContains:
-      "import AccountSettingsProfileSection from \"/src/components/account/settings/AccountSettingsProfileSection.vue\";",
-    value: "import AccountSettingsProfileSection from \"/src/components/account/settings/AccountSettingsProfileSection.vue\";\n",
+    defaultImport: "AccountSettingsProfileSection",
+    from: "/src/components/account/settings/AccountSettingsProfileSection.vue",
     reason: "Bind the app-owned account profile settings section into local main client provider imports.",
     category: "users-web",
     id: "users-web-main-client-provider-account-settings-profile-import"
   });
-  assert.deepEqual(findTextMutation("users-web-main-client-provider-account-settings-preferences-import"), {
-    op: "append-text",
+  assert.deepEqual(findSourceMutation("users-web-main-client-provider-account-settings-preferences-import"), {
+    op: "ensure-import",
     file: "packages/main/src/client/providers/MainClientProvider.js",
-    position: "top",
-    skipIfContains:
-      "import AccountSettingsPreferencesSection from \"/src/components/account/settings/AccountSettingsPreferencesSection.vue\";",
-    value:
-      "import AccountSettingsPreferencesSection from \"/src/components/account/settings/AccountSettingsPreferencesSection.vue\";\n",
+    defaultImport: "AccountSettingsPreferencesSection",
+    from: "/src/components/account/settings/AccountSettingsPreferencesSection.vue",
     reason: "Bind the app-owned account preferences settings section into local main client provider imports.",
     category: "users-web",
     id: "users-web-main-client-provider-account-settings-preferences-import"
   });
-  assert.deepEqual(findTextMutation("users-web-main-client-provider-account-settings-notifications-import"), {
-    op: "append-text",
+  assert.deepEqual(findSourceMutation("users-web-main-client-provider-account-settings-notifications-import"), {
+    op: "ensure-import",
     file: "packages/main/src/client/providers/MainClientProvider.js",
-    position: "top",
-    skipIfContains:
-      "import AccountSettingsNotificationsSection from \"/src/components/account/settings/AccountSettingsNotificationsSection.vue\";",
-    value:
-      "import AccountSettingsNotificationsSection from \"/src/components/account/settings/AccountSettingsNotificationsSection.vue\";\n",
+    defaultImport: "AccountSettingsNotificationsSection",
+    from: "/src/components/account/settings/AccountSettingsNotificationsSection.vue",
     reason: "Bind the app-owned account notifications settings section into local main client provider imports.",
     category: "users-web",
     id: "users-web-main-client-provider-account-settings-notifications-import"
   });
-  assert.deepEqual(findTextMutation("users-web-main-client-provider-account-settings-profile-register"), {
-    op: "append-text",
+  assert.deepEqual(findSourceMutation("users-web-main-client-provider-account-settings-profile-register"), {
+    op: "ensure-call",
     file: "packages/main/src/client/providers/MainClientProvider.js",
-    position: "bottom",
-    skipIfContains:
-      "registerMainClientComponent(\"local.main.account-settings.section.profile\", () => AccountSettingsProfileSection);",
-    value:
-      "\nregisterMainClientComponent(\"local.main.account-settings.section.profile\", () => AccountSettingsProfileSection);\n",
+    callee: "registerMainClientComponent",
+    args: ["\"local.main.account-settings.section.profile\"", "() => AccountSettingsProfileSection"],
+    beforeClass: "MainClientProvider",
     reason: "Bind the app-owned account profile settings section token into local main client provider registry.",
     category: "users-web",
     id: "users-web-main-client-provider-account-settings-profile-register"
   });
-  assert.deepEqual(findTextMutation("users-web-main-client-provider-account-settings-preferences-register"), {
-    op: "append-text",
+  assert.deepEqual(findSourceMutation("users-web-main-client-provider-account-settings-preferences-register"), {
+    op: "ensure-call",
     file: "packages/main/src/client/providers/MainClientProvider.js",
-    position: "bottom",
-    skipIfContains:
-      "registerMainClientComponent(\"local.main.account-settings.section.preferences\", () => AccountSettingsPreferencesSection);",
-    value:
-      "\nregisterMainClientComponent(\"local.main.account-settings.section.preferences\", () => AccountSettingsPreferencesSection);\n",
+    callee: "registerMainClientComponent",
+    args: ["\"local.main.account-settings.section.preferences\"", "() => AccountSettingsPreferencesSection"],
+    beforeClass: "MainClientProvider",
     reason: "Bind the app-owned account preferences settings section token into local main client provider registry.",
     category: "users-web",
     id: "users-web-main-client-provider-account-settings-preferences-register"
   });
-  assert.deepEqual(findTextMutation("users-web-main-client-provider-account-settings-notifications-register"), {
-    op: "append-text",
+  assert.deepEqual(findSourceMutation("users-web-main-client-provider-account-settings-notifications-register"), {
+    op: "ensure-call",
     file: "packages/main/src/client/providers/MainClientProvider.js",
-    position: "bottom",
-    skipIfContains:
-      "registerMainClientComponent(\"local.main.account-settings.section.notifications\", () => AccountSettingsNotificationsSection);",
-    value:
-      "\nregisterMainClientComponent(\"local.main.account-settings.section.notifications\", () => AccountSettingsNotificationsSection);\n",
+    callee: "registerMainClientComponent",
+    args: ["\"local.main.account-settings.section.notifications\"", "() => AccountSettingsNotificationsSection"],
+    beforeClass: "MainClientProvider",
     reason: "Bind the app-owned account notifications settings section token into local main client provider registry.",
     category: "users-web",
     id: "users-web-main-client-provider-account-settings-notifications-register"

@@ -44,6 +44,13 @@ function findTextMutation(id) {
     : null;
 }
 
+function findSourceMutation(id) {
+  const sourceMutations = descriptor?.mutations?.source;
+  return Array.isArray(sourceMutations)
+    ? sourceMutations.find((entry) => String(entry?.id || "").trim() === id) || null
+    : null;
+}
+
 function findFileMutation(id) {
   const fileMutations = descriptor?.mutations?.files;
   return Array.isArray(fileMutations)
@@ -394,12 +401,23 @@ test("workspaces-web descriptor metadata advertises admin settings outlets", () 
       in: ["personal", "workspaces"]
     }
   });
-  assert.match(
-    findTextMutation("users-web-main-client-provider-account-settings-section-import")?.value || "",
-    /import AccountSettingsInvitesSection from "\.\.\/components\/AccountSettingsInvitesSection\.vue";/
-  );
-  assert.match(
-    findTextMutation("users-web-main-client-provider-account-settings-section-register")?.value || "",
-    /registerMainClientComponent\("local\.main\.account-settings\.section\.invites", \(\) => AccountSettingsInvitesSection\);/
-  );
+  assert.deepEqual(findSourceMutation("users-web-main-client-provider-account-settings-section-import"), {
+    op: "ensure-import",
+    file: "packages/main/src/client/providers/MainClientProvider.js",
+    defaultImport: "AccountSettingsInvitesSection",
+    from: "../components/AccountSettingsInvitesSection.vue",
+    reason: "Bind app-owned account invites section component into local main client provider imports.",
+    category: "workspaces-web",
+    id: "users-web-main-client-provider-account-settings-section-import"
+  });
+  assert.deepEqual(findSourceMutation("users-web-main-client-provider-account-settings-section-register"), {
+    op: "ensure-call",
+    file: "packages/main/src/client/providers/MainClientProvider.js",
+    callee: "registerMainClientComponent",
+    args: ["\"local.main.account-settings.section.invites\"", "() => AccountSettingsInvitesSection"],
+    beforeClass: "MainClientProvider",
+    reason: "Bind app-owned account invites section component token into local main client provider registry.",
+    category: "workspaces-web",
+    id: "users-web-main-client-provider-account-settings-section-register"
+  });
 });

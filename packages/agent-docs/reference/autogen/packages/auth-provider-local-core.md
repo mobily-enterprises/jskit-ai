@@ -47,18 +47,22 @@ Local functions
 Exports
 - `createLocalAuthService`
 - `createLocalFileBackend`
+- `hashPassword`
+- `normalizePasswordStrategy`
+- `verifyPassword`
 
 ### `src/server/lib/passwords.js`
 Exports
 - `hashPassword(password)`
 - `verifyPassword(password, record)`
+- `normalizePasswordStrategy(strategy = null)`
 Local functions
 - `base64url(buffer)`
 - `fromBase64url(value)`
 
 ### `src/server/lib/service.js`
 Exports
-- `createLocalAuthService({ backend, config, profileProjector = null })`
+- `createLocalAuthService({ backend, config, profileProjector = null, passwordStrategy = null })`
 Local functions
 - `nowSeconds()`
 - `isoFromNow(seconds)`
