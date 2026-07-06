@@ -136,13 +136,13 @@ const COMMAND_DESCRIPTORS = Object.freeze({
     parameters: Object.freeze([
       Object.freeze({
         name: "<subcommand>",
-        description: "verify | update-packages | link-local-packages | release | adopt-managed-scripts."
+        description: "verify | update-packages | link-local-packages | release | adopt-managed-scripts | migrate-source-mutations."
       })
     ]),
     defaults: Object.freeze([
       "The scaffold keeps npm run shortcuts such as verify and jskit:update, but their maintained behavior lives under jskit app.",
       "Use jskit app <subcommand> help for subcommand-specific usage.",
-      "--dry-run is accepted by update-packages, adopt-managed-scripts, and release."
+      "--dry-run is accepted by update-packages, adopt-managed-scripts, migrate-source-mutations, and release."
     ]),
     examples: Object.freeze([
       Object.freeze({
@@ -156,7 +156,9 @@ const COMMAND_DESCRIPTORS = Object.freeze({
         label: "Existing app migration",
         lines: Object.freeze([
           "jskit app adopt-managed-scripts --dry-run",
-          "jskit app adopt-managed-scripts --force"
+          "jskit app adopt-managed-scripts --force",
+          "jskit app migrate-source-mutations --dry-run",
+          "jskit app migrate-source-mutations"
         ])
       })
     ]),

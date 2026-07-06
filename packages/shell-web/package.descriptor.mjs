@@ -1,7 +1,7 @@
 export default Object.freeze({
   packageVersion: 1,
   packageId: "@jskit-ai/shell-web",
-  version: "0.1.102",
+  version: "0.1.103",
   kind: "runtime",
   description: "Web shell layout runtime with outlet-based placement contributions.",
   dependsOn: [],
@@ -307,7 +307,7 @@ export default Object.freeze({
     dependencies: {
       runtime: {
         "@mdi/js": "^7.4.47",
-        "@jskit-ai/kernel": "0.1.103"
+        "@jskit-ai/kernel": "0.1.104"
       },
       dev: {}
     },
@@ -318,63 +318,61 @@ export default Object.freeze({
       }
     },
     procfile: {},
-    text: [
+    text: [],
+    source: [
       {
-        op: "append-text",
+        op: "ensure-import",
         file: "packages/main/src/client/providers/MainClientProvider.js",
-        position: "top",
-        skipIfContains: "import MenuLinkItem from \"/src/components/menus/MenuLinkItem.vue\";",
-        value: "import MenuLinkItem from \"/src/components/menus/MenuLinkItem.vue\";\n",
+        defaultImport: "MenuLinkItem",
+        from: "/src/components/menus/MenuLinkItem.vue",
         reason: "Bind app-owned shell menu link-item scaffold into local main client provider imports.",
         category: "shell-web",
         id: "shell-web-main-client-provider-menu-link-item-import"
       },
       {
-        op: "append-text",
+        op: "ensure-import",
         file: "packages/main/src/client/providers/MainClientProvider.js",
-        position: "top",
-        skipIfContains: "import SurfaceAwareMenuLinkItem from \"/src/components/menus/SurfaceAwareMenuLinkItem.vue\";",
-        value: "import SurfaceAwareMenuLinkItem from \"/src/components/menus/SurfaceAwareMenuLinkItem.vue\";\n",
+        defaultImport: "SurfaceAwareMenuLinkItem",
+        from: "/src/components/menus/SurfaceAwareMenuLinkItem.vue",
         reason: "Bind app-owned shell surface-aware menu link-item scaffold into local main client provider imports.",
         category: "shell-web",
         id: "shell-web-main-client-provider-surface-aware-menu-link-item-import"
       },
       {
-        op: "append-text",
+        op: "ensure-import",
         file: "packages/main/src/client/providers/MainClientProvider.js",
-        position: "top",
-        skipIfContains: "import TabLinkItem from \"/src/components/menus/TabLinkItem.vue\";",
-        value: "import TabLinkItem from \"/src/components/menus/TabLinkItem.vue\";\n",
+        defaultImport: "TabLinkItem",
+        from: "/src/components/menus/TabLinkItem.vue",
         reason: "Bind app-owned shell tab link-item scaffold into local main client provider imports.",
         category: "shell-web",
         id: "shell-web-main-client-provider-tab-link-item-import"
       },
       {
-        op: "append-text",
+        op: "ensure-call",
         file: "packages/main/src/client/providers/MainClientProvider.js",
-        position: "bottom",
-        skipIfContains: "registerMainClientComponent(\"local.main.ui.menu-link-item\", () => MenuLinkItem);",
-        value: "\nregisterMainClientComponent(\"local.main.ui.menu-link-item\", () => MenuLinkItem);\n",
+        callee: "registerMainClientComponent",
+        args: ["\"local.main.ui.menu-link-item\"", "() => MenuLinkItem"],
+        beforeClass: "MainClientProvider",
         reason: "Bind app-owned shell menu link-item token into local main client provider registry.",
         category: "shell-web",
         id: "shell-web-main-client-provider-menu-link-item-register"
       },
       {
-        op: "append-text",
+        op: "ensure-call",
         file: "packages/main/src/client/providers/MainClientProvider.js",
-        position: "bottom",
-        skipIfContains: "registerMainClientComponent(\"local.main.ui.surface-aware-menu-link-item\", () => SurfaceAwareMenuLinkItem);",
-        value: "\nregisterMainClientComponent(\"local.main.ui.surface-aware-menu-link-item\", () => SurfaceAwareMenuLinkItem);\n",
+        callee: "registerMainClientComponent",
+        args: ["\"local.main.ui.surface-aware-menu-link-item\"", "() => SurfaceAwareMenuLinkItem"],
+        beforeClass: "MainClientProvider",
         reason: "Bind app-owned shell surface-aware menu link-item token into local main client provider registry.",
         category: "shell-web",
         id: "shell-web-main-client-provider-surface-aware-menu-link-item-register"
       },
       {
-        op: "append-text",
+        op: "ensure-call",
         file: "packages/main/src/client/providers/MainClientProvider.js",
-        position: "bottom",
-        skipIfContains: "registerMainClientComponent(\"local.main.ui.tab-link-item\", () => TabLinkItem);",
-        value: "\nregisterMainClientComponent(\"local.main.ui.tab-link-item\", () => TabLinkItem);\n",
+        callee: "registerMainClientComponent",
+        args: ["\"local.main.ui.tab-link-item\"", "() => TabLinkItem"],
+        beforeClass: "MainClientProvider",
         reason: "Bind app-owned shell tab link-item token into local main client provider registry.",
         category: "shell-web",
         id: "shell-web-main-client-provider-tab-link-item-register"

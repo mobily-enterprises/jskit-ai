@@ -16,7 +16,7 @@ import {
   buildListRowColumns,
   buildViewColumns,
   buildFormColumns,
-  renderObjectPushLines
+  renderObjectArrayEntryLines
 } from "../resourceSupport.js";
 
 const SUPPORTED_OPERATIONS = new Set(["list", "view", "new", "edit"]);
@@ -217,6 +217,126 @@ function insertBeforeAnchor(source, { anchor = "", snippet = "" } = {}) {
   };
 }
 
+function findMatchingDelimiter(sourceText = "", openIndex = -1, openChar = "[", closeChar = "]") {
+  const source = String(sourceText || "");
+  if (openIndex < 0 || source[openIndex] !== openChar) {
+    return -1;
+  }
+
+  let depth = 0;
+  let quote = "";
+  let inLineComment = false;
+  let inBlockComment = false;
+  for (let index = openIndex; index < source.length; index += 1) {
+    const char = source[index];
+    const nextChar = source[index + 1] || "";
+    const previousChar = source[index - 1] || "";
+
+    if (inLineComment) {
+      if (char === "\n") {
+        inLineComment = false;
+      }
+      continue;
+    }
+    if (inBlockComment) {
+      if (char === "*" && nextChar === "/") {
+        inBlockComment = false;
+        index += 1;
+      }
+      continue;
+    }
+    if (quote) {
+      if (char === "\\" && quote !== "`") {
+        index += 1;
+        continue;
+      }
+      if (char === quote && previousChar !== "\\") {
+        quote = "";
+      }
+      continue;
+    }
+
+    if (char === "/" && nextChar === "/") {
+      inLineComment = true;
+      index += 1;
+      continue;
+    }
+    if (char === "/" && nextChar === "*") {
+      inBlockComment = true;
+      index += 1;
+      continue;
+    }
+    if (char === "\"" || char === "'" || char === "`") {
+      quote = char;
+      continue;
+    }
+    if (char === openChar) {
+      depth += 1;
+      continue;
+    }
+    if (char === closeChar) {
+      depth -= 1;
+      if (depth === 0) {
+        return index;
+      }
+    }
+  }
+
+  return -1;
+}
+
+function resolveAnchorLineIndex(sourceText = "", anchor = "") {
+  const escapedAnchor = String(anchor || "").replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const anchorLinePattern = new RegExp(`^[ \\t]*${escapedAnchor}[ \\t]*$`, "m");
+  const anchorLineMatch = anchorLinePattern.exec(String(sourceText || ""));
+  return Number(anchorLineMatch?.index ?? -1);
+}
+
+function findArrayDeclarationBeforeIndex(sourceText = "", arrayName = "", index = -1) {
+  const source = String(sourceText || "");
+  const resolvedIndex = Number.isInteger(index) ? index : -1;
+  if (resolvedIndex < 0) {
+    return null;
+  }
+
+  const declarationPattern = new RegExp(`\\b(?:const|let)\\s+${arrayName.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\s*=\\s*\\[`, "g");
+  let match = null;
+  let selected = null;
+  while ((match = declarationPattern.exec(source)) != null) {
+    if (match.index > resolvedIndex) {
+      break;
+    }
+    selected = match;
+  }
+  if (!selected) {
+    return null;
+  }
+
+  const openIndex = source.indexOf("[", selected.index);
+  const closeIndex = findMatchingDelimiter(source, openIndex, "[", "]");
+  if (closeIndex < 0) {
+    return null;
+  }
+
+  return {
+    openIndex,
+    closeIndex
+  };
+}
+
+function insertFormFieldDefinition(source, insertion = {}) {
+  const anchorIndex = resolveAnchorLineIndex(source, insertion.anchor);
+  const declaration = findArrayDeclarationBeforeIndex(source, insertion.arrayName, anchorIndex);
+  if (!declaration || anchorIndex <= declaration.openIndex || anchorIndex >= declaration.closeIndex) {
+    throw new Error(
+      `crud-ui-generator field found legacy form-field marker layout for ${insertion.arrayName}. ` +
+      "Run `jskit app migrate-source-mutations` before adding more generated form fields."
+    );
+  }
+
+  return insertBeforeAnchor(source, insertion);
+}
+
 function resolveAnchorScopeStart(source = "", { anchorIndex = -1, anchor = "" } = {}) {
   const sourceText = String(source || "");
   const resolvedAnchorIndex = Number.isInteger(anchorIndex) ? anchorIndex : -1;
@@ -284,7 +404,8 @@ function buildAnchorInsertions(operationName, field) {
       {
         targetKind: "form-fields",
         anchor: "// jskit:crud-ui-form-fields:new",
-        snippet: renderObjectPushLines("UI_CREATE_FORM_FIELDS", [field])
+        arrayName: "UI_CREATE_FORM_FIELDS",
+        snippet: renderObjectArrayEntryLines([field])
       }
     ];
   }
@@ -298,7 +419,8 @@ function buildAnchorInsertions(operationName, field) {
     {
       targetKind: "form-fields",
       anchor: "// jskit:crud-ui-form-fields:edit",
-      snippet: renderObjectPushLines("UI_EDIT_FORM_FIELDS", [field])
+      arrayName: "UI_EDIT_FORM_FIELDS",
+      snippet: renderObjectArrayEntryLines([field])
     }
   ];
 }
@@ -426,7 +548,9 @@ async function runGeneratorSubcommand({
       fileStates.set(targetFile.absolutePath, state);
     }
 
-    const applied = insertBeforeAnchor(state.source, insertion);
+    const applied = insertion.targetKind === "form-fields"
+      ? insertFormFieldDefinition(state.source, insertion)
+      : insertBeforeAnchor(state.source, insertion);
     state.source = applied.content;
     state.changed = state.changed || applied.changed;
     changed = changed || applied.changed;

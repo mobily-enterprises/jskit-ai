@@ -110,6 +110,22 @@ npx jskit app adopt-managed-scripts
 
 That command rewrites known old scaffold values to the thin wrapper form above.
 
+For older apps that were installed before JSKIT source mutations replaced raw source appends, run the source migration after updating JSKIT packages:
+
+```bash
+npx jskit app update-packages
+npx jskit app migrate-source-mutations --dry-run
+npx jskit app migrate-source-mutations
+npm run verify
+```
+
+That migration is the one upgrade script for JSKIT-owned legacy source mutation shapes. It currently normalizes:
+
+- `packages/main/src/client/providers/MainClientProvider.js`: moves legacy appended `registerMainClientComponent(...)` calls before `class MainClientProvider`, which is the layout produced by current descriptor `mutations.source` installs.
+- `src/pages/**` CRUD form field modules: folds legacy `UI_CREATE_FORM_FIELDS.push(...)` and `UI_EDIT_FORM_FIELDS.push(...)` calls into the corresponding array literals.
+
+The command is idempotent, so rerunning it should report that the source files are already current.
+
 ## Discover first, change second
 
 One of the best habits in JSKIT is to inspect the catalog before mutating the app.
@@ -394,7 +410,7 @@ This is especially useful when you are asking questions like:
 
 #### "What app-owned files will it touch?"
 
-The `File writes`, `Text mutations`, and `Script mutations` sections answer one of the most practical questions in JSKIT:
+The `File writes`, `Text mutations`, `Source mutations`, and `Script mutations` sections answer one of the most practical questions in JSKIT:
 
 - *what will this package actually do to my app tree?*
 
@@ -408,7 +424,11 @@ For `@jskit-ai/workspaces-web`, the detailed view shows app-owned files such as:
 It also shows text mutations such as:
 
 - appending placement entries to `src/placement.js`
-- registering tokens in `packages/main/src/client/providers/MainClientProvider.js`
+
+And it shows source mutations such as:
+
+- adding imports to `packages/main/src/client/providers/MainClientProvider.js`
+- registering component tokens in `packages/main/src/client/providers/MainClientProvider.js`
 
 That matters because JSKIT packages are not only libraries. Many of them also write scaffold files into the app and extend app-owned provider files.
 
@@ -437,7 +457,7 @@ Not every package shows every section, and that is normal. A good reading order 
    - what role does it play in the runtime graph?
 5. `Placement contributions` / `Placement outlets`
    - what UI surfaces does it add?
-6. `File writes` and `Text mutations`
+6. `File writes`, `Text mutations`, and `Source mutations`
    - what app-owned files will change?
 7. `Runtime providers` and `Container tokens`
    - what does it register internally?

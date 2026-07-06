@@ -138,6 +138,7 @@ Exports
 Local functions
 - `normalizePackageKind(rawValue, descriptorPath)`
 - `validateFileMutationShape(descriptor, descriptorPath)`
+- `validateSourceMutationShape(descriptor, descriptorPath)`
 - `validateLifecycleHookSpec(spec = {}, descriptorPath, label = "lifecycle hook")`
 - `validateLifecycleShape(descriptor, descriptorPath)`
 
@@ -187,6 +188,9 @@ Exports
 - `applyTextMutations`
 - `partitionPreFileConfigTextMutations`
 - `resolvePositioningMutations`
+- `applySourceMutations`
+- `partitionPreFileConfigSourceMutations`
+- `resolvePositioningSourceMutations`
 
 ### `src/server/cliRuntime/mutations/fileMutations.js`
 Exports
@@ -200,6 +204,32 @@ Exports
 ### `src/server/cliRuntime/mutations/mutationPathUtils.js`
 Exports
 - `normalizeMutationRelativeFilePath(value = "")`
+
+### `src/server/cliRuntime/mutations/sourceMutations.js`
+Exports
+- `applySourceMutations(packageEntry, appRoot, sourceMutations, options, managedSource, touchedFiles, { dryRun = false } = {})`
+- `partitionPreFileConfigSourceMutations(sourceMutations = [])`
+- `resolvePositioningSourceMutations(descriptorMutations = {})`
+Local functions
+- `createSourceFile(relativeFile, sourceText)`
+- `normalizeSourceText(value = "")`
+- `insertText(sourceText, index, text)`
+- `appendBlock(sourceText, block)`
+- `renderImportMutation(mutation, options, packageId, mutationId)`
+- `sourceAlreadyHasImport(sourceFile, rendered)`
+- `ensureImport(sourceText, relativeFile, mutation, options, packageId, mutationId)`
+- `normalizeSourceArg(value = "")`
+- `callExpressionMatches(callExpression, callee, expectedArgs, uniqueArgIndex)`
+- `renderCallMutation(mutation, options, packageId, mutationId)`
+- `ensureCall(sourceText, relativeFile, mutation, options, packageId, mutationId)`
+- `sourceHasAssignmentToTarget(sourceFile, target)`
+- `renderAssignmentStatement(target, value)`
+- `ensureAssignment(sourceText, relativeFile, mutation, options, packageId, mutationId)`
+- `ensureExportConst(sourceText, relativeFile, mutation, options, packageId, mutationId)`
+- `applySourceMutationToContent(sourceText, relativeFile, mutation, options, packageId)`
+- `createManagedSourceRecord(relativeFile, mutation)`
+- `isPositioningSourceMutation(value = {})`
+- `isPreFileConfigSourceMutation(value = {})`
 
 ### `src/server/cliRuntime/mutations/surfaceTargets.js`
 Exports
@@ -400,6 +430,27 @@ Local functions
 - `verifySymlinkTarget(targetPath = "", sourceDir = "", { packageName = "" } = {})`
 - `replaceWithSymlink(targetPath = "", sourceDir = "", { packageName = "" } = {})`
 - `maybeLinkCompanionPackages({ appRoot = "", repoRoot = "", stdout, createCliError })`
+
+### `src/server/commandHandlers/appCommands/migrateSourceMutations.js`
+Exports
+- `buildCrudFormFieldPushMigration(sourceText = "")`
+- `buildMainClientProviderMigration(sourceText = "")`
+- `runAppMigrateSourceMutationsCommand(_ctx = {}, { appRoot = "", options = {}, stdout })`
+Local functions
+- `createSourceFile(sourceText = "")`
+- `readStringLiteralValue(node)`
+- `readRegisterMainClientComponentToken(statement)`
+- `escapeRegExp(value = "")`
+- `findMatchingDelimiter(sourceText = "", openIndex = -1, openChar = "(", closeChar = ")")`
+- `readLineIndent(sourceText = "", index = 0)`
+- `readFormFieldKey(sourceText = "")`
+- `readFormFieldKeys(sourceText = "")`
+- `formatArrayEntry(entrySource = "", indent = " ")`
+- `findFormFieldArrayDeclaration(sourceText = "", arrayName = "")`
+- `findFormFieldPushCalls(sourceText = "", arrayName = "")`
+- `buildArrayContentWithAddedEntries(existingContent = "", entries = [], indent = "")`
+- `applyTextReplacements(sourceText = "", replacements = [])`
+- `collectCrudFormFieldCandidateFiles(appRoot = "")`
 
 ### `src/server/commandHandlers/appCommands/preparePreviewUser.js`
 Exports

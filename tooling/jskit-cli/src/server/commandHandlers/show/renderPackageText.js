@@ -78,6 +78,7 @@ function renderPackagePayloadText({
   const devMutations = ensureObject(ensureObject(payload.mutations).dependencies).dev || {};
   const scriptMutations = ensureObject(ensureObject(payload.mutations).packageJson).scripts || {};
   const textMutations = ensureArray(ensureObject(payload.mutations).text);
+  const sourceMutations = ensureArray(ensureObject(payload.mutations).source);
   const runtimeMutationEntries = Object.entries(ensureObject(runtimeMutations));
   const devMutationEntries = Object.entries(ensureObject(devMutations));
   const scriptMutationEntries = Object.entries(ensureObject(scriptMutations));
@@ -367,6 +368,23 @@ function renderPackagePayloadText({
           mutationLabel = `${mutationLabel} [${position}]`;
         }
       }
+      stdout.write(`- ${color.item(mutationLabel)}${reasonSuffix}\n`);
+    }
+  }
+
+  if (sourceMutations.length > 0) {
+    stdout.write(`${color.heading(`Source mutations (${sourceMutations.length}):`)}\n`);
+    for (const mutation of sourceMutations) {
+      const record = ensureObject(mutation);
+      const op = String(record.op || "").trim();
+      const file = String(record.file || "").trim();
+      const reason = String(record.reason || "").trim();
+      const reasonSuffix = reason ? `: ${reason}` : "";
+      let target = String(record.target || record.callee || record.name || record.from || "").trim();
+      if (op === "ensure-import") {
+        target = String(record.from || "").trim();
+      }
+      const mutationLabel = `${op} ${file} ${target}`.trim();
       stdout.write(`- ${color.item(mutationLabel)}${reasonSuffix}\n`);
     }
   }

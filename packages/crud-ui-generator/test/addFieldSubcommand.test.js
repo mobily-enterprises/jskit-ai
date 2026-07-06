@@ -104,9 +104,10 @@ test("field patches edit screen using resource metadata and anchors", async () =
 </template>
 <script setup>
 import { resource as uiResource } from "/packages/contacts/src/shared/contactResource.js";
-const UI_EDIT_FORM_FIELDS = [];
-// jskit:crud-ui-form-fields:edit
-UI_EDIT_FORM_FIELDS.push({ key: "firstName", component: "text" });
+const UI_EDIT_FORM_FIELDS = [
+  { key: "firstName", component: "text" },
+  // jskit:crud-ui-form-fields:edit
+];
 </script>
 `
     );
@@ -132,7 +133,8 @@ UI_EDIT_FORM_FIELDS.push({ key: "firstName", component: "text" });
     assert.match(editSource, /:search="fieldLookupSearch\('vetId'\)"/);
     assert.match(editSource, /@update:search="setFieldLookupSearch\('vetId', \$event\)"/);
     assert.match(editSource, /:loading="fieldLookupLoading\('vetId'\)"/);
-    assert.match(editSource, /UI_EDIT_FORM_FIELDS\.push\(\{[\s\S]*"key": "vetId"/);
+    assert.doesNotMatch(editSource, /UI_EDIT_FORM_FIELDS\.push/);
+    assert.match(editSource, /const UI_EDIT_FORM_FIELDS = \[[\s\S]*key: "vetId"[\s\S]*\/\/ jskit:crud-ui-form-fields:edit/);
 
     const second = await runGeneratorSubcommand({
       appRoot,
@@ -178,9 +180,10 @@ import { resource as uiResource } from "/packages/contacts/src/shared/contactRes
     await writeAppFile(
       appRoot,
       addEditFieldsFile,
-      `const UI_EDIT_FORM_FIELDS = [];
-// jskit:crud-ui-form-fields:edit
-UI_EDIT_FORM_FIELDS.push({ key: "firstName", component: "text" });
+      `const UI_EDIT_FORM_FIELDS = [
+  { key: "firstName", component: "text" },
+  // jskit:crud-ui-form-fields:edit
+];
 `
     );
 
@@ -200,7 +203,8 @@ UI_EDIT_FORM_FIELDS.push({ key: "firstName", component: "text" });
     );
 
     const addEditFieldsSource = await readFile(path.join(appRoot, addEditFieldsFile), "utf8");
-    assert.match(addEditFieldsSource, /UI_EDIT_FORM_FIELDS\.push\(\{[\s\S]*"key": "vetId"/);
+    assert.doesNotMatch(addEditFieldsSource, /UI_EDIT_FORM_FIELDS\.push/);
+    assert.match(addEditFieldsSource, /const UI_EDIT_FORM_FIELDS = \[[\s\S]*key: "vetId"[\s\S]*\/\/ jskit:crud-ui-form-fields:edit/);
   });
 });
 
@@ -257,10 +261,12 @@ import { resource as uiResource } from "/packages/contacts/src/shared/contactRes
     await writeAppFile(
       appRoot,
       addEditFieldsFile,
-      `const UI_CREATE_FORM_FIELDS = [];
-// jskit:crud-ui-form-fields:new
-const UI_EDIT_FORM_FIELDS = [];
-// jskit:crud-ui-form-fields:edit
+      `const UI_CREATE_FORM_FIELDS = [
+  // jskit:crud-ui-form-fields:new
+];
+const UI_EDIT_FORM_FIELDS = [
+  // jskit:crud-ui-form-fields:edit
+];
 `
     );
 
@@ -281,8 +287,49 @@ const UI_EDIT_FORM_FIELDS = [];
     assert.equal((addEditFormSource.match(/fieldLookupItems\('vetId'/g) || []).length, 2);
 
     const addEditFieldsSource = await readFile(path.join(appRoot, addEditFieldsFile), "utf8");
-    assert.match(addEditFieldsSource, /UI_CREATE_FORM_FIELDS\.push\(\{[\s\S]*"key": "vetId"/);
-    assert.match(addEditFieldsSource, /UI_EDIT_FORM_FIELDS\.push\(\{[\s\S]*"key": "vetId"/);
+    assert.doesNotMatch(addEditFieldsSource, /UI_CREATE_FORM_FIELDS\.push/);
+    assert.doesNotMatch(addEditFieldsSource, /UI_EDIT_FORM_FIELDS\.push/);
+    assert.match(addEditFieldsSource, /const UI_CREATE_FORM_FIELDS = \[[\s\S]*key: "vetId"[\s\S]*\/\/ jskit:crud-ui-form-fields:new/);
+    assert.match(addEditFieldsSource, /const UI_EDIT_FORM_FIELDS = \[[\s\S]*key: "vetId"[\s\S]*\/\/ jskit:crud-ui-form-fields:edit/);
+  });
+});
+
+test("field rejects legacy form-field marker layouts instead of adding new push calls", async () => {
+  await withTempApp(async (appRoot) => {
+    const resourceFile = "packages/contacts/src/shared/contactResource.js";
+    const editFile = "src/pages/admin/crm/contacts/[recordId]/edit.vue";
+
+    await writeAppFile(appRoot, resourceFile, RESOURCE_SOURCE);
+    await writeAppFile(
+      appRoot,
+      editFile,
+      `<template>
+  <v-row>
+    <!-- jskit:crud-ui-fields:edit -->
+  </v-row>
+</template>
+<script setup>
+import { resource as uiResource } from "/packages/contacts/src/shared/contactResource.js";
+const UI_EDIT_FORM_FIELDS = [];
+// jskit:crud-ui-form-fields:edit
+UI_EDIT_FORM_FIELDS.push({ key: "firstName", component: "text" });
+</script>
+`
+    );
+
+    await assert.rejects(
+      () => runGeneratorSubcommand({
+        appRoot,
+        subcommand: "field",
+        args: ["vetId", "edit", editFile],
+        options: {}
+      }),
+      /Run `jskit app migrate-source-mutations` before adding more generated form fields/
+    );
+
+    const editSource = await readFile(path.join(appRoot, editFile), "utf8");
+    assert.match(editSource, /UI_EDIT_FORM_FIELDS\.push/);
+    assert.doesNotMatch(editSource, /key: "vetId"/);
   });
 });
 

@@ -3,7 +3,7 @@ import { HOME_COG_OUTLET } from "./src/shared/toolsOutletContracts.js";
 export default Object.freeze({
   packageVersion: 1,
   packageId: "@jskit-ai/users-web",
-  version: "0.1.117",
+  version: "0.1.118",
   kind: "runtime",
   description: "Users web module: account/profile UI plus shared users web widgets.",
   dependsOn: [
@@ -286,12 +286,12 @@ export default Object.freeze({
     dependencies: {
       runtime: {
         "@mdi/js": "^7.4.47",
-        "@jskit-ai/http-runtime": "0.1.101",
-        "@jskit-ai/realtime": "0.1.101",
-        "@jskit-ai/kernel": "0.1.103",
-        "@jskit-ai/shell-web": "0.1.102",
-        "@jskit-ai/uploads-image-web": "0.1.80",
-        "@jskit-ai/users-core": "0.1.112"
+        "@jskit-ai/http-runtime": "0.1.102",
+        "@jskit-ai/realtime": "0.1.102",
+        "@jskit-ai/kernel": "0.1.104",
+        "@jskit-ai/shell-web": "0.1.103",
+        "@jskit-ai/uploads-image-web": "0.1.81",
+        "@jskit-ai/users-core": "0.1.113"
       },
       dev: {}
     },
@@ -399,63 +399,62 @@ export default Object.freeze({
         reason: "Append users-web account settings semantic topology into app-owned placement topology.",
         category: "users-web",
         id: "users-web-account-settings-topology"
-      },
+      }
+    ],
+    source: [
       {
-        op: "append-text",
+        op: "ensure-import",
         file: "packages/main/src/client/providers/MainClientProvider.js",
-        position: "top",
-        skipIfContains: "import AccountSettingsProfileSection from \"/src/components/account/settings/AccountSettingsProfileSection.vue\";",
-        value: "import AccountSettingsProfileSection from \"/src/components/account/settings/AccountSettingsProfileSection.vue\";\n",
+        defaultImport: "AccountSettingsProfileSection",
+        from: "/src/components/account/settings/AccountSettingsProfileSection.vue",
         reason: "Bind the app-owned account profile settings section into local main client provider imports.",
         category: "users-web",
         id: "users-web-main-client-provider-account-settings-profile-import"
       },
       {
-        op: "append-text",
+        op: "ensure-import",
         file: "packages/main/src/client/providers/MainClientProvider.js",
-        position: "top",
-        skipIfContains: "import AccountSettingsPreferencesSection from \"/src/components/account/settings/AccountSettingsPreferencesSection.vue\";",
-        value: "import AccountSettingsPreferencesSection from \"/src/components/account/settings/AccountSettingsPreferencesSection.vue\";\n",
+        defaultImport: "AccountSettingsPreferencesSection",
+        from: "/src/components/account/settings/AccountSettingsPreferencesSection.vue",
         reason: "Bind the app-owned account preferences settings section into local main client provider imports.",
         category: "users-web",
         id: "users-web-main-client-provider-account-settings-preferences-import"
       },
       {
-        op: "append-text",
+        op: "ensure-import",
         file: "packages/main/src/client/providers/MainClientProvider.js",
-        position: "top",
-        skipIfContains: "import AccountSettingsNotificationsSection from \"/src/components/account/settings/AccountSettingsNotificationsSection.vue\";",
-        value: "import AccountSettingsNotificationsSection from \"/src/components/account/settings/AccountSettingsNotificationsSection.vue\";\n",
+        defaultImport: "AccountSettingsNotificationsSection",
+        from: "/src/components/account/settings/AccountSettingsNotificationsSection.vue",
         reason: "Bind the app-owned account notifications settings section into local main client provider imports.",
         category: "users-web",
         id: "users-web-main-client-provider-account-settings-notifications-import"
       },
       {
-        op: "append-text",
+        op: "ensure-call",
         file: "packages/main/src/client/providers/MainClientProvider.js",
-        position: "bottom",
-        skipIfContains: "registerMainClientComponent(\"local.main.account-settings.section.profile\", () => AccountSettingsProfileSection);",
-        value: "\nregisterMainClientComponent(\"local.main.account-settings.section.profile\", () => AccountSettingsProfileSection);\n",
+        callee: "registerMainClientComponent",
+        args: ["\"local.main.account-settings.section.profile\"", "() => AccountSettingsProfileSection"],
+        beforeClass: "MainClientProvider",
         reason: "Bind the app-owned account profile settings section token into local main client provider registry.",
         category: "users-web",
         id: "users-web-main-client-provider-account-settings-profile-register"
       },
       {
-        op: "append-text",
+        op: "ensure-call",
         file: "packages/main/src/client/providers/MainClientProvider.js",
-        position: "bottom",
-        skipIfContains: "registerMainClientComponent(\"local.main.account-settings.section.preferences\", () => AccountSettingsPreferencesSection);",
-        value: "\nregisterMainClientComponent(\"local.main.account-settings.section.preferences\", () => AccountSettingsPreferencesSection);\n",
+        callee: "registerMainClientComponent",
+        args: ["\"local.main.account-settings.section.preferences\"", "() => AccountSettingsPreferencesSection"],
+        beforeClass: "MainClientProvider",
         reason: "Bind the app-owned account preferences settings section token into local main client provider registry.",
         category: "users-web",
         id: "users-web-main-client-provider-account-settings-preferences-register"
       },
       {
-        op: "append-text",
+        op: "ensure-call",
         file: "packages/main/src/client/providers/MainClientProvider.js",
-        position: "bottom",
-        skipIfContains: "registerMainClientComponent(\"local.main.account-settings.section.notifications\", () => AccountSettingsNotificationsSection);",
-        value: "\nregisterMainClientComponent(\"local.main.account-settings.section.notifications\", () => AccountSettingsNotificationsSection);\n",
+        callee: "registerMainClientComponent",
+        args: ["\"local.main.account-settings.section.notifications\"", "() => AccountSettingsNotificationsSection"],
+        beforeClass: "MainClientProvider",
         reason: "Bind the app-owned account notifications settings section token into local main client provider registry.",
         category: "users-web",
         id: "users-web-main-client-provider-account-settings-notifications-register"

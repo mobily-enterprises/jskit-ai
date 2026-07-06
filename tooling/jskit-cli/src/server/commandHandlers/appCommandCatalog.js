@@ -188,6 +188,22 @@ const APP_COMMAND_DEFINITIONS = Object.freeze({
       "Customized script values are reported and left alone unless --force is used.",
       "This command is for apps that still carry copied JSKIT maintenance scripts."
     ])
+  }),
+  "migrate-source-mutations": Object.freeze({
+    name: "migrate-source-mutations",
+    summary: "Rewrite legacy append-text source edits into the current source-mutation layout.",
+    usage: "jskit app migrate-source-mutations [--dry-run]",
+    options: Object.freeze([
+      Object.freeze({
+        label: "--dry-run",
+        description: "Preview source rewrites without writing app files."
+      })
+    ]),
+    defaults: Object.freeze([
+      "Moves legacy MainClientProvider component registrations before the MainClientProvider class.",
+      "Leaves apps unchanged when they already use the current source-mutation layout.",
+      "Run this after updating JSKIT packages in older apps that were installed before source mutations."
+    ])
   })
 });
 
@@ -217,6 +233,7 @@ function buildAppCommandOptionMeta(subcommandName = "") {
   if (
     definition.name === "update-packages" ||
     definition.name === "adopt-managed-scripts" ||
+    definition.name === "migrate-source-mutations" ||
     definition.name === "release"
   ) {
     optionMeta["dry-run"] = { inputType: "flag" };

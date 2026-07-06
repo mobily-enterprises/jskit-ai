@@ -18,6 +18,7 @@ import { normalizeSurfaceId } from "@jskit-ai/kernel/shared/surface/registry";
 import { normalizeText } from "@jskit-ai/kernel/shared/support/normalize";
 
 const JS_IDENTIFIER_PATTERN = /^[A-Za-z_$][A-Za-z0-9_$]*$/;
+const JS_IDENTIFIER_PROPERTY_PATTERN = /^(\s*)"([A-Za-z_$][A-Za-z0-9_$]*)":/gm;
 const JSON_REST_TRANSPORT_EXTENSION_KEY = "x-json-rest-schema";
 
 function requireOption(options, optionName, { context = "ui-generator" } = {}) {
@@ -1045,21 +1046,22 @@ function resolveRecordIdFieldKey(fields = []) {
   return normalizeText(preferred?.key) || "id";
 }
 
-function renderObjectPushLines(arrayName, entries = []) {
-  const normalizedArrayName = normalizeText(arrayName);
-  if (!normalizedArrayName) {
-    return "";
-  }
-
+function renderObjectArrayEntryLines(entries = [], { indent = "  " } = {}) {
+  const entryIndent = String(indent || "");
   const lines = [];
   for (const entry of Array.isArray(entries) ? entries : []) {
     if (!entry || typeof entry !== "object" || Array.isArray(entry)) {
       continue;
     }
-    lines.push(`${normalizedArrayName}.push(${JSON.stringify(entry, null, 2)});`);
+    const entrySource = JSON.stringify(entry, null, 2)
+      .replace(JS_IDENTIFIER_PROPERTY_PATTERN, "$1$2:")
+      .split("\n")
+      .map((line) => `${entryIndent}${line}`)
+      .join("\n");
+    lines.push(`${entrySource},`);
   }
 
-  return lines.join("\n\n");
+  return lines.length > 0 ? `${lines.join("\n")}\n` : "";
 }
 
 function resolveRecordIdExpression(fields = []) {
@@ -1088,7 +1090,7 @@ export {
   buildViewColumns,
   buildFormColumns,
   resolveRecordIdFieldKey,
-  renderObjectPushLines,
+  renderObjectArrayEntryLines,
   resolveCrudRecordChangedEvent as resolveRecordChangedEventName,
   resolveRecordIdExpression
 };

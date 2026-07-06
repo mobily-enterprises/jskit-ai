@@ -345,6 +345,10 @@ test("generate @jskit-ai/crud-ui-generator crud scaffolds CRUD pages at an expli
 
     const addEditFormFieldsSource = await readFile(paths.addEditFormFieldsPath, "utf8");
     assert.match(addEditFormFieldsSource, /crud\.ui\.form-fields\.customers\.new\.v1/);
+    assert.doesNotMatch(addEditFormFieldsSource, /UI_CREATE_FORM_FIELDS\.push/);
+    assert.doesNotMatch(addEditFormFieldsSource, /UI_EDIT_FORM_FIELDS\.push/);
+    assert.match(addEditFormFieldsSource, /const UI_CREATE_FORM_FIELDS = \[[\s\S]*key: "firstName"/);
+    assert.match(addEditFormFieldsSource, /const UI_EDIT_FORM_FIELDS = \[[\s\S]*key: "firstName"/);
     const listFiltersSource = await readFile(paths.listFiltersPath, "utf8");
     assert.match(listFiltersSource, /const listFilters = defineCrudListFilters\(\{\}\);/);
     const listBulkActionsSource = await readFile(paths.listBulkActionsPath, "utf8");

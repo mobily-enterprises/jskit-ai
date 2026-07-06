@@ -8,3 +8,9 @@ export {
   partitionPreFileConfigTextMutations,
   resolvePositioningMutations
 } from "./mutations/textMutations.js";
+
+export {
+  applySourceMutations,
+  partitionPreFileConfigSourceMutations,
+  resolvePositioningSourceMutations
+} from "./mutations/sourceMutations.js";
