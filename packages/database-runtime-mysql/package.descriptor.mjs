@@ -1,7 +1,7 @@
 export default Object.freeze({
   packageVersion: 1,
   packageId: "@jskit-ai/database-runtime-mysql",
-  version: "0.1.103",
+  version: "0.1.104",
   kind: "runtime",
   options: {
     "db-host": {
@@ -91,7 +91,7 @@ export default Object.freeze({
   mutations: {
     dependencies: {
       runtime: {
-        "@jskit-ai/database-runtime": "0.1.104",
+        "@jskit-ai/database-runtime": "0.1.105",
         "mysql2": "^3.11.2"
       },
       dev: {}
