@@ -36,6 +36,7 @@ function createMinimalLoginViewState(requestedReturnTo = "/") {
     otpRequestPending: { value: false },
     registerConfirmationResendPending: { value: false },
     pendingEmailConfirmationAddress: { value: "" },
+    invitationToken: { value: "" },
     rememberAccountOnDevice: { value: true },
     oauthProviders: { value: [] },
     oauthDefaultProvider: { value: "google" },
@@ -177,4 +178,68 @@ test("useLoginViewActions keeps retry message for generic post-login unauthentic
   });
 
   assert.equal(state.errorMessage.value, "Login succeeded but the session is not active yet. Please retry.");
+});
+
+test("useLoginViewActions includes invitation context when registering from an invite link", async () => {
+  clearAuthCsrfTokenCache();
+  const state = createMinimalLoginViewState("/invite/invite-token");
+  state.isRegister.value = true;
+  state.invitationToken.value = "invite-token";
+  const originalFetch = globalThis.fetch;
+  const registerBodies = [];
+  let sessionReads = 0;
+
+  globalThis.fetch = async (url, options = {}) => {
+    const normalizedUrl = String(url || "");
+    const method = String(options.method || "GET").toUpperCase();
+
+    if (normalizedUrl === "/api/session" && method === "GET") {
+      sessionReads += 1;
+      return createJsonResponse(
+        sessionReads === 1
+          ? { authenticated: false, csrfToken: "csrf-a" }
+          : { authenticated: true, csrfToken: "csrf-b" }
+      );
+    }
+
+    if (normalizedUrl === "/api/register" && method === "POST") {
+      registerBodies.push(JSON.parse(String(options.body || "{}")));
+      return createJsonResponse({ ok: true, username: "Ada", requiresEmailConfirmation: false });
+    }
+
+    throw new Error(`Unexpected fetch call: ${method} ${normalizedUrl}`);
+  };
+
+  try {
+    const actions = useLoginViewActions({
+      state,
+      validation: {
+        canSubmit: { value: true }
+      },
+      queryClient: {
+        async fetchQuery({ queryFn }) {
+          return queryFn();
+        }
+      },
+      errorRuntime: {
+        report() {}
+      }
+    });
+
+    await actions.submitAuth();
+  } finally {
+    globalThis.fetch = originalFetch;
+    clearAuthCsrfTokenCache();
+  }
+
+  assert.deepEqual(registerBodies, [
+    {
+      email: "ada@example.com",
+      password: "password-123",
+      invitation: {
+        token: "invite-token",
+        source: "workspace-invite"
+      }
+    }
+  ]);
 });

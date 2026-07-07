@@ -2,6 +2,7 @@ import { createJsonApiResourceRouteContract } from "@jskit-ai/http-runtime/share
 import { workspaceMembersResource } from "../../shared/resources/workspaceMembersResource.js";
 import { workspacePendingInvitationsResource } from "../../shared/resources/workspacePendingInvitationsResource.js";
 import {
+  WORKSPACE_INVITATION_RESOLVE_TRANSPORT,
   WORKSPACE_INVITE_REDEEM_TRANSPORT,
   WORKSPACE_PENDING_INVITATIONS_TRANSPORT
 } from "../../shared/jsonApiTransports.js";
@@ -15,12 +16,47 @@ function resolveAuthenticatedUserRecordId(_record, context = {}) {
   throw new Error("JSON:API response requires request.user.id.");
 }
 
+function resolveInviteResolutionRecordId(record = {}) {
+  const recordId = record?.id || record?.token;
+  if (recordId != null && String(recordId).trim()) {
+    return recordId;
+  }
+  return "workspace-invitation";
+}
+
 function bootWorkspacePendingInvitations(app) {
   if (!app || typeof app.make !== "function") {
     throw new Error("bootWorkspacePendingInvitations requires application make().");
   }
 
   const router = app.make("jskit.http.router");
+
+  router.register(
+    "GET",
+    "/api/workspace/invitations/resolve",
+    {
+      auth: "public",
+      meta: {
+        tags: ["workspace"],
+        summary: "Resolve safe public workspace invitation metadata"
+      },
+      ...createJsonApiResourceRouteContract({
+        ...WORKSPACE_INVITATION_RESOLVE_TRANSPORT,
+        query: workspacePendingInvitationsResource.operations.resolve.query,
+        output: workspacePendingInvitationsResource.operations.resolve.output,
+        outputKind: "record",
+        getRecordId: resolveInviteResolutionRecordId,
+        includeValidation400: true
+      })
+    },
+    async function (request, reply) {
+      const response = await request.executeAction({
+        actionId: "workspace.invitation.resolve",
+        input: request.input.query
+      });
+      reply.code(200).send(response);
+    }
+  );
 
   router.register(
     "GET",

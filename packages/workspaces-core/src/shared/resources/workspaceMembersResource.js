@@ -87,6 +87,30 @@ const workspaceInviteCreateOutputSchema = createSchema({
     required: true,
     minLength: 1
   },
+  inviteUrl: {
+    type: "string",
+    required: true,
+    minLength: 1
+  },
+  inviteDelivery: {
+    type: "object",
+    required: true,
+    schema: createSchema({
+      status: {
+        type: "string",
+        required: true,
+        enum: ["sent", "failed", "mailer_unconfigured"]
+      },
+      message: {
+        type: "string",
+        required: true
+      },
+      providerMessageId: {
+        type: "string",
+        required: true
+      }
+    })
+  },
   createdInviteId: {
     type: "string",
     required: true,

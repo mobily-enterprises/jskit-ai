@@ -161,6 +161,10 @@ test("workspace and settings routes attach only shared schema definitions on raw
     method: "DELETE",
     path: "/api/w/:workspaceSlug/invites/:inviteId"
   });
+  const workspaceInviteResolve = findRoute(routes, {
+    method: "GET",
+    path: "/api/workspace/invitations/resolve"
+  });
 
   assert.equal(typeof workspaceSettings?.params?.schema, "object");
   assert.equal(typeof workspacePatch?.body?.schema, "object");
@@ -169,6 +173,7 @@ test("workspace and settings routes attach only shared schema definitions on raw
   assert.equal(typeof workspaceMemberRole?.body?.schema, "object");
   assert.equal(typeof workspaceMemberDelete?.params?.schema, "object");
   assert.equal(typeof workspaceInviteDelete?.params?.schema, "object");
+  assert.equal(typeof workspaceInviteResolve?.query?.schema, "object");
 });
 
 test("workspace core/settings routes mount one canonical workspace endpoint", async () => {
@@ -264,6 +269,7 @@ test("workspaces-core route registration follows tenancy mode matrix", async () 
   assert.equal(findRoute(noneRoutes, { method: "GET", path: "/api/w/:workspaceSlug" }), null);
   assert.equal(findRoute(noneRoutes, { method: "PATCH", path: "/api/w/:workspaceSlug" }), null);
   assert.equal(findRoute(noneRoutes, { method: "GET", path: "/api/w/:workspaceSlug/settings" }), null);
+  assert.equal(findRoute(noneRoutes, { method: "GET", path: "/api/workspace/invitations/resolve" }), null);
   assert.equal(findRoute(noneRoutes, { method: "GET", path: "/api/workspace/invitations/pending" }), null);
 
   assert.equal(findRoute(personalRoutes, { method: "GET", path: "/api/workspaces" })?.path, "/api/workspaces");
@@ -279,6 +285,10 @@ test("workspaces-core route registration follows tenancy mode matrix", async () 
   assert.equal(
     findRoute(personalRoutes, { method: "GET", path: "/api/w/:workspaceSlug/settings" })?.path,
     "/api/w/:workspaceSlug/settings"
+  );
+  assert.equal(
+    findRoute(personalRoutes, { method: "GET", path: "/api/workspace/invitations/resolve" })?.path,
+    "/api/workspace/invitations/resolve"
   );
   assert.equal(
     findRoute(personalRoutes, { method: "GET", path: "/api/workspace/invitations/pending" })?.path,
@@ -300,6 +310,10 @@ test("workspaces-core route registration follows tenancy mode matrix", async () 
     "/api/w/:workspaceSlug/settings"
   );
   assert.equal(
+    findRoute(workspaceRoutes, { method: "GET", path: "/api/workspace/invitations/resolve" })?.path,
+    "/api/workspace/invitations/resolve"
+  );
+  assert.equal(
     findRoute(workspaceRoutes, { method: "GET", path: "/api/workspace/invitations/pending" })?.path,
     "/api/workspace/invitations/pending"
   );
@@ -318,6 +332,7 @@ test("workspaces-core boot skips invitation redeem/list routes when workspace in
     workspaceSelfCreateEnabled: false
   });
 
+  assert.equal(findRoute(routes, { method: "GET", path: "/api/workspace/invitations/resolve" }), null);
   assert.equal(findRoute(routes, { method: "GET", path: "/api/workspace/invitations/pending" }), null);
   assert.equal(findRoute(routes, { method: "POST", path: "/api/workspace/invitations/redeem" }), null);
   assert.equal(findRoute(routes, { method: "GET", path: "/api/w/:workspaceSlug/invites" }), null);
@@ -334,6 +349,10 @@ test("workspace invite and member handlers build action input from request.input
   const workspaceInviteRedeem = findRoute(routes, {
     method: "POST",
     path: "/api/workspace/invitations/redeem"
+  });
+  const workspaceInviteResolve = findRoute(routes, {
+    method: "GET",
+    path: "/api/workspace/invitations/resolve"
   });
   const workspaceMemberRolePatch = findRoute(routes, {
     method: "PATCH",
@@ -361,6 +380,15 @@ test("workspace invite and member handlers build action input from request.input
     createActionRequest({
       input: {
         body: { name: "Operations", slug: "operations" }
+      },
+      executeAction
+    }),
+    createReplyDouble()
+  );
+  await workspaceInviteResolve.handler(
+    createActionRequest({
+      input: {
+        query: { token: "token-0" }
       },
       executeAction
     }),
@@ -418,11 +446,15 @@ test("workspace invite and member handlers build action input from request.input
     actionId: "workspace.workspaces.create",
     input: { name: "Operations", slug: "operations" }
   });
-  assert.deepEqual(calls[1].input, { token: "token-1", decision: "accept" });
-  assert.deepEqual(calls[2].input, { workspaceSlug: "acme", memberUserId: "12", roleSid: "admin" });
-  assert.deepEqual(calls[3].input, { workspaceSlug: "acme", email: "user@example.com", roleSid: "member" });
-  assert.deepEqual(calls[4].input, { workspaceSlug: "acme", memberUserId: "44" });
-  assert.deepEqual(calls[5].input, { workspaceSlug: "acme", inviteId: "55" });
+  assert.deepEqual(calls[1], {
+    actionId: "workspace.invitation.resolve",
+    input: { token: "token-0" }
+  });
+  assert.deepEqual(calls[2].input, { token: "token-1", decision: "accept" });
+  assert.deepEqual(calls[3].input, { workspaceSlug: "acme", memberUserId: "12", roleSid: "admin" });
+  assert.deepEqual(calls[4].input, { workspaceSlug: "acme", email: "user@example.com", roleSid: "member" });
+  assert.deepEqual(calls[5].input, { workspaceSlug: "acme", memberUserId: "44" });
+  assert.deepEqual(calls[6].input, { workspaceSlug: "acme", inviteId: "55" });
 });
 
 test("workspace settings route handlers build action input from request.input", async () => {

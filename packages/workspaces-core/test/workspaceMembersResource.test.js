@@ -29,6 +29,14 @@ test("workspace members invite mutation outputs expose their tracking ids explic
 
   assert.equal(createOutputSchema.properties.createdInviteId.type, "string");
   assert.equal(createOutputSchema.properties.inviteTokenPreview.type, "string");
+  assert.equal(createOutputSchema.properties.inviteUrl.type, "string");
+  const inviteDeliverySchemaName = createOutputSchema.properties.inviteDelivery.allOf[0].$ref.replace(/^#\/definitions\//, "");
+  const inviteDeliverySchema = createOutputSchema.definitions[inviteDeliverySchemaName];
+  assert.deepEqual(inviteDeliverySchema.required, ["status", "message", "providerMessageId"]);
+  assert.deepEqual(
+    inviteDeliverySchema.properties.status.enum,
+    ["sent", "failed", "mailer_unconfigured"]
+  );
   assert.equal(revokeOutputSchema.properties.revokedInviteId.type, "string");
   assert.equal(revokeOutputSchema.properties.roleCatalog["x-json-rest-schema"]?.castType, "object");
   assert.equal(Array.isArray(revokeOutputSchema.properties.roleCatalog.allOf), true);

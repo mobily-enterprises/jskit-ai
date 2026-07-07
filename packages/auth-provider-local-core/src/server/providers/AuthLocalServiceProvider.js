@@ -174,12 +174,26 @@ class AuthLocalServiceProvider {
       const backend = scope.make("auth.local.backend");
       const profileProjector = scope.has("auth.profile.projector")
         ? {
-            async syncIdentityProfile(profile) {
+            async syncIdentityProfile(profile, options = {}) {
               const projector = scope.make("auth.profile.projector");
               if (!projector || typeof projector.syncIdentityProfile !== "function") {
                 throw new Error("auth.profile.projector.syncIdentityProfile() must be a function.");
               }
-              return projector.syncIdentityProfile(profile);
+              return projector.syncIdentityProfile(profile, options);
+            }
+          }
+        : null;
+      const invitationContextResolver = scope.has("auth.invitationContextResolver")
+        ? {
+            async resolveInvitationContext(invitation, options = {}) {
+              const resolver = scope.make("auth.invitationContextResolver");
+              if (typeof resolver === "function") {
+                return resolver(invitation, options);
+              }
+              if (!resolver || typeof resolver.resolveInvitationContext !== "function") {
+                throw new Error("auth.invitationContextResolver.resolveInvitationContext() must be a function.");
+              }
+              return resolver.resolveInvitationContext(invitation, options);
             }
           }
         : null;
@@ -190,7 +204,8 @@ class AuthLocalServiceProvider {
         backend,
         config,
         profileProjector,
-        passwordStrategy
+        passwordStrategy,
+        invitationContextResolver
       });
     });
   }

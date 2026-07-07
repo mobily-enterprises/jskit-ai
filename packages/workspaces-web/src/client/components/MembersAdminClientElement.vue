@@ -63,6 +63,31 @@
                     Send invite
                   </v-btn>
                 </v-form>
+
+                <div v-if="hasCreatedInviteUrl" class="invite-link-panel mt-4">
+                  <v-divider class="mb-4" />
+                  <p class="text-caption text-medium-emphasis mb-2">{{ inviteLinkStatusText }}</p>
+                  <div class="invite-link-row">
+                    <v-text-field
+                      :model-value="createdInviteUrl"
+                      label="Invite link"
+                      variant="outlined"
+                      density="compact"
+                      readonly
+                      hide-details
+                      class="invite-link-field"
+                    />
+                    <v-btn
+                      color="primary"
+                      variant="tonal"
+                      :prepend-icon="mdiContentCopy"
+                      :loading="isCopyingInviteLink"
+                      @click="onCopyInviteLink"
+                    >
+                      Copy
+                    </v-btn>
+                  </div>
+                </div>
               </template>
             </template>
           </v-card-text>
@@ -167,6 +192,7 @@
 
 <script setup>
 import { computed, toRefs, unref } from "vue";
+import { mdiContentCopy } from "@mdi/js";
 import { formatDateTime as formatKernelDateTime } from "@jskit-ai/kernel/shared/support";
 import { normalizeRecordId } from "@jskit-ai/kernel/shared/support/normalize";
 import { requireBoolean, requireFunction, requireRecord } from "@jskit-ai/users-web/client/support/contractGuards";
@@ -226,6 +252,11 @@ const {
 
 const actionHandlers = Object.freeze({
   submitInvite: requireFunction(actions.value.submitInvite, "actions.submitInvite", "MembersAdminClientElement"),
+  copyCreatedInviteLink: requireFunction(
+    actions.value.copyCreatedInviteLink,
+    "actions.copyCreatedInviteLink",
+    "MembersAdminClientElement"
+  ),
   submitRevokeInvite: requireFunction(
     actions.value.submitRevokeInvite,
     "actions.submitRevokeInvite",
@@ -275,6 +306,11 @@ const canRevokeInvites = computed(() => Boolean(unref(permissions.value.canRevok
 const isCreatingInvite = computed(() => Boolean(unref(status.value.isCreatingInvite)));
 const isRevokingInvite = computed(() => Boolean(unref(status.value.isRevokingInvite)));
 const isRemovingMember = computed(() => Boolean(unref(status.value.isRemovingMember)));
+const isCopyingInviteLink = computed(() => Boolean(unref(status.value.isCopyingInviteLink)));
+const createdInviteUrl = computed(() => String(unref(status.value.createdInviteUrl) || "").trim());
+const createdInviteDeliveryStatus = computed(() =>
+  String(unref(status.value.createdInviteDeliveryStatus) || "").trim().toLowerCase()
+);
 const workspaceInvitePolicyLoaded = computed(() =>
   requireBoolean(status.value.hasLoadedWorkspaceSettings, "status.hasLoadedWorkspaceSettings", "MembersAdminClientElement")
 );
@@ -324,6 +360,18 @@ const workspaceInvitesEnabled = computed(() => Boolean(unref(workspaceForm.value
 const canShowInviteForm = computed(
   () => canInviteMembers.value && workspaceInvitesAvailable.value && workspaceInvitesEnabled.value
 );
+const hasCreatedInviteUrl = computed(() => Boolean(createdInviteUrl.value));
+const inviteLinkStatusText = computed(() => {
+  if (createdInviteDeliveryStatus.value === "sent") {
+    return "Invite sent. The link remains available here.";
+  }
+
+  if (createdInviteDeliveryStatus.value === "failed") {
+    return "Email delivery failed. Copy this link to share the invite.";
+  }
+
+  return "Copy this link to share the invite.";
+});
 
 function formatDateTime(value) {
   if (typeof options.value.formatDateTime === "function") {
@@ -368,6 +416,14 @@ async function onSubmitInvite() {
   await actionHandlers.submitInvite();
 }
 
+async function onCopyInviteLink() {
+  if (!hasCreatedInviteUrl.value) {
+    return;
+  }
+
+  await actionHandlers.copyCreatedInviteLink();
+}
+
 async function onRevokeInvite(inviteId) {
   if (!canRevokeInvites.value) {
     return;
@@ -396,5 +452,17 @@ async function onRemoveMember(member) {
 <style scoped>
 .member-role-select {
   width: 160px;
+}
+
+.invite-link-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  align-items: flex-start;
+}
+
+.invite-link-field {
+  flex: 1 1 260px;
+  min-width: 0;
 }
 </style>

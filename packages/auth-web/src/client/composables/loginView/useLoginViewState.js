@@ -25,9 +25,24 @@ import {
   clearRememberedAccountHint
 } from "./rememberedAccountStorage.js";
 
+function readWindowSearchParam(name = "") {
+  if (typeof window !== "object" || !window.location) {
+    return "";
+  }
+  return String(new URLSearchParams(window.location.search || "").get(name) || "").trim();
+}
+
+function resolveInitialMode() {
+  const mode = readWindowSearchParam("mode").toLowerCase();
+  if ([LOGIN_MODE, REGISTER_MODE, FORGOT_MODE, OTP_MODE].includes(mode)) {
+    return mode;
+  }
+  return LOGIN_MODE;
+}
+
 export function useLoginViewState({ placementContext } = {}) {
-  const mode = ref(LOGIN_MODE);
-  const email = ref("");
+  const mode = ref(resolveInitialMode());
+  const email = ref(normalizeEmailAddress(readWindowSearchParam("email")));
   const password = ref("");
   const confirmPassword = ref("");
   const otpCode = ref("");
@@ -51,6 +66,7 @@ export function useLoginViewState({ placementContext } = {}) {
   const infoMessage = ref("");
   const pendingEmailConfirmationMessage = ref("");
   const pendingEmailConfirmationAddress = ref("");
+  const invitationToken = ref(readWindowSearchParam("invitationToken") || readWindowSearchParam("inviteToken"));
 
   const isLogin = computed(() => mode.value === LOGIN_MODE);
   const isRegister = computed(() => mode.value === REGISTER_MODE);
@@ -273,6 +289,7 @@ export function useLoginViewState({ placementContext } = {}) {
     infoMessage,
     pendingEmailConfirmationMessage,
     pendingEmailConfirmationAddress,
+    invitationToken,
     isLogin,
     isRegister,
     isForgot,

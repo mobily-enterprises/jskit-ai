@@ -160,6 +160,13 @@ export function useLoginViewActions({
       email: normalizedEmail,
       password: String(state.password.value || "")
     };
+    const invitationToken = String(state.invitationToken?.value || "").trim();
+    if (invitationToken) {
+      registerPayload.invitation = {
+        token: invitationToken,
+        source: "workspace-invite"
+      };
+    }
     ensureCommandSectionValid(authRegisterCommand, "body", registerPayload, "Unable to register.");
 
     const registerResult = await request(AUTH_PATHS.REGISTER, {

@@ -105,6 +105,27 @@ test("workspaces-web installs an app-owned account invites section wrapper", asy
   });
 });
 
+test("workspaces-web installs a public workspace invite route scaffold", async () => {
+  const source = await readFile(
+    path.join(PACKAGE_DIR, "templates", "src", "pages", "invite", "[token].vue"),
+    "utf8"
+  );
+
+  assert.doesNotMatch(source, /\bfetch\s*\(/);
+  assert.match(
+    source,
+    /@jskit-ai\/workspaces-web\/client\/components\/WorkspaceInviteLanding/
+  );
+  assert.match(source, /<WorkspaceInviteLanding \/>/);
+  assert.deepEqual(findFileMutation("workspaces-web-page-public-invite"), {
+    from: "templates/src/pages/invite/[token].vue",
+    to: "src/pages/invite/[token].vue",
+    reason: "Install public workspace invite acceptance route scaffold.",
+    category: "workspaces-web",
+    id: "workspaces-web-page-public-invite"
+  });
+});
+
 test("workspaces-web settings components use direct panels instead of card scaffolds", async () => {
   for (const relativePath of [
     path.join("templates", "src", "components", "WorkspaceNotFoundCard.vue"),

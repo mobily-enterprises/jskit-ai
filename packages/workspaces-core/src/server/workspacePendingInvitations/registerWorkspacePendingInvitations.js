@@ -106,6 +106,17 @@ function registerWorkspacePendingInvitations(app) {
     }
   );
 
+  if (typeof app.has === "function" && !app.has("auth.invitationContextResolver")) {
+    app.singleton("auth.invitationContextResolver", (scope) => {
+      const service = scope.make("workspaces.pending-invitations.service");
+      return {
+        async resolveInvitationContext(invitation, options = {}) {
+          return service.resolveInviteContextForAuth(invitation, options);
+        }
+      };
+    });
+  }
+
   app.actions(
     withActionDefaults(workspacePendingInvitationsActions, {
       domain: "workspace",

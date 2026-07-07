@@ -92,10 +92,10 @@ function buildActor(user, profile = null) {
   });
 }
 
-async function buildAuthPayload({ user, session, profileProjector }) {
+async function buildAuthPayload({ user, session, profileProjector, profileOptions = {} }) {
   let profile = buildProfile(user);
   if (profileProjector && typeof profileProjector.syncIdentityProfile === "function") {
-    profile = await profileProjector.syncIdentityProfile(profile);
+    profile = await profileProjector.syncIdentityProfile(profile, profileOptions);
     if (!profile || typeof profile !== "object") {
       throw new Error("auth.profile.projector.syncIdentityProfile() must return a profile object.");
     }
@@ -166,6 +166,20 @@ function validateEmailInput(email) {
   return normalized;
 }
 
+function normalizeInvitationInput(value = null) {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    return null;
+  }
+  const token = String(value.token || value.inviteToken || "").trim();
+  if (!token) {
+    return null;
+  }
+  return {
+    token,
+    source: String(value.source || "workspace-invite").trim() || "workspace-invite"
+  };
+}
+
 async function maybeSendRecoveryEmail(config, recoveryUrl, email) {
   if (!config.smtpConfigured) {
     return;
@@ -191,7 +205,13 @@ async function maybeSendRecoveryEmail(config, recoveryUrl, email) {
   });
 }
 
-function createLocalAuthService({ backend, config, profileProjector = null, passwordStrategy = null }) {
+function createLocalAuthService({
+  backend,
+  config,
+  profileProjector = null,
+  passwordStrategy = null,
+  invitationContextResolver = null
+}) {
   if (!backend || typeof backend.withTransaction !== "function") {
     throw new Error("Local auth requires auth.local.backend with withTransaction().");
   }
@@ -281,10 +301,31 @@ function createLocalAuthService({ backend, config, profileProjector = null, pass
     });
   }
 
+  async function resolveProfileOptionsForRegistration(input = {}, { email } = {}) {
+    const invitation = normalizeInvitationInput(input.invitation);
+    if (!invitation) {
+      return {};
+    }
+
+    let resolvedInvitation = invitation;
+    if (invitationContextResolver && typeof invitationContextResolver.resolveInvitationContext === "function") {
+      resolvedInvitation = await invitationContextResolver.resolveInvitationContext({
+        ...invitation,
+        email
+      });
+    }
+
+    return {
+      source: resolvedInvitation?.source || "workspace-invite",
+      invitation: resolvedInvitation
+    };
+  }
+
   async function register(input = {}) {
     const email = validateEmailInput(input.email);
     validatePasswordInput(input.password);
     const displayName = normalizeDisplayName(input.displayName, email);
+    const profileOptions = await resolveProfileOptionsForRegistration(input, { email });
     const password = await passwords.hashPassword(input.password);
     const result = await backend.withTransaction(async (tx) => {
       const existing = await tx.users.findByEmail(email);
@@ -303,7 +344,12 @@ function createLocalAuthService({ backend, config, profileProjector = null, pass
       };
     });
     return {
-      ...(await buildAuthPayload({ user: result.user, session: result.session, profileProjector })),
+      ...(await buildAuthPayload({
+        user: result.user,
+        session: result.session,
+        profileProjector,
+        profileOptions
+      })),
       requiresEmailConfirmation: false
     };
   }

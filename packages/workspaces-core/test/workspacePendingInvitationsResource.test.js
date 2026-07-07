@@ -31,3 +31,21 @@ test("workspacePendingInvitationsResource output schema accepts already-shaped i
   assert.equal(Array.isArray(outputSchema.properties.pendingInvites.items.allOf), true);
   assert.equal(result.pendingInvites[0].roleSid, "member");
 });
+
+test("workspacePendingInvitationsResource exposes public resolve query and terminal statuses", () => {
+  const querySchema = resolveStructuredSchemaTransportSchema(workspacePendingInvitationsResource.operations.resolve.query, {
+    context: "workspacePendingInvitations.resolve.query",
+    defaultMode: "replace"
+  });
+  const outputSchema = resolveStructuredSchemaTransportSchema(workspacePendingInvitationsResource.operations.resolve.output, {
+    context: "workspacePendingInvitations.resolve.output",
+    defaultMode: "replace"
+  });
+
+  assert.equal(querySchema.properties.token.type, "string");
+  assert.deepEqual(
+    outputSchema.properties.status.enum,
+    ["pending", "expired", "accepted", "revoked", "not_found"]
+  );
+  assert.equal(outputSchema.properties.workspace["x-json-rest-schema"]?.castType, "object");
+});

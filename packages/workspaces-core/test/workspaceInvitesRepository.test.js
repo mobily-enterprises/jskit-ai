@@ -173,6 +173,41 @@ test("workspaceInvitesRepository.findPendingByTokenHash reads from the canonical
   assert.equal(invite?.workspaceSlug, undefined);
 });
 
+test("workspaceInvitesRepository.findByTokenHashWithWorkspace preserves workspace summary fields for public invite resolution", async () => {
+  const { api } = createWorkspaceInvitesApiStub({
+    rows: [
+      {
+        id: "45",
+        workspace: {
+          id: "9",
+          slug: "tonymobily3",
+          name: "TonyMobily3",
+          avatarUrl: "https://example.com/avatar.png"
+        },
+        email: "invitee@example.com",
+        roleSid: "member",
+        status: "accepted",
+        tokenHash: "hash-token",
+        invitedByUser: { id: "1" },
+        expiresAt: "2030-01-01 00:00:00.000",
+        acceptedAt: "2026-03-10 00:00:00.000",
+        revokedAt: null,
+        createdAt: "2026-03-09 00:26:35.710",
+        updatedAt: "2026-03-10 00:00:00.000"
+      }
+    ]
+  });
+  const repository = createRepository({ api, knex: createKnexStub() });
+
+  const invite = await repository.findByTokenHashWithWorkspace("hash-token");
+
+  assert.equal(invite?.id, "45");
+  assert.equal(invite?.status, "accepted");
+  assert.equal(invite?.workspaceSlug, "tonymobily3");
+  assert.equal(invite?.workspaceName, "TonyMobily3");
+  assert.equal(invite?.workspaceAvatarUrl, "https://example.com/avatar.png");
+});
+
 test("workspaceInvitesRepository.markAcceptedById uses the internal invite resource for normalized patch writes", async () => {
   const { api, state } = createWorkspaceInvitesApiStub({
     rowById: new Map([

@@ -34,6 +34,67 @@ function createService({
     return tokenHash;
   }
 
+  function maskInviteEmail(email = "") {
+    const normalizedEmail = normalizeLowerText(email);
+    const [localPart = "", domain = ""] = normalizedEmail.split("@");
+    if (!localPart || !domain) {
+      return "";
+    }
+    const visibleLocal = localPart.length <= 2 ? localPart[0] || "" : localPart.slice(0, 2);
+    return `${visibleLocal}${"*".repeat(Math.max(localPart.length - visibleLocal.length, 1))}@${domain}`;
+  }
+
+  function resolvePublicInviteStatus(invite = null) {
+    if (!invite) {
+      return "not_found";
+    }
+    const status = normalizeLowerText(invite.status || "pending") || "pending";
+    if (status === "pending" && invite.expiresAt && new Date(invite.expiresAt).getTime() < Date.now()) {
+      return "expired";
+    }
+    if (["accepted", "revoked", "expired"].includes(status)) {
+      return status;
+    }
+    return "pending";
+  }
+
+  function mapResolvedInvite(invite = null, token = "") {
+    const status = resolvePublicInviteStatus(invite);
+    if (!invite) {
+      return {
+        id: "not-found",
+        token: normalizeText(token),
+        status,
+        email: "",
+        maskedEmail: "",
+        roleSid: "",
+        expiresAt: null,
+        workspace: {
+          id: "",
+          slug: "",
+          name: "",
+          avatarUrl: ""
+        }
+      };
+    }
+
+    return {
+      id: normalizeRecordId(invite.id, { fallback: "" }),
+      token: normalizeText(token),
+      status,
+      email: normalizeLowerText(invite.email),
+      maskedEmail: maskInviteEmail(invite.email),
+      roleSid: normalizeLowerText(invite.roleSid || "member") || "member",
+      expiresAt: invite.expiresAt || null,
+      workspace: {
+        id: normalizeRecordId(invite.workspaceId, { fallback: "" }),
+        slug: normalizeText(invite.workspaceSlug),
+        name: normalizeText(invite.workspaceName || invite.workspaceSlug),
+        avatarUrl: normalizeText(invite.workspaceAvatarUrl)
+      }
+    };
+  }
+
   function mapPendingInvite(invite = {}) {
     const id = normalizeRecordId(invite.id, { fallback: null });
     const workspaceId = normalizeRecordId(invite.workspaceId, { fallback: null });
@@ -91,6 +152,35 @@ function createService({
 
     const invites = await workspaceInvitesRepository.listPendingByEmail(actorEmail, options);
     return invites.map((invite) => mapPendingInvite(invite)).filter(Boolean);
+  }
+
+  async function resolveInviteByToken(token, options = {}) {
+    const tokenHash = requireInviteTokenHash(token);
+    const invite = typeof workspaceInvitesRepository.findByTokenHashWithWorkspace === "function"
+      ? await workspaceInvitesRepository.findByTokenHashWithWorkspace(tokenHash, options)
+      : await workspaceInvitesRepository.findPendingByTokenHash(tokenHash, options);
+
+    return mapResolvedInvite(invite, token);
+  }
+
+  async function resolveInviteContextForAuth({ token, email } = {}, options = {}) {
+    const resolved = await resolveInviteByToken(token, options);
+    if (resolved.status !== "pending") {
+      throw new AppError(409, "Invitation is not available.");
+    }
+    if (normalizeLowerText(resolved.email) !== normalizeLowerText(email)) {
+      throw new AppError(403, "Invitation email does not match account email.");
+    }
+
+    return {
+      token: resolved.token,
+      workspaceId: resolved.workspace.id,
+      workspaceSlug: resolved.workspace.slug,
+      workspaceName: resolved.workspace.name,
+      email: resolved.email,
+      roleSid: resolved.roleSid,
+      expiresAt: resolved.expiresAt
+    };
   }
 
   function requireWorkspaceIdFromInvite(invite, methodName = "workspacePendingInvitationsService") {
@@ -152,6 +242,8 @@ function createService({
   }
 
   return Object.freeze({
+    resolveInviteByToken,
+    resolveInviteContextForAuth,
     listPendingInvitesForUser,
     acceptInviteByToken,
     refuseInviteByToken
