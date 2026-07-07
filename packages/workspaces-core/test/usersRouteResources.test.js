@@ -6,6 +6,7 @@ import { fileURLToPath } from "node:url";
 import { deriveResourceRequiredMetadata } from "@jskit-ai/kernel/_testable";
 import { resolveStructuredSchemaTransportSchema } from "@jskit-ai/kernel/shared/validators";
 import { workspaceMembersResource } from "../src/shared/resources/workspaceMembersResource.js";
+import { workspacePendingInvitationsResource } from "../src/shared/resources/workspacePendingInvitationsResource.js";
 import { workspaceResource } from "../src/shared/resources/workspaceResource.js";
 import { workspaceSettingsResource } from "../src/shared/resources/workspaceSettingsResource.js";
 
@@ -67,7 +68,9 @@ test("workspace settings and invite operations expose canonical validators", () 
     { label: "workspaceMembers.invitesList", operation: workspaceMembersResource.operations.invitesList },
     { label: "workspaceMembers.createInvite", operation: workspaceMembersResource.operations.createInvite },
     { label: "workspaceMembers.revokeInvite", operation: workspaceMembersResource.operations.revokeInvite },
-    { label: "workspaceMembers.redeemInvite", operation: workspaceMembersResource.operations.redeemInvite }
+    { label: "workspaceMembers.redeemInvite", operation: workspaceMembersResource.operations.redeemInvite },
+    { label: "workspacePendingInvitations.resolve", operation: workspacePendingInvitationsResource.operations.resolve },
+    { label: "workspacePendingInvitations.list", operation: workspacePendingInvitationsResource.operations.list }
   ];
 
   for (const { label, operation } of operationSpecs) {

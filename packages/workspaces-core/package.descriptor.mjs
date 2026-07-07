@@ -1,7 +1,7 @@
 export default Object.freeze({
   packageVersion: 1,
   packageId: "@jskit-ai/workspaces-core",
-  version: "0.1.81",
+  version: "0.1.82",
   kind: "runtime",
   description: "Workspace tenancy runtime plus HTTP routes, role catalog, and workspace config scaffolding.",
   dependsOn: [
@@ -88,6 +88,11 @@ export default Object.freeze({
         },
         {
           method: "GET",
+          path: "/api/workspace/invitations/resolve",
+          summary: "Resolve safe public workspace invitation metadata."
+        },
+        {
+          method: "GET",
           path: "/api/workspace/invitations/pending",
           summary: "List pending workspace invitations for authenticated user."
         },
@@ -142,10 +147,10 @@ export default Object.freeze({
   mutations: {
     dependencies: {
       runtime: {
-        "@jskit-ai/json-rest-api-core": "0.1.50",
-        "@jskit-ai/resource-core": "0.1.50",
-        "@jskit-ai/resource-crud-core": "0.1.50",
-        "@jskit-ai/users-core": "0.1.115"
+        "@jskit-ai/json-rest-api-core": "0.1.51",
+        "@jskit-ai/resource-core": "0.1.51",
+        "@jskit-ai/resource-crud-core": "0.1.51",
+        "@jskit-ai/users-core": "0.1.116"
       },
       dev: {}
     },
@@ -191,6 +196,34 @@ export default Object.freeze({
         reason: "Install app-owned role catalog in a dedicated config file.",
         category: "workspaces-core",
         id: "users-core-app-owned-role-catalog-config"
+      },
+      {
+        from: "templates/packages/main/src/server/email/workspaceInviteEmail.js",
+        to: "packages/main/src/server/email/workspaceInviteEmail.js",
+        preserveOnRemove: true,
+        reason: "Install app-owned editable workspace invite email template.",
+        category: "workspaces-core",
+        id: "workspaces-core-main-workspace-invite-email-template"
+      }
+    ],
+    source: [
+      {
+        op: "ensure-import",
+        file: "config/server.js",
+        namedImports: ["renderWorkspaceInviteEmail"],
+        from: "../packages/main/src/server/email/workspaceInviteEmail.js",
+        reason: "Load app-owned workspace invite email renderer from packages/main.",
+        category: "workspaces-core",
+        id: "workspaces-core-server-config-workspace-invite-email-import"
+      },
+      {
+        op: "ensure-assignment",
+        file: "config/server.js",
+        target: "config.workspaceInviteEmailTemplate",
+        value: "renderWorkspaceInviteEmail",
+        reason: "Bind app-owned workspace invite email renderer into server config.",
+        category: "workspaces-core",
+        id: "workspaces-core-server-config-workspace-invite-email-template"
       }
     ],
     text: [

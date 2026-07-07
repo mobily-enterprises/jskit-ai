@@ -147,6 +147,101 @@ test("workspaceMembersService.createInvite uses configured inviteExpiresInMs", a
   assert.ok(expiresAt >= before + 30 * 60 * 1000);
   assert.ok(expiresAt <= after + 30 * 60 * 1000);
   assert.equal(response.createdInviteId, "31");
+  assert.equal(response.inviteUrl, `/invite/${encodeURIComponent(response.inviteTokenPreview)}`);
+  assert.deepEqual(response.inviteDelivery, {
+    status: "mailer_unconfigured",
+    message: "No workspace invite mailer is configured.",
+    providerMessageId: ""
+  });
+});
+
+test("workspaceMembersService.createInvite sends generated invite URLs through the configured mailer", async () => {
+  const templateCalls = [];
+  const mailerCalls = [];
+  const service = createService({
+    workspaceMembershipsRepository: {
+      async listActiveByWorkspaceId() {
+        return [];
+      }
+    },
+    workspaceInvitesRepository: {
+      async expirePendingByWorkspaceIdAndEmail(workspaceId, email) {
+        assert.equal(workspaceId, "7");
+        assert.equal(email, "invitee@example.com");
+      },
+      async insert(payload) {
+        assert.equal(payload.workspaceId, "7");
+        assert.equal(payload.email, "invitee@example.com");
+        assert.equal(payload.roleSid, "admin");
+        return {
+          id: "88",
+          expiresAt: payload.expiresAt
+        };
+      },
+      async listPendingByWorkspaceIdWithWorkspace() {
+        return [];
+      },
+      async findPendingByIdForWorkspace() {
+        return null;
+      },
+      async revokeById() {}
+    },
+    inviteExpiresInMs: 30 * 60 * 1000,
+    roleCatalog: createRoleCatalog(),
+    inviteUrlBuilder({ token, workspace }) {
+      return `https://app.example.test/invite/${encodeURIComponent(token)}?workspace=${workspace.slug}`;
+    },
+    workspaceInviteEmailTemplate(payload) {
+      templateCalls.push(payload);
+      return {
+        subject: `Join ${payload.workspace.name}`,
+        text: payload.inviteUrl,
+        html: null
+      };
+    },
+    workspaceInviteMailer: {
+      async sendWorkspaceInvite(payload, options) {
+        mailerCalls.push({ payload, options });
+        return {
+          status: "sent",
+          message: "queued",
+          providerMessageId: "msg-1"
+        };
+      }
+    }
+  });
+
+  const response = await service.createInvite(
+    {
+      id: "7",
+      slug: "acme",
+      name: "Acme",
+      ownerUserId: "9",
+      avatarUrl: ""
+    },
+    { id: "11", email: "owner@example.com" },
+    {
+      email: "Invitee@Example.com",
+      roleSid: "admin"
+    },
+    authorizedOptions(["workspace.members.invite"])
+  );
+
+  assert.equal(response.createdInviteId, "88");
+  assert.match(response.inviteUrl, /^https:\/\/app\.example\.test\/invite\//);
+  assert.deepEqual(response.inviteDelivery, {
+    status: "sent",
+    message: "queued",
+    providerMessageId: "msg-1"
+  });
+  assert.equal(templateCalls.length, 1);
+  assert.equal(templateCalls[0].email, "invitee@example.com");
+  assert.equal(templateCalls[0].workspace.name, "Acme");
+  assert.equal(templateCalls[0].inviteUrl, response.inviteUrl);
+  assert.equal(mailerCalls.length, 1);
+  assert.equal(mailerCalls[0].payload.email, "invitee@example.com");
+  assert.equal(mailerCalls[0].payload.inviteUrl, response.inviteUrl);
+  assert.equal(mailerCalls[0].payload.message.subject, "Join Acme");
 });
 
 test("workspaceMembersService.revokeInvite returns the revoked invite id", async () => {
@@ -234,6 +329,34 @@ test("workspaceMembersService rejects invite operations when invitations are dis
           ownerUserId: "9"
         },
         authorizedOptions(["workspace.members.view"])
+      ),
+    /Workspace invitations are disabled/
+  );
+  await assert.rejects(
+    () =>
+      service.createInvite(
+        {
+          id: "7",
+          ownerUserId: "9"
+        },
+        { id: "11" },
+        {
+          email: "alice@example.com",
+          roleSid: "member"
+        },
+        authorizedOptions(["workspace.members.invite"])
+      ),
+    /Workspace invitations are disabled/
+  );
+  await assert.rejects(
+    () =>
+      service.revokeInvite(
+        {
+          id: "7",
+          ownerUserId: "9"
+        },
+        "47",
+        authorizedOptions(["workspace.invites.revoke"])
       ),
     /Workspace invitations are disabled/
   );

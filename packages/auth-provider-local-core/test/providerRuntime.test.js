@@ -50,7 +50,12 @@ function createReplyFixture() {
   };
 }
 
-async function createStartedApp({ profileProjector = null, profileProjectorFactory = null, passwordStrategy = null } = {}) {
+async function createStartedApp({
+  profileProjector = null,
+  profileProjectorFactory = null,
+  passwordStrategy = null,
+  invitationContextResolver = null
+} = {}) {
   const storeDir = await fs.mkdtemp(path.join(os.tmpdir(), "jskit-auth-local-"));
   const app = createApplication();
   app.instance("appConfig", createAppConfigFixture());
@@ -78,6 +83,9 @@ async function createStartedApp({ profileProjector = null, profileProjectorFacto
   }
   if (passwordStrategy) {
     app.instance("auth.local.passwordStrategy", passwordStrategy);
+  }
+  if (invitationContextResolver) {
+    app.instance("auth.invitationContextResolver", invitationContextResolver);
   }
   await app.start({
     providers: [
@@ -584,6 +592,71 @@ test("local auth provider projects app profile when auth.profile.projector is in
   assert.equal(registered.actor.providerUserId, projectedProfiles[0].authProviderUserSid);
   assert.equal(registered.actor.appUserId, "app-user-1");
   assert.equal(registered.actor.profileSource, "users");
+});
+
+test("local auth provider passes resolved invitation context into profile projection during registration", async () => {
+  const resolverCalls = [];
+  const projectionCalls = [];
+  const { app } = await createStartedApp({
+    invitationContextResolver: {
+      async resolveInvitationContext(invitation) {
+        resolverCalls.push(invitation);
+        return {
+          token: invitation.token,
+          workspaceId: "workspace-7",
+          workspaceSlug: "acme",
+          workspaceName: "Acme",
+          email: invitation.email,
+          roleSid: "member",
+          expiresAt: "2030-01-01T00:00:00.000Z"
+        };
+      }
+    },
+    profileProjector: {
+      async syncIdentityProfile(profile, options) {
+        projectionCalls.push({ profile, options });
+        return {
+          ...profile,
+          id: "invited-app-user",
+          profileSource: "users"
+        };
+      }
+    }
+  });
+  const authService = app.make("authService");
+
+  const registered = await authService.register({
+    email: "Invitee@Example.com",
+    password: "invited password",
+    displayName: "Invited",
+    invitation: {
+      token: "invite-token",
+      source: "workspace-invite"
+    }
+  });
+
+  assert.deepEqual(resolverCalls, [
+    {
+      token: "invite-token",
+      source: "workspace-invite",
+      email: "invitee@example.com"
+    }
+  ]);
+  assert.equal(projectionCalls.length, 1);
+  assert.equal(projectionCalls[0].profile.email, "invitee@example.com");
+  assert.deepEqual(projectionCalls[0].options, {
+    source: "workspace-invite",
+    invitation: {
+      token: "invite-token",
+      workspaceId: "workspace-7",
+      workspaceSlug: "acme",
+      workspaceName: "Acme",
+      email: "invitee@example.com",
+      roleSid: "member",
+      expiresAt: "2030-01-01T00:00:00.000Z"
+    }
+  });
+  assert.equal(registered.actor.appUserId, "invited-app-user");
 });
 
 test("local auth provider rejects AUTH_PROVIDER mismatches", async () => {

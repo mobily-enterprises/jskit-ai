@@ -1,10 +1,11 @@
 export default Object.freeze({
   packageVersion: 1,
   packageId: "@jskit-ai/workspaces-web",
-  version: "0.1.82",
+  version: "0.1.83",
   kind: "runtime",
   description: "Workspace web module: workspace selector, tools widget, workspace surfaces, members UI, and settings hosts.",
   dependsOn: [
+    "@jskit-ai/auth-web",
     "@jskit-ai/workspaces-core",
     "@jskit-ai/users-web"
   ],
@@ -40,6 +41,10 @@ export default Object.freeze({
         {
           subpath: "./client/components/AccountSettingsInvitesSection",
           summary: "Exports the default account invites section component used by multihoming installs."
+        },
+        {
+          subpath: "./client/components/WorkspaceInviteLanding",
+          summary: "Exports the default public workspace invite landing component."
         },
         {
           subpath: "./client/providers/WorkspacesWebClientProvider",
@@ -227,8 +232,9 @@ export default Object.freeze({
   mutations: {
     dependencies: {
       runtime: {
-        "@jskit-ai/workspaces-core": "0.1.81",
-        "@jskit-ai/users-web": "0.1.120"
+        "@jskit-ai/auth-web": "0.1.107",
+        "@jskit-ai/workspaces-core": "0.1.82",
+        "@jskit-ai/users-web": "0.1.121"
       },
       dev: {}
     },
@@ -255,6 +261,13 @@ export default Object.freeze({
         reason: "Install app-owned account invites section scaffold for multihoming account settings.",
         category: "workspaces-web",
         id: "users-web-main-component-account-settings-invites-section"
+      },
+      {
+        from: "templates/src/pages/invite/[token].vue",
+        to: "src/pages/invite/[token].vue",
+        reason: "Install public workspace invite acceptance route scaffold.",
+        category: "workspaces-web",
+        id: "workspaces-web-page-public-invite"
       },
       {
         from: "templates/src/components/WorkspaceNotFoundCard.vue",

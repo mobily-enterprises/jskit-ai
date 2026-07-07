@@ -132,6 +132,23 @@ function createRepository({ api, knex } = {}) {
     return normalizeInviteRecord(rows[0] || null);
   }
 
+  async function findByTokenHashWithWorkspace(tokenHash, options = {}) {
+    const normalizedTokenHash = normalizeText(tokenHash);
+    if (!normalizedTokenHash) {
+      return null;
+    }
+
+    const rows = await queryInvites(
+      {
+        tokenHash: normalizedTokenHash
+      },
+      options,
+      { includeWorkspace: true }
+    );
+
+    return normalizeInviteWithWorkspace(rows[0] || null);
+  }
+
   async function listPendingByEmail(email, options = {}) {
     const normalizedEmail = normalizeLowerText(email);
     if (!normalizedEmail) {
@@ -349,6 +366,7 @@ function createRepository({ api, knex } = {}) {
   return Object.freeze({
     withTransaction,
     findPendingByTokenHash,
+    findByTokenHashWithWorkspace,
     listPendingByEmail,
     listPendingByWorkspaceIdWithWorkspace,
     insert,

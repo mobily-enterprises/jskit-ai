@@ -3,9 +3,31 @@ import {
 } from "@jskit-ai/kernel/shared/actions/actionContributorHelpers";
 import { returnJsonApiData } from "@jskit-ai/http-runtime/shared";
 import { workspaceMembersResource } from "../../shared/resources/workspaceMembersResource.js";
+import { workspacePendingInvitationsResource } from "../../shared/resources/workspacePendingInvitationsResource.js";
 import { resolveActionUser } from "../common/support/resolveActionUser.js";
 
 const workspacePendingInvitationsActions = Object.freeze([
+  {
+    id: "workspace.invitation.resolve",
+    version: 1,
+    kind: "query",
+    channels: ["api", "automation", "internal"],
+    surfacesFrom: "enabled",
+    input: workspacePendingInvitationsResource.operations.resolve.query,
+    output: null,
+    idempotency: "none",
+    audit: {
+      actionName: "workspace.invitation.resolve"
+    },
+    observability: {},
+    async execute(input, context, deps) {
+      return returnJsonApiData(
+        await deps.workspacePendingInvitationsService.resolveInviteByToken(input?.token, {
+          context
+        })
+      );
+    }
+  },
   {
     id: "workspace.invitations.pending.list",
     version: 1,

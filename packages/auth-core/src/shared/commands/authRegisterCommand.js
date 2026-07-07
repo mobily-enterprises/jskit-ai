@@ -26,7 +26,15 @@ const AUTH_REGISTER_MESSAGES = createCommandMessages({
 const authRegisterBodyValidator = deepFreeze({
   schema: createSchema({
     email: { ...authEmailFieldDefinition, required: true },
-    password: { ...authPasswordFieldDefinition, required: true }
+    password: { ...authPasswordFieldDefinition, required: true },
+    invitation: {
+      type: "object",
+      required: false,
+      schema: createSchema({
+        token: { type: "string", required: true, minLength: 1, maxLength: 2048 },
+        source: { type: "string", required: false, minLength: 1, maxLength: 120 }
+      })
+    }
   }),
   mode: "create",
   messages: AUTH_REGISTER_MESSAGES

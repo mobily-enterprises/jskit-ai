@@ -7,6 +7,8 @@ import { createService as createWorkspaceMembersService } from "./workspaceMembe
 import { workspaceMembersActions } from "./workspaceMembersActions.js";
 import { createWorkspaceRoleCatalog } from "../../shared/roles.js";
 import { createWorkspaceEntityAndBootstrapEvents } from "../common/support/realtimeServiceEvents.js";
+import { renderDefaultWorkspaceInviteEmail } from "./defaultWorkspaceInviteEmail.js";
+import { createWorkspaceInviteUrlBuilder } from "./workspaceInviteUrls.js";
 
 
 function resolveWorkspaceMembersInviteExpiresInMs(appConfig = {}) {
@@ -16,6 +18,23 @@ function resolveWorkspaceMembersInviteExpiresInMs(appConfig = {}) {
   }
 
   return inviteExpiresInMs;
+}
+
+function resolveWorkspaceInviteEmailTemplate(scope, appConfig = {}) {
+  if (typeof scope.has === "function" && scope.has("workspaces.invite.emailTemplate")) {
+    return scope.make("workspaces.invite.emailTemplate");
+  }
+
+  const configuredTemplate =
+    appConfig.workspaceInviteEmailTemplate ||
+    appConfig.workspaceInviteEmailRenderer ||
+    appConfig.workspaceInvitations?.emailTemplate ||
+    appConfig.workspaceInvitations?.emailRenderer;
+  if (typeof configuredTemplate === "function") {
+    return configuredTemplate;
+  }
+
+  return renderDefaultWorkspaceInviteEmail;
 }
 
 const INVITE_RECIPIENT_BOOTSTRAP_AUDIENCE = Object.freeze({
@@ -57,12 +76,22 @@ function registerWorkspaceMembers(app) {
     "workspaces.members.service",
     (scope) => {
       const appConfig = resolveAppConfig(scope);
+      const env = typeof scope.has === "function" && scope.has("jskit.env") ? scope.make("jskit.env") : process.env;
       return createWorkspaceMembersService({
         workspaceMembershipsRepository: scope.make("internal.repository.workspace-memberships"),
         workspaceInvitesRepository: scope.make("internal.repository.workspace-invites"),
         inviteExpiresInMs: resolveWorkspaceMembersInviteExpiresInMs(appConfig),
         roleCatalog: createWorkspaceRoleCatalog(appConfig),
-        workspaceInvitationsEnabled: scope.make("workspaces.invitations.enabled") === true
+        workspaceInvitationsEnabled: scope.make("workspaces.invitations.enabled") === true,
+        inviteUrlBuilder: createWorkspaceInviteUrlBuilder({
+          appConfig,
+          env
+        }),
+        workspaceInviteMailer:
+          typeof scope.has === "function" && scope.has("workspaces.invite.mailer")
+            ? scope.make("workspaces.invite.mailer")
+            : null,
+        workspaceInviteEmailTemplate: resolveWorkspaceInviteEmailTemplate(scope, appConfig)
       });
     },
     {

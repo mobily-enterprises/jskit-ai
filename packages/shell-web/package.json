@@ -1,6 +1,6 @@
 {
   "name": "@jskit-ai/shell-web",
-  "version": "0.1.105",
+  "version": "0.1.106",
   "type": "module",
   "scripts": {
     "test": "node --test"
@@ -28,7 +28,7 @@
   },
   "dependencies": {
     "@mdi/js": "^7.4.47",
-    "@jskit-ai/kernel": "0.1.106"
+    "@jskit-ai/kernel": "0.1.107"
   },
   "peerDependencies": {
     "pinia": "^3.0.4",

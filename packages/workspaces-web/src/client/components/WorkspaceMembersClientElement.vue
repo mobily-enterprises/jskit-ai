@@ -80,6 +80,9 @@ const membersFeedback = useUiFeedback();
 const teamFeedback = useUiFeedback();
 const revokeInviteId = ref("");
 const removeMemberUserId = ref("");
+const createdInviteUrl = ref("");
+const createdInviteDeliveryStatus = ref("");
+const isCopyingInviteLink = ref(false);
 
 const { route, currentSurfaceId, workspaceSlugFromRoute } = useWorkspaceRouteContext();
 const usersPaths = usePaths();
@@ -166,6 +169,8 @@ function resetViewState() {
   clearRoleOptions();
   revokeInviteId.value = "";
   removeMemberUserId.value = "";
+  createdInviteUrl.value = "";
+  createdInviteDeliveryStatus.value = "";
 }
 
 function toRoleTitle(roleSid) {
@@ -340,14 +345,14 @@ const inviteCreateCommand = useCommand({
   runPermissions: ["workspace.members.invite"],
   writeMethod: "POST",
   transport: WORKSPACE_INVITE_CREATE_TRANSPORT,
-  fallbackRunError: "Unable to send invite.",
+  fallbackRunError: "Unable to create invite.",
+  suppressSuccessMessage: true,
   buildRawPayload: () => ({
     email: forms.invite.email,
     roleSid: forms.invite.roleSid
   }),
   messages: {
-    success: "Invite sent.",
-    error: "Unable to send invite."
+    error: "Unable to create invite."
   }
 });
 
@@ -416,6 +421,9 @@ const status = computed(() => {
     isCreatingInvite: Boolean(inviteCreateCommand.isRunning),
     isRevokingInvite: Boolean(revokeInviteCommand.isRunning),
     isRemovingMember: Boolean(memberRemoveCommand.isRunning),
+    isCopyingInviteLink: Boolean(isCopyingInviteLink.value),
+    createdInviteUrl: createdInviteUrl.value,
+    createdInviteDeliveryStatus: createdInviteDeliveryStatus.value,
     hasLoadedWorkspaceSettings: !canInviteMembers.value || !workspaceSettingsView.isLoading,
     hasLoadedMembersList: !canViewMembers.value || !workspaceMembersList.isInitialLoading,
     hasLoadedInviteList: !canViewMembers.value || !workspaceInvitesList.isInitialLoading,
@@ -470,6 +478,7 @@ async function refreshLoad() {
 
 const actions = Object.freeze({
   submitInvite,
+  copyCreatedInviteLink,
   submitRevokeInvite,
   submitMemberRoleUpdate,
   submitRemoveMember
@@ -579,17 +588,53 @@ async function submitInvite() {
   }
 
   inviteFeedback.clear();
+  createdInviteUrl.value = "";
+  createdInviteDeliveryStatus.value = "";
 
   try {
-    await inviteCreateCommand.run();
+    const result = await inviteCreateCommand.run();
+    const delivery = result?.inviteDelivery && typeof result.inviteDelivery === "object"
+      ? result.inviteDelivery
+      : {};
+    createdInviteUrl.value = String(result?.inviteUrl || "").trim();
+    createdInviteDeliveryStatus.value = String(delivery.status || "").trim().toLowerCase();
     forms.invite.email = "";
     await Promise.all([
       workspaceInvitesList.reload(),
       workspaceRolesView.refresh()
     ]);
-    inviteFeedback.success("Invite sent.");
+    if (createdInviteDeliveryStatus.value === "sent") {
+      inviteFeedback.success("Invite sent.");
+    } else if (createdInviteDeliveryStatus.value === "failed") {
+      inviteFeedback.success("Invite created, but email delivery failed. Copy the invite link to share it.");
+    } else {
+      inviteFeedback.success("Invite created. Copy the invite link to share it.");
+    }
   } catch (error) {
-    inviteFeedback.error(error, "Unable to send invite.");
+    inviteFeedback.error(error, "Unable to create invite.");
+  }
+}
+
+async function copyCreatedInviteLink() {
+  const inviteUrl = String(createdInviteUrl.value || "").trim();
+  if (!inviteUrl || isCopyingInviteLink.value) {
+    return;
+  }
+
+  isCopyingInviteLink.value = true;
+  try {
+    const clipboard = globalThis?.navigator?.clipboard;
+    if (!clipboard || typeof clipboard.writeText !== "function") {
+      inviteFeedback.success("Invite link ready to copy.");
+      return;
+    }
+
+    await clipboard.writeText(inviteUrl);
+    inviteFeedback.success("Invite link copied.");
+  } catch (error) {
+    inviteFeedback.error(error, "Unable to copy invite link.");
+  } finally {
+    isCopyingInviteLink.value = false;
   }
 }
 
