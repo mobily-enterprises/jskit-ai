@@ -58,9 +58,10 @@ The app gets three database scripts in `package.json`:
 ```json
 {
   "scripts": {
-    "db:migrate": "knex --knexfile ./knexfile.js migrate:latest",
+    "db:migrations:sync": "jskit migrations changed",
+    "db:migrate": "npm run db:migrations:sync && knex --knexfile ./knexfile.js migrate:latest",
     "db:migrate:rollback": "knex --knexfile ./knexfile.js migrate:rollback",
-    "db:migrate:status": "knex --knexfile ./knexfile.js migrate:list"
+    "db:migrate:status": "npm run db:migrations:sync && knex --knexfile ./knexfile.js migrate:list"
   }
 }
 ```
@@ -95,12 +96,14 @@ The app has two different migration-related layers:
 
 Those are **not** the same step.
 
+The npm scripts hide the easy-to-miss first step for normal use. `npm run db:migrate` and `npm run db:migrate:status` run `npm run db:migrations:sync` first, then run Knex. That means package upgrades can add new JSKIT-managed migration files before Knex checks what is pending.
+
 ### `jskit migrations ...` writes managed migration files
 
-If you run:
+If you run the sync script directly:
 
 ```bash
-npx jskit migrations changed
+npm run db:migrations:sync
 ```
 
 JSKIT checks the installed package state in `.jskit/lock.json` and materializes any managed migration files that need to exist in `migrations/`.
@@ -538,9 +541,10 @@ After installing the MySQL runtime, the important new pieces in `package.json` l
     "mysql2": "^3.11.2"
   },
   "scripts": {
-    "db:migrate": "knex --knexfile ./knexfile.js migrate:latest",
+    "db:migrations:sync": "jskit migrations changed",
+    "db:migrate": "npm run db:migrations:sync && knex --knexfile ./knexfile.js migrate:latest",
     "db:migrate:rollback": "knex --knexfile ./knexfile.js migrate:rollback",
-    "db:migrate:status": "knex --knexfile ./knexfile.js migrate:list"
+    "db:migrate:status": "npm run db:migrations:sync && knex --knexfile ./knexfile.js migrate:list"
   }
 }
 ```
@@ -552,11 +556,12 @@ Those new dependencies divide into two roles:
 - `knex` is the database toolkit used by both runtime code and migration commands
 - `mysql2` is the actual Node driver that speaks to MySQL
 
-The three new scripts are also worth reading carefully:
+The migration scripts are also worth reading carefully:
 
-- `db:migrate` applies all pending migrations
+- `db:migrations:sync` writes or refreshes JSKIT-managed migration files in `migrations/`
+- `db:migrate` syncs JSKIT-managed migration files, then applies all pending Knex migrations
 - `db:migrate:rollback` rolls back the last migration batch
-- `db:migrate:status` lists applied and pending migrations
+- `db:migrate:status` syncs JSKIT-managed migration files, then lists applied and pending migrations
 
 They are not special JSKIT commands. They are ordinary project scripts, which makes them easy to run in any environment.
 

@@ -56,6 +56,9 @@ Exports
 ### `src/client/composables/loginView/useLoginViewState.js`
 Exports
 - `useLoginViewState({ placementContext } = {})`
+Local functions
+- `readWindowSearchParam(name = "")`
+- `resolveInitialMode()`
 
 ### `src/client/composables/loginView/useLoginViewValidation.js`
 Exports

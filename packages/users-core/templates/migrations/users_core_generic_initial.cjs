@@ -15,7 +15,6 @@ exports.up = async function up(knex) {
       table.string("avatar_version", 64).nullable();
       table.timestamp("avatar_updated_at", { useTz: false }).nullable();
       table.timestamp("created_at", { useTz: false }).notNullable().defaultTo(knex.fn.now());
-      table.timestamp("updated_at", { useTz: false }).notNullable().defaultTo(knex.fn.now());
       table.unique(["auth_provider", "auth_provider_user_sid"], "uq_users_identity");
       table.unique(["email"], "uq_users_email");
       table.unique(["username"], "uq_users_username");

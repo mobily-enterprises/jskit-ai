@@ -293,6 +293,10 @@ Exports
 Exports
 - None
 
+### `templates/migrations/users_core_profile_updated_at.cjs`
+Exports
+- None
+
 ### `templates/migrations/users_core_profile_username.cjs`
 Exports
 - None

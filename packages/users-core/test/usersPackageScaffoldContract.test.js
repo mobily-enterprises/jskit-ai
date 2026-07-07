@@ -66,16 +66,17 @@ test("users-core installs all users profile schema migrations", async () => {
     assert.ok(mutation.reason, `${migrationId} must document why it exists.`);
   }
 
-  const initialMigrationSource = await readFile(
-    path.join(PACKAGE_ROOT, "templates/migrations/users_core_generic_initial.cjs"),
-    "utf8"
-  );
   const updatedAtMigrationSource = await readFile(
     path.join(PACKAGE_ROOT, "templates/migrations/users_core_profile_updated_at.cjs"),
     "utf8"
   );
+  const initialMigrationSource = await readFile(
+    path.join(PACKAGE_ROOT, "templates/migrations/users_core_generic_initial.cjs"),
+    "utf8"
+  );
+  const usersTableSection = initialMigrationSource.split("const hasUserSettingsTable")[0] || "";
 
-  assert.match(initialMigrationSource, /table\.timestamp\("updated_at"/);
+  assert.doesNotMatch(usersTableSection, /table\.timestamp\("updated_at"/);
   assert.match(updatedAtMigrationSource, /hasColumn\("users", "updated_at"\)/);
   assert.match(updatedAtMigrationSource, /COALESCE\(\?\?, CURRENT_TIMESTAMP\)/);
 });
