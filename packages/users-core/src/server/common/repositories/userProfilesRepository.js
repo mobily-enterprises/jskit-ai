@@ -58,7 +58,8 @@ function normalizeProfileRecord(payload = null) {
     avatarStorageKey: normalizeNullableString(payload.avatarStorageKey),
     avatarVersion: normalizeNullableVersion(payload.avatarVersion),
     avatarUpdatedAt: payload.avatarUpdatedAt ? toIsoString(payload.avatarUpdatedAt) : null,
-    createdAt: payload.createdAt ? toIsoString(payload.createdAt) : null
+    createdAt: payload.createdAt ? toIsoString(payload.createdAt) : null,
+    updatedAt: payload.updatedAt ? toIsoString(payload.updatedAt) : null
   };
 }
 

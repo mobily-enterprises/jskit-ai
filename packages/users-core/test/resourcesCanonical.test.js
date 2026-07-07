@@ -38,6 +38,15 @@ test("users-core resources expose messages for all operations", () => {
   }
 });
 
+test("user profile resource exposes managed timestamps used by JSON REST writes", () => {
+  assert.equal(userProfileResource.schema.createdAt?.type, "dateTime");
+  assert.equal(userProfileResource.schema.createdAt?.storage?.column, "created_at");
+  assert.equal(userProfileResource.schema.createdAt?.storage?.writeSerializer, "datetime-utc");
+  assert.equal(userProfileResource.schema.updatedAt?.type, "dateTime");
+  assert.equal(userProfileResource.schema.updatedAt?.storage?.column, "updated_at");
+  assert.equal(userProfileResource.schema.updatedAt?.storage?.writeSerializer, "datetime-utc");
+});
+
 test("users-core specialized resource operations expose messages and validators", () => {
   const operationSpecs = [
     { label: "userProfile.avatarUpload", operation: userProfileResource.operations.avatarUpload },

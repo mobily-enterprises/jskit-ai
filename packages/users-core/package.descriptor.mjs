@@ -1,7 +1,7 @@
 export default Object.freeze({
   packageVersion: 1,
   packageId: "@jskit-ai/users-core",
-  version: "0.1.116",
+  version: "0.1.117",
   kind: "runtime",
   description: "Users/account runtime plus HTTP routes for account features.",
   dependsOn: [
@@ -146,16 +146,16 @@ export default Object.freeze({
   mutations: {
     dependencies: {
       runtime: {
-        "@jskit-ai/auth-core": "0.1.105",
-        "@jskit-ai/crud-core": "0.1.114",
-        "@jskit-ai/database-runtime": "0.1.106",
-        "@jskit-ai/http-runtime": "0.1.105",
-        "@jskit-ai/json-rest-api-core": "0.1.51",
-        "@jskit-ai/kernel": "0.1.107",
-        "@jskit-ai/resource-core": "0.1.51",
-        "@jskit-ai/resource-crud-core": "0.1.51",
+        "@jskit-ai/auth-core": "0.1.106",
+        "@jskit-ai/crud-core": "0.1.115",
+        "@jskit-ai/database-runtime": "0.1.107",
+        "@jskit-ai/http-runtime": "0.1.106",
+        "@jskit-ai/json-rest-api-core": "0.1.52",
+        "@jskit-ai/kernel": "0.1.108",
+        "@jskit-ai/resource-core": "0.1.52",
+        "@jskit-ai/resource-crud-core": "0.1.52",
         "@local/users": "file:packages/users",
-        "@jskit-ai/uploads-runtime": "0.1.84"
+        "@jskit-ai/uploads-runtime": "0.1.85"
       },
       dev: {}
     },
@@ -181,6 +181,15 @@ export default Object.freeze({
         reason: "Install users profile username migration.",
         category: "migration",
         id: "users-core-profile-username-schema"
+      },
+      {
+        op: "install-migration",
+        from: "templates/migrations/users_core_profile_updated_at.cjs",
+        toDir: "migrations",
+        extension: ".cjs",
+        reason: "Install users profile updated-at migration.",
+        category: "migration",
+        id: "users-core-profile-updated-at-schema"
       },
       {
         from: "templates/packages/users/package.json",

@@ -49,6 +49,37 @@ test("users-core installs the app-local users package scaffold", () => {
   }
 });
 
+test("users-core installs all users profile schema migrations", async () => {
+  const expectedMigrationIds = [
+    "users-core-generic-initial-schema",
+    "users-core-profile-username-schema",
+    "users-core-profile-updated-at-schema"
+  ];
+
+  for (const migrationId of expectedMigrationIds) {
+    const mutation = readFileMutationById(migrationId);
+    assert.ok(mutation, `Missing users-core migration mutation ${migrationId}.`);
+    assert.equal(mutation.op, "install-migration", `${migrationId} must install a migration.`);
+    assert.equal(mutation.toDir, "migrations", `${migrationId} must target app migrations.`);
+    assert.equal(mutation.category, "migration", `${migrationId} must be categorized as a migration.`);
+    assert.ok(mutation.from, `${migrationId} must define a migration template source.`);
+    assert.ok(mutation.reason, `${migrationId} must document why it exists.`);
+  }
+
+  const initialMigrationSource = await readFile(
+    path.join(PACKAGE_ROOT, "templates/migrations/users_core_generic_initial.cjs"),
+    "utf8"
+  );
+  const updatedAtMigrationSource = await readFile(
+    path.join(PACKAGE_ROOT, "templates/migrations/users_core_profile_updated_at.cjs"),
+    "utf8"
+  );
+
+  assert.match(initialMigrationSource, /table\.timestamp\("updated_at"/);
+  assert.match(updatedAtMigrationSource, /hasColumn\("users", "updated_at"\)/);
+  assert.match(updatedAtMigrationSource, /COALESCE\(\?\?, CURRENT_TIMESTAMP\)/);
+});
+
 test("users-core base users package templates stay aligned with non-workspace apps", async () => {
   const packageDescriptorSource = await readFile(
     path.join(PACKAGE_ROOT, "templates/packages/users/package.descriptor.mjs"),
@@ -181,4 +212,6 @@ test("users-core local users resource scaffold stays read-only and canonical", a
   assert.equal(typeof resource, "object");
   assert.deepEqual(Object.keys(resource.operations), ["list", "view"]);
   assert.equal(Object.hasOwn(resource.operations, "create"), false);
+  assert.equal(resource.schema.updatedAt?.type, "dateTime");
+  assert.equal(resource.schema.updatedAt?.storage?.writeSerializer, "datetime-utc");
 });
