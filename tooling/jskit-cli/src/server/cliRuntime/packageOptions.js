@@ -106,6 +106,10 @@ function normalizeResolvedOptionValue(value = "") {
   return String(value || "").trim().toLowerCase();
 }
 
+function isFlagOptionSchema(schema = {}) {
+  return normalizeResolvedOptionValue(schema?.inputType) === "flag";
+}
+
 function normalizeResolvedOptionSchemaValue({
   packageEntry,
   optionName = "",
@@ -475,6 +479,7 @@ async function resolvePackageOptions(packageEntry, inlineOptions, io, { appRoot 
   for (const optionName of optionNames) {
     const schema = ensureObject(optionSchemas[optionName]);
     const allowEmpty = schema.allowEmpty === true;
+    const isFlagOption = isFlagOptionSchema(schema);
     const assignResolvedOption = (rawValue = "") => {
       const normalizedOptionValue = normalizeResolvedOptionSchemaValue({
         packageEntry,
@@ -489,7 +494,12 @@ async function resolvePackageOptions(packageEntry, inlineOptions, io, { appRoot 
       return false;
     };
     if (hasInlineOption(optionName)) {
-      const inlineValue = String(inlineOptionValues[optionName] || "").trim();
+      const rawInlineValue = inlineOptionValues[optionName];
+      const inlineValue = String(rawInlineValue ?? "").trim();
+      if (isFlagOption) {
+        assignResolvedOption(inlineValue || "true");
+        continue;
+      }
       if (inlineValue || allowEmpty) {
         assignResolvedOption(inlineValue);
         continue;
@@ -519,6 +529,11 @@ async function resolvePackageOptions(packageEntry, inlineOptions, io, { appRoot 
 
     if (typeof schema.defaultValue === "string" && schema.defaultValue.trim()) {
       assignResolvedOption(schema.defaultValue.trim());
+      continue;
+    }
+
+    if (isFlagOption) {
+      resolved[optionName] = "false";
       continue;
     }
 

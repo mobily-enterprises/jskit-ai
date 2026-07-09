@@ -37,15 +37,13 @@ function registerRoutes(
     routeBase,
     {
       auth: "required",
-      surface: normalizedRouteSurface,
-__JSKIT_CRUD_ROUTE_INTERNAL_LINE__
+      surface: normalizedRouteSurface,__JSKIT_CRUD_ROUTE_INTERNAL_LINE__
       visibility: checkRouteVisibility(routeOwnershipFilter),
       meta: {
         tags: ["crud"],
         summary: "List records."
       },
-      ...listRouteContract,
-__JSKIT_CRUD_LIST_ROUTE_PARAMS_VALIDATOR_LINE__
+      ...listRouteContract,__JSKIT_CRUD_LIST_ROUTE_PARAMS_VALIDATOR_LINE__
     },
     async function (request, reply) {
       const listInput = {
@@ -64,15 +62,13 @@ __JSKIT_CRUD_LIST_ROUTE_INPUT_LINES__
     `${routeBase}/:recordId`,
     {
       auth: "required",
-      surface: normalizedRouteSurface,
-__JSKIT_CRUD_ROUTE_INTERNAL_LINE__
+      surface: normalizedRouteSurface,__JSKIT_CRUD_ROUTE_INTERNAL_LINE__
       visibility: checkRouteVisibility(routeOwnershipFilter),
       meta: {
         tags: ["crud"],
         summary: "View a record."
       },
-      ...viewRouteContract,
-__JSKIT_CRUD_VIEW_ROUTE_PARAMS_VALIDATOR_LINE__
+      ...viewRouteContract,__JSKIT_CRUD_VIEW_ROUTE_PARAMS_VALIDATOR_LINE__
     },
     async function (request, reply) {
       const response = await request.executeAction({
@@ -90,15 +86,13 @@ __JSKIT_CRUD_VIEW_ROUTE_INPUT_LINES__
     routeBase,
     {
       auth: "required",
-      surface: normalizedRouteSurface,
-__JSKIT_CRUD_ROUTE_INTERNAL_LINE__
+      surface: normalizedRouteSurface,__JSKIT_CRUD_ROUTE_INTERNAL_LINE__
       visibility: checkRouteVisibility(routeOwnershipFilter),
       meta: {
         tags: ["crud"],
         summary: "Create a record."
       },
-      ...createRouteContract,
-__JSKIT_CRUD_CREATE_ROUTE_PARAMS_VALIDATOR_LINE__
+      ...createRouteContract,__JSKIT_CRUD_CREATE_ROUTE_PARAMS_VALIDATOR_LINE__
     },
     async function (request, reply) {
       const response = await request.executeAction({
@@ -116,15 +110,13 @@ __JSKIT_CRUD_CREATE_ROUTE_INPUT_LINES__
     `${routeBase}/:recordId`,
     {
       auth: "required",
-      surface: normalizedRouteSurface,
-__JSKIT_CRUD_ROUTE_INTERNAL_LINE__
+      surface: normalizedRouteSurface,__JSKIT_CRUD_ROUTE_INTERNAL_LINE__
       visibility: checkRouteVisibility(routeOwnershipFilter),
       meta: {
         tags: ["crud"],
         summary: "Update a record."
       },
-      ...updateRouteContract,
-__JSKIT_CRUD_UPDATE_ROUTE_PARAMS_VALIDATOR_LINE__
+      ...updateRouteContract,__JSKIT_CRUD_UPDATE_ROUTE_PARAMS_VALIDATOR_LINE__
     },
     async function (request, reply) {
       const response = await request.executeAction({
@@ -142,15 +134,13 @@ __JSKIT_CRUD_UPDATE_ROUTE_INPUT_LINES__
     `${routeBase}/:recordId`,
     {
       auth: "required",
-      surface: normalizedRouteSurface,
-__JSKIT_CRUD_ROUTE_INTERNAL_LINE__
+      surface: normalizedRouteSurface,__JSKIT_CRUD_ROUTE_INTERNAL_LINE__
       visibility: checkRouteVisibility(routeOwnershipFilter),
       meta: {
         tags: ["crud"],
         summary: "Delete a record."
       },
-      ...deleteRouteContract,
-__JSKIT_CRUD_DELETE_ROUTE_PARAMS_VALIDATOR_LINE__
+      ...deleteRouteContract,__JSKIT_CRUD_DELETE_ROUTE_PARAMS_VALIDATOR_LINE__
     },
     async function (request, reply) {
       const response = await request.executeAction({
