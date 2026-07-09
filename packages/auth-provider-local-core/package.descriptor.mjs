@@ -1,7 +1,7 @@
 export default Object.freeze({
   "packageVersion": 1,
   "packageId": "@jskit-ai/auth-provider-local-core",
-  "version": "0.1.7",
+  "version": "0.1.9",
   "kind": "runtime",
   "description": "Local auth provider with a file backend default and no database requirement.",
   "dependsOn": [
@@ -41,7 +41,7 @@ export default Object.freeze({
         },
         {
           "subpath": "./server/lib/index",
-          "summary": "Exports local auth service, file backend helpers, and password strategy helpers."
+          "summary": "Exports local auth service, file backend helpers, password strategy helpers, and local auth register hook decorators."
         }
       ],
       "containerTokens": {
@@ -57,8 +57,8 @@ export default Object.freeze({
   "mutations": {
     "dependencies": {
       "runtime": {
-        "@jskit-ai/auth-core": "0.1.106",
-        "@jskit-ai/kernel": "0.1.108",
+        "@jskit-ai/auth-core": "0.1.108",
+        "@jskit-ai/kernel": "0.1.110",
         "nodemailer": "^7.0.10",
         "dotenv": "^16.4.5"
       },

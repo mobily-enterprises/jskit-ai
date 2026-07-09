@@ -3,6 +3,7 @@ import test from "node:test";
 import { createApplication } from "@jskit-ai/kernel/_testable";
 import {
   AUTH_SERVICE_DECORATOR_TAG,
+  applyAuthServiceDecorators,
   registerAuthServiceDecorator,
   resolveAuthServiceDecorators
 } from "../src/server/authServiceDecoratorRegistry.js";
@@ -39,11 +40,24 @@ test("auth service decorator registry resolves decorators in order", () => {
     ["alpha", "zeta"]
   );
 
-  const decorated = decorators.reduce(
-    (service, decorator) => decorator.decorateAuthService(service),
-    { trace: [] }
-  );
+  const decorated = applyAuthServiceDecorators(app, { trace: [] });
   assert.deepEqual(decorated.trace, ["alpha", "zeta"]);
+});
+
+test("auth service decorator registry rejects invalid decorated services", () => {
+  const app = createApplication();
+
+  registerAuthServiceDecorator(app, "test.auth.decorator.invalid", () => ({
+    decoratorId: "invalid",
+    decorateAuthService() {
+      return null;
+    }
+  }));
+
+  assert.throws(
+    () => applyAuthServiceDecorators(app, {}),
+    /Auth service decorator "invalid" must return an auth service object/
+  );
 });
 
 test("auth service decorator registry exports canonical tag", () => {

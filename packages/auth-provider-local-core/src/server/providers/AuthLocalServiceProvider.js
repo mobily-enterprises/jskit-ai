@@ -1,3 +1,4 @@
+import { applyAuthServiceDecorators } from "@jskit-ai/auth-core/server/authServiceDecoratorRegistry";
 import fs from "node:fs";
 import path from "node:path";
 import { randomBytes } from "node:crypto";
@@ -5,6 +6,11 @@ import { createLocalAuthService } from "../lib/service.js";
 import { createLocalFileBackend } from "../lib/fileBackend.js";
 
 const DEFAULT_STORE_DIR = ".jskit/auth";
+
+function resolveLocalBackendMode(scope) {
+  const env = resolveRuntimeEnv(scope);
+  return String(env.AUTH_LOCAL_BACKEND || "file").trim().toLowerCase() || "file";
+}
 
 function parseBoolean(value, fallback = false) {
   const raw = String(value || "").trim().toLowerCase();
@@ -157,12 +163,9 @@ class AuthLocalServiceProvider {
       throw new Error("AuthLocalServiceProvider cannot register authService because another auth provider already registered it.");
     }
 
-    if (!app.has("auth.local.backend")) {
+    if (!app.has("auth.local.backend") && resolveLocalBackendMode(app) === "file") {
       app.singleton("auth.local.backend", (scope) => {
         const config = resolveConfig(scope);
-        if (config.backend !== "file") {
-          throw new Error(`AUTH_LOCAL_BACKEND="${config.backend}" requires a custom auth.local.backend provider.`);
-        }
         return createLocalFileBackend({
           storeDir: config.storeDir
         });
@@ -171,6 +174,9 @@ class AuthLocalServiceProvider {
 
     app.singleton("authService", (scope) => {
       const config = resolveConfig(scope);
+      if (!scope.has("auth.local.backend")) {
+        throw new Error(`AUTH_LOCAL_BACKEND="${config.backend}" requires a package or app provider that registers auth.local.backend.`);
+      }
       const backend = scope.make("auth.local.backend");
       const profileProjector = scope.has("auth.profile.projector")
         ? {
@@ -200,13 +206,14 @@ class AuthLocalServiceProvider {
       const passwordStrategy = scope.has("auth.local.passwordStrategy")
         ? scope.make("auth.local.passwordStrategy")
         : null;
-      return createLocalAuthService({
+      const authService = createLocalAuthService({
         backend,
         config,
         profileProjector,
         passwordStrategy,
         invitationContextResolver
       });
+      return applyAuthServiceDecorators(scope, authService);
     });
   }
 
@@ -218,4 +225,4 @@ class AuthLocalServiceProvider {
   }
 }
 
-export { AuthLocalServiceProvider };
+export { AuthLocalServiceProvider, resolveLocalBackendMode };

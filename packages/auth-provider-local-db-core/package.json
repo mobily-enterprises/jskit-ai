@@ -1,0 +1,17 @@
+{
+  "name": "@jskit-ai/auth-provider-local-db-core",
+  "version": "0.1.1",
+  "type": "module",
+  "scripts": {
+    "test": "node --test"
+  },
+  "exports": {
+    "./server/providers/AuthLocalDbBackendServiceProvider": "./src/server/providers/AuthLocalDbBackendServiceProvider.js",
+    "./server/lib/index": "./src/server/lib/index.js"
+  },
+  "dependencies": {
+    "@jskit-ai/auth-provider-local-core": "0.1.9",
+    "@jskit-ai/database-runtime": "0.1.109",
+    "@jskit-ai/kernel": "0.1.110"
+  }
+}

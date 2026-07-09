@@ -49,8 +49,22 @@ function resolveAuthServiceDecorators(scope) {
     .map((entry) => entry.decorator);
 }
 
+function applyAuthServiceDecorators(scope, authService) {
+  let decoratedAuthService = authService;
+
+  for (const decorator of resolveAuthServiceDecorators(scope)) {
+    decoratedAuthService = decorator.decorateAuthService(decoratedAuthService);
+    if (!decoratedAuthService || typeof decoratedAuthService !== "object") {
+      throw new Error(`Auth service decorator "${decorator.decoratorId}" must return an auth service object.`);
+    }
+  }
+
+  return decoratedAuthService;
+}
+
 export {
   AUTH_SERVICE_DECORATOR_TAG,
+  applyAuthServiceDecorators,
   registerAuthServiceDecorator,
   resolveAuthServiceDecorators
 };
