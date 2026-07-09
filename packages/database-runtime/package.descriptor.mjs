@@ -1,7 +1,7 @@
 export default Object.freeze({
   packageVersion: 1,
   packageId: "@jskit-ai/database-runtime",
-  version: "0.1.106",
+  version: "0.1.107",
   kind: "runtime",
   dependsOn: [
     "@jskit-ai/kernel"
@@ -58,7 +58,7 @@ export default Object.freeze({
   mutations: {
     dependencies: {
       runtime: {
-        "@jskit-ai/kernel": "0.1.107",
+        "@jskit-ai/kernel": "0.1.108",
         "dotenv": "^16.4.5",
         "knex": "^3.1.0"
       },
@@ -66,9 +66,10 @@ export default Object.freeze({
     },
     packageJson: {
       scripts: {
-        "db:migrate": "knex --knexfile ./knexfile.js migrate:latest",
+        "db:migrations:sync": "jskit migrations changed",
+        "db:migrate": "npm run db:migrations:sync && knex --knexfile ./knexfile.js migrate:latest",
         "db:migrate:rollback": "knex --knexfile ./knexfile.js migrate:rollback",
-        "db:migrate:status": "knex --knexfile ./knexfile.js migrate:list"
+        "db:migrate:status": "npm run db:migrations:sync && knex --knexfile ./knexfile.js migrate:list"
       }
     },
     procfile: {},

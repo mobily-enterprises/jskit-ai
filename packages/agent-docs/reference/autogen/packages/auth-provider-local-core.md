@@ -62,7 +62,7 @@ Local functions
 
 ### `src/server/lib/service.js`
 Exports
-- `createLocalAuthService({ backend, config, profileProjector = null, passwordStrategy = null })`
+- `createLocalAuthService({ backend, config, profileProjector = null, passwordStrategy = null, invitationContextResolver = null })`
 Local functions
 - `nowSeconds()`
 - `isoFromNow(seconds)`
@@ -75,11 +75,12 @@ Local functions
 - `clearCookieOptions(isProduction)`
 - `buildProfile(user)`
 - `buildActor(user, profile = null)`
-- `buildAuthPayload({ user, session, profileProjector })`
+- `buildAuthPayload({ user, session, profileProjector, profileOptions = {} })`
 - `buildAccessToken({ user, session, secret, ttlSeconds = ACCESS_TTL_SECONDS })`
 - `buildSessionPayload({ user, session, refreshToken, secret })`
 - `validatePasswordInput(password)`
 - `validateEmailInput(email)`
+- `normalizeInvitationInput(value = null)`
 - `maybeSendRecoveryEmail(config, recoveryUrl, email)`
 
 ### `src/server/lib/tokens.js`

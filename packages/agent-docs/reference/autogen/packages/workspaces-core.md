@@ -207,11 +207,26 @@ Exports
 Local functions
 - `resolveWorkspaceAggregateRecordId(record = {}, context = {})`
 
+### `src/server/workspaceMembers/defaultWorkspaceInviteEmail.js`
+Exports
+- `renderDefaultWorkspaceInviteEmail({ inviteUrl = "", workspace = {}, inviter = null, roleSid = "member", expiresAt = "" } = {})`
+Local functions
+- `escapeHtml(value = "")`
+
 ### `src/server/workspaceMembers/registerWorkspaceMembers.js`
 Exports
 - `registerWorkspaceMembers(app)`
 Local functions
 - `resolveWorkspaceMembersInviteExpiresInMs(appConfig = {})`
+- `resolveWorkspaceInviteEmailTemplate(scope, appConfig = {})`
+
+### `src/server/workspaceMembers/workspaceInviteUrls.js`
+Exports
+- `buildInvitePath(token, pathTemplate = "/invite/:token")`
+- `createWorkspaceInviteUrlBuilder({ appConfig = {}, env = {} } = {})`
+Local functions
+- `normalizeInvitePathTemplate(value = "")`
+- `normalizeBaseUrl(value = "")`
 
 ### `src/server/workspaceMembers/workspaceMembersActions.js`
 Exports
@@ -219,13 +234,14 @@ Exports
 
 ### `src/server/workspaceMembers/workspaceMembersService.js`
 Exports
-- `createService({ workspaceMembershipsRepository, workspaceInvitesRepository, inviteExpiresInMs, roleCatalog = null, workspaceInvitationsEnabled = true } = {})`
+- `createService({ workspaceMembershipsRepository, workspaceInvitesRepository, inviteExpiresInMs, roleCatalog = null, workspaceInvitationsEnabled = true, inviteUrlBuilder = null, workspaceInviteMailer = null, workspaceInviteEmailTemplate = renderDefaultWorkspaceInviteEmail } = {})`
 
 ### `src/server/workspacePendingInvitations/bootWorkspacePendingInvitations.js`
 Exports
 - `bootWorkspacePendingInvitations(app)`
 Local functions
 - `resolveAuthenticatedUserRecordId(_record, context = {})`
+- `resolveInviteResolutionRecordId(record = {})`
 
 ### `src/server/workspacePendingInvitations/registerWorkspacePendingInvitations.js`
 Exports
@@ -287,6 +303,7 @@ Exports
 - `WORKSPACE_INVITES_TRANSPORT`
 - `WORKSPACE_INVITE_CREATE_TRANSPORT`
 - `WORKSPACE_INVITE_REDEEM_TRANSPORT`
+- `WORKSPACE_INVITATION_RESOLVE_TRANSPORT`
 - `WORKSPACE_PENDING_INVITATIONS_TRANSPORT`
 
 ### `src/shared/operationMessages.js`
@@ -426,6 +443,10 @@ Local functions
 - `hasTable(knex, tableName)`
 - `hasColumn(knex, tableName, columnName)`
 - `normalizeHexColor(value)`
+
+### `templates/packages/main/src/server/email/workspaceInviteEmail.js`
+Exports
+- `renderWorkspaceInviteEmail({ inviteUrl = "", workspace = {}, inviter = null, roleSid = "member", expiresAt = "" } = {})`
 
 ### root
 

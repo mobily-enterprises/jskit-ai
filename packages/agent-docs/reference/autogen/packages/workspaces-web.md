@@ -39,6 +39,7 @@ Local functions
 - `isRevokeInviteLoading(inviteId)`
 - `isRemoveMemberLoading(memberUserId)`
 - `onSubmitInvite()`
+- `onCopyInviteLink()`
 - `onRevokeInvite(inviteId)`
 - `onMemberRoleUpdate(member, roleSid)`
 - `onRemoveMember(member)`
@@ -73,6 +74,14 @@ Exports
 Exports
 - None
 
+### `src/client/components/WorkspaceInviteLanding.vue`
+Exports
+- None
+Local functions
+- `buildAuthUrl(mode)`
+- `refreshInvite()`
+- `acceptInvite()`
+
 ### `src/client/components/WorkspaceMembersClientElement.vue`
 Exports
 - None
@@ -91,6 +100,7 @@ Local functions
 - `applyWorkspaceSettingsPolicy(payload = {})`
 - `refreshLoad()`
 - `submitInvite()`
+- `copyCreatedInviteLink()`
 - `submitRevokeInvite(inviteId)`
 - `submitMemberRoleUpdate(member, roleSid)`
 - `submitRemoveMember(member)`
@@ -125,6 +135,7 @@ Local functions
 Exports
 - `WorkspacesWebClientProvider`
 - `WorkspaceMembersClientElement`
+- `WorkspaceInviteLanding`
 - `clientProviders`
 
 ### `src/client/lib/bootstrap.js`
@@ -332,6 +343,10 @@ Exports
 - None
 
 ### `templates/src/pages/admin/workspace/settings/index.vue`
+Exports
+- None
+
+### `templates/src/pages/invite/[token].vue`
 Exports
 - None
 

@@ -39,6 +39,14 @@ const resource = defineCrudResource({
       operations: {
         output: { required: true }
       }
+    },
+    updatedAt: {
+      type: "dateTime",
+      required: true,
+      storage: { writeSerializer: "datetime-utc" },
+      operations: {
+        output: { required: true }
+      }
     }
   },
   searchSchema: {

@@ -1,7 +1,7 @@
 export default Object.freeze({
   packageVersion: 1,
   packageId: "@jskit-ai/workspaces-core",
-  version: "0.1.82",
+  version: "0.1.83",
   kind: "runtime",
   description: "Workspace tenancy runtime plus HTTP routes, role catalog, and workspace config scaffolding.",
   dependsOn: [
@@ -147,10 +147,10 @@ export default Object.freeze({
   mutations: {
     dependencies: {
       runtime: {
-        "@jskit-ai/json-rest-api-core": "0.1.51",
-        "@jskit-ai/resource-core": "0.1.51",
-        "@jskit-ai/resource-crud-core": "0.1.51",
-        "@jskit-ai/users-core": "0.1.116"
+        "@jskit-ai/json-rest-api-core": "0.1.52",
+        "@jskit-ai/resource-core": "0.1.52",
+        "@jskit-ai/resource-crud-core": "0.1.52",
+        "@jskit-ai/users-core": "0.1.117"
       },
       dev: {}
     },

@@ -150,6 +150,14 @@ const userProfileResource = defineCrudResource({
         column: "created_at",
         writeSerializer: "datetime-utc"
       }
+    },
+    updatedAt: {
+      type: "dateTime",
+      default: "now()",
+      storage: {
+        column: "updated_at",
+        writeSerializer: "datetime-utc"
+      }
     }
   },
   messages: USER_PROFILE_OPERATION_MESSAGES,

@@ -1,7 +1,7 @@
 export default Object.freeze({
   packageVersion: 1,
   packageId: "@jskit-ai/storage-runtime",
-  version: "0.1.105",
+  version: "0.1.106",
   kind: "runtime",
   dependsOn: [
     "@jskit-ai/kernel"
@@ -50,7 +50,7 @@ export default Object.freeze({
   mutations: {
     dependencies: {
       runtime: {
-        "@jskit-ai/kernel": "0.1.107",
+        "@jskit-ai/kernel": "0.1.108",
         "unstorage": "^1.17.3"
       },
       dev: {}
