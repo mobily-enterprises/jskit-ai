@@ -1,6 +1,6 @@
 {
   "name": "@jskit-ai/auth-provider-local-db-core",
-  "version": "0.1.2",
+  "version": "0.1.4",
   "type": "module",
   "scripts": {
     "test": "node --test"
@@ -10,8 +10,8 @@
     "./server/lib/index": "./src/server/lib/index.js"
   },
   "dependencies": {
-    "@jskit-ai/auth-provider-local-core": "0.1.10",
-    "@jskit-ai/database-runtime": "0.1.110",
-    "@jskit-ai/kernel": "0.1.111"
+    "@jskit-ai/auth-provider-local-core": "0.1.12",
+    "@jskit-ai/database-runtime": "0.1.112",
+    "@jskit-ai/kernel": "0.1.113"
   }
 }

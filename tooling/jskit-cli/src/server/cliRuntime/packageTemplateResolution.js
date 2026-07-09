@@ -46,6 +46,20 @@ function buildMaterializedInstallRoot({ appRoot, packageEntry }) {
   );
 }
 
+function buildCatalogPackageCacheInstallArgs(packageSpec) {
+  // The cache only needs package-owned descriptors/templates. App installs still validate peer dependencies.
+  return [
+    "install",
+    "--no-save",
+    "--ignore-scripts",
+    "--package-lock=false",
+    "--no-audit",
+    "--no-fund",
+    "--legacy-peer-deps",
+    packageSpec
+  ];
+}
+
 async function ensureMaterializedInstallWorkspace(installRoot) {
   await mkdir(installRoot, { recursive: true });
   const packageJsonPath = path.join(installRoot, "package.json");
@@ -80,15 +94,7 @@ async function installCatalogPackageIntoCache({
   await new Promise((resolve, reject) => {
     const child = spawn(
       "npm",
-      [
-        "install",
-        "--no-save",
-        "--ignore-scripts",
-        "--package-lock=false",
-        "--no-audit",
-        "--no-fund",
-        packageSpec
-      ],
+      buildCatalogPackageCacheInstallArgs(packageSpec),
       {
         cwd: installRoot,
         stdio: ["ignore", "pipe", "pipe"]
@@ -307,6 +313,7 @@ async function cleanupMaterializedPackageRoots() {
 }
 
 export {
+  buildCatalogPackageCacheInstallArgs,
   cleanupMaterializedPackageRoots,
   materializeCatalogPackageRoot,
   resolvePackageTemplateRoot

@@ -373,6 +373,7 @@ Local functions
 
 ### `src/server/cliRuntime/packageTemplateResolution.js`
 Exports
+- `buildCatalogPackageCacheInstallArgs(packageSpec)`
 - `cleanupMaterializedPackageRoots()`
 - `materializeCatalogPackageRoot({ packageEntry, appRoot, reportTemplateFetchStatus = null, installCatalogPackage = installCatalogPackageIntoCache } = {})`
 - `resolvePackageTemplateRoot({ packageEntry, appRoot, reportTemplateFetchStatus = null, materializeCatalogRoot = materializeCatalogPackageRoot } = {})`
