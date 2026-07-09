@@ -3,6 +3,7 @@ import path from "node:path";
 import test from "node:test";
 import { withTempDir } from "../../testUtils/tempDir.mjs";
 import {
+  buildCatalogPackageCacheInstallArgs,
   materializeCatalogPackageRoot,
   resolvePackageTemplateRoot,
   cleanupMaterializedPackageRoots
@@ -10,6 +11,19 @@ import {
 
 test.afterEach(async () => {
   await cleanupMaterializedPackageRoots();
+});
+
+test("catalog package source cache install skips peer dependency auto-resolution", () => {
+  assert.deepEqual(buildCatalogPackageCacheInstallArgs("@jskit-ai/auth-web@1.2.3"), [
+    "install",
+    "--no-save",
+    "--ignore-scripts",
+    "--package-lock=false",
+    "--no-audit",
+    "--no-fund",
+    "--legacy-peer-deps",
+    "@jskit-ai/auth-web@1.2.3"
+  ]);
 });
 
 test("resolvePackageTemplateRoot uses catalog materialization for missing internal catalog packages", async () => {
