@@ -1,7 +1,7 @@
 export default Object.freeze({
   packageVersion: 1,
   packageId: "@jskit-ai/feature-server-generator",
-  version: "0.1.51",
+  version: "0.1.52",
   kind: "generator",
   description: "Scaffold substantial non-CRUD server feature packages with provider, actions, service, and optional persistence seams.",
   options: {
@@ -174,7 +174,7 @@ export default Object.freeze({
             equals: "json-rest"
           }
         },
-        "@jskit-ai/kernel": "0.1.110",
+        "@jskit-ai/kernel": "0.1.111",
         "json-rest-schema": "1.x.x",
         "@local/${option:feature-name|kebab}": "file:packages/${option:feature-name|kebab}"
       },
