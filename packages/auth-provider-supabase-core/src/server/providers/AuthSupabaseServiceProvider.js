@@ -1,6 +1,6 @@
 import { resolveAllowedOriginsFromSurfaceDefinitions } from "@jskit-ai/kernel/shared/support/returnToPath";
 import { withActionDefaults } from "@jskit-ai/kernel/shared/actions";
-import { resolveAuthServiceDecorators } from "@jskit-ai/auth-core/server/authServiceDecoratorRegistry";
+import { applyAuthServiceDecorators } from "@jskit-ai/auth-core/server/authServiceDecoratorRegistry";
 import { normalizeEmail } from "@jskit-ai/auth-core/server/utils";
 import { createService } from "../lib/service.js";
 import { devLoginAsAction } from "../lib/actions/auth.contributor.js";
@@ -196,19 +196,6 @@ function isDeferredJsonRestBootGap(app, error) {
     /internal\.json-rest-api/.test(combined) &&
     /not registered/i.test(combined)
   );
-}
-
-function applyAuthServiceDecorators(scope, authService) {
-  let decoratedAuthService = authService;
-
-  for (const decorator of resolveAuthServiceDecorators(scope)) {
-    decoratedAuthService = decorator.decorateAuthService(decoratedAuthService);
-    if (!decoratedAuthService || typeof decoratedAuthService !== "object") {
-      throw new Error(`Auth service decorator "${decorator.decoratorId}" must return an auth service object.`);
-    }
-  }
-
-  return decoratedAuthService;
 }
 
 class AuthSupabaseServiceProvider {

@@ -243,7 +243,6 @@ Local functions
 - `assertSelectedAuthProvider(env)`
 - `resolveOptionalRepositories(scope)`
 - `isDeferredJsonRestBootGap(app, error)`
-- `applyAuthServiceDecorators(scope, authService)`
 
 ### root
 

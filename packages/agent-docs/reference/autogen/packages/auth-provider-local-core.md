@@ -47,6 +47,8 @@ Local functions
 Exports
 - `createLocalAuthService`
 - `createLocalFileBackend`
+- `LOCAL_AUTH_USER_REGISTERED_EVENT`
+- `createLocalAuthRegisterHookDecorator`
 - `hashPassword`
 - `normalizePasswordStrategy`
 - `verifyPassword`
@@ -59,6 +61,16 @@ Exports
 Local functions
 - `base64url(buffer)`
 - `fromBase64url(value)`
+
+### `src/server/lib/registerHookDecorator.js`
+Exports
+- `LOCAL_AUTH_USER_REGISTERED_EVENT`
+- `createLocalAuthRegisterHookDecorator({ decoratorId = "auth.local.registerHook", order = 0, logger = null, hook = null } = {})`
+Local functions
+- `assertBlockingMode(hook)`
+- `normalizeRegisterHook(hook = null)`
+- `logNonBlockingHookFailure({ logger, hook, error } = {})`
+- `runRegisterHook({ hook, result, logger })`
 
 ### `src/server/lib/service.js`
 Exports
@@ -96,6 +108,7 @@ Local functions
 ### `src/server/providers/AuthLocalServiceProvider.js`
 Exports
 - `AuthLocalServiceProvider`
+- `resolveLocalBackendMode(scope)`
 Local functions
 - `parseBoolean(value, fallback = false)`
 - `resolveRuntimeEnv(scope)`

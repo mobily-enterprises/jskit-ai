@@ -42,7 +42,7 @@ async function verifyPassword(password, record) {
 }
 
 function normalizePasswordStrategy(strategy = null) {
-  if (!strategy) {
+  if (strategy == null) {
     return Object.freeze({
       hashPassword,
       verifyPassword
@@ -53,13 +53,12 @@ function normalizePasswordStrategy(strategy = null) {
     throw new TypeError("Local auth password strategy must be an object.");
   }
 
-  const normalized = strategy;
-  const strategyHashPassword = typeof normalized.hashPassword === "undefined"
+  const strategyHashPassword = typeof strategy.hashPassword === "undefined"
     ? hashPassword
-    : normalized.hashPassword;
-  const strategyVerifyPassword = typeof normalized.verifyPassword === "undefined"
+    : strategy.hashPassword;
+  const strategyVerifyPassword = typeof strategy.verifyPassword === "undefined"
     ? verifyPassword
-    : normalized.verifyPassword;
+    : strategy.verifyPassword;
 
   if (typeof strategyHashPassword !== "function") {
     throw new TypeError("Local auth password strategy hashPassword must be a function.");

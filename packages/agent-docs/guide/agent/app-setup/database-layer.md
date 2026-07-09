@@ -718,11 +718,16 @@ Inside the local provider, auth only projects provider identities into the app u
 
 ```js
 const profileProjector = scope.has("auth.profile.projector")
-  ? scope.make("auth.profile.projector")
+  ? {
+      async syncIdentityProfile(profile, options = {}) {
+        const projector = scope.make("auth.profile.projector");
+        return projector.syncIdentityProfile(profile, options);
+      }
+    }
   : null;
 ```
 
-That snippet explains the whole consequence of this chapter.
+That snippet explains the whole consequence of this chapter. The provider checks whether the token exists, but it does not resolve the real projector until an auth payload actually needs profile projection.
 
 - The auth provider can authenticate users without an app database.
 - Nothing in `database-runtime-mysql` registers `auth.profile.projector`.

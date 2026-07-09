@@ -65,6 +65,7 @@ Local functions
 ### `src/server/authServiceDecoratorRegistry.js`
 Exports
 - `AUTH_SERVICE_DECORATOR_TAG`
+- `applyAuthServiceDecorators(scope, authService)`
 - `registerAuthServiceDecorator(app, token, factory)`
 - `resolveAuthServiceDecorators(scope)`
 Local functions

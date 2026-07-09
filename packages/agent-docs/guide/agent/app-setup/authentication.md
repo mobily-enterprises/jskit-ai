@@ -490,7 +490,7 @@ The first new place to inspect is `package.json`:
 }
 ```
 
-Three things are worth noticing immediately.
+Four things are worth noticing immediately.
 
 - `auth-core` owns the provider-neutral contract, shared actions, policy hooks, and capability normalization.
 - `auth-provider-local-core` is the selected provider-specific runtime.
@@ -508,7 +508,91 @@ AUTH_LOCAL_BACKEND=file
 
 The backend selection is intentionally local-provider-specific. `auth.local.backend` is the public server container token for replacing the file store later; Supabase and other external providers do not use it. A custom local backend must expose a single `withTransaction(callback)` method. JSKIT calls that method for register, login, recovery, password reset, profile update, session revocation, and security operations, and the callback receives transactional `users`, `sessions`, and `recovery` repositories.
 
-The built-in file backend is for low-friction local development, first deploys with one persistent Node instance, and simple apps that accept that storage model. It writes `.jskit/auth/*.passwd` files behind a store-level lock. Do not treat it as horizontally scalable or serverless-safe storage; when the app needs replicated auth storage, register a custom `auth.local.backend` that uses the app's chosen database runtime.
+The built-in file backend is for low-friction local development, first deploys with one persistent Node instance, and simple apps that accept that storage model. It writes `.jskit/auth/*.passwd` files behind a store-level lock. Do not treat it as horizontally scalable or serverless-safe storage; when the app needs replicated auth storage, install the DB-backed local auth package or register a custom `auth.local.backend`.
+
+That DB-backed local auth storage is not the same thing as the `users-core` profile tables. `users-core` creates app-owned `users` and `user_settings` rows later. DB-backed local auth stores the provider-owned auth state that the file backend would otherwise keep in `.jskit/auth/`.
+
+The batteries-included DB package is `@jskit-ai/auth-provider-local-db-core`. It uses JSKIT's database runtime and owns three auth-local tables:
+
+- `auth_local_users` for provider auth identities: normalized email, display name, disabled flag, password algorithm/version/salt/hash, and timestamps.
+- `auth_local_sessions` for refresh sessions: session id, auth-local user id, refresh-token hash, session purpose such as `normal` or `recovery`, expiry, revocation, and timestamps.
+- `auth_local_recovery` for password recovery: recovery token id, auth-local user id, recovery-token hash, expiry, used-at timestamp, and timestamps.
+
+To use it, install a JSKIT database runtime and driver, install `auth-provider-local-db-core`, run migrations, and use `AUTH_LOCAL_BACKEND=db`. The package registers `auth.local.backend` for DB mode. If `AUTH_LOCAL_BACKEND=db` is set without the DB backend package, local auth fails instead of falling back to file storage.
+
+**Summary: Adding Database-Backed Users**
+
+There are two database-backed paths, and they solve different problems.
+
+For normal app users and account settings, install the database runtime, install `users-web`, then run the migrations. That gives the app the `users` and `user_settings` tables through `users-core`, plus the `auth.profile.projector` bridge that projects a provider identity into a persistent JSKIT user profile.
+
+For local auth credentials and sessions in SQL, keep `AUTH_PROVIDER=local`, install `auth-provider-local-db-core`, set `AUTH_LOCAL_BACKEND=db`, and run migrations. That package owns `auth_local_users`, `auth_local_sessions`, and `auth_local_recovery`, and registers the transactional `auth.local.backend` implementation.
+
+The first path makes authenticated people real JSKIT users. The second path moves local auth's passwords, refresh sessions, and recovery tokens out of `.jskit/auth/` and into the database. Many apps need the first path before they need the second.
+
+Apps that need audit logs, login counters, MFA records, or password history should add sidecar tables that reference `auth_local_users.id`; do not edit the package-owned auth-local migrations or add app-specific columns to those tables. Apps with different table names, external KMS, non-SQL storage, or unusual tenancy partitioning should replace the backend by registering their own `auth.local.backend`.
+
+Local auth also applies the shared auth-service decorator registry from `auth-core`. Use that registry when an app or package needs to wrap provider behavior without owning the local auth tables. The local package exports a narrow helper for after-register work:
+
+```js
+import { registerAuthServiceDecorator } from "@jskit-ai/auth-core/server/authServiceDecoratorRegistry";
+import { createLocalAuthRegisterHookDecorator } from "@jskit-ai/auth-provider-local-core/server/lib/index";
+
+registerAuthServiceDecorator(app, "app.auth.local.permissions", (scope) => {
+  const permissionsService = scope.make("permissionsService");
+
+  return createLocalAuthRegisterHookDecorator({
+    decoratorId: "app.auth.local.permissions",
+    order: 10,
+    hook: {
+      hookId: "permissions",
+      blocking: true,
+      async handle({ actor, profile }) {
+        await permissionsService.createDefaultsForUser({
+          userId: actor.id,
+          email: actor.email,
+          displayName: profile.displayName
+        });
+      }
+    }
+  });
+});
+```
+
+The hook must declare `blocking: true` or `blocking: false`. A blocking hook is awaited and its failure rejects the register call, which fits permission provisioning or other work the app needs before treating registration as complete. A non-blocking hook is scheduled after registration and logs failures, which fits audit logging or metrics. This helper runs after local auth registration and profile projection have succeeded; it does not share the local auth backend transaction. If the extension must be transaction-coupled with credential storage, wrap or replace `auth.local.backend` instead.
+
+The local provider also has a separate password strategy seam. Use `auth.local.backend` to change where local auth records are stored. Use `auth.local.passwordStrategy` only when the app needs to change how passwords are hashed or verified, such as during a migration from an existing user table with existing password hashes.
+
+Register `auth.local.passwordStrategy` before `AuthLocalServiceProvider` starts:
+
+```js
+import bcrypt from "bcryptjs";
+import { verifyPassword as verifyScryptPassword } from "@jskit-ai/auth-provider-local-core/server/lib/index";
+
+app.singleton("auth.local.passwordStrategy", () => ({
+  async verifyPassword(password, record) {
+    if (typeof record === "string" && /^\$2[aby]\$/.test(record)) {
+      return bcrypt.compare(password, record);
+    }
+
+    return verifyScryptPassword(password, record);
+  }
+}));
+```
+
+The strategy object can provide `hashPassword(password)`, `verifyPassword(password, storedPasswordRecord)`, or both. Missing methods fall back to the local provider's default scrypt implementation, so a migration verifier can accept old hashes while new registrations, resets, and password changes continue to write default JSKIT password records. JSKIT validates provided methods as functions and calls them with `this` bound to the strategy object.
+
+Custom service callers can pass the same object directly:
+
+```js
+createLocalAuthService({
+  backend,
+  config,
+  passwordStrategy
+});
+```
+
+JSKIT core does not install bcrypt or any legacy password dependency. If an app needs a legacy verifier, the app owns that dependency and keeps the backend as storage only.
 
 If you later configure local SMTP password recovery, also set `APP_PUBLIC_URL` so reset links point back to the browser URL for this app.
 
@@ -680,7 +764,9 @@ For ordinary Vue component code there is usually no advantage to writing it this
 
 The most important thing to understand is that the browser talks to **your app**, and the app talks to the **selected auth provider** through the provider-neutral `authService` contract.
 
-With the local provider, the selected provider is in the same Node process. It verifies passwords, writes sessions, and stores local auth state through `auth.local.backend`. The default backend writes the `.jskit/auth/*.passwd` files; a custom backend can use a database later without changing the login UI or the shared auth routes.
+With the local provider, the selected provider is in the same Node process. It verifies passwords, writes sessions, and stores local auth state through `auth.local.backend`. The default backend writes the `.jskit/auth/*.passwd` files; `auth-provider-local-db-core` moves that storage into package-owned database tables without changing the login UI or the shared auth routes.
+
+If `users-core` or another package registers `auth.profile.projector`, local auth now resolves that projector lazily when it actually builds an auth payload for register, login, session refresh, or request authentication. That keeps local auth boot independent from the projector's own dependencies, such as repositories behind `internal.json-rest-api`.
 
 That means there are two actors in the first-app flow:
 
