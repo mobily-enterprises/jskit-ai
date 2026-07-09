@@ -73,6 +73,37 @@ test("validateInlineOptionValuesForPackage rejects unsupported enum and csv-enum
   );
 });
 
+test("resolvePackageOptions normalizes descriptor flag options without empty-string ambiguity", async () => {
+  const packageEntry = {
+    packageId: "@demo/flag-generator",
+    descriptor: {
+      options: {
+        force: {
+          required: false,
+          inputType: "flag",
+          defaultValue: ""
+        },
+        internal: {
+          required: false,
+          inputType: "flag",
+          defaultValue: ""
+        }
+      }
+    }
+  };
+
+  assert.deepEqual(
+    await resolvePackageOptions(packageEntry, {}, {}, {}),
+    {
+      force: "false",
+      internal: "false"
+    }
+  );
+  assert.equal((await resolvePackageOptions(packageEntry, { internal: undefined }, {}, {})).internal, "true");
+  assert.equal((await resolvePackageOptions(packageEntry, { internal: "" }, {}, {})).internal, "true");
+  assert.equal((await resolvePackageOptions(packageEntry, { internal: "false" }, {}, {})).internal, "false");
+});
+
 test("resolvePackageOptions offers descriptor-backed choices for required enum options", async () => {
   const stdin = new PassThrough();
   stdin.isTTY = true;

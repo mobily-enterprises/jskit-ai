@@ -23,9 +23,17 @@ test("CRUD screen components own generated list/view/form chrome centrally", asy
   assert.match(listSource, /CrudListBulkActionSurface/);
   assert.match(listSource, /CrudListFilterSurface/);
   assert.match(listSource, /CrudListRecordActionMenu/);
-  assert.match(listSource, /ui-generator-list-cards d-md-none/);
-  assert.match(listSource, /ui-generator-list-table d-none d-md-block/);
-  assert.match(listSource, /class="ui-generator-list-fab d-md-none"/);
+  assert.match(listSource, /class="ui-generator-list-cards"/);
+  assert.match(listSource, /class="ui-generator-list-table"/);
+  assert.match(listSource, /class="ui-generator-list-fab"/);
+  assert.doesNotMatch(listSource, /ui-generator-list-cards d-md-none/);
+  assert.doesNotMatch(listSource, /ui-generator-list-table d-none d-md-block/);
+  assert.doesNotMatch(listSource, /class="ui-generator-list-fab d-md-none"/);
+  assert.match(listSource, /\.ui-generator-list-table\s*\{\s*display:\s*none;/);
+  assert.match(
+    listSource,
+    /@media \(min-width: 960px\)[\s\S]*\.ui-generator-list-cards\s*\{\s*display:\s*none;[\s\S]*\.ui-generator-list-table\s*\{\s*display:\s*block;[\s\S]*\.ui-generator-list-fab\s*\{\s*display:\s*none;/
+  );
   assert.match(listSource, /button-label="More"/);
   assert.match(listSource, /selectableRows/);
   assert.match(listSource, /min-height:\s*48px/);

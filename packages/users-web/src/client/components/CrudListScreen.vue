@@ -191,7 +191,7 @@ function setSelectableRowsSelected(selected = true) {
         </div>
 
         <template v-else>
-          <div class="ui-generator-list-cards d-md-none">
+          <div class="ui-generator-list-cards">
             <v-sheet
               v-for="row in displayRows"
               :key="row.key"
@@ -237,7 +237,7 @@ function setSelectableRowsSelected(selected = true) {
             </v-sheet>
           </div>
 
-          <div class="ui-generator-list-table d-none d-md-block">
+          <div class="ui-generator-list-table">
             <v-table density="comfortable">
               <thead>
                 <tr>
@@ -325,7 +325,7 @@ function setSelectableRowsSelected(selected = true) {
 
     <v-btn
       v-if="listPrimaryAction"
-      class="ui-generator-list-fab d-md-none"
+      class="ui-generator-list-fab"
       color="primary"
       variant="flat"
       :to="listPrimaryAction"
@@ -447,6 +447,7 @@ function setSelectableRowsSelected(selected = true) {
 }
 
 .ui-generator-list-table {
+  display: none;
   overflow-x: auto;
 }
 
@@ -456,9 +457,24 @@ function setSelectableRowsSelected(selected = true) {
 
 .ui-generator-list-fab {
   bottom: calc(5rem + env(safe-area-inset-bottom, 0px));
+  display: flex;
   position: fixed;
   right: 1rem;
   z-index: 6;
+}
+
+@media (min-width: 960px) {
+  .ui-generator-list-cards {
+    display: none;
+  }
+
+  .ui-generator-list-table {
+    display: block;
+  }
+
+  .ui-generator-list-fab {
+    display: none;
+  }
 }
 
 @media (max-width: 960px) {

@@ -86,10 +86,10 @@ function resolveInternalRouteOption(options = {}) {
   if (!Object.prototype.hasOwnProperty.call(options, "internal")) {
     return false;
   }
-  if (options.internal === "" || options.internal === true) {
+  if (options.internal === undefined || options.internal === true) {
     return true;
   }
-  if (options.internal === false) {
+  if (options.internal === "" || options.internal == null || options.internal === false) {
     return false;
   }
   return normalizeBoolean(options.internal);
@@ -1736,6 +1736,11 @@ function renderRouteParamsValidatorLine(operation = "", { surfaceRequiresWorkspa
   return "      params: recordRouteParamsValidator,";
 }
 
+function renderOptionalTemplateLine(line = "") {
+  const renderedLine = String(line || "").trimEnd();
+  return renderedLine ? `\n${renderedLine}` : "";
+}
+
 function renderRouteInputLines(operation = "", { surfaceRequiresWorkspace = true } = {}) {
   const normalizedOperation = normalizeCrudOperation(operation, "CRUD route input operation");
   const lines = [];
@@ -1926,26 +1931,36 @@ function buildReplacementsFromSnapshot({
     __JSKIT_CRUD_ROUTE_WORKSPACE_SUPPORT_IMPORTS__: renderRouteWorkspaceSupportImports({
       surfaceRequiresWorkspace
     }),
-    __JSKIT_CRUD_ROUTE_INTERNAL_LINE__: routeInternal === true ? "      internal: true," : "",
+    __JSKIT_CRUD_ROUTE_INTERNAL_LINE__: routeInternal === true ? "\n      internal: true," : "",
     __JSKIT_CRUD_ROUTE_CONTRACTS_RESOURCE_ARGS__: surfaceRequiresWorkspace ? ",\n  routeParamsValidator" : "",
     __JSKIT_CRUD_ROUTE_VALIDATOR_CONSTANTS__: renderRouteValidatorConstants({
       surfaceRequiresWorkspace
     }),
-    __JSKIT_CRUD_LIST_ROUTE_PARAMS_VALIDATOR_LINE__: renderRouteParamsValidatorLine("list", {
-      surfaceRequiresWorkspace
-    }),
-    __JSKIT_CRUD_VIEW_ROUTE_PARAMS_VALIDATOR_LINE__: renderRouteParamsValidatorLine("view", {
-      surfaceRequiresWorkspace
-    }),
-    __JSKIT_CRUD_CREATE_ROUTE_PARAMS_VALIDATOR_LINE__: renderRouteParamsValidatorLine("create", {
-      surfaceRequiresWorkspace
-    }),
-    __JSKIT_CRUD_UPDATE_ROUTE_PARAMS_VALIDATOR_LINE__: renderRouteParamsValidatorLine("update", {
-      surfaceRequiresWorkspace
-    }),
-    __JSKIT_CRUD_DELETE_ROUTE_PARAMS_VALIDATOR_LINE__: renderRouteParamsValidatorLine("delete", {
-      surfaceRequiresWorkspace
-    }),
+    __JSKIT_CRUD_LIST_ROUTE_PARAMS_VALIDATOR_LINE__: renderOptionalTemplateLine(
+      renderRouteParamsValidatorLine("list", {
+        surfaceRequiresWorkspace
+      })
+    ),
+    __JSKIT_CRUD_VIEW_ROUTE_PARAMS_VALIDATOR_LINE__: renderOptionalTemplateLine(
+      renderRouteParamsValidatorLine("view", {
+        surfaceRequiresWorkspace
+      })
+    ),
+    __JSKIT_CRUD_CREATE_ROUTE_PARAMS_VALIDATOR_LINE__: renderOptionalTemplateLine(
+      renderRouteParamsValidatorLine("create", {
+        surfaceRequiresWorkspace
+      })
+    ),
+    __JSKIT_CRUD_UPDATE_ROUTE_PARAMS_VALIDATOR_LINE__: renderOptionalTemplateLine(
+      renderRouteParamsValidatorLine("update", {
+        surfaceRequiresWorkspace
+      })
+    ),
+    __JSKIT_CRUD_DELETE_ROUTE_PARAMS_VALIDATOR_LINE__: renderOptionalTemplateLine(
+      renderRouteParamsValidatorLine("delete", {
+        surfaceRequiresWorkspace
+      })
+    ),
     __JSKIT_CRUD_LIST_ROUTE_INPUT_LINES__: renderRouteInputLines("list", {
       surfaceRequiresWorkspace
     }),

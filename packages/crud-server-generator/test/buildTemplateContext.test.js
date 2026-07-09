@@ -256,7 +256,8 @@ test("buildReplacementsFromSnapshot renders an internal route line only when req
   });
 
   assert.equal(publicReplacements.__JSKIT_CRUD_ROUTE_INTERNAL_LINE__, "");
-  assert.equal(internalReplacements.__JSKIT_CRUD_ROUTE_INTERNAL_LINE__, "      internal: true,");
+  assert.equal(internalReplacements.__JSKIT_CRUD_ROUTE_INTERNAL_LINE__, "\n      internal: true,");
+  assert.equal(publicReplacements.__JSKIT_CRUD_LIST_ROUTE_PARAMS_VALIDATOR_LINE__, "\n      params: routeParamsValidator,");
 });
 
 test("resolveInternalRouteOption rejects invalid internal flag values instead of silently generating public routes", () => {
@@ -266,8 +267,12 @@ test("resolveInternalRouteOption rejects invalid internal flag values instead of
   );
 });
 
-test("resolveInternalRouteOption treats an empty-string flag presence as true", () => {
-  assert.equal(__testables.resolveInternalRouteOption({ internal: "" }), true);
+test("resolveInternalRouteOption does not confuse descriptor defaults with explicit internal flags", () => {
+  assert.equal(__testables.resolveInternalRouteOption({}), false);
+  assert.equal(__testables.resolveInternalRouteOption({ internal: "" }), false);
+  assert.equal(__testables.resolveInternalRouteOption({ internal: false }), false);
+  assert.equal(__testables.resolveInternalRouteOption({ internal: undefined }), true);
+  assert.equal(__testables.resolveInternalRouteOption({ internal: true }), true);
   assert.equal(__testables.resolveInternalRouteOption({ internal: "true" }), true);
   assert.equal(__testables.resolveInternalRouteOption({ internal: "false" }), false);
 });
@@ -326,7 +331,7 @@ test("buildReplacementsFromSnapshot builds deterministic template replacement pa
   assert.match(replacements.__JSKIT_CRUD_LIST_ACTION_INPUT__, /workspaceSlugParamsValidator,/);
   assert.equal(
     replacements.__JSKIT_CRUD_VIEW_ROUTE_PARAMS_VALIDATOR_LINE__,
-    "      params: recordRouteParamsValidator,"
+    "\n      params: recordRouteParamsValidator,"
   );
   assert.match(
     replacements.__JSKIT_CRUD_ROUTE_VALIDATOR_CONSTANTS__,
@@ -402,7 +407,7 @@ test("buildReplacementsFromSnapshot omits named permissions and role grants when
   assert.equal(replacements.__JSKIT_CRUD_LIST_ROUTE_PARAMS_VALIDATOR_LINE__, "");
   assert.equal(
     replacements.__JSKIT_CRUD_VIEW_ROUTE_PARAMS_VALIDATOR_LINE__,
-    "      params: recordRouteParamsValidator,"
+    "\n      params: recordRouteParamsValidator,"
   );
   assert.equal(
     replacements.__JSKIT_CRUD_VIEW_ROUTE_INPUT_LINES__,
@@ -1057,6 +1062,9 @@ test("crud actions and routes templates derive cursor validation and route contr
   assert.match(registerRoutesTemplateSource, /createCrudJsonApiRouteContracts/);
   assert.match(registerRoutesTemplateSource, /const \{\s+listRouteContract,\s+viewRouteContract,\s+createRouteContract,\s+updateRouteContract,\s+deleteRouteContract,\s+recordRouteParamsValidator\s+\} = createCrudJsonApiRouteContracts\(\{/s);
   assert.match(registerRoutesTemplateSource, /resource__JSKIT_CRUD_ROUTE_CONTRACTS_RESOURCE_ARGS__/);
+  assert.match(registerRoutesTemplateSource, /surface: normalizedRouteSurface,__JSKIT_CRUD_ROUTE_INTERNAL_LINE__\n      visibility:/);
+  assert.match(registerRoutesTemplateSource, /\.\.\.listRouteContract,__JSKIT_CRUD_LIST_ROUTE_PARAMS_VALIDATOR_LINE__\n    \},/);
+  assert.doesNotMatch(registerRoutesTemplateSource, /surface: normalizedRouteSurface,\n__JSKIT_CRUD_ROUTE_INTERNAL_LINE__/);
   assert.doesNotMatch(registerRoutesTemplateSource, /wrapResponse/);
   assert.match(registerRoutesTemplateSource, /reply\.code\(204\)\.send\(response\);/);
   assert.doesNotMatch(registerRoutesTemplateSource, /withStandardErrorResponses/);
