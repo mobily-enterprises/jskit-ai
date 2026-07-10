@@ -29,6 +29,9 @@ import {
   resolveTemplateContextReplacementsForMutation
 } from "./templateContext.js";
 import { normalizeMutationRelativeFilePath } from "./mutationPathUtils.js";
+import {
+  isSensitiveTextMutation
+} from "../sensitiveLockState.js";
 
 const PRE_FILE_CONFIG_MUTATION_TARGETS = new Set([
   "config/public.js",
@@ -83,17 +86,27 @@ async function applyTextMutations(
       }
 
       const recordKey = `${relativeFile}::${String(mutation?.id || resolvedKey)}`;
-      managedText[recordKey] = {
+      const mutationIsSensitive = isSensitiveTextMutation({
+        packageEntry,
+        mutation,
+        resolvedKey
+      });
+      const managedRecord = {
         file: relativeFile,
         op: "upsert-env",
         key: resolvedKey,
-        value: resolvedValue,
         hadPrevious: upserted.hadPrevious,
-        previousValue: upserted.previousValue,
         reason: String(mutation?.reason || ""),
         category: String(mutation?.category || ""),
         id: String(mutation?.id || "")
       };
+      if (mutationIsSensitive) {
+        managedRecord.sensitive = true;
+      } else {
+        managedRecord.value = resolvedValue;
+        managedRecord.previousValue = upserted.previousValue;
+      }
+      managedText[recordKey] = managedRecord;
       touchedFiles.add(normalizeRelativePath(appRoot, absoluteFile));
       continue;
     }
@@ -158,10 +171,15 @@ async function applyTextMutations(
       }
 
       const recordKey = `${relativeFile}::${mutationId}`;
+      const mutationIsSensitive = isSensitiveTextMutation({
+        packageEntry,
+        mutation,
+        resolvedKey: ""
+      });
       managedText[recordKey] = {
         file: relativeFile,
         op: "append-text",
-        value: renderedSnippet,
+        ...(mutationIsSensitive ? { sensitive: true } : { value: renderedSnippet }),
         position,
         reason: String(mutation?.reason || ""),
         category: String(mutation?.category || ""),

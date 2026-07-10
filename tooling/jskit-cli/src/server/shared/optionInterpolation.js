@@ -525,6 +525,7 @@ export {
   appendTextSnippet,
   escapeRegExp,
   interpolateOptionValue,
+  isSecretOptionInput,
   normalizeSkipChecks,
   promptForRequiredOption
 };

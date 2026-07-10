@@ -3,6 +3,10 @@ import {
   ensureObject,
   sortStrings
 } from "../../shared/collectionUtils.js";
+import {
+  isSensitiveManagedTextRecord,
+  sanitizeLockSecretsForWrite
+} from "../../cliRuntime/sensitiveLockState.js";
 
 async function runPackageRemoveCommand(ctx = {}, { positional, options, cwd, io }) {
   const {
@@ -61,6 +65,12 @@ async function runPackageRemoveCommand(ctx = {}, { positional, options, cwd, io 
   }
 
   const lockEntry = ensureObject(installed[resolvedTargetId]);
+  const packageEntry = combinedPackageRegistry.get(resolvedTargetId) || {
+    packageId: resolvedTargetId,
+    descriptor: {
+      options: {}
+    }
+  };
   const managed = ensureObject(lockEntry.managed);
   const touchedFiles = new Set();
 
@@ -85,6 +95,9 @@ async function runPackageRemoveCommand(ctx = {}, { positional, options, cwd, io 
   for (const change of Object.values(managedText)) {
     const changeRecord = ensureObject(change);
     if (String(changeRecord.op || "") !== "upsert-env") {
+      continue;
+    }
+    if (isSensitiveManagedTextRecord({ packageEntry, record: changeRecord })) {
       continue;
     }
     const relativeFile = String(changeRecord.file || "").trim();
@@ -150,6 +163,7 @@ async function runPackageRemoveCommand(ctx = {}, { positional, options, cwd, io 
 
   if (!options.dryRun) {
     await writeJsonFile(packageJsonPath, packageJson);
+    sanitizeLockSecretsForWrite(lock, combinedPackageRegistry);
     await writeJsonFile(lockPath, lock);
     if (options.runNpmInstall) {
       await runNpmInstall(appRoot, io.stderr);
