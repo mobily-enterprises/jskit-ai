@@ -344,6 +344,7 @@ Local functions
 - `resolveSurfaceVisibilityOptionPolicy(packageEntry = {})`
 - `resolveSurfaceDefinitionsForOptionPolicy(configContext = {})`
 - `normalizeResolvedOptionValue(value = "")`
+- `isFlagOptionSchema(schema = {})`
 - `normalizeResolvedOptionSchemaValue({ packageEntry, optionName = "", schema = {}, value = "" } = {})`
 - `resolveSchemaValidatedOptionNames(packageEntry = {}, validationType = "", { optionNames = null } = {})`
 - `resolveAllowedValuesForSchema(schema = {})`
@@ -387,6 +388,25 @@ Local functions
 - `resolvePackageRootFromNodeModules({ appRoot, packageId })`
 - `loadLocalWorkspacePackageIdIndex()`
 - `resolvePackageRootFromLocalWorkspace({ packageId })`
+
+### `src/server/cliRuntime/sensitiveLockState.js`
+Exports
+- `collectOptionReferences(value = "")`
+- `isSensitiveEnvKey(key = "")`
+- `isSensitiveManagedTextRecord({ packageEntry = {}, record = {} } = {})`
+- `isSensitivePackageOption(packageEntry = {}, optionName = "")`
+- `isSensitiveTextMutation({ packageEntry = {}, mutation = {}, resolvedKey = "" } = {})`
+- `resolveSensitiveOptionEnvFallbacks({ packageEntry = {}, appRoot = "", optionInput = {}, readFileBufferIfExists } = {})`
+- `sanitizeInstalledPackageRecordForLock(record = {}, packageEntry = {})`
+- `sanitizeLockSecretsForWrite(lock = {}, packageRegistry = null)`
+- `sanitizeManagedTextForLock(packageEntry = {}, managedText = {})`
+- `sanitizePackageOptionsForLock(packageEntry = {}, options = {})`
+- `sanitizePackageOptionsForResolve(packageEntry = {}, options = {})`
+Local functions
+- `isSensitiveName(value = "")`
+- `textValueReferencesSensitiveOption(packageEntry = {}, value = "")`
+- `isExactOptionReference(value = "", optionName = "")`
+- `readEnvValue(content = "", key = "")`
 
 ### `src/server/cliRuntime/viteProxy.js`
 Exports
@@ -658,6 +678,7 @@ Local functions
 - `renderWrappedShellCommand(binaryName, args = [], { maxWidth = 100, continuationIndent = " " } = {})`
 - `runLocalProjectBinary(binaryName, args = [], { appRoot, io, pathModule = path, createCliError, explanation = "", dryRun = false } = {})`
 - `installAppDependenciesForHook({ appRoot, appPackageJson, io, pathModule = path, createCliError, dryRun = false, runDevlinks = false } = {})`
+- `resolvePackageOptionInputForInstall({ packageEntry, existingInstall, packageInlineOptions, appRoot, readFileBufferIfExists })`
 - `validateHookResult(result = {}, { packageId = "", hookLabel = "" } = {})`
 - `loadInstallHook({ packageEntry, appRoot, hookSpec, hookLabel = "" } = {})`
 - `createInstallHookHelpers({ ctx, appRoot, io, appPackageJson, commandOptions = {} } = {})`
@@ -896,6 +917,7 @@ Exports
 - `appendTextSnippet(content, snippet, position = "bottom")`
 - `escapeRegExp(value)`
 - `interpolateOptionValue(rawValue, options, ownerId, key)`
+- `isSecretOptionInput(optionSchema)`
 - `normalizeSkipChecks(value)`
 - `promptForRequiredOption({ ownerType, ownerId, optionName, optionSchema, promptChoices = [], stdin = process.stdin, stdout = process.stdout })`
 Local functions
@@ -915,7 +937,6 @@ Local functions
 - `parseTransformSpec(transform)`
 - `applyOptionTransform(value, transform, ownerId, key, optionName)`
 - `applyOptionTransformPipeline(rawValue, rawPipeline, ownerId, key, optionName)`
-- `isSecretOptionInput(optionSchema)`
 - `createMutedReadlineOutput(stdout)`
 
 ### `src/server/shared/outputFormatting.js`

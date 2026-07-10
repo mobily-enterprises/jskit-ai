@@ -91,6 +91,7 @@ Local functions
 - `renderRouteWorkspaceSupportImports({ surfaceRequiresWorkspace = true } = {})`
 - `renderActionWorkspaceValidatorImport({ surfaceRequiresWorkspace = true } = {})`
 - `renderRouteParamsValidatorLine(operation = "", { surfaceRequiresWorkspace = true } = {})`
+- `renderOptionalTemplateLine(line = "")`
 - `renderRouteInputLines(operation = "", { surfaceRequiresWorkspace = true } = {})`
 - `renderObjectSchemaDefinition(lines = [], { mode = "patch" } = {})`
 - `renderActionInputExpressions({ surfaceRequiresWorkspace = true } = {})`
