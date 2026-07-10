@@ -1062,8 +1062,8 @@ test("crud actions and routes templates derive cursor validation and route contr
   assert.match(registerRoutesTemplateSource, /createCrudJsonApiRouteContracts/);
   assert.match(registerRoutesTemplateSource, /const \{\s+listRouteContract,\s+viewRouteContract,\s+createRouteContract,\s+updateRouteContract,\s+deleteRouteContract,\s+recordRouteParamsValidator\s+\} = createCrudJsonApiRouteContracts\(\{/s);
   assert.match(registerRoutesTemplateSource, /resource__JSKIT_CRUD_ROUTE_CONTRACTS_RESOURCE_ARGS__/);
-  assert.match(registerRoutesTemplateSource, /surface: normalizedRouteSurface,__JSKIT_CRUD_ROUTE_INTERNAL_LINE__\n      visibility:/);
-  assert.match(registerRoutesTemplateSource, /\.\.\.listRouteContract,__JSKIT_CRUD_LIST_ROUTE_PARAMS_VALIDATOR_LINE__\n    \},/);
+  assert.match(registerRoutesTemplateSource, /surface: normalizedRouteSurface,__JSKIT_CRUD_ROUTE_INTERNAL_LINE__\n {6}visibility:/);
+  assert.match(registerRoutesTemplateSource, /\.\.\.listRouteContract,__JSKIT_CRUD_LIST_ROUTE_PARAMS_VALIDATOR_LINE__\n {4}\},/);
   assert.doesNotMatch(registerRoutesTemplateSource, /surface: normalizedRouteSurface,\n__JSKIT_CRUD_ROUTE_INTERNAL_LINE__/);
   assert.doesNotMatch(registerRoutesTemplateSource, /wrapResponse/);
   assert.match(registerRoutesTemplateSource, /reply\.code\(204\)\.send\(response\);/);
