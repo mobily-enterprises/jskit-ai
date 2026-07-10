@@ -7,6 +7,11 @@ import {
   sortStrings
 } from "../../shared/collectionUtils.js";
 import {
+  resolveSensitiveOptionEnvFallbacks,
+  sanitizeLockSecretsForWrite,
+  sanitizePackageOptionsForResolve
+} from "../../cliRuntime/sensitiveLockState.js";
+import {
   fileExists
 } from "../appCommands/shared.js";
 import {
@@ -160,6 +165,35 @@ async function installAppDependenciesForHook({
       dryRun
     });
   }
+}
+
+async function resolvePackageOptionInputForInstall({
+  packageEntry,
+  existingInstall,
+  packageInlineOptions,
+  appRoot,
+  readFileBufferIfExists
+}) {
+  const lockOptions = sanitizePackageOptionsForResolve(
+    packageEntry,
+    ensureObject(existingInstall.options)
+  );
+  const inlineOptions = ensureObject(packageInlineOptions);
+  const optionInput = {
+    ...lockOptions,
+    ...inlineOptions
+  };
+  const secretEnvFallbacks = await resolveSensitiveOptionEnvFallbacks({
+    packageEntry,
+    appRoot,
+    optionInput,
+    readFileBufferIfExists
+  });
+  return {
+    ...lockOptions,
+    ...secretEnvFallbacks,
+    ...inlineOptions
+  };
 }
 
 function validateHookResult(result = {}, { packageId = "", hookLabel = "" } = {}) {
@@ -327,6 +361,7 @@ async function runPackageAddCommand(ctx = {}, { positional, options, cwd, io }) 
     applyPackageInstall,
     adoptAppLocalPackageDependencies,
     writeJsonFile,
+    readFileBufferIfExists,
     runNpmInstall,
     renderResolvedSummary,
     createCatalogFetchStatusReporter = () => () => {}
@@ -572,13 +607,16 @@ async function runPackageAddCommand(ctx = {}, { positional, options, cwd, io }) 
       : existingVersion === packageEntry.version
         ? "reapply"
         : "upgrade";
-    const lockEntryOptions = ensureObject(existingInstall.options);
+    const optionInput = await resolvePackageOptionInputForInstall({
+      packageEntry,
+      existingInstall,
+      packageInlineOptions,
+      appRoot,
+      readFileBufferIfExists
+    });
     resolvedOptionsByPackage[packageId] = await resolvePackageOptions(
       packageEntry,
-      {
-        ...lockEntryOptions,
-        ...packageInlineOptions
-      },
+      optionInput,
       io,
       { appRoot }
     );
@@ -759,6 +797,7 @@ async function runPackageAddCommand(ctx = {}, { positional, options, cwd, io }) 
 
   if (!options.dryRun) {
     await writeJsonFile(packageJsonPath, packageJson);
+    sanitizeLockSecretsForWrite(lock, combinedPackageRegistry);
     await writeJsonFile(lockPath, lock);
     if (options.runNpmInstall && !managesNpmInstall) {
       await runNpmInstall(appRoot, io.stderr);

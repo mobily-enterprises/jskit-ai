@@ -2,6 +2,9 @@ import {
   ensureObject,
   sortStrings
 } from "../../shared/collectionUtils.js";
+import {
+  sanitizeLockSecretsForWrite
+} from "../../cliRuntime/sensitiveLockState.js";
 
 async function runPackageCreateCommand(ctx = {}, { positional, options, cwd, io }) {
   const {
@@ -111,6 +114,7 @@ async function runPackageCreateCommand(ctx = {}, { positional, options, cwd, io 
   const touchedFileList = sortStrings([...touchedFiles]);
   if (!options.dryRun) {
     await writeJsonFile(packageJsonPath, packageJson);
+    sanitizeLockSecretsForWrite(lock);
     await writeJsonFile(lockPath, lock);
     if (options.runNpmInstall) {
       await runNpmInstall(appRoot, io.stderr);

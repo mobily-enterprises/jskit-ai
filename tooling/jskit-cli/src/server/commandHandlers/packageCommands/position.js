@@ -2,6 +2,11 @@ import {
   ensureObject,
   sortStrings
 } from "../../shared/collectionUtils.js";
+import {
+  resolveSensitiveOptionEnvFallbacks,
+  sanitizeLockSecretsForWrite,
+  sanitizePackageOptionsForResolve
+} from "../../cliRuntime/sensitiveLockState.js";
 
 async function runPackagePositionCommand(ctx = {}, { positional, options, cwd, io }) {
   const {
@@ -17,6 +22,7 @@ async function runPackagePositionCommand(ctx = {}, { positional, options, cwd, i
     validateInlineOptionsForPackage,
     resolvePackageOptions,
     applyPackagePositioning,
+    readFileBufferIfExists,
     writeJsonFile
   } = ctx;
 
@@ -51,11 +57,24 @@ async function runPackagePositionCommand(ctx = {}, { positional, options, cwd, i
   validateInlineOptionsForPackage(packageEntry, options.inlineOptions);
 
   const installedRecord = ensureObject(installedPackages[resolvedTargetId]);
+  const lockOptions = sanitizePackageOptionsForResolve(packageEntry, installedRecord.options);
+  const inlineOptions = ensureObject(options.inlineOptions);
+  const optionInput = {
+    ...lockOptions,
+    ...inlineOptions
+  };
+  const secretEnvFallbacks = await resolveSensitiveOptionEnvFallbacks({
+    packageEntry,
+    appRoot,
+    optionInput,
+    readFileBufferIfExists
+  });
   const resolvedOptions = await resolvePackageOptions(
     packageEntry,
     {
-      ...ensureObject(installedRecord.options),
-      ...ensureObject(options.inlineOptions)
+      ...lockOptions,
+      ...secretEnvFallbacks,
+      ...inlineOptions
     },
     io,
     { appRoot }
@@ -72,6 +91,7 @@ async function runPackagePositionCommand(ctx = {}, { positional, options, cwd, i
   const touchedFileList = sortStrings([...touchedFiles]);
 
   if (!options.dryRun) {
+    sanitizeLockSecretsForWrite(lock, combinedPackageRegistry);
     await writeJsonFile(lockPath, lock);
   }
 

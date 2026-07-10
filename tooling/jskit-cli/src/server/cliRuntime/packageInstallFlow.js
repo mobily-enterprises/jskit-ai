@@ -35,6 +35,9 @@ import {
   resolvePackageTemplateRoot
 } from "./packageTemplateResolution.js";
 import {
+  sanitizePackageOptionsForLock
+} from "./sensitiveLockState.js";
+import {
   applyFileMutations,
   applySourceMutations,
   applyTextMutations,
@@ -69,7 +72,7 @@ function createManagedRecordBase(packageEntry, options) {
       files: [],
       migrations: []
     },
-    options,
+    options: sanitizePackageOptionsForLock(packageEntry, options),
     installedAt: new Date().toISOString()
   };
 }
@@ -278,9 +281,7 @@ async function applyPackagePositioning({
     version: packageEntry.version,
     source: resolveManagedSourceRecord(packageEntry, existingInstall),
     managed: nextManaged,
-    options: {
-      ...ensureObject(packageOptions)
-    },
+    options: sanitizePackageOptionsForLock(packageEntry, packageOptions),
     installedAt: String(existingInstall.installedAt || new Date().toISOString())
   };
   lock.installedPackages[packageEntry.packageId] = managedRecord;
@@ -359,9 +360,7 @@ async function applyPackageMigrationsOnly({
     packageId: packageEntry.packageId,
     source: resolveManagedSourceRecord(packageEntry, existingInstall),
     managed: nextManaged,
-    options: {
-      ...ensureObject(packageOptions)
-    },
+    options: sanitizePackageOptionsForLock(packageEntry, packageOptions),
     migrationSyncVersion: packageEntry.version,
     installedAt: String(existingInstall.installedAt || new Date().toISOString())
   };
