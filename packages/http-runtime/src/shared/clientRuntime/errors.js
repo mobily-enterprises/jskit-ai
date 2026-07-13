@@ -1,14 +1,22 @@
 import { isRecord, resolveFieldErrors } from "../support/fieldErrors.js";
 import { createJsonApiClientErrorPayload } from "./jsonApiResourceTransport.js";
 
+function standardErrorMessage(payload = {}) {
+  const nestedMessage = Array.isArray(payload.errors)
+    ? payload.errors.find((entry) => isRecord(entry) && String(entry.message || "").trim())?.message
+    : "";
+  return String(payload.error || payload.message || nestedMessage || "").trim();
+}
+
 function createHttpError(response, data = {}) {
   const payload = isRecord(data) ? data : {};
-  const jsonApiPayload = createJsonApiClientErrorPayload(payload);
+  const message = standardErrorMessage(payload);
+  const jsonApiPayload = message ? null : createJsonApiClientErrorPayload(payload);
   if (jsonApiPayload) {
     return createHttpError(response, jsonApiPayload);
   }
 
-  const error = new Error(payload.error || `Request failed with status ${response.status}.`);
+  const error = new Error(message || `Request failed with status ${response.status}.`);
   const normalizedFieldErrors = resolveFieldErrors(payload);
   error.status = Number(response?.status || 0);
   error.code = String(payload.code || "").trim() || null;

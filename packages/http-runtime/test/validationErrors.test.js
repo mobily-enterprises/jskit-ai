@@ -99,6 +99,56 @@ test("createHttpError normalizes code and fieldErrors", () => {
   });
 });
 
+test("createHttpError preserves standard error envelopes that also contain an errors list", () => {
+  const error = createHttpError(
+    {
+      status: 409
+    },
+    {
+      code: "vibe64_repository_flip_active_sessions",
+      details: {
+        code: "vibe64_repository_flip_active_sessions"
+      },
+      error: "Finish or abandon active sessions before changing this project's repository mode.",
+      errors: [
+        {
+          code: "vibe64_repository_flip_active_sessions",
+          message: "Finish or abandon active sessions before changing this project's repository mode."
+        }
+      ],
+      ok: false
+    }
+  );
+
+  assert.equal(error.status, 409);
+  assert.equal(error.code, "vibe64_repository_flip_active_sessions");
+  assert.equal(
+    error.message,
+    "Finish or abandon active sessions before changing this project's repository mode."
+  );
+  assert.deepEqual(error.details, {
+    code: "vibe64_repository_flip_active_sessions"
+  });
+});
+
+test("createHttpError reads errors-list messages when a standard envelope has no top-level message", () => {
+  const error = createHttpError(
+    {
+      status: 400
+    },
+    {
+      errors: [
+        {
+          code: "invalid_request",
+          message: "The request is invalid."
+        }
+      ]
+    }
+  );
+
+  assert.equal(error.message, "The request is invalid.");
+});
+
 test("createHttpError decodes json:api error documents into the existing fieldErrors shape", () => {
   const error = createHttpError(
     {
