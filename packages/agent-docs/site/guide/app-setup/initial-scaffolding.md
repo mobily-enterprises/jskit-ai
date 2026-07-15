@@ -210,7 +210,7 @@ The most important parts look like this:
     "@jskit-ai/agent-docs": "0.x",
     "@jskit-ai/config-eslint": "0.x",
     "@jskit-ai/jskit-cli": "0.x",
-    "@playwright/test": "^1.61.0",
+    "@playwright/test": "1.61.1",
     "@vitejs/plugin-vue": "^6.0.7",
     "eslint": "^9.39.4",
     "vite": "^8.0.16",

@@ -163,7 +163,7 @@ test("create-app scaffolds the base shell with placeholder replacements", async 
     assert.equal(packageJson.dependencies["vue-router"], "^5.1.0");
     assert.equal(packageJson.dependencies.vuetify, "^4.1.2");
     assert.equal(packageJson.dependencies["@tanstack/vue-query"], "^5.101.0");
-    assert.equal(packageJson.devDependencies["@playwright/test"], "^1.61.0");
+    assert.equal(packageJson.devDependencies["@playwright/test"], "1.61.1");
     assert.equal(packageJson.devDependencies["@vitejs/plugin-vue"], "^6.0.7");
     assert.equal(packageJson.devDependencies.eslint, "^9.39.4");
     assert.equal(packageJson.devDependencies.vite, "^8.0.16");
@@ -686,6 +686,7 @@ test("create-app minimal mode keeps the bare scaffold and can still install shel
     assert.equal(packageJsonBefore.engines.node, "^20.19.0 || ^22.12.0");
     assert.equal(packageJsonBefore.dependencies["@jskit-ai/shell-web"], undefined);
     assert.equal(packageJsonBefore.dependencies["vue-router"], "^5.1.0");
+    assert.equal(packageJsonBefore.devDependencies["@playwright/test"], "1.61.1");
     assert.equal(packageJsonBefore.devDependencies.vite, "^8.0.16");
     const homeViewBefore = await readFile(path.join(appRoot, "src/pages/home/index.vue"), "utf8");
     assert.match(homeViewBefore, /home-start-screen/);

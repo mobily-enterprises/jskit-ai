@@ -1,7 +1,7 @@
 export default Object.freeze({
   packageVersion: 1,
   packageId: "@jskit-ai/console-web",
-  version: "0.1.81",
+  version: "0.1.82",
   kind: "runtime",
   description: "Authenticated console surface scaffold and surface policy wiring.",
   dependsOn: [
@@ -103,9 +103,9 @@ export default Object.freeze({
   mutations: {
     dependencies: {
       runtime: {
-        "@jskit-ai/auth-web": "0.1.114",
-        "@jskit-ai/console-core": "0.1.76",
-        "@jskit-ai/shell-web": "0.1.113",
+        "@jskit-ai/auth-web": "0.1.115",
+        "@jskit-ai/console-core": "0.1.77",
+        "@jskit-ai/shell-web": "0.1.114",
       },
       dev: {}
     },
