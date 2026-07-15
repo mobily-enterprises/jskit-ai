@@ -528,6 +528,36 @@ test("create-app accepts tenancy-mode flag and writes it to config/public.js", a
   });
 });
 
+test("create-app accepts an exact platform-owned Playwright version", async () => {
+  await withCreateAppTempDir(async (cwd) => {
+    const result = runCli({
+      cwd,
+      args: ["managed-browser-app", "--playwright-version", "1.50.1"]
+    });
+
+    assert.equal(result.status, 0, result.stderr);
+
+    const packageJson = JSON.parse(await readFile(
+      path.join(cwd, "managed-browser-app/package.json"),
+      "utf8"
+    ));
+    assert.equal(packageJson.devDependencies["@playwright/test"], "1.50.1");
+  });
+});
+
+test("create-app rejects floating Playwright versions", async () => {
+  await withCreateAppTempDir(async (cwd) => {
+    const result = runCli({
+      cwd,
+      args: ["floating-browser-app", "--playwright-version", "^1.61.0"]
+    });
+
+    assert.notEqual(result.status, 0);
+    assert.match(result.stderr, /Expected an exact x\.y\.z version/u);
+    await assert.rejects(access(path.join(cwd, "floating-browser-app")), /ENOENT/);
+  });
+});
+
 test("create-app rejects invalid tenancy-mode values", async () => {
   await withCreateAppTempDir(async (cwd) => {
     const result = runCli({
