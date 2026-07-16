@@ -1,18 +1,5 @@
+import { resolveDevAuthPolicyFromEnv } from "@jskit-ai/auth-core/server/devAuth";
 import { AuthWebService } from "../services/AuthWebService.js";
-
-function parseBoolean(value, fallback = false) {
-  const raw = String(value || "").trim().toLowerCase();
-  if (!raw) {
-    return fallback;
-  }
-  if (["1", "true", "yes", "on"].includes(raw)) {
-    return true;
-  }
-  if (["0", "false", "no", "off"].includes(raw)) {
-    return false;
-  }
-  return fallback;
-}
 
 function resolveDevAuthBootstrapEnabled(scope) {
   const env =
@@ -20,8 +7,8 @@ function resolveDevAuthBootstrapEnabled(scope) {
       ? scope.make("jskit.env")
       : {};
 
-  return parseBoolean(env?.AUTH_DEV_BYPASS_ENABLED, false) &&
-    String(env?.NODE_ENV || "development").trim().toLowerCase() !== "production";
+  const policy = resolveDevAuthPolicyFromEnv(env);
+  return policy.enabled && !policy.isProduction;
 }
 
 class AuthWebServiceProvider {

@@ -6,6 +6,7 @@ import test from "node:test";
 import { createApplication } from "@jskit-ai/kernel/_testable";
 import { ActionRuntimeServiceProvider } from "@jskit-ai/kernel/server/actions";
 import { registerAuthServiceDecorator } from "@jskit-ai/auth-core/server/authServiceDecoratorRegistry";
+import { DEV_AUTH_SECRET_HEADER } from "@jskit-ai/auth-core/server/devAuth";
 import { AuthActionsServiceProvider } from "@jskit-ai/auth-core/server/providers/AuthActionsServiceProvider";
 import { AuthLocalServiceProvider } from "../src/server/providers/AuthLocalServiceProvider.js";
 import { AuthProviderServiceProvider } from "../src/server/providers/AuthProviderServiceProvider.js";
@@ -17,6 +18,8 @@ import {
   normalizePasswordStrategy,
   verifyPassword
 } from "../src/server/lib/index.js";
+
+const DEV_AUTH_SECRET = "local-preview-exchange-secret";
 
 function createAppConfigFixture() {
   return {
@@ -52,7 +55,44 @@ function createReplyFixture() {
   };
 }
 
+function createLocalAuthRequest({
+  cookies = {},
+  headers = {},
+  host = "localhost:4100",
+  remoteAddress = "127.0.0.1"
+} = {}) {
+  return {
+    cookies,
+    headers: {
+      host,
+      ...headers
+    },
+    socket: {
+      remoteAddress
+    }
+  };
+}
+
+function createDevAuthExchangeRequest(options = {}) {
+  const request = createLocalAuthRequest(options);
+  return {
+    ...request,
+    headers: {
+      ...request.headers,
+      [DEV_AUTH_SECRET_HEADER]: DEV_AUTH_SECRET
+    }
+  };
+}
+
+function devAuthEnv() {
+  return {
+    AUTH_DEV_BYPASS_ENABLED: "true",
+    AUTH_DEV_BYPASS_SECRET: DEV_AUTH_SECRET
+  };
+}
+
 async function createStartedApp({
+  env = {},
   profileProjector = null,
   profileProjectorFactory = null,
   passwordStrategy = null,
@@ -68,7 +108,8 @@ async function createStartedApp({
     AUTH_LOCAL_STORE_DIR: storeDir,
     AUTH_LOCAL_RECOVERY_DEV_OUTPUT: "response",
     APP_PUBLIC_URL: "http://localhost:5173",
-    NODE_ENV: "test"
+    NODE_ENV: "test",
+    ...env
   });
   app.instance(
     "jskit.logger",
@@ -160,6 +201,179 @@ test("local auth provider registers, logs in, reads session, and logs out with f
 
   const usersFile = await fs.readFile(path.join(storeDir, "users.passwd"), "utf8");
   assert.match(usersFile, /^user:v1:/);
+});
+
+test("local file auth login-as issues native cookies for an existing user", async () => {
+  const { app } = await createStartedApp({
+    env: devAuthEnv()
+  });
+  const authService = app.make("authService");
+  await authService.register({
+    displayName: "Ada",
+    email: "ada@example.com",
+    password: "correct horse battery staple"
+  });
+
+  const impersonated = await authService.devLoginAs(createDevAuthExchangeRequest(), {
+    email: "ADA@EXAMPLE.COM"
+  });
+  assert.equal(impersonated.profile.email, "ada@example.com");
+  assert.equal(impersonated.session.purpose, "dev-auth");
+  assert.equal(authService.getCapabilities().features.devLoginAs, true);
+
+  const reply = createReplyFixture();
+  authService.writeSessionCookies(reply, impersonated.session);
+  assert.equal(Boolean(reply.cookies.jskit_local_access_token), true);
+  assert.equal(Boolean(reply.cookies.jskit_local_refresh_token), true);
+
+  const authenticated = await authService.authenticateRequest(createLocalAuthRequest({
+    cookies: reply.cookies
+  }));
+  assert.equal(authenticated.authenticated, true);
+  assert.equal(authenticated.actor.email, "ada@example.com");
+  assert.equal(authenticated.sessionPurpose, "dev-auth");
+});
+
+test("local login-as never invokes the mutating profile projector", async () => {
+  const projectedProfile = {
+    id: "app-user-ada",
+    authProvider: "local",
+    authProviderUserSid: "provider-user-ada",
+    displayName: "Ada",
+    email: "ada@example.com"
+  };
+  let findCalls = 0;
+  let syncCalls = 0;
+  const { app } = await createStartedApp({
+    env: devAuthEnv(),
+    profileProjector: {
+      async findByIdentity() {
+        findCalls += 1;
+        return projectedProfile;
+      },
+      async syncIdentityProfile(profile) {
+        syncCalls += 1;
+        return {
+          ...projectedProfile,
+          authProviderUserSid: profile.authProviderUserSid
+        };
+      }
+    }
+  });
+  const authService = app.make("authService");
+  const registered = await authService.register({
+    displayName: "Ada",
+    email: "ada@example.com",
+    password: "correct horse battery staple"
+  });
+  projectedProfile.authProviderUserSid = registered.actor.providerUserId;
+  findCalls = 0;
+  syncCalls = 0;
+
+  const impersonated = await authService.devLoginAs(createDevAuthExchangeRequest(), {
+    email: "ada@example.com"
+  });
+  const reply = createReplyFixture();
+  authService.writeSessionCookies(reply, impersonated.session);
+  const authenticated = await authService.authenticateRequest(createLocalAuthRequest({
+    cookies: reply.cookies
+  }));
+
+  assert.equal(impersonated.profile.id, "app-user-ada");
+  assert.equal(authenticated.profile.id, "app-user-ada");
+  assert.equal(findCalls, 2);
+  assert.equal(syncCalls, 0);
+});
+
+test("local login-as rejects missing, disabled, and unprojected users", async () => {
+  const { app } = await createStartedApp({
+    env: devAuthEnv(),
+    profileProjector: {
+      async findByIdentity() {
+        return null;
+      },
+      async syncIdentityProfile() {
+        throw new Error("preview login must not synchronize profiles");
+      }
+    }
+  });
+  const backend = app.make("auth.local.backend");
+  const password = await hashPassword("stored password value");
+  await backend.withTransaction(async (tx) => {
+    await tx.users.create({
+      disabled: false,
+      displayName: "Unprojected",
+      email: "unprojected@example.com",
+      id: "usr_unprojected",
+      password
+    });
+    await tx.users.create({
+      disabled: true,
+      displayName: "Disabled",
+      email: "disabled@example.com",
+      id: "usr_disabled",
+      password
+    });
+  });
+  const authService = app.make("authService");
+
+  for (const email of [
+    "missing@example.com",
+    "disabled@example.com",
+    "unprojected@example.com"
+  ]) {
+    await assert.rejects(
+      () => authService.devLoginAs(createDevAuthExchangeRequest(), { email }),
+      /User not found/
+    );
+  }
+});
+
+test("local login-as rejects missing, incorrect, and non-loopback exchange authorization", async () => {
+  const { app } = await createStartedApp({
+    env: devAuthEnv()
+  });
+  const authService = app.make("authService");
+  await authService.register({
+    displayName: "Ada",
+    email: "ada@example.com",
+    password: "correct horse battery staple"
+  });
+
+  await assert.rejects(
+    () => authService.devLoginAs(createLocalAuthRequest(), { email: "ada@example.com" }),
+    /not authorized/
+  );
+  await assert.rejects(
+    () => authService.devLoginAs(createLocalAuthRequest({
+      headers: {
+        [DEV_AUTH_SECRET_HEADER]: "wrong-secret"
+      }
+    }), { email: "ada@example.com" }),
+    /not authorized/
+  );
+  await assert.rejects(
+    () => authService.devLoginAs(createDevAuthExchangeRequest({
+      remoteAddress: "203.0.113.5"
+    }), { email: "ada@example.com" }),
+    /localhost/
+  );
+});
+
+test("local auth provider rejects dev login-as enablement in production", async () => {
+  await assert.rejects(
+    () => createStartedApp({
+      env: {
+        ...devAuthEnv(),
+        AUTH_LOCAL_FILE_PRODUCTION_ACK: "true",
+        AUTH_LOCAL_SESSION_SECRET: "production-session-secret",
+        NODE_ENV: "production"
+      }
+    }),
+    (error) => /must not be enabled in production/.test(
+      String(error.details?.cause?.message || error.message || "")
+    )
+  );
 });
 
 test("local auth provider applies auth service decorators for blocking and non-blocking hooks", async () => {

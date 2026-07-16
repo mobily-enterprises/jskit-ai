@@ -109,46 +109,6 @@ const APP_COMMAND_DEFINITIONS = Object.freeze({
       "Clears node_modules/.vite so Vite does not keep stale prebundled paths."
     ])
   }),
-  "prepare-preview-user": Object.freeze({
-    name: "prepare-preview-user",
-    summary: "Prepare the JSKIT preview auth user and optional first workspace.",
-    usage: "jskit app prepare-preview-user [--profile-file <path>] [--email <email>] [--username <username>] [--display-name <name>] [--auth-provider <provider>] [--auth-provider-user-sid <sid>] [--ensure-workspace]",
-    options: Object.freeze([
-      Object.freeze({
-        label: "--profile-file <path>",
-        description: "JSON profile path to write for the preview auth bridge. Defaults to VIBE64_PREVIEW_AUTH_PROFILE_FILE."
-      }),
-      Object.freeze({
-        label: "--email <email>",
-        description: "Email address for the preview user."
-      }),
-      Object.freeze({
-        label: "--username <username>",
-        description: "Preferred username for the preview user."
-      }),
-      Object.freeze({
-        label: "--display-name <name>",
-        description: "Display name for the preview user."
-      }),
-      Object.freeze({
-        label: "--auth-provider <provider>",
-        description: "Auth provider id stored on the preview user."
-      }),
-      Object.freeze({
-        label: "--auth-provider-user-sid <sid>",
-        description: "Provider user id stored on the preview user."
-      }),
-      Object.freeze({
-        label: "--ensure-workspace",
-        description: "When workspace tables and tenancy config exist, ensure the preview user owns a first workspace."
-      })
-    ]),
-    defaults: Object.freeze([
-      "Runs after migrations and before the app server starts.",
-      "Exits successfully without changes when the app has no knexfile.js or users table.",
-      "Uses the app knexfile and app-local JSKIT package provisioning contracts instead of booting the HTTP server."
-    ])
-  }),
   release: Object.freeze({
     name: "release",
     summary: "Run the JSKIT release helper for an app repository.",
@@ -255,16 +215,6 @@ function buildAppCommandOptionMeta(subcommandName = "") {
   if (definition.name === "link-local-packages") {
     optionMeta["repo-root"] = { inputType: "text" };
   }
-  if (definition.name === "prepare-preview-user") {
-    optionMeta["profile-file"] = { inputType: "text" };
-    optionMeta.email = { inputType: "text" };
-    optionMeta.username = { inputType: "text" };
-    optionMeta["display-name"] = { inputType: "text" };
-    optionMeta["auth-provider"] = { inputType: "text" };
-    optionMeta["auth-provider-user-sid"] = { inputType: "text" };
-    optionMeta["ensure-workspace"] = { inputType: "flag" };
-  }
-
   return optionMeta;
 }
 

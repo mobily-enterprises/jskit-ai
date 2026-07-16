@@ -9,6 +9,9 @@ import { createLocalDbBackend, LOCAL_AUTH_DB_TABLES } from "../src/server/lib/in
 import { AuthLocalDbBackendServiceProvider } from "../src/server/providers/AuthLocalDbBackendServiceProvider.js";
 import descriptor from "../package.descriptor.mjs";
 
+const DEV_AUTH_SECRET_HEADER = "x-jskit-dev-auth-secret";
+const DEV_AUTH_SECRET = "local-db-preview-exchange-secret";
+
 function clone(value) {
   return value == null ? value : JSON.parse(JSON.stringify(value));
 }
@@ -142,6 +145,10 @@ function createDbBackendFixture() {
 }
 
 function createService(backend, options = {}) {
+  const {
+    config = {},
+    ...serviceOptions
+  } = options;
   return createLocalAuthService({
     backend,
     config: {
@@ -149,10 +156,24 @@ function createService(backend, options = {}) {
       sessionSecret: "test-secret",
       appPublicUrl: "http://localhost:5173",
       smtpConfigured: false,
-      recoveryDevOutput: "response"
+      recoveryDevOutput: "response",
+      ...config
     },
-    ...options
+    ...serviceOptions
   });
+}
+
+function createLocalRequest({ cookies = {}, exchange = false } = {}) {
+  return {
+    cookies,
+    headers: {
+      host: "localhost:4100",
+      ...(exchange ? { [DEV_AUTH_SECRET_HEADER]: DEV_AUTH_SECRET } : {})
+    },
+    socket: {
+      remoteAddress: "127.0.0.1"
+    }
+  };
 }
 
 test("DB local auth backend implements the storage repository contract", async () => {
@@ -326,6 +347,43 @@ test("local auth service works end to end with DB backend", async () => {
     })).actor.email,
     "dbuser@example.com"
   );
+});
+
+test("local database auth uses the shared native login-as session contract", async () => {
+  const { backend } = createDbBackendFixture();
+  const password = await hashPassword("stored password value");
+  await backend.withTransaction((tx) => tx.users.create({
+    displayName: "Database Preview User",
+    email: "preview-db@example.com",
+    id: "usr_preview_db",
+    password
+  }));
+  const authService = createService(backend, {
+    config: {
+      devAuth: {
+        enabled: true,
+        isProduction: false,
+        secret: DEV_AUTH_SECRET
+      }
+    }
+  });
+
+  const impersonated = await authService.devLoginAs(createLocalRequest({
+    exchange: true
+  }), {
+    email: "PREVIEW-DB@EXAMPLE.COM"
+  });
+  assert.equal(impersonated.profile.id, "usr_preview_db");
+  assert.equal(impersonated.session.purpose, "dev-auth");
+
+  const reply = createReplyFixture();
+  authService.writeSessionCookies(reply, impersonated.session);
+  const authenticated = await authService.authenticateRequest(createLocalRequest({
+    cookies: reply.cookies
+  }));
+  assert.equal(authenticated.authenticated, true);
+  assert.equal(authenticated.profile.email, "preview-db@example.com");
+  assert.equal(authenticated.sessionPurpose, "dev-auth");
 });
 
 test("local auth DB backend works with custom password strategy", async () => {

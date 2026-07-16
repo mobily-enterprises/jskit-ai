@@ -1,4 +1,9 @@
 import { applyAuthServiceDecorators } from "@jskit-ai/auth-core/server/authServiceDecoratorRegistry";
+import { parseBooleanFlag } from "@jskit-ai/auth-core/server/booleanFlag";
+import {
+  assertDevAuthPolicy,
+  resolveDevAuthPolicyFromEnv
+} from "@jskit-ai/auth-core/server/devAuth";
 import fs from "node:fs";
 import path from "node:path";
 import { randomBytes } from "node:crypto";
@@ -10,20 +15,6 @@ const DEFAULT_STORE_DIR = ".jskit/auth";
 function resolveLocalBackendMode(scope) {
   const env = resolveRuntimeEnv(scope);
   return String(env.AUTH_LOCAL_BACKEND || "file").trim().toLowerCase() || "file";
-}
-
-function parseBoolean(value, fallback = false) {
-  const raw = String(value || "").trim().toLowerCase();
-  if (!raw) {
-    return fallback;
-  }
-  if (["1", "true", "yes", "on"].includes(raw)) {
-    return true;
-  }
-  if (["0", "false", "no", "off"].includes(raw)) {
-    return false;
-  }
-  return fallback;
 }
 
 function resolveRuntimeEnv(scope) {
@@ -91,7 +82,7 @@ function resolveSmtpConfig(env) {
     smtp: {
       host,
       port: Number(env.AUTH_LOCAL_SMTP_PORT || 587),
-      secure: parseBoolean(env.AUTH_LOCAL_SMTP_SECURE, false),
+      secure: parseBooleanFlag(env.AUTH_LOCAL_SMTP_SECURE, false),
       user: String(env.AUTH_LOCAL_SMTP_USER || "").trim(),
       password: String(env.AUTH_LOCAL_SMTP_PASSWORD || ""),
       from,
@@ -130,10 +121,12 @@ function resolveConfig(scope) {
   const isProduction = nodeEnv === "production";
   const backend = String(env.AUTH_LOCAL_BACKEND || "file").trim().toLowerCase() || "file";
   const storeDir = resolveStoreDir(env);
-  if (backend === "file" && isProduction && !parseBoolean(env.AUTH_LOCAL_FILE_PRODUCTION_ACK, false)) {
+  if (backend === "file" && isProduction && !parseBooleanFlag(env.AUTH_LOCAL_FILE_PRODUCTION_ACK, false)) {
     throw new Error("AUTH_LOCAL_FILE_PRODUCTION_ACK is required to use the local file auth backend in production.");
   }
   const smtp = resolveSmtpConfig(env);
+  const devAuth = resolveDevAuthPolicyFromEnv(env);
+  assertDevAuthPolicy(devAuth);
   return {
     backend,
     storeDir,
@@ -145,7 +138,29 @@ function resolveConfig(scope) {
       isProduction
     }),
     recoveryDevOutput: String(env.AUTH_LOCAL_RECOVERY_DEV_OUTPUT || "log").trim().toLowerCase() || "log",
+    devAuth,
     ...smtp
+  };
+}
+
+function createLazyProfileProjector(scope) {
+  if (!scope.has("auth.profile.projector")) {
+    return null;
+  }
+  const resolveMethod = (methodName) => {
+    const projector = scope.make("auth.profile.projector");
+    if (!projector || typeof projector[methodName] !== "function") {
+      throw new Error(`auth.profile.projector.${methodName}() must be a function.`);
+    }
+    return projector[methodName].bind(projector);
+  };
+  return {
+    findByIdentity(identity, options = {}) {
+      return resolveMethod("findByIdentity")(identity, options);
+    },
+    syncIdentityProfile(profile, options = {}) {
+      return resolveMethod("syncIdentityProfile")(profile, options);
+    }
   };
 }
 
@@ -178,17 +193,7 @@ class AuthLocalServiceProvider {
         throw new Error(`AUTH_LOCAL_BACKEND="${config.backend}" requires a package or app provider that registers auth.local.backend.`);
       }
       const backend = scope.make("auth.local.backend");
-      const profileProjector = scope.has("auth.profile.projector")
-        ? {
-            async syncIdentityProfile(profile, options = {}) {
-              const projector = scope.make("auth.profile.projector");
-              if (!projector || typeof projector.syncIdentityProfile !== "function") {
-                throw new Error("auth.profile.projector.syncIdentityProfile() must be a function.");
-              }
-              return projector.syncIdentityProfile(profile, options);
-            }
-          }
-        : null;
+      const profileProjector = createLazyProfileProjector(scope);
       const invitationContextResolver = scope.has("auth.invitationContextResolver")
         ? {
             async resolveInvitationContext(invitation, options = {}) {

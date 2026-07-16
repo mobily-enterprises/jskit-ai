@@ -258,7 +258,6 @@ Exports
 Exports
 - `AuthWebServiceProvider`
 Local functions
-- `parseBoolean(value, fallback = false)`
 - `resolveDevAuthBootstrapEnabled(scope)`
 
 ### `src/server/routes/authRoutes.js`

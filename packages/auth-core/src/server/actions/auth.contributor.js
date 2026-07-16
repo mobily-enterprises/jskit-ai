@@ -14,6 +14,7 @@ import {
   authLoginOtpVerifyCommand,
   authLoginOAuthStartCommand,
   authLoginOAuthCompleteCommand,
+  authDevLoginAsCommand,
   authPasswordResetRequestCommand,
   authPasswordRecoveryCompleteCommand,
   authPasswordResetCommand
@@ -155,6 +156,25 @@ const baseAuthActions = Object.freeze([
     observability: {},
     async execute(input, _context, deps) {
       return deps.authService.oauthComplete(input);
+    }
+  },
+  {
+    id: "auth.dev.loginAs",
+    version: 1,
+    kind: "command",
+    channels: ["api", "internal"],
+    surfacesFrom: "enabled",
+    input: authDevLoginAsCommand.operation.body,
+    idempotency: "none",
+    audit: {
+      actionName: "auth.dev.loginAs"
+    },
+    observability: {},
+    async execute(input, context, deps) {
+      return deps.authService.devLoginAs(
+        requireRequestContext(context, "auth.dev.loginAs"),
+        input
+      );
     }
   },
   {

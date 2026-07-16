@@ -71,6 +71,27 @@ Exports
 Local functions
 - `normalizeAuthServiceDecorator(entry)`
 
+### `src/server/booleanFlag.js`
+Exports
+- `parseBooleanFlag(value, fallback = false)`
+
+### `src/server/devAuth.js`
+Exports
+- `assertDevAuthPolicy(policy = {})`
+- `DEV_AUTH_SECRET_HEADER`
+- `ensureDevAuthExchangeAvailable(policy = {}, request = null)`
+- `ensureDevAuthRuntimeAvailable(policy = {}, request = null)`
+- `isLocalDevAuthRequest(request)`
+- `resolveDevAuthPolicy({ enabled = false, nodeEnv = "development", secret = "" } = {})`
+- `resolveDevAuthPolicyFromEnv(env = {})`
+Local functions
+- `normalizeRequestHostname(request)`
+- `normalizeLoopbackIp(value)`
+- `isLoopbackIp(value)`
+- `isLoopbackHostname(value)`
+- `requestHeader(request, name = "")`
+- `secretMatches(value = "", expected = "")`
+
 ### `src/server/inviteTokens.js`
 Exports
 - `OPAQUE_INVITE_TOKEN_HASH_PREFIX`
@@ -162,7 +183,6 @@ Exports
 Exports
 - `FastifyAuthPolicyServiceProvider`
 Local functions
-- `parseBoolean(value, fallback = false)`
 - `parseList(value)`
 - `defaultHasPermission({ permission, permissions = [] } = {})`
 

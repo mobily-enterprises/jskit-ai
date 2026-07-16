@@ -2,6 +2,8 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { createService } from "../src/server/lib/index.js";
 
+const DEV_AUTH_SECRET = "dev-bootstrap-secret";
+
 function createProfile(overrides = {}) {
   return {
     id: "7",
@@ -64,6 +66,17 @@ function createLocalRequest(overrides = {}) {
   };
 }
 
+function createDevAuthExchangeRequest(overrides = {}) {
+  const request = createLocalRequest(overrides);
+  return {
+    ...request,
+    headers: {
+      ...request.headers,
+      "x-jskit-dev-auth-secret": DEV_AUTH_SECRET
+    }
+  };
+}
+
 function createServiceFixture(overrides = {}) {
   return createService({
     authProvider: {
@@ -75,7 +88,7 @@ function createServiceFixture(overrides = {}) {
     appPublicUrl: "http://localhost:5173",
     nodeEnv: "development",
     devAuthBypassEnabled: true,
-    devAuthBypassSecret: "dev-bootstrap-secret",
+    devAuthBypassSecret: DEV_AUTH_SECRET,
     userProfilesRepository: createUserProfilesRepository(),
     userProfileSyncService: createUserProfileSyncService(),
     ...overrides
@@ -84,7 +97,7 @@ function createServiceFixture(overrides = {}) {
 
 test("dev auth bootstrap can issue and authenticate a local session without Supabase", async () => {
   const authService = createServiceFixture();
-  const loginRequest = createLocalRequest();
+  const loginRequest = createDevAuthExchangeRequest();
 
   const loginResult = await authService.devLoginAs(loginRequest, {
     userId: "7"
@@ -111,7 +124,7 @@ test("dev auth bootstrap can issue and authenticate a local session without Supa
 
 test("dev auth bootstrap resolves security status without Supabase", async () => {
   const authService = createServiceFixture();
-  const loginResult = await authService.devLoginAs(createLocalRequest(), {
+  const loginResult = await authService.devLoginAs(createDevAuthExchangeRequest(), {
     userId: "7"
   });
 
@@ -153,12 +166,30 @@ test("dev auth security status rejects invalid dev sessions without recovery-lin
 test("dev auth bootstrap supports email lookup", async () => {
   const authService = createServiceFixture();
 
-  const result = await authService.devLoginAs(createLocalRequest(), {
+  const result = await authService.devLoginAs(createDevAuthExchangeRequest(), {
     email: "ADA@EXAMPLE.COM"
   });
 
   assert.equal(result.profile.id, "7");
   assert.equal(result.profile.email, "ada@example.com");
+});
+
+test("dev auth bootstrap rejects a missing or incorrect exchange secret", async () => {
+  const authService = createServiceFixture();
+
+  await assert.rejects(
+    () => authService.devLoginAs(createLocalRequest(), { userId: "7" }),
+    /not authorized/
+  );
+  await assert.rejects(
+    () => authService.devLoginAs(createLocalRequest({
+      headers: {
+        host: "localhost:3000",
+        "x-jskit-dev-auth-secret": "wrong-secret"
+      }
+    }), { userId: "7" }),
+    /not authorized/
+  );
 });
 
 test("dev auth bootstrap canonicalizes producer profiles before returning them", async () => {
@@ -177,7 +208,7 @@ test("dev auth bootstrap canonicalizes producer profiles before returning them",
     userProfilesRepository: createUserProfilesRepository(rawProfile)
   });
 
-  const loginResult = await authService.devLoginAs(createLocalRequest(), {
+  const loginResult = await authService.devLoginAs(createDevAuthExchangeRequest(), {
     userId: "7"
   });
 
@@ -195,14 +226,14 @@ test("dev auth bootstrap canonicalizes producer profiles before returning them",
 
 test("dev auth bootstrap rejects non-local requests and clears leaked dev sessions", async () => {
   const authService = createServiceFixture();
-  const issued = await authService.devLoginAs(createLocalRequest(), {
+  const issued = await authService.devLoginAs(createDevAuthExchangeRequest(), {
     userId: "7"
   });
 
   await assert.rejects(
     () =>
       authService.devLoginAs(
-        createLocalRequest({
+        createDevAuthExchangeRequest({
           ip: "203.0.113.10",
           hostname: "example.com",
           headers: { host: "example.com" }
@@ -232,7 +263,7 @@ test("dev auth bootstrap does not trust forwarded localhost headers", async () =
   await assert.rejects(
     () =>
       authService.devLoginAs(
-        createLocalRequest({
+        createDevAuthExchangeRequest({
           ip: "203.0.113.10",
           socket: {
             remoteAddress: "203.0.113.10"

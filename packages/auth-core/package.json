@@ -14,6 +14,8 @@
     "./server/authPolicyContextResolverRegistry": "./src/server/authPolicyContextResolverRegistry.js",
     "./server/authServiceDecoratorRegistry": "./src/server/authServiceDecoratorRegistry.js",
     "./server/authActor": "./src/server/authActor.js",
+    "./server/booleanFlag": "./src/server/booleanFlag.js",
+    "./server/devAuth": "./src/server/devAuth.js",
     "./server/unsupportedOperation": "./src/server/unsupportedOperation.js",
     "./server/utils": "./src/server/utils.js",
     "./server/validators": "./src/server/validators.js",

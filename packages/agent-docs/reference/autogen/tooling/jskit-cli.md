@@ -474,23 +474,6 @@ Local functions
 - `applyTextReplacements(sourceText = "", replacements = [])`
 - `collectCrudFormFieldCandidateFiles(appRoot = "")`
 
-### `src/server/commandHandlers/appCommands/preparePreviewUser.js`
-Exports
-- `runAppPreparePreviewUserCommand(_ctx = {}, { appRoot = "", options = {}, stdout = process.stdout })`
-Local functions
-- `normalizeText(value = "")`
-- `normalizeLowerText(value = "")`
-- `profileFromOptions(options = {})`
-- `fileExists(filePath = "")`
-- `createAppRequire(appRoot = "")`
-- `importFreshModule(filePath = "")`
-- `loadKnexConfig(appRoot = "")`
-- `importAppPackageExport(appRoot = "", specifier = "", { required = true } = {})`
-- `writeProfile(profileFile = "", authProfile = {})`
-- `isTrueOption(value)`
-- `normalizeTenancyMode(value = "")`
-- `hasWorkspaceTables(db)`
-
 ### `src/server/commandHandlers/appCommands/release.js`
 Exports
 - `runAppReleaseCommand(ctx = {}, { appRoot = "", options = {}, stdout, stderr })`
