@@ -27,6 +27,8 @@ async function runPackageRemoveCommand(ctx = {}, { positional, options, cwd, io 
     removeEnvValue,
     writeFile,
     removeManagedViteProxyEntries,
+    assertManagedCiWorkflowUnmodified,
+    synchronizeManagedCiWorkflow,
     hashBuffer,
     rm,
     writeJsonFile,
@@ -45,6 +47,10 @@ async function runPackageRemoveCommand(ctx = {}, { positional, options, cwd, io 
   const combinedPackageRegistry = mergePackageRegistries(packageRegistry, appLocalRegistry);
   const { packageJsonPath, packageJson } = await loadAppPackageJson(appRoot);
   const { lockPath, lock } = await loadLockFile(appRoot);
+  await assertManagedCiWorkflowUnmodified({
+    appRoot,
+    lock
+  });
   const installed = ensureObject(lock.installedPackages);
   await hydratePackageRegistryFromInstalledNodeModules({
     appRoot,
@@ -159,6 +165,13 @@ async function runPackageRemoveCommand(ctx = {}, { positional, options, cwd, io 
   }
 
   delete installed[resolvedTargetId];
+  await synchronizeManagedCiWorkflow({
+    appRoot,
+    lock,
+    packageRegistry: combinedPackageRegistry,
+    touchedFiles,
+    dryRun: options.dryRun === true
+  });
   const touchedFileList = sortStrings([...touchedFiles]);
 
   if (!options.dryRun) {

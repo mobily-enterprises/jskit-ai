@@ -93,6 +93,7 @@ test("completion bash __complete__ lists app subcommands and app-specific option
       "link-local-packages",
       "migrate-source-mutations",
       "release",
+      "sync-ci",
       "update-packages",
       "verify",
       "verify-ui"

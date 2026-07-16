@@ -66,7 +66,8 @@ async function loadAppPackageJson(appRoot) {
 function createDefaultLock() {
   return {
     lockVersion: LOCK_VERSION,
-    installedPackages: {}
+    installedPackages: {},
+    managed: {}
   };
 }
 
@@ -81,12 +82,14 @@ async function loadLockFile(appRoot) {
 
   const lock = await readJsonFile(lockPath);
   const installedPackages = ensureObject(lock?.installedPackages);
+  const managed = ensureObject(lock?.managed);
   const lockVersion = Number(lock?.lockVersion);
   return {
     lockPath,
     lock: {
       lockVersion: Number.isFinite(lockVersion) && lockVersion > 0 ? lockVersion : LOCK_VERSION,
-      installedPackages
+      installedPackages,
+      managed
     }
   };
 }

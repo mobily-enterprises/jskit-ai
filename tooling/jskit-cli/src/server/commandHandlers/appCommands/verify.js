@@ -8,13 +8,24 @@ const BASELINE_VERIFY_SCRIPTS = Object.freeze([
 ]);
 
 async function runAppVerifyCommand(ctx = {}, { appRoot = "", options = {}, stdout, stderr }) {
-  const { createCliError } = ctx;
+  const {
+    createCliError,
+    validateAppCiWorkflow
+  } = ctx;
   const inlineOptions =
     options?.inlineOptions && typeof options.inlineOptions === "object" ? options.inlineOptions : {};
   const against = String(inlineOptions.against || "").trim();
 
   if (options?.dryRun) {
     throw createCliError("jskit app verify does not support --dry-run.", { exitCode: 1 });
+  }
+
+  const ciValidation = await validateAppCiWorkflow({ appRoot });
+  if (!ciValidation.valid) {
+    throw createCliError(
+      ciValidation.issues.map((issue) => issue.message).join("\n"),
+      { exitCode: 1 }
+    );
   }
 
   for (const scriptName of BASELINE_VERIFY_SCRIPTS) {

@@ -4,6 +4,7 @@ import {
   ensureObject
 } from "../shared/collectionUtils.js";
 import { normalizeFileMutationRecord } from "./mutationWhen.js";
+import { normalizeCiContribution } from "./ci/contract.js";
 
 const PACKAGE_KIND_RUNTIME = "runtime";
 const PACKAGE_KIND_GENERATOR = "generator";
@@ -191,9 +192,14 @@ function validatePackageDescriptorShape(descriptor, descriptorPath) {
   validateFileMutationShape(normalized, descriptorPath);
   validateSourceMutationShape(normalized, descriptorPath);
   const lifecycle = validateLifecycleShape(normalized, descriptorPath);
+  const ci = normalizeCiContribution(normalized.ci, {
+    descriptorPath,
+    packageId
+  });
 
   return {
     ...normalized,
+    ci,
     lifecycle,
     kind: normalizePackageKind(normalized.kind, descriptorPath)
   };
@@ -224,11 +230,16 @@ function validateAppLocalPackageDescriptorShape(descriptor, descriptorPath, { ex
   validateFileMutationShape(normalized, descriptorPath);
   validateSourceMutationShape(normalized, descriptorPath);
   const lifecycle = validateLifecycleShape(normalized, descriptorPath);
+  const ci = normalizeCiContribution(normalized.ci, {
+    descriptorPath,
+    packageId
+  });
 
   return {
     ...normalized,
     packageId,
     version,
+    ci,
     lifecycle,
     kind: normalizePackageKind(normalized.kind, descriptorPath)
   };

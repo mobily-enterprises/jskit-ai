@@ -470,6 +470,8 @@ test("local auth DB backend still supports lazy profile projection", async () =>
 test("package descriptor installs portable local auth DB migrations", () => {
   const files = descriptor.mutations.files.map((file) => file.from);
   assert.deepEqual(files, ["templates/migrations/auth_local_db_initial.cjs"]);
+  assert.equal(descriptor.ci.environment.AUTH_LOCAL_BACKEND, "db");
+  assert.deepEqual(descriptor.ci.services, []);
   assert.deepEqual(
     descriptor.metadata.jskit.tableOwnership.tables.map((table) => table.tableName),
     [

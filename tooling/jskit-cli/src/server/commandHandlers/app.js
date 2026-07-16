@@ -12,6 +12,7 @@ import { runAppAdoptManagedScriptsCommand } from "./appCommands/adoptManagedScri
 import { runAppLinkLocalPackagesCommand } from "./appCommands/linkLocalPackages.js";
 import { runAppMigrateSourceMutationsCommand } from "./appCommands/migrateSourceMutations.js";
 import { runAppReleaseCommand } from "./appCommands/release.js";
+import { runAppSyncCiCommand } from "./appCommands/syncCi.js";
 import { runAppUpdatePackagesCommand } from "./appCommands/updatePackages.js";
 import { runAppVerifyCommand } from "./appCommands/verify.js";
 import { runAppVerifyUiCommand } from "./appCommands/verifyUi.js";
@@ -142,6 +143,9 @@ function createAppCommands(ctx = {}) {
     }
     if (definition.name === "update-packages") {
       return runAppUpdatePackagesCommand(ctx, { appRoot, options, stdout, stderr });
+    }
+    if (definition.name === "sync-ci") {
+      return runAppSyncCiCommand(ctx, { appRoot, options, stdout, stderr });
     }
     if (definition.name === "link-local-packages") {
       return runAppLinkLocalPackagesCommand(ctx, { appRoot, options, stdout, stderr });

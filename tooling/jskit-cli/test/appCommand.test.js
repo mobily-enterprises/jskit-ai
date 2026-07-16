@@ -553,7 +553,8 @@ if (args[0] === "view") {
       "npm view @jskit-ai/jskit-cli version",
       "npm install --save-exact @jskit-ai/shell-web@7.x",
       "npm install --save-dev --save-exact @jskit-ai/jskit-cli@3.x",
-      "local-jskit migrations changed"
+      "local-jskit migrations changed",
+      "local-jskit app sync-ci"
     ]);
     assert.match(String(result.stdout || ""), /\[jskit:update\] generating managed migrations for changed packages\./);
   });
@@ -1001,8 +1002,8 @@ if (args[0] === "pr" && args[1] === "create") {
 
     assert.equal(result.status, 0, String(result.stderr || ""));
     const logLines = await readLogLines(logPath);
-    const branchName = logLines[9].slice("git switch -c ".length);
-    const releaseStamp = logLines[11].slice("git commit -m chore: release ".length);
+    const branchName = logLines[10].slice("git switch -c ".length);
+    const releaseStamp = logLines[12].slice("git commit -m chore: release ".length);
     assert.deepEqual(logLines, [
       "gh auth status",
       "git status --porcelain",
@@ -1012,6 +1013,7 @@ if (args[0] === "pr" && args[1] === "create") {
       `npm view --registry ${registryUrl} @jskit-ai/shell-web version`,
       `npm install --save-exact --registry ${registryUrl} @jskit-ai/shell-web@7.x`,
       "local-jskit migrations changed",
+      "local-jskit app sync-ci",
       "git status --porcelain",
       `git switch -c ${branchName}`,
       "git add -A",

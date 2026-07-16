@@ -189,10 +189,12 @@ test("create-app scaffolds the base shell with placeholder replacements", async 
     assert.match(gitignore, /node_modules\//);
     assert.match(gitignore, /\.jskit\/verification\//);
 
-    const verifyWorkflow = await readFile(path.join(appRoot, ".github", "workflows", "verify.yml"), "utf8");
+    const verifyWorkflow = await readFile(path.join(appRoot, ".github", "workflows", "jskit-verify.yml"), "utf8");
+    assert.match(verifyWorkflow, /Generated and managed by JSKIT/);
     assert.match(verifyWorkflow, /run: npm run verify/);
     assert.doesNotMatch(verifyWorkflow, /jskit app verify --against/);
     assert.doesNotMatch(verifyWorkflow, /jskit app verify-ui/);
+    await assert.rejects(access(path.join(appRoot, ".github", "workflows", "verify.yml")), /ENOENT/);
 
     const indexHtml = await readFile(path.join(appRoot, "index.html"), "utf8");
     assert.match(indexHtml, /<title>Sample App<\/title>/);
@@ -349,6 +351,8 @@ test("create-app scaffolds the base shell with placeholder replacements", async 
     assert.doesNotMatch(localMainClientProvider, /requires application singleton/);
 
     const lockfile = JSON.parse(await readFile(path.join(appRoot, ".jskit/lock.json"), "utf8"));
+    assert.equal(lockfile.managed.ciWorkflow.path, ".github/workflows/jskit-verify.yml");
+    assert.match(lockfile.managed.ciWorkflow.hash, /^[a-f0-9]{64}$/u);
     assert.ok(lockfile.installedPackages["@local/main"]);
     assert.equal(lockfile.installedPackages["@local/main"].source.type, "local-package");
     assert.equal(lockfile.installedPackages["@local/main"].source.packagePath, "packages/main");

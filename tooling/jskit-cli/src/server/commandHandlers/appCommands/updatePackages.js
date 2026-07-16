@@ -32,9 +32,11 @@ function resolveInstallSpecs(packageNames = [], resolveMajorRange) {
 async function runAppUpdatePackagesCommand(ctx = {}, { appRoot = "", options = {}, stdout, stderr }) {
   const {
     createCliError,
-    loadAppPackageJson
+    loadAppPackageJson,
+    assertAppManagedCiWorkflowUnmodified
   } = ctx;
 
+  await assertAppManagedCiWorkflowUnmodified({ appRoot });
   const { packageJson } = await loadAppPackageJson(appRoot);
   const runtimePackages = collectJskitPackageNames(packageJson?.dependencies);
   const devPackages = collectJskitPackageNames(packageJson?.devDependencies);
@@ -89,6 +91,12 @@ async function runAppUpdatePackagesCommand(ctx = {}, { appRoot = "", options = {
   if (!dryRun) {
     stdout.write("[jskit:update] generating managed migrations for changed packages.\n");
     await runLocalJskit(appRoot, ["migrations", "changed"], {
+      stdout,
+      stderr,
+      createCliError
+    });
+    stdout.write("[jskit:update] synchronizing the managed CI workflow.\n");
+    await runLocalJskit(appRoot, ["app", "sync-ci"], {
       stdout,
       stderr,
       createCliError

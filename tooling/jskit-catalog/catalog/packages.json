@@ -678,11 +678,11 @@
     },
     {
       "packageId": "@jskit-ai/auth-provider-local-core",
-      "version": "0.1.16",
+      "version": "0.1.17",
       "descriptor": {
         "packageVersion": 1,
         "packageId": "@jskit-ai/auth-provider-local-core",
-        "version": "0.1.16",
+        "version": "0.1.17",
         "kind": "runtime",
         "description": "Local auth provider with a file backend default and no database requirement.",
         "dependsOn": [
@@ -735,11 +735,18 @@
             }
           }
         },
+        "ci": {
+          "environment": {
+            "AUTH_PROVIDER": "local"
+          },
+          "services": [],
+          "steps": []
+        },
         "mutations": {
           "dependencies": {
             "runtime": {
               "@jskit-ai/auth-core": "0.1.115",
-              "@jskit-ai/kernel": "0.1.117",
+              "@jskit-ai/kernel": "0.1.118",
               "nodemailer": "^7.0.10",
               "dotenv": "^16.4.5"
             },
@@ -785,11 +792,11 @@
     },
     {
       "packageId": "@jskit-ai/auth-provider-local-db-core",
-      "version": "0.1.8",
+      "version": "0.1.9",
       "descriptor": {
         "packageVersion": 1,
         "packageId": "@jskit-ai/auth-provider-local-db-core",
-        "version": "0.1.8",
+        "version": "0.1.9",
         "kind": "runtime",
         "description": "Database-backed local auth storage backend for JSKIT local auth.",
         "dependsOn": [
@@ -858,12 +865,19 @@
             }
           }
         },
+        "ci": {
+          "environment": {
+            "AUTH_LOCAL_BACKEND": "db"
+          },
+          "services": [],
+          "steps": []
+        },
         "mutations": {
           "dependencies": {
             "runtime": {
-              "@jskit-ai/auth-provider-local-core": "0.1.16",
-              "@jskit-ai/database-runtime": "0.1.116",
-              "@jskit-ai/kernel": "0.1.117"
+              "@jskit-ai/auth-provider-local-core": "0.1.17",
+              "@jskit-ai/database-runtime": "0.1.117",
+              "@jskit-ai/kernel": "0.1.118"
             },
             "dev": {}
           },
@@ -2592,11 +2606,11 @@
     },
     {
       "packageId": "@jskit-ai/database-runtime",
-      "version": "0.1.116",
+      "version": "0.1.117",
       "descriptor": {
         "packageVersion": 1,
         "packageId": "@jskit-ai/database-runtime",
-        "version": "0.1.116",
+        "version": "0.1.117",
         "kind": "runtime",
         "dependsOn": [
           "@jskit-ai/kernel"
@@ -2650,10 +2664,22 @@
             }
           }
         },
+        "ci": {
+          "environment": {},
+          "services": [],
+          "steps": [
+            {
+              "id": "database-migrations",
+              "phase": "before-verify",
+              "label": "Apply database migrations",
+              "command": "npm run db:migrate"
+            }
+          ]
+        },
         "mutations": {
           "dependencies": {
             "runtime": {
-              "@jskit-ai/kernel": "0.1.117",
+              "@jskit-ai/kernel": "0.1.118",
               "dotenv": "^16.4.5",
               "knex": "^3.1.0"
             },
@@ -2689,11 +2715,11 @@
     },
     {
       "packageId": "@jskit-ai/database-runtime-mysql",
-      "version": "0.1.115",
+      "version": "0.1.116",
       "descriptor": {
         "packageVersion": 1,
         "packageId": "@jskit-ai/database-runtime-mysql",
-        "version": "0.1.115",
+        "version": "0.1.116",
         "kind": "runtime",
         "options": {
           "db-host": {
@@ -2780,10 +2806,42 @@
             }
           }
         },
+        "ci": {
+          "environment": {
+            "DB_CLIENT": "mysql2",
+            "DB_HOST": "127.0.0.1",
+            "DB_PORT": "33060",
+            "DB_NAME": "jskit_ci",
+            "DB_USER": "jskit_ci",
+            "DB_PASSWORD": "jskit_ci_only_password"
+          },
+          "services": [
+            {
+              "id": "mariadb",
+              "image": "mariadb:11.4",
+              "environment": {
+                "MARIADB_DATABASE": "jskit_ci",
+                "MARIADB_USER": "jskit_ci",
+                "MARIADB_PASSWORD": "jskit_ci_only_password",
+                "MARIADB_ROOT_PASSWORD": "jskit_ci_only_root_password"
+              },
+              "ports": [
+                "33060:3306"
+              ],
+              "healthCheck": {
+                "command": "healthcheck.sh --connect --innodb_initialized",
+                "interval": "10s",
+                "timeout": "5s",
+                "retries": 10
+              }
+            }
+          ],
+          "steps": []
+        },
         "mutations": {
           "dependencies": {
             "runtime": {
-              "@jskit-ai/database-runtime": "0.1.116",
+              "@jskit-ai/database-runtime": "0.1.117",
               "mysql2": "^3.11.2"
             },
             "dev": {}

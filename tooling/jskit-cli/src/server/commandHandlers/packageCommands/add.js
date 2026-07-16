@@ -360,6 +360,9 @@ async function runPackageAddCommand(ctx = {}, { positional, options, cwd, io }) 
     resolvePackageOptions,
     applyPackageInstall,
     adoptAppLocalPackageDependencies,
+    assertManagedCiWorkflowUnmodified,
+    composeInstalledPackageCi,
+    synchronizeManagedCiWorkflow,
     writeJsonFile,
     readFileBufferIfExists,
     runNpmInstall,
@@ -485,6 +488,10 @@ async function runPackageAddCommand(ctx = {}, { positional, options, cwd, io }) 
   const combinedPackageRegistry = mergePackageRegistries(packageRegistry, appLocalRegistry);
   const { packageJsonPath, packageJson } = await loadAppPackageJson(appRoot);
   const { lockPath, lock } = await loadLockFile(appRoot);
+  await assertManagedCiWorkflowUnmodified({
+    appRoot,
+    lock
+  });
   const resolvedTargetPackageId = targetType === "package"
     ? await resolvePackageIdFromRegistryOrNodeModules({
         appRoot,
@@ -556,6 +563,19 @@ async function runPackageAddCommand(ctx = {}, { positional, options, cwd, io }) 
     combinedPackageRegistry,
     `${invocationMode} ${targetType} ${targetId}`
   );
+  for (const packageId of plannedInstalledPackageIds) {
+    const packageEntry = combinedPackageRegistry.get(packageId);
+    if (!packageEntry) {
+      throw createCliError(
+        `[ci:descriptor-missing] Installed package descriptor not found for ${packageId}. Restore the package in node_modules or the JSKIT catalog before changing installed package requirements.`
+      );
+    }
+  }
+  composeInstalledPackageCi({
+    lock,
+    packageRegistry: combinedPackageRegistry,
+    installedPackageIds: plannedInstalledPackageIds
+  });
 
   if (targetType === "bundle") {
     validateInlineOptionsForBundle({
@@ -765,6 +785,14 @@ async function runPackageAddCommand(ctx = {}, { positional, options, cwd, io }) 
       componentTokens: generatedPlacementComponentTokens
     });
   }
+
+  await synchronizeManagedCiWorkflow({
+    appRoot,
+    lock,
+    packageRegistry: combinedPackageRegistry,
+    touchedFiles,
+    dryRun: options.dryRun === true
+  });
 
   const touchedFileList = sortStrings([...touchedFiles]);
   const successLabel = invocationMode === "generate"

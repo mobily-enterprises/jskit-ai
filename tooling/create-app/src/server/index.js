@@ -3,6 +3,10 @@ import path from "node:path";
 import process from "node:process";
 import { createInterface } from "node:readline/promises";
 import { fileURLToPath } from "node:url";
+import {
+  JSKIT_CI_WORKFLOW_RELATIVE_PATH,
+  synchronizeAppCiWorkflow
+} from "@jskit-ai/jskit-cli/server";
 import { createCliError } from "./cliError.js";
 import { shellQuote } from "./cliEntrypoint.js";
 
@@ -589,6 +593,19 @@ export async function createApp({
     replacements,
     dryRun
   });
+  if (touchedFiles.includes(path.join(".jskit", "lock.json"))) {
+    if (!dryRun) {
+      const ciSync = await synchronizeAppCiWorkflow({
+        appRoot: targetDirectory,
+        allowManagedOverwrite: false
+      });
+      if (ciSync.workflowChanged) {
+        touchedFiles.push(ciSync.path);
+      }
+    } else {
+      touchedFiles.push(JSKIT_CI_WORKFLOW_RELATIVE_PATH);
+    }
+  }
 
   return {
     appName: resolvedAppName,

@@ -90,7 +90,23 @@ const APP_COMMAND_DEFINITIONS = Object.freeze({
     defaults: Object.freeze([
       "Runtime and dev @jskit-ai dependencies are updated separately so package.json sections stay correct.",
       "Each package is moved to the latest available major.x range and npm saves the resolved exact version.",
-      "Managed migrations are refreshed afterwards unless --dry-run is used."
+      "Managed migrations and the composed CI workflow are refreshed afterwards unless --dry-run is used."
+    ])
+  }),
+  "sync-ci": Object.freeze({
+    name: "sync-ci",
+    summary: "Regenerate the JSKIT-managed GitHub verification workflow from installed package contracts.",
+    usage: "jskit app sync-ci [--force]",
+    options: Object.freeze([
+      Object.freeze({
+        label: "--force",
+        description: "Replace a modified workflow that is already recorded as JSKIT-managed."
+      })
+    ]),
+    defaults: Object.freeze([
+      "Recomposes CI requirements from installed package descriptors and records the generated content hash in .jskit/lock.json.",
+      "Refuses to replace a modified workflow unless --force is explicit; application-specific CI belongs in a separate workflow.",
+      "Never claims an unrecorded jskit-verify.yml or removes a customized legacy verify.yml."
     ])
   }),
   "link-local-packages": Object.freeze({
@@ -199,6 +215,9 @@ function buildAppCommandOptionMeta(subcommandName = "") {
     optionMeta["dry-run"] = { inputType: "flag" };
   }
   if (definition.name === "adopt-managed-scripts") {
+    optionMeta.force = { inputType: "flag" };
+  }
+  if (definition.name === "sync-ci") {
     optionMeta.force = { inputType: "flag" };
   }
   if (definition.name === "update-packages" || definition.name === "release") {

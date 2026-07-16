@@ -247,7 +247,6 @@ export {
       {
         lockVersion: 1,
         installedPackages: {
-          "@jskit-ai/kernel": createManagedRecord("@jskit-ai/kernel", "0.1.63"),
           "@jskit-ai/shell-web": createManagedRecord("@jskit-ai/shell-web", "0.1.62")
         }
       },
