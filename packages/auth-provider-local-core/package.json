@@ -1,6 +1,6 @@
 {
   "name": "@jskit-ai/auth-provider-local-core",
-  "version": "0.1.15",
+  "version": "0.1.16",
   "type": "module",
   "scripts": {
     "test": "node --test"
@@ -11,8 +11,8 @@
     "./server/lib/index": "./src/server/lib/index.js"
   },
   "dependencies": {
-    "@jskit-ai/auth-core": "0.1.114",
-    "@jskit-ai/kernel": "0.1.116",
+    "@jskit-ai/auth-core": "0.1.115",
+    "@jskit-ai/kernel": "0.1.117",
     "nodemailer": "^7.0.10"
   }
 }
