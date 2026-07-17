@@ -26,6 +26,7 @@ function createHealthCommands(ctx = {}) {
     loadAppLocalPackageRegistry,
     mergePackageRegistries,
     hydratePackageRegistryFromInstalledNodeModules,
+    validateManagedCiWorkflow,
     inspectPackageOfferings,
     fileExists,
     normalizeRelativePath,
@@ -2129,6 +2130,13 @@ function createHealthCommands(ctx = {}) {
       packageRegistry: combinedPackageRegistry,
       seedPackageIds: Object.keys(installed)
     });
+
+    const ciValidation = await validateManagedCiWorkflow({
+      appRoot,
+      lock,
+      packageRegistry: combinedPackageRegistry
+    });
+    issues.push(...ciValidation.issues.map((issue) => issue.message));
 
     for (const [packageId, lockEntryValue] of Object.entries(installed)) {
       const lockEntry = ensureObject(lockEntryValue);

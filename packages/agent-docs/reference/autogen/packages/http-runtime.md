@@ -80,6 +80,8 @@ Local functions
 Exports
 - `createHttpError(response, data = {})`
 - `createNetworkError(cause)`
+Local functions
+- `standardErrorMessage(payload = {})`
 
 ### `src/shared/clientRuntime/headers.js`
 Exports

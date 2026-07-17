@@ -73,6 +73,75 @@ Local functions
 - `collectPlannedCapabilityIssues(plannedPackageIds, packageRegistry)`
 - `collectExclusiveCapabilityIssues(plannedPackageIds, packageRegistry)`
 
+### `src/server/cliRuntime/ci/composer.js`
+Exports
+- `CiCompositionError`
+- `composeCiContributions(packageEntries = [])`
+Local functions
+- `canonicalValue(value)`
+- `valuesMatch(left, right)`
+- `formatConflictValue(value)`
+- `normalizePackageEntries(packageEntries = [])`
+- `appendSource(sourceMap, key, packageId)`
+- `conflict({ kind, id, existing, incoming, existingPackages, incomingPackage })`
+- `sourcesToObject(sourceMap)`
+
+### `src/server/cliRuntime/ci/contract.js`
+Exports
+- `CI_STEP_PHASE_BEFORE_VERIFY`
+- `CI_STEP_PHASES`
+- `normalizeCiContribution(value, context = {})`
+Local functions
+- `isPlainObject(value)`
+- `invalidCiContract(message, { descriptorPath = "", packageId = "" } = {})`
+- `requirePlainObject(value, label, context)`
+- `rejectUnknownKeys(value, allowedKeys, label, context)`
+- `normalizeCiScalar(value, label, context)`
+- `normalizeCiEnvironment(value, label, context)`
+- `normalizeCiPorts(value, label, context)`
+- `normalizeCiHealthCheck(value, label, context)`
+- `normalizeCiService(value, index, context)`
+- `normalizeCiStep(value, index, context)`
+
+### `src/server/cliRuntime/ci/githubWorkflow.js`
+Exports
+- `GENERATED_WORKFLOW_HEADER`
+- `JSKIT_CI_WORKFLOW_RELATIVE_PATH`
+- `LEGACY_CI_WORKFLOW_RELATIVE_PATH`
+- `LEGACY_VERIFY_WORKFLOW_HASH`
+- `buildGithubWorkflowDocument(model = {})`
+- `parseGithubWorkflow(source = "")`
+- `renderGithubServiceOptions(service = {})`
+- `renderGithubWorkflow(model = {})`
+Local functions
+- `quoteDockerOptionValue(value)`
+- `renderGithubService(service = {})`
+
+### `src/server/cliRuntime/ci/managedWorkflow.js`
+Exports
+- `assertAppManagedCiWorkflowUnmodified({ appRoot })`
+- `assertManagedCiWorkflowUnmodified({ appRoot, lock, allowManagedOverwrite = false })`
+- `composeInstalledPackageCi({ lock, packageRegistry, installedPackageIds = null })`
+- `synchronizeAppCiWorkflow({ appRoot, allowManagedOverwrite = false, dryRun = false })`
+- `synchronizeManagedCiWorkflow({ appRoot, lock, packageRegistry, installedPackageIds = null, touchedFiles = null, dryRun = false, allowManagedOverwrite = false })`
+- `validateAppCiWorkflow({ appRoot })`
+- `validateManagedCiWorkflow({ appRoot, lock, packageRegistry })`
+Local functions
+- `contentHash(content = "")`
+- `collectInstalledPackageEntries({ lock, packageRegistry, installedPackageIds = null })`
+- `managedCiRecord(lock = {})`
+- `setManagedCiRecord(lock, record)`
+- `recoveryError(message, { force = false } = {})`
+- `inspectWorkflowOwnership({ appRoot, lock })`
+- `createValidationIssue(code, message, details = {})`
+- `formatRequirementPackages(packageIds = [])`
+- `describeCiRequirements(model = {})`
+- `normalizeActualEnvironment(value)`
+- `collectEnvironmentIssues({ expected, actual, sources, issues })`
+- `collectServiceIssues({ model, verifyJob, issues })`
+- `collectStepIssues({ model, verifyJob, issues })`
+- `loadAppCiContext(appRoot)`
+
 ### `src/server/cliRuntime/completion.js`
 Exports
 - `discoverPlacementTargets(appRoot)`
@@ -364,7 +433,7 @@ Exports
 - `loadAppLocalPackageRegistry(appRoot)`
 - `loadPackageRegistry()`
 - `resolveInstalledNodeModulePackageEntry({ appRoot, packageId })`
-- `hydratePackageRegistryFromInstalledNodeModules({ appRoot, packageRegistry, seedPackageIds = [] })`
+- `hydratePackageRegistryFromInstalledNodeModules({ appRoot, packageRegistry, seedPackageIds = [], preferInstalledDescriptors = false })`
 - `loadBundleRegistry()`
 Local functions
 - `normalizeRelativePosixPath(pathValue)`
@@ -474,23 +543,6 @@ Local functions
 - `applyTextReplacements(sourceText = "", replacements = [])`
 - `collectCrudFormFieldCandidateFiles(appRoot = "")`
 
-### `src/server/commandHandlers/appCommands/preparePreviewUser.js`
-Exports
-- `runAppPreparePreviewUserCommand(_ctx = {}, { appRoot = "", options = {}, stdout = process.stdout })`
-Local functions
-- `normalizeText(value = "")`
-- `normalizeLowerText(value = "")`
-- `profileFromOptions(options = {})`
-- `fileExists(filePath = "")`
-- `createAppRequire(appRoot = "")`
-- `importFreshModule(filePath = "")`
-- `loadKnexConfig(appRoot = "")`
-- `importAppPackageExport(appRoot = "", specifier = "", { required = true } = {})`
-- `writeProfile(profileFile = "", authProfile = {})`
-- `isTrueOption(value)`
-- `normalizeTenancyMode(value = "")`
-- `hasWorkspaceTables(db)`
-
 ### `src/server/commandHandlers/appCommands/release.js`
 Exports
 - `runAppReleaseCommand(ctx = {}, { appRoot = "", options = {}, stdout, stderr })`
@@ -511,6 +563,10 @@ Exports
 - `resolveSymlinkType()`
 Local functions
 - `ensureCommandSucceeded(result, label, { createCliError, cwd = "", stdout, stderr, quiet = false } = {})`
+
+### `src/server/commandHandlers/appCommands/syncCi.js`
+Exports
+- `runAppSyncCiCommand(ctx = {}, { appRoot = "", options = {}, stdout })`
 
 ### `src/server/commandHandlers/appCommands/updatePackages.js`
 Exports
@@ -901,6 +957,11 @@ Exports
 ### `src/server/index.js`
 Exports
 - `runCli`
+- `synchronizeAppCiWorkflow`
+- `validateAppCiWorkflow`
+- `composeCiContributions`
+- `JSKIT_CI_WORKFLOW_RELATIVE_PATH`
+- `renderGithubWorkflow`
 
 ### `src/server/shared/cliError.js`
 Exports

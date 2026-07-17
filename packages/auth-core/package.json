@@ -1,6 +1,6 @@
 {
   "name": "@jskit-ai/auth-core",
-  "version": "0.1.112",
+  "version": "0.1.115",
   "type": "module",
   "scripts": {
     "test": "node --test"
@@ -14,6 +14,8 @@
     "./server/authPolicyContextResolverRegistry": "./src/server/authPolicyContextResolverRegistry.js",
     "./server/authServiceDecoratorRegistry": "./src/server/authServiceDecoratorRegistry.js",
     "./server/authActor": "./src/server/authActor.js",
+    "./server/booleanFlag": "./src/server/booleanFlag.js",
+    "./server/devAuth": "./src/server/devAuth.js",
     "./server/unsupportedOperation": "./src/server/unsupportedOperation.js",
     "./server/utils": "./src/server/utils.js",
     "./server/validators": "./src/server/validators.js",
@@ -54,7 +56,7 @@
     "./shared/commands/authSessionReadCommand": "./src/shared/commands/authSessionReadCommand.js"
   },
   "dependencies": {
-    "@jskit-ai/kernel": "0.1.114",
+    "@jskit-ai/kernel": "0.1.117",
     "@fastify/cookie": "^11.0.2",
     "@fastify/csrf-protection": "^7.1.0",
     "@fastify/rate-limit": "^10.3.0",

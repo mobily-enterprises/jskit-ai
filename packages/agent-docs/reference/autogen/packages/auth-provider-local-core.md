@@ -80,18 +80,27 @@ Local functions
 - `isoFromNow(seconds)`
 - `isExpiredIso(value)`
 - `isNormalSession(session)`
+- `isDevAuthSession(session)`
+- `isAuthenticatingSession(session)`
 - `normalizeDisplayName(value, email)`
 - `createId(prefix)`
 - `safeRequestCookies(request)`
+- `unauthenticatedAuthResult(clearSession = false)`
 - `cookieOptions(isProduction, maxAge)`
 - `clearCookieOptions(isProduction)`
 - `buildProfile(user)`
 - `buildActor(user, profile = null)`
+- `buildAuthResult({ user, session, appProfile = null })`
+- `requireProfileResult(profile, methodName)`
 - `buildAuthPayload({ user, session, profileProjector, profileOptions = {} })`
+- `findExistingAppProfile(user, profileProjector)`
+- `buildSessionAuthPayload({ devAuth, profileProjector, request, session, user })`
 - `buildAccessToken({ user, session, secret, ttlSeconds = ACCESS_TTL_SECONDS })`
 - `buildSessionPayload({ user, session, refreshToken, secret })`
 - `validatePasswordInput(password)`
 - `validateEmailInput(email)`
+- `devLoginAsValidationError(fieldErrors = {})`
+- `devLoginAsUserNotFound({ email = "", userId = "" } = {})`
 - `normalizeInvitationInput(value = null)`
 - `maybeSendRecoveryEmail(config, recoveryUrl, email)`
 
@@ -110,7 +119,6 @@ Exports
 - `AuthLocalServiceProvider`
 - `resolveLocalBackendMode(scope)`
 Local functions
-- `parseBoolean(value, fallback = false)`
 - `resolveRuntimeEnv(scope)`
 - `assertSelectedAuthProvider(env)`
 - `resolveStoreDir(env)`
@@ -118,6 +126,7 @@ Local functions
 - `resolveSmtpConfig(env)`
 - `resolveAppPublicUrl(env, { smtpConfigured })`
 - `resolveConfig(scope)`
+- `createLazyProfileProjector(scope)`
 
 ### `src/server/providers/AuthProviderServiceProvider.js`
 Exports

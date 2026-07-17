@@ -1,9 +1,8 @@
 import { resolveAllowedOriginsFromSurfaceDefinitions } from "@jskit-ai/kernel/shared/support/returnToPath";
-import { withActionDefaults } from "@jskit-ai/kernel/shared/actions";
 import { applyAuthServiceDecorators } from "@jskit-ai/auth-core/server/authServiceDecoratorRegistry";
 import { normalizeEmail } from "@jskit-ai/auth-core/server/utils";
 import { createService } from "../lib/service.js";
-import { devLoginAsAction } from "../lib/actions/auth.contributor.js";
+
 const PROFILE_MODE_PROVIDER = "provider";
 const PROFILE_MODE_STANDALONE = "standalone";
 const PROFILE_MODE_USERS = "users";
@@ -15,20 +14,6 @@ function splitCsv(value) {
     .split(",")
     .map((entry) => entry.trim())
     .filter(Boolean);
-}
-
-function parseBoolean(value, fallback = false) {
-  const raw = String(value || "").trim().toLowerCase();
-  if (!raw) {
-    return fallback;
-  }
-  if (["1", "true", "yes", "on"].includes(raw)) {
-    return true;
-  }
-  if (["0", "false", "no", "off"].includes(raw)) {
-    return false;
-  }
-  return fallback;
 }
 
 function normalizeRecord(value) {
@@ -101,18 +86,6 @@ function resolveAuthProfileMode(appConfig = {}) {
   throw new Error(
     `Unsupported config.auth.profileMode "${mode}". Supported values: ${SUPPORTED_PROFILE_MODES.join(", ")}.`
   );
-}
-
-function isDevAuthBypassEnabledForRegistration(env) {
-  if (!isDevAuthBypassRequested(env)) {
-    return false;
-  }
-
-  return String(env?.NODE_ENV || "development").trim().toLowerCase() !== "production";
-}
-
-function isDevAuthBypassRequested(env) {
-  return parseBoolean(env?.AUTH_DEV_BYPASS_ENABLED, false);
 }
 
 function createProviderIdentityProfileSyncService({ authProviderId = "supabase" } = {}) {
@@ -201,17 +174,13 @@ function isDeferredJsonRestBootGap(app, error) {
 class AuthSupabaseServiceProvider {
   static id = "auth.provider.supabase";
 
-  static dependsOn = ["runtime.actions"];
-
   register(app) {
     if (
       !app ||
       typeof app.singleton !== "function" ||
-      typeof app.has !== "function" ||
-      typeof app.actions !== "function" ||
-      typeof app.service !== "function"
+      typeof app.has !== "function"
     ) {
-      throw new Error("AuthSupabaseServiceProvider requires application singleton()/has()/actions()/service().");
+      throw new Error("AuthSupabaseServiceProvider requires application singleton()/has().");
     }
 
     assertSelectedAuthProvider(resolveRuntimeEnv(app));
@@ -227,7 +196,6 @@ class AuthSupabaseServiceProvider {
       const authProvider = resolveAuthProviderConfig(env, appConfig);
       const repositories = resolveOptionalRepositories(scope);
       const userSettingsRepository = repositories.userSettingsRepository || null;
-      const devAuthBypassEnabled = parseBoolean(env.AUTH_DEV_BYPASS_ENABLED, false);
       const authProfileMode = resolveAuthProfileMode(appConfig);
       let userProfileSyncService = createProviderIdentityProfileSyncService({
         authProviderId: authProvider.id
@@ -258,7 +226,7 @@ class AuthSupabaseServiceProvider {
         userProfileSyncService,
         profileProjectionEnabled,
         userProfilesRepository: repositories.userProfilesRepository || null,
-        devAuthBypassEnabled,
+        devAuthBypassEnabled: env.AUTH_DEV_BYPASS_ENABLED,
         devAuthBypassSecret: String(env.AUTH_DEV_BYPASS_SECRET || "").trim(),
         devAuthAccessTtlSeconds: env.AUTH_DEV_ACCESS_TTL_SECONDS,
         devAuthRefreshTtlSeconds: env.AUTH_DEV_REFRESH_TTL_SECONDS
@@ -266,17 +234,6 @@ class AuthSupabaseServiceProvider {
 
       return applyAuthServiceDecorators(scope, authService);
     });
-
-    if (isDevAuthBypassEnabledForRegistration(resolveRuntimeEnv(app))) {
-      app.actions(
-        withActionDefaults([devLoginAsAction], {
-          domain: "auth",
-          dependencies: {
-            authService: "authService"
-          }
-        })
-      );
-    }
   }
 
   boot(app) {

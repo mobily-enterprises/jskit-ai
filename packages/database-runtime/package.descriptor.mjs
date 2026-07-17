@@ -1,7 +1,7 @@
 export default Object.freeze({
   packageVersion: 1,
   packageId: "@jskit-ai/database-runtime",
-  version: "0.1.113",
+  version: "0.1.117",
   kind: "runtime",
   dependsOn: [
     "@jskit-ai/kernel"
@@ -55,10 +55,22 @@ export default Object.freeze({
       }
     }
   },
+  ci: {
+    environment: {},
+    services: [],
+    steps: [
+      {
+        id: "database-migrations",
+        phase: "before-verify",
+        label: "Apply database migrations",
+        command: "npm run db:migrate"
+      }
+    ]
+  },
   mutations: {
     dependencies: {
       runtime: {
-        "@jskit-ai/kernel": "0.1.114",
+        "@jskit-ai/kernel": "0.1.118",
         "dotenv": "^16.4.5",
         "knex": "^3.1.0"
       },

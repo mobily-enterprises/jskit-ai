@@ -163,7 +163,7 @@ test("create-app scaffolds the base shell with placeholder replacements", async 
     assert.equal(packageJson.dependencies["vue-router"], "^5.1.0");
     assert.equal(packageJson.dependencies.vuetify, "^4.1.2");
     assert.equal(packageJson.dependencies["@tanstack/vue-query"], "^5.101.0");
-    assert.equal(packageJson.devDependencies["@playwright/test"], "^1.61.0");
+    assert.equal(packageJson.devDependencies["@playwright/test"], "1.61.1");
     assert.equal(packageJson.devDependencies["@vitejs/plugin-vue"], "^6.0.7");
     assert.equal(packageJson.devDependencies.eslint, "^9.39.4");
     assert.equal(packageJson.devDependencies.vite, "^8.0.16");
@@ -189,10 +189,12 @@ test("create-app scaffolds the base shell with placeholder replacements", async 
     assert.match(gitignore, /node_modules\//);
     assert.match(gitignore, /\.jskit\/verification\//);
 
-    const verifyWorkflow = await readFile(path.join(appRoot, ".github", "workflows", "verify.yml"), "utf8");
+    const verifyWorkflow = await readFile(path.join(appRoot, ".github", "workflows", "jskit-verify.yml"), "utf8");
+    assert.match(verifyWorkflow, /Generated and managed by JSKIT/);
     assert.match(verifyWorkflow, /run: npm run verify/);
     assert.doesNotMatch(verifyWorkflow, /jskit app verify --against/);
     assert.doesNotMatch(verifyWorkflow, /jskit app verify-ui/);
+    await assert.rejects(access(path.join(appRoot, ".github", "workflows", "verify.yml")), /ENOENT/);
 
     const indexHtml = await readFile(path.join(appRoot, "index.html"), "utf8");
     assert.match(indexHtml, /<title>Sample App<\/title>/);
@@ -349,6 +351,8 @@ test("create-app scaffolds the base shell with placeholder replacements", async 
     assert.doesNotMatch(localMainClientProvider, /requires application singleton/);
 
     const lockfile = JSON.parse(await readFile(path.join(appRoot, ".jskit/lock.json"), "utf8"));
+    assert.equal(lockfile.managed.ciWorkflow.path, ".github/workflows/jskit-verify.yml");
+    assert.match(lockfile.managed.ciWorkflow.hash, /^[a-f0-9]{64}$/u);
     assert.ok(lockfile.installedPackages["@local/main"]);
     assert.equal(lockfile.installedPackages["@local/main"].source.type, "local-package");
     assert.equal(lockfile.installedPackages["@local/main"].source.packagePath, "packages/main");
@@ -528,6 +532,36 @@ test("create-app accepts tenancy-mode flag and writes it to config/public.js", a
   });
 });
 
+test("create-app accepts an exact platform-owned Playwright version", async () => {
+  await withCreateAppTempDir(async (cwd) => {
+    const result = runCli({
+      cwd,
+      args: ["managed-browser-app", "--playwright-version", "1.50.1"]
+    });
+
+    assert.equal(result.status, 0, result.stderr);
+
+    const packageJson = JSON.parse(await readFile(
+      path.join(cwd, "managed-browser-app/package.json"),
+      "utf8"
+    ));
+    assert.equal(packageJson.devDependencies["@playwright/test"], "1.50.1");
+  });
+});
+
+test("create-app rejects floating Playwright versions", async () => {
+  await withCreateAppTempDir(async (cwd) => {
+    const result = runCli({
+      cwd,
+      args: ["floating-browser-app", "--playwright-version", "^1.61.0"]
+    });
+
+    assert.notEqual(result.status, 0);
+    assert.match(result.stderr, /Expected an exact x\.y\.z version/u);
+    await assert.rejects(access(path.join(cwd, "floating-browser-app")), /ENOENT/);
+  });
+});
+
 test("create-app rejects invalid tenancy-mode values", async () => {
   await withCreateAppTempDir(async (cwd) => {
     const result = runCli({
@@ -686,6 +720,7 @@ test("create-app minimal mode keeps the bare scaffold and can still install shel
     assert.equal(packageJsonBefore.engines.node, "^20.19.0 || ^22.12.0");
     assert.equal(packageJsonBefore.dependencies["@jskit-ai/shell-web"], undefined);
     assert.equal(packageJsonBefore.dependencies["vue-router"], "^5.1.0");
+    assert.equal(packageJsonBefore.devDependencies["@playwright/test"], "1.61.1");
     assert.equal(packageJsonBefore.devDependencies.vite, "^8.0.16");
     const homeViewBefore = await readFile(path.join(appRoot, "src/pages/home/index.vue"), "utf8");
     assert.match(homeViewBefore, /home-start-screen/);

@@ -93,7 +93,17 @@ This gives you a clean ownership split:
 
 That split is worth keeping in mind through the rest of the guide. When you see `npm run verify`, read it as "run the app's JSKIT baseline verification policy, then any app-specific extra verification hook".
 
-The starter scaffold also includes `.github/workflows/verify.yml`. That workflow is intentionally conservative: it runs `npm run verify` and does not assume that every app can stand up full browser, auth, seed-data, and database verification inside hosted CI.
+The starter scaffold also includes `.github/workflows/jskit-verify.yml`. This is a JSKIT-managed projection, not a static template. Installed package descriptors can contribute CI environment values, services, and preparation steps through their top-level `ci` contract. JSKIT composes those contributions and renders one verification workflow in this order: checkout, Node setup, `npm ci`, package-contributed `before-verify` steps, and `npm run verify`.
+
+For example, `database-runtime` contributes the `database-migrations` step. Its MySQL driver contributes a MariaDB service with `DB_CLIENT=mysql2`, while its Postgres driver contributes a Postgres service with `DB_CLIENT=pg`. Each driver supplies matching synthetic CI-only `DB_*` values; local `.env` values are never copied into the workflow.
+
+The workflow path and generated content hash live under `managed.ciWorkflow` in `.jskit/lock.json`. Package add, remove, update, and app-wide package updates refresh this projection. If the workflow no longer matches its recorded hash, JSKIT refuses to overwrite it during those operations. Move application-specific jobs to another workflow, then explicitly regenerate the managed projection with:
+
+```bash
+npx jskit app sync-ci
+```
+
+The command refuses to replace an edited workflow unless you explicitly run `npx jskit app sync-ci --force`. Even with `--force`, it replaces the file only when `.jskit/lock.json` already records JSKIT ownership. It does not claim an unrecorded `.github/workflows/jskit-verify.yml` or remove a customized legacy `.github/workflows/verify.yml`.
 
 If your app uses a non-default npm registry for JSKIT packages, pass it to the maintained CLI command rather than hard-coding it in the scaffold. For example:
 
@@ -575,6 +585,7 @@ That state lives in `.jskit/lock.json`, which is why lifecycle commands all star
 - which package is installed
 - which install options were used
 - which files, text mutations, dependency entries, and migrations it owns
+- the path and content hash of the composed JSKIT CI workflow
 
 The easiest way to think about the lifecycle is:
 
@@ -582,6 +593,8 @@ The easiest way to think about the lifecycle is:
 2. `jskit update package ...` reapplies that managed state
 3. `jskit position element ...` reapplies just the positioning layer
 4. `jskit remove package ...` removes the managed state
+
+Package add, update, and remove also recompose `.github/workflows/jskit-verify.yml` from the complete installed package set. No individual package owns that file through `mutations.files`; it is one app-level projection with contributions from many descriptors.
 
 That is a better mental model than thinking of these as three unrelated commands.
 
@@ -704,6 +717,7 @@ In the current CLI, that includes checks such as:
 - installed package entries in `.jskit/lock.json`
 - whether managed files recorded in the lock still exist
 - whether installed packages are still visible in the package registry
+- whether package CI contributions compose without conflicts and match the managed workflow service, environment, preparation steps, and ordering
 - explicit `transport` passed to high-level CRUD hooks such as `useCrudList()`, `useCrudView()`, and `useCrudAddEdit()`, where the shared CRUD resource should derive the JSON:API transport automatically
 - certain JSKIT-specific app checks, such as invalid raw `mdi-*` icon literals in Vue templates when the app uses Vuetify's `mdi-svg` iconset
 - UI verification receipts for current dirty UI files in git, via `.jskit/verification/ui.json`
@@ -737,7 +751,7 @@ That is a different job from:
 
 Those commands can all pass while JSKIT-managed state is still inconsistent. `doctor` is the command that checks that JSKIT's own view of the app still makes sense.
 
-That is exactly why the starter scaffold routes `npm run verify` through `jskit app verify`.
+That is exactly why the starter scaffold routes `npm run verify` through `jskit app verify`. CI structure is checked before lint, test, client-test, and build scripts, so a stale database service or missing migration step fails directly instead of surfacing later as an opaque provider boot failure.
 
 It belongs there because JSKIT apps are not only source trees. They also have:
 

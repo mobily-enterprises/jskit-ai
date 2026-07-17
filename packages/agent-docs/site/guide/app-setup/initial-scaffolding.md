@@ -210,7 +210,7 @@ The most important parts look like this:
     "@jskit-ai/agent-docs": "0.x",
     "@jskit-ai/config-eslint": "0.x",
     "@jskit-ai/jskit-cli": "0.x",
-    "@playwright/test": "^1.61.0",
+    "@playwright/test": "1.61.1",
     "@vitejs/plugin-vue": "^6.0.7",
     "eslint": "^9.39.4",
     "vite": "^8.0.16",
@@ -227,7 +227,9 @@ That matters because JSKIT maintenance policy changes over time. If the scaffold
 
 `jskit app verify` is worth noticing specifically. Linting, tests, and builds check your source code and runtime behavior. The JSKIT part of that flow runs `doctor`, which checks JSKIT-managed app state: installed package visibility, lock-file-backed managed files, and other JSKIT-specific health rules. It is there because a JSKIT app is not only code. It is also a descriptor-driven managed project.
 
-The starter scaffold also writes `.github/workflows/verify.yml`. That workflow stays intentionally small: it runs `npm run verify` for the normal GitHub Actions gate and leaves browser/auth/database-heavy review flows to app-specific local or CI setups. The `--against <base-ref>` review mode exists in the CLI for local pre-merge checks and for advanced CI pipelines, but it is not assumed by the starter scaffold.
+The starter scaffold also writes `.github/workflows/jskit-verify.yml`. JSKIT generates and owns that workflow as a projection of installed package `ci` contracts. The baseline runs checkout, Node setup, `npm ci`, and `npm run verify`. Packages can add job environment values, service containers, and explicit `before-verify` steps without taking ownership of the whole YAML file. For example, the database runtime adds migrations before verification. Its MySQL driver adds a MariaDB service with synthetic CI-only credentials and `DB_CLIENT=mysql2`; its Postgres driver adds the equivalent Postgres service and `DB_CLIENT=pg`.
+
+The workflow content hash is recorded in `.jskit/lock.json`. Package lifecycle commands refresh it when installed requirements change and refuse to overwrite a workflow that differs from its recorded version. Application-specific CI belongs in another workflow. Use `npx jskit app sync-ci` to refresh an unmodified managed file, or `npx jskit app sync-ci --force` when you explicitly intend to replace an edited file that is already recorded as JSKIT-owned. The `--against <base-ref>` review mode still exists for local pre-merge checks and advanced CI pipelines, but the starter workflow does not assume it.
 
 The surface-specific script names are also worth noticing early, even in this tiny app. `dev:home`, `server:home`, and `build:home` are the first concrete places where surface selection shows up in the scaffold. They work by setting `VITE_SURFACE=home` on the client side and `SERVER_SURFACE=home` on the server side. In this first chapter, where `home` is the only surface, those variants behave almost the same as the default commands. Later, once more surfaces exist, those scripts become the simplest way to run or build just one surface at a time.
 
@@ -781,7 +783,7 @@ That keeps the ownership boundary clear: `packages/main` stays composition-only,
 
 The `.jskit/lock.json` file is also important. Treat it like JSKIT's own lock and state file. It records which runtime packages JSKIT believes are installed and which managed changes they introduced. When you use `jskit add`, `jskit update`, or generators that depend on installed package state, this file is part of the source of truth. It belongs in version control, and you should not hand-edit it.
 
-This file is narrower than `package.json`. `package.json` lists every npm dependency the app needs, including plain libraries such as Vue, Fastify, and Vuetify. `.jskit/lock.json` only tracks JSKIT package-install state: which JSKIT runtime packages were installed into the app and which files, text mutations, and dependency entries JSKIT is managing on their behalf.
+This file is narrower than `package.json`. `package.json` lists every npm dependency the app needs, including plain libraries such as Vue, Fastify, and Vuetify. `.jskit/lock.json` tracks JSKIT package-install state: which JSKIT runtime packages were installed, which files, text mutations, and dependency entries JSKIT manages on their behalf, and the owned hash of app-level projections such as the composed CI workflow.
 
 On a brand-new default app, the lock file is telling you that the app-local package and the standard shell package are installed from the start:
 
@@ -818,6 +820,12 @@ On a brand-new default app, the lock file is telling you that the app-local pack
         "files": { "...": "..." },
         "text": { "...": "..." }
       }
+    }
+  },
+  "managed": {
+    "ciWorkflow": {
+      "path": ".github/workflows/jskit-verify.yml",
+      "hash": "<generated-sha256>"
     }
   }
 }

@@ -1,5 +1,10 @@
 import { AppError } from "@jskit-ai/kernel/server/runtime/errors";
 import { normalizeRecordId } from "@jskit-ai/kernel/shared/support/normalize";
+import {
+  assertDevAuthPolicy,
+  ensureDevAuthRuntimeAvailable,
+  resolveDevAuthPolicy
+} from "@jskit-ai/auth-core/server/devAuth";
 import { normalizeEmail } from "@jskit-ai/auth-core/server/utils";
 import { loadJose, isExpiredJwtError } from "./authJwt.js";
 
@@ -9,86 +14,12 @@ const DEFAULT_DEV_AUTH_ACCESS_TTL_SECONDS = 60 * 60 * 12;
 const DEFAULT_DEV_AUTH_REFRESH_TTL_SECONDS = 60 * 60 * 24 * 30;
 const encoder = new TextEncoder();
 
-function parseBoolean(value, fallback = false) {
-  const raw = String(value || "").trim().toLowerCase();
-  if (!raw) {
-    return fallback;
-  }
-  if (["1", "true", "yes", "on"].includes(raw)) {
-    return true;
-  }
-  if (["0", "false", "no", "off"].includes(raw)) {
-    return false;
-  }
-  return fallback;
-}
-
 function normalizePositiveInteger(value, fallback) {
   const parsed = Number.parseInt(String(value || "").trim(), 10);
   if (Number.isInteger(parsed) && parsed > 0) {
     return parsed;
   }
   return fallback;
-}
-
-function normalizeRequestHostname(request) {
-  const hostHeader = String(request?.headers?.host || "").trim();
-  if (!hostHeader) {
-    return "";
-  }
-
-  const firstHost = hostHeader.split(",")[0]?.trim();
-  if (!firstHost) {
-    return "";
-  }
-
-  try {
-    return new URL(`http://${firstHost}`).hostname.trim().toLowerCase();
-  } catch {
-    return firstHost
-      .replace(/^\[/, "")
-      .replace(/\]$/, "")
-      .split(":")[0]
-      .trim()
-      .toLowerCase();
-  }
-}
-
-function resolveDirectRemoteAddress(request) {
-  return String(request?.socket?.remoteAddress || request?.raw?.socket?.remoteAddress || "").trim();
-}
-
-function normalizeLoopbackIp(value) {
-  return String(value || "")
-    .trim()
-    .toLowerCase()
-    .replace(/^\[|\]$/g, "")
-    .replace(/^::ffff:/, "");
-}
-
-function isLoopbackIp(value) {
-  const normalized = normalizeLoopbackIp(value);
-  return normalized === "::1" || normalized === "127.0.0.1" || normalized.startsWith("127.");
-}
-
-function isLoopbackHostname(value) {
-  const normalized = String(value || "")
-    .trim()
-    .toLowerCase()
-    .replace(/^\[|\]$/g, "");
-  return (
-    normalized === "localhost" ||
-    normalized.endsWith(".localhost") ||
-    normalized === "::1" ||
-    normalized === "127.0.0.1"
-  );
-}
-
-function isLocalDevAuthRequest(request) {
-  return (
-    isLoopbackIp(resolveDirectRemoteAddress(request)) &&
-    isLoopbackHostname(normalizeRequestHostname(request))
-  );
 }
 
 function isDevAuthToken(token) {
@@ -107,10 +38,13 @@ function resolveDevAuthConfig({
   accessTtlSeconds = DEFAULT_DEV_AUTH_ACCESS_TTL_SECONDS,
   refreshTtlSeconds = DEFAULT_DEV_AUTH_REFRESH_TTL_SECONDS
 } = {}) {
+  const policy = resolveDevAuthPolicy({
+    enabled,
+    nodeEnv,
+    secret
+  });
   return Object.freeze({
-    enabled: parseBoolean(enabled, false),
-    secret: String(secret || "").trim(),
-    isProduction: String(nodeEnv || "development").trim().toLowerCase() === "production",
+    ...policy,
     jwtAudience: String(jwtAudience || "authenticated").trim() || "authenticated",
     accessTtlSeconds: normalizePositiveInteger(accessTtlSeconds, DEFAULT_DEV_AUTH_ACCESS_TTL_SECONDS),
     refreshTtlSeconds: normalizePositiveInteger(refreshTtlSeconds, DEFAULT_DEV_AUTH_REFRESH_TTL_SECONDS)
@@ -118,15 +52,9 @@ function resolveDevAuthConfig({
 }
 
 function assertDevAuthBootstrapConfig(config, { userProfilesRepository = null } = {}) {
+  assertDevAuthPolicy(config);
   if (!config?.enabled) {
     return;
-  }
-
-  if (config.isProduction) {
-    throw new Error("AUTH_DEV_BYPASS_ENABLED must not be enabled in production.");
-  }
-  if (!config.secret) {
-    throw new Error("AUTH_DEV_BYPASS_SECRET is required when AUTH_DEV_BYPASS_ENABLED=true.");
   }
   if (
     !userProfilesRepository ||
@@ -136,18 +64,6 @@ function assertDevAuthBootstrapConfig(config, { userProfilesRepository = null } 
     throw new Error(
       "Dev auth bootstrap requires internal.repository.user-profiles with findById() and findByEmail() when AUTH_DEV_BYPASS_ENABLED=true."
     );
-  }
-}
-
-function ensureDevAuthBootstrapAvailable(config, request) {
-  if (!config?.enabled || config?.isProduction) {
-    throw new AppError(404, "Not found.");
-  }
-  if (!config.secret) {
-    throw new AppError(500, "AUTH_DEV_BYPASS_SECRET is required when AUTH_DEV_BYPASS_ENABLED=true.");
-  }
-  if (!isLocalDevAuthRequest(request)) {
-    throw new AppError(403, "Dev auth bootstrap is only available from localhost.");
   }
 }
 
@@ -322,7 +238,9 @@ async function authenticateDevAuthRequest(
     return null;
   }
 
-  if (!config?.enabled || config?.isProduction || !config?.secret || !isLocalDevAuthRequest(request)) {
+  try {
+    ensureDevAuthRuntimeAvailable(config, request);
+  } catch {
     return {
       authenticated: false,
       clearSession: true,
@@ -391,7 +309,6 @@ export {
   assertDevAuthBootstrapConfig,
   authenticateDevAuthRequest,
   createDevAuthSession,
-  ensureDevAuthBootstrapAvailable,
   isDevAuthToken,
   resolveDevAuthConfig,
   resolveDevAuthProfile

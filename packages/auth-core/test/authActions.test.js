@@ -80,6 +80,40 @@ test("auth logout action delegates to selected auth provider and notifies sessio
   ]);
 });
 
+test("shared dev login-as action passes the trusted request to the selected auth provider", async () => {
+  const action = buildAuthActions().find((definition) => definition.id === "auth.dev.loginAs");
+  const request = {
+    headers: {
+      "x-jskit-dev-auth-secret": "secret"
+    }
+  };
+  const input = {
+    email: "ada@example.com"
+  };
+  let received = null;
+
+  const result = await action.execute(input, {
+    requestMeta: {
+      request
+    }
+  }, {
+    authService: {
+      async devLoginAs(receivedRequest, receivedInput) {
+        received = {
+          input: receivedInput,
+          request: receivedRequest
+        };
+        return {
+          ok: true
+        };
+      }
+    }
+  });
+
+  assert.deepEqual(result, { ok: true });
+  assert.deepEqual(received, { input, request });
+});
+
 test("AuthActionsServiceProvider registers shared auth actions against auth.provider", async () => {
   const app = createApplication();
   const logoutCalls = [];
@@ -122,7 +156,7 @@ test("AuthActionsServiceProvider registers shared auth actions against auth.prov
   const definitions = actionExecutor.listDefinitions();
   assert.equal(definitions.some((definition) => definition.id === "auth.login.password"), true);
   assert.equal(definitions.some((definition) => definition.id === "auth.register"), true);
-  assert.equal(definitions.some((definition) => definition.id === "auth.dev.loginAs"), false);
+  assert.equal(definitions.some((definition) => definition.id === "auth.dev.loginAs"), true);
   assert.deepEqual(definitions.find((definition) => definition.id === "auth.session.read")?.surfaces, [
     "home",
     "console"

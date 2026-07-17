@@ -22,6 +22,19 @@ function nowMilliseconds() {
   return Date.now();
 }
 
+function createProviderLifecycleError(providerId, phase, cause) {
+  const message = `Provider \"${providerId}\" failed during ${phase}().`;
+  const causeMessage = String(cause?.message || cause || "").trim();
+  return new ProviderLifecycleError(
+    causeMessage ? `${message} ${causeMessage}` : message,
+    {
+      providerId,
+      phase,
+      cause
+    }
+  );
+}
+
 class Application {
   constructor({ profile = "", strict = true, container = null } = {}) {
     this.profile = normalizeText(profile);
@@ -196,11 +209,7 @@ class Application {
           await entry.provider.register(this);
         }
       } catch (error) {
-        throw new ProviderLifecycleError(`Provider \"${entry.id}\" failed during register().`, {
-          providerId: entry.id,
-          phase: "register",
-          cause: error
-        });
+        throw createProviderLifecycleError(entry.id, "register", error);
       } finally {
         this.diagnostics.timings.register[entry.id] = nowMilliseconds() - startedAt;
       }
@@ -222,11 +231,7 @@ class Application {
           await entry.provider.boot(this);
         }
       } catch (error) {
-        throw new ProviderLifecycleError(`Provider \"${entry.id}\" failed during boot().`, {
-          providerId: entry.id,
-          phase: "boot",
-          cause: error
-        });
+        throw createProviderLifecycleError(entry.id, "boot", error);
       } finally {
         this.diagnostics.timings.boot[entry.id] = nowMilliseconds() - startedAt;
       }
@@ -255,11 +260,7 @@ class Application {
           await entry.provider.shutdown(this);
         }
       } catch (error) {
-        throw new ProviderLifecycleError(`Provider \"${entry.id}\" failed during shutdown().`, {
-          providerId: entry.id,
-          phase: "shutdown",
-          cause: error
-        });
+        throw createProviderLifecycleError(entry.id, "shutdown", error);
       } finally {
         this.diagnostics.timings.shutdown[entry.id] = nowMilliseconds() - startedAt;
       }

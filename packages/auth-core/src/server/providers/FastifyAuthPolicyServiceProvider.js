@@ -3,23 +3,10 @@ import { registerRouteVisibilityResolver } from "@jskit-ai/kernel/server/http";
 import {
   resolveComposedAuthPolicyContextResolver
 } from "../authPolicyContextResolverRegistry.js";
+import { parseBooleanFlag } from "../booleanFlag.js";
 import { authPolicyPlugin } from "../lib/plugin.js";
 import { createAuthActionContextContributor } from "../lib/actionContextContributor.js";
 import { createAuthRouteVisibilityResolver } from "../lib/routeVisibilityResolver.js";
-
-function parseBoolean(value, fallback = false) {
-  const raw = String(value || "").trim().toLowerCase();
-  if (!raw) {
-    return fallback;
-  }
-  if (["1", "true", "yes", "on"].includes(raw)) {
-    return true;
-  }
-  if (["0", "false", "no", "off"].includes(raw)) {
-    return false;
-  }
-  return fallback;
-}
 
 function parseList(value) {
   return String(value || "")
@@ -109,7 +96,7 @@ class FastifyAuthPolicyServiceProvider {
         apiPrefix: String(env.AUTH_API_PREFIX || "/api/").trim() || "/api/",
         unsafeMethods: parseList(env.AUTH_CSRF_UNSAFE_METHODS),
         csrfCookieOpts: {
-          secure: parseBoolean(env.AUTH_CSRF_COOKIE_SECURE, false)
+          secure: parseBooleanFlag(env.AUTH_CSRF_COOKIE_SECURE, false)
         }
       }
     );

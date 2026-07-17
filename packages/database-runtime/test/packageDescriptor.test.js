@@ -18,4 +18,12 @@ test("database-runtime db migrate scripts sync JSKIT-managed migrations before K
     scripts["db:migrate:rollback"],
     "knex --knexfile ./knexfile.js migrate:rollback"
   );
+  assert.deepEqual(descriptor.ci.steps, [
+    {
+      id: "database-migrations",
+      phase: "before-verify",
+      label: "Apply database migrations",
+      command: "npm run db:migrate"
+    }
+  ]);
 });

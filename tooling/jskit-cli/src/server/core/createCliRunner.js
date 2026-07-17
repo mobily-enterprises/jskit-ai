@@ -93,6 +93,15 @@ import {
 import {
   removeManagedViteProxyEntries
 } from "../cliRuntime/viteProxy.js";
+import {
+  assertAppManagedCiWorkflowUnmodified,
+  assertManagedCiWorkflowUnmodified,
+  composeInstalledPackageCi,
+  synchronizeAppCiWorkflow,
+  synchronizeManagedCiWorkflow,
+  validateAppCiWorkflow,
+  validateManagedCiWorkflow
+} from "../cliRuntime/ci/managedWorkflow.js";
 
 const commandHandlers = createCommandHandlers(
   createCommandHandlerDeps({
@@ -123,6 +132,13 @@ const commandHandlers = createCommandHandlers(
     applyPackageMigrationsOnly,
     applyPackagePositioning,
     adoptAppLocalPackageDependencies,
+    assertAppManagedCiWorkflowUnmodified,
+    assertManagedCiWorkflowUnmodified,
+    composeInstalledPackageCi,
+    synchronizeAppCiWorkflow,
+    synchronizeManagedCiWorkflow,
+    validateAppCiWorkflow,
+    validateManagedCiWorkflow,
     loadAppPackageJson,
     resolveLocalPackageId,
     createLocalPackageScaffoldFiles,

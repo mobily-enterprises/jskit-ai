@@ -268,7 +268,8 @@ async function resolveInstalledNodeModulePackageEntry({ appRoot, packageId }) {
 async function hydratePackageRegistryFromInstalledNodeModules({
   appRoot,
   packageRegistry,
-  seedPackageIds = []
+  seedPackageIds = [],
+  preferInstalledDescriptors = false
 }) {
   const queue = ensureArray(seedPackageIds)
     .map((value) => String(value || "").trim())
@@ -283,19 +284,23 @@ async function hydratePackageRegistryFromInstalledNodeModules({
     visited.add(packageId);
 
     let packageEntry = packageRegistry.get(packageId);
-    if (!packageEntry) {
+    const shouldResolveInstalledDescriptor =
+      !packageEntry ||
+      (preferInstalledDescriptors && packageEntry.sourceType !== "app-local-package");
+    if (shouldResolveInstalledDescriptor) {
       const resolvedEntry = await resolveInstalledNodeModulePackageEntry({
         appRoot,
         packageId
       });
-      if (!resolvedEntry) {
+      if (!resolvedEntry && !packageEntry) {
         continue;
       }
-
-      packageRegistry.set(resolvedEntry.packageId, resolvedEntry);
-      packageEntry = resolvedEntry;
-      if (resolvedEntry.packageId !== packageId && !visited.has(resolvedEntry.packageId)) {
-        queue.push(resolvedEntry.packageId);
+      if (resolvedEntry) {
+        packageRegistry.set(resolvedEntry.packageId, resolvedEntry);
+        packageEntry = resolvedEntry;
+        if (resolvedEntry.packageId !== packageId && !visited.has(resolvedEntry.packageId)) {
+          queue.push(resolvedEntry.packageId);
+        }
       }
     }
 

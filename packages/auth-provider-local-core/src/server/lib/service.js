@@ -6,6 +6,12 @@ import {
 import { normalizeAuthCapabilities } from "@jskit-ai/auth-core/shared/authCapabilities";
 import { buildSecurityStatusFromAuthMethodsStatus } from "@jskit-ai/auth-core/shared/authSecurityStatus";
 import { normalizeAuthActor, normalizeAuthResult } from "@jskit-ai/auth-core/server/authActor";
+import {
+  assertDevAuthPolicy,
+  ensureDevAuthExchangeAvailable,
+  ensureDevAuthRuntimeAvailable,
+  resolveDevAuthPolicy
+} from "@jskit-ai/auth-core/server/devAuth";
 import { normalizeEmail } from "@jskit-ai/auth-core/server/utils";
 import { throwUnsupportedAuthOperation } from "@jskit-ai/auth-core/server/unsupportedOperation";
 import { normalizePasswordStrategy } from "./passwords.js";
@@ -15,6 +21,7 @@ const ACCESS_TOKEN_COOKIE = "jskit_local_access_token";
 const REFRESH_TOKEN_COOKIE = "jskit_local_refresh_token";
 const RECOVERY_TOKEN_COOKIE = "jskit_local_recovery_token";
 const PROVIDER_ID = "local";
+const DEV_AUTH_SESSION_PURPOSE = "dev-auth";
 const ACCESS_TTL_SECONDS = 15 * 60;
 const REFRESH_TTL_SECONDS = 60 * 60 * 24 * 30;
 const RECOVERY_SESSION_TTL_SECONDS = 15 * 60;
@@ -36,6 +43,14 @@ function isNormalSession(session) {
   return (session?.purpose || "normal") === "normal";
 }
 
+function isDevAuthSession(session) {
+  return session?.purpose === DEV_AUTH_SESSION_PURPOSE;
+}
+
+function isAuthenticatingSession(session) {
+  return isNormalSession(session) || isDevAuthSession(session);
+}
+
 function normalizeDisplayName(value, email) {
   const displayName = String(value || "").trim();
   if (displayName) {
@@ -50,6 +65,15 @@ function createId(prefix) {
 
 function safeRequestCookies(request) {
   return request && request.cookies && typeof request.cookies === "object" ? request.cookies : {};
+}
+
+function unauthenticatedAuthResult(clearSession = false) {
+  return {
+    authenticated: false,
+    clearSession: Boolean(clearSession),
+    session: null,
+    transientFailure: false
+  };
 }
 
 function cookieOptions(isProduction, maxAge) {
@@ -92,19 +116,57 @@ function buildActor(user, profile = null) {
   });
 }
 
-async function buildAuthPayload({ user, session, profileProjector, profileOptions = {} }) {
-  let profile = buildProfile(user);
-  if (profileProjector && typeof profileProjector.syncIdentityProfile === "function") {
-    profile = await profileProjector.syncIdentityProfile(profile, profileOptions);
-    if (!profile || typeof profile !== "object") {
-      throw new Error("auth.profile.projector.syncIdentityProfile() must return a profile object.");
-    }
-  }
+function buildAuthResult({ user, session, appProfile = null }) {
   return normalizeAuthResult({
-    profile,
-    actor: buildActor(user, profileProjector ? profile : null),
+    profile: appProfile || buildProfile(user),
+    actor: buildActor(user, appProfile),
     session
   });
+}
+
+function requireProfileResult(profile, methodName) {
+  if (!profile || typeof profile !== "object") {
+    throw new Error(`auth.profile.projector.${methodName}() must return a profile object.`);
+  }
+  return profile;
+}
+
+async function buildAuthPayload({ user, session, profileProjector, profileOptions = {} }) {
+  const appProfile = profileProjector
+    ? requireProfileResult(
+        await profileProjector.syncIdentityProfile(buildProfile(user), profileOptions),
+        "syncIdentityProfile"
+      )
+    : null;
+  return buildAuthResult({ user, session, appProfile });
+}
+
+async function findExistingAppProfile(user, profileProjector) {
+  if (!profileProjector) {
+    return null;
+  }
+  if (typeof profileProjector.findByIdentity !== "function") {
+    throw new Error(
+      "auth.profile.projector.findByIdentity() is required for dev auth impersonation."
+    );
+  }
+  const profile = await profileProjector.findByIdentity(buildProfile(user));
+  return profile ? requireProfileResult(profile, "findByIdentity") : null;
+}
+
+async function buildSessionAuthPayload({ devAuth, profileProjector, request, session, user }) {
+  if (!isDevAuthSession(session)) {
+    return buildAuthPayload({ user, session: null, profileProjector });
+  }
+  try {
+    ensureDevAuthRuntimeAvailable(devAuth, request);
+  } catch {
+    return null;
+  }
+  const appProfile = await findExistingAppProfile(user, profileProjector);
+  return profileProjector && !appProfile
+    ? null
+    : buildAuthResult({ user, session: null, appProfile });
 }
 
 function buildAccessToken({ user, session, secret, ttlSeconds = ACCESS_TTL_SECONDS }) {
@@ -166,6 +228,22 @@ function validateEmailInput(email) {
   return normalized;
 }
 
+function devLoginAsValidationError(fieldErrors = {}) {
+  const messages = Object.values(fieldErrors).filter(Boolean);
+  return new AppError(400, messages[0] || "Provide a user id or email.", {
+    details: {
+      fieldErrors
+    }
+  });
+}
+
+function devLoginAsUserNotFound({ email = "", userId = "" } = {}) {
+  return devLoginAsValidationError({
+    ...(userId ? { userId: "User not found." } : {}),
+    ...(email ? { email: "User not found." } : {})
+  });
+}
+
 function normalizeInvitationInput(value = null) {
   if (!value || typeof value !== "object" || Array.isArray(value)) {
     return null;
@@ -221,6 +299,10 @@ function createLocalAuthService({
 
   const passwords = normalizePasswordStrategy(passwordStrategy);
   const isProduction = config.nodeEnv === "production";
+  const devAuth = config.devAuth || resolveDevAuthPolicy({
+    nodeEnv: config.nodeEnv
+  });
+  assertDevAuthPolicy(devAuth);
   const profileProjectionEnabled = typeof profileProjector?.syncIdentityProfile === "function";
   const recoveryDelivery = config.smtpConfigured
     ? "smtp"
@@ -262,7 +344,8 @@ function createLocalAuthService({
       },
       securityStatus: true,
       signOutOtherSessions: true,
-      appProfileProjection: profileProjectionEnabled
+      appProfileProjection: profileProjectionEnabled,
+      devLoginAs: devAuth.enabled === true && devAuth.isProduction !== true
     }
   });
 
@@ -367,6 +450,40 @@ function createLocalAuthService({
     });
   }
 
+  function isDevAuthBootstrapEnabled() {
+    return devAuth.enabled === true && devAuth.isProduction !== true;
+  }
+
+  async function devLoginAs(request, input = {}) {
+    ensureDevAuthExchangeAvailable(devAuth, request);
+    const userId = String(input?.userId || "").trim();
+    const email = normalizeEmail(input?.email || "");
+    if (!userId && !email) {
+      throw devLoginAsValidationError({
+        userId: "Provide a user id or email.",
+        email: "Provide a user id or email."
+      });
+    }
+
+    return backend.withTransaction(async (tx) => {
+      let user = userId ? await tx.users.findById(userId) : null;
+      if (!user && email) {
+        user = await tx.users.findByEmail(email);
+      }
+      if (!user || user.disabled) {
+        throw devLoginAsUserNotFound({ email, userId });
+      }
+      const appProfile = await findExistingAppProfile(user, profileProjector);
+      if (profileProjector && !appProfile) {
+        throw devLoginAsUserNotFound({ email, userId });
+      }
+      const session = await createSessionForUser(tx, user, {
+        purpose: DEV_AUTH_SESSION_PURPOSE
+      });
+      return buildAuthResult({ user, session, appProfile });
+    });
+  }
+
   async function authenticateRequest(request) {
     const cookies = safeRequestCookies(request);
     const accessToken = String(cookies[ACCESS_TOKEN_COOKIE] || "").trim();
@@ -386,10 +503,20 @@ function createLocalAuthService({
           }
           return { user, session };
         });
-        if (resolved && isNormalSession(resolved.session)) {
+        if (resolved && isAuthenticatingSession(resolved.session)) {
+          const authPayload = await buildSessionAuthPayload({
+            devAuth,
+            profileProjector,
+            request,
+            session: resolved.session,
+            user: resolved.user
+          });
+          if (!authPayload) {
+            return unauthenticatedAuthResult(true);
+          }
           return {
             authenticated: true,
-            ...(await buildAuthPayload({ user: resolved.user, session: null, profileProjector })),
+            ...authPayload,
             session: null,
             sessionPurpose: resolved.session.purpose || "normal",
             clearSession: false,
@@ -400,36 +527,32 @@ function createLocalAuthService({
     }
 
     if (!refreshToken) {
-      return {
-        authenticated: false,
-        clearSession: Boolean(accessToken),
-        session: null,
-        transientFailure: false
-      };
+      return unauthenticatedAuthResult(Boolean(accessToken));
     }
 
     const resolved = await resolveValidSessionByRefreshToken(refreshToken);
     if (!resolved) {
-      return {
-        authenticated: false,
-        clearSession: true,
-        session: null,
-        transientFailure: false
-      };
+      return unauthenticatedAuthResult(true);
     }
 
-    if (!isNormalSession(resolved.session)) {
-      return {
-        authenticated: false,
-        clearSession: false,
-        session: null,
-        transientFailure: false
-      };
+    if (!isAuthenticatingSession(resolved.session)) {
+      return unauthenticatedAuthResult();
+    }
+
+    const authPayload = await buildSessionAuthPayload({
+      devAuth,
+      profileProjector,
+      request,
+      session: resolved.session,
+      user: resolved.user
+    });
+    if (!authPayload) {
+      return unauthenticatedAuthResult(true);
     }
 
     return {
       authenticated: true,
-      ...(await buildAuthPayload({ user: resolved.user, session: null, profileProjector })),
+      ...authPayload,
       session: buildSessionPayload({
         user: resolved.user,
         session: resolved.session,
@@ -686,6 +809,8 @@ function createLocalAuthService({
 
   return Object.freeze({
     getCapabilities,
+    isDevAuthBootstrapEnabled,
+    devLoginAs,
     authenticateRequest,
     hasAccessTokenCookie(request) {
       return Boolean(safeRequestCookies(request)[ACCESS_TOKEN_COOKIE] || safeRequestCookies(request)[RECOVERY_TOKEN_COOKIE]);

@@ -1,6 +1,7 @@
 import { createClient } from "@supabase/supabase-js";
 import { AppError } from "@jskit-ai/kernel/server/runtime/errors";
 import { normalizeAuthCapabilities } from "@jskit-ai/auth-core/shared/authCapabilities";
+import { ensureDevAuthExchangeAvailable } from "@jskit-ai/auth-core/server/devAuth";
 import { normalizeAuthActor, normalizeAuthResult } from "@jskit-ai/auth-core/server/authActor";
 import {
   AUTH_METHOD_PASSWORD_ID,
@@ -56,7 +57,6 @@ import {
   assertDevAuthBootstrapConfig,
   authenticateDevAuthRequest,
   createDevAuthSession,
-  ensureDevAuthBootstrapAvailable,
   isDevAuthToken,
   resolveDevAuthConfig,
   resolveDevAuthProfile
@@ -1032,7 +1032,7 @@ function createService(options) {
   }
 
   async function devLoginAs(request, input = {}) {
-    ensureDevAuthBootstrapAvailable(devAuthConfig, request);
+    ensureDevAuthExchangeAvailable(devAuthConfig, request);
     const rawProfile = await resolveDevAuthProfile(input, {
       userProfilesRepository,
       validationError

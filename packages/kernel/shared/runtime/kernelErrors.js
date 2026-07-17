@@ -1,8 +1,13 @@
 class KernelError extends Error {
   constructor(message, details = {}) {
-    super(String(message || "Kernel error."));
+    const normalizedDetails = details && typeof details === "object" ? { ...details } : {};
+    const hasCause = Object.prototype.hasOwnProperty.call(normalizedDetails, "cause");
+    super(
+      String(message || "Kernel error."),
+      hasCause ? { cause: normalizedDetails.cause } : undefined
+    );
     this.name = this.constructor.name;
-    this.details = details && typeof details === "object" ? { ...details } : {};
+    this.details = normalizedDetails;
   }
 }
 

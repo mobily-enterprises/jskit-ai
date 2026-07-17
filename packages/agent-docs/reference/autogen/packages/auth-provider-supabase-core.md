@@ -24,10 +24,6 @@ Exports
 Local functions
 - `normalizeLocalReturnToPath(value, { fallback = "" } = {})`
 
-### `src/server/lib/actions/auth.contributor.js`
-Exports
-- `devLoginAsAction`
-
 ### `src/server/lib/authCookies.js`
 Exports
 - `safeRequestCookies(request)`
@@ -106,19 +102,11 @@ Exports
 - `assertDevAuthBootstrapConfig(config, { userProfilesRepository = null } = {})`
 - `authenticateDevAuthRequest({ request, accessToken = "", refreshToken = "" }, { config, userProfilesRepository = null } = {})`
 - `createDevAuthSession(profile, config)`
-- `ensureDevAuthBootstrapAvailable(config, request)`
 - `isDevAuthToken(token)`
 - `resolveDevAuthConfig({ enabled = false, secret = "", nodeEnv = "development", jwtAudience = "authenticated", accessTtlSeconds = DEFAULT_DEV_AUTH_ACCESS_TTL_SECONDS, refreshTtlSeconds = DEFAULT_DEV_AUTH_REFRESH_TTL_SECONDS } = {})`
 - `resolveDevAuthProfile(input = {}, { userProfilesRepository = null, validationError } = {})`
 Local functions
-- `parseBoolean(value, fallback = false)`
 - `normalizePositiveInteger(value, fallback)`
-- `normalizeRequestHostname(request)`
-- `resolveDirectRemoteAddress(request)`
-- `normalizeLoopbackIp(value)`
-- `isLoopbackIp(value)`
-- `isLoopbackHostname(value)`
-- `isLocalDevAuthRequest(request)`
 - `stripDevAuthTokenPrefix(token)`
 - `buildProfileFromTokenClaims(payload)`
 - `resolveProfileFromTokenClaims(payload, { userProfilesRepository = null } = {})`
@@ -136,7 +124,6 @@ Exports
 Exports
 - `createService`
 - `__testables`
-- `devLoginAsAction`
 
 ### `src/server/lib/oauthFlows.js`
 Exports
@@ -228,15 +215,12 @@ Exports
 - `AuthSupabaseServiceProvider`
 Local functions
 - `splitCsv(value)`
-- `parseBoolean(value, fallback = false)`
 - `normalizeRecord(value)`
 - `normalizeOAuthProviderConfigList(value)`
 - `resolveOAuthConfigFromAppConfig(appConfig)`
 - `resolveAllowedReturnToOrigins({ appConfig = {}, appPublicUrl = "" } = {})`
 - `resolveAuthProviderConfig(env, appConfig = {})`
 - `resolveAuthProfileMode(appConfig = {})`
-- `isDevAuthBypassEnabledForRegistration(env)`
-- `isDevAuthBypassRequested(env)`
 - `createProviderIdentityProfileSyncService({ authProviderId = "supabase" } = {})`
 - `resolveCommonDependencies(scope)`
 - `resolveRuntimeEnv(scope)`

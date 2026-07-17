@@ -1,7 +1,19 @@
+import { DIALECT_ID } from "./src/shared/dialect.js";
+
+const CI_DATABASE = Object.freeze({
+  host: "127.0.0.1",
+  hostPort: "33060",
+  containerPort: "3306",
+  name: "jskit_ci",
+  user: "jskit_ci",
+  password: "jskit_ci_only_password",
+  rootPassword: "jskit_ci_only_root_password"
+});
+
 export default Object.freeze({
   packageVersion: 1,
   packageId: "@jskit-ai/database-runtime-mysql",
-  version: "0.1.112",
+  version: "0.1.116",
   kind: "runtime",
   options: {
     "db-host": {
@@ -88,10 +100,40 @@ export default Object.freeze({
       }
     }
   },
+  ci: {
+    environment: {
+      DB_CLIENT: DIALECT_ID,
+      DB_HOST: CI_DATABASE.host,
+      DB_PORT: CI_DATABASE.hostPort,
+      DB_NAME: CI_DATABASE.name,
+      DB_USER: CI_DATABASE.user,
+      DB_PASSWORD: CI_DATABASE.password
+    },
+    services: [
+      {
+        id: "mariadb",
+        image: "mariadb:11.4",
+        environment: {
+          MARIADB_DATABASE: CI_DATABASE.name,
+          MARIADB_USER: CI_DATABASE.user,
+          MARIADB_PASSWORD: CI_DATABASE.password,
+          MARIADB_ROOT_PASSWORD: CI_DATABASE.rootPassword
+        },
+        ports: [`${CI_DATABASE.hostPort}:${CI_DATABASE.containerPort}`],
+        healthCheck: {
+          command: "healthcheck.sh --connect --innodb_initialized",
+          interval: "10s",
+          timeout: "5s",
+          retries: 10
+        }
+      }
+    ],
+    steps: []
+  },
   mutations: {
     dependencies: {
       runtime: {
-        "@jskit-ai/database-runtime": "0.1.113",
+        "@jskit-ai/database-runtime": "0.1.117",
         "mysql2": "^3.11.2"
       },
       dev: {}
@@ -106,7 +148,7 @@ export default Object.freeze({
         file: ".env",
         op: "upsert-env",
         key: "DB_CLIENT",
-        value: "mysql2",
+        value: DIALECT_ID,
         reason: "Configure database client driver for runtime wiring.",
         category: "runtime-config",
         id: "database-client-mysql"

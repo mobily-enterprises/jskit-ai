@@ -33,12 +33,13 @@ Exports
 
 ### `src/server/index.js`
 Exports
-- `createApp({ appName, appTitle = null, template = DEFAULT_TEMPLATE, target = null, initialBundles = DEFAULT_INITIAL_BUNDLES, tenancyMode = null, force = false, dryRun = false, cwd = process.cwd() })`
+- `createApp({ appName, appTitle = null, template = DEFAULT_TEMPLATE, target = null, initialBundles = DEFAULT_INITIAL_BUNDLES, playwrightVersion = DEFAULT_PLAYWRIGHT_VERSION, tenancyMode = null, force = false, dryRun = false, cwd = process.cwd() })`
 - `runCli(argv, { stdout = process.stdout, stderr = process.stderr, stdin = process.stdin, cwd = process.cwd(), readlineFactory = createReadlineInterface } = {})`
 Local functions
 - `toAppTitle(appName)`
 - `normalizeInitialBundlesPreset(value, { showUsage = true } = {})`
 - `normalizeTenancyMode(value, { showUsage = true } = {})`
+- `normalizePlaywrightVersion(value, { showUsage = true } = {})`
 - `buildInitialSetupCommands(initialBundles)`
 - `validateAppName(appName, { showUsage = true } = {})`
 - `parseOptionWithValue(argv, index, optionName)`

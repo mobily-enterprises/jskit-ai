@@ -3,14 +3,20 @@ import path from "node:path";
 import process from "node:process";
 import { createInterface } from "node:readline/promises";
 import { fileURLToPath } from "node:url";
+import {
+  JSKIT_CI_WORKFLOW_RELATIVE_PATH,
+  synchronizeAppCiWorkflow
+} from "@jskit-ai/jskit-cli/server";
 import { createCliError } from "./cliError.js";
 import { shellQuote } from "./cliEntrypoint.js";
 
 const DEFAULT_TEMPLATE = "base-shell";
 const MINIMAL_TEMPLATE = "minimal-shell";
 const DEFAULT_INITIAL_BUNDLES = "none";
+const DEFAULT_PLAYWRIGHT_VERSION = "1.61.1";
 const INITIAL_BUNDLE_PRESETS = new Set(["none", "auth"]);
 const TENANCY_MODES = new Set(["none", "personal", "workspaces"]);
+const EXACT_SEMVER_PATTERN = /^\d+\.\d+\.\d+$/u;
 const ALLOWED_EXISTING_TARGET_ENTRIES = new Set([".git"]);
 const PACKAGE_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../..");
 const TEMPLATES_ROOT = path.join(PACKAGE_ROOT, "templates");
@@ -45,6 +51,18 @@ function normalizeTenancyMode(value, { showUsage = true } = {}) {
 
   throw createCliError(
     `Invalid --tenancy-mode value "${value}". Expected one of: none, personal, workspaces.`,
+    { showUsage }
+  );
+}
+
+function normalizePlaywrightVersion(value, { showUsage = true } = {}) {
+  const normalized = String(value || "").trim();
+  if (EXACT_SEMVER_PATTERN.test(normalized)) {
+    return normalized;
+  }
+
+  throw createCliError(
+    `Invalid --playwright-version value "${value}". Expected an exact x.y.z version.`,
     { showUsage }
   );
 }
@@ -95,6 +113,7 @@ function parseCliArgs(argv) {
     template: DEFAULT_TEMPLATE,
     target: null,
     initialBundles: DEFAULT_INITIAL_BUNDLES,
+    playwrightVersion: DEFAULT_PLAYWRIGHT_VERSION,
     tenancyMode: null,
     force: false,
     dryRun: false,
@@ -180,6 +199,18 @@ function parseCliArgs(argv) {
       continue;
     }
 
+    if (arg === "--playwright-version") {
+      const { value, nextIndex } = parseOptionWithValue(args, index, "--playwright-version");
+      options.playwrightVersion = value;
+      index = nextIndex;
+      continue;
+    }
+
+    if (arg.startsWith("--playwright-version=")) {
+      options.playwrightVersion = arg.slice("--playwright-version=".length);
+      continue;
+    }
+
     if (arg === "--tenancy-mode") {
       const { value, nextIndex } = parseOptionWithValue(args, index, "--tenancy-mode");
       options.tenancyMode = value;
@@ -231,6 +262,7 @@ function printUsage(stream = process.stderr) {
   stream.write("  --title <text>     App title used for template replacements\n");
   stream.write("  --target <path>    Target directory (default: ./<app-name>)\n");
   stream.write("  --initial-bundles <preset>  Optional initial setup preset: none | auth (default: none)\n");
+  stream.write(`  --playwright-version <x.y.z>  Exact Playwright test version (default: ${DEFAULT_PLAYWRIGHT_VERSION})\n`);
   stream.write("  --tenancy-mode <mode>  Optional config seed: none | personal | workspaces\n");
   stream.write("  --force            Allow writing into a non-empty target directory\n");
   stream.write("  --dry-run          Print planned writes without changing the filesystem\n");
@@ -520,6 +552,7 @@ export async function createApp({
   template = DEFAULT_TEMPLATE,
   target = null,
   initialBundles = DEFAULT_INITIAL_BUNDLES,
+  playwrightVersion = DEFAULT_PLAYWRIGHT_VERSION,
   tenancyMode = null,
   force = false,
   dryRun = false,
@@ -530,6 +563,7 @@ export async function createApp({
 
   const resolvedAppTitle = String(appTitle || "").trim() || toAppTitle(resolvedAppName);
   const resolvedInitialBundles = normalizeInitialBundlesPreset(initialBundles);
+  const resolvedPlaywrightVersion = normalizePlaywrightVersion(playwrightVersion);
   const resolvedTenancyMode =
     tenancyMode == null || String(tenancyMode).trim() === ""
       ? null
@@ -547,6 +581,7 @@ export async function createApp({
   const replacements = {
     __APP_NAME__: resolvedAppName,
     __APP_TITLE__: resolvedAppTitle,
+    __PLAYWRIGHT_VERSION__: resolvedPlaywrightVersion,
     __TENANCY_MODE_LINE__: resolvedTenancyMode
       ? `config.tenancyMode = "${resolvedTenancyMode}";\n`
       : ""
@@ -558,12 +593,26 @@ export async function createApp({
     replacements,
     dryRun
   });
+  if (touchedFiles.includes(path.join(".jskit", "lock.json"))) {
+    if (!dryRun) {
+      const ciSync = await synchronizeAppCiWorkflow({
+        appRoot: targetDirectory,
+        allowManagedOverwrite: false
+      });
+      if (ciSync.workflowChanged) {
+        touchedFiles.push(ciSync.path);
+      }
+    } else {
+      touchedFiles.push(JSKIT_CI_WORKFLOW_RELATIVE_PATH);
+    }
+  }
 
   return {
     appName: resolvedAppName,
     appTitle: resolvedAppTitle,
     template: String(template),
     initialBundles: resolvedInitialBundles,
+    playwrightVersion: resolvedPlaywrightVersion,
     tenancyMode: resolvedTenancyMode,
     selectedSetupCommands: buildInitialSetupCommands(resolvedInitialBundles),
     targetDirectory,
@@ -609,6 +658,7 @@ export async function runCli(
       template: resolvedOptions.template,
       target: resolvedOptions.target,
       initialBundles: resolvedOptions.initialBundles,
+      playwrightVersion: resolvedOptions.playwrightVersion,
       tenancyMode: resolvedOptions.tenancyMode,
       force: resolvedOptions.force,
       dryRun: resolvedOptions.dryRun,

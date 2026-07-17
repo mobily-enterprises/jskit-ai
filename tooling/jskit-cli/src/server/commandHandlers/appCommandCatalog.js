@@ -90,7 +90,23 @@ const APP_COMMAND_DEFINITIONS = Object.freeze({
     defaults: Object.freeze([
       "Runtime and dev @jskit-ai dependencies are updated separately so package.json sections stay correct.",
       "Each package is moved to the latest available major.x range and npm saves the resolved exact version.",
-      "Managed migrations are refreshed afterwards unless --dry-run is used."
+      "Managed migrations and the composed CI workflow are refreshed afterwards unless --dry-run is used."
+    ])
+  }),
+  "sync-ci": Object.freeze({
+    name: "sync-ci",
+    summary: "Regenerate the JSKIT-managed GitHub verification workflow from installed package contracts.",
+    usage: "jskit app sync-ci [--force]",
+    options: Object.freeze([
+      Object.freeze({
+        label: "--force",
+        description: "Replace a modified workflow that is already recorded as JSKIT-managed."
+      })
+    ]),
+    defaults: Object.freeze([
+      "Recomposes CI requirements from installed package descriptors and records the generated content hash in .jskit/lock.json.",
+      "Refuses to replace a modified workflow unless --force is explicit; application-specific CI belongs in a separate workflow.",
+      "Never claims an unrecorded jskit-verify.yml or removes a customized legacy verify.yml."
     ])
   }),
   "link-local-packages": Object.freeze({
@@ -107,46 +123,6 @@ const APP_COMMAND_DEFINITIONS = Object.freeze({
       "Links packages from both the monorepo packages/ and tooling/ directories.",
       "Refreshes node_modules/.bin entries for linked packages that publish binaries.",
       "Clears node_modules/.vite so Vite does not keep stale prebundled paths."
-    ])
-  }),
-  "prepare-preview-user": Object.freeze({
-    name: "prepare-preview-user",
-    summary: "Prepare the JSKIT preview auth user and optional first workspace.",
-    usage: "jskit app prepare-preview-user [--profile-file <path>] [--email <email>] [--username <username>] [--display-name <name>] [--auth-provider <provider>] [--auth-provider-user-sid <sid>] [--ensure-workspace]",
-    options: Object.freeze([
-      Object.freeze({
-        label: "--profile-file <path>",
-        description: "JSON profile path to write for the preview auth bridge. Defaults to VIBE64_PREVIEW_AUTH_PROFILE_FILE."
-      }),
-      Object.freeze({
-        label: "--email <email>",
-        description: "Email address for the preview user."
-      }),
-      Object.freeze({
-        label: "--username <username>",
-        description: "Preferred username for the preview user."
-      }),
-      Object.freeze({
-        label: "--display-name <name>",
-        description: "Display name for the preview user."
-      }),
-      Object.freeze({
-        label: "--auth-provider <provider>",
-        description: "Auth provider id stored on the preview user."
-      }),
-      Object.freeze({
-        label: "--auth-provider-user-sid <sid>",
-        description: "Provider user id stored on the preview user."
-      }),
-      Object.freeze({
-        label: "--ensure-workspace",
-        description: "When workspace tables and tenancy config exist, ensure the preview user owns a first workspace."
-      })
-    ]),
-    defaults: Object.freeze([
-      "Runs after migrations and before the app server starts.",
-      "Exits successfully without changes when the app has no knexfile.js or users table.",
-      "Uses the app knexfile and app-local JSKIT package provisioning contracts instead of booting the HTTP server."
     ])
   }),
   release: Object.freeze({
@@ -241,6 +217,9 @@ function buildAppCommandOptionMeta(subcommandName = "") {
   if (definition.name === "adopt-managed-scripts") {
     optionMeta.force = { inputType: "flag" };
   }
+  if (definition.name === "sync-ci") {
+    optionMeta.force = { inputType: "flag" };
+  }
   if (definition.name === "update-packages" || definition.name === "release") {
     optionMeta.registry = { inputType: "text" };
   }
@@ -255,16 +234,6 @@ function buildAppCommandOptionMeta(subcommandName = "") {
   if (definition.name === "link-local-packages") {
     optionMeta["repo-root"] = { inputType: "text" };
   }
-  if (definition.name === "prepare-preview-user") {
-    optionMeta["profile-file"] = { inputType: "text" };
-    optionMeta.email = { inputType: "text" };
-    optionMeta.username = { inputType: "text" };
-    optionMeta["display-name"] = { inputType: "text" };
-    optionMeta["auth-provider"] = { inputType: "text" };
-    optionMeta["auth-provider-user-sid"] = { inputType: "text" };
-    optionMeta["ensure-workspace"] = { inputType: "flag" };
-  }
-
   return optionMeta;
 }
 

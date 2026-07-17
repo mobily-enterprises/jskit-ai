@@ -37,7 +37,7 @@ function isBootFailureWithCause(error, pattern) {
   );
 }
 
-test("auth supabase provider defaults to provider profile mode and contributes auth actions", async () => {
+test("auth supabase provider defaults to provider profile mode and composes with shared auth actions", async () => {
   const app = createApplication();
   app.instance("appConfig", createAppConfigFixture());
   app.instance("jskit.env", {
@@ -126,7 +126,7 @@ test("auth supabase provider defaults to provider profile mode and contributes a
   assert.equal(Array.isArray(definitions), true);
   assert.equal(definitions.some((definition) => definition.id === "auth.login.password"), true);
   assert.equal(definitions.some((definition) => definition.id === "auth.register.confirmation.resend"), true);
-  assert.equal(definitions.some((definition) => definition.id === "auth.dev.loginAs"), false);
+  assert.equal(definitions.some((definition) => definition.id === "auth.dev.loginAs"), true);
   const sessionRead = definitions.find((definition) => definition.id === "auth.session.read");
   assert.deepEqual(sessionRead?.surfaces, ["home", "console"]);
 });
@@ -204,7 +204,12 @@ test("auth supabase provider reports password method toggle only with persistent
   });
 
   await app.start({
-    providers: [ActionRuntimeServiceProvider, AuthSupabaseServiceProvider]
+    providers: [
+      ActionRuntimeServiceProvider,
+      AuthSupabaseServiceProvider,
+      AuthProviderServiceProvider,
+      AuthActionsServiceProvider
+    ]
   });
 
   const authService = app.make("authService");
@@ -348,7 +353,12 @@ test("auth supabase provider can boot dev auth without Supabase credentials", as
   });
 
   await app.start({
-    providers: [ActionRuntimeServiceProvider, AuthSupabaseServiceProvider]
+    providers: [
+      ActionRuntimeServiceProvider,
+      AuthSupabaseServiceProvider,
+      AuthProviderServiceProvider,
+      AuthActionsServiceProvider
+    ]
   });
 
   const authService = app.make("authService");

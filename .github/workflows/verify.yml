@@ -28,9 +28,38 @@ jobs:
       - name: Run verify
         run: npm run verify
 
+  database-ci:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        database:
+          - mariadb
+          - postgres
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Verify a clean database-backed app
+        env:
+          JSKIT_DATABASE_INTEGRATION_DRIVER: ${{ matrix.database }}
+        run: node --test tooling/create-app/test/databaseCi.integration.test.js
+
   deploy-docs:
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-    needs: verify
+    needs:
+      - verify
+      - database-ci
     runs-on: ubuntu-latest
     permissions:
       contents: read

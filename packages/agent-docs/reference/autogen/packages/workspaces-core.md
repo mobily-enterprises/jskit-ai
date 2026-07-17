@@ -114,25 +114,6 @@ Exports
 - `routeParamsValidator`
 - `workspaceSlugParamsValidator`
 
-### `src/server/previewWorkspaceProvisioning.js`
-Exports
-- `buildWorkspaceBaseSlug(profile = {})`
-- `buildWorkspaceName(profile = {})`
-- `ensurePreviewWorkspace(db, user = {}, profile = {}, { appConfig = {}, tenancyMode = "" } = {})`
-- `normalizeWorkspaceResult(workspace = null)`
-Local functions
-- `normalizeText(value = "")`
-- `normalizeLowerText(value = "")`
-- `workspaceSlugPart(value = "")`
-- `usernameBaseFromEmail(email = "")`
-- `buildWorkspaceSlugCandidate(baseSlug = "", suffix = 0)`
-- `isDuplicateError(error)`
-- `resolveUniqueWorkspaceSlug(db, baseSlug = "", { excludeWorkspaceId = "" } = {})`
-- `hasWorkspaceTables(db)`
-- `findPreviewWorkspace(db, user = {}, { isPersonal = true } = {})`
-- `ensureWorkspaceSettings(db, workspace = {})`
-- `ensureOwnerMembership(db, workspace = {}, user = {})`
-
 ### `src/server/registerWorkspaceBootstrap.js`
 Exports
 - `registerWorkspaceBootstrap(app)`
