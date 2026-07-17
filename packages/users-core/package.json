@@ -1,6 +1,6 @@
 {
   "name": "@jskit-ai/users-core",
-  "version": "0.1.126",
+  "version": "0.1.127",
   "type": "module",
   "scripts": {
     "test": "node --test"
@@ -11,14 +11,14 @@
     "./shared/resources/userSettingsResource": "./src/shared/resources/userSettingsResource.js"
   },
   "dependencies": {
-    "@jskit-ai/auth-core": "0.1.115",
-    "@jskit-ai/database-runtime": "0.1.116",
-    "@jskit-ai/http-runtime": "0.1.116",
-    "@jskit-ai/json-rest-api-core": "0.1.61",
-    "@jskit-ai/kernel": "0.1.117",
-    "@jskit-ai/resource-crud-core": "0.1.61",
-    "@jskit-ai/resource-core": "0.1.61",
-    "@jskit-ai/uploads-runtime": "0.1.94",
+    "@jskit-ai/auth-core": "0.1.116",
+    "@jskit-ai/database-runtime": "0.1.118",
+    "@jskit-ai/http-runtime": "0.1.117",
+    "@jskit-ai/json-rest-api-core": "0.1.62",
+    "@jskit-ai/kernel": "0.1.119",
+    "@jskit-ai/resource-crud-core": "0.1.62",
+    "@jskit-ai/resource-core": "0.1.62",
+    "@jskit-ai/uploads-runtime": "0.1.95",
     "json-rest-schema": "1.x.x"
   }
 }
