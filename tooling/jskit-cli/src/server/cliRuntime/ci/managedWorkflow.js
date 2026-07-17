@@ -483,7 +483,8 @@ async function loadAppCiContext(appRoot) {
   await hydratePackageRegistryFromInstalledNodeModules({
     appRoot,
     packageRegistry,
-    seedPackageIds: Object.keys(ensureObject(lock.installedPackages))
+    seedPackageIds: Object.keys(ensureObject(lock.installedPackages)),
+    preferInstalledDescriptors: true
   });
   return {
     lockPath,

@@ -17,6 +17,7 @@ import {
   renderGithubWorkflow
 } from "../src/server/cliRuntime/ci/githubWorkflow.js";
 import {
+  synchronizeAppCiWorkflow,
   validateAppCiWorkflow,
   validateManagedCiWorkflow
 } from "../src/server/cliRuntime/ci/managedWorkflow.js";
@@ -75,6 +76,27 @@ function addMysql(appRoot) {
       "local-db",
       "--db-port",
       "3306",
+      "--db-name",
+      "local_app",
+      "--db-user",
+      "local_user",
+      "--db-password",
+      "local_password"
+    ]
+  });
+}
+
+function addPostgres(appRoot) {
+  return runCli({
+    cwd: appRoot,
+    args: [
+      "add",
+      "package",
+      "database-runtime-postgres",
+      "--db-host",
+      "local-db",
+      "--db-port",
+      "5432",
       "--db-name",
       "local_app",
       "--db-user",
@@ -146,6 +168,20 @@ test("package addition, update, and removal keep the managed database CI project
     assert.equal(runtimeRemovedDocument.jobs.verify.services, undefined);
     assert.equal(runtimeRemovedDocument.jobs.verify.env, undefined);
     assert.equal(runtimeRemovedDocument.jobs.verify.steps.some((step) => step.id === "database-migrations"), false);
+  });
+});
+
+test("the Postgres driver projects a complete managed database workflow", async () => {
+  await withTempDir(async (cwd) => {
+    const appRoot = await scaffoldApp(cwd, "managed-ci-postgres-app");
+    const addResult = addPostgres(appRoot);
+    assert.equal(addResult.status, 0, String(addResult.stderr || ""));
+
+    const document = parseGithubWorkflow(await readWorkflow(appRoot));
+    assert.equal(document.jobs.verify.env.DB_CLIENT, "pg");
+    assert.equal(document.jobs.verify.env.DB_PORT, "54320");
+    assert.equal(document.jobs.verify.services.postgres.image, "postgres:16");
+    assert.ok(document.jobs.verify.steps.some((step) => step.id === "database-migrations"));
   });
 });
 
@@ -301,5 +337,47 @@ test("shared CI validation reports conflicting installed package contributions",
     assert.match(validation.issues[0].message, /environment-conflict/u);
     assert.match(validation.issues[0].message, /@jskit-ai\/mysql-test/u);
     assert.match(validation.issues[0].message, /@jskit-ai\/postgres-test/u);
+  });
+});
+
+test("managed CI uses the descriptors from the app's installed package versions", async () => {
+  await withTempDir(async (cwd) => {
+    const appRoot = await scaffoldApp(cwd, "managed-ci-installed-descriptor-app");
+    const installedPackageRoot = path.join(
+      appRoot,
+      "node_modules",
+      "@jskit-ai",
+      "shell-web"
+    );
+    await mkdir(installedPackageRoot, { recursive: true });
+    await writeFile(
+      path.join(installedPackageRoot, "package.json"),
+      `${JSON.stringify({
+        name: "@jskit-ai/shell-web",
+        version: "9.9.9",
+        type: "module"
+      }, null, 2)}\n`,
+      "utf8"
+    );
+    await writeFile(
+      path.join(installedPackageRoot, "package.descriptor.mjs"),
+      `export default {
+  packageId: "@jskit-ai/shell-web",
+  version: "9.9.9",
+  kind: "runtime",
+  ci: {
+    environment: {
+      INSTALLED_DESCRIPTOR_VERSION: "9.9.9"
+    }
+  }
+};
+`,
+      "utf8"
+    );
+
+    await synchronizeAppCiWorkflow({ appRoot });
+
+    const document = parseGithubWorkflow(await readWorkflow(appRoot));
+    assert.equal(document.jobs.verify.env.INSTALLED_DESCRIPTOR_VERSION, "9.9.9");
   });
 });

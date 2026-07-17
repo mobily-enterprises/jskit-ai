@@ -601,6 +601,7 @@ Exports
 Local functions
 - `normalizeStringArray(value)`
 - `nowMilliseconds()`
+- `createProviderLifecycleError(providerId, phase, cause)`
 
 ### `runtime/container.js`
 Exports

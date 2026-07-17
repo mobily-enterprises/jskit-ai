@@ -83,7 +83,7 @@ That split is worth keeping in mind through the rest of the guide. When you see 
 
 The starter scaffold also includes `.github/workflows/jskit-verify.yml`. This is a JSKIT-managed projection, not a static template. Installed package descriptors can contribute CI environment values, services, and preparation steps through their top-level `ci` contract. JSKIT composes those contributions and renders one verification workflow in this order: checkout, Node setup, `npm ci`, package-contributed `before-verify` steps, and `npm run verify`.
 
-For example, `database-runtime` contributes the `database-migrations` step, while `database-runtime-mysql` contributes the MariaDB service and matching synthetic CI-only `DB_*` values. `DB_CLIENT` remains the canonical `mysql2` value. Local `.env` values are never copied into the workflow.
+For example, `database-runtime` contributes the `database-migrations` step. Its MySQL driver contributes a MariaDB service with `DB_CLIENT=mysql2`, while its Postgres driver contributes a Postgres service with `DB_CLIENT=pg`. Each driver supplies matching synthetic CI-only `DB_*` values; local `.env` values are never copied into the workflow.
 
 The workflow path and generated content hash live under `managed.ciWorkflow` in `.jskit/lock.json`. Package add, remove, update, and app-wide package updates refresh this projection. If the workflow no longer matches its recorded hash, JSKIT refuses to overwrite it during those operations. Move application-specific jobs to another workflow, then explicitly regenerate the managed projection with:
 

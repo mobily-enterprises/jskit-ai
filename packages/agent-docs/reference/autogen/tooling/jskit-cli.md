@@ -433,7 +433,7 @@ Exports
 - `loadAppLocalPackageRegistry(appRoot)`
 - `loadPackageRegistry()`
 - `resolveInstalledNodeModulePackageEntry({ appRoot, packageId })`
-- `hydratePackageRegistryFromInstalledNodeModules({ appRoot, packageRegistry, seedPackageIds = [] })`
+- `hydratePackageRegistryFromInstalledNodeModules({ appRoot, packageRegistry, seedPackageIds = [], preferInstalledDescriptors = false })`
 - `loadBundleRegistry()`
 Local functions
 - `normalizeRelativePosixPath(pathValue)`

@@ -3003,6 +3003,37 @@
             }
           }
         },
+        "ci": {
+          "environment": {
+            "DB_CLIENT": "pg",
+            "DB_HOST": "127.0.0.1",
+            "DB_PORT": "54320",
+            "DB_NAME": "jskit_ci",
+            "DB_USER": "jskit_ci",
+            "DB_PASSWORD": "jskit_ci_only_password"
+          },
+          "services": [
+            {
+              "id": "postgres",
+              "image": "postgres:16",
+              "environment": {
+                "POSTGRES_DB": "jskit_ci",
+                "POSTGRES_USER": "jskit_ci",
+                "POSTGRES_PASSWORD": "jskit_ci_only_password"
+              },
+              "ports": [
+                "54320:5432"
+              ],
+              "healthCheck": {
+                "command": "pg_isready --username=jskit_ci --dbname=jskit_ci",
+                "interval": "10s",
+                "timeout": "5s",
+                "retries": 10
+              }
+            }
+          ],
+          "steps": []
+        },
         "mutations": {
           "dependencies": {
             "runtime": {
@@ -3077,11 +3108,11 @@
     },
     {
       "packageId": "@jskit-ai/feature-server-generator",
-      "version": "0.1.58",
+      "version": "0.1.59",
       "descriptor": {
         "packageVersion": 1,
         "packageId": "@jskit-ai/feature-server-generator",
-        "version": "0.1.58",
+        "version": "0.1.59",
         "kind": "generator",
         "description": "Scaffold substantial non-CRUD server feature packages with provider, actions, service, and optional persistence seams.",
         "options": {
@@ -3266,7 +3297,7 @@
                   "equals": "json-rest"
                 }
               },
-              "@jskit-ai/kernel": "0.1.117",
+              "@jskit-ai/kernel": "0.1.118",
               "json-rest-schema": "1.x.x",
               "@local/${option:feature-name|kebab}": "file:packages/${option:feature-name|kebab}"
             },

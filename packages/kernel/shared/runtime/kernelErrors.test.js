@@ -1,5 +1,8 @@
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
+import { mkdtemp, rm, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import path from "node:path";
 import process from "node:process";
 import test from "node:test";
 import { fileURLToPath } from "node:url";
@@ -19,30 +22,35 @@ test("KernelError preserves structured details while exposing the standard cause
   assert.equal(error.details.providerId, "example.provider");
 });
 
-test("provider lifecycle failures expose their standard cause through Node error reporting", () => {
+test("provider lifecycle failures expose their cause in Node test output", async (context) => {
+  const fixtureRoot = await mkdtemp(path.join(tmpdir(), "jskit-kernel-error-"));
+  context.after(() => rm(fixtureRoot, { recursive: true, force: true }));
+  const fixturePath = path.join(fixtureRoot, "provider-lifecycle-failure.test.mjs");
   const source = `
 import { Application } from ${JSON.stringify(APPLICATION_PATH)};
+import test from "node:test";
 
-const app = new Application();
-app.configureProviders([{
-  id: "json-rest-api.core",
-  async boot() {
-    throw new Error('DB_CLIENT is required. Use mysql2 or pg.');
-  }
-}]);
-
-try {
+test("generated server starts", async () => {
+  const app = new Application();
+  app.configureProviders([{
+    id: "json-rest-api.core",
+    async boot() {
+      throw new Error("DB_CLIENT is required. Use mysql2 or pg.");
+    }
+  }]);
   await app.bootProviders();
-} catch (error) {
-  console.error("Failed to start generated server:", error);
-}
+});
 `;
-  const result = spawnSync(process.execPath, ["--input-type=module", "--eval", source], {
-    encoding: "utf8"
+  await writeFile(fixturePath, source, "utf8");
+  const childEnvironment = { ...process.env };
+  delete childEnvironment.NODE_TEST_CONTEXT;
+  const result = spawnSync(process.execPath, ["--test", fixturePath], {
+    encoding: "utf8",
+    env: childEnvironment
   });
+  const output = `${String(result.stdout || "")}\n${String(result.stderr || "")}`;
 
-  assert.equal(result.status, 0, String(result.stderr || ""));
-  assert.match(result.stderr, /Failed to start generated server:/u);
-  assert.match(result.stderr, /Provider "json-rest-api\.core" failed during boot\(\)\./u);
-  assert.match(result.stderr, /DB_CLIENT is required\. Use mysql2 or pg\./u);
+  assert.equal(result.status, 1, output);
+  assert.match(output, /Provider "json-rest-api\.core" failed during boot\(\)\./u);
+  assert.match(output, /DB_CLIENT is required\. Use mysql2 or pg\./u);
 });
