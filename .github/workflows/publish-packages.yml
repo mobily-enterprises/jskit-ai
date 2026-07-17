@@ -49,8 +49,34 @@ jobs:
           JSKIT_DATABASE_INTEGRATION_DRIVER: ${{ matrix.database }}
         run: node --test tooling/create-app/test/databaseCi.integration.test.js
 
+  vite-cold-start:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Install Chromium
+        run: npx --yes playwright@1.61.1 install --with-deps chromium
+
+      - name: Verify a cold generated auth app
+        env:
+          JSKIT_VITE_COLD_START_INTEGRATION: "1"
+        run: node --test tooling/create-app/test/viteColdStart.integration.test.js
+
   publish:
-    needs: database-ci
+    needs:
+      - database-ci
+      - vite-cold-start
     runs-on: ubuntu-latest
     steps:
       - name: Checkout

@@ -38,6 +38,13 @@ function readTopology(id = "", owner = "") {
     : [];
 }
 
+function readPackageImportSpecifiers(source = "") {
+  return Array.from(
+    String(source || "").matchAll(/\bfrom\s+["'](@jskit-ai\/[^"']+)["']/gu),
+    (match) => match[1]
+  );
+}
+
 function readClientContainerTokens() {
   const tokens = descriptor?.metadata?.apiSummary?.containerTokens?.client;
   return Array.isArray(tokens) ? tokens : [];
@@ -315,11 +322,43 @@ test("shell-web placement topology seeds global actions as a semantic shell plac
   assert.match(source, /outlet: "shell-layout:supporting-side-panel"/);
 });
 
-test("shell-web descriptor metadata advertises adaptive shell outlets, default links, and installs the scaffold page", () => {
+test("shell-web descriptor pre-optimizes package subpaths reached only through dynamic base-shell modules", async () => {
+  const [providerSource, placementSource, placementTopologySource, errorSource] = await Promise.all([
+    readFile(path.join(PACKAGE_DIR, "src", "client", "providers", "ShellWebClientProvider.js"), "utf8"),
+    readFile(path.join(PACKAGE_DIR, "templates", "src", "placement.js"), "utf8"),
+    readFile(path.join(PACKAGE_DIR, "templates", "src", "placementTopology.js"), "utf8"),
+    readFile(path.join(PACKAGE_DIR, "templates", "src", "error.js"), "utf8")
+  ]);
+
+  assert.deepEqual(
+    Array.from(
+      new Set(
+        Array.from(
+          providerSource.matchAll(/\bimport\(["'](\/src\/[^"']+)["']\)/gu),
+          (match) => match[1]
+        )
+      )
+    ),
+    ["/src/placement.js", "/src/placementTopology.js", "/src/error.js"]
+  );
+  assert.deepEqual(readPackageImportSpecifiers(placementSource), [
+    "@jskit-ai/shell-web/client/placement"
+  ]);
+  assert.deepEqual(readPackageImportSpecifiers(placementTopologySource), []);
+  assert.deepEqual(readPackageImportSpecifiers(errorSource), [
+    "@jskit-ai/shell-web/client/error"
+  ]);
+
+  assert.deepEqual(descriptor?.metadata?.client?.optimizeDeps?.include, [
+    "@jskit-ai/shell-web/client/placement",
+    "@jskit-ai/shell-web/client/error"
+  ]);
   assert.deepEqual(descriptor?.metadata?.client?.optimizeDeps?.exclude, [
     "@jskit-ai/shell-web/client"
   ]);
+});
 
+test("shell-web descriptor metadata advertises adaptive shell outlets, default links, and installs the scaffold page", () => {
   assert.deepEqual(readClientContainerTokens(), [
     "runtime.web-placement.client",
     "runtime.web-bootstrap.client",
