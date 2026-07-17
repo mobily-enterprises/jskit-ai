@@ -1,7 +1,7 @@
 export default Object.freeze({
   packageVersion: 1,
   packageId: "@jskit-ai/shell-web",
-  version: "0.1.117",
+  version: "0.1.118",
   kind: "runtime",
   description: "Web shell layout runtime with outlet-based placement contributions.",
   dependsOn: [],
@@ -30,6 +30,10 @@ export default Object.freeze({
   metadata: {
     client: {
       optimizeDeps: {
+        include: [
+          "@jskit-ai/shell-web/client/placement",
+          "@jskit-ai/shell-web/client/error"
+        ],
         exclude: [
           "@jskit-ai/shell-web/client"
         ]
