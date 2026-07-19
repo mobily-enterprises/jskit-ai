@@ -75,7 +75,7 @@ const APP_COMMAND_DEFINITIONS = Object.freeze({
   }),
   "update-packages": Object.freeze({
     name: "update-packages",
-    summary: "Update installed @jskit-ai dependencies and refresh managed migrations.",
+    summary: "Update @jskit-ai dependencies across the app and its npm workspaces.",
     usage: "jskit app update-packages [--registry <url>] [--dry-run]",
     options: Object.freeze([
       Object.freeze({
@@ -88,9 +88,9 @@ const APP_COMMAND_DEFINITIONS = Object.freeze({
       })
     ]),
     defaults: Object.freeze([
-      "Runtime and dev @jskit-ai dependencies are updated separately so package.json sections stay correct.",
-      "Each package is moved to the latest available major.x range and npm saves the resolved exact version.",
-      "Managed migrations and the composed CI workflow are refreshed afterwards unless --dry-run is used."
+      "Root runtime, development, optional, and peer dependencies are installed at their exact latest registry versions.",
+      "JSKIT ranges in npm workspace manifests and package descriptors are aligned with the latest major release, then workspace resolutions are refreshed in the lockfile.",
+      "The command reports elapsed progress and refreshes managed migrations and the composed CI workflow unless --dry-run is used."
     ])
   }),
   "sync-ci": Object.freeze({

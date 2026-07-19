@@ -1,4 +1,4 @@
-import { spawnSync } from "node:child_process";
+import { spawn, spawnSync } from "node:child_process";
 import path from "node:path";
 import { access, mkdir, readFile, readdir, rm, symlink } from "node:fs/promises";
 
@@ -80,6 +80,94 @@ function runExternalCommand(
   });
 }
 
+function runExternalCommandAsync(
+  command,
+  args = [],
+  {
+    cwd = "",
+    env = {},
+    stdout,
+    stderr,
+    quiet = false,
+    createCliError
+  } = {}
+) {
+  return new Promise((resolve, reject) => {
+    let capturedStdout = "";
+    let capturedStderr = "";
+    let settled = false;
+    let child;
+
+    const finish = (result) => {
+      if (settled) {
+        return;
+      }
+      settled = true;
+      try {
+        resolve(ensureCommandSucceeded(result, command, {
+          createCliError,
+          cwd,
+          stdout,
+          stderr,
+          quiet: true
+        }));
+      } catch (error) {
+        reject(error);
+      }
+    };
+
+    try {
+      child = spawn(command, Array.isArray(args) ? args : [], {
+        cwd: cwd || process.cwd(),
+        env: {
+          ...process.env,
+          ...env
+        },
+        shell: process.platform === "win32"
+      });
+    } catch (error) {
+      finish({
+        error,
+        status: null,
+        stdout: capturedStdout,
+        stderr: capturedStderr
+      });
+      return;
+    }
+
+    child.stdout?.setEncoding("utf8");
+    child.stderr?.setEncoding("utf8");
+    child.stdout?.on("data", (chunk) => {
+      capturedStdout += chunk;
+      if (!quiet) {
+        stdout?.write(chunk);
+      }
+    });
+    child.stderr?.on("data", (chunk) => {
+      capturedStderr += chunk;
+      if (!quiet) {
+        stderr?.write(chunk);
+      }
+    });
+    child.once("error", (error) => {
+      finish({
+        error,
+        status: null,
+        stdout: capturedStdout,
+        stderr: capturedStderr
+      });
+    });
+    child.once("close", (status, signal) => {
+      finish({
+        error: signal ? new Error(`${command} terminated by signal ${signal}.`) : null,
+        status,
+        stdout: capturedStdout,
+        stderr: capturedStderr
+      });
+    });
+  });
+}
+
 function runExternalShellCommand(
   commandText,
   {
@@ -147,6 +235,32 @@ async function runLocalJskit(
   }
 
   return runExternalCommand(localJskitBin, args, {
+    cwd: appRoot,
+    stdout,
+    stderr,
+    quiet,
+    createCliError
+  });
+}
+
+async function runLocalJskitAsync(
+  appRoot,
+  args = [],
+  {
+    stdout,
+    stderr,
+    createCliError,
+    quiet = false
+  } = {}
+) {
+  const localJskitBin = resolveLocalJskitBin(appRoot);
+  if (!(await fileExists(localJskitBin))) {
+    throw createCliError(`Local jskit binary not found at ${path.relative(appRoot, localJskitBin)}. Run npm install first.`, {
+      exitCode: 1
+    });
+  }
+
+  return runExternalCommandAsync(localJskitBin, args, {
     cwd: appRoot,
     stdout,
     stderr,
@@ -295,10 +409,12 @@ export {
   normalizeText,
   isTruthyFlag,
   runExternalCommand,
+  runExternalCommandAsync,
   runExternalShellCommand,
   formatUtcReleaseTimestamp,
   resolveLocalJskitBin,
   runLocalJskit,
+  runLocalJskitAsync,
   resolveLocalRepoRoot,
   discoverLocalPackageMap,
   linkPackageBinEntries,

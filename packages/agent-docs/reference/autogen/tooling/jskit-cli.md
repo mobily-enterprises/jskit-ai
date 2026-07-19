@@ -553,10 +553,12 @@ Exports
 - `normalizeText(value = "")`
 - `isTruthyFlag(rawValue = "")`
 - `runExternalCommand(command, args = [], { cwd = "", env = {}, stdout, stderr, quiet = false, createCliError } = {})`
+- `runExternalCommandAsync(command, args = [], { cwd = "", env = {}, stdout, stderr, quiet = false, createCliError } = {})`
 - `runExternalShellCommand(commandText, { cwd = "", env = {}, stdout, stderr, quiet = false, createCliError } = {})`
 - `formatUtcReleaseTimestamp(date = new Date())`
 - `resolveLocalJskitBin(appRoot = "")`
 - `runLocalJskit(appRoot, args = [], { stdout, stderr, createCliError, quiet = false } = {})`
+- `runLocalJskitAsync(appRoot, args = [], { stdout, stderr, createCliError, quiet = false } = {})`
 - `resolveLocalRepoRoot({ appRoot = "", explicitRepoRoot = "" } = {})`
 - `discoverLocalPackageMap(repoRoot = "")`
 - `linkPackageBinEntries({ appRoot, packageDirName, sourceDir, stdout } = {})`
@@ -570,12 +572,27 @@ Exports
 
 ### `src/server/commandHandlers/appCommands/updatePackages.js`
 Exports
+- `formatElapsedTime(elapsedMilliseconds = 0)`
 - `runAppUpdatePackagesCommand(ctx = {}, { appRoot = "", options = {}, stdout, stderr })`
+- `runWithProgress(task, { activity, progressIntervalMs = PROGRESS_INTERVAL_MS, stdout, step } = {})`
 Local functions
 - `collectJskitPackageNames(packageMap = {})`
-- `resolveMajorRangeFromVersion(packageName = "", rawVersion = "", createCliError)`
+- `collectManifestJskitPackageNames(packageJson = {})`
+- `resolveExactVersion(packageName = "", rawVersion = "", createCliError)`
+- `resolveMajorRange(packageName = "", version = "", createCliError)`
 - `resolveRegistryArgs(registryUrl = "")`
-- `resolveInstallSpecs(packageNames = [], resolveMajorRange)`
+- `resolveInstallSpecs(packageNames = [], latestVersions = new Map())`
+- `hasNpmWorkspaces(packageJson = {})`
+- `readJson(filePath)`
+- `readOptionalFile(filePath)`
+- `resolveWorkspaceDirectories({ appRoot, createCliError, packageJson, stderr, stdout })`
+- `descriptorJskitPackageNames(source = "")`
+- `loadWorkspacePackages(workspaceDirectories = [])`
+- `resolveLatestVersions(packageNames = [], latestVersions = new Map(), { appRoot, createCliError, registryArgs, stderr, stdout })`
+- `updateWorkspaceManifest(packageJson = {}, latestVersions = new Map(), createCliError)`
+- `updateWorkspaceDescriptor(source = "", latestVersions = new Map(), createCliError)`
+- `synchronizeWorkspacePackageSpecs({ appRoot, createCliError, dryRun, latestVersions, packageJson, registryArgs, stderr, stdout })`
+- `updateRootPackages({ appRoot, createCliError, dryRun, latestVersions, packageJson, registryArgs, stderr, stdout })`
 
 ### `src/server/commandHandlers/appCommands/verify.js`
 Exports

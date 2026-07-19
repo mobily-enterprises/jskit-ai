@@ -100,6 +100,18 @@ npm run jskit:update -- --registry https://registry.example.com
 npm run release -- --registry https://registry.example.com
 ```
 
+### Update JSKIT packages across an app workspace
+
+`npx jskit app update-packages` owns the complete app-wide JSKIT update. At the app root, it installs the exact latest registry version of every `@jskit-ai/*` package listed in `dependencies`, `devDependencies`, `optionalDependencies`, or `peerDependencies`. Exact root versions keep the installed app and its managed lock state reproducible.
+
+When the app declares npm workspaces, the command asks npm for the workspace graph and aligns JSKIT references in each workspace `package.json` and `package.descriptor.mjs` to the latest major range, such as `0.x`. Descriptor dependency mutations are included whether they use a direct string or a conditional `{ version, when }` record. It then runs `npm update --workspaces` for those packages so `package-lock.json` reflects the aligned ranges. Non-JSKIT dependencies and the public descriptor format are left alone.
+
+The update reports elapsed progress for registry and install work. It also refreshes JSKIT-managed migrations and CI after root package changes. Preview the complete operation without changing manifests, descriptors, the lockfile, migrations, or CI with:
+
+```bash
+npx jskit app update-packages --dry-run
+```
+
 For older apps that still carry copied maintenance scripts, the migration path is:
 
 ```bash
