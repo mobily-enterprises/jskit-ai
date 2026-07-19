@@ -24,7 +24,8 @@ import {
 
 const CLI_PATH = fileURLToPath(new URL("../bin/jskit.js", import.meta.url));
 const runCli = createCliRunner(CLI_PATH);
-const LEGACY_VERIFY_WORKFLOW = `name: Verify
+// Historical input fixture only: sync-ci must replace this former Node 20 scaffold with Node 26.
+const HISTORICAL_NODE_20_VERIFY_WORKFLOW = `name: Verify
 
 on:
   pull_request:
@@ -224,12 +225,17 @@ test("package operations replace only the untouched legacy scaffold workflow", a
     await writeFile(path.join(appRoot, ".jskit/lock.json"), `${JSON.stringify(lock, null, 2)}\n`, "utf8");
 
     const legacyPath = path.join(appRoot, LEGACY_CI_WORKFLOW_RELATIVE_PATH);
-    await writeFile(legacyPath, LEGACY_VERIFY_WORKFLOW, "utf8");
+    await writeFile(legacyPath, HISTORICAL_NODE_20_VERIFY_WORKFLOW, "utf8");
 
     const addResult = addMysql(appRoot);
     assert.equal(addResult.status, 0, String(addResult.stderr || ""));
     await assert.rejects(access(legacyPath), /ENOENT/u);
-    assert.ok(parseGithubWorkflow(await readWorkflow(appRoot)).jobs.verify.services.mariadb);
+    const generatedWorkflow = parseGithubWorkflow(await readWorkflow(appRoot));
+    assert.ok(generatedWorkflow.jobs.verify.services.mariadb);
+    assert.equal(
+      generatedWorkflow.jobs.verify.steps.find((step) => step.id === "setup-node")?.with?.["node-version"],
+      26
+    );
     const updatedLock = await readLock(appRoot);
     assert.equal(updatedLock.managed.ciWorkflow.path, JSKIT_CI_WORKFLOW_RELATIVE_PATH);
   });

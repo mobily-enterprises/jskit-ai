@@ -9,21 +9,35 @@ on:
 permissions:
   contents: read
 
+env:
+  npm_config_engine_strict: "true"
+  npm_config_strict_allow_scripts: "true"
+
 jobs:
   verify:
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        node:
+          - 22
+          - 24
+          - 26
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Setup Node
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v7
         with:
-          node-version: 20
+          node-version: ${{ matrix.node }}
           cache: npm
 
       - name: Install dependencies
         run: npm ci
+
+      - name: Audit dependencies
+        run: npm run security:audit
 
       - name: Run verify
         run: npm run verify
@@ -39,12 +53,12 @@ jobs:
           - postgres
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Setup Node
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v7
         with:
-          node-version: 20
+          node-version: 26
           cache: npm
 
       - name: Install dependencies
@@ -60,19 +74,19 @@ jobs:
     timeout-minutes: 15
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Setup Node
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v7
         with:
-          node-version: 20
+          node-version: 26
           cache: npm
 
       - name: Install dependencies
         run: npm ci
 
       - name: Install Chromium
-        run: npx --yes playwright@1.61.1 install --with-deps chromium
+        run: npx --yes --allow-scripts=fsevents playwright@1.61.1 install --with-deps chromium
 
       - name: Verify a cold generated auth app
         env:
@@ -95,12 +109,12 @@ jobs:
       url: ${{ steps.deployment.outputs.page_url }}
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Setup Node
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v7
         with:
-          node-version: 20
+          node-version: 26
           cache: npm
 
       - name: Configure Pages

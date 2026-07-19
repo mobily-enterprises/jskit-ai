@@ -10,6 +10,10 @@ import { withTempDir } from "../../testUtils/tempDir.mjs";
 
 const CREATE_APP_CLI = fileURLToPath(new URL("../bin/jskit-create-app.js", import.meta.url));
 const JSKIT_CLI = fileURLToPath(new URL("../../jskit-cli/bin/jskit.js", import.meta.url));
+const AGENT_DOCS_PACKAGE_ROOT = fileURLToPath(new URL("../../../packages/agent-docs", import.meta.url));
+const CONFIG_ESLINT_PACKAGE_ROOT = fileURLToPath(new URL("../../config-eslint", import.meta.url));
+const JSKIT_CLI_PACKAGE_ROOT = fileURLToPath(new URL("../../jskit-cli", import.meta.url));
+const JSKIT_CATALOG_PACKAGE_ROOT = fileURLToPath(new URL("../../jskit-catalog", import.meta.url));
 const SHELL_WEB_PACKAGE_ROOT = fileURLToPath(new URL("../../../packages/shell-web", import.meta.url));
 const RUN_COLD_START_INTEGRATION = process.env.JSKIT_VITE_COLD_START_INTEGRATION === "1";
 const OPTIMIZED_SHELL_SUBPATHS = Object.freeze([
@@ -151,6 +155,10 @@ async function installPackedShellWeb(appRoot, tempRoot) {
   const packageJsonPath = path.join(appRoot, "package.json");
   const packageJson = JSON.parse(await readFile(packageJsonPath, "utf8"));
   packageJson.dependencies["@jskit-ai/shell-web"] = `file:${path.join(tempRoot, tarballName)}`;
+  packageJson.devDependencies["@jskit-ai/agent-docs"] = `file:${AGENT_DOCS_PACKAGE_ROOT}`;
+  packageJson.devDependencies["@jskit-ai/config-eslint"] = `file:${CONFIG_ESLINT_PACKAGE_ROOT}`;
+  packageJson.devDependencies["@jskit-ai/jskit-cli"] = `file:${JSKIT_CLI_PACKAGE_ROOT}`;
+  packageJson.devDependencies["@jskit-ai/jskit-catalog"] = `file:${JSKIT_CATALOG_PACKAGE_ROOT}`;
   await writeFile(packageJsonPath, `${JSON.stringify(packageJson, null, 2)}\n`, "utf8");
 
   runChecked("npm", ["install", "--no-audit", "--no-fund"], {

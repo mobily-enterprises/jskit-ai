@@ -22,6 +22,8 @@ import { withTempDir } from "../../testUtils/tempDir.mjs";
 
 const CREATE_APP_CLI = fileURLToPath(new URL("../bin/jskit-create-app.js", import.meta.url));
 const JSKIT_CLI = fileURLToPath(new URL("../../jskit-cli/bin/jskit.js", import.meta.url));
+const AGENT_DOCS_PACKAGE_ROOT = fileURLToPath(new URL("../../../packages/agent-docs", import.meta.url));
+const CONFIG_ESLINT_PACKAGE_ROOT = fileURLToPath(new URL("../../config-eslint", import.meta.url));
 const JSKIT_CLI_PACKAGE_ROOT = fileURLToPath(new URL("../../jskit-cli", import.meta.url));
 const JSKIT_CATALOG_PACKAGE_ROOT = fileURLToPath(new URL("../../jskit-catalog", import.meta.url));
 const DATABASE_CASES = Object.freeze([
@@ -92,10 +94,24 @@ async function useCurrentCiPackageSources(appRoot, databaseCase) {
   packageJson.devDependencies = packageJson.devDependencies || {};
   packageJson.dependencies[databaseCase.descriptor.packageId] =
     `file:${databaseCase.packageRoot}`;
+  packageJson.devDependencies["@jskit-ai/agent-docs"] =
+    `file:${AGENT_DOCS_PACKAGE_ROOT}`;
+  packageJson.devDependencies["@jskit-ai/config-eslint"] =
+    `file:${CONFIG_ESLINT_PACKAGE_ROOT}`;
   packageJson.devDependencies["@jskit-ai/jskit-cli"] =
     `file:${JSKIT_CLI_PACKAGE_ROOT}`;
   packageJson.devDependencies["@jskit-ai/jskit-catalog"] =
     `file:${JSKIT_CATALOG_PACKAGE_ROOT}`;
+  await writeFile(packageJsonPath, `${JSON.stringify(packageJson, null, 2)}\n`, "utf8");
+}
+
+async function restoreManagedToolingSpecifiers(appRoot) {
+  const packageJsonPath = path.join(appRoot, "package.json");
+  const packageJson = JSON.parse(await readFile(packageJsonPath, "utf8"));
+  packageJson.devDependencies["@jskit-ai/agent-docs"] = "0.x";
+  packageJson.devDependencies["@jskit-ai/config-eslint"] = "0.x";
+  packageJson.devDependencies["@jskit-ai/jskit-cli"] = "0.x";
+  delete packageJson.devDependencies["@jskit-ai/jskit-catalog"];
   await writeFile(packageJsonPath, `${JSON.stringify(packageJson, null, 2)}\n`, "utf8");
 }
 
@@ -275,6 +291,7 @@ for (const databaseCase of DATABASE_CASES) {
           env: commandEnv,
           label: "npm ci"
         });
+        await restoreManagedToolingSpecifiers(appRoot);
         const migrationResult = runChecked("npm", ["run", "db:migrate"], {
           cwd: appRoot,
           env: commandEnv,

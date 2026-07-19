@@ -21,6 +21,10 @@ on:
 permissions:
   contents: read
 
+env:
+  npm_config_engine_strict: "true"
+  npm_config_strict_allow_scripts: "true"
+
 jobs:
   database-ci:
     runs-on: ubuntu-latest
@@ -33,12 +37,12 @@ jobs:
           - postgres
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Setup Node
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v7
         with:
-          node-version: 20
+          node-version: 26
           cache: npm
 
       - name: Install dependencies
@@ -54,19 +58,19 @@ jobs:
     timeout-minutes: 15
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Setup Node
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v7
         with:
-          node-version: 20
+          node-version: 26
           cache: npm
 
       - name: Install dependencies
         run: npm ci
 
       - name: Install Chromium
-        run: npx --yes playwright@1.61.1 install --with-deps chromium
+        run: npx --yes --allow-scripts=fsevents playwright@1.61.1 install --with-deps chromium
 
       - name: Verify a cold generated auth app
         env:
@@ -80,18 +84,21 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           fetch-depth: 0
 
       - name: Setup Node
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v7
         with:
-          node-version: 20
+          node-version: 26
           cache: npm
 
       - name: Install dependencies
         run: npm ci
+
+      - name: Audit dependencies
+        run: npm run security:audit
 
       - name: Publish changed packages
         shell: bash

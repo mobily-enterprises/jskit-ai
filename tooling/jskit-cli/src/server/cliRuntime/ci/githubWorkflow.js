@@ -61,14 +61,14 @@ function buildGithubWorkflowDocument(model = {}) {
     {
       id: "checkout",
       name: "Checkout",
-      uses: "actions/checkout@v4"
+      uses: "actions/checkout@v7"
     },
     {
       id: "setup-node",
       name: "Setup Node",
-      uses: "actions/setup-node@v4",
+      uses: "actions/setup-node@v7",
       with: {
-        "node-version": 20,
+        "node-version": 26,
         cache: "npm"
       }
     },
@@ -107,6 +107,10 @@ function buildGithubWorkflowDocument(model = {}) {
     },
     permissions: {
       contents: "read"
+    },
+    env: {
+      npm_config_engine_strict: "true",
+      npm_config_strict_allow_scripts: "true"
     },
     jobs: {
       verify: verifyJob

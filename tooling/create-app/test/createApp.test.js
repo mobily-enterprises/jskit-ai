@@ -118,7 +118,13 @@ test("create-app scaffolds the base shell with placeholder replacements", async 
     const appRoot = path.join(cwd, "sample-app");
     const packageJson = JSON.parse(await readFile(path.join(appRoot, "package.json"), "utf8"));
     assert.equal(packageJson.name, "sample-app");
-    assert.equal(packageJson.engines.node, "^20.19.0 || ^22.12.0");
+    assert.equal(packageJson.engines.node, "26.x");
+    assert.deepEqual(packageJson.allowScripts, {
+      "fsevents@2.3.2": true,
+      "fsevents@2.3.3": true,
+      "vue-demi@0.14.10": true
+    });
+    assert.equal(await readFile(path.join(appRoot, ".nvmrc"), "utf8"), "26\n");
     assert.equal(packageJson.scripts.preinstall, undefined);
     assert.equal(packageJson.scripts["verdaccio:reset:publish"], undefined);
     assert.equal(packageJson.scripts.postinstall, undefined);
@@ -191,6 +197,9 @@ test("create-app scaffolds the base shell with placeholder replacements", async 
 
     const verifyWorkflow = await readFile(path.join(appRoot, ".github", "workflows", "jskit-verify.yml"), "utf8");
     assert.match(verifyWorkflow, /Generated and managed by JSKIT/);
+    assert.match(verifyWorkflow, /node-version: 26/u);
+    assert.match(verifyWorkflow, /npm_config_engine_strict: "true"/u);
+    assert.match(verifyWorkflow, /npm_config_strict_allow_scripts: "true"/u);
     assert.match(verifyWorkflow, /run: npm run verify/);
     assert.doesNotMatch(verifyWorkflow, /jskit app verify --against/);
     assert.doesNotMatch(verifyWorkflow, /jskit app verify-ui/);
@@ -717,7 +726,20 @@ test("create-app minimal mode keeps the bare scaffold and can still install shel
 
     const appRoot = path.join(cwd, "minimal-app");
     const packageJsonBefore = JSON.parse(await readFile(path.join(appRoot, "package.json"), "utf8"));
-    assert.equal(packageJsonBefore.engines.node, "^20.19.0 || ^22.12.0");
+    assert.equal(packageJsonBefore.engines.node, "26.x");
+    assert.deepEqual(packageJsonBefore.allowScripts, {
+      "fsevents@2.3.2": true,
+      "fsevents@2.3.3": true,
+      "vue-demi@0.14.10": true
+    });
+    assert.equal(await readFile(path.join(appRoot, ".nvmrc"), "utf8"), "26\n");
+    const verifyWorkflowBefore = await readFile(
+      path.join(appRoot, ".github", "workflows", "jskit-verify.yml"),
+      "utf8"
+    );
+    assert.match(verifyWorkflowBefore, /node-version: 26/u);
+    assert.match(verifyWorkflowBefore, /npm_config_engine_strict: "true"/u);
+    assert.match(verifyWorkflowBefore, /npm_config_strict_allow_scripts: "true"/u);
     assert.equal(packageJsonBefore.dependencies["@jskit-ai/shell-web"], undefined);
     assert.equal(packageJsonBefore.dependencies["vue-router"], "^5.1.0");
     assert.equal(packageJsonBefore.devDependencies["@playwright/test"], "1.61.1");
