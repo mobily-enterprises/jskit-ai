@@ -347,11 +347,11 @@
     },
     {
       "packageId": "@jskit-ai/assistant-core",
-      "version": "0.1.93",
+      "version": "0.1.94",
       "descriptor": {
         "packageVersion": 1,
         "packageId": "@jskit-ai/assistant-core",
-        "version": "0.1.93",
+        "version": "0.1.94",
         "kind": "runtime",
         "description": "Reusable assistant client/server/shared primitives without surface-specific routes or settings ownership.",
         "dependsOn": [
@@ -422,11 +422,11 @@
     },
     {
       "packageId": "@jskit-ai/assistant-runtime",
-      "version": "0.1.88",
+      "version": "0.1.89",
       "descriptor": {
         "packageVersion": 1,
         "packageId": "@jskit-ai/assistant-runtime",
-        "version": "0.1.88",
+        "version": "0.1.89",
         "kind": "runtime",
         "description": "Shared assistant runtime with per-surface assistant registration.",
         "dependsOn": [
@@ -522,11 +522,11 @@
         "mutations": {
           "dependencies": {
             "runtime": {
-              "@jskit-ai/assistant-core": "0.1.93",
+              "@jskit-ai/assistant-core": "0.1.94",
               "@jskit-ai/database-runtime": "0.1.118",
               "@jskit-ai/http-runtime": "0.1.117",
               "@jskit-ai/kernel": "0.1.119",
-              "@jskit-ai/shell-web": "0.1.117",
+              "@jskit-ai/shell-web": "0.1.118",
               "@jskit-ai/users-core": "0.1.127",
               "@jskit-ai/users-web": "0.1.133"
             },
@@ -678,11 +678,11 @@
     },
     {
       "packageId": "@jskit-ai/auth-provider-local-core",
-      "version": "0.1.18",
+      "version": "0.1.19",
       "descriptor": {
         "packageVersion": 1,
         "packageId": "@jskit-ai/auth-provider-local-core",
-        "version": "0.1.18",
+        "version": "0.1.19",
         "kind": "runtime",
         "description": "Local auth provider with a file backend default and no database requirement.",
         "dependsOn": [
@@ -792,11 +792,11 @@
     },
     {
       "packageId": "@jskit-ai/auth-provider-local-db-core",
-      "version": "0.1.10",
+      "version": "0.1.11",
       "descriptor": {
         "packageVersion": 1,
         "packageId": "@jskit-ai/auth-provider-local-db-core",
-        "version": "0.1.10",
+        "version": "0.1.11",
         "kind": "runtime",
         "description": "Database-backed local auth storage backend for JSKIT local auth.",
         "dependsOn": [
@@ -875,7 +875,7 @@
         "mutations": {
           "dependencies": {
             "runtime": {
-              "@jskit-ai/auth-provider-local-core": "0.1.18",
+              "@jskit-ai/auth-provider-local-core": "0.1.19",
               "@jskit-ai/database-runtime": "0.1.118",
               "@jskit-ai/kernel": "0.1.119"
             },
@@ -912,11 +912,11 @@
     },
     {
       "packageId": "@jskit-ai/auth-provider-supabase-core",
-      "version": "0.1.116",
+      "version": "0.1.117",
       "descriptor": {
         "packageVersion": 1,
         "packageId": "@jskit-ai/auth-provider-supabase-core",
-        "version": "0.1.116",
+        "version": "0.1.117",
         "kind": "runtime",
         "options": {
           "auth-supabase-url": {
@@ -4731,11 +4731,11 @@
     },
     {
       "packageId": "@jskit-ai/storage-runtime",
-      "version": "0.1.116",
+      "version": "0.1.117",
       "descriptor": {
         "packageVersion": 1,
         "packageId": "@jskit-ai/storage-runtime",
-        "version": "0.1.116",
+        "version": "0.1.117",
         "kind": "runtime",
         "dependsOn": [
           "@jskit-ai/kernel"
