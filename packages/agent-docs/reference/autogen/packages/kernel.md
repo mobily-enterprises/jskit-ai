@@ -785,6 +785,9 @@ Exports
 - `createVirtualModuleSource(clientModules = [])`
 - `resolveClientOptimizeIncludeSpecifiers(clientModules = [], excludeSpecifiers = [])`
 - `resolveClientOptimizeExcludeSpecifiers(clientModules = [])`
+- `resolveCanonicalLocalPackageId(resolvedId, localPackage)`
+- `resolveLocalPackageForSpecifier(source, localPackages = [])`
+- `resolveLocalPackageSources({ appRoot, lockPath })`
 - `resolveLocalScopeOptimizeExcludeSpecifiers(localScopePackageIds = [])`
 - `resolveInstalledClientPackageIds(options)`
 - `resolveLocalScopePackageIds({ appRoot, lockPath })`
@@ -794,6 +797,8 @@ Local functions
 - `isLocalScopePackageId(value)`
 - `readJsonFile(filePath, fallback)`
 - `hasClientExport(packageJson)`
+- `isPathInsideRoot(rootPath, candidatePath)`
+- `splitSpecifierSuffix(source)`
 - `normalizeClientModuleDescriptors(value)`
 - `resolveClientRuntimeDedupeSpecifiers(userResolveConfig = {})`
 

@@ -692,3 +692,17 @@ Exports
 ### `package.descriptor.mjs`
 Exports
 - None
+
+### fixtures
+
+### `fixtures/crud-list-date-filters/App.vue`
+Exports
+- None
+
+### `fixtures/crud-list-date-filters/main.js`
+Exports
+- None
+
+### `fixtures/crud-list-date-filters/vite.config.mjs`
+Exports
+- None

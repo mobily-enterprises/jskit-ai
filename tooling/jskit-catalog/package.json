@@ -1,6 +1,6 @@
 {
   "name": "@jskit-ai/jskit-catalog",
-  "version": "0.1.128",
+  "version": "0.1.129",
   "description": "Published metadata catalog for JSKIT package descriptors.",
   "type": "module",
   "files": [
