@@ -1,6 +1,7 @@
 <script setup>
 import { computed, ref } from "vue";
 import { useDisplay } from "vuetify";
+import CrudListDateFilterControl from "./CrudListDateFilterControl.vue";
 
 const props = defineProps({
   filters: {
@@ -137,22 +138,25 @@ function clearFilters() {
             hide-details="auto"
             class="crud-list-filter-surface__control"
           />
-          <div v-else-if="filter.type === 'dateRange'" class="crud-list-filter-surface__range">
-            <v-text-field
+          <div
+            v-else-if="filter.type === 'dateRange'"
+            class="crud-list-filter-surface__range crud-list-filter-surface__range--date"
+            role="group"
+            :aria-label="`${filter.label} date range`"
+            :data-filter-key="filter.key"
+            data-filter-type="date-range"
+          >
+            <CrudListDateFilterControl
               v-model="runtimeValues[filter.key].from"
               :label="`${filter.label} from`"
-              type="date"
-              variant="outlined"
-              density="comfortable"
-              hide-details="auto"
+              :control-id="`${filter.key}-from`"
+              :placeholder="placeholder(filter, 'Select start date')"
             />
-            <v-text-field
+            <CrudListDateFilterControl
               v-model="runtimeValues[filter.key].to"
               :label="`${filter.label} to`"
-              type="date"
-              variant="outlined"
-              density="comfortable"
-              hide-details="auto"
+              :control-id="`${filter.key}-to`"
+              :placeholder="placeholder(filter, 'Select end date')"
             />
           </div>
           <div v-else-if="filter.type === 'numberRange'" class="crud-list-filter-surface__range">
@@ -173,15 +177,12 @@ function clearFilters() {
               hide-details="auto"
             />
           </div>
-          <v-text-field
+          <CrudListDateFilterControl
             v-else-if="filter.type === 'date'"
             v-model="runtimeValues[filter.key]"
             :label="filter.label"
-            type="date"
-            clearable
-            variant="outlined"
-            density="comfortable"
-            hide-details="auto"
+            :control-id="filter.key"
+            :placeholder="placeholder(filter, 'Select date')"
             class="crud-list-filter-surface__control"
           />
         </template>
@@ -244,22 +245,25 @@ function clearFilters() {
                 density="comfortable"
                 hide-details="auto"
               />
-              <div v-else-if="filter.type === 'dateRange'" class="crud-list-filter-surface__range">
-                <v-text-field
+              <div
+                v-else-if="filter.type === 'dateRange'"
+                class="crud-list-filter-surface__range crud-list-filter-surface__range--date"
+                role="group"
+                :aria-label="`${filter.label} date range`"
+                :data-filter-key="filter.key"
+                data-filter-type="date-range"
+              >
+                <CrudListDateFilterControl
                   v-model="runtimeValues[filter.key].from"
                   :label="`${filter.label} from`"
-                  type="date"
-                  variant="outlined"
-                  density="comfortable"
-                  hide-details="auto"
+                  :control-id="`${filter.key}-from`"
+                  :placeholder="placeholder(filter, 'Select start date')"
                 />
-                <v-text-field
+                <CrudListDateFilterControl
                   v-model="runtimeValues[filter.key].to"
                   :label="`${filter.label} to`"
-                  type="date"
-                  variant="outlined"
-                  density="comfortable"
-                  hide-details="auto"
+                  :control-id="`${filter.key}-to`"
+                  :placeholder="placeholder(filter, 'Select end date')"
                 />
               </div>
               <div v-else-if="filter.type === 'numberRange'" class="crud-list-filter-surface__range">
@@ -280,15 +284,12 @@ function clearFilters() {
                   hide-details="auto"
                 />
               </div>
-              <v-text-field
+              <CrudListDateFilterControl
                 v-else-if="filter.type === 'date'"
                 v-model="runtimeValues[filter.key]"
                 :label="filter.label"
-                type="date"
-                clearable
-                variant="outlined"
-                density="comfortable"
-                hide-details="auto"
+                :control-id="filter.key"
+                :placeholder="placeholder(filter, 'Select date')"
               />
             </template>
           </div>
@@ -337,7 +338,7 @@ function clearFilters() {
 .crud-list-filter-surface__controls {
   display: grid;
   gap: 0.75rem;
-  grid-template-columns: repeat(auto-fit, minmax(13rem, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(15rem, 1fr));
 }
 
 .crud-list-filter-surface__controls--stacked {
@@ -352,6 +353,16 @@ function clearFilters() {
   display: grid;
   gap: 0.75rem;
   grid-template-columns: repeat(2, minmax(0, 1fr));
+  min-width: 0;
+}
+
+.crud-list-filter-surface__range--date {
+  grid-column: span 2;
+  grid-template-columns: repeat(2, minmax(14rem, 1fr));
+}
+
+.crud-list-filter-surface__controls--stacked .crud-list-filter-surface__range--date {
+  grid-column: auto;
 }
 
 .crud-list-filter-surface__sheet {

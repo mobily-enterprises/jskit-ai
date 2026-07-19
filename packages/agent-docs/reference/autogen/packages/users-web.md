@@ -57,6 +57,17 @@ Local functions
 - `isActionDisabled(action = {})`
 - `isActionExecuting(action = {})`
 
+### `src/client/components/CrudListDateFilterControl.vue`
+Exports
+- None
+Local functions
+- `restoreFocus()`
+- `openMenu()`
+- `closeMenu()`
+- `clearDate()`
+- `selectDate(value)`
+- `handleActivatorKeydown(event)`
+
 ### `src/client/components/CrudListFilterSurface.vue`
 Exports
 - None
@@ -491,6 +502,7 @@ Local functions
 - `applyPresetFilterValue(values, filter = {}, rawValue)`
 - `createQueryParams(values, filterEntries = [])`
 - `resolveAtomicValueLabel(filter = {}, value = "", labelResolvers = {})`
+- `formatDefaultChipLabel(filter = {}, chipValue, labelResolvers = {})`
 
 ### `src/client/composables/useCrudListParentTitle.js`
 Exports
@@ -645,6 +657,13 @@ Exports
 - `requireRecord(value, label = "value", owner = "Contract")`
 - `requireBoolean(value, label = "value", owner = "Contract")`
 - `requireFunction(value, label = "value", owner = "Contract")`
+
+### `src/client/support/crudListDateFilterSupport.js`
+Exports
+- `parseDateOnlyValue(value = "")`
+- `formatDateOnlyValue(value = null)`
+- `formatDateOnlyDisplay(value = "", { locale = undefined } = {})`
+- `formatCrudListDateFilterChipLabel(filter = {}, rawValue, { locale = undefined } = {})`
 
 ### `src/shared/toolsOutletContracts.js`
 Exports

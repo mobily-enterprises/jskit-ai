@@ -78,6 +78,11 @@ jobs:
           JSKIT_VITE_LOCAL_PACKAGE_CACHE_INTEGRATION: "1"
         run: node --test tooling/create-app/test/viteColdStart.integration.test.js
 
+      - name: Verify responsive CRUD date filters
+        env:
+          JSKIT_USERS_WEB_DATE_FILTER_VISUAL_INTEGRATION: "1"
+        run: node --test packages/users-web/test/crudListDateFilterSurface.browser.test.js
+
   publish:
     needs:
       - database-ci

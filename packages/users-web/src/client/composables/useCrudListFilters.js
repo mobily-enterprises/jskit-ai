@@ -13,6 +13,7 @@ import {
   resolveCrudListFilterOptionLabel,
   CRUD_LIST_FILTER_TYPE_FLAG
 } from "@jskit-ai/kernel/shared/support/crudListFilters";
+import { formatCrudListDateFilterChipLabel } from "../support/crudListDateFilterSupport.js";
 
 function normalizeFunctionMap(value = {}) {
   const source = value && typeof value === "object" && !Array.isArray(value)
@@ -147,6 +148,15 @@ function resolveAtomicValueLabel(filter = {}, value = "", labelResolvers = {}) {
   });
 }
 
+function formatDefaultChipLabel(filter = {}, chipValue, labelResolvers = {}) {
+  return formatCrudListDateFilterChipLabel(filter, chipValue)
+    || formatCrudListFilterDefaultChipLabel(filter, chipValue, {
+      resolveAtomicValue(value) {
+        return resolveAtomicValueLabel(filter, value, labelResolvers);
+      }
+    });
+}
+
 function useCrudListFilters(definitions = {}, { labelResolvers = {}, chipLabels = {}, presets = [] } = {}) {
   const filters = defineCrudListFilters(definitions);
   const filterEntries = Object.values(filters);
@@ -179,11 +189,7 @@ function useCrudListFilters(definitions = {}, { labelResolvers = {}, chipLabels 
           ...(isCrudListFilterMultiValue(filter) ? { value: chipValue } : {}),
           label: normalizeText(customChipLabel?.(chipValue, filter, values))
             || normalizeText(filter.chipLabel?.(chipValue, filter, values))
-            || formatCrudListFilterDefaultChipLabel(filter, chipValue, {
-              resolveAtomicValue(value) {
-                return resolveAtomicValueLabel(filter, value, normalizedLabelResolvers);
-              }
-            })
+            || formatDefaultChipLabel(filter, chipValue, normalizedLabelResolvers)
         });
       }
     }
