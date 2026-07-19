@@ -70,7 +70,7 @@ jobs:
         run: npm ci
 
       - name: Install Chromium
-        run: npx --yes playwright@1.61.1 install --with-deps chromium
+        run: npx --yes --allow-scripts=fsevents playwright@1.61.1 install --with-deps chromium
 
       - name: Verify a cold generated auth app
         env:
