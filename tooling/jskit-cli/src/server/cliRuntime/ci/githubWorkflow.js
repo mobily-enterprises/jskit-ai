@@ -108,6 +108,10 @@ function buildGithubWorkflowDocument(model = {}) {
     permissions: {
       contents: "read"
     },
+    env: {
+      npm_config_engine_strict: "true",
+      npm_config_strict_allow_scripts: "true"
+    },
     jobs: {
       verify: verifyJob
     }

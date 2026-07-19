@@ -17,7 +17,7 @@
     "@jskit-ai/resource-crud-core": "0.1.62",
     "@jskit-ai/resource-core": "0.1.62",
     "@jskit-ai/users-core": "0.1.127",
-    "dompurify": "^3.3.3",
+    "dompurify": "^3.4.12",
     "json-rest-schema": "1.x.x",
     "marked": "^17.0.4",
     "openai": "^6.22.0"

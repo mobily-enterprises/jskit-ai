@@ -13,6 +13,6 @@
   "dependencies": {
     "@jskit-ai/auth-core": "0.1.116",
     "@jskit-ai/kernel": "0.1.119",
-    "nodemailer": "^7.0.10"
+    "nodemailer": "^9.0.3"
   }
 }

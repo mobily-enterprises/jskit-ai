@@ -24,6 +24,7 @@
     "agent-docs:build": "node ./scripts/build-agent-docs.mjs",
     "generated:refs:check": "node ./scripts/check-generated-reference-paths.mjs",
     "generated:check": "node ./scripts/check-generated-files.mjs",
+    "security:audit": "npm audit --audit-level=low",
     "files:checklist": "./scripts/files-checklist.sh",
     "release:npm": "node ./scripts/release-npm.mjs",
     "release:npm:dry-run": "node ./scripts/release-npm.mjs --dry-run"
@@ -57,5 +58,15 @@
     "dotenv": "^17.3.1",
     "jose": "^6.1.0",
     "vuetify": "^4.0.0"
+  },
+  "overrides": {
+    "vitepress": {
+      "vite": "6.4.3"
+    }
+  },
+  "allowScripts": {
+    "esbuild@0.25.12": true,
+    "fsevents@2.3.3": true,
+    "vue-demi@0.14.10": true
   }
 }

@@ -11,6 +11,7 @@ permissions:
 
 env:
   npm_config_engine_strict: "true"
+  npm_config_strict_allow_scripts: "true"
 
 jobs:
   verify:
@@ -34,6 +35,9 @@ jobs:
 
       - name: Install dependencies
         run: npm ci
+
+      - name: Audit dependencies
+        run: npm run security:audit
 
       - name: Run verify
         run: npm run verify
