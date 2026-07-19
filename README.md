@@ -4,6 +4,10 @@ Website: <https://mobily-enterprises.github.io/jskit-ai/>
 
 This repository is the JSKIT monorepo.
 
+## Node.js
+
+Use Node.js 26 for repository development and publishing; `.nvmrc` records that default. Published JSKIT tooling and generated applications support Node.js 22 from 22.12.0 onward, Node.js 24, and Node.js 26. Repository CI verifies all three supported majors, while generated JSKIT-managed application workflows use Node.js 26.
+
 ## Documentation
 
 - Website source: `packages/agent-docs/site/`

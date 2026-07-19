@@ -2,6 +2,9 @@
   "name": "jskit-monorepo",
   "version": "1.0.0",
   "private": true,
+  "engines": {
+    "node": "^22.12.0 || ^24.0.0 || ^26.0.0"
+  },
   "scripts": {
     "app:create": "node ./tooling/create-app/bin/jskit-create-app.js",
     "app:create:interactive": "node ./tooling/create-app/bin/jskit-create-app.js --interactive",

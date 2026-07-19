@@ -93,7 +93,7 @@ This gives you a clean ownership split:
 
 That split is worth keeping in mind through the rest of the guide. When you see `npm run verify`, read it as "run the app's JSKIT baseline verification policy, then any app-specific extra verification hook".
 
-The starter scaffold also includes `.github/workflows/jskit-verify.yml`. This is a JSKIT-managed projection, not a static template. Installed package descriptors can contribute CI environment values, services, and preparation steps through their top-level `ci` contract. JSKIT composes those contributions and renders one verification workflow in this order: checkout, Node setup, `npm ci`, package-contributed `before-verify` steps, and `npm run verify`.
+The starter scaffold also includes `.github/workflows/jskit-verify.yml`. This is a JSKIT-managed projection, not a static template. Installed package descriptors can contribute CI environment values, services, and preparation steps through their top-level `ci` contract. JSKIT supports Node.js 22 from 22.12.0 onward, Node.js 24, and Node.js 26; the managed workflow deliberately uses Node 26 as the default verification runtime. JSKIT composes the contributions and renders the workflow in this order: checkout, Node 26 setup, `npm ci`, package-contributed `before-verify` steps, and `npm run verify`.
 
 For example, `database-runtime` contributes the `database-migrations` step. Its MySQL driver contributes a MariaDB service with `DB_CLIENT=mysql2`, while its Postgres driver contributes a Postgres service with `DB_CLIENT=pg`. Each driver supplies matching synthetic CI-only `DB_*` values; local `.env` values are never copied into the workflow.
 

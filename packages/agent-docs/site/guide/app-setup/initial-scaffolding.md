@@ -171,7 +171,7 @@ The most important parts look like this:
 ```json
 {
   "engines": {
-    "node": "^20.19.0 || ^22.12.0"
+    "node": "^22.12.0 || ^24.0.0 || ^26.0.0"
   },
   "scripts": {
     "server": "node ./bin/server.js",
@@ -219,7 +219,7 @@ The most important parts look like this:
 }
 ```
 
-There are two details worth noticing immediately. The dependency on `@local/main` points at `file:packages/main`, which means your app already contains its own local JSKIT package. The maintenance scripts are also useful to notice early, because they show an important ownership boundary in JSKIT.
+JSKIT supports Node.js 22 from 22.12.0 onward, Node.js 24, and Node.js 26. Node 26 is the default for JSKIT repository development, publishing, and generated managed verification, while the supported engine range lets applications use any of those three even-numbered release lines. Node 23 and Node 25 are intentionally excluded. The app-level `engines` field is the runtime boundary for the app and its installed JSKIT runtime packages; independently consumed JSKIT CLI and tooling packages carry the same range in their own manifests. The dependency on `@local/main` points at `file:packages/main`, which means your app already contains its own local JSKIT package. The maintenance scripts are also useful to notice early, because they show an important ownership boundary in JSKIT.
 
 `verify`, `jskit:update`, `devlinks`, and `release` are intentionally thin wrappers. They stay in `package.json` because they are convenient app-local shortcuts, but the real implementation lives in `jskit app ...`, not in copied scaffold scripts.
 
@@ -227,7 +227,7 @@ That matters because JSKIT maintenance policy changes over time. If the scaffold
 
 `jskit app verify` is worth noticing specifically. Linting, tests, and builds check your source code and runtime behavior. The JSKIT part of that flow runs `doctor`, which checks JSKIT-managed app state: installed package visibility, lock-file-backed managed files, and other JSKIT-specific health rules. It is there because a JSKIT app is not only code. It is also a descriptor-driven managed project.
 
-The starter scaffold also writes `.github/workflows/jskit-verify.yml`. JSKIT generates and owns that workflow as a projection of installed package `ci` contracts. The baseline runs checkout, Node setup, `npm ci`, and `npm run verify`. Packages can add job environment values, service containers, and explicit `before-verify` steps without taking ownership of the whole YAML file. For example, the database runtime adds migrations before verification. Its MySQL driver adds a MariaDB service with synthetic CI-only credentials and `DB_CLIENT=mysql2`; its Postgres driver adds the equivalent Postgres service and `DB_CLIENT=pg`.
+The starter scaffold also writes `.github/workflows/jskit-verify.yml`. JSKIT generates and owns that workflow as a projection of installed package `ci` contracts. The baseline runs checkout, Node 26 setup, `npm ci`, and `npm run verify`. Packages can add job environment values, service containers, and explicit `before-verify` steps without taking ownership of the whole YAML file. For example, the database runtime adds migrations before verification. Its MySQL driver adds a MariaDB service with synthetic CI-only credentials and `DB_CLIENT=mysql2`; its Postgres driver adds the equivalent Postgres service and `DB_CLIENT=pg`.
 
 The workflow content hash is recorded in `.jskit/lock.json`. Package lifecycle commands refresh it when installed requirements change and refuse to overwrite a workflow that differs from its recorded version. Application-specific CI belongs in another workflow. Use `npx jskit app sync-ci` to refresh an unmodified managed file, or `npx jskit app sync-ci --force` when you explicitly intend to replace an edited file that is already recorded as JSKIT-owned. The `--against <base-ref>` review mode still exists for local pre-merge checks and advanced CI pipelines, but the starter workflow does not assume it.
 
