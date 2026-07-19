@@ -38,6 +38,8 @@ How to use it:
   - `server-search.md`
 - `actualField`, `storage.writeSerializer`, `storage.virtual`, computed field, virtual field, projection, `createCrudResourceRuntime`, `remainingBatchWeight`, datetime write serialization
   - `crud-repository-mapping.md`
+- row policy, permission filtering, visibility before pagination, recursive CTE, descendants, package cycle, `RowPolicyPlugin`
+  - `row-policies.md`
 
 ## Current Patterns
 
@@ -55,3 +57,4 @@ How to use it:
 - [filters.md](./filters.md)
 - [server-search.md](./server-search.md)
 - [crud-repository-mapping.md](./crud-repository-mapping.md)
+- [row-policies.md](./row-policies.md)

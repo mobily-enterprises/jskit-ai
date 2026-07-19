@@ -6,6 +6,8 @@ The earlier CRUD chapter shows the workflow. This chapter shows the anatomy.
 
 If you have not read [CRUD Generators](/guide/generators/crud-generators) yet, start there first. This chapter assumes you already understand the basic generation flow and want to inspect or customize what it produced.
 
+When a CRUD's mandatory visibility needs joins, `EXISTS`, grouped grants, or hierarchy traversal instead of direct owner columns, continue with [Row Policies](/guide/generators/row-policies). Do not filter an already-paginated result in `service.js`.
+
 Once you generate `contacts`, you do **not** get one magical black-box CRUD object. You get:
 
 - an app-local server package under `packages/contacts/`
@@ -824,6 +826,7 @@ Use this rule of thumb when deciding where to edit:
 | Change permissions or channels | `actions.js` | This is the action contract boundary |
 | Change default ordering, searchable fields, or ownership autofilter | `contactResource.js` | The shared resource is the single source of truth for both CRUD contract and internal JSON:API resource config |
 | Change SQL, joins, parent filters, or advanced search | `repository.js` | This is the data-access layer |
+| Add mandatory SQL visibility that must run before count and pagination | server policy module plus the provider's `createJsonRestResourceScopeOptions(..., { rowPolicy })` call | The internal JSON REST host applies the policy to every storage query for that resource |
 | Add cross-record or domain rules on save/delete | `service.js` | This is business logic |
 | Change shared CRUD screen chrome, load states, or retry behavior | `users-web` shared screen components | Generated pages consume the shared screen contract |
 | Add per-row commands to a generated list page | page-local `listRowActions.js`, usually calling `useCommand()`-backed composables | The shared list screen renders action chrome; the page owns explicit mutation behavior |
@@ -1835,6 +1838,19 @@ Touch:
 - possibly `config/roles.js`
 
 Do not hide permission rules inside client components.
+
+### "I need a manager to see assigned records and descendants."
+
+Read [Row Policies](/guide/generators/row-policies).
+
+Touch:
+
+- a server-only policy module in the resource-owning package
+- the owning provider's `createJsonRestResourceScopeOptions(...)` call
+- a domain-owned visibility contribution seam when another package grants access
+- focused pagination, count, missing-identity, child-resource, and dependency-direction tests
+
+Do not filter the JSON:API document in `service.js`, accept visible ids from the client, or make the resource-owning package depend on every package that can grant access.
 
 ## Final mental model
 

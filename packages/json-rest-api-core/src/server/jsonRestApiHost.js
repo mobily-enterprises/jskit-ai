@@ -1,5 +1,11 @@
 import { Api } from "hooked-api";
-import { AutoFilterPlugin, QueryProjectionsPlugin, RestApiKnexPlugin, RestApiPlugin } from "json-rest-api";
+import {
+  AutoFilterPlugin,
+  QueryProjectionsPlugin,
+  RestApiKnexPlugin,
+  RestApiPlugin,
+  RowPolicyPlugin
+} from "json-rest-api";
 import { normalizeRecordId } from "@jskit-ai/kernel/shared/support/normalize";
 import { resolveCrudResourceScopeName } from "@jskit-ai/kernel/shared/support/crudLookup";
 
@@ -464,6 +470,7 @@ function createJsonRestResourceScopeOptions(
   {
     writeSerializers = {},
     normalizeId = null,
+    rowPolicy = undefined,
     searchSchema = null,
     queryFields = null
   } = {}
@@ -498,6 +505,9 @@ function createJsonRestResourceScopeOptions(
 
   if (typeof normalizeId === "function") {
     scopeOptions.normalizeId = normalizeId;
+  }
+  if (rowPolicy !== undefined) {
+    scopeOptions.rowPolicy = rowPolicy;
   }
 
   return scopeOptions;
@@ -591,6 +601,7 @@ async function createJsonRestApiHost({ knex }) {
 
   await api.use(QueryProjectionsPlugin);
   await api.use(RestApiKnexPlugin, { knex });
+  await api.use(RowPolicyPlugin);
   await api.use(AutoFilterPlugin, {
     resolvers: {
       workspace: ({ context }) => resolveWorkspaceScopeValue(context),

@@ -3,7 +3,7 @@ export default Object.freeze({
   packageId: "@jskit-ai/json-rest-api-core",
   version: "0.1.63",
   kind: "runtime",
-  description: "Shared internal json-rest-api host runtime for JSKIT server packages.",
+  description: "Shared internal json-rest-api host runtime with autofilter, query-projection, and row-policy support.",
   dependsOn: [
     "@jskit-ai/database-runtime",
     "@jskit-ai/kernel"
@@ -34,7 +34,7 @@ export default Object.freeze({
       surfaces: [
         {
           subpath: "./server",
-          summary: "Exports the shared internal json-rest-api host token and host registration helpers."
+          summary: "Exports the shared internal json-rest-api host token and resource registration helpers, including server-only row policies."
         }
       ],
       containerTokens: {

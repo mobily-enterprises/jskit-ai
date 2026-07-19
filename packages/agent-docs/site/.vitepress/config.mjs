@@ -51,7 +51,8 @@ export default defineConfig({
             { text: "Intro", link: "/guide/generators/intro" },
             { text: "UI Generators", link: "/guide/generators/ui-generators" },
             { text: "CRUD Generators", link: "/guide/generators/crud-generators" },
-            { text: "Advanced CRUDs", link: "/guide/generators/advanced-cruds" }
+            { text: "Advanced CRUDs", link: "/guide/generators/advanced-cruds" },
+            { text: "Row Policies", link: "/guide/generators/row-policies" }
           ]
         }
       ]
