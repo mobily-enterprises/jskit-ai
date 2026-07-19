@@ -1,6 +1,6 @@
 {
   "name": "@jskit-ai/workspaces-core",
-  "version": "0.1.94",
+  "version": "0.1.95",
   "type": "module",
   "scripts": {
     "test": "node --test"
@@ -20,11 +20,11 @@
     "@jskit-ai/auth-core": "0.1.117",
     "@jskit-ai/database-runtime": "0.1.119",
     "@jskit-ai/http-runtime": "0.1.118",
-    "@jskit-ai/json-rest-api-core": "0.1.63",
+    "@jskit-ai/json-rest-api-core": "0.1.64",
     "@jskit-ai/kernel": "0.1.120",
     "@jskit-ai/resource-crud-core": "0.1.63",
     "@jskit-ai/resource-core": "0.1.63",
-    "@jskit-ai/users-core": "0.1.128",
+    "@jskit-ai/users-core": "0.1.129",
     "json-rest-schema": "1.x.x"
   }
 }

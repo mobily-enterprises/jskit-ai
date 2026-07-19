@@ -1,13 +1,13 @@
 {
   "name": "@jskit-ai/console-web",
-  "version": "0.1.86",
+  "version": "0.1.87",
   "type": "module",
   "scripts": {
     "test": "node --test"
   },
   "dependencies": {
     "@jskit-ai/auth-web": "0.1.119",
-    "@jskit-ai/console-core": "0.1.81",
+    "@jskit-ai/console-core": "0.1.82",
     "@jskit-ai/shell-web": "0.1.119"
   }
 }

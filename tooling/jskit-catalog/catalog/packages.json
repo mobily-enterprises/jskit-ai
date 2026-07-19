@@ -6,11 +6,11 @@
   "packages": [
     {
       "packageId": "@jskit-ai/assistant",
-      "version": "0.1.127",
+      "version": "0.1.128",
       "descriptor": {
         "packageVersion": 1,
         "packageId": "@jskit-ai/assistant",
-        "version": "0.1.127",
+        "version": "0.1.128",
         "kind": "generator",
         "description": "Install assistant runtime/config for one surface and scaffold assistant pages at explicit target files.",
         "options": {
@@ -347,11 +347,11 @@
     },
     {
       "packageId": "@jskit-ai/assistant-core",
-      "version": "0.1.95",
+      "version": "0.1.96",
       "descriptor": {
         "packageVersion": 1,
         "packageId": "@jskit-ai/assistant-core",
-        "version": "0.1.95",
+        "version": "0.1.96",
         "kind": "runtime",
         "description": "Reusable assistant client/server/shared primitives without surface-specific routes or settings ownership.",
         "dependsOn": [
@@ -403,7 +403,7 @@
               "@jskit-ai/kernel": "0.1.120",
               "@jskit-ai/resource-core": "0.1.63",
               "@jskit-ai/resource-crud-core": "0.1.63",
-              "@jskit-ai/users-core": "0.1.128",
+              "@jskit-ai/users-core": "0.1.129",
               "dompurify": "^3.3.3",
               "json-rest-schema": "1.x.x",
               "marked": "^17.0.4",
@@ -422,11 +422,11 @@
     },
     {
       "packageId": "@jskit-ai/assistant-runtime",
-      "version": "0.1.90",
+      "version": "0.1.91",
       "descriptor": {
         "packageVersion": 1,
         "packageId": "@jskit-ai/assistant-runtime",
-        "version": "0.1.90",
+        "version": "0.1.91",
         "kind": "runtime",
         "description": "Shared assistant runtime with per-surface assistant registration.",
         "dependsOn": [
@@ -522,13 +522,13 @@
         "mutations": {
           "dependencies": {
             "runtime": {
-              "@jskit-ai/assistant-core": "0.1.95",
+              "@jskit-ai/assistant-core": "0.1.96",
               "@jskit-ai/database-runtime": "0.1.119",
               "@jskit-ai/http-runtime": "0.1.118",
               "@jskit-ai/kernel": "0.1.120",
               "@jskit-ai/shell-web": "0.1.119",
-              "@jskit-ai/users-core": "0.1.128",
-              "@jskit-ai/users-web": "0.1.134"
+              "@jskit-ai/users-core": "0.1.129",
+              "@jskit-ai/users-web": "0.1.135"
             },
             "dev": {}
           },
@@ -1446,11 +1446,11 @@
     },
     {
       "packageId": "@jskit-ai/console-core",
-      "version": "0.1.81",
+      "version": "0.1.82",
       "descriptor": {
         "packageVersion": 1,
         "packageId": "@jskit-ai/console-core",
-        "version": "0.1.81",
+        "version": "0.1.82",
         "kind": "runtime",
         "description": "Console runtime: console settings schema, bootstrap flags, actions, and HTTP routes.",
         "dependsOn": [
@@ -1539,7 +1539,7 @@
               "@jskit-ai/http-runtime": "0.1.118",
               "@jskit-ai/kernel": "0.1.120",
               "@jskit-ai/resource-crud-core": "0.1.63",
-              "@jskit-ai/users-core": "0.1.128"
+              "@jskit-ai/users-core": "0.1.129"
             },
             "dev": {}
           },
@@ -1564,11 +1564,11 @@
     },
     {
       "packageId": "@jskit-ai/console-web",
-      "version": "0.1.86",
+      "version": "0.1.87",
       "descriptor": {
         "packageVersion": 1,
         "packageId": "@jskit-ai/console-web",
-        "version": "0.1.86",
+        "version": "0.1.87",
         "kind": "runtime",
         "description": "Authenticated console surface scaffold and surface policy wiring.",
         "dependsOn": [
@@ -1679,7 +1679,7 @@
           "dependencies": {
             "runtime": {
               "@jskit-ai/auth-web": "0.1.119",
-              "@jskit-ai/console-core": "0.1.81",
+              "@jskit-ai/console-core": "0.1.82",
               "@jskit-ai/shell-web": "0.1.119"
             },
             "dev": {}
@@ -1787,11 +1787,11 @@
     },
     {
       "packageId": "@jskit-ai/crud-core",
-      "version": "0.1.126",
+      "version": "0.1.127",
       "descriptor": {
         "packageVersion": 1,
         "packageId": "@jskit-ai/crud-core",
-        "version": "0.1.126",
+        "version": "0.1.127",
         "kind": "runtime",
         "description": "Shared CRUD helpers used by CRUD modules.",
         "dependsOn": [
@@ -1820,7 +1820,7 @@
         "mutations": {
           "dependencies": {
             "runtime": {
-              "@jskit-ai/crud-core": "0.1.126"
+              "@jskit-ai/crud-core": "0.1.127"
             },
             "dev": {}
           },
@@ -1834,11 +1834,11 @@
     },
     {
       "packageId": "@jskit-ai/crud-server-generator",
-      "version": "0.1.126",
+      "version": "0.1.127",
       "descriptor": {
         "packageVersion": 1,
         "packageId": "@jskit-ai/crud-server-generator",
-        "version": "0.1.126",
+        "version": "0.1.127",
         "kind": "generator",
         "description": "CRUD server generator with routes, actions, and persistence scaffolding.",
         "options": {
@@ -2006,10 +2006,10 @@
           "dependencies": {
             "runtime": {
               "@jskit-ai/auth-core": "0.1.117",
-              "@jskit-ai/crud-core": "0.1.126",
+              "@jskit-ai/crud-core": "0.1.127",
               "@jskit-ai/database-runtime": "0.1.119",
               "@jskit-ai/http-runtime": "0.1.118",
-              "@jskit-ai/json-rest-api-core": "0.1.63",
+              "@jskit-ai/json-rest-api-core": "0.1.64",
               "@jskit-ai/kernel": "0.1.120",
               "@jskit-ai/realtime": "0.1.117",
               "@jskit-ai/resource-crud-core": "0.1.63",
@@ -2144,11 +2144,11 @@
     },
     {
       "packageId": "@jskit-ai/crud-ui-generator",
-      "version": "0.1.101",
+      "version": "0.1.102",
       "descriptor": {
         "packageVersion": 1,
         "packageId": "@jskit-ai/crud-ui-generator",
-        "version": "0.1.101",
+        "version": "0.1.102",
         "kind": "generator",
         "description": "Generate CRUD route trees from resource validators at an explicit route root relative to src/pages/.",
         "options": {
@@ -2347,7 +2347,7 @@
         "mutations": {
           "dependencies": {
             "runtime": {
-              "@jskit-ai/users-web": "0.1.134"
+              "@jskit-ai/users-web": "0.1.135"
             },
             "dev": {}
           },
@@ -3108,11 +3108,11 @@
     },
     {
       "packageId": "@jskit-ai/feature-server-generator",
-      "version": "0.1.61",
+      "version": "0.1.62",
       "descriptor": {
         "packageVersion": 1,
         "packageId": "@jskit-ai/feature-server-generator",
-        "version": "0.1.61",
+        "version": "0.1.62",
         "kind": "generator",
         "description": "Scaffold substantial non-CRUD server feature packages with provider, actions, service, and optional persistence seams.",
         "options": {
@@ -3291,7 +3291,7 @@
                 }
               },
               "@jskit-ai/json-rest-api-core": {
-                "version": "0.1.63",
+                "version": "0.1.64",
                 "when": {
                   "option": "mode",
                   "equals": "json-rest"
@@ -3410,11 +3410,11 @@
     },
     {
       "packageId": "@jskit-ai/google-rewarded-core",
-      "version": "0.1.55",
+      "version": "0.1.56",
       "descriptor": {
         "packageVersion": 1,
         "packageId": "@jskit-ai/google-rewarded-core",
-        "version": "0.1.55",
+        "version": "0.1.56",
         "kind": "runtime",
         "description": "Google rewarded workflow runtime plus internal CRUD providers for rules, provider configs, watch sessions, and unlock receipts.",
         "dependsOn": [
@@ -3542,13 +3542,13 @@
           "dependencies": {
             "runtime": {
               "@jskit-ai/auth-core": "0.1.117",
-              "@jskit-ai/crud-core": "0.1.126",
+              "@jskit-ai/crud-core": "0.1.127",
               "@jskit-ai/database-runtime": "0.1.119",
               "@jskit-ai/http-runtime": "0.1.118",
-              "@jskit-ai/json-rest-api-core": "0.1.63",
+              "@jskit-ai/json-rest-api-core": "0.1.64",
               "@jskit-ai/kernel": "0.1.120",
               "@jskit-ai/resource-crud-core": "0.1.63",
-              "@jskit-ai/workspaces-core": "0.1.94"
+              "@jskit-ai/workspaces-core": "0.1.95"
             },
             "dev": {}
           },
@@ -3600,11 +3600,11 @@
     },
     {
       "packageId": "@jskit-ai/google-rewarded-web",
-      "version": "0.1.55",
+      "version": "0.1.56",
       "descriptor": {
         "packageVersion": 1,
         "packageId": "@jskit-ai/google-rewarded-web",
-        "version": "0.1.55",
+        "version": "0.1.56",
         "kind": "runtime",
         "description": "Google rewarded client runtime with a fullscreen gate host and GPT orchestration.",
         "dependsOn": [
@@ -3651,7 +3651,7 @@
         "mutations": {
           "dependencies": {
             "runtime": {
-              "@jskit-ai/google-rewarded-core": "0.1.55",
+              "@jskit-ai/google-rewarded-core": "0.1.56",
               "@jskit-ai/http-runtime": "0.1.118",
               "@jskit-ai/kernel": "0.1.120",
               "@jskit-ai/shell-web": "0.1.119"
@@ -3756,11 +3756,11 @@
     },
     {
       "packageId": "@jskit-ai/json-rest-api-core",
-      "version": "0.1.63",
+      "version": "0.1.64",
       "descriptor": {
         "packageVersion": 1,
         "packageId": "@jskit-ai/json-rest-api-core",
-        "version": "0.1.63",
+        "version": "0.1.64",
         "kind": "runtime",
         "description": "Shared internal json-rest-api host runtime with autofilter, query-projection, and row-policy support.",
         "dependsOn": [
@@ -4800,11 +4800,11 @@
     },
     {
       "packageId": "@jskit-ai/ui-generator",
-      "version": "0.1.101",
+      "version": "0.1.102",
       "descriptor": {
         "packageVersion": 1,
         "packageId": "@jskit-ai/ui-generator",
-        "version": "0.1.101",
+        "version": "0.1.102",
         "kind": "generator",
         "description": "Create non-CRUD pages, reusable UI elements, and subpage hosts.",
         "options": {
@@ -5237,7 +5237,7 @@
         "mutations": {
           "dependencies": {
             "runtime": {
-              "@jskit-ai/users-web": "0.1.134"
+              "@jskit-ai/users-web": "0.1.135"
             },
             "dev": {}
           },
@@ -5429,11 +5429,11 @@
     },
     {
       "packageId": "@jskit-ai/users-core",
-      "version": "0.1.128",
+      "version": "0.1.129",
       "descriptor": {
         "packageVersion": 1,
         "packageId": "@jskit-ai/users-core",
-        "version": "0.1.128",
+        "version": "0.1.129",
         "kind": "runtime",
         "description": "Users/account runtime plus HTTP routes for account features.",
         "dependsOn": [
@@ -5578,10 +5578,10 @@
           "dependencies": {
             "runtime": {
               "@jskit-ai/auth-core": "0.1.117",
-              "@jskit-ai/crud-core": "0.1.126",
+              "@jskit-ai/crud-core": "0.1.127",
               "@jskit-ai/database-runtime": "0.1.119",
               "@jskit-ai/http-runtime": "0.1.118",
-              "@jskit-ai/json-rest-api-core": "0.1.63",
+              "@jskit-ai/json-rest-api-core": "0.1.64",
               "@jskit-ai/kernel": "0.1.120",
               "@jskit-ai/resource-core": "0.1.63",
               "@jskit-ai/resource-crud-core": "0.1.63",
@@ -5813,11 +5813,11 @@
     },
     {
       "packageId": "@jskit-ai/users-web",
-      "version": "0.1.134",
+      "version": "0.1.135",
       "descriptor": {
         "packageVersion": 1,
         "packageId": "@jskit-ai/users-web",
-        "version": "0.1.134",
+        "version": "0.1.135",
         "kind": "runtime",
         "description": "Users web module: account/profile UI plus shared users web widgets.",
         "dependsOn": [
@@ -6125,7 +6125,7 @@
               "@jskit-ai/kernel": "0.1.120",
               "@jskit-ai/shell-web": "0.1.119",
               "@jskit-ai/uploads-image-web": "0.1.96",
-              "@jskit-ai/users-core": "0.1.128"
+              "@jskit-ai/users-core": "0.1.129"
             },
             "dev": {}
           },
@@ -6302,11 +6302,11 @@
     },
     {
       "packageId": "@jskit-ai/workspaces-core",
-      "version": "0.1.94",
+      "version": "0.1.95",
       "descriptor": {
         "packageVersion": 1,
         "packageId": "@jskit-ai/workspaces-core",
-        "version": "0.1.94",
+        "version": "0.1.95",
         "kind": "runtime",
         "description": "Workspace tenancy runtime plus HTTP routes, role catalog, and workspace config scaffolding.",
         "dependsOn": [
@@ -6452,10 +6452,10 @@
         "mutations": {
           "dependencies": {
             "runtime": {
-              "@jskit-ai/json-rest-api-core": "0.1.63",
+              "@jskit-ai/json-rest-api-core": "0.1.64",
               "@jskit-ai/resource-core": "0.1.63",
               "@jskit-ai/resource-crud-core": "0.1.63",
-              "@jskit-ai/users-core": "0.1.128"
+              "@jskit-ai/users-core": "0.1.129"
             },
             "dev": {}
           },
@@ -6657,11 +6657,11 @@
     },
     {
       "packageId": "@jskit-ai/workspaces-web",
-      "version": "0.1.95",
+      "version": "0.1.96",
       "descriptor": {
         "packageVersion": 1,
         "packageId": "@jskit-ai/workspaces-web",
-        "version": "0.1.95",
+        "version": "0.1.96",
         "kind": "runtime",
         "description": "Workspace web module: workspace selector, tools widget, workspace surfaces, members UI, and settings hosts.",
         "dependsOn": [
@@ -6919,8 +6919,8 @@
           "dependencies": {
             "runtime": {
               "@jskit-ai/auth-web": "0.1.119",
-              "@jskit-ai/workspaces-core": "0.1.94",
-              "@jskit-ai/users-web": "0.1.134"
+              "@jskit-ai/workspaces-core": "0.1.95",
+              "@jskit-ai/users-web": "0.1.135"
             },
             "dev": {}
           },

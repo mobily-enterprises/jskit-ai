@@ -1,6 +1,6 @@
 {
   "name": "@jskit-ai/json-rest-api-core",
-  "version": "0.1.63",
+  "version": "0.1.64",
   "type": "module",
   "scripts": {
     "test": "node --test"

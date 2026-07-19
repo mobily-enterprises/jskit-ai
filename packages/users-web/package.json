@@ -1,6 +1,6 @@
 {
   "name": "@jskit-ai/users-web",
-  "version": "0.1.134",
+  "version": "0.1.135",
   "type": "module",
   "scripts": {
     "test": "node --test"
@@ -51,7 +51,7 @@
     "@jskit-ai/realtime": "0.1.117",
     "@jskit-ai/shell-web": "0.1.119",
     "@jskit-ai/uploads-image-web": "0.1.96",
-    "@jskit-ai/users-core": "0.1.128"
+    "@jskit-ai/users-core": "0.1.129"
   },
   "peerDependencies": {
     "@tanstack/vue-query": "^5.90.5",

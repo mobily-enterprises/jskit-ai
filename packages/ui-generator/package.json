@@ -1,6 +1,6 @@
 {
   "name": "@jskit-ai/ui-generator",
-  "version": "0.1.101",
+  "version": "0.1.102",
   "type": "module",
   "scripts": {
     "test": "node --test"
