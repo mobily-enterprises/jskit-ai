@@ -388,12 +388,19 @@ async function updateWorkspacePackageJsonFiles(records, publishSet, nextVersions
 }
 
 function updateDescriptorTextForPackage(text, packageName, nextVersion) {
-  const doubleQuotedPattern = new RegExp(`(\\"${escapeRegExp(packageName)}\\"\\s*:\\s*\\")([^\\"]+)(\\")`, "g");
-  const singleQuotedPattern = new RegExp(`('${escapeRegExp(packageName)}'\\s*:\\s*')([^']+)(')`, "g");
+  const escapedPackageName = escapeRegExp(packageName);
+  const directVersionPattern = new RegExp(
+    `((?:"${escapedPackageName}"|'${escapedPackageName}')\\s*:\\s*(["']))([^"']+)(\\2)`,
+    "g"
+  );
+  const conditionalVersionPattern = new RegExp(
+    `((?:"${escapedPackageName}"|'${escapedPackageName}')\\s*:\\s*\\{\\s*(?:"version"|'version'|version)\\s*:\\s*(["']))([^"']+)(\\2)`,
+    "g"
+  );
 
-  let nextText = text.replace(doubleQuotedPattern, `$1${nextVersion}$3`);
-  nextText = nextText.replace(singleQuotedPattern, `$1${nextVersion}$3`);
-  return nextText;
+  return text
+    .replace(directVersionPattern, `$1${nextVersion}$4`)
+    .replace(conditionalVersionPattern, `$1${nextVersion}$4`);
 }
 
 function updateDescriptorVersion(text, nextVersion) {
@@ -789,8 +796,14 @@ async function main() {
   process.stdout.write("Publish complete.\n");
 }
 
-main().catch((error) => {
-  const message = error instanceof Error ? error.message : String(error);
-  process.stderr.write(`release-npm failed: ${message}\n`);
-  process.exitCode = 1;
-});
+if (process.argv[1] && path.resolve(process.argv[1]) === __filename) {
+  main().catch((error) => {
+    const message = error instanceof Error ? error.message : String(error);
+    process.stderr.write(`release-npm failed: ${message}\n`);
+    process.exitCode = 1;
+  });
+}
+
+export {
+  updateDescriptorTextForPackage
+};

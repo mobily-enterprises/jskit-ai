@@ -154,21 +154,21 @@ export default Object.freeze({
     dependencies: {
       runtime: {
         "@jskit-ai/database-runtime": {
-          version: "0.1.69",
+          version: "0.1.118",
           when: {
             option: "mode",
             notEquals: "orchestrator"
           }
         },
         "@jskit-ai/database-runtime-mysql": {
-          version: "0.1.68",
+          version: "0.1.117",
           when: {
             option: "mode",
             notEquals: "orchestrator"
           }
         },
         "@jskit-ai/json-rest-api-core": {
-          version: "0.1.14",
+          version: "0.1.62",
           when: {
             option: "mode",
             equals: "json-rest"
