@@ -478,14 +478,14 @@ test("doctor flags direct knex in app-owned packages outside explicit exception 
   });
 });
 
-test("doctor flags CRUD tables whose ownership filter requires a direct owner column", async () => {
+test("doctor requires CRUD ownership filters to match direct reserved owner columns exactly", async () => {
   await withTempDir(async (cwd) => {
     const appRoot = path.join(cwd, "doctor-crud-missing-owner-column-app");
     await createMinimalApp(appRoot, { name: "doctor-crud-missing-owner-column-app" });
     await installFakeKnex(appRoot, {
       tables: ["contacts"],
       columns: {
-        contacts: ["id", "name"]
+        contacts: ["id", "user_id", "name"]
       }
     });
     await writeKnexfile(appRoot);
@@ -547,6 +547,110 @@ test("doctor flags CRUD tables whose ownership filter requires a direct owner co
       payload.issues.join("\n"),
       /ContactsProvider\.js: \[crud-ownership:missing-owner-columns\] ownershipFilter "workspace" requires live table "contacts" to carry direct owner column\(s\) "workspace_id"/
     );
+    assert.match(
+      payload.issues.join("\n"),
+      /ContactsProvider\.js: \[crud-ownership:unexpected-owner-columns\] ownershipFilter "workspace" conflicts with reserved owner column\(s\) "user_id".*exact direct columns "workspace_id" and "user_id" define JSKIT ownership/s
+    );
+  });
+});
+
+test("doctor keeps noncanonical user foreign keys as domain relationships for explicitly owned CRUD tables", async () => {
+  await withTempDir(async (cwd) => {
+    const appRoot = path.join(cwd, "doctor-crud-domain-user-relationship-app");
+    await createMinimalApp(appRoot, { name: "doctor-crud-domain-user-relationship-app" });
+    await installFakeKnex(appRoot, {
+      tables: ["user_profiles", "notification_outbox_items"],
+      columns: {
+        user_profiles: ["id", "user_id"],
+        notification_outbox_items: ["id", "workspace_id", "recipient_user_id"]
+      },
+      foreignKeys: [
+        {
+          tableName: "notification_outbox_items",
+          columnName: "recipient_user_id",
+          referencedTableName: "user_profiles",
+          referencedColumnName: "user_id"
+        }
+      ]
+    });
+    await writeKnexfile(appRoot);
+    await writeLockFile(appRoot, ["@local/notification-outbox-items"]);
+
+    await writePackageDescriptor(
+      appRoot,
+      "notification-outbox-items",
+      `export default Object.freeze({
+  packageId: "@local/notification-outbox-items",
+  version: "0.1.0",
+  kind: "runtime",
+  capabilities: {
+    provides: ["crud.notification-outbox-items"],
+    requires: []
+  },
+  runtime: {
+    server: {
+      providers: [
+        {
+          entrypoint: "src/server/NotificationOutboxItemsProvider.js",
+          export: "NotificationOutboxItemsProvider"
+        }
+      ]
+    }
+  },
+  metadata: {
+    jskit: {
+      scaffoldShape: "crud-server-v1",
+      tableOwnership: {
+        tables: [
+          {
+            tableName: "notification_outbox_items",
+            provenance: "crud-server-generator",
+            ownerKind: "crud-package"
+          }
+        ]
+      }
+    }
+  },
+  mutations: {
+    files: []
+  }
+});
+`,
+      {
+        "src/server/NotificationOutboxItemsProvider.js": createCrudProviderStub(
+          "workspace",
+          "NotificationOutboxItemsProvider"
+        )
+      }
+    );
+    await writeAppFile(
+      appRoot,
+      ".jskit/table-ownership.json",
+      `${JSON.stringify(
+        {
+          version: 1,
+          exceptions: [
+            {
+              tableName: "user_profiles",
+              category: "projection-cache",
+              owner: "packages/users",
+              reason: "User profile fixture referenced by the outbox recipient relationship."
+            }
+          ]
+        },
+        null,
+        2
+      )}\n`
+    );
+
+    const doctorResult = runCli({
+      cwd: appRoot,
+      args: ["doctor", "--json"]
+    });
+
+    assert.equal(doctorResult.status, 0, String(doctorResult.stderr || ""));
+    const payload = JSON.parse(String(doctorResult.stdout || "{}"));
+    assert.deepEqual(payload.issues, []);
   });
 });
 

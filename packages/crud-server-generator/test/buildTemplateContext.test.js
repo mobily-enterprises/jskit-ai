@@ -5,7 +5,10 @@ import path from "node:path";
 import test from "node:test";
 import { fileURLToPath } from "node:url";
 
-import { __testables } from "../src/server/buildTemplateContext.js";
+import {
+  __testables,
+  prepareInstallHook
+} from "../src/server/buildTemplateContext.js";
 
 function createSnapshot({
   tableName = "contacts",
@@ -235,6 +238,32 @@ test("resolveOwnershipFilterForGeneration rejects explicit ownership filters whe
   );
 });
 
+test("resolveOwnershipFilterForGeneration requires explicit filters to match reserved owner columns exactly", () => {
+  const snapshotBoth = createSnapshot({
+    hasWorkspaceIdColumn: true,
+    hasUserIdColumn: true
+  });
+  const snapshotWorkspaceOnly = createSnapshot({
+    hasWorkspaceIdColumn: true,
+    hasUserIdColumn: false
+  });
+
+  assert.throws(
+    () =>
+      __testables.resolveOwnershipFilterForGeneration(snapshotBoth, "workspace", {
+        enforceTableColumns: true
+      }),
+    /conflicts with the table's reserved ownership columns.*"workspace_id", "user_id".*Use ownership filter "workspace_user"/s
+  );
+  assert.throws(
+    () =>
+      __testables.resolveOwnershipFilterForGeneration(snapshotWorkspaceOnly, "public", {
+        enforceTableColumns: true
+      }),
+    /conflicts with the table's reserved ownership columns.*"workspace_id".*Use ownership filter "workspace"/s
+  );
+});
+
 test("buildReplacementsFromSnapshot renders an internal route line only when requested", () => {
   const snapshot = createSnapshot();
 
@@ -244,7 +273,8 @@ test("buildReplacementsFromSnapshot renders an internal route line only when req
     resolvedOwnershipFilter: "workspace_user",
     surfaceRequiresWorkspace: true,
     surfaceId: "admin",
-    routeInternal: false
+    routeInternal: false,
+    permissionGrantRoleId: "administrator"
   });
   const internalReplacements = __testables.buildReplacementsFromSnapshot({
     namespace: "customers",
@@ -252,11 +282,20 @@ test("buildReplacementsFromSnapshot renders an internal route line only when req
     resolvedOwnershipFilter: "workspace_user",
     surfaceRequiresWorkspace: true,
     surfaceId: "admin",
-    routeInternal: true
+    routeInternal: true,
+    permissionGrantRoleId: "administrator"
   });
 
   assert.equal(publicReplacements.__JSKIT_CRUD_ROUTE_INTERNAL_LINE__, "");
   assert.equal(internalReplacements.__JSKIT_CRUD_ROUTE_INTERNAL_LINE__, "\n      internal: true,");
+  assert.equal(
+    internalReplacements.__JSKIT_CRUD_ROLE_CATALOG_PERMISSION_GRANTS__,
+    publicReplacements.__JSKIT_CRUD_ROLE_CATALOG_PERMISSION_GRANTS__
+  );
+  assert.match(
+    internalReplacements.__JSKIT_CRUD_ROLE_CATALOG_PERMISSION_GRANTS__,
+    /roleCatalog\.roles\["administrator"\]\.permissions\.push\(/
+  );
   assert.equal(publicReplacements.__JSKIT_CRUD_LIST_ROUTE_PARAMS_VALIDATOR_LINE__, "\n      params: routeParamsValidator,");
 });
 
@@ -275,6 +314,190 @@ test("resolveInternalRouteOption does not confuse descriptor defaults with expli
   assert.equal(__testables.resolveInternalRouteOption({ internal: true }), true);
   assert.equal(__testables.resolveInternalRouteOption({ internal: "true" }), true);
   assert.equal(__testables.resolveInternalRouteOption({ internal: "false" }), false);
+});
+
+test("resolveCrudPermissionGrantRole requires an explicit policy and supports configured roles", () => {
+  const appConfig = {
+    roleCatalog: {
+      roles: {
+        owner: { permissions: ["*"] },
+        member: { permissions: ["workspace.settings.view"] },
+        administrator: { permissions: ["workspace.settings.update"] }
+      }
+    }
+  };
+
+  assert.throws(
+    () => __testables.resolveCrudPermissionGrantRole(appConfig, {}, {
+      requiresNamedPermissions: true
+    }),
+    /requires an explicit permission grant policy.*--grant-role <role-id>.*--no-role-grant.*administrator.*member.*owner/s
+  );
+  assert.equal(
+    __testables.resolveCrudPermissionGrantRole(appConfig, {
+      "grant-role": "member"
+    }, {
+      requiresNamedPermissions: true
+    }),
+    "member"
+  );
+  assert.equal(
+    __testables.resolveCrudPermissionGrantRole(appConfig, {
+      "grant-role": "ADMINISTRATOR"
+    }, {
+      requiresNamedPermissions: true
+    }),
+    "administrator"
+  );
+  assert.equal(
+    __testables.resolveCrudPermissionGrantRole(appConfig, {
+      "no-role-grant": "true"
+    }, {
+      requiresNamedPermissions: true
+    }),
+    ""
+  );
+});
+
+test("resolveCrudPermissionGrantRole rejects missing, conflicting, and malformed role grants", () => {
+  const customRoleCatalog = {
+    roleCatalog: {
+      roles: {
+        owner: { permissions: ["*"] },
+        administrator: { permissions: [] },
+        worker: {},
+        frozen: { permissions: Object.freeze([]) }
+      }
+    }
+  };
+
+  assert.throws(
+    () => __testables.resolveCrudPermissionGrantRole(customRoleCatalog, {}, {
+      requiresNamedPermissions: true
+    }),
+    /requires an explicit permission grant policy.*--grant-role <role-id>.*--no-role-grant.*administrator.*frozen.*owner.*worker/s
+  );
+  assert.throws(
+    () => __testables.resolveCrudPermissionGrantRole(customRoleCatalog, {
+      "grant-role": "safety_manager"
+    }, {
+      requiresNamedPermissions: true
+    }),
+    /grant role "safety_manager" is not configured/
+  );
+  assert.throws(
+    () => __testables.resolveCrudPermissionGrantRole(customRoleCatalog, {
+      "grant-role": "worker"
+    }, {
+      requiresNamedPermissions: true
+    }),
+    /roleCatalog\.roles\.worker\.permissions must be an array/
+  );
+  assert.throws(
+    () => __testables.resolveCrudPermissionGrantRole(customRoleCatalog, {
+      "grant-role": "frozen"
+    }, {
+      requiresNamedPermissions: true
+    }),
+    /roleCatalog\.roles\.frozen\.permissions must be mutable.*--no-role-grant/s
+  );
+  assert.throws(
+    () => __testables.resolveCrudPermissionGrantRole(customRoleCatalog, {
+      "grant-role": "administrator",
+      "no-role-grant": true
+    }, {
+      requiresNamedPermissions: true
+    }),
+    /cannot be used together/
+  );
+  assert.throws(
+    () => __testables.resolveCrudPermissionGrantRole(customRoleCatalog, {
+      "no-role-grant": true
+    }, {
+      requiresNamedPermissions: false
+    }),
+    /apply only to surfaces that require a workspace/
+  );
+});
+
+test("renderRoleCatalogPermissionGrants targets explicit roles or suppresses only the catalog mutation", () => {
+  const customRoleGrant = __testables.renderRoleCatalogPermissionGrants("contacts", {
+    requiresNamedPermissions: true,
+    grantRoleId: "administrator"
+  });
+  const noRoleGrant = __testables.renderRoleCatalogPermissionGrants("contacts", {
+    requiresNamedPermissions: true,
+    grantRoleId: ""
+  });
+
+  assert.match(customRoleGrant, /roleCatalog\.roles\["administrator"\]\.permissions\.push\(/);
+  assert.match(customRoleGrant, /"crud\.contacts\.delete"/);
+  assert.equal(noRoleGrant, "");
+
+  const replacements = __testables.buildReplacementsFromSnapshot({
+    namespace: "contacts",
+    snapshot: createSnapshot(),
+    resolvedOwnershipFilter: "workspace",
+    surfaceRequiresWorkspace: true,
+    routeInternal: true,
+    permissionGrantRoleId: ""
+  });
+  assert.equal(replacements.__JSKIT_CRUD_ROLE_CATALOG_PERMISSION_GRANTS__, "");
+  assert.match(replacements.__JSKIT_CRUD_ACTION_PERMISSION_SUPPORT__, /"crud\.contacts\.create"/);
+  assert.equal(
+    replacements.__JSKIT_CRUD_CREATE_ACTION_PERMISSION__,
+    '{ require: "all", permissions: [actionPermissions.create] }'
+  );
+  assert.equal(replacements.__JSKIT_CRUD_ROUTE_INTERNAL_LINE__, "\n      internal: true,");
+});
+
+test("prepareInstallHook requires an explicit grant policy before generation", async () => {
+  const publicConfigSource = `export const config = {
+  surfaceDefinitions: {
+    app: { id: "app", enabled: true, requiresAuth: true, requiresWorkspace: true }
+  },
+  roleCatalog: {
+    roles: {
+      owner: { permissions: ["*"] },
+      administrator: { permissions: [] },
+      safety_manager: { permissions: [] },
+      worker: { permissions: [] }
+    }
+  }
+};
+`;
+
+  await withTempApp(
+    async (appRoot) => {
+      await assert.rejects(
+        prepareInstallHook({
+          appRoot,
+          packageOptions: {
+            namespace: "notification_outbox_items",
+            surface: "app",
+            "ownership-filter": "workspace",
+            internal: "true"
+          }
+        }),
+        /requires an explicit permission grant policy/
+      );
+
+      assert.deepEqual(
+        await prepareInstallHook({
+          appRoot,
+          packageOptions: {
+            namespace: "notification_outbox_items",
+            surface: "app",
+            "ownership-filter": "workspace",
+            internal: "true",
+            "no-role-grant": "true"
+          }
+        }),
+        {}
+      );
+    },
+    publicConfigSource
+  );
 });
 
 test("resolveCrudGenerationTableName defaults table-name from namespace", () => {
@@ -299,7 +522,8 @@ test("buildReplacementsFromSnapshot builds deterministic template replacement pa
     namespace: "contacts",
     snapshot,
     resolvedOwnershipFilter: "workspace_user",
-    surfaceRequiresWorkspace: true
+    surfaceRequiresWorkspace: true,
+    permissionGrantRoleId: "member"
   });
 
   assert.equal(replacements.__JSKIT_CRUD_TABLE_NAME__, "\"contacts\"");
@@ -339,7 +563,7 @@ test("buildReplacementsFromSnapshot builds deterministic template replacement pa
   );
   assert.match(
     replacements.__JSKIT_CRUD_ROLE_CATALOG_PERMISSION_GRANTS__,
-    /roleCatalog\.roles\.member\.permissions\.push\(/
+    /roleCatalog\.roles\["member"\]\.permissions\.push\(/
   );
   assert.match(
     replacements.__JSKIT_CRUD_ROLE_CATALOG_PERMISSION_GRANTS__,

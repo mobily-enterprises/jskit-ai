@@ -29,3 +29,23 @@ test("crud scaffolding pattern requires approval for weird custom persistence la
   assert.match(pattern, /Record the exact approval and the approved exception in `.jskit\/WORKBOARD.md` before coding/);
   assert.match(pattern, /Without that explicit approval record, do not take the weird-custom persistence path/);
 });
+
+test("crud guidance keeps canonical ownership columns distinct from domain relationships", async () => {
+  const pattern = await readFile(path.join(packageRoot, "patterns/crud-scaffolding.md"), "utf8");
+  const generatorGuide = await readFile(path.join(packageRoot, "site/guide/generators/crud-generators.md"), "utf8");
+  const advancedGuide = await readFile(path.join(packageRoot, "site/guide/generators/advanced-cruds.md"), "utf8");
+
+  for (const source of [pattern, generatorGuide, advancedGuide]) {
+    assert.match(source, /exact.*`workspace_id`.*`user_id`|`workspace_id`.*`user_id`.*exact/s);
+    assert.match(source, /`recipient_user_id`/);
+    assert.match(source, /domain relationship/);
+  }
+
+  assert.match(pattern, /`--grant-role <role-id>`/);
+  assert.match(pattern, /`--no-role-grant`/);
+  assert.match(pattern, /every workspace-required CRUD generation must explicitly choose/);
+  assert.match(generatorGuide, /even when a `member` role exists/);
+  assert.match(generatorGuide, /ownership filter must match the direct reserved columns exactly/);
+  assert.doesNotMatch(generatorGuide, /historical|former|Migrating commands created before/);
+  assert.match(generatorGuide, /`--internal` does not imply `--no-role-grant`|This decision is independent of `--internal`/);
+});

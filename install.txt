@@ -120,31 +120,31 @@ npx jskit generate @jskit-ai/assistant settings-page help
 ------------------------------
 # CRUDS
 
-npx jskit generate crud-server-generator scaffold --namespace contacts --surface admin --table-name contacts
+npx jskit generate crud-server-generator scaffold --namespace contacts --surface admin --table-name contacts --grant-role member
 npx jskit generate @jskit-ai/crud-ui-generator crud \
   src/pages/w/[workspaceSlug]/admin/contacts \
   --resource-file packages/contacts/src/shared/contactResource.js \
   --id-param contactId
 
-npx jskit generate crud-server-generator scaffold --namespace addresses --surface admin --table-name addresses
+npx jskit generate crud-server-generator scaffold --namespace addresses --surface admin --table-name addresses --grant-role member
 npx jskit generate @jskit-ai/crud-ui-generator crud \
   src/pages/w/[workspaceSlug]/admin/contacts/[contactId]/addresses \
   --resource-file packages/addresses/src/shared/addressResource.js \
   --id-param addressId
 
 
-npx jskit generate crud-server-generator scaffold --namespace vets --surface admin --table-name vets
+npx jskit generate crud-server-generator scaffold --namespace vets --surface admin --table-name vets --grant-role member
 npx jskit generate @jskit-ai/crud-ui-generator crud \
   src/pages/w/[workspaceSlug]/admin/vets \
   --resource-file packages/vets/src/shared/vetResource.js
 
-npx jskit generate crud-server-generator scaffold --namespace contact-categories --surface admin --table-name contact_categories
+npx jskit generate crud-server-generator scaffold --namespace contact-categories --surface admin --table-name contact_categories --grant-role member
 npx jskit generate @jskit-ai/crud-ui-generator crud \
   src/pages/w/[workspaceSlug]/admin/contact-categories \
   --resource-file packages/contact-categories/src/shared/contactCategoryResource.js
 
 
-npx jskit generate crud-server-generator scaffold --namespace addresses --surface admin --table-name addresses
+npx jskit generate crud-server-generator scaffold --namespace addresses --surface admin --table-name addresses --grant-role member
 npx jskit generate @jskit-ai/crud-ui-generator crud \
   src/pages/w/[workspaceSlug]/admin/contacts/[contactId]/addresses \
   --resource-file packages/addresses/src/shared/addressResource.js \
@@ -339,7 +339,7 @@ FIELD ADDING:
 
 
 // ONE LINE
-npx jskit generate crud-server-generator scaffold --namespace contacts --surface admin --table-name contacts;npx jskit generate @jskit-ai/crud-ui-generator crud src/pages/w/[workspaceSlug]/admin/contacts --resource-file packages/contacts/src/shared/contactResource.js;npx jskit generate crud-server-generator scaffold --namespace vets --surface admin --table-name vets;npx jskit generate @jskit-ai/crud-ui-generator crud src/pages/w/[workspaceSlug]/admin/vets --resource-file packages/vets/src/shared/vetResource.js
+npx jskit generate crud-server-generator scaffold --namespace contacts --surface admin --table-name contacts --grant-role member;npx jskit generate @jskit-ai/crud-ui-generator crud src/pages/w/[workspaceSlug]/admin/contacts --resource-file packages/contacts/src/shared/contactResource.js;npx jskit generate crud-server-generator scaffold --namespace vets --surface admin --table-name vets --grant-role member;npx jskit generate @jskit-ai/crud-ui-generator crud src/pages/w/[workspaceSlug]/admin/vets --resource-file packages/vets/src/shared/vetResource.js
 
 npm install --verbose
 

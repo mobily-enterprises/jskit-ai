@@ -24,6 +24,9 @@ Rules:
 - If `crud-server-generator` is going to own the CRUD, do not hand-write a separate CRUD migration for that table. The generator installs and manages the CRUD migration scaffold itself.
 - Do not scaffold CRUD UI, hand-build CRUD routes, or hand-build CRUD endpoints before the server CRUD package and shared resource file exist.
 - Treat the generated shared resource file as the canonical CRUD contract for later UI scaffolding and CRUD behavior changes.
+- Treat the exact columns `workspace_id` and `user_id` as reserved JSKIT ownership columns. They are the only standard columns used for generated ownership filtering and create-time owner stamping.
+- Treat other foreign keys such as `recipient_user_id`, `created_by_user_id`, `assignee_user_id`, and similarly specific names as domain relationships, not ownership aliases. Do not rename a relationship to `user_id` or `workspace_id` merely to satisfy tooling.
+- Require the resolved ownership filter to match the reserved columns exactly: neither the filter nor the schema may silently add or omit `workspace_id` or `user_id` ownership.
 - `feature-server-generator` is not the default lane for ordinary persisted entities. Use it for workflows or orchestration that sit on top of CRUD-owned tables, or for rare explicit non-CRUD exceptions.
 - Generated CRUD UI must be compact-first. Lists need searchable cards on compact widths and tables only for medium/expanded layouts.
 - Generated CRUD list screens need real loading, empty, and error states. Empty copy should name the resource, such as "No customers yet", and offer the create action when available.
@@ -41,6 +44,14 @@ Meaning of `--internal`:
 - it keeps the generated repository, service, actions, provider, resource, and CRUD migration ownership chain
 - it only suppresses public HTTP CRUD route registration
 - it is not a substitute for ownership columns or action/route permissions
+- it does not suppress generated action permission ids or decide which role receives them
+
+Workspace role grants:
+
+- every workspace-required CRUD generation must explicitly choose `--grant-role <role-id>` or `--no-role-grant`
+- applications that assign generated CRUD permissions to `member` must say `--grant-role member`; fixed-role applications must name one of their real roles or choose no automatic grant
+- `--grant-role` and `--no-role-grant` are permission-design choices independent of `--internal`
+- never invent a `member` role only to satisfy the generator
 
 When a weird-custom persistence lane is proposed:
 
