@@ -8,6 +8,9 @@ import {
   CLIENT_BOOTSTRAP_VIRTUAL_ID,
   createJskitClientBootstrapPlugin,
   createVirtualModuleSource,
+  resolveCanonicalLocalPackageId,
+  resolveLocalPackageForSpecifier,
+  resolveLocalPackageSources,
   resolveLocalScopeOptimizeExcludeSpecifiers,
   resolveClientOptimizeIncludeSpecifiers,
   resolveClientOptimizeExcludeSpecifiers,
@@ -23,6 +26,85 @@ async function writeJson(filePath, value) {
 async function writeDescriptor(filePath, descriptor) {
   await writeFile(filePath, `export default ${JSON.stringify(descriptor, null, 2)};\n`, "utf8");
 }
+
+test("resolveLocalPackageSources includes every lock-classified local package regardless of scope or exports", async () => {
+  const tempRoot = await mkdtemp(path.join(os.tmpdir(), "jskit-client-bootstrap-local-resolution-"));
+  await mkdir(path.join(tempRoot, ".jskit"), { recursive: true });
+  await writeJson(path.join(tempRoot, ".jskit", "lock.json"), {
+    lockVersion: 1,
+    installedPackages: {
+      "@local/main": {
+        source: {
+          type: "local-package",
+          packagePath: "packages/main"
+        }
+      },
+      "@local/feature": {
+        source: {
+          type: "app-local-package",
+          packagePath: "packages/feature"
+        }
+      },
+      "@example/local-utility": {
+        source: {
+          type: "local-package",
+          packagePath: "packages/utility"
+        }
+      },
+      "@example/published": {
+        source: {
+          type: "npm",
+          packagePath: "packages/published"
+        }
+      }
+    }
+  });
+
+  const localPackages = await resolveLocalPackageSources({
+    appRoot: tempRoot,
+    lockPath: ".jskit/lock.json"
+  });
+  assert.deepEqual(localPackages.map((entry) => entry.packageId), [
+    "@example/local-utility",
+    "@local/feature",
+    "@local/main"
+  ]);
+  const mainPackage = localPackages.find((entry) => entry.packageId === "@local/main");
+  assert.equal(
+    mainPackage.installedPackageRoot,
+    path.join(tempRoot, "node_modules", "@local", "main")
+  );
+  assert.equal(
+    mainPackage.sourcePackageRoot,
+    path.join(tempRoot, "packages", "main")
+  );
+  assert.equal(resolveLocalPackageForSpecifier("@local/main/client", localPackages), mainPackage);
+  assert.equal(
+    resolveLocalPackageForSpecifier("@example/local-utility/shared?raw", localPackages)?.packageId,
+    "@example/local-utility"
+  );
+  assert.equal(resolveLocalPackageForSpecifier("@example/published/client", localPackages), null);
+});
+
+test("resolveCanonicalLocalPackageId translates Vite's selected export target to source", () => {
+  const localPackage = {
+    installedPackageRoot: path.join("/app", "node_modules", "@local", "main"),
+    sourcePackageRoot: path.join("/app", "packages", "main")
+  };
+
+  assert.equal(
+    resolveCanonicalLocalPackageId(
+      "/app/node_modules/@local/main/browser/condition-entry.js?vue&type=script",
+      localPackage
+    ),
+    "/app/packages/main/browser/condition-entry.js?vue&type=script"
+  );
+  assert.equal(
+    resolveCanonicalLocalPackageId("/app/packages/main/browser/already-source.js", localPackage),
+    "/app/packages/main/browser/already-source.js"
+  );
+  assert.equal(resolveCanonicalLocalPackageId("/app/node_modules/published/index.js", localPackage), "");
+});
 
 test("createVirtualModuleSource renders deterministic client module imports", () => {
   const source = createVirtualModuleSource([
@@ -401,12 +483,148 @@ test("createJskitClientBootstrapPlugin resolves and loads virtual module", async
     process.chdir(tempRoot);
     const plugin = createJskitClientBootstrapPlugin();
 
-    const resolvedId = plugin.resolveId(CLIENT_BOOTSTRAP_VIRTUAL_ID);
+    const resolvedId = await plugin.resolveId(CLIENT_BOOTSTRAP_VIRTUAL_ID);
     assert.equal(resolvedId, CLIENT_BOOTSTRAP_RESOLVED_ID);
 
     const source = await plugin.load(CLIENT_BOOTSTRAP_RESOLVED_ID);
     assert.match(String(source || ""), /@example\/has-client\/client/);
     assert.match(String(source || ""), /bootInstalledClientModules/);
+  } finally {
+    process.chdir(previousCwd);
+  }
+});
+
+test("createJskitClientBootstrapPlugin resolves multiple local packages before Vite dependency resolution", async () => {
+  const tempRoot = await mkdtemp(path.join(os.tmpdir(), "jskit-client-bootstrap-plugin-local-resolution-"));
+  const previousCwd = process.cwd();
+
+  try {
+    await mkdir(path.join(tempRoot, ".jskit"), { recursive: true });
+    await writeJson(path.join(tempRoot, ".jskit", "lock.json"), {
+      lockVersion: 1,
+      installedPackages: {
+        "@local/main": {
+          source: {
+            type: "local-package",
+            packagePath: "packages/main"
+          }
+        },
+        "@local/feature": {
+          source: {
+            type: "app-local-package",
+            packagePath: "packages/feature"
+          }
+        },
+        "@example/local-utility": {
+          source: {
+            type: "local-package",
+            packagePath: "packages/utility"
+          }
+        },
+        "@example/published": {
+          source: {
+            type: "npm"
+          }
+        }
+      }
+    });
+
+    const packageFixtures = [
+      {
+        packageId: "@local/main",
+        packageDirectory: "main",
+        exports: {
+          "./client": "./custom/main-client.js",
+          "./shared": "./custom/main-shared.js"
+        }
+      },
+      {
+        packageId: "@local/feature",
+        packageDirectory: "feature",
+        exports: {
+          "./client": "./browser/feature-client.js",
+          "./shared": "./browser/feature-shared.js"
+        }
+      },
+      {
+        packageId: "@example/local-utility",
+        packageDirectory: "utility",
+        exports: {
+          ".": "./browser/utility.js",
+          "./shared": "./browser/utility-shared.js"
+        }
+      }
+    ];
+    for (const fixture of packageFixtures) {
+      const packageJson = {
+        name: fixture.packageId,
+        exports: fixture.exports
+      };
+      const sourcePackageRoot = path.join(tempRoot, "packages", fixture.packageDirectory);
+      const installedPackageRoot = path.join(tempRoot, "node_modules", ...fixture.packageId.split("/"));
+      await mkdir(sourcePackageRoot, { recursive: true });
+      await mkdir(installedPackageRoot, { recursive: true });
+      await writeJson(path.join(sourcePackageRoot, "package.json"), packageJson);
+      await writeJson(path.join(installedPackageRoot, "package.json"), packageJson);
+    }
+
+    const publishedPackageRoot = path.join(tempRoot, "node_modules", "@example", "published");
+    await mkdir(publishedPackageRoot, { recursive: true });
+    await writeJson(path.join(publishedPackageRoot, "package.json"), {
+      name: "@example/published",
+      exports: {
+        "./client": "./src/client/index.js"
+      }
+    });
+
+    process.chdir(tempRoot);
+    const plugin = createJskitClientBootstrapPlugin();
+    await plugin.config({}, { command: "serve", mode: "development" });
+    const viteResolvedIds = new Map([
+      ["@local/main/client", path.join(tempRoot, "node_modules", "@local", "main", "custom", "main-client.js")],
+      ["@local/main/shared", path.join(tempRoot, "node_modules", "@local", "main", "custom", "main-shared.js")],
+      ["@local/feature/client", path.join(tempRoot, "node_modules", "@local", "feature", "browser", "feature-client.js")],
+      ["@local/feature/shared", path.join(tempRoot, "node_modules", "@local", "feature", "browser", "feature-shared.js")],
+      ["@example/local-utility", path.join(tempRoot, "node_modules", "@example", "local-utility", "browser", "utility.js")],
+      ["@example/local-utility/shared", path.join(tempRoot, "node_modules", "@example", "local-utility", "browser", "utility-shared.js")]
+    ]);
+    plugin.configResolved({
+      createResolver(options) {
+        assert.equal(options.scan, true);
+        return async (source, importer) => {
+          assert.equal(importer, undefined);
+          return viteResolvedIds.get(source);
+        };
+      }
+    });
+    const resolveId = async (source) => plugin.resolveId(source);
+
+    assert.equal(plugin.enforce, "pre");
+    assert.equal(
+      await resolveId("@local/main/client"),
+      path.join(tempRoot, "packages", "main", "custom", "main-client.js")
+    );
+    assert.equal(
+      await resolveId("@local/main/shared"),
+      path.join(tempRoot, "packages", "main", "custom", "main-shared.js")
+    );
+    assert.equal(
+      await resolveId("@local/feature/client"),
+      path.join(tempRoot, "packages", "feature", "browser", "feature-client.js")
+    );
+    assert.equal(
+      await resolveId("@local/feature/shared"),
+      path.join(tempRoot, "packages", "feature", "browser", "feature-shared.js")
+    );
+    assert.equal(
+      await resolveId("@example/local-utility"),
+      path.join(tempRoot, "packages", "utility", "browser", "utility.js")
+    );
+    assert.equal(
+      await resolveId("@example/local-utility/shared"),
+      path.join(tempRoot, "packages", "utility", "browser", "utility-shared.js")
+    );
+    assert.equal(await resolveId("@example/published/client"), null);
   } finally {
     process.chdir(previousCwd);
   }

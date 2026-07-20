@@ -4,6 +4,9 @@ import test from "node:test";
 import descriptor from "../package.descriptor.mjs";
 
 const require = createRequire(import.meta.url);
+const databaseRuntimePackage = require("../../database-runtime/package.json");
+const databaseRuntimeMysqlPackage = require("../../database-runtime-mysql/package.json");
+const jsonRestApiCorePackage = require("../../json-rest-api-core/package.json");
 const kernelPackage = require("../../kernel/package.json");
 
 test("feature-server-generator exposes the scaffold primary subcommand contract", () => {
@@ -60,21 +63,21 @@ test("feature-server-generator scopes persistence dependencies to persistent mod
   const runtimeDependencies = descriptor.mutations?.dependencies?.runtime || {};
 
   assert.deepEqual(runtimeDependencies["@jskit-ai/json-rest-api-core"], {
-    version: "0.1.14",
+    version: jsonRestApiCorePackage.version,
     when: {
       option: "mode",
       equals: "json-rest"
     }
   });
   assert.deepEqual(runtimeDependencies["@jskit-ai/database-runtime"], {
-    version: "0.1.69",
+    version: databaseRuntimePackage.version,
     when: {
       option: "mode",
       notEquals: "orchestrator"
     }
   });
   assert.deepEqual(runtimeDependencies["@jskit-ai/database-runtime-mysql"], {
-    version: "0.1.68",
+    version: databaseRuntimeMysqlPackage.version,
     when: {
       option: "mode",
       notEquals: "orchestrator"

@@ -41,6 +41,7 @@ For CRUD work, there are also two guide layers on purpose:
 
 - [CRUD Generators](/guide/generators/crud-generators) teaches the end-to-end workflow for generating a working CRUD
 - [Advanced CRUDs](/guide/generators/advanced-cruds) explains the generated package anatomy, ownership structure, and the safest places to customize it
+- [Row Policies](/guide/generators/row-policies) explains mandatory SQL visibility before count and pagination, including hierarchy access without package cycles
 
 The intended reading order is:
 
@@ -61,3 +62,4 @@ That keeps the runtime reusable without hiding your real app UI behind opaque fr
 - [UI Generators](/guide/generators/ui-generators) covers the non-CRUD workflow built around `ui-generator`
 - [CRUD Generators](/guide/generators/crud-generators) covers the combined server-and-UI CRUD workflow using `contacts`, nested `addresses`, and in-page `comments`
 - [Advanced CRUDs](/guide/generators/advanced-cruds) is the follow-on chapter after `CRUD Generators`, and goes deeper into the generated CRUD structure, ownership boundaries, and search/filter customization
+- [Row Policies](/guide/generators/row-policies) is the focused guide for visibility that cannot be expressed as direct user/workspace ownership

@@ -26,7 +26,7 @@ Exports
 - `buildJsonRestQueryParams(resourceType = "", query = {}, { include = undefined } = {})`
 - `createJsonApiInputRecord(resourceType = "", attributes = {}, { id = null, relationships = null, resource = null } = {})`
 - `createJsonApiRelationship(resourceType = "", id = null)`
-- `createJsonRestResourceScopeOptions(resource = {}, { writeSerializers = {}, normalizeId = null, searchSchema = null, queryFields = null } = {})`
+- `createJsonRestResourceScopeOptions(resource = {}, { writeSerializers = {}, normalizeId = null, rowPolicy = undefined, searchSchema = null, queryFields = null } = {})`
 - `createJsonRestContext(context = null)`
 - `extractJsonRestCollectionRows(payload = null)`
 - `isJsonRestResourceMissingError(error = null)`

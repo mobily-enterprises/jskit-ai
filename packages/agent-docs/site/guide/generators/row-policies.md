@@ -1,0 +1,543 @@
+# Row Policies
+
+Generated CRUD ownership filters handle the common cases where every visible row belongs directly to a user, a workspace, or both. Some domains need a different kind of visibility rule:
+
+- a safety manager can see an assigned organisation unit and every descendant
+- membership in another table grants access
+- several packages can independently grant access to the same resource
+- visibility needs grouped `OR`, `EXISTS`, joins, or a recursive query
+
+Those rules must be part of the database query before sorting, counting, and pagination. JSKIT supports that through the internal JSON REST host's server-only `rowPolicy` option.
+
+This chapter covers the normal Knex-backed internal host. `json-rest-api` also supports row policies with AnyAPI storage, but JSKIT does not currently install AnyAPI as the storage engine for `internal.json-rest-api`. The AnyAPI boundary is described separately near the end of this chapter.
+
+## The failure row policies prevent
+
+Do not load a page and filter its records afterward:
+
+```js
+const document = await organisationUnitsRepository.queryDocuments({
+  limit: 20,
+  cursor
+}, options);
+
+document.data = document.data.filter((unit) => canSeeOrganisationUnit(options.context, unit));
+```
+
+The database has already selected and counted the page. If only two of those twenty rows are visible, the caller receives two rows even when later matching rows exist. The next cursor and total count also describe the unfiltered dataset.
+
+A row policy changes the SQL query instead:
+
+```text
+trusted request context
+          │
+          ▼
+client filters + autofilter + mandatory row policy
+          │
+          ▼
+sorting
+          │
+          ▼
+count and pagination
+          │
+          ▼
+JSON:API document
+```
+
+The response now describes the visible dataset.
+
+## Choosing the correct query mechanism
+
+These mechanisms solve different problems:
+
+| Requirement | JSKIT mechanism |
+| --- | --- |
+| The caller chooses a public search or filter value | Normal list query fields, `searchSchema`, and `buildJsonRestQueryParams(...)` |
+| Every row has direct `user_id`, `workspace_id`, or both, and writes should receive those values automatically | Generated ownership autofilter |
+| Mandatory visibility needs `OR`, `EXISTS`, joins, hierarchy traversal, or grants from another package | A server-only row policy |
+| The caller needs permission to create, edit, approve, or delete | Action and route permissions, in addition to row visibility when needed |
+| An output field is calculated by SQL | A query projection |
+
+Autofilter and a row policy can be used on the same resource. Their predicates are combined. Keep autofilter for direct ownership and write stamping; use a row policy only for the visibility that cannot be expressed as fixed owner fields.
+
+## The JSKIT host contract
+
+`@jskit-ai/json-rest-api-core` installs `RowPolicyPlugin` once in the shared internal host. Generated applications and individual CRUD packages must not install the plugin themselves.
+
+The opt-in point is the existing resource registration in the CRUD provider:
+
+```js
+import {
+  INTERNAL_JSON_REST_API,
+  addResourceIfMissing,
+  createJsonRestResourceScopeOptions
+} from "@jskit-ai/json-rest-api-core/server/jsonRestApiHost";
+import { toDatabaseDateTimeUtc } from "@jskit-ai/database-runtime/shared";
+import { organisationUnitVisibilityPolicy } from "./organisationUnitVisibilityPolicy.js";
+import { resource } from "../shared/organisationUnitResource.js";
+
+async function registerOrganisationUnitResource(app) {
+  const api = app.make(INTERNAL_JSON_REST_API);
+
+  await addResourceIfMissing(
+    api,
+    "organisationUnits",
+    createJsonRestResourceScopeOptions(resource, {
+      rowPolicy: organisationUnitVisibilityPolicy,
+      writeSerializers: {
+        "datetime-utc": toDatabaseDateTimeUtc
+      }
+    })
+  );
+}
+```
+
+Keep the policy in a server module. Do not place SQL callbacks in the shared resource module, because the shared module can also be imported by browser code.
+
+The `rowPolicy` value is the policy function supported by `json-rest-api`. JSKIT passes it through without wrapping it, detecting versions, or retrying without it. Invalid policy definitions fail while the resource is registered.
+
+Ordinary generated CRUDs remain unchanged. A resource with no `rowPolicy` has no row-policy behavior.
+
+## The policy function
+
+A policy receives the current query and trusted operation context. The most commonly used properties are:
+
+| Property | Purpose |
+| --- | --- |
+| `query` | The Knex query being built for the resource. Add the mandatory predicate here. |
+| `context` | The context forwarded by the generated route, action, service, and repository. |
+| `db` | The active Knex connection or transaction. Use it for subqueries and CTEs. |
+| `column(field)` | Resolve and qualify a logical resource field for the active storage query. |
+| `value(field, value)` | Convert a logical resource value for storage. |
+| `scopeName` | The resource currently being queried. |
+| `queryPurpose` | Whether the query is loading a collection, count, include, relationship, or single record. |
+
+A policy must make an explicit decision:
+
+- return `true` after adding its visibility predicate
+- return `false` to deny every row
+- throw when the trusted context itself is invalid and the request must fail
+
+Do not omit the return value, and do not return the Knex builder. Knex builders are thenable and can execute accidentally when returned from an async function.
+
+For a direct membership table, a policy can stay small:
+
+```js
+function organisationUnitMembershipPolicy({ query, context, db, column }) {
+  const userId = context.visibilityContext?.userId;
+  const workspaceId = context.visibilityContext?.scopeOwnerId;
+
+  if (!userId || !workspaceId) {
+    return false;
+  }
+
+  query.whereExists(function visibleOrganisationUnit() {
+    this
+      .select(db.raw("1"))
+      .from("organisation_unit_memberships as membership")
+      .where("membership.user_id", userId)
+      .where("membership.workspace_id", workspaceId)
+      .whereColumn("membership.organisation_unit_id", column("id"));
+  });
+
+  return true;
+}
+```
+
+Identity and workspace values come from `visibilityContext`, which JSKIT builds from the authenticated route context. Never take mandatory visibility values from unverified client query parameters.
+
+## Group every `OR` grant
+
+Autofilters, public client filters, and the row policy share one SQL query. A top-level `orWhere(...)` can accidentally escape the predicates that came before it.
+
+This is unsafe:
+
+```js
+query.where("workspace_id", workspaceId);
+query.orWhereExists(safetyManagerGrant);
+```
+
+It can mean “correct workspace, or safety grant from any workspace.” Put all policy-owned alternatives inside one group:
+
+```js
+query.where(function visibilityGrants() {
+  this.whereExists(directMembershipGrant);
+  this.orWhereExists(safetyManagerGrant);
+});
+```
+
+The whole group is then combined with the existing autofilter and client predicates using `AND`.
+
+## Composing grants without a package cycle
+
+Suppose the organisation-units package owns the resource, while the safety package grants extra visibility to safety managers.
+
+Do not make the packages import each other:
+
+```text
+organisation-units ──imports──▶ safety
+       ▲                         │
+       └──────── imports ────────┘
+```
+
+Keep the dependency one-way:
+
+```text
+safety ──depends on──▶ organisation-units ──depends on──▶ json-rest-api.core
+```
+
+The organisation-units package owns one application-scoped visibility object. The object has two short operations:
+
+- `add(...)` during provider registration
+- `seal()` once, when the organisation-unit resource boots
+
+This is domain composition, not a second filtering framework.
+
+### The organisation-units visibility object
+
+```js
+const ORGANISATION_UNIT_VISIBILITY = "organisationUnits.visibility";
+
+function createOrganisationUnitVisibility() {
+  const contributions = new Map();
+  let sealed = false;
+
+  return Object.freeze({
+    add({ id, apply } = {}) {
+      const contributionId = String(id || "").trim();
+      if (sealed) {
+        throw new Error("Organisation-unit visibility is already sealed.");
+      }
+      if (!contributionId || typeof apply !== "function") {
+        throw new TypeError("Organisation-unit visibility contributions require id and apply.");
+      }
+      if (contributions.has(contributionId)) {
+        throw new Error(`Duplicate organisation-unit visibility contribution: ${contributionId}.`);
+      }
+
+      contributions.set(contributionId, Object.freeze({
+        id: contributionId,
+        apply
+      }));
+    },
+
+    seal() {
+      sealed = true;
+      return Object.freeze([...contributions.values()]);
+    }
+  });
+}
+
+function registerOrganisationUnitVisibility(app, contribution) {
+  app.make(ORGANISATION_UNIT_VISIBILITY).add(contribution);
+}
+
+export {
+  ORGANISATION_UNIT_VISIBILITY,
+  createOrganisationUnitVisibility,
+  registerOrganisationUnitVisibility
+};
+```
+
+The object belongs to the application container, not module-global state. Separate application instances and tests therefore receive separate contribution sets.
+
+### The organisation-units provider
+
+The owning provider creates the visibility object during `register()` and consumes it during `boot()`:
+
+```js
+class OrganisationUnitsProvider {
+  static id = "crud.organisation_units";
+
+  static dependsOn = [
+    "runtime.actions",
+    "runtime.database",
+    "auth.policy.fastify",
+    "local.main",
+    "json-rest-api.core"
+  ];
+
+  register(app) {
+    app.instance(
+      ORGANISATION_UNIT_VISIBILITY,
+      createOrganisationUnitVisibility()
+    );
+
+    registerOrganisationUnitVisibility(app, {
+      id: "organisation-unit-members",
+      apply: applyOrganisationUnitMemberVisibility
+    });
+
+    // Existing repository, service, and action registration stays here.
+  }
+
+  async boot(app) {
+    const contributions = app.make(ORGANISATION_UNIT_VISIBILITY).seal();
+    const rowPolicy = createOrganisationUnitRowPolicy(contributions);
+    const api = app.make(INTERNAL_JSON_REST_API);
+
+    await addResourceIfMissing(
+      api,
+      "organisationUnits",
+      createJsonRestResourceScopeOptions(resource, {
+        rowPolicy,
+        writeSerializers: {
+          "datetime-utc": toDatabaseDateTimeUtc
+        }
+      })
+    );
+
+    // Existing route registration stays here.
+  }
+}
+```
+
+JSKIT completes `register()` for every provider before it starts any provider's `boot()`. A dependent package can therefore add its contribution during registration before the organisation-units provider seals the object during boot.
+
+The owner's contribution represents the access that ordinary organisation-unit users already have. The safety contribution adds another `OR` grant; it does not replace ordinary access. When adopting a row policy for an existing resource, account for every existing visibility path in SQL and prove each one in tests. Existing workspace autofilters still combine with the complete grant group using `AND`.
+
+### The composed policy
+
+Each contribution adds one grouped SQL grant and returns `true`, or returns `false` when it grants nothing for the current context:
+
+```js
+function createOrganisationUnitRowPolicy(contributions = []) {
+  return function organisationUnitRowPolicy(policyContext) {
+    if (contributions.length === 0) {
+      return false;
+    }
+
+    policyContext.query.where(function organisationUnitVisibility() {
+      for (const contribution of contributions) {
+        this.orWhere(function oneVisibilityGrant() {
+          const decision = contribution.apply({
+            ...policyContext,
+            query: this
+          });
+
+          if (decision === false) {
+            this.whereRaw("1 = 0");
+            return;
+          }
+          if (decision !== true) {
+            throw new Error(
+              `Organisation-unit visibility contribution ${contribution.id} must return true or false.`
+            );
+          }
+        });
+      }
+    });
+
+    return true;
+  };
+}
+```
+
+Contribution callbacks in this grouping are synchronous. Do not return a promise from them. They build SQL; they do not load records or perform permission checks in JavaScript.
+
+### The safety provider
+
+The safety package depends on organisation-units and registers its grant:
+
+```js
+class SafetyProvider {
+  static id = "safety.core";
+
+  static dependsOn = ["crud.organisation_units"];
+
+  register(app) {
+    registerOrganisationUnitVisibility(app, {
+      id: "safety-manager-descendants",
+      apply: applySafetyManagerDescendantVisibility
+    });
+
+    // Existing safety registrations stay here.
+  }
+}
+```
+
+The organisation-units package never imports safety. Installing safety adds the grant; omitting safety leaves that grant absent.
+
+The package descriptor dependency must point in the same direction as the provider dependency: safety declares organisation-units, and organisation-units does not declare safety.
+
+## Descendant visibility with a recursive CTE
+
+A recursive common table expression, usually called a recursive CTE, is a SQL query that starts with one or more rows and repeatedly follows a relationship. It is useful for an adjacency-list tree with `id` and `parent_id`.
+
+For a safety manager assigned to one unit:
+
+```text
+assigned unit
+├── child
+│   └── grandchild
+└── child
+```
+
+the CTE produces the assigned unit and all descendants. The outer resource query keeps only organisation-unit rows whose id is in that result.
+
+```js
+function applySafetyManagerDescendantVisibility({
+  query,
+  context,
+  db,
+  column
+}) {
+  const userId = context.visibilityContext?.userId;
+  const workspaceId = context.visibilityContext?.scopeOwnerId;
+
+  if (!userId || !workspaceId) {
+    return false;
+  }
+
+  const visibleUnitIds = db
+    .withRecursive("visible_units", ["unit_id"], (cte) => {
+      cte
+        .select("assignment.organisation_unit_id as unit_id")
+        .from("safety_manager_organisation_units as assignment")
+        .where("assignment.user_id", userId)
+        .where("assignment.workspace_id", workspaceId)
+        .unionAll(function descendantUnits() {
+          this
+            .select("child.id as unit_id")
+            .from("organisation_units as child")
+            .join(
+              "visible_units as visible",
+              "child.parent_id",
+              "visible.unit_id"
+            )
+            .where("child.workspace_id", workspaceId);
+        });
+    })
+    .select("unit_id")
+    .from("visible_units");
+
+  query.whereIn(column("id"), visibleUnitIds);
+  return true;
+}
+```
+
+Use the real table and column names from the owning packages. The example assumes an acyclic tree and a safety assignment table with `user_id`, `workspace_id`, and `organisation_unit_id`.
+
+Constrain the workspace in every CTE leg even when the resource also has a workspace autofilter. The CTE is a separate subquery and must not traverse another workspace's hierarchy.
+
+At minimum, index:
+
+- `organisation_units.id`
+- `organisation_units.parent_id`
+- the safety assignment's `user_id`, `workspace_id`, and `organisation_unit_id` access path
+
+For very large or heavily queried trees, consider a closure table that stores ancestor and descendant pairs. That turns descendant reads into an indexed join or `EXISTS`, but makes writes more involved. Inspect the production query plan before changing the data model.
+
+## Missing identity and partial grants
+
+Mandatory visibility fails closed:
+
+- a missing user or workspace makes the safety contribution return `false`
+- a contribution returning `false` becomes an always-false branch; other contributions can still grant access
+- no installed contributions makes the resource policy return `false`, hiding every row
+- an omitted or invalid contribution return throws instead of silently removing the policy
+- a policy error fails the request; do not catch it and retry without the policy
+
+This distinction matters when several packages grant access. “This package does not grant access” is not the same as “the entire resource request is invalid.”
+
+## Children, includes, and relationship operations
+
+The target resource's row policy applies when JSON REST loads included records, relationship identifiers, nested includes, and relationship targets used during write validation.
+
+For a self-referencing organisation-unit relationship, the child target is the same `organisationUnits` resource, so the same row policy applies.
+
+A separate child resource does not inherit the parent's policy. Give that resource its own `rowPolicy` when its rows have an independent visibility rule.
+
+Do not add JavaScript filtering after include hydration. It recreates the same count, pagination, and relationship inconsistencies as filtering a top-level collection after the query.
+
+## Reads and writes are different contracts
+
+A row policy controls which existing rows are visible to collection reads and existing-record lookups. Hidden records behave as not found for operations that first load them.
+
+It does not:
+
+- stamp ownership values on creates
+- replace generated ownership autofilters
+- decide whether an action is allowed
+- replace service-level domain validation
+
+Keep create/update/delete permissions in actions and routes. Keep direct workspace/user stamping in autofilter. A caller being able to see a row does not automatically mean the caller may modify it.
+
+## Public API and query contracts do not change
+
+Row policies are mandatory server behavior. They do not add a public list-filter field and do not change:
+
+- filter definitions
+- URLs or query-string serialization
+- generated repository method names
+- JSON:API document shapes
+- active-filter chips
+- application call sites
+
+The generated repository already forwards its trusted context through `createJsonRestContext(...)`. Do not put descendant ids into the URL, accept them from the browser, or materialize the whole visible tree in application memory.
+
+## Testing the actual failure
+
+Use interleaved visible and hidden rows. For example:
+
+```text
+visible root
+hidden root
+visible child
+hidden child
+visible grandchild
+```
+
+With page size two, assert:
+
+- page one contains the first two visible rows
+- page two contains the remaining visible row
+- the total is three
+- a cursor from page one reaches only the remaining visible row
+- direct access to a hidden record behaves as not found
+- missing trusted identity returns no rows or the documented context error
+- a self-referencing child load does not expose hidden units
+- a separately scoped child resource applies its own policy
+- clearing client filters does not remove mandatory visibility
+
+Also test the package graph and provider lifecycle:
+
+- safety depends on organisation-units
+- organisation-units does not depend on safety
+- safety contributes during `register()`
+- organisation-units seals contributions during `boot()`
+- duplicate contribution ids fail startup
+- late contributions fail after the visibility object is sealed
+
+The `json-rest-api` package owns exhaustive framework tests for pagination, counts, includes, relationship operations, and storage behavior. JSKIT core tests should prove that the plugin is installed and the `rowPolicy` option reaches resource registration. The domain package must own the organisation/safety regression because it owns those tables and grants.
+
+## AnyAPI comes later
+
+`json-rest-api@1.0.25` can apply row policies with `RestApiAnyapiKnexPlugin`. JSKIT's current `internal.json-rest-api` host installs `RestApiKnexPlugin`, so the code in this chapter targets normal tables.
+
+Do not add backend detection, fallback queries, or an `isAnyApi` branch to the normal-table policy in anticipation of a host that does not exist.
+
+When JSKIT adds an explicit AnyAPI host:
+
+1. install `RowPolicyPlugin` in that host after its AnyAPI storage plugin
+2. preserve the same server-only `rowPolicy` resource option
+3. reuse policies that only need logical `column()` and `value()` translation
+4. implement recursive canonical-storage queries explicitly from the AnyAPI descriptor and storage adapter
+5. run the domain regression against the AnyAPI host as a separate supported path
+
+That is a separate storage implementation. It does not wrap or fall back to the normal-table query.
+
+## Review checklist
+
+- The resource-owning provider passes a server-only `rowPolicy` function.
+- Generated applications do not install `RowPolicyPlugin` themselves.
+- Ordinary client filters remain client-controlled; mandatory visibility does not.
+- Every policy returns `true`, returns `false`, or throws.
+- Every policy-owned `OR` is grouped.
+- Trusted identity comes from execution context, not query parameters.
+- Visibility SQL runs before sorting, count, and pagination.
+- The resource owner does not import packages that merely grant extra visibility.
+- Contribution state belongs to the application container and is sealed before requests.
+- Self-referencing children use the same resource policy; separate child resources declare their own.
+- Action permissions and autofilter write stamping remain in place.
+- Normal Knex behavior is implemented and tested without speculative AnyAPI branches.

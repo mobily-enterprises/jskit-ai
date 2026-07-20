@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { spawn, spawnSync } from "node:child_process";
-import { access, readFile, rm, writeFile } from "node:fs/promises";
+import { access, mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import net from "node:net";
 import path from "node:path";
 import process from "node:process";
@@ -14,12 +14,15 @@ const AGENT_DOCS_PACKAGE_ROOT = fileURLToPath(new URL("../../../packages/agent-d
 const CONFIG_ESLINT_PACKAGE_ROOT = fileURLToPath(new URL("../../config-eslint", import.meta.url));
 const JSKIT_CLI_PACKAGE_ROOT = fileURLToPath(new URL("../../jskit-cli", import.meta.url));
 const JSKIT_CATALOG_PACKAGE_ROOT = fileURLToPath(new URL("../../jskit-catalog", import.meta.url));
+const KERNEL_PACKAGE_ROOT = fileURLToPath(new URL("../../../packages/kernel", import.meta.url));
 const SHELL_WEB_PACKAGE_ROOT = fileURLToPath(new URL("../../../packages/shell-web", import.meta.url));
 const RUN_COLD_START_INTEGRATION = process.env.JSKIT_VITE_COLD_START_INTEGRATION === "1";
+const RUN_LOCAL_PACKAGE_CACHE_INTEGRATION = process.env.JSKIT_VITE_LOCAL_PACKAGE_CACHE_INTEGRATION === "1";
 const OPTIMIZED_SHELL_SUBPATHS = Object.freeze([
   "@jskit-ai/shell-web/client/placement",
   "@jskit-ai/shell-web/client/error"
 ]);
+let chromiumLauncherPromise = null;
 
 function runChecked(command, args, { cwd, label = command, timeout = 300_000 } = {}) {
   const result = spawnSync(command, args, {
@@ -167,6 +170,177 @@ async function installPackedShellWeb(appRoot, tempRoot) {
   });
 }
 
+async function writeJson(filePath, value) {
+  await writeFile(filePath, `${JSON.stringify(value, null, 2)}\n`, "utf8");
+}
+
+async function replaceRequiredText(filePath, before, after) {
+  const source = await readFile(filePath, "utf8");
+  assert.ok(source.includes(before), `Expected ${filePath} to contain ${JSON.stringify(before)}.`);
+  await writeFile(filePath, source.replace(before, after), "utf8");
+}
+
+async function configureLocalPackageCacheFixture(appRoot) {
+  const mainClientPath = path.join(appRoot, "packages", "main", "src", "client", "index.js");
+  await replaceRequiredText(
+    mainClientPath,
+    "*/\nexport {",
+    '*/\nglobalThis.__JSKIT_LOCAL_CLIENT_CACHE_MARKER__ = "initial";\n\nexport {'
+  );
+
+  const featureRoot = path.join(appRoot, "packages", "feature");
+  await mkdir(path.join(featureRoot, "browser"), { recursive: true });
+  await writeJson(path.join(featureRoot, "package.json"), {
+    name: "@fixture/local-feature",
+    version: "0.1.0",
+    private: true,
+    type: "module",
+    exports: {
+      "./client": "./browser/feature-client.js"
+    }
+  });
+  await writeFile(
+    path.join(featureRoot, "browser", "feature-client.js"),
+    'import { utilityMarker } from "@fixture/local-utility/shared";\n' +
+      "globalThis.__JSKIT_SECOND_LOCAL_PACKAGE_MARKER__ = utilityMarker;\n" +
+      "export { utilityMarker };\n",
+    "utf8"
+  );
+
+  const utilityRoot = path.join(appRoot, "packages", "utility");
+  await mkdir(path.join(utilityRoot, "browser"), { recursive: true });
+  await writeJson(path.join(utilityRoot, "package.json"), {
+    name: "@fixture/local-utility",
+    version: "0.1.0",
+    private: true,
+    type: "module",
+    exports: {
+      ".": "./browser/index.js",
+      "./shared": "./browser/shared.js"
+    }
+  });
+  await writeFile(
+    path.join(utilityRoot, "browser", "index.js"),
+    'export { utilityMarker } from "./shared.js";\n',
+    "utf8"
+  );
+  await writeFile(
+    path.join(utilityRoot, "browser", "shared.js"),
+    'export const utilityMarker = "utility-initial";\n',
+    "utf8"
+  );
+
+  const packageJsonPath = path.join(appRoot, "package.json");
+  const packageJson = JSON.parse(await readFile(packageJsonPath, "utf8"));
+  packageJson.dependencies["@fixture/local-feature"] = "file:packages/feature";
+  packageJson.dependencies["@fixture/local-utility"] = "file:packages/utility";
+  packageJson.dependencies["@jskit-ai/kernel"] = `file:${KERNEL_PACKAGE_ROOT}`;
+  await writeJson(packageJsonPath, packageJson);
+
+  const lockPath = path.join(appRoot, ".jskit", "lock.json");
+  const lock = JSON.parse(await readFile(lockPath, "utf8"));
+  lock.installedPackages["@fixture/local-feature"] = {
+    packageId: "@fixture/local-feature",
+    version: "0.1.0",
+    source: {
+      type: "local-package",
+      packagePath: "packages/feature"
+    }
+  };
+  lock.installedPackages["@fixture/local-utility"] = {
+    packageId: "@fixture/local-utility",
+    version: "0.1.0",
+    source: {
+      type: "app-local-package",
+      packagePath: "packages/utility"
+    }
+  };
+  await writeJson(lockPath, lock);
+}
+
+async function addOperationalScopeCacheReproduction(appRoot) {
+  const componentPath = path.join(appRoot, "src", "components", "OperationalScopeCacheRepro.vue");
+  await writeFile(
+    componentPath,
+    '<template><span data-testid="operational-scope-cache-repro">Operational scope</span></template>\n',
+    "utf8"
+  );
+
+  const providerPath = path.join(
+    appRoot,
+    "packages",
+    "main",
+    "src",
+    "client",
+    "providers",
+    "MainClientProvider.js"
+  );
+  await replaceRequiredText(
+    providerPath,
+    'import MenuLinkItem from "/src/components/menus/MenuLinkItem.vue";',
+    'import OperationalScopeCacheRepro from "/src/components/OperationalScopeCacheRepro.vue";\n' +
+      'import MenuLinkItem from "/src/components/menus/MenuLinkItem.vue";'
+  );
+  const providerSource = await readFile(providerPath, "utf8");
+  await writeFile(
+    providerPath,
+    `${providerSource.trimEnd()}\nregisterMainClientComponent("local.main.ui.operational-scope-cache-repro", () => OperationalScopeCacheRepro);\n`,
+    "utf8"
+  );
+
+  const placementPath = path.join(appRoot, "src", "placement.js");
+  const placementSource = await readFile(placementPath, "utf8");
+  await writeFile(
+    placementPath,
+    `${placementSource.trimEnd()}\n\naddPlacement({\n` +
+      '  id: "local.main.operational-scope-cache-repro",\n' +
+      '  target: "shell.status",\n' +
+      '  kind: "component",\n' +
+      '  componentToken: "local.main.ui.operational-scope-cache-repro",\n' +
+      '  surfaces: ["home"],\n' +
+      "  order: 100\n" +
+      "});\n",
+    "utf8"
+  );
+}
+
+function installGeneratedAppWithCurrentKernel(appRoot) {
+  runChecked("npm", ["install", "--no-audit", "--no-fund"], {
+    cwd: appRoot,
+    label: "install generated app with current kernel"
+  });
+}
+
+async function startViteDevServer({ appRoot, vitePort }) {
+  const runtime = startCapturedProcess(process.execPath, [
+    "./node_modules/vite/bin/vite.js",
+    "--host",
+    "127.0.0.1",
+    "--port",
+    String(vitePort),
+    "--strictPort",
+    "--clearScreen",
+    "false"
+  ], {
+    cwd: appRoot,
+    env: {
+      DEBUG: "vite:deps"
+    }
+  });
+  await runtime.waitFor(new RegExp(`http://127\\.0\\.0\\.1:${vitePort}/`));
+  return runtime;
+}
+
+function loadChromiumLauncher(appRoot) {
+  if (!chromiumLauncherPromise) {
+    const playwrightUrl = pathToFileURL(
+      path.join(appRoot, "node_modules", "@playwright", "test", "index.mjs")
+    ).href;
+    chromiumLauncherPromise = import(playwrightUrl).then((playwrightModule) => playwrightModule.chromium);
+  }
+  return chromiumLauncherPromise;
+}
+
 async function readOptimizerMetadata(appRoot) {
   const metadataPath = path.join(appRoot, "node_modules", ".vite", "deps", "_metadata.json");
   const metadata = JSON.parse(await readFile(metadataPath, "utf8"));
@@ -243,10 +417,7 @@ test("fresh generated shell-web/auth app optimizes dynamic shell subpaths before
       }
 
       const navigationLogOffset = viteRuntime.readOutput().length;
-      const playwrightUrl = pathToFileURL(
-        path.join(appRoot, "node_modules", "@playwright", "test", "index.mjs")
-      ).href;
-      const { chromium } = await import(playwrightUrl);
+      const chromium = await loadChromiumLauncher(appRoot);
       const chromiumExecutablePath = String(
         process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH || ""
       ).trim();
@@ -288,4 +459,166 @@ test("fresh generated shell-web/auth app optimizes dynamic shell subpaths before
       await stopProcess(apiRuntime);
     }
   }, { prefix: "jskit-vite-cold-start-" });
+});
+
+test("generated Vite apps serve every installed local package from canonical editable source", {
+  skip: RUN_LOCAL_PACKAGE_CACHE_INTEGRATION
+    ? false
+    : "set JSKIT_VITE_LOCAL_PACKAGE_CACHE_INTEGRATION=1 to run the browser-backed local-package cache regression",
+  timeout: 900_000
+}, async () => {
+  await withTempDir(async (tempRoot) => {
+    for (const template of ["minimal-shell", "base-shell"]) {
+      const appName = `local-cache-${template}`;
+      const appRoot = path.join(tempRoot, appName);
+      let viteRuntime = null;
+      let browser = null;
+
+      try {
+        runChecked(process.execPath, [
+          CREATE_APP_CLI,
+          appName,
+          "--target",
+          appRoot,
+          "--template",
+          template
+        ], { cwd: tempRoot, label: `create ${template} cache fixture` });
+        await configureLocalPackageCacheFixture(appRoot);
+        installGeneratedAppWithCurrentKernel(appRoot);
+
+        const vitePort = await reservePort();
+        viteRuntime = await startViteDevServer({ appRoot, vitePort });
+
+        const chromiumLauncher = await loadChromiumLauncher(appRoot);
+        const chromiumExecutablePath = String(
+          process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH || ""
+        ).trim();
+        browser = await chromiumLauncher.launch({
+          headless: true,
+          ...(chromiumExecutablePath ? { executablePath: chromiumExecutablePath } : {})
+        });
+        const page = await browser.newPage();
+
+        await page.goto(`http://127.0.0.1:${vitePort}/home`, { waitUntil: "domcontentloaded" });
+        await page.waitForFunction(() => globalThis.__JSKIT_LOCAL_CLIENT_CACHE_MARKER__ === "initial");
+        await page.waitForFunction(
+          () => globalThis.__JSKIT_SECOND_LOCAL_PACKAGE_MARKER__ === "utility-initial"
+        );
+        await page.waitForLoadState("networkidle");
+        if (template === "base-shell") {
+          assert.equal(await page.getByText("Operational scope", { exact: true }).count(), 0);
+        }
+
+        const initialResourceNames = await page.evaluate(() =>
+          performance.getEntriesByType("resource").map((entry) => entry.name)
+        );
+        const mainClientUrl = initialResourceNames.find((name) =>
+          name.includes("/packages/main/src/client/index.js")
+        );
+        const mainProviderUrl = initialResourceNames.find((name) =>
+          name.includes("/packages/main/src/client/providers/MainClientProvider.js")
+        );
+        const featureClientUrl = initialResourceNames.find((name) =>
+          name.includes("/packages/feature/browser/feature-client.js")
+        );
+        const utilitySharedUrl = initialResourceNames.find((name) =>
+          name.includes("/packages/utility/browser/shared.js")
+        );
+        assert.ok(mainClientUrl, `${template} did not load @local/main from canonical source.`);
+        assert.ok(mainProviderUrl, `${template} did not keep @local/main relative imports on canonical source.`);
+        assert.ok(featureClientUrl, `${template} did not load the second local client package from canonical source.`);
+        assert.ok(
+          utilitySharedUrl,
+          `${template} did not resolve a cross-package shared import to canonical source.\n` +
+            `Loaded resources:\n${initialResourceNames.join("\n")}`
+        );
+        assert.equal(initialResourceNames.some((name) => name.includes("/node_modules/@local/")), false);
+        assert.equal(initialResourceNames.some((name) => name.includes("/node_modules/@fixture/")), false);
+
+        for (const localUrl of [mainClientUrl, mainProviderUrl, featureClientUrl, utilitySharedUrl]) {
+          assert.equal(new URL(localUrl).searchParams.has("v"), false, localUrl);
+          const response = await fetch(localUrl);
+          assert.equal(response.headers.get("cache-control"), "no-cache", localUrl);
+          await response.text();
+        }
+
+        const publishedVueUrl = initialResourceNames.find((name) =>
+          name.includes("/node_modules/.vite/deps/vue.js?v=")
+        );
+        assert.ok(publishedVueUrl, `${template} did not retain Vite optimization for published Vue.`);
+        const publishedVueResponse = await fetch(publishedVueUrl);
+        assert.match(
+          String(publishedVueResponse.headers.get("cache-control") || ""),
+          /max-age=31536000.*immutable/u
+        );
+        await publishedVueResponse.text();
+
+        const mainClientPath = path.join(appRoot, "packages", "main", "src", "client", "index.js");
+        await replaceRequiredText(
+          mainClientPath,
+          '__JSKIT_LOCAL_CLIENT_CACHE_MARKER__ = "initial"',
+          '__JSKIT_LOCAL_CLIENT_CACHE_MARKER__ = "live-edit"'
+        );
+        await page.waitForFunction(() => globalThis.__JSKIT_LOCAL_CLIENT_CACHE_MARKER__ === "live-edit");
+
+        const packageLockBeforeRestart = await readFile(path.join(appRoot, "package-lock.json"), "utf8");
+        const viteConfigBeforeRestart = await readFile(path.join(appRoot, "vite.config.mjs"), "utf8");
+        const optimizerMetadataPath = path.join(appRoot, "node_modules", ".vite", "deps", "_metadata.json");
+        const optimizerMetadataBeforeRestart = JSON.parse(await readFile(optimizerMetadataPath, "utf8"));
+
+        // Leave the app before editing so Vite HMR cannot mask a stale HTTP-cache result on restart.
+        // The Chromium context remains open, preserving the exact browser cache under test.
+        await page.goto("about:blank");
+        await stopProcess(viteRuntime);
+        viteRuntime = null;
+        await replaceRequiredText(
+          mainClientPath,
+          '__JSKIT_LOCAL_CLIENT_CACHE_MARKER__ = "live-edit"',
+          '__JSKIT_LOCAL_CLIENT_CACHE_MARKER__ = "restart-edit"'
+        );
+        if (template === "base-shell") {
+          // Recreate the incident's mixed-generation shape: placement source is new, while the
+          // component binding lives in the local provider that used to remain immutably cached.
+          await addOperationalScopeCacheReproduction(appRoot);
+        }
+        viteRuntime = await startViteDevServer({ appRoot, vitePort });
+
+        assert.equal(
+          await readFile(path.join(appRoot, "package-lock.json"), "utf8"),
+          packageLockBeforeRestart
+        );
+        assert.equal(
+          await readFile(path.join(appRoot, "vite.config.mjs"), "utf8"),
+          viteConfigBeforeRestart
+        );
+        const optimizerMetadataAfterRestart = JSON.parse(await readFile(optimizerMetadataPath, "utf8"));
+        assert.equal(optimizerMetadataAfterRestart.configHash, optimizerMetadataBeforeRestart.configHash);
+        assert.equal(optimizerMetadataAfterRestart.lockfileHash, optimizerMetadataBeforeRestart.lockfileHash);
+        assert.equal(optimizerMetadataAfterRestart.browserHash, optimizerMetadataBeforeRestart.browserHash);
+
+        await page.goto(`http://127.0.0.1:${vitePort}/home`, { waitUntil: "domcontentloaded" });
+        await page.waitForFunction(() => globalThis.__JSKIT_LOCAL_CLIENT_CACHE_MARKER__ === "restart-edit");
+        if (template === "base-shell") {
+          await page.getByText("Operational scope", { exact: true }).waitFor({ state: "visible" });
+        }
+        await page.waitForLoadState("networkidle");
+        const restartedMainClientUrl = await page.evaluate(() =>
+          performance
+            .getEntriesByType("resource")
+            .map((entry) => entry.name)
+            .find((name) => name.includes("/packages/main/src/client/index.js"))
+        );
+        assert.ok(restartedMainClientUrl, `${template} restart did not load @local/main from source.`);
+        assert.equal(new URL(restartedMainClientUrl).searchParams.has("v"), false);
+        const restartedResponse = await fetch(restartedMainClientUrl);
+        assert.equal(restartedResponse.headers.get("cache-control"), "no-cache");
+        await restartedResponse.text();
+      } finally {
+        if (browser) {
+          await browser.close();
+        }
+        await stopProcess(viteRuntime);
+      }
+    }
+  }, { prefix: "jskit-vite-local-package-cache-" });
 });

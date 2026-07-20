@@ -1,6 +1,6 @@
 {
   "name": "@jskit-ai/jskit-cli",
-  "version": "0.2.133",
+  "version": "0.2.135",
   "description": "Bundle and package orchestration CLI for JSKIT apps.",
   "type": "module",
   "files": [
@@ -20,9 +20,9 @@
     "test": "node --test"
   },
   "dependencies": {
-    "@jskit-ai/jskit-catalog": "0.1.128",
-    "@jskit-ai/kernel": "0.1.119",
-    "@jskit-ai/shell-web": "0.1.118",
+    "@jskit-ai/jskit-catalog": "0.1.130",
+    "@jskit-ai/kernel": "0.1.120",
+    "@jskit-ai/shell-web": "0.1.119",
     "@vue/compiler-sfc": "^3.5.29",
     "ts-morph": "^28.0.0",
     "yaml": "^2.8.3"

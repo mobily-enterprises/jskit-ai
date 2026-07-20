@@ -130,6 +130,7 @@ test("add package claims an app-owned file from the expected baseline and reappl
 
     const lockAfterAdd = JSON.parse(await readFile(path.join(appRoot, ".jskit", "lock.json"), "utf8"));
     assert.equal(lockAfterAdd.installedPackages["@demo/claim-feature"].managed.files[0].path, "src/App.vue");
+    assert.equal(lockAfterAdd.installedPackages["@demo/claim-feature"].managed.files[0].ownership, "app");
 
     await createAppOwnedClaimPackage(appRoot, {
       version: "0.2.0",
@@ -143,6 +144,52 @@ test("add package claims an app-owned file from the expected baseline and reappl
     });
     assert.equal(updateResult.status, 0, String(updateResult.stderr || ""));
     assert.equal(await readFile(path.join(appRoot, "src", "App.vue"), "utf8"), "claimed-shell-v2\n");
+  });
+});
+
+test("update records app ownership without overwriting a customized managed file", async () => {
+  await withTempDir(async (cwd) => {
+    const appRoot = path.join(cwd, "app-owned-upgrade-app");
+    await createMinimalApp(appRoot, { name: "app-owned-upgrade-app" });
+    await mkdir(path.join(appRoot, "src"), { recursive: true });
+    await writeFile(path.join(appRoot, "src", "App.vue"), "starter-shell\n", "utf8");
+
+    await createAppOwnedClaimPackage(appRoot, {
+      version: "0.1.0",
+      expectedExistingContent: "starter-shell\n",
+      replacementContent: "claimed-shell-v1\n"
+    });
+
+    const addResult = runCli({
+      cwd: appRoot,
+      args: ["add", "package", "@demo/claim-feature"]
+    });
+    assert.equal(addResult.status, 0, String(addResult.stderr || ""));
+
+    const lockPath = path.join(appRoot, ".jskit", "lock.json");
+    const oldLock = JSON.parse(await readFile(lockPath, "utf8"));
+    delete oldLock.installedPackages["@demo/claim-feature"].managed.files[0].ownership;
+    await writeFile(lockPath, `${JSON.stringify(oldLock, null, 2)}\n`, "utf8");
+    await writeFile(path.join(appRoot, "src", "App.vue"), "custom-shell\n", "utf8");
+
+    await createAppOwnedClaimPackage(appRoot, {
+      version: "0.2.0",
+      expectedExistingContent: "starter-shell\n",
+      replacementContent: "claimed-shell-v2\n"
+    });
+
+    const updateResult = runCli({
+      cwd: appRoot,
+      args: ["update", "package", "@demo/claim-feature"]
+    });
+    assert.equal(updateResult.status, 0, String(updateResult.stderr || ""));
+    assert.equal(await readFile(path.join(appRoot, "src", "App.vue"), "utf8"), "custom-shell\n");
+
+    const updatedLock = JSON.parse(await readFile(lockPath, "utf8"));
+    assert.equal(
+      updatedLock.installedPackages["@demo/claim-feature"].managed.files[0].ownership,
+      "app"
+    );
   });
 });
 

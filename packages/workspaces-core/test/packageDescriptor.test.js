@@ -49,6 +49,7 @@ test("workspaces-core installs an app-owned editable workspace invite email temp
   assert.deepEqual(findFileMutation("workspaces-core-main-workspace-invite-email-template"), {
     from: "templates/packages/main/src/server/email/workspaceInviteEmail.js",
     to: "packages/main/src/server/email/workspaceInviteEmail.js",
+    ownership: "app",
     preserveOnRemove: true,
     reason: "Install app-owned editable workspace invite email template.",
     category: "workspaces-core",

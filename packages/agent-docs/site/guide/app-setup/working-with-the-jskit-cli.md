@@ -112,6 +112,37 @@ npm run jskit:update -- --registry https://registry.example.com
 npm run release -- --registry https://registry.example.com
 ```
 
+### Update JSKIT packages across an app workspace
+
+`npx jskit app update-packages` owns the complete app-wide JSKIT update. At the app root, it installs the exact latest registry version of every `@jskit-ai/*` package listed in `dependencies`, `devDependencies`, `optionalDependencies`, or `peerDependencies`. Exact root versions keep the installed app and its managed lock state reproducible.
+
+When the app declares npm workspaces, the command asks npm for the workspace graph and aligns JSKIT references in each workspace `package.json` and `package.descriptor.mjs` to the latest major range, such as `0.x`. Descriptor dependency mutations are included whether they use a direct string or a conditional `{ version, when }` record. It then runs `npm update --workspaces` for those packages so `package-lock.json` reflects the aligned ranges. Non-JSKIT dependencies and the public descriptor format are left alone.
+
+Updating npm packages is only half of a JSKIT upgrade. Package descriptors also own managed files, source and text mutations, lock metadata, migrations, and CI contributions. After installing newer root packages, `update-packages` compares their target versions with the installed records in `.jskit/lock.json`. It reapplies each changed installed package through the same `jskit update package ...` lifecycle used for a manual update. The newly installed local CLI performs that work, saved package options are reused, and customized app-owned files remain protected by the normal ownership checks. The updater reloads the lock between packages, so a dependency already upgraded while reapplying another package is not applied twice.
+
+This means the normal existing-app upgrade is one command:
+
+```bash
+npm run jskit:update
+```
+
+After it succeeds, npm dependencies and descriptor-managed app state are current together. If a managed app-owned file is missing, a required saved option can no longer be resolved, or another package update cannot be applied safely, the app-wide update fails instead of leaving that package silently stale. `--dry-run` reports which installed packages would be reapplied without invoking their update lifecycle.
+
+There is one unavoidable bootstrap detail for apps whose installed CLI predates managed package reapplication: a CLI process that is already running cannot adopt code npm installs underneath it. Upgrade the CLI once, then run the app-wide update with the new process:
+
+```bash
+npm install --save-dev --save-exact @jskit-ai/jskit-cli@latest
+npm run jskit:update
+```
+
+After that bootstrap, normal future upgrades use only `npm run jskit:update`. Do not work around the first upgrade by editing `.jskit/lock.json`; the new updater must reapply the descriptor contract and write managed state itself.
+
+The update reports elapsed progress for registry and install work. It also refreshes JSKIT-managed migrations and CI after root package changes. Preview the complete operation without changing manifests, descriptors, the lockfile, migrations, or CI with:
+
+```bash
+npx jskit app update-packages --dry-run
+```
+
 For older apps that still carry copied maintenance scripts, the migration path is:
 
 ```bash
@@ -781,7 +812,7 @@ Good times to run it manually include:
 - when a package appears installed in the lock but starts behaving as if it is missing
 - when you want a fast JSKIT-specific health check without waiting for a full test suite
 
-One important nuance: `doctor` is checking for broken JSKIT ownership and visibility, not trying to stop you from editing app-owned files. For example, a managed file that still exists but whose contents changed is normally fine. The problem is when JSKIT expects a managed file to exist and it is gone, or when the installed package state no longer resolves cleanly.
+One important nuance: `doctor` is checking for broken JSKIT ownership and visibility, not trying to stop you from editing app-owned files. For example, a managed file that still exists but whose contents changed is normally fine. An app-owned file explicitly installed by a package can also live under `packages/main/src/server/` without being mistaken for undeclared domain logic. The file remains part of managed state, so deleting it is still an error. Unrelated server files under `packages/main` continue to receive the normal feature-lane warning.
 
 There is one intentional exception for user-facing UI work.
 

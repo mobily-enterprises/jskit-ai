@@ -1,5 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import { formatDateOnlyDisplay } from "../src/client/support/crudListDateFilterSupport.js";
 
 test("useCrudListFilters manages values, query params, chips, and presets", async () => {
   const { useCrudListFilters } = await import("@jskit-ai/users-web/client/composables/useCrudListFilters");
@@ -61,7 +62,7 @@ test("useCrudListFilters manages values, query params, chips, and presets", asyn
       "Staff",
       "Status: Active",
       "Supplier: Pollen Partners",
-      "Arrival Date: from 2026-04-01"
+      `Arrival Date: from ${formatDateOnlyDisplay("2026-04-01")}`
     ]
   );
 
@@ -208,4 +209,51 @@ test("useCrudListFilters hydrates single-key range query params into structured 
     min: "12.5",
     max: "18"
   });
+});
+
+test("useCrudListFilters preserves scalar, complete, partial, and cleared date contracts", async () => {
+  const { useCrudListFilters } = await import("@jskit-ai/users-web/client/composables/useCrudListFilters");
+  const filters = useCrudListFilters({
+    submittedOn: {
+      type: "date",
+      label: "Submitted"
+    },
+    arrivalDate: {
+      type: "dateRange",
+      label: "Arrival"
+    }
+  });
+
+  filters.queryParams.submittedOn.value = "2026-04-18";
+  filters.queryParams.arrivalDate.value = "2026-05-04..2026-05-10";
+
+  assert.equal(filters.values.submittedOn, "2026-04-18");
+  assert.deepEqual(filters.values.arrivalDate, {
+    from: "2026-05-04",
+    to: "2026-05-10"
+  });
+  assert.equal(filters.queryParams.submittedOn.value, "2026-04-18");
+  assert.equal(filters.queryParams.arrivalDate.value, "2026-05-04..2026-05-10");
+  assert.deepEqual(
+    filters.activeChips.value.map((chip) => chip.label),
+    [
+      `Submitted: ${formatDateOnlyDisplay("2026-04-18")}`,
+      `Arrival: ${formatDateOnlyDisplay("2026-05-04")} to ${formatDateOnlyDisplay("2026-05-10")}`
+    ]
+  );
+
+  filters.values.arrivalDate.to = "";
+  assert.equal(filters.queryParams.arrivalDate.value, "2026-05-04..");
+  assert.equal(
+    filters.activeChips.value.at(-1).label,
+    `Arrival: from ${formatDateOnlyDisplay("2026-05-04")}`
+  );
+
+  filters.clearFilter("submittedOn");
+  assert.equal(filters.values.submittedOn, "");
+  assert.equal(filters.queryParams.submittedOn.value, "");
+
+  filters.clearFilters();
+  assert.deepEqual(filters.values.arrivalDate, { from: "", to: "" });
+  assert.equal(filters.hasActiveFilters.value, false);
 });

@@ -26,6 +26,7 @@ test("package exports include explicit server jsonRestApiHost entrypoint only", 
   const exportsMap = packageJson && typeof packageJson === "object" ? packageJson.exports : {};
   assert.equal(exportsMap["./server/jsonRestApiHost"], "./src/server/jsonRestApiHost.js");
   assert.equal(exportsMap["./server"], undefined);
+  assert.equal(packageJson.dependencies?.["json-rest-api"], "^1.0.25");
 });
 
 test("server jsonRestApiHost entrypoint no longer exports host-side JSON:API simplification helpers", async () => {
@@ -157,6 +158,46 @@ test("createJsonRestApiHost configures the internal json-rest logger at error le
   assert.equal(api.options.logging.level, "error");
 });
 
+test("createJsonRestApiHost installs row policies before resources are added", async () => {
+  const fakeKnex = Object.assign(() => {}, {
+    client: {
+      config: {
+        client: "sqlite3"
+      }
+    },
+    async raw() {
+      return [
+        {
+          version: "3.35.5"
+        }
+      ];
+    },
+    transaction() {}
+  });
+
+  const api = await createJsonRestApiHost({ knex: fakeKnex });
+  const rowPolicy = () => false;
+  const scopeOptions = createJsonRestResourceScopeOptions({
+    tableName: "private_contacts",
+    schema: {
+      id: { type: "id", primary: true }
+    }
+  }, {
+    rowPolicy
+  });
+
+  await api.addResource("privateContacts", scopeOptions);
+
+  assert.deepEqual(api.rowPolicies.getConfig(), {
+    policies: []
+  });
+  assert.deepEqual(api.rowPolicies.getScopeConfig("privateContacts"), {
+    policy: "<inline>",
+    source: "inline"
+  });
+  assert.equal(scopeOptions.rowPolicy, rowPolicy);
+});
+
 test("shared query/document helpers build json-rest-api request shapes", () => {
   assert.deepEqual(
     buildJsonRestQueryParams("contacts", {
@@ -284,6 +325,7 @@ test("buildJsonRestQueryParams preserves structured filter values", () => {
 test("createJsonRestResourceScopeOptions clones canonical resource metadata and resolves symbolic write serializers", () => {
   const serializer = (value) => value;
   const normalizeId = (value) => String(value || "").trim() || null;
+  const rowPolicy = () => false;
   const source = Object.freeze({
     namespace: "contacts",
     tableName: "contacts",
@@ -353,6 +395,7 @@ test("createJsonRestResourceScopeOptions clones canonical resource metadata and 
 
   const result = createJsonRestResourceScopeOptions(source, {
     normalizeId,
+    rowPolicy,
     writeSerializers: {
       "datetime-utc": serializer
     }
@@ -368,6 +411,7 @@ test("createJsonRestResourceScopeOptions clones canonical resource metadata and 
   assert.equal(result.schema.bookingSteps.virtual, true);
   assert.equal(result.schema.pets.virtual, true);
   assert.equal(result.normalizeId, normalizeId);
+  assert.equal(result.rowPolicy, rowPolicy);
   assert.equal(result.schema.name.maxLength, 190);
   assert.equal(result.schema.name.operations.output.required, true);
   assert.equal(result.operations.view.method, "GET");

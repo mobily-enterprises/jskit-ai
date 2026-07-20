@@ -30,6 +30,7 @@ function createHealthCommands(ctx = {}) {
     inspectPackageOfferings,
     fileExists,
     normalizeRelativePath,
+    normalizeRelativePosixPath,
     path
   } = ctx;
 
@@ -1321,7 +1322,12 @@ function createHealthCommands(ctx = {}) {
     }
   }
 
-  async function collectMainPackageFeatureLaneWarnings({ appRoot, appLocalRegistry, warnings }) {
+  async function collectMainPackageFeatureLaneWarnings({
+    appRoot,
+    appLocalRegistry,
+    managedAppOwnedFilePaths,
+    warnings
+  }) {
     const mainPackageEntry = [...appLocalRegistry.values()].find((packageEntry) => {
       const packageId = String(packageEntry?.packageId || "").trim();
       const relativeDir = String(packageEntry?.relativeDir || "").trim();
@@ -1343,7 +1349,8 @@ function createHealthCommands(ctx = {}) {
     const extraDomainFiles = relativeServerFiles.filter(
       (relativePath) =>
         !MAIN_SERVER_BASELINE_RELATIVE_PATHS.has(relativePath) &&
-        MAIN_SERVER_DOMAIN_FILE_PATTERN.test(relativePath)
+        MAIN_SERVER_DOMAIN_FILE_PATTERN.test(relativePath) &&
+        !managedAppOwnedFilePaths.has(normalizeRelativePath(appRoot, path.join(rootDir, relativePath)))
     );
     if (extraDomainFiles.length > 0) {
       reasons.push(`extra server domain files: ${extraDomainFiles.join(", ")}`);
@@ -1438,7 +1445,13 @@ function createHealthCommands(ctx = {}) {
     }
   }
 
-  async function collectFeatureLaneDoctorIssues({ appRoot, appLocalRegistry, issues, warnings }) {
+  async function collectFeatureLaneDoctorIssues({
+    appRoot,
+    appLocalRegistry,
+    managedAppOwnedFilePaths,
+    issues,
+    warnings
+  }) {
     const packageEntries = sortStrings([...appLocalRegistry.keys()])
       .map((packageId) => appLocalRegistry.get(packageId))
       .filter(Boolean);
@@ -1454,6 +1467,7 @@ function createHealthCommands(ctx = {}) {
     await collectMainPackageFeatureLaneWarnings({
       appRoot,
       appLocalRegistry,
+      managedAppOwnedFilePaths,
       warnings
     });
     await collectHandmadeFeatureLaneWarnings({
@@ -2125,6 +2139,7 @@ function createHealthCommands(ctx = {}) {
     const issues = [];
     const warnings = [];
     const installed = ensureObject(lock.installedPackages);
+    const managedAppOwnedFilePaths = new Set();
     await hydratePackageRegistryFromInstalledNodeModules({
       appRoot,
       packageRegistry: combinedPackageRegistry,
@@ -2148,7 +2163,10 @@ function createHealthCommands(ctx = {}) {
       const managed = ensureObject(lockEntry.managed);
       for (const fileChange of ensureArray(managed.files)) {
         const changeRecord = ensureObject(fileChange);
-        const relativePath = String(changeRecord.path || "").trim();
+        const relativePath = normalizeRelativePosixPath(changeRecord.path);
+        if (changeRecord.ownership === "app" && relativePath) {
+          managedAppOwnedFilePaths.add(relativePath);
+        }
         const absolutePath = path.join(appRoot, relativePath);
         if (!(await fileExists(absolutePath))) {
           issues.push(`${packageId}: managed file missing: ${relativePath}`);
@@ -2172,6 +2190,7 @@ function createHealthCommands(ctx = {}) {
     await collectFeatureLaneDoctorIssues({
       appRoot,
       appLocalRegistry,
+      managedAppOwnedFilePaths,
       issues,
       warnings
     });

@@ -72,10 +72,16 @@ jobs:
       - name: Install Chromium
         run: npx --yes --allow-scripts=fsevents playwright@1.61.1 install --with-deps chromium
 
-      - name: Verify a cold generated auth app
+      - name: Verify Vite startup and local-package caching
         env:
           JSKIT_VITE_COLD_START_INTEGRATION: "1"
+          JSKIT_VITE_LOCAL_PACKAGE_CACHE_INTEGRATION: "1"
         run: node --test tooling/create-app/test/viteColdStart.integration.test.js
+
+      - name: Verify responsive CRUD date filters
+        env:
+          JSKIT_USERS_WEB_DATE_FILTER_VISUAL_INTEGRATION: "1"
+        run: node --test packages/users-web/test/crudListDateFilterSurface.browser.test.js
 
   publish:
     needs:

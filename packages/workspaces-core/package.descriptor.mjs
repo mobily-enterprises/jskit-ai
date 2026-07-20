@@ -1,7 +1,7 @@
 export default Object.freeze({
   packageVersion: 1,
   packageId: "@jskit-ai/workspaces-core",
-  version: "0.1.93",
+  version: "0.1.95",
   kind: "runtime",
   description: "Workspace tenancy runtime plus HTTP routes, role catalog, and workspace config scaffolding.",
   dependsOn: [
@@ -147,10 +147,10 @@ export default Object.freeze({
   mutations: {
     dependencies: {
       runtime: {
-        "@jskit-ai/json-rest-api-core": "0.1.62",
-        "@jskit-ai/resource-core": "0.1.62",
-        "@jskit-ai/resource-crud-core": "0.1.62",
-        "@jskit-ai/users-core": "0.1.127"
+        "@jskit-ai/json-rest-api-core": "0.1.64",
+        "@jskit-ai/resource-core": "0.1.63",
+        "@jskit-ai/resource-crud-core": "0.1.63",
+        "@jskit-ai/users-core": "0.1.129"
       },
       dev: {}
     },
@@ -200,6 +200,7 @@ export default Object.freeze({
       {
         from: "templates/packages/main/src/server/email/workspaceInviteEmail.js",
         to: "packages/main/src/server/email/workspaceInviteEmail.js",
+        ownership: "app",
         preserveOnRemove: true,
         reason: "Install app-owned editable workspace invite email template.",
         category: "workspaces-core",

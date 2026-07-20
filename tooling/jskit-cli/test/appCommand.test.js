@@ -13,9 +13,18 @@ import { fileURLToPath } from "node:url";
 import test from "node:test";
 import { createCliRunner } from "../../testUtils/runCli.js";
 import { withTempDir } from "../../testUtils/tempDir.mjs";
+import { loadLockFile } from "../src/server/cliRuntime/appState.js";
+import {
+  collectChangedInstalledPackageIds,
+  formatElapsedTime,
+  reapplyChangedInstalledPackages,
+  runWithProgress
+} from "../src/server/commandHandlers/appCommands/updatePackages.js";
+import { writeInstalledPackagesLock } from "./testLock.js";
 
 const CLI_PATH = fileURLToPath(new URL("../bin/jskit.js", import.meta.url));
 const runCli = createCliRunner(CLI_PATH);
+const silentStream = { write() {} };
 
 async function writeExecutable(filePath, source) {
   await mkdir(path.dirname(filePath), { recursive: true });
@@ -26,8 +35,11 @@ async function writeExecutable(filePath, source) {
 async function createMinimalApp(appRoot, {
   dependencies = {},
   devDependencies = {},
+  optionalDependencies = {},
+  peerDependencies = {},
   scripts = {},
-  jskitApp = false
+  jskitApp = false,
+  workspaces
 } = {}) {
   await mkdir(appRoot, { recursive: true });
   await writeFile(
@@ -40,7 +52,10 @@ async function createMinimalApp(appRoot, {
         type: "module",
         scripts,
         dependencies,
-        devDependencies
+        devDependencies,
+        optionalDependencies,
+        peerDependencies,
+        workspaces
       },
       null,
       2
@@ -57,14 +72,29 @@ async function createMinimalApp(appRoot, {
   await mkdir(path.join(appRoot, "node_modules", ".bin"), { recursive: true });
 }
 
-async function installFakeLocalJskit(appRoot, logPath) {
+async function installFakeLocalJskit(appRoot, logPath, packageVersions = {}) {
   const localBin = path.join(appRoot, "node_modules", ".bin", "jskit");
   await writeExecutable(
     localBin,
     `#!/usr/bin/env node
 const fs = require("node:fs");
-const logPath = process.env.TEST_LOG_PATH;
-fs.appendFileSync(logPath, ["local-jskit", ...process.argv.slice(2)].join(" ") + "\\n");
+const path = require("node:path");
+const logPath = process.env.TEST_LOG_PATH || ${JSON.stringify(logPath)};
+const args = process.argv.slice(2);
+fs.appendFileSync(logPath, ["local-jskit", ...args].join(" ") + "\\n");
+const packageVersions = ${JSON.stringify(packageVersions)};
+if (args[0] === "update" && args[1] === "package" && packageVersions[args[2]]) {
+  const lockPath = path.join(process.cwd(), ".jskit", "lock.json");
+  const lock = JSON.parse(fs.readFileSync(lockPath, "utf8"));
+  const requestedUpdates = packageVersions[args[2]];
+  const updates = typeof requestedUpdates === "string"
+    ? { [args[2]]: requestedUpdates }
+    : requestedUpdates;
+  for (const [packageId, version] of Object.entries(updates)) {
+    lock.installedPackages[packageId].version = version;
+  }
+  fs.writeFileSync(lockPath, JSON.stringify(lock, null, 2) + "\\n");
+}
 `
   );
   return localBin;
@@ -506,7 +536,7 @@ test("jskit app verify-ui rejects generic package roots that are not JSKIT apps"
   });
 });
 
-test("jskit app update-packages refreshes runtime and dev packages, then regenerates managed migrations", async () => {
+test("jskit app update-packages updates exact root packages and aligns npm workspaces", async () => {
   await withTempDir(async (cwd) => {
     const appRoot = path.join(cwd, "app");
     const binDir = path.join(cwd, "bin");
@@ -520,9 +550,62 @@ test("jskit app update-packages refreshes runtime and dev packages, then regener
       devDependencies: {
         "@jskit-ai/jskit-cli": "0.x",
         vitest: "^4.0.0"
+      },
+      optionalDependencies: {
+        "@jskit-ai/uploads-runtime": "0.x"
+      },
+      peerDependencies: {
+        "@jskit-ai/kernel": "0.x"
+      },
+      workspaces: ["packages/*"]
+    });
+    const workspaceRoot = path.join(appRoot, "packages", "feature");
+    await mkdir(workspaceRoot, { recursive: true });
+    await writeFile(
+      path.join(workspaceRoot, "package.json"),
+      `${JSON.stringify({
+        name: "@local/feature",
+        version: "0.1.0",
+        dependencies: {
+          "@jskit-ai/kernel": "4.x",
+          "@jskit-ai/realtime": "0.1.0",
+          vue: "^3.5.0"
+        }
+      }, null, 2)}\n`,
+      "utf8"
+    );
+    await writeFile(
+      path.join(workspaceRoot, "package.descriptor.mjs"),
+      `export default {
+  packageId: "@local/feature",
+  mutations: {
+    dependencies: {
+      runtime: {
+        "@jskit-ai/users-web": "0.1.0",
+        "@jskit-ai/database-runtime": {
+          version: "0.1.0",
+          when: {
+            option: "mode",
+            notEquals: "orchestrator"
+          }
+        }
+      }
+    }
+  }
+};
+`,
+      "utf8"
+    );
+    await writeInstalledPackagesLock(appRoot, {
+      "@jskit-ai/shell-web": {
+        packageId: "@jskit-ai/shell-web",
+        version: "7.8.8",
+        migrationSyncVersion: "7.8.9"
       }
     });
-    await installFakeLocalJskit(appRoot, logPath);
+    await installFakeLocalJskit(appRoot, logPath, {
+      "@jskit-ai/shell-web": "7.8.9"
+    });
     await installFakeCommand(
       binDir,
       "npm",
@@ -530,11 +613,19 @@ test("jskit app update-packages refreshes runtime and dev packages, then regener
 const fs = require("node:fs");
 const args = process.argv.slice(2);
 fs.appendFileSync(process.env.TEST_LOG_PATH, ["npm", ...args].join(" ") + "\\n");
+if (args[0] === "query") {
+  process.stdout.write(JSON.stringify([{ location: "packages/feature" }]) + "\\n");
+}
 if (args[0] === "view") {
   const packageName = args[args.length - 2];
   const versionMap = {
     "@jskit-ai/jskit-cli": "3.4.5",
-    "@jskit-ai/shell-web": "7.8.9"
+    "@jskit-ai/database-runtime": "9.10.11",
+    "@jskit-ai/kernel": "5.6.7",
+    "@jskit-ai/realtime": "4.5.6",
+    "@jskit-ai/shell-web": "7.8.9",
+    "@jskit-ai/uploads-runtime": "6.7.8",
+    "@jskit-ai/users-web": "8.9.10"
   };
   process.stdout.write((versionMap[packageName] || "1.2.3") + "\\n");
 }
@@ -549,15 +640,262 @@ if (args[0] === "view") {
 
     assert.equal(result.status, 0, String(result.stderr || ""));
     assert.deepEqual(await readLogLines(logPath), [
-      "npm view @jskit-ai/shell-web version",
       "npm view @jskit-ai/jskit-cli version",
-      "npm install --save-exact @jskit-ai/shell-web@7.x",
-      "npm install --save-dev --save-exact @jskit-ai/jskit-cli@3.x",
+      "npm view @jskit-ai/kernel version",
+      "npm view @jskit-ai/shell-web version",
+      "npm view @jskit-ai/uploads-runtime version",
+      "npm install --save-exact @jskit-ai/shell-web@7.8.9",
+      "npm install --save-dev --save-exact @jskit-ai/jskit-cli@3.4.5",
+      "npm install --save-optional --save-exact @jskit-ai/uploads-runtime@6.7.8",
+      "npm install --save-peer --save-exact @jskit-ai/kernel@5.6.7",
+      "local-jskit update package @jskit-ai/shell-web",
       "local-jskit migrations changed",
-      "local-jskit app sync-ci"
+      "local-jskit app sync-ci",
+      "npm query .workspace --json",
+      "npm view @jskit-ai/database-runtime version",
+      "npm view @jskit-ai/realtime version",
+      "npm view @jskit-ai/users-web version",
+      "npm update --workspaces @jskit-ai/database-runtime @jskit-ai/kernel @jskit-ai/realtime @jskit-ai/users-web"
     ]);
     assert.match(String(result.stdout || ""), /\[jskit:update\] generating managed migrations for changed packages\./);
+    assert.match(
+      String(result.stdout || ""),
+      /\[jskit:update\] managed packages requiring reapply: @jskit-ai\/shell-web\./u
+    );
+    assert.match(String(result.stdout || ""), /\[jskit:update\] Step 1\/3 complete in /);
+    assert.match(String(result.stdout || ""), /\[jskit:update\] Step 3\/3 complete in /);
+
+    const workspacePackageJson = JSON.parse(
+      await readFile(path.join(workspaceRoot, "package.json"), "utf8")
+    );
+    assert.deepEqual(workspacePackageJson.dependencies, {
+      "@jskit-ai/kernel": "5.x",
+      "@jskit-ai/realtime": "4.x",
+      vue: "^3.5.0"
+    });
+    assert.match(
+      await readFile(path.join(workspaceRoot, "package.descriptor.mjs"), "utf8"),
+      /"@jskit-ai\/users-web": "8\.x"/u
+    );
+    assert.match(
+      await readFile(path.join(workspaceRoot, "package.descriptor.mjs"), "utf8"),
+      /"@jskit-ai\/database-runtime": \{\s+version: "9\.x"/u
+    );
+    const { lock: updatedLock } = await loadLockFile(appRoot);
+    assert.equal(updatedLock.installedPackages["@jskit-ai/shell-web"].version, "7.8.9");
   });
+});
+
+test("jskit app update-packages dry-run leaves workspace files and managed artifacts unchanged", async () => {
+  await withTempDir(async (cwd) => {
+    const appRoot = path.join(cwd, "app");
+    const binDir = path.join(cwd, "bin");
+    const logPath = path.join(cwd, "commands.log");
+
+    await createMinimalApp(appRoot, {
+      dependencies: {
+        "@jskit-ai/shell-web": "0.x"
+      },
+      workspaces: ["packages/*"]
+    });
+    const workspaceRoot = path.join(appRoot, "packages", "feature");
+    await mkdir(workspaceRoot, { recursive: true });
+    const workspacePackageJsonPath = path.join(workspaceRoot, "package.json");
+    const workspaceDescriptorPath = path.join(workspaceRoot, "package.descriptor.mjs");
+    const workspacePackageJsonSource = `${JSON.stringify({
+      name: "@local/feature",
+      version: "0.1.0",
+      dependencies: {
+        "@jskit-ai/kernel": "0.x"
+      }
+    }, null, 2)}\n`;
+    const workspaceDescriptorSource = `export default {
+  packageId: "@local/feature",
+  mutations: {
+    dependencies: {
+      runtime: {
+        "@jskit-ai/users-web": "0.x"
+      }
+    }
+  }
+};
+`;
+    await writeFile(workspacePackageJsonPath, workspacePackageJsonSource, "utf8");
+    await writeFile(workspaceDescriptorPath, workspaceDescriptorSource, "utf8");
+    await writeInstalledPackagesLock(appRoot, {
+      "@jskit-ai/shell-web": {
+        packageId: "@jskit-ai/shell-web",
+        version: "7.8.8"
+      }
+    });
+    await installFakeLocalJskit(appRoot, logPath);
+    await installFakeCommand(
+      binDir,
+      "npm",
+      `#!/usr/bin/env node
+const fs = require("node:fs");
+const args = process.argv.slice(2);
+fs.appendFileSync(process.env.TEST_LOG_PATH, ["npm", ...args].join(" ") + "\\n");
+if (args[0] === "query") {
+  process.stdout.write(JSON.stringify([{ location: "packages/feature" }]) + "\\n");
+}
+if (args[0] === "view") {
+  process.stdout.write("7.8.9\\n");
+}
+`
+    );
+
+    const result = runCli({
+      cwd: appRoot,
+      args: ["app", "update-packages", "--dry-run"],
+      env: buildTestEnv(binDir, logPath)
+    });
+
+    assert.equal(result.status, 0, String(result.stderr || ""));
+    assert.equal(await readFile(workspacePackageJsonPath, "utf8"), workspacePackageJsonSource);
+    assert.equal(await readFile(workspaceDescriptorPath, "utf8"), workspaceDescriptorSource);
+    assert.equal(
+      (await readLogLines(logPath)).some((line) => line.startsWith("local-jskit ")),
+      false
+    );
+    assert.equal(
+      (await readLogLines(logPath)).some((line) => line.startsWith("npm update ")),
+      false
+    );
+    assert.match(
+      String(result.stdout || ""),
+      /managed packages requiring reapply: @jskit-ai\/shell-web\./u
+    );
+    assert.match(String(result.stdout || ""), /Step 3\/3 skipped in dry-run mode/u);
+  });
+});
+
+test("collectChangedInstalledPackageIds ignores current and unmanaged registry packages", () => {
+  const lock = {
+    installedPackages: {
+      "@jskit-ai/current": { version: "1.2.3" },
+      "@jskit-ai/older": { version: "1.2.2" },
+      "@jskit-ai/unversioned": {}
+    }
+  };
+  const latestVersions = new Map([
+    ["@jskit-ai/current", "1.2.3"],
+    ["@jskit-ai/not-installed", "1.2.3"],
+    ["@jskit-ai/older", "1.2.3"],
+    ["@jskit-ai/unversioned", "1.2.3"]
+  ]);
+
+  assert.deepEqual(collectChangedInstalledPackageIds(lock, latestVersions), [
+    "@jskit-ai/older",
+    "@jskit-ai/unversioned"
+  ]);
+});
+
+test("managed package reapply skips dependencies brought current by an earlier update", async () => {
+  await withTempDir(async (cwd) => {
+    const appRoot = path.join(cwd, "app");
+    const logPath = path.join(cwd, "commands.log");
+    const parentPackageId = "@jskit-ai/a-parent";
+    const dependencyPackageId = "@jskit-ai/z-dependency";
+    await createMinimalApp(appRoot);
+    await writeInstalledPackagesLock(appRoot, {
+      [parentPackageId]: { packageId: parentPackageId, version: "1.0.0" },
+      [dependencyPackageId]: { packageId: dependencyPackageId, version: "1.0.0" }
+    });
+    await installFakeLocalJskit(appRoot, logPath, {
+      [parentPackageId]: {
+        [parentPackageId]: "1.1.0",
+        [dependencyPackageId]: "1.1.0"
+      }
+    });
+
+    await reapplyChangedInstalledPackages({
+      appRoot,
+      createCliError: (message) => new Error(message),
+      dryRun: false,
+      latestVersions: new Map([
+        [parentPackageId, "1.1.0"],
+        [dependencyPackageId, "1.1.0"]
+      ]),
+      loadLockFile,
+      stderr: silentStream,
+      stdout: silentStream
+    });
+
+    assert.deepEqual(await readLogLines(logPath), [
+      `local-jskit update package ${parentPackageId}`
+    ]);
+  });
+});
+
+test("managed package reapply fails if an update leaves the lock version stale", async () => {
+  await withTempDir(async (cwd) => {
+    const appRoot = path.join(cwd, "app");
+    const packageId = "@jskit-ai/stale-package";
+    await createMinimalApp(appRoot);
+    await writeInstalledPackagesLock(appRoot, {
+      [packageId]: { packageId, version: "1.0.0" }
+    });
+    await installFakeLocalJskit(appRoot, path.join(cwd, "commands.log"));
+
+    await assert.rejects(
+      reapplyChangedInstalledPackages({
+        appRoot,
+        createCliError: (message) => new Error(message),
+        dryRun: false,
+        latestVersions: new Map([[packageId, "1.1.0"]]),
+        loadLockFile,
+        stderr: silentStream,
+        stdout: silentStream
+      }),
+      /stale lock versions: @jskit-ai\/stale-package/u
+    );
+  });
+});
+
+test("formatElapsedTime keeps updater progress concise", () => {
+  assert.equal(formatElapsedTime(0), "under 1s");
+  assert.equal(formatElapsedTime(19_900), "19s");
+  assert.equal(formatElapsedTime(60_000), "1m");
+  assert.equal(formatElapsedTime(125_000), "2m 5s");
+});
+
+test("runWithProgress reports start, heartbeat, and completion", async () => {
+  const messages = [];
+  await runWithProgress(
+    () => new Promise((resolve) => setTimeout(resolve, 50)),
+    {
+      activity: "testing a long update",
+      progressIntervalMs: 10,
+      stdout: {
+        write(message) {
+          messages.push(String(message).trim());
+        }
+      },
+      step: "Step 1/3"
+    }
+  );
+
+  assert.equal(messages[0], "[jskit:update] Step 1/3: testing a long update.");
+  assert.ok(messages.some((message) => message.includes("Step 1/3 is still running")));
+  assert.match(messages.at(-1), /^\[jskit:update\] Step 1\/3 complete in /u);
+});
+
+test("runWithProgress preserves task failures", async () => {
+  await assert.rejects(
+    runWithProgress(
+      async () => {
+        throw new Error("update failed");
+      },
+      {
+        activity: "testing a failed update",
+        progressIntervalMs: 10,
+        stdout: { write() {} },
+        step: "Step 3/3"
+      }
+    ),
+    /update failed/u
+  );
 });
 
 test("jskit app link-local-packages links local repo packages, refreshes bins, and clears Vite cache", async () => {
@@ -1011,7 +1349,7 @@ if (args[0] === "pr" && args[1] === "create") {
       "git fetch origin main",
       "git pull --ff-only origin main",
       `npm view --registry ${registryUrl} @jskit-ai/shell-web version`,
-      `npm install --save-exact --registry ${registryUrl} @jskit-ai/shell-web@7.x`,
+      `npm install --save-exact --registry ${registryUrl} @jskit-ai/shell-web@7.8.9`,
       "local-jskit migrations changed",
       "local-jskit app sync-ci",
       "git status --porcelain",

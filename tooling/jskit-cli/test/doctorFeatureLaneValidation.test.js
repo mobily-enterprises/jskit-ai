@@ -447,3 +447,80 @@ test("doctor emits warnings for packages/main feature creep and hand-made featur
     );
   });
 });
+
+test("doctor distinguishes managed app-owned main integration from undeclared domain files", async () => {
+  await withTempDir(async (cwd) => {
+    const appRoot = path.join(cwd, "doctor-main-integration-app");
+    await createMinimalApp(appRoot, { name: "doctor-main-integration-app" });
+    await createMainPackage(appRoot);
+    const managedFilePath = "packages/main/src/server/email/workspaceInviteEmail.js";
+
+    await writeAppFile(
+      appRoot,
+      ".jskit/lock.json",
+      `${JSON.stringify(
+        {
+          lockVersion: 1,
+          installedPackages: {
+            "@local/main": {
+              managed: {
+                files: [
+                  {
+                    path: managedFilePath,
+                    ownership: "app"
+                  }
+                ]
+              }
+            }
+          }
+        },
+        null,
+        2
+      )}\n`
+    );
+
+    await writeAppFile(
+      appRoot,
+      managedFilePath,
+      "export { renderWorkspaceInviteEmail } from \"@local/invitations\";\n"
+    );
+
+    const healthyResult = runCli({
+      cwd: appRoot,
+      args: ["doctor", "--json"]
+    });
+    assert.equal(healthyResult.status, 0, String(healthyResult.stderr || ""));
+    const healthyPayload = JSON.parse(String(healthyResult.stdout || "{}"));
+    assert.deepEqual(healthyPayload.issues, []);
+    assert.deepEqual(healthyPayload.warnings, []);
+
+    await writeAppFile(
+      appRoot,
+      "packages/main/src/server/UnexpectedService.js",
+      "class UnexpectedService {}\nexport { UnexpectedService };\n"
+    );
+
+    const warningResult = runCli({
+      cwd: appRoot,
+      args: ["doctor", "--json"]
+    });
+    assert.equal(warningResult.status, 0, String(warningResult.stderr || ""));
+    const warningPayload = JSON.parse(String(warningResult.stdout || "{}"));
+    assert.equal(warningPayload.warnings.length, 1);
+    assert.match(String(warningPayload.warnings[0] || ""), /UnexpectedService\.js/);
+    assert.doesNotMatch(String(warningPayload.warnings[0] || ""), /workspaceInviteEmail\.js/);
+
+    await unlink(path.join(appRoot, "packages/main/src/server/UnexpectedService.js"));
+    await unlink(path.join(appRoot, managedFilePath));
+
+    const missingResult = runCli({
+      cwd: appRoot,
+      args: ["doctor", "--json"]
+    });
+    assert.equal(missingResult.status, 1, String(missingResult.stderr || ""));
+    const missingPayload = JSON.parse(String(missingResult.stdout || "{}"));
+    assert.match(String(missingPayload.issues[0] || ""), /managed file missing/);
+    assert.match(String(missingPayload.issues[0] || ""), /workspaceInviteEmail\.js/);
+    assert.deepEqual(missingPayload.warnings, []);
+  });
+});

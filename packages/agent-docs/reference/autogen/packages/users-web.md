@@ -57,6 +57,17 @@ Local functions
 - `isActionDisabled(action = {})`
 - `isActionExecuting(action = {})`
 
+### `src/client/components/CrudListDateFilterControl.vue`
+Exports
+- None
+Local functions
+- `restoreFocus()`
+- `openMenu()`
+- `closeMenu()`
+- `clearDate()`
+- `selectDate(value)`
+- `handleActivatorKeydown(event)`
+
 ### `src/client/components/CrudListFilterSurface.vue`
 Exports
 - None
@@ -491,6 +502,7 @@ Local functions
 - `applyPresetFilterValue(values, filter = {}, rawValue)`
 - `createQueryParams(values, filterEntries = [])`
 - `resolveAtomicValueLabel(filter = {}, value = "", labelResolvers = {})`
+- `formatDefaultChipLabel(filter = {}, chipValue, labelResolvers = {})`
 
 ### `src/client/composables/useCrudListParentTitle.js`
 Exports
@@ -646,6 +658,13 @@ Exports
 - `requireBoolean(value, label = "value", owner = "Contract")`
 - `requireFunction(value, label = "value", owner = "Contract")`
 
+### `src/client/support/crudListDateFilterSupport.js`
+Exports
+- `parseDateOnlyValue(value = "")`
+- `formatDateOnlyValue(value = null)`
+- `formatDateOnlyDisplay(value = "", { locale = undefined } = {})`
+- `formatCrudListDateFilterChipLabel(filter = {}, rawValue, { locale = undefined } = {})`
+
 ### `src/shared/toolsOutletContracts.js`
 Exports
 - `HOME_COG_OUTLET`
@@ -671,5 +690,19 @@ Exports
 ### root
 
 ### `package.descriptor.mjs`
+Exports
+- None
+
+### fixtures
+
+### `fixtures/crud-list-date-filters/App.vue`
+Exports
+- None
+
+### `fixtures/crud-list-date-filters/main.js`
+Exports
+- None
+
+### `fixtures/crud-list-date-filters/vite.config.mjs`
 Exports
 - None
