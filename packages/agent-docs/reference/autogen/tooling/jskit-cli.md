@@ -572,7 +572,9 @@ Exports
 
 ### `src/server/commandHandlers/appCommands/updatePackages.js`
 Exports
+- `collectChangedInstalledPackageIds(lock = {}, latestVersions = new Map())`
 - `formatElapsedTime(elapsedMilliseconds = 0)`
+- `reapplyChangedInstalledPackages({ appRoot, createCliError, dryRun, latestVersions, loadLockFile, stderr, stdout })`
 - `runAppUpdatePackagesCommand(ctx = {}, { appRoot = "", options = {}, stdout, stderr })`
 - `runWithProgress(task, { activity, progressIntervalMs = PROGRESS_INTERVAL_MS, stdout, step } = {})`
 Local functions

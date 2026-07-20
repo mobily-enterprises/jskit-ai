@@ -118,6 +118,25 @@ npm run release -- --registry https://registry.example.com
 
 When the app declares npm workspaces, the command asks npm for the workspace graph and aligns JSKIT references in each workspace `package.json` and `package.descriptor.mjs` to the latest major range, such as `0.x`. Descriptor dependency mutations are included whether they use a direct string or a conditional `{ version, when }` record. It then runs `npm update --workspaces` for those packages so `package-lock.json` reflects the aligned ranges. Non-JSKIT dependencies and the public descriptor format are left alone.
 
+Updating npm packages is only half of a JSKIT upgrade. Package descriptors also own managed files, source and text mutations, lock metadata, migrations, and CI contributions. After installing newer root packages, `update-packages` compares their target versions with the installed records in `.jskit/lock.json`. It reapplies each changed installed package through the same `jskit update package ...` lifecycle used for a manual update. The newly installed local CLI performs that work, saved package options are reused, and customized app-owned files remain protected by the normal ownership checks. The updater reloads the lock between packages, so a dependency already upgraded while reapplying another package is not applied twice.
+
+This means the normal existing-app upgrade is one command:
+
+```bash
+npm run jskit:update
+```
+
+After it succeeds, npm dependencies and descriptor-managed app state are current together. If a managed app-owned file is missing, a required saved option can no longer be resolved, or another package update cannot be applied safely, the app-wide update fails instead of leaving that package silently stale. `--dry-run` reports which installed packages would be reapplied without invoking their update lifecycle.
+
+There is one unavoidable bootstrap detail for apps whose installed CLI predates managed package reapplication: a CLI process that is already running cannot adopt code npm installs underneath it. Upgrade the CLI once, then run the app-wide update with the new process:
+
+```bash
+npm install --save-dev --save-exact @jskit-ai/jskit-cli@latest
+npm run jskit:update
+```
+
+After that bootstrap, normal future upgrades use only `npm run jskit:update`. Do not work around the first upgrade by editing `.jskit/lock.json`; the new updater must reapply the descriptor contract and write managed state itself.
+
 The update reports elapsed progress for registry and install work. It also refreshes JSKIT-managed migrations and CI after root package changes. Preview the complete operation without changing manifests, descriptors, the lockfile, migrations, or CI with:
 
 ```bash

@@ -90,7 +90,8 @@ const APP_COMMAND_DEFINITIONS = Object.freeze({
     defaults: Object.freeze([
       "Root runtime, development, optional, and peer dependencies are installed at their exact latest registry versions.",
       "JSKIT ranges in npm workspace manifests and package descriptors are aligned with the latest major release, then workspace resolutions are refreshed in the lockfile.",
-      "The command reports elapsed progress and refreshes managed migrations and the composed CI workflow unless --dry-run is used."
+      "Installed packages whose descriptor versions changed are reapplied with their saved options before managed migrations and the composed CI workflow are refreshed.",
+      "App-owned files retain local edits through the normal package-update ownership rules."
     ])
   }),
   "sync-ci": Object.freeze({

@@ -5,6 +5,10 @@ import {
   runExternalCommandAsync,
   runLocalJskitAsync
 } from "./shared.js";
+import {
+  ensureObject,
+  sortStrings
+} from "../../shared/collectionUtils.js";
 
 const DEPENDENCY_SECTIONS = Object.freeze([
   Object.freeze({
@@ -32,9 +36,10 @@ const JSKIT_PACKAGE_PATTERN = /^@jskit-ai\/[a-z0-9._-]+$/iu;
 const PROGRESS_INTERVAL_MS = 5_000;
 
 function collectJskitPackageNames(packageMap = {}) {
-  return Object.keys(packageMap && typeof packageMap === "object" ? packageMap : {})
-    .filter((name) => JSKIT_PACKAGE_PATTERN.test(String(name || "")))
-    .sort((left, right) => left.localeCompare(right));
+  return sortStrings(
+    Object.keys(packageMap && typeof packageMap === "object" ? packageMap : {})
+      .filter((name) => JSKIT_PACKAGE_PATTERN.test(String(name || "")))
+  );
 }
 
 function collectManifestJskitPackageNames(packageJson = {}) {
@@ -44,7 +49,7 @@ function collectManifestJskitPackageNames(packageJson = {}) {
       packageNames.add(packageName);
     }
   }
-  return [...packageNames].sort((left, right) => left.localeCompare(right));
+  return sortStrings([...packageNames]);
 }
 
 function resolveExactVersion(packageName = "", rawVersion = "", createCliError) {
@@ -72,6 +77,70 @@ function resolveRegistryArgs(registryUrl = "") {
 
 function resolveInstallSpecs(packageNames = [], latestVersions = new Map()) {
   return packageNames.map((packageName) => `${packageName}@${latestVersions.get(packageName)}`);
+}
+
+function collectChangedInstalledPackageIds(lock = {}, latestVersions = new Map()) {
+  const installedPackages = ensureObject(lock.installedPackages);
+  return sortStrings(
+    [...latestVersions.entries()]
+      .filter(([packageId, targetVersion]) => {
+        if (!Object.prototype.hasOwnProperty.call(installedPackages, packageId)) {
+          return false;
+        }
+        const installedPackage = ensureObject(installedPackages[packageId]);
+        return String(installedPackage.version || "").trim() !== targetVersion;
+      })
+      .map(([packageId]) => packageId)
+  );
+}
+
+async function reapplyChangedInstalledPackages({
+  appRoot,
+  createCliError,
+  dryRun,
+  latestVersions,
+  loadLockFile,
+  stderr,
+  stdout
+}) {
+  const { lock } = await loadLockFile(appRoot);
+  const packageIds = collectChangedInstalledPackageIds(lock, latestVersions);
+  if (packageIds.length < 1) {
+    stdout?.write("[jskit:update] managed package state is already current.\n");
+    return;
+  }
+
+  stdout?.write(`[jskit:update] managed packages requiring reapply: ${packageIds.join(", ")}.\n`);
+  if (dryRun) {
+    return;
+  }
+
+  for (const [index, packageId] of packageIds.entries()) {
+    const { lock: currentLock } = await loadLockFile(appRoot);
+    const currentVersion = String(
+      ensureObject(ensureObject(currentLock.installedPackages)[packageId]).version || ""
+    ).trim();
+    if (currentVersion === latestVersions.get(packageId)) {
+      continue;
+    }
+    stdout?.write(
+      `[jskit:update] reapplying managed package ${index + 1}/${packageIds.length}: ${packageId}.\n`
+    );
+    await runLocalJskitAsync(appRoot, ["update", "package", packageId], {
+      stdout,
+      stderr,
+      createCliError
+    });
+  }
+
+  const { lock: updatedLock } = await loadLockFile(appRoot);
+  const remainingPackageIds = collectChangedInstalledPackageIds(updatedLock, latestVersions);
+  if (remainingPackageIds.length > 0) {
+    throw createCliError(
+      `Managed package reapply finished with stale lock versions: ${remainingPackageIds.join(", ")}.`
+    );
+  }
+  stdout?.write("[jskit:update] managed package state is current.\n");
 }
 
 function formatElapsedTime(elapsedMilliseconds = 0) {
@@ -429,6 +498,7 @@ async function runAppUpdatePackagesCommand(ctx = {}, { appRoot = "", options = {
   const {
     createCliError,
     loadAppPackageJson,
+    loadLockFile,
     assertAppManagedCiWorkflowUnmodified
   } = ctx;
 
@@ -455,7 +525,19 @@ async function runAppUpdatePackagesCommand(ctx = {}, { appRoot = "", options = {
         stderr,
         stdout
       });
-      if (!updatedRootPackages || dryRun) {
+      if (!updatedRootPackages) {
+        return;
+      }
+      await reapplyChangedInstalledPackages({
+        appRoot,
+        createCliError,
+        dryRun,
+        latestVersions,
+        loadLockFile,
+        stderr,
+        stdout
+      });
+      if (dryRun) {
         return;
       }
       stdout?.write("[jskit:update] generating managed migrations for changed packages.\n");
@@ -538,7 +620,9 @@ async function runAppUpdatePackagesCommand(ctx = {}, { appRoot = "", options = {
 }
 
 export {
+  collectChangedInstalledPackageIds,
   formatElapsedTime,
+  reapplyChangedInstalledPackages,
   runAppUpdatePackagesCommand,
   runWithProgress
 };
