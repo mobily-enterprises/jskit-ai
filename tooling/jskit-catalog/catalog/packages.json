@@ -1450,11 +1450,11 @@
     },
     {
       "packageId": "@jskit-ai/console-core",
-      "version": "0.1.87",
+      "version": "0.1.88",
       "descriptor": {
         "packageVersion": 1,
         "packageId": "@jskit-ai/console-core",
-        "version": "0.1.87",
+        "version": "0.1.88",
         "kind": "runtime",
         "description": "Console runtime: console settings schema, bootstrap flags, actions, and HTTP routes.",
         "dependsOn": [
@@ -1568,11 +1568,11 @@
     },
     {
       "packageId": "@jskit-ai/console-web",
-      "version": "0.1.92",
+      "version": "0.1.93",
       "descriptor": {
         "packageVersion": 1,
         "packageId": "@jskit-ai/console-web",
-        "version": "0.1.92",
+        "version": "0.1.93",
         "kind": "runtime",
         "description": "Authenticated console surface scaffold and surface policy wiring.",
         "dependsOn": [
@@ -1683,7 +1683,7 @@
           "dependencies": {
             "runtime": {
               "@jskit-ai/auth-web": "0.1.124",
-              "@jskit-ai/console-core": "0.1.87",
+              "@jskit-ai/console-core": "0.1.88",
               "@jskit-ai/shell-web": "0.1.125"
             },
             "dev": {}
@@ -6352,11 +6352,11 @@
     },
     {
       "packageId": "@jskit-ai/workspaces-core",
-      "version": "0.1.100",
+      "version": "0.1.101",
       "descriptor": {
         "packageVersion": 1,
         "packageId": "@jskit-ai/workspaces-core",
-        "version": "0.1.100",
+        "version": "0.1.101",
         "kind": "runtime",
         "description": "Workspace tenancy runtime plus HTTP routes, role catalog, and workspace config scaffolding.",
         "dependsOn": [
@@ -6709,11 +6709,11 @@
     },
     {
       "packageId": "@jskit-ai/workspaces-web",
-      "version": "0.1.101",
+      "version": "0.1.102",
       "descriptor": {
         "packageVersion": 1,
         "packageId": "@jskit-ai/workspaces-web",
-        "version": "0.1.101",
+        "version": "0.1.102",
         "kind": "runtime",
         "description": "Workspace web module: workspace selector, tools widget, workspace surfaces, members UI, and settings hosts.",
         "dependsOn": [
@@ -6971,7 +6971,7 @@
           "dependencies": {
             "runtime": {
               "@jskit-ai/auth-web": "0.1.124",
-              "@jskit-ai/workspaces-core": "0.1.100",
+              "@jskit-ai/workspaces-core": "0.1.101",
               "@jskit-ai/users-web": "0.1.140"
             },
             "dev": {}

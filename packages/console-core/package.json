@@ -1,6 +1,6 @@
 {
   "name": "@jskit-ai/console-core",
-  "version": "0.1.87",
+  "version": "0.1.88",
   "type": "module",
   "scripts": {
     "test": "node --test"
