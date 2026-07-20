@@ -1,12 +1,12 @@
 {
   "name": "@jskit-ai/crud-ui-generator",
-  "version": "0.1.103",
+  "version": "0.1.104",
   "type": "module",
   "scripts": {
     "test": "node --test"
   },
   "dependencies": {
-    "@jskit-ai/crud-core": "0.1.128",
+    "@jskit-ai/crud-core": "0.1.129",
     "@jskit-ai/kernel": "0.1.121",
     "@jskit-ai/resource-crud-core": "0.1.64"
   },

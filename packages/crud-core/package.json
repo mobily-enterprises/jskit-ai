@@ -1,6 +1,6 @@
 {
   "name": "@jskit-ai/crud-core",
-  "version": "0.1.128",
+  "version": "0.1.129",
   "type": "module",
   "scripts": {
     "test": "node --test"
@@ -33,9 +33,9 @@
     "json-rest-schema": "1.x.x",
     "@jskit-ai/realtime": "0.1.118",
     "@jskit-ai/resource-crud-core": "0.1.64",
-    "@jskit-ai/shell-web": "0.1.120",
-    "@jskit-ai/users-core": "0.1.130",
-    "@jskit-ai/users-web": "0.1.136"
+    "@jskit-ai/shell-web": "0.1.121",
+    "@jskit-ai/users-core": "0.1.131",
+    "@jskit-ai/users-web": "0.1.137"
   },
   "peerDependencies": {
     "@tanstack/vue-query": "^5.90.5",

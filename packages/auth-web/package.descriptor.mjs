@@ -1,7 +1,7 @@
 export default Object.freeze({
   "packageVersion": 1,
   "packageId": "@jskit-ai/auth-web",
-  "version": "0.1.120",
+  "version": "0.1.121",
   "kind": "runtime",
   "description": "Auth web module: Fastify auth routes plus web login/sign-out scaffolds.",
   "dependsOn": [
@@ -267,7 +267,7 @@ export default Object.freeze({
         "@jskit-ai/auth-core": "0.1.118",
         "@jskit-ai/http-runtime": "0.1.119",
         "@jskit-ai/kernel": "0.1.121",
-        "@jskit-ai/shell-web": "0.1.120"
+        "@jskit-ai/shell-web": "0.1.121"
       },
       "dev": {}
     },
