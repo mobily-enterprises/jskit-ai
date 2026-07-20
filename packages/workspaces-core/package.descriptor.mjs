@@ -1,7 +1,7 @@
 export default Object.freeze({
   packageVersion: 1,
   packageId: "@jskit-ai/workspaces-core",
-  version: "0.1.100",
+  version: "0.1.101",
   kind: "runtime",
   description: "Workspace tenancy runtime plus HTTP routes, role catalog, and workspace config scaffolding.",
   dependsOn: [
@@ -192,6 +192,7 @@ export default Object.freeze({
       {
         from: "templates/config/roles.js",
         to: "config/roles.js",
+        ownership: "app",
         preserveOnRemove: true,
         reason: "Install app-owned role catalog in a dedicated config file.",
         category: "workspaces-core",

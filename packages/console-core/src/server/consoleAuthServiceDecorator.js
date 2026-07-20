@@ -40,8 +40,9 @@ function createConsoleAuthServiceDecorator({ consoleService } = {}) {
       }
 
       return Object.freeze(
-        Object.assign(Object.create(authService), {
-          async authenticateRequest(request, ...args) {
+        Object.defineProperty(Object.create(authService), "authenticateRequest", {
+          enumerable: true,
+          value: async function authenticateRequest(request, ...args) {
             const authResult = await authService.authenticateRequest(request, ...args);
             if (consoleOwnerInitialized) {
               return authResult;

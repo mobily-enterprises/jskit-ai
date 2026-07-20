@@ -63,3 +63,56 @@ test("console auth service decorator leaves unauthenticated session reads alone"
 
   assert.equal(result.authenticated, false);
 });
+
+test("console auth service decorator safely shadows authenticateRequest on a frozen service", async () => {
+  const calls = [];
+  const ownerSeeds = [];
+  const originalAuthenticateRequest = async function authenticateRequest(request, ...args) {
+    calls.push({ request, args });
+    return {
+      authenticated: true,
+      profile: {
+        id: request.profileId
+      }
+    };
+  };
+  const originalAuthService = Object.freeze({
+    authenticateRequest: originalAuthenticateRequest,
+    readMarker() {
+      return "original-service";
+    }
+  });
+  const decorator = createConsoleAuthServiceDecorator({
+    consoleService: {
+      async ensureInitialConsoleMember(userId) {
+        ownerSeeds.push(String(userId || ""));
+        return String(userId || "");
+      }
+    }
+  });
+
+  const decoratedAuthService = decorator.decorateAuthService(originalAuthService);
+  const result = await decoratedAuthService.authenticateRequest(
+    {
+      profileId: "42",
+      url: "/api/session"
+    },
+    "forwarded-argument"
+  );
+
+  assert.equal(Object.isFrozen(originalAuthService), true);
+  assert.equal(Object.isFrozen(decoratedAuthService), true);
+  assert.equal(Object.getPrototypeOf(decoratedAuthService), originalAuthService);
+  assert.equal(originalAuthService.authenticateRequest, originalAuthenticateRequest);
+  assert.equal(decoratedAuthService.readMarker(), "original-service");
+  assert.equal(result.profile.id, "42");
+  assert.deepEqual(ownerSeeds, ["42"]);
+  assert.equal(calls.length, 1);
+  assert.deepEqual(calls[0].args, ["forwarded-argument"]);
+  assert.deepEqual(Object.getOwnPropertyDescriptor(decoratedAuthService, "authenticateRequest"), {
+    configurable: false,
+    enumerable: true,
+    value: decoratedAuthService.authenticateRequest,
+    writable: false
+  });
+});
