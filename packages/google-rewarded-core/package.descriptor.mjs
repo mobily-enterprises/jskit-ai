@@ -1,7 +1,7 @@
 export default Object.freeze({
   packageVersion: 1,
   packageId: "@jskit-ai/google-rewarded-core",
-  version: "0.1.57",
+  version: "0.1.58",
   kind: "runtime",
   description: "Google rewarded workflow runtime plus internal CRUD providers for rules, provider configs, watch sessions, and unlock receipts.",
   dependsOn: [
@@ -129,13 +129,13 @@ export default Object.freeze({
     dependencies: {
       runtime: {
         "@jskit-ai/auth-core": "0.1.118",
-        "@jskit-ai/crud-core": "0.1.128",
+        "@jskit-ai/crud-core": "0.1.129",
         "@jskit-ai/database-runtime": "0.1.120",
         "@jskit-ai/http-runtime": "0.1.119",
         "@jskit-ai/json-rest-api-core": "0.1.65",
         "@jskit-ai/kernel": "0.1.121",
         "@jskit-ai/resource-crud-core": "0.1.64",
-        "@jskit-ai/workspaces-core": "0.1.96"
+        "@jskit-ai/workspaces-core": "0.1.97"
       },
       dev: {}
     },
