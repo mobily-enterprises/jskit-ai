@@ -150,7 +150,6 @@ test("create-app scaffolds the base shell with placeholder replacements", async 
     assert.equal(packageJson.scripts["build:admin"], undefined);
     assert.equal(packageJson.scripts.server, "node ./bin/server.js");
     assert.equal(packageJson.scripts.start, "node ./bin/server.js");
-    assert.equal(packageJson.scripts.devlinks, "jskit app link-local-packages");
     assert.equal(packageJson.scripts["test:e2e"], "playwright test tests/e2e");
     assert.equal(packageJson.scripts.verify, "jskit app verify && npm run --if-present verify:app");
     assert.equal(packageJson.scripts.release, "jskit app release");
@@ -174,12 +173,8 @@ test("create-app scaffolds the base shell with placeholder replacements", async 
     assert.equal(packageJson.devDependencies.eslint, "^9.39.4");
     assert.equal(packageJson.devDependencies.vite, "^8.0.16");
     assert.equal(packageJson.devDependencies.vitest, "^4.1.9");
-    await assert.rejects(access(path.join(appRoot, "scripts/devel-link-local-packages-postinstall.sh")), /ENOENT/);
-    await assert.rejects(access(path.join(appRoot, "scripts/copy-local-packages.sh")), /ENOENT/);
-    await assert.rejects(access(path.join(appRoot, "scripts/link-local-jskit-packages.sh")), /ENOENT/);
     await assert.rejects(access(path.join(appRoot, "scripts/release.sh")), /ENOENT/);
     await assert.rejects(access(path.join(appRoot, "scripts/update-jskit-packages.sh")), /ENOENT/);
-    await assert.rejects(access(path.join(appRoot, "scripts/dev-bootstrap-jskit.sh")), /ENOENT/);
     await assert.rejects(access(path.join(appRoot, "scripts/just_run_verde")), /ENOENT/);
     await assert.rejects(access(path.join(appRoot, "scripts/verdaccio-reset-and-publish-packages.sh")), /ENOENT/);
     await assert.rejects(access(path.join(appRoot, "scripts/verdaccio/config.yaml")), /ENOENT/);

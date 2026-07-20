@@ -2,12 +2,8 @@ const MOBILE_COMMAND_DEFINITIONS = Object.freeze({
   sync: Object.freeze({
     name: "sync",
     summary: "Build the JSKIT web client and sync the Android Capacitor shell.",
-    usage: "jskit mobile android sync [--dry-run] [--devlinks]",
+    usage: "jskit mobile android sync [--dry-run]",
     options: Object.freeze([
-      Object.freeze({
-        label: "--devlinks",
-        description: "If sync needs to run npm install first, also run npm run --if-present devlinks afterward."
-      }),
       Object.freeze({
         label: "--dry-run",
         description: "Preview the build and Capacitor sync commands without writing dist output or mutating the Android shell."

@@ -134,18 +134,11 @@ async function runLocalProjectBinary(binaryName, args = [], {
 
 async function installAppDependenciesForHook({
   appRoot,
-  appPackageJson,
   io,
   pathModule = path,
   createCliError,
-  dryRun = false,
-  runDevlinks = false
+  dryRun = false
 } = {}) {
-  const packageScripts =
-    appPackageJson?.scripts && typeof appPackageJson.scripts === "object"
-      ? appPackageJson.scripts
-      : {};
-
   await runLocalProjectBinary("npm", ["install"], {
     appRoot,
     io,
@@ -154,17 +147,6 @@ async function installAppDependenciesForHook({
     explanation: "[mobile] Installing app dependencies for the mobile shell:",
     dryRun
   });
-
-  if (runDevlinks === true && Object.prototype.hasOwnProperty.call(packageScripts, "devlinks")) {
-    await runLocalProjectBinary("npm", ["run", "--if-present", "devlinks"], {
-      appRoot,
-      io,
-      pathModule,
-      createCliError,
-      explanation: "[mobile] Refreshing local JSKIT package links:",
-      dryRun
-    });
-  }
 }
 
 async function resolvePackageOptionInputForInstall({
@@ -248,8 +230,7 @@ function createInstallHookHelpers({
   ctx,
   appRoot,
   io,
-  appPackageJson,
-  commandOptions = {}
+  appPackageJson
 } = {}) {
   return Object.freeze({
     ensureManagedMobileConfig: async ({ dryRun = false } = {}) =>
@@ -263,12 +244,10 @@ function createInstallHookHelpers({
     installAppDependencies: async ({ dryRun = false } = {}) =>
       await installAppDependenciesForHook({
         appRoot,
-        appPackageJson,
         io,
         pathModule: ctx.path,
         createCliError: ctx.createCliError,
-        dryRun,
-        runDevlinks: commandOptions.devlinks === true
+        dryRun
       }),
     runProjectBinary: async (binaryName, args = [], { dryRun = false, explanation = "" } = {}) =>
       await runLocalProjectBinary(binaryName, args, {
@@ -649,8 +628,7 @@ async function runPackageAddCommand(ctx = {}, { positional, options, cwd, io }) 
     ctx,
     appRoot,
     io,
-    appPackageJson: packageJson,
-    commandOptions: options
+    appPackageJson: packageJson
   });
 
   for (const packageId of packagesToInstall) {

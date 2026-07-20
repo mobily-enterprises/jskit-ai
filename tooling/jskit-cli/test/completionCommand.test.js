@@ -90,7 +90,6 @@ test("completion bash __complete__ lists app subcommands and app-specific option
     String(subcommandResult.stdout || "").trim().split(/\r?\n/u).filter(Boolean),
     [
       "adopt-managed-scripts",
-      "link-local-packages",
       "migrate-source-mutations",
       "release",
       "sync-ci",

@@ -4,7 +4,6 @@ import {
   mkdir,
   lstat,
   readFile,
-  readlink,
   writeFile
 } from "node:fs/promises";
 import { spawnSync } from "node:child_process";
@@ -536,6 +535,64 @@ test("jskit app verify-ui rejects generic package roots that are not JSKIT apps"
   });
 });
 
+test("jskit app update-packages hands control to the latest installed CLI", async () => {
+  await withTempDir(async (cwd) => {
+    const appRoot = path.join(cwd, "app");
+    const binDir = path.join(cwd, "bin");
+    const logPath = path.join(cwd, "commands.log");
+
+    await createMinimalApp(appRoot, {
+      devDependencies: {
+        "@jskit-ai/jskit-cli": "1.2.3"
+      }
+    });
+    const installedCliRoot = path.join(appRoot, "node_modules", "@jskit-ai", "jskit-cli");
+    await mkdir(installedCliRoot, { recursive: true });
+    await writeFile(
+      path.join(installedCliRoot, "package.json"),
+      `${JSON.stringify({ name: "@jskit-ai/jskit-cli", version: "1.2.3" }, null, 2)}\n`,
+      "utf8"
+    );
+    await writeExecutable(
+      path.join(appRoot, "node_modules", ".bin", "jskit"),
+      `#!/usr/bin/env node
+const fs = require("node:fs");
+fs.appendFileSync(
+  process.env.TEST_LOG_PATH,
+  ["local-jskit", process.env.JSKIT_UPDATE_PACKAGES_BOOTSTRAPPED, ...process.argv.slice(2)].join(" ") + "\\n"
+);
+`
+    );
+    await installFakeCommand(
+      binDir,
+      "npm",
+      `#!/usr/bin/env node
+const fs = require("node:fs");
+const args = process.argv.slice(2);
+fs.appendFileSync(process.env.TEST_LOG_PATH, ["npm", ...args].join(" ") + "\\n");
+if (args[0] === "view") {
+  process.stdout.write("1.2.4\\n");
+}
+`
+    );
+
+    const result = runCli({
+      cwd: appRoot,
+      args: ["app", "update-packages"],
+      env: buildTestEnv(binDir, logPath)
+    });
+
+    assert.equal(result.status, 0, String(result.stderr || ""));
+    assert.deepEqual(await readLogLines(logPath), [
+      "npm view @jskit-ai/jskit-cli version",
+      "npm install --save-dev --save-exact @jskit-ai/jskit-cli@1.2.4",
+      "local-jskit 1 app update-packages"
+    ]);
+    assert.match(String(result.stdout || ""), /bootstrapping @jskit-ai\/jskit-cli@1\.2\.4/u);
+    assert.match(String(result.stdout || ""), /handing the update to the current local CLI/u);
+  });
+});
+
 test("jskit app update-packages updates exact root packages and aligns npm workspaces", async () => {
   await withTempDir(async (cwd) => {
     const appRoot = path.join(cwd, "app");
@@ -635,7 +692,9 @@ if (args[0] === "view") {
     const result = runCli({
       cwd: appRoot,
       args: ["app", "update-packages"],
-      env: buildTestEnv(binDir, logPath)
+      env: buildTestEnv(binDir, logPath, {
+        JSKIT_UPDATE_PACKAGES_BOOTSTRAPPED: "1"
+      })
     });
 
     assert.equal(result.status, 0, String(result.stderr || ""));
@@ -898,154 +957,6 @@ test("runWithProgress preserves task failures", async () => {
   );
 });
 
-test("jskit app link-local-packages links local repo packages, refreshes bins, and clears Vite cache", async () => {
-  await withTempDir(async (cwd) => {
-    const appRoot = path.join(cwd, "app");
-    const repoRoot = path.join(cwd, "jskit-ai");
-    const schemaRepoRoot = path.join(cwd, "json-rest-schema");
-    const storesRepoRoot = path.join(cwd, "json-rest-stores");
-
-    await createMinimalApp(appRoot, {
-      dependencies: {
-        "json-rest-schema": "1.0.0",
-        "json-rest-stores": "1.0.0"
-      }
-    });
-    await mkdir(path.join(appRoot, "node_modules", "@jskit-ai"), { recursive: true });
-    await mkdir(path.join(appRoot, "node_modules", ".vite"), { recursive: true });
-    await writeFile(path.join(appRoot, "node_modules", ".vite", "stale.txt"), "stale\n", "utf8");
-
-    const shellWebRoot = path.join(repoRoot, "packages", "shell-web");
-    await mkdir(shellWebRoot, { recursive: true });
-    await writeFile(
-      path.join(shellWebRoot, "package.json"),
-      `${JSON.stringify({ name: "@jskit-ai/shell-web", version: "0.1.0" }, null, 2)}\n`,
-      "utf8"
-    );
-
-    const cliRoot = path.join(repoRoot, "tooling", "jskit-cli");
-    await mkdir(path.join(cliRoot, "bin"), { recursive: true });
-    await writeFile(
-      path.join(cliRoot, "package.json"),
-      `${JSON.stringify(
-        {
-          name: "@jskit-ai/jskit-cli",
-          version: "0.1.0",
-          bin: {
-            jskit: "./bin/jskit.js"
-          }
-        },
-        null,
-        2
-      )}\n`,
-      "utf8"
-    );
-    await writeFile(path.join(cliRoot, "bin", "jskit.js"), "#!/usr/bin/env node\n", "utf8");
-
-	    await mkdir(schemaRepoRoot, { recursive: true });
-	    await writeFile(
-	      path.join(schemaRepoRoot, "package.json"),
-	      `${JSON.stringify({ name: "json-rest-schema", version: "1.0.0" }, null, 2)}\n`,
-	      "utf8"
-	    );
-	    const repoNodeModulesDir = path.join(repoRoot, "node_modules");
-	    await mkdir(path.join(repoNodeModulesDir, "json-rest-schema"), { recursive: true });
-	    await writeFile(path.join(repoNodeModulesDir, "json-rest-schema", "stale.txt"), "stale\n", "utf8");
-	    await mkdir(storesRepoRoot, { recursive: true });
-	    await writeFile(
-	      path.join(storesRepoRoot, "package.json"),
-	      `${JSON.stringify({ name: "json-rest-stores", version: "1.0.0" }, null, 2)}\n`,
-	      "utf8"
-	    );
-	    await mkdir(path.join(repoNodeModulesDir, "json-rest-stores"), { recursive: true });
-	    await writeFile(path.join(repoNodeModulesDir, "json-rest-stores", "stale.txt"), "stale\n", "utf8");
-
-    const result = runCli({
-      cwd: appRoot,
-      args: ["app", "link-local-packages", "--repo-root", repoRoot]
-    });
-
-    assert.equal(result.status, 0, String(result.stderr || ""));
-
-    const linkedShellWeb = path.join(appRoot, "node_modules", "@jskit-ai", "shell-web");
-    const linkedCli = path.join(appRoot, "node_modules", "@jskit-ai", "jskit-cli");
-	    const linkedJsonRestSchema = path.join(appRoot, "node_modules", "json-rest-schema");
-	    const linkedJsonRestStores = path.join(appRoot, "node_modules", "json-rest-stores");
-	    const linkedRepoJsonRestSchema = path.join(repoRoot, "node_modules", "json-rest-schema");
-	    const linkedRepoJsonRestStores = path.join(repoRoot, "node_modules", "json-rest-stores");
-	    const jskitBin = path.join(appRoot, "node_modules", ".bin", "jskit");
-
-	    assert.equal((await lstat(linkedShellWeb)).isSymbolicLink(), true);
-	    assert.equal((await lstat(linkedCli)).isSymbolicLink(), true);
-	    assert.equal((await lstat(linkedJsonRestSchema)).isSymbolicLink(), true);
-	    assert.equal((await lstat(linkedJsonRestStores)).isSymbolicLink(), true);
-	    assert.equal((await lstat(linkedRepoJsonRestSchema)).isSymbolicLink(), true);
-	    assert.equal((await lstat(linkedRepoJsonRestStores)).isSymbolicLink(), true);
-	    assert.equal((await lstat(jskitBin)).isSymbolicLink(), true);
-	    assert.equal(await readlink(linkedShellWeb), shellWebRoot);
-	    assert.equal(await readlink(linkedCli), cliRoot);
-	    assert.equal(await readlink(linkedJsonRestSchema), schemaRepoRoot);
-	    assert.equal(await readlink(linkedJsonRestStores), storesRepoRoot);
-	    assert.equal(await readlink(linkedRepoJsonRestSchema), schemaRepoRoot);
-	    assert.equal(await readlink(linkedRepoJsonRestStores), storesRepoRoot);
-	    assert.equal(await readlink(jskitBin), "../@jskit-ai/jskit-cli/bin/jskit.js");
-
-    await assert.rejects(lstat(path.join(appRoot, "node_modules", ".vite")), /ENOENT/);
-  });
-});
-
-test("jskit app link-local-packages fails when a declared companion package has no local repo source", async () => {
-  await withTempDir(async (cwd) => {
-    const appRoot = path.join(cwd, "app");
-    const repoRoot = path.join(cwd, "jskit-ai");
-
-    await createMinimalApp(appRoot, {
-      dependencies: {
-        "json-rest-schema": "1.0.0"
-      }
-    });
-    await mkdir(path.join(appRoot, "node_modules", "@jskit-ai"), { recursive: true });
-
-    const shellWebRoot = path.join(repoRoot, "packages", "shell-web");
-    await mkdir(shellWebRoot, { recursive: true });
-    await writeFile(
-      path.join(shellWebRoot, "package.json"),
-      `${JSON.stringify({ name: "@jskit-ai/shell-web", version: "0.1.0" }, null, 2)}\n`,
-      "utf8"
-    );
-
-    const cliRoot = path.join(repoRoot, "tooling", "jskit-cli");
-    await mkdir(path.join(cliRoot, "bin"), { recursive: true });
-    await writeFile(
-      path.join(cliRoot, "package.json"),
-      `${JSON.stringify(
-        {
-          name: "@jskit-ai/jskit-cli",
-          version: "0.1.0",
-          bin: {
-            jskit: "./bin/jskit.js"
-          }
-        },
-        null,
-        2
-      )}\n`,
-      "utf8"
-    );
-    await writeFile(path.join(cliRoot, "bin", "jskit.js"), "#!/usr/bin/env node\n", "utf8");
-
-    const result = runCli({
-      cwd: appRoot,
-      args: ["app", "link-local-packages", "--repo-root", repoRoot]
-    });
-
-    assert.equal(result.status, 1);
-    assert.match(
-      String(result.stderr || result.stdout || ""),
-      /companion package json-rest-schema is declared by the app but local source was not found/
-    );
-  });
-});
-
 test("jskit app adopt-managed-scripts rewrites known scaffold values and preserves customized ones by default", async () => {
   await withTempDir(async (cwd) => {
     const appRoot = path.join(cwd, "app");
@@ -1068,7 +979,6 @@ test("jskit app adopt-managed-scripts rewrites known scaffold values and preserv
     const packageJson = JSON.parse(await readFile(packageJsonPath, "utf8"));
     assert.equal(packageJson.scripts.verify, "jskit app verify && npm run --if-present verify:app");
     assert.equal(packageJson.scripts["jskit:update"], "echo keep-me");
-    assert.equal(packageJson.scripts.devlinks, "jskit app link-local-packages");
     assert.equal(packageJson.scripts.release, "jskit app release");
     assert.match(String(result.stdout || ""), /kept customized script jskit:update: echo keep-me/);
   });
@@ -1084,7 +994,6 @@ test("jskit app adopt-managed-scripts --force rewrites customized wrappers and r
       scripts: {
         verify: "echo customized",
         "jskit:update": "echo customized",
-        devlinks: "echo customized",
         release: "echo customized"
       }
     });
@@ -1101,7 +1010,6 @@ test("jskit app adopt-managed-scripts --force rewrites customized wrappers and r
     assert.deepEqual(packageJson.scripts, {
       verify: "jskit app verify && npm run --if-present verify:app",
       "jskit:update": "jskit app update-packages",
-      devlinks: "jskit app link-local-packages",
       release: "jskit app release"
     });
     await assert.rejects(lstat(copiedScriptPath), /ENOENT/);

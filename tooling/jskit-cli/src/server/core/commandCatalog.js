@@ -1,7 +1,6 @@
 const OPTION_FLAG_LABELS = Object.freeze({
   dryRun: "--dry-run",
   runNpmInstall: "--run-npm-install",
-  devlinks: "--devlinks",
   full: "--full",
   expanded: "--expanded",
   details: "--details",
@@ -136,7 +135,7 @@ const COMMAND_DESCRIPTORS = Object.freeze({
     parameters: Object.freeze([
       Object.freeze({
         name: "<subcommand>",
-        description: "verify | update-packages | link-local-packages | release | adopt-managed-scripts | migrate-source-mutations."
+        description: "verify | update-packages | release | adopt-managed-scripts | migrate-source-mutations."
       })
     ]),
     defaults: Object.freeze([
@@ -189,13 +188,12 @@ const COMMAND_DESCRIPTORS = Object.freeze({
     defaults: Object.freeze([
       "Install the shell first with jskit add package @jskit-ai/mobile-capacitor.",
       "Use jskit mobile <platform> help for platform-specific usage.",
-      "--dry-run is accepted by jskit mobile android sync/run/build.",
-      "--devlinks runs npm run --if-present devlinks after jskit mobile android sync maintenance for development-only relinking."
+      "--dry-run is accepted by jskit mobile android sync/run/build."
     ]),
     fullUse: "jskit mobile <platform> <subcommand> [help] [--dry-run] [--<option> <value>...]",
     showHelpOnBareInvocation: true,
     handlerName: "commandMobile",
-    allowedFlagKeys: Object.freeze(["dryRun", "devlinks"]),
+    allowedFlagKeys: Object.freeze(["dryRun"]),
     inlineOptionMode: "delegate",
     allowedValueOptionNames: Object.freeze([]),
     canDelegateInlineOptions: (positional = []) => Array.isArray(positional) && positional.length > 0
@@ -298,14 +296,13 @@ const COMMAND_DESCRIPTORS = Object.freeze({
       "No npm install runs unless --run-npm-install is passed.",
       "Short ids resolve to @jskit-ai/<id> when available.",
       "Running without args lists bundles and runtime packages.",
-      "Existing matching version is skipped unless options force reapply.",
-      "--devlinks runs npm run --if-present devlinks after install when the app defines that script."
+      "Existing matching version is skipped unless options force reapply."
     ]),
     fullUse:
-      "jskit add <package|bundle> <id> [--<option> <value>...] [--dry-run] [--run-npm-install] [--devlinks] [--json] [--verbose]",
+      "jskit add <package|bundle> <id> [--<option> <value>...] [--dry-run] [--run-npm-install] [--json] [--verbose]",
     showHelpOnBareInvocation: false,
     handlerName: "commandAdd",
-    allowedFlagKeys: Object.freeze(["dryRun", "runNpmInstall", "devlinks", "json", "verbose"]),
+    allowedFlagKeys: Object.freeze(["dryRun", "runNpmInstall", "json", "verbose"]),
     inlineOptionMode: "delegate",
     allowedValueOptionNames: Object.freeze([]),
     canDelegateInlineOptions: canDelegateAddInlineOptions

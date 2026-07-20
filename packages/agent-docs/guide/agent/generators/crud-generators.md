@@ -314,12 +314,6 @@ So before you build or run the app again, install that new local package:
 npm install
 ```
 
-If you are verifying the guide against a local JSKIT checkout and have already been using local package links, rerun:
-
-```bash
-npm run devlinks
-```
-
 The same rule applies after later server scaffolds such as `addresses` and `comments`. The UI generator can still read the generated resource file directly, but the app runtime needs the local package install boundary to be completed before the CRUD can boot normally.
 
 For standard CRUDs, that file is intentionally compact. It uses `defineCrudResource(...)` from `@jskit-ai/resource-crud-core`, authors the canonical `schema` / `searchSchema` / `defaultSort` / `autofilter` shape once, and lets JSKIT derive the standard CRUD operation contracts from it.
@@ -433,12 +427,6 @@ Then install the generated local package:
 
 ```bash
 npm install
-```
-
-If you are developing against a local JSKIT checkout, relink your app to the local packages before you run the UI:
-
-```bash
-npm run devlinks
 ```
 
 ### Step 3: refine the generated lookup metadata by hand
@@ -615,12 +603,6 @@ Then install the generated local package:
 
 ```bash
 npm install
-```
-
-If you are developing against a local JSKIT checkout, relink the app before you run the UI:
-
-```bash
-npm run devlinks
 ```
 
 ### Step 3: refine the generated lookup metadata by hand
