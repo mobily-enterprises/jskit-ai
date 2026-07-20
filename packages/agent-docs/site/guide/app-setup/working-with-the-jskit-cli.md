@@ -793,7 +793,7 @@ Good times to run it manually include:
 - when a package appears installed in the lock but starts behaving as if it is missing
 - when you want a fast JSKIT-specific health check without waiting for a full test suite
 
-One important nuance: `doctor` is checking for broken JSKIT ownership and visibility, not trying to stop you from editing app-owned files. For example, a managed file that still exists but whose contents changed is normally fine. The problem is when JSKIT expects a managed file to exist and it is gone, or when the installed package state no longer resolves cleanly.
+One important nuance: `doctor` is checking for broken JSKIT ownership and visibility, not trying to stop you from editing app-owned files. For example, a managed file that still exists but whose contents changed is normally fine. An app-owned file explicitly installed by a package can also live under `packages/main/src/server/` without being mistaken for undeclared domain logic. The file remains part of managed state, so deleting it is still an error. Unrelated server files under `packages/main` continue to receive the normal feature-lane warning.
 
 There is one intentional exception for user-facing UI work.
 

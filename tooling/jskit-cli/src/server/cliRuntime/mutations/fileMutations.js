@@ -20,6 +20,7 @@ import {
   loadMutationWhenConfigContext,
   resolveAppRelativePathWithinRoot
 } from "../ioAndMigrations.js";
+import { normalizeRelativePosixPath } from "../localPackageSupport.js";
 import {
   interpolateFileMutationRecord,
   renderTemplateFile,
@@ -39,7 +40,7 @@ async function prepareFileMutations(
   const existingManagedFilesByPath = new Map();
   for (const managedFileValue of ensureArray(existingManagedFiles)) {
     const managedFile = ensureObject(managedFileValue);
-    const managedPath = String(managedFile.path || "").trim();
+    const managedPath = normalizeRelativePosixPath(managedFile.path);
     if (!managedPath) {
       continue;
     }
@@ -205,7 +206,7 @@ async function applyFileMutations(
   const existingManagedFilesByPath = new Map();
   for (const managedFileValue of ensureArray(existingManagedFiles)) {
     const managedFile = ensureObject(managedFileValue);
-    const managedPath = String(managedFile.path || "").trim();
+    const managedPath = normalizeRelativePosixPath(managedFile.path);
     if (!managedPath) {
       continue;
     }
@@ -260,6 +261,7 @@ async function applyFileMutations(
         managedFiles.push({
           ...existingManaged,
           path: relativeTargetPath,
+          ownership: mutation.ownership,
           preserveOnRemove: mutation.preserveOnRemove,
           reason: mutation.reason || String(existingManaged.reason || ""),
           category: mutation.category || String(existingManaged.category || ""),
@@ -271,6 +273,7 @@ async function applyFileMutations(
       if (mutation.ownership === "app" && previous.exists && hashBuffer(previous.buffer) === renderedSourceHash) {
         managedFiles.push({
           path: relativeTargetPath,
+          ownership: mutation.ownership,
           hash: renderedSourceHash,
           hadPrevious: true,
           previousContentBase64: previous.buffer.toString("base64"),
@@ -289,6 +292,7 @@ async function applyFileMutations(
 
       managedFiles.push({
         path: relativeTargetPath,
+        ownership: mutation.ownership,
         hash: renderedSourceHash,
         hadPrevious: previous.exists,
         previousContentBase64: previous.exists ? previous.buffer.toString("base64") : "",
