@@ -177,7 +177,6 @@ The most important parts look like this:
     "server": "node ./bin/server.js",
     "server:all": "node ./bin/server.js",
     "server:home": "SERVER_SURFACE=home node ./bin/server.js",
-    "devlinks": "jskit app link-local-packages",
     "dev": "vite",
     "dev:all": "vite",
     "dev:home": "VITE_SURFACE=home vite",
@@ -221,9 +220,9 @@ The most important parts look like this:
 
 Published JSKIT libraries and tooling support Node.js 22 from 22.12.0 onward, Node.js 24, and Node.js 26. Newly generated applications deliberately require Node 26: their app-level `engines` contract, `.nvmrc`, and JSKIT-managed verification workflow all name that runtime. The app-level contract is the runtime boundary for the app and its installed JSKIT runtime packages, while independently consumed JSKIT CLI and tooling packages retain the wider supported range. The dependency on `@local/main` points at `file:packages/main`, which means your app already contains its own local JSKIT package. The maintenance scripts are also useful to notice early, because they show an important ownership boundary in JSKIT.
 
-`verify`, `jskit:update`, `devlinks`, and `release` are intentionally thin wrappers. They stay in `package.json` because they are convenient app-local shortcuts, but the real implementation lives in `jskit app ...`, not in copied scaffold scripts.
+`verify`, `jskit:update`, and `release` are intentionally thin wrappers. They stay in `package.json` because they are convenient app-local shortcuts, but the real implementation lives in `jskit app ...`, not in copied scaffold scripts.
 
-That matters because JSKIT maintenance policy changes over time. If the scaffold copied a large shell script into every app, existing apps would freeze the old behavior forever. By delegating to `jskit app verify`, `jskit app update-packages`, `jskit app link-local-packages`, and `jskit app release`, the app keeps the nice `npm run` shortcuts while the maintained behavior stays in the installed CLI package.
+That matters because JSKIT maintenance policy changes over time. If the scaffold copied a large shell script into every app, existing apps would freeze the old behavior forever. By delegating to `jskit app verify`, `jskit app update-packages`, and `jskit app release`, the app keeps the nice `npm run` shortcuts while the maintained behavior stays in the installed CLI package.
 
 The Playwright scaffold follows the same rule. `playwright.config.mjs` delegates to `@jskit-ai/jskit-cli/test/playwright`, and the starter browser specs delegate their shared responsive checks to published JSKIT helpers. The generated files stay small while later JSKIT package updates can change local server startup, managed `PLAYWRIGHT_BASE_URL` handling, and `JSKIT_PLAYWRIGHT_STORAGE_STATE` support without copying that logic into each new app.
 
@@ -839,7 +838,7 @@ That is why you saw `@jskit-ai/kernel` and `@jskit-ai/http-runtime` earlier in `
 
 ### Other files and options
 
-The remaining files are easier to understand once you know the core pieces above. `vite.config.mjs` configures the frontend build and the `/api` proxy used during development. `index.html` is the HTML shell Vite uses to mount Vue. `tests/` contains basic smoke tests so the app has a verification path from day one. The `scripts/` directory is intentionally small because JSKIT maintenance helpers such as `verify`, `jskit:update`, `devlinks`, and `release` are package-owned CLI commands rather than copied app scripts.
+The remaining files are easier to understand once you know the core pieces above. `vite.config.mjs` configures the frontend build and the `/api` proxy used during development. `index.html` is the HTML shell Vite uses to mount Vue. `tests/` contains basic smoke tests so the app has a verification path from day one. The `scripts/` directory is intentionally small because JSKIT maintenance helpers such as `verify`, `jskit:update`, and `release` are package-owned CLI commands rather than copied app scripts.
 
 The `create-app` command also accepts a few other flags that are useful without changing the basic meaning of this chapter's setup. `--title <text>` lets you replace the browser title and other template text with a friendlier app name. `--target <path>` lets you choose a different output directory instead of the default `./exampleapp`. `--tenancy-mode <mode>` can seed `none`, `personal`, or `workspaces`; for this chapter we intentionally use `none` so the first scaffold stays small and non-workspace. `--minimal` selects the bare `minimal-shell` template instead of the default shell-web app template. `--force` allows writing into a non-empty target directory when you know that is what you want. `--dry-run` prints the planned file writes without touching the filesystem, which is useful when you want to inspect what the generator would do. `-h` or `--help` prints the command help.
 

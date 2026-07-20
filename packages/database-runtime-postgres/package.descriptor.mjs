@@ -12,7 +12,7 @@ const CI_DATABASE = Object.freeze({
 export default Object.freeze({
   packageVersion: 1,
   packageId: "@jskit-ai/database-runtime-postgres",
-  version: "0.1.118",
+  version: "0.1.119",
   kind: "runtime",
   options: {
     "db-host": {
@@ -131,7 +131,7 @@ export default Object.freeze({
   mutations: {
     dependencies: {
       runtime: {
-        "@jskit-ai/database-runtime": "0.1.120",
+        "@jskit-ai/database-runtime": "0.1.121",
         "pg": "^8.13.1"
       },
       dev: {}

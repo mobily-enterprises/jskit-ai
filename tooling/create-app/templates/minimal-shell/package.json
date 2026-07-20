@@ -12,7 +12,6 @@
     "server:all": "node ./bin/server.js",
     "server:home": "SERVER_SURFACE=home node ./bin/server.js",
     "start": "node ./bin/server.js",
-    "devlinks": "jskit app link-local-packages",
     "dev": "vite",
     "dev:all": "vite",
     "dev:home": "VITE_SURFACE=home vite",

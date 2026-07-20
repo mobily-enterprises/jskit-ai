@@ -53,7 +53,6 @@ The important examples are:
 
 - `npm run verify`
 - `npm run jskit:update`
-- `npm run devlinks`
 - `npm run release`
 
 In the current scaffold, those scripts are intentionally thin:
@@ -63,7 +62,6 @@ In the current scaffold, those scripts are intentionally thin:
   "scripts": {
     "verify": "jskit app verify && npm run --if-present verify:app",
     "jskit:update": "jskit app update-packages",
-    "devlinks": "jskit app link-local-packages",
     "release": "jskit app release"
   }
 }
@@ -71,12 +69,11 @@ In the current scaffold, those scripts are intentionally thin:
 
 That is a deliberate design choice.
 
-The app keeps the handy `npm run` names, but the real maintenance policy lives in the installed CLI package instead of copied shell scripts inside the app. That means if JSKIT later changes how package updates, local linking, or baseline verification should work, apps can pick up the new behavior by updating `@jskit-ai/jskit-cli` instead of hand-editing frozen scaffold files.
+The app keeps the handy `npm run` names, but the real maintenance policy lives in the installed CLI package instead of copied shell scripts inside the app. That means if JSKIT later changes how package updates or baseline verification should work, apps can pick up the new behavior by updating `@jskit-ai/jskit-cli` instead of hand-editing frozen scaffold files.
 
 This gives you a clean ownership split:
 
 - app-owned scripts still describe how *this app* runs, builds, and tests
-- `npm run devlinks` re-applies local checkout links after `npm install` when you are testing an app against this monorepo
 - JSKIT-owned wrapper scripts delegate framework maintenance to `jskit app ...`
 
 That split is worth keeping in mind through the rest of the guide. When you see `npm run verify`, read it as "run the app's JSKIT baseline verification policy, then any app-specific extra verification hook".
@@ -116,14 +113,9 @@ npm run jskit:update
 
 After it succeeds, npm dependencies and descriptor-managed app state are current together. If a managed app-owned file is missing, a required saved option can no longer be resolved, or another package update cannot be applied safely, the app-wide update fails instead of leaving that package silently stale. `--dry-run` reports which installed packages would be reapplied without invoking their update lifecycle.
 
-There is one unavoidable bootstrap detail for apps whose installed CLI predates managed package reapplication: a CLI process that is already running cannot adopt code npm installs underneath it. Upgrade the CLI once, then run the app-wide update with the new process:
+At the start of a real update, JSKIT resolves and installs the latest `@jskit-ai/jskit-cli`, then hands the rest of the operation to that app-local CLI process. This keeps the one-command contract even when the updater itself has changed: the current code, not the already-running older process, owns package reapplication, migrations, workspace refreshes, and CI synchronization.
 
-```bash
-npm install --save-dev --save-exact @jskit-ai/jskit-cli@latest
-npm run jskit:update
-```
-
-After that bootstrap, normal future upgrades use only `npm run jskit:update`. Do not work around the first upgrade by editing `.jskit/lock.json`; the new updater must reapply the descriptor contract and write managed state itself.
+Do not pre-install the CLI separately and do not edit `.jskit/lock.json`. Run `npm run jskit:update`; the updater owns its bootstrap and writes managed state through the normal package lifecycle.
 
 The update reports elapsed progress for registry and install work. It also refreshes JSKIT-managed migrations and CI after root package changes. Preview the complete operation without changing manifests, descriptors, the lockfile, migrations, or CI with:
 
@@ -570,12 +562,6 @@ npm install
 ```
 
 `jskit add` changes the app. `npm install` downloads the dependencies that the changed app requires.
-
-If the app is being tested against a local JSKIT checkout with linked packages, run the local-link wrapper again after every `npm install`:
-
-```bash
-npm run devlinks
-```
 
 ### `add bundle`
 

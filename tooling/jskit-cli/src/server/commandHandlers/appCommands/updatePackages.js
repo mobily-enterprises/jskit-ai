@@ -33,6 +33,8 @@ const DEPENDENCY_SECTIONS = Object.freeze([
   })
 ]);
 const JSKIT_PACKAGE_PATTERN = /^@jskit-ai\/[a-z0-9._-]+$/iu;
+const JSKIT_CLI_PACKAGE = "@jskit-ai/jskit-cli";
+const UPDATE_PACKAGES_BOOTSTRAPPED_ENV = "JSKIT_UPDATE_PACKAGES_BOOTSTRAPPED";
 const PROGRESS_INTERVAL_MS = 5_000;
 
 function collectJskitPackageNames(packageMap = {}) {
@@ -511,6 +513,68 @@ async function runAppUpdatePackagesCommand(ctx = {}, { appRoot = "", options = {
 
   if (dryRun) {
     stdout?.write("[jskit:update] dry-run mode enabled.\n");
+  }
+
+  const cliSection = DEPENDENCY_SECTIONS.find((section) =>
+    Object.prototype.hasOwnProperty.call(packageJson?.[section.name] || {}, JSKIT_CLI_PACKAGE)
+  );
+  if (
+    !dryRun &&
+    cliSection &&
+    process.env[UPDATE_PACKAGES_BOOTSTRAPPED_ENV] !== "1"
+  ) {
+    await resolveLatestVersions([JSKIT_CLI_PACKAGE], latestVersions, {
+      appRoot,
+      createCliError,
+      registryArgs,
+      stderr,
+      stdout
+    });
+    const latestCliVersion = latestVersions.get(JSKIT_CLI_PACKAGE);
+    let installedCliVersion = "";
+    try {
+      installedCliVersion = String(
+        (await readJson(path.join(appRoot, "node_modules", "@jskit-ai", "jskit-cli", "package.json")))?.version || ""
+      ).trim();
+    } catch (error) {
+      if (error?.code !== "ENOENT") {
+        throw error;
+      }
+    }
+
+    if (installedCliVersion !== latestCliVersion) {
+      stdout?.write(`[jskit:update] bootstrapping ${JSKIT_CLI_PACKAGE}@${latestCliVersion}.\n`);
+      await runExternalCommandAsync(
+        "npm",
+        [
+          "install",
+          ...cliSection.installArgs,
+          ...registryArgs,
+          `${JSKIT_CLI_PACKAGE}@${latestCliVersion}`
+        ],
+        {
+          cwd: appRoot,
+          stdout,
+          stderr,
+          createCliError
+        }
+      );
+    }
+
+    stdout?.write("[jskit:update] handing the update to the current local CLI.\n");
+    await runLocalJskitAsync(
+      appRoot,
+      ["app", "update-packages", ...registryArgs],
+      {
+        env: {
+          [UPDATE_PACKAGES_BOOTSTRAPPED_ENV]: "1"
+        },
+        stdout,
+        stderr,
+        createCliError
+      }
+    );
+    return 0;
   }
 
   await runWithProgress(

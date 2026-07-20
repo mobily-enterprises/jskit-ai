@@ -34,7 +34,11 @@ test("shell-web claims starter shell files as app-owned scaffolds", () => {
     expectedExistingFrom: "templates/expected-existing/src/pages/home.vue",
     reason: "Install shell-driven home wrapper page.",
     category: "shell-web",
-    id: "shell-web-page-home-wrapper"
+    id: "shell-web-page-home-wrapper",
+    when: {
+      config: "surfaceDefinitions.home.enabled",
+      equals: "true"
+    }
   });
   assert.deepEqual(findFileMutation("shell-web-page-home"), {
     from: "templates/src/pages/home/index.vue",
@@ -44,7 +48,11 @@ test("shell-web claims starter shell files as app-owned scaffolds", () => {
     expectedExistingFrom: "templates/expected-existing/src/pages/home/index.vue",
     reason: "Install shell-driven home surface starter page.",
     category: "shell-web",
-    id: "shell-web-page-home"
+    id: "shell-web-page-home",
+    when: {
+      config: "surfaceDefinitions.home.enabled",
+      equals: "true"
+    }
   });
 });
 

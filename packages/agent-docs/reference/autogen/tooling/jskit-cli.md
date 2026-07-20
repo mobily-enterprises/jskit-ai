@@ -512,15 +512,6 @@ Exports
 Local functions
 - `shouldRewriteScript(currentValue = "", scriptName = "", force = false)`
 
-### `src/server/commandHandlers/appCommands/linkLocalPackages.js`
-Exports
-- `runAppLinkLocalPackagesCommand(ctx = {}, { appRoot = "", options = {}, stdout })`
-Local functions
-- `collectDeclaredPackageNames(packageJson = {})`
-- `verifySymlinkTarget(targetPath = "", sourceDir = "", { packageName = "" } = {})`
-- `replaceWithSymlink(targetPath = "", sourceDir = "", { packageName = "" } = {})`
-- `maybeLinkCompanionPackages({ appRoot = "", repoRoot = "", stdout, createCliError })`
-
 ### `src/server/commandHandlers/appCommands/migrateSourceMutations.js`
 Exports
 - `buildCrudFormFieldPushMigration(sourceText = "")`
@@ -558,11 +549,7 @@ Exports
 - `formatUtcReleaseTimestamp(date = new Date())`
 - `resolveLocalJskitBin(appRoot = "")`
 - `runLocalJskit(appRoot, args = [], { stdout, stderr, createCliError, quiet = false } = {})`
-- `runLocalJskitAsync(appRoot, args = [], { stdout, stderr, createCliError, quiet = false } = {})`
-- `resolveLocalRepoRoot({ appRoot = "", explicitRepoRoot = "" } = {})`
-- `discoverLocalPackageMap(repoRoot = "")`
-- `linkPackageBinEntries({ appRoot, packageDirName, sourceDir, stdout } = {})`
-- `resolveSymlinkType()`
+- `runLocalJskitAsync(appRoot, args = [], { env = {}, stdout, stderr, createCliError, quiet = false } = {})`
 Local functions
 - `ensureCommandSucceeded(result, label, { createCliError, cwd = "", stdout, stderr, quiet = false } = {})`
 
@@ -752,11 +739,11 @@ Local functions
 - `collectPlacementComponentTokensFromManagedRecords(installedPackageRecords = [])`
 - `renderWrappedShellCommand(binaryName, args = [], { maxWidth = 100, continuationIndent = " " } = {})`
 - `runLocalProjectBinary(binaryName, args = [], { appRoot, io, pathModule = path, createCliError, explanation = "", dryRun = false } = {})`
-- `installAppDependenciesForHook({ appRoot, appPackageJson, io, pathModule = path, createCliError, dryRun = false, runDevlinks = false } = {})`
+- `installAppDependenciesForHook({ appRoot, io, pathModule = path, createCliError, dryRun = false } = {})`
 - `resolvePackageOptionInputForInstall({ packageEntry, existingInstall, packageInlineOptions, appRoot, readFileBufferIfExists })`
 - `validateHookResult(result = {}, { packageId = "", hookLabel = "" } = {})`
 - `loadInstallHook({ packageEntry, appRoot, hookSpec, hookLabel = "" } = {})`
-- `createInstallHookHelpers({ ctx, appRoot, io, appPackageJson, commandOptions = {} } = {})`
+- `createInstallHookHelpers({ ctx, appRoot, io, appPackageJson } = {})`
 - `invokeInstallHook({ packageEntry, appRoot, hookSpec, hookLabel, hookContext, createCliError } = {})`
 
 ### `src/server/commandHandlers/packageCommands/create.js`

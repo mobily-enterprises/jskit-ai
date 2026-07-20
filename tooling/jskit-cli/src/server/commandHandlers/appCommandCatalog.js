@@ -1,7 +1,6 @@
 const APP_SCRIPT_WRAPPERS = Object.freeze({
   verify: "jskit app verify && npm run --if-present verify:app",
   "jskit:update": "jskit app update-packages",
-  devlinks: "jskit app link-local-packages",
   release: "jskit app release"
 });
 
@@ -12,9 +11,6 @@ const COPIED_APP_SCRIPT_VALUES = Object.freeze({
   "jskit:update": Object.freeze([
     "bash ./scripts/update-jskit-packages.sh"
   ]),
-  devlinks: Object.freeze([
-    "bash ./scripts/link-local-jskit-packages.sh"
-  ]),
   release: Object.freeze([
     "bash ./scripts/release.sh"
   ])
@@ -22,7 +18,6 @@ const COPIED_APP_SCRIPT_VALUES = Object.freeze({
 
 const COPIED_APP_SCRIPT_FILES = Object.freeze([
   "scripts/update-jskit-packages.sh",
-  "scripts/link-local-jskit-packages.sh",
   "scripts/release.sh"
 ]);
 
@@ -108,22 +103,6 @@ const APP_COMMAND_DEFINITIONS = Object.freeze({
       "Recomposes CI requirements from installed package descriptors and records the generated content hash in .jskit/lock.json.",
       "Refuses to replace a modified workflow unless --force is explicit; application-specific CI belongs in a separate workflow.",
       "Never claims an unrecorded jskit-verify.yml or removes a customized legacy verify.yml."
-    ])
-  }),
-  "link-local-packages": Object.freeze({
-    name: "link-local-packages",
-    summary: "Link local @jskit-ai workspace packages into the current app for live development.",
-    usage: "jskit app link-local-packages [--repo-root <path>]",
-    options: Object.freeze([
-      Object.freeze({
-        label: "--repo-root <path>",
-        description: "Explicit jskit-ai monorepo checkout to link from. If omitted, JSKIT_REPO_ROOT or nearby jskit-ai directories are used."
-      })
-    ]),
-    defaults: Object.freeze([
-      "Links packages from both the monorepo packages/ and tooling/ directories.",
-      "Refreshes node_modules/.bin entries for linked packages that publish binaries.",
-      "Clears node_modules/.vite so Vite does not keep stale prebundled paths."
     ])
   }),
   release: Object.freeze({
@@ -231,9 +210,6 @@ function buildAppCommandOptionMeta(subcommandName = "") {
     optionMeta.command = { inputType: "text" };
     optionMeta.feature = { inputType: "text" };
     optionMeta["auth-mode"] = { inputType: "text" };
-  }
-  if (definition.name === "link-local-packages") {
-    optionMeta["repo-root"] = { inputType: "text" };
   }
   return optionMeta;
 }

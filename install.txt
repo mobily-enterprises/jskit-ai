@@ -33,7 +33,6 @@ export __APP=beepollen
   --force
 
 npm install --verbose
-npm run devlinks
 npx jskit add package shell-web
 
 npx jskit add package auth-provider-supabase-core 
@@ -45,7 +44,6 @@ npx jskit add package workspaces-web
 npx jskit add package realtime
 
 npm install --verbose
-npm run devlinks
 npm run db:migrate
 
 git init
@@ -65,7 +63,6 @@ export __APP=beepollen
   --force
 
 npm install --verbose
-npm run devlinks
 
 npx jskit add package auth-provider-supabase-core
 npx jskit add package shell-web
@@ -75,7 +72,6 @@ npx jskit add package users-web
 npx jskit add package realtime
 
 npm install --verbose
-npm run devlinks
 npm run db:migrate
 
 git init
@@ -122,8 +118,6 @@ npx jskit generate @jskit-ai/assistant settings-page help
 
 
 ------------------------------
-npm run devlinks
-
 # CRUDS
 
 npx jskit generate crud-server-generator scaffold --namespace contacts --surface admin --table-name contacts
@@ -347,7 +341,7 @@ FIELD ADDING:
 // ONE LINE
 npx jskit generate crud-server-generator scaffold --namespace contacts --surface admin --table-name contacts;npx jskit generate @jskit-ai/crud-ui-generator crud src/pages/w/[workspaceSlug]/admin/contacts --resource-file packages/contacts/src/shared/contactResource.js;npx jskit generate crud-server-generator scaffold --namespace vets --surface admin --table-name vets;npx jskit generate @jskit-ai/crud-ui-generator crud src/pages/w/[workspaceSlug]/admin/vets --resource-file packages/vets/src/shared/vetResource.js
 
-npm install --verbose;npm run devlinks
+npm install --verbose
 
 
 

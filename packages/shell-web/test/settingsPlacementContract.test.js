@@ -359,6 +359,20 @@ test("shell-web descriptor pre-optimizes package subpaths reached only through d
 });
 
 test("shell-web descriptor metadata advertises adaptive shell outlets, default links, and installs the scaffold page", () => {
+  const homePageMutationIds = [
+    "shell-web-page-home-wrapper",
+    "shell-web-page-home",
+    "shell-web-page-home-settings-shell",
+    "shell-web-page-home-settings",
+    "shell-web-page-home-settings-general"
+  ];
+  for (const mutationId of homePageMutationIds) {
+    assert.deepEqual(findFileMutation(mutationId)?.when, {
+      config: "surfaceDefinitions.home.enabled",
+      equals: "true"
+    });
+  }
+
   assert.deepEqual(readClientContainerTokens(), [
     "runtime.web-placement.client",
     "runtime.web-bootstrap.client",
@@ -481,7 +495,11 @@ test("shell-web descriptor metadata advertises adaptive shell outlets, default l
     ownership: "app",
     reason: "Install shell-driven home settings shell route with section navigation.",
     category: "shell-web",
-    id: "shell-web-page-home-settings-shell"
+    id: "shell-web-page-home-settings-shell",
+    when: {
+      config: "surfaceDefinitions.home.enabled",
+      equals: "true"
+    }
   });
 
   assert.deepEqual(findFileMutation("shell-web-page-home-settings"), {
@@ -491,7 +509,11 @@ test("shell-web descriptor metadata advertises adaptive shell outlets, default l
     ownership: "app",
     reason: "Install shell-driven home settings redirect so the starter settings shell lands on a real child page.",
     category: "shell-web",
-    id: "shell-web-page-home-settings"
+    id: "shell-web-page-home-settings",
+    when: {
+      config: "surfaceDefinitions.home.enabled",
+      equals: "true"
+    }
   });
 
   assert.deepEqual(findFileMutation("shell-web-page-home-settings-general"), {
@@ -501,7 +523,11 @@ test("shell-web descriptor metadata advertises adaptive shell outlets, default l
     ownership: "app",
     reason: "Install shell-driven general settings child page with a tiny browser-local shell preference example.",
     category: "shell-web",
-    id: "shell-web-page-home-settings-general"
+    id: "shell-web-page-home-settings-general",
+    when: {
+      config: "surfaceDefinitions.home.enabled",
+      equals: "true"
+    }
   });
 
   assert.deepEqual(findFileMutation("shell-web-test-adaptive-shell-smoke"), {

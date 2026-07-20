@@ -1,7 +1,7 @@
 export default Object.freeze({
   packageVersion: 1,
   packageId: "@jskit-ai/shell-web",
-  version: "0.1.121",
+  version: "0.1.123",
   kind: "runtime",
   description: "Web shell layout runtime with outlet-based placement contributions.",
   dependsOn: [],
@@ -311,7 +311,7 @@ export default Object.freeze({
     dependencies: {
       runtime: {
         "@mdi/js": "^7.4.47",
-        "@jskit-ai/kernel": "0.1.121"
+        "@jskit-ai/kernel": "0.1.122"
       },
       dev: {
         "@playwright/test": "1.61.1"
@@ -458,7 +458,11 @@ export default Object.freeze({
         expectedExistingFrom: "templates/expected-existing/src/pages/home.vue",
         reason: "Install shell-driven home wrapper page.",
         category: "shell-web",
-        id: "shell-web-page-home-wrapper"
+        id: "shell-web-page-home-wrapper",
+        when: {
+          config: "surfaceDefinitions.home.enabled",
+          equals: "true"
+        }
       },
       {
         from: "templates/src/pages/home/index.vue",
@@ -468,7 +472,11 @@ export default Object.freeze({
         expectedExistingFrom: "templates/expected-existing/src/pages/home/index.vue",
         reason: "Install shell-driven home surface starter page.",
         category: "shell-web",
-        id: "shell-web-page-home"
+        id: "shell-web-page-home",
+        when: {
+          config: "surfaceDefinitions.home.enabled",
+          equals: "true"
+        }
       },
       {
         from: "templates/src/pages/home/settings.vue",
@@ -477,7 +485,11 @@ export default Object.freeze({
         ownership: "app",
         reason: "Install shell-driven home settings shell route with section navigation.",
         category: "shell-web",
-        id: "shell-web-page-home-settings-shell"
+        id: "shell-web-page-home-settings-shell",
+        when: {
+          config: "surfaceDefinitions.home.enabled",
+          equals: "true"
+        }
       },
       {
         from: "templates/src/pages/home/settings/index.vue",
@@ -486,7 +498,11 @@ export default Object.freeze({
         ownership: "app",
         reason: "Install shell-driven home settings redirect so the starter settings shell lands on a real child page.",
         category: "shell-web",
-        id: "shell-web-page-home-settings"
+        id: "shell-web-page-home-settings",
+        when: {
+          config: "surfaceDefinitions.home.enabled",
+          equals: "true"
+        }
       },
       {
         from: "templates/src/pages/home/settings/general/index.vue",
@@ -495,7 +511,11 @@ export default Object.freeze({
         ownership: "app",
         reason: "Install shell-driven general settings child page with a tiny browser-local shell preference example.",
         category: "shell-web",
-        id: "shell-web-page-home-settings-general"
+        id: "shell-web-page-home-settings-general",
+        when: {
+          config: "surfaceDefinitions.home.enabled",
+          equals: "true"
+        }
       },
       {
         from: "templates/tests/e2e/adaptive-shell.spec.ts",

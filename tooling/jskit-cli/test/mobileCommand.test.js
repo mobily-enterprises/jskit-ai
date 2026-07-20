@@ -142,7 +142,6 @@ function buildTestEnv(binDir, logPath, extra = {}) {
 
 async function createMobileReadyApp(appRoot, {
   includeMobileConfig = true,
-  includeDevlinksScript = false,
   assetMode = "bundled",
   appId = "com.example.mobile",
   appName = "Example Mobile",
@@ -163,14 +162,7 @@ async function createMobileReadyApp(appRoot, {
         name: "example-mobile-app",
         version: "0.1.0",
         private: true,
-        type: "module",
-        ...(includeDevlinksScript
-          ? {
-              scripts: {
-                devlinks: "jskit app link-local-packages"
-              }
-            }
-          : {})
+        type: "module"
       },
       null,
       2
@@ -431,8 +423,7 @@ test("jskit add package @jskit-ai/mobile-capacitor installs through hooks with c
     const logPath = path.join(cwd, "commands.log");
 
     await createMobileReadyApp(appRoot, {
-      includeMobileConfig: false,
-      includeDevlinksScript: true
+      includeMobileConfig: false
     });
     await installFakeCommand(
       binDir,
@@ -470,9 +461,7 @@ if (process.argv[2] === "add" && process.argv[3] === "android") {
     const result = runCli({
       cwd: appRoot,
       args: ["add", "package", "@jskit-ai/mobile-capacitor"],
-      env: buildTestEnv(binDir, logPath, {
-        JSKIT_REPO_ROOT: "/home/merc/Development/current/jskit-ai"
-      })
+      env: buildTestEnv(binDir, logPath)
     });
 
     assert.equal(result.status, 0, String(result.stderr || ""));
@@ -586,9 +575,7 @@ test("jskit add package @jskit-ai/mobile-capacitor reprovisions a partial Androi
     const binDir = path.join(cwd, "bin");
     const logPath = path.join(cwd, "commands.log");
 
-    await createMobileReadyApp(appRoot, {
-      includeDevlinksScript: true
-    });
+    await createMobileReadyApp(appRoot);
     await mkdir(path.join(appRoot, "android", "app", "src", "main"), { recursive: true });
 
     await installFakeCommand(
@@ -627,9 +614,7 @@ if (process.argv[2] === "add" && process.argv[3] === "android") {
     const result = runCli({
       cwd: appRoot,
       args: ["add", "package", "@jskit-ai/mobile-capacitor"],
-      env: buildTestEnv(binDir, logPath, {
-        JSKIT_REPO_ROOT: "/home/merc/Development/current/jskit-ai"
-      })
+      env: buildTestEnv(binDir, logPath)
     });
 
     assert.equal(result.status, 0, String(result.stderr || ""));
@@ -654,9 +639,7 @@ test("jskit add package @jskit-ai/mobile-capacitor reapplies lifecycle hooks for
     const binDir = path.join(cwd, "bin");
     const logPath = path.join(cwd, "commands.log");
 
-    await createMobileReadyApp(appRoot, {
-      includeDevlinksScript: true
-    });
+    await createMobileReadyApp(appRoot);
     await markPackageAsInstalled(appRoot, "@jskit-ai/mobile-capacitor", "0.1.0");
     await mkdir(path.join(appRoot, "android", "app", "src", "main"), { recursive: true });
 
@@ -696,9 +679,7 @@ if (process.argv[2] === "add" && process.argv[3] === "android") {
     const result = runCli({
       cwd: appRoot,
       args: ["add", "package", "@jskit-ai/mobile-capacitor"],
-      env: buildTestEnv(binDir, logPath, {
-        JSKIT_REPO_ROOT: "/home/merc/Development/current/jskit-ai"
-      })
+      env: buildTestEnv(binDir, logPath)
     });
 
     assert.equal(result.status, 0, String(result.stderr || ""));

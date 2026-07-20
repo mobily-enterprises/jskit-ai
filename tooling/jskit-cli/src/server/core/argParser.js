@@ -14,7 +14,6 @@ function parseArgs(argv, { createCliError } = {}) {
       options: {
         dryRun: false,
         runNpmInstall: false,
-        devlinks: false,
         full: false,
         expanded: false,
         details: false,
@@ -41,7 +40,6 @@ function parseArgs(argv, { createCliError } = {}) {
   const options = {
     dryRun: false,
     runNpmInstall: false,
-    devlinks: false,
     full: false,
     expanded: false,
     details: false,
@@ -71,10 +69,6 @@ function parseArgs(argv, { createCliError } = {}) {
     }
     if (token === "--run-npm-install") {
       options.runNpmInstall = true;
-      continue;
-    }
-    if (token === "--devlinks") {
-      options.devlinks = true;
       continue;
     }
     if (token === "--full") {
