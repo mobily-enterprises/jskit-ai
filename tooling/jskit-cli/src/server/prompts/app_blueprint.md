@@ -33,7 +33,7 @@ Cover:
 - The role of each surface: app, admin, console, settings, public, workspace, or any app-specific surface from the brief.
 - Global view of the main product areas and navigation destinations.
 - Key domain concepts and data objects, without inventing database schemas unless the brief clearly requires them.
-- Ownership model per persistent entity when it is already clear: public, user, workspace, or workspace_user.
+- Ownership model per persistent entity when it is already clear: public, user, workspace, or workspace_user. Treat only the exact columns `workspace_id` and `user_id` as standard JSKIT ownership, and require the selected ownership filter to match those columns exactly. Treat specific foreign keys such as `recipient_user_id`, `created_by_user_id`, and `assignee_user_id` as domain relationships, not ownership aliases. Never rename a domain relationship to an ownership column to satisfy tooling.
 - Baseline JSKIT package workflows to accept as defaults and any intended overrides.
 - Package install, generator, and custom-code areas at a high level.
 - CRUDs likely to need server ownership, and any narrow exceptions that should be called out later.

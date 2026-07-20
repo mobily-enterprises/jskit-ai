@@ -82,17 +82,27 @@ function asRecord(value) {
   return value;
 }
 
-function resolveInternalRouteOption(options = {}) {
-  if (!Object.prototype.hasOwnProperty.call(options, "internal")) {
+function resolveBooleanFlagOption(options = {}, optionName = "") {
+  const normalizedOptionName = normalizeText(optionName);
+  if (!normalizedOptionName || !Object.prototype.hasOwnProperty.call(options, normalizedOptionName)) {
     return false;
   }
-  if (options.internal === undefined || options.internal === true) {
+  const value = options[normalizedOptionName];
+  if (value === undefined || value === true) {
     return true;
   }
-  if (options.internal === "" || options.internal == null || options.internal === false) {
+  if (value === "" || value == null || value === false) {
     return false;
   }
-  return normalizeBoolean(options.internal);
+  return normalizeBoolean(value);
+}
+
+function resolveInternalRouteOption(options = {}) {
+  return resolveBooleanFlagOption(options, "internal");
+}
+
+function resolveNoRoleGrantOption(options = {}) {
+  return resolveBooleanFlagOption(options, "no-role-grant");
 }
 
 function normalizeRequestedOwnershipFilter(value, { strict = false } = {}) {
@@ -126,9 +136,6 @@ function inferOwnershipFilterFromSnapshot(snapshot) {
 function assertOwnershipColumnsForFilter(snapshot, filter) {
   const hasWorkspace = snapshot?.hasWorkspaceIdColumn === true;
   const hasUser = snapshot?.hasUserIdColumn === true;
-  if (filter === "public") {
-    return;
-  }
   if (filter === "workspace" && !hasWorkspace) {
     throw new Error(
       'Ownership filter "workspace" requires column "workspace_id".'
@@ -142,6 +149,20 @@ function assertOwnershipColumnsForFilter(snapshot, filter) {
   if (filter === "workspace_user" && (!hasWorkspace || !hasUser)) {
     throw new Error(
       'Ownership filter "workspace_user" requires both columns "workspace_id" and "user_id".'
+    );
+  }
+
+  const inferredFilter = inferOwnershipFilterFromSnapshot(snapshot);
+  if (filter !== inferredFilter) {
+    const directOwnerColumns = [
+      ...(hasWorkspace ? ["workspace_id"] : []),
+      ...(hasUser ? ["user_id"] : [])
+    ];
+    throw new Error(
+      `Ownership filter "${filter}" conflicts with the table's reserved ownership columns ` +
+        `${directOwnerColumns.length > 0 ? directOwnerColumns.map((columnName) => `"${columnName}"`).join(", ") : "(none)"}. ` +
+        `Use ownership filter "${inferredFilter}". The exact columns "workspace_id" and "user_id" define JSKIT ownership; ` +
+        "rename domain relationships to a specific foreign-key name instead of using a reserved ownership column."
     );
   }
 }
@@ -246,7 +267,8 @@ async function importModuleFromApp(appRequire, moduleId, contextLabel) {
 async function resolveCrudSurfaceRequiresWorkspace({
   appRoot,
   options,
-  surface = ""
+  surface = "",
+  appConfig = null
 } = {}) {
   const namespace = normalizeText(options?.namespace);
   const resolvedSurface = normalizeText(surface || options?.surface);
@@ -257,14 +279,16 @@ async function resolveCrudSurfaceRequiresWorkspace({
     throw new Error('crud template context requires option "surface".');
   }
 
-  const appConfig = await loadCrudAppConfig(appRoot);
+  const resolvedAppConfig = appConfig && typeof appConfig === "object"
+    ? appConfig
+    : await loadCrudAppConfig(appRoot);
   const crudPolicy = resolveCrudSurfacePolicyFromAppConfig(
     {
       namespace,
       surface: resolvedSurface,
       ownershipFilter: options?.["ownership-filter"]
     },
-    appConfig,
+    resolvedAppConfig,
     {
       context: "crud template context"
     }
@@ -318,15 +342,18 @@ function resolveDefaultCrudSurfaceIdFromAppConfig(appConfig = {}) {
 
 async function resolveCrudGenerationSurfaceId({
   appRoot,
-  options
+  options,
+  appConfig = null
 } = {}) {
   const explicitSurface = normalizeText(options?.surface).toLowerCase();
   if (explicitSurface) {
     return explicitSurface;
   }
 
-  const appConfig = await loadCrudAppConfig(appRoot);
-  const defaultSurface = resolveDefaultCrudSurfaceIdFromAppConfig(appConfig);
+  const resolvedAppConfig = appConfig && typeof appConfig === "object"
+    ? appConfig
+    : await loadCrudAppConfig(appRoot);
+  const defaultSurface = resolveDefaultCrudSurfaceIdFromAppConfig(resolvedAppConfig);
   if (defaultSurface) {
     return defaultSurface;
   }
@@ -1645,6 +1672,87 @@ function buildCrudPermissionIds(namespace = "") {
   );
 }
 
+function resolveConfiguredRoleEntries(appConfig = {}) {
+  const configuredRoles = asRecord(appConfig?.roleCatalog?.roles);
+  return Object.entries(configuredRoles)
+    .map(([roleId, definition]) => ({
+      configuredRoleId: roleId,
+      normalizedRoleId: normalizeText(roleId).toLowerCase(),
+      definition: asRecord(definition)
+    }))
+    .filter((entry) => entry.normalizedRoleId);
+}
+
+function formatAvailableRoleIds(roleEntries = []) {
+  const roleIds = (Array.isArray(roleEntries) ? roleEntries : [])
+    .map((entry) => normalizeText(entry?.normalizedRoleId))
+    .filter(Boolean)
+    .sort((left, right) => left.localeCompare(right));
+  return roleIds.length > 0 ? roleIds.join(", ") : "(none)";
+}
+
+function resolveCrudPermissionGrantRole(
+  appConfig = {},
+  options = {},
+  { requiresNamedPermissions = true } = {}
+) {
+  const requestedRoleId = normalizeText(options?.["grant-role"]).toLowerCase();
+  const noRoleGrant = resolveNoRoleGrantOption(options);
+
+  if (requestedRoleId && noRoleGrant) {
+    throw new Error('CRUD generation options "--grant-role" and "--no-role-grant" cannot be used together.');
+  }
+
+  if (!requiresNamedPermissions) {
+    if (requestedRoleId || noRoleGrant) {
+      throw new Error(
+        'CRUD generation options "--grant-role" and "--no-role-grant" apply only to surfaces that require a workspace.'
+      );
+    }
+    return "";
+  }
+
+  if (noRoleGrant) {
+    return "";
+  }
+
+  const roleEntries = resolveConfiguredRoleEntries(appConfig);
+  const availableRoleIds = formatAvailableRoleIds(roleEntries);
+  if (!requestedRoleId) {
+    throw new Error(
+      "Workspace CRUD generation requires an explicit permission grant policy. " +
+        'Use "--grant-role <role-id>" or "--no-role-grant". ' +
+        `Available roles: ${availableRoleIds}.`
+    );
+  }
+
+  const roleEntryById = new Map(
+    roleEntries.map((entry) => [entry.normalizedRoleId, entry])
+  );
+  const targetRole = roleEntryById.get(requestedRoleId) || null;
+
+  if (!targetRole) {
+    throw new Error(
+      `CRUD permission grant role "${requestedRoleId}" is not configured in roleCatalog.roles. ` +
+        `Available roles: ${availableRoleIds}.`
+    );
+  }
+
+  if (!Array.isArray(targetRole.definition.permissions)) {
+    throw new Error(
+      `roleCatalog.roles.${targetRole.normalizedRoleId}.permissions must be an array before CRUD permissions can be granted.`
+    );
+  }
+  if (!Object.isExtensible(targetRole.definition.permissions)) {
+    throw new Error(
+      `roleCatalog.roles.${targetRole.normalizedRoleId}.permissions must be mutable before CRUD permissions can be granted. ` +
+        'Use "--no-role-grant" when the role catalog must remain immutable.'
+    );
+  }
+
+  return targetRole.configuredRoleId;
+}
+
 function normalizeCrudOperation(operation = "", context = "CRUD operation") {
   const normalizedOperation = normalizeText(operation).toLowerCase();
   if (!CRUD_PERMISSION_OPERATIONS.includes(normalizedOperation)) {
@@ -1653,14 +1761,20 @@ function normalizeCrudOperation(operation = "", context = "CRUD operation") {
   return normalizedOperation;
 }
 
-function renderRoleCatalogPermissionGrants(namespace = "", { requiresNamedPermissions = true } = {}) {
+function renderRoleCatalogPermissionGrants(
+  namespace = "",
+  { requiresNamedPermissions = true, grantRoleId = "" } = {}
+) {
   const permissionIds = buildCrudPermissionIds(namespace);
-  if (!requiresNamedPermissions || !permissionIds) {
+  const normalizedGrantRoleId = normalizeText(grantRoleId);
+  if (!requiresNamedPermissions || !permissionIds || !normalizedGrantRoleId) {
     return "";
   }
 
+  const rolePermissionsExpression = `roleCatalog.roles[${JSON.stringify(normalizedGrantRoleId)}].permissions`;
+
   return [
-    "roleCatalog.roles.member.permissions.push(",
+    `${rolePermissionsExpression}.push(`,
     `  ${JSON.stringify(permissionIds.list)},`,
     `  ${JSON.stringify(permissionIds.view)},`,
     `  ${JSON.stringify(permissionIds.create)},`,
@@ -1866,9 +1980,11 @@ function buildReplacementsFromSnapshot({
   resolvedOwnershipFilter,
   surfaceRequiresWorkspace = true,
   surfaceId = "",
-  routeInternal = false
+  routeInternal = false,
+  permissionGrantRoleId = ""
 }) {
   const requiresNamedPermissions = surfaceRequiresWorkspace === true;
+  const resolvedPermissionGrantRoleId = normalizeText(permissionGrantRoleId);
   const scaffoldColumns = resolveScaffoldColumns(snapshot);
   const outputColumns = scaffoldColumns.filter((column) => !column.isOwnerColumn);
   const writableColumns = scaffoldColumns.filter((column) => column.writable);
@@ -1924,7 +2040,8 @@ function buildReplacementsFromSnapshot({
       requiresNamedPermissions
     }),
     __JSKIT_CRUD_ROLE_CATALOG_PERMISSION_GRANTS__: renderRoleCatalogPermissionGrants(namespace, {
-      requiresNamedPermissions
+      requiresNamedPermissions,
+      grantRoleId: resolvedPermissionGrantRoleId
     }),
     __JSKIT_CRUD_ROUTE_SURFACE_REQUIRES_WORKSPACE__: String(surfaceRequiresWorkspace === true),
     __JSKIT_CRUD_ROUTE_BASE__: JSON.stringify(surfaceRequiresWorkspace === true ? "/w/:workspaceSlug" : "/"),
@@ -2024,7 +2141,9 @@ function createCacheKey({ appRoot, options }) {
       ownershipFilter: normalizeText(options?.["ownership-filter"]),
       tableName: normalizeText(options?.["table-name"]),
       idColumn: normalizeText(options?.["id-column"]),
-      internal: resolveInternalRouteOption(options)
+      internal: resolveInternalRouteOption(options),
+      grantRole: normalizeText(options?.["grant-role"]).toLowerCase(),
+      noRoleGrant: resolveNoRoleGrantOption(options)
     }
   };
 
@@ -2043,16 +2162,26 @@ async function buildCrudTemplateContext(input = {}) {
   if (!tableName) {
     throw new Error('crud template context requires option "table-name".');
   }
+  const appConfig = await loadCrudAppConfig(appRoot);
   const resolvedSurface = await resolveCrudGenerationSurfaceId({
     appRoot,
-    options
+    options,
+    appConfig
+  });
+  const surfaceRequiresWorkspace = await resolveCrudSurfaceRequiresWorkspace({
+    appRoot,
+    options,
+    surface: resolvedSurface,
+    appConfig
+  });
+  const permissionGrantRoleId = resolveCrudPermissionGrantRole(appConfig, options, {
+    requiresNamedPermissions: surfaceRequiresWorkspace
   });
   const snapshot = await resolveGenerationSnapshot({
     appRoot,
     tableName,
     idColumnOption: options["id-column"]
   });
-
   const resolvedOwnershipFilter = resolveOwnershipFilterForGeneration(
     snapshot,
     options["ownership-filter"],
@@ -2060,11 +2189,6 @@ async function buildCrudTemplateContext(input = {}) {
       enforceTableColumns: true
     }
   );
-  const surfaceRequiresWorkspace = await resolveCrudSurfaceRequiresWorkspace({
-    appRoot,
-    options,
-    surface: resolvedSurface
-  });
   const routeInternal = resolveInternalRouteOption(options);
 
   return buildReplacementsFromSnapshot({
@@ -2073,8 +2197,38 @@ async function buildCrudTemplateContext(input = {}) {
     resolvedOwnershipFilter,
     surfaceRequiresWorkspace,
     surfaceId: resolvedSurface,
-    routeInternal
+    routeInternal,
+    permissionGrantRoleId
   });
+}
+
+async function prepareInstallHook({
+  appRoot,
+  packageOptions = {}
+} = {}) {
+  const options = asRecord(packageOptions);
+  const namespace = normalizeText(options.namespace);
+  if (!namespace) {
+    throw new Error('crud install preflight requires option "namespace".');
+  }
+
+  const appConfig = await loadCrudAppConfig(appRoot);
+  const resolvedSurface = await resolveCrudGenerationSurfaceId({
+    appRoot,
+    options,
+    appConfig
+  });
+  const surfaceRequiresWorkspace = await resolveCrudSurfaceRequiresWorkspace({
+    appRoot,
+    options,
+    surface: resolvedSurface,
+    appConfig
+  });
+  resolveCrudPermissionGrantRole(appConfig, options, {
+    requiresNamedPermissions: surfaceRequiresWorkspace
+  });
+
+  return {};
 }
 
 async function buildTemplateContext(input = {}) {
@@ -2108,6 +2262,7 @@ const __testables = Object.freeze({
   resolveDefaultCrudSurfaceIdFromAppConfig,
   resolveCrudGenerationSurfaceId,
   resolveCrudSurfaceRequiresWorkspace,
+  resolveCrudPermissionGrantRole,
   buildCrudPermissionIds,
   renderRoleCatalogPermissionGrants,
   renderActionPermissionSupport,
@@ -2116,7 +2271,8 @@ const __testables = Object.freeze({
   renderRouteValidatorConstants,
   renderRouteParamsValidatorLine,
   renderRouteInputLines,
-  resolveInternalRouteOption
+  resolveInternalRouteOption,
+  resolveNoRoleGrantOption
 });
 
 export {
@@ -2126,5 +2282,6 @@ export {
   renderCanonicalResourceFieldSchema,
   buildFieldContractEntries,
   resolveCrudGenerationSurfaceId,
+  prepareInstallHook,
   __testables
 };

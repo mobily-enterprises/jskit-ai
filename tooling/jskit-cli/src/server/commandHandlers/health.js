@@ -1659,11 +1659,22 @@ function createHealthCommands(ctx = {}) {
       const crudOwnership = crudOwnershipByTable.get(tableName) || null;
       if (crudOwnership) {
         const missingRequiredOwnerKinds = subtractStringSet(crudOwnership.requiredOwnerKinds, directOwnerKinds);
+        const unexpectedOwnerKinds = subtractStringSet(directOwnerKinds, crudOwnership.requiredOwnerKinds);
         if (missingRequiredOwnerKinds.size > 0) {
           issues.push(
             `${crudOwnership.providerPath}: [crud-ownership:missing-owner-columns] ownershipFilter "${crudOwnership.ownershipFilter}" requires live table "${tableName}" to carry direct owner column(s) ${formatOwnerColumns(missingRequiredOwnerKinds)}. JSKIT CRUD ownership must be materialized on the row, not recovered through joins.`
           );
         }
+        if (unexpectedOwnerKinds.size > 0) {
+          issues.push(
+            `${crudOwnership.providerPath}: [crud-ownership:unexpected-owner-columns] ownershipFilter "${crudOwnership.ownershipFilter}" conflicts with reserved owner column(s) ${formatOwnerColumns(unexpectedOwnerKinds)} on live table "${tableName}". The exact direct columns "workspace_id" and "user_id" define JSKIT ownership; change the filter to match, or rename a domain relationship to a specific foreign-key name.`
+          );
+        }
+
+        // Direct workspace_id and user_id columns define this CRUD's ownership, and the checks
+        // above require its filter to agree. Foreign-key reachability through domain relationships
+        // such as recipient_user_id and created_by_user_id does not add another owner.
+        continue;
       }
 
       if (inheritedOwnerKinds.size < 1 || allowsAuxiliaryInheritedOwnership) {

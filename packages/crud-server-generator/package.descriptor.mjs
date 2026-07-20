@@ -1,7 +1,7 @@
 export default Object.freeze({
   packageVersion: 1,
   packageId: "@jskit-ai/crud-server-generator",
-  version: "0.1.131",
+  version: "0.1.133",
   kind: "generator",
   description: "CRUD server generator with routes, actions, and persistence scaffolding.",
   options: {
@@ -63,6 +63,20 @@ export default Object.freeze({
       defaultValue: "",
       promptLabel: "Internal HTTP routes",
       promptHint: "Mark generated CRUD HTTP routes as internal-only so they are not publicly registered."
+    },
+    "grant-role": {
+      required: false,
+      inputType: "text",
+      defaultValue: "",
+      promptLabel: "CRUD permission grant role",
+      promptHint: "Configured workspace role that receives generated CRUD permissions; choose this or --no-role-grant."
+    },
+    "no-role-grant": {
+      required: false,
+      inputType: "flag",
+      defaultValue: "",
+      promptLabel: "Skip automatic role grant",
+      promptHint: "Generate normal CRUD permissions without assigning them to a workspace role."
     }
   },
   optionPolicies: {
@@ -98,6 +112,14 @@ export default Object.freeze({
       ]
     }
   },
+  lifecycle: {
+    install: {
+      prepare: {
+        entrypoint: "src/server/buildTemplateContext.js",
+        export: "prepareInstallHook"
+      }
+    }
+  },
   metadata: {
     generatorPrimarySubcommand: "scaffold",
     generatorSubcommands: {
@@ -111,7 +133,9 @@ export default Object.freeze({
           "id-column",
           "directory-prefix",
           "force",
-          "internal"
+          "internal",
+          "grant-role",
+          "no-role-grant"
         ],
         createTarget: {
           pathTemplate: "packages/${option:namespace|kebab}",
@@ -160,14 +184,14 @@ export default Object.freeze({
   mutations: {
     dependencies: {
       runtime: {
-        "@jskit-ai/auth-core": "0.1.120",
-        "@jskit-ai/crud-core": "0.1.131",
-        "@jskit-ai/database-runtime": "0.1.122",
-        "@jskit-ai/http-runtime": "0.1.121",
-        "@jskit-ai/json-rest-api-core": "0.1.67",
-        "@jskit-ai/kernel": "0.1.123",
-        "@jskit-ai/realtime": "0.1.120",
-        "@jskit-ai/resource-crud-core": "0.1.66",
+        "@jskit-ai/auth-core": "0.1.121",
+        "@jskit-ai/crud-core": "0.1.132",
+        "@jskit-ai/database-runtime": "0.1.123",
+        "@jskit-ai/http-runtime": "0.1.122",
+        "@jskit-ai/json-rest-api-core": "0.1.68",
+        "@jskit-ai/kernel": "0.1.124",
+        "@jskit-ai/realtime": "0.1.121",
+        "@jskit-ai/resource-crud-core": "0.1.67",
         "@local/${option:namespace|kebab}": "file:packages/${option:namespace|kebab}"
       },
       dev: {}
@@ -285,7 +309,7 @@ export default Object.freeze({
         position: "bottom",
         skipIfContains: "\"crud.${option:namespace|snake}.list\"",
         value: "__JSKIT_CRUD_ROLE_CATALOG_PERMISSION_GRANTS__",
-        reason: "Grant generated CRUD action permissions to the default member role in the app-owned role catalog.",
+        reason: "Grant generated CRUD action permissions to the selected role in the app-owned role catalog.",
         category: "crud",
         id: "crud-role-catalog-permissions-${option:namespace|snake}",
         templateContext: {

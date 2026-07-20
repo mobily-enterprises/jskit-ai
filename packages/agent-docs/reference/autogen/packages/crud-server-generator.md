@@ -21,13 +21,16 @@ Exports
 - `resolveGenerationSnapshot({ appRoot, tableName, idColumnOption } = {})`
 - `renderCanonicalResourceFieldSchema(column, { fieldContractEntry = null } = {})`
 - `buildFieldContractEntries({ outputColumns = [], writableColumns = [], snapshot = {} } = {})`
-- `resolveCrudGenerationSurfaceId({ appRoot, options } = {})`
+- `resolveCrudGenerationSurfaceId({ appRoot, options, appConfig = null } = {})`
+- `prepareInstallHook({ appRoot, packageOptions = {} } = {})`
 - `__testables`
 Local functions
 - `resolveAllowedValues(schema = {}, fallbackValues = [])`
 - `resolveGlobalScaffoldCache()`
 - `asRecord(value)`
+- `resolveBooleanFlagOption(options = {}, optionName = "")`
 - `resolveInternalRouteOption(options = {})`
+- `resolveNoRoleGrantOption(options = {})`
 - `normalizeRequestedOwnershipFilter(value, { strict = false } = {})`
 - `inferOwnershipFilterFromSnapshot(snapshot)`
 - `assertOwnershipColumnsForFilter(snapshot, filter)`
@@ -36,7 +39,7 @@ Local functions
 - `loadEnvFromApp(appRoot)`
 - `createAppRequire(appRoot)`
 - `importModuleFromApp(appRequire, moduleId, contextLabel)`
-- `resolveCrudSurfaceRequiresWorkspace({ appRoot, options, surface = "" } = {})`
+- `resolveCrudSurfaceRequiresWorkspace({ appRoot, options, surface = "", appConfig = null } = {})`
 - `loadCrudAppConfig(appRoot = "")`
 - `resolveSurfaceDefinitions(appConfig = {})`
 - `resolveDefaultCrudSurfaceIdFromAppConfig(appConfig = {})`
@@ -84,8 +87,11 @@ Local functions
 - `normalizeFieldMetaUiOptions(rawOptions = [])`
 - `resolveEnumFieldMetaUiOptions(enumValues = [])`
 - `buildCrudPermissionIds(namespace = "")`
+- `resolveConfiguredRoleEntries(appConfig = {})`
+- `formatAvailableRoleIds(roleEntries = [])`
+- `resolveCrudPermissionGrantRole(appConfig = {}, options = {}, { requiresNamedPermissions = true } = {})`
 - `normalizeCrudOperation(operation = "", context = "CRUD operation")`
-- `renderRoleCatalogPermissionGrants(namespace = "", { requiresNamedPermissions = true } = {})`
+- `renderRoleCatalogPermissionGrants(namespace = "", { requiresNamedPermissions = true, grantRoleId = "" } = {})`
 - `renderActionPermissionSupport(namespace = "", { requiresNamedPermissions = true } = {})`
 - `renderActionPermissionExpression(operation = "", { requiresNamedPermissions = true } = {})`
 - `renderRouteWorkspaceSupportImports({ surfaceRequiresWorkspace = true } = {})`
@@ -96,7 +102,7 @@ Local functions
 - `renderObjectSchemaDefinition(lines = [], { mode = "patch" } = {})`
 - `renderActionInputExpressions({ surfaceRequiresWorkspace = true } = {})`
 - `renderRouteValidatorConstants({ surfaceRequiresWorkspace = true } = {})`
-- `buildReplacementsFromSnapshot({ namespace = "", snapshot, resolvedOwnershipFilter, surfaceRequiresWorkspace = true, surfaceId = "", routeInternal = false })`
+- `buildReplacementsFromSnapshot({ namespace = "", snapshot, resolvedOwnershipFilter, surfaceRequiresWorkspace = true, surfaceId = "", routeInternal = false, permissionGrantRoleId = "" })`
 - `resolveCrudGenerationTableName(options = {})`
 - `createCacheKey({ appRoot, options })`
 - `buildCrudTemplateContext(input = {})`

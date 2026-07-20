@@ -99,6 +99,27 @@ The supported values are:
 | `workspace` | rows belong to one workspace | `workspace_id` |
 | `workspace_user` | rows belong to one workspace and one user together | `workspace_id` and `user_id` |
 
+### Ownership column names are exact and reserved
+
+JSKIT ownership is explicit and materialized. Only these exact database columns carry the standard generated ownership contract:
+
+- `workspace_id`
+- `user_id`
+
+They are not ordinary foreign-key names. Generated CRUD infrastructure uses them for visibility filtering, create-time owner stamping, and hidden owner-field handling.
+
+Other foreign keys are domain relationships, even when their names end in `_user_id` or `_workspace_id`. For example:
+
+- `recipient_user_id` identifies a recipient
+- `created_by_user_id` records an author
+- `assignee_user_id` identifies an assignee
+
+Those fields do not become ownership aliases merely because they point to a user-owned table.
+
+The ownership filter must match the direct reserved columns exactly. A table with only `workspace_id` is `workspace`; one with only `user_id` is `user`; and one with both is `workspace_user`. Neither the CLI declaration nor generated metadata overrides those columns.
+
+Decide ownership first, select the matching ownership filter, and then model other actors with specifically named foreign keys. A workspace-owned notification outbox item that targets a user normally has `workspace_id` for ownership and `recipient_user_id` for the recipient relationship. Do not rename `recipient_user_id` to `user_id` merely to satisfy a generator or Doctor check; that would change the resource's ownership semantics.
+
 ### What each value means
 
 #### `public`
@@ -257,7 +278,8 @@ npx jskit generate crud-server-generator scaffold \
   --namespace contacts \
   --surface admin \
   --ownership-filter workspace \
-  --table-name contacts
+  --table-name contacts \
+  --grant-role member
 ```
 
 This creates an app-local package under `packages/contacts/`.
@@ -277,6 +299,46 @@ Use that when:
 - you are not ready to expose list/view/create/update/delete URLs yet
 
 Do **not** use `--internal` as a substitute for ownership or permissions design. It is only about whether the public HTTP CRUD routes exist.
+
+### Choose workspace role grants explicitly
+
+Workspace-required CRUD actions use the normal named permission ids:
+
+- `crud.<namespace>.list`
+- `crud.<namespace>.view`
+- `crud.<namespace>.create`
+- `crud.<namespace>.update`
+- `crud.<namespace>.delete`
+
+The generator never guesses which role should receive all five permissions. Every workspace-required CRUD command must choose one of these options:
+
+```bash
+--grant-role administrator
+```
+
+or:
+
+```bash
+--no-role-grant
+```
+
+`--grant-role` must name a configured role. `--no-role-grant` keeps the generated actions and their permission requirements but leaves the app's role catalog unchanged. The options are mutually exclusive.
+
+To assign the generated permissions to `member`, make that decision explicit:
+
+```bash
+--grant-role member
+```
+
+This decision is independent of `--internal`. For an internal, workspace-owned persistence resource whose generated actions should not be assigned to any actor role, use both:
+
+```bash
+--ownership-filter workspace \
+--internal \
+--no-role-grant
+```
+
+If neither explicit grant option is supplied, generation fails during preflight before writing files, even when a `member` role exists.
 
 Before generating anything, decide these with the developer:
 
@@ -420,7 +482,8 @@ npx jskit generate crud-server-generator scaffold \
   --namespace addresses \
   --surface admin \
   --ownership-filter workspace \
-  --table-name addresses
+  --table-name addresses \
+  --grant-role member
 ```
 
 Then install the generated local package:
@@ -596,7 +659,8 @@ npx jskit generate crud-server-generator scaffold \
   --namespace comments \
   --surface admin \
   --ownership-filter workspace \
-  --table-name comments
+  --table-name comments \
+  --grant-role member
 ```
 
 Then install the generated local package:

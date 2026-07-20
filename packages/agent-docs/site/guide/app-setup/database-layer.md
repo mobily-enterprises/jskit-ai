@@ -246,11 +246,15 @@ In JSKIT persistence code, **visibility** means "which rows should this request 
 - `public`
   - the record is not scoped by owner columns
 - `workspace`
-  - the record belongs to one workspace, usually through `workspace_id`
+  - the record belongs to one workspace through the exact reserved column `workspace_id`
 - `user`
-  - the record belongs to one user, usually through `user_id`
+  - the record belongs to one user through the exact reserved column `user_id`
 - `workspace_user`
-  - the record belongs to one workspace and one user together
+  - the record belongs to one workspace and one user through both reserved columns
+
+Only `workspace_id` and `user_id` carry this standard ownership contract. Specifically named foreign keys such as `recipient_user_id`, `created_by_user_id`, and `assignee_user_id` describe domain relationships; they are not alternate owner columns. Keep both fields when a row has an owner and a separate related actor, and never rename the relationship to an owner column merely to make a tool accept the schema.
+
+The selected ownership filter must match the direct reserved columns exactly. A table with only `workspace_id` is `workspace`; a table with only `user_id` is `user`; and a table with both is `workspace_user`. A declaration cannot override or ignore either column.
 
 That is why the shared helpers exist. Repositories should not have to re-implement the same ownership rules by hand every time they filter a query or build an insert payload.
 

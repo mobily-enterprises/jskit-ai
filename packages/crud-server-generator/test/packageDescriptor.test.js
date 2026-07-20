@@ -17,10 +17,19 @@ test("crud-server-generator surface option validates against enabled surface ids
     "${option:namespace}"
   );
   assert.equal(descriptor.options?.internal?.inputType, "flag");
+  assert.equal(descriptor.options?.["grant-role"]?.inputType, "text");
+  assert.match(descriptor.options?.["grant-role"]?.promptHint || "", /choose this or --no-role-grant/);
+  assert.equal(descriptor.options?.["no-role-grant"]?.inputType, "flag");
   assert.equal(descriptor.metadata?.generatorSubcommands?.scaffold?.optionNames?.includes("surface"), true);
   assert.equal(descriptor.metadata?.generatorSubcommands?.scaffold?.optionNames?.includes("force"), true);
   assert.equal(descriptor.metadata?.generatorSubcommands?.scaffold?.optionNames?.includes("internal"), true);
+  assert.equal(descriptor.metadata?.generatorSubcommands?.scaffold?.optionNames?.includes("grant-role"), true);
+  assert.equal(descriptor.metadata?.generatorSubcommands?.scaffold?.optionNames?.includes("no-role-grant"), true);
   assert.equal(descriptor.metadata?.generatorSubcommands?.scaffold?.createTarget?.pathTemplate, "packages/${option:namespace|kebab}");
+  assert.deepEqual(descriptor.lifecycle?.install?.prepare, {
+    entrypoint: "src/server/buildTemplateContext.js",
+    export: "prepareInstallHook"
+  });
 });
 
 test("crud-server-generator no longer installs a separate jsonRestResource server template", () => {

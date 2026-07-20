@@ -1,13 +1,13 @@
 {
   "name": "@jskit-ai/ui-generator",
-  "version": "0.1.106",
+  "version": "0.1.107",
   "type": "module",
   "scripts": {
     "test": "node --test"
   },
   "dependencies": {
-    "@jskit-ai/kernel": "0.1.123",
-    "@jskit-ai/shell-web": "0.1.124"
+    "@jskit-ai/kernel": "0.1.124",
+    "@jskit-ai/shell-web": "0.1.125"
   },
   "exports": {
     "./server/buildTemplateContext": "./src/server/buildTemplateContext.js"

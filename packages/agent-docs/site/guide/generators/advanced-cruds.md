@@ -31,7 +31,8 @@ npx jskit generate crud-server-generator scaffold \
   --namespace contacts \
   --surface admin \
   --ownership-filter workspace \
-  --table-name contacts
+  --table-name contacts \
+  --grant-role member
 
 npx jskit generate crud-ui-generator crud \
   w/[workspaceSlug]/admin/contacts \
@@ -138,12 +139,20 @@ So the distinction is:
 
 That is why `--internal` is not a permissions shortcut and not a UI setting. It is a server-route exposure choice on top of the same CRUD ownership model.
 
+The workspace role-grant decision is separate too. Every workspace-required generation must choose `--grant-role <role-id>` or `--no-role-grant`; there is no implicit role. An application that assigns generated CRUD permissions to `member` uses `--grant-role member`. In particular, `--internal` does not imply `--no-role-grant`.
+
 ### Ownership controls which owner columns are expected
 
 The repository layer ultimately applies visibility through the standard owner columns:
 
 - `workspace_id`
 - `user_id`
+
+Those names are exact and reserved. `workspace_id` is workspace ownership; `user_id` is user ownership; both together are workspace-user ownership. Other foreign keys such as `recipient_user_id`, `created_by_user_id`, and `assignee_user_id` remain domain relationships and must not be treated as ownership aliases.
+
+The generated ownership filter must match that exact set of reserved columns. Neither an explicit filter nor generated metadata can override what those direct columns mean.
+
+If a row is workspace-owned but refers to a recipient, keep both concepts explicit: use `workspace_id` for ownership and `recipient_user_id` for the relationship. Renaming the relationship to `user_id` would opt the field into JSKIT's hidden owner-field and user-filtering behavior.
 
 That means the generated CRUD behaves like this:
 
