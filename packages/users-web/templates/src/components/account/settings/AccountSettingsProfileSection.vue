@@ -73,7 +73,7 @@ const profile = props.runtime.profile;
               variant="outlined"
               density="comfortable"
               readonly
-              hint="Managed by Supabase Auth"
+              hint="Managed by your sign-in account"
               persistent-hint
             />
           </v-col>
