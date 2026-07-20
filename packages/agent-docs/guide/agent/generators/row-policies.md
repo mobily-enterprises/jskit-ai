@@ -515,7 +515,7 @@ The `json-rest-api` package owns exhaustive framework tests for pagination, coun
 
 ## AnyAPI comes later
 
-`json-rest-api@1.0.25` can apply row policies with `RestApiAnyapiKnexPlugin`. JSKIT's current `internal.json-rest-api` host installs `RestApiKnexPlugin`, so the code in this chapter targets normal tables.
+`json-rest-api@1.0.26` can apply row policies with `RestApiAnyapiKnexPlugin`, including grouped predicates evaluated after the policy hook returns. JSKIT's current `internal.json-rest-api` host installs `RestApiKnexPlugin`, so the code in this chapter targets normal tables.
 
 Do not add backend detection, fallback queries, or an `isAnyApi` branch to the normal-table policy in anticipation of a host that does not exist.
 
