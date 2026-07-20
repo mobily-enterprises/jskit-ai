@@ -10,7 +10,7 @@
   },
   "dependencies": {
     "hooked-api": "1.x.x",
-    "json-rest-api": "^1.0.25",
+    "json-rest-api": "^1.0.26",
     "@jskit-ai/kernel": "0.1.122"
   }
 }
