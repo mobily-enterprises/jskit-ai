@@ -192,6 +192,7 @@ export default Object.freeze({
       {
         from: "templates/config/roles.js",
         to: "config/roles.js",
+        ownership: "app",
         preserveOnRemove: true,
         reason: "Install app-owned role catalog in a dedicated config file.",
         category: "workspaces-core",

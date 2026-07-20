@@ -37,6 +37,21 @@ test("workspaces-core descriptor advertises public invite resolution route metad
   });
 });
 
+test("workspaces-core installs an app-owned editable role catalog", async () => {
+  const source = await readFile(path.join(PACKAGE_DIR, "templates", "config", "roles.js"), "utf8");
+
+  assert.match(source, /export const roleCatalog/);
+  assert.deepEqual(findFileMutation("users-core-app-owned-role-catalog-config"), {
+    from: "templates/config/roles.js",
+    to: "config/roles.js",
+    ownership: "app",
+    preserveOnRemove: true,
+    reason: "Install app-owned role catalog in a dedicated config file.",
+    category: "workspaces-core",
+    id: "users-core-app-owned-role-catalog-config"
+  });
+});
+
 test("workspaces-core installs an app-owned editable workspace invite email template", async () => {
   const source = await readFile(
     path.join(PACKAGE_DIR, "templates", "packages", "main", "src", "server", "email", "workspaceInviteEmail.js"),
