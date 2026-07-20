@@ -102,7 +102,7 @@ const DEFAULT_COPY = Object.freeze({
   selectedFilePrefix: "Selected file:",
   displayName: "Display name",
   email: "Email",
-  emailHint: "Managed by Supabase Auth",
+  emailHint: "Managed by your sign-in account",
   saveProfile: "Save profile"
 });
 

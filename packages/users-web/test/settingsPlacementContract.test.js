@@ -160,6 +160,19 @@ test("users-web profile form element uses a direct panel instead of card scaffol
   assert.doesNotMatch(source, /<v-card\b|v-card-title|v-card-subtitle|v-card-text|v-card-item/);
 });
 
+test("users-web profile email ownership copy is provider-neutral", async () => {
+  const sourcePaths = [
+    path.join("src", "client", "components", "ProfileClientElement.vue"),
+    path.join("templates", "src", "components", "account", "settings", "AccountSettingsProfileSection.vue")
+  ];
+
+  for (const sourcePath of sourcePaths) {
+    const source = await readFile(path.join(PACKAGE_DIR, sourcePath), "utf8");
+    assert.match(source, /Managed by your sign-in account/);
+    assert.doesNotMatch(source, /Managed by Supabase Auth/);
+  }
+});
+
 test("users-web account settings section templates use direct settings panels", async () => {
   for (const relativePath of [
     path.join("templates", "src", "components", "account", "settings", "AccountSettingsProfileSection.vue"),
