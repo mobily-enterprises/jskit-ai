@@ -14,7 +14,8 @@
   "exports": {
     ".": "./src/index.js",
     "./server": "./src/server/index.js",
-    "./client": "./src/client/index.js"
+    "./client": "./src/client/index.js",
+    "./test/playwright": "./src/test/playwright.js"
   },
   "scripts": {
     "test": "node --test"

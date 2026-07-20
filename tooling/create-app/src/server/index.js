@@ -16,7 +16,6 @@ const DEFAULT_INITIAL_BUNDLES = "none";
 const DEFAULT_PLAYWRIGHT_VERSION = "1.61.1";
 const INITIAL_BUNDLE_PRESETS = new Set(["none", "auth"]);
 const TENANCY_MODES = new Set(["none", "personal", "workspaces"]);
-const EXACT_SEMVER_PATTERN = /^\d+\.\d+\.\d+$/u;
 const ALLOWED_EXISTING_TARGET_ENTRIES = new Set([".git"]);
 const PACKAGE_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../..");
 const TEMPLATES_ROOT = path.join(PACKAGE_ROOT, "templates");
@@ -57,12 +56,12 @@ function normalizeTenancyMode(value, { showUsage = true } = {}) {
 
 function normalizePlaywrightVersion(value, { showUsage = true } = {}) {
   const normalized = String(value || "").trim();
-  if (EXACT_SEMVER_PATTERN.test(normalized)) {
+  if (normalized === DEFAULT_PLAYWRIGHT_VERSION) {
     return normalized;
   }
 
   throw createCliError(
-    `Invalid --playwright-version value "${value}". Expected an exact x.y.z version.`,
+    `Invalid --playwright-version value "${value}". JSKIT requires ${DEFAULT_PLAYWRIGHT_VERSION}.`,
     { showUsage }
   );
 }
@@ -262,7 +261,7 @@ function printUsage(stream = process.stderr) {
   stream.write("  --title <text>     App title used for template replacements\n");
   stream.write("  --target <path>    Target directory (default: ./<app-name>)\n");
   stream.write("  --initial-bundles <preset>  Optional initial setup preset: none | auth (default: none)\n");
-  stream.write(`  --playwright-version <x.y.z>  Exact Playwright test version (default: ${DEFAULT_PLAYWRIGHT_VERSION})\n`);
+  stream.write(`  --playwright-version <version>  Supported Playwright test version (${DEFAULT_PLAYWRIGHT_VERSION})\n`);
   stream.write("  --tenancy-mode <mode>  Optional config seed: none | personal | workspaces\n");
   stream.write("  --force            Allow writing into a non-empty target directory\n");
   stream.write("  --dry-run          Print planned writes without changing the filesystem\n");

@@ -218,16 +218,18 @@ test("create-app scaffolds the base shell with placeholder replacements", async 
     const clientSmoke = await readFile(path.join(appRoot, "tests/client/smoke.vitest.js"), "utf8");
     assert.match(clientSmoke, /sample-app client smoke/);
     const e2eSmoke = await readFile(path.join(appRoot, "tests/e2e/base-shell.spec.ts"), "utf8");
-    assert.match(e2eSmoke, /generated base app responsive smoke/);
-    assert.match(e2eSmoke, /Ready/);
-    assert.match(e2eSmoke, /390/);
-    assert.match(e2eSmoke, /768/);
-    assert.match(e2eSmoke, /1280/);
-    assert.match(e2eSmoke, /scrollWidth/);
-    assert.match(e2eSmoke, /expectGeneratedScreenContract/);
-    assert.match(e2eSmoke, /expectVisibleTapTargets/);
-    assert.match(e2eSmoke, /toBeGreaterThanOrEqual\(48\)/);
-    assert.match(e2eSmoke, /\.generated-ui-screen/);
+    assert.match(e2eSmoke, /@jskit-ai\/jskit-cli\/test\/playwright/u);
+    assert.match(e2eSmoke, /runGeneratedAppSmoke\(\{ test, expect, expectedText: "Ready" \}\)/u);
+    assert.doesNotMatch(e2eSmoke, /PLAYWRIGHT_BASE_URL|scrollWidth|390|768|1280/u);
+
+    const adaptiveShellSmoke = await readFile(path.join(appRoot, "tests/e2e/adaptive-shell.spec.ts"), "utf8");
+    assert.match(adaptiveShellSmoke, /@jskit-ai\/shell-web\/test\/adaptiveShellSmoke/u);
+    assert.match(adaptiveShellSmoke, /runAdaptiveShellSmoke\(\{ test, expect \}\)/u);
+
+    const playwrightConfig = await readFile(path.join(appRoot, "playwright.config.mjs"), "utf8");
+    assert.match(playwrightConfig, /@jskit-ai\/jskit-cli\/test\/playwright/u);
+    assert.match(playwrightConfig, /defineConfig\(createJskitPlaywrightConfig\(\)\)/u);
+    assert.doesNotMatch(playwrightConfig, /PLAYWRIGHT_BASE_URL|webServer|4173/u);
 
     const mainJs = await readFile(path.join(appRoot, "src/main.js"), "utf8");
     assert.match(mainJs, /import App from "\.\/App\.vue";/);
@@ -371,6 +373,18 @@ test("create-app scaffolds the base shell with placeholder replacements", async 
     assert.equal(
       lockfile.installedPackages["@jskit-ai/shell-web"].managed.packageJson.dependencies["@jskit-ai/shell-web"].value,
       "0.x"
+    );
+    assert.equal(
+      lockfile.installedPackages["@jskit-ai/shell-web"].managed.packageJson.devDependencies["@playwright/test"].value,
+      "1.61.1"
+    );
+    assert.equal(
+      lockfile.installedPackages["@jskit-ai/shell-web"].managed.packageJson.devDependencies["@playwright/test"].previousValue,
+      "1.61.1"
+    );
+    assert.equal(
+      lockfile.installedPackages["@jskit-ai/shell-web"].managed.packageJson.devDependencies["@playwright/test"].hadPrevious,
+      true
     );
 
     const notFoundView = await readFile(path.join(appRoot, "src/views/NotFound.vue"), "utf8");
@@ -541,11 +555,11 @@ test("create-app accepts tenancy-mode flag and writes it to config/public.js", a
   });
 });
 
-test("create-app accepts an exact platform-owned Playwright version", async () => {
+test("create-app accepts the exact JSKIT-owned Playwright version", async () => {
   await withCreateAppTempDir(async (cwd) => {
     const result = runCli({
       cwd,
-      args: ["managed-browser-app", "--playwright-version", "1.50.1"]
+      args: ["managed-browser-app", "--playwright-version", "1.61.1"]
     });
 
     assert.equal(result.status, 0, result.stderr);
@@ -554,7 +568,20 @@ test("create-app accepts an exact platform-owned Playwright version", async () =
       path.join(cwd, "managed-browser-app/package.json"),
       "utf8"
     ));
-    assert.equal(packageJson.devDependencies["@playwright/test"], "1.50.1");
+    assert.equal(packageJson.devDependencies["@playwright/test"], "1.61.1");
+  });
+});
+
+test("create-app rejects a different exact Playwright version", async () => {
+  await withCreateAppTempDir(async (cwd) => {
+    const result = runCli({
+      cwd,
+      args: ["unsupported-browser-app", "--playwright-version", "1.50.1"]
+    });
+
+    assert.notEqual(result.status, 0);
+    assert.match(result.stderr, /JSKIT requires 1\.61\.1/u);
+    await assert.rejects(access(path.join(cwd, "unsupported-browser-app")), /ENOENT/);
   });
 });
 
@@ -566,7 +593,7 @@ test("create-app rejects floating Playwright versions", async () => {
     });
 
     assert.notEqual(result.status, 0);
-    assert.match(result.stderr, /Expected an exact x\.y\.z version/u);
+    assert.match(result.stderr, /JSKIT requires 1\.61\.1/u);
     await assert.rejects(access(path.join(cwd, "floating-browser-app")), /ENOENT/);
   });
 });
@@ -744,6 +771,14 @@ test("create-app minimal mode keeps the bare scaffold and can still install shel
     assert.equal(packageJsonBefore.dependencies["vue-router"], "^5.1.0");
     assert.equal(packageJsonBefore.devDependencies["@playwright/test"], "1.61.1");
     assert.equal(packageJsonBefore.devDependencies.vite, "^8.0.16");
+    const playwrightConfigBefore = await readFile(path.join(appRoot, "playwright.config.mjs"), "utf8");
+    assert.match(playwrightConfigBefore, /@jskit-ai\/jskit-cli\/test\/playwright/u);
+    assert.match(playwrightConfigBefore, /defineConfig\(createJskitPlaywrightConfig\(\)\)/u);
+    assert.doesNotMatch(playwrightConfigBefore, /PLAYWRIGHT_BASE_URL|webServer|4173/u);
+    const e2eSmokeBefore = await readFile(path.join(appRoot, "tests/e2e/base-shell.spec.ts"), "utf8");
+    assert.match(e2eSmokeBefore, /runGeneratedAppSmoke/u);
+    assert.match(e2eSmokeBefore, /expectedText: "Home base"/u);
+    assert.doesNotMatch(e2eSmokeBefore, /PLAYWRIGHT_BASE_URL|scrollWidth|390|768|1280/u);
     const homeViewBefore = await readFile(path.join(appRoot, "src/pages/home/index.vue"), "utf8");
     assert.match(homeViewBefore, /home-start-screen/);
     assert.match(homeViewBefore, /Home base/);

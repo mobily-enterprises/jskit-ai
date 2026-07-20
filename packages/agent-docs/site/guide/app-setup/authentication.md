@@ -974,39 +974,40 @@ That explains why the login screen and auth guard runtime both care about `/api/
 
 It is also why the shell widget can react cleanly to auth state without storing raw session tokens in client state. The browser just asks the app for the current session view, and the app derives that from its cookies plus the selected provider.
 
-### Authenticated Playwright testing with the dev auth bypass
+### Authenticated Playwright testing
 
-JSKIT ships a development-only auth bootstrap path specifically so authenticated UI can be verified in Playwright without depending on a real live login flow through an external auth provider.
+JSKIT supports two intentionally separate authenticated-browser paths:
 
-This is the standard path the agent should use for authenticated browser tests:
+- a private localhost exchange for direct local Playwright runs
+- runner-provided Playwright storage state for managed previews
 
-- enable the dev auth bypass in development
-- create a session for an existing user through the local app
-- let the browser keep the resulting HTTP-only cookies
-- navigate to the protected page and verify the feature
-- record the Playwright run through `jskit app verify-ui` so `jskit doctor` can verify the receipt later
+Neither path drives a live external login provider. Both put the resulting HTTP-only cookies into the same Playwright browser context that runs the feature assertions.
 
-The feature is intentionally narrow.
+The generated `playwright.config.mjs` is a thin delegate to `@jskit-ai/jskit-cli/test/playwright`. The published helper owns the changing setup behavior:
 
-- It is development-only.
-- It must never be enabled in production.
-- JSKIT rejects boot if `AUTH_DEV_BYPASS_ENABLED=true` while `NODE_ENV=production`.
-- The route only looks up an existing user. It does not create one.
+- without `PLAYWRIGHT_BASE_URL`, it builds the app and starts the local server on `http://127.0.0.1:4173`
+- with `PLAYWRIGHT_BASE_URL`, it uses that managed preview and does not start another server
+- with `JSKIT_PLAYWRIGHT_STORAGE_STATE`, it loads the supplied authenticated state into Playwright contexts
 
-The environment variables are:
+Tests should therefore navigate with relative paths such as `page.goto("/w/acme/admin/contacts")`.
+
+#### Direct local dev-auth login
+
+The local dev auth bypass remains deliberately narrow:
+
+- it is available only outside production
+- the request must arrive locally
+- it selects an existing user and never creates one
+- it requires both CSRF protection and a private exchange secret
+
+Enable it for the Playwright process and the local server it starts:
 
 ```bash
 AUTH_DEV_BYPASS_ENABLED=true
 AUTH_DEV_BYPASS_SECRET=replace-this-with-a-local-dev-secret
 ```
 
-When enabled outside production, the app exposes:
-
-```text
-POST /api/dev-auth/login-as
-```
-
-The request body must contain either:
+When enabled, the app exposes `POST /api/dev-auth/login-as`. The body contains exactly one existing-user identity:
 
 ```json
 { "userId": "7" }
@@ -1018,70 +1019,45 @@ or:
 { "email": "ada@example.com" }
 ```
 
-The response is intentionally small:
+Do not call that route from `page.evaluate()`. The route requires the private `x-jskit-dev-auth-secret` header as well as the CSRF token. Putting the secret into browser JavaScript, client-visible environment, query parameters, or page globals would defeat the exchange boundary.
 
-```json
-{
-  "ok": true,
-  "userId": "7",
-  "username": "Ada Example",
-  "email": "ada@example.com"
-}
-```
-
-Behind the scenes, JSKIT creates the same HTTP-only auth cookies that the normal login flow would create. That means Playwright should not try to read raw tokens. It should bootstrap the session in the browser context, then navigate normally.
-
-One subtle point matters here:
-
-- `/api/dev-auth/login-as` is still an unsafe `POST`
-- JSKIT still expects a CSRF token
-- the browser can get that token from `/api/session`
-
-So the normal Playwright shape is:
-
-1. open a same-origin page first
-2. call `/api/session` to read `csrfToken`
-3. call `/api/dev-auth/login-as` with `credentials: "include"` and the `csrf-token` header
-4. navigate to the protected route and run the assertions
-
-For example:
+Use the published Node-side helper instead:
 
 ```ts
-await page.goto("/");
+import { expect, test } from "@playwright/test";
+import { loginAsExistingUser } from "@jskit-ai/auth-web/test/playwright";
 
-await page.evaluate(async ({ email }) => {
-  const sessionResponse = await fetch("/api/session", {
-    credentials: "include"
-  });
-  if (!sessionResponse.ok) {
-    throw new Error(`Session bootstrap failed: ${sessionResponse.status}`);
-  }
+test("authenticated contacts filters", async ({ page }) => {
+  await loginAsExistingUser(page, { email: "ada@example.com" });
 
-  const sessionPayload = await sessionResponse.json();
-  const csrfToken = String(sessionPayload?.csrfToken || "");
-  if (!csrfToken) {
-    throw new Error("Missing csrfToken from /api/session.");
-  }
-
-  const loginResponse = await fetch("/api/dev-auth/login-as", {
-    method: "POST",
-    credentials: "include",
-    headers: {
-      "content-type": "application/json",
-      "csrf-token": csrfToken
-    },
-    body: JSON.stringify({ email })
-  });
-
-  if (!loginResponse.ok) {
-    throw new Error(`Dev login failed: ${loginResponse.status} ${await loginResponse.text()}`);
-  }
-}, { email: "ada@example.com" });
-
-await page.goto("/w/acme/admin/contacts");
+  await page.goto("/w/acme/admin/contacts");
+  await expect(page.getByRole("heading", { name: "Contacts" })).toBeVisible();
+});
 ```
 
-In practice, the preferred wrapper is:
+`loginAsExistingUser()` runs from the Playwright Node process. It uses the request client attached to `page.context()`, reads `csrfToken` from `GET /api/session`, sends that token plus `x-jskit-dev-auth-secret` to the login route, and leaves the response cookies in the same browser context. It reads `AUTH_DEV_BYPASS_SECRET` from the Node process by default and refuses to send it to a non-local URL.
+
+That last restriction is important. A managed preview URL is not a direct localhost app connection, even when its backend eventually runs on the same infrastructure. Project code must not receive the managed host's private exchange authority.
+
+#### Managed preview authentication
+
+A managed host authenticates outside the project browser context. It performs its trusted identity exchange, writes the resulting cookies and origins to a temporary Playwright storage-state file, and starts the project test with:
+
+```bash
+PLAYWRIGHT_BASE_URL=https://managed-preview.example.test \
+JSKIT_PLAYWRIGHT_STORAGE_STATE=/secure/temp/playwright-state.json \
+playwright test tests/e2e/contacts.spec.ts
+```
+
+JSKIT only consumes that runner-neutral contract. It does not detect a particular host, call host-specific commands, proxy private headers, or install a browser.
+
+The storage-state file is a secret because it can contain authenticated cookies. The managed runner must create it with appropriately restricted access, must not print or commit it, and must delete it after the run.
+
+Tests using managed state do not call `loginAsExistingUser()`. They begin with the runner-provided identity already present and navigate using relative paths. An ordinary browser or proxy request to `/api/dev-auth/login-as` without the private header must continue to fail with `403 Dev auth exchange is not authorized.`
+
+#### Recording the result
+
+After the actual Playwright flow succeeds, record it through JSKIT:
 
 ```bash
 npx jskit app verify-ui \
@@ -1090,20 +1066,17 @@ npx jskit app verify-ui \
   --auth-mode dev-auth-login-as
 ```
 
-For local pre-merge review, the next step after recording that Playwright run is usually:
+Use `--auth-mode session-bootstrap` when a managed runner supplied authenticated storage state.
+
+`jskit app verify-ui` executes the command and records the command, auth-mode label, feature, and changed UI files. The `--auth-mode` value describes how the Playwright command was authenticated. It does not create a session, inject a secret, or alter the browser context.
+
+For local pre-merge review, follow the recorded run with:
 
 ```bash
 npx jskit doctor --against origin/main
 ```
 
-Advanced CI pipelines can use the same `--against` contract too, but JSKIT does not scaffold hosted auth/database/browser verification by default.
-
-That flow is preferable to driving the real sign-in form in feature tests because it keeps the test focused on the UI feature being added, not on an external auth dependency. If a chunk changes user-facing UI and the flow requires login, the expected JSKIT review standard is:
-
-- use Playwright
-- record the run with `jskit app verify-ui`
-- use the local dev auth bypass or another local session bootstrap path
-- exercise the actual changed behavior, not only page load
+This keeps feature tests focused on the changed UI while preserving the security boundary around session creation.
 
 ## When you later switch to Supabase
 

@@ -1,4 +1,3 @@
-const DEFAULT_BASE_URL = String(process.env.PLAYWRIGHT_BASE_URL || "http://127.0.0.1:5173").replace(/\/+$/u, "");
 const DEFAULT_SMOKE_PATH = String(process.env.JSKIT_PLAYWRIGHT_SMOKE_PATH || "/home");
 const DEFAULT_VIEWPORTS = Object.freeze([
   Object.freeze({ name: "compact", width: 390, height: 844 }),
@@ -72,7 +71,6 @@ async function isElementVisibleInViewport(page, testId) {
 function runAdaptiveShellSmoke({
   test,
   expect,
-  baseUrl = DEFAULT_BASE_URL,
   smokePath = DEFAULT_SMOKE_PATH,
   viewports = DEFAULT_VIEWPORTS
 } = {}) {
@@ -84,7 +82,7 @@ function runAdaptiveShellSmoke({
     for (const viewport of viewports) {
       test(`${viewport.name} layout has reachable navigation and no horizontal overflow`, async ({ page }) => {
         await page.setViewportSize({ width: viewport.width, height: viewport.height });
-        await page.goto(`${baseUrl}${smokePath}`);
+        await page.goto(smokePath);
         await expect(page.locator("body")).toBeVisible();
         await expectGeneratedScreenContract(page, expect);
         await expectNoHorizontalOverflow(page, expect);

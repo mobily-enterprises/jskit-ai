@@ -48,7 +48,13 @@
               "value": "0.x"
             }
           },
-          "devDependencies": {},
+          "devDependencies": {
+            "@playwright/test": {
+              "hadPrevious": true,
+              "previousValue": "__PLAYWRIGHT_VERSION__",
+              "value": "__PLAYWRIGHT_VERSION__"
+            }
+          },
           "scripts": {}
         },
         "text": {
