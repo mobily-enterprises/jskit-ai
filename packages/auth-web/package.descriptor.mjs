@@ -56,6 +56,10 @@ export default Object.freeze({
         {
           "subpath": "./server",
           "summary": "Exports auth web server providers, controller/service classes, route builders, and HTTP schema modules."
+        },
+        {
+          "subpath": "./test/playwright",
+          "summary": "Exports the localhost-only Playwright helper for creating a dev-auth session in the tested browser context."
         }
       ],
       "containerTokens": {

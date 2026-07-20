@@ -11,23 +11,67 @@ Rules:
 
 - Any chunk that adds or changes user-facing UI must include a Playwright flow that exercises the changed behavior before the chunk is done.
 - Generator or package template UI changes must be checked at compact phone, tablet-ish medium, and expanded desktop widths.
-- For generated UI, the browser checks should cover horizontal overflow, clipped text, invisible text, duplicate navigation, broken route placement, and tap targets under 48 px.
-- Apps with `shell-web` installed should start from the generated `tests/e2e/adaptive-shell.spec.ts` smoke and extend it for feature-specific assertions.
-- Record that Playwright run with `jskit app verify-ui --command "<playwright command>" --feature "<label>" --auth-mode <mode>`.
-- `jskit doctor` expects `.jskit/verification/ui.json` to match the current dirty UI file set when UI files are changed.
-- For local pre-merge review, follow the recorded Playwright run with `jskit doctor --against <base-ref>` so `doctor` compares against the branch delta instead of only the local dirty worktree.
-- Advanced CI setups may also use `--against <base-ref>`, but JSKIT does not scaffold hosted browser/auth/database verification by default.
-- Do not rely on a live external auth provider for Playwright verification of normal app features.
-- For authenticated UI in the standard JSKIT auth stack, use the development-only dev auth bypass route instead.
-- The standard route is `POST /api/dev-auth/login-as`.
-- The request body must include either `{ userId }` or `{ email }`.
-- The route is available only when `AUTH_DEV_BYPASS_ENABLED=true` and `AUTH_DEV_BYPASS_SECRET` is set outside production.
-- This route must never be enabled in production.
-- Because the route is an unsafe POST, fetch `csrfToken` from `/api/session` first and send it back as the `csrf-token` header.
-- Make the bootstrap request from the same browser context that will run the assertions so the auth cookies land in the page session.
-- Use stable seeded users or fixtures for Playwright. Do not depend on whatever account happens to exist in a developer's browser or external auth provider.
+- For generated UI, check horizontal overflow, clipped or invisible text, duplicate navigation, broken route placement, and tap targets under 48 px.
+- Apps with `shell-web` installed should start from `tests/e2e/adaptive-shell.spec.ts` and extend it with feature-specific assertions.
+- Generated `playwright.config.mjs` delegates to `@jskit-ai/jskit-cli/test/playwright`. Do not copy base-URL, web-server, or storage-state logic into app tests.
+- Use relative paths such as `page.goto("/home")`. The shared config owns the browser base URL.
+- A managed runner supplies `PLAYWRIGHT_BASE_URL`. When it is set, JSKIT does not start another app server.
+- A managed runner supplies an authenticated context through `JSKIT_PLAYWRIGHT_STORAGE_STATE`. Treat that file as a temporary secret: do not commit it, print it, or retain it after the run.
+- Do not install a browser when the environment provides a managed browser runner.
 
-Recommended flow:
+## Direct local authentication
+
+Use the development-only dev auth bypass when Playwright is talking directly to an app running on localhost.
+
+The app must start with:
+
+```bash
+AUTH_DEV_BYPASS_ENABLED=true
+AUTH_DEV_BYPASS_SECRET=replace-this-with-a-local-dev-secret
+```
+
+The test uses the published Node-side helper:
+
+```ts
+import { expect, test } from "@playwright/test";
+import { loginAsExistingUser } from "@jskit-ai/auth-web/test/playwright";
+
+test("authenticated feature", async ({ page }) => {
+  await loginAsExistingUser(page, { email: "ada@example.com" });
+  await page.goto("/w/acme/admin/contacts");
+  await expect(page.getByRole("heading", { name: "Contacts" })).toBeVisible();
+});
+```
+
+`loginAsExistingUser()`:
+
+- uses the request client belonging to the same Playwright browser context
+- fetches the CSRF token from `GET /api/session`
+- sends the CSRF token and private `x-jskit-dev-auth-secret` header to `POST /api/dev-auth/login-as`
+- leaves the resulting HTTP-only cookies in that browser context
+- refuses to send the secret to a non-local URL
+
+The helper reads `AUTH_DEV_BYPASS_SECRET` from the Playwright Node process by default. Never pass that secret through `page.evaluate()`, browser globals, query parameters, or client-visible environment variables.
+
+The route only selects an existing user. Seed a stable user or fixture before the test. The bypass must never be enabled in production.
+
+## Managed-host authentication
+
+A managed preview must not expose `AUTH_DEV_BYPASS_SECRET` to project code or forward an ordinary browser request to the private login exchange. The host performs its trusted identity exchange outside the application browser context, writes a temporary Playwright storage-state file, and launches the test with:
+
+```bash
+PLAYWRIGHT_BASE_URL=https://managed-preview.example.test \
+JSKIT_PLAYWRIGHT_STORAGE_STATE=/secure/temp/playwright-state.json \
+playwright test tests/e2e/contacts.spec.ts
+```
+
+The generated config applies that state to Playwright contexts and omits its local `webServer`. Tests then navigate with relative paths and begin with the runner-provided identity already authenticated.
+
+Do not call `loginAsExistingUser()` against a managed preview. It is deliberately localhost-only. An ordinary request to `/api/dev-auth/login-as` without the private exchange header must return `403`.
+
+## Recording verification
+
+After the Playwright command succeeds, record it with:
 
 ```bash
 npx jskit app verify-ui \
@@ -36,55 +80,19 @@ npx jskit app verify-ui \
   --auth-mode dev-auth-login-as
 ```
 
-Local pre-merge follow-up:
+Use `--auth-mode session-bootstrap` when a managed runner supplied authenticated storage state.
+
+`jskit app verify-ui` runs the command and records its command, auth-mode label, feature, and changed UI files in `.jskit/verification/ui.json`. The auth-mode option describes how the command was authenticated; it does not create a session or modify the Playwright context.
+
+For local pre-merge review, follow the recorded run with:
 
 ```bash
 npx jskit doctor --against origin/main
 ```
 
-The Playwright command itself should follow this setup shape when login is needed:
-
-```ts
-await page.goto("/");
-
-await page.evaluate(async ({ email }) => {
-  const sessionResponse = await fetch("/api/session", {
-    credentials: "include"
-  });
-  if (!sessionResponse.ok) {
-    throw new Error(`Session bootstrap failed: ${sessionResponse.status}`);
-  }
-
-  const sessionPayload = await sessionResponse.json();
-  const csrfToken = String(sessionPayload?.csrfToken || "");
-  if (!csrfToken) {
-    throw new Error("Missing csrfToken from /api/session.");
-  }
-
-  const loginResponse = await fetch("/api/dev-auth/login-as", {
-    method: "POST",
-    credentials: "include",
-    headers: {
-      "content-type": "application/json",
-      "csrf-token": csrfToken
-    },
-    body: JSON.stringify({ email })
-  });
-
-  if (!loginResponse.ok) {
-    throw new Error(`Dev login failed: ${loginResponse.status} ${await loginResponse.text()}`);
-  }
-}, { email: "ada@example.com" });
-```
-
-After that bootstrap:
-
-- navigate to the protected page
-- exercise the new UI behavior
-- assert the actual outcome the chunk introduced
-
 Do not mark the chunk done if:
 
 - the feature changed user-facing UI but no Playwright flow ran
 - the Playwright flow skipped the changed behavior itself
-- authenticated UI work was left untested because no local auth bootstrap path was available and that gap was not called out
+- a managed environment was bypassed by installing another browser
+- an authenticated flow was left untested without clearly reporting the missing session-bootstrap seam

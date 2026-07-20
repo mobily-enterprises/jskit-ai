@@ -313,7 +313,9 @@ export default Object.freeze({
         "@mdi/js": "^7.4.47",
         "@jskit-ai/kernel": "0.1.121"
       },
-      dev: {}
+      dev: {
+        "@playwright/test": "1.61.1"
+      }
     },
     packageJson: {
       scripts: {

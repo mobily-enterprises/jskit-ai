@@ -116,6 +116,10 @@ Exports
 Exports
 - None
 
+### `templates/base-shell/playwright.config.mjs`
+Exports
+- None
+
 ### `templates/base-shell/server.js`
 Exports
 - `createServer()`
@@ -263,6 +267,10 @@ Exports
 - None
 
 ### `templates/minimal-shell/packages/main/src/shared/schemas/index.js`
+Exports
+- None
+
+### `templates/minimal-shell/playwright.config.mjs`
 Exports
 - None
 
