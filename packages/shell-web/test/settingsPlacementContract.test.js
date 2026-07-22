@@ -140,7 +140,10 @@ test("shell-web installs generated adaptive shell Playwright smoke coverage", as
     profile: "responsive-smoke",
     sourceName: "adaptiveShellSmoke.js"
   });
-  assert.match(source, /runAdaptiveShellSmoke/);
+  assert.match(source, /DEFAULT_VIEWPORTS, runAdaptiveShellSmokeCase/);
+  assert.match(source, /test\(`/);
+  assert.match(source, /runAdaptiveShellSmokeCase\(\{ page, expect, viewport \}\)/);
+  assert.doesNotMatch(source, /runAdaptiveShellSmoke\(\{/);
   assert.match(source, /@jskit-ai\/shell-web\/test\/adaptiveShellSmoke/);
   assert.match(helperSource, /generated adaptive shell smoke/);
   assert.match(helperSource, /390/);

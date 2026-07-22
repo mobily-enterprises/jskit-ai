@@ -65,6 +65,26 @@ async function expectVisibleTapTargets(page, expect) {
   }
 }
 
+async function runGeneratedAppSmokeCase({
+  page,
+  expect,
+  expectedText,
+  viewport,
+  smokePath = String(process.env.JSKIT_PLAYWRIGHT_SMOKE_PATH || DEFAULT_SMOKE_PATH)
+} = {}) {
+  if (!page || !expect || !String(expectedText || "").trim() || !viewport) {
+    throw new Error("runGeneratedAppSmokeCase requires page, expect, expectedText, and viewport.");
+  }
+
+  await page.setViewportSize({ width: viewport.width, height: viewport.height });
+  await page.goto(smokePath);
+  await expect(page.locator("body")).toBeVisible();
+  await expect(page.getByText(expectedText)).toBeVisible();
+  await expect(page.locator(".generated-ui-screen").first()).toBeVisible();
+  await expectVisibleTapTargets(page, expect);
+  await expectNoHorizontalOverflow(page, expect);
+}
+
 function runGeneratedAppSmoke({ test, expect, expectedText } = {}) {
   if (!test || !expect || !String(expectedText || "").trim()) {
     throw new Error("runGeneratedAppSmoke requires Playwright test, expect, and expectedText.");
@@ -75,13 +95,7 @@ function runGeneratedAppSmoke({ test, expect, expectedText } = {}) {
   test.describe("generated app responsive smoke", () => {
     for (const viewport of DEFAULT_VIEWPORTS) {
       test(`${viewport.name} home route renders without horizontal overflow`, async ({ page }) => {
-        await page.setViewportSize({ width: viewport.width, height: viewport.height });
-        await page.goto(smokePath);
-        await expect(page.locator("body")).toBeVisible();
-        await expect(page.getByText(expectedText)).toBeVisible();
-        await expect(page.locator(".generated-ui-screen").first()).toBeVisible();
-        await expectVisibleTapTargets(page, expect);
-        await expectNoHorizontalOverflow(page, expect);
+        await runGeneratedAppSmokeCase({ page, expect, expectedText, viewport, smokePath });
       });
     }
   });
@@ -91,5 +105,6 @@ export {
   createJskitPlaywrightConfig,
   DEFAULT_LOCAL_BASE_URL,
   DEFAULT_VIEWPORTS,
-  runGeneratedAppSmoke
+  runGeneratedAppSmoke,
+  runGeneratedAppSmokeCase
 };

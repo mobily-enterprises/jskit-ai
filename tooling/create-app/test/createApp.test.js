@@ -214,12 +214,18 @@ test("create-app scaffolds the base shell with placeholder replacements", async 
     assert.match(clientSmoke, /sample-app client smoke/);
     const e2eSmoke = await readFile(path.join(appRoot, "tests/e2e/base-shell.spec.ts"), "utf8");
     assert.match(e2eSmoke, /@jskit-ai\/jskit-cli\/test\/playwright/u);
-    assert.match(e2eSmoke, /runGeneratedAppSmoke\(\{ test, expect, expectedText: "Ready" \}\)/u);
+    assert.match(e2eSmoke, /DEFAULT_VIEWPORTS, runGeneratedAppSmokeCase/u);
+    assert.match(e2eSmoke, /test\(`\$\{viewport\.name\} home route renders without horizontal overflow`/u);
+    assert.match(e2eSmoke, /runGeneratedAppSmokeCase\(\{ page, expect, expectedText: "Ready", viewport \}\)/u);
+    assert.doesNotMatch(e2eSmoke, /runGeneratedAppSmoke\(\{/u);
     assert.doesNotMatch(e2eSmoke, /PLAYWRIGHT_BASE_URL|scrollWidth|390|768|1280/u);
 
     const adaptiveShellSmoke = await readFile(path.join(appRoot, "tests/e2e/adaptive-shell.spec.ts"), "utf8");
     assert.match(adaptiveShellSmoke, /@jskit-ai\/shell-web\/test\/adaptiveShellSmoke/u);
-    assert.match(adaptiveShellSmoke, /runAdaptiveShellSmoke\(\{ test, expect \}\)/u);
+    assert.match(adaptiveShellSmoke, /DEFAULT_VIEWPORTS, runAdaptiveShellSmokeCase/u);
+    assert.match(adaptiveShellSmoke, /test\(`\$\{viewport\.name\} layout has reachable navigation and no horizontal overflow`/u);
+    assert.match(adaptiveShellSmoke, /runAdaptiveShellSmokeCase\(\{ page, expect, viewport \}\)/u);
+    assert.doesNotMatch(adaptiveShellSmoke, /runAdaptiveShellSmoke\(\{/u);
 
     const playwrightConfig = await readFile(path.join(appRoot, "playwright.config.mjs"), "utf8");
     assert.match(playwrightConfig, /@jskit-ai\/jskit-cli\/test\/playwright/u);
@@ -771,7 +777,8 @@ test("create-app minimal mode keeps the bare scaffold and can still install shel
     assert.match(playwrightConfigBefore, /defineConfig\(createJskitPlaywrightConfig\(\)\)/u);
     assert.doesNotMatch(playwrightConfigBefore, /PLAYWRIGHT_BASE_URL|webServer|4173/u);
     const e2eSmokeBefore = await readFile(path.join(appRoot, "tests/e2e/base-shell.spec.ts"), "utf8");
-    assert.match(e2eSmokeBefore, /runGeneratedAppSmoke/u);
+    assert.match(e2eSmokeBefore, /runGeneratedAppSmokeCase/u);
+    assert.match(e2eSmokeBefore, /test\(`/u);
     assert.match(e2eSmokeBefore, /expectedText: "Home base"/u);
     assert.doesNotMatch(e2eSmokeBefore, /PLAYWRIGHT_BASE_URL|scrollWidth|390|768|1280/u);
     const homeViewBefore = await readFile(path.join(appRoot, "src/pages/home/index.vue"), "utf8");
