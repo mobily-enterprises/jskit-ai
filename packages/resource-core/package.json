@@ -1,6 +1,6 @@
 {
   "name": "@jskit-ai/resource-core",
-  "version": "0.1.71",
+  "version": "0.1.72",
   "type": "module",
   "scripts": {
     "test": "node --test"
@@ -9,6 +9,6 @@
     "./shared/resource": "./src/shared/resource.js"
   },
   "dependencies": {
-    "@jskit-ai/kernel": "0.1.128"
+    "@jskit-ai/kernel": "0.1.129"
   }
 }
