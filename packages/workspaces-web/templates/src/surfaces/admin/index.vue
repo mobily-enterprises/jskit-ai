@@ -1,8 +1,16 @@
 <script setup>
+import { useRoute } from "vue-router";
 import WorkspaceNotFoundCard from "@/components/WorkspaceNotFoundCard.vue";
 import { useWorkspaceNotFoundState } from "@/composables/useWorkspaceNotFoundState";
 
+const route = useRoute();
 const { workspaceUnavailable, workspaceUnavailableMessage } = useWorkspaceNotFoundState();
+
+function adminChildPath(suffix = "") {
+  const basePath = String(route.path || "").replace(/\/+$/u, "");
+  const childPath = String(suffix || "").replace(/^\/+|\/+$/gu, "");
+  return childPath ? `${basePath}/${childPath}` : basePath;
+}
 </script>
 
 <template>
@@ -19,8 +27,8 @@ const { workspaceUnavailable, workspaceUnavailableMessage } = useWorkspaceNotFou
         <p class="text-body-2 text-medium-emphasis mb-0">Manage members and workspace settings.</p>
       </div>
       <div class="workspace-admin-screen__actions">
-        <v-btn color="primary" variant="flat" to="./members">Members</v-btn>
-        <v-btn color="primary" variant="tonal" to="./workspace/settings">Settings</v-btn>
+        <v-btn color="primary" variant="flat" :to="adminChildPath('members')">Members</v-btn>
+        <v-btn color="primary" variant="tonal" :to="adminChildPath('workspace/settings')">Settings</v-btn>
       </div>
     </header>
 
