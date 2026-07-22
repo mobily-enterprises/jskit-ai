@@ -283,6 +283,7 @@ export default Object.freeze({
       {
         "from": "templates/src/views/auth/LoginView.vue",
         "to": "src/views/auth/LoginView.vue",
+        "ownership": "app",
         "reason": "Install minimal login container that renders the module-provided DefaultLoginView by default.",
         "category": "auth-web",
         "id": "auth-view-login"
@@ -290,6 +291,7 @@ export default Object.freeze({
       {
         "from": "templates/src/views/auth/SignOutView.vue",
         "to": "src/views/auth/SignOutView.vue",
+        "ownership": "app",
         "reason": "Install minimal sign-out container that renders the module-provided SignOutView by default (edit the scaffolded file to customize).",
         "category": "auth-web",
         "id": "auth-view-signout"
@@ -297,6 +299,7 @@ export default Object.freeze({
       {
         "from": "templates/src/views/auth/ResetPasswordView.vue",
         "to": "src/views/auth/ResetPasswordView.vue",
+        "ownership": "app",
         "reason": "Install minimal password reset container that renders the module-provided DefaultResetPasswordView by default.",
         "category": "auth-web",
         "id": "auth-view-reset-password"
@@ -304,6 +307,7 @@ export default Object.freeze({
       {
         "from": "templates/src/pages/auth/login.vue",
         "to": "src/pages/auth/login.vue",
+        "ownership": "app",
         "reason": "Provide an auth-surface /auth/login wrapper that renders the package login view.",
         "category": "auth-web",
         "id": "auth-page-login"
@@ -311,6 +315,7 @@ export default Object.freeze({
       {
         "from": "templates/src/pages/auth/signout.vue",
         "to": "src/pages/auth/signout.vue",
+        "ownership": "app",
         "reason": "Provide an auth-surface /auth/signout wrapper that renders the package sign-out view.",
         "category": "auth-web",
         "id": "auth-page-signout"
@@ -318,6 +323,7 @@ export default Object.freeze({
       {
         "from": "templates/src/pages/auth/reset-password.vue",
         "to": "src/pages/auth/reset-password.vue",
+        "ownership": "app",
         "reason": "Provide an auth-surface /auth/reset-password wrapper that renders the package password reset view.",
         "category": "auth-web",
         "id": "auth-page-reset-password"
