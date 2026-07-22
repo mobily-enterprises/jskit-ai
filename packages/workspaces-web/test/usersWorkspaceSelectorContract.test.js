@@ -17,3 +17,10 @@ test("UsersWorkspaceSelector passes workspaceSlug through generic page params", 
   );
   assert.doesNotMatch(source, /workspaceSlug:\s*normalizedSlug,\s*mode:\s*"workspace"/s);
 });
+
+test("UsersWorkspaceSelector activator preserves the generated tap-target contract", async () => {
+  const source = await readFile(COMPONENT_PATH, "utf8");
+
+  assert.match(source, /class="users-workspace-selector__activator text-none"/);
+  assert.match(source, /\.users-workspace-selector__activator\s*\{[\s\S]*min-height:\s*48px;/);
+});
