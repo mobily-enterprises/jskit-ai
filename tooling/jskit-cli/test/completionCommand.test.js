@@ -91,6 +91,7 @@ test("completion bash __complete__ lists app subcommands and app-specific option
     [
       "adopt-managed-scripts",
       "migrate-source-mutations",
+      "preview-identity",
       "release",
       "sync-ci",
       "update-packages",

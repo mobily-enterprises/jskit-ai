@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { mkdir, readFile, writeFile } from "node:fs/promises";
+import { mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
 import path from "node:path";
 import test from "node:test";
@@ -179,6 +179,45 @@ test("package add and update do not persist secret options or env mutation value
     assert.equal(installedAfterUpdate.managed.text[".env::database-password"].sensitive, true);
     assert.equal(Object.prototype.hasOwnProperty.call(installedAfterUpdate.managed.text[".env::database-password"], "value"), false);
     assert.equal(Object.prototype.hasOwnProperty.call(installedAfterUpdate.managed.text[".env::database-password"], "previousValue"), false);
+  });
+});
+
+test("package update restores secret options from the process environment when .env is absent", async () => {
+  await withTempDir(async (cwd) => {
+    const appRoot = path.join(cwd, "secret-process-env-app");
+    await createMinimalApp(appRoot, { name: "secret-process-env-app" });
+    const packageId = await createSecretRuntimePackage(appRoot);
+    const secretValue = "process-env-only-password";
+
+    const addResult = runCli({
+      cwd: appRoot,
+      args: [
+        "add",
+        "package",
+        packageId,
+        "--db-name",
+        "demo_db",
+        "--db-password",
+        "initial-password"
+      ]
+    });
+    assert.equal(addResult.status, 0, String(addResult.stderr || ""));
+
+    await rm(path.join(appRoot, ".env"));
+    const updateResult = runCli({
+      cwd: appRoot,
+      args: ["update", "package", packageId, "--json"],
+      env: {
+        DB_PASSWORD: secretValue
+      }
+    });
+    assert.equal(updateResult.status, 0, String(updateResult.stderr || ""));
+    assert.doesNotMatch(String(updateResult.stdout || ""), new RegExp(secretValue));
+
+    const envSource = await readFile(path.join(appRoot, ".env"), "utf8");
+    assert.match(envSource, new RegExp(`^DB_PASSWORD=${secretValue}$`, "m"));
+    const lockSource = await readFile(path.join(appRoot, ".jskit", "lock.json"), "utf8");
+    assert.doesNotMatch(lockSource, new RegExp(secretValue));
   });
 });
 
