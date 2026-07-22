@@ -78,6 +78,14 @@ test("auth-web client provider registers a mobile auth callback completion token
   assert.match(providerSource, /completeOAuthCallbackFromUrl/);
 });
 
+test("auth profile activator preserves the generated tap-target contract", () => {
+  const widgetPath = fileURLToPath(new URL("../src/client/views/AuthProfileWidget.vue", import.meta.url));
+  const widgetSource = readFileSync(widgetPath, "utf8");
+
+  assert.match(widgetSource, /class="auth-profile-widget__activator text-none pl-1 pr-2"/);
+  assert.match(widgetSource, /\.auth-profile-widget__activator\s*\{[\s\S]*min-height:\s*48px;/);
+});
+
 test("default login view owns the viewport and becomes a full-screen mobile screen", () => {
   const viewPath = fileURLToPath(new URL("../src/client/views/DefaultLoginView.vue", import.meta.url));
   const viewSource = readFileSync(viewPath, "utf8");
