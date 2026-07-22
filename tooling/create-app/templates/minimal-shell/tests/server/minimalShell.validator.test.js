@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { access, readdir, readFile } from "node:fs/promises";
+import { access, readdir, readFile, stat } from "node:fs/promises";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -97,6 +97,12 @@ test("latest JSKIT scaffold files are present at the app root", async () => {
   for (const requiredEntry of REQUIRED_TOP_LEVEL_ENTRIES) {
     assert.equal(entries.includes(requiredEntry), true, `Missing top-level scaffold entry: ${requiredEntry}`);
   }
+});
+
+test("latest JSKIT scaffold provides the app-owned Vibe64 preview identity executable", async () => {
+  const executablePath = path.join(APP_ROOT, ".vibe64", "bin", "preview-identity");
+  assert.match(await readFile(executablePath, "utf8"), /npx --no-install jskit app preview-identity/u);
+  assert.notEqual((await stat(executablePath)).mode & 0o111, 0);
 });
 
 test("starter shell keeps one JSKIT-managed hosted CI workflow", async () => {

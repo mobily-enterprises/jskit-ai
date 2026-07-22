@@ -21,7 +21,7 @@ test("UI testing guidance uses private local exchange support and managed storag
   for (const source of [pattern, humanGuide, distributedGuide]) {
     assert.match(source, /@jskit-ai\/auth-web\/test\/playwright/u);
     assert.match(source, /x-jskit-dev-auth-secret/u);
-    assert.match(source, /JSKIT_PLAYWRIGHT_STORAGE_STATE/u);
+    assert.match(source, /VIBE64_PLAYWRIGHT_STORAGE_STATE/u);
     assert.doesNotMatch(source, /page\.evaluate\(async/u);
     assert.doesNotMatch(source, /fetch\("\/api\/dev-auth\/login-as"/u);
   }

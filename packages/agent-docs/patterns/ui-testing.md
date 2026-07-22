@@ -16,7 +16,7 @@ Rules:
 - Generated `playwright.config.mjs` delegates to `@jskit-ai/jskit-cli/test/playwright`. Do not copy base-URL, web-server, or storage-state logic into app tests.
 - Use relative paths such as `page.goto("/home")`. The shared config owns the browser base URL.
 - A managed runner supplies `PLAYWRIGHT_BASE_URL`. When it is set, JSKIT does not start another app server.
-- A managed runner supplies an authenticated context through `JSKIT_PLAYWRIGHT_STORAGE_STATE`. Treat that file as a temporary secret: do not commit it, print it, or retain it after the run.
+- Vibe64 supplies an authenticated context through `VIBE64_PLAYWRIGHT_STORAGE_STATE`. Treat that file as a temporary secret: do not commit it, print it, or retain it after the run.
 - Do not install a browser when the environment provides a managed browser runner.
 
 ## Direct local authentication
@@ -61,7 +61,7 @@ A managed preview must not expose `AUTH_DEV_BYPASS_SECRET` to project code or fo
 
 ```bash
 PLAYWRIGHT_BASE_URL=https://managed-preview.example.test \
-JSKIT_PLAYWRIGHT_STORAGE_STATE=/secure/temp/playwright-state.json \
+VIBE64_PLAYWRIGHT_STORAGE_STATE=/secure/temp/playwright-state.json \
 playwright test tests/e2e/contacts.spec.ts
 ```
 

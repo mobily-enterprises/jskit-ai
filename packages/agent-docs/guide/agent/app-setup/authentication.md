@@ -974,7 +974,7 @@ The generated `playwright.config.mjs` is a thin delegate to `@jskit-ai/jskit-cli
 
 - without `PLAYWRIGHT_BASE_URL`, it builds the app and starts the local server on `http://127.0.0.1:4173`
 - with `PLAYWRIGHT_BASE_URL`, it uses that managed preview and does not start another server
-- with `JSKIT_PLAYWRIGHT_STORAGE_STATE`, it loads the supplied authenticated state into Playwright contexts
+- with `VIBE64_PLAYWRIGHT_STORAGE_STATE`, it loads the Vibe64-supplied authenticated state into Playwright contexts
 
 Tests should therefore navigate with relative paths such as `page.goto("/w/acme/admin/contacts")`.
 
@@ -1032,7 +1032,7 @@ A managed host authenticates outside the project browser context. It performs it
 
 ```bash
 PLAYWRIGHT_BASE_URL=https://managed-preview.example.test \
-JSKIT_PLAYWRIGHT_STORAGE_STATE=/secure/temp/playwright-state.json \
+VIBE64_PLAYWRIGHT_STORAGE_STATE=/secure/temp/playwright-state.json \
 playwright test tests/e2e/contacts.spec.ts
 ```
 

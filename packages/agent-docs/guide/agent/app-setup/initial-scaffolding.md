@@ -209,7 +209,7 @@ Published JSKIT libraries and tooling support Node.js 22 from 22.12.0 onward, No
 
 That matters because JSKIT maintenance policy changes over time. If the scaffold copied a large shell script into every app, existing apps would freeze the old behavior forever. By delegating to `jskit app verify`, `jskit app update-packages`, and `jskit app release`, the app keeps the nice `npm run` shortcuts while the maintained behavior stays in the installed CLI package.
 
-The Playwright scaffold follows the same rule. `playwright.config.mjs` delegates to `@jskit-ai/jskit-cli/test/playwright`, and the starter browser specs delegate their shared responsive checks to published JSKIT helpers. The generated files stay small while later JSKIT package updates can change local server startup, managed `PLAYWRIGHT_BASE_URL` handling, and `JSKIT_PLAYWRIGHT_STORAGE_STATE` support without copying that logic into each new app.
+The Playwright scaffold follows the same rule. `playwright.config.mjs` delegates to `@jskit-ai/jskit-cli/test/playwright`, and the starter browser specs delegate their shared responsive checks to published JSKIT helpers. The generated files stay small while later JSKIT package updates can change local server startup, managed `PLAYWRIGHT_BASE_URL` handling, and `VIBE64_PLAYWRIGHT_STORAGE_STATE` support without copying that logic into each new app.
 
 `jskit app verify` is worth noticing specifically. Linting, tests, and builds check your source code and runtime behavior. The JSKIT part of that flow runs `doctor`, which checks JSKIT-managed app state: installed package visibility, lock-file-backed managed files, and other JSKIT-specific health rules. It is there because a JSKIT app is not only code. It is also a descriptor-driven managed project.
 
