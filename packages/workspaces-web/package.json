@@ -1,6 +1,6 @@
 {
   "name": "@jskit-ai/workspaces-web",
-  "version": "0.1.107",
+  "version": "0.1.108",
   "type": "module",
   "scripts": {
     "test": "node --test"
