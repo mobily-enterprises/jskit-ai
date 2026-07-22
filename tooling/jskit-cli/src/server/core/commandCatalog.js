@@ -538,7 +538,7 @@ const COMMAND_DESCRIPTORS = Object.freeze({
     defaults: Object.freeze([
       "No npm install runs unless --run-npm-install is passed.",
       "Existing non-secret lock options are reused unless overridden inline.",
-      "Secret options are read from current .env values or explicit inline options; they are not stored in the lock.",
+      "Secret options are read from the process environment, current .env values, or explicit inline options; they are not stored in the lock.",
       "update reuses add package flow with forced reapply."
     ]),
     fullUse: "jskit update package <packageId> [--<option> <value>...] [--dry-run] [--run-npm-install] [--json]",

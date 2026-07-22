@@ -1,4 +1,5 @@
 import path from "node:path";
+import process from "node:process";
 import {
   ensureArray,
   ensureObject
@@ -154,13 +155,15 @@ async function resolveSensitiveOptionEnvFallbacks({
   packageEntry = {},
   appRoot = "",
   optionInput = {},
-  readFileBufferIfExists
+  readFileBufferIfExists,
+  environment = process.env
 } = {}) {
   if (!appRoot || typeof readFileBufferIfExists !== "function") {
     return {};
   }
 
   const fallbacks = {};
+  const runtimeEnvironment = ensureObject(environment);
   const runtimeOptions = ensureObject(optionInput);
   const optionSchemas = ensureObject(packageEntry?.descriptor?.options);
   const textMutations = ensureArray(ensureObject(packageEntry?.descriptor?.mutations).text);
@@ -204,13 +207,21 @@ async function resolveSensitiveOptionEnvFallbacks({
       continue;
     }
 
+    const optionSchema = ensureObject(optionSchemas[optionName]);
+    const environmentValue = Object.prototype.hasOwnProperty.call(runtimeEnvironment, resolvedKey)
+      ? String(runtimeEnvironment[resolvedKey] ?? "")
+      : null;
+    if (environmentValue !== null && (environmentValue || optionSchema.allowEmpty === true)) {
+      fallbacks[optionName] = environmentValue;
+      continue;
+    }
+
     const existing = await readFileBufferIfExists(path.join(appRoot, relativeFile));
     if (!existing.exists) {
       continue;
     }
 
     const envValue = readEnvValue(existing.buffer.toString("utf8"), resolvedKey);
-    const optionSchema = ensureObject(optionSchemas[optionName]);
     if (envValue !== null && (envValue || optionSchema.allowEmpty === true)) {
       fallbacks[optionName] = envValue;
     }
