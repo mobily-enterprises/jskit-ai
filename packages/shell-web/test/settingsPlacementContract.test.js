@@ -77,6 +77,7 @@ test("shell-web shell layout registers navigation at the app layout level", asyn
   assert.match(source, /<ShellRouteTransition>[\s\S]*<slot \/>[\s\S]*<\/ShellRouteTransition>/);
   assert.match(source, /data-testid="jskit-shell-app-bar"/);
   assert.match(source, /:density="isCompactLayout \? 'compact' : 'comfortable'"/);
+  assert.match(source, /\.shell-layout__nav-toggle\s*\{[\s\S]*min-height:\s*48px;[\s\S]*min-width:\s*48px;/);
   assert.match(source, /shell-layout__surface-label/);
   assert.doesNotMatch(source, /shell-layout__surface-chip/);
   assert.doesNotMatch(source, /<v-chip[^>]*resolvedSurfaceLabel/);

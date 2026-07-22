@@ -490,6 +490,11 @@ function touchListIncludesActiveTouch(touchList) {
   min-width: 0;
 }
 
+.shell-layout__nav-toggle {
+  min-height: 48px;
+  min-width: 48px;
+}
+
 .shell-layout__top-right {
   max-width: min(45vw, 18rem);
   overflow: hidden;
