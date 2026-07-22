@@ -258,20 +258,23 @@ test("workspaces-web starter surfaces avoid instructional placeholder copy", asy
     requiredPatterns: [
       {
         id: "workspace-admin-member-link",
-        pattern: /to="\.\/members"/,
+        pattern: /:to="adminChildPath\('members'\)"/,
         message: "Workspace admin surface needs a direct members action."
       },
       {
         id: "workspace-admin-settings-link",
-        pattern: /to="\.\/workspace\/settings"/,
+        pattern: /:to="adminChildPath\('workspace\/settings'\)"/,
         message: "Workspace admin surface needs a direct settings action."
       }
     ]
   });
   assert.match(appSource, /No workspace activity yet/);
   assert.match(adminSource, /Manage members and workspace settings/);
-  assert.match(adminSource, /to="\.\/members"/);
-  assert.match(adminSource, /to="\.\/workspace\/settings"/);
+  assert.match(adminSource, /const route = useRoute\(\)/);
+  assert.match(adminSource, /function adminChildPath/);
+  assert.match(adminSource, /:to="adminChildPath\('members'\)"/);
+  assert.match(adminSource, /:to="adminChildPath\('workspace\/settings'\)"/);
+  assert.doesNotMatch(adminSource, /to="\.\//);
   assert.doesNotMatch(appSource, /Replace this page|Primary in-workspace surface/);
   assert.doesNotMatch(adminSource, /Use this area|Privileged workspace workflows/);
 });
