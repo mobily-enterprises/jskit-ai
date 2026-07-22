@@ -205,7 +205,7 @@ function workspaceAvatarStyle(workspace) {
       <v-btn
         v-bind="activatorProps"
         variant="text"
-        class="text-none"
+        class="users-workspace-selector__activator text-none"
         :prepend-icon="mdiBriefcaseOutline"
       >
         {{ activeWorkspaceLabel }}
@@ -241,3 +241,9 @@ function workspaceAvatarStyle(workspace) {
     </v-list>
   </v-menu>
 </template>
+
+<style scoped>
+.users-workspace-selector__activator {
+  min-height: 48px;
+}
+</style>
