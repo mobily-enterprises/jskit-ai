@@ -13,7 +13,7 @@ function normalizeBaseUrl(value) {
 function createJskitPlaywrightConfig({ env = process.env } = {}) {
   const managedBaseUrl = normalizeBaseUrl(env.PLAYWRIGHT_BASE_URL);
   const baseURL = managedBaseUrl || DEFAULT_LOCAL_BASE_URL;
-  const storageState = String(env.JSKIT_PLAYWRIGHT_STORAGE_STATE || "").trim();
+  const storageState = String(env.VIBE64_PLAYWRIGHT_STORAGE_STATE || "").trim();
 
   return {
     testDir: "./tests/e2e",

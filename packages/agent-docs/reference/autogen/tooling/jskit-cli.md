@@ -534,6 +534,27 @@ Local functions
 - `applyTextReplacements(sourceText = "", replacements = [])`
 - `collectCrudFormFieldCandidateFiles(appRoot = "")`
 
+### `src/server/commandHandlers/appCommands/previewIdentity.js`
+Exports
+- `PREVIEW_IDENTITY_PROTOCOL`
+- `executeJskitPreviewIdentityRequest(value = {}, { env = process.env, fetchImpl = globalThis.fetch } = {})`
+- `runAppPreviewIdentityCommand(_ctx = {}, { env = process.env, fetchImpl = globalThis.fetch, stdin = process.stdin, stdout = process.stdout } = {})`
+Local functions
+- `previewIdentityResponse(requestId = "", values = {})`
+- `previewIdentityFailure(requestId = "", error = {})`
+- `commandError(message = "", code = "jskit_preview_identity_failed", extra = {})`
+- `readInput(stream)`
+- `normalizeRequest(value = {})`
+- `identityFromSubject(subject = {})`
+- `responseSetCookie(response = {})`
+- `cookieHeader(setCookie = [])`
+- `responsePayload(response = {})`
+- `upstreamError(payload = {}, response = {}, extra = {})`
+- `postJson(fetchImpl, href, body, headers = {})`
+- `readSession(fetchImpl, targetOrigin, setCookie = [])`
+- `logout(fetchImpl, targetOrigin, session)`
+- `login(fetchImpl, targetOrigin, identity, secret, session)`
+
 ### `src/server/commandHandlers/appCommands/release.js`
 Exports
 - `runAppReleaseCommand(ctx = {}, { appRoot = "", options = {}, stdout, stderr })`

@@ -22,6 +22,17 @@ const COPIED_APP_SCRIPT_FILES = Object.freeze([
 ]);
 
 const APP_COMMAND_DEFINITIONS = Object.freeze({
+  "preview-identity": Object.freeze({
+    name: "preview-identity",
+    summary: "Run the app-owned Vibe64 preview-identity command protocol.",
+    usage: "jskit app preview-identity",
+    options: Object.freeze([]),
+    defaults: Object.freeze([
+      "Reads one versioned preview-identity request from stdin and writes one JSON response to stdout.",
+      "Uses the running local JSKIT app to create a native session for an existing user only.",
+      "This machine command is enabled only by the managed development-preview environment."
+    ])
+  }),
   verify: Object.freeze({
     name: "verify",
     summary: "Run the JSKIT baseline app verification flow.",

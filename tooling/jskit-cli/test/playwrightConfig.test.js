@@ -25,7 +25,7 @@ test("Playwright config uses a managed base URL without starting another server"
   const config = createJskitPlaywrightConfig({
     env: {
       PLAYWRIGHT_BASE_URL: "https://preview.example.test/",
-      JSKIT_PLAYWRIGHT_STORAGE_STATE: "/run/jskit/auth-state.json"
+      VIBE64_PLAYWRIGHT_STORAGE_STATE: "/run/jskit/auth-state.json"
     }
   });
 

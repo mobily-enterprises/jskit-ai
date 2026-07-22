@@ -10,6 +10,7 @@ import {
 } from "./appCommandCatalog.js";
 import { runAppAdoptManagedScriptsCommand } from "./appCommands/adoptManagedScripts.js";
 import { runAppMigrateSourceMutationsCommand } from "./appCommands/migrateSourceMutations.js";
+import { runAppPreviewIdentityCommand } from "./appCommands/previewIdentity.js";
 import { runAppReleaseCommand } from "./appCommands/release.js";
 import { runAppSyncCiCommand } from "./appCommands/syncCi.js";
 import { runAppUpdatePackagesCommand } from "./appCommands/updatePackages.js";
@@ -83,7 +84,7 @@ function createAppCommands(ctx = {}) {
     resolveAppRootFromCwd
   } = ctx;
 
-  async function commandApp({ positional = [], options = {}, cwd = "", stdout, stderr }) {
+  async function commandApp({ positional = [], options = {}, cwd = "", stdout, stderr, io = {} }) {
     const appRoot = await resolveAppRootFromCwd(cwd);
     const firstToken = String(positional[0] || "").trim();
     const secondToken = String(positional[1] || "").trim();
@@ -136,6 +137,12 @@ function createAppCommands(ctx = {}) {
 
     if (definition.name === "verify") {
       return runAppVerifyCommand(ctx, { appRoot, options, stdout, stderr });
+    }
+    if (definition.name === "preview-identity") {
+      return runAppPreviewIdentityCommand(ctx, {
+        stdin: io.stdin,
+        stdout
+      });
     }
     if (definition.name === "verify-ui") {
       return runAppVerifyUiCommand(ctx, { appRoot, options, stdout, stderr });

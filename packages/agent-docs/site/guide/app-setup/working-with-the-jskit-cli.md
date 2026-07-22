@@ -816,7 +816,7 @@ That command does two things:
 - runs the targeted Playwright command you give it
 - writes a receipt describing the verified feature, auth mode, and current dirty UI file set
 
-The auth mode is receipt metadata, not an authentication implementation. `jskit app verify-ui` does not log a user in, inject a secret, or rewrite the Playwright context. A direct local run uses `loginAsExistingUser()` from `@jskit-ai/auth-web/test/playwright`; a managed runner supplies authenticated state through `JSKIT_PLAYWRIGHT_STORAGE_STATE`. The generated `playwright.config.mjs` consumes that state and honors `PLAYWRIGHT_BASE_URL` without starting a second server.
+The auth mode is receipt metadata, not an authentication implementation. `jskit app verify-ui` does not log a user in, inject a secret, or rewrite the Playwright context. A direct local run uses `loginAsExistingUser()` from `@jskit-ai/auth-web/test/playwright`; Vibe64 supplies authenticated state through `VIBE64_PLAYWRIGHT_STORAGE_STATE`. The generated `playwright.config.mjs` consumes that state and honors `PLAYWRIGHT_BASE_URL` without starting a second server.
 
 `doctor` then compares the current changed UI files to that receipt. If you edit the UI again afterwards, the receipt is stale and `doctor` tells you to rerun `jskit app verify-ui`.
 
