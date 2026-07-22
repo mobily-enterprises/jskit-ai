@@ -307,6 +307,7 @@ export default Object.freeze({
       {
         from: "templates/src/pages/account/index.vue",
         to: "src/pages/account/index.vue",
+        ownership: "app",
         reason: "Install app-owned account surface root page scaffold.",
         category: "users-web",
         id: "users-web-page-account-root"
@@ -314,6 +315,7 @@ export default Object.freeze({
       {
         from: "templates/src/components/account/settings/AccountSettingsProfileSection.vue",
         to: "src/components/account/settings/AccountSettingsProfileSection.vue",
+        ownership: "app",
         reason: "Install app-owned account settings profile section scaffold.",
         category: "users-web",
         id: "users-web-component-account-settings-profile"
@@ -321,6 +323,7 @@ export default Object.freeze({
       {
         from: "templates/src/components/account/settings/AccountSettingsPreferencesSection.vue",
         to: "src/components/account/settings/AccountSettingsPreferencesSection.vue",
+        ownership: "app",
         reason: "Install app-owned account settings preferences section scaffold.",
         category: "users-web",
         id: "users-web-component-account-settings-preferences"
@@ -328,6 +331,7 @@ export default Object.freeze({
       {
         from: "templates/src/components/account/settings/AccountSettingsNotificationsSection.vue",
         to: "src/components/account/settings/AccountSettingsNotificationsSection.vue",
+        ownership: "app",
         reason: "Install app-owned account settings notifications section scaffold.",
         category: "users-web",
         id: "users-web-component-account-settings-notifications"

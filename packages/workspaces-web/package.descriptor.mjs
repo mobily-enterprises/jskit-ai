@@ -251,6 +251,7 @@ export default Object.freeze({
       {
         from: "templates/packages/main/src/client/components/AccountPendingInvitesCue.vue",
         to: "packages/main/src/client/components/AccountPendingInvitesCue.vue",
+        ownership: "app",
         reason: "Install app-owned account pending invites cue component scaffold.",
         category: "workspaces-web",
         id: "users-web-main-component-account-pending-invites-cue"
@@ -258,6 +259,7 @@ export default Object.freeze({
       {
         from: "templates/packages/main/src/client/components/AccountSettingsInvitesSection.vue",
         to: "packages/main/src/client/components/AccountSettingsInvitesSection.vue",
+        ownership: "app",
         reason: "Install app-owned account invites section scaffold for multihoming account settings.",
         category: "workspaces-web",
         id: "users-web-main-component-account-settings-invites-section"
@@ -265,6 +267,7 @@ export default Object.freeze({
       {
         from: "templates/src/pages/invite/[token].vue",
         to: "src/pages/invite/[token].vue",
+        ownership: "app",
         reason: "Install public workspace invite acceptance route scaffold.",
         category: "workspaces-web",
         id: "workspaces-web-page-public-invite"
@@ -272,6 +275,7 @@ export default Object.freeze({
       {
         from: "templates/src/components/WorkspaceNotFoundCard.vue",
         to: "src/components/WorkspaceNotFoundCard.vue",
+        ownership: "app",
         reason: "Install app-owned workspace not-found card component used by workspace-dependent surfaces.",
         category: "workspaces-web",
         id: "users-web-component-workspace-not-found-card",
@@ -283,6 +287,7 @@ export default Object.freeze({
       {
         from: "templates/src/composables/useWorkspaceNotFoundState.js",
         to: "src/composables/useWorkspaceNotFoundState.js",
+        ownership: "app",
         reason: "Install app-owned workspace bootstrap status composable for workspace-dependent surfaces.",
         category: "workspaces-web",
         id: "users-web-composable-workspace-not-found-state",
@@ -295,6 +300,7 @@ export default Object.freeze({
         from: "templates/src/surfaces/app/root.vue",
         toSurface: "app",
         toSurfaceRoot: true,
+        ownership: "app",
         reason: "Install workspace app surface wrapper shell for workspaces-web.",
         category: "workspaces-web",
         id: "users-web-page-app-wrapper",
@@ -307,6 +313,7 @@ export default Object.freeze({
         from: "templates/src/surfaces/app/index.vue",
         toSurface: "app",
         toSurfacePath: "index.vue",
+        ownership: "app",
         reason: "Install workspace app surface starter page scaffold for workspaces-web.",
         category: "workspaces-web",
         id: "users-web-page-app-index",
@@ -319,6 +326,7 @@ export default Object.freeze({
         from: "templates/src/surfaces/admin/root.vue",
         toSurface: "admin",
         toSurfaceRoot: true,
+        ownership: "app",
         reason: "Install workspace admin surface wrapper shell for workspaces-web.",
         category: "workspaces-web",
         id: "users-web-page-admin-wrapper",
@@ -331,6 +339,7 @@ export default Object.freeze({
         from: "templates/src/surfaces/admin/index.vue",
         toSurface: "admin",
         toSurfacePath: "index.vue",
+        ownership: "app",
         reason: "Install workspace admin surface starter page scaffold for workspaces-web.",
         category: "workspaces-web",
         id: "users-web-page-admin-index",
@@ -343,6 +352,7 @@ export default Object.freeze({
         from: "templates/src/pages/admin/members/index.vue",
         toSurface: "admin",
         toSurfacePath: "members/index.vue",
+        ownership: "app",
         reason: "Install admin members starter page scaffold for workspaces-web members UI.",
         category: "workspaces-web",
         id: "users-web-page-admin-members",
@@ -355,6 +365,7 @@ export default Object.freeze({
         from: "templates/src/pages/admin/workspace/settings.vue",
         toSurface: "admin",
         toSurfacePath: "workspace/settings.vue",
+        ownership: "app",
         reason: "Install workspace settings shell route scaffold for workspaces-web workspace admin UI.",
         category: "workspaces-web",
         id: "users-web-page-admin-workspace-settings-shell",
@@ -367,6 +378,7 @@ export default Object.freeze({
         from: "templates/src/pages/admin/workspace/settings/index.vue",
         toSurface: "admin",
         toSurfacePath: "workspace/settings/index.vue",
+        ownership: "app",
         reason: "Install workspace settings index stub scaffold for app-owned landing or redirect behavior.",
         category: "workspaces-web",
         id: "users-web-page-admin-workspace-settings",
