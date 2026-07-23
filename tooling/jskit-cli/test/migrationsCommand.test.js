@@ -180,3 +180,63 @@ test("migrations changed generates only migrations for changed installed package
     assert.match(String(verboseRun.stdout || ""), /skipped migration/i);
   });
 });
+
+test("migrations changed uses the installed descriptor instead of an older catalog entry", async () => {
+  await withTempDir(async (cwd) => {
+    const appRoot = path.join(cwd, "installed-descriptor-app");
+    const packageId = "@jskit-ai/http-runtime";
+    const installedVersion = "99.0.0";
+    const packageRoot = path.join(appRoot, "node_modules", ...packageId.split("/"));
+    await createMinimalApp(appRoot, { name: "installed-descriptor-app" });
+    await mkdir(packageRoot, { recursive: true });
+    await mkdir(path.join(appRoot, ".jskit"), { recursive: true });
+    await writeFile(path.join(packageRoot, "package.json"), `${JSON.stringify({
+      name: packageId,
+      version: installedVersion,
+      type: "module"
+    }, null, 2)}\n`, "utf8");
+    await writeFile(path.join(packageRoot, "package.descriptor.mjs"), `export default Object.freeze({
+  packageVersion: 1,
+  packageId: "${packageId}",
+  version: "${installedVersion}",
+  kind: "runtime",
+  runtime: { server: { providers: [] }, client: { providers: [] } },
+  mutations: { files: [] }
+});\n`, "utf8");
+    await writeFile(path.join(appRoot, ".jskit", "lock.json"), `${JSON.stringify({
+      lockVersion: 1,
+      installedPackages: {
+        [packageId]: {
+          packageId,
+          version: installedVersion,
+          source: {
+            type: "npm-installed-package",
+            packagePath: `node_modules/${packageId}`,
+            descriptorPath: `node_modules/${packageId}/package.descriptor.mjs`
+          },
+          managed: {
+            packageJson: { dependencies: {}, devDependencies: {}, scripts: {} },
+            text: {},
+            source: {},
+            vite: {},
+            files: [],
+            migrations: []
+          },
+          options: {},
+          migrationSyncVersion: "0.0.0"
+        }
+      }
+    }, null, 2)}\n`, "utf8");
+
+    const result = runCli({
+      cwd: appRoot,
+      args: ["migrations", "changed", "--json"]
+    });
+    assert.equal(result.status, 0, String(result.stderr || ""));
+    const payload = JSON.parse(String(result.stdout || "{}"));
+    assert.deepEqual(payload.requestedPackages, [packageId]);
+
+    const lock = JSON.parse(await readFile(path.join(appRoot, ".jskit", "lock.json"), "utf8"));
+    assert.equal(lock.installedPackages[packageId].migrationSyncVersion, installedVersion);
+  });
+});

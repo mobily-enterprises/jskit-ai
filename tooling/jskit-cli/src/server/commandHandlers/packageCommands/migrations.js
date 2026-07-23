@@ -53,7 +53,8 @@ async function runPackageMigrationsCommand(ctx = {}, { positional, options, cwd,
   await hydratePackageRegistryFromInstalledNodeModules({
     appRoot,
     packageRegistry: combinedPackageRegistry,
-    seedPackageIds: installedPackageIds
+    seedPackageIds: installedPackageIds,
+    preferInstalledDescriptors: true
   });
 
   let requestedPackageIds = [];

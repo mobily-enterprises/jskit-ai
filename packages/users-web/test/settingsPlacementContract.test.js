@@ -375,6 +375,7 @@ test("users-web descriptor metadata advertises home cog outlet and standard home
   assert.deepEqual(findFileMutation("users-web-component-account-settings-profile"), {
     from: "templates/src/components/account/settings/AccountSettingsProfileSection.vue",
     to: "src/components/account/settings/AccountSettingsProfileSection.vue",
+    ownership: "app",
     reason: "Install app-owned account settings profile section scaffold.",
     category: "users-web",
     id: "users-web-component-account-settings-profile"
@@ -382,6 +383,7 @@ test("users-web descriptor metadata advertises home cog outlet and standard home
   assert.deepEqual(findFileMutation("users-web-component-account-settings-preferences"), {
     from: "templates/src/components/account/settings/AccountSettingsPreferencesSection.vue",
     to: "src/components/account/settings/AccountSettingsPreferencesSection.vue",
+    ownership: "app",
     reason: "Install app-owned account settings preferences section scaffold.",
     category: "users-web",
     id: "users-web-component-account-settings-preferences"
@@ -389,6 +391,7 @@ test("users-web descriptor metadata advertises home cog outlet and standard home
   assert.deepEqual(findFileMutation("users-web-component-account-settings-notifications"), {
     from: "templates/src/components/account/settings/AccountSettingsNotificationsSection.vue",
     to: "src/components/account/settings/AccountSettingsNotificationsSection.vue",
+    ownership: "app",
     reason: "Install app-owned account settings notifications section scaffold.",
     category: "users-web",
     id: "users-web-component-account-settings-notifications"

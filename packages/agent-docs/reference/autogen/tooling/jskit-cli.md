@@ -465,7 +465,7 @@ Exports
 - `isSensitiveManagedTextRecord({ packageEntry = {}, record = {} } = {})`
 - `isSensitivePackageOption(packageEntry = {}, optionName = "")`
 - `isSensitiveTextMutation({ packageEntry = {}, mutation = {}, resolvedKey = "" } = {})`
-- `resolveSensitiveOptionEnvFallbacks({ packageEntry = {}, appRoot = "", optionInput = {}, readFileBufferIfExists } = {})`
+- `resolveSensitiveOptionEnvFallbacks({ packageEntry = {}, appRoot = "", optionInput = {}, readFileBufferIfExists, environment = process.env } = {})`
 - `sanitizeInstalledPackageRecordForLock(record = {}, packageEntry = {})`
 - `sanitizeLockSecretsForWrite(lock = {}, packageRegistry = null)`
 - `sanitizeManagedTextForLock(packageEntry = {}, managedText = {})`
@@ -550,8 +550,9 @@ Local functions
 - `cookieHeader(setCookie = [])`
 - `responsePayload(response = {})`
 - `upstreamError(payload = {}, response = {}, extra = {})`
+- `request(fetchImpl, href, options)`
 - `postJson(fetchImpl, href, body, headers = {})`
-- `readSession(fetchImpl, targetOrigin, setCookie = [])`
+- `readSession(fetchImpl, targetOrigin)`
 - `logout(fetchImpl, targetOrigin, session)`
 - `login(fetchImpl, targetOrigin, identity, secret, session)`
 

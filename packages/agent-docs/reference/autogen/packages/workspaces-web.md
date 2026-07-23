@@ -353,6 +353,8 @@ Exports
 ### `templates/src/surfaces/admin/index.vue`
 Exports
 - None
+Local functions
+- `adminChildPath(suffix = "")`
 
 ### `templates/src/surfaces/admin/root.vue`
 Exports

@@ -99,6 +99,7 @@ test("workspaces-web installs an app-owned account invites section wrapper", asy
   assert.deepEqual(findFileMutation("users-web-main-component-account-settings-invites-section"), {
     from: "templates/packages/main/src/client/components/AccountSettingsInvitesSection.vue",
     to: "packages/main/src/client/components/AccountSettingsInvitesSection.vue",
+    ownership: "app",
     reason: "Install app-owned account invites section scaffold for multihoming account settings.",
     category: "workspaces-web",
     id: "users-web-main-component-account-settings-invites-section"
@@ -120,6 +121,7 @@ test("workspaces-web installs a public workspace invite route scaffold", async (
   assert.deepEqual(findFileMutation("workspaces-web-page-public-invite"), {
     from: "templates/src/pages/invite/[token].vue",
     to: "src/pages/invite/[token].vue",
+    ownership: "app",
     reason: "Install public workspace invite acceptance route scaffold.",
     category: "workspaces-web",
     id: "workspaces-web-page-public-invite"
@@ -203,6 +205,7 @@ test("workspaces-web installs an account invites cue scaffold that reads placeme
   assert.deepEqual(findFileMutation("users-web-main-component-account-pending-invites-cue"), {
     from: "templates/packages/main/src/client/components/AccountPendingInvitesCue.vue",
     to: "packages/main/src/client/components/AccountPendingInvitesCue.vue",
+    ownership: "app",
     reason: "Install app-owned account pending invites cue component scaffold.",
     category: "workspaces-web",
     id: "users-web-main-component-account-pending-invites-cue"
@@ -417,6 +420,7 @@ test("workspaces-web descriptor metadata advertises admin settings outlets", () 
     from: "templates/src/pages/admin/workspace/settings/index.vue",
     toSurface: "admin",
     toSurfacePath: "workspace/settings/index.vue",
+    ownership: "app",
     reason: "Install workspace settings index stub scaffold for app-owned landing or redirect behavior.",
     category: "workspaces-web",
     id: "users-web-page-admin-workspace-settings",
