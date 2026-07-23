@@ -1,6 +1,6 @@
 {
   "name": "@jskit-ai/jskit-cli",
-  "version": "0.2.149",
+  "version": "0.2.150",
   "description": "Bundle and package orchestration CLI for JSKIT apps.",
   "type": "module",
   "files": [
@@ -21,7 +21,7 @@
     "test": "node --test"
   },
   "dependencies": {
-    "@jskit-ai/jskit-catalog": "0.1.143",
+    "@jskit-ai/jskit-catalog": "0.1.144",
     "@jskit-ai/kernel": "0.1.129",
     "@jskit-ai/shell-web": "0.1.130",
     "@vue/compiler-sfc": "^3.5.29",
