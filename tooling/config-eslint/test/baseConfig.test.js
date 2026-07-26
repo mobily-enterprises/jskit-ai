@@ -18,3 +18,12 @@ test("baseConfig ignores generated JSKIT runtime and build artifacts", () => {
     []
   );
 });
+
+test("baseConfig preserves the established lint policy across ESLint 10", () => {
+  const sourceRules = baseConfig.find(
+    (entry) => Array.isArray(entry?.files) && entry.files.includes("**/*.{js,mjs,cjs,vue}")
+  )?.rules;
+
+  assert.equal(sourceRules?.["no-useless-assignment"], "off");
+  assert.equal(sourceRules?.["preserve-caught-error"], "off");
+});

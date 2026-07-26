@@ -20,6 +20,11 @@ const baseConfig = Object.freeze([
       sourceType: "module"
     },
     rules: {
+      // ESLint 10 added these rules to its recommended preset. Keep the
+      // established JSKIT lint contract stable; adopting either rule requires
+      // a deliberate source migration rather than a tooling patch release.
+      "no-useless-assignment": "off",
+      "preserve-caught-error": "off",
       "no-unused-vars": [
         "error",
         {

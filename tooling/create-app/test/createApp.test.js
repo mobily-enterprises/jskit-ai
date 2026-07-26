@@ -170,7 +170,7 @@ test("create-app scaffolds the base shell with placeholder replacements", async 
     assert.equal(packageJson.dependencies["@tanstack/vue-query"], "^5.101.0");
     assert.equal(packageJson.devDependencies["@playwright/test"], "1.61.1");
     assert.equal(packageJson.devDependencies["@vitejs/plugin-vue"], "^6.0.7");
-    assert.equal(packageJson.devDependencies.eslint, "^9.39.4");
+    assert.equal(packageJson.devDependencies.eslint, "^10.8.0");
     assert.equal(packageJson.devDependencies.vite, "^8.0.16");
     assert.equal(packageJson.devDependencies.vitest, "^4.1.9");
     await assert.rejects(access(path.join(appRoot, "scripts/release.sh")), /ENOENT/);
