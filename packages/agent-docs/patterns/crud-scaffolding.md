@@ -51,6 +51,10 @@ Rules:
 - If the table should already be CRUD-owned but should not expose public CRUD HTTP routes yet, scaffold it with `jskit generate crud-server-generator scaffold ... --internal` instead of dropping to direct knex or a hand-built pseudo-repository.
 - Create the real table directly in the database before scaffolding. `crud-server-generator` reads the live table shape.
 - If `crud-server-generator` is going to own the CRUD, do not hand-write a separate CRUD migration for that table. The generator installs and manages the CRUD migration scaffold itself.
+- Keep generated table creation in `migrations/` and generated foreign keys in
+  `migrations/constraints/`. The database runtime deliberately runs those
+  phases in that order so valid mutual foreign keys rebuild cleanly without
+  disabling constraint checks.
 - Do not scaffold CRUD UI, hand-build CRUD routes, or hand-build CRUD endpoints before the server CRUD package and shared resource file exist.
 - Treat the generated shared resource file as the canonical CRUD contract for later UI scaffolding and CRUD behavior changes.
 - Treat the exact columns `workspace_id` and `user_id` as reserved JSKIT ownership columns. They are the only standard columns used for generated ownership filtering and create-time owner stamping.

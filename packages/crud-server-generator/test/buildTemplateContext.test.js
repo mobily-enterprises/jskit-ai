@@ -803,7 +803,12 @@ test("buildReplacementsFromSnapshot renders inline field relation metadata from 
     replacements.__JSKIT_CRUD_RESOURCE_SEARCH_SCHEMA_LINES__,
     /vetId: \{ type: "id", actualField: "vet_id", filterOperator: "=" \}/
   );
+  assert.equal(replacements.__JSKIT_CRUD_MIGRATION_HAS_FOREIGN_KEYS__, "true");
   assert.match(replacements.__JSKIT_CRUD_MIGRATION_FOREIGN_KEY_LINES__, /table\.foreign\(\["vet_id"\]/);
+  assert.match(
+    replacements.__JSKIT_CRUD_MIGRATION_DROP_FOREIGN_KEY_LINES__,
+    /table\.dropForeign\(\["vet_id"\], "contacts_vet_id_foreign"\)/
+  );
 });
 
 test("buildReplacementsFromSnapshot renders inline enum field ui options as select controls", () => {

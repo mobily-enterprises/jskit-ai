@@ -246,6 +246,13 @@ needs a different persistence model, record the durable decision in
 `.jskit/APP_BLUEPRINT.md` and use the explicit table-ownership exception path
 instead of modifying generated CRUD files.
 
+Mutual foreign keys are valid when each side still follows that key contract.
+The server generator keeps table creation and foreign-key installation in
+separate migration phases: every ordinary migration creates its table first,
+then migrations under `migrations/constraints/` add the constraints. Do not
+move those constraints back into the table-creation migrations or disable
+foreign-key checks to work around ordering.
+
 ## Example 1: `contacts`
 
 This is the baseline pattern. If you understand this example, the rest of the chapter becomes much easier.

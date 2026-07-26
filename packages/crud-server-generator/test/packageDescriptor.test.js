@@ -39,6 +39,22 @@ test("crud-server-generator no longer installs a separate jsonRestResource serve
   assert.equal(jsonRestResourceTemplate, undefined);
 });
 
+test("crud-server-generator defers foreign keys until every table migration has run", () => {
+  const migrations = (descriptor.mutations?.files || []).filter(
+    (entry) => entry.op === "install-migration"
+  );
+  const initial = migrations.find((entry) => entry.id === "crud-initial-schema-${option:namespace|snake}");
+  const foreignKeys = migrations.find((entry) => entry.id === "crud-foreign-keys-${option:namespace|snake}");
+
+  assert.equal(initial?.toDir, "migrations");
+  assert.equal(foreignKeys?.toDir, "migrations/constraints");
+  assert.equal(foreignKeys?.from, "templates/migrations/crud_foreign_keys.cjs");
+  assert.deepEqual(foreignKeys?.templateContext, {
+    entrypoint: "src/server/buildTemplateContext.js",
+    export: "buildTemplateContext"
+  });
+});
+
 test("crud-server-generator wires action and role mutations through template context", () => {
   const files = descriptor.mutations?.files || [];
   const descriptorTemplate = files.find((entry) => entry.from === "templates/src/local-package/package.descriptor.mjs");

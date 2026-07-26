@@ -1460,6 +1460,29 @@ function renderMigrationForeignKeyLines(snapshot) {
   return lines.join("\n");
 }
 
+function renderMigrationDropForeignKeyLine(foreignKey = {}) {
+  const columns = Array.isArray(foreignKey.columns)
+    ? foreignKey.columns
+        .map((column) => normalizeText(column?.name))
+        .filter(Boolean)
+    : [];
+  const foreignKeyName = normalizeText(foreignKey.name);
+  if (columns.length < 1) {
+    return "";
+  }
+
+  const nameArgument = foreignKeyName ? `, ${JSON.stringify(foreignKeyName)}` : "";
+  return `    table.dropForeign(${JSON.stringify(columns)}${nameArgument});`;
+}
+
+function renderMigrationDropForeignKeyLines(snapshot) {
+  const foreignKeys = Array.isArray(snapshot.foreignKeys) ? snapshot.foreignKeys : [];
+  return foreignKeys
+    .map((foreignKey) => renderMigrationDropForeignKeyLine(foreignKey))
+    .filter(Boolean)
+    .join("\n");
+}
+
 function renderMigrationCheckConstraintLines(snapshot) {
   const tableName = normalizeText(snapshot?.tableName);
   const checkConstraints = Array.isArray(snapshot?.checkConstraints) ? snapshot.checkConstraints : [];
@@ -2148,7 +2171,11 @@ function buildReplacementsFromSnapshot({
     __JSKIT_CRUD_JSONREST_DEFAULT_SORT_LINE__: jsonRestDefaultSortLine,
     __JSKIT_CRUD_MIGRATION_COLUMN_LINES__: renderMigrationColumnLines(snapshot),
     __JSKIT_CRUD_MIGRATION_INDEX_LINES__: renderMigrationIndexLines(snapshot),
+    __JSKIT_CRUD_MIGRATION_HAS_FOREIGN_KEYS__: String(
+      Array.isArray(snapshot.foreignKeys) && snapshot.foreignKeys.length > 0
+    ),
     __JSKIT_CRUD_MIGRATION_FOREIGN_KEY_LINES__: renderMigrationForeignKeyLines(snapshot),
+    __JSKIT_CRUD_MIGRATION_DROP_FOREIGN_KEY_LINES__: renderMigrationDropForeignKeyLines(snapshot),
     __JSKIT_CRUD_MIGRATION_CHECK_CONSTRAINT_LINES__: renderMigrationCheckConstraintLines(snapshot)
   });
 
@@ -2298,6 +2325,7 @@ const __testables = Object.freeze({
   renderMigrationColumnLine,
   renderMigrationCheckConstraintLines,
   renderMigrationForeignKeyLine,
+  renderMigrationDropForeignKeyLine,
   resolveScaffoldColumns,
   resolveCrudGenerationTableName,
   resolveGenerationSnapshot,

@@ -1,7 +1,7 @@
 export default Object.freeze({
   packageVersion: 1,
   packageId: "@jskit-ai/crud-server-generator",
-  version: "0.1.140",
+  version: "0.1.142",
   kind: "generator",
   description: "CRUD server generator with routes, actions, and persistence scaffolding.",
   options: {
@@ -184,14 +184,14 @@ export default Object.freeze({
   mutations: {
     dependencies: {
       runtime: {
-        "@jskit-ai/auth-core": "0.1.128",
-        "@jskit-ai/crud-core": "0.1.139",
-        "@jskit-ai/database-runtime": "0.1.130",
-        "@jskit-ai/http-runtime": "0.1.129",
-        "@jskit-ai/json-rest-api-core": "0.1.75",
-        "@jskit-ai/kernel": "0.1.131",
-        "@jskit-ai/realtime": "0.1.128",
-        "@jskit-ai/resource-crud-core": "0.1.74",
+        "@jskit-ai/auth-core": "0.1.130",
+        "@jskit-ai/crud-core": "0.1.141",
+        "@jskit-ai/database-runtime": "0.1.132",
+        "@jskit-ai/http-runtime": "0.1.131",
+        "@jskit-ai/json-rest-api-core": "0.1.77",
+        "@jskit-ai/kernel": "0.1.133",
+        "@jskit-ai/realtime": "0.1.130",
+        "@jskit-ai/resource-crud-core": "0.1.76",
         "@local/${option:namespace|kebab}": "file:packages/${option:namespace|kebab}"
       },
       dev: {}
@@ -209,6 +209,19 @@ export default Object.freeze({
         reason: "Install CRUD schema migration.",
         category: "crud",
         id: "crud-initial-schema-${option:namespace|snake}",
+        templateContext: {
+          entrypoint: "src/server/buildTemplateContext.js",
+          export: "buildTemplateContext"
+        }
+      },
+      {
+        op: "install-migration",
+        from: "templates/migrations/crud_foreign_keys.cjs",
+        toDir: "migrations/constraints",
+        extension: ".cjs",
+        reason: "Install CRUD foreign keys after all table-creation migrations.",
+        category: "crud",
+        id: "crud-foreign-keys-${option:namespace|snake}",
         templateContext: {
           entrypoint: "src/server/buildTemplateContext.js",
           export: "buildTemplateContext"

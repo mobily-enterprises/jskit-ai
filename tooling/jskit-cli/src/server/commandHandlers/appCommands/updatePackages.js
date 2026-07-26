@@ -1,5 +1,6 @@
 import { readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
+import semver from "semver";
 
 import {
   runExternalCommandAsync,
@@ -79,6 +80,144 @@ function resolveRegistryArgs(registryUrl = "") {
 
 function resolveInstallSpecs(packageNames = [], latestVersions = new Map()) {
   return packageNames.map((packageName) => `${packageName}@${latestVersions.get(packageName)}`);
+}
+
+function parseRegistryPackageManifest(rawValue, packageName, createCliError) {
+  let parsed;
+  try {
+    parsed = JSON.parse(String(rawValue || ""));
+  } catch (error) {
+    throw createCliError(
+      `npm returned invalid metadata for ${packageName}: ${error instanceof Error ? error.message : String(error)}.`,
+      { exitCode: 1 }
+    );
+  }
+  if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
+    throw createCliError(`npm returned invalid metadata for ${packageName}: expected an object.`, {
+      exitCode: 1
+    });
+  }
+  return parsed;
+}
+
+async function resolveRegistryPackageManifests(packageNames = [], latestVersions = new Map(), {
+  appRoot,
+  createCliError,
+  registryArgs,
+  stderr,
+  stdout
+}) {
+  const manifests = new Map();
+  for (const packageName of packageNames) {
+    const version = latestVersions.get(packageName);
+    const result = await runExternalCommandAsync(
+      "npm",
+      ["view", ...registryArgs, `${packageName}@${version}`, "--json"],
+      {
+        cwd: appRoot,
+        stdout,
+        stderr,
+        quiet: true,
+        createCliError
+      }
+    );
+    manifests.set(
+      packageName,
+      parseRegistryPackageManifest(result.stdout, packageName, createCliError)
+    );
+  }
+  return manifests;
+}
+
+function resolveDeclaredDependencySection(packageJson = {}, packageName = "") {
+  return DEPENDENCY_SECTIONS.find((section) =>
+    Object.prototype.hasOwnProperty.call(packageJson?.[section.name] || {}, packageName)
+  ) || null;
+}
+
+function findRangeIntersectionVersion(ranges = []) {
+  const normalizedRanges = ranges
+    .map((range) => semver.validRange(String(range || "").trim()))
+    .filter(Boolean);
+  if (normalizedRanges.length !== ranges.length) {
+    return null;
+  }
+
+  const candidates = normalizedRanges
+    .map((range) => semver.minVersion(range))
+    .filter(Boolean)
+    .sort(semver.compare);
+  return candidates.find((version) =>
+    normalizedRanges.every((range) => semver.satisfies(version, range))
+  ) || null;
+}
+
+function resolveRequiredDirectPeerUpdates({
+  createCliError,
+  packageJson = {},
+  packageManifests = new Map()
+} = {}) {
+  const requirementsByPeer = new Map();
+  for (const [packageName, manifest] of packageManifests.entries()) {
+    const peerDependencies = ensureObject(manifest?.peerDependencies);
+    const peerDependenciesMeta = ensureObject(manifest?.peerDependenciesMeta);
+    for (const [peerName, rawRange] of Object.entries(peerDependencies)) {
+      if (ensureObject(peerDependenciesMeta[peerName]).optional === true) {
+        continue;
+      }
+      const section = resolveDeclaredDependencySection(packageJson, peerName);
+      if (!section) {
+        continue;
+      }
+      const range = String(rawRange || "").trim();
+      if (!semver.validRange(range)) {
+        throw createCliError(
+          `${packageName} declares an invalid required peer range for ${peerName}: ${range || "<empty>"}.`,
+          { exitCode: 1 }
+        );
+      }
+      const requirement = requirementsByPeer.get(peerName) || {
+        packageNames: [],
+        ranges: [],
+        section
+      };
+      requirement.packageNames.push(packageName);
+      requirement.ranges.push(range);
+      requirementsByPeer.set(peerName, requirement);
+    }
+  }
+
+  const updates = [];
+  for (const [peerName, requirement] of [...requirementsByPeer.entries()].sort(([left], [right]) =>
+    left.localeCompare(right)
+  )) {
+    const uniqueRanges = [...new Set(requirement.ranges)];
+    const targetVersion = findRangeIntersectionVersion(uniqueRanges);
+    if (!targetVersion) {
+      throw createCliError(
+        `Updated JSKIT packages require incompatible ${peerName} peers: ${uniqueRanges.join(", ")}.`,
+        { exitCode: 1 }
+      );
+    }
+
+    const currentRange = String(packageJson?.[requirement.section.name]?.[peerName] || "").trim();
+    if (findRangeIntersectionVersion([currentRange, ...uniqueRanges])) {
+      continue;
+    }
+
+    const subsetRange = uniqueRanges.find((candidateRange) =>
+      uniqueRanges.every((otherRange) => semver.subset(candidateRange, otherRange))
+    );
+    updates.push(Object.freeze({
+      name: peerName,
+      packageNames: Object.freeze([...new Set(requirement.packageNames)].sort()),
+      previousRange: currentRange,
+      section: requirement.section,
+      targetRange: subsetRange || targetVersion.version
+    }));
+  }
+
+  return Object.freeze(updates);
 }
 
 function collectChangedInstalledPackageIds(lock = {}, latestVersions = new Map()) {
@@ -474,13 +613,53 @@ async function updateRootPackages({
     stderr,
     stdout
   });
+  const packageManifests = await resolveRegistryPackageManifests(
+    rootPackageNames,
+    latestVersions,
+    {
+      appRoot,
+      createCliError,
+      registryArgs,
+      stderr,
+      stdout
+    }
+  );
+  const peerUpdates = resolveRequiredDirectPeerUpdates({
+    createCliError,
+    packageJson,
+    packageManifests
+  });
+  for (const peerUpdate of peerUpdates) {
+    stdout?.write(
+      `[jskit:update] reconciling required direct peer ${peerUpdate.name}: ` +
+      `${peerUpdate.previousRange} -> ${peerUpdate.targetRange} ` +
+      `(required by ${peerUpdate.packageNames.join(", ")}).\n`
+    );
+    packageJson[peerUpdate.section.name][peerUpdate.name] = peerUpdate.targetRange;
+  }
+  if (!dryRun && peerUpdates.length > 0) {
+    await writeFile(
+      path.join(appRoot, "package.json"),
+      `${JSON.stringify(packageJson, null, 2)}\n`,
+      "utf8"
+    );
+  }
+
   const dryRunArgs = dryRun ? ["--dry-run"] : [];
   for (const section of DEPENDENCY_SECTIONS) {
     const packageNames = collectJskitPackageNames(packageJson?.[section.name]);
-    if (packageNames.length < 1) {
+    const dryRunPeerSpecs = dryRun
+      ? peerUpdates
+          .filter((peerUpdate) => peerUpdate.section.name === section.name)
+          .map((peerUpdate) => `${peerUpdate.name}@${peerUpdate.targetRange}`)
+      : [];
+    if (packageNames.length < 1 && dryRunPeerSpecs.length < 1) {
       continue;
     }
-    const installSpecs = resolveInstallSpecs(packageNames, latestVersions);
+    const installSpecs = [
+      ...resolveInstallSpecs(packageNames, latestVersions),
+      ...dryRunPeerSpecs
+    ];
     stdout?.write(`[jskit:update] updating ${section.label} packages: ${installSpecs.join(" ")}\n`);
     await runExternalCommandAsync(
       "npm",
@@ -685,7 +864,9 @@ async function runAppUpdatePackagesCommand(ctx = {}, { appRoot = "", options = {
 
 export {
   collectChangedInstalledPackageIds,
+  findRangeIntersectionVersion,
   formatElapsedTime,
+  resolveRequiredDirectPeerUpdates,
   reapplyChangedInstalledPackages,
   runAppUpdatePackagesCommand,
   runWithProgress

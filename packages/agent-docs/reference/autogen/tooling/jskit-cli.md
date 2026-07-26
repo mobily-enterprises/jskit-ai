@@ -582,7 +582,9 @@ Exports
 ### `src/server/commandHandlers/appCommands/updatePackages.js`
 Exports
 - `collectChangedInstalledPackageIds(lock = {}, latestVersions = new Map())`
+- `findRangeIntersectionVersion(ranges = [])`
 - `formatElapsedTime(elapsedMilliseconds = 0)`
+- `resolveRequiredDirectPeerUpdates({ createCliError, packageJson = {}, packageManifests = new Map() } = {})`
 - `reapplyChangedInstalledPackages({ appRoot, createCliError, dryRun, latestVersions, loadLockFile, stderr, stdout })`
 - `runAppUpdatePackagesCommand(ctx = {}, { appRoot = "", options = {}, stdout, stderr })`
 - `runWithProgress(task, { activity, progressIntervalMs = PROGRESS_INTERVAL_MS, stdout, step } = {})`
@@ -593,6 +595,9 @@ Local functions
 - `resolveMajorRange(packageName = "", version = "", createCliError)`
 - `resolveRegistryArgs(registryUrl = "")`
 - `resolveInstallSpecs(packageNames = [], latestVersions = new Map())`
+- `parseRegistryPackageManifest(rawValue, packageName, createCliError)`
+- `resolveRegistryPackageManifests(packageNames = [], latestVersions = new Map(), { appRoot, createCliError, registryArgs, stderr, stdout })`
+- `resolveDeclaredDependencySection(packageJson = {}, packageName = "")`
 - `hasNpmWorkspaces(packageJson = {})`
 - `readJson(filePath)`
 - `readOptionalFile(filePath)`

@@ -17,6 +17,7 @@ const dialectId = resolveDatabaseClientFromEnvironment(process.env);
 const client = toKnexClientId(dialectId);
 const defaultPort = dialectId === "pg" ? 5432 : 3306;
 const migrationsDirectory = path.resolve(appRoot, normalizeText(process.env.DB_MIGRATIONS_DIR) || "migrations");
+const deferredConstraintsDirectory = path.join(migrationsDirectory, "constraints");
 
 export default {
   client,
@@ -26,7 +27,10 @@ export default {
     context: "knex migrations"
   }),
   migrations: {
-    directory: migrationsDirectory,
-    extension: "cjs"
+    // Run every table-creation migration before deferred constraints. This keeps
+    // valid mutual foreign keys rebuildable without disabling database checks.
+    directory: [migrationsDirectory, deferredConstraintsDirectory],
+    extension: "cjs",
+    sortDirsSeparately: true
   }
 };
