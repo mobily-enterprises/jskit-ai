@@ -14,9 +14,38 @@ Check first:
 - `jskit show crud-server-generator --details`
 - whether the request is server-only CRUD or server-plus-UI CRUD
 
+## Non-negotiable database contract
+
+Before database, schema, CRUD, repository, or persistence work, read this
+pattern completely. Use the database selected for this app's development
+runtime; never alter a production, legacy, historical, or other valuable
+database to develop or verify schema changes. Prove the complete migration
+chain against a fresh disposable database before reporting completion.
+
+For normal app-owned CRUD tables:
+
+- use exactly one non-null integer primary-key column, normally
+  `id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY`
+- make every foreign key single-column and point it directly to the referenced
+  table's single-column primary key
+- use multi-column unique indexes only for business uniqueness, never as
+  relationship targets
+- use only direct `workspace_id` and/or `user_id` columns for generated JSKIT
+  ownership, and select the ownership filter that matches those columns exactly
+- express tenant-safe relationships as direct ownership plus a normal
+  `parent_id -> parent.id` relationship; resolve related IDs through the
+  workspace-scoped service and test both allowed and cross-workspace cases
+
+Do not use composite primary keys or composite foreign keys to encode tenant
+ownership, target a business key from a foreign key, or duplicate parent
+identity when the related row ID already identifies it. Stop before generation
+if the proposed table violates these constraints.
+
 Rules:
 
-- For a CRUD-backed entity, start with `jskit generate crud-server-generator scaffold ...`.
+- For a CRUD-backed entity, create the validated table in the managed
+  development database first. Then make
+  `jskit generate crud-server-generator scaffold ...` the first JSKIT scaffold.
 - Unless the table is already owned by a JSKIT baseline package or is an explicit narrow exception recorded in `.jskit/table-ownership.json`, every persisted app-owned table must go through that server CRUD step first.
 - That server scaffold is the crucial first step even if no CRUD UI will be created yet.
 - If the table should already be CRUD-owned but should not expose public CRUD HTTP routes yet, scaffold it with `jskit generate crud-server-generator scaffold ... --internal` instead of dropping to direct knex or a hand-built pseudo-repository.
@@ -64,6 +93,19 @@ When a weird-custom persistence lane is proposed:
 - Record the exact approval and the approved exception in `.jskit/WORKBOARD.md` before coding.
 - If that exception changes the durable architecture rather than only the current chunk, record it in `.jskit/APP_BLUEPRINT.md` too.
 - Without that explicit approval record, do not take the weird-custom persistence path.
+- Record durable, approved schema exceptions in `.jskit/APP_BLUEPRINT.md` as
+  well as the table-ownership exception; an exception must not silently weaken
+  the normal generated CRUD contract.
+
+Before reporting completion:
+
+- verify there are no composite primary or foreign keys in the generated CRUD
+  tables
+- verify every generated CRUD foreign key targets a single-column primary key
+- apply the generated migrations from zero to a fresh disposable database
+- compare the recreated schema with the intended development schema
+- run positive and negative cross-workspace relationship tests where ownership
+  applies, then run JSKIT Doctor and the project's normal verifier
 
 Avoid:
 

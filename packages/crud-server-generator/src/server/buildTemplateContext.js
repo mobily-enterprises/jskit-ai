@@ -1131,7 +1131,49 @@ function renderResourceDefaultSortLiteral(columns = []) {
   return match?.[1] || "[]";
 }
 
+function renderCurrentTimestampExpression(expression, column) {
+  if (
+    column?.typeKind !== "datetime" ||
+    expression?.kind !== "current_timestamp"
+  ) {
+    return "";
+  }
+
+  if (expression.precision == null) {
+    return "CURRENT_TIMESTAMP";
+  }
+  const precision = Number(expression.precision);
+  if (!Number.isInteger(precision) || precision < 0 || precision > 6) {
+    throw new Error(
+      `Invalid CURRENT_TIMESTAMP precision for column "${String(column?.name || "")}".`
+    );
+  }
+  return `CURRENT_TIMESTAMP(${precision})`;
+}
+
 function renderMigrationDefaultClause(column) {
+  const defaultExpression = renderCurrentTimestampExpression(
+    column?.defaultExpression,
+    column
+  );
+  const onUpdateExpression = renderCurrentTimestampExpression(
+    column?.onUpdateExpression,
+    column
+  );
+  if (onUpdateExpression) {
+    if (!defaultExpression) {
+      throw new Error(
+        `Cannot safely preserve ON UPDATE for column "${String(column?.name || "")}" without a recognized temporal default expression.`
+      );
+    }
+    return `.defaultTo(knex.raw(${JSON.stringify(
+      `${defaultExpression} ON UPDATE ${onUpdateExpression}`
+    )}))`;
+  }
+  if (defaultExpression) {
+    return `.defaultTo(knex.raw(${JSON.stringify(defaultExpression)}))`;
+  }
+
   if (column.hasDefault !== true) {
     return "";
   }
@@ -1149,14 +1191,6 @@ function renderMigrationDefaultClause(column) {
   if (normalizedLower === "null") {
     return "";
   }
-  const extraLower = String(column.extra || "").toLowerCase();
-  if (normalizedLower === "current_timestamp" || normalizedLower === "current_timestamp()") {
-    if (extraLower.includes("on update current_timestamp")) {
-      return '.defaultTo(knex.raw("CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP"))';
-    }
-    return ".defaultTo(knex.fn.now())";
-  }
-
   if (column.typeKind === "boolean") {
     if (normalizedLower === "1" || normalizedLower === "true") {
       return ".defaultTo(true)";
@@ -1302,7 +1336,17 @@ function renderMigrationColumnLine(column, {
     );
   }
 
-  if (column.unsigned && (line.includes(".integer(") || line.includes(".smallint(") || line.includes(".bigInteger("))) {
+  if (
+    column.unsigned &&
+    (
+      line.includes(".integer(") ||
+      line.includes(".smallint(") ||
+      line.includes(".bigInteger(") ||
+      line.includes(".decimal(") ||
+      line.includes(".float(") ||
+      line.includes(".double(")
+    )
+  ) {
     line += ".unsigned()";
   }
   line += column.nullable ? ".nullable()" : ".notNullable()";

@@ -44,15 +44,19 @@ Local functions
 - `toBoolean(value)`
 - `toNullableNumber(value)`
 - `normalizeColumnDefault(value)`
+- `normalizeCurrentTimestampExpression(value)`
+- `normalizeOnUpdateExpression(value)`
 - `parseEnumValues(columnType = "")`
 - `resolveTypeKind(column)`
 - `normalizeColumn(row = {})`
 - `normalizePrimaryKeyColumns(rows = [])`
+- `normalizePrimaryKeyColumnsByTable(rows = [])`
 - `normalizeIndexes(rows = [])`
 - `normalizeForeignKeys(rows = [])`
 - `normalizeCheckConstraints(rows = [])`
 - `requireIdColumn(columns, idColumn)`
 - `requirePrimaryKeyContainsId(primaryKeyColumns, idColumn)`
+- `requireSupportedForeignKeys(foreignKeys, primaryKeyColumnsByTable)`
 
 ### root
 

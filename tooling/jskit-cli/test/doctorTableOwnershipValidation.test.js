@@ -39,12 +39,19 @@ async function writeAppFile(appRoot, relativePath, sourceText) {
 async function installFakeKnex(appRoot, {
   tables = [],
   columns = {},
-  foreignKeys = []
+  foreignKeys = [],
+  primaryKeys = {}
 } = {}) {
   const normalizedColumns = Object.fromEntries(
     Object.entries(columns).map(([tableName, columnNames]) => [
       tableName,
       Array.isArray(columnNames) ? columnNames : []
+    ])
+  );
+  const normalizedPrimaryKeys = Object.fromEntries(
+    tables.map((tableName) => [
+      tableName,
+      Array.isArray(primaryKeys[tableName]) ? primaryKeys[tableName] : ["id"]
     ])
   );
   await writeAppFile(
@@ -68,6 +75,7 @@ async function installFakeKnex(appRoot, {
   const tables = ${JSON.stringify(tables)};
   const columns = ${JSON.stringify(normalizedColumns)};
   const foreignKeys = ${JSON.stringify(foreignKeys)};
+  const primaryKeys = ${JSON.stringify(normalizedPrimaryKeys)};
   return {
     async raw(sql) {
       if (/information_schema\\.TABLES/i.test(String(sql || ""))) {
@@ -76,8 +84,11 @@ async function installFakeKnex(appRoot, {
       if (/information_schema\\.COLUMNS/i.test(String(sql || ""))) {
         return [Object.entries(columns).flatMap(([tableName, columnNames]) => columnNames.map((columnName) => ({ tableName, columnName }))), []];
       }
+      if (/information_schema\\.KEY_COLUMN_USAGE/i.test(String(sql || "")) && /CONSTRAINT_NAME\\s*=\\s*'PRIMARY'/i.test(String(sql || ""))) {
+        return [Object.entries(primaryKeys).flatMap(([tableName, columnNames]) => columnNames.map((columnName, index) => ({ tableName, columnName, ordinalPosition: index + 1 }))), []];
+      }
       if (/information_schema\\.KEY_COLUMN_USAGE/i.test(String(sql || ""))) {
-        return [foreignKeys.map((entry) => ({ ...entry })), []];
+        return [foreignKeys.map((entry, index) => ({ constraintName: entry.constraintName || ("fk_" + index), ordinalPosition: entry.ordinalPosition || 1, ...entry })), []];
       }
       if (/pg_tables/i.test(String(sql || ""))) {
         return {
@@ -91,7 +102,12 @@ async function installFakeKnex(appRoot, {
       }
       if (/constraint_type\\s*=\\s*'FOREIGN KEY'/i.test(String(sql || ""))) {
         return {
-          rows: foreignKeys.map((entry) => ({ ...entry }))
+          rows: foreignKeys.map((entry, index) => ({ constraintName: entry.constraintName || ("fk_" + index), ordinalPosition: entry.ordinalPosition || 1, ...entry }))
+        };
+      }
+      if (/constraint_type\\s*=\\s*'PRIMARY KEY'/i.test(String(sql || ""))) {
+        return {
+          rows: Object.entries(primaryKeys).flatMap(([tableName, columnNames]) => columnNames.map((columnName, index) => ({ tableName, columnName, ordinalPosition: index + 1 })))
         };
       }
       throw new Error("Unexpected raw query: " + String(sql || ""));
@@ -161,6 +177,64 @@ function createCrudProviderStub(ownershipFilter = "public", className = "CrudPro
 class ${className} {}
 export { ${className} };
 `;
+}
+
+async function writeGeneratedCrudPackage(appRoot, {
+  packageDirectoryName = "items",
+  tableName = "items",
+  idColumn = "id",
+  ownershipFilter = "public"
+} = {}) {
+  const className = `${packageDirectoryName
+    .split("-")
+    .filter(Boolean)
+    .map((part) => `${part[0]?.toUpperCase() || ""}${part.slice(1)}`)
+    .join("")}Provider`;
+  await writePackageDescriptor(
+    appRoot,
+    packageDirectoryName,
+    `export default Object.freeze({
+  packageId: "@local/${packageDirectoryName}",
+  version: "0.1.0",
+  kind: "runtime",
+  capabilities: {
+    provides: ["crud.${packageDirectoryName}"],
+    requires: []
+  },
+  runtime: {
+    server: {
+      providers: [
+        {
+          entrypoint: "src/server/${className}.js",
+          export: "${className}"
+        }
+      ]
+    }
+  },
+  metadata: {
+    jskit: {
+      scaffoldShape: "crud-server-v1",
+      tableOwnership: {
+        tables: [
+          {
+            tableName: "${tableName}",
+            idColumn: "${idColumn}",
+            provenance: "crud-server-generator",
+            ownerKind: "crud-package"
+          }
+        ]
+      }
+    }
+  },
+  mutations: {
+    files: []
+  }
+});
+`,
+    {
+      [`src/server/${className}.js`]: createCrudProviderStub(ownershipFilter, className)
+    }
+  );
 }
 
 test("doctor accepts live tables owned by generated CRUD metadata", async () => {
@@ -559,17 +633,17 @@ test("doctor keeps noncanonical user foreign keys as domain relationships for ex
     const appRoot = path.join(cwd, "doctor-crud-domain-user-relationship-app");
     await createMinimalApp(appRoot, { name: "doctor-crud-domain-user-relationship-app" });
     await installFakeKnex(appRoot, {
-      tables: ["user_profiles", "notification_outbox_items"],
+      tables: ["users", "notification_outbox_items"],
       columns: {
-        user_profiles: ["id", "user_id"],
+        users: ["id"],
         notification_outbox_items: ["id", "workspace_id", "recipient_user_id"]
       },
       foreignKeys: [
         {
           tableName: "notification_outbox_items",
           columnName: "recipient_user_id",
-          referencedTableName: "user_profiles",
-          referencedColumnName: "user_id"
+          referencedTableName: "users",
+          referencedColumnName: "id"
         }
       ]
     });
@@ -631,10 +705,10 @@ test("doctor keeps noncanonical user foreign keys as domain relationships for ex
           version: 1,
           exceptions: [
             {
-              tableName: "user_profiles",
+              tableName: "users",
               category: "projection-cache",
               owner: "packages/users",
-              reason: "User profile fixture referenced by the outbox recipient relationship."
+              reason: "User fixture referenced by the outbox recipient relationship."
             }
           ]
         },
@@ -1041,5 +1115,163 @@ test("doctor allows auxiliary join tables to inherit ownership without direct ow
     assert.equal(doctorResult.status, 0, String(doctorResult.stderr || ""));
     const payload = JSON.parse(String(doctorResult.stdout || "{}"));
     assert.deepEqual(payload.issues, []);
+  });
+});
+
+test("doctor rejects a generated CRUD table with a composite primary key", async () => {
+  await withTempDir(async (cwd) => {
+    const appRoot = path.join(cwd, "doctor-crud-composite-primary-key-app");
+    await createMinimalApp(appRoot);
+    await installFakeKnex(appRoot, {
+      tables: ["items"],
+      columns: {
+        items: ["workspace_id", "id"]
+      },
+      primaryKeys: {
+        items: ["workspace_id", "id"]
+      }
+    });
+    await writeKnexfile(appRoot);
+    await writeLockFile(appRoot, ["@local/items"]);
+    await writeGeneratedCrudPackage(appRoot, {
+      ownershipFilter: "workspace"
+    });
+
+    const doctorResult = runCli({
+      cwd: appRoot,
+      args: ["doctor", "--json"]
+    });
+
+    assert.equal(doctorResult.status, 1, String(doctorResult.stderr || ""));
+    const payload = JSON.parse(String(doctorResult.stdout || "{}"));
+    assert.match(
+      payload.issues.join("\n"),
+      /\[crud-schema:primary-key\] generated CRUD table "items" must have exactly one primary-key column "id"; live primary key is workspace_id, id/
+    );
+  });
+});
+
+test("doctor rejects a generated CRUD foreign key to a non-primary business key", async () => {
+  await withTempDir(async (cwd) => {
+    const appRoot = path.join(cwd, "doctor-crud-business-key-relationship-app");
+    await createMinimalApp(appRoot);
+    await installFakeKnex(appRoot, {
+      tables: ["parents", "items"],
+      columns: {
+        parents: ["id", "slug"],
+        items: ["id", "parent_slug"]
+      },
+      foreignKeys: [
+        {
+          tableName: "items",
+          constraintName: "items_parent_slug_foreign",
+          columnName: "parent_slug",
+          referencedTableName: "parents",
+          referencedColumnName: "slug"
+        }
+      ]
+    });
+    await writeKnexfile(appRoot);
+    await writeLockFile(appRoot, ["@local/items"]);
+    await writeGeneratedCrudPackage(appRoot);
+    await writeAppFile(
+      appRoot,
+      ".jskit/table-ownership.json",
+      `${JSON.stringify(
+        {
+          version: 1,
+          exceptions: [
+            {
+              tableName: "parents",
+              category: "external-source",
+              owner: "external-parent-source",
+              reason: "Fixture target for relationship validation."
+            }
+          ]
+        },
+        null,
+        2
+      )}\n`
+    );
+
+    const doctorResult = runCli({
+      cwd: appRoot,
+      args: ["doctor", "--json"]
+    });
+
+    assert.equal(doctorResult.status, 1, String(doctorResult.stderr || ""));
+    const payload = JSON.parse(String(doctorResult.stdout || "{}"));
+    assert.match(
+      payload.issues.join("\n"),
+      /\[crud-schema:foreign-key-target\].*"items_parent_slug_foreign" targets "parents.slug".*single-column primary key \(live primary key: id\)/
+    );
+  });
+});
+
+test("doctor rejects a composite foreign key on a generated CRUD table", async () => {
+  await withTempDir(async (cwd) => {
+    const appRoot = path.join(cwd, "doctor-crud-composite-relationship-app");
+    await createMinimalApp(appRoot);
+    await installFakeKnex(appRoot, {
+      tables: ["parents", "items"],
+      columns: {
+        parents: ["id", "workspace_id"],
+        items: ["id", "workspace_id", "parent_id"]
+      },
+      foreignKeys: [
+        {
+          tableName: "items",
+          constraintName: "items_parent_foreign",
+          columnName: "workspace_id",
+          referencedTableName: "parents",
+          referencedColumnName: "workspace_id",
+          ordinalPosition: 1
+        },
+        {
+          tableName: "items",
+          constraintName: "items_parent_foreign",
+          columnName: "parent_id",
+          referencedTableName: "parents",
+          referencedColumnName: "id",
+          ordinalPosition: 2
+        }
+      ]
+    });
+    await writeKnexfile(appRoot);
+    await writeLockFile(appRoot, ["@local/items"]);
+    await writeGeneratedCrudPackage(appRoot, {
+      ownershipFilter: "workspace"
+    });
+    await writeAppFile(
+      appRoot,
+      ".jskit/table-ownership.json",
+      `${JSON.stringify(
+        {
+          version: 1,
+          exceptions: [
+            {
+              tableName: "parents",
+              category: "external-source",
+              owner: "external-parent-source",
+              reason: "Fixture target for relationship validation."
+            }
+          ]
+        },
+        null,
+        2
+      )}\n`
+    );
+
+    const doctorResult = runCli({
+      cwd: appRoot,
+      args: ["doctor", "--json"]
+    });
+
+    assert.equal(doctorResult.status, 1, String(doctorResult.stderr || ""));
+    const payload = JSON.parse(String(doctorResult.stdout || "{}"));
+    assert.match(
+      payload.issues.join("\n"),
+      /\[crud-schema:composite-foreign-key\].*"items_parent_foreign" has 2 columns/
+    );
   });
 });

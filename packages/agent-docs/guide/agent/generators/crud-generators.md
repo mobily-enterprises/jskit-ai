@@ -230,6 +230,24 @@ w/[workspaceSlug]/admin/...
 
 then `workspace` is usually the normal default. If you are generating a CRUD for a global operator or account area, `public` or `user` may make more sense.
 
+## Schema contract for generated CRUD
+
+Generated CRUD tables use one single-column integer primary key, normally
+`id`. Each foreign key must also be single-column and must reference the target
+table's single-column primary key. Composite indexes remain useful for business
+uniqueness such as `(workspace_id, slug)`, but they are never relationship
+targets.
+
+Tenant isolation comes from a direct `workspace_id` and/or `user_id` ownership
+column, the exactly matching generated ownership filter, scoped service
+lookups, and cross-tenant tests. Do not encode ownership into a composite
+foreign key such as `(workspace_id, parent_id) -> (workspace_id, id)`.
+
+The generator rejects unsupported key shapes. If an approved application truly
+needs a different persistence model, record the durable decision in
+`.jskit/APP_BLUEPRINT.md` and use the explicit table-ownership exception path
+instead of modifying generated CRUD files.
+
 ## Example 1: `contacts`
 
 This is the baseline pattern. If you understand this example, the rest of the chapter becomes much easier.

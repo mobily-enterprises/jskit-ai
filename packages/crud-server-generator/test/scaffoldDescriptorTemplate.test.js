@@ -15,6 +15,7 @@ test("crud server scaffold descriptor template records table ownership provenanc
 
   assert.match(source, /scaffoldShape: "crud-server-v1"/);
   assert.match(source, /tableName: __JSKIT_CRUD_TABLE_NAME__/);
+  assert.match(source, /idColumn: __JSKIT_CRUD_ID_COLUMN__/);
   assert.match(source, /provenance: "crud-server-generator"/);
   assert.match(source, /ownerKind: "crud-package"/);
 });

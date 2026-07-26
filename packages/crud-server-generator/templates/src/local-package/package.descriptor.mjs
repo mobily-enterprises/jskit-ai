@@ -41,6 +41,7 @@ export default Object.freeze({
         tables: [
           {
             tableName: __JSKIT_CRUD_TABLE_NAME__,
+            idColumn: __JSKIT_CRUD_ID_COLUMN__,
             provenance: "crud-server-generator",
             ownerKind: "crud-package"
           }

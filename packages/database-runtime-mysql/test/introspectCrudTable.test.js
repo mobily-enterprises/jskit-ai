@@ -10,6 +10,7 @@ function createKnexRawDouble({
   primaryKeyColumns = [],
   indexes = [],
   foreignKeys = [],
+  primaryKeysByTable = {},
   checkConstraints = []
 } = {}) {
   const calls = [];
@@ -36,6 +37,21 @@ function createKnexRawDouble({
       }
       if (normalizedSql.includes("from information_schema.table_constraints")) {
         return [[...primaryKeyColumns], []];
+      }
+      if (
+        normalizedSql.includes("from information_schema.statistics") &&
+        normalizedSql.includes("s.index_name = 'primary'")
+      ) {
+        return [
+          Object.entries(primaryKeysByTable).flatMap(([tableName, columnNames]) =>
+            columnNames.map((columnName, index) => ({
+              tableName,
+              columnName,
+              ordinalPosition: index + 1
+            }))
+          ),
+          []
+        ];
       }
       if (normalizedSql.includes("from information_schema.statistics")) {
         return [[...indexes], []];
@@ -150,16 +166,16 @@ test("introspectCrudTableSnapshot maps MySQL table metadata to normalized snapsh
       {
         columnName: "updated_at",
         dataType: "datetime",
-        columnType: "datetime",
+        columnType: "datetime(3)",
         isNullable: "NO",
-        columnDefault: "CURRENT_TIMESTAMP",
-        extra: "",
+        columnDefault: "CURRENT_TIMESTAMP(3)",
+        extra: "DEFAULT_GENERATED on update CURRENT_TIMESTAMP(3)",
         characterMaximumLength: null,
         characterSetName: null,
         collationName: null,
         numericPrecision: null,
         numericScale: null,
-        datetimePrecision: 0,
+        datetimePrecision: 3,
         ordinalPosition: 7
       },
       {
@@ -204,6 +220,10 @@ test("introspectCrudTableSnapshot maps MySQL table metadata to normalized snapsh
         deleteRule: "SET NULL"
       }
     ],
+    primaryKeysByTable: {
+      contacts: ["id"],
+      workspaces: ["id"]
+    },
     checkConstraints: [
       {
         constraintName: "settings_json",
@@ -248,6 +268,16 @@ test("introspectCrudTableSnapshot maps MySQL table metadata to normalized snapsh
   assert.ok(settingsJson);
   assert.equal(settingsJson.characterSetName, "utf8mb4");
   assert.equal(settingsJson.collationName, "utf8mb4_bin");
+
+  const updatedAt = snapshot.columns.find((column) => column.name === "updated_at");
+  assert.deepEqual(updatedAt.defaultExpression, {
+    kind: "current_timestamp",
+    precision: 3
+  });
+  assert.deepEqual(updatedAt.onUpdateExpression, {
+    kind: "current_timestamp",
+    precision: 3
+  });
 
   assert.deepEqual(snapshot.indexes, [
     {
@@ -353,5 +383,186 @@ test("introspectCrudTableSnapshot rejects when primary key does not include id c
   await assert.rejects(
     () => introspectCrudTableSnapshot(knex, { tableName: "contacts" }),
     /Primary key must include id column "id"/
+  );
+});
+
+test("introspectCrudTableSnapshot classifies only allowlisted temporal defaults as SQL expressions", async () => {
+  const { knex } = createKnexRawDouble({
+    columns: [
+      ...validIdColumns(),
+      {
+        columnName: "label",
+        dataType: "varchar",
+        columnType: "varchar(190)",
+        isNullable: "NO",
+        columnDefault: "CURRENT_TIMESTAMP(3)",
+        extra: "",
+        characterMaximumLength: 190,
+        characterSetName: "utf8mb4",
+        collationName: "utf8mb4_general_ci",
+        ordinalPosition: 2
+      },
+      {
+        columnName: "created_at",
+        dataType: "datetime",
+        columnType: "datetime",
+        isNullable: "NO",
+        columnDefault: "CURRENT_TIMESTAMP()",
+        extra: "",
+        datetimePrecision: 0,
+        ordinalPosition: 3
+      }
+    ],
+    primaryKeyColumns: [{ columnName: "id" }]
+  });
+
+  const snapshot = await introspectCrudTableSnapshot(knex, {
+    tableName: "labels"
+  });
+  const label = snapshot.columns.find((column) => column.name === "label");
+
+  assert.equal(label.defaultValue, "CURRENT_TIMESTAMP(3)");
+  assert.equal(label.defaultExpression, null);
+  assert.equal(label.onUpdateExpression, null);
+  assert.deepEqual(
+    snapshot.columns.find((column) => column.name === "created_at").defaultExpression,
+    {
+      kind: "current_timestamp",
+      precision: null
+    }
+  );
+});
+
+function validIdColumns(extraColumns = []) {
+  return [
+    {
+      columnName: "id",
+      dataType: "bigint",
+      columnType: "bigint unsigned",
+      isNullable: "NO",
+      columnDefault: null,
+      extra: "auto_increment",
+      numericPrecision: 20,
+      numericScale: 0,
+      ordinalPosition: 1
+    },
+    ...extraColumns
+  ];
+}
+
+test("introspectCrudTableSnapshot rejects composite foreign keys", async () => {
+  const { knex } = createKnexRawDouble({
+    columns: validIdColumns([
+      {
+        columnName: "workspace_id",
+        dataType: "bigint",
+        columnType: "bigint unsigned",
+        isNullable: "NO",
+        extra: "",
+        ordinalPosition: 2
+      },
+      {
+        columnName: "parent_id",
+        dataType: "bigint",
+        columnType: "bigint unsigned",
+        isNullable: "NO",
+        extra: "",
+        ordinalPosition: 3
+      }
+    ]),
+    primaryKeyColumns: [{ columnName: "id" }],
+    foreignKeys: [
+      {
+        constraintName: "items_parent_foreign",
+        columnName: "workspace_id",
+        referencedTableName: "parents",
+        referencedColumnName: "workspace_id",
+        ordinalPosition: 1
+      },
+      {
+        constraintName: "items_parent_foreign",
+        columnName: "parent_id",
+        referencedTableName: "parents",
+        referencedColumnName: "id",
+        ordinalPosition: 2
+      }
+    ],
+    primaryKeysByTable: {
+      items: ["id"],
+      parents: ["id"]
+    }
+  });
+
+  await assert.rejects(
+    () => introspectCrudTableSnapshot(knex, { tableName: "items" }),
+    /supports only single-column foreign keys.*2 columns/
+  );
+});
+
+test("introspectCrudTableSnapshot rejects foreign keys to non-primary business keys", async () => {
+  const { knex } = createKnexRawDouble({
+    columns: validIdColumns([
+      {
+        columnName: "workspace_slug",
+        dataType: "varchar",
+        columnType: "varchar(190)",
+        isNullable: "NO",
+        extra: "",
+        ordinalPosition: 2
+      }
+    ]),
+    primaryKeyColumns: [{ columnName: "id" }],
+    foreignKeys: [
+      {
+        constraintName: "items_workspace_slug_foreign",
+        columnName: "workspace_slug",
+        referencedTableName: "workspaces",
+        referencedColumnName: "slug",
+        ordinalPosition: 1
+      }
+    ],
+    primaryKeysByTable: {
+      items: ["id"],
+      workspaces: ["id"]
+    }
+  });
+
+  await assert.rejects(
+    () => introspectCrudTableSnapshot(knex, { tableName: "items" }),
+    /must target the primary key "workspaces.id", not "workspaces.slug"/
+  );
+});
+
+test("introspectCrudTableSnapshot rejects foreign keys to composite primary keys", async () => {
+  const { knex } = createKnexRawDouble({
+    columns: validIdColumns([
+      {
+        columnName: "parent_id",
+        dataType: "bigint",
+        columnType: "bigint unsigned",
+        isNullable: "NO",
+        extra: "",
+        ordinalPosition: 2
+      }
+    ]),
+    primaryKeyColumns: [{ columnName: "id" }],
+    foreignKeys: [
+      {
+        constraintName: "items_parent_foreign",
+        columnName: "parent_id",
+        referencedTableName: "parents",
+        referencedColumnName: "id",
+        ordinalPosition: 1
+      }
+    ],
+    primaryKeysByTable: {
+      items: ["id"],
+      parents: ["workspace_id", "id"]
+    }
+  });
+
+  await assert.rejects(
+    () => introspectCrudTableSnapshot(knex, { tableName: "items" }),
+    /primary key is not single-column.*workspace_id, id/
   );
 });

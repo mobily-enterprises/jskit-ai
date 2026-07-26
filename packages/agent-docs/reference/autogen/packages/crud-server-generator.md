@@ -68,6 +68,7 @@ Local functions
 - `renderJsonRestSearchSchemaLines(columns = [])`
 - `renderJsonRestDefaultSortLine(columns = [])`
 - `renderResourceDefaultSortLiteral(columns = [])`
+- `renderCurrentTimestampExpression(expression, column)`
 - `renderMigrationDefaultClause(column)`
 - `renderMigrationSpecificStringType(column, { tableCollation = "" } = {})`
 - `renderTemporalColumnBuilder(column, methodName)`
