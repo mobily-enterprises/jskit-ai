@@ -1,7 +1,7 @@
 export default Object.freeze({
   "packageVersion": 1,
   "packageId": "@jskit-ai/auth-provider-local-core",
-  "version": "0.1.31",
+  "version": "0.1.32",
   "kind": "runtime",
   "description": "Local auth provider with a file backend default and no database requirement.",
   "dependsOn": [
@@ -64,8 +64,8 @@ export default Object.freeze({
   "mutations": {
     "dependencies": {
       "runtime": {
-        "@jskit-ai/auth-core": "0.1.127",
-        "@jskit-ai/kernel": "0.1.130",
+        "@jskit-ai/auth-core": "0.1.128",
+        "@jskit-ai/kernel": "0.1.131",
         "nodemailer": "^9.0.3",
         "dotenv": "^16.4.5"
       },
