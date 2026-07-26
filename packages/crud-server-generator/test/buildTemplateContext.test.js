@@ -924,6 +924,38 @@ test("renderMigrationColumnLine unwraps quoted string defaults", () => {
   assert.match(enumLine, /\.defaultTo\("unknown"\)/);
 });
 
+test("renderMigrationColumnLine preserves defaults on MariaDB TEXT-family columns", () => {
+  for (const dataType of ["text", "tinytext", "mediumtext", "longtext"]) {
+    const name = `${dataType}_rules`;
+    const line = __testables.renderMigrationColumnLine({
+      name,
+      dataType,
+      columnType: dataType,
+      typeKind: "string",
+      nullable: false,
+      hasDefault: true,
+      defaultValue: "[]",
+      defaultExpression: null,
+      autoIncrement: false,
+      onUpdateExpression: null,
+      unsigned: false,
+      extra: "",
+      maxLength: null,
+      numericPrecision: null,
+      numericScale: null,
+      datetimePrecision: null,
+      characterSetName: "",
+      collationName: "",
+      enumValues: []
+    });
+
+    assert.equal(
+      line,
+      `table.specificType(${JSON.stringify(name)}, ${JSON.stringify(dataType)}).notNullable().defaultTo("[]");`
+    );
+  }
+});
+
 test("renderMigrationColumnLine preserves datetime precision", () => {
   const line = __testables.renderMigrationColumnLine({
     name: "deleted_at",
