@@ -1281,18 +1281,18 @@ function renderMigrationColumnLine(column, {
     }
   } else if (dataType === "char") {
     line = `table.specificType(${nameLiteral}, ${JSON.stringify(specificStringType || column.columnType || "char(255)")})`;
-  } else if (dataType === "text") {
-    if (specificStringType) {
-      line = `table.specificType(${nameLiteral}, ${JSON.stringify(specificStringType)})`;
-    } else {
-      line = `table.text(${nameLiteral})`;
-    }
-  } else if (dataType === "tinytext" || dataType === "mediumtext" || dataType === "longtext") {
-    if (specificStringType) {
-      line = `table.specificType(${nameLiteral}, ${JSON.stringify(specificStringType)})`;
-    } else {
-      line = `table.text(${nameLiteral}, ${JSON.stringify(dataType)})`;
-    }
+  } else if (
+    dataType === "text" ||
+    dataType === "tinytext" ||
+    dataType === "mediumtext" ||
+    dataType === "longtext"
+  ) {
+    // Knex's MySQL text() compiler silently omits column defaults. This
+    // migration is a dialect-specific schema snapshot, so retain the exact
+    // introspected TEXT-family type through specificType().
+    line = `table.specificType(${nameLiteral}, ${JSON.stringify(
+      specificStringType || column.columnType || dataType
+    )})`;
   } else if (dataType === "enum") {
     const enumValues = Array.isArray(column.enumValues) ? column.enumValues : [];
     line = `table.enu(${nameLiteral}, ${JSON.stringify(enumValues)})`;

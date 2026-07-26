@@ -1,6 +1,6 @@
 {
   "name": "@jskit-ai/crud-server-generator",
-  "version": "0.1.142",
+  "version": "0.1.143",
   "type": "module",
   "scripts": {
     "test": "node --test"
