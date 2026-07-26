@@ -9,7 +9,6 @@ exports.up = async function up(knex) {
   await knex.schema.createTable(TABLE_NAME, (table) => {
 __JSKIT_CRUD_MIGRATION_COLUMN_LINES__
 __JSKIT_CRUD_MIGRATION_INDEX_LINES__
-__JSKIT_CRUD_MIGRATION_FOREIGN_KEY_LINES__
   });
 __JSKIT_CRUD_MIGRATION_CHECK_CONSTRAINT_LINES__
 };

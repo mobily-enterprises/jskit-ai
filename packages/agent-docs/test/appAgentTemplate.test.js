@@ -12,6 +12,7 @@ test("app agent template points to distributed docs without removed workflow com
 
   assert.match(body, /agent-docs\/guide\/agent\/index\.md/);
   assert.match(body, /agent-docs\/patterns\/INDEX\.md/);
+  assert.match(body, /agent-docs\/patterns\/crud-scaffolding\.md/);
 
   assert.doesNotMatch(body, /workflow\/app-state\.md/);
   assert.doesNotMatch(body, /workflow\/feature-delivery\.md/);

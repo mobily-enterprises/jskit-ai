@@ -1,6 +1,6 @@
 {
   "name": "@jskit-ai/jskit-catalog",
-  "version": "0.1.144",
+  "version": "0.1.148",
   "description": "Published metadata catalog for JSKIT package descriptors.",
   "type": "module",
   "files": [
@@ -17,7 +17,7 @@
     "test": "node --test"
   },
   "engines": {
-    "node": "^22.12.0 || ^24.0.0 || ^26.0.0"
+    "node": "^22.13.0 || ^24.0.0 || ^26.0.0"
   },
   "publishConfig": {
     "access": "public"

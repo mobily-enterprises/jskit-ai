@@ -16,6 +16,9 @@ const DEFAULT_REGISTRY = "https://registry.npmjs.org";
 const DEFAULT_TAG = "latest";
 const DEFAULT_ACCESS = "public";
 const DEFAULT_PUBLISH_CONCURRENCY = 20;
+const STAGING_TAG = "jskit-staged";
+const REGISTRY_VISIBILITY_TIMEOUT_MS = 120_000;
+const REGISTRY_VISIBILITY_RETRY_MS = 1_000;
 
 function parseArgs(argv) {
   const envPublishConcurrency = Number.parseInt(String(process.env.PUBLISH_CONCURRENCY || ""), 10);
@@ -591,6 +594,119 @@ async function runPublishCommand({ cwd, npmUserConfigPath, registry, tag, access
   });
 }
 
+async function waitForPublishedVersions({
+  packageNames,
+  nextVersions,
+  registry,
+  token,
+  timeoutMs = REGISTRY_VISIBILITY_TIMEOUT_MS,
+  retryMs = REGISTRY_VISIBILITY_RETRY_MS
+}) {
+  const pending = new Set(packageNames);
+  const deadline = Date.now() + timeoutMs;
+  const headers = {
+    accept: "application/json",
+    "cache-control": "no-cache"
+  };
+  const normalizedToken = String(token || "").trim();
+  if (normalizedToken) {
+    headers.authorization = `Bearer ${normalizedToken}`;
+  }
+
+  while (pending.size > 0) {
+    const checks = await Promise.all(
+      [...pending].map(async (packageName) => {
+        const version = nextVersions.get(packageName);
+        const packagePath = encodeURIComponent(packageName);
+        const versionPath = encodeURIComponent(version);
+        const url = `${registry}/${packagePath}/${versionPath}`;
+        try {
+          const response = await fetch(url, { headers });
+          if (!response.ok) {
+            return null;
+          }
+          const manifest = await response.json();
+          return manifest?.version === version ? packageName : null;
+        } catch {
+          return null;
+        }
+      })
+    );
+
+    for (const packageName of checks.filter(Boolean)) {
+      pending.delete(packageName);
+    }
+    if (pending.size < 1) {
+      return;
+    }
+    if (Date.now() >= deadline) {
+      throw new Error(
+        `Published versions did not become readable before tag promotion: ${[...pending].sort().join(", ")}.`
+      );
+    }
+    await new Promise((resolve) => setTimeout(resolve, retryMs));
+  }
+}
+
+async function runDistTagCommand({
+  packageName,
+  version,
+  npmUserConfigPath,
+  registry,
+  tag
+}) {
+  const args = [
+    "dist-tag",
+    "add",
+    `${packageName}@${version}`,
+    tag,
+    "--registry",
+    registry,
+    "--userconfig",
+    npmUserConfigPath
+  ];
+
+  await new Promise((resolve, reject) => {
+    const child = spawn("npm", args, {
+      cwd: REPO_ROOT,
+      stdio: "inherit",
+      env: process.env
+    });
+    child.on("error", reject);
+    child.on("close", (code, signal) => {
+      if (code === 0) {
+        resolve();
+        return;
+      }
+      reject(
+        new Error(
+          `npm dist-tag failed for ${packageName}@${version} (code=${code}, signal=${signal || "none"})`
+        )
+      );
+    });
+  });
+}
+
+async function promotePublishedPackages({
+  publishOrder,
+  nextVersions,
+  npmUserConfigPath,
+  registry,
+  tag
+}) {
+  for (const packageName of publishOrder) {
+    const version = nextVersions.get(packageName);
+    process.stdout.write(`Promoting ${packageName}@${version} to ${tag}...\n`);
+    await runDistTagCommand({
+      packageName,
+      version,
+      npmUserConfigPath,
+      registry,
+      tag
+    });
+  }
+}
+
 async function publishPackages({
   records,
   publishSet,
@@ -740,6 +856,9 @@ async function main() {
     process.stdout.write(`- ${packageName}: ${currentVersions.get(packageName)} -> ${nextVersions.get(packageName)}\n`);
   }
   process.stdout.write(`Publish concurrency: ${options.publishConcurrency}\n`);
+  if (options.tag !== STAGING_TAG) {
+    process.stdout.write(`Publish tag: ${STAGING_TAG}; promote to: ${options.tag}\n`);
+  }
   if (options.prepareOnly) {
     process.stdout.write("Prepare only: yes\n");
   }
@@ -783,10 +902,28 @@ async function main() {
       nextVersions,
       npmUserConfigPath,
       registry: options.registry,
-      tag: options.tag,
+      // Never expose a dependent package through the requested public tag until
+      // the complete exact-version closure is readable from the registry.
+      tag: options.tag === STAGING_TAG ? options.tag : STAGING_TAG,
       access: options.access,
       publishConcurrency: options.publishConcurrency
     });
+    if (options.tag !== STAGING_TAG) {
+      process.stdout.write("Waiting for every published version to become readable...\n");
+      await waitForPublishedVersions({
+        packageNames: publishOrder,
+        nextVersions,
+        registry: options.registry,
+        token: process.env.NPM_TOKEN
+      });
+      await promotePublishedPackages({
+        publishOrder,
+        nextVersions,
+        npmUserConfigPath,
+        registry: options.registry,
+        tag: options.tag
+      });
+    }
   } finally {
     if (npmUserConfigPath) {
       await rm(path.dirname(npmUserConfigPath), { recursive: true, force: true });
@@ -805,5 +942,9 @@ if (process.argv[1] && path.resolve(process.argv[1]) === __filename) {
 }
 
 export {
+  STAGING_TAG,
+  promotePublishedPackages,
+  topologicalPublishOrder,
+  waitForPublishedVersions,
   updateDescriptorTextForPackage
 };

@@ -1,6 +1,6 @@
 {
   "name": "@jskit-ai/google-rewarded-core",
-  "version": "0.1.66",
+  "version": "0.1.70",
   "private": true,
   "type": "module",
   "exports": {

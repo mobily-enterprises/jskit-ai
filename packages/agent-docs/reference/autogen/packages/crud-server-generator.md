@@ -68,6 +68,7 @@ Local functions
 - `renderJsonRestSearchSchemaLines(columns = [])`
 - `renderJsonRestDefaultSortLine(columns = [])`
 - `renderResourceDefaultSortLiteral(columns = [])`
+- `renderCurrentTimestampExpression(expression, column)`
 - `renderMigrationDefaultClause(column)`
 - `renderMigrationSpecificStringType(column, { tableCollation = "" } = {})`
 - `renderTemporalColumnBuilder(column, methodName)`
@@ -77,6 +78,8 @@ Local functions
 - `renderMigrationIndexLines(snapshot)`
 - `renderMigrationForeignKeyLine(foreignKey = {})`
 - `renderMigrationForeignKeyLines(snapshot)`
+- `renderMigrationDropForeignKeyLine(foreignKey = {})`
+- `renderMigrationDropForeignKeyLines(snapshot)`
 - `renderMigrationCheckConstraintLines(snapshot)`
 - `mergeFieldMetaEntries(...entryGroups)`
 - `resolveLookupNamespaceFromTableName(tableName = "")`
@@ -155,6 +158,10 @@ Exports
 - `crudResource`
 
 ### templates
+
+### `templates/migrations/crud_foreign_keys.cjs`
+Exports
+- None
 
 ### `templates/migrations/crud_initial.cjs`
 Exports

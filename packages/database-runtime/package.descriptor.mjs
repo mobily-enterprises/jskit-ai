@@ -1,7 +1,7 @@
 export default Object.freeze({
   packageVersion: 1,
   packageId: "@jskit-ai/database-runtime",
-  version: "0.1.128",
+  version: "0.1.132",
   kind: "runtime",
   dependsOn: [
     "@jskit-ai/kernel"
@@ -70,7 +70,7 @@ export default Object.freeze({
   mutations: {
     dependencies: {
       runtime: {
-        "@jskit-ai/kernel": "0.1.129",
+        "@jskit-ai/kernel": "0.1.133",
         "dotenv": "^16.4.5",
         "knex": "^3.1.0"
       },
@@ -99,6 +99,13 @@ export default Object.freeze({
         reason: "Ensure migrations directory exists so Knex migration commands can run before any module installs migrations.",
         category: "database-runtime",
         id: "database-runtime-migrations-dir"
+      },
+      {
+        from: "templates/migrations/constraints/.gitkeep",
+        to: "migrations/constraints/.gitkeep",
+        reason: "Ensure the ordered deferred-constraint migration directory exists.",
+        category: "database-runtime",
+        id: "database-runtime-constraint-migrations-dir"
       }
     ]
   }

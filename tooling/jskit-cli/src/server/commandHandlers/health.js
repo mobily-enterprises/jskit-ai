@@ -604,6 +604,7 @@ function createHealthCommands(ctx = {}) {
         packageId,
         packagePath,
         tableName,
+        idColumn: normalizeDbIdentifier(entry.idColumn) || "id",
         provenance: String(entry.provenance || "").trim().toLowerCase(),
         ownerKind: String(entry.ownerKind || "").trim().toLowerCase(),
         providerEntrypoint: String(entry.providerEntrypoint || "").trim(),
@@ -805,7 +806,8 @@ function createHealthCommands(ctx = {}) {
         applicable: false,
         tableNames: [],
         columnsByTable: new Map(),
-        foreignKeysByTable: new Map()
+        foreignKeysByTable: new Map(),
+        primaryKeyColumnsByTable: new Map()
       };
     }
 
@@ -817,6 +819,7 @@ function createHealthCommands(ctx = {}) {
       let tableRows = [];
       let columnRows = [];
       let foreignKeyRows = [];
+      let primaryKeyRows = [];
       if (clientId.startsWith("mysql")) {
         tableRows = normalizeKnexRawRows(await knex.raw(
           "SELECT TABLE_NAME AS tableName FROM information_schema.TABLES WHERE TABLE_SCHEMA = DATABASE() AND TABLE_TYPE = 'BASE TABLE' ORDER BY TABLE_NAME"
@@ -825,7 +828,10 @@ function createHealthCommands(ctx = {}) {
           "SELECT TABLE_NAME AS tableName, COLUMN_NAME AS columnName FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() ORDER BY TABLE_NAME, ORDINAL_POSITION"
         ));
         foreignKeyRows = normalizeKnexRawRows(await knex.raw(
-          "SELECT TABLE_NAME AS tableName, COLUMN_NAME AS columnName, REFERENCED_TABLE_NAME AS referencedTableName, REFERENCED_COLUMN_NAME AS referencedColumnName FROM information_schema.KEY_COLUMN_USAGE WHERE TABLE_SCHEMA = DATABASE() AND REFERENCED_TABLE_NAME IS NOT NULL ORDER BY TABLE_NAME, CONSTRAINT_NAME, ORDINAL_POSITION"
+          "SELECT TABLE_NAME AS tableName, CONSTRAINT_NAME AS constraintName, COLUMN_NAME AS columnName, REFERENCED_TABLE_NAME AS referencedTableName, REFERENCED_COLUMN_NAME AS referencedColumnName, ORDINAL_POSITION AS ordinalPosition FROM information_schema.KEY_COLUMN_USAGE WHERE TABLE_SCHEMA = DATABASE() AND REFERENCED_TABLE_NAME IS NOT NULL ORDER BY TABLE_NAME, CONSTRAINT_NAME, ORDINAL_POSITION"
+        ));
+        primaryKeyRows = normalizeKnexRawRows(await knex.raw(
+          "SELECT TABLE_NAME AS tableName, COLUMN_NAME AS columnName, ORDINAL_POSITION AS ordinalPosition FROM information_schema.KEY_COLUMN_USAGE WHERE TABLE_SCHEMA = DATABASE() AND CONSTRAINT_NAME = 'PRIMARY' ORDER BY TABLE_NAME, ORDINAL_POSITION"
         ));
       } else if (clientId === "pg" || clientId.startsWith("postgres")) {
         tableRows = normalizeKnexRawRows(await knex.raw(
@@ -835,7 +841,10 @@ function createHealthCommands(ctx = {}) {
           'SELECT table_name AS "tableName", column_name AS "columnName" FROM information_schema.columns WHERE table_schema = current_schema() ORDER BY table_name, ordinal_position'
         ));
         foreignKeyRows = normalizeKnexRawRows(await knex.raw(
-          'SELECT kcu.table_name AS "tableName", kcu.column_name AS "columnName", ccu.table_name AS "referencedTableName", ccu.column_name AS "referencedColumnName" FROM information_schema.table_constraints tc JOIN information_schema.key_column_usage kcu ON tc.constraint_name = kcu.constraint_name AND tc.table_schema = kcu.table_schema JOIN information_schema.constraint_column_usage ccu ON ccu.constraint_name = tc.constraint_name AND ccu.table_schema = tc.table_schema WHERE tc.constraint_type = \'FOREIGN KEY\' AND tc.table_schema = current_schema() ORDER BY kcu.table_name, kcu.constraint_name, kcu.ordinal_position'
+          'SELECT kcu.table_name AS "tableName", kcu.constraint_name AS "constraintName", kcu.column_name AS "columnName", ccu.table_name AS "referencedTableName", ccu.column_name AS "referencedColumnName", kcu.ordinal_position AS "ordinalPosition" FROM information_schema.table_constraints tc JOIN information_schema.key_column_usage kcu ON tc.constraint_name = kcu.constraint_name AND tc.constraint_schema = kcu.constraint_schema JOIN information_schema.referential_constraints rc ON rc.constraint_name = tc.constraint_name AND rc.constraint_schema = tc.constraint_schema JOIN information_schema.key_column_usage ccu ON ccu.constraint_name = rc.unique_constraint_name AND ccu.constraint_schema = rc.unique_constraint_schema AND ccu.ordinal_position = kcu.position_in_unique_constraint WHERE tc.constraint_type = \'FOREIGN KEY\' AND tc.table_schema = current_schema() ORDER BY kcu.table_name, kcu.constraint_name, kcu.ordinal_position'
+        ));
+        primaryKeyRows = normalizeKnexRawRows(await knex.raw(
+          'SELECT kcu.table_name AS "tableName", kcu.column_name AS "columnName", kcu.ordinal_position AS "ordinalPosition" FROM information_schema.table_constraints tc JOIN information_schema.key_column_usage kcu ON tc.constraint_name = kcu.constraint_name AND tc.constraint_schema = kcu.constraint_schema WHERE tc.constraint_type = \'PRIMARY KEY\' AND tc.table_schema = current_schema() ORDER BY kcu.table_name, kcu.ordinal_position'
         ));
       } else {
         throw new Error(`Unsupported knex client for doctor table ownership audit: ${clientId || "<empty>"}.`);
@@ -852,10 +861,12 @@ function createHealthCommands(ctx = {}) {
       const liveTableNameSet = new Set(tableNames);
       const columnsByTable = new Map();
       const foreignKeysByTable = new Map();
+      const primaryKeyColumnsByTable = new Map();
 
       for (const tableName of tableNames) {
         columnsByTable.set(tableName, new Set());
         foreignKeysByTable.set(tableName, []);
+        primaryKeyColumnsByTable.set(tableName, []);
       }
 
       for (const rawRow of columnRows) {
@@ -878,21 +889,56 @@ function createHealthCommands(ctx = {}) {
         const referencedColumnName = normalizeDbIdentifier(
           row.referencedColumnName || row.REFERENCED_COLUMN_NAME || row.referencedcolumnname
         );
+        const constraintName = normalizeDbIdentifier(
+          row.constraintName || row.CONSTRAINT_NAME || row.constraintname
+        );
+        const ordinalPosition = Number.parseInt(
+          String(row.ordinalPosition || row.ORDINAL_POSITION || row.ordinalposition || "0"),
+          10
+        );
         if (!tableName || !referencedTableName || !liveTableNameSet.has(tableName)) {
           continue;
         }
         setMapValue(foreignKeysByTable, tableName, () => []).push({
+          constraintName,
           columnName,
           referencedTableName,
-          referencedColumnName
+          referencedColumnName,
+          ordinalPosition: Number.isFinite(ordinalPosition) ? ordinalPosition : 0
         });
+      }
+
+      for (const rawRow of primaryKeyRows) {
+        const row = ensureObject(rawRow);
+        const tableName = normalizeDbIdentifier(row.tableName || row.TABLE_NAME || row.tablename);
+        const columnName = normalizeDbIdentifier(row.columnName || row.COLUMN_NAME || row.columnname);
+        const ordinalPosition = Number.parseInt(
+          String(row.ordinalPosition || row.ORDINAL_POSITION || row.ordinalposition || "0"),
+          10
+        );
+        if (!tableName || !columnName || !liveTableNameSet.has(tableName)) {
+          continue;
+        }
+        setMapValue(primaryKeyColumnsByTable, tableName, () => []).push({
+          columnName,
+          ordinalPosition: Number.isFinite(ordinalPosition) ? ordinalPosition : 0
+        });
+      }
+      for (const [tableName, primaryKeyColumns] of primaryKeyColumnsByTable.entries()) {
+        primaryKeyColumnsByTable.set(
+          tableName,
+          primaryKeyColumns
+            .sort((left, right) => left.ordinalPosition - right.ordinalPosition)
+            .map((entry) => entry.columnName)
+        );
       }
 
       return {
         applicable: true,
         tableNames,
         columnsByTable,
-        foreignKeysByTable
+        foreignKeysByTable,
+        primaryKeyColumnsByTable
       };
     } finally {
       if (knex && typeof knex.destroy === "function") {
@@ -923,6 +969,74 @@ function createHealthCommands(ctx = {}) {
     }
 
     return ownersByTable;
+  }
+
+  function groupForeignKeysByConstraint(foreignKeys = []) {
+    const grouped = new Map();
+
+    for (const foreignKey of ensureArray(foreignKeys)) {
+      const tableName = normalizeDbIdentifier(foreignKey?.referencedTableName);
+      const columnName = normalizeDbIdentifier(foreignKey?.columnName);
+      const referencedColumnName = normalizeDbIdentifier(foreignKey?.referencedColumnName);
+      const explicitConstraintName = normalizeDbIdentifier(foreignKey?.constraintName);
+      const constraintName =
+        explicitConstraintName ||
+        `${columnName || "<unknown>"}->${tableName || "<unknown>"}.${referencedColumnName || "<unknown>"}`;
+      setMapValue(grouped, constraintName, () => []).push(foreignKey);
+    }
+
+    return grouped;
+  }
+
+  function collectGeneratedCrudSchemaIssues({
+    liveTableNames,
+    ownedTablesByName,
+    foreignKeysByTable,
+    primaryKeyColumnsByTable,
+    issues
+  }) {
+    const liveTableSet = new Set(ensureArray(liveTableNames));
+
+    for (const [tableName, ownershipEntry] of ownedTablesByName.entries()) {
+      if (
+        ownershipEntry?.provenance !== "crud-server-generator" ||
+        !liveTableSet.has(tableName)
+      ) {
+        continue;
+      }
+
+      const idColumn = normalizeDbIdentifier(ownershipEntry.idColumn) || "id";
+      const primaryKeyColumns = ensureArray(primaryKeyColumnsByTable.get(tableName));
+      if (primaryKeyColumns.length !== 1 || primaryKeyColumns[0] !== idColumn) {
+        const actual = primaryKeyColumns.length > 0 ? primaryKeyColumns.join(", ") : "none";
+        issues.push(
+          `${ownershipEntry.packagePath}: [crud-schema:primary-key] generated CRUD table "${tableName}" must have exactly one primary-key column "${idColumn}"; live primary key is ${actual}.`
+        );
+      }
+
+      const groupedForeignKeys = groupForeignKeysByConstraint(
+        foreignKeysByTable.get(tableName)
+      );
+      for (const [constraintName, foreignKeyColumns] of groupedForeignKeys.entries()) {
+        if (foreignKeyColumns.length !== 1) {
+          issues.push(
+            `${ownershipEntry.packagePath}: [crud-schema:composite-foreign-key] generated CRUD table "${tableName}" foreign key "${constraintName}" has ${foreignKeyColumns.length} columns. Generated CRUD relationships must be single-column.`
+          );
+          continue;
+        }
+
+        const foreignKey = foreignKeyColumns[0];
+        const targetTable = normalizeDbIdentifier(foreignKey?.referencedTableName);
+        const targetColumn = normalizeDbIdentifier(foreignKey?.referencedColumnName);
+        const targetPrimaryKey = ensureArray(primaryKeyColumnsByTable.get(targetTable));
+        if (targetPrimaryKey.length !== 1 || targetPrimaryKey[0] !== targetColumn) {
+          const actual = targetPrimaryKey.length > 0 ? targetPrimaryKey.join(", ") : "none";
+          issues.push(
+            `${ownershipEntry.packagePath}: [crud-schema:foreign-key-target] generated CRUD table "${tableName}" foreign key "${constraintName}" targets "${targetTable}.${targetColumn}", but relationships must target the table's single-column primary key (live primary key: ${actual}).`
+          );
+        }
+      }
+    }
   }
 
   function normalizeDirectOwnerKinds(columnNames = new Set()) {
@@ -1597,9 +1711,20 @@ function createHealthCommands(ctx = {}) {
     const liveTables = ensureArray(liveSchema?.tableNames);
     const columnsByTable = liveSchema?.columnsByTable instanceof Map ? liveSchema.columnsByTable : new Map();
     const foreignKeysByTable = liveSchema?.foreignKeysByTable instanceof Map ? liveSchema.foreignKeysByTable : new Map();
+    const primaryKeyColumnsByTable =
+      liveSchema?.primaryKeyColumnsByTable instanceof Map
+        ? liveSchema.primaryKeyColumnsByTable
+        : new Map();
     const ownedTablesByName = collectInstalledOwnedTables({
       installedPackageIds,
       packageRegistry,
+      issues
+    });
+    collectGeneratedCrudSchemaIssues({
+      liveTableNames: liveTables,
+      ownedTablesByName,
+      foreignKeysByTable,
+      primaryKeyColumnsByTable,
       issues
     });
     const crudOwnershipByTable = await resolveAppLocalCrudOwnershipFilters({

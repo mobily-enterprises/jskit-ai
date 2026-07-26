@@ -211,14 +211,14 @@ The most important parts look like this:
     "@jskit-ai/jskit-cli": "0.x",
     "@playwright/test": "1.61.1",
     "@vitejs/plugin-vue": "^6.0.7",
-    "eslint": "^9.39.4",
+    "eslint": "^10.8.0",
     "vite": "^8.0.16",
     "vitest": "^4.1.9"
   }
 }
 ```
 
-Published JSKIT libraries and tooling support Node.js 22 from 22.12.0 onward, Node.js 24, and Node.js 26. Newly generated applications deliberately require Node 26: their app-level `engines` contract, `.nvmrc`, and JSKIT-managed verification workflow all name that runtime. The app-level contract is the runtime boundary for the app and its installed JSKIT runtime packages, while independently consumed JSKIT CLI and tooling packages retain the wider supported range. The dependency on `@local/main` points at `file:packages/main`, which means your app already contains its own local JSKIT package. The maintenance scripts are also useful to notice early, because they show an important ownership boundary in JSKIT.
+Published JSKIT libraries and tooling support Node.js 22 from 22.13.0 onward, Node.js 24, and Node.js 26. Newly generated applications deliberately require Node 26: their app-level `engines` contract, `.nvmrc`, and JSKIT-managed verification workflow all name that runtime. The app-level contract is the runtime boundary for the app and its installed JSKIT runtime packages, while independently consumed JSKIT CLI and tooling packages retain the wider supported range. The dependency on `@local/main` points at `file:packages/main`, which means your app already contains its own local JSKIT package. The maintenance scripts are also useful to notice early, because they show an important ownership boundary in JSKIT.
 
 `verify`, `jskit:update`, and `release` are intentionally thin wrappers. They stay in `package.json` because they are convenient app-local shortcuts, but the real implementation lives in `jskit app ...`, not in copied scaffold scripts.
 

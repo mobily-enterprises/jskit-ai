@@ -605,7 +605,9 @@ test("jskit app update-packages updates exact root packages and aligns npm works
         vue: "^3.5.0"
       },
       devDependencies: {
+        "@jskit-ai/config-eslint": "0.x",
         "@jskit-ai/jskit-cli": "0.x",
+        eslint: "^9.39.4",
         vitest: "^4.0.0"
       },
       optionalDependencies: {
@@ -674,8 +676,20 @@ if (args[0] === "query") {
   process.stdout.write(JSON.stringify([{ location: "packages/feature" }]) + "\\n");
 }
 if (args[0] === "view") {
+  if (args[args.length - 1] === "--json") {
+    const selector = args[args.length - 2];
+    const packageName = selector.slice(0, selector.lastIndexOf("@"));
+    process.stdout.write(JSON.stringify({
+      name: packageName,
+      peerDependencies: packageName === "@jskit-ai/config-eslint"
+        ? { eslint: "^10.8.0" }
+        : {}
+    }) + "\\n");
+    process.exit(0);
+  }
   const packageName = args[args.length - 2];
   const versionMap = {
+    "@jskit-ai/config-eslint": "1.2.3",
     "@jskit-ai/jskit-cli": "3.4.5",
     "@jskit-ai/database-runtime": "9.10.11",
     "@jskit-ai/kernel": "5.6.7",
@@ -699,12 +713,18 @@ if (args[0] === "view") {
 
     assert.equal(result.status, 0, String(result.stderr || ""));
     assert.deepEqual(await readLogLines(logPath), [
+      "npm view @jskit-ai/config-eslint version",
       "npm view @jskit-ai/jskit-cli version",
       "npm view @jskit-ai/kernel version",
       "npm view @jskit-ai/shell-web version",
       "npm view @jskit-ai/uploads-runtime version",
+      "npm view @jskit-ai/config-eslint@1.2.3 --json",
+      "npm view @jskit-ai/jskit-cli@3.4.5 --json",
+      "npm view @jskit-ai/kernel@5.6.7 --json",
+      "npm view @jskit-ai/shell-web@7.8.9 --json",
+      "npm view @jskit-ai/uploads-runtime@6.7.8 --json",
       "npm install --save-exact @jskit-ai/shell-web@7.8.9",
-      "npm install --save-dev --save-exact @jskit-ai/jskit-cli@3.4.5",
+      "npm install --save-dev --save-exact @jskit-ai/config-eslint@1.2.3 @jskit-ai/jskit-cli@3.4.5",
       "npm install --save-optional --save-exact @jskit-ai/uploads-runtime@6.7.8",
       "npm install --save-peer --save-exact @jskit-ai/kernel@5.6.7",
       "local-jskit update package @jskit-ai/shell-web",
@@ -723,6 +743,14 @@ if (args[0] === "view") {
     );
     assert.match(String(result.stdout || ""), /\[jskit:update\] Step 1\/3 complete in /);
     assert.match(String(result.stdout || ""), /\[jskit:update\] Step 3\/3 complete in /);
+    const rootPackageJson = JSON.parse(
+      await readFile(path.join(appRoot, "package.json"), "utf8")
+    );
+    assert.equal(rootPackageJson.devDependencies.eslint, "^10.8.0");
+    assert.match(
+      String(result.stdout || ""),
+      /reconciling required direct peer eslint: \^9\.39\.4 -> \^10\.8\.0/
+    );
 
     const workspacePackageJson = JSON.parse(
       await readFile(path.join(workspaceRoot, "package.json"), "utf8")
@@ -799,6 +827,10 @@ if (args[0] === "query") {
   process.stdout.write(JSON.stringify([{ location: "packages/feature" }]) + "\\n");
 }
 if (args[0] === "view") {
+  if (args[args.length - 1] === "--json") {
+    process.stdout.write(JSON.stringify({ peerDependencies: {} }) + "\\n");
+    process.exit(0);
+  }
   process.stdout.write("7.8.9\\n");
 }
 `
@@ -1193,6 +1225,10 @@ const fs = require("node:fs");
 const args = process.argv.slice(2);
 fs.appendFileSync(process.env.TEST_LOG_PATH, ["npm", ...args].join(" ") + "\\n");
 if (args[0] === "view") {
+  if (args[args.length - 1] === "--json") {
+    process.stdout.write(JSON.stringify({ peerDependencies: {} }) + "\\n");
+    process.exit(0);
+  }
   process.stdout.write("7.8.9\\n");
 }
 `
@@ -1248,8 +1284,12 @@ if (args[0] === "pr" && args[1] === "create") {
 
     assert.equal(result.status, 0, String(result.stderr || ""));
     const logLines = await readLogLines(logPath);
-    const branchName = logLines[10].slice("git switch -c ".length);
-    const releaseStamp = logLines[12].slice("git commit -m chore: release ".length);
+    const branchName = logLines
+      .find((line) => line.startsWith("git switch -c "))
+      .slice("git switch -c ".length);
+    const releaseStamp = logLines
+      .find((line) => line.startsWith("git commit -m chore: release "))
+      .slice("git commit -m chore: release ".length);
     assert.deepEqual(logLines, [
       "gh auth status",
       "git status --porcelain",
@@ -1257,6 +1297,7 @@ if (args[0] === "pr" && args[1] === "create") {
       "git fetch origin main",
       "git pull --ff-only origin main",
       `npm view --registry ${registryUrl} @jskit-ai/shell-web version`,
+      `npm view --registry ${registryUrl} @jskit-ai/shell-web@7.8.9 --json`,
       `npm install --save-exact --registry ${registryUrl} @jskit-ai/shell-web@7.8.9`,
       "local-jskit migrations changed",
       "local-jskit app sync-ci",

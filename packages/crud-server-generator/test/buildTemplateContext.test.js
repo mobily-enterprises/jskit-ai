@@ -27,7 +27,12 @@ function createSnapshot({
           nullable: false,
           hasDefault: true,
           defaultValue: "CURRENT_TIMESTAMP",
+          defaultExpression: Object.freeze({
+            kind: "current_timestamp",
+            precision: null
+          }),
           autoIncrement: false,
+          onUpdateExpression: null,
           unsigned: false,
           extra: "",
           maxLength: null,
@@ -138,7 +143,15 @@ function createSnapshot({
         nullable: false,
         hasDefault: true,
         defaultValue: "CURRENT_TIMESTAMP",
+        defaultExpression: Object.freeze({
+          kind: "current_timestamp",
+          precision: null
+        }),
         autoIncrement: false,
+        onUpdateExpression: Object.freeze({
+          kind: "current_timestamp",
+          precision: null
+        }),
         unsigned: false,
         extra: "on update current_timestamp",
         maxLength: null,
@@ -790,7 +803,12 @@ test("buildReplacementsFromSnapshot renders inline field relation metadata from 
     replacements.__JSKIT_CRUD_RESOURCE_SEARCH_SCHEMA_LINES__,
     /vetId: \{ type: "id", actualField: "vet_id", filterOperator: "=" \}/
   );
+  assert.equal(replacements.__JSKIT_CRUD_MIGRATION_HAS_FOREIGN_KEYS__, "true");
   assert.match(replacements.__JSKIT_CRUD_MIGRATION_FOREIGN_KEY_LINES__, /table\.foreign\(\["vet_id"\]/);
+  assert.match(
+    replacements.__JSKIT_CRUD_MIGRATION_DROP_FOREIGN_KEY_LINES__,
+    /table\.dropForeign\(\["vet_id"\], "contacts_vet_id_foreign"\)/
+  );
 });
 
 test("buildReplacementsFromSnapshot renders inline enum field ui options as select controls", () => {
@@ -928,6 +946,107 @@ test("renderMigrationColumnLine preserves datetime precision", () => {
   });
 
   assert.match(line, /table\.dateTime\("deleted_at", \{ precision: 3 \}\)/);
+});
+
+test("renderMigrationColumnLine preserves allowlisted timestamp defaults and ON UPDATE precision", () => {
+  const baseColumn = {
+    dataType: "datetime",
+    columnType: "datetime(3)",
+    typeKind: "datetime",
+    nullable: false,
+    hasDefault: true,
+    defaultValue: "CURRENT_TIMESTAMP(3)",
+    defaultExpression: {
+      kind: "current_timestamp",
+      precision: 3
+    },
+    autoIncrement: false,
+    unsigned: false,
+    extra: "",
+    maxLength: null,
+    numericPrecision: null,
+    numericScale: null,
+    datetimePrecision: 3,
+    characterSetName: "",
+    collationName: "",
+    enumValues: []
+  };
+  const createdAtLine = __testables.renderMigrationColumnLine({
+    ...baseColumn,
+    name: "created_at",
+    onUpdateExpression: null
+  });
+  const updatedAtLine = __testables.renderMigrationColumnLine({
+    ...baseColumn,
+    name: "updated_at",
+    extra: "on update CURRENT_TIMESTAMP(3)",
+    onUpdateExpression: {
+      kind: "current_timestamp",
+      precision: 3
+    }
+  });
+
+  assert.match(
+    createdAtLine,
+    /table\.dateTime\("created_at", \{ precision: 3 \}\).*\.defaultTo\(knex\.raw\("CURRENT_TIMESTAMP\(3\)"\)\)/
+  );
+  assert.match(
+    updatedAtLine,
+    /table\.dateTime\("updated_at", \{ precision: 3 \}\).*\.defaultTo\(knex\.raw\("CURRENT_TIMESTAMP\(3\) ON UPDATE CURRENT_TIMESTAMP\(3\)"\)\)/
+  );
+});
+
+test("renderMigrationColumnLine keeps timestamp-like string defaults quoted", () => {
+  const line = __testables.renderMigrationColumnLine({
+    name: "label",
+    dataType: "varchar",
+    columnType: "varchar(190)",
+    typeKind: "string",
+    nullable: false,
+    hasDefault: true,
+    defaultValue: "CURRENT_TIMESTAMP(3)",
+    defaultExpression: null,
+    autoIncrement: false,
+    onUpdateExpression: null,
+    unsigned: false,
+    extra: "",
+    maxLength: 190,
+    numericPrecision: null,
+    numericScale: null,
+    datetimePrecision: null,
+    characterSetName: "utf8mb4",
+    collationName: "utf8mb4_general_ci",
+    enumValues: []
+  });
+
+  assert.match(line, /\.defaultTo\("CURRENT_TIMESTAMP\(3\)"\)/);
+  assert.doesNotMatch(line, /knex\.raw/);
+});
+
+test("renderMigrationColumnLine preserves unsigned decimal columns", () => {
+  const line = __testables.renderMigrationColumnLine({
+    name: "amount",
+    dataType: "decimal",
+    columnType: "decimal(14,2) unsigned",
+    typeKind: "number",
+    nullable: false,
+    hasDefault: false,
+    defaultValue: null,
+    defaultExpression: null,
+    autoIncrement: false,
+    onUpdateExpression: null,
+    unsigned: true,
+    extra: "",
+    maxLength: null,
+    numericPrecision: 14,
+    numericScale: 2,
+    datetimePrecision: null,
+    characterSetName: "",
+    collationName: "",
+    enumValues: []
+  });
+
+  assert.match(line, /table\.decimal\("amount", 14, 2\)\.unsigned\(\)\.notNullable\(\)/);
 });
 
 test("buildReplacementsFromSnapshot preserves custom collations, hash unique indexes, and check constraints", () => {

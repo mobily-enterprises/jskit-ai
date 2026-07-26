@@ -21,13 +21,34 @@ test("crud scaffolding pattern requires approval for weird custom persistence la
 
   assert.match(patternIndex, /crud scaffold, crud server, crud ui, table creation, migrations, direct knex, weird-custom persistence/);
   assert.match(pattern, /^# CRUD Scaffolding Patterns$/m);
-  assert.match(pattern, /start with `jskit generate crud-server-generator scaffold \.\.\.`/);
+  assert.match(
+    pattern,
+    /create the validated table.*development database first.*Then make\s+`jskit generate crud-server-generator scaffold \.\.\.`/s
+  );
   assert.match(pattern, /every persisted app-owned table must go through that server CRUD step first/);
   assert.match(pattern, /do not hand-write a separate CRUD migration/);
   assert.match(pattern, /When a weird-custom persistence lane is proposed/);
   assert.match(pattern, /Before taking that path, stop and ask the developer for explicit approval/);
   assert.match(pattern, /Record the exact approval and the approved exception in `.jskit\/WORKBOARD.md` before coding/);
   assert.match(pattern, /Without that explicit approval record, do not take the weird-custom persistence path/);
+});
+
+test("crud scaffolding pattern defines the generated database key contract", async () => {
+  const pattern = await readFile(path.join(packageRoot, "patterns/crud-scaffolding.md"), "utf8");
+  const generatorGuide = await readFile(path.join(packageRoot, "site/guide/generators/crud-generators.md"), "utf8");
+
+  for (const source of [pattern, generatorGuide]) {
+    assert.match(source, /single-column.*primary key/is);
+    assert.match(source, /foreign key.*single-column/is);
+    assert.match(source, /never.*relationship\s+targets/is);
+    assert.match(source, /composite\s+foreign\s+key/is);
+    assert.match(source, /workspace_id/);
+  }
+
+  assert.match(pattern, /fresh disposable database/);
+  assert.match(pattern, /production, legacy, historical/);
+  assert.match(pattern, /cross-workspace relationship tests/);
+  assert.match(pattern, /`.jskit\/APP_BLUEPRINT.md`/);
 });
 
 test("crud guidance keeps canonical ownership columns distinct from domain relationships", async () => {

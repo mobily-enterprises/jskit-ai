@@ -662,6 +662,7 @@ const dialectId = resolveDatabaseClientFromEnvironment(process.env);
 const client = toKnexClientId(dialectId);
 const defaultPort = dialectId === "pg" ? 5432 : 3306;
 const migrationsDirectory = path.resolve(appRoot, normalizeText(process.env.DB_MIGRATIONS_DIR) || "migrations");
+const deferredConstraintsDirectory = path.join(migrationsDirectory, "constraints");
 
 export default {
   client,
@@ -671,8 +672,9 @@ export default {
     context: "knex migrations"
   }),
   migrations: {
-    directory: migrationsDirectory,
-    extension: "cjs"
+    directory: [migrationsDirectory, deferredConstraintsDirectory],
+    extension: "cjs",
+    sortDirsSeparately: true
   }
 };
 ```
@@ -691,6 +693,14 @@ So there are really two separate database entry points:
 - the JSKIT server provider runtime for application code
 
 That separation is good. It keeps the operational CLI workflow and the app runtime wiring clear.
+
+The two migration directories are one ordered migration plan. Knex completes
+the ordinary `migrations/` files before it reads
+`migrations/constraints/`. CRUD scaffolding uses that second phase for foreign
+keys, so two tables may validly reference one another without either
+table-creation migration depending on a table that has not been created yet.
+Rollback reverses the order and removes those constraints before dropping
+tables.
 
 ### The MySQL package registers the driver, and the generic runtime builds the Knex client
 

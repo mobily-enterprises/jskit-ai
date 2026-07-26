@@ -1,6 +1,10 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { updateDescriptorTextForPackage } from "./release-npm.mjs";
+import {
+  STAGING_TAG,
+  topologicalPublishOrder,
+  updateDescriptorTextForPackage
+} from "./release-npm.mjs";
 
 test("release descriptor updates cover direct and conditional JSKIT dependency versions", () => {
   const source = `
@@ -66,4 +70,28 @@ export default {
 
   assert.match(updated, /"@jskit-ai\/kernel": "0\.1\.120"/u);
   assert.match(updated, /version: "0\.1\.117"/u);
+});
+
+test("release publication reserves a non-consumer staging tag", () => {
+  assert.equal(STAGING_TAG, "jskit-staged");
+  assert.notEqual(STAGING_TAG, "latest");
+});
+
+test("release promotion order keeps exact dependencies before dependants", () => {
+  const records = [
+    {
+      name: "@jskit-ai/jskit-cli",
+      packageJsonLocalDeps: new Set(["@jskit-ai/jskit-catalog"])
+    },
+    {
+      name: "@jskit-ai/jskit-catalog",
+      packageJsonLocalDeps: new Set()
+    }
+  ];
+  const publishSet = new Set(records.map((record) => record.name));
+
+  assert.deepEqual(topologicalPublishOrder(records, publishSet), [
+    "@jskit-ai/jskit-catalog",
+    "@jskit-ai/jskit-cli"
+  ]);
 });

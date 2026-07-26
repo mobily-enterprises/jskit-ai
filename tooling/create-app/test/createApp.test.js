@@ -170,7 +170,7 @@ test("create-app scaffolds the base shell with placeholder replacements", async 
     assert.equal(packageJson.dependencies["@tanstack/vue-query"], "^5.101.0");
     assert.equal(packageJson.devDependencies["@playwright/test"], "1.61.1");
     assert.equal(packageJson.devDependencies["@vitejs/plugin-vue"], "^6.0.7");
-    assert.equal(packageJson.devDependencies.eslint, "^9.39.4");
+    assert.equal(packageJson.devDependencies.eslint, "^10.8.0");
     assert.equal(packageJson.devDependencies.vite, "^8.0.16");
     assert.equal(packageJson.devDependencies.vitest, "^4.1.9");
     await assert.rejects(access(path.join(appRoot, "scripts/release.sh")), /ENOENT/);
@@ -469,15 +469,18 @@ test("create-app rejects template path traversal names", async () => {
   });
 });
 
-test("base-shell app agent wrapper does not hardcode machine-specific jskit paths", async () => {
+test("generated app agent wrappers point to the canonical JSKIT database contract", async () => {
   const packageRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
-  const wrapperPath = path.join(packageRoot, "templates/base-shell/AGENTS.md");
-  const body = await readFile(wrapperPath, "utf8");
-  assert.doesNotMatch(body, /Development\/current\/jskit-ai/);
-  assert.match(body, /agent-docs\/guide\/agent\/index\.md/);
-  assert.doesNotMatch(body, /optional agent docs/);
-  assert.doesNotMatch(body, /If dependencies are not installed yet/);
-  assert.doesNotMatch(body, /node_modules\/@jskit-ai\/agent-docs\/templates\/app\/AGENTS\.md/);
+  for (const templateName of ["base-shell", "minimal-shell"]) {
+    const wrapperPath = path.join(packageRoot, `templates/${templateName}/AGENTS.md`);
+    const body = await readFile(wrapperPath, "utf8");
+    assert.doesNotMatch(body, /Development\/current\/jskit-ai/);
+    assert.match(body, /agent-docs\/guide\/agent\/index\.md/);
+    assert.match(body, /agent-docs\/patterns\/crud-scaffolding\.md/);
+    assert.doesNotMatch(body, /optional agent docs/);
+    assert.doesNotMatch(body, /If dependencies are not installed yet/);
+    assert.doesNotMatch(body, /node_modules\/@jskit-ai\/agent-docs\/templates\/app\/AGENTS\.md/);
+  }
 });
 
 test("ai-seed agent instructions do not hardcode machine-specific paths and point to JSKIT docs", async () => {

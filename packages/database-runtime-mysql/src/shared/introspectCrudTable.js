@@ -2,7 +2,11 @@ import { normalizeText } from "@jskit-ai/database-runtime/shared";
 import { toCamelCase } from "@jskit-ai/kernel/shared/support/stringCase";
 
 const BOOLEAN_TINYINT_PATTERN = /^tinyint\(1\)/;
+const CURRENT_TIMESTAMP_EXPRESSION_PATTERN = /^current_timestamp(?:\((\d*)\))?$/i;
+const ON_UPDATE_CURRENT_TIMESTAMP_PATTERN =
+  /(?:^|\s)on\s+update\s+(current_timestamp(?:\((\d*)\))?)(?:\s|$)/i;
 const TABLE_NAME_PATTERN = /^[A-Za-z0-9_]+$/;
+const TEMPORAL_DATA_TYPES = new Set(["datetime", "timestamp"]);
 
 function requireKnexRaw(knex) {
   if (!knex || typeof knex.raw !== "function") {
@@ -75,6 +79,31 @@ function normalizeColumnDefault(value) {
   }
 
   return value;
+}
+
+function normalizeCurrentTimestampExpression(value) {
+  const match = normalizeText(value).match(CURRENT_TIMESTAMP_EXPRESSION_PATTERN);
+  if (!match) {
+    return null;
+  }
+
+  const precision =
+    match[1] == null || match[1] === ""
+      ? null
+      : Number.parseInt(match[1], 10);
+  if (precision != null && (!Number.isInteger(precision) || precision < 0 || precision > 6)) {
+    return null;
+  }
+
+  return Object.freeze({
+    kind: "current_timestamp",
+    precision
+  });
+}
+
+function normalizeOnUpdateExpression(value) {
+  const match = normalizeText(value).match(ON_UPDATE_CURRENT_TIMESTAMP_PATTERN);
+  return match ? normalizeCurrentTimestampExpression(match[1]) : null;
 }
 
 function parseEnumValues(columnType = "") {
@@ -180,6 +209,7 @@ function normalizeColumn(row = {}) {
   const autoIncrement = extra.includes("auto_increment");
   const unsigned = columnTypeLower.includes("unsigned");
   const enumValues = parseEnumValues(columnType);
+  const supportsTemporalExpressions = TEMPORAL_DATA_TYPES.has(dataType);
 
   const normalized = Object.freeze({
     name,
@@ -194,8 +224,14 @@ function normalizeColumn(row = {}) {
     }),
     nullable,
     defaultValue,
+    defaultExpression: supportsTemporalExpressions
+      ? normalizeCurrentTimestampExpression(defaultValue)
+      : null,
     hasDefault,
     autoIncrement,
+    onUpdateExpression: supportsTemporalExpressions
+      ? normalizeOnUpdateExpression(extra)
+      : null,
     unsigned,
     maxLength: toNullableNumber(row.characterMaximumLength ?? row.character_maximum_length),
     numericPrecision: toNullableNumber(row.numericPrecision ?? row.numeric_precision),
@@ -215,6 +251,36 @@ function normalizePrimaryKeyColumns(rows = []) {
     rows
       .map((row) => normalizeText(row.columnName || row.column_name))
       .filter(Boolean)
+  );
+}
+
+function normalizePrimaryKeyColumnsByTable(rows = []) {
+  const grouped = new Map();
+
+  for (const row of Array.isArray(rows) ? rows : []) {
+    const tableName = normalizeText(row.tableName || row.table_name);
+    const columnName = normalizeText(row.columnName || row.column_name);
+    if (!tableName || !columnName) {
+      continue;
+    }
+
+    const columns = grouped.get(tableName) || [];
+    columns.push({
+      name: columnName,
+      order: toNullableNumber(row.ordinalPosition ?? row.ordinal_position) || 0
+    });
+    grouped.set(tableName, columns);
+  }
+
+  return new Map(
+    [...grouped.entries()].map(([tableName, columns]) => [
+      tableName,
+      Object.freeze(
+        columns
+          .sort((left, right) => left.order - right.order)
+          .map((column) => column.name)
+      )
+    ])
   );
 }
 
@@ -369,6 +435,32 @@ function requirePrimaryKeyContainsId(primaryKeyColumns, idColumn) {
   }
 }
 
+function requireSupportedForeignKeys(foreignKeys, primaryKeyColumnsByTable) {
+  for (const foreignKey of foreignKeys) {
+    const columns = Array.isArray(foreignKey?.columns) ? foreignKey.columns : [];
+    if (columns.length !== 1) {
+      throw new Error(
+        `CRUD generation supports only single-column foreign keys. Constraint "${foreignKey.name}" has ${columns.length} columns.`
+      );
+    }
+
+    const targetTable = normalizeText(foreignKey.referencedTableName);
+    const targetColumn = normalizeText(columns[0]?.referencedName);
+    const targetPrimaryKey = primaryKeyColumnsByTable.get(targetTable) || [];
+    if (targetPrimaryKey.length !== 1) {
+      const actual = targetPrimaryKey.length > 0 ? targetPrimaryKey.join(", ") : "none";
+      throw new Error(
+        `CRUD foreign key "${foreignKey.name}" targets table "${targetTable}", whose primary key is not single-column (found: ${actual}).`
+      );
+    }
+    if (targetColumn !== targetPrimaryKey[0]) {
+      throw new Error(
+        `CRUD foreign key "${foreignKey.name}" must target the primary key "${targetTable}.${targetPrimaryKey[0]}", not "${targetTable}.${targetColumn}".`
+      );
+    }
+  }
+}
+
 async function introspectCrudTableSnapshot(knex, { tableName = "", idColumn = "id" } = {}) {
   requireKnexRaw(knex);
   const resolvedTableName = requireTableName(tableName);
@@ -482,6 +574,22 @@ async function introspectCrudTableSnapshot(knex, { tableName = "", idColumn = "i
     )
   );
 
+  const schemaPrimaryKeyRows = normalizeRows(
+    await knex.raw(
+      `
+        SELECT
+          s.table_name AS tableName,
+          s.column_name AS columnName,
+          s.seq_in_index AS ordinalPosition
+        FROM information_schema.statistics s
+        WHERE s.table_schema = ?
+          AND s.index_name = 'PRIMARY'
+        ORDER BY s.table_name ASC, s.seq_in_index ASC
+      `,
+      [schemaName]
+    )
+  );
+
   const checkConstraintRows = normalizeRows(
     await knex.raw(
       `
@@ -505,6 +613,11 @@ async function introspectCrudTableSnapshot(knex, { tableName = "", idColumn = "i
   const resolvedIdColumn = requireIdColumn(columns, idColumn);
   const primaryKeyColumns = normalizePrimaryKeyColumns(primaryRows);
   requirePrimaryKeyContainsId(primaryKeyColumns, resolvedIdColumn);
+  const foreignKeys = normalizeForeignKeys(foreignKeyRows);
+  requireSupportedForeignKeys(
+    foreignKeys,
+    normalizePrimaryKeyColumnsByTable(schemaPrimaryKeyRows)
+  );
   const firstTableRow = Array.isArray(tableRows) ? tableRows[0] : null;
 
   const snapshot = Object.freeze({
@@ -518,7 +631,7 @@ async function introspectCrudTableSnapshot(knex, { tableName = "", idColumn = "i
     hasUserIdColumn: columns.some((column) => column.name === "user_id"),
     columns,
     indexes: normalizeIndexes(indexRows),
-    foreignKeys: normalizeForeignKeys(foreignKeyRows),
+    foreignKeys,
     checkConstraints: normalizeCheckConstraints(checkConstraintRows)
   });
 
