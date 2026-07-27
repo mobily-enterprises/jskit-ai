@@ -135,7 +135,7 @@ function bootAccountProfileRoutes(app) {
           stream: filePart.stream,
           mimeType: filePart.mimeType,
           fileName: filePart.fileName,
-          uploadDimension
+          ...(uploadDimension !== undefined ? { uploadDimension } : {})
         }
       });
 

@@ -340,6 +340,34 @@ test("workspaces-core boot skips invitation redeem/list routes when workspace in
   assert.equal(findRoute(routes, { method: "DELETE", path: "/api/w/:workspaceSlug/invites/:inviteId" }), null);
 });
 
+test("workspace create handler preserves an omitted optional slug", async () => {
+  const routes = await registerRoutes();
+  const workspaceCreate = findRoute(routes, {
+    method: "POST",
+    path: "/api/workspaces"
+  });
+  const calls = [];
+
+  await workspaceCreate.handler(
+    createActionRequest({
+      input: {
+        body: { name: "Operations Team" }
+      },
+      executeAction: async (payload) => {
+        calls.push(payload);
+        return {};
+      }
+    }),
+    createReplyDouble()
+  );
+
+  assert.deepEqual(calls, [{
+    actionId: "workspace.workspaces.create",
+    input: { name: "Operations Team" }
+  }]);
+  assert.equal(Object.hasOwn(calls[0].input, "slug"), false);
+});
+
 test("workspace invite and member handlers build action input from request.input", async () => {
   const routes = await registerRoutes();
   const workspaceCreate = findRoute(routes, {

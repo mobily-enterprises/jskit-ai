@@ -116,11 +116,12 @@ function bootAccountSecurityRoutes(app) {
       }
     },
     async function (request, reply) {
+      const query = request.input.query || {};
       const result = await request.executeAction({
         actionId: "settings.security.oauth.link.start",
         input: {
           provider: request.input.params.provider,
-          returnTo: request.input.query.returnTo
+          ...(Object.hasOwn(query, "returnTo") ? { returnTo: query.returnTo } : {})
         }
       });
 

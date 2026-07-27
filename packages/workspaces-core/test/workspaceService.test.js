@@ -338,6 +338,37 @@ test("workspaceService.createWorkspaceForAuthenticatedUser creates non-personal 
   assert.equal(workspace.slug, "ops-team");
   assert.equal(calls.insert, 1);
   assert.equal(calls.ensureOwnerMembership, 1);
+  assert.equal(calls.ensureWorkspaceSettings, 1);
+  assert.equal(insertedPayloads[0].isPersonal, false);
+  assert.equal(insertedPayloads[0].ownerUserId, "7");
+});
+
+test("workspaceService.createWorkspaceForAuthenticatedUser generates an omitted slug and provisions ownership", async () => {
+  const { service, calls, insertedPayloads } = createWorkspaceServiceFixture({
+    tenancyMode: "workspaces",
+    tenancyPolicy: {
+      workspace: {
+        allowSelfCreate: true
+      }
+    }
+  });
+
+  const workspace = await service.createWorkspaceForAuthenticatedUser(
+    {
+      id: "7",
+      email: "chiaramobily@gmail.com",
+      displayName: "Chiara"
+    },
+    {
+      name: "Operations Team"
+    }
+  );
+
+  assert.equal(workspace.slug, "operations-team");
+  assert.equal(calls.insert, 1);
+  assert.equal(calls.ensureOwnerMembership, 1);
+  assert.equal(calls.ensureWorkspaceSettings, 1);
+  assert.equal(insertedPayloads[0].slug, "operations-team");
   assert.equal(insertedPayloads[0].isPersonal, false);
   assert.equal(insertedPayloads[0].ownerUserId, "7");
 });
