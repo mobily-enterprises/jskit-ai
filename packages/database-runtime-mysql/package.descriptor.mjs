@@ -13,7 +13,7 @@ const CI_DATABASE = Object.freeze({
 export default Object.freeze({
   packageVersion: 1,
   packageId: "@jskit-ai/database-runtime-mysql",
-  version: "0.1.131",
+  version: "0.1.133",
   kind: "runtime",
   options: {
     "db-host": {
@@ -133,7 +133,7 @@ export default Object.freeze({
   mutations: {
     dependencies: {
       runtime: {
-        "@jskit-ai/database-runtime": "0.1.132",
+        "@jskit-ai/database-runtime": "0.1.134",
         "mysql2": "^3.11.2"
       },
       dev: {}

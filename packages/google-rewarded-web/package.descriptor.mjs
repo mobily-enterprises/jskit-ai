@@ -1,7 +1,7 @@
 export default Object.freeze({
   packageVersion: 1,
   packageId: "@jskit-ai/google-rewarded-web",
-  version: "0.1.70",
+  version: "0.1.72",
   kind: "runtime",
   description: "Google rewarded client runtime with a fullscreen gate host and GPT orchestration.",
   dependsOn: [
@@ -46,10 +46,10 @@ export default Object.freeze({
   mutations: {
     dependencies: {
       runtime: {
-        "@jskit-ai/google-rewarded-core": "0.1.70",
-        "@jskit-ai/http-runtime": "0.1.131",
-        "@jskit-ai/kernel": "0.1.133",
-        "@jskit-ai/shell-web": "0.1.134"
+        "@jskit-ai/google-rewarded-core": "0.1.72",
+        "@jskit-ai/http-runtime": "0.1.133",
+        "@jskit-ai/kernel": "0.1.135",
+        "@jskit-ai/shell-web": "0.1.136"
       },
       dev: {}
     },
