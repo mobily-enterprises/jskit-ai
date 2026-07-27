@@ -930,11 +930,14 @@ function resolveJsonRestRelationshipAlias(column = null) {
 }
 
 function resolveJsonRestFieldType(column = {}) {
-  if (column?.isRecordIdColumn === true) {
+  const typeKind = normalizeText(column?.typeKind).toLowerCase();
+  if (
+    column?.isIdColumn === true ||
+    (typeKind === "integer" && column?.isRecordIdColumn === true)
+  ) {
     return "id";
   }
 
-  const typeKind = normalizeText(column?.typeKind).toLowerCase();
   if (typeKind === "string") {
     return "string";
   }
@@ -1093,9 +1096,10 @@ function renderJsonRestSearchSchemaLines(columns = []) {
     }
 
     const actualField = normalizeText(column?.name) || key;
+    const type = resolveJsonRestFieldType(column);
     exactFilterKeys.add(key);
     exactFilterLines.push(
-      `    ${renderObjectPropertyKey(key)}: { type: "id", actualField: ${JSON.stringify(actualField)}, filterOperator: "=" },`
+      `    ${renderObjectPropertyKey(key)}: { type: ${JSON.stringify(type)}, actualField: ${JSON.stringify(actualField)}, filterOperator: "=" },`
     );
   }
 

@@ -4,6 +4,9 @@ import { tmpdir } from "node:os";
 import path from "node:path";
 import test from "node:test";
 import { fileURLToPath } from "node:url";
+import { runInNewContext } from "node:vm";
+
+import { createSchema } from "@jskit-ai/kernel/shared/validators";
 
 import {
   __testables,
@@ -809,6 +812,81 @@ test("buildReplacementsFromSnapshot renders inline field relation metadata from 
     replacements.__JSKIT_CRUD_MIGRATION_DROP_FOREIGN_KEY_LINES__,
     /table\.dropForeign\(\["vet_id"\], "contacts_vet_id_foreign"\)/
   );
+});
+
+test("buildReplacementsFromSnapshot derives _id search types from database column types", async () => {
+  const baseSnapshot = createSnapshot({
+    tableName: "record_links",
+    hasWorkspaceIdColumn: false,
+    hasUserIdColumn: false
+  });
+  const snapshot = {
+    ...baseSnapshot,
+    columns: Object.freeze([
+      ...baseSnapshot.columns,
+      Object.freeze({
+        name: "target_id",
+        key: "targetId",
+        dataType: "varchar",
+        columnType: "varchar(191)",
+        typeKind: "string",
+        nullable: false,
+        hasDefault: false,
+        defaultValue: null,
+        autoIncrement: false,
+        unsigned: false,
+        extra: "",
+        maxLength: 191,
+        numericPrecision: null,
+        numericScale: null,
+        datetimePrecision: null,
+        characterSetName: "utf8mb4",
+        collationName: "utf8mb4_general_ci",
+        enumValues: Object.freeze([])
+      }),
+      Object.freeze({
+        name: "owner_user_id",
+        key: "ownerUserId",
+        dataType: "bigint",
+        columnType: "bigint unsigned",
+        typeKind: "integer",
+        nullable: false,
+        hasDefault: false,
+        defaultValue: null,
+        autoIncrement: false,
+        unsigned: true,
+        extra: "",
+        maxLength: null,
+        numericPrecision: 20,
+        numericScale: 0,
+        datetimePrecision: null,
+        characterSetName: "",
+        collationName: "",
+        enumValues: Object.freeze([])
+      })
+    ])
+  };
+
+  const replacements = __testables.buildReplacementsFromSnapshot({
+    namespace: "record-links",
+    snapshot,
+    resolvedOwnershipFilter: "public",
+    surfaceRequiresWorkspace: false
+  });
+  const searchSchema = runInNewContext(
+    `({${replacements.__JSKIT_CRUD_RESOURCE_SEARCH_SCHEMA_LINES__}})`
+  );
+
+  assert.equal(searchSchema.targetId.type, "string");
+  assert.equal(searchSchema.targetId.actualField, "target_id");
+  assert.equal(searchSchema.targetId.filterOperator, "=");
+  assert.equal(searchSchema.ownerUserId.type, "id");
+
+  const targetFilterResult = await createSchema(searchSchema).patch({
+    targetId: "external-record-abc"
+  });
+  assert.deepEqual(targetFilterResult.errors, {});
+  assert.equal(targetFilterResult.validatedObject.targetId, "external-record-abc");
 });
 
 test("buildReplacementsFromSnapshot renders inline enum field ui options as select controls", () => {
