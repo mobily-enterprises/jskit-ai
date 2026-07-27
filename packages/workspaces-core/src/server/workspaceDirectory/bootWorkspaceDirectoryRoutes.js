@@ -61,7 +61,7 @@ function bootWorkspaceDirectoryRoutes(app) {
           actionId: "workspace.workspaces.create",
           input: {
             name: body.name,
-            slug: body.slug
+            ...(Object.hasOwn(body, "slug") ? { slug: body.slug } : {})
           }
         });
         reply.code(200).send(response);

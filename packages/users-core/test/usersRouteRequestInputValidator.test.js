@@ -228,6 +228,54 @@ test("account route handlers build action input from request.input", async () =>
   assert.equal(calls[7].actionId, "settings.security.sessions.logout_others");
 });
 
+test("account route handlers preserve omitted optional action fields", async () => {
+  const routes = await registerRoutes();
+  const calls = [];
+  const executeAction = async (payload) => {
+    calls.push(payload);
+    if (payload.actionId === "settings.security.oauth.link.start") {
+      return { url: "/oauth/link" };
+    }
+    return {};
+  };
+
+  await findRoute(routes, { method: "GET", path: "/api/settings/security/oauth/:provider/start" }).handler(
+    createActionRequest({
+      input: {
+        params: { provider: "github" },
+        query: {}
+      },
+      executeAction
+    }),
+    createReplyDouble()
+  );
+
+  const avatarStream = {};
+  await findRoute(routes, { method: "POST", path: "/api/settings/profile/avatar" }).handler(
+    createActionRequest({
+      file: async () => ({
+        fieldname: "avatar",
+        filename: "avatar.png",
+        mimetype: "image/png",
+        encoding: "7bit",
+        file: avatarStream,
+        fields: {}
+      }),
+      executeAction
+    }),
+    createReplyDouble()
+  );
+
+  assert.deepEqual(calls[0].input, { provider: "github" });
+  assert.equal(Object.hasOwn(calls[0].input, "returnTo"), false);
+  assert.deepEqual(calls[1].input, {
+    stream: avatarStream,
+    mimeType: "image/png",
+    fileName: "avatar.png"
+  });
+  assert.equal(Object.hasOwn(calls[1].input, "uploadDimension"), false);
+});
+
 test("account settings jsonapi transport resolves response resource id from request user", async () => {
   const routes = await registerRoutes();
   const settingsRoute = findRoute(routes, { method: "GET", path: "/api/settings" });
