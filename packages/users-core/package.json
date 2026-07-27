@@ -1,6 +1,6 @@
 {
   "name": "@jskit-ai/users-core",
-  "version": "0.1.146",
+  "version": "0.1.147",
   "type": "module",
   "scripts": {
     "test": "node --test"
