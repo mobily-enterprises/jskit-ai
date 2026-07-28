@@ -16,8 +16,8 @@ test("crudService exposes the explicit JSON:API CRUD service contract", async ()
       calls.push(["queryDocuments", query, options]);
       return { data: [] };
     },
-    async getDocumentById(recordId, options) {
-      calls.push(["getDocumentById", recordId, options]);
+    async getDocumentById(recordId, query, options) {
+      calls.push(["getDocumentById", recordId, query, options]);
       return { data: { id: String(recordId) } };
     },
     async createDocument(payload, options) {
@@ -51,14 +51,34 @@ test("crudService exposes the explicit JSON:API CRUD service contract", async ()
     include: ["workspace"]
   };
   const listResult = await service.queryDocuments({ limit: 10 }, options);
-  const recordResult = await service.getDocumentById(3, options);
+  const recordResult = await service.getDocumentById(3, {
+    include: "workspace",
+    fields: {
+      customers: ["id", "name"],
+      workspaces: ["id", "slug"]
+    }
+  }, options);
   const createResult = await service.createDocument({ textField: "Example", dateField: "2026-03-11", numberField: 3 }, options);
   const updateResult = await service.patchDocumentById(4, { textField: "Changed" }, options);
   const deleteResult = await service.deleteDocumentById(5, options);
 
   assert.deepEqual(calls, [
     ["queryDocuments", { limit: 10 }, { trx: "trx-1", context: { visibilityContext: { visibility: "workspace", scopeOwnerId: "7" } } }],
-    ["getDocumentById", 3, { trx: "trx-1", context: { visibilityContext: { visibility: "workspace", scopeOwnerId: "7" } }, include: ["workspace"] }],
+    ["getDocumentById", 3, {
+      include: "workspace",
+      fields: {
+        customers: ["id", "name"],
+        workspaces: ["id", "slug"]
+      }
+    }, {
+      trx: "trx-1",
+      context: {
+        visibilityContext: {
+          visibility: "workspace",
+          scopeOwnerId: "7"
+        }
+      }
+    }],
     ["createDocument", { textField: "Example", dateField: "2026-03-11", numberField: 3 }, { trx: "trx-1", context: { visibilityContext: { visibility: "workspace", scopeOwnerId: "7" } } }],
     ["patchDocumentById", 4, { textField: "Changed" }, { trx: "trx-1", context: { visibilityContext: { visibility: "workspace", scopeOwnerId: "7" } } }],
     ["deleteDocumentById", 5, { trx: "trx-1", context: { visibilityContext: { visibility: "workspace", scopeOwnerId: "7" } } }]

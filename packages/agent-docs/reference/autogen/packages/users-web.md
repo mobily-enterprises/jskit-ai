@@ -259,11 +259,11 @@ Exports
 
 ### `src/client/composables/records/useList.js`
 Exports
-- `useList({ ownershipFilter = ROUTE_VISIBILITY_WORKSPACE, surfaceId = "", access = "auto", apiSuffix = "", queryKeyFactory = null, viewPermissions = [], readEnabled = true, placementSource = "users-web.list", fallbackLoadError = "Unable to load list.", initialPageParam = null, getNextPageParam, selectItems, client = null, transport = null, requestOptions, queryOptions, requestRecovery, requestRecoveryLabel = "List", realtime = null, adapter = null, recordIdParam = "recordId", recordIdSelector = null, viewUrlTemplate = "", editUrlTemplate = "", search = null, queryParams = null, requestQueryParams = null, syncToRoute = false } = {})`
+- `useList({ ownershipFilter = ROUTE_VISIBILITY_WORKSPACE, surfaceId = "", access = "auto", apiSuffix = "", queryKeyFactory = null, viewPermissions = [], readEnabled = true, placementSource = "users-web.list", fallbackLoadError = "Unable to load list.", initialPageParam = null, getNextPageParam, selectItems, client = null, transport = null, requestOptions, queryOptions, requestRecovery, requestRecoveryLabel = "List", realtime = null, adapter = null, recordIdParam = "recordId", recordIdSelector = null, viewUrlTemplate = "", editUrlTemplate = "", search = null, queryParams = null, routeQueryValueResolvers = null, requestQueryParams = null, requestFieldsets = null, syncToRoute = false } = {})`
 
 ### `src/client/composables/records/useView.js`
 Exports
-- `useView({ resource = null, ownershipFilter = ROUTE_VISIBILITY_WORKSPACE, surfaceId = "", access = "auto", apiSuffix = "", queryKeyFactory = null, viewPermissions = [], readMethod = "GET", readEnabled = true, client = null, transport = null, requestRecovery = null, requestRecoveryLabel = "Resource", placementSource = "users-web.view", fallbackLoadError = "Unable to load resource.", notFoundStatuses = [404], notFoundMessage = "Record not found.", model, mapLoadedToModel, requestQueryParams = null, recordIdParam = "recordId", routeParams = null, routeRecordId = null, apiUrlTemplate = "", listUrlTemplate = "", editUrlTemplate = "", includeRecordIdInQueryKey = false, realtime = undefined, adapter = null } = {})`
+- `useView({ resource = null, ownershipFilter = ROUTE_VISIBILITY_WORKSPACE, surfaceId = "", access = "auto", apiSuffix = "", queryKeyFactory = null, viewPermissions = [], readMethod = "GET", readEnabled = true, client = null, transport = null, requestRecovery = null, requestRecoveryLabel = "Resource", placementSource = "users-web.view", fallbackLoadError = "Unable to load resource.", notFoundStatuses = [404], notFoundMessage = "Record not found.", model, mapLoadedToModel, requestQueryParams = null, requestFieldsets = null, recordIdParam = "recordId", routeParams = null, routeRecordId = null, apiUrlTemplate = "", listUrlTemplate = "", editUrlTemplate = "", includeRecordIdInQueryKey = false, realtime = undefined, adapter = null } = {})`
 
 ### `src/client/composables/runtime/addEditUiRuntime.js`
 Exports
@@ -360,11 +360,11 @@ Local functions
 ### `src/client/composables/support/listQueryParamSupport.js`
 Exports
 - `normalizeListSyncToRouteConfig(syncToRoute = false, { defaultSearchParam = "q" } = {})`
-- `resolveQueryParamDescriptors(queryParams, context = {})`
+- `resolveQueryParamDescriptors(queryParams, context = {}, { routeValueResolvers = null } = {})`
 - `resolveActiveQueryParamEntries(descriptors = [])`
 - `resolveWritableQueryParamBindings(descriptors = [])`
 - `buildQueryParamEntriesToken(entries = [])`
-- `parseRouteBindingValue(binding, routeQueryValue)`
+- `parseRouteBindingValue(binding, routeQueryValue, context = {})`
 - `areQueryParamBindingValuesEqual(left, right)`
 - `buildRouteQueryCompareToken(query = {})`
 - `mergeManagedQueryParamKeyHistory(history = [], keys = [])`
@@ -375,7 +375,7 @@ Local functions
 - `resolveQueryParamsInput(queryParams, context = {})`
 - `resolveQueryParamBindingType(value)`
 - `resolveArrayQueryParamItemType(values = [])`
-- `createWritableQueryParamBinding({ source = {}, rawKey = "", rawValue = null, key = "" } = {})`
+- `createWritableQueryParamBinding({ source = {}, rawKey = "", rawValue = null, key = "", resolveRouteValue = null } = {})`
 - `firstRouteQueryValue(value)`
 - `normalizeRouteQueryValues(value)`
 - `parseRouteBooleanValue(value, fallback = false)`
@@ -398,11 +398,13 @@ Exports
 
 ### `src/client/composables/support/requestQueryRuntimeSupport.js`
 Exports
-- `appendRequestQueryValue(target = {}, key = "", values = [])`
-- `buildRequestQueryObject(entries = [])`
-- `createRequestQueryRuntime({ requestQueryParams = null, context = null, sourceQueryKey = null } = {})`
-- `resolveRequestQueryBaseKey(sourceQueryKey = null)`
+- `buildRequestQueryObject(entries = [], { fieldsets = null } = {})`
+- `createRequestQueryRuntime({ requestQueryParams = null, requestFieldsets = null, context = null, sourceQueryKey = null } = {})`
+Local functions
 - `resolveRequestQueryContext(context = null)`
+- `resolveRequestQueryBaseKey(sourceQueryKey = null)`
+- `resolveRequestFieldsets(requestFieldsets = null, context = {})`
+- `appendRequestQueryValue(target = {}, key = "", values = [])`
 
 ### `src/client/composables/support/resourceLoadStateHelpers.js`
 Exports
@@ -501,6 +503,8 @@ Local functions
 - `resetFilterValue(values, filter = {})`
 - `applyPresetFilterValue(values, filter = {}, rawValue)`
 - `createQueryParams(values, filterEntries = [])`
+- `resolveFilterRouteValue(filter, routeValue, { initial = false } = {})`
+- `createRouteQueryValueResolvers(filterEntries = [])`
 - `resolveAtomicValueLabel(filter = {}, value = "", labelResolvers = {})`
 - `formatDefaultChipLabel(filter = {}, chipValue, labelResolvers = {})`
 
@@ -521,7 +525,7 @@ Local functions
 
 ### `src/client/composables/useCrudListScreen.js`
 Exports
-- `useCrudListScreen({ adapter = null, resource = null, resourceNamespace = "resource", apiSuffix = "", recordIdParam = "recordId", recordIdSelector = null, titleFallbackFieldKey = "", viewUrlTemplate = "", editUrlTemplate = "", newUrlTemplate = "", recordChangedEvents = [], listFilters = {}, listBulkActions = [], listRowActions = [], syntheticRows = null, routeQueryBlacklist = Object.freeze(["include", "cursor", "limit"]), requestQueryParams = null, readEnabled = true, requestRecoveryLabel = "Records", fallbackLoadError = "Unable to load records." } = {})`
+- `useCrudListScreen({ adapter = null, resource = null, resourceNamespace = "resource", apiSuffix = "", recordIdParam = "recordId", recordIdSelector = null, titleFallbackFieldKey = "", viewUrlTemplate = "", editUrlTemplate = "", newUrlTemplate = "", recordChangedEvents = [], listFilters = {}, listBulkActions = [], listRowActions = [], syntheticRows = null, routeQueryBlacklist = Object.freeze(["include", "cursor", "limit"]), requestQueryParams = null, requestFieldsets = null, readEnabled = true, requestRecoveryLabel = "Records", fallbackLoadError = "Unable to load records." } = {})`
 Local functions
 - `formatCrudListCardValue(value)`
 - `asList(value = [])`
@@ -533,7 +537,7 @@ Local functions
 
 ### `src/client/composables/useCrudViewScreen.js`
 Exports
-- `useCrudViewScreen({ adapter = null, resource = null, resourceNamespace = "resource", apiUrlTemplate = "", recordIdParam = "recordId", titleFallbackFieldKey = "", listUrlTemplate = "", editUrlTemplate = "", recordChangedEvent = "", requestQueryParams = null, readEnabled = true, queryKeyFactory = null, requestRecoveryLabel = "Record", fallbackLoadError = "Unable to load record.", notFoundMessage = "Record not found." } = {})`
+- `useCrudViewScreen({ adapter = null, resource = null, resourceNamespace = "resource", apiUrlTemplate = "", recordIdParam = "recordId", titleFallbackFieldKey = "", listUrlTemplate = "", editUrlTemplate = "", recordChangedEvent = "", requestQueryParams = null, requestFieldsets = null, readEnabled = true, queryKeyFactory = null, requestRecoveryLabel = "Record", fallbackLoadError = "Unable to load record.", notFoundMessage = "Record not found." } = {})`
 
 ### `src/client/composables/usePagedCollection.js`
 Exports

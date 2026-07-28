@@ -1,5 +1,9 @@
 import { computed, unref } from "vue";
 import {
+  buildJsonApiFieldsetsToken,
+  normalizeJsonApiFieldsets
+} from "@jskit-ai/kernel/shared/support/jsonApiFieldsets";
+import {
   resolveQueryParamDescriptors,
   resolveActiveQueryParamEntries,
   buildQueryParamEntriesToken
@@ -21,6 +25,13 @@ function resolveRequestQueryBaseKey(sourceQueryKey = null) {
   return [source];
 }
 
+function resolveRequestFieldsets(requestFieldsets = null, context = {}) {
+  const source = typeof requestFieldsets === "function"
+    ? requestFieldsets(context)
+    : unref(requestFieldsets);
+  return normalizeJsonApiFieldsets(source);
+}
+
 function appendRequestQueryValue(target = {}, key = "", values = []) {
   const normalizedKey = String(key || "").trim();
   const normalizedValues = (Array.isArray(values) ? values : [])
@@ -40,7 +51,7 @@ function appendRequestQueryValue(target = {}, key = "", values = []) {
   target[normalizedKey] = [...currentValues, ...normalizedValues];
 }
 
-function buildRequestQueryObject(entries = []) {
+function buildRequestQueryObject(entries = [], { fieldsets = null } = {}) {
   const sourceEntries = Array.isArray(entries) ? entries : [];
   const query = {};
 
@@ -48,11 +59,18 @@ function buildRequestQueryObject(entries = []) {
     appendRequestQueryValue(query, entry?.key, entry?.values);
   }
 
-  return Object.freeze(query);
+  const normalizedFieldsets = normalizeJsonApiFieldsets(fieldsets);
+  return Object.freeze({
+    ...query,
+    ...(Object.keys(normalizedFieldsets).length > 0
+      ? { fields: normalizedFieldsets }
+      : {})
+  });
 }
 
 function createRequestQueryRuntime({
   requestQueryParams = null,
+  requestFieldsets = null,
   context = null,
   sourceQueryKey = null
 } = {}) {
@@ -65,36 +83,59 @@ function createRequestQueryRuntime({
   const activeRequestQueryParamsToken = computed(() => {
     return buildQueryParamEntriesToken(activeRequestQueryParamEntries.value);
   });
+  const activeRequestFieldsets = computed(() => {
+    return resolveRequestFieldsets(
+      requestFieldsets,
+      resolveRequestQueryContext(context)
+    );
+  });
+  const activeRequestFieldsetsToken = computed(() => {
+    return buildJsonApiFieldsetsToken(activeRequestFieldsets.value);
+  });
+  const queryKeyParts = computed(() => {
+    const parts = [];
+    if (activeRequestQueryParamsToken.value) {
+      parts.push("__request_query__", activeRequestQueryParamsToken.value);
+    }
+    if (activeRequestFieldsetsToken.value) {
+      parts.push("__request_fieldsets__", activeRequestFieldsetsToken.value);
+    }
+    return Object.freeze(parts);
+  });
   const queryKey = computed(() => {
-    if (!activeRequestQueryParamsToken.value) {
+    if (queryKeyParts.value.length < 1) {
       return unref(sourceQueryKey);
     }
 
-    const next = resolveRequestQueryBaseKey(sourceQueryKey);
-    next.push("__request_query__", activeRequestQueryParamsToken.value);
-    return next;
+    return [
+      ...resolveRequestQueryBaseKey(sourceQueryKey),
+      ...queryKeyParts.value
+    ];
   });
   const requestQuery = computed(() => {
-    if (activeRequestQueryParamEntries.value.length < 1) {
+    const query = buildRequestQueryObject(activeRequestQueryParamEntries.value, {
+      fieldsets: activeRequestFieldsets.value
+    });
+    if (Object.keys(query).length < 1) {
       return null;
     }
 
-    return buildRequestQueryObject(activeRequestQueryParamEntries.value);
+    return query;
   });
 
   return Object.freeze({
     requestQueryParamDescriptors,
     activeRequestQueryParamEntries,
     activeRequestQueryParamsToken,
+    activeRequestFieldsets,
+    activeRequestFieldsetsToken,
+    queryKeyParts,
     queryKey,
     requestQuery
   });
 }
 
 export {
-  appendRequestQueryValue,
   buildRequestQueryObject,
-  createRequestQueryRuntime,
-  resolveRequestQueryBaseKey,
-  resolveRequestQueryContext
+  createRequestQueryRuntime
 };

@@ -444,6 +444,31 @@ That creates the baseline CRUD route tree:
 - `w/[workspaceSlug]/admin/contacts/[contactId]/edit.vue`
 - shared `_components` files under the same route root
 
+Generated list, view, and lookup reads use the resource contract as their
+response authority. They return every field declared for output by default,
+including the target resource's declared output when a lookup relation is
+hydrated; generated pages do not repeat those fields in a second page-owned
+allowlist. Adding an output field or lookup to the resource therefore does not
+require regenerating endpoint projections.
+
+Put exceptional large fields in the resource-owned default response blacklist,
+`resource.contract.response.defaultExclude`:
+
+```js
+contract: {
+  response: {
+    defaultExclude: ["rawPayload", "largeAuditJson"]
+  }
+}
+```
+
+Each included resource applies its own blacklist. A default-excluded field is
+still part of the public output contract and can be requested through an
+explicit typed JSON:API `fields[type]` fieldset. Use that sparse-field override
+only for a specialised caller; do not add one to ordinary generated pages or
+build a page-local query-string adapter. Fields that must never be exposed do
+not belong in the output schema at all.
+
 This is the most important mental model in the whole chapter:
 
 - `crud-server-generator` creates the reusable CRUD contract and server package

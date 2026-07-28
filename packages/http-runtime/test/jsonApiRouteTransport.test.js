@@ -3,6 +3,7 @@ import test from "node:test";
 
 import {
   JSON_API_CONTENT_TYPE,
+  encodeJsonApiResourceQueryObject,
   createJsonApiResourceQueryTransportSchema,
   createJsonApiResourceRequestBodyTransportSchema,
   createJsonApiResourceRouteContract,
@@ -69,6 +70,17 @@ const CONTACT_LIST_QUERY_SCHEMA = Object.freeze({
     include: {
       type: "string",
       required: false
+    },
+    fields: {
+      type: "object",
+      required: false,
+      values: {
+        type: "array",
+        items: {
+          type: "string",
+          minLength: 1
+        }
+      }
     },
     workspaceId: {
       type: "string",
@@ -198,6 +210,23 @@ test("createJsonApiResourceQueryTransportSchema and route transport map list que
   assert.ok(Object.hasOwn(schema.properties, "filter[q]"));
   assert.ok(Object.hasOwn(schema.properties, "include"));
   assert.ok(Object.hasOwn(schema.properties, "filter[workspaceId]"));
+  assert.ok(Object.hasOwn(schema.properties, "fields"));
+  assert.ok(Object.hasOwn(schema.patternProperties, "^fields\\[[^\\[\\]]+\\]$"));
+
+  assert.deepEqual(
+    encodeJsonApiResourceQueryObject({
+      fields: {
+        contacts: ["id", "name"],
+        workspaces: ["id", "slug"]
+      }
+    }, {
+      responseType: "contacts"
+    }),
+    {
+      "fields[contacts]": "id,name",
+      "fields[workspaces]": "id,slug"
+    }
+  );
 
   const transport = createJsonApiResourceRouteTransport({
     type: "contacts",
@@ -210,7 +239,9 @@ test("createJsonApiResourceQueryTransportSchema and route transport map list que
     "page[limit]": "10",
     "filter[q]": "Merc",
     include: "workspace",
-    "filter[workspaceId]": "7"
+    "filter[workspaceId]": "7",
+    "fields[contacts]": "id,name",
+    "fields[workspaces]": "id,slug"
   });
 
   assert.deepEqual(plainQuery, {
@@ -218,8 +249,41 @@ test("createJsonApiResourceQueryTransportSchema and route transport map list que
     limit: "10",
     q: "Merc",
     include: "workspace",
-    workspaceId: "7"
+    workspaceId: "7",
+    fields: {
+      contacts: ["id", "name"],
+      workspaces: ["id", "slug"]
+    }
   });
+
+  assert.deepEqual(
+    transport.request.query({
+      fields: "name,id"
+    }),
+    {
+      fields: {
+        contacts: ["id", "name"]
+      }
+    }
+  );
+});
+
+test("sparse JSON:API response contracts preserve field types without requiring every attribute", () => {
+  const schema = createJsonApiResourceSuccessTransportSchema({
+    type: "contacts",
+    attributes: CONTACT_RECORD_SCHEMA,
+    kind: "collection",
+    allowSparseFields: true
+  });
+  const resourceSchema = schema.definitions.contactsSuccessResource;
+  const attributesSchemaName = resourceSchema.properties.attributes.allOf[0].$ref
+    .replace("#/definitions/", "");
+  const attributesSchema = schema.definitions[attributesSchemaName];
+
+  assert.deepEqual(resourceSchema.required, ["type", "id"]);
+  assert.equal(Object.hasOwn(attributesSchema, "required"), false);
+  assert.equal(attributesSchema.additionalProperties, false);
+  assert.equal(attributesSchema.properties.subscribed.anyOf[0].type, "boolean");
 });
 
 test("createJsonApiResourceRouteContract produces route options compatible with kernel route validator", () => {

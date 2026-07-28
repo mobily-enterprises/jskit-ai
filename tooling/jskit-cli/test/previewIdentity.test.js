@@ -35,13 +35,11 @@ function request(overrides = {}) {
     protocol: PREVIEW_IDENTITY_PROTOCOL,
     requestId: "request-1",
     subject: {
-      identifiers: [
-        {
-          type: "email",
-          value: "ada@example.com"
-        }
-      ],
-      kind: "viewer"
+      kind: "selector",
+      selector: {
+        type: "email",
+        value: "ada@example.com"
+      }
     },
     target: {
       href: "http://127.0.0.1:4100/app",
@@ -51,7 +49,7 @@ function request(overrides = {}) {
   };
 }
 
-test("JSKIT preview identity creates a native session for the viewer email", async () => {
+test("JSKIT preview identity creates a native session for a configured application email", async () => {
   const calls = [];
   const replies = [
     response({ csrfToken: "csrf-1" }, {
@@ -93,6 +91,31 @@ test("JSKIT preview identity creates a native session for the viewer email", asy
   assert.deepEqual(JSON.parse(calls[2].options.body), {
     email: "ada@example.com"
   });
+});
+
+test("JSKIT preview identity rejects Vibe64 viewer subjects", async () => {
+  let called = false;
+  const result = await executeJskitPreviewIdentityRequest(request({
+    subject: {
+      identifiers: [
+        {
+          type: "email",
+          value: "ada@example.com"
+        }
+      ],
+      kind: "viewer"
+    }
+  }), {
+    env: PREVIEW_IDENTITY_ENV,
+    fetchImpl: async () => {
+      called = true;
+      return response({ ok: true });
+    }
+  });
+
+  assert.equal(called, false);
+  assert.equal(result.ok, false);
+  assert.equal(result.code, "jskit_preview_identity_selector_unsupported");
 });
 
 test("JSKIT preview identity accepts an explicit existing user ID", async () => {

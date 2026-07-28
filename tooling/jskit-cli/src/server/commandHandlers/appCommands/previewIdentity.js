@@ -129,13 +129,6 @@ function identityFromSubject(subject = {}) {
       return { userId: value };
     }
   }
-  if (source.kind === "viewer") {
-    const email = (Array.isArray(source.identifiers) ? source.identifiers : [])
-      .find((identifier) => identifier?.type === "email" && String(identifier.value || "").trim());
-    if (email) {
-      return { email: String(email.value).trim() };
-    }
-  }
   throw commandError(
     "JSKIT preview identity requires an existing application email or user ID.",
     "jskit_preview_identity_selector_unsupported"

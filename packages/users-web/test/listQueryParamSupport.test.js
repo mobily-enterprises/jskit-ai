@@ -151,6 +151,39 @@ test("parseRouteBindingValue handles boolean, number and array bindings", () => 
   );
 });
 
+test("route-aware query parameter bindings can distinguish initial hydration from later clearing", () => {
+  const currentness = ref("active");
+  const [binding] = resolveWritableQueryParamBindings(
+    resolveQueryParamDescriptors(
+      { currentness },
+      {},
+      {
+        routeValueResolvers: {
+          currentness(routeValue, { initial }) {
+            if (routeValue === undefined) {
+              return initial ? "active" : "";
+            }
+            return String(routeValue || "").trim() || "active";
+          }
+        }
+      }
+    )
+  );
+
+  assert.equal(
+    parseRouteBindingValue(binding, undefined, { initial: true }),
+    "active"
+  );
+  assert.equal(
+    parseRouteBindingValue(binding, "archived", { initial: true }),
+    "archived"
+  );
+  assert.equal(
+    parseRouteBindingValue(binding, undefined, { initial: false }),
+    ""
+  );
+});
+
 test("route sync key helpers preserve declared key history for cleanup", () => {
   const history = mergeManagedQueryParamKeyHistory(
     ["status"],

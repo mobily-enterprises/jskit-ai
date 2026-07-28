@@ -2,6 +2,7 @@ import { computed, reactive } from "vue";
 import { normalizeText } from "@jskit-ai/kernel/shared/support/normalize";
 import {
   defineCrudListFilters,
+  createCrudListFilterEmptyValue,
   createCrudListFilterInitialValue,
   isCrudListFilterMultiValue,
   isCrudListFilterStructuredValue,
@@ -10,7 +11,9 @@ import {
   listCrudListFilterChipValues,
   formatCrudListFilterDefaultChipLabel,
   formatCrudListFilterQueryValue,
+  parseCrudListFilterQueryValue,
   resolveCrudListFilterOptionLabel,
+  INVALID_CRUD_LIST_FILTER_QUERY_VALUE,
   CRUD_LIST_FILTER_TYPE_FLAG
 } from "@jskit-ai/kernel/shared/support/crudListFilters";
 import { formatCrudListDateFilterChipLabel } from "../support/crudListDateFilterSupport.js";
@@ -107,7 +110,7 @@ function assignFilterValue(values, filter = {}, rawValue) {
 }
 
 function resetFilterValue(values, filter = {}) {
-  assignFilterValue(values, filter, createCrudListFilterInitialValue(filter));
+  assignFilterValue(values, filter, createCrudListFilterEmptyValue(filter));
 }
 
 function applyPresetFilterValue(values, filter = {}, rawValue) {
@@ -132,6 +135,28 @@ function createQueryParams(values, filterEntries = []) {
   }
 
   return Object.freeze(queryParams);
+}
+
+function resolveFilterRouteValue(filter, routeValue, { initial = false } = {}) {
+  if (routeValue === undefined) {
+    return initial
+      ? createCrudListFilterInitialValue(filter)
+      : createCrudListFilterEmptyValue(filter);
+  }
+
+  const parsedValue = parseCrudListFilterQueryValue(filter, routeValue);
+  return parsedValue === INVALID_CRUD_LIST_FILTER_QUERY_VALUE
+    ? createCrudListFilterInitialValue(filter)
+    : parsedValue;
+}
+
+function createRouteQueryValueResolvers(filterEntries = []) {
+  return Object.freeze(Object.fromEntries(
+    filterEntries.map((filter) => [
+      filter.queryKey,
+      (routeValue, context) => resolveFilterRouteValue(filter, routeValue, context)
+    ])
+  ));
 }
 
 function resolveAtomicValueLabel(filter = {}, value = "", labelResolvers = {}) {
@@ -174,6 +199,7 @@ function useCrudListFilters(definitions = {}, { labelResolvers = {}, chipLabels 
   }
 
   const queryParams = createQueryParams(values, filterEntries);
+  const routeQueryValueResolvers = createRouteQueryValueResolvers(filterEntries);
 
   const activeChips = computed(() => {
     const chips = [];
@@ -296,6 +322,7 @@ function useCrudListFilters(definitions = {}, { labelResolvers = {}, chipLabels 
     filters,
     values,
     queryParams,
+    routeQueryValueResolvers,
     options: Object.freeze(options),
     presets: normalizedPresets,
     activeChips,

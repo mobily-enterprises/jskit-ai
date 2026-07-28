@@ -6,8 +6,16 @@ import {
   RestApiPlugin,
   RowPolicyPlugin
 } from "json-rest-api";
-import { normalizeRecordId } from "@jskit-ai/kernel/shared/support/normalize";
+import {
+  normalizeRecordId,
+  normalizeUniqueTextList
+} from "@jskit-ai/kernel/shared/support/normalize";
 import { resolveCrudResourceScopeName } from "@jskit-ai/kernel/shared/support/crudLookup";
+import {
+  normalizeJsonApiFieldList,
+  normalizeJsonApiFieldsets
+} from "@jskit-ai/kernel/shared/support/jsonApiFieldsets";
+import { AppError } from "@jskit-ai/kernel/server/runtime/errors";
 
 const INTERNAL_JSON_REST_API = "internal.json-rest-api";
 
@@ -321,6 +329,51 @@ function applyJsonRestQueryFields(scopeOptions = {}, extraQueryFields = {}) {
   }
 }
 
+function resolveJsonRestDefaultExcludedFields(resource = {}) {
+  const defaultExclude = resource?.contract?.response?.defaultExclude;
+  if (defaultExclude == null) {
+    return [];
+  }
+  if (!Array.isArray(defaultExclude)) {
+    throw new TypeError("json-rest-api resource contract.response.defaultExclude must be an array.");
+  }
+
+  return normalizeUniqueTextList(defaultExclude);
+}
+
+function applyJsonRestDefaultExclusions(scopeOptions = {}, resource = {}) {
+  const excludedFields = resolveJsonRestDefaultExcludedFields(resource);
+  if (excludedFields.length < 1) {
+    return;
+  }
+
+  const schema = normalizeJsonRestObject(scopeOptions.schema);
+  const queryFields = normalizeJsonRestObject(scopeOptions.queryFields);
+  const idProperty = normalizeJsonRestText(scopeOptions.idProperty, {
+    fallback: "id"
+  });
+
+  for (const field of excludedFields) {
+    if (field === "id" || field === idProperty) {
+      throw new TypeError(
+        `json-rest-api resource contract.response.defaultExclude cannot exclude identifier field "${field}".`
+      );
+    }
+
+    const definitions = Object.hasOwn(schema, field) ? schema : queryFields;
+    if (!Object.hasOwn(definitions, field)) {
+      throw new TypeError(
+        `json-rest-api resource contract.response.defaultExclude references unknown field "${field}".`
+      );
+    }
+
+    definitions[field] = {
+      ...normalizeJsonRestObject(definitions[field]),
+      normallyHidden: true
+    };
+  }
+}
+
 function buildJsonRestQueryParams(resourceType = "", query = {}, { include = undefined } = {}) {
   const normalizedResourceType = normalizeJsonRestText(resourceType);
   const source = normalizeJsonRestObject(query);
@@ -365,11 +418,27 @@ function buildJsonRestQueryParams(resourceType = "", query = {}, { include = und
     };
   }
 
-  const fields = normalizeJsonRestText(source.fields);
-  if (normalizedResourceType && fields) {
-    queryParams.fields = {
-      [normalizedResourceType]: fields
-    };
+  const fieldsets = normalizeJsonApiFieldsets(source.fields, {
+    primaryType: normalizedResourceType
+  });
+  if (Object.keys(fieldsets).length > 0) {
+    const jsonRestFieldsets = new Map();
+    for (const [type, fields] of Object.entries(fieldsets)) {
+      const scopeName = resolveCrudResourceScopeName(type);
+      if (!scopeName) {
+        continue;
+      }
+      jsonRestFieldsets.set(scopeName, [
+        ...(jsonRestFieldsets.get(scopeName) || []),
+        ...fields
+      ]);
+    }
+    queryParams.fields = Object.fromEntries(
+      [...jsonRestFieldsets.entries()].map(([scopeName, fields]) => [
+        scopeName,
+        normalizeJsonApiFieldList(fields).join(",")
+      ])
+    );
   }
 
   return queryParams;
@@ -485,6 +554,7 @@ function createJsonRestResourceScopeOptions(
     };
   }
   applyJsonRestQueryFields(scopeOptions, queryFields);
+  applyJsonRestDefaultExclusions(scopeOptions, resource);
   const collectionRelationships = resolveJsonRestCollectionRelationships(scopeOptions);
   if (Object.keys(collectionRelationships).length > 0) {
     if (
@@ -576,6 +646,30 @@ async function returnNullWhenJsonRestResourceMissing(run) {
   }
 }
 
+function isJsonRestSparseFieldError(error = null) {
+  return /^Unknown sparse field '.+' requested for '.+'$/u.test(
+    normalizeJsonRestText(error?.message)
+  );
+}
+
+async function returnBadRequestWhenJsonRestFieldsetInvalid(run) {
+  if (typeof run !== "function") {
+    throw new TypeError("returnBadRequestWhenJsonRestFieldsetInvalid requires run function.");
+  }
+
+  try {
+    return await run();
+  } catch (error) {
+    if (!isJsonRestSparseFieldError(error)) {
+      throw error;
+    }
+
+    throw new AppError(400, error.message, {
+      code: "JSON_API_FIELDSET_INVALID"
+    });
+  }
+}
+
 async function createJsonRestApiHost({ knex }) {
   if (typeof knex !== "function") {
     throw new TypeError("createJsonRestApiHost requires knex.");
@@ -640,6 +734,7 @@ export {
   extractJsonRestCollectionRows,
   isJsonRestResourceMissingError,
   returnNullWhenJsonRestResourceMissing,
+  returnBadRequestWhenJsonRestFieldsetInvalid,
   resolveWorkspaceScopeValue,
   resolveUserScopeValue,
   createJsonRestApiHost,

@@ -257,3 +257,37 @@ test("useCrudListFilters preserves scalar, complete, partial, and cleared date c
   assert.deepEqual(filters.values.arrivalDate, { from: "", to: "" });
   assert.equal(filters.hasActiveFilters.value, false);
 });
+
+test("useCrudListFilters applies declarative defaults once while clear remains an explicit empty state", async () => {
+  const { useCrudListFilters } = await import("@jskit-ai/users-web/client/composables/useCrudListFilters");
+
+  const filters = useCrudListFilters({
+    currentness: {
+      type: "enum",
+      label: "Currentness",
+      options: [
+        { value: "active", label: "Active" },
+        { value: "archived", label: "Archived" }
+      ],
+      defaultValue: "active"
+    },
+    onlyStaff: {
+      type: "flag",
+      label: "Staff",
+      defaultValue: true
+    }
+  });
+
+  assert.equal(filters.values.currentness, "active");
+  assert.equal(filters.values.onlyStaff, true);
+  assert.equal(filters.queryParams.currentness.value, "active");
+  assert.equal(filters.queryParams.onlyStaff.value, true);
+
+  filters.clearFilter("currentness");
+  filters.clearFilter("onlyStaff");
+
+  assert.equal(filters.values.currentness, "");
+  assert.equal(filters.values.onlyStaff, false);
+  assert.equal(filters.queryParams.currentness.value, "");
+  assert.equal(filters.queryParams.onlyStaff.value, false);
+});

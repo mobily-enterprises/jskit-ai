@@ -31,6 +31,7 @@ function useView({
   model,
   mapLoadedToModel,
   requestQueryParams = null,
+  requestFieldsets = null,
   recordIdParam = "recordId",
   routeParams = null,
   routeRecordId = null,
@@ -95,6 +96,7 @@ function useView({
   });
   const requestQueryRuntime = createRequestQueryRuntime({
     requestQueryParams,
+    requestFieldsets,
     context: queryParamsContext,
     sourceQueryKey: baseQueryKey
   });

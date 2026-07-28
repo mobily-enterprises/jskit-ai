@@ -160,3 +160,31 @@ test("request query runtime preserves inactive scalar query keys", () => {
   assert.equal(runtime.queryKey.value, "products");
   assert.equal(runtime.requestQuery.value, null);
 });
+
+test("request query runtime carries typed fieldsets as a first-class query and cache-key dimension", () => {
+  const runtime = createRequestQueryRuntime({
+    requestQueryParams: {
+      include: "operator"
+    },
+    requestFieldsets: {
+      jobs: ["status", "id"],
+      contacts: ["displayName", "id"]
+    },
+    sourceQueryKey: ref(["jobs"])
+  });
+
+  assert.deepEqual(runtime.requestQuery.value, {
+    include: "operator",
+    fields: {
+      contacts: ["displayName", "id"],
+      jobs: ["id", "status"]
+    }
+  });
+  assert.deepEqual(runtime.queryKey.value, [
+    "jobs",
+    "__request_query__",
+    "include=operator",
+    "__request_fieldsets__",
+    '{"contacts":["displayName","id"],"jobs":["id","status"]}'
+  ]);
+});

@@ -31,6 +31,7 @@ Exports
 - `extractJsonRestCollectionRows(payload = null)`
 - `isJsonRestResourceMissingError(error = null)`
 - `returnNullWhenJsonRestResourceMissing(run)`
+- `returnBadRequestWhenJsonRestFieldsetInvalid(run)`
 - `resolveWorkspaceScopeValue(context = null)`
 - `resolveUserScopeValue(context = null)`
 - `createJsonRestApiHost({ knex })`
@@ -47,7 +48,10 @@ Local functions
 - `normalizeJsonRestQueryField(fieldName = "", fieldDefinition = {}, projectionDefinition = null)`
 - `isJsonRestVirtualField(fieldDefinition = null)`
 - `applyJsonRestQueryFields(scopeOptions = {}, extraQueryFields = {})`
+- `resolveJsonRestDefaultExcludedFields(resource = {})`
+- `applyJsonRestDefaultExclusions(scopeOptions = {}, resource = {})`
 - `extractJsonApiInputRelationships(attributes = {}, resource = null, relationships = null)`
+- `isJsonRestSparseFieldError(error = null)`
 
 ### root
 

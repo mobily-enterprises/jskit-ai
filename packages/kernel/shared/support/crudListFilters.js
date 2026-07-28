@@ -219,7 +219,7 @@ function normalizeCrudListNumberRangeUiValue(rawValue) {
   };
 }
 
-function createCrudListFilterInitialValue(filter = {}) {
+function createCrudListFilterEmptyValue(filter = {}) {
   if (normalizeCrudListFilterType(filter.type) === CRUD_LIST_FILTER_TYPE_FLAG) {
     return false;
   }
@@ -240,6 +240,14 @@ function createCrudListFilterInitialValue(filter = {}) {
   }
 
   return "";
+}
+
+function createCrudListFilterInitialValue(filter = {}) {
+  if (!Object.hasOwn(filter, "defaultValue")) {
+    return createCrudListFilterEmptyValue(filter);
+  }
+
+  return normalizeCrudListFilterUiValue(filter, filter.defaultValue);
 }
 
 function isCrudListFilterMultiValue(filter = {}) {
@@ -745,6 +753,13 @@ function normalizeCrudListFilterDefinition(rawKey = "", rawDefinition = null) {
   const meta = source.meta && typeof source.meta === "object" && !Array.isArray(source.meta)
     ? deepFreeze({ ...source.meta })
     : null;
+  const hasDefaultValue = Object.hasOwn(source, "defaultValue");
+  const defaultValue = hasDefaultValue
+    ? deepFreeze(normalizeCrudListFilterUiValue({
+        type,
+        options
+      }, source.defaultValue))
+    : undefined;
 
   if (type === CRUD_LIST_FILTER_TYPE_DATE_RANGE) {
     if (normalizeText(source.fromKey) || normalizeText(source.toKey)) {
@@ -767,7 +782,8 @@ function normalizeCrudListFilterDefinition(rawKey = "", rawDefinition = null) {
     lookup,
     chipLabel,
     ui,
-    meta
+    meta,
+    ...(hasDefaultValue ? { defaultValue } : {})
   });
 }
 
@@ -823,6 +839,7 @@ export {
   parseCrudListRangeQueryExpression,
   formatCrudListRangeQueryExpression,
   defineCrudListFilters,
+  createCrudListFilterEmptyValue,
   createCrudListFilterInitialValue,
   isCrudListFilterMultiValue,
   isCrudListFilterStructuredValue,

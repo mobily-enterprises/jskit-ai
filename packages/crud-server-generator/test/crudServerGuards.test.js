@@ -49,7 +49,11 @@ test("template createRepository passes a mutable JSKIT context into json-rest-ap
       q: "Merc",
       cursor: "cursor_2",
       limit: 10,
-      include: "workspace"
+      include: "workspace",
+      fields: {
+        customers: ["id", "name"],
+        workspaces: ["id", "slug"]
+      }
     },
     {
       context: sourceContext
@@ -65,6 +69,10 @@ test("template createRepository passes a mutable JSKIT context into json-rest-ap
       page: {
         after: "cursor_2",
         size: "10"
+      },
+      fields: {
+        customers: "id,name",
+        workspaces: "id,slug"
       }
     },
     transaction: null,
@@ -246,7 +254,10 @@ test("template list action strips workspaceSlug before calling the service", asy
     {
       workspaceSlug: "acme",
       q: "Merc",
-      include: "workspace"
+      include: "workspace",
+      fields: {
+        customers: ["id", "name"]
+      }
     },
     { visibilityContext: { visibility: "workspace", scopeOwnerId: "7" } },
     {
@@ -261,7 +272,10 @@ test("template list action strips workspaceSlug before calling the service", asy
 
   assert.deepEqual(calls[0].query, {
     q: "Merc",
-    include: "workspace"
+    include: "workspace",
+    fields: {
+      customers: ["id", "name"]
+    }
   });
   assert.deepEqual(calls[0].options, {
     context: {
@@ -271,6 +285,96 @@ test("template list action strips workspaceSlug before calling the service", asy
       }
     }
   });
+});
+
+test("template view action forwards typed fieldsets without leaking workspaceSlug", async () => {
+  const actions = createActions({ surface: "admin" });
+  const viewAction = actions.find((action) => action.id === "crud.customers.view");
+  const calls = [];
+
+  await viewAction.execute(
+    {
+      workspaceSlug: "acme",
+      recordId: "7",
+      include: "workspace",
+      fields: {
+        customers: ["id", "name"],
+        workspaces: ["id", "slug"]
+      }
+    },
+    { visibilityContext: { visibility: "workspace", scopeOwnerId: "7" } },
+    {
+      customersService: {
+        async getDocumentById(recordId, query, options) {
+          calls.push({
+            recordId,
+            query,
+            options
+          });
+          return {
+            kind: "document",
+            value: {
+              data: {
+                type: "customers",
+                id: recordId
+              }
+            }
+          };
+        }
+      }
+    }
+  );
+
+  assert.deepEqual(calls, [{
+    recordId: "7",
+    query: {
+      include: "workspace",
+      fields: {
+        customers: ["id", "name"],
+        workspaces: ["id", "slug"]
+      }
+    },
+    options: {
+      context: {
+        visibilityContext: {
+          visibility: "workspace",
+          scopeOwnerId: "7"
+        }
+      }
+    }
+  }]);
+});
+
+test("template repository returns a stable 400 for unknown sparse fields", async () => {
+  const repository = createRepository({
+    api: {
+      resources: {
+        customers: {
+          async query() {
+            throw new Error("Unknown sparse field 'passwordHash' requested for 'customers'");
+          }
+        }
+      }
+    },
+    knex: {
+      async transaction(work) {
+        return work("trx");
+      }
+    }
+  });
+
+  await assert.rejects(
+    () => repository.queryDocuments({
+      fields: {
+        customers: ["passwordHash"]
+      }
+    }),
+    (error) => {
+      assert.equal(error.status, 400);
+      assert.equal(error.code, "JSON_API_FIELDSET_INVALID");
+      return true;
+    }
+  );
 });
 
 test("template write actions strip workspaceSlug before calling the service", async () => {
@@ -349,9 +453,15 @@ test("template createActions omits workspace validators for non-workspace genera
   const actions = createNonWorkspaceActions({ surface: "home" });
 
   assert.equal(Array.isArray(actions[0].input), false);
-  assert.deepEqual(Object.keys(actions[0].input.schema.getFieldDefinitions()).sort(), ["contactId", "cursor", "include", "limit", "q"]);
+  assert.deepEqual(
+    Object.keys(actions[0].input.schema.getFieldDefinitions()).sort(),
+    ["contactId", "cursor", "fields", "include", "limit", "q"]
+  );
   assert.equal(Array.isArray(actions[1].input), false);
-  assert.deepEqual(Object.keys(actions[1].input.schema.getFieldDefinitions()).sort(), ["include", "recordId"]);
+  assert.deepEqual(
+    Object.keys(actions[1].input.schema.getFieldDefinitions()).sort(),
+    ["fields", "include", "recordId"]
+  );
   assert.equal(Array.isArray(actions[2].input), false);
   assert.deepEqual(Object.keys(actions[2].input.schema.getFieldDefinitions()).sort(), ["contactId", "name"]);
   assert.equal(actions[2].input.mode, "create");

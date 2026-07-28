@@ -1,4 +1,8 @@
 import { normalizeObject, normalizeText } from "@jskit-ai/kernel/shared/support/normalize";
+import {
+  normalizeJsonApiFieldList,
+  normalizeJsonApiFieldsets
+} from "@jskit-ai/kernel/shared/support/jsonApiFieldsets";
 import { resolveSchemaTransportSchemaDefinition } from "@jskit-ai/kernel/shared/validators";
 
 const JSON_API_QUERY_PAGE_CURSOR_KEY = "page[cursor]";
@@ -19,6 +23,50 @@ function normalizeQueryKey(key = "") {
 function buildFieldsTransportKey(responseType = "") {
   const normalizedResponseType = normalizeText(responseType);
   return normalizedResponseType ? `${JSON_API_FIELDS_PREFIX}${normalizedResponseType}]` : "";
+}
+
+function parseFieldsTransportType(key = "") {
+  const normalizedKey = normalizeQueryKey(key);
+  if (!normalizedKey.startsWith(JSON_API_FIELDS_PREFIX) || !normalizedKey.endsWith("]")) {
+    return "";
+  }
+
+  return normalizeText(normalizedKey.slice(JSON_API_FIELDS_PREFIX.length, -1));
+}
+
+function addJsonApiFieldset(fieldsets, type = "", value = []) {
+  const normalizedType = normalizeText(type);
+  const fields = normalizeJsonApiFieldList(value);
+  if (!normalizedType || fields.length < 1) {
+    return;
+  }
+
+  fieldsets.set(
+    normalizedType,
+    normalizeJsonApiFieldList([
+      ...(fieldsets.get(normalizedType) || []),
+      ...fields
+    ])
+  );
+}
+
+function createJsonApiFieldsTransportValueSchema() {
+  return {
+    anyOf: [
+      {
+        type: "string",
+        minLength: 1
+      },
+      {
+        type: "array",
+        minItems: 1,
+        items: {
+          type: "string",
+          minLength: 1
+        }
+      }
+    ]
+  };
 }
 
 function mapPlainQueryKeyToTransportKey(key = "", { responseType = "" } = {}) {
@@ -110,6 +158,15 @@ function encodeJsonApiResourceQueryObject(query = {}, { responseType = "" } = {}
   const encoded = {};
 
   for (const [rawKey, rawValue] of Object.entries(source)) {
+    if (normalizeQueryKey(rawKey) === "fields") {
+      for (const [type, fields] of Object.entries(normalizeJsonApiFieldsets(rawValue, {
+        primaryType: responseType
+      }))) {
+        encoded[buildFieldsTransportKey(type)] = fields.join(",");
+      }
+      continue;
+    }
+
     const transportKey = mapPlainQueryKeyToTransportKey(rawKey, {
       responseType
     });
@@ -138,8 +195,20 @@ function decodeJsonApiResourceQueryObject(query = {}, { responseType = "" } = {}
 
   const source = normalizeObject(query);
   const decoded = {};
+  const fieldsets = new Map();
 
   for (const [rawKey, rawValue] of Object.entries(source)) {
+    if (normalizeQueryKey(rawKey) === "fields") {
+      addJsonApiFieldset(fieldsets, responseType, rawValue);
+      continue;
+    }
+
+    const fieldsetType = parseFieldsTransportType(rawKey);
+    if (fieldsetType) {
+      addJsonApiFieldset(fieldsets, fieldsetType, rawValue);
+      continue;
+    }
+
     const plainKey = mapTransportQueryKeyToPlainKey(rawKey, {
       responseType
     });
@@ -153,6 +222,11 @@ function decodeJsonApiResourceQueryObject(query = {}, { responseType = "" } = {}
     }
 
     decoded[plainKey] = normalizedValue;
+  }
+
+  const normalizedFieldsets = normalizeJsonApiFieldsets(Object.fromEntries(fieldsets));
+  if (Object.keys(normalizedFieldsets).length > 0) {
+    decoded.fields = normalizedFieldsets;
   }
 
   return Object.freeze(decoded);
@@ -174,8 +248,16 @@ function createJsonApiResourceQueryTransportSchema({
   const sourceSchema = normalizeObject(transportSchema);
   const sourceProperties = normalizeObject(sourceSchema.properties);
   const properties = {};
+  const patternProperties = {};
 
   for (const [plainKey, propertySchema] of Object.entries(sourceProperties)) {
+    if (plainKey === "fields") {
+      properties.fields = createJsonApiFieldsTransportValueSchema();
+      patternProperties["^fields\\[[^\\[\\]]+\\]$"] =
+        createJsonApiFieldsTransportValueSchema();
+      continue;
+    }
+
     const transportKey = mapPlainQueryKeyToTransportKey(plainKey, {
       responseType
     });
@@ -190,6 +272,9 @@ function createJsonApiResourceQueryTransportSchema({
     additionalProperties: false,
     properties
   };
+  if (Object.keys(patternProperties).length > 0) {
+    schema.patternProperties = patternProperties;
+  }
 
   if (isRecord(sourceSchema.definitions) && Object.keys(sourceSchema.definitions).length > 0) {
     schema.definitions = normalizeObject(sourceSchema.definitions);

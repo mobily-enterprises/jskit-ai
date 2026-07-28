@@ -387,7 +387,11 @@ test("crud list route forwards normalized query input from list query validators
           limit: 25,
           q: "to",
           contactId: "2971",
-          include: "vetId"
+          include: "vetId",
+          fields: {
+            customers: ["id", "textField"],
+            vets: ["id", "name"]
+          }
         }
       },
       executeAction
@@ -401,11 +405,15 @@ test("crud list route forwards normalized query input from list query validators
     limit: 25,
     q: "to",
     contactId: "2971",
-    include: "vetId"
+    include: "vetId",
+    fields: {
+      customers: ["id", "textField"],
+      vets: ["id", "name"]
+    }
   });
 });
 
-test("crud view route forwards include query input", async () => {
+test("crud view route forwards include and typed fieldset query input", async () => {
   const registeredRoutes = [];
   const router = {
     register(method, path, route, handler) {
@@ -448,7 +456,13 @@ test("crud view route forwards include query input", async () => {
     {
       input: {
         params: { workspaceSlug: "acme", recordId: 7 },
-        query: { include: "vetId" }
+        query: {
+          include: "vetId",
+          fields: {
+            customers: ["id", "textField"],
+            vets: ["id", "name"]
+          }
+        }
       },
       executeAction
     },
@@ -458,7 +472,11 @@ test("crud view route forwards include query input", async () => {
   assert.deepEqual(calls[0].input, {
     workspaceSlug: "acme",
     recordId: 7,
-    include: "vetId"
+    include: "vetId",
+    fields: {
+      customers: ["id", "textField"],
+      vets: ["id", "name"]
+    }
   });
 });
 

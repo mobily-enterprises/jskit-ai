@@ -78,6 +78,7 @@ function buildTemplateReplacements({
           "  listSearchQueryValidator,",
           "  listParentFilterQueryValidator,",
           "  lookupIncludeQueryValidator,",
+          "  jsonApiFieldsetsQueryValidator,",
           "])"
         ].join("\n")
       : [
@@ -86,6 +87,7 @@ function buildTemplateReplacements({
           "  listSearchQueryValidator,",
           "  listParentFilterQueryValidator,",
           "  lookupIncludeQueryValidator,",
+          "  jsonApiFieldsetsQueryValidator,",
           "])"
         ].join("\n")],
     ["__JSKIT_CRUD_VIEW_ACTION_INPUT__", surfaceRequiresWorkspace
@@ -94,12 +96,14 @@ function buildTemplateReplacements({
           "  workspaceSlugParamsValidator,",
           "  recordIdParamsValidator,",
           "  lookupIncludeQueryValidator,",
+          "  jsonApiFieldsetsQueryValidator,",
           "])"
         ].join("\n")
       : [
           "composeSchemaDefinitions([",
           "  recordIdParamsValidator,",
           "  lookupIncludeQueryValidator,",
+          "  jsonApiFieldsetsQueryValidator,",
           "])"
         ].join("\n")],
     ["__JSKIT_CRUD_CREATE_ACTION_INPUT__", surfaceRequiresWorkspace

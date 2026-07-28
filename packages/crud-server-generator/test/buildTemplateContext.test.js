@@ -1459,8 +1459,9 @@ test("crud repository template defines a json-rest-api adapter over the injected
   assert.doesNotMatch(templateSource, /from "@jskit-ai\/http-runtime\/shared";/);
   assert.match(templateSource, /const JSON_REST_SCOPE_NAME = __JSKIT_CRUD_JSONREST_SCOPE_NAME__;/);
   assert.match(templateSource, /returnNullWhenJsonRestResourceMissing/);
-  assert.match(templateSource, /return api\.resources\.\$\{option:namespace\|camel\}\.query\(/);
-  assert.match(templateSource, /return returnNullWhenJsonRestResourceMissing\(\(\) =>\s+api\.resources\.\$\{option:namespace\|camel\}\.get\(/s);
+  assert.match(templateSource, /returnBadRequestWhenJsonRestFieldsetInvalid/);
+  assert.match(templateSource, /return returnBadRequestWhenJsonRestFieldsetInvalid\(\(\) =>\s+api\.resources\.\$\{option:namespace\|camel\}\.query\(/s);
+  assert.match(templateSource, /return returnBadRequestWhenJsonRestFieldsetInvalid\(\(\) =>\s+returnNullWhenJsonRestResourceMissing\(\(\) =>\s+api\.resources\.\$\{option:namespace\|camel\}\.get\(/s);
   assert.match(templateSource, /return api\.resources\.\$\{option:namespace\|camel\}\.post\(/);
   assert.match(templateSource, /return returnNullWhenJsonRestResourceMissing\(\(\) =>\s+api\.resources\.\$\{option:namespace\|camel\}\.patch\(/s);
   assert.match(templateSource, /return returnNullWhenJsonRestResourceMissing\(async \(\) => \{\s+await api\.resources\.\$\{option:namespace\|camel\}\.delete\(/s);
@@ -1505,11 +1506,14 @@ test("crud actions and routes templates derive cursor validation and route contr
   const registerRoutesTemplateSource = await readFile(registerRoutesTemplatePath, "utf8");
 
   assert.match(actionsTemplateSource, /createCrudCursorPaginationQueryValidator/);
+  assert.match(actionsTemplateSource, /jsonApiFieldsetsQueryValidator/);
   assert.match(actionsTemplateSource, /import \{ resource \} from "\.\.\/shared\/\$\{option:namespace\|singular\|camel\}Resource\.js";/);
   assert.match(actionsTemplateSource, /const listCursorPaginationQueryValidator = createCrudCursorPaginationQueryValidator\(\{\s+orderBy: resource\.defaultSort\s+\}\);/s);
   assert.match(actionsTemplateSource, /__JSKIT_CRUD_ACTION_PERMISSION_SUPPORT__/);
   assert.match(actionsTemplateSource, /__JSKIT_CRUD_LIST_ACTION_PERMISSION__/);
   assert.match(actionsTemplateSource, /output: null,/);
+  assert.match(actionsTemplateSource, /const \{ workspaceSlug, recordId, \.\.\.query \} = input \|\| \{\};/);
+  assert.match(actionsTemplateSource, /Service\.getDocumentById\(recordId, query, \{/);
   assert.doesNotMatch(actionsTemplateSource, /ACTIONS_REQUIRE_NAMED_PERMISSIONS/);
   assert.doesNotMatch(actionsTemplateSource, /createActionPermission/);
   assert.match(registerRoutesTemplateSource, /createCrudJsonApiRouteContracts/);
@@ -1540,6 +1544,8 @@ test("crud service template preserves JSON:API output and emits entity ids from 
   assert.match(templateSource, /returnJsonApiDocument/);
   assert.match(templateSource, /async function queryDocuments\(query = \{\}, options = \{\}\)/);
   assert.match(templateSource, /returnJsonApiDocument\(await \$\{option:namespace\|camel\}Repository\.queryDocuments\(query, \{/);
+  assert.match(templateSource, /async function getDocumentById\(recordId, query = \{\}, options = \{\}\)/);
+  assert.match(templateSource, /Repository\.getDocumentById\(recordId, query, \{/);
   assert.match(templateSource, /async function patchDocumentById\(recordId, payload = \{\}, options = \{\}\)/);
   assert.match(templateSource, /returnJsonApiDocument\(return404IfNotFound\(await \$\{option:namespace\|camel\}Repository\.patchDocumentById\(recordId, payload, \{/);
   assert.match(templateSource, /async function deleteDocumentById\(recordId, options = \{\}\)/);

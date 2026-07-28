@@ -20,11 +20,10 @@ function createService({ ${option:namespace|camel}Repository } = {}) {
     }));
   }
 
-  async function getDocumentById(recordId, options = {}) {
-    return returnJsonApiDocument(return404IfNotFound(await ${option:namespace|camel}Repository.getDocumentById(recordId, {
+  async function getDocumentById(recordId, query = {}, options = {}) {
+    return returnJsonApiDocument(return404IfNotFound(await ${option:namespace|camel}Repository.getDocumentById(recordId, query, {
       trx: options?.trx || null,
-      context: options?.context || null,
-      include: options?.include
+      context: options?.context || null
     })));
   }
 

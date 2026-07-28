@@ -169,7 +169,8 @@ function resolveEmbeddedAttributesTransportSchema(definition, {
   context = "JSON:API resource",
   defaultMode = "replace",
   removeId = false,
-  removeKeys = []
+  removeKeys = [],
+  allowSparseFields = false
 } = {}) {
   const transportSchema = resolveSchemaTransportSchemaDefinition(definition, {
     context,
@@ -204,7 +205,7 @@ function resolveEmbeddedAttributesTransportSchema(definition, {
     return isRecord(fieldDefinitions) ? fieldDefinitions : {};
   })();
 
-  const required = Array.isArray(sourceSchema.required)
+  const required = allowSparseFields !== true && Array.isArray(sourceSchema.required)
     ? sourceSchema.required.filter((entry) => {
         const normalizedEntry = String(entry || "").trim();
         if (!normalizedEntry || excludedKeys.has(normalizedEntry)) {
@@ -341,7 +342,8 @@ function createJsonApiResourceObjectTransportSchema({
   includeMeta = false,
   excludeAttributeKeys = [],
   relationshipEntries = [],
-  relationshipMembersRequired = false
+  relationshipMembersRequired = false,
+  allowSparseFields = false
 } = {}) {
   const normalizedType = resolveRouteType(type);
   const relationshipsTransport = createJsonApiRelationshipsTransportSchema(relationshipEntries, {
@@ -357,7 +359,8 @@ function createJsonApiResourceObjectTransportSchema({
     removeKeys: [
       ...normalizeArray(excludeAttributeKeys),
       ...relationFieldKeys,
-    ]
+    ],
+    allowSparseFields
   });
 
   const properties = {
@@ -366,7 +369,7 @@ function createJsonApiResourceObjectTransportSchema({
     },
     attributes: embeddedAttributes.schema
   };
-  const required = ["type", "attributes"];
+  const required = allowSparseFields === true ? ["type"] : ["type", "attributes"];
 
   if (requireId) {
     properties.id = JSON_API_ID_SCHEMA;
@@ -457,6 +460,7 @@ function createJsonApiResourceSuccessTransportSchema({
   includeLinks = false,
   includeMeta = false,
   includeIncluded = false,
+  allowSparseFields = false,
   excludeAttributeKeys = [],
   relationshipEntries = []
 } = {}) {
@@ -475,6 +479,7 @@ function createJsonApiResourceSuccessTransportSchema({
     type,
     attributes,
     requireId: true,
+    allowSparseFields,
     excludeAttributeKeys,
     relationshipEntries
   });
@@ -890,6 +895,7 @@ function createJsonApiResourceRouteContract({
   outputKind = "record",
   successStatus = 200,
   includeValidation400 = false,
+  allowSparseFields = false,
   allowBodyId = false,
   pointerPrefix = "/data/attributes",
   bodyAttributeExcludeKeys = [],
@@ -984,6 +990,7 @@ function createJsonApiResourceRouteContract({
         includeLinks: typeof getDocumentLinks === "function",
         includeMeta: typeof getDocumentMeta === "function" || normalizedOutputKind === "collection",
         includeIncluded: typeof getIncluded === "function",
+        allowSparseFields,
         excludeAttributeKeys: outputAttributeExcludeKeys,
         relationshipEntries: outputRelationshipEntries
       })

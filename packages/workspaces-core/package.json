@@ -1,6 +1,6 @@
 {
   "name": "@jskit-ai/workspaces-core",
-  "version": "0.1.114",
+  "version": "0.1.115",
   "type": "module",
   "scripts": {
     "test": "node --test"
@@ -17,14 +17,14 @@
     "./shared/resources/workspaceSettingsResource": "./src/shared/resources/workspaceSettingsResource.js"
   },
   "dependencies": {
-    "@jskit-ai/auth-core": "0.1.133",
-    "@jskit-ai/database-runtime": "0.1.134",
-    "@jskit-ai/http-runtime": "0.1.133",
-    "@jskit-ai/json-rest-api-core": "0.1.79",
-    "@jskit-ai/kernel": "0.1.135",
-    "@jskit-ai/resource-crud-core": "0.1.78",
-    "@jskit-ai/resource-core": "0.1.78",
-    "@jskit-ai/users-core": "0.1.147",
+    "@jskit-ai/auth-core": "0.1.134",
+    "@jskit-ai/database-runtime": "0.1.135",
+    "@jskit-ai/http-runtime": "0.1.134",
+    "@jskit-ai/json-rest-api-core": "0.1.80",
+    "@jskit-ai/kernel": "0.1.136",
+    "@jskit-ai/resource-crud-core": "0.1.79",
+    "@jskit-ai/resource-core": "0.1.79",
+    "@jskit-ai/users-core": "0.1.148",
     "json-rest-schema": "1.x.x"
   }
 }

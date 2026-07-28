@@ -11,6 +11,7 @@ import {
   createCrudCursorPaginationQueryValidator,
   listSearchQueryValidator as defaultListSearchQueryValidator,
   lookupIncludeQueryValidator as defaultLookupIncludeQueryValidator,
+  jsonApiFieldsetsQueryValidator,
   createCrudParentFilterQueryValidator
 } from "./listQueryValidators.js";
 
@@ -454,7 +455,12 @@ function createCrudJsonApiRouteContracts({
     listSearchQueryValidator,
     listParentFilterQueryValidator,
     ...(resolvedListFilterQueryValidator ? [resolvedListFilterQueryValidator] : []),
-    lookupIncludeQueryValidator
+    lookupIncludeQueryValidator,
+    jsonApiFieldsetsQueryValidator
+  ]);
+  const viewRouteQueryValidator = composeSchemaDefinitions([
+    lookupIncludeQueryValidator,
+    jsonApiFieldsetsQueryValidator
   ]);
   const recordRouteParamsValidator = routeParamsValidator
     ? composeSchemaDefinitions([
@@ -511,19 +517,23 @@ function createCrudJsonApiRouteContracts({
       query: listRouteQueryValidator,
       output: viewOutput,
       outputKind: "collection",
+      includeValidation400: true,
       outputAttributeExcludeKeys,
       outputRelationshipEntries: viewOutputRelationships,
+      allowSparseFields: true,
       getRecordAttributes: viewRecordAttributes,
       getRecordRelationships: viewRecordRelationships,
       getIncluded: viewIncluded
     }),
     viewRouteContract: createJsonApiResourceRouteContract({
       type: routeType,
-      query: lookupIncludeQueryValidator,
+      query: viewRouteQueryValidator,
       output: viewOutput,
       outputKind: "record",
+      includeValidation400: true,
       outputAttributeExcludeKeys,
       outputRelationshipEntries: viewOutputRelationships,
+      allowSparseFields: true,
       getRecordAttributes: viewRecordAttributes,
       getRecordRelationships: viewRecordRelationships,
       getIncluded: viewIncluded

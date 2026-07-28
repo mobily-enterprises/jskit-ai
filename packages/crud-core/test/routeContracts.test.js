@@ -177,7 +177,11 @@ test("createCrudJsonApiRouteContracts builds default CRUD JSON:API contracts", a
     include: "  ownerId  ",
     contactId: "  42  ",
     cursor: "  offset:2  ",
-    limit: "25"
+    limit: "25",
+    fields: {
+      contacts: ["id", "name"],
+      userProfiles: ["id", "name"]
+    }
   }, { phase: "input" });
 
   assert.deepEqual(normalizedListQuery, {
@@ -185,8 +189,38 @@ test("createCrudJsonApiRouteContracts builds default CRUD JSON:API contracts", a
     include: "ownerId",
     contactId: "42",
     cursor: "offset:2",
-    limit: 25
+    limit: 25,
+    fields: {
+      contacts: ["id", "name"],
+      userProfiles: ["id", "name"]
+    }
   });
+
+  assert.deepEqual(
+    await validateSchemaPayload(contracts.viewRouteContract.query, {
+      include: "owner",
+      fields: {
+        contacts: ["id", "name"],
+        userProfiles: ["id", "name"]
+      }
+    }, { phase: "input" }),
+    {
+      include: "owner",
+      fields: {
+        contacts: ["id", "name"],
+        userProfiles: ["id", "name"]
+      }
+    }
+  );
+
+  const sparseResourceSchema =
+    contracts.listRouteContract.responses[200].transportSchema.definitions.contactsSuccessResource;
+  const sparseAttributesSchemaName = sparseResourceSchema.properties.attributes.allOf[0].$ref
+    .replace("#/definitions/", "");
+  const sparseAttributesSchema =
+    contracts.listRouteContract.responses[200].transportSchema.definitions[sparseAttributesSchemaName];
+  assert.deepEqual(sparseResourceSchema.required, ["type", "id"]);
+  assert.equal(Object.hasOwn(sparseAttributesSchema, "required"), false);
 
   const decodedCreateBody = contracts.createRouteContract.transport.request.body({
     data: {

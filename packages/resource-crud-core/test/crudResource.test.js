@@ -62,6 +62,24 @@ test("defineCrudResource derives standard CRUD operations and resource messages"
   assert.ok(normalizedViewOutput.createdAt instanceof Date);
 });
 
+test("defineCrudResource preserves and freezes resource-owned response defaults", () => {
+  const resource = createContactsResource({
+    contract: {
+      lookup: {
+        containerKey: "lookups"
+      },
+      response: {
+        defaultExclude: ["largeAuditJson"]
+      }
+    }
+  });
+
+  assert.deepEqual(resource.contract.response.defaultExclude, ["largeAuditJson"]);
+  assert.equal(Object.isFrozen(resource.contract), true);
+  assert.equal(Object.isFrozen(resource.contract.response), true);
+  assert.equal(Object.isFrozen(resource.contract.response.defaultExclude), true);
+});
+
 test("defineCrudResource preserves authored namespace and supports replace bodies", async () => {
   const resource = createContactsResource({
     namespace: "userProfile",

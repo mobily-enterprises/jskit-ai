@@ -137,7 +137,8 @@ function createWritableQueryParamBinding({
   source = {},
   rawKey = "",
   rawValue = null,
-  key = ""
+  key = "",
+  resolveRouteValue = null
 } = {}) {
   const valueSourceIsRef = isRef(rawValue);
   const read = valueSourceIsRef
@@ -160,12 +161,18 @@ function createWritableQueryParamBinding({
       ? resolveArrayQueryParamItemType(currentValue)
       : QUERY_PARAM_BINDING_TYPE_TEXT,
     get: read,
-    set: write
+    set: write,
+    resolveRouteValue
   };
 }
 
-function resolveQueryParamDescriptors(queryParams, context = {}) {
+function resolveQueryParamDescriptors(
+  queryParams,
+  context = {},
+  { routeValueResolvers = null } = {}
+) {
   const source = resolveQueryParamsInput(queryParams, context);
+  const resolvers = asPlainObject(unref(routeValueResolvers));
   const descriptorsByKey = new Map();
   const canWriteToSource = typeof queryParams !== "function";
 
@@ -189,7 +196,10 @@ function resolveQueryParamDescriptors(queryParams, context = {}) {
         source,
         rawKey,
         rawValue,
-        key
+        key,
+        resolveRouteValue: typeof resolvers[key] === "function"
+          ? resolvers[key]
+          : null
       });
     }
 
@@ -323,7 +333,11 @@ function parseRouteQueryItemValue(value, itemType = QUERY_PARAM_BINDING_TYPE_TEX
   return normalized || fallback;
 }
 
-function parseRouteBindingValue(binding, routeQueryValue) {
+function parseRouteBindingValue(binding, routeQueryValue, context = {}) {
+  if (typeof binding?.resolveRouteValue === "function") {
+    return binding.resolveRouteValue(routeQueryValue, context);
+  }
+
   const valueType = normalizeText(binding?.valueType).toLowerCase();
   if (valueType === QUERY_PARAM_BINDING_TYPE_BOOLEAN) {
     return parseRouteBooleanValue(routeQueryValue, false);
