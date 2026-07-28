@@ -5,8 +5,32 @@ import {
 import {
   sanitizeLockSecretsForWrite
 } from "../../cliRuntime/sensitiveLockState.js";
+import {
+  runMigrationCreateCommand
+} from "./createMigration.js";
 
 async function runPackageCreateCommand(ctx = {}, { positional, options, cwd, io }) {
+  const targetType = String(positional[0] || "").trim();
+  if (targetType === "migration") {
+    return runMigrationCreateCommand(ctx, {
+      positional,
+      options,
+      cwd,
+      io
+    });
+  }
+  const createPackageOptions = options?.inlineOptions && typeof options.inlineOptions === "object"
+    ? options.inlineOptions
+    : {};
+  const unsupportedPackageOptions = ["package", "id"].filter((optionName) =>
+    Object.prototype.hasOwnProperty.call(createPackageOptions, optionName)
+  );
+  if (unsupportedPackageOptions.length > 0) {
+    throw ctx.createCliError(
+      `Unknown option${unsupportedPackageOptions.length === 1 ? "" : "s"} for create package: ${unsupportedPackageOptions.map((optionName) => `--${optionName}`).join(", ")}.`
+    );
+  }
+
   const {
     createCliError,
     normalizeRelativePath,
@@ -26,10 +50,12 @@ async function runPackageCreateCommand(ctx = {}, { positional, options, cwd, io 
     runNpmInstall
   } = ctx;
 
-  const targetType = String(positional[0] || "").trim();
   const rawName = String(positional[1] || "").trim();
   if (targetType !== "package" || !rawName) {
-    throw createCliError("create requires: create package <name>", { showUsage: true });
+    throw createCliError(
+      "create requires: create package <name> or create migration --package <id> --id <migration-id>",
+      { showUsage: true }
+    );
   }
 
   const appRoot = await resolveAppRootFromCwd(cwd);

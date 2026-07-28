@@ -51,6 +51,31 @@ test("crud scaffolding pattern defines the generated database key contract", asy
   assert.match(pattern, /`.jskit\/APP_BLUEPRINT.md`/);
 });
 
+test("agent database guidance distinguishes generated baselines from additive evolution", async () => {
+  const relativePaths = [
+    "patterns/crud-scaffolding.md",
+    "site/guide/generators/crud-generators.md",
+    "site/guide/app-setup/database-layer.md",
+    "guide/agent/generators/crud-generators.md",
+    "guide/agent/app-setup/database-layer.md"
+  ];
+  const sources = await Promise.all(
+    relativePaths.map((relativePath) => readFile(path.join(packageRoot, relativePath), "utf8"))
+  );
+
+  for (const source of sources) {
+    assert.match(source, /Never modify or replace a generator-owned baseline migration/);
+    assert.match(source, /package-owned\s+additive migration|migration owned by\s+the table's app-local package/is);
+    assert.match(source, /install-migration/);
+  }
+
+  const pattern = sources[0];
+  const databaseGuide = sources[2];
+  assert.match(pattern, /npx jskit create migration/);
+  assert.match(databaseGuide, /SQL inside the source-controlled migration is supported/);
+  assert.match(databaseGuide, /Ad-hoc SQL applied only to a\s+development or live database is not a migration/is);
+});
+
 test("crud guidance keeps canonical ownership columns distinct from domain relationships", async () => {
   const pattern = await readFile(path.join(packageRoot, "patterns/crud-scaffolding.md"), "utf8");
   const generatorGuide = await readFile(path.join(packageRoot, "site/guide/generators/crud-generators.md"), "utf8");

@@ -284,6 +284,25 @@ The exact fields will vary by app. What matters for the generator is:
 - the column names are stable enough to become part of your app's resource contract
 - if you are using `crud-server-generator`, do **not** hand-write a separate CRUD migration for this table; the server generator installs the CRUD migration scaffold itself
 
+That last rule governs the generated baseline, not every future schema change.
+Never modify or replace a generator-owned baseline migration after it has been
+installed. Later schema evolution must use a new immutable, package-owned
+additive migration in the table's app-local package, declared through
+`install-migration`.
+
+Create that source and descriptor mutation together with:
+
+```bash
+npx jskit create migration \
+  --package @local/contacts \
+  --id add-contact-status
+```
+
+Implement the generated template before running
+`npx jskit migrations package @local/contacts`. SQL or Knex schema operations
+inside the source-controlled migration are supported. Running ad-hoc SQL
+against only one database is not, because it creates schema drift.
+
 In this table, `workspace_id` is the important ownership clue. That is why the next step uses:
 
 ```bash

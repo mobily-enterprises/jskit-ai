@@ -777,6 +777,19 @@ Local functions
 Exports
 - `runPackageCreateCommand(ctx = {}, { positional, options, cwd, io })`
 
+### `src/server/commandHandlers/packageCommands/createMigration.js`
+Exports
+- `addInstallMigrationMutationToDescriptor(source = "", mutation = {})`
+- `createMigrationTemplate({ packageId, migrationId } = {})`
+- `runMigrationCreateCommand(ctx = {}, { options, cwd, io })`
+Local functions
+- `maskNonCode(source = "")`
+- `findMatchingDelimiter(source, openIndex, openCharacter, closeCharacter)`
+- `findMutationsFilesArray(source = "")`
+- `lineIndentAt(source = "", index = 0)`
+- `renderInstallMigrationMutation({ from, id, indent } = {})`
+- `writeMigrationSourceAndDescriptor({ descriptorPath, descriptorSource, migrationPath, migrationSource, mkdir, rename, rm, writeFile, path } = {})`
+
 ### `src/server/commandHandlers/packageCommands/discoverabilityHelp.js`
 Exports
 - `isHelpToken(value = "")`

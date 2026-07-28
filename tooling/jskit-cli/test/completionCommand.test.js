@@ -80,6 +80,17 @@ test("completion bash __complete__ lists only canonical top-level commands", () 
   assert.ok(!completions.includes("view"));
 });
 
+test("completion bash __complete__ exposes both create targets", () => {
+  const result = runCli({
+    args: ["completion", "bash", "__complete__", "3", "--", "npx", "jskit", "create", ""]
+  });
+
+  assert.equal(result.status, 0, String(result.stderr || ""));
+  const completions = String(result.stdout || "").trim().split(/\r?\n/u).filter(Boolean);
+  assert.ok(completions.includes("migration"));
+  assert.ok(completions.includes("package"));
+});
+
 test("completion bash __complete__ lists app subcommands and app-specific options", () => {
   const subcommandResult = runCli({
     args: ["completion", "bash", "__complete__", "3", "--", "npx", "jskit", "app", ""]

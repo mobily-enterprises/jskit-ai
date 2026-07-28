@@ -145,6 +145,16 @@ The app has two different migration-related layers:
 
 Those are **not** the same step.
 
+There is also an important ownership distinction:
+
+- a CRUD generator owns the installed baseline migration for the table it
+  scaffolds
+- the table's app-local package owns later additive schema evolution
+
+Never modify or replace a generator-owned baseline migration. Later schema
+evolution must use a new immutable, package-owned additive migration in the
+table's app-local package, declared through `install-migration`.
+
 The npm scripts hide the easy-to-miss first step for normal use. `npm run db:migrate` and `npm run db:migrate:status` run `npm run db:migrations:sync` first, then run Knex. That means package upgrades can add new JSKIT-managed migration files before Knex checks what is pending.
 
 ### `jskit migrations ...` writes managed migration files
@@ -205,6 +215,52 @@ So:
 - use `npm run db:migrate` when you need Knex to apply pending migration files to the real database
 - sometimes you need only `npm run db:migrate`
 - sometimes, after repair or re-materialization work, you need **both**
+
+### Authoring a later app-owned schema change
+
+When an existing CRUD-owned table needs a new column, constraint, index, or
+other compatible evolution, keep the generated baseline unchanged. Ask JSKIT
+to create a new migration source in the app-local package that owns the table:
+
+```bash
+npx jskit create migration \
+  --package @local/workflow-record-report-values \
+  --id extend-report-value-field-types
+```
+
+This command:
+
+1. verifies that the owner is an installed app-local package
+2. rejects duplicate or unsafe migration ids
+3. creates an editable template under the package's
+   `templates/migrations/` directory
+4. adds the matching `install-migration` mutation to the package descriptor
+5. leaves the migration unmaterialized so its implementation can still be
+   completed
+
+Implement and test the template first. It intentionally fails if someone tries
+to apply the untouched scaffold. Then materialize and apply it:
+
+```bash
+npx jskit migrations package @local/workflow-record-report-values
+npm run db:migrate
+```
+
+The materialized migration and its lock record are managed artifacts. Once
+installed, the migration id and content are immutable. Any later correction
+must use another additive migration with a new id.
+
+SQL inside the source-controlled migration is supported when Knex does not
+express the required schema operation directly. Ad-hoc SQL applied only to a
+development or live database is not a migration and must not be used: it
+creates schema drift, breaks fresh reconstruction, and leaves deployment
+history incomplete.
+
+Before completion, exercise the complete migration chain against a fresh
+disposable database as well as the intended upgrade path. A down migration
+must refuse safely when narrowing the schema would invalidate existing data;
+it must never delete or silently transform valuable rows merely to make a
+rollback pass.
 
 ### Shared database helpers
 
