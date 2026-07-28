@@ -105,26 +105,46 @@ const COMMAND_DESCRIPTORS = Object.freeze({
     command: "create",
     aliases: Object.freeze([]),
     showInOverview: true,
-    summary: "Scaffold an app-local runtime package.",
+    summary: "Scaffold an app-local package or package-owned migration.",
     minimalUse: "jskit create package <name>",
     parameters: Object.freeze([
       Object.freeze({
-        name: "<name>",
-        description: "Local package slug used to scaffold packages/<name>."
+        name: "<target>",
+        description: "package | migration."
+      }),
+      Object.freeze({
+        name: "[name]",
+        description: "Local package slug when the target is package."
       })
     ]),
     defaults: Object.freeze([
       "No npm install runs unless --run-npm-install is passed.",
       "If --scope is omitted, scope is inferred from app name.",
-      "If --package-id is omitted, it is derived from scope + name."
+      "If --package-id is omitted, it is derived from scope + name.",
+      "Migration creation writes one editable template and its install-migration descriptor mutation.",
+      "Implement a migration template before materializing it; installed migration content is immutable."
+    ]),
+    examples: Object.freeze([
+      Object.freeze({
+        label: "App-local package",
+        lines: Object.freeze([
+          "jskit create package contacts"
+        ])
+      }),
+      Object.freeze({
+        label: "Package-owned additive migration",
+        lines: Object.freeze([
+          "jskit create migration --package @local/contacts --id add-contact-status"
+        ])
+      })
     ]),
     fullUse:
-      "jskit create package <name> [--scope <scope>] [--package-id <id>] [--description <text>] [--dry-run] [--run-npm-install] [--json]",
+      "jskit create package <name> [--scope <scope>] [--package-id <id>] [--description <text>] [--dry-run] [--run-npm-install] [--json] | jskit create migration --package <app-local-package-id> --id <migration-id> [--dry-run] [--json]",
     showHelpOnBareInvocation: true,
     handlerName: "commandCreate",
     allowedFlagKeys: Object.freeze(["dryRun", "runNpmInstall", "json"]),
     inlineOptionMode: "enumerated",
-    allowedValueOptionNames: Object.freeze(["scope", "package-id", "description"])
+    allowedValueOptionNames: Object.freeze(["scope", "package-id", "description", "package", "id"])
   }),
   app: Object.freeze({
     command: "app",

@@ -1096,7 +1096,7 @@ async function completeCommand({ appRoot, words, cword, catalogModule }) {
         return filterByPrefix(buildTopLevelCommandMetadata(catalogModule), positionalCurrent);
       }
       if (command === "create" && positionalIndex === 0) {
-        return filterByPrefix(["package"], positionalCurrent);
+        return filterByPrefix(["migration", "package"], positionalCurrent);
       }
       if (command === "add") {
         if (positionalIndex === 0) {

@@ -51,6 +51,9 @@ Rules:
 - If the table should already be CRUD-owned but should not expose public CRUD HTTP routes yet, scaffold it with `jskit generate crud-server-generator scaffold ... --internal` instead of dropping to direct knex or a hand-built pseudo-repository.
 - Create the real table directly in the database before scaffolding. `crud-server-generator` reads the live table shape.
 - If `crud-server-generator` is going to own the CRUD, do not hand-write a separate CRUD migration for that table. The generator installs and manages the CRUD migration scaffold itself.
+- Never modify or replace a generator-owned baseline migration after it has
+  been installed. Later schema evolution must use a new immutable,
+  package-owned additive migration declared through `install-migration`.
 - Keep generated table creation in `migrations/` and generated foreign keys in
   `migrations/constraints/`. The database runtime deliberately runs those
   phases in that order so valid mutual foreign keys rebuild cleanly without
@@ -71,6 +74,38 @@ Rules:
 - Bulk actions should be declared in the generated page-local `listBulkActions.js`. The generated list owns selection state, keeps selection controls hidden until actions exist, and exposes selected ids/records to action handlers.
 - Structured filters should use shared filter definitions and collapse to compact filter controls/sheets when they outgrow simple search. Do not stack dense desktop filter bars on phone widths.
 - Use `--navigation-role` for CRUD list placement intent. Main resources can stay `primary`; nested/detail/workflow CRUD routes should usually be `secondary`, `workflow`, or `none`.
+
+## Baseline generation versus later schema evolution
+
+The initial CRUD scaffold and a later schema change are different operations:
+
+- The server generator owns the baseline migration that recreates the table
+  from zero. Do not edit, replace, or regenerate that installed baseline to
+  express a later change.
+- The table's app-local package owns later schema evolution. Create each change
+  as a new immutable additive migration:
+
+  ```bash
+  npx jskit create migration \
+    --package @local/workflow-record-report-values \
+    --id extend-report-value-field-types
+  ```
+
+- The authoring command creates an editable migration template and adds its
+  `install-migration` mutation to the owning package descriptor in one
+  operation. Implement and test the template before materializing it.
+- Materialize the completed source with
+  `npx jskit migrations package <package-id>`, then apply it with
+  `npm run db:migrate`.
+- SQL or Knex schema operations inside that source-controlled migration are
+  supported. Ad-hoc SQL applied only to one database is not: it creates schema
+  drift and leaves fresh installations incorrect.
+- Installed migration ids and content are immutable. A correction to an
+  installed migration is another additive migration with a new id.
+
+A package-owned additive migration is not the prohibited "separate CRUD
+migration." The prohibition applies to competing with or modifying the
+generator-owned baseline.
 
 Meaning of `--internal`:
 

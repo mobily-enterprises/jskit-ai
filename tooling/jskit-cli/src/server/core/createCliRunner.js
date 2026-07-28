@@ -1,6 +1,7 @@
 import {
   mkdir,
   readdir,
+  rename,
   rm,
   writeFile
 } from "node:fs/promises";
@@ -33,6 +34,7 @@ import {
   buildFileWriteGroups,
   fileExists,
   hashBuffer,
+  normalizeMigrationId,
   normalizeRelativePath,
   readFileBufferIfExists
 } from "../cliRuntime/ioAndMigrations.js";
@@ -142,11 +144,13 @@ const commandHandlers = createCommandHandlers(
     loadAppPackageJson,
     resolveLocalPackageId,
     createLocalPackageScaffoldFiles,
+    normalizeMigrationId,
     fileExists,
     applyPackageJsonField,
     toFileDependencySpecifier,
     writeJsonFile,
     writeFile,
+    rename,
     mkdir,
     readdir,
     path,

@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { mkdir, readFile, writeFile } from "node:fs/promises";
+import { mkdir, readFile, readdir, writeFile } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
 import path from "node:path";
 import test from "node:test";
@@ -85,3 +85,161 @@ test("create package --dry-run reports changes without writing files", async () 
   });
 });
 
+test("create migration authors an app-local template and managed descriptor mutation", async () => {
+  await withTempDir(async (cwd) => {
+    const appRoot = path.join(cwd, "create-migration-app");
+    await createMinimalApp(appRoot, { name: "demo-app" });
+
+    const packageResult = runCli({
+      cwd: appRoot,
+      args: ["create", "package", "report-values"]
+    });
+    assert.equal(packageResult.status, 0, String(packageResult.stderr || ""));
+
+    const migrationResult = runCli({
+      cwd: appRoot,
+      args: [
+        "create",
+        "migration",
+        "--package",
+        "@demo-app/report-values",
+        "--id",
+        "extend-report-value-field-types"
+      ]
+    });
+    assert.equal(migrationResult.status, 0, String(migrationResult.stderr || ""));
+    assert.match(
+      String(migrationResult.stdout || ""),
+      /Created package-owned migration source extend-report-value-field-types/
+    );
+    assert.match(
+      String(migrationResult.stdout || ""),
+      /npx jskit migrations package @demo-app\/report-values/
+    );
+
+    const packageRoot = path.join(appRoot, "packages", "report-values");
+    const templatePath = path.join(
+      packageRoot,
+      "templates",
+      "migrations",
+      "extend-report-value-field-types.cjs"
+    );
+    const descriptorPath = path.join(packageRoot, "package.descriptor.mjs");
+    const templateSource = await readFile(templatePath, "utf8");
+    const descriptorSource = await readFile(descriptorPath, "utf8");
+
+    assert.match(templateSource, /Package-owned additive migration/);
+    assert.match(templateSource, /Never edit or replace a generator-owned baseline migration/);
+    assert.match(templateSource, /Implement migration extend-report-value-field-types before materializing it/);
+    assert.match(descriptorSource, /op: "install-migration"/);
+    assert.match(descriptorSource, /from: "templates\/migrations\/extend-report-value-field-types\.cjs"/);
+    assert.match(descriptorSource, /id: "extend-report-value-field-types"/);
+    await assert.rejects(() => readdir(path.join(appRoot, "migrations")));
+
+    await writeFile(
+      templatePath,
+      `exports.up = async function up(knex) {
+  await knex.schema.raw("SELECT 1");
+};
+
+exports.down = async function down(knex) {
+  await knex.schema.raw("SELECT 1");
+};
+`,
+      "utf8"
+    );
+    const materializeResult = runCli({
+      cwd: appRoot,
+      args: ["migrations", "package", "@demo-app/report-values"]
+    });
+    assert.equal(materializeResult.status, 0, String(materializeResult.stderr || ""));
+
+    const migrationFiles = await readdir(path.join(appRoot, "migrations"));
+    assert.equal(migrationFiles.length, 1);
+    assert.match(migrationFiles[0], /^\d{14}_extend-report-value-field-types\.cjs$/u);
+    const lock = JSON.parse(await readFile(path.join(appRoot, ".jskit", "lock.json"), "utf8"));
+    assert.equal(
+      lock.installedPackages["@demo-app/report-values"].managed.migrations[0].id,
+      "extend-report-value-field-types"
+    );
+  });
+});
+
+test("create migration rejects duplicate ids without changing either source file", async () => {
+  await withTempDir(async (cwd) => {
+    const appRoot = path.join(cwd, "create-migration-duplicate-app");
+    await createMinimalApp(appRoot, { name: "demo-app" });
+    assert.equal(runCli({
+      cwd: appRoot,
+      args: ["create", "package", "report-values"]
+    }).status, 0);
+
+    const args = [
+      "create",
+      "migration",
+      "--package",
+      "@demo-app/report-values",
+      "--id",
+      "report-values-v2"
+    ];
+    const firstResult = runCli({ cwd: appRoot, args });
+    assert.equal(firstResult.status, 0, String(firstResult.stderr || ""));
+
+    const packageRoot = path.join(appRoot, "packages", "report-values");
+    const descriptorPath = path.join(packageRoot, "package.descriptor.mjs");
+    const templatePath = path.join(packageRoot, "templates", "migrations", "report-values-v2.cjs");
+    const descriptorBefore = await readFile(descriptorPath, "utf8");
+    const templateBefore = await readFile(templatePath, "utf8");
+
+    const duplicateResult = runCli({ cwd: appRoot, args });
+    assert.equal(duplicateResult.status, 1);
+    assert.match(String(duplicateResult.stderr || ""), /already declares a file mutation with id report-values-v2/);
+    assert.equal(await readFile(descriptorPath, "utf8"), descriptorBefore);
+    assert.equal(await readFile(templatePath, "utf8"), templateBefore);
+  });
+});
+
+test("create migration dry-run and help expose the supported authoring path", async () => {
+  await withTempDir(async (cwd) => {
+    const appRoot = path.join(cwd, "create-migration-dry-run-app");
+    await createMinimalApp(appRoot, { name: "demo-app" });
+    assert.equal(runCli({
+      cwd: appRoot,
+      args: ["create", "package", "report-values"]
+    }).status, 0);
+
+    const descriptorPath = path.join(appRoot, "packages", "report-values", "package.descriptor.mjs");
+    const descriptorBefore = await readFile(descriptorPath, "utf8");
+    const dryRunResult = runCli({
+      cwd: appRoot,
+      args: [
+        "create",
+        "migration",
+        "--package",
+        "@demo-app/report-values",
+        "--id",
+        "report-values-v2",
+        "--dry-run"
+      ]
+    });
+    assert.equal(dryRunResult.status, 0, String(dryRunResult.stderr || ""));
+    assert.match(String(dryRunResult.stdout || ""), /Dry run enabled: no files were written/);
+    assert.equal(await readFile(descriptorPath, "utf8"), descriptorBefore);
+    await assert.rejects(() =>
+      readFile(
+        path.join(appRoot, "packages", "report-values", "templates", "migrations", "report-values-v2.cjs"),
+        "utf8"
+      )
+    );
+
+    const helpResult = runCli({
+      cwd: appRoot,
+      args: ["help", "create"]
+    });
+    assert.equal(helpResult.status, 0, String(helpResult.stderr || ""));
+    assert.match(
+      `${String(helpResult.stdout || "")}\n${String(helpResult.stderr || "")}`,
+      /jskit create migration --package @local\/contacts --id add-contact-status/
+    );
+  });
+});
