@@ -567,8 +567,15 @@ test("buildReplacementsFromSnapshot builds deterministic template replacement pa
     /buildWorkspaceInputFromRouteParams/
   );
   assert.equal(replacements.__JSKIT_CRUD_ROUTE_SURFACE_REQUIRES_WORKSPACE__, "true");
-  assert.match(replacements.__JSKIT_CRUD_LIST_ACTION_INPUT__, /composeSchemaDefinitions\(\[/);
-  assert.match(replacements.__JSKIT_CRUD_LIST_ACTION_INPUT__, /workspaceSlugParamsValidator,/);
+  assert.equal(
+    replacements.__JSKIT_CRUD_LIST_ACTION_INPUT__,
+    [
+      "composeSchemaDefinitions([",
+      "        workspaceSlugParamsValidator,",
+      "        ...createStandardCrudListQueryValidators({ resource }),",
+      "      ])"
+    ].join("\n")
+  );
   assert.equal(
     replacements.__JSKIT_CRUD_VIEW_ROUTE_PARAMS_VALIDATOR_LINE__,
     "\n      params: recordRouteParamsValidator,"
@@ -1505,10 +1512,10 @@ test("crud actions and routes templates derive cursor validation and route contr
   const actionsTemplateSource = await readFile(actionsTemplatePath, "utf8");
   const registerRoutesTemplateSource = await readFile(registerRoutesTemplatePath, "utf8");
 
-  assert.match(actionsTemplateSource, /createCrudCursorPaginationQueryValidator/);
-  assert.match(actionsTemplateSource, /jsonApiFieldsetsQueryValidator/);
+  assert.match(actionsTemplateSource, /createStandardCrudListQueryValidators/);
+  assert.match(actionsTemplateSource, /createStandardCrudViewQueryValidators/);
   assert.match(actionsTemplateSource, /import \{ resource \} from "\.\.\/shared\/\$\{option:namespace\|singular\|camel\}Resource\.js";/);
-  assert.match(actionsTemplateSource, /const listCursorPaginationQueryValidator = createCrudCursorPaginationQueryValidator\(\{\s+orderBy: resource\.defaultSort\s+\}\);/s);
+  assert.doesNotMatch(actionsTemplateSource, /const listCursorPaginationQueryValidator/);
   assert.match(actionsTemplateSource, /__JSKIT_CRUD_ACTION_PERMISSION_SUPPORT__/);
   assert.match(actionsTemplateSource, /__JSKIT_CRUD_LIST_ACTION_PERMISSION__/);
   assert.match(actionsTemplateSource, /output: null,/);

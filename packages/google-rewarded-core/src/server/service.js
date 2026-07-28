@@ -416,7 +416,7 @@ function createService({
     }
 
     return googleRewardedWatchSessionsRepository.withTransaction(async (trx) => {
-      const sessionRecord = normalizeRecord(await googleRewardedWatchSessionsRepository.getDocumentById(sessionId, {
+      const sessionRecord = normalizeRecord(await googleRewardedWatchSessionsRepository.getDocumentById(sessionId, {}, {
         context: options?.context || null,
         trx
       }));
@@ -503,7 +503,7 @@ function createService({
       throw new AppError(400, "sessionId is required.");
     }
 
-    const sessionRecord = normalizeRecord(await googleRewardedWatchSessionsRepository.getDocumentById(sessionId, {
+    const sessionRecord = normalizeRecord(await googleRewardedWatchSessionsRepository.getDocumentById(sessionId, {}, {
       context: options?.context || null,
       trx: options?.trx || null
     }));

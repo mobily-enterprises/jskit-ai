@@ -8,11 +8,10 @@ import {
 } from "@jskit-ai/kernel/shared/validators";
 import { resolveCrudResourceScopeName } from "@jskit-ai/kernel/shared/support/crudLookup";
 import {
-  createCrudCursorPaginationQueryValidator,
+  createStandardCrudListQueryValidators,
+  createStandardCrudViewQueryValidators,
   listSearchQueryValidator as defaultListSearchQueryValidator,
-  lookupIncludeQueryValidator as defaultLookupIncludeQueryValidator,
-  jsonApiFieldsetsQueryValidator,
-  createCrudParentFilterQueryValidator
+  lookupIncludeQueryValidator as defaultLookupIncludeQueryValidator
 } from "./listQueryValidators.js";
 
 function isRecord(value) {
@@ -445,23 +444,19 @@ function createCrudJsonApiRouteContracts({
   lookupIncludeQueryValidator = defaultLookupIncludeQueryValidator,
   listFilterQueryValidator = null
 } = {}) {
-  const listCursorPaginationQueryValidator = createCrudCursorPaginationQueryValidator({
-    orderBy: resource?.defaultSort
-  });
-  const listParentFilterQueryValidator = createCrudParentFilterQueryValidator(resource);
-  const resolvedListFilterQueryValidator = listFilterQueryValidator || resource?.contract?.listFilters?.queryValidator || null;
-  const listRouteQueryValidator = composeSchemaDefinitions([
-    listCursorPaginationQueryValidator,
-    listSearchQueryValidator,
-    listParentFilterQueryValidator,
-    ...(resolvedListFilterQueryValidator ? [resolvedListFilterQueryValidator] : []),
-    lookupIncludeQueryValidator,
-    jsonApiFieldsetsQueryValidator
-  ]);
-  const viewRouteQueryValidator = composeSchemaDefinitions([
-    lookupIncludeQueryValidator,
-    jsonApiFieldsetsQueryValidator
-  ]);
+  const listRouteQueryValidator = composeSchemaDefinitions(
+    createStandardCrudListQueryValidators({
+      resource,
+      listFilterQueryValidator,
+      searchQueryValidator: listSearchQueryValidator,
+      includeQueryValidator: lookupIncludeQueryValidator
+    })
+  );
+  const viewRouteQueryValidator = composeSchemaDefinitions(
+    createStandardCrudViewQueryValidators({
+      includeQueryValidator: lookupIncludeQueryValidator
+    })
+  );
   const recordRouteParamsValidator = routeParamsValidator
     ? composeSchemaDefinitions([
         routeParamsValidator,

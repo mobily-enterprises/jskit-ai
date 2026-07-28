@@ -1960,14 +1960,15 @@ function renderRouteInputLines(operation = "", { surfaceRequiresWorkspace = true
   return lines.join("\n");
 }
 
-function renderObjectSchemaDefinition(lines = [], { mode = "patch" } = {}) {
+function renderActionInputSchemaDefinition(lines = [], { mode = "patch" } = {}) {
+  const continuationIndent = "      ";
   const entries = (Array.isArray(lines) ? lines : [])
     .map((line) => String(line || "").trim())
     .filter(Boolean)
     .map((line) => line.endsWith(",") ? line.slice(0, -1) : line);
 
   if (entries.length < 1) {
-    throw new TypeError("renderObjectSchemaDefinition requires at least one schema definition.");
+    throw new TypeError("renderActionInputSchemaDefinition requires at least one schema definition.");
   }
 
   if (entries.length === 1) {
@@ -1977,17 +1978,17 @@ function renderObjectSchemaDefinition(lines = [], { mode = "patch" } = {}) {
   if (normalizeText(mode).toLowerCase() === "patch") {
     return [
       "composeSchemaDefinitions([",
-      ...entries.map((line) => `  ${line},`),
-      "])"
+      ...entries.map((line) => `${continuationIndent}  ${line},`),
+      `${continuationIndent}])`
     ].join("\n");
   }
 
   return [
     "composeSchemaDefinitions([",
-    ...entries.map((line) => `  ${line},`),
-    "], {",
-    `  mode: ${JSON.stringify(mode)}`,
-    "})"
+    ...entries.map((line) => `${continuationIndent}  ${line},`),
+    `${continuationIndent}], {`,
+    `${continuationIndent}  mode: ${JSON.stringify(mode)}`,
+    `${continuationIndent}})`
   ].join("\n");
 }
 
@@ -2007,16 +2008,11 @@ function renderActionInputExpressions({ surfaceRequiresWorkspace = true } = {}) 
   }
 
   listLines.push(
-    "listCursorPaginationQueryValidator,",
-    "listSearchQueryValidator,",
-    "listParentFilterQueryValidator,",
-    "lookupIncludeQueryValidator,",
-    "jsonApiFieldsetsQueryValidator,"
+    "...createStandardCrudListQueryValidators({ resource }),"
   );
   viewLines.push(
     "recordIdParamsValidator,",
-    "lookupIncludeQueryValidator,",
-    "jsonApiFieldsetsQueryValidator,"
+    "...createStandardCrudViewQueryValidators(),"
   );
   createLines.push("resource.operations.create.body,");
   updateLines.push(
@@ -2026,11 +2022,11 @@ function renderActionInputExpressions({ surfaceRequiresWorkspace = true } = {}) 
   deleteLines.push("recordIdParamsValidator,");
 
   return Object.freeze({
-    list: renderObjectSchemaDefinition(listLines),
-    view: renderObjectSchemaDefinition(viewLines),
-    create: renderObjectSchemaDefinition(createLines, { mode: "create" }),
-    update: renderObjectSchemaDefinition(updateLines),
-    delete: renderObjectSchemaDefinition(deleteLines)
+    list: renderActionInputSchemaDefinition(listLines),
+    view: renderActionInputSchemaDefinition(viewLines),
+    create: renderActionInputSchemaDefinition(createLines, { mode: "create" }),
+    update: renderActionInputSchemaDefinition(updateLines),
+    delete: renderActionInputSchemaDefinition(deleteLines)
   });
 }
 

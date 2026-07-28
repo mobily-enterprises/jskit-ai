@@ -1,6 +1,6 @@
 {
   "name": "@jskit-ai/auth-web",
-  "version": "0.1.137",
+  "version": "0.1.140",
   "type": "module",
   "scripts": {
     "test": "node --test"
@@ -20,11 +20,11 @@
     "./test/playwright": "./src/test/playwright.js"
   },
   "dependencies": {
-    "@jskit-ai/auth-core": "0.1.134",
+    "@jskit-ai/auth-core": "0.1.137",
     "@mdi/js": "^7.4.47",
-    "@jskit-ai/kernel": "0.1.136",
-    "@jskit-ai/shell-web": "0.1.137",
-    "@jskit-ai/http-runtime": "0.1.134"
+    "@jskit-ai/kernel": "0.1.139",
+    "@jskit-ai/shell-web": "0.1.140",
+    "@jskit-ai/http-runtime": "0.1.137"
   },
   "peerDependencies": {
     "@tanstack/vue-query": "^5.90.5",

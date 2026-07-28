@@ -105,11 +105,47 @@ function createCrudParentFilterQueryValidator(resource = {}) {
   });
 }
 
+function createStandardCrudListQueryValidators({
+  resource = {},
+  listFilterQueryValidator = null,
+  searchQueryValidator = listSearchQueryValidator,
+  includeQueryValidator = lookupIncludeQueryValidator
+} = {}) {
+  const resolvedListFilterQueryValidator =
+    listFilterQueryValidator
+    ?? resource?.contract?.listFilters?.queryValidator
+    ?? null;
+
+  return [
+    createCrudCursorPaginationQueryValidator({
+      orderBy: resource?.defaultSort
+    }),
+    searchQueryValidator,
+    createCrudParentFilterQueryValidator(resource),
+    ...(resolvedListFilterQueryValidator
+      ? [resolvedListFilterQueryValidator]
+      : []),
+    includeQueryValidator,
+    jsonApiFieldsetsQueryValidator
+  ];
+}
+
+function createStandardCrudViewQueryValidators({
+  includeQueryValidator = lookupIncludeQueryValidator
+} = {}) {
+  return [
+    includeQueryValidator,
+    jsonApiFieldsetsQueryValidator
+  ];
+}
+
 export {
   createCrudCursorPaginationQueryValidator,
   listSearchQueryValidator,
   lookupIncludeQueryValidator,
   jsonApiFieldsetsQueryValidator,
   resolveCrudParentFilterKeys,
-  createCrudParentFilterQueryValidator
+  createCrudParentFilterQueryValidator,
+  createStandardCrudListQueryValidators,
+  createStandardCrudViewQueryValidators
 };

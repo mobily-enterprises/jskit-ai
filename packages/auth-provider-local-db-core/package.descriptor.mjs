@@ -1,7 +1,7 @@
 export default Object.freeze({
   packageVersion: 1,
   packageId: "@jskit-ai/auth-provider-local-db-core",
-  version: "0.1.29",
+  version: "0.1.32",
   kind: "runtime",
   description: "Database-backed local auth storage backend for JSKIT local auth.",
   dependsOn: [
@@ -80,9 +80,9 @@ export default Object.freeze({
   mutations: {
     dependencies: {
       runtime: {
-        "@jskit-ai/auth-provider-local-core": "0.1.38",
-        "@jskit-ai/database-runtime": "0.1.135",
-        "@jskit-ai/kernel": "0.1.136"
+        "@jskit-ai/auth-provider-local-core": "0.1.41",
+        "@jskit-ai/database-runtime": "0.1.138",
+        "@jskit-ai/kernel": "0.1.139"
       },
       dev: {}
     },

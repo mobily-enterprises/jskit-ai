@@ -20,11 +20,10 @@ function createService({ usersRepository } = {}) {
         context: options?.context || null
       }));
     },
-    async getDocumentById(recordId, options = {}) {
-      return returnJsonApiDocument(return404IfNotFound(await usersRepository.getDocumentById(recordId, {
+    async getDocumentById(recordId, query = {}, options = {}) {
+      return returnJsonApiDocument(return404IfNotFound(await usersRepository.getDocumentById(recordId, query, {
         trx: options?.trx || null,
-        context: options?.context || null,
-        include: options?.include
+        context: options?.context || null
       })));
     }
   });
