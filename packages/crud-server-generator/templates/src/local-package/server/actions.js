@@ -6,6 +6,7 @@ import {
   createCrudCursorPaginationQueryValidator,
   listSearchQueryValidator,
   lookupIncludeQueryValidator,
+  jsonApiFieldsetsQueryValidator,
   createCrudParentFilterQueryValidator
 } from "@jskit-ai/crud-core/server/listQueryValidators";
 import { resource } from "../shared/${option:namespace|singular|camel}Resource.js";
@@ -55,9 +56,9 @@ function createActions({ surface } = {}) {
       },
       observability: {},
       async execute(input, context, deps) {
-        return deps.${option:namespace|camel}Service.getDocumentById(input.recordId, {
-          context,
-          include: input.include
+        const { workspaceSlug, recordId, ...query } = input || {};
+        return deps.${option:namespace|camel}Service.getDocumentById(recordId, query, {
+          context
         });
       }
     },

@@ -2010,11 +2010,13 @@ function renderActionInputExpressions({ surfaceRequiresWorkspace = true } = {}) 
     "listCursorPaginationQueryValidator,",
     "listSearchQueryValidator,",
     "listParentFilterQueryValidator,",
-    "lookupIncludeQueryValidator,"
+    "lookupIncludeQueryValidator,",
+    "jsonApiFieldsetsQueryValidator,"
   );
   viewLines.push(
     "recordIdParamsValidator,",
-    "lookupIncludeQueryValidator,"
+    "lookupIncludeQueryValidator,",
+    "jsonApiFieldsetsQueryValidator,"
   );
   createLines.push("resource.operations.create.body,");
   updateLines.push(

@@ -7,7 +7,10 @@ import { resolveOperationAdapter } from "../runtime/operationAdapters.js";
 import { setupOperationErrorReporting } from "../runtime/operationUiHelpers.js";
 import { createListUiRuntime } from "../runtime/listUiRuntime.js";
 import { asPlainObject } from "../support/scopeHelpers.js";
-import { buildRequestQueryObject } from "../support/requestQueryRuntimeSupport.js";
+import {
+  buildRequestQueryObject,
+  createRequestQueryRuntime
+} from "../support/requestQueryRuntimeSupport.js";
 import {
   normalizeListSearchConfig,
   matchesLocalSearch
@@ -57,13 +60,18 @@ function useList({
   editUrlTemplate = "",
   search = null,
   queryParams = null,
+  routeQueryValueResolvers = null,
   requestQueryParams = null,
+  requestFieldsets = null,
   syncToRoute = false
 } = {}) {
   const searchConfig = normalizeListSearchConfig(search);
   const routeSyncConfig = normalizeListSyncToRouteConfig(syncToRoute, {
     defaultSearchParam: searchConfig.queryParam
   });
+  const routeSyncHydrated = ref(
+    routeSyncConfig.enabled !== true || routeSyncConfig.hydrateFromRoute !== true
+  );
   const router = routeSyncConfig.enabled === true ? useRouter() : null;
   const searchQuery = ref(searchConfig.initialQuery);
   const debouncedSearchQuery = ref(searchConfig.initialQuery);
@@ -140,24 +148,29 @@ function useList({
     });
   });
   const queryParamDescriptors = computed(() => {
-    return resolveQueryParamDescriptors(queryParams, queryParamsContext.value);
+    return resolveQueryParamDescriptors(queryParams, queryParamsContext.value, {
+      routeValueResolvers: routeQueryValueResolvers
+    });
   });
-  const requestQueryParamDescriptors = computed(() => {
-    return resolveQueryParamDescriptors(requestQueryParams, queryParamsContext.value);
+  const requestQueryRuntime = createRequestQueryRuntime({
+    requestQueryParams,
+    requestFieldsets,
+    context: queryParamsContext
   });
+  const {
+    activeRequestQueryParamEntries,
+    activeRequestQueryParamsToken,
+    activeRequestFieldsets,
+    activeRequestFieldsetsToken,
+    queryKeyParts: requestQueryKeyParts
+  } = requestQueryRuntime;
   const declaredQueryParamKeys = computed(() => {
     return queryParamDescriptors.value.map((descriptor) => descriptor.key);
   });
   const activeQueryParamEntries = computed(() => {
     return resolveActiveQueryParamEntries(queryParamDescriptors.value);
   });
-  const activeRequestQueryParamEntries = computed(() => {
-    return resolveActiveQueryParamEntries(requestQueryParamDescriptors.value);
-  });
   const activeQueryParamsToken = computed(() => buildQueryParamEntriesToken(activeQueryParamEntries.value));
-  const activeRequestQueryParamsToken = computed(() => {
-    return buildQueryParamEntriesToken(activeRequestQueryParamEntries.value);
-  });
   const writableQueryParamBindings = computed(() => {
     return resolveWritableQueryParamBindings(queryParamDescriptors.value);
   });
@@ -191,7 +204,9 @@ function useList({
     entries.push(...activeRequestQueryParamEntries.value);
     entries.push(...activeQueryParamEntries.value);
 
-    const query = buildRequestQueryObject(entries);
+    const query = buildRequestQueryObject(entries, {
+      fieldsets: activeRequestFieldsets.value
+    });
     const baseOptions = asPlainObject(requestOptions);
     if (Object.keys(query).length < 1) {
       return baseOptions;
@@ -209,9 +224,7 @@ function useList({
       : sourceQueryKey == null
         ? []
         : [sourceQueryKey];
-    if (activeRequestQueryParamsToken.value) {
-      baseQueryKey.push("__request_query__", activeRequestQueryParamsToken.value);
-    }
+    baseQueryKey.push(...requestQueryKeyParts.value);
     if (querySearchEnabled.value) {
       baseQueryKey.push("__search__", searchConfig.queryParam, activeSearchQuery.value);
     }
@@ -221,10 +234,11 @@ function useList({
     return baseQueryKey;
   });
 
+  const listReadEnabled = computed(() => canView.value && routeSyncHydrated.value);
   const list = useListCore({
     queryKey: listQueryKey,
     path: listPath,
-    enabled: operationScope.queryCanRun(canView),
+    enabled: operationScope.queryCanRun(listReadEnabled),
     client,
     transport,
     initialPageParam,
@@ -236,7 +250,6 @@ function useList({
     requestRecoveryLabel,
     fallbackLoadError
   });
-  const routeSyncHydrated = ref(routeSyncConfig.enabled !== true);
   const routeSyncApplying = ref(false);
   const routeSyncManagedKeyHistory = ref([]);
   const routeSyncQueryParamBlacklist = computed(() => {
@@ -306,6 +319,7 @@ function useList({
     watch(
       () => operationScope.routeContext.route?.query || {},
       (routeQuery) => {
+        const initialHydration = routeSyncHydrated.value !== true;
         if (routeSyncConfig.hydrateFromRoute !== true || routeSyncApplying.value === true) {
           routeSyncHydrated.value = true;
           return;
@@ -324,7 +338,9 @@ function useList({
             if (routeSyncQueryParamBlacklistSet.value.has(binding.key)) {
               continue;
             }
-            const nextValue = parseRouteBindingValue(binding, routeQuerySource[binding.key]);
+            const nextValue = parseRouteBindingValue(binding, routeQuerySource[binding.key], {
+              initial: initialHydration
+            });
             const currentValue = typeof binding.get === "function" ? binding.get() : undefined;
             if (areQueryParamBindingValuesEqual(currentValue, nextValue)) {
               continue;
@@ -397,20 +413,16 @@ function useList({
 
     list.trimToFirstPage();
   });
-  watch(activeQueryParamsToken, (nextValue, previousValue) => {
-    if (nextValue === previousValue) {
-      return;
+  watch(
+    [
+      activeQueryParamsToken,
+      activeRequestQueryParamsToken,
+      activeRequestFieldsetsToken
+    ],
+    () => {
+      list.trimToFirstPage();
     }
-
-    list.trimToFirstPage();
-  });
-  watch(activeRequestQueryParamsToken, (nextValue, previousValue) => {
-    if (nextValue === previousValue) {
-      return;
-    }
-
-    list.trimToFirstPage();
-  });
+  );
   const filteredItems = computed(() => {
     const sourceItems = Array.isArray(list.items.value) ? list.items.value : [];
     if (searchConfig.enabled !== true || searchConfig.mode !== "local") {

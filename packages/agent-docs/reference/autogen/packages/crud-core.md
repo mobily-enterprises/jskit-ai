@@ -165,6 +165,7 @@ Exports
 - `createCrudCursorPaginationQueryValidator(list = {})`
 - `listSearchQueryValidator`
 - `lookupIncludeQueryValidator`
+- `jsonApiFieldsetsQueryValidator`
 - `resolveCrudParentFilterKeys(resource = {})`
 - `createCrudParentFilterQueryValidator(resource = {})`
 Local functions

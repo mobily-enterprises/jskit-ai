@@ -535,6 +535,8 @@ test("buildUiTemplateContext includes lookup runtime placeholders when form fiel
     assert.match(context.__JSKIT_UI_CREATE_FORM_SLOT_PROPS__, /resolveLookupItems: fieldLookupItems/);
     assert.match(context.__JSKIT_UI_CREATE_FORM_COLUMNS__, /fieldLookupItems\('serviceId'/);
     assert.match(context.__JSKIT_UI_FORM_LOOKUP_PROP_DEFS__, /resolveLookupItems/);
+    assert.equal(Object.hasOwn(context, "__JSKIT_UI_LIST_REQUEST_FIELDSETS__"), false);
+    assert.equal(Object.hasOwn(context, "__JSKIT_UI_VIEW_REQUEST_FIELDSETS__"), false);
   });
 });
 
@@ -969,6 +971,8 @@ test("crud ui templates derive JSON:API transport from the shared CRUD resource"
   assert.match(listTemplateSource, /const screen = useCrudListScreen\(\{/);
   assert.match(listTemplateSource, /listFilters,/);
   assert.match(listTemplateSource, /listBulkActions,/);
+  assert.doesNotMatch(listTemplateSource, /requestFieldsets/);
+  assert.doesNotMatch(viewTemplateSource, /requestFieldsets/);
   assert.match(listTemplateSource, /requestRecoveryLabel: "__JSKIT_UI_RESOURCE_PLURAL_TITLE__"/);
   assert.match(listTemplateSource, /#card-fields="__JSKIT_UI_LIST_CARD_SLOT_PROPS__"/);
   assert.match(listTemplateSource, /#table-header/);

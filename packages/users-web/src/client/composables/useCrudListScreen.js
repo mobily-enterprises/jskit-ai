@@ -118,6 +118,7 @@ function useCrudListScreen({
   syntheticRows = null,
   routeQueryBlacklist = Object.freeze(["include", "cursor", "limit"]),
   requestQueryParams = null,
+  requestFieldsets = null,
   readEnabled = true,
   requestRecoveryLabel = "Records",
   fallbackLoadError = "Unable to load records."
@@ -143,6 +144,7 @@ function useCrudListScreen({
       mode: "query"
     },
     queryParams: filterRuntime.queryParams,
+    routeQueryValueResolvers: filterRuntime.routeQueryValueResolvers,
     syncToRoute: {
       enabled: true,
       mode: "replace",
@@ -152,6 +154,7 @@ function useCrudListScreen({
     },
     placementSource: `ui-generator.${normalizedResourceNamespace}.list`,
     requestQueryParams,
+    requestFieldsets,
     readEnabled,
     requestRecoveryLabel,
     fallbackLoadError,

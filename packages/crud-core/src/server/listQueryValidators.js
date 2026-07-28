@@ -25,6 +25,23 @@ const lookupIncludeQueryValidator = Object.freeze({
   mode: "patch"
 });
 
+const jsonApiFieldsetsQueryValidator = Object.freeze({
+  schema: createSchema({
+    fields: {
+      type: "object",
+      required: false,
+      values: {
+        type: "array",
+        items: {
+          type: "string",
+          minLength: 1
+        }
+      }
+    }
+  }),
+  mode: "patch"
+});
+
 function resolveCrudListUsesOrderedCursor(list = {}) {
   const entries = Array.isArray(list?.orderBy)
     ? list.orderBy
@@ -92,6 +109,7 @@ export {
   createCrudCursorPaginationQueryValidator,
   listSearchQueryValidator,
   lookupIncludeQueryValidator,
+  jsonApiFieldsetsQueryValidator,
   resolveCrudParentFilterKeys,
   createCrudParentFilterQueryValidator
 };

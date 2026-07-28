@@ -49,6 +49,7 @@ Generated screen wrapper extension rules:
 - Use `useCrudListScreen({ readEnabled })` for permission-gated generated list reads instead of splitting the page or replacing the shared list screen.
 - Use `useCrudListScreen({ requestQueryParams })` for list includes or other endpoint query params instead of putting query strings in `apiSuffix`.
 - Use `useCrudViewScreen({ requestQueryParams })` for detail includes instead of putting query strings in `apiUrlTemplate`.
+- Use `requestFieldsets` only when a specialised caller intentionally needs a typed JSON:API sparse fieldset. Ordinary generated reads use the complete resource output contract.
 - Use `readEnabled` and `queryKeyFactory` on `useCrudViewScreen()` when the detail read needs the same gating or cache identity control as `useCrudView()`.
 - Use `CrudViewScreen` slots (`before-fields`, `fields`, `after-fields`, `supporting-content`) for page-specific domain sections while keeping shared load/error/retry chrome.
 - Use `listRowActions` with `defineCrudListRowActions(...)` for row-level commands in `CrudListScreen`.
@@ -72,6 +73,11 @@ Why this is the standard JSKIT shape:
 - `usersWebHttpClient` already handles credentials and CSRF behavior.
 - `useEndpointResource()` is the shared endpoint primitive for loading, saving, and standard load/save error handling. Higher-level runtimes add UI feedback and field-error handling on top.
 - Use `requestQueryParams` for endpoint query strings on list, view, and add/edit runtimes.
+- Generated CRUD and lookup reads use all resource-defined output fields by default. Hydrated relationships use the target resource's output contract. Generated pages and lookup controls do not repeat those definitions as request fieldsets.
+- Put exceptional large fields in `resource.contract.response.defaultExclude`. The target resource owns that default even when it is included by another resource.
+- `requestFieldsets` remains an explicit specialised override and accepts the canonical typed shape, for example `{ jobs: ["id", "status"], contacts: ["id", "displayName"] }`. It participates in both the request and the query cache key.
+- Sparse fieldsets are a serialization boundary, not an authorization mechanism. Server resources reject unknown fields, never serialize hidden fields, and preserve the fields needed internally for relationship linkage.
+- Fields that must never be exposed do not belong in the resource output schema.
 - Keep `apiUrlTemplate` path-only. Do not put `?include=...` or other query strings in URL templates.
 - If an app needs route-aware API URL rewriting, configure the users-web client once with `configureUsersWebHttpClient({ resolveRequestUrl })` before mounting the app. Do not replace `fetchImpl` just to rewrite paths.
 - `resolveRequestUrl` belongs at the HTTP client boundary. It runs after JSKIT encodes query params and before browser `fetch`, so reads, commands, request recovery metadata, JSON:API transport, credentials, and CSRF behavior stay on the standard path.
@@ -96,6 +102,8 @@ Avoid:
 - manually concatenating scoped route params into API URLs
 - using a lower-level seam when a higher-level routed CRUD or command runtime already fits
 - smuggling query params into `apiUrlTemplate`
+- hand-building `fields[type]` parameters or page-local sparse-response adapters
+- repeating resource output fields as page-owned request allowlists
 - replacing `CrudListScreen` or `CrudViewScreen` only to add read gating, row actions, synthetic display rows, includes, or domain detail sections
 - reporting routine resource load errors through hand-written global snackbar/banner calls
 - calling `useShellRequestRecoveryRuntime().report(...)` from normal panels just to recover an HTTP read

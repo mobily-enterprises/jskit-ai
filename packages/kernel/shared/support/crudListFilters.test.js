@@ -7,6 +7,7 @@ import {
   INVALID_CRUD_LIST_FILTER_QUERY_VALUE,
   parseCrudListRangeQueryExpression,
   formatCrudListRangeQueryExpression,
+  createCrudListFilterEmptyValue,
   createCrudListFilterInitialValue,
   isCrudListFilterMultiValue,
   isCrudListFilterStructuredValue,
@@ -108,6 +109,23 @@ test("defineCrudListFilters uses fixed presence semantics with optional label ov
     { value: "present", label: "Assigned" },
     { value: "missing", label: "Unassigned" }
   ]);
+});
+
+test("defineCrudListFilters normalizes declarative defaults without changing the empty state", () => {
+  const filters = defineCrudListFilters({
+    status: {
+      type: "enum",
+      options: [
+        { value: "active", label: "Active" },
+        { value: "archived", label: "Archived" }
+      ],
+      defaultValue: "active"
+    }
+  });
+
+  assert.equal(filters.status.defaultValue, "active");
+  assert.equal(createCrudListFilterInitialValue(filters.status), "active");
+  assert.equal(createCrudListFilterEmptyValue(filters.status), "");
 });
 
 test("defineCrudListFilters rejects duplicate query keys", () => {

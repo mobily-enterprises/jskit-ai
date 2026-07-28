@@ -16,6 +16,7 @@ import {
   isJsonRestResourceMissingError,
   registerJsonRestApiHost,
   returnNullWhenJsonRestResourceMissing,
+  returnBadRequestWhenJsonRestFieldsetInvalid,
   resolveWorkspaceScopeValue,
   resolveUserScopeValue
 } from "../src/server/jsonRestApiHost.js";
@@ -47,6 +48,7 @@ test("server entrypoint exports shared host helpers", () => {
   assert.equal(typeof isJsonRestResourceMissingError, "function");
   assert.equal(typeof registerJsonRestApiHost, "function");
   assert.equal(typeof returnNullWhenJsonRestResourceMissing, "function");
+  assert.equal(typeof returnBadRequestWhenJsonRestFieldsetInvalid, "function");
   assert.equal(typeof resolveWorkspaceScopeValue, "function");
   assert.equal(typeof resolveUserScopeValue, "function");
   assert.equal(typeof JsonRestApiCoreServiceProvider, "function");
@@ -206,7 +208,11 @@ test("shared query/document helpers build json-rest-api request shapes", () => {
       limit: 10,
       include: "workspace,user",
       sort: ["-createdAt", "name"],
-      fields: "name,dob"
+      fields: {
+        contacts: ["name", "dob"],
+        workspaces: ["slug", "id"],
+        "contact-notes": ["body", "id"]
+      }
     }),
     {
       filters: {
@@ -219,7 +225,9 @@ test("shared query/document helpers build json-rest-api request shapes", () => {
         size: "10"
       },
       fields: {
-        contacts: "name,dob"
+        contactNotes: "body,id",
+        contacts: "dob,name",
+        workspaces: "id,slug"
       }
     }
   );
@@ -480,6 +488,84 @@ test("createJsonRestResourceScopeOptions maps server query projections into json
   assert.equal(resource.schema.remainingProcessableWeight.storage.virtual, true);
 });
 
+test("createJsonRestResourceScopeOptions applies resource-owned default response exclusions", () => {
+  const source = Object.freeze({
+    namespace: "contacts",
+    tableName: "contacts",
+    contract: Object.freeze({
+      response: Object.freeze({
+        defaultExclude: Object.freeze([
+          "privateNotes",
+          "searchRank"
+        ])
+      })
+    }),
+    schema: Object.freeze({
+      id: Object.freeze({
+        type: "id",
+        primary: true
+      }),
+      name: Object.freeze({
+        type: "string"
+      }),
+      privateNotes: Object.freeze({
+        type: "string"
+      }),
+      searchRank: Object.freeze({
+        type: "number",
+        storage: Object.freeze({
+          virtual: true,
+          queryProjection: Object.freeze({
+            select() {}
+          })
+        })
+      })
+    })
+  });
+
+  const result = createJsonRestResourceScopeOptions(source);
+
+  assert.equal(result.schema.name.normallyHidden, undefined);
+  assert.equal(result.schema.privateNotes.normallyHidden, true);
+  assert.equal(result.queryFields.searchRank.normallyHidden, true);
+  assert.equal(source.schema.privateNotes.normallyHidden, undefined);
+  assert.equal(source.schema.searchRank.normallyHidden, undefined);
+});
+
+test("createJsonRestResourceScopeOptions rejects invalid default response exclusions", () => {
+  const createResource = (defaultExclude) => ({
+    namespace: "contacts",
+    tableName: "contacts",
+    contract: {
+      response: {
+        defaultExclude
+      }
+    },
+    schema: {
+      id: {
+        type: "id",
+        primary: true
+      },
+      name: {
+        type: "string"
+      }
+    }
+  });
+
+  assert.throws(
+    () => createJsonRestResourceScopeOptions(createResource("name")),
+    /contract\.response\.defaultExclude must be an array/
+  );
+  assert.throws(
+    () => createJsonRestResourceScopeOptions(createResource(["unknown"])),
+    /defaultExclude references unknown field "unknown"/
+  );
+  assert.throws(
+    () => createJsonRestResourceScopeOptions(createResource(["id"])),
+    /defaultExclude cannot exclude identifier field "id"/
+  );
+});
+
 test("createJsonRestResourceScopeOptions rejects query field names for column-backed schema fields", () => {
   assert.throws(
     () => createJsonRestResourceScopeOptions({
@@ -560,6 +646,30 @@ test("returnNullWhenJsonRestResourceMissing only swallows missing-resource error
       throw otherError;
     }),
     (error) => error === otherError
+  );
+});
+
+test("invalid sparse fields become a stable 400 without swallowing unrelated failures", async () => {
+  const sparseFieldError = new Error("Unknown sparse field 'passwordHash' requested for 'contacts'");
+
+  await assert.rejects(
+    () => returnBadRequestWhenJsonRestFieldsetInvalid(async () => {
+      throw sparseFieldError;
+    }),
+    (error) => {
+      assert.equal(error.status, 400);
+      assert.equal(error.code, "JSON_API_FIELDSET_INVALID");
+      assert.equal(error.message, sparseFieldError.message);
+      return true;
+    }
+  );
+
+  const unrelatedError = new Error("database unavailable");
+  await assert.rejects(
+    () => returnBadRequestWhenJsonRestFieldsetInvalid(async () => {
+      throw unrelatedError;
+    }),
+    (error) => error === unrelatedError
   );
 });
 

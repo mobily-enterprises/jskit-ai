@@ -76,6 +76,21 @@ test("agent database guidance distinguishes generated baselines from additive ev
   assert.match(databaseGuide, /Ad-hoc SQL applied only to a\s+development or live database is not a migration/is);
 });
 
+test("crud guidance keeps default response selection resource-owned", async () => {
+  const clientPattern = await readFile(path.join(packageRoot, "patterns/client-requests.md"), "utf8");
+  const generatorGuide = await readFile(path.join(packageRoot, "site/guide/generators/crud-generators.md"), "utf8");
+
+  for (const source of [clientPattern, generatorGuide]) {
+    assert.match(source, /every field declared for output|all resource-defined output fields/is);
+    assert.match(source, /lookup.*(?:target )?resource.*output/is);
+    assert.match(source, /contract\.response\.defaultExclude/);
+    assert.match(source, /specialised.*fieldset|fieldset.*specialised/is);
+    assert.match(source, /must never be exposed.*output schema|never.*exposed.*do not belong in the output schema/is);
+  }
+
+  assert.doesNotMatch(generatorGuide, /UI_LIST_REQUEST_FIELDSETS|UI_VIEW_REQUEST_FIELDSETS/);
+});
+
 test("crud guidance keeps canonical ownership columns distinct from domain relationships", async () => {
   const pattern = await readFile(path.join(packageRoot, "patterns/crud-scaffolding.md"), "utf8");
   const generatorGuide = await readFile(path.join(packageRoot, "site/guide/generators/crud-generators.md"), "utf8");

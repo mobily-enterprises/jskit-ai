@@ -13,6 +13,7 @@ Ask first:
 - which fields are filterable
 - whether each filter is a flag, enum, multi-enum, date/date-range, number-range, record id, or lookup-backed record id
 - whether filters must sync to the route query
+- whether a filter needs a default before the first request
 - whether the screen needs chips and clear/reset behavior
 - whether lookup filters need remote autocomplete search
 - whether there are presets such as "Today", "Last 7 Days", or "Only Archived"
@@ -24,6 +25,27 @@ Default JSKIT client pattern:
 4. If `listFilters` is empty, the filter surface renders nothing and the page behaves like a normal searchable list.
 5. The AI/app author is responsible for ensuring the server accepts and applies the query params declared in `listFilters.js`.
 6. For lookup-backed filters, use `useCrudListFilterLookups(...)` when the page needs remote options or readable chip labels.
+
+Initial-value contract:
+- declare a pre-query default with `defaultValue` in the filter definition
+- a valid route-query value wins over `defaultValue`
+- when the initial route has no value, `defaultValue` is applied before list reading is enabled
+- an invalid initial route value falls back to `defaultValue`
+- clearing a filter after initialization produces the empty value; it does not reapply the default
+- route back/forward navigation rehydrates the same filter state without an early unfiltered request
+
+```js
+const listFilters = defineCrudListFilters({
+  currentness: {
+    type: "enum",
+    defaultValue: "active",
+    options: [
+      { value: "active", label: "Active" },
+      { value: "archived", label: "Archived" }
+    ]
+  }
+});
+```
 
 Generated client shape:
 - `src/pages/<surface>/<resource>/listFilters.js`
@@ -94,6 +116,7 @@ Avoid:
 - editing generated `.vue` files just to add basic filter controls; use the page-local `listFilters.js` seam first
 - overloading `q` with structured filter meaning
 - inline filter-definition objects passed into `useCrudListFilters(...)`, `createCrudListFilters(...)`, or `createCrudListFilterContract(...)`; keep definitions in a named module
+- assigning a default to `filterRuntime.values` after `useCrudListScreen(...)` has started; that changes the query after construction and can issue a second initial request
 
 Good shape:
 - `src/pages/home/customers/listFilters.js`
@@ -117,5 +140,6 @@ Review checks:
 - one filter definition source of truth: generated page-local `listFilters.js` for client-only filters, or a shared CRUD-package module when server code imports the same definitions
 - server validator, JSON REST search schema, and repository query projection derived from that source through `createCrudListFilterContract(...)`
 - client query params/chips/reset logic derived from that source
+- initial route/default resolution completes before the first list request
 - lookup-backed filters use the shared lookup helper, not a page-local mini-framework
 - the two-phase server exception is intentional and documented, not accidental drift

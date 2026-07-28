@@ -64,6 +64,7 @@ Exports
 - `parseCrudListRangeQueryExpression(value = null)`
 - `formatCrudListRangeQueryExpression(startValue = "", endValue = "", { collapseExact = false } = {})`
 - `defineCrudListFilters(definitions = {})`
+- `createCrudListFilterEmptyValue(filter = {})`
 - `createCrudListFilterInitialValue(filter = {})`
 - `isCrudListFilterMultiValue(filter = {})`
 - `isCrudListFilterStructuredValue(filter = {})`
@@ -170,6 +171,12 @@ Exports
 - `isTransientQueryError`
 - `shouldRetryTransientQueryFailure`
 - `transientQueryRetryDelay`
+
+### `support/jsonApiFieldsets.js`
+Exports
+- `normalizeJsonApiFieldList(value = [])`
+- `normalizeJsonApiFieldsets(value = {}, { primaryType = "" } = {})`
+- `buildJsonApiFieldsetsToken(value = {})`
 
 ### `support/linkPath.js`
 Exports
