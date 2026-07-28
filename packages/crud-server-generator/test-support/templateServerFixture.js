@@ -73,69 +73,59 @@ function buildTemplateReplacements({
     ["__JSKIT_CRUD_LIST_ACTION_INPUT__", surfaceRequiresWorkspace
       ? [
           "composeSchemaDefinitions([",
-          "  workspaceSlugParamsValidator,",
-          "  listCursorPaginationQueryValidator,",
-          "  listSearchQueryValidator,",
-          "  listParentFilterQueryValidator,",
-          "  lookupIncludeQueryValidator,",
-          "  jsonApiFieldsetsQueryValidator,",
-          "])"
+          "        workspaceSlugParamsValidator,",
+          "        ...createStandardCrudListQueryValidators({ resource }),",
+          "      ])"
         ].join("\n")
       : [
           "composeSchemaDefinitions([",
-          "  listCursorPaginationQueryValidator,",
-          "  listSearchQueryValidator,",
-          "  listParentFilterQueryValidator,",
-          "  lookupIncludeQueryValidator,",
-          "  jsonApiFieldsetsQueryValidator,",
-          "])"
+          "        ...createStandardCrudListQueryValidators({ resource }),",
+          "      ])"
         ].join("\n")],
     ["__JSKIT_CRUD_VIEW_ACTION_INPUT__", surfaceRequiresWorkspace
       ? [
           "composeSchemaDefinitions([",
-          "  workspaceSlugParamsValidator,",
-          "  recordIdParamsValidator,",
-          "  lookupIncludeQueryValidator,",
-          "  jsonApiFieldsetsQueryValidator,",
-          "])"
+          "        workspaceSlugParamsValidator,",
+          "        recordIdParamsValidator,",
+          "        ...createStandardCrudViewQueryValidators(),",
+          "      ])"
         ].join("\n")
       : [
           "composeSchemaDefinitions([",
-          "  recordIdParamsValidator,",
-          "  lookupIncludeQueryValidator,",
-          "  jsonApiFieldsetsQueryValidator,",
-          "])"
+          "        recordIdParamsValidator,",
+          "        ...createStandardCrudViewQueryValidators(),",
+          "      ])"
         ].join("\n")],
     ["__JSKIT_CRUD_CREATE_ACTION_INPUT__", surfaceRequiresWorkspace
       ? [
           "composeSchemaDefinitions([",
-          "  workspaceSlugParamsValidator,",
-          "  resource.operations.create.body,",
-          '], {',
-          '  mode: "create"',
-          "})"
+          "        workspaceSlugParamsValidator,",
+          "        resource.operations.create.body,",
+          "      ], {",
+          '        mode: "create"',
+          "      })"
         ].join("\n")
       : "resource.operations.create.body"],
     ["__JSKIT_CRUD_UPDATE_ACTION_INPUT__", surfaceRequiresWorkspace
       ? [
           "composeSchemaDefinitions([",
-          "  workspaceSlugParamsValidator,",
-          "  recordIdParamsValidator,",
-          "  resource.operations.patch.body,",
-          "])"
+          "        workspaceSlugParamsValidator,",
+          "        recordIdParamsValidator,",
+          "        resource.operations.patch.body,",
+          "      ])"
         ].join("\n")
       : [
           "composeSchemaDefinitions([",
-          "  recordIdParamsValidator,",
-          "  resource.operations.patch.body,",
-          "])"
+          "        recordIdParamsValidator,",
+          "        resource.operations.patch.body,",
+          "      ])"
         ].join("\n")],
     ["__JSKIT_CRUD_DELETE_ACTION_INPUT__", surfaceRequiresWorkspace
       ? [
           "composeSchemaDefinitions([",
-          "  workspaceSlugParamsValidator,",
-          "  recordIdParamsValidator,",
-          "])"
+          "        workspaceSlugParamsValidator,",
+          "        recordIdParamsValidator,",
+          "      ])"
         ].join("\n")
       : "recordIdParamsValidator"],
     ["__JSKIT_CRUD_LIST_ACTION_PERMISSION__", listActionPermission],

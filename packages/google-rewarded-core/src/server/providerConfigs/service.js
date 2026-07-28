@@ -20,11 +20,10 @@ function createService({ googleRewardedProviderConfigsRepository } = {}) {
     }));
   }
 
-  async function getDocumentById(recordId, options = {}) {
-    return returnJsonApiDocument(return404IfNotFound(await googleRewardedProviderConfigsRepository.getDocumentById(recordId, {
+  async function getDocumentById(recordId, query = {}, options = {}) {
+    return returnJsonApiDocument(return404IfNotFound(await googleRewardedProviderConfigsRepository.getDocumentById(recordId, query, {
       trx: options?.trx || null,
-      context: options?.context || null,
-      include: options?.include
+      context: options?.context || null
     })));
   }
 

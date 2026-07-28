@@ -3,6 +3,7 @@ import {
   buildJsonRestQueryParams,
   createJsonApiInputRecord,
   createJsonRestContext,
+  returnBadRequestWhenJsonRestFieldsetInvalid,
   returnNullWhenJsonRestResourceMissing
 } from "@jskit-ai/json-rest-api-core/server/jsonRestApiHost";
 import { resource } from "../../shared/googleRewardedRuleResource.js";
@@ -12,28 +13,30 @@ function createRepository({ api, knex } = {}) {
   const withTransaction = createWithTransaction(knex);
 
   async function queryDocuments(query = {}, options = {}) {
-    return api.resources.googleRewardedRules.query(
-      {
-        queryParams: buildJsonRestQueryParams(JSON_REST_SCOPE_NAME, query),
-        transaction: options?.trx || null,
-        simplified: false
-      },
-      createJsonRestContext(options?.context || null)
-    );
-  }
-
-  async function getDocumentById(recordId, options = {}) {
-    return returnNullWhenJsonRestResourceMissing(() =>
-      api.resources.googleRewardedRules.get(
+    return returnBadRequestWhenJsonRestFieldsetInvalid(() =>
+      api.resources.googleRewardedRules.query(
         {
-          id: recordId,
-          queryParams: buildJsonRestQueryParams(JSON_REST_SCOPE_NAME, {}, {
-            include: options?.include
-          }),
+          queryParams: buildJsonRestQueryParams(JSON_REST_SCOPE_NAME, query),
           transaction: options?.trx || null,
           simplified: false
         },
         createJsonRestContext(options?.context || null)
+      )
+    );
+  }
+
+  async function getDocumentById(recordId, query = {}, options = {}) {
+    return returnBadRequestWhenJsonRestFieldsetInvalid(() =>
+      returnNullWhenJsonRestResourceMissing(() =>
+        api.resources.googleRewardedRules.get(
+          {
+            id: recordId,
+            queryParams: buildJsonRestQueryParams(JSON_REST_SCOPE_NAME, query),
+            transaction: options?.trx || null,
+            simplified: false
+          },
+          createJsonRestContext(options?.context || null)
+        )
       )
     );
   }
@@ -54,7 +57,7 @@ function createRepository({ api, knex } = {}) {
   async function patchDocumentById(recordId, patch = {}, options = {}) {
     const sourcePatch = patch && typeof patch === "object" && !Array.isArray(patch) ? patch : {};
     if (Object.keys(sourcePatch).length < 1) {
-      return getDocumentById(recordId, options);
+      return getDocumentById(recordId, {}, options);
     }
 
     return returnNullWhenJsonRestResourceMissing(() =>

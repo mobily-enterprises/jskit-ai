@@ -11,6 +11,8 @@ import {
   lookupIncludeQueryValidator,
   createCrudCursorPaginationQueryValidator,
   createCrudParentFilterQueryValidator,
+  createStandardCrudListQueryValidators,
+  createStandardCrudViewQueryValidators,
   resolveCrudParentFilterKeys
 } from "../src/server/listQueryValidators.js";
 
@@ -253,4 +255,50 @@ test("createCrudParentFilterQueryValidator keeps parent filters optional when me
     query: composeSchemaDefinition(cursorPaginationQueryValidator, listSearchQueryValidator, parentValidator)
   });
   assert.deepEqual(compiled.schema.querystring.required || [], []);
+});
+
+test("standard CRUD query validator groups remain plain and extensible", () => {
+  const listFilterQueryValidator = {
+    schema: createSchema({
+      currentness: {
+        type: "string",
+        required: false
+      }
+    }),
+    mode: "patch"
+  };
+  const resource = {
+    ...createCrudResource(),
+    defaultSort: ["-createdAt"],
+    contract: {
+      listFilters: {
+        queryValidator: listFilterQueryValidator
+      }
+    }
+  };
+
+  const listQueryValidator = composeSchemaDefinition(
+    ...createStandardCrudListQueryValidators({ resource }),
+    {
+      schema: createSchema({
+        archived: {
+          type: "boolean",
+          required: false
+        }
+      }),
+      mode: "patch"
+    }
+  );
+  assert.deepEqual(
+    Object.keys(listQueryValidator.schema.getFieldDefinitions()).sort(),
+    ["archived", "currentness", "cursor", "fields", "include", "limit", "q"]
+  );
+
+  const viewQueryValidator = composeSchemaDefinition(
+    ...createStandardCrudViewQueryValidators()
+  );
+  assert.deepEqual(
+    Object.keys(viewQueryValidator.schema.getFieldDefinitions()).sort(),
+    ["fields", "include"]
+  );
 });

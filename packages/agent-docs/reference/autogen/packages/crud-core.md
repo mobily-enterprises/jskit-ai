@@ -168,6 +168,8 @@ Exports
 - `jsonApiFieldsetsQueryValidator`
 - `resolveCrudParentFilterKeys(resource = {})`
 - `createCrudParentFilterQueryValidator(resource = {})`
+- `createStandardCrudListQueryValidators({ resource = {}, listFilterQueryValidator = null, searchQueryValidator = listSearchQueryValidator, includeQueryValidator = lookupIncludeQueryValidator } = {})`
+- `createStandardCrudViewQueryValidators({ includeQueryValidator = lookupIncludeQueryValidator } = {})`
 Local functions
 - `resolveCrudListUsesOrderedCursor(list = {})`
 

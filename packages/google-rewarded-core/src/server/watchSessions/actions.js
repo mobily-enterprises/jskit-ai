@@ -3,18 +3,12 @@ import {
   recordIdParamsValidator
 } from "@jskit-ai/kernel/shared/validators";
 import {
-  createCrudCursorPaginationQueryValidator,
-  listSearchQueryValidator,
-  lookupIncludeQueryValidator,
-  createCrudParentFilterQueryValidator
+  createStandardCrudListQueryValidators,
+  createStandardCrudViewQueryValidators
 } from "@jskit-ai/crud-core/server/listQueryValidators";
 import { resource } from "../../shared/googleRewardedWatchSessionResource.js";
 import { workspaceSlugParamsValidator } from "@jskit-ai/workspaces-core/server/validators/routeParamsValidator";
 
-const listCursorPaginationQueryValidator = createCrudCursorPaginationQueryValidator({
-  orderBy: resource.defaultSort
-});
-const listParentFilterQueryValidator = createCrudParentFilterQueryValidator(resource);
 const actionPermissions = Object.freeze({
   list: "crud.google_rewarded_watch_sessions.list",
   view: "crud.google_rewarded_watch_sessions.view",
@@ -33,12 +27,9 @@ function createActions({ surface } = {}) {
       surfaces: [surface],
       permission: { require: "all", permissions: [actionPermissions.list] },
       input: composeSchemaDefinitions([
-  workspaceSlugParamsValidator,
-  listCursorPaginationQueryValidator,
-  listSearchQueryValidator,
-  listParentFilterQueryValidator,
-  lookupIncludeQueryValidator,
-]),
+        workspaceSlugParamsValidator,
+        ...createStandardCrudListQueryValidators({ resource })
+      ]),
       output: null,
       idempotency: "none",
       audit: {
@@ -60,10 +51,10 @@ function createActions({ surface } = {}) {
       surfaces: [surface],
       permission: { require: "all", permissions: [actionPermissions.view] },
       input: composeSchemaDefinitions([
-  workspaceSlugParamsValidator,
-  recordIdParamsValidator,
-  lookupIncludeQueryValidator,
-]),
+        workspaceSlugParamsValidator,
+        recordIdParamsValidator,
+        ...createStandardCrudViewQueryValidators()
+      ]),
       output: null,
       idempotency: "none",
       audit: {
@@ -71,9 +62,9 @@ function createActions({ surface } = {}) {
       },
       observability: {},
       async execute(input, context, deps) {
-        return deps.googleRewardedWatchSessionsService.getDocumentById(input.recordId, {
-          context,
-          include: input.include
+        const { workspaceSlug, recordId, ...query } = input || {};
+        return deps.googleRewardedWatchSessionsService.getDocumentById(recordId, query, {
+          context
         });
       }
     },
@@ -85,11 +76,11 @@ function createActions({ surface } = {}) {
       surfaces: [surface],
       permission: { require: "all", permissions: [actionPermissions.create] },
       input: composeSchemaDefinitions([
-  workspaceSlugParamsValidator,
-  resource.operations.create.body,
-], {
-  mode: "create"
-}),
+        workspaceSlugParamsValidator,
+        resource.operations.create.body
+      ], {
+        mode: "create"
+      }),
       output: null,
       idempotency: "optional",
       audit: {
@@ -111,10 +102,10 @@ function createActions({ surface } = {}) {
       surfaces: [surface],
       permission: { require: "all", permissions: [actionPermissions.update] },
       input: composeSchemaDefinitions([
-  workspaceSlugParamsValidator,
-  recordIdParamsValidator,
-  resource.operations.patch.body,
-]),
+        workspaceSlugParamsValidator,
+        recordIdParamsValidator,
+        resource.operations.patch.body
+      ]),
       output: null,
       idempotency: "optional",
       audit: {
@@ -136,9 +127,9 @@ function createActions({ surface } = {}) {
       surfaces: [surface],
       permission: { require: "all", permissions: [actionPermissions.delete] },
       input: composeSchemaDefinitions([
-  workspaceSlugParamsValidator,
-  recordIdParamsValidator,
-]),
+        workspaceSlugParamsValidator,
+        recordIdParamsValidator
+      ]),
       output: null,
       idempotency: "optional",
       audit: {

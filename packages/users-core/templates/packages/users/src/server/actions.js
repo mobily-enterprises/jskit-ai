@@ -3,14 +3,11 @@ import {
   recordIdParamsValidator
 } from "@jskit-ai/kernel/shared/validators";
 import {
-  createCrudCursorPaginationQueryValidator,
-  listSearchQueryValidator
+  createStandardCrudListQueryValidators,
+  createStandardCrudViewQueryValidators
 } from "@jskit-ai/crud-core/server/listQueryValidators";
 import { resource } from "../shared/userResource.js";
 
-const listCursorPaginationQueryValidator = createCrudCursorPaginationQueryValidator({
-  orderBy: resource.defaultSort
-});
 const authenticatedPermission = Object.freeze({
   require: "authenticated"
 });
@@ -25,8 +22,7 @@ function createActions({ surface } = {}) {
       surfaces: [surface],
       permission: authenticatedPermission,
       input: composeSchemaDefinitions([
-        listCursorPaginationQueryValidator,
-        listSearchQueryValidator
+        ...createStandardCrudListQueryValidators({ resource })
       ]),
       output: null,
       idempotency: "none",
@@ -49,7 +45,8 @@ function createActions({ surface } = {}) {
       surfaces: [surface],
       permission: authenticatedPermission,
       input: composeSchemaDefinitions([
-        recordIdParamsValidator
+        recordIdParamsValidator,
+        ...createStandardCrudViewQueryValidators()
       ]),
       output: null,
       idempotency: "none",
@@ -58,7 +55,8 @@ function createActions({ surface } = {}) {
       },
       observability: {},
       async execute(input, context, deps) {
-        return deps.usersService.getDocumentById(input.recordId, {
+        const { recordId, ...query } = input || {};
+        return deps.usersService.getDocumentById(recordId, query, {
           context,
           visibilityContext: context?.visibilityContext
         });

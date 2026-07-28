@@ -102,7 +102,7 @@ Local functions
 - `renderRouteParamsValidatorLine(operation = "", { surfaceRequiresWorkspace = true } = {})`
 - `renderOptionalTemplateLine(line = "")`
 - `renderRouteInputLines(operation = "", { surfaceRequiresWorkspace = true } = {})`
-- `renderObjectSchemaDefinition(lines = [], { mode = "patch" } = {})`
+- `renderActionInputSchemaDefinition(lines = [], { mode = "patch" } = {})`
 - `renderActionInputExpressions({ surfaceRequiresWorkspace = true } = {})`
 - `renderRouteValidatorConstants({ surfaceRequiresWorkspace = true } = {})`
 - `buildReplacementsFromSnapshot({ namespace = "", snapshot, resolvedOwnershipFilter, surfaceRequiresWorkspace = true, surfaceId = "", routeInternal = false, permissionGrantRoleId = "" })`

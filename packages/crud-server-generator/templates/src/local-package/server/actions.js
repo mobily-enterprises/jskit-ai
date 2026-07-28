@@ -3,19 +3,12 @@ import {
   recordIdParamsValidator
 } from "@jskit-ai/kernel/shared/validators";
 import {
-  createCrudCursorPaginationQueryValidator,
-  listSearchQueryValidator,
-  lookupIncludeQueryValidator,
-  jsonApiFieldsetsQueryValidator,
-  createCrudParentFilterQueryValidator
+  createStandardCrudListQueryValidators,
+  createStandardCrudViewQueryValidators
 } from "@jskit-ai/crud-core/server/listQueryValidators";
 import { resource } from "../shared/${option:namespace|singular|camel}Resource.js";
 __JSKIT_CRUD_ACTION_WORKSPACE_VALIDATOR_IMPORT__
 
-const listCursorPaginationQueryValidator = createCrudCursorPaginationQueryValidator({
-  orderBy: resource.defaultSort
-});
-const listParentFilterQueryValidator = createCrudParentFilterQueryValidator(resource);
 __JSKIT_CRUD_ACTION_PERMISSION_SUPPORT__
 
 function createActions({ surface } = {}) {
