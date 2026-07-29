@@ -76,6 +76,7 @@ function createHealthCommands(ctx = {}) {
   const DIRECT_MDI_BOUND_LITERAL_ICON_PATTERN =
     /<(v-[a-z0-9-]+)[^>]*?(?::|v-bind:)(icon|prepend-icon|append-icon)\s*=\s*(['"])(['"])(mdi-[^'"]+)\4\3/gi;
   const FILTER_RUNTIME_CALLEES = Object.freeze([
+    "createCrudListFilterContract",
     "createCrudListFilters",
     "useCrudListFilters"
   ]);
@@ -87,6 +88,10 @@ function createHealthCommands(ctx = {}) {
   const FEATURE_SERVER_SCAFFOLD_SHAPE = "feature-server-v1";
   const CRUD_SERVER_SCAFFOLD_SHAPE = "crud-server-v1";
   const USERS_CORE_BASELINE_CRUD_SCAFFOLD_SHAPE = "users-core-crud-v1";
+  const STANDARD_CRUD_SCAFFOLD_SHAPES = new Set([
+    CRUD_SERVER_SCAFFOLD_SHAPE,
+    USERS_CORE_BASELINE_CRUD_SCAFFOLD_SHAPE
+  ]);
   const FEATURE_SERVER_DEFAULT_LANE = "default";
   const FEATURE_SERVER_JSON_REST_MODE = "json-rest";
   const FEATURE_SERVER_PERSISTENT_MODES = new Set([
@@ -587,6 +592,13 @@ function createHealthCommands(ctx = {}) {
     return ensureObject(ensureObject(ensureObject(descriptor).metadata).jskit);
   }
 
+  function isStandardCrudPackageEntry(packageEntry) {
+    const metadata = normalizeJskitMetadata(packageEntry?.descriptor);
+    return STANDARD_CRUD_SCAFFOLD_SHAPES.has(
+      String(metadata.scaffoldShape || "").trim()
+    );
+  }
+
   function normalizeOwnedTableEntries(packageEntry) {
     const packageId = String(packageEntry?.packageId || "").trim();
     const packagePath = resolvePackageDisplayPath(packageEntry);
@@ -627,10 +639,7 @@ function createHealthCommands(ctx = {}) {
 
     const jskitMetadata = normalizeJskitMetadata(packageEntry?.descriptor);
     const scaffoldShape = String(jskitMetadata.scaffoldShape || "").trim();
-    if (
-      scaffoldShape === CRUD_SERVER_SCAFFOLD_SHAPE ||
-      scaffoldShape === USERS_CORE_BASELINE_CRUD_SCAFFOLD_SHAPE
-    ) {
+    if (STANDARD_CRUD_SCAFFOLD_SHAPES.has(scaffoldShape)) {
       return true;
     }
 
@@ -1614,11 +1623,7 @@ function createHealthCommands(ctx = {}) {
       const allowedProvenances = String(packageEntry?.packageId || "").trim() === "@local/users"
         ? new Set(["crud-server-generator", "users-core-template"])
         : new Set(["crud-server-generator"]);
-      if (
-        scaffoldShape &&
-        scaffoldShape !== CRUD_SERVER_SCAFFOLD_SHAPE &&
-        scaffoldShape !== USERS_CORE_BASELINE_CRUD_SCAFFOLD_SHAPE
-      ) {
+      if (scaffoldShape && !STANDARD_CRUD_SCAFFOLD_SHAPES.has(scaffoldShape)) {
         issues.push(
           `${packagePath}: [crud-ownership:unsupported-shape] CRUD package declares unsupported metadata.jskit.scaffoldShape="${scaffoldShape}". Use crud-server-generator for app-owned CRUDs, or the JSKIT baseline users scaffold where applicable.`
         );
@@ -2123,6 +2128,7 @@ function createHealthCommands(ctx = {}) {
       const sourceText = await readFile(absolutePath, "utf8");
       if (
         !sourceText.includes("useCrudListFilters") &&
+        !sourceText.includes("createCrudListFilterContract") &&
         !sourceText.includes("createCrudListFilters") &&
         !sourceText.includes("createQueryValidator") &&
         !sourceText.includes("useCrudList") &&
@@ -2148,6 +2154,88 @@ function createHealthCommands(ctx = {}) {
         relativePath,
         issues
       });
+    }
+  }
+
+  function hasCanonicalCrudQueryValidatorGroup({
+    sourceText = "",
+    importBindings = new Map(),
+    helperName = ""
+  } = {}) {
+    return (
+      importBindings.get(helperName) === "@jskit-ai/crud-core/server/listQueryValidators" &&
+      findCallSites(sourceText, helperName).length > 0
+    );
+  }
+
+  async function collectStandardCrudReadContractDoctorIssues({
+    appRoot,
+    appLocalRegistry,
+    issues
+  }) {
+    const packageEntries = sortStrings([...appLocalRegistry.keys()])
+      .map((packageId) => appLocalRegistry.get(packageId))
+      .filter((packageEntry) => packageEntry && isStandardCrudPackageEntry(packageEntry));
+
+    for (const packageEntry of packageEntries) {
+      const rootDir = String(packageEntry?.rootDir || "").trim();
+      if (!rootDir) {
+        continue;
+      }
+
+      const actionsPath = path.join(rootDir, "src", "server", "actions.js");
+      if (await fileExists(actionsPath)) {
+        const actionsSource = await readFile(actionsPath, "utf8");
+        const actionsRelativePath = normalizeRelativePath(appRoot, actionsPath);
+        const importBindings = collectStaticImportBindings(actionsSource);
+
+        if (!hasCanonicalCrudQueryValidatorGroup({
+          sourceText: actionsSource,
+          importBindings,
+          helperName: "createStandardCrudListQueryValidators"
+        })) {
+          issues.push(
+            `${actionsRelativePath}: [crud-read-contract:list-query-group] standard generated CRUD list actions must compose createStandardCrudListQueryValidators(...). Do not repeat pagination, search, parent-filter, include, or sparse-field validators individually; pass structured filters through listFilterQueryValidator.`
+          );
+        }
+
+        if (!hasCanonicalCrudQueryValidatorGroup({
+          sourceText: actionsSource,
+          importBindings,
+          helperName: "createStandardCrudViewQueryValidators"
+        })) {
+          issues.push(
+            `${actionsRelativePath}: [crud-read-contract:view-query-group] standard generated CRUD view actions must compose createStandardCrudViewQueryValidators(). Do not repeat include or sparse-field validators individually.`
+          );
+        }
+      }
+
+      const serverFilePaths = [];
+      await collectAppSourceFiles(
+        path.join(rootDir, "src", "server"),
+        undefined,
+        serverFilePaths
+      );
+      serverFilePaths.sort((left, right) => left.localeCompare(right));
+
+      for (const absolutePath of serverFilePaths) {
+        const sourceText = await readFile(absolutePath, "utf8");
+        const importBindings = collectStaticImportBindings(sourceText);
+        if (
+          importBindings.get("createCrudListFilters") !==
+          "@jskit-ai/crud-core/server/listFilters"
+        ) {
+          continue;
+        }
+
+        for (const callSite of findCallSites(sourceText, "createCrudListFilters")) {
+          const relativePath = normalizeRelativePath(appRoot, absolutePath);
+          const lineNumber = resolveLineNumberFromIndex(sourceText, callSite.index);
+          issues.push(
+            `${relativePath}:${lineNumber}: [filters:generated-crud-contract] standard JSON REST CRUD packages must derive server-backed filters with createCrudListFilterContract(...), not createCrudListFilters(...). Use its queryValidator through listFilterQueryValidator, register jsonRestSearchSchema, and pass toJsonRestQuery(query) through the repository.`
+          );
+        }
+      }
     }
   }
 
@@ -2316,6 +2404,11 @@ function createHealthCommands(ctx = {}) {
     });
     await collectCrudFilterDoctorIssues({
       appRoot,
+      issues
+    });
+    await collectStandardCrudReadContractDoctorIssues({
+      appRoot,
+      appLocalRegistry,
       issues
     });
     await collectUiVerificationDoctorIssues({

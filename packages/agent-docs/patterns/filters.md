@@ -60,18 +60,57 @@ Server-side pattern, only when implementing real backend filter semantics:
 1. Put reusable filter definitions in the CRUD package if server code or multiple pages need the same contract.
    Example path: `packages/<crud>/src/shared/<crud>ListFilters.js`
 2. Build a server contract from that module with `createCrudListFilterContract(...)`.
-3. Use the contract's `queryValidator` in route/action input composition.
+3. Pass the contract's `queryValidator` through the dedicated
+   `listFilterQueryValidator` option of the standard CRUD list validator group
+   at both the route and action boundaries.
 4. Pass the contract's `jsonRestSearchSchema` into `createJsonRestResourceScopeOptions(..., { searchSchema })`.
 5. Call `contract.toJsonRestQuery(query)` before `buildJsonRestQueryParams(...)` in the JSON REST repository path.
 
 Exact file checklist:
 - create `packages/<crud>/src/shared/<crud>ListFilters.js`
 - create `packages/<crud>/src/server/<crud>ListFilterContract.js` with `createCrudListFilterContract(...)`
-- update `packages/<crud>/src/server/registerRoutes.js` and `packages/<crud>/src/server/actions.js` so the list query validator includes `listFilterContract.queryValidator`
+- update `packages/<crud>/src/server/registerRoutes.js` so
+  `createCrudJsonApiRouteContracts(...)` receives
+  `listFilterQueryValidator: listFilterContract.queryValidator`
+- update `packages/<crud>/src/server/actions.js` so
+  `createStandardCrudListQueryValidators(...)` receives the same
+  `listFilterQueryValidator`
 - update the provider's `createJsonRestResourceScopeOptions(...)` call so `searchSchema: listFilterContract.jsonRestSearchSchema` is merged into the internal JSON REST resource
 - update `packages/<crud>/src/server/repository.js` so list queries pass `listFilterContract.toJsonRestQuery(query)` into `buildJsonRestQueryParams(...)`
 - update the generated page-local `listFilters.js` first; only edit `index.vue` if a specialist lookup label/runtime integration is needed
 - for lookup-backed filters, wire `useCrudListFilterLookups(...)` beside the existing generated filter runtime instead of replacing `CrudListFilterSurface`
+
+Standard route and action query composition:
+
+```js
+const {
+  listRouteContract
+} = createCrudJsonApiRouteContracts({
+  resource,
+  listFilterQueryValidator: recordsListFilterContract.queryValidator
+});
+```
+
+```js
+input: composeSchemaDefinitions([
+  workspaceSlugParamsValidator,
+  ...createStandardCrudListQueryValidators({
+    resource,
+    listFilterQueryValidator: recordsListFilterContract.queryValidator
+  })
+])
+```
+
+If `resource.contract.listFilters.queryValidator` already owns the filter
+validator, pass only `{ resource }`. Append a validator after the standard
+group only for genuinely additional, non-filter query input. Never supply the
+same filter validator through both paths.
+
+Do not reconstruct the standard list group from individual pagination,
+search, parent-filter, include, or sparse-field validators. The group keeps
+the independently validated route and action layers aligned as standard query
+features evolve. Standard view actions use
+`createStandardCrudViewQueryValidators()` for the same reason.
 
 Validation mode is part of the contract:
 - `createCrudListFilterContract(...)` defaults to `invalidValues: "reject"` for a strict server boundary
@@ -111,6 +150,8 @@ Avoid:
 - local filter composables that duplicate the same keys the server already knows about
 - a custom validator shape that does not match the page state
 - hand-rolled route/action validators or repository filters that duplicate `createCrudListFilterContract(...)`
+- manually rebuilding the standard CRUD list/view validator groups from individual validators
+- appending a list-filter validator after `createStandardCrudListQueryValidators(...)` when it belongs in the dedicated `listFilterQueryValidator` option
 - hand-rolled preset apply/reset/active-state helpers when `useCrudListFilters(..., { presets })`, `applyPreset(...)`, and `matchesPreset(...)` fit
 - per-screen `useList()` wrappers for lookup-backed filters when `useCrudListFilterLookups(...)` fits
 - editing generated `.vue` files just to add basic filter controls; use the page-local `listFilters.js` seam first
@@ -139,6 +180,10 @@ Preset contract notes:
 Review checks:
 - one filter definition source of truth: generated page-local `listFilters.js` for client-only filters, or a shared CRUD-package module when server code imports the same definitions
 - server validator, JSON REST search schema, and repository query projection derived from that source through `createCrudListFilterContract(...)`
+- route and action boundaries independently compose
+  `createStandardCrudListQueryValidators(...)`, using the dedicated
+  `listFilterQueryValidator` option when the resource does not already own it
+- standard view actions compose `createStandardCrudViewQueryValidators()`
 - client query params/chips/reset logic derived from that source
 - initial route/default resolution completes before the first list request
 - lookup-backed filters use the shared lookup helper, not a page-local mini-framework

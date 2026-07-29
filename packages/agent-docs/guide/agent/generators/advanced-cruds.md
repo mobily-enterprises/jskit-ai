@@ -1336,8 +1336,8 @@ If the filter contract should be shared with server code, promote it into a CRUD
 
 - create `packages/contacts/src/shared/contactListFilters.js`
 - create `packages/contacts/src/server/contactListFilterContract.js` with `createCrudListFilterContract(...)`
-- update `packages/contacts/src/server/registerRoutes.js` so the list route query validator includes `contactListFilterContract.queryValidator`
-- update `packages/contacts/src/server/actions.js` so the list action input validator includes the same `queryValidator`
+- update `packages/contacts/src/server/registerRoutes.js` so `createCrudJsonApiRouteContracts(...)` receives `listFilterQueryValidator: contactListFilterContract.queryValidator`
+- update `packages/contacts/src/server/actions.js` so `createStandardCrudListQueryValidators(...)` receives the same `listFilterQueryValidator`
 - update the provider's `createJsonRestResourceScopeOptions(...)` call so it merges `searchSchema: contactListFilterContract.jsonRestSearchSchema`
 - update `packages/contacts/src/server/repository.js` so the list query path passes `contactListFilterContract.toJsonRestQuery(query)` into `buildJsonRestQueryParams(...)`
 
@@ -1466,21 +1466,49 @@ That one contract gives the server:
 - `toJsonRestQuery(query)` for repository query normalization
 - `applyQuery(...)` when a non-JSON REST repository still needs direct Knex filtering
 
-Wire the contract into route and action validators:
+Wire the contract independently into the standard route and action query
+groups:
 
 ```js
-const listRouteQueryValidator = composeSchemaDefinitions([
-  listCursorPaginationQueryValidator,
-  listSearchQueryValidator,
-  listParentFilterQueryValidator,
-  contactListFilterContract.queryValidator,
-  lookupIncludeQueryValidator
-], {
-  mode: "patch"
+const {
+  listRouteContract
+} = createCrudJsonApiRouteContracts({
+  resource,
+  listFilterQueryValidator: contactListFilterContract.queryValidator
 });
 ```
 
-Use the same `contactListFilterContract.queryValidator` anywhere else the list query is validated, such as the composed list action input validator if your CRUD package validates query shape at both the route and action boundaries.
+```js
+input: composeSchemaDefinitions([
+  workspaceSlugParamsValidator,
+  ...createStandardCrudListQueryValidators({
+    resource,
+    listFilterQueryValidator: contactListFilterContract.queryValidator
+  })
+])
+```
+
+This does not couple route and action layers together. Each layer still owns
+its validator; both consume the same explicit standard group so pagination,
+search, parent filters, includes, typed sparse fieldsets, and structured
+filters cannot drift.
+
+If `resource.contract.listFilters.queryValidator` already owns the filter
+validator, call `createStandardCrudListQueryValidators({ resource })` instead.
+Append a validator after the standard group only for genuinely additional,
+non-filter query input. Never provide the same filter validator through both
+paths.
+
+Do not manually reconstruct the standard list group from its individual
+validators. Standard view actions likewise compose:
+
+```js
+input: composeSchemaDefinitions([
+  workspaceSlugParamsValidator,
+  recordIdParamsValidator,
+  ...createStandardCrudViewQueryValidators()
+])
+```
 
 Merge the JSON REST search schema when the provider registers the resource:
 
@@ -1532,6 +1560,13 @@ Choose the invalid-value contract deliberately:
 - Keep client-only filters in the generated page-local `listFilters.js`. Move definitions into a CRUD package only when server code or another page needs to share them.
 - Keep the filter keys identical all the way through: definition key, query param key, and repository meaning.
 - Prefer `createCrudListFilterContract(...)` for server-backed structured filters so route/action validators, JSON REST search schema, and repository query normalization stay derived from one shared definition.
+- Compose standard list and view query validators with
+  `createStandardCrudListQueryValidators(...)` and
+  `createStandardCrudViewQueryValidators()` rather than repeating the
+  individual standard validators.
+- Pass a server-backed structured-filter validator through
+  `listFilterQueryValidator`; append validators separately only for
+  additional non-filter query input.
 - Use `type: "presence"` for null/not-null filters such as assigned vs unassigned storage. Do not model those as custom enums plus `applyQuery(...)` overrides unless the SQL semantics are genuinely different from `whereNotNull(...)` / `whereNull(...)`.
 - Use `createCrudListFilters(...)` directly only for non-JSON REST repository code that needs direct Knex filtering without JSON REST registration.
 - Use `q` for free-text and explicit query params for structured filters.
