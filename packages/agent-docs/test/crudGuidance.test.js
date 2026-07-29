@@ -91,6 +91,38 @@ test("crud guidance keeps default response selection resource-owned", async () =
   assert.doesNotMatch(generatorGuide, /UI_LIST_REQUEST_FIELDSETS|UI_VIEW_REQUEST_FIELDSETS/);
 });
 
+test("crud guidance requires the standard list and view query validator groups", async () => {
+  const relativePaths = [
+    "patterns/filters.md",
+    "patterns/server-search.md",
+    "site/guide/generators/advanced-cruds.md",
+    "site/guide/generators/crud-generators.md",
+    "guide/agent/generators/advanced-cruds.md",
+    "guide/agent/generators/crud-generators.md"
+  ];
+  const sources = await Promise.all(
+    relativePaths.map((relativePath) => readFile(path.join(packageRoot, relativePath), "utf8"))
+  );
+
+  for (const source of sources) {
+    assert.match(source, /createStandardCrudListQueryValidators/);
+    assert.match(source, /createStandardCrudViewQueryValidators/);
+    assert.match(source, /listFilterQueryValidator/);
+  }
+
+  for (const source of sources.slice(0, 3)) {
+    assert.doesNotMatch(
+      source,
+      /listCursorPaginationQueryValidator,\s*listSearchQueryValidator,\s*listParentFilterQueryValidator/s
+    );
+  }
+
+  const filtersPattern = sources[0];
+  const advancedGuide = sources[2];
+  assert.match(filtersPattern, /Never supply the\s+same filter validator through both\s+paths/);
+  assert.match(advancedGuide, /Never provide the\s+same filter validator through both\s+paths/);
+});
+
 test("crud guidance keeps canonical ownership columns distinct from domain relationships", async () => {
   const pattern = await readFile(path.join(packageRoot, "patterns/crud-scaffolding.md"), "utf8");
   const generatorGuide = await readFile(path.join(packageRoot, "site/guide/generators/crud-generators.md"), "utf8");

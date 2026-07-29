@@ -424,6 +424,22 @@ The same rule applies after later server scaffolds such as `addresses` and `comm
 
 For standard CRUDs, that file is intentionally compact. It uses `defineCrudResource(...)` from `@jskit-ai/resource-crud-core`, authors the canonical `schema` / `searchSchema` / `defaultSort` / `autofilter` shape once, and lets JSKIT derive the standard CRUD operation contracts from it.
 
+The generated server action validators are compact for the same reason.
+Standard list actions compose
+`createStandardCrudListQueryValidators({ resource })`; standard view actions
+compose `createStandardCrudViewQueryValidators()`. Do not expand those groups
+back into individual pagination, search, parent-filter, include, or
+sparse-field validators.
+
+When a CRUD adds a server-backed structured-filter contract, pass its
+`queryValidator` through the list group's dedicated
+`listFilterQueryValidator` option. If
+`resource.contract.listFilters.queryValidator` already owns it, `{ resource }`
+is sufficient. A validator belongs after the standard group only when it is
+genuinely additional, non-filter query input. This keeps route and action
+validation independent while preventing the two boundaries from drifting as
+the standard query contract evolves.
+
 ### Step 3: scaffold the UI
 
 Once the resource file exists, generate the UI route tree:

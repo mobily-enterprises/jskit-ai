@@ -30,6 +30,115 @@ async function createMinimalApp(appRoot, { name = "tmp-app" } = {}) {
   );
 }
 
+async function writeAppFile(appRoot, relativePath, sourceText) {
+  const absolutePath = path.join(appRoot, relativePath);
+  await mkdir(path.dirname(absolutePath), { recursive: true });
+  await writeFile(absolutePath, sourceText, "utf8");
+}
+
+async function writeStandardCrudPackage(appRoot, {
+  packageName = "contacts",
+  actionsSource = "",
+  serverFiles = {}
+} = {}) {
+  const packageRoot = `packages/${packageName}`;
+  await writeAppFile(
+    appRoot,
+    `${packageRoot}/package.json`,
+    `${JSON.stringify(
+      {
+        name: `@local/${packageName}`,
+        version: "0.1.0",
+        type: "module"
+      },
+      null,
+      2
+    )}\n`
+  );
+  await writeAppFile(
+    appRoot,
+    `${packageRoot}/package.descriptor.mjs`,
+    `export default Object.freeze({
+  packageId: "@local/${packageName}",
+  version: "0.1.0",
+  kind: "runtime",
+  capabilities: {
+    provides: ["crud.${packageName}"],
+    requires: []
+  },
+  runtime: {
+    server: {
+      providers: []
+    }
+  },
+  metadata: {
+    jskit: {
+      scaffoldShape: "crud-server-v1",
+      tableOwnership: {
+        tables: [
+          {
+            tableName: "${packageName.replaceAll("-", "_")}",
+            idColumn: "id",
+            provenance: "crud-server-generator",
+            ownerKind: "crud-package"
+          }
+        ]
+      }
+    }
+  },
+  mutations: {
+    files: []
+  }
+});
+`
+  );
+  await writeAppFile(
+    appRoot,
+    `${packageRoot}/src/server/actions.js`,
+    actionsSource
+  );
+
+  for (const [relativePath, sourceText] of Object.entries(serverFiles)) {
+    await writeAppFile(
+      appRoot,
+      `${packageRoot}/src/server/${relativePath}`,
+      sourceText
+    );
+  }
+}
+
+function createCanonicalCrudActionsSource() {
+  return `import {
+  createStandardCrudListQueryValidators,
+  createStandardCrudViewQueryValidators
+} from "@jskit-ai/crud-core/server/listQueryValidators";
+
+const resource = {};
+const customActionInput = {};
+
+const actions = [
+  {
+    id: "crud.contacts.list",
+    input: [
+      ...createStandardCrudListQueryValidators({ resource })
+    ]
+  },
+  {
+    id: "crud.contacts.view",
+    input: [
+      ...createStandardCrudViewQueryValidators()
+    ]
+  },
+  {
+    id: "contacts.rebuild-index",
+    input: customActionInput
+  }
+];
+
+export { actions };
+`;
+}
+
 test("doctor flags inline structured filter definitions in page files", async () => {
   await withTempDir(async (cwd) => {
     const appRoot = path.join(cwd, "doctor-inline-filter-definitions-app");
@@ -206,6 +315,176 @@ test("doctor accepts shared filter definitions imported into runtimes and explic
       ].join("\n"),
       "utf8"
     );
+
+    const doctorResult = runCli({
+      cwd: appRoot,
+      args: ["doctor", "--json"]
+    });
+
+    assert.equal(doctorResult.status, 0, String(doctorResult.stderr || ""));
+    const payload = JSON.parse(String(doctorResult.stdout || "{}"));
+    assert.deepEqual(payload.issues, []);
+  });
+});
+
+test("doctor flags stale query validator groups in standard generated CRUD packages", async () => {
+  await withTempDir(async (cwd) => {
+    const appRoot = path.join(cwd, "doctor-stale-crud-query-groups-app");
+    await createMinimalApp(appRoot, { name: "doctor-stale-crud-query-groups-app" });
+    await writeStandardCrudPackage(appRoot, {
+      actionsSource: `import {
+  listCursorPaginationQueryValidator,
+  listSearchQueryValidator,
+  lookupIncludeQueryValidator
+} from "@jskit-ai/crud-core/server/listQueryValidators";
+
+const actions = [
+  {
+    id: "crud.contacts.list",
+    input: [
+      listCursorPaginationQueryValidator,
+      listSearchQueryValidator,
+      lookupIncludeQueryValidator
+    ]
+  },
+  {
+    id: "crud.contacts.view",
+    input: [
+      lookupIncludeQueryValidator
+    ]
+  }
+];
+
+export { actions };
+`
+    });
+
+    const doctorResult = runCli({
+      cwd: appRoot,
+      args: ["doctor", "--json"]
+    });
+
+    assert.equal(doctorResult.status, 1, String(doctorResult.stderr || ""));
+    const payload = JSON.parse(String(doctorResult.stdout || "{}"));
+    assert.equal(payload.issues.length, 2);
+    assert.match(
+      String(payload.issues[0] || ""),
+      /\[crud-read-contract:list-query-group\]/
+    );
+    assert.match(
+      String(payload.issues[1] || ""),
+      /\[crud-read-contract:view-query-group\]/
+    );
+  });
+});
+
+test("doctor accepts canonical CRUD query groups without constraining custom actions", async () => {
+  await withTempDir(async (cwd) => {
+    const appRoot = path.join(cwd, "doctor-canonical-crud-query-groups-app");
+    await createMinimalApp(appRoot, { name: "doctor-canonical-crud-query-groups-app" });
+    await writeStandardCrudPackage(appRoot, {
+      actionsSource: createCanonicalCrudActionsSource()
+    });
+
+    const doctorResult = runCli({
+      cwd: appRoot,
+      args: ["doctor", "--json"]
+    });
+
+    assert.equal(doctorResult.status, 0, String(doctorResult.stderr || ""));
+    const payload = JSON.parse(String(doctorResult.stdout || "{}"));
+    assert.deepEqual(payload.issues, []);
+  });
+});
+
+test("doctor rejects the generic filter runtime in standard generated CRUD packages", async () => {
+  await withTempDir(async (cwd) => {
+    const appRoot = path.join(cwd, "doctor-generic-crud-filter-runtime-app");
+    await createMinimalApp(appRoot, { name: "doctor-generic-crud-filter-runtime-app" });
+    await writeStandardCrudPackage(appRoot, {
+      actionsSource: createCanonicalCrudActionsSource(),
+      serverFiles: {
+        "contactListFilterSupport.js": `import {
+  createCrudListFilters
+} from "@jskit-ai/crud-core/server/listFilters";
+import {
+  CONTACTS_LIST_FILTER_DEFINITIONS
+} from "../shared/contactListFilters.js";
+
+const filterRuntime = createCrudListFilters(
+  CONTACTS_LIST_FILTER_DEFINITIONS,
+  {
+    columns: {
+      onlyArchived: "archived"
+    }
+  }
+);
+const queryValidator = filterRuntime.createQueryValidator({
+  invalidValues: "reject"
+});
+
+export { queryValidator };
+`,
+        "../shared/contactListFilters.js": `export const CONTACTS_LIST_FILTER_DEFINITIONS = Object.freeze({
+  onlyArchived: {
+    type: "flag",
+    label: "Archived"
+  }
+});
+`
+      }
+    });
+
+    const doctorResult = runCli({
+      cwd: appRoot,
+      args: ["doctor", "--json"]
+    });
+
+    assert.equal(doctorResult.status, 1, String(doctorResult.stderr || ""));
+    const payload = JSON.parse(String(doctorResult.stdout || "{}"));
+    assert.equal(payload.issues.length, 1);
+    assert.match(
+      String(payload.issues[0] || ""),
+      /\[filters:generated-crud-contract\]/
+    );
+  });
+});
+
+test("doctor accepts the canonical filter contract in standard generated CRUD packages", async () => {
+  await withTempDir(async (cwd) => {
+    const appRoot = path.join(cwd, "doctor-canonical-crud-filter-contract-app");
+    await createMinimalApp(appRoot, { name: "doctor-canonical-crud-filter-contract-app" });
+    await writeStandardCrudPackage(appRoot, {
+      actionsSource: createCanonicalCrudActionsSource(),
+      serverFiles: {
+        "contactListFilterSupport.js": `import {
+  createCrudListFilterContract
+} from "@jskit-ai/crud-core/server/listFilters";
+import {
+  CONTACTS_LIST_FILTER_DEFINITIONS
+} from "../shared/contactListFilters.js";
+
+const filterContract = createCrudListFilterContract(
+  CONTACTS_LIST_FILTER_DEFINITIONS,
+  {
+    invalidValues: "reject",
+    columns: {
+      onlyArchived: "archived"
+    }
+  }
+);
+
+export { filterContract };
+`,
+        "../shared/contactListFilters.js": `export const CONTACTS_LIST_FILTER_DEFINITIONS = Object.freeze({
+  onlyArchived: {
+    type: "flag",
+    label: "Archived"
+  }
+});
+`
+      }
+    });
 
     const doctorResult = runCli({
       cwd: appRoot,

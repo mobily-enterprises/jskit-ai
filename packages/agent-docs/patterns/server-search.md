@@ -128,25 +128,39 @@ Keep `applyFilter` focused on query semantics:
 - do not put permission checks there
 - do not turn it into a second service layer
 
-Add route validators when:
+Add public query validation when:
 - the filter key is public and may arrive from HTTP query params
 - the page/UI needs a stable, validated query contract
 - malformed values should either be rejected or deliberately discarded
 
-Example route layer:
+For standard CRUD routes and actions, pass the structured-filter validator
+through the standard group's dedicated option:
 
 ```js
 input: composeSchemaDefinitions([
   workspaceSlugParamsValidator,
-  listCursorPaginationQueryValidator,
-  listSearchQueryValidator,
-  vetsListFiltersQueryValidator,
+  ...createStandardCrudListQueryValidators({
+    resource,
+    listFilterQueryValidator: vetsListFilterContract.queryValidator
+  })
 ])
 ```
 
 That means:
-- `q` and the structured filter keys are accepted publicly
+- pagination, `q`, parent filters, includes, sparse fieldsets, and the
+  structured filter keys remain one standard group
 - the repository may still add internal-only keys later
+
+Use the same `listFilterQueryValidator` option with
+`createCrudJsonApiRouteContracts(...)` at the route boundary. The layers
+remain independently validated; they share a small standard validator group
+rather than duplicating its current members.
+
+If `resource.contract.listFilters.queryValidator` already owns the filter
+validator, call `createStandardCrudListQueryValidators({ resource })`.
+Append validators separately only for genuinely additional, non-filter query
+input. Standard view actions use
+`createStandardCrudViewQueryValidators()`.
 
 For structured list filters, prefer the generated contract shape:
 
@@ -229,5 +243,5 @@ function buildScopedQuery(query = {}, context = null) {
 - Same key, same field, simple behavior: `search: true`
 - Public alias or multi-field search: `searchSchema`
 - Complex SQL semantics: `searchSchema` + `applyFilter`
-- Public HTTP query key: add a route validator
+- Public HTTP query key: add it through the standard route/action query group
 - Internal-only repository key: inject it in `repository.js`, skip the public validator
