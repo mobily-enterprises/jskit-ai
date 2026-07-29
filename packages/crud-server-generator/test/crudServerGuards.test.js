@@ -351,7 +351,11 @@ test("template repository returns a stable 400 for unknown sparse fields", async
       resources: {
         customers: {
           async query() {
-            throw new Error("Unknown sparse field 'passwordHash' requested for 'customers'");
+            const error = new Error(
+              "Unknown sparse field 'passwordHash' requested for 'customers'"
+            );
+            error.code = "REST_API_FIELDSET_INVALID";
+            throw error;
           }
         }
       }
