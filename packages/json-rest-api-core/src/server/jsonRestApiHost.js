@@ -2,6 +2,7 @@ import { Api } from "hooked-api";
 import {
   AutoFilterPlugin,
   QueryProjectionsPlugin,
+  REST_API_FIELDSET_ERROR_CODE,
   RestApiKnexPlugin,
   RestApiPlugin,
   RowPolicyPlugin
@@ -647,9 +648,7 @@ async function returnNullWhenJsonRestResourceMissing(run) {
 }
 
 function isJsonRestSparseFieldError(error = null) {
-  return /^Unknown sparse field '.+' requested for '.+'$/u.test(
-    normalizeJsonRestText(error?.message)
-  );
+  return normalizeJsonRestText(error?.code) === REST_API_FIELDSET_ERROR_CODE;
 }
 
 async function returnBadRequestWhenJsonRestFieldsetInvalid(run) {

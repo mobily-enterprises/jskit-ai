@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
 import { normalizeRecordId } from "@jskit-ai/kernel/shared/support/normalize";
+import { RestApiFieldsetError } from "json-rest-api";
 
 import {
   INTERNAL_JSON_REST_API,
@@ -27,7 +28,7 @@ test("package exports include explicit server jsonRestApiHost entrypoint only", 
   const exportsMap = packageJson && typeof packageJson === "object" ? packageJson.exports : {};
   assert.equal(exportsMap["./server/jsonRestApiHost"], "./src/server/jsonRestApiHost.js");
   assert.equal(exportsMap["./server"], undefined);
-  assert.equal(packageJson.dependencies?.["json-rest-api"], "^1.0.26");
+  assert.equal(packageJson.dependencies?.["json-rest-api"], "^1.0.27");
 });
 
 test("server jsonRestApiHost entrypoint no longer exports host-side JSON:API simplification helpers", async () => {
@@ -649,8 +650,11 @@ test("returnNullWhenJsonRestResourceMissing only swallows missing-resource error
   );
 });
 
-test("invalid sparse fields become a stable 400 without swallowing unrelated failures", async () => {
-  const sparseFieldError = new Error("Unknown sparse field 'passwordHash' requested for 'contacts'");
+test("typed invalid sparse fields become a stable 400 without message matching", async () => {
+  const sparseFieldError = new RestApiFieldsetError({
+    field: "passwordHash",
+    resourceType: "contacts"
+  });
 
   await assert.rejects(
     () => returnBadRequestWhenJsonRestFieldsetInvalid(async () => {
@@ -662,6 +666,14 @@ test("invalid sparse fields become a stable 400 without swallowing unrelated fai
       assert.equal(error.message, sparseFieldError.message);
       return true;
     }
+  );
+
+  const messageOnlyError = new Error(sparseFieldError.message);
+  await assert.rejects(
+    () => returnBadRequestWhenJsonRestFieldsetInvalid(async () => {
+      throw messageOnlyError;
+    }),
+    (error) => error === messageOnlyError
   );
 
   const unrelatedError = new Error("database unavailable");
