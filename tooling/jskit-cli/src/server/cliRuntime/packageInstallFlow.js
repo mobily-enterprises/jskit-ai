@@ -28,8 +28,7 @@ import {
   loadAppLocalPackageRegistry
 } from "./packageRegistries.js";
 import {
-  resolvePackageDependencySpecifier,
-  normalizeJskitDependencySpecifier
+  resolvePackageDependencySpecifier
 } from "./localPackageSupport.js";
 import {
   resolvePackageTemplateRoot
@@ -516,8 +515,7 @@ async function applyPackageInstall({
     const resolvedValue = localPackage
       ? resolvePackageDependencySpecifier(localPackage, { existingValue: existingRuntimeDependencyValue })
       : String(dependencyVersion);
-    const normalizedResolvedValue = normalizeJskitDependencySpecifier(dependencyId, resolvedValue);
-    const applied = applyPackageJsonField(appPackageJson, "dependencies", dependencyId, normalizedResolvedValue);
+    const applied = applyPackageJsonField(appPackageJson, "dependencies", dependencyId, resolvedValue);
     if (applied.changed) {
       managedRecord.managed.packageJson.dependencies[dependencyId] = applied.managed;
       touchedFiles.add("package.json");
@@ -558,8 +556,7 @@ async function applyPackageInstall({
     const resolvedValue = localPackage
       ? resolvePackageDependencySpecifier(localPackage, { existingValue: existingDevDependencyValue })
       : String(dependencyVersion);
-    const normalizedResolvedValue = normalizeJskitDependencySpecifier(dependencyId, resolvedValue);
-    const applied = applyPackageJsonField(appPackageJson, "devDependencies", dependencyId, normalizedResolvedValue);
+    const applied = applyPackageJsonField(appPackageJson, "devDependencies", dependencyId, resolvedValue);
     if (applied.changed) {
       managedRecord.managed.packageJson.devDependencies[dependencyId] = applied.managed;
       touchedFiles.add("package.json");
@@ -577,12 +574,11 @@ async function applyPackageInstall({
     const selfDependencyValue = resolvePackageDependencySpecifier(packageEntry, {
       existingValue: existingSelfDependencyValue
     });
-    const normalizedSelfDependencyValue = normalizeJskitDependencySpecifier(packageEntry.packageId, selfDependencyValue);
     const selfApplied = applyPackageJsonField(
       appPackageJson,
       "dependencies",
       packageEntry.packageId,
-      normalizedSelfDependencyValue
+      selfDependencyValue
     );
     if (selfApplied.changed) {
       managedRecord.managed.packageJson.dependencies[packageEntry.packageId] = selfApplied.managed;

@@ -15,37 +15,23 @@ function resolvePackageDependencySpecifier(packageEntry, { existingValue = "" } 
     }
     return toFileDependencySpecifier(packagePath);
   }
+  const publishedVersion = String(
+    packageEntry?.version || packageEntry?.packageJson?.version || ""
+  ).trim();
   if (sourceType === "npm-installed-package") {
-    const normalizedExisting = String(existingValue || "").trim();
-    if (normalizedExisting) {
-      return normalizedExisting;
+    if (publishedVersion) {
+      return publishedVersion;
     }
   }
 
-  const descriptorVersion = String(packageEntry?.version || "").trim();
-  if (descriptorVersion) {
-    return normalizeJskitDependencySpecifier(packageEntry?.packageId, descriptorVersion);
+  const normalizedExisting = String(existingValue || "").trim();
+  if (normalizedExisting) {
+    return normalizedExisting;
   }
-  const packageJsonVersion = String(packageEntry?.packageJson?.version || "").trim();
-  if (packageJsonVersion) {
-    return normalizeJskitDependencySpecifier(packageEntry?.packageId, packageJsonVersion);
+  if (publishedVersion) {
+    return publishedVersion;
   }
   throw createCliError(`Unable to resolve dependency specifier for ${String(packageEntry?.packageId || "unknown package")}.`);
-}
-
-function normalizeJskitDependencySpecifier(packageId, dependencySpecifier) {
-  const normalizedPackageId = String(packageId || "").trim();
-  const normalizedSpecifier = String(dependencySpecifier || "").trim();
-  if (!normalizedSpecifier || !normalizedPackageId.startsWith("@jskit-ai/")) {
-    return normalizedSpecifier;
-  }
-
-  const semverMatch = /^(\d+)\.\d+\.\d+(?:[.+-][0-9A-Za-z.-]+)?$/.exec(normalizedSpecifier);
-  if (!semverMatch) {
-    return normalizedSpecifier;
-  }
-
-  return `${semverMatch[1]}.x`;
 }
 
 function normalizePackageNameSegment(rawValue, { label = "package name" } = {}) {
@@ -378,7 +364,6 @@ function resolveLocalDependencyOrder(initialPackageIds, packageRegistry) {
 
 export {
   resolvePackageDependencySpecifier,
-  normalizeJskitDependencySpecifier,
   normalizePackageNameSegment,
   normalizeScopeName,
   resolveDefaultLocalScopeFromAppName,
