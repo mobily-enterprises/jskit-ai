@@ -19,19 +19,31 @@ function resolvePackageDependencySpecifier(packageEntry, { existingValue = "" } 
     packageEntry?.version || packageEntry?.packageJson?.version || ""
   ).trim();
   if (sourceType === "npm-installed-package") {
-    if (publishedVersion) {
-      return publishedVersion;
+    const normalizedExisting = String(existingValue || "").trim();
+    if (normalizedExisting) {
+      return normalizedExisting;
     }
   }
 
-  const normalizedExisting = String(existingValue || "").trim();
-  if (normalizedExisting) {
-    return normalizedExisting;
-  }
   if (publishedVersion) {
-    return publishedVersion;
+    return normalizeJskitDependencySpecifier(packageEntry?.packageId, publishedVersion);
   }
   throw createCliError(`Unable to resolve dependency specifier for ${String(packageEntry?.packageId || "unknown package")}.`);
+}
+
+function normalizeJskitDependencySpecifier(packageId, dependencySpecifier) {
+  const normalizedPackageId = String(packageId || "").trim();
+  const normalizedSpecifier = String(dependencySpecifier || "").trim();
+  if (!normalizedSpecifier || !normalizedPackageId.startsWith("@jskit-ai/")) {
+    return normalizedSpecifier;
+  }
+
+  const semverMatch = /^(\d+)\.\d+\.\d+(?:[.+-][0-9A-Za-z.-]+)?$/.exec(normalizedSpecifier);
+  if (!semverMatch) {
+    return normalizedSpecifier;
+  }
+
+  return `${semverMatch[1]}.x`;
 }
 
 function normalizePackageNameSegment(rawValue, { label = "package name" } = {}) {
