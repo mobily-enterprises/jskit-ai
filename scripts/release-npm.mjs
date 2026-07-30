@@ -784,25 +784,30 @@ async function publishPackages({
   }
 }
 
-function runCatalogBuild({ dryRun, enabled = true }) {
+function runRootNpmScript({
+  dryRun,
+  enabled = true,
+  scriptName,
+  skippedMessage
+}) {
   if (!enabled) {
-    process.stdout.write("Catalog build skipped.\n");
+    process.stdout.write(`${skippedMessage}\n`);
     return;
   }
 
   if (dryRun) {
-    process.stdout.write("[dry-run] npm run catalog:build\n");
+    process.stdout.write(`[dry-run] npm run ${scriptName}\n`);
     return;
   }
 
-  const result = spawnSync("npm", ["run", "catalog:build"], {
+  const result = spawnSync("npm", ["run", scriptName], {
     cwd: REPO_ROOT,
     stdio: "inherit",
     env: process.env
   });
 
   if (result.status !== 0) {
-    throw new Error("Catalog build failed.");
+    throw new Error(`${scriptName} failed.`);
   }
 }
 
@@ -874,9 +879,17 @@ async function main() {
 
   refreshPackageLock({ dryRun: options.dryRun });
 
-  runCatalogBuild({
+  runRootNpmScript({
     dryRun: options.dryRun,
-    enabled: !onlyMode || publishSet.has("@jskit-ai/jskit-catalog")
+    enabled: !onlyMode || publishSet.has("@jskit-ai/jskit-catalog"),
+    scriptName: "catalog:build",
+    skippedMessage: "Catalog build skipped."
+  });
+  runRootNpmScript({
+    dryRun: options.dryRun,
+    enabled: !onlyMode || publishSet.has("@jskit-ai/agent-docs"),
+    scriptName: "agent-docs:build",
+    skippedMessage: "Agent docs build skipped."
   });
 
   if (options.dryRun) {

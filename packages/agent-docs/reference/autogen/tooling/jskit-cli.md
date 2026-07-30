@@ -247,6 +247,7 @@ Exports
 - `createLocalPackageScaffoldFiles({ packageId, packageDescription })`
 - `resolveLocalDependencyOrder(initialPackageIds, packageRegistry)`
 Local functions
+- `normalizeJskitDependencySpecifier(packageId, dependencySpecifier)`
 - `createLocalPackageDescriptorTemplate({ packageId, description })`
 
 ### `src/server/cliRuntime/mutationApplication.js`
