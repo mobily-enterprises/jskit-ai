@@ -96,13 +96,13 @@ async function createExternalDescriptorPackage(appRoot, { packageId, version }) 
   );
 }
 
-test("managed package reapplication keeps JSKIT app-root dependencies exact", async () => {
+test("managed package reapplication preserves an exact JSKIT app-root dependency", async () => {
   await withTempDir(async (cwd) => {
     const appRoot = path.join(cwd, "jskit-root-dependency-app");
     const packageId = "@jskit-ai/example-runtime";
     await createMinimalApp(appRoot, {
       dependencies: {
-        [packageId]: "0.x"
+        [packageId]: "2.3.4"
       },
       name: "demo-app"
     });
@@ -124,6 +124,12 @@ test("managed package reapplication keeps JSKIT app-root dependencies exact", as
       packageId,
       version: "2.3.5"
     });
+    appPackageJson.dependencies[packageId] = "2.3.5";
+    await writeFile(
+      path.join(appRoot, "package.json"),
+      `${JSON.stringify(appPackageJson, null, 2)}\n`,
+      "utf8"
+    );
     const updateResult = runCli({
       cwd: appRoot,
       args: ["update", "package", packageId]

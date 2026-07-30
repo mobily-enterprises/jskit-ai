@@ -238,7 +238,6 @@ Local functions
 ### `src/server/cliRuntime/localPackageSupport.js`
 Exports
 - `resolvePackageDependencySpecifier(packageEntry, { existingValue = "" } = {})`
-- `normalizeJskitDependencySpecifier(packageId, dependencySpecifier)`
 - `normalizePackageNameSegment(rawValue, { label = "package name" } = {})`
 - `normalizeScopeName(rawScope)`
 - `resolveDefaultLocalScopeFromAppName(appPackageName)`
@@ -248,6 +247,7 @@ Exports
 - `createLocalPackageScaffoldFiles({ packageId, packageDescription })`
 - `resolveLocalDependencyOrder(initialPackageIds, packageRegistry)`
 Local functions
+- `normalizeJskitDependencySpecifier(packageId, dependencySpecifier)`
 - `createLocalPackageDescriptorTemplate({ packageId, description })`
 
 ### `src/server/cliRuntime/mutationApplication.js`
