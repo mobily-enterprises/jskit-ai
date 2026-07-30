@@ -9,7 +9,10 @@ import { createCliRunner } from "../../testUtils/runCli.js";
 const CLI_PATH = fileURLToPath(new URL("../bin/jskit.js", import.meta.url));
 const runCli = createCliRunner(CLI_PATH);
 
-async function createMinimalApp(appRoot, { name = "tmp-app" } = {}) {
+async function createMinimalApp(appRoot, {
+  dependencies = {},
+  name = "tmp-app"
+} = {}) {
   await mkdir(appRoot, { recursive: true });
   await writeFile(
     path.join(appRoot, "package.json"),
@@ -18,7 +21,8 @@ async function createMinimalApp(appRoot, { name = "tmp-app" } = {}) {
         name,
         version: "0.1.0",
         private: true,
-        type: "module"
+        type: "module",
+        dependencies
       },
       null,
       2
@@ -91,6 +95,45 @@ async function createExternalDescriptorPackage(appRoot, { packageId, version }) 
     "utf8"
   );
 }
+
+test("managed package reapplication keeps JSKIT app-root dependencies exact", async () => {
+  await withTempDir(async (cwd) => {
+    const appRoot = path.join(cwd, "jskit-root-dependency-app");
+    const packageId = "@jskit-ai/example-runtime";
+    await createMinimalApp(appRoot, {
+      dependencies: {
+        [packageId]: "0.x"
+      },
+      name: "demo-app"
+    });
+    await createExternalDescriptorPackage(appRoot, {
+      packageId,
+      version: "2.3.4"
+    });
+
+    const addResult = runCli({
+      cwd: appRoot,
+      args: ["add", "package", packageId]
+    });
+    assert.equal(addResult.status, 0, String(addResult.stderr || ""));
+
+    let appPackageJson = JSON.parse(await readFile(path.join(appRoot, "package.json"), "utf8"));
+    assert.equal(appPackageJson.dependencies[packageId], "2.3.4");
+
+    await createExternalDescriptorPackage(appRoot, {
+      packageId,
+      version: "2.3.5"
+    });
+    const updateResult = runCli({
+      cwd: appRoot,
+      args: ["update", "package", packageId]
+    });
+    assert.equal(updateResult.status, 0, String(updateResult.stderr || ""));
+
+    appPackageJson = JSON.parse(await readFile(path.join(appRoot, "package.json"), "utf8"));
+    assert.equal(appPackageJson.dependencies[packageId], "2.3.5");
+  });
+});
 
 test("add package adopts installed external npm package descriptor into lock", async () => {
   await withTempDir(async (cwd) => {
