@@ -238,7 +238,6 @@ Local functions
 ### `src/server/cliRuntime/localPackageSupport.js`
 Exports
 - `resolvePackageDependencySpecifier(packageEntry, { existingValue = "" } = {})`
-- `normalizeJskitDependencySpecifier(packageId, dependencySpecifier)`
 - `normalizePackageNameSegment(rawValue, { label = "package name" } = {})`
 - `normalizeScopeName(rawScope)`
 - `resolveDefaultLocalScopeFromAppName(appPackageName)`
