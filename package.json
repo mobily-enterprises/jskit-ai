@@ -24,11 +24,12 @@
     "agent-docs:build": "node ./scripts/build-agent-docs.mjs",
     "generated:refs:check": "node ./scripts/check-generated-reference-paths.mjs",
     "generated:check": "node ./scripts/check-generated-files.mjs",
-    "test:release-npm": "node --test ./scripts/release-npm.test.mjs",
+    "test:release-npm": "node --test ./scripts/release-npm.test.mjs ./scripts/publish-prepared-npm.test.mjs",
     "security:audit": "npm audit --audit-level=low",
     "files:checklist": "./scripts/files-checklist.sh",
     "release:npm": "node ./scripts/release-npm.mjs",
-    "release:npm:dry-run": "node ./scripts/release-npm.mjs --dry-run"
+    "release:npm:dry-run": "node ./scripts/release-npm.mjs --dry-run",
+    "release:npm:prepared": "node ./scripts/publish-prepared-npm.mjs"
   },
   "workspaces": [
     "packages/*",
