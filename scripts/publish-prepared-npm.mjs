@@ -361,10 +361,8 @@ function selectPreparedRecords(records, packageSpecs) {
 }
 
 function buildPreparedReleaseGraph(selected) {
-  const inDegree = new Map();
   const adjacency = new Map();
   for (const name of selected.keys()) {
-    inDegree.set(name, 0);
     adjacency.set(name, new Set());
   }
   function addEdge(dependencyName, dependantName) {
@@ -372,7 +370,6 @@ function buildPreparedReleaseGraph(selected) {
       return;
     }
     adjacency.get(dependencyName).add(dependantName);
-    inDegree.set(dependantName, inDegree.get(dependantName) + 1);
   }
 
   for (const record of selected.values()) {
@@ -421,26 +418,96 @@ function buildPreparedReleaseGraph(selected) {
     }
   }
 
-  const queue = Array.from(inDegree.entries())
+  let nextIndex = 0;
+  const indexes = new Map();
+  const lowLinks = new Map();
+  const stack = [];
+  const onStack = new Set();
+  const components = [];
+
+  function connectComponent(name) {
+    indexes.set(name, nextIndex);
+    lowLinks.set(name, nextIndex);
+    nextIndex += 1;
+    stack.push(name);
+    onStack.add(name);
+
+    for (const dependant of Array.from(adjacency.get(name)).sort()) {
+      if (!indexes.has(dependant)) {
+        connectComponent(dependant);
+        lowLinks.set(name, Math.min(lowLinks.get(name), lowLinks.get(dependant)));
+      } else if (onStack.has(dependant)) {
+        lowLinks.set(name, Math.min(lowLinks.get(name), indexes.get(dependant)));
+      }
+    }
+
+    if (lowLinks.get(name) !== indexes.get(name)) {
+      return;
+    }
+    const component = [];
+    while (stack.length > 0) {
+      const member = stack.pop();
+      onStack.delete(member);
+      component.push(member);
+      if (member === name) {
+        break;
+      }
+    }
+    component.sort();
+    components.push(component);
+  }
+
+  for (const name of Array.from(selected.keys()).sort()) {
+    if (!indexes.has(name)) {
+      connectComponent(name);
+    }
+  }
+
+  const componentByName = new Map();
+  const componentInDegree = new Map();
+  const componentAdjacency = new Map();
+  for (const [componentIndex, component] of components.entries()) {
+    componentInDegree.set(componentIndex, 0);
+    componentAdjacency.set(componentIndex, new Set());
+    for (const name of component) {
+      componentByName.set(name, componentIndex);
+    }
+  }
+  for (const [dependency, dependants] of adjacency.entries()) {
+    const dependencyComponent = componentByName.get(dependency);
+    for (const dependant of dependants) {
+      const dependantComponent = componentByName.get(dependant);
+      if (
+        dependencyComponent === dependantComponent
+        || componentAdjacency.get(dependencyComponent).has(dependantComponent)
+      ) {
+        continue;
+      }
+      componentAdjacency.get(dependencyComponent).add(dependantComponent);
+      componentInDegree.set(dependantComponent, componentInDegree.get(dependantComponent) + 1);
+    }
+  }
+
+  const compareComponents = (left, right) => components[left][0].localeCompare(components[right][0]);
+  const queue = Array.from(componentInDegree.entries())
     .filter(([, degree]) => degree === 0)
-    .map(([name]) => name)
-    .sort();
+    .map(([componentIndex]) => componentIndex)
+    .sort(compareComponents);
   const order = [];
   while (queue.length > 0) {
-    const name = queue.shift();
-    order.push(name);
-    for (const dependant of Array.from(adjacency.get(name)).sort()) {
-      const degree = inDegree.get(dependant) - 1;
-      inDegree.set(dependant, degree);
+    const componentIndex = queue.shift();
+    order.push(...components[componentIndex]);
+    for (const dependant of Array.from(componentAdjacency.get(componentIndex)).sort(compareComponents)) {
+      const degree = componentInDegree.get(dependant) - 1;
+      componentInDegree.set(dependant, degree);
       if (degree === 0) {
         queue.push(dependant);
-        queue.sort();
+        queue.sort(compareComponents);
       }
     }
   }
   if (order.length !== selected.size) {
-    const cyclic = Array.from(selected.keys()).filter((name) => !order.includes(name)).sort();
-    throw new Error(`Prepared release dependency cycle: ${cyclic.join(", ")}.`);
+    throw new Error("Prepared release component ordering did not include every selected package.");
   }
   return order;
 }

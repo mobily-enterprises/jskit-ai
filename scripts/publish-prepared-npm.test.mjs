@@ -101,8 +101,18 @@ test("prepared release order keeps dependencies and catalog closure before consu
   ]);
 });
 
-test("prepared release rejects real dependency cycles", () => {
+test("prepared release deterministically orders strongly connected package cycles", () => {
   const selected = new Map([
+    ["@jskit-ai/consumer", {
+      name: "@jskit-ai/consumer",
+      version: "0.1.2",
+      dependencies: [{ name: "@jskit-ai/b", version: "0.1.2", ordersBefore: true }]
+    }],
+    ["@jskit-ai/foundation", {
+      name: "@jskit-ai/foundation",
+      version: "0.1.2",
+      dependencies: []
+    }],
     ["@jskit-ai/a", {
       name: "@jskit-ai/a",
       version: "0.1.2",
@@ -111,10 +121,25 @@ test("prepared release rejects real dependency cycles", () => {
     ["@jskit-ai/b", {
       name: "@jskit-ai/b",
       version: "0.1.2",
-      dependencies: [{ name: "@jskit-ai/a", version: "0.1.2", ordersBefore: true }]
+      dependencies: [{
+        name: "@jskit-ai/a",
+        version: "0.1.2",
+        ordersBefore: true
+      }, {
+        name: "@jskit-ai/foundation",
+        version: "0.1.2",
+        ordersBefore: true
+      }]
     }]
   ]);
-  assert.throws(() => buildPreparedReleaseGraph(selected), /dependency cycle/u);
+  const expected = [
+    "@jskit-ai/foundation",
+    "@jskit-ai/a",
+    "@jskit-ai/b",
+    "@jskit-ai/consumer"
+  ];
+  assert.deepEqual(buildPreparedReleaseGraph(selected), expected);
+  assert.deepEqual(buildPreparedReleaseGraph(new Map(Array.from(selected).reverse())), expected);
 });
 
 test("closure retains exact JSKIT dependencies that are not in this workspace", async () => {
