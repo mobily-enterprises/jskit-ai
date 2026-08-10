@@ -120,6 +120,7 @@ test("prepared CRUD, calendar-date, and toolchain manifests pin one exact depend
     featureServerGenerator,
     httpRuntime,
     jsonRestApiCore,
+    usersCore,
     usersWeb,
     catalog,
     cli,
@@ -135,6 +136,7 @@ test("prepared CRUD, calendar-date, and toolchain manifests pin one exact depend
     readWorkspacePackageJson("packages/feature-server-generator"),
     readWorkspacePackageJson("packages/http-runtime"),
     readWorkspacePackageJson("packages/json-rest-api-core"),
+    readWorkspacePackageJson("packages/users-core"),
     readWorkspacePackageJson("packages/users-web"),
     readWorkspacePackageJson("tooling/jskit-catalog"),
     readWorkspacePackageJson("tooling/jskit-cli"),
@@ -149,11 +151,19 @@ test("prepared CRUD, calendar-date, and toolchain manifests pin one exact depend
   const featureServerGeneratorDescriptor = (
     await import(new URL("../packages/feature-server-generator/package.descriptor.mjs", import.meta.url))
   ).default;
+  const usersCoreDescriptor = (
+    await import(new URL("../packages/users-core/package.descriptor.mjs", import.meta.url))
+  ).default;
+  const usersWebDescriptor = (
+    await import(new URL("../packages/users-web/package.descriptor.mjs", import.meta.url))
+  ).default;
 
   assert.equal(authCore.version, "0.1.145");
   assert.equal(httpRuntime.version, "0.1.145");
+  assert.equal(usersCore.version, "0.1.160");
   assert.equal(usersWeb.version, "0.1.164");
   assert.equal(usersWeb.dependencies["@jskit-ai/http-runtime"], httpRuntime.version);
+  assert.equal(usersWeb.dependencies["@jskit-ai/users-core"], usersCore.version);
   assert.equal(crudCore.version, "0.1.157");
   assert.equal(databaseRuntime.version, "0.1.146");
   assert.equal(databaseRuntimeMysql.version, "0.1.145");
@@ -161,9 +171,22 @@ test("prepared CRUD, calendar-date, and toolchain manifests pin one exact depend
   assert.equal(databaseRuntimePostgres.version, "0.1.144");
   assert.equal(databaseRuntimePostgres.dependencies["@jskit-ai/database-runtime"], databaseRuntime.version);
   assert.equal(jsonRestApiCore.version, "0.1.91");
+  assert.equal(usersCore.dependencies["@jskit-ai/auth-core"], authCore.version);
+  assert.equal(usersCore.dependencies["@jskit-ai/database-runtime"], databaseRuntime.version);
+  assert.equal(usersCore.dependencies["@jskit-ai/http-runtime"], httpRuntime.version);
+  assert.equal(usersCore.dependencies["@jskit-ai/json-rest-api-core"], jsonRestApiCore.version);
   assert.equal(crudCore.dependencies["@jskit-ai/database-runtime"], databaseRuntime.version);
   assert.equal(crudCore.dependencies["@jskit-ai/http-runtime"], httpRuntime.version);
+  assert.equal(crudCore.dependencies["@jskit-ai/users-core"], usersCore.version);
   assert.equal(crudCore.dependencies["@jskit-ai/users-web"], usersWeb.version);
+  assert.equal(
+    usersCoreDescriptor.mutations.dependencies.runtime["@jskit-ai/crud-core"],
+    crudCore.version
+  );
+  assert.equal(
+    usersWebDescriptor.mutations.dependencies.runtime["@jskit-ai/users-core"],
+    usersCore.version
+  );
   assert.equal(crudServerGenerator.version, "0.1.159");
   assert.equal(crudServerGenerator.dependencies["@jskit-ai/crud-core"], crudCore.version);
   assert.equal(crudServerGenerator.dependencies["@jskit-ai/database-runtime"], databaseRuntime.version);

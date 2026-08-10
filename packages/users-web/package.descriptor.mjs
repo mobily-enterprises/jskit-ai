@@ -291,7 +291,7 @@ export default Object.freeze({
         "@jskit-ai/kernel": "0.1.146",
         "@jskit-ai/shell-web": "0.1.147",
         "@jskit-ai/uploads-image-web": "0.1.122",
-        "@jskit-ai/users-core": "0.1.159"
+        "@jskit-ai/users-core": "0.1.160"
       },
       dev: {}
     },
