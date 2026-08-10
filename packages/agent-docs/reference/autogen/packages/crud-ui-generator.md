@@ -29,6 +29,7 @@ Local functions
 - `normalizeRelativeAppPath(value = "")`
 - `requireTargetRootOption(options = {})`
 - `resolveListTargetFile(targetRoot = "")`
+- `resolveFormHelperPaths(targetRoot = "")`
 - `parseOperationsOption(options)`
 - `parseDisplayFieldsOption(options)`
 - `parseParentTitleOption(options)`
@@ -138,6 +139,7 @@ Local functions
 - `resolveAnchorScopeStart(source = "", { anchorIndex = -1, anchor = "" } = {})`
 - `buildAnchorInsertions(operationName, field)`
 - `resolveGeneratedTargetComment(source = "", commentName = "")`
+- `resolveGeneratedTargetPath(appRoot, targetAbsolutePath, generatedTarget = "")`
 - `resolveOperationTargetFiles({ appRoot, operationName, targetAbsolutePath, source = "" } = {})`
 - `parseSubcommandArgs(args = [])`
 

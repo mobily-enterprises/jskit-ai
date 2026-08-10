@@ -458,7 +458,12 @@ That creates the baseline CRUD route tree:
 - `w/[workspaceSlug]/admin/contacts/new.vue`
 - `w/[workspaceSlug]/admin/contacts/[contactId]/index.vue`
 - `w/[workspaceSlug]/admin/contacts/[contactId]/edit.vue`
-- shared `_components` files under the same route root
+- shared form files under the mirrored non-routed
+  `src/components/w/[workspaceSlug]/admin/contacts/` root
+
+The mirrored component root is intentional. The configured file router scans
+Vue files below `src/pages/`, so reusable Vue helpers must stay outside that
+directory or they become browser routes.
 
 Generated list, view, and lookup reads use the resource contract as their
 response authority. They return every field declared for output by default,
@@ -620,7 +625,8 @@ That gives you a normal child route tree:
 - `w/[workspaceSlug]/admin/contacts/[contactId]/addresses/new.vue`
 - `w/[workspaceSlug]/admin/contacts/[contactId]/addresses/[addressId]/index.vue`
 - `w/[workspaceSlug]/admin/contacts/[contactId]/addresses/[addressId]/edit.vue`
-- shared `_components` files under the same route root
+- shared form files under the mirrored non-routed
+  `src/components/w/[workspaceSlug]/admin/contacts/[contactId]/addresses/` root
 
 ### Step 5: remove the generated shell placement by hand
 

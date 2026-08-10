@@ -263,8 +263,10 @@ src/pages/w/[workspaceSlug]/admin/contacts/
   new.vue
   [contactId]/index.vue
   [contactId]/edit.vue
-  _components/CrudAddEditForm.vue
-  _components/CrudAddEditFormFields.js
+
+src/components/w/[workspaceSlug]/admin/contacts/
+  CrudAddEditForm.vue
+  CrudAddEditFormFields.js
 
 config/roles.js
 src/placement.js
@@ -452,9 +454,16 @@ src/pages/w/[workspaceSlug]/admin/contacts/
   [contactId]/edit.vue
   listBulkActions.js
   listFilters.js
-  _components/CrudAddEditForm.vue
-  _components/CrudAddEditFormFields.js
+
+src/components/w/[workspaceSlug]/admin/contacts/
+  CrudAddEditForm.vue
+  CrudAddEditFormFields.js
 ```
+
+The shared Vue form lives in the mirrored `src/components/` tree because the
+file router treats every Vue file below `src/pages/` as a route. The normalized
+CRUD target root keeps the helper scoped to the same configured surface and
+route family without exposing another browser route.
 
 ### `index.vue`
 
@@ -779,7 +788,7 @@ The safe mental model is:
 - use `usePaths().api(...)` when you need a custom scoped API path and the higher-level runtime does not already resolve it for you
 - keep `apiUrlTemplate` path-only and put endpoint query strings in `requestQueryParams`
 
-### `_components/CrudAddEditForm.vue`
+### `src/components/.../CrudAddEditForm.vue`
 
 This is the generated field bridge for the shared add/edit screen.
 
@@ -790,7 +799,7 @@ It owns:
 
 It does **not** own persistence logic or the shared screen chrome. `CrudAddEditScreen` from `users-web` owns the common title, load state, retry action, save/cancel action row, and form surface.
 
-### `_components/CrudAddEditFormFields.js`
+### `src/components/.../CrudAddEditFormFields.js`
 
 This is the generated field-definition module used by `useCrudAddEdit()`.
 
@@ -839,7 +848,7 @@ Use this rule of thumb when deciding where to edit:
 | Add per-row commands to a generated list page | page-local `listRowActions.js`, usually calling `useCommand()`-backed composables | The shared list screen renders action chrome; the page owns explicit mutation behavior |
 | Add non-CRUD display rows to a generated list page | route page `syntheticRows` input | Synthetic rows are presentation rows, not repository records |
 | Change page-specific display behavior | the route pages, generated slots, and app-owned composables | This is presentation |
-| Change form field layout and inputs | `_components/CrudAddEditForm.vue` and `CrudAddEditFormFields.js` | This is the generated form field layer |
+| Change form field layout and inputs | the mirrored `src/components/.../CrudAddEditForm.vue` and `CrudAddEditFormFields.js` | This is the generated non-routed form field layer |
 
 ## How mature CRUDs grow
 

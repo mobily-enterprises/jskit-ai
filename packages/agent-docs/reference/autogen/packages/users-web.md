@@ -150,6 +150,13 @@ Exports
 - `resolveCrudBindingValues(values, context = {})`
 - `resolveCrudBoundValues({ binding = {}, routeValues = {}, context = {} } = {})`
 
+### `src/client/composables/crud/crudHttpClientSupport.js`
+Exports
+- `CRUD_API_ACCESS_AUTHENTICATED`
+- `CRUD_API_ACCESS_PUBLIC`
+- `normalizeCrudApiAccess(value = "")`
+- `resolveCrudHttpClient(resource = null, { client = null } = {})`
+
 ### `src/client/composables/crud/crudJsonApiTransportSupport.js`
 Exports
 - `inferCrudJsonApiTransport(resource = null, { mode = "", operationName = "" } = {})`
@@ -201,6 +208,7 @@ Local functions
 - `normalizeTimeWhitespace(value)`
 - `toTimeInputValue(value)`
 - `toDateTimeLocalInputValue(value)`
+- `toDateInputValue(value)`
 - `toIsoUtcDateTimeValue(value)`
 - `resolveFormFieldInitialValue(field = {})`
 - `shouldSerializeClearedFieldAsNull(field = {})`
@@ -472,7 +480,7 @@ Exports
 
 ### `src/client/composables/useCommand.js`
 Exports
-- `useCommand({ ownershipFilter = ROUTE_VISIBILITY_WORKSPACE, surfaceId = "", access = "auto", apiSuffix = "", runPermissions = [], writeMethod = "POST", client = null, transport = null, placementSource = "users-web.command", fallbackRunError = "Unable to complete action.", fieldErrorKeys = [], clearOnRouteChange = true, model, input, buildRawPayload, buildCommandPayload, buildCommandOptions, onRunSuccess, onRunError, suppressSuccessMessage = false, messages = {}, realtime = null } = {})`
+- `useCommand({ ownershipFilter = ROUTE_VISIBILITY_WORKSPACE, surfaceId = "", access = "auto", apiSuffix = "", runPermissions = [], writeMethod = "POST", client = null, resource: commandResource = null, transport = null, placementSource = "users-web.command", fallbackRunError = "Unable to complete action.", fieldErrorKeys = [], clearOnRouteChange = true, model, input, buildRawPayload, buildCommandPayload, buildCommandOptions, onRunSuccess, onRunError, suppressSuccessMessage = false, messages = {}, realtime = null } = {})`
 
 ### `src/client/composables/useCrudAddEditScreen.js`
 Exports
@@ -525,8 +533,10 @@ Local functions
 
 ### `src/client/composables/useCrudListScreen.js`
 Exports
-- `useCrudListScreen({ adapter = null, resource = null, resourceNamespace = "resource", apiSuffix = "", recordIdParam = "recordId", recordIdSelector = null, titleFallbackFieldKey = "", viewUrlTemplate = "", editUrlTemplate = "", newUrlTemplate = "", recordChangedEvents = [], listFilters = {}, listBulkActions = [], listRowActions = [], syntheticRows = null, routeQueryBlacklist = Object.freeze(["include", "cursor", "limit"]), requestQueryParams = null, requestFieldsets = null, readEnabled = true, requestRecoveryLabel = "Records", fallbackLoadError = "Unable to load records." } = {})`
+- `__testables`
+- `useCrudListScreen({ adapter = null, client = null, resource = null, resourceNamespace = "resource", apiSuffix = "", recordIdParam = "recordId", recordIdSelector = null, titleFallbackFieldKey = "", viewUrlTemplate = "", editUrlTemplate = "", newUrlTemplate = "", recordChangedEvents = [], listFilters = {}, listBulkActions = [], listRowActions = [], syntheticRows = null, routeQueryBlacklist = Object.freeze(["include", "cursor", "limit"]), requestQueryParams = null, requestFieldsets = null, readEnabled = true, requestRecoveryLabel = "Records", fallbackLoadError = "Unable to load records." } = {})`
 Local functions
+- `buildCrudListActionContext(records, client)`
 - `formatCrudListCardValue(value)`
 - `asList(value = [])`
 - `hasSyntheticRowGroups(value = null)`
@@ -604,6 +614,8 @@ Exports
 - `CrudListFilterSurface`
 - `CrudListScreen`
 - `CrudViewScreen`
+- `normalizeCrudApiAccess`
+- `resolveCrudHttpClient`
 - `clientProviders`
 
 ### `src/client/lib/bootstrap.js`

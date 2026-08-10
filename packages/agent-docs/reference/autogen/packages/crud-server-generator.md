@@ -31,6 +31,8 @@ Local functions
 - `resolveBooleanFlagOption(options = {}, optionName = "")`
 - `resolveInternalRouteOption(options = {})`
 - `resolveNoRoleGrantOption(options = {})`
+- `normalizeCrudAccess(value, { strict = false } = {})`
+- `assertCrudAccessCompatibility(access, { surfaceRequiresWorkspace = false, ownershipFilter = "" } = {})`
 - `normalizeRequestedOwnershipFilter(value, { strict = false } = {})`
 - `inferOwnershipFilterFromSnapshot(snapshot)`
 - `assertOwnershipColumnsForFilter(snapshot, filter)`
@@ -80,6 +82,7 @@ Local functions
 - `renderMigrationForeignKeyLines(snapshot)`
 - `renderMigrationDropForeignKeyLine(foreignKey = {})`
 - `renderMigrationDropForeignKeyLines(snapshot)`
+- `renderMigrationForeignKeyBlock(snapshot, { drop = false } = {})`
 - `renderMigrationCheckConstraintLines(snapshot)`
 - `mergeFieldMetaEntries(...entryGroups)`
 - `resolveLookupNamespaceFromTableName(tableName = "")`
@@ -95,8 +98,8 @@ Local functions
 - `resolveCrudPermissionGrantRole(appConfig = {}, options = {}, { requiresNamedPermissions = true } = {})`
 - `normalizeCrudOperation(operation = "", context = "CRUD operation")`
 - `renderRoleCatalogPermissionGrants(namespace = "", { requiresNamedPermissions = true, grantRoleId = "" } = {})`
-- `renderActionPermissionSupport(namespace = "", { requiresNamedPermissions = true } = {})`
-- `renderActionPermissionExpression(operation = "", { requiresNamedPermissions = true } = {})`
+- `renderActionPermissionSupport(namespace = "", { requiresNamedPermissions = true, access = ACCESS_DEFAULT } = {})`
+- `renderActionPermissionExpression(operation = "", { requiresNamedPermissions = true, access = ACCESS_DEFAULT } = {})`
 - `renderRouteWorkspaceSupportImports({ surfaceRequiresWorkspace = true } = {})`
 - `renderActionWorkspaceValidatorImport({ surfaceRequiresWorkspace = true } = {})`
 - `renderRouteParamsValidatorLine(operation = "", { surfaceRequiresWorkspace = true } = {})`
@@ -105,7 +108,7 @@ Local functions
 - `renderActionInputSchemaDefinition(lines = [], { mode = "patch" } = {})`
 - `renderActionInputExpressions({ surfaceRequiresWorkspace = true } = {})`
 - `renderRouteValidatorConstants({ surfaceRequiresWorkspace = true } = {})`
-- `buildReplacementsFromSnapshot({ namespace = "", snapshot, resolvedOwnershipFilter, surfaceRequiresWorkspace = true, surfaceId = "", routeInternal = false, permissionGrantRoleId = "" })`
+- `buildReplacementsFromSnapshot({ namespace = "", snapshot, resolvedOwnershipFilter, surfaceRequiresWorkspace = true, surfaceId = "", access = ACCESS_DEFAULT, routeInternal = false, permissionGrantRoleId = "" })`
 - `resolveCrudGenerationTableName(options = {})`
 - `createCacheKey({ appRoot, options })`
 - `buildCrudTemplateContext(input = {})`
@@ -216,7 +219,7 @@ Exports
 - `resource`
 - `createTemplateServerFixture(options = {})`
 Local functions
-- `buildTemplateReplacements({ surfaceRequiresWorkspace = true, requiresNamedPermissions = surfaceRequiresWorkspace === true, surfaceId = surfaceRequiresWorkspace ? "admin" : "home", routeInternal = false } = {})`
+- `buildTemplateReplacements({ surfaceRequiresWorkspace = true, requiresNamedPermissions = surfaceRequiresWorkspace === true, surfaceId = surfaceRequiresWorkspace ? "admin" : "home", access = "authenticated", routeInternal = false } = {})`
 - `applyTemplateReplacements(sourceText = "", options = {})`
 - `buildResourceStubSource()`
 - `renderServerTemplateFile(targetServerDirectory, fileName, options)`

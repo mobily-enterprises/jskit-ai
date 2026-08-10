@@ -39,6 +39,11 @@ Exports
 Local functions
 - `isPlainJsonRestObject(value)`
 - `cloneJsonRestResourceValue(value, { writeSerializers = {} } = {})`
+- `resolveCanonicalCalendarDate(value)`
+- `serializeJsonRestCalendarDate(value)`
+- `applyJsonRestCalendarDateWriteSerializers(scopeOptions = {})`
+- `normalizeJsonRestCalendarDateEntry(entry = null, scopes = {})`
+- `normalizeJsonRestCalendarDateDocument(document = null, scopes = {})`
 - `normalizeScopeValue(value)`
 - `normalizeJsonRestText(value, { fallback = "" } = {})`
 - `normalizeJsonRestFilterValue(value)`
