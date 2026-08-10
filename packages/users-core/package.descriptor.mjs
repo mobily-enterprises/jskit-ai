@@ -147,7 +147,7 @@ export default Object.freeze({
     dependencies: {
       runtime: {
         "@jskit-ai/auth-core": "0.1.144",
-        "@jskit-ai/crud-core": "0.1.156",
+        "@jskit-ai/crud-core": "0.1.157",
         "@jskit-ai/database-runtime": "0.1.145",
         "@jskit-ai/http-runtime": "0.1.144",
         "@jskit-ai/json-rest-api-core": "0.1.90",
