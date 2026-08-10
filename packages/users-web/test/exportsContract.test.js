@@ -39,6 +39,7 @@ test("users-web exports are explicit and aligned with production/template usage"
       "./client/composables/useCrudListFilters",
       "./client/composables/useCrudList",
       "./client/composables/useCrudListScreen",
+      "./client/crudHttpClient",
       "./client/composables/useCrudView",
       "./client/composables/useCrudViewScreen",
       "./client/lib/httpClient"

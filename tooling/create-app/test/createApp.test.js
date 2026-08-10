@@ -844,9 +844,14 @@ test("fresh app CRUD scaffolds encode explicit M3 action hierarchy and stable se
     const newPageSource = await readFile(path.join(appRoot, "src/pages/home/settings/customers/new.vue"), "utf8");
     const editPageSource = await readFile(path.join(appRoot, "src/pages/home/settings/customers/[customerId]/edit.vue"), "utf8");
     const addEditFormSource = await readFile(
-      path.join(appRoot, "src/pages/home/settings/customers/_components/CrudAddEditForm.vue"),
+      path.join(appRoot, "src/components/home/settings/customers/CrudAddEditForm.vue"),
       "utf8"
     );
+    await assert.rejects(
+      access(path.join(appRoot, "src/pages/home/settings/customers/_components/CrudAddEditForm.vue")),
+      /ENOENT/
+    );
+    const viteConfigSource = await readFile(path.join(appRoot, "vite.config.mjs"), "utf8");
 
     assert.match(placementSource, /target: "page\.section-nav"/);
     assert.match(placementSource, /owner: "home-settings"/);
@@ -871,12 +876,21 @@ test("fresh app CRUD scaffolds encode explicit M3 action hierarchy and stable se
 
     assert.match(newPageSource, /<CrudAddEditForm/);
     assert.match(newPageSource, /:screen="screen"/);
+    assert.match(
+      newPageSource,
+      /from "\/src\/components\/home\/settings\/customers\/CrudAddEditForm\.vue"/
+    );
 
     assert.match(editPageSource, /<CrudAddEditForm/);
     assert.match(editPageSource, /:screen="screen"/);
+    assert.match(
+      editPageSource,
+      /from "\/src\/components\/home\/settings\/customers\/CrudAddEditForm\.vue"/
+    );
 
     assert.match(addEditFormSource, /CrudAddEditScreen/);
     assert.match(addEditFormSource, /#fields=/);
+    assert.match(viteConfigSource, /routesFolder:\s*"src\/pages"/);
   });
 });
 
@@ -1044,5 +1058,44 @@ test("generated default shell app supports auth progressive installation", async
     assert.match(homeWrapper, /@\/components\/ShellLayout\.vue/);
     await assert.rejects(access(path.join(appRoot, "src/pages/app.vue")), /ENOENT/);
     await assert.rejects(access(path.join(appRoot, "src/pages/admin.vue")), /ENOENT/);
+  });
+});
+
+test("crud-core keeps a public shell free of users and auth application mutations", async () => {
+  await withCreateAppTempDir(async (cwd) => {
+    const createResult = runCli({ cwd, args: ["public-crud-app", "--tenancy-mode", "none"] });
+    assert.equal(createResult.status, 0, createResult.stderr);
+
+    const appRoot = path.join(cwd, "public-crud-app");
+    const addCrudResult = runJskit({
+      cwd: appRoot,
+      args: ["add", "package", "crud-core"]
+    });
+    assert.equal(addCrudResult.status, 0, addCrudResult.stderr);
+
+    const lockfile = JSON.parse(await readFile(path.join(appRoot, ".jskit/lock.json"), "utf8"));
+    assert.ok(lockfile.installedPackages["@jskit-ai/crud-core"]);
+    for (const packageId of [
+      "@jskit-ai/users-core",
+      "@jskit-ai/users-web",
+      "@jskit-ai/auth-core",
+      "@jskit-ai/auth-web",
+      "@jskit-ai/auth-provider-local-core",
+      "@jskit-ai/auth-provider-supabase-core"
+    ]) {
+      assert.equal(lockfile.installedPackages[packageId], undefined, `${packageId} must remain uninstalled`);
+    }
+
+    const publicConfig = await readFile(path.join(appRoot, "config/public.js"), "utf8");
+    assert.doesNotMatch(publicConfig, /config\.surfaceDefinitions\.(?:auth|account)\s*=/u);
+    await assert.rejects(access(path.join(appRoot, "packages/users")), /ENOENT/);
+    await assert.rejects(access(path.join(appRoot, "src/pages/account.vue")), /ENOENT/);
+    await assert.rejects(access(path.join(appRoot, "src/views/auth")), /ENOENT/);
+
+    const crudCorePackage = JSON.parse(
+      await readFile(fileURLToPath(new URL("../../../packages/crud-core/package.json", import.meta.url)), "utf8")
+    );
+    assert.equal(typeof crudCorePackage.dependencies["@jskit-ai/users-core"], "string");
+    assert.equal(typeof crudCorePackage.dependencies["@jskit-ai/users-web"], "string");
   });
 });

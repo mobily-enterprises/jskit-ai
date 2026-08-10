@@ -25,6 +25,7 @@ import descriptor from "../../package.descriptor.mjs";
 
 const DEFAULT_ID_COLUMN = "id";
 const DEFAULT_OWNERSHIP_FILTER_VALUES = Object.freeze(["auto", "public", "user", "workspace", "workspace_user"]);
+const DEFAULT_ACCESS_VALUES = Object.freeze(["authenticated", "public"]);
 const MYSQL_CLIENT_ID = "mysql2";
 const CRUD_PERMISSION_OPERATIONS = Object.freeze(["list", "view", "create", "update", "delete"]);
 
@@ -57,6 +58,14 @@ const OWNERSHIP_FILTER_AUTO = normalizeText(
   descriptor?.options?.["ownership-filter"]?.defaultValue
 ).toLowerCase() || "auto";
 const OWNERSHIP_FILTER_VALUES = new Set(OWNERSHIP_FILTER_ALLOWED_VALUES);
+const ACCESS_ALLOWED_VALUES = resolveAllowedValues(
+  descriptor?.options?.access,
+  DEFAULT_ACCESS_VALUES
+);
+const ACCESS_DEFAULT = normalizeText(
+  descriptor?.options?.access?.defaultValue
+).toLowerCase() || "authenticated";
+const ACCESS_VALUES = new Set(ACCESS_ALLOWED_VALUES);
 
 function resolveGlobalScaffoldCache() {
   const globalObject = globalThis;
@@ -103,6 +112,42 @@ function resolveInternalRouteOption(options = {}) {
 
 function resolveNoRoleGrantOption(options = {}) {
   return resolveBooleanFlagOption(options, "no-role-grant");
+}
+
+function normalizeCrudAccess(value, { strict = false } = {}) {
+  const normalized = normalizeText(value).toLowerCase() || ACCESS_DEFAULT;
+  if (ACCESS_VALUES.has(normalized)) {
+    return normalized;
+  }
+  if (strict) {
+    throw new Error(
+      `Invalid CRUD access "${normalized || String(value || "")}". Use: ${ACCESS_ALLOWED_VALUES.join(", ")}.`
+    );
+  }
+  return ACCESS_DEFAULT;
+}
+
+function assertCrudAccessCompatibility(
+  access,
+  { surfaceRequiresWorkspace = false, ownershipFilter = "" } = {}
+) {
+  const normalizedAccess = normalizeCrudAccess(access, { strict: true });
+  if (normalizedAccess !== "public") {
+    return normalizedAccess;
+  }
+  if (surfaceRequiresWorkspace) {
+    throw new Error('CRUD access "public" requires a non-workspace surface.');
+  }
+
+  const normalizedOwnershipFilter = normalizeText(ownershipFilter).toLowerCase();
+  if (
+    normalizedOwnershipFilter &&
+    normalizedOwnershipFilter !== OWNERSHIP_FILTER_AUTO &&
+    normalizedOwnershipFilter !== "public"
+  ) {
+    throw new Error('CRUD access "public" requires ownership filter "public".');
+  }
+  return normalizedAccess;
 }
 
 function normalizeRequestedOwnershipFilter(value, { strict = false } = {}) {
@@ -1487,6 +1532,21 @@ function renderMigrationDropForeignKeyLines(snapshot) {
     .join("\n");
 }
 
+function renderMigrationForeignKeyBlock(snapshot, { drop = false } = {}) {
+  const lines = drop
+    ? renderMigrationDropForeignKeyLines(snapshot)
+    : renderMigrationForeignKeyLines(snapshot);
+  if (!lines) {
+    return "";
+  }
+
+  return [
+    "  await knex.schema.alterTable(TABLE_NAME, (table) => {",
+    lines,
+    "  });"
+  ].join("\n");
+}
+
 function renderMigrationCheckConstraintLines(snapshot) {
   const tableName = normalizeText(snapshot?.tableName);
   const checkConstraints = Array.isArray(snapshot?.checkConstraints) ? snapshot.checkConstraints : [];
@@ -1855,7 +1915,18 @@ function renderRoleCatalogPermissionGrants(
   ].join("\n");
 }
 
-function renderActionPermissionSupport(namespace = "", { requiresNamedPermissions = true } = {}) {
+function renderActionPermissionSupport(
+  namespace = "",
+  { requiresNamedPermissions = true, access = ACCESS_DEFAULT } = {}
+) {
+  if (normalizeCrudAccess(access, { strict: true }) === "public") {
+    return [
+      "const publicPermission = Object.freeze({",
+      '  require: "none"',
+      "});"
+    ].join("\n");
+  }
+
   if (!requiresNamedPermissions) {
     return [
       "const authenticatedPermission = Object.freeze({",
@@ -1880,8 +1951,15 @@ function renderActionPermissionSupport(namespace = "", { requiresNamedPermission
   ].join("\n");
 }
 
-function renderActionPermissionExpression(operation = "", { requiresNamedPermissions = true } = {}) {
+function renderActionPermissionExpression(
+  operation = "",
+  { requiresNamedPermissions = true, access = ACCESS_DEFAULT } = {}
+) {
   const normalizedOperation = normalizeCrudOperation(operation, "CRUD permission operation");
+
+  if (normalizeCrudAccess(access, { strict: true }) === "public") {
+    return "publicPermission";
+  }
 
   if (!requiresNamedPermissions) {
     return "authenticatedPermission";
@@ -2049,9 +2127,14 @@ function buildReplacementsFromSnapshot({
   resolvedOwnershipFilter,
   surfaceRequiresWorkspace = true,
   surfaceId = "",
+  access = ACCESS_DEFAULT,
   routeInternal = false,
   permissionGrantRoleId = ""
 }) {
+  const resolvedAccess = assertCrudAccessCompatibility(access, {
+    surfaceRequiresWorkspace,
+    ownershipFilter: resolvedOwnershipFilter
+  });
   const requiresNamedPermissions = surfaceRequiresWorkspace === true;
   const resolvedPermissionGrantRoleId = normalizeText(permissionGrantRoleId);
   const scaffoldColumns = resolveScaffoldColumns(snapshot);
@@ -2081,9 +2164,11 @@ function buildReplacementsFromSnapshot({
     __JSKIT_CRUD_TABLE_NAME__: JSON.stringify(snapshot.tableName),
     __JSKIT_CRUD_ID_COLUMN__: JSON.stringify(snapshot.idColumn || DEFAULT_ID_COLUMN),
     __JSKIT_CRUD_SURFACE_ID__: JSON.stringify(normalizeText(surfaceId).toLowerCase()),
+    __JSKIT_CRUD_RESOURCE_API_ACCESS__: JSON.stringify(resolvedAccess),
     __JSKIT_CRUD_RESOLVED_OWNERSHIP_FILTER__: resolvedOwnershipFilter,
     __JSKIT_CRUD_ACTION_PERMISSION_SUPPORT__: renderActionPermissionSupport(namespace, {
-      requiresNamedPermissions
+      requiresNamedPermissions,
+      access: resolvedAccess
     }),
     __JSKIT_CRUD_ACTION_WORKSPACE_VALIDATOR_IMPORT__: renderActionWorkspaceValidatorImport({
       surfaceRequiresWorkspace
@@ -2094,25 +2179,32 @@ function buildReplacementsFromSnapshot({
     __JSKIT_CRUD_UPDATE_ACTION_INPUT__: actionInputExpressions.update,
     __JSKIT_CRUD_DELETE_ACTION_INPUT__: actionInputExpressions.delete,
     __JSKIT_CRUD_LIST_ACTION_PERMISSION__: renderActionPermissionExpression("list", {
-      requiresNamedPermissions
+      requiresNamedPermissions,
+      access: resolvedAccess
     }),
     __JSKIT_CRUD_VIEW_ACTION_PERMISSION__: renderActionPermissionExpression("view", {
-      requiresNamedPermissions
+      requiresNamedPermissions,
+      access: resolvedAccess
     }),
     __JSKIT_CRUD_CREATE_ACTION_PERMISSION__: renderActionPermissionExpression("create", {
-      requiresNamedPermissions
+      requiresNamedPermissions,
+      access: resolvedAccess
     }),
     __JSKIT_CRUD_UPDATE_ACTION_PERMISSION__: renderActionPermissionExpression("update", {
-      requiresNamedPermissions
+      requiresNamedPermissions,
+      access: resolvedAccess
     }),
     __JSKIT_CRUD_DELETE_ACTION_PERMISSION__: renderActionPermissionExpression("delete", {
-      requiresNamedPermissions
+      requiresNamedPermissions,
+      access: resolvedAccess
     }),
     __JSKIT_CRUD_ROLE_CATALOG_PERMISSION_GRANTS__: renderRoleCatalogPermissionGrants(namespace, {
       requiresNamedPermissions,
       grantRoleId: resolvedPermissionGrantRoleId
     }),
     __JSKIT_CRUD_ROUTE_SURFACE_REQUIRES_WORKSPACE__: String(surfaceRequiresWorkspace === true),
+    __JSKIT_CRUD_ROUTE_AUTH__: JSON.stringify(resolvedAccess === "public" ? "public" : "required"),
+    __JSKIT_CRUD_ROUTE_CSRF_PROTECTION__: String(resolvedAccess !== "public"),
     __JSKIT_CRUD_ROUTE_BASE__: JSON.stringify(surfaceRequiresWorkspace === true ? "/w/:workspaceSlug" : "/"),
     __JSKIT_CRUD_ROUTE_WORKSPACE_SUPPORT_IMPORTS__: renderRouteWorkspaceSupportImports({
       surfaceRequiresWorkspace
@@ -2178,6 +2270,10 @@ function buildReplacementsFromSnapshot({
     ),
     __JSKIT_CRUD_MIGRATION_FOREIGN_KEY_LINES__: renderMigrationForeignKeyLines(snapshot),
     __JSKIT_CRUD_MIGRATION_DROP_FOREIGN_KEY_LINES__: renderMigrationDropForeignKeyLines(snapshot),
+    __JSKIT_CRUD_MIGRATION_FOREIGN_KEY_BLOCK__: renderMigrationForeignKeyBlock(snapshot),
+    __JSKIT_CRUD_MIGRATION_DROP_FOREIGN_KEY_BLOCK__: renderMigrationForeignKeyBlock(snapshot, {
+      drop: true
+    }),
     __JSKIT_CRUD_MIGRATION_CHECK_CONSTRAINT_LINES__: renderMigrationCheckConstraintLines(snapshot)
   });
 
@@ -2212,6 +2308,7 @@ function createCacheKey({ appRoot, options }) {
       namespace: normalizeText(options?.namespace),
       surface: normalizeText(options?.surface),
       ownershipFilter: normalizeText(options?.["ownership-filter"]),
+      access: normalizeCrudAccess(options?.access, { strict: true }),
       tableName: normalizeText(options?.["table-name"]),
       idColumn: normalizeText(options?.["id-column"]),
       internal: resolveInternalRouteOption(options),
@@ -2247,6 +2344,10 @@ async function buildCrudTemplateContext(input = {}) {
     surface: resolvedSurface,
     appConfig
   });
+  const access = assertCrudAccessCompatibility(options.access, {
+    surfaceRequiresWorkspace,
+    ownershipFilter: options["ownership-filter"]
+  });
   const permissionGrantRoleId = resolveCrudPermissionGrantRole(appConfig, options, {
     requiresNamedPermissions: surfaceRequiresWorkspace
   });
@@ -2270,6 +2371,7 @@ async function buildCrudTemplateContext(input = {}) {
     resolvedOwnershipFilter,
     surfaceRequiresWorkspace,
     surfaceId: resolvedSurface,
+    access,
     routeInternal,
     permissionGrantRoleId
   });
@@ -2296,6 +2398,10 @@ async function prepareInstallHook({
     options,
     surface: resolvedSurface,
     appConfig
+  });
+  assertCrudAccessCompatibility(options.access, {
+    surfaceRequiresWorkspace,
+    ownershipFilter: options["ownership-filter"]
   });
   resolveCrudPermissionGrantRole(appConfig, options, {
     requiresNamedPermissions: surfaceRequiresWorkspace
@@ -2328,6 +2434,7 @@ const __testables = Object.freeze({
   renderMigrationCheckConstraintLines,
   renderMigrationForeignKeyLine,
   renderMigrationDropForeignKeyLine,
+  renderMigrationForeignKeyBlock,
   resolveScaffoldColumns,
   resolveCrudGenerationTableName,
   resolveGenerationSnapshot,
@@ -2346,7 +2453,9 @@ const __testables = Object.freeze({
   renderRouteParamsValidatorLine,
   renderRouteInputLines,
   resolveInternalRouteOption,
-  resolveNoRoleGrantOption
+  resolveNoRoleGrantOption,
+  normalizeCrudAccess,
+  assertCrudAccessCompatibility
 });
 
 export {

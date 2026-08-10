@@ -5,8 +5,15 @@ import path from "node:path";
 import test from "node:test";
 import { fileURLToPath } from "node:url";
 import { runInNewContext } from "node:vm";
+import { Linter } from "eslint";
 
 import { createSchema } from "@jskit-ai/kernel/shared/validators";
+import {
+  baseConfig,
+  nodeConfig,
+  vueConfig,
+  webConfig
+} from "../../../tooling/config-eslint/index.js";
 
 import {
   __testables,
@@ -186,6 +193,14 @@ async function withTempApp(run, publicConfigSource) {
   } finally {
     await rm(appRoot, { recursive: true, force: true });
   }
+}
+
+function renderTemplate(source, replacements) {
+  let rendered = String(source || "");
+  for (const [placeholder, value] of Object.entries(replacements || {})) {
+    rendered = rendered.split(placeholder).join(String(value));
+  }
+  return rendered;
 }
 
 test("resolveOwnershipFilterForGeneration infers ownership filter for table introspection mode", () => {
@@ -516,6 +531,78 @@ test("prepareInstallHook requires an explicit grant policy before generation", a
   );
 });
 
+test("prepareInstallHook validates public access before generation", async () => {
+  const publicConfigSource = `export const config = {
+  surfaceDefinitions: {
+    home: { id: "home", enabled: true, requiresAuth: false, requiresWorkspace: false },
+    app: { id: "app", enabled: true, requiresAuth: true, requiresWorkspace: true }
+  },
+  roleCatalog: {
+    roles: {
+      member: { permissions: [] }
+    }
+  }
+};
+`;
+
+  await withTempApp(
+    async (appRoot) => {
+      assert.deepEqual(
+        await prepareInstallHook({
+          appRoot,
+          packageOptions: {
+            namespace: "books",
+            surface: "home",
+            "ownership-filter": "public",
+            access: "public"
+          }
+        }),
+        {}
+      );
+
+      await assert.rejects(
+        prepareInstallHook({
+          appRoot,
+          packageOptions: {
+            namespace: "books",
+            surface: "app",
+            "ownership-filter": "workspace",
+            access: "public",
+            "no-role-grant": true
+          }
+        }),
+        /requires a non-workspace surface/
+      );
+      await assert.rejects(
+        prepareInstallHook({
+          appRoot,
+          packageOptions: {
+            namespace: "books",
+            surface: "home",
+            "ownership-filter": "user",
+            access: "public"
+          }
+        }),
+        /requires ownership filter "public"/
+      );
+      await assert.rejects(
+        prepareInstallHook({
+          appRoot,
+          packageOptions: {
+            namespace: "books",
+            surface: "home",
+            "ownership-filter": "public",
+            access: "public",
+            "grant-role": "member"
+          }
+        }),
+        /apply only to surfaces that require a workspace/
+      );
+    },
+    publicConfigSource
+  );
+});
+
 test("resolveCrudGenerationTableName defaults table-name from namespace", () => {
   assert.equal(
     __testables.resolveCrudGenerationTableName({
@@ -545,6 +632,9 @@ test("buildReplacementsFromSnapshot builds deterministic template replacement pa
   assert.equal(replacements.__JSKIT_CRUD_TABLE_NAME__, "\"contacts\"");
   assert.equal(replacements.__JSKIT_CRUD_ID_COLUMN__, "\"id\"");
   assert.equal(replacements.__JSKIT_CRUD_SURFACE_ID__, "\"\"");
+  assert.equal(replacements.__JSKIT_CRUD_RESOURCE_API_ACCESS__, "\"authenticated\"");
+  assert.equal(replacements.__JSKIT_CRUD_ROUTE_AUTH__, "\"required\"");
+  assert.equal(replacements.__JSKIT_CRUD_ROUTE_CSRF_PROTECTION__, "true");
   assert.equal(replacements.__JSKIT_CRUD_RESOLVED_OWNERSHIP_FILTER__, "workspace_user");
   assert.match(
     replacements.__JSKIT_CRUD_ACTION_PERMISSION_SUPPORT__,
@@ -625,6 +715,47 @@ test("buildReplacementsFromSnapshot builds deterministic template replacement pa
     /^\s*id:\s*\{/m
   );
   assert.equal(replacements.__JSKIT_CRUD_MIGRATION_FOREIGN_KEY_LINES__, "");
+  assert.equal(replacements.__JSKIT_CRUD_MIGRATION_FOREIGN_KEY_BLOCK__, "");
+  assert.equal(replacements.__JSKIT_CRUD_MIGRATION_DROP_FOREIGN_KEY_BLOCK__, "");
+});
+
+test("zero-foreign-key migration renders without an unused table callback and passes scaffold lint", async () => {
+  const testDirectory = path.dirname(fileURLToPath(import.meta.url));
+  const templatePath = path.resolve(
+    testDirectory,
+    "..",
+    "templates",
+    "migrations",
+    "crud_foreign_keys.cjs"
+  );
+  const templateSource = await readFile(templatePath, "utf8");
+  const replacements = __testables.buildReplacementsFromSnapshot({
+    namespace: "books",
+    snapshot: createSnapshot({
+      tableName: "books",
+      hasWorkspaceIdColumn: false,
+      hasUserIdColumn: false
+    }),
+    resolvedOwnershipFilter: "public",
+    surfaceRequiresWorkspace: false
+  });
+  const renderedSource = renderTemplate(templateSource, replacements);
+
+  assert.doesNotMatch(renderedSource, /\(table\)\s*=>/);
+  assert.doesNotMatch(renderedSource, /__JSKIT_CRUD_/);
+
+  const linter = new Linter({ configType: "flat" });
+  const lintMessages = linter.verify(
+    renderedSource,
+    [
+      ...baseConfig,
+      ...vueConfig,
+      ...webConfig,
+      ...nodeConfig
+    ],
+    { filename: "migrations/constraints/00000000000000_crud-foreign-keys-books.cjs" }
+  );
+  assert.deepEqual(lintMessages, []);
 });
 
 test("buildReplacementsFromSnapshot omits named permissions and role grants when disabled", () => {
@@ -643,6 +774,8 @@ test("buildReplacementsFromSnapshot omits named permissions and role grants when
     /const authenticatedPermission = Object\.freeze\(\{/
   );
   assert.equal(replacements.__JSKIT_CRUD_SURFACE_ID__, "\"\"");
+  assert.equal(replacements.__JSKIT_CRUD_ROUTE_AUTH__, "\"required\"");
+  assert.equal(replacements.__JSKIT_CRUD_ROUTE_CSRF_PROTECTION__, "true");
   assert.equal(replacements.__JSKIT_CRUD_LIST_ACTION_PERMISSION__, "authenticatedPermission");
   assert.equal(replacements.__JSKIT_CRUD_DELETE_ACTION_PERMISSION__, "authenticatedPermission");
   assert.equal(replacements.__JSKIT_CRUD_ROLE_CATALOG_PERMISSION_GRANTS__, "");
@@ -662,6 +795,63 @@ test("buildReplacementsFromSnapshot omits named permissions and role grants when
       "          recordId: request.input.params.recordId,",
       "          ...(request.input.query || {})"
     ].join("\n")
+  );
+});
+
+test("buildReplacementsFromSnapshot renders public routes and actions explicitly", () => {
+  const replacements = __testables.buildReplacementsFromSnapshot({
+    namespace: "books",
+    snapshot: createSnapshot({
+      tableName: "books",
+      hasWorkspaceIdColumn: false,
+      hasUserIdColumn: false
+    }),
+    resolvedOwnershipFilter: "public",
+    surfaceRequiresWorkspace: false,
+    surfaceId: "home",
+    access: "public"
+  });
+
+  assert.equal(replacements.__JSKIT_CRUD_ROUTE_AUTH__, "\"public\"");
+  assert.equal(replacements.__JSKIT_CRUD_ROUTE_CSRF_PROTECTION__, "false");
+  assert.equal(replacements.__JSKIT_CRUD_RESOURCE_API_ACCESS__, "\"public\"");
+  assert.match(
+    replacements.__JSKIT_CRUD_ACTION_PERMISSION_SUPPORT__,
+    /const publicPermission = Object\.freeze\(\{\s+require: "none"/s
+  );
+  assert.equal(replacements.__JSKIT_CRUD_LIST_ACTION_PERMISSION__, "publicPermission");
+  assert.equal(replacements.__JSKIT_CRUD_VIEW_ACTION_PERMISSION__, "publicPermission");
+  assert.equal(replacements.__JSKIT_CRUD_CREATE_ACTION_PERMISSION__, "publicPermission");
+  assert.equal(replacements.__JSKIT_CRUD_UPDATE_ACTION_PERMISSION__, "publicPermission");
+  assert.equal(replacements.__JSKIT_CRUD_DELETE_ACTION_PERMISSION__, "publicPermission");
+  assert.equal(replacements.__JSKIT_CRUD_ROLE_CATALOG_PERMISSION_GRANTS__, "");
+});
+
+test("public CRUD access rejects workspace surfaces and non-public ownership", () => {
+  const snapshot = createSnapshot({
+    hasWorkspaceIdColumn: false,
+    hasUserIdColumn: false
+  });
+
+  assert.throws(
+    () => __testables.buildReplacementsFromSnapshot({
+      namespace: "books",
+      snapshot,
+      resolvedOwnershipFilter: "public",
+      surfaceRequiresWorkspace: true,
+      access: "public"
+    }),
+    /requires a non-workspace surface/
+  );
+  assert.throws(
+    () => __testables.buildReplacementsFromSnapshot({
+      namespace: "books",
+      snapshot,
+      resolvedOwnershipFilter: "user",
+      surfaceRequiresWorkspace: false,
+      access: "public"
+    }),
+    /requires ownership filter "public"/
   );
 });
 
@@ -816,8 +1006,16 @@ test("buildReplacementsFromSnapshot renders inline field relation metadata from 
   assert.equal(replacements.__JSKIT_CRUD_MIGRATION_HAS_FOREIGN_KEYS__, "true");
   assert.match(replacements.__JSKIT_CRUD_MIGRATION_FOREIGN_KEY_LINES__, /table\.foreign\(\["vet_id"\]/);
   assert.match(
+    replacements.__JSKIT_CRUD_MIGRATION_FOREIGN_KEY_BLOCK__,
+    /await knex\.schema\.alterTable\(TABLE_NAME, \(table\) => \{[\s\S]*table\.foreign\(\["vet_id"\]/
+  );
+  assert.match(
     replacements.__JSKIT_CRUD_MIGRATION_DROP_FOREIGN_KEY_LINES__,
     /table\.dropForeign\(\["vet_id"\], "contacts_vet_id_foreign"\)/
+  );
+  assert.match(
+    replacements.__JSKIT_CRUD_MIGRATION_DROP_FOREIGN_KEY_BLOCK__,
+    /await knex\.schema\.alterTable\(TABLE_NAME, \(table\) => \{[\s\S]*table\.dropForeign\(\["vet_id"\], "contacts_vet_id_foreign"\)/
   );
 });
 
@@ -1508,9 +1706,11 @@ test("crud actions and routes templates derive cursor validation and route contr
   const testDirectory = path.dirname(fileURLToPath(import.meta.url));
   const actionsTemplatePath = path.resolve(testDirectory, "..", "templates", "src", "local-package", "server", "actions.js");
   const registerRoutesTemplatePath = path.resolve(testDirectory, "..", "templates", "src", "local-package", "server", "registerRoutes.js");
+  const resourceTemplatePath = path.resolve(testDirectory, "..", "templates", "src", "local-package", "shared", "crudResource.js");
 
   const actionsTemplateSource = await readFile(actionsTemplatePath, "utf8");
   const registerRoutesTemplateSource = await readFile(registerRoutesTemplatePath, "utf8");
+  const resourceTemplateSource = await readFile(resourceTemplatePath, "utf8");
 
   assert.match(actionsTemplateSource, /createStandardCrudListQueryValidators/);
   assert.match(actionsTemplateSource, /createStandardCrudViewQueryValidators/);
@@ -1526,12 +1726,16 @@ test("crud actions and routes templates derive cursor validation and route contr
   assert.match(registerRoutesTemplateSource, /createCrudJsonApiRouteContracts/);
   assert.match(registerRoutesTemplateSource, /const \{\s+listRouteContract,\s+viewRouteContract,\s+createRouteContract,\s+updateRouteContract,\s+deleteRouteContract,\s+recordRouteParamsValidator\s+\} = createCrudJsonApiRouteContracts\(\{/s);
   assert.match(registerRoutesTemplateSource, /resource__JSKIT_CRUD_ROUTE_CONTRACTS_RESOURCE_ARGS__/);
+  assert.match(registerRoutesTemplateSource, /auth: __JSKIT_CRUD_ROUTE_AUTH__/);
+  assert.match(registerRoutesTemplateSource, /csrfProtection: __JSKIT_CRUD_ROUTE_CSRF_PROTECTION__/);
+  assert.doesNotMatch(registerRoutesTemplateSource, /auth: "required"/);
   assert.match(registerRoutesTemplateSource, /surface: normalizedRouteSurface,__JSKIT_CRUD_ROUTE_INTERNAL_LINE__\n {6}visibility:/);
   assert.match(registerRoutesTemplateSource, /\.\.\.listRouteContract,__JSKIT_CRUD_LIST_ROUTE_PARAMS_VALIDATOR_LINE__\n {4}\},/);
   assert.doesNotMatch(registerRoutesTemplateSource, /surface: normalizedRouteSurface,\n__JSKIT_CRUD_ROUTE_INTERNAL_LINE__/);
   assert.doesNotMatch(registerRoutesTemplateSource, /wrapResponse/);
   assert.match(registerRoutesTemplateSource, /reply\.code\(204\)\.send\(response\);/);
   assert.doesNotMatch(registerRoutesTemplateSource, /withStandardErrorResponses/);
+  assert.match(resourceTemplateSource, /apiAccess: __JSKIT_CRUD_RESOURCE_API_ACCESS__/);
 });
 
 test("crud service template preserves JSON:API output and emits entity ids from resource documents", async () => {

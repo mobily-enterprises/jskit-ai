@@ -1,6 +1,6 @@
 {
   "name": "@jskit-ai/users-web",
-  "version": "0.1.162",
+  "version": "0.1.164",
   "type": "module",
   "scripts": {
     "test": "node --test"
@@ -31,6 +31,7 @@
     "./client/composables/useList": "./src/client/composables/records/useList.js",
     "./client/composables/useCrudList": "./src/client/composables/records/useCrudList.js",
     "./client/composables/useCrudListScreen": "./src/client/composables/useCrudListScreen.js",
+    "./client/crudHttpClient": "./src/client/composables/crud/crudHttpClientSupport.js",
     "./client/composables/useCrudListParentTitle": "./src/client/composables/useCrudListParentTitle.js",
     "./client/composables/useRealtimeQueryInvalidation": "./src/client/composables/useRealtimeQueryInvalidation.js",
     "./client/composables/useSurfaceRouteContext": "./src/client/composables/useSurfaceRouteContext.js",
@@ -46,12 +47,12 @@
   },
   "dependencies": {
     "@mdi/js": "^7.4.47",
-    "@jskit-ai/http-runtime": "0.1.143",
-    "@jskit-ai/kernel": "0.1.145",
-    "@jskit-ai/realtime": "0.1.142",
-    "@jskit-ai/shell-web": "0.1.146",
-    "@jskit-ai/uploads-image-web": "0.1.121",
-    "@jskit-ai/users-core": "0.1.158"
+    "@jskit-ai/http-runtime": "0.1.145",
+    "@jskit-ai/kernel": "0.1.146",
+    "@jskit-ai/realtime": "0.1.143",
+    "@jskit-ai/shell-web": "0.1.147",
+    "@jskit-ai/uploads-image-web": "0.1.122",
+    "@jskit-ai/users-core": "0.1.159"
   },
   "peerDependencies": {
     "@tanstack/vue-query": "^5.90.5",

@@ -1,6 +1,7 @@
 import { computed, unref } from "vue";
 import { useRoute } from "vue-router";
 import { resolveCrudJsonApiTransport } from "../crud/crudJsonApiTransportSupport.js";
+import { resolveCrudHttpClient } from "../crud/crudHttpClientSupport.js";
 import {
   resolveLookupFieldDisplayValue,
   resolveRecordTitle
@@ -71,6 +72,9 @@ function useCrudList({
   });
   const records = useList({
     ...listOptions,
+    client: resolveCrudHttpClient(resource, {
+      client: listOptions.client
+    }),
     transport: resolveCrudJsonApiTransport(listOptions.transport, resource, {
       mode: "list"
     }),

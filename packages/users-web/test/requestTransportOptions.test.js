@@ -403,3 +403,55 @@ test("commands use the configured users-web HTTP client by default", async () =>
     resetUsersWebHttpClientForTests();
   }
 });
+
+test("commands use public CRUD resource access without a CSRF session preflight", async () => {
+  const queryClient = new QueryClient();
+  const calls = [];
+  let command = null;
+  configureUsersWebHttpClient({
+    fetchImpl: async (url, options) => {
+      calls.push([url, options]);
+      return {
+        ok: true,
+        status: 204,
+        headers: {
+          get() {
+            return "";
+          }
+        },
+        async json() {
+          return {};
+        }
+      };
+    }
+  });
+
+  try {
+    const app = createSSRApp({
+      setup() {
+        command = useCommand({
+          access: "always",
+          apiSuffix: "/books/1",
+          writeMethod: "DELETE",
+          resource: {
+            apiAccess: "public"
+          }
+        });
+        return () => h("div");
+      }
+    });
+    app.use(VueQueryPlugin, {
+      queryClient
+    });
+    await renderToString(app);
+
+    await command.run();
+
+    assert.equal(calls.length, 1);
+    assert.equal(calls[0][0], "/api/books/1");
+    assert.equal(calls[0][1].method, "DELETE");
+    assert.equal(Object.hasOwn(calls[0][1], "csrf"), false);
+  } finally {
+    resetUsersWebHttpClientForTests();
+  }
+});

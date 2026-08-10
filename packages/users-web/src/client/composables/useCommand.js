@@ -9,6 +9,7 @@ import {
   setupRouteChangeCleanup,
   setupOperationErrorReporting
 } from "./runtime/operationUiHelpers.js";
+import { resolveCrudHttpClient } from "./crud/crudHttpClientSupport.js";
 
 function useCommand({
   ownershipFilter = ROUTE_VISIBILITY_WORKSPACE,
@@ -18,6 +19,7 @@ function useCommand({
   runPermissions = [],
   writeMethod = "POST",
   client = null,
+  resource: commandResource = null,
   transport = null,
   placementSource = "users-web.command",
   fallbackRunError = "Unable to complete action.",
@@ -50,10 +52,10 @@ function useCommand({
   const routeContext = operationScope.routeContext;
   const canRun = operationScope.permissionGate("run");
 
-  const resource = useEndpointResource({
+  const endpointResource = useEndpointResource({
     path: operationScope.apiPath,
     enabled: false,
-    client,
+    client: resolveCrudHttpClient(commandResource, { client }),
     writeMethod,
     transport,
     fallbackSaveError: fallbackRunError
@@ -66,7 +68,7 @@ function useCommand({
 
   const command = useCommandCore({
     model,
-    resource,
+    resource: endpointResource,
     writeMethod,
     canRun,
     fieldBag,
@@ -109,7 +111,7 @@ function useCommand({
     message: command.message,
     messageType: command.messageType,
     run: command.run,
-    resource
+    resource: endpointResource
   });
 }
 

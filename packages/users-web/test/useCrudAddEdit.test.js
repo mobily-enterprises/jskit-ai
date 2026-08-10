@@ -108,6 +108,35 @@ test("buildCrudFormPayload and applyCrudPayloadToForm round-trip date-time field
   assert.equal(form.scheduledAt, "2024-01-02T03:04");
 });
 
+test("applyCrudPayloadToForm normalizes date values for HTML date inputs", () => {
+  const fields = [
+    { key: "publishedOn", type: "string", format: "date" },
+    { key: "reviewedOn", type: "string", format: "date" },
+    { key: "archivedOn", type: "string", format: "date" },
+    { key: "invalidOn", type: "string", format: "date" }
+  ];
+  const form = reactive({
+    publishedOn: "",
+    reviewedOn: "",
+    archivedOn: "",
+    invalidOn: ""
+  });
+
+  applyCrudPayloadToForm(fields, form, {
+    publishedOn: "2026-08-10",
+    reviewedOn: "2026-08-11T00:00:00.000Z",
+    archivedOn: new Date("2026-08-12T00:00:00.000Z"),
+    invalidOn: "not-a-date"
+  });
+
+  assert.deepEqual(form, {
+    publishedOn: "2026-08-10",
+    reviewedOn: "2026-08-11",
+    archivedOn: "2026-08-12",
+    invalidOn: "not-a-date"
+  });
+});
+
 test("buildCrudFormPayload normalizes time fields to canonical HH:MM", () => {
   const fields = [
     { key: "fromTime", type: "string", format: "time" },

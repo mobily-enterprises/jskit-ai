@@ -74,3 +74,18 @@ test("crud-ui-generator installs page-local list bulk action definition seam for
     in: ["list"]
   });
 });
+
+test("crud-ui-generator installs shared form helpers outside the file-router pages root", () => {
+  const componentMutation = descriptor?.mutations?.files?.find(
+    (entry) => String(entry?.id || "").startsWith("crud-ui-page-add-edit-form-")
+      && entry?.from?.endsWith("/AddEditForm.vue")
+  );
+  const fieldsMutation = descriptor?.mutations?.files?.find(
+    (entry) => String(entry?.id || "").startsWith("crud-ui-page-add-edit-form-fields-")
+  );
+
+  assert.equal(componentMutation?.to, "src/components/${option:target-root|trim}/CrudAddEditForm.vue");
+  assert.equal(fieldsMutation?.to, "src/components/${option:target-root|trim}/CrudAddEditFormFields.js");
+  assert.equal(componentMutation?.to?.startsWith("src/pages/"), false);
+  assert.equal(fieldsMutation?.to?.startsWith("src/pages/"), false);
+});

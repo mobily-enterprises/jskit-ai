@@ -115,6 +115,37 @@ function toDateTimeLocalInputValue(value) {
   ].join("-") + `T${padDateTimePart(date.getHours())}:${padDateTimePart(date.getMinutes())}`;
 }
 
+function toDateInputValue(value) {
+  if (value == null || value === "") {
+    return "";
+  }
+
+  if (value instanceof Date) {
+    return Number.isNaN(value.getTime())
+      ? String(value)
+      : value.toISOString().slice(0, 10);
+  }
+
+  const normalized = String(value).trim();
+  if (!normalized) {
+    return "";
+  }
+
+  const calendarDateMatch = normalized.match(/^(\d{4}-\d{2}-\d{2})(?:$|[T\s])/u);
+  if (calendarDateMatch) {
+    const calendarDate = calendarDateMatch[1];
+    const parsedCalendarDate = new Date(`${calendarDate}T00:00:00.000Z`);
+    if (
+      !Number.isNaN(parsedCalendarDate.getTime()) &&
+      parsedCalendarDate.toISOString().slice(0, 10) === calendarDate
+    ) {
+      return calendarDate;
+    }
+  }
+
+  return normalized;
+}
+
 function toIsoUtcDateTimeValue(value) {
   const normalized = String(value ?? "").trim();
   if (!normalized) {
@@ -296,6 +327,11 @@ function applyCrudPayloadToForm(fields = [], model = {}, payload = {}) {
 
     if (fieldType === "integer" || fieldType === "number") {
       targetModel[fieldKey] = rawValue == null ? "" : String(rawValue);
+      continue;
+    }
+
+    if (fieldFormat === "date") {
+      targetModel[fieldKey] = toDateInputValue(rawValue);
       continue;
     }
 

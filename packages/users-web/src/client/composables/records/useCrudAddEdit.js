@@ -2,6 +2,7 @@ import { computed, proxyRefs, reactive, watch } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import { asPlainObject } from "../support/scopeHelpers.js";
 import { resolveCrudJsonApiTransport } from "../crud/crudJsonApiTransportSupport.js";
+import { resolveCrudHttpClient } from "../crud/crudHttpClientSupport.js";
 import { useAddEdit } from "./useAddEdit.js";
 import {
   resolveCrudBoundValues,
@@ -186,6 +187,9 @@ function useCrudAddEdit({
   const addEdit = useAddEdit({
     ...normalizedAddEditOptions,
     resource: resolvedResource,
+    client: resolveCrudHttpClient(resolvedResource, {
+      client: normalizedAddEditOptions.client
+    }),
     transport: resolvedTransport,
     model: form,
     fieldErrorKeys,

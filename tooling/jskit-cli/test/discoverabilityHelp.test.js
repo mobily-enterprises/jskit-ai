@@ -272,6 +272,24 @@ test("generate <generatorId> <subcommand> help prints subcommand contract", asyn
   });
 });
 
+test("crud-server-generator scaffold help exposes explicit access selection", async () => {
+  await withTempDir(async (cwd) => {
+    const appRoot = path.join(cwd, "discoverability-crud-scaffold-help-app");
+    await createMinimalApp(appRoot, { name: "discoverability-crud-scaffold-help-app" });
+
+    const result = runCli({
+      cwd: appRoot,
+      args: ["generate", "crud-server-generator", "scaffold", "help"]
+    });
+
+    assert.equal(result.status, 0, String(result.stderr || ""));
+    const stdout = String(result.stdout || "");
+    assert.match(stdout, /Generator subcommand help: @jskit-ai\/crud-server-generator scaffold/);
+    assert.match(stdout, /--access <text> \[optional; default: authenticated\]/);
+    assert.match(stdout, /authenticated \| public; public\s+requires a non-workspace surface with public ownership/);
+  });
+});
+
 test("generate <generatorId> help <subcommand> is rejected in favor of <subcommand> help", async () => {
   await withTempDir(async (cwd) => {
     const appRoot = path.join(cwd, "discoverability-generate-primary-subcommand-help-app");

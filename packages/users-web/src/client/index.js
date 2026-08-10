@@ -7,6 +7,10 @@ export { default as CrudListBulkActionSurface } from "./components/CrudListBulkA
 export { default as CrudListFilterSurface } from "./components/CrudListFilterSurface.vue";
 export { default as CrudListScreen } from "./components/CrudListScreen.vue";
 export { default as CrudViewScreen } from "./components/CrudViewScreen.vue";
+export {
+  normalizeCrudApiAccess,
+  resolveCrudHttpClient
+} from "./composables/crud/crudHttpClientSupport.js";
 
 const clientProviders = Object.freeze([UsersWebClientProvider]);
 

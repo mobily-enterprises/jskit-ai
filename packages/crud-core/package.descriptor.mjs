@@ -1,7 +1,7 @@
 export default Object.freeze({
   packageVersion: 1,
   packageId: "@jskit-ai/crud-core",
-  version: "0.1.155",
+  version: "0.1.157",
   kind: "runtime",
   description: "Shared CRUD helpers used by CRUD modules.",
   dependsOn: [
@@ -9,9 +9,7 @@ export default Object.freeze({
     "@jskit-ai/kernel",
     "@jskit-ai/realtime",
     "@jskit-ai/resource-crud-core",
-    "@jskit-ai/shell-web",
-    "@jskit-ai/users-core",
-    "@jskit-ai/users-web"
+    "@jskit-ai/shell-web"
   ],
   capabilities: {
     provides: ["crud.core"],
@@ -28,7 +26,7 @@ export default Object.freeze({
   mutations: {
     dependencies: {
       runtime: {
-        "@jskit-ai/crud-core": "0.1.155"
+        "@jskit-ai/crud-core": "0.1.157"
       },
       dev: {}
     },

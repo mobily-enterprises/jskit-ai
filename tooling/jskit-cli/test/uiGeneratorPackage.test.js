@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { access, constants as fsConstants, cp, mkdir, readFile, symlink, writeFile } from "node:fs/promises";
+import { access, constants as fsConstants, cp, mkdir, readFile, readdir, symlink, writeFile } from "node:fs/promises";
 import path from "node:path";
 import test from "node:test";
 import { fileURLToPath } from "node:url";
@@ -257,18 +257,37 @@ async function fileExists(absolutePath) {
   }
 }
 
+async function listRelativeVueFiles(rootPath, currentPath = rootPath) {
+  const entries = await readdir(currentPath, { withFileTypes: true });
+  const files = [];
+  for (const entry of entries) {
+    const entryPath = path.join(currentPath, entry.name);
+    if (entry.isDirectory()) {
+      files.push(...await listRelativeVueFiles(rootPath, entryPath));
+      continue;
+    }
+    if (entry.isFile() && entry.name.endsWith(".vue")) {
+      files.push(path.relative(rootPath, entryPath).replaceAll(path.sep, "/"));
+    }
+  }
+  return files.sort();
+}
+
 function resolveGeneratedPaths(appRoot, targetRoot, idParam = "customerId") {
   const generatedRoot = path.join(appRoot, "src", "pages", targetRoot);
+  const generatedComponentsRoot = path.join(appRoot, "src", "components", targetRoot);
   return {
     generatedRoot,
+    generatedComponentsRoot,
     listPagePath: path.join(generatedRoot, "index.vue"),
     listBulkActionsPath: path.join(generatedRoot, "listBulkActions.js"),
     listFiltersPath: path.join(generatedRoot, "listFilters.js"),
     viewPagePath: path.join(generatedRoot, `[${idParam}]`, "index.vue"),
     newPagePath: path.join(generatedRoot, "new.vue"),
     editPagePath: path.join(generatedRoot, `[${idParam}]`, "edit.vue"),
-    addEditFormPath: path.join(generatedRoot, "_components", "CrudAddEditForm.vue"),
-    addEditFormFieldsPath: path.join(generatedRoot, "_components", "CrudAddEditFormFields.js")
+    addEditFormPath: path.join(generatedComponentsRoot, "CrudAddEditForm.vue"),
+    addEditFormFieldsPath: path.join(generatedComponentsRoot, "CrudAddEditFormFields.js"),
+    legacyAddEditFormPath: path.join(generatedRoot, "_components", "CrudAddEditForm.vue")
   };
 }
 
@@ -324,6 +343,13 @@ test("generate @jskit-ai/crud-ui-generator crud scaffolds CRUD pages at an expli
     assert.equal(await fileExists(paths.editPagePath), true);
     assert.equal(await fileExists(paths.addEditFormPath), true);
     assert.equal(await fileExists(paths.addEditFormFieldsPath), true);
+    assert.equal(await fileExists(paths.legacyAddEditFormPath), false);
+    assert.deepEqual(await listRelativeVueFiles(paths.generatedRoot), [
+      "[customerId]/edit.vue",
+      "[customerId]/index.vue",
+      "index.vue",
+      "new.vue"
+    ]);
 
     const listPageSource = await readFile(paths.listPagePath, "utf8");
     assert.match(listPageSource, /Search, review, and update Customers from this screen\./);
@@ -339,9 +365,15 @@ test("generate @jskit-ai/crud-ui-generator crud scaffolds CRUD pages at an expli
     assert.doesNotMatch(listPageSource, /<td>\{\{ record\.id \}\}<\/td>/);
 
     const newPageSource = await readFile(paths.newPagePath, "utf8");
-    assert.match(newPageSource, /import CrudAddEditForm from "\.\/_components\/CrudAddEditForm\.vue";/);
+    assert.match(
+      newPageSource,
+      /import CrudAddEditForm from "\/src\/components\/admin\/ops\/customers-ui\/CrudAddEditForm\.vue";/
+    );
     assert.match(newPageSource, /UI_CREATE_FORM_FIELDS/);
-    assert.match(newPageSource, /jskit:crud-ui-form-fields-target \.\/_components\/CrudAddEditFormFields\.js/);
+    assert.match(
+      newPageSource,
+      /jskit:crud-ui-form-fields-target \/src\/components\/admin\/ops\/customers-ui\/CrudAddEditFormFields\.js/
+    );
 
     const addEditFormFieldsSource = await readFile(paths.addEditFormFieldsPath, "utf8");
     assert.match(addEditFormFieldsSource, /crud\.ui\.form-fields\.customers\.new\.v1/);
@@ -355,8 +387,14 @@ test("generate @jskit-ai/crud-ui-generator crud scaffolds CRUD pages at an expli
     assert.match(listBulkActionsSource, /const listBulkActions = defineCrudListBulkActions\(\[\]\);/);
 
     const editPageSource = await readFile(paths.editPagePath, "utf8");
-    assert.match(editPageSource, /import CrudAddEditForm from "\.\.\/_components\/CrudAddEditForm\.vue";/);
-    assert.match(editPageSource, /jskit:crud-ui-form-fields-target \.\.\/_components\/CrudAddEditFormFields\.js/);
+    assert.match(
+      editPageSource,
+      /import CrudAddEditForm from "\/src\/components\/admin\/ops\/customers-ui\/CrudAddEditForm\.vue";/
+    );
+    assert.match(
+      editPageSource,
+      /jskit:crud-ui-form-fields-target \/src\/components\/admin\/ops\/customers-ui\/CrudAddEditFormFields\.js/
+    );
 
     const placementSource = await readFile(path.join(appRoot, "src", "placement.js"), "utf8");
     assert.match(placementSource, /jskit:crud-ui-generator\.page\.link:admin:\/ops\/customers-ui/);
@@ -778,15 +816,21 @@ test("generate @jskit-ai/crud-ui-generator accepts route roots with a src/pages 
         "crud",
         "src/pages/admin/products",
         "--resource-file",
-        "packages/customers/src/shared/customerResource.js",
-        "--operations",
-        "list"
+        "packages/customers/src/shared/customerResource.js"
       ]
     });
 
     assert.equal(result.status, 0, String(result.stderr || ""));
     const listPageSource = await readFile(path.join(appRoot, "src/pages/admin/products/index.vue"), "utf8");
     assert.match(listPageSource, /Search, review, and update Customers from this screen\./);
+    assert.equal(
+      await fileExists(path.join(appRoot, "src/components/admin/products/CrudAddEditForm.vue")),
+      true
+    );
+    assert.equal(
+      await fileExists(path.join(appRoot, "src/components/src/pages/admin/products/CrudAddEditForm.vue")),
+      false
+    );
   });
 });
 

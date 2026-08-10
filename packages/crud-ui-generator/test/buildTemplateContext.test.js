@@ -396,6 +396,14 @@ test("buildUiTemplateContext derives CRUD placeholders from the explicit target-
     assert.match(context.__JSKIT_UI_LIST_HEADING_TITLE_SETUP__, /listRuntime,\n {2}resource: uiResource/);
     assert.equal(context.__JSKIT_UI_FORM_COMPONENT_FILE__, "CrudAddEditForm.vue");
     assert.equal(context.__JSKIT_UI_FORM_FIELDS_FILE__, "CrudAddEditFormFields.js");
+    assert.equal(
+      context.__JSKIT_UI_FORM_COMPONENT_IMPORT_PATH__,
+      "/src/components/admin/customers/CrudAddEditForm.vue"
+    );
+    assert.equal(
+      context.__JSKIT_UI_FORM_FIELDS_IMPORT_PATH__,
+      "/src/components/admin/customers/CrudAddEditFormFields.js"
+    );
     assert.equal(context.__JSKIT_UI_SURFACE_ID__, "admin");
     assert.equal(context.__JSKIT_UI_HAS_LIST_ROUTE__, "true");
     assert.equal(context.__JSKIT_UI_HAS_VIEW_ROUTE__, "true");
@@ -897,6 +905,10 @@ test("buildUiTemplateContext accepts target-roots with a src/pages prefix", asyn
 
     assert.equal(context.__JSKIT_UI_SURFACE_ID__, "admin");
     assert.equal(context.__JSKIT_UI_MENU_PLACEMENT_ID__, "ui-generator.page.admin.customers.link");
+    assert.equal(
+      context.__JSKIT_UI_FORM_COMPONENT_IMPORT_PATH__,
+      "/src/components/admin/customers/CrudAddEditForm.vue"
+    );
   });
 });
 
@@ -1027,6 +1039,12 @@ test("crud ui templates derive JSON:API transport from the shared CRUD resource"
   assert.match(addEditFormTemplateSource, /<CrudAddEditScreen/);
   assert.match(addEditFormTemplateSource, /#fields=/);
   assert.doesNotMatch(addEditFormTemplateSource, /generated-ui-screen|ui-generator-add-edit-form__header|<v-sheet/);
+  assert.match(newWrapperTemplateSource, /from "__JSKIT_UI_FORM_COMPONENT_IMPORT_PATH__"/);
+  assert.match(newWrapperTemplateSource, /from "__JSKIT_UI_FORM_FIELDS_IMPORT_PATH__"/);
+  assert.match(newWrapperTemplateSource, /crud-ui-fields-target __JSKIT_UI_FORM_COMPONENT_IMPORT_PATH__/);
+  assert.match(editWrapperTemplateSource, /from "__JSKIT_UI_FORM_COMPONENT_IMPORT_PATH__"/);
+  assert.match(editWrapperTemplateSource, /from "__JSKIT_UI_FORM_FIELDS_IMPORT_PATH__"/);
+  assert.match(editWrapperTemplateSource, /crud-ui-form-fields-target __JSKIT_UI_FORM_FIELDS_IMPORT_PATH__/);
 
   assert.match(newWrapperTemplateSource, /resource: uiResource,/);
   assert.match(newWrapperTemplateSource, /import \{ useCrudAddEditScreen \} from "@jskit-ai\/users-web\/client\/composables\/useCrudAddEditScreen"/);

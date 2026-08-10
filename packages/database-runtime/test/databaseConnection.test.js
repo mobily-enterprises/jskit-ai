@@ -3,7 +3,8 @@ import test from "node:test";
 import {
   parseDatabaseUrl,
   resolveDatabaseClientFromEnvironment,
-  resolveDatabaseConnectionFromEnvironment
+  resolveDatabaseConnectionFromEnvironment,
+  resolveKnexConnectionFromEnvironment
 } from "../src/shared/databaseConnection.js";
 
 test("parseDatabaseUrl parses mysql url fields", () => {
@@ -70,4 +71,33 @@ test("resolveDatabaseConnectionFromEnvironment returns mutable connection fields
   const descriptor = Object.getOwnPropertyDescriptor(connection, "password");
   assert.equal(descriptor?.configurable, true);
   assert.equal(descriptor?.writable, true);
+});
+
+test("resolveKnexConnectionFromEnvironment keeps only MySQL DATE columns as strings", () => {
+  const mysqlConnection = resolveKnexConnectionFromEnvironment({
+    DB_CLIENT: "mysql2",
+    DB_HOST: "db.local",
+    DB_NAME: "appdb",
+    DB_USER: "appuser",
+    DB_PASSWORD: "apppass"
+  }, {
+    client: "mysql2"
+  });
+
+  assert.deepEqual(mysqlConnection.dateStrings, ["DATE"]);
+  assert.equal(mysqlConnection.supportBigNumbers, true);
+  assert.equal(mysqlConnection.bigNumberStrings, true);
+
+  const postgresConnection = resolveKnexConnectionFromEnvironment({
+    DB_CLIENT: "pg",
+    DB_HOST: "db.local",
+    DB_NAME: "appdb",
+    DB_USER: "appuser",
+    DB_PASSWORD: "apppass"
+  }, {
+    client: "pg",
+    defaultPort: 5432
+  });
+
+  assert.equal(postgresConnection.dateStrings, undefined);
 });

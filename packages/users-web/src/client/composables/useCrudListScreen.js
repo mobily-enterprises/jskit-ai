@@ -3,6 +3,15 @@ import { useCrudList } from "./records/useCrudList.js";
 import { useCrudListBulkActions } from "./useCrudListBulkActions.js";
 import { useCrudListFilters } from "./useCrudListFilters.js";
 import { useCrudListRowActions } from "./useCrudListRowActions.js";
+import { resolveCrudHttpClient } from "./crud/crudHttpClientSupport.js";
+
+function buildCrudListActionContext(records, client) {
+  return Object.freeze({
+    records,
+    reload: records.reload,
+    client
+  });
+}
 
 function formatCrudListCardValue(value) {
   if (value === null || value === undefined || value === "") {
@@ -102,6 +111,7 @@ function createCrudListDisplayRow(record = {}, index = 0, records = {}) {
 
 function useCrudListScreen({
   adapter = null,
+  client = null,
   resource = null,
   resourceNamespace = "resource",
   apiSuffix = "",
@@ -123,6 +133,7 @@ function useCrudListScreen({
   requestRecoveryLabel = "Records",
   fallbackLoadError = "Unable to load records."
 } = {}) {
+  const crudHttpClient = resolveCrudHttpClient(resource, { client });
   const filterRuntime = useCrudListFilters(listFilters);
   const normalizedRecordChangedEvents = Array.isArray(recordChangedEvents)
     ? recordChangedEvents
@@ -130,6 +141,7 @@ function useCrudListScreen({
   const normalizedResourceNamespace = String(resourceNamespace || "resource").trim() || "resource";
   const records = useCrudList({
     adapter: adapter || undefined,
+    client: crudHttpClient,
     resource,
     apiSuffix,
     queryKeyFactory: (surfaceId = "", workspaceSlug = "") => [
@@ -184,17 +196,11 @@ function useCrudListScreen({
   );
   const bulkActions = useCrudListBulkActions(listBulkActions, {
     resolveRecordId: (record, index) => records.resolveRowKey(record, index),
-    resolveContext: () => ({
-      records,
-      reload: records.reload
-    })
+    resolveContext: () => buildCrudListActionContext(records, crudHttpClient)
   });
   const rowActions = useCrudListRowActions(listRowActions, {
     resolveRecordId: (record, index) => records.resolveRowKey(record, index),
-    resolveContext: () => ({
-      records,
-      reload: records.reload
-    })
+    resolveContext: () => buildCrudListActionContext(records, crudHttpClient)
   });
   const listPrimaryAction = computed(() =>
     newUrlTemplate ? records.resolveParams(newUrlTemplate) : ""
@@ -224,4 +230,8 @@ function useCrudListScreen({
   });
 }
 
-export { useCrudListScreen };
+const __testables = Object.freeze({
+  buildCrudListActionContext
+});
+
+export { __testables, useCrudListScreen };

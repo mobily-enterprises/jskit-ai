@@ -36,7 +36,8 @@ function registerRoutes(
     "GET",
     routeBase,
     {
-      auth: "required",
+      auth: __JSKIT_CRUD_ROUTE_AUTH__,
+      csrfProtection: __JSKIT_CRUD_ROUTE_CSRF_PROTECTION__,
       surface: normalizedRouteSurface,__JSKIT_CRUD_ROUTE_INTERNAL_LINE__
       visibility: checkRouteVisibility(routeOwnershipFilter),
       meta: {
@@ -61,7 +62,8 @@ __JSKIT_CRUD_LIST_ROUTE_INPUT_LINES__
     "GET",
     `${routeBase}/:recordId`,
     {
-      auth: "required",
+      auth: __JSKIT_CRUD_ROUTE_AUTH__,
+      csrfProtection: __JSKIT_CRUD_ROUTE_CSRF_PROTECTION__,
       surface: normalizedRouteSurface,__JSKIT_CRUD_ROUTE_INTERNAL_LINE__
       visibility: checkRouteVisibility(routeOwnershipFilter),
       meta: {
@@ -85,7 +87,8 @@ __JSKIT_CRUD_VIEW_ROUTE_INPUT_LINES__
     "POST",
     routeBase,
     {
-      auth: "required",
+      auth: __JSKIT_CRUD_ROUTE_AUTH__,
+      csrfProtection: __JSKIT_CRUD_ROUTE_CSRF_PROTECTION__,
       surface: normalizedRouteSurface,__JSKIT_CRUD_ROUTE_INTERNAL_LINE__
       visibility: checkRouteVisibility(routeOwnershipFilter),
       meta: {
@@ -109,7 +112,8 @@ __JSKIT_CRUD_CREATE_ROUTE_INPUT_LINES__
     "PATCH",
     `${routeBase}/:recordId`,
     {
-      auth: "required",
+      auth: __JSKIT_CRUD_ROUTE_AUTH__,
+      csrfProtection: __JSKIT_CRUD_ROUTE_CSRF_PROTECTION__,
       surface: normalizedRouteSurface,__JSKIT_CRUD_ROUTE_INTERNAL_LINE__
       visibility: checkRouteVisibility(routeOwnershipFilter),
       meta: {
@@ -133,7 +137,8 @@ __JSKIT_CRUD_UPDATE_ROUTE_INPUT_LINES__
     "DELETE",
     `${routeBase}/:recordId`,
     {
-      auth: "required",
+      auth: __JSKIT_CRUD_ROUTE_AUTH__,
+      csrfProtection: __JSKIT_CRUD_ROUTE_CSRF_PROTECTION__,
       surface: normalizedRouteSurface,__JSKIT_CRUD_ROUTE_INTERNAL_LINE__
       visibility: checkRouteVisibility(routeOwnershipFilter),
       meta: {

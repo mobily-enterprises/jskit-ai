@@ -1,7 +1,7 @@
 export default Object.freeze({
   packageVersion: 1,
   packageId: "@jskit-ai/crud-server-generator",
-  version: "0.1.157",
+  version: "0.1.159",
   kind: "generator",
   description: "CRUD server generator with routes, actions, and persistence scaffolding.",
   options: {
@@ -27,6 +27,15 @@ export default Object.freeze({
       allowedValues: ["auto", "public", "user", "workspace", "workspace_user"],
       promptLabel: "Ownership filter",
       promptHint: "auto | public | user | workspace | workspace_user"
+    },
+    access: {
+      required: false,
+      inputType: "text",
+      defaultValue: "authenticated",
+      validationType: "enum",
+      allowedValues: ["authenticated", "public"],
+      promptLabel: "CRUD access",
+      promptHint: "authenticated | public; public requires a non-workspace surface with public ownership."
     },
     "directory-prefix": {
       required: false,
@@ -129,6 +138,7 @@ export default Object.freeze({
           "namespace",
           "surface",
           "ownership-filter",
+          "access",
           "table-name",
           "id-column",
           "directory-prefix",
@@ -184,14 +194,14 @@ export default Object.freeze({
   mutations: {
     dependencies: {
       runtime: {
-        "@jskit-ai/auth-core": "0.1.143",
-        "@jskit-ai/crud-core": "0.1.155",
-        "@jskit-ai/database-runtime": "0.1.144",
-        "@jskit-ai/http-runtime": "0.1.143",
-        "@jskit-ai/json-rest-api-core": "0.1.89",
-        "@jskit-ai/kernel": "0.1.145",
-        "@jskit-ai/realtime": "0.1.142",
-        "@jskit-ai/resource-crud-core": "0.1.88",
+        "@jskit-ai/auth-core": "0.1.145",
+        "@jskit-ai/crud-core": "0.1.157",
+        "@jskit-ai/database-runtime": "0.1.146",
+        "@jskit-ai/http-runtime": "0.1.145",
+        "@jskit-ai/json-rest-api-core": "0.1.91",
+        "@jskit-ai/kernel": "0.1.146",
+        "@jskit-ai/realtime": "0.1.143",
+        "@jskit-ai/resource-crud-core": "0.1.89",
         "@local/${option:namespace|kebab}": "file:packages/${option:namespace|kebab}"
       },
       dev: {}

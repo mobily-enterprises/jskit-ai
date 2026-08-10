@@ -208,6 +208,60 @@ import { resource as uiResource } from "/packages/contacts/src/shared/contactRes
   });
 });
 
+test("field patches generated shared form helpers through app-root import paths", async () => {
+  await withTempApp(async (appRoot) => {
+    const resourceFile = "packages/contacts/src/shared/contactResource.js";
+    const editFile = "src/pages/admin/crm/contacts/[recordId]/edit.vue";
+    const addEditFormFile = "src/components/admin/crm/contacts/ContactAddEditForm.vue";
+    const addEditFieldsFile = "src/components/admin/crm/contacts/ContactAddEditFormFields.js";
+
+    await writeAppFile(appRoot, resourceFile, RESOURCE_SOURCE);
+    await writeAppFile(
+      appRoot,
+      editFile,
+      `<template>
+  <ContactAddEditForm />
+</template>
+<script setup>
+import { resource as uiResource } from "/packages/contacts/src/shared/contactResource.js";
+// jskit:crud-ui-fields-target /src/components/admin/crm/contacts/ContactAddEditForm.vue
+// jskit:crud-ui-form-fields-target /src/components/admin/crm/contacts/ContactAddEditFormFields.js
+</script>
+`
+    );
+    await writeAppFile(
+      appRoot,
+      addEditFormFile,
+      `<template>
+  <v-row>
+    <!-- jskit:crud-ui-fields:edit -->
+  </v-row>
+</template>
+`
+    );
+    await writeAppFile(
+      appRoot,
+      addEditFieldsFile,
+      `const UI_EDIT_FORM_FIELDS = [
+  { key: "firstName", component: "text" },
+  // jskit:crud-ui-form-fields:edit
+];
+`
+    );
+
+    const result = await runGeneratorSubcommand({
+      appRoot,
+      subcommand: "field",
+      args: ["vetId", "edit", editFile],
+      options: {}
+    });
+
+    assert.deepEqual(result.touchedFiles, [addEditFormFile, addEditFieldsFile]);
+    assert.match(await readFile(path.join(appRoot, addEditFormFile), "utf8"), /fieldLookupItems\('vetId'/);
+    assert.match(await readFile(path.join(appRoot, addEditFieldsFile), "utf8"), /key: "vetId"/);
+  });
+});
+
 test("field patches both shared add/edit branches when markup snippets are identical", async () => {
   await withTempApp(async (appRoot) => {
     const resourceFile = "packages/contacts/src/shared/contactResource.js";

@@ -432,6 +432,14 @@ function resolveGeneratedTargetComment(source = "", commentName = "") {
   return normalizeText(match?.[1]);
 }
 
+function resolveGeneratedTargetPath(appRoot, targetAbsolutePath, generatedTarget = "") {
+  const normalizedTarget = normalizeText(generatedTarget).replaceAll("\\", "/");
+  const targetPath = normalizedTarget.startsWith("/")
+    ? path.resolve(appRoot, normalizedTarget.replace(/^\/+/, ""))
+    : path.resolve(path.dirname(targetAbsolutePath), normalizedTarget);
+  return resolvePathWithinAppRoot(appRoot, targetPath);
+}
+
 function resolveOperationTargetFiles({
   appRoot,
   operationName,
@@ -469,8 +477,8 @@ function resolveOperationTargetFiles({
   }
 
   return {
-    screen: resolvePathWithinAppRoot(appRoot, path.resolve(path.dirname(targetAbsolutePath), screenTarget)),
-    "form-fields": resolvePathWithinAppRoot(appRoot, path.resolve(path.dirname(targetAbsolutePath), formFieldsTarget))
+    screen: resolveGeneratedTargetPath(appRoot, targetAbsolutePath, screenTarget),
+    "form-fields": resolveGeneratedTargetPath(appRoot, targetAbsolutePath, formFieldsTarget)
   };
 }
 

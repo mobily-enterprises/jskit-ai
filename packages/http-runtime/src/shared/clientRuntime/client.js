@@ -288,8 +288,8 @@ function createHttpClient(options = {}) {
     return normalizeResolvedRequestUrl(resolved, normalizedUrl);
   }
 
-  async function maybeRetry({ response, method, state, data, stream }) {
-    if (!csrf.enabled) {
+  async function maybeRetry({ response, method, state, data, stream, csrfEnabled = csrf.enabled }) {
+    if (!csrfEnabled) {
       return false;
     }
 
@@ -351,8 +351,10 @@ function createHttpClient(options = {}) {
     const {
       transport: _transport,
       query: requestQuery,
+      csrf: requestCsrf,
       ...forwardedRequestOptions
     } = requestOptions && typeof requestOptions === "object" ? requestOptions : {};
+    const csrfEnabled = csrf.enabled && requestCsrf !== false;
     const requestUrl = appendRequestQueryToUrl(url, requestQuery, transport);
     const resolvedRequestUrl = await resolveRequestUrl(requestUrl, {
       originalUrl: url,
@@ -398,7 +400,7 @@ function createHttpClient(options = {}) {
       config.body = JSON.stringify(config.body);
     }
 
-    if (csrf.enabled && unsafeMethods.has(method) && !hasHeader(headers, csrf.headerName)) {
+    if (csrfEnabled && unsafeMethods.has(method) && !hasHeader(headers, csrf.headerName)) {
       const token = await ensureCsrfToken();
       if (token) {
         setHeaderIfMissing(headers, csrf.headerName, token);
@@ -409,6 +411,7 @@ function createHttpClient(options = {}) {
       method,
       config,
       state: resolvedState,
+      csrfEnabled,
       transport,
       url: resolvedRequestUrl
     };
@@ -445,6 +448,7 @@ function createHttpClient(options = {}) {
     contentType,
     isJson,
     stream,
+    csrfEnabled,
     retryRequest
   }) {
     if (
@@ -453,7 +457,8 @@ function createHttpClient(options = {}) {
         method,
         state,
         data,
-        stream
+        stream,
+        csrfEnabled
       })
     ) {
       return retryRequest();
@@ -525,6 +530,7 @@ function createHttpClient(options = {}) {
           contentType: result.contentType,
           isJson: result.isJson,
           stream,
+          csrfEnabled: requestContext.csrfEnabled,
           retryRequest() {
             return retryRequest(resolvedState);
           }

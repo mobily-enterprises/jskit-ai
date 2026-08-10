@@ -3,6 +3,7 @@ import { useRoute } from "vue-router";
 import {
   resolveCrudJsonApiTransport
 } from "../crud/crudJsonApiTransportSupport.js";
+import { resolveCrudHttpClient } from "../crud/crudHttpClientSupport.js";
 import {
   resolveLookupFieldDisplayValue,
   resolveRecordTitle
@@ -30,6 +31,9 @@ function useCrudView({
   const view = useView({
     ...viewOptions,
     resource,
+    client: resolveCrudHttpClient(resource, {
+      client: viewOptions.client
+    }),
     transport: resolveCrudJsonApiTransport(viewOptions.transport, resource, {
       mode: "view"
     }),

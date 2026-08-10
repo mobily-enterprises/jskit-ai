@@ -3,7 +3,7 @@ import { GENERATED_UI_NAVIGATION_ROLE_OPTION } from "@jskit-ai/kernel/shared/sup
 export default Object.freeze({
   packageVersion: 1,
   packageId: "@jskit-ai/crud-ui-generator",
-  version: "0.1.128",
+  version: "0.1.130",
   kind: "generator",
   description: "Generate CRUD route trees from resource validators at an explicit route root relative to src/pages/.",
   options: {
@@ -175,7 +175,7 @@ export default Object.freeze({
   mutations: {
     dependencies: {
       runtime: {
-        "@jskit-ai/users-web": "0.1.162"
+        "@jskit-ai/users-web": "0.1.164"
       },
       dev: {}
     },
@@ -284,8 +284,8 @@ export default Object.freeze({
       },
       {
         from: "templates/src/pages/admin/ui-generator/AddEditForm.vue",
-        to: "src/pages/${option:target-root|trim}/_components/CrudAddEditForm.vue",
-        reason: "Install generated shared add/edit form component.",
+        to: "src/components/${option:target-root|trim}/CrudAddEditForm.vue",
+        reason: "Install generated shared add/edit form component outside the file-router pages root.",
         category: "crud-ui-generator",
         id: "crud-ui-page-add-edit-form-${option:target-root|snake}",
         templateContext: {
@@ -307,8 +307,8 @@ export default Object.freeze({
       },
       {
         from: "templates/src/pages/admin/ui-generator/AddEditFormFields.js",
-        to: "src/pages/${option:target-root|trim}/_components/CrudAddEditFormFields.js",
-        reason: "Install generated shared add/edit form field definitions.",
+        to: "src/components/${option:target-root|trim}/CrudAddEditFormFields.js",
+        reason: "Install generated shared add/edit form field definitions beside the non-routed form component.",
         category: "crud-ui-generator",
         id: "crud-ui-page-add-edit-form-fields-${option:target-root|snake}",
         templateContext: {

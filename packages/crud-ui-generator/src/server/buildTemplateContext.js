@@ -198,6 +198,15 @@ function resolveListTargetFile(targetRoot = "") {
   return `${normalizeRelativeAppPath(targetRoot)}/index.vue`;
 }
 
+function resolveFormHelperPaths(targetRoot = "") {
+  const normalizedTargetRoot = normalizeRelativeAppPath(targetRoot);
+  const componentRoot = `src/components/${normalizedTargetRoot}`;
+  return Object.freeze({
+    componentImportPath: `/${componentRoot}/${DEFAULT_FORM_COMPONENT_FILE}`,
+    fieldsImportPath: `/${componentRoot}/${DEFAULT_FORM_FIELDS_FILE}`
+  });
+}
+
 function parseOperationsOption(options) {
   const rawValue = normalizeText(options?.operations) || DEFAULT_OPERATIONS;
 
@@ -664,6 +673,7 @@ const listHeadingTitle = computed(() => {
 async function buildUiTemplateContext({ appRoot, options } = {}) {
   const targetRoot = requireTargetRootOption(options);
   const listTargetFile = resolveListTargetFile(targetRoot);
+  const formHelperPaths = resolveFormHelperPaths(targetRoot);
   const selectedOperations = parseOperationsOption(options);
   const selectedDisplayFields = parseDisplayFieldsOption(options);
   const parentTitleMode = parseParentTitleOption(options);
@@ -830,6 +840,8 @@ async function buildUiTemplateContext({ appRoot, options } = {}) {
     }),
     __JSKIT_UI_FORM_COMPONENT_FILE__: DEFAULT_FORM_COMPONENT_FILE,
     __JSKIT_UI_FORM_FIELDS_FILE__: DEFAULT_FORM_FIELDS_FILE,
+    __JSKIT_UI_FORM_COMPONENT_IMPORT_PATH__: formHelperPaths.componentImportPath,
+    __JSKIT_UI_FORM_FIELDS_IMPORT_PATH__: formHelperPaths.fieldsImportPath,
     __JSKIT_UI_SURFACE_ID__: pageTarget.surfaceId,
     __JSKIT_UI_LIST_HEADER_COLUMNS__: buildListHeaderColumns(listFields),
     __JSKIT_UI_LIST_ROW_COLUMNS__: buildListRowColumns(listFields),

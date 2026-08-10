@@ -12,14 +12,22 @@ const nonWorkspaceFixture = await createTemplateServerFixture({
 const internalFixture = await createTemplateServerFixture({
   routeInternal: true
 });
+const publicFixture = await createTemplateServerFixture({
+  surfaceRequiresWorkspace: false,
+  requiresNamedPermissions: false,
+  access: "public"
+});
 const { registerRoutes: registerWorkspaceRoutes } = await workspaceFixture.importServerModule("registerRoutes.js");
 const { registerRoutes: registerNonWorkspaceRoutes } = await nonWorkspaceFixture.importServerModule("registerRoutes.js");
 const { registerRoutes: registerInternalRoutes } = await internalFixture.importServerModule("registerRoutes.js");
+const { registerRoutes: registerPublicRoutes } = await publicFixture.importServerModule("registerRoutes.js");
+const { createActions: createPublicActions } = await publicFixture.importServerModule("actions.js");
 
 after(async () => {
   await workspaceFixture.cleanup();
   await nonWorkspaceFixture.cleanup();
   await internalFixture.cleanup();
+  await publicFixture.cleanup();
 });
 
 function createReplyDouble() {
@@ -61,6 +69,37 @@ function assertRecordIdOnlyParamsValidator(actual) {
   assert.equal(withWorkspaceSlug.errors.workspaceSlug?.code, "FIELD_NOT_ALLOWED");
 }
 
+test("public CRUD templates disable route authentication and action permissions", () => {
+  const registeredRoutes = [];
+  registerPublicRoutes({
+    make(token) {
+      assert.equal(token, "jskit.http.router");
+      return {
+        register(method, path, route) {
+          registeredRoutes.push({ method, path, route });
+        }
+      };
+    }
+  }, {
+    routeRelativePath: "/customers"
+  });
+
+  assert.equal(registeredRoutes.length, 5);
+  assert.equal(registeredRoutes.every(({ route }) => route.auth === "public"), true);
+  for (const method of ["POST", "PATCH", "DELETE"]) {
+    const registeredRoute = registeredRoutes.find((entry) => entry.method === method);
+    assert.ok(registeredRoute, `expected generated ${method} route`);
+    assert.equal(registeredRoute.route.csrfProtection, false);
+  }
+
+  const actions = createPublicActions({ surface: "home" });
+  assert.equal(actions.length, 5);
+  assert.deepEqual(
+    actions.map(({ permission }) => permission),
+    Array.from({ length: 5 }, () => ({ require: "none" }))
+  );
+});
+
 test("crud routes build flattened create/update action input", async () => {
   const registeredRoutes = [];
   const router = {
@@ -95,6 +134,8 @@ test("crud routes build flattened create/update action input", async () => {
   const updateRoute = findRoute(registeredRoutes, "PATCH", `${workspaceRouteBase}/:recordId`);
   assert.ok(createRoute);
   assert.ok(updateRoute);
+  assert.equal(createRoute.route.csrfProtection, true);
+  assert.equal(updateRoute.route.csrfProtection, true);
 
   const calls = [];
   const executeAction = async (payload) => {
