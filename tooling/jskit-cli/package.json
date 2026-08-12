@@ -1,6 +1,6 @@
 {
   "name": "@jskit-ai/jskit-cli",
-  "version": "0.2.174",
+  "version": "0.2.175",
   "description": "Bundle and package orchestration CLI for JSKIT apps.",
   "type": "module",
   "files": [
@@ -22,9 +22,9 @@
     "test:browser": "node --test test/browser/generatedAppSmoke.test.js"
   },
   "dependencies": {
-    "@jskit-ai/jskit-catalog": "0.1.168",
-    "@jskit-ai/kernel": "0.1.146",
-    "@jskit-ai/shell-web": "0.1.147",
+    "@jskit-ai/jskit-catalog": "0.1.169",
+    "@jskit-ai/kernel": "0.1.147",
+    "@jskit-ai/shell-web": "0.1.148",
     "@vue/compiler-sfc": "^3.5.29",
     "semver": "^7.7.4",
     "ts-morph": "^28.0.0",
