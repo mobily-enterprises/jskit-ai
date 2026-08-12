@@ -4,7 +4,6 @@ import {
   normalizeRecordId,
   normalizeDbRecordId,
   normalizeText,
-  nowDb,
   isDuplicateEntryError,
   toIsoString
 } from "./repositoryUtils.js";
@@ -55,13 +54,13 @@ function normalizeInvitePatchPayload(payload = {}) {
         : normalizeRecordId(source.invitedByUserId, { fallback: null });
   }
   if (Object.hasOwn(source, "expiresAt")) {
-    normalized.expiresAt = source.expiresAt == null ? null : new Date(source.expiresAt);
+    normalized.expiresAt = source.expiresAt == null ? null : toIsoString(source.expiresAt);
   }
   if (Object.hasOwn(source, "acceptedAt")) {
-    normalized.acceptedAt = source.acceptedAt == null ? null : new Date(source.acceptedAt);
+    normalized.acceptedAt = source.acceptedAt == null ? null : toIsoString(source.acceptedAt);
   }
   if (Object.hasOwn(source, "revokedAt")) {
-    normalized.revokedAt = source.revokedAt == null ? null : new Date(source.revokedAt);
+    normalized.revokedAt = source.revokedAt == null ? null : toIsoString(source.revokedAt);
   }
 
   return normalized;
@@ -208,6 +207,7 @@ function createRepository({ api, knex } = {}) {
     };
 
     try {
+      const createdAt = new Date().toISOString();
       const created = await api.resources.workspaceInvites.post(
         {
           inputRecord: createJsonApiInputRecord(
@@ -217,11 +217,11 @@ function createRepository({ api, knex } = {}) {
               roleSid: createPayload.roleSid,
               status: createPayload.status,
               tokenHash: createPayload.tokenHash,
-              expiresAt: createPayload.expiresAt ?? null,
+              expiresAt: createPayload.expiresAt == null ? null : toIsoString(createPayload.expiresAt),
               acceptedAt: null,
               revokedAt: null,
-              createdAt: new Date(),
-              updatedAt: new Date()
+              createdAt,
+              updatedAt: createdAt
             },
             {
               relationships: createInviteRelationships({
@@ -281,7 +281,7 @@ function createRepository({ api, knex } = {}) {
             RESOURCE_TYPE,
             {
               status: patch.status,
-              updatedAt: nowDb()
+              updatedAt: new Date().toISOString()
             },
             {
               id: row.id
@@ -300,14 +300,15 @@ function createRepository({ api, knex } = {}) {
       return;
     }
 
+    const acceptedAt = new Date().toISOString();
     await api.resources.workspaceInvites.patch(
       {
         inputRecord: createJsonApiInputRecord(
           RESOURCE_TYPE,
           {
             status: "accepted",
-            acceptedAt: new Date(),
-            updatedAt: new Date()
+            acceptedAt,
+            updatedAt: acceptedAt
           },
           {
             id: normalizedInviteId
@@ -325,14 +326,15 @@ function createRepository({ api, knex } = {}) {
       return;
     }
 
+    const revokedAt = new Date().toISOString();
     await api.resources.workspaceInvites.patch(
       {
         inputRecord: createJsonApiInputRecord(
           RESOURCE_TYPE,
           {
             status: "revoked",
-            revokedAt: new Date(),
-            updatedAt: new Date()
+            revokedAt,
+            updatedAt: revokedAt
           },
           {
             id: normalizedInviteId

@@ -2049,7 +2049,7 @@ function renderActionInputSchemaDefinition(lines = [], { mode = "patch" } = {}) 
     throw new TypeError("renderActionInputSchemaDefinition requires at least one schema definition.");
   }
 
-  if (entries.length === 1) {
+  if (entries.length === 1 && !entries[0].startsWith("...")) {
     return entries[0];
   }
 

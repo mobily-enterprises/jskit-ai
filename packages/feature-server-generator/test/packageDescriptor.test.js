@@ -84,5 +84,5 @@ test("feature-server-generator scopes persistence dependencies to persistent mod
     }
   });
   assert.equal(runtimeDependencies["@jskit-ai/kernel"], kernelPackage.version);
-  assert.equal(runtimeDependencies["json-rest-schema"], "1.x.x");
+  assert.equal(runtimeDependencies["json-rest-schema"], "^1.0.17");
 });

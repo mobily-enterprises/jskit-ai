@@ -175,7 +175,7 @@ export default Object.freeze({
           }
         },
         "@jskit-ai/kernel": "0.1.146",
-        "json-rest-schema": "1.x.x",
+        "json-rest-schema": "^1.0.17",
         "@local/${option:feature-name|kebab}": "file:packages/${option:feature-name|kebab}"
       },
       dev: {}

@@ -137,14 +137,15 @@ function createRepository({ api, knex } = {}) {
     };
 
     try {
+      const createdAt = new Date().toISOString();
       const created = await api.resources.workspaces.post(
         {
           inputRecord: createJsonApiInputRecord(
             RESOURCE_TYPE,
             {
               ...createPayload,
-              createdAt: new Date(),
-              updatedAt: new Date()
+              createdAt,
+              updatedAt: createdAt
             },
             {
               relationships: createWorkspaceRelationships({ ownerUserId })
@@ -181,7 +182,7 @@ function createRepository({ api, knex } = {}) {
     const sourcePatch = patch && typeof patch === "object" && !Array.isArray(patch) ? patch : {};
     const workspacePatch = {
       ...sourcePatch,
-      updatedAt: new Date()
+      updatedAt: new Date().toISOString()
     };
     const relationships = createWorkspaceRelationships(sourcePatch);
 

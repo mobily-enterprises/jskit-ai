@@ -393,7 +393,7 @@ function createService({
         gateKey: state.gateKey,
         providerConfigId: state.providerConfig?.id || null,
         status: "started",
-        startedAt: new Date()
+        startedAt: new Date().toISOString()
       },
       {
         context: options?.context || null,
@@ -456,14 +456,15 @@ function createService({
       }
 
       const now = new Date();
+      const nowIso = now.toISOString();
       const unlockedUntil = addMinutes(now, Number(ruleRecord.unlockMinutes || 0));
 
       const updatedSession = normalizeRecord(await googleRewardedWatchSessionsRepository.patchDocumentById(
         sessionId,
         {
           status: "rewarded",
-          rewardedAt: now,
-          completedAt: now
+          rewardedAt: nowIso,
+          completedAt: nowIso
         },
         {
           context: options?.context || null,
@@ -476,8 +477,8 @@ function createService({
           gateKey: normalizeGateKey(sessionRecord.gateKey),
           providerConfigId: sessionRecord.providerConfigId || null,
           watchSessionId: sessionId,
-          grantedAt: now,
-          unlockedUntil
+          grantedAt: nowIso,
+          unlockedUntil: unlockedUntil.toISOString()
         },
         {
           context: options?.context || null,
@@ -525,7 +526,7 @@ function createService({
       sessionId,
       {
         status: "closed",
-        closedAt: new Date()
+        closedAt: new Date().toISOString()
       },
       {
         context: options?.context || null,

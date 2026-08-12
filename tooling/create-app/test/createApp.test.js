@@ -164,6 +164,7 @@ test("create-app scaffolds the base shell with placeholder replacements", async 
       false
     );
     assert.equal(packageJson.dependencies.pinia, "^3.0.4");
+    assert.equal(packageJson.dependencies["json-rest-schema"], "^1.0.17");
     assert.equal(packageJson.dependencies.vue, "^3.5.38");
     assert.equal(packageJson.dependencies["vue-router"], "^5.1.0");
     assert.equal(packageJson.dependencies.vuetify, "^4.1.2");
@@ -189,6 +190,8 @@ test("create-app scaffolds the base shell with placeholder replacements", async 
     const gitignore = await readFile(path.join(appRoot, ".gitignore"), "utf8");
     assert.match(gitignore, /node_modules\//);
     assert.match(gitignore, /\.jskit\/verification\//);
+    assert.match(gitignore, /src\/typed-router\.d\.ts/);
+    await assert.rejects(access(path.join(appRoot, "src/typed-router.d.ts")), /ENOENT/);
 
     const verifyWorkflow = await readFile(path.join(appRoot, ".github", "workflows", "jskit-verify.yml"), "utf8");
     assert.match(verifyWorkflow, /Generated and managed by JSKIT/);
@@ -419,6 +422,7 @@ test("create-app scaffolds the base shell with placeholder replacements", async 
     assert.doesNotMatch(viteConfig, /function reparentNestedChildrenToIndexOwners\(rootRoute\)/);
     assert.doesNotMatch(viteConfig, /^\s*beforeWriteFiles:\s*reparentNestedChildrenToIndexOwners/m);
     assert.match(viteConfig, /nestedChildren deprecated/);
+    assert.match(viteConfig, /Generated on the first Vite dev\/build scan and intentionally gitignored/);
     assert.doesNotMatch(viteConfig, /dedupe:\s*\[/);
     assert.match(viteConfig, /optimizeDeps:\s*\{/);
     assert.match(viteConfig, /entries:\s*\[/);
@@ -772,9 +776,15 @@ test("create-app minimal mode keeps the bare scaffold and can still install shel
     assert.match(verifyWorkflowBefore, /npm_config_engine_strict: "true"/u);
     assert.match(verifyWorkflowBefore, /npm_config_strict_allow_scripts: "true"/u);
     assert.equal(packageJsonBefore.dependencies["@jskit-ai/shell-web"], undefined);
+    assert.equal(packageJsonBefore.dependencies["json-rest-schema"], "^1.0.17");
     assert.equal(packageJsonBefore.dependencies["vue-router"], "^5.1.0");
     assert.equal(packageJsonBefore.devDependencies["@playwright/test"], "1.61.1");
     assert.equal(packageJsonBefore.devDependencies.vite, "^8.0.16");
+    const gitignoreBefore = await readFile(path.join(appRoot, ".gitignore"), "utf8");
+    assert.match(gitignoreBefore, /src\/typed-router\.d\.ts/);
+    await assert.rejects(access(path.join(appRoot, "src/typed-router.d.ts")), /ENOENT/);
+    const viteConfigBefore = await readFile(path.join(appRoot, "vite.config.mjs"), "utf8");
+    assert.match(viteConfigBefore, /Generated on the first Vite dev\/build scan and intentionally gitignored/);
     const playwrightConfigBefore = await readFile(path.join(appRoot, "playwright.config.mjs"), "utf8");
     assert.match(playwrightConfigBefore, /@jskit-ai\/jskit-cli\/test\/playwright/u);
     assert.match(playwrightConfigBefore, /defineConfig\(createJskitPlaywrightConfig\(\)\)/u);

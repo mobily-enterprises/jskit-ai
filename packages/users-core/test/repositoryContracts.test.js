@@ -235,9 +235,9 @@ test("userProfilesRepository.upsert patches existing profiles with resource-back
   assert.equal(attributes.email, "ada.renamed@example.com");
   assert.equal(attributes.displayName, "Ada Renamed");
   assert.equal(attributes.username, "ada");
-  assert.ok(attributes.updatedAt instanceof Date);
+  assert.equal(typeof attributes.updatedAt, "string");
   assert.equal(record?.id, "7");
-  assert.equal(record?.updatedAt, attributes.updatedAt.toISOString());
+  assert.equal(record?.updatedAt, attributes.updatedAt);
 });
 
 test("userProfilesRepository profile patch helpers stamp updatedAt through the resource contract", async () => {
@@ -285,7 +285,7 @@ test("userProfilesRepository profile patch helpers stamp updatedAt through the r
   assert.equal(calls.length, 3);
   for (const call of calls) {
     assert.equal(call.transaction, trx);
-    assert.ok(call.inputRecord?.data?.attributes?.updatedAt instanceof Date);
+    assert.equal(typeof call.inputRecord?.data?.attributes?.updatedAt, "string");
   }
   assert.deepEqual(Object.keys(calls[0].inputRecord.data.attributes).sort(), ["displayName", "updatedAt"]);
   assert.deepEqual(Object.keys(calls[1].inputRecord.data.attributes).sort(), [
@@ -296,7 +296,7 @@ test("userProfilesRepository profile patch helpers stamp updatedAt through the r
   ]);
   assert.equal(calls[1].inputRecord.data.attributes.avatarStorageKey, "avatars/7.png");
   assert.equal(calls[1].inputRecord.data.attributes.avatarVersion, "v1");
-  assert.equal(calls[1].inputRecord.data.attributes.avatarUpdatedAt, avatarUpdatedAt);
+  assert.equal(calls[1].inputRecord.data.attributes.avatarUpdatedAt, avatarUpdatedAt.toISOString());
   assert.deepEqual(calls[2].inputRecord.data.attributes.avatarStorageKey, null);
   assert.deepEqual(calls[2].inputRecord.data.attributes.avatarVersion, null);
   assert.deepEqual(calls[2].inputRecord.data.attributes.avatarUpdatedAt, null);

@@ -12,6 +12,6 @@
     "@jskit-ai/kernel": "0.1.146",
     "@jskit-ai/resource-crud-core": "0.1.89",
     "@jskit-ai/users-core": "0.1.159",
-    "json-rest-schema": "1.x.x"
+    "json-rest-schema": "^1.0.17"
   }
 }

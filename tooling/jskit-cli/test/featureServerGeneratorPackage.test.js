@@ -99,7 +99,7 @@ test("generate feature-server-generator scaffold creates the default json-rest p
     assert.equal(typeof appPackageJson.dependencies["@jskit-ai/json-rest-api-core"], "string");
     assert.equal(typeof appPackageJson.dependencies["@jskit-ai/database-runtime"], "string");
     assert.equal(typeof appPackageJson.dependencies["@jskit-ai/database-runtime-mysql"], "string");
-    assert.equal(appPackageJson.dependencies["json-rest-schema"], "1.x.x");
+    assert.equal(appPackageJson.dependencies["json-rest-schema"], "^1.0.17");
     assert.equal(appPackageJson.dependencies["@jskit-ai/feature-server-generator"], undefined);
     assert.equal(lock.installedPackages["@local/booking-engine"].source.type, "app-local-package");
   });
@@ -148,7 +148,7 @@ test("generate feature-server-generator scaffold supports orchestrator mode with
     assert.match(descriptorSource, /lane: "default"/);
     assert.equal(appPackageJson.dependencies["@local/availability-engine"], "file:packages/availability-engine");
     assert.equal(typeof appPackageJson.dependencies["@jskit-ai/kernel"], "string");
-    assert.equal(appPackageJson.dependencies["json-rest-schema"], "1.x.x");
+    assert.equal(appPackageJson.dependencies["json-rest-schema"], "^1.0.17");
     assert.equal(appPackageJson.dependencies["@jskit-ai/json-rest-api-core"], undefined);
     assert.equal(appPackageJson.dependencies["@jskit-ai/database-runtime"], undefined);
     assert.equal(appPackageJson.dependencies["@jskit-ai/database-runtime-mysql"], undefined);

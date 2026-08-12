@@ -124,15 +124,12 @@ Exports
 
 ### `src/server/common/repositories/repositoryUtils.js`
 Exports
-- `toNullableDateTime`
 - `toIsoString`
 - `isDuplicateEntryError`
 - `normalizeText`
 - `normalizeLowerText`
 - `normalizeRecordId`
 - `normalizeDbRecordId`
-- `nowDb()`
-- `toNullableIso(value)`
 - `uniqueSorted(values)`
 - `parseJson(value, fallback = {})`
 - `toDbJson(value, fallback = {})`

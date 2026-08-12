@@ -4,6 +4,7 @@ import { toIsoString, toDatabaseDateTimeUtc } from "../src/shared/dateUtils.js";
 
 test("toIsoString normalizes valid date input", () => {
   assert.equal(toIsoString("2024-01-01T00:00:00.000Z"), "2024-01-01T00:00:00.000Z");
+  assert.equal(toIsoString("2024-01-01 01:02:03.045"), "2024-01-01T01:02:03.045Z");
 });
 
 test("toDatabaseDateTimeUtc formats DATETIME(3) UTC string", () => {
@@ -20,5 +21,7 @@ test("toDatabaseDateTimeUtc preserves nullable empty values", () => {
 
 test("date utils throw on invalid date", () => {
   assert.throws(() => toIsoString("not-a-date"), /Invalid date value\./);
+  assert.throws(() => toIsoString("January 1, 2024"), /Invalid date value\./);
+  assert.throws(() => toIsoString("2024-01-01T00:00:00"), /Invalid date value\./);
   assert.throws(() => toDatabaseDateTimeUtc("not-a-date"), /Invalid date value\./);
 });

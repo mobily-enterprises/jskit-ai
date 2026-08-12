@@ -1,9 +1,30 @@
+const DATABASE_UTC_DATE_TIME_PATTERN = /^(\d{4}-\d{2}-\d{2}) (\d{2}:\d{2}:\d{2}(?:\.\d+)?)$/u;
+const RFC_3339_DATE_TIME_PATTERN = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+-]\d{2}:\d{2})$/u;
+
 function normalizeDateInput(value) {
   if (!value) {
     return null;
   }
 
-  const date = value instanceof Date ? value : new Date(value);
+  let date;
+  if (value instanceof Date) {
+    date = value;
+  } else if (typeof value === "string") {
+    const normalized = value.trim();
+    const databaseMatch = DATABASE_UTC_DATE_TIME_PATTERN.exec(normalized);
+    const dateTime = databaseMatch
+      ? `${databaseMatch[1]}T${databaseMatch[2]}Z`
+      : RFC_3339_DATE_TIME_PATTERN.test(normalized)
+        ? normalized
+        : "";
+    if (!dateTime) {
+      return null;
+    }
+    date = new Date(dateTime);
+  } else {
+    return null;
+  }
+
   if (Number.isNaN(date.getTime())) {
     return null;
   }
@@ -12,8 +33,8 @@ function normalizeDateInput(value) {
 }
 
 function toDateOrThrow(value) {
-  const date = value instanceof Date ? value : new Date(value);
-  if (Number.isNaN(date.getTime())) {
+  const date = normalizeDateInput(value);
+  if (!date) {
     throw new TypeError("Invalid date value.");
   }
 

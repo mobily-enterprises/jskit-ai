@@ -48,8 +48,8 @@ test("workspace memberships derived bodies accept normalized internal writes", a
   assert.equal(String(create.value.userId), "9");
   assert.equal(create.value.roleSid, "OWNER");
   assert.equal(create.value.status, "ACTIVE");
-  assert.equal(typeof create.value.createdAt, "object");
-  assert.equal(typeof create.value.updatedAt, "object");
+  assert.equal(create.value.createdAt, "2026-05-02T10:11:12.000Z");
+  assert.equal(create.value.updatedAt, "2026-05-02T10:11:12.000Z");
 
   const patch = await parseBody(workspaceMembershipsResource.operations.patch, {
     roleSid: "ADMIN",
@@ -59,7 +59,7 @@ test("workspace memberships derived bodies accept normalized internal writes", a
   assert.equal(patch.ok, true);
   assert.equal(patch.value.roleSid, "ADMIN");
   assert.equal(patch.value.status, "ACTIVE");
-  assert.equal(typeof patch.value.updatedAt, "object");
+  assert.equal(patch.value.updatedAt, "2026-05-02T10:11:12.000Z");
 });
 
 test("workspace invites derived bodies keep lifecycle fields available for internal writes", async () => {
@@ -83,8 +83,8 @@ test("workspace invites derived bodies keep lifecycle fields available for inter
   assert.equal(create.value.status, "PENDING");
   assert.equal(create.value.tokenHash, "invite-token-hash");
   assert.equal(String(create.value.invitedByUserId), "9");
-  assert.equal(typeof create.value.createdAt, "object");
-  assert.equal(typeof create.value.updatedAt, "object");
+  assert.equal(create.value.createdAt, "2026-05-02T10:11:12.000Z");
+  assert.equal(create.value.updatedAt, "2026-05-02T10:11:12.000Z");
 
   const patch = await parseBody(workspaceInvitesResource.operations.patch, {
     status: "ACCEPTED",
@@ -93,6 +93,6 @@ test("workspace invites derived bodies keep lifecycle fields available for inter
   });
   assert.equal(patch.ok, true);
   assert.equal(patch.value.status, "ACCEPTED");
-  assert.equal(typeof patch.value.acceptedAt, "object");
-  assert.equal(typeof patch.value.updatedAt, "object");
+  assert.equal(patch.value.acceptedAt, "2026-05-11T00:00:00.000Z");
+  assert.equal(patch.value.updatedAt, "2026-05-11T00:00:00.000Z");
 });

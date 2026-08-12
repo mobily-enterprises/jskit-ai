@@ -191,7 +191,7 @@ test("workspaceMembershipsRepository.ensureOwnerMembership upgrades an existing 
 
   assert.equal(state.patchPayload.attributes?.roleSid, "owner");
   assert.equal(state.patchPayload.attributes?.status, "active");
-  assert.equal(typeof state.patchPayload.attributes?.updatedAt, "object");
+  assert.equal(typeof state.patchPayload.attributes?.updatedAt, "string");
   assert.deepEqual(membership, {
     id: "11",
     workspaceId: "7",

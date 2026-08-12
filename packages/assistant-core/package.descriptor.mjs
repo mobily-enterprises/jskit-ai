@@ -53,7 +53,7 @@ export default Object.freeze({
         "@jskit-ai/resource-crud-core": "0.1.89",
         "@jskit-ai/users-core": "0.1.159",
         "dompurify": "^3.3.3",
-        "json-rest-schema": "1.x.x",
+        "json-rest-schema": "^1.0.17",
         "marked": "^17.0.4",
         "openai": "^6.22.0"
       },

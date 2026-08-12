@@ -641,7 +641,7 @@ test("createJsonRestApiHost installs json-rest-api query projections", async () 
   assert.equal(typeof api.resources.projectionContacts.vars.queryFields.displayName.select, "function");
 });
 
-test("createJsonRestApiHost returns calendar dates as YYYY-MM-DD without changing date-time or time fields", async () => {
+test("createJsonRestApiHost returns JSON-native temporal values from database records", async () => {
   const fakeKnex = Object.assign(() => {}, {
     client: {
       config: {
@@ -697,7 +697,7 @@ test("createJsonRestApiHost returns calendar dates as YYYY-MM-DD without changin
   });
 
   assert.equal(record.data.attributes.publishedOn, "2024-02-29");
-  assert.equal(record.data.attributes.scheduledAt, scheduledAt);
+  assert.equal(record.data.attributes.scheduledAt, "2024-02-29T12:34:56.000Z");
   assert.equal(record.data.attributes.opensAt, "09:45:00");
   assert.equal(record.included[0].attributes.observedOn, "2024-03-01");
 });
@@ -767,6 +767,38 @@ test("calendar date writes and responses keep leap day across server time zones"
       opensAt: "09:45:00"
     }, timezone);
   }
+});
+
+test("createJsonRestApiHost maps UTC database datetimes to RFC 3339 strings", async () => {
+  const fakeKnex = Object.assign(() => {}, {
+    client: { config: { client: "sqlite3" } },
+    async raw() {
+      return [{ version: "3.35.5" }];
+    },
+    transaction() {}
+  });
+  const api = await createJsonRestApiHost({ knex: fakeKnex });
+
+  await api.addResource("jobs", createJsonRestResourceScopeOptions({
+    tableName: "jobs",
+    schema: {
+      id: { type: "id", primary: true },
+      scheduledAt: { type: "dateTime" }
+    }
+  }));
+  const record = {
+    data: {
+      type: "jobs",
+      id: "1",
+      attributes: {
+        scheduledAt: "2024-02-29 12:34:56.123"
+      }
+    }
+  };
+
+  await api.runHooks("finish", { record });
+
+  assert.equal(record.data.attributes.scheduledAt, "2024-02-29T12:34:56.123Z");
 });
 
 test("returnNullWhenJsonRestResourceMissing only swallows missing-resource errors", async () => {

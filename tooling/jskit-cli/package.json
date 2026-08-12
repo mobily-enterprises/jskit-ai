@@ -18,7 +18,8 @@
     "./test/playwright": "./src/test/playwright.js"
   },
   "scripts": {
-    "test": "node --test"
+    "test": "node --test test/*.test.js",
+    "test:browser": "node --test test/browser/generatedAppSmoke.test.js"
   },
   "dependencies": {
     "@jskit-ai/jskit-catalog": "0.1.168",

@@ -41,9 +41,10 @@ Local functions
 - `cloneJsonRestResourceValue(value, { writeSerializers = {} } = {})`
 - `resolveCanonicalCalendarDate(value)`
 - `serializeJsonRestCalendarDate(value)`
+- `resolveCanonicalDateTime(value)`
 - `applyJsonRestCalendarDateWriteSerializers(scopeOptions = {})`
-- `normalizeJsonRestCalendarDateEntry(entry = null, scopes = {})`
-- `normalizeJsonRestCalendarDateDocument(document = null, scopes = {})`
+- `normalizeJsonRestTemporalEntry(entry = null, scopes = {})`
+- `normalizeJsonRestTemporalDocument(document = null, scopes = {})`
 - `normalizeScopeValue(value)`
 - `normalizeJsonRestText(value, { fallback = "" } = {})`
 - `normalizeJsonRestFilterValue(value)`

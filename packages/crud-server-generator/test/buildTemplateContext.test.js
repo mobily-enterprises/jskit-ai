@@ -824,6 +824,14 @@ test("buildReplacementsFromSnapshot renders public routes and actions explicitly
   assert.equal(replacements.__JSKIT_CRUD_CREATE_ACTION_PERMISSION__, "publicPermission");
   assert.equal(replacements.__JSKIT_CRUD_UPDATE_ACTION_PERMISSION__, "publicPermission");
   assert.equal(replacements.__JSKIT_CRUD_DELETE_ACTION_PERMISSION__, "publicPermission");
+  assert.equal(
+    replacements.__JSKIT_CRUD_LIST_ACTION_INPUT__,
+    [
+      "composeSchemaDefinitions([",
+      "        ...createStandardCrudListQueryValidators({ resource }),",
+      "      ])"
+    ].join("\n")
+  );
   assert.equal(replacements.__JSKIT_CRUD_ROLE_CATALOG_PERMISSION_GRANTS__, "");
 });
 
@@ -1673,6 +1681,7 @@ test("crud repository template defines a json-rest-api adapter over the injected
   assert.match(templateSource, /createJsonRestContext\(options\?\.context \|\| null\)/);
   assert.match(templateSource, /buildJsonRestQueryParams\(JSON_REST_SCOPE_NAME, query\)/);
   assert.match(templateSource, /createJsonApiInputRecord\(JSON_REST_SCOPE_NAME, payload/);
+  assert.doesNotMatch(templateSource, /updatedAt:\s*new Date\(\)/);
   assert.doesNotMatch(templateSource, /function toJsonRestContext\(context = null\)/);
   assert.doesNotMatch(templateSource, /function normalizeArrayInput\(value\)/);
   assert.doesNotMatch(templateSource, /function buildJsonRestQueryParams\(query = \{\}/);

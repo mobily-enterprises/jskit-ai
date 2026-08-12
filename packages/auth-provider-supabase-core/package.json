@@ -14,7 +14,7 @@
   "dependencies": {
     "@jskit-ai/auth-core": "0.1.144",
     "@jskit-ai/kernel": "0.1.146",
-    "json-rest-schema": "1.x.x",
+    "json-rest-schema": "^1.0.17",
     "jose": "^6.1.0",
     "@supabase/supabase-js": "^2.57.4",
     "ws": "^8.21.1"

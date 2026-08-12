@@ -6,33 +6,31 @@ import { crudResource } from "../src/shared/crud/crudResource.js";
 test("crudResource normalizes create payload through schema validation", async () => {
   const normalized = await validateSchemaPayload(crudResource.operations.create.body, {
     textField: "  Example text  ",
-    dateField: "2026-03-11",
+    dateField: "2026-03-11T00:00:00.000Z",
     numberField: "42.5"
   }, { phase: "input" });
 
   assert.equal(normalized.textField, "Example text");
   assert.equal(normalized.numberField, 42.5);
-  assert.ok(normalized.dateField instanceof Date);
-  assert.equal(normalized.dateField.toISOString(), "2026-03-11T00:00:00.000Z");
+  assert.equal(normalized.dateField, "2026-03-11T00:00:00.000Z");
 });
 
 test("crudResource normalizes record output through schema validation", async () => {
   const normalized = await validateSchemaPayload(crudResource.operations.view.output, {
     id: 7,
     textField: " Example text ",
-    dateField: "2026-03-10",
+    dateField: "2026-03-10T00:00:00.000Z",
     numberField: "99",
-    createdAt: "2026-03-11 00:00:00.000",
-    updatedAt: "2026-03-11 00:00:00.000"
+    createdAt: "2026-03-11T00:00:00.000Z",
+    updatedAt: "2026-03-11T00:00:00.000Z"
   }, { phase: "output" });
 
   assert.equal(normalized.id, "7");
   assert.equal(normalized.textField, "Example text");
-  assert.ok(normalized.dateField instanceof Date);
-  assert.equal(normalized.dateField.toISOString(), "2026-03-10T00:00:00.000Z");
+  assert.equal(normalized.dateField, "2026-03-10T00:00:00.000Z");
   assert.equal(normalized.numberField, 99);
-  assert.ok(normalized.createdAt instanceof Date);
-  assert.ok(normalized.updatedAt instanceof Date);
+  assert.equal(normalized.createdAt, "2026-03-11T00:00:00.000Z");
+  assert.equal(normalized.updatedAt, "2026-03-11T00:00:00.000Z");
 });
 
 test("crudResource list operation exposes output validator only", () => {

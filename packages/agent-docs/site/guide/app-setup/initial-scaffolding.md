@@ -199,7 +199,7 @@ The most important parts look like this:
     "@tanstack/vue-query": "^5.101.0",
     "@jskit-ai/http-runtime": "0.x",
     "fastify": "^5.8.5",
-    "json-rest-schema": "^1.0.16",
+    "json-rest-schema": "^1.0.17",
     "pinia": "^3.0.4",
     "vue": "^3.5.38",
     "vue-router": "^5.1.0",
@@ -225,6 +225,8 @@ Published JSKIT libraries and tooling support Node.js 22 from 22.13.0 onward, No
 That matters because JSKIT maintenance policy changes over time. If the scaffold copied a large shell script into every app, existing apps would freeze the old behavior forever. By delegating to `jskit app verify`, `jskit app update-packages`, and `jskit app release`, the app keeps the nice `npm run` shortcuts while the maintained behavior stays in the installed CLI package.
 
 The Playwright scaffold follows the same rule. `playwright.config.mjs` delegates to `@jskit-ai/jskit-cli/test/playwright`, and the starter browser specs delegate their shared responsive checks to published JSKIT helpers. The generated files stay small while later JSKIT package updates can change local server startup, managed `PLAYWRIGHT_BASE_URL` handling, and `VIBE64_PLAYWRIGHT_STORAGE_STATE` support without copying that logic into each new app.
+
+The scaffold also configures `src/typed-router.d.ts` as generated output. It is intentionally absent from a fresh scaffold and ignored by Git; the Vue Router Vite plugin writes it during the first `npm run dev` or `npm run build` route scan.
 
 `jskit app verify` is worth noticing specifically. Linting, tests, and builds check your source code and runtime behavior. The JSKIT part of that flow runs `doctor`, which checks JSKIT-managed app state: installed package visibility, lock-file-backed managed files, and other JSKIT-specific health rules. It is there because a JSKIT app is not only code. It is also a descriptor-driven managed project.
 

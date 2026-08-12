@@ -407,6 +407,7 @@ test("fresh generated shell-web/auth app optimizes dynamic shell subpaths before
       });
       await viteRuntime.waitFor(new RegExp(`http://127\\.0\\.0\\.1:${vitePort}/`));
       await viteRuntime.waitFor(/dependencies optimized/u, 60_000);
+      await access(path.join(appRoot, "src", "typed-router.d.ts"));
 
       const initiallyOptimized = await readOptimizerMetadata(appRoot);
       for (const specifier of OPTIMIZED_SHELL_SUBPATHS) {
@@ -488,6 +489,7 @@ test("generated Vite apps serve every installed local package from canonical edi
 
         const vitePort = await reservePort();
         viteRuntime = await startViteDevServer({ appRoot, vitePort });
+        await access(path.join(appRoot, "src", "typed-router.d.ts"));
 
         const chromiumLauncher = await loadChromiumLauncher(appRoot);
         const chromiumExecutablePath = String(

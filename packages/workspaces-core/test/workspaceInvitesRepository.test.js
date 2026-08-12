@@ -233,8 +233,8 @@ test("workspaceInvitesRepository.markAcceptedById uses the internal invite resou
 
   const payload = state.patchPayloads[0];
   assert.equal(payload.attributes?.status, "accepted");
-  assert.equal(typeof payload.attributes?.acceptedAt, "object");
-  assert.equal(typeof payload.attributes?.updatedAt, "object");
+  assert.equal(typeof payload.attributes?.acceptedAt, "string");
+  assert.equal(payload.attributes?.updatedAt, payload.attributes?.acceptedAt);
 });
 
 test("workspaceInvitesRepository.listPendingByWorkspaceIdWithWorkspace keeps workspace join fields outside the base resource contract", async () => {

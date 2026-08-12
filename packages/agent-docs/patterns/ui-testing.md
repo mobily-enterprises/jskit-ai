@@ -11,7 +11,7 @@ Rules:
 
 - Any chunk that adds or changes user-facing UI must include a Playwright flow that exercises the changed behavior before the chunk is done.
 - Generator or package template UI changes must be checked at compact phone, tablet-ish medium, and expanded desktop widths.
-- For generated UI, check horizontal overflow, clipped or invisible text, duplicate navigation, broken route placement, and tap targets under 48 px.
+- For generated UI, check horizontal overflow, clipped or invisible text, duplicate navigation, and broken route placement at every standard viewport. On compact screens, also check generated-screen tap targets under 48 px; medium and expanded layouts may use their documented denser controls.
 - Apps with `shell-web` installed should start from `tests/e2e/adaptive-shell.spec.ts` and extend it with feature-specific assertions.
 - Generated `playwright.config.mjs` delegates to `@jskit-ai/jskit-cli/test/playwright`. Do not copy base-URL, web-server, or storage-state logic into app tests.
 - Use relative paths such as `page.goto("/home")`. The shared config owns the browser base URL.
