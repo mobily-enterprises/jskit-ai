@@ -46,11 +46,12 @@ function pad(value, size = 2) {
 }
 
 function requireValidDateParts(year, month, day) {
-  const candidate = new Date(Date.UTC(year, month - 1, day));
+  const leapYear = year % 4 === 0 && (year % 100 !== 0 || year % 400 === 0);
+  const daysByMonth = [31, leapYear ? 29 : 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
   if (
-    candidate.getUTCFullYear() !== year ||
-    candidate.getUTCMonth() + 1 !== month ||
-    candidate.getUTCDate() !== day
+    !Number.isInteger(year) || year < 0 || year > 9999 ||
+    !Number.isInteger(month) || month < 1 || month > 12 ||
+    !Number.isInteger(day) || day < 1 || day > daysByMonth[month - 1]
   ) {
     throw new TypeError("Invalid date value.");
   }

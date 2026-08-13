@@ -111,6 +111,8 @@ function toDateTimeLocalInputValue(value) {
     return "";
   }
 
+  const sourceText = typeof value === "string" ? value.trim() : "";
+  const sourceFraction = sourceText.match(/T\d{2}:\d{2}:\d{2}\.(\d+)/u)?.[1] || "";
   const date = value instanceof Date ? value : new Date(value);
   if (Number.isNaN(date.getTime())) {
     return String(value);
@@ -121,6 +123,10 @@ function toDateTimeLocalInputValue(value) {
     padDateTimePart(date.getMonth() + 1),
     padDateTimePart(date.getDate())
   ].join("-") + `T${padDateTimePart(date.getHours())}:${padDateTimePart(date.getMinutes())}`;
+  if (sourceFraction && !/^0+$/u.test(sourceFraction)) {
+    return `${minuteValue}:${padDateTimePart(date.getSeconds())}.${sourceFraction}`;
+  }
+
   const milliseconds = date.getMilliseconds();
   if (milliseconds > 0) {
     return `${minuteValue}:${padDateTimePart(date.getSeconds())}.${String(milliseconds).padStart(3, "0")}`;
@@ -162,7 +168,31 @@ function toDateInputValue(value) {
   return normalized;
 }
 
-function toIsoUtcDateTimeValue(value) {
+function applyDateTimePrecision(isoValue, temporalPrecision) {
+  if (!Number.isInteger(temporalPrecision) || temporalPrecision < 0) {
+    return isoValue;
+  }
+
+  const match = String(isoValue || "").match(/^(.*?)(?:\.(\d+))?Z$/u);
+  if (!match?.[2]) {
+    return isoValue;
+  }
+
+  const fraction = match[2];
+  if (fraction.length <= temporalPrecision) {
+    return isoValue;
+  }
+
+  const excess = fraction.slice(temporalPrecision);
+  if (!/^0+$/u.test(excess)) {
+    return isoValue;
+  }
+
+  const retained = fraction.slice(0, temporalPrecision);
+  return `${match[1]}${retained ? `.${retained}` : ""}Z`;
+}
+
+function toIsoUtcDateTimeValue(value, temporalPrecision) {
   const normalized = String(value ?? "").trim();
   if (!normalized) {
     return "";
@@ -173,7 +203,12 @@ function toIsoUtcDateTimeValue(value) {
     return normalized;
   }
 
-  return date.toISOString();
+  const sourceFraction = normalized.match(/T\d{2}:\d{2}:\d{2}\.(\d+)/u)?.[1] || "";
+  const dateIsoValue = date.toISOString();
+  const preciseIsoValue = sourceFraction
+    ? dateIsoValue.replace(/\.\d{3}Z$/u, `.${sourceFraction}Z`)
+    : dateIsoValue;
+  return applyDateTimePrecision(preciseIsoValue, temporalPrecision);
 }
 
 function resolveFormFieldInitialValue(field = {}) {
@@ -294,7 +329,7 @@ function buildCrudFormPayload(fields = [], model = {}) {
     }
 
     if (fieldFormat === "date-time") {
-      const normalizedValue = toIsoUtcDateTimeValue(rawValue);
+      const normalizedValue = toIsoUtcDateTimeValue(rawValue, field.temporalPrecision);
       if (!normalizedValue) {
         if (clearAsNull) {
           payload[fieldKey] = null;

@@ -415,6 +415,9 @@ test("buildUiTemplateContext renders the supported delete confirmation lane", as
     assert.match(context.__JSKIT_UI_VIEW_DELETE_DIALOG__, /deleteAction\.isDeleting/);
     assert.match(context.__JSKIT_UI_VIEW_DELETE_DIALOG__, />\s*Cancel\s*</);
     assert.match(context.__JSKIT_UI_VIEW_DELETE_IMPORT_LINE__, /useCrudDeleteAction/);
+    assert.match(context.__JSKIT_UI_VIEW_DELETE_IMPORT_LINE__, /mdiDeleteOutline.*@mdi\/js/s);
+    assert.match(context.__JSKIT_UI_VIEW_DELETE_ACTION_SLOT__, /:prepend-icon="mdiDeleteOutline"/);
+    assert.doesNotMatch(context.__JSKIT_UI_VIEW_DELETE_ACTION_SLOT__, /mdi-delete-outline/);
     assert.match(context.__JSKIT_UI_VIEW_DELETE_SETUP__, /resource: uiResource/);
     assert.match(context.__JSKIT_UI_VIEW_DELETE_SETUP__, /apiUrlTemplate: UI_VIEW_API_URL/);
     assert.equal(context.__JSKIT_UI_RECORD_ID_PARAM__, "noteId");

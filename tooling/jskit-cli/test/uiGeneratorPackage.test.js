@@ -447,6 +447,9 @@ test("generate @jskit-ai/crud-ui-generator adds delete confirmation only when re
       viewPageSource,
       /import \{ useCrudDeleteAction \} from "@jskit-ai\/users-web\/client\/composables\/useCrudDeleteAction";/
     );
+    assert.match(viewPageSource, /import \{ mdiDeleteOutline \} from "@mdi\/js";/);
+    assert.match(viewPageSource, /:prepend-icon="mdiDeleteOutline"/);
+    assert.doesNotMatch(viewPageSource, /mdi-delete-outline/);
     assert.match(viewPageSource, /const UI_RECORD_ID_PARAM = "noteId";/);
     assert.match(viewPageSource, /const UI_VIEW_API_URL = `\$\{UI_API_BASE_URL\}\/\:\$\{UI_RECORD_ID_PARAM\}`;/);
     assert.match(viewPageSource, /const deleteAction = useCrudDeleteAction\(\{/);

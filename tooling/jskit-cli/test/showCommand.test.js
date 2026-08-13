@@ -174,7 +174,7 @@ test("show crud-ui-generator --details exposes the delete confirmation lane", ()
   assert.equal(result.status, 0, String(result.stderr || ""));
   const stdout = stripVTControlCharacters(String(result.stdout || ""));
   assert.match(stdout, /--delete-confirmation/);
-  assert.match(stdout, /resource operations\.delete/);
+  assert.match(stdout, /delete-confirmation \[optional\]/);
 });
 
 test("show package resolves app-local packages from the current app", async () => {

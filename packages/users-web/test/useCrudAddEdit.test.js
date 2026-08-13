@@ -108,6 +108,29 @@ test("buildCrudFormPayload and applyCrudPayloadToForm round-trip date-time field
   assert.equal(form.scheduledAt, "2024-01-02T03:04");
 });
 
+test("date-time form values honor strict temporal precision without losing fractional tails", () => {
+  const noFraction = buildCrudFormPayload(
+    [{ key: "scheduledAt", type: "string", format: "date-time", temporalPrecision: 0 }],
+    { scheduledAt: "2024-01-02T03:04" }
+  );
+  assert.match(noFraction.scheduledAt, /T\d{2}:\d{2}:00Z$/u);
+  assert.doesNotMatch(noFraction.scheduledAt, /\.000Z$/u);
+
+  const microseconds = buildCrudFormPayload(
+    [{ key: "scheduledAt", type: "string", format: "date-time", temporalPrecision: 6 }],
+    { scheduledAt: "2024-01-02T03:04:05.123456" }
+  );
+  assert.match(microseconds.scheduledAt, /T\d{2}:\d{2}:05\.123456Z$/u);
+
+  const form = reactive({ scheduledAt: "" });
+  applyCrudPayloadToForm(
+    [{ key: "scheduledAt", type: "string", format: "date-time", temporalPrecision: 6 }],
+    form,
+    { scheduledAt: "2024-01-02T03:04:05.123456Z" }
+  );
+  assert.match(form.scheduledAt, /T\d{2}:\d{2}:05\.123456$/u);
+});
+
 test("applyCrudPayloadToForm normalizes date values for HTML date inputs", () => {
   const fields = [
     { key: "publishedOn", type: "string", format: "date" },

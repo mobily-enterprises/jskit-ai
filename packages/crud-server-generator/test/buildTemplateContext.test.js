@@ -1604,6 +1604,7 @@ test("buildReplacementsFromSnapshot renders canonical nullable temporal fields w
       maxLength: null,
       numericPrecision: null,
       numericScale: null,
+      datetimePrecision: 3,
       enumValues: Object.freeze([])
     }),
     Object.freeze({
@@ -1621,6 +1622,7 @@ test("buildReplacementsFromSnapshot renders canonical nullable temporal fields w
       maxLength: null,
       numericPrecision: null,
       numericScale: null,
+      datetimePrecision: null,
       enumValues: Object.freeze([])
     }),
     Object.freeze({
@@ -1638,6 +1640,7 @@ test("buildReplacementsFromSnapshot renders canonical nullable temporal fields w
       maxLength: null,
       numericPrecision: null,
       numericScale: null,
+      datetimePrecision: 6,
       enumValues: Object.freeze([])
     })
   ];
@@ -1653,7 +1656,7 @@ test("buildReplacementsFromSnapshot renders canonical nullable temporal fields w
 
   assert.match(
     replacements.__JSKIT_CRUD_RESOURCE_SCHEMA_PROPERTIES__,
-    /scheduledAt: \{[\s\S]*type: "dateTime",[\s\S]*nullable: true,[\s\S]*storage: \{ writeSerializer: "datetime-utc" \},[\s\S]*create: \{ required: false \}[\s\S]*\},/s
+    /scheduledAt: \{[\s\S]*type: "dateTime",[\s\S]*temporalPrecision: 3,[\s\S]*nullable: true,[\s\S]*storage: \{ writeSerializer: "datetime-utc" \},[\s\S]*create: \{ required: false \}[\s\S]*\},/s
   );
   assert.match(
     replacements.__JSKIT_CRUD_RESOURCE_SCHEMA_PROPERTIES__,
@@ -1661,7 +1664,7 @@ test("buildReplacementsFromSnapshot renders canonical nullable temporal fields w
   );
   assert.match(
     replacements.__JSKIT_CRUD_RESOURCE_SCHEMA_PROPERTIES__,
-    /preferredTime: \{[\s\S]*type: "time",[\s\S]*nullable: true,[\s\S]*create: \{ required: false \}[\s\S]*\},/s
+    /preferredTime: \{[\s\S]*type: "time",[\s\S]*temporalPrecision: 6,[\s\S]*nullable: true,[\s\S]*create: \{ required: false \}[\s\S]*\},/s
   );
 });
 

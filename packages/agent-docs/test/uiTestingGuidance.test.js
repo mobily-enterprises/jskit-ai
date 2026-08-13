@@ -32,7 +32,7 @@ test("the single JSKIT skill covers implementation and review without removed wo
 
   assert.match(operationalSource, /current diff/);
   assert.match(operationalSource, /@jskit-ai\/create-app/u);
-  assert.match(operationalSource, /npx jskit add package/u);
+  assert.match(operationalSource, /npx --no-install jskit add package/u);
   assert.match(operationalSource, /Conventional one-table CRUD/u);
   assert.match(operationalSource, /crud-server-generator scaffold/u);
   assert.match(operationalSource, /crud-ui-generator crud/u);
@@ -50,7 +50,10 @@ test("the single JSKIT skill covers implementation and review without removed wo
   assert.match(skill, /Discover only a missing fact or exact-command failure/u);
   const crudReference = references.find(({ file }) => file === "crud-operations.md").source;
   const uiReference = references.find(({ file }) => file === "ui-operations.md").source;
-  assert.match(crudReference, /Inspect only a generator whose exact\s+lane or option values are missing, or whose supplied command failed/u);
+  assert.match(
+    crudReference,
+    /Inspect only a generator whose exact\s+lane or option values are\s+missing, or whose supplied command failed/u
+  );
   assert.match(crudReference, /Never run these merely to reconfirm caller-supplied facts/u);
   assert.match(uiReference, /custom sibling\/child links,\s+resolve current dynamic params with their runtime to an absolute URL\/route\s+object/u);
   assert.match(uiReference, /never bind its route-template\/relative string raw to Vue Router `to`/u);

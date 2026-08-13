@@ -1,13 +1,13 @@
 # CRUD operations
 
-Read this reference completely before database, schema, CRUD, repository, or
-persistence work.
+Read this completely before database, schema, CRUD, repository, or persistence
+work.
 
 ## Establish the contract
 
-Determine the selected database adapter, surface, access rule, and ownership
-model from the request and app authority. Inspect only a generator whose exact
-lane or option values are missing, or whose supplied command failed:
+Take the database adapter, surface, access, and ownership from the request and
+app authority. Inspect only a generator whose exact lane or option values are
+missing, or whose supplied command failed:
 
 ```bash
 npx --no-install jskit show crud-server-generator --details
@@ -16,29 +16,18 @@ npx --no-install jskit show crud-ui-generator --details
 
 Never run these merely to reconfirm caller-supplied facts.
 
-For normal app-owned CRUD tables:
-
-- Use one non-null integer primary key, normally
-  `id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY`.
-- Make every foreign key single-column and target the referenced table's
-  single-column primary key. Use multi-column unique indexes only for business
-  uniqueness, never as relationship targets.
-- Use only direct `workspace_id` and/or `user_id` columns for generated JSKIT
-  ownership and choose the ownership filter matching those columns exactly.
-- Treat names such as `recipient_user_id`, `created_by_user_id`, and
-  `assignee_user_id` as domain relationships, not ownership aliases.
-- Express tenant-safe relationships as direct ownership plus a normal
-  `parent_id -> parent.id` relation. Test both allowed and cross-workspace
-  cases.
-
-Stop before generation if the schema uses composite relationship keys or if
-the ownership filter and reserved ownership columns disagree.
+Normal app-owned CRUD tables use one non-null integer primary key. Every
+foreign key is single-column and targets that key; multi-column unique indexes
+are business constraints, never relationship targets. Only direct
+`workspace_id` and `user_id` columns are generated ownership. Names such as
+`recipient_user_id` are domain relationships. Match the ownership filter to
+the reserved columns exactly, and test allowed plus cross-workspace cases.
+Stop before generation when these contracts disagree.
 
 ## Conventional one-table CRUD
 
-In a fresh disposable development database, create the validated table first.
-The server generator reads its live shape. Scaffold the server contract before
-the UI:
+Create the validated table first in a fresh disposable development database;
+the server generator reads its live shape:
 
 ```bash
 npx --no-install jskit generate crud-server-generator scaffold \
@@ -49,14 +38,12 @@ npx --no-install jskit generate crud-server-generator scaffold \
   --table-name <table>
 ```
 
-Use `--access public` only with a non-workspace surface and public ownership;
-omit both role-grant flags. For workspace-required CRUDs, choose exactly one
-of `--grant-role <role>` or `--no-role-grant`. Never invent a role to satisfy
-the generator. Use `--internal` when the entity needs the generated
-repository/service/resource/migration ownership chain but no public HTTP CRUD
-routes.
+Use public access only on a non-workspace surface with public ownership. A
+workspace CRUD chooses exactly one of `--grant-role <role>` or
+`--no-role-grant`; never invent a role. `--internal` keeps the generated
+repository/service/resource ownership chain but suppresses public HTTP routes.
 
-Run `npm install`, then scaffold the UI from the generated shared resource:
+Run `npm install`, then generate UI from the exact shared resource:
 
 ```bash
 npx --no-install jskit generate crud-ui-generator crud \
@@ -66,30 +53,20 @@ npx --no-install jskit generate crud-ui-generator crud \
 ```
 
 The target is relative to `src/pages/`, starts with the selected surface's
-nonempty configured `pagesRoot`, and has no leading slash (for example
-`home/books`). For a surface deliberately configured with an empty root, use
-only the plural route (for example `books`). Use the exact singular resource
-filename emitted by the server generator; do not guess it.
+nonempty configured `pagesRoot` (for example `home/books`), and has no leading
+slash. For a surface deliberately configured with an empty root, use
+only the plural route. Use the exact singular resource filename emitted by the server generator; do not guess it.
 
-Treat that shared resource as the canonical CRUD contract. Do not hand-build
-routes, validators, HTTP helpers, or UI before the server resource exists.
-
-Use generated high-level seams where they fit:
-
-- `useCrudListScreen()`, `useCrudViewScreen()`, and
-  `useCrudAddEditScreen()` for routed screens.
-- `useCrudList()`, `useCrudView()`, and `useCrudAddEdit()` for routed CRUD
-  behavior.
-- `useList()`, `useView()`, `useAddEdit()`, `useCommand()`, and
-  `useEndpointResource()` for non-standard contracts.
-
-CRUD hooks derive their JSON:API transport from the shared resource. Do not
-pass a custom transport or use raw `fetch()` for standard CRUD behavior.
+That resource is canonical. Do not hand-build routes, validators, HTTP helpers,
+or UI before it exists. Prefer `useCrudListScreen()`, `useCrudViewScreen()`, and
+`useCrudAddEditScreen()` for routed screens; the corresponding `useCrud*()`
+composables for routed behavior; and `useList()`, `useView()`, `useAddEdit()`,
+`useCommand()`, or `useEndpointResource()` for non-standard contracts. Standard
+CRUD derives JSON:API transport from the resource—never use raw `fetch()`.
 
 ## Generated record deletion
 
-For an ordinary routed CRUD that needs destructive record deletion, request
-the lane explicitly when generating the UI:
+Request ordinary routed deletion explicitly:
 
 ```bash
 npx --no-install jskit generate crud-ui-generator crud notes \
@@ -101,65 +78,42 @@ npx --no-install jskit generate crud-ui-generator crud notes \
   --delete-confirmation
 ```
 
-`--delete-confirmation` requires generated `list` and `view` pages and a
-shared resource whose delete operation uses `DELETE`. The generator fails
-clearly when those requirements are not met.
+`--delete-confirmation` requires generated list and view pages and a shared
+resource with a `DELETE` operation. It supports a custom `--id-param` and fails
+clearly when the contract is unsupported. The view uses the public
+`CrudViewScreen` `actions` slot and `useCrudDeleteAction()`. A Vuetify alert
+dialog provides Cancel/Delete; `useCommand()` owns pending/error state and the
+resource request; success invalidates the CRUD list and navigates there. Do not
+inspect private `users-web` code, add a page transport, or use raw `fetch()`.
 
-The generated view page uses the supported `CrudViewScreen` `actions` slot and
-the public `useCrudDeleteAction()` composable. It resolves the current record
-identifier through the routed CRUD runtime, executes the shared resource's
-delete operation through `useCommand()`, and invalidates the CRUD list query.
-Its Vuetify alert dialog supplies Cancel and Delete actions, keeps the record
-screen visible on error, disables duplicate submission while pending, and
-navigates to the generated list route only after success. Custom `--id-param`
-values flow through the same public routed-CRUD contract.
+## Strict temporal values
 
-Do not rebuild that command with raw `fetch()`, inspect `users-web` internals,
-or add a page-local transport. If the required behavior does not fit this
-generated lane, use the public screen slot and command APIs deliberately and
-document why.
-
-## JSON REST temporal values
-
-The current `json-rest-schema` contract treats temporal values as strict wire
-strings:
+With `json-rest-schema` 1.0.17, temporal resource values are strings:
 
 - `date`: `YYYY-MM-DD`
-- `time`: an offset-free `HH:MM[:SS[.fraction]]`
+- `time`: offset-free `HH:MM[:SS[.fraction]]`
 - `dateTime`: RFC 3339 with seconds and `Z` or a numeric offset
 
-Do not pass JavaScript `Date` objects into resource validators. Convert them at
-the boundary, normally with `date.toISOString()` for `dateTime`. The removed
-`timestamp` type has no compatibility alias; after confirming the existing
-unit, declare `epochMilliseconds` or `epochSeconds` instead. Respect each
-field's `temporalPrecision` and do not silently truncate meaningful fractional
-seconds.
-
-Generated CRUD repositories serialize supported database date/time values at
-the resource-output boundary. Custom repositories must return the same strict
-strings themselves and must write ISO/RFC 3339 date-time strings rather than
-passing `Date` objects through resource validation.
+Do not pass JavaScript `Date` objects through resource validation; convert at
+the boundary (normally `toISOString()` for `dateTime`). `timestamp` is removed:
+after checking the existing unit, use `epochMilliseconds` or `epochSeconds`.
+Honor `temporalPrecision` without silently truncating fractions. Generated CRUD
+serializes supported database temporal output; custom repositories must return
+strict strings and write ISO/RFC 3339 strings themselves. There is no compatibility alias.
 
 ## Migration ownership
 
-Do not hand-write a competing migration for a table the CRUD server generator
-will own. Never modify or replace its installed baseline migration. Express a
-later schema change as a new immutable additive migration owned by the
-app-local package:
+Never compete with or alter a generator-owned baseline migration. Later schema
+changes are immutable additive migrations owned by the app-local package:
 
 ```bash
-npx --no-install jskit create migration \
-  --package <package-id> \
-  --id <migration-id>
+npx --no-install jskit create migration --package <package-id> --id <id>
 npx --no-install jskit migrations package <package-id>
 npm run db:migrate
 ```
 
-If ordinary persisted data genuinely cannot use the generated CRUD lane, stop
-and obtain explicit developer approval. Record the approved exception in
-`.jskit/WORKBOARD.md` and `.jskit/table-ownership.json`; also record it in
-`.jskit/APP_BLUEPRINT.md` when it changes durable architecture.
-
-Before sign-off, rebuild the full migration chain in a fresh disposable
-database, compare the recreated schema with the intended schema, test relevant
-ownership boundaries, run JSKIT Doctor, and run the project verifier.
+An exceptional persistence lane requires explicit developer approval recorded
+in `.jskit/WORKBOARD.md` and `.jskit/table-ownership.json`, plus
+`.jskit/APP_BLUEPRINT.md` when architectural. Before sign-off, rebuild from
+zero in a fresh disposable database, compare schema, test ownership boundaries,
+run Doctor, and run the verifier.

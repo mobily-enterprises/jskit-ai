@@ -209,7 +209,8 @@ Local functions
 - `toTimeInputValue(value)`
 - `toDateTimeLocalInputValue(value)`
 - `toDateInputValue(value)`
-- `toIsoUtcDateTimeValue(value)`
+- `applyDateTimePrecision(isoValue, temporalPrecision)`
+- `toIsoUtcDateTimeValue(value, temporalPrecision)`
 - `resolveFormFieldInitialValue(field = {})`
 - `shouldSerializeClearedFieldAsNull(field = {})`
 
@@ -488,6 +489,15 @@ Exports
 Local functions
 - `normalizeProvidedScreen(screen = null)`
 
+### `src/client/composables/useCrudDeleteAction.js`
+Exports
+- `requireCrudDeleteOperation(resource = null)`
+- `resolveDeleteApiSuffix(screen, apiUrlTemplate = "")`
+- `useCrudDeleteAction({ screen = null, resource = null, resourceNamespace = "", apiUrlTemplate = "", access = "auto", client = null, router: routerOverride = null, fallbackDeleteError = "Unable to delete record." } = {})`
+Local functions
+- `requireCrudViewScreen(screen = null)`
+- `resolveListLocation(screen)`
+
 ### `src/client/composables/useCrudListBulkActions.js`
 Exports
 - `useCrudListBulkActions(actions = [], { resolveRecordId = null, resolveContext = null } = {})`
@@ -616,6 +626,7 @@ Exports
 - `CrudViewScreen`
 - `normalizeCrudApiAccess`
 - `resolveCrudHttpClient`
+- `useCrudDeleteAction`
 - `clientProviders`
 
 ### `src/client/lib/bootstrap.js`

@@ -699,7 +699,7 @@ function buildViewDeleteActionSlot({
         id="delete-${namespace}-button"
         color="error"
         variant="tonal"
-        prepend-icon="mdi-delete-outline"
+        :prepend-icon="mdiDeleteOutline"
         min-height="48"
         :disabled="!deleteAction.canDelete"
         @click="deleteAction.request"
@@ -1001,7 +1001,10 @@ async function buildUiTemplateContext({ appRoot, options } = {}) {
       })
       : "",
     __JSKIT_UI_VIEW_DELETE_IMPORT_LINE__: hasDeleteConfirmation
-      ? 'import { useCrudDeleteAction } from "@jskit-ai/users-web/client/composables/useCrudDeleteAction";'
+      ? [
+          'import { mdiDeleteOutline } from "@mdi/js";',
+          'import { useCrudDeleteAction } from "@jskit-ai/users-web/client/composables/useCrudDeleteAction";'
+        ].join("\n")
       : "",
     __JSKIT_UI_VIEW_DELETE_SETUP__: hasDeleteConfirmation
       ? buildViewDeleteSetup({ resourceNamespace })
