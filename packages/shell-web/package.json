@@ -1,6 +1,6 @@
 {
   "name": "@jskit-ai/shell-web",
-  "version": "0.1.151",
+  "version": "0.1.152",
   "type": "module",
   "scripts": {
     "test": "node --test"
