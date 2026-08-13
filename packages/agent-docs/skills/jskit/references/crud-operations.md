@@ -10,8 +10,8 @@ model from the request and app authority. Inspect only a generator whose exact
 lane or option values are missing, or whose supplied command failed:
 
 ```bash
-npx jskit show crud-server-generator --details
-npx jskit show crud-ui-generator --details
+npx --no-install jskit show crud-server-generator --details
+npx --no-install jskit show crud-ui-generator --details
 ```
 
 Never run these merely to reconfirm caller-supplied facts.
@@ -41,7 +41,7 @@ The server generator reads its live shape. Scaffold the server contract before
 the UI:
 
 ```bash
-npx jskit generate crud-server-generator scaffold \
+npx --no-install jskit generate crud-server-generator scaffold \
   --namespace <resource> \
   --surface <surface> \
   --ownership-filter <public|user|workspace|workspace_user> \
@@ -59,7 +59,7 @@ routes.
 Run `npm install`, then scaffold the UI from the generated shared resource:
 
 ```bash
-npx jskit generate crud-ui-generator crud \
+npx --no-install jskit generate crud-ui-generator crud \
   <pages-root>/<plural-route> \
   --resource-file packages/<namespace>/src/shared/<singular>Resource.js \
   --parent-title contextual
@@ -86,6 +86,60 @@ Use generated high-level seams where they fit:
 CRUD hooks derive their JSON:API transport from the shared resource. Do not
 pass a custom transport or use raw `fetch()` for standard CRUD behavior.
 
+## Generated record deletion
+
+For an ordinary routed CRUD that needs destructive record deletion, request
+the lane explicitly when generating the UI:
+
+```bash
+npx --no-install jskit generate crud-ui-generator crud notes \
+  --resource-file packages/notes/src/shared/noteResource.js \
+  --id-param noteId \
+  --display-fields title,body \
+  --parent-title contextual \
+  --navigation-role primary \
+  --delete-confirmation
+```
+
+`--delete-confirmation` requires generated `list` and `view` pages and a
+shared resource whose delete operation uses `DELETE`. The generator fails
+clearly when those requirements are not met.
+
+The generated view page uses the supported `CrudViewScreen` `actions` slot and
+the public `useCrudDeleteAction()` composable. It resolves the current record
+identifier through the routed CRUD runtime, executes the shared resource's
+delete operation through `useCommand()`, and invalidates the CRUD list query.
+Its Vuetify alert dialog supplies Cancel and Delete actions, keeps the record
+screen visible on error, disables duplicate submission while pending, and
+navigates to the generated list route only after success. Custom `--id-param`
+values flow through the same public routed-CRUD contract.
+
+Do not rebuild that command with raw `fetch()`, inspect `users-web` internals,
+or add a page-local transport. If the required behavior does not fit this
+generated lane, use the public screen slot and command APIs deliberately and
+document why.
+
+## JSON REST temporal values
+
+The current `json-rest-schema` contract treats temporal values as strict wire
+strings:
+
+- `date`: `YYYY-MM-DD`
+- `time`: an offset-free `HH:MM[:SS[.fraction]]`
+- `dateTime`: RFC 3339 with seconds and `Z` or a numeric offset
+
+Do not pass JavaScript `Date` objects into resource validators. Convert them at
+the boundary, normally with `date.toISOString()` for `dateTime`. The removed
+`timestamp` type has no compatibility alias; after confirming the existing
+unit, declare `epochMilliseconds` or `epochSeconds` instead. Respect each
+field's `temporalPrecision` and do not silently truncate meaningful fractional
+seconds.
+
+Generated CRUD repositories serialize supported database date/time values at
+the resource-output boundary. Custom repositories must return the same strict
+strings themselves and must write ISO/RFC 3339 date-time strings rather than
+passing `Date` objects through resource validation.
+
 ## Migration ownership
 
 Do not hand-write a competing migration for a table the CRUD server generator
@@ -94,10 +148,10 @@ later schema change as a new immutable additive migration owned by the
 app-local package:
 
 ```bash
-npx jskit create migration \
+npx --no-install jskit create migration \
   --package <package-id> \
   --id <migration-id>
-npx jskit migrations package <package-id>
+npx --no-install jskit migrations package <package-id>
 npm run db:migrate
 ```
 

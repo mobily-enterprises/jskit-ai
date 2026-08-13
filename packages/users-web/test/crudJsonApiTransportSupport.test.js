@@ -69,6 +69,19 @@ test("inferCrudJsonApiTransport infers record request/response transport for CRU
   );
 });
 
+test("inferCrudJsonApiTransport infers record response transport for CRUD delete", () => {
+  assert.deepEqual(
+    inferCrudJsonApiTransport(resource, {
+      mode: "delete"
+    }),
+    {
+      kind: "jsonapi-resource",
+      responseType: "pets",
+      responseKind: "record"
+    }
+  );
+});
+
 test("inferCrudLookupJsonApiTransport infers collection transport from lookup namespace", () => {
   assert.deepEqual(
     inferCrudLookupJsonApiTransport({

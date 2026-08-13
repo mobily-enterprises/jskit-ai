@@ -5,16 +5,19 @@
     resource-plural-title="__JSKIT_UI_RESOURCE_PLURAL_TITLE__"
     description="Review this __JSKIT_UI_RESOURCE_SINGULAR_TITLE__ record."
   >
+__JSKIT_UI_VIEW_DELETE_ACTION_SLOT__
     <template #fields="{ view }">
 __JSKIT_UI_VIEW_COLUMNS__
       <!-- jskit:crud-ui-fields:view -->
     </template>
   </CrudViewScreen>
+__JSKIT_UI_VIEW_DELETE_DIALOG__
 </template>
 
 <script setup>
 import CrudViewScreen from "@jskit-ai/users-web/client/components/CrudViewScreen";
 import { useCrudViewScreen } from "@jskit-ai/users-web/client/composables/useCrudViewScreen";
+__JSKIT_UI_VIEW_DELETE_IMPORT_LINE__
 import { resource as uiResource } from "__JSKIT_UI_RESOURCE_IMPORT_PATH__";
 
 const UI_OPERATION_ADAPTER = null;
@@ -40,4 +43,5 @@ const screen = useCrudViewScreen({
   fallbackLoadError: "Unable to load record.",
   notFoundMessage: "Record not found."
 });
+__JSKIT_UI_VIEW_DELETE_SETUP__
 </script>

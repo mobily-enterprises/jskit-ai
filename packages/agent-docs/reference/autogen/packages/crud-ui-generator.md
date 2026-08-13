@@ -33,6 +33,7 @@ Local functions
 - `parseOperationsOption(options)`
 - `parseDisplayFieldsOption(options)`
 - `parseParentTitleOption(options)`
+- `resolveBooleanFlagOption(options = {}, optionName = "")`
 - `shouldCreateNavigationLink(options = {}, inferenceContext = {})`
 - `resolveNavigationRoleLinkPlacement(options = {}, inferenceContext = {})`
 - `validateDisplayFieldsForOperation(selectedFieldKeys, fields, operationName)`
@@ -60,6 +61,9 @@ Local functions
 - `resolveCrudRelativePath(namespace = "")`
 - `buildListParentTitleImportLine(parentTitleMode = "contextual")`
 - `buildListHeadingTitleSetup({ parentTitleMode = "contextual", resourceNamespace = "", routeTitle = "Records" } = {})`
+- `buildViewDeleteActionSlot({ resourceNamespace = "resource", resourceSingularTitle = "Record" } = {})`
+- `buildViewDeleteDialog({ resourceNamespace = "resource", resourceSingularTitle = "Record" } = {})`
+- `buildViewDeleteSetup({ resourceNamespace = "resource" } = {})`
 
 ### `src/server/resourceSupport.js`
 Exports
@@ -95,6 +99,7 @@ Local functions
 - `resolveSchemaReference(ref = "", rootSchema = {}, { context = "ui-generator", contextLabel = "schema" } = {})`
 - `resolveObjectSchema(schema = {}, contextLabel, { context = "ui-generator", rootSchema = schema } = {})`
 - `resolveJsonRestCastType(schema = {})`
+- `resolveTemporalPrecision(...schemas)`
 - `resolveSchemaType(schema)`
 - `toFieldLabel(key)`
 - `isSupportedSelectOptionValue(value)`
@@ -108,6 +113,7 @@ Local functions
 - `toLookupRelation(fieldContractMap = {}, fieldKey = "", { lookupContainerKey = "lookups" } = {})`
 - `resolveFormInputType(fieldType, fieldFormat)`
 - `resolveFormFieldComponent(fieldType, relation = null)`
+- `resolveTemporalInputStep(field = {})`
 - `buildDefaultNullableBooleanOptions()`
 - `toPositiveInteger(value)`
 - `toAccessorExpression(baseName, fieldKey)`

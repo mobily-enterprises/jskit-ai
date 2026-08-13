@@ -1,10 +1,14 @@
 import assert from "node:assert/strict";
+import { spawnSync } from "node:child_process";
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
 import path from "node:path";
 import test from "node:test";
+import { createApp } from "../../create-app/src/server/index.js";
 import { withTempDir } from "../../testUtils/tempDir.mjs";
 import { createCliRunner } from "../../testUtils/runCli.js";
+import realtimeDescriptor from "../../../packages/realtime/package.descriptor.mjs";
+import shellWebDescriptor from "../../../packages/shell-web/package.descriptor.mjs";
 
 const CLI_PATH = fileURLToPath(new URL("../bin/jskit.js", import.meta.url));
 const runCli = createCliRunner(CLI_PATH);
@@ -27,6 +31,17 @@ async function createMinimalApp(appRoot, { name = "tmp-app" } = {}) {
     )}\n`,
     "utf8"
   );
+}
+
+async function copyMinimalShellApp(appRoot, { name = "tmp-app" } = {}) {
+  await createApp({
+    appName: name,
+    appTitle: name,
+    template: "minimal-shell",
+    target: appRoot,
+    tenancyMode: "none",
+    force: true
+  });
 }
 
 async function writeLocalPackageDescriptor(
@@ -196,5 +211,69 @@ test("generate keeps already-installed dependency placements instead of reapplyi
 
     const lock = JSON.parse(await readFile(path.join(appRoot, ".jskit", "lock.json"), "utf8"));
     assert.equal(lock?.installedPackages?.["@demo/base"]?.version, "0.1.0");
+  });
+});
+
+test("realtime installs shell-web before appending to a minimal shell placement registry", async () => {
+  assert.equal(realtimeDescriptor.dependsOn.includes("@jskit-ai/shell-web"), true);
+  assert.equal(shellWebDescriptor.mutations.files.some((entry) => entry.to === "src/placement.js"), true);
+
+  await withTempDir(async (cwd) => {
+    const appRoot = path.join(cwd, "minimal-realtime-app");
+    await copyMinimalShellApp(appRoot, { name: "minimal-realtime-app" });
+
+    const addResult = runCli({
+      cwd: appRoot,
+      args: ["add", "package", "@jskit-ai/realtime", "--realtime-redis-url="]
+    });
+    assert.equal(addResult.status, 0, String(addResult.stderr || ""));
+
+    const placementPath = path.join(appRoot, "src", "placement.js");
+    const placementSource = await readFile(placementPath, "utf8");
+    assert.match(
+      placementSource,
+      /import \{ createPlacementRegistry \} from "@jskit-ai\/shell-web\/client\/placement"/
+    );
+    assert.match(placementSource, /id: "shell-web\.home\.menu\.home"/);
+    assert.match(placementSource, /id: "realtime\.connection\.indicator"/);
+
+    const syntaxResult = spawnSync(process.execPath, ["--check", placementPath], {
+      encoding: "utf8"
+    });
+    assert.equal(syntaxResult.status, 0, String(syntaxResult.stderr || ""));
+
+    const lock = JSON.parse(await readFile(path.join(appRoot, ".jskit", "lock.json"), "utf8"));
+    assert.equal(lock.installedPackages["@jskit-ai/shell-web"].managed.files.some(
+      (entry) => entry.path === "src/placement.js" && entry.ownership === "app"
+    ), true);
+    assert.equal(
+      Object.prototype.hasOwnProperty.call(
+        lock.installedPackages["@jskit-ai/realtime"].managed.text,
+        "src/placement.js::realtime-placement-indicator"
+      ),
+      true
+    );
+  });
+});
+
+test("realtime dependency closure stops at shell placement preflight without appending partial content", async () => {
+  await withTempDir(async (cwd) => {
+    const appRoot = path.join(cwd, "minimal-realtime-conflict-app");
+    await copyMinimalShellApp(appRoot, { name: "minimal-realtime-conflict-app" });
+    const placementPath = path.join(appRoot, "src", "placement.js");
+    const customPlacementSource = "export const customPlacement = true;\n";
+    await writeFile(placementPath, customPlacementSource, "utf8");
+
+    const addResult = runCli({
+      cwd: appRoot,
+      args: ["add", "package", "@jskit-ai/realtime", "--realtime-redis-url="]
+    });
+    assert.notEqual(addResult.status, 0);
+    assert.match(String(addResult.stderr || ""), /src\/placement\.js already exists and cannot be claimed/);
+    assert.equal(await readFile(placementPath, "utf8"), customPlacementSource);
+
+    const lock = JSON.parse(await readFile(path.join(appRoot, ".jskit", "lock.json"), "utf8"));
+    assert.equal(lock.installedPackages["@jskit-ai/shell-web"], undefined);
+    assert.equal(lock.installedPackages["@jskit-ai/realtime"], undefined);
   });
 });

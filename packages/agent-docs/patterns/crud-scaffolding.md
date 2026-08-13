@@ -14,6 +14,26 @@ Check first:
 - `jskit show crud-server-generator --details`
 - whether the request is server-only CRUD or server-plus-UI CRUD
 
+## Fresh minimal-app order
+
+After `create-app`, run `npm install` before invoking the local CLI, and then
+use `npx --no-install jskit` so a missing local CLI fails clearly. For a fresh
+minimal CRUD app, the complete order is:
+
+1. create the app
+2. `npm install`
+3. add the database runtime
+4. `npm install`
+5. create the live table in a fresh disposable development database
+6. run `crud-server-generator scaffold`
+7. `npm install`
+8. run `crud-ui-generator crud`
+
+The server generator resolves its complete package dependency closure. In
+particular, `shell-web` owns and establishes `src/placement.js` before
+`realtime` appends its placement. Do not pre-install `shell-web` as a
+workaround.
+
 ## Non-negotiable database contract
 
 Before database, schema, CRUD, repository, or persistence work, read this
@@ -75,6 +95,29 @@ Rules:
 - Bulk actions should be declared in the generated page-local `listBulkActions.js`. The generated list owns selection state, keeps selection controls hidden until actions exist, and exposes selected ids/records to action handlers.
 - Structured filters should use shared filter definitions and collapse to compact filter controls/sheets when they outgrow simple search. Do not stack dense desktop filter bars on phone widths.
 - Use `--navigation-role` for CRUD list placement intent. Main resources can stay `primary`; nested/detail/workflow CRUD routes should usually be `secondary`, `workflow`, or `none`.
+- Add `--delete-confirmation` when the generated view needs the standard
+  destructive record action. The flag requires list and view pages and a
+  resource with a `DELETE` operation; it uses the public view-screen action
+  slot and command composable rather than generated raw request code.
+
+## Temporal values at resource boundaries
+
+`json-rest-schema` 1.0.17 accepts strict string temporal values. Resource
+validators no longer coerce JavaScript `Date` objects:
+
+- `date` is `YYYY-MM-DD`
+- `time` is offset-free `HH:MM[:SS[.fraction]]`
+- `dateTime` is RFC 3339 with seconds and `Z` or a numeric offset
+
+The removed `timestamp` type must become `epochMilliseconds` or
+`epochSeconds` after checking the stored unit. Preserve the field's
+`temporalPrecision`; do not truncate meaningful fractional seconds.
+
+Generated generic CRUD repositories serialize database temporal outputs
+before resource validation. App-owned/custom repositories must return strict
+strings and must write ISO/RFC 3339 strings rather than passing `Date` objects.
+This is a version-0 breaking contract: update application code instead of
+adding a legacy temporal parser.
 
 ## Baseline generation versus later schema evolution
 

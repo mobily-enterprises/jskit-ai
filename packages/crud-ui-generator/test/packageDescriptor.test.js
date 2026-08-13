@@ -23,6 +23,21 @@ test("crud-ui-generator parent-title option exposes structured enum metadata", (
   assert.equal(descriptor.metadata?.generatorSubcommands?.crud?.optionNames?.includes("parent-title"), true);
 });
 
+test("crud-ui-generator exposes opt-in delete confirmation in detailed help", () => {
+  assert.equal(descriptor.options?.["delete-confirmation"]?.inputType, "flag");
+  assert.equal(descriptor.options?.["delete-confirmation"]?.defaultValue, "");
+  assert.equal(
+    descriptor.metadata?.generatorSubcommands?.crud?.optionNames?.includes("delete-confirmation"),
+    true
+  );
+  assert.equal(
+    descriptor.metadata?.generatorSubcommands?.crud?.examples?.some((example) =>
+      example.lines?.some((line) => line.includes("--delete-confirmation"))
+    ),
+    true
+  );
+});
+
 test("crud-ui-generator navigation-role option exposes product-aware placement metadata", () => {
   assert.equal(descriptor.options?.["navigation-role"]?.validationType, "enum");
   assert.deepEqual(

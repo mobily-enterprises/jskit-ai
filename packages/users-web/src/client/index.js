@@ -11,6 +11,7 @@ export {
   normalizeCrudApiAccess,
   resolveCrudHttpClient
 } from "./composables/crud/crudHttpClientSupport.js";
+export { useCrudDeleteAction } from "./composables/useCrudDeleteAction.js";
 
 const clientProviders = Object.freeze([UsersWebClientProvider]);
 

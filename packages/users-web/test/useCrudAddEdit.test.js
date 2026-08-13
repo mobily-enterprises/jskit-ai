@@ -137,7 +137,7 @@ test("applyCrudPayloadToForm normalizes date values for HTML date inputs", () =>
   });
 });
 
-test("buildCrudFormPayload normalizes time fields to canonical HH:MM", () => {
+test("buildCrudFormPayload preserves strict time precision", () => {
   const fields = [
     { key: "fromTime", type: "string", format: "time" },
     { key: "toTime", type: "string", format: "time" }
@@ -150,7 +150,7 @@ test("buildCrudFormPayload normalizes time fields to canonical HH:MM", () => {
 
   assert.deepEqual(payload, {
     fromTime: "18:13",
-    toTime: "18:45"
+    toTime: "18:45:00"
   });
 });
 
@@ -224,7 +224,7 @@ test("buildCrudFormPayload preserves nullable booleans while keeping non-nullabl
   );
 });
 
-test("applyCrudPayloadToForm normalizes time fields for form inputs", () => {
+test("applyCrudPayloadToForm preserves strict time values for form inputs", () => {
   const fields = [
     { key: "fromTime", type: "string", format: "time" },
     { key: "toTime", type: "string", format: "time" }
@@ -240,8 +240,31 @@ test("applyCrudPayloadToForm normalizes time fields for form inputs", () => {
   });
 
   assert.deepEqual(form, {
-    fromTime: "18:13",
+    fromTime: "18:13:00",
     toTime: "18:45"
+  });
+});
+
+test("strict temporal form values round-trip seconds and fractions", () => {
+  const fields = [
+    { key: "fromTime", type: "string", format: "time", temporalPrecision: 6 },
+    { key: "scheduledAt", type: "string", format: "date-time", temporalPrecision: 3 }
+  ];
+  const form = reactive({
+    fromTime: "",
+    scheduledAt: ""
+  });
+
+  applyCrudPayloadToForm(fields, form, {
+    fromTime: "18:13:14.123456",
+    scheduledAt: "2026-08-13T07:08:09.123Z"
+  });
+
+  assert.equal(form.fromTime, "18:13:14.123456");
+  assert.match(form.scheduledAt, /^2026-08-13T\d{2}:\d{2}:09\.123$/u);
+  assert.deepEqual(buildCrudFormPayload(fields, form), {
+    fromTime: "18:13:14.123456",
+    scheduledAt: "2026-08-13T07:08:09.123Z"
   });
 });
 

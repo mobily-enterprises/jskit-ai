@@ -95,6 +95,12 @@ test("shell-web shell layout registers navigation at the app layout level", asyn
   assert.match(source, /target="shell-layout:primary-menu"[\s\S]*default/);
   assert.doesNotMatch(source, /target="shell-layout:primary-bottom-nav"[\s\S]*default/);
   assert.match(source, /data-testid="jskit-shell-drawer"/);
+  assert.match(source, /desktopDrawerClosedMode/);
+  assert.match(source, /default: "rail"/);
+  assert.match(source, /:rail="drawerPresentation\.rail"/);
+  assert.match(source, /:rail-width="80"/);
+  assert.match(source, /:model-value="drawerPresentation\.visible"/);
+  assert.match(source, /data-testid="jskit-shell-nav-toggle"/);
   assert.match(source, /data-testid="jskit-shell-bottom-nav"/);
   assert.match(source, /padding:\s*0\.75rem 1rem calc\(1rem \+ env\(safe-area-inset-bottom, 0px\)\)/);
 
@@ -288,8 +294,9 @@ test("shell-web settings general child page exposes an adaptive drawer preferenc
   assert.match(source, /generated-ui-screen generated-ui-screen--settings settings-general-screen/);
   assert.match(source, /drawerDefaultOpen/);
   assert.match(source, /setDrawerDefaultOpen/);
-  assert.match(source, /Phone layouts keep primary navigation in the bottom bar/);
-  assert.match(source, /Open drawer by default on wider screens/);
+  assert.match(source, /collapsed navigation remains available as a rail/);
+  assert.match(source, /Phone layouts close the drawer/);
+  assert.match(source, /Start with expanded navigation on wider screens/);
   assert.match(source, /min-height:\s*48px/);
   assert.doesNotMatch(source, /live in this browser only|tiny example|starter settings/);
 });

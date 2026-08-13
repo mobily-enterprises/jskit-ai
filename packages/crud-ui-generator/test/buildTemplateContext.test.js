@@ -154,7 +154,8 @@ function buildCrudResourceSource({
   namespace = "customers",
   tableName = namespace,
   schemaSource = "",
-  includeNamespace = true
+  includeNamespace = true,
+  crudOperations = ["list", "view", "create", "patch"]
 } = {}) {
   return `import { defineCrudResource } from "@jskit-ai/resource-crud-core/shared/crudResource";
 
@@ -164,7 +165,7 @@ const canonicalResource = defineCrudResource({
   schema: {
 ${schemaSource}
   },
-  crudOperations: ["list", "view", "create", "patch"]
+  crudOperations: ${JSON.stringify(crudOperations)}
 });
 
 const resource = ${includeNamespace ? "canonicalResource" : "{ ...canonicalResource }"};
@@ -292,6 +293,7 @@ const TEMPORAL_RESOURCE_SCHEMA_SOURCE = `    dob: {
     },
     appointmentAt: {
       type: "dateTime",
+      temporalPrecision: 3,
       required: true,
       nullable: true,
       operations: {
@@ -302,6 +304,7 @@ const TEMPORAL_RESOURCE_SCHEMA_SOURCE = `    dob: {
     },
     preferredTime: {
       type: "time",
+      temporalPrecision: 6,
       required: true,
       nullable: true,
       operations: {
@@ -315,6 +318,13 @@ const FULL_RESOURCE_SOURCE = buildCrudResourceSource({
   namespace: "customers",
   tableName: "customers",
   schemaSource: FULL_RESOURCE_SCHEMA_SOURCE
+});
+
+const FULL_RESOURCE_WITH_DELETE_SOURCE = buildCrudResourceSource({
+  namespace: "customers",
+  tableName: "customers",
+  schemaSource: FULL_RESOURCE_SCHEMA_SOURCE,
+  crudOperations: ["list", "view", "create", "patch", "delete"]
 });
 
 const NULLABLE_BOOLEAN_RESOURCE_SOURCE = buildCrudResourceSource({
@@ -366,6 +376,92 @@ test("buildUiTemplateContext defaults operations to the full CRUD set when omitt
     assert.equal(context.__JSKIT_UI_HAS_VIEW_ROUTE__, "true");
     assert.equal(context.__JSKIT_UI_HAS_NEW_ROUTE__, "true");
     assert.equal(context.__JSKIT_UI_HAS_EDIT_ROUTE__, "true");
+  });
+});
+
+test("buildUiTemplateContext omits delete support unless explicitly requested", async () => {
+  await withTempApp(async (appRoot) => {
+    await writeResource(appRoot, RESOURCE_FILE, FULL_RESOURCE_WITH_DELETE_SOURCE);
+
+    const context = await buildUiTemplateContext({
+      appRoot,
+      options: createOptions()
+    });
+
+    assert.equal(context.__JSKIT_UI_VIEW_DELETE_ACTION_SLOT__, "");
+    assert.equal(context.__JSKIT_UI_VIEW_DELETE_DIALOG__, "");
+    assert.equal(context.__JSKIT_UI_VIEW_DELETE_IMPORT_LINE__, "");
+    assert.equal(context.__JSKIT_UI_VIEW_DELETE_SETUP__, "");
+  });
+});
+
+test("buildUiTemplateContext renders the supported delete confirmation lane", async () => {
+  await withTempApp(async (appRoot) => {
+    await writeResource(appRoot, RESOURCE_FILE, FULL_RESOURCE_WITH_DELETE_SOURCE);
+
+    const context = await buildUiTemplateContext({
+      appRoot,
+      options: createOptions({
+        "delete-confirmation": true,
+        "id-param": "noteId"
+      })
+    });
+
+    assert.match(context.__JSKIT_UI_VIEW_DELETE_ACTION_SLOT__, /Delete Customer/);
+    assert.match(context.__JSKIT_UI_VIEW_DELETE_ACTION_SLOT__, /id="delete-customers-button"/);
+    assert.match(context.__JSKIT_UI_VIEW_DELETE_DIALOG__, /role="alertdialog"/);
+    assert.match(context.__JSKIT_UI_VIEW_DELETE_DIALOG__, /activator="#delete-customers-button"/);
+    assert.match(context.__JSKIT_UI_VIEW_DELETE_DIALOG__, /autofocus/);
+    assert.match(context.__JSKIT_UI_VIEW_DELETE_DIALOG__, /deleteAction\.isDeleting/);
+    assert.match(context.__JSKIT_UI_VIEW_DELETE_DIALOG__, />\s*Cancel\s*</);
+    assert.match(context.__JSKIT_UI_VIEW_DELETE_IMPORT_LINE__, /useCrudDeleteAction/);
+    assert.match(context.__JSKIT_UI_VIEW_DELETE_SETUP__, /resource: uiResource/);
+    assert.match(context.__JSKIT_UI_VIEW_DELETE_SETUP__, /apiUrlTemplate: UI_VIEW_API_URL/);
+    assert.equal(context.__JSKIT_UI_RECORD_ID_PARAM__, "noteId");
+  });
+});
+
+test("buildUiTemplateContext rejects delete confirmation without list and view routes", async () => {
+  await withTempApp(async (appRoot) => {
+    await writeResource(appRoot, RESOURCE_FILE, FULL_RESOURCE_WITH_DELETE_SOURCE);
+
+    await assert.rejects(
+      buildUiTemplateContext({
+        appRoot,
+        options: createOptions({
+          operations: "list",
+          "delete-confirmation": true
+        })
+      }),
+      /delete-confirmation" requires operations to include view/
+    );
+
+    await assert.rejects(
+      buildUiTemplateContext({
+        appRoot,
+        options: createOptions({
+          operations: "view",
+          "delete-confirmation": true
+        })
+      }),
+      /delete-confirmation" requires operations to include list/
+    );
+  });
+});
+
+test("buildUiTemplateContext rejects delete confirmation when the resource has no delete operation", async () => {
+  await withTempApp(async (appRoot) => {
+    await writeResource(appRoot, RESOURCE_FILE, FULL_RESOURCE_SOURCE);
+
+    await assert.rejects(
+      buildUiTemplateContext({
+        appRoot,
+        options: createOptions({
+          "delete-confirmation": true
+        })
+      }),
+      /missing operations\.delete/
+    );
   });
 });
 
@@ -576,9 +672,13 @@ test("buildUiTemplateContext maps json-rest temporal cast types to date-aware fo
     assert.match(context.__JSKIT_UI_CREATE_FORM_FIELDS__, /"key":"dob"[\s\S]*"inputType":"date"/);
     assert.match(context.__JSKIT_UI_CREATE_FORM_FIELDS__, /"key":"appointmentAt"[\s\S]*"inputType":"datetime-local"/);
     assert.match(context.__JSKIT_UI_CREATE_FORM_FIELDS__, /"key":"preferredTime"[\s\S]*"inputType":"time"/);
+    assert.match(context.__JSKIT_UI_CREATE_FORM_FIELDS__, /"key":"appointmentAt"[\s\S]*"temporalPrecision":3/);
+    assert.match(context.__JSKIT_UI_CREATE_FORM_FIELDS__, /"key":"preferredTime"[\s\S]*"temporalPrecision":6/);
     assert.match(context.__JSKIT_UI_CREATE_FORM_COLUMNS__, /formState\.dob[\s\S]*type="date"/);
     assert.match(context.__JSKIT_UI_CREATE_FORM_COLUMNS__, /formState\.appointmentAt[\s\S]*type="datetime-local"/);
     assert.match(context.__JSKIT_UI_CREATE_FORM_COLUMNS__, /formState\.preferredTime[\s\S]*type="time"/);
+    assert.match(context.__JSKIT_UI_CREATE_FORM_COLUMNS__, /formState\.appointmentAt[\s\S]*step="0\.001"/);
+    assert.match(context.__JSKIT_UI_CREATE_FORM_COLUMNS__, /formState\.preferredTime[\s\S]*step="0\.000001"/);
   });
 });
 

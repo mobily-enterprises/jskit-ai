@@ -31,6 +31,73 @@ It is meant to answer:
 
 Once that workflow is clear, continue with [Advanced CRUDs](/guide/generators/advanced-cruds) for the generated package anatomy, ownership model, and customization boundaries.
 
+## Fresh minimal Notes app: the complete command order
+
+The dependency install boundaries are part of the workflow. After the first
+install, use `npx --no-install jskit` so the command fails if the app-local CLI
+is unavailable instead of fetching a different copy.
+
+```bash
+npx @jskit-ai/create-app notes \
+  --target . \
+  --force \
+  --tenancy-mode none \
+  --minimal
+npm install
+
+npx --no-install jskit add package database-runtime-mysql
+npm install
+
+# Create and select a fresh disposable database, then create the live `notes` table.
+
+npx --no-install jskit generate crud-server-generator scaffold \
+  --namespace notes \
+  --surface home \
+  --ownership-filter public \
+  --access public \
+  --table-name notes
+npm install
+
+npx --no-install jskit generate crud-ui-generator crud notes \
+  --resource-file packages/notes/src/shared/noteResource.js \
+  --id-param noteId \
+  --display-fields title,body \
+  --parent-title contextual \
+  --navigation-role primary \
+  --delete-confirmation
+```
+
+The server generator resolves the complete package closure. `shell-web`
+establishes and owns `src/placement.js` before `realtime` contributes its
+placement, so do not pre-install the shell as a workaround.
+
+## Existing-app migration checklist
+
+JSKIT is still version 0, so this release uses a direct code migration rather
+than a legacy compatibility layer:
+
+1. Commit the app's current work, then run `npm run jskit:update`.
+2. If the app declares `json-rest-schema` directly, install
+   `json-rest-schema@^1.0.17`.
+3. Replace resource-bound JavaScript `Date` values with strings. `date` is
+   `YYYY-MM-DD`; `time` is offset-free `HH:MM[:SS[.fraction]]`; and `dateTime`
+   is RFC 3339 with seconds and a `Z` or numeric offset. Replace the removed
+   `timestamp` type with `epochMilliseconds` or `epochSeconds` only after
+   checking the existing numeric unit. Preserve `temporalPrecision`.
+4. For a standard generated view delete action, rerun the original
+   `crud-ui-generator crud` command with `--delete-confirmation`. Add `--force`
+   only when you deliberately want to replace unchanged generated page output.
+   For a customized view, preserve the customization and add the public
+   `CrudViewScreen` `actions` slot plus `useCrudDeleteAction()` integration
+   described below.
+5. Keep every managed path recorded in `.jskit/lock.json`. Adapt managed shell
+   and browser tests in place; never delete them because a starter route was
+   replaced.
+
+Generated generic CRUD repositories convert database temporal values at the
+resource boundary. Custom repositories still need to return strict temporal
+strings and write ISO/RFC 3339 strings explicitly.
+
 ## The two generator packages
 
 ### `crud-server-generator` `@jskit-ai/crud-server-generator` `(0.1.47)`
@@ -449,7 +516,8 @@ npx jskit generate crud-ui-generator crud \
   w/[workspaceSlug]/admin/contacts \
   --resource-file packages/contacts/src/shared/contactResource.js \
   --id-param contactId \
-  --display-fields fullName,email,phone
+  --display-fields fullName,email,phone \
+  --delete-confirmation
 ```
 
 That creates the baseline CRUD route tree:
@@ -464,6 +532,20 @@ That creates the baseline CRUD route tree:
 The mirrored component root is intentional. The configured file router scans
 Vue files below `src/pages/`, so reusable Vue helpers must stay outside that
 directory or they become browser routes.
+
+`--delete-confirmation` is opt-in. When present, the generated view extends
+the public `CrudViewScreen` `actions` slot with a destructive Delete button and
+a Vuetify alert dialog. The public `useCrudDeleteAction()` composable resolves
+the current route id through the CRUD runtime, runs the shared resource's
+`DELETE` operation through `useCommand()`, disables duplicate submission,
+keeps a useful error on the record screen, invalidates the list query, and
+navigates to the generated list route after success. It supports custom
+`--id-param` names.
+
+The generator rejects this option when list or view is omitted, or when the
+shared resource has no `DELETE` operation. Without the flag, no delete control
+is generated. Do not substitute raw `fetch()` or import private `users-web`
+modules.
 
 Generated list, view, and lookup reads use the resource contract as their
 response authority. They return every field declared for output by default,

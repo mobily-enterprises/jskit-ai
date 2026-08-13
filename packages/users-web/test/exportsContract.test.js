@@ -33,6 +33,7 @@ test("users-web exports are explicit and aligned with production/template usage"
       "./client/composables/useView",
       "./client/composables/useCrudAddEdit",
       "./client/composables/useCrudAddEditScreen",
+      "./client/composables/useCrudDeleteAction",
       "./client/composables/useCrudListBulkActions",
       "./client/composables/useCrudListRowActions",
       "./client/composables/useCrudListFilterLookups",

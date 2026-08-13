@@ -113,6 +113,9 @@ If the resource module is server-only, a field may also declare `storage.queryPr
 What CRUD core does for you:
 - default select columns include only column-backed output fields
 - create/update write payloads serialize standard writable `date-time` fields centrally
+- database reads serialize `date`, `time`, and `dateTime` values to their
+  strict `json-rest-schema` string contracts before resource validation,
+  respecting `temporalPrecision`
 - create/update write payloads also apply any explicit field write serializers centrally
 - `list`, `findById`, `listByIds`, and `listByForeignIds` apply registered virtual projections automatically
 - search and parent-filter fallback derivation only use column-backed fields
@@ -131,3 +134,5 @@ Review checks:
 - computed fields use `storage: { virtual: true }`
 - repository runtime registers matching `virtualFields`, or the JSON REST provider registers matching `queryFields`
 - no per-method projection duplication when generic CRUD reads already cover the field
+- no JavaScript `Date` object crosses a strict resource validation boundary;
+  custom repositories return ISO/RFC 3339 strings explicitly

@@ -818,6 +818,9 @@ function renderCanonicalResourceFieldSchema(column, { fieldContractEntry = null 
     entries.push('type: "boolean"');
   } else if (typeKind === "datetime") {
     entries.push('type: "dateTime"');
+    if (Number.isInteger(column?.datetimePrecision) && column.datetimePrecision >= 0) {
+      entries.push(`temporalPrecision: ${column.datetimePrecision}`);
+    }
     const normalizedDefault = normalizeText(column?.defaultValue).toLowerCase();
     if (normalizedDefault === "current_timestamp" || normalizedDefault === "current_timestamp()") {
       entries.push('default: "now()"');
@@ -826,6 +829,9 @@ function renderCanonicalResourceFieldSchema(column, { fieldContractEntry = null 
     entries.push('type: "date"');
   } else if (typeKind === "time") {
     entries.push('type: "time"');
+    if (Number.isInteger(column?.datetimePrecision) && column.datetimePrecision >= 0) {
+      entries.push(`temporalPrecision: ${column.datetimePrecision}`);
+    }
   } else {
     entries.push('type: "none"');
   }

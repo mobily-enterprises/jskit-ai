@@ -45,6 +45,7 @@ test("CRUD screen components own generated list/view/form chrome centrally", asy
   assert.match(viewSource, /generated-ui-screen generated-ui-screen--operator ui-generator-view-element/);
   assert.match(viewSource, /ui-generator-view-panel/);
   assert.match(viewSource, /@click="view\.refresh"/);
+  assert.match(viewSource, /<slot name="actions" :screen="screen" :view="view" \/>/);
   assert.match(viewSource, /<slot name="before-fields"/);
   assert.match(viewSource, /<slot name="fields"/);
   assert.match(viewSource, /<slot name="after-fields"/);
@@ -87,13 +88,15 @@ test("CRUD screen composables are importable package APIs", async () => {
     viewModule,
     addEditModule,
     rowActionsModule,
-    rowActionsRuntimeModule
+    rowActionsRuntimeModule,
+    deleteActionModule
   ] = await Promise.all([
     import("@jskit-ai/users-web/client/composables/useCrudListScreen"),
     import("@jskit-ai/users-web/client/composables/useCrudViewScreen"),
     import("@jskit-ai/users-web/client/composables/useCrudAddEditScreen"),
     import("@jskit-ai/users-web/client/rowActions"),
-    import("@jskit-ai/users-web/client/composables/useCrudListRowActions")
+    import("@jskit-ai/users-web/client/composables/useCrudListRowActions"),
+    import("@jskit-ai/users-web/client/composables/useCrudDeleteAction")
   ]);
 
   assert.equal(typeof listModule.useCrudListScreen, "function");
@@ -101,4 +104,5 @@ test("CRUD screen composables are importable package APIs", async () => {
   assert.equal(typeof addEditModule.useCrudAddEditScreen, "function");
   assert.equal(typeof rowActionsModule.defineCrudListRowActions, "function");
   assert.equal(typeof rowActionsRuntimeModule.useCrudListRowActions, "function");
+  assert.equal(typeof deleteActionModule.useCrudDeleteAction, "function");
 });

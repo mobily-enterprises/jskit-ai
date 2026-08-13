@@ -671,6 +671,23 @@ import {
 - whether the drawer is open right now
 - whether the drawer should open by default on load
 
+The closed presentation is adaptive and uses Vuetify's Material navigation
+components. On compact/mobile layouts the temporary drawer closes completely.
+On medium and expanded layouts it collapses to a navigation rail by default,
+so primary navigation remains visible. Opening it restores the full drawer.
+
+The app-owned `ShellLayout` can opt into a fully hidden wide drawer when the
+product has another discoverable navigation affordance:
+
+```vue
+<ShellLayout desktop-drawer-closed-mode="hidden">
+  <RouterView />
+</ShellLayout>
+```
+
+The default is `desktop-drawer-closed-mode="rail"`. Prefer that Material 3
+pattern; do not imitate a rail with custom CSS or a second menu registry.
+
 `useShellErrorPresentationStore()` exposes the current banner, snackbar, and dialog presentation state behind `ShellErrorHost`.
 
 The simplest direct store usage looks like this:

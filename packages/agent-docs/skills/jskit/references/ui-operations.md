@@ -13,21 +13,32 @@ For a normal app-owned non-CRUD page, first inspect the generator and semantic
 placements, then generate the page:
 
 ```bash
-npx jskit show ui-generator --details
-npx jskit list-placements
-npx jskit generate ui-generator page <route-file> --name <name>
+npx --no-install jskit show ui-generator --details
+npx --no-install jskit list-placements
+npx --no-install jskit generate ui-generator page <route-file> --name <name>
 ```
 
 Use `--navigation-role primary` for main destinations and `secondary`,
 `detail`, `workflow`, or `none` as appropriate for other routes. Use
 `--link-placement <semantic-id>` when the link belongs in a non-default slot.
-Use `npx jskit list-placements --concrete` only when diagnosing concrete
-outlets. Author normal app UI against semantic placements such as
+Use `npx --no-install jskit list-placements --concrete` only when diagnosing
+concrete outlets. Author normal app UI against semantic placements such as
 `shell.primary-nav` or `page.section-nav`, not raw `host:position` outlets.
 
 Let the generator create both the route and placement entry before adapting
 app-owned output. If a normal page cannot use the generator, state the concrete
 reason before hand-writing it.
+
+## Managed app-owned files
+
+“App-owned” means customizable; it does not mean disposable while the package
+that installed the path remains installed. Never delete or rename a path
+recorded in `.jskit/lock.json`. Adapt generated or managed infrastructure tests
+in place.
+
+When a starter product route is replaced, update its scaffold smoke test to
+exercise the new canonical route instead of deleting baseline browser
+coverage. JSKIT Doctor must continue to report a managed test that is missing.
 
 ## Screen behavior
 
@@ -45,6 +56,16 @@ reason before hand-writing it.
 - Keep ordinary read failures local with runtime `loadError` and retry state.
   Use `useCommand()` or `useUiFeedback()` for user-triggered action feedback.
 
+## Adaptive shell drawer
+
+The shell uses Vuetify's Material navigation components. On compact layouts,
+closing the drawer hides the temporary modal drawer. On wider layouts, the
+default `desktopDrawerClosedMode="rail"` keeps primary navigation reachable as
+a navigation rail; set `desktopDrawerClosedMode="hidden"` only when the
+product deliberately requires a fully hidden wide drawer and another
+navigation affordance remains available. Do not implement a second app-owned
+drawer or hide the Vuetify rail with CSS.
+
 ## Browser verification
 
 Any change to user-facing behavior needs a Playwright flow exercising that
@@ -54,10 +75,9 @@ placement, primary actions, and tap targets.
 
 Use relative URLs in tests. The shared JSKIT Playwright config owns the base
 URL, server lifecycle, and storage state. When `PLAYWRIGHT_BASE_URL` is set,
-do not start another server. When
-`VIBE64_PLAYWRIGHT_STORAGE_STATE` is supplied, do not print, commit, or retain
-it and do not use local login bypasses. Do not install a browser when the
-environment supplies a managed runner.
+do not start another server. When `VIBE64_PLAYWRIGHT_STORAGE_STATE` is supplied,
+do not print, commit, or retain it and do not use local login bypasses. Do not
+install a browser when the environment supplies a managed runner.
 
 For a direct localhost app with development auth bypass explicitly enabled,
 use `loginAsExistingUser()` from `@jskit-ai/auth-web/test/playwright`; never
@@ -67,7 +87,7 @@ environment variables.
 After a successful UI test, record the verification when the app supports it:
 
 ```bash
-npx jskit app verify-ui \
+npx --no-install jskit app verify-ui \
   --command "<exact successful Playwright command>" \
   --feature "<changed behavior>" \
   --auth-mode <dev-auth-login-as|session-bootstrap>

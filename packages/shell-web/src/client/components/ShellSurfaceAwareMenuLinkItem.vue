@@ -113,6 +113,8 @@ const resolvedIcon = computed(() =>
     :prepend-icon="resolvedIcon || undefined"
     :disabled="props.disabled"
     :exact="props.exact"
+    :aria-label="props.label"
+    v-tooltip="props.label"
   />
 </template>
 

@@ -223,7 +223,7 @@ Exports
 - `requireCrudTableName(tableName, { context = "crudRepository" } = {})`
 - `deriveRepositoryMappingFromResource(resource = {}, { context = "crudRepository" } = {})`
 - `applyCrudListQueryFilters(query, { idColumn = "id", cursor = "", applyCursor = true, q = "", searchColumns = [], parentFilters = {}, parentFilterColumns = {} } = {})`
-- `mapRecordRow(row, fieldKeys = [], overrides = {}, { recordIdKeys = [] } = {})`
+- `mapRecordRow(row, fieldKeys = [], overrides = {}, { recordIdKeys = [], serializerByKey = {} } = {})`
 - `buildWritePayload(sourcePayload = {}, fieldKeys = [], overrides = {}, { serializerByKey = {} } = {})`
 - `resolveColumnName(fieldKey, overrides = {})`
 - `resolveCrudIdColumn(idColumn, { fallback = "id" } = {})`

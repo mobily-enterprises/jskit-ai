@@ -6,7 +6,7 @@ import {
   resolvePageLinkTargetDetails,
   resolvePageTargetDetails
 } from "@jskit-ai/kernel/server/support";
-import { normalizeText } from "@jskit-ai/kernel/shared/support/normalize";
+import { normalizeBoolean, normalizeText } from "@jskit-ai/kernel/shared/support/normalize";
 import {
   resolveGeneratedUiNavigationRoleLinkPlacement,
   shouldCreateGeneratedUiNavigationLink
@@ -266,6 +266,22 @@ function parseParentTitleOption(options) {
   }
 
   return parentTitleMode;
+}
+
+function resolveBooleanFlagOption(options = {}, optionName = "") {
+  const normalizedOptionName = normalizeText(optionName);
+  if (!normalizedOptionName || !Object.prototype.hasOwnProperty.call(options, normalizedOptionName)) {
+    return false;
+  }
+
+  const value = options[normalizedOptionName];
+  if (value === undefined || value === true) {
+    return true;
+  }
+  if (value === "" || value == null || value === false) {
+    return false;
+  }
+  return normalizeBoolean(value);
 }
 
 function shouldCreateNavigationLink(options = {}, inferenceContext = {}) {
@@ -670,6 +686,106 @@ const listHeadingTitle = computed(() => {
 });`;
 }
 
+function buildViewDeleteActionSlot({
+  resourceNamespace = "resource",
+  resourceSingularTitle = "Record"
+} = {}) {
+  const namespace = requireCrudNamespace(resourceNamespace, {
+    context: "crud-ui-generator delete action namespace"
+  });
+  const label = normalizeText(resourceSingularTitle) || "Record";
+  return `    <template #actions>
+      <v-btn
+        id="delete-${namespace}-button"
+        color="error"
+        variant="tonal"
+        prepend-icon="mdi-delete-outline"
+        min-height="48"
+        :disabled="!deleteAction.canDelete"
+        @click="deleteAction.request"
+      >
+        Delete ${label}
+      </v-btn>
+    </template>`;
+}
+
+function buildViewDeleteDialog({
+  resourceNamespace = "resource",
+  resourceSingularTitle = "Record"
+} = {}) {
+  const namespace = requireCrudNamespace(resourceNamespace, {
+    context: "crud-ui-generator delete dialog namespace"
+  });
+  const label = normalizeText(resourceSingularTitle) || "Record";
+  const titleId = `delete-${namespace}-dialog-title`;
+  const descriptionId = `delete-${namespace}-dialog-description`;
+
+  return `
+
+  <v-dialog
+    v-model="deleteAction.isOpen"
+    activator="#delete-${namespace}-button"
+    max-width="32rem"
+    role="alertdialog"
+    aria-modal="true"
+    aria-labelledby="${titleId}"
+    aria-describedby="${descriptionId}"
+    :persistent="deleteAction.isDeleting"
+  >
+    <v-card>
+      <v-card-title id="${titleId}">Delete ${label}?</v-card-title>
+      <v-card-text>
+        <p id="${descriptionId}" class="mb-0">
+          This permanently deletes this ${label.toLowerCase()}. This action cannot be undone.
+        </p>
+        <v-alert
+          v-if="deleteAction.error"
+          class="mt-4"
+          type="error"
+          variant="tonal"
+        >
+          {{ deleteAction.error }}
+        </v-alert>
+      </v-card-text>
+      <v-card-actions>
+        <v-spacer />
+        <v-btn
+          autofocus
+          variant="text"
+          :disabled="deleteAction.isDeleting"
+          @click="deleteAction.cancel"
+        >
+          Cancel
+        </v-btn>
+        <v-btn
+          color="error"
+          variant="flat"
+          :loading="deleteAction.isDeleting"
+          :disabled="!deleteAction.canDelete"
+          @click="deleteAction.confirm"
+        >
+          Delete
+        </v-btn>
+      </v-card-actions>
+    </v-card>
+  </v-dialog>`;
+}
+
+function buildViewDeleteSetup({ resourceNamespace = "resource" } = {}) {
+  const namespace = requireCrudNamespace(resourceNamespace, {
+    context: "crud-ui-generator delete setup namespace"
+  });
+  return `
+
+const deleteAction = useCrudDeleteAction({
+  screen,
+  resource: uiResource,
+  resourceNamespace: ${JSON.stringify(namespace)},
+  apiUrlTemplate: UI_VIEW_API_URL,
+  fallbackDeleteError: "Unable to delete record."
+});`;
+}
+
 async function buildUiTemplateContext({ appRoot, options } = {}) {
   const targetRoot = requireTargetRootOption(options);
   const listTargetFile = resolveListTargetFile(targetRoot);
@@ -699,6 +815,26 @@ async function buildUiTemplateContext({ appRoot, options } = {}) {
   const hasViewOperation = selectedOperations.has("view");
   const hasNewOperation = selectedOperations.has("new");
   const hasEditOperation = selectedOperations.has("edit");
+  const hasDeleteConfirmation = resolveBooleanFlagOption(options, "delete-confirmation");
+
+  if (hasDeleteConfirmation && !hasViewOperation) {
+    throw new Error(
+      'crud-ui-generator option "delete-confirmation" requires operations to include view.'
+    );
+  }
+  if (hasDeleteConfirmation && !hasListOperation) {
+    throw new Error(
+      'crud-ui-generator option "delete-confirmation" requires operations to include list so successful deletion has a safe destination.'
+    );
+  }
+  if (hasDeleteConfirmation) {
+    const deleteOperation = requireOperation(resource, "delete", { context: "crud-ui-generator" });
+    if (normalizeText(deleteOperation?.method).toUpperCase() !== "DELETE") {
+      throw new Error(
+        'crud-ui-generator option "delete-confirmation" requires resource operations.delete.method to be DELETE.'
+      );
+    }
+  }
 
   let listRealtimeEvents = [defaultRecordChangedEvent];
   let listFieldsAll = [];
@@ -852,6 +988,24 @@ async function buildUiTemplateContext({ appRoot, options } = {}) {
     __JSKIT_UI_LIST_REALTIME_EVENTS__: JSON.stringify(listRealtimeEvents),
     __JSKIT_UI_LIST_RECORD_ID_EXPR__: resolveRecordIdExpression(recordIdFields),
     __JSKIT_UI_VIEW_COLUMNS__: buildViewColumns(viewFields),
+    __JSKIT_UI_VIEW_DELETE_ACTION_SLOT__: hasDeleteConfirmation
+      ? buildViewDeleteActionSlot({
+        resourceNamespace,
+        resourceSingularTitle: resourceLabels.singularTitle
+      })
+      : "",
+    __JSKIT_UI_VIEW_DELETE_DIALOG__: hasDeleteConfirmation
+      ? buildViewDeleteDialog({
+        resourceNamespace,
+        resourceSingularTitle: resourceLabels.singularTitle
+      })
+      : "",
+    __JSKIT_UI_VIEW_DELETE_IMPORT_LINE__: hasDeleteConfirmation
+      ? 'import { useCrudDeleteAction } from "@jskit-ai/users-web/client/composables/useCrudDeleteAction";'
+      : "",
+    __JSKIT_UI_VIEW_DELETE_SETUP__: hasDeleteConfirmation
+      ? buildViewDeleteSetup({ resourceNamespace })
+      : "",
     __JSKIT_UI_VIEW_TITLE_FALLBACK_FIELD_KEY__: JSON.stringify(viewTitleFallbackFieldKey),
     __JSKIT_UI_RECORD_CHANGED_EVENT__: JSON.stringify(defaultRecordChangedEvent),
     __JSKIT_UI_HAS_LIST_ROUTE__: hasListOperation ? "true" : "false",

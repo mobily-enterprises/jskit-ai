@@ -50,6 +50,7 @@ const resolvedDescription = computed(() =>
         >
           Back to {{ resourcePluralTitle }}
         </v-btn>
+        <slot name="actions" :screen="screen" :view="view" />
         <v-btn
           v-if="editLocation"
           color="primary"

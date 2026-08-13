@@ -19,6 +19,18 @@ Rules:
 - Vibe64 supplies an authenticated context through `VIBE64_PLAYWRIGHT_STORAGE_STATE`. Treat that file as a temporary secret: do not commit it, print it, or retain it after the run.
 - Do not install a browser when the environment provides a managed browser runner.
 
+## Preserve managed baseline tests
+
+“App-owned” means customizable, not disposable while the package remains
+installed. Never delete or rename a test path recorded in `.jskit/lock.json`.
+Generated and managed infrastructure tests must be adapted in place.
+
+When the starter product route is replaced, update the scaffold smoke test to
+visit and assert the new canonical route. Do not delete baseline browser
+coverage such as `tests/e2e/base-shell.spec.ts` or
+`tests/e2e/adaptive-shell.spec.ts`. JSKIT Doctor must continue to flag a
+managed test that is missing.
+
 ## Direct local authentication
 
 Use the development-only dev auth bypass when Playwright is talking directly to an app running on localhost.

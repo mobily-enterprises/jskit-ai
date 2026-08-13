@@ -38,7 +38,18 @@ If you deliberately need the older bare scaffold, use `--minimal` or `--template
 npx @jskit-ai/create-app exampleapp --minimal --tenancy-mode none
 ```
 
-Minimal apps can still install the standard shell later with `npx jskit add package shell-web`, as long as the starter files it claims have not been edited first.
+Minimal apps can still install the standard shell later with
+`npx --no-install jskit add package shell-web`, as long as the starter files it
+claims have not been edited first. After the initial `npm install`, prefer
+`npx --no-install jskit` for every local JSKIT command so a missing local CLI
+fails clearly.
+
+When a minimal app's first feature is generated CRUD, do not pre-install the
+shell as a workaround. Add the database runtime, run `npm install`, create the
+live disposable table, run `crud-server-generator scaffold`, run
+`npm install` again, and then run `crud-ui-generator crud`. The server
+generator installs the shell/realtime dependency closure in the correct order.
+The complete Notes command lane is in [CRUD Generators](/guide/generators/crud-generators#fresh-minimal-notes-app-the-complete-command-order).
 
 If you already know you want a small non-workspace baseline right after the scaffold, this is the shortest reproducible path:
 

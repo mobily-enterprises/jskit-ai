@@ -3,6 +3,7 @@ import { access, constants as fsConstants, cp, mkdir, readFile, readdir, symlink
 import path from "node:path";
 import test from "node:test";
 import { fileURLToPath } from "node:url";
+import { compileScript, compileTemplate, parse as parseVueSfc } from "@vue/compiler-sfc";
 import { withTempDir } from "../../testUtils/tempDir.mjs";
 import { createCliRunner } from "../../testUtils/runCli.js";
 import { writeInstalledPackagesLock } from "./testLock.js";
@@ -196,7 +197,10 @@ async function installCrudUiGeneratorPackage(appRoot) {
   );
 }
 
-async function writeCustomerResource(appRoot, { includeResourceNamespace = true } = {}) {
+async function writeCustomerResource(appRoot, {
+  includeResourceNamespace = true,
+  includeDelete = false
+} = {}) {
   const resourceFile = path.join(appRoot, "packages", "customers", "src", "shared", "customerResource.js");
   await mkdir(path.dirname(resourceFile), { recursive: true });
   await writeFile(
@@ -237,7 +241,7 @@ const canonicalResource = defineCrudResource({
       }
     }
   },
-  crudOperations: ["list", "view", "create", "patch"]
+  crudOperations: ["list", "view", "create", "patch"${includeDelete ? ', "delete"' : ""}]
 });
 
 const resource = ${includeResourceNamespace ? "canonicalResource" : "{ ...canonicalResource }"};
@@ -273,6 +277,20 @@ async function listRelativeVueFiles(rootPath, currentPath = rootPath) {
   return files.sort();
 }
 
+function assertVueModuleCompiles(source, filename) {
+  const parsed = parseVueSfc(source, { filename });
+  assert.deepEqual(parsed.errors, []);
+  compileScript(parsed.descriptor, {
+    id: `generated-${path.basename(filename)}`
+  });
+  const templateResult = compileTemplate({
+    id: `generated-${path.basename(filename)}`,
+    filename,
+    source: parsed.descriptor.template?.content || ""
+  });
+  assert.deepEqual(templateResult.errors, []);
+}
+
 function resolveGeneratedPaths(appRoot, targetRoot, idParam = "customerId") {
   const generatedRoot = path.join(appRoot, "src", "pages", targetRoot);
   const generatedComponentsRoot = path.join(appRoot, "src", "components", targetRoot);
@@ -300,6 +318,7 @@ async function generateCrudUiPackage(
     idParam = "customerId",
     linkPlacement = "",
     namespace = "",
+    deleteConfirmation = false,
     force = false
   } = {}
 ) {
@@ -317,6 +336,7 @@ async function generateCrudUiPackage(
     ...(displayFields ? ["--display-fields", displayFields] : []),
     ...(linkPlacement ? ["--link-placement", linkPlacement] : []),
     ...(namespace ? ["--namespace", namespace] : []),
+    ...(deleteConfirmation ? ["--delete-confirmation"] : []),
     ...(force ? ["--force"] : [])
   ];
 
@@ -364,6 +384,10 @@ test("generate @jskit-ai/crud-ui-generator crud scaffolds CRUD pages at an expli
     assert.doesNotMatch(listPageSource, /<th>Id<\/th>/);
     assert.doesNotMatch(listPageSource, /<td>\{\{ record\.id \}\}<\/td>/);
 
+    const viewPageSource = await readFile(paths.viewPagePath, "utf8");
+    assert.doesNotMatch(viewPageSource, /useCrudDeleteAction/);
+    assert.doesNotMatch(viewPageSource, /role="alertdialog"/);
+
     const newPageSource = await readFile(paths.newPagePath, "utf8");
     assert.match(
       newPageSource,
@@ -403,6 +427,67 @@ test("generate @jskit-ai/crud-ui-generator crud scaffolds CRUD pages at an expli
     assert.match(placementSource, /kind: "link"/);
     assert.doesNotMatch(placementSource, /componentToken: "local\.main\.ui\.surface-aware-menu-link-item"/);
     assert.match(placementSource, /scopedSuffix: "\/ops\/customers-ui"/);
+  });
+});
+
+test("generate @jskit-ai/crud-ui-generator adds delete confirmation only when requested", async () => {
+  await withTempDir(async (cwd) => {
+    const appRoot = path.join(cwd, "crud-ui-delete-confirmation");
+    await createMinimalApp(appRoot, { name: "crud-ui-delete-confirmation" });
+    await writeCustomerResource(appRoot, { includeDelete: true });
+    await generateCrudUiPackage(appRoot, {
+      targetRoot: "admin/notes",
+      idParam: "noteId",
+      deleteConfirmation: true
+    });
+
+    const paths = resolveGeneratedPaths(appRoot, "admin/notes", "noteId");
+    const viewPageSource = await readFile(paths.viewPagePath, "utf8");
+    assert.match(
+      viewPageSource,
+      /import \{ useCrudDeleteAction \} from "@jskit-ai\/users-web\/client\/composables\/useCrudDeleteAction";/
+    );
+    assert.match(viewPageSource, /const UI_RECORD_ID_PARAM = "noteId";/);
+    assert.match(viewPageSource, /const UI_VIEW_API_URL = `\$\{UI_API_BASE_URL\}\/\:\$\{UI_RECORD_ID_PARAM\}`;/);
+    assert.match(viewPageSource, /const deleteAction = useCrudDeleteAction\(\{/);
+    assert.match(viewPageSource, /resource: uiResource/);
+    assert.match(viewPageSource, /apiUrlTemplate: UI_VIEW_API_URL/);
+    assert.match(viewPageSource, /role="alertdialog"/);
+    assert.match(viewPageSource, /deleteAction\.request/);
+    assert.match(viewPageSource, /deleteAction\.isDeleting/);
+    assert.match(viewPageSource, /deleteAction\.error/);
+    assert.match(viewPageSource, /deleteAction\.confirm/);
+    assert.match(viewPageSource, />\s*Cancel\s*</);
+    assert.doesNotMatch(viewPageSource, /\bfetch\s*\(/);
+    assert.doesNotMatch(viewPageSource, /users-web\/src\/|\/internal\//);
+    assert.doesNotMatch(viewPageSource, /__JSKIT_UI_/);
+    assertVueModuleCompiles(viewPageSource, paths.viewPagePath);
+  });
+});
+
+test("generate @jskit-ai/crud-ui-generator rejects delete confirmation for a resource without delete", async () => {
+  await withTempDir(async (cwd) => {
+    const appRoot = path.join(cwd, "crud-ui-delete-unsupported");
+    await createMinimalApp(appRoot, { name: "crud-ui-delete-unsupported" });
+    await writeCustomerResource(appRoot);
+    await installCrudUiGeneratorPackage(appRoot);
+
+    const result = runCli({
+      cwd: appRoot,
+      args: [
+        "generate",
+        "@jskit-ai/crud-ui-generator",
+        "crud",
+        "admin/notes",
+        "--resource-file",
+        "packages/customers/src/shared/customerResource.js",
+        "--delete-confirmation"
+      ]
+    });
+
+    assert.equal(result.status, 1);
+    assert.match(String(result.stderr || ""), /missing operations\.delete/);
+    assert.equal(await fileExists(path.join(appRoot, "src/pages/admin/notes")), false);
   });
 });
 

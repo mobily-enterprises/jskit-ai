@@ -142,3 +142,52 @@ test("crud guidance keeps canonical ownership columns distinct from domain relat
   assert.doesNotMatch(generatorGuide, /historical|former|Migrating commands created before/);
   assert.match(generatorGuide, /`--internal` does not imply `--no-role-grant`|This decision is independent of `--internal`/);
 });
+
+test("fresh CRUD and generated delete guidance is complete and distributed", async () => {
+  const relativePaths = [
+    "site/guide/generators/crud-generators.md",
+    "patterns/crud-scaffolding.md",
+    "patterns/live-actions.md",
+    "skills/jskit/references/app-operations.md",
+    "skills/jskit/references/crud-operations.md"
+  ];
+  const sources = await Promise.all(
+    relativePaths.map((relativePath) => readFile(path.join(packageRoot, relativePath), "utf8"))
+  );
+  const allGuidance = sources.join("\n");
+
+  assert.match(allGuidance, /npx @jskit-ai\/create-app notes/);
+  assert.match(allGuidance, /npx --no-install jskit add package database-runtime-mysql/);
+  assert.match(allGuidance, /crud-server-generator scaffold/);
+  assert.match(allGuidance, /npm install[\s\S]*crud-ui-generator crud/);
+  assert.match(allGuidance, /--delete-confirmation/);
+  assert.match(allGuidance, /CrudViewScreen/);
+  assert.match(allGuidance, /useCrudDeleteAction\(\)/);
+  assert.match(allGuidance, /useCommand\(\)/);
+  assert.match(allGuidance, /custom `--id-param`|Custom `--id-param`/);
+  assert.match(allGuidance, /shared resource.*`DELETE` operation/is);
+  assert.match(allGuidance, /Do not substitute raw `fetch\(\)`|Do not rebuild that command with raw `fetch\(\)`/);
+});
+
+test("existing-app temporal migration is prominent and rejects legacy coercion", async () => {
+  const index = await readFile(path.join(packageRoot, "site/guide/index.md"), "utf8");
+  const generatorGuide = await readFile(
+    path.join(packageRoot, "site/guide/generators/crud-generators.md"),
+    "utf8"
+  );
+  const skillReference = await readFile(
+    path.join(packageRoot, "skills/jskit/references/crud-operations.md"),
+    "utf8"
+  );
+  const guidance = `${generatorGuide}\n${skillReference}`;
+
+  assert.match(index, /Existing-app migration checklist/);
+  assert.match(generatorGuide, /^## Existing-app migration checklist$/m);
+  assert.match(guidance, /json-rest-schema@\^1\.0\.17|json-rest-schema` 1\.0\.17/);
+  assert.match(guidance, /JavaScript `Date`/);
+  assert.match(guidance, /RFC 3339/);
+  assert.match(guidance, /epochMilliseconds/);
+  assert.match(guidance, /epochSeconds/);
+  assert.match(guidance, /temporalPrecision/);
+  assert.match(guidance, /no compatibility alias|rather than a legacy compatibility layer/);
+});

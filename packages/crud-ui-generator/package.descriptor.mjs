@@ -54,6 +54,13 @@ export default Object.freeze({
       promptLabel: "Parent title mode",
       promptHint: "Whether list pages should show a parent-aware heading: contextual | none."
     },
+    "delete-confirmation": {
+      required: false,
+      inputType: "flag",
+      defaultValue: "",
+      promptLabel: "Delete with confirmation",
+      promptHint: "Add a destructive Delete action and Material confirmation dialog to the generated view page. Requires list, view, and resource delete operations."
+    },
     force: {
       required: false,
       inputType: "flag",
@@ -113,6 +120,7 @@ export default Object.freeze({
           "display-fields",
           "id-param",
           "parent-title",
+          "delete-confirmation",
           "navigation-role",
           "link-placement",
           "namespace",
@@ -127,6 +135,7 @@ export default Object.freeze({
         notes: [
           "The target root is the real route root relative to src/pages/.... JSKIT derives the surface and route from that path.",
           "Operations default to list,view,new,edit. For list-page placement behavior, use the same mental model as ui-generator page.",
+          "Use --delete-confirmation to add the supported delete action to the view page. The selected operations must include list and view, and the shared resource must expose operations.delete with method DELETE.",
           "If the target root already exists and is not empty, rerun with --force to overwrite generated files."
         ],
         examples: [
@@ -147,6 +156,7 @@ export default Object.freeze({
               "  --resource-file packages/pets/src/shared/petResource.js \\",
               "  --id-param petId \\",
               "  --display-fields name,breedId,sex \\",
+              "  --delete-confirmation \\",
               "  --parent-title none \\",
               "  --force"
             ]

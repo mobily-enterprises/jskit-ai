@@ -90,6 +90,14 @@ function inferCrudJsonApiTransport(resource = null, { mode = "", operationName =
     });
   }
 
+  if (normalizedMode === "delete") {
+    return Object.freeze({
+      kind: "jsonapi-resource",
+      responseType: resourceType,
+      responseKind: "record"
+    });
+  }
+
   if (normalizedMode === "add-edit") {
     return Object.freeze({
       kind: "jsonapi-resource",

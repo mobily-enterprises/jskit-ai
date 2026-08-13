@@ -165,6 +165,18 @@ test("show feature-server-generator --details renders generator commands and own
   assert.match(stdout, /packages\/main: stays composition\/glue only/);
 });
 
+test("show crud-ui-generator --details exposes the delete confirmation lane", () => {
+  const result = runCli({
+    cwd: path.resolve(path.dirname(CLI_PATH), ".."),
+    args: ["show", "crud-ui-generator", "--details"]
+  });
+
+  assert.equal(result.status, 0, String(result.stderr || ""));
+  const stdout = stripVTControlCharacters(String(result.stdout || ""));
+  assert.match(stdout, /--delete-confirmation/);
+  assert.match(stdout, /resource operations\.delete/);
+});
+
 test("show package resolves app-local packages from the current app", async () => {
   await withTempDir(async (cwd) => {
     const appRoot = path.join(cwd, "local-show-app");

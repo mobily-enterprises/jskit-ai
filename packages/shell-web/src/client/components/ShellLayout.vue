@@ -9,6 +9,10 @@ import {
 } from "vue";
 import { useDisplay } from "vuetify";
 import { useShellLayoutState } from "../composables/useShellLayoutState.js";
+import {
+  resolveShellDrawerPresentation,
+  resolveShellDrawerToggleLabel
+} from "../support/drawerPresentation.js";
 import ShellOutlet from "./ShellOutlet.vue";
 import ShellRouteTransition from "./ShellRouteTransition.vue";
 
@@ -28,6 +32,10 @@ const props = defineProps({
   subtitle: {
     type: String,
     default: ""
+  },
+  desktopDrawerClosedMode: {
+    type: String,
+    default: "rail"
   }
 });
 
@@ -47,6 +55,7 @@ const display = useDisplay();
 const refreshRuntime = inject("jskit.shell-web.runtime.web-refresh.client", null);
 const pullDistance = ref(0);
 const pullRefreshing = ref(false);
+const wideDrawerOpen = ref(Boolean(drawerDefaultOpen.value));
 let activePull = null;
 
 const PULL_REFRESH_TRIGGER_DISTANCE = 72;
@@ -63,6 +72,15 @@ const layoutClass = computed(() => {
   return "expanded";
 });
 const isCompactLayout = computed(() => layoutClass.value === "compact");
+const drawerPresentation = computed(() => resolveShellDrawerPresentation({
+  compact: isCompactLayout.value,
+  open: drawerOpen.value,
+  desktopClosedMode: props.desktopDrawerClosedMode
+}));
+const drawerToggleLabel = computed(() => resolveShellDrawerToggleLabel({
+  compact: isCompactLayout.value,
+  open: drawerOpen.value
+}));
 const pullProgress = computed(() =>
   Math.min(100, Math.round((pullDistance.value / PULL_REFRESH_TRIGGER_DISTANCE) * 100))
 );
@@ -80,9 +98,18 @@ const pullRefreshStyle = computed(() => ({
 }));
 
 watch(
+  drawerOpen,
+  (open) => {
+    if (!isCompactLayout.value) {
+      wideDrawerOpen.value = Boolean(open);
+    }
+  }
+);
+
+watch(
   isCompactLayout,
   (compact) => {
-    setDrawerOpen(compact ? false : drawerDefaultOpen.value);
+    setDrawerOpen(compact ? false : wideDrawerOpen.value);
   },
   { immediate: true }
 );
@@ -130,6 +157,12 @@ function handlePullPointerDown(event) {
     startY: event.clientY,
     pointerCancelled: false
   };
+}
+
+function handleDrawerVisibilityChange(open) {
+  if (isCompactLayout.value || drawerPresentation.value.closedMode === "hidden" || open === false) {
+    setDrawerOpen(open);
+  }
 }
 
 function handlePullPointerMove(event) {
@@ -359,7 +392,10 @@ function touchListIncludesActiveTouch(touchList) {
   >
     <v-app-bar-nav-icon
       class="shell-layout__nav-toggle"
-      aria-label="Toggle navigation menu"
+      data-testid="jskit-shell-nav-toggle"
+      :aria-label="drawerToggleLabel"
+      :aria-expanded="drawerOpen"
+      aria-controls="jskit-shell-drawer"
       @click="toggleDrawer"
     />
 
@@ -400,17 +436,24 @@ function touchListIncludesActiveTouch(touchList) {
   </div>
 
   <v-navigation-drawer
-    v-model="drawerOpen"
+    id="jskit-shell-drawer"
+    :model-value="drawerPresentation.visible"
     border
     class="bg-surface"
     data-testid="jskit-shell-drawer"
+    :data-presentation="drawerPresentation.kind"
     :temporary="isCompactLayout"
     :permanent="!isCompactLayout"
     :width="248"
+    :rail="drawerPresentation.rail"
+    :rail-width="80"
+    @update:model-value="handleDrawerVisibilityChange"
   >
-    <slot name="menu" :surface="resolvedSurface">
+    <slot name="menu" :surface="resolvedSurface" :rail="drawerPresentation.rail">
       <v-list nav density="comfortable" class="pt-2">
-        <v-list-subheader class="text-uppercase text-caption">{{ resolvedSurfaceLabel }}</v-list-subheader>
+        <v-list-subheader v-if="!drawerPresentation.rail" class="text-uppercase text-caption">
+          {{ resolvedSurfaceLabel }}
+        </v-list-subheader>
         <ShellOutlet
           target="shell-layout:primary-menu"
           default

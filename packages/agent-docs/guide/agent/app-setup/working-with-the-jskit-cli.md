@@ -45,6 +45,20 @@ That lock file is the source of truth for installed JSKIT-managed package state.
 
 That is why commands such as `update`, `remove`, `position`, `migrations`, and `doctor` all care about `.jskit/lock.json`.
 
+### App-owned does not mean disposable
+
+A path recorded in `.jskit/lock.json` remains managed while its owning package
+is installed. “App-owned” means customizable, not disposable while the package
+remains installed. You may edit the file; you may not delete or rename it
+without changing the managed package contract.
+
+Never delete or rename a recorded managed path. Adapt generated infrastructure
+tests in place. If a starter product route is replaced, update the scaffold
+smoke test to exercise the new canonical route instead of deleting baseline
+browser coverage. In particular, preserve managed tests such as
+`tests/e2e/base-shell.spec.ts` and `tests/e2e/adaptive-shell.spec.ts`. Doctor
+must continue to flag a managed test that is missing.
+
 ## JSKIT-managed app maintenance scripts
 
 The scaffolded app also has a small set of `npm run` shortcuts that are really wrappers around JSKIT-owned maintenance behavior.

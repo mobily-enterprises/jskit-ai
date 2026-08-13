@@ -66,6 +66,7 @@ Exports
 - None
 Local functions
 - `handlePullPointerDown(event)`
+- `handleDrawerVisibilityChange(open)`
 - `handlePullPointerMove(event)`
 - `handlePullPointerEnd(event)`
 - `handlePullPointerCancel(event)`
@@ -403,6 +404,13 @@ Local functions
 ### `src/client/stores/useShellLayoutStore.js`
 Exports
 - `useShellLayoutStore`
+
+### `src/client/support/drawerPresentation.js`
+Exports
+- `DESKTOP_DRAWER_CLOSED_MODES`
+- `normalizeDesktopDrawerClosedMode(value = "rail")`
+- `resolveShellDrawerPresentation({ compact = false, open = false, desktopClosedMode = "rail" } = {})`
+- `resolveShellDrawerToggleLabel({ compact = false, open = false } = {})`
 
 ### `src/client/support/menuLinkTarget.js`
 Exports

@@ -925,7 +925,10 @@ async function listRecords(runtime, knex, query = {}, callOptions = {}) {
       row,
       runtime.mapping.outputKeys,
       runtime.mapping.columnOverrides,
-      { recordIdKeys: runtime.mapping.outputRecordIdKeys }
+      {
+        recordIdKeys: runtime.mapping.outputRecordIdKeys,
+        serializerByKey: runtime.mapping.outputSerializerByKey
+      }
     );
     if (!mappedRecord) {
       continue;
@@ -1014,7 +1017,10 @@ async function findRecordById(runtime, knex, recordId, callOptions = {}) {
     row,
     runtime.mapping.outputKeys,
     runtime.mapping.columnOverrides,
-    { recordIdKeys: runtime.mapping.outputRecordIdKeys }
+    {
+      recordIdKeys: runtime.mapping.outputRecordIdKeys,
+      serializerByKey: runtime.mapping.outputSerializerByKey
+    }
   );
   if (!mappedRecord) {
     return null;
@@ -1115,7 +1121,10 @@ async function listRecordsByIds(runtime, knex, ids = [], callOptions = {}) {
       row,
       runtime.mapping.outputKeys,
       runtime.mapping.columnOverrides,
-      { recordIdKeys: runtime.mapping.outputRecordIdKeys }
+      {
+        recordIdKeys: runtime.mapping.outputRecordIdKeys,
+        serializerByKey: runtime.mapping.outputSerializerByKey
+      }
     );
     if (!mappedRecord) {
       continue;

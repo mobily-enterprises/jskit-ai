@@ -15,7 +15,8 @@ export default Object.freeze({
     }
   },
   dependsOn: [
-    "@jskit-ai/kernel"
+    "@jskit-ai/kernel",
+    "@jskit-ai/shell-web"
   ],
   capabilities: {
     provides: [
@@ -96,6 +97,7 @@ export default Object.freeze({
     dependencies: {
       runtime: {
         "@jskit-ai/kernel": "0.1.147",
+        "@jskit-ai/shell-web": "0.1.148",
         "@socket.io/redis-adapter": "^8.3.0",
         "redis": "^5.8.2",
         "socket.io": "^4.8.3",

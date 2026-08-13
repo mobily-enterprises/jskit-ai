@@ -69,12 +69,20 @@ function toTimeInputValue(value) {
     return "";
   }
 
-  const twentyFourHourMatch = normalized.match(/^(\d{1,2}):(\d{2})(?::(\d{2}))?$/u);
+  const twentyFourHourMatch = normalized.match(/^(\d{1,2}):(\d{2})(?::(\d{2})(\.\d+)?)?$/u);
   if (twentyFourHourMatch) {
     const hours = Number(twentyFourHourMatch[1]);
     const minutes = Number(twentyFourHourMatch[2]);
-    if (hours >= 0 && hours <= 23 && minutes >= 0 && minutes <= 59) {
-      return `${padDateTimePart(hours)}:${padDateTimePart(minutes)}`;
+    const seconds = Number(twentyFourHourMatch[3] || 0);
+    if (
+      hours >= 0 && hours <= 23 &&
+      minutes >= 0 && minutes <= 59 &&
+      seconds >= 0 && seconds <= 59
+    ) {
+      const secondsValue = twentyFourHourMatch[3]
+        ? `:${padDateTimePart(seconds)}${twentyFourHourMatch[4] || ""}`
+        : "";
+      return `${padDateTimePart(hours)}:${padDateTimePart(minutes)}${secondsValue}`;
     }
     return normalized;
   }
@@ -108,11 +116,19 @@ function toDateTimeLocalInputValue(value) {
     return String(value);
   }
 
-  return [
+  const minuteValue = [
     date.getFullYear(),
     padDateTimePart(date.getMonth() + 1),
     padDateTimePart(date.getDate())
   ].join("-") + `T${padDateTimePart(date.getHours())}:${padDateTimePart(date.getMinutes())}`;
+  const milliseconds = date.getMilliseconds();
+  if (milliseconds > 0) {
+    return `${minuteValue}:${padDateTimePart(date.getSeconds())}.${String(milliseconds).padStart(3, "0")}`;
+  }
+  if (date.getSeconds() > 0) {
+    return `${minuteValue}:${padDateTimePart(date.getSeconds())}`;
+  }
+  return minuteValue;
 }
 
 function toDateInputValue(value) {

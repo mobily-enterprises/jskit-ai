@@ -94,6 +94,11 @@ async function runAdaptiveShellSmokeCase({
 
     await expect(page.getByTestId("jskit-shell-bottom-nav")).toBeVisible();
     expect(await isElementVisibleInViewport(page, "jskit-shell-drawer")).toBe(false);
+    await page.getByTestId("jskit-shell-nav-toggle").click();
+    await expect(page.getByTestId("jskit-shell-drawer")).toBeVisible();
+    await expect(page.getByTestId("jskit-shell-drawer")).toHaveAttribute("data-presentation", "modal");
+    await page.keyboard.press("Escape");
+    expect(await isElementVisibleInViewport(page, "jskit-shell-drawer")).toBe(false);
 
     const navButtonHeights = await page.getByTestId("jskit-shell-bottom-nav").locator(".v-btn").evaluateAll((buttons) =>
       buttons.map((button) => button.getBoundingClientRect().height)
@@ -107,6 +112,14 @@ async function runAdaptiveShellSmokeCase({
     await expect.poll(() => bootstrapRequests).toBeGreaterThan(bootstrapRequestsBeforePull);
   } else {
     await expect(page.getByTestId("jskit-shell-drawer")).toBeVisible();
+    await page.getByTestId("jskit-shell-nav-toggle").click();
+    await expect(page.getByTestId("jskit-shell-drawer")).toBeVisible();
+    await expect(page.getByTestId("jskit-shell-drawer")).toHaveAttribute("data-presentation", "rail");
+    const railWidth = await page.getByTestId("jskit-shell-drawer").evaluate(
+      (element) => element.getBoundingClientRect().width
+    );
+    expect(railWidth).toBeGreaterThanOrEqual(79);
+    expect(railWidth).toBeLessThanOrEqual(81);
   }
 }
 

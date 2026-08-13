@@ -74,3 +74,44 @@ test("UI testing guidance uses private local exchange support and managed storag
     assert.doesNotMatch(source, /fetch\("\/api\/dev-auth\/login-as"/u);
   }
 });
+
+test("managed app-owned tests are customizable but not disposable", async () => {
+  const relativePaths = [
+    "patterns/ui-testing.md",
+    "site/guide/app-setup/working-with-the-jskit-cli.md",
+    "skills/jskit/references/ui-operations.md"
+  ];
+  const sources = await Promise.all(
+    relativePaths.map((relativePath) => readFile(path.join(packageRoot, relativePath), "utf8"))
+  );
+
+  for (const source of sources) {
+    assert.match(source, /App-owned.*customizable|“App-owned”.*customizable/is);
+    assert.match(source, /Never delete or rename.*\.jskit\/lock\.json/is);
+    assert.match(source, /adapt.*in place/is);
+    assert.match(source, /canonical route/is);
+    assert.match(source, /Doctor.*missing/is);
+  }
+
+  assert.match(sources[0], /tests\/e2e\/base-shell\.spec\.ts/);
+  assert.match(sources[0], /tests\/e2e\/adaptive-shell\.spec\.ts/);
+});
+
+test("adaptive drawer guidance documents Vuetify rail and compact close behavior", async () => {
+  const humanGuide = await readFile(
+    path.join(packageRoot, "site/guide/app-setup/a-more-interesting-shell.md"),
+    "utf8"
+  );
+  const skillReference = await readFile(
+    path.join(packageRoot, "skills/jskit/references/ui-operations.md"),
+    "utf8"
+  );
+
+  for (const source of [humanGuide, skillReference]) {
+    assert.match(source, /Vuetify/);
+    assert.match(source, /compact.*close|compact\/mobile.*closes/is);
+    assert.match(source, /desktopDrawerClosedMode|desktop-drawer-closed-mode/);
+    assert.match(source, /rail/);
+    assert.match(source, /hidden/);
+  }
+});
