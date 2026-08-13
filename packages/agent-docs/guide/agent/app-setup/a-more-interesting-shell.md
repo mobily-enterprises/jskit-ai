@@ -681,13 +681,21 @@ navigation.
 
 The open drawer is content-aware by default. After the visible semantic
 placements and fonts settle, `ShellLayout` measures the rendered labels and
-uses one `navigationItemSpacing` value for the icon-to-label gap and the space
-between the widest label and the drawer edge. It defaults to 12 CSS pixels and
-can be set from 8–24px. The shell remeasures when placements, localization,
-fonts, spacing, the active surface, or the window layout change, and clamps
-unusually long labels to a safe range. The
-closed desktop rail remains 80 CSS pixels wide by default, with every icon and
-its Material selected-state indicator centred in the rail. Rail tooltips use
+uses Material's 12px outer item inset and one `navigationItemSpacing` value for
+the icon-to-label gap and the space between the widest label and the drawer
+edge. The spacing defaults to 12 CSS pixels and can be set from 8–24px. The
+shell remeasures when placements, localization, fonts, spacing, the active
+surface, or the window layout change, and clamps unusually long labels to a safe range. The
+surface label appears once in the top app bar; the drawer starts with its
+destinations instead of repeating that label as an uppercase subheader.
+
+The closed desktop rail remains 80 CSS pixels wide by default, with every icon
+and its Material selected-state indicator centred in the rail. The expanded
+drawer uses the same icon centreline, so toggling the drawer reveals or hides
+labels without making the icons jump sideways. The empty space around a 24px
+icon in the default rail is intentional Material touch/indicator space, not a
+second drawer padding. Products that deliberately need a denser rail can set
+`railWidth`; the shell still enforces a 48px minimum target. Rail tooltips use
 one explicit opaque theme color pair and open on pointer hover or keyboard
 focus.
 
@@ -719,6 +727,21 @@ unsafe share of the viewport or shrink below its touch targets. The app-owned
 `src/components/ShellLayout.vue` wrapper also forwards
 `navigation-item-spacing`, so an application does not need to copy or restyle
 the drawer implementation.
+
+### Updating an existing shell app
+
+Commit the app's work and run:
+
+```bash
+npm run jskit:update
+```
+
+Keep the generated/app-owned `src/components/ShellLayout.vue` wrapper and let
+it continue forwarding attributes to the package component. No copied drawer,
+`.v-navigation-drawer` CSS, duplicate surface heading, or replacement smoke
+test is required. If the product intentionally wants a denser desktop rail,
+set the supported prop in that wrapper, for example `:rail-width="64"`; omit it
+to keep the Material 3 80px default.
 
 `useShellErrorPresentationStore()` exposes the current banner, snackbar, and dialog presentation state behind `ShellErrorHost`.
 

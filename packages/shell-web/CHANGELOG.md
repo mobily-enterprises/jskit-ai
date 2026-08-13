@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.152 - 2026-08-13
+
+- Remove the redundant uppercase surface subheader from the expanded drawer; the top app bar remains the single shell-owned surface label.
+- Align expanded drawer icons to the collapsed rail centreline so toggling navigation reveals or hides labels without shifting the icons horizontally.
+- Preserve the Material 3 80px default rail and the public `railWidth` and `navigationItemSpacing` density controls.
+
 ## 0.1.151 - 2026-08-13
 
 - Replace Vuetify's oversized default drawer icon spacer with one public `navigationItemSpacing` value, defaulting to 12px for both icon-to-label and widest-label-to-edge spacing.

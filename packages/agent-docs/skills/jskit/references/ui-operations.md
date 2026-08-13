@@ -41,17 +41,18 @@ Doctor must continue to report a missing managed test.
 
 ## Adaptive shell drawer
 
-Use Vuetify Material navigation. Compact close dismisses the temporary drawer.
-Wider layouts default to `desktopDrawerClosedMode="rail"`, retaining primary
-navigation as a rail. Use `desktopDrawerClosedMode="hidden"` only when another
-discoverable navigation affordance exists. Do not create a second drawer/menu
-registry or imitate the rail with CSS.
+Use Vuetify Material navigation. Compact close dismisses the temporary drawer;
+wide layouts default to `desktopDrawerClosedMode="rail"`. Use `hidden` only
+with another navigation affordance.
 
-The drawer uses `navigationItemSpacing` (12px) for icon/label and widest-label/
-edge gaps. Its 80px rail centres complete 48px targets and theme-owned
-tooltips. Set `railWidth` (for example, `64`) for another density, or
-`drawerWidth` for a fixed open width. The app wrapper forwards all three; never
-override `.v-navigation-drawer` in an app.
+The drawer omits the app bar's surface label. Open and rail icons share a
+centreline. It uses a 12px outer item inset; `navigationItemSpacing` (12px)
+controls icon/label and label/end gaps. The 80px rail centres 48px targets; set
+`railWidth` (for example, `64`) for a denser rail or `drawerWidth` for a fixed
+drawer. The wrapper forwards these props; never override its CSS.
+
+Existing apps: commit work and run `npm run jskit:update`. Keep and adapt
+the app-owned shell wrapper and smoke test; do not copy or delete them.
 
 ## Browser verification
 

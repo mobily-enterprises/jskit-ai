@@ -110,6 +110,10 @@ test("shell-web shell layout registers navigation at the app layout level", asyn
   assert.match(source, /measureDrawerContentWidth/);
   assert.match(source, /DEFAULT_SHELL_NAVIGATION_ITEM_SPACING/);
   assert.match(source, /:prepend-gap="resolvedNavigationItemSpacing"/);
+  assert.match(source, /--shell-navigation-drawer-inset:\s*12px/);
+  assert.match(source, /--shell-navigation-rail-width/);
+  assert.match(source, /padding-inline-start:\s*var\(--shell-navigation-drawer-inset\)/);
+  assert.doesNotMatch(source, /<v-list-subheader/);
   assert.doesNotMatch(source, /:width="248"/);
   assert.doesNotMatch(source, /:rail-width="80"/);
   assert.match(source, /:model-value="drawerPresentation\.visible"/);

@@ -35,7 +35,7 @@ test("adaptive shell smoke follows rendered layout state and waits for drawer tr
   assert.match(source, /toBeFocused/u);
   assert.match(source, /v-navigation-drawer__scrim/u);
   assert.match(source, /page\.keyboard\.press\("Escape"\)[\s\S]*data-presentation", "drawer"/u);
-  assert.match(source, /iconBox\.x \+ iconBox\.width \/ 2/u);
+  assert.match(source, /centers\.push\(box\.x \+ box\.width \/ 2\)/u);
   assert.match(source, /fit\.endGap - configuredSpacing/u);
   assert.match(source, /fit\.iconLabelGaps/u);
   assert.doesNotMatch(source, /viewport\.name === "compact"/u);

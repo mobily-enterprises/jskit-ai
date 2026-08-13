@@ -177,22 +177,42 @@ async function expectContentAwareDrawerFit(drawer, expect) {
   }
 }
 
-async function expectCentredRailNavigation(page, drawer, expect) {
+async function readNavigationIconCenters(drawer) {
+  const icons = drawer.locator("a.shell-menu-link-item[href] .v-icon");
+  await icons.first().waitFor({ state: "visible" });
+  const centers = [];
+  const iconCount = await icons.count();
+  for (let index = 0; index < iconCount; index += 1) {
+    const box = await icons.nth(index).boundingBox();
+    if (!box) {
+      throw new Error("Shell navigation exposed an unmeasurable icon.");
+    }
+    centers.push(box.x + box.width / 2);
+  }
+  return centers;
+}
+
+async function expectCentredRailNavigation(page, drawer, expect, expandedIconCenters) {
   const links = drawer.locator("a.shell-menu-link-item[href]");
   await expect(links.first()).toBeVisible();
   const firstLink = links.first();
-  const firstIcon = firstLink.locator(".v-icon").first();
-  const geometry = await Promise.all([drawer.boundingBox(), firstLink.boundingBox(), firstIcon.boundingBox()]);
-  const [drawerBox, linkBox, iconBox] = geometry;
+  const geometry = await Promise.all([drawer.boundingBox(), firstLink.boundingBox()]);
+  const [drawerBox, linkBox] = geometry;
 
   expect(drawerBox).not.toBeNull();
   expect(linkBox).not.toBeNull();
-  expect(iconBox).not.toBeNull();
   expect(linkBox.width).toBeGreaterThanOrEqual(48);
   expect(linkBox.height).toBeGreaterThanOrEqual(48);
-  expect(Math.abs(
-    iconBox.x + iconBox.width / 2 - (drawerBox.x + drawerBox.width / 2)
-  )).toBeLessThanOrEqual(1);
+  const railIconCenters = await readNavigationIconCenters(drawer);
+  expect(railIconCenters.length).toBe(expandedIconCenters.length);
+  for (let index = 0; index < railIconCenters.length; index += 1) {
+    expect(Math.abs(
+      railIconCenters[index] - (drawerBox.x + drawerBox.width / 2)
+    )).toBeLessThanOrEqual(1);
+    expect(Math.abs(
+      railIconCenters[index] - expandedIconCenters[index]
+    )).toBeLessThanOrEqual(1);
+  }
 
   const currentUrl = new URL(page.url());
   const linkCount = await links.count();
@@ -288,13 +308,14 @@ async function runAdaptiveShellSmokeCase({
     await expect(drawer).toHaveAttribute("data-presentation", "drawer");
     await expectDrawerWidth(drawer, expect, await readConfiguredWidth(drawer, "data-drawer-width"));
     await expectContentAwareDrawerFit(drawer, expect);
+    const expandedIconCenters = await readNavigationIconCenters(drawer);
     await page.keyboard.press("Escape");
     await expect(drawer).toHaveAttribute("data-presentation", "drawer");
 
     await toggle.click();
     await expect(drawer).toHaveAttribute("data-presentation", "rail");
     await expectDrawerWidth(drawer, expect, await readConfiguredWidth(drawer, "data-rail-width"));
-    await expectCentredRailNavigation(page, drawer, expect);
+    await expectCentredRailNavigation(page, drawer, expect, expandedIconCenters);
     await expectNoHorizontalOverflow(page, expect);
   }
 }

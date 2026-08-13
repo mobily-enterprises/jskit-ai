@@ -166,6 +166,11 @@ async function assertTooltipContrast(page, linkName, interaction) {
 async function assertDrawerFit(page) {
   const drawer = page.getByTestId("jskit-shell-drawer");
   await expect(drawer).toHaveAttribute("data-presentation", "drawer");
+  assert.equal(
+    await drawer.locator(".v-list-subheader").count(),
+    0,
+    "The drawer must not repeat the surface label from the top app bar."
+  );
   const configuredSpacing = Number(await drawer.getAttribute("data-navigation-item-spacing"));
   assert.ok(Number.isFinite(configuredSpacing));
   await expect.poll(async () => {

@@ -628,7 +628,10 @@ function touchListIncludesActiveTouch(touchList) {
     :data-drawer-width="resolvedDrawerWidth"
     :data-navigation-item-spacing="resolvedNavigationItemSpacing"
     :data-rail-width="resolvedRailWidth"
-    :style="{ '--shell-navigation-item-spacing': `${resolvedNavigationItemSpacing}px` }"
+    :style="{
+      '--shell-navigation-item-spacing': `${resolvedNavigationItemSpacing}px`,
+      '--shell-navigation-rail-width': `${resolvedRailWidth}px`
+    }"
     :temporary="isCompactLayout"
     :permanent="!isCompactLayout"
     :width="resolvedDrawerWidth"
@@ -643,9 +646,6 @@ function touchListIncludesActiveTouch(touchList) {
         class="pt-2"
         :prepend-gap="resolvedNavigationItemSpacing"
       >
-        <v-list-subheader v-if="!drawerPresentation.rail" class="text-uppercase text-caption">
-          {{ resolvedSurfaceLabel }}
-        </v-list-subheader>
         <ShellOutlet
           target="shell-layout:primary-menu"
           default
@@ -734,9 +734,26 @@ function touchListIncludesActiveTouch(touchList) {
   white-space: nowrap;
 }
 
-.shell-layout__drawer[data-presentation="drawer"] :deep(.v-list--nav),
+.shell-layout__drawer {
+  --shell-navigation-drawer-inset: 12px;
+  --shell-navigation-icon-size: 24px;
+}
+
+.shell-layout__drawer[data-presentation="drawer"] :deep(.v-list--nav) {
+  padding-inline-end: calc(var(--shell-navigation-item-spacing) / 2);
+  padding-inline-start: var(--shell-navigation-drawer-inset);
+}
+
 .shell-layout__drawer[data-presentation="drawer"] :deep(.v-list-item) {
   padding-inline-end: calc(var(--shell-navigation-item-spacing) / 2);
+  padding-inline-start: max(
+    0px,
+    calc(
+      var(--shell-navigation-rail-width) / 2 -
+      var(--shell-navigation-icon-size) / 2 -
+      var(--shell-navigation-drawer-inset)
+    )
+  );
 }
 
 .shell-layout__drawer[data-presentation="rail"] :deep(.v-list-item) {
