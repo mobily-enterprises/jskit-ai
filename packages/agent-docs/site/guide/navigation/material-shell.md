@@ -1,0 +1,79 @@
+# Material 3 shell navigation
+
+`shell-web` presents the shared runtime with Vuetify components. It does not own a stack.
+
+## The leading app-bar control
+
+`ShellLeadingNavigation` occupies the `VAppBar` navigation-icon position and derives one mode:
+
+- `back` when `navigation.state.canGoUp` is true;
+- `menu` when no Up action exists and compact primary navigation is toggleable;
+- `none` when no Up action exists and eligible navigation is already permanently visible.
+
+Back calls `navigation.goUp({ reason: "shell-back" })`. Menu opens the compact drawer. The two actions never render as competing controls.
+
+The control uses Vuetify's app-bar icon button and tooltip, `@mdi/js` icons, a 48 by 48 CSS-pixel target, theme state layers, visible focus, RTL mirroring, and reduced-motion handling. It reads committed navigation state rather than page fetch state.
+
+Apps can localize navigation without replacing the component:
+
+```vue
+<ShellLayout
+  :navigation-labels="{
+    back: t('navigation.back'),
+    openMenu: t('navigation.openMenu'),
+    primaryNavigation: t('navigation.primary'),
+    more: t('navigation.more'),
+    openMore: t('navigation.openMore'),
+    moreNavigation: t('navigation.moreRegion'),
+    stay: t('navigation.stay'),
+    discardChanges: t('navigation.discardChanges')
+  }"
+>
+  <RouterView />
+</ShellLayout>
+```
+
+The generic accessible label is `Back`. A product can pass concise contextual copy when it has a localized destination label. Do not expose icon names or pathnames.
+
+## One adaptive navigation source
+
+Application links continue to target semantic `shell.primary-nav` and `shell.secondary-nav`. The placement topology maps the same records to Vuetify renderers:
+
+```text
+compact  -> shell-layout:primary-bottom-nav
+medium   -> shell-layout:primary-rail
+expanded -> shell-layout:primary-drawer
+```
+
+The shell uses `VBottomNavigation` on compact windows, `VNavigationDrawer` in rail mode on medium windows, and a permanent `VNavigationDrawer` on expanded windows. Resizing changes only presentation; it does not navigate or alter the destination trail.
+
+Use `npx jskit list-placements` to inspect semantic mappings. Ordinary app code must not duplicate destination lists or target concrete rail/drawer/bottom outlets as a workaround.
+
+## Overflow and reachability
+
+Compact navigation shows at most five items. When primary entries exceed that capacity, the final slot becomes the shell-owned `More` action and remaining primary entries appear in the modal drawer. Eligible secondary entries also require `More`, even when all primary entries fit.
+
+The rail follows the same policy with its own capacity and a rail `More` item. Expanded navigation renders primary and secondary regions directly. `More` is a button, not a route: it does not change the URL, selected destination, `aria-current`, or stack. Closing it without navigation restores focus to the trigger.
+
+Drawers, rails, and bottom navigation are labelled navigation regions. Selected state comes from the same placement id and does not rely on color alone. Compact bottom navigation includes safe-area padding, while the app bar uses logical inline padding for display cutouts and RTL.
+
+## Transient and supporting layers
+
+Register a non-routed dialog, sheet, or supporting layer with `navigation.registerTransientLayer()`. `goUp()` and `pop()` close the highest-priority open layer before touching browser history. Vuetify containers keep their own close motion, and only a later Back action pops a destination.
+
+```ts
+const unregister = navigation.registerTransientLayer({
+  id: "inventory.product.filters",
+  priority: 20,
+  isOpen: () => filterSheetOpen.value,
+  close: () => {
+    filterSheetOpen.value = false;
+    return true;
+  }
+});
+```
+
+## Capacitor Back
+
+`mobile-capacitor` delegates Android system Back to `navigation.pop({ reason: "system-back" })`. It exits only when the common runtime reports that no in-app predecessor exists. Incoming launch URLs use shared `replace()` after navigation bootstrap. Predictive progress is optional until a supported native adapter exposes it; ordinary Back remains correct without it.
+

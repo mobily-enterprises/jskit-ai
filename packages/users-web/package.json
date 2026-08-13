@@ -22,6 +22,8 @@
     "./client/composables/useCommand": "./src/client/composables/useCommand.js",
     "./client/composables/useCrudAddEdit": "./src/client/composables/records/useCrudAddEdit.js",
     "./client/composables/useCrudAddEditScreen": "./src/client/composables/useCrudAddEditScreen.js",
+    "./client/composables/useCrudFormNavigationBlocker": "./src/client/composables/useCrudFormNavigationBlocker.js",
+    "./client/composables/useCrudListNavigationContributor": "./src/client/composables/useCrudListNavigationContributor.js",
     "./client/composables/useCrudListBulkActions": "./src/client/composables/useCrudListBulkActions.js",
     "./client/composables/useCrudListRowActions": "./src/client/composables/useCrudListRowActions.js",
     "./client/composables/crudLookupFieldRuntime": "./src/client/composables/crud/crudLookupFieldRuntime.js",

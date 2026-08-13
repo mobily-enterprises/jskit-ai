@@ -1,3 +1,19 @@
+<route lang="json">
+{
+  "meta": {
+    "jskit": {
+      "navigation": {
+        "behavior": "destination",
+        "destinationKey": "home.settings.general",
+        "fallback": { "path": "/home" },
+        "scope": ["surface"],
+        "persistence": { "mode": "url-only", "queryAllowlist": [] }
+      }
+    }
+  }
+}
+</route>
+
 <script setup>
 import { computed } from "vue";
 import { useShellLayoutState } from "@jskit-ai/shell-web/client/composables/useShellLayoutState";

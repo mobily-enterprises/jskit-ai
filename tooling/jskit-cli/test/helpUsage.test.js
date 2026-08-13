@@ -216,7 +216,8 @@ test("jskit generate ui-generator page help includes link options", () => {
     /admin\/reports\/index\.vue/,
     /admin\/customers\/\[customerId\]\/index\/notes\/index\.vue/
   ]);
-  assert.match(stdout, /Notes \(3\):/);
+  assert.match(stdout, /Notes \(4\):/);
+  assert.match(stdout, /Destination behavior is inferred and always emitted explicitly/);
   assert.match(stdout, /semantic placement and props\.to are\s+inferred\s+automatically/);
   assert.match(stdout, /target page file already exists, rerun with --force/);
 });
@@ -275,7 +276,8 @@ test("jskit generate crud-ui-generator crud help includes common and advanced ex
     /admin\/customers\/\[customerId\]\/index\/pets/,
     /--id-param petId/
   ]);
-  assert.match(stdout, /Notes \(3\):/);
+  assert.match(stdout, /Notes \(4\):/);
+  assert.match(stdout, /list\/view are\s+destinations and new\/edit preserve/);
   assert.match(stdout, /same mental\s+model as ui-generator page/);
   assert.match(stdout, /target root already exists and is not empty, rerun with --force/);
 });

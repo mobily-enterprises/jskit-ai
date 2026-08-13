@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { reactive } from "vue";
+import { __testables as crudAddEditTestables } from "../src/client/composables/records/useCrudAddEdit.js";
 import {
   normalizeCrudFormFields,
   createCrudFormModel,
@@ -10,6 +11,83 @@ import {
   applyCrudRouteBoundFieldValues,
   resolveCrudFieldErrors
 } from "../src/client/composables/crud/crudSchemaFormHelpers.js";
+
+test("CRUD form dirtiness fingerprint is deterministic and observes edits", () => {
+  const original = {
+    enabled: true,
+    name: "Ada",
+    nested: { count: 2 }
+  };
+  const reordered = {
+    nested: { count: 2 },
+    name: "Ada",
+    enabled: true
+  };
+  const edited = {
+    ...reordered,
+    name: "Grace"
+  };
+
+  assert.equal(
+    crudAddEditTestables.createCrudFormFingerprint(original),
+    crudAddEditTestables.createCrudFormFingerprint(reordered)
+  );
+  assert.notEqual(
+    crudAddEditTestables.createCrudFormFingerprint(original),
+    crudAddEditTestables.createCrudFormFingerprint(edited)
+  );
+});
+
+test("CRUD form fingerprints cannot collide through delimiter-like field values", () => {
+  const fingerprint = crudAddEditTestables.createCrudFormFingerprint;
+
+  assert.notEqual(
+    fingerprint(["a,string:b"]),
+    fingerprint(["a", "b"])
+  );
+  assert.notEqual(fingerprint(0), fingerprint(-0));
+  assert.notEqual(fingerprint(Number.NaN), fingerprint(Number.POSITIVE_INFINITY));
+});
+
+test("CRUD form fingerprints treat repeated values consistently without hiding real cycles", () => {
+  const fingerprint = crudAddEditTestables.createCrudFormFingerprint;
+  const shared = { value: 7 };
+  const cyclic = { value: 7 };
+  cyclic.self = cyclic;
+
+  assert.equal(
+    fingerprint({ first: shared, second: shared }),
+    fingerprint({ first: { value: 7 }, second: { value: 7 } })
+  );
+  assert.match(fingerprint(cyclic), /\[circular\]/u);
+});
+
+test("CRUD machinery exits pop only when returning to the owning destination", () => {
+  assert.equal(
+    crudAddEditTestables.resolveCrudMachineryExitMode({
+      activeFullPath: "/admin/products/17",
+      targetFullPath: "/admin/products/17",
+      canPop: true
+    }),
+    "pop"
+  );
+  assert.equal(
+    crudAddEditTestables.resolveCrudMachineryExitMode({
+      activeFullPath: "/admin/products",
+      targetFullPath: "/admin/products/17",
+      canPop: true
+    }),
+    "replace"
+  );
+  assert.equal(
+    crudAddEditTestables.resolveCrudMachineryExitMode({
+      activeFullPath: "/admin/products/17",
+      targetFullPath: "/admin/products/17",
+      canPop: false
+    }),
+    "replace"
+  );
+});
 
 test("normalizeCrudFormFields trims keys, removes invalid entries, and deduplicates", () => {
   const fields = normalizeCrudFormFields([

@@ -1,3 +1,5 @@
+__JSKIT_UI_VIEW_ROUTE_BLOCK__
+
 <template>
   <CrudViewScreen
     :screen="screen"

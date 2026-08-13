@@ -18,7 +18,13 @@ function createFallbackNotFoundRoute(component) {
     component,
     meta: {
       jskit: {
-        scope: "global"
+        scope: "global",
+        navigation: {
+          behavior: "boundary",
+          persistence: {
+            mode: "none"
+          }
+        }
       }
     }
   });

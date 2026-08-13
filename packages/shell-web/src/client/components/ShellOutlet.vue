@@ -7,6 +7,7 @@ import {
 } from "vue";
 import { useRoute } from "vue-router";
 import { useDisplay } from "vuetify";
+import { resolveMaterialWindowClass } from "../support/materialWindowClass.js";
 import { useWebPlacementContext, useWebPlacementRuntime } from "../placement/inject.js";
 import { resolveRuntimePathname } from "../placement/pathname.js";
 import {
@@ -16,6 +17,10 @@ import {
 
 const props = defineProps({
   target: {
+    type: String,
+    default: ""
+  },
+  semanticTarget: {
     type: String,
     default: ""
   },
@@ -87,32 +92,27 @@ const resolvedTargetId = computed(() => {
 });
 
 const resolvedLayoutClass = computed(() => {
-  const displayName = String(display?.name?.value || "").trim().toLowerCase();
-  if (displayName === "xs" || displayName === "sm") {
-    return "compact";
-  }
-  if (displayName === "md") {
-    return "medium";
-  }
-  if (displayName === "lg" || displayName === "xl" || displayName === "xxl") {
-    return "expanded";
-  }
-
+  const displayWidth = Number(display?.width?.value);
   const viewportWidth =
-    typeof window === "object" && window?.innerWidth
-      ? Number(window.innerWidth)
-      : 0;
-  if (viewportWidth > 0 && viewportWidth < 600) {
-    return "compact";
-  }
-  if (viewportWidth > 0 && viewportWidth < 1280) {
-    return "medium";
-  }
-  return "expanded";
+    Number.isFinite(displayWidth) && displayWidth > 0
+      ? displayWidth
+      : typeof window === "object"
+        ? Number(window?.innerWidth)
+        : 0;
+  return resolveMaterialWindowClass(viewportWidth);
 });
 
 const placements = computed(() => {
   void revision.value;
+  const semanticTarget = String(props.semanticTarget || "").trim();
+  if (semanticTarget && typeof placementRuntime.getSemanticPlacements === "function") {
+    return placementRuntime.getSemanticPlacements({
+      surface: resolvedSurface.value,
+      target: semanticTarget,
+      layoutClass: resolvedLayoutClass.value,
+      context: props.context
+    });
+  }
   return placementRuntime.getPlacements({
     surface: resolvedSurface.value,
     target: resolvedTargetId.value,
@@ -123,10 +123,12 @@ const placements = computed(() => {
 </script>
 
 <template>
-  <component
-    :is="entry.component"
-    v-for="entry in placements"
-    :key="entry.id"
-    v-bind="entry.props"
-  />
+  <slot :placements="placements">
+    <component
+      :is="entry.component"
+      v-for="entry in placements"
+      :key="entry.id"
+      v-bind="entry.props"
+    />
+  </slot>
 </template>

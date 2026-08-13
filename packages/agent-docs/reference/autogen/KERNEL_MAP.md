@@ -134,6 +134,8 @@ Exports
 - `GENERATED_UI_NAVIGATION_ROLE_LINK_PLACEMENTS`
 - `GENERATED_UI_NAVIGATION_ROLE_OPTION`
 - `GENERATED_UI_NAVIGATION_ROLE_VALUES`
+- `GENERATED_UI_DESTINATION_BEHAVIOR_OPTION`
+- `GENERATED_UI_DESTINATION_BEHAVIOR_VALUES`
 - `GENERATED_UI_NO_LINK_NAVIGATION_ROLES`
 - `GENERATED_UI_SOURCE_CONTRACT_PROFILES`
 - `GENERATED_UI_SURFACE_PROFILES`
@@ -141,8 +143,14 @@ Exports
 - `buildGeneratedUiScreenClassName(baseClassName = "", { surfaceProfile = "" } = {})`
 - `collectGeneratedUiSourceContractIssues(source = "", { profile = "", forbidLiveCopy = undefined, forbidCardShell = undefined, forbiddenPatterns = [], requiredPatterns = [] } = {})`
 - `inferGeneratedUiNavigationRole(options = {}, { dynamicRoutePolicy = "leaf", routePath = "" } = {})`
+- `inferGeneratedUiDestinationBehavior(options = {}, { routePath = "" } = {})`
 - `isGeneratedUiNoLinkNavigationRole(value = "")`
 - `normalizeGeneratedUiNavigationRole(value = "")`
+- `normalizeGeneratedUiDestinationBehavior(value = "")`
+- `normalizeGeneratedUiNavigationKey(value = "", fieldName = "navigation key")`
+- `buildGeneratedUiNavigationKey({ surfaceId = "", routePath = "" } = {})`
+- `buildGeneratedUiNavigationScope({ surfaceRequiresAuth = false, surfacePagesRoot = "", routePath = "" } = {})`
+- `resolveGeneratedUiNavigationFallback(value = "")`
 - `resolveGeneratedUiSurfaceProfile(surfaceProfile = "")`
 - `resolveGeneratedUiNavigationRoleLinkPlacement(options = {}, inferenceContext = {})`
 - `shouldCreateGeneratedUiNavigationLink(options = {}, { allowLinkTo = false, dynamicRoutePolicy = "leaf", routePath = "" } = {})`
@@ -151,9 +159,11 @@ Local functions
 - `normalizeGeneratedUiContractPattern(patternEntry = {}, fallbackMessage = "")`
 - `normalizeGeneratedUiContractPatternList(patternEntries = [], fallbackMessage = "")`
 - `resolveGeneratedUiSourceContractProfile(profile = "")`
+- `hasExplicitGeneratedUiDestinationBehavior(options = {})`
 - `hasExplicitGeneratedUiNavigationRole(options = {})`
 - `normalizeGeneratedUiRouteSegments(routePath = "")`
 - `isGeneratedUiDynamicRouteSegment(routeSegment = "")`
+- `normalizeGeneratedUiNavigationKeySegment(value = "")`
 
 ### `support/index.js`
 Exports
@@ -669,3 +679,43 @@ Exports
 Exports
 - `resolveLinkPath`
 - `normalizePathname`
+
+### `navigation.js`
+Exports
+- `JSKIT_NAVIGATION_SCHEMA_VERSION`
+- `JSKIT_ROUTE_NAVIGATION_BEHAVIORS`
+- `JSKIT_NAVIGATION_SCOPE_FIELDS`
+- `DEFAULT_JSKIT_NAVIGATION_LIMITS`
+- `HARD_JSKIT_NAVIGATION_LIMITS`
+- `createJskitNavigationLimits(overrides = {})`
+- `normalizeJskitNavigationTarget(value)`
+- `validateJskitRouteNavigationMeta(meta)`
+- `resolveJskitRouteNavigationMeta(route)`
+- `normalizeJskitInternalFullPath(value, { base = "/" } = {})`
+- `isSafeJskitInternalFullPath(value, options)`
+- `normalizeJskitNavigationScope(value = {})`
+- `jskitNavigationScopesMatch(storedScope, currentScope, requiredFields = JSKIT_NAVIGATION_SCOPE_FIELDS)`
+- `normalizeJskitSerializableValue(value, options = {})`
+- `createJskitNavigationResolverRegistry()`
+- `readJskitHistoryNavigationEnvelope(state)`
+- `mergeJskitHistoryNavigationEnvelope(state, envelope)`
+- `createEmptyJskitNavigationTask(taskId)`
+- `reduceJskitNavigationTask(task, event)`
+- `projectJskitNavigationTask(task)`
+Local functions
+- `hasAsciiControlCharacter(value)`
+- `isPlainRecord(value)`
+- `normalizeNavigationPersistence(value)`
+- `normalizeNavigationTargetQuery(value)`
+- `normalizeNavigationTargetParams(value)`
+- `normalizeMatchedNavigationRecord(value)`
+- `normalizeRouterBase(value)`
+
+### `navigationInternals.js`
+Exports
+- `createSecureNavigationId(prefix = "", cryptoObject = globalThis.crypto)`
+- `isRecord(value)`
+- `measureUtf8Bytes(value)`
+- `normalizeOptionalText(value)`
+- `normalizeOptionalStrictText(value, fieldName)`
+- `normalizeRequiredText(value, fieldName)`

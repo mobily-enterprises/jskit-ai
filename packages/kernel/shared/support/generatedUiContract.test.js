@@ -1,15 +1,22 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import {
+  buildGeneratedUiNavigationKey,
+  buildGeneratedUiNavigationScope,
+  GENERATED_UI_DESTINATION_BEHAVIOR_OPTION,
+  GENERATED_UI_DESTINATION_BEHAVIOR_VALUES,
   GENERATED_UI_NAVIGATION_ROLE_OPTION,
   GENERATED_UI_NAVIGATION_ROLE_VALUES,
   GENERATED_UI_SURFACE_PROFILES,
   assertGeneratedUiSourceContract,
   buildGeneratedUiScreenClassName,
   collectGeneratedUiSourceContractIssues,
+  inferGeneratedUiDestinationBehavior,
   inferGeneratedUiNavigationRole,
   isGeneratedUiNoLinkNavigationRole,
+  normalizeGeneratedUiDestinationBehavior,
   normalizeGeneratedUiNavigationRole,
+  resolveGeneratedUiNavigationFallback,
   resolveGeneratedUiSurfaceProfile,
   resolveGeneratedUiNavigationRoleLinkPlacement,
   shouldCreateGeneratedUiNavigationLink
@@ -23,6 +30,63 @@ test("generated UI navigation role metadata is descriptor-ready", () => {
   assert.equal(GENERATED_UI_NAVIGATION_ROLE_OPTION.validationType, "enum");
   assert.deepEqual(GENERATED_UI_NAVIGATION_ROLE_OPTION.allowedValues, GENERATED_UI_NAVIGATION_ROLE_VALUES);
   assert.equal(GENERATED_UI_NAVIGATION_ROLE_OPTION.defaultValue, "");
+});
+
+test("generated destination behavior is a separate explicit generator contract", () => {
+  assert.deepEqual(GENERATED_UI_DESTINATION_BEHAVIOR_VALUES, ["destination", "preserve", "boundary"]);
+  assert.equal(GENERATED_UI_DESTINATION_BEHAVIOR_OPTION.validationType, "enum");
+  assert.deepEqual(
+    GENERATED_UI_DESTINATION_BEHAVIOR_OPTION.allowedValues,
+    GENERATED_UI_DESTINATION_BEHAVIOR_VALUES
+  );
+  assert.equal(normalizeGeneratedUiDestinationBehavior(" Preserve "), "preserve");
+  assert.throws(
+    () => normalizeGeneratedUiDestinationBehavior("primary"),
+    /destination-behavior must be one of: destination, preserve, boundary/
+  );
+});
+
+test("generated destination behavior inference remains orthogonal to navigation role", () => {
+  assert.equal(inferGeneratedUiDestinationBehavior({}, { routePath: "/reports" }), "destination");
+  assert.equal(inferGeneratedUiDestinationBehavior({}, { routePath: "/reports/[reportId]" }), "destination");
+  assert.equal(inferGeneratedUiDestinationBehavior({}, { routePath: "/reports/[reportId]/edit" }), "preserve");
+  assert.equal(inferGeneratedUiDestinationBehavior({}, { routePath: "/auth/oauth/callback" }), "boundary");
+  assert.equal(
+    inferGeneratedUiDestinationBehavior(
+      { "navigation-role": "primary", "destination-behavior": "boundary" },
+      { routePath: "/reports" }
+    ),
+    "boundary"
+  );
+});
+
+test("generated navigation keys and fallbacks are deterministic and safe", () => {
+  assert.equal(
+    buildGeneratedUiNavigationKey({ surfaceId: "admin", routePath: "/contacts/[contactId]/edit" }),
+    "admin.contacts.contact-id.edit"
+  );
+  assert.deepEqual(resolveGeneratedUiNavigationFallback("/contacts"), { path: "/contacts" });
+  assert.deepEqual(resolveGeneratedUiNavigationFallback("admin-contacts"), { name: "admin-contacts" });
+  assert.equal(resolveGeneratedUiNavigationFallback(""), undefined);
+  assert.throws(() => resolveGeneratedUiNavigationFallback("https://example.com"), /safe internal path or route name/);
+  assert.throws(() => resolveGeneratedUiNavigationFallback("//example.com"), /safe internal path or route name/);
+  assert.throws(() => resolveGeneratedUiNavigationFallback("/%2f%2fevil.example"), /safe internal path or route name/);
+  assert.throws(() => resolveGeneratedUiNavigationFallback("/bad%encoding"), /safe internal path or route name/);
+});
+
+test("generated navigation scope derives every routed authorization boundary once", () => {
+  assert.deepEqual(
+    buildGeneratedUiNavigationScope({
+      surfaceRequiresAuth: true,
+      surfacePagesRoot: "src/pages/w/[workspaceSlug]/t/[tenantId]",
+      routePath: "/reports"
+    }),
+    ["principal", "surface", "workspace", "tenant"]
+  );
+  assert.deepEqual(
+    buildGeneratedUiNavigationScope({ routePath: "/public/reports" }),
+    ["surface"]
+  );
 });
 
 test("generated UI surface profiles map app, operator, and settings density", () => {

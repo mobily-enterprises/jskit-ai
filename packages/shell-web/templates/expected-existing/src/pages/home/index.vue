@@ -1,3 +1,18 @@
+<route lang="json">
+{
+  "meta": {
+    "jskit": {
+      "navigation": {
+        "behavior": "destination",
+        "destinationKey": "home.dashboard",
+        "scope": ["surface"],
+        "persistence": { "mode": "url-only", "queryAllowlist": [] }
+      }
+    }
+  }
+}
+</route>
+
 <template>
   <section class="generated-ui-screen generated-ui-screen--app home-start-screen d-flex flex-column ga-4">
     <header>

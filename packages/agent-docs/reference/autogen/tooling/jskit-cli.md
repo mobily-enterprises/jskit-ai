@@ -674,7 +674,9 @@ Local functions
 - `appendSemanticPlacementGroups(lines, { color, semanticPlacements = [], concreteTargets = [], showLayoutDetails = false } = {})`
 - `readFileIfExists(filePath = "")`
 - `resolveDescriptorFromLockEntry({ appRoot = "", packageId = "", installedPackageEntry = {} } = {})`
+- `collectSourceFiles(rootPath = "", extensions = new Set())`
 - `collectProviderSourceFiles(rootPath = "")`
+- `collectVuePageFiles(rootPath = "")`
 
 ### `src/server/commandHandlers/mobile.js`
 Exports
@@ -1018,6 +1020,17 @@ Exports
 - `ensureArray(value)`
 - `ensureObject(value)`
 - `sortStrings(values)`
+
+### `src/server/shared/navigationRouteInspection.js`
+Exports
+- `inspectVueNavigationRoute(sourceText = "", relativePath = "")`
+- `parseVueRouteDefinition(sourceText = "", filename = "route.vue")`
+- `routePathFromFile(relativePath = "")`
+Local functions
+- `isRecord(value)`
+- `readStaticValue(node)`
+- `parseDefinePage(scriptSource = "")`
+- `normalizeRouteFilePath(relativePath = "")`
 
 ### `src/server/shared/optionInterpolation.js`
 Exports

@@ -1,3 +1,16 @@
+<route lang="json">
+{
+  "meta": {
+    "jskit": {
+      "navigation": {
+        "behavior": "boundary",
+        "persistence": { "mode": "none" }
+      }
+    }
+  }
+}
+</route>
+
 <template>
   <WorkspaceInviteLanding />
 </template>

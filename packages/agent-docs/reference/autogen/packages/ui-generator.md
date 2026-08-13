@@ -70,6 +70,7 @@ Local functions
 Exports
 - `runGeneratorSubcommand({ appRoot, subcommand = "", args = [], options = {}, dryRun = false } = {})`
 Local functions
+- `resolveGeneratedPageNavigation({ options = {}, pageTarget = {}, routePath = "" } = {})`
 - `renderPageLinkPlacementBlock({ marker = "", context = {}, label = "", surface = "" } = {})`
 
 ### `src/server/subcommands/pageSupport.js`
@@ -82,7 +83,7 @@ Exports
 - `resolvePageTargetDetails`
 - `resolveNearestParentSubpagesHost`
 - `deriveDefaultSubpagesHost`
-- `renderPlainPageSource(pageTitle = "", { surfaceId = "", routePath = "" } = {})`
+- `renderPlainPageSource(pageTitle = "", { surfaceId = "", routePath = "", navigationRole = "none", navigation = null } = {})`
 - `ensureSubpagesSupportScaffold({ appRoot, componentDirectory = DEFAULT_COMPONENT_DIRECTORY, dryRun = false } = {})`
 - `applySubpagesUpgradeToPageSource(source = "", { target = "", title = "", subtitle = "", sectionContainerComponentImportPath = "/src/components/SectionContainerShell.vue", preserveExistingContent = true } = {})`
 - `upgradePageFileToSubpages({ appRoot, targetFile, target = "", title = "", subtitle = "", componentDirectory = DEFAULT_COMPONENT_DIRECTORY, preserveExistingContent = true, dryRun = false } = {})`

@@ -1,6 +1,7 @@
 import { computed, unref } from "vue";
 import { useRoute } from "vue-router";
 import { useCrudAddEdit } from "./records/useCrudAddEdit.js";
+import { useCrudFormNavigationBlocker } from "./useCrudFormNavigationBlocker.js";
 
 function normalizeProvidedScreen(screen = null) {
   return screen && typeof screen === "object" && !Array.isArray(screen)
@@ -14,6 +15,7 @@ function useCrudAddEditScreen({
   title = "",
   subtitle = "",
   saveLabel = "Save",
+  navigationBlockerId = "",
   cancelTo = "",
   resource = null,
   operationName = "",
@@ -49,6 +51,13 @@ function useCrudAddEditScreen({
   const resolvedTitle = computed(() => String(unref(title) || "").trim());
   const resolvedSubtitle = computed(() => String(unref(subtitle) || "").trim());
   const resolvedSaveLabel = computed(() => String(unref(saveLabel) || "Save").trim() || "Save");
+  const resolvedNavigationBlockerId = String(unref(navigationBlockerId) || "").trim();
+  if (resolvedNavigationBlockerId) {
+    useCrudFormNavigationBlocker({
+      id: resolvedNavigationBlockerId,
+      isDirty: () => Boolean(formRuntime.isDirty)
+    });
+  }
   const resolvedCancelTo = computed(() => unref(cancelTo));
 
   function resolveCancelTo(target = resolvedCancelTo.value) {
@@ -71,17 +80,23 @@ function useCrudAddEditScreen({
     return resolvedTarget;
   }
 
+  async function cancel() {
+    return formRuntime.navigateFromMachinery(resolveCancelTo(), { reason: "programmatic" });
+  }
+
   return Object.freeze({
     mode: resolvedMode,
     title: resolvedTitle,
     subtitle: resolvedSubtitle,
     saveLabel: resolvedSaveLabel,
+    navigationBlockerId: resolvedNavigationBlockerId,
     cancelTo: resolvedCancelTo,
     formRuntime,
     addEdit: formRuntime.addEdit,
     formState: formRuntime.form,
     resolveFieldErrors: formRuntime.resolveFieldErrors,
-    resolveCancelTo
+    resolveCancelTo,
+    cancel
   });
 }
 

@@ -15,6 +15,8 @@ const bottomNavLinkRenderers = Object.freeze({
   link: "local.main.ui.tab-link-item"
 });
 
+const railLinkRenderers = bottomNavLinkRenderers;
+
 addPlacementTopology({
   id: "shell.primary-nav",
   description: "Primary top-level navigation for the current surface.",
@@ -26,11 +28,11 @@ addPlacementTopology({
       renderers: bottomNavLinkRenderers
     },
     medium: {
-      outlet: "shell-layout:primary-menu",
-      renderers: menuLinkRenderers
+      outlet: "shell-layout:primary-rail",
+      renderers: railLinkRenderers
     },
     expanded: {
-      outlet: "shell-layout:primary-menu",
+      outlet: "shell-layout:primary-drawer",
       renderers: menuLinkRenderers
     }
   }
@@ -42,11 +44,11 @@ addPlacementTopology({
   surfaces: ["*"],
   variants: {
     compact: {
-      outlet: "shell-layout:secondary-menu",
+      outlet: "shell-layout:navigation-overflow-menu",
       renderers: menuLinkRenderers
     },
     medium: {
-      outlet: "shell-layout:secondary-menu",
+      outlet: "shell-layout:navigation-overflow-menu",
       renderers: menuLinkRenderers
     },
     expanded: {

@@ -16,7 +16,7 @@ function createCommandHandlers(deps = {}) {
     ...shared
   };
 
-  const { commandList, commandListPlacements, commandListLinkItems } = createListCommands(commandContext);
+  const { commandList, commandListNavigation, commandListPlacements, commandListLinkItems } = createListCommands(commandContext);
   const { commandShow } = createShowCommand(commandContext);
   const {
     commandCreate,
@@ -36,6 +36,7 @@ function createCommandHandlers(deps = {}) {
 
   return {
     commandList,
+    commandListNavigation,
     commandListPlacements,
     commandListLinkItems,
     commandCompletion,

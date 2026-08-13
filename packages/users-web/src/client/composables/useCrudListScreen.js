@@ -4,6 +4,7 @@ import { useCrudListBulkActions } from "./useCrudListBulkActions.js";
 import { useCrudListFilters } from "./useCrudListFilters.js";
 import { useCrudListRowActions } from "./useCrudListRowActions.js";
 import { resolveCrudHttpClient } from "./crud/crudHttpClientSupport.js";
+import { useCrudListNavigationContributor } from "./useCrudListNavigationContributor.js";
 
 function buildCrudListActionContext(records, client) {
   return Object.freeze({
@@ -114,6 +115,7 @@ function useCrudListScreen({
   client = null,
   resource = null,
   resourceNamespace = "resource",
+  navigationContributorId = "",
   apiSuffix = "",
   recordIdParam = "recordId",
   recordIdSelector = null,
@@ -205,6 +207,13 @@ function useCrudListScreen({
   const listPrimaryAction = computed(() =>
     newUrlTemplate ? records.resolveParams(newUrlTemplate) : ""
   );
+  const normalizedNavigationContributorId = String(navigationContributorId || "").trim();
+  if (normalizedNavigationContributorId) {
+    useCrudListNavigationContributor({
+      id: normalizedNavigationContributorId,
+      records
+    });
+  }
 
   function resolveRecordTitle(record) {
     return records.resolveRecordTitle(record, {
@@ -223,6 +232,7 @@ function useCrudListScreen({
     displayRows,
     selectableRows,
     listPrimaryAction,
+    navigationContributorId: normalizedNavigationContributorId,
     hasViewUrl: Boolean(viewUrlTemplate),
     hasEditUrl: Boolean(editUrlTemplate),
     resolveRecordTitle,

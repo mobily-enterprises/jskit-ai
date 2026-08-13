@@ -369,6 +369,33 @@ test("buildUiTemplateContext defaults operations to the full CRUD set when omitt
   });
 });
 
+test("buildUiTemplateContext emits explicit destination and machinery route contracts", async () => {
+  await withTempApp(async (appRoot) => {
+    await writeResource(appRoot, RESOURCE_FILE, FULL_RESOURCE_SOURCE);
+
+    const context = await buildUiTemplateContext({
+      appRoot,
+      options: createOptions()
+    });
+
+    assert.match(context.__JSKIT_UI_LIST_ROUTE_BLOCK__, /"behavior": "destination"/);
+    assert.match(context.__JSKIT_UI_LIST_ROUTE_BLOCK__, /"navigationRole": "primary"/);
+    assert.match(context.__JSKIT_UI_LIST_ROUTE_BLOCK__, /"destinationKey": "admin\.customers\.list"/);
+    assert.match(context.__JSKIT_UI_LIST_ROUTE_BLOCK__, /"restore": \[/);
+    assert.match(context.__JSKIT_UI_LIST_ROUTE_BLOCK__, /"admin\.customers\.list\.v1"/);
+    assert.equal(context.__JSKIT_UI_LIST_NAVIGATION_CONTRIBUTOR_ID__, "admin.customers.list.v1");
+    assert.equal(context.__JSKIT_UI_NEW_NAVIGATION_BLOCKER_ID__, "admin.customers.new.dirty");
+    assert.equal(context.__JSKIT_UI_EDIT_NAVIGATION_BLOCKER_ID__, "admin.customers.edit.dirty");
+    assert.match(context.__JSKIT_UI_VIEW_ROUTE_BLOCK__, /"destinationKey": "admin\.customers\.view"/);
+    assert.match(context.__JSKIT_UI_VIEW_ROUTE_BLOCK__, /"navigationRole": "detail"/);
+    assert.match(context.__JSKIT_UI_NEW_ROUTE_BLOCK__, /"behavior": "preserve"/);
+    assert.match(context.__JSKIT_UI_NEW_ROUTE_BLOCK__, /"machineryKey": "admin\.customers\.new"/);
+    assert.match(context.__JSKIT_UI_EDIT_ROUTE_BLOCK__, /"machineryKey": "admin\.customers\.edit"/);
+    assert.match(context.__JSKIT_UI_EDIT_ROUTE_BLOCK__, /"navigationRole": "none"/);
+    assert.match(context.__JSKIT_UI_EDIT_ROUTE_BLOCK__, /"mode": "url-only"/);
+  });
+});
+
 test("buildUiTemplateContext derives CRUD placeholders from the explicit target-root and resource", async () => {
   await withTempApp(async (appRoot) => {
     await writeResource(appRoot, RESOURCE_FILE, FULL_RESOURCE_SOURCE);
@@ -976,11 +1003,22 @@ test("crud ui templates derive JSON:API transport from the shared CRUD resource"
   }
 
   assert.match(listTemplateSource, /resource: uiResource,/);
+  assert.match(listTemplateSource, /^__JSKIT_UI_LIST_ROUTE_BLOCK__/);
+  assert.match(viewTemplateSource, /^__JSKIT_UI_VIEW_ROUTE_BLOCK__/);
+  assert.match(newTemplateSource, /^__JSKIT_UI_NEW_ROUTE_BLOCK__/);
+  assert.match(editTemplateSource, /^__JSKIT_UI_EDIT_ROUTE_BLOCK__/);
+  assert.match(newWrapperTemplateSource, /^__JSKIT_UI_NEW_ROUTE_BLOCK__/);
+  assert.match(editWrapperTemplateSource, /^__JSKIT_UI_EDIT_ROUTE_BLOCK__/);
   assert.match(listTemplateSource, /import CrudListScreen from "@jskit-ai\/users-web\/client\/components\/CrudListScreen"/);
   assert.match(listTemplateSource, /import \{ useCrudListScreen \} from "@jskit-ai\/users-web\/client\/composables\/useCrudListScreen"/);
   assert.match(listTemplateSource, /import \{ listBulkActions \} from "\.\/listBulkActions\.js"/);
   assert.match(listTemplateSource, /import \{ listFilters \} from "\.\/listFilters\.js"/);
   assert.match(listTemplateSource, /const screen = useCrudListScreen\(\{/);
+  assert.match(listTemplateSource, /navigationContributorId: "__JSKIT_UI_LIST_NAVIGATION_CONTRIBUTOR_ID__"/);
+  assert.match(newTemplateSource, /navigationBlockerId: "__JSKIT_UI_NEW_NAVIGATION_BLOCKER_ID__"/);
+  assert.match(editTemplateSource, /navigationBlockerId: "__JSKIT_UI_EDIT_NAVIGATION_BLOCKER_ID__"/);
+  assert.match(newWrapperTemplateSource, /navigationBlockerId: "__JSKIT_UI_NEW_NAVIGATION_BLOCKER_ID__"/);
+  assert.match(editWrapperTemplateSource, /navigationBlockerId: "__JSKIT_UI_EDIT_NAVIGATION_BLOCKER_ID__"/);
   assert.match(listTemplateSource, /listFilters,/);
   assert.match(listTemplateSource, /listBulkActions,/);
   assert.doesNotMatch(listTemplateSource, /requestFieldsets/);

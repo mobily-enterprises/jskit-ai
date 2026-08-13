@@ -8,6 +8,9 @@ import {
 } from "@jskit-ai/kernel/server/support";
 import { normalizeText } from "@jskit-ai/kernel/shared/support/normalize";
 import {
+  buildGeneratedUiNavigationKey,
+  buildGeneratedUiNavigationScope,
+  inferGeneratedUiNavigationRole,
   resolveGeneratedUiNavigationRoleLinkPlacement,
   shouldCreateGeneratedUiNavigationLink
 } from "@jskit-ai/kernel/shared/support/generatedUiContract";
@@ -670,6 +673,36 @@ const listHeadingTitle = computed(() => {
 });`;
 }
 
+function buildCrudRouteBlock({
+  surfaceId = "",
+  navigationRole = "none",
+  behavior = "destination",
+  key = "",
+  scope = [],
+  restore = [],
+  persistenceMode = "url-only"
+} = {}) {
+  const navigation = {
+    behavior,
+    ...(behavior === "destination" ? { destinationKey: key } : {}),
+    ...(behavior === "preserve" ? { machineryKey: key } : {}),
+    ...(restore.length > 0 ? { restore } : {}),
+    scope,
+    persistence: {
+      mode: persistenceMode
+    }
+  };
+  return `<route lang="json">\n${JSON.stringify({
+    meta: {
+      jskit: {
+        surface: normalizeText(surfaceId),
+        navigationRole: normalizeText(navigationRole) || "none",
+        navigation
+      }
+    }
+  }, null, 2)}\n</route>`;
+}
+
 async function buildUiTemplateContext({ appRoot, options } = {}) {
   const targetRoot = requireTargetRootOption(options);
   const listTargetFile = resolveListTargetFile(targetRoot);
@@ -817,12 +850,61 @@ async function buildUiTemplateContext({ appRoot, options } = {}) {
   const editFormColumns = buildFormColumns(editFields);
   const sharedFormFields = Object.freeze([...createFields, ...editFields]);
   const listCopy = buildCrudListCopy(resourceLabels);
+  const navigationKeyRoot = buildGeneratedUiNavigationKey({
+    surfaceId: pageTarget.surfaceId,
+    routePath: resolveNavigationInferenceRoutePath(pageTarget)
+  });
+  const listNavigationRole = inferGeneratedUiNavigationRole(options, {
+    routePath: resolveNavigationInferenceRoutePath(pageTarget)
+  });
+  const navigationScope = buildGeneratedUiNavigationScope({
+    surfaceRequiresAuth: pageTarget.surfaceRequiresAuth,
+    surfacePagesRoot: pageTarget.surfacePagesRoot,
+    routePath: resolveNavigationInferenceRoutePath(pageTarget)
+  });
+  const listNavigationContributorId = `${navigationKeyRoot}.list.v1`;
 
   return {
+    __JSKIT_UI_LIST_ROUTE_BLOCK__: buildCrudRouteBlock({
+      surfaceId: pageTarget.surfaceId,
+      navigationRole: listNavigationRole,
+      behavior: "destination",
+      key: `${navigationKeyRoot}.list`,
+      scope: navigationScope,
+      restore: [listNavigationContributorId],
+      persistenceMode: "snapshot"
+    }),
+    __JSKIT_UI_VIEW_ROUTE_BLOCK__: buildCrudRouteBlock({
+      surfaceId: pageTarget.surfaceId,
+      navigationRole: "detail",
+      behavior: "destination",
+      key: `${navigationKeyRoot}.view`,
+      scope: navigationScope,
+      persistenceMode: "snapshot"
+    }),
+    __JSKIT_UI_NEW_ROUTE_BLOCK__: buildCrudRouteBlock({
+      surfaceId: pageTarget.surfaceId,
+      navigationRole: "none",
+      behavior: "preserve",
+      key: `${navigationKeyRoot}.new`,
+      scope: navigationScope,
+      persistenceMode: "url-only"
+    }),
+    __JSKIT_UI_EDIT_ROUTE_BLOCK__: buildCrudRouteBlock({
+      surfaceId: pageTarget.surfaceId,
+      navigationRole: "none",
+      behavior: "preserve",
+      key: `${navigationKeyRoot}.edit`,
+      scope: navigationScope,
+      persistenceMode: "url-only"
+    }),
     __JSKIT_UI_RESOURCE_IMPORT_PATH__: `/${normalizeRelativeAppPath(options?.["resource-file"])}`,
     __JSKIT_UI_RECORD_ID_PARAM__: normalizeText(options?.["id-param"]) || "recordId",
     __JSKIT_UI_API_BASE_URL__: apiBasePath,
     __JSKIT_UI_RESOURCE_NAMESPACE__: resourceNamespace,
+    __JSKIT_UI_LIST_NAVIGATION_CONTRIBUTOR_ID__: listNavigationContributorId,
+    __JSKIT_UI_NEW_NAVIGATION_BLOCKER_ID__: `${navigationKeyRoot}.new.dirty`,
+    __JSKIT_UI_EDIT_NAVIGATION_BLOCKER_ID__: `${navigationKeyRoot}.edit.dirty`,
     __JSKIT_UI_RESOURCE_SINGULAR_TITLE__: resourceLabels.singularTitle,
     __JSKIT_UI_RESOURCE_PLURAL_TITLE__: resourceLabels.pluralTitle,
     __JSKIT_UI_LIST_LOAD_ERROR_TITLE__: listCopy.loadErrorTitle,

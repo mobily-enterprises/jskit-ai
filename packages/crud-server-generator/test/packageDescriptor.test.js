@@ -28,7 +28,7 @@ test("crud-server-generator surface option validates against enabled surface ids
   assert.equal(descriptor.metadata?.generatorSubcommands?.scaffold?.optionNames?.includes("force"), true);
   assert.equal(descriptor.metadata?.generatorSubcommands?.scaffold?.optionNames?.includes("internal"), true);
   assert.equal(descriptor.metadata?.generatorSubcommands?.scaffold?.optionNames?.includes("grant-role"), true);
-  assert.equal(descriptor.mutations?.dependencies?.runtime?.["@jskit-ai/auth-core"], "0.1.145");
+  assert.equal(descriptor.mutations?.dependencies?.runtime?.["@jskit-ai/auth-core"], "0.1.146");
   assert.equal(descriptor.metadata?.generatorSubcommands?.scaffold?.optionNames?.includes("no-role-grant"), true);
   assert.equal(descriptor.metadata?.generatorSubcommands?.scaffold?.createTarget?.pathTemplate, "packages/${option:namespace|kebab}");
   assert.deepEqual(descriptor.lifecycle?.install?.prepare, {

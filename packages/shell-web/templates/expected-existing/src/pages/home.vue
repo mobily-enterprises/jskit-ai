@@ -2,7 +2,11 @@
 {
   "meta": {
     "jskit": {
-      "surface": "home"
+      "surface": "home",
+      "navigation": {
+        "behavior": "boundary",
+        "persistence": { "mode": "none" }
+      }
     }
   }
 }

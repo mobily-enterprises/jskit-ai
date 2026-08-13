@@ -1,3 +1,16 @@
+<route lang="json">
+{
+  "meta": {
+    "jskit": {
+      "navigation": {
+        "behavior": "boundary",
+        "persistence": { "mode": "none" }
+      }
+    }
+  }
+}
+</route>
+
 <script setup>
 import ShellOutlet from "@jskit-ai/shell-web/client/components/ShellOutlet";
 import { RouterView } from "vue-router";

@@ -2,6 +2,14 @@ import path from "node:path";
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { normalizeBoolean, normalizeText } from "@jskit-ai/kernel/shared/support/normalize";
 import {
+  buildGeneratedUiNavigationKey,
+  buildGeneratedUiNavigationScope,
+  inferGeneratedUiDestinationBehavior,
+  inferGeneratedUiNavigationRole,
+  normalizeGeneratedUiNavigationKey,
+  resolveGeneratedUiNavigationFallback
+} from "@jskit-ai/kernel/shared/support/generatedUiContract";
+import {
   buildUiPageTemplateContext,
   resolveNavigationInferenceRoutePath,
   shouldCreateNavigationLink
@@ -17,6 +25,51 @@ import {
   resolvePageTargetDetails,
   renderPlainPageSource
 } from "./pageSupport.js";
+
+function resolveGeneratedPageNavigation({ options = {}, pageTarget = {}, routePath = "" } = {}) {
+  const behavior = inferGeneratedUiDestinationBehavior(options, { routePath });
+  const explicitDestinationKey = normalizeText(options?.["destination-key"]);
+  const explicitMachineryKey = normalizeText(options?.["machinery-key"]);
+  if (behavior !== "destination" && explicitDestinationKey) {
+    throw new Error("--destination-key requires --destination-behavior destination.");
+  }
+  if (behavior !== "preserve" && explicitMachineryKey) {
+    throw new Error("--machinery-key requires --destination-behavior preserve.");
+  }
+
+  const generatedKey = buildGeneratedUiNavigationKey({
+    surfaceId: pageTarget.surfaceId,
+    routePath
+  });
+  const fallback = resolveGeneratedUiNavigationFallback(options?.["navigation-fallback"]);
+  const scope = buildGeneratedUiNavigationScope({
+    surfaceRequiresAuth: pageTarget.surfaceRequiresAuth,
+    surfacePagesRoot: pageTarget.surfacePagesRoot,
+    routePath
+  });
+  return Object.freeze({
+    behavior,
+    ...(behavior === "destination"
+      ? {
+        destinationKey: explicitDestinationKey
+          ? normalizeGeneratedUiNavigationKey(explicitDestinationKey, "destination-key")
+          : generatedKey
+      }
+      : {}),
+    ...(behavior === "preserve"
+      ? {
+        machineryKey: explicitMachineryKey
+          ? normalizeGeneratedUiNavigationKey(explicitMachineryKey, "machinery-key")
+          : generatedKey
+      }
+      : {}),
+    ...(fallback ? { fallback } : {}),
+    scope,
+    persistence: {
+      mode: behavior === "destination" ? "snapshot" : behavior === "preserve" ? "url-only" : "none"
+    }
+  });
+}
 
 function renderPageLinkPlacementBlock({
   marker = "",
@@ -65,7 +118,17 @@ async function runGeneratorSubcommand({
   const targetFile = requireSinglePositionalTargetFile(args, { context: "ui-generator page" });
   rejectUnexpectedOptions(
     options,
-    ["name", "navigation-role", "link-placement", "link-to", "force"],
+    [
+      "name",
+      "navigation-role",
+      "destination-behavior",
+      "destination-key",
+      "machinery-key",
+      "navigation-fallback",
+      "link-placement",
+      "link-to",
+      "force"
+    ],
     { context: "ui-generator page" }
   );
 
@@ -81,6 +144,14 @@ async function runGeneratorSubcommand({
   const pageFilePath = pageTarget.targetFilePath.absolutePath;
   const pageRelativePath = pageTarget.targetFilePath.relativePath;
   const navigationInferenceRoutePath = resolveNavigationInferenceRoutePath(pageTarget);
+  const navigation = resolveGeneratedPageNavigation({
+    options,
+    pageTarget,
+    routePath: navigationInferenceRoutePath
+  });
+  const navigationRole = inferGeneratedUiNavigationRole(options, {
+    routePath: navigationInferenceRoutePath
+  });
 
   const touchedFiles = new Set();
   let pageAlreadyExisted = true;
@@ -133,7 +204,9 @@ async function runGeneratorSubcommand({
         pageFilePath,
         renderPlainPageSource(pageLabel, {
           surfaceId: pageTarget.surfaceId,
-          routePath: navigationInferenceRoutePath
+          routePath: navigationInferenceRoutePath,
+          navigationRole,
+          navigation
         }),
         "utf8"
       );
@@ -149,12 +222,13 @@ async function runGeneratorSubcommand({
   }
 
   const touchedFileList = [...touchedFiles].sort((left, right) => left.localeCompare(right));
+  const generationVerb = pageAlreadyExisted ? "Regenerated" : "Generated";
   return {
     placementComponentTokens: [String(placementContext?.__JSKIT_UI_LINK_COMPONENT_TOKEN__ || "").trim()].filter(Boolean),
+    navigation,
+    navigationRole,
     touchedFiles: touchedFileList,
-    summary: !pageAlreadyExisted
-      ? `Generated UI page "${pageTarget.routeUrlSuffix}" at ${pageRelativePath}.`
-      : `Regenerated UI page "${pageTarget.routeUrlSuffix}" at ${pageRelativePath}.`
+    summary: `${generationVerb} UI page "${pageTarget.routeUrlSuffix}" at ${pageRelativePath} with ${navigation.behavior} navigation (${navigation.destinationKey || navigation.machineryKey || "ownerless"}).`
   };
 }
 

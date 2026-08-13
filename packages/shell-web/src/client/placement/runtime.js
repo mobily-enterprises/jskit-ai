@@ -424,12 +424,16 @@ function createWebPlacementRuntime({ app, logger = null } = {}) {
     return revision;
   }
 
-  function getPlacements({ surface = WEB_PLACEMENT_SURFACE_ANY, target = "", layoutClass = "", context = {} } = {}) {
+  function resolvePlacementRequest({
+    surface = WEB_PLACEMENT_SURFACE_ANY,
+    target = "",
+    layoutClass = "",
+    context = {}
+  } = {}) {
     const normalizedTarget = normalizePlacementTarget(target, { strict: false });
     if (!normalizedTarget) {
-      return Object.freeze([]);
+      return null;
     }
-
     const normalizedSurface = normalizeSurface(surface);
     const normalizedLayoutClass =
       normalizePlacementLayoutClass(layoutClass) ||
@@ -444,22 +448,67 @@ function createWebPlacementRuntime({ app, logger = null } = {}) {
         surface: normalizedSurface,
         target: normalizedTarget,
         layoutClass: normalizedLayoutClass,
-        context: {
-          ...contextFromRuntime,
-          ...baseContext
-        }
+        context: { ...contextFromRuntime, ...baseContext }
       },
       runtimeLogger
     );
-    const placementContext = {
-      ...contextFromContributors,
-      ...contextFromRuntime,
-      ...baseContext,
-      app,
-      surface: normalizedSurface,
-      target: normalizedTarget,
-      layoutClass: normalizedLayoutClass
-    };
+    return Object.freeze({
+      normalizedTarget,
+      normalizedSurface,
+      normalizedLayoutClass,
+      baseContext,
+      contextFromRuntime,
+      placementContext: Object.freeze({
+        ...contextFromContributors,
+        ...contextFromRuntime,
+        ...baseContext,
+        app,
+        surface: normalizedSurface,
+        target: normalizedTarget,
+        layoutClass: normalizedLayoutClass
+      })
+    });
+  }
+
+  function getSemanticPlacements(options = {}) {
+    const request = resolvePlacementRequest(options);
+    if (!request) {
+      return Object.freeze([]);
+    }
+    const {
+      normalizedTarget,
+      normalizedSurface,
+      placementContext
+    } = request;
+
+    const matches = placementDefinitions.filter((placement) => {
+      if (placement.targetType === "concrete" || placement.target !== normalizedTarget) {
+        return false;
+      }
+      if (!matchesSurface(placement.surfaces, normalizedSurface)) {
+        return false;
+      }
+      if (!resolveTopologyPlacement(placementTopology, placement, normalizedSurface)) {
+        return false;
+      }
+      return shouldIncludePlacement(placement, placementContext, runtimeLogger);
+    });
+    return Object.freeze(matches);
+  }
+
+  function getPlacements(options = {}) {
+    const request = resolvePlacementRequest(options);
+    if (!request) {
+      return Object.freeze([]);
+    }
+    const {
+      normalizedTarget,
+      normalizedSurface,
+      normalizedLayoutClass,
+      baseContext,
+      contextFromRuntime,
+      placementContext
+    } = request;
 
     debugLog("getPlacements:start", {
       surface: normalizedSurface,
@@ -547,6 +596,7 @@ function createWebPlacementRuntime({ app, logger = null } = {}) {
     replacePlacements,
     replacePlacementTopology,
     getPlacements,
+    getSemanticPlacements,
     getContext,
     setContext,
     subscribe,

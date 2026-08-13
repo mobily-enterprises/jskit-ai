@@ -72,18 +72,31 @@ function trimEdgeBlankLines(source = "") {
 
 function renderPlainPageSource(pageTitle = "", {
   surfaceId = "",
-  routePath = ""
+  routePath = "",
+  navigationRole = "none",
+  navigation = null
 } = {}) {
   const surfaceProfileId = resolveGeneratedPageSurfaceProfile({ surfaceId, routePath });
   const surfaceProfile = resolveGeneratedUiSurfaceProfile(surfaceProfileId);
   const screenClass = buildGeneratedUiScreenClassName("generated-page-screen d-flex flex-column ga-4", {
     surfaceProfile: surfaceProfileId
   });
-  return `<template>
+  const routeBlock = navigation
+    ? `<route lang="json">\n${JSON.stringify({
+      meta: {
+        jskit: {
+          surface: normalizeText(surfaceId),
+          navigationRole: normalizeText(navigationRole) || "none",
+          navigation
+        }
+      }
+    }, null, 2)}\n</route>\n\n`
+    : "";
+  return `${routeBlock}<template>
   <section class="${screenClass}">
     <header>
       <p class="text-overline text-medium-emphasis mb-1">${surfaceProfile.titleLabel}</p>
-      <h1 class="generated-page-screen__title">${pageTitle}</h1>
+      <h1 class="generated-page-screen__title" data-jskit-page-heading tabindex="-1">${pageTitle}</h1>
     </header>
 
     <v-sheet rounded="lg" border class="generated-page-screen__empty-state">

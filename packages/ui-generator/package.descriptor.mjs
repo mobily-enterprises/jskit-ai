@@ -1,4 +1,7 @@
-import { GENERATED_UI_NAVIGATION_ROLE_OPTION } from "@jskit-ai/kernel/shared/support/generatedUiContract";
+import {
+  GENERATED_UI_DESTINATION_BEHAVIOR_OPTION,
+  GENERATED_UI_NAVIGATION_ROLE_OPTION
+} from "@jskit-ai/kernel/shared/support/generatedUiContract";
 
 export default Object.freeze({
   packageVersion: 1,
@@ -82,6 +85,28 @@ export default Object.freeze({
       promptHint: "Optional semantic target for the generated page link placement (format: area.slot)."
     },
     "navigation-role": GENERATED_UI_NAVIGATION_ROLE_OPTION,
+    "destination-behavior": GENERATED_UI_DESTINATION_BEHAVIOR_OPTION,
+    "destination-key": {
+      required: false,
+      inputType: "text",
+      defaultValue: "",
+      promptLabel: "Destination key",
+      promptHint: "Stable destination key override. Valid only for destination behavior; otherwise JSKIT derives it from the surface and route."
+    },
+    "machinery-key": {
+      required: false,
+      inputType: "text",
+      defaultValue: "",
+      promptLabel: "Machinery key",
+      promptHint: "Stable machinery key override. Valid only for preserve behavior; otherwise JSKIT derives it from the surface and route."
+    },
+    "navigation-fallback": {
+      required: false,
+      inputType: "text",
+      defaultValue: "",
+      promptLabel: "Navigation fallback",
+      promptHint: "Optional safe internal route name or absolute app path used as synthetic Up after a direct link."
+    },
     "link-to": {
       required: false,
       inputType: "text",
@@ -166,9 +191,20 @@ export default Object.freeze({
             descriptionKey: "page-target-file"
           }
         ],
-        optionNames: ["name", "navigation-role", "link-placement", "link-to", "force"],
+        optionNames: [
+          "name",
+          "navigation-role",
+          "destination-behavior",
+          "destination-key",
+          "machinery-key",
+          "navigation-fallback",
+          "link-placement",
+          "link-to",
+          "force"
+        ],
         notes: [
           "If a nearest parent subpages target is found, semantic placement and props.to are inferred automatically.",
+          "Destination behavior is inferred and always emitted explicitly; it is independent of navigation-role.",
           "If the parent target page is index.vue, child pages belong under index/...",
           "If the target page file already exists, rerun with --force to overwrite it."
         ],

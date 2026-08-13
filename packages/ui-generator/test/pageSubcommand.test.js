@@ -152,7 +152,17 @@ test("ui-generator page subcommand creates an index page from an explicit target
     });
 
     assert.deepEqual(result.touchedFiles, [toPagePath(targetFile), "src/placement.js"]);
-    assert.equal(result.summary, 'Generated UI page "/practice" at src/pages/w/[workspaceSlug]/admin/practice/index.vue.');
+    assert.equal(
+      result.summary,
+      'Generated UI page "/practice" at src/pages/w/[workspaceSlug]/admin/practice/index.vue with destination navigation (admin.practice).'
+    );
+    assert.deepEqual(result.navigation, {
+      behavior: "destination",
+      destinationKey: "admin.practice",
+      scope: ["principal", "surface", "workspace"],
+      persistence: { mode: "snapshot" }
+    });
+    assert.equal(result.navigationRole, "primary");
 
     const pageSource = await readFile(path.join(appRoot, toPagePath(targetFile)), "utf8");
     assertGeneratedUiSourceContract(pageSource, {
@@ -161,7 +171,10 @@ test("ui-generator page subcommand creates an index page from an explicit target
     });
     assert.match(pageSource, /generated-ui-screen generated-ui-screen--operator generated-page-screen/);
     assert.match(pageSource, /<p class="text-overline text-medium-emphasis mb-1">Workspace tool<\/p>/);
-    assert.match(pageSource, /<h1 class="generated-page-screen__title">Practice<\/h1>/);
+    assert.match(pageSource, /<h1 class="generated-page-screen__title" data-jskit-page-heading tabindex="-1">Practice<\/h1>/);
+    assert.match(pageSource, /"behavior": "destination"/);
+    assert.match(pageSource, /"destinationKey": "admin\.practice"/);
+    assert.match(pageSource, /"navigationRole": "primary"/);
     assert.match(pageSource, /<v-sheet rounded="lg" border class="generated-page-screen__empty-state">/);
     assert.match(pageSource, /No Practice activity yet/);
     assert.doesNotMatch(pageSource, /Replace this scaffold|Use this area|This is your page|<v-card\b|v-card-title/);
@@ -272,7 +285,8 @@ test("ui-generator page subcommand treats dynamic file routes as detail pages by
 
     const pageSource = await readFile(path.join(appRoot, toPagePath(targetFile)), "utf8");
     assert.match(pageSource, /generated-ui-screen generated-ui-screen--operator generated-page-screen/);
-    assert.match(pageSource, /<h1 class="generated-page-screen__title">Contact Id<\/h1>/);
+    assert.match(pageSource, /<h1 class="generated-page-screen__title" data-jskit-page-heading tabindex="-1">Contact Id<\/h1>/);
+    assert.match(pageSource, /"destinationKey": "admin\.contacts\.contact-id"/);
     assert.match(pageSource, /No Contact Id activity yet/);
 
     const placementSource = await readFile(path.join(appRoot, "src", "placement.js"), "utf8");
@@ -300,6 +314,57 @@ test("ui-generator page subcommand allows explicit primary navigation for dynami
     assert.match(placementSource, /scopedSuffix: "\/contacts\/\[contactId\]"/);
     assert.match(placementSource, /id: "ui-generator\.page\.admin\.contacts\.contact-id\.link"/);
     assert.match(placementSource, /label: "Contact Id"/);
+  });
+});
+
+test("ui-generator page subcommand emits explicit preserving machinery metadata", async () => {
+  await withTempApp(async (appRoot) => {
+    await writeAppFixture(appRoot);
+
+    const targetFile = "w/[workspaceSlug]/admin/contacts/[contactId]/edit.vue";
+    const result = await runGeneratorSubcommand({
+      appRoot,
+      subcommand: "page",
+      args: [targetFile],
+      options: {
+        "navigation-role": "none",
+        "destination-behavior": "preserve",
+        "machinery-key": "admin.contact.edit",
+        "navigation-fallback": "/contacts"
+      }
+    });
+
+    assert.deepEqual(result.navigation, {
+      behavior: "preserve",
+      machineryKey: "admin.contact.edit",
+      fallback: { path: "/contacts" },
+      scope: ["principal", "surface", "workspace"],
+      persistence: { mode: "url-only" }
+    });
+    const pageSource = await readFile(path.join(appRoot, toPagePath(targetFile)), "utf8");
+    assert.match(pageSource, /"behavior": "preserve"/);
+    assert.match(pageSource, /"machineryKey": "admin\.contact\.edit"/);
+    assert.match(pageSource, /"path": "\/contacts"/);
+    assert.doesNotMatch(pageSource, /"destinationKey"/);
+  });
+});
+
+test("ui-generator page subcommand rejects destination and machinery key mismatches", async () => {
+  await withTempApp(async (appRoot) => {
+    await writeAppFixture(appRoot);
+
+    await assert.rejects(
+      runGeneratorSubcommand({
+        appRoot,
+        subcommand: "page",
+        args: ["w/[workspaceSlug]/admin/reports/index.vue"],
+        options: {
+          "destination-behavior": "preserve",
+          "destination-key": "admin.reports"
+        }
+      }),
+      /--destination-key requires --destination-behavior destination/
+    );
   });
 });
 
@@ -615,10 +680,13 @@ test("ui-generator page subcommand overwrites an existing page when --force is p
     });
 
     assert.deepEqual(result.touchedFiles, [toPagePath(targetFile), "src/placement.js"]);
-    assert.equal(result.summary, 'Regenerated UI page "/practice" at src/pages/w/[workspaceSlug]/admin/practice/index.vue.');
+    assert.equal(
+      result.summary,
+      'Regenerated UI page "/practice" at src/pages/w/[workspaceSlug]/admin/practice/index.vue with destination navigation (admin.practice).'
+    );
 
     const pageSource = await readFile(path.join(appRoot, toPagePath(targetFile)), "utf8");
-    assert.match(pageSource, /<h1 class="generated-page-screen__title">Practice<\/h1>/);
+    assert.match(pageSource, /<h1 class="generated-page-screen__title" data-jskit-page-heading tabindex="-1">Practice<\/h1>/);
     assert.doesNotMatch(pageSource, /custom practice page/);
   });
 });

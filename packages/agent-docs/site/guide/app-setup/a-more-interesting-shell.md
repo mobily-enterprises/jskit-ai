@@ -93,8 +93,8 @@ In a fresh `shell-web` app, the result includes entries like these:
 Available placements:
 - shell.primary-nav (default): Primary top-level navigation for the current surface.
   - compact -> shell-layout:primary-bottom-nav
-  - medium -> shell-layout:primary-menu
-  - expanded -> shell-layout:primary-menu
+  - medium -> shell-layout:primary-rail
+  - expanded -> shell-layout:primary-drawer
 - page.section-nav [owner:home-settings]: Navigation between child pages in the home settings section.
   - compact -> home-settings:primary-menu
   - medium -> home-settings:primary-menu
@@ -117,10 +117,8 @@ Those concrete target names come from real `ShellOutlet` elements in the app. Se
 ...
 <ShellOutlet target="shell-layout:top-right" />
 ...
-<ShellOutlet
-  target="shell-layout:primary-menu"
-  default
-/>
+<ShellOutlet target="shell-layout:primary-rail" />
+<ShellOutlet target="shell-layout:primary-drawer" default />
 ...
 <ShellOutlet target="shell-layout:secondary-menu" />
 ...

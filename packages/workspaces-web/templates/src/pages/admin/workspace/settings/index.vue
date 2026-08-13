@@ -1,7 +1,22 @@
+<route lang="json">
+{
+  "meta": {
+    "jskit": {
+      "navigation": {
+        "behavior": "destination",
+        "destinationKey": "admin.workspace.settings",
+        "scope": ["principal", "surface", "workspace"],
+        "persistence": { "mode": "url-only" }
+      }
+    }
+  }
+}
+</route>
+
 <template>
   <section class="workspace-settings-landing">
     <v-sheet rounded="lg" border class="workspace-settings-landing__panel">
-      <h2 class="workspace-settings-landing__title">No settings sections yet</h2>
+      <h2 class="workspace-settings-landing__title" data-jskit-page-heading tabindex="-1">No settings sections yet</h2>
       <p class="text-body-2 text-medium-emphasis mb-0">
         This app has no workspace-level settings configured.
       </p>

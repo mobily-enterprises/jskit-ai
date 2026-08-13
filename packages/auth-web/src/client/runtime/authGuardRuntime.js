@@ -107,6 +107,7 @@ function normalizeAuthState(payload = {}) {
     .trim()
     .toLowerCase();
   const authenticated = Boolean(payload.authenticated);
+  const principal = authenticated ? String(payload.principal || "").trim() : "";
   const username = authenticated ? String(payload.username || "").trim() : "";
   const email = authenticated ? String(payload.email || "").trim().toLowerCase() : "";
   const permissions = authenticated ? Object.freeze(normalizePermissionList(payload.permissions)) : Object.freeze([]);
@@ -114,6 +115,7 @@ function normalizeAuthState(payload = {}) {
 
   return Object.freeze({
     authenticated,
+    principal,
     username,
     email,
     permissions,

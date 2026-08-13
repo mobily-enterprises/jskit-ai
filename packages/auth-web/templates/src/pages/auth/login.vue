@@ -1,6 +1,13 @@
 <route lang="json">
 {
   "meta": {
+    "jskit": {
+      "surface": "auth",
+      "navigation": {
+        "behavior": "boundary",
+        "persistence": { "mode": "none" }
+      }
+    },
     "guard": {
       "policy": "public"
     }

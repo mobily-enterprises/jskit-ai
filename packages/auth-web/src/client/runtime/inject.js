@@ -8,6 +8,7 @@ const AUTH_OAUTH_LAUNCH_CLIENT_INJECTION_KEY = "jskit.auth-web.runtime.oauth-lau
 
 const EMPTY_AUTH_GUARD_STATE = Object.freeze({
   authenticated: false,
+  principal: "",
   username: "",
   oauthDefaultProvider: "",
   oauthProviders: Object.freeze([]),

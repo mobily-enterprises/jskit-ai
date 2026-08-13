@@ -65,6 +65,15 @@ Local functions
 Exports
 - None
 Local functions
+- `navigationLabel(key, fallback)`
+- `setPrimaryNavigationOpen(open)`
+- `openPrimaryNavigation()`
+- `openMoreNavigation()`
+- `closeTopShellOverlay()`
+- `handleShellEscape(event)`
+- `hasNavigationOverflow(primary = [], secondary = [], capacity)`
+- `visiblePrimaryNavigation(primary = [], secondary = [], capacity)`
+- `hiddenPrimaryNavigation(primary = [], capacity)`
 - `handlePullPointerDown(event)`
 - `handlePullPointerMove(event)`
 - `handlePullPointerEnd(event)`
@@ -86,9 +95,21 @@ Local functions
 - `findActiveTouch(touchList)`
 - `touchListIncludesActiveTouch(touchList)`
 
+### `src/client/components/ShellLeadingNavigation.vue`
+Exports
+- None
+
 ### `src/client/components/ShellMenuLinkItem.vue`
 Exports
 - None
+
+### `src/client/components/ShellNavigationGuardDialog.vue`
+Exports
+- None
+Local functions
+- `stay()`
+- `discard()`
+- `restoreTriggerFocus()`
 
 ### `src/client/components/ShellOutlet.vue`
 Exports
@@ -132,6 +153,10 @@ Exports
 - `useShellLayoutState(props = {})`
 Local functions
 - `toSurfaceLabel(surfaceId = "")`
+
+### `src/client/composables/useShellLeadingNavigation.js`
+Exports
+- `useShellLeadingNavigation({ menuAvailable = false, openMenu = null, backLabel = "Back", menuLabel = "Open navigation menu" } = {})`
 
 ### `src/client/error/index.js`
 Exports
@@ -195,6 +220,8 @@ Local functions
 Exports
 - `ShellWebClientProvider`
 - `ShellLayout`
+- `ShellLeadingNavigation`
+- `ShellNavigationGuardDialog`
 - `ShellOutlet`
 - `ShellOutletMenuWidget`
 - `ShellRouteTransition`
@@ -203,6 +230,7 @@ Exports
 - `ShellSurfaceAwareMenuLinkItem`
 - `ShellTabLinkItem`
 - `useShellLayoutState`
+- `useShellLeadingNavigation`
 - `useShellLayoutStore`
 - `useShellErrorPresentationStore`
 - `SHELL_ASYNC_MODULE_RECOVERY_RUNTIME_KEY`
@@ -403,6 +431,12 @@ Local functions
 ### `src/client/stores/useShellLayoutStore.js`
 Exports
 - `useShellLayoutStore`
+
+### `src/client/support/materialWindowClass.js`
+Exports
+- `MATERIAL_EXPANDED_MIN_WIDTH`
+- `MATERIAL_MEDIUM_MIN_WIDTH`
+- `resolveMaterialWindowClass(width)`
 
 ### `src/client/support/menuLinkTarget.js`
 Exports

@@ -2326,7 +2326,8 @@
               "description": "Create CRUD pages at an explicit route root relative to src/pages/.",
               "longDescription": [
                 "CRUD generation follows the same page-placement model as `ui-generator page`.",
-                "That means the generated list page link uses the same nearest-parent-target inference, tab-link inference, and relative `props.to` inference as a normal generated page. If you want the detailed target behavior, read `jskit generate ui-generator page help`."
+                "That means the generated list page link uses the same nearest-parent-target inference, tab-link inference, and relative `props.to` inference as a normal generated page. If you want the detailed target behavior, read `jskit generate ui-generator page help`.",
+                "The generated list and view routes are explicit destinations. New and edit routes are explicit preserving machinery. This stack behavior is independent of navigation-role."
               ],
               "positionalArgs": [
                 {
@@ -2357,6 +2358,7 @@
               "notes": [
                 "The target root is the real route root relative to src/pages/.... JSKIT derives the surface and route from that path.",
                 "Operations default to list,view,new,edit. For list-page placement behavior, use the same mental model as ui-generator page.",
+                "Generated CRUD route metadata always declares destination behavior explicitly: list/view are destinations and new/edit preserve the active destination.",
                 "If the target root already exists and is not empty, rerun with --force to overwrite generated files."
               ],
               "examples": [
@@ -4339,7 +4341,14 @@
                   "source": "src/client/components/ShellLayout.vue"
                 },
                 {
-                  "target": "shell-layout:primary-menu",
+                  "target": "shell-layout:primary-rail",
+                  "surfaces": [
+                    "*"
+                  ],
+                  "source": "src/client/components/ShellLayout.vue"
+                },
+                {
+                  "target": "shell-layout:primary-drawer",
                   "surfaces": [
                     "*"
                   ],
@@ -4347,6 +4356,13 @@
                 },
                 {
                   "target": "shell-layout:primary-bottom-nav",
+                  "surfaces": [
+                    "*"
+                  ],
+                  "source": "src/client/components/ShellLayout.vue"
+                },
+                {
+                  "target": "shell-layout:navigation-overflow-menu",
                   "surfaces": [
                     "*"
                   ],
@@ -4398,13 +4414,13 @@
                         }
                       },
                       "medium": {
-                        "outlet": "shell-layout:primary-menu",
+                        "outlet": "shell-layout:primary-rail",
                         "renderers": {
-                          "link": "local.main.ui.surface-aware-menu-link-item"
+                          "link": "local.main.ui.tab-link-item"
                         }
                       },
                       "expanded": {
-                        "outlet": "shell-layout:primary-menu",
+                        "outlet": "shell-layout:primary-drawer",
                         "renderers": {
                           "link": "local.main.ui.surface-aware-menu-link-item"
                         }
@@ -4437,13 +4453,13 @@
                     ],
                     "variants": {
                       "compact": {
-                        "outlet": "shell-layout:secondary-menu",
+                        "outlet": "shell-layout:navigation-overflow-menu",
                         "renderers": {
                           "link": "local.main.ui.surface-aware-menu-link-item"
                         }
                       },
                       "medium": {
-                        "outlet": "shell-layout:secondary-menu",
+                        "outlet": "shell-layout:navigation-overflow-menu",
                         "renderers": {
                           "link": "local.main.ui.surface-aware-menu-link-item"
                         }
@@ -4987,6 +5003,40 @@
             "promptLabel": "Navigation role",
             "promptHint": "Product navigation role for generated links. When omitted, dynamic detail and workflow routes create no nav link; primary uses normal inference, secondary maps to shell.secondary-nav, utility maps to shell.global-actions, and detail/workflow/none force no nav link."
           },
+          "destination-behavior": {
+            "required": false,
+            "inputType": "text",
+            "validationType": "enum",
+            "allowedValues": [
+              "destination",
+              "preserve",
+              "boundary"
+            ],
+            "defaultValue": "",
+            "promptLabel": "Destination behavior",
+            "promptHint": "Chronological navigation behavior. Destination creates a meaningful restorable entry, preserve keeps the owning destination for edit/create machinery, and boundary owns no restorable destination."
+          },
+          "destination-key": {
+            "required": false,
+            "inputType": "text",
+            "defaultValue": "",
+            "promptLabel": "Destination key",
+            "promptHint": "Stable destination key override. Valid only for destination behavior; otherwise JSKIT derives it from the surface and route."
+          },
+          "machinery-key": {
+            "required": false,
+            "inputType": "text",
+            "defaultValue": "",
+            "promptLabel": "Machinery key",
+            "promptHint": "Stable machinery key override. Valid only for preserve behavior; otherwise JSKIT derives it from the surface and route."
+          },
+          "navigation-fallback": {
+            "required": false,
+            "inputType": "text",
+            "defaultValue": "",
+            "promptLabel": "Navigation fallback",
+            "promptHint": "Optional safe internal route name or absolute app path used as synthetic Up after a direct link."
+          },
           "link-to": {
             "required": false,
             "inputType": "text",
@@ -5075,12 +5125,17 @@
               "optionNames": [
                 "name",
                 "navigation-role",
+                "destination-behavior",
+                "destination-key",
+                "machinery-key",
+                "navigation-fallback",
                 "link-placement",
                 "link-to",
                 "force"
               ],
               "notes": [
                 "If a nearest parent subpages target is found, semantic placement and props.to are inferred automatically.",
+                "Destination behavior is inferred and always emitted explicitly; it is independent of navigation-role.",
                 "If the parent target page is index.vue, child pages belong under index/...",
                 "If the target page file already exists, rerun with --force to overwrite it."
               ],

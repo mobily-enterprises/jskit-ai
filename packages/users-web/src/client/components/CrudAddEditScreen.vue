@@ -43,23 +43,17 @@ function resolveFieldErrors(fieldKey) {
   return [];
 }
 
-function resolveCancelTo(target = cancelTo.value) {
-  if (typeof props.screen?.resolveCancelTo === "function") {
-    return props.screen.resolveCancelTo(target);
-  }
-  return target || "";
-}
 </script>
 
 <template>
   <section class="generated-ui-screen generated-ui-screen--operator ui-generator-add-edit-form d-flex flex-column ga-4">
     <header class="ui-generator-add-edit-form__header">
       <div class="ui-generator-add-edit-form__copy">
-        <h1 class="ui-generator-add-edit-form__title">{{ title }}</h1>
+        <h1 class="ui-generator-add-edit-form__title" data-jskit-page-heading tabindex="-1">{{ title }}</h1>
         <p v-if="subtitle" class="text-body-2 text-medium-emphasis mb-0">{{ subtitle }}</p>
       </div>
       <div class="ui-generator-add-edit-form__actions">
-        <v-btn v-if="cancelTo" color="primary" variant="outlined" :to="resolveCancelTo(cancelTo)">Cancel</v-btn>
+        <v-btn v-if="cancelTo" color="primary" variant="outlined" @click="screen.cancel">Cancel</v-btn>
         <v-btn
           color="primary"
           variant="flat"

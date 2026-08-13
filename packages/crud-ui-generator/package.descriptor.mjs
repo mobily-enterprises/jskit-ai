@@ -98,7 +98,8 @@ export default Object.freeze({
         description: "Create CRUD pages at an explicit route root relative to src/pages/.",
         longDescription: [
           "CRUD generation follows the same page-placement model as `ui-generator page`.",
-          "That means the generated list page link uses the same nearest-parent-target inference, tab-link inference, and relative `props.to` inference as a normal generated page. If you want the detailed target behavior, read `jskit generate ui-generator page help`."
+          "That means the generated list page link uses the same nearest-parent-target inference, tab-link inference, and relative `props.to` inference as a normal generated page. If you want the detailed target behavior, read `jskit generate ui-generator page help`.",
+          "The generated list and view routes are explicit destinations. New and edit routes are explicit preserving machinery. This stack behavior is independent of navigation-role."
         ],
         positionalArgs: [
           {
@@ -127,6 +128,7 @@ export default Object.freeze({
         notes: [
           "The target root is the real route root relative to src/pages/.... JSKIT derives the surface and route from that path.",
           "Operations default to list,view,new,edit. For list-page placement behavior, use the same mental model as ui-generator page.",
+          "Generated CRUD route metadata always declares destination behavior explicitly: list/view are destinations and new/edit preserve the active destination.",
           "If the target root already exists and is not empty, rerun with --force to overwrite generated files."
         ],
         examples: [

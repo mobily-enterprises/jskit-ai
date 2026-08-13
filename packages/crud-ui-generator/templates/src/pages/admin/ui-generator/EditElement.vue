@@ -1,3 +1,5 @@
+__JSKIT_UI_EDIT_ROUTE_BLOCK__
+
 <template>
   <CrudAddEditScreen
     :screen="screen"__JSKIT_UI_EDIT_LOOKUP_FORM_PROPS__
@@ -50,6 +52,7 @@ __JSKIT_UI_EDIT_LOOKUP_RUNTIME_SETUP__
 
 const screen = useCrudAddEditScreen({
   mode: "edit",
+  navigationBlockerId: "__JSKIT_UI_EDIT_NAVIGATION_BLOCKER_ID__",
   title: "Edit __JSKIT_UI_RESOURCE_SINGULAR_TITLE__",
   subtitle: "Update the selected __JSKIT_UI_RESOURCE_SINGULAR_TITLE__.",
   saveLabel: "Save changes",

@@ -60,6 +60,7 @@ Local functions
 - `resolveCrudRelativePath(namespace = "")`
 - `buildListParentTitleImportLine(parentTitleMode = "contextual")`
 - `buildListHeadingTitleSetup({ parentTitleMode = "contextual", resourceNamespace = "", routeTitle = "Records" } = {})`
+- `buildCrudRouteBlock({ surfaceId = "", navigationRole = "none", behavior = "destination", key = "", scope = [], restore = [], persistenceMode = "url-only" } = {})`
 
 ### `src/server/resourceSupport.js`
 Exports

@@ -6,7 +6,12 @@ function createAppDouble({
   adapter = null,
   authCallbackCompleter = null,
   authGuardRuntime = null,
-  placementRuntime = null
+  placementRuntime = null,
+  navigation = Object.freeze({
+    async pop() {
+      return { status: "blocked", reason: "no-in-app-previous-destination" };
+    }
+  })
 } = {}) {
   const singletons = new Map();
   const singletonInstances = new Map();
@@ -22,6 +27,9 @@ function createAppDouble({
     has(token) {
       if (token === "jskit.client.router") {
         return true;
+      }
+      if (token === "jskit.client.navigation") {
+        return Boolean(navigation);
       }
       if (token === "runtime.web-placement.client") {
         return Boolean(placementRuntime);
@@ -47,6 +55,9 @@ function createAppDouble({
           },
           async replace() {}
         };
+      }
+      if (token === "jskit.client.navigation") {
+        return navigation;
       }
       if (token === "runtime.web-placement.client") {
         return placementRuntime;
@@ -123,6 +134,18 @@ test("MobileCapacitorClientProvider registers and boots the mobile runtime", asy
   } finally {
     delete globalThis.__JSKIT_CLIENT_APP_CONFIG__;
   }
+});
+
+test("MobileCapacitorClientProvider requires the shared navigation runtime", () => {
+  const { app } = createAppDouble({ navigation: null });
+  const provider = new MobileCapacitorClientProvider();
+
+  provider.register(app);
+
+  assert.throws(
+    () => app.make("mobile.capacitor.client.runtime"),
+    /requires jskit\.client\.navigation/
+  );
 });
 
 test("MobileCapacitorClientProvider installs and restores the Capacitor fetch wrapper", async () => {

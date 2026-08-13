@@ -15,6 +15,7 @@ import {
   normalizeUiVerificationReceipt,
   resolveChangedUiFilesFromGit
 } from "../shared/uiVerification.js";
+import { inspectVueNavigationRoute } from "../shared/navigationRouteInspection.js";
 
 function createHealthCommands(ctx = {}) {
   const {
@@ -31,6 +32,7 @@ function createHealthCommands(ctx = {}) {
     fileExists,
     normalizeRelativePath,
     normalizeRelativePosixPath,
+    discoverPlacementTopologyFromApp,
     path
   } = ctx;
 
@@ -2116,6 +2118,237 @@ function createHealthCommands(ctx = {}) {
     }
   }
 
+  function collectNavigationSourceAntiPatterns({ sourceText = "", relativePath = "", isPage = false, issues }) {
+    const source = String(sourceText || "");
+    const lineFor = (pattern) => {
+      const match = pattern.exec(source);
+      pattern.lastIndex = 0;
+      return match ? resolveLineNumberFromIndex(source, match.index || 0) : 1;
+    };
+
+    const legacyReturnKeys = ["returnTo", "returnUrl", "returnSource", "returnScroll", "restoreScroll"]
+      .filter((key) => new RegExp(`\\b${key}\\b`, "u").test(source));
+    const looksLikeReturnStack =
+      legacyReturnKeys.some((key) => ["returnSource", "returnScroll", "restoreScroll"].includes(key)) ||
+      (
+        legacyReturnKeys.some((key) => ["returnTo", "returnUrl"].includes(key)) &&
+        (/\b(?:route|router)\s*\.\s*(?:query|push|replace)\b/u.test(source) || /[?&](?:returnTo|returnUrl)=/u.test(source))
+      );
+    if (looksLikeReturnStack && !/(?:^|\/)auth(?:\/|$)|oauth|callback/iu.test(relativePath)) {
+      const pattern = /\b(?:returnTo|returnUrl|returnSource|returnScroll|restoreScroll)\b/gu;
+      issues.push(
+        `${relativePath}:${lineFor(pattern)}: [navigation:parallel-return-stack] remove the local return-query chain (${legacyReturnKeys.join(", ")}). Declare meta.jskit.navigation and use the shared JSKIT navigation runtime/contributors.`
+      );
+    }
+
+    const rawHistoryStatePattern = /\b(?:window\s*\.\s*)?history\s*\.\s*(?:replaceState|pushState)\s*\(/gu;
+    if (rawHistoryStatePattern.test(source)) {
+      rawHistoryStatePattern.lastIndex = 0;
+      issues.push(
+        `${relativePath}:${lineFor(rawHistoryStatePattern)}: [navigation:history-state-owner] application code must not write browser history.state directly. Use navigation.push(), preserve(), or replace(); JSKIT merges its envelope through the supplied RouterHistory.`
+      );
+    }
+
+    const historyLengthPattern = /\bhistory\s*\.\s*length\b/gu;
+    if (historyLengthPattern.test(source) && /\b(?:canPop|canGoBack|goUp|back)\b/iu.test(source)) {
+      historyLengthPattern.lastIndex = 0;
+      issues.push(
+        `${relativePath}:${lineFor(historyLengthPattern)}: [navigation:history-length] history.length is not JSKIT stack depth. Read canPop/canGoUp from useJskitNavigation().`
+      );
+    }
+
+    if (isPage) {
+      const pageBackPattern = /(?:\brouter\s*\.\s*back\s*\(|\bhistory\s*\.\s*back\s*\(|\b(?:router\s*\.)?go\s*\(\s*-1\s*\)|>\s*Back(?:\s+to\b[^<]*)?\s*<\/)/giu;
+      if (pageBackPattern.test(source)) {
+        pageBackPattern.lastIndex = 0;
+        issues.push(
+          `${relativePath}:${lineFor(pageBackPattern)}: [navigation:page-owned-back] remove the page-owned chronological Back control. The shell leading navigation owns Back; keep only clearly named destination links such as “View all records”.`
+        );
+      }
+    }
+
+    const leadingWorkaroundPattern = /<Teleport\b[^>]*(?:app-bar|toolbar|leading)|(?:position\s*:\s*(?:absolute|fixed)[\s\S]{0,160}(?:arrow_back|mdi-arrow-left))/giu;
+    if (leadingWorkaroundPattern.test(source)) {
+      leadingWorkaroundPattern.lastIndex = 0;
+      issues.push(
+        `${relativePath}:${lineFor(leadingWorkaroundPattern)}: [navigation:leading-workaround] remove DOM teleport/CSS-positioned Back workarounds and let shell-web render ShellLeadingNavigation in the app-bar navigation slot.`
+      );
+    }
+  }
+
+  function collectAdaptiveNavigationTopologyIssues({ placements = [], issues }) {
+    const byId = new Map(
+      ensureArray(placements)
+        .map((entry) => ensureObject(entry))
+        .filter((entry) => String(entry.id || "").trim())
+        .map((entry) => [String(entry.id || "").trim(), entry])
+    );
+    const required = [
+      {
+        id: "shell.primary-nav",
+        outlets: {
+          compact: new Set(["shell-layout:primary-bottom-nav"]),
+          medium: new Set(["shell-layout:primary-rail"]),
+          expanded: new Set(["shell-layout:primary-drawer", "shell-layout:primary-rail"])
+        }
+      },
+      {
+        id: "shell.secondary-nav",
+        outlets: {
+          compact: new Set(["shell-layout:navigation-overflow-menu"]),
+          medium: new Set(["shell-layout:navigation-overflow-menu"]),
+          expanded: new Set(["shell-layout:secondary-menu", "shell-layout:primary-drawer"])
+        }
+      }
+    ];
+
+    for (const contract of required) {
+      const placement = byId.get(contract.id);
+      if (!placement) {
+        issues.push(
+          `[navigation:adaptive-topology-missing] src/placementTopology.js must declare ${contract.id} for compact, medium, and expanded layouts. Regenerate the shell topology or copy the current shell-web semantic mappings.`
+        );
+        continue;
+      }
+      const variants = ensureObject(placement.variants);
+      for (const [layoutClass, allowedOutlets] of Object.entries(contract.outlets)) {
+        const outlet = String(ensureObject(variants[layoutClass]).outlet || "").trim();
+        if (allowedOutlets.has(outlet)) {
+          continue;
+        }
+        issues.push(
+          `[navigation:adaptive-topology-invalid] ${contract.id}.${layoutClass} must map to ${[...allowedOutlets].join(" or ")}; found ${JSON.stringify(outlet || "<missing>")}. Use one semantic navigation source so Back never makes product navigation unreachable.`
+        );
+      }
+    }
+  }
+
+  async function collectNavigationDoctorIssues({ appRoot, issues }) {
+    const sourceFilePaths = [];
+    for (const relativeRoot of APP_SOURCE_SCAN_ROOTS) {
+      await collectAppSourceFiles(path.join(appRoot, relativeRoot), undefined, sourceFilePaths);
+    }
+    sourceFilePaths.sort((left, right) => left.localeCompare(right));
+
+    const sources = [];
+    let navigationRuntimeEnabled = false;
+    let installerCallCount = 0;
+    for (const absolutePath of sourceFilePaths) {
+      const sourceText = await readFile(absolutePath, "utf8");
+      const relativePath = normalizeRelativePath(appRoot, absolutePath);
+      sources.push({ absolutePath, relativePath, sourceText });
+      if (
+        /(?:^|\/)(?:main|router|bootstrap)\.[cm]?[jt]s$/u.test(relativePath) &&
+        (/\bnavigation\s*:\s*(?:true|\{)/u.test(sourceText) || /\binstallJskitNavigation\s*\(/u.test(sourceText))
+      ) {
+        navigationRuntimeEnabled = true;
+      }
+      installerCallCount += [...sourceText.matchAll(/\binstallJskitNavigation\s*\(/gu)].length;
+    }
+
+    if (!navigationRuntimeEnabled) {
+      return;
+    }
+    if (installerCallCount > 1) {
+      issues.push(
+        `[navigation:duplicate-runtime] installJskitNavigation() is called ${installerCallCount} times. Install exactly one runtime for the RouterHistory and pass that instance through bootstrapClientShellApp().`
+      );
+    }
+
+    if (typeof discoverPlacementTopologyFromApp === "function") {
+      try {
+        const topology = await discoverPlacementTopologyFromApp({ appRoot });
+        collectAdaptiveNavigationTopologyIssues({
+          placements: topology?.placements,
+          issues
+        });
+      } catch (error) {
+        issues.push(
+          `[navigation:adaptive-topology-unreadable] JSKIT could not inspect src/placementTopology.js (${String(error?.message || error)}). Restore a valid generated topology before enabling destination-stack navigation.`
+        );
+      }
+    }
+
+    const destinationOwners = new Map();
+    for (const sourceFile of sources) {
+      const isPage = /(?:^|\/)src\/pages\/.*\.vue$/u.test(sourceFile.relativePath);
+      collectNavigationSourceAntiPatterns({
+        sourceText: sourceFile.sourceText,
+        relativePath: sourceFile.relativePath,
+        isPage,
+        issues
+      });
+      if (!isPage) {
+        continue;
+      }
+
+      const navigation = inspectVueNavigationRoute(
+        sourceFile.sourceText,
+        sourceFile.relativePath
+      );
+      if (!navigation.hasNavigationMetadata) {
+        if (navigation.redirectOnly) {
+          continue;
+        }
+        issues.push(
+          `${sourceFile.relativePath}: [navigation:route-metadata-missing] live route pages must explicitly declare meta.jskit.navigation.behavior. Use destination with destinationKey, preserve with machineryKey, or boundary.`
+        );
+        continue;
+      }
+      if (!navigation.behavior || !["destination", "preserve", "boundary"].includes(navigation.behavior)) {
+        issues.push(
+          `${sourceFile.relativePath}: [navigation:route-behavior-invalid] navigation behavior must be destination, preserve, or boundary.`
+        );
+        continue;
+      }
+      if (navigation.behavior === "destination" && !navigation.destinationKey) {
+        issues.push(
+          `${sourceFile.relativePath}: [navigation:destination-key-missing] destination routes require a globally stable destinationKey.`
+        );
+        continue;
+      }
+      if (navigation.behavior === "destination" && navigation.machineryKey) {
+        issues.push(
+          `${sourceFile.relativePath}: [navigation:destination-machinery-key] destination routes must not declare machineryKey. Remove it and retain only destinationKey.`
+        );
+      }
+      if (
+        navigation.behavior === "destination" &&
+        (/\buseCrudAddEditScreen\s*\(/u.test(sourceFile.sourceText) || /@jskit-contract\s+crud\.ui\.form-fields\./u.test(sourceFile.sourceText))
+      ) {
+        issues.push(
+          `${sourceFile.relativePath}: [navigation:generated-form-destination] generated CRUD new/edit routes are preserving machinery, not independent destinations. Change behavior to preserve with a stable machineryKey; use a separately designed resumable workflow route for a true destination.`
+        );
+      }
+      if (navigation.behavior === "preserve" && !navigation.machineryKey) {
+        issues.push(
+          `${sourceFile.relativePath}: [navigation:machinery-key-missing] preserving routes require a globally stable machineryKey.`
+        );
+        continue;
+      }
+      if (navigation.behavior === "preserve" && navigation.destinationKey) {
+        issues.push(
+          `${sourceFile.relativePath}: [navigation:preserve-destination-key] preserving routes must not declare destinationKey. They retain the active destination and declare only machineryKey.`
+        );
+      }
+      if (navigation.behavior === "boundary" && (navigation.destinationKey || navigation.machineryKey)) {
+        issues.push(
+          `${sourceFile.relativePath}: [navigation:boundary-identity-key] boundary routes own no destination or machinery identity. Remove destinationKey and machineryKey.`
+        );
+      }
+      if (navigation.behavior === "destination") {
+        const existing = destinationOwners.get(navigation.destinationKey);
+        if (existing) {
+          issues.push(
+            `${sourceFile.relativePath}: [navigation:destination-key-duplicate] destinationKey ${JSON.stringify(navigation.destinationKey)} is already declared by ${existing}. Use one stable route-family key per destination family.`
+          );
+        } else {
+          destinationOwners.set(navigation.destinationKey, sourceFile.relativePath);
+        }
+      }
+    }
+  }
+
   async function collectCrudFilterDoctorIssues({ appRoot, issues }) {
     const sourceFilePaths = [];
     for (const relativeRoot of APP_SOURCE_SCAN_ROOTS) {
@@ -2399,6 +2632,10 @@ function createHealthCommands(ctx = {}) {
     }
 
     await collectMdiSvgDoctorIssues({
+      appRoot,
+      issues
+    });
+    await collectNavigationDoctorIssues({
       appRoot,
       issues
     });

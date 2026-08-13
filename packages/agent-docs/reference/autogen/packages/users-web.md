@@ -46,7 +46,6 @@ Exports
 - None
 Local functions
 - `resolveFieldErrors(fieldKey)`
-- `resolveCancelTo(target = cancelTo.value)`
 
 ### `src/client/components/CrudListBulkActionSurface.vue`
 Exports
@@ -249,10 +248,13 @@ Exports
 
 ### `src/client/composables/records/useCrudAddEdit.js`
 Exports
+- `__testables`
 - `useCrudAddEdit({ resource = null, operationName = "", formFields = [], addEditOptions = {}, saveSuccess = {}, fieldBinding = null, createModel = null, buildPayload = null, mapPayloadToModel = null, input = null } = {})`
 Local functions
 - `normalizeFieldErrorKeys(keys = [])`
 - `normalizeSaveSuccessOptions(options = {})`
+- `createCrudFormFingerprint(value, ancestors = new WeakSet())`
+- `resolveCrudMachineryExitMode({ activeFullPath = "", targetFullPath = "", canPop = false } = {})`
 
 ### `src/client/composables/records/useCrudList.js`
 Exports
@@ -484,9 +486,13 @@ Exports
 
 ### `src/client/composables/useCrudAddEditScreen.js`
 Exports
-- `useCrudAddEditScreen({ screen = null, mode = "new", title = "", subtitle = "", saveLabel = "Save", cancelTo = "", resource = null, operationName = "", formFields = [], addEditOptions = {}, saveSuccess = {}, fieldBinding = null, createModel = null, buildPayload = null, mapPayloadToModel = null, input = null, preserveCancelQuery = false } = {})`
+- `useCrudAddEditScreen({ screen = null, mode = "new", title = "", subtitle = "", saveLabel = "Save", navigationBlockerId = "", cancelTo = "", resource = null, operationName = "", formFields = [], addEditOptions = {}, saveSuccess = {}, fieldBinding = null, createModel = null, buildPayload = null, mapPayloadToModel = null, input = null, preserveCancelQuery = false } = {})`
 Local functions
 - `normalizeProvidedScreen(screen = null)`
+
+### `src/client/composables/useCrudFormNavigationBlocker.js`
+Exports
+- `useCrudFormNavigationBlocker({ id, isDirty, title = "Discard changes?", message = "Your unsaved changes will be lost." } = {})`
 
 ### `src/client/composables/useCrudListBulkActions.js`
 Exports
@@ -516,6 +522,17 @@ Local functions
 - `resolveAtomicValueLabel(filter = {}, value = "", labelResolvers = {})`
 - `formatDefaultChipLabel(filter = {}, chipValue, labelResolvers = {})`
 
+### `src/client/composables/useCrudListNavigationContributor.js`
+Exports
+- `__testables`
+- `useCrudListNavigationContributor({ id, records, documentObject = globalThis.document, windowObject = globalThis.window } = {})`
+Local functions
+- `normalizeText(value)`
+- `findElementByAttribute(root, attributeName, value)`
+- `findContributorRoot(documentObject, contributorId)`
+- `hasVisibleRectangle(rectangle)`
+- `captureCrudListNavigationState({ documentObject = globalThis.document, contributorId = "" } = {})`
+
 ### `src/client/composables/useCrudListParentTitle.js`
 Exports
 - `useCrudListParentTitle({ listRuntime = null, resource = {}, adapter = null, recordIdParam = "recordId", queryKeyPrefix = ["users-web", "crud-list-parent-title"], placementSource = "users-web.crud-list-parent-title", fallbackLoadError = "Unable to load parent record.", notFoundMessage = "Parent record not found.", route = null, viewRuntimeFactory = useView } = {})`
@@ -534,7 +551,7 @@ Local functions
 ### `src/client/composables/useCrudListScreen.js`
 Exports
 - `__testables`
-- `useCrudListScreen({ adapter = null, client = null, resource = null, resourceNamespace = "resource", apiSuffix = "", recordIdParam = "recordId", recordIdSelector = null, titleFallbackFieldKey = "", viewUrlTemplate = "", editUrlTemplate = "", newUrlTemplate = "", recordChangedEvents = [], listFilters = {}, listBulkActions = [], listRowActions = [], syntheticRows = null, routeQueryBlacklist = Object.freeze(["include", "cursor", "limit"]), requestQueryParams = null, requestFieldsets = null, readEnabled = true, requestRecoveryLabel = "Records", fallbackLoadError = "Unable to load records." } = {})`
+- `useCrudListScreen({ adapter = null, client = null, resource = null, resourceNamespace = "resource", navigationContributorId = "", apiSuffix = "", recordIdParam = "recordId", recordIdSelector = null, titleFallbackFieldKey = "", viewUrlTemplate = "", editUrlTemplate = "", newUrlTemplate = "", recordChangedEvents = [], listFilters = {}, listBulkActions = [], listRowActions = [], syntheticRows = null, routeQueryBlacklist = Object.freeze(["include", "cursor", "limit"]), requestQueryParams = null, requestFieldsets = null, readEnabled = true, requestRecoveryLabel = "Records", fallbackLoadError = "Unable to load records." } = {})`
 Local functions
 - `buildCrudListActionContext(records, client)`
 - `formatCrudListCardValue(value)`
@@ -614,6 +631,8 @@ Exports
 - `CrudListFilterSurface`
 - `CrudListScreen`
 - `CrudViewScreen`
+- `useCrudFormNavigationBlocker`
+- `useCrudListNavigationContributor`
 - `normalizeCrudApiAccess`
 - `resolveCrudHttpClient`
 - `clientProviders`

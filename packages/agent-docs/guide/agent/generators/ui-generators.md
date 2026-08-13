@@ -64,7 +64,7 @@ That second part is important. `page` is not just a file generator. It also make
 In a fresh `home` surface app, the generated placement looks like a normal shell menu link. In the throwaway app used to verify this chapter, the command reported:
 
 ```text
-Generated UI page "/reports" at src/pages/home/reports/index.vue.
+Generated UI page "/reports" at src/pages/home/reports/index.vue with destination navigation (home.reports).
 Touched files (2):
 - src/pages/home/reports/index.vue
 - src/placement.js
@@ -74,11 +74,14 @@ That is the baseline behavior of `page`:
 
 - one app-owned page file
 - one app-owned placement entry
+- one explicit `meta.jskit.navigation` route contract
 
 The important default is this:
 
 - if JSKIT sees no nearer routed host, the new page gets a normal shell/menu placement
 - if JSKIT does see a nearer routed host, the new page gets linked into that host instead
+
+The generator keeps two navigation axes separate. `--navigation-role` controls where the product link appears. `--destination-behavior destination|preserve|boundary` controls browser chronology. A normal page defaults to `destination`; edit/new-shaped route names infer `preserve`. The generated metadata always shows the result. Use `--destination-key`, `--machinery-key`, or `--navigation-fallback` only when the derived stable contract is not the product contract you need.
 
 Open the app to see a real `/reports` page plus a real shell link for it.
 
@@ -314,7 +317,7 @@ And this is where `page` becomes interesting again.
 In the throwaway app, the command reported:
 
 ```text
-Generated UI page "/reports/exports" at src/pages/home/reports/index/exports/index.vue.
+Generated UI page "/reports/exports" at src/pages/home/reports/index/exports/index.vue with destination navigation (home.reports.exports).
 Touched files (2):
 - src/pages/home/reports/index/exports/index.vue
 - src/placement.js

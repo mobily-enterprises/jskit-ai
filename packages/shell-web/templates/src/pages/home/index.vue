@@ -1,3 +1,18 @@
+<route lang="json">
+{
+  "meta": {
+    "jskit": {
+      "navigation": {
+        "behavior": "destination",
+        "destinationKey": "home.dashboard",
+        "scope": ["surface"],
+        "persistence": { "mode": "url-only", "queryAllowlist": [] }
+      }
+    }
+  }
+}
+</route>
+
 <script setup>
 import { computed } from "vue";
 import { useQuery } from "@tanstack/vue-query";

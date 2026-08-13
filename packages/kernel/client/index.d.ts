@@ -92,7 +92,7 @@ export function resolveClientBootstrapDebugEnabled(options?: {
 }): boolean;
 
 export function createShellRouter(options?: {
-  createRouter: (options: { history?: any; routes: any[] }) => any;
+  createRouter: (options: { history?: any; routes: any[]; scrollBehavior?: any }) => any;
   history?: any;
   routes?: any[];
   surfaceRuntime: any;
@@ -100,8 +100,10 @@ export function createShellRouter(options?: {
   fallbackRoute?: any;
   notFoundComponent?: any;
   guard?: false | ((to: any) => any) | Record<string, any>;
+  navigation?: false | true | ({ enabled?: boolean } & Omit<import("./navigation.js").InstallJskitNavigationOptions, "router" | "history">);
 }): Readonly<{
   router: any;
+  navigation: import("./navigation.js").JskitNavigationRuntime | null;
   activeRoutes: readonly any[];
   fallbackRoute: any;
 }>;
@@ -113,6 +115,7 @@ export function bootstrapClientShellApp(options?: {
   appPlugins?: any[];
   pinia?: any;
   router: any;
+  navigation?: import("./navigation.js").JskitNavigationRuntime | null;
   bootClientModules: (context: any) => Promise<any>;
   surfaceRuntime: any;
   surfaceMode?: string;
@@ -130,11 +133,13 @@ export function bootstrapClientShellApp(options?: {
   debugMessage?: string;
   onAfterModulesBootstrapped?: (context: any) => void | Promise<void>;
   onAfterRouterReady?: (context: any) => void | Promise<void>;
+  onAfterAppMounted?: (context: any) => void | Promise<void>;
   mountSelector?: string;
 }): Promise<
   Readonly<{
     app: any;
     router: any;
+    navigation: import("./navigation.js").JskitNavigationRuntime | null;
     clientBootstrap: any;
     logger: Required<ClientLogger>;
     debugEnabled: boolean;
@@ -147,3 +152,5 @@ export function createComponentInteractionEmitter(
   emitInteraction: (type: string, payload?: Record<string, any>) => void;
   invokeAction: (actionName: string, payload: any, callback?: () => Promise<any> | any) => Promise<void>;
 }>;
+export * from "./navigation.js";
+export * from "./navigationLink.js";

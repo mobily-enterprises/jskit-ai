@@ -12,6 +12,9 @@ const EMPTY_WEB_PLACEMENT_RUNTIME = Object.freeze({
   getPlacements() {
     return Object.freeze([]);
   },
+  getSemanticPlacements() {
+    return Object.freeze([]);
+  },
   setContext() {
     return Object.freeze({});
   },

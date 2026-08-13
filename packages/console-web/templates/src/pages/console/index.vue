@@ -1,12 +1,27 @@
+<route lang="json">
+{
+  "meta": {
+    "jskit": {
+      "navigation": {
+        "behavior": "destination",
+        "destinationKey": "console.home",
+        "scope": ["principal", "surface"],
+        "persistence": { "mode": "url-only" }
+      }
+    }
+  }
+}
+</route>
+
 <template>
   <section class="console-home-screen d-flex flex-column ga-4">
     <header class="console-home-screen__header">
       <div>
         <p class="text-overline text-medium-emphasis mb-1">Console</p>
-        <h1 class="console-home-screen__title">Operations Console</h1>
+        <h1 class="console-home-screen__title" data-jskit-page-heading tabindex="-1">Operations Console</h1>
         <p class="text-body-2 text-medium-emphasis mb-0">Operator tools, scripts, and diagnostics.</p>
       </div>
-      <v-btn color="primary" variant="flat" to="/home">Back to home</v-btn>
+      <v-btn color="primary" variant="flat" to="/home">Open home</v-btn>
     </header>
 
     <v-sheet rounded="lg" border class="console-home-screen__panel">

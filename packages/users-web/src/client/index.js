@@ -7,6 +7,8 @@ export { default as CrudListBulkActionSurface } from "./components/CrudListBulkA
 export { default as CrudListFilterSurface } from "./components/CrudListFilterSurface.vue";
 export { default as CrudListScreen } from "./components/CrudListScreen.vue";
 export { default as CrudViewScreen } from "./components/CrudViewScreen.vue";
+export { useCrudFormNavigationBlocker } from "./composables/useCrudFormNavigationBlocker.js";
+export { useCrudListNavigationContributor } from "./composables/useCrudListNavigationContributor.js";
 export {
   normalizeCrudApiAccess,
   resolveCrudHttpClient

@@ -81,8 +81,10 @@ const BARREL_EXPECTATIONS = Object.freeze([
     filePath: path.join(REPO_ROOT, "packages", "kernel", "client", "index.js"),
     expectedExports: Object.freeze([
       "bootstrapClientShellApp",
+      "createBrowserSessionNavigationStorage",
       "createComponentInteractionEmitter",
       "createAsyncModuleRecoveryState",
+      "createJskitNavigationScrollCoordinator",
       "createShellRouter",
       "dismissAsyncModuleRecovery",
       "dynamicImportErrorMessage",
@@ -90,12 +92,17 @@ const BARREL_EXPECTATIONS = Object.freeze([
       "guardedReloadApp",
       "getClientAppConfig",
       "installAsyncModuleRecoveryHandlers",
+      "installJskitNavigation",
       "isDynamicImportError",
+      "isJskitOrdinaryLinkClick",
+      "JSKIT_NAVIGATION_RUNTIME_KEY",
+      "JskitDestinationLink",
       "normalizeIncomingAppUrl",
       "notifyAsyncModuleLoadError",
       "registerMobileLaunchRouting",
       "resolveMobileConfig",
-      "resolveClientBootstrapDebugEnabled"
+      "resolveClientBootstrapDebugEnabled",
+      "useJskitNavigation"
     ])
   }),
   Object.freeze({

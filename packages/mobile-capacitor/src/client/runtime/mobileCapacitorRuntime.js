@@ -53,6 +53,7 @@ function isAuthCallbackTargetPath(targetPath = "", mobileConfig = {}) {
 
 function createMobileCapacitorRuntime({
   router,
+  navigation,
   mobileConfig = {},
   adapter = createNoopCapacitorAppAdapter(),
   placementRuntime = null,
@@ -63,6 +64,9 @@ function createMobileCapacitorRuntime({
   if (!router || typeof router.replace !== "function") {
     throw new TypeError("createMobileCapacitorRuntime requires router.replace().");
   }
+  if (!navigation || typeof navigation.pop !== "function") {
+    throw new TypeError("createMobileCapacitorRuntime requires the JSKIT navigation runtime.");
+  }
 
   const resolvedMobileConfig = resolveMobileConfig({
     mobile: mobileConfig
@@ -72,9 +76,25 @@ function createMobileCapacitorRuntime({
   const resolvedAuthGuardRuntime = normalizeAuthGuardRuntime(authGuardRuntime);
   let launchRouting = null;
   let initialized = false;
+  let initializationPromise = null;
+  let lifecycleGeneration = 0;
   let lastAppliedPath = "";
   let authGuardReadyPromise = null;
   let removeBackButtonListener = null;
+  let backButtonOperation = null;
+  const launchRouter = Object.freeze({
+    currentRoute: router.currentRoute,
+    replace(target) {
+      if (navigation.state?.ready === true && typeof navigation.replace === "function") {
+        return navigation.replace(target, {
+          reason: "programmatic",
+          preserveDestinationIdentity: false,
+          focus: "heading"
+        });
+      }
+      return router.replace(target);
+    }
+  });
 
   async function ensureAuthGuardReady() {
     if (!resolvedAuthGuardRuntime) {
@@ -131,7 +151,7 @@ function createMobileCapacitorRuntime({
 
   function createLaunchRouting() {
     return registerMobileLaunchRouting({
-      router,
+      router: launchRouter,
       mobileConfig: resolvedMobileConfig,
       getInitialLaunchUrl: () => resolvedAdapter.getInitialLaunchUrl(),
       subscribeToLaunchUrls: (handler) => resolvedAdapter.subscribeToLaunchUrls(handler),
@@ -140,50 +160,102 @@ function createMobileCapacitorRuntime({
     });
   }
 
+  function ensureLaunchRouting() {
+    if (!launchRouting) {
+      launchRouting = createLaunchRouting();
+    }
+    return launchRouting;
+  }
+
   function wireBackButtonHandling() {
-    if (typeof resolvedAdapter.subscribeToBackButton !== "function") {
-      return;
-    }
-    if (!router || typeof router.back !== "function") {
+    if (removeBackButtonListener || typeof resolvedAdapter.subscribeToBackButton !== "function") {
       return;
     }
 
-    removeBackButtonListener = resolvedAdapter.subscribeToBackButton(async (event = {}) => {
-      if (event?.canGoBack === true) {
-        router.back();
-        return;
+    const unsubscribe = resolvedAdapter.subscribeToBackButton(async () => {
+      if (backButtonOperation) {
+        return backButtonOperation;
       }
-
-      if (typeof resolvedAdapter.exitApp === "function") {
-        await resolvedAdapter.exitApp();
+      backButtonOperation = (async () => {
+        try {
+          const result = await navigation.pop({ reason: "system-back" });
+          if (
+            result?.status === "blocked" &&
+            result?.reason === "no-in-app-previous-destination" &&
+            typeof resolvedAdapter.exitApp === "function"
+          ) {
+            await resolvedAdapter.exitApp();
+          }
+          return result;
+        } catch (error) {
+          logger?.error?.(
+            { error: String(error?.message || error || "unknown error") },
+            "Capacitor Back failed."
+          );
+          return Object.freeze({ status: "degraded", reason: "system-back-failed" });
+        }
+      })();
+      try {
+        return await backButtonOperation;
+      } finally {
+        backButtonOperation = null;
       }
     });
+    removeBackButtonListener = typeof unsubscribe === "function" ? unsubscribe : () => {};
   }
 
   async function initialize() {
     if (initialized) {
       return lastAppliedPath;
     }
+    if (initializationPromise) {
+      return initializationPromise;
+    }
 
-    initialized = true;
-    await ensureAuthGuardReady();
-    launchRouting = createLaunchRouting();
-    wireBackButtonHandling();
-    lastAppliedPath = await launchRouting.initialize();
-    return lastAppliedPath;
+    const generation = lifecycleGeneration;
+    const operation = (async () => {
+      await ensureAuthGuardReady();
+      if (generation !== lifecycleGeneration) {
+        return "";
+      }
+      const routing = ensureLaunchRouting();
+      wireBackButtonHandling();
+      const appliedPath = await routing.initialize();
+      if (generation !== lifecycleGeneration) {
+        return "";
+      }
+      lastAppliedPath = appliedPath;
+      initialized = true;
+      return lastAppliedPath;
+    })();
+    initializationPromise = operation;
+    try {
+      return await operation;
+    } finally {
+      if (initializationPromise === operation) {
+        initializationPromise = null;
+      }
+    }
   }
 
   async function applyIncomingUrl(url = "", reason = "manual") {
-    if (!launchRouting) {
-      await ensureAuthGuardReady();
-      launchRouting = createLaunchRouting();
+    const generation = lifecycleGeneration;
+    await ensureAuthGuardReady();
+    if (generation !== lifecycleGeneration) {
+      return "";
     }
-
-    lastAppliedPath = await launchRouting.applyIncomingUrl(url, reason);
+    const routing = ensureLaunchRouting();
+    wireBackButtonHandling();
+    const appliedPath = await routing.applyIncomingUrl(url, reason);
+    if (generation !== lifecycleGeneration) {
+      return "";
+    }
+    lastAppliedPath = appliedPath;
     return lastAppliedPath;
   }
 
   function dispose() {
+    lifecycleGeneration += 1;
     if (launchRouting && typeof launchRouting.dispose === "function") {
       launchRouting.dispose();
     }
@@ -192,7 +264,9 @@ function createMobileCapacitorRuntime({
     }
     launchRouting = null;
     removeBackButtonListener = null;
+    backButtonOperation = null;
     initialized = false;
+    initializationPromise = null;
   }
 
   function getState() {

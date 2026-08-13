@@ -427,6 +427,25 @@ const COMMAND_DESCRIPTORS = Object.freeze({
     inlineOptionMode: "none",
     allowedValueOptionNames: Object.freeze([])
   }),
+  "list-navigation": Object.freeze({
+    command: "list-navigation",
+    aliases: Object.freeze([]),
+    showInOverview: true,
+    summary: "Inspect explicit destination-stack route metadata.",
+    minimalUse: "jskit list-navigation",
+    parameters: Object.freeze([]),
+    defaults: Object.freeze([
+      "Lists application and app-local package route pages with their destination, preserve, boundary, or missing classification.",
+      "Use --details for fallback, persistence, scope-adjacent route information, and expected contributors.",
+      "Use --json for structured inspection output."
+    ]),
+    fullUse: "jskit list-navigation [--details] [--json]",
+    showHelpOnBareInvocation: false,
+    handlerName: "commandListNavigation",
+    allowedFlagKeys: Object.freeze(["details", "json"]),
+    inlineOptionMode: "none",
+    allowedValueOptionNames: Object.freeze([])
+  }),
   "list-component-tokens": Object.freeze({
     command: "list-component-tokens",
     aliases: Object.freeze([]),

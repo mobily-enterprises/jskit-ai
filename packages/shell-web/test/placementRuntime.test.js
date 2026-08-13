@@ -106,6 +106,15 @@ test("web placement runtime resolves semantic targets through topology variants"
   });
   assert.deepEqual(mediumEntries.map((entry) => entry.id), ["test.home"]);
   assert.equal(mediumEntries[0].componentToken, "component.menu");
+
+  const semanticEntries = runtime.getSemanticPlacements({
+    surface: "app",
+    target: "shell.primary-nav",
+    layoutClass: "compact"
+  });
+  assert.deepEqual(semanticEntries.map((entry) => entry.id), ["test.home"]);
+  assert.equal(semanticEntries[0].target, "shell.primary-nav");
+  assert.equal(Object.hasOwn(semanticEntries[0], "component"), false);
 });
 
 test("web placement runtime accepts append-only topology objects", () => {

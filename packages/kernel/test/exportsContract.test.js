@@ -26,6 +26,8 @@ const EXPORTED_UNUSED_ALLOWLIST = new Set([
   "./client/moduleBootstrap",
   // Intentionally retained as an explicit low-level kernel API subpath.
   "./shared/support/tokens",
+  // Public framework-neutral navigation schemas and validation helpers.
+  "./shared/navigation",
   // Public helper API for packages that publish entity-change realtime events.
   "./server/runtime/entityChangeEvents"
 ]);

@@ -38,6 +38,16 @@ export default defineConfig({
           ]
         },
         {
+          text: "Navigation",
+          items: [
+            { text: "Migrate existing apps", link: "/guide/navigation/migrate-existing-apps" },
+            { text: "Destination Stack", link: "/guide/navigation/destination-stack" },
+            { text: "State Restoration", link: "/guide/navigation/restoration" },
+            { text: "Material 3 Shell", link: "/guide/navigation/material-shell" },
+            { text: "Testing", link: "/guide/navigation/testing-migration" }
+          ]
+        },
+        {
           text: "App Extras",
           items: [
             { text: "Mobile Capacitor", link: "/guide/app-extras/mobile-capacitor" },

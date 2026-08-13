@@ -11,6 +11,7 @@ import { useAuthStore } from "../src/client/stores/useAuthStore.js";
 function createAuthRuntimeStub(initialState = {}) {
   let state = Object.freeze({
     authenticated: Boolean(initialState.authenticated),
+    principal: initialState.authenticated ? String(initialState.principal || "principal-test") : "",
     username: String(initialState.username || ""),
     oauthDefaultProvider: String(initialState.oauthDefaultProvider || ""),
     oauthProviders: Array.isArray(initialState.oauthProviders)
@@ -42,6 +43,7 @@ function createAuthRuntimeStub(initialState = {}) {
     push(nextState = {}) {
       state = Object.freeze({
         authenticated: Boolean(nextState.authenticated),
+        principal: nextState.authenticated ? String(nextState.principal || "principal-test") : "",
         username: String(nextState.username || ""),
         oauthDefaultProvider: String(nextState.oauthDefaultProvider || ""),
         oauthProviders: Array.isArray(nextState.oauthProviders)
@@ -59,7 +61,13 @@ function createAuthRuntimeStub(initialState = {}) {
   };
 }
 
-function createAppDouble({ authGuardRuntime, bootstrapRuntime = null, oauthLaunchClient = null } = {}) {
+function createAppDouble({
+  authGuardRuntime,
+  bootstrapRuntime = null,
+  oauthLaunchClient = null,
+  navigationRuntime = null,
+  logger = null
+} = {}) {
   const singletons = new Map();
   const singletonInstances = new Map();
   const provided = [];
@@ -67,6 +75,13 @@ function createAppDouble({ authGuardRuntime, bootstrapRuntime = null, oauthLaunc
   const vueApp = {
     provide(key, value) {
       provided.push({ key, value });
+    }
+  };
+  const navigationScopeCalls = [];
+  const navigation = navigationRuntime || {
+    async setScope(scope) {
+      navigationScopeCalls.push(scope);
+      return { status: "completed" };
     }
   };
 
@@ -84,6 +99,12 @@ function createAppDouble({ authGuardRuntime, bootstrapRuntime = null, oauthLaunc
       }
       if (token === "jskit.client.pinia") {
         return true;
+      }
+      if (token === "jskit.client.navigation") {
+        return true;
+      }
+      if (token === "jskit.client.logger") {
+        return Boolean(logger);
       }
       if (token === "runtime.web-placement.client") {
         return true;
@@ -105,6 +126,12 @@ function createAppDouble({ authGuardRuntime, bootstrapRuntime = null, oauthLaunc
       }
       if (token === "jskit.client.pinia") {
         return pinia;
+      }
+      if (token === "jskit.client.navigation") {
+        return navigation;
+      }
+      if (token === "jskit.client.logger") {
+        return logger;
       }
       if (token === "runtime.web-placement.client") {
         return {
@@ -149,7 +176,8 @@ function createAppDouble({ authGuardRuntime, bootstrapRuntime = null, oauthLaunc
       const instance = factory(this);
       singletonInstances.set(token, instance);
       return instance;
-    }
+    },
+    navigationScopeCalls
   };
 }
 
@@ -167,13 +195,16 @@ test("auth web client boot binds explicit Pinia store state and raw runtime inje
   assert.equal(authStore.authenticated, true);
   assert.equal(authStore.username, "ada");
   assert.equal(authGuardRuntime.initializeCalls, 1);
+  assert.deepEqual(app.navigationScopeCalls, [{ principal: "principal-test" }]);
 
   authGuardRuntime.push({
     authenticated: true,
     username: "grace"
   });
+  await new Promise((resolve) => setImmediate(resolve));
 
   assert.equal(authStore.username, "grace");
+  assert.deepEqual(app.navigationScopeCalls.at(-1), { principal: "principal-test" });
 
   const providedByKey = new Map(app.provided.map((entry) => [entry.key, entry.value]));
   assert.equal(providedByKey.get(AUTH_GUARD_RUNTIME_INJECTION_KEY), authGuardRuntime);
@@ -203,8 +234,57 @@ test("auth web client boot refreshes shared bootstrap runtime on auth changes", 
     authenticated: true,
     username: "ada"
   });
+  await new Promise((resolve) => setImmediate(resolve));
 
   assert.deepEqual(refreshCalls, ["auth.state"]);
+});
+
+test("auth web client serializes scope changes and continues after a failed update", async () => {
+  const authGuardRuntime = createAuthRuntimeStub({
+    authenticated: false
+  });
+  const scopeCalls = [];
+  const loggedErrors = [];
+  let releaseFirstUpdate;
+  const firstUpdate = new Promise((resolve) => {
+    releaseFirstUpdate = resolve;
+  });
+  const navigationRuntime = {
+    async setScope(scope) {
+      scopeCalls.push(scope);
+      if (scope.principal === "first") {
+        await firstUpdate;
+        throw new Error("scope update failed");
+      }
+      return { status: "completed" };
+    }
+  };
+  const app = createAppDouble({
+    authGuardRuntime,
+    navigationRuntime,
+    logger: {
+      error(details) {
+        loggedErrors.push(details);
+      }
+    }
+  });
+
+  await bootAuthClientProvider(app);
+  authGuardRuntime.push({ authenticated: true, principal: "first" });
+  authGuardRuntime.push({ authenticated: true, principal: "second" });
+  await Promise.resolve();
+
+  assert.deepEqual(scopeCalls, [{ principal: "anonymous" }, { principal: "first" }]);
+  releaseFirstUpdate();
+  await new Promise((resolve) => setImmediate(resolve));
+
+  assert.deepEqual(scopeCalls, [
+    { principal: "anonymous" },
+    { principal: "first" },
+    { principal: "second" }
+  ]);
+  assert.equal(loggedErrors.length, 1);
+  assert.equal(loggedErrors[0].error, "scope update failed");
 });
 
 test("auth web client boot prefers an explicitly registered OAuth launch client", async () => {

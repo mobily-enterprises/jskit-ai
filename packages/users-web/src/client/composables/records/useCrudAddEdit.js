@@ -1,5 +1,6 @@
-import { computed, proxyRefs, reactive, watch } from "vue";
+import { computed, proxyRefs, reactive, ref, watch } from "vue";
 import { useRoute, useRouter } from "vue-router";
+import { useJskitNavigation } from "@jskit-ai/kernel/client/navigation";
 import { asPlainObject } from "../support/scopeHelpers.js";
 import { resolveCrudJsonApiTransport } from "../crud/crudJsonApiTransportSupport.js";
 import { resolveCrudHttpClient } from "../crud/crudHttpClientSupport.js";
@@ -41,6 +42,53 @@ function normalizeSaveSuccessOptions(options = {}) {
   });
 }
 
+function createCrudFormFingerprint(value, ancestors = new WeakSet()) {
+  if (value === null) {
+    return "null";
+  }
+  const valueType = typeof value;
+  if (valueType !== "object") {
+    if (valueType === "number" && Object.is(value, -0)) {
+      return "number:-0";
+    }
+    if (valueType === "string") {
+      return `string:${JSON.stringify(value)}`;
+    }
+    return `${valueType}:${String(value)}`;
+  }
+  if (ancestors.has(value)) {
+    return "[circular]";
+  }
+  if (
+    typeof value.name === "string" &&
+    Number.isFinite(value.size) &&
+    Number.isFinite(value.lastModified)
+  ) {
+    return `file:${JSON.stringify([value.name, value.size, value.lastModified, String(value.type || "")])}`;
+  }
+  if (value instanceof Date) {
+    return `date:${Number.isFinite(value.getTime()) ? value.toISOString() : "invalid"}`;
+  }
+  ancestors.add(value);
+  try {
+    if (Array.isArray(value)) {
+      return `array:[${value.map((entry) => createCrudFormFingerprint(entry, ancestors)).join(",")}]`;
+    }
+    return `object:{${Object.keys(value)
+      .sort((left, right) => left.localeCompare(right))
+      .map((key) => `${JSON.stringify(key)}:${createCrudFormFingerprint(value[key], ancestors)}`)
+      .join(",")}}`;
+  } finally {
+    ancestors.delete(value);
+  }
+}
+
+function resolveCrudMachineryExitMode({ activeFullPath = "", targetFullPath = "", canPop = false } = {}) {
+  return Boolean(canPop) && String(activeFullPath || "") === String(targetFullPath || "")
+    ? "pop"
+    : "replace";
+}
+
 function useCrudAddEdit({
   resource = null,
   operationName = "",
@@ -55,6 +103,7 @@ function useCrudAddEdit({
 } = {}) {
   const router = useRouter();
   const route = useRoute();
+  const navigation = useJskitNavigation();
   const normalizedFields = normalizeCrudFormFields(formFields);
   const normalizedAddEditOptions = asPlainObject(addEditOptions);
   const resolvedResource = normalizedAddEditOptions.resource || resource;
@@ -133,6 +182,15 @@ function useCrudAddEdit({
     return payload;
   }
 
+  const savedFormFingerprint = ref("");
+  function resetDirtyBaseline() {
+    savedFormFingerprint.value = createCrudFormFingerprint(resolveBuildRawPayload(form));
+  }
+  const isDirty = computed(() =>
+    createCrudFormFingerprint(resolveBuildRawPayload(form)) !== savedFormFingerprint.value
+  );
+  resetDirtyBaseline();
+
   const effectiveMapLoadedToModel = mapPayloadToModelOverride
     ? (model = {}, payload = {}, context = {}) => {
         mapPayloadToModelOverride(model, payload, {
@@ -140,17 +198,46 @@ function useCrudAddEdit({
           fields: normalizedFields
         });
         applyBoundFieldValues(model);
+        resetDirtyBaseline();
       }
     : (shouldApplyDefaultMapPayload
         ? (model = {}, payload = {}) => {
             applyCrudPayloadToForm(normalizedFields, model, payload);
             applyBoundFieldValues(model);
+            resetDirtyBaseline();
           }
         : undefined);
 
   let addEditRuntime = null;
 
+  async function navigateFromMachinery(target, { reason = "programmatic" } = {}) {
+    if (!target) {
+      return Object.freeze({ status: "blocked", reason: "missing-machinery-exit-target" });
+    }
+    const resolved = router.resolve(target);
+    const exitMode = resolveCrudMachineryExitMode({
+      activeFullPath: navigation.activeEntry.value?.fullPath,
+      targetFullPath: resolved.fullPath,
+      canPop: navigation.canPop.value
+    });
+    if (exitMode === "pop") {
+      return navigation.pop({ reason });
+    }
+    return navigation.replace(
+      {
+        path: resolved.path,
+        query: resolved.query,
+        hash: resolved.hash
+      },
+      {
+        reason,
+        preserveDestinationIdentity: false
+      }
+    );
+  }
+
   async function handleSaveSuccess(payload, context = {}) {
+    resetDirtyBaseline();
     if (onSaveSuccessOverride) {
       await onSaveSuccessOverride(payload, context);
       return;
@@ -167,7 +254,7 @@ function useCrudAddEdit({
       const viewUrl = addEditRuntime?.resolveSavedViewUrl(payload) ||
         addEditRuntime?.resolveViewUrl(addEditRuntime?.recordId);
       if (viewUrl) {
-        await router.push(viewUrl);
+        await navigateFromMachinery(viewUrl, { reason: "save-complete" });
         return;
       }
     }
@@ -180,7 +267,7 @@ function useCrudAddEdit({
       String(normalizedAddEditOptions.listUrlTemplate || "").trim();
     const listUrl = addEditRuntime?.resolveParams(listUrlTemplate);
     if (listUrl) {
-      await router.push(listUrl);
+      await navigateFromMachinery(listUrl, { reason: "save-complete" });
     }
   }
 
@@ -218,10 +305,15 @@ function useCrudAddEdit({
     formFields: normalizedFields,
     fieldErrorKeys,
     form,
+    isDirty,
+    resetDirtyBaseline,
+    navigateFromMachinery,
     addEdit,
     showFormSkeleton,
     resolveFieldErrors
   });
 }
 
-export { useCrudAddEdit };
+const __testables = Object.freeze({ createCrudFormFingerprint, resolveCrudMachineryExitMode });
+
+export { __testables, useCrudAddEdit };

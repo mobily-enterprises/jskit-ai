@@ -27,9 +27,10 @@ const surfaceRuntime = createSurfaceRuntime({
 });
 
 const surfaceMode = surfaceRuntime.normalizeSurfaceMode(import.meta.env.VITE_SURFACE);
-const { router, fallbackRoute } = createShellRouter({
+const routerHistory = createWebHistory();
+const { router, navigation, fallbackRoute } = createShellRouter({
   createRouter,
-  history: createWebHistory(),
+  history: routerHistory,
   routes,
   surfaceRuntime,
   surfaceMode,
@@ -38,7 +39,8 @@ const { router, fallbackRoute } = createShellRouter({
     surfaceDefinitions: config.surfaceDefinitions,
     defaultSurfaceId: config.surfaceDefaultId,
     webRootAllowed: config.webRootAllowed
-  }
+  },
+  navigation: true
 });
 
 const vuetify = createVuetify({
@@ -75,6 +77,7 @@ void bootstrapClientShellApp({
   pinia,
   queryClient,
   router,
+  navigation,
   bootClientModules: bootInstalledClientModules,
   surfaceRuntime,
   surfaceMode,

@@ -24,6 +24,16 @@ It starts with a fast reproducible Quickstart, then steps back to the scaffold-f
 - [Realtime](/guide/app-extras/realtime)
 - [Assistant](/guide/app-extras/assistant)
 
+### Navigation
+
+> Updating an existing application? Start with [Migrate an existing app](/guide/navigation/migrate-existing-apps). It is a version-0 clean cutover with no compatibility mode.
+
+- [Migrate Existing Apps](/guide/navigation/migrate-existing-apps)
+- [Destination Stack](/guide/navigation/destination-stack)
+- [State Restoration](/guide/navigation/restoration)
+- [Material 3 Shell](/guide/navigation/material-shell)
+- [Testing](/guide/navigation/testing-migration)
+
 ### Generators
 
 - [Intro](/guide/generators/intro)

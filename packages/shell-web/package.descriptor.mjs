@@ -93,12 +93,22 @@ export default Object.freeze({
             source: "src/client/components/ShellLayout.vue"
           },
           {
-            target: "shell-layout:primary-menu",
+            target: "shell-layout:primary-rail",
+            surfaces: ["*"],
+            source: "src/client/components/ShellLayout.vue"
+          },
+          {
+            target: "shell-layout:primary-drawer",
             surfaces: ["*"],
             source: "src/client/components/ShellLayout.vue"
           },
           {
             target: "shell-layout:primary-bottom-nav",
+            surfaces: ["*"],
+            source: "src/client/components/ShellLayout.vue"
+          },
+          {
+            target: "shell-layout:navigation-overflow-menu",
             surfaces: ["*"],
             source: "src/client/components/ShellLayout.vue"
           },
@@ -138,13 +148,13 @@ export default Object.freeze({
                   }
                 },
                 medium: {
-                  outlet: "shell-layout:primary-menu",
+                  outlet: "shell-layout:primary-rail",
                   renderers: {
-                    link: "local.main.ui.surface-aware-menu-link-item"
+                    link: "local.main.ui.tab-link-item"
                   }
                 },
                 expanded: {
-                  outlet: "shell-layout:primary-menu",
+                  outlet: "shell-layout:primary-drawer",
                   renderers: {
                     link: "local.main.ui.surface-aware-menu-link-item"
                   }
@@ -173,13 +183,13 @@ export default Object.freeze({
               surfaces: ["*"],
               variants: {
                 compact: {
-                  outlet: "shell-layout:secondary-menu",
+                  outlet: "shell-layout:navigation-overflow-menu",
                   renderers: {
                     link: "local.main.ui.surface-aware-menu-link-item"
                   }
                 },
                 medium: {
-                  outlet: "shell-layout:secondary-menu",
+                  outlet: "shell-layout:navigation-overflow-menu",
                   renderers: {
                     link: "local.main.ui.surface-aware-menu-link-item"
                   }

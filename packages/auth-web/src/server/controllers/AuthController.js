@@ -157,8 +157,14 @@ class AuthController {
       return;
     }
 
+    const principal = String(authResult.profile?.id ?? "").trim();
+    if (!principal) {
+      throw new Error("Authenticated session profile requires an opaque principal id.");
+    }
+
     reply.code(200).send({
       authenticated: true,
+      principal,
       username: authResult.profile.displayName,
       email: authResult.profile.email,
       permissions: Array.isArray(authResult.permissions) ? authResult.permissions : [],

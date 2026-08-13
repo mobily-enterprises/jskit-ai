@@ -15,6 +15,18 @@ import {
   resolveCapacitorLaunchUrl
 } from "../src/client/runtime/oauthLaunchClient.js";
 
+function createNavigationDouble({
+  pop = async () => ({ status: "blocked", reason: "no-in-app-previous-destination" }),
+  replace = null,
+  ready = false
+} = {}) {
+  return Object.freeze({
+    pop,
+    state: Object.freeze({ ready }),
+    ...(replace ? { replace } : {})
+  });
+}
+
 test("createNoopCapacitorAppAdapter returns a stable disabled adapter", async () => {
   const adapter = createNoopCapacitorAppAdapter();
 
@@ -201,6 +213,7 @@ test("createCapacitorAwareOAuthLaunchClient falls back to browser navigation out
 test("mobile capacitor runtime routes an initial launch URL through kernel mobile routing", async () => {
   const replaceCalls = [];
   const runtime = createMobileCapacitorRuntime({
+    navigation: createNavigationDouble(),
     router: {
       currentRoute: {
         value: {
@@ -240,10 +253,87 @@ test("mobile capacitor runtime routes an initial launch URL through kernel mobil
   });
 });
 
+test("mobile capacitor runtime shares concurrent initialization and wires listeners once", async () => {
+  let initialUrlCalls = 0;
+  let launchSubscriptions = 0;
+  let backSubscriptions = 0;
+  let releaseInitialUrl;
+  const initialUrlReady = new Promise((resolve) => {
+    releaseInitialUrl = resolve;
+  });
+  const runtime = createMobileCapacitorRuntime({
+    navigation: createNavigationDouble(),
+    router: {
+      currentRoute: { value: { fullPath: "/home" } },
+      async replace() {}
+    },
+    mobileConfig: { enabled: true, auth: { customScheme: "convict" } },
+    adapter: {
+      available: true,
+      async getInitialLaunchUrl() {
+        initialUrlCalls += 1;
+        await initialUrlReady;
+        return "convict://w/acme";
+      },
+      subscribeToLaunchUrls() {
+        launchSubscriptions += 1;
+        return () => {};
+      },
+      subscribeToBackButton() {
+        backSubscriptions += 1;
+        return () => {};
+      }
+    }
+  });
+
+  const first = runtime.initialize();
+  const second = runtime.initialize();
+  releaseInitialUrl();
+
+  assert.deepEqual(await Promise.all([first, second]), ["/w/acme", "/w/acme"]);
+  assert.equal(initialUrlCalls, 1);
+  assert.equal(launchSubscriptions, 1);
+  assert.equal(backSubscriptions, 1);
+  runtime.dispose();
+});
+
+test("mobile capacitor runtime can retry after initialization fails", async () => {
+  let initialUrlCalls = 0;
+  const runtime = createMobileCapacitorRuntime({
+    navigation: createNavigationDouble(),
+    router: {
+      currentRoute: { value: { fullPath: "/home" } },
+      async replace() {}
+    },
+    mobileConfig: { enabled: true, auth: { customScheme: "convict" } },
+    adapter: {
+      available: true,
+      async getInitialLaunchUrl() {
+        initialUrlCalls += 1;
+        if (initialUrlCalls === 1) {
+          throw new Error("initial URL unavailable");
+        }
+        return "";
+      },
+      subscribeToLaunchUrls() {
+        return () => {};
+      }
+    }
+  });
+
+  await assert.rejects(runtime.initialize(), /initial URL unavailable/);
+  assert.equal(runtime.getState().initialized, false);
+  assert.equal(await runtime.initialize(), "");
+  assert.equal(runtime.getState().initialized, true);
+  assert.equal(initialUrlCalls, 2);
+  runtime.dispose();
+});
+
 test("mobile capacitor runtime waits for auth guard initialization before applying launch routing", async () => {
   const order = [];
   const replaceCalls = [];
   const runtime = createMobileCapacitorRuntime({
+    navigation: createNavigationDouble(),
     router: {
       currentRoute: {
         value: {
@@ -307,9 +397,56 @@ test("mobile capacitor runtime waits for auth guard initialization before applyi
   ]);
 });
 
+test("mobile launch events use the shared navigation replacement after bootstrap", async () => {
+  const routerReplaceCalls = [];
+  const navigationReplaceCalls = [];
+  const runtime = createMobileCapacitorRuntime({
+    navigation: createNavigationDouble({
+      ready: true,
+      async replace(target, options) {
+        navigationReplaceCalls.push({ target, options });
+        return { status: "completed" };
+      }
+    }),
+    router: {
+      currentRoute: { value: { fullPath: "/home" } },
+      async replace(target) {
+        routerReplaceCalls.push(target);
+      }
+    },
+    mobileConfig: {
+      enabled: true,
+      auth: { customScheme: "convict" }
+    },
+    adapter: {
+      available: true,
+      async getInitialLaunchUrl() {
+        return "";
+      },
+      subscribeToLaunchUrls() {
+        return () => {};
+      }
+    }
+  });
+
+  await runtime.initialize();
+  await runtime.applyIncomingUrl("convict://w/acme/inventory", "launch-event");
+
+  assert.deepEqual(routerReplaceCalls, []);
+  assert.deepEqual(navigationReplaceCalls, [{
+    target: "/w/acme/inventory",
+    options: {
+      reason: "programmatic",
+      preserveDestinationIdentity: false,
+      focus: "heading"
+    }
+  }]);
+});
+
 test("mobile capacitor runtime resolves successful auth callbacks to the returned destination", async () => {
   const replaceCalls = [];
   const runtime = createMobileCapacitorRuntime({
+    navigation: createNavigationDouble(),
     router: {
       currentRoute: {
         value: {
@@ -381,6 +518,7 @@ test("mobile capacitor runtime resolves successful auth callbacks to the returne
 test("mobile capacitor runtime falls back to the normalized callback route when auth completion does not finish", async () => {
   const replaceCalls = [];
   const runtime = createMobileCapacitorRuntime({
+    navigation: createNavigationDouble(),
     router: {
       currentRoute: {
         value: {
@@ -424,12 +562,23 @@ test("mobile capacitor runtime falls back to the normalized callback route when 
   assert.deepEqual(replaceCalls, ["/auth/login?code=abc"]);
 });
 
-test("mobile capacitor runtime uses the Capacitor back button to go back or exit", async () => {
+test("mobile capacitor runtime delegates Capacitor Back to the shared navigation runtime", async () => {
   const replaceCalls = [];
-  const backCalls = [];
+  const popCalls = [];
+  const popResults = [
+    { status: "completed", reason: "transient-layer-closed" },
+    { status: "cancelled", reason: "router-navigation-cancelled" },
+    { status: "blocked", reason: "no-in-app-previous-destination" }
+  ];
   let backButtonHandler = null;
   let exitCalls = 0;
   const runtime = createMobileCapacitorRuntime({
+    navigation: createNavigationDouble({
+      async pop(options) {
+        popCalls.push(options);
+        return popResults.shift();
+      }
+    }),
     router: {
       currentRoute: {
         value: {
@@ -438,9 +587,6 @@ test("mobile capacitor runtime uses the Capacitor back button to go back or exit
       },
       async replace(target) {
         replaceCalls.push(target);
-      },
-      back() {
-        backCalls.push("back");
       }
     },
     mobileConfig: {
@@ -477,9 +623,16 @@ test("mobile capacitor runtime uses the Capacitor back button to go back or exit
   await backButtonHandler({
     canGoBack: false
   });
+  await backButtonHandler({
+    canGoBack: true
+  });
 
   assert.deepEqual(replaceCalls, []);
-  assert.deepEqual(backCalls, ["back"]);
+  assert.deepEqual(popCalls, [
+    { reason: "system-back" },
+    { reason: "system-back" },
+    { reason: "system-back" }
+  ]);
   assert.equal(exitCalls, 1);
 
   runtime.dispose();

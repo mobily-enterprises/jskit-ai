@@ -38,7 +38,7 @@ const resolvedDescription = computed(() =>
     <header class="ui-generator-view-header">
       <div class="ui-generator-view-header__copy">
         <p class="text-overline text-medium-emphasis mb-1">{{ resourceSingularTitle }}</p>
-        <h1 class="ui-generator-view-header__title">{{ recordTitle }}</h1>
+        <h1 class="ui-generator-view-header__title" data-jskit-page-heading tabindex="-1">{{ recordTitle }}</h1>
         <p class="text-body-2 text-medium-emphasis mb-0">{{ resolvedDescription }}</p>
       </div>
       <div class="ui-generator-view-header__actions">
@@ -48,7 +48,7 @@ const resolvedDescription = computed(() =>
           variant="outlined"
           :to="listLocation"
         >
-          Back to {{ resourcePluralTitle }}
+          View all {{ resourcePluralTitle }}
         </v-btn>
         <v-btn
           v-if="editLocation"
@@ -83,7 +83,7 @@ const resolvedDescription = computed(() =>
             variant="tonal"
             :to="listLocation"
           >
-            Back to {{ resourcePluralTitle }}
+            View all {{ resourcePluralTitle }}
           </v-btn>
         </div>
       </div>

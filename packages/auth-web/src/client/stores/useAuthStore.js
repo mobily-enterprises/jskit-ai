@@ -65,6 +65,7 @@ export const useAuthStore = defineStore("jskit.auth-web.auth", () => {
   }
 
   const authenticated = computed(() => authState.value.authenticated === true);
+  const principal = computed(() => String(authState.value.principal || ""));
   const username = computed(() => String(authState.value.username || ""));
   const oauthProviders = computed(() => authState.value.oauthProviders || EMPTY_AUTH_GUARD_STATE.oauthProviders);
   const oauthDefaultProvider = computed(() => String(authState.value.oauthDefaultProvider || ""));
@@ -74,6 +75,7 @@ export const useAuthStore = defineStore("jskit.auth-web.auth", () => {
     runtime,
     authState,
     authenticated,
+    principal,
     username,
     oauthProviders,
     oauthDefaultProvider,

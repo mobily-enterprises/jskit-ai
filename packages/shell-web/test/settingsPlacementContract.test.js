@@ -6,6 +6,7 @@ import { fileURLToPath } from "node:url";
 import { assertGeneratedUiSourceContract } from "@jskit-ai/kernel/shared/support/generatedUiContract";
 import descriptor from "../package.descriptor.mjs";
 import { resolveShellRouteTransitionKey } from "../src/client/support/routeTransitionKey.js";
+import { resolveMaterialWindowClass } from "../src/client/support/materialWindowClass.js";
 
 const TEST_DIRECTORY = path.dirname(fileURLToPath(import.meta.url));
 const PACKAGE_DIR = path.resolve(TEST_DIRECTORY, "..");
@@ -57,6 +58,16 @@ function findFileMutation(id) {
     : null;
 }
 
+test("shell-web maps Material window widths independently of Vuetify's default breakpoint names", () => {
+  assert.equal(resolveMaterialWindowClass(390), "compact");
+  assert.equal(resolveMaterialWindowClass(599), "compact");
+  assert.equal(resolveMaterialWindowClass(600), "medium");
+  assert.equal(resolveMaterialWindowClass(768), "medium");
+  assert.equal(resolveMaterialWindowClass(839), "medium");
+  assert.equal(resolveMaterialWindowClass(840), "expanded");
+  assert.equal(resolveMaterialWindowClass(1280), "expanded");
+});
+
 test("shell-web home settings template exposes surface-derived settings outlets", async () => {
   const source = await readFile(path.join(PACKAGE_DIR, "templates", "src", "pages", "home", "settings.vue"), "utf8");
 
@@ -77,7 +88,11 @@ test("shell-web shell layout registers navigation at the app layout level", asyn
   assert.match(source, /<ShellRouteTransition>[\s\S]*<slot \/>[\s\S]*<\/ShellRouteTransition>/);
   assert.match(source, /data-testid="jskit-shell-app-bar"/);
   assert.match(source, /:density="isCompactLayout \? 'compact' : 'comfortable'"/);
-  assert.match(source, /\.shell-layout__nav-toggle\s*\{[\s\S]*min-height:\s*48px;[\s\S]*min-width:\s*48px;/);
+  assert.match(source, /<ShellLeadingNavigation[\s\S]*:menu-available="isCompactLayout"/);
+  const leadingSource = await readFile(path.join(PACKAGE_DIR, "src", "client", "components", "ShellLeadingNavigation.vue"), "utf8");
+  assert.match(leadingSource, /min-height:\s*48px;[\s\S]*min-width:\s*48px;/);
+  assert.match(leadingSource, /mdiArrowLeft/);
+  assert.match(leadingSource, /\[dir="rtl"\]/);
   assert.match(source, /shell-layout__surface-label/);
   assert.doesNotMatch(source, /shell-layout__surface-chip/);
   assert.doesNotMatch(source, /<v-chip[^>]*resolvedSurfaceLabel/);
@@ -92,7 +107,9 @@ test("shell-web shell layout registers navigation at the app layout level", asyn
   assert.match(source, /window\.addEventListener\("touchmove", handlePullTouchMove/);
   assert.match(source, /refreshRuntime\.refresh\("pull-to-refresh"\)/);
   assert.match(source, /data-testid="jskit-shell-pull-refresh"/);
-  assert.match(source, /target="shell-layout:primary-menu"[\s\S]*default/);
+  assert.match(source, /target="shell-layout:primary-rail"/);
+  assert.match(source, /target="shell-layout:primary-drawer"[\s\S]*default/);
+  assert.match(source, /data-testid="jskit-shell-bottom-more"/);
   assert.doesNotMatch(source, /target="shell-layout:primary-bottom-nav"[\s\S]*default/);
   assert.match(source, /data-testid="jskit-shell-drawer"/);
   assert.match(source, /data-testid="jskit-shell-bottom-nav"/);
@@ -474,7 +491,8 @@ test("shell-web descriptor metadata advertises adaptive shell outlets, default l
     readTopology("shell.primary-nav")[0]?.variants?.compact?.renderers?.link,
     "local.main.ui.tab-link-item"
   );
-  assert.equal(readTopology("shell.primary-nav")[0]?.variants?.medium?.outlet, "shell-layout:primary-menu");
+  assert.equal(readTopology("shell.primary-nav")[0]?.variants?.medium?.outlet, "shell-layout:primary-rail");
+  assert.equal(readTopology("shell.primary-nav")[0]?.variants?.expanded?.outlet, "shell-layout:primary-drawer");
   assert.equal(readTopology("shell.global-actions").length, 1);
   assert.equal(readTopology("shell.global-actions")[0]?.variants?.compact?.outlet, "shell-layout:top-right");
   assert.equal(

@@ -10,6 +10,8 @@ How to use it:
 
 ## Keyword Map
 
+- navigation, router, browser Back, Up, destination, machinery, restoration, scroll anchor, migration, existing app, `returnTo`, Material 3, navigation rail, navigation drawer
+  - `destination-navigation.md`
 - tabs, menu items, icons, shell links, profile links, subpage tabs, placements
   - `placements.md`
 - surfaces, app/admin/home/console, "which surface", route ownership, placement visibility
@@ -43,6 +45,7 @@ How to use it:
 
 ## Current Patterns
 
+- [destination-navigation.md](./destination-navigation.md)
 - [placements.md](./placements.md)
 - [surfaces.md](./surfaces.md)
 - [page-scaffolding.md](./page-scaffolding.md)

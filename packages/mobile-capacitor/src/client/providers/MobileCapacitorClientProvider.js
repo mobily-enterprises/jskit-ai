@@ -77,6 +77,9 @@ class MobileCapacitorClientProvider {
       if (!scope.has("jskit.client.router")) {
         throw new Error("MobileCapacitorClientProvider requires jskit.client.router.");
       }
+      if (!scope.has("jskit.client.navigation")) {
+        throw new Error("MobileCapacitorClientProvider requires jskit.client.navigation.");
+      }
 
       const placementRuntime = scope.has("runtime.web-placement.client")
         ? scope.make("runtime.web-placement.client")
@@ -90,6 +93,7 @@ class MobileCapacitorClientProvider {
 
       return createMobileCapacitorRuntime({
         router: scope.make("jskit.client.router"),
+        navigation: scope.make("jskit.client.navigation"),
         mobileConfig: getClientAppConfig().mobile || {},
         adapter: scope.make("mobile.capacitor.adapter.client"),
         placementRuntime,

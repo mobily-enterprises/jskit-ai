@@ -45,7 +45,7 @@ Exports
 
 ### `src/client/runtime/mobileCapacitorRuntime.js`
 Exports
-- `createMobileCapacitorRuntime({ router, mobileConfig = {}, adapter = createNoopCapacitorAppAdapter(), placementRuntime = null, authCallbackCompleter = null, authGuardRuntime = null, logger = null } = {})`
+- `createMobileCapacitorRuntime({ router, navigation, mobileConfig = {}, adapter = createNoopCapacitorAppAdapter(), placementRuntime = null, authCallbackCompleter = null, authGuardRuntime = null, logger = null } = {})`
 Local functions
 - `extractPathname(value = "")`
 - `normalizeCallbackCompleter(value = null)`

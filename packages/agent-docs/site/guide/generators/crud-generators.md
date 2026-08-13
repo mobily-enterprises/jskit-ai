@@ -463,6 +463,14 @@ The mirrored component root is intentional. The configured file router scans
 Vue files below `src/pages/`, so reusable Vue helpers must stay outside that
 directory or they become browser routes.
 
+The four routed pages also receive explicit destination-stack metadata. List
+and view are `destination` routes with stable keys. New and edit are
+`preserve` machinery with stable machinery keys. The list registers a shared
+stable item-anchor/focus contributor, record titles remain real destination
+links, and generated forms register the shared dirty-form navigation blocker.
+The shell owns Back; generated pages do not add their own Back arrows or
+`returnTo` query chain.
+
 Generated list, view, and lookup reads use the resource contract as their
 response authority. They return every field declared for output by default,
 including the target resource's declared output when a lookup relation is

@@ -1,6 +1,7 @@
 <script setup>
 import { computed, unref } from "vue";
 import { useRoute } from "vue-router";
+import { JskitDestinationLink } from "@jskit-ai/kernel/client/navigationLink";
 import CrudListBulkActionSurface from "./CrudListBulkActionSurface.vue";
 import CrudListFilterSurface from "./CrudListFilterSurface.vue";
 import CrudListRecordActionMenu from "./CrudListRecordActionMenu.vue";
@@ -126,11 +127,14 @@ function setSelectableRowsSelected(selected = true) {
 </script>
 
 <template>
-  <section class="generated-ui-screen generated-ui-screen--operator ui-generator-list-element d-flex flex-column ga-4">
+  <section
+    class="generated-ui-screen generated-ui-screen--operator ui-generator-list-element d-flex flex-column ga-4"
+    :data-jskit-navigation-contributor-root="screen.navigationContributorId || undefined"
+  >
     <header class="ui-generator-list-header">
       <div class="ui-generator-list-header__copy">
         <p class="text-overline text-medium-emphasis mb-1">{{ titleLabel }}</p>
-        <h1 class="ui-generator-list-header__title">{{ resolvedHeadingTitle }}</h1>
+        <h1 class="ui-generator-list-header__title" data-jskit-page-heading tabindex="-1">{{ resolvedHeadingTitle }}</h1>
         <p class="text-body-2 text-medium-emphasis mb-0">{{ resolvedSubtitle }}</p>
       </div>
       <div class="ui-generator-list-header__actions">
@@ -198,6 +202,7 @@ function setSelectableRowsSelected(selected = true) {
               rounded="lg"
               border
               class="ui-generator-list-card"
+              :data-jskit-list-item-key="row.recordKey"
             >
               <div class="ui-generator-list-card__header">
                 <v-checkbox-btn
@@ -208,7 +213,16 @@ function setSelectableRowsSelected(selected = true) {
                   @update:model-value="setBulkRowSelected(row, $event)"
                 />
                 <div class="min-w-0">
-                  <div class="ui-generator-list-card__title">{{ resolveListRecordTitle(row.record) }}</div>
+                  <JskitDestinationLink
+                    v-if="!row.synthetic && resolveViewLocation(row.record)"
+                    class="ui-generator-list-card__title ui-generator-list-card__title-link"
+                    :to="resolveViewLocation(row.record)"
+                    :data-jskit-navigation-contributor="screen.navigationContributorId || undefined"
+                    :data-jskit-focus-key="row.recordKey"
+                  >
+                    {{ resolveListRecordTitle(row.record) }}
+                  </JskitDestinationLink>
+                  <div v-else class="ui-generator-list-card__title">{{ resolveListRecordTitle(row.record) }}</div>
                   <div class="text-caption text-medium-emphasis">
                     {{ row.recordKey }}
                   </div>
@@ -259,7 +273,7 @@ function setSelectableRowsSelected(selected = true) {
                 </tr>
               </thead>
               <tbody>
-                <tr v-for="row in displayRows" :key="row.key">
+                <tr v-for="row in displayRows" :key="row.key" :data-jskit-list-item-key="row.recordKey">
                   <td v-if="hasBulkActions" class="ui-generator-list-table__select">
                     <v-checkbox-btn
                       v-if="row.selectable !== false"
@@ -283,6 +297,8 @@ function setSelectableRowsSelected(selected = true) {
                       variant="outlined"
                       :to="resolveViewLocation(row.record)"
                       :disabled="!resolveViewLocation(row.record)"
+                      :data-jskit-navigation-contributor="screen.navigationContributorId || undefined"
+                      :data-jskit-focus-key="row.recordKey"
                     >
                       Open
                     </v-btn>
@@ -419,6 +435,22 @@ function setSelectableRowsSelected(selected = true) {
   font-weight: 650;
   line-height: 1.25;
   overflow-wrap: anywhere;
+}
+
+.ui-generator-list-card__title-link {
+  align-items: center;
+  color: rgb(var(--v-theme-primary));
+  display: inline-flex;
+  min-height: 48px;
+  text-decoration: underline;
+  text-decoration-thickness: 0.08em;
+  text-underline-offset: 0.16em;
+}
+
+.ui-generator-list-card__title-link:focus-visible {
+  border-radius: 0.25rem;
+  outline: 2px solid rgb(var(--v-theme-primary));
+  outline-offset: 2px;
 }
 
 .ui-generator-list-card__fields {

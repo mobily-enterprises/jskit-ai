@@ -2,15 +2,23 @@
 import {
   computed,
   inject,
+  nextTick,
   onBeforeUnmount,
   onMounted,
   ref,
   watch
 } from "vue";
 import { useDisplay } from "vuetify";
+import { useRoute } from "vue-router";
+import { mdiDotsHorizontal } from "@mdi/js";
+import { useJskitNavigation } from "@jskit-ai/kernel/client/navigation";
 import { useShellLayoutState } from "../composables/useShellLayoutState.js";
 import ShellOutlet from "./ShellOutlet.vue";
 import ShellRouteTransition from "./ShellRouteTransition.vue";
+import ShellLeadingNavigation from "./ShellLeadingNavigation.vue";
+import ShellNavigationGuardDialog from "./ShellNavigationGuardDialog.vue";
+import ShellSurfaceAwareMenuLinkItem from "./ShellSurfaceAwareMenuLinkItem.vue";
+import { resolveMaterialWindowClass } from "../support/materialWindowClass.js";
 
 const props = defineProps({
   surface: {
@@ -28,6 +36,10 @@ const props = defineProps({
   subtitle: {
     type: String,
     default: ""
+  },
+  navigationLabels: {
+    type: Object,
+    default: () => ({})
   }
 });
 
@@ -39,30 +51,45 @@ const {
   supportingContentTitle,
   setSupportingContentOpen,
   closeSupportingContent,
-  toggleDrawer,
   resolvedSurface,
   resolvedSurfaceLabel
 } = useShellLayoutState(props);
 const display = useDisplay();
+const route = useRoute();
+const navigation = useJskitNavigation();
 const refreshRuntime = inject("jskit.shell-web.runtime.web-refresh.client", null);
 const pullDistance = ref(0);
 const pullRefreshing = ref(false);
+const navigationOverflowOpen = ref(false);
+const moreNavigationButton = ref(null);
 let activePull = null;
+let moreNavigationRoute = "";
+let restoreMoreNavigationFocus = false;
+const unregisterShellOverlay = navigation.registerTransientLayer({
+  id: "shell.web.overlay",
+  priority: 100,
+  isOpen: () => Boolean(navigationOverflowOpen.value || drawerOpen.value || supportingContentOpen.value),
+  close: () => closeTopShellOverlay()
+});
 
 const PULL_REFRESH_TRIGGER_DISTANCE = 72;
 const PULL_REFRESH_MAX_DISTANCE = 112;
+const COMPACT_NAVIGATION_CAPACITY = 5;
+const RAIL_NAVIGATION_CAPACITY = 7;
+
+function navigationLabel(key, fallback) {
+  return String(props.navigationLabels?.[key] || fallback).trim() || fallback;
+}
 
 const layoutClass = computed(() => {
-  const displayName = String(display?.name?.value || "").trim().toLowerCase();
-  if (displayName === "xs" || displayName === "sm") {
-    return "compact";
-  }
-  if (displayName === "md") {
-    return "medium";
-  }
-  return "expanded";
+  return resolveMaterialWindowClass(display?.width?.value);
 });
 const isCompactLayout = computed(() => layoutClass.value === "compact");
+const isMediumLayout = computed(() => layoutClass.value === "medium");
+const isExpandedLayout = computed(() => layoutClass.value === "expanded");
+const navigationRail = computed(() =>
+  Boolean(isMediumLayout.value || (isExpandedLayout.value && !drawerDefaultOpen.value))
+);
 const pullProgress = computed(() =>
   Math.min(100, Math.round((pullDistance.value / PULL_REFRESH_TRIGGER_DISTANCE) * 100))
 );
@@ -80,12 +107,93 @@ const pullRefreshStyle = computed(() => ({
 }));
 
 watch(
-  isCompactLayout,
-  (compact) => {
-    setDrawerOpen(compact ? false : drawerDefaultOpen.value);
+  layoutClass,
+  () => {
+    setDrawerOpen(false);
+    navigationOverflowOpen.value = false;
   },
   { immediate: true }
 );
+
+watch(
+  () => route.fullPath,
+  () => {
+    setDrawerOpen(false);
+    navigationOverflowOpen.value = false;
+    restoreMoreNavigationFocus = false;
+  }
+);
+
+watch(
+  [drawerOpen, navigationOverflowOpen],
+  async ([drawerIsOpen, overflowIsOpen], [previousDrawerOpen, previousOverflowOpen]) => {
+    const closed = (previousDrawerOpen || previousOverflowOpen) && !drawerIsOpen && !overflowIsOpen;
+    if (!closed || !restoreMoreNavigationFocus || route.fullPath !== moreNavigationRoute) {
+      return;
+    }
+    restoreMoreNavigationFocus = false;
+    await nextTick();
+    const target = moreNavigationButton.value?.$el || moreNavigationButton.value;
+    target?.focus?.();
+  }
+);
+
+function setPrimaryNavigationOpen(open) {
+  if (isCompactLayout.value) {
+    setDrawerOpen(open);
+  }
+}
+
+function openPrimaryNavigation() {
+  setDrawerOpen(true);
+}
+
+function openMoreNavigation() {
+  moreNavigationRoute = route.fullPath;
+  restoreMoreNavigationFocus = true;
+  if (isCompactLayout.value) {
+    setDrawerOpen(true);
+    return;
+  }
+  navigationOverflowOpen.value = true;
+}
+
+function closeTopShellOverlay() {
+  if (navigationOverflowOpen.value) {
+    navigationOverflowOpen.value = false;
+    return true;
+  }
+  if (drawerOpen.value) {
+    setDrawerOpen(false);
+    return true;
+  }
+  if (supportingContentOpen.value) {
+    closeSupportingContent();
+    return true;
+  }
+  return false;
+}
+
+function handleShellEscape(event) {
+  if (event?.key !== "Escape" || event.defaultPrevented || !closeTopShellOverlay()) {
+    return;
+  }
+  event.preventDefault();
+  event.stopPropagation();
+}
+
+function hasNavigationOverflow(primary = [], secondary = [], capacity) {
+  return primary.length > capacity || secondary.length > 0;
+}
+
+function visiblePrimaryNavigation(primary = [], secondary = [], capacity) {
+  const visibleCount = hasNavigationOverflow(primary, secondary, capacity) ? capacity - 1 : capacity;
+  return primary.slice(0, visibleCount);
+}
+
+function hiddenPrimaryNavigation(primary = [], capacity) {
+  return primary.slice(Math.max(0, capacity - 1));
+}
 
 onMounted(() => {
   if (typeof window !== "object") {
@@ -100,9 +208,11 @@ onMounted(() => {
   window.addEventListener("touchmove", handlePullTouchMove, { capture: true, passive: false });
   window.addEventListener("touchend", handlePullTouchEnd, { capture: true, passive: true });
   window.addEventListener("touchcancel", handlePullTouchCancel, { capture: true, passive: true });
+  window.addEventListener("keydown", handleShellEscape);
 });
 
 onBeforeUnmount(() => {
+  unregisterShellOverlay();
   if (typeof window !== "object") {
     return;
   }
@@ -115,6 +225,7 @@ onBeforeUnmount(() => {
   window.removeEventListener("touchmove", handlePullTouchMove, { capture: true });
   window.removeEventListener("touchend", handlePullTouchEnd, { capture: true });
   window.removeEventListener("touchcancel", handlePullTouchCancel, { capture: true });
+  window.removeEventListener("keydown", handleShellEscape);
 });
 
 function handlePullPointerDown(event) {
@@ -357,10 +468,11 @@ function touchListIncludesActiveTouch(touchList) {
     class="shell-layout__app-bar bg-surface"
     data-testid="jskit-shell-app-bar"
   >
-    <v-app-bar-nav-icon
-      class="shell-layout__nav-toggle"
-      aria-label="Toggle navigation menu"
-      @click="toggleDrawer"
+    <ShellLeadingNavigation
+      :menu-available="isCompactLayout"
+      :back-label="navigationLabel('back', 'Back')"
+      :menu-label="navigationLabel('openMenu', 'Open navigation menu')"
+      @open-menu="openPrimaryNavigation"
     />
 
     <slot name="top-left" :surface="resolvedSurface">
@@ -400,30 +512,118 @@ function touchListIncludesActiveTouch(touchList) {
   </div>
 
   <v-navigation-drawer
-    v-model="drawerOpen"
+    :model-value="isCompactLayout ? drawerOpen : true"
     border
     class="bg-surface"
+    id="jskit-shell-primary-navigation"
     data-testid="jskit-shell-drawer"
     :temporary="isCompactLayout"
     :permanent="!isCompactLayout"
-    :width="248"
+    :rail="navigationRail"
+    :rail-width="88"
+    :width="280"
+    tag="nav"
+    :aria-label="navigationLabel('primaryNavigation', 'Primary navigation')"
+    @update:model-value="setPrimaryNavigationOpen"
   >
     <slot name="menu" :surface="resolvedSurface">
-      <v-list nav density="comfortable" class="pt-2">
+      <v-list v-if="isCompactLayout" nav density="comfortable" class="pt-2">
         <v-list-subheader class="text-uppercase text-caption">{{ resolvedSurfaceLabel }}</v-list-subheader>
-        <ShellOutlet
-          target="shell-layout:primary-menu"
-          default
-        />
-        <v-divider class="my-2" />
-        <ShellOutlet target="shell-layout:secondary-menu" />
+        <ShellOutlet semantic-target="shell.primary-nav" v-slot="{ placements }">
+          <ShellSurfaceAwareMenuLinkItem
+            v-for="entry in placements"
+            :key="entry.id"
+            v-bind="entry.props"
+          />
+        </ShellOutlet>
+        <ShellOutlet semantic-target="shell.secondary-nav" v-slot="{ placements }">
+          <template v-if="placements.length">
+            <v-divider class="my-2" />
+            <ShellSurfaceAwareMenuLinkItem
+              v-for="entry in placements"
+              :key="entry.id"
+              v-bind="entry.props"
+            />
+          </template>
+        </ShellOutlet>
+      </v-list>
+
+      <ShellOutlet v-else-if="isMediumLayout" target="shell-layout:primary-rail" v-slot="{ placements: primaryPlacements }">
+        <ShellOutlet semantic-target="shell.secondary-nav" v-slot="{ placements: secondaryPlacements }">
+          <v-list nav class="shell-layout__rail-list" :aria-label="navigationLabel('primaryNavigation', 'Primary navigation')">
+            <component
+              :is="entry.component"
+              v-for="entry in visiblePrimaryNavigation(primaryPlacements, secondaryPlacements, RAIL_NAVIGATION_CAPACITY)"
+              :key="entry.id"
+              v-bind="entry.props"
+            />
+            <v-list-item
+              v-if="hasNavigationOverflow(primaryPlacements, secondaryPlacements, RAIL_NAVIGATION_CAPACITY)"
+              ref="moreNavigationButton"
+              :prepend-icon="mdiDotsHorizontal"
+              :title="navigationLabel('more', 'More')"
+              :aria-label="navigationLabel('openMore', 'Open more navigation')"
+              :aria-expanded="navigationOverflowOpen ? 'true' : 'false'"
+              aria-controls="jskit-shell-navigation-overflow"
+              data-testid="jskit-shell-rail-more"
+              @click="openMoreNavigation"
+            />
+          </v-list>
+        </ShellOutlet>
+      </ShellOutlet>
+
+      <v-list v-else nav density="comfortable" class="pt-2" :aria-label="navigationLabel('primaryNavigation', 'Primary navigation')">
+        <v-list-subheader class="text-uppercase text-caption">{{ resolvedSurfaceLabel }}</v-list-subheader>
+        <ShellOutlet target="shell-layout:primary-drawer" default />
+        <ShellOutlet target="shell-layout:secondary-menu" v-slot="{ placements }">
+          <template v-if="placements.length">
+            <v-divider class="my-2" />
+            <component
+              :is="entry.component"
+              v-for="entry in placements"
+              :key="entry.id"
+              v-bind="entry.props"
+            />
+          </template>
+        </ShellOutlet>
       </v-list>
     </slot>
   </v-navigation-drawer>
 
+  <v-navigation-drawer
+    v-if="isMediumLayout"
+    v-model="navigationOverflowOpen"
+    id="jskit-shell-navigation-overflow"
+    border
+    temporary
+    tag="nav"
+    :aria-label="navigationLabel('moreNavigation', 'More navigation')"
+    :width="320"
+    data-testid="jskit-shell-navigation-overflow"
+  >
+    <v-list nav density="comfortable" :aria-label="navigationLabel('moreNavigation', 'More navigation')">
+      <v-list-subheader>{{ navigationLabel('more', 'More') }}</v-list-subheader>
+      <ShellOutlet semantic-target="shell.primary-nav" v-slot="{ placements }">
+        <ShellSurfaceAwareMenuLinkItem
+          v-for="entry in hiddenPrimaryNavigation(placements, RAIL_NAVIGATION_CAPACITY)"
+          :key="entry.id"
+          v-bind="entry.props"
+        />
+      </ShellOutlet>
+      <ShellOutlet semantic-target="shell.secondary-nav" v-slot="{ placements }">
+        <v-divider v-if="placements.length" class="my-2" />
+        <ShellSurfaceAwareMenuLinkItem
+          v-for="entry in placements"
+          :key="entry.id"
+          v-bind="entry.props"
+        />
+      </ShellOutlet>
+    </v-list>
+  </v-navigation-drawer>
+
   <v-main class="bg-background">
     <v-container fluid class="shell-layout__content">
-      <h1 v-if="title" class="shell-layout__title text-h5">{{ title }}</h1>
+      <h1 v-if="title" class="shell-layout__title text-h5" data-jskit-page-heading>{{ title }}</h1>
       <p v-if="subtitle" class="shell-layout__subtitle text-body-2 text-medium-emphasis">{{ subtitle }}</p>
       <ShellRouteTransition>
         <slot />
@@ -439,9 +639,34 @@ function touchListIncludesActiveTouch(touchList) {
     color="primary"
     density="comfortable"
     grow
-    mandatory
+    tag="nav"
+    :aria-label="navigationLabel('primaryNavigation', 'Primary navigation')"
   >
-    <ShellOutlet target="shell-layout:primary-bottom-nav" />
+    <ShellOutlet target="shell-layout:primary-bottom-nav" v-slot="{ placements: primaryPlacements }">
+      <ShellOutlet semantic-target="shell.secondary-nav" v-slot="{ placements: secondaryPlacements }">
+        <component
+          :is="entry.component"
+          v-for="entry in visiblePrimaryNavigation(primaryPlacements, secondaryPlacements, COMPACT_NAVIGATION_CAPACITY)"
+          :key="entry.id"
+          v-bind="entry.props"
+        />
+        <v-btn
+          v-if="hasNavigationOverflow(primaryPlacements, secondaryPlacements, COMPACT_NAVIGATION_CAPACITY)"
+          ref="moreNavigationButton"
+          class="shell-layout__bottom-more text-none"
+          stacked
+          :active="false"
+          :aria-label="navigationLabel('openMore', 'Open more navigation')"
+          :aria-expanded="drawerOpen ? 'true' : 'false'"
+          aria-controls="jskit-shell-primary-navigation"
+          data-testid="jskit-shell-bottom-more"
+          @click="openMoreNavigation"
+        >
+          <v-icon :icon="mdiDotsHorizontal" />
+          {{ navigationLabel('more', 'More') }}
+        </v-btn>
+      </ShellOutlet>
+    </ShellOutlet>
   </v-bottom-navigation>
 
   <v-bottom-sheet
@@ -460,12 +685,17 @@ function touchListIncludesActiveTouch(touchList) {
     </v-card>
   </v-bottom-sheet>
 
+  <ShellNavigationGuardDialog
+    :stay-label="navigationLabel('stay', 'Stay')"
+    :discard-label="navigationLabel('discardChanges', 'Discard changes')"
+  />
+
   <v-navigation-drawer
     v-if="!isCompactLayout"
     :model-value="supportingContentOpen"
     border
     temporary
-    location="right"
+    location="end"
     :width="384"
     data-testid="jskit-shell-supporting-side-panel"
     @update:model-value="setSupportingContentOpen"
@@ -488,11 +718,6 @@ function touchListIncludesActiveTouch(touchList) {
 .shell-layout__top-left,
 .shell-layout__top-right {
   min-width: 0;
-}
-
-.shell-layout__nav-toggle {
-  min-height: 48px;
-  min-width: 48px;
 }
 
 .shell-layout__top-right {
@@ -524,6 +749,27 @@ function touchListIncludesActiveTouch(touchList) {
 .shell-layout__bottom-nav {
   border-top: 1px solid rgba(var(--v-border-color), var(--v-border-opacity));
   padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+
+.shell-layout__bottom-more {
+  flex: 0 0 auto;
+  min-height: 48px;
+  min-width: 72px;
+}
+
+.shell-layout__rail-list :deep(.v-btn) {
+  min-height: 64px;
+  min-width: 64px;
+  width: 100%;
+}
+
+.shell-layout__rail-list :deep(.v-list-item) {
+  min-height: 64px;
+}
+
+.shell-layout__app-bar :deep(.v-toolbar__content) {
+  padding-inline-start: env(safe-area-inset-left, 0px);
+  padding-inline-end: env(safe-area-inset-right, 0px);
 }
 
 .shell-layout__supporting-sheet {

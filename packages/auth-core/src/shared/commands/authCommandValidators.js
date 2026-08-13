@@ -336,6 +336,7 @@ const authCapabilitiesOutputSchema = createSchema({
 
 const sessionOutputSchema = createSchema({
   authenticated: { type: "boolean", required: true },
+  principal: { type: "string", required: false, minLength: 1, maxLength: 200 },
   username: { type: "string", required: false, minLength: 1, maxLength: 120 },
   email: { ...authEmailFieldDefinition, required: false },
   permissions: {

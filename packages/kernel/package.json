@@ -5,6 +5,10 @@
   "dependencies": {
     "json-rest-schema": "^1.0.17"
   },
+  "peerDependencies": {
+    "vue": "^3.5.13",
+    "vue-router": "^5.0.4"
+  },
   "scripts": {
     "test": "node --test"
   },
@@ -13,6 +17,14 @@
     "./client": {
       "types": "./client/index.d.ts",
       "default": "./client/index.js"
+    },
+    "./client/navigation": {
+      "types": "./client/navigation.d.ts",
+      "default": "./client/navigation.js"
+    },
+    "./client/navigationLink": {
+      "types": "./client/navigationLink.d.ts",
+      "default": "./client/navigationLink.js"
     },
     "./client/asyncModuleRecovery": {
       "types": "./client/asyncModuleRecovery.d.ts",
@@ -34,6 +46,10 @@
     "./server/runtime/requestUrl": "./server/runtime/requestUrl.js",
     "./server/support": "./server/support/index.js",
     "./shared": "./shared/index.js",
+    "./shared/navigation": {
+      "types": "./shared/navigation.d.ts",
+      "default": "./shared/navigation.js"
+    },
     "./shared/actions": "./shared/actions/index.js",
     "./shared/actions/actionContributorHelpers": "./shared/actions/actionContributorHelpers.js",
     "./shared/actions/textNormalization": "./shared/actions/textNormalization.js",

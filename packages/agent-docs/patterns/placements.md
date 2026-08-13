@@ -22,7 +22,7 @@ Mental model:
 - `src/placementTopology.js` answers "where does this semantic placement render for compact, medium, and expanded layouts?"
 - `<ShellOutlet target="host:position" />` is the concrete recipient rendered by Vue.
 - Semantic ids use dot notation, for example `shell.primary-nav`, `shell.status`, `page.section-nav`, `page.supporting-content`, `settings.sections`.
-- Concrete outlet ids use colon notation, for example `shell-layout:primary-menu`, `shell-layout:top-right`, `home-settings:primary-menu`.
+- Concrete outlet ids use colon notation, for example `shell-layout:primary-rail`, `shell-layout:primary-drawer`, `shell-layout:top-right`, `home-settings:primary-menu`.
 - Authoring should target semantic placements by default. Concrete outlets are an advanced escape hatch.
 
 Placement entries:

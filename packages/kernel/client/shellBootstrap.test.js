@@ -70,6 +70,80 @@ test("createSurfaceShellRouter builds active routes and installs a guard", () =>
   assert.equal(fallbackRoute.path, "/:pathMatch(.*)*");
 });
 
+test("createSurfaceShellRouter installs one navigation runtime with the exact history and scroll coordinator", () => {
+  const surfaceRuntime = createSurfaceRuntimeFixture();
+  const hooks = { before: [], after: [], errors: [] };
+  const history = {
+    base: "/",
+    location: "/",
+    state: {},
+    replace() {},
+    go() {},
+    listen() {
+      return () => {};
+    }
+  };
+  let routerOptions = null;
+  const result = createSurfaceShellRouter({
+    createRouter(options) {
+      routerOptions = options;
+      return {
+        currentRoute: { value: { path: "/", fullPath: "/", matched: [] } },
+        beforeEach(handler) {
+          hooks.before.push(handler);
+          return () => {};
+        },
+        afterEach(handler) {
+          hooks.after.push(handler);
+          return () => {};
+        },
+        onError(handler) {
+          hooks.errors.push(handler);
+          return () => {};
+        },
+        resolve(target) {
+          return { fullPath: target.path || "/" };
+        },
+        push() {},
+        replace() {},
+        go() {}
+      };
+    },
+    history,
+    routes: [],
+    surfaceRuntime,
+    surfaceMode: "app",
+    notFoundComponent: {},
+    guard: false,
+    navigation: {
+      router: { not: "the-created-router" },
+      history: { not: "the-supplied-history" },
+      storage: {
+        available: false,
+        async readTask() { return null; },
+        async writeTask() {},
+        async readBrowserEntry() { return null; },
+        async writeBrowserEntry() {},
+        async readDestination() { return null; },
+        async writeDestination() {},
+        async readSnapshot() { return null; },
+        async writeSnapshot() { return "snapshot"; },
+        async deleteTask() {},
+        async prune() {}
+      },
+      scopeResolver: () => ({}),
+      windowObject: null,
+      documentObject: null
+    }
+  });
+
+  assert.equal(typeof routerOptions.scrollBehavior, "function");
+  assert.equal(typeof result.navigation.goUp, "function");
+  assert.equal(hooks.before.length, 1);
+  assert.equal(hooks.after.length, 1);
+  assert.equal(hooks.errors.length, 1);
+});
+
 test("createClientBootstrapLogger enables debug from env flag", () => {
   const logger = createClientBootstrapLogger({
     env: { VITE_JSKIT_CLIENT_DEBUG: "1" }
@@ -95,6 +169,7 @@ test("bootstrapClientShellApp boots modules, reinstalls fallback route, and moun
 
   const app = {
     used: [],
+    provided: [],
     mountedAt: "",
     use(entry) {
       this.used.push(entry);
@@ -103,6 +178,18 @@ test("bootstrapClientShellApp boots modules, reinstalls fallback route, and moun
     mount(selector) {
       this.mountedAt = selector;
       calls.push(`mount:${selector}`);
+    },
+    provide(key, value) {
+      this.provided.push({ key, value });
+    }
+  };
+
+  const navigation = {
+    async initialize() {
+      calls.push("navigation:initialize");
+    },
+    notifyAppMounted() {
+      calls.push("navigation:mounted");
     }
   };
 
@@ -145,12 +232,14 @@ test("bootstrapClientShellApp boots modules, reinstalls fallback route, and moun
     pinia,
     queryClient,
     router,
+    navigation,
     bootClientModules: async (context) => {
       calls.push("bootClientModules");
       assert.equal(context.app, app);
       assert.equal(context.pinia, pinia);
       assert.equal(context.queryClient, queryClient);
       assert.equal(context.router, router);
+      assert.equal(context.navigation, navigation);
       assert.equal(typeof context.logger.debug, "function");
       return {
         modules: ["@example/main"],
@@ -173,7 +262,12 @@ test("bootstrapClientShellApp boots modules, reinstalls fallback route, and moun
       calls.push(`after:${context.clientBootstrap.routeCount}`);
     },
     onAfterRouterReady(context) {
+      assert.equal(context.navigation, navigation);
       calls.push(`router-ready:${context.clientBootstrap.routeCount}`);
+    },
+    onAfterAppMounted(context) {
+      assert.equal(context.navigation, navigation);
+      calls.push(`app-mounted:${context.clientBootstrap.routeCount}`);
     }
   });
 
@@ -185,6 +279,8 @@ test("bootstrapClientShellApp boots modules, reinstalls fallback route, and moun
   assert.equal(app.used[0], plugin);
   assert.equal(app.used[1], router);
   assert.equal(app.mountedAt, "#app");
+  assert.equal(app.provided.length, 1);
+  assert.equal(app.provided[0].value, navigation);
   assert.equal(logs.length, 1);
   assert.equal(calls.includes("bootClientModules"), true);
   assert.equal(calls.includes("remove:not-found"), true);
@@ -192,4 +288,9 @@ test("bootstrapClientShellApp boots modules, reinstalls fallback route, and moun
   assert.equal(calls.includes("isReady"), true);
   assert.equal(calls.includes("after:3"), true);
   assert.equal(calls.includes("router-ready:3"), true);
+  assert.equal(calls.includes("navigation:initialize"), true);
+  assert.equal(calls.indexOf("navigation:initialize") < calls.indexOf("mount:#app"), true);
+  assert.equal(calls.indexOf("navigation:mounted") > calls.indexOf("mount:#app"), true);
+  assert.equal(calls.includes("app-mounted:3"), true);
+  assert.equal(result.navigation, navigation);
 });

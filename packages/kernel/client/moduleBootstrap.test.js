@@ -115,6 +115,7 @@ test("bootClientModules registers descriptor and clientRoutes with providers onl
   const pinia = { id: "pinia-instance" };
   const queryClient = { id: "query-client-instance" };
   const implicitPinia = { id: "implicit-vue-global-pinia" };
+  const navigation = { id: "navigation-runtime" };
   class ExampleClientProvider {
     static id = "example.client";
     register(app) {
@@ -122,6 +123,7 @@ test("bootClientModules registers descriptor and clientRoutes with providers onl
       app.instance("example.value", 42);
       app.instance("example.pinia", app.make("jskit.client.pinia"));
       app.instance("example.queryClient", app.make("jskit.client.query-client"));
+      app.instance("example.navigation", app.make("jskit.client.navigation"));
     }
     boot() {
       events.push("boot");
@@ -193,6 +195,7 @@ test("bootClientModules registers descriptor and clientRoutes with providers onl
     },
     pinia,
     queryClient,
+    navigation,
     router,
     surfaceRuntime,
     surfaceMode: "all",
@@ -210,6 +213,7 @@ test("bootClientModules registers descriptor and clientRoutes with providers onl
   assert.equal(result.runtimeApp.make("example.value"), 42);
   assert.equal(result.runtimeApp.make("example.pinia"), pinia);
   assert.equal(result.runtimeApp.make("example.queryClient"), queryClient);
+  assert.equal(result.runtimeApp.make("example.navigation"), navigation);
   assert.notEqual(result.runtimeApp.make("example.pinia"), implicitPinia);
 });
 

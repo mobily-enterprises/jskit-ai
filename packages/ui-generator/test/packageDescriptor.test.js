@@ -15,6 +15,14 @@ test("ui-generator surface options validate against enabled surface ids", () => 
     ["primary", "secondary", "utility", "detail", "workflow", "none"]
   );
   assert.equal(descriptor.metadata?.generatorSubcommands?.page?.optionNames?.includes("navigation-role"), true);
+  assert.deepEqual(
+    descriptor.options?.["destination-behavior"]?.allowedValues,
+    ["destination", "preserve", "boundary"]
+  );
+  assert.equal(descriptor.metadata?.generatorSubcommands?.page?.optionNames?.includes("destination-behavior"), true);
+  assert.equal(descriptor.metadata?.generatorSubcommands?.page?.optionNames?.includes("destination-key"), true);
+  assert.equal(descriptor.metadata?.generatorSubcommands?.page?.optionNames?.includes("machinery-key"), true);
+  assert.equal(descriptor.metadata?.generatorSubcommands?.page?.optionNames?.includes("navigation-fallback"), true);
   assert.equal(descriptor.metadata?.generatorSubcommands?.outlet?.requiredOptionNames?.includes("placement"), false);
   assert.equal(descriptor.metadata?.generatorSubcommands?.topology?.entrypoint, "src/server/subcommands/outlet.js");
   assert.equal(descriptor.metadata?.generatorSubcommands?.topology?.optionNames?.includes("compact-target"), true);

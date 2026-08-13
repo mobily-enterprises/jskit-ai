@@ -485,6 +485,7 @@ function createClientRuntimeApp({
   pinia = null,
   queryClient = null,
   router,
+  navigation = null,
   env,
   logger,
   surfaceRuntime,
@@ -497,6 +498,7 @@ function createClientRuntimeApp({
 
   runtimeApp.instance("jskit.client.runtime.app", runtimeApp);
   runtimeApp.instance("jskit.client.router", router || null);
+  runtimeApp.instance("jskit.client.navigation", navigation || null);
   runtimeApp.instance("jskit.client.vue.app", app || null);
   runtimeApp.instance("jskit.client.pinia", pinia);
   runtimeApp.instance("jskit.client.query-client", queryClient);
@@ -514,6 +516,7 @@ async function bootClientModules({
   pinia = null,
   queryClient = null,
   router,
+  navigation = null,
   surfaceRuntime,
   surfaceMode,
   env,
@@ -534,6 +537,7 @@ async function bootClientModules({
     pinia,
     queryClient,
     router,
+    navigation,
     env,
     logger: log,
     surfaceRuntime,

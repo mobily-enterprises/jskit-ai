@@ -123,6 +123,46 @@ Exports
 - `resolveLinkPath`
 - `normalizePathname`
 
+### `shared/navigation.js`
+Exports
+- `JSKIT_NAVIGATION_SCHEMA_VERSION`
+- `JSKIT_ROUTE_NAVIGATION_BEHAVIORS`
+- `JSKIT_NAVIGATION_SCOPE_FIELDS`
+- `DEFAULT_JSKIT_NAVIGATION_LIMITS`
+- `HARD_JSKIT_NAVIGATION_LIMITS`
+- `createJskitNavigationLimits(overrides = {})`
+- `normalizeJskitNavigationTarget(value)`
+- `validateJskitRouteNavigationMeta(meta)`
+- `resolveJskitRouteNavigationMeta(route)`
+- `normalizeJskitInternalFullPath(value, { base = "/" } = {})`
+- `isSafeJskitInternalFullPath(value, options)`
+- `normalizeJskitNavigationScope(value = {})`
+- `jskitNavigationScopesMatch(storedScope, currentScope, requiredFields = JSKIT_NAVIGATION_SCOPE_FIELDS)`
+- `normalizeJskitSerializableValue(value, options = {})`
+- `createJskitNavigationResolverRegistry()`
+- `readJskitHistoryNavigationEnvelope(state)`
+- `mergeJskitHistoryNavigationEnvelope(state, envelope)`
+- `createEmptyJskitNavigationTask(taskId)`
+- `reduceJskitNavigationTask(task, event)`
+- `projectJskitNavigationTask(task)`
+Local functions
+- `hasAsciiControlCharacter(value)`
+- `isPlainRecord(value)`
+- `normalizeNavigationPersistence(value)`
+- `normalizeNavigationTargetQuery(value)`
+- `normalizeNavigationTargetParams(value)`
+- `normalizeMatchedNavigationRecord(value)`
+- `normalizeRouterBase(value)`
+
+### `shared/navigationInternals.js`
+Exports
+- `createSecureNavigationId(prefix = "", cryptoObject = globalThis.crypto)`
+- `isRecord(value)`
+- `measureUtf8Bytes(value)`
+- `normalizeOptionalText(value)`
+- `normalizeOptionalStrictText(value, fieldName)`
+- `normalizeRequiredText(value, fieldName)`
+
 ### `shared/runtime/application.js`
 Exports
 - `Application`
@@ -299,6 +339,8 @@ Exports
 - `GENERATED_UI_NAVIGATION_ROLE_LINK_PLACEMENTS`
 - `GENERATED_UI_NAVIGATION_ROLE_OPTION`
 - `GENERATED_UI_NAVIGATION_ROLE_VALUES`
+- `GENERATED_UI_DESTINATION_BEHAVIOR_OPTION`
+- `GENERATED_UI_DESTINATION_BEHAVIOR_VALUES`
 - `GENERATED_UI_NO_LINK_NAVIGATION_ROLES`
 - `GENERATED_UI_SOURCE_CONTRACT_PROFILES`
 - `GENERATED_UI_SURFACE_PROFILES`
@@ -306,8 +348,14 @@ Exports
 - `buildGeneratedUiScreenClassName(baseClassName = "", { surfaceProfile = "" } = {})`
 - `collectGeneratedUiSourceContractIssues(source = "", { profile = "", forbidLiveCopy = undefined, forbidCardShell = undefined, forbiddenPatterns = [], requiredPatterns = [] } = {})`
 - `inferGeneratedUiNavigationRole(options = {}, { dynamicRoutePolicy = "leaf", routePath = "" } = {})`
+- `inferGeneratedUiDestinationBehavior(options = {}, { routePath = "" } = {})`
 - `isGeneratedUiNoLinkNavigationRole(value = "")`
 - `normalizeGeneratedUiNavigationRole(value = "")`
+- `normalizeGeneratedUiDestinationBehavior(value = "")`
+- `normalizeGeneratedUiNavigationKey(value = "", fieldName = "navigation key")`
+- `buildGeneratedUiNavigationKey({ surfaceId = "", routePath = "" } = {})`
+- `buildGeneratedUiNavigationScope({ surfaceRequiresAuth = false, surfacePagesRoot = "", routePath = "" } = {})`
+- `resolveGeneratedUiNavigationFallback(value = "")`
 - `resolveGeneratedUiSurfaceProfile(surfaceProfile = "")`
 - `resolveGeneratedUiNavigationRoleLinkPlacement(options = {}, inferenceContext = {})`
 - `shouldCreateGeneratedUiNavigationLink(options = {}, { allowLinkTo = false, dynamicRoutePolicy = "leaf", routePath = "" } = {})`
@@ -316,9 +364,11 @@ Local functions
 - `normalizeGeneratedUiContractPattern(patternEntry = {}, fallbackMessage = "")`
 - `normalizeGeneratedUiContractPatternList(patternEntries = [], fallbackMessage = "")`
 - `resolveGeneratedUiSourceContractProfile(profile = "")`
+- `hasExplicitGeneratedUiDestinationBehavior(options = {})`
 - `hasExplicitGeneratedUiNavigationRole(options = {})`
 - `normalizeGeneratedUiRouteSegments(routePath = "")`
 - `isGeneratedUiDynamicRouteSegment(routeSegment = "")`
+- `normalizeGeneratedUiNavigationKeySegment(value = "")`
 
 ### `shared/support/index.js`
 Exports
@@ -707,6 +757,13 @@ Exports
 - `createShellRouter`
 - `bootstrapClientShellApp`
 - `createComponentInteractionEmitter`
+- `JSKIT_NAVIGATION_RUNTIME_KEY`
+- `createBrowserSessionNavigationStorage`
+- `createJskitNavigationScrollCoordinator`
+- `installJskitNavigation`
+- `useJskitNavigation`
+- `JskitDestinationLink`
+- `isJskitOrdinaryLinkClick`
 
 ### `client/logging.js`
 Exports
@@ -725,7 +782,7 @@ Local functions
 
 ### `client/moduleBootstrap.js`
 Exports
-- `bootClientModules({ clientModules = [], app, pinia = null, queryClient = null, router, surfaceRuntime, surfaceMode, env, logger = console } = {})`
+- `bootClientModules({ clientModules = [], app, pinia = null, queryClient = null, router, navigation = null, surfaceRuntime, surfaceMode, env, logger = console } = {})`
 Local functions
 - `normalizePackageId(value)`
 - `toRouteSnapshot(route)`
@@ -742,7 +799,223 @@ Local functions
 - `assertRoutesDeclaredInDescriptor({ packageId, source, normalizedRoutes = [], descriptorRouteDeclarations = null } = {})`
 - `resolveDescriptorClientRoutes({ packageId, descriptorUiRoutes = [], routeComponents = {}, logger = null } = {})`
 - `normalizeClientModuleEntries(clientModules)`
-- `createClientRuntimeApp({ profile = "client", app, pinia = null, queryClient = null, router, env, logger, surfaceRuntime, surfaceMode } = {})`
+- `createClientRuntimeApp({ profile = "client", app, pinia = null, queryClient = null, router, navigation = null, env, logger, surfaceRuntime, surfaceMode } = {})`
+
+### `client/navigation.js`
+Exports
+- `JSKIT_NAVIGATION_RUNTIME_KEY`
+- `createBrowserSessionNavigationStorage`
+- `createJskitNavigationScrollCoordinator`
+- `installJskitNavigation(options = {})`
+- `useJskitNavigation()`
+- `useJskitNavigationBlocker({ id, isBlocked, title = "Discard changes?", message = "Your unsaved changes will be lost.", } = {})`
+Local functions
+- `normalizeText(value)`
+- `currentTime()`
+- `ignoreRejectedPromise()`
+- `optionalTextsMatch(left, right)`
+- `createDeferred()`
+- `normalizeRouteName(value)`
+- `normalizeRouteParams(value)`
+- `normalizeRouteQuery(value, allowlist = [])`
+- `firstNormalizedText(value, fields)`
+- `resolveMatchedJskitMetaField(route, field)`
+- `defaultScopeResolver({ route })`
+- `createRouteContext(route, scope, signal)`
+- `normalizePersistence(meta)`
+- `createMinimalStoredRoute(route)`
+- `normalizeSanitizedQuery(value)`
+- `createStoredRoute(route, meta, router, resolvers, scope, signal, development,)`
+- `createJskitNavigationContext({ router, history, storage = null, scopeResolver = defaultScopeResolver, resolvers = createJskitNavigationResolverRegistry(), limits: limitOverrides = {}, scrollCoordinator = createJskitNavigationScrollCoordinator(), logger = console, windowObject = typeof window === "undefined" ? null : window, documentObject = typeof document === "undefined" ? null : document, cryptoObject = globalThis.crypto, now = currentTime, development = typeof process === "undefined" || process.env?.NODE_ENV !== "production", } = {})`
+- `diagnostic(navigation, level, reason, details = {})`
+- `ensureActive(navigation)`
+- `routeMeta(route)`
+- `resolveScope(navigation, route, signal)`
+- `collectScopeFields(...scopes)`
+- `destinationScope(meta, scope)`
+- `setScope(navigation, value = {})`
+- `commitScopeUpdate(navigation, value)`
+- `applyScopeUpdate(navigation, value)`
+- `mergeScopeOverrides(current, update)`
+- `resolveTarget(navigation, target)`
+- `resolveFallback(navigation, meta, route, scope, signal)`
+- `createEnvelope(browserEntry, destinationEntry = null)`
+- `envelopeMatchesStoredEntry(envelope, browserEntry, destinationEntry = null,)`
+- `entryMatchesRouteMeta(browserEntry, destinationEntry, meta)`
+- `nativeHistoryStillRepresentsCurrentRoute(navigation)`
+- `stampCurrentHistory(navigation, browserEntry, destinationEntry = null,)`
+- `resolvePrevious(navigation, browserEntry, scope)`
+- `refreshCanGoUp(navigation)`
+- `setActiveEntry(navigation, browserEntry, destinationEntry, meta, scope, fallback,)`
+- `persistedRouteFor(navigation, route, meta, scope, signal)`
+- `getRestorationContext(navigation)`
+- `stampCapturedDestination(navigation, destinationEntry)`
+- `createDestinationEntry(navigation, { route, meta, scope, fallback, destinationEntryId = null, createdAt = null, snapshotRef = null, snapshotFullPath = null, signal, },)`
+- `createBrowserEntry(navigation, { route, meta, scope, destinationEntryId = null, browserEntryId = null, previousId = null, nextSequence, createdAt = null, signal, },)`
+- `persistCommit(navigation, browserEntry, destinationEntry)`
+- `resolveBrowserEntryPosition(navigation, { isReplace, kind, previousBrowserEntry },)`
+- `scopeChanged(previousScope, nextScope)`
+- `startNewTask(navigation, nextScope)`
+- `taskDestinationsMatchScope(task, scope)`
+- `performInitialization(navigation, controller)`
+- `initializeCurrentRoute(navigation)`
+- `rehydratePop(navigation, route, meta, scope, signal, restorationReason = "pop",)`
+- `commitRoute(navigation, route, { kind, operation = null, restorationReason = "pop" } = {},)`
+- `finishExplicitOperation(operation, result)`
+- `installRouterHooks(navigation)`
+- `onBeforeRoute(navigation, to, from)`
+- `onAfterRoute(navigation, to, _from, failure)`
+- `commitAfterRoute(navigation, route, details)`
+- `onRouterError(navigation, error)`
+- `onHistoryChange(navigation, to, _from, information)`
+- `runSerialized(navigation, operation)`
+- `runCommitSerialized(navigation, operation)`
+- `navigate(navigation, kind, target, options = {})`
+- `performNavigation(navigation, kind, target, options)`
+- `goBackOne(navigation, reason, { skipTransient = false } = {})`
+- `performBackNavigation(navigation, reason, skipTransient)`
+- `goUp(navigation, options = {})`
+- `setPredictiveProgress(navigation, progress)`
+- `reconcilePageShow(navigation, event)`
+- `dispose(navigation)`
+- `initialize(navigation)`
+- `push(navigation, target, options)`
+- `preserve(navigation, target, options)`
+- `replace(navigation, target, options)`
+- `pop(navigation, options = {})`
+- `capture(navigation, destinationEntryId)`
+- `notifyAppMounted(navigation)`
+- `peekContributorSnapshot(navigation, contributorId)`
+- `registerContributor(navigation, contributor)`
+- `registerTransientLayer(navigation, layer)`
+- `registerBlocker(navigation, blocker)`
+- `confirmBlockedNavigation(navigation)`
+- `cancelBlockedNavigation(navigation)`
+- `restoreBlockedNavigationFocus(navigation)`
+- `shouldDeferScroll(navigation, route)`
+- `installWindowListeners(navigation)`
+- `addWindowListener(navigation, type, handler, options = undefined)`
+- `onPageHide(navigation)`
+- `onPageShow(navigation, event)`
+- `onPointerDown(navigation, event)`
+- `onKeyDown(navigation)`
+- `createJskitNavigationRuntime(options = {})`
+
+### `client/navigationInteraction.js`
+Exports
+- `createNavigationInteractionCoordinator(options = {})`
+Local functions
+- `normalizeText(value)`
+- `createDeferred()`
+- `createNavigationInteractionContext({ documentObject, diagnostic, ensureActive, onTransientStateChange })`
+- `readTransientLayerOpen(coordinator, record)`
+- `hasOpenTransientLayer(coordinator)`
+- `requestBlockerDecision(coordinator, to, from)`
+- `settleBlocker(coordinator, allowNavigation)`
+- `restoreBlockedNavigationFocus(coordinator)`
+- `performTransientClose(coordinator, record, reason)`
+- `findTopTransientLayer(coordinator)`
+- `closeTopTransientLayer(coordinator, reason)`
+- `unregisterTransientLayer(coordinator, id, record)`
+- `registerTransientLayer(coordinator, layer)`
+- `unregisterBlocker(coordinator, id, blocker)`
+- `registerBlocker(coordinator, blocker)`
+- `disposeInteractions(coordinator)`
+
+### `client/navigationLink.js`
+Exports
+- `JskitDestinationLink`
+- `isJskitOrdinaryLinkClick(event, { target = "", download = false } = {})`
+Local functions
+- `invokeClickHandler(handler, event)`
+
+### `client/navigationRestoration.js`
+Exports
+- `createNavigationRestorationCoordinator(options = {})`
+Local functions
+- `normalizeText(value)`
+- `navigationPersistence(meta)`
+- `isDegradedRestoreResult(value)`
+- `createNavigationRestorationContext({ repository, router, stateSource, limits, windowObject, documentObject, cryptoObject, now, diagnostic, ensureActive, getContext, persistedRouteFor, stampCapturedDestination, })`
+- `captureFocus(restoration)`
+- `captureIds(restoration, meta)`
+- `captureContributorValues(restoration, ids, controller)`
+- `persistCapture(restoration, destination, snapshot, captureStatus,)`
+- `performCapture(restoration, destinationEntryId, controller)`
+- `capture(restoration, destinationEntryId = null)`
+- `notifyContributorListeners(restoration)`
+- `waitForContributors(restoration, ids, signal)`
+- `resolveContributorValue(restoration, contributor, stored)`
+- `focusPageHeading(restoration)`
+- `requestIsCurrent(restoration, request)`
+- `snapshotMatchesDestination(snapshot, destination)`
+- `throwIfAborted(signal)`
+- `prepareContributors(restoration, expected, snapshot, context)`
+- `restoreStructures(restoration, records, context)`
+- `restoreScroll(restoration, records, snapshot, context)`
+- `restoreRawScroll(restoration, snapshot, degraded)`
+- `restoreFocus(restoration, records, context)`
+- `restoreContributorFocus(restoration, id, contributor, value, context, deadline,)`
+- `restoreDestination(restoration, request)`
+- `runRestoration(restoration, request, controller)`
+- `launchQueuedRestore(restoration)`
+- `queueRestore(restoration, destination, reason, route)`
+- `notifyAppMounted(restoration)`
+- `peekContributorSnapshot(restoration, contributorId)`
+- `registerContributor(restoration, contributor)`
+- `abortRestore(restoration)`
+- `deferScroll(restoration, fullPath)`
+- `shouldDeferScroll(restoration, route)`
+- `setInputModality(restoration, modality)`
+- `dispose(restoration)`
+
+### `client/navigationRuntimeInternals.js`
+Exports
+- `createNavigationAbortError()`
+- `createNavigationRestoreContext({ transactionId, reason, route, browserEntry, destinationEntry, scope, signal })`
+- `isNavigationAbortError(error)`
+- `normalizeNavigationScrollCoordinate(value)`
+- `settleNavigationWithin(promise, { signal, timeoutMs })`
+- `waitForNavigationReadiness(check, { signal, timeoutMs })`
+
+### `client/navigationScroll.js`
+Exports
+- `createJskitNavigationScrollCoordinator({ fallback = defaultScrollFallback } = {})`
+Local functions
+- `defaultScrollFallback(to, _from, savedPosition)`
+
+### `client/navigationStorage.js`
+Exports
+- `NAVIGATION_STORAGE_PREFIX`
+- `createBrowserSessionNavigationStorage(options = {})`
+Local functions
+- `currentTime()`
+- `normalizeId(value, field)`
+- `compareLastSeenDescending(left, right)`
+- `createBrowserSessionNavigationStorageContext({ storage = typeof sessionStorage === "undefined" ? null : sessionStorage, limits: limitOverrides = {}, now = currentTime, cryptoObject = globalThis.crypto, logger = console } = {})`
+- `taskKey(taskId)`
+- `snapshotKey(taskId, snapshotRef)`
+- `reportStorageFailure(repository, error, operation)`
+- `reportCorruptRecord(repository, operation)`
+- `probeStorage(repository)`
+- `removeStoredKey(repository, key)`
+- `readStoredJson(repository, key)`
+- `writeStoredJson(repository, key, value)`
+- `listStoredKeys(repository, operation)`
+- `normalizeTask(repository, value, expectedTaskId)`
+- `readTask(repository, taskId)`
+- `writeTask(repository, task)`
+- `readBrowserEntry(repository, taskId, browserEntryId)`
+- `writeBrowserEntry(repository, entry)`
+- `readDestination(repository, taskId, destinationEntryId)`
+- `writeDestination(repository, entry)`
+- `readSnapshot(repository, taskId, snapshotRef)`
+- `writeSnapshot(repository, taskId, snapshot)`
+- `deleteTask(repository, taskId)`
+- `collectSnapshotRecords(repository)`
+- `collectTaskRecords(repository)`
+- `pruneTask(repository, taskId, sourceTask, timestamp, limits)`
+- `prune(repository, timestamp = repository.now(), requestedLimits = repository.limits)`
 
 ### `client/pageRedirects.js`
 Exports
@@ -754,8 +1027,8 @@ Local functions
 Exports
 - `resolveClientBootstrapDebugEnabled({ env = {}, debugEnabled = undefined, debugEnvKey = "VITE_JSKIT_CLIENT_DEBUG" } = {})`
 - `createClientBootstrapLogger({ env = {}, logger = console, debugEnabled = undefined, debugEnvKey = "VITE_JSKIT_CLIENT_DEBUG" } = {})`
-- `createSurfaceShellRouter({ createRouter, history, routes = [], surfaceRuntime, surfaceMode, fallbackRoute = null, notFoundComponent = null, guard = false } = {})`
-- `bootstrapClientShellApp({ createApp, rootComponent, appConfig = {}, appPlugins = [], pinia = null, queryClient = null, router, bootClientModules, surfaceRuntime, surfaceMode, env = {}, fallbackRoute = null, logger = console, createBootstrapLogger = null, debugEnabled = undefined, debugEnvKey = "VITE_JSKIT_CLIENT_DEBUG", debugMessage = "Client modules bootstrapped before router install.", onAfterModulesBootstrapped = null, onAfterRouterReady = null, mountSelector = "#app" } = {})`
+- `createSurfaceShellRouter({ createRouter, history, routes = [], surfaceRuntime, surfaceMode, fallbackRoute = null, notFoundComponent = null, guard = false, navigation = false } = {})`
+- `bootstrapClientShellApp({ createApp, rootComponent, appConfig = {}, appPlugins = [], pinia = null, queryClient = null, router, navigation = null, bootClientModules, surfaceRuntime, surfaceMode, env = {}, fallbackRoute = null, logger = console, createBootstrapLogger = null, debugEnabled = undefined, debugEnvKey = "VITE_JSKIT_CLIENT_DEBUG", debugMessage = "Client modules bootstrapped before router install.", onAfterModulesBootstrapped = null, onAfterRouterReady = null, onAfterAppMounted = null, mountSelector = "#app" } = {})`
 Local functions
 - `installAppPlugins(app, appPlugins = [])`
 

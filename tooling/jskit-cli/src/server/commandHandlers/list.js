@@ -6,6 +6,7 @@ import {
   ensureObject,
   sortStrings
 } from "../shared/collectionUtils.js";
+import { inspectVueNavigationRoute } from "../shared/navigationRouteInspection.js";
 
 const PLACEMENT_FILE_RELATIVE_PATH = "src/placement.js";
 const MAIN_CLIENT_PROVIDERS_RELATIVE_PATH = "packages/main/src/client/providers";
@@ -18,6 +19,7 @@ const PLACEMENT_LAYOUT_CLASSES = Object.freeze(["compact", "medium", "expanded"]
 const PLACEMENT_KIND_COMPONENT = "component";
 const PLACEMENT_KIND_LINK = "link";
 const PROVIDER_SOURCE_EXTENSIONS = new Set([".js", ".mjs", ".cjs", ".ts", ".tsx"]);
+const VUE_PAGE_SOURCE_EXTENSIONS = new Set([".vue"]);
 const READ_FILE_IGNORE_ERROR_CODES = new Set(["ENOENT", "ENOTDIR", "EISDIR", "EACCES", "EPERM"]);
 const READ_DIRECTORY_IGNORE_ERROR_CODES = new Set(["ENOENT", "ENOTDIR", "EACCES", "EPERM"]);
 
@@ -458,7 +460,7 @@ async function resolveDescriptorFromLockEntry({ appRoot = "", packageId = "", in
   });
 }
 
-async function collectProviderSourceFiles(rootPath = "") {
+async function collectSourceFiles(rootPath = "", extensions = new Set()) {
   const files = [];
   const stack = [path.resolve(String(rootPath || ""))];
 
@@ -485,13 +487,21 @@ async function collectProviderSourceFiles(rootPath = "") {
         continue;
       }
       const extension = path.extname(entry.name).toLowerCase();
-      if (PROVIDER_SOURCE_EXTENSIONS.has(extension)) {
+      if (extensions.has(extension)) {
         files.push(entryPath);
       }
     }
   }
 
   return files.sort((left, right) => left.localeCompare(right));
+}
+
+async function collectProviderSourceFiles(rootPath = "") {
+  return collectSourceFiles(rootPath, PROVIDER_SOURCE_EXTENSIONS);
+}
+
+async function collectVuePageFiles(rootPath = "") {
+  return collectSourceFiles(rootPath, VUE_PAGE_SOURCE_EXTENSIONS);
 }
 
 function createListCommands(ctx = {}) {
@@ -763,6 +773,68 @@ function createListCommands(ctx = {}) {
     return 0;
   }
 
+  async function commandListNavigation({ options, cwd, stdout }) {
+    const appRoot = await resolveAppRootFromCwd(cwd);
+    const pageRoots = [path.join(appRoot, "src", "pages")];
+    let packageEntries = [];
+    try {
+      packageEntries = await readdir(path.join(appRoot, "packages"), { withFileTypes: true });
+    } catch (error) {
+      const errorCode = String(error?.code || "").trim().toUpperCase();
+      if (!READ_DIRECTORY_IGNORE_ERROR_CODES.has(errorCode)) {
+        throw error;
+      }
+    }
+    for (const entry of packageEntries) {
+      if (entry.isDirectory()) {
+        pageRoots.push(path.join(appRoot, "packages", entry.name, "src", "pages"));
+      }
+    }
+
+    const pageFiles = [];
+    for (const pageRoot of pageRoots) {
+      pageFiles.push(...await collectVuePageFiles(pageRoot));
+    }
+    const routes = [];
+    for (const pageFile of [...new Set(pageFiles)].sort((left, right) => left.localeCompare(right))) {
+      routes.push(inspectVueNavigationRoute(
+        await readFileIfExists(pageFile),
+        path.relative(appRoot, pageFile)
+      ));
+    }
+
+    const payload = Object.freeze({
+      appRoot,
+      routes,
+      summary: Object.freeze({
+        total: routes.length,
+        destination: routes.filter((entry) => entry.behavior === "destination").length,
+        preserve: routes.filter((entry) => entry.behavior === "preserve").length,
+        boundary: routes.filter((entry) => entry.behavior === "boundary").length,
+        redirect: routes.filter((entry) => entry.redirectOnly).length,
+        missing: routes.filter((entry) => !entry.behavior && !entry.redirectOnly).length
+      })
+    });
+    if (options.json) {
+      stdout.write(`${JSON.stringify(payload, null, 2)}\n`);
+      return 0;
+    }
+
+    const color = createColorFormatter(stdout);
+    const lines = [color.heading("JSKIT route navigation:")];
+    for (const route of routes) {
+      const behavior = route.behavior || (route.redirectOnly ? "redirect" : "missing");
+      const key = route.destinationKey || route.machineryKey || "-";
+      lines.push(`- ${color.item(route.routePath)} [${behavior}] ${key} ${color.dim(`(${route.file})`)}`);
+      if (options.details === true) {
+        lines.push(`  surface=${route.surface || "-"} navigationRole=${route.navigationRole || "-"} persistence=${route.persistence || "-"} fallback=${route.fallback ? JSON.stringify(route.fallback) : "-"} restore=${route.restore.join(",") || "-"}`);
+      }
+    }
+    lines.push(color.dim(`Totals: ${JSON.stringify(payload.summary)}`));
+    stdout.write(`${lines.join("\n")}\n`);
+    return 0;
+  }
+
   async function commandListPlacements({ options, cwd, stdout }) {
     const appRoot = await resolveAppRootFromCwd(cwd);
     const showConcreteOnly = options.concrete === true && options.all !== true;
@@ -1014,6 +1086,7 @@ function createListCommands(ctx = {}) {
 
   return {
     commandList,
+    commandListNavigation,
     commandListPlacements,
     commandListLinkItems
   };

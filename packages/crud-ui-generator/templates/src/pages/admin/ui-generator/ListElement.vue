@@ -1,3 +1,5 @@
+__JSKIT_UI_LIST_ROUTE_BLOCK__
+
 <template>
   <CrudListScreen
     :screen="screen"
@@ -50,6 +52,7 @@ const screen = useCrudListScreen({
   adapter: UI_OPERATION_ADAPTER || undefined,
   resource: uiResource,
   resourceNamespace: "__JSKIT_UI_RESOURCE_NAMESPACE__",
+  navigationContributorId: "__JSKIT_UI_LIST_NAVIGATION_CONTRIBUTOR_ID__",
   apiSuffix: UI_LIST_API_URL,
   recordIdParam: UI_RECORD_ID_PARAM,
   recordIdSelector: (item = {}) => __JSKIT_UI_LIST_RECORD_ID_EXPR__,

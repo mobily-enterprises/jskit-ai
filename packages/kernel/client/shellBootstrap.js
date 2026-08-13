@@ -2,6 +2,11 @@ import { buildSurfaceAwareRoutes, createFallbackNotFoundRoute, createShellBefore
 import { isRecord } from "../shared/support/normalize.js";
 import { setClientAppConfig } from "./appConfig.js";
 import { createStructuredLogger, summarizeRouterRoutes } from "./logging.js";
+import {
+  JSKIT_NAVIGATION_RUNTIME_KEY,
+  createJskitNavigationScrollCoordinator,
+  installJskitNavigation
+} from "./navigation.js";
 
 function resolveClientBootstrapDebugEnabled({
   env = {},
@@ -64,7 +69,8 @@ function createSurfaceShellRouter({
   surfaceMode,
   fallbackRoute = null,
   notFoundComponent = null,
-  guard = false
+  guard = false,
+  navigation = false
 } = {}) {
   if (typeof createRouter !== "function") {
     throw new TypeError("createSurfaceShellRouter requires createRouter().");
@@ -77,10 +83,26 @@ function createSurfaceShellRouter({
     surfaceMode,
     fallbackRoute: effectiveFallbackRoute
   });
+  const navigationEnabled = navigation === true || (isRecord(navigation) && navigation.enabled !== false);
+  const navigationOptions = navigation === true ? {} : isRecord(navigation) ? { ...navigation } : {};
+  delete navigationOptions.enabled;
+  const scrollCoordinator = navigationEnabled
+    ? navigationOptions.scrollCoordinator || createJskitNavigationScrollCoordinator()
+    : null;
   const router = createRouter({
     history,
-    routes: activeRoutes
+    routes: activeRoutes,
+    ...(scrollCoordinator ? { scrollBehavior: scrollCoordinator.scrollBehavior } : {})
   });
+
+  const navigationRuntime = navigationEnabled
+    ? installJskitNavigation({
+        ...navigationOptions,
+        router,
+        history,
+        scrollCoordinator
+      })
+    : null;
 
   if (guard !== false) {
     if (!router || typeof router.beforeEach !== "function") {
@@ -98,6 +120,7 @@ function createSurfaceShellRouter({
 
   return Object.freeze({
     router,
+    navigation: navigationRuntime,
     activeRoutes: Object.freeze([...activeRoutes]),
     fallbackRoute: effectiveFallbackRoute
   });
@@ -111,6 +134,7 @@ async function bootstrapClientShellApp({
   pinia = null,
   queryClient = null,
   router,
+  navigation = null,
   bootClientModules,
   surfaceRuntime,
   surfaceMode,
@@ -123,6 +147,7 @@ async function bootstrapClientShellApp({
   debugMessage = "Client modules bootstrapped before router install.",
   onAfterModulesBootstrapped = null,
   onAfterRouterReady = null,
+  onAfterAppMounted = null,
   mountSelector = "#app"
 } = {}) {
   if (typeof createApp !== "function") {
@@ -141,6 +166,12 @@ async function bootstrapClientShellApp({
   }
 
   installAppPlugins(app, appPlugins);
+  if (navigation) {
+    if (typeof app.provide !== "function") {
+      throw new TypeError("bootstrapClientShellApp requires Vue app.provide() when navigation is enabled.");
+    }
+    app.provide(JSKIT_NAVIGATION_RUNTIME_KEY, navigation);
+  }
   setClientAppConfig(appConfig);
 
   const resolvedLogger =
@@ -164,6 +195,7 @@ async function bootstrapClientShellApp({
     pinia,
     queryClient,
     router,
+    navigation,
     surfaceRuntime,
     surfaceMode,
     env,
@@ -205,6 +237,7 @@ async function bootstrapClientShellApp({
       Object.freeze({
         app,
         router,
+        navigation,
         clientBootstrap,
         surfaceRuntime,
         surfaceMode,
@@ -219,11 +252,15 @@ async function bootstrapClientShellApp({
   if (typeof router.isReady === "function") {
     await router.isReady();
   }
+  if (navigation && typeof navigation.initialize === "function") {
+    await navigation.initialize();
+  }
   if (typeof onAfterRouterReady === "function") {
     await onAfterRouterReady(
       Object.freeze({
         app,
         router,
+        navigation,
         clientBootstrap,
         surfaceRuntime,
         surfaceMode,
@@ -234,10 +271,27 @@ async function bootstrapClientShellApp({
     );
   }
   app.mount(mountSelector);
+  navigation?.notifyAppMounted?.();
+  if (typeof onAfterAppMounted === "function") {
+    await onAfterAppMounted(
+      Object.freeze({
+        app,
+        router,
+        navigation,
+        clientBootstrap,
+        surfaceRuntime,
+        surfaceMode,
+        env: isRecord(env) ? { ...env } : {},
+        logger: bootstrapLogger,
+        debugEnabled: isDebugEnabled
+      })
+    );
+  }
 
   return Object.freeze({
     app,
     router,
+    navigation,
     clientBootstrap,
     logger: bootstrapLogger,
     debugEnabled: isDebugEnabled

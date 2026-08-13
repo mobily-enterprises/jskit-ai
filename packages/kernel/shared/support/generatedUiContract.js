@@ -1,4 +1,5 @@
 import { normalizeText } from "./normalize.js";
+import { normalizeJskitInternalFullPath } from "../navigation.js";
 
 const GENERATED_UI_NAVIGATION_ROLE_VALUES = Object.freeze([
   "primary",
@@ -7,6 +8,11 @@ const GENERATED_UI_NAVIGATION_ROLE_VALUES = Object.freeze([
   "detail",
   "workflow",
   "none"
+]);
+const GENERATED_UI_DESTINATION_BEHAVIOR_VALUES = Object.freeze([
+  "destination",
+  "preserve",
+  "boundary"
 ]);
 const GENERATED_UI_NAVIGATION_ROLE_DEFAULT = "primary";
 const GENERATED_UI_NAVIGATION_ROLE_LINK_PLACEMENTS = Object.freeze({
@@ -46,6 +52,15 @@ const GENERATED_UI_NAVIGATION_ROLE_OPTION = Object.freeze({
   defaultValue: "",
   promptLabel: "Navigation role",
   promptHint: "Product navigation role for generated links. When omitted, dynamic detail and workflow routes create no nav link; primary uses normal inference, secondary maps to shell.secondary-nav, utility maps to shell.global-actions, and detail/workflow/none force no nav link."
+});
+const GENERATED_UI_DESTINATION_BEHAVIOR_OPTION = Object.freeze({
+  required: false,
+  inputType: "text",
+  validationType: "enum",
+  allowedValues: GENERATED_UI_DESTINATION_BEHAVIOR_VALUES,
+  defaultValue: "",
+  promptLabel: "Destination behavior",
+  promptHint: "Chronological navigation behavior. Destination creates a meaningful restorable entry, preserve keeps the owning destination for edit/create machinery, and boundary owns no restorable destination."
 });
 const GENERATED_UI_FORBIDDEN_LIVE_COPY_PATTERNS = Object.freeze([
   Object.freeze({
@@ -416,6 +431,25 @@ function normalizeGeneratedUiNavigationRole(value = "") {
   return normalizedRole;
 }
 
+function normalizeGeneratedUiDestinationBehavior(value = "") {
+  const normalizedBehavior = normalizeText(value).toLowerCase();
+  if (!GENERATED_UI_DESTINATION_BEHAVIOR_VALUES.includes(normalizedBehavior)) {
+    throw new Error(
+      `destination-behavior must be one of: ${GENERATED_UI_DESTINATION_BEHAVIOR_VALUES.join(", ")}.`
+    );
+  }
+  return normalizedBehavior;
+}
+
+function hasExplicitGeneratedUiDestinationBehavior(options = {}) {
+  return Boolean(
+    options &&
+    typeof options === "object" &&
+    Object.prototype.hasOwnProperty.call(options, "destination-behavior") &&
+    normalizeText(options?.["destination-behavior"])
+  );
+}
+
 function hasExplicitGeneratedUiNavigationRole(options = {}) {
   if (!options || typeof options !== "object") {
     return false;
@@ -435,6 +469,90 @@ function normalizeGeneratedUiRouteSegments(routePath = "") {
 function isGeneratedUiDynamicRouteSegment(routeSegment = "") {
   const normalizedSegment = normalizeText(routeSegment);
   return normalizedSegment.startsWith("[") && normalizedSegment.endsWith("]");
+}
+
+function inferGeneratedUiDestinationBehavior(options = {}, { routePath = "" } = {}) {
+  if (hasExplicitGeneratedUiDestinationBehavior(options)) {
+    return normalizeGeneratedUiDestinationBehavior(options?.["destination-behavior"]);
+  }
+
+  const routeSegments = normalizeGeneratedUiRouteSegments(routePath)
+    .map((entry) => normalizeText(entry).replace(/^\[+|\]+$/g, "").toLowerCase());
+  const lastRouteSegment = routeSegments.at(-1) || "";
+  if (["new", "create", "add", "edit"].includes(lastRouteSegment)) {
+    return "preserve";
+  }
+  if (
+    ["callback", "sign-out", "signout", "logout"].includes(lastRouteSegment) &&
+    routeSegments.some((entry) => ["auth", "oauth", "session"].includes(entry))
+  ) {
+    return "boundary";
+  }
+  return "destination";
+}
+
+function normalizeGeneratedUiNavigationKey(value = "", fieldName = "navigation key") {
+  const normalized = normalizeText(value);
+  if (!normalized || !/^[A-Za-z0-9]+(?:[._:-][A-Za-z0-9]+)*$/u.test(normalized)) {
+    throw new Error(`${fieldName} must be a stable nonempty key containing only letters, numbers, dot, underscore, colon, or hyphen separators.`);
+  }
+  return normalized;
+}
+
+function normalizeGeneratedUiNavigationKeySegment(value = "") {
+  return normalizeText(value)
+    .replace(/^\[+|\]+$/g, "")
+    .replace(/([a-z0-9])([A-Z])/g, "$1-$2")
+    .replace(/[^A-Za-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .toLowerCase();
+}
+
+function buildGeneratedUiNavigationKey({ surfaceId = "", routePath = "" } = {}) {
+  const routeSegments = normalizeGeneratedUiRouteSegments(routePath)
+    .filter((entry) => normalizeText(entry).toLowerCase() !== "index")
+    .map(normalizeGeneratedUiNavigationKeySegment)
+    .filter(Boolean);
+  const segments = [normalizeGeneratedUiNavigationKeySegment(surfaceId), ...routeSegments].filter(Boolean);
+  if (segments.length < 1) {
+    throw new Error("Cannot derive a navigation key without a surface or route path.");
+  }
+  if (segments.length === 1) {
+    segments.push("root");
+  }
+  return normalizeGeneratedUiNavigationKey(segments.join("."));
+}
+
+function buildGeneratedUiNavigationScope({
+  surfaceRequiresAuth = false,
+  surfacePagesRoot = "",
+  routePath = ""
+} = {}) {
+  const routedPath = `${surfacePagesRoot}/${routePath}`.toLowerCase();
+  return Object.freeze([
+    ...(surfaceRequiresAuth ? ["principal"] : []),
+    "surface",
+    ...(routedPath.includes("[workspace") ? ["workspace"] : []),
+    ...(routedPath.includes("[tenant") ? ["tenant"] : [])
+  ]);
+}
+
+function resolveGeneratedUiNavigationFallback(value = "") {
+  const normalized = normalizeText(value);
+  if (!normalized) {
+    return undefined;
+  }
+  if (normalized.startsWith("/")) {
+    try {
+      return Object.freeze({ path: normalizeJskitInternalFullPath(normalized) });
+    } catch {
+      throw new Error("navigation-fallback must be a safe internal path or route name.");
+    }
+  }
+  if (/^[a-z][a-z0-9+.-]*:/iu.test(normalized) || normalized.includes("/") || normalized.includes("\\")) {
+    throw new Error("navigation-fallback must be a safe internal path or route name.");
+  }
+  return Object.freeze({ name: normalizeGeneratedUiNavigationKey(normalized, "navigation-fallback route name") });
 }
 
 function resolveGeneratedUiSurfaceProfile(surfaceProfile = "") {
@@ -527,6 +645,8 @@ export {
   GENERATED_UI_NAVIGATION_ROLE_LINK_PLACEMENTS,
   GENERATED_UI_NAVIGATION_ROLE_OPTION,
   GENERATED_UI_NAVIGATION_ROLE_VALUES,
+  GENERATED_UI_DESTINATION_BEHAVIOR_OPTION,
+  GENERATED_UI_DESTINATION_BEHAVIOR_VALUES,
   GENERATED_UI_NO_LINK_NAVIGATION_ROLES,
   GENERATED_UI_SOURCE_CONTRACT_PROFILES,
   GENERATED_UI_SURFACE_PROFILES,
@@ -534,8 +654,14 @@ export {
   buildGeneratedUiScreenClassName,
   collectGeneratedUiSourceContractIssues,
   inferGeneratedUiNavigationRole,
+  inferGeneratedUiDestinationBehavior,
   isGeneratedUiNoLinkNavigationRole,
   normalizeGeneratedUiNavigationRole,
+  normalizeGeneratedUiDestinationBehavior,
+  normalizeGeneratedUiNavigationKey,
+  buildGeneratedUiNavigationKey,
+  buildGeneratedUiNavigationScope,
+  resolveGeneratedUiNavigationFallback,
   resolveGeneratedUiSurfaceProfile,
   resolveGeneratedUiNavigationRoleLinkPlacement,
   shouldCreateGeneratedUiNavigationLink
