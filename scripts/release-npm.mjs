@@ -811,20 +811,38 @@ function runRootNpmScript({
   }
 }
 
-function refreshPackageLock({ dryRun }) {
-  if (dryRun) {
-    process.stdout.write("[dry-run] npm install --package-lock-only\n");
-    return;
+function resolvePackageLockRefreshSteps({ onlyMode = false } = {}) {
+  const standardStep = ["install", "--package-lock-only", "--ignore-scripts"];
+  if (!onlyMode) {
+    return [standardStep];
   }
 
-  const result = spawnSync("npm", ["install", "--package-lock-only"], {
-    cwd: REPO_ROOT,
-    stdio: "inherit",
-    env: process.env
-  });
+  // A selective bump leaves older exact versions referenced by unselected
+  // workspaces. npm needs one forced recalculation to nest those published
+  // versions. The ordinary second pass must still validate the resulting graph.
+  return [
+    [...standardStep, "--force"],
+    standardStep
+  ];
+}
 
-  if (result.status !== 0) {
-    throw new Error("package-lock refresh failed.");
+function refreshPackageLock({ dryRun, onlyMode = false }) {
+  const steps = resolvePackageLockRefreshSteps({ onlyMode });
+  for (const args of steps) {
+    if (dryRun) {
+      process.stdout.write(`[dry-run] npm ${args.join(" ")}\n`);
+      continue;
+    }
+
+    const result = spawnSync("npm", args, {
+      cwd: REPO_ROOT,
+      stdio: "inherit",
+      env: process.env
+    });
+
+    if (result.status !== 0) {
+      throw new Error(`package-lock refresh failed during: npm ${args.join(" ")}`);
+    }
   }
 }
 
@@ -877,7 +895,7 @@ async function main() {
     onlyMode
   });
 
-  refreshPackageLock({ dryRun: options.dryRun });
+  refreshPackageLock({ dryRun: options.dryRun, onlyMode });
 
   runRootNpmScript({
     dryRun: options.dryRun,
@@ -957,6 +975,7 @@ if (process.argv[1] && path.resolve(process.argv[1]) === __filename) {
 export {
   STAGING_TAG,
   promotePublishedPackages,
+  resolvePackageLockRefreshSteps,
   topologicalPublishOrder,
   waitForPublishedVersions,
   updateDescriptorTextForPackage

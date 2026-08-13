@@ -2,10 +2,21 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
 import {
+  resolvePackageLockRefreshSteps,
   STAGING_TAG,
   topologicalPublishOrder,
   updateDescriptorTextForPackage
 } from "./release-npm.mjs";
+
+test("selective releases rebuild nested exact workspace dependencies then validate normally", () => {
+  assert.deepEqual(resolvePackageLockRefreshSteps(), [
+    ["install", "--package-lock-only", "--ignore-scripts"]
+  ]);
+  assert.deepEqual(resolvePackageLockRefreshSteps({ onlyMode: true }), [
+    ["install", "--package-lock-only", "--ignore-scripts", "--force"],
+    ["install", "--package-lock-only", "--ignore-scripts"]
+  ]);
+});
 
 test("release descriptor updates cover direct and conditional JSKIT dependency versions", () => {
   const source = `
@@ -108,16 +119,13 @@ async function readWorkspacePackageJson(relativePath) {
   );
 }
 
-test("prepared CRUD, calendar-date, and toolchain manifests pin one exact dependency graph", async () => {
+test("prepared selected CRUD and toolchain manifests pin one exact dependency graph", async () => {
   const [
     authCore,
     crudCore,
     crudServerGenerator,
     crudUiGenerator,
     databaseRuntime,
-    databaseRuntimeMysql,
-    databaseRuntimePostgres,
-    featureServerGenerator,
     httpRuntime,
     jsonRestApiCore,
     usersCore,
@@ -131,9 +139,6 @@ test("prepared CRUD, calendar-date, and toolchain manifests pin one exact depend
     readWorkspacePackageJson("packages/crud-server-generator"),
     readWorkspacePackageJson("packages/crud-ui-generator"),
     readWorkspacePackageJson("packages/database-runtime"),
-    readWorkspacePackageJson("packages/database-runtime-mysql"),
-    readWorkspacePackageJson("packages/database-runtime-postgres"),
-    readWorkspacePackageJson("packages/feature-server-generator"),
     readWorkspacePackageJson("packages/http-runtime"),
     readWorkspacePackageJson("packages/json-rest-api-core"),
     readWorkspacePackageJson("packages/users-core"),
@@ -148,32 +153,16 @@ test("prepared CRUD, calendar-date, and toolchain manifests pin one exact depend
   const crudServerGeneratorDescriptor = (
     await import(new URL("../packages/crud-server-generator/package.descriptor.mjs", import.meta.url))
   ).default;
-  const featureServerGeneratorDescriptor = (
-    await import(new URL("../packages/feature-server-generator/package.descriptor.mjs", import.meta.url))
-  ).default;
-  const usersCoreDescriptor = (
-    await import(new URL("../packages/users-core/package.descriptor.mjs", import.meta.url))
-  ).default;
   const usersWebDescriptor = (
     await import(new URL("../packages/users-web/package.descriptor.mjs", import.meta.url))
   ).default;
 
   assert.equal(usersWeb.dependencies["@jskit-ai/http-runtime"], httpRuntime.version);
   assert.equal(usersWeb.dependencies["@jskit-ai/users-core"], usersCore.version);
-  assert.equal(databaseRuntimeMysql.dependencies["@jskit-ai/database-runtime"], databaseRuntime.version);
-  assert.equal(databaseRuntimePostgres.dependencies["@jskit-ai/database-runtime"], databaseRuntime.version);
-  assert.equal(usersCore.dependencies["@jskit-ai/auth-core"], authCore.version);
-  assert.equal(usersCore.dependencies["@jskit-ai/database-runtime"], databaseRuntime.version);
-  assert.equal(usersCore.dependencies["@jskit-ai/http-runtime"], httpRuntime.version);
-  assert.equal(usersCore.dependencies["@jskit-ai/json-rest-api-core"], jsonRestApiCore.version);
   assert.equal(crudCore.dependencies["@jskit-ai/database-runtime"], databaseRuntime.version);
   assert.equal(crudCore.dependencies["@jskit-ai/http-runtime"], httpRuntime.version);
   assert.equal(crudCore.dependencies["@jskit-ai/users-core"], usersCore.version);
   assert.equal(crudCore.dependencies["@jskit-ai/users-web"], usersWeb.version);
-  assert.equal(
-    usersCoreDescriptor.mutations.dependencies.runtime["@jskit-ai/crud-core"],
-    crudCore.version
-  );
   assert.equal(
     usersWebDescriptor.mutations.dependencies.runtime["@jskit-ai/users-core"],
     usersCore.version
@@ -195,19 +184,6 @@ test("prepared CRUD, calendar-date, and toolchain manifests pin one exact depend
     jsonRestApiCore.version
   );
   assert.equal(crudUiGenerator.dependencies["@jskit-ai/crud-core"], crudCore.version);
-  assert.equal(featureServerGeneratorDescriptor.version, featureServerGenerator.version);
-  assert.equal(
-    featureServerGeneratorDescriptor.mutations.dependencies.runtime["@jskit-ai/database-runtime"].version,
-    databaseRuntime.version
-  );
-  assert.equal(
-    featureServerGeneratorDescriptor.mutations.dependencies.runtime["@jskit-ai/database-runtime-mysql"].version,
-    databaseRuntimeMysql.version
-  );
-  assert.equal(
-    featureServerGeneratorDescriptor.mutations.dependencies.runtime["@jskit-ai/json-rest-api-core"].version,
-    jsonRestApiCore.version
-  );
 
   assert.equal(cli.dependencies["@jskit-ai/jskit-catalog"], catalog.version);
   assert.equal(createAppDescriptor.version, createApp.version);

@@ -1797,11 +1797,11 @@
     },
     {
       "packageId": "@jskit-ai/crud-core",
-      "version": "0.1.158",
+      "version": "0.1.159",
       "descriptor": {
         "packageVersion": 1,
         "packageId": "@jskit-ai/crud-core",
-        "version": "0.1.158",
+        "version": "0.1.159",
         "kind": "runtime",
         "description": "Shared CRUD helpers used by CRUD modules.",
         "dependsOn": [
@@ -1828,7 +1828,7 @@
         "mutations": {
           "dependencies": {
             "runtime": {
-              "@jskit-ai/crud-core": "0.1.158"
+              "@jskit-ai/crud-core": "0.1.159"
             },
             "dev": {}
           },
@@ -1842,11 +1842,11 @@
     },
     {
       "packageId": "@jskit-ai/crud-server-generator",
-      "version": "0.1.160",
+      "version": "0.1.161",
       "descriptor": {
         "packageVersion": 1,
         "packageId": "@jskit-ai/crud-server-generator",
-        "version": "0.1.160",
+        "version": "0.1.161",
         "kind": "generator",
         "description": "CRUD server generator with routes, actions, and persistence scaffolding.",
         "options": {
@@ -2051,12 +2051,12 @@
           "dependencies": {
             "runtime": {
               "@jskit-ai/auth-core": "0.1.146",
-              "@jskit-ai/crud-core": "0.1.158",
-              "@jskit-ai/database-runtime": "0.1.147",
+              "@jskit-ai/crud-core": "0.1.159",
+              "@jskit-ai/database-runtime": "0.1.148",
               "@jskit-ai/http-runtime": "0.1.146",
               "@jskit-ai/json-rest-api-core": "0.1.92",
               "@jskit-ai/kernel": "0.1.147",
-              "@jskit-ai/realtime": "0.1.144",
+              "@jskit-ai/realtime": "0.1.145",
               "@jskit-ai/resource-crud-core": "0.1.90",
               "@local/${option:namespace|kebab}": "file:packages/${option:namespace|kebab}"
             },
@@ -2202,11 +2202,11 @@
     },
     {
       "packageId": "@jskit-ai/crud-ui-generator",
-      "version": "0.1.131",
+      "version": "0.1.132",
       "descriptor": {
         "packageVersion": 1,
         "packageId": "@jskit-ai/crud-ui-generator",
-        "version": "0.1.131",
+        "version": "0.1.132",
         "kind": "generator",
         "description": "Generate CRUD route trees from resource validators at an explicit route root relative to src/pages/.",
         "options": {
@@ -2415,7 +2415,7 @@
         "mutations": {
           "dependencies": {
             "runtime": {
-              "@jskit-ai/users-web": "0.1.165"
+              "@jskit-ai/users-web": "0.1.166"
             },
             "dev": {}
           },
@@ -2674,11 +2674,11 @@
     },
     {
       "packageId": "@jskit-ai/database-runtime",
-      "version": "0.1.147",
+      "version": "0.1.148",
       "descriptor": {
         "packageVersion": 1,
         "packageId": "@jskit-ai/database-runtime",
-        "version": "0.1.147",
+        "version": "0.1.148",
         "kind": "runtime",
         "dependsOn": [
           "@jskit-ai/kernel"
@@ -4015,11 +4015,11 @@
     },
     {
       "packageId": "@jskit-ai/realtime",
-      "version": "0.1.144",
+      "version": "0.1.145",
       "descriptor": {
         "packageVersion": 1,
         "packageId": "@jskit-ai/realtime",
-        "version": "0.1.144",
+        "version": "0.1.145",
         "kind": "runtime",
         "description": "Thin, generic realtime runtime wrappers for socket.io server and client.",
         "options": {
@@ -4117,7 +4117,7 @@
           "dependencies": {
             "runtime": {
               "@jskit-ai/kernel": "0.1.147",
-              "@jskit-ai/shell-web": "0.1.148",
+              "@jskit-ai/shell-web": "0.1.149",
               "@socket.io/redis-adapter": "^8.3.0",
               "redis": "^5.8.2",
               "socket.io": "^4.8.3",
@@ -4251,11 +4251,11 @@
     },
     {
       "packageId": "@jskit-ai/shell-web",
-      "version": "0.1.148",
+      "version": "0.1.149",
       "descriptor": {
         "packageVersion": 1,
         "packageId": "@jskit-ai/shell-web",
-        "version": "0.1.148",
+        "version": "0.1.149",
         "kind": "runtime",
         "description": "Web shell layout runtime with outlet-based placement contributions.",
         "dependsOn": [],
@@ -5912,11 +5912,11 @@
     },
     {
       "packageId": "@jskit-ai/users-web",
-      "version": "0.1.165",
+      "version": "0.1.166",
       "descriptor": {
         "packageVersion": 1,
         "packageId": "@jskit-ai/users-web",
-        "version": "0.1.165",
+        "version": "0.1.166",
         "kind": "runtime",
         "description": "Users web module: account/profile UI plus shared users web widgets.",
         "dependsOn": [
@@ -6220,9 +6220,9 @@
             "runtime": {
               "@mdi/js": "^7.4.47",
               "@jskit-ai/http-runtime": "0.1.146",
-              "@jskit-ai/realtime": "0.1.144",
+              "@jskit-ai/realtime": "0.1.145",
               "@jskit-ai/kernel": "0.1.147",
-              "@jskit-ai/shell-web": "0.1.148",
+              "@jskit-ai/shell-web": "0.1.149",
               "@jskit-ai/uploads-image-web": "0.1.123",
               "@jskit-ai/users-core": "0.1.161"
             },

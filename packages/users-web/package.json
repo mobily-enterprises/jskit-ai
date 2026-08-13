@@ -1,6 +1,6 @@
 {
   "name": "@jskit-ai/users-web",
-  "version": "0.1.165",
+  "version": "0.1.166",
   "type": "module",
   "scripts": {
     "test": "node --test"
@@ -50,8 +50,8 @@
     "@mdi/js": "^7.4.47",
     "@jskit-ai/http-runtime": "0.1.146",
     "@jskit-ai/kernel": "0.1.147",
-    "@jskit-ai/realtime": "0.1.144",
-    "@jskit-ai/shell-web": "0.1.148",
+    "@jskit-ai/realtime": "0.1.145",
+    "@jskit-ai/shell-web": "0.1.149",
     "@jskit-ai/uploads-image-web": "0.1.123",
     "@jskit-ai/users-core": "0.1.161"
   },

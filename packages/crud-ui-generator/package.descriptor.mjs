@@ -3,7 +3,7 @@ import { GENERATED_UI_NAVIGATION_ROLE_OPTION } from "@jskit-ai/kernel/shared/sup
 export default Object.freeze({
   packageVersion: 1,
   packageId: "@jskit-ai/crud-ui-generator",
-  version: "0.1.131",
+  version: "0.1.132",
   kind: "generator",
   description: "Generate CRUD route trees from resource validators at an explicit route root relative to src/pages/.",
   options: {
@@ -185,7 +185,7 @@ export default Object.freeze({
   mutations: {
     dependencies: {
       runtime: {
-        "@jskit-ai/users-web": "0.1.165"
+        "@jskit-ai/users-web": "0.1.166"
       },
       dev: {}
     },

@@ -1,7 +1,7 @@
 export default Object.freeze({
   packageVersion: 1,
   packageId: "@jskit-ai/database-runtime",
-  version: "0.1.147",
+  version: "0.1.148",
   kind: "runtime",
   dependsOn: [
     "@jskit-ai/kernel"
