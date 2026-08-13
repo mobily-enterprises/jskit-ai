@@ -44,6 +44,21 @@ async function copyMinimalShellApp(appRoot, { name = "tmp-app" } = {}) {
   });
 }
 
+async function writeCrudClosureGenerator(appRoot) {
+  await writeLocalPackageDescriptor(appRoot, {
+    slug: "crud-closure-generator",
+    packageId: "@demo/crud-closure-generator",
+    kind: "generator",
+    dependsOn: ["@jskit-ai/crud-core"],
+    metadata: {
+      generatorPrimarySubcommand: "scaffold",
+      generatorSubcommands: {
+        scaffold: {}
+      }
+    }
+  });
+}
+
 async function writeLocalPackageDescriptor(
   appRoot,
   {
@@ -52,6 +67,7 @@ async function writeLocalPackageDescriptor(
     version = "0.1.0",
     kind = "runtime",
     dependsOn = [],
+    metadata = {},
     filesMutations = [],
     textMutations = []
   } = {}
@@ -95,6 +111,7 @@ async function writeLocalPackageDescriptor(
       providers: []
     }
   },
+  metadata: ${JSON.stringify(metadata, null, 2)},
   mutations: {
     dependencies: {
       runtime: {},
@@ -214,19 +231,20 @@ test("generate keeps already-installed dependency placements instead of reapplyi
   });
 });
 
-test("realtime installs shell-web before appending to a minimal shell placement registry", async () => {
+test("a CRUD generator closure installs shell-web before realtime mutates a minimal placement registry", async () => {
   assert.equal(realtimeDescriptor.dependsOn.includes("@jskit-ai/shell-web"), true);
   assert.equal(shellWebDescriptor.mutations.files.some((entry) => entry.to === "src/placement.js"), true);
 
   await withTempDir(async (cwd) => {
     const appRoot = path.join(cwd, "minimal-realtime-app");
     await copyMinimalShellApp(appRoot, { name: "minimal-realtime-app" });
+    await writeCrudClosureGenerator(appRoot);
 
-    const addResult = runCli({
+    const generateResult = runCli({
       cwd: appRoot,
-      args: ["add", "package", "@jskit-ai/realtime", "--realtime-redis-url="]
+      args: ["generate", "@demo/crud-closure-generator", "scaffold"]
     });
-    assert.equal(addResult.status, 0, String(addResult.stderr || ""));
+    assert.equal(generateResult.status, 0, String(generateResult.stderr || ""));
 
     const placementPath = path.join(appRoot, "src", "placement.js");
     const placementSource = await readFile(placementPath, "utf8");
@@ -256,20 +274,21 @@ test("realtime installs shell-web before appending to a minimal shell placement 
   });
 });
 
-test("realtime dependency closure stops at shell placement preflight without appending partial content", async () => {
+test("a CRUD generator closure stops at shell placement preflight without partial mutations", async () => {
   await withTempDir(async (cwd) => {
     const appRoot = path.join(cwd, "minimal-realtime-conflict-app");
     await copyMinimalShellApp(appRoot, { name: "minimal-realtime-conflict-app" });
+    await writeCrudClosureGenerator(appRoot);
     const placementPath = path.join(appRoot, "src", "placement.js");
     const customPlacementSource = "export const customPlacement = true;\n";
     await writeFile(placementPath, customPlacementSource, "utf8");
 
-    const addResult = runCli({
+    const generateResult = runCli({
       cwd: appRoot,
-      args: ["add", "package", "@jskit-ai/realtime", "--realtime-redis-url="]
+      args: ["generate", "@demo/crud-closure-generator", "scaffold"]
     });
-    assert.notEqual(addResult.status, 0);
-    assert.match(String(addResult.stderr || ""), /src\/placement\.js already exists and cannot be claimed/);
+    assert.notEqual(generateResult.status, 0);
+    assert.match(String(generateResult.stderr || ""), /src\/placement\.js already exists and cannot be claimed/);
     assert.equal(await readFile(placementPath, "utf8"), customPlacementSource);
 
     const lock = JSON.parse(await readFile(path.join(appRoot, ".jskit", "lock.json"), "utf8"));
