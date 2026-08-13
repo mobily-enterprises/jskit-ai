@@ -275,7 +275,8 @@ test("jskit generate crud-ui-generator crud help includes common and advanced ex
     /admin\/customers\/\[customerId\]\/index\/pets/,
     /--id-param petId/
   ]);
-  assert.match(stdout, /Notes \(3\):/);
+  assert.match(stdout, /Notes \(4\):/);
+  assert.match(stdout, /--delete-confirmation to add the supported delete action/);
   assert.match(stdout, /same mental\s+model as ui-generator page/);
   assert.match(stdout, /target root already exists and is not empty, rerun with --force/);
 });
