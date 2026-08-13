@@ -24,3 +24,18 @@ test("adaptive shell smoke navigates through Playwright baseURL", async () => {
   assert.doesNotMatch(source, /PLAYWRIGHT_BASE_URL/u);
   assert.doesNotMatch(source, /http:\/\/127\.0\.0\.1/u);
 });
+
+test("adaptive shell smoke follows rendered layout state and waits for drawer transitions", async () => {
+  const source = await readFile(path.join(PACKAGE_ROOT, "src/test/adaptiveShellSmoke.js"), "utf8");
+
+  assert.match(source, /data-layout/u);
+  assert.match(source, /data-rail-width/u);
+  assert.match(source, /expect\.poll/u);
+  assert.match(source, /toBeFocused/u);
+  assert.match(source, /v-navigation-drawer__scrim/u);
+  assert.match(source, /page\.keyboard\.press\("Escape"\)[\s\S]*data-presentation", "drawer"/u);
+  assert.match(source, /iconBox\.x \+ iconBox\.width \/ 2/u);
+  assert.match(source, /endGap\)\.toBeGreaterThanOrEqual\(9\)/u);
+  assert.doesNotMatch(source, /viewport\.name === "compact"/u);
+  assert.doesNotMatch(source, /await new Promise.*setTimeout|waitForTimeout/u);
+});

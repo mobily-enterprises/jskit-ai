@@ -98,7 +98,17 @@ test("shell-web shell layout registers navigation at the app layout level", asyn
   assert.match(source, /desktopDrawerClosedMode/);
   assert.match(source, /default: "rail"/);
   assert.match(source, /:rail="drawerPresentation\.rail"/);
-  assert.match(source, /:rail-width="80"/);
+  assert.match(source, /drawerWidth/);
+  assert.match(source, /railWidth/);
+  assert.match(source, /:width="resolvedDrawerWidth"/);
+  assert.match(source, /:rail-width="resolvedRailWidth"/);
+  assert.match(source, /data-drawer-width="resolvedDrawerWidth"/);
+  assert.match(source, /data-rail-width="resolvedRailWidth"/);
+  assert.match(source, /data-layout="layoutClass"/);
+  assert.match(source, /measureDrawerContentWidth/);
+  assert.match(source, /SHELL_DRAWER_LABEL_END_GAP/);
+  assert.doesNotMatch(source, /:width="248"/);
+  assert.doesNotMatch(source, /:rail-width="80"/);
   assert.match(source, /:model-value="drawerPresentation\.visible"/);
   assert.match(source, /data-testid="jskit-shell-nav-toggle"/);
   assert.match(source, /data-testid="jskit-shell-bottom-nav"/);
@@ -107,6 +117,7 @@ test("shell-web shell layout registers navigation at the app layout level", asyn
   const template = await readFile(path.join(PACKAGE_DIR, "templates", "src", "components", "ShellLayout.vue"), "utf8");
 
   assert.match(template, /PackageShellLayout from "@jskit-ai\/shell-web\/client\/components\/ShellLayout"/);
+  assert.match(template, /drawerWidth, railWidth, and future shell props package-owned/);
   assert.match(template, /h\(PackageShellLayout, attrs, slots\)/);
   assert.doesNotMatch(template, /ShellOutlet|ShellRouteTransition|useShellLayoutState|pointerdown|v-navigation-drawer|v-bottom-navigation/);
 });
@@ -154,7 +165,7 @@ test("shell-web installs generated adaptive shell Playwright smoke coverage", as
   assert.match(source, /@jskit-ai\/shell-web\/test\/adaptiveShellSmoke/);
   assert.match(helperSource, /generated adaptive shell smoke/);
   assert.match(helperSource, /390/);
-  assert.match(helperSource, /768/);
+  assert.match(helperSource, /1024/);
   assert.match(helperSource, /1280/);
   assert.match(helperSource, /jskit-shell-bottom-nav/);
   assert.match(helperSource, /jskit-shell-drawer/);

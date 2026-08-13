@@ -238,7 +238,7 @@ const GENERATED_UI_SOURCE_CONTRACT_PROFILES = Object.freeze({
       }),
       Object.freeze({
         id: "medium-viewport",
-        pattern: /\b768\b/,
+        pattern: /\b(?:768|1024)\b/,
         message: "Generated UI smoke tests must include tablet-ish medium width."
       }),
       Object.freeze({

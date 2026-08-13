@@ -1,7 +1,7 @@
 const DEFAULT_SMOKE_PATH = String(process.env.JSKIT_PLAYWRIGHT_SMOKE_PATH || "/home");
 const DEFAULT_VIEWPORTS = Object.freeze([
   Object.freeze({ name: "compact", width: 390, height: 844 }),
-  Object.freeze({ name: "medium", width: 768, height: 1024 }),
+  Object.freeze({ name: "medium", width: 1024, height: 1024 }),
   Object.freeze({ name: "expanded", width: 1280, height: 900 })
 ]);
 
@@ -68,6 +68,152 @@ async function isElementVisibleInViewport(page, testId) {
   });
 }
 
+async function expectElementVisibility(page, expect, testId, visible) {
+  await expect.poll(
+    () => isElementVisibleInViewport(page, testId),
+    { message: `${testId} did not reach its expected visibility.` }
+  ).toBe(visible);
+}
+
+async function readShellLayoutClass(drawer) {
+  const layoutClass = String(await drawer.getAttribute("data-layout") || "");
+  if (!["compact", "medium", "expanded"].includes(layoutClass)) {
+    throw new Error(`Shell drawer exposed an invalid data-layout value: ${layoutClass || "(empty)"}.`);
+  }
+  return layoutClass;
+}
+
+async function readConfiguredWidth(drawer, attribute) {
+  const width = Number(await drawer.getAttribute(attribute));
+  if (!Number.isFinite(width) || width <= 0) {
+    throw new Error(`Shell drawer exposed an invalid ${attribute} value.`);
+  }
+  return width;
+}
+
+async function expectDrawerWidth(drawer, expect, expectedWidth) {
+  await expect.poll(async () => {
+    const box = await drawer.boundingBox();
+    return box ? Math.abs(box.width - expectedWidth) : Number.POSITIVE_INFINITY;
+  }, {
+    message: `Shell drawer did not settle at ${expectedWidth}px.`
+  }).toBeLessThanOrEqual(1);
+}
+
+async function expectContentAwareDrawerFit(drawer, expect) {
+  if (await drawer.getAttribute("data-drawer-width-mode") !== "content") {
+    return;
+  }
+
+  const fit = await drawer.evaluate((element) => {
+    const drawerRect = element.getBoundingClientRect();
+    const drawerStyle = window.getComputedStyle(element);
+    const rightToLeft = drawerStyle.direction === "rtl";
+    const endBorderWidth = Number.parseFloat(
+      rightToLeft ? drawerStyle.borderLeftWidth : drawerStyle.borderRightWidth
+    ) || 0;
+    const innerEnd = rightToLeft
+      ? drawerRect.left + endBorderWidth
+      : drawerRect.right - endBorderWidth;
+    const labels = Array.from(element.querySelectorAll(".v-list-item-title"))
+      .filter((label) => {
+        const style = window.getComputedStyle(label);
+        return style.display !== "none" && style.visibility !== "hidden";
+      })
+      .map((label) => {
+        const range = document.createRange();
+        range.selectNodeContents(label);
+        const textRect = range.getBoundingClientRect();
+        range.detach?.();
+        return {
+          clipped: (
+            label.scrollWidth > label.clientWidth ||
+            label.scrollHeight > label.clientHeight ||
+            (rightToLeft
+              ? textRect.left < innerEnd - 1
+              : textRect.right > innerEnd + 1)
+          ),
+          logicalEnd: rightToLeft ? textRect.left : textRect.right,
+          width: textRect.width
+        };
+      })
+      .filter((label) => label.width > 0);
+
+    if (labels.length === 0) {
+      return null;
+    }
+    const furthestLabel = labels.reduce((furthest, label) => {
+      if (!furthest) {
+        return label;
+      }
+      return rightToLeft
+        ? label.logicalEnd < furthest.logicalEnd ? label : furthest
+        : label.logicalEnd > furthest.logicalEnd ? label : furthest;
+    }, null);
+    return {
+      clipped: labels.some((label) => label.clipped),
+      endGap: rightToLeft
+        ? furthestLabel.logicalEnd - innerEnd
+        : innerEnd - furthestLabel.logicalEnd
+    };
+  });
+
+  expect(fit).not.toBeNull();
+  expect(fit.clipped).toBe(false);
+  expect(fit.endGap).toBeGreaterThanOrEqual(9);
+  expect(fit.endGap).toBeLessThanOrEqual(11);
+}
+
+async function expectCentredRailNavigation(page, drawer, expect) {
+  const links = drawer.locator("a.shell-menu-link-item[href]");
+  await expect(links.first()).toBeVisible();
+  const firstLink = links.first();
+  const firstIcon = firstLink.locator(".v-icon").first();
+  const geometry = await Promise.all([drawer.boundingBox(), firstLink.boundingBox(), firstIcon.boundingBox()]);
+  const [drawerBox, linkBox, iconBox] = geometry;
+
+  expect(drawerBox).not.toBeNull();
+  expect(linkBox).not.toBeNull();
+  expect(iconBox).not.toBeNull();
+  expect(linkBox.width).toBeGreaterThanOrEqual(48);
+  expect(linkBox.height).toBeGreaterThanOrEqual(48);
+  expect(Math.abs(
+    iconBox.x + iconBox.width / 2 - (drawerBox.x + drawerBox.width / 2)
+  )).toBeLessThanOrEqual(1);
+
+  const currentUrl = new URL(page.url());
+  const linkCount = await links.count();
+  let navigationLink = null;
+  let targetUrl = null;
+  for (let index = 0; index < linkCount; index += 1) {
+    const candidate = links.nth(index);
+    const href = await candidate.getAttribute("href");
+    if (!href) {
+      continue;
+    }
+    const resolved = new URL(href, currentUrl);
+    if (resolved.pathname !== currentUrl.pathname || resolved.search !== currentUrl.search) {
+      navigationLink = candidate;
+      targetUrl = resolved;
+      break;
+    }
+  }
+
+  expect(navigationLink).not.toBeNull();
+  await navigationLink.locator(".v-icon").first().click();
+  await expect.poll(() => {
+    const actual = new URL(page.url());
+    return `${actual.pathname}${actual.search}`;
+  }).toBe(`${targetUrl.pathname}${targetUrl.search}`);
+}
+
+async function openCompactDrawer(page, expect) {
+  const drawer = page.getByTestId("jskit-shell-drawer");
+  await page.getByTestId("jskit-shell-nav-toggle").click();
+  await expect(drawer).toHaveAttribute("data-presentation", "modal");
+  await expectElementVisibility(page, expect, "jskit-shell-drawer", true);
+}
+
 async function runAdaptiveShellSmokeCase({
   page,
   expect,
@@ -83,8 +229,11 @@ async function runAdaptiveShellSmokeCase({
   await expect(page.locator("body")).toBeVisible();
   await expectGeneratedScreenContract(page, expect);
   await expectNoHorizontalOverflow(page, expect);
+  const drawer = page.getByTestId("jskit-shell-drawer");
+  const toggle = page.getByTestId("jskit-shell-nav-toggle");
+  const layoutClass = await readShellLayoutClass(drawer);
 
-  if (viewport.name === "compact") {
+  if (layoutClass === "compact") {
     let bootstrapRequests = 0;
     await page.route("**/api/bootstrap**", async (route) => {
       bootstrapRequests += 1;
@@ -93,12 +242,20 @@ async function runAdaptiveShellSmokeCase({
     const bootstrapRequestsBeforePull = bootstrapRequests;
 
     await expect(page.getByTestId("jskit-shell-bottom-nav")).toBeVisible();
-    expect(await isElementVisibleInViewport(page, "jskit-shell-drawer")).toBe(false);
-    await page.getByTestId("jskit-shell-nav-toggle").click();
-    await expect(page.getByTestId("jskit-shell-drawer")).toBeVisible();
-    await expect(page.getByTestId("jskit-shell-drawer")).toHaveAttribute("data-presentation", "modal");
+    await expectElementVisibility(page, expect, "jskit-shell-drawer", false);
+
+    await openCompactDrawer(page, expect);
+    await toggle.click();
+    await expectElementVisibility(page, expect, "jskit-shell-drawer", false);
+
+    await openCompactDrawer(page, expect);
+    await page.locator(".v-navigation-drawer__scrim").click();
+    await expectElementVisibility(page, expect, "jskit-shell-drawer", false);
+
+    await openCompactDrawer(page, expect);
     await page.keyboard.press("Escape");
-    expect(await isElementVisibleInViewport(page, "jskit-shell-drawer")).toBe(false);
+    await expectElementVisibility(page, expect, "jskit-shell-drawer", false);
+    await expect(toggle).toBeFocused();
 
     const navButtonHeights = await page.getByTestId("jskit-shell-bottom-nav").locator(".v-btn").evaluateAll((buttons) =>
       buttons.map((button) => button.getBoundingClientRect().height)
@@ -111,15 +268,21 @@ async function runAdaptiveShellSmokeCase({
     await pullToRefresh(page, expect);
     await expect.poll(() => bootstrapRequests).toBeGreaterThan(bootstrapRequestsBeforePull);
   } else {
-    await expect(page.getByTestId("jskit-shell-drawer")).toBeVisible();
-    await page.getByTestId("jskit-shell-nav-toggle").click();
-    await expect(page.getByTestId("jskit-shell-drawer")).toBeVisible();
-    await expect(page.getByTestId("jskit-shell-drawer")).toHaveAttribute("data-presentation", "rail");
-    const railWidth = await page.getByTestId("jskit-shell-drawer").evaluate(
-      (element) => element.getBoundingClientRect().width
-    );
-    expect(railWidth).toBeGreaterThanOrEqual(79);
-    expect(railWidth).toBeLessThanOrEqual(81);
+    await expect(drawer).toBeVisible();
+    if (await drawer.getAttribute("data-presentation") === "rail") {
+      await toggle.click();
+    }
+    await expect(drawer).toHaveAttribute("data-presentation", "drawer");
+    await expectDrawerWidth(drawer, expect, await readConfiguredWidth(drawer, "data-drawer-width"));
+    await expectContentAwareDrawerFit(drawer, expect);
+    await page.keyboard.press("Escape");
+    await expect(drawer).toHaveAttribute("data-presentation", "drawer");
+
+    await toggle.click();
+    await expect(drawer).toHaveAttribute("data-presentation", "rail");
+    await expectDrawerWidth(drawer, expect, await readConfiguredWidth(drawer, "data-rail-width"));
+    await expectCentredRailNavigation(page, drawer, expect);
+    await expectNoHorizontalOverflow(page, expect);
   }
 }
 

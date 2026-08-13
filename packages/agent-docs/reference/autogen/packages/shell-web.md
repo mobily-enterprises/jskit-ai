@@ -65,6 +65,17 @@ Local functions
 Exports
 - None
 Local functions
+- `attachShellListeners()`
+- `detachShellListeners()`
+- `handleDrawerOpenChange(open)`
+- `handleLayoutClassChange(compact)`
+- `handleShellKeydown(event)`
+- `focusNavigationToggle()`
+- `initializeDrawerMeasurement()`
+- `resolveNavigationDrawerElement()`
+- `scheduleDrawerWidthMeasurement()`
+- `measureDrawerContentWidth()`
+- `measureRenderedText(element)`
 - `handlePullPointerDown(event)`
 - `handleDrawerVisibilityChange(open)`
 - `handlePullPointerMove(event)`
@@ -88,6 +99,10 @@ Local functions
 - `touchListIncludesActiveTouch(touchList)`
 
 ### `src/client/components/ShellMenuLinkItem.vue`
+Exports
+- None
+
+### `src/client/components/ShellNavigationTooltip.vue`
 Exports
 - None
 
@@ -412,6 +427,19 @@ Exports
 - `resolveShellDrawerPresentation({ compact = false, open = false, desktopClosedMode = "rail" } = {})`
 - `resolveShellDrawerToggleLabel({ compact = false, open = false } = {})`
 
+### `src/client/support/drawerWidth.js`
+Exports
+- `DEFAULT_SHELL_DRAWER_WIDTH`
+- `DEFAULT_SHELL_RAIL_WIDTH`
+- `MAXIMUM_SHELL_DRAWER_WIDTH`
+- `MINIMUM_SHELL_DRAWER_WIDTH`
+- `SHELL_DRAWER_LABEL_END_GAP`
+- `normalizeShellDrawerWidth(value, fallback = DEFAULT_SHELL_DRAWER_WIDTH)`
+- `normalizeShellRailWidth(value, fallback = DEFAULT_SHELL_RAIL_WIDTH)`
+- `resolveContentAwareDrawerWidth(measurements = [], { endGap = SHELL_DRAWER_LABEL_END_GAP, minimum = MINIMUM_SHELL_DRAWER_WIDTH, maximum = MAXIMUM_SHELL_DRAWER_WIDTH, fallback = DEFAULT_SHELL_DRAWER_WIDTH } = {})`
+Local functions
+- `clampNumber(value, minimum, maximum)`
+
 ### `src/client/support/menuLinkTarget.js`
 Exports
 - `normalizeMenuLinkPathname(pathname = "")`
@@ -421,6 +449,10 @@ Local functions
 - `interpolateBracketParams(pathTemplate = "", params = {})`
 - `isRelativeMenuLinkTarget(target = "")`
 - `surfaceRequiresWorkspaceFromPlacementContext(contextValue = null, surfaceId = "")`
+
+### `src/client/support/navigationLinkKeyboard.js`
+Exports
+- `activateShellNavigationLinkOnSpace(event)`
 
 ### `src/client/support/routeTransitionKey.js`
 Exports
@@ -510,5 +542,26 @@ Exports
 ### root
 
 ### `package.descriptor.mjs`
+Exports
+- None
+
+### fixtures
+
+### `fixtures/adaptive-shell/src/App.vue`
+Exports
+- None
+
+### `fixtures/adaptive-shell/src/main.js`
+Exports
+- None
+Local functions
+- `createSurfacePlacement(surface, order, label, suffix)`
+- `createSurfacePlacements(surface)`
+
+### `fixtures/adaptive-shell/src/ScreenPage.vue`
+Exports
+- None
+
+### `fixtures/adaptive-shell/vite.config.mjs`
 Exports
 - None

@@ -47,6 +47,11 @@ navigation as a rail. Use `desktopDrawerClosedMode="hidden"` only when another
 discoverable navigation affordance exists. Do not create a second drawer/menu
 registry or imitate the rail with CSS.
 
+The open drawer tracks its widest visible label plus about 10px. The 80px
+desktop rail centres complete 48px targets and opaque theme-owned tooltips.
+Set `ShellLayout` `drawerWidth` or `railWidth` only for a fixed product width;
+the app wrapper forwards both. Never override `.v-navigation-drawer` in an app.
+
 ## Browser verification
 
 Exercise user-facing changes with Playwright at compact, medium, and expanded

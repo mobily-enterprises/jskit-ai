@@ -9,6 +9,8 @@ import {
 } from "../placement/index.js";
 import { resolveMenuLinkIcon } from "../lib/menuIcons.js";
 import { resolveMenuLinkTarget } from "../support/menuLinkTarget.js";
+import { activateShellNavigationLinkOnSpace } from "../support/navigationLinkKeyboard.js";
+import ShellNavigationTooltip from "./ShellNavigationTooltip.vue";
 
 const props = defineProps({
   label: {
@@ -104,18 +106,22 @@ const resolvedIcon = computed(() =>
 </script>
 
 <template>
-  <v-list-item
-    v-if="resolvedTarget.href"
-    class="shell-menu-link-item"
-    :title="props.label"
-    :to="resolvedTarget.sameOrigin ? resolvedTarget.href : undefined"
-    :href="resolvedTarget.sameOrigin ? undefined : resolvedTarget.href"
-    :prepend-icon="resolvedIcon || undefined"
-    :disabled="props.disabled"
-    :exact="props.exact"
-    :aria-label="props.label"
-    v-tooltip="props.label"
-  />
+  <ShellNavigationTooltip v-if="resolvedTarget.href" :label="props.label">
+    <template #default="{ activatorProps }">
+      <v-list-item
+        v-bind="activatorProps"
+        class="shell-menu-link-item"
+        :title="props.label"
+        :to="resolvedTarget.sameOrigin ? resolvedTarget.href : undefined"
+        :href="resolvedTarget.sameOrigin ? undefined : resolvedTarget.href"
+        :prepend-icon="resolvedIcon || undefined"
+        :disabled="props.disabled"
+        :exact="props.exact"
+        :aria-label="props.label"
+        @keydown.space="activateShellNavigationLinkOnSpace"
+      />
+    </template>
+  </ShellNavigationTooltip>
 </template>
 
 <style scoped>
