@@ -430,13 +430,14 @@ Exports
 ### `src/client/support/drawerWidth.js`
 Exports
 - `DEFAULT_SHELL_DRAWER_WIDTH`
+- `DEFAULT_SHELL_NAVIGATION_ITEM_SPACING`
 - `DEFAULT_SHELL_RAIL_WIDTH`
 - `MAXIMUM_SHELL_DRAWER_WIDTH`
 - `MINIMUM_SHELL_DRAWER_WIDTH`
-- `SHELL_DRAWER_LABEL_END_GAP`
 - `normalizeShellDrawerWidth(value, fallback = DEFAULT_SHELL_DRAWER_WIDTH)`
+- `normalizeShellNavigationItemSpacing(value, fallback = DEFAULT_SHELL_NAVIGATION_ITEM_SPACING)`
 - `normalizeShellRailWidth(value, fallback = DEFAULT_SHELL_RAIL_WIDTH)`
-- `resolveContentAwareDrawerWidth(measurements = [], { endGap = SHELL_DRAWER_LABEL_END_GAP, minimum = MINIMUM_SHELL_DRAWER_WIDTH, maximum = MAXIMUM_SHELL_DRAWER_WIDTH, fallback = DEFAULT_SHELL_DRAWER_WIDTH } = {})`
+- `resolveContentAwareDrawerWidth(measurements = [], { endGap = DEFAULT_SHELL_NAVIGATION_ITEM_SPACING, minimum = MINIMUM_SHELL_DRAWER_WIDTH, maximum = MAXIMUM_SHELL_DRAWER_WIDTH, fallback = DEFAULT_SHELL_DRAWER_WIDTH } = {})`
 Local functions
 - `clampNumber(value, minimum, maximum)`
 

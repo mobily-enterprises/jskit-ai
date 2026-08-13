@@ -16,9 +16,10 @@ import {
 } from "../support/drawerPresentation.js";
 import {
   DEFAULT_SHELL_DRAWER_WIDTH,
+  DEFAULT_SHELL_NAVIGATION_ITEM_SPACING,
   DEFAULT_SHELL_RAIL_WIDTH,
-  SHELL_DRAWER_LABEL_END_GAP,
   normalizeShellDrawerWidth,
+  normalizeShellNavigationItemSpacing,
   normalizeShellRailWidth,
   resolveContentAwareDrawerWidth
 } from "../support/drawerWidth.js";
@@ -53,6 +54,10 @@ const props = defineProps({
   railWidth: {
     type: Number,
     default: DEFAULT_SHELL_RAIL_WIDTH
+  },
+  navigationItemSpacing: {
+    type: Number,
+    default: DEFAULT_SHELL_NAVIGATION_ITEM_SPACING
   }
 });
 
@@ -111,6 +116,9 @@ const resolvedDrawerWidth = computed(() => {
   return normalizeShellDrawerWidth(measuredDrawerWidth.value);
 });
 const resolvedRailWidth = computed(() => normalizeShellRailWidth(props.railWidth));
+const resolvedNavigationItemSpacing = computed(() =>
+  normalizeShellNavigationItemSpacing(props.navigationItemSpacing)
+);
 const pullProgress = computed(() =>
   Math.min(100, Math.round((pullDistance.value / PULL_REFRESH_TRIGGER_DISTANCE) * 100))
 );
@@ -140,6 +148,7 @@ watch(
 
 watch(drawerPresentation, scheduleDrawerWidthMeasurement, { flush: "post" });
 watch(resolvedSurface, scheduleDrawerWidthMeasurement, { flush: "post" });
+watch(resolvedNavigationItemSpacing, scheduleDrawerWidthMeasurement, { flush: "post" });
 
 onMounted(attachShellListeners);
 onBeforeUnmount(detachShellListeners);
@@ -299,7 +308,7 @@ function measureDrawerContentWidth() {
   }
 
   const nextWidth = resolveContentAwareDrawerWidth(measurements, {
-    endGap: SHELL_DRAWER_LABEL_END_GAP + endBorderWidth
+    endGap: resolvedNavigationItemSpacing.value + endBorderWidth
   });
   if (Math.abs(nextWidth - measuredDrawerWidth.value) >= 0.25) {
     measuredDrawerWidth.value = nextWidth;
@@ -617,8 +626,9 @@ function touchListIncludesActiveTouch(touchList) {
     :data-presentation="drawerPresentation.kind"
     :data-drawer-width-mode="props.drawerWidth === null || props.drawerWidth === undefined ? 'content' : 'fixed'"
     :data-drawer-width="resolvedDrawerWidth"
+    :data-navigation-item-spacing="resolvedNavigationItemSpacing"
     :data-rail-width="resolvedRailWidth"
-    :style="{ '--shell-drawer-label-end-gap': `${SHELL_DRAWER_LABEL_END_GAP}px` }"
+    :style="{ '--shell-navigation-item-spacing': `${resolvedNavigationItemSpacing}px` }"
     :temporary="isCompactLayout"
     :permanent="!isCompactLayout"
     :width="resolvedDrawerWidth"
@@ -627,7 +637,12 @@ function touchListIncludesActiveTouch(touchList) {
     @update:model-value="handleDrawerVisibilityChange"
   >
     <slot name="menu" :surface="resolvedSurface" :rail="drawerPresentation.rail">
-      <v-list nav density="comfortable" class="pt-2">
+      <v-list
+        nav
+        density="comfortable"
+        class="pt-2"
+        :prepend-gap="resolvedNavigationItemSpacing"
+      >
         <v-list-subheader v-if="!drawerPresentation.rail" class="text-uppercase text-caption">
           {{ resolvedSurfaceLabel }}
         </v-list-subheader>
@@ -721,7 +736,7 @@ function touchListIncludesActiveTouch(touchList) {
 
 .shell-layout__drawer[data-presentation="drawer"] :deep(.v-list--nav),
 .shell-layout__drawer[data-presentation="drawer"] :deep(.v-list-item) {
-  padding-inline-end: calc(var(--shell-drawer-label-end-gap) / 2);
+  padding-inline-end: calc(var(--shell-navigation-item-spacing) / 2);
 }
 
 .shell-layout__drawer[data-presentation="rail"] :deep(.v-list-item) {

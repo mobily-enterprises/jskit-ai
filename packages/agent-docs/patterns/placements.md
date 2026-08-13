@@ -58,8 +58,8 @@ Runtime behavior:
 - Runtime resolves the component token as `entry.componentToken || variant.renderers[entry.kind]`.
 - Entries without a resolvable component token do not render.
 - `when()` receives placement context including `app`, `surface`, `target`, `layoutClass`, runtime context, local outlet context, and context contributors.
-- The standard `ShellLayout` sizes its open drawer from the widest currently visible placement label plus an approximately 10px logical-end gap. It remeasures after placement, locale, font, surface, and layout changes. Use the public `drawerWidth` prop only when a product needs a fixed width; do not add consumer `.v-navigation-drawer` overrides.
-- On medium and expanded layouts, closing the standard drawer produces an 80px navigation rail by default. Use `railWidth` to configure that width, or `desktopDrawerClosedMode="hidden"` only when another discoverable navigation surface exists.
+- The standard `ShellLayout` uses one `navigationItemSpacing` value (12px by default) for the icon-to-label gap and the widest label's logical-end gap. It remeasures its content-aware width after placement, locale, font, surface, spacing, and layout changes. Use `drawerWidth` only when a product needs a fixed width; do not add consumer `.v-navigation-drawer` overrides.
+- On medium and expanded layouts, closing the standard drawer produces an 80px Material navigation rail by default. Use `railWidth` to configure that width, or `desktopDrawerClosedMode="hidden"` only when another discoverable navigation surface exists.
 - The shell link renderers own rail centring, selected-state treatment, and opaque theme-aware tooltips. Applications should keep supplying the same semantic placement records rather than creating rail-only links or tooltip CSS.
 
 CLI and generators:

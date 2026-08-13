@@ -6,7 +6,7 @@ export default {
   name: "ShellLayout",
   inheritAttrs: false,
   setup(_, { attrs, slots }) {
-    // Keep drawerWidth, railWidth, and future shell props package-owned.
+    // Keep drawerWidth, railWidth, navigationItemSpacing, and future shell props package-owned.
     return () => h(PackageShellLayout, attrs, slots);
   }
 };

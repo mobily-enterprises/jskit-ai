@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.1.151 - 2026-08-13
+
+- Replace Vuetify's oversized default drawer icon spacer with one public `navigationItemSpacing` value, defaulting to 12px for both icon-to-label and widest-label-to-edge spacing.
+- Keep the Material 3 80px default rail while documenting `railWidth` as the supported product-density override.
+
 ## 0.1.150 - 2026-08-13
 
 - Give shell navigation tooltips one opaque, theme-owned Material color pair on hover and keyboard focus.

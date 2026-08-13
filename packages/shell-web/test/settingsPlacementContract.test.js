@@ -100,13 +100,16 @@ test("shell-web shell layout registers navigation at the app layout level", asyn
   assert.match(source, /:rail="drawerPresentation\.rail"/);
   assert.match(source, /drawerWidth/);
   assert.match(source, /railWidth/);
+  assert.match(source, /navigationItemSpacing/);
   assert.match(source, /:width="resolvedDrawerWidth"/);
   assert.match(source, /:rail-width="resolvedRailWidth"/);
   assert.match(source, /data-drawer-width="resolvedDrawerWidth"/);
+  assert.match(source, /data-navigation-item-spacing="resolvedNavigationItemSpacing"/);
   assert.match(source, /data-rail-width="resolvedRailWidth"/);
   assert.match(source, /data-layout="layoutClass"/);
   assert.match(source, /measureDrawerContentWidth/);
-  assert.match(source, /SHELL_DRAWER_LABEL_END_GAP/);
+  assert.match(source, /DEFAULT_SHELL_NAVIGATION_ITEM_SPACING/);
+  assert.match(source, /:prepend-gap="resolvedNavigationItemSpacing"/);
   assert.doesNotMatch(source, /:width="248"/);
   assert.doesNotMatch(source, /:rail-width="80"/);
   assert.match(source, /:model-value="drawerPresentation\.visible"/);
@@ -117,7 +120,7 @@ test("shell-web shell layout registers navigation at the app layout level", asyn
   const template = await readFile(path.join(PACKAGE_DIR, "templates", "src", "components", "ShellLayout.vue"), "utf8");
 
   assert.match(template, /PackageShellLayout from "@jskit-ai\/shell-web\/client\/components\/ShellLayout"/);
-  assert.match(template, /drawerWidth, railWidth, and future shell props package-owned/);
+  assert.match(template, /drawerWidth, railWidth, navigationItemSpacing, and future shell props package-owned/);
   assert.match(template, /h\(PackageShellLayout, attrs, slots\)/);
   assert.doesNotMatch(template, /ShellOutlet|ShellRouteTransition|useShellLayoutState|pointerdown|v-navigation-drawer|v-bottom-navigation/);
 });

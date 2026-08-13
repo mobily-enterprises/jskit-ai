@@ -166,6 +166,8 @@ async function assertTooltipContrast(page, linkName, interaction) {
 async function assertDrawerFit(page) {
   const drawer = page.getByTestId("jskit-shell-drawer");
   await expect(drawer).toHaveAttribute("data-presentation", "drawer");
+  const configuredSpacing = Number(await drawer.getAttribute("data-navigation-item-spacing"));
+  assert.ok(Number.isFinite(configuredSpacing));
   await expect.poll(async () => {
     const configured = Number(await drawer.getAttribute("data-drawer-width"));
     const box = await drawer.boundingBox();
@@ -180,12 +182,14 @@ async function assertDrawerFit(page) {
       range.selectNodeContents(label);
       const rect = range.getBoundingClientRect();
       range.detach?.();
+      const iconRect = label.closest(".v-list-item")?.querySelector(".v-icon")?.getBoundingClientRect();
       return {
         clientHeight: label.clientHeight,
         clientWidth: label.clientWidth,
         rect,
         scrollHeight: label.scrollHeight,
-        scrollWidth: label.scrollWidth
+        scrollWidth: label.scrollWidth,
+        iconLabelGap: iconRect ? rect.left - iconRect.right : null
       };
     });
     const furthestEnd = Math.max(...labels.map((label) => label.rect.right));
@@ -195,11 +199,24 @@ async function assertDrawerFit(page) {
         label.scrollHeight > label.clientHeight
       )),
       endGap: innerEnd - furthestEnd,
+      iconLabelGaps: labels
+        .map((label) => label.iconLabelGap)
+        .filter((gap) => Number.isFinite(gap)),
       overflow: document.documentElement.scrollWidth - document.documentElement.clientWidth
     };
   });
   assert.equal(result.clipped, false, "A drawer label was clipped or ellipsized.");
-  assert.ok(result.endGap >= 9 && result.endGap <= 11, `Drawer label end gap was ${result.endGap}px.`);
+  assert.ok(
+    Math.abs(result.endGap - configuredSpacing) <= 1.1,
+    `Drawer label end gap was ${result.endGap}px; expected ${configuredSpacing}px.`
+  );
+  assert.ok(result.iconLabelGaps.length > 0, "Drawer links exposed no measurable icon/label gap.");
+  for (const gap of result.iconLabelGaps) {
+    assert.ok(
+      Math.abs(gap - configuredSpacing) <= 1,
+      `Drawer icon/label gap was ${gap}px; expected ${configuredSpacing}px.`
+    );
+  }
   assert.ok(result.overflow <= 1, `Page overflowed horizontally by ${result.overflow}px.`);
 }
 
@@ -282,6 +299,23 @@ test("shell-web adaptive navigation passes package-owned browser contracts", {
     await assertDrawerFit(railPage);
     await assertRailKeyboardAndSelection(railPage);
     await railPage.close();
+
+    const configuredPage = await context.newPage();
+    await configuredPage.setViewportSize({ width: 1280, height: 900 });
+    await configuredPage.goto(
+      "/w/acme/admin/bookings?theme=light&railWidth=64&navigationItemSpacing=8"
+    );
+    const configuredDrawer = configuredPage.getByTestId("jskit-shell-drawer");
+    await expect(configuredDrawer).toHaveAttribute("data-navigation-item-spacing", "8");
+    await assertDrawerFit(configuredPage);
+    await configuredPage.getByTestId("jskit-shell-nav-toggle").click();
+    await expect(configuredDrawer).toHaveAttribute("data-presentation", "rail");
+    await expect(configuredDrawer).toHaveAttribute("data-rail-width", "64");
+    await expect.poll(async () => {
+      const box = await configuredDrawer.boundingBox();
+      return box ? Math.abs(box.width - 64) : Number.POSITIVE_INFINITY;
+    }).toBeLessThanOrEqual(1);
+    await configuredPage.close();
     await context.close();
   } finally {
     await browser?.close();

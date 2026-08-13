@@ -9,6 +9,8 @@ const theme = useTheme();
 const surface = computed(() => route.path.startsWith("/w/") ? "admin" : "home");
 const surfaceLabel = computed(() => surface.value === "admin" ? "Admin" : "Home");
 const themeMode = computed(() => route.query.theme === "dark" ? "dark" : "light");
+const railWidth = computed(() => Number(route.query.railWidth) || undefined);
+const navigationItemSpacing = computed(() => Number(route.query.navigationItemSpacing) || undefined);
 
 watchEffect(function applyFixtureTheme() {
   const themeName = `${surface.value}-${themeMode.value}`;
@@ -20,7 +22,12 @@ watchEffect(function applyFixtureTheme() {
 
 <template>
   <v-app>
-    <ShellLayout :surface="surface" :surface-label="surfaceLabel">
+    <ShellLayout
+      :surface="surface"
+      :surface-label="surfaceLabel"
+      :rail-width="railWidth"
+      :navigation-item-spacing="navigationItemSpacing"
+    >
       <RouterView />
     </ShellLayout>
   </v-app>

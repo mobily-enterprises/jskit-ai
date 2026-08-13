@@ -104,6 +104,8 @@ async function expectContentAwareDrawerFit(drawer, expect) {
   if (await drawer.getAttribute("data-drawer-width-mode") !== "content") {
     return;
   }
+  const configuredSpacing = Number(await drawer.getAttribute("data-navigation-item-spacing"));
+  expect(Number.isFinite(configuredSpacing)).toBe(true);
 
   const fit = await drawer.evaluate((element) => {
     const drawerRect = element.getBoundingClientRect();
@@ -125,6 +127,8 @@ async function expectContentAwareDrawerFit(drawer, expect) {
         range.selectNodeContents(label);
         const textRect = range.getBoundingClientRect();
         range.detach?.();
+        const icon = label.closest(".v-list-item")?.querySelector(".v-icon");
+        const iconRect = icon?.getBoundingClientRect();
         return {
           clipped: (
             label.scrollWidth > label.clientWidth ||
@@ -133,6 +137,9 @@ async function expectContentAwareDrawerFit(drawer, expect) {
               ? textRect.left < innerEnd - 1
               : textRect.right > innerEnd + 1)
           ),
+          iconLabelGap: iconRect
+            ? rightToLeft ? iconRect.left - textRect.right : textRect.left - iconRect.right
+            : null,
           logicalEnd: rightToLeft ? textRect.left : textRect.right,
           width: textRect.width
         };
@@ -154,14 +161,20 @@ async function expectContentAwareDrawerFit(drawer, expect) {
       clipped: labels.some((label) => label.clipped),
       endGap: rightToLeft
         ? furthestLabel.logicalEnd - innerEnd
-        : innerEnd - furthestLabel.logicalEnd
+        : innerEnd - furthestLabel.logicalEnd,
+      iconLabelGaps: labels
+        .map((label) => label.iconLabelGap)
+        .filter((gap) => Number.isFinite(gap))
     };
   });
 
   expect(fit).not.toBeNull();
   expect(fit.clipped).toBe(false);
-  expect(fit.endGap).toBeGreaterThanOrEqual(9);
-  expect(fit.endGap).toBeLessThanOrEqual(11);
+  expect(Math.abs(fit.endGap - configuredSpacing)).toBeLessThanOrEqual(1.1);
+  expect(fit.iconLabelGaps.length).toBeGreaterThan(0);
+  for (const gap of fit.iconLabelGaps) {
+    expect(Math.abs(gap - configuredSpacing)).toBeLessThanOrEqual(1);
+  }
 }
 
 async function expectCentredRailNavigation(page, drawer, expect) {

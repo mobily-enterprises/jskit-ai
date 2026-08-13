@@ -681,9 +681,11 @@ navigation.
 
 The open drawer is content-aware by default. After the visible semantic
 placements and fonts settle, `ShellLayout` measures the rendered labels and
-keeps the drawer edge approximately 10 CSS pixels beyond the widest label. It
-remeasures when placements, localization, fonts, the active surface, or the
-window layout change, and clamps unusually long labels to a safe range. The
+uses one `navigationItemSpacing` value for the icon-to-label gap and the space
+between the widest label and the drawer edge. It defaults to 12 CSS pixels and
+can be set from 8–24px. The shell remeasures when placements, localization,
+fonts, spacing, the active surface, or the window layout change, and clamps
+unusually long labels to a safe range. The
 closed desktop rail remains 80 CSS pixels wide by default, with every icon and
 its Material selected-state indicator centred in the rail. Rail tooltips use
 one explicit opaque theme color pair and open on pointer hover or keyboard
@@ -701,11 +703,11 @@ product has another discoverable navigation affordance:
 The default is `desktop-drawer-closed-mode="rail"`. Prefer that Material 3
 pattern; do not imitate a rail with custom CSS or a second menu registry.
 
-Applications that need fixed product-specific dimensions can use the public
-width props instead of overriding Vuetify drawer CSS:
+Applications that need product-specific dimensions or spacing can use the
+public props instead of overriding Vuetify drawer CSS:
 
 ```vue
-<ShellLayout :drawer-width="280" :rail-width="88">
+<ShellLayout :drawer-width="280" :rail-width="64" :navigation-item-spacing="12">
   <RouterView />
 </ShellLayout>
 ```
@@ -714,9 +716,9 @@ Omit `drawer-width` to retain content-aware sizing. Omit `rail-width` to retain
 the 80px Material navigation-rail default. Drawer overrides are clamped to
 120–360px and rail overrides to 48–160px so shell navigation cannot consume an
 unsafe share of the viewport or shrink below its touch targets. The app-owned
-`src/components/ShellLayout.vue` wrapper forwards these attributes to the
-package component, so an application does not need to copy or restyle the
-drawer implementation.
+`src/components/ShellLayout.vue` wrapper also forwards
+`navigation-item-spacing`, so an application does not need to copy or restyle
+the drawer implementation.
 
 `useShellErrorPresentationStore()` exposes the current banner, snackbar, and dialog presentation state behind `ShellErrorHost`.
 

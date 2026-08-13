@@ -116,7 +116,8 @@ test("adaptive drawer guidance documents Vuetify rail and compact close behavior
     assert.match(source, /desktopDrawerClosedMode|desktop-drawer-closed-mode/);
     assert.match(source, /drawerWidth|drawer-width/);
     assert.match(source, /railWidth|rail-width/);
-    assert.match(source, /10 CSS pixels|10px/);
+    assert.match(source, /navigationItemSpacing|navigation-item-spacing/);
+    assert.match(source, /12 CSS pixels|12px/);
     assert.match(source, /rail/);
     assert.match(source, /hidden/);
   }
