@@ -164,7 +164,7 @@ test("create-app scaffolds the base shell with placeholder replacements", async 
     assert.equal(packageJson.scripts.release, "jskit app release");
     assert.equal(packageJson.scripts["jskit:update"], "jskit app update-packages");
     assert.equal(packageJson.dependencies["@local/main"], "file:packages/main");
-    assert.equal(packageJson.dependencies["@fastify/static"], "^9.1.3");
+    assert.equal(packageJson.dependencies["@fastify/static"], "^10.1.3");
     assert.match(packageJson.dependencies["@jskit-ai/http-runtime"], /^\d+\.\d+\.\d+$/);
     assert.equal(packageJson.dependencies["@mdi/js"], "^7.4.47");
     assert.match(packageJson.dependencies["@jskit-ai/shell-web"], /^\d+\.\d+\.\d+$/);
