@@ -1,25 +1,13 @@
 import path from "node:path";
-import { spawn } from "node:child_process";
 import {
   collectPackageDependencyIds,
-  collectRootDependencySpecifiers,
-  importFreshModuleFromAbsolutePath
+  collectRootDependencySpecifiers
 } from "@jskit-ai/kernel/server/support";
 import {
   ensureArray,
   ensureObject,
   sortStrings
 } from "../../shared/collectionUtils.js";
-import { resolveOptionEnvFallbacks } from "../../cliRuntime/sensitiveOptions.js";
-import {
-  fileExists
-} from "../appCommands/shared.js";
-import {
-  ensureMobileConfigStub,
-  collectCapacitorShellInstallIssues,
-  ensureAndroidManifestDeepLinks,
-  ensureAndroidNativeShellIdentity
-} from "../mobileShellSupport.js";
 import {
   isHelpToken,
   renderAddCatalogHelp,
@@ -36,6 +24,13 @@ import {
   applyPackageJsonField,
   removePackageJsonField
 } from "../../cliRuntime/appState.js";
+import { resolvePackageConfiguration } from "./packageConfiguration.js";
+import {
+  createInstallHookHelpers,
+  invokeInstallHook,
+  packageManagesNpmInstall,
+  resolveInstallHookSpec
+} from "./packageInstallLifecycle.js";
 
 const COMPONENT_TOKEN_PATTERN = /\bcomponentToken\s*:\s*["']([^"']+)["']/g;
 
@@ -114,49 +109,6 @@ function collectPlannedRuntimePackageIds({ packageJson, packageRegistry, targetP
   return sortStrings([...visited]);
 }
 
-function orderRuntimePackagesForConfiguration(packageRegistry, requestedPackageIds, resolvePackageKind) {
-  const requested = new Set(ensureArray(requestedPackageIds).map((value) => String(value || "").trim()));
-  const candidates = new Set(
-    [...packageRegistry.entries()]
-      .filter(([, packageEntry]) => {
-        return resolvePackageKind(packageEntry) === "runtime" &&
-          Object.keys(ensureObject(packageEntry?.packageMetadata?.options)).length > 0;
-      })
-      .map(([packageId]) => packageId)
-  );
-  const visited = new Set();
-  const ordered = [];
-
-  function visit(packageId, { allowRequested = false } = {}) {
-    if (visited.has(packageId) || !candidates.has(packageId)) {
-      return;
-    }
-    if (requested.has(packageId) && !allowRequested) {
-      return;
-    }
-    visited.add(packageId);
-    const packageEntry = packageRegistry.get(packageId);
-    const dependencyIds = new Set();
-    for (const sectionName of ["dependencies", "optionalDependencies", "peerDependencies"]) {
-      for (const dependencyId of Object.keys(ensureObject(packageEntry?.packageJson?.[sectionName]))) {
-        dependencyIds.add(String(dependencyId || "").trim());
-      }
-    }
-    for (const dependencyId of sortStrings([...dependencyIds])) {
-      visit(dependencyId);
-    }
-    ordered.push(packageId);
-  }
-
-  for (const packageId of sortStrings([...candidates].filter((packageId) => !requested.has(packageId)))) {
-    visit(packageId);
-  }
-  for (const packageId of sortStrings([...requested])) {
-    visit(packageId, { allowRequested: true });
-  }
-  return ordered;
-}
-
 function collectPlacementComponentTokensFromMutationResults(mutationResults = []) {
   const collectedTokens = new Set();
 
@@ -174,260 +126,6 @@ function collectPlacementComponentTokensFromMutationResults(mutationResults = []
   }
 
   return sortStrings([...collectedTokens]);
-}
-
-function renderWrappedShellCommand(binaryName, args = [], {
-  maxWidth = 100,
-  continuationIndent = "  "
-} = {}) {
-  const tokens = [String(binaryName || "").trim(), ...ensureArray(args).map((entry) => String(entry || "").trim()).filter(Boolean)];
-  if (tokens.length < 1 || !tokens[0]) {
-    return "$";
-  }
-
-  let currentLine = "$";
-  const renderedLines = [];
-  for (const token of tokens) {
-    const prefix = currentLine === "$" ? " " : " ";
-    if ((`${currentLine}${prefix}${token}`).length <= maxWidth || currentLine === "$") {
-      currentLine = `${currentLine}${prefix}${token}`;
-      continue;
-    }
-
-    renderedLines.push(`${currentLine} \\`);
-    currentLine = `${continuationIndent}${token}`;
-  }
-
-  renderedLines.push(currentLine);
-  return renderedLines.join("\n");
-}
-
-async function runLocalProjectBinary(binaryName, args = [], {
-  appRoot,
-  io,
-  pathModule = path,
-  createCliError,
-  explanation = "",
-  dryRun = false
-} = {}) {
-  const renderedArgs = Array.isArray(args) ? args.join(" ") : "";
-  if (explanation) {
-    io?.stdout?.write(`${explanation}\n`);
-    io?.stdout?.write(`${renderWrappedShellCommand(binaryName, args)}\n`);
-  }
-  if (dryRun === true) {
-    io?.stdout?.write(`[dry-run] ${binaryName}${renderedArgs ? ` ${renderedArgs}` : ""}\n`);
-    return;
-  }
-
-  const localBinDirectory = pathModule.join(appRoot, "node_modules", ".bin");
-  const inheritedPath = String(process.env.PATH || "");
-  const spawnedEnv = {
-    ...process.env,
-    PATH: `${localBinDirectory}${pathModule.delimiter}${inheritedPath}`
-  };
-
-  await new Promise((resolve, reject) => {
-    const child = spawn(binaryName, Array.isArray(args) ? args : [], {
-      cwd: appRoot,
-      env: spawnedEnv,
-      stdio: "inherit"
-    });
-
-    child.on("error", (error) => {
-      if (error?.code === "ENOENT") {
-        reject(
-          createCliError(
-            `Could not find local "${binaryName}" in node_modules/.bin. Re-run the package install after dependencies are installed.`
-          )
-        );
-        return;
-      }
-      reject(error);
-    });
-    child.on("exit", (code) => {
-      if (code === 0) {
-        resolve();
-        return;
-      }
-      reject(createCliError(`${binaryName} ${args.join(" ")} failed with exit code ${code}.`));
-    });
-  });
-}
-
-async function installAppDependenciesForHook({
-  appRoot,
-  io,
-  pathModule = path,
-  createCliError,
-  dryRun = false
-} = {}) {
-  await runLocalProjectBinary("npm", ["install"], {
-    appRoot,
-    io,
-    pathModule,
-    createCliError,
-    explanation: "[mobile] Installing app dependencies for the mobile shell:",
-    dryRun
-  });
-}
-
-async function resolvePackageOptionInputForInstall({
-  packageEntry,
-  packageInlineOptions,
-  appRoot,
-  readFileBufferIfExists
-}) {
-  const inlineOptions = ensureObject(packageInlineOptions);
-  const envFallbacks = await resolveOptionEnvFallbacks({
-    packageEntry,
-    appRoot,
-    optionInput: inlineOptions,
-    readFileBufferIfExists
-  });
-  return {
-    ...envFallbacks,
-    ...inlineOptions
-  };
-}
-
-function validateHookResult(result = {}, { packageId = "", hookLabel = "" } = {}) {
-  if (typeof result === "undefined" || result === null) {
-    return {};
-  }
-  if (typeof result !== "object" || Array.isArray(result)) {
-    throw new Error(`${packageId} ${hookLabel} must return an object when it returns a value.`);
-  }
-  return result;
-}
-
-async function loadInstallHook({
-  packageEntry,
-  appRoot,
-  hookSpec,
-  hookLabel = ""
-} = {}) {
-  const entrypoint = String(hookSpec?.entrypoint || "").trim();
-  const exportName = String(hookSpec?.export || "").trim() || "default";
-  if (!entrypoint) {
-    return null;
-  }
-
-  const templateRoot = await resolvePackageTemplateRoot({
-    packageEntry,
-    appRoot
-  });
-  const absoluteEntrypointPath = path.resolve(templateRoot, entrypoint);
-  if (!(await fileExists(absoluteEntrypointPath))) {
-    throw new Error(`${packageEntry.packageId} ${hookLabel} entrypoint not found at ${entrypoint}.`);
-  }
-
-  let moduleNamespace = null;
-  try {
-    moduleNamespace = await importFreshModuleFromAbsolutePath(absoluteEntrypointPath);
-  } catch (error) {
-    throw new Error(
-      `Unable to load ${hookLabel} entrypoint ${entrypoint} for ${packageEntry.packageId}: ${String(error?.message || error || "unknown error")}`
-    );
-  }
-
-  const handler = exportName === "default" ? moduleNamespace?.default : moduleNamespace?.[exportName];
-  if (typeof handler !== "function") {
-    throw new Error(`${packageEntry.packageId} ${hookLabel} export "${exportName}" is not a function.`);
-  }
-
-  return handler;
-}
-
-function createInstallHookHelpers({
-  ctx,
-  appRoot,
-  io,
-  appPackageJson
-} = {}) {
-  return Object.freeze({
-    ensureManagedMobileConfig: async ({ dryRun = false } = {}) =>
-      await ensureMobileConfigStub({
-        ctx,
-        appRoot,
-        packageJson: appPackageJson,
-        dryRun,
-        stdout: io?.stdout
-      }),
-    installAppDependencies: async ({ dryRun = false } = {}) =>
-      await installAppDependenciesForHook({
-        appRoot,
-        io,
-        pathModule: ctx.path,
-        createCliError: ctx.createCliError,
-        dryRun
-      }),
-    runProjectBinary: async (binaryName, args = [], { dryRun = false, explanation = "" } = {}) =>
-      await runLocalProjectBinary(binaryName, args, {
-        appRoot,
-        io,
-        pathModule: ctx.path,
-        createCliError: ctx.createCliError,
-        explanation,
-        dryRun
-      }),
-    collectCapacitorShellInstallIssues: async () =>
-      await collectCapacitorShellInstallIssues({
-        ctx,
-        appRoot
-      }),
-    ensureAndroidManifestDeepLinks: async ({ dryRun = false } = {}) =>
-      await ensureAndroidManifestDeepLinks({
-        ctx,
-        appRoot,
-        dryRun,
-        stdout: io?.stdout
-      }),
-    ensureAndroidNativeShellIdentity: async ({ dryRun = false } = {}) =>
-      await ensureAndroidNativeShellIdentity({
-        ctx,
-        appRoot,
-        dryRun,
-        stdout: io?.stdout
-      }),
-    fileExists
-  });
-}
-
-async function invokeInstallHook({
-  packageEntry,
-  appRoot,
-  hookSpec,
-  hookLabel,
-  hookContext,
-  createCliError
-} = {}) {
-  if (!hookSpec || Object.keys(ensureObject(hookSpec)).length < 1) {
-    return {};
-  }
-
-  const handler = await loadInstallHook({
-    packageEntry,
-    appRoot,
-    hookSpec,
-    hookLabel
-  });
-  if (!handler) {
-    return {};
-  }
-
-  let result = null;
-  try {
-    result = await handler(hookContext);
-  } catch (error) {
-    throw createCliError(
-      `${packageEntry.packageId} ${hookLabel} failed: ${String(error?.message || error || "unknown error")}`
-    );
-  }
-  return validateHookResult(result, {
-    packageId: packageEntry.packageId,
-    hookLabel
-  });
 }
 
 async function runPackageAddCommand(ctx = {}, { positional, options, cwd, io }) {
@@ -677,11 +375,7 @@ async function runPackageAddCommand(ctx = {}, { positional, options, cwd, io }) 
   const touchedFiles = new Set();
   const packageSourcesToInstall = [];
   const targetManagesNpmInstall = targetPackageIds.some((packageId) =>
-    ensureObject(
-      ensureObject(
-        ensureObject(combinedPackageRegistry.get(packageId)?.packageMetadata).lifecycle
-      ).install
-    ).finalize?.managesNpmInstall === true
+    packageManagesNpmInstall(combinedPackageRegistry.get(packageId))
   );
   let npmInstallRequired = false;
   let installedDependencyState = "";
@@ -785,68 +479,24 @@ async function runPackageAddCommand(ctx = {}, { positional, options, cwd, io }) 
     }
   }
 
-  const resolvedOptionsByPackage = {};
-  const configurationOrder = invocationMode === "add"
-    ? orderRuntimePackagesForConfiguration(
-        configurationRegistry,
-        targetPackageIds,
-        resolvePackageKind
-      )
-    : packagesToApply;
-  const promptedPackageIds = new Set();
-  for (const packageId of configurationOrder) {
-    const packageEntry = combinedPackageRegistry.get(packageId);
-    const isRequestedPackage = targetPackageIds.includes(packageId);
-    const isDirectTargetPackage = targetType === "package" && packageId === resolvedTargetPackageId;
-    const packageInlineOptions = isRequestedPackage && targetType === "bundle"
-      ? resolveBundleInlineOptionsForPackage(packageEntry, options.inlineOptions)
-      : isDirectTargetPackage
-        ? ensureObject(options.inlineOptions)
-        : {};
-    const optionInput = await resolvePackageOptionInputForInstall({
-      packageEntry,
-      packageInlineOptions,
-      appRoot,
-      readFileBufferIfExists
-    });
-    resolvedOptionsByPackage[packageId] = await resolvePackageOptions(
-      packageEntry,
-      optionInput,
-      io,
-      {
-        appRoot,
-        onPrompt: () => promptedPackageIds.add(packageId)
-      }
-    );
-  }
-  packagesToApply = [
-    ...configurationOrder.filter((packageId) =>
-      promptedPackageIds.has(packageId) && !targetPackageIds.includes(packageId)
-    ),
-    ...packagesToApply
-  ];
-
-  for (const packageId of packagesToApply) {
-    if (Object.prototype.hasOwnProperty.call(resolvedOptionsByPackage, packageId)) {
-      continue;
-    }
-    const packageEntry = combinedPackageRegistry.get(packageId);
-    const packageInlineOptions = targetType === "bundle"
-      ? resolveBundleInlineOptionsForPackage(packageEntry, options.inlineOptions)
-      : ensureObject(options.inlineOptions);
-    const optionInput = await resolvePackageOptionInputForInstall({
-      packageEntry,
-      packageInlineOptions,
-      appRoot,
-      readFileBufferIfExists
-    });
-    resolvedOptionsByPackage[packageId] = await resolvePackageOptions(
-      packageEntry,
-      optionInput,
-      io,
-      { appRoot }
-    );
-  }
+  const packageConfiguration = await resolvePackageConfiguration({
+    packageRegistry: combinedPackageRegistry,
+    configurationRegistry,
+    requestedPackageIds: targetPackageIds,
+    packagesToApply,
+    invocationMode,
+    targetType,
+    resolvedTargetPackageId,
+    inlineOptions: options.inlineOptions,
+    resolvePackageKind,
+    resolveBundleInlineOptionsForPackage,
+    resolvePackageOptions,
+    appRoot,
+    readFileBufferIfExists,
+    io
+  });
+  packagesToApply = packageConfiguration.packagesToApply;
+  const { resolvedOptionsByPackage } = packageConfiguration;
 
   const mutationResults = [];
   const prepareHookWarnings = [];
@@ -862,7 +512,7 @@ async function runPackageAddCommand(ctx = {}, { positional, options, cwd, io }) 
     const hookResult = await invokeInstallHook({
       packageEntry,
       appRoot,
-      hookSpec: ensureObject(ensureObject(ensureObject(packageEntry.packageMetadata).lifecycle).install).prepare,
+      hookSpec: resolveInstallHookSpec(packageEntry, "prepare"),
       hookLabel: "lifecycle.install.prepare",
       createCliError,
       hookContext: {
@@ -975,7 +625,7 @@ async function runPackageAddCommand(ctx = {}, { positional, options, cwd, io }) 
   const finalizeHookRecords = packagesToApply
     .map((packageId) => {
       const packageEntry = combinedPackageRegistry.get(packageId);
-      const finalizeSpec = ensureObject(ensureObject(ensureObject(packageEntry.packageMetadata).lifecycle).install).finalize;
+      const finalizeSpec = resolveInstallHookSpec(packageEntry, "finalize");
       if (Object.keys(ensureObject(finalizeSpec)).length < 1) {
         return null;
       }
@@ -1073,6 +723,5 @@ async function runPackageAddCommand(ctx = {}, { positional, options, cwd, io }) 
 }
 
 export {
-  orderRuntimePackagesForConfiguration,
   runPackageAddCommand
 };

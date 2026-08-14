@@ -210,7 +210,7 @@ The most important parts look like this:
     "@playwright/test": "1.61.1",
     "@vitejs/plugin-vue": "^6.0.7",
     "eslint": "^10.8.0",
-    "vite": "^8.0.16",
+    "vite": "^8.2.1",
     "vitest": "^4.1.9"
   }
 }

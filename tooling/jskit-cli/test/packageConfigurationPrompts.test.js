@@ -7,7 +7,10 @@ import { withTempDir } from "../../testUtils/tempDir.mjs";
 import { resolveOptionEnvFallbacks } from "../src/server/cliRuntime/sensitiveOptions.js";
 import { resolvePackageOptions } from "../src/server/cliRuntime/packageOptions.js";
 import { readFileBufferIfExists } from "../src/server/cliRuntime/ioAndMigrations.js";
-import { orderRuntimePackagesForConfiguration } from "../src/server/commandHandlers/packageCommands/add.js";
+import {
+  orderRuntimePackagesForConfiguration,
+  resolvePackageConfiguration
+} from "../src/server/commandHandlers/packageCommands/packageConfiguration.js";
 
 function runtimePackage(packageId, { dependencies = {}, options = {} } = {}) {
   return {
@@ -48,6 +51,62 @@ test("configuration order follows npm dependencies and keeps the requested packa
     ),
     ["@acme/database", "@acme/existing", "@acme/feature"]
   );
+});
+
+test("package configuration prompts every unresolved installed package and applies prompted packages", async () => {
+  await withTempDir(async (appRoot) => {
+    const dependency = runtimePackage("@acme/database", {
+      options: { database: { required: true } }
+    });
+    const unrelated = runtimePackage("@acme/existing", {
+      options: { existing: { required: true } }
+    });
+    const requested = runtimePackage("@acme/feature", {
+      dependencies: { "@acme/database": "1.0.0" },
+      options: { feature: { required: true } }
+    });
+    const registry = new Map([
+      [requested.packageId, requested],
+      [unrelated.packageId, unrelated],
+      [dependency.packageId, dependency]
+    ]);
+    const promptOrder = [];
+
+    const result = await resolvePackageConfiguration({
+      packageRegistry: registry,
+      configurationRegistry: registry,
+      requestedPackageIds: [requested.packageId],
+      packagesToApply: [requested.packageId],
+      invocationMode: "add",
+      targetType: "package",
+      resolvedTargetPackageId: requested.packageId,
+      inlineOptions: {},
+      resolvePackageKind: (entry) => entry.packageMetadata.kind,
+      resolveBundleInlineOptionsForPackage: () => ({}),
+      resolvePackageOptions: async (entry, _optionInput, _io, { onPrompt } = {}) => {
+        promptOrder.push(entry.packageId);
+        onPrompt?.();
+        return { configuredPackage: entry.packageId };
+      },
+      appRoot,
+      readFileBufferIfExists: async () => null,
+      io: {}
+    });
+
+    assert.deepEqual(promptOrder, [
+      dependency.packageId,
+      unrelated.packageId,
+      requested.packageId
+    ]);
+    assert.deepEqual(result.packagesToApply, [
+      dependency.packageId,
+      unrelated.packageId,
+      requested.packageId
+    ]);
+    assert.deepEqual(result.resolvedOptionsByPackage[requested.packageId], {
+      configuredPackage: requested.packageId
+    });
+  });
 });
 
 test("installed env-backed options are recovered without prompting", async () => {

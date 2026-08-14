@@ -674,7 +674,6 @@ Exports
 
 ### `src/server/commandHandlers/packageCommands/add.js`
 Exports
-- `orderRuntimePackagesForConfiguration(packageRegistry, requestedPackageIds, resolvePackageKind)`
 - `runPackageAddCommand(ctx = {}, { positional, options, cwd, io })`
 Local functions
 - `resolveAvailablePackageSource({ packageEntry, appRoot })`
@@ -683,14 +682,6 @@ Local functions
 - `serializeDependencyState(packageJson = {})`
 - `collectPlannedRuntimePackageIds({ packageJson, packageRegistry, targetPackageIds, resolvePackageKind })`
 - `collectPlacementComponentTokensFromMutationResults(mutationResults = [])`
-- `renderWrappedShellCommand(binaryName, args = [], { maxWidth = 100, continuationIndent = " " } = {})`
-- `runLocalProjectBinary(binaryName, args = [], { appRoot, io, pathModule = path, createCliError, explanation = "", dryRun = false } = {})`
-- `installAppDependenciesForHook({ appRoot, io, pathModule = path, createCliError, dryRun = false } = {})`
-- `resolvePackageOptionInputForInstall({ packageEntry, packageInlineOptions, appRoot, readFileBufferIfExists })`
-- `validateHookResult(result = {}, { packageId = "", hookLabel = "" } = {})`
-- `loadInstallHook({ packageEntry, appRoot, hookSpec, hookLabel = "" } = {})`
-- `createInstallHookHelpers({ ctx, appRoot, io, appPackageJson } = {})`
-- `invokeInstallHook({ packageEntry, appRoot, hookSpec, hookLabel, hookContext, createCliError } = {})`
 
 ### `src/server/commandHandlers/packageCommands/create.js`
 Exports
@@ -745,6 +736,26 @@ Local functions
 - `resolveCreateTargetPolicy(packageEntry = {}, subcommandName = "")`
 - `normalizeRelativePathWithinApp(appRoot = "", targetPath = "", createCliError)`
 - `enforcePackageMetadataBackedCreateTargetPolicy({ packageEntry, subcommandName, inlineOptions = {}, appRoot = "", packageIdInput = "", createCliError, readdir } = {})`
+
+### `src/server/commandHandlers/packageCommands/packageConfiguration.js`
+Exports
+- `orderRuntimePackagesForConfiguration(packageRegistry, requestedPackageIds, resolvePackageKind)`
+- `resolvePackageConfiguration({ packageRegistry, configurationRegistry, requestedPackageIds, packagesToApply, invocationMode, targetType, resolvedTargetPackageId, inlineOptions, resolvePackageKind, resolveBundleInlineOptionsForPackage, resolvePackageOptions, appRoot, readFileBufferIfExists, io })`
+Local functions
+- `resolvePackageOptionInput({ packageEntry, inlineOptions, appRoot, readFileBufferIfExists })`
+
+### `src/server/commandHandlers/packageCommands/packageInstallLifecycle.js`
+Exports
+- `createInstallHookHelpers({ ctx, appRoot, io, appPackageJson })`
+- `invokeInstallHook({ packageEntry, appRoot, hookSpec, hookLabel, hookContext, createCliError })`
+- `packageManagesNpmInstall(packageEntry)`
+- `resolveInstallHookSpec(packageEntry, stage)`
+Local functions
+- `renderWrappedShellCommand(binaryName, args = [], { maxWidth = 100, continuationIndent = " " } = {})`
+- `runLocalProjectBinary(binaryName, args = [], { appRoot, io, pathModule = path, createCliError, explanation = "", dryRun = false } = {})`
+- `installAppDependencies({ appRoot, io, pathModule, createCliError, dryRun })`
+- `validateHookResult(result, { packageId = "", hookLabel = "" } = {})`
+- `loadInstallHook({ packageEntry, appRoot, hookSpec, hookLabel })`
 
 ### `src/server/commandHandlers/packageCommands/remove.js`
 Exports

@@ -181,7 +181,7 @@ test("create-app scaffolds the base shell with placeholder replacements", async 
     assert.equal(packageJson.devDependencies["@playwright/test"], "1.61.1");
     assert.equal(packageJson.devDependencies["@vitejs/plugin-vue"], "^6.0.7");
     assert.equal(packageJson.devDependencies.eslint, "^10.8.0");
-    assert.equal(packageJson.devDependencies.vite, "^8.0.16");
+    assert.equal(packageJson.devDependencies.vite, "^8.2.1");
     assert.equal(packageJson.devDependencies.vitest, "^4.1.9");
     await assert.rejects(access(path.join(appRoot, "scripts/release.sh")), /ENOENT/);
     await assert.rejects(access(path.join(appRoot, "scripts/update-jskit-packages.sh")), /ENOENT/);
@@ -758,7 +758,7 @@ test("create-app minimal mode keeps the bare scaffold and can still install shel
     assert.equal(packageJsonBefore.dependencies["vue-router"], "^5.1.0");
     assert.equal(packageJsonBefore.dependencies["json-rest-schema"], "^1.0.17");
     assert.equal(packageJsonBefore.devDependencies["@playwright/test"], "1.61.1");
-    assert.equal(packageJsonBefore.devDependencies.vite, "^8.0.16");
+    assert.equal(packageJsonBefore.devDependencies.vite, "^8.2.1");
     const gitignoreBefore = await readFile(path.join(appRoot, ".gitignore"), "utf8");
     assert.match(gitignoreBefore, /src\/typed-router\.d\.ts/);
     await assert.rejects(access(path.join(appRoot, "src/typed-router.d.ts")), /ENOENT/);
