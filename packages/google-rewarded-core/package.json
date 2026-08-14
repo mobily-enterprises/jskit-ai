@@ -1,6 +1,6 @@
 {
   "name": "@jskit-ai/google-rewarded-core",
-  "version": "0.1.90",
+  "version": "0.1.91",
   "type": "module",
   "exports": {
     "./shared": "./src/shared/index.js",
@@ -124,14 +124,14 @@
     "mutations": {
       "dependencies": {
         "runtime": {
-          "@jskit-ai/auth-core": "0.1.152",
-          "@jskit-ai/crud-core": "0.1.165",
-          "@jskit-ai/database-runtime": "0.1.154",
-          "@jskit-ai/http-runtime": "0.1.152",
-          "@jskit-ai/json-rest-api-core": "0.1.98",
-          "@jskit-ai/kernel": "0.1.154",
-          "@jskit-ai/resource-crud-core": "0.1.96",
-          "@jskit-ai/workspaces-core": "0.1.132"
+          "@jskit-ai/auth-core": "0.1.153",
+          "@jskit-ai/crud-core": "0.1.166",
+          "@jskit-ai/database-runtime": "0.1.155",
+          "@jskit-ai/http-runtime": "0.1.153",
+          "@jskit-ai/json-rest-api-core": "0.1.99",
+          "@jskit-ai/kernel": "0.1.155",
+          "@jskit-ai/resource-crud-core": "0.1.97",
+          "@jskit-ai/workspaces-core": "0.1.133"
         },
         "dev": {}
       },
@@ -181,13 +181,13 @@
     }
   },
   "dependencies": {
-    "@jskit-ai/auth-core": "0.1.152",
-    "@jskit-ai/crud-core": "0.1.165",
-    "@jskit-ai/database-runtime": "0.1.154",
-    "@jskit-ai/http-runtime": "0.1.152",
-    "@jskit-ai/json-rest-api-core": "0.1.98",
-    "@jskit-ai/kernel": "0.1.154",
-    "@jskit-ai/resource-crud-core": "0.1.96",
-    "@jskit-ai/workspaces-core": "0.1.132"
+    "@jskit-ai/auth-core": "0.1.153",
+    "@jskit-ai/crud-core": "0.1.166",
+    "@jskit-ai/database-runtime": "0.1.155",
+    "@jskit-ai/http-runtime": "0.1.153",
+    "@jskit-ai/json-rest-api-core": "0.1.99",
+    "@jskit-ai/kernel": "0.1.155",
+    "@jskit-ai/resource-crud-core": "0.1.97",
+    "@jskit-ai/workspaces-core": "0.1.133"
   }
 }
