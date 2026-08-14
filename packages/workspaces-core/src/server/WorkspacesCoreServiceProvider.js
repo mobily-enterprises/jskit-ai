@@ -25,7 +25,7 @@ import { workspaceSettingsResource } from "../shared/resources/workspaceSettings
 class WorkspacesCoreServiceProvider {
   static id = "workspaces.core";
 
-  static dependsOn = ["users.core", "json-rest-api.core"];
+  static startsAfter = ["runtime.actions", "users.core"];
 
   async register(app) {
     registerWorkspaceRepositories(app);

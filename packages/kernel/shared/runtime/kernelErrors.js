@@ -13,13 +13,13 @@ class KernelError extends Error {
 
 class ProviderNormalizationError extends KernelError {}
 class DuplicateProviderError extends KernelError {}
-class ProviderDependencyError extends KernelError {}
+class ProviderStartOrderError extends KernelError {}
 class ProviderLifecycleError extends KernelError {}
 
 export {
   KernelError,
   ProviderNormalizationError,
   DuplicateProviderError,
-  ProviderDependencyError,
+  ProviderStartOrderError,
   ProviderLifecycleError
 };

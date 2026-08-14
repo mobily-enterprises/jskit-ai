@@ -4,8 +4,6 @@ import { registerUsersBootstrapPayloadHandlers } from "../bootstrap/user-bootstr
 
 class UsersWebClientProvider {
   static id = "users.web.client";
-  static dependsOn = ["shell.web.client"];
-
   register(app) {
     if (!app || typeof app.singleton !== "function" || typeof app.tag !== "function") {
       throw new Error("UsersWebClientProvider requires application singleton()/tag().");

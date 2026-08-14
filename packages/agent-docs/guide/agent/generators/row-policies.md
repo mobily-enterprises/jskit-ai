@@ -251,13 +251,7 @@ The owning provider creates the visibility object during `register()` and consum
 class OrganisationUnitsProvider {
   static id = "crud.organisation_units";
 
-  static dependsOn = [
-    "runtime.actions",
-    "runtime.database",
-    "auth.policy.fastify",
-    "local.main",
-    "json-rest-api.core"
-  ];
+  static startsAfter = ["json-rest-api.core", "local.main", "runtime.actions"];
 
   register(app) {
     app.instance(
@@ -345,8 +339,6 @@ The safety package depends on organisation-units and registers its grant:
 class SafetyProvider {
   static id = "safety.core";
 
-  static dependsOn = ["crud.organisation_units"];
-
   register(app) {
     registerOrganisationUnitVisibility(app, {
       id: "safety-manager-descendants",
@@ -360,7 +352,7 @@ class SafetyProvider {
 
 The organisation-units package never imports safety. Installing safety adds the grant; omitting safety leaves that grant absent.
 
-The npm dependency must point in the same direction as the provider dependency: safety depends on organisation-units, and organisation-units does not depend on safety.
+No provider start-order declaration is needed here. JSKIT completes every provider's `register()` phase before any provider begins `boot()`, so safety's contribution is present before organisation-units seals the registry. The normal npm dependency points from safety to organisation-units because safety imports its registration API.
 
 ## Descendant visibility with a recursive CTE
 

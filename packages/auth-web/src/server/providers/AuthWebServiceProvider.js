@@ -14,7 +14,7 @@ function resolveDevAuthBootstrapEnabled(scope) {
 class AuthWebServiceProvider {
   static id = "auth.web";
 
-  static dependsOn = ["auth.provider"];
+  static startsAfter = ["runtime.actions"];
 
   register(app) {
     if (!app || typeof app.singleton !== "function" || typeof app.has !== "function") {

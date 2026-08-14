@@ -33,7 +33,7 @@ function resolveCrudPolicyFromApp(app) {
 class GoogleRewardedUnlockReceiptsProvider {
   static id = "crud.google_rewarded_unlock_receipts";
 
-  static dependsOn = ["runtime.actions", "runtime.database", "auth.policy.fastify", "local.main", "json-rest-api.core"];
+  static startsAfter = ["json-rest-api.core", "local.main", "runtime.actions"];
 
   register(app) {
     const crudPolicy = resolveCrudPolicyFromApp(app);

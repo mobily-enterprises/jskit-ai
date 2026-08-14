@@ -6,7 +6,7 @@ import { registerConsoleSettings } from "./consoleSettings/registerConsoleSettin
 class ConsoleCoreServiceProvider {
   static id = "console.core";
 
-  static dependsOn = ["users.core", "runtime.server", "runtime.actions", "runtime.database"];
+  static startsAfter = ["runtime.actions"];
 
   register(app) {
     registerConsoleCore(app);

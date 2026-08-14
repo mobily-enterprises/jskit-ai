@@ -2,8 +2,6 @@ import AssistantSettingsClientElement from "../components/AssistantSettingsClien
 
 class AssistantClientProvider {
   static id = "assistant.web.client";
-  static dependsOn = ["users.web.client"];
-
   register(app) {
     if (!app || typeof app.singleton !== "function") {
       throw new Error("AssistantClientProvider requires application singleton().");

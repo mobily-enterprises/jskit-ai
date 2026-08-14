@@ -214,7 +214,7 @@ test("AuthActionsServiceProvider leaves unrelated actions usable when no auth pr
   class PublicActionProvider {
     static id = "public.actions";
 
-    static dependsOn = ["runtime.actions"];
+    static startsAfter = ["runtime.actions"];
 
     register(targetApp) {
       targetApp.action({

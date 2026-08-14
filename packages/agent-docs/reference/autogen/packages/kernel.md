@@ -127,7 +127,7 @@ Exports
 Exports
 - `Application`
 - `createApplication(options = {})`
-- `createProviderClass({ id, dependsOn = [], register = null, boot = null, shutdown = null } = {})`
+- `createProviderClass({ id, startsAfter = [], register = null, boot = null, shutdown = null } = {})`
 Local functions
 - `normalizeStringArray(value)`
 - `nowMilliseconds()`
@@ -171,7 +171,7 @@ Exports
 - `KernelError`
 - `ProviderNormalizationError`
 - `DuplicateProviderError`
-- `ProviderDependencyError`
+- `ProviderStartOrderError`
 - `ProviderLifecycleError`
 
 ### `shared/runtime/kernelErrors.js`
@@ -179,7 +179,7 @@ Exports
 - `KernelError`
 - `ProviderNormalizationError`
 - `DuplicateProviderError`
-- `ProviderDependencyError`
+- `ProviderStartOrderError`
 - `ProviderLifecycleError`
 
 ### `shared/runtime/serviceProvider.js`
@@ -706,13 +706,15 @@ Exports
 - `resolveInstalledClientPackageIds(options)`
 - `resolveLocalScopePackageIds({ appRoot })`
 - `resolveInstalledClientModules({ appRoot })`
-- `createJskitClientBootstrapPlugin()`
+- `resolveInstalledViteProxyEntries(installedPackages = [], { proxyTarget = "" } = {})`
+- `createJskitClientBootstrapPlugin({ proxyTarget = "" } = {})`
 Local functions
 - `isLocalScopePackageId(value)`
 - `readJsonFile(filePath, fallback)`
 - `hasClientExport(packageJson)`
 - `isPathInsideRoot(rootPath, candidatePath)`
 - `splitSpecifierSuffix(source)`
+- `resolveClientModulesFromInstalledPackages(installedPackages = [])`
 - `normalizeClientModulePackageMetadataEntries(value)`
 - `resolveClientRuntimeDedupeSpecifiers(userResolveConfig = {})`
 
@@ -930,7 +932,7 @@ Exports
 - `KernelError`
 - `ProviderNormalizationError`
 - `DuplicateProviderError`
-- `ProviderDependencyError`
+- `ProviderStartOrderError`
 - `ProviderLifecycleError`
 - `KernelCoreServiceProvider`
 

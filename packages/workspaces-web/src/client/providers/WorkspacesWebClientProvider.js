@@ -13,7 +13,7 @@ import {
 
 class WorkspacesWebClientProvider {
   static id = "workspaces.web.client";
-  static dependsOn = ["users.web.client"];
+  static startsAfter = ["shell.web.client"];
 
   register(app) {
     if (!app || typeof app.singleton !== "function" || typeof app.tag !== "function") {

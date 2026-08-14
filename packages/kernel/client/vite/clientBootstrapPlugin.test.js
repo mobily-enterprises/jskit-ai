@@ -16,7 +16,8 @@ import {
   resolveClientOptimizeExcludeSpecifiers,
   resolveLocalScopePackageIds,
   resolveInstalledClientPackageIds,
-  resolveInstalledClientModules
+  resolveInstalledClientModules,
+  resolveInstalledViteProxyEntries
 } from "./clientBootstrapPlugin.js";
 
 async function writeJson(filePath, value) {
@@ -440,6 +441,67 @@ test("resolveInstalledClientModules resolves a packageMetadata from a file depen
   assert.equal(modules[0].packageMetadataClientProviders[0].export, "LocalClientProvider");
 });
 
+test("resolveInstalledViteProxyEntries derives proxy config directly from package metadata", () => {
+  const proxy = resolveInstalledViteProxyEntries(
+    [
+      {
+        packageId: "@example/realtime",
+        packageMetadata: {
+          vite: {
+            proxy: {
+              "/socket.io": {
+                changeOrigin: true,
+                ws: true
+              }
+            }
+          }
+        }
+      }
+    ],
+    {
+      proxyTarget: "http://localhost:3000"
+    }
+  );
+
+  assert.deepEqual(proxy, {
+    "/socket.io": {
+      target: "http://localhost:3000",
+      changeOrigin: true,
+      ws: true
+    }
+  });
+});
+
+test("resolveInstalledViteProxyEntries rejects ambiguous package proxy paths", () => {
+  assert.throws(
+    () => resolveInstalledViteProxyEntries(
+      ["@example/alpha", "@example/beta"].map((packageId) => ({
+        packageId,
+        packageMetadata: {
+          vite: {
+            proxy: {
+              "/socket.io": { target: "http://localhost:3000" }
+            }
+          }
+        }
+      }))
+    ),
+    /declared by both @example\/alpha and @example\/beta/u
+  );
+});
+
+test("resolveInstalledViteProxyEntries rejects malformed package proxy metadata", () => {
+  assert.throws(
+    () => resolveInstalledViteProxyEntries([
+      {
+        packageId: "@example/realtime",
+        packageMetadata: { vite: { proxy: { "/socket.io": { ws: "yes" } } } }
+      }
+    ], { proxyTarget: "http://localhost:3000" }),
+    /requires ws to be boolean/u
+  );
+});
+
 test("resolveLocalScopePackageIds reads @local packages from package.json", async () => {
   const tempRoot = await mkdtemp(path.join(os.tmpdir(), "jskit-client-bootstrap-local-scope-"));
   await writeJson(path.join(tempRoot, "package.json"), {
@@ -484,6 +546,57 @@ test("createJskitClientBootstrapPlugin resolves and loads virtual module", async
     const source = await plugin.load(CLIENT_BOOTSTRAP_RESOLVED_ID);
     assert.match(String(source || ""), /@example\/has-client\/client/);
     assert.match(String(source || ""), /bootInstalledClientModules/);
+  } finally {
+    process.chdir(previousCwd);
+  }
+});
+
+test("createJskitClientBootstrapPlugin contributes installed package proxies without generated state", async () => {
+  const tempRoot = await mkdtemp(path.join(os.tmpdir(), "jskit-client-bootstrap-proxy-"));
+  const previousCwd = process.cwd();
+
+  try {
+    await declareInstalledPackages(tempRoot, { "@example/realtime": {} });
+    const packageRoot = path.join(tempRoot, "node_modules", "@example", "realtime");
+    await writePackageMetadata(packageRoot, {
+      packageId: "@example/realtime",
+      version: "1.0.0",
+      vite: {
+        proxy: {
+          "/socket.io": {
+            changeOrigin: true,
+            ws: true
+          }
+        }
+      }
+    });
+
+    process.chdir(tempRoot);
+    const plugin = createJskitClientBootstrapPlugin({
+      proxyTarget: "http://localhost:3000"
+    });
+    const config = await plugin.config({
+      server: {
+        proxy: {
+          "/api": {
+            target: "http://localhost:3000",
+            changeOrigin: true
+          }
+        }
+      }
+    });
+
+    assert.deepEqual(config.server.proxy, {
+      "/api": {
+        target: "http://localhost:3000",
+        changeOrigin: true
+      },
+      "/socket.io": {
+        target: "http://localhost:3000",
+        changeOrigin: true,
+        ws: true
+      }
+    });
   } finally {
     process.chdir(previousCwd);
   }

@@ -40,6 +40,9 @@ A JSKIT package is an ordinary npm package with a `jskit` object in `package.jso
         "providers": []
       }
     },
+    "vite": {
+      "proxy": {}
+    },
     "mutations": {
       "dependencies": {
         "runtime": {},
@@ -63,7 +66,9 @@ needed by generated application-owned source or application-level tooling. It
 does not declare relationships between JSKIT packages and does not affect
 package ordering.
 
-`runtime.server.providers` and `runtime.client.providers` declare runtime entrypoints. A provider class may use `static dependsOn` to order providers inside the runtime container; that is provider boot ordering, not package installation.
+`runtime.server.providers` and `runtime.client.providers` declare runtime entrypoints. A provider class may use `static startsAfter` when its own registration or boot genuinely requires another provider to have completed the same lifecycle phase first. JSKIT registers every provider before booting any provider, so later service consumption does not require an ordering declaration.
+
+`jskit.vite.proxy` declares development proxy requirements as path-keyed metadata. `createJskitClientBootstrapPlugin({ proxyTarget })` reads those declarations directly from the installed npm graph when Vite starts. Package installation does not generate an intermediate proxy file.
 
 Use exact versions for `@jskit-ai/*` dependencies. npm's `package-lock.json` remains the reproducible installation record.
 

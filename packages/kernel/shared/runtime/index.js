@@ -13,6 +13,6 @@ export {
   KernelError,
   ProviderNormalizationError,
   DuplicateProviderError,
-  ProviderDependencyError,
+  ProviderStartOrderError,
   ProviderLifecycleError
 } from "./kernelErrors.js";

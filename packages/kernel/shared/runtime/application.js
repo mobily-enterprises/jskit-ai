@@ -1,7 +1,7 @@
 import { createContainer } from "./container.js";
 import {
   DuplicateProviderError,
-  ProviderDependencyError,
+  ProviderStartOrderError,
   ProviderLifecycleError,
   ProviderNormalizationError
 } from "./kernelErrors.js";
@@ -133,7 +133,7 @@ class Application {
 
       return {
         id: providerId,
-        dependsOn: normalizeStringArray(rawProvider.dependsOn || providerInstance.dependsOn),
+        startsAfter: normalizeStringArray(rawProvider.startsAfter ?? providerInstance.startsAfter),
         provider: providerInstance
       };
     }
@@ -147,7 +147,7 @@ class Application {
 
       return {
         id: providerId,
-        dependsOn: normalizeStringArray(provider.dependsOn || provider.constructor?.dependsOn),
+        startsAfter: normalizeStringArray(provider.startsAfter ?? provider.constructor?.startsAfter),
         provider
       };
     }
@@ -155,7 +155,7 @@ class Application {
     throw new ProviderNormalizationError("Provider entry must be a class or object instance.");
   }
 
-  sortProviderGraph(entries = []) {
+  sortProviderStartOrder(entries = []) {
     const byId = new Map(entries.map((entry) => [entry.id, entry]));
     const visited = new Set();
     const visiting = new Set();
@@ -166,17 +166,17 @@ class Application {
         return;
       }
       if (visiting.has(providerId)) {
-        throw new ProviderDependencyError(`Provider dependency cycle detected: ${[...lineage, providerId].join(" -> ")}`);
+        throw new ProviderStartOrderError(`Provider start-order cycle detected: ${[...lineage, providerId].join(" -> ")}`);
       }
 
       const entry = byId.get(providerId);
       if (!entry) {
-        throw new ProviderDependencyError(`Provider \"${lineage[lineage.length - 1] || "<unknown>"}\" depends on missing provider \"${providerId}\".`);
+        throw new ProviderStartOrderError(`Provider \"${lineage[lineage.length - 1] || "<unknown>"}\" starts after missing provider \"${providerId}\".`);
       }
 
       visiting.add(providerId);
-      for (const dependencyId of entry.dependsOn) {
-        visit(dependencyId, [...lineage, providerId]);
+      for (const earlierProviderId of entry.startsAfter) {
+        visit(earlierProviderId, [...lineage, providerId]);
       }
       visiting.delete(providerId);
       visited.add(providerId);
@@ -192,7 +192,7 @@ class Application {
 
   configureProviders(providers = []) {
     const normalized = this.normalizeProviderEntries(providers);
-    const ordered = this.sortProviderGraph(normalized);
+    const ordered = this.sortProviderStartOrder(normalized);
 
     this.providerEntries = ordered;
     this.diagnostics.providerOrder = ordered.map((entry) => entry.id);
@@ -288,7 +288,7 @@ function createApplication(options = {}) {
   return new Application(options);
 }
 
-function createProviderClass({ id, dependsOn = [], register = null, boot = null, shutdown = null } = {}) {
+function createProviderClass({ id, startsAfter = [], register = null, boot = null, shutdown = null } = {}) {
   const providerId = normalizeText(id);
   if (!providerId) {
     throw new ProviderNormalizationError("createProviderClass requires id.");
@@ -297,7 +297,7 @@ function createProviderClass({ id, dependsOn = [], register = null, boot = null,
   class DynamicProvider extends ServiceProvider {
     static id = providerId;
 
-    static dependsOn = normalizeStringArray(dependsOn);
+    static startsAfter = normalizeStringArray(startsAfter);
 
     async register(app) {
       if (typeof register === "function") {

@@ -23,7 +23,7 @@ import { userSettingsResource } from "../shared/resources/userSettingsResource.j
 class UsersCoreServiceProvider {
   static id = "users.core";
 
-  static dependsOn = ["runtime.server", "runtime.actions", "runtime.database", "runtime.storage", "auth.provider", "runtime.uploads", "json-rest-api.core"];
+  static startsAfter = ["json-rest-api.core", "runtime.actions"];
 
   async register(app) {
     registerSharedApi(app, USERS_SHARED_API);
