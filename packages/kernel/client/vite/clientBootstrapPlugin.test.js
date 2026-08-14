@@ -752,7 +752,11 @@ test("createJskitClientBootstrapPlugin config excludes installed client package 
 
     assert.equal(Array.isArray(result?.optimizeDeps?.exclude), true);
     assert.deepEqual(result.optimizeDeps.exclude, ["already/excluded"]);
-    assert.deepEqual(result.optimizeDeps.include, ["@example/has-client/client", "a"]);
+    assert.deepEqual(result.optimizeDeps.include, [
+      "@example/has-client/client",
+      "@jskit-ai/kernel/client/moduleBootstrap",
+      "a"
+    ]);
     assert.deepEqual(result.resolve.dedupe, ["@tanstack/vue-query", "pinia", "vue", "vue-router", "vuetify"]);
   } finally {
     process.chdir(previousCwd);
@@ -798,7 +802,11 @@ test("createJskitClientBootstrapPlugin config lets packageMetadata excludes over
     });
 
     assert.deepEqual(result.optimizeDeps.exclude, ["@example/app-bound-client/client", "user-excluded"]);
-    assert.deepEqual(result.optimizeDeps.include, ["safe-helper", "user-helper"]);
+    assert.deepEqual(result.optimizeDeps.include, [
+      "@jskit-ai/kernel/client/moduleBootstrap",
+      "safe-helper",
+      "user-helper"
+    ]);
   } finally {
     process.chdir(previousCwd);
   }
@@ -855,7 +863,11 @@ test("createJskitClientBootstrapPlugin config excludes local package roots and c
       "@example/local-client/client",
       "@example/local-client/shared"
     ]);
-    assert.deepEqual(result.optimizeDeps.include, ["@example/remote-client/client", "mime-match"]);
+    assert.deepEqual(result.optimizeDeps.include, [
+      "@example/remote-client/client",
+      "@jskit-ai/kernel/client/moduleBootstrap",
+      "mime-match"
+    ]);
     assert.deepEqual(result.resolve.dedupe, ["@tanstack/vue-query", "pinia", "vue", "vue-router", "vuetify"]);
   } finally {
     process.chdir(previousCwd);
@@ -935,7 +947,10 @@ test("createJskitClientBootstrapPlugin config excludes all @local scoped package
       "@local/main/client",
       "@local/main/shared"
     ]);
-    assert.deepEqual(result.optimizeDeps.include, ["@example/remote-client/client"]);
+    assert.deepEqual(result.optimizeDeps.include, [
+      "@example/remote-client/client",
+      "@jskit-ai/kernel/client/moduleBootstrap"
+    ]);
   } finally {
     process.chdir(previousCwd);
   }

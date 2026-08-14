@@ -1,4 +1,4 @@
-import { mkdir, readdir, readFile, symlink, writeFile } from "node:fs/promises";
+import { cp, mkdir, readdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -57,10 +57,13 @@ async function stageCurrentJskitWorkspaces(appRoot) {
 
   for (const [packageId, candidate] of packages) {
     const packageName = packageId.slice(packageId.indexOf("/") + 1);
-    await symlink(
+    await cp(
       candidate.packageRoot,
       path.join(candidatesRoot, packageName),
-      process.platform === "win32" ? "junction" : "dir"
+      {
+        recursive: true,
+        filter: (sourcePath) => path.basename(sourcePath) !== "node_modules"
+      }
     );
   }
 

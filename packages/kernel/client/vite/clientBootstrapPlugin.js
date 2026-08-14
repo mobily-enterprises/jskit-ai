@@ -15,6 +15,7 @@ import {
 
 const CLIENT_BOOTSTRAP_VIRTUAL_ID = "virtual:jskit-client-bootstrap";
 const CLIENT_BOOTSTRAP_RESOLVED_ID = `\0${CLIENT_BOOTSTRAP_VIRTUAL_ID}`;
+const CLIENT_BOOTSTRAP_MODULE_SPECIFIER = "@jskit-ai/kernel/client/moduleBootstrap";
 const CLIENT_RUNTIME_DEDUPE_SPECIFIERS = Object.freeze([
   "@tanstack/vue-query",
   "pinia",
@@ -292,7 +293,7 @@ function createVirtualModuleSource(clientModules = []) {
 
   const entriesSource = moduleEntries.length > 0 ? moduleEntries.join(",\n") : "";
 
-  return `${importLines.join("\n")}${importLines.length > 0 ? "\n\n" : ""}import { bootClientModules } from "@jskit-ai/kernel/client/moduleBootstrap";
+  return `${importLines.join("\n")}${importLines.length > 0 ? "\n\n" : ""}import { bootClientModules } from ${JSON.stringify(CLIENT_BOOTSTRAP_MODULE_SPECIFIER)};
 
 const installedClientModules = Object.freeze([
 ${entriesSource}
@@ -375,9 +376,17 @@ function createJskitClientBootstrapPlugin({ proxyTarget = "" } = {}) {
       const userOptimizeDeps = normalizeObject(userConfig.optimizeDeps);
       const userExclude = sortStrings(userOptimizeDeps.exclude);
       const userInclude = sortStrings(userOptimizeDeps.include);
-      const exclude = sortStrings([...userExclude, ...clientExcludeSpecifiers, ...localScopeExcludeSpecifiers]);
+      const exclude = sortStrings([
+        ...userExclude,
+        ...clientExcludeSpecifiers,
+        ...localScopeExcludeSpecifiers
+      ]);
       const clientIncludeSpecifiers = resolveClientOptimizeIncludeSpecifiers(clientModules, exclude);
-      const include = sortStrings([...userInclude, ...clientIncludeSpecifiers].filter((specifier) => !exclude.includes(specifier)));
+      const include = sortStrings([
+        ...userInclude,
+        ...clientIncludeSpecifiers,
+        CLIENT_BOOTSTRAP_MODULE_SPECIFIER
+      ].filter((specifier) => !exclude.includes(specifier)));
       const dedupe = resolveClientRuntimeDedupeSpecifiers(userResolve);
       const userServer = normalizeObject(userConfig.server);
       const userProxyEntries = normalizeObject(userServer.proxy);

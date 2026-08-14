@@ -1,6 +1,6 @@
 {
   "name": "@jskit-ai/feature-server-generator",
-  "version": "0.1.100",
+  "version": "0.1.101",
   "type": "module",
   "scripts": {
     "test": "node --test"
@@ -169,27 +169,27 @@
       "dependencies": {
         "runtime": {
           "@jskit-ai/database-runtime": {
-            "version": "0.1.158",
+            "version": "0.1.159",
             "when": {
               "option": "mode",
               "notEquals": "orchestrator"
             }
           },
           "@jskit-ai/database-runtime-mysql": {
-            "version": "0.1.156",
+            "version": "0.1.157",
             "when": {
               "option": "mode",
               "notEquals": "orchestrator"
             }
           },
           "@jskit-ai/json-rest-api-core": {
-            "version": "0.1.102",
+            "version": "0.1.103",
             "when": {
               "option": "mode",
               "equals": "json-rest"
             }
           },
-          "@jskit-ai/kernel": "0.1.158",
+          "@jskit-ai/kernel": "0.1.159",
           "json-rest-schema": "^1.0.17",
           "@local/${option:feature-name|kebab}": "file:packages/${option:feature-name|kebab}"
         },
