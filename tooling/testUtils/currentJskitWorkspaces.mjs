@@ -3,7 +3,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 const REPOSITORY_ROOT = fileURLToPath(new URL("../..", import.meta.url));
-const CANDIDATE_PACKAGES_DIRECTORY = ".candidate-packages";
+const CANDIDATE_PACKAGES_DIRECTORY = "test-results/jskit-candidate-packages";
 const CANDIDATE_WORKSPACE_PATTERN = `${CANDIDATE_PACKAGES_DIRECTORY}/*`;
 const CURRENT_JSKIT_WORKSPACE_NPM_ENV = Object.freeze({
   "npm_config_@jskit-ai:registry": "http://127.0.0.1:9/",
