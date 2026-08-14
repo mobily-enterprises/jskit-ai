@@ -134,6 +134,9 @@ async function collectRelativeFiles(rootDir, currentDir = rootDir, collected = [
   for (const entry of entries) {
     const absolutePath = path.join(currentDir, entry.name);
     if (entry.isDirectory()) {
+      if (entry.name === "node_modules") {
+        continue;
+      }
       await collectRelativeFiles(rootDir, absolutePath, collected);
       continue;
     }

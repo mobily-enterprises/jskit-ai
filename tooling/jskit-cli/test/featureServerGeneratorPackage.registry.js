@@ -98,6 +98,14 @@ test("generate feature-server-generator scaffold creates the default json-rest p
     assert.equal(typeof appPackageJson.dependencies["@jskit-ai/json-rest-api-core"], "string");
     assert.equal(typeof appPackageJson.dependencies["@jskit-ai/database-runtime"], "string");
     assert.equal(typeof appPackageJson.dependencies["@jskit-ai/database-runtime-mysql"], "string");
+    assert.equal(
+      generatedPackageJson.dependencies["@jskit-ai/json-rest-api-core"],
+      appPackageJson.dependencies["@jskit-ai/json-rest-api-core"]
+    );
+    assert.equal(
+      generatedPackageJson.dependencies["@jskit-ai/kernel"],
+      appPackageJson.dependencies["@jskit-ai/kernel"]
+    );
     assert.equal(appPackageJson.dependencies["json-rest-schema"], "^1.0.17");
     assert.equal(appPackageJson.dependencies["@jskit-ai/feature-server-generator"], undefined);
   });
@@ -185,6 +193,14 @@ test("generate feature-server-generator scaffold supports the explicit custom-kn
     assert.equal(generatedPackageJson.jskit.metadata.jskit.lane, "weird-custom");
     assert.equal(typeof appPackageJson.dependencies["@jskit-ai/database-runtime"], "string");
     assert.equal(typeof appPackageJson.dependencies["@jskit-ai/database-runtime-mysql"], "string");
+    assert.equal(
+      generatedPackageJson.dependencies["@jskit-ai/database-runtime"],
+      appPackageJson.dependencies["@jskit-ai/database-runtime"]
+    );
+    assert.equal(
+      generatedPackageJson.dependencies["@jskit-ai/kernel"],
+      appPackageJson.dependencies["@jskit-ai/kernel"]
+    );
     assert.equal(appPackageJson.dependencies["@jskit-ai/json-rest-api-core"], undefined);
   });
 });

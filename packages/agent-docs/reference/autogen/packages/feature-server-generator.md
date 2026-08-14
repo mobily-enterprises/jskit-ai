@@ -18,6 +18,7 @@ Use this on demand; do not load the full index at startup.
 Exports
 - `buildTemplateContext({ options = {} } = {})`
 Local functions
+- `runtimeDependencyVersion(packageName)`
 - `splitTextIntoWords(value)`
 - `wordsToPascal(words = [])`
 - `wordsToKebab(words = [])`

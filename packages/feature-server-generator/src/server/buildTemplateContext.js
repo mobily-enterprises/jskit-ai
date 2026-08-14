@@ -1,3 +1,16 @@
+import packageJson from "../../package.json" with { type: "json" };
+
+const runtimeDependencies = packageJson.jskit.mutations.dependencies.runtime;
+
+function runtimeDependencyVersion(packageName) {
+  const dependency = runtimeDependencies[packageName];
+  const version = typeof dependency === "string" ? dependency : dependency?.version;
+  if (typeof version !== "string" || !version.trim()) {
+    throw new Error(`feature-server-generator is missing runtime dependency ${packageName}.`);
+  }
+  return version;
+}
+
 function splitTextIntoWords(value) {
   const normalized = String(value || "")
     .replace(/([a-z0-9])([A-Z])/g, "$1 $2")
@@ -225,10 +238,14 @@ function buildManifestContext({ featureName, mode }) {
   const isPersistent = isJsonRest || isCustomKnex;
   const dependencyLines = [];
   if (isJsonRest) {
-    dependencyLines.push('    "@jskit-ai/json-rest-api-core": "0.1.92"');
+    dependencyLines.push(
+      `    "@jskit-ai/json-rest-api-core": "${runtimeDependencyVersion("@jskit-ai/json-rest-api-core")}"`
+    );
   }
   if (isCustomKnex) {
-    dependencyLines.push('    "@jskit-ai/database-runtime": "0.1.148"');
+    dependencyLines.push(
+      `    "@jskit-ai/database-runtime": "${runtimeDependencyVersion("@jskit-ai/database-runtime")}"`
+    );
   }
 
   const manifestDependencyLines = dependencyLines.length > 0

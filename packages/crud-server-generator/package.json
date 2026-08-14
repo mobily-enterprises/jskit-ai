@@ -1,6 +1,6 @@
 {
   "name": "@jskit-ai/crud-server-generator",
-  "version": "0.1.165",
+  "version": "0.1.166",
   "type": "module",
   "scripts": {
     "test": "node --test"
@@ -13,14 +13,14 @@
   },
   "dependencies": {
     "@babel/parser": "^7.29.2",
-    "@jskit-ai/auth-core": "0.1.150",
-    "@jskit-ai/crud-core": "0.1.163",
-    "@jskit-ai/database-runtime": "0.1.152",
-    "@jskit-ai/http-runtime": "0.1.150",
-    "@jskit-ai/json-rest-api-core": "0.1.96",
-    "@jskit-ai/kernel": "0.1.152",
-    "@jskit-ai/realtime": "0.1.149",
-    "@jskit-ai/resource-crud-core": "0.1.94",
+    "@jskit-ai/auth-core": "0.1.151",
+    "@jskit-ai/crud-core": "0.1.164",
+    "@jskit-ai/database-runtime": "0.1.153",
+    "@jskit-ai/http-runtime": "0.1.151",
+    "@jskit-ai/json-rest-api-core": "0.1.97",
+    "@jskit-ai/kernel": "0.1.153",
+    "@jskit-ai/realtime": "0.1.150",
+    "@jskit-ai/resource-crud-core": "0.1.95",
     "recast": "^0.23.11"
   },
   "description": "CRUD server generator with routes, actions, and persistence scaffolding.",
@@ -218,14 +218,14 @@
     "mutations": {
       "dependencies": {
         "runtime": {
-          "@jskit-ai/auth-core": "0.1.150",
-          "@jskit-ai/crud-core": "0.1.163",
-          "@jskit-ai/database-runtime": "0.1.152",
-          "@jskit-ai/http-runtime": "0.1.150",
-          "@jskit-ai/json-rest-api-core": "0.1.96",
-          "@jskit-ai/kernel": "0.1.152",
-          "@jskit-ai/realtime": "0.1.149",
-          "@jskit-ai/resource-crud-core": "0.1.94",
+          "@jskit-ai/auth-core": "0.1.151",
+          "@jskit-ai/crud-core": "0.1.164",
+          "@jskit-ai/database-runtime": "0.1.153",
+          "@jskit-ai/http-runtime": "0.1.151",
+          "@jskit-ai/json-rest-api-core": "0.1.97",
+          "@jskit-ai/kernel": "0.1.153",
+          "@jskit-ai/realtime": "0.1.150",
+          "@jskit-ai/resource-crud-core": "0.1.95",
           "@local/${option:namespace|kebab}": "file:packages/${option:namespace|kebab}"
         },
         "dev": {}

@@ -1,6 +1,6 @@
 {
   "name": "@jskit-ai/assistant-runtime",
-  "version": "0.1.123",
+  "version": "0.1.124",
   "type": "module",
   "exports": {
     "./client": "./src/client/index.js",
@@ -8,13 +8,13 @@
     "./server/actionIds": "./src/server/actionIds.js"
   },
   "dependencies": {
-    "@jskit-ai/assistant-core": "0.1.128",
-    "@jskit-ai/database-runtime": "0.1.152",
-    "@jskit-ai/http-runtime": "0.1.150",
-    "@jskit-ai/kernel": "0.1.152",
-    "@jskit-ai/shell-web": "0.1.156",
-    "@jskit-ai/users-core": "0.1.165",
-    "@jskit-ai/users-web": "0.1.170",
+    "@jskit-ai/assistant-core": "0.1.129",
+    "@jskit-ai/database-runtime": "0.1.153",
+    "@jskit-ai/http-runtime": "0.1.151",
+    "@jskit-ai/kernel": "0.1.153",
+    "@jskit-ai/shell-web": "0.1.157",
+    "@jskit-ai/users-core": "0.1.166",
+    "@jskit-ai/users-web": "0.1.171",
     "json-rest-schema": "^1.0.17"
   },
   "peerDependencies": {
@@ -110,13 +110,13 @@
     "mutations": {
       "dependencies": {
         "runtime": {
-          "@jskit-ai/assistant-core": "0.1.128",
-          "@jskit-ai/database-runtime": "0.1.152",
-          "@jskit-ai/http-runtime": "0.1.150",
-          "@jskit-ai/kernel": "0.1.152",
-          "@jskit-ai/shell-web": "0.1.156",
-          "@jskit-ai/users-core": "0.1.165",
-          "@jskit-ai/users-web": "0.1.170"
+          "@jskit-ai/assistant-core": "0.1.129",
+          "@jskit-ai/database-runtime": "0.1.153",
+          "@jskit-ai/http-runtime": "0.1.151",
+          "@jskit-ai/kernel": "0.1.153",
+          "@jskit-ai/shell-web": "0.1.157",
+          "@jskit-ai/users-core": "0.1.166",
+          "@jskit-ai/users-web": "0.1.171"
         },
         "dev": {}
       },

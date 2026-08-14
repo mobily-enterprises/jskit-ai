@@ -1,6 +1,9 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+import packageJson from "../package.json" with { type: "json" };
 import { buildTemplateContext } from "../src/server/buildTemplateContext.js";
+
+const runtimeDependencies = packageJson.jskit.mutations.dependencies.runtime;
 
 test("buildTemplateContext emits json-rest provider and package metadata wiring", async () => {
   const context = await buildTemplateContext({
@@ -18,7 +21,10 @@ test("buildTemplateContext emits json-rest provider and package metadata wiring"
     '{ featureRepository: _scope.make("feature.booking-engine.repository") }'
   );
   assert.equal(context.__JSKIT_FEATURE_PROVIDER_BOOT_METHOD__, "  boot() {}");
-  assert.match(context.__JSKIT_FEATURE_MANIFEST_DEPENDENCY_LINES__, /@jskit-ai\/json-rest-api-core/);
+  assert.equal(
+    context.__JSKIT_FEATURE_MANIFEST_DEPENDENCY_LINES__,
+    `,\n    "@jskit-ai/json-rest-api-core": "${runtimeDependencies["@jskit-ai/json-rest-api-core"].version}"`
+  );
   assert.equal(context.__JSKIT_FEATURE_METADATA_LANE__, "default");
 });
 
@@ -56,5 +62,9 @@ test("buildTemplateContext emits custom-knex route wiring and weird-custom lane 
   assert.equal(context.__JSKIT_FEATURE_ACTION_SURFACES_LINE__, '    surfaces: ["admin"],');
   assert.equal(context.__JSKIT_FEATURE_ROUTE_SURFACE_IMPORT__, ", normalizeSurfaceId");
   assert.equal(context.__JSKIT_FEATURE_ROUTE_SURFACE_LINE__, "      surface: normalizedRouteSurface,");
+  assert.equal(
+    context.__JSKIT_FEATURE_MANIFEST_DEPENDENCY_LINES__,
+    `,\n    "@jskit-ai/database-runtime": "${runtimeDependencies["@jskit-ai/database-runtime"].version}"`
+  );
   assert.equal(context.__JSKIT_FEATURE_METADATA_LANE__, "weird-custom");
 });
