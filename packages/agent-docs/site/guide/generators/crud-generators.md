@@ -508,7 +508,7 @@ route after success. It supports custom `--id-param` names.
 
 The generator rejects this option when list or view is omitted, or when the
 shared resource has no `DELETE` operation. Without the flag, no delete control
-is generated. Do not substitute raw `fetch()` or import private `users-web`
+is generated. Do not substitute raw `fetch()` or import private `http-web`
 modules.
 
 Generated list, view, and lookup reads use the resource contract as their

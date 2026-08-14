@@ -1,18 +1,18 @@
 import path from "node:path";
 import { resolveCrudRecordChangedEvent } from "@jskit-ai/resource-crud-core/shared/crudNamespaceSupport";
 import {
-  checkCrudLookupFormControl,
-  isCrudRuntimeOutputOnlyFieldKey
-} from "@jskit-ai/crud-core/shared/crudFieldSupport";
+  checkCrudLookupFormControl
+} from "@jskit-ai/resource-crud-core/shared/crudFieldContract";
 import { importFreshModuleFromAbsolutePath } from "@jskit-ai/kernel/server/support";
 import {
   normalizeCrudLookupApiPath,
   normalizeCrudLookupNamespace,
   normalizeCrudLookupContainerKey,
+  isCrudRuntimeOutputOnlyFieldKey,
   resolveCrudLookupApiPathFromNamespace,
   resolveCrudLookupContainerKey
-} from "@jskit-ai/kernel/shared/support/crudLookup";
-import { buildCrudFieldContractMap } from "@jskit-ai/kernel/shared/support/crudFieldContract";
+} from "@jskit-ai/resource-crud-core/shared/crudLookup";
+import { buildCrudFieldContractMap } from "@jskit-ai/resource-crud-core/shared/crudFieldContract";
 import { normalizeSchemaDefinition } from "@jskit-ai/kernel/shared/validators";
 import { normalizeSurfaceId } from "@jskit-ai/kernel/shared/surface/registry";
 import { normalizeText } from "@jskit-ai/kernel/shared/support/normalize";

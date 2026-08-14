@@ -1,8 +1,8 @@
 <script setup>
 import { computed } from "vue";
 import { useRoute } from "vue-router";
-import CrudAddEditScreen from "@jskit-ai/users-web/client/components/CrudAddEditScreen";
-import { useCrudAddEditScreen } from "@jskit-ai/users-web/client/composables/useCrudAddEditScreen";
+import CrudAddEditScreen from "@jskit-ai/http-web/client/components/CrudAddEditScreen";
+import { useCrudAddEditScreen } from "@jskit-ai/http-web/client/composables/useCrudAddEditScreen";
 import BookFormFields from "./BookFormFields.vue";
 import { bookFormFields, bookResource } from "./bookFixture.js";
 

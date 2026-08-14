@@ -1,6 +1,6 @@
 {
   "name": "@jskit-ai/workspaces-web",
-  "version": "0.1.134",
+  "version": "0.1.135",
   "type": "module",
   "scripts": {
     "test": "node --test"
@@ -14,13 +14,13 @@
     "./client/composables/useWorkspaceRouteContext": "./src/client/composables/useWorkspaceRouteContext.js"
   },
   "dependencies": {
-    "@jskit-ai/auth-web": "0.1.155",
-    "@jskit-ai/http-runtime": "0.1.153",
-    "@jskit-ai/kernel": "0.1.155",
-    "@jskit-ai/shell-web": "0.1.159",
-    "@jskit-ai/users-core": "0.1.168",
-    "@jskit-ai/users-web": "0.1.173",
-    "@jskit-ai/workspaces-core": "0.1.133",
+    "@jskit-ai/auth-web": "0.1.156",
+    "@jskit-ai/http-web": "0.1.1",
+    "@jskit-ai/kernel": "0.1.156",
+    "@jskit-ai/shell-web": "0.1.160",
+    "@jskit-ai/users-core": "0.1.169",
+    "@jskit-ai/users-web": "0.1.174",
+    "@jskit-ai/workspaces-core": "0.1.134",
     "@mdi/js": "^7.4.47"
   },
   "peerDependencies": {
@@ -37,6 +37,7 @@
         "workspaces.web"
       ],
       "requires": [
+        "runtime.http-web",
         "users.web",
         "workspaces.core"
       ]
@@ -107,7 +108,7 @@
               "surfaces": [
                 "admin"
               ],
-              "source": "src/client/components/UsersWorkspaceToolsWidget.vue"
+              "source": "src/client/components/WorkspaceToolsWidget.vue"
             }
           ],
           "topology": {
@@ -281,9 +282,10 @@
     "mutations": {
       "dependencies": {
         "runtime": {
-          "@jskit-ai/auth-web": "0.1.155",
-          "@jskit-ai/workspaces-core": "0.1.133",
-          "@jskit-ai/users-web": "0.1.173"
+          "@jskit-ai/auth-web": "0.1.156",
+          "@jskit-ai/http-web": "0.1.1",
+          "@jskit-ai/workspaces-core": "0.1.134",
+          "@jskit-ai/users-web": "0.1.174"
         },
         "dev": {}
       },
@@ -303,7 +305,7 @@
           "ownership": "app",
           "reason": "Install app-owned account pending invites cue component scaffold.",
           "category": "workspaces-web",
-          "id": "users-web-main-component-account-pending-invites-cue"
+          "id": "workspaces-web-main-component-account-pending-invites-cue"
         },
         {
           "from": "templates/packages/main/src/client/components/AccountSettingsInvitesSection.vue",
@@ -311,7 +313,7 @@
           "ownership": "app",
           "reason": "Install app-owned account invites section scaffold for multihoming account settings.",
           "category": "workspaces-web",
-          "id": "users-web-main-component-account-settings-invites-section"
+          "id": "workspaces-web-main-component-account-settings-invites-section"
         },
         {
           "from": "templates/src/pages/invite/[token].vue",
@@ -327,7 +329,7 @@
           "ownership": "app",
           "reason": "Install app-owned workspace not-found card component used by workspace-dependent surfaces.",
           "category": "workspaces-web",
-          "id": "users-web-component-workspace-not-found-card",
+          "id": "workspaces-web-component-workspace-not-found-card",
           "when": {
             "config": "tenancyMode",
             "in": [
@@ -342,7 +344,7 @@
           "ownership": "app",
           "reason": "Install app-owned workspace bootstrap status composable for workspace-dependent surfaces.",
           "category": "workspaces-web",
-          "id": "users-web-composable-workspace-not-found-state",
+          "id": "workspaces-web-composable-workspace-not-found-state",
           "when": {
             "config": "tenancyMode",
             "in": [
@@ -358,7 +360,7 @@
           "ownership": "app",
           "reason": "Install workspace app surface wrapper shell for workspaces-web.",
           "category": "workspaces-web",
-          "id": "users-web-page-app-wrapper",
+          "id": "workspaces-web-page-app-wrapper",
           "when": {
             "config": "tenancyMode",
             "in": [
@@ -374,7 +376,7 @@
           "ownership": "app",
           "reason": "Install workspace app surface starter page scaffold for workspaces-web.",
           "category": "workspaces-web",
-          "id": "users-web-page-app-index",
+          "id": "workspaces-web-page-app-index",
           "when": {
             "config": "tenancyMode",
             "in": [
@@ -390,7 +392,7 @@
           "ownership": "app",
           "reason": "Install workspace admin surface wrapper shell for workspaces-web.",
           "category": "workspaces-web",
-          "id": "users-web-page-admin-wrapper",
+          "id": "workspaces-web-page-admin-wrapper",
           "when": {
             "config": "tenancyMode",
             "in": [
@@ -406,7 +408,7 @@
           "ownership": "app",
           "reason": "Install workspace admin surface starter page scaffold for workspaces-web.",
           "category": "workspaces-web",
-          "id": "users-web-page-admin-index",
+          "id": "workspaces-web-page-admin-index",
           "when": {
             "config": "tenancyMode",
             "in": [
@@ -422,7 +424,7 @@
           "ownership": "app",
           "reason": "Install admin members starter page scaffold for workspaces-web members UI.",
           "category": "workspaces-web",
-          "id": "users-web-page-admin-members",
+          "id": "workspaces-web-page-admin-members",
           "when": {
             "config": "tenancyMode",
             "in": [
@@ -438,7 +440,7 @@
           "ownership": "app",
           "reason": "Install workspace settings shell route scaffold for workspaces-web workspace admin UI.",
           "category": "workspaces-web",
-          "id": "users-web-page-admin-workspace-settings-shell",
+          "id": "workspaces-web-page-admin-workspace-settings-shell",
           "when": {
             "config": "tenancyMode",
             "in": [
@@ -454,7 +456,7 @@
           "ownership": "app",
           "reason": "Install workspace settings index stub scaffold for app-owned landing or redirect behavior.",
           "category": "workspaces-web",
-          "id": "users-web-page-admin-workspace-settings",
+          "id": "workspaces-web-page-admin-workspace-settings",
           "when": {
             "config": "tenancyMode",
             "in": [
@@ -542,7 +544,7 @@
           "from": "../components/AccountPendingInvitesCue.vue",
           "reason": "Bind app-owned account pending invites cue component into local main client provider imports.",
           "category": "workspaces-web",
-          "id": "users-web-main-client-provider-account-invites-import"
+          "id": "workspaces-web-main-client-provider-account-invites-import"
         },
         {
           "op": "ensure-import",
@@ -551,7 +553,7 @@
           "from": "../components/AccountSettingsInvitesSection.vue",
           "reason": "Bind app-owned account invites section component into local main client provider imports.",
           "category": "workspaces-web",
-          "id": "users-web-main-client-provider-account-settings-section-import"
+          "id": "workspaces-web-main-client-provider-account-settings-section-import"
         },
         {
           "op": "ensure-call",
@@ -564,7 +566,7 @@
           "beforeClass": "MainClientProvider",
           "reason": "Bind app-owned account pending invites cue component token into local main client provider registry.",
           "category": "workspaces-web",
-          "id": "users-web-main-client-provider-account-invites-register"
+          "id": "workspaces-web-main-client-provider-account-invites-register"
         },
         {
           "op": "ensure-call",
@@ -577,7 +579,7 @@
           "beforeClass": "MainClientProvider",
           "reason": "Bind app-owned account invites section component token into local main client provider registry.",
           "category": "workspaces-web",
-          "id": "users-web-main-client-provider-account-settings-section-register"
+          "id": "workspaces-web-main-client-provider-account-settings-section-register"
         }
       ]
     }

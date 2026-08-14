@@ -2,7 +2,7 @@ import {
   findWorkspaceBySlug,
   normalizeWorkspaceList
 } from "../lib/bootstrap.js";
-import { normalizePermissionList } from "../lib/permissions.js";
+import { normalizePermissionList } from "@jskit-ai/http-web/client/lib/permissions";
 import {
   persistBootstrapThemePreference,
   resolveBootstrapThemeName,

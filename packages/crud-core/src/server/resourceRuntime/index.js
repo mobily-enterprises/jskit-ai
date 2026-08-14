@@ -27,7 +27,7 @@ import {
   createCrudLookupRuntime,
   hydrateCrudLookupRecords
 } from "./lookupHydration.js";
-import { CRUD_FIELD_STORAGE_COLUMN } from "@jskit-ai/kernel/shared/support/crudFieldContract";
+import { CRUD_FIELD_STORAGE_COLUMN } from "@jskit-ai/resource-crud-core/shared/crudFieldContract";
 
 const LIST_ORDER_DIRECTION_ASC = "asc";
 const LIST_ORDER_DIRECTION_DESC = "desc";

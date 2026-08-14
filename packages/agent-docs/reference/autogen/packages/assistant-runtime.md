@@ -141,6 +141,13 @@ Local functions
 - `normalizePagination(pagination = {}, { defaultPage = 1, defaultPageSize = 200, maxPageSize = 500 } = {})`
 - `resolveNextSequence(client, conversationId)`
 
+### `src/server/repositories/repositoryPersistenceUtils.js`
+Exports
+- `parseJsonObject`
+- `stringifyJsonObject(value)`
+- `toIso(value)`
+- `resolveInsertedId(insertResult)`
+
 ### `src/server/services/assistantConfigService.js`
 Exports
 - `createService({ assistantConfigRepository, consoleService = null, appConfig = {}, resolveAppConfig = null, workspaceScopeSupport = null } = {})`

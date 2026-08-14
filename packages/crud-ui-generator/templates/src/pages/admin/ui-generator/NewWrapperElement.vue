@@ -5,7 +5,7 @@
 </template>
 
 <script setup>
-import { useCrudAddEditScreen } from "@jskit-ai/users-web/client/composables/useCrudAddEditScreen";
+import { useCrudAddEditScreen } from "@jskit-ai/http-web/client/composables/useCrudAddEditScreen";
 __JSKIT_UI_CREATE_LOOKUP_IMPORT_LINE__
 import { resource as uiResource } from "__JSKIT_UI_RESOURCE_IMPORT_PATH__";
 import CrudAddEditForm from "__JSKIT_UI_FORM_COMPONENT_IMPORT_PATH__";

@@ -6,7 +6,7 @@ import * as vuetifyComponents from "vuetify/components";
 import * as vuetifyDirectives from "vuetify/directives";
 import { aliases, mdi } from "vuetify/iconsets/mdi-svg";
 import "vuetify/styles";
-import { configureUsersWebHttpClient } from "@jskit-ai/users-web/client/lib/httpClient";
+import { configureHttpWebClient } from "@jskit-ai/http-web/client/lib/httpClient";
 import App from "./App.vue";
 import BookEditPage from "./BookEditPage.vue";
 import BookListPage from "./BookListPage.vue";
@@ -40,7 +40,7 @@ const vuetify = createVuetify({
   }
 });
 
-configureUsersWebHttpClient(bookClient);
+configureHttpWebClient(bookClient);
 
 const app = createApp(App);
 app.use(router);

@@ -11,7 +11,7 @@ import {
   normalizeRecordId,
   normalizeUniqueTextList
 } from "@jskit-ai/kernel/shared/support/normalize";
-import { resolveCrudResourceScopeName } from "@jskit-ai/kernel/shared/support/crudLookup";
+import { resolveCrudResourceScopeName } from "@jskit-ai/resource-crud-core/shared/crudLookup";
 import {
   normalizeJsonApiFieldList,
   normalizeJsonApiFieldsets

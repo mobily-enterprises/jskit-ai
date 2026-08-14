@@ -11,6 +11,16 @@ const packageMetadata = packageJson.jskit;
 const TEST_DIRECTORY = path.dirname(fileURLToPath(import.meta.url));
 const PACKAGE_DIR = path.resolve(TEST_DIRECTORY, "..");
 
+test("account settings load state exposes a local retry action", async () => {
+  const source = await readFile(
+    path.join(PACKAGE_DIR, "src", "client", "components", "AccountSettingsClientElement.vue"),
+    "utf8"
+  );
+
+  assert.match(source, /settingsLoadError/);
+  assert.match(source, /@click="runtime\.refreshSettings"/);
+});
+
 function readOutlets(host = "") {
   const outlets = packageMetadata?.metadata?.ui?.placements?.outlets;
   const normalizedTarget = String(host || "").trim();

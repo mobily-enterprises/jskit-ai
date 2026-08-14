@@ -1,8 +1,8 @@
-import UsersProfileSurfaceSwitchMenuItem from "../components/UsersProfileSurfaceSwitchMenuItem.vue";
-import UsersWorkspaceSelector from "../components/UsersWorkspaceSelector.vue";
-import UsersWorkspaceToolsWidget from "../components/UsersWorkspaceToolsWidget.vue";
-import UsersWorkspaceSettingsMenuItem from "../components/UsersWorkspaceSettingsMenuItem.vue";
-import UsersWorkspaceMembersMenuItem from "../components/UsersWorkspaceMembersMenuItem.vue";
+import WorkspaceProfileSurfaceSwitchMenuItem from "../components/WorkspaceProfileSurfaceSwitchMenuItem.vue";
+import WorkspaceSelector from "../components/WorkspaceSelector.vue";
+import WorkspaceToolsWidget from "../components/WorkspaceToolsWidget.vue";
+import WorkspaceSettingsMenuItem from "../components/WorkspaceSettingsMenuItem.vue";
+import WorkspaceMembersMenuItem from "../components/WorkspaceMembersMenuItem.vue";
 import MembersAdminClientElement from "../components/MembersAdminClientElement.vue";
 import { registerBootstrapPayloadHandler } from "@jskit-ai/shell-web/client/bootstrap";
 import { createBootstrapPlacementRuntime } from "../runtime/bootstrapPlacementRuntime.js";
@@ -20,11 +20,11 @@ class WorkspacesWebClientProvider {
       throw new Error("WorkspacesWebClientProvider requires application singleton()/tag().");
     }
 
-    app.singleton("workspaces.web.profile.menu.surface-switch-item", () => UsersProfileSurfaceSwitchMenuItem);
-    app.singleton("workspaces.web.workspace.selector", () => UsersWorkspaceSelector);
-    app.singleton("workspaces.web.workspace.tools.widget", () => UsersWorkspaceToolsWidget);
-    app.singleton("workspaces.web.workspace-settings.menu-item", () => UsersWorkspaceSettingsMenuItem);
-    app.singleton("workspaces.web.workspace-members.menu-item", () => UsersWorkspaceMembersMenuItem);
+    app.singleton("workspaces.web.profile.menu.surface-switch-item", () => WorkspaceProfileSurfaceSwitchMenuItem);
+    app.singleton("workspaces.web.workspace.selector", () => WorkspaceSelector);
+    app.singleton("workspaces.web.workspace.tools.widget", () => WorkspaceToolsWidget);
+    app.singleton("workspaces.web.workspace-settings.menu-item", () => WorkspaceSettingsMenuItem);
+    app.singleton("workspaces.web.workspace-members.menu-item", () => WorkspaceMembersMenuItem);
     app.singleton("workspaces.web.members-admin.element", () => MembersAdminClientElement);
     app.singleton("workspaces.web.bootstrap-placement.runtime", (scope) => createBootstrapPlacementRuntime({ app: scope }));
     registerBootstrapPayloadHandler(app, "workspaces.web.bootstrap.handler", (scope) => {

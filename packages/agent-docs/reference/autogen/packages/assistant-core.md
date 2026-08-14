@@ -100,10 +100,6 @@ Exports
 - `writeNdjson`
 - `resolveWorkspaceSlug`
 - `createServiceToolCatalog`
-- `parseJsonObject`
-- `resolveInsertedId`
-- `stringifyJsonObject`
-- `toIso`
 
 ### `src/server/lib/aiClient.js`
 Exports
@@ -188,13 +184,6 @@ Local functions
 - `canUseToolOnSurface(entry = {}, context = {})`
 - `resolveActionBackedToolEntries(scope)`
 - `resolveActionToolEntries(scope, { barredActionIds = [], skipActionPrefixes = [] } = {})`
-
-### `src/server/repositories/repositoryPersistenceUtils.js`
-Exports
-- `parseJsonObject`
-- `stringifyJsonObject(value)`
-- `toIso(value)`
-- `resolveInsertedId(insertResult)`
 
 ### `src/shared/assistantPaths.js`
 Exports

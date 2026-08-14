@@ -13,9 +13,3 @@ export {
 } from "./lib/ndjson.js";
 export { resolveWorkspaceSlug } from "./lib/resolveWorkspaceSlug.js";
 export { createServiceToolCatalog } from "./lib/serviceToolCatalog.js";
-export {
-  parseJsonObject,
-  resolveInsertedId,
-  stringifyJsonObject,
-  toIso
-} from "./repositories/repositoryPersistenceUtils.js";

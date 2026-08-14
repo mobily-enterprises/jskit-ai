@@ -4,7 +4,10 @@ import {
   normalizeRecord,
   normalizeWorkspaceBootstrapStatusValue
 } from "../support/runtimeNormalization.js";
-import { hasPermission, normalizePermissionList } from "./permissions.js";
+import {
+  hasPermission,
+  normalizePermissionList
+} from "@jskit-ai/http-web/client/lib/permissions";
 
 const WORKSPACE_BOOTSTRAP_STATUS_NOT_FOUND = "not_found";
 const WORKSPACE_BOOTSTRAP_STATUS_FORBIDDEN = "forbidden";

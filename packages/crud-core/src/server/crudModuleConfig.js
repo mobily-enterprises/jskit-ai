@@ -3,7 +3,7 @@ import { normalizeSurfaceId } from "@jskit-ai/kernel/shared/surface/registry";
 import {
   normalizeCrudNamespace,
   requireCrudNamespace
-} from "../shared/crudNamespaceSupport.js";
+} from "@jskit-ai/resource-crud-core/shared/crudNamespaceSupport";
 import {
   resolveScopedApiBasePath
 } from "@jskit-ai/kernel/shared/surface";

@@ -37,6 +37,9 @@ Doctor must continue to report a missing managed test.
   object; never bind its route-template/relative string raw to Vue Router `to`.
 - Use page-local row-action/filter definitions. Keep read failures local; use
   `useCommand()` or `useUiFeedback()` for user-triggered action feedback.
+- Import neutral request, operation, permission, and generated CRUD UI APIs from
+  `@jskit-ai/http-web`. Do not install `users-web` unless the application uses
+  account, profile, or user-specific shell UI.
 
 ## Adaptive shell drawer
 

@@ -1,7 +1,7 @@
 import path from "node:path";
 import { access, readdir, readFile } from "node:fs/promises";
 import { pathToFileURL } from "node:url";
-import { buildCrudFieldContractMap } from "@jskit-ai/kernel/shared/support/crudFieldContract";
+import { buildCrudFieldContractMap } from "@jskit-ai/resource-crud-core/shared/crudFieldContract";
 import {
   discoverInstalledPackages,
   discoverPlacementTopologyFromApp,

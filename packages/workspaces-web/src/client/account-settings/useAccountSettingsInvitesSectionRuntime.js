@@ -6,9 +6,9 @@ import {
 } from "@jskit-ai/shell-web/client/placement";
 import { useShellWebErrorRuntime } from "@jskit-ai/shell-web/client/error";
 import { ROUTE_VISIBILITY_PUBLIC } from "@jskit-ai/kernel/shared/support/visibility";
-import { useCommand } from "@jskit-ai/users-web/client/composables/useCommand";
+import { useCommand } from "@jskit-ai/http-web/client/composables/useCommand";
 import { usePaths } from "@jskit-ai/shell-web/client/navigation/usePaths";
-import { useView } from "@jskit-ai/users-web/client/composables/useView";
+import { useView } from "@jskit-ai/http-web/client/composables/useView";
 import { normalizeRecordId } from "@jskit-ai/kernel/shared/support/normalize";
 import { WORKSPACE_INVITE_REDEEM_TRANSPORT } from "@jskit-ai/workspaces-core/shared/jsonApiTransports";
 import { useWorkspaceSurfaceId } from "../composables/useWorkspaceSurfaceId.js";

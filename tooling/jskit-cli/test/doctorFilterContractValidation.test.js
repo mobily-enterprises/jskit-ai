@@ -188,7 +188,7 @@ test("doctor accepts generated page-local listFilters modules", async () => {
     await writeFile(
       path.join(appRoot, "src", "pages", "home", "contacts", "listFilters.js"),
       [
-        "import { defineCrudListFilters } from \"@jskit-ai/users-web/client/filters\";",
+        "import { defineCrudListFilters } from \"@jskit-ai/http-web/client/filters\";",
         "",
         "const listFilters = defineCrudListFilters({});",
         "",

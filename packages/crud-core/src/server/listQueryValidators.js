@@ -3,7 +3,7 @@ import {
   cursorPaginationQueryValidator
 } from "@jskit-ai/kernel/shared/validators";
 import { normalizeText } from "@jskit-ai/kernel/shared/support/normalize";
-import { resolveCrudParentFilterKeys as resolveSharedCrudParentFilterKeys } from "@jskit-ai/kernel/shared/support/crudLookup";
+import { resolveCrudParentFilterKeys as resolveSharedCrudParentFilterKeys } from "@jskit-ai/resource-crud-core/shared/crudLookup";
 
 const listSearchQueryValidator = Object.freeze({
   schema: createSchema({

@@ -1,7 +1,7 @@
 import { AppError } from "@jskit-ai/kernel/server/runtime/errors";
 import { normalizeText } from "@jskit-ai/kernel/shared/support/normalize";
 import { normalizeObjectInput } from "@jskit-ai/kernel/shared/validators";
-import { requireCrudNamespace } from "../shared/crudNamespaceSupport.js";
+import { requireCrudNamespace } from "@jskit-ai/resource-crud-core/shared/crudNamespaceSupport";
 import { createCrudFieldAccessRuntime } from "./fieldAccess.js";
 
 function createCrudServiceRuntime(resource = {}, { context = "crudService" } = {}) {

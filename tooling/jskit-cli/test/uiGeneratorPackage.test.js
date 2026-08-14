@@ -459,11 +459,11 @@ test("generate @jskit-ai/crud-ui-generator adds delete confirmation only when re
     const viewPageSource = await readFile(paths.viewPagePath, "utf8");
     assert.match(
       viewPageSource,
-      /import \{ useCrudDeleteAction \} from "@jskit-ai\/users-web\/client\/composables\/useCrudDeleteAction";/
+      /import \{ useCrudDeleteAction \} from "@jskit-ai\/http-web\/client\/composables\/useCrudDeleteAction";/
     );
     assert.match(
       viewPageSource,
-      /import CrudDeleteAction from "@jskit-ai\/users-web\/client\/components\/CrudDeleteAction";/
+      /import CrudDeleteAction from "@jskit-ai\/http-web\/client\/components\/CrudDeleteAction";/
     );
     assert.match(viewPageSource, /<CrudDeleteAction/);
     assert.match(viewPageSource, /:action="deleteAction"/);
@@ -474,7 +474,7 @@ test("generate @jskit-ai/crud-ui-generator adds delete confirmation only when re
     assert.match(viewPageSource, /apiUrlTemplate: UI_VIEW_API_URL/);
     assert.doesNotMatch(viewPageSource, /<v-dialog|\bactivator=|mdiDeleteOutline/);
     assert.doesNotMatch(viewPageSource, /\bfetch\s*\(/);
-    assert.doesNotMatch(viewPageSource, /users-web\/src\/|\/internal\//);
+    assert.doesNotMatch(viewPageSource, /http-web\/src\/|\/internal\//);
     assert.doesNotMatch(viewPageSource, /__JSKIT_UI_/);
     assertVueModuleCompiles(viewPageSource, paths.viewPagePath);
   });

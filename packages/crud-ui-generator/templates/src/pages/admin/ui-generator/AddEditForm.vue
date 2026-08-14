@@ -18,7 +18,7 @@ __JSKIT_UI_EDIT_FORM_COLUMNS__
 </template>
 
 <script setup>
-import CrudAddEditScreen from "@jskit-ai/users-web/client/components/CrudAddEditScreen";
+import CrudAddEditScreen from "@jskit-ai/http-web/client/components/CrudAddEditScreen";
 
 const props = defineProps({
   screen: {

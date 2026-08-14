@@ -1,7 +1,7 @@
 import { normalizeDbRecordId, createWithTransaction } from "@jskit-ai/database-runtime/shared";
 import { normalizeSurfaceId } from "@jskit-ai/kernel/shared/surface/registry";
 import { normalizeRecordId, normalizeText } from "@jskit-ai/kernel/shared/support/normalize";
-import { resolveInsertedId } from "@jskit-ai/assistant-core/server";
+import { resolveInsertedId } from "./repositoryPersistenceUtils.js";
 import { assistantRuntimeConfig } from "../../shared/assistantRuntimeConfig.js";
 
 function normalizeTargetSurfaceId(value = "") {

@@ -1,8 +1,8 @@
 <script setup>
-import CrudDeleteAction from "@jskit-ai/users-web/client/components/CrudDeleteAction";
-import CrudViewScreen from "@jskit-ai/users-web/client/components/CrudViewScreen";
-import { useCrudDeleteAction } from "@jskit-ai/users-web/client/composables/useCrudDeleteAction";
-import { useCrudViewScreen } from "@jskit-ai/users-web/client/composables/useCrudViewScreen";
+import CrudDeleteAction from "@jskit-ai/http-web/client/components/CrudDeleteAction";
+import CrudViewScreen from "@jskit-ai/http-web/client/components/CrudViewScreen";
+import { useCrudDeleteAction } from "@jskit-ai/http-web/client/composables/useCrudDeleteAction";
+import { useCrudViewScreen } from "@jskit-ai/http-web/client/composables/useCrudViewScreen";
 import { bookResource } from "./bookFixture.js";
 
 const screen = useCrudViewScreen({

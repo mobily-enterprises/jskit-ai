@@ -8,42 +8,16 @@ const TEST_DIRECTORY = path.dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = path.resolve(TEST_DIRECTORY, "..", "..", "..");
 const PACKAGE_DIR = path.join(REPO_ROOT, "packages", "users-web");
 
-test("users-web exports are explicit and aligned with production/template usage", () => {
+test("users-web exports only user-owned client surfaces", () => {
   const result = evaluatePackageExportsContract({
     repoRoot: REPO_ROOT,
     packageDir: PACKAGE_DIR,
     packageId: "@jskit-ai/users-web",
     requiredExports: [
       "./client",
+      "./client/providers/UsersWebClientProvider",
       "./client/components/AccountSettingsClientElement",
-      "./client/components/CrudAddEditScreen",
-      "./client/components/CrudDeleteAction",
-      "./client/components/CrudListBulkActionSurface",
-      "./client/components/CrudListFilterSurface",
-      "./client/components/CrudListScreen",
-      "./client/components/CrudViewScreen",
-      "./client/account-settings/sections",
-      "./client/bulkActions",
-      "./client/filters",
-      "./client/rowActions",
-      "./client/composables/useAddEdit",
-      "./client/composables/useCommand",
-      "./client/composables/useEndpointResource",
-      "./client/composables/useList",
-      "./client/composables/useView",
-      "./client/composables/useCrudAddEdit",
-      "./client/composables/useCrudAddEditScreen",
-      "./client/composables/useCrudDeleteAction",
-      "./client/composables/useCrudListBulkActions",
-      "./client/composables/useCrudListRowActions",
-      "./client/composables/useCrudListFilterLookups",
-      "./client/composables/useCrudListFilters",
-      "./client/composables/useCrudList",
-      "./client/composables/useCrudListScreen",
-      "./client/crudHttpClient",
-      "./client/composables/useCrudView",
-      "./client/composables/useCrudViewScreen",
-      "./client/lib/httpClient"
+      "./client/account-settings/sections"
     ]
   });
 

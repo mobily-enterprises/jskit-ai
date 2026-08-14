@@ -1,7 +1,7 @@
 import {
   requireCrudNamespace,
   resolveCrudRecordChangedEvent
-} from "../shared/crudNamespaceSupport.js";
+} from "@jskit-ai/resource-crud-core/shared/crudNamespaceSupport";
 
 function normalizeCrudEventEntityId(value = null) {
   return value == null ? "" : String(value).trim();

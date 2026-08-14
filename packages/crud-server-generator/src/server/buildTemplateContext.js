@@ -9,7 +9,7 @@ import {
   toKnexClientId
 } from "@jskit-ai/database-runtime/shared";
 import { resolveCrudSurfacePolicyFromAppConfig } from "@jskit-ai/crud-core/server/crudModuleConfig";
-import { checkCrudLookupFormControl } from "@jskit-ai/crud-core/shared/crudFieldSupport";
+import { checkCrudLookupFormControl } from "@jskit-ai/resource-crud-core/shared/crudFieldContract";
 import {
   importFreshModuleFromAbsolutePath,
   loadAppConfigFromModuleUrl,
@@ -19,7 +19,7 @@ import { normalizeBoolean } from "@jskit-ai/kernel/shared/support/normalize";
 import {
   normalizeCrudLookupNamespace,
   resolveCrudResourceScopeName
-} from "@jskit-ai/kernel/shared/support/crudLookup";
+} from "@jskit-ai/resource-crud-core/shared/crudLookup";
 import { toCamelCase, toSnakeCase } from "@jskit-ai/kernel/shared/support/stringCase";
 const packageMetadata = createRequire(import.meta.url)("../../package.json").jskit;
 

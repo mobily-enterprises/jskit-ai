@@ -577,6 +577,8 @@ Request connectivity failures use a separate shell recovery path. Generated apps
 
 That recovery path is intentionally a safe `GET`/`HEAD` read refetch system, not a general HTTP replay system. User-visible reads should go through Query-backed JSKIT primitives such as `useEndpointResource()`, `useList()`, `useView()`, `useAddEdit()`, or generated CRUD screen composables. Those primitives mark Query entries with `jskit.requestRecoveryMethod`, so the shell only offers Retry for safe reads. Do not catch raw `fetch(...)` failures in each panel just to call the shell recovery runtime manually.
 
+These neutral request and CRUD client APIs are exported by `@jskit-ai/http-web`. They do not require the users, authentication, uploads, storage, or database products.
+
 For a custom endpoint read, attach the recovery label to the Query-backed resource:
 
 ```js
@@ -611,9 +613,9 @@ Writes are different. JSKIT does not automatically replay `POST`, `PATCH`, `PUT`
 Some apps need API URLs to be scoped by the active route before the browser request is sent. Configure that once at app startup instead of replacing `fetchImpl` in a local transport wrapper:
 
 ```js
-import { configureUsersWebHttpClient } from "@jskit-ai/users-web/client/lib/httpClient";
+import { configureHttpWebClient } from "@jskit-ai/http-web/client/lib/httpClient";
 
-configureUsersWebHttpClient({
+configureHttpWebClient({
   csrf: {
     enabled: false
   },
@@ -628,7 +630,7 @@ configureUsersWebHttpClient({
 });
 ```
 
-Call `configureUsersWebHttpClient()` before Vue mounts or before JSKIT composables are created. The resolver can close over the app router/store when it needs route data, and the `context` argument carries request details such as `originalUrl`, `method`, `requestOptions`, and whether the request is a stream. After configuration, normal `useEndpointResource()`, `useList()`, `useView()`, `useAddEdit()`, and `useCommand()` calls use the configured client. `resolveRequestUrl` runs after JSKIT adds query strings and before the underlying browser `fetch`, so request recovery metadata, JSON:API transport, credentials, CSRF, and command feedback stay on the standard path.
+Call `configureHttpWebClient()` before Vue mounts or before JSKIT composables are created. The resolver can close over the app router/store when it needs route data, and the `context` argument carries request details such as `originalUrl`, `method`, `requestOptions`, and whether the request is a stream. After configuration, normal `useEndpointResource()`, `useList()`, `useView()`, `useAddEdit()`, and `useCommand()` calls use the configured client. `resolveRequestUrl` runs after JSKIT adds query strings and before the underlying browser `fetch`, so request recovery metadata, JSON:API transport, credentials, CSRF, and command feedback stay on the standard path.
 
 For packages that create their own client, use the same lower-level hook directly:
 

@@ -2070,7 +2070,7 @@ function createHealthCommands(ctx = {}) {
 
         const lineNumber = resolveLineNumberFromIndex(sourceText, callSite.index);
         issues.push(
-          `${relativePath}:${lineNumber}: [crud:transport-derived] do not pass explicit transport to ${calleeName}(...). Let the shared CRUD resource derive JSON:API transport automatically, or drop to useList/useView/useAddEdit/usersWebHttpClient.request(...) for custom transport behavior.`
+          `${relativePath}:${lineNumber}: [crud:transport-derived] do not pass explicit transport to ${calleeName}(...). Let the shared CRUD resource derive JSON:API transport automatically, or drop to useList/useView/useAddEdit/httpWebClient.request(...) for custom transport behavior.`
         );
       }
     }

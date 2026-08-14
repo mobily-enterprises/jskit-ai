@@ -12,8 +12,8 @@ __JSKIT_UI_CREATE_FORM_COLUMNS_DIRECT__
 </template>
 
 <script setup>
-import CrudAddEditScreen from "@jskit-ai/users-web/client/components/CrudAddEditScreen";
-import { useCrudAddEditScreen } from "@jskit-ai/users-web/client/composables/useCrudAddEditScreen";
+import CrudAddEditScreen from "@jskit-ai/http-web/client/components/CrudAddEditScreen";
+import { useCrudAddEditScreen } from "@jskit-ai/http-web/client/composables/useCrudAddEditScreen";
 __JSKIT_UI_CREATE_LOOKUP_IMPORT_LINE__
 import { resource as uiResource } from "__JSKIT_UI_RESOURCE_IMPORT_PATH__";
 

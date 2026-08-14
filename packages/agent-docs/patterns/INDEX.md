@@ -26,7 +26,7 @@ How to use it:
   - `page-redirects.md`
 - live actions, checkbox, toggle, patch button, delete confirmation, destructive action, inline action, `useCommand()`, `useCrudDeleteAction()`
   - `live-actions.md`
-- ajax, fetch, API call, request, endpoint, HTTP client, `useCrudListScreen()`, `useCrudViewScreen()`, `useCrudAddEditScreen()`, `useList()`, `useView()`, `useAddEdit()`, `useEndpointResource()`, `usersWebHttpClient`
+- ajax, fetch, API call, request, endpoint, HTTP client, `useCrudListScreen()`, `useCrudViewScreen()`, `useCrudAddEditScreen()`, `useList()`, `useView()`, `useAddEdit()`, `useEndpointResource()`, `httpWebClient`
   - `client-requests.md`
 - playwright, browser test, e2e, ui verification, baseline test, authenticated ui test, test auth, dev login as, dev auth bypass
   - `ui-testing.md`

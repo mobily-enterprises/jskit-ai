@@ -84,8 +84,9 @@ clearly when the contract is unsupported. The view uses the public
 `CrudViewScreen` `actions` slot, `CrudDeleteAction`, and
 `useCrudDeleteAction()`. The shared component owns the Cancel/Delete dialog;
 `useCommand()` owns pending/error state and the resource request; success
-invalidates the CRUD list and navigates there. Do not inspect private
-`users-web` code, add a page transport, or use raw `fetch()`.
+invalidates the CRUD list and navigates there. Import the public client runtime
+from `@jskit-ai/http-web`; do not inspect package-private code, add a page
+transport, or use raw `fetch()`.
 
 ## Strict temporal values
 

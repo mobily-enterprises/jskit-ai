@@ -14,8 +14,8 @@ __JSKIT_UI_VIEW_COLUMNS__
 </template>
 
 <script setup>
-import CrudViewScreen from "@jskit-ai/users-web/client/components/CrudViewScreen";
-import { useCrudViewScreen } from "@jskit-ai/users-web/client/composables/useCrudViewScreen";
+import CrudViewScreen from "@jskit-ai/http-web/client/components/CrudViewScreen";
+import { useCrudViewScreen } from "@jskit-ai/http-web/client/composables/useCrudViewScreen";
 __JSKIT_UI_VIEW_DELETE_IMPORT_LINE__
 import { resource as uiResource } from "__JSKIT_UI_RESOURCE_IMPORT_PATH__";
 

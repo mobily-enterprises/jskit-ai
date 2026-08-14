@@ -62,12 +62,12 @@
 import { computed, onMounted } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import { useAuthStore } from "@jskit-ai/auth-web/client";
-import { useEndpointResource } from "@jskit-ai/users-web/client/composables/useEndpointResource";
+import { useEndpointResource } from "@jskit-ai/http-web/client/composables/useEndpointResource";
 import {
   WORKSPACE_INVITATION_RESOLVE_TRANSPORT,
   WORKSPACE_INVITE_REDEEM_TRANSPORT
 } from "@jskit-ai/workspaces-core/shared/jsonApiTransports";
-import { workspacesWebHttpClient } from "../lib/httpClient.js";
+import { httpWebClient } from "@jskit-ai/http-web/client/lib/httpClient";
 
 const route = useRoute();
 const router = useRouter();
@@ -84,7 +84,7 @@ const inviteResource = useEndpointResource({
   queryKey: computed(() => ["workspaces-web", "invite-landing", token.value]),
   path: "/api/workspace/invitations/resolve",
   enabled: computed(() => Boolean(token.value)),
-  client: workspacesWebHttpClient,
+  client: httpWebClient,
   readQuery: inviteQuery,
   transport: WORKSPACE_INVITATION_RESOLVE_TRANSPORT,
   fallbackLoadError: "Unable to load invitation."
@@ -94,7 +94,7 @@ const redeemResource = useEndpointResource({
   queryKey: computed(() => ["workspaces-web", "invite-landing", "redeem", token.value]),
   path: "/api/workspace/invitations/redeem",
   enabled: false,
-  client: workspacesWebHttpClient,
+  client: httpWebClient,
   writeMethod: "POST",
   transport: WORKSPACE_INVITE_REDEEM_TRANSPORT,
   fallbackSaveError: "Unable to accept invitation."

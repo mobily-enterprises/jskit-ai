@@ -10,14 +10,14 @@ import { useShellWebErrorRuntime } from "@jskit-ai/shell-web/client/error";
 import { ROUTE_VISIBILITY_PUBLIC } from "@jskit-ai/kernel/shared/support/visibility";
 import { userProfileResource } from "@jskit-ai/users-core/shared/resources/userProfileResource";
 import { userSettingsResource } from "@jskit-ai/users-core/shared/resources/userSettingsResource";
+import { useAddEdit } from "@jskit-ai/http-web/client/composables/useAddEdit";
+import { useCommand } from "@jskit-ai/http-web/client/composables/useCommand";
+import { useView } from "@jskit-ai/http-web/client/composables/useView";
 import {
   persistThemePreference,
   resolveThemeNameForPreference,
   setVuetifyThemeName
 } from "../lib/theme.js";
-import { useAddEdit } from "./records/useAddEdit.js";
-import { useCommand } from "./useCommand.js";
-import { useView } from "./records/useView.js";
 import { resolveSurfacePathFromPlacementContext } from "@jskit-ai/shell-web/client/placement";
 import {
   ACCOUNT_SETTINGS_DEFAULTS,

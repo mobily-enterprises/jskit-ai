@@ -98,13 +98,13 @@ test("workspaces-web installs an app-owned account invites section wrapper", asy
     source,
     /@jskit-ai\/workspaces-web\/client\/components\/AccountSettingsInvitesSection/
   );
-  assert.deepEqual(findFileMutation("users-web-main-component-account-settings-invites-section"), {
+  assert.deepEqual(findFileMutation("workspaces-web-main-component-account-settings-invites-section"), {
     from: "templates/packages/main/src/client/components/AccountSettingsInvitesSection.vue",
     to: "packages/main/src/client/components/AccountSettingsInvitesSection.vue",
     ownership: "app",
     reason: "Install app-owned account invites section scaffold for multihoming account settings.",
     category: "workspaces-web",
-    id: "users-web-main-component-account-settings-invites-section"
+    id: "workspaces-web-main-component-account-settings-invites-section"
   });
 });
 
@@ -158,7 +158,7 @@ test("workspaces-web resource load states expose local retry actions", async () 
   }
 });
 
-test("workspaces-web command loading state uses users-web proxyRefs contract", async () => {
+test("workspaces-web command loading state uses http-web proxyRefs contract", async () => {
   const expectations = new Map([
     [
       "src/client/components/WorkspaceMembersClientElement.vue",
@@ -204,13 +204,13 @@ test("workspaces-web installs an account invites cue scaffold that reads placeme
   assert.doesNotMatch(source, /\buseQuery\b/);
   assert.match(source, /placementContext\.value\?\.pendingInvitesCount/);
   assert.match(source, /placementContext\.value\?\.workspaceInvitesEnabled/);
-  assert.deepEqual(findFileMutation("users-web-main-component-account-pending-invites-cue"), {
+  assert.deepEqual(findFileMutation("workspaces-web-main-component-account-pending-invites-cue"), {
     from: "templates/packages/main/src/client/components/AccountPendingInvitesCue.vue",
     to: "packages/main/src/client/components/AccountPendingInvitesCue.vue",
     ownership: "app",
     reason: "Install app-owned account pending invites cue component scaffold.",
     category: "workspaces-web",
-    id: "users-web-main-component-account-pending-invites-cue"
+    id: "workspaces-web-main-component-account-pending-invites-cue"
   });
 });
 
@@ -301,7 +301,7 @@ test("workspaces-web packageMetadata metadata advertises admin settings outlets"
       {
         target: "admin-cog:primary-menu",
         surfaces: ["admin"],
-        source: "src/client/components/UsersWorkspaceToolsWidget.vue"
+        source: "src/client/components/WorkspaceToolsWidget.vue"
       }
     ]
   );
@@ -418,29 +418,29 @@ test("workspaces-web packageMetadata metadata advertises admin settings outlets"
   assert.match(findTextMutation("workspaces-web-admin-placement-topology")?.value || "", /outlet: "admin-settings:primary-menu"/);
   assert.match(findTextMutation("workspaces-web-admin-placement-topology")?.value || "", /id: "admin\.tools-menu"/);
   assert.match(findTextMutation("workspaces-web-admin-placement-topology")?.value || "", /outlet: "admin-cog:primary-menu"/);
-  assert.deepEqual(findFileMutation("users-web-page-admin-workspace-settings"), {
+  assert.deepEqual(findFileMutation("workspaces-web-page-admin-workspace-settings"), {
     from: "templates/src/pages/admin/workspace/settings/index.vue",
     toSurface: "admin",
     toSurfacePath: "workspace/settings/index.vue",
     ownership: "app",
     reason: "Install workspace settings index stub scaffold for app-owned landing or redirect behavior.",
     category: "workspaces-web",
-    id: "users-web-page-admin-workspace-settings",
+    id: "workspaces-web-page-admin-workspace-settings",
     when: {
       config: "tenancyMode",
       in: ["personal", "workspaces"]
     }
   });
-  assert.deepEqual(findSourceMutation("users-web-main-client-provider-account-settings-section-import"), {
+  assert.deepEqual(findSourceMutation("workspaces-web-main-client-provider-account-settings-section-import"), {
     op: "ensure-import",
     file: "packages/main/src/client/providers/MainClientProvider.js",
     defaultImport: "AccountSettingsInvitesSection",
     from: "../components/AccountSettingsInvitesSection.vue",
     reason: "Bind app-owned account invites section component into local main client provider imports.",
     category: "workspaces-web",
-    id: "users-web-main-client-provider-account-settings-section-import"
+    id: "workspaces-web-main-client-provider-account-settings-section-import"
   });
-  assert.deepEqual(findSourceMutation("users-web-main-client-provider-account-settings-section-register"), {
+  assert.deepEqual(findSourceMutation("workspaces-web-main-client-provider-account-settings-section-register"), {
     op: "ensure-call",
     file: "packages/main/src/client/providers/MainClientProvider.js",
     callee: "registerMainClientComponent",
@@ -448,6 +448,6 @@ test("workspaces-web packageMetadata metadata advertises admin settings outlets"
     beforeClass: "MainClientProvider",
     reason: "Bind app-owned account invites section component token into local main client provider registry.",
     category: "workspaces-web",
-    id: "users-web-main-client-provider-account-settings-section-register"
+    id: "workspaces-web-main-client-provider-account-settings-section-register"
   });
 });

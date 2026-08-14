@@ -50,6 +50,6 @@ Examples:
 Avoid:
 
 - manually hand-rolling fetch logic for a standard live action when `useCommand()` fits
-- inspecting private `users-web` internals or creating a page-local transport
+- inspecting private `http-web` internals or creating a page-local transport
   for generated record deletion
 - pushing derived write rules into the client just because the action is small

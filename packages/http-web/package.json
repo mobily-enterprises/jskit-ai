@@ -1,0 +1,150 @@
+{
+  "name": "@jskit-ai/http-web",
+  "version": "0.1.1",
+  "type": "module",
+  "scripts": {
+    "test": "node --test"
+  },
+  "exports": {
+    "./client": "./src/client/index.js",
+    "./client/components/CrudAddEditScreen": "./src/client/components/CrudAddEditScreen.vue",
+    "./client/components/CrudDeleteAction": "./src/client/components/CrudDeleteAction.vue",
+    "./client/components/CrudListBulkActionSurface": "./src/client/components/CrudListBulkActionSurface.vue",
+    "./client/components/CrudListFilterSurface": "./src/client/components/CrudListFilterSurface.vue",
+    "./client/components/CrudListScreen": "./src/client/components/CrudListScreen.vue",
+    "./client/components/CrudViewScreen": "./src/client/components/CrudViewScreen.vue",
+    "./client/bulkActions": "./src/client/bulkActions.js",
+    "./client/filters": "./src/client/filters.js",
+    "./client/rowActions": "./src/client/rowActions.js",
+    "./client/composables/useAddEdit": "./src/client/composables/records/useAddEdit.js",
+    "./client/composables/useAccess": "./src/client/composables/useAccess.js",
+    "./client/composables/useCommand": "./src/client/composables/useCommand.js",
+    "./client/composables/useCrudAddEdit": "./src/client/composables/records/useCrudAddEdit.js",
+    "./client/composables/useCrudAddEditScreen": "./src/client/composables/useCrudAddEditScreen.js",
+    "./client/composables/useCrudDeleteAction": "./src/client/composables/useCrudDeleteAction.js",
+    "./client/composables/useCrudList": "./src/client/composables/records/useCrudList.js",
+    "./client/composables/useCrudListBulkActions": "./src/client/composables/useCrudListBulkActions.js",
+    "./client/composables/useCrudListFilterLookups": "./src/client/composables/useCrudListFilterLookups.js",
+    "./client/composables/useCrudListFilters": "./src/client/composables/useCrudListFilters.js",
+    "./client/composables/useCrudListParentTitle": "./src/client/composables/useCrudListParentTitle.js",
+    "./client/composables/useCrudListRowActions": "./src/client/composables/useCrudListRowActions.js",
+    "./client/composables/useCrudListScreen": "./src/client/composables/useCrudListScreen.js",
+    "./client/composables/useCrudView": "./src/client/composables/records/useCrudView.js",
+    "./client/composables/useCrudViewScreen": "./src/client/composables/useCrudViewScreen.js",
+    "./client/composables/crudLookupFieldRuntime": "./src/client/composables/crud/crudLookupFieldRuntime.js",
+    "./client/composables/useEndpointResource": "./src/client/composables/runtime/useEndpointResource.js",
+    "./client/composables/useList": "./src/client/composables/records/useList.js",
+    "./client/composables/usePagedCollection": "./src/client/composables/usePagedCollection.js",
+    "./client/composables/useRealtimeQueryInvalidation": "./src/client/composables/useRealtimeQueryInvalidation.js",
+    "./client/composables/useUiFeedback": "./src/client/composables/runtime/useUiFeedback.js",
+    "./client/composables/useView": "./src/client/composables/records/useView.js",
+    "./client/crudHttpClient": "./src/client/composables/crud/crudHttpClientSupport.js",
+    "./client/lib/httpClient": "./src/client/lib/httpClient.js",
+    "./client/lib/permissions": "./src/client/lib/permissions.js",
+    "./client/support/contractGuards": "./src/client/support/contractGuards.js"
+  },
+  "dependencies": {
+    "@jskit-ai/http-runtime": "0.1.154",
+    "@jskit-ai/kernel": "0.1.156",
+    "@jskit-ai/realtime": "0.1.153",
+    "@jskit-ai/resource-crud-core": "0.1.98",
+    "@jskit-ai/shell-web": "0.1.160",
+    "@mdi/js": "^7.4.47"
+  },
+  "peerDependencies": {
+    "@tanstack/vue-query": "^5.90.5",
+    "vue": "^3.5.13",
+    "vue-router": "^5.0.4",
+    "vuetify": "^4.0.0"
+  },
+  "description": "Neutral Vue request, command, resource, and CRUD UI runtime for JSKIT web applications.",
+  "jskit": {
+    "kind": "runtime",
+    "capabilities": {
+      "provides": [
+        "runtime.http-web"
+      ],
+      "requires": [
+        "runtime.http-client",
+        "runtime.web-error",
+        "runtime.web-placement"
+      ]
+    },
+    "runtime": {
+      "server": {
+        "providers": []
+      },
+      "client": {
+        "providers": []
+      }
+    },
+    "metadata": {
+      "apiSummary": {
+        "surfaces": [
+          {
+            "subpath": "./client",
+            "summary": "Exports neutral web request, operation, permission, and CRUD UI APIs."
+          },
+          {
+            "subpath": "./client/lib/httpClient",
+            "summary": "Exports the configurable web HTTP client with credentials, CSRF handling, and safe-read retries."
+          },
+          {
+            "subpath": "./client/composables/useCommand",
+            "summary": "Exports the route-aware mutation runtime with validation, field errors, feedback, and duplicate-submit protection."
+          },
+          {
+            "subpath": "./client/composables/useEndpointResource",
+            "summary": "Exports the TanStack Query-backed custom endpoint primitive."
+          },
+          {
+            "subpath": "./client/composables/useList",
+            "summary": "Exports the route-aware list operation runtime."
+          },
+          {
+            "subpath": "./client/composables/useView",
+            "summary": "Exports the route-aware record-view operation runtime."
+          },
+          {
+            "subpath": "./client/composables/useAddEdit",
+            "summary": "Exports the route-aware add/edit operation runtime."
+          },
+          {
+            "subpath": "./client/components/CrudListScreen",
+            "summary": "Exports the shared generated CRUD list screen."
+          },
+          {
+            "subpath": "./client/components/CrudViewScreen",
+            "summary": "Exports the shared generated CRUD view screen."
+          },
+          {
+            "subpath": "./client/components/CrudAddEditScreen",
+            "summary": "Exports the shared generated CRUD add/edit screen."
+          }
+        ],
+        "containerTokens": {
+          "server": [],
+          "client": []
+        }
+      }
+    },
+    "mutations": {
+      "dependencies": {
+        "runtime": {
+          "@jskit-ai/http-runtime": "0.1.154",
+          "@jskit-ai/kernel": "0.1.156",
+          "@jskit-ai/realtime": "0.1.153",
+          "@jskit-ai/resource-crud-core": "0.1.98",
+          "@jskit-ai/shell-web": "0.1.160",
+          "@mdi/js": "^7.4.47"
+        },
+        "dev": {}
+      },
+      "packageJson": {
+        "scripts": {}
+      },
+      "procfile": {},
+      "files": []
+    }
+  }
+}

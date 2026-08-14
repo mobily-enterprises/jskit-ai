@@ -414,7 +414,7 @@ function buildCrudFieldsSlotProps(fields = [], { includeMode = false } = {}) {
 
 function buildLookupImportLine(fields = []) {
   return hasLookupFormFields(fields)
-    ? 'import { createCrudLookupFieldRuntime } from "@jskit-ai/users-web/client/composables/crudLookupFieldRuntime";'
+    ? 'import { createCrudLookupFieldRuntime } from "@jskit-ai/http-web/client/composables/crudLookupFieldRuntime";'
     : "";
 }
 
@@ -652,7 +652,7 @@ function buildListParentTitleImportLine(parentTitleMode = "contextual") {
     return "";
   }
 
-  return 'import { useCrudListParentTitle } from "@jskit-ai/users-web/client/composables/useCrudListParentTitle";';
+  return 'import { useCrudListParentTitle } from "@jskit-ai/http-web/client/composables/useCrudListParentTitle";';
 }
 
 function buildListHeadingTitleSetup({
@@ -923,8 +923,8 @@ async function buildUiTemplateContext({ appRoot, options } = {}) {
       : "",
     __JSKIT_UI_VIEW_DELETE_IMPORT_LINE__: hasDeleteConfirmation
       ? [
-          'import CrudDeleteAction from "@jskit-ai/users-web/client/components/CrudDeleteAction";',
-          'import { useCrudDeleteAction } from "@jskit-ai/users-web/client/composables/useCrudDeleteAction";'
+          'import CrudDeleteAction from "@jskit-ai/http-web/client/components/CrudDeleteAction";',
+          'import { useCrudDeleteAction } from "@jskit-ai/http-web/client/composables/useCrudDeleteAction";'
         ].join("\n")
       : "",
     __JSKIT_UI_VIEW_DELETE_SETUP__: hasDeleteConfirmation

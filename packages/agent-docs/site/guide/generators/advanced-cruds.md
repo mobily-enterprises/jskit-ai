@@ -47,7 +47,9 @@ After those two commands, the important thing to understand is ownership:
 
 - `crud-server-generator` creates a runtime package that your app owns locally
 - `crud-ui-generator` creates route files that your app owns locally
-- `crud-core`, `users-web`, and the other runtime packages provide the machinery underneath those files
+- `crud-core` provides the server CRUD runtime, `resource-crud-core` owns shared
+  CRUD contracts, and `http-web` provides browser operations and generated
+  screen components
 
 The generated pages are intentionally thin. Most of the heavy lifting lives uphill in shared runtime composables, action execution, validation, lookup hydration, and repository helpers.
 
@@ -478,7 +480,8 @@ Its job is usually to:
 - resolve list/view/edit/new URLs
 - pass route query state through when navigating deeper
 
-The actual list machinery lives in `users-web` shared screen composables and the shared resource contract.
+The actual list machinery lives in `http-web` screen composables and the shared
+resource contract lives in `resource-crud-core`.
 
 ### `[contactId]/index.vue`
 
@@ -701,17 +704,19 @@ Why this is the standard JSKIT shape:
 
 - `useCommand()` resolves the correct scoped API path for the current route and surface.
 - The higher-level list, view, add/edit, and command runtimes send requests through the standard HTTP runtime instead of ad hoc request code.
-- The default client runtime uses `usersWebHttpClient`, which already handles credentials and CSRF token behavior.
+- The default client runtime uses `httpWebClient`, which already handles credentials and CSRF token behavior.
 - `useEndpointResource()` gives the shared endpoint primitive for loading, saving, and standard load/save error handling. Higher-level runtimes like `useCommand()` and `useAddEdit()` layer UI feedback and field-error behavior on top of that primitive.
 - `shell-web` observes the shared TanStack Query client for recoverable transport failures. Generated CRUD reads and custom reads built with `useEndpointResource()`, `useList()`, `useView()`, or `useAddEdit()` get the shell recovery banner with a Retry action that refetches the failed query.
 - Automatic shell request recovery is only for safe `GET`/`HEAD` read refetches. JSKIT read composables mark Query entries with `jskit.requestRecoveryMethod`, and the shell ignores unmarked or unsafe methods. Do not rely on it to replay `POST`, `PATCH`, `PUT`, or `DELETE`; mutation screens own save state, field errors, and user feedback.
 
-When an app needs all JSKIT reads and commands to rewrite API URLs before fetch, configure the users-web HTTP client once instead of passing custom paths or replacing `fetchImpl` in each local helper:
+The request composables and generated CRUD client surfaces above come from `@jskit-ai/http-web`. That package is neutral: installing it does not install users, authentication, uploads, storage, or a database.
+
+When an app needs all JSKIT reads and commands to rewrite API URLs before fetch, configure the http-web client once instead of passing custom paths or replacing `fetchImpl` in each local helper:
 
 ```js
-import { configureUsersWebHttpClient } from "@jskit-ai/users-web/client/lib/httpClient";
+import { configureHttpWebClient } from "@jskit-ai/http-web/client/lib/httpClient";
 
-configureUsersWebHttpClient({
+configureHttpWebClient({
   csrf: {
     enabled: false
   },
@@ -785,7 +790,7 @@ The safe mental model is:
 - do not raw `fetch(...)` for normal app work
 - do not invent ad hoc local AJAX helpers
 - use the operation/runtime composable that matches the UI interaction
-- drop to `usersWebHttpClient.request(...)` only for exceptional low-level cases
+- drop to `httpWebClient.request(...)` only for exceptional low-level cases
 - use `usePaths().api(...)` when you need a custom scoped API path and the higher-level runtime does not already resolve it for you
 - keep `apiUrlTemplate` path-only and put endpoint query strings in `requestQueryParams`
 
@@ -798,7 +803,7 @@ It owns:
 - which set of generated form fields is rendered in `new` vs `edit`
 - lookup field prop forwarding into those fields
 
-It does **not** own persistence logic or the shared screen chrome. `CrudAddEditScreen` from `users-web` owns the common title, load state, retry action, save/cancel action row, and form surface.
+It does **not** own persistence logic or the shared screen chrome. `CrudAddEditScreen` from `@jskit-ai/http-web` owns the common title, load state, retry action, save/cancel action row, and form surface.
 
 ### `src/components/.../CrudAddEditFormFields.js`
 
@@ -822,7 +827,7 @@ That is navigation wiring, not CRUD logic.
 A generated CRUD works because several layers cooperate:
 
 1. the route page calls `useCrudListScreen()`, `useCrudViewScreen()`, or `useCrudAddEditScreen()`
-2. those screen composables configure the lower-level list/view/add-edit runtimes from `users-web`
+2. those screen composables configure the lower-level list/view/add-edit runtimes from `@jskit-ai/http-web`
 3. the request hits the HTTP route from `registerRoutes.js`
 4. the route executes an action from `actions.js`
 5. the action delegates to the service in `service.js`
@@ -845,7 +850,7 @@ Use this rule of thumb when deciding where to edit:
 | Change SQL, joins, parent filters, or advanced search | `repository.js` | This is the data-access layer |
 | Add mandatory SQL visibility that must run before count and pagination | server policy module plus the provider's `createJsonRestResourceScopeOptions(..., { rowPolicy })` call | The internal JSON REST host applies the policy to every storage query for that resource |
 | Add cross-record or domain rules on save/delete | `service.js` | This is business logic |
-| Change shared CRUD screen chrome, load states, or retry behavior | `users-web` shared screen components | Generated pages consume the shared screen contract |
+| Change shared CRUD screen chrome, load states, or retry behavior | `http-web` shared screen components | Generated pages consume the shared screen contract |
 | Add per-row commands to a generated list page | page-local `listRowActions.js`, usually calling `useCommand()`-backed composables | The shared list screen renders action chrome; the page owns explicit mutation behavior |
 | Add non-CRUD display rows to a generated list page | route page `syntheticRows` input | Synthetic rows are presentation rows, not repository records |
 | Change page-specific display behavior | the route pages, generated slots, and app-owned composables | This is presentation |
@@ -867,7 +872,7 @@ That is the right direction of growth:
 - server customizations stay in the CRUD package
 - presentation and page-specific UI state stay in app-owned client files
 - shared structured list filters live best in a CRUD-package shared module that both server and client can import
-- shared generated screen chrome stays in `users-web`; adapted pages feed it definitions, slots, and explicit command handlers
+- shared generated screen chrome stays in `http-web`; adapted pages feed it definitions, slots, and explicit command handlers
 
 ### Shared screen read options and detail slots
 
@@ -1189,7 +1194,7 @@ Instead:
 For example, a generated page-local filter-definition module can look like this:
 
 ```js
-import { defineCrudListFilters } from "@jskit-ai/users-web/client/filters";
+import { defineCrudListFilters } from "@jskit-ai/http-web/client/filters";
 
 const listFilters = defineCrudListFilters({
   onlyStaff: {
@@ -1220,7 +1225,7 @@ Use this first when adding selected-record actions. JSKIT does not invent server
 For example:
 
 ```js
-import { defineCrudListBulkActions } from "@jskit-ai/users-web/client/bulkActions";
+import { defineCrudListBulkActions } from "@jskit-ai/http-web/client/bulkActions";
 
 const listBulkActions = defineCrudListBulkActions([
   {
@@ -1257,7 +1262,7 @@ Use row actions for explicit commands on one record. JSKIT renders the action me
 For example:
 
 ```js
-import { defineCrudListRowActions } from "@jskit-ai/users-web/client/rowActions";
+import { defineCrudListRowActions } from "@jskit-ai/http-web/client/rowActions";
 
 const listRowActions = defineCrudListRowActions([
   {

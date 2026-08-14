@@ -16,13 +16,13 @@ import {
   CRUD_FIELD_STORAGE_COLUMN,
   CRUD_FIELD_STORAGE_VIRTUAL,
   CRUD_FIELD_WRITE_SERIALIZER_DATETIME_UTC
-} from "@jskit-ai/kernel/shared/support/crudFieldContract";
+} from "@jskit-ai/resource-crud-core/shared/crudFieldContract";
 import { toSnakeCase } from "@jskit-ai/kernel/shared/support/stringCase";
 import {
+  isCrudRuntimeOutputOnlyFieldKey,
   resolveCrudLookupContainerKey,
   resolveCrudLookupFieldKeys
-} from "@jskit-ai/kernel/shared/support/crudLookup";
-import { isCrudRuntimeOutputOnlyFieldKey } from "../shared/crudFieldSupport.js";
+} from "@jskit-ai/resource-crud-core/shared/crudLookup";
 
 const DEFAULT_LIST_LIMIT = 20;
 const MAX_LIST_LIMIT = 100;

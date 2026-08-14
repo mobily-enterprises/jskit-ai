@@ -1,6 +1,6 @@
 <script setup>
-import CrudListScreen from "@jskit-ai/users-web/client/components/CrudListScreen";
-import { useCrudListScreen } from "@jskit-ai/users-web/client/composables/useCrudListScreen";
+import CrudListScreen from "@jskit-ai/http-web/client/components/CrudListScreen";
+import { useCrudListScreen } from "@jskit-ai/http-web/client/composables/useCrudListScreen";
 import { bookResource } from "./bookFixture.js";
 
 const screen = useCrudListScreen({

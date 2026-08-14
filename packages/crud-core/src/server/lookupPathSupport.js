@@ -1,7 +1,7 @@
 import {
   normalizeCrudLookupApiPath,
   normalizeCrudLookupNamespace
-} from "@jskit-ai/kernel/shared/support/crudLookup";
+} from "@jskit-ai/resource-crud-core/shared/crudLookup";
 import { toSnakeCase } from "@jskit-ai/kernel/shared/support/stringCase";
 
 function requireCrudLookupNamespace(value = "", { context = "crudLookup" } = {}) {

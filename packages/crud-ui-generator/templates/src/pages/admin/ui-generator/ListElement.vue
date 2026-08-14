@@ -30,8 +30,8 @@ __JSKIT_UI_LIST_ROW_COLUMNS__
 <script setup>
 import { computed } from "vue";
 __JSKIT_UI_LIST_PARENT_TITLE_IMPORT_LINE__
-import CrudListScreen from "@jskit-ai/users-web/client/components/CrudListScreen";
-import { useCrudListScreen } from "@jskit-ai/users-web/client/composables/useCrudListScreen";
+import CrudListScreen from "@jskit-ai/http-web/client/components/CrudListScreen";
+import { useCrudListScreen } from "@jskit-ai/http-web/client/composables/useCrudListScreen";
 import { resource as uiResource } from "__JSKIT_UI_RESOURCE_IMPORT_PATH__";
 import { listBulkActions } from "./listBulkActions.js";
 import { listFilters } from "./listFilters.js";

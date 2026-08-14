@@ -1074,8 +1074,8 @@ test("crud ui templates derive JSON:API transport from the shared CRUD resource"
   }
 
   assert.match(listTemplateSource, /resource: uiResource,/);
-  assert.match(listTemplateSource, /import CrudListScreen from "@jskit-ai\/users-web\/client\/components\/CrudListScreen"/);
-  assert.match(listTemplateSource, /import \{ useCrudListScreen \} from "@jskit-ai\/users-web\/client\/composables\/useCrudListScreen"/);
+  assert.match(listTemplateSource, /import CrudListScreen from "@jskit-ai\/http-web\/client\/components\/CrudListScreen"/);
+  assert.match(listTemplateSource, /import \{ useCrudListScreen \} from "@jskit-ai\/http-web\/client\/composables\/useCrudListScreen"/);
   assert.match(listTemplateSource, /import \{ listBulkActions \} from "\.\/listBulkActions\.js"/);
   assert.match(listTemplateSource, /import \{ listFilters \} from "\.\/listFilters\.js"/);
   assert.match(listTemplateSource, /const screen = useCrudListScreen\(\{/);
@@ -1104,8 +1104,8 @@ test("crud ui templates derive JSON:API transport from the shared CRUD resource"
 
   assert.match(viewTemplateSource, /import \{ resource as uiResource \} from/);
   assert.match(viewTemplateSource, /resource: uiResource,/);
-  assert.match(viewTemplateSource, /import CrudViewScreen from "@jskit-ai\/users-web\/client\/components\/CrudViewScreen"/);
-  assert.match(viewTemplateSource, /import \{ useCrudViewScreen \} from "@jskit-ai\/users-web\/client\/composables\/useCrudViewScreen"/);
+  assert.match(viewTemplateSource, /import CrudViewScreen from "@jskit-ai\/http-web\/client\/components\/CrudViewScreen"/);
+  assert.match(viewTemplateSource, /import \{ useCrudViewScreen \} from "@jskit-ai\/http-web\/client\/composables\/useCrudViewScreen"/);
   assert.match(viewTemplateSource, /const screen = useCrudViewScreen\(\{/);
   assert.match(viewTemplateSource, /requestRecoveryLabel: "__JSKIT_UI_RESOURCE_SINGULAR_TITLE__"/);
   assert.match(viewTemplateSource, /#fields="\{ view \}"/);
@@ -1114,8 +1114,8 @@ test("crud ui templates derive JSON:API transport from the shared CRUD resource"
   assert.doesNotMatch(viewTemplateSource, /transport:\s*UI_VIEW_TRANSPORT,/);
 
   assert.match(newTemplateSource, /resource: uiResource,/);
-  assert.match(newTemplateSource, /import CrudAddEditScreen from "@jskit-ai\/users-web\/client\/components\/CrudAddEditScreen"/);
-  assert.match(newTemplateSource, /import \{ useCrudAddEditScreen \} from "@jskit-ai\/users-web\/client\/composables\/useCrudAddEditScreen"/);
+  assert.match(newTemplateSource, /import CrudAddEditScreen from "@jskit-ai\/http-web\/client\/components\/CrudAddEditScreen"/);
+  assert.match(newTemplateSource, /import \{ useCrudAddEditScreen \} from "@jskit-ai\/http-web\/client\/composables\/useCrudAddEditScreen"/);
   assert.match(newTemplateSource, /const screen = useCrudAddEditScreen\(\{/);
   assert.match(newTemplateSource, /#fields=/);
   assert.doesNotMatch(newTemplateSource, /<v-card\b|<v-card-title/);
@@ -1123,8 +1123,8 @@ test("crud ui templates derive JSON:API transport from the shared CRUD resource"
   assert.doesNotMatch(newTemplateSource, /transport:\s*UI_CREATE_TRANSPORT,/);
 
   assert.match(editTemplateSource, /resource: uiResource,/);
-  assert.match(editTemplateSource, /import CrudAddEditScreen from "@jskit-ai\/users-web\/client\/components\/CrudAddEditScreen"/);
-  assert.match(editTemplateSource, /import \{ useCrudAddEditScreen \} from "@jskit-ai\/users-web\/client\/composables\/useCrudAddEditScreen"/);
+  assert.match(editTemplateSource, /import CrudAddEditScreen from "@jskit-ai\/http-web\/client\/components\/CrudAddEditScreen"/);
+  assert.match(editTemplateSource, /import \{ useCrudAddEditScreen \} from "@jskit-ai\/http-web\/client\/composables\/useCrudAddEditScreen"/);
   assert.match(editTemplateSource, /const screen = useCrudAddEditScreen\(\{/);
   assert.match(editTemplateSource, /preserveCancelQuery: true/);
   assert.match(editTemplateSource, /requestRecoveryLabel: "__JSKIT_UI_RESOURCE_SINGULAR_TITLE__"/);
@@ -1133,7 +1133,7 @@ test("crud ui templates derive JSON:API transport from the shared CRUD resource"
   assert.doesNotMatch(editTemplateSource, /const UI_EDIT_TRANSPORT = Object\.freeze\(\{/);
   assert.doesNotMatch(editTemplateSource, /transport:\s*UI_EDIT_TRANSPORT,/);
 
-  assert.match(addEditFormTemplateSource, /import CrudAddEditScreen from "@jskit-ai\/users-web\/client\/components\/CrudAddEditScreen"/);
+  assert.match(addEditFormTemplateSource, /import CrudAddEditScreen from "@jskit-ai\/http-web\/client\/components\/CrudAddEditScreen"/);
   assert.match(addEditFormTemplateSource, /<CrudAddEditScreen/);
   assert.match(addEditFormTemplateSource, /#fields=/);
   assert.doesNotMatch(addEditFormTemplateSource, /generated-ui-screen|ui-generator-add-edit-form__header|<v-sheet/);
@@ -1145,14 +1145,14 @@ test("crud ui templates derive JSON:API transport from the shared CRUD resource"
   assert.match(editWrapperTemplateSource, /crud-ui-form-fields-target __JSKIT_UI_FORM_FIELDS_IMPORT_PATH__/);
 
   assert.match(newWrapperTemplateSource, /resource: uiResource,/);
-  assert.match(newWrapperTemplateSource, /import \{ useCrudAddEditScreen \} from "@jskit-ai\/users-web\/client\/composables\/useCrudAddEditScreen"/);
+  assert.match(newWrapperTemplateSource, /import \{ useCrudAddEditScreen \} from "@jskit-ai\/http-web\/client\/composables\/useCrudAddEditScreen"/);
   assert.match(newWrapperTemplateSource, /:screen="screen"/);
   assert.doesNotMatch(newWrapperTemplateSource, /<v-card\b/);
   assert.doesNotMatch(newWrapperTemplateSource, /const UI_CREATE_TRANSPORT = Object\.freeze\(\{/);
   assert.doesNotMatch(newWrapperTemplateSource, /transport:\s*UI_CREATE_TRANSPORT,/);
 
   assert.match(editWrapperTemplateSource, /resource: uiResource,/);
-  assert.match(editWrapperTemplateSource, /import \{ useCrudAddEditScreen \} from "@jskit-ai\/users-web\/client\/composables\/useCrudAddEditScreen"/);
+  assert.match(editWrapperTemplateSource, /import \{ useCrudAddEditScreen \} from "@jskit-ai\/http-web\/client\/composables\/useCrudAddEditScreen"/);
   assert.match(editWrapperTemplateSource, /:screen="screen"/);
   assert.match(editWrapperTemplateSource, /preserveCancelQuery: true/);
   assert.match(editWrapperTemplateSource, /requestRecoveryLabel: "__JSKIT_UI_RESOURCE_SINGULAR_TITLE__"/);

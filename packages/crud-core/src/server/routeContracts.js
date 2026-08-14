@@ -6,7 +6,7 @@ import {
   composeSchemaDefinitions,
   recordIdParamsValidator
 } from "@jskit-ai/kernel/shared/validators";
-import { resolveCrudResourceScopeName } from "@jskit-ai/kernel/shared/support/crudLookup";
+import { resolveCrudResourceScopeName } from "@jskit-ai/resource-crud-core/shared/crudLookup";
 import {
   createStandardCrudListQueryValidators,
   createStandardCrudViewQueryValidators,

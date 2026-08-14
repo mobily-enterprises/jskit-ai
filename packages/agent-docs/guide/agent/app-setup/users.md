@@ -25,7 +25,7 @@ npm run db:migrate
 
 The first command adds `users-web`, but the important part is what arrives with it through its dependency chain.
 
-- `users-web` adds the account-facing UI and client runtime pieces
+- `users-web` adds account, profile, and user-specific shell UI
 - `users-core` arrives as a dependency and adds the persistent users/account server layer and schema migrations
 
 `jskit add` installs those runtime packages and their dependencies. `npm run db:migrate` is the separate step that makes the new tables real in MySQL.

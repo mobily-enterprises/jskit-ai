@@ -38,7 +38,7 @@ Generated JSKIT apps should feel like real adaptive apps by default, not framewo
 - [x] `npm test --workspace @jskit-ai/ui-generator`
 - [x] `npm test --workspace @jskit-ai/crud-ui-generator`
 - [x] `npm test --workspace @jskit-ai/shell-web`
-- [x] `npm test --workspace @jskit-ai/users-web`
+- [x] `npm test --workspace @jskit-ai/http-web`
 - [x] `npm test --workspace @jskit-ai/workspaces-web`
 - [x] `npm test --workspace @jskit-ai/jskit-cli`
 - [x] `npm test --workspace @jskit-ai/create-app`
@@ -59,7 +59,7 @@ Generated JSKIT apps should feel like real adaptive apps by default, not framewo
 - CRUD bulk actions are client-side by default: generated list pages create a page-local `listBulkActions.js` and pass it into `useCrudListScreen(...)`; the shared list screen wires `useCrudListBulkActions(...)` and keeps selection controls hidden until actions are declared.
 - CRUD row actions are client-side by default: generated list pages can create a page-local `listRowActions.js` with `defineCrudListRowActions(...)` and pass it into `useCrudListScreen(...)`; the shared list screen renders per-row actions in card and table layouts while action handlers stay explicit and page-owned.
 - CRUD synthetic rows are display-only: pass `syntheticRows` into `useCrudListScreen(...)` for owner/master rows that are not repository records. Synthetic rows render through the shared list screen, skip standard Open/Edit links, and are excluded from bulk selection unless explicitly marked selectable.
-- Generated CRUD page templates delegate their screen chrome to shared `users-web` screen components (`CrudListScreen`, `CrudViewScreen`, and `CrudAddEditScreen`) so list/view/form load states, retry actions, responsive shell layout, filters, bulk actions, row actions, and detail slots do not drift across generated pages.
+- Generated CRUD page templates delegate their screen chrome to shared `http-web` screen components (`CrudListScreen`, `CrudViewScreen`, and `CrudAddEditScreen`) so list/view/form load states, retry actions, responsive shell layout, filters, bulk actions, row actions, and detail slots do not drift across generated pages.
 - Generated CRUD list pages should use `useCrudListScreen({ requestQueryParams, readEnabled })` for list read pass-throughs instead of replacing the shared list chrome for includes or permission-gated reads.
 - Generated CRUD detail pages should use `useCrudViewScreen({ requestQueryParams, readEnabled, queryKeyFactory })` for read pass-throughs and `CrudViewScreen` slots (`before-fields`, `fields`, `after-fields`, `supporting-content`) for domain sections instead of replacing the shared detail chrome.
 - Routine resource-load errors stay local to the generated screen and retry affordance. Action feedback uses the shell error policy through `action-feedback`.

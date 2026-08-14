@@ -3,7 +3,7 @@ import {
   createCursorListValidator,
   RECORD_ID_PATTERN
 } from "@jskit-ai/kernel/shared/validators";
-import { buildCrudOperationSchemaFields } from "@jskit-ai/kernel/shared/support/crudFieldContract";
+import { buildCrudOperationSchemaFields } from "@jskit-ai/resource-crud-core/shared/crudFieldContract";
 import { deepFreeze } from "@jskit-ai/kernel/shared/support/deepFreeze";
 import { normalizeObject, normalizeText } from "@jskit-ai/kernel/shared/support/normalize";
 import {

@@ -50,7 +50,7 @@ function createAccountSettingsInvitesRuntime({
         message: normalizedDecision === "accept" ? "Invitation accepted." : "Invitation refused.",
         severity: "success",
         channel: "snackbar",
-        dedupeKey: `users-web.account-settings-runtime:invite-${normalizedDecision}:${token}`
+        dedupeKey: `workspaces-web.account-settings-runtime:invite-${normalizedDecision}:${token}`
       });
     } catch (error) {
       const statusCode = resolveErrorStatusCode(error);
@@ -63,7 +63,7 @@ function createAccountSettingsInvitesRuntime({
           : String(error?.message || fallbackMessage),
         severity: "error",
         channel: "banner",
-        dedupeKey: `users-web.account-settings-runtime:invite-${normalizedDecision}-error:${token}`
+        dedupeKey: `workspaces-web.account-settings-runtime:invite-${normalizedDecision}-error:${token}`
       });
     } finally {
       inviteAction.value = {

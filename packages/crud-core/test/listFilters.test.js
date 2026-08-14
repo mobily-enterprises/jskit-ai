@@ -2,7 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { createSchema } from "json-rest-schema";
 import { compileRouteValidator } from "@jskit-ai/kernel/_testable";
-import { defineCrudListFilters } from "@jskit-ai/kernel/shared/support/crudListFilters";
+import { defineCrudListFilters } from "@jskit-ai/resource-crud-core/shared/crudListFilters";
 import {
   composeSchemaDefinitions,
   cursorPaginationQueryValidator

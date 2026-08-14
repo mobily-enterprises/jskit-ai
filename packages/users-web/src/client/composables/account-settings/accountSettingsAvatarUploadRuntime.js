@@ -1,7 +1,7 @@
 import "@jskit-ai/uploads-image-web/client/styles";
 import { createManagedImageAssetRuntime } from "@jskit-ai/uploads-image-web/client/composables/createManagedImageAssetRuntime";
 import { resolveFieldErrors } from "@jskit-ai/http-runtime/client";
-import { usersWebHttpClient } from "../../lib/httpClient.js";
+import { httpWebClient } from "@jskit-ai/http-web/client/lib/httpClient";
 
 function createAccountSettingsAvatarUploadRuntime({
   queryClient,
@@ -15,7 +15,7 @@ function createAccountSettingsAvatarUploadRuntime({
     const sessionPayload = await queryClient.fetchQuery({
       queryKey: sessionQueryKey,
       queryFn: () =>
-        usersWebHttpClient.request("/api/session", {
+        httpWebClient.request("/api/session", {
           method: "GET"
         }),
       staleTime: 60_000
