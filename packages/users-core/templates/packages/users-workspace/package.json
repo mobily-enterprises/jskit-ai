@@ -71,13 +71,13 @@
     }
   },
   "dependencies": {
-    "@jskit-ai/auth-core": "0.1.146",
-    "@jskit-ai/crud-core": "0.1.159",
-    "@jskit-ai/database-runtime": "0.1.148",
-    "@jskit-ai/http-runtime": "0.1.146",
-    "@jskit-ai/json-rest-api-core": "0.1.92",
-    "@jskit-ai/resource-crud-core": "0.1.90",
-    "@jskit-ai/users-core": "0.1.161",
-    "@jskit-ai/workspaces-core": "0.1.126"
+    "@jskit-ai/auth-core": "0.1.149",
+    "@jskit-ai/crud-core": "0.1.162",
+    "@jskit-ai/database-runtime": "0.1.151",
+    "@jskit-ai/http-runtime": "0.1.149",
+    "@jskit-ai/json-rest-api-core": "0.1.95",
+    "@jskit-ai/resource-crud-core": "0.1.93",
+    "@jskit-ai/users-core": "0.1.164",
+    "@jskit-ai/workspaces-core": "0.1.129"
   }
 }

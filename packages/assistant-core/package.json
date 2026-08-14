@@ -1,6 +1,6 @@
 {
   "name": "@jskit-ai/assistant-core",
-  "version": "0.1.125",
+  "version": "0.1.127",
   "type": "module",
   "scripts": {
     "test": "node --test"
@@ -11,12 +11,12 @@
     "./shared": "./src/shared/index.js"
   },
   "dependencies": {
-    "@jskit-ai/database-runtime": "0.1.149",
-    "@jskit-ai/http-runtime": "0.1.147",
-    "@jskit-ai/kernel": "0.1.149",
-    "@jskit-ai/resource-core": "0.1.91",
-    "@jskit-ai/resource-crud-core": "0.1.91",
-    "@jskit-ai/users-core": "0.1.162",
+    "@jskit-ai/database-runtime": "0.1.151",
+    "@jskit-ai/http-runtime": "0.1.149",
+    "@jskit-ai/kernel": "0.1.151",
+    "@jskit-ai/resource-core": "0.1.93",
+    "@jskit-ai/resource-crud-core": "0.1.93",
+    "@jskit-ai/users-core": "0.1.164",
     "dompurify": "^3.4.13",
     "json-rest-schema": "^1.0.17",
     "marked": "^17.0.4",
@@ -68,11 +68,11 @@
     "mutations": {
       "dependencies": {
         "runtime": {
-          "@jskit-ai/http-runtime": "0.1.147",
-          "@jskit-ai/kernel": "0.1.149",
-          "@jskit-ai/resource-core": "0.1.91",
-          "@jskit-ai/resource-crud-core": "0.1.91",
-          "@jskit-ai/users-core": "0.1.162",
+          "@jskit-ai/http-runtime": "0.1.149",
+          "@jskit-ai/kernel": "0.1.151",
+          "@jskit-ai/resource-core": "0.1.93",
+          "@jskit-ai/resource-crud-core": "0.1.93",
+          "@jskit-ai/users-core": "0.1.164",
           "dompurify": "^3.4.13",
           "json-rest-schema": "^1.0.17",
           "marked": "^17.0.4",

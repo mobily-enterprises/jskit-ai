@@ -230,6 +230,37 @@ test("registry validation requires the prior version, target absence, and comple
   assert.equal(previousPatchVersion("0.2.174"), "0.2.173");
 });
 
+test("resume permits an interrupted prior patch only after the target release has started", () => {
+  const existing = {
+    name: "@jskit-ai/existing",
+    version: "0.1.4",
+    dependencies: []
+  };
+  const missing = {
+    name: "@jskit-ai/missing",
+    version: "0.1.7",
+    dependencies: []
+  };
+  const selected = new Map([
+    [existing.name, existing],
+    [missing.name, missing]
+  ]);
+  const metadata = new Map([
+    [existing.name, { versions: { [existing.version]: {} } }],
+    [missing.name, { versions: {} }]
+  ]);
+
+  assert.doesNotThrow(() => {
+    validatePreparedRegistryState(selected, metadata, { allowExisting: true });
+  });
+
+  metadata.get(existing.name).versions = {};
+  assert.throws(
+    () => validatePreparedRegistryState(selected, metadata, { allowExisting: true }),
+    /requires at least one existing target artifact/u
+  );
+});
+
 test("resume accepts only byte-identical existing artifacts and identifies missing work", () => {
   const artifact = {
     name: "@jskit-ai/a",
@@ -330,4 +361,23 @@ test("offline dry-run packs exact current sources without registry access", { ti
   assert.equal(result.status, 0, result.stderr);
   assert.match(result.stdout, /Plan fingerprint: sha256:[a-f0-9]{64}/u);
   assert.match(result.stdout, /No registry request or publish was attempted/u);
+});
+
+test("offline dry-run packs private-source packages through the publish manifest", { timeout: 30_000 }, async () => {
+  const packageJson = JSON.parse(
+    await readFile(new URL("../packages/google-rewarded-core/package.json", import.meta.url), "utf8")
+  );
+  assert.equal(packageJson.private, true);
+
+  const result = await runOfflineCli([
+    "--dry-run",
+    "--offline",
+    "--registry",
+    "http://127.0.0.1:9",
+    "--only",
+    `${packageJson.name}@${packageJson.version}`
+  ]);
+
+  assert.equal(result.status, 0, result.stderr);
+  assert.match(result.stdout, /Plan fingerprint: sha256:[a-f0-9]{64}/u);
 });

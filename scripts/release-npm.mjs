@@ -5,6 +5,7 @@ import { tmpdir } from "node:os";
 import { fileURLToPath } from "node:url";
 import { spawn, spawnSync } from "node:child_process";
 import { resolvePackageIdInput } from "../tooling/jskit-cli/src/server/shared/packageIdHelpers.js";
+import { createPublishablePackageManifest } from "./npm-publish-support.mjs";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -15,21 +16,16 @@ const DEPENDENCY_FIELDS = ["dependencies", "devDependencies", "peerDependencies"
 const DEFAULT_REGISTRY = "https://registry.npmjs.org";
 const DEFAULT_TAG = "latest";
 const DEFAULT_ACCESS = "public";
-const DEFAULT_PUBLISH_CONCURRENCY = 20;
 const STAGING_TAG = "jskit-staged";
 const REGISTRY_VISIBILITY_TIMEOUT_MS = 120_000;
 const REGISTRY_VISIBILITY_RETRY_MS = 1_000;
 
 function parseArgs(argv) {
-  const envPublishConcurrency = Number.parseInt(String(process.env.PUBLISH_CONCURRENCY || ""), 10);
   const options = {
     only: [],
     registry: DEFAULT_REGISTRY,
     tag: DEFAULT_TAG,
     access: DEFAULT_ACCESS,
-    publishConcurrency: Number.isInteger(envPublishConcurrency) && envPublishConcurrency > 0
-      ? envPublishConcurrency
-      : DEFAULT_PUBLISH_CONCURRENCY,
     dryRun: false,
     prepareOnly: false
   };
@@ -99,17 +95,6 @@ function parseArgs(argv) {
       continue;
     }
 
-    if (argument === "--publish-concurrency") {
-      options.publishConcurrency = parsePositiveInteger(argv[index + 1], "--publish-concurrency");
-      index += 1;
-      continue;
-    }
-
-    if (argument.startsWith("--publish-concurrency=")) {
-      options.publishConcurrency = parsePositiveInteger(argument.slice("--publish-concurrency=".length), "--publish-concurrency");
-      continue;
-    }
-
     throw new Error(`Unknown argument: ${argument}`);
   }
 
@@ -135,14 +120,6 @@ function parseOnlyPackages(value) {
     throw new Error("--only requires at least one package name.");
   }
   return tokens;
-}
-
-function parsePositiveInteger(value, flagName) {
-  const parsed = Number.parseInt(String(value || "").trim(), 10);
-  if (!Number.isInteger(parsed) || parsed < 1) {
-    throw new Error(`${flagName} must be a positive integer.`);
-  }
-  return parsed;
 }
 
 function normalizeRegistryUrl(registry) {
@@ -290,75 +267,145 @@ function serializeJson(value) {
   return `${JSON.stringify(value, null, 2)}\n`;
 }
 
+function updatePackageDependencyVersions(packageJson, nextVersions) {
+  let changed = false;
+
+  for (const field of DEPENDENCY_FIELDS) {
+    const fieldValue = packageJson?.[field];
+    if (!fieldValue || typeof fieldValue !== "object") {
+      continue;
+    }
+
+    for (const dependencyName of Object.keys(fieldValue)) {
+      if (!nextVersions.has(dependencyName)) {
+        continue;
+      }
+
+      const dependencyVersion = nextVersions.get(dependencyName);
+      if (fieldValue[dependencyName] !== dependencyVersion) {
+        fieldValue[dependencyName] = dependencyVersion;
+        changed = true;
+      }
+    }
+  }
+
+  for (const mutationField of ["runtime", "dev"]) {
+    const dependencyMutations = packageJson?.jskit?.mutations?.dependencies?.[mutationField];
+    if (!dependencyMutations || typeof dependencyMutations !== "object") {
+      continue;
+    }
+
+    for (const dependencyName of Object.keys(dependencyMutations)) {
+      if (!nextVersions.has(dependencyName)) {
+        continue;
+      }
+
+      const nextVersion = nextVersions.get(dependencyName);
+      const currentValue = dependencyMutations[dependencyName];
+      if (typeof currentValue === "string") {
+        if (currentValue !== nextVersion) {
+          dependencyMutations[dependencyName] = nextVersion;
+          changed = true;
+        }
+        continue;
+      }
+
+      if (!currentValue || typeof currentValue !== "object") {
+        continue;
+      }
+
+      const versionField = Object.prototype.hasOwnProperty.call(currentValue, "version")
+        ? "version"
+        : Object.prototype.hasOwnProperty.call(currentValue, "value")
+          ? "value"
+          : "";
+      if (versionField && currentValue[versionField] !== nextVersion) {
+        currentValue[versionField] = nextVersion;
+        changed = true;
+      }
+    }
+  }
+
+  return changed;
+}
+
+async function collectTemplatePackageJsonPaths(packageRoot) {
+  const templatesRoot = path.join(packageRoot, "templates");
+  if (!(await fileExists(templatesRoot))) {
+    return [];
+  }
+
+  const packageJsonPaths = [];
+  const directories = [templatesRoot];
+  while (directories.length > 0) {
+    const directory = directories.pop();
+    const entries = await readdir(directory, { withFileTypes: true });
+    for (const entry of entries) {
+      const entryPath = path.join(directory, entry.name);
+      if (entry.isDirectory() && entry.name !== "node_modules") {
+        directories.push(entryPath);
+      } else if (entry.isFile() && entry.name === "package.json") {
+        packageJsonPaths.push(entryPath);
+      }
+    }
+  }
+
+  return packageJsonPaths.sort();
+}
+
+function updateTemplatedPackageJsonContents(contents, nextVersions) {
+  try {
+    const packageJson = JSON.parse(contents);
+    return {
+      changed: updatePackageDependencyVersions(packageJson, nextVersions),
+      contents: serializeJson(packageJson)
+    };
+  } catch (error) {
+    if (!(error instanceof SyntaxError) || !/__JSKIT_[A-Z0-9_]+__/u.test(contents)) {
+      throw error;
+    }
+  }
+
+  let changed = false;
+  const nextContents = contents.replace(
+    /"(@jskit-ai\/[^"\\]+)"(\s*:\s*)"([^"]*)"/gu,
+    (match, dependencyName, separator, currentVersion) => {
+      if (!nextVersions.has(dependencyName)) {
+        return match;
+      }
+      const nextVersion = nextVersions.get(dependencyName);
+      if (currentVersion === nextVersion) {
+        return match;
+      }
+      changed = true;
+      return `"${dependencyName}"${separator}"${nextVersion}"`;
+    }
+  );
+
+  return { changed, contents: nextContents };
+}
+
+async function writePackageJsonUpdate(packageJsonPath, contents, { dryRun }) {
+  if (dryRun) {
+    process.stdout.write(`[dry-run] update ${toPosixPath(path.relative(REPO_ROOT, packageJsonPath))}\n`);
+    return;
+  }
+
+  await writeFile(packageJsonPath, contents, "utf8");
+}
+
 async function updateWorkspacePackageJsonFiles(records, publishSet, nextVersions, { dryRun, onlyMode = false }) {
   const recordsToProcess = onlyMode ? records.filter((record) => publishSet.has(record.name)) : records;
 
   for (const record of recordsToProcess) {
     const packageJson = record.packageJson;
-    let changed = false;
-    let dependencyChanged = false;
+    const dependencyChanged = updatePackageDependencyVersions(packageJson, nextVersions);
+    let changed = dependencyChanged;
 
     const nextSelfVersion = nextVersions.get(record.name);
     if (publishSet.has(record.name) && packageJson.version !== nextSelfVersion) {
       packageJson.version = nextSelfVersion;
       changed = true;
-    }
-
-    for (const field of DEPENDENCY_FIELDS) {
-      const fieldValue = packageJson?.[field];
-      if (!fieldValue || typeof fieldValue !== "object") {
-        continue;
-      }
-
-      for (const dependencyName of Object.keys(fieldValue)) {
-        if (!nextVersions.has(dependencyName)) {
-          continue;
-        }
-
-        const dependencyVersion = nextVersions.get(dependencyName);
-        if (fieldValue[dependencyName] === dependencyVersion) {
-          continue;
-        }
-
-        fieldValue[dependencyName] = dependencyVersion;
-        changed = true;
-        dependencyChanged = true;
-      }
-    }
-
-    for (const mutationField of ["runtime", "dev"]) {
-      const dependencyMutations = packageJson?.jskit?.mutations?.dependencies?.[mutationField];
-      if (!dependencyMutations || typeof dependencyMutations !== "object") {
-        continue;
-      }
-      for (const dependencyName of Object.keys(dependencyMutations)) {
-        if (!nextVersions.has(dependencyName)) {
-          continue;
-        }
-        const nextVersion = nextVersions.get(dependencyName);
-        const currentValue = dependencyMutations[dependencyName];
-        if (typeof currentValue === "string") {
-          if (currentValue !== nextVersion) {
-            dependencyMutations[dependencyName] = nextVersion;
-            changed = true;
-            dependencyChanged = true;
-          }
-          continue;
-        }
-        if (!currentValue || typeof currentValue !== "object") {
-          continue;
-        }
-        const versionField = Object.prototype.hasOwnProperty.call(currentValue, "version")
-          ? "version"
-          : Object.prototype.hasOwnProperty.call(currentValue, "value")
-            ? "value"
-            : "";
-        if (versionField && currentValue[versionField] !== nextVersion) {
-          currentValue[versionField] = nextVersion;
-          changed = true;
-          dependencyChanged = true;
-        }
-      }
     }
 
     if (!onlyMode && dependencyChanged && !publishSet.has(record.name)) {
@@ -367,17 +414,18 @@ async function updateWorkspacePackageJsonFiles(records, publishSet, nextVersions
       );
     }
 
-    if (!changed) {
-      continue;
+    if (changed) {
+      await writePackageJsonUpdate(record.packageJsonPath, serializeJson(packageJson), { dryRun });
     }
 
-    const nextRaw = serializeJson(packageJson);
-    if (dryRun) {
-      process.stdout.write(`[dry-run] update ${toPosixPath(path.relative(REPO_ROOT, record.packageJsonPath))}\n`);
-      continue;
+    for (const templatePackageJsonPath of await collectTemplatePackageJsonPaths(record.dir)) {
+      const templateContents = await readFile(templatePackageJsonPath, "utf8");
+      const update = updateTemplatedPackageJsonContents(templateContents, nextVersions);
+      if (!update.changed) {
+        continue;
+      }
+      await writePackageJsonUpdate(templatePackageJsonPath, update.contents, { dryRun });
     }
-
-    await writeFile(record.packageJsonPath, nextRaw, "utf8");
   }
 }
 
@@ -477,9 +525,12 @@ async function withPublishDirectory(record, callback) {
 
     const tempPackageJsonPath = path.join(tempDir, "package.json");
     const packageJson = await readJsonFile(tempPackageJsonPath);
-    if (packageJson.private) {
-      delete packageJson.private;
-      await writeFile(tempPackageJsonPath, serializeJson(packageJson), "utf8");
+    if (packageJson.private === true) {
+      await writeFile(
+        tempPackageJsonPath,
+        serializeJson(createPublishablePackageManifest(packageJson)),
+        "utf8"
+      );
     }
 
     await callback(tempDir);
@@ -643,73 +694,27 @@ async function publishPackages({
   npmUserConfigPath,
   registry,
   tag,
-  access,
-  publishConcurrency
+  access
 }) {
   const recordByName = new Map(records.map((record) => [record.name, record]));
-  const { inDegree, adjacency } = buildPublishGraph(records, publishSet);
-  const ready = Array.from(inDegree.entries())
-    .filter(([, degree]) => degree === 0)
-    .map(([name]) => name)
-    .sort();
-
-  const running = new Map();
-  let completed = 0;
-
-  const launchPublish = (packageName) => {
+  const publishOrder = topologicalPublishOrder(records, publishSet);
+  for (const packageName of publishOrder) {
     const record = recordByName.get(packageName);
     if (!record) {
       throw new Error(`Missing record for ${packageName}`);
     }
 
     process.stdout.write(`Publishing ${packageName}@${nextVersions.get(packageName)}...\n`);
-    const task = (async () => {
-      await withPublishDirectory(record, async (publishDir) => {
-        await runPublishCommand({
-          cwd: publishDir,
-          npmUserConfigPath,
-          registry,
-          tag,
-          access
-        });
+    await withPublishDirectory(record, async (publishDir) => {
+      await runPublishCommand({
+        cwd: publishDir,
+        npmUserConfigPath,
+        registry,
+        tag,
+        access
       });
-      process.stdout.write(`Published ${packageName}@${nextVersions.get(packageName)}\n`);
-      return packageName;
-    })();
-
-    const tracked = task.then(
-      (name) => ({ status: "fulfilled", name }),
-      (error) => ({ status: "rejected", name: packageName, error })
-    );
-    running.set(packageName, tracked);
-  };
-
-  while (completed < publishSet.size) {
-    while (running.size < publishConcurrency && ready.length > 0) {
-      const packageName = ready.shift();
-      launchPublish(packageName);
-    }
-
-    if (running.size === 0) {
-      throw new Error("Publish scheduler deadlocked: no runnable packages remain.");
-    }
-
-    const result = await Promise.race(running.values());
-    running.delete(result.name);
-
-    if (result.status === "rejected") {
-      throw result.error;
-    }
-
-    completed += 1;
-    for (const dependentName of Array.from(adjacency.get(result.name) || []).sort()) {
-      const remainingDeps = (inDegree.get(dependentName) || 0) - 1;
-      inDegree.set(dependentName, remainingDeps);
-      if (remainingDeps === 0) {
-        ready.push(dependentName);
-      }
-    }
-    ready.sort();
+    });
+    process.stdout.write(`Published ${packageName}@${nextVersions.get(packageName)}\n`);
   }
 }
 
@@ -806,7 +811,6 @@ async function main() {
   for (const packageName of publishOrder) {
     process.stdout.write(`- ${packageName}: ${currentVersions.get(packageName)} -> ${nextVersions.get(packageName)}\n`);
   }
-  process.stdout.write(`Publish concurrency: ${options.publishConcurrency}\n`);
   if (options.tag !== STAGING_TAG) {
     process.stdout.write(`Publish tag: ${STAGING_TAG}; promote to: ${options.tag}\n`);
   }
@@ -859,8 +863,7 @@ async function main() {
       // Never expose a dependent package through the requested public tag until
       // the complete exact-version closure is readable from the registry.
       tag: options.tag === STAGING_TAG ? options.tag : STAGING_TAG,
-      access: options.access,
-      publishConcurrency: options.publishConcurrency
+      access: options.access
     });
     if (options.tag !== STAGING_TAG) {
       process.stdout.write("Waiting for every published version to become readable...\n");
@@ -897,8 +900,11 @@ if (process.argv[1] && path.resolve(process.argv[1]) === __filename) {
 
 export {
   STAGING_TAG,
+  collectTemplatePackageJsonPaths,
   promotePublishedPackages,
   resolvePackageLockRefreshSteps,
   topologicalPublishOrder,
+  updatePackageDependencyVersions,
+  updateTemplatedPackageJsonContents,
   waitForPublishedVersions
 };

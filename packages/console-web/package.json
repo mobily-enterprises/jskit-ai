@@ -1,14 +1,14 @@
 {
   "name": "@jskit-ai/console-web",
-  "version": "0.1.117",
+  "version": "0.1.119",
   "type": "module",
   "scripts": {
     "test": "node --test"
   },
   "dependencies": {
-    "@jskit-ai/auth-web": "0.1.149",
-    "@jskit-ai/console-core": "0.1.112",
-    "@jskit-ai/shell-web": "0.1.153"
+    "@jskit-ai/auth-web": "0.1.151",
+    "@jskit-ai/console-core": "0.1.114",
+    "@jskit-ai/shell-web": "0.1.155"
   },
   "description": "Authenticated console surface scaffold and surface policy wiring.",
   "jskit": {
@@ -115,9 +115,9 @@
     "mutations": {
       "dependencies": {
         "runtime": {
-          "@jskit-ai/auth-web": "0.1.149",
-          "@jskit-ai/console-core": "0.1.112",
-          "@jskit-ai/shell-web": "0.1.153"
+          "@jskit-ai/auth-web": "0.1.151",
+          "@jskit-ai/console-core": "0.1.114",
+          "@jskit-ai/shell-web": "0.1.155"
         },
         "dev": {}
       },

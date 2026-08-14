@@ -7,6 +7,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { gunzipSync } from "node:zlib";
 import { resolvePackageIdInput } from "../tooling/jskit-cli/src/server/shared/packageIdHelpers.js";
+import { createPublishablePackageManifest } from "./npm-publish-support.mjs";
 
 const __filename = fileURLToPath(import.meta.url);
 const REPO_ROOT = path.resolve(path.dirname(__filename), "..");
@@ -319,9 +320,6 @@ function selectPreparedRecords(records, packageSpecs) {
     if (record.version !== version) {
       throw new Error(`Prepared version mismatch for ${name}: requested ${version}, current source is ${record.version}.`);
     }
-    if (record.packageJson.private) {
-      throw new Error(`Private workspace packages cannot be prepared for publication: ${name}.`);
-    }
     const existing = selected.get(name);
     if (existing && existing.version !== version) {
       throw new Error(`Conflicting prepared versions selected for ${name}.`);
@@ -519,10 +517,17 @@ async function fetchRegistryMetadata(packageNames, registry, fetchImpl = fetch) 
 }
 
 function validatePreparedRegistryState(selected, registryMetadata, { allowExisting = false } = {}) {
+  const hasExistingPreparedArtifact = [...selected.values()].some((record) => {
+    return Boolean(registryMetadata.get(record.name)?.versions?.[record.version]);
+  });
+  if (allowExisting && !hasExistingPreparedArtifact) {
+    throw new Error("Prepared release resume requires at least one existing target artifact.");
+  }
+
   for (const record of selected.values()) {
     const versions = registryMetadata.get(record.name)?.versions || {};
     const previousVersion = previousPatchVersion(record.version);
-    if (!versions[previousVersion]) {
+    if (!versions[previousVersion] && !allowExisting) {
       throw new Error(`Registry is missing the prior version ${record.name}@${previousVersion}.`);
     }
     if (versions[record.version] && !allowExisting) {
@@ -661,6 +666,17 @@ async function packPreparedRecords(selected, order, tempRoot) {
         return !relative.split(path.sep).some((entry) => entry === "node_modules" || entry === ".git");
       }
     });
+    if (record.packageJson.private === true) {
+      const snapshotManifestPath = path.join(snapshotDir, "package.json");
+      const snapshotManifest = createPublishablePackageManifest(
+        await readJsonFile(snapshotManifestPath)
+      );
+      await writeFile(
+        snapshotManifestPath,
+        `${JSON.stringify(snapshotManifest, null, 2)}\n`,
+        "utf8"
+      );
+    }
     await stat(snapshotDir);
   }
 

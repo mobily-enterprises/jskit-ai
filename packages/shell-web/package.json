@@ -1,6 +1,6 @@
 {
   "name": "@jskit-ai/shell-web",
-  "version": "0.1.153",
+  "version": "0.1.155",
   "type": "module",
   "scripts": {
     "test": "node --test"
@@ -28,7 +28,7 @@
   },
   "dependencies": {
     "@mdi/js": "^7.4.47",
-    "@jskit-ai/kernel": "0.1.149"
+    "@jskit-ai/kernel": "0.1.151"
   },
   "peerDependencies": {
     "pinia": "^3.0.4",
@@ -381,7 +381,7 @@
       "dependencies": {
         "runtime": {
           "@mdi/js": "^7.4.47",
-          "@jskit-ai/kernel": "0.1.149"
+          "@jskit-ai/kernel": "0.1.151"
         },
         "dev": {
           "@playwright/test": "1.61.1"

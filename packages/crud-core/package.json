@@ -1,6 +1,6 @@
 {
   "name": "@jskit-ai/crud-core",
-  "version": "0.1.160",
+  "version": "0.1.162",
   "type": "module",
   "scripts": {
     "test": "node --test"
@@ -27,14 +27,14 @@
     "./server/routeContracts": "./src/server/routeContracts.js"
   },
   "dependencies": {
-    "@jskit-ai/database-runtime": "0.1.149",
-    "@jskit-ai/http-runtime": "0.1.147",
-    "@jskit-ai/kernel": "0.1.149",
-    "@jskit-ai/realtime": "0.1.146",
-    "@jskit-ai/resource-crud-core": "0.1.91",
-    "@jskit-ai/shell-web": "0.1.153",
-    "@jskit-ai/users-core": "0.1.162",
-    "@jskit-ai/users-web": "0.1.167",
+    "@jskit-ai/database-runtime": "0.1.151",
+    "@jskit-ai/http-runtime": "0.1.149",
+    "@jskit-ai/kernel": "0.1.151",
+    "@jskit-ai/realtime": "0.1.148",
+    "@jskit-ai/resource-crud-core": "0.1.93",
+    "@jskit-ai/shell-web": "0.1.155",
+    "@jskit-ai/users-core": "0.1.164",
+    "@jskit-ai/users-web": "0.1.169",
     "json-rest-schema": "^1.0.17"
   },
   "peerDependencies": {
@@ -62,7 +62,7 @@
     "mutations": {
       "dependencies": {
         "runtime": {
-          "@jskit-ai/crud-core": "0.1.160"
+          "@jskit-ai/crud-core": "0.1.162"
         },
         "dev": {}
       },
