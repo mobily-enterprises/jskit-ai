@@ -62,7 +62,7 @@ function normalizeDependencyMutationRecord(value) {
   }
 
   return {
-    version: String(record.version || record.value || "").trim(),
+    version: String(record.version || "").trim(),
     when: normalizeMutationWhen(record.when)
   };
 }

@@ -10,8 +10,7 @@ export default [
       "**/.cache/**",
       "**/.jskit/**",
       "packages/**/templates/**",
-      "tooling/create-app/templates/**",
-      "LEGACY/**"
+      "tooling/create-app/templates/**"
     ]
   },
   ...baseConfig,

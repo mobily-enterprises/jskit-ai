@@ -329,8 +329,7 @@ function insertFormFieldDefinition(source, insertion = {}) {
   const declaration = findArrayDeclarationBeforeIndex(source, insertion.arrayName, anchorIndex);
   if (!declaration || anchorIndex <= declaration.openIndex || anchorIndex >= declaration.closeIndex) {
     throw new Error(
-      `crud-ui-generator field found legacy form-field marker layout for ${insertion.arrayName}. ` +
-      `Move the generated field marker inside the ${insertion.arrayName} array, or regenerate the screen with the current generator.`
+      `crud-ui-generator field requires its generated marker inside the ${insertion.arrayName} array.`
     );
   }
 

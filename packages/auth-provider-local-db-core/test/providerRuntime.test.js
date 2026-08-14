@@ -375,7 +375,7 @@ test("local database auth uses the shared native login-as session contract", asy
   }), {
     email: "PREVIEW-DB@EXAMPLE.COM"
   });
-  assert.equal(impersonated.profile.id, "usr_preview_db");
+  assert.equal(impersonated.actor.id, "usr_preview_db");
   assert.equal(impersonated.session.purpose, "dev-auth");
 
   const reply = createReplyFixture();
@@ -384,7 +384,7 @@ test("local database auth uses the shared native login-as session contract", asy
     cookies: reply.cookies
   }));
   assert.equal(authenticated.authenticated, true);
-  assert.equal(authenticated.profile.email, "preview-db@example.com");
+  assert.equal(authenticated.actor.email, "preview-db@example.com");
   assert.equal(authenticated.sessionPurpose, "dev-auth");
 });
 

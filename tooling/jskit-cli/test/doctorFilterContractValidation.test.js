@@ -9,7 +9,7 @@ import path from "node:path";
 import test from "node:test";
 import { withTempDir } from "../../testUtils/tempDir.mjs";
 import { createCliRunner } from "../../testUtils/runCli.js";
-import { writeJskitPackageMetadata } from "../../testUtils/jskitPackage.mjs";
+import { writeJskitConfig } from "../../testUtils/jskitPackage.mjs";
 
 const CLI_PATH = fileURLToPath(new URL("../bin/jskit.js", import.meta.url));
 const runCli = createCliRunner(CLI_PATH);
@@ -57,11 +57,9 @@ async function writeStandardCrudPackage(appRoot, {
       2
     )}\n`
   );
-  await writeJskitPackageMetadata(
+  await writeJskitConfig(
     path.join(appRoot, packageRoot),
     `({
-  packageId: "@local/${packageName}",
-  version: "0.1.0",
   kind: "runtime",
   capabilities: {
     provides: ["crud.${packageName}"],

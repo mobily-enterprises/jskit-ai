@@ -1,4 +1,4 @@
-import { isKnownCommandName, resolveCommandAlias } from "./commandCatalog.js";
+import { isKnownCommandName } from "./commandCatalog.js";
 
 function parseArgs(argv, { createCliError } = {}) {
   if (typeof createCliError !== "function") {
@@ -30,7 +30,7 @@ function parseArgs(argv, { createCliError } = {}) {
   }
 
   const rawCommand = String(args.shift() || "help").trim() || "help";
-  const command = resolveCommandAlias(rawCommand);
+  const command = rawCommand;
 
   if (!isKnownCommandName(command)) {
     throw createCliError(`Unknown command: ${rawCommand}`, { showUsage: true });

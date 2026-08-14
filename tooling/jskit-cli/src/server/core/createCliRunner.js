@@ -89,7 +89,6 @@ import {
   applyStatelessPackageMigrations
 } from "../cliRuntime/packageInstallFlow.js";
 import {
-  assertAppCiCanSynchronize,
   composeInstalledPackageCi,
   synchronizeAppCiWorkflow,
   synchronizeCiWorkflow
@@ -122,7 +121,6 @@ const commandHandlers = createCommandHandlers(
     resolvePackageOptions,
     applyPackageInstall,
     applyStatelessPackageMigrations,
-    assertAppCiCanSynchronize,
     composeInstalledPackageCi,
     synchronizeAppCiWorkflow,
     synchronizeCiWorkflow,

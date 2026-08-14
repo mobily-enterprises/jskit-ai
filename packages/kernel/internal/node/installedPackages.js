@@ -10,6 +10,17 @@ const ROOT_DEPENDENCY_SECTIONS = Object.freeze([
   "peerDependencies",
   "devDependencies"
 ]);
+const JSKIT_PACKAGE_CONFIG_KEYS = Object.freeze([
+  "capabilities",
+  "ci",
+  "kind",
+  "lifecycle",
+  "metadata",
+  "mutations",
+  "optionPolicies",
+  "options",
+  "runtime"
+]);
 
 async function readJsonFile(filePath, fallback = {}) {
   try {
@@ -56,6 +67,14 @@ function createPackageMetadata(packageJson = {}) {
   const version = String(packageJson.version || "").trim();
   if (!packageId || !version) {
     return null;
+  }
+  const unknownKeys = Object.keys(jskit)
+    .filter((key) => !JSKIT_PACKAGE_CONFIG_KEYS.includes(key))
+    .sort();
+  if (unknownKeys.length > 0) {
+    throw new Error(
+      `${packageId} package.json#jskit contains unknown ${unknownKeys.length === 1 ? "field" : "fields"}: ${unknownKeys.join(", ")}.`
+    );
   }
 
   return Object.freeze({
@@ -275,6 +294,7 @@ async function discoverInstalledPackages({ appRoot } = {}) {
 }
 
 export {
+  JSKIT_PACKAGE_CONFIG_KEYS,
   ROOT_DEPENDENCY_SECTIONS,
   collectPackageDependencyIds,
   collectRootDependencySpecifiers,

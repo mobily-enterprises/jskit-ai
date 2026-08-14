@@ -4,8 +4,7 @@ function resolveActorId(context = {}) {
   return normalizeOpaqueId(
     context?.actor?.id ||
       context?.actor?.appUserId ||
-      context?.actor?.providerUserId ||
-      context?.profile?.id,
+      context?.actor?.providerUserId,
     { fallback: null }
   );
 }

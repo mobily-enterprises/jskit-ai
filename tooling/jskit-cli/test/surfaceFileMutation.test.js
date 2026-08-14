@@ -5,7 +5,7 @@ import test from "node:test";
 import { fileURLToPath } from "node:url";
 import { withTempDir } from "../../testUtils/tempDir.mjs";
 import { createCliRunner } from "../../testUtils/runCli.js";
-import { writeJskitPackageMetadata } from "../../testUtils/jskitPackage.mjs";
+import { writeJskitConfig } from "../../testUtils/jskitPackage.mjs";
 
 const CLI_PATH = fileURLToPath(new URL("../bin/jskit.js", import.meta.url));
 const runCli = createCliRunner(CLI_PATH);
@@ -47,7 +47,7 @@ async function createMinimalApp(appRoot) {
 async function createSurfaceMutationPackage({
   appRoot,
   packageName,
-  metadataExpression,
+  jskitSource,
   templates = {}
 }) {
   const packageRoot = path.join(appRoot, "packages", packageName);
@@ -74,7 +74,7 @@ async function createSurfaceMutationPackage({
     "utf8"
   );
 
-  await writeJskitPackageMetadata(path.join(packageRoot), metadataExpression);
+  await writeJskitConfig(path.join(packageRoot), jskitSource);
   for (const [templatePath, templateContent] of Object.entries(templates)) {
     const absoluteTemplatePath = path.join(packageRoot, templatePath);
     await mkdir(path.dirname(absoluteTemplatePath), { recursive: true });
@@ -90,11 +90,8 @@ test("files mutation resolves toSurface targets from config surfaceDefinitions.p
     await createSurfaceMutationPackage({
       appRoot,
       packageName: "surface-targeted",
-      metadataExpression: `({
-  packageId: "@demo/surface-targeted",
-  version: "0.1.0",
+      jskitSource: `({
   kind: "runtime",
-  description: "surface targeted files mutation",
   capabilities: { provides: [], requires: [] },
   runtime: {
     server: { providers: [] },
@@ -143,11 +140,8 @@ test("files mutation supports comma-separated toSurface values", async () => {
     await createSurfaceMutationPackage({
       appRoot,
       packageName: "surface-multi-targeted",
-      metadataExpression: `({
-  packageId: "@demo/surface-multi-targeted",
-  version: "0.1.0",
+      jskitSource: `({
   kind: "runtime",
-  description: "surface targeted files mutation",
   capabilities: { provides: [], requires: [] },
   runtime: {
     server: { providers: [] },
@@ -195,11 +189,8 @@ test("files mutation can target a surface defined by the same package install", 
     await createSurfaceMutationPackage({
       appRoot,
       packageName: "surface-defined-by-package",
-      metadataExpression: `({
-  packageId: "@demo/surface-defined-by-package",
-  version: "0.1.0",
+      jskitSource: `({
   kind: "runtime",
-  description: "surface targeted files mutation after surface config append",
   capabilities: { provides: [], requires: [] },
   runtime: {
     server: { providers: [] },
@@ -253,11 +244,8 @@ test("files mutation fails when toSurface references unknown surface id", async 
     await createSurfaceMutationPackage({
       appRoot,
       packageName: "surface-unknown",
-      metadataExpression: `({
-  packageId: "@demo/surface-unknown",
-  version: "0.1.0",
+      jskitSource: `({
   kind: "runtime",
-  description: "invalid surface target",
   capabilities: { provides: [], requires: [] },
   runtime: {
     server: { providers: [] },
@@ -294,11 +282,8 @@ test("files mutation rejects path traversal in toSurfacePath", async () => {
     await createSurfaceMutationPackage({
       appRoot,
       packageName: "surface-traversal",
-      metadataExpression: `({
-  packageId: "@demo/surface-traversal",
-  version: "0.1.0",
+      jskitSource: `({
   kind: "runtime",
-  description: "invalid toSurfacePath",
   capabilities: { provides: [], requires: [] },
   runtime: {
     server: { providers: [] },
@@ -346,11 +331,8 @@ test("files mutation fails when toSurface references disabled surface id", async
     await createSurfaceMutationPackage({
       appRoot,
       packageName: "surface-disabled",
-      metadataExpression: `({
-  packageId: "@demo/surface-disabled",
-  version: "0.1.0",
+      jskitSource: `({
   kind: "runtime",
-  description: "disabled surface target",
   capabilities: { provides: [], requires: [] },
   runtime: {
     server: { providers: [] },
@@ -387,11 +369,8 @@ test("files mutation rejects package metadata that set both to and toSurface", a
     await createSurfaceMutationPackage({
       appRoot,
       packageName: "surface-both-targets",
-      metadataExpression: `({
-  packageId: "@demo/surface-both-targets",
-  version: "0.1.0",
+      jskitSource: `({
   kind: "runtime",
-  description: "invalid dual destination",
   capabilities: { provides: [], requires: [] },
   runtime: {
     server: { providers: [] },

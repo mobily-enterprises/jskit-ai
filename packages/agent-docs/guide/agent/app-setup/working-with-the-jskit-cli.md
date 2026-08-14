@@ -196,6 +196,10 @@ npx jskit migrations sync --check
 
 Migration ids are immutable. The same package and migration id must always produce the same content. A conflict fails instead of overwriting migration history.
 
+Runtime-package migrations are deterministic projections and cannot reference
+install options. Use a generator when a migration must be parameterized for a
+specific generated feature.
+
 Synchronization changes files only. Apply database migrations separately:
 
 ```bash

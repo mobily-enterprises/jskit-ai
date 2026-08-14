@@ -5,7 +5,7 @@ import path from "node:path";
 import test from "node:test";
 import { withTempDir } from "../../testUtils/tempDir.mjs";
 import { createCliRunner } from "../../testUtils/runCli.js";
-import { writeJskitPackageMetadata } from "../../testUtils/jskitPackage.mjs";
+import { writeJskitConfig } from "../../testUtils/jskitPackage.mjs";
 
 const CLI_PATH = fileURLToPath(new URL("../bin/jskit.js", import.meta.url));
 const runCli = createCliRunner(CLI_PATH);
@@ -512,10 +512,9 @@ test("list-placements includes installed package metadata topology", async () =>
 </template>
 `
     );
-    await writeJskitPackageMetadata(
+    await writeJskitConfig(
       path.join(appRoot, "node_modules/@example/users-web"),
       `({
-  packageId: "@example/users-web",
   metadata: {
     ui: {
       placements: {
@@ -599,24 +598,6 @@ test("list-placements --concrete discovers route meta placement outlets", async 
   });
 });
 
-test("list placements mode reports dedicated command migration", async () => {
-  await withTempDir(async (cwd) => {
-    const appRoot = path.join(cwd, "list-placements-migration-app");
-    await createMinimalApp(appRoot, { name: "list-placements-migration-app" });
-
-    const result = runCli({
-      cwd: appRoot,
-      args: ["list", "placements"]
-    });
-
-    assert.equal(result.status, 1);
-    assert.match(
-      String(result.stderr || ""),
-      /moved to a dedicated command: jskit list-placements/i
-    );
-  });
-});
-
 test("list-component-tokens discovers placement-linked tokens from app files and installed package metadata", async () => {
   await withTempDir(async (cwd) => {
     const appRoot = path.join(cwd, "list-placement-component-tokens-app");
@@ -651,10 +632,9 @@ addPlacement({
 registerMainClientComponent("local.main.ui.custom-pill", () => null);
 `
     );
-    await writeJskitPackageMetadata(
+    await writeJskitConfig(
       path.join(appRoot, "node_modules/@example/users-web"),
       `({
-  packageId: "@example/users-web",
   metadata: {
     apiSummary: {
       containerTokens: {
@@ -709,10 +689,9 @@ test("list-component-tokens --all includes declared client container tokens", as
         }
       }
     });
-    await writeJskitPackageMetadata(
+    await writeJskitConfig(
       path.join(appRoot, "node_modules/@example/users-web"),
       `({
-  packageId: "@example/users-web",
   metadata: {
     apiSummary: {
       containerTokens: {
@@ -790,23 +769,5 @@ addPlacement({ componentToken: "auth.web.profile.menu.link-item" });
     const stdout = String(result.stdout || "");
     assert.match(stdout, /local\.main\.ui\.tab-link-item/);
     assert.doesNotMatch(stdout, /auth\.web\.profile\.menu\.link-item/);
-  });
-});
-
-test("list placement-component-tokens mode reports dedicated command migration", async () => {
-  await withTempDir(async (cwd) => {
-    const appRoot = path.join(cwd, "list-placement-component-tokens-migration-app");
-    await createMinimalApp(appRoot, { name: "list-placement-component-tokens-migration-app" });
-
-    const result = runCli({
-      cwd: appRoot,
-      args: ["list", "placement-component-tokens"]
-    });
-
-    assert.equal(result.status, 1);
-    assert.match(
-      String(result.stderr || ""),
-      /moved to a dedicated command: jskit list-component-tokens/i
-    );
   });
 });

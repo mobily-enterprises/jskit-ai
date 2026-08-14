@@ -27,6 +27,7 @@ const SHELL_WEB_PACKAGE_DIR = path.dirname(
 );
 const runCli = createCliRunner(CLI_PATH);
 const withCreateAppTempDir = (run) => withTempDir(run, { prefix: "jskit-create-app-" });
+const registryTest = process.env.JSKIT_REGISTRY_INTEGRATION === "1" ? test : test.skip;
 
 function createCaptureWritable() {
   let body = "";
@@ -405,7 +406,7 @@ test("create-app scaffolds the base shell with placeholder replacements", async 
     const viteConfig = await readFile(path.join(appRoot, "vite.config.mjs"), "utf8");
     assert.doesNotMatch(viteConfig, /function reparentNestedChildrenToIndexOwners\(rootRoute\)/);
     assert.doesNotMatch(viteConfig, /^\s*beforeWriteFiles:\s*reparentNestedChildrenToIndexOwners/m);
-    assert.match(viteConfig, /nestedChildren deprecated/);
+    assert.match(viteConfig, /nestedChildren: false/);
     assert.match(viteConfig, /Generated on the first Vite dev\/build scan and intentionally gitignored/);
     assert.doesNotMatch(viteConfig, /dedupe:\s*\[/);
     assert.match(viteConfig, /optimizeDeps:\s*\{/);
@@ -735,7 +736,7 @@ test("generated default shell app keeps the minimal runtime shape", async () => 
   });
 });
 
-test("create-app minimal mode keeps the bare scaffold and can still install shell-web", async () => {
+registryTest("create-app minimal mode keeps the bare scaffold and can still install shell-web", async () => {
   await withCreateAppTempDir(async (cwd) => {
     const createResult = runCli({ cwd, args: ["minimal-app", "--minimal"] });
     assert.equal(createResult.status, 0, createResult.stderr);
@@ -797,7 +798,7 @@ test("create-app minimal mode keeps the bare scaffold and can still install shel
   });
 });
 
-test("fresh app CRUD scaffolds encode explicit M3 action hierarchy and stable settings links", async () => {
+registryTest("fresh app CRUD scaffolds encode explicit M3 action hierarchy and stable settings links", async () => {
   await withCreateAppTempDir(async (cwd) => {
     const createResult = runCli({ cwd, args: ["crud-ui-hierarchy-app"] });
     assert.equal(createResult.status, 0, createResult.stderr);

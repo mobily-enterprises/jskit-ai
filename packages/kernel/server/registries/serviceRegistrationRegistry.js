@@ -145,8 +145,9 @@ function normalizeServiceEventSpec(entry, { context = "service event" } = {}) {
 
 function normalizeServiceMetadata(value = {}) {
   const source = normalizeObject(value);
-  if (Object.hasOwn(source, "permissions")) {
-    throw new TypeError("service metadata.permissions is no longer supported. Define permissions on actions.");
+  const unsupportedFields = Object.keys(source).filter((key) => key !== "events");
+  if (unsupportedFields.length > 0) {
+    throw new TypeError(`service metadata supports only events. Received: ${unsupportedFields.sort().join(", ")}.`);
   }
   const eventsSource = normalizeObject(source.events);
   const events = {};

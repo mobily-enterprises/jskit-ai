@@ -42,7 +42,6 @@ async function runRegisterHook({ hook, result, logger }) {
   const payload = Object.freeze({
     event: LOCAL_AUTH_USER_REGISTERED_EVENT,
     actor: result?.actor || null,
-    profile: result?.profile || null,
     authResult: result
   });
 

@@ -100,8 +100,7 @@ async function loadAppLocalPackageRegistry(appRoot) {
       continue;
     }
     const packageMetadata = validateAppLocalPackageMetadataShape(rawPackageMetadata, packageJsonPath, {
-      expectedPackageId: packageId,
-      fallbackVersion: String(packageJson?.version || "").trim()
+      expectedPackageId: packageId
     });
 
     const relativeDir = normalizeRelativePath(appRoot, packageRoot);
@@ -216,8 +215,7 @@ async function loadInstalledNodeModulePackageEntry({ appRoot, packageId }) {
   }
 
   const validatedMetadata = validateAppLocalPackageMetadataShape(packageMetadata, packageJsonPath, {
-    expectedPackageId: resolvedPackageId,
-    fallbackVersion: String(packageJson?.version || "").trim()
+    expectedPackageId: resolvedPackageId
   });
   const relativeDir = normalizeRelativePath(appRoot, packageRoot);
   const manifestRelativePath = normalizeRelativePath(appRoot, packageJsonPath);

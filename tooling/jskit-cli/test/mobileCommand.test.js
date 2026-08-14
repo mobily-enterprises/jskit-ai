@@ -356,24 +356,6 @@ test("jskit mobile help reflects the implemented file names and dry-run scope", 
   });
 });
 
-test("jskit mobile add capacitor is no longer supported", async () => {
-  await withTempDir(async (cwd) => {
-    const appRoot = path.join(cwd, "app");
-
-    await createMobileReadyApp(appRoot);
-
-    const result = runCli({
-      cwd: appRoot,
-      args: ["mobile", "add", "capacitor"]
-    });
-
-    assert.equal(result.status, 1);
-    assert.match(String(result.stderr || ""), /Unknown mobile platform: add/u);
-    assert.match(String(result.stderr || ""), /jskit mobile <platform> <subcommand>/u);
-    assert.doesNotMatch(String(result.stderr || ""), /- add:/u);
-  });
-});
-
 test("jskit add package @jskit-ai/mobile-capacitor installs through hooks with config seeding and standard npm install by default", async () => {
   await withTempDir(async (cwd) => {
     const appRoot = path.join(cwd, "app");

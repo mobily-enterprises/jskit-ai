@@ -174,6 +174,6 @@ test("resolveCrudJsonApiTransport rejects explicit CRUD transport overrides", ()
           mode: "view"
         }
       ),
-    /no longer accept explicit transport/
+    /do not accept explicit transport/
   );
 });

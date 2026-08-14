@@ -449,7 +449,7 @@ That is exactly the kind of page `useWorkspaceRouteContext()` is for:
 ```vue
 <script setup>
 import { computed } from "vue";
-import { usePaths } from "@jskit-ai/users-web/client/composables/usePaths";
+import { usePaths } from "@jskit-ai/shell-web/client/navigation/usePaths";
 import { useWorkspaceRouteContext } from "@jskit-ai/workspaces-web/client/composables/useWorkspaceRouteContext";
 
 const { workspaceSlugFromRoute, currentSurfaceId } = useWorkspaceRouteContext();

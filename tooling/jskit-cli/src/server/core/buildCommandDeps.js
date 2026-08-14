@@ -25,7 +25,6 @@ function createCommandHandlerDeps(deps = {}) {
     resolvePackageOptions: deps.resolvePackageOptions,
     applyPackageInstall: deps.applyPackageInstall,
     applyStatelessPackageMigrations: deps.applyStatelessPackageMigrations,
-    assertAppCiCanSynchronize: deps.assertAppCiCanSynchronize,
     composeInstalledPackageCi: deps.composeInstalledPackageCi,
     synchronizeAppCiWorkflow: deps.synchronizeAppCiWorkflow,
     synchronizeCiWorkflow: deps.synchronizeCiWorkflow,

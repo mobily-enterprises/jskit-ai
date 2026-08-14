@@ -8,7 +8,7 @@ Use this on demand; do not load the full index at startup.
 
 ## Scope
 - Source: `packages/shell-web/**/*{.js,.mjs,.cjs,.vue}`
-- Excludes: `test/`, `tests/`, `__tests__/`, `*.test.*`, `*.spec.*`, `*.vitest.*`, `node_modules/`, `dist/`, `coverage/`, `docs/`, `LEGACY/`, `.vitepress/cache/`, `.vitepress/dist/`
+- Excludes: `test/`, `tests/`, `__tests__/`, `*.test.*`, `*.spec.*`, `*.vitest.*`, `node_modules/`, `dist/`, `coverage/`, `docs/`, `.vitepress/cache/`, `.vitepress/dist/`
 
 ## Sections
 
@@ -249,6 +249,20 @@ Local functions
 - `normalizeParamsMap(params = null)`
 - `materializeSurfaceRouteBase(routeBaseTemplate = "/", { params = {}, strictParams = true, surface = "" } = {})`
 - `resolveSurfaceBasePath(context = null, surface = "", { params = {}, strictParams = true } = {})`
+
+### `src/client/navigation/usePaths.js`
+Exports
+- `usePaths({ routeContext: sourceRouteContext = null } = {})`
+Local functions
+- `normalizePathSuffix(value = "")`
+- `resolveSurfaceId(value, fallback = "")`
+- `resolveDefaultSurfaceIdFromPlacementContext(placementContext = null)`
+- `normalizeRouteParams(params = null)`
+- `resolveRouteParams(baseParams = {}, overrideParams = null)`
+
+### `src/client/navigation/useSurfaceRouteContext.js`
+Exports
+- `useSurfaceRouteContext()`
 
 ### `src/client/placement/debug.js`
 Exports

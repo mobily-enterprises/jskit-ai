@@ -6,13 +6,13 @@ import { fileURLToPath } from "node:url";
 
 const packageRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 
-test("distributed agent docs no longer expose removed workflow files or commands", async () => {
+test("distributed agent docs publish the canonical documentation directories", async () => {
   const packageJson = JSON.parse(await readFile(path.join(packageRoot, "package.json"), "utf8"));
   const agentGuide = await readFile(path.join(packageRoot, "guide/agent/index.md"), "utf8");
 
-  assert.doesNotMatch(JSON.stringify(packageJson.files), /workflow/);
-  assert.doesNotMatch(agentGuide, /workflow\/scoping\.md/);
-  assert.doesNotMatch(agentGuide, /workflow\/review\.md/);
+  assert.deepEqual(packageJson.files, ["guide", "patterns", "reference", "skills", "templates"]);
+  assert.match(agentGuide, /^# Guide$/m);
+  assert.match(agentGuide, /^## Table of Contents$/m);
 });
 
 test("crud scaffolding pattern requires approval for weird custom persistence lanes", async () => {
@@ -46,7 +46,7 @@ test("crud scaffolding pattern defines the generated database key contract", asy
   }
 
   assert.match(pattern, /fresh disposable database/);
-  assert.match(pattern, /production, legacy, historical/);
+  assert.match(pattern, /production or other valuable database/);
   assert.match(pattern, /cross-workspace relationship tests/);
   assert.match(pattern, /`.jskit\/APP_BLUEPRINT.md`/);
 });
@@ -139,7 +139,6 @@ test("crud guidance keeps canonical ownership columns distinct from domain relat
   assert.match(pattern, /every workspace-required CRUD generation must explicitly choose/);
   assert.match(generatorGuide, /even when a `member` role exists/);
   assert.match(generatorGuide, /ownership filter must match the direct reserved columns exactly/);
-  assert.doesNotMatch(generatorGuide, /historical|former|Migrating commands created before/);
   assert.match(generatorGuide, /`--internal` does not imply `--no-role-grant`|This decision is independent of `--internal`/);
 });
 
@@ -170,8 +169,7 @@ test("fresh CRUD and generated delete guidance is complete and distributed", asy
   assert.match(allGuidance, /Do not substitute raw `fetch\(\)`|Do not rebuild that command with raw `fetch\(\)`/);
 });
 
-test("existing-app temporal migration is prominent and rejects legacy coercion", async () => {
-  const index = await readFile(path.join(packageRoot, "site/guide/index.md"), "utf8");
+test("current guidance defines strict temporal values and the temporary upgrade guide owns migration steps", async () => {
   const generatorGuide = await readFile(
     path.join(packageRoot, "site/guide/generators/crud-generators.md"),
     "utf8"
@@ -180,15 +178,18 @@ test("existing-app temporal migration is prominent and rejects legacy coercion",
     path.join(packageRoot, "skills/jskit/references/crud-operations.md"),
     "utf8"
   );
+  const upgradeGuide = await readFile(
+    path.join(packageRoot, "site/guide/app-setup/upgrade-beta-1-to-final.md"),
+    "utf8"
+  );
   const guidance = `${generatorGuide}\n${skillReference}`;
 
-  assert.match(index, /Existing-app migration checklist/);
-  assert.match(generatorGuide, /^## Existing-app migration checklist$/m);
-  assert.match(guidance, /json-rest-schema@\^1\.0\.17|json-rest-schema` 1\.0\.17/);
   assert.match(guidance, /JavaScript `Date`/);
   assert.match(guidance, /RFC 3339/);
   assert.match(guidance, /epochMilliseconds/);
   assert.match(guidance, /epochSeconds/);
   assert.match(guidance, /temporalPrecision/);
-  assert.match(guidance, /no compatibility alias|rather than a legacy compatibility layer/);
+  assert.match(upgradeGuide, /^# Upgrade guide from Beta 1 to Final Release$/m);
+  assert.match(upgradeGuide, /JavaScript `Date` objects/);
+  assert.match(upgradeGuide, /--delete-confirmation/);
 });

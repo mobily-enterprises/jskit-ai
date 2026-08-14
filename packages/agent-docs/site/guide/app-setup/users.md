@@ -172,7 +172,7 @@ That one binding explains the deepest change in the chapter.
 
 Before this chapter, auth could authenticate a user without creating a persistent app-owned user row. After this chapter, auth providers can call `auth.profile.projector.syncIdentityProfile(...)` and get back a persistent users-backed profile.
 
-`users-core` also writes this server-only config line for Supabase compatibility:
+`users-core` also selects users-backed Supabase profile projection:
 
 ```js
 config.auth ||= {};

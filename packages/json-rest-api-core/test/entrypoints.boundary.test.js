@@ -32,7 +32,7 @@ test("package exports include explicit server jsonRestApiHost entrypoint only", 
   assert.equal(packageJson.dependencies?.["json-rest-api"], "^1.0.27");
 });
 
-test("server jsonRestApiHost entrypoint no longer exports host-side JSON:API simplification helpers", async () => {
+test("server jsonRestApiHost entrypoint exposes only the focused host API", async () => {
   const hostModule = await import("../src/server/jsonRestApiHost.js");
   assert.equal(Object.hasOwn(hostModule, "simplifyJsonApiDocument"), false);
 });

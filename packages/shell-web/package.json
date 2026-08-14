@@ -1,6 +1,6 @@
 {
   "name": "@jskit-ai/shell-web",
-  "version": "0.1.155",
+  "version": "0.1.156",
   "type": "module",
   "scripts": {
     "test": "node --test"
@@ -14,6 +14,8 @@
     "./client/bootstrap": "./src/client/bootstrap/index.js",
     "./server/support/localLinkItemScaffolds": "./src/server/support/localLinkItemScaffolds.js",
     "./client/navigation/linkResolver": "./src/client/navigation/linkResolver.js",
+    "./client/navigation/usePaths": "./src/client/navigation/usePaths.js",
+    "./client/navigation/useSurfaceRouteContext": "./src/client/navigation/useSurfaceRouteContext.js",
     "./client/components/ShellLayout": "./src/client/components/ShellLayout.vue",
     "./client/components/ShellOutlet": "./src/client/components/ShellOutlet.vue",
     "./client/components/ShellOutletMenuWidget": "./src/client/components/ShellOutletMenuWidget.vue",
@@ -28,7 +30,7 @@
   },
   "dependencies": {
     "@mdi/js": "^7.4.47",
-    "@jskit-ai/kernel": "0.1.151"
+    "@jskit-ai/kernel": "0.1.152"
   },
   "peerDependencies": {
     "pinia": "^3.0.4",
@@ -82,6 +84,14 @@
           {
             "subpath": "./client/placement",
             "summary": "Exports placement registry, placement context access, runtime token, and surface path helpers."
+          },
+          {
+            "subpath": "./client/navigation/usePaths",
+            "summary": "Exports surface-aware page and API path resolution."
+          },
+          {
+            "subpath": "./client/navigation/useSurfaceRouteContext",
+            "summary": "Exports the current route, placement context, and resolved surface id."
           },
           {
             "subpath": "./client/error",
@@ -381,7 +391,7 @@
       "dependencies": {
         "runtime": {
           "@mdi/js": "^7.4.47",
-          "@jskit-ai/kernel": "0.1.151"
+          "@jskit-ai/kernel": "0.1.152"
         },
         "dev": {
           "@playwright/test": "1.61.1"

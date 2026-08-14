@@ -55,7 +55,7 @@ function createConsoleAuthServiceDecorator({ consoleService } = {}) {
 
             const authenticatedUserId =
               authResult?.authenticated === true
-                ? normalizeRecordId(authResult?.profile?.id, { fallback: null })
+                ? normalizeRecordId(authResult?.actor?.id, { fallback: null })
                 : null;
 
             if (!authenticatedUserId) {

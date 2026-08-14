@@ -25,7 +25,17 @@ function normalizePackageKind(rawValue, metadataPath) {
   return normalized;
 }
 
-function validateFileMutationShape(packageMetadata, metadataPath) {
+function conditionUsesPackageOption(rawCondition) {
+  const condition = ensureObject(rawCondition);
+  if (Object.prototype.hasOwnProperty.call(condition, "option")) {
+    return true;
+  }
+  return ["all", "any"].some((key) =>
+    ensureArray(condition[key]).some((entry) => conditionUsesPackageOption(entry))
+  );
+}
+
+function validateFileMutationShape(packageMetadata, metadataPath, { packageKind = "" } = {}) {
   const packageId = String(ensureObject(packageMetadata).packageId || "").trim() || "unknown-package";
   const mutations = ensureObject(ensureObject(packageMetadata).mutations);
   const files = ensureArray(mutations.files);
@@ -57,6 +67,14 @@ function validateFileMutationShape(packageMetadata, metadataPath) {
     if (!normalized.id) {
       throw createCliError(
         `Invalid package metadata at ${metadataPath}: install-migration in ${packageId} requires "id".`
+      );
+    }
+    if (
+      packageKind === PACKAGE_KIND_RUNTIME &&
+      (JSON.stringify(fileMutation).includes("${option:") || conditionUsesPackageOption(normalized.when))
+    ) {
+      throw createCliError(
+        `Invalid package metadata at ${metadataPath}: runtime install-migration in ${packageId} must be deterministic and cannot reference package options. Use a generator for parameterized migrations.`
       );
     }
   }
@@ -189,7 +207,8 @@ function validatePackageMetadataShape(packageMetadata, metadataPath) {
     );
   }
 
-  validateFileMutationShape(normalized, metadataPath);
+  const kind = normalizePackageKind(normalized.kind, metadataPath);
+  validateFileMutationShape(normalized, metadataPath, { packageKind: kind });
   validateSourceMutationShape(normalized, metadataPath);
   const lifecycle = validateLifecycleShape(normalized, metadataPath);
   const ci = normalizeCiContribution(normalized.ci, {
@@ -201,7 +220,7 @@ function validatePackageMetadataShape(packageMetadata, metadataPath) {
     ...normalized,
     ci,
     lifecycle,
-    kind: normalizePackageKind(normalized.kind, metadataPath)
+    kind
   };
 }
 
@@ -210,10 +229,10 @@ function isGeneratorPackageEntry(packageEntry) {
   return String(packageMetadata.kind || "").trim().toLowerCase() === PACKAGE_KIND_GENERATOR;
 }
 
-function validateAppLocalPackageMetadataShape(packageMetadata, metadataPath, { expectedPackageId = "", fallbackVersion = "" } = {}) {
+function validateAppLocalPackageMetadataShape(packageMetadata, metadataPath, { expectedPackageId = "" } = {}) {
   const normalized = ensureObject(packageMetadata);
   const packageId = String(normalized.packageId || "").trim();
-  const version = String(normalized.version || "").trim() || String(fallbackVersion || "").trim();
+  const version = String(normalized.version || "").trim();
 
   if (!packageId) {
     throw createCliError(`Invalid app-local JSKIT metadata at ${metadataPath}: missing packageId.`);
@@ -227,7 +246,8 @@ function validateAppLocalPackageMetadataShape(packageMetadata, metadataPath, { e
     throw createCliError(`Invalid app-local JSKIT metadata at ${metadataPath}: missing version.`);
   }
 
-  validateFileMutationShape(normalized, metadataPath);
+  const kind = normalizePackageKind(normalized.kind, metadataPath);
+  validateFileMutationShape(normalized, metadataPath, { packageKind: kind });
   validateSourceMutationShape(normalized, metadataPath);
   const lifecycle = validateLifecycleShape(normalized, metadataPath);
   const ci = normalizeCiContribution(normalized.ci, {
@@ -241,7 +261,7 @@ function validateAppLocalPackageMetadataShape(packageMetadata, metadataPath, { e
     version,
     ci,
     lifecycle,
-    kind: normalizePackageKind(normalized.kind, metadataPath)
+    kind
   };
 }
 

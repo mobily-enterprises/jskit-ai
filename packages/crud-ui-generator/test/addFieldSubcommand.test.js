@@ -348,7 +348,7 @@ const UI_EDIT_FORM_FIELDS = [
   });
 });
 
-test("field rejects legacy form-field marker layouts instead of adding new push calls", async () => {
+test("field requires its form-field marker inside the declared field array", async () => {
   await withTempApp(async (appRoot) => {
     const resourceFile = "packages/contacts/src/shared/contactResource.js";
     const editFile = "src/pages/admin/crm/contacts/[recordId]/edit.vue";
@@ -378,7 +378,7 @@ UI_EDIT_FORM_FIELDS.push({ key: "firstName", component: "text" });
         args: ["vetId", "edit", editFile],
         options: {}
       }),
-      /Move the generated field marker inside the UI_EDIT_FORM_FIELDS array, or regenerate the screen with the current generator/
+      /requires its generated marker inside the UI_EDIT_FORM_FIELDS array/
     );
 
     const editSource = await readFile(path.join(appRoot, editFile), "utf8");

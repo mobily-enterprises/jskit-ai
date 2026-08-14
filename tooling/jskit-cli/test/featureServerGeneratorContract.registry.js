@@ -11,7 +11,7 @@ import path from "node:path";
 import test from "node:test";
 import { withTempDir } from "../../testUtils/tempDir.mjs";
 import { createCliRunner } from "../../testUtils/runCli.js";
-import { writeJskitPackageMetadata } from "../../testUtils/jskitPackage.mjs";
+import { writeJskitConfig } from "../../testUtils/jskitPackage.mjs";
 
 const CLI_PATH = fileURLToPath(new URL("../bin/jskit.js", import.meta.url));
 const runCli = createCliRunner(CLI_PATH);
@@ -78,11 +78,9 @@ export { config };
       )}\n`,
       "utf8"
     );
-    await writeJskitPackageMetadata(
+    await writeJskitConfig(
       path.join(appRoot, "packages", "main"),
       `({
-  packageId: "@local/main",
-  version: "0.1.0",
   kind: "runtime",
   runtime: {
     server: {

@@ -8,7 +8,7 @@ Use this on demand; do not load the full index at startup.
 
 ## Scope
 - Source: `packages/users-web/**/*{.js,.mjs,.cjs,.vue}`
-- Excludes: `test/`, `tests/`, `__tests__/`, `*.test.*`, `*.spec.*`, `*.vitest.*`, `node_modules/`, `dist/`, `coverage/`, `docs/`, `LEGACY/`, `.vitepress/cache/`, `.vitepress/dist/`
+- Excludes: `test/`, `tests/`, `__tests__/`, `*.test.*`, `*.spec.*`, `*.vitest.*`, `node_modules/`, `dist/`, `coverage/`, `docs/`, `.vitepress/cache/`, `.vitepress/dist/`
 
 ## Sections
 
@@ -435,9 +435,8 @@ Local functions
 - `normalizePlainObject(value = null)`
 - `normalizeRequestRecoveryInput(requestRecovery = null)`
 - `normalizeRequestRecoveryMethod(value = "")`
-- `isRequestRecoveryMetaDisabled(sourceJskitMeta = {}, sourceMeta = {})`
+- `isRequestRecoveryMetaDisabled(sourceJskitMeta = {})`
 - `hasUsableMetaValue(source = {}, key = "")`
-- `hasRequestRecoveryMetaValue(sourceJskitMeta = {}, sourceMeta = {}, key = "")`
 - `resolveRequestRecoveryDefaults(queryOptions = null, defaults = {})`
 
 ### `src/client/composables/support/routeTemplateHelpers.js`
@@ -575,16 +574,6 @@ Local functions
 - `defaultGetNextPageParam(lastPage)`
 - `normalizeQueryKeyValue(queryKey = null)`
 
-### `src/client/composables/usePaths.js`
-Exports
-- `usePaths({ routeContext: sourceRouteContext = null } = {})`
-Local functions
-- `normalizePathSuffix(value = "")`
-- `resolveSurfaceId(value, fallback = "")`
-- `resolveDefaultSurfaceIdFromPlacementContext(placementContext = null)`
-- `normalizeRouteParams(params = null)`
-- `resolveRouteParams(baseParams = {}, overrideParams = null)`
-
 ### `src/client/composables/useRealtimeQueryInvalidation.js`
 Exports
 - `resolveOperationRealtimeOptions({ realtime = undefined, fallbackRealtime = null } = {})`
@@ -601,10 +590,6 @@ Exports
 - `useScopeRuntime({ ownershipFilter = ROUTE_VISIBILITY_WORKSPACE, surfaceId = "", accessMode = "auto", hasPermissionRequirements = false, placementSource = "users-web.scope-runtime" } = {})`
 Local functions
 - `resolveScopedRouteParamNames(placementContext = null, surfaceId = "")`
-
-### `src/client/composables/useSurfaceRouteContext.js`
-Exports
-- `useSurfaceRouteContext()`
 
 ### `src/client/filters.js`
 Exports

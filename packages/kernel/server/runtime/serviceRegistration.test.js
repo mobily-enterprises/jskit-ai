@@ -63,7 +63,7 @@ test("installServiceRegistrationApi exposes app.service and publishes declared e
   assert.equal(published[0].meta?.realtime?.event, "customers.record.changed");
 });
 
-test("app.service rejects deprecated permissions metadata", () => {
+test("app.service rejects unknown metadata fields", () => {
   const app = createContainer();
   app.singleton("domainEvents", () => ({
     async publish() {
@@ -82,14 +82,10 @@ test("app.service rejects deprecated permissions metadata", () => {
           }
         }),
         {
-          permissions: {
-            listRecords: {
-              require: "authenticated"
-            }
-          }
+          unexpected: true
         }
       ),
-    /metadata\.permissions is no longer supported/
+    /metadata supports only events.*unexpected/
   );
 });
 

@@ -406,13 +406,8 @@ function updateWorkspaceManifest(packageJson = {}, latestVersions = new Map(), c
         continue;
       }
       const record = ensureObject(currentValue);
-      const versionField = Object.prototype.hasOwnProperty.call(record, "version")
-        ? "version"
-        : Object.prototype.hasOwnProperty.call(record, "value")
-          ? "value"
-          : "";
-      if (versionField && record[versionField] !== targetVersion) {
-        record[versionField] = targetVersion;
+      if (Object.prototype.hasOwnProperty.call(record, "version") && record.version !== targetVersion) {
+        record.version = targetVersion;
         updates.push(`jskit.mutations.dependencies.${mutationSection}.${packageName}@${targetVersion}`);
       }
     }
@@ -599,11 +594,9 @@ async function assertRootJskitVersionsAreExact({
 async function runAppUpdatePackagesCommand(ctx = {}, { appRoot = "", options = {}, stdout, stderr }) {
   const {
     createCliError,
-    loadAppPackageJson,
-    assertAppCiCanSynchronize
+    loadAppPackageJson
   } = ctx;
 
-  await assertAppCiCanSynchronize({ appRoot });
   const { packageJson } = await loadAppPackageJson(appRoot);
   const registryUrl = String(options?.inlineOptions?.registry || "").trim();
   const registryArgs = resolveRegistryArgs(registryUrl);

@@ -138,14 +138,14 @@ test("normalizeActionDefinition stays channel-agnostic and ignores unknown extra
       schema: createSchema({})
     },
     idempotency: "none",
-    assistantTool: {
-      description: "Legacy field"
+    customExtension: {
+      description: "Ignored field"
     },
     execute: async () => ({})
   });
 
   assert.equal(typeof definition, "object");
-  assert.equal(Object.prototype.hasOwnProperty.call(definition, "assistantTool"), false);
+  assert.equal(Object.prototype.hasOwnProperty.call(definition, "customExtension"), false);
 });
 
 test("normalizeActionOutputDefinition accepts single schema definitions", () => {

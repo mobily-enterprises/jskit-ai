@@ -105,6 +105,83 @@ async function addGeneratorMigrationPackage(appRoot) {
   );
 }
 
+async function createAppWithTransitiveMigrationPackage(appRoot) {
+  const featureRoot = path.join(appRoot, "packages", "feature");
+  const migrationPackageRoot = path.join(
+    appRoot,
+    "node_modules",
+    "@demo",
+    "transitive-migrations"
+  );
+  await mkdir(featureRoot, { recursive: true });
+  await mkdir(path.join(migrationPackageRoot, "templates"), { recursive: true });
+  await writeFile(
+    path.join(appRoot, "package.json"),
+    `${JSON.stringify({
+      name: "transitive-migrations-app",
+      version: "0.1.0",
+      private: true,
+      type: "module",
+      dependencies: {
+        "@demo/feature": "file:packages/feature"
+      }
+    }, null, 2)}\n`,
+    "utf8"
+  );
+  await writeFile(
+    path.join(featureRoot, "package.json"),
+    `${JSON.stringify({
+      name: "@demo/feature",
+      version: "1.0.0",
+      type: "module",
+      dependencies: {
+        "@demo/transitive-migrations": "1.0.0"
+      },
+      jskit: {
+        kind: "runtime",
+        runtime: {
+          server: { providers: [] },
+          client: { providers: [] }
+        },
+        mutations: { files: [] }
+      }
+    }, null, 2)}\n`,
+    "utf8"
+  );
+  await writeFile(
+    path.join(migrationPackageRoot, "package.json"),
+    `${JSON.stringify({
+      name: "@demo/transitive-migrations",
+      version: "1.0.0",
+      type: "module",
+      jskit: {
+        kind: "runtime",
+        runtime: {
+          server: { providers: [] },
+          client: { providers: [] }
+        },
+        mutations: {
+          files: [
+            {
+              op: "install-migration",
+              from: "templates/transitive.cjs",
+              toDir: "migrations",
+              extension: ".cjs",
+              id: "transitive-migration"
+            }
+          ]
+        }
+      }
+    }, null, 2)}\n`,
+    "utf8"
+  );
+  await writeFile(
+    path.join(migrationPackageRoot, "templates", "transitive.cjs"),
+    "module.exports = { transitive: true };\n",
+    "utf8"
+  );
+}
+
 async function migrationFiles(appRoot) {
   return (await readdir(path.join(appRoot, "migrations")).catch(() => []))
     .filter((entry) => entry.endsWith("_demo-migration.cjs"));
@@ -168,5 +245,22 @@ test("migrations sync ignores generator migration templates", async () => {
     );
     const allMigrations = await readdir(path.join(appRoot, "migrations"));
     assert.equal(allMigrations.some((entry) => entry.includes("generated-migration")), false);
+  });
+});
+
+test("add package synchronizes migrations from the installed npm graph", async () => {
+  await withTempDir(async (appRoot) => {
+    await createAppWithTransitiveMigrationPackage(appRoot);
+
+    const result = runCli({ cwd: appRoot, args: ["add", "package", "@demo/feature"] });
+    assert.equal(result.status, 0, String(result.stderr || ""));
+
+    const files = (await readdir(path.join(appRoot, "migrations")))
+      .filter((entry) => entry.endsWith("_transitive-migration.cjs"));
+    assert.equal(files.length, 1);
+    assert.equal(
+      await readFile(path.join(appRoot, "migrations", files[0]), "utf8"),
+      "module.exports = { transitive: true };\n"
+    );
   });
 });

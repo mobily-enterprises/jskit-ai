@@ -39,8 +39,7 @@ export default defineConfig({
       routesFolder: "src/pages",
       // Generated on the first Vite dev/build scan and intentionally gitignored.
       dts: "src/typed-router.d.ts",
-      // nestedChildren deprecated: JSKIT now relies on native index/... nesting instead of route rewrites.
-      // beforeWriteFiles: reparentNestedChildrenToIndexOwners
+      nestedChildren: false
     }),
     vue(),
     vuetify({

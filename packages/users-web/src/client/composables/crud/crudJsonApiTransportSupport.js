@@ -113,7 +113,7 @@ function inferCrudJsonApiTransport(resource = null, { mode = "", operationName =
 function resolveCrudJsonApiTransport(transport = null, resource = null, options = {}) {
   if (transport != null) {
     throw new TypeError(
-      "CRUD hooks no longer accept explicit transport. Derive JSON:API transport from the shared resource instead."
+      "CRUD hooks do not accept explicit transport. Derive JSON:API transport from the shared resource."
     );
   }
 

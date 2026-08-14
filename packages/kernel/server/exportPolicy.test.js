@@ -61,7 +61,7 @@ test("kernel exported JS targets do not use star re-exports", async () => {
   assert.deepEqual(violations, []);
 });
 
-test("kernel package does not expose deprecated ./server aggregate entrypoint", async () => {
+test("kernel package exposes only its declared entrypoints", async () => {
   const packageJsonPath = path.join(PACKAGE_ROOT, "package.json");
   const packageJson = JSON.parse(await readFile(packageJsonPath, "utf8"));
   assert.equal(Object.hasOwn(packageJson.exports || {}, "./server"), false);

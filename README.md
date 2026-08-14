@@ -30,41 +30,34 @@ npm run docs:build
 npm run verify
 ```
 
-## Publishing already-prepared versions
+## Publishing
 
-`release:npm` prepares a new patch release by editing versions. When versions
-are already prepared in the worktree, use the separate exact-version path. It
-never changes source files and does not publish by default:
+The repository has two release intents. Prepare the source first:
 
 ```bash
-npm run release:npm:prepared -- --only '@jskit-ai/example@0.1.2'
+npm run release:npm:prepare
+npm run verify
 ```
 
-The read-only preflight checks that `0.1.1` exists, `0.1.2` does not, and every
-exact JSKIT dependency is either already published or included in `--only`. It
-then packs the current source, verifies the tarball identity and hashes, and
-prints a plan fingerprint. A network-free packaging check is also available:
+`prepare` increments every JSKIT package patch version, rewrites exact internal
+versions in workspace and template manifests, refreshes `package-lock.json`,
+and rebuilds the catalog and distributed agent documentation. Verify, review,
+and commit that source change.
+
+Then publish the committed versions:
 
 ```bash
-npm run release:npm:prepared -- --dry-run --offline --only '@jskit-ai/example@0.1.2'
+NPM_TOKEN=... npm run release:npm:publish
+npm run verify:registry
 ```
 
-Registry mutation requires both an explicit flag and the fingerprint from a
-fresh preflight. The command repacks the sources, so any intervening change
-invalidates the confirmation:
+`publish` edits nothing. It rejects stale internal versions and dependency
+cycles, then publishes the current packages directly to npm in dependency
+order. `verify:registry` contains the checks that require the public registry.
 
-```bash
-npm run release:npm:prepared -- \
-  --only '@jskit-ai/example@0.1.2' \
-  --publish \
-  --confirm 'sha256:...'
-```
+For a one-shot release, `npm run release` runs `prepare`, the deterministic
+source verification gate, and `publish` in that order.
 
-Publishing uses a non-consumer staging tag, verifies the registry-reported
-identity and integrity for every tarball, and only then promotes packages in
-dependency order. `NPM_TOKEN` is read only after confirmation succeeds.
-
-If a registry or network failure interrupts a multi-package publication,
-repeat the preflight with `--resume`. It accepts only already-published
-tarballs whose identities and hashes exactly match the freshly packed sources,
-then prints the fingerprint for a confirmed `--publish --resume` continuation.
+If npm interrupts a publication after accepting some packages, fix the cause
+and prepare a new coordinated patch release. Published npm versions are
+immutable; there is no release-resume state in the repository.

@@ -82,7 +82,7 @@ async function collectPackageManifestRecords(packagesRoot) {
   const levelOne = await readdir(packagesRoot, { withFileTypes: true });
 
   for (const entry of levelOne) {
-    if (!entry.isDirectory() || entry.name.startsWith(".") || entry.name.endsWith(".LEGACY")) {
+    if (!entry.isDirectory() || entry.name.startsWith(".")) {
       continue;
     }
 

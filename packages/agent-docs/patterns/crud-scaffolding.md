@@ -38,8 +38,8 @@ workaround.
 
 Before database, schema, CRUD, repository, or persistence work, read this
 pattern completely. Use the database selected for this app's development
-runtime; never alter a production, legacy, historical, or other valuable
-database to develop or verify schema changes. Prove the complete migration
+runtime; never alter a production or other valuable database to develop or
+verify schema changes. Prove the complete migration
 chain against a fresh disposable database before reporting completion.
 
 For normal app-owned CRUD tables:
@@ -103,8 +103,8 @@ Rules:
 
 ## Temporal values at resource boundaries
 
-`json-rest-schema` 1.0.17 accepts strict string temporal values. Resource
-validators no longer coerce JavaScript `Date` objects:
+Resource validators accept strict string temporal values and reject JavaScript
+`Date` objects:
 
 - `date` is `YYYY-MM-DD`
 - `time` is offset-free `HH:MM[:SS[.fraction]]`

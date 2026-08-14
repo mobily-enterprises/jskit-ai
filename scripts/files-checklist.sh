@@ -10,7 +10,6 @@ while IFS= read -r -d '' file; do
 done < <(
   rg --files -0 \
     -g '!**/node_modules/**' \
-    -g '!**/LEGACY/**' \
     -g '!docs/**' \
     -g '!**/test/**' \
     -g '!**/tests/**' \

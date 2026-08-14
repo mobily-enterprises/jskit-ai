@@ -523,7 +523,7 @@ To use it, install a JSKIT database runtime and driver, install `auth-provider-l
 
 There are two database-backed paths, and they solve different problems.
 
-For normal app users and account settings, install the database runtime, install `users-web`, then run the migrations. That gives the app the `users` and `user_settings` tables through `users-core`, plus the `auth.profile.projector` bridge that projects a provider identity into a persistent JSKIT user profile.
+For normal app users and account settings, install the database runtime, install `users-web`, then run the migrations. That gives the app the `users` and `user_settings` tables through `users-core`, plus the `auth.profile.projector` service that projects a provider identity into a persistent JSKIT user profile.
 
 For local auth credentials and sessions in SQL, keep `AUTH_PROVIDER=local`, install `auth-provider-local-db-core`, set `AUTH_LOCAL_BACKEND=db`, and run migrations. That package owns `auth_local_users`, `auth_local_sessions`, and `auth_local_recovery`, and registers the transactional `auth.local.backend` implementation.
 
@@ -560,7 +560,7 @@ registerAuthServiceDecorator(app, "app.auth.local.permissions", (scope) => {
 
 The hook must declare `blocking: true` or `blocking: false`. A blocking hook is awaited and its failure rejects the register call, which fits permission provisioning or other work the app needs before treating registration as complete. A non-blocking hook is scheduled after registration and logs failures, which fits audit logging or metrics. This helper runs after local auth registration and profile projection have succeeded; it does not share the local auth backend transaction. If the extension must be transaction-coupled with credential storage, wrap or replace `auth.local.backend` instead.
 
-The local provider also has a separate password strategy seam. Use `auth.local.backend` to change where local auth records are stored. Use `auth.local.passwordStrategy` only when the app needs to change how passwords are hashed or verified, such as during a migration from an existing user table with existing password hashes.
+The local provider also has a separate password strategy seam. Use `auth.local.backend` to change where local auth records are stored. Use `auth.local.passwordStrategy` only when the app owns a different password-record format or verification algorithm.
 
 Register `auth.local.passwordStrategy` before `AuthLocalServiceProvider` starts:
 
@@ -579,7 +579,7 @@ app.singleton("auth.local.passwordStrategy", () => ({
 }));
 ```
 
-The strategy object can provide `hashPassword(password)`, `verifyPassword(password, storedPasswordRecord)`, or both. Missing methods fall back to the local provider's default scrypt implementation, so a migration verifier can accept old hashes while new registrations, resets, and password changes continue to write default JSKIT password records. JSKIT validates provided methods as functions and calls them with `this` bound to the strategy object.
+The strategy object can provide `hashPassword(password)`, `verifyPassword(password, storedPasswordRecord)`, or both. Missing methods use the local provider's default scrypt implementation. JSKIT validates provided methods as functions and calls them with `this` bound to the strategy object.
 
 Custom service callers can pass the same object directly:
 
@@ -591,7 +591,7 @@ createLocalAuthService({
 });
 ```
 
-JSKIT core does not install bcrypt or any legacy password dependency. If an app needs a legacy verifier, the app owns that dependency and keeps the backend as storage only.
+JSKIT core does not install bcrypt. An app that selects bcrypt owns that dependency and keeps the backend focused on storage.
 
 If you later configure local SMTP password recovery, also set `APP_PUBLIC_URL` so reset links point back to the browser URL for this app.
 

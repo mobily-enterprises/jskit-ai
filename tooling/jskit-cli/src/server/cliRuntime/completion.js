@@ -14,7 +14,6 @@ import {
 import {
   COMMAND_IDS,
   isKnownCommandName,
-  resolveCommandAlias,
   resolveCommandDescriptor
 } from "../core/commandCatalog.js";
 
@@ -141,7 +140,6 @@ async function loadCommandCatalog() {
   return {
     COMMAND_IDS,
     isKnownCommandName,
-    resolveCommandAlias,
     resolveCommandDescriptor
   };
 }
@@ -713,9 +711,6 @@ function buildTopLevelCommandMetadata(catalogModule) {
       continue;
     }
     commands.add(descriptor.command);
-    for (const alias of Array.isArray(descriptor.aliases) ? descriptor.aliases : []) {
-      commands.add(alias);
-    }
   }
   commands.add("help");
   return uniqueSorted([...commands]);
@@ -988,7 +983,7 @@ async function completeGenerateCommand({ appRoot, words, cword, catalogModule })
 async function completeCommand({ appRoot, words, cword, catalogModule }) {
   const currentToken = words[cword] ?? "";
   const commandToken = normalizeText(words[1]);
-  const command = catalogModule.resolveCommandAlias(commandToken);
+  const command = commandToken;
   const previousToken = words[cword - 1] ?? "";
 
   if (!command || !catalogModule.isKnownCommandName(command)) {

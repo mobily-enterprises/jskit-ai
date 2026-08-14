@@ -1,6 +1,6 @@
 <script setup>
 import { computed } from "vue";
-import { useSurfaceRouteContext } from "@jskit-ai/users-web/client/composables/useSurfaceRouteContext";
+import { useSurfaceRouteContext } from "@jskit-ai/shell-web/client/navigation/useSurfaceRouteContext";
 import { resolveProfileSurfaceMenuLinks } from "../lib/profileSurfaceMenuLinks.js";
 
 const props = defineProps({

@@ -125,10 +125,6 @@ function resolveQueryMeta(query = null) {
 
 function isRequestRecoveryDisabled(query = null) {
   const meta = resolveQueryMeta(query);
-  if (meta.jskitRequestRecovery === false || meta.requestRecovery === false) {
-    return true;
-  }
-
   const jskitMeta = isRecord(meta.jskit) ? meta.jskit : {};
   return jskitMeta.requestRecovery === false;
 }
@@ -138,11 +134,7 @@ function resolveQueryRecoveryLabel(query = null) {
   const jskitMeta = isRecord(meta.jskit) ? meta.jskit : {};
 
   return normalizeText(
-    jskitMeta.requestRecoveryLabel ||
-      jskitMeta.label ||
-      meta.jskitRequestRecoveryLabel ||
-      meta.requestRecoveryLabel ||
-      meta.label,
+    jskitMeta.requestRecoveryLabel,
     "Request"
   );
 }
@@ -152,9 +144,7 @@ function resolveQueryRecoverySource(query = null) {
   const jskitMeta = isRecord(meta.jskit) ? meta.jskit : {};
 
   return normalizeText(
-    jskitMeta.requestRecoverySource ||
-      meta.jskitRequestRecoverySource ||
-      meta.requestRecoverySource,
+    jskitMeta.requestRecoverySource,
     "shell-web.request-recovery.query"
   );
 }
@@ -164,9 +154,7 @@ function resolveQueryRecoveryDedupeKey(query = null, fallback = "") {
   const jskitMeta = isRecord(meta.jskit) ? meta.jskit : {};
 
   return normalizeText(
-    jskitMeta.requestRecoveryDedupeKey ||
-      meta.jskitRequestRecoveryDedupeKey ||
-      meta.requestRecoveryDedupeKey,
+    jskitMeta.requestRecoveryDedupeKey,
     fallback
   );
 }
@@ -174,10 +162,7 @@ function resolveQueryRecoveryDedupeKey(query = null, fallback = "") {
 function resolveQueryRecoveryDedupeWindowMs(query = null) {
   const meta = resolveQueryMeta(query);
   const jskitMeta = isRecord(meta.jskit) ? meta.jskit : {};
-  const value =
-    jskitMeta.requestRecoveryDedupeWindowMs ??
-      meta.jskitRequestRecoveryDedupeWindowMs ??
-      meta.requestRecoveryDedupeWindowMs;
+  const value = jskitMeta.requestRecoveryDedupeWindowMs;
 
   return Number.isFinite(Number(value)) ? Math.max(0, Number(value)) : null;
 }
@@ -186,11 +171,7 @@ function resolveQueryRecoveryMethod(query = null) {
   const meta = resolveQueryMeta(query);
   const jskitMeta = isRecord(meta.jskit) ? meta.jskit : {};
 
-  return normalizeText(
-    jskitMeta.requestRecoveryMethod ||
-      meta.jskitRequestRecoveryMethod ||
-      meta.requestRecoveryMethod
-  ).toUpperCase();
+  return normalizeText(jskitMeta.requestRecoveryMethod).toUpperCase();
 }
 
 function isSafeQueryRecoveryMethod(query = null) {

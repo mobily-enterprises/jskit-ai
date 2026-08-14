@@ -14,7 +14,7 @@ import {
 } from "@jskit-ai/workspaces-core/shared/jsonApiTransports";
 import { useCommand } from "@jskit-ai/users-web/client/composables/useCommand";
 import { useView } from "@jskit-ai/users-web/client/composables/useView";
-import { usePaths } from "@jskit-ai/users-web/client/composables/usePaths";
+import { usePaths } from "@jskit-ai/shell-web/client/navigation/usePaths";
 import { useRealtimeQueryInvalidation } from "@jskit-ai/users-web/client/composables/useRealtimeQueryInvalidation";
 import { useWorkspaceSurfaceId } from "../composables/useWorkspaceSurfaceId.js";
 import { normalizeRecordId } from "@jskit-ai/kernel/shared/support/normalize";

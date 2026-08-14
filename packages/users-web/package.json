@@ -1,6 +1,6 @@
 {
   "name": "@jskit-ai/users-web",
-  "version": "0.1.169",
+  "version": "0.1.170",
   "type": "module",
   "scripts": {
     "test": "node --test"
@@ -36,25 +36,23 @@
     "./client/crudHttpClient": "./src/client/composables/crud/crudHttpClientSupport.js",
     "./client/composables/useCrudListParentTitle": "./src/client/composables/useCrudListParentTitle.js",
     "./client/composables/useRealtimeQueryInvalidation": "./src/client/composables/useRealtimeQueryInvalidation.js",
-    "./client/composables/useSurfaceRouteContext": "./src/client/composables/useSurfaceRouteContext.js",
     "./client/composables/useView": "./src/client/composables/records/useView.js",
     "./client/composables/useCrudView": "./src/client/composables/records/useCrudView.js",
     "./client/composables/useCrudViewScreen": "./src/client/composables/useCrudViewScreen.js",
     "./client/composables/usePagedCollection": "./src/client/composables/usePagedCollection.js",
-    "./client/composables/usePaths": "./src/client/composables/usePaths.js",
     "./client/composables/runtime/useUiFeedback": "./src/client/composables/runtime/useUiFeedback.js",
     "./client/lib/httpClient": "./src/client/lib/httpClient.js",
     "./client/lib/permissions": "./src/client/lib/permissions.js",
     "./client/support/contractGuards": "./src/client/support/contractGuards.js"
   },
   "dependencies": {
-    "@jskit-ai/auth-web": "0.1.151",
-    "@jskit-ai/http-runtime": "0.1.149",
-    "@jskit-ai/kernel": "0.1.151",
-    "@jskit-ai/realtime": "0.1.148",
-    "@jskit-ai/shell-web": "0.1.155",
-    "@jskit-ai/uploads-image-web": "0.1.126",
-    "@jskit-ai/users-core": "0.1.164",
+    "@jskit-ai/auth-web": "0.1.152",
+    "@jskit-ai/http-runtime": "0.1.150",
+    "@jskit-ai/kernel": "0.1.152",
+    "@jskit-ai/realtime": "0.1.149",
+    "@jskit-ai/shell-web": "0.1.156",
+    "@jskit-ai/uploads-image-web": "0.1.127",
+    "@jskit-ai/users-core": "0.1.165",
     "@mdi/js": "^7.4.47"
   },
   "peerDependencies": {
@@ -194,10 +192,6 @@
           {
             "subpath": "./client/composables/usePagedCollection",
             "summary": "Exports paged collection query composable."
-          },
-          {
-            "subpath": "./client/composables/usePaths",
-            "summary": "Exports surface route path resolver composable."
           },
           {
             "subpath": "./client/lib/httpClient",
@@ -363,12 +357,12 @@
       "dependencies": {
         "runtime": {
           "@mdi/js": "^7.4.47",
-          "@jskit-ai/http-runtime": "0.1.149",
-          "@jskit-ai/realtime": "0.1.148",
-          "@jskit-ai/kernel": "0.1.151",
-          "@jskit-ai/shell-web": "0.1.155",
-          "@jskit-ai/uploads-image-web": "0.1.126",
-          "@jskit-ai/users-core": "0.1.164"
+          "@jskit-ai/http-runtime": "0.1.150",
+          "@jskit-ai/realtime": "0.1.149",
+          "@jskit-ai/kernel": "0.1.152",
+          "@jskit-ai/shell-web": "0.1.156",
+          "@jskit-ai/uploads-image-web": "0.1.127",
+          "@jskit-ai/users-core": "0.1.165"
         },
         "dev": {}
       },

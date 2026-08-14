@@ -111,7 +111,7 @@ function createUsersBootstrapContributor({
         throw new AppError(503, "Authentication service temporarily unavailable. Please retry.");
       }
 
-      const normalizedUser = authResult?.authenticated === true ? authResult?.profile || null : null;
+      const normalizedUser = authResult?.authenticated === true ? authResult?.actor || null : null;
       const inheritedSurfaceAccess = normalizeObject(existingPayload?.surfaceAccess);
       let payload = createAnonymousBootstrapPayload({
         appState,

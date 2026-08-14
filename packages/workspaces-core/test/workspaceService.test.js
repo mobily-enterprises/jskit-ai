@@ -179,7 +179,7 @@ function createWorkspaceServiceFixture({
   return { service, calls, insertedPayloads };
 }
 
-test("workspaceService no longer exposes bootstrap payload assembly", () => {
+test("workspaceService keeps bootstrap payload assembly outside its API", () => {
   const { service } = createWorkspaceServiceFixture();
   assert.equal(service.buildBootstrapPayload, undefined);
 });
@@ -199,7 +199,7 @@ test("workspaceService.listWorkspacesForUser returns only accessible workspaces"
   assert.equal(calls.insert, 0);
 });
 
-test("workspaceService.listWorkspacesForUser no longer provisions personal workspace in workspace mode", async () => {
+test("workspaceService.listWorkspacesForUser does not provision a personal workspace in workspace mode", async () => {
   const { service, calls } = createWorkspaceServiceFixture({
     tenancyMode: "workspaces",
     personalWorkspace: null

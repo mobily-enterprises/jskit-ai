@@ -8,7 +8,7 @@ Use this on demand; do not load the full index at startup.
 
 ## Scope
 - Source: `tooling/testUtils/**/*{.js,.mjs,.cjs,.vue}`
-- Excludes: `test/`, `tests/`, `__tests__/`, `*.test.*`, `*.spec.*`, `*.vitest.*`, `node_modules/`, `dist/`, `coverage/`, `docs/`, `LEGACY/`, `.vitepress/cache/`, `.vitepress/dist/`
+- Excludes: `test/`, `tests/`, `__tests__/`, `*.test.*`, `*.spec.*`, `*.vitest.*`, `node_modules/`, `dist/`, `coverage/`, `docs/`, `.vitepress/cache/`, `.vitepress/dist/`
 
 ## Sections
 
@@ -28,9 +28,9 @@ Exports
 
 ### `jskitPackage.mjs`
 Exports
-- `writeJskitPackageMetadata(packageRoot, metadataOrExpression)`
+- `writeJskitConfig(packageRoot, jskitOrSource)`
 Local functions
-- `resolveMetadata(metadataOrExpression)`
+- `resolveJskitConfig(jskitOrSource)`
 
 ### `runCli.js`
 Exports

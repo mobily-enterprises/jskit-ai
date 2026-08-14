@@ -51,10 +51,6 @@ async function inspectCiFiles(appRoot) {
   };
 }
 
-async function assertCiCanSynchronize({ appRoot }) {
-  return inspectCiFiles(appRoot);
-}
-
 async function synchronizeCiWorkflow({
   appRoot,
   packageRegistry,
@@ -64,7 +60,7 @@ async function synchronizeCiWorkflow({
 }) {
   const model = composeInstalledPackageCi({ packageRegistry, installedPackageIds });
   const content = renderGithubWorkflow(model);
-  const state = await assertCiCanSynchronize({ appRoot });
+  const state = await inspectCiFiles(appRoot);
   const currentContent = state.target.exists ? state.target.buffer.toString("utf8") : "";
   const workflowChanged = currentContent !== content;
 
@@ -87,14 +83,6 @@ async function synchronizeCiWorkflow({
   };
 }
 
-async function assertAppCiCanSynchronize({ appRoot }) {
-  if (!(await directoryLooksLikeJskitAppRoot(appRoot))) {
-    return { applicable: false };
-  }
-  await assertCiCanSynchronize({ appRoot });
-  return { applicable: true };
-}
-
 async function synchronizeAppCiWorkflow({ appRoot, dryRun = false }) {
   if (!(await directoryLooksLikeJskitAppRoot(appRoot))) {
     return { applicable: false, changed: false };
@@ -107,7 +95,6 @@ async function synchronizeAppCiWorkflow({ appRoot, dryRun = false }) {
 }
 
 export {
-  assertAppCiCanSynchronize,
   composeInstalledPackageCi,
   synchronizeAppCiWorkflow,
   synchronizeCiWorkflow

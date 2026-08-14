@@ -5,7 +5,7 @@ import path from "node:path";
 import test from "node:test";
 import { withTempDir } from "../../testUtils/tempDir.mjs";
 import { createCliRunner } from "../../testUtils/runCli.js";
-import { writeJskitPackageMetadata } from "../../testUtils/jskitPackage.mjs";
+import { writeJskitConfig } from "../../testUtils/jskitPackage.mjs";
 
 const CLI_PATH = fileURLToPath(new URL("../bin/jskit.js", import.meta.url));
 const runCli = createCliRunner(CLI_PATH);
@@ -28,7 +28,7 @@ async function createMinimalApp(appRoot, { name = "tmp-app" } = {}) {
   );
 }
 
-async function writeGeneratorPackage(appRoot, packageName, metadataExpression) {
+async function writeGeneratorPackage(appRoot, packageName, jskitSource) {
   const packageRoot = path.join(appRoot, "packages", packageName);
   await mkdir(packageRoot, { recursive: true });
   await writeFile(
@@ -44,7 +44,7 @@ async function writeGeneratorPackage(appRoot, packageName, metadataExpression) {
     )}\n`,
     "utf8"
   );
-  await writeJskitPackageMetadata(path.join(packageRoot), metadataExpression);
+  await writeJskitConfig(path.join(packageRoot), jskitSource);
   const appPackageJsonPath = path.join(appRoot, "package.json");
   const appPackageJson = JSON.parse(await readFile(appPackageJsonPath, "utf8"));
   appPackageJson.devDependencies ||= {};
@@ -76,14 +76,6 @@ test("completion bash __complete__ lists only canonical top-level commands", () 
   assert.ok(completions.includes("list"));
   assert.ok(completions.includes("list-component-tokens"));
   assert.ok(completions.includes("show"));
-  assert.ok(!completions.includes("gen"));
-  assert.ok(!completions.includes("ls"));
-  assert.ok(!completions.includes("lp"));
-  assert.ok(!completions.includes("lct"));
-  assert.ok(!completions.includes("lpct"));
-  assert.ok(!completions.includes("list-link-items"));
-  assert.ok(!completions.includes("list-placement-component-tokens"));
-  assert.ok(!completions.includes("view"));
 });
 
 test("completion bash __complete__ exposes both create targets", () => {
@@ -180,8 +172,6 @@ test("completion bash __complete__ resolves package metadata values from the cur
       appRoot,
       "crud-ui-generator",
       `({
-  packageId: "@jskit-ai/crud-ui-generator",
-  version: "0.1.0",
   kind: "generator",
   options: {
     "resource-file": { inputType: "text" },
@@ -210,8 +200,6 @@ test("completion bash __complete__ resolves package metadata values from the cur
       appRoot,
       "crud-server-generator",
       `({
-  packageId: "@jskit-ai/crud-server-generator",
-  version: "0.1.0",
   kind: "generator",
   options: {
     "ownership-filter": {

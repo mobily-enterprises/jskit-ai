@@ -6,7 +6,7 @@ import test from "node:test";
 import { withTempDir } from "../../testUtils/tempDir.mjs";
 import { createCliRunner } from "../../testUtils/runCli.js";
 import { declareInstalledPackages } from "./testInstalledPackages.js";
-import { writeJskitPackageMetadata } from "../../testUtils/jskitPackage.mjs";
+import { writeJskitConfig } from "../../testUtils/jskitPackage.mjs";
 
 const CLI_PATH = fileURLToPath(new URL("../bin/jskit.js", import.meta.url));
 const runCli = createCliRunner(CLI_PATH);
@@ -48,6 +48,7 @@ async function writeGeneratorPackage(appRoot, { requiresShellWeb = false } = {})
       {
         name: "@demo/generator",
         version: "0.1.0",
+        description: "Demo generator",
         type: "module"
       },
       null,
@@ -56,13 +57,10 @@ async function writeGeneratorPackage(appRoot, { requiresShellWeb = false } = {})
     "utf8"
   );
 
-  await writeJskitPackageMetadata(
+  await writeJskitConfig(
     path.join(packageRoot),
     `({
-  packageId: "@demo/generator",
-  version: "0.1.0",
   kind: "generator",
-  description: "Demo generator",
   options: {},
   capabilities: {
     provides: [],

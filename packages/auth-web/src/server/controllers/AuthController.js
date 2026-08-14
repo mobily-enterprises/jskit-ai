@@ -31,7 +31,7 @@ class AuthController {
 
     reply.code(201).send({
       ok: true,
-      username: result.profile.displayName,
+      username: result.actor.displayName,
       requiresEmailConfirmation: false
     });
   }
@@ -50,7 +50,7 @@ class AuthController {
 
     reply.code(200).send({
       ok: true,
-      username: result.profile.displayName
+      username: result.actor.displayName
     });
   }
 
@@ -67,8 +67,8 @@ class AuthController {
     this.service.writeSessionCookies(reply, result.session);
     reply.code(200).send({
       ok: true,
-      username: result.profile.displayName,
-      email: result.profile.email
+      username: result.actor.displayName,
+      email: result.actor.email
     });
   }
 
@@ -87,8 +87,8 @@ class AuthController {
     reply.code(200).send({
       ok: true,
       provider: result.provider,
-      username: result.profile.displayName,
-      email: result.profile.email
+      username: result.actor.displayName,
+      email: result.actor.email
     });
   }
 
@@ -98,9 +98,9 @@ class AuthController {
     this.service.writeSessionCookies(reply, result.session);
     reply.code(200).send({
       ok: true,
-      userId: result.profile.id,
-      username: result.profile.displayName,
-      email: result.profile.email
+      userId: result.actor.id,
+      username: result.actor.displayName,
+      email: result.actor.email
     });
   }
 
@@ -159,8 +159,8 @@ class AuthController {
 
     reply.code(200).send({
       authenticated: true,
-      username: authResult.profile.displayName,
-      email: authResult.profile.email,
+      username: authResult.actor.displayName,
+      email: authResult.actor.email,
       permissions: Array.isArray(authResult.permissions) ? authResult.permissions : [],
       csrfToken,
       ...oauthCatalogPayload

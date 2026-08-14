@@ -30,7 +30,6 @@ test("users-web exports are explicit and aligned with production/template usage"
       "./client/composables/useCommand",
       "./client/composables/useEndpointResource",
       "./client/composables/useList",
-      "./client/composables/usePaths",
       "./client/composables/useView",
       "./client/composables/useCrudAddEdit",
       "./client/composables/useCrudAddEditScreen",

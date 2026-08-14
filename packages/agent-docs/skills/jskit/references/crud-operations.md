@@ -96,9 +96,9 @@ With `json-rest-schema` 1.0.17, temporal resource values are strings:
 - `dateTime`: RFC 3339 with seconds and `Z` or a numeric offset
 
 Do not pass JavaScript `Date` objects through resource validation; convert at
-the boundary (normally `toISOString()` for `dateTime`). `timestamp` is removed:
-after checking the existing unit, use `epochMilliseconds` or `epochSeconds`.
-Honor `temporalPrecision` without silently truncating fractions. Generated CRUD
+the boundary (normally `toISOString()` for `dateTime`). Numeric epochs use
+`epochMilliseconds` or `epochSeconds`. Honor `temporalPrecision` without
+silently truncating fractions. Generated CRUD
 serializes supported database temporal output; custom repositories must return
 strict strings and write ISO/RFC 3339 strings themselves.
 

@@ -30,7 +30,10 @@ test("crud-server-generator surface option validates against enabled surface ids
   assert.equal(packageMetadata.metadata?.generatorSubcommands?.scaffold?.optionNames?.includes("force"), true);
   assert.equal(packageMetadata.metadata?.generatorSubcommands?.scaffold?.optionNames?.includes("internal"), true);
   assert.equal(packageMetadata.metadata?.generatorSubcommands?.scaffold?.optionNames?.includes("grant-role"), true);
-  assert.equal(packageMetadata.mutations?.dependencies?.runtime?.["@jskit-ai/auth-core"], "0.1.146");
+  assert.equal(
+    packageMetadata.mutations?.dependencies?.runtime?.["@jskit-ai/auth-core"],
+    packageJson.dependencies?.["@jskit-ai/auth-core"]
+  );
   assert.equal(packageMetadata.metadata?.generatorSubcommands?.scaffold?.optionNames?.includes("no-role-grant"), true);
   assert.equal(packageMetadata.metadata?.generatorSubcommands?.scaffold?.createTarget?.pathTemplate, "packages/${option:namespace|kebab}");
   assert.deepEqual(packageMetadata.lifecycle?.install?.prepare, {
@@ -39,7 +42,7 @@ test("crud-server-generator surface option validates against enabled surface ids
   });
 });
 
-test("crud-server-generator no longer installs a separate jsonRestResource server template", () => {
+test("crud-server-generator metadata has one shared resource definition", () => {
   const files = packageMetadata.mutations?.files || [];
   const jsonRestResourceTemplate = files.find((entry) => entry.from === "templates/src/local-package/server/jsonRestResource.js");
 

@@ -91,6 +91,7 @@ function createServiceFixture(overrides = {}) {
     devAuthBypassSecret: DEV_AUTH_SECRET,
     userProfilesRepository: createUserProfilesRepository(),
     userProfileSyncService: createUserProfileSyncService(),
+    profileProjectionEnabled: true,
     ...overrides
   });
 }
@@ -103,7 +104,7 @@ test("dev auth bootstrap can issue and authenticate a local session without Supa
     userId: "7"
   });
 
-  assert.equal(loginResult.profile.id, "7");
+  assert.equal(loginResult.actor.id, "7");
   assert.match(loginResult.session.access_token, /^jskit-dev\./);
   assert.match(loginResult.session.refresh_token, /^jskit-dev\./);
 
@@ -117,8 +118,8 @@ test("dev auth bootstrap can issue and authenticate a local session without Supa
   );
 
   assert.equal(authResult.authenticated, true);
-  assert.equal(authResult.profile.id, "7");
-  assert.equal(authResult.profile.email, "ada@example.com");
+  assert.equal(authResult.actor.id, "7");
+  assert.equal(authResult.actor.email, "ada@example.com");
   assert.equal(authResult.session, null);
 });
 
@@ -138,7 +139,7 @@ test("dev auth bootstrap resolves security status without Supabase", async () =>
   );
 
   const passwordMethod = securityStatus.authMethods.find((method) => method.id === "password");
-  assert.equal(securityStatus.authPolicy.minimumEnabledMethods, 1);
+  assert.equal(securityStatus.policy.minimumEnabledMethods, 1);
   assert.equal(passwordMethod?.configured, true);
   assert.equal(passwordMethod?.enabled, true);
 });
@@ -170,8 +171,8 @@ test("dev auth bootstrap supports email lookup", async () => {
     email: "ADA@EXAMPLE.COM"
   });
 
-  assert.equal(result.profile.id, "7");
-  assert.equal(result.profile.email, "ada@example.com");
+  assert.equal(result.actor.id, "7");
+  assert.equal(result.actor.email, "ada@example.com");
 });
 
 test("dev auth bootstrap rejects a missing or incorrect exchange secret", async () => {
@@ -192,7 +193,7 @@ test("dev auth bootstrap rejects a missing or incorrect exchange secret", async 
   );
 });
 
-test("dev auth bootstrap canonicalizes producer profiles before returning them", async () => {
+test("dev auth bootstrap returns the canonical actor", async () => {
   const rawProfile = createProfile({
     email: " ADA@EXAMPLE.COM ",
     username: " Ada ",
@@ -212,16 +213,17 @@ test("dev auth bootstrap canonicalizes producer profiles before returning them",
     userId: "7"
   });
 
-  assert.deepEqual(loginResult.profile, {
+  assert.deepEqual(loginResult.actor, {
     id: "7",
+    authIdentityId: "supabase:supabase-user-7",
+    provider: "supabase",
+    providerUserId: "supabase-user-7",
     email: "ada@example.com",
-    username: "ada",
     displayName: "Ada Example",
-    authProvider: "supabase",
-    authProviderUserSid: "supabase-user-7",
-    avatarStorageKey: "avatars/7.png",
-    avatarVersion: "7"
+    appUserId: "7",
+    profileSource: "users"
   });
+  assert.equal(Object.hasOwn(loginResult, "profile"), false);
 });
 
 test("dev auth bootstrap rejects non-local requests and clears leaked dev sessions", async () => {

@@ -56,12 +56,7 @@ function normalizeAuthSecurityStatus(value = {}) {
   const authMethods = (Array.isArray(source.authMethods) ? source.authMethods : [])
     .map((entry) => normalizeAuthMethodStatus(entry))
     .filter(Boolean);
-  const policySource =
-    source.policy && typeof source.policy === "object"
-      ? source.policy
-      : source.authPolicy && typeof source.authPolicy === "object"
-        ? source.authPolicy
-        : {};
+  const policySource = source.policy && typeof source.policy === "object" ? source.policy : {};
   const minimumEnabledMethods = Number.isInteger(Number(policySource.minimumEnabledMethods))
     ? Math.max(1, Number(policySource.minimumEnabledMethods))
     : AUTH_METHOD_MINIMUM_ENABLED;
@@ -87,7 +82,6 @@ function normalizeAuthSecurityStatus(value = {}) {
           methods: Object.freeze([])
         }),
     policy,
-    authPolicy: policy,
     actions,
     authMethods: Object.freeze(authMethods)
   });

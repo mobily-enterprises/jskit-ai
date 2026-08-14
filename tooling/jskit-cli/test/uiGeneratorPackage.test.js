@@ -320,8 +320,7 @@ function resolveGeneratedPaths(appRoot, targetRoot, idParam = "customerId") {
     newPagePath: path.join(generatedRoot, "new.vue"),
     editPagePath: path.join(generatedRoot, `[${idParam}]`, "edit.vue"),
     addEditFormPath: path.join(generatedComponentsRoot, "CrudAddEditForm.vue"),
-    addEditFormFieldsPath: path.join(generatedComponentsRoot, "CrudAddEditFormFields.js"),
-    legacyAddEditFormPath: path.join(generatedRoot, "_components", "CrudAddEditForm.vue")
+    addEditFormFieldsPath: path.join(generatedComponentsRoot, "CrudAddEditFormFields.js")
   };
 }
 
@@ -379,7 +378,6 @@ test("generate @jskit-ai/crud-ui-generator crud scaffolds CRUD pages at an expli
     assert.equal(await fileExists(paths.editPagePath), true);
     assert.equal(await fileExists(paths.addEditFormPath), true);
     assert.equal(await fileExists(paths.addEditFormFieldsPath), true);
-    assert.equal(await fileExists(paths.legacyAddEditFormPath), false);
     assert.deepEqual(await listRelativeVueFiles(paths.generatedRoot), [
       "[customerId]/edit.vue",
       "[customerId]/index.vue",

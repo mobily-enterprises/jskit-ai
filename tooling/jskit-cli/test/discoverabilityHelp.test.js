@@ -5,7 +5,7 @@ import path from "node:path";
 import test from "node:test";
 import { withTempDir } from "../../testUtils/tempDir.mjs";
 import { createCliRunner } from "../../testUtils/runCli.js";
-import { writeJskitPackageMetadata } from "../../testUtils/jskitPackage.mjs";
+import { writeJskitConfig } from "../../testUtils/jskitPackage.mjs";
 
 const CLI_PATH = fileURLToPath(new URL("../bin/jskit.js", import.meta.url));
 const runCli = createCliRunner(CLI_PATH);
@@ -37,6 +37,7 @@ async function writeRuntimePackageWithOptions(appRoot) {
       {
         name: "@demo/runtime",
         version: "0.1.0",
+        description: "Demo runtime package for option help tests.",
         type: "module"
       },
       null,
@@ -45,13 +46,10 @@ async function writeRuntimePackageWithOptions(appRoot) {
     "utf8"
   );
 
-  await writeJskitPackageMetadata(
+  await writeJskitConfig(
     path.join(packageRoot),
     `({
-  packageId: "@demo/runtime",
-  version: "0.1.0",
   kind: "runtime",
-  description: "Demo runtime package for option help tests.",
   options: {
     "workspace-slug": {
       required: true,
@@ -108,6 +106,7 @@ async function writeGeneratorPackageWithExamples(appRoot) {
       {
         name: "@demo/generator",
         version: "0.1.0",
+        description: "Demo generator package for help examples.",
         type: "module"
       },
       null,
@@ -116,13 +115,10 @@ async function writeGeneratorPackageWithExamples(appRoot) {
     "utf8"
   );
 
-  await writeJskitPackageMetadata(
+  await writeJskitConfig(
     path.join(packageRoot),
     `({
-  packageId: "@demo/generator",
-  version: "0.1.0",
   kind: "generator",
-  description: "Demo generator package for help examples.",
   options: {
     "runtime-surface": {
       required: true,

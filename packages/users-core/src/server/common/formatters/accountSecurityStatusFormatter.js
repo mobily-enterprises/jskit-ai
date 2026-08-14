@@ -51,16 +51,16 @@ function normalizeAuthMethods(sourceMethods) {
 
 function accountSecurityStatusFormatter(securityStatus = {}) {
   const source = isRecord(securityStatus) ? securityStatus : {};
-  const authPolicy = isRecord(source.authPolicy) ? source.authPolicy : {};
+  const policy = isRecord(source.policy) ? source.policy : {};
   const { methods: authMethods, enabledMethodsCount } = normalizeAuthMethods(source.authMethods);
-  const minimumEnabledMethods = Number(authPolicy.minimumEnabledMethods);
+  const minimumEnabledMethods = Number(policy.minimumEnabledMethods);
 
   return {
     mfa: normalizeMfa(source),
     sessions: {
       canSignOutOtherDevices: true
     },
-    authPolicy: {
+    policy: {
       minimumEnabledMethods: minimumEnabledMethods > 0 ? minimumEnabledMethods : 1,
       enabledMethodsCount
     },

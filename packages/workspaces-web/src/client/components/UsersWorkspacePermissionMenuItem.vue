@@ -1,8 +1,8 @@
 <script setup>
 import { computed } from "vue";
-import { useSurfaceRouteContext } from "@jskit-ai/users-web/client/composables/useSurfaceRouteContext";
+import { useSurfaceRouteContext } from "@jskit-ai/shell-web/client/navigation/useSurfaceRouteContext";
 import { hasPermission, normalizePermissionList } from "@jskit-ai/users-web/client/lib/permissions";
-import { usePaths } from "@jskit-ai/users-web/client/composables/usePaths";
+import { usePaths } from "@jskit-ai/shell-web/client/navigation/usePaths";
 
 const props = defineProps({
   label: {

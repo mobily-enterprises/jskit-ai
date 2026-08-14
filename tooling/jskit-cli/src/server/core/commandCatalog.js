@@ -39,7 +39,6 @@ function canDelegateGenerateInlineOptions(positional = []) {
 const COMMAND_DESCRIPTORS = Object.freeze({
   help: Object.freeze({
     command: "help",
-    aliases: Object.freeze([]),
     showInOverview: false,
     summary: "Show command-specific usage.",
     minimalUse: "jskit help [command]",
@@ -62,7 +61,6 @@ const COMMAND_DESCRIPTORS = Object.freeze({
   }),
   completion: Object.freeze({
     command: "completion",
-    aliases: Object.freeze([]),
     showInOverview: true,
     summary: "Print shell completion script support.",
     minimalUse: "jskit completion bash",
@@ -87,7 +85,6 @@ const COMMAND_DESCRIPTORS = Object.freeze({
   }),
   create: Object.freeze({
     command: "create",
-    aliases: Object.freeze([]),
     showInOverview: true,
     summary: "Scaffold an app-local package or package-owned migration.",
     minimalUse: "jskit create package <name>",
@@ -132,7 +129,6 @@ const COMMAND_DESCRIPTORS = Object.freeze({
   }),
   app: Object.freeze({
     command: "app",
-    aliases: Object.freeze([]),
     showInOverview: true,
     summary: "Run JSKIT-managed app maintenance helpers.",
     minimalUse: "jskit app verify",
@@ -173,7 +169,6 @@ const COMMAND_DESCRIPTORS = Object.freeze({
   }),
   migrations: Object.freeze({
     command: "migrations",
-    aliases: Object.freeze([]),
     showInOverview: true,
     summary: "Synchronize migration files from installed package metadata.",
     minimalUse: "jskit migrations sync",
@@ -198,7 +193,6 @@ const COMMAND_DESCRIPTORS = Object.freeze({
   }),
   ci: Object.freeze({
     command: "ci",
-    aliases: Object.freeze([]),
     showInOverview: true,
     summary: "Regenerate CI from installed package metadata.",
     minimalUse: "jskit ci generate",
@@ -222,7 +216,6 @@ const COMMAND_DESCRIPTORS = Object.freeze({
   }),
   mobile: Object.freeze({
     command: "mobile",
-    aliases: Object.freeze([]),
     showInOverview: true,
     summary: "Run JSKIT-managed mobile-shell helpers.",
     minimalUse: "jskit mobile android dev",
@@ -251,7 +244,6 @@ const COMMAND_DESCRIPTORS = Object.freeze({
   }),
   blueprint: Object.freeze({
     command: "blueprint",
-    aliases: Object.freeze([]),
     showInOverview: true,
     summary: "Read, prompt, or set the app-level JSKIT blueprint.",
     minimalUse: "jskit blueprint",
@@ -289,47 +281,8 @@ const COMMAND_DESCRIPTORS = Object.freeze({
       return subcommand === "prompt" || subcommand === "set";
     }
   }),
-  "helper-map": Object.freeze({
-    command: "helper-map",
-    aliases: Object.freeze([]),
-    showInOverview: true,
-    summary: "Read or update the generated app helper map.",
-    minimalUse: "jskit helper-map update",
-    parameters: Object.freeze([
-      Object.freeze({
-        name: "[update]",
-        description: "Without a subcommand, prints the saved helper map. update refreshes .jskit/helper-map files."
-      })
-    ]),
-    defaults: Object.freeze([
-      "The helper map is generated app state, not a hand-maintained workflow file.",
-      "The JSON file lives at .jskit/helper-map.json and the readable map lives at .jskit/helper-map.md.",
-      "Use the map before adding helpers, composables, service functions, maps, or package glue.",
-      "Use --json for a stable machine-readable response."
-    ]),
-    examples: Object.freeze([
-      Object.freeze({
-        label: "Refresh helper map",
-        lines: Object.freeze([
-          "jskit helper-map update",
-          "jskit helper-map --json"
-        ])
-      })
-    ]),
-    fullUse: "jskit helper-map [update] [--json]",
-    showHelpOnBareInvocation: false,
-    handlerName: "commandHelperMap",
-    allowedFlagKeys: Object.freeze(["json"]),
-    inlineOptionMode: "delegate",
-    allowedValueOptionNames: Object.freeze([]),
-    canDelegateInlineOptions: (positional = []) => {
-      const subcommand = String(Array.isArray(positional) ? positional[0] || "" : "").trim();
-      return subcommand === "update";
-    }
-  }),
   add: Object.freeze({
     command: "add",
-    aliases: Object.freeze([]),
     showInOverview: true,
     summary: "Install a runtime bundle or package into the current app.",
     minimalUse: "jskit add package <packageId>",
@@ -361,7 +314,6 @@ const COMMAND_DESCRIPTORS = Object.freeze({
   }),
   generate: Object.freeze({
     command: "generate",
-    aliases: Object.freeze([]),
     showInOverview: true,
     summary: "Run a generator package (or generator subcommand).",
     minimalUse: "jskit generate <generatorId>",
@@ -415,7 +367,6 @@ const COMMAND_DESCRIPTORS = Object.freeze({
   }),
   list: Object.freeze({
     command: "list",
-    aliases: Object.freeze([]),
     showInOverview: true,
     summary: "List bundles, runtime packages, or generator packages.",
     minimalUse: "jskit list",
@@ -440,7 +391,6 @@ const COMMAND_DESCRIPTORS = Object.freeze({
   }),
   "list-placements": Object.freeze({
     command: "list-placements",
-    aliases: Object.freeze([]),
     showInOverview: true,
     summary: "List discovered UI placement targets.",
     minimalUse: "jskit list-placements",
@@ -461,7 +411,6 @@ const COMMAND_DESCRIPTORS = Object.freeze({
   }),
   "list-component-tokens": Object.freeze({
     command: "list-component-tokens",
-    aliases: Object.freeze([]),
     showInOverview: true,
     summary: "List available placement component tokens.",
     minimalUse: "jskit list-component-tokens",
@@ -491,7 +440,6 @@ const COMMAND_DESCRIPTORS = Object.freeze({
   }),
   show: Object.freeze({
     command: "show",
-    aliases: Object.freeze([]),
     showInOverview: true,
     summary: "Show detailed metadata for a bundle or package.",
     minimalUse: "jskit show <id>",
@@ -515,7 +463,6 @@ const COMMAND_DESCRIPTORS = Object.freeze({
   }),
   remove: Object.freeze({
     command: "remove",
-    aliases: Object.freeze([]),
     showInOverview: true,
     summary: "Remove one installed package.",
     minimalUse: "jskit remove package <packageId>",
@@ -543,7 +490,6 @@ const COMMAND_DESCRIPTORS = Object.freeze({
   }),
   doctor: Object.freeze({
     command: "doctor",
-    aliases: Object.freeze([]),
     showInOverview: true,
     summary: "Validate the installed package graph, migrations, CI, and app architecture.",
     minimalUse: "jskit doctor",
@@ -563,7 +509,6 @@ const COMMAND_DESCRIPTORS = Object.freeze({
   }),
   "lint-packages": Object.freeze({
     command: "lint-packages",
-    aliases: Object.freeze([]),
     showInOverview: true,
     summary: "Validate bundle and package metadata contracts.",
     minimalUse: "jskit lint-packages",
@@ -582,30 +527,11 @@ const COMMAND_DESCRIPTORS = Object.freeze({
   })
 });
 
-const COMMAND_ALIAS_TO_ID = Object.freeze(
-  Object.fromEntries(
-    Object.values(COMMAND_DESCRIPTORS)
-      .flatMap((descriptor) =>
-        Array.isArray(descriptor.aliases)
-          ? descriptor.aliases.map((alias) => [alias, descriptor.command])
-          : [])
-      .sort((left, right) => String(left[0] || "").localeCompare(String(right[0] || "")))
-  )
-);
-
 const COMMAND_IDS = Object.freeze(Object.keys(COMMAND_DESCRIPTORS));
 const KNOWN_COMMANDS = new Set(COMMAND_IDS);
 
-function resolveCommandAlias(rawCommand) {
-  const command = String(rawCommand || "").trim();
-  if (!command) {
-    return "";
-  }
-  return COMMAND_ALIAS_TO_ID[command] || command;
-}
-
 function resolveCommandDescriptor(rawCommand) {
-  const command = resolveCommandAlias(rawCommand);
+  const command = String(rawCommand || "").trim();
   if (!command) {
     return null;
   }
@@ -704,7 +630,6 @@ function validateCommandOptions(
 export {
   COMMAND_IDS,
   OPTION_FLAG_LABELS,
-  resolveCommandAlias,
   resolveCommandDescriptor,
   isKnownCommandName,
   listOverviewCommandDescriptors,

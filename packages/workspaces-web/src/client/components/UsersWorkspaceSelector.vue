@@ -9,7 +9,7 @@ import {
 import { TENANCY_MODE_NONE } from "@jskit-ai/workspaces-core/shared/tenancyProfile";
 import { mdiBriefcaseOutline } from "@mdi/js";
 import { findWorkspaceBySlug, normalizeWorkspaceEntry, normalizeWorkspaceList } from "../lib/bootstrap.js";
-import { usePaths } from "@jskit-ai/users-web/client/composables/usePaths";
+import { usePaths } from "@jskit-ai/shell-web/client/navigation/usePaths";
 import { resolveSurfaceSwitchTargetsFromPlacementContext, surfaceRequiresWorkspaceFromPlacementContext } from "../lib/workspaceSurfaceContext.js";
 import { resolveWorkspaceSurfaceIdFromPlacementPathname, extractWorkspaceSlugFromSurfacePathname } from "../lib/workspaceSurfacePaths.js";
 

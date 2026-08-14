@@ -105,6 +105,11 @@ npx jskit migrations sync
 
 Review the migration diff. Existing Knex migration files and migration-table history remain intact.
 
+Runtime-package migration mutations must be deterministic without install
+options. Convert an option-parameterized runtime migration into a generator
+mutation, or materialize it as a fixed app-local package migration before the
+upgrade.
+
 Generate the JSKIT CI workflow:
 
 ```bash
@@ -132,3 +137,13 @@ npm run db:migrate
 ```
 
 Commit package manifests, `package-lock.json`, synchronized migrations, generated CI, and required application changes together.
+
+## 9. Update strict resource boundaries
+
+Applications that pass JavaScript `Date` objects into resource validation must convert them to strings. `date` uses `YYYY-MM-DD`; `time` uses offset-free `HH:MM[:SS[.fraction]]`; and `dateTime` uses RFC 3339 with seconds and a `Z` or numeric offset. Select `epochMilliseconds` or `epochSeconds` explicitly for numeric epochs and preserve `temporalPrecision`.
+
+Generated generic CRUD repositories serialize supported database temporal output. Custom repositories must return strict temporal strings and write ISO/RFC 3339 strings themselves.
+
+For a generated view that needs delete confirmation, rerun its `crud-ui-generator crud` command with `--delete-confirmation`. Use `--force` only when replacing generated page output deliberately. For a customized view, preserve the customization and add the public `CrudViewScreen` `actions` slot, `CrudDeleteAction`, and `useCrudDeleteAction()` integration.
+
+Review the complete application diff and run its full verification suite before applying database migrations.

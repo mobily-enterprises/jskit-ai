@@ -22,15 +22,10 @@ function assertAuthPolicyDeps(deps = {}) {
 
 function normalizeActorResolution(result) {
   const source = asObject(result);
-  const actor = Object.hasOwn(source, "actor")
-    ? source.actor
-    : Object.hasOwn(source, "profile")
-      ? source.profile
-      : null;
 
   return {
     authenticated: Boolean(source.authenticated),
-    actor,
+    actor: Object.hasOwn(source, "actor") ? source.actor : null,
     transientFailure: Boolean(source.transientFailure)
   };
 }

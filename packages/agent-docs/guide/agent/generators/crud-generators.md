@@ -69,31 +69,12 @@ The server generator resolves the complete package closure. `shell-web`
 establishes and owns `src/placement.js` before `realtime` contributes its
 placement, so do not pre-install the shell as a workaround.
 
-## Existing-app migration checklist
+## Temporal values
 
-Strict temporal resource values require one coordinated application migration.
-There is no compatibility alias or automatic coercion for JavaScript `Date`
-objects at resource boundaries:
-
-1. Commit the application's current work and update its direct `@jskit-ai/*`
-   dependencies to one coordinated, exact release set.
-2. If the application declares `json-rest-schema` directly, use
-   `json-rest-schema` 1.0.17 or newer and review its temporal validation before
-   installing dependencies.
-3. Replace resource-bound JavaScript `Date` values with strings. `date` is
-   `YYYY-MM-DD`; `time` is offset-free `HH:MM[:SS[.fraction]]`; and `dateTime`
-   is RFC 3339 with seconds and a `Z` or numeric offset. Use
-   `epochMilliseconds` or `epochSeconds` only after checking the existing
-   numeric unit. Preserve `temporalPrecision`.
-4. For a standard generated view delete action, rerun the original
-   `crud-ui-generator crud` command with `--delete-confirmation`. Add `--force`
-   only when you deliberately want to replace generated page output. For a
-   customized view, preserve the customization and add the public
-   `CrudViewScreen` `actions` slot, `CrudDeleteAction`, and
-   `useCrudDeleteAction()` integration described below.
-5. Review the generated diff, keep application-owned customizations and browser
-   tests, then run the application's full verification suite before applying
-   database migrations.
+Temporal resource values are strings. `date` is `YYYY-MM-DD`; `time` is
+offset-free `HH:MM[:SS[.fraction]]`; and `dateTime` is RFC 3339 with seconds
+and a `Z` or numeric offset. Numeric epochs use `epochMilliseconds` or
+`epochSeconds`. Preserve `temporalPrecision`.
 
 Generated generic CRUD repositories convert database temporal values at the
 resource boundary. Custom repositories still need to return strict temporal
@@ -946,7 +927,7 @@ Use this when:
 
 It is a maintenance tool, not the first step in the workflow.
 
-It patches the canonical `schema` inside the shared resource file. That matters because the standard CRUD validators are derived from that canonical schema; you are no longer maintaining separate authored `create` / `patch` / `view` validator blocks by hand.
+It patches the canonical `schema` inside the shared resource file. The standard CRUD validators are derived from that schema, so one authored field definition drives `create`, `patch`, and `view` validation.
 
 ## Summary
 

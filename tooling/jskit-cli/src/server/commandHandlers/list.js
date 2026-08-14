@@ -505,15 +505,6 @@ function createListCommands(ctx = {}) {
     const shouldListBundles = !mode || mode === "bundles";
     const shouldListPackages = !mode || mode === "packages";
     const shouldListGenerators = !mode || mode === "generators";
-    if (mode === "placements") {
-      throw createCliError('list mode "placements" moved to a dedicated command: jskit list-placements.');
-    }
-    if (mode === "placement-component-tokens") {
-      throw createCliError(
-        'list mode "placement-component-tokens" moved to a dedicated command: jskit list-component-tokens.'
-      );
-    }
-
     if (!shouldListBundles && !shouldListPackages && !shouldListGenerators) {
       throw createCliError(`Unknown list mode: ${mode}`, { showUsage: true });
     }

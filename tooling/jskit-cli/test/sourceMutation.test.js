@@ -6,7 +6,7 @@ import path from "node:path";
 import test from "node:test";
 import { withTempDir } from "../../testUtils/tempDir.mjs";
 import { createCliRunner } from "../../testUtils/runCli.js";
-import { writeJskitPackageMetadata } from "../../testUtils/jskitPackage.mjs";
+import { writeJskitConfig } from "../../testUtils/jskitPackage.mjs";
 
 const CLI_PATH = fileURLToPath(new URL("../bin/jskit.js", import.meta.url));
 const runCli = createCliRunner(CLI_PATH);
@@ -59,6 +59,7 @@ async function writeLocalSourcePackagePackageMetadata(appRoot) {
   await writeJson(path.join(packageRoot, "package.json"), {
     name: "@demo/source-feature",
     version: "0.1.0",
+    description: "Local package for source mutation coverage.",
     type: "module"
   });
 
@@ -99,13 +100,10 @@ async function writeLocalSourcePackagePackageMetadata(appRoot) {
     }
   ];
 
-  await writeJskitPackageMetadata(
+  await writeJskitConfig(
     path.join(packageRoot),
     `({
-  packageId: "@demo/source-feature",
-  version: "0.1.0",
   kind: "runtime",
-  description: "Local package for source mutation coverage.",
   capabilities: {
     provides: [],
     requires: []

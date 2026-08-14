@@ -1,6 +1,6 @@
 {
   "name": "@jskit-ai/auth-provider-local-core",
-  "version": "0.1.52",
+  "version": "0.1.53",
   "type": "module",
   "scripts": {
     "test": "node --test"
@@ -11,8 +11,8 @@
     "./server/lib/index": "./src/server/lib/index.js"
   },
   "dependencies": {
-    "@jskit-ai/auth-core": "0.1.149",
-    "@jskit-ai/kernel": "0.1.151",
+    "@jskit-ai/auth-core": "0.1.150",
+    "@jskit-ai/kernel": "0.1.152",
     "nodemailer": "^9.0.3"
   },
   "description": "Local auth provider with a file backend default and no database requirement.",
@@ -74,8 +74,8 @@
     "mutations": {
       "dependencies": {
         "runtime": {
-          "@jskit-ai/auth-core": "0.1.149",
-          "@jskit-ai/kernel": "0.1.151",
+          "@jskit-ai/auth-core": "0.1.150",
+          "@jskit-ai/kernel": "0.1.152",
           "nodemailer": "^9.0.3",
           "dotenv": "^16.4.5"
         },

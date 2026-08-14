@@ -1,134 +1,62 @@
 #!/usr/bin/env node
-import { mkdtemp, readFile, readdir, rm, stat, writeFile, cp } from "node:fs/promises";
+import { mkdtemp, readFile, readdir, rm, stat, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { tmpdir } from "node:os";
 import { fileURLToPath } from "node:url";
-import { spawn, spawnSync } from "node:child_process";
-import { resolvePackageIdInput } from "../tooling/jskit-cli/src/server/shared/packageIdHelpers.js";
-import { createPublishablePackageManifest } from "./npm-publish-support.mjs";
+import { spawn } from "node:child_process";
 
 const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
-const REPO_ROOT = path.resolve(__dirname, "..");
-
-const WORKSPACE_ROOTS = ["packages", "tooling"];
-const DEPENDENCY_FIELDS = ["dependencies", "devDependencies", "peerDependencies", "optionalDependencies"];
+const REPO_ROOT = path.resolve(path.dirname(__filename), "..");
+const WORKSPACE_ROOTS = Object.freeze(["packages", "tooling"]);
+const DEPENDENCY_FIELDS = Object.freeze([
+  "dependencies",
+  "devDependencies",
+  "peerDependencies",
+  "optionalDependencies"
+]);
+const MUTATION_DEPENDENCY_FIELDS = Object.freeze(["runtime", "dev"]);
 const DEFAULT_REGISTRY = "https://registry.npmjs.org";
-const DEFAULT_TAG = "latest";
-const DEFAULT_ACCESS = "public";
-const STAGING_TAG = "jskit-staged";
-const REGISTRY_VISIBILITY_TIMEOUT_MS = 120_000;
-const REGISTRY_VISIBILITY_RETRY_MS = 1_000;
 
-function parseArgs(argv) {
+function parseArgs(argv = []) {
+  const args = [...argv];
+  const intent = String(args.shift() || "").trim();
+  if (intent !== "prepare" && intent !== "publish") {
+    throw new Error("Usage: release-npm.mjs <prepare|publish> [--dry-run] [--registry <url>]");
+  }
+
   const options = {
-    only: [],
-    registry: DEFAULT_REGISTRY,
-    tag: DEFAULT_TAG,
-    access: DEFAULT_ACCESS,
+    intent,
     dryRun: false,
-    prepareOnly: false
+    registry: DEFAULT_REGISTRY
   };
 
-  for (let index = 0; index < argv.length; index += 1) {
-    const argument = argv[index];
-
+  while (args.length > 0) {
+    const argument = String(args.shift() || "");
     if (argument === "--dry-run") {
       options.dryRun = true;
       continue;
     }
-
-    if (argument === "--prepare-only") {
-      options.prepareOnly = true;
-      continue;
-    }
-
-    if (argument === "--only") {
-      const value = String(argv[index + 1] || "").trim();
-      if (!value) {
-        throw new Error("--only requires at least one package name.");
-      }
-      options.only.push(...parseOnlyPackages(value));
-      index += 1;
-      continue;
-    }
-
-    if (argument.startsWith("--only=")) {
-      const value = argument.slice("--only=".length).trim();
-      if (!value) {
-        throw new Error("--only requires at least one package name.");
-      }
-      options.only.push(...parseOnlyPackages(value));
-      continue;
-    }
-
     if (argument === "--registry") {
-      options.registry = String(argv[index + 1] || "").trim();
-      index += 1;
+      options.registry = normalizeRegistryUrl(args.shift());
       continue;
     }
-
     if (argument.startsWith("--registry=")) {
-      options.registry = argument.slice("--registry=".length).trim();
+      options.registry = normalizeRegistryUrl(argument.slice("--registry=".length));
       continue;
     }
-
-    if (argument === "--tag") {
-      options.tag = String(argv[index + 1] || "").trim();
-      index += 1;
-      continue;
-    }
-
-    if (argument.startsWith("--tag=")) {
-      options.tag = argument.slice("--tag=".length).trim();
-      continue;
-    }
-
-    if (argument === "--access") {
-      options.access = String(argv[index + 1] || "").trim();
-      index += 1;
-      continue;
-    }
-
-    if (argument.startsWith("--access=")) {
-      options.access = argument.slice("--access=".length).trim();
-      continue;
-    }
-
     throw new Error(`Unknown argument: ${argument}`);
-  }
-
-  options.registry = normalizeRegistryUrl(options.registry || DEFAULT_REGISTRY);
-  options.only = Array.from(new Set(options.only));
-  if (!options.tag) {
-    throw new Error("Missing --tag value.");
-  }
-
-  if (!options.access) {
-    throw new Error("Missing --access value.");
   }
 
   return options;
 }
 
-function parseOnlyPackages(value) {
-  const tokens = String(value || "")
-    .split(",")
-    .map((entry) => entry.trim())
-    .filter(Boolean);
-  if (tokens.length < 1) {
-    throw new Error("--only requires at least one package name.");
+function normalizeRegistryUrl(value = DEFAULT_REGISTRY) {
+  const registry = String(value || "").trim();
+  if (!registry) {
+    throw new Error("--registry requires a URL.");
   }
-  return tokens;
-}
-
-function normalizeRegistryUrl(registry) {
-  const value = String(registry || "").trim();
-  if (!value) {
-    return DEFAULT_REGISTRY;
-  }
-  const withScheme = /^[a-z]+:\/\//i.test(value) ? value : `https://${value}`;
-  return withScheme.replace(/\/+$/, "");
+  const withScheme = /^[a-z]+:\/\//iu.test(registry) ? registry : `https://${registry}`;
+  return withScheme.replace(/\/+$/u, "");
 }
 
 async function fileExists(absolutePath) {
@@ -141,52 +69,11 @@ async function fileExists(absolutePath) {
 }
 
 async function readJsonFile(absolutePath) {
-  const raw = await readFile(absolutePath, "utf8");
-  return JSON.parse(raw);
+  return JSON.parse(await readFile(absolutePath, "utf8"));
 }
 
-async function discoverWorkspacePackages() {
-  const records = [];
-
-  for (const workspaceRoot of WORKSPACE_ROOTS) {
-    const workspaceAbsolute = path.join(REPO_ROOT, workspaceRoot);
-    let entries = [];
-    try {
-      entries = await readdir(workspaceAbsolute, { withFileTypes: true });
-    } catch {
-      continue;
-    }
-
-    for (const entry of entries) {
-      if (!entry.isDirectory()) {
-        continue;
-      }
-
-      const packageRoot = path.join(workspaceAbsolute, entry.name);
-      const packageJsonPath = path.join(packageRoot, "package.json");
-      if (!(await fileExists(packageJsonPath))) {
-        continue;
-      }
-
-      const packageJson = await readJsonFile(packageJsonPath);
-      const packageName = String(packageJson?.name || "").trim();
-      if (!packageName.startsWith("@jskit-ai/")) {
-        continue;
-      }
-
-      records.push({
-        name: packageName,
-        dir: packageRoot,
-        relativeDir: toPosixPath(path.relative(REPO_ROOT, packageRoot)),
-        packageJsonPath,
-        packageJson,
-        packageJsonLocalDeps: new Set()
-      });
-    }
-  }
-
-  records.sort((left, right) => left.name.localeCompare(right.name));
-  return records;
+function serializeJson(value) {
+  return `${JSON.stringify(value, null, 2)}\n`;
 }
 
 function toPosixPath(value) {
@@ -194,138 +81,130 @@ function toPosixPath(value) {
 }
 
 function bumpPatch(version) {
-  const match = /^(\d+)\.(\d+)\.(\d+)$/.exec(String(version || "").trim());
+  const match = /^(\d+)\.(\d+)\.(\d+)$/u.exec(String(version || "").trim());
   if (!match) {
-    throw new Error(`Unsupported version format for patch bump: ${version}`);
+    throw new Error(`Package versions must use x.y.z: ${version}`);
   }
-  const major = Number(match[1]);
-  const minor = Number(match[2]);
-  const patch = Number(match[3]);
-  return `${major}.${minor}.${patch + 1}`;
+  return `${match[1]}.${match[2]}.${Number(match[3]) + 1}`;
 }
 
-function collectPackageJsonLocalDeps(packageJson, localNames) {
-  const dependencies = new Set();
+async function discoverWorkspacePackages() {
+  const records = [];
 
-  for (const field of DEPENDENCY_FIELDS) {
-    const entry = packageJson?.[field];
-    if (!entry || typeof entry !== "object") {
-      continue;
+  for (const workspaceRoot of WORKSPACE_ROOTS) {
+    const parentDirectory = path.join(REPO_ROOT, workspaceRoot);
+    for (const entry of await readdir(parentDirectory, { withFileTypes: true })) {
+      if (!entry.isDirectory()) {
+        continue;
+      }
+      const dir = path.join(parentDirectory, entry.name);
+      const packageJsonPath = path.join(dir, "package.json");
+      if (!(await fileExists(packageJsonPath))) {
+        continue;
+      }
+      const packageJson = await readJsonFile(packageJsonPath);
+      const name = String(packageJson.name || "").trim();
+      if (!name.startsWith("@jskit-ai/")) {
+        continue;
+      }
+      records.push({
+        name,
+        dir,
+        packageJsonPath,
+        packageJson,
+        localDependencies: new Set()
+      });
     }
+  }
 
-    for (const dependencyName of Object.keys(entry)) {
+  return records.sort((left, right) => left.name.localeCompare(right.name));
+}
+
+function mutationDependencyVersion(value) {
+  if (typeof value === "string") {
+    return value;
+  }
+  if (value && typeof value === "object" && !Array.isArray(value)) {
+    return String(value.version || "");
+  }
+  return "";
+}
+
+function collectPublishDependencies(packageJson, localNames) {
+  const dependencies = new Set();
+  for (const field of DEPENDENCY_FIELDS) {
+    for (const dependencyName of Object.keys(packageJson?.[field] || {})) {
       if (localNames.has(dependencyName)) {
         dependencies.add(dependencyName);
       }
     }
   }
-
-  const runtimeDependencies = packageJson?.jskit?.mutations?.dependencies?.runtime;
-  const devDependencies = packageJson?.jskit?.mutations?.dependencies?.dev;
-
-  for (const entry of [runtimeDependencies, devDependencies]) {
-    if (!entry || typeof entry !== "object") {
-      continue;
-    }
-
-    for (const dependencyName of Object.keys(entry)) {
-      const normalized = String(dependencyName || "").trim();
-      if (localNames.has(normalized)) {
-        dependencies.add(normalized);
-      }
-    }
-  }
-
   return dependencies;
 }
 
-function hydrateLocalDependencyMaps(records) {
+function hydrateLocalDependencies(records) {
   const localNames = new Set(records.map((record) => record.name));
   for (const record of records) {
-    record.packageJsonLocalDeps = collectPackageJsonLocalDeps(record.packageJson, localNames);
+    record.localDependencies = collectPublishDependencies(record.packageJson, localNames);
   }
 }
 
-function computeVersionMaps(records, publishSet) {
-  const currentVersions = new Map();
-  const nextVersions = new Map();
-
-  for (const record of records) {
-    const currentVersion = String(record.packageJson?.version || "").trim();
-    if (!currentVersion) {
-      throw new Error(`Missing package version in ${record.packageJsonPath}`);
+function currentVersionMap(records) {
+  return new Map(records.map((record) => {
+    const version = String(record.packageJson.version || "").trim();
+    if (!/^(\d+)\.(\d+)\.(\d+)$/u.test(version)) {
+      throw new Error(`${record.name} must use an exact x.y.z version.`);
     }
-
-    currentVersions.set(record.name, currentVersion);
-    nextVersions.set(record.name, publishSet.has(record.name) ? bumpPatch(currentVersion) : currentVersion);
-  }
-
-  return { currentVersions, nextVersions };
+    return [record.name, version];
+  }));
 }
 
-function serializeJson(value) {
-  return `${JSON.stringify(value, null, 2)}\n`;
+function nextVersionMap(records) {
+  return new Map(
+    [...currentVersionMap(records)].map(([name, version]) => [name, bumpPatch(version)])
+  );
 }
 
-function updatePackageDependencyVersions(packageJson, nextVersions) {
+function updatePackageDependencyVersions(packageJson, versions) {
   let changed = false;
-
   for (const field of DEPENDENCY_FIELDS) {
-    const fieldValue = packageJson?.[field];
-    if (!fieldValue || typeof fieldValue !== "object") {
+    const dependencies = packageJson?.[field];
+    if (!dependencies || typeof dependencies !== "object") {
       continue;
     }
-
-    for (const dependencyName of Object.keys(fieldValue)) {
-      if (!nextVersions.has(dependencyName)) {
+    for (const dependencyName of Object.keys(dependencies)) {
+      if (!versions.has(dependencyName) || dependencies[dependencyName] === versions.get(dependencyName)) {
         continue;
       }
-
-      const dependencyVersion = nextVersions.get(dependencyName);
-      if (fieldValue[dependencyName] !== dependencyVersion) {
-        fieldValue[dependencyName] = dependencyVersion;
-        changed = true;
-      }
+      dependencies[dependencyName] = versions.get(dependencyName);
+      changed = true;
     }
   }
 
-  for (const mutationField of ["runtime", "dev"]) {
-    const dependencyMutations = packageJson?.jskit?.mutations?.dependencies?.[mutationField];
-    if (!dependencyMutations || typeof dependencyMutations !== "object") {
+  for (const field of MUTATION_DEPENDENCY_FIELDS) {
+    const dependencies = packageJson?.jskit?.mutations?.dependencies?.[field];
+    if (!dependencies || typeof dependencies !== "object") {
       continue;
     }
-
-    for (const dependencyName of Object.keys(dependencyMutations)) {
-      if (!nextVersions.has(dependencyName)) {
+    for (const dependencyName of Object.keys(dependencies)) {
+      if (!versions.has(dependencyName)) {
         continue;
       }
-
-      const nextVersion = nextVersions.get(dependencyName);
-      const currentValue = dependencyMutations[dependencyName];
-      if (typeof currentValue === "string") {
-        if (currentValue !== nextVersion) {
-          dependencyMutations[dependencyName] = nextVersion;
+      const nextVersion = versions.get(dependencyName);
+      const value = dependencies[dependencyName];
+      if (typeof value === "string") {
+        if (value !== nextVersion) {
+          dependencies[dependencyName] = nextVersion;
           changed = true;
         }
         continue;
       }
-
-      if (!currentValue || typeof currentValue !== "object") {
-        continue;
-      }
-
-      const versionField = Object.prototype.hasOwnProperty.call(currentValue, "version")
-        ? "version"
-        : Object.prototype.hasOwnProperty.call(currentValue, "value")
-          ? "value"
-          : "";
-      if (versionField && currentValue[versionField] !== nextVersion) {
-        currentValue[versionField] = nextVersion;
+      if (value && typeof value === "object" && !Array.isArray(value) && value.version !== nextVersion) {
+        value.version = nextVersion;
         changed = true;
       }
     }
   }
-
   return changed;
 }
 
@@ -335,31 +214,27 @@ async function collectTemplatePackageJsonPaths(packageRoot) {
     return [];
   }
 
-  const packageJsonPaths = [];
+  const results = [];
   const directories = [templatesRoot];
   while (directories.length > 0) {
     const directory = directories.pop();
-    const entries = await readdir(directory, { withFileTypes: true });
-    for (const entry of entries) {
+    for (const entry of await readdir(directory, { withFileTypes: true })) {
       const entryPath = path.join(directory, entry.name);
       if (entry.isDirectory() && entry.name !== "node_modules") {
         directories.push(entryPath);
       } else if (entry.isFile() && entry.name === "package.json") {
-        packageJsonPaths.push(entryPath);
+        results.push(entryPath);
       }
     }
   }
-
-  return packageJsonPaths.sort();
+  return results.sort();
 }
 
-function updateTemplatedPackageJsonContents(contents, nextVersions) {
+function updateTemplatedPackageJsonContents(contents, versions) {
   try {
     const packageJson = JSON.parse(contents);
-    return {
-      changed: updatePackageDependencyVersions(packageJson, nextVersions),
-      contents: serializeJson(packageJson)
-    };
+    const changed = updatePackageDependencyVersions(packageJson, versions);
+    return { changed, contents: serializeJson(packageJson) };
   } catch (error) {
     if (!(error instanceof SyntaxError) || !/__JSKIT_[A-Z0-9_]+__/u.test(contents)) {
       throw error;
@@ -367,544 +242,271 @@ function updateTemplatedPackageJsonContents(contents, nextVersions) {
   }
 
   let changed = false;
-  const nextContents = contents.replace(
+  const updated = contents.replace(
     /"(@jskit-ai\/[^"\\]+)"(\s*:\s*)"([^"]*)"/gu,
     (match, dependencyName, separator, currentVersion) => {
-      if (!nextVersions.has(dependencyName)) {
-        return match;
-      }
-      const nextVersion = nextVersions.get(dependencyName);
-      if (currentVersion === nextVersion) {
+      const nextVersion = versions.get(dependencyName);
+      if (!nextVersion || currentVersion === nextVersion) {
         return match;
       }
       changed = true;
       return `"${dependencyName}"${separator}"${nextVersion}"`;
     }
   );
-
-  return { changed, contents: nextContents };
+  return { changed, contents: updated };
 }
 
-async function writePackageJsonUpdate(packageJsonPath, contents, { dryRun }) {
+async function writePreparedFile(absolutePath, contents, { dryRun }) {
+  const relativePath = toPosixPath(path.relative(REPO_ROOT, absolutePath));
   if (dryRun) {
-    process.stdout.write(`[dry-run] update ${toPosixPath(path.relative(REPO_ROOT, packageJsonPath))}\n`);
+    process.stdout.write(`[dry-run] update ${relativePath}\n`);
     return;
   }
-
-  await writeFile(packageJsonPath, contents, "utf8");
+  await writeFile(absolutePath, contents, "utf8");
 }
 
-async function updateWorkspacePackageJsonFiles(records, publishSet, nextVersions, { dryRun, onlyMode = false }) {
-  const recordsToProcess = onlyMode ? records.filter((record) => publishSet.has(record.name)) : records;
+async function prepareManifests(records, versions, { dryRun }) {
+  for (const record of records) {
+    updatePackageDependencyVersions(record.packageJson, versions);
+    record.packageJson.version = versions.get(record.name);
+    await writePreparedFile(record.packageJsonPath, serializeJson(record.packageJson), { dryRun });
 
-  for (const record of recordsToProcess) {
-    const packageJson = record.packageJson;
-    const dependencyChanged = updatePackageDependencyVersions(packageJson, nextVersions);
-    let changed = dependencyChanged;
-
-    const nextSelfVersion = nextVersions.get(record.name);
-    if (publishSet.has(record.name) && packageJson.version !== nextSelfVersion) {
-      packageJson.version = nextSelfVersion;
-      changed = true;
-    }
-
-    if (!onlyMode && dependencyChanged && !publishSet.has(record.name)) {
-      throw new Error(
-        `Internal dependency version changed for ${record.name} but package is not marked for publish. Expand dependency closure.`
-      );
-    }
-
-    if (changed) {
-      await writePackageJsonUpdate(record.packageJsonPath, serializeJson(packageJson), { dryRun });
-    }
-
-    for (const templatePackageJsonPath of await collectTemplatePackageJsonPaths(record.dir)) {
-      const templateContents = await readFile(templatePackageJsonPath, "utf8");
-      const update = updateTemplatedPackageJsonContents(templateContents, nextVersions);
-      if (!update.changed) {
-        continue;
+    for (const templatePath of await collectTemplatePackageJsonPaths(record.dir)) {
+      const update = updateTemplatedPackageJsonContents(await readFile(templatePath, "utf8"), versions);
+      if (update.changed) {
+        await writePreparedFile(templatePath, update.contents, { dryRun });
       }
-      await writePackageJsonUpdate(templatePackageJsonPath, update.contents, { dryRun });
     }
+  }
+
+  const rootPackageJsonPath = path.join(REPO_ROOT, "package.json");
+  const rootPackageJson = await readJsonFile(rootPackageJsonPath);
+  if (updatePackageDependencyVersions(rootPackageJson, versions)) {
+    await writePreparedFile(rootPackageJsonPath, serializeJson(rootPackageJson), { dryRun });
   }
 }
 
-function topologicalPublishOrder(records, publishSet) {
-  const { inDegree, adjacency } = buildPublishGraph(records, publishSet);
-  const queue = Array.from(inDegree.entries())
+function topologicalPublishOrder(records) {
+  const names = new Set(records.map((record) => record.name));
+  const inDegree = new Map([...names].map((name) => [name, 0]));
+  const consumers = new Map([...names].map((name) => [name, new Set()]));
+
+  for (const record of records) {
+    for (const dependencyName of record.localDependencies) {
+      if (!names.has(dependencyName)) {
+        continue;
+      }
+      consumers.get(dependencyName).add(record.name);
+      inDegree.set(record.name, inDegree.get(record.name) + 1);
+    }
+  }
+
+  const queue = [...inDegree]
     .filter(([, degree]) => degree === 0)
     .map(([name]) => name)
     .sort();
-
   const ordered = [];
   while (queue.length > 0) {
-    const nextName = queue.shift();
-    ordered.push(nextName);
-
-    const neighbors = Array.from(adjacency.get(nextName) || []).sort();
-    for (const neighbor of neighbors) {
-      const currentDegree = (inDegree.get(neighbor) || 0) - 1;
-      inDegree.set(neighbor, currentDegree);
-      if (currentDegree === 0) {
-        queue.push(neighbor);
+    const name = queue.shift();
+    ordered.push(name);
+    for (const consumer of [...consumers.get(name)].sort()) {
+      const degree = inDegree.get(consumer) - 1;
+      inDegree.set(consumer, degree);
+      if (degree === 0) {
+        queue.push(consumer);
         queue.sort();
       }
     }
   }
 
-  if (ordered.length !== publishSet.size) {
-    const missing = Array.from(publishSet).filter((name) => !ordered.includes(name)).sort();
-    ordered.push(...missing);
+  if (ordered.length !== records.length) {
+    const cycleMembers = [...inDegree]
+      .filter(([, degree]) => degree > 0)
+      .map(([name]) => name)
+      .sort();
+    throw new Error(`JSKIT package dependencies must be acyclic: ${cycleMembers.join(", ")}`);
   }
-
   return ordered;
 }
 
-function buildPublishGraph(records, publishSet) {
-  const recordByName = new Map(records.map((record) => [record.name, record]));
-  const inDegree = new Map();
-  const adjacency = new Map();
-
-  for (const packageName of publishSet) {
-    inDegree.set(packageName, 0);
-    adjacency.set(packageName, new Set());
-  }
-
-  for (const packageName of publishSet) {
-    const record = recordByName.get(packageName);
-    if (!record) {
-      continue;
+function collectVersionMismatches(packageJson, versions, source) {
+  const mismatches = [];
+  for (const field of DEPENDENCY_FIELDS) {
+    for (const [dependencyName, declaredVersion] of Object.entries(packageJson?.[field] || {})) {
+      if (versions.has(dependencyName) && declaredVersion !== versions.get(dependencyName)) {
+        mismatches.push(`${source}#${field}.${dependencyName} is ${declaredVersion}; expected ${versions.get(dependencyName)}`);
+      }
     }
-
-    for (const dependencyName of record.packageJsonLocalDeps) {
-      if (!publishSet.has(dependencyName)) {
+  }
+  for (const field of MUTATION_DEPENDENCY_FIELDS) {
+    for (const [dependencyName, value] of Object.entries(packageJson?.jskit?.mutations?.dependencies?.[field] || {})) {
+      if (!versions.has(dependencyName)) {
         continue;
       }
-
-      adjacency.get(dependencyName).add(packageName);
-      inDegree.set(packageName, (inDegree.get(packageName) || 0) + 1);
-    }
-  }
-  return { inDegree, adjacency };
-}
-
-async function createNpmUserConfig({ registry, token, dryRun }) {
-  if (dryRun) {
-    return "";
-  }
-
-  const normalizedToken = String(token || "").trim();
-  if (!normalizedToken) {
-    throw new Error("NPM_TOKEN is required for publish.");
-  }
-
-  const registryUrl = new URL(registry);
-  const registryWithSlash = `${registryUrl.origin}${registryUrl.pathname}`.replace(/\/+$/, "/");
-  const authHost = `${registryUrl.host}${registryUrl.pathname}`.replace(/\/+$/, "");
-
-  const npmrcPath = await mkdtemp(path.join(tmpdir(), "jskit-npmrc-"));
-  const configPath = path.join(npmrcPath, "npmrc");
-  const npmrcText = [
-    `@jskit-ai:registry=${registryWithSlash}`,
-    `registry=${registryWithSlash}`,
-    `//${authHost}/:_authToken=${normalizedToken}`
-  ].join("\n");
-
-  await writeFile(configPath, `${npmrcText}\n`, "utf8");
-  return configPath;
-}
-
-async function withPublishDirectory(record, callback) {
-  const tempDir = await mkdtemp(path.join(tmpdir(), "jskit-publish-"));
-
-  try {
-    await cp(record.dir, tempDir, {
-      recursive: true,
-      filter: (sourcePath) => !toPosixPath(sourcePath).includes("/node_modules")
-    });
-
-    const tempPackageJsonPath = path.join(tempDir, "package.json");
-    const packageJson = await readJsonFile(tempPackageJsonPath);
-    if (packageJson.private === true) {
-      await writeFile(
-        tempPackageJsonPath,
-        serializeJson(createPublishablePackageManifest(packageJson)),
-        "utf8"
-      );
-    }
-
-    await callback(tempDir);
-  } finally {
-    await rm(tempDir, { recursive: true, force: true });
-  }
-}
-
-async function runPublishCommand({ cwd, npmUserConfigPath, registry, tag, access }) {
-  const args = [
-    "publish",
-    "--registry",
-    registry,
-    "--tag",
-    tag,
-    "--access",
-    access,
-    "--workspaces=false",
-    "--userconfig",
-    npmUserConfigPath
-  ];
-
-  await new Promise((resolve, reject) => {
-    const child = spawn("npm", args, {
-      cwd,
-      stdio: "inherit",
-      env: process.env
-    });
-
-    child.on("error", (error) => {
-      reject(error);
-    });
-
-    child.on("close", (code, signal) => {
-      if (code === 0) {
-        resolve();
-        return;
+      const declaredVersion = mutationDependencyVersion(value);
+      if (declaredVersion !== versions.get(dependencyName)) {
+        mismatches.push(
+          `${source}#jskit.mutations.dependencies.${field}.${dependencyName} is ${declaredVersion || "missing"}; expected ${versions.get(dependencyName)}`
+        );
       }
-      reject(new Error(`npm publish failed in ${cwd} (code=${code}, signal=${signal || "none"})`));
-    });
-  });
+    }
+  }
+  return mismatches;
 }
 
-async function waitForPublishedVersions({
-  packageNames,
-  nextVersions,
-  registry,
-  token,
-  timeoutMs = REGISTRY_VISIBILITY_TIMEOUT_MS,
-  retryMs = REGISTRY_VISIBILITY_RETRY_MS
-}) {
-  const pending = new Set(packageNames);
-  const deadline = Date.now() + timeoutMs;
-  const headers = {
-    accept: "application/json",
-    "cache-control": "no-cache"
-  };
-  const normalizedToken = String(token || "").trim();
-  if (normalizedToken) {
-    headers.authorization = `Bearer ${normalizedToken}`;
+async function validateReleaseState(records) {
+  const versions = currentVersionMap(records);
+  const mismatches = [];
+  for (const record of records) {
+    if (record.packageJson.private === true) {
+      mismatches.push(`${record.name} is private and cannot be published`);
+    }
+    mismatches.push(...collectVersionMismatches(record.packageJson, versions, record.name));
+    for (const templatePath of await collectTemplatePackageJsonPaths(record.dir)) {
+      const contents = await readFile(templatePath, "utf8");
+      if (updateTemplatedPackageJsonContents(contents, versions).changed) {
+        mismatches.push(`${toPosixPath(path.relative(REPO_ROOT, templatePath))} has stale JSKIT versions`);
+      }
+    }
   }
 
-  while (pending.size > 0) {
-    const checks = await Promise.all(
-      [...pending].map(async (packageName) => {
-        const version = nextVersions.get(packageName);
-        const packagePath = encodeURIComponent(packageName);
-        const versionPath = encodeURIComponent(version);
-        const url = `${registry}/${packagePath}/${versionPath}`;
-        try {
-          const response = await fetch(url, { headers });
-          if (!response.ok) {
-            return null;
-          }
-          const manifest = await response.json();
-          return manifest?.version === version ? packageName : null;
-        } catch {
-          return null;
-        }
-      })
-    );
-
-    for (const packageName of checks.filter(Boolean)) {
-      pending.delete(packageName);
-    }
-    if (pending.size < 1) {
-      return;
-    }
-    if (Date.now() >= deadline) {
-      throw new Error(
-        `Published versions did not become readable before tag promotion: ${[...pending].sort().join(", ")}.`
-      );
-    }
-    await new Promise((resolve) => setTimeout(resolve, retryMs));
+  const rootPackageJson = await readJsonFile(path.join(REPO_ROOT, "package.json"));
+  mismatches.push(...collectVersionMismatches(rootPackageJson, versions, "package.json"));
+  if (mismatches.length > 0) {
+    throw new Error(`Release source is not coordinated:\n- ${mismatches.join("\n- ")}`);
   }
+  return versions;
 }
 
-async function runDistTagCommand({
-  packageName,
-  version,
-  npmUserConfigPath,
-  registry,
-  tag
-}) {
-  const args = [
-    "dist-tag",
-    "add",
-    `${packageName}@${version}`,
-    tag,
-    "--registry",
-    registry,
-    "--userconfig",
-    npmUserConfigPath
-  ];
-
+async function runCommand(command, args, { cwd = REPO_ROOT, env = process.env } = {}) {
   await new Promise((resolve, reject) => {
-    const child = spawn("npm", args, {
-      cwd: REPO_ROOT,
-      stdio: "inherit",
-      env: process.env
-    });
+    const child = spawn(command, args, { cwd, env, stdio: "inherit" });
     child.on("error", reject);
     child.on("close", (code, signal) => {
       if (code === 0) {
         resolve();
         return;
       }
-      reject(
-        new Error(
-          `npm dist-tag failed for ${packageName}@${version} (code=${code}, signal=${signal || "none"})`
-        )
-      );
+      reject(new Error(`${command} ${args.join(" ")} failed (code=${code}, signal=${signal || "none"})`));
     });
   });
 }
 
-async function promotePublishedPackages({
-  publishOrder,
-  nextVersions,
-  npmUserConfigPath,
-  registry,
-  tag
-}) {
-  for (const packageName of publishOrder) {
-    const version = nextVersions.get(packageName);
-    process.stdout.write(`Promoting ${packageName}@${version} to ${tag}...\n`);
-    await runDistTagCommand({
-      packageName,
-      version,
-      npmUserConfigPath,
-      registry,
-      tag
-    });
+async function prepareRelease(records, { dryRun }) {
+  const currentVersions = currentVersionMap(records);
+  const nextVersions = nextVersionMap(records);
+  topologicalPublishOrder(records);
+
+  process.stdout.write("Preparing coordinated patch versions:\n");
+  for (const record of records) {
+    process.stdout.write(`- ${record.name}: ${currentVersions.get(record.name)} -> ${nextVersions.get(record.name)}\n`);
   }
-}
+  await prepareManifests(records, nextVersions, { dryRun });
 
-async function publishPackages({
-  records,
-  publishSet,
-  nextVersions,
-  npmUserConfigPath,
-  registry,
-  tag,
-  access
-}) {
-  const recordByName = new Map(records.map((record) => [record.name, record]));
-  const publishOrder = topologicalPublishOrder(records, publishSet);
-  for (const packageName of publishOrder) {
-    const record = recordByName.get(packageName);
-    if (!record) {
-      throw new Error(`Missing record for ${packageName}`);
-    }
-
-    process.stdout.write(`Publishing ${packageName}@${nextVersions.get(packageName)}...\n`);
-    await withPublishDirectory(record, async (publishDir) => {
-      await runPublishCommand({
-        cwd: publishDir,
-        npmUserConfigPath,
-        registry,
-        tag,
-        access
-      });
-    });
-    process.stdout.write(`Published ${packageName}@${nextVersions.get(packageName)}\n`);
-  }
-}
-
-function runRootNpmScript({
-  dryRun,
-  enabled = true,
-  scriptName,
-  skippedMessage
-}) {
-  if (!enabled) {
-    process.stdout.write(`${skippedMessage}\n`);
-    return;
-  }
-
-  if (dryRun) {
-    process.stdout.write(`[dry-run] npm run ${scriptName}\n`);
-    return;
-  }
-
-  const result = spawnSync("npm", ["run", scriptName], {
-    cwd: REPO_ROOT,
-    stdio: "inherit",
-    env: process.env
-  });
-
-  if (result.status !== 0) {
-    throw new Error(`${scriptName} failed.`);
-  }
-}
-
-function resolvePackageLockRefreshSteps({ onlyMode = false } = {}) {
-  const standardStep = ["install", "--package-lock-only", "--ignore-scripts"];
-  if (!onlyMode) {
-    return [standardStep];
-  }
-
-  // A selective bump leaves older exact versions referenced by unselected
-  // workspaces. npm needs one forced recalculation to nest those published
-  // versions. The ordinary second pass must still validate the resulting graph.
-  return [
-    [...standardStep, "--force"],
-    standardStep
-  ];
-}
-
-function refreshPackageLock({ dryRun, onlyMode = false }) {
-  const steps = resolvePackageLockRefreshSteps({ onlyMode });
-  for (const args of steps) {
+  for (const args of [
+    ["install", "--package-lock-only", "--ignore-scripts"],
+    ["run", "catalog:build"],
+    ["run", "agent-docs:build"]
+  ]) {
     if (dryRun) {
       process.stdout.write(`[dry-run] npm ${args.join(" ")}\n`);
-      continue;
-    }
-
-    const result = spawnSync("npm", args, {
-      cwd: REPO_ROOT,
-      stdio: "inherit",
-      env: process.env
-    });
-
-    if (result.status !== 0) {
-      throw new Error(`package-lock refresh failed during: npm ${args.join(" ")}`);
+    } else {
+      await runCommand("npm", args);
     }
   }
+  process.stdout.write(dryRun ? "Prepare dry-run complete.\n" : "Release source prepared.\n");
+}
+
+async function createNpmUserConfig(registry) {
+  const token = String(process.env.NPM_TOKEN || "").trim();
+  if (!token) {
+    throw new Error("NPM_TOKEN is required for publish.");
+  }
+  const registryUrl = new URL(registry);
+  const registryWithSlash = `${registryUrl.origin}${registryUrl.pathname}`.replace(/\/+$/u, "/");
+  const authHost = `${registryUrl.host}${registryUrl.pathname}`.replace(/\/+$/u, "");
+  const directory = await mkdtemp(path.join(tmpdir(), "jskit-npmrc-"));
+  const configPath = path.join(directory, "npmrc");
+  await writeFile(
+    configPath,
+    `@jskit-ai:registry=${registryWithSlash}\nregistry=${registryWithSlash}\n//${authHost}/:_authToken=${token}\n`,
+    { encoding: "utf8", mode: 0o600 }
+  );
+  return { configPath, directory };
+}
+
+async function publishRelease(records, { dryRun, registry }) {
+  const versions = await validateReleaseState(records);
+  const order = topologicalPublishOrder(records);
+  const recordsByName = new Map(records.map((record) => [record.name, record]));
+  process.stdout.write(`${dryRun ? "Checking" : "Publishing"} coordinated source:\n`);
+  for (const name of order) {
+    process.stdout.write(`- ${name}@${versions.get(name)}\n`);
+  }
+
+  let npmConfig = null;
+  if (!dryRun) {
+    npmConfig = await createNpmUserConfig(registry);
+  }
+  try {
+    for (const name of order) {
+      const args = [
+        "publish",
+        "--access",
+        "public",
+        "--tag",
+        "latest",
+        "--registry",
+        registry,
+        "--workspaces=false"
+      ];
+      if (dryRun) {
+        args.push("--dry-run");
+      } else {
+        args.push("--userconfig", npmConfig.configPath);
+      }
+      await runCommand("npm", args, { cwd: recordsByName.get(name).dir });
+    }
+  } finally {
+    if (npmConfig) {
+      await rm(npmConfig.directory, { recursive: true, force: true });
+    }
+  }
+  process.stdout.write(dryRun ? "Publish dry-run complete.\n" : "Publish complete.\n");
 }
 
 async function main() {
   const options = parseArgs(process.argv.slice(2));
   const records = await discoverWorkspacePackages();
   if (records.length === 0) {
-    throw new Error("No @jskit-ai workspace packages found under packages/ and tooling/.");
+    throw new Error("No @jskit-ai workspace packages found.");
   }
+  hydrateLocalDependencies(records);
 
-  hydrateLocalDependencyMaps(records);
-  const recordByName = new Map(records.map((record) => [record.name, record]));
-  const onlyMode = options.only.length > 0;
-
-  let publishSet = new Set();
-  if (onlyMode) {
-    for (const packageToken of options.only) {
-      const packageName = resolvePackageIdInput(packageToken, recordByName);
-      if (!packageName) {
-        throw new Error(`Unknown package in --only: ${packageToken}`);
-      }
-      publishSet.add(packageName);
-    }
-  } else {
-    publishSet = new Set(records.map((record) => record.name));
-  }
-
-  let { currentVersions, nextVersions } = computeVersionMaps(records, publishSet);
-
-  const publishOrder = topologicalPublishOrder(records, publishSet);
-  process.stdout.write("Release plan:\n");
-  for (const packageName of publishOrder) {
-    process.stdout.write(`- ${packageName}: ${currentVersions.get(packageName)} -> ${nextVersions.get(packageName)}\n`);
-  }
-  if (options.tag !== STAGING_TAG) {
-    process.stdout.write(`Publish tag: ${STAGING_TAG}; promote to: ${options.tag}\n`);
-  }
-  if (options.prepareOnly) {
-    process.stdout.write("Prepare only: yes\n");
-  }
-
-  await updateWorkspacePackageJsonFiles(records, publishSet, nextVersions, {
-    dryRun: options.dryRun,
-    onlyMode
-  });
-  refreshPackageLock({ dryRun: options.dryRun, onlyMode });
-
-  runRootNpmScript({
-    dryRun: options.dryRun,
-    enabled: !onlyMode || publishSet.has("@jskit-ai/jskit-catalog"),
-    scriptName: "catalog:build",
-    skippedMessage: "Catalog build skipped."
-  });
-  runRootNpmScript({
-    dryRun: options.dryRun,
-    enabled: !onlyMode || publishSet.has("@jskit-ai/agent-docs"),
-    scriptName: "agent-docs:build",
-    skippedMessage: "Agent docs build skipped."
-  });
-
-  if (options.dryRun) {
-    process.stdout.write("Dry-run complete. No files published.\n");
+  if (options.intent === "prepare") {
+    await prepareRelease(records, options);
     return;
   }
-
-  if (options.prepareOnly) {
-    process.stdout.write("Prepare-only complete. No files published.\n");
-    return;
-  }
-
-  const npmUserConfigPath = await createNpmUserConfig({
-    registry: options.registry,
-    token: process.env.NPM_TOKEN,
-    dryRun: options.dryRun
-  });
-
-  try {
-    await publishPackages({
-      records,
-      publishSet,
-      nextVersions,
-      npmUserConfigPath,
-      registry: options.registry,
-      // Never expose a dependent package through the requested public tag until
-      // the complete exact-version closure is readable from the registry.
-      tag: options.tag === STAGING_TAG ? options.tag : STAGING_TAG,
-      access: options.access
-    });
-    if (options.tag !== STAGING_TAG) {
-      process.stdout.write("Waiting for every published version to become readable...\n");
-      await waitForPublishedVersions({
-        packageNames: publishOrder,
-        nextVersions,
-        registry: options.registry,
-        token: process.env.NPM_TOKEN
-      });
-      await promotePublishedPackages({
-        publishOrder,
-        nextVersions,
-        npmUserConfigPath,
-        registry: options.registry,
-        tag: options.tag
-      });
-    }
-  } finally {
-    if (npmUserConfigPath) {
-      await rm(path.dirname(npmUserConfigPath), { recursive: true, force: true });
-    }
-  }
-
-  process.stdout.write("Publish complete.\n");
+  await publishRelease(records, options);
 }
 
 if (process.argv[1] && path.resolve(process.argv[1]) === __filename) {
   main().catch((error) => {
-    const message = error instanceof Error ? error.message : String(error);
-    process.stderr.write(`release-npm failed: ${message}\n`);
+    process.stderr.write(`release-npm failed: ${error instanceof Error ? error.message : String(error)}\n`);
     process.exitCode = 1;
   });
 }
 
 export {
-  STAGING_TAG,
+  bumpPatch,
+  collectPublishDependencies,
   collectTemplatePackageJsonPaths,
-  promotePublishedPackages,
-  resolvePackageLockRefreshSteps,
+  collectVersionMismatches,
+  discoverWorkspacePackages,
+  mutationDependencyVersion,
+  parseArgs,
   topologicalPublishOrder,
   updatePackageDependencyVersions,
   updateTemplatedPackageJsonContents,
-  waitForPublishedVersions
+  validateReleaseState
 };

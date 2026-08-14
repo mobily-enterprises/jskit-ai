@@ -44,7 +44,7 @@ import MembersAdminClientElement from "./MembersAdminClientElement.vue";
 import { useCommand } from "@jskit-ai/users-web/client/composables/useCommand";
 import { useList } from "@jskit-ai/users-web/client/composables/useList";
 import { useView } from "@jskit-ai/users-web/client/composables/useView";
-import { usePaths } from "@jskit-ai/users-web/client/composables/usePaths";
+import { usePaths } from "@jskit-ai/shell-web/client/navigation/usePaths";
 import { useAccess } from "@jskit-ai/users-web/client/composables/useAccess";
 import { useUiFeedback } from "@jskit-ai/users-web/client/composables/runtime/useUiFeedback";
 import { useWorkspaceRouteContext } from "../composables/useWorkspaceRouteContext.js";

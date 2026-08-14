@@ -230,8 +230,8 @@ It also means:
 - the backend must be running on your laptop
 - the app needs an `adb reverse` tunnel
 
-If `apiBaseUrl` later points to a real remote `https://...` backend, the tunnel
-is no longer required.
+An `apiBaseUrl` that points to a remote `https://...` backend uses the device's
+normal network connection and does not need the tunnel.
 
 ## A good day-to-day loop
 

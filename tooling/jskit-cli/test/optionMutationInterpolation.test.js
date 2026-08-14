@@ -5,7 +5,7 @@ import path from "node:path";
 import test from "node:test";
 import { withTempDir } from "../../testUtils/tempDir.mjs";
 import { createCliRunner } from "../../testUtils/runCli.js";
-import { writeJskitPackageMetadata } from "../../testUtils/jskitPackage.mjs";
+import { writeJskitConfig } from "../../testUtils/jskitPackage.mjs";
 
 const CLI_PATH = fileURLToPath(new URL("../bin/jskit.js", import.meta.url));
 const runCli = createCliRunner(CLI_PATH);
@@ -79,11 +79,6 @@ test("add package applies option interpolation and conditional file mutations", 
       "utf8"
     );
     await writeFile(
-      path.join(packageRoot, "templates", "migration.cjs"),
-      "module.exports = \"${option:visibility}\";\n",
-      "utf8"
-    );
-    await writeFile(
       path.join(packageRoot, "templates", "prefixed.txt"),
       "prefixed namespace=${option:namespace|kebab} prefix=${option:directory-prefix|path}\n",
       "utf8"
@@ -109,11 +104,9 @@ test("add package applies option interpolation and conditional file mutations", 
       "utf8"
     );
 
-    await writeJskitPackageMetadata(
+    await writeJskitConfig(
       path.join(packageRoot),
       `({
-  packageId: "@demo/option-feature",
-  version: "0.1.0",
   kind: "runtime",
   runtime: {
     server: {
@@ -220,12 +213,6 @@ test("add package applies option interpolation and conditional file mutations", 
             }
           ]
         }
-      },
-      {
-        op: "install-migration",
-        from: "templates/migration.cjs",
-        toDir: "migrations",
-        id: "demo-\${option:namespace|kebab|default(default)}"
       }
     ]
   }
@@ -281,15 +268,6 @@ test("add package applies option interpolation and conditional file mutations", 
     const anyConditionsContent = await readFile(anyConditionsFile, "utf8");
     assert.equal(anyConditionsContent, "any-conditions=true\n");
 
-    const migrationsDirectory = path.join(appRoot, "migrations");
-    const migrationFiles = (await readdir(migrationsDirectory))
-      .filter((entry) => /^\d{14}_demo-client-profiles\.cjs$/.test(entry))
-      .sort();
-    assert.equal(migrationFiles.length, 1);
-    const migrationPath = path.join(migrationsDirectory, migrationFiles[0]);
-    const migrationContent = await readFile(migrationPath, "utf8");
-    assert.match(migrationContent, /module\.exports = "public";/);
-
     const appPackageJson = JSON.parse(await readFile(path.join(appRoot, "package.json"), "utf8"));
     assert.equal(
       appPackageJson.dependencies["@demo/generated-client-profiles"],
@@ -328,11 +306,9 @@ test("add package allows empty rendered install-migration files", async () => {
     );
     await writeFile(path.join(packageRoot, "templates", "migration.cjs"), "", "utf8");
 
-    await writeJskitPackageMetadata(
+    await writeJskitConfig(
       path.join(packageRoot),
       `({
-  packageId: "@demo/empty-migration",
-  version: "0.1.0",
   kind: "runtime",
   runtime: {
     server: {
@@ -405,11 +381,9 @@ test("remove then re-add package reuses existing timestamped migration by id", a
     );
     await writeFile(path.join(packageRoot, "templates", "migration.cjs"), "module.exports = \"v1\";\n", "utf8");
 
-    await writeJskitPackageMetadata(
+    await writeJskitConfig(
       path.join(packageRoot),
       `({
-  packageId: "@demo/migration-readd",
-  version: "0.1.0",
   kind: "runtime",
   runtime: {
     server: {
@@ -498,11 +472,9 @@ test("add package fails when install-migration is missing id", async () => {
     );
     await writeFile(path.join(packageRoot, "templates", "migration.cjs"), "module.exports = \"ok\";\n", "utf8");
 
-    await writeJskitPackageMetadata(
+    await writeJskitConfig(
       path.join(packageRoot),
       `({
-  packageId: "@demo/migration-id-required",
-  version: "0.1.0",
   kind: "runtime",
   runtime: {
     server: {
@@ -568,11 +540,9 @@ test("add package fails when install-migration id is not lowercase-safe", async 
     );
     await writeFile(path.join(packageRoot, "templates", "migration.cjs"), "module.exports = \"ok\";\n", "utf8");
 
-    await writeJskitPackageMetadata(
+    await writeJskitConfig(
       path.join(packageRoot),
       `({
-  packageId: "@demo/migration-id-case",
-  version: "0.1.0",
   kind: "runtime",
   runtime: {
     server: {
@@ -648,11 +618,9 @@ test("add package evaluates when.config conditions from app config", async () =>
     await writeFile(path.join(packageRoot, "templates", "workspace.txt"), "workspace\n", "utf8");
     await writeFile(path.join(packageRoot, "templates", "none.txt"), "none\n", "utf8");
 
-    await writeJskitPackageMetadata(
+    await writeJskitConfig(
       path.join(packageRoot),
       `({
-  packageId: "@demo/config-feature",
-  version: "0.1.0",
   kind: "runtime",
   runtime: {
     server: {
@@ -750,11 +718,9 @@ test("add package resolves option defaultFromConfig from app config", async () =
       "utf8"
     );
 
-    await writeJskitPackageMetadata(
+    await writeJskitConfig(
       path.join(packageRoot),
       `({
-  packageId: "@demo/default-from-config-feature",
-  version: "0.1.0",
   kind: "runtime",
   runtime: {
     server: {

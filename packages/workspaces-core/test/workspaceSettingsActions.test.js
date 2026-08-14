@@ -16,7 +16,7 @@ test("workspace settings actions live in their own action array", () => {
   assert.equal(workspaceSettingsActions[1].extensions?.assistant?.description, "Update workspace settings.");
 });
 
-test("workspace actions array no longer owns workspace settings actions", () => {
+test("workspace actions array excludes workspace settings actions", () => {
   const otherWorkspaceActionIds = [
     ...workspaceDirectoryActions,
     ...workspacePendingInvitationsActions,

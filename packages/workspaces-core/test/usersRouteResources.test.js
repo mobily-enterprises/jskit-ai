@@ -95,7 +95,7 @@ test("workspace settings and invite operations expose canonical validators", () 
   }
 });
 
-test("workspaces-core no longer uses a workspace schema helper that exposes raw schema leaves", () => {
+test("workspaces-core keeps raw workspace schema leaves private", () => {
   const testFilePath = fileURLToPath(import.meta.url);
   const packageRoot = path.resolve(path.dirname(testFilePath), "..");
   const workspaceRoutesFilePath = path.join(packageRoot, "src", "server", "common", "routes", "workspaceRoutes.js");

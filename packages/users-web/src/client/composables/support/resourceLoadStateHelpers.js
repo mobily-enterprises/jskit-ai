@@ -77,12 +77,8 @@ function normalizeRequestRecoveryMethod(value = "") {
   return normalizeText(value).toUpperCase();
 }
 
-function isRequestRecoveryMetaDisabled(sourceJskitMeta = {}, sourceMeta = {}) {
-  return Boolean(
-    sourceJskitMeta.requestRecovery === false ||
-      sourceMeta.jskitRequestRecovery === false ||
-      sourceMeta.requestRecovery === false
-  );
+function isRequestRecoveryMetaDisabled(sourceJskitMeta = {}) {
+  return sourceJskitMeta.requestRecovery === false;
 }
 
 function hasUsableMetaValue(source = {}, key = "") {
@@ -161,37 +157,20 @@ function buildRequestRecoveryMeta(requestRecovery = null, defaults = {}) {
   return Object.keys(jskit).length > 0 ? { jskit } : {};
 }
 
-function hasRequestRecoveryMetaValue(sourceJskitMeta = {}, sourceMeta = {}, key = "") {
-  const suffix = String(key || "").trim();
-  if (!suffix) {
-    return false;
-  }
-
-  const jskitKey = `requestRecovery${suffix}`;
-  const legacyJskitKey = `jskitRequestRecovery${suffix}`;
-  const legacyKey = `requestRecovery${suffix}`;
-
-  return Boolean(
-    hasUsableMetaValue(sourceJskitMeta, jskitKey) ||
-      hasUsableMetaValue(sourceMeta, legacyJskitKey) ||
-      hasUsableMetaValue(sourceMeta, legacyKey)
-  );
-}
-
 function resolveRequestRecoveryDefaults(queryOptions = null, defaults = {}) {
   const sourceOptions = normalizePlainObject(queryOptions);
   const sourceMeta = normalizePlainObject(sourceOptions.meta);
   const sourceJskitMeta = normalizePlainObject(sourceMeta.jskit);
   const fallback = normalizePlainObject(defaults);
-  if (isRequestRecoveryMetaDisabled(sourceJskitMeta, sourceMeta)) {
+  if (isRequestRecoveryMetaDisabled(sourceJskitMeta)) {
     return {};
   }
 
-  const hasExplicitLabel = hasRequestRecoveryMetaValue(sourceJskitMeta, sourceMeta, "Label");
-  const hasExplicitSource = hasRequestRecoveryMetaValue(sourceJskitMeta, sourceMeta, "Source");
-  const hasExplicitDedupeKey = hasRequestRecoveryMetaValue(sourceJskitMeta, sourceMeta, "DedupeKey");
-  const hasExplicitDedupeWindowMs = hasRequestRecoveryMetaValue(sourceJskitMeta, sourceMeta, "DedupeWindowMs");
-  const hasExplicitMethod = hasRequestRecoveryMetaValue(sourceJskitMeta, sourceMeta, "Method");
+  const hasExplicitLabel = hasUsableMetaValue(sourceJskitMeta, "requestRecoveryLabel");
+  const hasExplicitSource = hasUsableMetaValue(sourceJskitMeta, "requestRecoverySource");
+  const hasExplicitDedupeKey = hasUsableMetaValue(sourceJskitMeta, "requestRecoveryDedupeKey");
+  const hasExplicitDedupeWindowMs = hasUsableMetaValue(sourceJskitMeta, "requestRecoveryDedupeWindowMs");
+  const hasExplicitMethod = hasUsableMetaValue(sourceJskitMeta, "requestRecoveryMethod");
 
   return {
     ...fallback,

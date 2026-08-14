@@ -9,7 +9,7 @@ import path from "node:path";
 import test from "node:test";
 import { withTempDir } from "../../testUtils/tempDir.mjs";
 import { createCliRunner } from "../../testUtils/runCli.js";
-import { writeJskitPackageMetadata } from "../../testUtils/jskitPackage.mjs";
+import { writeJskitConfig } from "../../testUtils/jskitPackage.mjs";
 
 const CLI_PATH = fileURLToPath(new URL("../bin/jskit.js", import.meta.url));
 const runCli = createCliRunner(CLI_PATH);
@@ -144,7 +144,7 @@ async function declareInstalledPackages(appRoot, installedPackageIds = []) {
   await writeFile(manifestPath, `${JSON.stringify(packageJson, null, 2)}\n`, "utf8");
 }
 
-async function writePackageMetadata(appRoot, packageDirectoryName, metadataExpression, extraFiles = {}) {
+async function writePackageMetadata(appRoot, packageDirectoryName, jskitSource, extraFiles = {}) {
   const packageRoot = path.join(appRoot, "packages", packageDirectoryName);
   await writeAppFile(
     appRoot,
@@ -159,7 +159,7 @@ async function writePackageMetadata(appRoot, packageDirectoryName, metadataExpre
       2
     )}\n`
   );
-  await writeJskitPackageMetadata(packageRoot, metadataExpression);
+  await writeJskitConfig(packageRoot, jskitSource);
 
   for (const [relativePath, body] of Object.entries(extraFiles)) {
     await writeAppFile(appRoot, `packages/${packageDirectoryName}/${relativePath}`, body);
@@ -190,8 +190,6 @@ async function writeGeneratedCrudPackage(appRoot, {
     appRoot,
     packageDirectoryName,
     `({
-  packageId: "@local/${packageDirectoryName}",
-  version: "0.1.0",
   kind: "runtime",
   capabilities: {
     provides: ["crud.${packageDirectoryName}"],
@@ -245,8 +243,6 @@ test("doctor accepts live tables owned by generated CRUD metadata", async () => 
       appRoot,
       "contacts",
       `({
-  packageId: "@local/contacts",
-  version: "0.1.0",
   kind: "runtime",
   capabilities: {
     provides: ["crud.contacts"],
@@ -412,8 +408,6 @@ test("doctor allows the baseline users package provenance for the users table", 
       appRoot,
       "users",
       `({
-  packageId: "@local/users",
-  version: "0.1.0",
   kind: "runtime",
   capabilities: {
     provides: ["crud.users"],
@@ -499,8 +493,6 @@ test("doctor flags direct knex in app-owned packages outside explicit exception 
       appRoot,
       "reporting-engine",
       `({
-  packageId: "@local/reporting-engine",
-  version: "0.1.0",
   kind: "runtime",
   capabilities: {
     provides: ["feature.reporting-engine"],
@@ -565,8 +557,6 @@ test("doctor requires CRUD ownership filters to match direct reserved owner colu
       appRoot,
       "contacts",
       `({
-  packageId: "@local/contacts",
-  version: "0.1.0",
   kind: "runtime",
   capabilities: {
     provides: ["crud.contacts"],
@@ -650,8 +640,6 @@ test("doctor keeps noncanonical user foreign keys as domain relationships for ex
       appRoot,
       "notification-outbox-items",
       `({
-  packageId: "@local/notification-outbox-items",
-  version: "0.1.0",
   kind: "runtime",
   capabilities: {
     provides: ["crud.notification-outbox-items"],
@@ -742,8 +730,6 @@ test("doctor supports multiple CRUD providers in one package when table ownershi
       appRoot,
       "google-rewarded-core",
       `({
-  packageId: "@local/google-rewarded-core",
-  version: "0.1.0",
   kind: "runtime",
   capabilities: {
     provides: ["crud.google-rewarded-rules", "crud.google-rewarded-watch-sessions"],
@@ -829,8 +815,6 @@ test("doctor rejects CRUD metadata whose ownership filter drifts from the provid
       appRoot,
       "google-rewarded-core",
       `({
-  packageId: "@local/google-rewarded-core",
-  version: "0.1.0",
   kind: "runtime",
   capabilities: {
     provides: ["crud.google-rewarded-watch-sessions"],
@@ -904,8 +888,6 @@ test("doctor rejects CRUD metadata when the owning provider cannot be resolved",
       appRoot,
       "contacts",
       `({
-  packageId: "@local/contacts",
-  version: "0.1.0",
   kind: "runtime",
   capabilities: {
     provides: ["crud.contacts"],
@@ -1043,8 +1025,6 @@ test("doctor allows auxiliary join tables to inherit ownership without direct ow
       appRoot,
       "products",
       `({
-  packageId: "@local/products",
-  version: "0.1.0",
   kind: "runtime",
   capabilities: {
     provides: ["crud.products"],

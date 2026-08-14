@@ -38,7 +38,6 @@ function createHealthCommands(ctx = {}) {
     "coverage",
     "dist",
     "docs",
-    "LEGACY",
     "node_modules",
     "test",
     "tests",

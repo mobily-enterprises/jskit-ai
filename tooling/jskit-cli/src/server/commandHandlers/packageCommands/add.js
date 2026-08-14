@@ -31,6 +31,7 @@ import {
   packageManagesNpmInstall,
   resolveInstallHookSpec
 } from "./packageInstallLifecycle.js";
+import { synchronizeInstalledMigrations } from "../../cliRuntime/migrationSync.js";
 
 const COMPONENT_TOKEN_PATTERN = /\bcomponentToken\s*:\s*["']([^"']+)["']/g;
 
@@ -147,7 +148,6 @@ async function runPackageAddCommand(ctx = {}, { positional, options, cwd, io }) 
     resolveBundleInlineOptionsForPackage,
     resolvePackageOptions,
     applyPackageInstall,
-    assertAppCiCanSynchronize,
     composeInstalledPackageCi,
     synchronizeAppCiWorkflow,
     synchronizeCiWorkflow,
@@ -279,7 +279,6 @@ async function runPackageAddCommand(ctx = {}, { positional, options, cwd, io }) 
     installedPackageRegistry
   );
   const { packageJsonPath, packageJson } = await loadAppPackageJson(appRoot);
-  await assertAppCiCanSynchronize({ appRoot });
   const resolvedTargetPackageId = targetType === "package"
     ? await resolvePackageIdFromRegistryOrNodeModules({
         appRoot,
@@ -341,7 +340,6 @@ async function runPackageAddCommand(ctx = {}, { positional, options, cwd, io }) 
     packageRegistry: combinedPackageRegistry,
     installedPackageIds: preflightRuntimePackageIds
   });
-  const externalDependencies = [];
   if (invocationMode === "add" && targetType === "bundle") {
     const bundledGenerators = resolvedPackageIds.filter((packageId) => {
       const packageEntry = combinedPackageRegistry.get(packageId);
@@ -378,7 +376,7 @@ async function runPackageAddCommand(ctx = {}, { positional, options, cwd, io }) 
     packageManagesNpmInstall(combinedPackageRegistry.get(packageId))
   );
   let npmInstallRequired = false;
-  let installedDependencyState = "";
+  let installedDependencyState = serializeDependencyState(packageJson);
   for (const packageId of targetPackageIds) {
     const packageEntry = combinedPackageRegistry.get(packageId);
     if (!packageEntry) {
@@ -442,6 +440,10 @@ async function runPackageAddCommand(ctx = {}, { positional, options, cwd, io }) 
   for (const [packageId, packageEntry] of refreshedInstalledRegistry.entries()) {
     combinedPackageRegistry.set(packageId, packageEntry);
   }
+  await synchronizeInstalledMigrations(ctx, {
+    appRoot,
+    check: true
+  });
   const plannedInstalledPackageIds = sortStrings([...new Set([
     ...refreshedInstalledRegistry.keys(),
     ...resolvedPackageIds.filter((packageId) =>
@@ -551,7 +553,6 @@ async function runPackageAddCommand(ctx = {}, { positional, options, cwd, io }) 
           targetId,
           resolvedPackages: resolvedPackageIds,
           touchedFiles: touchedFileList,
-          externalDependencies,
           dryRun: options.dryRun,
           applied: [],
           warnings: installWarnings,
@@ -564,8 +565,7 @@ async function runPackageAddCommand(ctx = {}, { positional, options, cwd, io }) 
             `${invocationMode === "generate" ? "Generated with" : targetType === "bundle" ? "Added bundle" : "Added package"}`,
             targetId,
             resolvedPackageIds,
-            touchedFileList,
-            externalDependencies
+            touchedFileList
           )}\n`
         );
         if (installWarnings.length > 0) {
@@ -640,15 +640,7 @@ async function runPackageAddCommand(ctx = {}, { positional, options, cwd, io }) 
     .sort((left, right) => Number(Boolean(right.hookSpec?.managesNpmInstall)) - Number(Boolean(left.hookSpec?.managesNpmInstall)));
   const managesNpmInstall = finalizeHookRecords.some((record) => record.hookSpec?.managesNpmInstall === true);
 
-  if (options.dryRun) {
-    await synchronizeCiWorkflow({
-      appRoot,
-      packageRegistry: combinedPackageRegistry,
-      installedPackageIds: plannedInstalledPackageIds,
-      touchedFiles,
-      dryRun: true
-    });
-  } else {
+  if (!options.dryRun) {
     await writeJsonFile(packageJsonPath, packageJson);
     const nextDependencyState = serializeDependencyState(packageJson);
     if (!managesNpmInstall && nextDependencyState !== installedDependencyState) {
@@ -679,6 +671,25 @@ async function runPackageAddCommand(ctx = {}, { positional, options, cwd, io }) 
         }
       }
     }
+  }
+
+  const migrationResult = await synchronizeInstalledMigrations(ctx, {
+    appRoot,
+    check: options.dryRun === true
+  });
+  for (const changedFile of migrationResult.changedFiles) {
+    touchedFiles.add(changedFile);
+  }
+
+  if (options.dryRun) {
+    await synchronizeCiWorkflow({
+      appRoot,
+      packageRegistry: combinedPackageRegistry,
+      installedPackageIds: plannedInstalledPackageIds,
+      touchedFiles,
+      dryRun: true
+    });
+  } else {
     const ciResult = await synchronizeAppCiWorkflow({ appRoot });
     if (ciResult.changed) {
       touchedFiles.add(ciResult.path);
@@ -693,7 +704,6 @@ async function runPackageAddCommand(ctx = {}, { positional, options, cwd, io }) 
       targetId,
       resolvedPackages: resolvedPackageIds,
       touchedFiles: touchedFileList,
-      externalDependencies,
       dryRun: options.dryRun,
       applied: mutationResults,
       warnings: installWarnings
@@ -704,8 +714,7 @@ async function runPackageAddCommand(ctx = {}, { positional, options, cwd, io }) 
         `${successLabel}`,
         targetId,
         resolvedPackageIds,
-        touchedFileList,
-        externalDependencies
+        touchedFileList
       )}\n`
     );
     if (installWarnings.length > 0) {

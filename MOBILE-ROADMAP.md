@@ -364,7 +364,7 @@ Do not start stage 2 as a platform commitment until all of these are true:
 Promote selected mobile capabilities into maintained JSKIT platform seams while
 still using the same web app model.
 
-This is no longer just packaging.
+This is a platform commitment, not just packaging.
 
 It means JSKIT intentionally supports a first-class `mobile-shell` runtime
 target and a growing set of mobile-facing capabilities.
@@ -447,7 +447,7 @@ This still does not mean a native UI framework.
   - [ ] shell files present
   - [ ] build output dir matches Capacitor config
   - [ ] target/capability mismatches
-- [ ] Add compatibility guidance for package authors.
+- [ ] Add package-author guidance for mobile-shell-safe integrations.
 - [ ] Add reference docs for mobile-shell-safe package design.
 
 ### Stage 2F: Platform Expansions To Consider Later

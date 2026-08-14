@@ -40,6 +40,3 @@ It starts with a fast reproducible Quickstart, then steps back to the scaffold-f
 - Use `App Extras` once the base app structure is in place and you want optional runtime packages such as the Android shell, realtime, or assistant.
 - Jump into `Generators` if you already understand the runtime packages and want app-owned scaffolding workflows.
 - Inside `Generators`, read `CRUD Generators` before `Advanced CRUDs`: the first chapter teaches the workflow, and the second explains the generated anatomy and customization points.
-- Updating an existing app for strict temporal values or generated record
-  deletion? Go straight to the
-  [Existing-app migration checklist](/guide/generators/crud-generators#existing-app-migration-checklist).

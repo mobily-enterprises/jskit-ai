@@ -4,8 +4,8 @@ import {
   ROUTE_VISIBILITY_WORKSPACE
 } from "@jskit-ai/kernel/shared/support/visibility";
 import { useAccess } from "./useAccess.js";
-import { useSurfaceRouteContext } from "./useSurfaceRouteContext.js";
-import { usePaths } from "./usePaths.js";
+import { usePaths } from "@jskit-ai/shell-web/client/navigation/usePaths";
+import { useSurfaceRouteContext } from "@jskit-ai/shell-web/client/navigation/useSurfaceRouteContext";
 import { resolveSurfaceDefinitionFromPlacementContext } from "@jskit-ai/shell-web/client/placement";
 import {
   asPlainObject,

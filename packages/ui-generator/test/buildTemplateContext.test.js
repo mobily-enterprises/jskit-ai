@@ -4,7 +4,7 @@ import path from "node:path";
 import { tmpdir } from "node:os";
 import test from "node:test";
 import { buildUiPageTemplateContext } from "../src/server/buildTemplateContext.js";
-import { writeJskitPackageMetadata } from "../../../tooling/testUtils/jskitPackage.mjs";
+import { writeJskitConfig } from "../../../tooling/testUtils/jskitPackage.mjs";
 
 async function withTempApp(run) {
   const appRoot = await mkdtemp(path.join(tmpdir(), "ui-generator-"));
@@ -264,10 +264,9 @@ test("buildUiPageTemplateContext supports explicit package semantic link placeme
         type: "module"
       }, null, 2)}\n`
     );
-    await writeJskitPackageMetadata(
+    await writeJskitConfig(
       path.join(appRoot, "node_modules/@example/users-web"),
       `({
-  packageId: "@example/users-web",
   metadata: {
     ui: {
       placements: {

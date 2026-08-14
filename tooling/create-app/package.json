@@ -1,6 +1,6 @@
 {
   "name": "@jskit-ai/create-app",
-  "version": "0.1.174",
+  "version": "0.1.175",
   "description": "Scaffold JSKIT app shells.",
   "type": "module",
   "files": [
@@ -9,7 +9,8 @@
     "templates"
   ],
   "scripts": {
-    "test": "node --test test/*.test.js"
+    "test": "node --test test/*.test.js",
+    "test:registry": "JSKIT_REGISTRY_INTEGRATION=1 node --test test/createApp.test.js"
   },
   "bin": {
     "jskit-create-app": "bin/jskit-create-app.js"
@@ -20,7 +21,7 @@
     "./client": "./src/client/index.js"
   },
   "dependencies": {
-    "@jskit-ai/jskit-cli": "0.2.182"
+    "@jskit-ai/jskit-cli": "0.2.183"
   },
   "engines": {
     "node": "^22.13.0 || ^24.0.0 || ^26.0.0"

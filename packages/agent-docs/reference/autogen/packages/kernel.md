@@ -8,7 +8,7 @@ Use this on demand; do not load the full index at startup.
 
 ## Scope
 - Source: `packages/kernel/**/*{.js,.mjs,.cjs,.vue}`
-- Excludes: `test/`, `tests/`, `__tests__/`, `*.test.*`, `*.spec.*`, `*.vitest.*`, `node_modules/`, `dist/`, `coverage/`, `docs/`, `LEGACY/`, `.vitepress/cache/`, `.vitepress/dist/`
+- Excludes: `test/`, `tests/`, `__tests__/`, `*.test.*`, `*.spec.*`, `*.vitest.*`, `node_modules/`, `dist/`, `coverage/`, `docs/`, `.vitepress/cache/`, `.vitepress/dist/`
 
 ## Sections
 
@@ -1569,6 +1569,7 @@ Exports
 
 ### `internal/node/installedPackages.js`
 Exports
+- `JSKIT_PACKAGE_CONFIG_KEYS`
 - `ROOT_DEPENDENCY_SECTIONS`
 - `collectPackageDependencyIds(packageJson = {})`
 - `collectRootDependencySpecifiers(packageJson = {})`

@@ -10,7 +10,6 @@ import {
   normalizeAuthSecurityStatus
 } from "../src/shared/authSecurityStatus.js";
 import {
-  buildLegacyProfileFromActor,
   normalizeAuthActor,
   normalizeAuthResult
 } from "../src/server/authActor.js";
@@ -85,10 +84,10 @@ test("normalizeAuthCapabilities returns one provider-neutral feature shape", () 
   );
 });
 
-test("normalizeAuthActor builds the stable actor and legacy profile bridge", () => {
+test("normalizeAuthActor builds the canonical actor", () => {
   const actor = normalizeAuthActor({
-    authProvider: "supabase",
-    authProviderUserSid: "abc-123",
+    provider: "supabase",
+    providerUserId: "abc-123",
     email: " ADA@example.COM ",
     displayName: "Ada",
     appUserId: 42,
@@ -105,14 +104,12 @@ test("normalizeAuthActor builds the stable actor and legacy profile bridge", () 
     appUserId: "42",
     profileSource: "users"
   });
-  assert.deepEqual(buildLegacyProfileFromActor(actor), {
-    id: "42",
-    email: "ada@example.com",
-    displayName: "Ada",
-    authProvider: "supabase",
-    authProviderUserSid: "abc-123"
-  });
-  assert.deepEqual(normalizeAuthResult({ authenticated: true, actor }).profile, buildLegacyProfileFromActor(actor));
+  assert.deepEqual(normalizeAuthResult({ authenticated: true, actor }).actor, actor);
+  assert.equal(Object.hasOwn(normalizeAuthResult({ authenticated: true, actor }), "profile"), false);
+  assert.equal(
+    Object.hasOwn(normalizeAuthResult({ authenticated: true, actor, profile: actor }), "profile"),
+    false
+  );
 });
 
 test("normalizeAuthActor preserves opaque app user ids", () => {
@@ -126,7 +123,6 @@ test("normalizeAuthActor preserves opaque app user ids", () => {
 
   assert.equal(actor.id, "app-user-1");
   assert.equal(actor.appUserId, "app-user-1");
-  assert.equal(buildLegacyProfileFromActor(actor).id, "app-user-1");
 });
 
 test("normalizeAuthActor exposes projected app user id as the stable actor id", () => {
@@ -154,7 +150,7 @@ test("normalizeAuthActor falls back to provider user id when no app user is proj
   assert.equal(actor.providerUserId, "provider-user-1");
 });
 
-test("normalizeAuthSecurityStatus emits policy and legacy authPolicy aliases", () => {
+test("normalizeAuthSecurityStatus emits the canonical policy", () => {
   const status = buildSecurityStatusFromAuthMethodsStatus(
     {
       methods: [
@@ -181,7 +177,7 @@ test("normalizeAuthSecurityStatus emits policy and legacy authPolicy aliases", (
     minimumEnabledMethods: 1,
     enabledMethodsCount: 1
   });
-  assert.equal(status.authPolicy, status.policy);
+  assert.equal(Object.hasOwn(status, "authPolicy"), false);
   assert.equal(status.actions.changePassword, true);
   assert.equal(status.actions.linkProvider, false);
   assert.deepEqual(normalizeAuthSecurityStatus(status), status);

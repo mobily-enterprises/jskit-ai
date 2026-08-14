@@ -13,7 +13,7 @@ Rules:
 - Prefer the highest-level JSKIT runtime that matches the UI interaction.
 - Do not hand-roll local AJAX helpers when an existing JSKIT runtime already fits.
 - Do not use raw `fetch(...)` for normal app work.
-- Use `usePaths().api(...)` for custom scoped API paths instead of concatenating route params into URLs by hand.
+- Use `usePaths().api(...)` from `@jskit-ai/shell-web/client/navigation/usePaths` for custom scoped API paths instead of concatenating route params into URLs by hand.
 - Drop to `usersWebHttpClient.request(...)` only for exceptional low-level cases.
 
 Choose the function like this:

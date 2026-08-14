@@ -157,7 +157,7 @@ test("RealtimeServiceProvider boot authenticates sockets from handshake cookies 
       authenticateCalls.push(input);
       return {
         authenticated: true,
-        profile: {
+        actor: {
           id: 9
         }
       };

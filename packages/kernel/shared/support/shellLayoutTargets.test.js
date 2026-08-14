@@ -106,15 +106,15 @@ test("discoverShellOutletTargetsFromVueSource ignores disabled default markers",
   assert.equal(discovered.defaultTargetId, "");
 });
 
-test("discoverShellOutletTargetsFromVueSource rejects split outlet attributes", () => {
+test("discoverShellOutletTargetsFromVueSource reads the target attribute", () => {
   const source = `
     <template>
       <ShellOutlet target="shell-layout:primary-menu" host="other-host" position="primary-menu" />
     </template>
   `;
 
-  assert.throws(
-    () => discoverShellOutletTargetsFromVueSource(source, { context: "ShellLayout.vue" }),
-    /must declare ShellOutlet targets with "target" only/
+  assert.deepEqual(
+    discoverShellOutletTargetsFromVueSource(source, { context: "ShellLayout.vue" }).targets,
+    [{ id: "shell-layout:primary-menu", default: false }]
   );
 });

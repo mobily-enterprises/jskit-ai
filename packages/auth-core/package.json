@@ -1,6 +1,6 @@
 {
   "name": "@jskit-ai/auth-core",
-  "version": "0.1.149",
+  "version": "0.1.150",
   "type": "module",
   "scripts": {
     "test": "node --test"
@@ -59,7 +59,7 @@
     "@fastify/cookie": "^11.0.2",
     "@fastify/csrf-protection": "^7.1.0",
     "@fastify/rate-limit": "^10.3.0",
-    "@jskit-ai/kernel": "0.1.151",
+    "@jskit-ai/kernel": "0.1.152",
     "json-rest-schema": "^1.0.17"
   },
   "jskit": {
@@ -132,7 +132,7 @@
     "mutations": {
       "dependencies": {
         "runtime": {
-          "@jskit-ai/kernel": "0.1.151",
+          "@jskit-ai/kernel": "0.1.152",
           "@fastify/cookie": "^11.0.2",
           "@fastify/csrf-protection": "^7.1.0",
           "@fastify/rate-limit": "^10.3.0"

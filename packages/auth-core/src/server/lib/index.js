@@ -3,7 +3,6 @@ export { withAuthPolicy, mergeAuthPolicy } from "./routeMeta.js";
 export {
   createAuthIdentityId,
   normalizeAuthActor,
-  buildLegacyProfileFromActor,
   normalizeAuthResult
 } from "../authActor.js";
 export {

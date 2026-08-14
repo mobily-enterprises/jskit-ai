@@ -1,8 +1,8 @@
 import { computed, unref } from "vue";
 import { normalizeText } from "@jskit-ai/kernel/shared/support/normalize";
 import { resolveScopedApiBasePath } from "@jskit-ai/kernel/shared/surface";
-import { resolveSurfaceDefinitionFromPlacementContext } from "@jskit-ai/shell-web/client/placement";
-import { useShellLinkResolver } from "@jskit-ai/shell-web/client/navigation/linkResolver";
+import { resolveSurfaceDefinitionFromPlacementContext } from "../placement/index.js";
+import { useShellLinkResolver } from "./linkResolver.js";
 import { useSurfaceRouteContext } from "./useSurfaceRouteContext.js";
 
 function normalizePathSuffix(value = "") {
@@ -46,10 +46,9 @@ function normalizeRouteParams(params = null) {
 
     const value = Array.isArray(rawValue) ? rawValue[0] : rawValue;
     const normalizedValue = normalizeText(value);
-    if (!normalizedValue) {
-      continue;
+    if (normalizedValue) {
+      output[key] = normalizedValue;
     }
-    output[key] = normalizedValue;
   }
   return output;
 }

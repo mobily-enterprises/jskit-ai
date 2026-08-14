@@ -41,7 +41,7 @@ test("placement registry accepts explicit non-global surface ids", () => {
   assert.equal(added, true);
 });
 
-test("placement registry rejects split target fields", () => {
+test("placement registry requires target", () => {
   const registry = createPlacementRegistry();
 
   assert.throws(
@@ -51,6 +51,6 @@ test("placement registry rejects split target fields", () => {
       position: "top-right",
       componentToken: "example.split.component"
     }),
-    /must use "target" only/
+    /requires semantic target/
   );
 });

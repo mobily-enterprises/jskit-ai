@@ -21,7 +21,7 @@ import {
 } from "@jskit-ai/assistant-core/client";
 import { useShellWebErrorRuntime } from "@jskit-ai/shell-web/client/error";
 import { usePagedCollection } from "@jskit-ai/users-web/client/composables/usePagedCollection";
-import { useSurfaceRouteContext } from "@jskit-ai/users-web/client/composables/useSurfaceRouteContext";
+import { useSurfaceRouteContext } from "@jskit-ai/shell-web/client/navigation/useSurfaceRouteContext";
 import { resolveAssistantSurfaceConfig } from "../../shared/assistantSurfaces.js";
 import { insertTextAtSelection } from "../support/composerInputSupport.js";
 import { useWorkspaceWebScopeSupport } from "../support/workspaceScopeSupport.js";

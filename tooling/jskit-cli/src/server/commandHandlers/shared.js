@@ -20,19 +20,12 @@ function createCommandHandlerShared(ctx = {}) {
     fileExists
   } = ctx;
 
-  function renderResolvedSummary(commandType, targetId, resolvedPackageIds, touchedFiles, externalDependencies) {
+  function renderResolvedSummary(commandType, targetId, resolvedPackageIds, touchedFiles) {
     const lines = [];
     lines.push(`${commandType} ${targetId}.`);
     lines.push(`Resolved packages (${resolvedPackageIds.length}):`);
     for (const packageId of resolvedPackageIds) {
       lines.push(`- ${packageId}`);
-    }
-
-    if (externalDependencies.length > 0) {
-      lines.push(`External dependencies (${externalDependencies.length}):`);
-      for (const dependencyId of externalDependencies) {
-        lines.push(`- ${dependencyId}`);
-      }
     }
 
     lines.push(`Touched files (${touchedFiles.length}):`);

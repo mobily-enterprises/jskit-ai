@@ -8,7 +8,7 @@ Use this on demand; do not load the full index at startup.
 
 ## Scope
 - Source: `tooling/jskit-cli/**/*{.js,.mjs,.cjs,.vue}`
-- Excludes: `test/`, `tests/`, `__tests__/`, `*.test.*`, `*.spec.*`, `*.vitest.*`, `node_modules/`, `dist/`, `coverage/`, `docs/`, `LEGACY/`, `.vitepress/cache/`, `.vitepress/dist/`
+- Excludes: `test/`, `tests/`, `__tests__/`, `*.test.*`, `*.spec.*`, `*.vitest.*`, `node_modules/`, `dist/`, `coverage/`, `docs/`, `.vitepress/cache/`, `.vitepress/dist/`
 
 ## Sections
 
@@ -111,14 +111,12 @@ Local functions
 
 ### `src/server/cliRuntime/ci/managedWorkflow.js`
 Exports
-- `assertAppCiCanSynchronize({ appRoot })`
 - `composeInstalledPackageCi({ packageRegistry, installedPackageIds = null })`
 - `synchronizeAppCiWorkflow({ appRoot, dryRun = false })`
 - `synchronizeCiWorkflow({ appRoot, packageRegistry, installedPackageIds = null, touchedFiles = null, dryRun = false })`
 Local functions
 - `collectInstalledPackageEntries({ packageRegistry, installedPackageIds = null })`
 - `inspectCiFiles(appRoot)`
-- `assertCiCanSynchronize({ appRoot })`
 
 ### `src/server/cliRuntime/completion.js`
 Exports
@@ -362,12 +360,13 @@ Local functions
 ### `src/server/cliRuntime/packageMetadataValidation.js`
 Exports
 - `validatePackageMetadataShape(packageMetadata, metadataPath)`
-- `validateAppLocalPackageMetadataShape(packageMetadata, metadataPath, { expectedPackageId = "", fallbackVersion = "" } = {})`
+- `validateAppLocalPackageMetadataShape(packageMetadata, metadataPath, { expectedPackageId = "" } = {})`
 - `createPackageEntry({ packageId, version, packageMetadata, rootDir = "", relativeDir = "", manifestRelativePath = "", packageJson = {}, sourceType = "", source = {} })`
 - `isGeneratorPackageEntry(packageEntry)`
 Local functions
 - `normalizePackageKind(rawValue, metadataPath)`
-- `validateFileMutationShape(packageMetadata, metadataPath)`
+- `conditionUsesPackageOption(rawCondition)`
+- `validateFileMutationShape(packageMetadata, metadataPath, { packageKind = "" } = {})`
 - `validateSourceMutationShape(packageMetadata, metadataPath)`
 - `validateLifecycleHookSpec(spec = {}, metadataPath, label = "lifecycle hook")`
 - `validateLifecycleShape(packageMetadata, metadataPath)`
@@ -554,14 +553,6 @@ Local functions
 ### `src/server/commandHandlers/health.js`
 Exports
 - `createHealthCommands(ctx = {})`
-
-### `src/server/commandHandlers/helperMap.js`
-Exports
-- `createHelperMapCommands(ctx = {})`
-Local functions
-- `writeJson(stdout, payload)`
-- `writeErrors(stdout, payload)`
-- `writeHelperMapText(stdout, payload)`
 
 ### `src/server/commandHandlers/list.js`
 Exports
@@ -840,7 +831,6 @@ Exports
 Exports
 - `COMMAND_IDS`
 - `OPTION_FLAG_LABELS`
-- `resolveCommandAlias(rawCommand)`
 - `resolveCommandDescriptor(rawCommand)`
 - `isKnownCommandName(rawCommand)`
 - `listOverviewCommandDescriptors()`
@@ -873,46 +863,6 @@ Local functions
 - `writeHelpLines(stream, lines = [])`
 - `printTopLevelHelp(stream = process.stderr)`
 - `printCommandHelp(stream = process.stderr, command = "")`
-
-### `src/server/helperMap.js`
-Exports
-- `HELPER_MAP_JSON_RELATIVE_PATH`
-- `HELPER_MAP_MARKDOWN_RELATIVE_PATH`
-- `buildHelperMap({ targetRoot, previousMap = null })`
-- `readHelperMap({ targetRoot })`
-- `updateHelperMap({ targetRoot })`
-Local functions
-- `pathExists(filePath)`
-- `readJsonFile(filePath)`
-- `readFileHash(filePath)`
-- `normalizePackageDependencies(packageJson = {})`
-- `classifySymbol(name = "")`
-- `createExportAnalysisProject()`
-- `addSymbol(symbols, symbol)`
-- `compilerNodeHasModifier(node, modifierKind)`
-- `exportedDeclarationName(node)`
-- `addExportedDeclarationSymbol(symbols, node, kind = "export")`
-- `bindingNameTexts(bindingName, names = [])`
-- `addVariableStatementExports(symbols, statement)`
-- `addNamedExportSymbols(symbols, exportClause)`
-- `extractExportedSymbols(sourceFile)`
-- `extractVueScriptSource(source = "", filePath = "")`
-- `addCodeFileToProject(project, file)`
-- `walkCodeFiles(rootPath, relativeRoot = "")`
-- `collectAppExports(targetRoot)`
-- `flattenPackageExports(exportsField)`
-- `packageExportTargetRecords(packageRoot, exportTargets = [])`
-- `packageExportFingerprint({ installedPackageJson = {}, packageName = "", targetRecords = [] } = {})`
-- `cachedPackageExports(previousPackagesByName = new Map(), packageName = "", fingerprint = "")`
-- `previousPackageMap(previousMap = null)`
-- `collectJskitPackageExports(targetRoot, packageJson = {}, previousMap = null)`
-- `renderExportList(symbols = [])`
-- `renderHelperMapMarkdown(map)`
-
-### `src/server/helperMapPaths.js`
-Exports
-- `HELPER_MAP_JSON_RELATIVE_PATH`
-- `HELPER_MAP_MARKDOWN_RELATIVE_PATH`
 
 ### `src/server/index.js`
 Exports

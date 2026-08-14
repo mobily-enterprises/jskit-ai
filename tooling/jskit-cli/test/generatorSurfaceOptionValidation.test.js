@@ -5,7 +5,7 @@ import path from "node:path";
 import test from "node:test";
 import { withTempDir } from "../../testUtils/tempDir.mjs";
 import { createCliRunner } from "../../testUtils/runCli.js";
-import { writeJskitPackageMetadata } from "../../testUtils/jskitPackage.mjs";
+import { writeJskitConfig } from "../../testUtils/jskitPackage.mjs";
 
 const CLI_PATH = fileURLToPath(new URL("../bin/jskit.js", import.meta.url));
 const runCli = createCliRunner(CLI_PATH);
@@ -60,6 +60,7 @@ async function writeSubcommandGeneratorPackage(appRoot) {
       {
         name: "@demo/subcommand-generator",
         version: "0.1.0",
+        description: "Demo generator with explicit subcommand validation.",
         type: "module"
       },
       null,
@@ -68,13 +69,10 @@ async function writeSubcommandGeneratorPackage(appRoot) {
     "utf8"
   );
 
-  await writeJskitPackageMetadata(
+  await writeJskitConfig(
     path.join(packageRoot),
     `({
-  packageId: "@demo/subcommand-generator",
-  version: "0.1.0",
   kind: "generator",
-  description: "Demo generator with explicit subcommand validation.",
   options: {
     name: {
       required: true,
@@ -156,6 +154,7 @@ async function writePrimaryGeneratorPackage(appRoot) {
       {
         name: "@demo/primary-generator",
         version: "0.1.0",
+        description: "Demo generator with add/install-style primary command.",
         type: "module"
       },
       null,
@@ -170,13 +169,10 @@ async function writePrimaryGeneratorPackage(appRoot) {
     "utf8"
   );
 
-  await writeJskitPackageMetadata(
+  await writeJskitConfig(
     path.join(packageRoot),
     `({
-  packageId: "@demo/primary-generator",
-  version: "0.1.0",
   kind: "generator",
-  description: "Demo generator with add/install-style primary command.",
   options: {
     surface: {
       required: true,
@@ -239,6 +235,7 @@ async function writeCreateTargetPrimaryGeneratorPackage(appRoot) {
       {
         name: "@demo/create-target-generator",
         version: "0.1.0",
+        description: "Demo generator with a create-target preflight.",
         type: "module"
       },
       null,
@@ -253,13 +250,10 @@ async function writeCreateTargetPrimaryGeneratorPackage(appRoot) {
     "utf8"
   );
 
-  await writeJskitPackageMetadata(
+  await writeJskitConfig(
     path.join(packageRoot),
     `({
-  packageId: "@demo/create-target-generator",
-  version: "0.1.0",
   kind: "generator",
-  description: "Demo generator with a create-target preflight.",
   options: {
     namespace: {
       required: true,

@@ -47,7 +47,7 @@ async function collectPackageRoots(packagesRoot) {
     if (!entry.isDirectory()) {
       continue;
     }
-    if (entry.name.startsWith(".") || entry.name.endsWith(".LEGACY")) {
+    if (entry.name.startsWith(".")) {
       continue;
     }
 

@@ -17,7 +17,6 @@ const REFERENCE_README_PATH = path.join(REFERENCE_AUTOGEN_ROOT, "README.md");
 const GUIDE_SITE_ROOT = path.join(AGENT_DOCS_ROOT, "site");
 const GUIDE_SOURCE_ROOT = path.join(GUIDE_SITE_ROOT, "guide");
 const GUIDE_AGENT_ROOT = path.join(AGENT_DOCS_ROOT, "guide", "agent");
-const LEGACY_AI_DOCS_ROOT = path.join(REPO_ROOT, "ai-docs");
 const KERNEL_SHARED_ROOT = path.join(REPO_ROOT, "packages", "kernel", "shared");
 const PACKAGE_ROOTS = Object.freeze([
   { groupName: "packages", rootDir: path.join(REPO_ROOT, "packages") },
@@ -48,7 +47,6 @@ const SKIP_DIRECTORY_NAMES = new Set([
   ".git",
   ".jscpd",
   ".jskit",
-  "LEGACY",
   "coverage",
   "dist",
   "docs",
@@ -567,7 +565,6 @@ function compressGuideMarkdown(sourceText = "") {
 async function clearAgentDocsOutputs() {
   await rm(REFERENCE_AUTOGEN_ROOT, { recursive: true, force: true });
   await rm(GUIDE_AGENT_ROOT, { recursive: true, force: true });
-  await rm(LEGACY_AI_DOCS_ROOT, { recursive: true, force: true });
 }
 
 async function buildStartupKernelMap(commandName) {
@@ -643,7 +640,7 @@ async function buildReferenceMaps(commandName) {
       ],
       scopeLines: [
         `- Source: \`${normalizeMarkdownPath(path.relative(REPO_ROOT, workspace.workspaceDir))}/**/*{.js,.mjs,.cjs,.vue}\``,
-        "- Excludes: `test/`, `tests/`, `__tests__/`, `*.test.*`, `*.spec.*`, `*.vitest.*`, `node_modules/`, `dist/`, `coverage/`, `docs/`, `LEGACY/`, `.vitepress/cache/`, `.vitepress/dist/`"
+        "- Excludes: `test/`, `tests/`, `__tests__/`, `*.test.*`, `*.spec.*`, `*.vitest.*`, `node_modules/`, `dist/`, `coverage/`, `docs/`, `.vitepress/cache/`, `.vitepress/dist/`"
       ],
       fileEntries
     });

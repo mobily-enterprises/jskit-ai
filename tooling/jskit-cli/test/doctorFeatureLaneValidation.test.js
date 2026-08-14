@@ -10,7 +10,7 @@ import path from "node:path";
 import test from "node:test";
 import { withTempDir } from "../../testUtils/tempDir.mjs";
 import { createCliRunner } from "../../testUtils/runCli.js";
-import { writeJskitPackageMetadata } from "../../testUtils/jskitPackage.mjs";
+import { writeJskitConfig } from "../../testUtils/jskitPackage.mjs";
 
 const CLI_PATH = fileURLToPath(new URL("../bin/jskit.js", import.meta.url));
 const runCli = createCliRunner(CLI_PATH);
@@ -33,12 +33,70 @@ async function createMinimalApp(appRoot, { name = "tmp-app" } = {}) {
   );
 }
 
-async function scaffoldFeaturePackage(appRoot, featureName = "booking-engine", extraArgs = []) {
-  const result = runCli({
-    cwd: appRoot,
-    args: ["generate", "feature-server-generator", "scaffold", featureName, ...extraArgs]
-  });
-  assert.equal(result.status, 0, String(result.stderr || ""));
+async function scaffoldFeaturePackage(appRoot, featureName = "booking-engine") {
+  const featurePascal = featureName
+    .split(/[-_]/u)
+    .filter(Boolean)
+    .map((segment) => `${segment[0].toUpperCase()}${segment.slice(1)}`)
+    .join("");
+  await writeAppFile(
+    appRoot,
+    `packages/${featureName}/package.json`,
+    `${JSON.stringify(
+      {
+        name: `@local/${featureName}`,
+        version: "0.1.0",
+        private: true,
+        type: "module",
+        jskit: {
+          kind: "runtime",
+          capabilities: {
+            provides: [`feature.${featureName}`],
+            requires: ["runtime.actions"]
+          },
+          runtime: {
+            server: {
+              providers: [{
+                entrypoint: `src/server/${featurePascal}Provider.js`,
+                export: `${featurePascal}Provider`
+              }]
+            },
+            client: {
+              providers: []
+            }
+          },
+          metadata: {
+            jskit: {
+              scaffoldShape: "feature-server-v1",
+              scaffoldMode: "json-rest",
+              lane: "default"
+            }
+          },
+          mutations: {
+            files: []
+          }
+        }
+      },
+      null,
+      2
+    )}\n`
+  );
+  await declareLocalPackage(appRoot, `@local/${featureName}`, featureName);
+  await writeAppFile(
+    appRoot,
+    `packages/${featureName}/src/server/${featurePascal}Provider.js`,
+    `class ${featurePascal}Provider { register() {} boot() {} }\nexport { ${featurePascal}Provider };\n`
+  );
+  await writeAppFile(
+    appRoot,
+    `packages/${featureName}/src/server/service.js`,
+    "function createService() { return {}; }\nexport { createService };\n"
+  );
+  await writeAppFile(
+    appRoot,
+    `packages/${featureName}/src/server/repository.js`,
+    `import { createJsonRestContext } from "@jskit-ai/json-rest-api-core/server/jsonRestApiHost";\nfunction createRepository() { return createJsonRestContext({}); }\nexport { createRepository };\n`
+  );
 }
 
 async function writeAppFile(appRoot, relativePath, sourceText) {
@@ -70,11 +128,9 @@ async function createMainPackage(appRoot, { extraService = false } = {}) {
     )}\n`
   );
 
-  await writeJskitPackageMetadata(
+  await writeJskitConfig(
     path.join(appRoot, "packages/main"),
     `({
-  packageId: "@local/main",
-  version: "0.1.0",
   kind: "runtime",
   runtime: {
     server: {
@@ -150,11 +206,9 @@ async function createHandmadeFeaturePackage(appRoot, featureName = "billing-engi
     )}\n`
   );
 
-  await writeJskitPackageMetadata(
+  await writeJskitConfig(
     path.join(appRoot, "packages", featureName),
     `({
-  packageId: "@local/${featureName}",
-  version: "0.1.0",
   kind: "runtime",
   runtime: {
     server: {

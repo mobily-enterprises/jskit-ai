@@ -736,6 +736,8 @@ const resource = useEndpointResource({
 If you need a custom scoped endpoint path outside the higher-level runtimes, prefer `usePaths().api(...)` rather than hand-building scoped URLs:
 
 ```js
+import { usePaths } from "@jskit-ai/shell-web/client/navigation/usePaths";
+
 const paths = usePaths();
 const reportsApiPath = computed(() => paths.api("/reports"));
 ```

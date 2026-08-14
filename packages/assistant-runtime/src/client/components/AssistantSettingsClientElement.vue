@@ -30,7 +30,7 @@ import { validateOperationSection } from "@jskit-ai/http-runtime/shared/validato
 import { assistantHttpClient, createAssistantApi, AssistantSettingsFormCard } from "@jskit-ai/assistant-core/client";
 import { assistantConfigResource, assistantSettingsQueryKey, buildAssistantApiPath } from "@jskit-ai/assistant-core/shared";
 import { useShellWebErrorRuntime } from "@jskit-ai/shell-web/client/error";
-import { useSurfaceRouteContext } from "@jskit-ai/users-web/client/composables/useSurfaceRouteContext";
+import { useSurfaceRouteContext } from "@jskit-ai/shell-web/client/navigation/useSurfaceRouteContext";
 import { resolveAssistantSurfaceConfig } from "../../shared/assistantSurfaces.js";
 import { useWorkspaceWebScopeSupport } from "../support/workspaceScopeSupport.js";
 
