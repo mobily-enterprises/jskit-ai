@@ -18,11 +18,44 @@ async function writePackage(packageRoot, packageJson) {
   );
 }
 
+function externalPackageManifest({
+  name,
+  version,
+  description,
+  dependencies = {},
+  scripts = {}
+}) {
+  return {
+    name,
+    version,
+    description,
+    dependencies,
+    jskit: {
+      kind: "runtime",
+      capabilities: {
+        provides: [],
+        requires: []
+      },
+      runtime: {
+        server: { providers: [] },
+        client: { providers: [] }
+      },
+      mutations: {
+        dependencies: { runtime: {}, dev: {} },
+        packageJson: { scripts },
+        procfile: {},
+        files: []
+      }
+    }
+  };
+}
+
 test("add uses an installed third-party package without catalog registration or JSKIT state", async () => {
   await withTempDir(async (cwd) => {
     const appRoot = path.join(cwd, "third-party-package-app");
     const packageId = "@acme/external-auth";
     const runtimePackageId = "@acme/external-runtime";
+    const existingPackageId = "@acme/existing-runtime";
     const version = "2.3.4";
     await writePackage(appRoot, {
       name: "demo-app",
@@ -30,60 +63,47 @@ test("add uses an installed third-party package without catalog registration or 
       private: true,
       type: "module",
       dependencies: {
-        [packageId]: version
-      }
-    });
-    await writePackage(path.join(appRoot, "node_modules", ...packageId.split("/")), {
-      name: packageId,
-      version,
-      description: "External JSKIT-compatible package.",
-      dependencies: {
-        [runtimePackageId]: "1.0.0"
+        [packageId]: version,
+        [existingPackageId]: "1.0.0"
       },
-      jskit: {
-        kind: "runtime",
-        capabilities: {
-          provides: [],
-          requires: []
-        },
-        runtime: {
-          server: { providers: [] },
-          client: { providers: [] }
-        },
-        mutations: {
-          dependencies: { runtime: {}, dev: {} },
-          packageJson: { scripts: {} },
-          procfile: {},
-          files: []
-        }
+      scripts: {
+        "existing:ready": "custom integration"
       }
     });
-    await writePackage(path.join(appRoot, "node_modules", ...runtimePackageId.split("/")), {
-      name: runtimePackageId,
-      version: "1.0.0",
-      description: "External JSKIT-compatible dependency.",
-      jskit: {
-        kind: "runtime",
-        capabilities: {
-          provides: [],
-          requires: []
-        },
-        runtime: {
-          server: { providers: [] },
-          client: { providers: [] }
-        },
-        mutations: {
-          dependencies: { runtime: {}, dev: {} },
-          packageJson: {
-            scripts: {
-              "external:ready": "node --version"
-            }
-          },
-          procfile: {},
-          files: []
+    await writePackage(
+      path.join(appRoot, "node_modules", ...packageId.split("/")),
+      externalPackageManifest({
+        name: packageId,
+        version,
+        description: "External JSKIT-compatible package.",
+        dependencies: {
+          [runtimePackageId]: "1.0.0",
+          [existingPackageId]: "1.0.0"
         }
-      }
-    });
+      })
+    );
+    await writePackage(
+      path.join(appRoot, "node_modules", ...runtimePackageId.split("/")),
+      externalPackageManifest({
+        name: runtimePackageId,
+        version: "1.0.0",
+        description: "External JSKIT-compatible dependency.",
+        scripts: {
+          "external:ready": "node --version"
+        }
+      })
+    );
+    await writePackage(
+      path.join(appRoot, "node_modules", ...existingPackageId.split("/")),
+      externalPackageManifest({
+        name: existingPackageId,
+        version: "1.0.0",
+        description: "Existing direct JSKIT-compatible dependency.",
+        scripts: {
+          "existing:ready": "package default"
+        }
+      })
+    );
 
     const addResult = runCli({
       cwd: appRoot,
@@ -95,6 +115,7 @@ test("add uses an installed third-party package without catalog registration or 
     const appPackageJson = JSON.parse(await readFile(path.join(appRoot, "package.json"), "utf8"));
     assert.equal(appPackageJson.dependencies[packageId], version);
     assert.equal(appPackageJson.scripts["external:ready"], "node --version");
+    assert.equal(appPackageJson.scripts["existing:ready"], "custom integration");
 
     const showResult = runCli({
       cwd: appRoot,

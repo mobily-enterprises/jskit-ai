@@ -730,6 +730,7 @@ Local functions
 
 ### `src/server/commandHandlers/packageCommands/packageConfiguration.js`
 Exports
+- `orderRuntimePackageClosure(packageRegistry, packageIds, resolvePackageKind, { includePackage = () => true } = {})`
 - `orderRuntimePackagesForConfiguration(packageRegistry, requestedPackageIds, resolvePackageKind)`
 - `resolvePackageConfiguration({ packageRegistry, configurationRegistry, requestedPackageIds, packagesToApply, invocationMode, targetType, resolvedTargetPackageId, inlineOptions, resolvePackageKind, resolveBundleInlineOptionsForPackage, resolvePackageOptions, appRoot, readFileBufferIfExists, io })`
 Local functions

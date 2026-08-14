@@ -273,6 +273,7 @@ async function runPackageAddCommand(ctx = {}, { positional, options, cwd, io }) 
     installedPackageRegistry
   );
   const { packageJsonPath, packageJson } = await loadAppPackageJson(appRoot);
+  const initiallyDeclaredPackageIds = new Set(collectRootDependencySpecifiers(packageJson).keys());
   const resolvedTargetPackageId = targetType === "package"
     ? await resolvePackageIdFromRegistryOrNodeModules({
         appRoot,
@@ -438,6 +439,8 @@ async function runPackageAddCommand(ctx = {}, { positional, options, cwd, io }) 
       combinedPackageRegistry,
       sortStrings(targetPackageIds),
       resolvePackageKind
+    ).filter((packageId) =>
+      targetPackageIds.includes(packageId) || !initiallyDeclaredPackageIds.has(packageId)
     );
     packagesToApply = [...new Set([...requestedPackageClosure, ...packagesToApply])];
   }
