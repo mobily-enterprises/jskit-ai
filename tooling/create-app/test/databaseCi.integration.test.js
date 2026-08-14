@@ -249,6 +249,10 @@ for (const databaseCase of DATABASE_CASES) {
           `Expected ${packageId} to be installed exactly through npm.`
         );
       }
+      assert.equal(
+        installedPackageJson.scripts["db:migrate"],
+        databasePackage.jskit.mutations.packageJson.scripts["db:migrate"]
+      );
 
       const ciModel = composeCiContributions([
         packageEntry(authLocalMetadata),

@@ -8,6 +8,7 @@ import { resolveOptionEnvFallbacks } from "../src/server/cliRuntime/sensitiveOpt
 import { resolvePackageOptions } from "../src/server/cliRuntime/packageOptions.js";
 import { readFileBufferIfExists } from "../src/server/cliRuntime/ioAndMigrations.js";
 import {
+  orderRuntimePackageClosure,
   orderRuntimePackagesForConfiguration,
   resolvePackageConfiguration
 } from "../src/server/commandHandlers/packageCommands/packageConfiguration.js";
@@ -50,6 +51,32 @@ test("configuration order follows npm dependencies and keeps the requested packa
       (entry) => entry.packageMetadata.kind
     ),
     ["@acme/database", "@acme/existing", "@acme/feature"]
+  );
+});
+
+test("runtime package closure includes dependencies before the requested package", () => {
+  const base = runtimePackage("@acme/base");
+  const intermediate = runtimePackage("@acme/intermediate", {
+    dependencies: { "@acme/base": "1.0.0" }
+  });
+  const requested = runtimePackage("@acme/feature", {
+    dependencies: { "@acme/intermediate": "1.0.0" }
+  });
+  const unrelated = runtimePackage("@acme/unrelated");
+  const registry = new Map([
+    [requested.packageId, requested],
+    [unrelated.packageId, unrelated],
+    [base.packageId, base],
+    [intermediate.packageId, intermediate]
+  ]);
+
+  assert.deepEqual(
+    orderRuntimePackageClosure(
+      registry,
+      [requested.packageId],
+      (entry) => entry.packageMetadata.kind
+    ),
+    [base.packageId, intermediate.packageId, requested.packageId]
   );
 });
 

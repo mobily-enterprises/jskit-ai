@@ -1,9 +1,42 @@
+import { collectPackageDependencyIds } from "@jskit-ai/kernel/server/support";
 import {
   ensureArray,
   ensureObject,
   sortStrings
 } from "../../shared/collectionUtils.js";
 import { resolveOptionEnvFallbacks } from "../../cliRuntime/sensitiveOptions.js";
+
+function orderRuntimePackageClosure(
+  packageRegistry,
+  packageIds,
+  resolvePackageKind,
+  { includePackage = () => true } = {}
+) {
+  const visited = new Set();
+  const ordered = [];
+
+  function visit(packageId) {
+    if (visited.has(packageId)) {
+      return;
+    }
+    visited.add(packageId);
+    const packageEntry = packageRegistry.get(packageId);
+    if (!packageEntry || resolvePackageKind(packageEntry) !== "runtime") {
+      return;
+    }
+    for (const dependencyId of sortStrings(collectPackageDependencyIds(packageEntry.packageJson))) {
+      visit(dependencyId);
+    }
+    if (includePackage(packageEntry, packageId)) {
+      ordered.push(packageId);
+    }
+  }
+
+  for (const packageId of ensureArray(packageIds)) {
+    visit(String(packageId || "").trim());
+  }
+  return ordered;
+}
 
 function orderRuntimePackagesForConfiguration(packageRegistry, requestedPackageIds, resolvePackageKind) {
   const requested = new Set(
@@ -17,37 +50,19 @@ function orderRuntimePackagesForConfiguration(packageRegistry, requestedPackageI
       })
       .map(([packageId]) => packageId)
   );
-  const visited = new Set();
-  const ordered = [];
-
-  function visit(packageId, { allowRequested = false } = {}) {
-    if (visited.has(packageId) || !candidates.has(packageId)) {
-      return;
-    }
-    if (requested.has(packageId) && !allowRequested) {
-      return;
-    }
-    visited.add(packageId);
-    const packageEntry = packageRegistry.get(packageId);
-    const dependencyIds = new Set();
-    for (const sectionName of ["dependencies", "optionalDependencies", "peerDependencies"]) {
-      for (const dependencyId of Object.keys(ensureObject(packageEntry?.packageJson?.[sectionName]))) {
-        dependencyIds.add(String(dependencyId || "").trim());
-      }
-    }
-    for (const dependencyId of sortStrings([...dependencyIds])) {
-      visit(dependencyId);
-    }
-    ordered.push(packageId);
-  }
-
-  for (const packageId of sortStrings([...candidates].filter((packageId) => !requested.has(packageId)))) {
-    visit(packageId);
-  }
-  for (const packageId of sortStrings([...requested])) {
-    visit(packageId, { allowRequested: true });
-  }
-  return ordered;
+  const existingOrder = orderRuntimePackageClosure(
+    packageRegistry,
+    sortStrings([...candidates].filter((packageId) => !requested.has(packageId))),
+    resolvePackageKind,
+    { includePackage: (_entry, packageId) => candidates.has(packageId) && !requested.has(packageId) }
+  );
+  const requestedOrder = orderRuntimePackageClosure(
+    packageRegistry,
+    sortStrings([...requested]),
+    resolvePackageKind,
+    { includePackage: (_entry, packageId) => candidates.has(packageId) }
+  );
+  return [...new Set([...existingOrder, ...requestedOrder])];
 }
 
 async function resolvePackageOptionInput({
@@ -157,6 +172,7 @@ async function resolvePackageConfiguration({
 }
 
 export {
+  orderRuntimePackageClosure,
   orderRuntimePackagesForConfiguration,
   resolvePackageConfiguration
 };

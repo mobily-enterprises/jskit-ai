@@ -22,6 +22,7 @@ test("add uses an installed third-party package without catalog registration or 
   await withTempDir(async (cwd) => {
     const appRoot = path.join(cwd, "third-party-package-app");
     const packageId = "@acme/external-auth";
+    const runtimePackageId = "@acme/external-runtime";
     const version = "2.3.4";
     await writePackage(appRoot, {
       name: "demo-app",
@@ -36,6 +37,9 @@ test("add uses an installed third-party package without catalog registration or 
       name: packageId,
       version,
       description: "External JSKIT-compatible package.",
+      dependencies: {
+        [runtimePackageId]: "1.0.0"
+      },
       jskit: {
         kind: "runtime",
         capabilities: {
@@ -54,6 +58,32 @@ test("add uses an installed third-party package without catalog registration or 
         }
       }
     });
+    await writePackage(path.join(appRoot, "node_modules", ...runtimePackageId.split("/")), {
+      name: runtimePackageId,
+      version: "1.0.0",
+      description: "External JSKIT-compatible dependency.",
+      jskit: {
+        kind: "runtime",
+        capabilities: {
+          provides: [],
+          requires: []
+        },
+        runtime: {
+          server: { providers: [] },
+          client: { providers: [] }
+        },
+        mutations: {
+          dependencies: { runtime: {}, dev: {} },
+          packageJson: {
+            scripts: {
+              "external:ready": "node --version"
+            }
+          },
+          procfile: {},
+          files: []
+        }
+      }
+    });
 
     const addResult = runCli({
       cwd: appRoot,
@@ -64,6 +94,7 @@ test("add uses an installed third-party package without catalog registration or 
 
     const appPackageJson = JSON.parse(await readFile(path.join(appRoot, "package.json"), "utf8"));
     assert.equal(appPackageJson.dependencies[packageId], version);
+    assert.equal(appPackageJson.scripts["external:ready"], "node --version");
 
     const showResult = runCli({
       cwd: appRoot,

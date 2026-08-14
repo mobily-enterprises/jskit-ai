@@ -23,7 +23,10 @@ import {
   applyPackageJsonField,
   removePackageJsonField
 } from "../../cliRuntime/appState.js";
-import { resolvePackageConfiguration } from "./packageConfiguration.js";
+import {
+  orderRuntimePackageClosure,
+  resolvePackageConfiguration
+} from "./packageConfiguration.js";
 import {
   createInstallHookHelpers,
   invokeInstallHook,
@@ -429,6 +432,14 @@ async function runPackageAddCommand(ctx = {}, { positional, options, cwd, io }) 
     : await loadInstalledAppPackageRegistry(appRoot);
   for (const [packageId, packageEntry] of refreshedInstalledRegistry.entries()) {
     combinedPackageRegistry.set(packageId, packageEntry);
+  }
+  if (invocationMode === "add") {
+    const requestedPackageClosure = orderRuntimePackageClosure(
+      combinedPackageRegistry,
+      sortStrings(targetPackageIds),
+      resolvePackageKind
+    );
+    packagesToApply = [...new Set([...requestedPackageClosure, ...packagesToApply])];
   }
   await synchronizeInstalledMigrations(ctx, {
     appRoot,
