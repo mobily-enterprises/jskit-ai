@@ -62,6 +62,7 @@ async function installPackedShellWeb(appRoot, tempRoot) {
 
   const packageJsonPath = path.join(appRoot, "package.json");
   const packageJson = JSON.parse(await readFile(packageJsonPath, "utf8"));
+  packageJson.dependencies["@jskit-ai/kernel"] = `file:${KERNEL_PACKAGE_ROOT}`;
   packageJson.dependencies["@jskit-ai/shell-web"] = `file:${path.join(tempRoot, tarballName)}`;
   packageJson.devDependencies["@jskit-ai/agent-docs"] = `file:${AGENT_DOCS_PACKAGE_ROOT}`;
   packageJson.devDependencies["@jskit-ai/config-eslint"] = `file:${CONFIG_ESLINT_PACKAGE_ROOT}`;
@@ -100,6 +101,9 @@ async function configureLocalPackageCacheFixture(appRoot) {
     version: "0.1.0",
     private: true,
     type: "module",
+    jskit: {
+      kind: "runtime"
+    },
     exports: {
       "./client": "./browser/feature-client.js"
     }

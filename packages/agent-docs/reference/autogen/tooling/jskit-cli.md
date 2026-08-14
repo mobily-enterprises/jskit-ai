@@ -668,7 +668,7 @@ Exports
 - `runPackageAddCommand(ctx = {}, { positional, options, cwd, io })`
 Local functions
 - `resolveAvailablePackageSource({ packageEntry, appRoot })`
-- `withResolvedPackageSource({ packageEntry, packageRoot, appRoot })`
+- `withResolvedPackageSource({ packageEntry, packageRoot })`
 - `declareDirectPackageDependency({ packageEntry, packageJson, packageKind })`
 - `serializeDependencyState(packageJson = {})`
 - `collectPlannedRuntimePackageIds({ packageJson, packageRegistry, targetPackageIds, resolvePackageKind })`

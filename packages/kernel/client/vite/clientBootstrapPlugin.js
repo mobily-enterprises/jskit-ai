@@ -62,18 +62,33 @@ function isPathInsideRoot(rootPath, candidatePath) {
  * local package's root, shared entry, or exported subpath and accidentally re-enter node_modules caching.
  */
 async function resolveLocalPackageSources({ appRoot }) {
-  const installedPackages = await discoverInstalledPackages({ appRoot });
-  return Object.freeze(
-    installedPackages
-      .filter((entry) => LOCAL_PACKAGE_SOURCE_TYPES.has(entry.sourceType))
-      .map((entry) =>
-        Object.freeze({
-          packageId: entry.packageId,
-          installedPackageRoot: entry.installedPackageRoot,
-          sourcePackageRoot: entry.sourcePackageRoot
-        })
-      )
-  );
+  const appPackageJson = await readJsonFile(path.resolve(appRoot, "package.json"), {});
+  const dependencySpecifiers = collectRootDependencySpecifiers(appPackageJson);
+  const localPackages = [];
+
+  for (const packageId of sortStrings([...dependencySpecifiers.keys()])) {
+    const specifier = dependencySpecifiers.get(packageId);
+    if (!specifier.startsWith("file:")) {
+      continue;
+    }
+    const sourcePackageRoot = path.resolve(appRoot, specifier.slice("file:".length));
+    const sourcePackageJson = await readJsonFile(
+      path.join(sourcePackageRoot, "package.json"),
+      null
+    );
+    if (!sourcePackageJson) {
+      continue;
+    }
+    localPackages.push(
+      Object.freeze({
+        packageId,
+        installedPackageRoot: path.resolve(appRoot, "node_modules", ...packageId.split("/")),
+        sourcePackageRoot
+      })
+    );
+  }
+
+  return Object.freeze(localPackages);
 }
 
 function splitSpecifierSuffix(source) {

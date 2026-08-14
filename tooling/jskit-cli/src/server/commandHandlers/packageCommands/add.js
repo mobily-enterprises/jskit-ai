@@ -1,4 +1,3 @@
-import path from "node:path";
 import {
   collectPackageDependencyIds,
   collectRootDependencySpecifiers
@@ -43,21 +42,13 @@ async function resolveAvailablePackageSource({ packageEntry, appRoot }) {
   }
 }
 
-function withResolvedPackageSource({ packageEntry, packageRoot, appRoot }) {
+function withResolvedPackageSource({ packageEntry, packageRoot }) {
   if (!packageRoot || String(packageEntry?.rootDir || "").trim()) {
     return packageEntry;
   }
-  const relativePath = path.relative(appRoot, packageRoot).split(path.sep).join("/");
   return {
     ...packageEntry,
-    rootDir: packageRoot,
-    relativeDir: relativePath,
-    sourceType: "local-package",
-    source: {
-      type: "local-package",
-      packagePath: relativePath,
-      manifestPath: `${relativePath}/package.json`
-    }
+    rootDir: packageRoot
   };
 }
 
@@ -385,8 +376,7 @@ async function runPackageAddCommand(ctx = {}, { positional, options, cwd, io }) 
     const packageRoot = await resolveAvailablePackageSource({ packageEntry, appRoot });
     const resolvedPackageEntry = withResolvedPackageSource({
       packageEntry,
-      packageRoot,
-      appRoot
+      packageRoot
     });
     combinedPackageRegistry.set(packageId, resolvedPackageEntry);
     const dependencyChanged = declareDirectPackageDependency({

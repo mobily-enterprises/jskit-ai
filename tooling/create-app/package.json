@@ -1,6 +1,6 @@
 {
   "name": "@jskit-ai/create-app",
-  "version": "0.1.176",
+  "version": "0.1.177",
   "description": "Scaffold JSKIT app shells.",
   "type": "module",
   "files": [
@@ -21,7 +21,7 @@
     "./client": "./src/client/index.js"
   },
   "dependencies": {
-    "@jskit-ai/jskit-cli": "0.2.184"
+    "@jskit-ai/jskit-cli": "0.2.185"
   },
   "engines": {
     "node": "^22.13.0 || ^24.0.0 || ^26.0.0"

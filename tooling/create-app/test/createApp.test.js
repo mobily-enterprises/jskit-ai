@@ -789,7 +789,7 @@ registryTest("create-app minimal mode keeps the bare scaffold and can still inst
     const appVue = await readFile(path.join(appRoot, "src/App.vue"), "utf8");
     const homeViewAfter = await readFile(path.join(appRoot, "src/pages/home/index.vue"), "utf8");
 
-    assert.match(packageJsonAfter.dependencies["@jskit-ai/shell-web"], /^file:/);
+    assert.match(packageJsonAfter.dependencies["@jskit-ai/shell-web"], /^\d+\.\d+\.\d+$/u);
     await access(path.join(appRoot, ".github", "workflows", "jskit-verify.yml"));
     assert.match(appVue, /ShellErrorHost/);
     assert.match(homeViewAfter, /home-surface-screen/);

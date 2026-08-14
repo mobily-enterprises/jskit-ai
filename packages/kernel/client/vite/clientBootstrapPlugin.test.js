@@ -86,6 +86,15 @@ test("resolveLocalPackageSources includes every file dependency regardless of sc
     "@example/local-utility": { packagePath: "packages/utility" },
     "@example/published": {}
   });
+  const utilityPackageJsonPath = path.join(
+    tempRoot,
+    "packages",
+    "utility",
+    "package.json"
+  );
+  const utilityPackageJson = JSON.parse(await readFile(utilityPackageJsonPath, "utf8"));
+  delete utilityPackageJson.jskit;
+  await writeJson(utilityPackageJsonPath, utilityPackageJson);
 
   const localPackages = await resolveLocalPackageSources({ appRoot: tempRoot });
   assert.deepEqual(localPackages.map((entry) => entry.packageId), [

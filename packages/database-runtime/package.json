@@ -1,6 +1,6 @@
 {
   "name": "@jskit-ai/database-runtime",
-  "version": "0.1.153",
+  "version": "0.1.154",
   "type": "module",
   "scripts": {
     "test": "node --test"
@@ -25,7 +25,7 @@
     "./shared/transactions": "./src/shared/transactions.js"
   },
   "dependencies": {
-    "@jskit-ai/kernel": "0.1.153"
+    "@jskit-ai/kernel": "0.1.154"
   },
   "jskit": {
     "kind": "runtime",
@@ -93,7 +93,7 @@
     "mutations": {
       "dependencies": {
         "runtime": {
-          "@jskit-ai/kernel": "0.1.153",
+          "@jskit-ai/kernel": "0.1.154",
           "dotenv": "^16.4.5",
           "knex": "^3.1.0"
         },

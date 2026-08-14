@@ -140,9 +140,11 @@ async function resolvePackageRoots({
     parentPackageRoot
   });
   const fileDependencyRoot = resolveFileDependencyRoot(appRoot, directSpecifier);
-  let sourcePackageRoot = fileDependencyRoot && (await fileExists(fileDependencyRoot))
-    ? fileDependencyRoot
-    : "";
+  let sourcePackageRoot =
+    fileDependencyRoot &&
+    (await fileExists(path.join(fileDependencyRoot, "package.json")))
+      ? fileDependencyRoot
+      : "";
 
   if (!sourcePackageRoot && (await fileExists(installedPackageRoot))) {
     try {
